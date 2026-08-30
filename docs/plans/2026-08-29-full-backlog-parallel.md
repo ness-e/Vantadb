@@ -996,10 +996,33 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Gate Result:** ✅ DO — **SOLO**
 - **Contrato:** `Test-Path vanta-memory/src/core/dream/mod.rs` == true AND `cargo test -p vanta-memory --test dreaming 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-61.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-30T06:30) — vanta-engine; staged para vanta-lead commit
 - **Pre-mortem:** store original jamás se muta — store consolidado nuevo revisable/descartable
-- **Cynefin:** 🟧 Complejo
+- **Cynefin:** 🟧 Complejo → Resuelto (MVP viable Ponytail: standalone primitive, integración al pipeline_worker queda para MEM-65/W21)
 - **Uphill/Downhill:** ⬆️ 2 (idle detection) · ⬇️ 3
+- **Resultado (2026-08-30 verify):**
+  - Contrato 1: `Test-Path vanta-memory/src/core/dream/mod.rs` = True ✅
+  - Contrato 2: `cargo test -p vanta-memory --test dreaming 2>&1 | Select-String "ok|PASS" | Measure-Object Count` = **8** (>=1) ✅
+  - Plus contract: 4 `pub fn` (`detect_idle`, `merge_duplicates`, `resolve_contradictions`, `normalize_relative_dates`) ✅ + 1 `pub trait Dreamer` ✅ + `Test-Path tests/dreaming.rs` = True ✅
+  - `cargo clippy -p vanta-memory --all-targets -- -D warnings` = 0 warnings ✅
+  - `cargo fmt --check -p vanta-memory` = 0 diffs ✅
+  - `cargo nextest run -p vanta-memory --lib` = **321/321** passed (18 nuevos dream unit tests) ✅
+  - `cargo nextest run -p vanta-memory --tests` = **508/508** passed (7 nuevos integration tests) ✅
+- **Decisiones de implementación:**
+  1. Patrón Letta sleep-time compute (validado via webfetch 2025-04-21 → `letta.com/blog/sleep-time-compute`).
+  2. Namespace separado `dream/<sanitized_session>/<run_id>` para el consolidado. **NUNCA** muta `l1/<session>` — 3 integration tests verifican l1 byte-identical pre/post run.
+  3. 4 funciones puras LLM-free: `detect_idle` (clock check), `merge_duplicates` (shingle hash), `resolve_contradictions` (reusa MEM-60 `mark_contradiction`), `normalize_relative_dates` (tabla `ayer/hoy/mañana/hace N (minuto|hora|día|semana|mes)`).
+  4. `Dreamer` trait (`Send + Sync`) + `DreamConfig.dreaming_runner: Option<Box<dyn Dreamer>>` para sleep-time tiering (host inyecta `MockDreamer` en tests o `OpenAiDreamer` en host; crate NO acopla a reqwest).
+  5. `promote_dream_run` queda STUB (retorna count sin mutar l1 — pre-mortem explícito en doc comment). Integración real con el pipeline_worker es **MEM-65/W21** (no en scope de W19 SOLO).
+- **Notas vanta-engine 2026-08-30:**
+  - **No se hizo commit** (per regla de rol "vanta-engine no hace commit"). Archivos staged para que vanta-lead integre en su próximo PR:
+    - `vanta-memory/src/core/dream/mod.rs` (nuevo, ~530L)
+    - `vanta-memory/src/core/mod.rs` (1 línea aditiva: `pub mod dream;`)
+    - `vanta-memory/tests/dreaming.rs` (nuevo, 320L, 7 integration tests)
+    - `.opencode/skills/campaign-executor/tasks/MEM-61.md` (task file con Spec + Impacto mapeado)
+  - Deuda explícita: `promote_dream_run` stub (MEM-65 W21 cubre la integración real con pipeline_worker) + integración al `TaskKind` enum queda para MEM-65.
+  - Regla 6 (deuda técnica): saldo **negativo** (1 reuso de `mark_contradiction` evita duplicación con MEM-60; sin nuevas deps en Cargo.toml).
+  - Sin perf claim (módulo no toca hot path; benchmark N/A per Regla 9).
 
 ### Task W20-1: MEM-59 — Recall MCP público
 

@@ -55,3 +55,18 @@ aliases: []
   - **MEM-49** (`437bfee3`): guía socrática de revisión ADR-029 + decisiones D21-D37 (prep articulación humana, Regla 5).
 - **Resultado:** ✅ 8/8 tareas de campaña. Auditoría final con hallazgos registrados en `docs/api/VANTA_MEMORY.md` canónico (`673f18af`). ADR-029 ACEPTADO con articulación humana completa (`9e76caff`). Plan cerrado (`460ce60a`).
 - **Ids:** `MEM-43`, `MEM-44`, `MEM-45`, `MEM-46`, `MEM-47`, `MEM-48`, `MEM-49`
+
+---
+
+## Campaña Full-Backlog-Parallel 2026-08-29 — Dreaming + heat
+
+### MEM-60: Heat + decay + contradiction provenance (W18-SOLO)
+- **Fecha:** 2026-08-30
+- **Objetivo:** Lifecycle tracking en L1 records — `bump_heat` on read, `decay_heat` on maintenance pass, `mark_contradiction` para invalidación trackable (old record preservado con `superseded_by`).
+- **Resultado:** ✅ Módulo `vanta-memory/src/core/record/lifecycle.rs` (295L) + integration test `tests/heat_decay.rs` (184L, 3 tests). Suite pre-MEM-61: 503/503 integration tests OK. vanta-engine sync.
+
+### MEM-61: Dreaming consolidación idle — sleep-time tiering (W19-SOLO)
+- **Fecha:** 2026-08-30
+- **Objetivo:** Job en downtime (idle ≥X min o cierre de sesión) que consolida L0/L1 crudo → learned context sin mutar el store original. Patrón Letta sleep-time compute validado via webfetch (`letta.com/blog/sleep-time-compute`, 2025-04-21).
+- **Resultado:** ✅ Módulo nuevo `vanta-memory/src/core/dream/mod.rs` (~530L) + integration test `tests/dreaming.rs` (320L, 7 tests). 4 funciones públicas LLM-free + `Dreamer` trait (`Send + Sync`) para sleep-time tiering. Store consolidado en namespace `dream/<session>/<run_id>`; **nunca** toca `l1/<session>` (3 integration tests verifican byte-identical pre/post). `promote_dream_run` queda stub documentado (MEM-65/W21 cubre integración al pipeline_worker). 321/321 lib tests + 508/508 integration tests. vanta-engine staged para vanta-lead commit.
+- **Invariante crítica:** la integración al `pipeline_worker.rs` se hace en MEM-65 (W21, parallel). MEM-61 solo entrega la primitiva standalone testeable.

@@ -48,3 +48,10 @@ pub mod profile;
 /// Generation-log provenance for L1/L2/L3 generations, best-effort and
 /// consultable per session/layer (MEM-41).
 pub mod memory_generation_log;
+
+/// MEM-61: Dreaming — idle consolidation (sleep-time tiering, Letta pattern).
+/// Pure LLM-free primitives (`detect_idle`, `merge_duplicates`,
+/// `resolve_contradictions`, `normalize_relative_dates`) + [`Dreamer`] trait
+/// extension point. Writes a separate `dream/<session>/<run_id>` namespace —
+/// the original `l1/<session>` store is **never** mutated.
+pub mod dream;
