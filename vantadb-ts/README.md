@@ -130,6 +130,25 @@ and serve the output files yourself.
   it is loaded lazily via dynamic `import()` and gives real filesystem
   persistence (fjall/WAL) that the WASM build cannot.
 
+### Bundle size vs JavaScript-only competitors
+
+Measured 2026-08-30. Reproducible: see
+[`../vantadb-wasm/README.md` §1](../vantadb-wasm/README.md#1-bundle-sizes-measured-2026-08-30).
+
+| Library | Version | Gzipped | Vector | Hybrid | Persistence |
+|---------|---------|--------:|--------|--------|-------------|
+| **@orama/orama** | 3.1.18 | **23.8 KB** | ✅ | ✅ RRF | ❌ (in-mem + plugin) |
+| **MiniSearch**   | latest | **5.9 KB**  | ❌ | ❌ | ❌ |
+| **Lunr**         | 2.3.9  | **8.1 KB**  | ❌ | ❌ | ❌ |
+| **vantadb WASM** | 0.5.x  | **~599 KB transfer** (1.35 MB raw → 578 KB wasm + 21 KB glue gzipped) | ✅ HNSW | ✅ BM25 + RRF | ✅ OPFS / IDB / in-mem |
+
+VantaDB is **~25× larger** than Orama gzipped, but ships **OPFS persistence,
+HNSW (sub-ms at 100K), TTL auto-expiry, capability graph** — features none of
+the JS-only engines include. Honest tradeoff: choose Orama (23.8 KB) if you
+only need full-text + RAG in-memory with no persistence; choose VantaDB if
+any of those features matter. Full feature-gap analysis:
+[`../vantadb-wasm/README.md` §4](../vantadb-wasm/README.md#4-honest-comparison-vs-javascript-only-search-engines).
+
 ## vantadb vs vantadb-node (npm)
 
 Two npm packages exist; they are **not** the same thing:
