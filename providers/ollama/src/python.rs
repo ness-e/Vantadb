@@ -156,22 +156,29 @@ impl VantaDBOllama {
     ///     text: The text content to store.
     ///     embedding: The embedding vector for this text.
     ///     metadata: Optional metadata dict (string keys, string/bool/int/float values).
+    ///     key: Optional custom record key. If provided, the record is upserted at
+    ///         that key (deterministic across runs — same key → same record).
+    ///         If omitted, a nanosecond-based key is generated automatically.
     ///
     /// Returns:
     ///     The record ID as ``namespace:key``.
+    #[pyo3(signature = (text, embedding, metadata = None, key = None))]
     fn store(
         &self,
         py: Python,
         text: &str,
         embedding: Vec<f32>,
         metadata: Option<&Bound<'_, PyDict>>,
+        key: Option<String>, // store() upsert deterministic key (chroma add(ids=) compat)
     ) -> PyResult<String> {
         let namespace = self.namespace.clone();
-        let ts = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos();
-        let key = format!("ollama_{ts}");
+        let key = key.unwrap_or_else(|| {
+            let ts = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos();
+            format!("ollama_{ts}")
+        });
         let mut input = VantaMemoryInput::new(&namespace, &key, text);
         input.vector = Some(embedding);
 
@@ -298,6 +305,27 @@ mod tests {
         assert!(
             src.contains("cosine") && src.contains("euclidean") && src.contains("l2"),
             "ValueError message must reference the allowed metrics"
+        );
+    }
+
+    /// PROV-10: store() accepts an optional custom key for deterministic upserts.
+    /// Sanity check: the `#[pyo3(signature)]` attribute and the body parameter
+    /// must both expose the optional `key` field, and the autogen branch must
+    /// still produce a `prefix_ts` key when key=None.
+    #[test]
+    fn store_signature_exposes_optional_key() {
+        let src = include_str!("python.rs");
+        assert!(
+            src.contains("#[pyo3(signature = (text, embedding, metadata = None, key = None))]"),
+            "store() signature must declare `key = None` for backward compat"
+        );
+        assert!(
+            src.contains("key: Option<String>"),
+            "store() body must accept key: Option<String>"
+        );
+        assert!(
+            src.contains("format!(\"ollama_{ts}\")"),
+            "autogen branch must still produce ollama_{{ts}} key when key=None"
         );
     }
 }

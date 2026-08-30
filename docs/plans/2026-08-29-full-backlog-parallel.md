@@ -952,7 +952,7 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Gate Result:** ✅ DO
 - **Contrato:** `Select-String -Path "providers/openai/src/python.rs" -Pattern "key.*Option.*String.*store" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/PROV-10.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Cynefin:** 🟨 Complicado
 
 ### Task W17-3: WSM-13 — Estrategia de bundle documentada
