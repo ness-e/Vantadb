@@ -116,6 +116,8 @@ fn record(id: &str, content: &str, session_key: &str) -> MemoryRecord {
         user_id: None,
         agent_id: None,
         vector: None,
+        heat: 0,
+        superseded_by: None,
     }
 }
 

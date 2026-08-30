@@ -238,6 +238,8 @@ mod tests {
             user_id: None,
             agent_id: None,
             vector: None,
+            heat: 0,
+            superseded_by: None,
         };
         let scores = build_memory_scores(&[record("hi", 90), record("lo", 10)]);
         let total = 10;

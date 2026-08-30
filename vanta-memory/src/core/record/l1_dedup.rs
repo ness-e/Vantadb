@@ -341,6 +341,8 @@ mod tests {
             user_id: None,
             agent_id: None,
             vector: None,
+            heat: 0,
+            superseded_by: None,
         }
     }
 

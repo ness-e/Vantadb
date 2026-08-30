@@ -148,6 +148,8 @@ pub fn write_memory(
                 user_id: None,
                 agent_id: None,
                 vector: None,
+                heat: 0,
+                superseded_by: None,
             };
             let vector = embed_vector(embed, &record.content);
             put_record(db, &ns, &record, vector)?;
@@ -213,6 +215,8 @@ pub fn write_memory(
                 user_id: None,
                 agent_id: None,
                 vector: None,
+                heat: 0,
+                superseded_by: None,
             };
             let vector = embed_vector(embed, &record.content);
             put_record(db, &ns, &record, vector)?;

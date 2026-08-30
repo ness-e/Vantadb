@@ -29,6 +29,8 @@ fn memory_record_roundtrip() {
         user_id: None,
         agent_id: None,
         vector: None,
+        heat: 0,
+        superseded_by: None,
     };
     let json = serde_json::to_string(&record).unwrap();
     let back: MemoryRecord = serde_json::from_str(&json).unwrap();

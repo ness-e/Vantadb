@@ -119,10 +119,22 @@ pub struct MemoryRecord {
     /// here at read time.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub vector: Option<Vec<f32>>,
+    /// MEM-60 lifecycle: heat bumped on access, decayed on maintenance pass.
+    /// `0` for records written before MEM-60 (serde default).
+    #[serde(default = "default_heat")]
+    pub heat: u32,
+    /// MEM-60 contradiction provenance: if set, this record was invalidated
+    /// by the named key (never silent delete — old record preserved).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub superseded_by: Option<String>,
 }
 
 fn default_version() -> u32 {
     1
+}
+
+fn default_heat() -> u32 {
+    0
 }
 
 /// Dedup action decided by the L1 conflict-detection LLM call.
@@ -302,6 +314,8 @@ mod tests {
             user_id: None,
             agent_id: None,
             vector: None,
+            heat: 0,
+            superseded_by: None,
         };
         let json = serde_json::to_string(&record).unwrap();
         // Wire contract is snake_case + `type` (same alias as the LLM wire) +

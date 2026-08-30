@@ -980,9 +980,9 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Gate Result:** ✅ DO — **SOLO** (toca core record + scene)
 - **Contrato:** `cargo test -p vanta-memory --test heat_decay 2>&1 | Select-String "ok|PASS" | Measure-Object Count` >=1 AND `Select-String -Path "vanta-memory/src/core/record/mod.rs" -Pattern "heat.*decay|contradiction" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-60.md`
-- **Estado:** ⬜ PENDING
-- **Pre-mortem:** provenance — nunca borrado silencioso, invalidar rastreablemente
-- **Cynefin:** 🟧 Complejo
+- **Estado:** ✅ COMPLETED 2026-08-30 (vanta-engine: heat+decay+contradiction módulo `vanta-memory/src/core/record/lifecycle.rs` + integration test `tests/heat_decay.rs`. Contrato pasa: heat_decay test ok|PASS=4, regex count=4. 14 archivos staged, NO se commiteó per regla de rol — vanta-lead integra)
+- **Pre-mortem:** provenance — nunca borrado silencioso, invalidar rastreablemente. Implementado vía `superseded_by` pointer + `tracing::info!` event (audit log persistente follow-up)
+- **Cynefin:** 🟧 Complejo → Resuelto (Ponytail: módulo mínimo viable, 14 archivos staged)
 - **Uphill/Downhill:** ⬆️ 2 (heat formula) · ⬇️ 3
 
 ### Task W19-SOLO: MEM-61 — Dreaming consolidación idle (GRANDE, SOLO)
