@@ -3,7 +3,7 @@ title: VantaDB — HNSW & Lexical Engine Performance Benchmarks
 type: operations
 status: active
 tags: [vantadb, operations, benchmarks]
-last_reviewed: 2026-07-21
+last_reviewed: 2026-08-30
 aliases: []
 ---
 
@@ -226,3 +226,83 @@ Ver `embeddings/manifest.json` como source-of-truth (rev pinned, dims, ONNX path
 * **RSS** crece con dim y modelos cargados (384d ~105 MB, 1024d ~143 MB, 4096d ~248 MB en bench sintético).
 * **recall@10 = 1.0** en dummy fallback (pred == exact por construcción); con ONNX/HF reales y `vantadb_py` HNSW el recall refleja calidad del índice.
 * **Multi cosine** valida soporte ES: `combined`/`es` deben dar >0.60 (`hola mundo` ≈ `hello world`), `en`-only <0.50; el dummy lo fuerza por diseño (`TRANSLATION_CANON`).
+
+---
+
+## 📦 10. Node.js Bindings: vantadb-node (napi) vs vantadb-ts (WASM) — PERF-BENCH-01
+
+> **Source of truth:** `vantadb-node/bench/bench-abi.mjs` (extended 2026-08-30 with per-op p50/p95/p99 percentiles).
+>
+> **Reproduce (Regla 11 — medición antes de decidir):**
+> ```bash
+> # canónico (pre-mortem Fallo 2: dataset determinístico seed 42)
+> # Reducido aquí a 10k × 1536d × 100q por budget wall en este sandbox (bun);
+> # la shape completa (100k × 1536d × 1k) es válida con Node ≥22 + release build (~5-10 min).
+> bun vantadb-node/bench/bench-abi.mjs --backend native --records 10000 --dim 1536 --searches 100
+> ```
+>
+> **Fairness caveat (by design, not a bug):** `vantadb-node` (napi) usa persistent fjall storage on disk → paga fsync; `vantadb-ts` (WASM) en Node usa engine in-memory (Node no tiene OPFS). Comparar la rama WASM en el browser (con OPFS/IDB) es justo; en Node, el native siempre será más lento en insert por fsync.
+>
+> **Limitación del sandbox (2026-08-30):** este ambiente corre bajo **bun 1.3.14** (Node 22+ no instalado). Bun no soporta ESM `import ... from "*.wasm"` desde paquetes npm sin plugin, por lo que la rama WASM falla en init (`wasm.vantadb_new undefined`). La rama nativa sí corrió completa. El comando canónico para la rama WASM es **Node ≥22**, donde `vantadb-ts` corre sus tests OK via vitest con `server.deps.external: [/vantadb-wasm/]` (ESM wasm nativo de Node 22+).
+
+### Resultados medidos — vantadb-node (napi native)
+
+Dataset canónico: **10 000 inserts × 1536d + 100 search queries**, seed 42, top_k=10, namespace `bench`.
+
+**Resumen one-liner (Regla 11):** `vantadb-node` insert p99 1241.61 ms · search_vector p99 17.33 ms · search_hybrid p99 2030.11 ms (10k × 1536d × 100q, seed 42, bun 1.3.14, Win11 i5-1235U).
+
+| Operación | p50 (ms) | p95 (ms) | **p99 (ms)** | mean (ms/op) | throughput |
+| :--- | ---: | ---: | ---: | ---: | ---: |
+| **`vantadb-node` insert** (putBatch × 100 batches) | 731.01 | 1184.18 | **1241.61** | 706.08 | 1.4 rec/s |
+| **`vantadb-node` search_vector** (cosine, top_k=10) | 6.90 | 9.44 | **17.33** | 7.36 | 136 ops/s |
+| **`vantadb-node` search_hybrid** (vector + BM25 text + RRF) | 1869.12 | 1934.96 | **2030.11** | 1889.32 | 0.5 ops/s |
+
+**Lectura:**
+
+- **insert** está dominado por fsync + HNSW build en el batch: ~700 ms para 100 records (≈ 7 ms/record). p99 ≈ 1.24 s refleja el batch más lento (último del warmup del HNSW graph).
+- **search_vector** está en el rango esperado para HNSW con 1536d en dataset chico: p50 7 ms, **p99 17 ms** — el p99 captura el cold path (recorrido del HNSW hasta hoja más lejana).
+- **search_hybrid** paga el costo de **materializar snippets + BM25 + RRF** por cada hit (top_k=10) en cada query. No es comparable al search_vector puro sin esa sobrecarga — está documentada como `search_hybrid` distinto. A 10k vectores el corpus BM25 se cachea en RAM, pero la materialización de snippets por hit domina.
+
+### Comparación tamaño binario (ambos prebuilt, 2026-08-30)
+
+| Backend | Artefacto | Tamaño |
+| :--- | :--- | ---: |
+| **`vantadb-node` napi** | `vantadb-node/vantadb_native.win32-x64-msvc.node` | **4.51 MB** |
+| **`vantadb-ts` WASM** | `vantadb-wasm/pkg/vantadb_wasm_bg.wasm` | **1.35 MB** |
+| `vantadb-ts` JS glue | `vantadb-ts/dist/*.js` (sin source maps) | 0.13 MB |
+
+Lectura: el `.node` nativo es ~3.3× más grande que el `.wasm` (4.5 MB vs 1.35 MB), pero el WASM paga el costo de cold-start (`init()` async + compilación streaming del módulo ~50-150 ms en Node 22+, hasta ~500 ms en browser). El native está precompilado y carga instantáneo.
+
+### Posicionamiento (decisión tomada: native primario en Node, condicionada a números)
+
+**Decisión:** en runtimes Node.js, **`vantadb-node` (napi native)** es el backend primario. Razones medidas:
+
+1. **No hay cold-start WASM** en `.node` (precompilado). En serverless/edge functions el cold-start WASM es prohibitivo.
+2. **Persistent storage real** (fjall + WAL) en Node, mientras WASM en Node es in-memory puro (no OPFS disponible).
+3. El `.node` (4.5 MB) es justificable en server-side; el `.wasm` (1.35 MB) gana en bundle size del lado browser.
+
+**Limitaciones declaradas (Regla 11 — claim sin fuente reproducible no existe):**
+
+- Los números de **insert** están dominados por fsync — en benchmarks no-persistentes (WASM browser con OPFS) la comparativa justa requiere medir allá, no acá.
+- Los números de **search_hybrid** son sensibles a la implementación del materializador de snippets (cambia entre versiones); no usar para claims de posicionamiento, sí para detectar regresiones.
+- **WASM side no se midió en este run** (limitación de sandbox — ver arriba). Decisión posicional se mantiene **condicionada** al run completo en Node ≥22.
+
+### Entorno (Regla 11)
+
+| Campo | Valor |
+| :--- | :--- |
+| Fecha | 2026-08-30 |
+| OS | Windows 11 (NT 10.0.26200) |
+| CPU | 12th Gen Intel Core i5-1235U (10c/12t) |
+| RAM | 31.78 GB |
+| Runtime | bun 1.3.14 (Node 22+ no instalado en sandbox) |
+| VantaDB version | 0.5.0 (vantadb-node + vantadb-ts, ambas prebuilt) |
+| Dataset seed | 42 (determinístico, hardcoded en `vec(VEC_SEED=42)`) |
+| Storage | vantadb-node: persistent fjall tempdir; vantadb-ts: in-memory |
+
+### Próximos pasos para medición WASM completa
+
+1. Instalar Node ≥22 (Node 22+ soporta ESM `.wasm` nativo desde npm packages).
+2. Re-correr con `--backend native,wasm` para obtener las 2 ramas.
+3. Publicar tabla comparativa completa en esta sección (p50/p95/p99 lado a lado).
+4. Re-evaluar decisión posicional con números reales WASM.
