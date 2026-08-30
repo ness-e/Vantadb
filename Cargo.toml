@@ -423,6 +423,11 @@ path = "tests/server_auth_rotation.rs"
 required-features = ["server"]
 
 [[test]]
+name = "rbac_namespace"
+path = "tests/rbac_namespace.rs"
+required-features = ["server"]
+
+[[test]]
 name = "backend_tests"
 path = "tests/storage/backend_tests.rs"
 
