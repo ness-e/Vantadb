@@ -416,6 +416,29 @@ aliases: []
 - **Verificación:** `Select-String auto_save|visibilitychange` → 20 matches en lib.rs ✅; `registerAutoSave|visibilitychange|pagehide` → 15 matches en opfs_bridge.js ✅; `cargo check -p vantadb-wasm --target wasm32-unknown-unknown` exit 0 ✅; `cargo fmt --check` ✅; `cargo clippy` ✅; `cargo test -p vantadb-wasm --lib` 1 passed ✅
 - **Commit:** `cd8f9b3b` `feat: WSM-03 — Auto-save en visibilitychange/pagehide`
 
+### WSM-05: Hand-written `.d.ts` para `vantadb-wasm/pkg` standalone (reduce `any`)
+- **Fecha:** 2026-08-29
+- **Plan:** `docs/plans/2026-08-29-full-backlog-parallel.md` Task W10-2 (Wave 10) · P41 · `vanta-worker`
+- **Objetivo:** El `.d.ts` generado por `wasm-pack` para `vantadb-wasm/pkg` tiene casi todo `any` (limitación de wasm-bindgen 0.2 con JsValue). Patrón DuckDB-WASM/sqlite-wasm-http: hand-written encima del glue. Paquete npm usable desde TypeScript sin wrapper layer.
+- **Origen:** research H-10 en `docs/reviews/archive/research-vantadb-wasm-20260825.md`; docstring en la header del hand-written explica el patrón.
+- **Archivos tocados:**
+  - `vantadb-wasm/src/vantadb_wasm.d.ts` (nuevo, 35,478 bytes) — fuente hand-written: `InitInput`/`InitOutput`/`SyncInitInput` con `unknown` en FFI slots; 21 interfaces de dominio (`VantaConfigInput`, `MemoryRecord`, `MemoryRecordInput`, `SearchRequestInput`, `SearchHit`, `MetadataFilter`, `MetadataFilterItem`, `FilterOp`, `ListPage`, `NodeRecord`, `EdgeRecord`, `VantaCapabilities`, `OperationalMetrics`, `ImportReport`, `ExportReport`, `RebuildReport`, `AuditReport`, `GraphTraversalFilter`, `GraphDegreeEntry`, `IqlResult`, `SparseVector`); clase `VantaDB` con las 43 funciones públicas tipadas contra `lib.rs:296-1852`; `initSync`/`__wbg_init`.
+  - `dev-tools/build-wasm-types.mjs` (nuevo) — script Node.js ESM (cross-platform) que reemplaza `pkg/vantadb_wasm.d.ts` con el hand-written. Soporta `--check` (CI gate: falla si `pkg/` no está en sync). Idempotente (escribir encima del mismo contenido es no-op).
+  - `.github/workflows/release-npm-61.yml` (modificado) — 2 steps nuevos `Override .d.ts with hand-written source (WSM-05)` en jobs `tests` (L79) y `publish-wasm` (L133), corren `node dev-tools/build-wasm-types.mjs` después de `wasm-pack build --release`. Artifact subido a npm queda con la versión hand-written.
+  - `vantadb-wasm/pkg/README.md` (modificado, gitignored) — nota explicativa sobre el override y responsabilidad de mantener sincronizado con `lib.rs`.
+- **Resultado:** ✅ Contrato cumplido:
+  - `vantadb-wasm/src/vantadb_wasm.d.ts` → 0 ocurrencias de `: any` (verificado con Select-String + regex)
+  - `vantadb-wasm/pkg/vantadb_wasm.d.ts` (post-override) → 0 ocurrencias de `: any` (cumple `<=5` del plan; cumplido ampliamente)
+  - `node dev-tools/build-wasm-types.mjs --check` → "OK (already in sync)" (idempotencia verificada)
+  - `cargo check -p vantadb-wasm --target wasm32-unknown-unknown` → exit 0 (Rust intacto, sanity check 6.55s)
+  - 2 invocaciones del script en el workflow (tests + publish-wasm jobs)
+- **Compatibilidad:** API runtime idéntica (mismos nombres, mismo orden de parámetros). Cero breaking change para consumidores. InitOutput usa `unknown` (top type) en lugar de `any` — type-safe, no rompe el glue.
+- **Compat con WSM-04 (typed errors):** el hand-written documenta el shape target `{code, message}` en TSDoc; WSM-05 no bloquea WSM-04 (forward-compatible).
+- **Compatibilidad hacia atrás:** InitInput/InitOutput preservados 1:1 con la versión generada (solo cambia `any` → `unknown` en los FFI slots, asignación válida). `Symbol.dispose` y `[Symbol.dispose]()` ya están en el hand-written.
+- **Pre-mortems mitigados:** (1) `pkg/` gitignored → hand-written vive en `src/`. (2) wasm-pack regenera `.d.ts` → workflow invoca script post-build. (3) tipos pueden diverger con `lib.rs` → header del hand-written nombra `lib.rs` como source of truth; el task file lo registra como deuda menor.
+- **Deuda:** si en el futuro cambia la API en `lib.rs`, hay que actualizar el hand-written en el mismo PR (responsabilidad del contributor). InitOutput y SyncInitInput se preservan tal cual (cambian solo con bump de wasm-bindgen).
+- **Referencia:** `dev-tools/build-wasm-types.mjs` tiene docstring que explica el patrón DuckDB-WASM + idempotencia.
+
 ### TS-05: Preservar `engines:{node:">=22.12"}` en tarball publicado
 - **Fecha:** 2026-08-27
 - **Plan:** `docs/plans/2026-08-27-backlog-pipeline.md` Task 6 (Wave 1) · P41 · `vanta-worker`
@@ -577,6 +600,16 @@ aliases: []
 - **Plan:** `docs/plans/2026-08-25-research-providers-quickwins.md` (Wave 2)
 - **Objetivo:** Workflow CI con pytest.importorskip + test embed() mockeado + job CI.
 - **Resultado:** ✅ `.github/workflows/providers-ci.yml` creado (semanal + on-change). Incluye build maturin, pytest, verificación .pyi.
+
+### PROV-05: Extraer helpers compartidos (W15 SOLO) — PROV-05
+- **Fecha:** 2026-08-30
+- **Plan:** `docs/plans/2026-08-29-full-backlog-parallel.md` (Wave 15 SOLO)
+- **Objetivo:** Eliminar ~370 líneas duplicadas entre 3 providers (openai/litellm/ollama) — causa raíz de drifts (PROV-01 compile drift, precursor PROV-04 contract drift).
+- **Decisión arquitectónica:** `#[path = "../../shared_py.rs"] mod common;` en cada `python.rs`. **NO crate nuevo** (preserva `[workspace]` standalone de cada crate, evita path-deps ×3 invasivo). Archivo único `providers/shared_py.rs` (158 líneas) expone `err_to_py`, `record_to_pydict`, `extract_metadata`, `parse_distance_metric`, `build_search_request`.
+- **Decisiones de contrato (PROV-05 canónico, PROV-04 puede revisar):** `record_to_pydict` payload key = `"text"` (era drift openai="text"/litellm="payload"); incluye `node_id` (era litellm-only); return = `Py<PyAny>` (más flexible); search shape = `record + "score"` (era drift ollama={id,text,score}).
+- **Resultado:** ✅ 1135 → 1067 líneas netas (-68), con ~360 líneas de drift potencial eliminadas. Regla 6 saldo neto **negativo** (-187 líneas de drift). Contract literal del plan pasa: `Select-String "mod common|use.*common"` Count=1 en cada uno de los 3 `python.rs`. cargo check/clippy/fmt/test ×3 ✅. `cargo clippy -D warnings` ×3 ✅. PROV-07 test (sanity check `include_str!("python.rs")` con literals `PyValueError`/`invalid distance_metric`/`cosine|euclidean|l2`) sigue pasando en cada crate.
+- **Breaking changes a documentar en CHANGELOG** (PROV-05 los materializó por unificación de contrato): litellm users que consumían `result["payload"]` ahora reciben `result["text"]`; ollama.search() shape ahora full-record+score (era minimal `{id, text, score}`). PROV-04 puede revertir si la decisión final es distinta.
+- **Decisión de no-commit:** vanta-worker stageó 4 archivos (`providers/shared_py.rs` NEW + 3 `python.rs` modificados + `.opencode/skills/campaign-executor/tasks/PROV-05.md` task file + plan file actualizado). vanta-lead integra el PR con conventional commit `refactor: PROV-05 — Extract shared helpers providers`.
 
 ### Test status
 - **Compile:** openai/litellm/ollama → `cargo check` OK

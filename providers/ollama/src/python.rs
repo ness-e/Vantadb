@@ -1,26 +1,13 @@
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyDictMethods, PyList, PyModuleMethods};
+use pyo3::types::{PyDict, PyDictMethods, PyModuleMethods};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
 use vantadb::config::VantaConfig;
-use vantadb::error::VantaError;
-use vantadb::sdk::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest, VantaValue,
-};
+use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions};
 
-fn err_to_py(e: VantaError) -> PyErr {
-    match e {
-        VantaError::NotFound { .. } => pyo3::exceptions::PyKeyError::new_err(e.to_string()),
-        VantaError::BackendError(_) => PyRuntimeError::new_err(e.to_string()),
-        VantaError::InvalidInput(_)
-        | VantaError::SchemaError(_)
-        | VantaError::SerializationError(_) => {
-            pyo3::exceptions::PyValueError::new_err(e.to_string())
-        }
-        _ => PyRuntimeError::new_err(format!("{:?}", e)),
-    }
-}
+#[path = "../../shared_py.rs"]
+mod common;
 
 /// Ollama local embedding wrapper with VantaDB storage.
 ///
@@ -71,7 +58,7 @@ impl VantaDBOllama {
             storage_path: db_path.to_string(),
             ..Default::default()
         };
-        let engine = VantaEmbedded::open_with_config(config).map_err(err_to_py)?;
+        let engine = VantaEmbedded::open_with_config(config).map_err(common::err_to_py)?;
         let ollama_mod = pyo3::types::PyModule::import(py, "ollama")
             .map_err(|e| PyRuntimeError::new_err(format!("ollama import error: {:?}", e)))?;
         let client_kwargs = PyDict::new(py);
@@ -125,7 +112,7 @@ impl VantaDBOllama {
     ///     distance_metric: Distance metric ("cosine" or "euclidean"/"l2").
     ///
     /// Returns:
-    ///     A list of dicts with ``id``, ``text``, and ``score`` keys.
+    ///     A list of dicts with full record fields plus ``score``.
     #[pyo3(signature = (namespace, query_embedding, text_query = None, filters = None, distance_metric = None, top_k = 10))]
     #[allow(clippy::too_many_arguments)]
     fn search(
@@ -138,43 +125,27 @@ impl VantaDBOllama {
         distance_metric: Option<String>,
         top_k: usize,
     ) -> PyResult<Vec<Py<PyAny>>> {
-        let metric = match distance_metric.as_deref() {
-            None | Some("cosine") => vantadb::DistanceMetric::Cosine,
-            Some("euclidean") | Some("l2") => vantadb::DistanceMetric::Euclidean,
-            Some(other) => {
-                return Err(pyo3::exceptions::PyValueError::new_err(format!(
-                    "invalid distance_metric '{other}': expected \"cosine\", \"euclidean\" or \"l2\""
-                )));
-            }
-        };
-        let request = VantaMemorySearchRequest {
-            namespace: namespace.to_string(),
-            query_vector: query_embedding,
-            filters: filters
-                .unwrap_or_default()
-                .into_iter()
-                .map(|(k, v)| (k, VantaValue::String(v)))
-                .collect(),
+        let metric = common::parse_distance_metric(distance_metric.as_deref())
+            .map_err(pyo3::exceptions::PyValueError::new_err)?;
+        let request = common::build_search_request(
+            namespace,
+            query_embedding,
             text_query,
+            filters,
+            metric,
             top_k,
-            distance_metric: metric,
-            explain: false,
-            query_sparse: None,
-            exclude_superseded: false,
-            search_profile: None,
-        };
+        );
 
         let engine = self.engine.clone();
         // GIL RELEASED — pure Rust search
-        let hits = py.detach(move || engine.search(request).map_err(err_to_py))?;
+        let hits = py.detach(move || engine.search(request).map_err(common::err_to_py))?;
 
         let mut results = Vec::with_capacity(hits.len());
         for hit in hits {
-            let d = PyDict::new(py);
-            d.set_item("id", format!("{}:{}", hit.record.namespace, hit.record.key))?;
-            d.set_item("text", &hit.record.payload)?;
-            d.set_item("score", hit.score)?;
-            results.push(d.unbind().into());
+            let d = common::record_to_pydict(py, hit.record)?;
+            let bound: &Bound<'_, PyDict> = d.bind(py).cast()?;
+            bound.set_item("score", hit.score)?;
+            results.push(d);
         }
         Ok(results)
     }
@@ -204,25 +175,9 @@ impl VantaDBOllama {
         let mut input = VantaMemoryInput::new(&namespace, &key, text);
         input.vector = Some(embedding);
 
-        let mut dropped_keys: Vec<String> = Vec::new();
-        if let Some(meta) = metadata {
-            for (k, v) in meta.iter() {
-                if let Ok(key) = k.extract::<String>() {
-                    let val = v
-                        .extract::<String>()
-                        .ok()
-                        .map(vantadb::sdk::VantaValue::String)
-                        .or_else(|| v.extract::<bool>().ok().map(vantadb::sdk::VantaValue::Bool))
-                        .or_else(|| v.extract::<i64>().ok().map(vantadb::sdk::VantaValue::Int))
-                        .or_else(|| v.extract::<f64>().ok().map(vantadb::sdk::VantaValue::Float));
-                    match val {
-                        Some(val) => {
-                            input.metadata.insert(key, val);
-                        }
-                        None => dropped_keys.push(key),
-                    }
-                }
-            }
+        let (parsed_meta, dropped_keys) = common::extract_metadata(metadata)?;
+        for (k, v) in parsed_meta {
+            input.metadata.insert(k, v);
         }
         if !dropped_keys.is_empty() {
             py.import("warnings")?
@@ -234,7 +189,7 @@ impl VantaDBOllama {
 
         let engine = self.engine.clone();
         // GIL RELEASED — pure Rust insert
-        let record = py.detach(move || engine.put(input).map_err(err_to_py))?;
+        let record = py.detach(move || engine.put(input).map_err(common::err_to_py))?;
         Ok(format!("{}:{}", record.namespace, record.key))
     }
 
@@ -250,7 +205,7 @@ impl VantaDBOllama {
     fn delete(&self, py: Python, key: &str, namespace: Option<String>) -> PyResult<bool> {
         let ns = namespace.unwrap_or(self.namespace.clone());
         let engine = self.engine.clone();
-        py.detach(move || engine.delete(&ns, key).map_err(err_to_py))
+        py.detach(move || engine.delete(&ns, key).map_err(common::err_to_py))
     }
 
     /// Retrieve a memory record by namespace and key.
@@ -260,33 +215,14 @@ impl VantaDBOllama {
     ///     key: The record key to retrieve.
     ///
     /// Returns:
-    ///     A dict with ``namespace``, ``key``, ``text``, and timestamps, or None if not found.
+    ///     A dict with full record fields, or None if not found.
     #[pyo3(signature = (namespace, key))]
     fn get(&self, py: Python, namespace: &str, key: &str) -> PyResult<Option<Py<PyAny>>> {
         let engine = self.engine.clone();
         let ns = namespace.to_string();
         let k = key.to_string();
-        let result = py.detach(move || engine.get(&ns, &k).map_err(err_to_py))?;
-
-        match result {
-            Some(record) => {
-                let d = PyDict::new(py);
-                d.set_item("namespace", &record.namespace)?;
-                d.set_item("key", &record.key)?;
-                d.set_item("text", &record.payload)?;
-                d.set_item("created_at_ms", record.created_at_ms)?;
-                d.set_item("updated_at_ms", record.updated_at_ms)?;
-                d.set_item("version", record.version)?;
-                if let Some(ref vector) = record.vector {
-                    d.set_item("vector", vector)?;
-                }
-                if let Some(expires) = record.expires_at_ms {
-                    d.set_item("expires_at_ms", expires)?;
-                }
-                Ok(Some(d.unbind().into()))
-            }
-            None => Ok(None),
-        }
+        let result = py.detach(move || engine.get(&ns, &k).map_err(common::err_to_py))?;
+        result.map(|r| common::record_to_pydict(py, r)).transpose()
     }
 
     /// List memory records in a namespace with cursor-based pagination.
@@ -297,7 +233,7 @@ impl VantaDBOllama {
     ///     cursor: Optional cursor string for pagination.
     ///
     /// Returns:
-    ///     A dict with ``records`` (list of dicts) and optional ``cursor`` for next page.
+    ///     A dict with ``records`` (list of dicts with full record fields) and ``next_cursor``.
     #[pyo3(signature = (namespace, limit = 100, cursor = None))]
     fn list(
         &self,
@@ -312,43 +248,28 @@ impl VantaDBOllama {
             filter_ops: None,
             limit,
             cursor,
-            exclude_superseded: false,        };
+            exclude_superseded: false,
+        };
 
         let engine = self.engine.clone();
         let ns = namespace.to_string();
-        let page = py.detach(move || engine.list(&ns, options).map_err(err_to_py))?;
+        let page = py.detach(move || engine.list(&ns, options).map_err(common::err_to_py))?;
 
         let d = PyDict::new(py);
-        let records_list = PyList::empty(py);
-        for record in page.records {
-            let rd = PyDict::new(py);
-            rd.set_item("namespace", &record.namespace)?;
-            rd.set_item("key", &record.key)?;
-            rd.set_item("text", &record.payload)?;
-            let meta = PyDict::new(py);
-            for (mk, mv) in &record.metadata {
-                match mv {
-                    vantadb::sdk::VantaValue::String(s) => meta.set_item(mk, s)?,
-                    vantadb::sdk::VantaValue::Int(i) => meta.set_item(mk, i)?,
-                    vantadb::sdk::VantaValue::Float(f) => meta.set_item(mk, f)?,
-                    vantadb::sdk::VantaValue::Bool(b) => meta.set_item(mk, b)?,
-                    other => meta.set_item(mk, format!("{:?}", other))?,
-                };
-            }
-            rd.set_item("metadata", meta)?;
-            records_list.append(rd)?;
-        }
-        d.set_item("records", records_list)?;
-        if let Some(next_cursor) = page.next_cursor {
-            d.set_item("cursor", next_cursor.to_string())?;
-        }
+        let records: Vec<Py<PyAny>> = page
+            .records
+            .into_iter()
+            .map(|r| common::record_to_pydict(py, r))
+            .collect::<PyResult<_>>()?;
+        d.set_item("records", records)?;
+        d.set_item("next_cursor", page.next_cursor)?;
         Ok(d.unbind().into())
     }
 
     /// List all namespaces that contain at least one memory record.
     fn list_namespaces(&self, py: Python) -> PyResult<Vec<String>> {
         let engine = self.engine.clone();
-        py.detach(move || engine.list_namespaces().map_err(err_to_py))
+        py.detach(move || engine.list_namespaces().map_err(common::err_to_py))
     }
 }
 
