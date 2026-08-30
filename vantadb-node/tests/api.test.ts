@@ -371,4 +371,121 @@ describe("vantadb-node api surface", () => {
       await db.close();
     }
   });
+
+  // ── BND-10 parity additions ──────────────────────────────────────────────
+
+  it("versions returns empty array for a missing key", async () => {
+    const db = await VantaDb.connect(tmp("versions"));
+    try {
+      const out = await db.versions("ns", "missing");
+      expect(Array.isArray(out)).toBe(true);
+      expect(out).toHaveLength(0);
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("supersede marks the old key as superseded", async () => {
+    const db = await VantaDb.connect(tmp("supersede"));
+    try {
+      await db.put({ namespace: "ns", key: "old", payload: "first" });
+      await db.put({ namespace: "ns", key: "new", payload: "second" });
+      await db.supersede("ns", "old", "new");
+      const versions = await db.versions("ns", "old");
+      expect(versions.length).toBeGreaterThanOrEqual(1);
+      const latest = versions[versions.length - 1];
+      expect(latest.superseded_by).toBe("new");
+      expect(typeof latest.superseded_at_ms).toBe("number");
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("supersede rejects when oldKey === newKey", async () => {
+    const db = await VantaDb.connect(tmp("supersede-same"));
+    try {
+      await db.put({ namespace: "ns", key: "k", payload: "v" });
+      await expect(db.supersede("ns", "k", "k")).rejects.toThrow();
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("compactWal succeeds and is idempotent", async () => {
+    const db = await VantaDb.connect(tmp("compactWal"));
+    try {
+      await db.put({ namespace: "ns", key: "k", payload: "v" });
+      await expect(db.compactWal()).resolves.toBeUndefined();
+      await expect(db.compactWal()).resolves.toBeUndefined();
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("purgeExpired returns a number for an empty namespace", async () => {
+    const db = await VantaDb.connect(tmp("purgeExpired"));
+    try {
+      await expect(db.purgeExpired()).resolves.toBe(0);
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("count returns 0 for an empty namespace", async () => {
+    const db = await VantaDb.connect(tmp("count"));
+    try {
+      await expect(db.count("empty")).resolves.toBe(0);
+      await db.put({ namespace: "ns", key: "k1", payload: "a" });
+      await db.put({ namespace: "ns", key: "k2", payload: "b" });
+      await expect(db.count("ns")).resolves.toBe(2);
+      await expect(db.count("ns", null)).resolves.toBe(2);
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("deleteByFilter rejects an empty filter", async () => {
+    const db = await VantaDb.connect(tmp("deleteByFilter"));
+    try {
+      await expect(
+        db.deleteByFilter("ns", []),
+      ).rejects.toThrow(/at least one item/);
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("searchWithMethod accepts 'Flat' and returns hits", async () => {
+    const db = await VantaDb.connect(tmp("searchWithMethod"));
+    try {
+      await db.put({
+        namespace: "ns",
+        key: "k1",
+        payload: "alpha",
+        vector: [1, 0, 0],
+      });
+      const hits = await db.searchWithMethod(
+        { namespace: "ns", query_vector: [1, 0, 0], top_k: 5 },
+        "Flat",
+      );
+      expect(hits.length).toBeGreaterThanOrEqual(1);
+    } finally {
+      await db.close();
+    }
+  });
+
+  it("searchWithMethod rejects an unknown method", async () => {
+    const db = await VantaDb.connect(tmp("searchWithMethod-bad"));
+    try {
+      await expect(
+        db.searchWithMethod(
+          { namespace: "ns", query_vector: [1, 0], top_k: 1 },
+          // @ts-expect-error — exercising the runtime guard
+          "Unknown",
+        ),
+      ).rejects.toThrow(/invalid method/);
+    } finally {
+      await db.close();
+    }
+  });
 });

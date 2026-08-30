@@ -199,3 +199,40 @@ export interface DegreeEntry {
   in_degree: number
   out_degree: number
 }
+
+/**
+ * Report returned by `vacuum()`. The core SDK's `VacuumReport` does not
+ * derive `Serialize`, so the binding builds the JSON object explicitly
+ * (`MOD-10`, mirrors `src/storage/engine/mod.rs`).
+ */
+export interface VacuumReport {
+  scanned_nodes: number
+  removed_nodes: number
+  reclaimed_bytes: number
+  duration_ms: number
+  success: boolean
+}
+
+/** Report returned by `rebuildIndex()`. */
+export interface RebuildReport {
+  scanned_nodes: number
+  indexed_vectors: number
+  skipped_tombstones: number
+  duration_ms: number
+  derived_rebuild_ms: number
+  index_path: string
+  success: boolean
+}
+
+/** Comparison operator for `FilterItem`. Mirrors `VantaFilterOp`. */
+export type FilterOp = 'Eq' | 'Neq' | 'Gt' | 'Lt' | 'Gte' | 'Lte'
+
+/** A single `{ field, op, value }` clause for `deleteByFilter` and `count`. */
+export interface FilterItem {
+  field: string
+  op: FilterOp
+  value: VantaValue
+}
+
+/** Explicit dense-vector index backend override for `searchWithMethod`. */
+export type IndexMethod = 'Hnsw' | 'Ivf' | 'Flat' | 'DiskAnn' | 'Scann'

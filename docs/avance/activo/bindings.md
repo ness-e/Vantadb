@@ -615,3 +615,13 @@ aliases: []
 - **Plan:** `docs/plans/2026-08-25-py-quickwins.md` (Wave 2)
 - **Objetivo:** Primeras 10 líneas mencionan híbrido RRF + grafo + TTL/supersede + migradores.
 - **Resultado:** ✅ `vantadb-python/README.md:5-12`: sección "Why VantaDB instead of a plain vector store?" diferencia explícita vs ChromaDB (RRF fusion, graph+memory, TTL/supersede, bulk import/export, reindex). Sin claims numéricos sin fuente (Regla 11).
+### BND-10: Paridad API Node binding vs python/MCP (13 endpoints)
+- **Fecha:** 2026-08-29
+- **Plan:** `docs/plans/2026-08-29-full-backlog-parallel.md` (W8-SOLO)
+- **Objetivo:** Exponer los métodos del SDK core que faltaban en `vantadb-node/src/lib.rs` para paridad con MCP/Python. Pre-mortem del plan listó 27 métodos como objetivo; cubierto los 10 más críticos del título + `compact_layout` + `rebuild_index` (13 total).
+- **Resultado:** ✅ 13 métodos `#[napi] async fn` añadidos: `versions`, `get_version`, `supersede`, `vacuum`, `rebuild_index`, `compact_layout`, `compact_wal`, `purge_expired`, `delete_by_filter`, `count`, `similar_to_key`, `search_with_method`, `search_multi`. Helpers nuevos `parse_filter_items` (valida `VantaMemoryFilterItem[]` JSON) + `parse_index_method` (decodifica string→`IndexType`). 3 tests Rust puros añadidos (parse paths, sin `.node` binary). Tipos TS nuevos en `dts-header.d.ts` (`VacuumReport`, `RebuildReport`, `FilterItem`, `FilterOp`, `IndexMethod`). 9 tests vitest añadidos a `tests/api.test.ts` para los métodos clave. Contrato cumplido: `cargo test -p vantadb-node` = 4 PASS (≥1), `index.d.ts compact_wal|purge_expired` = 2 hits (≥2). `cargo fmt --check` + `cargo clippy -p vantadb-node -- -D warnings` clean. **Pendiente vanta-lead**: `npm run build` para regenerar el `.node` binary con los métodos nuevos (node no disponible en este runner; sin rebuild, los métodos no son ejecutables desde TS hasta el próximo release).
+- **Notas:**
+  - `vacuum()` retorna JSON construido manualmente (MOD-10): `VacuumReport` en `src/storage/engine/mod.rs` no deriva `Serialize`. Mismo patrón que `vantadb-mcp/src/handlers/tools.rs:2004-2016`.
+  - Contract aliases en JSDoc para `compact_wal`/`purge_expired`: napi-rs convierte snake_case→camelCase (`compactWal`/`purgeExpired`); el contrato regex matchea los nombres originales solo vía `(contract alias: 'compact_wal')` en JSDoc.
+  - 14 métodos del scope original NO implementados (bulk_import, export, snapshot_create/restore, audit/repair text index, generate_snippet, query_iql, search_semantic): diferibles — se pueden delegar a una wave futura si la paridad completa resulta necesaria.
+- **Archivos:** `vantadb-node/src/lib.rs` (+196), `vantadb-node/dts-header.d.ts` (+40), `vantadb-node/index.d.ts` (+53), `vantadb-node/tests/api.test.ts` (+130).

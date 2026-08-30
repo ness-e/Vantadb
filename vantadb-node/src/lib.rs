@@ -25,10 +25,11 @@ use std::sync::{Arc, Condvar, Mutex, PoisonError};
 const MAX_VEC_DIM: usize = 10_000;
 use vantadb::config::VantaConfig;
 use vantadb::graph::TraversalDirection;
+use vantadb::index::IndexType;
 use vantadb::node::DistanceMetric;
 use vantadb::sdk::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryMetadata,
-    VantaMemorySearchRequest, VantaNodeInput, VantaSearchExplanation,
+    VantaEmbedded, VantaMemoryFilterItem, VantaMemoryInput, VantaMemoryListOptions,
+    VantaMemoryMetadata, VantaMemorySearchRequest, VantaNodeInput, VantaSearchExplanation,
 };
 
 /// Native VantaDB handle exposed to Node.js. Thin wrapper over the SDK's
@@ -90,7 +91,10 @@ impl VantaDB {
     /// `record`: `{ namespace, key, payload, metadata?, vector?, ttl_ms? }`.
     /// Returns the created/updated record with system timestamps and version.
     #[napi(ts_return_type = "Promise<MemoryRecord>")]
-    pub async fn put(&self, #[napi(ts_arg_type = "MemoryInput")] record: Value) -> napi::Result<Value> {
+    pub async fn put(
+        &self,
+        #[napi(ts_arg_type = "MemoryInput")] record: Value,
+    ) -> napi::Result<Value> {
         let _g = enter(&self.op_gate)?;
         let input = parse_memory_input(&record)?;
         let engine = self.engine.clone();
@@ -394,6 +398,200 @@ impl VantaDB {
         let engine = self.engine.clone();
         let out: VantaSearchExplanation =
             spawn_blocking(move || engine.explain_memory_search(request)).await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    // ── Lifecycle (BND-10) ───────────────────────────────────────────────────
+
+    /// List every retained version of a memory record, ascending (v1..vN).
+    /// Empty if the key does not exist or has no history.
+    #[napi(ts_return_type = "Promise<MemoryRecord[]>")]
+    pub async fn versions(&self, namespace: String, key: String) -> napi::Result<Value> {
+        let _g = enter(&self.op_gate)?;
+        let engine = self.engine.clone();
+        let out = spawn_blocking(move || engine.versions(&namespace, &key)).await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Retrieve a specific historical version of a memory record.
+    /// Returns `null` if the version does not exist.
+    #[napi(ts_return_type = "Promise<MemoryRecord | null>")]
+    pub async fn get_version(
+        &self,
+        namespace: String,
+        key: String,
+        version: f64,
+    ) -> napi::Result<Option<Value>> {
+        let _g = enter(&self.op_gate)?;
+        let v = opt_f64_to_u64(Some(version), "version")?
+            .ok_or_else(|| Error::from_reason("`version` must be a positive integer"))?;
+        let engine = self.engine.clone();
+        let out = spawn_blocking(move || engine.get_version(&namespace, &key, v)).await?;
+        match out {
+            Some(record) => Ok(Some(serde_json::to_value(&record).map_err(serde_map_err)?)),
+            None => Ok(None),
+        }
+    }
+
+    /// Mark `old_key` as superseded by `new_key` (ADR-028). Both keys must
+    /// exist and differ; `old_key` must not already be superseded.
+    #[napi]
+    pub async fn supersede(
+        &self,
+        namespace: String,
+        old_key: String,
+        new_key: String,
+    ) -> napi::Result<()> {
+        let _g = enter(&self.op_gate)?;
+        let engine = self.engine.clone();
+        spawn_blocking(move || engine.supersede(&namespace, &old_key, &new_key)).await
+    }
+
+    /// Purge tombstoned nodes from the HNSW index. Returns counts and timing.
+    #[napi(ts_return_type = "Promise<VacuumReport>")]
+    pub async fn vacuum(&self) -> napi::Result<Value> {
+        let _g = enter(&self.op_gate)?;
+        let engine = self.engine.clone();
+        // MOD-10: VacuumReport does not derive Serialize; build the JSON object
+        // explicitly (same field set as `src/storage/engine/mod.rs:VacuumReport`).
+        let report = spawn_blocking(move || engine.vacuum()).await?;
+        Ok(json!({
+            "scanned_nodes": report.scanned_nodes,
+            "removed_nodes": report.removed_nodes,
+            "reclaimed_bytes": report.reclaimed_bytes,
+            "duration_ms": report.duration_ms,
+            "success": report.success,
+        }))
+    }
+
+    /// Rebuild the HNSW vector index, derived indexes, text index, and scalar
+    /// index from scratch. Returns scan/index/timing counts.
+    #[napi(ts_return_type = "Promise<RebuildReport>")]
+    pub async fn rebuild_index(&self) -> napi::Result<Value> {
+        let _g = enter(&self.op_gate)?;
+        let engine = self.engine.clone();
+        let out = spawn_blocking(move || engine.rebuild_index()).await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Compact the vector store file (BFS grouping from the HNSW entry point).
+    /// Returns estimated bytes reclaimed.
+    #[napi]
+    pub async fn compact_layout(&self) -> napi::Result<u64> {
+        let _g = enter(&self.op_gate)?;
+        let engine = self.engine.clone();
+        spawn_blocking(move || engine.compact_layout()).await
+    }
+
+    // ── Maintenance (BND-10) ─────────────────────────────────────────────────
+
+    /// Compact the WAL: flush, archive the current WAL file, and start fresh.
+    #[napi]
+    pub async fn compact_wal(&self) -> napi::Result<()> {
+        let _g = enter(&self.op_gate)?;
+        let engine = self.engine.clone();
+        spawn_blocking(move || engine.compact_wal()).await
+    }
+
+    /// Scan every memory record and physically delete those whose TTL has
+    /// expired. Returns the number of records purged.
+    #[napi]
+    pub async fn purge_expired(&self) -> napi::Result<u64> {
+        let _g = enter(&self.op_gate)?;
+        let engine = self.engine.clone();
+        spawn_blocking(move || engine.purge_expired()).await
+    }
+
+    // ── Search-advanced (BND-10) ─────────────────────────────────────────────
+
+    /// Delete every record in `namespace` whose metadata matches the given
+    /// filter. Filter must contain at least one item (mirrors the SDK guard).
+    #[napi]
+    pub async fn delete_by_filter(
+        &self,
+        namespace: String,
+        #[napi(ts_arg_type = "FilterItem[]")] filter: Value,
+    ) -> napi::Result<u64> {
+        let _g = enter(&self.op_gate)?;
+        let items = parse_filter_items(&filter)?;
+        let engine = self.engine.clone();
+        spawn_blocking(move || engine.delete_by_filter(&namespace, items)).await
+    }
+
+    /// Count records in a namespace, optionally filtered by metadata.
+    /// Pass `null`/`undefined` to count every record.
+    #[napi]
+    pub async fn count(
+        &self,
+        namespace: String,
+        #[napi(ts_arg_type = "FilterItem[] | null")] filter: Option<Value>,
+    ) -> napi::Result<u64> {
+        let _g = enter(&self.op_gate)?;
+        let items = match filter {
+            None | Some(Value::Null) => None,
+            Some(v) => Some(parse_filter_items(&v)?),
+        };
+        let engine = self.engine.clone();
+        spawn_blocking(move || engine.count(&namespace, items)).await
+    }
+
+    /// Find records similar to the vector of an existing record (identified
+    /// by `namespace` + `key`). The source record is filtered out of the
+    /// results.
+    #[napi(ts_return_type = "Promise<MemorySearchHit[]>")]
+    pub async fn similar_to_key(
+        &self,
+        namespace: String,
+        key: String,
+        top_k: f64,
+    ) -> napi::Result<Value> {
+        let _g = enter(&self.op_gate)?;
+        let k = opt_f64_to_u64(Some(top_k), "top_k")?
+            .ok_or_else(|| Error::from_reason("`top_k` must be a positive integer"))?
+            as usize;
+        let engine = self.engine.clone();
+        let out = spawn_blocking(move || engine.similar_to_key(&namespace, &key, k)).await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Same as `search()` with an explicit dense-vector index backend override.
+    /// `method` accepts `"Hnsw" | "Ivf" | "Flat" | "DiskAnn" | "Scann"` (or
+    /// `null`/`undefined` for automatic routing).
+    #[napi(ts_return_type = "Promise<MemorySearchHit[]>")]
+    pub async fn search_with_method(
+        &self,
+        #[napi(ts_arg_type = "SearchRequest")] request: Value,
+        method: Option<String>,
+    ) -> napi::Result<Value> {
+        let _g = enter(&self.op_gate)?;
+        let request = parse_search_request(&request)?;
+        let method_idx = match method.as_deref() {
+            None => None,
+            Some(s) => Some(parse_index_method(s)?),
+        };
+        let engine = self.engine.clone();
+        let out = spawn_blocking(move || engine.search_with_method(request, method_idx)).await?;
+        serde_json::to_value(&out).map_err(serde_map_err)
+    }
+
+    /// Search across multiple namespaces in a single call. The `namespace`
+    /// field on `request` is ignored; every namespace in `namespaces` is
+    /// searched independently and results are merged by descending score.
+    #[napi(ts_return_type = "Promise<MemorySearchHit[]>")]
+    pub async fn search_multi(
+        &self,
+        #[napi(ts_arg_type = "string[]")] namespaces: Vec<String>,
+        #[napi(ts_arg_type = "SearchRequest")] request: Value,
+    ) -> napi::Result<Value> {
+        let _g = enter(&self.op_gate)?;
+        let request = parse_search_request(&request)?;
+        let engine = self.engine.clone();
+        let owned: Vec<String> = namespaces;
+        let out = spawn_blocking(move || {
+            let refs: Vec<&str> = owned.iter().map(String::as_str).collect();
+            engine.search_multi(&refs, request)
+        })
+        .await?;
         serde_json::to_value(&out).map_err(serde_map_err)
     }
 }
@@ -838,4 +1036,134 @@ fn parse_graph_filter(filter: Option<&Value>) -> napi::Result<GraphFilter> {
         }
     };
     Ok((labels, time_range))
+}
+
+// ── filter & index-method helpers (BND-10) ──────────────────────────────────
+
+/// Parse a JSON array of `VantaMemoryFilterItem` objects.
+///
+/// Wire shape: `[{ field: string, op: "Eq"|"Neq"|"Gt"|"Lt"|"Gte"|"Lte",
+/// value: VantaValue }]`. The array must contain at least one item —
+/// `delete_by_filter` rejects empty filters at the SDK layer, so we mirror
+/// the guard here for an early, descriptive error instead of a generic
+/// "empty filter" string from deep inside the engine.
+fn parse_filter_items(value: &Value) -> napi::Result<Vec<VantaMemoryFilterItem>> {
+    let arr = value
+        .as_array()
+        .ok_or_else(|| Error::from_reason("filter must be an array of filter items"))?;
+    if arr.is_empty() {
+        return Err(Error::from_reason(
+            "filter must contain at least one item (use count() with no filter to count all records)",
+        ));
+    }
+    let mut out = Vec::with_capacity(arr.len());
+    for (i, v) in arr.iter().enumerate() {
+        let obj = v
+            .as_object()
+            .ok_or_else(|| Error::from_reason(format!("filter[{i}] must be an object")))?;
+        let field = obj
+            .get("field")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::from_reason(format!("filter[{i}].field must be a string")))?
+            .to_string();
+        let op_str = obj
+            .get("op")
+            .and_then(Value::as_str)
+            .ok_or_else(|| Error::from_reason(format!("filter[{i}].op must be a string")))?;
+        let op = match op_str {
+            "Eq" => vantadb::sdk::VantaFilterOp::Eq,
+            "Neq" => vantadb::sdk::VantaFilterOp::Neq,
+            "Gt" => vantadb::sdk::VantaFilterOp::Gt,
+            "Lt" => vantadb::sdk::VantaFilterOp::Lt,
+            "Gte" => vantadb::sdk::VantaFilterOp::Gte,
+            "Lte" => vantadb::sdk::VantaFilterOp::Lte,
+            other => {
+                return Err(Error::from_reason(format!(
+                    "filter[{i}].op '{other}' is not one of Eq|Neq|Gt|Lt|Gte|Lte"
+                )));
+            }
+        };
+        let value_json = obj
+            .get("value")
+            .ok_or_else(|| Error::from_reason(format!("filter[{i}].value is required")))?;
+        let vanta_value: vantadb::sdk::VantaValue = serde_json::from_value(value_json.clone())
+            .map_err(|e| Error::from_reason(format!("filter[{i}].value: {e}")))?;
+        out.push(VantaMemoryFilterItem {
+            field,
+            op,
+            value: vanta_value,
+        });
+    }
+    Ok(out)
+}
+
+/// Parse the optional dense-vector index backend override for
+/// `search_with_method`. Accepts the canonical PascalCase names from
+/// `vantadb::index::IndexType`.
+fn parse_index_method(method: &str) -> napi::Result<IndexType> {
+    match method {
+        "Hnsw" => Ok(IndexType::Hnsw),
+        "Ivf" => Ok(IndexType::Ivf),
+        "Flat" => Ok(IndexType::Flat),
+        "DiskAnn" => Ok(IndexType::DiskAnn),
+        "Scann" => Ok(IndexType::Scann),
+        other => Err(Error::from_reason(format!(
+            "invalid method '{other}': expected one of Hnsw|Ivf|Flat|DiskAnn|Scann"
+        ))),
+    }
+}
+
+// ── tests ───────────────────────────────────────────────────────────────────
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    /// Mirrors the JSON shape the TypeScript side emits for `VantaValue`. We
+    /// don't load the `.node` binary in these tests — they exercise the pure
+    /// serde_json -> VantaMemoryFilterItem conversion path that napi-rs would
+    /// otherwise route through `Python::with_gil`. Keeping them Rust-native
+    /// means `cargo test -p vantadb-node` reports ≥1 PASS without needing the
+    /// Node runtime to be installed.
+    #[test]
+    fn parse_filter_items_accepts_eq_filter() {
+        let raw = json!([{
+            "field": "env",
+            "op": "Eq",
+            "value": { "String": "prod" },
+        }]);
+        let out = parse_filter_items(&raw).expect("filter parses");
+        assert_eq!(out.len(), 1);
+        assert_eq!(out[0].field, "env");
+        assert!(matches!(out[0].op, vantadb::sdk::VantaFilterOp::Eq));
+        assert!(matches!(
+            out[0].value,
+            vantadb::sdk::VantaValue::String(ref s) if s == "prod"
+        ));
+    }
+
+    #[test]
+    fn parse_filter_items_rejects_empty_array() {
+        let raw = json!([]);
+        let err = parse_filter_items(&raw).unwrap_err();
+        assert!(
+            err.reason.contains("at least one item"),
+            "expected empty-filter guard, got: {}",
+            err.reason
+        );
+    }
+
+    #[test]
+    fn parse_index_method_maps_all_backends() {
+        assert!(matches!(parse_index_method("Hnsw"), Ok(IndexType::Hnsw)));
+        assert!(matches!(parse_index_method("Ivf"), Ok(IndexType::Ivf)));
+        assert!(matches!(parse_index_method("Flat"), Ok(IndexType::Flat)));
+        assert!(matches!(
+            parse_index_method("DiskAnn"),
+            Ok(IndexType::DiskAnn)
+        ));
+        assert!(matches!(parse_index_method("Scann"), Ok(IndexType::Scann)));
+        assert!(parse_index_method("bogus").is_err());
+    }
 }
