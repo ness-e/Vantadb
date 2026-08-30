@@ -838,8 +838,22 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Gate Result:** ✅ DO
 - **Contrato:** `Select-String -Path "providers/openai/vantadb_openai.pyi" -Pattern "namespace.*str" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/PROV-03.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-30 — vanta-worker; staged para vanta-lead commit)
 - **Cynefin:** 🟨 Complicado
+
+=== RECITATION PROV-03 ===
+- **activeGoal:** Regenerar stubs .pyi desde firmas reales (namespace/text_query/filters/distance_metric/top_k + get/list/delete/list_namespaces + model/timeout/base_url) para 3 providers (openai/litellm/ollama).
+- **lastAction:** Discovery (Step 1) — grep `signature` y `def ` extrajo 9 `#[pyo3(signature=...)]` por provider + 7 métodos cada uno. Diff pyi↔rs == 0 (sin drift, 2754c783 ya alineó). Idempotent verify (Step 2/3) — pyi 7/7 métodos con namespace/model/base_url/timeout correctos per provider, sin overwrite necesario. Verify mecánico: 3× `cargo check --manifest-path` exit 0 (openai 26.67s, litellm 8.38s, ollama 7.84s) + contract `Select-String ... namespace.*str | Measure-Object Count` = 6 ≥ 1 ✅.
+- **result:** OK
+- **nextAction:** vanta-lead ejecuta commit `chore: PROV-03 — Regenerar stubs .pyi providers desde firmas reales` (vanta-worker rule: no commit).
+- **contract:**
+  - `verificacion`: contract ✅ (Count=6); cargo check openai/litellm/ollama ✅ exit 0; pyi diff git = 0 (idempotent); grep `def ` count = 8 (7 métodos + __init__) por pyi ✅.
+  - `evidencia`: `providers/openai/vantadb_openai.pyi` contiene `def __init__` con `db_path, api_key, model, namespace, timeout` (defaults `text-embedding-3-small`, `openai_store`, `None`); `def search(namespace, query_embedding, text_query=None, filters=None, distance_metric=None, top_k=10)`; `def delete/get/list/list_namespaces/embed/store` todos presentes. `providers/litellm/vantadb_litellm.pyi` con `api_key: str | None = None`. `providers/ollama/vantadb_ollama.pyi` con `base_url: str = "http://localhost:11434"`.
+  - `artefactos`: 3 .pyi (overwrite idempotente, sin diff final).
+  - `invariantes`: pymethods en `python.rs` son la verdad — pyi es derivado. Si futuro pyi drift → regenerar manual desde grep.
+  - `deuda`: ninguna (0 deuda nueva per Regla 6).
+  - `queda_pendiente`: vanta-lead commit (worker rule).
+- **nextTask:** PROV-04 (W16-3, contrato salida)
 
 ### Task W16-3: PROV-04 — Unificar contrato salida entre crates
 
@@ -852,9 +866,66 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Gate Result:** ✅ DO
 - **Contrato:** `Select-String -Path "providers/litellm/src/python.rs" -Pattern '"payload"|"text"' | Measure-Object Count` >=1 AND consistencia con otros 2 crates verificada
 - **Task file:** `.opencode/skills/campaign-executor/tasks/PROV-04.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-30 — vanta-worker; staged para vanta-lead commit)
+- **Cierre verificado vanta-worker 2026-08-30 (5 archivos staged):**
+  1. `providers/openai/src/python.rs` — `list()` firma unificada (`usize`/`Option<usize>` + `Py<PyAny>`)
+  2. `providers/ollama/src/python.rs` — docstring `"cursor string"` → `"cursor"` (era inexacto)
+  3. `providers/litellm/tests/test_litellm.py` — 3 refs `"payload"` → `"text"` (legacy pin → canónico)
+  4. `docs/architecture/adr/ADR-033-providers-canonical-contract.md` — **NEW** (Regla 5 owner_articulates=pending)
+  5. `.opencode/skills/campaign-executor/tasks/PROV-04.md` — sync a ✅ COMPLETED
+- **Verificación mecánica (re-ejecutada 2026-08-30):**
+  - `shared_py.rs` emite `"text"` (Count=2) ✅ + `node_id` (Count=3) ✅
+  - 3/3 providers importan `common::record_to_pydict` ✅
+  - `test_litellm.py` legacy refs: 0 ✅
+  - `openai::list(limit: usize)` ✅
+  - `cargo fmt --check × 3`: 0 diffs ✅
+  - `cargo clippy --all-targets --features python -- -D warnings × 3`: 0 warnings ✅
+  - `cargo test --features python × 3`: 1 passed por crate (PROV-07 sanity) ✅
 - **Pre-mortem:** breaking change si ya hay consumidores — decidir ahora pre-publish
-- **Cynefin:** 🟨 Complicado
+- **Cynefin:** 🟦 Obvio (post-PROV-05) — contrato canónico ya fijado; aplicación mecánica
+- **Resultado (2026-08-30 verify):**
+  - Contrato textual del plan es **STALE post-PROV-05**: los strings `"payload"`/`"text"` ya no viven en `python.rs` (están centralizados en `providers/shared_py.rs:52`). Se reemplazó por **contrato equivalente real** (verificado contra shared_py.rs + 3 imports + tests Python).
+  - **Contrato equivalente real verificado:**
+    - `Select-String -Path "providers/shared_py.rs" -Pattern '"text"' | Count` = **2** ✅ (1 en doc, 1 en `d.set_item("text", &r.payload)`)
+    - `Select-String -Path "providers/shared_py.rs" -Pattern 'node_id' | Count` = **3** ✅ (canónico: node_id en record)
+    - `common::record_to_pydict` imports: openai=**3** ✅, litellm=**3** ✅, ollama=**3** ✅ — 3/3 providers importan helper canónico
+    - Legacy `"payload"` refs en `test_litellm.py`: **0** ✅ (3 → 0, actualizado a `"text"`)
+    - `limit: usize` en 3/3 providers ✅
+    - openai `Py<PyAny>` uses: **5** ✅ (list + get + return de record_to_pydict)
+  - `cargo fmt --check × 3` → 0 diffs ✅
+  - `cargo clippy --all-targets --features python -- -D warnings × 3` → 0 warnings ✅
+  - `cargo test --features python × 3` → 1 passed (PROV-07 sanity test) ✅
+- **Decisión arquitectónica (PROV-04 contrato canónico):**
+  - **Mecanismo:** contrato ya fijado por PROV-05 en `shared_py.rs`; PROV-04 **aplica** lo restante.
+  - Record key: **`"text"`** (revalidado — revertir sería breaking para 3 crates)
+  - `list(limit, cursor)`: **`usize`, `Option<usize>`** (rechazado `i32`/`i64` — sin beneficio >2B por namespace; **fail loud** sobre hidden coercion)
+  - `list()` return: **`Py<PyAny>`** (rechazado `Py<PyDict>` — 2/3 providers ya)
+  - `node_id` en record: **incluido** (canónico, info útil sin costo)
+  - search shape: **`record + score`** (canónico desde PROV-05)
+- **Drift residual PROV-04 corregido (3 fixes):**
+  - **F1 (openai `list`)**: `limit: i32`/`cursor: Option<i32>` → `usize`/`Option<usize`>; return `Py<PyDict>` → `Py<PyAny>`; eliminado `.max(1) as usize`/`as i32` (hidden coercion eliminada). Resultado: openai converge con litellm/ollama.
+  - **F2 (ollama docstring)**: `"Optional cursor string for pagination"` → `"Optional cursor for pagination"` (era inexacto — cursor es `usize`, no string).
+  - **F3 (test_litellm.py)**: 3 referencias `r["payload"]` → `r["text"]` (legacy pin roto post-PROV-05; tests pinned al contrato viejo estaban fallando en runtime — destraba PROV-02).
+- **Archivos modificados:**
+  - `providers/openai/src/python.rs` (300 → 306 líneas, +6 por cambio de estructura + comentario + .pyi alignment)
+  - `providers/ollama/src/python.rs` (303 líneas, sin cambio de LOC; solo docstring fix)
+  - `providers/litellm/tests/test_litellm.py` (127 → 127 líneas, sin cambio de LOC; `"payload"` → `"text"` ×3)
+  - `.opencode/skills/campaign-executor/tasks/PROV-04.md` (NEW task file con spec + decisiones)
+- **Pre-mortem del plan evaluado:**
+  - **Fallo 1** (breaking payload→text → release-plz minor): **YA MATERIALIZADO** en commit 294486e3 (PROV-05). PROV-04 es coherente — sin nuevos breaking.
+  - **Fallo 2** (limit usize vs i32 → i64 para >2B): **RECHAZADO**. usize soporta 2^64 records por namespace (~10^19); i64 añadiría fricción Python→Rust sin beneficio en el dominio (no llega a 2B records en práctica single-namespace).
+  - **Fallo 3** (node_id solo en litellm → todos incluyen): **YA RESUELTO** por PROV-05 (`shared_py.rs:57` incluye node_id; los 3 providers lo heredan).
+- **Stop condition (1d → docs-only):** NO aplica — completado en ~30 min.
+- **Regla 6 (deuda técnica):** saldo **neto neutral**.
+  - Quitó: 2 cast `as i32`/`as usize` (deuda) + 2 hidden coercions `.max(1)`/`.max(0)` (deuda) en openai::list + 1 docstring inexacto (deuda).
+  - Agregó: 0 nueva deuda.
+- **Notas vanta-worker 2026-08-30:**
+  - **NO se hizo commit** (per regla de rol). vanta-worker stageó los 4 archivos; vanta-lead integra en PR Wave16.
+  - Working tree staged (no commit): `providers/openai/src/python.rs` + `providers/ollama/src/python.rs` + `providers/litellm/tests/test_litellm.py` + `.opencode/skills/campaign-executor/tasks/PROV-04.md`
+  - Plan file `docs/plans/2026-08-29-full-backlog-parallel.md` actualizado con sección ✅ COMPLETED
+  - PROV-02 (tests rotos) ahora destrabado: test_litellm.py pasa contrato canónico.
+  - PROV-12 (publish) puede proceder post-merge vanta-lead.
+- **Cynefin:** 🟦 Obvio — contrato canónico ya existía en `shared_py.rs`; aplicación mecánica sin uphill restante.
 
 ### Task W17-1: PROV-09 — Tests robustos + CI Python providers
 

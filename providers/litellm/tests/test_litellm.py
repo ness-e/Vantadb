@@ -31,7 +31,7 @@ class TestVantaDBLiteLLM:
         assert ":" in rid
         results = store.search("litellm_store", embedding, top_k=5)
         assert len(results) > 0
-        assert results[0]["payload"] == "litellm test"
+        assert results[0]["text"] == "litellm test"
 
     def test_get_record(self, tmp_path):
         store = VantaDBLiteLLM(str(tmp_path), namespace="ns_get")
@@ -40,7 +40,7 @@ class TestVantaDBLiteLLM:
         key = rid.split(":", 1)[1]
         record = store.get("ns_get", key)
         assert record is not None
-        assert record["payload"] == "get me"
+        assert record["text"] == "get me"
         assert record["namespace"] == "ns_get"
         assert record["key"] == key
 
@@ -67,7 +67,7 @@ class TestVantaDBLiteLLM:
         store.store("three", emb)
         page = store.list("ns_list", limit=100)
         assert len(page["records"]) == 3
-        texts = {r["payload"] for r in page["records"]}
+        texts = {r["text"] for r in page["records"]}
         assert texts == {"one", "two", "three"}
 
     def test_search_returns_score(self, tmp_path):

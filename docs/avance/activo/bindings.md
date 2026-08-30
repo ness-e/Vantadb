@@ -611,6 +611,34 @@ aliases: []
 - **Breaking changes a documentar en CHANGELOG** (PROV-05 los materializó por unificación de contrato): litellm users que consumían `result["payload"]` ahora reciben `result["text"]`; ollama.search() shape ahora full-record+score (era minimal `{id, text, score}`). PROV-04 puede revertir si la decisión final es distinta.
 - **Decisión de no-commit:** vanta-worker stageó 4 archivos (`providers/shared_py.rs` NEW + 3 `python.rs` modificados + `.opencode/skills/campaign-executor/tasks/PROV-05.md` task file + plan file actualizado). vanta-lead integra el PR con conventional commit `refactor: PROV-05 — Extract shared helpers providers`.
 
+### PROV-04: Contrato canónico unificado (W16-3) — PROV-04
+- **Fecha:** 2026-08-30
+- **Plan:** `docs/plans/2026-08-29-full-backlog-parallel.md` (Wave 16-3)
+- **Objetivo:** Aplicar contrato canonico en los puntos donde divergian post-PROV-05 (openai::list() firma, ollama::list() docstring, test_litellm.py legacy `"payload"` pin).
+- **Decisiones arquitectónicas (ADR-033 redactado, owner_articulates=pending per Regla 5):**
+  1. **Record key = `"text"`** (canónico desde PROV-05; revertir sería breaking para 3 crates)
+  2. **`list(limit, cursor): usize, Option<usize>`** (rechazado `i32`/`i64` — sin beneficio >2B por namespace; **fail loud** sobre hidden coercion)
+  3. **`list()` return = `Py<PyAny>`** (rechazado `Py<PyDict>` — 2/3 providers ya)
+  4. **`node_id` en record: incluido** (canónico, info útil sin costo)
+  5. **search shape = `record + score`** (canónico desde PROV-05)
+- **Drift residual corregido (3 fixes):**
+  - F1 (openai `list`): `limit: i32`/`cursor: Option<i32>` → `usize`/`Option<usize`; return `Py<PyDict>` → `Py<PyAny>`; eliminado `.max(1) as usize`/`as i32` (hidden coercion eliminada).
+  - F2 (ollama docstring): `"Optional cursor string for pagination"` → `"Optional cursor for pagination"` (era inexacto — cursor es `usize`, no string).
+  - F3 (test_litellm.py): 3 referencias `r["payload"]` → `r["text"` (legacy pin roto post-PROV-05; tests pinned al contrato viejo estaban fallando en runtime — destraba PROV-02).
+- **Verificación mecánica 2026-08-30:**
+  - `shared_py.rs` emite `"text"` (Count=2) + `node_id` (Count=3) ✅
+  - 3/3 providers importan `common::record_to_pydict` ✅
+  - `test_litellm.py` legacy `"payload"` refs: 0 ✅
+  - `openai::list(limit: usize)` ✅
+  - `cargo fmt --check × 3`: 0 diffs ✅
+  - `cargo clippy --all-targets --features python -- -D warnings × 3`: 0 warnings ✅
+  - `cargo test --features python × 3`: 1 passed cada uno (PROV-07 sanity test) ✅
+- **Resultado:** ✅ Aplicación mecánica sin uphill restante (contrato ya fijado por PROV-05).
+- **Regla 6 (deuda):** saldo neto **neutral**. Quita: 2 cast `as i32`/`as usize` (deuda) + 2 hidden coercions `.max(1)`/`.max(0)` (deuda) + 1 docstring inexacto + 3 asserts legacy pinned. Agrega: 0 deuda nueva.
+- **ADR:** `docs/architecture/adr/ADR-033-providers-canonical-contract.md` (status `accepted-pending-owner-review` per Regla 5 — owner debe articular trade-off central `usize` vs `i32` vs `i64`).
+- **Breaking changes:** ya documentado en PROV-05 commit `294486e3` (litellm users consumían `result["payload"]` → ahora `result["text"]`). PROV-04 es coherente, sin nuevos breaking adicionales.
+- **Decisión de no-commit:** vanta-worker stageó 5 archivos (3 fixes código + ADR-033 NEW + task file sync). vanta-lead integra el PR con conventional commit `feat: PROV-04 — Canonical contract providers (text/next_cursor/limit usize)`.
+
 ### Test status
 - **Compile:** openai/litellm/ollama → `cargo check` OK
 - **Tests:** openai/litellm/ollama → pytest structure OK (requieren maturin build para ejecución)

@@ -237,30 +237,36 @@ impl VantaDBOpenAI {
         &self,
         py: Python,
         namespace: &str,
-        limit: i32,
-        cursor: Option<i32>,
-    ) -> PyResult<Py<PyDict>> {
+        limit: usize,
+        cursor: Option<usize>,
+    ) -> PyResult<Py<PyAny>> {
+        let namespace = namespace.to_string();
         let engine = self.engine.clone();
-        let ns = namespace.to_string();
-        let options = VantaMemoryListOptions {
-            #[allow(deprecated)]
-            filters: Default::default(),
-            filter_ops: None,
-            limit: limit.max(1) as usize,
-            cursor: cursor.map(|c| c.max(0) as usize),
-            exclude_superseded: false,
-        };
-        let page = py.detach(move || engine.list(&ns, options).map_err(common::err_to_py))?;
+        let page = py.detach(move || {
+            engine
+                .list(
+                    &namespace,
+                    VantaMemoryListOptions {
+                        #[allow(deprecated)]
+                        filters: vantadb::sdk::VantaMemoryMetadata::new(),
+                        filter_ops: None,
+                        limit,
+                        cursor,
+                        exclude_superseded: false,
+                    },
+                )
+                .map_err(common::err_to_py)
+        })?;
 
-        let d = PyDict::new(py);
         let records: Vec<Py<PyAny>> = page
             .records
             .into_iter()
             .map(|r| common::record_to_pydict(py, r))
             .collect::<PyResult<_>>()?;
-        d.set_item("records", records)?;
-        d.set_item("next_cursor", page.next_cursor.map(|c| c as i32))?;
-        Ok(d.unbind())
+        let result = PyDict::new(py);
+        result.set_item("records", records)?;
+        result.set_item("next_cursor", page.next_cursor)?;
+        Ok(result.unbind().into())
     }
 
     /// List all namespaces that contain at least one memory record.

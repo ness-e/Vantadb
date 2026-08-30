@@ -230,7 +230,7 @@ impl VantaDBOllama {
     /// Args:
     ///     namespace: The namespace to list.
     ///     limit: Maximum number of results (default: 100).
-    ///     cursor: Optional cursor string for pagination.
+    ///     cursor: Optional cursor for pagination.
     ///
     /// Returns:
     ///     A dict with ``records`` (list of dicts with full record fields) and ``next_cursor``.
