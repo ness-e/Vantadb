@@ -1261,10 +1261,11 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Verificación real:** core llama a skills/agentes (impeccable) — inversión dependencia semántica
 - **Gate Justificación:** Inversión dependencia — core no debe depender de skills
 - **Gate Result:** ✅ DO
-- **Contrato:** `Select-String -Path "src/**/*.rs" -Pattern "\.agents.skills" | Measure-Object Count` ==0 (removido) OR ADR que documenta como intencional
+- **Contrato:** `Select-String -Path "src/**/*.rs" -Pattern "\.agents.skills" | Measure-Object | Select-Object Count` ==0 (removido) OR ADR que documenta como intencional
 - **Task file:** `.opencode/skills/campaign-executor/tasks/FIND-42.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-30)
 - **Cynefin:** 🟨 Complicado
+- **Resultado (2026-08-30):** Falso positivo resuelto. `Count=0` (contrato pasa textualmente) + grep `\agents/skills|\opencode/skills` → 0 hits + codegraph + Cypher CBM → 0 aristas `src → .agents/skills`. La métrica agregada `src skills 184` del codegraph venía de **path-homonymy** (`src/skills/` módulo core vs `.agents/skills/` skills del agente, colapsados por última componente). ADR-034 escrito: `docs/architecture/adr/ADR-034-no-src-to-agents-skills-boundary.md`. Deuda P3 registrada: codegraph necesita path-prefix-disambiguation. FIND-45 marcado como DEFER — este ADR confirma el duplicado y permite SKIP/CLOSE definitivo (ver nota en §DEFER).
 
 ### Task W26-SOLO: FIND-33 — Snapshot filesystem no captura backend KV (GRANDE, SOLO)
 
@@ -1298,7 +1299,7 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 | GOV-TK1 | CLI backup verification | 🟢 | Runbook DR depende conceptualmente — no P0 | Q4 |
 | GOV-TK5/7/8/9 | Coverage, Manual split, put_batch, benchmarks, repo URL | 🟢/🟡 | GOV-TK4 llvm-cov flaky, GOV-TK5 split docs grande, resto low | Q4 |
 | MOD-05 | InMemoryEngine deprecate | 🟢 | Elimina 850 líneas pero riesgo regresión — no P0 | Tras STABLE |
-| FIND-45 | src→skills violation | 🟡 | Duplicate de FIND-42 — ya cubierto | — |
+| FIND-45 | src→skills violation | 🟡 | Duplicate de FIND-42 — ADR-034 (2026-08-30) confirma: falso positivo por path-homonymy, NO inversión real. SKIP/CLOSE definitivo. | — |
 | WSM-14 | Plan adopción npm | 🟡 | Estrategia H-21 aprobada — marketing, no P0 core | Tras WSM-04..13 |
 | MEM-66/68/69/70 | claimStaleTasks, gate aprobación, batch extraction, benchmarks | 🟡 | MEM-66 multi-worker, MEM-68 opcional, MEM-69 costo, MEM-70 harness LongMemEval | Tras MEM-60/61 |
 | STABLE-04..07 | Validación mcp/wasm/ts/node | 🟡 | Gates 1-6 — DEFER hasta que STABLE-01..03 verdes + STABLE-08 medido | Tras W0-W3 |

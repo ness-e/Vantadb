@@ -13,7 +13,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 > **Execution state lives in:** `docs/plans/YYYY-MM-DD-<campaign>.md` (plan file) + task files — per campaign-executor RULES.md §2. This file is the task catalog; the plan file is the execution state.
 > **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
 > **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 109 activas (reconteo DESKTOP-QW5 2026-08-26: P37 DAUD-01..09 9/9 → historial, -9; previo GOV-C7 2026-08-25: 118)
+> **Total open items:** 132 activas (reconteo P48 2026-08-30: +23 TBH-01..23; previo DESKTOP-QW5 2026-08-26: 109)
 ---
 
 ## Exec Summary
@@ -46,6 +46,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 | **P36** 🔧 Auditoría AGENTS.md & sistema de agentes (2026-08-24) | 6 (AGT-01..06; 3 fixes ya aplicados en sesión) | ~1 día | 🟠 Media |
 | **P37** 🎨 Auditoría diseño desktop post-fix (2026-08-24, orquestador + 5 sub-agentes) | 0 — ✅ 9/9 ejecutadas (DAUD-01..09 — commits `3c53d8b2`,`480935a7`,`b865c625`; DAUD-02 via DESKTOP-QW4 `ad0f34b1`) | — | ✅ Cerrada 2026-08-26 |
 | **P38** 🔬 Research huérfanas → tarea (auditoría docs/research, 2026-08-25) | 17 (RES-01..15 + DEC-01/02; cada fila validada contra código con evidencia) | ~2-3 semanas (RES-01 es la más grande) | 🟡 Media (RES-01/RES-02 🔴 calidad/durabilidad) |
+| **P48** 🧪 Testing & Benchmarking Hardening (auditoría multi-agente 2026-08-30, plan `docs/plans/2026-08-30-testing-bench-harden.md`) | 23 (TBH-01..23; 5 ALTA + 10 MEDIA + 8 BAJA) | ~2-3 semanas | 🔴 Alta (TBH-01..05 rompen 'replicable y funcional') |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
 > **Nuevo 2026-08-04:** Fase 12 DESKTOP (26 tareas, app Tauri multi-connection sobre las 6 integraciones) + `DEBT-01` (gate docs-coverage roto, Fase 4) + `TECH-01..08` (hallazgos de investigación DESKTOP-01b: 2 bugs reales, 1 batch stale-docs, 1 ADR env-naming, 4 features/decisiones, todos en Phase 4).
@@ -57,6 +58,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 > **Nuevo 2026-08-09 (batch 2 audit-reports archive):** 4 reportes más archivados (audit-full-20260808, deps-01, inv-001, inv-024). Resueltos/verificados: AUD-012..015 (clippy 5 errores, tests INV-024, prune canonical, cap over-capacity) ✅ commit `9d3c05a2`; INV-024 H-1 (panic sq8 dims) ✅ NV-01 clamp; INV-024 M-1 (alineación `vector_offset`) ✅ `vfile.rs:739` central guard; inv-001 RUSTSEC sin acción ✅; deps-01 duplicación legítima trackeada en `ERR-007` ✅. Pendientes ya en backlog: AUD-016..021 (sección Hallazgos pendientes), `ERR-009` (Miri), `SEC-01`/`AUD-019` (__array_interface__). Único gap → `PERF-09` creado (cold-start "zero-copy" engañoso, `_force_copy` muerto).
 > **Nuevo 2026-08-09 (batch 3 audit-reports archive):** `audit-full-2025-07-27.md` (vantadb-audit-report, auditoría multi-agente sobre `develop@63b0101d`) archivado → `docs/audit-reports/archive/`. Reporte íntegramente procesado: fue la fuente de **P13 AUDREP-01..62 + DEPS-01 + NV-01..05** (verificado 2026-08-05, todos resueltos 2026-08-05..08, commits en `docs/avance/historial/snapshot-2026-08-07.md`). 6 hallazgos fueron corregidos antes del ticketeo (CRIT-01, CRIT-06, CRIT-09, ALTO-01, CRIT-10-prometheus, MED-15) y los residuales vivos ya están recapturados como tareas activas (SEC-01, ERR-021, PERF-07/08/09, CI-01, REVIEW-05). **No se crean tareas nuevas — archivo cerrado.**
 > **Nuevo 2026-08-24 (auditoría agentes):** **P36** creada (6 tareas AGT-01..06) desde revisión integral de AGENTS.md raíz + .opencode/AGENTS.md + global: fixes ya aplicados (root pointer-only, metadata stale, conteos skills), pendientes commit de diffs, verificación stats CodeGraph, refs file:line de deuda P2, limpieza opencode-loop corrupt/tmp, convención checkpoints paralelos, script anti-drift de refs.
+> **Nuevo 2026-08-30 (auditoría testing & benchmarking):** **P48** creada (23 tareas TBH-01..23) desde auditoría multi-agente (5 sub-agentes: research externas + tests Rust + benchmarks + datasets + CI/CD) ejecutada 2026-08-30, sesión `ses_fabf69692ffeP5c7mycKcsGSV0`. Plan completo en `docs/plans/2026-08-30-testing-bench-harden.md`. Decisiones del owner (D1-D7): estrategia conservadora (no VIBE/PQ/head-to-head/divan), scope = TODOS los 23 fixes, ci-gate universal (eliminar `if: schedule`), TS SDK diferido a `ISSUE-TS-001`. Distribución: **5 ALTA** (rompen 'replicable y funcional' — `verify_datasets.{sh,ps1}`, init bench baseline, fix ci-gate.yml:24, branches develop×6+release, gitignore data_*_bench/) + **10 MEDIA** (insta snapshots, cargo-mutants, wal_throughput.rs, crash_recovery.rs, convert bench_concurrent, bench-nightly cobertura 8 benches, data/README.md + datasets/README.md, SHA-pins faltantes, cliff.toml conventional_commits, audit-tokens consolidación) + **8 BAJA** (divan/loom/dhat eval, markdownlint pre-commit, ci-examples matrix, coverage threshold policy, release-binaries-tags trigger, fmt scope unify). Top 3 a atacar primero: **TBH-01** (verify_datasets — unmask silent skips), **TBH-02** (bench baseline — activar regresión nocturna), **TBH-03** (ci-gate — main rojo corta PRs).
 
 ---
 
@@ -252,10 +254,8 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | FIND-38 | Media | Ciclo Serialization (5 nodos): `get_string_field`↔`get_u64_field`↔`memory_record_from_node*`↔`VantaEmbedded.get` — consolidar helpers duplicados. Origen: codegraph-20260827-143245 Fase 1 | src/sdk/serialization/mod.rs, src/sdk/api.rs | 🟡 | 🟡 Media | Pendiente |
 | FIND-40 | Media | Drift docs/api vs firmas reales: 13 archivos en `docs/api/` (200KB+) — verificar `EMBEDDED_SDK.md`, `PYTHON_SDK.md`, `HTTP_API.md` contra código actual. Origen: codegraph-20260827-143245 Fase 11 | docs/api/*.md | 🟡 | 🟡 Media | Pendiente |
 | FIND-41 | Media | 6 clusters `src` fragmentados (cohesión 0.59-0.71): Leiden IDs 15,33,49,74,58,17 vs skills/desktop 0.97 — consolidar o documentar fronteras. Origen: codegraph-20260827-143245 Fase 1 | src/ (clusters Leiden) | 🟡 | 🟡 Media | Pendiente |
-| FIND-42 | Media | Boundary `src → skills` (173 llamadas): core llama a skills/agentes (impeccable, etc.) — inversión de dependencia semántica. Origen: codegraph-20260827-143245 Fase 1 | src/ → .agents/skills/ | 🟡 | 🟡 Media | Pendiente |
 | FIND-43 | Media | Ciclo CacheWarmer (3 nodos): builder pattern recursivo `new`→`with_config`→`with_config_and_cap` — aplanar a builder no recursivo. Origen: codegraph-20260827-143245 Fase 1 | src/cache_warmer.rs | 🟢 | 🟡 Media | Pendiente |
 | FIND-44 | Alta | Sin ADRs registrados: proyecto sin Architecture Decision Records — crear ADR inicial (PURPOSE, STACK, ARCHITECTURE, PATTERNS, TRADEOFFS, PHILOSOPHY). Origen: codegraph-20260827-143245 Fase 12 | Proyecto entero | 🟠 | 🔴 Alta | Pendiente |
-| FIND-45 | Media | `src → skills` violation semántica: dependencia core→agents skills (impeccable) — determinar si tooling leakage o diseño intencional. Origen: codegraph-20260827-143245 Fase 1/2 | src/ → .agents/skills/impeccable/* | 🟡 | 🟡 Media | Pendiente |
 | FIND-47 | Baja | `handle_tools_call` complejidad 295 (dispatcher MCP): match gigante 20+ brazos, 8 scans en loops batch — no hotspot algorítmico; si crece, extraer sub-dispatchers. Origen: codegraph-20260827-143245 Fase 5 | vantadb-mcp/src/handlers/tools.rs:549 | 🟢 | 🟢 Baja | Pendiente |
 
 
@@ -759,3 +759,66 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | `STABLE-07` | **Validar `vantadb-node` (npm, napi-rs)** — matrix 7 targets. Gates 5+8: `release-npm-node.yml` builds `x86_64-pc-windows-msvc` + Linux gnu/musl + macOS x64/arm64 + `npm test` 25 tests + `npm pack` incluye `*.node`. Medir tiempo matrix y asegurar sin `continue-on-error`. | `vantadb-node/package.json`, `vantadb-node/src/lib.rs`, `.github/workflows/release-npm-node.yml` | 🟡 1d | 🟠 Media | ⬜ Pendiente |
 | `STABLE-08` | **Medición Fast Gate con `default` ampliado** — Simular `default-members = [".","vantadb-python","vanta-memory","vanta-proxy","vantadb-server","vantadb-mcp","vantadb-wasm"]` en rama `test/default-all` + `just verify` / `dev-tools/verify.ps1` + `dev-tools/verify_changed.ps1` con cache fría. Registrar wall time por job y decidir si Fast Gate sigue `<5 min` o se re-etiqueta como Heavy (requiere justificación en CI_POLICY). | `Cargo.toml:636`, `dev-tools/verify.ps1`, `.github/workflows/ci-rust-10.yml` | 🟡 1d | 🔴 Alta | ⬜ Pendiente |
 | `STABLE-09` | **Promoción atómica + rollback plan** — Si `STABLE-00..08` verde en 3 corridas, PR único: `Cargo.toml:636 default-members` ampliado + `docs/operations/CI_POLICY.md` §default-members + `.opencode/rules/release-ci.md` + `dev-tools/verify.ps1` comentando que `wasm` requiere `rustup target add`; `git tag` no, `cargo publish` no afectado (`publish=false` sigue). Incluir rollback de 1 línea (revert `default-members`) en descripción del PR. | `Cargo.toml`, `docs/operations/CI_POLICY.md`, `dev-tools/verify.ps1` | 🟢 4h | 🔴 Alta | ⬜ Pendiente |
+---
+
+## Phase 48: 🧪 Testing & Benchmarking Hardening (auditoría multi-agente 2026-08-30)
+
+> **Origen:** Auditoría multi-agente ejecutada 2026-08-30 (sesión `ses_fabf69692ffeP5c7mycKcsGSV0`) — 5 sub-agentes investigaron en paralelo: (1) prácticas externas, (2) tests Rust actuales, (3) benchmarks, (4) datasets/data, (5) CI/CD + scripts. Plan completo: `docs/plans/2026-08-30-testing-bench-harden.md`. Decisiones D1-D7 registradas en el plan.
+>
+> **Estado del proyecto al inicio:** 2034 tests pasando / 1 skipped (TEST_MAP.md canónico), 19 benches criterion 0.8, 4 fuzz targets, Miri+ASan+TSan, llvm-cov 81.40% root (ADR-018 gate ≥80%), 17 GH Actions workflows con SHA-pins generalizados, release-plz con OIDC.
+>
+> **Top 3 a atacar primero:** **TBH-01** (verify_datasets — unmask silent skips en `tests/certification/*` que degradan Recall@10 sin que CI se queje), **TBH-02** (init bench baseline — `benchmarks/criterion_baseline.json` está vacío, primera ejecución nightly lo poblará), **TBH-03** (ci-gate — main rojo actualmente NO corta PRs por `if: schedule`).
+
+### 🔴 Prioridad ALTA — Rompen la promesa "replicable y funcional siempre que se pruebe"
+
+| ID | Descripción | Archivos clave | Esfuerzo | Prio | Estado |
+|----|-------------|----------------|----------|------|--------|
+| `TBH-01` | **verify_datasets.{sh,ps1} + CI gate** — Detectar `tests/certification/*` que skippearian sin datasets descargados. `cargo test --features test-bench-datasets -- --list 2>&1` → contar skips → exit 1 si >0. Hook como pre-test step en `heavy-certification-50.yml`. Sin esto: Recall@10 puede degradarse sin que CI se queje. | `scripts/verify_datasets.sh`, `scripts/verify_datasets.ps1`, `.github/workflows/heavy-certification-50.yml` | 🟢 4-6h | 🔴 | ⬜ Pendiente |
+| `TBH-02` | **Inicializar `benchmarks/criterion_baseline.json`** — Ejecutar `cargo bench --workspace` una vez (local o CI commit) + `scripts/bench_regression.py update-baseline benchmark_report_criterion.json`. Baseline actual: `"benchmarks": {}` (vacío desde 2026-06-18). Sin esto: `heavy-bench-nightly-51.yml` corre pero no compara nada. | `benchmarks/criterion_baseline.json`, `scripts/bench_regression.py` | 🟢 2-4h | 🔴 | ⬜ Pendiente |
+| `TBH-03` | **Fix `ci-gate.yml:24`** — Eliminar `if: inputs.event_name == 'schedule'`. Gate universal: corta TODOS los workflow_call invokers (fuzz, heavy-cert, heavy-bench) sobre main rojo. D3 confirmada con owner. | `.github/workflows/ci-gate.yml` (1-line change) | 🟢 30min | 🔴 | ⬜ Pendiente |
+| `TBH-04` | **Añadir `develop` a 6 workflows + `release.yml`** — `push.branches: [main, develop]` en: `ci-rust-10.yml`, `ci-web-11.yml`, `gate-docs-21.yml`, `ci-examples-12.yml`, `chaos-45.yml`, `perf-bench-40.yml`. Mismo para `release.yml` (release-plz-pr abre PRs en develop también). Sin esto: Dependabot PRs (target: develop) quedan sin CI. | 7 archivos workflow (1-line config c/u) | 🟢 1-2h | 🔴 | ⬜ Pendiente |
+| `TBH-05` | **`.gitignore` benchmark artifacts** — Añadir `benchmarks/data_comp_bench/`, `benchmarks/data_bench_db/`. `git rm --cached` para untrackear copias existentes (versionadas por error, ocupan decenas de MB). | `.gitignore`, `git rm --cached ...` | 🟢 30min | 🔴 | ⬜ Pendiente |
+
+### 🟡 Prioridad MEDIA — Mejoras de cobertura y calidad
+
+| ID | Descripción | Archivos clave | Esfuerzo | Prio | Estado |
+|----|-------------|----------------|----------|------|--------|
+| `TBH-06` | **`insta` 1.48.0 snapshots** — Añadir a `[dev-dependencies]`, migrar 3 parser tests + 2 query-result tests a `insta::assert_snapshot!`. Habilita detección de regresiones silenciosas. | `Cargo.toml`, `tests/logic/parser.rs`, `tests/.../query_result*.rs` | 🟡 1-2d | 🟠 | ⬜ Pendiente |
+| `TBH-07` | **`cargo-mutants` 27.1.0 weekly job** — Nuevo job `mutation-test` en `heavy-certification-50.yml` con `cargo mutants --check -p vantadb --timeout 120`. Gated por `workflow_dispatch` + `schedule weekly`. Mide calidad real de tests (no cobertura de líneas). | `.github/workflows/heavy-certification-50.yml` | 🟡 1-2d | 🟠 | ⬜ Pendiente |
+| `TBH-08` | **`benches/wal_throughput.rs`** — Sweep WAL on/off, fsync on/off, batch [1, 100, 1k, 10k]. Cierra gap crítico: `incremental_bench.rs` usa `skip_wal: true` en varias muestras. | `benches/wal_throughput.rs`, `Cargo.toml` | 🟡 1d | 🟠 | ⬜ Pendiente |
+| `TBH-09` | **`benches/crash_recovery.rs`** — Open + WAL replay cronometrado, sweep corpus size [100, 10k, 100k]. Cierra segundo gap crítico: no hay bench de crash recovery time. | `benches/crash_recovery.rs`, `Cargo.toml` | 🟡 1d | 🟠 | ⬜ Pendiente |
+| `TBH-10` | **Convertir `bench_concurrent.rs` a `criterion_main!`** — Reemplazar `fn main()` + custom `Instant::now()` con `criterion_group!` + `criterion_main!`. Sin esto: NO genera `estimates.json` → NO entra en regresión nocturna. | `benches/bench_concurrent.rs` | 🟢 2-3h | 🟠 | ⬜ Pendiente |
+| `TBH-11` | **Extender `heavy-bench-nightly-51.yml` a 8 benches** — Añadir `canonical_p99`, `memory_budget`, `incremental_bench`, `ivf_bench` al nightly matrix. Hoy solo corren 5/19. | `.github/workflows/heavy-bench-nightly-51.yml` | 🟢 1-2h | 🟠 | ⬜ Pendiente |
+| `TBH-12` | **`data/README.md` + `datasets/README.md`** — Tabla unificada: nombre, fuente URL, licencia, tamaño, SHA256 esperado, comando de descarga. Cross-link desde scripts existentes. | `data/README.md`, `datasets/README.md` | 🟢 4-6h | 🟠 | ⬜ Pendiente |
+| `TBH-13` | **SHA-pin remaining workflows** — `desktop.yml` (3 refs: checkout, setup-node, tauri-action) + `opencode.yml` (2 refs: checkout@v6, opencode@latest). Paralelo al patrón del resto de workflows. | `.github/workflows/desktop.yml`, `.github/workflows/opencode.yml` | 🟢 1h | 🟠 | ⬜ Pendiente |
+| `TBH-14` | **Fix `cliff.toml:15` `conventional_commits = true`** — Cambiar de `false` a `true` para matchear `commit_parsers` que parsea prefijos conventional (feat/fix/perf/etc). | `cliff.toml` | 🟢 15min | 🟠 | ⬜ Pendiente |
+| `TBH-15` | **Consolidar `scripts/audit-tokens.{sh,ps1}`** — Decidir: eliminar `.sh` (mantener `.ps1`) o consolidar como wrapper. Recomendado: eliminar `.sh`. | `scripts/audit-tokens.sh`, `scripts/audit-tokens.ps1` | 🟢 1h | 🟠 | ⬜ Pendiente |
+
+### 🟢 Prioridad BAJA — Nice to have (no bloquea)
+
+| ID | Descripción | Archivos clave | Esfuerzo | Prio | Estado |
+|----|-------------|----------------|----------|------|--------|
+| `TBH-16` | **Evaluar `divan` 0.1.21** — Port 1 micro-bench (e.g. `tokenizer_bench`) a divan para comparar DX vs criterion. Decidir keep/remove post-evaluación. D1: conservadora. | `Cargo.toml`, `benches/divan_*.rs` | 🟢 4h | 🟢 | ⬜ Pendiente |
+| `TBH-17` | **Evaluar `loom`** — Solo si se introducen nuevas primitivas de concurrencia. Hoy `concurrency_parity.rs` es suficiente. Documentar decisión en `docs/research/concurrency-testing-2026-08-30.md`. | — | 🟢 2h | 🟢 | ⬜ Pendiente |
+| `TBH-18` | **Evaluar `dhat` 0.3.3** — Añadir tras `--features dhat-heap`. 2 heap-usage asserts en tests existentes. Detecta regresiones de alloc. | `Cargo.toml`, `tests/memory/...` | 🟡 4-6h | 🟢 | ⬜ Pendiente |
+| `TBH-19` | **Markdownlint pre-commit hook** — Mirror de `gate-docs-21.yml` para feedback local antes de push. | `.pre-commit-config.yaml` | 🟢 1h | 🟢 | ⬜ Pendiente |
+| `TBH-20` | **`ci-examples-12.yml` Windows+macOS matrix** — Añadir `windows-latest` + `macos-latest` al matrix (hoy solo ubuntu). | `.github/workflows/ci-examples-12.yml` | 🟢 2h | 🟢 | ⬜ Pendiente |
+| `TBH-21` | **Documentar `CoverageThreshold=60` review cadence** — Entrada en `CI_POLICY.md` con periodicidad (quarterly). Source desde policy en lugar de hardcoded. | `CI_POLICY.md`, `dev-tools/gate-common.ps1` | 🟢 2h | 🟢 | ⬜ Pendiente |
+| `TBH-22` | **`release-binaries-63.yml` añadir `push tags v*`** — Trigger junto a `release published`. | `.github/workflows/release-binaries-63.yml` | 🟢 30min | 🟢 | ⬜ Pendiente |
+| `TBH-23` | **Unificar `cargo fmt --all` scope** — Decidir target scope (Justfile añadir `--all`? verify.ps1 quitar `--all`?). Canonical en `gate-common.ps1`. | `Justfile`, `dev-tools/verify.ps1`, `dev-tools/audit-all.ps1` | 🟢 1-2h | 🟢 | ⬜ Pendiente |
+
+### 📋 Tarea Diferida (out of scope de P48)
+
+| ID | Descripción | Por qué fuera |
+|----|-------------|---------------|
+| `ISSUE-TS-001` | **Fix TS SDK roto (80/219 tests con `unreachable!()` WASM)** | Pre-existente (snapshot-2026-08-07). Pertenece a capa de bindings (`vanta-worker`). D4: diferido a issue separado. |
+
+### 📌 Notas & Referencias
+
+- **Investigación origen:** sesión `ses_fabf69692ffeP5c7mycKcsGSV0` (5 sub-agentes en paralelo)
+- **Plan completo:** `docs/plans/2026-08-30-testing-bench-harden.md` (7 decisiones, 3 fases, riesgos, verificación)
+- **DoR / DoD:** `.opencode/references/definition-of-done.md` — aplicar a cada TASK-01..23
+- **Conventional Commits:** cada cierre usa `fix:`, `feat:`, `chore:`, `ci:` o `refactor:`
+- **Política `#[ignore]`:** según `.opencode/AGENTS.md:466` — no agregar ignores sin Issue `flaky`
+- **Estrategia datasets/benchmarks:** conservadora (no migrar a VIBE, no añadir PQ/i8, no comparativas head-to-head vs sqlite-vss/duckdb-vss) — ver D1 en plan
+- **Ejecución sugerida:** Phase 1 (ALTA) primero como PR único (gate `just verify` verde), luego Phase 2 (MED) en PRs paralelos por grupo (CI / benches / tests), finalmente Phase 3 (BAJA) en lote único
