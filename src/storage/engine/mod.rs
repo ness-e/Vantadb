@@ -530,6 +530,41 @@ fn mirror_data_dir(src: &std::path::Path, dst: &std::path::Path) -> std::io::Res
     Ok(())
 }
 
+/// Mirror the KV backend files into the snapshot (FIND-33).
+///
+/// The backend opens under the storage root (`<storage_path>/`, sibling of
+/// `data_dir` — see `init_storage`), so on a fresh layout the backend LSM
+/// files live directly under `storage_root`. We copy each top-level regular
+/// file into `<snap_root>/backend/`, preserving the sibling layout. The
+/// `.vanta.lock` file is intentionally NOT mirrored — the lock is process-
+/// local and must be acquired afresh by the next opener. Returns Ok(()) if the
+/// storage root is missing or has no backend files (InMemory engines store
+/// nothing on disk — see `init_storage`'s early return for `BackendKind::InMemory`).
+fn mirror_backend_to(
+    storage_root: &std::path::Path,
+    snap_root: &std::path::Path,
+) -> std::io::Result<()> {
+    if !storage_root.exists() {
+        return Ok(());
+    }
+    let dst = snap_root.join("backend");
+    std::fs::create_dir_all(&dst)?;
+    for entry in std::fs::read_dir(storage_root)? {
+        let entry = entry?;
+        let path = entry.path();
+        let name = entry.file_name();
+        // Skip `data/` (mirrored separately via mirror_data_dir) and the
+        // process-local lock file (must be acquired by the next opener).
+        if name == "data" || name == ".vanta.lock" {
+            continue;
+        }
+        if path.is_file() {
+            mirror_file(&path, &dst.join(&name))?;
+        }
+    }
+    Ok(())
+}
+
 impl StorageEngine {
     /// Create an instant filesystem snapshot of the live data directory.
     ///
@@ -556,13 +591,20 @@ impl StorageEngine {
     /// (if any appear in future layouts) are mirrored recursively; the
     /// engine-owned `snapshots/` directory is excluded.
     ///
-    /// Note: this captures `data_dir` only — the KV backend directory lives
-    /// beside `data_dir` under the storage root and relies on WAL replay on
-    /// reopen. Snapshots taken right after `compact_wal()` (which archives
-    /// WAL segments) cannot recover backend-only state.
+    /// Note: before FIND-33 this captured `data_dir` only — the KV backend
+    /// directory lives beside `data_dir` under the storage root, and a
+    /// snapshot taken after `compact_wal()` (which archives WAL segments) lost
+    /// any state that lived only in the backend KV (namespace_index,
+    /// internal_metadata, checkpoint_seq). The snapshot now also mirrors
+    /// the backend files into `<snap_dir>/backend/` (FIND-33) so the
+    /// captured set is mutually consistent: `data/` + `backend/` siblings
+    /// mirror the live layout under `storage_path/`. The `.vanta.lock` file
+    /// is intentionally excluded — the lock is process-local and must be
+    /// acquired by the next opener.
     ///
-    /// The snapshot mirrors the live layout (`<snap_dir>/data/...`) so it can
-    /// be reopened directly as a database via `VantaEmbedded::open`.
+    /// The snapshot mirrors the live layout (`<snap_dir>/data/...` and
+    /// `<snap_dir>/backend/...`) so it can be reopened directly as a database
+    /// via `VantaEmbedded::open`.
     #[cfg(unix)]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
         // Read-only engines have nothing in flight to quiesce, and flush()
@@ -584,7 +626,16 @@ impl StorageEngine {
             });
         }
 
+        // FIND-33: mirror data_dir first (preserves the existing FIND-25
+        // contract — recursive, skips the engine-owned `snapshots/` subtree),
+        // then mirror the backend KV files (siblings of data_dir under the
+        // storage root) into `<snap_dir>/backend/`. flush() above guarantees
+        // the backend has been persisted via `db.persist(SyncAll)` before we
+        // touch any file, so no writes are in-flight during the mirror and
+        // the captured set is mutually consistent.
+        let storage_root = self.data_dir.parent().unwrap_or(&self.data_dir);
         mirror_data_dir(&self.data_dir, &snap_data)?;
+        mirror_backend_to(storage_root, &snap_dir)?;
         Ok(FsSnapshot {
             path: snap_dir,
             created_at: std::time::Instant::now(),
@@ -594,10 +645,13 @@ impl StorageEngine {
     /// Create a filesystem snapshot (Windows/WASM fallback using copy).
     ///
     /// Same quiesce-then-image semantics as the Unix variant — see its
-    /// documentation for the consistency and performance trade-offs.
+    /// documentation for the consistency and performance trade-offs. In
+    /// particular (FIND-33), the snapshot also captures the backend KV files
+    /// under `<snap_dir>/backend/` so it survives a subsequent `compact_wal()`.
     ///
-    /// The snapshot mirrors the live layout (`<snap_dir>/data/...`) so it can
-    /// be reopened directly as a database via `VantaEmbedded::open`.
+    /// The snapshot mirrors the live layout (`<snap_dir>/data/...` and
+    /// `<snap_dir>/backend/...`) so it can be reopened directly as a database
+    /// via `VantaEmbedded::open`.
     #[cfg(any(windows, target_arch = "wasm32"))]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
         if !self.read_only {
@@ -617,7 +671,9 @@ impl StorageEngine {
             });
         }
 
+        let storage_root = self.data_dir.parent().unwrap_or(&self.data_dir);
         mirror_data_dir(&self.data_dir, &snap_data)?;
+        mirror_backend_to(storage_root, &snap_dir)?;
         Ok(FsSnapshot {
             path: snap_dir,
             created_at: std::time::Instant::now(),

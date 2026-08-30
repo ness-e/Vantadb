@@ -3,9 +3,11 @@
 ## Metadata
 - **Plan file:** docs/plans/2026-08-29-full-backlog-parallel.md (W25-1)
 - **Creado:** 2026-08-30T00:00
-- **last-synced:** 2026-08-30T00:00
-- **Estado:** ⬜ PENDING
+- **last-synced:** 2026-08-30T01:00
+- **Estado:** ✅ COMPLETED
 - **SDP:** performance-optimization, codebase-memory, campaign-executor (vanta-tuner no existe como skill — es agent leaf sin tools de git; tuning performed sin commit)
+- **Commit:** 0755c90e "perf: FIND-24 — Cursor cross-namespace + perf list_window"
+- **Files changed:** 7 (4 modified + 3 new)
 
 ## Blast Radius
 | Aspecto | Detalle |
