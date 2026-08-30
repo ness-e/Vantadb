@@ -40,8 +40,13 @@ pub struct L1DedupConfig {
     pub recall_top_k: usize,
     /// Prompt family: chat (persona/episodic/instruction) vs work types.
     pub prompt_mode: PromptMode,
-    /// Optional embedding hook for L1 writes (MEM-46). `None` (default)
-    /// keeps records vector-free — behavior identical to pre-MEM-46.
+    /// Optional embedding hook for L1 writes (MEM-46). `Some(hook)` enables
+    /// the D38 dual-pool semantic ranking in recall/dedup/query (MEM-47);
+    /// `None` keeps records vector-free — behavior identical to pre-MEM-46.
+    /// MEM-63 auto-on: with the `embed-local` feature compiled, the default
+    /// config wires `local_embedding_hook()` automatically; without the
+    /// feature the default is `None` (callers opt in with
+    /// [`Self::with_local_provider`] or [`Self::with_embed`]).
     pub embed: Option<EmbedFn>,
 }
 
@@ -56,11 +61,21 @@ impl std::fmt::Debug for L1DedupConfig {
 }
 
 impl Default for L1DedupConfig {
+    /// MEM-63 auto-on: with the `embed-local` feature compiled and a working
+    /// `LocalOnnxProvider` available (384-d fallback), the default config wires
+    /// `local_embedding_hook()` so callers get the D38 dual-pool path without
+    /// an explicit `.with_local_provider()` call. Without the feature the
+    /// default keeps `embed: None` (keyword-only, no provider available) so the
+    /// default build stays lean.
     fn default() -> Self {
+        #[cfg(feature = "embed-local")]
+        let embed = Some(crate::core::record::l1_writer::local_embedding_hook());
+        #[cfg(not(feature = "embed-local"))]
+        let embed = None;
         Self {
             recall_top_k: 5,
             prompt_mode: PromptMode::Chat,
-            embed: None,
+            embed,
         }
     }
 }
@@ -488,5 +503,31 @@ mod tests {
     fn with_local_provider_without_feature_stays_keyword_only() {
         let config = L1DedupConfig::default().with_local_provider();
         assert!(config.embed.is_none(), "without embed-local, no hook wired");
+    }
+
+    // MEM-63 auto-on: with_local_provider stays explicit; default() now
+    // wires the hook itself when the feature is compiled.
+
+    #[cfg(feature = "embed-local")]
+    #[test]
+    fn default_wires_local_provider_when_feature_on() {
+        let config = L1DedupConfig::default();
+        assert!(
+            config.embed.is_some(),
+            "MEM-63 auto-on: default must wire local_embedding_hook() when embed-local is compiled"
+        );
+        let hook = config.embed.unwrap();
+        let v = hook("hola mundo").expect("auto-on hook must produce vector");
+        assert_eq!(v.len(), 384, "multilingual-e5-small dim 384");
+    }
+
+    #[cfg(not(feature = "embed-local"))]
+    #[test]
+    fn default_stays_keyword_only_without_feature() {
+        let config = L1DedupConfig::default();
+        assert!(
+            config.embed.is_none(),
+            "without embed-local, default must stay keyword-only"
+        );
     }
 }

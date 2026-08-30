@@ -13,8 +13,12 @@
 //! run when the caller passes an [`crate::core::record::l1_writer::EmbedFn`]
 //! hook AND the pool carries vectors (D38 dual-pool ranking): records with a
 //! usable vector rank by cosine similarity, records without one keep the
-//! keyword-overlap gate — a legacy record is never dropped. Without a hook,
-//! everything degrades to keyword overlap exactly as before MEM-47.
+//! keyword-overlap gate — a legacy record is never dropped. With the
+//! `embed-local` feature compiled and a working [`LocalOnnxProvider`]
+//! available, [`crate::core::record::L1DedupConfig::default`] now wires
+//! `local_embedding_hook()` automatically (MEM-63 auto-on), so callers no
+//! longer need to call `.with_local_provider()` explicitly. Without the
+//! feature the call falls back to keyword overlap exactly as before MEM-47.
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
@@ -65,12 +69,18 @@ pub struct RecallResult {
 pub enum RecallMode {
     /// Keyword overlap over persisted L1 records (LLM-free).
     Keyword,
-    /// Embedding cosine similarity. Degrades to [`RecallMode::Keyword`] when
-    /// no embedding hook is supplied; with `embed-local` feature,
-    /// `L1DedupConfig::with_local_provider()` wires `LocalOnnxProvider` automatically.
+    /// Embedding cosine similarity. Runs whenever the caller supplied an
+    /// embedding hook AND the pool carries vectors (D38 dual-pool ranking).
+    /// Without a hook, the call falls back to [`RecallMode::Keyword`] and a
+    /// legacy record is never dropped (it still passes the keyword gate).
+    /// With the `embed-local` feature compiled and a working
+    /// [`LocalOnnxProvider`] available, [`crate::core::record::L1DedupConfig::default`]
+    /// wires `local_embedding_hook()` automatically (MEM-63 auto-on), so
+    /// callers no longer need `.with_local_provider()` for the dual-pool path
+    /// to engage.
     Embedding,
-    /// Keyword + embedding merged with RRF. Degrades to
-    /// [`RecallMode::Keyword`] when no embedding hook is supplied (same as `Embedding`).
+    /// Keyword + embedding merged with RRF. Same auto-on rules as
+    /// [`RecallMode::Embedding`] (D38 dual-pool keyword fallback preserved).
     Hybrid,
 }
 
