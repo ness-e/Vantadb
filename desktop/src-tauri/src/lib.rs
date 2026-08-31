@@ -44,6 +44,9 @@ pub struct AppState {
     /// [`vanta_memory::ingest::callback::IngestProgress`] snapshots here;
     /// the frontend polls them via the `vanta_wiki_status` command.
     pub progress: vanta_memory::ingest::callback::ProgressTracker,
+    /// Process-wide cache of loaded ONNX embedding providers (DESKTOP-EMBED-01).
+    /// Lazily populated by `vanta_embed_text`; no upfront cost on cold start.
+    pub embeddings: commands::embed::EmbeddingCache,
 }
 
 /// Drain any deep-link URLs buffered while the frontend was loading (VS-16).
@@ -88,6 +91,7 @@ pub fn run() {
         config: VantaConfig::default(),
         pending_deep_links: Arc::new(Mutex::new(Vec::new())),
         progress: Default::default(),
+        embeddings: Default::default(),
     };
 
     let mut builder = tauri::Builder::default();
@@ -188,6 +192,8 @@ pub fn run() {
             commands::memory::vanta_scene_read,
             commands::memory::vanta_scene_query,
             commands::memory::vanta_genlog_query,
+            commands::embed::vanta_embed_text,
+            commands::embed::vanta_embed_capabilities,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

@@ -569,6 +569,41 @@ export function auditEvents(opts?: {
   });
 }
 
+// --- Local embeddings (DESKTOP-EMBED-01) -----------------------------------
+// Wired through Tauri IPC only (no HTTP/WASM equivalent — the IPC command is
+// a thin wrapper over `vantadb::llm::LocalOnnxProvider` and is only available
+// inside the Tauri shell). When the desktop is run via plain browser / WASM
+// the command resolves to `Unsupported` and callers should degrade gracefully
+// (e.g. show a banner — see IngestForm "Sin vector" copy).
+
+export interface EmbeddingResult {
+  vector: number[];
+  dim: number;
+  model: string;
+  /** `"real"` when ONNX inference ran; `"dummy"` for the deterministic
+   *  hash-based fallback that keeps the default build green. */
+  source: "real" | "dummy";
+}
+
+export interface EmbedCapabilities {
+  embed_local_compiled: boolean;
+  default_model: string;
+  manifest: string;
+}
+
+/** Generate a dense embedding for `text` via the local ONNX provider.
+ *  `model` is optional — defaults to `multilingual-e5-small` per manifest.
+ *  Only available in the Tauri shell; reject = `Unsupported`. */
+export function embedText(text: string, model?: string): Promise<EmbeddingResult> {
+  return transport.call<EmbeddingResult>("vanta_embed_text", { text, model });
+}
+
+/** Capabilities probe for the UI banner: tells the frontend whether the
+ *  `embed-local` Cargo feature was compiled in. */
+export function embedCapabilities(): Promise<EmbedCapabilities> {
+  return transport.call<EmbedCapabilities>("vanta_embed_capabilities");
+}
+
 // --- Deep links `vanta://` (VS-16) ---------------------------------------------
 // Raw `vanta://` URLs are CLI-arg / OS-scheme input — treated as untrusted
 // (official deep-link docs warn fake links can be passed as plain args).

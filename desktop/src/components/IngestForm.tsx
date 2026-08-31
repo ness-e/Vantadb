@@ -1,5 +1,14 @@
-import { FormEvent, useRef, useState } from "react";
-import { get, ingest, IngestItem, vantaErrorMessage } from "../vanta";
+import { FormEvent, useEffect, useRef, useState } from "react";
+import {
+  embedCapabilities,
+  embedText,
+  EmbedCapabilities,
+  EmbeddingResult,
+  get,
+  ingest,
+  IngestItem,
+  vantaErrorMessage,
+} from "../vanta";
 
 interface Props {
   onDone: (ids: string[]) => void;
@@ -26,6 +35,27 @@ export default function IngestForm({ onDone, runError, onRefresh }: Props) {
   const [confirming, setConfirming] = useState(false);
   const pendingRef = useRef<IngestItem | null>(null);
 
+  // DESKTOP-EMBED-01: local ONNX embeddings surfaced to the UI.
+  const [caps, setCaps] = useState<EmbedCapabilities | null>(null);
+  const [embedding, setEmbedding] = useState<EmbeddingResult | null>(null);
+  const [embeddingBusy, setEmbeddingBusy] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    // Probe capabilities on mount. Falls back silently if the backend is not
+    // Tauri (browser / WASM build).
+    embedCapabilities()
+      .then((c) => {
+        if (!cancelled) setCaps(c);
+      })
+      .catch(() => {
+        if (!cancelled) setCaps(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   async function doIngest(item: IngestItem) {
     setBusy(true);
     try {
@@ -34,6 +64,7 @@ export default function IngestForm({ onDone, runError, onRefresh }: Props) {
       onRefresh?.();
       setId("");
       setText("");
+      setEmbedding(null);
       setError(null);
     } catch (err) {
       setError(vantaErrorMessage(err));
@@ -44,10 +75,32 @@ export default function IngestForm({ onDone, runError, onRefresh }: Props) {
     }
   }
 
+  async function handleGenerateEmbedding() {
+    if (!text.trim()) {
+      setError("Escribí texto antes de generar el embedding");
+      return;
+    }
+    setEmbeddingBusy(true);
+    setError(null);
+    try {
+      const result = await embedText(text);
+      setEmbedding(result);
+    } catch (err) {
+      setError(vantaErrorMessage(err));
+    } finally {
+      setEmbeddingBusy(false);
+    }
+  }
+
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     setError(null);
-    const item: IngestItem = { id: id || undefined, text, namespace: namespace || undefined };
+    const item: IngestItem = {
+      id: id || undefined,
+      text,
+      namespace: namespace || undefined,
+      embedding: embedding?.vector,
+    };
     // Sobrescribir es destructivo → confirmación explícita (P6). `get` lanza
     // NotFound si la key no existe → sin confirmación, crear nuevo.
     if (item.id) {
@@ -84,7 +137,11 @@ export default function IngestForm({ onDone, runError, onRefresh }: Props) {
           <span className={LABEL}>Contenido de texto</span>
           <textarea
             value={text}
-            onChange={(e) => setText(e.target.value)}
+            onChange={(e) => {
+              setText(e.target.value);
+              // El texto cambió → invalidar cualquier embedding previo
+              if (embedding) setEmbedding(null);
+            }}
             placeholder="Texto a recordar"
             rows={3}
             required
@@ -129,21 +186,50 @@ export default function IngestForm({ onDone, runError, onRefresh }: Props) {
             </button>
           </div>
         )}
-        <button
-          type="submit"
-          disabled={busy || confirming || !text.trim()}
-          className="press cursor-pointer self-start border-2 border-foreground bg-background px-2.5 py-1.5 text-sm disabled:cursor-default disabled:opacity-50"
-        >
-          {busy ? "Guardando…" : "Agregar registro"}
-        </button>
-        {/* DESKTOP-39 (Caso B): el core no genera embeddings localmente — ver
-            src/llm.rs (EmbeddingProvider → Ollama/OpenAI, feature remote-inference).
-            Documentar el límite en vez de fingir un botón "generar vector". */}
-        <p className="m-0 text-xs opacity-60" title="Los vectores requieren un proveedor externo configurado por variables de entorno">
-          Sin vector: el registro se guarda como texto. Para búsqueda semántica,
-          generá el embedding con un proveedor externo (Ollama u OpenAI —
-          VANTA_EMBEDDING_PROVIDER, VANTA_LLM_URL o VANTA_OPENAI_API_KEY).
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="submit"
+            disabled={busy || confirming || !text.trim()}
+            className="press cursor-pointer border-2 border-foreground bg-background px-2.5 py-1.5 text-sm disabled:cursor-default disabled:opacity-50"
+          >
+            {busy ? "Guardando…" : "Agregar registro"}
+          </button>
+          {/* DESKTOP-EMBED-01: generación de vector local vía IPC.
+              El botón sólo aparece cuando el shell Tauri expone el comando
+              (caps.embed_local_compiled = true) — el fallback "Sin vector"
+              sigue activo si la build se hizo sin `--features embed-local`. */}
+          {caps?.embed_local_compiled && (
+            <button
+              type="button"
+              onClick={() => void handleGenerateEmbedding()}
+              disabled={embeddingBusy || !text.trim() || busy}
+              className="press cursor-pointer border-2 border-foreground bg-background px-2.5 py-1.5 text-xs disabled:cursor-default disabled:opacity-50"
+              aria-label="Generar embedding local con ONNX"
+              title={`Genera un vector de ${caps.default_model ?? "384"} dimensiones vía ort+tokenizers`}
+            >
+              {embeddingBusy ? "Embebiendo…" : embedding ? "↻ Regenerar vector" : "Generar vector local"}
+            </button>
+          )}
+        </div>
+        {embedding && (
+          <p
+            className="m-0 border-2 border-foreground bg-card px-2 py-1.5 font-tech text-[10px]"
+            data-testid="embedding-summary"
+            data-source={embedding.source}
+            data-dim={embedding.dim}
+            data-model={embedding.model}
+          >
+            {embedding.source === "real" ? "✓" : "⚠"} vector {embedding.dim}d
+            {" "}({embedding.source === "real" ? "ONNX" : "dummy"}) — modelo {embedding.model}
+          </p>
+        )}
+        {!caps?.embed_local_compiled && (
+          <p className="m-0 text-xs opacity-60" title="El binario del desktop se compiló sin --features embed-local">
+            Sin vector: el registro se guarda como texto. Para búsqueda semántica local,
+            recompilá el desktop con <code>cargo tauri dev --features embed-local</code>
+            (o instalá un proveedor externo: Ollama u OpenAI).
+          </p>
+        )}
       </form>
     </section>
   );

@@ -42,6 +42,14 @@ vanta-memory = { path = "../../vanta-memory", default-features = false }
 tauri-plugin-deep-link = "2.4.9"
 tauri-plugin-single-instance = { version = "2.4.3", features = ["deep-link"] }
 
+# Local ONNX embeddings (DESKTOP-EMBED-01): opt-in via
+# `cargo tauri dev --features embed-local` (or build the same way). When off,
+# the IPC command `vanta_embed_text` falls back to a deterministic dummy so
+# the desktop still compiles and the UI can show a banner explaining why.
+[features]
+default = []
+embed-local = ["vantadb/embed-local"]
+
 [target.'cfg(unix)'.dependencies]
 # Signal delivery for graceful sidecar shutdown (SIGINT to the MCP child).
 libc = "0.2"

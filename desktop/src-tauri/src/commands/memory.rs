@@ -467,6 +467,7 @@ mod tests {
                 config: vantadb::config::VantaConfig::default(),
                 pending_deep_links: Default::default(),
                 progress: ProgressTracker::default(),
+                embeddings: Default::default(),
             },
             dir,
         )
