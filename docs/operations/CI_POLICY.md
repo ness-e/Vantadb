@@ -310,6 +310,31 @@ report by default, so test code itself is not counted toward the threshold.
 threshold) only when `cargo-llvm-cov` is installed; otherwise it prints a warning and continues, so
 the default local `just verify` flow is never blocked by a missing tool.
 
+#### Coverage Threshold Review Cadence (TBH-21)
+
+The `CoverageThreshold=60` floor lives in `dev-tools/verify.ps1:49` as a literal. Without an
+explicit review cadence, the number can drift silently over time. This section anchors the policy
+so future audits can detect drift.
+
+| Field | Value |
+|-------|-------|
+| **Coverage threshold** | `60%` (line-coverage floor, P2-06 initial value) |
+| **Review cadence** | **Quarterly** (every 90 days) |
+| **Last reviewed** | 2026-08-30 (TBH-21 — multi-agent audit 2026-08-30) |
+| **Next review due** | 2026-11-28 (or earlier if a coverage regression is observed) |
+| **Owner** | `vanta-lead` (release/CI orchestrator) |
+| **Source of truth** | This section of `docs/operations/CI_POLICY.md` |
+
+**What "review" means:** at each quarterly checkpoint, run the coverage gate against the current
+`main`/`develop` tip and compare the measured line-coverage against the `60%` floor. If measured
+coverage has climbed materially (e.g. ≥+5 points) the floor should ratchet upward per the
+"escalation policy" above. If the floor needs to be lowered (regression), it requires a documented
+justification (ADR or PR description) and the same owner sign-off as the original threshold.
+
+**What does NOT change here:** `dev-tools/verify.ps1:49` continues to hold the literal `60`. This
+section is the single source of truth for the review schedule; the script comment at line 48
+already points back to `CI_POLICY.md`.
+
 **Policy decision (COV-004, 2026-08-09):** the strategic coverage policy — root crate vs workspace
 aggregate vs per-runner binding measurement — is decided in
 [ADR-015](../architecture/adr/ADR-015-coverage-policy.md) (accepted, owner TBD). In force:
