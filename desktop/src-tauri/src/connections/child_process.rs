@@ -1,7 +1,7 @@
 //! Sidecar MCP spawner for the desktop app (DESKTOP-11, Fase 3).
 //!
-//! Locates the `vantadb-server` binary and launches it in MCP-jsonrpc-server
-//! (`--mcp`) mode as a child process with:
+//! Locates the `vanta-cli` binary and launches it in MCP-jsonrpc-server mode
+//! (`vanta-cli server --mcp --db <path>`) as a child process with:
 //!   - stdin/stdout piped (reserved for the MCP JSON-RPC protocol),
 //!   - stderr teed into a per-process log file under `std::env::temp_dir()`
 //!     named `vantadb-mcp-<pid>.log`,
@@ -11,6 +11,14 @@
 //!
 //! The child is a trust boundary — all user/path handling below avoids `.unwrap`
 //! on external input, and `Drop` guarantees a clean kill.
+//!
+//! ## Canonical launcher (2026-08)
+//!
+//! The legacy `vantadb-server` binary is no longer shipped by this workspace —
+//! `vanta-cli server --mcp` is the canonical entry point (see
+//! `src/bin/vanta-cli.rs:200` and `docs/api/MCP.md`). The legacy `EXE`
+//! constant + `locate_binary()` fallback chain keep this file green for any
+//! third-party packaging that still drops a `vantadb-server` next to the app.
 
 use std::io::Write as _;
 use std::path::{Path, PathBuf};
@@ -24,56 +32,76 @@ use crate::error::VantaError;
 pub const SPAWN_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
 /// Substring the sidecar's stderr emits once the MCP loop is accepting input.
-/// Matches `init_telemetry` → `run_stdio_server`'s `info!("MCP stdio server started")`.
+/// Matches `vantadb_mcp::server: MCP stdio server started`.
 const READY_MARKER: &str = "MCP stdio server started";
 
+/// Canonical binary name (Windows + Unix). The legacy `vantadb-server` name is
+/// only kept as a fallback candidate inside [`locate_binary`].
 #[cfg(windows)]
-const EXE: &str = "vantadb-server.exe";
+const CANONICAL_EXE: &str = "vanta-cli.exe";
 #[cfg(not(windows))]
-const EXE: &str = "vantadb-server";
+const CANONICAL_EXE: &str = "vanta-cli";
 
-/// Resolve the `vantadb-server` binary path, best-effort.
+/// Legacy binary name (only used as a fallback if `vanta-cli` is not found).
+#[cfg(windows)]
+const LEGACY_EXE: &str = "vantadb-server.exe";
+#[cfg(not(windows))]
+const LEGACY_EXE: &str = "vantadb-server";
+
+/// Resolve the canonical `vanta-cli` binary path, best-effort.
 ///
 /// Candidate order:
-/// 1. `VANTADB_SERVER_BIN` env override (explicit — used in CI/packaging).
-/// 2. Next to the current executable (Tauri-bundled sidecar in release): the
-///    path the app ships alongside its own binary.
-/// 3. Dev builds: `$CARGO_MANIFEST_DIR/{../,../../}/target/debug/vantadb-server`
-///    (the desktop workspace has its own `[workspace]`, so the repo-root target
-///    lives at `../../target`).
+/// 1. `VANTADB_CLI_BIN` env override (explicit — used in CI/packaging).
+/// 2. Legacy `VANTADB_SERVER_BIN` env override (back-compat for third-party
+///    bundlers that still drop the old `vantadb-server` next to the app).
+/// 3. Bundled sidecar next to the running executable (Tauri release): the path
+///    the app ships alongside its own binary. Looks for `vanta-cli` first,
+///    then falls back to the legacy `vantadb-server` name.
+/// 4. Dev builds: `$CARGO_MANIFEST_DIR/{../,../../}/target/{debug,release}/<exe>`
+///    — the desktop workspace has its own `[workspace]`, so the repo-root
+///    target lives at `../../target`.
 ///
 /// Returns `None` when nothing exists — callers must not `.unwrap()` this.
 pub fn locate_binary() -> Option<PathBuf> {
+    // 1. Explicit env override (canonical name).
+    if let Some(p) = std::env::var_os("VANTADB_CLI_BIN").map(PathBuf::from) {
+        if p.is_file() {
+            return Some(p);
+        }
+    }
+    // 2. Legacy env override (third-party packaging that still uses the old name).
     if let Some(p) = std::env::var_os("VANTADB_SERVER_BIN").map(PathBuf::from) {
         if p.is_file() {
             return Some(p);
         }
     }
 
-    // Bundled sidecar next to the running executable (Tauri pattern).
+    // 3. Bundled sidecar next to the running executable (Tauri pattern).
     if let Ok(exe) = std::env::current_exe() {
         if let Some(dir) = exe.parent() {
-            let side = dir.join(EXE);
-            if side.is_file() {
-                return Some(side);
+            for candidate in [CANONICAL_EXE, LEGACY_EXE] {
+                let side = dir.join(candidate);
+                if side.is_file() {
+                    return Some(side);
+                }
             }
         }
     }
 
-    // Dev: relative to the desktop crate manifest.
-    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-        .join("target")
-        .join("debug")
-        .join(EXE);
-    let candidates = [
-        // desktop/src-tauri/target/debug  (own workspace)
-        manifest.clone(),
-        // repo-root target: desktop/src-tauri/../../target/debug
-        PathBuf::from(env!("CARGO_MANIFEST_DIR"))
-            .join("../../target/debug")
-            .join(EXE),
-    ];
-    candidates.into_iter().find(|p| p.is_file())
+    // 4. Dev: relative to the desktop crate manifest (debug + release).
+    let manifest = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    for profile in ["debug", "release"] {
+        for candidate in [CANONICAL_EXE, LEGACY_EXE] {
+            let paths = [
+                manifest.join("target").join(profile).join(candidate),
+                manifest.join("../../target").join(profile).join(candidate),
+            ];
+            if let Some(p) = paths.into_iter().find(|p| p.is_file()) {
+                return Some(p);
+            }
+        }
+    }
+    None
 }
 
 /// A running sidecar MCP child process.
@@ -86,14 +114,14 @@ pub struct McpSpawn {
 }
 
 impl McpSpawn {
-    /// Locate and spawn the sidecar in `--mcp` mode, waiting (bounded) for it to
-    /// become ready. On failure the child is killed and a `VantaError::Mcp` is
-    /// returned — never a panic.
-    pub async fn spawn() -> Result<Self, VantaError> {
+    /// Locate and spawn the sidecar in MCP mode (`<bin> server --mcp --db <path>`),
+    /// waiting (bounded) for it to become ready. On failure the child is killed
+    /// and a `VantaError::Mcp` is returned — never a panic.
+    pub async fn spawn(db_path: PathBuf) -> Result<Self, VantaError> {
         let bin = locate_binary().ok_or_else(|| {
             VantaError::Mcp(
-                "vantadb-server binary not found; build it (cargo build -p vantadb-server at \
-                 repo root) or set VANTVADB_SERVER_BIN"
+                "vanta-cli binary not found; build it (cargo build --release --features \
+                 embed-local --bin vanta-cli at repo root) or set VANTADB_CLI_BIN"
                     .into(),
             )
         })?;
@@ -106,8 +134,14 @@ impl McpSpawn {
             .open(&log_path)
             .map_err(|e| VantaError::Io(format!("open sidecar log {}: {e}", log_path.display())))?;
 
+        // Canonical command: <bin> server --mcp --db <path>. The legacy `vantadb-server`
+        // binary, if located, also accepts the same args — see the back-compat comment
+        // in `locate_binary`.
         let mut child = Command::new(&bin)
+            .arg("server")
             .arg("--mcp")
+            .arg("--db")
+            .arg(&db_path)
             .stdin(std::process::Stdio::piped())
             .stdout(std::process::Stdio::piped())
             .stderr(std::process::Stdio::piped())
@@ -174,13 +208,12 @@ impl McpSpawn {
     /// Request a shutdown: close the child's stdin (graceful) and wait up to
     /// `grace`, then force-kill as a backstop. Graceful works on every platform
     /// because the sidecar's MCP loop reads stdin and exits on EOF — see
-    /// `vantadb-mcp run_stdio_server` (`Ok(None) => break`), after which
-    /// `vantadb-server`'s `main` flushes the storage engine.
+    /// `vantadb_mcp::server run_stdio_server` (`Ok(None) => break`), after
+    /// which `vanta-cli server --mcp` flushes the storage engine.
     pub async fn request_shutdown(&mut self, grace: std::time::Duration) -> Result<(), VantaError> {
         // 1. Graceful stop, cross-platform: dropping the write end of the stdin
         //    pipe sends EOF to the sidecar's MCP loop, which breaks out and lets
-        //    the storage engine flush (vantadb-server main.rs flushes after
-        //    `run_stdio_server` returns) — never a forced kill that could drop
+        //    the storage engine flush — never a forced kill that could drop
         //    in-flight metadata. This is the only per-process graceful path on
         //    Windows, which has no deliverable signal (see [`send_graceful_stop`]).
         drop(self.child.stdin.take());
@@ -222,8 +255,8 @@ impl McpSpawn {
 }
 
 /// Best-effort graceful stop signal. The sidecar's MCP loop shuts down on
-/// SIGINT (vantadb-mcp `run_stdio_server` -> `tokio::signal::ctrl_c`), so
-/// SIGINT — not SIGTERM — is the signal that reaches its flush path.
+/// SIGINT (`vantadb_mcp::server run_stdio_server` -> `tokio::signal::ctrl_c`),
+/// so SIGINT — not SIGTERM — is the signal that reaches its flush path.
 ///
 /// Unix-only: Windows has no per-process signal (`GenerateConsoleCtrlEvent`
 /// only delivers Ctrl-C to processes sharing the caller's console and, per
@@ -249,24 +282,25 @@ impl Drop for McpSpawn {
 mod tests {
     use super::*;
 
+    /// Canonical name matches the platform.
     #[test]
-    fn binary_suffix_matches_platform() {
+    fn canonical_binary_suffix_matches_platform() {
         #[cfg(windows)]
-        assert_eq!(EXE, "vantadb-server.exe");
+        assert_eq!(CANONICAL_EXE, "vanta-cli.exe");
         #[cfg(not(windows))]
-        assert_eq!(EXE, "vantadb-server");
+        assert_eq!(CANONICAL_EXE, "vanta-cli");
     }
 
-    /// Unit-level: `locate_binary` never panics and either finds the built
-    /// binary or returns None (documented skip). If it returns Some, it must be
-    /// an existing file.
+    /// Unit-level: `locate_binary` never panics and either finds a built
+    /// binary (canonical first, legacy as fallback) or returns None
+    /// (documented skip). If it returns Some, it must be an existing file.
     #[test]
     fn locate_binary_returns_existing_file_or_none() {
         match locate_binary() {
             Some(p) => assert!(p.is_file(), "resolved binary must exist: {}", p.display()),
             None => eprintln!(
-                "skipping binary-location assertion (vantadb-server not built; \
-                 build it at the repo root target)"
+                "skipping binary-location assertion (vanta-cli not built; \
+                 build it at the repo root with --features embed-local)"
             ),
         }
     }

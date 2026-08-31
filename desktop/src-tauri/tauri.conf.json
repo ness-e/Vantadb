@@ -59,7 +59,7 @@
       }
     },
     "resources": {
-      "binaries/vantadb-server.exe": "."
+      "binaries/vanta-cli.exe": "."
     }
   }
 }
