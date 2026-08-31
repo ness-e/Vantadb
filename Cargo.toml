@@ -261,6 +261,10 @@ harness = false
 name = "memory_budget"
 harness = false
 
+[[bench]]
+name = "wal_throughput"
+harness = false
+
 [[bin]]
 name = "vanta-cli"
 path = "src/bin/vanta-cli.rs"
