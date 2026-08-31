@@ -281,3 +281,36 @@ Each TASK closes when:
 - **Plan file archived** after completion to `docs/plans/archive/2026-08-30-testing-bench-harden.md`
 - **Progress doc:** `docs/avance/activo/testing-bench-harden.md` (created on first task)
 - **Related research:** `docs/research/audit-testing-benchmarks-2026-08-30.md` (to be written after TASK-12 completes the data docs)
+
+=== RECITATION TBH-03 ===
+Campaign ID: 6ace02cd-7e74-4b23-9d55-bb32222eee13
+Objetivo activo: TBH-03: 1-line removal of `if: schedule` from ci-gate.yml
+Estado: completed
+Última acción: Commit 72b98dc6 on develop. Pre-commit actionlint passed. 1 deletion in ci-gate.yml. Task file created.
+Resultado: ✅ COMPLETO
+Próxima acción: Hand off. Orchestrator should pick up TBH-04 (add `develop` to 6 workflows + release.yml) next.
+Contrato: All 6 acceptance criteria met: line 24 removed, YAML parses, actionlint ok, 3 invocadores untouched, no ADR, conventional commit ci(TBH-03):
+Próxima tarea si completa: TBH-04
+=== END RECITATION ===
+
+=== RECITATION TBH-04 ===
+Campaign ID: 99ec94fc-370d-456a-8776-180b67de9bc1
+Objetivo activo: TBH-04: add develop to 6 workflows + release.yml to align with dependabot target-branch (D6)
+Estado: completed
+Última acción: git commit abcce28f - 8 files changed (7 workflows + task file), pre-commit actionlint passed
+Resultado: ✅
+Próxima acción: TBH-10 (convert bench_concurrent) or another independent task — next wave task, handoff to orquestador
+Contrato: grep -L develop on 7 files = empty; python yaml.safe_load utf-8 on all 7 = OK; actionlint via pre-commit hook = ok; pull_request.branches untouched; out-of-scope workflows (release-npm-*, release-wheels-*, sec-codeql-30, ci-rustdoc, desktop) unchanged
+Próxima tarea si completa: TBH-10 (or next independent parallel task per orquestador assignment)
+=== END RECITATION ===
+
+=== RECITATION TBH-13 ===
+Campaign ID: 6ace02cd-7e74-4b23-9d55-bb32222eee13
+Objetivo activo: TBH-13: SHA-pin remaining 5 third-party action refs in desktop.yml + opencode.yml (D5)
+Estado: completed
+Última acción: git commit 42141706 on develop. 6 line changes (5 audit-named + 1 bonus actions/upload-artifact for empty-grep contract), pre-commit actionlint ok, conventional commit ci(TBH-13):.
+Resultado: ✅ COMPLETO
+Próxima acción: handoff to orquestador. Próxima tarea candidata: TBH-10 / TBH-12 / TBH-14 (any wave-2 phase-2 task).
+Contrato: grep -E "@(v[0-9]+|@latest)" desktop.yml opencode.yml → empty (Select-String exit 1 = no match); python yaml.safe_load → OK; actionlint → 0 errors; 5 SHA-pins per acceptance criteria + 1 bonus upload-artifact; SHAs verified via gh api git/commits/<sha> (tauri-action@v1 dereferenced from annotated tag 944946e3... → commit 1deb371b...); no other workflow touched.
+Próxima tarea si completa: TBH-10 / TBH-12 / TBH-14 (next wave parallel task per orquestador)
+=== END RECITATION ===
