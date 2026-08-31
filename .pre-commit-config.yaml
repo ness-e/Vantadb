@@ -32,3 +32,13 @@ repos:
       - id: prettier
         files: '^web/.*\.(js|jsx|ts|tsx|css|scss|json|md|mdx)$'
         exclude: '^web/(\.next|node_modules)/|^web/package-lock\.json$'
+
+  # ── Docs (docs/) — mirror local de gate-docs-21.yml ──────────────────────
+  - repo: https://github.com/DavidAnson/markdownlint-cli2
+    # v0.23.2 = latest stable. v0.23.0+ requiere Node ≥ 22 (EOL Node 20/18).
+    rev: v0.23.2
+    hooks:
+      - id: markdownlint-cli2
+        # Mismo scope que CI (`docs/**/*.md` en gate-docs-21.yml) pero
+        # filtrado por staged files. NO --fix: hook es gate, no formatter.
+        files: '^docs/.*\.mdx?$'
