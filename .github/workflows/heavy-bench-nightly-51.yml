@@ -60,6 +60,18 @@ jobs:
       - name: Run concurrent benchmarks
         run: cargo bench --bench bench_concurrent -- --nocapture 2>&1 | tee nightly_concurrent_results.txt
 
+      - name: Run canonical_p99 benchmarks
+        run: cargo bench --bench canonical_p99 -- --nocapture 2>&1 | tee nightly_canonical_p99_results.txt
+
+      - name: Run memory_budget benchmarks
+        run: cargo bench --bench memory_budget -- --nocapture 2>&1 | tee nightly_memory_budget_results.txt
+
+      - name: Run incremental_bench benchmarks
+        run: cargo bench --bench incremental_bench -- --nocapture 2>&1 | tee nightly_incremental_bench_results.txt
+
+      - name: Run ivf_bench benchmarks
+        run: cargo bench --bench ivf_bench -- --nocapture 2>&1 | tee nightly_ivf_bench_results.txt
+
       - name: Upload light results
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
