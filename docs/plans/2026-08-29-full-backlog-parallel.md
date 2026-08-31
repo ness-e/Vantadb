@@ -1278,10 +1278,41 @@ STABLE-01..07 (validación crates) ─┬─→ STABLE-08 (gate ampliado, SOLO 1
 - **Gate Result:** ✅ DO — **SOLO** (rediseño layout snapshot, toca storage)
 - **Contrato:** `cargo test -p vantadb --test snapshot_consistency 2>&1 | Select-String "ok|PASS" | Measure-Object Count` >=1 AND `Select-String -Path "src/storage/engine/mod.rs" -Pattern "backend.*snapshot|snapshot.*backend" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/FIND-33.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-08-30 — vanta-engine; staged para vanta-lead commit per regla de rol)
 - **Pre-mortem:** copiar backend o moverlo bajo data_dir — escalado desde FIND-25, fix layout crítico
 - **Cynefin:** 🟧 Complejo
 - **Uphill/Downhill:** ⬆️ 2 (layout decisión) · ⬇️ 2
+- **Resultado (2026-08-30 verify):**
+  - **Contrato 1**: `cargo test -p vantadb --test snapshot_consistency 2>&1 | Select-String "ok|PASS" | Measure-Object | Select-Object Count` = **3** (≥1) ✅ (2 passed in test + runner output "2 passed; 0 failed")
+  - **Contrato 2**: `Select-String -Path "src/storage/engine/mod.rs" -Pattern "backend.*snapshot|snapshot.*backend" | Measure-Object | Select-Object Count` = **2** (≥1) ✅
+  - **Sub-tests**:
+    - `snapshot_captures_backend_kv_state_after_compact_wal` — RED pre-fix (backend dir missing) → GREEN post-fix (snapshot now mirrors `<snap>/backend/` from Fjall LSM files)
+    - `snapshot_directory_layout_contains_both_data_and_backend` — layout invariant test (passes both pre/post, but tighter contract post-fix)
+  - **Regresión**: `cargo test -p vantadb --lib --features fjall` subset
+    - `storage::engine::tests::init` (37/37 passed) ✅
+    - `snapshot` tests (13/13 passed) ✅
+    - `flush` tests (25/25 passed) ✅
+    - `tests/fjall_cold_copy_restore.rs` (1/1 passed) ✅
+  - **fmt**: `cargo fmt --check -p vantadb` exit 0 ✅
+  - **clippy**: `cargo clippy -p vantadb --features fjall --tests` exit 0 ✅ (1 warning pre-existente en `src/config.rs:1767` — `assert!(MAX_K >= 1_000, ...)` de WSM-09 — verificado pre-existente con `git stash`; FUERA de scope FIND-33)
+- **Decisión arquitectónica (pre-mortem resuelto con evidencia):**
+  1. **Layout elegido**: `<snap_root>/data/` + `<snap_root>/backend/` siblings (NO `<snap>/data/backend/` nested). Mirror del layout vivo: `init_storage` (init.rs:298) crea `data_dir = base_path.join("data")` mientras que `FjallBackend::open` (init.rs:287) abre en `base_path` raíz → siblings en storage_path.
+  2. **NO mover backend bajo data_dir**: backward compat preservada. `init_storage` intacto.
+  3. **NO tocar `snapshot_restore`**: el backend live en `storage_root/` no se renombra (swap es solo sobre `data/`). El restore funciona porque: (a) backend live sigue accesible en `storage_root/`, (b) `data/` restaurado contiene WAL archivado post-`compact_wal()`, (c) el replay + backend checkpoint_seq reconstruyen namespace state.
+  4. **Skip `data/` y `.vanta.lock` en mirror_backend_to**: `data/` ya se copia por `mirror_data_dir` (evita duplicación); `.vanta.lock` es process-local — el próximo opener debe adquirirlo afresh.
+  5. **InMemoryBackend skip**: `init_storage` retorna `data_dir = PathBuf::new()` para InMemory → `data_dir.parent()` inválido. `mirror_backend_to` chequea `storage_root.exists()` (return Ok(()) si no existe — Ponytail safe default).
+- **Archivos modificados (3):**
+  - `src/storage/engine/mod.rs`: nuevo helper `mirror_backend_to(storage_root, snap_root)` (~30L) + llamadas en ambos variants de `create_snapshot` (Unix + Win/WASM) + doc-comment actualizado (FIND-33 mention + new layout invariant).
+  - `tests/snapshot_consistency.rs` (NEW, 152L): 2 integration tests TDD-driven (RED→GREEN).
+  - `.opencode/skills/campaign-executor/tasks/FIND-33.md` (this task file): impact mapping + spec + decision rationale.
+- **Notas vanta-engine 2026-08-30:**
+  - **NO se commitea** (regla de rol "vanta-engine no hace commit"). vanta-engine stageó los 3 archivos para que vanta-lead integre en su próximo commit `fix: FIND-33 — Snapshot captura backend KV (consistency reopen)`.
+  - **Regla 6 (deuda técnica)**: saldo **neto positivo** (0 deuda nueva + comentario `FIND-33` en doc-comment de `create_snapshot` documenta el cambio para futuros lectores).
+  - **Sin perf claim** (snapshot no es hot path; benchmark N/A per Regla 9).
+  - **Compatibilidad**: snapshots viejos (sin `backend/`) siguen funcionando porque `snapshot_restore` no toca el backend live. Documentado en commit message que vanta-lead debe agregar.
+  - **Hardware**: hard links en Unix (O(1)) preservan performance; copy fallback en Windows ya estaba implementado (`mirror_file`).
+  - **Pre-mortem materializado**: Fallo 4 (`discovery_seq` checkpoint stale) mitigado por `flush()` antes del imageo (maintenance.rs:36-132 + `db.persist(SyncAll)` en fjall_backend.rs:243). Fallo 2 (size cost) no materializado — hard links en Unix + LSM files típicamente <10MB.
+- **Recitation:** result=OK (job previo ejecutado por vanta-engine; el fix ya está staged para que vanta-lead integre el commit).
 
 ---
 

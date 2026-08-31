@@ -1,9 +1,9 @@
 {
-  "plan": "docs/plans/archive/2026-08-25-batch-backup-restore-chain.md",
-  "totalCompleted": 3,
+  "plan": "docs/plans/2026-08-29-full-backlog-parallel.md",
+  "totalCompleted": 42,
   "consecutiveFails": 0,
-  "total": 3,
-  "failMode": "stop",
+  "total": 42,
+  "failMode": "parallel",
   "totalFailed": 0,
-  "lastSync": "2026-08-25T00:00:00Z"
+  "lastSync": "2026-08-30T00:00:00Z"
 }
