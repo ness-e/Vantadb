@@ -231,6 +231,12 @@ jobs:
         with:
           swap-mb: 4096
           free-disk: true
+      # TBH-01: pre-test gate — fail fast if expected datasets are missing.
+      # Without this, certification tests silently skip and Recall@10 can
+      # regress without CI noticing. Runs before the download step so a
+      # missing dataset surfaces the diagnostic table immediately.
+      - name: Verify required benchmark datasets (TBH-01)
+        run: bash scripts/verify_datasets.sh
       - name: Download benchmark datasets
         run: bash scripts/download_benchmark_datasets.sh
       - name: Run remaining heavy tests
