@@ -36,7 +36,7 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('rebuild-index', 'rebuild-index', [CompletionResultType]::ParameterValue, 'Rebuild all database indexes (HNSW, text index, derived indexes)')
             [CompletionResult]::new('audit-index', 'audit-index', [CompletionResultType]::ParameterValue, 'Validate text index integrity without repairing')
             [CompletionResult]::new('repair-text-index', 'repair-text-index', [CompletionResultType]::ParameterValue, 'Repair text index if inconsistencies are detected')
-            [CompletionResult]::new('export', 'export', [CompletionResultType]::ParameterValue, 'Export records to a JSON file')
+            [CompletionResult]::new('export', 'export', [CompletionResultType]::ParameterValue, 'Export records to a file (jsonl) or to a directory of Markdown files with JSON frontmatter (--format md, git-friendly, round-trips with `vanta-seed import-md`)')
             [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Import records from a JSON file')
             [CompletionResult]::new('query', 'query', [CompletionResultType]::ParameterValue, 'Execute a structured query (IQL/hybrid)')
             [CompletionResult]::new('status', 'status', [CompletionResultType]::ParameterValue, 'Display database health diagnostics and system status')
@@ -135,14 +135,15 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
         }
         'vanta-cli;export' {
             [CompletionResult]::new('--namespace', '--namespace', [CompletionResultType]::ParameterName, 'Optional namespace to export (exports all if not specified)')
-            [CompletionResult]::new('--out', '--out', [CompletionResultType]::ParameterName, 'Output file path')
+            [CompletionResult]::new('--out', '--out', [CompletionResultType]::ParameterName, 'Output path: file for `--format jsonl` (default), directory for `--format md`')
+            [CompletionResult]::new('--format', '--format', [CompletionResultType]::ParameterName, 'Export format. `jsonl` writes one record per line to a file (default, backwards-compatible). `md` writes one file per record under `<out>/<namespace>/<key>.md` with JSON frontmatter; the directory is git-friendly and round-trips with `vanta-seed import-md`')
             [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
             [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or ''./db'' if neither is set')
             [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
-            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
             break
         }
         'vanta-cli;import' {
@@ -575,7 +576,7 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('rebuild-index', 'rebuild-index', [CompletionResultType]::ParameterValue, 'Rebuild all database indexes (HNSW, text index, derived indexes)')
             [CompletionResult]::new('audit-index', 'audit-index', [CompletionResultType]::ParameterValue, 'Validate text index integrity without repairing')
             [CompletionResult]::new('repair-text-index', 'repair-text-index', [CompletionResultType]::ParameterValue, 'Repair text index if inconsistencies are detected')
-            [CompletionResult]::new('export', 'export', [CompletionResultType]::ParameterValue, 'Export records to a JSON file')
+            [CompletionResult]::new('export', 'export', [CompletionResultType]::ParameterValue, 'Export records to a file (jsonl) or to a directory of Markdown files with JSON frontmatter (--format md, git-friendly, round-trips with `vanta-seed import-md`)')
             [CompletionResult]::new('import', 'import', [CompletionResultType]::ParameterValue, 'Import records from a JSON file')
             [CompletionResult]::new('query', 'query', [CompletionResultType]::ParameterValue, 'Execute a structured query (IQL/hybrid)')
             [CompletionResult]::new('status', 'status', [CompletionResultType]::ParameterValue, 'Display database health diagnostics and system status')

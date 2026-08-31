@@ -794,3 +794,11 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 - **Política `#[ignore]`:** según `.opencode/AGENTS.md:466` — no agregar ignores sin Issue `flaky`
 - **Estrategia datasets/benchmarks:** conservadora (no migrar a VIBE, no añadir PQ/i8, no comparativas head-to-head vs sqlite-vss/duckdb-vss) — ver D1 en plan
 - **Ejecución sugerida:** Phase 1 (ALTA) primero como PR único (gate `just verify` verde), luego Phase 2 (MED) en PRs paralelos por grupo (CI / benches / tests), finalmente Phase 3 (BAJA) en lote único
+
+---
+
+## FIND-* — Hallazgos recientes que requieren triage (2026-08-30)
+
+| ID | Effort | Descripción | Archivos clave | Estado |
+|----|--------|-------------|----------------|--------|
+| `FIND-MCP-001` | 🟢 30min | **Test `vantadb-mcp/tests/context_tests.rs:70` no compila** — `MemoryRecord { ... }` literal faltan campos `heat` y `superseded_by` que el struct requiere. Detectado durante TBH-01 (verificación de `cargo check --workspace --benches --tests`). **Pre-existente** al inicio de la sesión, no introducido por P48. Impide el verify gate de `just verify` para el workspace completo. Fix: añadir `heat: 0.0, superseded_by: None` al literal (o `..Default::default()` si el struct lo soporta). Owner: bindings layer (`vanta-worker`). Bloquea pipeline de P48 Phase 2/3 si no se resuelve. | `vantadb-mcp/tests/context_tests.rs:70` | ⬜ Pendiente |

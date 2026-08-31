@@ -114,14 +114,16 @@ _arguments "${_arguments_options[@]}" : \
 (export)
 _arguments "${_arguments_options[@]}" : \
 '--namespace=[Optional namespace to export (exports all if not specified)]:NAMESPACE:_default' \
-'--out=[Output file path]:OUT:_default' \
+'--out=[Output path\: file for \`--format jsonl\` (default), directory for \`--format md\`]:OUT:_default' \
+'--format=[Export format. \`jsonl\` writes one record per line to a file (default, backwards-compatible). \`md\` writes one file per record under \`<out>/<namespace>/<key>.md\` with JSON frontmatter; the directory is git-friendly and round-trips with \`vanta-seed import-md\`]:FORMAT:((jsonl\:"JSONL on stdout/file (default; backwards compatible)"
+md\:"One Markdown file per record under \`<out>/<namespace>/<key>.md\` with JSON frontmatter metadata; round-trips with \`vanta-seed import-md\`"))' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
-'-h[Print help]' \
-'--help[Print help]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
 && ret=0
 ;;
 (import)
@@ -903,7 +905,7 @@ _vanta-cli_commands() {
 'rebuild-index:Rebuild all database indexes (HNSW, text index, derived indexes)' \
 'audit-index:Validate text index integrity without repairing' \
 'repair-text-index:Repair text index if inconsistencies are detected' \
-'export:Export records to a JSON file' \
+'export:Export records to a file (jsonl) or to a directory of Markdown files with JSON frontmatter (--format md, git-friendly, round-trips with \`vanta-seed import-md\`)' \
 'import:Import records from a JSON file' \
 'query:Execute a structured query (IQL/hybrid)' \
 'status:Display database health diagnostics and system status' \
@@ -983,7 +985,7 @@ _vanta-cli__subcmd__help_commands() {
 'rebuild-index:Rebuild all database indexes (HNSW, text index, derived indexes)' \
 'audit-index:Validate text index integrity without repairing' \
 'repair-text-index:Repair text index if inconsistencies are detected' \
-'export:Export records to a JSON file' \
+'export:Export records to a file (jsonl) or to a directory of Markdown files with JSON frontmatter (--format md, git-friendly, round-trips with \`vanta-seed import-md\`)' \
 'import:Import records from a JSON file' \
 'query:Execute a structured query (IQL/hybrid)' \
 'status:Display database health diagnostics and system status' \

@@ -546,7 +546,7 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__export)
-            opts="-d -v -h --namespace --out --db --verbose --memory-limit --help"
+            opts="-d -v -h --namespace --out --format --db --verbose --memory-limit --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -558,6 +558,10 @@ _vanta-cli() {
                     ;;
                 --out)
                     COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --format)
+                    COMPREPLY=($(compgen -W "jsonl md" -- "${cur}"))
                     return 0
                     ;;
                 --db)
