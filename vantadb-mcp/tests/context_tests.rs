@@ -86,6 +86,8 @@ fn seed_l1(storage: &Arc<StorageEngine>, session: &str, id: &str, content: &str)
         user_id: None,
         agent_id: None,
         vector: None,
+        heat: 0,
+        superseded_by: None,
     };
     let db = vantadb::VantaEmbedded::from_engine(storage.clone());
     db.put(VantaMemoryInput {

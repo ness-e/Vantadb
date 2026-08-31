@@ -96,7 +96,7 @@ Status: ⬜ PENDING
 
 - Step 1: ✅ Flip `conventional_commits` (línea 15: false → true)
 - Step 2: ✅ Verify full (`Select-String` match = `true`; TOML parse OK; git-cliff skip — no instalado localmente)
-- Step 3: ⬜ PENDING (commit en curso)
+- Step 3: ✅ Commit (`95b2394b` on develop)
 
 ## Estado final
 

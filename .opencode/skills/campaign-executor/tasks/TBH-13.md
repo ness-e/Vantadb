@@ -143,7 +143,11 @@ default branch es `dev`. Sin semver; el comment `# dev` indica el branch.
 - Step 2: ✅ Edit `desktop.yml` (4 line changes — 3 user-named + `upload-artifact` para satisfacer grep contract)
 - Step 3: ✅ Edit `opencode.yml` (2 line changes)
 - Step 4: ✅ Verify full (grep VACÍO, YAML OK, actionlint 0)
-- Step 5: ⬜ PENDING — commit
+- Step 5: ✅ Commit (`42141706` on develop)
+
+## Estado final
+
+✅ COMPLETO — 6 line changes total (5 user-named + 1 bonus para contract), pre-commit actionlint pass, commit en develop.
 
 ## Note sobre `actions/upload-artifact@v4` (bonus 6th pin)
 
