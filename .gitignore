@@ -33,6 +33,8 @@ benches_db/
 tests_graph_db/
 tests_server_db/
 /test/
+benchmarks/data_comp_bench/
+benchmarks/data_bench_db/
 job_log.txt
 
 # Python bindings and general Python artifacts
