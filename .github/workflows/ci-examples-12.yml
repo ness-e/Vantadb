@@ -40,9 +40,15 @@ permissions:
 
 jobs:
   rust-examples:
-    name: Rust Examples
-    runs-on: ubuntu-latest
+    name: "Rust Examples (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
@@ -64,8 +70,8 @@ jobs:
         run: cargo run --example concurrent
 
   python-examples:
-    name: Python Examples
-    runs-on: ubuntu-latest
+    name: "Python Examples (${{ matrix.os }})"
+    runs-on: ${{ matrix.os }}
     timeout-minutes: 30
     # CATEGORY: SMOKE — every example imports ONLY `vantadb_py` + stdlib.
     # None import framework libs (langchain, haystack, crewai, autogen, dspy,
@@ -73,6 +79,12 @@ jobs:
     # framework deps are installed and nothing is excluded on those grounds.
     # `demo.py` degrades gracefully to mock embeddings when sentence-transformers
     # is absent.
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
