@@ -12,7 +12,7 @@ postprocess = ""
 # No remote integration — local git only
 
 [git]
-conventional_commits = false
+conventional_commits = true
 commit_parsers = [
   # Breaking changes
   { message = "^.*!:|^.*\\(.*\\)!:", group = "<!-- highlight -->Breaking changes", default_scope = "core" },
