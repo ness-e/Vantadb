@@ -81,7 +81,9 @@ const mappings: Record<string, WasmMapping | string> = {
       const inputs = records.map((item) =>
         ingestToInput({ ...item, namespace: item.namespace || DEFAULT_NS }, item.id ?? genId()),
       );
-      return (db.put_batch(inputs) as Record<string, unknown>[]).map((r) => r.key as string);
+      return (db.put_batch(inputs) as unknown as Record<string, unknown>[]).map(
+        (r) => r.key as string,
+      );
     },
   },
   vanta_ingest_batch: {
@@ -91,14 +93,16 @@ const mappings: Record<string, WasmMapping | string> = {
       const inputs = records.map((item) =>
         ingestToInput({ ...item, namespace: item.namespace || DEFAULT_NS }, item.id ?? genId()),
       );
-      return (db.put_batch(inputs) as Record<string, unknown>[]).map((r) => r.key as string);
+      return (db.put_batch(inputs) as unknown as Record<string, unknown>[]).map(
+        (r) => r.key as string,
+      );
     },
   },
   vanta_search: {
     run: (db, args) => {
       const q = searchToRequest(args.query as SearchQuery);
       q.namespace = (q.namespace as string) || DEFAULT_NS;
-      const hits = db.search(q) as Record<string, unknown>[];
+      const hits = db.search(q) as unknown as Record<string, unknown>[];
       return (hits ?? []).map((h) => searchHitFromSdk(h));
     },
   },
@@ -109,7 +113,7 @@ const mappings: Record<string, WasmMapping | string> = {
       if (rec == null) {
         throw new Error(`record not found: ${ns}/${args.key}`);
       }
-      return wasmRecordFromSdk(rec as Record<string, unknown>);
+      return wasmRecordFromSdk(rec as unknown as Record<string, unknown>);
     },
   },
   vanta_get_version: unsupported("version history is native-only; the WASM get() has no version parameter"),
@@ -134,7 +138,7 @@ const mappings: Record<string, WasmMapping | string> = {
         args.key as string,
       );
       input.ttl_ms = expires ? Math.max(0, expires - Date.now()) : null;
-      return wasmRecordFromSdk(db.put(input) as Record<string, unknown>);
+      return wasmRecordFromSdk(db.put(input) as unknown as Record<string, unknown>);
     },
   },
   vanta_list: {
@@ -199,7 +203,8 @@ const mappings: Record<string, WasmMapping | string> = {
   // --- Metrics (ADMIN-01): operational_metrics() stringifies u64 fields for
   // JS Number safety; the desktop interface is numeric — coerce on read.
   vanta_metrics: {
-    run: (db) => metricsFromWasm(db.operational_metrics() as Record<string, unknown>),
+    run: (db) =>
+      metricsFromWasm(db.operational_metrics() as unknown as Record<string, unknown>),
   },
   // vanta_namespace_stats (VS-CORE-02): no per-namespace stats method on the
   // WASM binding — callers fall back to a client-side list() count (vanta.ts).
