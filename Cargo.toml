@@ -187,6 +187,7 @@ serial_test = "3.2"
 serde_json = "1.0"
 tower = { version = "0.5", features = ["util"] }
 serde_yaml = "0.9.34"
+insta = "1.48"
 
 [[bench]]
 name = "tokenizer_bench"

@@ -1,0 +1,15 @@
+---
+source: tests/logic/parser.rs
+assertion_line: 130
+expression: stmt_rel
+---
+Relate(
+    RelateStatement {
+        source_id: 1,
+        target_id: 2,
+        label: "amigo",
+        weight: Some(
+            0.95,
+        ),
+    },
+)

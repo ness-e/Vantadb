@@ -9,6 +9,14 @@ use vantadb::node::FieldValue;
 use vantadb::parser::*;
 use vantadb::query::*;
 
+// ─── Snapshot tests (insta) ─────────────────────────────────────────────────
+//
+// `insta = "1.48"` was added in TBH-06 to detect silent regressions in the
+// AST shape. These tests assert the full `Debug` output of parsed queries
+// and statements; any structural change (field rename, new clause, ordering
+// change) will surface as a snapshot diff. Reviews happen via `cargo insta
+// review` and committed `.snap` files.
+
 #[test]
 fn dql_parser_certification() {
     let mut harness = VantaHarness::new("LOGIC LAYER (DQL PARSER)");
@@ -87,4 +95,37 @@ fn dql_parser_certification() {
 
         TerminalReporter::success("DML statement family parsing complete.");
     });
+}
+
+// ─── Snapshot tests (insta 1.48) ─────────────────────────────────────────────
+//
+// Each test asserts the full `Debug` output of the parsed AST against a
+// committed `.snap` file. Run `cargo insta review` to accept/deny changes.
+
+#[test]
+fn dql_query_ast_snapshot() {
+    let q = r#"
+        FROM Usuario#usr45
+        SIGUE 1..3 "amigo" Persona
+        WHERE Persona.pais="VZLA" AND Persona.bio ~ "rust", min=0.88
+        FETCH Persona.nombre, Persona.email
+        RANK BY Persona.relevancia DESC
+        WITH TEMPERATURE 0.5
+    "#;
+    let (_, parsed) = parse_query(q).expect("DQL Parser failed");
+    insta::assert_debug_snapshot!("dql_query_ast", parsed);
+}
+
+#[test]
+fn dml_insert_ast_snapshot() {
+    let q_ins = r#"INSERT NODE#101 TYPE Usuario { nombre: "Eros", edad: 28 } VECTOR [0.1, -0.4]"#;
+    let (_, stmt_ins) = parse_statement(q_ins).expect("Insert parse failed");
+    insta::assert_debug_snapshot!("dml_insert_ast", stmt_ins);
+}
+
+#[test]
+fn dml_relate_ast_snapshot() {
+    let q_rel = r#"RELATE NODE#1 --"amigo"--> NODE#2 WEIGHT 0.95"#;
+    let (_, stmt_rel) = parse_statement(q_rel).expect("Relate parse failed");
+    insta::assert_debug_snapshot!("dml_relate_ast", stmt_rel);
 }

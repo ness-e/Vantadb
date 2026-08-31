@@ -1,0 +1,51 @@
+---
+source: tests/logic/parser.rs
+assertion_line: 116
+expression: parsed
+---
+Query {
+    from_entity: "Usuario#usr45",
+    traversal: Some(
+        Traversal {
+            min_depth: 1,
+            max_depth: 3,
+            edge_label: "amigo",
+            target_type: None,
+            alias: None,
+        },
+    ),
+    target_alias: "Persona",
+    where_clause: Some(
+        [
+            Relational(
+                "Persona.pais",
+                Eq,
+                String(
+                    "VZLA",
+                ),
+            ),
+            VectorSim(
+                "Persona.bio",
+                "rust",
+                0.88,
+            ),
+        ],
+    ),
+    fetch: Some(
+        [
+            "Persona.nombre",
+            "Persona.email",
+        ],
+    ),
+    rank_by: Some(
+        RankBy {
+            field: "Persona.relevancia",
+            desc: true,
+        },
+    ),
+    temperature: Some(
+        0.5,
+    ),
+    owner_role: None,
+    search_profile: None,
+}

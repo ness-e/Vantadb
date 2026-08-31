@@ -1,0 +1,25 @@
+---
+source: tests/logic/parser.rs
+assertion_line: 123
+expression: stmt_ins
+---
+Insert(
+    InsertStatement {
+        node_id: 101,
+        node_type: "Usuario",
+        fields: {
+            "edad": Float(
+                28.0,
+            ),
+            "nombre": String(
+                "Eros",
+            ),
+        },
+        vector: Some(
+            [
+                0.1,
+                -0.4,
+            ],
+        ),
+    },
+)
