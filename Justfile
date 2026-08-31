@@ -24,9 +24,9 @@ check:
 clippy:
     {{cargo}} clippy --workspace --all-targets --all-features -- -D warnings
 
-# Format code (check only)
+# Format code (check only) — --all keeps scope aligned with verify.ps1/verify_changed.ps1
 fmt:
-    {{cargo}} fmt --check
+    {{cargo}} fmt --all -- --check
 
 # Format code (apply fixes)
 fmt-fix:

@@ -84,20 +84,20 @@ $lite = (Get-CoreFeatures) -join ' '
 
 switch ($Mode) {
     'quick' {
-        $results.fmt    = Run-Check 'cargo fmt --check'          { cargo fmt --check }
+        $results.fmt    = Run-Check 'cargo fmt --check'          { cargo fmt --all -- --check }
         $results.clippy = Run-Check "cargo clippy ($core)"       { cargo clippy $core $lite -- -D warnings }
         $results.test   = Run-Check "cargo nextest ($core)"      { cargo nextest run --profile audit $core $lite --build-jobs 2 }
         $results.deny   = Run-Check 'cargo deny check'           { cargo deny check }
     }
     'ci' {
-        $results.fmt    = Run-Check 'cargo fmt --check'          { cargo fmt --check }
+        $results.fmt    = Run-Check 'cargo fmt --check'          { cargo fmt --all -- --check }
         $results.clippy = Run-Check 'cargo clippy (workspace)'   { cargo clippy --workspace -- -D warnings }
         $results.test   = Run-Check 'cargo nextest (workspace)'  { cargo nextest run --profile audit --workspace --build-jobs 2 }
         $results.deny   = Run-Check 'cargo deny check'           { cargo deny check }
         $results.audit  = Run-Check 'cargo audit'                { cargo audit }
     }
     'full' {
-        $results.fmt    = Run-Check 'cargo fmt --check'          { cargo fmt --check }
+        $results.fmt    = Run-Check 'cargo fmt --check'          { cargo fmt --all -- --check }
         $results.clippy = Run-Check 'cargo clippy (workspace)'   { cargo clippy --workspace -- -D warnings }
         $results.test   = Run-Check 'cargo nextest (workspace)'  { cargo nextest run --profile audit --workspace --build-jobs 2 }
         $results.deny   = Run-Check 'cargo deny check'           { cargo deny check }
