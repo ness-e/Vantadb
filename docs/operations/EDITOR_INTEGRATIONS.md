@@ -29,8 +29,8 @@ Add to your Cursor configuration file (`~/.cursor/config.json`):
 {
   "mcpServers": {
     "vantadb": {
-      "command": "vantadb-server",
-      "args": ["--mcp", "--path", "~/.vantadb"],
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "~/.vantadb"],
       "env": {
         "VANTADB_PATH": "~/.vantadb"
       }
@@ -64,8 +64,8 @@ Configure the MCP client extension:
 {
   "mcpServers": {
     "vantadb": {
-      "command": "vantadb-server",
-      "args": ["--mcp", "--path", "${workspaceFolder}/.vantadb"],
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "${workspaceFolder}/.vantadb"],
       "cwd": "${workspaceFolder}"
     }
   }
@@ -80,8 +80,8 @@ For workspace-specific VantaDB instances:
 {
   "mcpServers": {
     "vantadb-workspace": {
-      "command": "vantadb-server",
-      "args": ["--mcp", "--path", "${workspaceFolder}/.vantadb"],
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "${workspaceFolder}/.vantadb"],
       "cwd": "${workspaceFolder}"
     }
   }
@@ -99,8 +99,8 @@ OpenCode supports MCP through its AI assistant features.
   "mcp": {
     "servers": {
       "vantadb": {
-        "command": "vantadb-server",
-        "args": ["--mcp", "--path", "~/.vantadb"],
+        "command": "vanta-cli",
+        "args": ["server", "--mcp", "--db", "~/.vantadb"],
         "enabled": true
       }
     }
@@ -120,10 +120,11 @@ OpenClaw integrates with MCP for AI-powered development.
 mcp:
   servers:
     vantadb:
-      command: vantadb-server
+      command: vanta-cli
       args:
+        - server
         - --mcp
-        - --path
+        - --db
         - ~/.vantadb
 ```
 
@@ -139,8 +140,8 @@ Devin (AI-powered IDE) supports MCP for persistent memory.
     "memory": {
       "backend": "vantadb",
       "mcp": {
-        "command": "vantadb-server",
-        "args": ["--mcp", "--path", "~/.vantadb"]
+        "command": "vanta-cli",
+        "args": ["server", "--mcp", "--db", "~/.vantadb"]
       }
     }
   }
@@ -159,8 +160,8 @@ Antigravity editor with AI features supports MCP.
 [mcp]
 [mcp.servers](../api/MCP.md)
 name = "vantadb"
-command = "vantadb-server"
-args = ["--mcp", "--path", "~/.vantadb"]
+command = "vanta-cli"
+args = ["server", "--mcp", "--db", "~/.vantadb"]
 ```
 
 ## Common Configuration Patterns
@@ -173,8 +174,8 @@ Configure VantaDB to store memory per project:
 {
   "mcpServers": {
     "vantadb-project": {
-      "command": "vantadb-server",
-      "args": ["--mcp", "--path", "${workspaceFolder}/.vantadb"],
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "${workspaceFolder}/.vantadb"],
       "cwd": "${workspaceFolder}",
       "env": {
         "VANTADB_NAMESPACE": "project-${workspaceFolderBasename}"
@@ -192,8 +193,8 @@ Use a single global VantaDB instance across all projects:
 {
   "mcpServers": {
     "vantadb-global": {
-      "command": "vantadb-server",
-      "args": ["--mcp", "--path", "~/.vantadb/global"],
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "~/.vantadb/global"],
       "env": {
         "VANTADB_NAMESPACE": "global"
       }
@@ -210,14 +211,14 @@ Configure separate VantaDB instances for different workspaces:
 {
   "mcpServers": {
     "vantadb-workspace-1": {
-      "command": "vantadb-server",
-      "args": ["--mcp", "--path", "${workspaceFolder}/.vantadb"],
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "${workspaceFolder}/.vantadb"],
       "cwd": "${workspaceFolder}",
       "condition": "workspaceFolder =~ /project1/"
     },
     "vantadb-workspace-2": {
-      "command": "vantadb-server",
-      "args": ["--mcp", "--path", "${workspaceFolder}/.vantadb"],
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "${workspaceFolder}/.vantadb"],
       "cwd": "${workspaceFolder}",
       "condition": "workspaceFolder =~ /project2/"
     }
@@ -294,7 +295,7 @@ AI assistant can:
 **Problem**: Editor cannot connect to VantaDB MCP server
 
 **Solutions**:
-1. Verify VantaDB server is installed: `vantadb-server --version`
+1. Verify VantaDB CLI is installed: `vanta-cli --version`
 2. Check the command path in configuration
 3. Ensure the database path is writable
 4. Check editor logs for connection errors
