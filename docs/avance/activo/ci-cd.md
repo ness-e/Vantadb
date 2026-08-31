@@ -213,3 +213,29 @@ aliases: []
 - **Gates:** D: no-disparado (docs-only) · V: no-disparado · C: no-disparado
 - **Contrato:** `Test-Path ADR-031` True + `Select-String \| [0-9]` 10 rows + `Question to Owner` hit + `grep ADR-031 CI_POLICY` 4 hits + `grep default-members CI_POLICY` 6 hits + `cargo fmt --check` ✅ + `clippy` ✅ + `docs-coverage` 0 gaps
 - **Archivos:** `docs/architecture/adr/ADR-031-default-members-promotion.md`, `docs/operations/CI_POLICY.md`, `.opencode/skills/campaign-executor/tasks/STABLE-00.md`
+
+---
+
+## 2026-08-31: Testing & Benchmarking Hardening (P48, fase 1)
+
+### TBH-01: verify_datasets.{sh,ps1} + CI pre-test gate (heavy-certification)
+- **Fecha:** 2026-08-31
+- **Plan:** `docs/plans/2026-08-30-testing-bench-harden.md` Fase 1 (ALTA)
+- **Objetivo:** Auditoría multi-agente del 2026-08-30 (`ses_fabf69692ffeP5c7mycKcsGSV0`) identificó que los tests de certificación en `tests/certification/*` y `tests/benchmark_datasets.rs` skippean silenciosamente cuando los datasets no están descargados, permitiendo que Recall@10 degrade sin que CI se queje. Top #1 gap (ALTA).
+- **Resultado:** ✅ Dos scripts (bash + PowerShell) con contrato idéntico + gate inyectado en `heavy-certification-50.yml` como pre-test step. Verifica 5 datasets canónicos: SIFT-1M (datasets/sift/*), GloVe-100 + GloVe-300 (data/benchmark/glove.6B.*.txt), SIFT-128 euclidean subset + GloVe-100 angular subset (data/benchmark/{sift-128,glove-100-angular}/*). Tabla human-readable por defecto; flag `--json` / `-Json` para CI annotation. Exit 0 cuando todos los paths existen, exit 1 con tabla diagnóstica cuando ≥1 falta.
+- **Whitelist #[ignore]:** Tests con `#[ignore]` que NO son por dataset (Miri/FFI/croaring ×18 + tests con razones no-dataset) NO entran al gate — el gate solo chequea paths en disco, no enumera tests. Documentado en el task file.
+- **Verify local (run 2026-08-31):**
+  - `bash scripts/verify_datasets.sh` con glove-100-angular subset presente (touch) → exit 0 ✅
+  - `bash scripts/verify_datasets.sh` con glove-100-angular subset borrado → exit 1, tabla correcta ✅
+  - `pwsh scripts/verify_datasets.ps1` (PowerShell 7) → mismo contrato ✅
+  - `bash scripts/verify_datasets.sh --json` / `pwsh ... -Json` → JSON parseable ✅
+  - `cargo fmt --check` → 0 ✅
+  - `cargo check --workspace --benches` → 0 ✅
+  - `cargo check --workspace --benches --tests` → falla en `vantadb-mcp/tests/context_tests.rs` (pre-existing, falta `heat`+`superseded_by` en `MemoryRecord` — NO introducido por TBH-01, fuera de scope)
+  - YAML sintaxis (`yaml.safe_load`) → parsea, step "Verify required benchmark datasets (TBH-01)" presente en `other-heavy` job ✅
+  - Pre-commit hook: `actionlint` OK
+- **Commit:** `0e67f354` — `feat(TBH-01): verify_datasets.ps1 + heavy-certification pre-test gate` (3 files, +92)
+- **Archivos tocados:** `scripts/verify_datasets.sh` (mode 100644→100755), `scripts/verify_datasets.ps1` (nuevo, 86L), `.github/workflows/heavy-certification-50.yml` (+6 lines: nuevo pre-test step), `.opencode/skills/campaign-executor/tasks/TBH-01.md` (task file)
+- **Próximo:** TBH-02 (initialize `benchmarks/criterion_baseline.json`)
+- **Lecciones (memoria):** `verify_datasets pre-test gate | listar paths esperados via test -e (bash) / Test-Path (pwsh); exit 1 si MISSING; el whitelist #[ignore] por dataset NO requiere lógica porque el gate solo chequea paths en disco`
+

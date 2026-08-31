@@ -739,13 +739,13 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 >
 > **Estado del proyecto al inicio:** 2034 tests pasando / 1 skipped (TEST_MAP.md canónico), 19 benches criterion 0.8, 4 fuzz targets, Miri+ASan+TSan, llvm-cov 81.40% root (ADR-018 gate ≥80%), 17 GH Actions workflows con SHA-pins generalizados, release-plz con OIDC.
 >
-> **Top 3 a atacar primero:** **TBH-01** (verify_datasets — unmask silent skips en `tests/certification/*` que degradan Recall@10 sin que CI se queje), **TBH-02** (init bench baseline — `benchmarks/criterion_baseline.json` está vacío, primera ejecución nightly lo poblará), **TBH-03** (ci-gate — main rojo actualmente NO corta PRs por `if: schedule`).
+> **Top 3 a atacar primero:** **TBH-01 ✅** (verify_datasets — completado 2026-08-31, commit `0e67f354`), **TBH-02** (init bench baseline — `benchmarks/criterion_baseline.json` está vacío, primera ejecución nightly lo poblará), **TBH-03** (ci-gate — main rojo actualmente NO corta PRs por `if: schedule`).
 
 ### 🔴 Prioridad ALTA — Rompen la promesa "replicable y funcional siempre que se pruebe"
 
 | ID | Descripción | Archivos clave | Esfuerzo | Prio | Estado |
 |----|-------------|----------------|----------|------|--------|
-| `TBH-01` | **verify_datasets.{sh,ps1} + CI gate** — Detectar `tests/certification/*` que skippearian sin datasets descargados. `cargo test --features test-bench-datasets -- --list 2>&1` → contar skips → exit 1 si >0. Hook como pre-test step en `heavy-certification-50.yml`. Sin esto: Recall@10 puede degradarse sin que CI se queje. | `scripts/verify_datasets.sh`, `scripts/verify_datasets.ps1`, `.github/workflows/heavy-certification-50.yml` | 🟢 4-6h | 🔴 | ⬜ Pendiente |
+| ~~`TBH-01`~~ | ~~verify_datasets.{sh,ps1} + CI gate~~ — ✅ Completado 2026-08-31 (commit `0e67f354`). | `scripts/verify_datasets.sh`, `scripts/verify_datasets.ps1`, `.github/workflows/heavy-certification-50.yml` | — | 🔴 | ✅ |
 | `TBH-02` | **Inicializar `benchmarks/criterion_baseline.json`** — Ejecutar `cargo bench --workspace` una vez (local o CI commit) + `scripts/bench_regression.py update-baseline benchmark_report_criterion.json`. Baseline actual: `"benchmarks": {}` (vacío desde 2026-06-18). Sin esto: `heavy-bench-nightly-51.yml` corre pero no compara nada. | `benchmarks/criterion_baseline.json`, `scripts/bench_regression.py` | 🟢 2-4h | 🔴 | ⬜ Pendiente |
 | `TBH-03` | **Fix `ci-gate.yml:24`** — Eliminar `if: inputs.event_name == 'schedule'`. Gate universal: corta TODOS los workflow_call invokers (fuzz, heavy-cert, heavy-bench) sobre main rojo. D3 confirmada con owner. | `.github/workflows/ci-gate.yml` (1-line change) | 🟢 30min | 🔴 | ⬜ Pendiente |
 | `TBH-04` | **Añadir `develop` a 6 workflows + `release.yml`** — `push.branches: [main, develop]` en: `ci-rust-10.yml`, `ci-web-11.yml`, `gate-docs-21.yml`, `ci-examples-12.yml`, `chaos-45.yml`, `perf-bench-40.yml`. Mismo para `release.yml` (release-plz-pr abre PRs en develop también). Sin esto: Dependabot PRs (target: develop) quedan sin CI. | 7 archivos workflow (1-line config c/u) | 🟢 1-2h | 🔴 | ⬜ Pendiente |
