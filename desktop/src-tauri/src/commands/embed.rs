@@ -100,12 +100,17 @@ impl EmbedBackend for OnnxBackend {
 }
 
 // ── Dummy backend (no feature) ───────────────────────────────────────────
+// Used only when the desktop is built WITHOUT `--features embed-local`.
+// With the feature on, `OnnxBackend` takes the path and these stay
+// `dead_code` for the build — hence `#[allow(dead_code)]`.
 
+#[cfg(not(feature = "embed-local"))]
 struct DummyBackend {
     dim: usize,
     model_id: String,
 }
 
+#[cfg(not(feature = "embed-local"))]
 impl EmbedBackend for DummyBackend {
     fn embed(&self, text: &str) -> Result<Vec<f32>, String> {
         // Deterministic hash-based vector (mirrors `sanity_embed.py:dummy_embed`).
@@ -121,6 +126,7 @@ impl EmbedBackend for DummyBackend {
     }
 }
 
+#[cfg(not(feature = "embed-local"))]
 fn simple_hash(text: &str, dim: usize) -> Vec<f32> {
     use std::collections::hash_map::DefaultHasher;
     use std::hash::{Hash, Hasher};
@@ -307,7 +313,7 @@ fn build_backend(
     let dim = if default_dim > 0 {
         default_dim
     } else {
-        provider_embed_dim(&provider).unwrap_or(384)
+        provider_embed_dim().unwrap_or(384)
     };
     Ok(Arc::new(OnnxBackend {
         provider,
@@ -317,10 +323,10 @@ fn build_backend(
 }
 
 #[cfg(feature = "embed-local")]
-fn provider_embed_dim(p: &LocalOnnxProvider) -> Option<usize> {
-    // LocalOnnxProvider does not expose `dim` directly; the value is set
-    // internally from `detect_dim`. Recompute from the model_dir via the
-    // sibling helper to keep parity with the factory path.
+fn provider_embed_dim() -> Option<usize> {
+    // `LocalOnnxProvider` sets `dim` internally during `new()` (see
+    // `src/llm.rs:detect_dim`). We trust the manifest-resolved `default_dim`
+    // passed into `build_backend`; this stub stays for future overrides.
     None
 }
 
