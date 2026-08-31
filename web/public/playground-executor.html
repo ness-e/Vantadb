@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>VantaDB Playground Executor</title>
+  <style>
+    * { margin: 0; padding: 0; }
+    body { font-family: monospace; font-size: 12px; background: #1a1a1a; color: #fbf9f5; }
+  </style>
+</head>
+<body>
+  <script>
+    (function() {
+      var wasmReady = false;
+      var wasmLoadPromise = null;
+      var requestIdCounter = 0;
+      var pendingRequests = {};
+
+      var WASM_SCRIPT_URL = "/vanta-wasm/vantadb_wasm.js";
+      var WASM_BINARY_URL = "/vanta-wasm/vantadb_wasm_bg.wasm";
+
+      function loadWasmModule() {
+        return fetch(WASM_SCRIPT_URL)
+          .then(function(res) { return res.text(); })
+          .then(function(source) {
+            var modifiedSource = source.replace(/^let wasm_bindgen\s*=/, "return ");
+            var moduleFunc = new Function("exports", modifiedSource);
+            var exports = { __proto__: null };
+            var result = moduleFunc(exports);
+            window.wasm_bindgen = result;
+          });
+      }
+
+      function loadWasm() {
+        if (wasmLoadPromise) return wasmLoadPromise;
+        wasmLoadPromise = (async function() {
+          if (wasmReady) return;
+          await loadWasmModule();
+          var res = await fetch(WASM_BINARY_URL);
+          if (!res.ok) throw new Error("WASM binary fetch failed: HTTP " + res.status);
+          var bytes = await res.arrayBuffer();
+          var runtime = window.wasm_bindgen;
+          if (!runtime || !runtime.initSync) throw new Error("WASM global not registered");
+          runtime.initSync(bytes);
+          wasmReady = true;
+        })().catch(function(err) {
+          wasmLoadPromise = null;
+          throw err;
+        });
+        return wasmLoadPromise;
+      }
+
+      function fmtArg(arg) {
+        if (typeof arg === "string") return arg;
+        if (arg === null) return "null";
+        if (arg === undefined) return "undefined";
+        if (typeof arg === "object") {
+          try { return JSON.stringify(arg); } catch { return String(arg); }
+        }
+        return String(arg);
+      }
+
+      window.executeSnippet = async function(code, requestId) {
+        try {
+          await loadWasm();
+          var mod = window.wasm_bindgen;
+          var db = new mod.VantaDB({ storage_path: "playground_data" });
+
+          var captured = [];
+          var sandboxConsole = {
+            log: function() { captured.push(Array.from(arguments).map(fmtArg).join(" ")); },
+            warn: function() { captured.push(Array.from(arguments).map(fmtArg).join(" ")); },
+            error: function() { captured.push("\u2717 " + Array.from(arguments).map(fmtArg).join(" ")); },
+          };
+
+          var fn = new Function("VantaDB", "db", "console", "return (async () => {\n" + code + "\n})();");
+          var t0 = performance.now();
+          try {
+            await fn(mod.VantaDB, db, sandboxConsole);
+          } catch (err) {
+            captured.push("\u2717 " + (err instanceof Error ? err.message : String(err)));
+          }
+          var elapsedMs = performance.now() - t0;
+
+          try { db.close(); } catch {}
+
+          var output = [
+            "\u2713 VantaDB WASM engine loaded",
+            "\u2713 db opened \u00b7 in-memory backend",
+            ...captured,
+            "",
+            "\u25c6 executed in " + elapsedMs.toFixed(2) + "ms \u00b7 wasm32",
+          ];
+
+          parent.postMessage({ type: "result", requestId: requestId, output: output }, "*");
+        } catch (err) {
+          parent.postMessage({
+            type: "result",
+            requestId: requestId,
+            output: [],
+            error: "failed to load VantaDB WASM engine: " + (err instanceof Error ? err.message : String(err))
+          }, "*");
+        }
+      };
+
+      window.addEventListener("message", function(event) {
+        if (event.data && event.data.type === "execute") {
+          window.executeSnippet(event.data.code, event.data.requestId);
+        }
+      });
+
+      parent.postMessage({ type: "ready" }, "*");
+    })();
+  </script>
+</body>
+</html>
