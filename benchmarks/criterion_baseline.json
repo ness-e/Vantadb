@@ -1,10 +1,65 @@
 {
   "metadata": {
-    "created": "2026-06-18T00:00:00Z",
-    "commit": "initial",
+    "created": "2026-08-30T16:30:00Z",
+    "commit": "TBH-02-initial-seed",
     "workflow": "manual",
     "run_id": "0",
-    "description": "Initial baseline for nightly benchmark regression detection. Update via `python scripts/bench_regression.py update-baseline <report.json>` after first CI run."
+    "description": "Initial baseline seed for nightly benchmark regression detection. Values are PLACEHOLDER nominal estimates derived from hnsw_pure.rs / hybrid_queries.rs / stress_test.rs / high_density.rs inspection — they MUST be refreshed by the first scheduled nightly run. After the first nightly (cron '0 3 * * *') completes without regression, scripts/bench_regression.py update-baseline benchmark_report_criterion.json will overwrite this file with measured mean_ms / median_ms / std_ms from target/criterion/. Labels cover the 5 nightly benchmark groups; bench_concurrent/ is intentionally absent (that bench uses a custom main() and does not produce estimates.json — see TBH-10). Refresh procedure: git pull, wait for next nightly, or run cargo bench locally and execute scripts/bench_regression.py extract + update-baseline."
   },
-  "benchmarks": {}
+  "benchmarks": {
+    "hnsw_pure/insert_10k": {
+      "mean_ms": 1850.0,
+      "median_ms": 1820.0,
+      "std_ms": 95.0,
+      "unit": "ms"
+    },
+    "hnsw_pure/search_10k": {
+      "mean_ms": 0.42,
+      "median_ms": 0.41,
+      "std_ms": 0.05,
+      "unit": "ms"
+    },
+    "hybrid_queries/memory text-only bm25 filtered": {
+      "mean_ms": 1.8,
+      "median_ms": 1.7,
+      "std_ms": 0.2,
+      "unit": "ms"
+    },
+    "hybrid_queries/memory vector-only filtered": {
+      "mean_ms": 0.95,
+      "median_ms": 0.92,
+      "std_ms": 0.1,
+      "unit": "ms"
+    },
+    "hybrid_queries/memory hybrid rrf filtered": {
+      "mean_ms": 2.6,
+      "median_ms": 2.5,
+      "std_ms": 0.3,
+      "unit": "ms"
+    },
+    "The Memory Abyss/Point Lookup Valido": {
+      "mean_ms": 0.05,
+      "median_ms": 0.045,
+      "std_ms": 0.01,
+      "unit": "ms"
+    },
+    "The Memory Abyss/Point Lookup Spurious (Bloom Filter Reject)": {
+      "mean_ms": 0.0035,
+      "median_ms": 0.0032,
+      "std_ms": 0.0008,
+      "unit": "ms"
+    },
+    "high_density_search/knn_search_768d": {
+      "mean_ms": 1.4,
+      "median_ms": 1.35,
+      "std_ms": 0.15,
+      "unit": "ms"
+    },
+    "logarithmic_spam_friction/50k_spam_mutations": {
+      "mean_ms": 4200.0,
+      "median_ms": 4150.0,
+      "std_ms": 210.0,
+      "unit": "ms"
+    }
+  }
 }
