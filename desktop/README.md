@@ -67,6 +67,51 @@ runs fully in-browser against WASM + OPFS.
 | `npm run tauri dev` | Run the desktop app (starts Vite, then the Tauri shell) |
 | `npm run tauri build` | Produce OS installers (NSIS/MSI on Windows) |
 
+## IPC vs MCP — transport surface
+
+The desktop has **two distinct transport surfaces** that look similar but are
+not interchangeable:
+
+| Surface | Protocol | Lives in | Available to | Example |
+|---|---|---|---|---|
+| **IPC commands** | Tauri `invoke()` over WebView bridge | `desktop/src-tauri/src/commands/*.rs` | Only the desktop app (`@tauri-apps/api/core`) | `vanta_embed_text`, `vanta_metrics`, `vanta_wiki_status` |
+| **MCP tools** | JSON-RPC over stdio (or HTTP) | `vantadb-mcp/` / `vanta-cli server --mcp` | Any MCP client (Claude Desktop, Claude Code, Cursor, **opencode**, etc.) | `memory_put`, `search_memory`, `collection_list` |
+
+When you add a feature, **pick the right surface**:
+
+- IPC commands = desktop-internal capabilities that only make sense inside
+  the Tauri shell (e.g. `vanta_embed_text` reuses the bundled `ort`+`tokenizers`
+  session — useless outside the app).
+- MCP tools = capabilities that any AI assistant (LLM agent, IDE plugin,
+  chatbot) should be able to call. Add them in `vantadb-mcp/src/handlers/tools.rs`.
+
+You can wire a feature into BOTH if it makes sense in both contexts (the
+desktop app calling its own IPC for a fast path, and MCP clients calling the
+same logic over stdio for portability). See `docs/api/MCP.md` for the 56 MCP
+tools and `desktop/src-tauri/src/commands/embed.rs` for the canonical IPC
+example.
+
+## Local embeddings (`vanta_embed_text`)
+
+The IngestForm has a **"Generar vector local"** button that appears when the
+desktop was built with `--features embed-local`. It calls
+`vanta_embed_text(text, model?)` over IPC, which routes to
+`vantadb::llm::LocalOnnxProvider` (`src/llm.rs:108`) — the same provider the
+CLI uses when `VANTA_EMBEDDING_PROVIDER=local`.
+
+Default model is `multilingual-e5-small` (per `embeddings/manifest.json`).
+Configurable per-session via Settings → "Modelo de embedding (local)".
+Persistence: `localStorage["vanta.embed.v1"]` (see `src/store/embed-prefs.ts`).
+
+To download more models: `python embeddings/download.py --only <id>`. The
+desktop catalogue (`src/store/embed-prefs.ts:EMBED_MODELS`) lists the seven
+384d/512d/768d models the manifest ships as default.
+
+If the build is `cargo tauri build` WITHOUT `--features embed-local`, the
+button still renders (and persists the selection) but the backend returns
+`source: "dummy"` with a 384d hash-based vector — honest fallback so the
+UI doesn't crash, but the cosine similarity is meaningless.
+
 ## Development layout
 
 - `desktop/src/` — React frontend (Vite + Tailwind 4 + TanStack Table/Virtual)
