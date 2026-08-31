@@ -13,7 +13,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 > **Execution state lives in:** `docs/plans/YYYY-MM-DD-<campaign>.md` (plan file) + task files — per campaign-executor RULES.md §2. This file is the task catalog; the plan file is the execution state.
 > **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
 > **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 132 activas (reconteo P48 2026-08-30: +23 TBH-01..23; previo DESKTOP-QW5 2026-08-26: 109)
+> **Total open items:** 110 activas (post-cierre P48 2026-08-31: 22 TBH-* removidos; TBH-06 🟡 INCOMPLETO retenido; FIND-MCP-001; previo 132)
 ---
 
 ## Exec Summary
@@ -46,7 +46,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 | **P36** 🔧 Auditoría AGENTS.md & sistema de agentes (2026-08-24) | 6 (AGT-01..06; 3 fixes ya aplicados en sesión) | ~1 día | 🟠 Media |
 | **P37** 🎨 Auditoría diseño desktop post-fix (2026-08-24, orquestador + 5 sub-agentes) | 0 — ✅ 9/9 ejecutadas (DAUD-01..09 — commits `3c53d8b2`,`480935a7`,`b865c625`; DAUD-02 via DESKTOP-QW4 `ad0f34b1`) | — | ✅ Cerrada 2026-08-26 |
 | **P38** 🔬 Research huérfanas → tarea (auditoría docs/research, 2026-08-25) | 17 (RES-01..15 + DEC-01/02; cada fila validada contra código con evidencia) | ~2-3 semanas (RES-01 es la más grande) | 🟡 Media (RES-01/RES-02 🔴 calidad/durabilidad) |
-| **P48** 🧪 Testing & Benchmarking Hardening (auditoría multi-agente 2026-08-30, plan `docs/plans/2026-08-30-testing-bench-harden.md`) | 23 (TBH-01..23; 5 ALTA + 10 MEDIA + 8 BAJA) | ~2-3 semanas | 🔴 Alta (TBH-01..05 rompen 'replicable y funcional') |
+| **P48** 🧪 Testing & Benchmarking Hardening (auditoría multi-agente 2026-08-30, plan `docs/plans/archive/2026-08-30-testing-bench-harden.md`) | 0 (cerrada 2026-08-31: 22 ✅ + 1 🟡 INCOMPLETO `TBH-06`; resumen en sección "P48 — CIERRE") | ~2-3 semanas | 🔴 **Cerrada 2026-08-31** |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
 > **Nuevo 2026-08-04:** Fase 12 DESKTOP (26 tareas, app Tauri multi-connection sobre las 6 integraciones) + `DEBT-01` (gate docs-coverage roto, Fase 4) + `TECH-01..08` (hallazgos de investigación DESKTOP-01b: 2 bugs reales, 1 batch stale-docs, 1 ADR env-naming, 4 features/decisiones, todos en Phase 4).
@@ -746,38 +746,17 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | ID | Descripción | Archivos clave | Esfuerzo | Prio | Estado |
 |----|-------------|----------------|----------|------|--------|
 | ~~`TBH-01`~~ | ~~verify_datasets.{sh,ps1} + CI gate~~ — ✅ Completado 2026-08-31 (commit `0e67f354`). | `scripts/verify_datasets.sh`, `scripts/verify_datasets.ps1`, `.github/workflows/heavy-certification-50.yml` | — | 🔴 | ✅ |
-| `TBH-02` | **Inicializar `benchmarks/criterion_baseline.json`** — Ejecutar `cargo bench --workspace` una vez (local o CI commit) + `scripts/bench_regression.py update-baseline benchmark_report_criterion.json`. Baseline actual: `"benchmarks": {}` (vacío desde 2026-06-18). Sin esto: `heavy-bench-nightly-51.yml` corre pero no compara nada. | `benchmarks/criterion_baseline.json`, `scripts/bench_regression.py` | 🟢 2-4h | 🔴 | ⬜ Pendiente |
-| `TBH-03` | **Fix `ci-gate.yml:24`** — Eliminar `if: inputs.event_name == 'schedule'`. Gate universal: corta TODOS los workflow_call invokers (fuzz, heavy-cert, heavy-bench) sobre main rojo. D3 confirmada con owner. | `.github/workflows/ci-gate.yml` (1-line change) | 🟢 30min | 🔴 | ⬜ Pendiente |
-| `TBH-04` | **Añadir `develop` a 6 workflows + `release.yml`** — `push.branches: [main, develop]` en: `ci-rust-10.yml`, `ci-web-11.yml`, `gate-docs-21.yml`, `ci-examples-12.yml`, `chaos-45.yml`, `perf-bench-40.yml`. Mismo para `release.yml` (release-plz-pr abre PRs en develop también). Sin esto: Dependabot PRs (target: develop) quedan sin CI. | 7 archivos workflow (1-line config c/u) | 🟢 1-2h | 🔴 | ⬜ Pendiente |
-| `TBH-05` | **`.gitignore` benchmark artifacts** — Añadir `benchmarks/data_comp_bench/`, `benchmarks/data_bench_db/`. `git rm --cached` para untrackear copias existentes (versionadas por error, ocupan decenas de MB). | `.gitignore`, `git rm --cached ...` | 🟢 30min | 🔴 | ⬜ Pendiente |
 
 ### 🟡 Prioridad MEDIA — Mejoras de cobertura y calidad
 
 | ID | Descripción | Archivos clave | Esfuerzo | Prio | Estado |
 |----|-------------|----------------|----------|------|--------|
 | `TBH-06` | **`insta` 1.48.0 snapshots** — Añadir a `[dev-dependencies]`, migrar 3 parser tests + 2 query-result tests a `insta::assert_snapshot!`. Habilita detección de regresiones silenciosas. | `Cargo.toml`, `tests/logic/parser.rs`, `tests/.../query_result*.rs` | 🟡 1-2d | 🟠 | ⬜ Pendiente |
-| `TBH-07` | **`cargo-mutants` 27.1.0 weekly job** — Nuevo job `mutation-test` en `heavy-certification-50.yml` con `cargo mutants --check -p vantadb --timeout 120`. Gated por `workflow_dispatch` + `schedule weekly`. Mide calidad real de tests (no cobertura de líneas). | `.github/workflows/heavy-certification-50.yml` | 🟡 1-2d | 🟠 | ⬜ Pendiente |
-| `TBH-08` | **`benches/wal_throughput.rs`** — Sweep WAL on/off, fsync on/off, batch [1, 100, 1k, 10k]. Cierra gap crítico: `incremental_bench.rs` usa `skip_wal: true` en varias muestras. | `benches/wal_throughput.rs`, `Cargo.toml` | 🟡 1d | 🟠 | ⬜ Pendiente |
-| `TBH-09` | **`benches/crash_recovery.rs`** — Open + WAL replay cronometrado, sweep corpus size [100, 10k, 100k]. Cierra segundo gap crítico: no hay bench de crash recovery time. | `benches/crash_recovery.rs`, `Cargo.toml` | 🟡 1d | 🟠 | ⬜ Pendiente |
-| `TBH-10` | **Convertir `bench_concurrent.rs` a `criterion_main!`** — Reemplazar `fn main()` + custom `Instant::now()` con `criterion_group!` + `criterion_main!`. Sin esto: NO genera `estimates.json` → NO entra en regresión nocturna. | `benches/bench_concurrent.rs` | 🟢 2-3h | 🟠 | ⬜ Pendiente |
-| `TBH-11` | **Extender `heavy-bench-nightly-51.yml` a 8 benches** — Añadir `canonical_p99`, `memory_budget`, `incremental_bench`, `ivf_bench` al nightly matrix. Hoy solo corren 5/19. | `.github/workflows/heavy-bench-nightly-51.yml` | 🟢 1-2h | 🟠 | ⬜ Pendiente |
-| `TBH-12` | **`data/README.md` + `datasets/README.md`** — Tabla unificada: nombre, fuente URL, licencia, tamaño, SHA256 esperado, comando de descarga. Cross-link desde scripts existentes. | `data/README.md`, `datasets/README.md` | 🟢 4-6h | 🟠 | ⬜ Pendiente |
-| `TBH-13` | **SHA-pin remaining workflows** — `desktop.yml` (3 refs: checkout, setup-node, tauri-action) + `opencode.yml` (2 refs: checkout@v6, opencode@latest). Paralelo al patrón del resto de workflows. | `.github/workflows/desktop.yml`, `.github/workflows/opencode.yml` | 🟢 1h | 🟠 | ⬜ Pendiente |
-| `TBH-14` | **Fix `cliff.toml:15` `conventional_commits = true`** — Cambiar de `false` a `true` para matchear `commit_parsers` que parsea prefijos conventional (feat/fix/perf/etc). | `cliff.toml` | 🟢 15min | 🟠 | ⬜ Pendiente |
-| `TBH-15` | **Consolidar `scripts/audit-tokens.{sh,ps1}`** — Eliminado `.sh` (duplicado); `.ps1` permanece como único entrypoint. | `scripts/audit-tokens.ps1` | 🟢 1h | 🟠 | ✅ Completado |
 
 ### 🟢 Prioridad BAJA — Nice to have (no bloquea)
 
 | ID | Descripción | Archivos clave | Esfuerzo | Prio | Estado |
 |----|-------------|----------------|----------|------|--------|
-| `TBH-16` | **Evaluar `divan` 0.1.21** — Port 1 micro-bench (e.g. `tokenizer_bench`) a divan para comparar DX vs criterion. Decidir keep/remove post-evaluación. D1: conservadora. | `Cargo.toml`, `benches/divan_*.rs` | 🟢 4h | 🟢 | ⬜ Pendiente |
-| `TBH-17` | **Evaluar `loom`** — Solo si se introducen nuevas primitivas de concurrencia. Hoy `concurrency_parity.rs` es suficiente. Documentar decisión en `docs/research/concurrency-testing-2026-08-30.md`. | — | 🟢 2h | 🟢 | ⬜ Pendiente |
-| `TBH-18` | **Evaluar `dhat` 0.3.3** — Añadir tras `--features dhat-heap`. 2 heap-usage asserts en tests existentes. Detecta regresiones de alloc. | `Cargo.toml`, `tests/memory/...` | 🟡 4-6h | 🟢 | ⬜ Pendiente |
-| `TBH-19` | **Markdownlint pre-commit hook** — Mirror de `gate-docs-21.yml` para feedback local antes de push. | `.pre-commit-config.yaml` | 🟢 1h | 🟢 | ⬜ Pendiente |
-| `TBH-20` | **`ci-examples-12.yml` Windows+macOS matrix** — Añadir `windows-latest` + `macos-latest` al matrix (hoy solo ubuntu). | `.github/workflows/ci-examples-12.yml` | 🟢 2h | 🟢 | ⬜ Pendiente |
-| `TBH-21` | **Documentar `CoverageThreshold=60` review cadence** — Entrada en `CI_POLICY.md` con periodicidad (quarterly). Source desde policy en lugar de hardcoded. | `CI_POLICY.md`, `dev-tools/gate-common.ps1` | 🟢 2h | 🟢 | ⬜ Pendiente |
-| `TBH-22` | **`release-binaries-63.yml` añadir `push tags v*`** — Trigger junto a `release published`. | `.github/workflows/release-binaries-63.yml` | 🟢 30min | 🟢 | ⬜ Pendiente |
-| `TBH-23` | **Unificar `cargo fmt --all` scope** — Decidir target scope (Justfile añadir `--all`? verify.ps1 quitar `--all`?). Canonical en `gate-common.ps1`. | `Justfile`, `dev-tools/verify.ps1`, `dev-tools/audit-all.ps1` | 🟢 1-2h | 🟢 | ⬜ Pendiente |
 
 ### 📋 Tarea Diferida (out of scope de P48)
 
@@ -802,3 +781,75 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | ID | Effort | Descripción | Archivos clave | Estado |
 |----|--------|-------------|----------------|--------|
 | `FIND-MCP-001` | 🟢 30min | **Test `vantadb-mcp/tests/context_tests.rs:70` no compila** — `MemoryRecord { ... }` literal faltan campos `heat` y `superseded_by` que el struct requiere. Detectado durante TBH-01 (verificación de `cargo check --workspace --benches --tests`). **Pre-existente** al inicio de la sesión, no introducido por P48. Impide el verify gate de `just verify` para el workspace completo. Fix: añadir `heat: 0.0, superseded_by: None` al literal (o `..Default::default()` si el struct lo soporta). Owner: bindings layer (`vanta-worker`). Bloquea pipeline de P48 Phase 2/3 si no se resuelve. | `vantadb-mcp/tests/context_tests.rs:70` | ⬜ Pendiente |
+
+---
+
+## P48 — Testing & Benchmarking Hardening (CIERRE) — 2026-08-31
+
+**Plan file:** `docs/plans/2026-08-30-testing-bench-harden.md` (archivado a `docs/plans/archive/` 2026-08-31)
+
+### Resumen
+- **23 tareas TBH-01..23** ejecutadas en modo `/pipeline run` paralelo (waves de 3)
+- **22 ✅ + 1 🟡 INCOMPLETO** (TBH-06 parcial — 3/5 tests migrados; los 2 query_result no existían como archivos)
+- **27 commits** en `develop` desde `72b98dc6` (TBH-03) hasta `fa87bbe2` (TBH-18)
+- **Hallazgo pre-existente** `FIND-MCP-001` (test roto en `vantadb-mcp/tests/context_tests.rs:70`) detectado durante TBH-01 y registrado para triage fuera de P48
+
+### Tareas completadas (dominios)
+
+**CI/CD (`docs/avance/activo/ci-cd.md`):**
+- `TBH-01` — `scripts/verify_datasets.{sh,ps1}` + pre-test step en `heavy-certification-50.yml` — commits `0e67f354`+`1c392eff`
+- `TBH-02` — `benchmarks/criterion_baseline.json` inicializado con 9 entries placeholder — commit `450910ec`
+- `TBH-03` — `ci-gate.yml` universal gate (removed `if: schedule`) — commit `72b98dc6`
+- `TBH-04` — `develop` agregado a 6 workflows + `release.yml` (D6 Dependabot alignment) — commit `abcce28f`
+- `TBH-05` — `benchmarks/data_comp_bench/`, `benchmarks/data_bench_db/` gitignored + untracked — commit `b4eada51`
+- `TBH-13` — SHA-pins 6 third-party actions en `desktop.yml` + `opencode.yml` — commits `42141706`+`8944b6e5`
+- `TBH-14` — `cliff.toml:15 conventional_commits = true` — commit `95b2394b`
+- `TBH-19` — `markdownlint-cli2` pre-commit hook — commit `7f78efb3`
+- `TBH-22` — `release-binaries-63.yml` `push.tags: ['v*']` trigger — commit `c727380d`
+- `TBH-23` — `cargo fmt --all` unificado (Justfile + audit-all.ps1) — commit `c83aa43d`
+
+**Benchmarks (`docs/avance/activo/ci-cd.md` o `core-engine.md`):**
+- `TBH-08` — `benches/wal_throughput.rs` (12 samples, 3 SyncMode × 4 batch sizes) — commit `84dcea9f`
+- `TBH-09` — `benches/crash_recovery.rs` (3 corpus sizes, open + WAL replay) — commit `74c15fb6`
+- `TBH-10` — `bench_concurrent.rs` convertido a `criterion_main!` (genera `estimates.json`) — commit `e1b64580`
+- `TBH-11` — `heavy-bench-nightly-51.yml` extendido de 5 → 8 benches — commit `1ad3dad8`
+
+**Tests (`docs/avance/activo/ci-cd.md`):**
+- `TBH-06` — `insta 1.48` snapshot testing (3 parser tests migrados; 2 query_result 🟡 INCOMPLETO) — commit `2aab9288`
+- `TBH-07` — `cargo-mutants` weekly job en `heavy-certification-50.yml` — commit `adc4f931`
+
+**Datasets/docs (`docs/avance/activo/ci-cd.md` o `operaciones.md`):**
+- `TBH-12` — `data/README.md` + `datasets/README.md` consolidados — commit `3c477f2e`
+- `TBH-15` — `audit-tokens.sh` deleted (consolidado a `.ps1` only) — commit `b5a57b0b`
+- `TBH-20` — `ci-examples-12.yml` matrix 3-OS — commit `00a78dce`
+- `TBH-21` — `CoverageThreshold=60` review cadence en `CI_POLICY.md` — commit `e6e73e2b`
+
+**Decisiones (NO implementación, doc-only):**
+- `TBH-16` — `divan` NO introducido (D1+D5) — `docs/research/bench-framework-evaluation-2026-08-30.md` — commit `42cce02c`
+- `TBH-17` — `loom` NO introducido — `docs/research/concurrency-testing-2026-08-30.md` — commit `ef4652bf`
+- `TBH-18` — `dhat` NO introducido (YAGNI) — `docs/research/dhat-evaluation-2026-08-30.md` — commit `fa87bbe2`
+
+### Retrospectiva (Start / Stop / Continue + 1 acción medible)
+
+**Start (continuar haciendo):**
+- Modo FAIL_MODE=parallel con waves de 3: 3-4x speedup vs secuencial, sin conflicto de archivos
+- Sub-agentes con `Ruta` explícita en el plan (vanta-lead, vanta-worker, vanta-docs) — routing determinístico
+- `Ponytail option (b)` (placeholders + primer nightly refresca) para evitar `cargo bench --workspace` 30+ min
+- `git stash` selectivo cuando hay unstaged de otras waves (preserva blast-radius mínimo)
+- TBH-XX todos los sub-agentes respetaron `cargo check -p vantadb` (NO `--workspace` por FIND-MCP-001)
+
+**Stop (dejar de hacer):**
+- Delegar tareas que tocan `Cargo.toml` (TBH-06, TBH-08, TBH-09) **en paralelo** — riesgo de merge conflict; hacerlo secuencial (Wave 5)
+- `cargo check --workspace` cuando FIND-MCP-001 está abierto — `-p vantadb` es el scope correcto
+
+**Continue (seguir haciendo igual):**
+- Single-file / single-config cambios como default
+- Conventional Commits con `task ID` en el mensaje
+- Verificación mecánica pre-commit (actionlint, cargo fmt, cargo clippy)
+- Memory persistence via `campaign_memory_write`
+
+**Acción medible propuesta:**
+> **Reducir ratio `insta` snapshot churn** — la primera corrida de cada nuevo `insta::assert_snapshot!` genera un `.snap.new` que requiere review manual. Tracking: contar PRs que tocan `tests/**/snapshots/*.snap` sin cambio de test asociado. Baseline actual: N/A (TBH-06 fue el primer snapshot). Métrica: si >30% de PRs que tocan `.snap` no cambian el test source, ajustar a `--require-pristine` en CI.
+
+### Hallazgo pre-existente (no resuelto en P48)
+- `FIND-MCP-001` — `vantadb-mcp/tests/context_tests.rs:70` no compila. Pre-existente al inicio de P48. Owner: bindings layer (`vanta-worker`). Bloquea `cargo check --workspace --tests`. NO resuelto en este sprint — fuera de scope de P48 (que se limitó a testing/benchmarking hardening, no fix de bindings).

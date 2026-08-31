@@ -413,3 +413,25 @@ Invariantes: NO new dependencies (Cargo.lock unchanged — bench uses public API
 Deuda: ninguna. Ponytail reflex applied — bench mide exactamente lo que dice medir (open + WAL replay); 3 corpus sizes exactos del plan; `iter_custom` con tempdir fresh por iter; pre_populate fuera del timed region; setup.fs2 lock + schema load + 4 segment-level VantaFile open también son parte del open+replay (intencional — la métrica mide startup completo, no solo WAL).
 Próxima tarea si completa: orquestador decide Wave 5 siguiente (TBH-13 / TBH-14 según plan)
 === END RECITATION ===
+
+=== RECITATION TBH-16 ===
+Campaign ID: c5634559-d69d-4ccd-800e-6520825ed60f
+Objetivo activo: TBH-16 — eval divan vs criterion
+Estado: completed
+Última acción: git commit 42cce02c "docs(TBH-16): record divan evaluation decision..."
+Resultado: ✅
+Próxima acción: none — TBH-16 closed; TBH-17 (loom) already closed by sister task; plan TBH phase 3 BAJA #16 done
+Contrato: git grep divan Cargo.toml = 0; Test-Path docs/research/bench-framework-evaluation-2026-08-30.md = True; pre-commit hooks passed
+Próxima tarea si completa: none (TBH-16 = final task in TBH plan)
+=== END RECITATION ===
+
+=== RECITATION TBH-18 ===
+Campaign ID: d38300a4-beb8-41f0-ad98-96101e3919c6
+Objetivo activo: TBH-18: dhat 0.3.3 heap-usage testing evaluation (DOC-ONLY)
+Estado: completed
+Última acción: Wrote docs/research/dhat-evaluation-2026-08-30.md + task file TBH-18.md; commit fa87bbe2
+Resultado: ✅
+Próxima acción: none (task complete)
+Contrato: Decision recorded as NO install dhat (D5 + YAGNI + author-marked experimental + conflict with mimalloc/jemalloc global_allocator + 0 alloc_regression markers in repo); trigger conditions documented for re-evaluation
+Próxima tarea si completa: 
+=== END RECITATION ===
