@@ -21,7 +21,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check main CI status
-        if: ${{ inputs.event_name == 'schedule' }}
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
