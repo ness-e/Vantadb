@@ -6,7 +6,7 @@ name: 'CI: Examples — Rust & Python smoke tests'
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
     paths:
       - 'examples/**'
       - 'src/**'

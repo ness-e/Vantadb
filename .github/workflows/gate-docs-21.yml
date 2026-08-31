@@ -2,7 +2,7 @@ name: 'GATE: Docs — Lint & Frontmatter'
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
     paths: ["docs/**", "src/cli_server.rs", "scripts/**"]
   pull_request:
     branches: [main]

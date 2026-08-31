@@ -2,7 +2,7 @@ name: 'PERF: Benchmarks — Python Integration'
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
     paths:
       - 'src/**'
       - 'vantadb-python/**'

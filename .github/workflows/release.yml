@@ -5,7 +5,7 @@ name: RELEASE Automated
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
 
 jobs:
   release-plz-release:
