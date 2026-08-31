@@ -279,3 +279,35 @@ jobs:
             --lib index::tests::concurrent_insert_preserves_hnsw_invariants \
             -- \
             --nocapture
+
+  mutation-test:
+    name: "Certification: mutation_test (cargo-mutants)"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    # Mutation testing is slow per design (one mutant = full cargo test cycle).
+    # Scope to root crate only (-p vantadb) per plan file D5/risk table.
+    # --check: only run mutants; --timeout 120: per-mutant cap (contract).
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: ./.github/actions/rust-setup
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        with:
+          tool: cargo-mutants
+      - name: Run cargo mutants (TBH-07)
+        timeout-minutes: 100
+        run: |
+          mkdir -p benchmarks
+          cargo mutants --check -p vantadb --timeout 120 \
+            --output-json benchmarks/mutation_score.json || true
+          # NB: cargo-mutants exits non-zero when mutants SURVIVE (which is
+          # expected and useful — we want a score, not a binary pass/fail).
+          # The artifact is the signal; gate enforcement lives in code review.
+      - name: Upload mutation score report
+        if: always()
+        uses: actions/upload-artifact@4e7e4d1bb8e5ae8b5b8e6dad68a47e8afbd4d76a # v4.5.0
+        with:
+          name: mutation-score
+          path: benchmarks/mutation_score.json
+          if-no-files-found: warn

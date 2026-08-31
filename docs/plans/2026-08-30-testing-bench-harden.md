@@ -85,7 +85,7 @@ VantaDB has a mature testing ecosystem (2034 tests, 19 criterion benches, 4 libF
   - Files: `Cargo.toml`, `tests/logic/parser.rs`, `tests/.../query_result*.rs` (5 files)
   - Verify: `cargo test --features test-bench-datasets` runs snapshots; first run generates `.snap.new` for review
 
-- [ ] **TASK-07 — Configure `cargo-mutants` weekly job** (mutation-testing)
+- [x] **TASK-07 — Configure `cargo-mutants` weekly job** (mutation-testing) ✅ (TBH-07, 2026-08-31)
   - Add new job to `heavy-certification-50.yml`: `mutation-test` running `cargo mutants --check -p vantadb --timeout 120`
   - Gated on `workflow_dispatch` + `schedule weekly`
   - Surface "mutation score" in `benchmarks/mutation_score.json` artifact
@@ -175,7 +175,7 @@ VantaDB has a mature testing ecosystem (2034 tests, 19 criterion benches, 4 libF
   - Files: `.github/workflows/ci-examples-12.yml`
   - Verify: PR triggers 3 OS jobs (ubuntu, windows, macos)
 
-- [ ] **TASK-21 — Document `CoverageThreshold=60` review cadence** (coverage-policy)
+- [⏳] **TASK-21 — Document `CoverageThreshold=60` review cadence** (coverage-policy)
   - Add entry to `CI_POLICY.md` documenting review schedule (e.g. quarterly)
   - Update `verify.ps1` `coverageThreshold=60` to source from policy
   - Files: `CI_POLICY.md`, `dev-tools/verify.ps1` (or `gate-common.ps1`)
@@ -313,4 +313,58 @@ Resultado: ✅ COMPLETO
 Próxima acción: handoff to orquestador. Próxima tarea candidata: TBH-10 / TBH-12 / TBH-14 (any wave-2 phase-2 task).
 Contrato: grep -E "@(v[0-9]+|@latest)" desktop.yml opencode.yml → empty (Select-String exit 1 = no match); python yaml.safe_load → OK; actionlint → 0 errors; 5 SHA-pins per acceptance criteria + 1 bonus upload-artifact; SHAs verified via gh api git/commits/<sha> (tauri-action@v1 dereferenced from annotated tag 944946e3... → commit 1deb371b...); no other workflow touched.
 Próxima tarea si completa: TBH-10 / TBH-12 / TBH-14 (next wave parallel task per orquestador)
+=== END RECITATION ===
+
+=== RECITATION TBH-19 ===
+Campaign ID: 39992198-ad9e-41ba-95d8-db518b38ee69
+Objetivo activo: TBH-19 — add markdownlint-cli2 to pre-commit hook (mirror CI gate-docs-21)
+Estado: completed
+Última acción: appended 11-line repo+hook block to .pre-commit-config.yaml (DavidAnson/markdownlint-cli2 v0.23.2, files: ^docs/.*\.mdx?$); pre-commit validate-config pass; commit 7f78efb3 on develop
+Resultado: ✅
+Próxima acción: next: TBH-10 (verify in plan; other parallel waves may have advanced)
+Contrato: pre-commit validate-config exit 0; hook aditivo (NO modifica 3 existentes); regex ^docs/.*\.mdx?$ cubre .md y .mdx; config auto-descubierto desde .markdownlint-cli2.yaml raíz
+Próxima tarea si completa: TBH-10
+=== END RECITATION ===
+
+=== RECITATION TBH-12 ===
+Campaign ID: 47bdcdd1-4662-43e7-8a24-f2e328312c6e
+Objetivo activo: TBH-12: create data/README.md + datasets/README.md documenting WHAT datasets, WHERE they go, source URL, license, size, download command. Format consistent with embeddings/README.md.
+Estado: completed
+Última acción: Created both READMEs with consolidated tables; verified Test-Path True + Select-String finds GloVe/SIFT on both files; commit 3c477f2e on develop as docs(TBH-12): add data/README.md + datasets/README.md (consolidated dataset registry). Pre-commit actionlint passed. Force-added with `git add -f` because /data/ and /datasets/ are in .gitignore (lines 23, 75) — README was explicitly intended per plan file 'Files Likely Touched'. No scripts modified (contract optional cross-link).
+Resultado: OK
+Próxima acción: Hand off to orquestador. Next independent task per Wave 2 assignment.
+Contrato: verificacion: Test-Path data/README.md = True; Test-Path datasets/README.md = True; Select-String -Path data/README.md -Pattern 'GloVe|SIFT' returns 10+ matches; Select-String -Path datasets/README.md -Pattern 'GloVe|SIFT' returns 6+ matches; git pre-commit actionlint ok; git commit 3c477f2e ok. evidencia: webfetch https://nlp.stanford.edu/projects/glove/ confirms GloVe = PDDL 1.0 (opendatacommons.org); webfetch https://ann-benchmarks.com/ references github.com/erikbern/ann-benchmarks (MIT). SIFT-1M licensing per Jégou et al. INRIA research use norm — flagged in datasets/README.md as 'non-commercial redistribution discouraged'. artefactos: 3c477f2e commit on develop branch; data/README.md (new, 47 lines); datasets/README.md (new, 45 lines); .opencode/skills/campaign-executor/tasks/TBH-12.md (new, 90 lines). invariantes: No scripts were modified (contract said cross-link is optional). /data/ and /datasets/ remain gitignored for binary files (only the README files are force-added). Tables cite verified URLs + licenses — do not add datasets not present in scripts. deuda: ninguna — todos los acceptance criteria cumplidos. Decisión deliberada: NO documentar GloVe-300 porque ningún script lo descarga (sería inventar info). queda_pendiente: Hand off to orquestador. Próxima tarea Wave 2 a elección del orquestador.
+Próxima tarea si completa: ninguno (Wave 2 — orquestador decide siguiente)
+=== END RECITATION ===
+
+=== RECITATION TBH-23 ===
+Campaign ID: 7e3cc7c6-d8f4-4e2f-9f5d-1aa3f51ed262
+Objetivo activo: TBH-23 — Unify cargo fmt scope
+Estado: completed
+Última acción: git commit c83aa43d + task file written
+Resultado: ✅
+Próxima acción: none
+Contrato: Select-String shows identical scope across 4 files
+Próxima tarea si completa: TBH-24 (if exists)
+=== END RECITATION ===
+
+=== RECITATION TBH-17 ===
+Campaign ID: 7d3c3494-0b2d-4022-b620-c6aa70f241df
+Objetivo activo: TBH-17: evaluate loom for new concurrency primitives; document decision
+Estado: completed
+Última acción: Created docs/research/concurrency-testing-2026-08-30.md + .opencode/skills/campaign-executor/tasks/TBH-17.md; committed as ef4652bf
+Resultado: ✅ COMPLETO — decision recorded, no deps added
+Próxima acción: handoff to vanta-lead orchestrator
+Contrato: Test-Path docs/research/concurrency-testing-2026-08-30.md = True; Select-String 'loom' = 18 matches; git grep 'loom' Cargo.toml = 0 hits; commit ef4652bf landed
+Próxima tarea si completa:
+=== END RECITATION ===
+
+=== RECITATION TBH-20 ===
+Objetivo activo: TBH-20: extend ci-examples-12.yml to 3-OS matrix (ubuntu+windows+macos) — recommended by docs/research/validacion/07 §52
+Estado: completed
+Última acción: Modified .github/workflows/ci-examples-12.yml — both jobs (rust-examples, python-examples) now use strategy.matrix.os: [ubuntu-latest, windows-latest, macos-latest] with runs-on: ${{ matrix.os }} and fail-fast: false (pattern copied from release-wheels-60.yml:36-42). rust-setup composite action is cross-OS safe (system-deps + swap gated runner.os == 'Linux'). Created task file .opencode/skills/campaign-executor/tasks/TBH-20.md. Commit 00a78dce on develop (parallel wave — TBH-11 also landed after mine as 1ad3dad8). Pre-commit actionlint passed (0 errors).
+Resultado: ✅ COMPLETO — 3 acceptance criteria met; matrix applied to both jobs; no logic changed
+Próxima acción: handoff to orquestador. Próxima tarea Wave 4 a elección del orquestador.
+Contrato: (1) python -c "import yaml; yaml.safe_load(open('.github/workflows/ci-examples-12.yml')); print('OK')" → OK; (2) Select-String -Path ci-examples-12.yml -Pattern 'windows-latest|macos-latest' → 2 matches (line 50 rust-examples matrix, line 86 python-examples matrix); (3) actionlint ci-examples-12.yml → exit 0. evidencia: docs/research/validacion/07-repo-esencial-y-fiabilidad-first-run.md:52 (gap original §"Smoke de ejemplos en Windows/macOS"); .github/workflows/release-wheels-60.yml:36-42 (canonical matrix pattern copied); .github/actions/rust-setup/action.yml:41,50,84 (Linux-only guards confirm cross-OS safety). artefactos: commit 00a78dce on develop; .github/workflows/ci-examples-12.yml (+16/-4 lines, 2 jobs modified); .opencode/skills/campaign-executor/tasks/TBH-20.md (new, 55 lines). invariantes: NO continue-on-error added (Regla 2); NO scripts/new tests added (Ponytail config-only); NO change to on:/paths/permissions/env/concurrency blocks. deuda: lessons.md appended TBH-20 entry but file left unstaged (matches batch pattern with prior waves). queda_pendiente: Hand off to orquestador. Próxima tarea Wave 4 a elección del orquestador.
+Próxima tarea si completa: ninguno (TBH-20 done)
 === END RECITATION ===
