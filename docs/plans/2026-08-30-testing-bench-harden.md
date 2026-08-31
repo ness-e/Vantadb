@@ -132,11 +132,11 @@ VantaDB has a mature testing ecosystem (2034 tests, 19 criterion benches, 4 libF
   - Files: `cliff.toml`
   - Verify: `git cliff --unreleased --dry-run` produces correctly-grouped output for a test commit
 
-- [ ] **TASK-15 — Consolidate `scripts/audit-tokens.{sh,ps1}`** (audit-tokens-consolidate)
-  - Decide: delete `.sh` (keep `.ps1`) OR keep both with one calling the other
-  - Recommended: delete `.sh`, update `Justfile`/`dev-tools` references if any
-  - Files: `scripts/audit-tokens.sh` (delete or wrap), `scripts/audit-tokens.ps1` (keep)
-  - Verify: `git grep "audit-tokens"` finds only `.ps1`
+- [x] **TASK-15 — Consolidate `scripts/audit-tokens.{sh,ps1}`** (audit-tokens-consolidate) ✅
+  - Decision: delete `.sh` (keep `.ps1`) — executed 2026-08-30
+  - No `Justfile`/`dev-tools`/`workflows` references found (clean)
+  - Files: bash variant (deleted), PowerShell variant (preserved)
+  - Verify: grep for the bash filename → 0 matches ✅
 
 ### Checkpoint: Phase 2
 - [ ] Snapshot tests catch at least 1 regression in a synthetic test
@@ -229,7 +229,7 @@ cliff.toml
 Justfile
 .pre-commit-config.yaml
 dev-tools/{verify.ps1, gate-common.ps1, audit-all.ps1}
-scripts/{verify_datasets.sh, verify_datasets.ps1, audit-tokens.sh}
+scripts/{verify_datasets.sh, verify_datasets.ps1, audit-tokens.ps1}
 benches/{wal_throughput.rs, crash_recovery.rs, bench_concurrent.rs}
 tests/{logic/parser.rs, .../query_result*.rs}
 data/README.md (new)

@@ -764,7 +764,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | `TBH-12` | **`data/README.md` + `datasets/README.md`** — Tabla unificada: nombre, fuente URL, licencia, tamaño, SHA256 esperado, comando de descarga. Cross-link desde scripts existentes. | `data/README.md`, `datasets/README.md` | 🟢 4-6h | 🟠 | ⬜ Pendiente |
 | `TBH-13` | **SHA-pin remaining workflows** — `desktop.yml` (3 refs: checkout, setup-node, tauri-action) + `opencode.yml` (2 refs: checkout@v6, opencode@latest). Paralelo al patrón del resto de workflows. | `.github/workflows/desktop.yml`, `.github/workflows/opencode.yml` | 🟢 1h | 🟠 | ⬜ Pendiente |
 | `TBH-14` | **Fix `cliff.toml:15` `conventional_commits = true`** — Cambiar de `false` a `true` para matchear `commit_parsers` que parsea prefijos conventional (feat/fix/perf/etc). | `cliff.toml` | 🟢 15min | 🟠 | ⬜ Pendiente |
-| `TBH-15` | **Consolidar `scripts/audit-tokens.{sh,ps1}`** — Decidir: eliminar `.sh` (mantener `.ps1`) o consolidar como wrapper. Recomendado: eliminar `.sh`. | `scripts/audit-tokens.sh`, `scripts/audit-tokens.ps1` | 🟢 1h | 🟠 | ⬜ Pendiente |
+| `TBH-15` | **Consolidar `scripts/audit-tokens.{sh,ps1}`** — Eliminado `.sh` (duplicado); `.ps1` permanece como único entrypoint. | `scripts/audit-tokens.ps1` | 🟢 1h | 🟠 | ✅ Completado |
 
 ### 🟢 Prioridad BAJA — Nice to have (no bloquea)
 
