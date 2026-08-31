@@ -265,6 +265,10 @@ harness = false
 name = "wal_throughput"
 harness = false
 
+[[bench]]
+name = "crash_recovery"
+harness = false
+
 [[bin]]
 name = "vanta-cli"
 path = "src/bin/vanta-cli.rs"
