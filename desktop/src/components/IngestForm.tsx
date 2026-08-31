@@ -9,6 +9,7 @@ import {
   IngestItem,
   vantaErrorMessage,
 } from "../vanta";
+import { embedPrefs } from "../store/embed-prefs";
 
 interface Props {
   onDone: (ids: string[]) => void;
@@ -83,7 +84,10 @@ export default function IngestForm({ onDone, runError, onRefresh }: Props) {
     setEmbeddingBusy(true);
     setError(null);
     try {
-      const result = await embedText(text);
+      // DESKTOP-EMBED-01 follow-up: el modelo se lee de embedPrefs (persiste en
+      // localStorage; configurable en Settings.tsx). Default = manifest default.
+      const { model } = embedPrefs.get();
+      const result = await embedText(text, model);
       setEmbedding(result);
     } catch (err) {
       setError(vantaErrorMessage(err));

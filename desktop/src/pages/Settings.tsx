@@ -6,6 +6,7 @@
 // en Rust: ServerClientConfig.token).
 import { FormEvent, useState } from "react";
 import { connectionPrefs, ConnectionProfile, profileTarget } from "../store/connections";
+import { DEFAULT_EMBED_MODEL, EMBED_MODELS, EmbedModelId, embedPrefs } from "../store/embed-prefs";
 
 interface Props {
   /** WEB-05: en build embebido no hay multi-conexión → ocultar perfiles. */
@@ -188,6 +189,34 @@ export default function Settings({ embedded = false, busy = false, onConnectNati
               {l === "es" ? "ESPAÑOL" : "ENGLISH"}
             </button>
           ))}
+        </div>
+      </Section>
+
+      {/* ===== (5) MODELO DE EMBEDDING (DESKTOP-EMBED-01) ===== */}
+      <Section title="Modelo de embedding (local)">
+        <div className="flex flex-col gap-2">
+          <label className="flex flex-col gap-1">
+            <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">modelo</span>
+            <select
+              value={embedPrefs.get().model}
+              onChange={(e) => {
+                embedPrefs.set({ model: e.target.value as EmbedModelId });
+                sync();
+              }}
+              aria-label="Modelo de embedding"
+              className={inputCls}
+            >
+              {EMBED_MODELS.map((m) => (
+                <option key={m.id} value={m.id}>{m.label}</option>
+              ))}
+            </select>
+          </label>
+          <p className="font-tech text-[10px] text-muted-foreground">
+            Modelo ONNX usado por <code>vanta_embed_text</code>. El default ({DEFAULT_EMBED_MODEL}) coincide con
+            <code>embeddings/manifest.json</code>. Cambialo solo si el modelo esta descargado via
+            <code>python embeddings/download.py --only &lt;id&gt;</code>. Si el backend no expone
+            <code>embed-local</code>, la seleccion se ignora (vector dummy).
+          </p>
         </div>
       </Section>
     </div>
