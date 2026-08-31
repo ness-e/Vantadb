@@ -1,3 +1,4 @@
+use criterion::{criterion_group, criterion_main, Criterion};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
@@ -10,6 +11,11 @@ use vantadb::index::FilterBitset;
 use vantadb::node::{UnifiedNode, VectorRepresentations};
 use vantadb::storage::StorageEngine;
 
+const DIM: usize = 128;
+const INITIAL_COUNT: usize = 10_000;
+const TEST_DURATION: Duration = Duration::from_secs(3);
+const THREAD_COUNTS: [usize; 4] = [1, 4, 8, 16];
+
 fn generate_vectors(count: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
     let mut rng = StdRng::seed_from_u64(seed);
     (0..count)
@@ -17,80 +23,108 @@ fn generate_vectors(count: usize, dim: usize, seed: u64) -> Vec<Vec<f32>> {
         .collect()
 }
 
-fn main() {
+/// Setup the shared storage + query pool once before running the bench group.
+/// Returns `(storage, query_pool)`. Done outside `bench_function` so it isn't
+/// included in the timed iter (criterion warmup is separate).
+fn setup_storage() -> (Arc<StorageEngine>, Arc<Vec<Vec<f32>>>) {
     AutoTune::set_ef(100);
-    let dim = 128;
-    let initial_count = 10_000;
-    let test_duration = Duration::from_secs(3);
-
-    println!("============================================================");
-    println!("   VANTA HNSW CONCURRENCY BENCHMARK (BASELINE VS FINE-GRAINED)  ");
-    println!("============================================================");
-    println!("Dimension: {}, Initial Nodes: {}", dim, initial_count);
-    println!("Running each test scenario for {:?}...", test_duration);
-
-    // 1. Setup StorageEngine and populate with 10k vectors
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
-    println!("Initializing database at {}...", db_path);
+    eprintln!("[bench_concurrent] initializing storage at {}...", db_path);
 
     let storage = Arc::new(StorageEngine::open(db_path).unwrap());
+    eprintln!("[bench_concurrent] inserting {} nodes...", INITIAL_COUNT);
 
-    println!("Generating {} vectors...", initial_count);
-    let vectors = generate_vectors(initial_count, dim, 42);
-
-    println!("Inserting {} nodes sequentially...", initial_count);
     let start_insert = Instant::now();
+    let vectors = generate_vectors(INITIAL_COUNT, DIM, 42);
     for (id, vec) in vectors.into_iter().enumerate() {
         let mut node = UnifiedNode::new(id as u128);
         node.vector = VectorRepresentations::Full(vec);
         storage.insert(&node).unwrap();
     }
-    println!(
-        "Inserted {} nodes in {:?}",
-        initial_count,
+    eprintln!(
+        "[bench_concurrent] inserted {} nodes in {:?}",
+        INITIAL_COUNT,
         start_insert.elapsed()
     );
 
-    // Generate queries
-    let query_pool = Arc::new(generate_vectors(1000, dim, 1337));
+    let query_pool = Arc::new(generate_vectors(1000, DIM, 1337));
+    (storage, query_pool)
+}
 
-    // Test for different thread counts
-    let thread_counts = [1, 4, 8, 16];
+fn bench_concurrent(c: &mut Criterion) {
+    let (storage, query_pool) = setup_storage();
 
-    println!("\n--- SCENARIO 1: READ-ONLY CONCURRENT SEARCHES ---");
-    println!(
+    // Measure baseline (t=1) ONCE before the criterion loop so the per-thread
+    // bench functions can use a stable speedup/efficiency reference. The
+    // baseline itself is NOT a `bench_function` — it's printed via `eprintln!`
+    // and re-printed for each subsequent (t>1) iteration in `run_read_only_bench`.
+    eprintln!();
+    eprintln!("[bench_concurrent] measuring baseline (t=1) for speedup reference...");
+    let baseline_qps =
+        run_read_only_bench(storage.clone(), query_pool.clone(), 1, TEST_DURATION, 0.0);
+
+    let mut group = c.benchmark_group("bench_concurrent");
+    group.sample_size(10);
+
+    eprintln!();
+    eprintln!("--- SCENARIO 1: READ-ONLY CONCURRENT SEARCHES ---");
+    eprintln!(
         "{:<8} | {:<16} | {:<12} | {:<12} | {:<10} | {:<10}",
         "Threads", "Throughput (QPS)", "p50 Latency", "p99 Latency", "Speedup", "Efficiency"
     );
-    println!("{}", "-".repeat(78));
+    eprintln!("{}", "-".repeat(78));
 
-    let mut baseline_qps = 0.0;
-    for &t in &thread_counts {
-        let qps = run_read_only_bench(
-            storage.clone(),
-            query_pool.clone(),
-            t,
-            test_duration,
-            baseline_qps,
-        );
-        if t == 1 {
-            baseline_qps = qps;
-        }
+    for &t in &THREAD_COUNTS {
+        let storage = storage.clone();
+        let query_pool = query_pool.clone();
+        // t=1 uses baseline_qps=0.0 so speedup=1.00x/eff=100% (baseline is the
+        // t=1 run we just did, already printed above). For t>1 we pass the
+        // measured baseline so the in-iter printout is meaningful.
+        let bench_baseline = if t == 1 { 0.0 } else { baseline_qps };
+        group.bench_function(format!("read_only/t{}", t), |b| {
+            b.iter_custom(|iters| {
+                let mut total = Duration::ZERO;
+                for _ in 0..iters {
+                    let _ = run_read_only_bench(
+                        storage.clone(),
+                        query_pool.clone(),
+                        t,
+                        TEST_DURATION,
+                        bench_baseline,
+                    );
+                    total += TEST_DURATION;
+                }
+                total
+            });
+        });
     }
 
-    println!("\n--- SCENARIO 2: MIXED READ-WRITE CONCURRENCY ---");
-    println!("(1 Thread constantly inserting new vectors while T threads search)");
-    println!(
+    eprintln!();
+    eprintln!("--- SCENARIO 2: MIXED READ-WRITE CONCURRENCY ---");
+    eprintln!("(1 Thread constantly inserting new vectors while T threads search)");
+    eprintln!(
         "{:<8} | {:<16} | {:<12} | {:<12} | {:<15}",
         "Threads", "Throughput (QPS)", "p50 Latency", "p99 Latency", "Insert Rate"
     );
-    println!("{}", "-".repeat(72));
+    eprintln!("{}", "-".repeat(72));
 
-    for &t in &thread_counts {
-        run_mixed_bench(storage.clone(), query_pool.clone(), t, test_duration, dim);
+    for &t in &THREAD_COUNTS {
+        let storage = storage.clone();
+        let query_pool = query_pool.clone();
+        group.bench_function(format!("mixed_rw/t{}", t), |b| {
+            b.iter_custom(|iters| {
+                let mut total = Duration::ZERO;
+                for _ in 0..iters {
+                    run_mixed_bench(storage.clone(), query_pool.clone(), t, TEST_DURATION, DIM);
+                    total += TEST_DURATION;
+                }
+                total
+            });
+        });
     }
-    println!("============================================================");
+
+    group.finish();
 }
 
 fn run_read_only_bench(
@@ -190,7 +224,7 @@ fn run_read_only_bench(
         "100.0%".to_string()
     };
 
-    println!(
+    eprintln!(
         "{:<8} | {:<16.1} | {:<12} | {:<12} | {:<10} | {:<10}",
         num_threads, qps, p50, p99, speedup_str, eff_str
     );
@@ -313,8 +347,11 @@ fn run_mixed_bench(
         "N/A".to_string()
     };
 
-    println!(
+    eprintln!(
         "{:<10} | {:<15.1} | {:<12} | {:<12} | {:<15.1}",
         num_threads, qps, p50, p99, insert_rate
     );
 }
+
+criterion_group!(benches, bench_concurrent);
+criterion_main!(benches);
