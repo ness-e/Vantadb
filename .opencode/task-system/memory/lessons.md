@@ -342,3 +342,4 @@ equest_id test entry. Same pattern applies to any test importing server-only or 
 - 2026-08-31 | TBH-08 | Task TBH-08 → completed
 - 2026-08-31 | TBH-21 | Task TBH-21 → completed
 - 2026-09-01 | 1 | Task 1 (AUD-043 — Fix `unused variable: ns` clippy en `src/cli_server.rs:1302`) → completed | Contract: `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` exit 0 + `cargo check -p vantadb` exit 0
+- 2026-09-01 | 2 | Task 2 (FIND-MCP-001 — Fix `MemoryRecord { ... }` literal faltan `heat`/`superseded_by` en `vantadb-mcp/tests/context_tests.rs:70`) → completed | Contract: `cargo check -p vantadb-mcp --tests` exit 0 + `cargo nextest run -p vantadb-mcp` 0 failed

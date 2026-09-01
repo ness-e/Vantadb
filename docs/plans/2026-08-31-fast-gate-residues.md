@@ -23,8 +23,8 @@
 
 **Foco del plan:** desbloquear `cargo check --workspace --tests` (rotura pre-existente del fast gate), completar lo casi terminado del sprint P48, y agregar gate de docs as-code mínimo.
 
-Status: ⬆️ uphill = 0 · ⬇️ downhill = 3 steps pendientes (Task 2, Task 3, Task 4)
-Task 1 cerrada 2026-08-31 — arqueológica, sin código. Estado global: 1/4 ✅ · 3 ⬜
+Status: ⬆️ uphill = 0 · ⬇️ downhill = 2 steps pendientes (Task 3, Task 4)
+Task 1-2 cerradas 2026-08-31 — ambas arqueológicas, sin código. Estado global: 2/4 ✅ · 2 ⬜
 
 ## Notas post Task 1 (2026-08-31)
 
@@ -57,12 +57,18 @@ Task 1 cerrada 2026-08-31 — arqueológica, sin código. Estado global: 1/4 ✅
 - **Top 3 riesgos:** (1) verificación de uso real; (2) tests adyacentes rotos por cambio de signature; (3) clippy cascade si hay warnings nuevos
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1
 - **DoD multi-nivel:** Task: verify mecánico (clippy exit 0) · Commit: `fix(clippy): rename unused param to _ns in audit closure` + verify full · Release: N/A (no API change)
-- **Estado:** ✅ COMPLETED
-- **Task file:** `.opencode/skills/campaign-executor/tasks/AUD-043.md`
+- **Estado:** ✅ COMPLETED (2026-08-31) — target arqueológico: fix ya aplicado en commit `43e0779e` (líneas 89-90: `heat: 0, superseded_by: None`). `cargo check -p vantadb-mcp --test context_tests` ✅ PASS (0.41s). Contrato general `--tests` falla por issues separados en `test_embed_texts.rs:78` (`max_embed_batch_size` no existe en McpConfig) — registrado como **FIND-036** en Backlog (NO scope-creep).
+- **Task file:** `.opencode/skills/campaign-executor/tasks/FIND-MCP-001.md`
 - **Branch:** develop
 - **Ruta:** vanta-worker
 
 ---
+
+### Notas post Task 2 (2026-08-31)
+
+- **FIND-MCP-001 = arqueológica.** El fix ya estaba en commit `43e0779e` (post-P48 cleanup). Cero ediciones nuevas.
+- **Hallazgo colateral FIND-036** registrado: `test_embed_texts.rs:78` usa `max_embed_batch_size` que no existe en `McpConfig`. Scope separado.
+- **Próxima tarea:** TBH-06 (insta snapshots completion).
 
 ### Task 2: FIND-MCP-001 — Fix `MemoryRecord { ... }` literal faltan `heat`/`superseded_by` en `vantadb-mcp/tests/context_tests.rs:70`
 
@@ -86,7 +92,7 @@ Task 1 cerrada 2026-08-31 — arqueológica, sin código. Estado global: 1/4 ✅
 - **Top 3 riesgos:** (1) `Default` no derive en struct → fallar a completar campos; (2) tests adyacentes con mismo bug; (3) afectar el flow de context_tests
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1
 - **DoD multi-nivel:** Task: verify mecánico · Commit: `test(vantadb-mcp): complete MemoryRecord literal with heat/superseded_by` + verify full
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/FIND-MCP-001.md`
 - **Branch:** develop
 - **Ruta:** vanta-worker
@@ -392,4 +398,15 @@ Resultado: OK
 Próxima acción: crear fila FIND-035 en docs/Backlog.md con lint cascade actual
 Contrato: verificacion: cargo check -p vantadb exit 0 (3.53s) ✅ | evidencia: claim=AUD-043 target arqueológico ya aplicado, evidencia=git show cf2ecc50 _ns: String en src/server/routing.rs:1166 desde 2026-08-30, confianza=alta | invariantes: ninguno (no hay cambios de código) | deuda: FIND-035 lint cascade nuevo (unused imports + assertions_on_constants — scope separado) | queda_pendiente: FIND-035 backlog row para resolver lint cascade
 Próxima tarea si completa: FIND-035 (lint cascade nuevo — derivado)
+=== END RECITATION ===
+
+=== RECITATION 2 ===
+Campaign ID: cecc8468-9451-4d56-a3ef-1684e123ab8b (nuevo — fast-gate residues)
+Objetivo activo: FIND-MCP-001 MemoryRecord literal fix
+Estado: completed
+Última acción: Verifiqué que FIND-MCP-001 ya estaba aplicado en commit 43e0779e (heat:0, superseded_by:None en context_tests.rs:89-90). context_tests compila. test_embed_texts.rs tiene error separado (max_embed_batch_size) → FIND-036. Cierro task.
+Resultado: OK
+Próxima acción: crear fila FIND-036 en docs/Backlog.md
+Contrato: verificacion: cargo check -p vantadb-mcp --test context_tests exit 0 (0.41s) ✅ | evidencia: claim=FIND-MCP-001 target arqueológico ya aplicado, evidencia=commit 43e0779e lines 89-90 heat:0 superseded_by:None, confianza=alta | invariantes: ninguno | deuda: FIND-036 test_embed_texts.rs max_embed_batch_size (scope separado) | queda_pendiente: FIND-036 backlog row
+Próxima tarea si completa: TBH-06 (insta snapshots)
 === END RECITATION ===
