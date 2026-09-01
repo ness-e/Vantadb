@@ -73,9 +73,11 @@ fn embed_texts_budgeting_truncation() {
     let (_dir, storage) = setup();
     let executor = vantadb::executor::Executor::new(&storage);
     // set small budget to force truncation
-    let mut cfg = McpConfig::default();
-    cfg.max_embed_tokens = 20; // each text ~7 tokens (len 28/4), => 2 fit (14), third would exceed
-    cfg.max_embed_batch_size = 2;
+    let cfg = McpConfig {
+        max_embed_tokens: 20, // each text ~7 tokens (len 28/4), => 2 fit (14), third would exceed
+        max_embed_batch_size: 2,
+        ..Default::default()
+    };
     // Create 5 texts, each ~28 chars => ~7 tokens
     let texts: Vec<String> = (0..5)
         .map(|i| format!("text number {} with some words", i))

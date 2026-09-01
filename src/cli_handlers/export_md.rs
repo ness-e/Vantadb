@@ -297,8 +297,15 @@ mod tests {
         };
         let body = render_record_md(&rec);
         assert!(body.starts_with("---\n"));
-        assert!(body.contains("\"namespace\": \"agent/team\""));
-        assert!(body.contains("\"schema_version\": 1"));
+        // Frontmatter is compact JSON (no spaces) — parse it instead of
+        // string-matching whitespace-sensitive literals.
+        let fm_end = body.find("\n---\n").expect("closing frontmatter delimiter");
+        let fm_json = &body["---\n".len()..fm_end];
+        let fm: serde_json::Value =
+            serde_json::from_str(fm_json).expect("frontmatter must be valid JSON");
+        assert_eq!(fm["namespace"], "agent/team");
+        assert_eq!(fm["schema_version"], 1);
+        assert_eq!(fm["key"], "k/1");
         assert!(body.ends_with("hello\n"));
     }
 }
