@@ -710,4 +710,22 @@ aliases: []
   - 20 snapshot files generados y aceptados en `tests/snapshots/`
   - Verificación: `cargo test -p vantadb --test query_result_basic --test query_result_advanced` → 20 passed ✅
   - `cargo check -p vantadb --tests` ✅, `cargo fmt --check` ✅, `cargo clippy -p vantadb --tests` ✅ (solo warning pre-existente)
-- **Commit:** `f4bf5682` `test(insta): add 2 query_result snapshot tests closing TBH-06`
+- **Commit:** `f4bf5682` `test(insta): add 2 query_result snapshot tests closing TBH-06`### MCP-39: Output budgeting (truncado explícito + next_cursor)
+- **Fecha:** 2026-09-01
+- **Objetivo:** Add generic apply_output_budget helper for memory_list and search_multi with byte budget, truncation, next_cursor preservation
+- **Resultado:** ✅
+- **Commit:** 7a17bc2d
+
+### PY-01: Paridad graph_bfs_filtered en Python binding
+- **Fecha:** 2026-09-01
+- **Objetivo:** Verificar y documentar paridad de `graph_bfs_filtered` entre Python, Node/TS y Rust core
+- **Resultado:** ✅
+- **Commit:** (verificación — implementación ya existía en código)
+  - `vantadb-python/src/lib.rs:1921-1939` — método `graph_bfs_filtered` en `VantaDB`
+  - `vantadb-python/src/lib.rs:317` — expuesto en `GraphClient` via `forward_to_db!`
+  - `vantadb-python/vantadb_py/vantadb_py.pyi:272,446` — stubs para `VantaDB` y `GraphClient`
+  - `vantadb-python/tests/test_subclients.py:158-205` — test de paridad con Node/TS
+  - Verificado: `cargo check -p vantadb_py` ✅, `cargo clippy -p vantadb_py` ✅, `cargo fmt --check -p vantadb_py` ✅
+  - Tests: `python -m pytest vantadb-python/tests/test_subclients.py::test_graph_bfs_filtered_identity` ✅ (22/22 tests pass)
+  - Import: `python -c "import vantadb; help(vantadb.VantaDB.graph_bfs_filtered)"` ✅ sin ImportError
+

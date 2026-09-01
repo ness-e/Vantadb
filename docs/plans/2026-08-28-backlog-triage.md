@@ -195,7 +195,7 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Gate Result:** ✅ DO
 - **Contrato:** `Select-String -Path "vantadb-mcp/src/handlers/tools.rs" -Pattern "next_cursor|byte_budget|truncated" | Measure-Object | Select-Object Count` >=2
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MCP-39.md`
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 - **Pre-mortem:**
   - Fallo 1: Budget muy bajo trunca respuestas normales → default 40KB (80% de OpenCode 50KB)
   - Fallo 2: `search_multi` con `memory_list` tienen shapes distintos → helper genérico
@@ -224,7 +224,7 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Gate Result:** ✅ DO
 - **Contrato:** `Select-String -Path "docs/api/MCP.md" -Pattern "skills/vantadb-mcp" | Measure-Object | Select-Object Count` ==0 (link corregido) AND `Get-FileHash .opencode/skills/vantadb-mcp/SKILL.md` == `Get-FileHash skills/vantadb-mcp/SKILL.md` (hash SAME)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/FIND-24b.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Pre-mortem:**
   - Fallo 1: Dos SKILL.md con hashes distintos — decidir cuál es canónica (`skills/vantadb-mcp/` es versionada, commit 61381d29)
   - Fallo 2: Link relativo vs absoluto — usar `../../skills/vantadb-mcp/SKILL.md` o URL canónica
@@ -253,7 +253,7 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo test -p vantadb-python -- --test-threads=1 2>&1 | Select-String "bfs_filtered" | Measure-Object | Select-Object Count` >=1 AND `python -c "import vantadb; help(vantadb.VantaDB.graph_bfs_filtered)"` sin ImportError
 - **Task file:** `.opencode/skills/campaign-executor/tasks/PY-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Pre-mortem:**
   - Fallo 1: Firma Rust con `filter: Option<GraphFilter>` requiere serde de `time_range` [f64,f64] — validar contra node impl
   - Fallo 2: `.pyi` stub no regenerado → pyright/mypy falla
@@ -872,4 +872,26 @@ Resultado: OK
 Próxima acción: ejecutar Task 6: MCP-39 (output budgeting)
 Contrato: verificacion: cargo check -p vantadb-mcp ✅ + cargo test -p vantadb-mcp 82 passed ✅ + Select-String VANTADB_MCP_PROFILE count=1 ✅ | evidencia: claim=3 profiles implemented + tests, evidencia=commit 24d0b86d, confianza=alta | invariantes: default Full preserva compat; dev recomendado para Cursor (~35 tools); memory minimal (~18 tools) | deuda: ninguna | queda_pendiente: MCP-39 (output budgeting)
 Próxima tarea si completa: MCP-39
+=== END RECITATION ===
+
+=== RECITATION 6 ===
+Campaign ID: b28f-20260828-backlog-triage
+Objetivo activo: MCP-39 output budgeting
+Estado: completed
+Última acción: vanta-worker implementó apply_output_budget helper, aplicó a search_multi + memory_list, 4 nuevos tests en validation.rs, config ya tenía byte_budget.
+Resultado: OK
+Próxima acción: ejecutar Task 7: FIND-24b (docs drift MCP skill)
+Contrato: verificacion: cargo check -p vantadb-mcp ✅ + cargo test -p vantadb-mcp --lib ✅ (22 passed incl 4 new) + Select-String next_cursor|byte_budget|truncated count=14 >=2 ✅ | evidencia: claim=output budgeting implemented + tests, evidencia=commit 7a17bc2d, confianza=alta | invariantes: default budget 40KB (80% OpenCode 50KB), next_cursor preserved, back-compat text payload intact | deuda: ninguna | queda_pendiente: FIND-24b, PY-01, SRV-04, FIND-40
+Próxima tarea si completa: FIND-24b
+=== END RECITATION ===
+
+=== RECITATION 7 ===
+Campaign ID: b28f-20260828-backlog-triage
+Objetivo activo: FIND-24b docs drift MCP skill
+Estado: completed
+Última acción: Verifiqué hashes idénticos y no hay link roto en docs/api/MCP.md. Task arqueológica completada.
+Resultado: OK
+Próxima acción: ejecutar Task 8: PY-01 (Python graph_bfs_filtered parity)
+Contrato: verificacion: hashes .opencode/skills/vantadb-mcp/SKILL.md == skills/vantadb-mcp/SKILL.md ✅ (F82FC815...) | evidencia: claim=drift resuelto sin edición, evidencia=Get-FileHash ambos archivos idénticos, confianza=alta | invariantes: skill canónica en skills/vantadb-mcp/ versionada | deuda: ninguna | queda_pendiente: PY-01, SRV-04, FIND-40
+Próxima tarea si completa: PY-01
 === END RECITATION ===
