@@ -212,6 +212,19 @@ aliases: []
 ### AUD-050: `inject_context` error claro thread_id (2026-08-18)
 - **Resultado:** ✅ distingue `Missing 'thread_id'` (ausente/null) vs `'thread_id' must be a numeric id (integer), got string` (tipo inválido — el error anterior decía "Missing" con el campo presente). mcp_tests 41/41. Commit (wave 4). (ver docs/progreso/README.md)
 
+### MCP-37: Perfiles de tool surface (cap Cursor 40 tools)
+- **Fecha:** 2026-09-01
+- **Plan:** `docs/plans/2026-08-28-backlog-triage.md` Task 5 (Wave 1) · P37 · `vanta-worker`
+- **Objetivo:** Implementar 3 perfiles de tool surface vía `VANTADB_MCP_PROFILE` env var para que Cursor (cap ~40 tools) pueda usar el MCP sin truncar silenciosamente.
+- **Resultado:** ✅
+  - `vantadb-mcp/src/config.rs`: `McpProfile { Memory, Dev, Full }` enum + `profile` field en `McpConfig`; `from_storage` lee `VANTADB_MCP_PROFILE` (default `Full`)
+  - `vantadb-mcp/src/handlers/tools.rs`: `profile_allowed_tools()` function + filtrado en `handle_tools_list`
+  - Perfiles: `memory` (~18 tools: CRUD + search + IQL + collections), `dev` (~35 tools: memory + graph + collections + maintenance + introspection), `full` (76 tools: all including code/wiki/skills/threads/scenes/context)
+  - Tests: `test_mcp_tool_profiles` verifica counts (Full=78, Dev≤37, Memory≤21) y presencia/ausencia específica por perfil
+  - Docs: `docs/api/MCP.md` § "Tool Surface Profiles (MCP-37)" con tabla de perfiles, ejemplos Cursor + `memory_search`/`memory_recall` añadidos a Search & Query table
+  - `scripts/validate-docs-coverage.ps1` actualizado para nueva firma `handle_tools_list(config: &McpConfig)`
+- **Verificación:** `Select-String VANTADB_MCP_PROFILE|mcp_profile` → Count=1 ✅; `cargo test -p vantadb-mcp --test mcp_tests test_mcp_tool_profiles` PASS ✅; `cargo fmt --check` ✅; `cargo clippy -p vantadb-mcp --test mcp_tests` ✅; `scripts/validate-docs-coverage.ps1` MCP tools 48/48 ✅
+
 ### MEM-21: F4 Tools MCP scene_read/list/query — gateway handlers (2026-08-20)
 - **Resultado:** ✅ `vanta-memory/src/gateway/knowledge_handlers.rs` (nuevo): capa de entrada tipada serde para `scene_read`/`scene_list`/`scene_query` sobre el store de escenas (MEM-12/MEM-15); server MCP la expone después. Soft-delete respetado (read→NotFound, list/query excluidos); query LLM-free (`overlap_score`, techo documentado); `KnowledgeError` non_exhaustive. 10 tests D19; suite 361 ✅. Commit `31e676b1`. (ver docs/progreso/README.md)
 
@@ -686,3 +699,15 @@ aliases: []
   - Contract aliases en JSDoc para `compact_wal`/`purge_expired`: napi-rs convierte snake_case→camelCase (`compactWal`/`purgeExpired`); el contrato regex matchea los nombres originales solo vía `(contract alias: 'compact_wal')` en JSDoc.
   - 14 métodos del scope original NO implementados (bulk_import, export, snapshot_create/restore, audit/repair text index, generate_snippet, query_iql, search_semantic): diferibles — se pueden delegar a una wave futura si la paridad completa resulta necesaria.
 - **Archivos:** `vantadb-node/src/lib.rs` (+196), `vantadb-node/dts-header.d.ts` (+40), `vantadb-node/index.d.ts` (+53), `vantadb-node/tests/api.test.ts` (+130).
+
+### TBH-06: insta 1.48 snapshot testing — 2 query_result tests
+- **Fecha:** 2026-09-01
+- **Objetivo:** Completar migración insta snapshots (3/5 parser tests ya migrados en commit `2aab9288`). Crear 2 tests faltantes para `query_result` parsing.
+- **Resultado:** ✅
+  - Creados `tests/query_result_basic.rs` (7 tests) y `tests/query_result_advanced.rs` (13 tests) con `insta::assert_debug_snapshot!`
+  - Cobertura: search requests (basic, vector-only, text-only, con profile hybrid/keyword/vector), exclude_superseded, sparse vectors, full complex request, search hits (basic, simple, con explicación, superseded chain), list pages (empty, with records, multi-page, last page), VantaQueryResult variants (Read, Write, StaleContext)
+  - Añadidas entradas `[[test]]` en `Cargo.toml` para `query_result_basic` y `query_result_advanced`
+  - 20 snapshot files generados y aceptados en `tests/snapshots/`
+  - Verificación: `cargo test -p vantadb --test query_result_basic --test query_result_advanced` → 20 passed ✅
+  - `cargo check -p vantadb --tests` ✅, `cargo fmt --check` ✅, `cargo clippy -p vantadb --tests` ✅ (solo warning pre-existente)
+- **Commit:** `f4bf5682` `test(insta): add 2 query_result snapshot tests closing TBH-06`

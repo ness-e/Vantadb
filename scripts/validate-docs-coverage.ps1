@@ -168,22 +168,22 @@ if (Test-Path $pyLib) {
 #  6. MCP tools (paridad tool ↔ docs/api/MCP.md)
 # ═══════════════════════════════════════
 # handle_tools_list vive en vantadb-mcp/src/handlers/tools.rs (movido desde lib.rs).
-$mcpToolsFile = "$root\vantadb-mcp\src\handlers\tools.rs"
-if (Test-Path $mcpToolsFile) {
-  $mcpText = Get-Content $mcpToolsFile -Raw
-  # Extrae solo el bloque handle_tools_list ("tools": [ ... ]) — todo '"name": "X"' ahí es una tool.
-  # Corta en handle_tools_call, la función que sigue al bloque JSON de tools/list.
-  $toolsBlock = $mcpText -split '(?<=pub fn handle_tools_list\(\) -> Result<Value, Value> \{)' | Select-Object -Skip 1 -First 1
-  $toolsBlock = $toolsBlock -split '(?=pub fn handle_tools_call)' | Select-Object -First 1
-  if ($toolsBlock) {
-    $mcpTools = [regex]::Matches($toolsBlock, '"name":\s*"(\w+)"') |
-      ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
-    Check-Methods -Label "vantadb-mcp (tools)" -Methods $mcpTools -DocRelPath "docs\api\MCP.md" -DocLabel "MCP.md"
-  } else {
-    Write-Host "⚠️  vantadb-mcp (tools) — no se encontró el bloque handle_tools_list en $mcpToolsFile" -ForegroundColor Red
-    if (-not $ReportOnly) { $script:exitCode = 1 }
+  $mcpToolsFile = "$root\vantadb-mcp\src\handlers\tools.rs"
+  if (Test-Path $mcpToolsFile) {
+    $mcpText = Get-Content $mcpToolsFile -Raw
+    # Extrae solo el bloque handle_tools_list ("tools": [ ... ]) — todo '"name": "X"' ahí es una tool.
+    # Corta en handle_tools_call, la función que sigue al bloque JSON de tools/list.
+    $toolsBlock = $mcpText -split '(?<=pub fn handle_tools_list\(config: &McpConfig\) -> Result<Value, Value> \{)' | Select-Object -Skip 1 -First 1
+    $toolsBlock = $toolsBlock -split '(?=pub fn handle_tools_call)' | Select-Object -First 1
+    if ($toolsBlock) {
+      $mcpTools = [regex]::Matches($toolsBlock, '"name":\s*"(\w+)"') |
+        ForEach-Object { $_.Groups[1].Value } | Sort-Object -Unique
+      Check-Methods -Label "vantadb-mcp (tools)" -Methods $mcpTools -DocRelPath "docs\api\MCP.md" -DocLabel "MCP.md"
+    } else {
+      Write-Host "⚠️  vantadb-mcp (tools) — no se encontró el bloque handle_tools_list en $mcpToolsFile" -ForegroundColor Red
+      if (-not $ReportOnly) { $script:exitCode = 1 }
+    }
   }
-}
 
 # ═══════════════════════════════════════
 #  Resumen

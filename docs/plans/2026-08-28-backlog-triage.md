@@ -156,9 +156,9 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Verificación real:** `codegraph_explore "MCP tool surface handle_tools_list"` → 72-75 tools registrados (FIND-24b), Cursor cap 40 (forum.cursor.com/t/108637) — gap real. `VANTADB_MCP_PROFILE` no existe en config.rs.
 - **Gate Justificación:** Sin perfiles, Cursor trunca tools silenciosamente — usuarios no pueden usar MCP en el cliente más popular. Fix: env `VANTADB_MCP_PROFILE=memory|dev|full` filtrando `handle_tools_list`.
 - **Gate Result:** ✅ DO
-- **Contrato:** `Select-String -Path "vantadb-mcp/src/handlers/tools.rs" -Pattern "VANTADB_MCP_PROFILE|mcp_profile" | Measure-Object | Select-Object Count` >=1 AND `cargo test -p vantadb-mcp -- --test-threads=1 2>&1 | Select-String "profile" | Measure-Object | Select-Object Count` >=1 (tests por perfil)
+- **Contrato:** `Select-String -Path "vantadb-mcp/src/handlers/tools.rs" -Pattern "VANTADB_MCP_PROFILE|mcp_profile" | Measure-Object | Select-Object Count` >=1 AND `cargo test -p vantadb-mcp --test mcp_tests -- --test-threads=1 2>&1 | Select-String "profile" | Measure-Object | Select-Object Count` >=1 (tests por perfil)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MCP-37.md`
-- **Estado:** ⏳ EN PROGRESO
+- **Estado:** ✅ COMPLETED
 - **Pre-mortem:**
   - Fallo 1: Filtro rompe `tools/call` para tool no listada pero invocada → error claro `tool not in profile X`
   - Fallo 2: Default `full` sigue excediendo 40 en Cursor — documentar default `dev` para Cursor
@@ -175,6 +175,12 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **DoD:** Task: 3 profiles filter + tests; Commit: `feat:` + `cargo test -p vantadb-mcp`; Release: docs/api/MCP.md § profiles
 - **Validación Appetite vs Effort:** max 1d ≥ 🟡 1d ✅
 - **SDP:** files="vantadb-mcp/src/handlers/tools.rs" keywords=["MCP profile","tool surface","Cursor"] → `api-and-interface-design, codebase-memory`
+- **Resultado real:** 2026-09-01
+  - Perfiles implementados en `config.rs` (`McpProfile` enum + `profile` field) y `handlers/tools.rs` (`profile_allowed_tools` + filtrado en `handle_tools_list`)
+  - Tests: `test_mcp_tool_profiles` verifica tool counts (Full=78, Dev≤37, Memory≤21) y presencia/ausencia específica por perfil
+  - Docs: `docs/api/MCP.md` § "Tool Surface Profiles (MCP-37)" actualizado con tabla de perfiles + `memory_search` y `memory_recall` en tabla Search & Query
+  - Contrato verificado: grep `VANTADB_MCP_PROFILE|mcp_profile` ≥1 ✅; test_mcp_tool_profiles PASS ✅
+  - `cargo fmt --check` ✅; `cargo clippy -p vantadb-mcp --test mcp_tests` ✅; `scripts/validate-docs-coverage.ps1` MCP tools ✅
 
 ---
 
