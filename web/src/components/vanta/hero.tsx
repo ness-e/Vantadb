@@ -82,10 +82,18 @@ export function Hero({ onNavigate }: { onNavigate: (v: View) => void }) {
             {tt("hero.subheadRest", "— without external services, containers, or network dependencies.")}
           </p>
 
-          {/* Install line */}
-          <div className="mt-6 flex flex-wrap items-center gap-3">
+          {/* Install block — WEB-06: id quickstart + copy funcional arriba del fold 1440×900 */}
+          <div
+            id="quickstart"
+            data-testid="quick-install"
+            role="region"
+            aria-label={tt("hero.installTitle", "Copy install command")}
+            className="mt-6 flex scroll-mt-28 flex-wrap items-center gap-3"
+          >
             <button
               onClick={copyInstall}
+              data-testid="quick-install-copy"
+              aria-label="Copiar comando pip install vantadb-py"
               className="group inline-flex items-center gap-3 border-4 border-black bg-black px-4 py-3 font-tech text-sm font-bold text-[#FBF9F5] shadow-[6px_6px_0_0_#FF5500,6px_6px_0_2px_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[4px_4px_0_0_#FF5500,4px_4px_0_2px_#000] active:translate-x-[6px] active:translate-y-[6px] active:shadow-none"
               title={tt("hero.installTitle", "Copy install command")}
             >

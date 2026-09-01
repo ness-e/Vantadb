@@ -157,13 +157,30 @@ export function CodePlayground() {
     setRunning(true);
     setOutput(null);
     const executor = executorRef.current;
-    if (!executor || !executor.isReady()) {
-      setOutput([
-        "✗ playground executor not ready",
-        "  iframe sandbox aún no cargó — reintentá en 1s",
-      ]);
+    if (!executor) {
+      setOutput(["✗ playground executor not ready", "  iframe ref missing"]);
       setRunning(false);
       return;
+    }
+    // Wait up to 5s for iframe ready (covers cold load race)
+    if (!executor.isReady()) {
+      for (let i = 0; i < 10; i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        if (executor.isReady()) break;
+        // nudge iframe via ping (executor also polls, this is extra)
+        try {
+          const iframe = document.querySelector('iframe[title="VantaDB Playground Executor"]') as HTMLIFrameElement | null;
+          iframe?.contentWindow?.postMessage({ type: "ping" }, "*");
+        } catch {}
+      }
+      if (!executor.isReady()) {
+        setOutput([
+          "✗ playground executor not ready",
+          "  iframe sandbox aún no cargó — reintentá en 1s",
+        ]);
+        setRunning(false);
+        return;
+      }
     }
     try {
       const result = await executor.execute(code);

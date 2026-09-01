@@ -28,6 +28,7 @@ import { copyToClipboard } from "./copy-utils";
 import { toast } from "./toast";
 import { CodePlayground } from "./code-playground";
 import { Reveal } from "./reveal";
+import { QuickInstall } from "./quick-install";
 
 const SECTIONS = [
   { id: "install", label: "Installation", keywords: "pip install vantadb-py cargo rust binary wheel python" },
@@ -118,6 +119,16 @@ export function DocsView({ onNavigate }: { onNavigate: (v: View) => void }) {
             to your first hybrid search in under five minutes. Zero configuration, zero
             servers, zero network — just durable local memory and RRF-fused retrieval.
           </p>
+          {/* WEB-06: bloque instalación copiable prominente en /docs header — visible sin scroll + ancla #quickstart */}
+          <div className="mt-6 max-w-xl">
+            <QuickInstall id="quickstart-header" variant="bar" />
+            <a
+              href="#quickstart"
+              className="mt-3 inline-flex items-center gap-1 font-tech text-xs font-bold uppercase tracking-wider text-black underline decoration-[#FF5500] decoration-2 underline-offset-4 hover:text-[#FF5500]"
+            >
+              Ir a 5-Minute Quickstart <ChevronRight className="h-3 w-3" />
+            </a>
+          </div>
         </div>
       </section>
 

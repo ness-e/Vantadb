@@ -3,27 +3,39 @@
 <head>
   <meta charset="utf-8" />
   <title>VantaDB Playground Executor</title>
-  <!-- WEB-07: iframe sandbox executor. Runs user snippets with new Function inside sandboxed iframe (allow-scripts). Isolated from parent DOM/storage/navigation. -->
-  <script src="/vanta-wasm/vantadb_wasm.js"></script>
+  <!-- WEB-07 + WEB-08: iframe sandbox executor. Runs user snippets with new Function inside sandboxed iframe (allow-scripts allow-same-origin). Isolated from parent DOM/storage/navigation. WASM JS is fetch+evaluated (let wasm_bindgen not on window) to correctly bind runtime. -->
   <style>*{margin:0;padding:0}body{font:12px monospace;background:#1a1a1a;color:#fbf9f5}</style>
 </head>
 <body>
   <script>
     (function () {
+      var WASM_JS_URL = "/vanta-wasm/vantadb_wasm.js";
+      var WASM_BINARY_URL = "/vanta-wasm/vantadb_wasm_bg.wasm";
+      var wasm_bindgen = null;
       var wasmReady = false;
       var wasmLoadPromise = null;
-      var WASM_BINARY_URL = "/vanta-wasm/vantadb_wasm_bg.wasm";
+
+      async function ensureWasmBindgen() {
+        if (wasm_bindgen) return wasm_bindgen;
+        var res = await fetch(WASM_JS_URL);
+        if (!res.ok) throw new Error("WASM JS fetch failed: HTTP " + res.status);
+        var text = await res.text();
+        // The file declares `let wasm_bindgen = (function(exports){...})({...});`
+        // Evaluate inside a Function scope and return the binding.
+        var factory = new Function(text + "\n; return wasm_bindgen;");
+        wasm_bindgen = factory();
+        if (!wasm_bindgen || !wasm_bindgen.initSync) throw new Error("wasm_bindgen.initSync missing after eval");
+        return wasm_bindgen;
+      }
 
       function loadWasm() {
         if (wasmLoadPromise) return wasmLoadPromise;
         wasmLoadPromise = (async function () {
           if (wasmReady) return;
-          // vantadb_wasm.js (no-modules) registers global wasm_bindgen
+          var runtime = await ensureWasmBindgen();
           var res = await fetch(WASM_BINARY_URL);
           if (!res.ok) throw new Error("WASM binary fetch failed: HTTP " + res.status);
           var bytes = await res.arrayBuffer();
-          var runtime = window.wasm_bindgen;
-          if (!runtime || !runtime.initSync) throw new Error("WASM global not registered by /vanta-wasm/vantadb_wasm.js");
           runtime.initSync(bytes);
           wasmReady = true;
         })().catch(function (err) { wasmLoadPromise = null; throw err; });
@@ -41,7 +53,7 @@
       async function executeSnippet(code, requestId) {
         try {
           await loadWasm();
-          var mod = window.wasm_bindgen;
+          var mod = wasm_bindgen;
           var db = new mod.VantaDB({ storage_path: "playground_data" });
           var captured = [];
           var sandboxConsole = {
@@ -71,13 +83,24 @@
 
       window.addEventListener("message", function (event) {
         var data = event.data;
-        if (data && data.type === "execute" && typeof data.code === "string") {
+        if (!data || typeof data !== "object") return;
+        if (data.type === "ping") {
+          parent.postMessage({ type: "ready" }, "*");
+          return;
+        }
+        if (data.type === "execute" && typeof data.code === "string") {
           executeSnippet(data.code, data.requestId);
         }
       });
 
-      // Signal parent that executor is ready to receive code
-      parent.postMessage({ type: "ready" }, "*");
+      function postReady() {
+        try { parent.postMessage({ type: "ready" }, "*"); } catch (e) {}
+      }
+      // Initial ready + retries to cover parent listener race
+      postReady();
+      setTimeout(postReady, 300);
+      setTimeout(postReady, 1000);
+      setTimeout(postReady, 2500);
     })();
   </script>
 </body>

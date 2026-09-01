@@ -60,6 +60,27 @@ export const PlaygroundExecutor = forwardRef<PlaygroundExecutorHandle, { onReady
       return () => window.removeEventListener("message", handleMessage);
     }, [handleMessage]);
 
+    // Ping retry: covers race where iframe posted ready before listener attached
+    useEffect(() => {
+      if (readyRef.current) return;
+      let attempts = 0;
+      const id = setInterval(() => {
+        if (readyRef.current || attempts > 20) {
+          clearInterval(id);
+          return;
+        }
+        attempts += 1;
+        iframeRef.current?.contentWindow?.postMessage({ type: "ping" }, "*");
+      }, 500);
+      return () => clearInterval(id);
+    }, []);
+
+    const handleIframeLoad = useCallback(() => {
+      // Proactively ping after iframe load to trigger ready resend
+      setTimeout(() => iframeRef.current?.contentWindow?.postMessage({ type: "ping" }, "*"), 100);
+      setTimeout(() => iframeRef.current?.contentWindow?.postMessage({ type: "ping" }, "*"), 600);
+    }, []);
+
     const execute = useCallback((code: string): Promise<{ output: string[]; error?: string }> => {
       return new Promise((resolve) => {
         const iframe = iframeRef.current;
@@ -90,6 +111,7 @@ export const PlaygroundExecutor = forwardRef<PlaygroundExecutorHandle, { onReady
         title="VantaDB Playground Executor"
         aria-hidden="true"
         tabIndex={-1}
+        onLoad={handleIframeLoad}
       />
     );
   },

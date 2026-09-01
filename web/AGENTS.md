@@ -10,6 +10,9 @@ npm run dev       # next dev -p 3000
 npm run build     # next build (standalone output) — DEBE pasar exit 0
 npm start         # node .next/standalone/server.js (copiar .next/static y public/ a .next/standalone/ antes)
 npm run lint      # eslint . — exit 0 requerido (no-unused-vars=error desde WDA-05)
+npx playwright test                 # E2E guard WEB-08: landing→/docs#quickstart→/playground (WASM run) — 1 spec, 3.1s
+npx playwright test --reporter=list # alternativa con reporte list
+npx playwright show-trace test-results/<dir>/trace.zip # debug trace en falla
 ```
 
 ## Config (verificado)
@@ -78,3 +81,12 @@ cd web && npx lighthouse http://localhost:3000/docs --output=json --output-path=
 - Si EPERM persiste en CI, re-medir contra producción con mismo comando (`npx lighthouse https://vantadb.vercel.app --output=json ... --chrome-flags="--no-sandbox --headless --disable-gpu"`).
 
 (Regla 11: claim de performance sin número reproducible no existe — números arriba son reproducibles con comando + entorno citado.)
+
+## E2E Guard (WEB-08)
+
+- **Spec:** `e2e/flujo-critico.spec.ts` — landing→`/docs#quickstart`→`/playground` (patrón desktop/e2e, asserts por roles/labels visibles).
+- **Config:** `playwright.config.ts` — `testDir:e2e`, `webServer: npm run dev` en `http://localhost:3000`, `workers:1`, `timeout:60s`.
+- **Contrato:** `npx playwright test` verde local (1 test, ~3.1s) — usa `localhost` (no 127.0.0.1) para evitar 403 de Next allowedDevOrigins.
+- **CI:** no registrado aún en `.github/workflows/ci-web-11.yml` (build+lint only); comando local documentado en `playwright.config.ts` header y en este AGENTS.md. Para CI, añadir job `e2e` con `npx playwright install --with-deps chromium` + `npx playwright test`.
+- **Dependencias:** `@playwright/test@1.62.1` en `devDependencies`, browsers en `%LOCALAPPDATA%\ms-playwright`.
+- **Playground WASM:** ejecución aislada en `iframe sandbox="allow-scripts allow-same-origin"` (`public/playground-executor.html` fetch+eval `vantadb_wasm.js` + `initSync` binario, `allow-same-origin` requerido para fetch `/vanta-wasm/*`); ver `playground-executor.tsx` para ping/retry de ready (ponytail: techo `allow-same-origin` — reducir a `allow-scripts` si WASM se sirve con CORS/blob).
