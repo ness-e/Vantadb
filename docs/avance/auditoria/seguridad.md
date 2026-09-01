@@ -160,6 +160,10 @@ aliases: []
 - **Fecha:** 2026-08-25
 - **Resultado:** ✅ Señal aditiva `truncated_namespaces` en la respuesta del fan-out de `GET /api/v2/list` sin namespace (`src/cli_server.rs`, struct local `AllNamespacesListPage`; wire format SDK intacto — nunca breaking). Helper puro `merge_all_namespaces_pages()` marca namespace truncado cuando su página trae `next_cursor`. Tests: unit de semántica NS_CAP (páginas sintéticas) + assertion del campo en e2e aggregate; suite cli_server 59/59; fmt/clippy/check ✅. Hallazgo colateral **FIND-24** en Backlog: `db.list` ventana 10k ≈ 60-70s debug excede REQUEST_TIMEOUT=30s → e2e HTTP >10k inviable; requiere cursor cross-ns + perf. Docs: `docs/api/HTTP_API.md` §list. Commit pendiente del lead.
 
+### AUD-043: clippy `unused variable: ns` en closure `options_for` (arqueológico)
+- **Fecha:** 2026-08-31
+- **Resultado:** ✅ Target arqueológico ya aplicado post-REVIEW-10 (`cf2ecc50`). El plan AUD-043 referenciaba `src/cli_server.rs:1302` pre-split; tras REVIEW-10 el código se mudó a `src/server/routing.rs:1166` con `_ns: String` aplicado. `cargo check -p vantadb` pasa (3.53s). Cero código editado. Hallazgo colateral nuevo (lint cascade — 5 unused imports en routing.rs:11/12/13/17/42/57 + `clippy::assertions_on_constants` en config.rs:1767) registrado como **FIND-035** en Backlog (NO scope-creep a AUD-043; lint cascade es tarea separada). Lección: planes arqueológicos requieren verificar el estado actual del archivo antes de editar — el target puede haber sido resuelto por un refactor posterior. Sub-agent `vanta-worker` 402 Insufficient Balance → SARL absorbido inline por lead (tarea trivial de lint, ≤5 min).
+
 ---
 
 

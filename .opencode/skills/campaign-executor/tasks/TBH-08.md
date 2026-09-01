@@ -4,7 +4,7 @@
 - **Plan file:** docs/plans/2026-08-30-testing-bench-harden.md
 - **Created:** 2026-08-31T12:35
 - **last-synced:** 2026-08-31T12:35
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED
 - **Tipo (campaign_detect_task_type):** bench / new-criterion-bench (1 new bench file + Cargo.toml block)
 - **Esfuerzo:** 🟡 Medio
 - **Prioridad:** MEDIA (Phase 2, gap crítico de benchmarking)

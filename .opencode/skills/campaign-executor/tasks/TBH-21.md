@@ -4,7 +4,7 @@
 - **Plan file:** docs/plans/2026-08-30-testing-bench-harden.md
 - **Created:** 2026-08-30T18:00
 - **last-synced:** 2026-08-30T18:00
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED
 - **Tipo (campaign_detect_task_type):** docs / config-note (single-file docs edit, no code change)
 - **Esfuerzo:** 🟢 Bajo
 - **Prioridad:** BAJA (Phase 3, hardening)
@@ -68,7 +68,7 @@ Ningún caller downstream cambia. La nota de fecha agrega trazabilidad sin alter
 - **Archivos:** `.opencode/skills/campaign-executor/tasks/TBH-21.md`, `docs/plans/2026-08-30-testing-bench-harden.md`
 - **Acción:** Editar checkbox TBH-21 a `[⏳]` en el plan file + escribir este task file.
 - **Verify:** `grep TBH-21 docs/plans/...md` → muestra `[⏳]`.
-- **Estado:** ⏳ IN PROGRESS (acabo de hacerlo)
+- **Estado:** ✅ COMPLETED
 
 ### Step 2: Insertar sub-sección "Coverage Threshold Review Cadence" en CI_POLICY.md
 - **Archivos:** `docs/operations/CI_POLICY.md`

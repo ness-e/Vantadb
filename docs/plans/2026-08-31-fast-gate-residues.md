@@ -23,7 +23,15 @@
 
 **Foco del plan:** desbloquear `cargo check --workspace --tests` (rotura pre-existente del fast gate), completar lo casi terminado del sprint P48, y agregar gate de docs as-code mínimo.
 
-Status: ⬆️ uphill = 0 · ⬇️ downhill = 4 steps pendientes
+Status: ⬆️ uphill = 0 · ⬇️ downhill = 3 steps pendientes (Task 2, Task 3, Task 4)
+Task 1 cerrada 2026-08-31 — arqueológica, sin código. Estado global: 1/4 ✅ · 3 ⬜
+
+## Notas post Task 1 (2026-08-31)
+
+- **AUD-043 = arqueológica.** El plan target `:1302` es pre-REVIEW-10; el código vive en `src/server/routing.rs:1166` con `_ns` ya aplicado por REVIEW-10 (`cf2ecc50`). Cero código editado, cero commit.
+- **Lint cascade nuevo = FIND-035** (Backlog). 5 unused imports + 1 assertions_on_constants + 3 lib-test errors. Acción: drop imports + wrap assert en `const { ... }` (Rust 1.79+) o `#[allow]`. Effort 🟢. NO scope-creep a AUD-043.
+- **Sub-agent `vanta-worker` 402 Insufficient Balance** al ser invocado. SARL absorbido: tarea de lint trivial, lead ejecutó inline. Lección registrada.
+- **3 stale TBH-{02,08,21}** quedaron `in_progress` en el state machine tras cierre P48 (plan archive). El MCP `findInProgressTasks` escanea filesystem por regex, NO el state machine del plan activo. Resuelto: editar task files a `✅ COMPLETED`. Lección registrada.
 
 ## Tasks
 
@@ -49,7 +57,7 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 4 steps pendientes
 - **Top 3 riesgos:** (1) verificación de uso real; (2) tests adyacentes rotos por cambio de signature; (3) clippy cascade si hay warnings nuevos
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1
 - **DoD multi-nivel:** Task: verify mecánico (clippy exit 0) · Commit: `fix(clippy): rename unused param to _ns in audit closure` + verify full · Release: N/A (no API change)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Task file:** `.opencode/skills/campaign-executor/tasks/AUD-043.md`
 - **Branch:** develop
 - **Ruta:** vanta-worker
@@ -341,3 +349,47 @@ Status: ⬆️ uphill = 0 · ⬇️ downhill = 4 steps pendientes
   - User confirmó scope: 4 DO + resto DEFER/SKIP
   - User confirmó stale backlog: SKIP sin tocar (limpieza en archive)
   - User confirmó plan file path: `docs/plans/2026-08-31-fast-gate-residues.md`
+
+=== RECITATION TBH-02 ===
+Campaign ID: cecc8468-9451-4d56-a3ef-1684e123ab8b (nuevo — fast-gate residues)
+Objetivo activo: TBH-02 initialize criterion baseline
+Estado: completed
+Última acción: Verifico que commit 450910ec 'feat(TBH-02): initialize criterion regression baseline' ya está en develop. Los steps del task file (Steps 1-7) están ✅ en el commit. Cierro state machine.
+Resultado: OK
+Próxima acción: nada — completado
+Contrato: verificacion: git log --grep=TBH-02 muestra commit 450910ec ✅ | evidencia: claim=trabajo TBH-02 commiteado en develop, evidencia=commit 450910ec, confianza=alta | invariantes: ninguno | deuda: ninguna | queda_pendiente: ninguna
+Próxima tarea si completa: TBH-08
+=== END RECITATION ===
+
+=== RECITATION TBH-08 ===
+Campaign ID: cecc8468-9451-4d56-a3ef-1684e123ab8b (nuevo — fast-gate residues)
+Objetivo activo: TBH-08 wal_throughput bench
+Estado: completed
+Última acción: Verifico commit 84dcea9f 'feat(TBH-08): add wal_throughput bench (sweep WAL x fsync x batch sizes)' ya está en develop. Steps 3-6 ✅ en commit. Cierro state machine.
+Resultado: OK
+Próxima acción: nada — completado
+Contrato: verificacion: git log --grep=TBH-08 muestra commit 84dcea9ec ✅ | evidencia: claim=trabajo TBH-08 commiteado en develop, evidencia=commit 84dcea9f, confianza=alta | invariantes: ninguno | deuda: ninguna | queda_pendiente: ninguna
+Próxima tarea si completa: TBH-21
+=== END RECITATION ===
+
+=== RECITATION TBH-21 ===
+Campaign ID: cecc8468-9451-4d56-a3ef-1684e123ab8b (nuevo — fast-gate residues)
+Objetivo activo: TBH-21 CoverageThreshold=60 review cadence docs
+Estado: completed
+Última acción: Verifico commits e6e73e2b 'docs(TBH-21): document CoverageThreshold=60 review cadence in CI_POLICY.md' + 2ef7c535 'mark TASK-21 ✅ + add RECITATION' en develop. Cierro state machine.
+Resultado: OK
+Próxima acción: nada — completado
+Contrato: verificacion: git log --grep=TBH-21 muestra commits e6e73e2b + 2ef7c535 ✅ | evidencia: claim=trabajo TBH-21 commiteado en develop, evidencia=commits e6e73e2b y 2ef7c535, confianza=alta | invariantes: ninguno | deuda: ninguna | queda_pendiente: ninguna
+Próxima tarea si completa: ninguno (stale batch cerrado)
+=== END RECITATION ===
+
+=== RECITATION 1 ===
+Campaign ID: cecc8468-9451-4d56-a3ef-1684e123ab8b (nuevo — fast-gate residues)
+Objetivo activo: AUD-043 clippy ns unused fix
+Estado: completed
+Última acción: Verifiqué que AUD-043 ya estaba aplicado: REVIEW-10 (cf2ecc50) renombró ns a _ns en src/server/routing.rs:1166. Zero edits. Cierro task. Reporto lint cascade nuevo (routing.rs:11/12/17/42/57 + config.rs:1767) como FIND-035.
+Resultado: OK
+Próxima acción: crear fila FIND-035 en docs/Backlog.md con lint cascade actual
+Contrato: verificacion: cargo check -p vantadb exit 0 (3.53s) ✅ | evidencia: claim=AUD-043 target arqueológico ya aplicado, evidencia=git show cf2ecc50 _ns: String en src/server/routing.rs:1166 desde 2026-08-30, confianza=alta | invariantes: ninguno (no hay cambios de código) | deuda: FIND-035 lint cascade nuevo (unused imports + assertions_on_constants — scope separado) | queda_pendiente: FIND-035 backlog row para resolver lint cascade
+Próxima tarea si completa: FIND-035 (lint cascade nuevo — derivado)
+=== END RECITATION ===
