@@ -420,6 +420,9 @@ pub(crate) fn text_content_structured(value: &impl Serialize) -> Value {
 /// `truncated` metadata lives under `structuredContent` only. The
 /// `budget_value` helper trims trailing hits if the array alone exceeds
 /// `byte_budget`.
+///
+/// Kept for tests and potential future use (e.g., other search tools).
+#[allow(dead_code)]
 pub(crate) fn text_content_hits_with_budget<T: Serialize>(hits: &T, byte_budget: usize) -> Value {
     // Serialize the raw hits into the text payload (preserves the array
     // shape clients and tests expect).
@@ -571,6 +574,32 @@ pub(crate) fn budget_value<T: Serialize>(value: &T, byte_budget: usize) -> (Valu
     // No top-level array to truncate; report size honestly. The caller
     // decides whether to escalate (e.g. via a tool-specific `next_cursor`).
     (current, false, total_size)
+}
+
+/// MCP-39: Apply output budgeting to a list-shaped response, returning a
+/// consistent envelope `{items, next_cursor, byte_count, truncated}`.
+///
+/// This is a thin wrapper around `budget_value` that:
+/// - Accepts a collection of items and an optional cursor
+/// - Builds the envelope with the items array under the given `items_key`
+/// - Applies byte budget truncation (popping trailing items)
+/// - Preserves `next_cursor` so pagination continues correctly after truncation
+/// - Returns the budgeted envelope, the `truncated` flag, and the final byte count
+///
+/// The envelope shape matches both `memory_list` (items_key="records") and
+/// `search_multi` (items_key="hits") for consistent client handling.
+pub(crate) fn apply_output_budget<T: Serialize>(
+    items: &T,
+    byte_budget: usize,
+    next_cursor: Option<usize>,
+    items_key: &str,
+) -> (Value, bool, usize) {
+    let envelope = json!({
+        items_key: items,
+        "next_cursor": next_cursor,
+    });
+    let (budgeted, truncated, byte_count) = budget_value(&envelope, byte_budget);
+    (budgeted, truncated, byte_count)
 }
 
 /// Stream a namespace's records page-by-page, invoking `f` on each record.
@@ -939,5 +968,77 @@ mod tests {
                 err.message
             );
         }
+    }
+
+    /// MCP-39: `apply_output_budget` returns envelope with items, next_cursor,
+    /// byte_count, truncated when payload fits in budget.
+    #[test]
+    fn apply_output_budget_fits_without_truncation() {
+        let items = vec![json!({"k": "a"}), json!({"k": "b"})];
+        let (envelope, truncated, byte_count) =
+            apply_output_budget(&items, 1024, Some(42), "records");
+        assert!(!truncated, "small payload should not be truncated");
+        assert_eq!(envelope["next_cursor"], 42);
+        assert!(envelope["records"].as_array().unwrap().len() == 2);
+        assert!(byte_count > 0 && byte_count <= 1024);
+    }
+
+    /// MCP-39: `apply_output_budget` truncates trailing items when over budget
+    /// and preserves next_cursor for pagination continuity.
+    #[test]
+    fn apply_output_budget_truncates_and_preserves_cursor() {
+        let big = "x".repeat(512);
+        let items = vec![
+            json!({"key": "a", "payload": big.clone()}),
+            json!({"key": "b", "payload": big.clone()}),
+            json!({"key": "c", "payload": big.clone()}),
+        ];
+        // Budget small enough to force truncation of at least one item
+        let (envelope, truncated, byte_count) =
+            apply_output_budget(&items, 600, Some(100), "records");
+        assert!(truncated, "payload > budget must be flagged truncated");
+        assert!(
+            byte_count <= 600,
+            "truncated payload must fit, got {byte_count} bytes"
+        );
+        assert_eq!(
+            envelope["next_cursor"], 100,
+            "next_cursor must be preserved"
+        );
+        let remaining = envelope["records"].as_array().unwrap().len();
+        assert!(
+            remaining < 3,
+            "truncation should reduce array, got {remaining}"
+        );
+    }
+
+    /// MCP-39: `apply_output_budget` works with "hits" key (search_multi shape)
+    /// and None cursor.
+    #[test]
+    fn apply_output_budget_hits_key_with_none_cursor() {
+        let items = vec![
+            json!({"id": "1", "score": 0.9}),
+            json!({"id": "2", "score": 0.5}),
+        ];
+        let (envelope, truncated, byte_count) = apply_output_budget(&items, 1024, None, "hits");
+        assert!(!truncated);
+        assert!(envelope["next_cursor"].is_null());
+        assert_eq!(envelope["hits"].as_array().unwrap().len(), 2);
+        assert!(byte_count > 0);
+    }
+
+    /// MCP-39: when budget is too small for even one item, envelope has empty
+    /// items array and truncated=true (hard truncation).
+    #[test]
+    fn apply_output_budget_hard_truncation_empty_array() {
+        let items = vec![json!({"key": "a", "data": "x".repeat(100)})];
+        // 50 bytes - smaller than the envelope overhead
+        let (envelope, truncated, byte_count) = apply_output_budget(&items, 50, Some(0), "records");
+        assert!(truncated);
+        // The records key should be dropped entirely when array is emptied
+        assert!(
+            envelope.get("records").is_none() || envelope["records"].as_array().unwrap().is_empty()
+        );
+        assert!(byte_count <= 50);
     }
 }

@@ -195,7 +195,7 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Gate Result:** ✅ DO
 - **Contrato:** `Select-String -Path "vantadb-mcp/src/handlers/tools.rs" -Pattern "next_cursor|byte_budget|truncated" | Measure-Object | Select-Object Count` >=2
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MCP-39.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Pre-mortem:**
   - Fallo 1: Budget muy bajo trunca respuestas normales → default 40KB (80% de OpenCode 50KB)
   - Fallo 2: `search_multi` con `memory_list` tienen shapes distintos → helper genérico
@@ -861,4 +861,15 @@ Resultado: OK
 Próxima acción: None - task complete
 Contrato: verificacion: cargo test -p vantadb --test openapi_yaml_parity 2>&1 | Select-String "ok|PASS" | Measure-Object | Select-Object Count >= 1 (result: 5); evidencia: claim: 3 drifts fixed in OpenAPI.yaml + parity test added, evidencia: commit ad7a52af + tests/api/openapi_yaml_parity.rs, confianza: alta; artefacts: docs/api/openapi.yaml, tests/api/openapi_yaml_parity.rs; invariantes: parser unchanged, only yaml/docs updated; deuda: none; queda_pendiente: none
 Próxima tarea si completa: MCP-37 (per plan)
+=== END RECITATION ===
+
+=== RECITATION 5 ===
+Campaign ID: b28f-20260828-backlog-triage
+Objetivo activo: MCP-37 tool surface profiles for Cursor cap
+Estado: completed
+Última acción: vanta-worker implementó perfiles memory/dev/full en config.rs + handlers/tools.rs, actualizó docs/api/MCP.md, tests 82 passed, validate-docs-coverage ok.
+Resultado: OK
+Próxima acción: ejecutar Task 6: MCP-39 (output budgeting)
+Contrato: verificacion: cargo check -p vantadb-mcp ✅ + cargo test -p vantadb-mcp 82 passed ✅ + Select-String VANTADB_MCP_PROFILE count=1 ✅ | evidencia: claim=3 profiles implemented + tests, evidencia=commit 24d0b86d, confianza=alta | invariantes: default Full preserva compat; dev recomendado para Cursor (~35 tools); memory minimal (~18 tools) | deuda: ninguna | queda_pendiente: MCP-39 (output budgeting)
+Próxima tarea si completa: MCP-39
 === END RECITATION ===

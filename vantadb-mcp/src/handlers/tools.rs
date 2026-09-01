@@ -1439,17 +1439,16 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.list(namespace, options) {
                 Ok(page) => {
-                    // MCP-39: budget the envelope so a runaway `limit` cannot
-                    // produce an unbounded response. Existing `records` and
-                    // `next_cursor` keys are preserved (back-compat); the
-                    // new `byte_count` and `truncated` fields advertise the
-                    // result so the client can render explicitly.
-                    let envelope = json!({
-                        "records": page.records,
-                        "next_cursor": page.next_cursor,
-                    });
-                    let (budgeted, truncated, byte_count) =
-                        budget_value(&envelope, config.byte_budget);
+                    // MCP-39: budget the envelope via apply_output_budget for
+                    // consistent shape with search_multi (records + next_cursor +
+                    // byte_count + truncated). Truncation pops trailing records
+                    // while preserving next_cursor for pagination continuity.
+                    let (budgeted, truncated, byte_count) = apply_output_budget(
+                        &page.records,
+                        config.byte_budget,
+                        page.next_cursor,
+                        "records",
+                    );
                     let result = match budgeted {
                         Value::Object(mut map) => {
                             map.insert("byte_count".to_string(), json!(byte_count));
@@ -1722,13 +1721,33 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.search_multi(&ns_refs, request) {
                 Ok(hits) => {
-                    // MCP-39: budget the response so a wide fan-out (many
-                    // namespaces) cannot overflow the client. Text payload
-                    // stays a raw array (back-compat with clients/tests
-                    // that parse `content[0].text` as `Vec<Value>`); the
-                    // budget metadata lives in `structuredContent` so
-                    // machine-readable consumers can react to truncation.
-                    Ok(text_content_hits_with_budget(&hits, config.byte_budget))
+                    // MCP-39: budget the response via apply_output_budget for
+                    // consistent envelope shape (hits + next_cursor + byte_count +
+                    // truncated). search_multi has no pagination cursor, so we
+                    // pass None. The response keeps the back-compat text payload
+                    // as a raw hits array while structuredContent carries the
+                    // budgeted envelope for machine-readable consumers.
+                    let (budgeted, truncated, byte_count) =
+                        apply_output_budget(&hits, config.byte_budget, None, "hits");
+                    // Back-compat text payload: raw (possibly truncated) hits array
+                    let text = serde_json::to_string(
+                        budgeted
+                            .get("hits")
+                            .and_then(Value::as_array)
+                            .unwrap_or(&vec![]),
+                    )
+                    .unwrap_or_else(|_| "[]".to_string());
+                    // structuredContent: budgeted envelope with metadata
+                    let structured = json!({
+                        "hits": budgeted.get("hits"),
+                        "next_cursor": budgeted.get("next_cursor"),
+                        "byte_count": byte_count,
+                        "truncated": truncated,
+                    });
+                    Ok(json!({
+                        "content": [{"type": "text", "text": text}],
+                        "structuredContent": structured,
+                    }))
                 }
                 Err(e) => Ok(error_content(format!("Search Error: {}", e))),
             }

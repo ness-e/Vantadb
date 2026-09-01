@@ -224,17 +224,6 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
-(tui)
-_arguments "${_arguments_options[@]}" : \
-'-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
-'--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
-'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
-'-v[Enable verbose output]' \
-'--verbose[Enable verbose output]' \
-'-h[Print help]' \
-'--help[Print help]' \
-&& ret=0
-;;
 (completions)
 _arguments "${_arguments_options[@]}" : \
 '--shell=[Shell type for the completion script]:SHELL:((bash\:"Bash shell completions"
@@ -758,10 +747,6 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
-(tui)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
 (completions)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -929,7 +914,6 @@ _vanta-cli_commands() {
 'doctor:Run comprehensive health diagnostics on the database' \
 'inspect:Inspect a single record showing all fields, vectors, and metadata' \
 'stats:Display detailed database statistics in human-readable or JSON format' \
-'tui:Launch the interactive TUI (requires \`tui\` feature)' \
 'completions:Generate shell completion scripts' \
 'search:Search records semantically across a namespace' \
 'delete:Delete a record by namespace and key' \
@@ -1010,7 +994,6 @@ _vanta-cli__subcmd__help_commands() {
 'doctor:Run comprehensive health diagnostics on the database' \
 'inspect:Inspect a single record showing all fields, vectors, and metadata' \
 'stats:Display detailed database statistics in human-readable or JSON format' \
-'tui:Launch the interactive TUI (requires \`tui\` feature)' \
 'completions:Generate shell completion scripts' \
 'search:Search records semantically across a namespace' \
 'delete:Delete a record by namespace and key' \
@@ -1212,11 +1195,6 @@ _vanta-cli__subcmd__help__subcmd__stats_commands() {
 _vanta-cli__subcmd__help__subcmd__status_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help status commands' commands "$@"
-}
-(( $+functions[_vanta-cli__subcmd__help__subcmd__tui_commands] )) ||
-_vanta-cli__subcmd__help__subcmd__tui_commands() {
-    local commands; commands=()
-    _describe -t commands 'vanta-cli help tui commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__help__subcmd__wal_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__wal_commands() {
@@ -1451,11 +1429,6 @@ _vanta-cli__subcmd__stats_commands() {
 _vanta-cli__subcmd__status_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli status commands' commands "$@"
-}
-(( $+functions[_vanta-cli__subcmd__tui_commands] )) ||
-_vanta-cli__subcmd__tui_commands() {
-    local commands; commands=()
-    _describe -t commands 'vanta-cli tui commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__wal_commands] )) ||
 _vanta-cli__subcmd__wal_commands() {
