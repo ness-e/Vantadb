@@ -63,13 +63,13 @@ try {
     run "audit" ("cargo", "audit")   # ignores managed in .cargo/audit.toml
     run "deny" ("cargo", "deny", "check")
     if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
-        # Exclusiones del fast gate (trazabilidad Regla 2 / CI_POLICY):
+        # Exclusiones del fast gate (trazabilidad Regla 2 / CI_POLICY §"Fast Gate Test Exclusions"):
         #   - deserialize_absurd_node_count      → CATEGORY: RESOURCE-GUARD (input de
         #     tamaño absurdo diseñado para OOM el runner; no es flaky, es bomba de memoria)
         #   - test_search_with_bizarre_text_query / test_malformed_payload_extremely_large
         #     → CATEGORY: RESOURCE-GUARD (inputs malformados gigantes; cubiertos por
         #     fuzzing dedicado, no por el fast gate)
-        # TODO(FIND): formalizar estas 3 exclusiones en docs/operations/CI_POLICY.md
+        # Formalizadas en CI_POLICY.md (FIND-22, 2026-09-02).
         run "nextest" (("cargo", "nextest", "run", "--profile", "audit", "-p", "vantadb") + $feats + @("--build-jobs", "1", "-E", "not test(/deserialize_absurd_node_count/) and not test(/test_search_with_bizarre_text_query/) and not test(/test_malformed_payload_extremely_large/)"))
     } else {
         run "test" (("cargo", "test", "-p", "vantadb") + $feats + @("-j", "1", "--", "--skip", "benchmark", "--skip", "competitive", "--skip", "recall", "--skip", "sift", "--skip", "chaos", "--skip", "hnsw_hard_validation", "--skip", "stress_protocol", "--skip", "vector_scale", "--skip", "certification", "--skip", "security_audit", "--skip", "deserialize_absurd_node_count", "--skip", "test_search_with_bizarre_text_query", "--skip", "test_malformed_payload_extremely_large"))

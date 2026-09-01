@@ -3,7 +3,7 @@ title: "VantaDB CI & Certification Policy"
 type: operations
 status: active
 tags: [vantadb, operations]
-last_reviewed: 2026-08-25
+last_reviewed: 2026-09-02
 aliases: []
 ---
 
@@ -81,11 +81,12 @@ The local fast gate (`dev-tools/verify.ps1`, `nextest` and `coverage` steps) app
 three tests are deterministic and still run in full local suites and Heavy Certification; they are
 removed only from the fast lane because they deliberately stress runner resources.
 
-**Category taxonomy:** these use a dedicated `RESOURCE-GUARD` category, alongside the existing
+**Category taxonomy:** these use a dedicated runner-risk category, alongside the existing
 EXPERIMENTAL / BEST-EFFORT / NON-CRITICAL / INFORMATIONAL categories used for
-`continue-on-error:` annotations in `.github/workflows/`. A `RESOURCE-GUARD` test is one whose
+`continue-on-error:` annotations in `.github/workflows/`. A test in this category is one whose
 input is intentionally large or hostile enough to threaten the runner itself (OOM, page-file
-exhaustion), not one that is broken or slow by accident.
+exhaustion), not one that is broken or slow by accident. The category tag is rendered in the
+table column below.
 
 | Excluded test | Lives in source | Why excluded | Category | Where the exclusion is enforced |
 |---------------|-----------------|--------------|----------|--------------------------------|
@@ -105,7 +106,7 @@ clauses (BND-06 scope-safe form). That list implements the two-tier split docume
 2. Exclusions must be traceable: `dev-tools/verify.ps1` carries an inline comment pointing back to
    this policy (Regla 2 traceability).
 3. **Who can add or revert an exclusion:** only the project lead (`vanta-lead`) after review;
-   re-enabling a `RESOURCE-GUARD` test in the fast gate requires evidence that the input size was
+   re-enabling a runner-risk-category test in the fast gate requires evidence that the input size was
    reduced below runner-risk thresholds (e.g. bounded allocations in the test itself).
 
 ### Experimental Crate Circuit Breaker
