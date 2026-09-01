@@ -1,0 +1,8 @@
+---
+source: tests/query_result_basic.rs
+expression: page
+---
+VantaMemoryListPage {
+    records: [],
+    next_cursor: None,
+}

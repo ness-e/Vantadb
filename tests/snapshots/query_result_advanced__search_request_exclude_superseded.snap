@@ -1,0 +1,25 @@
+---
+source: tests/query_result_advanced.rs
+expression: req
+---
+VantaMemorySearchRequest {
+    namespace: "notes",
+    query_vector: [
+        0.3,
+        0.4,
+    ],
+    query_sparse: None,
+    filters: {
+        "type": String(
+            "note",
+        ),
+    },
+    text_query: Some(
+        "meeting",
+    ),
+    top_k: 25,
+    distance_metric: Cosine,
+    explain: false,
+    exclude_superseded: true,
+    search_profile: None,
+}

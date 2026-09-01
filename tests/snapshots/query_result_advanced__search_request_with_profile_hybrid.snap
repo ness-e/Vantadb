@@ -1,0 +1,32 @@
+---
+source: tests/query_result_advanced.rs
+expression: req
+---
+VantaMemorySearchRequest {
+    namespace: "agent/main",
+    query_vector: [
+        0.1,
+        0.2,
+        0.3,
+    ],
+    query_sparse: None,
+    filters: {},
+    text_query: Some(
+        "rust async patterns",
+    ),
+    top_k: 10,
+    distance_metric: Cosine,
+    explain: false,
+    exclude_superseded: false,
+    search_profile: Some(
+        SearchProfileConfig {
+            mode: Hybrid,
+            rrf_k: Some(
+                60,
+            ),
+            candidate_k: Some(
+                100,
+            ),
+        },
+    ),
+}

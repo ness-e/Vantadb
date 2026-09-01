@@ -1,0 +1,24 @@
+---
+source: tests/query_result_advanced.rs
+expression: page
+---
+VantaMemoryListPage {
+    records: [
+        VantaMemoryRecord {
+            namespace: "small_ns",
+            key: "final_key",
+            payload: "last record",
+            metadata: {},
+            created_at_ms: 999999,
+            updated_at_ms: 999999,
+            version: 1,
+            node_id: 999,
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+        },
+    ],
+    next_cursor: None,
+}

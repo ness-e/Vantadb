@@ -1,0 +1,29 @@
+---
+source: tests/query_result_basic.rs
+expression: hit
+---
+VantaMemorySearchHit {
+    record: VantaMemoryRecord {
+        namespace: "agent/main",
+        key: "memory-1",
+        payload: "remember the contract",
+        metadata: {},
+        created_at_ms: 1000,
+        updated_at_ms: 2000,
+        version: 1,
+        node_id: 42,
+        vector: Some(
+            [
+                0.1,
+                0.2,
+                0.3,
+            ],
+        ),
+        sparse_vector: None,
+        expires_at_ms: None,
+        superseded_by: None,
+        superseded_at_ms: None,
+    },
+    score: 0.95,
+    explanation: None,
+}

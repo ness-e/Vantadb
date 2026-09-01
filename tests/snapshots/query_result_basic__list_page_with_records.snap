@@ -1,0 +1,41 @@
+---
+source: tests/query_result_basic.rs
+expression: page
+---
+VantaMemoryListPage {
+    records: [
+        VantaMemoryRecord {
+            namespace: "ns1",
+            key: "key1",
+            payload: "data1",
+            metadata: {},
+            created_at_ms: 100,
+            updated_at_ms: 200,
+            version: 1,
+            node_id: 1,
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+        },
+        VantaMemoryRecord {
+            namespace: "ns1",
+            key: "key2",
+            payload: "data2",
+            metadata: {},
+            created_at_ms: 300,
+            updated_at_ms: 400,
+            version: 1,
+            node_id: 2,
+            vector: None,
+            sparse_vector: None,
+            expires_at_ms: None,
+            superseded_by: None,
+            superseded_at_ms: None,
+        },
+    ],
+    next_cursor: Some(
+        2,
+    ),
+}

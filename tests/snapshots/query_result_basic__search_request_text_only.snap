@@ -1,0 +1,22 @@
+---
+source: tests/query_result_basic.rs
+expression: req
+---
+VantaMemorySearchRequest {
+    namespace: "knowledge",
+    query_vector: [],
+    query_sparse: None,
+    filters: {
+        "category": String(
+            "tech",
+        ),
+    },
+    text_query: Some(
+        "rust async",
+    ),
+    top_k: 20,
+    distance_metric: Cosine,
+    explain: true,
+    exclude_superseded: false,
+    search_profile: None,
+}

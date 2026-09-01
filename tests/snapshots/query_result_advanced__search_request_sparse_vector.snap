@@ -1,0 +1,24 @@
+---
+source: tests/query_result_advanced.rs
+expression: req
+---
+VantaMemorySearchRequest {
+    namespace: "sparse_idx",
+    query_vector: [],
+    query_sparse: Some(
+        SparseVector(
+            {
+                10: 1.5,
+                42: 2.0,
+                100: 0.8,
+            },
+        ),
+    ),
+    filters: {},
+    text_query: None,
+    top_k: 30,
+    distance_metric: Cosine,
+    explain: false,
+    exclude_superseded: false,
+    search_profile: None,
+}

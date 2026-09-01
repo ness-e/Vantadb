@@ -577,6 +577,14 @@ name = "sdk_serialization"
 path = "tests/sdk_serialization.rs"
 
 [[test]]
+name = "query_result_basic"
+path = "tests/query_result_basic.rs"
+
+[[test]]
+name = "query_result_advanced"
+path = "tests/query_result_advanced.rs"
+
+[[test]]
 name = "graphrag_test"
 path = "tests/graphrag_test.rs"
 

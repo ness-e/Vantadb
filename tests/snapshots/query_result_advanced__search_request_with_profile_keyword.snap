@@ -1,0 +1,24 @@
+---
+source: tests/query_result_advanced.rs
+expression: req
+---
+VantaMemorySearchRequest {
+    namespace: "docs",
+    query_vector: [],
+    query_sparse: None,
+    filters: {},
+    text_query: Some(
+        "api reference",
+    ),
+    top_k: 15,
+    distance_metric: Cosine,
+    explain: true,
+    exclude_superseded: true,
+    search_profile: Some(
+        SearchProfileConfig {
+            mode: Keyword,
+            rrf_k: None,
+            candidate_k: None,
+        },
+    ),
+}

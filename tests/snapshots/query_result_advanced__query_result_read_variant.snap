@@ -1,0 +1,26 @@
+---
+source: tests/query_result_advanced.rs
+expression: result
+---
+Read(
+    [
+        VantaNodeRecord {
+            id: 1,
+            fields: {
+                "name": String(
+                    "test",
+                ),
+            },
+            vector: None,
+            vector_dimensions: 0,
+            edges: [],
+            confidence_score: 0.9,
+            importance: 0.5,
+            hits: 10,
+            last_accessed: 1000,
+            epoch: 0,
+            tier: Hot,
+            is_alive: true,
+        },
+    ],
+)

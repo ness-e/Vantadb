@@ -1,0 +1,8 @@
+---
+source: tests/query_result_basic.rs
+expression: hit
+---
+VantaSearchHit {
+    node_id: 12345,
+    distance: 0.15,
+}
