@@ -1,148 +1,96 @@
 "use client";
 
-import { useEffect, useRef, useCallback, useState, forwardRef } from "react";
+import { useEffect, useRef, useCallback, useImperativeHandle, forwardRef } from "react";
 
 const IFRAME_URL = "/playground-executor.html";
 
-interface ExecuteRequest {
-  type: "execute";
-  code: string;
-  requestId: number;
-}
+export type PlaygroundExecutorHandle = {
+  execute: (code: string) => Promise<{ output: string[]; error?: string }>;
+  isReady: () => boolean;
+};
 
-interface ExecuteResponse {
-  type: "result";
-  requestId: number;
-  output: string[];
-  error?: string;
-}
-
-interface ReadyMessage {
-  type: "ready";
-}
-
+type ExecuteRequest = { type: "execute"; code: string; requestId: number };
+type ExecuteResponse = { type: "result"; requestId: number; output: string[]; error?: string };
+type ReadyMessage = { type: "ready" };
 type IframeMessage = ExecuteResponse | ReadyMessage;
 
-export const PlaygroundExecutor = forwardRef<HTMLIFrameElement, {
-  onReady?: () => void;
-  onResult: (output: string[], error?: string) => void;
-}>(
-  function PlaygroundExecutor({ onReady, onResult }, ref) {
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const requestIdRef = useRef(0);
-  const pendingCallbacksRef = useRef<Map<number, (result: { output: string[]; error?: string }) => void>>(new Map());
-  const [isReady, setIsReady] = useState(false);
+/**
+ * WEB-07 — Iframe sandbox para el playground.
+ * Ejecuta snippets del usuario aislados del DOM principal.
+ * sandbox="allow-scripts allow-same-origin": allow-scripts aísla DOM/storage del parent;
+ * allow-same-origin requerido para que el iframe pueda fetch /vanta-wasm/* del mismo origen
+ * (sin él el iframe tiene origen opaco y fetch sería cross-origin sin CORS). Sin allow-top-navigation,
+ * allow-forms, allow-popups → no puede navegar, enviar forms, ni abrir popups.
+ * Comunicación vía postMessage con validación de source.
+ * // ponytail: allow-same-origin es techo conocido — si /vanta-wasm se sirve con CORS o se embebe
+ * // vía blob/srcdoc, se puede reducir a allow-scripts solo.
+ */
+export const PlaygroundExecutor = forwardRef<PlaygroundExecutorHandle, { onReady?: () => void }>(
+  function PlaygroundExecutor({ onReady }, ref) {
+    const iframeRef = useRef<HTMLIFrameElement>(null);
+    const requestIdRef = useRef(0);
+    const pendingRef = useRef<Map<number, (r: { output: string[]; error?: string }) => void>>(new Map());
+    const readyRef = useRef(false);
 
-  // Expose iframe ref to parent via forwarded ref
-  useEffect(() => {
-    if (ref) {
-      if (typeof ref === "function") {
-        ref(iframeRef.current);
-      } else {
-        ref.current = iframeRef.current;
-      }
-    }
-    return () => {
-      if (ref) {
-        if (typeof ref === "function") {
-          ref(null);
-        } else {
-          ref.current = null;
+    const handleMessage = useCallback(
+      (event: MessageEvent) => {
+        // Validate source is our iframe to avoid accepting messages from other origins/frames
+        const iframe = iframeRef.current;
+        if (iframe?.contentWindow && event.source !== iframe.contentWindow) return;
+        const data = event.data as IframeMessage;
+        if (!data || typeof data !== "object" || !("type" in data)) return;
+        if (data.type === "ready") {
+          readyRef.current = true;
+          onReady?.();
+          return;
         }
-      }
-    };
-  }, [ref]);
-
-  const handleMessage = useCallback((event: MessageEvent) => {
-    const data = event.data as IframeMessage;
-    if (!data || !data.type) return;
-
-    if (data.type === "ready") {
-      setIsReady(true);
-      onReady?.();
-      return;
-    }
-
-    if (data.type === "result") {
-      const callback = pendingCallbacksRef.current.get(data.requestId);
-      if (callback) {
-        callback({ output: data.output, error: data.error });
-        pendingCallbacksRef.current.delete(data.requestId);
-      }
-    }
-  }, [onReady]);
-
-  useEffect(() => {
-    window.addEventListener("message", handleMessage);
-    return () => window.removeEventListener("message", handleMessage);
-  }, [handleMessage]);
-
-  const execute = useCallback((code: string): Promise<{ output: string[]; error?: string }> => {
-    return new Promise((resolve) => {
-      const iframe = iframeRef.current;
-      if (!iframe || !isReady) {
-        resolve({ output: [], error: "Executor not ready" });
-        return;
-      }
-
-      const requestId = ++requestIdRef.current;
-      pendingCallbacksRef.current.set(requestId, resolve);
-
-      iframe.contentWindow?.postMessage(
-        { type: "execute", code, requestId } as ExecuteRequest,
-        "*"
-      );
-
-      // Timeout fallback
-      setTimeout(() => {
-        if (pendingCallbacksRef.current.has(requestId)) {
-          pendingCallbacksRef.current.delete(requestId);
-          resolve({ output: [], error: "Execution timeout" });
+        if (data.type === "result") {
+          const cb = pendingRef.current.get(data.requestId);
+          if (cb) {
+            cb({ output: data.output, error: data.error });
+            pendingRef.current.delete(data.requestId);
+          }
         }
-      }, 30000);
-    });
-  }, [isReady]);
+      },
+      [onReady],
+    );
 
-  return (
-    <iframe
-      ref={ref}
-      sandbox="allow-scripts allow-same-origin"
-      src={IFRAME_URL}
-      style={{ display: "none" }}
-      title="VantaDB Playground Executor"
-      aria-hidden="true"
-    />
-  );
-});
+    useEffect(() => {
+      window.addEventListener("message", handleMessage);
+      return () => window.removeEventListener("message", handleMessage);
+    }, [handleMessage]);
 
-export function usePlaygroundExecutor() {
-  const executorRef = useRef<{ execute: (code: string) => Promise<{ output: string[]; error?: string }> } | null>(null);
-  const [isReady, setIsReady] = useState(false);
+    const execute = useCallback((code: string): Promise<{ output: string[]; error?: string }> => {
+      return new Promise((resolve) => {
+        const iframe = iframeRef.current;
+        if (!iframe?.contentWindow || !readyRef.current) {
+          resolve({ output: [], error: "Executor not ready — iframe aún no cargó" });
+          return;
+        }
+        const requestId = ++requestIdRef.current;
+        pendingRef.current.set(requestId, resolve);
+        iframe.contentWindow.postMessage({ type: "execute", code, requestId } as ExecuteRequest, "*");
+        setTimeout(() => {
+          if (pendingRef.current.has(requestId)) {
+            pendingRef.current.delete(requestId);
+            resolve({ output: [], error: "Execution timeout (30s)" });
+          }
+        }, 30000);
+      });
+    }, []);
 
-  const setExecutorRef = useCallback((node: HTMLIFrameElement | null) => {
-    if (node) {
-      executorRef.current = {
-        execute: (code: string): Promise<{ output: string[]; error?: string }> => {
-          return new Promise((resolve) => {
-            const requestId = Date.now() + Math.random();
-            const handleMessage = (event: MessageEvent) => {
-              const data = event.data;
-              if (data && data.type === "result" && data.requestId === requestId) {
-                window.removeEventListener("message", handleMessage);
-                resolve({ output: data.output, error: data.error });
-              }
-            };
-            window.addEventListener("message", handleMessage);
-            node.contentWindow?.postMessage({ type: "execute", code, requestId }, "*");
-            setTimeout(() => {
-              window.removeEventListener("message", handleMessage);
-              resolve({ output: [], error: "Execution timeout" });
-            }, 30000);
-          });
-        },
-      };
-    }
-  }, []);
+    useImperativeHandle(ref, () => ({ execute, isReady: () => readyRef.current }), [execute]);
 
-  return { executorRef: setExecutorRef, isReady, execute: executorRef.current?.execute };
-}
+    return (
+      <iframe
+        ref={iframeRef}
+        sandbox="allow-scripts allow-same-origin"
+        src={IFRAME_URL}
+        style={{ display: "none" }}
+        title="VantaDB Playground Executor"
+        aria-hidden="true"
+        tabIndex={-1}
+      />
+    );
+  },
+);

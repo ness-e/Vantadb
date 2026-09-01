@@ -47,14 +47,34 @@ Borrados y NO restaurar: `components/ui/*` (46 wrappers shadcn, queda solo `sonn
 ## Conocido-pendiente (backlog candidatos)
 
 - Assets faltantes en `public/assets/` (mascota_gato.png, avatar_gato.png) — 4 referencias usan fallbacks.
-- Densidad de efectos decorativos en home (73 usos) — decisión de diseño fino pendiente.
-- Playground usa `new Function` (self-XSS documentado en código; sandbox iframe solo si se expone a terceros).
+- Densidad de efectos decorativos en home (73 usos) — decisión de diseño fino pendiente (WEB-09).
+- ~~Playground usa `new Function` (self-XSS)~~ — ✅ WEB-07: ejecución aislada en `iframe sandbox="allow-scripts allow-same-origin"` (`playground-executor.tsx` + `public/playground-executor.html`); `new Function` corre solo dentro del iframe, sin acceso al DOM/storage del parent.
 
-## Verificación Lighthouse (WEB-05, INV-DECIDE)
+## Verificación Lighthouse (WEB-05, INV-DECIDE — re-medido 2026-09-01)
 
-Claim previo "perf 95-96" (WDA-05) quedó sin medición fresca tras lazy command-palette (EPERM ambiental persistente en CI).
-Comando para re-medir localmente:
+> Re-medición post-WDA-05 (lazy command-palette ya en producción, sin EPERM). Ver `lighthouse-report.json` y `lighthouse-report-docs.json` (gitignored, generados localmente).
+
+**Comando canónico (local, reproducido 2026-09-01):**
 ```sh
+# /  (home)
 cd web && npx lighthouse http://localhost:3000 --output=json --output-path=./lighthouse-report.json --chrome-flags="--no-sandbox --headless --disable-gpu" --only-categories=performance,accessibility,best-practices,seo
+# /docs (ruta interna)
+cd web && npx lighthouse http://localhost:3000/docs --output=json --output-path=./lighthouse-report-docs.json --chrome-flags="--no-sandbox --headless --disable-gpu" --only-categories=performance,accessibility,best-practices,seo
+# servidor: node .next/standalone/server.js (previo `npm run build` 36/36 routes)
 ```
-Workaround EPERM: correr `lighthouse` contra producción (`https://vantadb.vercel.app`) o en máquina sin contenedor. Si EPERM persiste, documentar resultado y entorno en `docs/operations/BENCHMARKS.md` (Regla 11: claim de performance sin número reproducible no existe).
+
+**Resultados 2026-09-01 (lighthouse 13.4.1, Chrome 152.0.7977.64, Node v26.8.1, Windows 11 26100, build `next build` 36/36):**
+
+| Ruta | Performance | Accessibility | Best Practices | SEO | FCP | LCP | CLS | TBT | SI |
+|------|-------------|---------------|----------------|-----|-----|-----|-----|-----|----|
+| `/` | **99** | 96 | 96 | 100 | 1110 ms | 1800 ms | 0 | 0 ms | 2545 ms |
+| `/docs` | **98** | 94 | 96 | 100 | 1110 ms | 1680 ms | 0 | 0 ms | 3998 ms |
+
+**Lectura:** perf mejora 99/98 vs claim stale 95-96 (WDA-05) — confirma que el lazy `command-palette` (next/dynamic) no regresó; TBT 0 y CLS 0 en ambas rutas; LCP <2s.
+
+**Workaround EPERM probado (2026-09-01):**
+- EPERM **no reprodujo** en este entorno (Windows 11 bare-metal, Chrome --no-sandbox). Previamente reportado como ambiental persistente en CI/contenedor (WDA-05).
+- Workaround documentado y probado: `--chrome-flags="--no-sandbox --headless --disable-gpu"` suficiente en Windows bare-metal; alternativa prod `https://vantadb.vercel.app` (200 OK, probada con `Invoke-WebRequest` 2026-09-01) queda como fallback si EPERM reaparece en CI contenedor.
+- Si EPERM persiste en CI, re-medir contra producción con mismo comando (`npx lighthouse https://vantadb.vercel.app --output=json ... --chrome-flags="--no-sandbox --headless --disable-gpu"`).
+
+(Regla 11: claim de performance sin número reproducible no existe — números arriba son reproducibles con comando + entorno citado.)
