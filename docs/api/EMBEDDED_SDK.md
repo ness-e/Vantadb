@@ -3,7 +3,7 @@ title: VantaEmbedded SDK Reference
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-07-21
+last_reviewed: 2026-09-01
 aliases: []
 ---
 
@@ -11,12 +11,12 @@ aliases: []
 
 > Core Rust SDK struct `VantaEmbedded` — the primary entry point for all embedded database operations. Used directly in Rust and exposed via [[pyo3|PyO3]] (Python), wasm-bindgen (TypeScript), and [[mcp|MCP]].
 
-**Source:** `src/sdk.rs`
+**Source:** `src/sdk/mod.rs`, `src/sdk/builder.rs`, `src/sdk/api/*.rs`, `src/sdk/graph.rs`, `src/sdk/search/mod.rs`
 
 ## Construction
 
 ```rust
-use vantadb::{VantaEmbedded, VantaConfig};
+use vantadb::{VantaEmbedded, VantaConfig, BackendKind};
 
 // Open with defaults (path-based)
 let db = VantaEmbedded::open("./vanta_data").unwrap();
@@ -26,6 +26,7 @@ let config = VantaConfig {
     storage_path: "./vanta_data".into(),
     memory_limit: Some(512_000_000),
     read_only: false,
+    backend_kind: BackendKind::Fjall,
     ..Default::default()
 };
 let db = VantaEmbedded::open_with_config(config).unwrap();
@@ -53,7 +54,7 @@ let config = VantaConfig {
 let db = VantaEmbedded::open_with_config(config).unwrap();
 ```
 
-Each line is one JSON object: `{"timestamp":"2026-08-02T12:34:56Z","op":"put","namespace":"docs","key":"a","outcome":"ok","reason":null}`. Ops: `put`, `put_batch`, `delete`, `delete_by_filter`, `export_namespace`, `export_all`, `import_file`. Read-only ops are not audited. See `docs/operations/CONFIGURATION.md`.
+Each line is one JSON object: `{"timestamp":"2026-08-02T12:34:56Z","op":"put","namespace":"docs","key":"a","outcome":"ok","reason":null}`. Ops: `put`, `put_batch`, `delete`, `delete_by_filter`, `export_namespace`, `export_all`, `import_file`, `bulk_import_file`, `bulk_import_stream`. Read-only ops are not audited. See `docs/operations/CONFIGURATION.md`.
 
 ## Memory (Namespace-scoped) API
 
@@ -74,15 +75,21 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `search(request: VantaMemorySearchRequest)` | [[hybrid-search\|Hybrid]] (vector + lexical) search. Returns `Vec<VantaMemorySearchHit>` |
 | `search_with_method(request, method)` | Same as `search` with an explicit index backend override for the dense-vector portion: `Some(IndexType::Ivf)` / `Some(IndexType::Scann)` / `Some(IndexType::Flat)` / `Some(IndexType::Hnsw)`. `None` (default) keeps automatic engine routing untouched; the shared engine config is never mutated (thread-safe, per-search override) |
 | `search_multi(namespaces, request)` | Search across multiple namespaces, merging results by descending score, capped at `request.top_k`. Namespaces that produce no results or fail validation are silently skipped; an empty `namespaces` slice returns an empty `Vec` |
-| `search_all(request)` | Search across ALL known namespaces, merging results by score. Convenience wrapper that performs a complete namespace scan before searching; prefer `search_multi` when the target namespaces are known ahead of time |
 | `similar_to_key(namespace, key, top_k)` | Vector similarity search from an existing record's vector, post-filtered to `namespace`. Errors `NotFound` if the key does not exist and `NoVectorForKey` if the record carries no vector |
 | `explain_memory_search(request)` | Search with detailed score breakdown. Returns `VantaSearchExplanation` |
 | `namespace_stats(expiring_soon_window_ms)` | Per-namespace statistics: total records, records expiring within the window, already-expired records. Single full scan (no N paginated `count`/`list` calls). `None` uses the 24h default window. Returns `VantaNamespaceStatsMap` |
 | `supersede(namespace, old_key, new_key)` | Mark `old_key` as superseded by `new_key`: the old record keeps its data (soft-dead, recoverable) but gains `superseded_by`/`superseded_at_ms`, and can be hidden from search/list with `exclude_superseded`. Errors if either key is missing, if `old_key == new_key`, or if the old record is already superseded (idempotency guard) |
+| `purge_expired()` | Scan all memory records and physically delete those whose TTL has expired. Returns `u64` count of purged records |
+| `bulk_import_file(path)` | Bulk-import from a binary `.vdbdump` file. Bypasses per-record validation for raw throughput; commits in batches sized by `bulk_commit_interval` (default 10000) |
+| `bulk_import_stream(reader)` | Bulk-import records from a binary stream. Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`, 8-byte LE record count, then serde_json-serialized `Vec<VantaMemoryInput>`. Same batching/validation behavior as `bulk_import_file` |
 
 ### Version History (VS-CORE-07)
 
 Every `put`/`put_batch` snapshots the new record into a `Versions` partition keyed by `(namespace, key, version)`; `version` increments monotonically per key. `VantaConfig.version_history_limit` caps retained snapshots per key (default `Some(32)`, FIFO eviction of the oldest beyond the cap — see `docs/operations/CONFIGURATION.md`); `delete` and `purge_expired` purge the full history. Imports (`import_file`/`bulk_import_*`) do **not** write snapshots. Only the embedded (native) SDK and the CLI/bridge expose version history.
+
+### Bulk Import
+
+Bulk import operations bypass per-record validation for maximum throughput. Records are committed in batches sized by `VantaConfig::bulk_commit_interval` (default 10,000). The binary format (`.vdbdump`) uses magic `VDBJSON\n`, version `0x01`, LE record count, then JSON-serialized `Vec<VantaMemoryInput>`.
 
 ### `VantaMemoryInput`
 
@@ -143,10 +150,10 @@ pub type VantaNamespaceStatsMap = BTreeMap<String, VantaNamespaceStats>;
 
 `namespace_stats` returns one `VantaNamespaceStats` per namespace, keyed by namespace in sorted order. `count` counts all physical records (including expired ones not yet purged); the read-visible subset is available via `count`/`list` (lazy TTL eviction). A record is `expired` if `expires_at_ms <= now` and `expiring_soon` if `now < expires_at_ms <= now + window`; a record never counts as both. Records without a TTL count only toward `count`.
 
-## Scene Nodes (L2 Memory Anchors)
+## Scene Nodes (L2 Memory Anchors) — Separate Module
 
-> **Source:** `src/entity/scene.rs` (`entity::scene`) — documented as part of the
-> F5 memory pipeline closure (MEM-12 debt).
+> **Source:** `src/entity/scene.rs` (`entity::scene::SceneNodeStore`) — documented as part of the
+> F5 memory pipeline closure (MEM-12 debt). This is a **separate module** from `VantaEmbedded`.
 
 A **scene** is the L2 memory unit that groups an episode of conversation. The
 scene NODE is the LLM-free anchor the L2 strategy reads/writes when it updates
@@ -196,12 +203,12 @@ Low-level operations on the node-graph model (numeric node IDs, edges, graph tra
 | `insert_node(input: VantaNodeInput)` | Insert a graph node with content, vector, and fields |
 | `get_node(id: u128)` | Retrieve a node by numeric ID. Returns `Option<VantaNodeRecord>` |
 | `delete_node(id, reason)` | Delete a node with auditable reason (tombstone) |
-| `add_edge(source_id, target_id, label, weight)` | Add a directed edge between two nodes |
+| `add_edge(source_id, target_id, label, weight, created_at_ms)` | Add a directed edge between two nodes with optional weight and creation timestamp. Automatically creates a reverse edge |
 | `remove_edge(source_id, target_id, label)` | Remove all edges between two nodes with the given label (both directions) |
 | `collect_graph_nodes()` | Collect every live non-memory-record node as `Vec<VantaNodeRecord>` (edges with labels resolved). Excludes nodes carrying a namespace field — those belong to the memory snapshot. Used by the WASM binding to persist the graph store alongside `db_state.json` |
 | `restore_graph_nodes(records: Vec<VantaNodeRecord>)` | Restore graph nodes exported by `collect_graph_nodes` into the engine: re-interns edge labels, preserves weights, direction (`reverse`) and creation timestamps. Returns the number of nodes restored |
-| `graph_bfs(roots, max_depth)` | BFS traversal. Returns `Vec<u128>` |
-| `graph_dfs(roots, max_depth)` | DFS traversal. Returns `Vec<u128>` |
+| `graph_bfs(roots, max_depth, direction)` | BFS traversal. Returns `Vec<u128>` |
+| `graph_dfs(roots, max_depth, direction)` | DFS traversal. Returns `Vec<u128>` |
 | `graph_bfs_filtered(roots, max_depth, direction, labels, time_range)` | BFS traversal with label filtering and optional temporal window. Only follows edges whose `label_id` is in `labels` (empty = no filter); `time_range: Option<(from_ms, to_ms)>` restricts to edges created within the window |
 | `graph_dfs_filtered(roots, max_depth, direction, labels, time_range)` | DFS traversal with the same label/temporal filtering as `graph_bfs_filtered` |
 | `graph_topological_sort(roots)` | Topological sort. Returns `Vec<u128>` |
@@ -212,6 +219,10 @@ Low-level operations on the node-graph model (numeric node IDs, edges, graph tra
 | `graph_accumulator_snapshot(acc)` | Capture a consistent snapshot of all accumulator values. Returns `HashMap<u128, f64>` |
 | `search_vector(vector, top_k)` | Pure [[hnsw\|HNSW]] vector search. Returns `Vec<VantaSearchHit>` |
 | `query(iql_query)` | Execute IQL query string. Returns `VantaQueryResult` |
+| `vacuum()` | Purge tombstoned nodes from the HNSW index. Returns a `VacuumReport` with counts and timing |
+| `pipeline(mode)` | Run the segment optimizer pipeline (vacuum → merge → reindex). Each phase is logged independently; a phase failure does not abort subsequent phases |
+| `optimizer_config()` | Return the current segment optimizer configuration |
+| `set_optimizer_config(config)` | Override the segment optimizer configuration. Takes effect on the next pipeline invocation |
 
 ### `VantaNodeInput`
 
@@ -257,6 +268,7 @@ Conversation threads with append-only messages and optional TTL expiry.
 | `delete_thread(thread_id)` | Delete a thread by its ID |
 | `send_message(thread_id, role, content)` | Append a message to a thread. `role` is the message role (e.g., "user", "assistant") |
 | `purge_expired_threads()` | Purge threads whose TTL has expired. Returns the number of threads removed |
+| `recover_archived_nodes(summary_id)` | Recover shadow-archived nodes that belonged to a summary node. Scans TombstoneStorage for nodes with a `belonged_to` edge targeting `summary_id`, re-activates them, and inserts them back into the active store. Returns `Vec<VantaNodeRecord>` |
 
 ## Snapshots API
 
@@ -279,7 +291,9 @@ Restore requires exclusive access to the database directory: on Windows an open
 engine makes the swap fail loudly; on Unix an open handle would silently fork
 state, so always close/drop handles first (the SDK wrapper reopens for you).
 
-## Skills API
+## Skills API — Separate Module
+
+> **Source:** `vantadb-skills` crate (`skill_store`/`skill_versioning` modules) — this is a **separate module** from `VantaEmbedded`.
 
 Versioned skill store (agent skills / memory skills) — port of the TDAM
 `skill_store`/`skill_versioning` modules onto the entity pattern. Each skill
@@ -347,7 +361,6 @@ per `(owner_agent, name)` while a head exists. Content is stored as-is
 |--------|-------------|
 | `export_namespace(path, namespace)` | Export namespace as JSONL. Returns `VantaExportReport` |
 | `export_all(path)` | Export all namespaces as JSONL. Returns `VantaExportReport` |
-| `import_records(records)` | Import `Vec<VantaMemoryRecord>`. Returns `VantaImportReport` |
 | `import_file(path)` | Import from JSONL file. Returns `VantaImportReport` |
 | `bulk_import_file(path)` | Bulk-import from a binary `.vdbdump` file. Bypasses per-record validation for raw throughput; commits in batches sized by `bulk_commit_interval` (default 10000) |
 | `bulk_import_stream(reader)` | Bulk-import records from a binary stream. Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`, 8-byte LE record count, then serde_json-serialized `Vec<VantaMemoryInput>`. Same batching/validation behavior as `bulk_import_file` |

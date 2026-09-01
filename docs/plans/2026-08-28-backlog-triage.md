@@ -502,7 +502,7 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Gate Result:** ✅ DO
 - **Contrato:** `scripts/validate-docs-coverage.ps1 2>&1 | Select-String "gap|drift" | Measure-Object | Select-Object Count` ==0 (o gaps documentados con `TODO` + issue)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/FIND-40.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ⏳ EN PROGRESO
 - **Pre-mortem:**
   - Fallo 1: 13 archivos es mucho — priorizar EMBEDDED_SDK.md + PYTHON_SDK.md + HTTP_API.md (resto DEFER)
   - Fallo 2: Script detecta falsos positivos por docs intencionalmente simplificados → whitelist
@@ -894,4 +894,15 @@ Resultado: OK
 Próxima acción: ejecutar Task 8: PY-01 (Python graph_bfs_filtered parity)
 Contrato: verificacion: hashes .opencode/skills/vantadb-mcp/SKILL.md == skills/vantadb-mcp/SKILL.md ✅ (F82FC815...) | evidencia: claim=drift resuelto sin edición, evidencia=Get-FileHash ambos archivos idénticos, confianza=alta | invariantes: skill canónica en skills/vantadb-mcp/ versionada | deuda: ninguna | queda_pendiente: PY-01, SRV-04, FIND-40
 Próxima tarea si completa: PY-01
+=== END RECITATION ===
+
+=== RECITATION 8 ===
+Campaign ID: b28f-20260828-backlog-triage
+Objetivo activo: PY-01 Python graph_bfs_filtered parity
+Estado: completed
+Última acción: Verifiqué paridad completa: GraphClient.graph_bfs_filtered expuesto, GraphFilter con labels/time_range, stubs .pyi, test de paridad test_subclients.py:test_graph_bfs_filtered_identity PASSED. Task arqueológica.
+Resultado: OK
+Próxima acción: ejecutar Task 9: PY-03 (alias DeprecationWarning)
+Contrato: verificacion: cargo check -p vantadb_py ✅ + pytest test_graph_bfs_filtered_identity PASSED ✅ + python import OK ✅ | evidencia: claim=paridad verificada (ya implementado), evidencia=commits d8435170 + ba800e8, confianza=alta | invariantes: GraphClient.graph_bfs_filtered expuesto, GraphFilter con labels/time_range, stubs .pyi presentes | deuda: ninguna | queda_pendiente: PY-03, SRV-04, FIND-40
+Próxima tarea si completa: PY-03
 === END RECITATION ===

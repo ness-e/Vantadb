@@ -3,7 +3,7 @@ title: VantaDB HTTP API
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-08-22
+last_reviewed: 2026-09-01
 aliases: []
 ---
 

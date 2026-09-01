@@ -3,7 +3,7 @@ title: Python SDK Documentation
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-07-21
+last_reviewed: 2026-09-01
 aliases: []
 ---
 
@@ -154,23 +154,20 @@ db.put(
 ) -> VantaMemoryRecord
 ```
 Insert or update a memory record. The `metadata` is a dict of scalar fields.
-
 #### `put_batch()`
+
 ```python
 db.put_batch(
-    entries: Optional[List[Tuple[str, str, str, Optional[dict], Optional[VectorInput], Optional[int]]]] = None,
-    *,
-    keys: Optional[List[str]] = None,
-    vectors: Optional[List[VectorInput]] = None,
+    keys: List[str],
+    vectors: List[VectorInput],
     payloads: Optional[List[str]] = None,
     metadatas: Optional[List[Optional[dict]]] = None,
     namespace: Optional[str] = None,
+    namespaces: Optional[List[str]] = None,
     ttls: Optional[List[Optional[int]]] = None,
 ) -> List[VantaMemoryRecord]
 ```
 Insert or update multiple records in parallel.
-
-> **Deprecated:** The positional `entries` (tuple list) API is deprecated. Use keyword arguments instead.
 
 **Keyword API** (preferred):
 ```python
@@ -184,14 +181,16 @@ db.put_batch(
 )
 ```
 
-**Positional API** (deprecated):
+To route records of one batch into different namespaces, pass the parallel per-record column `namespaces` (length must equal `keys`); it overrides `namespace` for each record:
 ```python
-db.put_batch([
-    ("ns", "k1", "payload1", {"f": "v"}, [0.1]*384, None),
-    ("ns", "k2", "payload2", None, [0.2]*384, 1000),
-])
+db.put_batch(
+    keys=["k1", "k2"],
+    vectors=[[0.1]*384, [0.2]*384],
+    namespaces=["ns1", "ns2"],
+)
 ```
-Each entry is `(namespace, key, payload, metadata, vector, ttl_ms)`.
+
+Returns a list of `VantaMemoryRecord` objects, up to ~5x faster than sequential `put()` for large batches.
 
 #### `get_memory()`
 ```python
@@ -229,8 +228,8 @@ for record in page:
 records = page["records"]
 next_cursor = page["next_cursor"]
 ```
-
 #### `search_memory()`
+
 ```python
 db.search_memory(
     namespace: str,
@@ -239,12 +238,18 @@ db.search_memory(
     text_query: Optional[str] = None,
     top_k: int = 10,
     distance_metric: Optional[str] = None,
+    method: Optional[str] = None,
     explain: bool = False,
+    exclude_superseded: bool = False,
 ) -> List[VantaSearchHit]
 ```
 Search namespace-scoped persistent memory records by vector + filters + text_query.
 
+The `method` parameter accepts `"ivf"`, `"scann"`, `"flat"`, or `"hnsw"` to explicitly override the dense-vector index backend. `None` (default) keeps automatic engine routing.
+
+The `exclude_superseded` parameter (default `False`) controls whether superseded records are filtered from results (ADR-028).
 #### `explain_memory_search()`
+
 ```python
 db.explain_memory_search(
     namespace: str,
@@ -253,9 +258,12 @@ db.explain_memory_search(
     text_query: Optional[str] = None,
     top_k: int = 10,
     distance_metric: Optional[str] = None,
+    method: Optional[str] = None,
 ) -> dict
 ```
 Returns a detailed breakdown of how a memory search arrives at its results.
+
+The `method` parameter accepts `"ivf"`, `"scann"`, `"flat"`, or `"hnsw"` to explicitly override the dense-vector index backend. `None` (default) keeps automatic engine routing.
 
 #### `count()`
 ```python

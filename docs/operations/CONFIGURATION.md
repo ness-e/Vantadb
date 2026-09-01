@@ -52,6 +52,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `llm_url` | `String` | `http://localhost:11434` | `VANTA_LLM_URL` | Ollama endpoint for remote embeddings |
 | `llm_model` | `String` | `all-minilm` | `VANTA_LLM_MODEL` | Model name for embeddings |
 | `llm_summarize_model` | `String` | `llama3` | `VANTA_LLM_SUMMARIZE_MODEL` | Model name for summarization |
+| `local_model_path` | `String` | `embeddings/models/multilingual-e5-small/onnx` | `VANTA_LOCAL_MODEL` | Local ONNX model directory for `embed-local` (e.g. `embeddings/models/multilingual-e5-small/onnx`) — TODO: verify usage in embed-local provider |
 | `wal_shards` | `usize` | `4` | `VANTADB_WAL_SHARDS` | Number of round-robin [[wal\|WAL]] shard files for write parallelism |
 | `wal_buffer_size` | `Option<usize>` | `65536` (64KB) | `VANTADB_WAL_BUFFER_SIZE` | Per-shard WAL buffer in bytes (`None` = OS default) |
 | `flush_threshold` | `Option<usize>` | `None` (disabled) | `VANTADB_FLUSH_THRESHOLD` | Auto-flush after N nodes inserted (`None` = disabled) |
