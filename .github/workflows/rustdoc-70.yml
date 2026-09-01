@@ -1,0 +1,77 @@
+name: 'CI: Rustdoc — API Reference'
+
+on:
+  push:
+    branches: [ "develop" ]
+    paths:
+      - 'src/**'
+      - 'docs/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '*.md'
+      - '.github/workflows/rustdoc-70.yml'
+  pull_request:
+    branches: [ "main", "develop" ]
+    paths:
+      - 'src/**'
+      - 'docs/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '*.md'
+      - '.github/workflows/rustdoc-70.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+
+permissions:
+  contents: read
+
+jobs:
+  rustdoc:
+    name: Build API Reference (cargo doc)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    concurrency:
+      group: rustdoc-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Setup Rust (nightly for doc features)
+        uses: ./.github/actions/rust-setup
+        with:
+          toolchain: nightly
+          install-nextest: false
+          install-llvm-cov: false
+          install-system-deps: false
+          swap-mb: 0
+
+      - name: Build Documentation
+        run: cargo doc --no-deps --workspace --all-features --document-private-items
+        env:
+          RUSTDOCFLAGS: "--show-type-layout --enable-index-page -Z unstable-options"
+
+      - name: Compress Documentation
+        run: |
+          tar -czf rustdoc-html.tar.gz -C target/doc .
+          du -h rustdoc-html.tar.gz
+
+      - name: Upload Documentation Artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: rustdoc-html
+          path: rustdoc-html.tar.gz
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Summary
+        if: always()
+        run: |
+          echo "## Rustdoc Build Summary" >> $GITHUB_STEP_SUMMARY
+          echo "- Workflow: ${{ github.workflow }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Ref: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Artifact: rustdoc-html.tar.gz (30-day retention)" >> $GITHUB_STEP_SUMMARY
+          echo "- Command: cargo doc --no-deps --workspace --all-features --document-private-items" >> $GITHUB_STEP_SUMMARY
