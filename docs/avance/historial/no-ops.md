@@ -56,3 +56,37 @@ aliases: []
 | TSK-86 | `similar_to_key()` | ❌ Nunca implementado en ningún lenguaje (hasta REC-002 ✅ 2026-07-31) |
 
 > **Fuentes:** `docs/progreso/ARCHIVO_HISTORICO.md` §No-ops/SKIPs, `docs/progreso/README.md` §RESUELTO, `docs/progreso/bitacora.md` Sesión 2.
+### FIND-11: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** FIND-11 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** 3652652d
+- **Dominio:** no-ops
+
+### FIND-17: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** FIND-17 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** 698d2265
+- **Dominio:** no-ops
+
+### FIND-24b: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** FIND-24b completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** 9778d195
+- **Dominio:** no-ops
+
+### FIND-41: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** FIND-41 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** 6058cc84
+- **Dominio:** no-ops
+
+### FIND-44: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** FIND-44 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** 41b11a01
+- **Dominio:** no-ops

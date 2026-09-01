@@ -172,3 +172,24 @@ aliases: []
 - **Resultado:** Veredicto global 6.6/10 promedio: capacidad ≥7.0 en 5/9 superficies; brecha #1 transversal = distribución (node 404 npm, ts 12 dl/sem, wasm 187/mes); patrón sistémico pérdida de trazabilidad ×4 → regla derivación atómica (meta.md). Decisiones HITL Q1-Q9: apuesta = **paridad de bindings c/excepciones documentadas** (BINDINGS_NAMESPACES.md matriz canónica); inaceptables = providers roto + npm node 404 + trazabilidad + CSP desktop; roadmap sin contradicción; ejecución aprobada de los 7 planes quickwins (waves por directorios disjuntos, tests pesados serializados); PY H-09 → consolidar import en `vantadb` (fila PY-03); síntesis formal generada.
 - **Materialización:** `docs/reviews/research-bindings-synthesis-20260825.md` + INDEX + PY-03 (Backlog) + regla meta.md + memory decisions ×4
 - **Ids:** `INV-DECIDE`
+
+### RES-02: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** RES-02 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** b85b52b3
+- **Dominio:** investigaciones
+
+### RES-03: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** RES-03 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** b85b52b3
+- **Dominio:** investigaciones
+
+### RES-05: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** RES-05 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** a7e539a9
+- **Dominio:** investigaciones

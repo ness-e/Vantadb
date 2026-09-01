@@ -4,7 +4,7 @@
 > **Estado:** ⏳ EN PROGRESO
 > **Fuente:** `docs/Backlog.md` (110 items — triage completo 2026-09-01, reality-check ejecutado hoy)
 > **Autonomous:** false
-> **Campaign ID:** (se asigna al claim)
+> **Campaign ID:** 07052e9a-44f7-4893-8cfb-1077c6586f5b
 > **SDP:** campaign-executor, ponytail (full), progreso, test-driven-development, systematic-debugging (bugs), source-driven-development (símbolos) — phase=PLAN
 
 ## Resumen

@@ -729,3 +729,17 @@ aliases: []
   - Tests: `python -m pytest vantadb-python/tests/test_subclients.py::test_graph_bfs_filtered_identity` ✅ (22/22 tests pass)
   - Import: `python -c "import vantadb; help(vantadb.VantaDB.graph_bfs_filtered)"` ✅ sin ImportError
 
+
+### FIND-MCP-001: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** FIND-MCP-001 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** 7d6eabb2
+- **Dominio:** bindings
+
+### TS-01: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** TS-01 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** 41b11a01
+- **Dominio:** bindings

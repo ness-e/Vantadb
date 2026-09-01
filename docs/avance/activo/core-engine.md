@@ -421,3 +421,52 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Gates:** D: no-disparado (no symbols públicos nuevos, blast radius 2 archivos + backend.rs existente, ≤10) · V: no-disparado (verify dual cargo check 1er intento) · C: no-disparado (doc only, no API change, `StorageBackend` intacto, workspaces aislados)
 - **Skills:** campaign-executor, progreso, ponytail, source-driven-development, systematic-debugging, documentation-and-adrs, api-and-interface-design, code-review-and-quality
 - **Notes:** Ponytail rung 1 — doc antes que `trait KvBackendPort` extracción o ADR. Skipped: ADR `docs/architecture/adr/ADR-03X-crate-boundary.md`, `cargo modules dependencies --acyclic` (tool no baseline), trait extraction (frontera `StorageBackend` ya correcta). Add when: `RocksDbBackend` necesita llamar a desktop (callback Tauri/event) → invertir vía trait `DesktopEventSink` en `src/backend.rs` + channel o `tauri::Manager` emit. Invariante: `desktop → vantadb` one-way, `StorageBackend` pub(crate) nunca pub externo. Question Gate: pre-mortem 1 falsificó premisa (falso positivo) pero contrato exige doc frontera — COMPLETED con doc, no SKIP. CodeGraph 173 calls `src → skills` (FIND-42) tangencial, deferred.
+
+### CORE-02: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** CORE-02 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** be57a94c
+- **Dominio:** core-engine
+
+### FIND-24: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** FIND-24 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** 0755c90e
+- **Dominio:** core-engine
+
+### FIND-38: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** FIND-38 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** bf59c2b1
+- **Dominio:** core-engine
+
+### FIND-40: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** FIND-40 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** 61a0bd42
+- **Dominio:** core-engine
+
+### FIND-43: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** FIND-43 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** f8720546
+- **Dominio:** core-engine
+
+### MOD-15: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** MOD-15 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** 3fd905bb
+- **Dominio:** core-engine
+
+### REVIEW-12: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** REVIEW-12 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** ac128bcb
+- **Dominio:** core-engine

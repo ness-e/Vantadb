@@ -239,3 +239,38 @@ aliases: []
 - **Próximo:** TBH-02 (initialize `benchmarks/criterion_baseline.json`)
 - **Lecciones (memoria):** `verify_datasets pre-test gate | listar paths esperados via test -e (bash) / Test-Path (pwsh); exit 1 si MISSING; el whitelist #[ignore] por dataset NO requiere lógica porque el gate solo chequea paths en disco`
 
+
+### GOV-TK4: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** GOV-TK4 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** 31b0902d
+- **Dominio:** ci-cd
+
+### RES-11: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** RES-11 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** 25792e30
+- **Dominio:** ci-cd
+
+### REVIEW-07: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** REVIEW-07 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** verify-only
+- **Dominio:** ci-cd
+
+### STABLE-01: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** STABLE-01 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** 3fa87560
+- **Dominio:** ci-cd
+
+### STABLE-08: sync 2026-09-01 (drift backlog)
+- **Fecha:** 2026-09-01
+- **Objetivo:** STABLE-08 completada previamente, removida del Backlog por drift (task file COMPLETED)
+- **Resultado:** OK
+- **Commit:** 142e8f1d
+- **Dominio:** ci-cd
