@@ -1,14 +1,15 @@
 # VantaDB Skills Manifest
 
-**Location:** **193 skills en `.opencode/skills/`** (git submodule → `configOpencode` private repo); total **193** (project-local; curated essential list below)
+**Location:** **194 skills en `.opencode/skills/`** (git submodule → `configOpencode` private repo); total **194** (project-local; curated essential list below)
 **Updated:** 2026-09-01
 
-> **AUDIT 2026-09-01 — Reestructuración completada:**
-> - `.opencode/skills/` = **193** skills (submodule `configOpencode` — todas las skills del proyecto viven aquí)
+> **AUDIT 2026-09-01 — Reestructuración completada + sync agent-skills:**
+> - `.opencode/skills/` = **194** skills (submodule `configOpencode` — todas las skills del proyecto viven aquí)
 > - `.agents/skills/` = **ELIMINADO** (2026-09-01) — contenido migrado a submodule
-> - **Total proyecto = 193** (todas en `.opencode/skills/`)
+> - **Total proyecto = 194** (todas en `.opencode/skills/`: 25 base agent-skills + 169 VantaDB)
 > - Global `~/.agents/skills/` = 160 dirs (139 con SKILL.md, 14 sin); `~/.claude/skills/` = 33 dirs
 > - **87 skills nuevas documentadas 2026-08-19**: 63 de accesibilidad (5 `a11y-*` + 58 `incl-*`), 17 de diseño/UX/utilidad, 7 de pipeline/VantaDB core
+> - **Sync 2026-09-01 desde addyosmani/agent-skills**: 24/25 skills actualizadas (1 nueva: `constraint-driven-development`), preservando customizaciones VantaDB
 > - Stub detectado: `debugging-and-error-recovery` (`.opencode/skills/`) está DEPRECADO — delega en `systematic-debugging` (EVAL-03). Se mantiene listado porque existe en disk, pero NO se debe cargar.
 > - `impeccable` (Essential, KEEP) ahora existe en `.opencode/skills/` (submodule) — sync completado.
 
@@ -73,7 +74,7 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 | `ai-seo` | 8/10 | AI search optimization. Optimize for LLM citation. |
 | `seo-audit` | 7/10 | Full SEO audit. Technical, on-page, content issues. |
 
-### Engineering Lifecycle (12)
+### Engineering Lifecycle (13)
 
 | Skill | Rating | When to Use |
 |-------|:------:|-------------|
@@ -89,6 +90,7 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 | `ci-cd-and-automation` | 7/10 | CI/CD pipelines, Shift Left. |
 | `git-workflow-and-versioning` | 8/10 | Atomic commits, trunk-based. |
 | `documentation-and-adrs` | 7/10 | ADRs, API docs, feature docs. |
+| `constraint-driven-development` | 8/10 | **Define quality bar as written contract (CONSTRAINTS.md)** with numbered thresholds, floor guards, ratchets. Use when no quality bar written, CI checks unclear, or agent silences checks to get green. |
 
 ---
 
@@ -275,6 +277,7 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 | ci-cd-and-automation | 7 | KEEP | CI/CD pipelines, Shift Left. |
 | shipping-and-launch | 7 | KEEP | Pre-deploy checklists. |
 | documentation-and-adrs | 7 | KEEP | ADRs, API docs, feature docs. |
+| constraint-driven-development | 8 | KEEP | Quality bar as written contract (CONSTRAINTS.md) with numbered thresholds, floor guards, ratchets. Sync from addyosmani/agent-skills 2026-09-01. |
 | deprecation-and-migration | 7 | KEEP | Sunset old systems. |
 | observability-and-instrumentation | 7 | KEEP | Logging, metrics, tracing. |
 | using-agent-skills | 8 | KEEP | Meta-skill for skill discovery. |
