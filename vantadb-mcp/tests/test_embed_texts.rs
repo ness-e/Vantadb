@@ -17,7 +17,7 @@ fn embed_texts_basic() {
     let cfg = McpConfig::default();
 
     // test handle_tools_list contains embed_texts
-    let list = handle_tools_list().unwrap();
+    let list = handle_tools_list(&cfg).unwrap();
     let tools = list["tools"].as_array().unwrap();
     let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
     assert!(

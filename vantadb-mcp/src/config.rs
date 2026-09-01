@@ -72,6 +72,10 @@ pub struct McpConfig {
     pub max_skill_total_bytes: usize,
     /// Tool surface profile (default: Full). Set via VANTADB_MCP_PROFILE env var.
     pub profile: McpProfile,
+    /// Max tokens per embed_texts call (heuristic len/4, default 25k). Tunable to force truncation in tests.
+    pub max_embed_tokens: usize,
+    /// Max texts per embed_texts page (default 128). Pagination via `cursor` + `next_cursor`.
+    pub max_embed_batch_size: usize,
     /// MCP-39: byte budget for one-shot list/search tool responses.
     /// Default 40 KB (80% of OpenCode's 50 KB cap; safe under Claude Code's
     /// 25k token limit ~100 KB). Tunable via `VANTADB_MCP_BYTE_BUDGET` env var.
@@ -104,6 +108,8 @@ impl Default for McpConfig {
             max_skill_resource_bytes: 5_000_000,
             max_skill_total_bytes: 50_000_000,
             profile: McpProfile::default(),
+            max_embed_tokens: 25_000,
+            max_embed_batch_size: 128,
             byte_budget: 40 * 1024,
             min_byte_budget: 1024,
             max_byte_budget: 1024 * 1024,

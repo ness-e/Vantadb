@@ -4448,7 +4448,7 @@ fn test_mcp_structured_output_and_output_schema() {
 
 /// MCP-38: Tool annotations coverage — every tool must expose the 4 hints
 /// per spec 2025-06-18 (blog.modelcontextprotocol.io 2026-03-16).
-/// Verifies: total 78 tools (46 base + 30 extend + 2 MEM-59), each has
+/// Verifies: total 79 tools (46 base + 30 extend + 2 MEM-59 + embed_texts), each has
 /// title + 4 bools, destructiveHint true only on mutating deletes,
 /// openWorldHint only on fs paths. MEM-59 added `memory_recall` and
 /// `memory_search` (both read-only/idempotent) — see the contract comment
@@ -4459,8 +4459,8 @@ fn test_mcp_tool_annotations_coverage() {
     let tools = res["tools"].as_array().expect("tools array");
     assert_eq!(
         tools.len(),
-        78,
-        "expected 78 tools (46 base + 30 extend + 2 MEM-59), got {}",
+        79,
+        "expected 79 tools (46 base + 30 extend + 2 MEM-59 + embed_texts), got {}",
         tools.len()
     );
 
@@ -4558,7 +4558,7 @@ fn test_mcp_tool_annotations_coverage() {
 fn test_mcp_tool_profiles() {
     use vantadb_mcp::{handle_tools_list, McpConfig, McpProfile};
 
-    // Full profile (default) — all 78 tools (76 + 2 MEM-59)
+    // Full profile (default) — all 79 tools (76 + 2 MEM-59 + embed_texts)
     let full_config = McpConfig {
         profile: McpProfile::Full,
         ..McpConfig::default()
@@ -4567,8 +4567,8 @@ fn test_mcp_tool_profiles() {
     let full_tools = full_res["tools"].as_array().unwrap();
     assert_eq!(
         full_tools.len(),
-        78,
-        "Full profile should have 78 tools (76 + 2 MEM-59), got {}",
+        79,
+        "Full profile should have 79 tools (76 + 2 MEM-59 + embed_texts), got {}",
         full_tools.len()
     );
 
@@ -4584,8 +4584,8 @@ fn test_mcp_tool_profiles() {
     // 35 cap was a Cursor budget heuristic, not a contract — the helpers
     // here document the upper bound rather than enforce a hard ceiling.
     assert!(
-        dev_tools.len() <= 37,
-        "Dev profile should have ≤37 tools (35 budget + 2 MEM-59), got {}",
+        dev_tools.len() <= 38,
+        "Dev profile should have ≤38 tools (35 budget + 2 MEM-59 + embed_texts), got {}",
         dev_tools.len()
     );
     assert!(
@@ -4594,7 +4594,7 @@ fn test_mcp_tool_profiles() {
         dev_tools.len()
     );
 
-    // Memory profile — ≤21 tools (core memory CRUD + search + list + 2 MEM-59)
+    // Memory profile — ≤22 tools (core memory CRUD + search + list + 2 MEM-59 + embed_texts)
     let memory_config = McpConfig {
         profile: McpProfile::Memory,
         ..McpConfig::default()
@@ -4602,8 +4602,8 @@ fn test_mcp_tool_profiles() {
     let memory_res = handle_tools_list(&memory_config).unwrap();
     let memory_tools = memory_res["tools"].as_array().unwrap();
     assert!(
-        memory_tools.len() <= 21,
-        "Memory profile should have ≤21 tools (20 budget + memory_recall), got {}",
+        memory_tools.len() <= 22,
+        "Memory profile should have ≤22 tools (20 budget + memory_recall + embed_texts), got {}",
         memory_tools.len()
     );
     assert!(
