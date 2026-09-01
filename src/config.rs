@@ -1764,9 +1764,11 @@ mod tests {
         // clamp (1_000) without an explicit decision, callers asking for
         // k in the 1k..10k range would silently get fewer results than
         // before this refactor.
-        assert!(
-            MAX_K >= 1_000,
-            "MAX_K ({MAX_K}) regressed below legacy wasm limit 1000"
-        );
+        const {
+            assert!(
+                MAX_K >= 1_000,
+                "MAX_K regressed below legacy wasm limit 1000"
+            )
+        };
     }
 }

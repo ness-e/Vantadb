@@ -74,7 +74,7 @@ P5/P6/P8 (docs community, launch, enterprise), P24 (I+D), P25-P28 (cognitiva/TDA
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 2 (borrar imports, fix assert)
 - **DoD multi-nivel:** Task: contrato clippy exit 0 · Commit: `fix(lint): drop unused imports post-REVIEW-10 split + const assert in config (FIND-035)` + verify full · Release: N/A (cero API change)
 - **Validación Appetite vs Effort:** max 1h ≥ 🟢 30min ✅
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-09-01 — clippy -p vantadb 0, check core 0, config tests 2/2, ws cascade mcp pendiente Task 2)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/FIND-035.md`
 - **Branch:** develop
 - **Ruta:** vanta-worker

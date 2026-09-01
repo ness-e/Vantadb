@@ -7,14 +7,17 @@
 
 // Re-export items moved to `super::state` so existing call sites inside this file
 // (and its inline tests) keep their unqualified paths without an edit.
+#[cfg(test)]
+use super::state::ConversationTrigger;
 use super::state::{
-    audit_auth, extract_namespace, extract_request_id, resolve_user_key, simple_url_decode,
-    AuthIdentity, AuthState, ConversationTrigger, NodeDTO, QueryRequest, QueryResponse, RequestId,
-    ServerState, AUTH_ENTITY_NS, LONG_REQUEST_TIMEOUT, REQUEST_ID_HEADERS, REQUEST_ID_MAX_LEN,
-    REQUEST_TIMEOUT, SERVICE_ID_HEADER, USER_KEY_HEADER,
+    audit_auth, extract_namespace, extract_request_id, resolve_user_key, AuthIdentity, AuthState,
+    NodeDTO, QueryRequest, QueryResponse, RequestId, ServerState, AUTH_ENTITY_NS,
+    LONG_REQUEST_TIMEOUT, REQUEST_TIMEOUT, SERVICE_ID_HEADER, USER_KEY_HEADER,
 };
 
-use crate::audit::{AuditEvent, AuditLogger};
+use crate::audit::AuditEvent;
+#[cfg(test)]
+use crate::audit::AuditLogger;
 use crate::circuit_breaker::CircuitBreaker;
 use crate::connection_pool::{ConnectionPool, PoolError};
 use crate::entity::EntityStore;
@@ -39,7 +42,6 @@ use axum::{
     routing::{get, post, put},
     Extension, Json, Router,
 };
-use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use subtle::ConstantTimeEq;
 use tokio::net::TcpListener;
@@ -54,7 +56,9 @@ use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Registry
 #[cfg(feature = "opentelemetry")]
 static OTEL_PROVIDER: OnceLock<opentelemetry_sdk::trace::SdkTracerProvider> = OnceLock::new();
 
-use crate::config::{LogFormat, RbacConfig, VantaConfig};
+#[cfg(test)]
+use crate::config::RbacConfig;
+use crate::config::{LogFormat, VantaConfig};
 use crate::console;
 use crate::error::Result;
 use crate::metrics;
