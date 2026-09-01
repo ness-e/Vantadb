@@ -198,6 +198,10 @@ Cargo_test.toml
 # VS Code canvas files
 *.canvas
 
+# Local VantaDB runtime artifacts
+.vantadb-mcp/
+dev.pid
+
 # Test runner artifacts (Playwright, E2E — old Vite web archive)
 web_old/playwright-report/
 web_old/test-results/

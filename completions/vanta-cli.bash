@@ -100,6 +100,9 @@ _vanta-cli() {
             vanta__cli,status)
                 cmd="vanta__cli__subcmd__status"
                 ;;
+            vanta__cli,tui)
+                cmd="vanta__cli__subcmd__tui"
+                ;;
             vanta__cli,wal)
                 cmd="vanta__cli__subcmd__wal"
                 ;;
@@ -186,6 +189,9 @@ _vanta-cli() {
                 ;;
             vanta__cli__subcmd__help,status)
                 cmd="vanta__cli__subcmd__help__subcmd__status"
+                ;;
+            vanta__cli__subcmd__help,tui)
+                cmd="vanta__cli__subcmd__help__subcmd__tui"
                 ;;
             vanta__cli__subcmd__help,wal)
                 cmd="vanta__cli__subcmd__help__subcmd__wal"
@@ -302,7 +308,7 @@ _vanta-cli() {
 
     case "${cmd}" in
         vanta__cli)
-            opts="-d -v -h -V --db --verbose --memory-limit --help --version put get list rebuild-index audit-index repair-text-index export import query status backup restore doctor inspect stats completions search delete delete-by-filter count similar-to-key migrate namespace snapshot wal search-multi search-all server help"
+            opts="-d -v -h -V --db --verbose --memory-limit --help --version put get list rebuild-index audit-index repair-text-index export import query status backup restore doctor inspect stats tui completions search delete delete-by-filter count similar-to-key migrate namespace snapshot wal search-multi search-all server help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -618,7 +624,7 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__help)
-            opts="put get list rebuild-index audit-index repair-text-index export import query status backup restore doctor inspect stats completions search delete delete-by-filter count similar-to-key migrate namespace snapshot wal search-multi search-all server help"
+            opts="put get list rebuild-index audit-index repair-text-index export import query status backup restore doctor inspect stats tui completions search delete delete-by-filter count similar-to-key migrate namespace snapshot wal search-multi search-all server help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1108,6 +1114,20 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__help__subcmd__status)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__help__subcmd__tui)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -2094,6 +2114,32 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__status)
+            opts="-d -v -h --db --verbose --memory-limit --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --memory-limit)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__tui)
             opts="-d -v -h --db --verbose --memory-limit --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
