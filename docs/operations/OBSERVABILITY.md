@@ -60,27 +60,37 @@ Panicked query tasks map through `panic_error_response` → `ERROR` + sanitized
 generic 500 body (AUDREP-32: panic detail stays server-side).
 
 Fields never carry message text, node IDs, or user content — only the ten
-canonical codes — so pipelines and future metric labels stay low-cardinality.
+canonical codes — so pipelines and the §4 metric label stay low-cardinality.
 Telemetry init: `src/server/telemetry.rs` (`init_telemetry`, JSON/fmt/OTEL).
 
-## 4. Error-rate metric — TODO(FIND-53)
+## 4. Error-rate metric (`vantadb_errors_total`)
 
-Planned (from the ERR-OBS-01 contract): one counter incremented at the two
-HTTP error-envelope builders, `code` as the only label (cardinality = 10):
+Wired by FIND-53 (2026-09-02) on the **in-tree** registry `src/metrics/`
+(`prometheus` crate — no external `metrics` dep was added). One counter,
+incremented at the single HTTP error choke point
+`src/server/errors.rs::log_vanta_error`, so both error envelopes
+(`query_error_response`, `vanta_error_response`) feed the same series exactly
+once per served error:
 
-```rust
-metrics::counter!("vantadb_errors_total", "code" => e.code());
+```
+vantadb_errors_total{code="VANTADB_NOT_FOUND"} 12
+vantadb_errors_total{code="VANTADB_IO_ERROR"} 3
 ```
 
-**Not wired yet:** the external `metrics` crate is not a dependency of the
-root `vantadb` crate (only the bespoke in-tree `src/metrics/` registry
-exists), and ERR-OBS-01's constraint forbids adding a dep without its own
-justification. Tracked as **FIND-53** in `docs/Backlog.md`; until it lands,
-derive error rates from the structured `ERROR`/`WARN` log lines in §3.
+`code` is the only label and takes one of the ten canonical `VANTADB_*` codes
+from `VantaError::code()` (enum-derived — cardinality ≤ 10, safe for scrape
+and alerting). Registration lives in `src/metrics/core/registry.rs`
+(`ERRORS_TOTAL`); the increment helper is `crate::metrics::record_vanta_error`.
+
+**Feature gate:** the counter (like every registry metric) is behind
+`--features prometheus`; serve the scrape with `--features server,prometheus`.
+Without the feature the call is a no-op and error rates stay derivable from
+the structured `ERROR`/`WARN` log lines in §3.
 
 ## 5. Alerting example
 
-Symptom-based, per the plan's rollout gate (§ Error-handling excellence):
+Symptom-based, per the plan's rollout gate (§ Error-handling excellence) —
+implementable on `vantadb_errors_total` now that FIND-53 has landed (§4):
 
 ```yaml
 # page when server-side failures spike over the 7-day baseline
@@ -96,10 +106,10 @@ Symptom-based, per the plan's rollout gate (§ Error-handling excellence):
     runbook: docs/operations/OBSERVABILITY.md
 ```
 
-Before FIND-53 lands, the equivalent log-pipeline query is the count of
-level=ERROR lines with `error.code` present. Alert on the 5xx class (or the
-total rate); never alert per individual code — the codes are dashboard
-slices, not page conditions.
+Without the `prometheus` feature build, the equivalent log-pipeline query is
+the count of level=ERROR lines with `error.code` present. Alert on the 5xx
+class (or the total rate); never alert per individual code — the codes are
+dashboard slices, not page conditions.
 
 ## 6. Panic boundaries (catch_unwind evidence)
 

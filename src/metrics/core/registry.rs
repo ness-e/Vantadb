@@ -544,6 +544,39 @@ pub static GRAPH_OPS_TOTAL: LazyLock<Option<IntCounterVec>> = LazyLock::new(|| {
     }
 });
 
+/// HTTP-served error counter (FIND-53), labelled by canonical error code.
+///
+/// `code` ∈ the ten canonical `VANTADB_*` codes from `VantaError::code()`
+/// (enum-derived — bounded cardinality ≤10, never free-form strings).
+/// Incremented at the single HTTP error choke point
+/// `src/server/errors.rs::log_vanta_error`, so both error envelopes
+/// (`query_error_response`, `vanta_error_response`) feed the same series.
+/// PromQL: `rate(vantadb_errors_total[5m])` per code — see
+/// `docs/operations/OBSERVABILITY.md` §4–§5.
+#[cfg(feature = "prometheus")]
+pub static ERRORS_TOTAL: LazyLock<Option<IntCounterVec>> = LazyLock::new(|| {
+    let counter = match IntCounterVec::new(
+        prometheus::Opts::new(
+            "vantadb_errors_total",
+            "VantaErrors served over HTTP, by canonical error code (FIND-53)",
+        ),
+        &["code"],
+    ) {
+        Ok(c) => c,
+        Err(e) => {
+            tracing::warn!("Failed to create ERRORS_TOTAL counter: {e}");
+            return None;
+        }
+    };
+    match METRICS_REGISTRY.register(Box::new(counter.clone())) {
+        Ok(_) => Some(counter),
+        Err(e) => {
+            tracing::warn!("Failed to register ERRORS_TOTAL: {e}");
+            None
+        }
+    }
+});
+
 // ── Memory breakdown gauges ──────────────────────────────────────────────
 
 #[cfg(feature = "prometheus")]
@@ -1024,6 +1057,22 @@ mod tests {
         );
     }
 
+    /// FIND-53: `vantadb_errors_total{code}` must register on the in-tree
+    /// registry and surface in the `/metrics` scrape once a code is counted.
+    #[test]
+    fn test_vantadb_errors_total_counter_init() {
+        let counter = init_metric(&ERRORS_TOTAL);
+        // Unique test-only label value; the real choke point uses the ten
+        // canonical VANTADB_* codes (cardinality bound enforced by the enum).
+        counter.with_label_values(&["VANTADB_TEST_FIND53"]).inc();
+        assert!(counter.with_label_values(&["VANTADB_TEST_FIND53"]).get() >= 1);
+        let text = crate::metrics::export_metrics_text();
+        assert!(
+            text.contains("vantadb_errors_total{code=\"VANTADB_TEST_FIND53\"}"),
+            "vantadb_errors_total missing from /metrics export"
+        );
+    }
+
     // ── Gauge registration tests ──────────────────────────────
 
     #[test]
@@ -1175,6 +1224,7 @@ mod tests {
         assert!(PLANNER_TEXT_ONLY_QUERIES.as_ref().is_some());
         assert!(PLANNER_VECTOR_ONLY_QUERIES.as_ref().is_some());
         assert!(GRAPH_OPS_TOTAL.as_ref().is_some());
+        assert!(ERRORS_TOTAL.as_ref().is_some());
     }
 
     #[test]

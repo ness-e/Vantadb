@@ -248,6 +248,26 @@ pub fn record_graph_op(op: &str) {
 #[cfg(not(feature = "prometheus"))]
 pub fn record_graph_op(_op: &str) {}
 
+/// Record a `vantadb_errors_total` increment for an error crossing the HTTP
+/// boundary (FIND-53).
+///
+/// `code` must be one of the ten canonical `VANTADB_*` codes returned by
+/// `VantaError::code()` — enum-derived, bounded cardinality (≤10). Called from
+/// the single error choke point `src/server/errors.rs::log_vanta_error`.
+/// No-op when the `prometheus` feature is off (same cfg-guard as the other
+/// counters; error rates stay derivable from the structured logs in
+/// `docs/operations/OBSERVABILITY.md` §3).
+#[cfg(feature = "prometheus")]
+pub fn record_vanta_error(code: &str) {
+    if let Some(counter) = ERRORS_TOTAL.as_ref() {
+        counter.with_label_values(&[code]).inc();
+    }
+}
+
+/// Record a `vantadb_errors_total` increment (no-op without the `prometheus` feature).
+#[cfg(not(feature = "prometheus"))]
+pub fn record_vanta_error(_code: &str) {}
+
 /// Record which vector index backend a memory search was routed to (OLD-21).
 ///
 /// Flat / IVF / HNSW are the three routing targets selected by

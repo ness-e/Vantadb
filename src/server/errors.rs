@@ -74,7 +74,14 @@ fn error_log_level(status: StatusCode) -> tracing::Level {
 /// future metric labels). FIND-55: `error.display` carries the full engine
 /// message server-side — it used to be the only place that text appeared, the
 /// 5xx response body; sanitizing the body moved the chain here.
+///
+/// FIND-53: this is also the single metric choke point — every error fed to
+/// it increments `vantadb_errors_total{code}` on the in-tree Prometheus
+/// registry (no-op when the `prometheus` feature is off). Both envelopes
+/// (`query_error_response`, `vanta_error_response`) route through here, so
+/// the series counts every HTTP-served `VantaError` exactly once.
 fn log_vanta_error(e: &VantaError, status: StatusCode) {
+    crate::metrics::record_vanta_error(e.code());
     // `tracing::event!` needs a compile-time-constant level, so branch on the
     // class; the field set stays identical across both arms.
     if error_log_level(status) == tracing::Level::ERROR {
@@ -368,5 +375,41 @@ mod tests {
             "Validation error on payload: vector must be non-empty"
         );
         assert_eq!(body["code"], "VANTADB_VALIDATION_ERROR");
+    }
+
+    /// FIND-53: both error envelopes route through `log_vanta_error`, the
+    /// single choke point feeding `vantadb_errors_total{code}`. Uses the
+    /// TIMEOUT code (no other test in this module increments it, so the
+    /// before/after delta is exact even under parallel execution). Requires
+    /// the `prometheus` feature — without it every registry counter is a
+    /// deliberate no-op (same as `vanta_http_requests_total` et al.).
+    #[cfg(feature = "prometheus")]
+    #[tokio::test]
+    async fn error_envelopes_increment_vantadb_errors_total_by_code() {
+        use crate::metrics;
+        let counter = metrics::ERRORS_TOTAL
+            .as_ref()
+            .expect("vantadb_errors_total must register on the in-tree registry");
+        let timeout = VantaError::Timeout {
+            operation: "test".into(),
+            duration_ms: 1,
+        };
+        assert_eq!(timeout.code(), "VANTADB_TIMEOUT");
+
+        let before = counter.with_label_values(&["VANTADB_TIMEOUT"]).get();
+        let _ = query_error_response(&timeout);
+        let _ = vanta_error_response(&timeout);
+        let after = counter.with_label_values(&["VANTADB_TIMEOUT"]).get();
+
+        assert_eq!(
+            after,
+            before + 2,
+            "each envelope through log_vanta_error must count exactly once"
+        );
+        let scrape = metrics::export_metrics_text();
+        assert!(
+            scrape.contains("vantadb_errors_total{code=\"VANTADB_TIMEOUT\"}"),
+            "series must appear in the /metrics scrape, got:\n{scrape}"
+        );
     }
 }
