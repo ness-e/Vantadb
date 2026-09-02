@@ -13,7 +13,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 > **Execution state lives in:** `docs/plans/YYYY-MM-DD-<campaign>.md` (plan file) + task files — per campaign-executor RULES.md §2. This file is the task catalog; the plan file is the execution state.
 > **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
 > **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 125 activas (post-campaña error-observability 2026-09-02: +4 FIND-52..55 colaterales (52 wasm32/ICE, 53 métricas dep, 54 cors flake, 55 sanitización 500); previo 121 post-split-audit 2026-09-02: +4 FIND-48..51 graph/types/parser/handlers — 117+4; post-slice2 2026-09-02: 13 removidas — EMB-01..09 (9) + AUD-043/044/047 + FIND-23 (4) → activo/*.md; previo 130 activas post-sync 2026-09-01: 43 drift removidos; previo 173)
+> **Total open items:** 121 activas (post-pipeline-task FIND-52..55 2026-09-02: 4/4 cerradas ✅ — 52 web_time/cfg-out wasm 278/278 vitest, 53 vantadb_errors_total in-tree, 54 cors flake, 55 sanitización 500; previo 125 post-campaña error-observability: +4 FIND-52..55 colaterales (52 wasm32/ICE, 53 métricas dep, 54 cors flake, 55 sanitización 500); previo 121 post-split-audit 2026-09-02: +4 FIND-48..51 graph/types/parser/handlers — 117+4; post-slice2 2026-09-02: 13 removidas — EMB-01..09 (9) + AUD-043/044/047 + FIND-23 (4) → activo/*.md; previo 130 activas post-sync 2026-09-01: 43 drift removidos; previo 173)
 ---
 
 ## Exec Summary
