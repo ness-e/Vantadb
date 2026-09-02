@@ -3,7 +3,7 @@ title: "Operations & Configuration Manual"
 type: operations
 status: active
 tags: [vantadb, operations]
-last_reviewed: 2026-07-07
+last_reviewed: 2026-09-02
 aliases: []
 ---
 

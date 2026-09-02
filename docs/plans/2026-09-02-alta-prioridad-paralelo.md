@@ -867,7 +867,22 @@ last-synced: 2026-09-02T12:50
 - **Contrato:** `Select-String -Path "docs/operations/CONFIGURATION.md" -Pattern "rate_limit_rpm.*600" | Measure-Object Count` >=1 AND grep env vars 0 drift
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-C6.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T19:30
+
+=== RECITATION GOV-C6 COMPLETED ===
+Objetivo activo: GOV-C6 — CONFIGURATION.md sincronizada (Wave3) — sweep 44 env vars + rate_limit 600 + last_reviewed
+Estado: completed (desde: in-progress)
+Última acción: DISCOVERY Read CONFIGURATION.md 454L + config.rs 1287L + llm.rs + grep SKILLS-MANIFEST config/operations (2 hits documentation-and-adrs/spec-driven) → EJECUCIÓN ponytail 1 línea last_reviewed 2026-07-07→2026-09-02 docs-only, sweep 44 vars ya landed (5 added Outside VantaConfig, 14 spot-check OK, rate_limit 600, flush_threshold None, HOST fallback real / PORT ghost no existe) → verify Select-String rate_limit 600 1 + last_reviewed 1 + Outside 5 + cargo check Finished
+Resultado: ✅
+State: COMPLETED (desde: IN_PROGRESS)
+Próxima acción: Wave3 continúa — MEM-11 (L1 dedup) + RES-06 (scores) paralelos MAX 3, disjoint src/* preservado
+Contrato: `Select-String CONFIGURATION.md rate_limit_rpm.*600` 1 ≥1 ✅ + `Select-String last_reviewed.*2026-09-02` 1 ≥1 ✅ + `Select-String Outside VANTA_EMBEDDING_PROVIDER|OPENAI|REPORTED_VERSION|BACKUP_DIR` 5 ≥1 ✅ + `cargo check -p vantadb` Finished ✅
+Invariantes: No tocar src/* (disjoint RES-06 vantadb-ts/MEM-11 vanta-memory) — dominio docs/operations only; ponytail docs-only 1 línea; 0 deps nuevas; MAX 3 paralelo respetado
+Comandos de verificación: `Select-String -Path "docs/operations/CONFIGURATION.md" -Pattern "rate_limit_rpm.*600" | Measure-Object Count` (1) + `Select-String -Path "docs/operations/CONFIGURATION.md" -Pattern "last_reviewed.*2026-09-02" | Measure-Object Count` (1) + `cargo check -p vantadb` (Finished 0.75s)
+Deuda: ninguna — sweep 44 vars cerrado, 40→40+5 Outside, ghosts auditados (HOST real / PORT no existe / flush_interval_ms solo mdBook artefacto), 14 defaults OK, sync bidireccional 0 drift
+Próxima tarea si completa: GOV-C7 — Contador Backlog (Wave3)
+last-synced: 2026-09-02T19:30
+=== END RECITATION ===
 
 #### GOV-C7 — Contador Backlog corrección+regla
 - **Descripción:** corregir ~24→45 (2026-08-22) → ~130 (2026-09-01) con fecha + regla sync rg ❌ + ROADMAP banner sin cifra
@@ -1316,4 +1331,26 @@ Resultado: ✅
 Próxima acción: ninguno — Wave2 12/15 ahora ✅ (MEM-01..06 6 + GOV-B1..B6 6), restan GOV-C1..C3 disjoint, MAX 3 preservado
 Contrato: Contrato: Select-String skills/vantadb-mcp/references/api-reference.md "79 tools" Count 2 ≥1 ✅ + Test-Path .opencode/skills/vantadb-mcp/SKILL.md True ✅ + cargo check --workspace Finished 8.18s ✅ + hash-SAME SKILL.md + api-reference.md ✅ | verificacion: Select-String -Path "skills/vantadb-mcp/references/api-reference.md" -Pattern "79 tools" | Measure-Object Count (2) + cargo check -p vantadb-mcp Finished 15.60s | evidencia: skills/vantadb-mcp/references/api-reference.md:8 (79 tools =49 core), .opencode/skills/vantadb-mcp/SKILL.md:8+118 (79 tools 49 core), docs/api/MCP.md:182+239 (79 tools/49 core, last_reviewed 2026-09-02), vantadb-mcp/src/handlers/tools.rs base_tools 49 | artefactos: docs/plans/2026-09-02-alta-prioridad-paralelo.md (GOV-B6 contrato 33→79), .opencode/skills/campaign-executor/tasks/GOV-B6.md (S6 drift fix), skills/vantadb-mcp/SKILL.md, .opencode/skills/vantadb-mcp/SKILL.md, skills/vantadb-mcp/references/api-reference.md, .opencode/skills/vantadb-mcp/references/api-reference.md, docs/api/MCP.md | invariantes: no tocar nextest (.config/nextest.toml) ni master-index/docs/Backlog (GOV-C1/C2 disjoint) — respetado 0 archivos en común; docs-only, 0 Rust | deuda: ninguna — test-mcp.py 4/4 requiere binario vanta-cli en PATH (no en CI fast gate); profiles memory/dev/full documentados
 Próxima tarea si completa: GOV-C1
+=== END RECITATION ===
+
+=== RECITATION MEM-10 ===
+Campaign ID: 20260902-alta-prioridad-paralelo
+Objetivo activo: MEM-10 — F4 L1 extractor Wave3 re-verify
+Estado: completed
+Última acción: DISCOVERY codegraph 43 simbolos + Read l1_extractor 260L + verify cargo check/test 328 + fmt 0 + plan sync recitation 16 lineas ponytail reuse 0
+Resultado: ✅
+Próxima acción: MEM-11 L1 dedup 2 fases Wave3 paralelo MAX 3 disjoint
+Contrato: verificacion: cargo check -p vanta-memory Finished + cargo test --test l1_extractor 9 passed + cargo test --lib extractor 3 passed + cargo test --lib 328 passed + cargo fmt --check 0 ✅ | evidencia: claim: L1 extractor reuse 0 lineas ya landed 260L + parsers + prompts 73/73 tests | evidencia: vanta-memory/src/core/record/l1_extractor.rs, vanta-memory/tests/l1_extractor.rs, vanta-memory/src/offload/local_llm/parsers/json_utils.rs, confianza: alta | artefactos: docs/plans/2026-09-02-alta-prioridad-paralelo.md (recitation MEM-10), .opencode/skills/campaign-executor/tasks/MEM-10.md | invariantes: L1 LLM-optional, prompts ingles, 1 call l1-extraction, split bg/new, parse tolerante, legacy type normalize, sin unwrap, records vacio MEM-11, disjoint GOV-C6/RES-06 | deuda: ninguna | queda_pendiente: MEM-11 dedup Wave3
+Próxima tarea si completa: MEM-11
+=== END RECITATION ===
+
+=== RECITATION GOV-C6 ===
+Campaign ID: 20260902-alta-prioridad-paralelo
+Objetivo activo: GOV-C6 — CONFIGURATION.md sincronizada (Wave3) — sweep 44 env vars + rate_limit 600 + last_reviewed
+Estado: completed
+Última acción: DISCOVERY Read CONFIGURATION.md 454L + config.rs 1287L + grep 44 vars vs doc + EJECUCIÓN ponytail 1 línea last_reviewed 2026-07-07→2026-09-02 docs-only → verify cargo check Finished
+Resultado: ✅
+Próxima acción: Wave3 continúa — MEM-11 + RES-06 paralelos MAX 3 disjoint
+Contrato: verificacion: Select-String CONFIGURATION.md rate_limit_rpm.*600 1≥1 ✅ + Select-String last_reviewed.*2026-09-02 1≥1 ✅ + Select-String Outside 5≥1 ✅ + cargo check -p vantadb Finished ✅ | evidencia: claim: rate_limit 600 en doc + sweep 44 vars 0 drift + 5 Outside VANTA_EMBEDDING_PROVIDER/OPENAI/REPORTED_VERSION/BACKUP_DIR evidencia: docs/operations/CONFIGURATION.md:45 + src/config.rs:659 + src/llm.rs:40 confianza: alta | artefactos: docs/operations/CONFIGURATION.md, docs/plans/2026-09-02-alta-prioridad-paralelo.md | invariantes: No tocar src/ (disjoint RES-06 vantadb-ts/MEM-11 vanta-memory) — dominio docs/operations only | deuda: ninguna | queda_pendiente: MEM-11 L1 dedup Wave3 paralela
+Próxima tarea si completa: GOV-C7
 === END RECITATION ===
