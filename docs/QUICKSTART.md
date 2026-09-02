@@ -144,9 +144,9 @@ hybrid_hits = db.search_memory(
     top_k=3,
 )
 
-print("vector:", [hit["record"]["key"] for hit in vector_hits])
-print("text:", [hit["record"]["key"] for hit in text_hits])
-print("hybrid:", [hit["record"]["key"] for hit in hybrid_hits])
+print("vector:", [hit.key for hit in vector_hits])
+print("text:", [hit.key for hit in text_hits])
+print("hybrid:", [hit.key for hit in hybrid_hits])
 
 db.flush()
 db.close()

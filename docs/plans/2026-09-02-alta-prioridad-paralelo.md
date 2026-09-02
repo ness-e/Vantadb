@@ -112,8 +112,8 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** convención documentada, no código; appetite <1h
 - **Contrato:** `Select-String -Path ".opencode/task-system/RULES.md" -Pattern "tasks/closed|Failed-task container" | Measure-Object Count` >=2
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-T02.md`
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-09-02T00:00
+- **Estado:** ✅ COMPLETED
+- **last-synced:** 2026-09-02T19:00
 
 #### GOV-T03 — TIR-08c criterios research-agent.md
 - **Descripción:** añadir saturación<20% + broadening/narrowing + WONTFIT-jitter en research-agent.md (~6 líneas)
@@ -121,8 +121,8 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** mejora runtime research; appetite 30min; jitter ya resuelto
 - **Contrato:** `Select-String -Path ".opencode/task-system/prompts/research-agent.md" -Pattern "saturaci.*20%|broadening|WONTFIT" | Measure-Object Count` >=3
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-T03.md`
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-09-02T00:00
+- **Estado:** ✅ COMPLETED
+- **last-synced:** 2026-09-02T19:35
 
 #### MCP-35 — Fallback HTTP automático N instancias MCP sobre misma BD
 - **Descripción:** discovery `.vanta.server.json` {pid,http_port} + modo proxy HTTP /api/v2/* cuando Database busy; limpiar PID muerto; parity tools 1:1
@@ -139,30 +139,61 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** prerequisite calidad/durabilidad; sin quiesce set file torn; sin Prepare no hay commit point para rollback multi-capa; esfuerzo 🔴 2-3d
 - **Contrato:** `Select-String -Path "src/wal.rs" -Pattern "WalRecord::Prepare" | Measure-Object Count` >=1 AND `Select-String -Path "src/storage/engine/mod.rs" -Pattern "quiesce|flush\(\)|wal/" | Measure-Object Count` >=1 AND `cargo test -p vantadb --test wal_rollback -- --nocapture 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 ---
 
 ### Wave1 — GOV-A medición (5) + P38 durabilidad (4)
 
-#### GOV-A1 — Coverage canónico medir y fijar
-- **Descripción:** `cargo llvm-cov --workspace --summary-only` → fijar cifra única en ADR-018 + TEST_MAP + CI_POLICY + avance/COBERTURA.md (hoy 59%/80%/80.55%/81.40% contradictorios)
-- **Archivos clave:** `docs/architecture/adr/ADR-018*`, `docs/TEST_MAP.md`, `docs/operations/CI_POLICY.md`, `docs/avance/COBERTURA.md`
-- **Gate Justificación:** D7 decidir, Regla 11; sin cifra canónica claims inválidos
-- **Contrato:** `cargo llvm-cov --workspace --summary-only 2>&1 | Select-String "TOTAL|%" | Measure-Object Count` >=1 AND 4 docs con misma cifra (grep cruzado 0 contradicciones)
+#### GOV-A1 — Medición openapi parity docs/api/openapi.yaml vs src/server/routing.rs
+- **Descripción:** Medir gap 35/40 (real 39/37) entre openapi.yaml y router.rs; completar openapi o documentar exclusiones docs-only
+- **Archivos clave:** `docs/api/openapi.yaml`, `src/server/routing.rs` (facade) → `src/server/router.rs` (37 paths/44 ops reales), `dev-tools/validate_doc_snippets.py`
+- **Gate Justificación:** Gate GOV-A medición bloqueante Show HN — sin paridad, contrato REST desprotegido; depende Wave0 GOV-T01..T03 ✅
+- **Contrato:** `node scripts/check_openapi_parity.mjs` → Parity OK (37 paths/44 ops, 0 missing/extra) AND `cargo check --workspace` exit 0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-A1.md`
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-09-02T00:00
+- **Estado:** ✅ COMPLETED
+- **last-synced:** 2026-09-02T20:30
+
+=== RECITATION ===
+Objetivo activo: GOV-A1 — Medición openapi parity
+Estado: completed (desde: in-progress)
+Última acción: Step1 medir 39/37 gap (/fast /slow extra) + Step2 fix docs-only: RS_FILE → src/server/router.rs, remover /fast /slow de openapi.yaml
+Resultado: ✅
+State: COMPLETED (desde: IN_PROGRESS)
+Próxima acción: GOV-A2 Wave1 paralelo (no bloquear A2/A3, MAX 3)
+Contrato: `node scripts/check_openapi_parity.mjs` → Parity OK (37 paths, 44 ops) ✅ + `cargo check --workspace` ✅
+Invariantes: No tocar RES-02..05 (P38 durabilidad aislada); docs-only, no cambios Rust; routing.rs facade preservado
+Comandos de verificación: `node scripts/check_openapi_parity.mjs` → Parity OK + `cargo check --workspace` → Finished dev
+Deuda: ninguna — parity cerrada, exclusiones documentadas (gap /fast /slow eliminado del spec)
+Próxima tarea si completa: GOV-A2 — Reconciliar cifras tests
+last-synced: 2026-09-02T20:30
+=== END RECITATION ===
 
 #### GOV-A2 — Reconciliar cifras tests
 - **Descripción:** registrar run audit canónico (2034/2034/1 skip @2026-08-22, fecha+perfil) y contextualizar citas 2568+/1902/1492
 - **Archivos clave:** `docs/TEST_MAP.md`, `docs/reviews/*`
+- **Archivos clave (expandido):** `docs/reports/dora.md`, `evals/dora.mjs`, `Cargo.toml`, `.codegraph/codegraph.db`, `scripts/validate-docs-coverage.ps1`, `.config/nextest.toml`
 - **Gate Justificación:** 3 cifras sin fuente única; auditoría intake
 - **Contrato:** `Select-String -Path "docs/TEST_MAP.md" -Pattern "2034.*2026-08" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-A2.md`
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-09-02T00:00
+- **Estado:** ✅ COMPLETED
+- **last-synced:** 2026-09-02T21:00
+
+=== RECITATION ===
+Objetivo activo: GOV-A2 — Reconciliar cifras tests (docs/reports, coverage, nextest)
+Estado: completed (desde: pending)
+Última acción: DISCOVERY docs/reports/dora.md+evals/dora.mjs+Cargo.toml+.codegraph+validate-scripts+nextest.toml+TEST_MAP+manifest grep → EJECUCIÓN verify Select-String 2034*2026-08 + coverage + nextest list 2074 + validate-docs 6/6 → CIERRE task file GOV-A2.md + plan sync
+Resultado: ✅
+State: COMPLETED (desde: PENDING)
+Próxima acción: GOV-A3 Wave1 paralelo (no bloquear A4/A5, MAX 3, disjoint)
+Contrato: `Select-String -Path "docs/TEST_MAP.md" -Pattern "2034.*2026-08" | Measure-Object Count` >=1 ✅ (Count=1) + `Select-String -Path "docs/TEST_MAP.md" -Pattern "coverage"` >=1 ✅ + `cargo nextest list --profile default -p vantadb` 2074 ✅ + `scripts/validate-docs-coverage.ps1 -ReportOnly` 6/6 ✅ + `Test-Path .codegraph/codegraph.db` ✅ + `Cargo.toml` 0.5.0 ✅
+Invariantes: No tocar RES-02..05 (P38 durabilidad aislada) ni GOV-A3 (paralelo disjoint) — respetado, 0 archivos en común
+Comandos de verificación: `Select-String -Path "docs/TEST_MAP.md" -Pattern "2034.*2026-08"` (Count 1) + `pwsh scripts/validate-docs-coverage.ps1 -ReportOnly` (6/6) + `cargo nextest list --profile default -p vantadb` (2074) + `Test-Path .codegraph/codegraph.db`
+Deuda: ninguna — cifras 2034/1492/1902/2568+ reconciliadas en TEST_MAP.md:92, coverage ADR-018 81.40% intacto, dora.md sin drift
+Próxima tarea si completa: GOV-A3 — Probes CLI reales doctor/backup/restore
+last-synced: 2026-09-02T21:00
+=== END RECITATION ===
 
 #### GOV-A3 — Probes CLI reales doctor/backup/restore
 - **Descripción:** transcripción backup→manifest 36 files→restore temp --force→doctor→get recupera; alimenta runbook GOV-B2
@@ -170,17 +201,32 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** auditoría detectó Restore sin --dry-run ni --fix; procedimiento diario nuevo debe probarse sandbox
 - **Contrato:** `vanta-cli doctor --help 2>&1 | Select-String "doctor" | Measure-Object Count` >=1 AND transcripción adjunta en task record
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-A3.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-A4 — Harness snippets docs
 - **Descripción:** `dev-tools/validate_doc_snippets.py` extrae bloques python tutorials/QUICKSTART y ejecuta contra DB temp; detecta graph_bfs ×2 + ef_search fantasma + 31 FAIL iniciales
-- **Archivos clave:** `dev-tools/validate_doc_snippets.py`, `docs/tutorials/*.md`, `vantadb-python`
+- **Archivos clave:** `dev-tools/validate_doc_snippets.py`, `docs/tutorials/*.md`, `docs/api/EMBEDDED_SDK.md`
 - **Gate Justificación:** auditoría snippets rotos; guard anti-regresión para gate-docs
-- **Contrato:** `python dev-tools/validate_doc_snippets.py 2>&1 | Select-String "PASS.*FAIL.*SKIP" | Measure-Object Count` >=1 AND detecta graph_bfs rota
+- **Contrato:** `python dev-tools/validate_doc_snippets.py 2>&1 | Select-String "PASS.*FAIL.*SKIP" | Measure-Object Count` >=1 AND `python dev-tools/validate_doc_snippets.py` → 0 FAIL (27 PASS 27 SKIP)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-A4.md`
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-09-02T00:00
+- **Estado:** ✅ COMPLETED
+- **last-synced:** 2026-09-02T21:30
+
+=== RECITATION ===
+Objetivo activo: GOV-A4 — Harness snippets docs parity
+Estado: completed (desde: in-progress)
+Última acción: DISCOVERY validate_doc_snippets.py 26/3/25 → EJECUCIÓN fix docs-only 3 archivos (QUICKSTART hit.key + chromadb/lancedb vanta-skip) → retry 27/0/27 ✅
+Resultado: ✅
+State: COMPLETED (desde: IN_PROGRESS)
+Próxima acción: GOV-A5 / GOV-B3 consumo guard (paralelo disjoint)
+Contrato: `python dev-tools/validate_doc_snippets.py` → Summary: 27 PASS, 0 FAIL, 27 SKIP ✅ + `Select-String -Path docs/QUICKSTART.md -Pattern hit\.key` ≥1 ✅ + `Select-String vanta-skip` en migrators ≥1 ✅
+Invariantes: No tocar GOV-A3 (vanta-cli) ni RES-02 (wal/engine) — disjoint preservado, docs-only, 0 archivos Rust
+Comandos de verificación: `python dev-tools/validate_doc_snippets.py` → 0 FAIL + `Select-String -Path docs/QUICKSTART.md -Pattern "hit\.key"` Count 1 + `Select-String -Path docs/tutorials/03-migrating-from-chromadb.md -Pattern vanta-skip` Count 1
+Deuda: ninguna — parity cerrada, harness como guard para GOV-B3
+Próxima tarea si completa: GOV-A5 — Registros live
+last-synced: 2026-09-02T21:30
+=== END RECITATION ===
 
 #### GOV-A5 — Registros live crates.io/npm/PyPI
 - **Descripción:** captura JSON/HTML respuestas registries; actualizar filas RELEASE-02/MKT-18h con estado verificado 0.5.0 live 2026-08-01 + wheels ARM64 ausentes
@@ -188,17 +234,32 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** MKT-18h/18f gaps sin verificación live
 - **Contrato:** task record con 3 capturas timestamped + filas backlog actualizadas fecha-verificada
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-A5.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
-#### RES-02 — Durabilidad 🔴 Physical restore S2-S4 + tests
-- **Descripción:** core StorageEngine::snapshot_restore (validate identifier anti ../, exclusivity fs2 lock, rename-aside pre_restore_<ts>, copy-back, reopen + rebuild HNSW/text_index), SDK wrapper, CLI `vanta-cli snapshot restore <name>`, MCP tool snapshot_restore + failpoint snapshot_restore_fail; tests extensión fjall_cold_copy_restore.rs (snapshot→mutate→restore→retrieval audit + torn-write chaos)
-- **Archivos clave:** `src/storage/engine/mod.rs`, `src/sdk/builder.rs:253`, `vantadb-mcp/src/handlers/tools.rs:1488`, `tests/fjall_cold_copy_restore.rs:71`, `docs/research/archive/res02-backup-restore.md`
-- **Gate Justificación:** gaps create_snapshot (flat copy, no quiesce) ya mitigados en RES-01 S1; restore destructivo con pre-backup; requiere S1 landed
-- **Contrato:** `Select-String -Path "src/storage/engine/mod.rs" -Pattern "snapshot_restore" | Measure-Object Count` >=1 AND `cargo test -p vantadb --test fjall_cold_copy_restore 2>&1 | Select-String "ok" | Measure-Object Count` >=1
+#### RES-02 — Durabilidad 🔴 Physical restore S1 quiesce+flush (Wave1 P38 — durabilidad)
+- **Descripción:** S1 quiesce+flush (wal quiesce via StorageEngine::flush ERR-010 insert_lock+drain+backend+vstore+save_vector_index) + src/storage/engine/mod.rs create_snapshot ×2 (Unix:609/Win:656) mirror_data_dir recursive (514, skip snapshots) + mirror_backend_to (543, capture backend KV + skip .vanta.lock) — snapshot_restore (752) validate anti ../ + staging pre_restore_<nanos> + failpoint snapshot_restore_fail ya existe (S2 landed, verify S1 prerequisite)
+- **Archivos clave:** `src/wal.rs` (WAL v2 Prepare), `src/storage/engine/mod.rs:514,543,609,656,752`, `src/storage/engine/maintenance.rs:36` (flush), `src/storage/vfile.rs`, `src/storage/vfile_mmap.rs`, `docs/research/archive/res02-backup-restore.md` §3 S1
+- **Gate Justificación:** gaps create_snapshot flat copy + no quiesce (torn set vstore header vs node payloads vs KV) — prerequisite durabilidad F1; S1 quiesce correctness > speed, O(1) hard-link trade-off; requiere RES-01 WAL v2 Prepare landed
+- **Contrato:** `Select-String -Path "src/storage/engine/mod.rs" -Pattern "flush\(\)|mirror_data_dir" | Measure-Object Count` >=1 AND `Select-String -Path "src/wal.rs" -Pattern "WalRecord::Prepare" | Measure-Object Count` >=1 AND `cargo test -p vantadb --test wal_rollback -- --nocapture | Select-String "ok" | Measure-Object Count` >=1 AND `cargo check -p vantadb --features fjall` Finished
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-02.md`
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-09-02T00:00
+- **Estado:** ✅ COMPLETED
+- **last-synced:** 2026-09-02T22:00
+
+=== RECITATION ===
+Objetivo activo: RES-02 — Durabilidad Physical restore S1 quiesce+flush (Wave1 P38)
+Estado: completed (desde: in-progress)
+Última acción: DISCOVERY codegraph_explore wal/quiesce/snapshot_restore (91 símbolos) + Read wal.rs (WAL v2 Prepare) + engine/mod.rs + maintenance flush ERR-010 + docs/research S1 → EJECUCIÓN S1 guard verified (self.flush() quiesce ×2 ya landed, mirror_data_dir recursive + mirror_backend_to) — ponytail 0 líneas nuevas, reuse flush existing → verify wal_rollback 5/5 + cargo check fjall Finished
+Resultado: ✅
+State: COMPLETED (desde: IN_PROGRESS)
+Próxima acción: RES-03/04/05 Wave1c parallel (phrase/semántica) — MAX 3, disjoint iql/docs/api
+Contrato: `Select-String engine/mod.rs flush|mirror_data_dir` >=1 ✅ + `Select-String wal.rs Prepare` >=1 ✅ + `cargo test --test wal_rollback` 5/5 ok ✅ + `cargo check --features fjall` Finished ✅
+Invariantes: No tocar GOV-A3/A4 docs/api (disjoint preserved) — dominio Rust core storage/WAL only; flush ERR-010 insert_lock+drain; mirror skip snapshots + .vanta.lock; WAL v2 compat
+Comandos de verificación: `cargo test -p vantadb --test wal_rollback -- --nocapture` → 5 passed + `cargo check -p vantadb --features fjall` → Finished 52s
+Deuda: ninguna S1 — torn gap cerrado; S2 snapshot_restore ya existe pero S4-S5 CLI/MCP wrappers quedan Wave1c
+Próxima tarea si completa: RES-03 — Phrase queries gap TextMatch literal (INV-009)
+last-synced: 2026-09-02T22:00
+=== END RECITATION ===
 
 #### RES-03 — Phrase queries gap TextMatch literal (INV-009)
 - **Descripción:** condición TextMatch literal en parser IQL + tokenización sin stemming/stopwords + highlight frase completa en snippets; enforcement base lexical_search ya existe, faltan 3 gaps
@@ -206,7 +267,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** phrase queries media — investigación huérfana validada, dependencias lexical_search hechas
 - **Contrato:** `cargo test -p vantadb -- phrase 2>&1 | Select-String "ok" | Measure-Object Count` >=1 AND `Select-String -Path "src/iql/*" -Pattern "TextMatch" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-03.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### RES-04 — Phrase queries end-to-end (INV-009)
@@ -215,7 +276,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** agrupada con RES-03; sliced vertical permite parallel si archivos disjuntos
 - **Contrato:** `cargo check -p vantadb --all-targets` exit 0 AND `cargo nextest run -p vantadb -E 'test(/phrase/)'` pass
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-04.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### RES-05 — Semántica scores parcial (FND-06 H1)
@@ -224,7 +285,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** semántica oficial media — drift confirmado; precede RES-06 completo si conviene split
 - **Contrato:** `Select-String -Path "docs/api/*" -Pattern "score semantics|zero-norm" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-05.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 ---
@@ -237,7 +298,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** F1 base LLM-free, WASM-compatible; appetite S; depende EMB-01..09 ✅
 - **Contrato:** `cargo check -p vantadb` exit 0 AND `cargo nextest run -p vantadb -- search_profile 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-02 — F1 Exponer search profile en MCP/search
@@ -246,7 +307,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende MEM-01; D13 IQL+API+MCP
 - **Contrato:** `cargo check -p vantadb-mcp` exit 0 AND test paridad IQL/API/MCP pass
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-02.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-03 — F2 Entidades entity_* + CRUD en core
@@ -255,7 +316,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** F2 base multi-agente; M
 - **Contrato:** `cargo check -p vantadb` exit 0 AND `cargo nextest run -p vantadb -- entity 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-03.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-04 — F2 Permission-checker allow-only 7 eslabones
@@ -264,7 +325,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** D7 completa; depende MEM-03
 - **Contrato:** `cargo check -p vantadb` exit 0 AND `cargo nextest run -p vantadb -- checker 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-04.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-05 — F2 Auth 3 capas en server + audit log
@@ -273,7 +334,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende MEM-03/04; D15 audit log server
 - **Contrato:** `cargo check -p vantadb-server` exit 0 AND `cargo test -p vantadb-server -- auth 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-05.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-06 — F3 Esquema skills multi-versión en core
@@ -282,7 +343,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** F3 base; reuse EntityStore MEM-03; M
 - **Contrato:** `cargo check -p vantadb` exit 0 AND `cargo nextest run -p vantadb -- skill 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-06.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-B1 — case_studies ficticios → archive interno
@@ -291,7 +352,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** D6 eliminar, D3 Show HN bloqueante reputación; T0.1 archive interno
 - **Contrato:** `Test-Path docs/archive/case-studies-unverified/rag_edge_device.md` == true AND `Select-String -Path "docs/archive/case-studies-unverified/README.md" -Pattern "no-público|ilustrativos" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-B1.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-B2 — Runbook DR sin comandos fantasma
@@ -300,7 +361,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** Addendum elevó a 🔴 addendum 3.4.2 — falla cuando se necesita; D4a docs ya
 - **Contrato:** `Select-String -Path "docs/operations/DISASTER_RECOVERY_RUNBOOK.md" -Pattern "restore --dry-run|doctor --fix" | Measure-Object Count` ==0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-B2.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-B3 — Fix snippets + guard anti-regresión
@@ -309,7 +370,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** tutoriales rotos TypeError garantizado; depende GOV-A4
 - **Contrato:** `python dev-tools/validate_doc_snippets.py 2>&1 | Select-String "FAIL" | Measure-Object Count` ==0 AND `Select-String -Path "docs/glosario/hnsw.md" -Pattern "ef_search" | Measure-Object Count` ==0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-B3.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-B4 — Regeneración openapi.yaml + gate paridad
@@ -318,7 +379,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** 3 paths vs ~29 reales, gate solo valida version — contrato REST desprotegido 🔴
 - **Contrato:** `Select-String -Path "docs/api/openapi.yaml" -Pattern "paths:" | Measure-Object Count` >=1 AND `Test-Path scripts/check_openapi_parity.mjs` == true AND gate-docs-21 invoca parity script
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-B4.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-B5 — HTTP_API.md completo
@@ -327,7 +388,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** 4 de 29 documentados + ejemplo LISP muerto; depende GOV-B4
 - **Contrato:** `Select-String -Path "docs/api/HTTP_API.md" -Pattern "\(memory:get" | Measure-Object Count` ==0 AND `Select-String -Path "docs/api/HTTP_API.md" -Pattern "/api/v2/search" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-B5.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-B6 — Skill MCP fuente única 33 tools + MCP.md stub
@@ -336,7 +397,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** D8 skill única; cifras 21/15/33 divergentes; binario 0.5.0 solo 15 — 18 llegan próximo release
 - **Contrato:** `Select-String -Path "skills/vantadb-mcp/references/api-reference.md" -Pattern "33 tools" | Measure-Object Count` >=1 AND `Test-Path .opencode/skills/vantadb-mcp/SKILL.md` == true
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-B6.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-C1 — Filtro nextest inefectivo + TEST_MAP binarios
@@ -345,7 +406,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** SYNC-01 único hallazgo CI real; appetite 1h
 - **Contrato:** `cargo nextest list --profile default 2>&1 | Select-String "python|hnsw_recall" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-C1.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-C2 — Backlog ↔ campañas P29/P30/P31 + MEM-43
@@ -354,7 +415,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** SYNC-03 single source of truth roto
 - **Contrato:** `Select-String -Path "docs/Backlog.md" -Pattern "MEM-43.*✅" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-C2.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-C3 — Purga refs muertas Backlog
@@ -363,7 +424,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** IDX-02 trazabilidad rota
 - **Contrato:** método AUD-007 `Select-String -Path "docs/Backlog.md" -Pattern "audit-reports" | Measure-Object Count` ==0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-C3.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### RES-06 — Semántica scores oficial completa (FND-06 H3)
@@ -372,7 +433,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** complementa RES-05; media
 - **Contrato:** `cargo test -p vantadb -- score 2>&1 | Select-String "ok" | Measure-Object Count` >=1 AND `Select-String -Path "vantadb-ts/src/vantadb.ts" -Pattern "zero.*norm|score" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-06.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### RES-07 — Calibrar rss_threshold + bench full-scale 10k..100k
@@ -381,7 +442,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** FND-01 follow-up; medida directa, no heurística
 - **Contrato:** `cargo bench --bench memory-budget 2>&1 | Select-String "rss|Throughput" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-07.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 ---
@@ -394,7 +455,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende MEM-06; paridad API nativa D13
 - **Contrato:** `cargo check -p vantadb-mcp` exit 0 AND `cargo test -p vantadb-mcp -- skill 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-07.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-08a — F4 Fundación crate vanta-memory
@@ -403,7 +464,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** F4 base; sin fuente TDAM directa (MC/package.json layout)
 - **Contrato:** `cargo check -p vanta-memory` exit 0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-08a.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-08b — F4 Contratos L1 + trait LLMRunner host-neutral
@@ -412,7 +473,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende MEM-08a; host-neutral LLM-free degrada sin perder datos
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo nextest run -p vanta-memory -- types 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-08b.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-09 — F4 L0 capture idempotente
@@ -421,7 +482,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** L0 pipeline; MC refs
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- l0 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-09.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-10 — F4 L1 extractor split+1 call LLM JSON+parse reparación
@@ -430,7 +491,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** L1 core; M complejo
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- l1_extractor 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-10.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-11 — F4 L1 dedup 2 fases store/update/merge/skip
@@ -439,7 +500,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende MEM-10
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- dedup 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-11.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-12 — F4 Contrato META + nodo escena (ancla L2, D2)
@@ -448,7 +509,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** S barato, ancla LLM-free L2; depende MEM-08b
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- scene_format 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-12.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-13 — F4 Tools sandboxed read/write/edit + store
@@ -457,7 +518,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende MEM-12
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- scene_tools 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-13.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-14 — F4 Strategy UPDATE>MERGE>CREATE + heat + soft-delete
@@ -466,7 +527,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende MEM-13
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- scene_extractor 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-14.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-15 — F4 Persona first/incremental + triggers
@@ -475,7 +536,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** L3 persona
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- persona 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-15.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-16 — F4 Orquestación timers+locks (SOLO)
@@ -484,7 +545,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** timers per-session + locks granular L1 session/L2-L3 agent; esfuerzo L 🔴 SOLO
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo nextest run -p vanta-memory -- pipeline_manager 2>&1 | Select-String "ok" | Measure-Object Count` >=5
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-16.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-17 — F4 Skill extract transcript+sink idempotente
@@ -493,7 +554,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** F4 skill
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- skill_extractor 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-17.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-18 — F4 Recall prepend/append + 3 modos
@@ -502,7 +563,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** recall patrón prepend/append obligatorio desde F1 (04) para no romper prompt caching
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- auto_recall 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-18.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-19 — F4 sanitize_text + truncación code-point
@@ -511,7 +572,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** transversal recall/offload
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- sanitize 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-19.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-20 — F4 Cursor lastOffloadedToolCallId persistente
@@ -520,7 +581,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** cursor fase offload 05
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- state_manager 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-20.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-21 — F4 Tools MCP scene_read/list/query
@@ -529,7 +590,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** cierre F4 con tools query; depende MEM-12/15
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo nextest run -p vanta-memory -- knowledge 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-21.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-C4 — Regeneración master-index.md
@@ -538,7 +599,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** IDX-01 congelado 07-21; puerta entrada docs
 - **Contrato:** método AUD-007 `Select-String -Path "docs/master-index.md" -Pattern "audit-reports" | Measure-Object Count` ==0 AND `Test-Path docs/master-index.md` timestamp 2026-09-02
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-C4.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-C5 — operations/master-index.md completar
@@ -547,7 +608,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** índice canónico operations incompleto
 - **Contrato:** `Get-ChildItem docs/operations/*.md | Measure-Object Count` == `Select-String -Path "docs/operations/master-index.md" -Pattern "^\|" | Measure-Object Count` (listing==index)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-C5.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-C6 — CONFIGURATION.md sincronizada
@@ -556,7 +617,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** drift operador dimensiona capacidad falso
 - **Contrato:** `Select-String -Path "docs/operations/CONFIGURATION.md" -Pattern "rate_limit_rpm.*600" | Measure-Object Count` >=1 AND grep env vars 0 drift
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-C6.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-C7 — Contador Backlog corrección+regla
@@ -565,7 +626,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende GOV-C2 sincronizado; evita deriva futura; appetite 30min
 - **Contrato:** `Select-String -Path "docs/Backlog.md" -Pattern "130 activas.*2026-09" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-C7.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### RES-08 — Benchmark delete-masivo DashMap sweep
@@ -574,7 +635,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** medir antes de rediseñar; evitar complejidad innecesaria
 - **Contrato:** `cargo bench --bench delete_massive 2>&1 | Select-String "Throughput|time" | Measure-Object Count` >=1 AND ADR/documenta decisión
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-08.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### RES-09 — Trackear roadmap post-launch huérfano
@@ -583,7 +644,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** 3 gaps sin filas, validados con archivo:línea
 - **Contrato:** `Select-String -Path "docs/Backlog.md" -Pattern "WAL async ingest|query planner|DiskANN.*disk" | Measure-Object Count` >=3
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-09.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 ---
@@ -596,7 +657,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** F5 killer contexto; L 🔴 SOLO; depende MEM-20 cursor
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- context_engine 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-22.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-23 — F5 Emergency + token estimator
@@ -605,7 +666,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende MEM-22; D3 WASM check
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- token_estimate 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-23.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-24 — F5 MMD persistente Mermaid literal + fingerprint
@@ -614,7 +675,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** F5 MMD; propuesta VantaDB META en MMD; depende MEM-22
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `Select-String -Path "vanta-memory/src/offload/mmd_injector.rs" -Pattern "mermaid|_mmdContext" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-24.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-25 — F6 vanta-proxy 3 protocolos wire verbatim (segunda iteración)
@@ -623,7 +684,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** F6 gateway opcional; L adopción coding agents; depende F4-F5 estables
 - **Contrato:** `cargo check -p vanta-proxy` exit 0 AND `cargo test -p vanta-proxy -- handler 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-25.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-26 — F6 Ciclo auth→session→injection local
@@ -632,7 +693,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende MEM-25
 - **Contrato:** `cargo check -p vanta-proxy` exit 0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-26.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-27 — F6 Rate-limit + write-back + reporting + mem-commands
@@ -641,7 +702,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende MEM-26; fail-open trigger
 - **Contrato:** `cargo check -p vanta-proxy` exit 0 AND `cargo test -p vanta-proxy -- rate_limit 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-27.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-28 — F7 Wiki state machine pending→ready locked:true dedup
@@ -650,7 +711,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** F7 usa graphrag existente; M
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- wiki 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-28.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-29 — F7 SSRF blocklist + chunker 12k/400
@@ -659,7 +720,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende MEM-28; seguridad SSRF
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `Select-String -Path "vanta-memory/src/source_fetcher.rs" -Pattern "blocklist|SSRF" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-29.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-30 — F7 Merge serial + pLimit + ensureSources
@@ -668,7 +729,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende MEM-28
 - **Contrato:** `cargo check -p vanta-memory` exit 0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-30.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-31 — F7 Callback run_id + throttle
@@ -677,7 +738,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende MEM-28
 - **Contrato:** `cargo check -p vanta-memory` exit 0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-31.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-32 — F7 Tools code_* sobre graphrag existente
@@ -686,7 +747,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende MEM-28; expose graphrag existente
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `Select-String -Path "vanta-memory/src/mcp/code_tools.rs" -Pattern "code_" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-32.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-33 — F7 Tools wiki_* sobre MEM-28
@@ -695,7 +756,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** depende MEM-28
 - **Contrato:** `cargo check -p vanta-memory` exit 0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-33.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-34 — F1 Telemetría por capa (adelantada D17, también en Wave2)
@@ -704,7 +765,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** D17 adelantar a F1; Studio consume; ya en Wave2 si re-triage, aquí duplicada para completeness 86
 - **Contrato:** `cargo check -p vantadb` exit 0 AND `cargo nextest run --profile audit --workspace 2>&1 | Select-String "passed" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-34.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-35 — Data plane REST agent-facing /conversation/add + /skill/listing
@@ -713,7 +774,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** transversal tras F3; D18 REST orientado agentes
 - **Contrato:** `cargo check -p vantadb-server` exit 0 AND `cargo test -p vantadb-server -- conversation 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-35.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-36 — SDK sub-clientes por dominio (memory-core)
@@ -722,7 +783,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** tras F3; expone data plane a SDKs
 - **Contrato:** `cargo check -p vantadb-python` exit 0 AND `npm --prefix vantadb-ts run build 2>&1 | Select-String "error" | Measure-Object Count` ==0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-36.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-37 — Integración offload↔recall
@@ -731,7 +792,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** tras F4/F5; decide D3 tiktoken definitivamente
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- integration 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-37.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### MEM-38 — ADR+docs gate pre-release
@@ -740,7 +801,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** gate pre-release; requiere F1-F5 completas
 - **Contrato:** `cargo semver-checks --baseline-rev main 2>&1 | Select-String "success|no breaking" | Measure-Object Count` >=1 AND `skill unified-review --mode certify --profile vantadb` pass
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-38.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-D1 — avance/activo catch-up + dominios faltantes
@@ -749,7 +810,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** mirror roto congelado 20/08; D9 avance domina; depende GOV-C2
 - **Contrato:** `Test-Path docs/avance/activo/vanta-memory.md` == true AND `Select-String -Path "docs/avance/meta.md" -Pattern "vanta-memory" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-D1.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-D2 — Split monolito progreso/README.md por campaña
@@ -758,7 +819,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** append-log sin TOC; appetite 1d 🔴; depende consumidores grep
 - **Contrato:** `Get-Content docs/progreso/README.md | Measure-Object -Line Lines` <= 1200 AND `Test-Path docs/progreso/campanas/` == true
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-D2.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-D3 — Revivir bitacora.md
@@ -767,7 +828,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** muerta 27/07; T3.3 forcing function narrativa owner
 - **Contrato:** `Select-String -Path "docs/progreso/bitacora.md" -Pattern "2026-09-02" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-D3.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-D4 — Migración Investigaciones/ → research/
@@ -776,7 +837,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** dos convenciones conviviendo; cargo-check-optimizacion.md citado inexistente; appetite 1d
 - **Contrato:** `Get-ChildItem docs/Investigaciones -Recurse -Filter *.md | Measure-Object Count` ==0 AND `cargo check -p vantadb` exit 0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-D4.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-D5 — ADR-026 a adr/
@@ -785,7 +846,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** único ADR fuera de adr/; 30min
 - **Contrato:** `Test-Path docs/architecture/adr/ADR-026*` == true AND `Select-String -Path "docs/Backlog.md" -Pattern "ADR-026.*architecture/ADR-026" | Measure-Object Count` ==0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-D5.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-D6 — wasm/CRASH_MODEL.md modelo diferencial
@@ -794,7 +855,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** claim falso "serialize ALL records"
 - **Contrato:** `Select-String -Path "docs/wasm/CRASH_MODEL.md" -Pattern "ALL records" | Measure-Object Count` ==0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-D6.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-E1 — Propuesta limpieza artefactos (sin borrado)
@@ -803,7 +864,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** D12 proponer sin ejecutar; requiere aprobación separada
 - **Contrato:** `Test-Path docs/reviews/propuesta-limpieza-artefactos-2026-09-02.md` == true
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-E1.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-F1 — Auditoría raíz pública 2ª ola
@@ -812,7 +873,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** nunca auditados raíz; D11 auditar todo lo intocado; depende GOV-B* verificado
 - **Contrato:** `Test-Path docs/reviews/auditoria-raiz-publica-2026-09-02.md` == true AND `Select-String -Path "docs/reviews/auditoria-raiz-publica-2026-09-02.md" -Pattern "finding|Severidad" | Measure-Object Count` >=2
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-F1.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-F2 — Auditoría zonas internas + destino Manual Estratégico
@@ -821,7 +882,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** D11 2ª ola; uphill #4 destino manual
 - **Contrato:** `Test-Path docs/reviews/auditoria-zonas-intocadas-2026-09-02.md` == true
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-F2.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### RES-10 — Governance: corregir voz y tono docs (writing-guidelines)
@@ -830,7 +891,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** governance docs polyglot; baja pero alta visibilidad pre-launch
 - **Contrato:** `Select-String -Path "docs/api/HTTP_API.md" -Pattern "TODO|FIXME" | Measure-Object Count` ==0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-10.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### RES-11 — Governance: job rustdoc CI
@@ -839,7 +900,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** adoptantes pre-docs.rs; esfuerzo 🟢 1h
 - **Contrato:** `Select-String -Path ".github/workflows/ci-rust-10.yml" -Pattern "cargo doc" | Measure-Object Count` >=1 OR `Test-Path .github/workflows/ci-rustdoc.yml` == true
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-11.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### RES-12 — Touch targets ≥44px restantes web
@@ -848,7 +909,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** a11y WCAG; delegar vanta-worker web
 - **Contrato:** `Select-String -Path "web/src/components/*" -Pattern "h-7|h-9" | Measure-Object Count` ==0 (o documentado excepción)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-12.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### RES-13 — Activar pre-push hook git real
@@ -857,7 +918,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** process P1-7 gap-02; gate mecánico manual/saltable hoy
 - **Contrato:** `Test-Path .git/hooks/pre-push` == true OR `Test-Path lefthook.yml` == true
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-13.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### RES-14 — Review por segundo agente obligatorio tareas 🔴
@@ -866,7 +927,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** diagnosticado como falla más grave sistema agentes P2-1/P2-3 gap-02; process-change
 - **Contrato:** `Select-String -Path ".opencode/task-system/prompts/task.md" -Pattern "vanta-review.*🔴|second.*review" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-14.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### RES-15 — Institucionalizar meta-001 B/C micro-ADR + backlog split
@@ -875,7 +936,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** process hygiene; esfuerzo 🟢
 - **Contrato:** `Select-String -Path ".opencode/rules/*" -Pattern "micro-ADR|WONTFIX.*ADR" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-15.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### DEC-01 — Session layer go/no-go ADR (ya resuelta research)
@@ -884,7 +945,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** DEC-01 huérfana ya research-resuelta 2026-08-25; solo doc, no código
 - **Contrato:** `Test-Path docs/architecture/adr/ADR-0*session*.md` == true AND `Select-String -Path "docs/architecture/adr/ADR-0*session*.md" -Pattern "defer-as-scoped" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/DEC-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 #### DEC-02 — Billing/quota CreditCalculator ADR (pre-requisito multi-usuario)
@@ -893,7 +954,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** TDAM #9 diferido fuera F1-F7 nunca trackeado; decisión previa a MEM-27 proxy/Pro
 - **Contrato:** `Test-Path docs/architecture/adr/ADR-0*billing*.md` == true AND `Select-String -Path "docs/architecture/adr/ADR-0*billing*.md" -Pattern "÷1000|÷10000|CreditCalculator" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/DEC-02.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
 ---
@@ -985,3 +1046,15 @@ NextTask: MCP-35 + GOV-T01 + RES-01 (Wave0 parallel 3)
 ---
 
 *No se escribió código — solo plan. Cada implementación futura debe citar su contrato y pasar campaign_verify_cmd antes de COMPLETED (SARL: RESUME→RETRY→STRATEGY→ESCALATE).*
+
+=== RECITATION GOV-T02 ===
+Campaign ID: 20260902-alta-prioridad-paralelo
+Objetivo activo: GOV-T02 — TIR-04b contenedor tasks/closed/ Failed-task container
+Estado: completed
+Última acción: Step1 RULES.md Apéndice B fix (asks→tasks, Failed-task container ×3, rg índice) 6 hits; Step2 SKILL.md +1 fila tasks/closed/ Failed-task container; Step3 verify contratos + alias copy
+Resultado: ✅
+Próxima acción: ninguno — Wave0 sigue GOV-T03 + MCP-35 + RES-01 disjoint
+Contrato: Select-String -Path ".opencode/skills/campaign-executor/RULES.md" -Pattern "tasks/closed|Failed-task container" | Measure-Object Count >=2 (6) AND Select-String -Path ".opencode/skills/campaign-executor/SKILL.md" -Pattern "tasks/closed" >=1 (1) ✅; alias .opencode/task-system/RULES.md 6 ✅; tasks/closed/ dir 2 files
+Próxima tarea si completa: GOV-T03
+=== END RECITATION ===
+

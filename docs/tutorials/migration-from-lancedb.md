@@ -212,6 +212,7 @@ Column mapping: `id`/`_id` → key; `text`/`content`/`payload` → payload; `vec
 Programmatic use:
 
 ```python
+# vanta-skip: requires lancedb package for migration
 from vantadb_py.migrate import migrate_from_lancedb
 
 count = migrate_from_lancedb("./lancedb_data", "./vantadb_data")

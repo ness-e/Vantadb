@@ -154,6 +154,7 @@ Flags:
 Programmatic use:
 
 ```python
+# vanta-skip: requires chromadb package for migration
 from vantadb_py.migrate import migrate_from_chroma
 
 count = migrate_from_chroma("./chroma_data", "./vantadb_data")
