@@ -53,6 +53,7 @@ pub mod crypto;
 
 pub mod accumulator;
 pub mod agentic;
+pub mod api;
 /// Append-only JSONL audit log of business operations (opt-in).
 pub mod audit;
 pub(crate) mod backend;
