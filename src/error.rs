@@ -263,9 +263,81 @@ pub enum VantaError {
     /// A record exists but does not carry a vector, so vector-based operations cannot proceed.
     #[error("No vector stored for key: {0}")]
     NoVectorForKey(String),
+
+    /// A node's serialized vector length exceeds the `u32` `vector_len` field of the
+    /// fixed-size on-disk header (ERR-CORE-01: typed replacement for the
+    /// `ResourceLimit(format!)` catch-all in `storage::ops::write_node_to_vstore`).
+    #[error("node {id} vector_len {len} exceeds u32 limit of {limit}")]
+    VectorLenOverflow {
+        /// Node whose vector cannot be persisted.
+        id: u128,
+        /// Actual vector length that does not fit.
+        len: usize,
+        /// Maximum length representable in the on-disk header field.
+        limit: u32,
+    },
+
+    /// A node's edge count exceeds the `u16` `edge_count` field of the fixed 64-byte
+    /// `DiskNodeHeader` (ERR-CORE-01: typed replacement for the `ResourceLimit(format!)`
+    /// catch-all; ERR-029 originally made this a hard error instead of silent truncation).
+    #[error(
+        "node {id} has {count} edges, exceeding the DiskNodeHeader u16 edge_count limit of {limit}"
+    )]
+    EdgeCountOverflow {
+        /// Node whose edges cannot be persisted.
+        id: u128,
+        /// Actual edge count that does not fit.
+        count: usize,
+        /// Maximum edge count representable in the header field.
+        limit: u16,
+    },
 }
 
 impl VantaError {
+    /// Stable machine-readable error code (ERR-CORE-01).
+    ///
+    /// Returns one of the ten canonical `VANTADB_*` codes documented in
+    /// `docs/api/ERROR_HANDLING.md` §1.1–§1.2. Codes are the cross-binding
+    /// contract: clients (Rust, Python, TS/WASM, MCP, HTTP) must branch on
+    /// this value, never on the `Display` text. The match is deliberately
+    /// exhaustive: adding a variant forces an explicit code decision here
+    /// plus a row in the doc table. `VANTADB_CLOSED` is lifecycle-only (handle
+    /// state outside `VantaError`) and is never returned here.
+    pub fn code(&self) -> &'static str {
+        match self {
+            VantaError::NodeNotFound(_) | VantaError::NotFound { .. } => "VANTADB_NOT_FOUND",
+            VantaError::Timeout { .. } => "VANTADB_TIMEOUT",
+            VantaError::DatabaseBusy(_) | VantaError::NotInitialized => "VANTADB_BUSY",
+            VantaError::ResourceLimit(_)
+            | VantaError::VectorLenOverflow { .. }
+            | VantaError::EdgeCountOverflow { .. } => "VANTADB_RESOURCE_LIMIT",
+            VantaError::WALVersionMismatch { .. }
+            | VantaError::IncompatibleFormat { .. }
+            | VantaError::SerializationError(_)
+            | VantaError::SchemaError(_)
+            | VantaError::RestoreError(_)
+            | VantaError::BackupError(_) => "VANTADB_CORRUPT",
+            VantaError::IqlError(_) => "VANTADB_INVALID_ARGUMENT",
+            VantaError::IoError(_)
+            | VantaError::WalError(_)
+            | VantaError::BackendError(_)
+            | VantaError::CliError(_)
+            | VantaError::SearchError(_)
+            | VantaError::RuntimeError(_) => "VANTADB_IO_ERROR",
+            VantaError::Generic(_) => "VANTADB_WASM_ERROR",
+            VantaError::DimensionMismatch { .. }
+            | VantaError::DuplicateNode(_)
+            | VantaError::NodeIdCollision(_)
+            | VantaError::CycleDetected
+            | VantaError::IqlParseError { .. }
+            | VantaError::ValidationError { .. }
+            | VantaError::UnsupportedOperation { .. }
+            | VantaError::ExecutionConflict { .. }
+            | VantaError::InvalidInput(_)
+            | VantaError::NoVectorForKey(_) => "VANTADB_VALIDATION_ERROR",
+        }
+    }
+
     /// Classifies whether an error is safe to retry.
     pub fn is_retriable(&self) -> bool {
         matches!(
@@ -302,6 +374,12 @@ impl VantaError {
             VantaError::NodeNotFound(_) => Some("The node may have been deleted or never existed"),
             VantaError::NotFound { .. } => {
                 Some("Verify that the namespace or identifier is spelled correctly")
+            }
+            VantaError::VectorLenOverflow { .. } => {
+                Some("Reduce the vector dimensionality — it does not fit the on-disk header field")
+            }
+            VantaError::EdgeCountOverflow { .. } => {
+                Some("Reduce the node's outgoing edge fan-out below the persisted header limit")
             }
             _ => None,
         }
@@ -975,5 +1053,217 @@ mod tests {
         let inner = std::io::Error::new(std::io::ErrorKind::Other, "plain fail");
         let e = VantaError::SerializationError(Box::new(inner));
         assert_eq!(e.to_string(), "Serialization error: plain fail");
+    }
+
+    // ── code() canonical snapshot — ERR-CORE-01 ──
+    //
+    // The mapping below IS the contract from `docs/api/ERROR_HANDLING.md` §1.1
+    // (10 canonical codes, `VANTADB_` prefix per §1.2). If a variant's code
+    // changes, the doc table must change in the same PR — bindings (Python,
+    // TS/WASM, MCP) normalize against these exact strings.
+
+    fn all_variants() -> Vec<(VantaError, &'static str)> {
+        use VantaError::*;
+        vec![
+            (NodeNotFound(1), "VANTADB_NOT_FOUND"),
+            (DuplicateNode(1), "VANTADB_VALIDATION_ERROR"),
+            (
+                DimensionMismatch {
+                    expected: 1,
+                    got: 2,
+                },
+                "VANTADB_VALIDATION_ERROR",
+            ),
+            (WalError(ChainedError::msg("x")), "VANTADB_IO_ERROR"),
+            (
+                WALVersionMismatch {
+                    expected: 1,
+                    found: 2,
+                    hint: "h".into(),
+                },
+                "VANTADB_CORRUPT",
+            ),
+            (
+                SerializationError(Box::new(std::io::Error::other("x"))),
+                "VANTADB_CORRUPT",
+            ),
+            (IoError(std::io::Error::other("x")), "VANTADB_IO_ERROR"),
+            (
+                IncompatibleFormat {
+                    expected_magic: *b"VWAL",
+                    expected_version: 2,
+                    found_magic: *b"VNDX",
+                    found_version: 1,
+                    hint: "h".into(),
+                },
+                "VANTADB_CORRUPT",
+            ),
+            (NotInitialized, "VANTADB_BUSY"),
+            (ResourceLimit("mem".into()), "VANTADB_RESOURCE_LIMIT"),
+            (NodeIdCollision(1), "VANTADB_VALIDATION_ERROR"),
+            (CycleDetected, "VANTADB_VALIDATION_ERROR"),
+            (
+                IqlParseError {
+                    msg: "m".into(),
+                    line: 1,
+                    col: 1,
+                },
+                "VANTADB_VALIDATION_ERROR",
+            ),
+            (
+                NotFound {
+                    kind: "k".into(),
+                    id: "i".into(),
+                },
+                "VANTADB_NOT_FOUND",
+            ),
+            (
+                ValidationError {
+                    field: "f".into(),
+                    reason: "r".into(),
+                },
+                "VANTADB_VALIDATION_ERROR",
+            ),
+            (
+                Timeout {
+                    operation: "o".into(),
+                    duration_ms: 1,
+                },
+                "VANTADB_TIMEOUT",
+            ),
+            (
+                UnsupportedOperation {
+                    operation: "o".into(),
+                    detail: "d".into(),
+                },
+                "VANTADB_VALIDATION_ERROR",
+            ),
+            (
+                ExecutionConflict {
+                    resource: "r".into(),
+                    detail: "d".into(),
+                },
+                "VANTADB_VALIDATION_ERROR",
+            ),
+            (IqlError(ChainedError::msg("x")), "VANTADB_INVALID_ARGUMENT"),
+            (CliError(ChainedError::msg("x")), "VANTADB_IO_ERROR"),
+            (SearchError(ChainedError::msg("x")), "VANTADB_IO_ERROR"),
+            (RuntimeError(ChainedError::msg("x")), "VANTADB_IO_ERROR"),
+            (RestoreError(ChainedError::msg("x")), "VANTADB_CORRUPT"),
+            (BackupError(ChainedError::msg("x")), "VANTADB_CORRUPT"),
+            (Generic(ChainedError::msg("x")), "VANTADB_WASM_ERROR"),
+            (BackendError(ChainedError::msg("x")), "VANTADB_IO_ERROR"),
+            (InvalidInput("x".into()), "VANTADB_VALIDATION_ERROR"),
+            (SchemaError("x".into()), "VANTADB_CORRUPT"),
+            (DatabaseBusy("x".into()), "VANTADB_BUSY"),
+            (NoVectorForKey("k".into()), "VANTADB_VALIDATION_ERROR"),
+            // ERR-CORE-01: typed overflow variants (replace the ResourceLimit(format!) catch-alls)
+            (
+                VectorLenOverflow {
+                    id: 1,
+                    len: 2,
+                    limit: 3,
+                },
+                "VANTADB_RESOURCE_LIMIT",
+            ),
+            (
+                EdgeCountOverflow {
+                    id: 1,
+                    count: 2,
+                    limit: 3,
+                },
+                "VANTADB_RESOURCE_LIMIT",
+            ),
+        ]
+    }
+
+    #[test]
+    fn code_snapshot_all_variants() {
+        for (e, want) in all_variants() {
+            assert_eq!(e.code(), want, "code() drifted for variant {e:?}");
+        }
+    }
+
+    #[test]
+    fn code_always_uses_vantadb_prefix() {
+        for (e, _) in all_variants() {
+            assert!(
+                e.code().starts_with("VANTADB_"),
+                "code() for {e:?} must carry the VANTADB_ prefix, got {}",
+                e.code()
+            );
+        }
+    }
+
+    #[test]
+    fn code_covers_all_10_canonical_codes() {
+        let emitted: std::collections::BTreeSet<&str> =
+            all_variants().iter().map(|(e, _)| e.code()).collect();
+        // CLOSED is lifecycle-only (never emitted by code() on VantaError).
+        let expected: std::collections::BTreeSet<&str> = [
+            "VANTADB_VALIDATION_ERROR",
+            "VANTADB_NOT_FOUND",
+            "VANTADB_TIMEOUT",
+            "VANTADB_BUSY",
+            "VANTADB_RESOURCE_LIMIT",
+            "VANTADB_CORRUPT",
+            "VANTADB_INVALID_ARGUMENT",
+            "VANTADB_IO_ERROR",
+            "VANTADB_WASM_ERROR",
+        ]
+        .into_iter()
+        .collect();
+        assert_eq!(emitted, expected);
+    }
+
+    #[test]
+    fn is_retriable_stays_consistent_with_code_table() {
+        // ERROR_HANDLING.md §1.1/§2 per-variant truth: TIMEOUT and BUSY
+        // (DatabaseBusy only) are retriable; within RESOURCE_LIMIT only the
+        // dynamic `ResourceLimit` is — the typed overflow variants are hard
+        // on-disk limits. Within IO_ERROR only BackendError/WalError are.
+        for (e, code) in all_variants() {
+            let retriable = match code {
+                "VANTADB_TIMEOUT" => true,
+                "VANTADB_BUSY" => matches!(e, VantaError::DatabaseBusy(_)),
+                "VANTADB_RESOURCE_LIMIT" => matches!(e, VantaError::ResourceLimit(_)),
+                "VANTADB_IO_ERROR" => {
+                    matches!(e, VantaError::BackendError(_) | VantaError::WalError(_))
+                }
+                _ => false,
+            };
+            assert_eq!(
+                e.is_retriable(),
+                retriable,
+                "is_retriable() drifted for {e:?} (code {code})"
+            );
+        }
+    }
+
+    #[test]
+    fn overflow_variants_are_typed_not_retriable_and_hinted() {
+        let e = VantaError::VectorLenOverflow {
+            id: 42,
+            len: 1,
+            limit: u32::MAX,
+        };
+        assert_eq!(e.code(), "VANTADB_RESOURCE_LIMIT");
+        assert!(!e.is_retriable(), "on-disk format limits are hard");
+        assert!(e.to_string().contains("42"));
+        assert!(e.recovery_hint().is_some());
+
+        let e = VantaError::EdgeCountOverflow {
+            id: 7,
+            count: u16::MAX as usize + 2,
+            limit: u16::MAX,
+        };
+        assert_eq!(e.code(), "VANTADB_RESOURCE_LIMIT");
+        assert!(!e.is_retriable());
+        // ERR-029's ops.rs test asserts the message names the concrete limit.
+        assert!(
+            e.to_string().contains("65535"),
+            "display must name the u16 limit, got: {e}"
+        );
+        assert!(e.recovery_hint().is_some());
     }
 }

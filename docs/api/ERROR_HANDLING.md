@@ -29,9 +29,11 @@ VantaDB follows the same standardization lesson that
 
 Applied to VantaDB:
 
-1. **Small canonical code list** — 10 codes (`VALIDATION_ERROR`, `NOT_FOUND`,
-   `TIMEOUT`, `BUSY`, `RESOURCE_LIMIT`, `CORRUPT`, `INVALID_ARGUMENT`,
-   `IO_ERROR`, `WASM_ERROR`, `CLOSED`) instead of one-per-variant proliferation.
+1. **Small canonical code list** — 10 codes (`VANTADB_VALIDATION_ERROR`,
+   `VANTADB_NOT_FOUND`, `VANTADB_TIMEOUT`, `VANTADB_BUSY`,
+   `VANTADB_RESOURCE_LIMIT`, `VANTADB_CORRUPT`, `VANTADB_INVALID_ARGUMENT`,
+   `VANTADB_IO_ERROR`, `VANTADB_WASM_ERROR`, `VANTADB_CLOSED`) instead of
+   one-per-variant proliferation.
 2. **Codes are stable; messages are not** — clients must `match` on `code`,
    never on `message` text. `Display` strings can change without a major
    version bump.
@@ -42,11 +44,9 @@ Applied to VantaDB:
 5. **Cause chain preserved** — `#[source]` (Rust) / `cause` (TS 4.4+) /
    `__cause__` (Python 3 `raise … from`) keeps the debug trail intact.
 
-> **Pending:** Task `ERR-CORE-01` will add `pub fn code(&self) -> &'static str`
-> on `VantaError` returning codes with the `VANTADB_` prefix (e.g.
-> `VANTADB_VALIDATION_ERROR`). Once that merges, the table below becomes
-> authoritative. Until then, the TypeScript `ERROR_CODES` (10 strings above)
-> are the canonical surface that all bindings normalize to.
+> **Resolved (ERR-CORE-01, 2026-09-02):** `VantaError::code()` now exists and
+> returns `&'static str` with the `VANTADB_` prefix. The table below is the
+> **implemented contract** — Rust `code()` emits exactly these strings.
 
 ---
 
@@ -56,41 +56,43 @@ Applied to VantaDB:
 
 Every VantaDB error, regardless of source binding, normalizes to one of these
 codes. Clients should branch on `code`; the variant-specific fields are
-informational, not contractual for matching.
+informational, not contractual for matching. The Rust core emits the prefixed
+form (`VANTADB_*`); TS/Python normalize to the unprefixed names until
+`ERR-TS-01`/`ERR-PY-01` align them.
 
 | Code | Meaning | Source Rust variant(s) | Retriable |
 |------|---------|-------------------------|-----------|
-| `VALIDATION_ERROR` | Input failed validation (dimension, schema, duplicate, IQL parse) | `DimensionMismatch`, `DuplicateNode`, `NodeIdCollision`, `CycleDetected`, `ValidationError`, `InvalidInput`, `IqlParseError`, `UnsupportedOperation`, `NoVectorForKey` | ❌ |
-| `NOT_FOUND` | Requested entity does not exist | `NodeNotFound`, `NotFound` | ❌ |
-| `TIMEOUT` | Operation exceeded its time budget | `Timeout` | ✅ |
-| `BUSY` | Resource locked or not initialized | `DatabaseBusy`, `NotInitialized` | ✅ |
-| `RESOURCE_LIMIT` | Memory, disk, or backpressure limit exceeded | `ResourceLimit` | ✅ |
-| `CORRUPT` | Persisted data is corrupt or incompatible format | `WALVersionMismatch`, `IncompatibleFormat`, `SerializationError`, `SchemaError`, `RestoreError`, `BackupError` | ❌ |
-| `INVALID_ARGUMENT` | Caller passed a malformed argument | `IqlError`, `IqlParseError` | ❌ |
-| `IO_ERROR` | Filesystem or backend I/O failure | `IoError`, `WalError`, `BackendError`, `CliError`, `SearchError`, `RuntimeError` | ✅ (with backoff) |
-| `WASM_ERROR` | Generic WASM-binding fallback (only when `code` is missing) | `Generic` | ❌ |
-| `CLOSED` | Operation attempted on a closed database handle | (lifecycle, not in `VantaError`) | ❌ |
+| `VANTADB_VALIDATION_ERROR` | Input failed validation (dimension, schema, duplicate, collision, cycle, conflict, IQL parse) | `DimensionMismatch`, `DuplicateNode`, `NodeIdCollision`, `CycleDetected`, `ExecutionConflict`, `ValidationError`, `InvalidInput`, `IqlParseError`, `UnsupportedOperation`, `NoVectorForKey` | ❌ |
+| `VANTADB_NOT_FOUND` | Requested entity does not exist | `NodeNotFound`, `NotFound` | ❌ |
+| `VANTADB_TIMEOUT` | Operation exceeded its time budget | `Timeout` | ✅ |
+| `VANTADB_BUSY` | Resource locked or not initialized | `DatabaseBusy` (✅), `NotInitialized` (❌) | ✅/❌ per variant |
+| `VANTADB_RESOURCE_LIMIT` | Memory, disk, or backpressure limit exceeded; on-disk header field overflow | `ResourceLimit` (✅), `VectorLenOverflow` (❌ hard format limit), `EdgeCountOverflow` (❌ hard format limit) | see §2 |
+| `VANTADB_CORRUPT` | Persisted data is corrupt or incompatible format | `WALVersionMismatch`, `IncompatibleFormat`, `SerializationError`, `SchemaError`, `RestoreError`, `BackupError` | ❌ |
+| `VANTADB_INVALID_ARGUMENT` | Caller passed a malformed argument (runtime IQL failure) | `IqlError` | ❌ |
+| `VANTADB_IO_ERROR` | Filesystem or backend I/O failure | `IoError` (❌), `WalError` (✅), `BackendError` (✅), `CliError`, `SearchError`, `RuntimeError` | see §2 |
+| `VANTADB_WASM_ERROR` | Generic catch-all fallback (`Generic`) | `Generic` | ❌ |
+| `VANTADB_CLOSED` | Operation attempted on a closed database handle | (lifecycle, not a `VantaError` variant — never returned by `code()`) | ❌ |
 
-> **Note:** `INVALID_ARGUMENT` and `VALIDATION_ERROR` overlap on IQL parse
-> errors. Today the TS side classifies IQL parse as `VALIDATION_ERROR`. The
-> split is provisional; see `ERR-CORE-01` for the final mapping.
+> **Final mapping note (ERR-CORE-01):** the previously provisional overlap
+> between `VALIDATION_ERROR` and `INVALID_ARGUMENT` on `IqlParseError` is
+> resolved: `IqlParseError` → `VANTADB_VALIDATION_ERROR` (matching the TS
+> classification), `IqlError` → `VANTADB_INVALID_ARGUMENT`. `code()` is a
+> compile-exhaustive match: every new variant must declare its code.
 
-### 1.2 Future `VANTADB_*` prefixed codes
+### 1.2 `VANTADB_*` prefixed codes (implemented)
 
-Once `ERR-CORE-01` lands, `VantaError::code()` returns a `&'static str` with
-the `VANTADB_` prefix (e.g. `VANTADB_VALIDATION_ERROR`). Client code targeting
-VantaDB ≥ 0.6 should match on the prefixed form:
+`VantaError::code()` (`src/error.rs`) returns a `&'static str` with the
+`VANTADB_` prefix. All ten table codes map 1:1 from the unprefixed TS names;
+`VANTADB_CLOSED` is emitted by handle-lifecycle checks, not by `code()`:
 
 ```rust
 match err.code() {
-    Some("VANTADB_VALIDATION_ERROR") | Some("VANTADB_INVALID_ARGUMENT") => { /* ... */ }
-    Some("VANTADB_NOT_FOUND") => { /* ... */ }
-    Some(c) if c.starts_with("VANTADB_") => { /* unknown but recognizable */ }
-    None => { /* pre-0.6 build or non-VantaError */ }
+    "VANTADB_VALIDATION_ERROR" | "VANTADB_INVALID_ARGUMENT" => { /* ... */ }
+    "VANTADB_NOT_FOUND" => { /* ... */ }
+    c if c.starts_with("VANTADB_") => { /* known family, unhandled */ }
+    _ => unreachable!("code() always returns a VANTADB_* string"),
 }
 ```
-
-All 10 codes above will receive the `VANTADB_` prefix. The mapping is 1:1.
 
 ---
 
@@ -121,7 +123,8 @@ impl VantaError {
 | `ResourceLimit(_)` | ✅ | linear, monitor memory |
 | `BackendError(_)` | ✅ | exponential, check disk |
 | `WalError(_)` | ✅ | exponential, check disk |
-| `IoError(_)` | ✅ | exponential |
+| `IoError(_)` | ❌ | not retryable by the core classifier (OS-level failures are typically terminal; bindings may retry selectively) |
+| `VectorLenOverflow { .. }` / `EdgeCountOverflow { .. }` | ❌ | hard on-disk format limits — shrink the node, do not retry |
 | All other 25 variants | ❌ | do not retry |
 
 ---
@@ -350,9 +353,12 @@ The HTTP API (`docs/api/HTTP_API.md`) returns errors as:
 ```
 
 with HTTP status codes `400 / 404 / 409 / 422 / 429 / 500`. Mapping from
-`VantaError` variant → HTTP status is defined in `src/server/errors.rs:182`
-(`vanta_error_status`). For the canonical code, follow the same
-`data.code` pattern from §6.3 — see `docs/api/HTTP_API.md` § Error responses.
+`VantaError` variant → HTTP status is defined in `src/server/errors.rs`
+(`vanta_error_status`). Since ERR-CORE-01 both error envelopes
+(`vanta_error_response`, `query_error_response`) include a canonical
+`"code"` field alongside the message — e.g.
+`{ "success": false, "error": "...", "code": "VANTADB_NOT_FOUND" }`. See
+`docs/api/HTTP_API.md` § Error responses.
 
 ---
 
@@ -370,5 +376,12 @@ with HTTP status codes `400 / 404 / 409 / 422 / 429 / 500`. Mapping from
 
 ## Changelog
 
+- **2026-09-02 (ERR-CORE-01)** — `VantaError::code()` implemented in
+  `src/error.rs`: 10 canonical `VANTADB_*` codes, exhaustive match, snapshot
+  test `error::tests::code_snapshot_all_variants`. Final mapping resolved
+  (`IqlParseError` → `VANTADB_VALIDATION_ERROR`). Typed overflow variants
+  `VectorLenOverflow` / `EdgeCountOverflow` replace the `ResourceLimit(format!)`
+  catch-alls in `write_node_to_vstore`. HTTP envelopes gain the `code` field.
+  §2 corrected: `IoError` is **not** retriable per the code (was a doc error).
 - **2026-09-02** — Created as part of `ERR-DOCS-01`. Provisional 10-code
   table pending `pub fn code()` from `ERR-CORE-01`.

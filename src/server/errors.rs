@@ -61,26 +61,35 @@ pub fn vanta_error_status(e: &VantaError) -> StatusCode {
 /// statuses; anything server-side stays a 500. Proxies and monitoring can then
 /// distinguish query errors from healthy traffic instead of relying on the
 /// body's `success` flag.
+///
+/// ERR-CORE-01: the body carries the stable `code` field (one of the
+/// `VANTADB_*` canonical codes). Built with `json!` so the field can be added
+/// without touching the public `QueryResponse` struct; the serialized shape is
+/// identical because `node_id`/`nodes` are `None` here and skipped.
 pub fn query_error_response(e: &VantaError) -> Response {
     (
         vanta_error_status(e),
-        Json(QueryResponse {
-            success: false,
-            data: format!("Execution Error: {}", e),
-            node_id: None,
-            nodes: None,
-        }),
+        Json(json!({
+            "success": false,
+            "data": format!("Execution Error: {}", e),
+            "code": e.code(),
+        })),
     )
         .into_response()
 }
 
 /// Error body shared by the `/api/v2` console endpoints.
+///
+/// ERR-CORE-01: includes the stable `code` field alongside `error` so clients
+/// can branch programmatically instead of parsing the message (additive,
+/// backward-compatible).
 pub fn vanta_error_response(e: &VantaError) -> Response {
     (
         vanta_error_status(e),
         Json(json!({
             "success": false,
             "error": e.to_string(),
+            "code": e.code(),
         })),
     )
         .into_response()
@@ -178,5 +187,34 @@ mod tests {
         let _body = res.into_body();
         // We can't easily read the body here without async, but the function
         // is tested in integration tests in routing.rs
+    }
+
+    /// ERR-CORE-01: both error envelopes carry the stable canonical `code`
+    /// field (additive — existing consumers keep `success`/`error`/`data`).
+    #[tokio::test]
+    async fn error_envelopes_carry_canonical_code() {
+        use axum::body::to_bytes;
+        let e = VantaError::NodeNotFound(7);
+
+        let body: serde_json::Value = serde_json::from_slice(
+            &to_bytes(query_error_response(&e).into_body(), 4096)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(body["code"], "VANTADB_NOT_FOUND");
+        assert_eq!(body["success"], false);
+        assert_eq!(body["data"], "Execution Error: Node not found: 7");
+        assert!(body.get("node_id").is_none(), "None fields stay skipped");
+        assert!(body.get("nodes").is_none());
+
+        let body: serde_json::Value = serde_json::from_slice(
+            &to_bytes(vanta_error_response(&e).into_body(), 4096)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(body["code"], "VANTADB_NOT_FOUND");
+        assert_eq!(body["error"], "Node not found: 7");
     }
 }

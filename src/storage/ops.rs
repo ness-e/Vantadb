@@ -69,10 +69,11 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
         crate::node::VectorRepresentations::Full(v) => {
             let len = v.len();
             if len > u32::MAX as usize {
-                return Err(VantaError::ResourceLimit(format!(
-                    "node {} vector_len {} exceeds u32",
-                    node.id, len
-                )));
+                return Err(VantaError::VectorLenOverflow {
+                    id: node.id,
+                    len,
+                    limit: u32::MAX,
+                });
             }
             (
                 crate::node::NodeFlags::VECTOR_KIND_FULL,
@@ -83,10 +84,11 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
         crate::node::VectorRepresentations::Binary(b) => {
             let len = b.len();
             if len > u32::MAX as usize {
-                return Err(VantaError::ResourceLimit(format!(
-                    "node {} Binary len {} exceeds u32",
-                    node.id, len
-                )));
+                return Err(VantaError::VectorLenOverflow {
+                    id: node.id,
+                    len,
+                    limit: u32::MAX,
+                });
             }
             (
                 crate::node::NodeFlags::VECTOR_KIND_BINARY,
@@ -97,10 +99,11 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
         crate::node::VectorRepresentations::Turbo(t) => {
             let len = t.len();
             if len > u32::MAX as usize {
-                return Err(VantaError::ResourceLimit(format!(
-                    "node {} Turbo len {} exceeds u32",
-                    node.id, len
-                )));
+                return Err(VantaError::VectorLenOverflow {
+                    id: node.id,
+                    len,
+                    limit: u32::MAX,
+                });
             }
             (
                 crate::node::NodeFlags::VECTOR_KIND_TURBO,
@@ -111,10 +114,11 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
         crate::node::VectorRepresentations::SQ8(d, _) => {
             let len = d.len();
             if len > u32::MAX as usize {
-                return Err(VantaError::ResourceLimit(format!(
-                    "node {} SQ8 len {} exceeds u32",
-                    node.id, len
-                )));
+                return Err(VantaError::VectorLenOverflow {
+                    id: node.id,
+                    len,
+                    limit: u32::MAX,
+                });
             }
             // N i8 bytes + 4 bytes scale tail
             (
@@ -127,10 +131,11 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
             if let Some(slice) = node.vector.as_f32_slice() {
                 let len = slice.len();
                 if len > u32::MAX as usize {
-                    return Err(VantaError::ResourceLimit(format!(
-                        "node {} MmapFull len {} exceeds u32",
-                        node.id, len
-                    )));
+                    return Err(VantaError::VectorLenOverflow {
+                        id: node.id,
+                        len,
+                        limit: u32::MAX,
+                    });
                 }
                 (
                     crate::node::NodeFlags::VECTOR_KIND_FULL,
@@ -169,10 +174,11 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
     // fail loudly instead of persisting a corrupt count.
     let edge_count = node.edges.len();
     if edge_count > u16::MAX as usize {
-        return Err(VantaError::ResourceLimit(format!(
-            "node {} has {edge_count} edges, exceeding the DiskNodeHeader u16 edge_count limit of {}",
-            node.id, u16::MAX
-        )));
+        return Err(VantaError::EdgeCountOverflow {
+            id: node.id,
+            count: edge_count,
+            limit: u16::MAX,
+        });
     }
     header.edge_count = edge_count as u16;
     vstore.write_header(offset, &header)?;
@@ -380,7 +386,8 @@ mod tests {
     }
 
     /// ERR-029: a node with more than 65,535 edges must be rejected at the
-    /// persistence boundary (ResourceLimit), never silently wrapped by the
+    /// persistence boundary (`EdgeCountOverflow`, typed in ERR-CORE-01),
+    /// never silently wrapped by the
     /// `as u16` cast on the `DiskNodeHeader::edge_count` field. Uses 65,537
     /// edges: if the old truncating behavior ran, the persisted count would
     /// wrap to 1 — the test proves nothing is persisted on failure.
