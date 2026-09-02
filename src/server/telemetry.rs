@@ -164,6 +164,9 @@ pub fn shutdown_telemetry() {
     }
 }
 
+#[cfg(not(feature = "opentelemetry"))]
+pub fn shutdown_telemetry() {}
+
 #[cfg(test)]
 mod tests {
     use super::*;

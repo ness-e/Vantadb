@@ -10,11 +10,10 @@ use axum::{
     extract::DefaultBodyLimit,
     http::{header, HeaderMap, HeaderValue, Method},
     middleware,
-    response::Response,
+    response::{IntoResponse, Response},
     routing::{get, post, put},
     Extension, Json, Router,
 };
-use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use tower_governor::{
     governor::GovernorConfigBuilder, key_extractor::SmartIpKeyExtractor, GovernorError,
@@ -22,9 +21,6 @@ use tower_governor::{
 };
 use tower_http::cors::CorsLayer;
 use tracing;
-
-use crate::error::Result;
-use crate::metrics;
 
 /// Rate limiter period: one request every `60_000 / rpm` ms, floor 1ms.
 fn rate_limit_period_ms(rpm: u32) -> u64 {
@@ -347,7 +343,6 @@ pub fn mount_dashboard(router: Router, dir: Option<&std::path::Path>) -> Router 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::VantaConfig;
 
     #[test]
     fn rate_limit_period_ms_is_sane() {

@@ -6,14 +6,26 @@
 //! (user-key) chain end-to-end over real HTTP plus unit tests for identity
 //! resolution.
 
-use super::*;
-use crate::config::VantaConfig;
+use crate::audit::AuditLogger;
+use crate::circuit_breaker::CircuitBreaker;
+use crate::config::{RbacConfig, VantaConfig};
+use crate::connection_pool::ConnectionPool;
 use crate::entity::EntityStore;
 use crate::node::FieldValue;
+use crate::rbac::Rbac;
 use crate::sdk::VantaEmbedded;
+use crate::server::middleware::resolve_identity;
+use crate::server::router::app;
+use crate::server::state::{
+    resolve_user_key, AuthIdentity, AuthState, ServerState, AUTH_ENTITY_NS, SERVICE_ID_HEADER,
+    USER_KEY_HEADER,
+};
 use crate::storage::{BackendKind, StorageEngine};
+use axum::http::{header, StatusCode};
 use std::collections::HashMap;
 use std::net::SocketAddr;
+use std::sync::Arc;
+use std::time::Duration;
 
 fn fields(pairs: &[(&str, &str)]) -> HashMap<String, FieldValue> {
     pairs

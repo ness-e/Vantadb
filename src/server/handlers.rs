@@ -4,6 +4,7 @@
 //! SDK operations under `run_db_op` (pool + spawn_blocking).
 
 use crate::audit::AuditEvent;
+use crate::connection_pool::PoolError;
 use crate::error::Result;
 use crate::metrics;
 use crate::sdk::{
@@ -13,7 +14,7 @@ use crate::sdk::{
 };
 use crate::server::errors::{
     not_found_response, panic_error_response, pool_error_response, query_error_response,
-    thread_not_found_response, vanta_error_response, vanta_error_status,
+    thread_not_found_response, vanta_error_response,
 };
 use crate::server::state::{NodeDTO, QueryRequest, QueryResponse, RequestId, ServerState};
 use crate::VantaError;
@@ -79,30 +80,6 @@ pub async fn metrics_v2(State(state): State<Arc<ServerState>>) -> Response {
     {
         Ok(resp) => Json(resp).into_response(),
         Err(resp) => resp,
-    }
-}
-
-/// Map a `VantaError` to the HTTP status clients receive (ERR-027).
-///
-/// Client mistakes (bad IQL, missing nodes, validation) map to explicit 4xx
-/// statuses; anything server-side stays a 500. Shared by the IQL endpoint and
-/// the `/api/v2` console surface so both speak the same error status language.
-fn vanta_error_status(e: &VantaError) -> StatusCode {
-    match e {
-        VantaError::IqlParseError { .. }
-        | VantaError::IqlError(_)
-        | VantaError::InvalidInput(_)
-        | VantaError::DimensionMismatch { .. }
-        | VantaError::UnsupportedOperation { .. }
-        | VantaError::SchemaError(_)
-        | VantaError::NoVectorForKey(_) => StatusCode::BAD_REQUEST,
-        VantaError::ValidationError { .. } => StatusCode::UNPROCESSABLE_ENTITY,
-        VantaError::NodeNotFound(_) | VantaError::NotFound { .. } => StatusCode::NOT_FOUND,
-        VantaError::DuplicateNode(_)
-        | VantaError::NodeIdCollision(_)
-        | VantaError::ExecutionConflict { .. } => StatusCode::CONFLICT,
-        // Storage/WAL/IO/resource failures and anything unclassified.
-        _ => StatusCode::INTERNAL_SERVER_ERROR,
     }
 }
 
@@ -299,7 +276,7 @@ pub async fn records_get(
 
 /// Query params for `GET /api/v2/records/{ns}/{key}/versions`.
 #[derive(Deserialize, Debug)]
-struct RecordsVersionsParams {
+pub struct RecordsVersionsParams {
     /// When present, returns only that version instead of the full list.
     version: Option<u64>,
 }
@@ -348,7 +325,7 @@ pub async fn records_delete(
 
 /// Query params for `DELETE /api/v2/records?namespace=&filter=`.
 #[derive(Deserialize, Debug)]
-struct DeleteByFilterParams {
+pub struct DeleteByFilterParams {
     namespace: String,
     /// JSON array of `VantaMemoryFilterItem` (e.g.
     /// `[{"field":"kind","op":"Eq","value":{"String":"note"}}]`).
@@ -400,7 +377,7 @@ fn merge_all_namespaces_pages(
 
 /// Query params for `GET /api/v2/list`.
 #[derive(Deserialize, Debug)]
-struct ListParams {
+pub struct ListParams {
     // Option: la consola web lista sin namespace → default a "default" (igual
     // que el bridge nativo). Un campo String requerido 400ea en axum antes del handler.
     namespace: Option<String>,
@@ -520,7 +497,7 @@ pub async fn records_list(
 /// `search()` is a top_k window without its own cursor, so the wire pages by
 /// offset over the same score-ranked result set.
 #[derive(Debug, Deserialize)]
-struct SearchPageRequest {
+pub struct SearchPageRequest {
     #[serde(flatten)]
     request: VantaMemorySearchRequest,
     /// Zero-based offset into the ranked result set.
@@ -582,7 +559,7 @@ pub async fn records_search(
 
 /// Query params for `GET /api/v2/autocomplete`.
 #[derive(Deserialize, Debug)]
-struct AutocompleteParams {
+pub struct AutocompleteParams {
     prefix: Option<String>,
 }
 
@@ -594,7 +571,7 @@ pub async fn iql_autocomplete(Query(params): Query<AutocompleteParams>) -> Json<
 
 /// Query params for `GET /api/v2/audit`.
 #[derive(Deserialize, Debug)]
-struct AuditParams {
+pub struct AuditParams {
     namespace: Option<String>,
     op: Option<String>,
     outcome: Option<String>,
@@ -702,312 +679,6 @@ pub async fn audit_events(
     }
 }
 
-/// Initialise the tracing subscriber with optional OpenTelemetry and MCP support.
-pub fn init_telemetry(is_mcp: bool, log_format: Option<LogFormat>) {
-    let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
-    let format = resolve_log_format(log_format);
-    let is_json = matches!(format, LogFormat::Json);
-    let is_full = matches!(format, LogFormat::Full);
-
-    #[cfg(feature = "opentelemetry")]
-    _init_telemetry_otel(is_mcp, is_json, is_full, env_filter);
-
-    #[cfg(not(feature = "opentelemetry"))]
-    init_telemetry_fmt(is_mcp, is_json, is_full, env_filter);
-}
-
-fn resolve_log_format(log_format: Option<LogFormat>) -> LogFormat {
-    log_format.unwrap_or_else(|| {
-        let legacy = std::env::var("VANTADB_LOG_JSON")
-            .map(|v| v == "1" || v == "true")
-            .unwrap_or(false);
-        if legacy {
-            LogFormat::Json
-        } else {
-            std::env::var("VANTADB_LOG_FORMAT")
-                .ok()
-                .map(|v| LogFormat::from_env_value(&v))
-                .unwrap_or_default()
-        }
-    })
-}
-
-#[cfg(not(feature = "opentelemetry"))]
-fn init_telemetry_fmt(is_mcp: bool, is_json: bool, is_full: bool, env_filter: EnvFilter) {
-    let stderr = || Box::new(std::io::stderr()) as Box<dyn std::io::Write + Send>;
-
-    if is_json {
-        let sub = tracing_subscriber::fmt()
-            .with_env_filter(env_filter)
-            .json()
-            .with_target(true)
-            .with_thread_ids(true)
-            .with_file(true)
-            .with_line_number(true)
-            .with_ansi(false);
-        if is_mcp {
-            sub.with_writer(stderr).init();
-        } else {
-            sub.init();
-        }
-    } else if is_full {
-        let sub = tracing_subscriber::fmt()
-            .with_env_filter(env_filter)
-            .with_target(true)
-            .with_thread_ids(true)
-            .with_file(true)
-            .with_line_number(true)
-            .with_ansi(true);
-        if is_mcp {
-            sub.with_writer(stderr).init();
-        } else {
-            sub.init();
-        }
-    } else if is_mcp {
-        tracing_subscriber::fmt()
-            .with_env_filter(env_filter)
-            .with_writer(stderr)
-            .init();
-    } else {
-        crate::console::init_logging(LogFormat::Compact);
-    }
-}
-
-#[cfg(feature = "opentelemetry")]
-fn _init_telemetry_otel(is_mcp: bool, is_json: bool, is_full: bool, env_filter: EnvFilter) {
-    use opentelemetry::trace::TracerProvider;
-    use opentelemetry_otlp::WithExportConfig;
-
-    let endpoint = std::env::var("OTEL_EXPORTER_OTLP_ENDPOINT")
-        .unwrap_or_else(|_| "http://localhost:4317".to_string());
-
-    let exporter = match opentelemetry_otlp::SpanExporter::builder()
-        .with_tonic()
-        .with_endpoint(endpoint.clone())
-        .build()
-    {
-        Ok(exporter) => exporter,
-        Err(e) => {
-            eprintln!(
-                "⚠️ Failed to create OTLP exporter (endpoint: {}), continuing without tracing: {e}",
-                endpoint
-            );
-            return;
-        }
-    };
-
-    let service_name =
-        std::env::var("OTEL_SERVICE_NAME").unwrap_or_else(|_| "vantadb-server".to_string());
-
-    let provider = opentelemetry_sdk::trace::SdkTracerProvider::builder()
-        .with_batch_exporter(exporter)
-        .with_resource(
-            opentelemetry_sdk::Resource::builder_empty()
-                .with_service_name(service_name.clone())
-                .build(),
-        )
-        .build();
-
-    let _ = OTEL_PROVIDER.set(provider.clone());
-    let tracer = provider.tracer(service_name.clone());
-    let telemetry = tracing_opentelemetry::layer().with_tracer(tracer);
-
-    let subscriber = Registry::default().with(env_filter).with(telemetry);
-
-    if is_mcp {
-        subscriber
-            .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
-            .init();
-    } else if is_json {
-        subscriber
-            .with(
-                tracing_subscriber::fmt::layer()
-                    .json()
-                    .with_target(true)
-                    .with_thread_ids(true)
-                    .with_file(true)
-                    .with_line_number(true),
-            )
-            .init();
-    } else if is_full {
-        subscriber
-            .with(
-                tracing_subscriber::fmt::layer()
-                    .with_target(true)
-                    .with_thread_ids(true)
-                    .with_file(true)
-                    .with_line_number(true),
-            )
-            .init();
-    } else {
-        subscriber.with(tracing_subscriber::fmt::layer()).init();
-    }
-}
-
-/// Shut down the OpenTelemetry tracer provider, flushing any pending spans.
-#[cfg(feature = "opentelemetry")]
-pub fn shutdown_telemetry() {
-    if let Some(provider) = OTEL_PROVIDER.get() {
-        if let Err(e) = provider.shutdown() {
-            eprintln!("OTel provider shutdown error: {e}");
-        }
-    }
-}
-
-fn log_security_mode(config: &VantaConfig) {
-    let auth_status = match (&config.api_key, config.require_auth) {
-        (Some(_), true) => "Bearer token auth ✓ (forced)",
-        (Some(_), false) => "Bearer token auth ✓",
-        (None, true) => "ERROR: require_auth but no key configured",
-        (None, false) => "No auth (dev mode)",
-    };
-
-    let rate_status = if config.rate_limit_rpm == 0 {
-        "Rate limit disabled".to_string()
-    } else {
-        format!("Rate limit {} req/min", config.rate_limit_rpm)
-    };
-
-    let tls_status = {
-        #[cfg(feature = "tls")]
-        {
-            if config.tls_cert_path.is_some() && config.tls_key_path.is_some() {
-                "TLS ✓ (rustls)"
-            } else {
-                "TLS feature active but no cert/key configured — falling back to plain HTTP"
-            }
-        }
-        #[cfg(not(feature = "tls"))]
-        "Plain HTTP"
-    };
-
-    console::ok(
-        "Security",
-        Some(&format!(
-            "{} | {} | {}",
-            auth_status, rate_status, tls_status
-        )),
-    );
-}
-
-/// Whether `host` binds only the loopback interface (`127.0.0.0/8`,
-/// `::1`, or the literal name `localhost`). Unresolvable hostnames are
-/// treated as non-loopback (fail closed).
-fn is_loopback_host(host: &str) -> bool {
-    let h = host.trim();
-    let h = h.strip_prefix('[').unwrap_or(h);
-    let h = h.strip_suffix(']').unwrap_or(h);
-    h.eq_ignore_ascii_case("localhost")
-        || h.parse::<std::net::IpAddr>()
-            .map(|ip| ip.is_loopback())
-            .unwrap_or(false)
-}
-
-/// Validate that the auth configuration is consistent.
-///
-/// Refuse-to-start policy (FIND-07): the server does NOT start when it binds a
-/// non-loopback host without an API key — an unauthenticated instance exposed
-/// to the network is an accident waiting to happen. Override explicitly with
-/// `--allow-insecure` (dev only), which logs a prominent WARNING instead.
-/// Also returns an error if `require_auth` is set but no key is configured.
-/// SRV-04: `alt_api_key` requires `api_key` to be set (rotation needs a primary).
-fn validate_auth_config(config: &VantaConfig) -> Result<()> {
-    if config.alt_api_key.is_some() && config.api_key.is_none() {
-        return Err(VantaError::InvalidInput(
-            "alt_api_key requires api_key to be set (rotation needs a primary key)".into(),
-        ));
-    }
-    if config.require_auth && config.api_key.is_none() {
-        console::error(
-            "Forced authentication enabled but no API key configured",
-            Some(
-                "Set the VANTADB_API_KEY environment variable to provide an authentication \
-                 token. Alternatively, unset VANTADB_REQUIRE_AUTH / remove --require-auth \
-                 to allow unauthenticated (dev) mode.",
-            ),
-        );
-        return Err(VantaError::InvalidInput(
-            "require_auth is set but no api_key is configured".into(),
-        ));
-    }
-    if config.api_key.is_none() && !is_loopback_host(&config.host) {
-        if config.allow_insecure {
-            console::warn(
-                "INSECURE MODE: HTTP server exposed on non-loopback host WITHOUT authentication",
-                Some(&format!(
-                    "host '{}' accepts unauthenticated requests from any reachable client. \
-                     Set VANTADB_API_KEY (or remove --allow-insecure) to secure this server.",
-                    config.host
-                )),
-            );
-        } else {
-            console::error(
-                "Refusing to start: non-loopback host without an API key",
-                Some(&format!(
-                    "Binding '{}' without VANTADB_API_KEY exposes an unauthenticated \
-                     server to the network. Fix either way: (1) set VANTADB_API_KEY to \
-                     enable Bearer auth, or (2) bind a loopback host (127.0.0.1/localhost/::1), \
-                     or (3) pass --allow-insecure to override this check in dev.",
-                    config.host
-                )),
-            );
-            return Err(VantaError::InvalidInput(format!(
-                "non-loopback host '{}' without api_key; set VANTADB_API_KEY, bind a \
-                 loopback host, or pass --allow-insecure",
-                config.host
-            )));
-        }
-    }
-    Ok(())
-}
-
-/// Mount the Vanta Studio dashboard at `/dashboard`.
-///
-/// With `dir`, serves static files via [`tower_http::services::ServeDir`] with
-/// an SPA fallback: routes **without** a file extension (deep links) get
-/// `index.html`, while real asset misses still 404. Without `dir`, `/dashboard`
-/// returns a 404 with a hint telling the user to pass `--dashboard-dir` (WEB-03).
-///
-/// Mounted here (after `app_with_cors`) on purpose: it stays **outside** the
-/// auth middleware, so `/dashboard` is public on loopback (D12) even when
-/// `require_auth` guards `/api/v2/*`.
-fn mount_dashboard(router: Router, dir: Option<&std::path::Path>) -> Router {
-    match dir {
-        Some(dir) => {
-            let index = dir.join("index.html");
-            let fallback = tower::service_fn(move |req: axum::http::Request<axum::body::Body>| {
-                let index = index.clone();
-                async move {
-                    // Asset miss (path has an extension) is a real 404 — never
-                    // swallow it with index.html (SPA fallback is for deep links).
-                    if std::path::Path::new(req.uri().path()).extension().is_some() {
-                        return Ok::<_, std::convert::Infallible>(
-                            (StatusCode::NOT_FOUND, "Not found").into_response(),
-                        );
-                    }
-                    let body = match tokio::fs::read(&index).await {
-                        Ok(bytes) => ([(header::CONTENT_TYPE, "text/html; charset=utf-8")], bytes)
-                            .into_response(),
-                        Err(_) => (
-                            StatusCode::NOT_FOUND,
-                            format!("index.html not found in dashboard dir: {}", index.display()),
-                        )
-                            .into_response(),
-                    };
-                    Ok::<_, std::convert::Infallible>(body)
-                }
-            });
-            router.nest_service(
-                "/dashboard",
-                tower_http::services::ServeDir::new(dir).fallback(fallback),
-            )
-        }
-        None => router
-            .route("/dashboard", get(dashboard_disabled))
-            .route("/dashboard/{*path}", get(dashboard_disabled)),
-    }
-}
-
 /// 404 hint returned when no `--dashboard-dir` is configured (WEB-03).
 pub async fn dashboard_disabled() -> Response {
     (
@@ -1015,258 +686,6 @@ pub async fn dashboard_disabled() -> Response {
         "Dashboard not enabled. Start the server with --dashboard-dir <path> to serve the Vanta Studio console at /dashboard.",
     )
         .into_response()
-}
-
-/// Start the HTTP (or TLS) server, binding to the address in the config.
-pub async fn run(config: VantaConfig) -> Result<()> {
-    init_telemetry(false, Some(config.log_format));
-
-    console::print_banner();
-
-    validate_auth_config(&config)?;
-
-    console::progress("Initializing storage engine...", None);
-
-    let storage = match StorageEngine::open_with_config(&config.storage_path, Some(config.clone()))
-    {
-        Ok(s) => {
-            console::ok("Storage engine opened", Some(&config.storage_path));
-            Arc::new(s)
-        }
-        Err(e) => {
-            console::error("Failed to open storage engine", Some(&e.to_string()));
-            return Err(e);
-        }
-    };
-
-    log_security_mode(&config);
-
-    let api_key: Option<Arc<str>> = config.api_key.as_deref().map(Arc::from);
-    let alt_api_key: Option<Arc<str>> = config.alt_api_key.as_deref().map(Arc::from);
-    let circuit_breaker = Arc::new(CircuitBreaker::new(
-        config.circuit_breaker_failure_threshold,
-        Duration::from_secs(config.circuit_breaker_open_timeout_secs),
-    ));
-    let pool = Arc::new(ConnectionPool::new(
-        config.max_connections,
-        Duration::from_millis(config.pool_acquire_timeout_ms),
-    ));
-    let rbac_config = config.rbac_config.clone();
-    let state = Arc::new(ServerState {
-        storage: storage.clone(),
-        db: VantaEmbedded::from_engine(storage.clone()),
-        circuit_breaker,
-        pool,
-        api_key,
-        alt_api_key,
-        rbac_config,
-        trusted_proxies: config.trusted_proxies.clone(),
-        conversation_trigger: None,
-    });
-
-    // MOD-12 (MCP-01 twin): a raw StorageEngine skips the
-    // `VantaEmbedded::open_with_config` index reconciliation, so lexical/hybrid
-    // searches fail on fresh DBs with "text_index not found". Ensure index
-    // state at startup: idempotent — no-op when counts match, writes fresh
-    // empty state for new DBs. Read-only engines cannot rebuild, so they are
-    // skipped (same guard as `open_with_config`).
-    if !config.read_only {
-        if let Err(e) = state.db.ensure_indexes_current() {
-            console::error(
-                "Failed to ensure index state at startup; text search may be unavailable",
-                Some(&e.to_string()),
-            );
-        }
-    }
-
-    let rpm = config.rate_limit_rpm;
-    let router = app_with_cors(state, rpm, &config.allowed_origins);
-    let router = mount_dashboard(router, config.dashboard_dir.as_deref());
-    let addr = format!("{}:{}", config.host, config.port);
-
-    if !serve_http_or_tls(router, addr, &config, storage.clone()).await {
-        return Err(VantaError::CliError(ChainedError::msg(
-            "Server exited with errors",
-        )));
-    }
-
-    Ok(())
-}
-
-/// Wait for SIGINT (or SIGTERM on Unix) to trigger graceful shutdown.
-pub async fn wait_for_shutdown_signal() {
-    let ctrl_c = tokio::signal::ctrl_c();
-    #[cfg(unix)]
-    let mut sigterm = match tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())
-    {
-        Ok(s) => s,
-        Err(e) => {
-            console::error("Failed to install SIGTERM handler", Some(&e.to_string()));
-            return;
-        }
-    };
-
-    #[cfg(unix)]
-    tokio::select! {
-        _ = ctrl_c => {},
-        _ = sigterm.recv() => {},
-    }
-    #[cfg(not(unix))]
-    let _ = ctrl_c.await;
-}
-
-/// Build a rustls TLS 1.3 server config from PEM certificate and key files.
-#[cfg(feature = "tls")]
-pub async fn build_tls13_config(
-    cert_path: &str,
-    key_path: &str,
-) -> std::io::Result<rustls::ServerConfig> {
-    use rustls::pki_types::pem::PemObject;
-    use rustls::pki_types::{CertificateDer, PrivateKeyDer};
-
-    let cert_bytes = tokio::fs::read(cert_path).await?;
-    let key_bytes = tokio::fs::read(key_path).await?;
-
-    let certs: Vec<CertificateDer> = CertificateDer::pem_slice_iter(&cert_bytes)
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-    let mut keys: Vec<PrivateKeyDer> = PrivateKeyDer::pem_slice_iter(&key_bytes)
-        .collect::<std::result::Result<Vec<_>, _>>()
-        .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-    if keys.len() != 1 {
-        return Err(std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "expected exactly one private key in PEM file",
-        ));
-    }
-
-    let key = keys.pop().ok_or_else(|| {
-        std::io::Error::new(
-            std::io::ErrorKind::InvalidData,
-            "expected exactly one private key",
-        )
-    })?;
-
-    // Include TLSv1.2 alongside TLSv1.3 for compatibility with legacy HTTP
-    // clients (e.g. older curl, Java 8, Python <3.7) that do not support
-    // TLSv1.3 exclusively.
-    let mut config = rustls::ServerConfig::builder_with_protocol_versions(&[
-        &rustls::version::TLS12,
-        &rustls::version::TLS13,
-    ])
-    .with_no_client_auth()
-    .with_single_cert(certs, key)
-    .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
-
-    config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
-    Ok(config)
-}
-
-/// Flush storage and log the result using spawn_blocking to avoid blocking Tokio.
-async fn flush_on_shutdown_async(storage: Arc<crate::storage::StorageEngine>) {
-    console::warn("Flushing storage before exit...", None);
-    let flush_res = tokio::task::spawn_blocking(move || storage.flush()).await;
-
-    match flush_res {
-        Ok(Err(e)) => console::error("Flush failed during shutdown", Some(&e.to_string())),
-        Ok(Ok(())) => console::ok("Storage flushed", None),
-        Err(e) => console::error("Flush task panicked during shutdown", Some(&e.to_string())),
-    }
-    #[cfg(feature = "opentelemetry")]
-    shutdown_telemetry();
-}
-
-/// Returns `true` if the server completed a graceful shutdown (flush was called).
-#[cfg_attr(not(feature = "tls"), allow(unused_variables))]
-async fn serve_http_or_tls(
-    router: axum::Router,
-    addr: String,
-    config: &VantaConfig,
-    storage: Arc<crate::storage::StorageEngine>,
-) -> bool {
-    #[cfg(feature = "tls")]
-    if let (Some(cert), Some(key)) = (&config.tls_cert_path, &config.tls_key_path) {
-        let tls_config = match build_tls13_config(cert, key).await {
-            Ok(c) => axum_server::tls_rustls::RustlsConfig::from_config(Arc::new(c)),
-            Err(e) => {
-                console::error("Failed to load TLS certificate/key", Some(&e.to_string()));
-                flush_on_shutdown_async(storage.clone()).await;
-                return false;
-            }
-        };
-
-        let socket_addr: std::net::SocketAddr = match addr.parse() {
-            Ok(a) => a,
-            Err(e) => {
-                console::error("Invalid bind address", Some(&e.to_string()));
-                flush_on_shutdown_async(storage.clone()).await;
-                return false;
-            }
-        };
-
-        console::print_ready(&format!("https://{}", addr));
-
-        let handle = axum_server::Handle::new();
-        let handle_clone = handle.clone();
-        let storage_clone = storage.clone();
-        tokio::spawn(async move {
-            wait_for_shutdown_signal().await;
-            console::warn("Shutting down TLS server gracefully...", None);
-            flush_on_shutdown_async(storage_clone).await;
-            handle_clone.graceful_shutdown(Some(Duration::from_secs(10)));
-        });
-
-        if let Err(e) = axum_server::bind_rustls(socket_addr, tls_config)
-            .handle(handle)
-            .serve(router.into_make_service_with_connect_info::<std::net::SocketAddr>())
-            .await
-        {
-            console::error("TLS server terminated unexpectedly", Some(&e.to_string()));
-            flush_on_shutdown_async(storage.clone()).await;
-            return false;
-        }
-
-        flush_on_shutdown_async(storage.clone()).await;
-        return true;
-    }
-
-    let listener = match TcpListener::bind(&addr).await {
-        Ok(l) => {
-            console::ok("TCP listener bound", Some(&addr));
-            l
-        }
-        Err(e) => {
-            console::error("Failed to bind port", Some(&e.to_string()));
-            flush_on_shutdown_async(storage.clone()).await;
-            return false;
-        }
-    };
-
-    console::print_ready(&addr);
-
-    let (shutdown_tx, shutdown_rx) = tokio::sync::oneshot::channel::<()>();
-    tokio::spawn(async move {
-        wait_for_shutdown_signal().await;
-        console::warn("Shutting down HTTP server gracefully...", None);
-        let _ = shutdown_tx.send(());
-    });
-
-    if let Err(e) = axum::serve(
-        listener,
-        router.into_make_service_with_connect_info::<std::net::SocketAddr>(),
-    )
-    .with_graceful_shutdown(async {
-        let _ = shutdown_rx.await;
-    })
-    .await
-    {
-        console::error("Server terminated unexpectedly", Some(&e.to_string()));
-    }
-
-    flush_on_shutdown_async(storage.clone()).await;
-    true
 }
 
 // ─── /api/v2 extended SDK surface (WEB-02) ─────────────────────────────────
@@ -1279,7 +698,7 @@ async fn serve_http_or_tls(
 
 /// Body for `POST /api/v2/export`.
 #[derive(Deserialize, Debug)]
-struct ExportRequest {
+pub struct ExportRequest {
     /// Target path for the export file (JSONL).
     path: String,
     /// When present, exports only this namespace; otherwise exports all.
@@ -1290,7 +709,7 @@ struct ExportRequest {
 
 /// Body for `POST /api/v2/import`.
 #[derive(Deserialize, Debug)]
-struct ImportRequest {
+pub struct ImportRequest {
     /// Inline records to import (export wire format). Mutually exclusive with `path`.
     records: Option<Vec<VantaMemoryRecord>>,
     /// Path to a JSONL export (default) or a `.vdbdump` bulk file (`format: "bulk"`).
@@ -1354,7 +773,7 @@ pub async fn import_v2(
 /// Direction wire enum — `TraversalDirection` (src/graph.rs) is not serde.
 #[derive(Deserialize, Debug, Clone, Copy)]
 #[serde(rename_all = "lowercase")]
-enum GraphDirection {
+pub enum GraphDirection {
     Forward,
     Reverse,
     Both,
@@ -1372,7 +791,7 @@ impl From<GraphDirection> for crate::graph::TraversalDirection {
 
 /// Body for `POST /api/v2/graph/bfs` and `/dfs`.
 #[derive(Deserialize, Debug)]
-struct GraphTraversalRequest {
+pub struct GraphTraversalRequest {
     /// Node ids to start from.
     roots: Vec<u128>,
     /// Maximum hop depth from the roots.
@@ -1383,7 +802,7 @@ struct GraphTraversalRequest {
 
 /// Body for `POST /api/v2/graph/degree` and `/centrality`.
 #[derive(Deserialize, Debug)]
-struct GraphRootsRequest {
+pub struct GraphRootsRequest {
     /// Node ids to score.
     roots: Vec<u128>,
 }
@@ -1400,7 +819,7 @@ fn default_pagerank_tolerance() -> f64 {
 
 /// Body for `POST /api/v2/graph/pagerank`.
 #[derive(Deserialize, Debug)]
-struct GraphPageRankRequest {
+pub struct GraphPageRankRequest {
     /// Node ids to score.
     roots: Vec<u128>,
     #[serde(default = "default_pagerank_iterations")]
@@ -1524,7 +943,7 @@ struct GraphTraversalDTO {
 /// so ids above u64::MAX survive the JSON wire (the legacy `/api/v2/graph/*`
 /// endpoints take bare u128 numbers, which the browser cannot parse).
 #[derive(Deserialize, Debug)]
-struct GraphV2TraversalRequest {
+pub struct GraphV2TraversalRequest {
     /// Node ids to start from (decimal u128 strings).
     roots: Vec<String>,
     /// Maximum hop depth from the roots.
@@ -1537,7 +956,7 @@ struct GraphV2TraversalRequest {
 
 /// Body for `POST /api/v2/graph/v2/degree`.
 #[derive(Deserialize, Debug)]
-struct GraphV2DegreeRequest {
+pub struct GraphV2DegreeRequest {
     /// Namespace whose records are scored.
     namespace: String,
     /// Cap on the returned node count (default 50).
@@ -1733,7 +1152,7 @@ pub async fn maintenance_rebuild_index(State(state): State<Arc<ServerState>>) ->
 
 /// Query params for `GET /api/v2/threads`.
 #[derive(Deserialize, Debug)]
-struct ThreadsListParams {
+pub struct ThreadsListParams {
     /// Maximum number of threads to return.
     #[serde(default = "default_threads_limit")]
     limit: usize,
@@ -1748,7 +1167,7 @@ fn default_threads_limit() -> usize {
 
 /// Body for `POST /api/v2/threads`.
 #[derive(Deserialize, Debug)]
-struct ThreadCreateRequest {
+pub struct ThreadCreateRequest {
     /// Human-readable thread title.
     title: String,
     /// Optional time-to-live in seconds for the thread.
@@ -1757,23 +1176,11 @@ struct ThreadCreateRequest {
 
 /// Body for `POST /api/v2/threads/{id}` (send a message).
 #[derive(Deserialize, Debug)]
-struct ThreadMessageRequest {
+pub struct ThreadMessageRequest {
     /// Message role (`user`, `assistant`, ...).
     role: String,
     /// Message content.
     content: String,
-}
-
-/// 404 body for a missing thread.
-fn thread_not_found_response(id: u128) -> Response {
-    (
-        StatusCode::NOT_FOUND,
-        Json(serde_json::json!({
-            "success": false,
-            "error": format!("thread not found: {id}"),
-        })),
-    )
-        .into_response()
 }
 
 /// Wire view of a thread — `MessageThread.thread_id` is a bare `u128` that
@@ -1880,7 +1287,7 @@ pub async fn threads_delete(
 /// conversation. When `thread_id` is absent, a new thread is created first —
 /// the agent does not need to pre-create a thread to accumulate context.
 #[derive(Deserialize, Debug)]
-struct ConversationAddRequest {
+pub struct ConversationAddRequest {
     /// Existing thread id (u128 as decimal string). When absent, a thread is
     /// created with `title` (defaults to `"conversation"`) and `ttl_secs`.
     thread_id: Option<String>,
@@ -1962,7 +1369,7 @@ pub async fn conversation_add(
 /// Query params for `GET /skill/listing` (F3 data plane): head rows of the
 /// skill store with optional filters — enough for prompt-injection use cases.
 #[derive(Deserialize, Debug)]
-struct SkillListingParams {
+pub struct SkillListingParams {
     /// Only list skills owned by this agent.
     owner_agent: Option<String>,
     /// Only list skills whose name starts with this prefix.
@@ -2028,7 +1435,7 @@ pub async fn skill_listing(
 /// checked against the head's owner — a mismatch returns the SAME 404 as a
 /// missing skill (no existence oracle for other agents' skills).
 #[derive(Deserialize, Debug)]
-struct SkillMutationParams {
+pub struct SkillMutationParams {
     owner_agent: String,
     expected_version: u64,
 }

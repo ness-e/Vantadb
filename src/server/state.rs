@@ -245,7 +245,7 @@ pub enum AuthIdentity {
 /// Namespace holding auth entities (`user` collection) for L3 resolution.
 /// ponytail: single fixed namespace; make configurable when multi-namespace
 /// servers appear.
-pub(crate) const AUTH_ENTITY_NS: &str = "default";
+pub const AUTH_ENTITY_NS: &str = "default";
 
 /// L3 header carrying the caller's user key (TDAM `x-tdai-user-key` port).
 pub(crate) const USER_KEY_HEADER: &str = "x-vanta-user-key";
@@ -377,4 +377,89 @@ pub(crate) fn extract_request_id(headers: &HeaderMap) -> Option<String> {
         }
     }
     None
+}
+
+/// Resolve a user-key to `(user_id, is_system_admin)` already defined above
+/// is `resolve_user_key`. `client_ip` and `resolve_identity` are also
+/// exposed here so `middleware` can import them from `state` (REVIEW-10
+/// split expectation).
+/// Resolve the real client IP used for rate limiting and logging.
+///
+/// `X-Forwarded-For` is only honored when the request's peer is one of
+/// `trusted_proxies` (i.e. it actually arrived via a configured reverse proxy
+/// that sets the header). Otherwise the direct TCP socket address
+/// ([`ConnectInfo`]) is returned — so a client cannot spoof its recorded IP by
+/// setting `X-Forwarded-For` itself.
+pub fn client_ip(req: &axum::extract::Request, trusted_proxies: &[std::net::IpAddr]) -> String {
+    let peer = req
+        .extensions()
+        .get::<axum::extract::ConnectInfo<std::net::SocketAddr>>()
+        .map(|ci| ci.0);
+
+    if let Some(peer) = peer {
+        if trusted_proxies.contains(&peer.ip()) {
+            if let Some(forwarded) = req.headers().get("x-forwarded-for") {
+                if let Ok(ip_str) = forwarded.to_str() {
+                    for part in ip_str.split(',') {
+                        let trimmed = part.trim();
+                        if trimmed.is_empty() {
+                            continue;
+                        }
+                        if let Ok(ip) = trimmed.parse::<std::net::IpAddr>() {
+                            return ip.to_string();
+                        }
+                    }
+                }
+            }
+        }
+        return peer.ip().to_string();
+    }
+
+    "unknown".to_string()
+}
+
+/// Resolve the auth identity from headers: L3 (user-key) wins over L2
+/// (service-id); neither present → bare transport identity.
+///
+/// Any resolution failure yields 401 (fail closed — internal state is never
+/// leaked to the caller).
+pub(crate) fn resolve_identity(
+    req: &axum::extract::Request,
+    auth: &AuthState,
+) -> std::result::Result<AuthIdentity, (axum::http::StatusCode, &'static str)> {
+    let user_key = req
+        .headers()
+        .get(USER_KEY_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    if let Some(user_key) = user_key {
+        let Some(storage) = &auth.storage else {
+            return Err((axum::http::StatusCode::UNAUTHORIZED, "invalid_user_key"));
+        };
+        let store = EntityStore::new(storage.as_ref());
+        return match resolve_user_key(&store, AUTH_ENTITY_NS, user_key) {
+            Ok(Some((user_id, is_system_admin))) => Ok(AuthIdentity::User {
+                user_id,
+                is_system_admin,
+            }),
+            Ok(None) | Err(_) => Err((axum::http::StatusCode::UNAUTHORIZED, "invalid_user_key")),
+        };
+    }
+
+    let service_id = req
+        .headers()
+        .get(SERVICE_ID_HEADER)
+        .and_then(|v| v.to_str().ok())
+        .map(str::trim)
+        .filter(|s| !s.is_empty());
+
+    if let Some(service_id) = service_id {
+        return Ok(AuthIdentity::Service {
+            service_id: service_id.to_string(),
+        });
+    }
+
+    Ok(AuthIdentity::Transport)
 }

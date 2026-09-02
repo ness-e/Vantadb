@@ -16,7 +16,6 @@ use crate::VantaError;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
-use tracing;
 
 /// Whether `host` binds only the loopback interface (`127.0.0.0/8`,
 /// `::1`, or the literal name `localhost`). Unresolvable hostnames are

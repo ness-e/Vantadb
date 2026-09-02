@@ -47,7 +47,9 @@ pub use middleware::{auth_middleware, circuit_breaker_middleware, request_metric
 
 pub use router::{app, app_with_cors, mount_dashboard};
 
-pub use telemetry::{init_telemetry, shutdown_telemetry};
+pub use telemetry::init_telemetry;
+#[cfg(feature = "opentelemetry")]
+pub use telemetry::shutdown_telemetry;
 
 // Re-export routing facade for callers that import via `crate::server::routing::*`
 pub use routing as routing_legacy;

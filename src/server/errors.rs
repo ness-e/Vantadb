@@ -135,23 +135,30 @@ mod tests {
     #[test]
     fn vanta_error_status_maps_correctly() {
         assert_eq!(
-            vanta_error_status(&VantaError::IqlParseError { msg: "x".into() }),
+            vanta_error_status(&VantaError::IqlParseError {
+                msg: "x".into(),
+                line: 1,
+                col: 1
+            }),
             StatusCode::BAD_REQUEST
         );
         assert_eq!(
-            vanta_error_status(&VantaError::ValidationError { msg: "x".into() }),
+            vanta_error_status(&VantaError::ValidationError {
+                field: "x".into(),
+                reason: "y".into()
+            }),
             StatusCode::UNPROCESSABLE_ENTITY
         );
         assert_eq!(
-            vanta_error_status(&VantaError::NodeNotFound("x".into())),
+            vanta_error_status(&VantaError::NodeNotFound(42)),
             StatusCode::NOT_FOUND
         );
         assert_eq!(
-            vanta_error_status(&VantaError::DuplicateNode("x".into())),
+            vanta_error_status(&VantaError::DuplicateNode(42)),
             StatusCode::CONFLICT
         );
         assert_eq!(
-            vanta_error_status(&VantaError::Io(std::io::Error::other("x"))),
+            vanta_error_status(&VantaError::IoError(std::io::Error::other("x"))),
             StatusCode::INTERNAL_SERVER_ERROR
         );
     }
@@ -168,7 +175,7 @@ mod tests {
         );
 
         // Body must not leak the panic detail
-        let body = res.into_body();
+        let _body = res.into_body();
         // We can't easily read the body here without async, but the function
         // is tested in integration tests in routing.rs
     }

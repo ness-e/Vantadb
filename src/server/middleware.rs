@@ -4,38 +4,31 @@
 //! request/response cycle. Handlers live in `handlers.rs`.
 
 use crate::audit::AuditEvent;
-use crate::circuit_breaker::CircuitBreaker;
-use crate::connection_pool::ConnectionPool;
-use crate::entity::EntityStore;
-use crate::rbac::{Permission, Rbac};
+use crate::metrics;
+use crate::rbac::Permission;
 use crate::server::state::{
     audit_auth, client_ip as state_client_ip, extract_namespace, extract_request_id,
-    resolve_identity as state_resolve_identity, resolve_user_key, AuthIdentity, AuthState,
-    RequestId, AUTH_ENTITY_NS, SERVICE_ID_HEADER, USER_KEY_HEADER,
+    resolve_identity as state_resolve_identity, AuthIdentity, AuthState, RequestId,
 };
-use crate::storage::StorageEngine;
-use crate::VantaError;
 use axum::{
     extract::{Request, State},
-    http::{header, HeaderMap, StatusCode},
-    middleware::{self, Next},
+    http::{header, StatusCode},
+    middleware::Next,
     response::{IntoResponse, Response},
-    Extension, Json,
+    Json,
 };
-use parking_lot::Mutex;
 use std::sync::Arc;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 use subtle::ConstantTimeEq;
-use tracing;
 use tracing::Instrument;
 
 /// Re-export the state-level client_ip for internal use.
-pub(crate) fn client_ip(req: &Request, trusted_proxies: &[std::net::IpAddr]) -> String {
+pub fn client_ip(req: &Request, trusted_proxies: &[std::net::IpAddr]) -> String {
     state_client_ip(req, trusted_proxies)
 }
 
 /// Re-export the state-level resolve_identity for internal use.
-pub(crate) fn resolve_identity(
+pub fn resolve_identity(
     req: &Request,
     auth: &AuthState,
 ) -> std::result::Result<AuthIdentity, (StatusCode, &'static str)> {
@@ -310,15 +303,13 @@ pub async fn circuit_breaker_middleware(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::VantaConfig;
-    use crate::server::state::ServerState;
 
     #[test]
     fn client_ip_ignores_xff_without_trusted_proxy() {
         // No trusted proxy configured → a forged header must be ignored and the
         // real socket address returned. This is the AUDREP-11 regression guard:
         // a direct client cannot spoof its recorded IP.
-        let peer = "198.51.100.5:4444".parse().unwrap();
+        let peer: std::net::SocketAddr = "198.51.100.5:4444".parse().unwrap();
         let req = Request::builder()
             .header("x-forwarded-for", "203.0.113.99")
             .extension(axum::extract::ConnectInfo(peer))
@@ -330,7 +321,7 @@ mod tests {
     #[test]
     fn client_ip_uses_xff_from_trusted_proxy() {
         // Peer is a configured proxy → the X-Forwarded-For value is used.
-        let proxy = "10.0.0.5:4444".parse().unwrap();
+        let proxy: std::net::SocketAddr = "10.0.0.5:4444".parse().unwrap();
         let req = Request::builder()
             .header("x-forwarded-for", "203.0.113.99")
             .extension(axum::extract::ConnectInfo(proxy))
@@ -344,7 +335,7 @@ mod tests {
 
     #[test]
     fn client_ip_uses_first_valid_ip_in_xff() {
-        let proxy = "10.0.0.5:4444".parse().unwrap();
+        let proxy: std::net::SocketAddr = "10.0.0.5:4444".parse().unwrap();
         let req = Request::builder()
             .header("x-forwarded-for", "203.0.113.1, 198.51.100.7")
             .extension(axum::extract::ConnectInfo(proxy))
@@ -360,7 +351,7 @@ mod tests {
     fn client_ip_ignores_xff_from_untrusted_peer_with_proxy_list() {
         // The list of trusted proxies is non-empty, but this request's peer is
         // NOT one of them, so X-Forwarded-For must still be ignored.
-        let direct = "198.51.100.9:5555".parse().unwrap();
+        let direct: std::net::SocketAddr = "198.51.100.9:5555".parse().unwrap();
         let req = Request::builder()
             .header("x-forwarded-for", "203.0.113.99")
             .extension(axum::extract::ConnectInfo(direct))
@@ -375,7 +366,7 @@ mod tests {
     #[test]
     fn client_ip_simple_remote_addr_no_xff() {
         // Untrusted: x-forwarded-for ignored, socket addr returned.
-        let peer = "198.51.100.5:4444".parse().unwrap();
+        let peer: std::net::SocketAddr = "198.51.100.5:4444".parse().unwrap();
         let req = Request::builder()
             .header("x-forwarded-for", "203.0.113.99")
             .extension(axum::extract::ConnectInfo(peer))

@@ -154,7 +154,7 @@ pub mod transcript;
 
 // Re-exports for ergonomic API
 pub use binary_header::VantaHeader;
-pub use config::{MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K, MAX_VEC_DIM};
+pub use config::{VantaConfig, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K, MAX_VEC_DIM};
 pub use engine::{EngineStats, InMemoryEngine, QueryResult, SourceType};
 pub use error::{Result, VantaError};
 pub use index::graph::VECTOR_INDEX_VERSION;
