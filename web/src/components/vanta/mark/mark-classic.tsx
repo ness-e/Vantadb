@@ -59,38 +59,37 @@ export function MarkClassic() {
   // Refs for graph node circles (for Anime.js pulse on hover)
   const nodeRefs = useRef<(SVGCircleElement | null)[]>([]);
 
-  // Anime.js: pulse animation when a node is hovered
+  // Anime.js: pulse on hover — sutil reducido 2.5→1.8
   useEffect(() => {
     if (hoveredNode === null) return;
     const nodeEl = nodeRefs.current[hoveredNode];
     if (!nodeEl) return;
-    // Pulse: scale up + back, with neon glow
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     animate(nodeEl, {
-      r: [GRAPH_NODES[hoveredNode].r, GRAPH_NODES[hoveredNode].r * 2.5, GRAPH_NODES[hoveredNode].r * 2.2],
-      duration: 400,
-      ease: "outElastic(1, 0.6)",
+      r: [GRAPH_NODES[hoveredNode].r, GRAPH_NODES[hoveredNode].r * 1.8, GRAPH_NODES[hoveredNode].r * 1.5],
+      duration: 380,
+      ease: "outQuad",
     });
   }, [hoveredNode]);
 
-  // Anime.js: stagger pulse all nodes on mount (subtle ambient animation)
+  // Anime.js: ambient pulse sutil 10→3 estáticos (WEB-09 slice3) — solo 3 nodos, loop tenue
   // Skipped under prefers-reduced-motion; instances paused on unmount
-  // (anime.js does NOT auto-cleanup on unmount).
   const ambientAnimsRef = useRef<ReturnType<typeof animate>[]>([]);
   useEffect(() => {
     if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
     const validNodes = nodeRefs.current.filter(Boolean) as SVGCircleElement[];
     if (validNodes.length === 0) return;
-    // Subtle ambient pulse — each node pulses at slightly different time
-    validNodes.forEach((node, i) => {
+    // Sutil: solo 3 nodos pulsan, resto estáticos; duración alargada, amplitud reducida
+    validNodes.slice(0, 3).forEach((node, i) => {
       ambientAnimsRef.current.push(
         animate(node, {
           r: [
             GRAPH_NODES[i].r,
-            GRAPH_NODES[i].r * 1.3,
+            GRAPH_NODES[i].r * 1.15,
             GRAPH_NODES[i].r,
           ],
-          duration: 2400,
-          delay: i * 180,
+          duration: 3200,
+          delay: i * 320,
           ease: "inOutSine",
           loop: true,
         })
@@ -195,10 +194,9 @@ export function MarkClassic() {
             className="text-black "
           />
 
-          {/* Subtle glow ring (pulses softly) */}
-          <circle cx="50" cy="50" r="42" fill="none" stroke="#FF5500" strokeWidth="0.6" opacity="0.3">
-            <animate attributeName="r" values="42;46;42" dur="3.5s" repeatCount="indefinite" />
-            <animate attributeName="opacity" values="0.3;0;0.3" dur="3.5s" repeatCount="indefinite" />
+          {/* Subtle glow ring — sutil 2→1 SMIL tenue sin anim r (WEB-09 slice3) */}
+          <circle cx="50" cy="50" r="42" fill="none" stroke="#FF5500" strokeWidth="0.5" opacity="0.14">
+            <animate attributeName="opacity" values="0.14;0.04;0.14" dur="5s" repeatCount="indefinite" />
           </circle>
 
           {/* Orange sphere — follows mouse (Anime.js smooth via hook) */}

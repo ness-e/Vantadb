@@ -239,13 +239,27 @@
 .animate-marquee {
   animation: vanta-marquee 28s linear infinite;
 }
+/* A11y sutil: pausa hover + gating prefers-reduced-motion para marquee (WEB-09 slice1) */
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-marquee {
+    animation-play-state: paused;
+  }
+}
 
 @keyframes vanta-blink {
   0%, 49% { opacity: 1; }
   50%, 100% { opacity: 0; }
 }
 .animate-blink {
-  animation: vanta-blink 1.1s step-end infinite;
+  animation: vanta-blink 8s step-end infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-blink {
+    animation: none !important;
+  }
 }
 
 @keyframes vanta-flicker {
@@ -259,6 +273,11 @@
 }
 .animate-flicker {
   animation: vanta-flicker 4.5s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .animate-flicker {
+    animation: none !important;
+  }
 }
 
 @keyframes vanta-rise {
@@ -476,7 +495,7 @@
   50% { box-shadow: 0 0 20px 4px rgba(255, 85, 0, 0.5); }
 }
 
-/* Glitch effect (for hover on titles) */
+/* Glitch effect — sutil 2→1: solo Vanta mantiene glitch, DB sin; gated por reduced-motion */
 .glitch-hover {
   position: relative;
   transition: text-shadow 150ms ease;
@@ -484,6 +503,16 @@
 .glitch-hover:hover {
   text-shadow: 2px 0 #FF5500, -2px 0 #7ec7ff;
   animation: vanta-glitch 300ms steps(2) 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .glitch-hover:hover {
+    animation: none;
+    text-shadow: none;
+  }
+}
+.glitch-disabled:hover {
+  animation: none !important;
+  text-shadow: none !important;
 }
 @keyframes vanta-glitch {
   0% { transform: translate(0); }

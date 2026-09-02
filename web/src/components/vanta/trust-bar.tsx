@@ -25,17 +25,18 @@ export function TrustBar() {
   // default so the section renders with Spanish copy today, and automatically
   // picks up the dictionary entry when it lands in Fase 5.
 
-  // Duplicate the list once for a seamless marquee loop (translateX -50%).
-  const marqueeItems = [...LOGOS, ...LOGOS];
+  // Marquee sutil: test 12→6 evaluado 2026-09-02 — 6 salta (translateX -50% deja hueco ~480px en 1440×900)
+  // fallback KEEP 12 nodos con atenuación visual (w-8, opacity 0.02/0.60) para seamless loop sin salto
+  const marqueeItems = [...LOGOS, ...LOGOS]; // 12 nodos keep (6 únicos ×2) — test 6 salta, revert
 
   return (
     <section
       aria-label={tt("trustBar.ariaLabel", "Ecosistema y compatibilidad")}
       className="relative border-b-4 border-black bg-black text-[#FBF9F5]  "
     >
-      {/* Subtle halftone overlay (cream dots on black band) */}
+      {/* Subtle halftone overlay (cream dots on black band) — sutil: 0.05→0.02 */}
       <div
-        className="pointer-events-none absolute inset-0 opacity-[0.05]"
+        className="pointer-events-none absolute inset-0 opacity-[0.02]"
         style={{
           backgroundImage:
             "radial-gradient(circle, #FBF9F5 1.2px, transparent 1.4px)",
@@ -43,13 +44,13 @@ export function TrustBar() {
         }}
         aria-hidden
       />
-      {/* Speed-lines edge accents */}
+      {/* Speed-lines edge accents — atenuado 50%: w-16→w-8 */}
       <div
-        className="pointer-events-none absolute inset-y-0 left-0 w-16 bg-gradient-to-r from-black to-transparent"
+        className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-black to-transparent opacity-60"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute inset-y-0 right-0 w-16 bg-gradient-to-l from-black to-transparent"
+        className="pointer-events-none absolute inset-y-0 right-0 w-8 bg-gradient-to-l from-black to-transparent opacity-60"
         aria-hidden
       />
 

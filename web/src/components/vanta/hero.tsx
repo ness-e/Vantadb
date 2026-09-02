@@ -29,22 +29,19 @@ export function Hero({ onNavigate }: { onNavigate: (v: View) => void }) {
       aria-label={tt("hero.ariaLabel", "VantaDB — motor Rust embebido para memoria local durable y retrieval híbrido")}
       className="relative overflow-hidden border-b-4 border-black bg-[#FBF9F5]"
     >
-      {/* Background layers: grid + halftone + speed lines */}
+      {/* Background layers: grid + halftone + speed lines — sutil atenuado */}
       <div className="pointer-events-none absolute inset-0 grid-tech" aria-hidden />
       <div
-        className="pointer-events-none absolute -right-24 -top-24 h-[520px] w-[520px] halftone halftone-fade opacity-30"
+        className="pointer-events-none absolute -right-12 -top-12 h-[260px] w-[260px] halftone halftone-fade opacity-[0.12]"
         aria-hidden
       />
       <div
-        className="pointer-events-none absolute bottom-0 left-0 h-40 w-full speed-lines opacity-[0.06]"
+        className="pointer-events-none absolute bottom-0 left-0 h-20 w-full speed-lines opacity-[0.03]"
         aria-hidden
       />
 
-      {/* Corner registration marks (technical drafting) */}
+      {/* Corner registration marks — sutil 4→1 (esquinero) */}
       <RegMark className="left-3 top-3" />
-      <RegMark className="right-3 top-3" />
-      <RegMark className="bottom-3 left-3" />
-      <RegMark className="bottom-3 right-3" />
 
       <div className="relative mx-auto grid max-w-7xl grid-cols-1 items-center gap-8 px-4 py-12 sm:px-6 lg:grid-cols-12 lg:gap-6 lg:py-20">
         {/* LEFT — text hierarchy */}
@@ -55,17 +52,17 @@ export function Hero({ onNavigate }: { onNavigate: (v: View) => void }) {
               0.5.0 · MVP
             </span>
             <span className="inline-flex items-center gap-2 border-2 border-black bg-black px-3 py-1 font-tech text-[10px] font-bold uppercase tracking-[0.2em] text-[#FBF9F5]">
-              <span className="h-2 w-2 animate-flicker bg-[#FF5500]" />
+              <span className="h-2 w-2 bg-[#FF5500] motion-safe:animate-flicker motion-reduce:animate-none" />
               Embedded · Local-First · Rust
             </span>
           </div>
 
           {/* H1 */}
           <h1 className="font-display text-stencil uppercase leading-[0.82] text-black ">
-            <span className="glitch-hover block text-[15vw] sm:text-[12vw] lg:text-[9.5vw] xl:text-[140px]">
+            <span className="glitch-hover motion-reduce:glitch-disabled block text-[15vw] sm:text-[12vw] lg:text-[9.5vw] xl:text-[140px]">
               Vanta
             </span>
-            <span className="glitch-hover block text-[15vw] sm:text-[12vw] lg:text-[9.5vw] xl:text-[140px]">
+            <span className="block text-[15vw] sm:text-[12vw] lg:text-[9.5vw] xl:text-[140px]">
               <span className="text-outline-neon glow-neon">DB</span>
             </span>
           </h1>
@@ -185,7 +182,7 @@ export function Hero({ onNavigate }: { onNavigate: (v: View) => void }) {
             {tt("hero.scrollCue", "Scroll · Core Capabilities")}
             <ChevronRight className="h-3 w-3 rotate-90" />
           </span>
-          <ArrowDown className="h-4 w-4 animate-bounce" />
+          <ArrowDown className="h-4 w-4 motion-safe:animate-bounce motion-reduce:animate-none" />
         </button>
       </div>
     </section>
