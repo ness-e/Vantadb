@@ -268,7 +268,7 @@ Sin `GO` explícito del usuario, la tarea queda 🟡 DEFER (no se fuerza `DO`).
 - **Top 3 riesgos:** 1 catch legítimo
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1 (toast + 2 catch)
 - **DoD:** Task: `catch {}` eliminado + `error.code` toast · Commit: `fix(web): toast code + catch silenciado (ERR-WEB-01)` · Release: N/A
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-09-02, commit `10cc9671` — contrato: catch{}=0, VANTADB_ keys=22, build+lint+E2E 2 passed)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/ERR-WEB-01.md`
 
 ### Task 8: ERR-DOCS-01 — Docs ERROR_HANDLING.md + observabilidad (is_retriable, recovery_hint, code table)

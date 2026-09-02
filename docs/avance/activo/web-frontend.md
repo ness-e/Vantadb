@@ -117,3 +117,9 @@ aliases: []
 - **Fuente:** Plan `docs/plans/archive/2026-08-19-web-design-audit.md` · Reporte: `docs/reviews/web-design-audit-2026-08-24.md`
 - **Resultado:** ✅ 8/8 tareas, 8 commits (`fbc404b5..a328ca64`) — baseline medible, dark-mode huérfano fuera (R-FE-4), not-found.tsx + sitemap 36 URLs + SITE_URL centralizada, 9 claims falsos corregidos, contrastes/touch-targets/ARIA, −7,615 líneas (13 deps zombies + ui/ muerta), i18n residual migrado, hero value prop + funnel demo honesto.
 - **Pendiente:** Lighthouse post (EPERM ambiental), densidad de efectos home, pricing mid-tier (decisión producto), assets public/assets.
+
+## ERR-WEB-01 — Toast por código de error + catch sin silenciar (2026-09-02)
+
+- **Fuente:** Plan `docs/plans/2026-09-02-error-observability-excellence.md` Task 7 (Wave 3) · Task file `.opencode/skills/campaign-executor/tasks/ERR-WEB-01.md`
+- **Resultado:** ✅ `toastError(error)` en `web/src/components/vanta/toast.tsx` mapea `error.code` → claves `errors.VANTADB_*` (10 ES + 10 EN en `dictionaries.ts`, códigos canónicos de vantadb-ts) con fallback `toast.error` + message en dev; duck-type porque la app no importa `vantadb` (WASM vive en iframe sandbox). `catch {}` de `code-playground.tsx:174` → `console.error` + `toastError` en el catch de `run()`; `copy-utils.ts` → `console.warn` con justificación de degradación intencional. Contrato: `catch {}`=0 · `VANTADB_`=22 · build exit 0 · lint 0 errors · Playwright 2 passed. **Commit:** `10cc9671`
+
