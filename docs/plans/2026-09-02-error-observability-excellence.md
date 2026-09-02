@@ -272,7 +272,10 @@ Sin `GO` explícito del usuario, la tarea queda 🟡 DEFER (no se fuerza `DO`).
 - **Top 3 riesgos:** 1 stale table
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1 (1 md + 3 updates)
 - **DoD:** Task: `ERROR_HANDLING.md` + 3 updates · Commit: `docs: ERROR_HANDLING.md + code tables (ERR-DOCS-01)` · Release: N/A (docs-only)
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-09-02T19:30)
+- **Commit:** 962831ae -- 7 files (ERROR_HANDLING.md 374L + 5 doc updates + CHANGELOG + CONSTRAINTS)
+- **Verify:** 6/6 PASS (VANTADB_=10, is_retriable=6, TS ERROR_CODES=4, MCP McpError=3, PYTHON VantaError=24)
+- **Progreso:** docs/avance/activo/{core-engine,bindings,web-frontend}.md OK
 - **Task file:** `.opencode/skills/campaign-executor/tasks/ERR-DOCS-01.md`
 
 ### Task 9: ERR-OBS-01 — Captura y observabilidad: Backtrace + tracing + metrics + catch_unwind + sanitización
