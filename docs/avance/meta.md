@@ -182,3 +182,8 @@ Los archivos de `docs/avance/activo/` **se actualizan al cierre de cada campaña
 - **Stop (dejar de hacer):** confiar en backlog sin verificar código (6/10 ya resueltos desde a7ed0d22); asumir disco infinito (StorageFull 112 bloqueó e2e hasta liberar 120GB).
 - **Continue:** contracts `npm --prefix desktop run build` + `npm test 69/69` + `cargo check` por wave; E2E con mock `page.route` + far-future TTL evita drift.
 - **Accion medible:** 6/10 audit-only al triagear (60% stale-detection) vs 14% en batches colaterales — verificación previa ahorra código. North Star: 10/10 first-try post-retry (100%), 0 falsos positivos. Coste: disk full lesson — limpiar temp antes de e2e webServer.
+
+## Archivo 2026-09-02: campaña error-observability (20260902-error-observability)
+
+Plan docs/plans/archive/2026-09-02-error-observability-excellence.md archivado con retrospectiva: 9/9 ✅ (4 waves, MAX_CONCURRENT=3, 89% first-try — único retry por fallo de infra uv_spawn, no de diseño). Contrato unificado VANTADB_* (10 códigos) core→WASM/Node/TS→Python/providers→MCP(-320xx)→Desktop→Web. Follow-ups: FIND-52/53/54 + sanitización 500.
+

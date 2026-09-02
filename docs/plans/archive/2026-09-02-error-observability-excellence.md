@@ -361,13 +361,34 @@ Tras Wave 3: `desktop`/`web` usan `code` no `message`, `ERROR_HANDLING.md` lista
 
 - **Fecha:** 2026-09-02
 - **Branch:** develop
-- **Estado:** ⏳ EN PROGRESO (Wave 0 ✅ + Wave 1 ✅ e1fe7ec2 + Wave 2 ✅: ERR-PY-01, ERR-TS-01, ERR-MCP-01)
-- **Próxima tarea:** Wave 3 (paralelo ≤3): ERR-DESK-01, ERR-WEB-01, ERR-OBS-01. ⚠️ FIND-52: re-verificar vitest vantadb-ts tras resolver regresión runtime wasm32 + ICE release.
+- **Estado:** ✅ CAMPAÑA COMPLETADA (9/9, 0 failed) — waves 0-3 cerradas, verificación final fmt/clippy/check workspace 0 + nextest error 111/111 (2026-09-02, lead)
+- **Próxima tarea:** ninguna en este plan. Candidatas ola 4 (de FINDs creados): FIND-52 (vitest wasm ICE/panics, 🔴), FIND-53 (metrics counter dep nueva, 🟡), FIND-54 (cors flake determinístico, 🟢), sanitización body 500 `query_error_response` (🟡, NOTICIED de ERR-OBS-01)
 - **Decisiones:** `code()` 10 strings canónicos `VANTADB_` prefix + `Generic` → 2 variantes críticas primero + `clippy deny` solo en `src/` allow tests + `Backtrace` stable + `tracing`/`metrics`/`catch_unwind`. **RESUELTO ERR-CORE-01:** split final IqlParseError→VANTADB_VALIDATION_ERROR / IqlError→VANTADB_INVALID_ARGUMENT; ExecutionConflict→VALIDATION; match exhaustivo sin wildcard (varianta nueva = error de compile); overflow vars nuevas no-retriables (límites duros de formato). **RESUELTO ERR-TS-01:** WASM consume `e.code()` directo (tabla local eliminada); Node wire = prefijo `"{code}: {msg}"` (napi sin canal de propiedad); TS = keys unprefijadas + values `VANTADB_*` (Gate P no aplicó — §1.2 ya lo especificaba); guards→VantaError BREAKING documentado.
 
 SDP: campaign-executor, brainstorming, writing-plans, planning-and-task-breakdown, progreso, ponytail, spec-driven-development, systematic-debugging, code-review-and-quality, security-and-hardening, observability-and-instrumentation, api-and-interface-design, coordinated-web-search
 **Code Intelligence por tarea:** `codegraph_explore` + `codebase-memory-mcp: detect_changes` + `get_architecture` + `check_index_coverage` — en cada DO antes de editar
 **Internet por tarea:** `coordinated-web-search` → `agent-search free_search` → `argus_search_web` → `metasearchmcp compare_engines` → `webfetch/Jina` (10 fuentes citadas)
+
+## Retrospectiva — campaña 20260902-error-observability (9/9, 4 waves, MAX_CONCURRENT=3)
+
+**Start (seguir haciendo):**
+- Waves con DAG de archivos disjuntos por binding (providers | ts-wasm-node | mcp | desktop | web) → 0 conflictos, 3 tareas cerradas en paralelo limpiamente
+- Pre-adjuntar al prompt del sub-agente la tabla canónica (`ERROR_HANDLING.md`) como SPEC + decisiones ya tomadas → ahorró ~3 gates P intermedios
+- Contratos grep-mecánicos → verificación post-hoc independiente del orquestador en <5 min (9/9 reproducibles)
+- SARL para fallo de infra (`uv_spawn` en primer intento de ERR-PY-01): retry con "verificá que no exista commit previo" completó sin duplicar
+
+**Stop (dejar de hacer):**
+- Escribir rutas de archivo no verificadas en el brief (`src/main.rs` no existe — es `src/bin/vanta-cli.rs`)
+- Fijar premisas sin falsificarlas en Paso 0: 3 premisas del plan resultaron falsas (Backtrace→estable 1.65; clippy NO excluye tests por default → sweep 190 archivos; `python_sdk` feature sin excepciones compartidas)
+
+**Continue (igual):**
+- Conventional commit con task ID + commit de cierre (plan+avance) por tarea → `git log` trazable
+- `NOTICED BUT NOT TOUCHING` → filas FIND-52/53/54 nuevas en lugar de scope-creep intra-wave
+
+**Acción medible (contra baseline):**
+> Reducir premisas-falsas-descubiertas-en-ejecución a 0. Baseline: 3/9 tareas invalidaron un supuesto del brief. Métrica: count de "premortem/stop-condition/NOTICIED que corrige el plan" por campaña en el cierre. Mecanismo: en `/pipeline plan`, el Paso 0 DEBE ejecutar el lado lectura del contrato del brief (`rustc --version`, `Test-Path src/main.rs`, `cargo clippy` seco sobre crate target) y pegar la salida en `Verificación real`. Target campaña siguiente: 0.
+
+**Resultado neto (superficie):** un solo contrato `VANTADB_*` (10 códigos) viaja core→WASM→Node→TS→Python(SDK+providers)→MCP(-320xx)→Desktop(Domain)→Web(dictionaries ES/EN); `isError` MCP con `{code,retriable,hint}`; 0 `Debug`-leaks en providers; 0 `catch {}` silenciosos en web; `Backtrace` gated; `deny unwrap/except` en prod. North Star: 8/9 first-try (89%, debajo del 90% solo por el retry de infra).
 
 === RECITATION ERR-TS-01 ===
 Campaign ID: 20260902-error-observability

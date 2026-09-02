@@ -1,34 +1,21 @@
 {
-  "plan": "docs/plans/archive/2026-08-30-testing-bench-harden.md",
-  "totalCompleted": 23,
-  "incomplete": 0,
-  "consecutiveFails": 0,
-  "total": 23,
-  "failMode": "parallel",
+  "plan": "docs/plans/archive/2026-09-02-error-observability-excellence.md",
+  "campaignId": "20260902-error-observability",
+  "totalCompleted": 9,
   "totalFailed": 0,
-  "lastSync": "2026-09-02T20:00:00Z",
-  "campaignId": "6ace02cd-7e74-4b23-9d55-bb32222eee13",
-  "phases": {
-    "alta": {"total": 5, "completed": 5},
-    "media": {"total": 10, "completed": 10},
-    "baja": {"total": 8, "completed": 8}
-  },
-  "waves": [
-    {"name": "Wave 0", "tasks": ["TBH-04", "TBH-05", "TBH-13"], "mode": "parallel"},
-    {"name": "Wave 1", "tasks": ["TBH-14", "TBH-22", "TBH-19"], "mode": "parallel"},
-    {"name": "Wave 2", "tasks": ["TBH-15", "TBH-23", "TBH-12"], "mode": "parallel"},
-    {"name": "Wave 3", "tasks": ["TBH-11", "TBH-20", "TBH-17"], "mode": "parallel"},
-    {"name": "Wave 4", "tasks": ["TBH-07", "TBH-21", "TBH-10"], "mode": "parallel"},
-    {"name": "Wave 5", "tasks": ["TBH-06", "TBH-08", "TBH-09", "TBH-16", "TBH-18"], "mode": "serial-then-parallel"}
-  ],
-  "commits_count": 27,
+  "total": 9,
+  "consecutiveFails": 0,
+  "failMode": "parallel",
+  "lastSync": "2026-09-02T21:30:00Z",
   "branch": "develop",
-  "retrospective": {
-    "start": ["FAIL_MODE=parallel with 3-task waves (3-4x speedup)", "Ruta explícita en plan (vanta-lead/worker/docs)", "Ponytail option (b) for placeholder baselines", "git stash selectivo para blast-radius mínimo", "todos los sub-agentes respetaron `-p vantadb` (no --workspace)"],
-    "stop": ["delegar Cargo.toml changes en paralelo (Wave 5 fue serial)", "cargo check --workspace cuando FIND-MCP-001 abierto"],
-    "continue": ["single-file/single-config default", "Conventional Commits con task ID", "verify mecánico pre-commit", "campaign_memory_write"],
-    "action_medible": "Reducir ratio insta snapshot churn — si >30% de PRs que tocan tests/**/snapshots/*.snap no cambian el test source, ajustar a --require-pristine en CI"
-  },
+  "waves": [
+    {"name": "Wave 0", "tasks": ["ERR-CORE-02", "ERR-DOCS-01"], "mode": "parallel", "done": true},
+    {"name": "Wave 1", "tasks": ["ERR-CORE-01"], "mode": "serial", "done": true},
+    {"name": "Wave 2", "tasks": ["ERR-PY-01", "ERR-TS-01", "ERR-MCP-01"], "mode": "parallel", "done": true},
+    {"name": "Wave 3", "tasks": ["ERR-DESK-01", "ERR-WEB-01", "ERR-OBS-01"], "mode": "parallel", "done": true}
+  ],
+  "commits": {"ERR-CORE-02":"af0bb8b8","ERR-DOCS-01":"962831ae","ERR-CORE-01":"e1fe7ec2","ERR-TS-01":"2686bea2","ERR-MCP-01":"0ce791ce","ERR-PY-01":"2da5f782","ERR-DESK-01":"6bdc2c5d","ERR-WEB-01":"10cc9671","ERR-OBS-01":"817b83e5"},
+  "followups": ["FIND-52", "FIND-53", "FIND-54", "sanitizacion-500-query_error_response"],
   "outstanding": [],
-  "resolved_2026-09-02": ["TBH-06 5/5 verify 20 tests (query_result_basic 7 + advanced 13) PASS 2026-09-02", "FIND-MCP-001 7/7 PASS 2026-09-02 (pre-existente fix verificado, no ignore needed)"]
+  "note": "stash@{0} pertenece a GOV-C4, no tocar"
 }
