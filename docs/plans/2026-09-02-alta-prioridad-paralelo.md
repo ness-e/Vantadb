@@ -672,7 +672,22 @@ last-synced: 2026-09-02T19:00
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- l0 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-09.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T19:00
+
+=== RECITATION MEM-09 COMPLETED ===
+Objetivo activo: MEM-09 — F4 L0 capture idempotente (vanta-memory L0)
+Estado: completed (desde: completed → re-verify Wave3)
+Última acción: DISCOVERY codegraph_explore l0_recorder+auto_capture (30 símbolos, blast radius Maps: AutoCaptureHook 1 caller, L0Recorder idempotente) + Read l0_recorder.rs 318L + auto_capture.rs 198L + tests/l0_capture.rs 170L + grep SKILLS-MANIFEST capture/record/memory (8 skills) → EJECUCIÓN ponytail reuse 0 líneas (MEM-09 landed 9c0dd213 881 insertions: l0_recorder 318L + auto_capture 198L + 5 tests D19) → verify cargo check Finished 4.72s + cargo test --lib capture 5 passed + cargo test --test l0_capture 5/5 + l0_capture suite disjoint docs/ preserved
+Resultado: ✅
+State: COMPLETED (desde: COMPLETED)
+Próxima acción: Wave3 continúa — MEM-10 (L1 extractor) + GOV-C6/RES-06 paralelos MAX 3, disjoint preservado (no docs/)
+Contrato: `cargo check -p vanta-memory` Finished ✅ + `cargo test -p vanta-memory --lib capture` 5 passed ✅ (auto_capture 2 + sanitize 2 + report_store 1) + `cargo test -p vanta-memory --test l0_capture` 5/5 ok ✅ (same_turn_twice_is_idempotent, filters_out_non_captured_roles, cursor_advances, fallback_to_plugin_start, read_messages_returns_only_messages) + `cargo test -p vanta-memory --lib` 328/328 ✅
+Invariantes: L0 LLM-free; idempotencia por key estable + cursor fallback plugin_start; namespace sanitizado [A-Za-z0-9._/-] ≤128; metadata sin __vanta_; sin unwrap/expect; no tocar docs/ (GOV-C6 CONFIGURATION.md, RES-06 scores) — disjoint 100% preservado
+Comandos de verificación: `cargo check -p vanta-memory` → Finished + `cargo test -p vanta-memory --lib capture` → 5 passed + `cargo test -p vanta-memory --test l0_capture` → 5 passed (0.72s)
+Deuda: ninguna — ponytail reuse, 0 líneas nuevas Wave3; capture.rs inexistente (archivos clave reales son l0_recorder.rs + auto_capture.rs); siguiente MEM-10 L1 reuse read_messages
+Próxima tarea si completa: MEM-10 — F4 L1 extractor split+1 call LLM JSON+parse reparación
+last-synced: 2026-09-02T19:00
+=== END RECITATION ===
 
 #### MEM-10 — F4 L1 extractor split+1 call LLM JSON+parse reparación
 - **Descripción:** split marcadores + 1 call LLM JSON + json-utils reparación + prompts reescritos (no traducir chino Kenty)
