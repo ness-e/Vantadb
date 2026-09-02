@@ -131,9 +131,13 @@ Sin `GO` explícito del usuario, la tarea queda 🟡 DEFER (no se fuerza `DO`).
 - **Uphill/Downhill:** ⬆️ 1 (granularidad code) · ⬇️ 3 (code() + 2 variantes + clippy)
 - **DoD multi-nivel:** Task: `code()` + 2 variantes + clippy 0 · Commit: `feat(error): VantaError::code() estable + tipa Generic (ERR-CORE-01)` · Release: `docs/api/ERROR_HANDLING.md` + `CHANGELOG` code listing
 - **Validación Appetite vs Effort:** max 1d ≥ 🟡 1d ✅
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-09-02, vanta-worker)
+- **Commit:** `e1fe7ec2` — 4 files (src/error.rs, src/storage/ops.rs, src/server/errors.rs, docs/api/ERROR_HANDLING.md) + docs follow-up EMBEDDED_SDK.md
+- **Verify:** `pub fn code`=1 · `VANTADB_*` en error.rs=25 · overflow vars=10 · `Generic(String)`=0 · `code_snapshot_all_variants` OK · `cargo check --workspace --all-targets` 0 · `clippy --workspace --all-targets --all-features -D warnings` 0 · `nextest --profile audit -p vantadb` 2140/2140 · fmt 0 · pre-commit (fmt+clippy+actionlint) OK
+- **Hallazgos ejecución:** (a) premisa falsa corregida: `src/index/search/core.rs` NO existe — revisado `alternate.rs`+módulo; (b) doc ERR-DOCS-01 §2 tenía `IoError ✅ retriable` vs código `false` — corregido a la verdad del código; (c) tabla §1.1 omitía `ExecutionConflict` (29/30 vars) — mapeado a VALIDATION y agregado al doc; (d) `QueryResponse` NO se tocó (struct público, 5 literales) — `query_error_response` pasa a `json!` con shape idéntico + `code`; (e) MCP `update_task_state` bloqueado por tareas ajenas stale (MEM-02/RES-01/RES-03) — deuda higiene, no bloqueó la tarea.
+- **Catch-alls que quedan (documentado en task file):** `Generic(ChainedError)` ~40 callers `generic_error*`; `ResourceLimit(String)` en governor.rs:50 / vfile_mmap.rs:482 / engine/stats.rs:159 — límites dinámicos de runtime con mensaje genuinamente variable, tiparlos no agrega match. Candidatos Wave 3+ si aparecen consumidores.
+- **Colateral NOTICIED:** `validate-docs-coverage.ps1` reporta gap pre-existente `embed_texts` en MCP.md (no introducido aquí) → orquestador: fila FIND si aplica.
 - **Task file:** `.opencode/skills/campaign-executor/tasks/ERR-CORE-01.md`
-- **Branch:** develop
 
 ### Task 2: ERR-CORE-02 — Clippy unwrap_used/expect_used deny en src/ + bins anyhow
 
@@ -345,10 +349,21 @@ Tras Wave 3: `desktop`/`web` usan `code` no `message`, `ERROR_HANDLING.md` lista
 
 - **Fecha:** 2026-09-02
 - **Branch:** develop
-- **Estado:** ⏳ EN PROGRESO (Wave 0 completo: ERR-CORE-02 ✅ af0bb8b8, ERR-DOCS-01 ✅ 962831ae)
-- **Próxima tarea:** Task 1 ERR-CORE-01 (code() estable — Wave 1, desbloquea PY/TS/MCP/DESK/WEB)
-- **Decisiones:** `code()` 10 strings canónicos `VANTADB_` prefix + `Generic` → 2 variantes críticas primero + `clippy deny` solo en `src/` allow tests + `Backtrace` stable + `tracing`/`metrics`/`catch_unwind`
+- **Estado:** ⏳ EN PROGRESO (Wave 0 ✅ + Wave 1 ✅ ERR-CORE-01 e1fe7ec2 — code() fuente canónica lista)
+- **Próxima tarea:** Wave 2 (paralelo ≤3): ERR-PY-01, ERR-TS-01, ERR-MCP-01 — todas consumen `VantaError::code()`
+- **Decisiones:** `code()` 10 strings canónicos `VANTADB_` prefix + `Generic` → 2 variantes críticas primero + `clippy deny` solo en `src/` allow tests + `Backtrace` stable + `tracing`/`metrics`/`catch_unwind`. **RESUELTO ERR-CORE-01:** split final IqlParseError→VANTADB_VALIDATION_ERROR / IqlError→VANTADB_INVALID_ARGUMENT; ExecutionConflict→VALIDATION; match exhaustivo sin wildcard (varianta nueva = error de compile); overflow vars nuevas no-retriables (límites duros de formato).
 
 SDP: campaign-executor, brainstorming, writing-plans, planning-and-task-breakdown, progreso, ponytail, spec-driven-development, systematic-debugging, code-review-and-quality, security-and-hardening, observability-and-instrumentation, api-and-interface-design, coordinated-web-search
 **Code Intelligence por tarea:** `codegraph_explore` + `codebase-memory-mcp: detect_changes` + `get_architecture` + `check_index_coverage` — en cada DO antes de editar
 **Internet por tarea:** `coordinated-web-search` → `agent-search free_search` → `argus_search_web` → `metasearchmcp compare_engines` → `webfetch/Jina` (10 fuentes citadas)
+
+=== RECITATION ERR-CORE-01 ===
+Campaign ID: 20260902-error-observability
+Objetivo activo: ERR-CORE-01: VantaError::code() canónico + tipar overflow (Wave 1)
+Estado: completed
+Última acción: Implementado code() exhaustivo + 2 variantes tipadas + 6 call-sites ops.rs + campo code HTTP + docs; commit e1fe7ec2
+Resultado: ✅
+Próxima acción: Wave 2: ERR-PY-01 (providers/shared_py.rs err_to_py usa code()), ERR-TS-01, ERR-MCP-01 — archivos disjuntos, max 3 concurrentes
+Contrato: verificacion: pub fn code=1 OK, VANTADB_*=25>=4 OK, overflow=10>=2 OK, Generic(String)=0 OK, check workspace 0, clippy all-features 0, nextest audit -p vantadb 2140/2140, code_snapshot_all_variants --exact OK | evidencia: claim=10 códigos coinciden con ERROR_HANDLING.md; evidencia=src/error.rs code_snapshot_all_variants pasa; confianza=alta | artefactos: .opencode/skills/campaign-executor/tasks/ERR-CORE-01.md | invariantes: Display de variantes existentes intocado (classifyWasmError); is_retriable sin cambios; NO tocar allow-sweep af0bb8b8 | deuda: embed_texts gap MCP.md pre-existente; MCP task-state bloqueado por stale (MEM-02/RES-01/RES-03) | queda_pendiente: Wave 2 consume code()
+Próxima tarea si completa: ERR-PY-01
+=== END RECITATION ===

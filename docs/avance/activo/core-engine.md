@@ -508,5 +508,8 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 ### AUD-044: Shim `MmapMut` flush write-back
 - **Fecha:** 2026-08-25 — **Objetivo:** `src/storage/vfile_mmap.rs:130-141` shim `flush()` no-op → write-back `seek+write_all`, evita pérdida `compact_layout` en builds `--no-default-features` — **Resultado:** ✅ +4 tests — **Commit:** `67f6af6d`
 
+### ERR-CORE-01: `VantaError::code()` — 10 códigos canónicos `VANTADB_*` + tipado de overflow
+- **Fecha:** 2026-09-02 · **Objetivo:** fuente canónica cross-binding del plan error-observability: `pub fn code(&self) -> &'static str` con match exhaustivo 32 variantes → 10 códigos de `docs/api/ERROR_HANDLING.md` §1.1 (split provisional resuelto: `IqlParseError`→VALIDATION, `IqlError`→INVALID_ARGUMENT); `VectorLenOverflow{id,len,limit}`/`EdgeCountOverflow{id,count,limit}` tipan 6 catch-alls `ResourceLimit(format!)` de `write_node_to_vstore` (ERR-029 preservado); `"code"` agregado a envelopes HTTP (`vanta_error_response`/`query_error_response`, aditivo); docs EMBEDDED_SDK/ERROR_HANDLING actualizadas · **Resultado:** ✅ contrato 8/8 — snapshot test `code_snapshot_all_variants` + prefijo + 9-códigos-emtidos + retriable-consistency, clippy workspace all-features 0, nextest audit -p vantadb 2140/2140 · **Commit:** `e1fe7ec2` · **Desbloquea:** ERR-PY-01, ERR-TS-01, ERR-MCP-01
+
 ### AUD-047: Deduplicación `metric_score` en `layer.rs`
 - **Fecha:** 2026-08-25 — **Objetivo:** extraer closure `metric_score` compartido (Cosine/Euclidean/SparseDot) en `src/index/search/layer.rs`, −35 líneas, 2 call-sites — **Resultado:** ✅ — **Commit:** `bd8cc184`

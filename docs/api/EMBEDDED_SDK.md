@@ -625,9 +625,18 @@ All fallible methods return `Result<T, VantaError>`. `VantaError` is a
 
 > **Canonical reference:** [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md)
 > documents the contract that Python, TypeScript, MCP, and HTTP bindings
-> normalize to: 10 codes (`VALIDATION_ERROR`, `NOT_FOUND`, `TIMEOUT`, `BUSY`,
-> `RESOURCE_LIMIT`, `CORRUPT`, `INVALID_ARGUMENT`, `IO_ERROR`, `WASM_ERROR`,
-> `CLOSED`), `is_retriable()` matrix, `recovery_hint()` guide. Read that first.
+> normalize to: 10 codes (`VANTADB_VALIDATION_ERROR`, `VANTADB_NOT_FOUND`,
+> `VANTADB_TIMEOUT`, `VANTADB_BUSY`, `VANTADB_RESOURCE_LIMIT`,
+> `VANTADB_CORRUPT`, `VANTADB_INVALID_ARGUMENT`, `VANTADB_IO_ERROR`,
+> `VANTADB_WASM_ERROR`, `VANTADB_CLOSED`), `is_retriable()` matrix,
+> `recovery_hint()` guide. Read that first.
+
+### Stable error codes
+
+`VantaError::code() -> &'static str` (ERR-CORE-01) returns one of the ten
+canonical `VANTADB_*` codes. Branch on `code()` — never on `Display` text,
+which can change without a major bump. The HTTP error envelopes in
+`docs/api/HTTP_API.md` carry the same value under the `"code"` JSON field.
 
 ### Variants
 
@@ -643,6 +652,8 @@ All fallible methods return `Result<T, VantaError>`. `VantaError` is a
 - `VantaError::IncompatibleFormat { expected_magic, expected_version, found_magic, found_version, hint }` — incompatible binary format
 - `VantaError::NotInitialized` — engine not open
 - `VantaError::ResourceLimit(String)` — resource limit exceeded (backpressure)
+- `VantaError::VectorLenOverflow { id, len, limit }` — serialized vector length exceeds the u32 on-disk header field (ERR-CORE-01)
+- `VantaError::EdgeCountOverflow { id, count, limit }` — edge count exceeds the u16 `DiskNodeHeader` field (ERR-CORE-01, hardens ERR-029)
 - `VantaError::NodeIdCollision(u128)` — two nodes have colliding IDs
 - `VantaError::CycleDetected` — cycle detected in graph operation
 - `VantaError::ValidationError { field, reason }` — input validation failed
