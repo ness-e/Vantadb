@@ -470,3 +470,43 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Resultado:** OK
 - **Commit:** ac128bcb
 - **Dominio:** core-engine
+
+## Phase11 — Embeddings Local-First (2026-08-28) — 9/9 ✅
+
+> Plan `docs/plans/2026-08-28-embeddings-local.md` · commits `2c185021`→`d24eeb1c` · `embeddings/` + feature `embed-local` (Regla 5: embeddings BYO-vector → local-first). Tabla modelos: 3 EN / 3 ES / 3 Combined (8 ≤3GB + Qwen3 16GB excepción).
+
+### EMB-01: Infra `embeddings/` + manifest + download/verify
+- **Fecha:** 2026-08-28 — **Objetivo:** crear `embeddings/manifest.json` (9 rev pinned) + `download.py`/`verify.py` + `.gitignore` `/embeddings/models/` — **Resultado:** ✅ — **Commit:** `2c185021`
+
+### EMB-02: Feature `embed-local` + `LocalOnnxProvider`
+- **Fecha:** 2026-08-28 — **Objetivo:** `Cargo.toml:97` feature `embed-local` (ort+tokenizers) + `LocalOnnxProvider` `src/llm.rs:132` + `VANTA_LOCAL_MODEL` config — **Resultado:** ✅ — **Commit:** `9e06e79e`
+
+### EMB-03: Descarga + verificación 9 modelos
+- **Fecha:** 2026-08-28 — **Objetivo:** `download.py --check` + `verify.py --check` 9 modelos (verify.log 9 PASS check-only, smoke 691MB deferido rev 404) — **Resultado:** ✅ — **Commit:** `f5cb880c`
+
+### EMB-04: Cablear `vanta-memory` L1
+- **Fecha:** 2026-08-28 — **Objetivo:** fix punto 3: `vanta-memory` hook `L1DedupConfig::with_local_provider` + `local_embedding_hook` dummy — **Resultado:** ✅ — **Commit:** `3075df46`
+
+### EMB-05: MCP tool `embed_texts`
+- **Fecha:** 2026-08-28 — **Objetivo:** fix punto 3: `vantadb-mcp` tool `embed_texts` 1-128 texts, budgeting 25k, `embed_batch` — **Resultado:** ✅ — **Commit:** `241b0868`
+
+### EMB-06: SQL vector auto-embed
+- **Fecha:** 2026-08-28 — **Objetivo:** fix punto 3: `src/physical_plan.rs:51,129` `#[cfg(embed-local)]` branches `LocalOnnxProvider` — **Resultado:** ✅ — **Commit:** `bd9ab5ca`
+
+### EMB-07: Bench comparativo 9 modelos
+- **Fecha:** 2026-08-28 — **Objetivo:** `benchmarks/embed_bench.py` 533L + `docs/operations/BENCHMARKS.md` §8 report — **Resultado:** ✅ — **Commit:** `67fda296`
+
+### EMB-08: Docs + Quickstart multi
+- **Fecha:** 2026-08-28 — **Objetivo:** fix punto 1: `docs/QUICKSTART.md:182` + `05-embedding-integrations.md` + `docs/api/EMBEDDINGS.md` + README — **Resultado:** ✅ — **Commit:** `86cdfc57`
+
+### EMB-09: Excepción Qwen3 >3GB
+- **Fecha:** 2026-08-28 — **Objetivo:** `embeddings/README.md` sección + manifest `onnx:null` + bench `--include-exception` (16GB MTEB 75.1) — **Resultado:** ✅ — **Commit:** `d24eeb1c`
+
+### AUD-043: Fix clippy `unused variable: ns` (`src/server/routing.rs:1166`)
+- **Fecha:** 2026-08-31 — **Objetivo:** closure `options_for` `_ns: String` (tras REVIEW-10 `cf2ecc50` movido de `src/cli_server.rs:1302` a `src/server/routing.rs:1166`), lint cascade residual → FIND-035 — **Resultado:** ✅ arqueológico, 0 código — **Commit:** `223f675d` (fast-gate-residues Task 1)
+
+### AUD-044: Shim `MmapMut` flush write-back
+- **Fecha:** 2026-08-25 — **Objetivo:** `src/storage/vfile_mmap.rs:130-141` shim `flush()` no-op → write-back `seek+write_all`, evita pérdida `compact_layout` en builds `--no-default-features` — **Resultado:** ✅ +4 tests — **Commit:** `67f6af6d`
+
+### AUD-047: Deduplicación `metric_score` en `layer.rs`
+- **Fecha:** 2026-08-25 — **Objetivo:** extraer closure `metric_score` compartido (Cosine/Euclidean/SparseDot) en `src/index/search/layer.rs`, −35 líneas, 2 call-sites — **Resultado:** ✅ — **Commit:** `bd8cc184`

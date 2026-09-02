@@ -109,6 +109,9 @@ aliases: []
 - **Resultado:** ✅ `6ea5e545` — `turbopack: { root: __dirname }` en `web/next.config.ts`. `npm run build` sin warning (Next 16.3.0 Turbopack), exit 0, 35/35 páginas. Causa: lockfile stray en `C:\Users\Eros\` fuera del repo git. Fuente: review-full-20260822 H03-CODE-001.
 
 > **Cruce:** el código frontend vive en `web/` + `docs/`; SEO/docs siguen reglas en `docs/avance/activo/operaciones.md` (docs site governance).
+### FIND-23: `vanta-http-map.ts` DEFAULT_NS en ingest/get (2026-08-25)
+- **Fecha:** 2026-08-25 — **Objetivo:** `desktop/src/vanta-http-map.ts:93` `namespace: item.namespace ?? ""` → `DEFAULT_NS`, alinear con mapping WASM (inconsistencia WEB-04), `IngestForm` vacío ya no rechaza — **Resultado:** ✅ + test — **Commit:** `ae03cc7d` (follow-up `b8e89585`/`f865ddde` cleanup, `480935a7` E2E-VISUAL)
+
 ## WDA-00..08 — Auditoría de diseño web completa (2026-08-24)
 
 - **Fuente:** Plan `docs/plans/archive/2026-08-19-web-design-audit.md` · Reporte: `docs/reviews/web-design-audit-2026-08-24.md`
