@@ -2,7 +2,7 @@
 title: VantaDB Master Index
 type: master-index
 status: active
-last_reviewed: 2026-08-22
+last_reviewed: 2026-09-02
 tags: [vantadb, documentation, index, master-index]
 ---
 
@@ -77,6 +77,12 @@ tags: [vantadb, documentation, index, master-index]
 | [BINDINGS_NAMESPACES.md](api/BINDINGS_NAMESPACES.md) | Namespace map across Python / TS / WASM bindings |
 | [WASM_PERSISTENCE.md](api/WASM_PERSISTENCE.md) | WASM persistence backends (OPFS / IndexedDB / memory) |
 | [WASM_STANDALONE.md](api/WASM_STANDALONE.md) | WASM standalone build and usage guide |
+| [EMBEDDINGS.md](api/EMBEDDINGS.md) | Embedding providers & local model config |
+| [ERROR_HANDLING.md](api/ERROR_HANDLING.md) | Error taxonomy & VantaError mapping |
+| [NODE_SDK.md](api/NODE_SDK.md) | Node.js bindings — `vantadb-node` |
+| [VERSIONING.md](api/VERSIONING.md) | API versioning & semver guarantees |
+| [WASM_API.md](api/WASM_API.md) | WASM high-level API surface |
+| [scores.md](api/scores.md) | Score semantics — RRF / cosine / BM25 / zero-norm (RES-04) |
 
 ---
 
