@@ -66,7 +66,30 @@ __all__ = [
     "TimeoutError",
     "__version__",
     "connect",
+    "error_to_dict",
 ]
+
+
+def error_to_dict(exc: BaseException) -> dict:
+    """Serialize a VantaDB error to a plain dict (ERR-PY-01).
+
+    Mirrors the TS ``VantaError.toJSON()`` shape from
+    ``docs/api/ERROR_HANDLING.md`` §5.2 for cross-binding log correlation:
+
+    ``{"name", "code", "message", "retriable", "hint"}``
+
+    The Python exception classes are built with PyO3 ``create_exception!``,
+    which cannot carry ``#[pymethods]`` — so the spec's ``exc.to_dict()`` is
+    exposed as this module-level helper instead. Works with any exception:
+    missing attributes degrade to ``None``.
+    """
+    return {
+        "name": type(exc).__name__,
+        "code": getattr(exc, "code", None),
+        "message": str(exc),
+        "retriable": getattr(exc, "retriable", None),
+        "hint": getattr(exc, "hint", None),
+    }
 
 
 @dataclass

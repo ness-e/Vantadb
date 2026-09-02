@@ -1097,37 +1097,42 @@ Catch the base class to handle any VantaDB error uniformly:
 
 ### Canonical codes (10)
 
-Every `VantaError` subclass carries a `.code` attribute — one of 10 stable
-strings. **Branch on `.code` for cross-binding logic; the variant class is for
-human-readable dispatch only.**
+Every error raised through the typed hierarchy carries a `.code` attribute -
+the exact `VANTADB_*` wire value produced by Rust `VantaError::code()`
+(ERR-PY-01; identical strings as on the TS/MCP wire). **Branch on `.code` for
+cross-binding logic; the variant class is for human-readable dispatch only.**
 
 | Code | Python subclass(es) |
 |------|---------------------|
-| `NOT_FOUND` | `NotFoundError` |
-| `VALIDATION_ERROR` | `ValidationError` |
-| `CORRUPT` | `CorruptError` |
-| `IO_ERROR` | `StorageError` |
-| `INVALID_ARGUMENT` | `ValidationError` (IQL parse path) |
-| `RESOURCE_LIMIT` | `ResourceLimitError` |
-| `BUSY` | `BusyError` |
-| `TIMEOUT` | `TimeoutError` |
-| `WASM_ERROR` | (WASM-binding fallback only) |
-| `CLOSED` | (lifecycle, raised separately) |
+| `VANTADB_NOT_FOUND` | `NotFoundError` |
+| `VANTADB_VALIDATION_ERROR` | `ValidationError`, `ConflictError`, `UnsupportedError`, `NoVectorError` |
+| `VANTADB_INVALID_ARGUMENT` | `ValidationError` (runtime IQL path) |
+| `VANTADB_CORRUPT` | `CorruptError` |
+| `VANTADB_IO_ERROR` | `StorageError`, `VantaError` base (`CliError`/`SearchError`/`RuntimeError`) |
+| `VANTADB_RESOURCE_LIMIT` | `ResourceLimitError` |
+| `VANTADB_BUSY` | `BusyError` |
+| `VANTADB_TIMEOUT` | `TimeoutError` |
+| `VANTADB_WASM_ERROR` | `VantaError` base (WASM `Generic` fallback) |
+| `VANTADB_CLOSED` | (handle lifecycle, not raised via `code()`) |
 
-> **Pending `ERR-CORE-01`:** Rust will gain `pub fn code() -> &'static str`
-> with the `VANTADB_` prefix (e.g. `VANTADB_NOT_FOUND`). The Python `.code`
-> will be updated to match. See
+> **Implemented (ERR-CORE-01 + ERR-PY-01):** `.code` carries the prefixed
+> `VANTADB_*` form. The unprefixed strings in earlier drafts of this document
+> are obsolete. See
 > [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md) for the authoritative table.
 
 ### Attributes (0.5.0+)
 
 ```python
-exc.code       # str — one of the 10 canonical codes above
-exc.retriable  # bool — equivalent to Rust `is_retriable()`
-exc.details    # dict | None — structured fields from the Rust variant
-exc.hint       # str | None — recovery hint (mirrors Rust `recovery_hint()`)
-exc.message    # str — human-readable message (NOT for matching)
+exc.code       # str - one of the 10 canonical VANTADB_* codes above
+exc.retriable  # bool - equivalent to Rust `is_retriable()`
+exc.hint       # str | None - recovery hint (mirrors Rust `recovery_hint()`)
+str(exc)       # human-readable message (Display) - NOT for matching
 ```
+
+> `.details` (structured variant fields) is **not** attached yet: PyO3
+> `create_exception!` types carry no methods and variant-field extraction was
+> out of ERR-PY-01 scope. Use `str(exc)` for the message; `.details` is
+> tracked for a follow-up task.
 
 Example — retry policy with `.retriable`:
 
@@ -1146,26 +1151,35 @@ def put_with_retry(db, **kwargs):
             raise
 ```
 
-### `.to_dict()` — cross-binding log correlation
+### `error_to_dict()` — cross-binding log correlation
 
-`.to_dict()` serializes to a dict matching the TypeScript `VantaError.toJSON()`
-shape, so logs and traces line up across Rust/Python/TS/MCP:
+The Python exception classes are built with PyO3 `create_exception!`, which
+cannot carry methods - so the spec's `exc.to_dict()` is exposed as a
+module-level helper instead (ERR-PY-01 decision). It returns the same plain
+dict shape as the TypeScript `VantaError.toJSON()` so logs and traces line up
+across Rust/Python/TS/MCP:
 
 ```python
+import vantadb
+
 try:
     db.get(...)
-except VantaError as exc:
-    log.error("vanta_error", extra=exc.to_dict())
+except vantadb.VantaError as exc:
+    log.error("vanta_error", extra=vantadb.error_to_dict(exc))
     # {
     #   "name": "NotFoundError",
-    #   "code": "NOT_FOUND",
+    #   "code": "VANTADB_NOT_FOUND",
     #   "message": "...",
-    #   "details": {"id": "..."},
-    #   "hint": "...",
     #   "retriable": false,
-    #   "timestamp": "2026-09-02T..."
+    #   "hint": "..."
     # }
 ```
+
+Providers (`vantadb_openai`/`vantadb_litellm`/`vantadb_ollama`) raise the same
+MOD-20 class names with `.code`/`.retriable`/`.hint` attached (ERR-PY-01):
+`except vantadb_openai.TimeoutError` now works instead of the old
+`KeyError`/`RuntimeError` bucket collapse. The provider classes are distinct
+type objects from `vantadb_py`'s - catch them per module.
 
 ### Migration (0.5.0+)
 

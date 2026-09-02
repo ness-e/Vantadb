@@ -785,7 +785,7 @@ pub(crate) fn py_dict_to_filter_ops(
 ///   `RestoreError`, `BackupError`, …) → `VantaError` (base, catch-all)
 pub(crate) fn map_vanta_error(err: vantadb::error::VantaError) -> PyErr {
     use vantadb::error::VantaError as CoreError;
-    match &err {
+    let py_err = match &err {
         CoreError::IoError(_) | CoreError::BackendError(_) => {
             StorageError::new_err(err.to_string())
         }
@@ -816,7 +816,34 @@ pub(crate) fn map_vanta_error(err: vantadb::error::VantaError) -> PyErr {
         CoreError::NoVectorForKey(_) => NoVectorError::new_err(err.to_string()),
         // RuntimeError, Generic, CliError, SearchError, RestoreError, BackupError, …
         _ => VantaError::new_err(err.to_string()),
-    }
+    };
+    attach_err_meta(&py_err, &err);
+    py_err
+}
+
+/// ERR-PY-01: attach the canonical error metadata (spec
+/// `docs/api/ERROR_HANDLING.md` §5.1) to a freshly-mapped exception instance:
+///
+/// - `code` — exact `VANTADB_*` wire value from `VantaError::code()` (cross-binding contract)
+/// - `retriable` — mirrors `is_retriable()`
+/// - `hint` — recovery hint from `recovery_hint()`, `None` when absent
+///
+/// `create_exception!` types cannot carry `#[pymethods]` (static C types), so
+/// `.to_dict()` is exposed as the module-level `error_to_dict()` helper in
+/// `vantadb_py/__init__.py` instead (plain dict, same §5.2 shape).
+///
+/// `Python::attach` is required: call sites run both with the GIL held
+/// (pyfunctions) and released (`py.detach` closures) — re-acquiring is a
+/// cheap no-op when the GIL is already ours. Attribute set on an exception
+/// instance cannot fail in practice (it has `__dict__`; values are
+/// str/bool/None), so setattr errors are deliberately swallowed.
+fn attach_err_meta(py_err: &PyErr, err: &vantadb::error::VantaError) {
+    Python::attach(|py| {
+        let obj = py_err.value(py);
+        let _ = obj.setattr("code", err.code());
+        let _ = obj.setattr("retriable", err.is_retriable());
+        let _ = obj.setattr("hint", err.recovery_hint());
+    });
 }
 
 /// Parse a `TraversalDirection` from its Python string name.

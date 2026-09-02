@@ -83,6 +83,57 @@ def test_supersede_missing_key_raises_not_found():
         db.close()
 
 
+# ── ERR-PY-01: canonical code / retriable / hint metadata ───────────────────
+
+
+def test_not_found_carries_canonical_code_and_meta():
+    """ERR-PY-01: raised errors expose code/retriable/hint attributes with the
+    exact canonical `VANTADB_*` wire value (spec docs/api/ERROR_HANDLING.md §1.1)."""
+    db = _db()
+    try:
+        db.put("ns", "k", "payload")
+        with pytest.raises(vanta.NotFoundError) as exc:
+            db.supersede("ns", "ghost", "k")
+        assert exc.value.code == "VANTADB_NOT_FOUND"
+        assert exc.value.retriable is False
+        assert isinstance(exc.value.hint, str) and exc.value.hint
+        # code must also survive the base-class catch path
+        assert exc.value.args  # message preserved
+    finally:
+        db.close()
+
+
+def test_validation_error_carries_canonical_code():
+    """ValidationError maps to VANTADB_VALIDATION_ERROR, non-retriable."""
+    db = _db()
+    try:
+        db.put("ns", "k", "payload")
+        with pytest.raises(vanta.ValidationError) as exc:
+            db.supersede("ns", "k", "k")
+        assert exc.value.code == "VANTADB_VALIDATION_ERROR"
+        assert exc.value.retriable is False
+    finally:
+        db.close()
+
+
+def test_error_to_dict_plain_shape():
+    """vanta.error_to_dict mirrors the TS toJSON() shape (create_exception
+    types cannot carry methods, so the plain-dict helper is the contract)."""
+    db = _db()
+    try:
+        db.put("ns", "k", "payload")
+        with pytest.raises(vanta.VantaError) as exc:
+            db.supersede("ns", "ghost", "k")
+        d = vanta.error_to_dict(exc.value)
+        assert d["name"] == "NotFoundError"
+        assert d["code"] == "VANTADB_NOT_FOUND"
+        assert d["retriable"] is False
+        assert isinstance(d["message"], str) and d["message"]
+        assert isinstance(d["hint"], str) and d["hint"]
+    finally:
+        db.close()
+
+
 def test_supersede_same_key_raises_validation():
     """old == new on supersede maps to ValidationError."""
     db = _db()

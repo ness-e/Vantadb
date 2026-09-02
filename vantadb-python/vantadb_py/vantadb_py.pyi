@@ -33,7 +33,19 @@ class VantaError(RuntimeError):
     Inherits from ``RuntimeError`` so existing ``except RuntimeError`` /
     ``except Exception`` callers keep working. Raise/catch the specific
     subclasses below for typed error handling.
+
+    ERR-PY-01: every raised instance carries the canonical metadata from
+    ``docs/api/ERROR_HANDLING.md`` §5.1. ``to_dict()`` is not a method
+    (``create_exception`` types cannot carry them) — use
+    ``vantadb.error_to_dict(exc)`` for the §5.2 plain dict.
     """
+
+    code: str
+    """Canonical ``VANTADB_*`` code (exact wire value, §1.1)."""
+    retriable: bool
+    """Mirrors Rust ``VantaError::is_retriable()``."""
+    hint: str | None
+    """Recovery hint from ``recovery_hint()``; ``None`` when absent."""
 
 
 class NotFoundError(VantaError):

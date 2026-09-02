@@ -56,7 +56,14 @@ __all__ = [
     "TimeoutError",
     "__version__",
     "connect",
+    "error_to_dict",
 ]
+
+
+def error_to_dict(exc: BaseException) -> dict[str, Any]:
+    """Serialize a VantaDB error to a plain dict mirroring TS ``toJSON()``
+    (``docs/api/ERROR_HANDLING.md`` §5.2): name/code/message/retriable/hint."""
+    ...
 
 
 class SearchRequest:

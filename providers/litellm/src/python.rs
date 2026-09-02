@@ -60,7 +60,7 @@ impl VantaDBLiteLLM {
         };
         let engine = VantaEmbedded::open_with_config(config).map_err(common::err_to_py)?;
         let litellm = PyModule::import(py, "litellm")
-            .map_err(|e| PyRuntimeError::new_err(format!("litellm import error: {:?}", e)))?;
+            .map_err(|e| PyRuntimeError::new_err(format!("litellm import error: {}", e)))?;
         let embed_fn = Some(litellm.getattr("embedding")?.unbind());
         Ok(Self {
             engine,
@@ -94,11 +94,11 @@ impl VantaDBLiteLLM {
         let func = self.embed_fn.as_ref().unwrap().bind(py);
         let response = func
             .call((), Some(&kwargs))
-            .map_err(|e| PyRuntimeError::new_err(format!("liteLLM embed error: {:?}", e)))?;
+            .map_err(|e| PyRuntimeError::new_err(format!("liteLLM embed error: {}", e)))?;
 
         let data = response
             .get_item("data")
-            .map_err(|e| PyRuntimeError::new_err(format!("missing data: {:?}", e)))?;
+            .map_err(|e| PyRuntimeError::new_err(format!("missing data: {}", e)))?;
         let data_list = data.cast::<PyList>()?;
 
         let mut result = Vec::with_capacity(data_list.len());
@@ -286,6 +286,7 @@ impl VantaDBLiteLLM {
 #[pymodule]
 fn vantadb_litellm(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<VantaDBLiteLLM>()?;
+    common::register_errors(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

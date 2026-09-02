@@ -58,8 +58,9 @@ Every VantaDB error, regardless of source binding, normalizes to one of these
 codes. Clients should branch on `code`; the variant-specific fields are
 informational, not contractual for matching. The Rust core emits the prefixed
 form (`VANTADB_*`); TS/WASM/Node now emit the same prefixed values on the wire
-(ERR-TS-01); Python normalizes to the unprefixed class names until
-`ERR-PY-01` aligns it.
+(ERR-TS-01); Python attaches the same prefixed values as the `.code` attribute
+on the MOD-20 exception classes (`NotFoundError.__name__` stays unprefixed -
+the *code*, not the class name, is the cross-binding contract) (ERR-PY-01).
 
 | Code | Meaning | Source Rust variant(s) | Retriable |
 |------|---------|-------------------------|-----------|
@@ -264,24 +265,25 @@ Every `VantaError` subclass exposes:
 
 | Attribute | Type | Meaning |
 |-----------|------|---------|
-| `.code` | `str` | Canonical code from §1.1 (e.g. `"VALIDATION_ERROR"`) |
+| `.code` | `str` | Canonical code from §1.1, exact prefixed value (e.g. `"VANTADB_VALIDATION_ERROR"`) — ERR-PY-01 |
 | `.retriable` | `bool` | Equivalent to `is_retriable()` |
-| `.details` | `dict \| None` | Structured fields from the Rust variant |
+| `.details` | `dict \| None` | Structured fields from the Rust variant — *pending*: not attached yet (ERR-PY-01 shipped `code`/`retriable`/`hint`; variant-field extraction is a follow-up task) |
 | `.hint` | `str \| None` | Recovery hint (mirrors `recovery_hint()`) |
 
-### 5.2 `.to_dict()`
+### 5.2 `error_to_dict()` (`.to_dict()` deferred)
 
-Serializes to a dict matching the TS `toJSON()` shape, for cross-binding log
-correlation:
+PyO3 `create_exception!` types cannot carry methods, so the plain-dict shape
+is exposed as a module-level helper `vantadb.error_to_dict(exc)` (ERR-PY-01;
+`exc.to_dict()` tracked for a follow-up if a method-carrying redesign lands):
 
 ```python
+import vantadb
 try:
     db.put(...)
-except VantaError as exc:
-    log.error("vanta_error", extra=exc.to_dict())
-    # {"name": "NotFoundError", "code": "NOT_FOUND",
-    #  "message": "...", "details": {"id": "..."},
-    #  "hint": "...", "timestamp": "2026-09-02T..."}
+except vantadb.VantaError as exc:
+    log.error("vanta_error", extra=vantadb.error_to_dict(exc))
+    # {"name": "NotFoundError", "code": "VANTADB_NOT_FOUND",
+    #  "message": "...", "retriable": false, "hint": "..."}
 ```
 
 ---

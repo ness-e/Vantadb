@@ -60,7 +60,7 @@ impl VantaDBOllama {
         };
         let engine = VantaEmbedded::open_with_config(config).map_err(common::err_to_py)?;
         let ollama_mod = pyo3::types::PyModule::import(py, "ollama")
-            .map_err(|e| PyRuntimeError::new_err(format!("ollama import error: {:?}", e)))?;
+            .map_err(|e| PyRuntimeError::new_err(format!("ollama import error: {}", e)))?;
         let client_kwargs = PyDict::new(py);
         client_kwargs.set_item("host", base_url)?;
         if let Some(t) = timeout {
@@ -69,7 +69,7 @@ impl VantaDBOllama {
         let client = ollama_mod
             .getattr("Client")
             .and_then(|cls| cls.call((), Some(&client_kwargs)))
-            .map_err(|e| PyRuntimeError::new_err(format!("Ollama client error: {:?}", e)))?;
+            .map_err(|e| PyRuntimeError::new_err(format!("Ollama client error: {}", e)))?;
         Ok(Self {
             engine,
             client: client.unbind(),
@@ -94,12 +94,12 @@ impl VantaDBOllama {
         let response = client
             .getattr("embed")
             .and_then(|func| func.call((), Some(&kwargs)))
-            .map_err(|e| PyRuntimeError::new_err(format!("Ollama embed error: {:?}", e)))?;
+            .map_err(|e| PyRuntimeError::new_err(format!("Ollama embed error: {}", e)))?;
 
         response
             .get_item("embeddings")
             .and_then(|v| v.extract::<Vec<Vec<f32>>>())
-            .map_err(|e| PyRuntimeError::new_err(format!("missing embeddings: {:?}", e)))
+            .map_err(|e| PyRuntimeError::new_err(format!("missing embeddings: {}", e)))
     }
 
     /// Search for similar records by vector similarity with optional filters.
@@ -283,6 +283,7 @@ impl VantaDBOllama {
 #[pymodule]
 fn vantadb_ollama(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<VantaDBOllama>()?;
+    common::register_errors(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }

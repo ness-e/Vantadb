@@ -61,7 +61,7 @@ impl VantaDBOpenAI {
         };
         let engine = VantaEmbedded::open_with_config(config).map_err(common::err_to_py)?;
         let openai_mod = pyo3::types::PyModule::import(py, "openai")
-            .map_err(|e| PyRuntimeError::new_err(format!("openai import error: {:?}", e)))?;
+            .map_err(|e| PyRuntimeError::new_err(format!("openai import error: {}", e)))?;
         let client_kwargs = PyDict::new(py);
         client_kwargs.set_item("api_key", api_key)?;
         if let Some(t) = timeout {
@@ -70,7 +70,7 @@ impl VantaDBOpenAI {
         let client = openai_mod
             .getattr("OpenAI")
             .and_then(|cls| cls.call((), Some(&client_kwargs)))
-            .map_err(|e| PyRuntimeError::new_err(format!("OpenAI client error: {:?}", e)))?;
+            .map_err(|e| PyRuntimeError::new_err(format!("OpenAI client error: {}", e)))?;
         Ok(Self {
             engine,
             client: client.unbind(),
@@ -98,14 +98,14 @@ impl VantaDBOpenAI {
             .and_then(|func| func.call((), Some(&kwargs)))
             .map_err(|e| {
                 PyRuntimeError::new_err(format!(
-                    "OpenAI embed API error: model={}, detail={:?}",
+                    "OpenAI embed API error: model={}, detail={}",
                     self.model, e
                 ))
             })?;
 
         let data = response
             .get_item("data")
-            .map_err(|e| PyRuntimeError::new_err(format!("missing data: {:?}", e)))?;
+            .map_err(|e| PyRuntimeError::new_err(format!("missing data: {}", e)))?;
         let data_list = data.cast::<PyList>()?;
 
         let mut result = Vec::with_capacity(data_list.len());
@@ -286,6 +286,7 @@ impl VantaDBOpenAI {
 #[pymodule]
 fn vantadb_openai(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<VantaDBOpenAI>()?;
+    common::register_errors(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
 }
