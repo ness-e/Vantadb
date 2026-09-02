@@ -556,35 +556,36 @@ import { ERROR_CODES, VantaError, wrapWasmError } from "vantadb";
 
 const codes = ERROR_CODES;
 // {
-//   CLOSED: "CLOSED",
-//   WASM_ERROR: "WASM_ERROR",
-//   VALIDATION_ERROR: "VALIDATION_ERROR",
-//   NOT_FOUND: "NOT_FOUND",
-//   INVALID_ARGUMENT: "INVALID_ARGUMENT",
-//   CORRUPT: "CORRUPT",
-//   RESOURCE_LIMIT: "RESOURCE_LIMIT",
-//   TIMEOUT: "TIMEOUT",
-//   BUSY: "BUSY",
-//   IO_ERROR: "IO_ERROR",
+//   CLOSED: "VANTADB_CLOSED",
+//   WASM_ERROR: "VANTADB_WASM_ERROR",
+//   VALIDATION_ERROR: "VANTADB_VALIDATION_ERROR",
+//   NOT_FOUND: "VANTADB_NOT_FOUND",
+//   INVALID_ARGUMENT: "VANTADB_INVALID_ARGUMENT",
+//   CORRUPT: "VANTADB_CORRUPT",
+//   RESOURCE_LIMIT: "VANTADB_RESOURCE_LIMIT",
+//   TIMEOUT: "VANTADB_TIMEOUT",
+//   BUSY: "VANTADB_BUSY",
+//   IO_ERROR: "VANTADB_IO_ERROR",
 // }
 ```
 
-| Code | Meaning | Source Rust variant(s) | Retriable |
+| Code (wire value) | Meaning | Source Rust variant(s) | Retriable |
 |------|---------|-------------------------|:---------:|
-| `VALIDATION_ERROR` | Input failed validation | `DimensionMismatch`, `DuplicateNode`, `ValidationError`, `InvalidInput`, `IqlParseError`, `UnsupportedOperation`, `NoVectorForKey` | ❌ |
-| `NOT_FOUND` | Requested entity does not exist | `NodeNotFound`, `NotFound` | ❌ |
-| `TIMEOUT` | Operation exceeded its time budget | `Timeout` | ✅ |
-| `BUSY` | Resource locked or not initialized | `DatabaseBusy`, `NotInitialized` | ✅ |
-| `RESOURCE_LIMIT` | Memory / disk / backpressure limit exceeded | `ResourceLimit` | ✅ |
-| `CORRUPT` | Persisted data is corrupt or incompatible format | `WALVersionMismatch`, `IncompatibleFormat`, `SerializationError`, `SchemaError`, `RestoreError`, `BackupError` | ❌ |
-| `INVALID_ARGUMENT` | Caller passed a malformed argument | `IqlError`, `IqlParseError` | ❌ |
-| `IO_ERROR` | Filesystem or backend I/O failure | `IoError`, `WalError`, `BackendError`, `CliError`, `SearchError`, `RuntimeError` | ✅ |
-| `WASM_ERROR` | Generic WASM-binding fallback | `Generic` (only when no `code` is attached) | ❌ |
-| `CLOSED` | Operation on a closed database handle | (lifecycle, not in `VantaError`) | ❌ |
+| `VANTADB_VALIDATION_ERROR` | Input failed validation | `DimensionMismatch`, `DuplicateNode`, `ValidationError`, `InvalidInput`, `IqlParseError`, `UnsupportedOperation`, `NoVectorForKey`, `NodeIdCollision`, `CycleDetected`, `ExecutionConflict` | ❌ |
+| `VANTADB_NOT_FOUND` | Requested entity does not exist | `NodeNotFound`, `NotFound` | ❌ |
+| `VANTADB_TIMEOUT` | Operation exceeded its time budget | `Timeout` | ✅ |
+| `VANTADB_BUSY` | Resource locked or not initialized | `DatabaseBusy`, `NotInitialized` | ✅ |
+| `VANTADB_RESOURCE_LIMIT` | Memory / disk / backpressure limit exceeded | `ResourceLimit` | ✅ |
+| `VANTADB_CORRUPT` | Persisted data is corrupt or incompatible format | `WALVersionMismatch`, `IncompatibleFormat`, `SerializationError`, `SchemaError`, `RestoreError`, `BackupError` | ❌ |
+| `VANTADB_INVALID_ARGUMENT` | Caller passed a malformed argument | `IqlError` | ❌ |
+| `VANTADB_IO_ERROR` | Filesystem or backend I/O failure | `IoError`, `WalError`, `BackendError`, `CliError`, `SearchError`, `RuntimeError` | ✅ |
+| `VANTADB_WASM_ERROR` | Generic WASM-binding fallback | `Generic` (only when no `code` is attached) | ❌ |
+| `VANTADB_CLOSED` | Operation on a closed database handle | (lifecycle, not in `VantaError`) | ❌ |
 
-> **Pending `ERR-CORE-01`:** codes will gain the `VANTADB_` prefix
-> (`VANTADB_VALIDATION_ERROR`, …). The current 10 strings are the contract
-> surface until that merges.
+> **Resolved (`ERR-TS-01`):** the `VANTADB_` prefix from `VantaError::code()`
+> is now live on the TS/WASM/Node wire — the values above are the contract.
+> TS keeps unprefixed *keys* (`ERROR_CODES.BUSY === "VANTADB_BUSY"`).
+> BREAKING for code that compared `err.code` against the unprefixed strings.
 
 ### `VantaError` class shape
 
@@ -592,9 +593,10 @@ const codes = ERROR_CODES;
 import { VantaError } from "vantadb";
 
 export class VantaError extends Error {
-  readonly code: string;        // one of the 10 codes above
+  readonly code: string;        // one of the 10 VANTADB_* codes above
   readonly details?: unknown;   // structured payload (Rust variant fields)
   readonly timestamp: Date;
+  // readonly cause?: unknown;  // ES2022 ErrorOptions — set by wrapWasmError/wrapNativeError
 
   toJSON(): {
     name: string;
@@ -621,13 +623,13 @@ try {
 } catch (err) {
   const vantaErr = wrapWasmError(err, "db.put");
   switch (vantaErr.code) {
-    case "VALIDATION_ERROR":
+    case "VANTADB_VALIDATION_ERROR":
       console.warn("validation failed:", vantaErr.details);
       break;
-    case "BUSY":                         // is_retriable
+    case "VANTADB_BUSY":                 // is_retriable
       await sleep(100);
       return retry();
-    case "NOT_FOUND":
+    case "VANTADB_NOT_FOUND":
       throw new Error("resource missing");
     default:
       throw vantaErr;
@@ -637,21 +639,24 @@ try {
 
 ### Cause chain (TS 4.4+)
 
-> **Pending `ERR-TS-01`:** `VantaError.cause` is not yet set by the SDK.
-> Today, the original error is preserved in `details.original` via
-> `wrapWasmError`. To preserve a chain today, use:
+> Since `ERR-TS-01`, `wrapWasmError`/`wrapNativeError` set
+> `VantaError.cause` to the original thrown value (ES2022 `ErrorOptions`),
+> while `details` keeps its legacy shape (`{name, stack}` or
+> `{original}`) for backward compatibility:
 
 ```ts
 try {
-  await fetchSomething();
+  await db.put(record);
 } catch (err) {
-  throw new VantaError("IO_ERROR", "fetch failed", { cause: err, original: err });
+  if (err instanceof VantaError && err.cause instanceof Error) {
+    console.error("root cause:", err.cause.message);
+  }
 }
 ```
 
 ### Lifecycle errors (closed handle)
 
-Calling any method after `close()` throws a `VantaError` with `code: "CLOSED"`.
+Calling any method after `close()` throws a `VantaError` with `code: "VANTADB_CLOSED"`.
 This is safer than relying on WASM GC/finalization to prevent use-after-free:
 
 ```ts
@@ -659,7 +664,7 @@ db.close();
 try {
   db.get("ns", "k");
 } catch (err) {
-  if (err instanceof VantaError && err.code === "CLOSED") {
+  if (err instanceof VantaError && err.code === "VANTADB_CLOSED") {
     console.warn("db was closed");
   }
 }

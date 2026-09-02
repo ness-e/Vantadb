@@ -200,7 +200,11 @@ Sin `GO` explícito del usuario, la tarea queda 🟡 DEFER (no se fuerza `DO`).
 - **Top 3 riesgos:** 1 NATIVE_ERROR break, 2 guards breaking, 3 code subset
 - **Uphill/Downhill:** ⬆️ 1 (tabla 30→10) · ⬇️ 3 (WASM 8→10, Node code, guards)
 - **DoD:** Task: `NATIVE_ERROR` eliminado + `guards` VantaError + Node code · Commit: `fix(ts): unifica codes TS/WASM/Node + guards VantaError (ERR-TS-01)` · Release: `docs/api/TYPESCRIPT_SDK.md` code table
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-09-02, vanta-worker)
+- **Commit:** `fix(ts): alinea codes VANTADB_* TS/WASM/Node + guards VantaError (ERR-TS-01)` — 15 files: vantadb-ts src 4/4 + 3 tests, vantadb-wasm/src/lib.rs, vantadb-node/src/lib.rs, docs (ERROR_HANDLING §1.1/1.2/4 + CHANGELOG ×2 + Backlog FIND-52 + plan)
+- **Verify:** `"NATIVE_ERROR"` en errors.ts=0 · `TypeError(` en guards.ts=0 · `npm run build`(ts) exit 0 · vitest 249/278 (29 fails PREEXISTENTES FIND-52: panics `std::sys::time`/`condvar::no_threads` en pkg wasm32 reconstruido — proof-stash reproduce sin diff; unit-tests de ERR-TS-01: 20/20 green) · `cargo test -p vantadb-wasm` ok · `cargo check -p vantadb-wasm --all-targets` 0 · `cargo check/test --manifest-path vantadb-node/Cargo.toml --all-targets` 0 + 4/4 tests (nuevo `map_err_prefixes_canonical_vantadb_code`) · clippy workspace --all-targets --all-features -D warnings 0 + node standalone 0 · fmt 0 · **E2E node real**: `VANTADB_VALIDATION_ERROR: Validation error on read_only:…` vía `.node` rebuilt
+- **Decisiones ejecución:** (a) WASM usó `e.code()` directo del core (`pub` confirmado error.rs:306) — tabla 30→8 eliminada (-24L, ponytail); (b) Node: `Error::new(Status::GenericFailure, "{code}: {Display}")` — napi no tiene canal de propiedad extra; (c) TS: KEYS unprefijadas + VALUES `VANTADB_*` (opción ponytail del brief; spec §1.2 ya lo documentaba como convergencia pendiente → Gate P no disparado); `ERROR_CODES` exportado + literales crudos eliminados en src (raíz del drift); (d) `wrapNativeError` parsea `^VANTADB_[A-Z_]+:` con fallback `classifyWasmError` (sin código inventado); (e) `cause` chain añadida (promesa §4.3 del propio task); (f) extra: drift de tipos preexistente `GraphTraversalFilter.time_range:null` normalizado en boundary (bloqueaba tsc).
+- **Hallazgos/colateral:** (1) **FIND-52 creada** — HEAD tiene regresión runtime wasm32 (std::time/Condvar panics bajo pkg reconstruido) + rustc ICE en `wasm-pack build --release` (MSVC host, persiste con cg16; `--dev` compila); pkg prebuilt 29/8 ya no carga en Node 24/26 → baseline "264 verdes" ya no es reproducible localmente; (2) test stale `persistence:true` alineado a WSM-01; (3) node vitest: 3 fails preexistentes (bigint `0n`/`superseded_by` null) — proof-stash confirma; (4) plan-file contract `grep code.*GenericFailure` se cumple vía línea `Error::new(napi::Status::GenericFailure, format!("{}: {}", e.code(), e))`.
 - **Task file:** `.opencode/skills/campaign-executor/tasks/ERR-TS-01.md`
 
 ### Task 5: ERR-MCP-01 — From<VantaError> for McpError (CRITICAL) + validation code enum
@@ -350,21 +354,21 @@ Tras Wave 3: `desktop`/`web` usan `code` no `message`, `ERROR_HANDLING.md` lista
 
 - **Fecha:** 2026-09-02
 - **Branch:** develop
-- **Estado:** ⏳ EN PROGRESO (Wave 0 ✅ + Wave 1 ✅ ERR-CORE-01 e1fe7ec2 — code() fuente canónica lista)
-- **Próxima tarea:** Wave 2 (paralelo ≤3): ERR-PY-01, ERR-TS-01, ERR-MCP-01 — todas consumen `VantaError::code()`
-- **Decisiones:** `code()` 10 strings canónicos `VANTADB_` prefix + `Generic` → 2 variantes críticas primero + `clippy deny` solo en `src/` allow tests + `Backtrace` stable + `tracing`/`metrics`/`catch_unwind`. **RESUELTO ERR-CORE-01:** split final IqlParseError→VANTADB_VALIDATION_ERROR / IqlError→VANTADB_INVALID_ARGUMENT; ExecutionConflict→VALIDATION; match exhaustivo sin wildcard (varianta nueva = error de compile); overflow vars nuevas no-retriables (límites duros de formato).
+- **Estado:** ⏳ EN PROGRESO (Wave 0 ✅ + Wave 1 ✅ e1fe7ec2 + Wave 2: ERR-TS-01 ✅ · ERR-PY-01/ERR-MCP-01 paralelos otros agentes)
+- **Próxima tarea:** Wave 3 (paralelo ≤3): ERR-DESK-01, ERR-WEB-01, ERR-OBS-01. ⚠️ FIND-52: re-verificar vitest vantadb-ts tras resolver regresión runtime wasm32 + ICE release.
+- **Decisiones:** `code()` 10 strings canónicos `VANTADB_` prefix + `Generic` → 2 variantes críticas primero + `clippy deny` solo en `src/` allow tests + `Backtrace` stable + `tracing`/`metrics`/`catch_unwind`. **RESUELTO ERR-CORE-01:** split final IqlParseError→VANTADB_VALIDATION_ERROR / IqlError→VANTADB_INVALID_ARGUMENT; ExecutionConflict→VALIDATION; match exhaustivo sin wildcard (varianta nueva = error de compile); overflow vars nuevas no-retriables (límites duros de formato). **RESUELTO ERR-TS-01:** WASM consume `e.code()` directo (tabla local eliminada); Node wire = prefijo `"{code}: {msg}"` (napi sin canal de propiedad); TS = keys unprefijadas + values `VANTADB_*` (Gate P no aplicó — §1.2 ya lo especificaba); guards→VantaError BREAKING documentado.
 
 SDP: campaign-executor, brainstorming, writing-plans, planning-and-task-breakdown, progreso, ponytail, spec-driven-development, systematic-debugging, code-review-and-quality, security-and-hardening, observability-and-instrumentation, api-and-interface-design, coordinated-web-search
 **Code Intelligence por tarea:** `codegraph_explore` + `codebase-memory-mcp: detect_changes` + `get_architecture` + `check_index_coverage` — en cada DO antes de editar
 **Internet por tarea:** `coordinated-web-search` → `agent-search free_search` → `argus_search_web` → `metasearchmcp compare_engines` → `webfetch/Jina` (10 fuentes citadas)
 
-=== RECITATION ERR-CORE-01 ===
+=== RECITATION ERR-TS-01 ===
 Campaign ID: 20260902-error-observability
-Objetivo activo: ERR-CORE-01: VantaError::code() canónico + tipar overflow (Wave 1)
+Objetivo activo: ERR-TS-01: unificar codes VANTADB_* TS/WASM/Node + guards VantaError (Wave 2)
 Estado: completed
-Última acción: Implementado code() exhaustivo + 2 variantes tipadas + 6 call-sites ops.rs + campo code HTTP + docs; commit e1fe7ec2
+Última acción: 6 objetivos implementados (wasm e.code(), node prefijo, ERROR_CODES VANTADB_*, wrapNativeError parse, guards VantaError, tests+docs); E2E node real verificado; FIND-52 creada; plan/avance/task file cerrados
 Resultado: ✅
-Próxima acción: Wave 2: ERR-PY-01 (providers/shared_py.rs err_to_py usa code()), ERR-TS-01, ERR-MCP-01 — archivos disjuntos, max 3 concurrentes
-Contrato: verificacion: pub fn code=1 OK, VANTADB_*=25>=4 OK, overflow=10>=2 OK, Generic(String)=0 OK, check workspace 0, clippy all-features 0, nextest audit -p vantadb 2140/2140, code_snapshot_all_variants --exact OK | evidencia: claim=10 códigos coinciden con ERROR_HANDLING.md; evidencia=src/error.rs code_snapshot_all_variants pasa; confianza=alta | artefactos: .opencode/skills/campaign-executor/tasks/ERR-CORE-01.md | invariantes: Display de variantes existentes intocado (classifyWasmError); is_retriable sin cambios; NO tocar allow-sweep af0bb8b8 | deuda: embed_texts gap MCP.md pre-existente; MCP task-state bloqueado por stale (MEM-02/RES-01/RES-03) | queda_pendiente: Wave 2 consume code()
-Próxima tarea si completa: ERR-PY-01
+Próxima acción: Wave 3 (ERR-DESK-01/WEB-01/OBS-01); FIND-52 antes de confiar en vitest wasm
+Contrato: grep NATIVE_ERROR errors.ts=0 OK | TypeError( guards.ts=0 OK | npm run build exit 0 OK | vitest 249/278, 29 fails=preexistentes FIND-52 (proof-stash sin mi diff; unit ERR-TS-01 20/20 OK) | cargo check wasm/node --all-targets 0 OK | cargo test -p vantadb-wasm ok + node 4/4 OK | clippy workspace+node -D warnings 0 OK | fmt 0 OK | E2E: VANTADB_VALIDATION_ERROR en read_only OK | artefactos: tasks/ERR-TS-01.md, docs/avance/activo/bindings.md | invariantes: Display core intocado; pkg release no reconstruible local (ICE) — preservar pkg dev actual; stash@{0} intacto; allow-sweep af0bb8b8 intocado | deuda: FIND-52; asserts bigint/supersede stale en vantadb-node | queda_pendiente: ninguno
+Próxima tarea si completa: ERR-DESK-01 (Wave 3)
 === END RECITATION ===

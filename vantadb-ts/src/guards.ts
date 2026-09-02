@@ -1,3 +1,5 @@
+import { VantaError, ERROR_CODES } from "./errors.js";
+
 import type {
   MemoryRecord,
   NodeRecord,
@@ -79,18 +81,30 @@ export function isValidVector(v: unknown): v is number[] {
   return v.every((n) => typeof n === "number" && isFinite(n));
 }
 
+/**
+ * Validate a vector input. Throws `VantaError` with the canonical
+ * `VANTADB_VALIDATION_ERROR` code (ERR-TS-01 — previously raw
+ * `TypeError`/`RangeError`, which bypassed the uniform error contract).
+ * BREAKING for callers catching `TypeError` by name: catch `VantaError` and
+ * check `.code` instead.
+ */
 export function validateVector(v: unknown): asserts v is Float32Array {
   if (!Array.isArray(v)) {
-    throw new TypeError(
+    throw new VantaError(
+      ERROR_CODES.VALIDATION_ERROR,
       "validateVector: expected an array, got " + typeof v,
     );
   }
   if (v.length === 0) {
-    throw new RangeError("validateVector: vector cannot be empty");
+    throw new VantaError(
+      ERROR_CODES.VALIDATION_ERROR,
+      "validateVector: vector cannot be empty",
+    );
   }
   for (let i = 0; i < v.length; i++) {
     if (typeof v[i] !== "number" || !isFinite(v[i])) {
-      throw new TypeError(
+      throw new VantaError(
+        ERROR_CODES.VALIDATION_ERROR,
         `validateVector: invalid or non-finite element at index ${i}`,
       );
     }

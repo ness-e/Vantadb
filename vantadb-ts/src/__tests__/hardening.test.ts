@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
 import { VantaDB, VantaError } from "../vantadb.js";
-import { wrapWasmError, classifyWasmError } from "../errors.js";
+import { wrapWasmError, classifyWasmError, ERROR_CODES } from "../errors.js";
 import {
   isMemoryRecord,
   isSearchHit,
@@ -43,10 +43,16 @@ describe("wrapWasmError", () => {
     expect(wrapWasmError(original, "context")).toBe(original);
   });
 
+  it("preserves the original error as cause (ERR-TS-01 §4.3)", () => {
+    const original = new Error("root boom");
+    const wrapped = wrapWasmError(original, "op");
+    expect(wrapped.cause).toBe(original);
+  });
+
   it("wraps Error with context prefix", () => {
     const wrapped = wrapWasmError(new Error("boom"), "myFunc");
     expect(wrapped).toBeInstanceOf(VantaError);
-    expect(wrapped.code).toBe("WASM_ERROR");
+    expect(wrapped.code).toBe(ERROR_CODES.WASM_ERROR);
     expect(wrapped.message).toBe("myFunc: boom");
   });
 
@@ -64,9 +70,9 @@ describe("wrapWasmError", () => {
 describe("WASM error classification (FIND-10)", () => {
   it("uses the structured code attached by the wasm binding", () => {
     const err = new Error("Node not found: 1") as Error & { code?: string };
-    err.code = "NOT_FOUND";
+    err.code = "VANTADB_NOT_FOUND";
     const wrapped = wrapWasmError(err, "addEdge");
-    expect(wrapped.code).toBe("NOT_FOUND");
+    expect(wrapped.code).toBe(ERROR_CODES.NOT_FOUND);
     expect(wrapped.message).toBe("addEdge: Node not found: 1");
   });
 
@@ -74,12 +80,12 @@ describe("WASM error classification (FIND-10)", () => {
     const err = new Error("completely unexpected") as Error & { code?: string };
     err.code = "ERR_MODULE_NOT_FOUND";
     const wrapped = wrapWasmError(err, "open");
-    expect(wrapped.code).toBe("WASM_ERROR");
+    expect(wrapped.code).toBe(ERROR_CODES.WASM_ERROR);
   });
 
   it("classifies not-found by message prefix (older pkg fallback)", () => {
     const wrapped = wrapWasmError(new Error("Node not found: 42"), "getNode");
-    expect(wrapped.code).toBe("NOT_FOUND");
+    expect(wrapped.code).toBe(ERROR_CODES.NOT_FOUND);
   });
 
   it("classifies validation errors by message prefix", () => {
@@ -87,7 +93,7 @@ describe("WASM error classification (FIND-10)", () => {
       new Error("Validation error on namespace: namespace must not be empty"),
       "get",
     );
-    expect(wrapped.code).toBe("VALIDATION_ERROR");
+    expect(wrapped.code).toBe(ERROR_CODES.VALIDATION_ERROR);
   });
 
   it("classifies corrupt-format errors by message prefix", () => {
@@ -95,11 +101,11 @@ describe("WASM error classification (FIND-10)", () => {
       new Error("Incompatible binary format: expected magic [1,2,3,4], version 1"),
       "open",
     );
-    expect(wrapped.code).toBe("CORRUPT");
+    expect(wrapped.code).toBe(ERROR_CODES.CORRUPT);
   });
 
   it("classifyWasmError returns WASM_ERROR for unrecognized messages", () => {
-    expect(classifyWasmError("completely unexpected")).toBe("WASM_ERROR");
+    expect(classifyWasmError("completely unexpected")).toBe(ERROR_CODES.WASM_ERROR);
   });
 });
 
@@ -109,7 +115,7 @@ describe("VantaDB error codes from the real WASM engine (FIND-10)", () => {
   beforeAll(() => { db = VantaDB.create(); });
   afterAll(() => { db.close(); });
 
-  it("zero-norm cosine search surfaces VALIDATION_ERROR", () => {
+  it("zero-norm cosine search surfaces VANTADB_VALIDATION_ERROR", () => {
     let caught: unknown;
     try {
       db.search({ namespace: "err", query_vector: [0, 0, 0], top_k: 5 });
@@ -117,10 +123,10 @@ describe("VantaDB error codes from the real WASM engine (FIND-10)", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(VantaError);
-    expect((caught as VantaError).code).toBe("VALIDATION_ERROR");
+    expect((caught as VantaError).code).toBe(ERROR_CODES.VALIDATION_ERROR);
   });
 
-  it("addEdge with missing nodes surfaces NOT_FOUND", () => {
+  it("addEdge with missing nodes surfaces VANTADB_NOT_FOUND", () => {
     let caught: unknown;
     try {
       db.addEdge(888, 999, "test");
@@ -128,7 +134,7 @@ describe("VantaDB error codes from the real WASM engine (FIND-10)", () => {
       caught = err;
     }
     expect(caught).toBeInstanceOf(VantaError);
-    expect((caught as VantaError).code).toBe("NOT_FOUND");
+    expect((caught as VantaError).code).toBe(ERROR_CODES.NOT_FOUND);
   });
 });
 
@@ -390,9 +396,13 @@ describe("VantaDB lifecycle harden", () => {
     db.close();
   });
 
-  it("open with non-existent path creates new DB", () => {
+  it("open() returns a non-durable handle (persistence:false per WSM-01)", () => {
+    // WSM-01: `VantaDB.open` no longer fakes `persistence:true` — only
+    // `connect_persistent` (browser OPFS) claims durable persistence. In the
+    // Node/wrapper build `open` attaches no durable backend, so capabilities
+    // honestly reports false. The DB still opens and is usable.
     const db = VantaDB.open("/nonexistent/test_" + Date.now());
-    expect(db.capabilities().persistence).toBe(true);
+    expect(db.capabilities().persistence).toBe(false);
     db.close();
   });
 });

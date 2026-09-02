@@ -220,15 +220,20 @@ describe("Type guards: validateVector (asserts)", () => {
   });
 
   it("throws on non-array", () => {
-    expect(() => validateVector("bad")).toThrow(TypeError);
+    // ERR-TS-01: validateVector surfaces VantaError(VANTADB_VALIDATION_ERROR)
+    // instead of the previous raw TypeError/RangeError (BREAKING documented).
+    let caught: unknown;
+    try { validateVector("bad"); } catch (e) { caught = e; }
+    expect(caught).toBeInstanceOf(VantaError);
+    expect((caught as VantaError).code).toBe("VANTADB_VALIDATION_ERROR");
   });
 
   it("throws on empty array", () => {
-    expect(() => validateVector([])).toThrow(RangeError);
+    expect(() => validateVector([])).toThrow(VantaError);
   });
 
   it("throws on NaN element", () => {
-    expect(() => validateVector([1, NaN])).toThrow(TypeError);
+    expect(() => validateVector([1, NaN])).toThrow(VantaError);
   });
 });
 
@@ -312,7 +317,7 @@ describe("VantaDB lifecycle", () => {
       db.put({ namespace: "ns", key: "k", payload: "p" });
     } catch (e) {
       expect(e).toBeInstanceOf(VantaError);
-      expect((e as VantaError).code).toBe("CLOSED");
+      expect((e as VantaError).code).toBe("VANTADB_CLOSED");
     }
   });
 

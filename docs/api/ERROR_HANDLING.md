@@ -57,8 +57,9 @@ Applied to VantaDB:
 Every VantaDB error, regardless of source binding, normalizes to one of these
 codes. Clients should branch on `code`; the variant-specific fields are
 informational, not contractual for matching. The Rust core emits the prefixed
-form (`VANTADB_*`); TS/Python normalize to the unprefixed names until
-`ERR-TS-01`/`ERR-PY-01` align them.
+form (`VANTADB_*`); TS/WASM/Node now emit the same prefixed values on the wire
+(ERR-TS-01); Python normalizes to the unprefixed class names until
+`ERR-PY-01` aligns it.
 
 | Code | Meaning | Source Rust variant(s) | Retriable |
 |------|---------|-------------------------|-----------|
@@ -82,8 +83,10 @@ form (`VANTADB_*`); TS/Python normalize to the unprefixed names until
 ### 1.2 `VANTADB_*` prefixed codes (implemented)
 
 `VantaError::code()` (`src/error.rs`) returns a `&'static str` with the
-`VANTADB_` prefix. All ten table codes map 1:1 from the unprefixed TS names;
-`VANTADB_CLOSED` is emitted by handle-lifecycle checks, not by `code()`:
+`VANTADB_` prefix. The TS SDK keeps its readable unprefixed *keys*
+(`ERROR_CODES.BUSY`) while the *wire values* are the canonical prefixed
+strings (ERR-TS-01); `VANTADB_CLOSED` is emitted by handle-lifecycle checks
+(TS `close()` guard), not by `code()`:
 
 ```rust
 match err.code() {
@@ -162,22 +165,29 @@ payload so end-users see actionable guidance instead of a generic toast.
 ## 4. TypeScript / WASM error mapping
 
 The TypeScript SDK and WASM binding normalize Rust `VantaError` to a
-`VantaError` class with a stable `code` from the 10-code contract.
+`VantaError` class with a stable `code` from the 10-code contract. The wire
+values are the canonical `VANTADB_*` codes (ERR-TS-01); the TS object keys
+keep their unprefixed names.
 
 ```ts
-const ERROR_CODES = {
-  CLOSED: "CLOSED",
-  WASM_ERROR: "WASM_ERROR",
-  VALIDATION_ERROR: "VALIDATION_ERROR",
-  NOT_FOUND: "NOT_FOUND",
-  INVALID_ARGUMENT: "INVALID_ARGUMENT",
-  CORRUPT: "CORRUPT",
-  RESOURCE_LIMIT: "RESOURCE_LIMIT",
-  TIMEOUT: "TIMEOUT",
-  BUSY: "BUSY",
-  IO_ERROR: "IO_ERROR",
+export const ERROR_CODES = {
+  CLOSED: "VANTADB_CLOSED",
+  WASM_ERROR: "VANTADB_WASM_ERROR",
+  VALIDATION_ERROR: "VANTADB_VALIDATION_ERROR",
+  NOT_FOUND: "VANTADB_NOT_FOUND",
+  INVALID_ARGUMENT: "VANTADB_INVALID_ARGUMENT",
+  CORRUPT: "VANTADB_CORRUPT",
+  RESOURCE_LIMIT: "VANTADB_RESOURCE_LIMIT",
+  TIMEOUT: "VANTADB_TIMEOUT",
+  BUSY: "VANTADB_BUSY",
+  IO_ERROR: "VANTADB_IO_ERROR",
 } as const;
 ```
+
+`vantadb-node` (napi) carries the code as a `"{VANTADB_CODE}: {message}"`
+prefix on the thrown `Error` — `wrapNativeError` in `vantadb-ts` parses it
+back into `err.code` and strips it from the message, falling back to
+`classifyWasmError` for unprefixed (host-level) failures.
 
 ### 4.1 `VantaError` shape
 
@@ -211,9 +221,9 @@ try {
   db.put(...);
 } catch (e) {
   const err = wrapWasmError(e, "db.put");
-  if (err.code === "VALIDATION_ERROR") {
+  if (err.code === "VANTADB_VALIDATION_ERROR") {
     console.warn("validation failed:", err.details);
-  } else if (err.code === "BUSY") {
+  } else if (err.code === "VANTADB_BUSY") {
     await sleep(100); // is_retriable equivalent
     retry();
   }
@@ -222,8 +232,10 @@ try {
 
 ### 4.3 Cause chain (TS 4.4+)
 
-`VantaError.cause` is **not currently set** (Task `ERR-TS-01` adds it). Today
-the original error is preserved in `details.original` via `wrapWasmError`.
+Since ERR-TS-01, `wrapWasmError` / `wrapNativeError` set
+`VantaError.cause` to the original thrown value (ES2022 `ErrorOptions`),
+preserving the error chain natively. The legacy `details.original` /
+`details.{name,stack}` fields are kept unchanged for backward compat.
 
 ---
 
@@ -376,6 +388,16 @@ with HTTP status codes `400 / 404 / 409 / 422 / 429 / 500`. Mapping from
 
 ## Changelog
 
+- **2026-09-02 (ERR-TS-01)** — TS/WASM/Node aligned to the canonical
+  `VANTADB_*` wire values: `vantadb-wasm`'s `to_js_err` now calls
+  `VantaError::code()` directly (local 30→8 table removed);
+  `vantadb-node`'s `map_err` emits `"{CODE}: {Display}"`;
+  `vantadb-ts`'s `ERROR_CODES` keeps unprefixed keys but prefixed values
+  (BREAKING for `err.code === "VALIDATION_ERROR"`-style comparisons);
+  `wrapNativeError` recovers the code (no invented `NATIVE_ERROR`);
+  `guards.validateVector` throws `VantaError(VANTADB_VALIDATION_ERROR)`
+  instead of `TypeError`/`RangeError` (BREAKING for TypeError catchers);
+  `cause` chain set by both wrappers (§4.3).
 - **2026-09-02 (ERR-CORE-01)** — `VantaError::code()` implemented in
   `src/error.rs`: 10 canonical `VANTADB_*` codes, exhaustive match, snapshot
   test `error::tests::code_snapshot_all_variants`. Final mapping resolved

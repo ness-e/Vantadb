@@ -1,4 +1,4 @@
-import { VantaError } from "./errors.js";
+import { VantaError, ERROR_CODES, classifyWasmError } from "./errors.js";
 import { isMemoryRecord } from "./guards.js";
 
 import type {
@@ -30,18 +30,27 @@ export interface NativeConnectOptions {
  * Wrap an error thrown by the native binding in a uniform `VantaError`, the
  * same way `wrapWasmError` does for the WASM backend. Errors that already are
  * `VantaError` pass through untouched.
+ *
+ * `vantadb-node` prefixes engine errors with the canonical stable code
+ * (`"VANTADB_NOT_FOUND: Node not found: 7"`, ERR-TS-01); when the prefix is
+ * present and belongs to the 10-code contract it becomes `err.code` and is
+ * stripped from the human message. Otherwise we fall back to the same
+ * message-prefix classifier the WASM path uses — there is no separate
+ * `NATIVE_ERROR` code.
  */
+const NATIVE_CODE_PREFIX = /^(VANTADB_[A-Z0-9_]+): ([\s\S]*)$/;
+
 export function wrapNativeError(e: unknown, context: string): VantaError {
   if (e instanceof VantaError) return e;
   const message = e instanceof Error ? e.message : String(e);
   const details = e instanceof Error
     ? { name: e.name, stack: e.stack }
     : { original: e };
-  return new VantaError(
-    "NATIVE_ERROR",
-    `${context}: ${message}`,
-    details,
-  );
+  const match = NATIVE_CODE_PREFIX.exec(message);
+  if (match && (Object.values(ERROR_CODES) as readonly string[]).includes(match[1])) {
+    return new VantaError(match[1], `${context}: ${match[2]}`, details, { cause: e });
+  }
+  return new VantaError(classifyWasmError(message), `${context}: ${message}`, details, { cause: e });
 }
 
 /**
@@ -84,13 +93,13 @@ function normalizeMetadataForNative(
       else if ('Null' in vv) out[k] = 'Null';
       else {
         throw new VantaError(
-          "VALIDATION_ERROR",
+          ERROR_CODES.VALIDATION_ERROR,
           `normalizeMetadataForNative: unrecognized tagged value for key "${k}"`,
         );
       }
     } else {
       throw new VantaError(
-        "VALIDATION_ERROR",
+        ERROR_CODES.VALIDATION_ERROR,
         `normalizeMetadataForNative: unsupported value type for key "${k}": ${typeof v}`,
       );
     }
@@ -101,13 +110,13 @@ function normalizeMetadataForNative(
 function _mapRecord(r: unknown): MemoryRecord {
   if (!r || typeof r !== "object") {
     throw new VantaError(
-      "VALIDATION_ERROR",
+      ERROR_CODES.VALIDATION_ERROR,
       "_mapRecord: expected an object, got " + typeof r,
     );
   }
   if (!isMemoryRecord(r)) {
     throw new VantaError(
-      "VALIDATION_ERROR",
+      ERROR_CODES.VALIDATION_ERROR,
       "_mapRecord: invalid MemoryRecord structure or missing required fields",
     );
   }
@@ -131,8 +140,8 @@ function _mapRecord(r: unknown): MemoryRecord {
  *
  * Platform fallback: the native `.node` binary is platform-specific. If it is
  * not present for the current platform (e.g. a browser bundle), calling any
- * method throws a `VantaError` with code `NATIVE_ERROR` and a clear message —
- * browsers should use the WASM wrapper (`vantadb.ts`) instead.
+ * method throws a `VantaError` with a canonical `VANTADB_*` code and a clear
+ * message — browsers should use the WASM wrapper (`vantadb.ts`) instead.
  */
 export class NativeVantaDB {
   private inner: import("vantadb-node").VantaDb;
@@ -182,7 +191,7 @@ export class NativeVantaDB {
 
   private _assertOpen(): void {
     if (this._closed) {
-      throw new VantaError("CLOSED", "NativeVantaDB instance is closed");
+      throw new VantaError(ERROR_CODES.CLOSED, "NativeVantaDB instance is closed");
     }
   }
 

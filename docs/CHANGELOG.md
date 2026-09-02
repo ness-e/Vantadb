@@ -21,6 +21,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Fixed
 
+- **ts/wasm/node (ERR-TS-01):** error codes unified with the canonical `VANTADB_*` set from `VantaError::code()` (ERR-CORE-01). **BREAKING (0.x):** `vantadb-ts` `VantaError.code` wire values gained the `VANTADB_` prefix (keys unchanged: `ERROR_CODES.BUSY === "VANTADB_BUSY"`); `vantadb-wasm` emits core codes directly (duplicated 30→8 table removed); `vantadb-node` propagates the code as a `"{CODE}: {message}"` prefix recovered by `wrapNativeError` (invented `NATIVE_ERROR` code deleted); `validateVector` now throws `VantaError(VANTADB_VALIDATION_ERROR)` instead of `TypeError`/`RangeError`; `wrapWasmError`/`wrapNativeError` set `cause` (ERROR_HANDLING.md §4.3).
 - **server:** cierre de deuda REST — `/api/v2/metrics` JSON operacional, graph_v2 con ids u128-safe (string wire), paginación cursor, IQL completo vía `/api/v2/query` (SELECT/INSERT + roundtrip graph).
 
 ### Other

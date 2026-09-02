@@ -12,7 +12,8 @@
 //! - I/O boundary is `serde_json::Value`: inputs are parsed manually (the SDK
 //!   input structs have no `#[serde(default)]`), outputs are serialized with
 //!   the existing `Serialize` derives.
-//! - All `VantaError`s map to `napi::Error::from_reason` with the Display text.
+//! - All `VantaError`s map to `napi::Error` with a `"{VANTADB_CODE}: {Display}"`
+//!   message so the TS wrapper can recover the stable error code (ERR-TS-01).
 
 use napi::Error;
 use napi_derive::napi;
@@ -637,8 +638,13 @@ fn runtime_profile_label(profile: vantadb::sdk::VantaRuntimeProfile) -> &'static
     }
 }
 
+/// Convert a core `VantaError` into a `napi::Error` whose message carries the
+/// stable machine-readable code as a `"{CODE}: {Display}"` prefix (ERR-TS-01).
+/// napi has no error-property channel, so the TS wrapper (`wrapNativeError`
+/// in `vantadb-ts/src/native.ts`) parses the prefix back into `err.code`;
+/// the codes are the canonical `VANTADB_*` set from `VantaError::code()`.
 fn map_err(e: vantadb::error::VantaError) -> napi::Error {
-    Error::from_reason(e.to_string())
+    Error::new(napi::Status::GenericFailure, format!("{}: {}", e.code(), e))
 }
 
 fn serde_map_err(e: serde_json::Error) -> napi::Error {
@@ -1196,5 +1202,20 @@ mod tests {
         ));
         assert!(matches!(parse_index_method("Scann"), Ok(IndexType::Scann)));
         assert!(parse_index_method("bogus").is_err());
+    }
+
+    /// ERR-TS-01: `map_err` must carry the canonical `VANTADB_*` code as a
+    /// message prefix so `wrapNativeError` (vantadb-ts) can recover `err.code`
+    /// instead of collapsing every native failure into one bucket.
+    #[test]
+    fn map_err_prefixes_canonical_vantadb_code() {
+        let err = map_err(vantadb::error::VantaError::NodeNotFound(7));
+        assert!(
+            err.reason.starts_with("VANTADB_NOT_FOUND: "),
+            "expected code prefix, got: {}",
+            err.reason
+        );
+        // Display text of the variant must survive after the prefix.
+        assert!(err.reason.contains("not found"), "got: {}", err.reason);
     }
 }

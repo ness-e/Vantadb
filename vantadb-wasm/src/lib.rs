@@ -1923,36 +1923,6 @@ struct GraphDegreeEntry {
     out_degree: usize,
 }
 
-/// Map a core `VantaError` to a stable, machine-readable code exposed on the
-/// JS error object (`err.code`). Consumers (vantadb-ts `wrapWasmError`)
-/// distinguish corrupt/not-found/validation without parsing message strings
-/// (FIND-10). The Display message stays byte-identical: only `code` is added.
-fn vanta_error_code(e: &VantaError) -> &'static str {
-    match e {
-        VantaError::NodeNotFound(_) | VantaError::NotFound { .. } => "NOT_FOUND",
-        VantaError::ValidationError { .. }
-        | VantaError::InvalidInput(_)
-        | VantaError::DimensionMismatch { .. }
-        | VantaError::DuplicateNode(_)
-        | VantaError::NodeIdCollision(_)
-        | VantaError::NoVectorForKey(_)
-        | VantaError::IqlParseError { .. } => "VALIDATION_ERROR",
-        VantaError::IncompatibleFormat { .. }
-        | VantaError::WALVersionMismatch { .. }
-        | VantaError::SerializationError(_)
-        | VantaError::SchemaError(_) => "CORRUPT",
-        VantaError::ResourceLimit(_) => "RESOURCE_LIMIT",
-        VantaError::Timeout { .. } => "TIMEOUT",
-        VantaError::DatabaseBusy(_) => "BUSY",
-        VantaError::WalError(_) | VantaError::IoError(_) | VantaError::BackendError(_) => {
-            "IO_ERROR"
-        }
-        // Generic/Runtime/Cli/Search/Restore/Backup/Unsupported/ExecutionConflict/
-        // NotInitialized/CycleDetected → catch-all.
-        _ => "WASM_ERROR",
-    }
-}
-
 /// Map a `VantaError` to a JS error carrying the `{code, message}` shape
 /// shared across the TS/node/Python bindings (MOD-20 Python parity). The
 /// standard `error.message` and a `code` property are attached via
@@ -1960,17 +1930,17 @@ fn vanta_error_code(e: &VantaError) -> &'static str {
 /// classify errors without parsing the message string. Backward-compatible:
 /// `wrapWasmError` in `vantadb-ts/src/errors.ts` keeps reading `e.message`
 /// and `(e as WasmErrorLike).code` exactly as before.
+///
+/// ERR-TS-01: the code comes straight from the core's `VantaError::code()`
+/// (single source of truth) — the old 30→8 lookup table was removed once
+/// `code()` became `pub`, so WASM now emits the canonical `VANTADB_*` codes.
 fn to_js_err(e: VantaError) -> JsValue {
     let message = e.to_string();
     let err = js_sys::Error::new(&message);
     // Attach a structured code so TS consumers can classify errors without
     // parsing messages. Reflect::set on a fresh Error cannot fail in practice;
     // on failure we degrade gracefully to message-only classification.
-    let _ = js_sys::Reflect::set(
-        &err,
-        &"code".into(),
-        &JsValue::from_str(vanta_error_code(&e)),
-    );
+    let _ = js_sys::Reflect::set(&err, &"code".into(), &JsValue::from_str(e.code()));
     // Mirror `message` as an own property so the JS-side shape is the symmetric
     // `{code, message}` documented for cross-SDK taxonomy. The standard
     // `error.message` remains the canonical source of truth.

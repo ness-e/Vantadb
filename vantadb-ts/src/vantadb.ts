@@ -1,6 +1,6 @@
 import { VantaDB as WasmVantaDB } from "vantadb-wasm";
 
-import { VantaError, wrapWasmError } from "./errors.js";
+import { VantaError, ERROR_CODES, wrapWasmError } from "./errors.js";
 import { isMemoryRecord } from "./guards.js";
 import { normalizeFilterItems, normalizeMetadata, normalizeValue } from "./metadata.js";
 
@@ -133,13 +133,13 @@ export interface SystemClient {
 function _mapRecord(r: unknown): MemoryRecord {
   if (!r || typeof r !== "object") {
     throw new VantaError(
-      "VALIDATION_ERROR",
+      ERROR_CODES.VALIDATION_ERROR,
       "_mapRecord: expected an object, got " + typeof r,
     );
   }
   if (!isMemoryRecord(r)) {
     throw new VantaError(
-      "VALIDATION_ERROR",
+      ERROR_CODES.VALIDATION_ERROR,
       "_mapRecord: invalid MemoryRecord structure or missing required fields",
     );
   }
@@ -246,7 +246,7 @@ export class VantaDB {
 
   private _assertOpen(): void {
     if (this._closed) {
-      throw new VantaError("CLOSED", "VantaDB instance is closed");
+      throw new VantaError(ERROR_CODES.CLOSED, "VantaDB instance is closed");
     }
   }
 
@@ -369,7 +369,7 @@ export class VantaDB {
   /**
    * Close the database and release underlying WASM engine resources.
    *
-   * After close(), all public methods throw VantaError with code "CLOSED".
+   * After close(), all public methods throw VantaError with code "VANTADB_CLOSED".
    * Calling close() multiple times is safe (no-op on subsequent calls).
    *
    * @throws {VantaError} If the WASM engine fails during close.
@@ -1349,7 +1349,11 @@ export class VantaDB {
         roots.map(String),
         maxDepth,
         direction,
-        filter ?? null,
+        // Public input allows `time_range: null`; the wasm binding models
+        // absence as `undefined`. Normalize at the boundary.
+        filter === null || filter === undefined
+          ? null
+          : { ...filter, time_range: filter.time_range ?? undefined },
       ),
     );
   }
@@ -1404,7 +1408,7 @@ export class VantaDB {
   }
 }
 
-export { VantaError } from "./errors.js";
+export { VantaError, ERROR_CODES } from "./errors.js";
 export {
   isMemoryRecord,
   isSearchHit,
