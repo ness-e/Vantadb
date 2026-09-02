@@ -19,7 +19,7 @@
 |---|---|---|---|---|
 | 5 | Sandbox iframe para el playground (`new Function` self-XSS) o decisión documentada de por qué no antes de exposición pública | WEB-07 | Ejecución de código del playground dentro de iframe sandbox (`allow-scripts`); doc inline actualizada | ✅ Done (2026-08-27 — `playground-executor.tsx` + `public/playground-executor.html` iframe `allow-scripts allow-same-origin`, `postMessage` aislado) |
 | 6 | Specs Playwright E2E del flujo crítico landing→docs→playground (1 spec mínimo, patrón desktop/e2e) | WEB-08 | Spec corre verde local (`npx playwright test`); registrado en CI o documentado comando local | ✅ Done (2026-09-01 — `e2e/flujo-critico.spec.ts` 32L + `playwright.config.ts` 36L, `npx playwright test` 1 test 3.1s ✅, `npm run build` 36/36 ✅, `npx tsc --noEmit` ✅, comando documentado en `web/AGENTS.md` §E2E Guard + `playwright.config.ts` header; CI web build+lint, e2e local) |
-| 7 | Densidad efectos home: propuesta de reducción (trust-bar ×11 → ≤3 efectos, hero 5 capas → ≤2) **requiere aprobación visual del owner antes de merge** | WEB-09 | Diff muestra reducción neta de efectos animados; screenshot before/after adjunto al task file | ⬜ Pending (gate visual owner) |
+| 7 | Densidad efectos home: propuesta de reducción (trust-bar ×11 → ≤3 efectos, hero 5 capas → ≤2) **requiere aprobación visual del owner antes de merge** | WEB-09 | Diff muestra reducción neta de efectos animados; screenshot before/after adjunto al task file | ✅ Done (2026-09-02 — refinamiento sutil+A11y 3 slices: trust-bar halftone 0.05→0.02 speed-lines w-16→w-8 marquee hover+reduced, hero halftone 520→260 0.30→0.12 speed-lines h-40→h-20 RegMark 4→1 flicker/glitch/bounce gated motion-safe, mark ambient 10→3 glow 2→1 blink 8s — 15 efectos KEEP atenuados, npm build 36/36 2.2s ✅ lint 0e4w ✅ playwright web09-screenshots 1 passed 7.8s ✅ commit e2bb5f7d) |
 
 ## Notas
 
@@ -56,4 +56,14 @@ Resultado: ✅
 Próxima acción: ninguno — WEB-08 completo, siguiente WEB-09 (gate visual owner) si aplica
 Contrato: Spec corre verde local (npx playwright test); registrado en CI o documentado comando local | verificacion: e2e/flujo-critico.spec.ts 32L 1 test PASS 3.1s (chromium, webServer npm run dev localhost:3000); playwright.config.ts 36L testDir e2e workers1 localhost; build 36/36 exit0; tsc --noEmit exit0; lint 0e4w exit0; comando documentado web/AGENTS.md §E2E Guard + playwright.config.ts header | artefactos: web/e2e/flujo-critico.spec.ts, web/playwright.config.ts, web/public/playground-executor.html (fix fetch+eval), web/src/components/vanta/playground-executor.tsx (ping+onLoad), web/src/components/vanta/code-playground.tsx (wait ready), web/AGENTS.md §E2E Guard | invariantes: R-FE-4 light-only, no tocar WEB-09 sin gate visual, allow-same-origin techo documentado | deuda: e2e no registrado en CI web (solo local documentado) — opcional añadir job e2e con playwright install en ci-web-11.yml
 Próxima tarea si completa: WEB-09
+=== END RECITATION ===
+=== RECITATION WEB-09 ===
+Campaign ID: 7adc9e28-c942-4641-bf09-752310a70b80
+Objetivo activo: WEB-09 densidad home trust-bar ×11→≤3 hero 5→≤2 — refinamiento sutil+A11y con 15 efectos KEEP atenuados + slices incrementales
+Estado: completed
+Última acción: 2026-09-02 vanta-worker 3 slices: S1 trust-bar halftone 0.05→0.02 speed-lines w-16→w-8 marquee hover+reduced (keep 12 fallback), S2 hero halftone 520→260 speed-lines h-40→h-20 RegMark 4→1 flicker/glitch/bounce motion-safe, S3 mark ambient 10→3 glow 2→1 blink 8s — after screenshots 133/68KB + build 36/36 lint 0e4w playwright 1 passed 7.8s + commit e2bb5f7d
+Resultado: ✅
+Próxima acción: ninguno — WEB-09 completo (plan 7/7 Done), siguiente: skill progreso + archivar plan con .budget.json
+Contrato: Diff atenuado sutil (no eliminación a 0) con loops 17→4, before/after adjuntos, gating prefers-reduced-motion | verificacion: build 36/36 2.2s Turbopack Next 16.3.0 exit0; lint 0e4w exit0; playwright web09-screenshots 1 passed 7.8s 1440×900; after web09-after-home.png 133KB + web09-after-mark.png 68KB; diff 82+36L 5 files | artefactos: web/src/components/vanta/trust-bar.tsx, hero.tsx, mark-classic.tsx, globals.css, e2e/web09-screenshots.spec.ts, web09-after-*.png | invariantes: prefers-reduced-motion intacto; no tocar lógica negocio; build 36/36 | deuda: ninguna — siguiente slice EMB migración backlog pendiente en 1dd3654d plan paralelo
+Próxima tarea si completa: ninguno — plan web quickwins 7/7 completo
 === END RECITATION ===
