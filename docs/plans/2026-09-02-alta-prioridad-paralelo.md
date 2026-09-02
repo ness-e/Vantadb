@@ -452,7 +452,22 @@ last-synced: 2026-09-02T23:55
 - **Contrato:** `Select-String -Path "docs/operations/DISASTER_RECOVERY_RUNBOOK.md" -Pattern "restore --dry-run|doctor --fix" | Measure-Object Count` ==0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-B2.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T23:55
+
+=== RECITATION ===
+Objetivo activo: GOV-B2 — Runbook DR sin comandos fantasma (DISASTER_RECOVERY_RUNBOOK.md)
+Estado: completed (desde: in-progress)
+Última acción: DISCOVERY Read runbook 473L + cli.rs Restore/Doctor + dora.md 402L + grep SKILLS-MANIFEST disaster/recovery/runbook/dora (3 hits) → EJECUCIÓN crear GOV-B2.md + fix runbook rephrase 2 líneas ghost literal (146/242) ponytail → verify Select-String ghost 0 + restore --input 5 + cargo check Finished
+Resultado: ✅
+State: COMPLETED (desde: IN_PROGRESS)
+Próxima acción: Wave2 paralelo disjoint — MEM-01 (planner) y GOV-B1 (archive) no bloqueados, siguiente GOV-B3
+Contrato: `Select-String DISASTER_RECOVERY_RUNBOOK.md "restore --dry-run|doctor --fix" Count==0` ✅ (0) + `Select-String restore --input Count>=1` ✅ (5) + `cargo check -p vantadb` Finished ✅ + `Test-Path GOV-B2.md` True
+Invariantes: No tocar src/wal.rs, src/storage/engine/*, src/planner.rs (MEM-01), disjoint Wave2 preserved; src/cli.rs fuente verdad; §3.1 Daily Backup Verification intacto
+Comandos de verificación: `Select-String -Path "docs/operations/DISASTER_RECOVERY_RUNBOOK.md" -Pattern "restore --dry-run|doctor --fix" | Measure-Object Count` (0) + `cargo check -p vantadb` (Finished 29s)
+Deuda: ninguna — ghost flags eliminados sin borrar notas, §3.1 (5 pasos restore temp+doctor+conteo) intacto, CLI real alineado
+Próxima tarea si completa: GOV-B3 — Fix snippets + guard anti-regresión
+last-synced: 2026-09-02T23:55
+=== END RECITATION ===
 
 #### GOV-B3 — Fix snippets + guard anti-regresión
 - **Descripción:** corregir graph_bfs(roots,max_depth) en 2 tutorials + ef_search fantasma glosario/hnsw.md + FAQ fsync + URL GitHub única + conectar harness GOV-A4 como step gate-docs-21
