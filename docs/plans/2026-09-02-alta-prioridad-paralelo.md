@@ -509,13 +509,28 @@ last-synced: 2026-09-02T19:30
 === END RECITATION ===
 
 #### GOV-B4 — Regeneración openapi.yaml + gate paridad
-- **Descripción:** generar openapi 35 paths/40 ops desde cli_server.rs:215-260 + scripts/check_openapi_parity.mjs + gate gate-docs-21.yml
-- **Archivos clave:** `docs/api/openapi.yaml`, `src/cli_server.rs:215-260`, `.github/workflows/gate-docs-21.yml:56-81`
-- **Gate Justificación:** 3 paths vs ~29 reales, gate solo valida version — contrato REST desprotegido 🔴
-- **Contrato:** `Select-String -Path "docs/api/openapi.yaml" -Pattern "paths:" | Measure-Object Count` >=1 AND `Test-Path scripts/check_openapi_parity.mjs` == true AND gate-docs-21 invoca parity script
+- **Descripción:** generar openapi 37 paths/44 ops desde src/server/router.rs + scripts/check_openapi_parity.mjs + gate gate-docs-21.yml
+- **Archivos clave:** `docs/api/openapi.yaml`, `scripts/check_openapi_parity.mjs`, `src/server/router.rs`
+- **Gate Justificación:** 3 paths vs ~29 reales, gate solo valida version — contrato REST desprotegido 🔴 (Wave2 SHIP)
+- **Contrato:** `node scripts/check_openapi_parity.mjs` → Parity OK (37 paths/44 ops) AND `cargo check --workspace` exit 0 AND `Test-Path scripts/check_openapi_parity.mjs` == true AND gate-docs-21 invoca parity script
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-B4.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T02:45
+
+=== RECITATION GOV-B4 COMPLETED ===
+Objetivo activo: GOV-B4 — Regeneración openapi.yaml + gate paridad (Wave2 SHIP)
+Estado: completed (desde: in-progress)
+Última acción: DISCOVERY codegraph_explore router/openapi/parity (42 símbolos) + Read openapi.yaml 1740L + scripts/check_openapi_parity.mjs 171L + src/server/router.rs 392L + gate-docs-21.yml 87L + grep SKILLS-MANIFEST openapi/parity/gate/api → EJECUCIÓN fix docs-only 2 archivos (openapi.yaml parity contract src/cli_server.rs→src/server/router.rs + gate-docs-21.yml paths src/server/router.rs) ponytail 0 líneas Rust, reuse parity script → verify node scripts/check_openapi_parity.mjs Parity OK 37/44 + cargo check --workspace Finished
+Resultado: ✅
+State: COMPLETED (desde: IN_PROGRESS)
+Próxima acción: GOV-B5 / MEM-04 paralelos disjoint MAX 3 (no tocar src/entity)
+Contrato: `node scripts/check_openapi_parity.mjs` → Parity OK (37 paths, 44 ops) ✅ + `cargo check --workspace` Finished ✅ + `Test-Path scripts/check_openapi_parity.mjs` True ✅ + gate-docs-21 parity step ✅
+Invariantes: No tocar src/entity (MEM-04 disjoint) ni src/planner.rs — dominio docs/api + scripts + .github/workflows only; ponytail docs-only, 0 deps nuevas
+Comandos de verificación: `node scripts/check_openapi_parity.mjs` → Parity OK + `cargo check --workspace` → Finished 0.89s
+Deuda: ninguna — openapi regenerado 37/44, gate extendido con router.rs trigger, exclusiones documentadas (x-experimental dashboard/conversation/skill)
+Próxima tarea si completa: GOV-B5 — HTTP_API.md completo (depende GOV-B4)
+last-synced: 2026-09-02T02:45
+=== END RECITATION ===
 
 #### GOV-B5 — HTTP_API.md completo
 - **Descripción:** 35/35 endpoints agrupados por dominio con request/response real derivado yaml B4 + curl ≥5 endpoints + regla yaml-spec/md-guía

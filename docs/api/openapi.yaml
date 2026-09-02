@@ -12,10 +12,10 @@ info:
     The HTTP server is optional and enabled via `vanta-cli server --http`
     or the `server` Cargo feature.
 
-    Parity contract: every route registered in `src/cli_server.rs`
-    (`app_with_cors` + dashboard fallback) must appear here with matching
-    methods — enforced by `scripts/check_openapi_parity.mjs` in CI
-    (gate-docs-21). Endpoints marked `x-experimental: true` are unstable
+    Parity contract: every route registered in `src/server/router.rs`
+    (`app_with_cors` + dashboard fallback via `mount_dashboard`) must appear
+    here with matching methods — enforced by `scripts/check_openapi_parity.mjs`
+    in CI (gate-docs-21). Endpoints marked `x-experimental: true` are unstable
     and may change without notice.
   contact:
     name: VantaDB Project

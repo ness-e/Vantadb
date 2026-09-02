@@ -3,10 +3,10 @@ name: 'GATE: Docs — Lint & Frontmatter'
 on:
   push:
     branches: [main, develop]
-    paths: ["docs/**", "src/cli_server.rs", "scripts/**"]
+    paths: ["docs/**", "src/server/router.rs", "src/server/routing.rs", "scripts/**"]
   pull_request:
     branches: [main]
-    paths: ["docs/**", "src/cli_server.rs", "scripts/**"]
+    paths: ["docs/**", "src/server/router.rs", "src/server/routing.rs", "scripts/**"]
   workflow_dispatch:
 
 concurrency:
