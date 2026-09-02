@@ -1,5 +1,5 @@
 #![cfg(miri)]
-
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 use std::ptr;
 
 struct SendPtr(*const f32);

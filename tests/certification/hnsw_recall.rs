@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Vanta Recall & Latency Certification
 //!
 //! Measures search precision and timing distribution to ensure production readiness.

@@ -1,3 +1,6 @@
+// ponytail: bench helpers unwrap with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Shared benchmarking utilities for VantaDB criterion benches.
 //!
 //! Provides a deterministic measurement profile (so nightly runs are

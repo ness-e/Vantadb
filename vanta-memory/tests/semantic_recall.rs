@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MEM-47 D19 — semantic recall end-to-end (D38 dual-pool ranking + keyword
 //! fallback). All storage runs against an in-memory VantaDB and the
 //! "embedding provider" is a deterministic fake: a small synonym table maps

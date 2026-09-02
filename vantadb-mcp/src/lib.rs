@@ -1,5 +1,8 @@
 #![warn(missing_docs)]
 #![recursion_limit = "512"]
+// ERR-CORE-02: keep clippy deny on prod code; tests may `unwrap`/`expect`
+// freely (same pattern as vantadb/src/lib.rs).
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 //! VantaDB Model Context Protocol (MCP) Server.
 //!

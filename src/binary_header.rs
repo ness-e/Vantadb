@@ -1,3 +1,10 @@
+// ponytail: `bytes[8..16].try_into()` cannot fail (compile-time-known 8-byte
+// slice into `u64`) and `SystemTime::duration_since(UNIX_EPOCH)` only fails
+// for clocks set before 1970. Both `expect` calls are documented invariants
+// in the function bodies; the blanket allow keeps the file lint-clean
+// without obscuring the call-site comments.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 use crate::error::{Result, VantaError};
 use web_time::SystemTime;
 

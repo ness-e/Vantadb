@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MCP-32: `thread_create` / `thread_send` / `thread_get` / `thread_list` /
 //! `thread_delete` / `thread_purge_expired` — MCP exposure of the agentic
 //! conversation thread API.

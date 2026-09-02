@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Durability & Crash Recovery Certification Suite
 //!
 //! This suite validates that VantaDB can recover data after ungraceful shutdowns

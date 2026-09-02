@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Integration tests for the append-only JSONL audit log (TSK-107b).
 
 use serde_json::Value;

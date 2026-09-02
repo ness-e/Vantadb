@@ -1,3 +1,6 @@
+// ponytail: distance invariants / sorted-candidate unwraps; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 use crate::index::distance::calculate_similarity;
 use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
 use std::sync::Mutex;

@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MEM-18 D19 — auto-recall (prepend/append split, 3 modes), memory-prompt
 //! resolver/composer, and profile sync. All storage runs against an in-memory
 //! VantaDB; no LLM involved (recall is LLM-free).

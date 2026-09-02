@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! 🛡️ ACID Phase 4a — WAL v2 rollback & multi-layer rollback tests (RES-01).
 //!
 //! Verifies the WAL v2 Prepare marker + truthful-error path:

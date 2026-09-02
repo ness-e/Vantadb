@@ -1,4 +1,5 @@
 #![cfg(debug_assertions)]
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 
 //! Recovery certification for stale/corrupt derived memory index state.
 

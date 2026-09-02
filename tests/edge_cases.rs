@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! AUD-37: Edge case tests for VantaDB.
 //! Covers NaN/Inf vectors, empty inputs, zero-dim vectors,
 //! concurrent access, metadata special chars, and WAL failure.

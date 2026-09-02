@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! TSK-37: Hybrid ranking quality metrics — NDCG@k, MRR, Recall@k
 //!
 //! Creates a small labeled corpus, runs hybrid (BM25 + vector) search,

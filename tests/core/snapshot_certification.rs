@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Snapshot certification suite for VantaDB.
 //!
 //! Tests three critical stability properties:

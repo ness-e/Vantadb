@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! D19 tests for the seed/import module (MEM-39): file import, content-hash
 //! idempotency (replay never duplicates), typed validation errors, and
 //! namespace sanitization.

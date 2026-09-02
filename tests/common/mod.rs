@@ -1,4 +1,6 @@
 #![allow(dead_code)]
+// ponytail: test harness unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 
 #[cfg(feature = "cli")]
 use console::{style, Emoji};

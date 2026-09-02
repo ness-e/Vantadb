@@ -1,3 +1,6 @@
+// ponytail: integration test unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! SRV-05 — RBAC scoping por namespace (integration test).
 //!
 //! Validates the contract that the `/api/v2/records/{ns}/{key}` and

@@ -1,3 +1,6 @@
+// ponytail: mmap-resident byte accounting invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Memory-mapped primitives for [`crate::storage::vfile::VantaFile`]: the
 //! memmap2 re-export / fallback shim, the Unix SIGBUS fault handler, resident
 //! byte accounting, and the 4-aligned in-memory buffer.

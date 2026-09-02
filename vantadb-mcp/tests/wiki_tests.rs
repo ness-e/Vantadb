@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MEM-33 — D19 tests for the `wiki_*` MCP tools.
 //!
 //! Contract: 4 query-only tools (`wiki_search/read/list/graph`) over a

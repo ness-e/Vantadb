@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Operational MVP smoke: recovery, rebuild, export/import, and volume KPIs.
 
 use std::time::Instant;

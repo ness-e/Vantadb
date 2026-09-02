@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! D19 dedicated L1 extractor tests (MEM-10 contract).
 //!
 //! Uses a local `CapturingRunner` (deterministic fake implementing the

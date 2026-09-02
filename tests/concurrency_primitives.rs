@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! ⚡ Concurrency primitive stress tests.
 //!
 //! Validates each concurrent data structure used throughout the VantaDB codebase

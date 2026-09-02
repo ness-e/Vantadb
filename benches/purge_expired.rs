@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Benchmark: `purge_expired` — full-scan vs TTL-index candidate selection.
 //!
 //! MOD-04: measures `VantaEmbedded::purge_expired()` on a dataset of N records

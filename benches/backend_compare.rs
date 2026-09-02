@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! TSK-143: Fjall vs RocksDB backend benchmark.
 //!
 //! Compares insert throughput, get latency, and memory usage between Fjall

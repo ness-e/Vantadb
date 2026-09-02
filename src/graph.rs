@@ -1,3 +1,8 @@
+// ponytail: `StorageEngine::open_with_config(":memory:", ...)` succeeds by
+// construction (no path, no on-disk file to corrupt). Spreading the allow
+// per call site would just duplicate this rationale.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Local graph traversal helper.
 //!
 //! VantaDB stores local edges in its internal node model, but v0.1.x does not claim to be a

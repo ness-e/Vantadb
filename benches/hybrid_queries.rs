@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::hint::black_box;
 use tempfile::TempDir;

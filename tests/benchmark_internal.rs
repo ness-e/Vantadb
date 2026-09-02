@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Internal benchmark for 10K synthetic corpus inserts, rebuild, and query latencies.
 
 use serde_json::json;

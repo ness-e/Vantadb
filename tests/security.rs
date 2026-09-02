@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! 🔒 Security test suite for VantaDB.
 //!
 //! Covers: IQL injection fuzzing, input validation, auth bypass attempts,

@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Stress test: concurrent access across 10+ namespaces.
 //!
 //! Verifies:

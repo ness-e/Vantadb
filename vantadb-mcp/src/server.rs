@@ -91,6 +91,8 @@ fn write_discovery_file(storage_path: &str, http_port: u16) -> std::io::Result<W
         version: env!("CARGO_PKG_VERSION").to_string(),
     };
     let path = discovery_path(storage_path);
+    // ServerInfo is a plain Serialize struct (strings/ints) — serialization cannot fail.
+    #[allow(clippy::expect_used)]
     let json = serde_json::to_string_pretty(&info).expect("ServerInfo serializes");
     // Open with create+truncate, write, sync
     let mut file = std::fs::OpenOptions::new()

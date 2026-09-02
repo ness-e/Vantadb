@@ -1,3 +1,6 @@
+// ERR-CORE-02: keep clippy deny on prod code; tests may `unwrap`/`expect`
+// freely (same pattern as vantadb/src/lib.rs).
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 //! Vanta proxy library: transparent forwarding of LLM wire protocols.
 //!
 //! Protocols supported (verbatim forward, no business logic — see MEM-26):

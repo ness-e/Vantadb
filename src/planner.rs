@@ -1,3 +1,6 @@
+// ponytail: planner invariants on join_spec Some/None flow above the call site; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Search planner for VantaDB hybrid retrieval.
 //!
 //! This module owns the routing logic, RRF fusion constants, and candidate

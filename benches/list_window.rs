@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! FIND-24 — Cursor-paginated `list` performance regression bench.
 //!
 //! Compares the per-call latency of `VantaEmbedded::list(limit=N, cursor=K)`

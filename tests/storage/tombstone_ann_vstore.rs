@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Raw ANN search over mmap vector store (`search_nearest` + `Some(&vs)`) must not return
 //! logically deleted rows (disk tombstone flags on `DiskNodeHeader`).
 

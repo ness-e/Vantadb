@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::env;
 use std::hint::black_box;

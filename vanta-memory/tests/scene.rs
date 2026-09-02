@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! D19 integration tests for the LLM-free scene index + META contract
 //! (MEM-12, F4).
 //!

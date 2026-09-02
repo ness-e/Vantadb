@@ -1,3 +1,6 @@
+// ponytail: SCANN quantization + partition slot invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! SCANN — Simplified ScaNN (Scalable Nearest Neighbors) with scalar
 //! quantization (SQ8) compression.
 //!

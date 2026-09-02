@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MEM-41 D19 hook tests: generation-log provenance for L1/L2/L3.
 //!
 //! (a) successful generations register an entry {layer, status, anchor_id,

@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Structured API v2 Modernized Test Suite
 //! Part of the Vanta Certification ecosystem.
 

@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! D19 — dedicated tests for the MEM-16 orchestration layer: injectable
 //! clock, local state backend (timers/locks/queue), pipeline managers,
 //! checkpoint manager and the pipeline worker. All time is driven by a

@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MEM-26 contract tests: auth→session→inject pipeline against a mocked
 //! upstream + in-memory local DB (D19 a-f).
 

@@ -40,12 +40,16 @@ impl MockLlmRunner {
     }
 
     /// Number of `run` calls so far (assert call counts in tests).
+    // Poison is impossible: this mutex is only ever contended by the harness
+    // that owns this mock and never panics while holding it.
+    #[allow(clippy::unwrap_used)]
     pub fn call_count(&self) -> usize {
         *self.call_count.lock().unwrap()
     }
 }
 
 impl LlmRunner for MockLlmRunner {
+    #[allow(clippy::unwrap_used)] // poison impossible — see call_count()
     fn run(&self, _params: &LlmRunParams) -> Result<String, LlmError> {
         if let Some(err) = &self.script.error {
             return Err(err.clone());

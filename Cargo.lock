@@ -5478,6 +5478,7 @@ version = "0.5.0"
 dependencies = [
  "aes-gcm",
  "ahash",
+ "anyhow",
  "arc-swap",
  "arrow",
  "axum",
@@ -5571,6 +5572,7 @@ dependencies = [
 name = "vantadb-server"
 version = "0.5.0"
 dependencies = [
+ "anyhow",
  "axum",
  "axum-server",
  "chrono",

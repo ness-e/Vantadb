@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Benchmark for tokenizer performance comparison.
 //!
 //! Compares basic ASCII tokenizer vs advanced Tantivy tokenizer

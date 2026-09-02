@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Index Reconstruction Certification Suite
 //!
 //! This suite validates that VantaDB can rebuild its entire HNSW index

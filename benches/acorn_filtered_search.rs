@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! ACORN Filtered Vector Search Benchmark.
 //!
 //! Measures VantaDB's ACORN filtered graph navigation performance

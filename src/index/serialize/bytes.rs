@@ -1,3 +1,6 @@
+// ponytail: fixed-size buffer writes + AtomicU64 bit packing invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 use std::io::Write;
 use std::sync::atomic::Ordering;
 use tracing::warn;

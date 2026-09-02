@@ -1,3 +1,9 @@
+// ponytail: every `expect` here unwraps invariant ops on fixed-size memory
+// layouts (sorted arrays, .pop() of pre-validated vectors, atomic load of
+// u128-from-AtomicU64). Documented per-call. Blanket allow avoids 14 noise
+// attributes for zero behavior change.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! In-memory Vamana graph index (DiskANN-inspired, **not disk-backed**).
 //!
 //! Implements a simplified Vamana graph: greedy search with a bounded

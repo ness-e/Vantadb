@@ -97,6 +97,8 @@ pub(crate) fn build_units(msgs: Vec<ChatMessage>) -> Vec<Vec<ChatMessage>> {
         if msg.role == ChatRole::ToolCall {
             let mut unit = vec![msg];
             while matches!(iter.peek().map(|m| &m.role), Some(ChatRole::ToolResult)) {
+                // peek() just returned Some ⇒ next() cannot be None (infallible).
+                #[allow(clippy::expect_used)]
                 unit.push(iter.next().expect("peeked element exists"));
             }
             units.push(unit);

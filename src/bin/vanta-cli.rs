@@ -1,13 +1,13 @@
 //! VantaDB CLI binary — thin entry point.
 //! Handlers live in `vantadb::cli_handlers` for testability.
 
+use anyhow::Context as _;
 use clap::Parser;
 
 use vantadb::cli::{Cli, Commands, ExportFormat};
 use vantadb::cli_handlers;
 use vantadb::config::LogFormat;
 use vantadb::console;
-use vantadb::error::Result;
 
 #[cfg(all(feature = "jemalloc", not(target_os = "windows")))]
 #[global_allocator]
@@ -20,7 +20,14 @@ static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-fn main() -> Result<()> {
+// ERR-CORE-02: bin → anyhow con `.context()` (cadena humana en stderr).
+// La lib nunca usa anyhow; solo este bin. `?` sobre los handlers convierte
+// `VantaError` (Error + Send + Sync + 'static) vía el `From` genérico de anyhow.
+fn main() -> anyhow::Result<()> {
+    run().context("vanta-cli: command failed")
+}
+
+fn run() -> anyhow::Result<()> {
     let args = Cli::parse();
 
     if args.verbose {

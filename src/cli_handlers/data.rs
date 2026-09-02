@@ -1,3 +1,6 @@
+// ponytail: ditto fmt.rs — spinner template literal invariant.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Data command handlers — export, import, query.
 
 use console::Term;

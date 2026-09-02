@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Property-based testing para invariantes de durabilidad (TSK-07)
 //!
 //! Este módulo usa proptest para verificar invariantes críticos de durabilidad:

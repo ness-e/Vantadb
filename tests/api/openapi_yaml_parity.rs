@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! OpenAPI YAML ↔ Real Implementation Parity Test
 //!
 //! Validates that docs/api/OPENAPI.yaml accurately reflects the actual

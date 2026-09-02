@@ -1,3 +1,6 @@
+// ponytail: integration test unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Memory Telemetry Contract Harness
 //!
 //! Validates that VantaDB reports process-scoped memory with explicit units

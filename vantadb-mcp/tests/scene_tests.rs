@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MCP-30: `scene_read` / `scene_list` / `scene_query` — MCP exposure of the
 //! vanta-memory gateway knowledge handlers (structured scene navigation).
 //!

@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! REVISAR-01: Dedicated IVF build/query benchmark.
 //!
 //! Closes the ERR-038/039/040/041 reproducibility cycle with a dedicated

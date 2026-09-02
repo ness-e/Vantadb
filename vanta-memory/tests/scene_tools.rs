@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! D19 integration tests for the sandboxed scene tools (MEM-13, F4).
 //!
 //! Pattern AAA: arrange → act → assert. Uses an in-memory `VantaEmbedded`

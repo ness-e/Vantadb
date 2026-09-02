@@ -1,3 +1,7 @@
+// ponytail: `VANTA_OPENAI_API_KEY` is a required config (intentional panic
+// on missing) + LLM embedding provider invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Optional external LLM integration.
 //!
 //! This module is not a core dependency of the v0.1.x MVP. Embedding generation and LLM runtime

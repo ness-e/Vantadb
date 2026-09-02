@@ -1,3 +1,10 @@
+// ponytail: AES-GCM/Aes256Gcm/PBKDF2 calls below return errors only for inputs
+// that we statically know cannot fail (32-byte key, fixed nonces, infallible
+// cipher). Spreading a per-call `#[allow]` would add 6+ attribute lines for
+// zero behavior change. Blanket allow with this rationale is the simpler
+// contract — see individual `expect` strings for the specific invariant.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! AES-256-GCM at-rest encryption for VantaDB storage.
 //!
 //! Provides [`Cipher`] for encrypt/decrypt operations and [`EncryptionStream`]
@@ -9,10 +16,10 @@
 //! variable as a hex-encoded 32-byte (64 hex char) value.
 //!
 //! * A value that decodes to exactly 32 bytes is used directly as the AES-256
-//!   key. This is the recommended form (a real random key, no derivation
-//!   needed) and keeps the original message format.
+//! key. This is the recommended form (a real random key, no derivation
+//! needed) and keeps the original message format.
 //! * A shorter value (e.g. a user passphrase) is key-stretched with
-//!   PBKDF2-HMAC-SHA256 (210,000 iterations — OWASP 2023 recommendation) and a
+//! PBKDF2-HMAC-SHA256 (210,000 iterations — OWASP 2023 recommendation) and a
 //!   per-message random 16-byte salt before use. This defeats offline brute
 //!   force on leaked ciphertext, unlike the previous single-pass SHA-256.
 //!

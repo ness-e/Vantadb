@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! 🔍 Fuzzing basado en propiedades (Property-Based Testing) para validación cross-platform.
 //!
 //! Ejecuta: `cargo test fuzz_proptest`

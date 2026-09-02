@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MEM-25 contract tests: verbatim wire forwarding against a mocked upstream.
 
 use std::sync::Mutex;

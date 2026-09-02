@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! SRV-04 — Zero-downtime API key rotation (integration test).
 //!
 //! Validates the contract that two `Bearer` tokens (the primary and the

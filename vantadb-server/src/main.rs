@@ -25,7 +25,12 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 const MCP_FLAG: &str = "--mcp";
 
 #[tokio::main]
-async fn main() {
+// ERR-CORE-02: anyhow con .context() en los dos caminos de servidor (cadena
+// humana en stderr, exit code 1 preservado). Rust printea el Debug de anyhow:
+// contexto + cadena completa de sources, no solo Display.
+async fn main() -> anyhow::Result<()> {
+    use anyhow::Context as _;
+
     // Hand-rolled arg scan (the binary has exactly one boolean flag; clap is
     // only a dev-dependency here and adding it as a runtime dep would be
     // over-engineering). `skip(1)` drops the binary name so flags are matched
@@ -34,7 +39,7 @@ async fn main() {
 
     if args.iter().any(|a| a == "-h" || a == "--help") {
         print_help();
-        return;
+        return Ok(());
     }
 
     if let Err(unknown) = validate_args(&args) {
@@ -54,15 +59,13 @@ async fn main() {
         // `run_stdio_server_auto` handles writer discovery (.vanta.server.json),
         // ephemeral HTTP on 127.0.0.1:0, health 500ms + PID alive check,
         // stale cleanup + retry, and proxy dispatch for second instance.
-        if let Err(e) = vantadb_mcp::run_stdio_server_auto(&storage_path, Some(config)).await {
-            eprintln!("Failed to start MCP server: {e}");
-            std::process::exit(1);
-        }
+        vantadb_mcp::run_stdio_server_auto(&storage_path, Some(config))
+            .await
+            .context("failed to start MCP server")
     } else {
-        if let Err(e) = vantadb::cli_server::run(config).await {
-            eprintln!("Server error: {e}");
-            std::process::exit(1);
-        }
+        vantadb::cli_server::run(config)
+            .await
+            .context("server error")
     }
 }
 

@@ -1,3 +1,6 @@
+// ponytail: backend test unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Backend abstraction integration test suite.
 //!
 //! Validates `StorageEngine` with `RocksDbBackend`, `InMemoryBackend`, and

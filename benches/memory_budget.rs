@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Memory budget benchmark (FND-01 — compute/storage separation + OOM risk).
 //!
 //! Contract: measure **process RSS growth vs dataset size** under a sustained

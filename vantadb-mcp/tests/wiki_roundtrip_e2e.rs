@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MEM-44 — E2e ingest→tools wiki_* roundtrip (P31 Task 2).
 //!
 //! Single cross-crate test chaining the full integration: temp `.md`

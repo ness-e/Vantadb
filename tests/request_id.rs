@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Integration tests for SRV-02 — tracing-id propagation (x-request-id /
 //! x-tracing-id / traceparent → audit log JSONL).
 //!

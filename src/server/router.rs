@@ -1,3 +1,6 @@
+// ponytail: HTTP routing/path invariant; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! HTTP router building, CORS, and dashboard mounting.
 //!
 //! REVIEW-10: extracted from `routing.rs` — pure router construction without

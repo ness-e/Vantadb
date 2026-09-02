@@ -1,5 +1,10 @@
 #![doc(html_root_url = "https://docs.rs/vantadb/0.3.0/vantadb/")]
 #![deny(unsafe_op_in_unsafe_fn)]
+// Tests use `unwrap`/`expect` freely for invariants that would panic anyway in
+// production. Keep deny on prod code, allow inside `#[cfg(test)]` only.
+// `#[cfg_attr(test, allow(...))]` is evaluated by rustc — the deny remains for
+// every other build profile (release, benches, doc).
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 //! # VantaDB — Embedded Persistent Memory Engine
 //!

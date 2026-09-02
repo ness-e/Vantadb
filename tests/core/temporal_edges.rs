@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Temporal edges certification — COMP-021.
 //!
 //! `Edge.created_at_ms` propagation (forward + reverse), temporal traversal

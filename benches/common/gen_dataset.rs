@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 // Standalone generator for benches/data/synthetic_dataset.bin.
 // Mirrors next_u64/gen_f32 in benches/common/mod.rs so regeneration is
 // byte-identical (verify by re-hashing the output).

@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! D19 dedicated L1 dedup tests (MEM-11 contract).
 //!
 //! Two-phase dedup over a real VantaDB in-memory instance (no mocks for the

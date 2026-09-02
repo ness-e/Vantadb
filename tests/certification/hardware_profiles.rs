@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Hardware Profiles Certification — Vanta Certification Edition
 //!
 //! Validates hardware detection and emergency threshold logic.

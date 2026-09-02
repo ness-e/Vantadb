@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Persistent memory API certification.
 
 use tempfile::tempdir;

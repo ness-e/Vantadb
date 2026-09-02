@@ -1,3 +1,6 @@
+// ponytail: stress protocol unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! ═══════════════════════════════════════════════════════════════════════════
 //! STRESS PROTOCOL — VantaDB HNSW Certification Suite
 //! ═══════════════════════════════════════════════════════════════════════════

@@ -1,3 +1,6 @@
+// ponytail: invariant test unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Core invariants regression tests for StorageEngine.
 
 use tempfile::tempdir;

@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! D19 — dedicated tests for the data contracts (MEM-08b).
 //!
 //! Exercises serialization round-trips and LLM-wire parsing through the

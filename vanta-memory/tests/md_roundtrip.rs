@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Integration test for MEM-62 round-trip: export MD → import MD preserves
 //! the records byte-for-byte (idempotency via content-hash). Runs against an
 //! in-memory VantaEmbedded so it doesn't need the `fjall` feature.

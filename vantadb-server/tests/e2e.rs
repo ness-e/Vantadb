@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! End-to-End Integration Tests for vantadb-server
 //!
 //! These tests spin up a real TCP/HTTP server, make requests via reqwest,

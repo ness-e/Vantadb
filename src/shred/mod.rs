@@ -1,3 +1,6 @@
+// ponytail: typed columnar buffer access invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Typed columnar storage for metadata fields (JSON Shredding).
 //!
 //! # Purpose

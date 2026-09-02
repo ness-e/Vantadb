@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! AUDREP-45 oversized-write guard restoration (ERR-005).
 //!
 //! The guard lives in `src/storage/ops.rs`: `deserialize_node_payload` rejects

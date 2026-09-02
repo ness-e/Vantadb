@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Benchmark: Incremental vs Rebuild Insert Performance
 //!
 //! Measures the performance difference between the old rebuild behavior and the

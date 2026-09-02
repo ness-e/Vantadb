@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! D19 dedicated L0 capture tests (MEM-09 contract).
 //!
 //! Uses a real VantaDB embedded instance with the in-memory backend

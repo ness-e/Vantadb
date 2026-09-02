@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! A4+A3: Parametric HNSW sweep over real datasets.
 //!
 //! Loads pre-downloaded datasets from `data/benchmark/{name}/`, sweeps

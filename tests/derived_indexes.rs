@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Derived namespace/payload index certification for persistent memory APIs.
 
 use tempfile::tempdir;

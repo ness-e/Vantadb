@@ -210,7 +210,11 @@ pub fn aggregate_by_rel_path(
                 None => {
                     order.push(page.rel_path.clone());
                     by_page.push((page.rel_path.clone(), Vec::new()));
-                    by_page.last_mut().expect("just pushed")
+                    // last_mut() is Some right after push (infallible).
+                    #[allow(clippy::expect_used)]
+                    {
+                        by_page.last_mut().expect("just pushed")
+                    }
                 }
             };
             slot.1.push((source_name.clone(), page.content.clone()));

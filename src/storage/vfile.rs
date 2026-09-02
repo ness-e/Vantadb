@@ -1,3 +1,6 @@
+// ponytail: memory-mapped alignment invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Memory-mapped vector store file (VantaFile) with read/write and in-memory variants.
 //!
 //! When the `encryption` feature is enabled, VantaFile can optionally hold a

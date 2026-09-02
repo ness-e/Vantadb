@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Schema Evolution & Metadata Integrity Suite
 //!
 //! This suite validates that VantaDB maintains data integrity as node structures

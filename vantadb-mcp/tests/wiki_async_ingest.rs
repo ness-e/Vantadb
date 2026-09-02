@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MEM-52 — Fachada productiva de ingest wiki (P33 Task 3).
 //!
 //! Contrato D19: el disparo async (mismo `start_ingest` que llama el tool

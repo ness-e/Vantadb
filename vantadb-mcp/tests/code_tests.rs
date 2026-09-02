@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MEM-32 — D19 tests for the `code_*` MCP tools.
 //!
 //! Contract: 8 tools (`code_search/explore/callers/callees/impact/node/status/files`)

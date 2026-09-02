@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! AUDIT-02: sparse hot-path micro-opt gate de medición.
 //!
 //! Atribuye tiempo en el hot-path de búsqueda sparse (inverted index / posting

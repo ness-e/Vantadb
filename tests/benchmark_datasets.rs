@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 /// Integration test that loads real benchmark datasets (GloVe-100)
 /// and runs basic HNSW insert + search to validate performance.
 ///

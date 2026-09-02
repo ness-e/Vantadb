@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Canonical P99 benchmark (FND-10 / Regla 9).
 //! consumo guard — baseline anti-regresión GOV-B3: `cargo bench --bench canonical_p99 --no-run` must compile.
 //!

@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Concurrent access example: insert and search from multiple threads
 //! using VantaEmbedded behind an Arc reference.
 //! VantaEmbedded is Send + Sync and safe to share across threads.

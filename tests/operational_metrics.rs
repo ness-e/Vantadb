@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Operational metrics certification for replay, rebuild, export, and import.
 
 use tempfile::tempdir;

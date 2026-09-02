@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 /// Benchmark comparing search performance with and without prefetch
 /// on the current hardware. This helps determine if prefetch benefits
 /// modern SSDs or if it's only useful for HDDs/slow storage.

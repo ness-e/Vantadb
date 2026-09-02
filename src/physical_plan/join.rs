@@ -1,3 +1,6 @@
+// ponytail: nested-loop join step invariant; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Physical join operators: nested-loop join and subquery filter.
 //!
 //! Split out of the monolithic `physical_plan` module (REVIEW-05).

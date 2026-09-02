@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Cursor-based pagination contract for `VantaEmbedded::list` (FIND-24).
 //!
 //! Regression coverage of the perf fix that turned `list(limit=100)` over a

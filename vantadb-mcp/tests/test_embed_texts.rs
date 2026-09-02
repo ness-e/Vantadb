@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 use serde_json::json;
 use std::sync::Arc;
 use tempfile::tempdir;

@@ -1,3 +1,7 @@
+// ponytail: crash_helper is a deliberately panicking test harness — every
+// `expect` here is the intended failure mode the test watches for.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 use std::env;
 use std::io::Write;
 use vantadb::config::{SyncMode, VantaConfig};

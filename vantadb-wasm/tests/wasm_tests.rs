@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Browser-only integration tests for VantaDB WASM bindings.
 //!
 //! These tests require a browser environment (via `wasm-bindgen-test`) and will

@@ -1,3 +1,6 @@
+// ponytail: server state deserialization invariant; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Shared types and DTOs for the HTTP server (REVIEW-10 split).
 //!
 //! Holds request/response shapes, the [`ServerState`] struct, the

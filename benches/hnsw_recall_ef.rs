@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! TSK-144: HNSW recall vs latency benchmark.
 //!
 //! Sweeps ef_search values and measures recall@10, p50/p99 latency, and build

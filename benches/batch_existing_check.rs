@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Benchmark: `batch_insert` per-node existence probe cost (ERR-037)
 //!
 //! Measures the default upsert-safe path of `batch_insert`. Before ERR-037 each

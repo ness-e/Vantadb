@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Integration tests for JOIN and subquery execution.
 //!
 //! Tests end-to-end through the executor via `Statement::Select`,

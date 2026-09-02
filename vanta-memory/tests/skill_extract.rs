@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MEM-17 D19 — skill extraction + conversation-add pipeline + idempotent
 //! sink. All storage runs against an in-memory VantaDB; all LLM behaviour
 //! against deterministic fake runners (no network, no sleeps).

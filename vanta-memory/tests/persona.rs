@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! D19 — dedicated integration tests for the L3 persona layer (MEM-15).
 //!
 //! Covers the task contract: first/incremental modes, skip-without-changes,

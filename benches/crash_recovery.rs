@@ -1,3 +1,6 @@
+// ponytail: bench setup unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Crash-recovery benchmark — closes critical gap (TBH-09 / TASK-09).
 //!
 //! Measures **startup latency** (open + WAL replay time) for a pre-populated

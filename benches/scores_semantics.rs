@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Score semantics micro-bench (RES-05 — follow-up RES-04).
 //!
 //! Contract: bench pure `f32` helpers in `src/api/scores.rs` —

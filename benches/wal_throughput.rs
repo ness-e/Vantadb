@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! WAL throughput benchmark — closes critical gap (TBH-08 / TASK-08).
 //!
 //! Measures raw `WalWriter` throughput (ops/sec) + per-record latency p50/p95/p99

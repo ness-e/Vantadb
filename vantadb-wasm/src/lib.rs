@@ -1,5 +1,8 @@
 #![cfg_attr(target_arch = "wasm32", no_main)]
 #![warn(missing_docs)]
+// ERR-CORE-02: keep clippy deny on prod code; tests may `unwrap`/`expect`
+// freely (same pattern as vantadb/src/lib.rs).
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 //! WASM bindings for the VantaDB embedded vector database.
 //!
 //! This crate provides JavaScript-accessible types and functions via `wasm_bindgen`,

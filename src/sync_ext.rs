@@ -1,3 +1,8 @@
+// ponytail: lock poisoning is a programmer bug we cannot recover from cleanly here
+// — propagating it would force every caller to handle PoisonError synchronously
+// for no real gain. `#[cfg(test)]` already allows the lint via lib.rs root attr.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 use std::sync::{Mutex, MutexGuard, RwLock, RwLockReadGuard, RwLockWriteGuard};
 
 pub trait RwLockExt<T> {

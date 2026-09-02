@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Process-level tests for the CLI argument handling of `vantadb-server`.
 //!
 //! Spawns the real binary via `CARGO_BIN_EXE_vantadb-server` so argument

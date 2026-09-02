@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Deterministic internal certification corpus for memory retrieval modes.
 //!
 //! This is intentionally small and local. It validates planner/ranking behavior

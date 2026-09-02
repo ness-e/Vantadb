@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! 🔁 Property-based round-trip tests for SDK serialization types.
 //!
 //! Binary (postcard) round-trips use full arbitrary floats with exact equality.

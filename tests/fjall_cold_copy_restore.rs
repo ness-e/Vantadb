@@ -1,3 +1,6 @@
+// ponytail: integration test unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Fjall cold-copy backup/restore validation.
 //!
 //! Validates the recommended Fjall backup strategy: stop → copy directory → reopen.

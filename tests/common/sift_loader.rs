@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 use std::fs::File;
 use std::io::{BufReader, Read};
 use std::path::Path;

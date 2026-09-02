@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! AUD-E2E — full killer-flow integration tests: L0 capture → L1 extraction →
 //! dedup → L2 scene write → L3 persona → auto-recall, chained over ONE
 //! in-memory VantaDB with a scripted fake `LlmRunner` (trait is not

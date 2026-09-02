@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 use std::io::{BufRead, BufReader};
 use std::process::Command;
 use tempfile::tempdir;

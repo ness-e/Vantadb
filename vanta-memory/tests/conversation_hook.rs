@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 #![cfg(feature = "http-server")]
 //! MEM-55 — D19 contract tests for the `/conversation/add` → memory pipeline
 //! bridge.

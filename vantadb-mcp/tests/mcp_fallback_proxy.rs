@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MCP-35 fallback proxy E2E: 2× server same DB
 //!
 //! Verifies the full flow from the task contract:

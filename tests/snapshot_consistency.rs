@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! FIND-33: snapshot filesystem must capture backend KV state.
 //!
 //! Validation: after `create_snapshot`, the snapshot directory contains both

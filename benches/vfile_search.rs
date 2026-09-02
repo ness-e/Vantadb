@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! DRV-130 T3: VantaFile-backed search benchmark.
 //!
 //! Measures search_nearest with a populated VantaFile (SSD-I/O emulation)

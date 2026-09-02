@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Performance benchmarks for vantadb-server.
 //!
 //! These are NOT pass/fail tests — they measure latency and throughput

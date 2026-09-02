@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! WAL Physical Hardening & Recovery Certification Test
 //! Validates:
 //! 1. WAL replay skips transactions <= checkpoint_seq.

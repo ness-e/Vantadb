@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! 🔬 Property-based testing (proptest) para HNSW search correctness.
 //!
 //! Ejecuta: `cargo test proptest_hnsw_search`

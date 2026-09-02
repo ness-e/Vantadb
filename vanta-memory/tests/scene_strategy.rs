@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! D19 integration tests for the L2 scene strategy (MEM-14, F4):
 //! UPDATE>MERGE>CREATE + heat + soft-delete + emptyExtraction.
 //!

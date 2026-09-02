@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MCP-31: `context_assemble` — MCP exposure of the vanta-memory context
 //! engine (assemble + session recall under a token budget).
 //!

@@ -1,3 +1,6 @@
+// ponytail: integration tests + progress-bar template literal invariant; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Integration tests for CLI command handlers.
 //! Tests use the library's `cli_handlers` module directly with temp databases.
 

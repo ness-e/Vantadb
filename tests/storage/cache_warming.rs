@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Cache warming integration tests (OLD-20).
 //!
 //! Validates that cache warming doesn't break functional correctness

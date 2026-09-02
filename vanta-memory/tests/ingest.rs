@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Ingest tests (D19, MEM-30). Contract:
 //! (a) chunks → candidates aggregated by relPath;
 //! (b) merge serial per page under configurable global limit (default 5,

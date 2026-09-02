@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Regression certification suite.
 //!
 //! Each test targets a previously fixed bug and verifies the fix remains effective.

@@ -1,3 +1,6 @@
+// ponytail: benchmark harness — expect/unwrap on statically-known-good setup
+// calls (insert/add_edge/sort of non-empty f32 slices), same class as benches/*.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! GraphRAG reproducible benchmark (MKT-16).
 //!
 //! Measures REAL metrics on the public `GraphRagPipeline` API:

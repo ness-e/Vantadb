@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MEM-51 contract tests (D19 a–e): the O2 agentic memory-tool loop against
 //! an upstream mock that scripts tool_use SSE responses.
 

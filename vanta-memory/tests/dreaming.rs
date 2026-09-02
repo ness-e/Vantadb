@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MEM-61 — Dreaming consolidation idle (integration test).
 //!
 //! Verifies the contract from `docs/plans/2026-08-29-full-backlog-parallel.md`:

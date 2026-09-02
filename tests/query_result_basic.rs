@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Query Result Basic Snapshot Tests
 //!
 //! Part of the VantaDB insta snapshot testing suite (TBH-06).
