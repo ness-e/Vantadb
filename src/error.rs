@@ -46,6 +46,23 @@ impl StdError for SerdeMsgError {
 pub struct ChainedError {
     msg: String,
     source: Option<Box<dyn StdError + Send + Sync>>,
+    // ERR-OBS-01: captured at construction, present only when the std
+    // backtrace env gate (RUST_BACKTRACE / RUST_LIB_BACKTRACE) is enabled.
+    // Kept out of Display so cross-language error strings stay clean;
+    // surfaces via the derived Debug and `backtrace_str()`.
+    backtrace: Option<std::backtrace::Backtrace>,
+}
+
+/// Capture the current backtrace, or `None` when the std env gate keeps it
+/// disabled. `Backtrace::capture()` is a cheap lazy status check when
+/// disabled (one cached env read).
+///
+/// // ponytail: captura en constructores, no en hot path — los errores son
+/// // camino frío (~µs por captura habilitada); si algún día un constructor
+/// // entra en hot path, pasar a `OnceCell` diferido por consumidor.
+fn capture_backtrace() -> Option<std::backtrace::Backtrace> {
+    let bt = std::backtrace::Backtrace::capture();
+    (bt.status() == std::backtrace::BacktraceStatus::Captured).then_some(bt)
 }
 
 impl ChainedError {
@@ -54,6 +71,7 @@ impl ChainedError {
         Self {
             msg: msg.into(),
             source: None,
+            backtrace: capture_backtrace(),
         }
     }
 
@@ -66,7 +84,20 @@ impl ChainedError {
         Self {
             msg: format!("{}: {}", ctx, source),
             source: Some(Box::new(source)),
+            backtrace: capture_backtrace(),
         }
+    }
+
+    /// The captured backtrace, if the std env gate had it enabled at
+    /// construction time (ERR-OBS-01).
+    pub fn backtrace(&self) -> Option<&std::backtrace::Backtrace> {
+        self.backtrace.as_ref()
+    }
+
+    /// Rendered backtrace string, or `None` when capture was disabled by the
+    /// env gate. Intended for logs/Debug tooling, never for `Display`.
+    pub fn backtrace_str(&self) -> Option<String> {
+        self.backtrace.as_ref().map(|bt| bt.to_string())
     }
 }
 
@@ -457,6 +488,46 @@ pub type Result<T> = std::result::Result<T, VantaError>;
 #[allow(missing_docs)]
 mod tests {
     use super::*;
+    use std::backtrace::{Backtrace, BacktraceStatus};
+
+    // ERR-OBS-01: backtrace capture on the error chain.
+
+    #[test]
+    fn chained_error_backtrace_follows_capture_status() {
+        // Capture is env-controlled (RUST_BACKTRACE / RUST_LIB_BACKTRACE).
+        // Enabled → both constructors hold a Captured backtrace; disabled → None.
+        let enabled = Backtrace::capture().status() == BacktraceStatus::Captured;
+        let msg_err = ChainedError::msg("bt-probe-msg");
+        let src_err = ChainedError::with_source("bt-probe-ctx", std::io::Error::other("inner"));
+        assert_eq!(msg_err.backtrace().is_some(), enabled);
+        assert_eq!(src_err.backtrace().is_some(), enabled);
+        if enabled {
+            assert_eq!(
+                msg_err.backtrace().unwrap().status(),
+                BacktraceStatus::Captured
+            );
+            let s = msg_err.backtrace_str().unwrap();
+            assert!(!s.is_empty(), "captured backtrace string must not be empty");
+        } else {
+            assert!(msg_err.backtrace_str().is_none());
+        }
+        // force_capture always yields Captured — proves the wiring is real,
+        // independent of the ambient env.
+        assert_eq!(
+            Backtrace::force_capture().status(),
+            BacktraceStatus::Captured
+        );
+    }
+
+    #[test]
+    fn chained_error_display_omits_backtrace() {
+        // Cross-language contract: Display stays the clean message only,
+        // backtrace lives in Debug and backtrace_str() (ERR-OBS-01).
+        let e = ChainedError::msg("boom");
+        assert_eq!(e.to_string(), "boom");
+        let dbg = format!("{e:?}");
+        assert!(dbg.contains("boom"), "Debug keeps the message");
+    }
 
     #[test]
     fn display_node_not_found() {

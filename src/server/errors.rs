@@ -55,6 +55,43 @@ pub fn vanta_error_status(e: &VantaError) -> StatusCode {
     }
 }
 
+/// Map an HTTP status class to the log level (ERR-OBS-01).
+///
+/// 5xx means an invariant broke server-side → ERROR (someone should look);
+/// 4xx is a client mistake → WARN (trend-watching only). Keeps the level
+/// decision in one place so both error envelopes agree.
+fn error_log_level(status: StatusCode) -> tracing::Level {
+    if status.is_server_error() {
+        tracing::Level::ERROR
+    } else {
+        tracing::Level::WARN
+    }
+}
+
+/// Structured observability event for a `VantaError` crossing the HTTP
+/// boundary (ERR-OBS-01). Fields are stable and bounded: `error.code` is one
+/// of the ten canonical `VANTADB_*` codes, never the message text (low
+/// cardinality — safe for log pipelines and future metric labels).
+fn log_vanta_error(e: &VantaError, status: StatusCode) {
+    // `tracing::event!` needs a compile-time-constant level, so branch on the
+    // class; the field set stays identical across both arms.
+    if error_log_level(status) == tracing::Level::ERROR {
+        tracing::error!(
+            error.code = e.code(),
+            error.retriable = e.is_retriable(),
+            error.hint = e.recovery_hint().unwrap_or_default(),
+            "vanta request failed"
+        );
+    } else {
+        tracing::warn!(
+            error.code = e.code(),
+            error.retriable = e.is_retriable(),
+            error.hint = e.recovery_hint().unwrap_or_default(),
+            "vanta request failed"
+        );
+    }
+}
+
 /// Build a 4xx/5xx response for a query execution error (ERR-027).
 ///
 /// Client mistakes (bad IQL, missing nodes, validation) map to explicit 4xx
@@ -67,8 +104,10 @@ pub fn vanta_error_status(e: &VantaError) -> StatusCode {
 /// without touching the public `QueryResponse` struct; the serialized shape is
 /// identical because `node_id`/`nodes` are `None` here and skipped.
 pub fn query_error_response(e: &VantaError) -> Response {
+    let status = vanta_error_status(e);
+    log_vanta_error(e, status);
     (
-        vanta_error_status(e),
+        status,
         Json(json!({
             "success": false,
             "data": format!("Execution Error: {}", e),
@@ -84,8 +123,10 @@ pub fn query_error_response(e: &VantaError) -> Response {
 /// can branch programmatically instead of parsing the message (additive,
 /// backward-compatible).
 pub fn vanta_error_response(e: &VantaError) -> Response {
+    let status = vanta_error_status(e);
+    log_vanta_error(e, status);
     (
-        vanta_error_status(e),
+        status,
         Json(json!({
             "success": false,
             "error": e.to_string(),
@@ -169,6 +210,25 @@ mod tests {
         assert_eq!(
             vanta_error_status(&VantaError::IoError(std::io::Error::other("x"))),
             StatusCode::INTERNAL_SERVER_ERROR
+        );
+    }
+
+    /// ERR-OBS-01: 5xx (server-side) logs at ERROR, 4xx (client mistakes) at
+    /// WARN — mirrors the level semantics in docs/operations/OBSERVABILITY.md.
+    #[test]
+    fn error_log_level_maps_status_class() {
+        assert_eq!(
+            error_log_level(StatusCode::BAD_REQUEST),
+            tracing::Level::WARN
+        );
+        assert_eq!(error_log_level(StatusCode::NOT_FOUND), tracing::Level::WARN);
+        assert_eq!(
+            error_log_level(StatusCode::UNPROCESSABLE_ENTITY),
+            tracing::Level::WARN
+        );
+        assert_eq!(
+            error_log_level(StatusCode::INTERNAL_SERVER_ERROR),
+            tracing::Level::ERROR
         );
     }
 

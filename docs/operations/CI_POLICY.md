@@ -66,6 +66,13 @@ governance semantics are excluded from the default fast lane.
 | `sanitizer-asan` | AddressSanitizer (nightly, continue-on-error) |
 | `sanitizer-tsan` | ThreadSanitizer (nightly, continue-on-error) |
 
+> **Note (ERR-OBS-01):** the `test` job exercises error-observability behavior
+> in `error::tests` (backtrace capture is env-gated via `RUST_BACKTRACE`/
+> `RUST_LIB_BACKTRACE` and asserted against whatever status CI provides — the
+> test is deterministic under both). Structured log levels and error envelopes
+> are covered by `server::errors` tests under the `server` feature. See
+> `docs/operations/OBSERVABILITY.md`.
+
 **Strict Rules for the Fast Gate:**
 
 - **Deterministic:** Tests must not rely on random timing or external networking.
