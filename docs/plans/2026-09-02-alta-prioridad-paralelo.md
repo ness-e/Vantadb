@@ -599,7 +599,22 @@ last-synced: 2026-09-02
 - **Contrato:** `cargo test -p vantadb -- score 2>&1 | Select-String "ok" | Measure-Object Count` >=1 AND `Select-String -Path "vantadb-ts/src/vantadb.ts" -Pattern "zero.*norm|score" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-06.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T23:55
+
+=== RECITATION RES-06 COMPLETED ===
+Objetivo activo: RES-06 — docs/api/scores follow-up bench (vantadb-ts pass-through + benches/scores_semantics reuse)
+Estado: completed (desde: pending → ponytail reuse)
+Última acción: DISCOVERY codegraph_explore 56 símbolos + Read docs/api/scores.md 81L/32 hits + vantadb-ts/src/vantadb.ts 1417L (pass-through ERR-028) + benches/scores_semantics.rs 115L/12 hits → EJECUCIÓN ponytail 0 líneas nuevas (RES-04/05 ya landed: docs/api/scores.md + src/api/scores.rs + benches/scores_semantics.rs + Cargo.toml + BENCHMARKS.md §9), TS _buildSearchRequest glue R-8 idéntico a native.ts — verify cargo check Finished + cargo test 11 passed (4 helpers) + vantadb-ts 6/1 hits
+Resultado: ✅
+State: COMPLETED (desde: PENDING, ponytail reuse)
+Próxima acción: Wave3 continúa — MEM-11 + GOV-C6 paralelos MAX 3 (disjoint docs/operations preservado), siguiente RES-07 bench 10k..100k
+Contrato: `Select-String docs/api/scores.md RRF|BM25|cosine|zero-norm` 32 ≥1 ✅ + `Select-String vantadb-ts/src/vantadb.ts zero.*norm|score` 6 ≥1 ✅ + `Select-String benches/scores_semantics.rs rrf_contribution|cosine_distance` 12 ≥3 ✅ + `Test-Path benches/scores_semantics.rs` True ✅ + `Select-String Cargo.toml scores_semantics` 1 ≥1 ✅ + `cargo check -p vantadb` Finished ✅ + `cargo test --lib scores` 11 passed ✅ (4 helpers) + `cargo test --lib api::scores` 4/4 ✅
+Invariantes: No tocar src/wal.rs, src/storage, src/vector, docs/operations/** (GOV-C6) — disjoint 100% preservado; RRF_K=60, cosine pass-through ERR-028 (no fallback silencioso), bench pure f32 O(1) reuse canonical_p99; ponytail TS bench dedicado skip (core bench cubre semántica, TS thin glue)
+Comandos de verificación: `cargo check -p vantadb` → Finished + `cargo test -p vantadb --lib -- scores` → 11 passed + `cargo test -p vantadb --lib -- api::scores` → 4 passed + `Select-String docs/api/scores.md RRF|BM25|cosine|zero-norm` (32) + `Select-String vantadb-ts/src/vantadb.ts zero.*norm|score` (6) + `Select-String benches/scores_semantics.rs rrf_contribution|cosine_distance` (12)
+Deuda: ninguna — ponytail 0 líneas (reuse), bench TS dedicado deferrado (core bench cubre, vitest bench solo si hot path TS); siguiente Wave3 MAX 3
+Próxima tarea si completa: RES-07 — Calibrar rss_threshold + bench full-scale 10k..100k (Wave3) / GOV-C6 / MEM-11 paralelos
+last-synced: 2026-09-02T23:55
+=== END RECITATION ===
 
 #### RES-07 — Calibrar rss_threshold + bench full-scale 10k..100k
 - **Descripción:** recalibrar DEFAULT_RSS_THRESHOLD 0.80 con medición real + bench criterion 10k..100k; F2/F3 FND-01
