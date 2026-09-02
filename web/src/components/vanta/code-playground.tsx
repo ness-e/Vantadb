@@ -7,6 +7,7 @@ import { Reveal } from "./reveal";
 import { jsTokenizer, TOK_CLASS } from "@/lib/code-tokenizer";
 import { cn } from "@/lib/utils";
 import { PlaygroundExecutor, type PlaygroundExecutorHandle } from "./playground-executor";
+import { toastError } from "./toast";
 
 // ── WEB-07 — Sandbox iframe ─────────────────────────────────────────────────
 // El código del usuario se ejecuta dentro de <iframe sandbox="allow-scripts
@@ -171,7 +172,12 @@ export function CodePlayground() {
         try {
           const iframe = document.querySelector('iframe[title="VantaDB Playground Executor"]') as HTMLIFrameElement | null;
           iframe?.contentWindow?.postMessage({ type: "ping" }, "*");
-        } catch {}
+        } catch (e) {
+          // Nudge de ready (loop 10×500ms): se loggea sin toast para no
+          // spamear 10 veces; el fallo real ya se reporta abajo en el
+          // output panel ("playground executor not ready").
+          console.error("playground: ping nudge failed", e);
+        }
       }
       if (!executor.isReady()) {
         setOutput([
@@ -190,6 +196,7 @@ export function CodePlayground() {
         setOutput(result.output);
       }
     } catch (err) {
+      toastError(err);
       setOutput(["✗ unexpected error", `  ${err instanceof Error ? err.message : String(err)}`]);
     } finally {
       setRunning(false);

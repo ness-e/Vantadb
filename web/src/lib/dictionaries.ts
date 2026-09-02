@@ -557,6 +557,22 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "toast.success": "Operación exitosa",
 
     // ============================================================
+    // Errors — códigos VANTADB_* del motor (fuente: VantaError::code()
+    // en src/error.rs / vantadb-ts ERROR_CODES). Strings cortos y
+    // accionables de UI; NO traducir mensajes técnicos del motor.
+    // ============================================================
+    "errors.VANTADB_CLOSED": "La base de datos está cerrada. Volvé a abrirla.",
+    "errors.VANTADB_WASM_ERROR": "Fallo del motor en el navegador. Recargá la página.",
+    "errors.VANTADB_VALIDATION_ERROR": "Los datos no son válidos. Revisá el formulario.",
+    "errors.VANTADB_NOT_FOUND": "No se encontró el registro.",
+    "errors.VANTADB_INVALID_ARGUMENT": "Argumento inválido. Revisá la consulta.",
+    "errors.VANTADB_CORRUPT": "Se detectaron datos corruptos. Repará el índice.",
+    "errors.VANTADB_RESOURCE_LIMIT": "Límite de recursos alcanzado. Reducí la operación.",
+    "errors.VANTADB_TIMEOUT": "La operación tardó demasiado. Intentá de nuevo.",
+    "errors.VANTADB_BUSY": "El motor está ocupado. Esperá y reintentá.",
+    "errors.VANTADB_IO_ERROR": "Error de disco. Verificá el almacenamiento.",
+
+    // ============================================================
     // Back to top
     // ============================================================
     "backToTop": "Volver arriba",
@@ -2020,6 +2036,22 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "toast.saved": "Saved!",
     "toast.error": "An error occurred",
     "toast.success": "Operation successful",
+
+    // ============================================================
+    // Errors — motor VANTADB_* codes (source: VantaError::code()
+    // in src/error.rs / vantadb-ts ERROR_CODES). Short actionable
+    // UI strings; do NOT translate raw engine technical messages.
+    // ============================================================
+    "errors.VANTADB_CLOSED": "The database is closed. Reopen it.",
+    "errors.VANTADB_WASM_ERROR": "Engine failed in the browser. Reload the page.",
+    "errors.VANTADB_VALIDATION_ERROR": "Invalid data. Check the form.",
+    "errors.VANTADB_NOT_FOUND": "Record not found.",
+    "errors.VANTADB_INVALID_ARGUMENT": "Invalid argument. Check the query.",
+    "errors.VANTADB_CORRUPT": "Corrupt data detected. Repair the index.",
+    "errors.VANTADB_RESOURCE_LIMIT": "Resource limit reached. Reduce the operation.",
+    "errors.VANTADB_TIMEOUT": "Operation timed out. Try again.",
+    "errors.VANTADB_BUSY": "Engine is busy. Wait and retry.",
+    "errors.VANTADB_IO_ERROR": "Disk error. Check the storage.",
 
     // ============================================================
     // Back to top
