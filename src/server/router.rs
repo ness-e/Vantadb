@@ -86,6 +86,9 @@ fn rate_limit_error_response(err: GovernorError) -> Response {
 fn cors_layer(allowed_origins: &[String]) -> Option<CorsLayer> {
     let origins: Vec<HeaderValue> = allowed_origins
         .iter()
+        // Blank origins would pass HeaderValue::from_str("") in http 1.x and
+        // silently enable a CORS layer with an empty Allow-Origin (FIND-54).
+        .filter(|origin| !origin.is_empty())
         .filter_map(|origin| match HeaderValue::from_str(origin.as_str()) {
             Ok(v) => Some(v),
             Err(e) => {
@@ -376,6 +379,14 @@ mod tests {
     fn cors_layer_none_when_empty() {
         assert!(cors_layer(&[]).is_none());
         assert!(cors_layer(&["".to_string()]).is_none());
+    }
+
+    #[test]
+    fn cors_layer_blank_origin_mixed_with_valid_keeps_layer() {
+        // Sibling of cors_layer_none_when_empty (FIND-54): blanks are dropped
+        // before building headers, but a valid origin alongside still enables CORS.
+        let layer = cors_layer(&["".to_string(), "http://localhost:3000".to_string()]);
+        assert!(layer.is_some());
     }
 
     #[test]
