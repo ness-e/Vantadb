@@ -80,7 +80,7 @@ pub fn handle_resources_read(
                 )
             }
             Ok(None) => McpError::invalid_params("Memory record not found").into_err(),
-            Err(e) => McpError::internal_error(format!("Error reading memory: {}", e)).into_err(),
+            Err(e) => McpError::from(e).into_err(),
         }
     } else if uri.starts_with("namespace://") {
         let namespace = uri.strip_prefix("namespace://").unwrap_or("");
@@ -120,9 +120,7 @@ pub fn handle_resources_read(
                     json!({"contents": [{"uri": uri, "mimeType": "application/json", "text": text}]}),
                 )
             }
-            Err(e) => {
-                McpError::internal_error(format!("Error listing namespace: {}", e)).into_err()
-            }
+            Err(e) => McpError::from(e).into_err(),
         }
     } else {
         McpError::method_not_found("Resource not found").into_err()

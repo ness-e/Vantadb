@@ -220,7 +220,8 @@ Sin `GO` explícito del usuario, la tarea queda 🟡 DEFER (no se fuerza `DO`).
 - **Top 3 riesgos:** 1 isError break, 2 code collision, 3 validation code enum
 - **Uphill/Downhill:** ⬆️ 1 (tabla mapping) · ⬇️ 2 (From impl + validation enum)
 - **DoD:** Task: `From` + validation code enum · Commit: `feat(mcp): From<VantaError> for McpError (ERR-MCP-01)` · Release: `docs/api/MCP.md` code table
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-09-02 ERR-MCP-01)
+- **Evidencia:** `impl From<VantaError> for McpError` por `code()` (6 códigos §6.2 + -32009 comparten VALIDATION/INVALID_ARGUMENT + fallback -32603 para IO/WASM/CLOSED; -32003 reservado); envelope `{code,message,data{code,retriable,hint}}` en canal JSON-RPC Y serializado en `content[0].text` del canal isError (shape del skill intacto); 45 sitios `Xxx Error: {e}` → `error_content_vanta` (4 revertidas: RecallError/String/serde fuera de `From`); 6 validadores +`data.code=VANTADB_VALIDATION_ERROR` (códigos -32602 intactos); server.rs proxy -32001→-32005 (calce §6.2); tests: 9 nuevos err_mcp_01 + 3 asserts adaptados (2 Skill Error, 1 Bulk Import File) = 177/177; workspace clippy -D warnings 0; docs/api/MCP.md tabla real + SKILL.md canales. Committed `feat(mcp): From<VantaError> for McpError + isError con code/retriable (ERR-MCP-01)`
 - **Task file:** `.opencode/skills/campaign-executor/tasks/ERR-MCP-01.md`
 
 ### Task 6: ERR-DESK-01 — Desktop HttpKind preservado + Native degrada

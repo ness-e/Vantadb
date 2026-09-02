@@ -355,8 +355,9 @@ fn with_store(
 fn domain_err(e: vantadb::VantaError) -> Value {
     // Ok(error_content), NOT Err: an Err payload loses the {content:[...]}
     // shape and the client LLM never sees the self-correctable message
-    // (MEM-32 learning).
-    error_content(e.to_string())
+    // (MEM-32 learning). ERR-MCP-01: the text now carries the structured
+    // {code, message, data{code, retriable, hint}} envelope.
+    error_content(crate::error::McpError::from(e).to_json().to_string())
 }
 
 // ── Async ingest facade (MEM-52) ─────────────────────────────────────────

@@ -14,19 +14,19 @@ pub(crate) fn validate_identifier(
     max_len: usize,
 ) -> Result<(), McpError> {
     if value.is_empty() {
-        return Err(McpError::invalid_params(format!(
+        return Err(McpError::validation(format!(
             "'{}' must not be empty",
             label
         )));
     }
     if value.len() > max_len {
-        return Err(McpError::invalid_params(format!(
+        return Err(McpError::validation(format!(
             "'{}' exceeds maximum length of {} bytes",
             label, max_len
         )));
     }
     if value.contains('\0') {
-        return Err(McpError::invalid_params(format!(
+        return Err(McpError::validation(format!(
             "'{}' contains null byte",
             label
         )));
@@ -55,7 +55,7 @@ pub(crate) fn validate_path_segment(
 ) -> Result<(), McpError> {
     validate_identifier(value, label, max_len)?;
     if value.contains('/') || value.contains('\\') || value == "." || value == ".." {
-        return Err(McpError::invalid_params(format!(
+        return Err(McpError::validation(format!(
             "'{label}' must be a plain identifier (no path separators, '.', or '..')"
         )));
     }
@@ -74,7 +74,7 @@ pub(crate) fn validate_safe_path(value: &str, label: &str, max_len: usize) -> Re
         || value.contains('\\')
         || value.split(['/', '\\']).any(|seg| seg == "..")
     {
-        return Err(McpError::invalid_params(format!(
+        return Err(McpError::validation(format!(
             "'{label}' must be a safe filesystem path (no '..', '\\', or null bytes)"
         )));
     }
@@ -83,7 +83,7 @@ pub(crate) fn validate_safe_path(value: &str, label: &str, max_len: usize) -> Re
 
 pub(crate) fn validate_payload(value: &str, max_len: usize) -> Result<(), McpError> {
     if value.len() > max_len {
-        return Err(McpError::invalid_params(format!(
+        return Err(McpError::validation(format!(
             "Payload exceeds maximum length of {} bytes",
             max_len
         )));
@@ -93,10 +93,10 @@ pub(crate) fn validate_payload(value: &str, max_len: usize) -> Result<(), McpErr
 
 pub(crate) fn validate_vector(array: &[Value], max_dim: usize) -> Result<Vec<f32>, McpError> {
     if array.is_empty() {
-        return Err(McpError::invalid_params("Vector must not be empty"));
+        return Err(McpError::validation("Vector must not be empty"));
     }
     if array.len() > max_dim {
-        return Err(McpError::invalid_params(format!(
+        return Err(McpError::validation(format!(
             "Vector dimension {} exceeds maximum {}",
             array.len(),
             max_dim
@@ -106,9 +106,9 @@ pub(crate) fn validate_vector(array: &[Value], max_dim: usize) -> Result<Vec<f32
     for val in array {
         let f = val
             .as_f64()
-            .ok_or_else(|| McpError::invalid_params("Vector elements must be numbers"))?;
+            .ok_or_else(|| McpError::validation("Vector elements must be numbers"))?;
         if !f.is_finite() {
-            return Err(McpError::invalid_params(
+            return Err(McpError::validation(
                 "Vector elements must be finite numbers",
             ));
         }
@@ -132,10 +132,10 @@ pub(crate) fn validate_search_profile(
 ) -> Result<vantadb::sdk::SearchProfileConfig, McpError> {
     let profile: vantadb::sdk::SearchProfileConfig =
         serde_json::from_value(Value::Object(obj.clone()))
-            .map_err(|e| McpError::invalid_params(format!("search_profile: {}", e)))?;
+            .map_err(|e| McpError::validation(format!("search_profile: {}", e)))?;
     if let Some(k) = profile.rrf_k {
         if k < 1 || k > config.max_rrf_k {
-            return Err(McpError::invalid_params(format!(
+            return Err(McpError::validation(format!(
                 "search_profile.rrf_k must be in 1..={} (got {})",
                 config.max_rrf_k, k
             )));
@@ -143,7 +143,7 @@ pub(crate) fn validate_search_profile(
     }
     if let Some(k) = profile.candidate_k {
         if k < 1 || k > config.max_candidate_k {
-            return Err(McpError::invalid_params(format!(
+            return Err(McpError::validation(format!(
                 "search_profile.candidate_k must be in 1..={} (got {})",
                 config.max_candidate_k, k
             )));
@@ -477,6 +477,16 @@ pub(crate) fn json_value_type_name(val: &Value) -> &'static str {
 
 pub(crate) fn error_content(msg: impl Into<String>) -> Value {
     json!({"isError": true, "content": [{"type": "text", "text": msg.into()}]})
+}
+
+/// ERR-MCP-01: render a domain `VantaError` as an isError tool result whose
+/// `content[0].text` carries the full JSON-RPC error object
+/// (`{code, message, data{code, retriable, hint}}`) — the same envelope the
+/// JSON-RPC error channel uses (docs/api/ERROR_HANDLING.md §6.3), so LLM
+/// clients can branch on `code`/`retriable` programmatically instead of
+/// parsing free-form "Tool Error: ..." strings.
+pub(crate) fn error_content_vanta(e: vantadb::VantaError) -> Value {
+    error_content(crate::error::McpError::from(e).to_json().to_string())
 }
 
 /// MCP-39: budget a JSON value to fit within `byte_budget` bytes.

@@ -237,8 +237,10 @@ fn test_skill_update_optimistic_lock_and_idempotent() {
     );
     let msg = tool_error(res);
     assert!(
-        msg.contains("Skill Error"),
-        "stale version must surface a Skill Error, got: {msg}"
+        // ERR-MCP-01: the old "Skill Error" prefix became a structured
+        // envelope; stale-version conflicts now carry the canonical code.
+        msg.contains("VANTADB_VALIDATION_ERROR") && msg.contains("-32009"),
+        "stale version must surface a structured validation error, got: {msg}"
     );
 
     // Same content → idempotent, no new version.
@@ -301,8 +303,10 @@ fn test_skill_create_idempotent_on_same_content() {
         &cfg,
     ));
     assert!(
-        conflict.contains("Skill Error"),
-        "duplicate name must surface a Skill Error, got: {conflict}"
+        // ERR-MCP-01: duplicate-name conflicts surface with the canonical
+        // validation code instead of the old "Skill Error" string prefix.
+        conflict.contains("VANTADB_VALIDATION_ERROR") && conflict.contains("-32009"),
+        "duplicate name must surface a structured validation error, got: {conflict}"
     );
 }
 

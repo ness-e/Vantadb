@@ -416,10 +416,10 @@ Two distinct error channels exist — know which one you are handling:
 
 | Channel | Shape | When it happens | Example |
 |---------|-------|-----------------|---------|
-| **JSON-RPC error** | `"error": {"code": <int>, "message": "<str>"}` at top level (no `result`) | Malformed requests, invalid params, unknown methods/tools | `rehydrate` with a non-numeric `summary_id` → `-32602 Invalid params` |
+| **JSON-RPC error** | `"error": {"code": <int>, "message": "<str>", "data": {…}?}` at top level (no `result`) | Malformed requests, invalid params, unknown methods/tools, domain `VantaError` from resource reads | `rehydrate` with a non-numeric `summary_id` → `-32602 Invalid params` |
 | **isError content** | `result.isError: true` + `content[0].text` | Tool ran but hit a domain error | `get_node_neighbors` with a non-existent node → `"Node not found"`; `memory_get` missing key → `"Record not found"` |
 
-Common JSON-RPC codes: `-32600` invalid request, `-32601` method not found, `-32602` invalid params, `-32603` internal error.
+Common JSON-RPC codes: `-32600` invalid request, `-32601` method not found, `-32602` invalid params, `-32603` internal error. Domain `VantaError` failures (ERR-MCP-01) additionally surface on the isError channel as a JSON string in `content[0].text` — parse it: `{"code": -320xx, "message": "...", "data": {"code": "VANTADB_*", "retriable": bool, "hint": "..."}}`. Retry decisions should branch on `data.retriable`. The `-320xx` numeric codes and mapping table live in `docs/api/MCP.md`. Hardcoded not-found replies (`"Record not found"`, `"Node not found"`) remain plain strings.
 
 ## Available MCP Resources
 

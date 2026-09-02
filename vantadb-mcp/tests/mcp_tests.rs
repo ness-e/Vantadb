@@ -3072,7 +3072,13 @@ fn test_mcp_bulk_import_stream_ndjson_and_missing_file() {
         res["content"][0]["text"]
             .as_str()
             .unwrap()
-            .contains("Bulk Import File Error"),
+            // ERR-MCP-01: structured envelope replaced the old
+            // "Bulk Import File Error" prefix; canonical code + path.
+            .contains("VANTADB_IO_ERROR")
+            && res["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains("cannot import from"),
         "unexpected error text: {}",
         res["content"][0]["text"]
     );
@@ -4846,5 +4852,115 @@ fn test_memory_recall_and_search_in_memory_profile() {
     assert!(
         names.contains(&"memory_search"),
         "Memory profile must include memory_search"
+    );
+}
+
+// ── ERR-MCP-01: From<VantaError> for McpError (ERROR_HANDLING.md §6.2) ─────
+
+#[test]
+fn err_mcp_01_from_maps_node_not_found_to_minus_32004() {
+    let m = McpError::from(vantadb::VantaError::NodeNotFound(1));
+    assert_eq!(m.code, -32004, "NodeNotFound must map to vanta_not_found");
+    assert!(
+        m.message.contains("not found") || m.message.contains("Node"),
+        "message must stay descriptive, got: {}",
+        m.message
+    );
+    let j = m.to_json();
+    assert_eq!(j["data"]["code"], "VANTADB_NOT_FOUND");
+    assert_eq!(j["data"]["retriable"], false);
+    assert!(j["data"]["hint"]
+        .as_str()
+        .unwrap()
+        .contains("may have been deleted"));
+}
+
+#[test]
+fn err_mcp_01_from_maps_not_found_struct_to_minus_32004() {
+    let m = McpError::from(vantadb::VantaError::NotFound {
+        kind: "wiki".into(),
+        id: "ns:s".into(),
+    });
+    assert_eq!(m.code, -32004);
+}
+
+#[test]
+fn err_mcp_01_from_busy_is_retriable_minus_32001() {
+    let m = McpError::from(vantadb::VantaError::DatabaseBusy("lock held".into()));
+    assert_eq!(m.code, -32001, "DatabaseBusy must map to vanta_busy");
+    assert_eq!(
+        m.to_json()["data"]["retriable"],
+        true,
+        "busy must be retriable"
+    );
+}
+
+#[test]
+fn err_mcp_01_from_timeout_is_retriable_minus_32008() {
+    let m = McpError::from(vantadb::VantaError::Timeout {
+        operation: "flush".into(),
+        duration_ms: 5,
+    });
+    assert_eq!(m.code, -32008);
+    assert_eq!(
+        m.to_json()["data"]["retriable"],
+        true,
+        "timeout must be retriable"
+    );
+    assert!(m.to_json()["data"]["hint"]
+        .as_str()
+        .unwrap()
+        .contains("timeout"));
+}
+
+#[test]
+fn err_mcp_01_from_validation_and_conflict_share_minus_32009() {
+    // Core code() folds conflict variants into VANTADB_VALIDATION_ERROR, so
+    // per the code()-driven contract both dimension mismatch and a collision
+    // surface as -32009 (docs/api/MCP.md updated to reflect this).
+    let m1 = McpError::from(vantadb::VantaError::DimensionMismatch {
+        expected: 4,
+        got: 2,
+    });
+    let m2 = McpError::from(vantadb::VantaError::ExecutionConflict {
+        resource: "node".into(),
+        detail: "stale version".into(),
+    });
+    assert_eq!(m1.code, -32009);
+    assert_eq!(m2.code, -32009);
+    assert!(m1.message.contains("Vector dimension mismatch"));
+}
+
+#[test]
+fn err_mcp_01_from_resource_limit_minus_32007() {
+    let m = McpError::from(vantadb::VantaError::ResourceLimit("disk".into()));
+    assert_eq!(m.code, -32007);
+}
+
+#[test]
+fn err_mcp_01_from_corrupt_minus_32002() {
+    let m = McpError::from(vantadb::VantaError::WALVersionMismatch {
+        expected: 2,
+        found: 1,
+        hint: "x".into(),
+    });
+    assert_eq!(m.code, -32002);
+}
+
+#[test]
+fn err_mcp_01_unmapped_codes_fall_back_to_internal() {
+    // VANTADB_IO_ERROR / VANTADB_WASM_ERROR have no §6.2 row → -32603.
+    let m = McpError::from(vantadb::VantaError::generic_error("odd"));
+    assert_eq!(m.code, -32603);
+    assert_eq!(m.to_json()["data"]["code"], "VANTADB_WASM_ERROR");
+}
+
+#[test]
+fn err_mcp_01_std_factories_keep_null_data() {
+    // Compat: -32602 and friends must not emit a data field unless set.
+    let j = McpError::invalid_params("bad").to_json();
+    assert!(
+        j["data"].is_null(),
+        "legacy factories must not carry data: {j}"
     );
 }

@@ -126,27 +126,43 @@ unknown method, invalid params, internal failure):
 
 ### Vanta custom `-320xx` codes
 
-Domain-specific errors mapped from `VantaError` variants. Reserving the
-`-32000..-32099` range avoids collision with the standard `-32600..-32603`
-and `-32700` codes. Implementation lands in task `ERR-MCP-01`.
+Implemented in `ERR-MCP-01` as `impl From<VantaError> for McpError`
+(`vantadb-mcp/src/error.rs`). The mapping is driven by the canonical
+`VantaError::code()` string — never by re-matching variants — so the table
+below is a projection of the core §1.1 codes onto the JSON-RPC range:
 
-| JSON-RPC code | VantaError source variant(s) | Canonical code | LLM retry? |
-|---------------|------------------------------|----------------|:----------:|
-| `-32001` | `DatabaseBusy`, `NotInitialized` | `BUSY` | ✅ |
-| `-32002` | `WALVersionMismatch`, `IncompatibleFormat`, `SerializationError`, `SchemaError`, `RestoreError`, `BackupError` | `CORRUPT` | ❌ |
-| `-32003` | `ExecutionConflict`, `NodeIdCollision`, `CycleDetected` | `INVALID_ARGUMENT` | ❌ |
-| `-32004` | `NodeNotFound`, `NotFound` | `NOT_FOUND` | ❌ |
-| `-32005` | (auth layer) | — | ❌ |
-| `-32006` | (rate limit layer) | — | ⚠️ backoff |
-| `-32007` | `ResourceLimit` | `RESOURCE_LIMIT` | ⚠️ backoff |
-| `-32008` | `Timeout` | `TIMEOUT` | ✅ |
-| `-32009` | `DimensionMismatch`, `DuplicateNode`, `ValidationError`, `InvalidInput`, `IqlParseError` | `VALIDATION_ERROR` | ❌ |
+| JSON-RPC code | `VantaError::code()` source | Canonical `data.code` | LLM retry? |
+|---------------|------------------------------|------------------------|:----------:|
+| `-32001` | `VANTADB_BUSY` (`DatabaseBusy`, `NotInitialized`) | `VANTADB_BUSY` | ✅/❌ per `data.retriable` |
+| `-32002` | `VANTADB_CORRUPT` (`WALVersionMismatch`, `IncompatibleFormat`, `SchemaError`, `SerializationError`, `RestoreError`, `BackupError`) | `VANTADB_CORRUPT` | ❌ |
+| `-32003` | *reserved* — see note below | - | - |
+| `-32004` | `VANTADB_NOT_FOUND` (`NodeNotFound`, `NotFound`) | `VANTADB_NOT_FOUND` | ❌ |
+| `-32005` | (auth layer — writer-proxy Bearer rejection in `server.rs`) | - | ❌ |
+| `-32006` | (rate limit layer — not yet emitted) | - | ⚠️ backoff |
+| `-32007` | `VANTADB_RESOURCE_LIMIT` (`ResourceLimit`, overflow variants) | `VANTADB_RESOURCE_LIMIT` | ⚠️ backoff |
+| `-32008` | `VANTADB_TIMEOUT` (`Timeout`) | `VANTADB_TIMEOUT` | ✅ |
+| `-32009` | `VANTADB_VALIDATION_ERROR` **and** `VANTADB_INVALID_ARGUMENT` | `VANTADB_VALIDATION_ERROR` / `VANTADB_INVALID_ARGUMENT` | ❌ |
+| `-32603` | unmapped codes (`VANTADB_IO_ERROR`, `VANTADB_WASM_ERROR`, `VANTADB_CLOSED`) | as emitted | ⚠️ retry once |
+
+> **Note on `-32003` and `retriable`:** the core `code()` folds the conflict
+> variants (`ExecutionConflict`, `NodeIdCollision`, `CycleDetected`) into
+> `VANTADB_VALIDATION_ERROR`, so they surface as `-32009`; `-32003` is held
+> in reserve for a future distinct conflict code. Because the mapping is
+> code-driven, per-variant nuance is carried by `data.retriable` (e.g.
+> `DatabaseBusy` retriable ✅, `NotInitialized` ❌) and `data.hint` — clients
+> should branch on `data`, not infer retry from the numeric code alone.
+
+On the tool-result (`isError`) channel the same envelope is serialized into
+`content[0].text` as a JSON string (`{"code":…,"message":…,"data":{…}}`), so
+domain failures expose the same fields as JSON-RPC errors. The legacy
+`"Put Error: …"`-style prefixes were removed in `ERR-MCP-01`.
 
 ### Response envelope
 
 Every JSON-RPC error response from VantaDB MCP carries the canonical code in
-`data.code`, plus `retriable` and `hint` so LLM agents can branch on a stable
-identifier without parsing message text:
+`data.code` (the prefixed `VANTADB_*` value returned by `VantaError::code()`;
+`data.hint` is omitted when the error has no recovery hint), plus `retriable`
+so LLM agents can branch on a stable identifier without parsing message text:
 
 ```json
 {
@@ -156,10 +172,8 @@ identifier without parsing message text:
     "code": -32602,
     "message": "validation failed on 'namespace': must not be empty",
     "data": {
-      "code": "VALIDATION_ERROR",
-      "retriable": false,
-      "hint": "Provide a non-empty namespace identifier",
-      "details": { "field": "namespace" }
+      "code": "VANTADB_VALIDATION_ERROR",
+      "retriable": false
     }
   }
 }

@@ -125,7 +125,10 @@ async fn mcp_proxy_handler(
         let alt_bearer = state.alt_api_key.as_ref().map(|k| format!("Bearer {}", k));
         let ok = auth == expected_bearer || alt_bearer.as_deref() == Some(auth);
         if !ok {
-            let body = json!({"success": false, "error": {"code": -32001, "message": "Unauthorized: missing or invalid Bearer token for writer proxy"}});
+            // ERR-MCP-01: -32005 vanta_unauthorized per ERROR_HANDLING.md §6.2
+            // (-32001 is vanta_busy; the previous hand-rolled code collided).
+            // No data.code: auth rejection is not a VantaError::code() output.
+            let body = json!({"success": false, "error": {"code": -32005, "message": "Unauthorized: missing or invalid Bearer token for writer proxy", "data": {"retriable": false}}});
             return (axum::http::StatusCode::UNAUTHORIZED, axum::Json(body)).into_response();
         }
     }

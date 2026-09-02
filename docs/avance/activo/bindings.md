@@ -743,3 +743,7 @@ aliases: []
 - **Resultado:** OK
 - **Commit:** 41b11a01
 - **Dominio:** bindings
+
+## 2026-09-02: ERR-MCP-01 — McpError con code/retriable/hint (Wave 2, CRITICAL)
+- **Fecha:** 2026-09-02
+- **Resultado:** ✅ `impl From<VantaError> for McpError` en `vantadb-mcp/src/error.rs`, mapeo por `VantaError::code()` (nunca por variantes — sin duplicar la tabla del core): 6 códigos -320xx de ERROR_HANDLING.md §6.2 + -32009 comparte VALIDATION_ERROR/INVALID_ARGUMENT; códigos sin fila (IO/WASM/CLOSED) → fallback -32603; -32003 queda reservado (conflict se pliega en VALIDATION_ERROR). `McpError` gana `data` opcional ({code, retriable, hint}) — factories std sin data (compat). Canal isError: `content[0].text` ahora serializa el mismo envelope JSON (shape documentado en la skill intacto: sigue siendo string). Sweep: ~45 sitios `"Xxx Error: {e}"` → `error_content_vanta` en tools/skills/wiki/code/resources (4 sitios con tipos no-VantaError conservan su string: RecallError, 2×String, serde); 6 validadores de validation.rs emiten `data.code=VANTADB_VALIDATION_ERROR` sin cambiar -32602; server.rs writer-proxy Unauthorized corregido -32001→-32005 según tabla. Tests: +9 `err_mcp_01_*` (incl. retriable Busy/Timeout), 3 asserts adaptados al envelope (skills_tests ×2 "Skill Error", mcp_tests ×1 "Bulk Import File"); suite crate 177/177; workspace clippy -D warnings 0. Docs: tabla -320xx de `docs/api/MCP.md` a implementación real + canales de `skills/vantadb-mcp/SKILL.md`. Plan Task 5 cerrado.

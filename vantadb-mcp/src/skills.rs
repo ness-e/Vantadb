@@ -235,7 +235,9 @@ fn skill_not_found() -> Value {
 }
 
 fn store_err(e: VantaError) -> Value {
-    error_content(format!("Skill Error: {e}"))
+    // ERR-MCP-01: structured envelope (code/retriable/hint) instead of the
+    // old "Skill Error: {e}" string, so clients can branch on code.
+    error_content(crate::error::McpError::from(e).to_json().to_string())
 }
 
 /// Ownership gate. A mismatch produces the same not-found response as a

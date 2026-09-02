@@ -21,7 +21,9 @@
 
 use crate::config::McpConfig;
 use crate::error::McpError;
-use crate::validation::{error_content, serialize_content, text_content, validate_identifier};
+use crate::validation::{
+    error_content, error_content_vanta, serialize_content, text_content, validate_identifier,
+};
 use serde_json::{json, Value};
 use std::sync::Arc;
 use vantadb::graph::TraversalDirection;
@@ -230,7 +232,7 @@ pub(crate) fn handle_code_tool(
                         },
                     }))))
                 }
-                Err(e) => Ok(error_content(format!("Code Search Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -286,7 +288,7 @@ pub(crate) fn handle_code_tool(
             };
             let ids = embedded
                 .graph_bfs(&[node_id], max_depth, direction)
-                .map_err(|e| McpError::internal_error(e.to_string()).to_json())?;
+                .map_err(|e| McpError::from(e).to_json())?;
             // bfs includes the root itself; impact reports what it REACHES.
             let reached: Vec<String> = ids
                 .iter()
@@ -354,7 +356,7 @@ fn fetch_record(
 ) -> Result<Option<vantadb::sdk::VantaNodeRecord>, Value> {
     embedded
         .get_node(node_id)
-        .map_err(|e| McpError::internal_error(e.to_string()).to_json())
+        .map_err(|e| McpError::from(e).to_json())
 }
 
 /// Depth-1 BFS in `direction`, excluding the root itself, each neighbor

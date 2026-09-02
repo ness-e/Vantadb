@@ -1303,7 +1303,7 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.put(input) {
                 Ok(record) => Ok(text_content_structured(&record)),
-                Err(e) => Ok(error_content(format!("Put Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -1352,7 +1352,7 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.put_batch(inputs) {
                 Ok(records) => Ok(text_content_structured(&records)),
-                Err(e) => Ok(error_content(format!("Put Batch Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -1372,7 +1372,7 @@ pub fn handle_tools_call(
             match embedded.get(namespace, key) {
                 Ok(Some(record)) => Ok(text_content_structured(&record)),
                 Ok(None) => Ok(error_content("Record not found")),
-                Err(e) => Ok(error_content(format!("Get Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -1393,7 +1393,7 @@ pub fn handle_tools_call(
                 Ok(deleted) => Ok(text_content(serialize_content(
                     &json!({"deleted": deleted}),
                 ))),
-                Err(e) => Ok(error_content(format!("Delete Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -1417,7 +1417,7 @@ pub fn handle_tools_call(
                 Ok(count) => Ok(text_content(serialize_content(&json!({
                     "deleted_count": count
                 })))),
-                Err(e) => Ok(error_content(format!("Delete By Filter Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -1481,7 +1481,7 @@ pub fn handle_tools_call(
                     };
                     Ok(text_content(serialize_content(&result)))
                 }
-                Err(e) => Ok(error_content(format!("List Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -1489,7 +1489,7 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.list_namespaces() {
                 Ok(namespaces) => Ok(text_content(serialize_content(&namespaces))),
-                Err(e) => Ok(error_content(format!("List Namespaces Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -1510,7 +1510,7 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.versions(namespace, key) {
                 Ok(records) => Ok(text_content(serialize_content(&records))),
-                Err(e) => Ok(error_content(format!("Versions Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -1537,7 +1537,7 @@ pub fn handle_tools_call(
                 Ok(()) => Ok(text_content(serialize_content(
                     &json!({ "superseded": true }),
                 ))),
-                Err(e) => Ok(error_content(format!("Supersede Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -1587,7 +1587,7 @@ pub fn handle_tools_call(
                         "message": "Suggested Historical Recovery (Critical Confidence Score)."
                     }))))
                 }
-                Err(e) => Ok(error_content(format!("IQL Runtime Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -1709,7 +1709,7 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.search_with_method(request, method) {
                 Ok(hits) => Ok(text_content_structured(&hits)),
-                Err(e) => Ok(error_content(format!("Search Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -1771,7 +1771,7 @@ pub fn handle_tools_call(
                         "structuredContent": structured,
                     }))
                 }
-                Err(e) => Ok(error_content(format!("Search Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -1806,7 +1806,7 @@ pub fn handle_tools_call(
             let hits = match embedded.search_vector(&vector, k) {
                 Ok(hits) => hits,
                 Err(e) => {
-                    return Ok(error_content(format!("Search Error: {}", e)));
+                    return Ok(error_content_vanta(e));
                 }
             };
 
@@ -1861,7 +1861,7 @@ pub fn handle_tools_call(
                     )))
                 }
                 Ok(None) => Ok(error_content("Node not found")),
-                Err(e) => Ok(error_content(format!("Get Node Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -1909,7 +1909,7 @@ pub fn handle_tools_call(
                     "status": "Context Anchored"
                 })))),
                 Ok(_) => Ok(error_content("Unexpected read result for insert")),
-                Err(e) => Ok(error_content(format!("Execution Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -1952,7 +1952,7 @@ pub fn handle_tools_call(
             );
             match embedded.put(input) {
                 Ok(_) => Ok(text_content(serialize_content(&axiom))),
-                Err(e) => Ok(error_content(format!("Write Axiom Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -1967,7 +1967,7 @@ pub fn handle_tools_call(
                 Ok(deleted) => Ok(text_content(serialize_content(
                     &json!({"deleted": deleted}),
                 ))),
-                Err(e) => Ok(error_content(format!("Delete Axiom Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2023,7 +2023,7 @@ pub fn handle_tools_call(
 
             let namespaces = match embedded.list_namespaces() {
                 Ok(ns) => ns,
-                Err(e) => return Ok(error_content(format!("List collections error: {}", e))),
+                Err(e) => return Ok(error_content_vanta(e)),
             };
 
             let mut collections = Vec::new();
@@ -2147,7 +2147,7 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.purge_expired() {
                 Ok(count) => Ok(text_content(serialize_content(&json!({ "purged": count })))),
-                Err(e) => Ok(error_content(format!("Purge Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2157,7 +2157,7 @@ pub fn handle_tools_call(
                 Ok(()) => Ok(text_content(serialize_content(
                     &json!({ "compacted_wal": true }),
                 ))),
-                Err(e) => Ok(error_content(format!("Compact WAL Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2165,7 +2165,7 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.flush() {
                 Ok(()) => Ok(text_content(serialize_content(&json!({ "flushed": true })))),
-                Err(e) => Ok(error_content(format!("Flush Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2175,7 +2175,7 @@ pub fn handle_tools_call(
                 Ok(bytes) => Ok(text_content(serialize_content(
                     &json!({ "bytes_reclaimed": bytes }),
                 ))),
-                Err(e) => Ok(error_content(format!("Compact Layout Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2192,7 +2192,7 @@ pub fn handle_tools_call(
                     "duration_ms": report.duration_ms,
                     "success": report.success,
                 })))),
-                Err(e) => Ok(error_content(format!("Vacuum Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2205,7 +2205,7 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.rebuild_index() {
                 Ok(report) => Ok(text_content(serialize_content(&json!(&report)))),
-                Err(e) => Ok(error_content(format!("Rebuild Index Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2227,7 +2227,7 @@ pub fn handle_tools_call(
             };
             match result {
                 Ok(report) => Ok(text_content(serialize_content(&json!(&report)))),
-                Err(e) => Ok(error_content(format!("Audit Text Index Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2235,7 +2235,7 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.repair_text_index() {
                 Ok(report) => Ok(text_content(serialize_content(&json!(&report)))),
-                Err(e) => Ok(error_content(format!("Repair Text Index Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2271,7 +2271,7 @@ pub fn handle_tools_call(
             Ok(snapshots) => Ok(text_content(serialize_content(
                 &json!({ "snapshots": snapshots }),
             ))),
-            Err(e) => Ok(error_content(format!("List Snapshots Error: {}", e))),
+            Err(e) => Ok(error_content_vanta(e)),
         },
 
         // MCP-34a: create a filesystem snapshot — thin wrapper over the SDK's
@@ -2299,7 +2299,7 @@ pub fn handle_tools_call(
                     "path": snap.path.to_string_lossy(),
                     "created_at": format!("{:?}", snap.created_at),
                 })))),
-                Err(e) => Ok(error_content(format!("Snapshot Create Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2338,10 +2338,11 @@ pub fn handle_tools_call(
                     "path": path.to_string_lossy(),
                     "note": "Database directory replaced by snapshot contents. Restart the server (or reopen the embedded handle) to serve restored state.",
                 })))),
-                Err(e) => Ok(error_content(format!(
-                    "Snapshot Restore Error: {} (if an engine holds this database open, close it first — the directory swap requires exclusive access)",
-                    e
-                ))),
+                Err(e) => {
+                    let mut m = McpError::from(e);
+                    m.message.push_str(" (if an engine holds this database open, close it first - the directory swap requires exclusive access)");
+                    Ok(error_content(m.to_json().to_string()))
+                }
             }
         }
 
@@ -2360,7 +2361,7 @@ pub fn handle_tools_call(
                 }
                 None => match embedded.list_namespaces() {
                     Ok(ns) => ns,
-                    Err(e) => return Ok(error_content(format!("Export Error: {}", e))),
+                    Err(e) => return Ok(error_content_vanta(e)),
                 },
             };
 
@@ -2439,7 +2440,7 @@ pub fn handle_tools_call(
                     report.errors += malformed;
                     Ok(text_content(serialize_content(&report)))
                 }
-                Err(e) => Ok(error_content(format!("Import Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2459,10 +2460,11 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.bulk_import_file(path) {
                 Ok(report) => Ok(text_content(serialize_content(&report))),
-                Err(e) => Ok(error_content(format!(
-                    "Bulk Import File Error: cannot import from '{}': {}",
-                    path, e
-                ))),
+                Err(e) => {
+                    let mut m = McpError::from(e);
+                    m.message = format!("cannot import from '{path}': {}", m.message);
+                    Ok(error_content(m.to_json().to_string()))
+                }
             }
         }
 
@@ -2516,7 +2518,7 @@ pub fn handle_tools_call(
             let mut reader = std::io::Cursor::new(payload);
             match embedded.bulk_import_stream(&mut reader) {
                 Ok(report) => Ok(text_content(serialize_content(&report))),
-                Err(e) => Ok(error_content(format!("Bulk Import Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2644,7 +2646,7 @@ pub fn handle_tools_call(
                         .collect();
                     Ok(text_content(serialize_content(&json!({ "scores": map }))))
                 }
-                Err(e) => Ok(error_content(format!("Page Rank Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2664,7 +2666,7 @@ pub fn handle_tools_call(
                         .collect();
                     Ok(text_content(serialize_content(&json!({ "degrees": map }))))
                 }
-                Err(e) => Ok(error_content(format!("Degree Centrality Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2755,7 +2757,7 @@ pub fn handle_tools_call(
                         "count": ids.len()
                     }))))
                 }
-                Err(e) => Ok(error_content(format!("Traversal Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2772,7 +2774,7 @@ pub fn handle_tools_call(
                     let ids: Vec<String> = order.iter().map(|id| id.to_string()).collect();
                     Ok(text_content(serialize_content(&json!({ "order": ids }))))
                 }
-                Err(e) => Ok(error_content(format!("Topological Sort Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2788,7 +2790,7 @@ pub fn handle_tools_call(
                 Ok(is_dag) => Ok(text_content(serialize_content(
                     &json!({ "is_dag": is_dag }),
                 ))),
-                Err(e) => Ok(error_content(format!("Is DAG Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2810,7 +2812,7 @@ pub fn handle_tools_call(
             let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
             match embedded.remove_edge(source_id, target_id, label) {
                 Ok(()) => Ok(text_content(serialize_content(&json!({ "removed": true })))),
-                Err(e) => Ok(error_content(format!("Remove Edge Error: {}", e))),
+                Err(e) => Ok(error_content_vanta(e)),
             }
         }
 
@@ -2991,7 +2993,7 @@ fn dispatch_search_memory(
     let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
     match embedded.search(request) {
         Ok(hits) => Ok(text_content_structured(&hits)),
-        Err(e) => Ok(error_content(format!("Search Error: {}", e))),
+        Err(e) => Ok(error_content_vanta(e)),
     }
 }
 
