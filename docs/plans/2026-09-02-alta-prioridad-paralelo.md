@@ -906,7 +906,22 @@ last-synced: 2026-09-02T19:30
 - **Contrato:** `Select-String -Path "docs/Backlog.md" -Pattern "130 activas.*2026-09" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-C7.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T23:59
+
+=== RECITATION GOV-C7 COMPLETED ===
+Objetivo activo: GOV-C7 — Contador Backlog corrección+regla + ROADMAP banner sin cifra (Wave3) + taxonomía ops follow-up
+Estado: completed (desde: in-progress)
+Última acción: DISCOVERY Read Backlog header 16L (121 activas, previo 130 post-sync gap regex 0) + ROADMAP header 14L (~45 cifra drift) + ops master-index 35/35 ✅ + SKILLS-MANIFEST grep operations/taxonomia 0 hits → EJECUCIÓN ponytail fix docs-only 2 líneas (Backlog.md:16 "130 post-sync"→"130 activas post-sync" + ROADMAP.md:14 "~45 items abiertos (conteo real...)"→"ver docs/Backlog.md para conteo actual (regla sync...)") → VERIFY Select-String Backlog 130 activas 1≥1 + ops hardening 3≥2 + last_reviewed 1≥1 + 35==35 + audit-reports 0 + cargo check Finished 1.70s
+Resultado: ✅
+State: COMPLETED (desde: IN_PROGRESS)
+Próxima acción: Wave3 continúa — MEM-12 + RES-07 paralelos MAX 3 (disjoint src/* preservado), siguiente GOV-D1 Wave4
+Contrato: `Select-String docs/Backlog.md "130 activas.*2026-09" 1≥1 ✅` + `Select-String ops/master-index hardening|UPGRADE 3≥2 ✅` + `Select-String last_reviewed 2026-09-02 1≥1 ✅` + `Get-ChildItem 35==35 ✅` + `Select-String audit-reports/ 0 ✅` + `cargo check -p vantadb Finished ✅`
+Invariantes: No tocar src/* (MEM-12 vanta-memory/scene, RES-07 benches/config) — dominio docs/Backlog + docs/strategy/ROADMAP + docs/operations/master-index only; ponytail 2 líneas docs-only, ROADMAP sin cifra evita drift futuro, historial 121/130 preservado sin recontar manual
+Comandos de verificación: `Select-String -Path "docs/Backlog.md" -Pattern "130 activas.*2026-09" | Measure-Object Count` (1) + `Select-String -Path "docs/operations/master-index.md" -Pattern "hardening|UPGRADE" | Measure-Object Count` (3) + `Select-String -Path "docs/operations/master-index.md" -Pattern "last_reviewed.*2026-09-02" | Measure-Object Count` (1) + `Get-ChildItem docs/operations/*.md | Measure Count` (35) + `cargo check -p vantadb` (Finished)
+Deuda: ninguna — ROADMAP ahora fuente única Backlog header (rg ❌ implícito), taxonomía ops 35/35 ya cerrada GOV-C4/C5, no duplicación cifras
+Próxima tarea si completa: RES-08 — Benchmark delete-masivo DashMap sweep
+last-synced: 2026-09-02T23:59
+=== END RECITATION ===
 
 #### RES-08 — Benchmark delete-masivo DashMap sweep
 - **Descripción:** bench contención real sweep path deletes en maintenance.rs; decidir rediseño solo si medición justifica (H4 FND-02, Regla 9)
