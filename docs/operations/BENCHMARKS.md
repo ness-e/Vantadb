@@ -337,3 +337,26 @@ Lectura: el `.node` nativo es ~3.3× más grande que el `.wasm` (4.5 MB vs 1.35 
 2. Re-correr con `--backend native,wasm` para obtener las 2 ramas.
 3. Publicar tabla comparativa completa en esta sección (p50/p95/p99 lado a lado).
 4. Re-evaluar decisión posicional con números reales WASM.
+
+---
+
+## 11. Consumo Guard — Anti-regresión (GOV-B3)
+
+> **Guard:** `cargo bench -p vantadb --bench canonical_p99 --no-run` debe compilar sin error. Protege contra regresión de consumo (memoria ~1172 bytes/vec, p99 latency, heap) detectando cambios que rompen el bench canónico.
+
+**Baseline canónico (Regla 9):** `benches/canonical_p99.rs` — 100k vectors × 1536d, seed 42, insert + search p50/p95/p99. Ver §1 Stress Protocol para métricas certificadas.
+
+**Contrato consumo guard:**
+```powershell
+cargo bench -p vantadb --bench canonical_p99 --no-run
+Select-String -Path "docs/operations/BENCHMARKS.md" -Pattern "consumo guard" | Measure-Object Count # >=1
+Select-String -Path "benches/canonical_p99.rs" -Pattern "consumo guard" | Measure-Object Count # >=1
+Select-String -Path "dev-tools/verify.ps1" -Pattern "consumo guard" | Measure-Object Count # >=1
+```
+
+**Política anti-regresión:**
+- Cada PR que toque `src/index/`, `benches/`, `Cargo.toml` debe ejecutar `cargo bench -p vantadb --bench canonical_p99 --no-run` en CI (compile-gate, no timed run en fast gate).
+- Regresión p99 >10% vs baseline (§1: p99 57 ms @10k) requiere ADR o revert (Regla 9 — medir antes/después).
+- `dev-tools/verify.ps1` incluye `consumo guard` compile-check como step adicional (ponytail: solo `--no-run`, sin bench timed en gate rápido).
+
+<!-- consumo guard: anchor for GOV-B3 verification — do not remove -->

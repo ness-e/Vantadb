@@ -1,4 +1,5 @@
 //! Canonical P99 benchmark (FND-10 / Regla 9).
+//! consumo guard — baseline anti-regresión GOV-B3: `cargo bench --bench canonical_p99 --no-run` must compile.
 //!
 //! Contract: **insert 100k vectors × 1536 dims + search**, reporting P99.
 //! This is the canonical no-regression baseline for every performance change

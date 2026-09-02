@@ -90,6 +90,8 @@ try {
     }
     # GOV-A3 probe CLI reales (doctor/backup/restore) — ponytail 1-2 líneas: reuse cargo run --bin vanta-cli
     run "cli-probes" ("cargo", "run", "-p", "vantadb", "--bin", "vanta-cli", "--", "--help")
+    # GOV-B3 consumo guard — anti-regresión compile gate (ponytail: solo --no-run, sin timed bench en fast gate)
+    run "consumo guard" ("cargo", "bench", "-p", "vantadb", "--bench", "canonical_p99", "--no-run")
     Write-Host "ALL ${pass} PASS" -ForegroundColor Green; exit 0
 } catch {
     if ($fail -eq 0) { $Script:fail = 1 }
