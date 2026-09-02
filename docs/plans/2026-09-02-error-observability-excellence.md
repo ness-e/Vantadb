@@ -248,7 +248,8 @@ Sin `GO` explícito del usuario, la tarea queda 🟡 DEFER (no se fuerza `DO`).
 - **Top 3 riesgos:** 1 code dependency
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1 (1 line)
 - **DoD:** Task: `Domain` preservado · Commit: `fix(desktop): preserva HttpKind en commands (ERR-DESK-01)` · Release: N/A
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-09-02, vanta-worker, commit `6bdc2c5d`)
+- **Commit:** 6bdc2c5d -- 7 files desktop/src-tauri (Domain{code,msg} + from_core + mem_err source-chain + sweep 2 map_core_error + 4 tests; contrato: grep Native(e.to_string=0, test 102/0, clippy 0, fmt 0)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/ERR-DESK-01.md`
 
 ### Task 7: ERR-WEB-01 — Web toast code + catch {} silenciado
