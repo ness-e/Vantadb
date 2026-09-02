@@ -69,9 +69,11 @@ fn error_log_level(status: StatusCode) -> tracing::Level {
 }
 
 /// Structured observability event for a `VantaError` crossing the HTTP
-/// boundary (ERR-OBS-01). Fields are stable and bounded: `error.code` is one
-/// of the ten canonical `VANTADB_*` codes, never the message text (low
-/// cardinality — safe for log pipelines and future metric labels).
+/// boundary (ERR-OBS-01). Fields are stable: `error.code` is one of the ten
+/// canonical `VANTADB_*` codes (low cardinality — safe for log pipelines and
+/// future metric labels). FIND-55: `error.display` carries the full engine
+/// message server-side — it used to be the only place that text appeared, the
+/// 5xx response body; sanitizing the body moved the chain here.
 fn log_vanta_error(e: &VantaError, status: StatusCode) {
     // `tracing::event!` needs a compile-time-constant level, so branch on the
     // class; the field set stays identical across both arms.
@@ -80,6 +82,7 @@ fn log_vanta_error(e: &VantaError, status: StatusCode) {
             error.code = e.code(),
             error.retriable = e.is_retriable(),
             error.hint = e.recovery_hint().unwrap_or_default(),
+            error.display = %e,
             "vanta request failed"
         );
     } else {
@@ -87,6 +90,7 @@ fn log_vanta_error(e: &VantaError, status: StatusCode) {
             error.code = e.code(),
             error.retriable = e.is_retriable(),
             error.hint = e.recovery_hint().unwrap_or_default(),
+            error.display = %e,
             "vanta request failed"
         );
     }
@@ -103,14 +107,24 @@ fn log_vanta_error(e: &VantaError, status: StatusCode) {
 /// `VANTADB_*` canonical codes). Built with `json!` so the field can be added
 /// without touching the public `QueryResponse` struct; the serialized shape is
 /// identical because `node_id`/`nodes` are `None` here and skipped.
+///
+/// FIND-55: 5xx bodies stay generic — the internal `Display` (io paths,
+/// storage detail) goes to server-side logs via [`log_vanta_error`], and
+/// clients branch on `code`. 4xx messages are user-input data and stay
+/// descriptive (same rule `panic_error_response` applies for panics).
 pub fn query_error_response(e: &VantaError) -> Response {
     let status = vanta_error_status(e);
     log_vanta_error(e, status);
+    let data = if status.is_server_error() {
+        "internal error".to_string()
+    } else {
+        format!("Execution Error: {}", e)
+    };
     (
         status,
         Json(json!({
             "success": false,
-            "data": format!("Execution Error: {}", e),
+            "data": data,
             "code": e.code(),
         })),
     )
@@ -122,14 +136,22 @@ pub fn query_error_response(e: &VantaError) -> Response {
 /// ERR-CORE-01: includes the stable `code` field alongside `error` so clients
 /// can branch programmatically instead of parsing the message (additive,
 /// backward-compatible).
+///
+/// FIND-55: 5xx bodies stay generic (chain only in logs, `code` to clients);
+/// 4xx keep the descriptive message.
 pub fn vanta_error_response(e: &VantaError) -> Response {
     let status = vanta_error_status(e);
     log_vanta_error(e, status);
+    let message = if status.is_server_error() {
+        "internal error".to_string()
+    } else {
+        e.to_string()
+    };
     (
         status,
         Json(json!({
             "success": false,
-            "error": e.to_string(),
+            "error": message,
             "code": e.code(),
         })),
     )
@@ -276,5 +298,75 @@ mod tests {
         .unwrap();
         assert_eq!(body["code"], "VANTADB_NOT_FOUND");
         assert_eq!(body["error"], "Node not found: 7");
+    }
+
+    /// FIND-55: 5xx bodies must not leak the engine's internal Display (io
+    /// paths, storage detail) — clients branch on the canonical `code`, and
+    /// the full chain lives in server-side logs via `log_vanta_error`. Mirrors
+    /// the leak-mitigation pattern `panic_error_response` already applies
+    /// (AUDREP-32).
+    #[tokio::test]
+    async fn five_xx_bodies_are_sanitized_to_generic_message() {
+        use axum::body::to_bytes;
+        let e = VantaError::IoError(std::io::Error::other(
+            "CONTRIVED_IO_LEAK_/srv/vanta/secrets/data.wal",
+        ));
+
+        let resp = query_error_response(&e);
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(resp.into_body(), 4096).await.unwrap()).unwrap();
+        assert_eq!(body["data"], "internal error");
+        assert_eq!(body["code"], "VANTADB_IO_ERROR", "code stays for clients");
+        assert!(
+            !body.to_string().contains("CONTRIVED_IO_LEAK"),
+            "io detail must not reach the wire: {body}"
+        );
+
+        let resp = vanta_error_response(&e);
+        assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(resp.into_body(), 4096).await.unwrap()).unwrap();
+        assert_eq!(body["error"], "internal error");
+        assert_eq!(body["code"], "VANTADB_IO_ERROR");
+        assert!(
+            !body.to_string().contains("CONTRIVED_IO_LEAK"),
+            "io detail must not reach the wire: {body}"
+        );
+    }
+
+    /// FIND-55: 4xx messages are user-input data, not internal detail — they
+    /// stay descriptive in both envelopes.
+    #[tokio::test]
+    async fn four_xx_bodies_keep_descriptive_message() {
+        use axum::body::to_bytes;
+        let e = VantaError::ValidationError {
+            field: "payload".into(),
+            reason: "vector must be non-empty".into(),
+        };
+
+        let body: serde_json::Value = serde_json::from_slice(
+            &to_bytes(query_error_response(&e).into_body(), 4096)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            body["data"],
+            "Execution Error: Validation error on payload: vector must be non-empty"
+        );
+        assert_eq!(body["code"], "VANTADB_VALIDATION_ERROR");
+
+        let body: serde_json::Value = serde_json::from_slice(
+            &to_bytes(vanta_error_response(&e).into_body(), 4096)
+                .await
+                .unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            body["error"],
+            "Validation error on payload: vector must be non-empty"
+        );
+        assert_eq!(body["code"], "VANTADB_VALIDATION_ERROR");
     }
 }
