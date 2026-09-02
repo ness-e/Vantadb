@@ -269,6 +269,10 @@ harness = false
 name = "crash_recovery"
 harness = false
 
+[[bench]]
+name = "scores_semantics"
+harness = false
+
 [[bin]]
 name = "vanta-cli"
 path = "src/bin/vanta-cli.rs"
@@ -656,6 +660,8 @@ manual_div_ceil = "allow"
 ptr_arg = "allow"
 manual_clamp = "allow"
 unnecessary_cast = "allow"
+unwrap_used = "deny"
+expect_used = "deny"
 
 [workspace]
 members = [

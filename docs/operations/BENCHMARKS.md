@@ -229,6 +229,37 @@ Ver `embeddings/manifest.json` como source-of-truth (rev pinned, dims, ONNX path
 
 ---
 
+## 9. Score Semantics Micro-Bench (RES-05) — `scores_semantics`
+
+> **Source of truth:** `benches/scores_semantics.rs` (RES-05 follow-up `src/api/scores.rs`).
+> Reuse `benches/common/mod.rs:apply_fixed_profile` (warmup 3s, measure 5s) — same as `canonical_p99`.
+>
+> **Reproduce (Regla 11):**
+> ```powershell
+> cargo bench -p vantadb --bench scores_semantics
+> # quick compile-only
+> cargo bench -p vantadb --bench scores_semantics --no-run
+> ```
+
+Micro-bench puro `f32` — sin alloc, inline O(1). Mide overhead de helpers centralizados que cierran FND-06 H3 (`1.0 - s/2.0` duplicada en adapters):
+
+| Bench | Operación | Tamaño batch | Expected |
+| :--- | :--- | ---: | :--- |
+| `rrf_wire_10k` | `rrf_contribution(Some(rank), None)` | 10k | ~5–15 ns/op |
+| `rrf_0based_10k` | `rrf_contribution_0based(rank, None)` | 10k | ~5–15 ns/op |
+| `cosine_distance_to_similarity_10k` | `1 - d` | 10k | ~2–5 ns/op |
+| `cosine_distance_to_similarity_clamped_10k` | `clamp(0,2) + 1-d` | 10k | ~3–7 ns/op |
+| `cosine_similarity_to_distance_10k` | `(1-s).clamp(0,2)` | 10k | ~3–7 ns/op |
+| `cosine_distance_to_relevance_10k` | `(1-d/2).clamp(0,1)` | 10k | ~4–8 ns/op |
+
+**Lectura:**
+
+- Todos O(1) por iteración; el bench agrega 10k iteraciones con `black_box` para evitar elisión del optimizador.
+- Baseline para validar que migrar adapters a helper centralizado no infla: si `perf` en profiling muestra hot path, upgrade a batch SIMD está documentado como `ponytail: batch SIMD if hot path` en `src/api/scores.rs` y `benches/scores_semantics.rs`.
+- Dataset determinístico xorshift seed `0x9E37_79B9_7F4A_7C15`, distancias `[0,2)` — idéntico run-to-run.
+
+---
+
 ## 📦 10. Node.js Bindings: vantadb-node (napi) vs vantadb-ts (WASM) — PERF-BENCH-01
 
 > **Source of truth:** `vantadb-node/bench/bench-abi.mjs` (extended 2026-08-30 with per-op p50/p95/p99 percentiles).

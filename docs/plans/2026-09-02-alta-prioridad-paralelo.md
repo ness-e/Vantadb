@@ -324,14 +324,29 @@ Próxima tarea si completa: RES-05 — Semántica scores parcial (FND-06 H1 drif
 last-synced: 2026-09-02T23:30
 === END RECITATION ===
 
-#### RES-05 — Semántica scores parcial (FND-06 H1)
-- **Descripción:** documentar scoring RRF/cosine/BM25 en docs/api/ + drift zero-norm cosine core vs vantadb.ts (grep docs/api 0 hits)
-- **Archivos clave:** `docs/api/`, `vantadb-ts/src/vantadb.ts`, `docs/research/FND-06-core-bindings-boundaries.md`
-- **Gate Justificación:** semántica oficial media — drift confirmado; precede RES-06 completo si conviene split
-- **Contrato:** `Select-String -Path "docs/api/*" -Pattern "score semantics|zero-norm" | Measure-Object Count` >=1
+#### RES-05 — Benchmark semántica scores (FND-06 H1/H3 follow-up RES-04) — Wave1c P38 bench
+- **Descripción:** bench criterion minimal `benches/scores_semantics.rs` para `src/api/scores.rs` (rrf_contribution, cosine_distance↔similarity/relevance) — reuse `canonical_p99` profile, ponytail pure f32 O(1) batch 10k — cierra P38 semántica con medición reproducible (Regla 9)
+- **Archivos clave:** `benches/scores_semantics.rs`, `benches/common/mod.rs` (apply_fixed_profile), `Cargo.toml` [[bench]] scores_semantics, `src/api/scores.rs` (RES-04), `docs/operations/BENCHMARKS.md` §9, `benchmarks/*` (python harness disjoint)
+- **Gate Justificación:** semántica oficial media — RES-04 cerró docs/api/scores + helper; faltaba medición reproducible para validar migración adapters sin inflar — disjoint 100% con Wave2 GOV-B (no docs/case_studies)
+- **Contrato:** `Test-Path benches/scores_semantics.rs` True AND `Select-String benches/scores_semantics.rs "rrf_contribution|cosine_distance" | Measure Count` >=3 AND `Select-String Cargo.toml 'scores_semantics' | Measure Count` >=1 AND `Select-String docs/operations/BENCHMARKS.md "scores_semantics|Score Semantics" | Measure Count` >=1 AND `cargo bench -p vantadb --bench scores_semantics --no-run` Finished (Executable) AND `cargo check -p vantadb` Finished
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-05.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T23:50
+
+=== RECITATION ===
+Objetivo activo: RES-05 — Benchmark semántica scores (benches/scores_semantics, docs/operations/BENCHMARKS.md §9)
+Estado: completed (desde: pending)
+Última acción: DISCOVERY Read benchmarks/* + BENCHMARKS.md 308L + src/api/scores.rs 109L + grep SKILLS-MANIFEST benchmark/scores/bench/canonical_p99 (1 hit vantadb) + Cargo.toml benches 22 entries + canonical_p99.rs 133L reuse pattern → EJECUCIÓN crear task file RES-05.md + implementar bench semántica minimal benches/scores_semantics.rs (6 micro-benches batch 10k reuse common::apply_fixed_profile, ponytail pure f32 O(1) xorshift determinístico) + Cargo.toml [[bench]] scores_semantics + docs/operations/BENCHMARKS.md §9 table expected ~ns/op — verify cargo bench --no-run 45.7s Executable + cargo check Finished
+Resultado: ✅
+State: COMPLETED (desde: PENDING)
+Próxima acción: Wave1c cierre — Wave1 9/9 (GOV-A1..A5 5 + RES-02..05 4) → Wave2 P27 F1 / GOV-B parallel MAX 3 (disjoint preserved)
+Contrato: `Test-Path benches/scores_semantics.rs` True ✅ + `Select-String scores_semantics.rs rrf|cosine` 12 ≥3 ✅ + `Select-String Cargo.toml scores_semantics` 1 ≥1 ✅ + `Select-String BENCHMARKS.md scores_semantics` 5 ≥1 ✅ + `cargo bench --bench scores_semantics --no-run` Finished Executable ✅ (45.7s) + `cargo check -p vantadb` Finished ✅
+Invariantes: No tocar src/wal.rs, src/storage, src/vector, src/iql, docs/case_studies (Wave2 GOV-B disjoint), vantadb-ts (no drift) — dominio bench only; helpers pure f32 inline sin SIMD duplicado; reuse canonical_p99 profile; ponytail batch SIMD if hot path
+Comandos de verificación: `cargo check -p vantadb` → Finished + `cargo check --bench scores_semantics -p vantadb` → Finished + `cargo bench -p vantadb --bench scores_semantics --no-run` → Executable + `Select-String benches/scores_semantics.rs rrf_contribution|cosine_distance` Count 12 + `Select-String docs/operations/BENCHMARKS.md scores_semantics` Count 5
+Deuda: ninguna — bench documenta techo O(1) ~ns/op; si profiling muestra hot path, upgrade a batch SIMD está taggeado ponytail en scores.rs + bench; Tuner delegable si canonical_p99 exige
+Próxima tarea si completa: Wave2 — MEM-01 (F1 search profile) / GOV-B1 (case_studies archive) parallel MAX 3
+last-synced: 2026-09-02T23:50
+=== END RECITATION ===
 
 ---
 
