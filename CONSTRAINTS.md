@@ -40,6 +40,7 @@ Estos 5 checks **nunca** se violan, sin importar la configuracion:
 | Security: licenses | Only MIT/Apache-2.0 (deny.toml) | `cargo deny check licenses` | CI |
 | Performance | p99 not regressed vs baseline `benches/canonical_p99` | `cargo bench --bench canonical_p99` | CI (release profile) |
 | Binary size | `cargo bloat --crates` justified for new deps | `cargo bloat --crates` | PR review |
+| Docs coverage (errors) | All public `VantaError` variants + 10 canonical codes documented in `docs/api/ERROR_HANDLING.md` | `grep -c "VANTADB_\|VantaError" docs/api/ERROR_HANDLING.md >= 10` | every PR touching `src/error.rs` |
 
 Every row names the command that produces the verdict. A dimension with a number and no command is an aspiration, not a constraint.
 

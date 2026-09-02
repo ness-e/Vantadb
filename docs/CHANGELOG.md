@@ -11,6 +11,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 - **Fase 4 Vanta Studio (2026-08-20, 18/18):** consola standalone 100% browser (WASM/OPFS con persistencia y reload), import drag&drop `.vdbdump`/JSONL/CSV, slider de pesos híbridos BM25/vector (RRF weighted client-side), superficie Índices/salud real, consolidación asistida con diff visible, y supersession durable en core (ADR-028): `VantaMemoryRecord.superseded_by`/`superseded_at_ms`, `supersede()`, filtro `exclude_superseded` en search/list (core + Python sync/async + export/import JSONL).
 
+### Documentation
+
+- **ERR-DOCS-01:** New [`docs/api/ERROR_HANDLING.md`](api/ERROR_HANDLING.md) — canonical reference for `VantaError` (Rust), 10-code `ERROR_CODES` contract (TypeScript/WASM), Python `VantaError` hierarchy (10 subclasses), and MCP JSON-RPC error mapping (5 std factories + 9 Vanta custom `-320xx` codes). Documents `is_retriable()` matrix, `recovery_hint()` guide, and `.to_dict()` cross-binding serialization. Provisional table pending `pub fn code()` from `ERR-CORE-01` (codes will gain `VANTADB_` prefix).
+- **ERR-DOCS-01:** [`docs/api/TS_SDK.md`](api/TS_SDK.md) — expanded Error Handling section with full `ERROR_CODES` table, `VantaError` class shape, `wrapWasmError` semantics, and `CLOSED` lifecycle error.
+- **ERR-DOCS-01:** [`docs/api/MCP.md`](api/MCP.md) — new JSON-RPC codes section (5 std factories + 9 Vanta `-320xx` codes + response envelope with `data.code`).
+- **ERR-DOCS-01:** [`docs/api/EMBEDDED_SDK.md`](api/EMBEDDED_SDK.md) — expanded Rust `VantaError` variants with `is_retriable()` matrix and `recovery_hint()` guide.
+- **ERR-DOCS-01:** [`docs/api/PYTHON_SDK.md`](api/PYTHON_SDK.md) — added `.code`, `.retriable`, `.details`, `.hint`, `.to_dict()` attributes to all 10 subclasses.
+
 ### Fixed
 
 - **server:** cierre de deuda REST — `/api/v2/metrics` JSON operacional, graph_v2 con ids u128-safe (string wire), paginación cursor, IQL completo vía `/api/v2/query` (SELECT/INSERT + roundtrip graph).

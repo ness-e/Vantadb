@@ -1072,26 +1072,100 @@ try:
     db.supersede("ns", "missing", "k")
 except NotFoundError as exc:
     print("record not found:", exc)
+    if exc.retriable:
+        schedule_retry()
 ```
 
 ### Hierarchy
 
 ```
 VantaError (base, inherits RuntimeError)
-├── NotFoundError          # node/record/namespace not found
-├── ValidationError        # bad input: dimensions, invalid IQL, schema, duplicate, etc.
-├── CorruptError           # persisted data corrupt or incompatible format
-├── StorageError           # I/O or storage-backend error
-├── ConflictError          # execution conflict or graph cycle
-├── UnsupportedError       # unsupported operation
-├── ResourceLimitError     # resource limit exceeded
-├── BusyError              # database busy or not initialized
-├── NoVectorError          # record exists but carries no vector
-└── TimeoutError           # operation exceeded its time budget
+├── NotFoundError          # VantaError::NodeNotFound, VantaError::NotFound
+├── ValidationError        # VantaError::DimensionMismatch, DuplicateNode, ValidationError, InvalidInput, IqlParseError, NoVectorForKey, UnsupportedOperation, CycleDetected, NodeIdCollision
+├── CorruptError           # VantaError::IncompatibleFormat, WALVersionMismatch, SerializationError, SchemaError, RestoreError, BackupError
+├── StorageError           # VantaError::IoError, WalError, BackendError, CliError, SearchError, RuntimeError
+├── ConflictError          # VantaError::ExecutionConflict
+├── UnsupportedError       # VantaError::UnsupportedOperation (typed alias)
+├── ResourceLimitError     # VantaError::ResourceLimit
+├── BusyError              # VantaError::DatabaseBusy, VantaError::NotInitialized
+├── NoVectorError          # VantaError::NoVectorForKey
+└── TimeoutError           # VantaError::Timeout
 ```
 
 Catch the base class to handle any VantaDB error uniformly:
 `except VantaError:`.
+
+### Canonical codes (10)
+
+Every `VantaError` subclass carries a `.code` attribute — one of 10 stable
+strings. **Branch on `.code` for cross-binding logic; the variant class is for
+human-readable dispatch only.**
+
+| Code | Python subclass(es) |
+|------|---------------------|
+| `NOT_FOUND` | `NotFoundError` |
+| `VALIDATION_ERROR` | `ValidationError` |
+| `CORRUPT` | `CorruptError` |
+| `IO_ERROR` | `StorageError` |
+| `INVALID_ARGUMENT` | `ValidationError` (IQL parse path) |
+| `RESOURCE_LIMIT` | `ResourceLimitError` |
+| `BUSY` | `BusyError` |
+| `TIMEOUT` | `TimeoutError` |
+| `WASM_ERROR` | (WASM-binding fallback only) |
+| `CLOSED` | (lifecycle, raised separately) |
+
+> **Pending `ERR-CORE-01`:** Rust will gain `pub fn code() -> &'static str`
+> with the `VANTADB_` prefix (e.g. `VANTADB_NOT_FOUND`). The Python `.code`
+> will be updated to match. See
+> [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md) for the authoritative table.
+
+### Attributes (0.5.0+)
+
+```python
+exc.code       # str — one of the 10 canonical codes above
+exc.retriable  # bool — equivalent to Rust `is_retriable()`
+exc.details    # dict | None — structured fields from the Rust variant
+exc.hint       # str | None — recovery hint (mirrors Rust `recovery_hint()`)
+exc.message    # str — human-readable message (NOT for matching)
+```
+
+Example — retry policy with `.retriable`:
+
+```python
+import time
+from vantadb_py import VantaError, BusyError
+
+def put_with_retry(db, **kwargs):
+    for attempt in range(5):
+        try:
+            return db.put(**kwargs)
+        except VantaError as exc:
+            if exc.retriable and attempt < 4:
+                time.sleep(0.1 * (2 ** attempt))
+                continue
+            raise
+```
+
+### `.to_dict()` — cross-binding log correlation
+
+`.to_dict()` serializes to a dict matching the TypeScript `VantaError.toJSON()`
+shape, so logs and traces line up across Rust/Python/TS/MCP:
+
+```python
+try:
+    db.get(...)
+except VantaError as exc:
+    log.error("vanta_error", extra=exc.to_dict())
+    # {
+    #   "name": "NotFoundError",
+    #   "code": "NOT_FOUND",
+    #   "message": "...",
+    #   "details": {"id": "..."},
+    #   "hint": "...",
+    #   "retriable": false,
+    #   "timestamp": "2026-09-02T..."
+    # }
+```
 
 ### Migration (0.5.0+)
 

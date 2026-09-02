@@ -620,20 +620,29 @@ pub struct VantaTextIndexRepairReport {
 
 ## Error Handling
 
-All fallible methods return `Result<T, VantaError>` where `VantaError` is an enum covering:
+All fallible methods return `Result<T, VantaError>`. `VantaError` is a
+`#[non_exhaustive]` enum defined in [`src/error.rs`](../../src/error.rs).
+
+> **Canonical reference:** [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md)
+> documents the contract that Python, TypeScript, MCP, and HTTP bindings
+> normalize to: 10 codes (`VALIDATION_ERROR`, `NOT_FOUND`, `TIMEOUT`, `BUSY`,
+> `RESOURCE_LIMIT`, `CORRUPT`, `INVALID_ARGUMENT`, `IO_ERROR`, `WASM_ERROR`,
+> `CLOSED`), `is_retriable()` matrix, `recovery_hint()` guide. Read that first.
+
+### Variants
+
+`VantaError` covers:
 
 - `VantaError::NodeNotFound(u128)` — node ID not found
 - `VantaError::DuplicateNode(u128)` — duplicate node ID on insert
 - `VantaError::DimensionMismatch { expected: usize, got: usize }` — vector dimension mismatch
-- `VantaError::WalError(String)` — WAL operation failure
+- `VantaError::WalError(ChainedError)` — WAL operation failure
 - `VantaError::WALVersionMismatch { expected: u32, found: u32, hint: String }` — incompatible WAL version
-- `VantaError::SerializationError(String)` — bincode/serde failures
+- `VantaError::SerializationError(#[source] Box<dyn StdError + Send + Sync>)` — bincode/serde failures
 - `VantaError::IoError(std::io::Error)` — filesystem errors
 - `VantaError::IncompatibleFormat { expected_magic, expected_version, found_magic, found_version, hint }` — incompatible binary format
 - `VantaError::NotInitialized` — engine not open
 - `VantaError::ResourceLimit(String)` — resource limit exceeded (backpressure)
-- `VantaError::Execution(String)` — runtime errors (collisions, invariants)
-- `VantaError::DatabaseBusy(String)` — database locked by another process
 - `VantaError::NodeIdCollision(u128)` — two nodes have colliding IDs
 - `VantaError::CycleDetected` — cycle detected in graph operation
 - `VantaError::ValidationError { field, reason }` — input validation failed
@@ -650,5 +659,90 @@ All fallible methods return `Result<T, VantaError>` where `VantaError` is an enu
 - `VantaError::BackendError(ChainedError)` — storage backend error
 - `VantaError::InvalidInput(String)` — invalid input provided
 - `VantaError::SchemaError(String)` — schema-related error
+- `VantaError::DatabaseBusy(String)` — database locked by another process
 - `VantaError::NoVectorForKey(String)` — a record exists but does not carry a vector, so vector-based operations (e.g. `similar_to_key`) cannot proceed
 - `VantaError::Generic(ChainedError)` — generic catch-all error
+
+### `is_retriable()` — retry classification
+
+Defined in `src/error.rs:269`. Returns `true` for variants where retrying
+after backoff is the correct response:
+
+```rust
+impl VantaError {
+    pub fn is_retriable(&self) -> bool {
+        matches!(
+            self,
+            VantaError::DatabaseBusy(_)
+                | VantaError::Timeout { .. }
+                | VantaError::ResourceLimit(_)
+                | VantaError::BackendError(_)
+                | VantaError::WalError(_)
+        )
+    }
+}
+```
+
+Use this when implementing retry policies at a binding boundary. Bindings
+that surface `.retriable` (Python) or `code` class (TS) derive this from the
+same matrix. Do **not** retry the other 25 variants — they indicate a caller
+fix is required.
+
+### `recovery_hint()` — actionable guidance
+
+Defined in `src/error.rs:281`. Returns `Option<&'static str>` with
+human-readable remediation:
+
+```rust
+impl VantaError {
+    pub fn recovery_hint(&self) -> Option<&'static str> {
+        match self {
+            VantaError::DatabaseBusy(_) => Some("Wait for the lock to be released and retry"),
+            VantaError::Timeout { .. } => Some("Increase the timeout or reduce system load"),
+            VantaError::ResourceLimit(_) => Some("Reduce memory pressure or increase configured limits"),
+            VantaError::IncompatibleFormat { .. } => Some("Delete the WAL or run dump/restore to migrate formats"),
+            VantaError::SchemaError(_) => Some("Reinitialize the database or restore from backup"),
+            VantaError::WALVersionMismatch { .. } => Some("The WAL was written by a different version of VantaDB"),
+            VantaError::RestoreError(_) => Some("Check that the backup file exists and is readable"),
+            VantaError::BackupError(_) => Some("Ensure the backup directory is writable and has free space"),
+            VantaError::NodeNotFound(_) => Some("The node may have been deleted or never existed"),
+            VantaError::NotFound { .. } => Some("Verify that the namespace or identifier is spelled correctly"),
+            _ => None,
+        }
+    }
+}
+```
+
+Bindings should surface this in error `.hint` / `details.hint` so end-users
+see actionable guidance instead of a generic error toast.
+
+### `code()` — pending (`ERR-CORE-01`)
+
+> **Upcoming:** Task `ERR-CORE-01` will add `pub fn code(&self) -> &'static str`
+> returning the canonical 10 codes with the `VANTADB_` prefix
+> (`VANTADB_VALIDATION_ERROR`, `VANTADB_NOT_FOUND`, …). Until that merges,
+> use the TypeScript `ERROR_CODES` (see [`docs/api/TS_SDK.md`](TS_SDK.md)) as
+> the contract surface and `is_retriable()` / `recovery_hint()` for
+> classification.
+
+### Example: idiomatic retry
+
+```rust
+use std::time::Duration;
+
+fn with_retry<T, F: FnMut() -> Result<T, VantaError>>(mut op: F) -> Result<T, VantaError> {
+    for attempt in 0..5u32 {
+        match op() {
+            Ok(v) => return Ok(v),
+            Err(e) if e.is_retriable() && attempt < 4 => {
+                std::thread::sleep(Duration::from_millis(100 * 2u64.pow(attempt)));
+            }
+            Err(e) => return Err(e),
+        }
+    }
+    unreachable!()
+}
+```
+
+For the full retry guidance and the `code()` table, see
+[`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md).

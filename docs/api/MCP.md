@@ -99,6 +99,84 @@ You should see a JSON response listing the available tools. Namespaces are creat
 
 For the full behavioral contract (error channels, response envelope, edge cases), see the VantaDB MCP Skill.
 
+## Error Handling & JSON-RPC Codes
+
+The VantaDB MCP server speaks [JSON-RPC 2.0](https://www.jsonrpc.org/specification)
+over stdio. Every error response carries both a **JSON-RPC transport code**
+(the `error.code` field) and a **Vanta canonical code** (in `error.data.code`)
+from the 10-element contract in [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md).
+
+> **Canonical reference:** [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md) §6
+> — full code table, LLM retry guidance, and the upcoming `From<VantaError>
+> for McpError` impl from `ERR-MCP-01`.
+
+### JSON-RPC standard factories (5)
+
+Defined in [`vantadb-mcp/src/error.rs`](../../vantadb-mcp/src/error.rs) as the
+`McpError` type. These cover transport-level concerns (malformed request,
+unknown method, invalid params, internal failure):
+
+| JSON-RPC code | `McpError` factory | Meaning |
+|---------------|--------------------|---------|
+| `-32700` | `parse_error` | Invalid JSON received by the server |
+| `-32600` | `invalid_request` | JSON sent is not a valid Request object |
+| `-32601` | `method_not_found` | Method does not exist or is unavailable |
+| `-32602` | `invalid_params` | Invalid method parameter(s) |
+| `-32603` | `internal_error` | Internal JSON-RPC error |
+
+### Vanta custom `-320xx` codes
+
+Domain-specific errors mapped from `VantaError` variants. Reserving the
+`-32000..-32099` range avoids collision with the standard `-32600..-32603`
+and `-32700` codes. Implementation lands in task `ERR-MCP-01`.
+
+| JSON-RPC code | VantaError source variant(s) | Canonical code | LLM retry? |
+|---------------|------------------------------|----------------|:----------:|
+| `-32001` | `DatabaseBusy`, `NotInitialized` | `BUSY` | ✅ |
+| `-32002` | `WALVersionMismatch`, `IncompatibleFormat`, `SerializationError`, `SchemaError`, `RestoreError`, `BackupError` | `CORRUPT` | ❌ |
+| `-32003` | `ExecutionConflict`, `NodeIdCollision`, `CycleDetected` | `INVALID_ARGUMENT` | ❌ |
+| `-32004` | `NodeNotFound`, `NotFound` | `NOT_FOUND` | ❌ |
+| `-32005` | (auth layer) | — | ❌ |
+| `-32006` | (rate limit layer) | — | ⚠️ backoff |
+| `-32007` | `ResourceLimit` | `RESOURCE_LIMIT` | ⚠️ backoff |
+| `-32008` | `Timeout` | `TIMEOUT` | ✅ |
+| `-32009` | `DimensionMismatch`, `DuplicateNode`, `ValidationError`, `InvalidInput`, `IqlParseError` | `VALIDATION_ERROR` | ❌ |
+
+### Response envelope
+
+Every JSON-RPC error response from VantaDB MCP carries the canonical code in
+`data.code`, plus `retriable` and `hint` so LLM agents can branch on a stable
+identifier without parsing message text:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 1,
+  "error": {
+    "code": -32602,
+    "message": "validation failed on 'namespace': must not be empty",
+    "data": {
+      "code": "VALIDATION_ERROR",
+      "retriable": false,
+      "hint": "Provide a non-empty namespace identifier",
+      "details": { "field": "namespace" }
+    }
+  }
+}
+```
+
+### Retry guidance for LLM clients
+
+| Situation | Vanta code | Recommended action |
+|-----------|-------------|-------------------|
+| Validation failed (bad input) | `VALIDATION_ERROR` | Fix the input, do not retry |
+| Database busy / locked | `BUSY` | Wait briefly, retry |
+| Operation timed out | `TIMEOUT` | Retry (or increase timeout) |
+| Resource limit exceeded | `RESOURCE_LIMIT` | Retry with backoff, monitor memory |
+| Corrupt / version mismatch | `CORRUPT` | Surface to user, do not retry |
+| Not found | `NOT_FOUND` | Adjust query, do not retry |
+| Internal JSON-RPC error | (none) | Retry once, then escalate |
+
 ## Tool Families
 
 **76 tools in 7 families (spec 2025-06-18, every tool carries `annotations` with `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` per [MCP Tool Annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) / [blog 2026-03-16](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations)):**
