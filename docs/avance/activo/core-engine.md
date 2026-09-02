@@ -516,3 +516,6 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 
 ### AUD-047: Deduplicación `metric_score` en `layer.rs`
 - **Fecha:** 2026-08-25 — **Objetivo:** extraer closure `metric_score` compartido (Cosine/Euclidean/SparseDot) en `src/index/search/layer.rs`, −35 líneas, 2 call-sites — **Resultado:** ✅ — **Commit:** `bd8cc184`
+
+### FIND-54: Fix flake `cors_layer_none_when_empty` bajo `--features server`
+- **Fecha:** 2026-09-02 · **Objetivo:** `cors_layer` (`src/server/router.rs:86`) retornaba `Some` para `&[""]` porque `HeaderValue::from_str("")` es válido en http 1.x y el `filter_map` no descartaba origins vacíos → assert `.is_none()` del test pre-existente roto determinístico (nunca corrió en CI: perfil audit no habilita `server`). Fix: `.filter(|o| !o.is_empty())` antes del `filter_map` + test sibling `cors_layer_blank_origin_mixed_with_valid_keeps_layer` · **Resultado:** ✅ contrato 4/4 — test --exact pasa, suite lib `--features server` 2039/2039 (0 failed, 1 ignored), clippy `--all-targets --all-features -D warnings` 0, fmt 0 · **Commit:** `2030c743` · **Tarea:** colateral detectada en ERR-OBS-01 (2026-09-02), fix independiente · **Task file:** `.opencode/skills/campaign-executor/tasks/FIND-54.md`
