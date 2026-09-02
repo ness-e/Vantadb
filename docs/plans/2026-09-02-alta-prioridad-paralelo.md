@@ -696,7 +696,22 @@ last-synced: 2026-09-02T19:00
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- l1_extractor 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-10.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T21:00
+
+=== RECITATION MEM-10 COMPLETED ===
+Objetivo activo: MEM-10 — F4 L1 extractor split+1 call LLM JSON+parse reparación (Wave3)
+Estado: completed (desde: completed → re-verify Wave3)
+Última acción: DISCOVERY codegraph_explore L1 extractor (43 símbolos, blast radius l1_dedup 4 callers) + Read l1_extractor.rs 260L + llm_runner.rs 248L + tests l1_extractor.rs 9 tests + grep SKILLS-MANIFEST extractor/L1/record/llm (1 hit competitive-ads-extractor, SDP base-only + lifecycle BUILD) → EJECUCIÓN ponytail reuse 0 líneas (MEM-10 landed 2026-08-20: l1_extractor.rs 260L + l1_parser.rs + json_utils.rs + l1_extraction prompts, 73/73 tests, review P2-01 APPROVE con 1 major reparado) → verify cargo check Finished + cargo test --lib extractor 3 passed + cargo test --test l1_extractor 9/9 + cargo test --lib 328/328 + cargo fmt --check 0
+Resultado: ✅
+State: COMPLETED (desde: COMPLETED)
+Próxima acción: Wave3 continúa — MEM-11 (L1 dedup) + GOV-C6/RES-06 paralelos MAX 3, disjoint preservado (no docs/operations/CONFIGURATION.md ni docs/api)
+Contrato: `cargo check -p vanta-memory` Finished ✅ + `cargo test -p vanta-memory --lib extractor` 3 passed ✅ + `cargo test -p vanta-memory --test l1_extractor` 9/9 ok ✅ + `cargo test -p vanta-memory --lib` 328/328 ✅ + `cargo fmt --check` 0 ✅
+Invariantes: L1 LLM-optional degrade success:false sin pérdida L0 (Principio 4); prompts inglés reescritos no chino Kenty (Principio 7); 1 call LLM task_id l1-extraction; split background/new con max_new 10/max_bg 5; parse tolerante fences/trailing commas/bare priority; type legacy episode→episodic/instruct→instruction/preference→persona; sin unwrap/expect; sin deps nuevas; records vacío por diseño (write=MEM-11); no tocar docs/operations/CONFIGURATION.md (GOV-C6) ni docs/api (RES-06) — disjoint 100% preservado
+Comandos de verificación: `cargo check -p vanta-memory` → Finished 3.60s + `cargo test -p vanta-memory --test l1_extractor` → 9 passed + `cargo test -p vanta-memory --lib extractor` → 3 passed + `cargo test -p vanta-memory --lib` → 328 passed + `cargo fmt --check` → 0 + `Select-String l1_extractor.rs extract_l1|should_extract` (12 hits)
+Deuda: ninguna — 1 major audit [bare priority] reparado en revisión via repair_priority_scalars + sanitize_json_for_parse; ponytail techo O(n) parse single-pass documentado; should_extract_l1 consolidable en MEM-19 sanitize si aplica
+Próxima tarea si completa: MEM-11 — F4 L1 dedup 2 fases store/update/merge/skip
+last-synced: 2026-09-02T21:00
+=== END RECITATION ===
 
 #### MEM-11 — F4 L1 dedup 2 fases store/update/merge/skip
 - **Descripción:** dedup recall→juicio LLM + 2 fases; MC/l1-dedup 408L + prompts 236L
