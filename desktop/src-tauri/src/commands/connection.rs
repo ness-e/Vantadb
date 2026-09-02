@@ -34,13 +34,10 @@ fn probe_dir() -> String {
 }
 
 /// Map a core `vantadb` engine error onto the desktop contract error.
+/// Delegates to the shared mapping (ERR-DESK-01): `Lock`/`Io` semantics kept,
+/// every other variant preserves its canonical `VANTADB_*` code.
 fn map_core_error(err: vantadb::VantaError) -> VantaError {
-    use vantadb::VantaError as Core;
-    match err {
-        Core::DatabaseBusy(msg) => VantaError::Lock(msg),
-        Core::IoError(io) => VantaError::Io(io.to_string()),
-        other => VantaError::Native(other.to_string()),
-    }
+    VantaError::from_core(&err)
 }
 
 /// Round-trip health probe of the native embedded engine.

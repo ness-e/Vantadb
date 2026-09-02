@@ -95,6 +95,17 @@ pub enum VantaError {
     /// Reserved for non-HTTP transports filled in by later tasks.
     #[error("native: {0}")]
     Native(String),
+    /// Transport error carrying the canonical `VANTADB_*` code preserved from
+    /// the core engine (ERR-DESK-01): lets the frontend branch on `code`
+    /// (retry `VANTADB_BUSY`, re-auth `VANTADB_UNAUTHORIZED`-style classes)
+    /// instead of parsing a flattened `Native` message.
+    #[error("domain {code}: {message}")]
+    Domain {
+        /// Canonical core code (`vantadb::VantaError::code()`).
+        code: String,
+        /// Human-readable detail (core `Display`).
+        message: String,
+    },
     #[error("mcp: {0}")]
     Mcp(String),
     #[error("node: {0}")]
@@ -132,6 +143,22 @@ impl VantaError {
             status: Some(status),
         }
     }
+
+    /// Translate a core `vantadb::VantaError` into the desktop contract
+    /// WITHOUT collapsing it to a plain string (ERR-DESK-01). Retries stay
+    /// distinguishable: `DatabaseBusy` → `Lock`, I/O → `Io`, anything else
+    /// keeps its canonical `VANTADB_*` code in `Domain`.
+    pub fn from_core(e: &vantadb::VantaError) -> Self {
+        use vantadb::VantaError as Core;
+        match e {
+            Core::DatabaseBusy(msg) => Self::Lock(msg.clone()),
+            Core::IoError(io) => Self::Io(io.to_string()),
+            other => Self::Domain {
+                code: other.code().to_string(),
+                message: other.to_string(),
+            },
+        }
+    }
 }
 
 impl From<std::io::Error> for VantaError {
@@ -167,6 +194,10 @@ mod tests {
             VantaError::Timeout("slow".into()),
             VantaError::Unsupported("nope".into()),
             VantaError::Native("n".into()),
+            VantaError::Domain {
+                code: "VANTADB_NOT_FOUND".into(),
+                message: "Node not found: 7".into(),
+            },
             VantaError::Mcp("m".into()),
             VantaError::Node("n".into()),
             VantaError::Python("p".into()),
@@ -209,5 +240,33 @@ mod tests {
                 ..
             }
         ));
+    }
+
+    // ── ERR-DESK-01: core errors must never collapse into Native(String) ──
+
+    #[test]
+    fn from_core_preserves_canonical_code() {
+        let err = VantaError::from_core(&vantadb::VantaError::NodeNotFound(7));
+        assert!(
+            matches!(
+                &err,
+                VantaError::Domain { code, message }
+                    if code == "VANTADB_NOT_FOUND" && message.contains('7')
+            ),
+            "expected structured Domain, got: {err:?}"
+        );
+        // Survives the Tauri→frontend JSON roundtrip with `code` intact.
+        let json = serde_json::to_string(&err).expect("serialize");
+        let back: VantaError = serde_json::from_str(&json).expect("deserialize");
+        assert_eq!(back, err);
+    }
+
+    #[test]
+    fn from_core_keeps_lock_and_io_semantics() {
+        let busy = VantaError::from_core(&vantadb::VantaError::DatabaseBusy("locked".into()));
+        assert!(matches!(busy, VantaError::Lock(_)));
+        let io =
+            VantaError::from_core(&vantadb::VantaError::IoError(std::io::Error::other("disk")));
+        assert!(matches!(io, VantaError::Io(_)));
     }
 }

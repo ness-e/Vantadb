@@ -88,8 +88,21 @@ pub struct RecallOutcome {
 
 // Sync cores (run on the blocking pool) ──────────────────────────────────
 
-fn mem_err(e: impl std::fmt::Display) -> VantaError {
-    VantaError::Native(e.to_string())
+/// Convert a storage/pipeline error into the desktop [`VantaError`] without
+/// collapsing typed core errors (ERR-DESK-01). If the error itself — or any
+/// `source()` in its chain, like `L0Error::Vanta(..)` — is a core
+/// `vantadb::VantaError`, it is mapped through [`VantaError::from_core`] so
+/// the frontend keeps the canonical `VANTADB_*` code (or `Lock`/`Io`) and
+/// can branch on it. Foreign-only errors keep the previous `Native` text.
+fn mem_err(e: impl std::error::Error + 'static) -> VantaError {
+    let mut source: Option<&(dyn std::error::Error + 'static)> = Some(&e);
+    while let Some(s) = source {
+        if let Some(core) = s.downcast_ref::<vantadb::VantaError>() {
+            return VantaError::from_core(core);
+        }
+        source = s.source();
+    }
+    VantaError::Native(format!("{e}"))
 }
 
 /// Run a sync closure on the blocking pool, mapping join failures.
@@ -343,9 +356,15 @@ pub async fn vanta_scene_read(
 ) -> Result<SceneBlock, VantaError> {
     let db = state.manager.active_embedded().await?;
     offload(move || {
-        gateway_scene_read(&db, &SceneReadRequest { session_key, scene_name })
-            .map(|r| r.scene)
-            .map_err(mem_err)
+        gateway_scene_read(
+            &db,
+            &SceneReadRequest {
+                session_key,
+                scene_name,
+            },
+        )
+        .map(|r| r.scene)
+        .map_err(mem_err)
     })
     .await
 }
@@ -849,6 +868,49 @@ mod tests {
         );
     }
 
+    // ── ERR-DESK-01: mem_err must not collapse typed core errors ──
+
+    /// Foreign error like the vanta-memory wrappers: holds a core
+    /// `vantadb::VantaError` as `source()` (same shape as `L0Error::Vanta`).
+    #[derive(Debug, thiserror::Error)]
+    #[error("l0: {0}")]
+    struct ChainedError(#[source] vantadb::VantaError);
+
+    #[test]
+    fn mem_err_propagates_core_error_structured() {
+        // Direct core error (e.g. `db.list` failures) must keep its code.
+        let err = mem_err(vantadb::VantaError::NodeNotFound(7));
+        assert!(
+            matches!(
+                &err,
+                VantaError::Domain { code, .. } if code == "VANTADB_NOT_FOUND"
+            ),
+            "core error collapsed: {err:?}"
+        );
+        // Core error one level down the source chain (L0Error::Vanta shape)
+        // must surface structured too — the frontend needs to tell retry
+        // (VANTADB_BUSY → Lock) from not-found, never a plain string.
+        let chained = mem_err(ChainedError(vantadb::VantaError::DatabaseBusy(
+            "locked".into(),
+        )));
+        assert!(
+            matches!(chained, VantaError::Lock(_)),
+            "chained core error collapsed: {chained:?}"
+        );
+    }
+
+    #[test]
+    fn mem_err_falls_back_to_native_for_foreign_errors() {
+        // No core error in the chain → still a Native with the Display text.
+        let err = mem_err(vanta_memory::core::conversation::L0Error::InvalidRole(
+            "system".into(),
+        ));
+        assert!(
+            matches!(&err, VantaError::Native(m) if m.contains("system")),
+            "expected Native fallback, got: {err:?}"
+        );
+    }
+
     // ── access guard ──
 
     #[tokio::test]
@@ -921,9 +983,15 @@ mod tests {
         )
         .await
         .expect("seed 1");
-        seed_scene(&st.manager, "sess-q", "oncall", "oncall", "pager escalation tips")
-            .await
-            .expect("seed 2");
+        seed_scene(
+            &st.manager,
+            "sess-q",
+            "oncall",
+            "oncall",
+            "pager escalation tips",
+        )
+        .await
+        .expect("seed 2");
 
         let db = st.manager.active_embedded().await.expect("handle");
         let hits = offload(move || {
@@ -977,10 +1045,9 @@ mod tests {
         .expect("record");
 
         let db = st.manager.active_embedded().await.expect("handle");
-        let all =
-            offload(move || query_session(&db, "sess-log", None).map_err(mem_err))
-                .await
-                .expect("all");
+        let all = offload(move || query_session(&db, "sess-log", None).map_err(mem_err))
+            .await
+            .expect("all");
         assert_eq!(all.len(), 3);
         assert_eq!(
             all.iter().map(|e| e.ts_ms).collect::<Vec<_>>(),

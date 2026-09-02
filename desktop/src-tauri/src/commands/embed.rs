@@ -201,10 +201,8 @@ fn resolve_model(model: Option<&str>) -> Result<(PathBuf, String, usize), VantaE
                                 .and_then(|x| x.as_u64())
                                 .map(|x| x as usize)
                                 .unwrap_or(384);
-                            let dir = PathBuf::from(format!(
-                                "embeddings/models/{}/onnx",
-                                requested
-                            ));
+                            let dir =
+                                PathBuf::from(format!("embeddings/models/{}/onnx", requested));
                             return Ok((dir, requested.to_string(), dim));
                         }
                     }
@@ -255,8 +253,7 @@ pub fn vanta_embed_text(
     if text.is_empty() {
         return Err(VantaError::Other("text must be non-empty".into()));
     }
-    let (model_dir, model_id, default_dim) =
-        resolve_model(model.as_deref())?;
+    let (model_dir, model_id, default_dim) = resolve_model(model.as_deref())?;
 
     // Cache lookup: by path first (exact hit), then by id.
     if let Some(backend) = cache.by_path.lock().unwrap().get(&model_dir).cloned() {
@@ -282,11 +279,7 @@ pub fn vanta_embed_text(
         .lock()
         .unwrap()
         .insert(model_dir.clone(), backend.clone());
-    cache
-        .by_id
-        .lock()
-        .unwrap()
-        .insert(model_id, backend);
+    cache.by_id.lock().unwrap().insert(model_id, backend);
     Ok(result)
 }
 
@@ -297,9 +290,8 @@ fn build_backend(
     default_dim: usize,
 ) -> Result<Arc<dyn EmbedBackend>, VantaError> {
     let dir_str = model_dir.to_string_lossy().to_string();
-    let provider = LocalOnnxProvider::new(&dir_str).map_err(|e| {
-        VantaError::Other(format!("LocalOnnxProvider::new({dir_str}): {e}"))
-    })?;
+    let provider = LocalOnnxProvider::new(&dir_str)
+        .map_err(|e| VantaError::Other(format!("LocalOnnxProvider::new({dir_str}): {e}")))?;
     // `LocalOnnxProvider::new` always succeeds — it falls back to dummy when
     // the model files are missing. Detect that and surface a clear error to
     // the UI instead of silently serving dummy vectors.
@@ -369,9 +361,7 @@ fn backend_source(backend: &dyn EmbedBackend) -> &'static str {
 /// Surfaced to the UI so it can warn the user when they paste vectors into
 /// the IngestForm that don't match the active connection's dim.
 #[tauri::command]
-pub fn vanta_embed_capabilities(
-    _manager: State<'_, ConnectionManager>,
-) -> serde_json::Value {
+pub fn vanta_embed_capabilities(_manager: State<'_, ConnectionManager>) -> serde_json::Value {
     serde_json::json!({
         "embed_local_compiled": cfg!(feature = "embed-local"),
         "default_model": "multilingual-e5-small",
@@ -390,7 +380,10 @@ mod tests {
         assert_eq!(a, b);
         // L2 normalized.
         let n: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
-        assert!((n - 1.0).abs() < 1e-4, "vector must be L2-normalized, got norm={n}");
+        assert!(
+            (n - 1.0).abs() < 1e-4,
+            "vector must be L2-normalized, got norm={n}"
+        );
     }
 
     #[test]

@@ -137,6 +137,7 @@ async fn real_server_health_put_get_search_delete() {
             namespace: "default".to_string(),
             text: "integration probe payload".to_string(),
             embedding: None,
+            sparse_vector: None,
             metadata: Default::default(),
         })
         .await

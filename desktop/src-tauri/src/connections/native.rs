@@ -135,13 +135,10 @@ impl NativeConnection {
 }
 
 /// Translate a core `vantadb::VantaError` into the desktop `VantaError`.
+/// Delegates to the shared mapping so every transport keeps the canonical
+/// `VANTADB_*` code instead of collapsing to `Native(String)` (ERR-DESK-01).
 fn map_core_error(e: CoreVantaError) -> VantaError {
-    match e {
-        // The core reports a locked database as `DatabaseBusy` — surface it as
-        // the contract's `Lock` so callers can branch on it.
-        CoreVantaError::DatabaseBusy(msg) => VantaError::Lock(msg),
-        other => VantaError::Native(other.to_string()),
-    }
+    VantaError::from_core(&e)
 }
 
 /// Generate a process-unique record id when the caller supplies none.
@@ -1068,11 +1065,14 @@ mod tests {
         );
 
         let keyword = conn
-            .search(query(true, Some(SearchProfileConfig {
-                mode: SearchProfileMode::Keyword,
-                rrf_k: None,
-                candidate_k: None,
-            })))
+            .search(query(
+                true,
+                Some(SearchProfileConfig {
+                    mode: SearchProfileMode::Keyword,
+                    rrf_k: None,
+                    candidate_k: None,
+                }),
+            ))
             .await
             .expect("keyword profile");
         for hit in &keyword {

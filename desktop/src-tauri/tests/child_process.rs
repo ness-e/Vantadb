@@ -29,10 +29,7 @@ async fn spawn_ready_and_clean_kill_with_stderr_log() {
     }
 
     // Use a per-test tempdir so concurrent CI runs do not collide on the storage lock.
-    let db_path = std::env::temp_dir().join(format!(
-        "vantadb-mcp-test-{}",
-        std::process::id()
-    ));
+    let db_path = std::env::temp_dir().join(format!("vantadb-mcp-test-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&db_path);
 
     let mut sidecar = McpSpawn::spawn(db_path.clone())
@@ -66,10 +63,7 @@ async fn drop_kills_cleanly() {
         eprintln!("SKIP: vanta-cli binary not found (see prior test).");
         return;
     }
-    let db_path = std::env::temp_dir().join(format!(
-        "vantadb-mcp-drop-{}",
-        std::process::id()
-    ));
+    let db_path = std::env::temp_dir().join(format!("vantadb-mcp-drop-{}", std::process::id()));
     let _ = std::fs::remove_dir_all(&db_path);
     {
         let mut sidecar = McpSpawn::spawn(db_path.clone())
