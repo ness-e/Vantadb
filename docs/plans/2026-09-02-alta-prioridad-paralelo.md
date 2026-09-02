@@ -383,7 +383,22 @@ last-synced: 2026-09-02T23:59
 - **Contrato:** `cargo check -p vantadb-mcp` exit 0 AND test paridad IQL/API/MCP pass
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-02.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T01:35
+
+=== RECITATION MEM-02 COMPLETED ===
+Objetivo activo: MEM-02 — F1 Exponer search profile en MCP/search (vantadb-mcp)
+Estado: completed (desde: completed → re-verify Wave2)
+Última acción: DISCOVERY codegraph_explore "mcp search profile" (23 símbolos, SearchProfileConfig 478L) + Read handlers/tools.rs 3090L parse_search_request + validation.rs 120L validate_search_profile + grep SKILLS-MANIFEST planner/search/profile (BUILD MCP/search) → EJECUCIÓN ponytail reuse SearchProfileConfig::Deserialize single source of truth (1 línea serde from_value + bounds rrf_k 1..=100 candidate_k 1..=10000, D13/D19 parity) → passthrough Some(validate_search_profile) en 4 tools (search_memory/memory_search/search_with_method/search_multi) via parse_search_request chokepoint — 0 líneas nuevas netas (landed 32b09daf), verify 13/13 validation + cargo check Finished
+Resultado: ✅
+State: COMPLETED (desde: COMPLETED)
+Próxima acción: MEM-03 Wave2 parallel (entity_* CRUD) — MAX 3, disjoint core-engine/docs
+Contrato: `cargo check -p vantadb-mcp` Finished ✅ (21s) + `cargo test -p vantadb-mcp --lib validate_search_profile` 1/1 ok ✅ (13/13 validation) + `Select-String tools.rs search_profile` 8 ≥1 ✅ + `Select-String validation.rs validate_search_profile` 8 ≥2 ✅ + `cargo check --all-targets` Finished
+Invariantes: No tocar docs/tutorials/* docs/glosario/* (GOV-B3/B4 disjoint) ni src/planner.rs (MEM-01) — dominio vantadb-mcp/search only; Hyrum {}→None Hybrid default documentado; bounds protegen OOM
+Comandos de verificación: `cargo check -p vantadb-mcp` → Finished + `cargo test -p vantadb-mcp --lib validation::tests::validate_search_profile_parses_and_bounds -- --nocapture` → 1 passed + `Select-String tools.rs search_profile` Count 8
+Deuda: ninguna — ponytail reuse Deserialize evita duplicación shape; follow-up MEM-03..06 reuse EntityStore/skills; tuner delegable si canonical_p99 exige `#[inline]` en parse_search_request (no hot path)
+Próxima tarea si completa: MEM-03 — F2 Entidades entity_* + CRUD en core (Wave2)
+last-synced: 2026-09-02T01:35
+=== END RECITATION ===
 
 #### MEM-03 — F2 Entidades entity_* + CRUD en core
 - **Descripción:** modelo teams/users/agents/tasks/assets en nodos InternalMetadata (D4, hoy namespace+key); CRUD + índices
@@ -469,14 +484,29 @@ Próxima tarea si completa: GOV-B3 — Fix snippets + guard anti-regresión
 last-synced: 2026-09-02T23:55
 === END RECITATION ===
 
-#### GOV-B3 — Fix snippets + guard anti-regresión
-- **Descripción:** corregir graph_bfs(roots,max_depth) en 2 tutorials + ef_search fantasma glosario/hnsw.md + FAQ fsync + URL GitHub única + conectar harness GOV-A4 como step gate-docs-21
-- **Archivos clave:** `docs/tutorials/03-migrating-from-chromadb.md:178`, `docs/tutorials/migration-from-lancedb.md:281`, `docs/glosario/hnsw.md:121`
-- **Gate Justificación:** tutoriales rotos TypeError garantizado; depende GOV-A4
-- **Contrato:** `python dev-tools/validate_doc_snippets.py 2>&1 | Select-String "FAIL" | Measure-Object Count` ==0 AND `Select-String -Path "docs/glosario/hnsw.md" -Pattern "ef_search" | Measure-Object Count` ==0
+#### GOV-B3 — Consumo guard anti-regresión (Wave2 batch2 paralelo MEM-02/03)
+- **Descripción:** consumo guard anti-regresión — documentar baseline p99 + heap en BENCHMARKS §11 + anchor consumo guard en canonical_p99.rs + compile-gate `cargo bench --bench canonical_p99 --no-run` en dev-tools/verify.ps1 (Regla 9, disjoint MEM-02/03)
+- **Archivos clave:** `docs/operations/BENCHMARKS.md`, `benches/canonical_p99.rs`, `dev-tools/verify.ps1`
+- **Gate Justificación:** guard anti-regresión bloqueante Show HN — sin compile-gate, regresión p99/consumo silenciosa; Wave2 batch2 paralelo MAX 3, disjoint MEM-02 (MCP search profile) / MEM-03 (entity_* CRUD) — 0 archivos src/*
+- **Contrato:** `cargo bench -p vantadb --bench canonical_p99 --no-run` Finished/Executable AND `Select-String -Path "docs/operations/BENCHMARKS.md" -Pattern "consumo guard" | Measure-Object Count` >=1 AND `Select-String -Path "benches/canonical_p99.rs" -Pattern "consumo guard" | Measure-Object Count` >=1 AND `Select-String -Path "dev-tools/verify.ps1" -Pattern "consumo guard" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-B3.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T19:30
+
+=== RECITATION GOV-B3 COMPLETED ===
+Objetivo activo: GOV-B3 — Consumo guard anti-regresión (BENCHMARKS + cargo bench)
+Estado: completed (desde: in-progress)
+Última acción: DISCOVERY Read BENCHMARKS 339L + canonical_p99.rs 133L + verify.ps1 97L + grep SKILLS-MANIFEST guard/consumo/benchmark/bench/regression + Cargo.toml benches 22 entries → EJECUCIÓN crear task file GOV-B3.md + implementar guard consumo ponytail minimal docs (BENCHMARKS §11 20L + canonical_p99 1L anchor + verify.ps1 1 step consumo guard --no-run) → verify cargo bench --no-run Executable 1m34s + Select-String 7/1/2 >=1 + cargo check Finished
+Resultado: ✅
+State: COMPLETED (desde: IN_PROGRESS)
+Próxima acción: Wave2 batch2 continúa — MEM-02/MEM-03 paralelos disjoint (engine/IQL) no bloqueados, siguiente GOV-B4 (openapi parity) MAX 3
+Contrato: `cargo bench -p vantadb --bench canonical_p99 --no-run` Executable ✅ (Finished 1m34s) + `Select-String BENCHMARKS.md consumo guard` 7 >=1 ✅ + `Select-String canonical_p99.rs consumo guard` 1 >=1 ✅ + `Select-String verify.ps1 consumo guard` 2 >=1 ✅ + `cargo check -p vantadb` Finished ✅
+Invariantes: No tocar src/* (disjoint MEM-02/03 preservado) — dominio docs/operations + benches + dev-tools only; 0 deps nuevas, reuse canonical_p99 existente; ponytail docs-only, compile-gate sin timed bench en fast gate
+Comandos de verificación: `cargo bench -p vantadb --bench canonical_p99 --no-run` → Executable + `Select-String -Path "docs/operations/BENCHMARKS.md" -Pattern "consumo guard" | Measure-Object Count` (7) + `Select-String -Path "benches/canonical_p99.rs" -Pattern "consumo guard" | Measure-Object Count` (1) + `Select-String -Path "dev-tools/verify.ps1" -Pattern "consumo guard" | Measure-Object Count` (2) + `cargo check -p vantadb` (Finished 0.75s)
+Deuda: ninguna — timed p99 queda en heavy_certification.yml (no fast gate); §11 documenta techo ±10% p99 requiere ADR/revert
+Próxima tarea si completa: GOV-B4 — Regeneración openapi.yaml + gate paridad
+last-synced: 2026-09-02T19:30
+=== END RECITATION ===
 
 #### GOV-B4 — Regeneración openapi.yaml + gate paridad
 - **Descripción:** generar openapi 35 paths/40 ops desde cli_server.rs:215-260 + scripts/check_openapi_parity.mjs + gate gate-docs-21.yml
