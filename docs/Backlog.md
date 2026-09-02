@@ -3,7 +3,7 @@ title: "Active Backlog — VantaDB"
 type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
-last_reviewed: 2026-08-30
+last_reviewed: 2026-09-02
 verified_by: "Historial de verificación: docs/avance/historial/backlog-history.md"
 ---
 
@@ -237,14 +237,9 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | REVIEW-10 | Alta | God-file `cli_server.rs` ~3800-4141 líneas (routing + RBAC + TLS + OTEL + tests inline) — blast radius total del server en un archivo. Split por concern bajo `src/server/`; congelar features nuevas ahí | src/cli_server.rs | 🟠 | 🔴 Alta | 🟠 Abierta — derivada de review-full-20260822 H06-ARCH-001 |
 | FIND-22 | Alta | Formalizar en docs/operations/CI_POLICY.md las 3 exclusiones de tests del fast gate en dev-tools/verify.ps1 (deserialize_absurd_node_count, test_search_with_bizarre_text_query, test_malformed_payload_extremely_large — CATEGORY: RESOURCE-GUARD, documentadas inline pero sin entrada en la taxonomía CI_POLICY ni Issue tag flaky). Origen: auditoría dev-tools 2026-08-25 | dev-tools/verify.ps1, docs/operations/CI_POLICY.md | 🟢 | 🟡 Media | Pendiente |
 | FIND-23 | Media | `vanta-http-map.ts` manda `namespace: item.namespace ?? ""` en ingest/get con namespace omitido → el server embebido rechaza ("Validation error on namespace: namespace must not be empty"); el mapping WASM sí defaulta `DEFAULT_NS` (inconsistencia WEB-04). En el web build embedded, IngestForm con namespace vacío falla (y su pre-check `get()` rompe antes). Origen: plan 2026-08-25-batch-desktop-ux-core#E2E-VISUAL (hallazgo e2e) | desktop/src/vanta-http-map.ts:93 | 🟢 | 🟡 Media | ✅ Completada (2026-08-25) — DEFAULT_NS en http-map + test |
-| BND-08 | 🔴 P0 | **Pipeline npm release napi-rs** (H-01): nunca publicado (E404); crear workflow CI create-npm-dirs/artifacts/prepublish modelo LanceDB/napi.rs, 5 targets + musl futuro. Origen: research-vantadb-node-20260825 | .github/workflows/, 
-antadb-node/package.json | 🔴 | 🔴 Alta | Pendiente |
-| BND-09 | 🟡 | **Target linux musl** (H-04): Docker/Alpine sin cobertura; agregar arch64/x86_64-unknown-linux-musl a napi.targets cuando exista pipeline. Origen: research-vantadb-node-20260825 | 
-antadb-node/package.json, CI | 🟢 | 🟠 Media | Pendiente |
-antadb-node/src/lib.rs, index.d.ts | 🔴 | 🟠 Media | Pendiente |
-antadb-node/index.d.ts | 🟡 | 🟠 Media | Pendiente |
-| BND-12 | 🟡 | **Cobertura tests node** (H-06): 8→~20 tests; cubrir search/explain_search/put_batch/capabilities/close-drain. Origen: research-vantadb-node-20260825 | 
-antadb-node/tests/ | 🟡 | 🟠 Media | Pendiente |
+| BND-08 | 🔴 P0 | **Pipeline npm release napi-rs** (H-01): nunca publicado (E404); crear workflow CI create-npm-dirs/artifacts/prepublish modelo LanceDB/napi.rs, 5 targets + musl futuro. Origen: research-vantadb-node-20260825 | .github/workflows/, antadb-node/package.json | 🔴 | 🔴 Alta | Pendiente |
+| BND-09 | 🟡 | **Target linux musl** (H-04): Docker/Alpine sin cobertura; agregar aarch64/x86_64-unknown-linux-musl a napi.targets cuando exista pipeline. Origen: research-vantadb-node-20260825 | antadb-node/package.json, CI | 🟢 | 🟠 Media | Pendiente |
+| BND-12 | 🟡 | **Cobertura tests node** (H-06): 8→~20 tests; cubrir search/explain_search/put_batch/capabilities/close-drain. Origen: research-vantadb-node-20260825 | antadb-node/tests/ | 🟡 | 🟠 Media | Pendiente |
 | BND-13 | 🟡 | **docs/api/NODE_SDK.md** (H-07): doc completa + ejemplos por runtime; README ya creado (quickstart + matriz native-vs-wasm). Origen: research-vantadb-node-20260825 | docs/api/NODE_SDK.md | 🟢 | 🟡 Media | Pendiente |
 | PERF-BENCH-01 | 🟡 | **Benchmark A/B vantadb-node nativo vs vantadb-ts WASM** (H-09): insert/search p99 + tamaño binario; decide posicionamiento (decisión tomada: native primario en Node condicionado a números). Regla 9. Origen: research-vantadb-node-20260825 | benches nuevos | 🟡 | 🟠 Media | Pendiente |
 | MCP-34b | Media | Tool MCP `snapshot_restore(name)` — wrapper del restore físico cuando S2-S4 de RES-02 aterricen (validación identifier + confirmación destructiva explícita). Prerrequisito: S1 (quiesce+flush en create_snapshot) y S2-S4 (core restore + tests) | docs/research/res02-backup-restore.md §3 | 🟢 | 🟡 Media | ⬜ Pendiente (prerrequisito core nuevo) |
@@ -525,7 +520,7 @@ antadb-node/tests/ | 🟡 | 🟠 Media | Pendiente |
 ## P37 - Auditoría diseño desktop post-fix (auditoría orquestador + 5 sub-agentes, 2026-08-24)
 
 > **✅ Cerrada 2026-08-26 — DESKTOP-QW5 (H-13):** 9/9 DAUD verificadas y archivadas. Fixes D1-D11 ya commitados: E2E-VISUAL `480935a7` (DAUD-01), DAUD-LIMPI `3c53d8b2` (DAUD-03/04/05/07) + `b865c625` (DAUD-06/11), filterActive `ad0f34b1` (DAUD-02/QW4). Stash `06aa1a86` consumido por `b865c625` (DAUD-08). Registro en `docs/avance/activo/desktop.md` §P37 + `backlog-history.md` §Limpieza DAUD 2026-08-26. Plan: `docs/plans/2026-08-25-research-desktop-quickwins.md` Wave1 Task5.
-
+>
 > Contexto histórico: segunda auditoría de diseño de `desktop/` (misma jornada que P34, sesión paralela independiente). Detectó D1-D11; D1-D11 fueron corregidos el mismo día por 5 sub-agentes en paralelo (archivos disjuntos, cero colisiones con P34). Verificación integrada original: tsc ✅ · vitest 68/68 ✅ · vite build exit 0 ✅ · grep emoji 0 ✅. Resumen fixes: D1 App.css tokens theme-flipping (marco crema en dark eliminado) · D2 fuente base única (Geist gobierna) · D3 glifos emoji-prone → Lucide sw2.5 (~20 archivos, geométricos monocromos conservados como identidad linocut) · D4 FILTROS activo = active-state del sistema (INGEST único neón) · D5 hit targets ≥32px · D6 Mark.tsx hex → var(--color-neon) · D7 splash duplicado eliminado · D8 stagger extendido a 12 hijos · D9 ~14 utilidades CSS muertas borradas · D10 grid-tech/speed-lines overrides dark · D11 ventana Tauri 1280×800 min 1024×640 center. Dep nueva: `lucide-react`.
 
 | ID | Effort | Descripción | Archivos | Estado |
@@ -677,7 +672,7 @@ antadb-node/tests/ | 🟡 | 🟠 Media | Pendiente |
 ## P47 — Promoción a `default-members`: criterios 100% estables (server/mcp/memory/proxy + ts/node)
 
 > **Origen:** discusión 2026-08-27 sobre `Cargo.toml:636-642` — `default-members = [".","vantadb-python"]` deja `server/mcp/wasm/memory/proxy` fuera del Fast Gate a propósito (`CATEGORY: EXPERIMENTAL`). `ts`/`node` son paquetes npm (no crates) y nunca pueden entrar en `default-members`, pero necesitan gate npm equivalente. Esta fase define **qué validar antes de decir “100% estable y puede pasar a default”** y deja la promoción como cambio reversible en 1 línea. **No promocionar sin que los 10 checks pasen.** Ver `docs/operations/CI_POLICY.md` y `.opencode/references/definition-of-done.md`.
-
+>
 > **Contrato de promoción (Definition of Done para default):** cada crate/paquete a promover debe pasar **todos** los gates siguientes en 3 corridas consecutivas sin flaky, en runner limpio (`cargo clean` / `npm ci`):
 > 1. `cargo check -p <crate> --all-targets --all-features` + `cargo fmt --check` + `cargo clippy -p <crate> --all-targets --all-features -- -D warnings` = 0 warnings
 > 2. `cargo nextest run -p <crate> --profile audit -j 2` (o `npm test` para ts/node) = 0 failed, 0 ignored flaky, sin `#[ignore]`
