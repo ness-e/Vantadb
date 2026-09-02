@@ -641,6 +641,30 @@ last-synced: 2026-09-02
 - **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
+#### MEM-08 — F4 Fundación crate vanta-memory (scaffold) — Wave3 verificación unificada
+- **Descripción:** scaffold unificado vanta-memory/Cargo.toml + lib.rs + src/core/** (ponytail reuse MEM-08a/b ya landed 2026-08-20, verify Wave3 paralelo)
+- **Archivos clave:** `vanta-memory/Cargo.toml`, `vanta-memory/src/lib.rs`, `vanta-memory/src/core/**`
+- **Gate Justificación:** F4 base unificada Wave3 — scaffold verifica crate fundación antes de L0-L3; disjoint GOV-C5 (docs) / RES-06 (api); MAX 3 con GOV-C5+RES-06
+- **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory --lib` 328 passed
+- **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-08.md`
+- **Estado:** ✅ COMPLETED
+- **last-synced:** 2026-09-02T19:00
+
+=== RECITATION MEM-08 COMPLETED ===
+Objetivo activo: MEM-08 — F4 Fundación crate vanta-memory (scaffold) Wave3
+Estado: completed (desde: in-progress)
+Última acción: DISCOVERY codegraph_explore 20 símbolos (MemoryType/MemoryRecord + core/**) + Read Cargo.toml 68L + lib.rs 57L + grep SKILLS-MANIFEST memory/vanta-memory/scaffold/crate (1 hit) → EJECUCIÓN ponytail reuse 0 líneas (scaffold ya landed MEM-08a/b 2026-08-20: workspace member, features llm-driver off/mock, 6 módulos) → verify cargo check 6.11s Finished + cargo test --lib 328/328 + git diff disjoint docs/ intacto
+Resultado: ✅
+State: COMPLETED (desde: IN_PROGRESS)
+Próxima acción: Wave3 continúa — MEM-09 (L0 capture) + GOV-C4/RES-08 paralelos MAX 3, disjoint preservado
+Contrato: `cargo check -p vanta-memory` Finished ✅ (6.11s) + `cargo test -p vanta-memory --lib` 328 passed ✅ + `Test-Path vanta-memory/Cargo.toml` True + `Select-String vanta-memory/src/lib.rs "pub mod core"` ≥1
+Invariantes: No tocar docs/ (GOV-C5) ni src/api/ (RES-06) — disjoint 100% preservado; crate fuera default-members experimental; host-neutral default off; ponytail 0 líneas nuevas
+Comandos de verificación: `cargo check -p vanta-memory` → Finished 6.11s + `cargo test -p vanta-memory --lib` → 328 passed + `Select-String SKILLS-MANIFEST.md memory` 1 ≥1
+Deuda: ninguna — scaffold completo, 7 warnings pre-existentes vantadb core (no vanta-memory); siguiente MEM-09 L0 reuse l0_recorder
+Próxima tarea si completa: MEM-09 — F4 L0 capture idempotente
+last-synced: 2026-09-02T19:00
+=== END RECITATION ===
+
 #### MEM-09 — F4 L0 capture idempotente
 - **Descripción:** auto_capture 347L + l0_recorder 607L, captura conversación idempotente
 - **Archivos clave:** `vanta-memory/src/core/hooks/auto_capture.rs`, `vanta-memory/src/core/conversation/l0_recorder.rs`
