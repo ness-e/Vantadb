@@ -177,31 +177,31 @@ impl VantaDB {
         spawn_blocking(move || engine.list_namespaces()).await
     }
 
-/// Hybrid memory search with optional vector / text / filter inputs.
-///
-/// Returns hits ordered by **relevance** (highest score first): each hit is
-/// `{ record: MemoryRecord, score: number, explanation?: object }`.
-///
-/// # Score semantics (WSM-10 / CODE-091 cross-binding convention)
-///
-/// The `score` field is a **relevance score** — it is *higher-is-better*, not
-/// a raw distance. The exact value depends on the input mix and `distance_metric`:
-///
-/// | Input                 | `distance_metric` | `score` formula / range                         |
-/// |-----------------------|-------------------|--------------------------------------------------|
-/// | `query_vector` only   | `"Cosine"`        | `cosine_similarity` ∈ `[-1.0, 1.0]`             |
-/// | `query_vector` only   | `"Euclidean"`     | `-distance²` then sqrt → `(-∞, 0.0]`            |
-/// | `text_query` only     | (n/a)             | BM25 (positive, no fixed upper bound)           |
-/// | `query_vector` + `text_query` | any       | RRF-fused (higher = more relevant across channels) |
-///
-/// This is the same convention as the Rust core (`VantaMemorySearchHit.score`,
-/// pinned by `src/sdk/serialization/vector_types.rs::tests`) and the Python SDK.
-/// It is **different** from the TypeScript wrapper `vantadb-ts`, which renames
-/// the field to `distance` and inverts the semantics (lower = more similar) —
-/// see `docs/api/TS_SDK.md` → "Distance vs Score (CODE-091)" for the full
-/// cross-binding table.
-#[napi(ts_return_type = "Promise<MemorySearchHit[]>")]
-pub async fn search(
+    /// Hybrid memory search with optional vector / text / filter inputs.
+    ///
+    /// Returns hits ordered by **relevance** (highest score first): each hit is
+    /// `{ record: MemoryRecord, score: number, explanation?: object }`.
+    ///
+    /// # Score semantics (WSM-10 / CODE-091 cross-binding convention)
+    ///
+    /// The `score` field is a **relevance score** — it is *higher-is-better*, not
+    /// a raw distance. The exact value depends on the input mix and `distance_metric`:
+    ///
+    /// | Input                 | `distance_metric` | `score` formula / range                         |
+    /// |-----------------------|-------------------|--------------------------------------------------|
+    /// | `query_vector` only   | `"Cosine"`        | `cosine_similarity` ∈ `[-1.0, 1.0]`             |
+    /// | `query_vector` only   | `"Euclidean"`     | `-distance²` then sqrt → `(-∞, 0.0]`            |
+    /// | `text_query` only     | (n/a)             | BM25 (positive, no fixed upper bound)           |
+    /// | `query_vector` + `text_query` | any       | RRF-fused (higher = more relevant across channels) |
+    ///
+    /// This is the same convention as the Rust core (`VantaMemorySearchHit.score`,
+    /// pinned by `src/sdk/serialization/vector_types.rs::tests`) and the Python SDK.
+    /// It is **different** from the TypeScript wrapper `vantadb-ts`, which renames
+    /// the field to `distance` and inverts the semantics (lower = more similar) —
+    /// see `docs/api/TS_SDK.md` → "Distance vs Score (CODE-091)" for the full
+    /// cross-binding table.
+    #[napi(ts_return_type = "Promise<MemorySearchHit[]>")]
+    pub async fn search(
         &self,
         #[napi(ts_arg_type = "SearchRequest")] request: Value,
     ) -> napi::Result<Value> {
@@ -644,7 +644,10 @@ fn runtime_profile_label(profile: vantadb::sdk::VantaRuntimeProfile) -> &'static
 /// in `vantadb-ts/src/native.ts`) parses the prefix back into `err.code`;
 /// the codes are the canonical `VANTADB_*` set from `VantaError::code()`.
 fn map_err(e: vantadb::error::VantaError) -> napi::Error {
-    Error::new(napi::Status::GenericFailure, format!("{}: {}", e.code(), e))
+    // The VantaError code is inlined ahead of the napi GenericFailure status
+    // so the TS wrapper can recover `err.code` from the message alone.
+    let code = e.code();
+    Error::new(napi::Status::GenericFailure, format!("{code}: {e}"))
 }
 
 fn serde_map_err(e: serde_json::Error) -> napi::Error {
@@ -835,11 +838,7 @@ fn parse_search_request(value: &Value) -> napi::Result<VantaMemorySearchRequest>
         query_sparse: None,
         filters: get_metadata(obj, "filters")?,
         text_query: get_opt_str(obj, "text_query")?,
-        top_k: clamp_top_k(
-            obj.get("top_k")
-                .and_then(Value::as_u64)
-                .unwrap_or(10) as usize,
-        ),
+        top_k: clamp_top_k(obj.get("top_k").and_then(Value::as_u64).unwrap_or(10) as usize),
         distance_metric: match obj.get("distance_metric") {
             Some(Value::String(s)) if s == "Euclidean" || s == "euclidean" => {
                 DistanceMetric::Euclidean
