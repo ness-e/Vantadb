@@ -274,3 +274,10 @@ aliases: []
 - **Resultado:** OK
 - **Commit:** 142e8f1d
 - **Dominio:** ci-cd
+
+### ERR-CORE-02: clippy unwrap/expect deny en prod + anyhow bins (plan error-observability Wave 0)
+- **Fecha:** 2026-09-02
+- **Objetivo:** workspace.lints.clippy unwrap_used/expect_used deny (Cargo.toml, previo en HEAD 73f49e6f) + sweep collateral de allows justificados (~190 archivos tests/benches/examples + cfg_attr(test) en 5 lib.rs) + bins vanta-cli/vantadb-server a anyhow::Result con .context(); anyhow optional gated tras feature cli (lib sin anyhow)
+- **Resultado:** OK — clippy -p vantadb y --workspace --all-targets --all-features exit 0; fmt 0; contrato 5/5
+- **Commit:** af0bb8b8
+- **Dominio:** ci-cd

@@ -152,7 +152,11 @@ Sin `GO` explícito del usuario, la tarea queda 🟡 DEFER (no se fuerza `DO`).
 - **Top 3 riesgos:** 1 expect legítimo
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1 (lints + anyhow bins)
 - **DoD:** Task: lints + anyhow bins · Commit: `chore(clippy): deny unwrap/expect en prod + anyhow bins (ERR-CORE-02)` · Release: N/A
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-09-02, sesión de reanudación)
+- **Commit:** af0bb8b8 — 193 files (lints deny ya en HEAD 73f49e6f; este commit = sweep collateral + anyhow bins)
+- **Verify:** `clippy -p vantadb --all-targets --all-features -D warnings` 0 · `clippy --workspace` idem 0 · `fmt --all --check` 0 · `rg anyhow::Result` vanta-cli=2, server=1 · pre-commit hooks OK
+- **Hallazgos ejecución:** (a) premisa "tests excluidos por default" era falsa → sweep `#![allow]` en ~190 test/bench/example files + `#![cfg_attr(test, allow)]` en 5 lib.rs (vantadb, vanta-memory, vanta-proxy, vantadb-mcp, vantadb-wasm); (b) `export_md.rs:302,305` y los 15+8 expects de `index/graph`/`ivf` resultaron ser código `#[cfg(test)]` → sin marca puntual; (c) `src/main.rs` no existe → bins reales: `src/bin/vanta-cli.rs` + `vantadb-server/src/main.rs`; (d) anyhow `optional=true` gated tras feature `cli` en root para no gravar consumidores de la lib.
+- **Pendiente colateral:** ninguno — workspace verde completo. HEAD estuvo red desde 73f49e6f (deny sin sweep); af0bb8b8 lo restaura.
 - **Task file:** `.opencode/skills/campaign-executor/tasks/ERR-CORE-02.md`
 
 ### Task 3: ERR-PY-01 — Unificar providers a jerarquía MOD-20 + code/to_dict
@@ -341,8 +345,8 @@ Tras Wave 3: `desktop`/`web` usan `code` no `message`, `ERROR_HANDLING.md` lista
 
 - **Fecha:** 2026-09-02
 - **Branch:** develop
-- **Estado:** ⏳ EN PROGRESO (9 PENDING)
-- **Próxima tarea:** Task 2 ERR-CORE-02 (clippy quick win, desbloquea verde)
+- **Estado:** ⏳ EN PROGRESO (Wave 0 completo: ERR-CORE-02 ✅ af0bb8b8, ERR-DOCS-01 ✅ 962831ae)
+- **Próxima tarea:** Task 1 ERR-CORE-01 (code() estable — Wave 1, desbloquea PY/TS/MCP/DESK/WEB)
 - **Decisiones:** `code()` 10 strings canónicos `VANTADB_` prefix + `Generic` → 2 variantes críticas primero + `clippy deny` solo en `src/` allow tests + `Backtrace` stable + `tracing`/`metrics`/`catch_unwind`
 
 SDP: campaign-executor, brainstorming, writing-plans, planning-and-task-breakdown, progreso, ponytail, spec-driven-development, systematic-debugging, code-review-and-quality, security-and-hardening, observability-and-instrumentation, api-and-interface-design, coordinated-web-search
