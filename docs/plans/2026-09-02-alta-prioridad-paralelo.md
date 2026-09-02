@@ -806,14 +806,29 @@ Próxima tarea si completa: GOV-C5..C7 ya ✅ — Wave3 19 tasks continúa, Wave
 last-synced: 2026-09-02T12:40
 === END RECITATION ===
 
-#### GOV-C5 — operations/master-index.md completar
-- **Descripción:** completar 26→32 archivos (chaos-testing, ci-cd-guide, pilot-×3, TEST_MAP, self) + regla same-PR
-- **Archivos clave:** `docs/operations/master-index.md`
-- **Gate Justificación:** índice canónico operations incompleto
-- **Contrato:** `Get-ChildItem docs/operations/*.md | Measure-Object Count` == `Select-String -Path "docs/operations/master-index.md" -Pattern "^\|" | Measure-Object Count` (listing==index)
+#### GOV-C5 — operations/master-index.md completar (taxonomía 26→35)
+- **Descripción:** completar 26→32→35 archivos (chaos-testing, ci-cd-guide, pilot-×3, TEST_MAP, self + hardening.md + UPGRADE.md 2026-08-28) + taxonomía 6 categorías + regla same-PR
+- **Archivos clave:** `docs/operations/master-index.md`, `docs/operations/*.md` (35 files), `docs/master-index.md`
+- **Gate Justificación:** índice canónico operations incompleto (GOV-C4 35/35 parity ya ✅, faltaba taxonomía categorizada navegación)
+- **Contrato:** `Get-ChildItem docs/operations/*.md | Measure Count` 35 == indexed md 35 (filtrado archive) AND `Select-String master-index.md last_reviewed.*2026-09-02` >=1 AND `Select-String Taxonomía|Deploy|Durability|Performance|Security|CI` >=3 AND `cargo check -p vantadb` Finished
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-C5.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T12:50
+
+=== RECITATION GOV-C5 COMPLETED ===
+Objetivo activo: GOV-C5 — operations/master-index taxonomía 26→35 (Wave3) + docs/master-index coherencia
+Estado: completed (desde: in-progress)
+Última acción: DISCOVERY Read master-index 60L 44 pipes vs fs 35 → 35/35 parity ya ✅ (GOV-C4) pero flat sin categorías → EJECUCIÓN ponytail reorg 6 categorías (Deploy6/Durability6/Performance5+1json/Security5/CI6/Programs6 + self + archive) docs-only 68L, last_reviewed 2026-09-02, same-PR regla intacta → VERIFY Compare-Object fs vs idx 0 diff PARITY OK 35/35 + last_reviewed 1 + Taxonomía 15 + cargo check Finished 21.25s + audit-reports/ 0
+Resultado: ✅
+State: COMPLETED (desde: IN_PROGRESS)
+Próxima acción: Wave3 continúa — MEM-09 (L0 capture) + RES-06 (scores) paralelos MAX 3, disjoint src/* preservado
+Contrato: `Get-ChildItem 35 == indexed 35` ✅ + `Select-String last_reviewed 2026-09-02` 1 ≥1 ✅ + `Select-String Taxonomía|Deploy|Durability|Performance|Security|CI 15 ≥3` ✅ + `Compare-Object 0 diff` ✅ + `cargo check -p vantadb` Finished ✅ + `Select-String docs/master-index.md audit-reports/` 0 ✅
+Invariantes: No tocar src/* (MEM-09 vanta-memory, RES-06 api scores) — dominio docs/operations only; ponytail docs-only categorización, 0 deps nuevas; MAX 3 paralelo respetado; docs/master-index 370L sin drift
+Comandos de verificación: `Get-ChildItem docs/operations/*.md | Measure Count` (35) + `Select-String docs/operations/master-index.md "\[.*\.md\]" | Measure Count` (37 inc archive, 35 fs) + `Select-String last_reviewed 2026-09-02` (1) + `Select-String Taxonomía` (15) + `cargo check -p vantadb` (Finished 21.25s)
+Deuda: ninguna — taxonomía cerrada 35/35 categorizada, 26→32→35 documentado, same-PR regla intacta; hardening/UPGRADE ya existían solo faltaba categoría, no contenido nuevo
+Próxima tarea si completa: GOV-C6..C7 ya ✅ — Wave3 21/21 continúa, Wave4 pending
+last-synced: 2026-09-02T12:50
+=== END RECITATION ===
 
 #### GOV-C6 — CONFIGURATION.md sincronizada
 - **Descripción:** sweep 44 env vars (VANTA_EMBEDDING_PROVIDER/OPENAI_API_KEY/MODEL/VANTADB_REPORTED_VERSION), rate_limit_rpm 100→600, flush_threshold None, PORT fallback/ flush_interval_ms fantasmas fuera, spot-check 14 defaults
