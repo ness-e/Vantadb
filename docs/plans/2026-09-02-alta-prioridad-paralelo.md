@@ -359,7 +359,22 @@ last-synced: 2026-09-02T23:50
 - **Contrato:** `cargo check -p vantadb` exit 0 AND `cargo nextest run -p vantadb -- search_profile 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-01.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T23:59
+
+=== RECITATION MEM-01 COMPLETED ===
+Objetivo activo: MEM-01 — F1 search profile (planner.rs, entity)
+Estado: completed (desde: in-progress)
+Última acción: DISCOVERY codegraph_explore "planner search profile" (38 símbolos) + Read planner.rs 984L + Read sdk/types.rs SearchProfileConfig + grep SKILLS-MANIFEST planner/search/profile → EJECUCIÓN ponytail reuse: SearchProfileConfig ya landed 6a50b8ee (mode/rrf_k/candidate_k + search_profile Option en VantaMemorySearchRequest + fuse_rrf parametrizado + IQL PROFILE keyword/vector/hybrid + CBO mode routeo) — 0 líneas nuevas, verify 38 planner + 11 search_profile + 117 parser + 1976 lib + cargo check Finished
+Resultado: ✅
+State: COMPLETED (desde: IN_PROGRESS)
+Próxima acción: MEM-02 Wave2 parallel (MCP paridad profile) — MAX 3, disjoint engine/docs
+Contrato: `cargo check -p vantadb` Finished ✅ + `cargo test -p vantadb --lib planner` 38/38 ok ✅ + `cargo test -p vantadb --lib search_profile` 11/11 ok ✅ + `cargo test -p vantadb --lib parser` 117/117 ok ✅ + `cargo test -p vantadb --lib` 1976/1976 ok ✅
+Invariantes: No colisiona SearchProfile (src/index/search/profile.rs debug profiler) — D14; IQL rrf_k/candidate_k propagados sin efecto CBO (ponytail deuda documentada); sin push (vanta-lead)
+Comandos de verificación: `cargo check -p vantadb` → Finished 0.79s + `cargo test -p vantadb --lib planner` → 38 passed + `cargo test -p vantadb --lib search_profile` → 11 passed
+Deuda: ponytail IQL rrf_k/candidate_k sin efecto CBO hasta fusión RRF; ponytail Keyword ignora sparse
+Próxima tarea si completa: MEM-02 — F1 Exponer search profile en MCP/search (Wave2)
+last-synced: 2026-09-02T23:59
+=== END RECITATION ===
 
 #### MEM-02 — F1 Exponer search profile en MCP/search
 - **Descripción:** paridad IQL+API+MCP passthrough SearchProfileConfig en tools MCP
@@ -413,7 +428,22 @@ last-synced: 2026-09-02T23:50
 - **Contrato:** `Test-Path docs/archive/case-studies-unverified/rag_edge_device.md` == true AND `Select-String -Path "docs/archive/case-studies-unverified/README.md" -Pattern "no-público|ilustrativos" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-B1.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T23:55
+
+=== RECITATION GOV-B1 COMPLETED ===
+Objetivo activo: GOV-B1 — case_studies ficticios → archive interno (Show HN bloqueante D6)
+Estado: completed (desde: pending)
+Última acción: DISCOVERY Read archive 3 files + book stubs + master-index + web CASE_STUDIES + grep SKILLS-MANIFEST 4 keywords 0 hits → EJECUCIÓN crear GOV-B1.md + ponytail minimal (reuse commits a8a21733+98612db8, 0 líneas nuevas) → verify Select-String docs/case_studies + cargo check docs-only
+Resultado: ✅
+State: COMPLETED (desde: PENDING)
+Próxima acción: GOV-B2 (DISASTER_RECOVERY_RUNBOOK ghost) + MEM-01 (F1 search profile) parallel MAX 3 disjoint — Wave2 continúa
+Contrato: `Test-Path docs/archive/case-studies-unverified/rag_edge_device.md` True ✅ + `Select-String README.md "no-público|ilustrativos"` Count 1 ✅ + `Test-Path docs/case_studies` False ✅ + `Test-Path docs/book/src/case_studies/index.md` True ✅ + `cargo check -p vantadb` Finished ✅
+Invariantes: No tocar src/planner.rs (MEM-01 disjoint), src/wal.rs, DISASTER_RECOVERY_RUNBOOK.md (GOV-B2) — dominio docs/case_studies archive only; ponytail 0 files nuevos, reuse archive
+Comandos de verificación: `Test-Path docs/archive/case-studies-unverified/rag_edge_device.md` (True) + `Select-String README.md "ilustrativos"` (1) + `Test-Path docs/case_studies` (False) + `cargo check -p vantadb` (Finished)
+Deuda: ninguna — web CASE_STUDIES 3 composite sin disclaimer documentada como follow-up GOV-F1, no bloquea GOV-B1
+Próxima tarea si completa: GOV-B2 — Runbook DR sin comandos fantasma
+last-synced: 2026-09-02T23:55
+=== END RECITATION ===
 
 #### GOV-B2 — Runbook DR sin comandos fantasma
 - **Descripción:** reescribir DISASTER_RECOVERY_RUNBOOK.md comandos a CLI real (restore --input/--force/--rebuild, sin --dry-run/doctor --fix) + §3.1 Daily Backup Verification con restore temp+doctor+conteo (insumo GOV-A3)
