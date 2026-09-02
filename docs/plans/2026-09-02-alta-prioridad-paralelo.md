@@ -541,11 +541,11 @@ last-synced: 2026-09-02T02:45
 - **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
-#### GOV-B6 — Skill MCP fuente única 33 tools + MCP.md stub
-- **Descripción:** skills/vantadb-mcp/references/api-reference.md a 33 tools (15 core+6 skill+8 code+4 wiki), hash-SAME ×3, MCP.md stub ≤20L con link, test-mcp.py 4/4 verde
+#### GOV-B6 — Skill MCP fuente única 79 tools (49 core + 30 ext) + MCP.md stub
+- **Descripción:** skills/vantadb-mcp/references/api-reference.md a 79 tools (49 core+6 skill+8 code+6 wiki+1 context+3 scene+6 thread), hash-SAME ×2 (SKILL.md + api-reference.md), MCP.md 49 core + profiles, test-mcp.py 4/4 verde
 - **Archivos clave:** `skills/vantadb-mcp/references/api-reference.md`, `docs/api/MCP.md`
-- **Gate Justificación:** D8 skill única; cifras 21/15/33 divergentes; binario 0.5.0 solo 15 — 18 llegan próximo release
-- **Contrato:** `Select-String -Path "skills/vantadb-mcp/references/api-reference.md" -Pattern "33 tools" | Measure-Object Count` >=1 AND `Test-Path .opencode/skills/vantadb-mcp/SKILL.md` == true
+- **Gate Justificación:** D8 skill única; cifras 33/72/73/76 divergentes; binario 0.5.0 real 79 (49 core) — drift cerrado 2026-09-02
+- **Contrato:** `Select-String -Path "skills/vantadb-mcp/references/api-reference.md" -Pattern "79 tools" | Measure-Object Count` >=1 AND `Test-Path .opencode/skills/vantadb-mcp/SKILL.md` == true
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-B6.md`
 - **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
@@ -1208,3 +1208,13 @@ Contrato: Select-String -Path ".opencode/skills/campaign-executor/RULES.md" -Pat
 Próxima tarea si completa: GOV-T03
 === END RECITATION ===
 
+=== RECITATION GOV-B6 ===
+Campaign ID: 20260902-alta-prioridad-paralelo
+Objetivo activo: GOV-B6 — Skill MCP fuente única 79 tools (49 core +30 ext) — cerrar drift docs vs código
+Estado: completed
+Última acción: DISCOVERY codegraph_explore 4 files/66 símbolos + Read SKILL.md/api-reference/MCP.md + grep SKILLS-MANIFEST + verify base_tools 49 + hash-SAME → EJECUCIÓN ponytail doc-only 7 archivos (SKILL.md×2 73→79, api-reference×2 72→79, MCP.md 76→79 + core 46→49 + last_reviewed) reuse sin código, verify cargo check --workspace
+Resultado: ✅
+Próxima acción: ninguno — Wave2 12/15 ahora ✅ (MEM-01..06 6 + GOV-B1..B6 6), restan GOV-C1..C3 disjoint, MAX 3 preservado
+Contrato: Contrato: Select-String skills/vantadb-mcp/references/api-reference.md "79 tools" Count 2 ≥1 ✅ + Test-Path .opencode/skills/vantadb-mcp/SKILL.md True ✅ + cargo check --workspace Finished 8.18s ✅ + hash-SAME SKILL.md + api-reference.md ✅ | verificacion: Select-String -Path "skills/vantadb-mcp/references/api-reference.md" -Pattern "79 tools" | Measure-Object Count (2) + cargo check -p vantadb-mcp Finished 15.60s | evidencia: skills/vantadb-mcp/references/api-reference.md:8 (79 tools =49 core), .opencode/skills/vantadb-mcp/SKILL.md:8+118 (79 tools 49 core), docs/api/MCP.md:182+239 (79 tools/49 core, last_reviewed 2026-09-02), vantadb-mcp/src/handlers/tools.rs base_tools 49 | artefactos: docs/plans/2026-09-02-alta-prioridad-paralelo.md (GOV-B6 contrato 33→79), .opencode/skills/campaign-executor/tasks/GOV-B6.md (S6 drift fix), skills/vantadb-mcp/SKILL.md, .opencode/skills/vantadb-mcp/SKILL.md, skills/vantadb-mcp/references/api-reference.md, .opencode/skills/vantadb-mcp/references/api-reference.md, docs/api/MCP.md | invariantes: no tocar nextest (.config/nextest.toml) ni master-index/docs/Backlog (GOV-C1/C2 disjoint) — respetado 0 archivos en común; docs-only, 0 Rust | deuda: ninguna — test-mcp.py 4/4 requiere binario vanta-cli en PATH (no en CI fast gate); profiles memory/dev/full documentados
+Próxima tarea si completa: GOV-C1
+=== END RECITATION ===

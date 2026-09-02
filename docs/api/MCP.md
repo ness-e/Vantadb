@@ -3,7 +3,7 @@ title: VantaDB Model Context Protocol (MCP) Server
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-08-23
+last_reviewed: 2026-09-02
 aliases: []
 ---
 
@@ -179,11 +179,11 @@ identifier without parsing message text:
 
 ## Tool Families
 
-**76 tools in 7 families (spec 2025-06-18, every tool carries `annotations` with `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` per [MCP Tool Annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) / [blog 2026-03-16](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations)):**
+**79 tools in 7 families (spec 2025-06-18, every tool carries `annotations` with `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` per [MCP Tool Annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) / [blog 2026-03-16](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations)):**
 
 | Family | Count | Source module |
 |--------|-------|---------------|
-| Core | 46 | `handlers/tools.rs` — listed in `tools/list` |
+| Core | 49 | `handlers/tools.rs` — listed in `tools/list` |
 | `code_*` | 8 | `code.rs` |
 | `skill_*` | 6 | `skills.rs` |
 | `wiki_*` | 6 | `wiki.rs` |
@@ -199,7 +199,7 @@ The VantaDB MCP server exposes a **tool surface profile** via the `VANTADB_MCP_P
 
 | Profile | Tool Count | Description | Recommended For |
 |---------|------------|-------------|-----------------|
-| `full` (default) | 76 | All tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence, wiki, skills, threads, scenes, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients |
+| `full` (default) | 79 | All tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence, wiki, skills, threads, scenes, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients |
 | `dev` | ~35 | Memory CRUD + search + IQL + graph traversal + collections + key maintenance (snapshots, export/import, flush, compact) + axioms. Excludes: code intelligence, wiki, skills, threads, scenes, context engine, bulk import, index audit/repair, vacuum, rebuild_index. | **Cursor** (cap ~40), VS Code extensions, clients with moderate tool caps |
 | `memory` | ~18 | Core memory CRUD (put/get/delete/list/versions/supersede) + search (semantic/memory/with_method/multi) + IQL + collections + capabilities + generate_snippet. | Memory-only agents, minimal clients, testing |
 
@@ -234,9 +234,9 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
 - The profile is read once at server startup from `VANTADB_MCP_PROFILE`.
 - `tools/list` returns only the tools allowed by the selected profile.
 - `tools/call` for a non-listed tool returns `method_not_found` with a clear error: `Tool not found: <name> (not in profile <profile>)`.
-- Profile `full` preserves backward compatibility — existing clients see all 76 tools by default.
+- Profile `full` preserves backward compatibility — existing clients see all 79 tools by default.
 
-## Core Tools (46)
+## Core Tools (49)
 
 ### Memory CRUD (9)
 

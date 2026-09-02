@@ -5,7 +5,7 @@ description: VantaDB Model Context Protocol (MCP) server integration for persist
 
 # VantaDB MCP Integration
 
-VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **73 tools** (43 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*` + 1 `context_assemble` + 3 `scene_*` + 6 `thread_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
+VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **79 tools** (49 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*` + 1 `context_assemble` + 3 `scene_*` + 6 `thread_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
 
 ## Quick Start
 
@@ -113,14 +113,14 @@ first write; list what exists with `collection_list` (or `memory_list_namespaces
 }
 ```
 
-## Available MCP Tools (76)
+## Available MCP Tools (79)
 
-The full contract for all **76 tools** lives in
-[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 46 core tools in detail; the other 30 are summarized here.
+The full contract for all **79 tools** lives in
+[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 49 core tools in detail; the other 30 are summarized here.
 
 | Group | Count | Tools | Precondition |
 |-------|-------|-------|--------------|
-| Core (Memory/Search/Collections/Graph/IQL/GDS/Recovery) | 46 | documented below | none beyond an open DB |
+| Core (Memory/Search/Collections/Graph/IQL/GDS/Recovery) | 49 | documented below | none beyond an open DB |
 | Review-agent Skills (`skill_*`) | 6 | `skill_list`, `skill_view`, `skill_create`, `skill_update`, `skill_patch`, `skill_files_write` | `owner_agent` caller identity; writes need `expected_version` |
 | Code Intelligence (`code_*`) | 8 | `code_search`, `code_explore`, `code_callers`, `code_callees`, `code_impact`, `code_node`, `code_status`, `code_files`* | graph nodes/edges ingested first; query-only |
 | Wiki Knowledge (`wiki_*`) | 6 | `wiki_search`, `wiki_read`, `wiki_list`, `wiki_graph`, `wiki_ingest`, `wiki_ingest_status` | wiki lifecycle in `ready` state |

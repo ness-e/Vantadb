@@ -2,17 +2,17 @@
 
 > Verified against the real SDK boundary: `src/sdk/types.rs`, `src/sdk/api.rs`, `src/sdk/builder.rs`, `src/index/graph.rs`, `src/error.rs`. Only symbols that exist in the code are documented here.
 
-## MCP Tools (72)
+## MCP Tools (79)
 
 > **This is the single source of truth for the VantaDB MCP contract.**
-> Verified against `vantadb-mcp/src/`: exactly **72 tools** = 42 core
-> (`handlers/tools.rs` `base_tools`) + 6 `skill_*` (`skills.rs`) + 8 `code_*`
+> Verified against `vantadb-mcp/src/`: exactly **79 tools** = 49 core
+> (`handlers/tools.rs` `base_tools` — 49) + 6 `skill_*` (`skills.rs`) + 8 `code_*`
 > (`code.rs`) + 6 `wiki_*` (`wiki.rs`) + 1 `context_assemble`
 > (`context.rs`) + 3 `scene_*` (`scenes.rs`) + 6 `thread_*` (`threads.rs`). All seven sets are announced together
 > in `tools/list` via extend (`handlers/tools.rs`).
-> Last synced against code: 2026-08-25.
+> Last synced against code: 2026-09-02 — 79 tools = 49 core + 6 skill_* + 8 code_* + 6 wiki_* + 1 context_assemble + 3 scene_* + 6 thread_* (verified `vantadb-mcp/src/handlers/tools.rs` base_tools 49).
 
-### Core — Memory / Search / Collections / Graph / IQL / GDS / Recovery (42)
+### Core — Memory / Search / Collections / Graph / IQL / GDS / Recovery (49)
 
 | Tool | Purpose | Main params |
 |------|---------|-------------|
