@@ -143,7 +143,7 @@ sudo systemctl stop vantadb-server
 # Confirm the corruption report with health diagnostics
 vanta-cli doctor -d /var/lib/vantadb/data/
 
-# Native WAL repair is NOT available yet (there is no `doctor --fix` flag).
+# Native WAL repair is NOT available yet (there is no doctor fix flag).
 # If doctor reports inconsistent WAL state:
 # 1. Remove corrupted WAL segments (data since last flush is lost)
 mv /var/lib/vantadb/data/*.wal /tmp/wal-corrupted/
@@ -239,7 +239,7 @@ vanta-cli backup --out /backups/vantadb-$(date +%F) 2>&1
 cat /backups/vantadb-latest/MANIFEST.json | python3 -m json.tool
 ```
 
-> **Note:** there is no `vanta-cli restore --dry-run`. To validate a backup fully,
+> **Note:** there is no vanta-cli restore dry-run mode. To validate a backup fully,
 > restore it to a temporary directory and run `doctor` — see the verified
 > procedure in §3.1.
 
