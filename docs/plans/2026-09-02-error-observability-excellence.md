@@ -321,7 +321,10 @@ Sin `GO` explícito del usuario, la tarea queda 🟡 DEFER (no se fuerza `DO`).
 - **Uphill/Downhill:** ⬆️ 1 (Backtrace nightly vs stable) · ⬇️ 3 (Backtrace field + anyhow bins + metrics counter)
 - **DoD multi-nivel:** Task: `Backtrace` + `tracing::error!` + `metrics` + `catch_unwind` · Commit: `feat(observability): Backtrace + tracing + metrics + catch_unwind (ERR-OBS-01)` · Release: `docs/operations/OBSERVABILITY.md` + `CONSTRAINTS.md` quality bar
 - **Validación Appetite vs Effort:** max 1d ≥ 🟡 1d ✅
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (2026-09-02, vanta-worker)
+- **Commit:** `817b83e5` — `feat(observability): Backtrace + tracing estructurado + docs OBSERVABILITY (ERR-OBS-01)`
+- **Verify:** `rg -c Backtrace src/error.rs`=11 ✅ · `error::tests` 80/80 + ramales Some(`RUST_LIB_BACKTRACE=1`)/None ✅ · `rg -c "error.code" src/server/errors.rs`=3 ✅ · `check -p vantadb --all-targets` 0 ✅ · `clippy --workspace --all-targets --all-features -D warnings` 0 ✅ · `fmt --all --check` 0 ✅ · `OBSERVABILITY.md` existe ✅ · suite lib 1983/1983 (3 flakes I/O en run 1, re-runs verdes)
+- **Hallazgos ejecución:** (a) premisa nightly FALSA — `std::backtrace` stable 1.65, toolchain 1.95.0; (b) métricas: `metrics` no es dep raíz → NO agregada, **FIND-53** + TODO en `OBSERVABILITY.md` §4; (c) catch_unwind: todos los boundaries ya capturan (PyO3 trampoline:301, wasm panic-hook+trampa, tokio JoinError) → documentado con evidencia en §6, cero trabajo inventado; (d) FIND-54: `cors_layer_none_when_empty` pre-existente roto bajo `--features server` (http 1.5.0 acepta header vacío), no introducido aquí; (e) sanitización body 500 en `query_error_response` queda NOTICIED (fuera del contrato de 7 cláusulas, requiere validación cross-binding).
 - **Task file:** `.opencode/skills/campaign-executor/tasks/ERR-OBS-01.md`
 - **Branch:** develop
 
