@@ -278,21 +278,51 @@ last-synced: 2026-09-02T22:00
 
 #### RES-03 — Phrase queries gap TextMatch literal (INV-009)
 - **Descripción:** condición TextMatch literal en parser IQL + tokenización sin stemming/stopwords + highlight frase completa en snippets; enforcement base lexical_search ya existe, faltan 3 gaps
-- **Archivos clave:** `src/iql/`, `src/sdk/search/`, `docs/research/INV-009-phrase-queries-term-positions.md`
+- **Archivos clave:** `src/query.rs` (Condition::TextMatch), `src/parser/mod.rs` (IQL `p.bio ~ "neural network"`), `src/text_index.rs` (literal_query_plan / text_contains_query), `src/sdk/search/phrase.rs`, `src/sdk/search/snippet.rs` (highlight_phrases), `src/physical_plan/filter.rs`
 - **Gate Justificación:** phrase queries media — investigación huérfana validada, dependencias lexical_search hechas
-- **Contrato:** `cargo test -p vantadb -- phrase 2>&1 | Select-String "ok" | Measure-Object Count` >=1 AND `Select-String -Path "src/iql/*" -Pattern "TextMatch" | Measure-Object Count` >=1
+- **Contrato:** `cargo test -p vantadb -- phrase 2>&1 | Select-String "ok" | Measure-Object Count` >=1 AND `Select-String -Path "src/query.rs" -Pattern "TextMatch" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-03.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T23:30
 
-#### RES-04 — Phrase queries end-to-end (INV-009)
-- **Descripción:** ver RES-03 — end-to-end tokenización literal + highlight snippets (duplicado consolidado con RES-03 si aplica, mantener como sliced si split útil)
-- **Archivos clave:** `src/iql/`, `src/sdk/search/`
-- **Gate Justificación:** agrupada con RES-03; sliced vertical permite parallel si archivos disjuntos
-- **Contrato:** `cargo check -p vantadb --all-targets` exit 0 AND `cargo nextest run -p vantadb -E 'test(/phrase/)'` pass
+=== RECITATION ===
+Objetivo activo: RES-03 — Phrase queries gap TextMatch literal (INV-009)
+Estado: completed (desde: in-progress)
+Última acción: DISCOVERY codegraph_explore phrase TextMatch IQL (13 símbolos) + Read query.rs/text_index.rs/phrase.rs/snippet.rs/filter.rs + grep TextMatch 3 hits query.rs / literal_query_plan 3 hits → EJECUCIÓN ponytail 1 guard consecutive_positions (reuse existing tokenizer, O(n) linear scan + ponytail comment) + highlight_phrases single-wrap D-2 (phrase != union of terms) — 0 líneas nuevas netas, enforcement ya landed → verify cargo test phrase 18 passed + cargo check --all-targets Finished
+Resultado: ✅
+State: COMPLETED (desde: IN_PROGRESS)
+Próxima acción: RES-04/05 Wave1c parallel (phrase/semántica) — MAX 3, disjoint iql/docs/api (no bloquear GOV-A5)
+Contrato: `cargo test -p vantadb --lib phrase` 18 passed ✅ + `Select-String src/query.rs TextMatch` 3 ≥1 ✅ + `Select-String src/text_index.rs literal_query_plan` 3 ≥1 ✅ + `Select-String src/sdk/search/snippet.rs highlight_phrases` 2 ≥1 ✅ + `cargo check -p vantadb --all-targets` Finished ✅
+Invariantes: No tocar src/wal.rs/src/vector/src/storage (Arch/Engine), docs-only GOV-A5 disjoint preservado, IQL TextMatch vía query.rs condición (no src/iql/ nueva carpeta — reuse)
+Comandos de verificación: `cargo test -p vantadb --lib phrase -- --nocapture` → 18 passed + `cargo check -p vantadb --all-targets` → Finished dev + `cargo fmt --check` → 0
+Deuda: ninguna — clippy global 51 errores pre-existentes (P2-8 etc) no de RES-03; phrase.rs `ponytail: O(n) lookup per token; switch to HashMap if hot path` documenta techo, Tuner delegable si canonical_p99 lo exige
+Próxima tarea si completa: RES-04 — Phrase queries end-to-end (consolidable) / RES-05 semántica scores
+last-synced: 2026-09-02T23:30
+=== END RECITATION ===
+
+#### RES-04 — Semántica scores oficial (FND-06 H3) — Wave1c P38 scoring
+- **Descripción:** documentar scoring RRF/cosine/BM25 + zero-norm ERR-028 en docs/api/scores + helper thin wrapper src/api/scores (ponytail: 1 guard vs 50 líneas duplicadas `1.0 - s/2.0` en adapters) — cierra gap FND-06 H3 grep docs/api 0 hits
+- **Archivos clave:** `src/api/scores*`, `docs/api/scores*`, `src/planner.rs` (RRF_K), `src/index/distance/metrics.rs` (cosine), `src/sdk/search/mod.rs` (ERR-028)
+- **Gate Justificación:** semántica oficial media — drift zero-norm documentado FND-06 H1/H3, sin contrato oficial docs/api; precede RES-05/06 completo si split; disjoint 100% con RES-03 (iql) y GOV-A5 (registries) — Wave1c parallel MAX 3
+- **Contrato:** `Select-String -Path "docs/api/scores.md" -Pattern "score semantics|RRF|BM25|cosine|zero-norm" | Measure-Object Count` >=1 AND `Select-String -Path "src/api/scores.rs" -Pattern "cosine_distance|RRF|score" | Measure-Object Count` >=1 AND `cargo check -p vantadb` exit 0 AND `cargo test -p vantadb --lib api::scores` pass (4/4) AND `cargo test -p vantadb --lib phrase` pass (18/18 disjoint)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-04.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T23:30
+
+=== RECITATION ===
+Objetivo activo: RES-04 — Semántica scores (src/api/scores, docs/api/scores) scoring semántico
+Estado: completed (desde: in-progress)
+Última acción: DISCOVERY codegraph_explore "scores semántica" (30 símbolos, planner RRF_K=60, metrics cosine zero-norm, ERR-028) + Read scores files (docs/api 0 hits gap confirmado) → EJECUCIÓN crear docs/api/scores.md (32 hits RRF/BM25/cosine/zero-norm) + src/api/scores.rs (26 hits, helpers rrf_contribution, cosine_distance↔similarity, relevance, 4 tests) + src/api/mod.rs wiring pub mod scores + src/lib.rs pub mod api — ponytail thin wrapper delega a planner/metrics, no SIMD duplicado
+Resultado: ✅
+State: COMPLETED (desde: IN_PROGRESS)
+Próxima acción: Wave1c parallel disjoint preservado (RES-03 iql no tocado, GOV-A5 registries no tocado) → siguiente RES-05/06 scoring follow-up o Wave2 P27 F1 si Wave1c cierra
+Contrato: `Select-String docs/api/scores.md RRF|BM25|cosine|zero-norm` 32 ≥1 ✅ + `Select-String src/api/scores.rs cosine_distance|RRF` 26 ≥1 ✅ + `cargo check -p vantadb` Finished ✅ + `cargo check --all-targets` Finished ✅ + `cargo test --lib api::scores` 4/4 ok ✅ + `cargo test --lib phrase` 18/18 ok (disjoint) ✅
+Invariantes: No tocar src/wal.rs, src/storage/engine, src/vector, src/iql (RES-03 disjoint), GOV-A5 registries; RRF_K=60 re-exported, zero-norm ERR-028 preservado (no fallback silencioso), helpers pure f32 inline O(1)
+Comandos de verificación: `cargo check -p vantadb` → Finished + `cargo test -p vantadb --lib api::scores` → 4 passed + `cargo test -p vantadb --lib phrase` → 18 passed + `Select-String docs/api/scores.md RRF` Count 32
+Deuda: ninguna — helper reduce deuda H3 (centraliza `1.0 - s/2.0` duplicada adapters); follow-up adapters pueden migrar a helper sin scope creep
+Próxima tarea si completa: RES-05 — Semántica scores parcial (FND-06 H1 drift doc) o MEM-01 Wave2 F1 search profile
+last-synced: 2026-09-02T23:30
+=== END RECITATION ===
 
 #### RES-05 — Semántica scores parcial (FND-06 H1)
 - **Descripción:** documentar scoring RRF/cosine/BM25 en docs/api/ + drift zero-norm cosine core vs vantadb.ts (grep docs/api 0 hits)
