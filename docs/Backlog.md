@@ -13,7 +13,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 > **Execution state lives in:** `docs/plans/YYYY-MM-DD-<campaign>.md` (plan file) + task files — per campaign-executor RULES.md §2. This file is the task catalog; the plan file is the execution state.
 > **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
 > **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 117 activas (post-slice2 2026-09-02: 13 removidas — EMB-01..09 (9) + AUD-043/044/047 + FIND-23 (4) → activo/*.md; previo 130 post-sync 2026-09-01: 43 drift removidos; TBH-06 🟡 INCOMPLETO retenido; FIND-MCP-001; previo 173)
+> **Total open items:** 121 activas (post-split-audit 2026-09-02: +4 FIND-48..51 graph/types/parser/handlers — 117+4; post-slice2 2026-09-02: 13 removidas — EMB-01..09 (9) + AUD-043/044/047 + FIND-23 (4) → activo/*.md; previo 130 post-sync 2026-09-01: 43 drift removidos; TBH-06 🟡 INCOMPLETO retenido; FIND-MCP-001; previo 173)
 ---
 
 ## Exec Summary
@@ -226,6 +226,10 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | ~~FIND-26~~ | Baja | ✅ RESUELTA (remove, 2026-08-25): `src/wal_archiver.rs` eliminado + export/feature `pitr` removidos + docs actualizados (FEATURES.md, EXPERIMENTAL_FEATURES.md, ADR-014 superseded). Decisión del lead basada en RES-02 §2b: PITR necesita base snapshot + replay (prerrequisito grande sin consumer); código conservado en git history (`git log --follow src/wal_archiver.rs`) | research res02-backup-restore.md §2b · ADR-014 | 🟠 | 🟡 Media | Completada |
 
 | FIND-47 | Baja | `handle_tools_call` complejidad 295 (dispatcher MCP): match gigante 20+ brazos, 8 scans en loops batch — no hotspot algorítmico; si crece, extraer sub-dispatchers. Origen: codegraph-20260827-143245 Fase 5 | vantadb-mcp/src/handlers/tools.rs:549 | 🟢 | 🟢 Baja | Pendiente |
+| FIND-48 | Alta | Split `src/index/graph.rs` 1846L — god-file HNSW: extraer `graph/hnsw.rs`, `graph/search.rs`, `graph/serialize.rs` por concern (verificado 2026-09-02: 75372 bytes, mayor archivo src) | `src/index/graph.rs` | 🟠 2-3d | 🟡 Media | ⬜ Pendiente |
+| FIND-49 | Media | Split `src/sdk/types.rs` 1699L — tipos SDK monolíticos: extraer `types/record.rs`, `types/search.rs`, `types/graph.rs` (verificado 2026-09-02: 63035 bytes) | `src/sdk/types.rs` | 🟡 1-2d | 🟡 Media | ⬜ Pendiente |
+| FIND-50 | Media | Split `src/parser/mod.rs` 1682L — parser IQL monolítico: extraer `parser/grammar.rs`, `parser/lexer.rs` por concern (verificado 2026-09-02: 64546 bytes) | `src/parser/mod.rs` | 🟡 1-2d | 🟡 Media | ⬜ Pendiente |
+| FIND-51 | Baja | Sub-split `src/server/handlers.rs` 1469L — aún grande tras REVIEW-10 (2004L→1469L), extraer `handlers/graph.rs`, `handlers/threads.rs`, `handlers/skills.rs` si supera 2500L (ponytail techo) | `src/server/handlers.rs` | 🟢 1d | 🟢 Baja | ⬜ Pendiente (observar) |
 
 
 ---
