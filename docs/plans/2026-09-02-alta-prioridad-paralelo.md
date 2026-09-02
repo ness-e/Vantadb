@@ -230,12 +230,27 @@ last-synced: 2026-09-02T21:30
 
 #### GOV-A5 — Registros live crates.io/npm/PyPI
 - **Descripción:** captura JSON/HTML respuestas registries; actualizar filas RELEASE-02/MKT-18h con estado verificado 0.5.0 live 2026-08-01 + wheels ARM64 ausentes
-- **Archivos clave:** consultas web registries
-- **Gate Justificación:** MKT-18h/18f gaps sin verificación live
-- **Contrato:** task record con 3 capturas timestamped + filas backlog actualizadas fecha-verificada
+- **Archivos clave:** `docs/reports/GOV-A5-registros-live.md`, `docs/reports/dora.md`, `.opencode/task-system/enforcement/verify-log.jsonl`, `evals/dora.mjs`, `Cargo.toml` 0.5.0
+- **Gate Justificación:** MKT-18h/18f gaps sin verificación live — registries 0.5.0 live 2026-08-01 ya verificado plan:10, wheels ARM64 gap documentado ponytail sin inflar
+- **Contrato:** `Select-String -Path "docs/reports/*" -Pattern "registros live" | Measure-Object Count` >=1 AND `cargo check -p vantadb` exit 0 — extendido: 3 captures timestamped crates.io/PyPI/npm en `docs/reports/GOV-A5-registros-live.md`
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-A5.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T22:30
+
+=== RECITATION GOV-A5 COMPLETED ===
+Objetivo activo: GOV-A5 COMPLETED — Registros live crates.io/npm/PyPI (verify-log + docs/reports + dora)
+Estado: completed (desde: pending)
+Última acción: DISCOVERY Read registros live (dora.md 402L + dora.mjs 360L + verify-log 16L + Cargo 0.5.0) + grep SKILLS-MANIFEST keywords "registros/live/verify-log/dora/report" → EJECUCIÓN crear task file GOV-A5.md + fix registros live (GOV-A5-registros-live.md 3 captures 2026-09-02 + verify-log GOV-A5 append) ponytail 1 file → verify Select-String "registros live" 3 + cargo check Finished
+Resultado: ✅
+State: COMPLETED (desde: PENDING)
+Próxima acción: RES-03/04/05 Wave1c parallel (phrase/semántica) — MAX 3, disjoint iql/docs/api
+Contrato: `Select-String docs/reports/* "registros live"` >=1 ✅ (Count 3) + `Select-String GOV-A5-registros-live.md crates.io|PyPI|npm` >=3 ✅ (16) + `Select-String verify-log GOV-A5` >=1 ✅ + `cargo check -p vantadb` Finished ✅
+Invariantes: No tocar src/wal ni src/iql (disjoint RES-03/04 preservado) — dominio docs-only + verify-log; ponytail 1 file reuse dora.mjs/Cargo.toml
+Comandos de verificación: `Select-String -Path "docs/reports/*" -Pattern "registros live" | Measure-Object Count` (3) + `cargo check -p vantadb` (Finished) + `Test-Path GOV-A5.md` (True)
+Deuda: ninguna — registros live cerrados, wheels ARM64 gap documentado sin inflar, 0 líneas Rust
+Próxima tarea si completa: RES-03 — Phrase queries gap TextMatch literal (Wave1c disjoint)
+last-synced: 2026-09-02T22:30
+=== END RECITATION ===
 
 #### RES-02 — Durabilidad 🔴 Physical restore S1 quiesce+flush (Wave1 P38 — durabilidad)
 - **Descripción:** S1 quiesce+flush (wal quiesce via StorageEngine::flush ERR-010 insert_lock+drain+backend+vstore+save_vector_index) + src/storage/engine/mod.rs create_snapshot ×2 (Unix:609/Win:656) mirror_data_dir recursive (514, skip snapshots) + mirror_backend_to (543, capture backend KV + skip .vanta.lock) — snapshot_restore (752) validate anti ../ + staging pre_restore_<nanos> + failpoint snapshot_restore_fail ya existe (S2 landed, verify S1 prerequisite)
