@@ -758,14 +758,29 @@ last-synced: 2026-09-02
 - **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
-#### GOV-C4 — Regeneración master-index.md
-- **Descripción:** regenerar desde árbol real 30+ carpetas, quitar 2 enlaces rotos :184/:192, indexar 15 carpetas +3 docs api, corregir frase blog :161, frontmatter last_reviewed 2026-09-02
-- **Archivos clave:** `docs/master-index.md`
-- **Gate Justificación:** IDX-01 congelado 07-21; puerta entrada docs
-- **Contrato:** método AUD-007 `Select-String -Path "docs/master-index.md" -Pattern "audit-reports" | Measure-Object Count` ==0 AND `Test-Path docs/master-index.md` timestamp 2026-09-02
+#### GOV-C4 — Regeneración master-index taxonomía (operations/master-index)
+- **Descripción:** regenerar desde árbol real 30+ carpetas (docs/master-index 370L ya 2026-09-02) + taxonomía operations/master-index: completar 35→35 md (hardening.md + UPGRADE.md + self master-index.md) + last_reviewed 2026-09-02
+- **Archivos clave:** `docs/operations/master-index.md`, `docs/master-index.md`, `docs/operations/**` (35 .md)
+- **Gate Justificación:** IDX-01 + taxonomía operations incompleta post-GOV-C5 (GOV-C5 26→32 dejó UPGRADE+hardening huérfanos 2026-08-28); puerta entrada docs; disjoint MEM-08/RES-06
+- **Contrato:** `Select-String -Path "docs/operations/master-index.md" -Pattern "hardening|UPGRADE" | Measure-Object Count` >=2 AND `Select-String -Path "docs/operations/master-index.md" -Pattern "last_reviewed.*2026-09-02" | Measure-Object Count` >=1 AND `Get-ChildItem docs/operations/*.md | Measure-Object Count` == md-leaves indexados (35==35) AND `cargo check -p vantadb` Finished AND `Select-String -Path "docs/master-index.md" -Pattern "audit-reports/" | Measure-Object Count` ==0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-C4.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T12:40
+
+=== RECITATION GOV-C4 COMPLETED ===
+Objetivo activo: GOV-C4 — operations/master-index taxonomía (Wave3) + docs/master-index coherencia
+Estado: completed (desde: in-progress)
+Última acción: DISCOVERY Read docs/master-index 370L + operations/master-index 57L + Get-ChildItem 35 vs indexed 32 → faltan hardening.md + UPGRADE.md + self + last_reviewed 2026-08-29 → EJECUCIÓN ponytail fix taxonomía (3 rows + header date) docs-only 5 líneas, docs/operations/master-index.md → VERIFY 35==35 + audit-reports/ 0 + cargo check Finished + task file + plan sync
+Resultado: ✅
+State: COMPLETED (desde: IN_PROGRESS)
+Próxima acción: Wave3 continúa — MEM-08 (vanta-memory L0-L3) + RES-06 (scores drift) paralelos MAX 3, disjoint src/* preservado
+Contrato: `Select-String docs/operations/master-index.md hardening|UPGRADE` 3 ≥2 ✅ + `Select-String last_reviewed 2026-09-02` 1 ≥1 ✅ + `Get-ChildItem 35 == indexed md 35` ✅ + `cargo check -p vantadb` Finished 0.43s ✅ + `Select-String docs/master-index.md audit-reports/` 0 ✅ + `cargo check --workspace` (no src tocado)
+Invariantes: No tocar src/* (MEM-08 vanta-memory, RES-06 api scores) — dominio docs/operations + docs/master-index only; ponytail docs-only; 0 deps nuevas; MAX 3 paralelo respetado
+Comandos de verificación: `Get-ChildItem docs/operations/*.md | Measure Count` (35) + `Select-String -Path "docs/operations/master-index.md" -Pattern "hardening|UPGRADE"` (3) + `Select-String -Path "docs/operations/master-index.md" -Pattern "last_reviewed.*2026-09-02"` (1) + `Select-String -Path "docs/master-index.md" -Pattern "audit-reports/"` (0) + `cargo check -p vantadb` (Finished)
+Deuda: ninguna — taxonomía cerrada 35/35, self-indexed, same-PR regla intacta; hardening/UPGRADE ya existían 2026-08-28 solo faltaba indexar, no contenido nuevo; docs/master-index 370L sin drift
+Próxima tarea si completa: GOV-C5..C7 ya ✅ — Wave3 19 tasks continúa, Wave4 pending; plan archive compaction si 5 tasks
+last-synced: 2026-09-02T12:40
+=== END RECITATION ===
 
 #### GOV-C5 — operations/master-index.md completar
 - **Descripción:** completar 26→32 archivos (chaos-testing, ci-cd-guide, pilot-×3, TEST_MAP, self) + regla same-PR

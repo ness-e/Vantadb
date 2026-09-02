@@ -1,6 +1,6 @@
 # Operations Master Index
 
-**last_reviewed:** 2026-08-29
+**last_reviewed:** 2026-09-02
 
 ## docs/operations/
 
@@ -33,6 +33,9 @@
 | [REPO_CHECKLIST.md](REPO_CHECKLIST.md) | Repository maintenance checklist |
 | [SECURITY.md](SECURITY.md) | Security policies and procedures |
 | [SQLITE_MIGRATION_GUIDE.md](SQLITE_MIGRATION_GUIDE.md) | SQLite migration guide |
+| [UPGRADE.md](UPGRADE.md) | Upgrade guide — version migration and backup before upgrade |
+| [hardening.md](hardening.md) | Security hardening guide for VantaDB Server (production) |
+| [master-index.md](master-index.md) | This index — canonical listing of all operations docs (self-indexed) |
 
 ## docs/archive/
 
