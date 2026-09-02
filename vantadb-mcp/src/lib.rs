@@ -14,6 +14,7 @@ mod error;
 mod handlers;
 mod metrics;
 mod protocol;
+mod proxy;
 mod scenes;
 mod server;
 mod skills;
@@ -41,8 +42,16 @@ pub use handlers::resources::handle_resources_read;
 pub use handlers::tools::handle_tools_call;
 /// List available tools.
 pub use handlers::tools::handle_tools_list;
+/// MCP-35 proxy handle (for tests).
+pub use proxy::{cleanup_stale, try_proxy, ProxyHandle};
+/// MCP-35: run proxy-only stdio server (exposed for tests).
+pub use server::run_proxy_stdio_server;
 /// Run the MCP server over stdin/stdout (JSON-RPC 2.0).
 pub use server::run_stdio_server;
+/// MCP-35: auto fallback to HTTP proxy on DatabaseBusy (writer→proxy).
+pub use server::run_stdio_server_auto;
+/// MCP-35 discovery file shape.
+pub use server::{discovery_path, is_pid_alive, spawn_writer_http, ServerInfo, WriterGuard};
 /// Lifecycle state + progress of an async wiki build, by run_id (MEM-31).
 pub use wiki::ingest_status;
 /// Start an async wiki ingest build, returning its run_id immediately (MEM-52).

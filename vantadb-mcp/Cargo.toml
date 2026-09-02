@@ -7,15 +7,18 @@ description = "Autocontained Model Context Protocol (MCP) interface for VantaDB"
 publish = false
 
 [dependencies]
-vantadb = { path = "../", features = ["cli"] }
+vantadb = { path = "../", features = ["cli", "server"] }
 # MEM-52: fachada productiva de ingest wiki — el tool wiki_ingest dispara el
 # worker de vanta-memory en un hilo de fondo (era dev-dep desde MEM-44;
 # dirección ciclo-free verificada vía cargo tree).
 vanta-memory = { path = "../vanta-memory" }
-tokio = { version = "1", features = ["sync", "rt", "macros", "rt-multi-thread", "signal", "time", "io-util", "io-std"] }
+tokio = { version = "1", features = ["sync", "rt", "macros", "rt-multi-thread", "signal", "time", "io-util", "io-std", "net", "fs"] }
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 tracing = "0.1"
+reqwest = { version = "0.12", default-features = false, features = ["json", "rustls-tls"] }
+sysinfo = "0.38"
+axum = { version = "0.8" }
 
 [features]
 embed-local = ["vantadb/embed-local"]

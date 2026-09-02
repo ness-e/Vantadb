@@ -126,12 +126,12 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 
 #### MCP-35 — Fallback HTTP automático N instancias MCP sobre misma BD
 - **Descripción:** discovery `.vanta.server.json` {pid,http_port} + modo proxy HTTP /api/v2/* cuando Database busy; limpiar PID muerto; parity tools 1:1
-- **Archivos clave:** `src/cli_server.rs` (modo mcp), `vantadb-mcp/src/handlers/tools.rs`, `src/config.rs`
+- **Archivos clave:** `vantadb-mcp/src/server.rs` (discovery + proxy), `vantadb-mcp/src/proxy.rs`, `vantadb-server/src/main.rs` (auto fallback), `src/config.rs`
 - **Gate Justificación:** bloquea multi-sesión real (incidente 2 sesiones OpenCode 2026-08-25, 2ª sin tools); diseño vanta-arch DISCOVERY + vanta-worker impl; esfuerzo 2-4d 🔴 Alta
-- **Contrato:** `Select-String -Path "src/cli_server.rs" -Pattern "vanta\.server\.json|Database busy|proxy.*mcp" | Measure-Object Count` >=2 AND `cargo test -p vantadb-mcp -- mcp --nocapture 2>&1 | Select-String "ok" | Measure-Object Count` >=1
+- **Contrato:** `Select-String -Path "vantadb-mcp/src/server.rs" -Pattern "vanta\.server\.json|DatabaseBusy|proxy" | Measure-Object Count` >=3 AND `cargo test -p vantadb-mcp -- --nocapture 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MCP-35.md`
-- **Estado:** ⬜ PENDING
-- **last-synced:** 2026-09-02T00:00
+- **Estado:** ✅ COMPLETED 2026-09-02T18:00 — writer discovery .vanta.server.json + http 127.0.0.1:0 + WriterGuard Drop pid==self + proxy 500ms health + sysinfo PID + Bearer passthrough + stale cleanup + retry. Verify: cargo check -p vantadb-mcp ✅, cargo test -p vantadb-mcp 27+82+7+3 pass ✅, mcp_fallback_proxy 3/3 ✅, workspace check ✅, Select-String 12 ≥3
+- **last-synced:** 2026-09-02T18:00
 
 #### RES-01 — DURABILIDAD 🔴 ACID Phase 4a WAL v2 + física S1+S2 (prerequisite)
 - **Descripción:** WalRecord::Prepare + WAL_FORMAT_VERSION bump + quiesce (write-lock + flush) antes de create_snapshot + recursive copy/link de subdirs (wal/); recolección crash-safe; verificado data_dir flat copy hoy pierde wal/ subdir

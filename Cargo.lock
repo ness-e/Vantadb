@@ -5555,8 +5555,11 @@ dependencies = [
 name = "vantadb-mcp"
 version = "0.5.0"
 dependencies = [
+ "axum",
+ "reqwest 0.12.28",
  "serde",
  "serde_json",
+ "sysinfo",
  "tempfile",
  "tokio",
  "tracing",

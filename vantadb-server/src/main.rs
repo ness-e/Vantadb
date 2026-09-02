@@ -17,8 +17,7 @@ static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-use std::sync::Arc;
-use vantadb::storage::StorageEngine;
+// no direct StorageEngine use — MCP-35 auto fallback via vantadb_mcp::run_stdio_server_auto
 
 /// Application entrypoint. Starts either the MCP stdio server (`--mcp`) or the
 /// HTTP CLI server.
@@ -48,31 +47,16 @@ async fn main() {
     let config = vantadb::config::VantaConfig::from_env();
 
     if is_mcp {
-        let storage_path = config.storage_path.clone();
-
-        // Embedded-first: the binary is a thin boundary and opens the raw engine
-        // directly instead of going through a higher-level server facade. This is
-        // safe here because `vantadb_mcp::run_stdio_server` is the only consumer
-        // needing index reconciliation and it runs `ensure_indexes_current`
-        // internally (MCP-01); the trailing `flush()` is durability-only.
-        let storage = match StorageEngine::open_with_config(&storage_path, Some(config.clone())) {
-            Ok(s) => Arc::new(s),
-            Err(e) => {
-                eprintln!("Failed to open storage engine: {e}");
-                std::process::exit(1);
-            }
-        };
-
-        // Init telemetry after storage is open (needs config for log_format)
+        // Init telemetry first (MCP-35 proxy needs tracing before storage open)
         vantadb::cli_server::init_telemetry(true, Some(config.log_format));
-
-        vantadb_mcp::run_stdio_server(storage.clone()).await;
-
-        tracing::info!("MCP server exited, flushing storage...");
-        if let Err(e) = storage.flush() {
-            tracing::error!("Flush failed: {e}");
-        } else {
-            tracing::info!("Storage flushed");
+        let storage_path = config.storage_path.clone();
+        // MCP-35: DatabaseBusy → HTTP proxy fallback (N instances over same DB)
+        // `run_stdio_server_auto` handles writer discovery (.vanta.server.json),
+        // ephemeral HTTP on 127.0.0.1:0, health 500ms + PID alive check,
+        // stale cleanup + retry, and proxy dispatch for second instance.
+        if let Err(e) = vantadb_mcp::run_stdio_server_auto(&storage_path, Some(config)).await {
+            eprintln!("Failed to start MCP server: {e}");
+            std::process::exit(1);
         }
     } else {
         if let Err(e) = vantadb::cli_server::run(config).await {

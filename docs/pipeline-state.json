@@ -1,16 +1,16 @@
 {
   "plan": "docs/plans/archive/2026-08-30-testing-bench-harden.md",
-  "totalCompleted": 22,
-  "incomplete": 1,
+  "totalCompleted": 23,
+  "incomplete": 0,
   "consecutiveFails": 0,
   "total": 23,
   "failMode": "parallel",
   "totalFailed": 0,
-  "lastSync": "2026-08-31T00:00:00Z",
+  "lastSync": "2026-09-02T20:00:00Z",
   "campaignId": "6ace02cd-7e74-4b23-9d55-bb32222eee13",
   "phases": {
     "alta": {"total": 5, "completed": 5},
-    "media": {"total": 10, "completed": 9, "incomplete": 1, "incomplete_id": "TBH-06"},
+    "media": {"total": 10, "completed": 10},
     "baja": {"total": 8, "completed": 8}
   },
   "waves": [
@@ -29,5 +29,6 @@
     "continue": ["single-file/single-config default", "Conventional Commits con task ID", "verify mecánico pre-commit", "campaign_memory_write"],
     "action_medible": "Reducir ratio insta snapshot churn — si >30% de PRs que tocan tests/**/snapshots/*.snap no cambian el test source, ajustar a --require-pristine en CI"
   },
-  "outstanding": ["TBH-06 (3/5 tests migrados; 2 query_result tests no existen; retomar)", "FIND-MCP-001 (test pre-existente roto en vantadb-mcp/tests/context_tests.rs:70)"]
+  "outstanding": [],
+  "resolved_2026-09-02": ["TBH-06 5/5 verify 20 tests (query_result_basic 7 + advanced 13) PASS 2026-09-02", "FIND-MCP-001 7/7 PASS 2026-09-02 (pre-existente fix verificado, no ignore needed)"]
 }
