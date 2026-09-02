@@ -1,8 +1,8 @@
 #!/usr/bin/env node
-// GOV-B4 — OpenAPI ↔ router parity check.
+// GOV-B4 / GOV-A1 — OpenAPI ↔ router parity check.
 //
 // Extracts every `.route("...", get(..).post(..))` registration from
-// src/cli_server.rs (static regex + paren scanner, multi-line safe) and
+// src/server/router.rs (static regex + paren scanner, multi-line safe) and
 // compares against the paths/methods declared in docs/api/openapi.yaml
 // (parsed with a minimal indentation-aware reader — node stdlib only).
 //
@@ -13,7 +13,7 @@ import path from "node:path";
 import { fileURLToPath } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const RS_FILE = path.join(ROOT, "src", "cli_server.rs");
+const RS_FILE = path.join(ROOT, "src", "server", "router.rs");
 const YAML_FILE = path.join(ROOT, "docs", "api", "openapi.yaml");
 
 const METHODS = new Set(["get", "post", "put", "delete", "patch", "head", "options"]);
@@ -142,18 +142,18 @@ function main() {
 
   const v2Count = [...rsMap.keys()].filter((p) => p.startsWith("/api/v2/")).length;
   const opCount = rsRoutes.reduce((n, r) => n + r.methods.length, 0);
-  console.log(`Router (src/cli_server.rs): ${rsMap.size} paths, ${opCount} operations (${v2Count} paths under /api/v2/*)`);
+  console.log(`Router (src/server/router.rs): ${rsMap.size} paths, ${opCount} operations (${v2Count} paths under /api/v2/*)`);
   console.log(`OpenAPI (docs/api/openapi.yaml): ${yamlPaths.size} paths`);
 
   let ok = true;
   if (missing.length) {
     ok = false;
-    console.error("\nFAIL: routes in cli_server.rs missing from openapi.yaml:");
+    console.error("\nFAIL: routes in router.rs missing from openapi.yaml:");
     for (const m of missing.sort()) console.error(`  - ${m}`);
   }
   if (extra.length) {
     ok = false;
-    console.error("\nFAIL: paths in openapi.yaml not registered in cli_server.rs:");
+    console.error("\nFAIL: paths in openapi.yaml not registered in router.rs:");
     for (const e of extra.sort()) console.error(`  - ${e}`);
   }
   if (methodDiffs.length) {
