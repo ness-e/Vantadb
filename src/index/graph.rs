@@ -1159,7 +1159,7 @@ impl CPIndex {
     ///   3. Repair each recorded pair with `get_mut()` — iter lock is
     ///      released, so only one shard is locked at a time.
     pub fn repair_orphan_links(&self) -> FreshHnswReport {
-        let start = std::time::Instant::now();
+        let start = web_time::Instant::now();
 
         // Phase 1: Snapshot all existing node IDs into a local HashSet.
         let active_nodes: std::collections::HashSet<u128> =

@@ -44,15 +44,8 @@ impl StorageEngine {
         // exact, quiescent set of WAL records <= checkpoint_seq: replay skips
         // nothing it needs (no invisible records) and re-applies nothing it
         // already has (no duplicates).
-        let _guard = self
-            .insert_lock
-            .try_lock_for(std::time::Duration::from_millis(
-                self.config.insert_lock_timeout_ms,
-            ))
-            .ok_or_else(|| VantaError::Timeout {
-                operation: "acquire insert_lock in flush (ERR-010 checkpoint)".into(),
-                duration_ms: self.config.insert_lock_timeout_ms,
-            })?;
+        let _guard =
+            self.acquire_insert_lock("acquire insert_lock in flush (ERR-010 checkpoint)")?;
 
         // Drain pending HNSW mutations before checkpointing (lock already held).
         self.drain_hnsw_batch_locked()?;
@@ -261,15 +254,7 @@ impl StorageEngine {
         if !storage_offset.is_multiple_of(STORAGE_ALIGNMENT) {
             return Ok(());
         }
-        let _guard = self
-            .insert_lock
-            .try_lock_for(std::time::Duration::from_millis(
-                self.config.insert_lock_timeout_ms,
-            ))
-            .ok_or_else(|| VantaError::Timeout {
-                operation: "acquire insert_lock in refresh_index".into(),
-                duration_ms: self.config.insert_lock_timeout_ms,
-            })?;
+        let _guard = self.acquire_insert_lock("acquire insert_lock in refresh_index")?;
         self.apply_index_entry_unlocked(node, storage_offset)
     }
 
@@ -292,16 +277,7 @@ impl StorageEngine {
         let _guard = if lock_held {
             None
         } else {
-            Some(
-                self.insert_lock
-                    .try_lock_for(std::time::Duration::from_millis(
-                        self.config.insert_lock_timeout_ms,
-                    ))
-                    .ok_or_else(|| VantaError::Timeout {
-                        operation: "acquire insert_lock in consolidate_node".into(),
-                        duration_ms: self.config.insert_lock_timeout_ms,
-                    })?,
-            )
+            Some(self.acquire_insert_lock("acquire insert_lock in consolidate_node")?)
         };
 
         // FND-02-M3: version check under insert_lock — if a concurrent
@@ -516,15 +492,7 @@ impl StorageEngine {
         // which is not implemented on this platform).
         self.flush()?;
 
-        let _guard = self
-            .insert_lock
-            .try_lock_for(std::time::Duration::from_millis(
-                self.config.insert_lock_timeout_ms,
-            ))
-            .ok_or_else(|| VantaError::Timeout {
-                operation: "acquire insert_lock in rebuild_vector_index".into(),
-                duration_ms: self.config.insert_lock_timeout_ms,
-            })?;
+        let _guard = self.acquire_insert_lock("acquire insert_lock in rebuild_vector_index")?;
 
         let index_path = self.data_dir.join("vector_index.bin");
         let mut rebuilt = {
@@ -575,15 +543,8 @@ impl StorageEngine {
         // which is not implemented on this platform).
         self.flush()?;
 
-        let _guard_insert = self
-            .insert_lock
-            .try_lock_for(std::time::Duration::from_millis(
-                self.config.insert_lock_timeout_ms,
-            ))
-            .ok_or_else(|| VantaError::Timeout {
-                operation: "acquire insert_lock in compact_layout_bfs".into(),
-                duration_ms: self.config.insert_lock_timeout_ms,
-            })?;
+        let _guard_insert =
+            self.acquire_insert_lock("acquire insert_lock in compact_layout_bfs")?;
 
         let started = Instant::now();
 
@@ -692,16 +653,9 @@ impl StorageEngine {
                                     .map(|n| n.storage_offset)
                                     .unwrap_or(0)
                             };
-                            let _guard = self
-                                .insert_lock
-                                .try_lock_for(std::time::Duration::from_millis(
-                                    self.config.insert_lock_timeout_ms,
-                                ))
-                                .ok_or_else(|| VantaError::Timeout {
-                                    operation: "acquire insert_lock in quantization maintenance"
-                                        .into(),
-                                    duration_ms: self.config.insert_lock_timeout_ms,
-                                })?;
+                            let _guard = self.acquire_insert_lock(
+                                "acquire insert_lock in quantization maintenance",
+                            )?;
                             let hnsw = self.hnsw.load();
                             hnsw.add(node_id, node.bitset.clone(), node.vector.clone(), offset)?;
                             crate::metrics::record_quantization();
@@ -725,16 +679,9 @@ impl StorageEngine {
                                     .map(|n| n.storage_offset)
                                     .unwrap_or(0)
                             };
-                            let _guard = self
-                                .insert_lock
-                                .try_lock_for(std::time::Duration::from_millis(
-                                    self.config.insert_lock_timeout_ms,
-                                ))
-                                .ok_or_else(|| VantaError::Timeout {
-                                    operation: "acquire insert_lock in quantization maintenance"
-                                        .into(),
-                                    duration_ms: self.config.insert_lock_timeout_ms,
-                                })?;
+                            let _guard = self.acquire_insert_lock(
+                                "acquire insert_lock in quantization maintenance",
+                            )?;
                             let hnsw = self.hnsw.load();
                             hnsw.add(node_id, node.bitset.clone(), node.vector.clone(), offset)?;
                             crate::metrics::record_promotion();

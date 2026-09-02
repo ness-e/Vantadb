@@ -23,7 +23,8 @@ use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use parking_lot::{FairMutex, RwLock};
+use parking_lot::{FairMutex, FairMutexGuard, RwLock};
+use web_time::{Instant, SystemTime, UNIX_EPOCH};
 
 pub use crate::backend::BackendPartition;
 use crate::backend::StorageBackend;
@@ -155,7 +156,7 @@ pub struct FsSnapshot {
     /// Path to the snapshot directory.
     pub path: PathBuf,
     /// When the snapshot was created.
-    pub created_at: std::time::Instant,
+    pub created_at: Instant,
 }
 
 /// A pending HNSW mutation awaiting batch flush.
@@ -566,6 +567,32 @@ fn mirror_backend_to(
 }
 
 impl StorageEngine {
+    /// Acquire `insert_lock` with the configured timeout (ERR-010 pattern).
+    ///
+    /// Native: `try_lock_for` so a contended lock fails with `Timeout` after
+    /// `insert_lock_timeout_ms`. wasm32-unknown-unknown: `try_lock_for` panics
+    /// (parking_lot's `to_deadline` internally computes a
+    /// `std::time::Instant::now()`, unsupported on that target) — and on this
+    /// single-threaded platform a timed wait could never make progress anyway:
+    /// only this thread could release the lock, so a held lock means
+    /// re-entrance. A plain `try_lock` is therefore both panic-free and
+    /// strictly more correct there, mapping failure to the same `Timeout`.
+    #[inline]
+    pub(crate) fn acquire_insert_lock(&self, operation: &str) -> Result<FairMutexGuard<'_, ()>> {
+        #[cfg(not(target_arch = "wasm32"))]
+        let guard = self
+            .insert_lock
+            .try_lock_for(std::time::Duration::from_millis(
+                self.config.insert_lock_timeout_ms,
+            ));
+        #[cfg(target_arch = "wasm32")]
+        let guard = self.insert_lock.try_lock();
+        guard.ok_or_else(|| crate::error::VantaError::Timeout {
+            operation: operation.into(),
+            duration_ms: self.config.insert_lock_timeout_ms,
+        })
+    }
+
     /// Create an instant filesystem snapshot of the live data directory.
     ///
     /// # Consistency (FIND-25)
@@ -638,7 +665,7 @@ impl StorageEngine {
         mirror_backend_to(storage_root, &snap_dir)?;
         Ok(FsSnapshot {
             path: snap_dir,
-            created_at: std::time::Instant::now(),
+            created_at: Instant::now(),
         })
     }
 
@@ -676,7 +703,7 @@ impl StorageEngine {
         mirror_backend_to(storage_root, &snap_dir)?;
         Ok(FsSnapshot {
             path: snap_dir,
-            created_at: std::time::Instant::now(),
+            created_at: Instant::now(),
         })
     }
 
@@ -781,8 +808,8 @@ impl StorageEngine {
 
         // Stage the live directory aside (atomic same-volume rename). A
         // nanosecond stamp avoids collisions between consecutive restores.
-        let nanos = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
             .map_err(|e| crate::error::VantaError::IoError(std::io::Error::other(e)))?
             .as_nanos();
         let staging = storage_root.join(format!("data.pre_restore_{nanos}"));

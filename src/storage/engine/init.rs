@@ -202,7 +202,7 @@ impl StorageEngine {
 
             let mut delay = std::time::Duration::from_millis(5);
             let total_limit = std::time::Duration::from_millis(config.file_lock_timeout_ms);
-            let start_time = std::time::Instant::now();
+            let start_time = Instant::now();
             let mut acquired = false;
 
             while start_time.elapsed() < total_limit {
@@ -231,6 +231,11 @@ impl StorageEngine {
                     break;
                 }
 
+                // wasm32: single-threaded, no other process can release the
+                // lock between retries and std::thread::sleep panics there
+                // (condvar::no_threads) — one pass suffices; a miss surfaces
+                // as DatabaseBusy after the loop, no hot spin.
+                #[cfg(not(target_arch = "wasm32"))]
                 std::thread::sleep(delay);
                 delay = std::cmp::min(delay * 2, std::time::Duration::from_millis(100));
             }

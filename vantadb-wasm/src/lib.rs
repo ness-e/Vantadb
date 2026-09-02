@@ -115,10 +115,36 @@ struct MemoryInput {
     metadata: VantaMemoryMetadata,
     #[serde(skip_serializing_if = "Option::is_none")]
     vector: Option<Vec<f32>>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
+    #[serde(
+        default,
+        skip_serializing_if = "Option::is_none",
+        deserialize_with = "deserialize_sparse_vector"
+    )]
     sparse_vector: Option<SparseVector>,
     #[serde(skip_serializing_if = "Option::is_none")]
     ttl_ms: Option<u64>,
+}
+
+/// serde adapter for `sparse_vector`: plain JS objects always carry string
+/// keys, and serde-wasm-bindgen — unlike serde_json — does not coerce them to
+/// the core's `BTreeMap<u32, f32>`. Accept numeric-string keys so the
+/// documented `Record<number, number>` SDK shape round-trips.
+fn deserialize_sparse_vector<'de, D>(deserializer: D) -> Result<Option<SparseVector>, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    use serde::de::Error as _;
+    let raw: Option<std::collections::BTreeMap<String, f32>> =
+        serde::Deserialize::deserialize(deserializer)?;
+    let Some(raw) = raw else { return Ok(None) };
+    let mut map = std::collections::BTreeMap::new();
+    for (k, v) in raw {
+        let id = k
+            .parse::<u32>()
+            .map_err(|_| D::Error::custom(format!("sparse_vector key '{k}' is not a u32")))?;
+        map.insert(id, v);
+    }
+    Ok(Some(SparseVector(map)))
 }
 
 /// Search request
@@ -451,9 +477,17 @@ impl OpGate {
         let (lock, cvar) = &*self.state;
         let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
         state.closing = true;
+        // wasm32-unknown-unknown: std Condvar::wait panics (single-threaded
+        // no_threads shim) and could never make progress anyway — the only
+        // thread that could drain `count` is this one, so a blocking wait
+        // would deadlock the JS event loop. The barrier still rejects new
+        // ops (closing=true); in-flight async ops finish on the event loop.
+        #[cfg(not(target_arch = "wasm32"))]
         while state.count > 0 {
             state = cvar.wait(state).unwrap_or_else(PoisonError::into_inner);
         }
+        #[cfg(target_arch = "wasm32")]
+        let _ = cvar;
     }
 }
 

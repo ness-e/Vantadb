@@ -124,13 +124,16 @@ describe("VantaDB WASM Integration", () => {
 
   // TS-04: API parity tests (removeEdge, count, supersede, similarToKey, searchMulti, sparse_vector)
   it("count records in namespace", async () => {
-    await db.put({ namespace: "ts04", key: "a", payload: "alpha" });
+    // count() filters evaluate record metadata (documented semantics shared
+    // with the core `filter_ops` path) — stale assertion filtered on the
+    // pseudo-field "key", which no binding implements (FIND-52 test-stale fix).
+    await db.put({ namespace: "ts04", key: "a", payload: "alpha", metadata: { tier: "one" } });
     await db.put({ namespace: "ts04", key: "b", payload: "beta" });
     await db.put({ namespace: "ts04", key: "c", payload: "gamma" });
     const total = db.count("ts04");
     expect(total).toBeGreaterThanOrEqual(3n);
     const onlyA = db.count("ts04", [
-      { field: "key", op: "Eq", value: "a" },
+      { field: "tier", op: "Eq", value: "one" },
     ]);
     expect(onlyA).toBe(1n);
   });

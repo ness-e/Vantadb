@@ -52,15 +52,7 @@ impl StorageEngine {
         // see insert()/delete().
         self.ensure_writable()?;
         {
-            let _guard = self
-                .insert_lock
-                .try_lock_for(std::time::Duration::from_millis(
-                    self.config.insert_lock_timeout_ms,
-                ))
-                .ok_or_else(|| crate::error::VantaError::Timeout {
-                    operation: "acquire insert_lock in delete (WAL + apply)".into(),
-                    duration_ms: self.config.insert_lock_timeout_ms,
-                })?;
+            let _guard = self.acquire_insert_lock("acquire insert_lock in delete (WAL + apply)")?;
             if let Some(ref sharded) = self.wal {
                 sharded.append(&crate::wal::WalRecord::Delete { id })?;
             }
@@ -153,15 +145,7 @@ impl StorageEngine {
         }
 
         if acquire {
-            let _guard = self
-                .insert_lock
-                .try_lock_for(std::time::Duration::from_millis(
-                    self.config.insert_lock_timeout_ms,
-                ))
-                .ok_or_else(|| crate::error::VantaError::Timeout {
-                    operation: "acquire insert_lock in apply_delete".into(),
-                    duration_ms: self.config.insert_lock_timeout_ms,
-                })?;
+            let _guard = self.acquire_insert_lock("acquire insert_lock in apply_delete")?;
             self.remove_hnsw_entry(id);
         } else {
             self.remove_hnsw_entry(id);
@@ -247,15 +231,7 @@ impl StorageEngine {
 
         // Phase 2-3: WAL batch append + HNSW removal under one insert_lock guard
         // (ERR-010) ΓÇö see batch_insert()/flush().
-        let _guard = self
-            .insert_lock
-            .try_lock_for(std::time::Duration::from_millis(
-                self.config.insert_lock_timeout_ms,
-            ))
-            .ok_or_else(|| crate::error::VantaError::Timeout {
-                operation: "acquire insert_lock in delete_batch".into(),
-                duration_ms: self.config.insert_lock_timeout_ms,
-            })?;
+        let _guard = self.acquire_insert_lock("acquire insert_lock in delete_batch")?;
 
         // Phase 2: WAL batch append
         let wal_records: Vec<WalRecord> = ids.iter().map(|&id| WalRecord::Delete { id }).collect();

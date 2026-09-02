@@ -122,15 +122,7 @@ impl StorageEngine {
     /// Returns `Ok(true)` if any ops were flushed.
     #[tracing::instrument(skip(self), level = "trace", err)]
     pub fn flush_pending_hnsw(&self) -> Result<bool> {
-        let _guard = self
-            .insert_lock
-            .try_lock_for(std::time::Duration::from_millis(
-                self.config.insert_lock_timeout_ms,
-            ))
-            .ok_or_else(|| crate::error::VantaError::Timeout {
-                operation: "acquire insert_lock in flush_pending_hnsw".into(),
-                duration_ms: self.config.insert_lock_timeout_ms,
-            })?;
+        let _guard = self.acquire_insert_lock("acquire insert_lock in flush_pending_hnsw")?;
         self.drain_hnsw_batch_locked()
     }
 

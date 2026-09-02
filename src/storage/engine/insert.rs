@@ -97,15 +97,7 @@ impl StorageEngine {
         // duplicates on replay. `apply_insert` queues to the pending batch
         // (try_push_pending_hnsw never blocks on the guard we hold here).
         {
-            let _guard = self
-                .insert_lock
-                .try_lock_for(std::time::Duration::from_millis(
-                    self.config.insert_lock_timeout_ms,
-                ))
-                .ok_or_else(|| crate::error::VantaError::Timeout {
-                    operation: "acquire insert_lock in insert (WAL + queue)".into(),
-                    duration_ms: self.config.insert_lock_timeout_ms,
-                })?;
+            let _guard = self.acquire_insert_lock("acquire insert_lock in insert (WAL + queue)")?;
             if let Some(ref sharded) = self.wal {
                 let mut wal_node = node.clone();
                 wal_node.last_accessed = now_ms;
@@ -755,15 +747,7 @@ impl StorageEngine {
         // holding the same guard, so these records are never counted before
         // their HNSW entries are drained into the serialized snapshot ΓÇö no
         // invisible/duplicate records on recovery.
-        let _guard = self
-            .insert_lock
-            .try_lock_for(std::time::Duration::from_millis(
-                self.config.insert_lock_timeout_ms,
-            ))
-            .ok_or_else(|| crate::error::VantaError::Timeout {
-                operation: "acquire insert_lock in batch_insert".into(),
-                duration_ms: self.config.insert_lock_timeout_ms,
-            })?;
+        let _guard = self.acquire_insert_lock("acquire insert_lock in batch_insert")?;
 
         // ΓöÇΓöÇ Phase 3: WAL (P3 ΓÇö skip_wal flag) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
         if !opts.skip_wal {

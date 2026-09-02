@@ -8,8 +8,8 @@ pub(crate) struct SearchProfile {
     unique_pages: std::collections::HashSet<u64>,
     compute_ns: u64,
     candidates_seen: u64,
-    start: std::time::Instant,
-    compute_start: std::time::Instant,
+    start: web_time::Instant,
+    compute_start: web_time::Instant,
 }
 
 #[cfg(debug_assertions)]
@@ -20,13 +20,13 @@ impl SearchProfile {
             unique_pages: std::collections::HashSet::new(),
             compute_ns: 0,
             candidates_seen: 0,
-            start: std::time::Instant::now(),
-            compute_start: std::time::Instant::now(),
+            start: web_time::Instant::now(),
+            compute_start: web_time::Instant::now(),
         }
     }
 
     pub(super) fn start_compute(&mut self) {
-        self.compute_start = std::time::Instant::now();
+        self.compute_start = web_time::Instant::now();
     }
 
     pub(super) fn end_compute(&mut self) {
