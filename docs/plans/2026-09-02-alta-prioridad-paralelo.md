@@ -744,7 +744,22 @@ last-synced: 2026-09-02T21:00
 - **Contrato:** `cargo check -p vanta-memory` exit 0 AND `cargo test -p vanta-memory -- scene_format 2>&1 | Select-String "ok" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/MEM-12.md`
 - **Estado:** ✅ COMPLETED
-- **last-synced:** 2026-09-02T00:00
+- **last-synced:** 2026-09-02T23:59
+
+=== RECITATION MEM-12 COMPLETED ===
+Objetivo activo: MEM-12 — F4 META + nodo escena (vanta-memory META L2, Task 15)
+Estado: completed (desde: completed → re-verify Wave3 ponytail reuse)
+Última acción: DISCOVERY pipeline-full.md (no existe, resuelto via .opencode/AGENTS.md) + plan §MEM-12 + codegraph_explore 36 símbolos (SceneBlock 16 callers, SceneError 12, SceneMeta 13, blast radius Maps: scene_index, scene_tools, scene_extractor, gateway/knowledge_handlers) + Read scene_format.rs 150L / scene_index.rs 343L / abstractions/types.rs SceneMeta 239L / scene/mod.rs 39L + grep SKILLS-MANIFEST scene/meta/memory (1 hit memory-load-reduction, 0 scene/meta) → EJECUCIÓN ponytail 0 líneas (MEM-12 landed a6526f70 976 insertions: SceneMeta reuse MEM-08b + SceneBlock + SceneNodeStore core + scene_index L2 anchor + 9 tests D19) + task file MEM-12.md restaurado complete→tasks (codegraph blast radius documentado) → verify cargo check + cargo test scene
+Resultado: ✅
+State: COMPLETED (desde: COMPLETED, ponytail reuse)
+Próxima acción: Wave3 continúa — MEM-13 (tools sandboxed) + GOV-C7/RES-07 paralelos MAX 3, disjoint vanta-memory/scene preservado (no docs/)
+Contrato: `cargo check -p vanta-memory` Finished ✅ (7.04s) + `cargo test -p vanta-memory --lib scene` 55 passed ✅ + `cargo test -p vanta-memory --lib scene_format` 7 passed ✅ + `cargo test -p vanta-memory --lib` 328 passed ✅
+Invariantes: META LLM-free L2 (no LLM call), persistencia via VantaDB store (scene/<session> namespace + InternalMetadata node SceneNodeStore D2/D4), SceneMeta reuse MEM-08b (no duplicar), sin unwrap/expect, sin deps nuevas, sanitización sanitize_component/sanitize_key ≤128/512 sin NUL, timestamps epoch_ms_to_rfc3339 ISO8601 fijo ancho (lexicographic order), enums #[non_exhaustive], deleted flag backward compatible serde(default), no tocar docs/ (GOV-C7) ni benches/config (RES-07) — disjoint 100% preservado
+Comandos de verificación: `cargo check -p vanta-memory` → Finished 7.04s + `cargo test -p vanta-memory --lib scene` → 55 passed + `cargo test -p vanta-memory --lib scene_format` → 7 passed + `cargo test -p vanta-memory --lib` → 328 passed
+Deuda: ninguna — ponytail 0 líneas nuevas Wave3, reuse a6526f70; colisión sanitize a/b vs a_b documentada con techo MEM-14 filename_normalizer, MERGE=sum+1 heat en MEM-14, soft-delete marker [DELETED] TDAM parity
+Próxima tarea si completa: MEM-13 — F4 Tools sandboxed read/write/edit + store (Wave3)
+last-synced: 2026-09-02T23:59
+=== END RECITATION ===
 
 #### MEM-13 — F4 Tools sandboxed read/write/edit + store
 - **Descripción:** tools sandbox sobre store scene
