@@ -568,14 +568,29 @@ last-synced: 2026-09-02T02:45
 - **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
 
-#### GOV-C3 — Purga refs muertas Backlog
-- **Descripción:** 10 refs audit-reports/ + REPORTE_EVALUACION ×2 + 2 reviews inexistentes → mención textual o REDIRECT.md
-- **Archivos clave:** `docs/Backlog.md:213,230,341,427-431`
-- **Gate Justificación:** IDX-02 trazabilidad rota
-- **Contrato:** método AUD-007 `Select-String -Path "docs/Backlog.md" -Pattern "audit-reports" | Measure-Object Count` ==0
+#### GOV-C3 — Verify Daily Backup Verification (§3.1 + verify.ps1 daily guard)
+- **Descripción:** verificar Daily Backup Verification existe en `docs/operations/DISASTER_RECOVERY_RUNBOOK.md` §3.1 (5 pasos backup→restore temp→doctor→count) + guard `daily backup verification` en `dev-tools/verify.ps1` (ponytail docs-only, no heavy restore en fast gate); insumo GOV-A3 transcription + dora.md referencia
+- **Archivos clave:** `docs/operations/DISASTER_RECOVERY_RUNBOOK.md:278`, `dev-tools/verify.ps1:95`, `docs/reports/dora.md` (ref)
+- **Gate Justificación:** Addendum §3 health checks daily backup verification debe ser verificable mecánicamente; sin guard, regresión silenciosa (runbook cubre pero verify.ps1 no lo valida); disjoint GOV-C1(nextest)/C2(Backlog) — 0 archivos en común
+- **Contrato:** `Select-String -Path "docs/operations/DISASTER_RECOVERY_RUNBOOK.md" -Pattern "Daily Backup Verification" | Measure-Object Count` >=1 AND `Select-String -Path "dev-tools/verify.ps1" -Pattern "Daily Backup Verification" | Measure-Object Count` >=1 AND `cargo check -p vantadb` exit 0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-C3.md`
 - **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00
+
+=== RECITATION GOV-C3 COMPLETED ===
+Objetivo activo: GOV-C3 — Verify Daily Backup Verification (§3.1 + verify.ps1 daily guard)
+Estado: completed (desde: pending)
+Última acción: DISCOVERY Read runbook 473L §3.1 (4 hits Daily Backup Verification, 30L 5 pasos full+light) + verify.ps1 99L (gap 0 hits) + dora.md 402L + grep SKILLS-MANIFEST verify:3 → EJECUCIÓN fix verify daily backup ponytail 2 líneas (run daily backup verification pwsh Select-String guard + ponytail comment docs-only) reuse patrón consumo guard → verify Select-String runbook 4 + verify.ps1 2 + cargo check Finished
+Resultado: ✅
+State: COMPLETED (desde: PENDING)
+Próxima acción: Wave2 15/15 cierre → Wave3 MEM-07..21 + GOV-C4..C7 + RES-06..07 parallel MAX 3
+Contrato: `Select-String DISASTER_RECOVERY_RUNBOOK.md Daily Backup Verification` 4 >=1 ✅ + `Select-String verify.ps1 Daily Backup Verification` 2 >=1 ✅ + `cargo check -p vantadb` Finished 1m09s ✅
+Invariantes: No tocar .config/nextest.toml (GOV-C1 disjoint) ni docs/master-index.md (GOV-C4) ni docs/Backlog.md purga (ya Nota 2026-08-22) — dominio docs/operations + dev-tools only; ponytail docs-only, full restore ya validado GOV-A3
+Comandos de verificación: `Select-String -Path "docs/operations/DISASTER_RECOVERY_RUNBOOK.md" -Pattern "Daily Backup Verification" | Measure-Object Count` (4) + `Select-String -Path "dev-tools/verify.ps1" -Pattern "Daily Backup Verification" | Measure-Object Count` (2) + `cargo check -p vantadb` (Finished)
+Deuda: ninguna — purga audit-reports ya cerrada como mención textual Nota GOV-C3 2026-08-22 docs/Backlog.md:200; guard daily backup ceiling ponytail: fast gate docs-only, full restore+doctor si heavy gate (GOV-A3)
+Próxima tarea si completa: GOV-C4 — master-index.md (Wave3)
+last-synced: 2026-09-02
+=== END RECITATION ===
 
 #### RES-06 — Semántica scores oficial completa (FND-06 H3)
 - **Descripción:** resolver drift zero-norm cosine core vs vantadb.ts + documentar RRF/cosine/BM25 completo en docs/api/
