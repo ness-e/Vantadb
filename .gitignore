@@ -20,7 +20,8 @@ todo.md
 *.log
 *.db
 *.rdb
-/data/
+/data/*
+!/data/README.md
 /vanta_data/
 /vantadb_data/
 /rocksdb_data/
@@ -71,8 +72,10 @@ quickstart_memory.py
 !.env.tokens.example
 !.env.example
 
-# Datasets / local assets
-datasets/
+# Datasets / local assets (READMEs stay tracked: release-plz rejects
+# tracked-but-ignored files as dirty worktree)
+datasets/*
+!datasets/README.md
 
 # Local agent memory DB (runtime artifact, 320MB+)
 my_agent_memory/
