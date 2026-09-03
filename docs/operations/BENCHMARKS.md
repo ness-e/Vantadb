@@ -408,3 +408,70 @@ linearly with the dataset (0.003 → 0.005 → 0.011).
 ### Decisión
 
 decisión: DEFAULT_RSS_THRESHOLD=0.80 calibrado 2026-09-03 — MANTENER 0.80 (cambio 0%, dentro de 0.70..0.85, < ±10% → sin ADR por Regla 5). Rationale: con RSS real como señal (F1), el threshold 0.80 deja ~6.3 GiB de margen al SO en la máquina de referencia y la evicción (0.20) actúa antes del rechazo; la tendencia medida es lineal y el guard está lejos de sheddear writes legítimos. `src/config.rs:22` ya es `0.80` — sin cambio de código (la decisión documentada ES el entregable). Full-scale `[10k,25k,50k,100k]` queda para heavy certification (F3); re-evaluar al acercarse a ~500k nodos / 10 GB RSS (FND-01-F4).
+
+## 13. Ingestión multi-consumidor — `Arc<Mutex<mpsc::Receiver>>` A/B (RES-03)
+
+> **Source of truth:** `benches/ingestion_concurrent.rs` (nuevo, `required-features = ["async-ingestion"]`).
+> Pregunta de la tarea: ¿el receiver compartido bajo mutex en `src/ingestion.rs:72`
+> (patrón multi-consumidor de un canal mpsc single-consumer) es el cuello de botella
+> de throughput de la ingesta, y conviene un canal multi-consumidor nativo
+> (`crossbeam-channel` / `flume`)? Regla 9: medir antes de rediseñar.
+>
+> **Reproduce (Regla 11):**
+> ```powershell
+> cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion
+> ```
+
+### Premisas verificadas en discovery (2026-09-03)
+
+- `tokio::sync::mpsc` es **multi-producer, SINGLE-consumer** por diseño (docs oficiales:
+  <https://docs.rs/tokio/latest/tokio/sync/mpsc/>). La opción "migrar a tokio::mpsc nativo
+  multi-consumidor" NO existe: `Receiver` no es `Clone` y `Arc<Mutex<Receiver>>` es precisamente
+  el patrón recomendado para compartirlo entre tasks. El código actual ya lo usa.
+- Los consumers son tasks async (`tokio::spawn` + `recv().await`) y el insert del motor va en
+  `spawn_blocking` fuera del guard (regla `concurrency-async.md` R1/R2). La sección crítica del
+  mutex es solo el `recv()` (dequeue), no la inserción.
+- `crossbeam-channel` (Receiver `Clone`) es sync — con consumers async obligaría a `spawn_blocking`
+  por recv o bloquear el event loop → más complejidad, no menos.
+- `vantadb-wasm` compila el core con `default-features = false, features=["wasm"]` →
+  `ingestion` (feature `async-ingestion`) **no entra al build wasm** (cero riesgo de dep wasm).
+
+### Medición — matriz producers × consumers (ops/s, acks incluidos)
+
+Environment (Regla 11): Windows 11 (win32), 12th Gen Intel Core i5-1235U (12 hilos lógicos,
+runtime tokio worker_threads=4), RAM 31.8 GiB, profile `bench` (release + debuginfo),
+DIM=16, text vacío, BATCH=400 tareas/batch medido, 11 samples/celda, canal capacity 1024
+(backpressure activo: 4 producers × 16 in-flight > capacity), DB fjall fresca por lote.
+Fecha: 2026-09-03. Dos corridas completas + mediana (pre-mortem 3: ruido Windows).
+Run exploratorio previo (BATCH=2000, p=1: 109/77/65) confirmó la misma forma.
+
+| producers | consumers | run A (ops/s) | run B (ops/s) | mediana | vs consumers=1 |
+|---|---|---|---|---|---|
+| 1 | 1 | 114 | 113 | **113.5** | — |
+| 1 | 2 | 80 | 77 | **78.5** | −31% |
+| 1 | 4 | 65 | 65 | **65.0** | −43% |
+| 4 | 1 | 115 | 112 | **113.5** | −0% |
+| 4 | 2 | 83 | 79 | **81.0** | −29% |
+| 4 | 4 | 65 | 65 | **65.0** | −43% |
+
+Lectura: el throughput **degrada monótonamente al AÑADIR consumers** (efecto convoy sobre el
+camino de escritura del motor — `insert_lock` global + fsync WAL por escritura — no sobre el
+canal). El número de producers no cambia la celosía (≈−0/−1% entre p1 y p4 a igual consumers):
+la capacity 1024 y el mutex del receiver no son el limitante; el techo es la ruta serial de
+inserción (~114 ops/s). Un canal multi-consumidor nativo no puede levantar un techo serial.
+
+### Decisión
+
+decisión: **MEDIDO-NO-APLICA** (2026-09-03) — NO se refactoriza `src/ingestion.rs`. La
+premisa de contención ("un worker acapara el mutex y serializa") está refutada por los datos:
+con 1 consumer es el régimen MÁS rápido; más consumers = convoy peore. `crossbeam-channel`/
+`flume` rechazados: resolverían un cuello que no existe y añadirían dep/feature-gate.
+`Arc<Mutex<mpsc::Receiver>>` queda (patrón tokio documentado). El bench queda registrado
+como infraestructura A/B para FUT-12 (fsync batching / desacople WAL), que SÍ ataca el
+cuello medido. **Corolario fuera de scope (→ fila FIND):** `worker_count` default=4 del
+pipeline es activo-perjudicial en este régimen (−43% vs 1); cambiar el default requiere
+medición con payloads realistas y es gate de API/behavior — no se toca en RES-03.
+Ordering (pre-mortem 1): ya hoy el process concurrente no preserva orden entre consumers;
+ningún test existente depende del orden de ingesta (0 tests previos; test de caracterización
+añadido: `ingestion::tests::pipeline_delivers_every_submitted_task`, sin asunción de orden).
+Backpressure (pre-mortem 2): capacity 1024 intacta — no hubo cambio de canal.

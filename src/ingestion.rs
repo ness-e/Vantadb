@@ -110,3 +110,33 @@ impl AsyncIngestionPipeline {
         engine.insert(&node)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[allow(clippy::unwrap_used, clippy::expect_used)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn pipeline_delivers_every_submitted_task() {
+        let dir = tempdir().unwrap();
+        let engine = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
+        let pipeline = AsyncIngestionPipeline::new(Arc::clone(&engine), Some(2));
+
+        for i in 0..16u128 {
+            let task = IngestionTask {
+                id: i,
+                vector: vec![0.25; 4],
+                text: format!("node {i}"),
+                metadata: HashMap::new(),
+            };
+            let micros = pipeline.submit(task).await.unwrap();
+            assert!(micros > 0, "insert duration must be measured");
+        }
+
+        for i in 0..16u128 {
+            let node = engine.get(i).unwrap();
+            assert!(node.is_some(), "task {i} must be persisted");
+        }
+    }
+}

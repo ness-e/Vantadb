@@ -218,6 +218,11 @@ name = "bench_concurrent"
 harness = false
 
 [[bench]]
+name = "ingestion_concurrent"
+harness = false
+required-features = ["async-ingestion"]
+
+[[bench]]
 name = "backend_compare"
 harness = false
 
