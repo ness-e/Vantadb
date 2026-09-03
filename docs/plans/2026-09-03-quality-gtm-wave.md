@@ -283,3 +283,14 @@ Próxima acción: Handoff orquestador: reconcilear claims stale ERR-TS-01/GOV-TK
 Contrato: verificacion: rg-cite=14 >=2 OK | PyYAML parse+assert tags OK (sin docker CLI, nota) | up -d diferido sin daemon | evidencia AnythingLLM: raw server/.env.example master, VECTOR_DB sin vantadb
 Próxima tarea si completa: Wave2: RES-12 | MKT-18f | RES-09
 === END RECITATION ===
+
+=== RECITATION MKT-18h ===
+Campaign ID: 20260903-quality-gtm-wave
+Objetivo activo: MKT-18h: Wheels ARM64 Linux + SHA256 reales Homebrew
+Estado: completed
+Última acción: Workflow maduro con matrix include + target aarch64 (verificado actionlint post-merge del bump 2ab706ec); Formula con 4 SHA256 doble-verificados; commit b5d92059
+Resultado: ✅
+Próxima acción: Ninguno para MKT-18h. Wave1 completo por esta ruta; orquestador: verificar job aarch64 en proxima corrida CI (PR a main dispara por paths)
+Contrato: verificacion: rg -n aarch64-unknown-linux-gnu release-wheels-60.yml=1 match OK; actionlint exit 0 OK; Formula placeholders=0 + 4 SHA reales OK; cargo check -p vantadb_py --all-targets exit 0 OK | evidencia: claim 'SHA reales' -> Get-FileHash local de 4 tarballs v0.5.0 == sidecars CI (file: $envTEMP\mkt18h) confianza alta; claim 'cross container oficial' -> PyO3/maturin-action README v1.51.0 tabla manylinux_2_28-cross:aarch64 + dist/index.js target.length>0 OK confianza alta | artefactos: .opencode/skills/campaign-executor/tasks/MKT-18h.md | invariantes: release-binaries-63.yml y docker-compose.yml NO tocados (parallel tasks); cargo intacto | deuda: verificacion real job aarch64 diferida a corrida CI (stop-condition plan); FIND-candidate: input musllinux inexistente en maturin-action v1.51.0 (config muerta removida); anuncio brew install en FAQ = decision humana | queda_pendiente: lead reconciliar atribucion (wheels+plan cabalgaron commit ajeno 2ab706ec por race de worktree compartido; Formula/Backlog/avance/cierre en b5d92059)
+Próxima tarea si completa: SRV-07 completed; siguiente wave2 segun plan
+=== END RECITATION ===
