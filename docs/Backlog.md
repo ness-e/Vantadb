@@ -580,7 +580,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 |---|---|---|---|---|---|
 | `SRV-01` | **Rotación/retención del audit log JSONL** — hoy crece indefinido (`append-only` sin límite); qdrant v1.17 rota daily + `max_log_files`. Rotación por tamaño/día + retención configurable + test | `src/audit.rs`, `src/cli_server.rs` (`audit_events`, `read_audit_page`) | 🟢 | 🟡 Media | ⬜ Pendiente |
 | `SRV-06` | **OIDC/JWT authentication** (estratégica enterprise): requisito de facto para "equipos" (weaviate OIDC nativo, qdrant JWT RBAC HS256 offline). **DISCOVERY primero (vanta-arch):** jsonwebtoken HS256 offline vs OIDC discovery, alcance mínimo viable sobre `auth_middleware` | `src/cli_server.rs:633-773`, `src/config.rs`; research §2 | 🔴 | 🟡 Media | ⬜ Pendiente (requiere DISCOVERY) |
-| `SRV-07` | **Imagen Docker oficial + compose** — canal #1 de adopción self-hosted (los 4 competidores la tienen). Incluir variante unprivileged (patrón qdrant `-unprivileged`) y wiring al workflow RELEASE Binaries | nuevo `Dockerfile`, `docker-compose.yml`, `.github/workflows/` | 🟡 | 🟠 Media-Alta | ⬜ Pendiente |
 
 ---
 

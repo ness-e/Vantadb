@@ -148,3 +148,41 @@ jobs:
             "vantadb-${{ matrix.target }}${ext}.sha256" \
             --repo "${{ github.repository }}" \
             --clobber
+
+  # SRV-07: build the Docker image on every release and smoke-test unprivileged
+  # execution under an arbitrary uid. Deliberately build-no-push: choosing a
+  # registry (ghcr vs Docker Hub) is a brand decision, not a CI default — see
+  # docs/operations/CI_POLICY.md "Docker image publishing (SRV-07)".
+  docker-image:
+    name: Docker image (build + unprivileged smoke, no push)
+    needs: [tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Build image
+        run: docker build -t "vantadb-server:${GITHUB_REF_NAME}" .
+
+      - name: Unprivileged smoke — arbitrary uid can write data dir (no EACCES)
+        run: |
+          docker run --rm --user 10001:10001 --entrypoint /bin/sh \
+            "vantadb-server:${GITHUB_REF_NAME}" -c 'touch /var/lib/vantadb/.write-test'
+
+      - name: Entrypoint smoke — vantadb-server --help as arbitrary uid
+        run: |
+          docker run --rm --user 10001:10001 \
+            "vantadb-server:${GITHUB_REF_NAME}" --help
+
+      - name: Export image to release assets
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          img="vantadb-server-${GITHUB_REF_NAME}-linux-amd64-image.tar.gz"
+          docker save "vantadb-server:${GITHUB_REF_NAME}" | gzip > "$img"
+          sha256sum "$img" > "$img.sha256"
+          gh release upload "${{ github.ref_name }}" "$img" "$img.sha256" \
+            --repo "${{ github.repository }}" \
+            --clobber

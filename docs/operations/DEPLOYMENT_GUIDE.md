@@ -203,6 +203,34 @@ curl http://localhost:8080/health
 curl -H "Authorization: Bearer $(cat .apikey)" http://localhost:8080/health
 ```
 
+### Run unprivileged (arbitrary UID)
+
+The root `Dockerfile` image runs as non-root by default (`vantadb`, uid 1001; override at
+build time with `--build-arg VANTA_RUNAS_UID=<uid>`). Any uid can be used at runtime without
+rebuilding — the data dir `/var/lib/vantadb` is mode 0777 (qdrant pattern), so named volumes
+inherit world-writable perms and arbitrary `--user` values work out of the box:
+
+```bash
+# Sanity check as an arbitrary uid (what CI runs on every release):
+docker run --rm --user 10001:10001 --entrypoint /bin/sh vantadb-server:latest \
+  -c 'touch /var/lib/vantadb/.write-test'
+docker run --rm --user 10001:10001 vantadb-server:latest --help
+
+# Named volume (perms inherited from the image):
+docker run -d --user 10001:10001 -v vantadb-data:/var/lib/vantadb \
+  -e VANTADB_HOST=0.0.0.0 -e VANTADB_STORAGE_PATH=/var/lib/vantadb \
+  -p 8080:8080 vantadb-server:latest
+
+# Host bind-mount: the host dir must be writable by the running uid:
+mkdir -p ./data && chmod 777 ./data
+docker run -d --user 10001:10001 -v "$PWD/data:/var/lib/vantadb" \
+  -e VANTADB_HOST=0.0.0.0 -e VANTADB_STORAGE_PATH=/var/lib/vantadb \
+  -p 8080:8080 vantadb-server:latest
+```
+
+Further hardening (read-only rootfs, `--cap-drop=ALL`) for the `vantadb-server/Dockerfile`
+variant: see `hardening.md` §5. Registry publishing policy: `CI_POLICY.md` §Docker image publishing.
+
 ---
 
 ## 4. Kubernetes
