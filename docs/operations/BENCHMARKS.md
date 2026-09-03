@@ -475,3 +475,89 @@ Ordering (pre-mortem 1): ya hoy el process concurrente no preserva orden entre c
 ningún test existente depende del orden de ingesta (0 tests previos; test de caracterización
 añadido: `ingestion::tests::pipeline_delivers_every_submitted_task`, sin asunción de orden).
 Backpressure (pre-mortem 2): capacity 1024 intacta — no hubo cambio de canal.
+
+## 14. IVF search hot path — premisa-muerta + baseline post-`b4ff157d` (AUD-045)
+
+> **Source of truth:** `benches/ivf_bench.rs` (REVISAR-01). `canonical_p99.rs` **no** cubre IVF
+> (`rg -in ivf` = 0 hits) → la tabla inline de `ivf_bench` es el baseline declarado de esta fila.
+> **Reproduce (Regla 11):**
+> ```powershell
+> $env:RUST_MIN_STACK = "33554432"              # sin esto rustc crashea al compilar (ver Entorno)
+> cargo build --release --bench ivf_bench -j 1
+> .\target\release\deps\ivf_bench-<hash>.exe --quick --nocapture
+> ```
+
+### Decisión — premisa-muerta (Wave 4/5, 2026-09-03): NO hay clones en el search path
+
+La fila del Backlog (origen `audit-full-20260825-031011`) citaba `centroid.clone()` y
+`entry.vector.clone()` en el loop de `src/index/ivf.rs:250,275`. Verificación ANTES de tocar
+nada (pre-mortem 1 de la tarea) — la premisa está **muerta**:
+
+- `rg "centroid.clone\(\)|entry.vector.clone\(\)" src/index/` → **0 hits**.
+- El scan por candidato ya toma borrow: `src/index/ivf.rs:255` —
+  `f32_slice_similarity(query, None, &entry.vector, metric)` (`&Vec<f32>` → `&[f32]`, cero
+  allocs por candidato). Lo mismo para centroides: `ivf.rs:237` itera `&self.centroids`.
+- La conversión clone→borrow se hizo el mismo día que se abrió la fila: commit **`b4ff157d`
+  (2026-08-25)** "perf(index): AUD-045 replace IVF vector clones with f32_slice_similarity
+  (bench −59%)" reemplazó `VectorRepresentations::Full(entry.vector.clone())` dentro de
+  `calculate_similarity`. La fila nunca se refrescó tras su propio fix.
+- Los `.clone()` restantes en el archivo son **cold path** (build/training k-means): L82
+  `bitset.clone()` (colección de nodos), L91/L209 `config.clone()`, L108/L154 vectores seed de
+  Forgy/re-init. Según el ORDEN de la tarea: training es build-time → **no tocar** (costo
+  único por rebuild; convertirlas a borrows obligaría a reescribir el ownership de `entries`
+  sin impacto medible en p99 de búsqueda).
+
+Sin cambio de código no hay A/B que correr ni umbral >2% que evaluar. Lo que aporta esta wave:
+evidencia de cierre + **primer baseline documentado** post-`b4ff157d` (el −59% vive solo en el
+mensaje de commit; desde aquí hay números en repo).
+
+### Baseline medido — nlist × nprobe (N=10 000, D=128, k=10, seed 42, 200 queries, ×2 corridas 2026-09-03)
+
+| nlist | nprobe | Recall@10 A/B | p50 med µs (A/B) | p99 A/B µs | QPS A/B |
+|---|---|---|---|---|---|
+| 25 | 1 | 0.1235 / 0.1210 | 113.2 (116.5/109.9) | 236 / 1752 | 8558 / 6236 |
+| 25 | 5 | 0.4295 / 0.4240 | 542.4 (555.7/529.0) | 2801 / 2658 | 1535 / 1577 |
+| 25 | 10 | 0.6740 / 0.6680 | 1192.2 (1188.5/1195.9) | 7283 / 4954 | 679 / 671 |
+| 100 | 1 | 0.0630 / 0.0590 | 52.6 (53.9/51.2) | 269 / 1874 | 16955 / 12261 |
+| 100 | 5 | 0.2160 / 0.2115 | 158.4 (153.9/162.8) | 374 / 1888 | 6153 / 4680 |
+| 100 | 10 | 0.3470 / 0.3435 | 290.7 (303.0/278.3) | 1042 / 2361 | 2853 / 2066 |
+| 400 | 1 | 0.0420 / 0.0520 | 104.0 (106.0/101.9) | 1193 / 1178 | 6954 / 6915 |
+| 400 | 5 | 0.1480 / 0.1435 | 108.2 (133.9/82.5) | 1342 / 142 | 5879 / 11756 |
+| 400 | 10 | 0.2290 / 0.2110 | 135.0 (175.3/94.6) | 793 / 241 | 5084 / 10008 |
+
+Build k-means (s, mediana ×2): nlist=25 → 0.58 · 100 → 2.18 · 400 → 5.63.
+Costo por candidato escaneado ≈ 0.3 µs estable (p50/cand/q coherente entre celdas).
+
+**p95: not measured** — `ivf_bench` no lo computa (su tabla emite p50/p99/mean). No se fabrica.
+**Estabilidad:** p50 varía <7% entre corridas salvo el tramo final del sweep (nlist=400: run B
+hasta −40%, orden frío→caliente de los 9 builds). El "<3% con warmup" de la sesión de ingesta
+(§13) NO extiende a p99 aquí: con n=200 muestras, p99 ≈ el 2.º valor más alto → se reporta
+rango A–B, no mediana. Para gate de release sobre p99: ≥3 corridas o subir `N_QUERIES`.
+
+### Hallazgo colateral — el build IVF no es determinista a pesar del seed 42
+
+Recall@10 difiere entre corridas ((100,1): 0.0630 vs 0.0590). Causa: `IvfIndex::build`
+(`src/index/ivf.rs:79`) itera el `DashMap` en orden NO garantizado → el array `entries` cambia
+de orden por proceso → el shuffle Forgy (seeded, RNG determinista) elige centroides DISTINTOS.
+El seed garantiza el stream RNG, no el input. Impacto: el baseline IVF no es reproducible al
+dígito. Fix trivial candidato: ordenar `entries` por `id` antes del k-means. **No se ejecuta
+acá** — es determinismo, no clones; fuera del contrato AUD-045 (queda como hallazgo para
+fila futura si se quiere gatear recall en CI).
+
+### Entorno (Regla 11)
+
+Windows 11 (win32) · AMD Ryzen 12 núcleos, AVX2, 31.8 GiB RAM · rustc 1.95.0 ·
+`-C target-cpu=native` (`.cargo/config.toml`) · perfil **release** (opt-level=3, lto=thin,
+codegen-units=1); se midió con el exe de `cargo build --release --bench ivf_bench` (el perfil
+`bench` solo añade `debug=1`; su recompilación vía `cargo bench` fue abortada — ver incidente).
+Fecha: 2026-09-03.
+**Incidente (documentado para reproducir):** sin `RUST_MIN_STACK`, la compilación release
+crasheó con `STATUS_STACK_BUFFER_OVERRUN` (0xc0000409) en rustc — crate `vantadb` primero y
+también `windows-future` a `-j 1`; con `RUST_MIN_STACK=33554432` build completo en 16m32s.
+Worker threads de LLVM con stack por defecto insuficiente en esta máquina/toolchain.
+
+### Verificación (gates sin cambio de código)
+
+`cargo check --workspace --all-targets` = 0 · `cargo clippy --workspace --all-targets
+--all-features -- -D warnings` = 0 · `cargo fmt --all -- --check` = 0 ·
+`cargo nextest run -p vantadb ivf` = 21/21 pass (incluida la ruta `index::search::tests::test_ivf_rebuilds_*`).
