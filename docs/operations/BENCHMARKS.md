@@ -360,3 +360,51 @@ Select-String -Path "dev-tools/verify.ps1" -Pattern "consumo guard" | Measure-Ob
 - `dev-tools/verify.ps1` incluye `consumo guard` compile-check como step adicional (ponytail: solo `--no-run`, sin bench timed en gate rápido).
 
 <!-- consumo guard: anchor for GOV-B3 verification — do not remove -->
+
+---
+
+## 12. Memory Budget — `rss_threshold` calibration (RES-07, FND-01 F2)
+
+> **Source of truth:** `benches/memory_budget.rs` (FND-01 — compute/storage separation + OOM risk).
+> Follow-up F2 of `docs/research/archive/FND-01-memory-budget.md` (§6: re-evaluate
+> `DEFAULT_RSS_THRESHOLD=0.80` against real-machine data, now that F1 feeds the guard
+> with the real process RSS). F3 (full scale `[10k,25k,50k,100k]`, ~40-60 min) stays in
+> heavy certification — the evidence below is the `lite` scale trend, which is what the
+> bench documents as significant (trend, not absolutes).
+>
+> **Reproduce (Regla 11):**
+> ```powershell
+> MEMORY_BUDGET_SCALE=lite cargo bench -p vantadb --bench memory_budget
+> # compile-only (fast gate)
+> cargo check -p vantadb --bench memory_budget
+> ```
+
+### Measured table — dataset → RSS vs logical estimate (post-F1 re-run)
+
+Environment (Regla 11): Windows 11 (win32), 12 cores AVX2, RAM 31.78 GiB
+(34,120,724,480 B), bench profile (opt + debuginfo), DIM 1536, deterministic dataset
+(`benches/common::synthetic_vectors`, seed `0x9E37`), per-batch drop (bench vectors kept
+out of RSS), 10k reads/batch mix + `flush()` → real process RSS sampled. Date: 2026-08-16
+(FND-01 §8). Two clean runs, noise ±5% — median reported (pre-mortem: noisy bench → ×2 runs + median).
+
+| nodes | insert (s) | rss_threshold guard signal: RSS real (MiB) | logical estimate guard (MiB) | delta rss−logical (MiB) | guard_physical mmap (MiB) | guard_effective (MiB) | pressure_ratio |
+|---|---|---|---|---|---|---|---|
+| 5,000 | 129.9 | 103.93 | 289.10 | 0 (logical conservative at small scale) | 0 | 103.93 | 0.003 |
+| 10,000 | 110.8 | 158.64 | 322.20 | 0 (logical conservative at small scale) | 0 | 158.64 | 0.005 |
+| 20,000 | 228.7 | 354.62 | 452.40 | 0 (logical conservative at small scale) | 54.41 | 354.62 | 0.011 |
+
+**Before vs after F1** (same 20k point): guard reported `pressure_ratio = 0.002`
+(54.41 MiB mmap-resident, ~6.5× under-estimate). After F1 it reports **0.011**
+(354.62 MiB real RSS) — the guard now sees the same signal as the OS, trending
+linearly with the dataset (0.003 → 0.005 → 0.011).
+
+### Slope (dataset → delta RSS) and extrapolation
+
+- Slope 5k→10k ≈ **11.6 KB/node**; slope 10k→20k ≈ **20.0 KB/node** (HNSW graph densification: neighbor lists).
+- Conservative design slope: **~20 KB/node** (1536d) on the reference machine.
+- Extrapolation (31.78 GiB RAM): 100k ≈ 2.0 GB (~6%) · 500k ≈ 10 GB (~31%) · 1M ≈ 20 GB (~63%) · **~1.6M ≈ 31.8 GB (~100% → OOM)**.
+- At 0.80 × 31.78 GiB the guard sheds at ~25.4 GiB, leaving **~6.3 GiB** of headroom to the OS; `eviction_ratio` 0.20 evicts before rejecting. At every measured point the guard is two orders of magnitude below the threshold (max 0.011 at 20k) — no legitimate-write shedding observed.
+
+### Decisión
+
+decisión: DEFAULT_RSS_THRESHOLD=0.80 calibrado 2026-09-03 — MANTENER 0.80 (cambio 0%, dentro de 0.70..0.85, < ±10% → sin ADR por Regla 5). Rationale: con RSS real como señal (F1), el threshold 0.80 deja ~6.3 GiB de margen al SO en la máquina de referencia y la evicción (0.20) actúa antes del rechazo; la tendencia medida es lineal y el guard está lejos de sheddear writes legítimos. `src/config.rs:22` ya es `0.80` — sin cambio de código (la decisión documentada ES el entregable). Full-scale `[10k,25k,50k,100k]` queda para heavy certification (F3); re-evaluar al acercarse a ~500k nodos / 10 GB RSS (FND-01-F4).

@@ -57,7 +57,8 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 - **Risk Register:** | 🟡×🟡 | threshold más bajo sheddea writes legítimos | mantener dentro 0.70..0.85 y registrar rationale | verify |
 - **Cynefin:** 🟦 Obvio (medir→documentar) | **Top 3 riesgos:** ruido de medición, sobre-interpretar 1 corrida, drift config-doc
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1 | **DoD:** Task: contrato; Commit `fix(memory-budget): calibrar rss_threshold con bench F2 (RES-07)`; Release: nota en CHANGELOG si cambia el valor
-- **Estado:** ⬜ PENDING | **Task file:** `.../tasks/RES-07.md` | **Ruta:** vanta-worker | **Branch:** develop
+- **Estado:** ✅ COMPLETED 2026-09-03 | **Task file:** `.../tasks/RES-07.md` (Steps F2 4-6 ✅) | **Ruta:** vanta-worker | **Branch:** develop
+- **Recitation cierre:** BENCHMARKS.md §12 `rss_threshold` con tabla FND-01 post-F1 (5k/10k/20k → pressure 0.003/0.005/0.011, slopes 11.6/20.0 KB-nodo) + decisión MANTENER 0.80 (cambio 0%, sin ADR); `cargo test -p vantadb --lib config` 54/0 ✅; bench compile ✅; fmt: solo diffs GOV-TK1 ajenos (no tocados). Commit `fix(memory-budget): calibrar rss_threshold con bench F2 (RES-07)`.
 
 ### Task 2: GOV-TK1 — `vanta-cli doctor --fix` (dry-run ya existe, fix falta)
 
