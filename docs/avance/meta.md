@@ -192,3 +192,8 @@ Plan docs/plans/archive/2026-09-02-error-observability-excellence.md archivado c
 
 Plan archivado con auditoria de cierre: 82/88 verificados con evidencia + 6 reaperturas (RES-07/08/09/12/15 + DEC-02, premisa-falsa sin ejecucion - stamps masivos T00:00). GOV-T01 corregido a completed (stale). Backlog: -5 filas (MCP-35, RES-04/06/13/14) +2 restauradas (RES-02/03, colision ID con docs de research en sync 09-01). Leccion: cotejar syncs por contenido/evidencia, nunca por ID.
 
+
+## Veredicto alta-prioridad 2026-09-03
+
+-2 obsoletas (RES-02/08, evidencia en backlog-history) +3 re-escaladas (RES-09/12/15) + DEC-02 a ICEBOX. Backlog: 126 activas.
+

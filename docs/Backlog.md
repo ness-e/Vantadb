@@ -13,7 +13,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 > **Execution state lives in:** `docs/plans/YYYY-MM-DD-<campaign>.md` (plan file) + task files — per campaign-executor RULES.md §2. This file is the task catalog; the plan file is the execution state.
 > **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
 > **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 129 activas (post-limpieza-alta-prioridad 2026-09-03: -5 con evidencia (MCP-35 79a00ace, RES-04/06 scores+phrase, RES-13 githooks, RES-14 P2-01) +2 restauradas RES-02/03 (colisión ID sync 09-01); previo 125 con +4 FIND-52..55; historial: 173→130 sync drift 43, 130→117 slice2, 117→121 god-files)
+> **Total open items:** 126 activas (post-veredicto-alta-prioridad 2026-09-03: -2 obsoletas con evidencia (RES-02→crash_injection.rs 37f49d08 + chaos_integrity binario/nextest-filtro; RES-08→remove_all_for_node ya rediseñó el sweep), 3 re-escaladas (RES-09/12/15), DEC-02→⏸️ ICEBOX; previo 129)
 ---
 
 ## Exec Summary
@@ -528,7 +528,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Effort | Descripción | Archivos / Origen | Estado |
 |----|--------|-------------|-------------------|--------|
-| `RES-02` | 🟡 | **Separar binario `chaos_failpoints`** (race global de failpoints, flaky local) **+ crear `crash_kill_recovery.rs`** (kill real a mitad de escritura, fsync falso, concurrencia+kill). Plan completo en FND-15 (items 01-05); los archivos no existen hoy. Delegar a vanta-chaos | `tests/storage/` · Origen: `docs/research/FND-15-crash-recovery-verificacion.md` | ⬜ Pendiente (fila RESTAURADA 2026-09-03: borrada por error en sync 2026-09-01 por colisión de ID con el doc de research homónimo — la implementación no existe) |
 
 ### 🟡 Media
 
@@ -536,22 +535,21 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 |----|--------|-------------|-------------------|--------|
 | `RES-03` | 🟡 | **Canal multi-consumidor en ingestion pipeline**: reemplazar `Arc<Mutex<mpsc::Receiver>>` por async-channel/flume (contención serializada; única instancia sospechosa del inventario FND-19). `src/ingestion.rs:72` intacto verificado 2026-09-03 | `src/ingestion.rs:72` · Origen: `FND-19-arc-mutex-inventario.md` | ⬜ Pendiente (fila RESTAURADA 2026-09-03: borrada por error en sync 2026-09-01 — colisión ID con doc de research, implementación no realizada) |
 | `RES-07` | 🟡 | **Calibrar `rss_threshold`** (F2: recalibrar `DEFAULT_RSS_THRESHOLD=0.80` con medición real) + bench full-scale `[10k..100k]` (F3) | `src/config.rs:22`, benches memory-budget · Origen: `FND-01-memory-budget.md` (follow-ups F2/F3) | ⬜ Pendiente |
-| `RES-08` | 🟢 | **Benchmark delete-masivo antes de rediseñar DashMap sweep** (H4): medir contención real del sweep en path de deletes; decidir rediseño solo si la medición lo justifica | `src/storage/engine/maintenance.rs` · Origen: `FND-02-multi-index-locks.md` (H4) | ⬜ Pendiente |
-| `RES-09` | 🟡 | **Trackear roadmap post-launch huérfano** (investigado con archivo:línea, sin filas): WAL async ingest (10-100×), query planner con optimizaciones reales, DiskANN disk-I/O real. Agregar como filas a P24 o sub-fase propia | P24 / `docs/research/investigacion-equipo-2026-08-09.md` §roadmap | ⬜ Pendiente |
+| `RES-09` | 🟡 | **Trackear roadmap post-launch huérfano** (re-escalado 2026-09-03): agregar filas P24 para 3 gaps aún vigentes — WAL **fsync-batching/decoupling** (no «async ingest» genérico: `src/ingestion.rs` ya da pipeline async de nodos, el gap real es el sync por escritura de `wal.rs`), query planner con optimizaciones reales, DiskANN disk-I/O (`diskann.rs:7` confirma «purely in-memory, not disk-backed») | `docs/Backlog.md` P24 (filas nuevas) · Origen: `docs/research/investigacion-equipo-2026-08-09.md` §roadmap | ⬜ Pendiente (docs-only) |
 
 ### 🟢 Baja / proceso
 
 | ID | Effort | Descripción | Archivos / Origen | Estado |
 |----|--------|-------------|-------------------|--------|
-| `RES-12` | 🟢 | **Touch targets ≥44px restantes** (~20 componentes web: navbar `h-9`, close buttons `h-7`, footer text-only). Solo los 3 severos fueron corregidos con `size-11`. Delegar a vanta-worker (web) | `web/src/components/*` · Origen: `INV-015-touch-targets-44px.md` | ⬜ Pendiente |
-| `RES-15` | 🟢 | **Institucionalizar meta-001 B/C**: micro-ADR obligatorio en cierres WONTFIX/DEFER + separar backlog negocio/técnico. Solo la recomendación A quedó implementada; B/C sin evidencia en `.opencode/rules/` (grep 0 hits 2026-08-25) | `.opencode/rules/`, `docs/Backlog.md` · Origen: `meta-001-root-cause-analysis.md` | ⬜ Pendiente |
+| `RES-12` | 🟢 | **Touch targets ≥44px — re-escalado 2026-09-03: no son ~20 componentes; grep de `<button>` con `h-7/h-9` arroja 4-5 archivos**: `docs-view.tsx` (copiar-código c:576 + otro), `shortcut-overlay.tsx`, `site-navbar.tsx`, `tutorial-modal.tsx`, `command-palette.tsx:232` (cerrar búsqueda). El resto de hits son decorativos (barras benchmark-race, spans de iconos) — fuera de WCAG 2.5.5. Solo los 3 severos fueron corregidos antes con `size-11` | `web/src/components/vanta/{docs-view,shortcut-overlay,site-navbar,tutorial-modal,command-palette}.tsx` · Origen: `INV-015-touch-targets-44px.md` | ⬜ Pendiente (alcance 4-5 archivos) |
+| `RES-15` | 🟢 | **Institucionalizar meta-001 C** — re-escalado 2026-09-03: B YA está institucionalizada (`research-decide.md:81` dirige WONTFIX/DESCARTES a `docs/avance/decisiones/wontfix.md` con motivo; wontfix.md con entries = micro-ADR vigente). Queda solo C: separar backlog negocio/técnico. Cruzar con GOV-TK5 (split Manual Estratégico) para no duplicar | `.opencode/rules/`, `docs/Backlog.md` · Origen: `meta-001-root-cause-analysis.md` | ⬜ Pendiente (solo C) |
 
 ### Decisiones de producto (antes de código)
 
 | ID | Effort | Descripción | Origen | Estado |
 |----|--------|-------------|--------|--------|
 | `DEC-01` | 🟠 | **Session layer VantaDB MCP: go/no-go y alcance.** Roadmap de 4 fases propuesto (session cache, Claude Code plugin, sync/improve, lesson extraction) pero las 5 open questions siguen abiertas. Decidir vía ADR antes de escribir código | `COGNEE_EVALUATION.md`; research `docs/research/res03-session-layer-gonogo.md` | ✅ Resuelta por research (2026-08-25): **defer-as-scoped** — F1 no-go (threads/scenes/genlog ya lo cubren), F2 defer docs-only (guía conexión Claude Code), F3/F4 no-go (sync auto requiere benches Regla 9). Owner escribe ADR citando el doc |
-| `DEC-02` | 🟠 | **Billing/quota CreditCalculator en server mode** (TDAM #9, diferido explícitamente fuera de F1-F7 y nunca trackeado). Decisión previa requerida: UNA calculadora (÷1000 vs ÷10000). Habilita multi-usuario/VantaDB Pro | `tdam/SYNTHESIS.md` §9, `tdam/09-deploy-usage.md` | ⬜ Pendiente |
+| `DEC-02` | 🟠 | **Billing/quota CreditCalculator en server mode** (TDAM #9). Decisión previa requerida: UNA calculadora (÷1000 vs ÷10000). Habilita multi-usuario/VantaDB Pro | `tdam/SYNTHESIS.md` §9, `tdam/09-deploy-usage.md` | ⏸️ **ICEBOX 2026-09-03** — verificado: 0 implementaciones cost/credit en vanta-proxy, PRX-03 (virtual keys) también pendiente; gate de decisión de producto, no deuda activa. Reabrir cuando Pro/billing entre al horizonte |
 
 ---
 
