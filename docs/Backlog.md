@@ -428,7 +428,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Prio | Fuente |
 |----|-------------|------|--------|
-| GOV-TK1 | **CLI backup verification**: subcomando `verify` o flag `--dry-run` en Restore + `doctor --fix` - el runbook DR nuevo depende conceptualmente | 🟢 | D4b/B2 |
+| GOV-TK1 | **CLI backup verification (re-escalada 2026-09-03: la mitad doctor --fix landed con dry-run seguro en `3a27c5f4`+hoy; queda el verificador de restore)**: subcomando `verify` o flag `--dry-run` en Restore + paridad runbook | 🟢 | D4b/B2 |
 | GOV-TK2 | **Release** para que el binario MCP exponga las 18 tools skill_*/code_*/wiki_* (skill ya documenta 33; binario publicado tiene 15) | 🔴 | B6 |
 | GOV-TK3 | Drift yaml↔real ×3: gramática IQL case del yaml vs parser UPPERCASE · GraphTraversalBody (roots numéricos + max_depth requerido) · search en DB fresca requiere rebuild-index previo | 🟠 | B5 |
 | GOV-TK5 | Split Manual Estratégico según recomendación F2 (negocio→docs/business/ con banner snapshot; estado técnico fuera; archivar monolito) | 🟠 | F2/D-decisión |
