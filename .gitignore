@@ -122,7 +122,8 @@ Thumbs.db
 !.agents/skills/using-agent-skills/
 !.agents/agents/
 !.agents/references/
-.cargo/
+.cargo/*
+!.cargo/config.toml
 
 # Local Python test database and virtual environments
 vantadb-python/test_vanta_db/
