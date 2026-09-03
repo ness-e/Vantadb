@@ -180,7 +180,8 @@ fn run() -> anyhow::Result<()> {
             input,
             force,
             rebuild,
-        } => cli_handlers::cmd_restore(&args.db, &input, force, rebuild, args.verbose)?,
+            dry_run,
+        } => cli_handlers::cmd_restore(&args.db, &input, force, rebuild, dry_run, args.verbose)?,
 
         Commands::Doctor { fix, force } => {
             cli_handlers::cmd_doctor(&args.db, fix, force, args.verbose)?

@@ -14,7 +14,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 > **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
 > **Backlog de negocio:** [`docs/Backlog-negocio.md`](Backlog-negocio.md) — filas que requieren abogado/pago/decisión humana/publicación (criterio Gate P, split RES-15-C 2026-09-03). Este archivo es solo técnico: lo ejecutable por agentes.
 > **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 107 activas (−FIND-57 cerrada 2026-09-03; +FIND-59 insert_lock, FIND-58 re-validado — fix 175790a9 no cubre el gate crudo; post-campana quality-gtm-wave 2026-09-03: -11 filas por ejecucion RES-07/03/12/15C/09 + GOV-TK1/9 + MKT-18h/f/i + SRV-07 + AUD-045, +2 FIND-56/58 nuevos (FIND-57 cerrada), GOV-TK1/MKT-18f re-escaladas; split negocio: 15 filas a Backlog-negocio.md; previo 126)
+> **Total open items:** 106 activas (−GOV-TK1 cerrada 2026-09-03 restore --dry-run, ambas mitades completas; −FIND-57 cerrada 2026-09-03; +FIND-59 insert_lock, FIND-58 re-validado — fix 175790a9 no cubre el gate crudo; post-campana quality-gtm-wave 2026-09-03: -11 filas por ejecucion RES-07/03/12/15C/09 + GOV-TK1/9 + MKT-18h/f/i + SRV-07 + AUD-045, +2 FIND-56/58 nuevos (FIND-57 cerrada), GOV-TK1/MKT-18f re-escaladas; split negocio: 15 filas a Backlog-negocio.md; previo 126)
 ---
 
 ## Exec Summary
@@ -414,7 +414,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Prio | Fuente |
 |----|-------------|------|--------|
-| GOV-TK1 | **CLI backup verification (re-escalada 2026-09-03: la mitad doctor --fix landed con dry-run seguro en `3a27c5f4`+hoy; queda el verificador de restore)**: subcomando `verify` o flag `--dry-run` en Restore + paridad runbook | 🟢 | D4b/B2 |
 | GOV-TK2 | **Release** para que el binario MCP exponga las 18 tools skill_*/code_*/wiki_* (skill ya documenta 33; binario publicado tiene 15) | 🔴 | B6 |
 | GOV-TK3 | Drift yaml↔real ×3: gramática IQL case del yaml vs parser UPPERCASE · GraphTraversalBody (roots numéricos + max_depth requerido) · search en DB fresca requiere rebuild-index previo | 🟠 | B5 |
 | GOV-TK5 | Split Manual Estratégico según recomendación F2 (negocio→docs/business/ con banner snapshot; estado técnico fuera; archivar monolito) | 🟠 | F2/D-decisión |

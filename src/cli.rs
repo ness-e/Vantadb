@@ -148,6 +148,10 @@ pub enum Commands {
         /// Rebuild indexes after restore
         #[arg(long)]
         rebuild: bool,
+        /// Validate the backup without restoring (dry-run).
+        /// Lists what would be restored and exits 0 without touching the target.
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// Run comprehensive health diagnostics on the database

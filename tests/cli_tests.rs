@@ -552,8 +552,14 @@ fn test_backup_and_restore() {
 
     // Try rebuild approach
     let restore_path_rebuild = format!("{}/restored_rebuild", path);
-    let result =
-        vantadb::cli_handlers::cmd_restore(&restore_path_rebuild, &backup_dir, true, false, true);
+    let result = vantadb::cli_handlers::cmd_restore(
+        &restore_path_rebuild,
+        &backup_dir,
+        true,
+        false,
+        false,
+        true,
+    );
     assert!(
         result.is_ok(),
         "restore with rebuild should succeed: {:?}",
@@ -570,7 +576,8 @@ fn test_backup_and_restore() {
 
     // Also try without rebuild (original path)
     let restore_path = format!("{}/restored", path);
-    let result = vantadb::cli_handlers::cmd_restore(&restore_path, &backup_dir, true, false, false);
+    let result =
+        vantadb::cli_handlers::cmd_restore(&restore_path, &backup_dir, true, false, false, false);
     assert!(result.is_ok(), "restore should succeed: {:?}", result);
     assert!(std::path::Path::new(&restore_path).exists());
     assert!(std::path::Path::new(&restore_path)
@@ -626,11 +633,121 @@ fn test_backup_nonexistent_db_path() {
 
 #[test]
 fn test_restore_missing_backup() {
-    let result =
-        vantadb::cli_handlers::cmd_restore("./dummy", "./nonexistent_backup", true, false, false);
+    let result = vantadb::cli_handlers::cmd_restore(
+        "./dummy",
+        "./nonexistent_backup",
+        true,
+        false,
+        false,
+        false,
+    );
     assert!(
         result.is_err(),
         "restore from non-existent backup should error"
+    );
+}
+
+#[test]
+fn restore_dry_run_missing_backup_errors() {
+    // RED: dry-run with nonexistent backup must error clearly (no mutation possible).
+    let dir = tempfile::tempdir().expect("tempdir");
+    let target = dir.path().join("tgt").to_string_lossy().to_string();
+    let missing = dir
+        .path()
+        .join("no_such_backup")
+        .to_string_lossy()
+        .to_string();
+    let result = vantadb::cli_handlers::cmd_restore(&target, &missing, false, false, true, false);
+    assert!(result.is_err(), "dry-run missing backup should error");
+    let msg = format!("{:?}", result.unwrap_err());
+    assert!(
+        msg.contains("does not exist"),
+        "error must be clear about missing backup, got: {msg}"
+    );
+    assert!(
+        !std::path::Path::new(&target).exists(),
+        "dry-run error must not create target"
+    );
+}
+
+fn snapshot_files_sorted(root: &std::path::Path) -> Vec<(String, u64)> {
+    fn walk(dir: &std::path::Path, base: &std::path::Path, out: &mut Vec<(String, u64)>) {
+        for entry in std::fs::read_dir(dir).expect("read_dir") {
+            let entry = entry.expect("entry");
+            let path = entry.path();
+            if path.is_dir() {
+                walk(&path, base, out);
+            } else {
+                let rel = path
+                    .strip_prefix(base)
+                    .unwrap_or(&path)
+                    .to_string_lossy()
+                    .replace('\\', "/");
+                let size = entry.metadata().map(|m| m.len()).unwrap_or(0);
+                out.push((rel, size));
+            }
+        }
+    }
+    let mut out = Vec::new();
+    if root.exists() {
+        walk(root, root, &mut out);
+    }
+    out.sort();
+    out
+}
+
+#[test]
+fn restore_dry_run_lists_without_mutating() {
+    // RED: valid backup + existing target → dry-run Ok, target UNTOUCHED.
+    let (_src_dir, src_path) = setup_temp_db();
+    seed_record(&src_path, "dry_ns", "k_src", "src payload");
+    let backup_dir = format!("{}/dry_backup", src_path);
+    vantadb::cli_handlers::cmd_backup(&src_path, Some(&backup_dir), false)
+        .expect("backup should succeed");
+
+    let (_tgt_dir, tgt_path) = setup_temp_db();
+    seed_record(&tgt_path, "other_ns", "k_tgt", "target original");
+
+    let tgt_root = std::path::Path::new(&tgt_path).to_path_buf();
+    let before_files = snapshot_files_sorted(&tgt_root);
+    let before_size =
+        vantadb::cli_handlers::dir_size(&tgt_root).expect("dir_size before should succeed");
+    assert!(
+        !before_files.is_empty(),
+        "target snapshot must not be empty"
+    );
+
+    // dry-run without --force on an existing target must still succeed (preview).
+    let result =
+        vantadb::cli_handlers::cmd_restore(&tgt_path, &backup_dir, false, false, true, false);
+    assert!(result.is_ok(), "dry-run should succeed: {:?}", result);
+
+    let after_files = snapshot_files_sorted(&tgt_root);
+    let after_size =
+        vantadb::cli_handlers::dir_size(&tgt_root).expect("dir_size after should succeed");
+    assert_eq!(
+        before_files, after_files,
+        "dry-run must leave target files identical"
+    );
+    assert_eq!(
+        before_size, after_size,
+        "dry-run must leave target size identical"
+    );
+
+    // Target content untouched: original record present, backup record absent.
+    let engine =
+        vantadb::cli_handlers::open_database(&tgt_path, true).expect("target should still open");
+    let tgt_id = vantadb::cli_handlers::memory_node_id("other_ns", "k_tgt");
+    let tgt_node = engine.get(tgt_id).expect("read should succeed");
+    assert!(
+        tgt_node.is_some(),
+        "original target record must survive dry-run"
+    );
+    let src_id = vantadb::cli_handlers::memory_node_id("dry_ns", "k_src");
+    let src_node = engine.get(src_id).expect("read should succeed");
+    assert!(
+        src_node.is_none(),
+        "backup record must NOT appear after dry-run"
     );
 }
 

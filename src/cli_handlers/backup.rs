@@ -223,12 +223,105 @@ pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()>
 }
 
 #[tracing::instrument]
+/// Validate a backup without restoring it (dry-run).
+///
+/// Read-only: checks the backup input (exists, is a directory, non-empty,
+/// `MANIFEST.json` parses when present), reports total size, lists the files
+/// that would be restored, and reports target conflicts — without touching
+/// the target (no `create_dir_all`, no `remove_dir_all`, no copy, no open).
+fn cmd_restore_dry_run(db_path: &str, input: &str, force: bool, rebuild: bool) -> Result<()> {
+    let src = std::path::Path::new(input);
+    if !src.is_dir() {
+        return Err(crate::error::VantaError::restore_error(format!(
+            "Backup path is not a directory: '{input}'"
+        )));
+    }
+    let mut files = walkdir_flat(src).map_err(|e| {
+        crate::error::VantaError::restore_error(format!("Failed to list backup files: {e}"))
+    })?;
+    if files.is_empty() {
+        return Err(crate::error::VantaError::restore_error(format!(
+            "Backup directory is empty or invalid: '{input}'"
+        )));
+    }
+    files.sort();
+    let total = dir_size(src).unwrap_or(0) as u64;
+
+    // Format check: MANIFEST.json must parse when present (light variant of
+    // the runbook §3 check). Absence is a warning (legacy backup), not an error.
+    let manifest_path = src.join("MANIFEST.json");
+    if manifest_path.exists() {
+        let raw = std::fs::read_to_string(&manifest_path).map_err(|e| {
+            crate::error::VantaError::restore_error(format!(
+                "Failed to read backup MANIFEST.json: {e}"
+            ))
+        })?;
+        let manifest: BackupManifest = serde_json::from_str(&raw).map_err(|e| {
+            crate::error::VantaError::restore_error(format!("Invalid backup MANIFEST.json: {e}"))
+        })?;
+        let kind = match manifest.backup_type {
+            BackupType::Base => "base",
+            BackupType::Incremental => "incremental",
+        };
+        print_info(&format!(
+            "Backup MANIFEST: type={kind} version={} files={}",
+            manifest.vantadb_version,
+            manifest.files.len()
+        ));
+    } else {
+        print_warning("No MANIFEST.json found (legacy backup?) — proceeding with file listing");
+    }
+
+    let dst = std::path::Path::new(db_path);
+    if dst.exists() {
+        if force {
+            print_warning(&format!(
+                "Destination '{db_path}' exists — would remove and recreate (--force) (dry-run: no changes made)"
+            ));
+        } else {
+            print_warning(&format!(
+                "Destination '{db_path}' already exists — would require --force to overwrite (dry-run: no changes made)"
+            ));
+        }
+    } else {
+        print_info(&format!(
+            "Destination '{db_path}' does not exist — would create it (dry-run: no changes made)"
+        ));
+    }
+
+    for path in &files {
+        let rel = path
+            .strip_prefix(src)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+        print_info(&format!(
+            "Would restore: {rel} ({})",
+            human_readable_size(size)
+        ));
+    }
+    print_success(&format!(
+        "Dry-run: would restore {} files ({}) from '{}' to '{db_path}'",
+        files.len(),
+        human_readable_size(total),
+        src.display()
+    ));
+    if rebuild {
+        print_info("Would rebuild indexes after restore (--rebuild)");
+    }
+    print_info("dry-run: re-run without `--dry-run` to apply");
+    Ok(())
+}
+
+#[tracing::instrument]
 /// Restore the database from a previously created backup directory
 pub fn cmd_restore(
     db_path: &str,
     input: &str,
     force: bool,
     rebuild: bool,
+    dry_run: bool,
     verbose: bool,
 ) -> Result<()> {
     let src = std::path::Path::new(input);
@@ -237,6 +330,10 @@ pub fn cmd_restore(
             "Backup directory does not exist at '{}'",
             input
         )));
+    }
+
+    if dry_run {
+        return cmd_restore_dry_run(db_path, input, force, rebuild);
     }
 
     let dst = std::path::Path::new(db_path);

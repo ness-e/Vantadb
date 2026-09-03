@@ -246,7 +246,12 @@ vanta-cli backup --out /backups/vantadb-$(date +%F) 2>&1
 cat /backups/vantadb-latest/MANIFEST.json | python3 -m json.tool
 ```
 
-> **Note:** there is no vanta-cli restore dry-run mode. To validate a backup fully,
+> **Note:** `vanta-cli restore --input <backup> --db <target> --dry-run`
+> validates a backup without touching the target (exit 0): checks the backup
+> exists, is a directory, is non-empty, and that `MANIFEST.json` parses when
+> present; reports total size, lists the files that would be restored, and
+> reports target conflicts (existing target needs `--force`). It does NOT
+> verify per-file CRCs nor open the database — to prove restorability fully,
 > restore it to a temporary directory and run `doctor` — see the verified
 > procedure in §3.1.
 
@@ -321,8 +326,14 @@ cat /backups/latest/MANIFEST.json | python3 -m json.tool
 ```
 If any file entry is missing or its `crc32c` field is absent, treat the backup as unverified and run the full procedure.
 
-> **Native backup verification (`--dry-run` / `verify` subcommand): PENDING — CLI ticket in backlog.**
-> Until then, the full restore procedure above is the only way to prove restorability.
+> **Native backup verification (`restore --dry-run`): AVAILABLE.**
+> Quick pre-check without touching the target:
+> ```bash
+> vanta-cli restore --input /backups/latest --db /tmp/verify-restore --dry-run
+> ```
+> (lists files + size + conflicts, exit 0, target untouched).
+> Until per-file CRC verification lands, the full restore procedure above is
+> still the only way to prove restorability.
 
 ### Prometheus Alert Rules
 
