@@ -228,8 +228,8 @@ docker run -d --user 10001:10001 -v "$PWD/data:/var/lib/vantadb" \
   -p 8080:8080 vantadb-server:latest
 ```
 
-Further hardening (read-only rootfs, `--cap-drop=ALL`) for the `vantadb-server/Dockerfile`
-variant: see `hardening.md` §5. Registry publishing policy: `CI_POLICY.md` §Docker image publishing.
+Further hardening (read-only rootfs, `--cap-drop=ALL`) at runtime:
+see `hardening.md` §5. Registry publishing policy: `CI_POLICY.md` §Docker image publishing.
 
 ---
 

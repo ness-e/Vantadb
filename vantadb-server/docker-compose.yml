@@ -9,8 +9,7 @@ services:
   vantadb:
     build:
       context: ..
-      dockerfile: vantadb-server/Dockerfile
-      target: runtime-base
+      dockerfile: Dockerfile
     container_name: vantadb
     restart: unless-stopped
     ports:
@@ -54,8 +53,7 @@ services:
   vantadb-unprivileged:
     build:
       context: ..
-      dockerfile: vantadb-server/Dockerfile
-      target: unprivileged
+      dockerfile: Dockerfile
     container_name: vantadb-unprivileged
     restart: unless-stopped
     ports:

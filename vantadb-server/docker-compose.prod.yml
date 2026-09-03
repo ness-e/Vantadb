@@ -1,6 +1,7 @@
-# VantaDB Server — Production override (uses GitHub Release binary)
-# Usage: docker compose -f vantadb-server/docker-compose.yml -f vantadb-server/docker-compose.prod.yml up -d
-# Requires: VERSION environment variable (e.g., VERSION=v0.5.0)
+# VantaDB Server — Production override (canonical root image + prod env/hardening)
+# Usage: docker compose -f vantadb-server/docker-compose.yml -f vantadb-server/docker-compose.prod.yml up -d --build
+# Release images are published as assets by the `docker-image` CI job (see
+# docs/operations/CI_POLICY.md §Docker image publishing); no VERSION needed.
 
 version: "3.9"
 
@@ -8,11 +9,7 @@ services:
   vantadb:
     build:
       context: ..
-      dockerfile: vantadb-server/Dockerfile
-      target: release-binary
-      args:
-        VERSION: ${VERSION:-latest}
-        TARGETARCH: ${TARGETARCH:-amd64}
+      dockerfile: Dockerfile
     environment:
       - VANTADB_API_KEY=${VANTADB_API_KEY}
       - VANTADB_REQUIRE_AUTH=true

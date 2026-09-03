@@ -24,7 +24,7 @@ VantaDB is a **local-first** embedded database: by default it runs as a library 
 | **Namespace-scoped RBAC** | ✅ Per-namespace read/write (SRV-05, Qdrant v1.9 pattern) | ✅ Per-collection JWT RBAC v1.9+ | ✅ RBAC (Enterprise) | ✅ RBAC (Enterprise) | ❌ |
 | **Audit logging** | ✅ JSONL rotation + tracing IDs (SRV-01, SRV-02, Qdrant v1.17+ pattern) | ✅ v1.17+ | ✅ Enterprise | ✅ Enterprise | ❌ |
 | **TLS** | ✅ rustls (feature `tls`) | ✅ | ✅ | ✅ | ✅ |
-| **Unprivileged Docker** | ✅ Multi-stage, `--target unprivileged`, read-only rootfs | ✅ `-unprivileged` image | ❌ | ❌ | ❌ |
+| **Unprivileged Docker** | ✅ Non-root image, read-only rootfs + cap-drop at runtime | ✅ `-unprivileged` image | ❌ | ❌ | ❌ |
 | **Network bind guard** | ✅ Loopback-only unless API key set (FIND-07) | ⚠️ Manual config | ⚠️ Manual config | ⚠️ Manual config | ⚠️ Manual config |
 | **Dependencies** | Minimal (Rust stdlib, no JVM/Go runtime) | C++/Rust | Go + Java modules | Go + C++ + etcd | Python + OpenSearch |
 
@@ -194,59 +194,88 @@ Truncated to 256 chars. Enables end-to-end tracing from client → server → au
 
 ## 5. Docker Hardening (SRV-07)
 
-### 5.1 Standard Image (Multi-Stage)
+> **Canonical image:** the root `Dockerfile` (build context = repo root). It builds
+> the `vantadb-server` binary (`cargo build --package vantadb-server`), runs it as
+> non-root `vantadb`, and is smoke-tested on every release by the `docker-image` CI
+> job (arbitrary-uid write test + `--help` entrypoint check — see `CI_POLICY.md`
+> §Docker image publishing and `DEPLOYMENT_GUIDE.md` §3).
+>
+> **Removed 2026-09-03 (FIND-56):** the alternate Dockerfile that lived under
+> `vantadb-server/` was deleted. Its builder copied manifests from a non-existent `vantadb/` directory (the root crate
+> lives at `.`, so the build died at that layer), then copied a `vanta-cli` artifact
+> that `cargo build --package vantadb-server` never produces (that binary belongs to
+> the root `vantadb` package), and its `release-binary` stage downloaded release
+> assets under names the release workflow never publishes (`vantadb-<target>.tar.gz`
+> is the real pattern). Its only live capabilities — non-root runtime and the
+> read-only/cap-drop compose profile — are preserved below against the root image.
+> The composes under `vantadb-server/` now build the root `Dockerfile`.
+
+### 5.1 Standard Image (Multi-Stage, Root Dockerfile)
 
 ```dockerfile
-# Build: docker build -t vantadb-server -f vantadb-server/Dockerfile .
-# Run:   docker run -d -p 8080:8080 -v vantadb-data:/var/lib/vantadb/data vantadb-server
+# Build: docker build -t vantadb-server .
+# Run:   docker run -d -p 8080:8080 \
+#          -e VANTADB_HOST=0.0.0.0 -e VANTADB_STORAGE_PATH=/var/lib/vantadb \
+#          -v vantadb-data:/var/lib/vantadb vantadb-server
 ```
 
 - **Base**: `debian:bookworm-slim` (minimal attack surface)
-- **User**: `vantadb` UID 1000 (non-root)
-- **Binary**: Statically linked where possible, stripped
-- **Healthcheck**: `/health` endpoint
+- **User**: `vantadb` (default UID 1001, override at build time with `--build-arg VANTA_RUNAS_UID=<uid>`; any UID also works at runtime via `docker run --user` — data dir is mode 0777, Qdrant pattern)
+- **Binary**: `vantadb-server` (env-driven configuration, no CLI flags needed)
+- **Healthcheck**: `/health` endpoint (via `curl`, baked into the runtime stage)
 
-### 5.2 Unprivileged Variant (Qdrant Pattern)
+### 5.2 Unprivileged Runtime (Qdrant Pattern)
+
+Hardening is applied at **run time** against the canonical image — no separate
+build target needed:
 
 ```bash
-docker build --target unprivileged -t vantadb-server:unprivileged -f vantadb-server/Dockerfile .
+docker build -t vantadb-server .
 docker run -d \
   --read-only \
   --cap-drop=ALL \
   --security-opt=no-new-privileges:true \
+  --tmpfs /tmp --tmpfs /run \
   -p 8080:8080 \
-  -v vantadb-data:/var/lib/vantadb/data \
-  vantadb-server:unprivileged
+  -e VANTADB_HOST=0.0.0.0 -e VANTADB_STORAGE_PATH=/var/lib/vantadb \
+  -v vantadb-data:/var/lib/vantadb \
+  vantadb-server
 ```
 
 **Hardening applied:**
 - Read-only root filesystem (`--read-only`)
 - All capabilities dropped (`--cap-drop=ALL`)
 - No privilege escalation (`no-new-privileges`)
-- Only `/var/lib/vantadb/data` (volume) + `/tmp` + `/run` (tmpfs) writable
+- Only the data volume (`/var/lib/vantadb`) + `/tmp` + `/run` (tmpfs) writable
+- Arbitrary `--user UID:GID` works without rebuilding (see `DEPLOYMENT_GUIDE.md` §3 "Run unprivileged")
 
-### 5.3 Release Binary Variant (No Local Build)
+### 5.3 Release Image (No Local Build)
+
+There is no download-a-binary stage: every release publishes the CI-built image
+itself as an asset (`vantadb-server-<tag>-linux-amd64-image.tar.gz`, produced by
+the `docker-image` job). To run a released image without building:
 
 ```bash
-docker build --target release-binary \
-  --build-arg VERSION=v0.5.0 \
-  -t vantadb-server:v0.5.0 \
-  -f vantadb-server/Dockerfile .
+# Download the image asset from the GitHub Release, then:
+docker load < vantadb-server-v0.5.0-linux-amd64-image.tar.gz
+docker run -d -p 8080:8080 \
+  -e VANTADB_HOST=0.0.0.0 -e VANTADB_STORAGE_PATH=/var/lib/vantadb \
+  -v vantadb-data:/var/lib/vantadb vantadb-server:v0.5.0
 ```
 
-Downloads pre-built `vanta-cli` from GitHub Releases. Verifies checksum via HTTPS + TLS.
+Image integrity rides on the release itself (HTTPS + TLS from `github.com`).
 
 ### 5.4 Docker Compose Profiles
 
 ```bash
-# Development (local build)
-docker compose -f vantadb-server/docker-compose.yml up -d
+# Development (local build of the root Dockerfile)
+docker compose -f vantadb-server/docker-compose.yml up -d --build
 
-# Unprivileged (hardened)
-docker compose -f vantadb-server/docker-compose.yml --profile unprivileged up -d
+# Unprivileged (hardened runtime flags from §5.2, same image)
+docker compose -f vantadb-server/docker-compose.yml --profile unprivileged up -d --build
 
-# Production (release binary, requires VERSION)
-VERSION=v0.5.0 docker compose -f vantadb-server/docker-compose.yml -f vantadb-server/docker-compose.prod.yml up -d
+# Production (root image + prod env, resource limits, read-only rootfs)
+docker compose -f vantadb-server/docker-compose.yml -f vantadb-server/docker-compose.prod.yml up -d --build
 ```
 
 ---
