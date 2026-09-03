@@ -103,7 +103,7 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 - **Cynefin:** 🟨 Complicado | **Top 3 riesgos:** repo del tap, artefactos sin runner ARM, secret de publish
 - **Uphill/Downhill:** ⬆️ 1 (paradero fórmula) · ⬇️ 2 | **DoD:** Task: contrato; Commit `ci(wheels): aarch64 linux + SHA reales (MKT-18h)`; Release: verificado en siguiente release-plz cycle
 - **Estado:** ✅ COMPLETED 2026-09-03 | **Task file:** `.../tasks/MKT-18h.md` | **Ruta:** vanta-worker | **Branch:** develop
-- **Verificación real (cierre):** contrato 4/4 — `rg -n "aarch64-unknown-linux-gnu" .github/workflows/release-wheels-60.yml` = 1 match; `actionlint release-wheels-60.yml` exit 0; `Formula/vantadb.rb` (paradero: LOCAL, no tap remoto) 0 placeholders con 4 SHA256 verificados por doble vía (Get-FileHash local de los tarballs v0.5.0 == sidecar CI); `cargo check -p vantadb_py --all-targets` exit 0. Fix extra: remove `bin.install vantadb-mcp` (no está en los tarballs) + input muerto `musllinux` (no existe en maturin-action v1.51.0). Verificación del job aarch64 diferida a corrida CI (stop-condition del plan). Fila Backlog eliminada.
+- **Verificación real (cierre):** contrato 4/4 — `rg -n "aarch64-unknown-linux-gnu" .github/workflows/release-wheels-60.yml` = 1 match; `actionlint release-wheels-60.yml` exit 0; `Formula/vantadb.rb` (paradero: LOCAL, no tap remoto) 0 placeholders con 4 SHA256 verificados por doble vía (Get-FileHash local de los tarballs v0.5.0 == sidecar CI); `cargo check -p vantadb_py --all-targets` exit 0. Fix extra: remove `bin.install vantadb-mcp` (no está en los tarballs) + input muerto `musllinux` (no existe en maturin-action v1.51.0). Verificación del job aarch64 diferida a corrida CI (stop-condition del plan). Fila Backlog eliminada (re-aplicada tras clobber de sesión paralela; workflow+plan cabalgaron el commit `2ab706ec` ajeno, Formula/avance/Backlog en su commit `ci(wheels)`).
 
 ### Task 5: SRV-07 — Dockerfile unprivileged + wiring release
 
@@ -271,4 +271,15 @@ Resultado: ✅
 Próxima acción: Commit + fila Backlog SRV-07 eliminada + registro docs/avance/activo/operaciones.md
 Contrato: rg -n "^USER|runas|RUNAS" Dockerfile -> 5 hits (USER vantadb + ARG VANTA_RUNAS_UID); rg -ni docker release-binaries-63.yml -> 9; actionlint exit 0; continuation-lint Dockerfile OK. docker build/run diferido a CI job docker-image (sin daemon local, nota explicita en CI_POLICY.md). docker-compose.yml no tocado: path volumen /var/lib/vantadb sigue valido, named volume hereda modo 0777.
 Próxima tarea si completa: MKT-18i
+=== END RECITATION ===
+
+=== RECITATION MKT-18i ===
+Campaign ID: 20260903-quality-gtm-wave
+Objetivo activo: MKT-18i demo compose local-first
+Estado: completed
+Última acción: Cierre completo: compose+links commiteados (abb6594c), Backlog re-escalado + avance + plan (9b9180c7 y absorcion en 1ad28523), 2 lessons
+Resultado: ✅
+Próxima acción: Handoff orquestador: reconcilear claims stale ERR-TS-01/GOV-TK9 y run-time up -d en host con daemon
+Contrato: verificacion: rg-cite=14 >=2 OK | PyYAML parse+assert tags OK (sin docker CLI, nota) | up -d diferido sin daemon | evidencia AnythingLLM: raw server/.env.example master, VECTOR_DB sin vantadb
+Próxima tarea si completa: Wave2: RES-12 | MKT-18f | RES-09
 === END RECITATION ===

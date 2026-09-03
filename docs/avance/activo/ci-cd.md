@@ -278,6 +278,13 @@ aliases: []
 ### ERR-CORE-02: clippy unwrap/expect deny en prod + anyhow bins (plan error-observability Wave 0)
 - **Fecha:** 2026-09-02
 - **Objetivo:** workspace.lints.clippy unwrap_used/expect_used deny (Cargo.toml, previo en HEAD 73f49e6f) + sweep collateral de allows justificados (~190 archivos tests/benches/examples + cfg_attr(test) en 5 lib.rs) + bins vanta-cli/vantadb-server a anyhow::Result con .context(); anyhow optional gated tras feature cli (lib sin anyhow)
-- **Resultado:** OK — clippy -p vantadb y --workspace --all-targets --all-features exit 0; fmt 0; contrato 5/5
+- **Resultado:** OK - clippy -p vantadb y --workspace --all-targets --all-features exit 0; fmt 0; contrato 5/5
 - **Commit:** af0bb8b8
+- **Dominio:** ci-cd
+
+### MKT-18h: Wheels ARM64 Linux + SHA256 reales Homebrew (plan quality-gtm-wave Task 4)
+- **Fecha:** 2026-09-03
+- **Objetivo:** `release-wheels-60.yml` suma target `aarch64-unknown-linux-gnu` al matrix de maturin (cross container oficial manylinux_2_28-cross, patrón documentado); `Formula/vantadb.rb` con 4 SHA256 reales verificados (hash local de los tarballs v0.5.0 == sidecar CI) + remove `bin.install vantadb-mcp` (no existe en los tarballs); removido input muerto `musllinux` inexistente en maturin-action v1.51.0
+- **Resultado:** OK - contrato 4/4: rg aarch64 ≥1, actionlint exit 0, 0 placeholders en Formula, cargo check -p vantadb_py exit 0. Verificación real del job aarch64 diferida a corrida CI (stop-condition plan)
+- **Commit:** `ci(wheels): aarch64 linux + SHA real formula (MKT-18h)` (2026-09-03; el cambio de workflow cabalgó `2ab706ec` por race de worktree compartido — ver nota en plan)
 - **Dominio:** ci-cd
