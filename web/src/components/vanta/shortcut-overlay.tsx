@@ -98,11 +98,7 @@ export function ShortcutOverlay({
             <Command className="h-5 w-5 text-[#FF5500]" strokeWidth={2.5} />
             {t("shortcuts.title")}
           </h2>
-          <button
-            onClick={() => setOpen(false)}
-            className="inline-flex h-7 w-7 items-center justify-center border-2 border-black bg-[#F2EDE2] text-black transition-colors hover:bg-[#FF5500]   "
-            aria-label={t("shortcuts.close")}
-          >
+          <button className="relative inline-flex h-7 w-7 items-center justify-center border-2 border-black bg-[#F2EDE2] text-black transition-colors after:absolute after:-inset-2 after:content-[''] hover:bg-[#FF5500]" onClick={() => setOpen(false)} aria-label={t("shortcuts.close")}>
             <X className="h-5 w-5" strokeWidth={3} />
           </button>
         </div>
@@ -160,12 +156,7 @@ export function ShortcutOverlay({
 export function ShortcutHintButton({ onClick }: { onClick: () => void }) {
   const { t } = useLanguage();
   return (
-    <button
-      onClick={onClick}
-      className="hidden h-9 items-center justify-center border-4 border-black bg-[#FBF9F5] px-2 font-mono text-sm font-bold text-black shadow-[4px_4px_0_0_#000] transition-all hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000]      sm:inline-flex"
-      aria-label={t("shortcuts.showKeyboard")}
-      title={t("shortcuts.keyboardTitle")}
-    >
+    <button className="hidden h-9 items-center justify-center border-4 border-black bg-[#FBF9F5] px-2 font-mono text-sm font-bold text-black shadow-[4px_4px_0_0_#000] transition-all after:absolute after:-inset-1 after:content-[''] hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[2px_2px_0_0_#000] sm:inline-flex relative" onClick={onClick} aria-label={t("shortcuts.showKeyboard")} title={t("shortcuts.keyboardTitle")}>
       ?
     </button>
   );

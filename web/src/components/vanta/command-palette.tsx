@@ -227,11 +227,7 @@ export function CommandPalette({
             aria-label={t("common.search")}
             className="flex-1 bg-transparent font-tech text-sm text-black placeholder:text-black/40 focus:outline-none  "
           />
-          <button
-            onClick={() => setOpen(false)}
-            className="inline-flex h-7 w-7 items-center justify-center border-2 border-black bg-[#F2EDE2] text-black transition-colors hover:bg-[#FF5500]   "
-            aria-label="Cerrar búsqueda"
-          >
+          <button className="relative inline-flex h-7 w-7 items-center justify-center border-2 border-black bg-[#F2EDE2] text-black transition-colors after:absolute after:-inset-2 after:content-[''] hover:bg-[#FF5500]" onClick={() => setOpen(false)} aria-label="Cerrar búsqueda">
             <X className="h-5 w-5" strokeWidth={3} />
           </button>
         </div>

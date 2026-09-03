@@ -571,12 +571,7 @@ function CodeBlock({ lines, note }: { lines: string[]; note?: string }) {
 
   return (
     <div className="group/code relative">
-      <button
-        onClick={copy}
-        className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center border-2 border-[#FBF9F5]/30 bg-[#FBF9F5]/10 text-[#FBF9F5] opacity-0 transition-all hover:bg-[#FF5500] hover:text-black group-hover/code:opacity-100"
-        aria-label="Copiar código"
-        title="Copiar"
-      >
+      <button className="group-hover/code:opacity-100 absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center border-2 border-[#FBF9F5]/30 bg-[#FBF9F5]/10 text-[#FBF9F5] opacity-0 transition-all after:absolute after:-inset-2 after:content-[''] hover:bg-[#FF5500] hover:text-black" onClick={copy} aria-label="Copiar código" title="Copiar">
         {copied ? (
           <Check className="h-3.5 w-3.5 text-[#FF5500]" strokeWidth={3} />
         ) : (
@@ -656,12 +651,7 @@ function CliCard({
           <code className="block flex-1 break-all border-l-2 border-black/20 bg-[#F2EDE2] px-2 py-1 font-mono text-[11px] text-black/70   ">
             {args}
           </code>
-          <button
-            onClick={copy}
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center border-2 border-black bg-[#FBF9F5] text-black transition-all hover:bg-[#FF5500] active:translate-y-[1px]   "
-            aria-label={`Copiar comando vanta-cli ${cmd}`}
-            title="Copiar comando"
-          >
+          <button className="inline-flex h-7 w-7 shrink-0 items-center justify-center border-2 border-black bg-[#FBF9F5] text-black transition-all after:absolute after:-inset-2 after:content-[''] hover:bg-[#FF5500] active:translate-y-[1px] relative" onClick={copy} aria-label={`Copiar comando vanta-cli ${cmd}`} title="Copiar comando">
             {copied ? (
               <Check className="h-3.5 w-3.5 text-[#FF5500]" strokeWidth={3} />
             ) : (

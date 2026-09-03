@@ -352,13 +352,8 @@ export function SiteNavbar({
         </nav>
 
         {/* Right actions — search, lang, github, hamburger */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <button
-            onClick={openCommandPalette}
-            className="inline-flex h-9 w-9 items-center justify-center border-2 border-black bg-[#FBF9F5] text-black transition-all hover:translate-x-[1px] hover:translate-y-[1px]    sm:inline-flex"
-            aria-label={`${t("nav.search")} (⌘K)`}
-            title={`${t("nav.search")} (⌘K)`}
-          >
+        <div className="flex items-center gap-2.5 sm:gap-2.5">
+          <button className="relative inline-flex h-9 w-9 items-center justify-center border-2 border-black bg-[#FBF9F5] text-black transition-all after:absolute after:-inset-1 after:content-[''] hover:translate-x-[1px] hover:translate-y-[1px] sm:inline-flex" onClick={openCommandPalette} aria-label={`${t("nav.search")} (⌘K)`} title={`${t("nav.search")} (⌘K)`}>
             <Search className="h-4 w-4" strokeWidth={2.5} />
           </button>
 
@@ -376,12 +371,7 @@ export function SiteNavbar({
             <span className="hidden md:inline">GitHub</span>
           </a>
 
-          <button
-            onClick={() => setMobileOpen((o) => !o)}
-            className="inline-flex h-9 w-9 items-center justify-center border-2 border-black bg-[#FBF9F5] text-black    lg:hidden"
-            aria-label={tt("a11y.toggleMenu", "Toggle menu")}
-            aria-expanded={mobileOpen}
-          >
+          <button className="relative inline-flex h-9 w-9 items-center justify-center border-2 border-black bg-[#FBF9F5] text-black lg:hidden after:absolute after:-inset-1 after:content-['']" onClick={() => setMobileOpen((o) => !o)} aria-label={tt("a11y.toggleMenu", "Toggle menu")} aria-expanded={mobileOpen}>
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>

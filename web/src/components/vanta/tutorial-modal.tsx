@@ -257,12 +257,7 @@ function StepCodeBlock({ code }: { code: string }) {
 
   return (
     <>
-      <button
-        onClick={copy}
-        className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center border-2 border-[#FBF9F5]/30 bg-[#FBF9F5]/10 text-[#FBF9F5] opacity-0 transition-all hover:bg-[#FF5500] hover:text-black focus-visible:opacity-100 group-hover/code:opacity-100"
-        aria-label="Copiar código"
-        title="Copiar"
-      >
+      <button className="focus-visible:opacity-100 group-hover/code:opacity-100 absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center border-2 border-[#FBF9F5]/30 bg-[#FBF9F5]/10 text-[#FBF9F5] opacity-0 transition-all after:absolute after:-inset-2 after:content-[''] hover:bg-[#FF5500] hover:text-black" onClick={copy} aria-label="Copiar código" title="Copiar">
         {copied ? (
           <Check className="h-3.5 w-3.5 text-[#FF5500]" strokeWidth={3} />
         ) : (
