@@ -30,3 +30,9 @@ config:
 ignores:
   - ".github/ISSUE_TEMPLATE/*.yml"
   - "web/node_modules/**"
+  # Frozen history is never linted (would stay red forever by design)
+  - "docs/archive/**"
+  - "docs/plans/archive/**"
+  - "docs/reviews/archive/**"
+  # Generated benchmark output, not hand-written docs
+  - "docs/benchmarks/_run_stdout.md"

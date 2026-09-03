@@ -41,9 +41,9 @@ Applied to VantaDB:
    (Rust) / `.retriable` (Python) / `code` class (TS). Never guess.
 4. **Recovery hints shipped with the error** — `recovery_hint()` /
    `.details.hint` so users see actionable guidance, not a generic toast.
- 5. **Cause chain preserved** — `#[source]` (Rust) / `cause` (TS 4.4+) /
-    `__cause__` (Python 3 `raise … from`) keeps the debug trail intact.
- 6. **Backtrace captured, never displayed** (ERR-OBS-01) — `ChainedError`
+5. **Cause chain preserved** — `#[source]` (Rust) / `cause` (TS 4.4+) /
+   `__cause__` (Python 3 `raise … from`) keeps the debug trail intact.
+6. **Backtrace captured, never displayed** (ERR-OBS-01) — `ChainedError`
     variants (`Generic`, `WalError`, `BackendError`, …) capture a
     `std::backtrace::Backtrace` at construction when `RUST_LIB_BACKTRACE=1` /
     `RUST_BACKTRACE=1`; exposed via `Debug` and `backtrace_str()`, never in

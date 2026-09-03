@@ -9,7 +9,6 @@ tags: [vantadb, documentation, index, master-index]
 # VantaDB Master Index
 
 > Global index of all documentation, architecture decisions, API references, and operational guides.
-
 > **Maintenance rule:** every new doc or first-level folder under `docs/` MUST be indexed here **in the same PR** that adds it. Deliberate exclusions are listed at the bottom of this file.
 
 - **Project:** VantaDB — cross-platform memory layer for AI agents

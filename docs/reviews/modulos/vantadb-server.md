@@ -80,6 +80,7 @@ Cobertura funcional: query IQL, records CRUD+batch+versions+list+search+autocomp
 
 ### Streaming/SSE
 No existe. Cero matches de SSE/EventStream/text-event-stream en cli_server.rs. Todo es JSON request/response sincrono. Para DB local embebido esto es razonable hoy (YAGNI), pero export de datasets grandes y graph traversal profundo responden en un solo cuerpo sin chunking. Nota informativa, no bloqueante.
+<!-- section break -->
 ---
 
 ## 5. Auth / Middleware (fortaleza del modulo)
@@ -138,6 +139,7 @@ Ningun test e2e ejercita **busqueda textual/hibrida** por HTTP sobre DB fresca. 
 
 ### Cargo.toml
 publish=false correcto; dev-deps pesadas bien acotadas a test (reqwest rustls, rcgen, axum-server tls). Feature `sysinfo = []` vacia parece muerta — revisar si tiene consumidor o borrar.
+<!-- section break -->
 ---
 
 ## 8. Hallazgos
