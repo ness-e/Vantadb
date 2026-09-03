@@ -641,7 +641,6 @@ class TestNumPyIntegration:
         into its own namespace — no cross-namespace data leak."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         records = db.put_batch(
-            entries=None,
             keys=["k1", "k2"],
             vectors=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
             payloads=["from A", "from B"],
@@ -660,7 +659,6 @@ class TestNumPyIntegration:
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         with pytest.raises(ValueError):
             db.put_batch(
-                entries=None,
                 keys=["k1", "k2"],
                 vectors=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
                 namespaces=["nsA"],
@@ -669,7 +667,7 @@ class TestNumPyIntegration:
     def test_put_batch_empty(self):
         """put_batch with empty list should return empty list."""
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
-        records = db.put_batch([])
+        records = db.put_batch([], [])
         assert records == [], f"expected empty list, got {records}"
 
     def test_put_batch_numpy_vectors(self):
@@ -678,7 +676,6 @@ class TestNumPyIntegration:
         db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         vec = np.array([1.0, 0.0, 0.0], dtype=np.float32)
         records = db.put_batch(
-            entries=None,
             keys=["x"],
             payloads=["numpy entry"],
             vectors=[vec],

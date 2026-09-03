@@ -192,9 +192,8 @@ class VantaDB:
     ) -> VantaMemoryRecord: ...
     def put_batch(
         self,
-        entries: list[tuple[str, str, str, dict | None, Any | None, int | None]] | None,
-        keys: list[str] | None = None,
-        vectors: list[list[float]] | None = None,
+        keys: list[str],
+        vectors: list[list[float]],
         payloads: list[str] | None = None,
         metadatas: list[dict | None] | None = None,
         namespace: str | None = None,
@@ -360,9 +359,8 @@ class MemoryClient:
     ) -> VantaMemoryRecord: ...
     def put_batch(
         self,
-        entries: list[tuple[str, str, str, dict | None, Any | None, int | None]] | None,
-        keys: list[str] | None = None,
-        vectors: list[list[float]] | None = None,
+        keys: list[str],
+        vectors: list[list[float]],
         payloads: list[str] | None = None,
         metadatas: list[dict | None] | None = None,
         namespace: str | None = None,

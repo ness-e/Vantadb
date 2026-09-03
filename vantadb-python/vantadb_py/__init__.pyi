@@ -159,10 +159,9 @@ class AsyncVantaDB:
     ) -> None: ...
     async def put_batch(
         self,
-        entries: list[tuple[str, str, str, dict | None, Any | None, int | None]] | None = None,
         *,
-        keys: list[str] | None = None,
-        vectors: Any | None = None,
+        keys: list[str],
+        vectors: Any,
         payloads: list[str] | None = None,
         metadatas: list[dict | None] | None = None,
         namespace: str | None = None,
