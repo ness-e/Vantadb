@@ -34,10 +34,15 @@ pub struct AsyncIngestionPipeline {
 impl AsyncIngestionPipeline {
     /// Create a new pipeline with the given number of workers.
     ///
-    /// `worker_count` defaults to 4 when `None` is passed. At least one worker
-    /// is always created.
+    /// `worker_count` defaults to 1 when `None` is passed. At least one worker
+    /// is always created. Default is 1 (not 4): RES-03 measured -31% (w=2) /
+    /// -43% (w=4) vs w=1 on the serial insert path — see
+    /// `docs/operations/BENCHMARKS.md` §13.
     pub fn new(engine: Arc<StorageEngine>, worker_count: Option<usize>) -> Self {
-        let count = worker_count.unwrap_or(4).max(1);
+        // ponytail: single worker — engine insert path is serial (global insert_lock
+        // + WAL fsync per write); more workers only add convoy. Scale up when
+        // FIND-59/FUT-12 lift the serial ceiling (see BENCHMARKS §13).
+        let count = worker_count.unwrap_or(1).max(1);
         let (tx, rx) = mpsc::channel::<(IngestionTask, oneshot::Sender<Result<u128>>)>(1024);
         let rx = Arc::new(Mutex::new(rx));
 

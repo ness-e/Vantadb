@@ -476,6 +476,40 @@ ningún test existente depende del orden de ingesta (0 tests previos; test de ca
 añadido: `ingestion::tests::pipeline_delivers_every_submitted_task`, sin asunción de orden).
 Backpressure (pre-mortem 2): capacity 1024 intacta — no hubo cambio de canal.
 
+### Post-FIND-57 re-measurement — default `worker_count` 1 (2026-09-03)
+
+> **Source of truth:** same `benches/ingestion_concurrent.rs`, same config as the matrix
+> above (BATCH=400, DIM=16, capacity 1024, tokio worker_threads=4, fresh fjall DB
+> per batch). FIND-57 changed only the `None` default (`unwrap_or(4)` →
+> `unwrap_or(1)`, `src/ingestion.rs:45`); the bench passes `Some(workers)` explicitly,
+> so these numbers are independent of the default — they re-validate the decision
+> on the current tree. Gate D approved by the user at dispatch.
+> >
+> > **Reproduce (Regla 11):**
+> > ```powershell
+> > # criterion accepts a single [FILTER]; one invocation per cell, ×2 corridas
+> > cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion -- "p1/1"
+> > cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion -- "p1/4"
+> > cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion -- "p4/1"
+> > cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion -- "p4/4"
+> > ```
+>
+> Per-corrida value = median of the 11 printed throughput samples (1 warmup + 10);
+> final = median of the 2 corridas (same "×2 + mediana" rule as the matrix above).
+
+| producers | consumers | run A (ops/s) | run B (ops/s) | mediana | vs w=1 (same p) |
+|---|---|---|---|---|---|
+| 1 | 1 | 114 | 109 | **111.5** | — |
+| 1 | 4 | 65 | 61 | **63.0** | −43% |
+| 4 | 1 | 105 | 108 | **106.5** | −4% vs p1/1 (noise, same direction as §13's −0%) |
+| 4 | 4 | 62 | 62 | **62.0** | −44% |
+
+Lectura: same shape as the pre-change matrix — adding consumers degrades
+monotonically (w=4 ≈ −43/−44% vs w=1); producers don't move the lattice.
+Contract check `bench post-cambio ≥110 ops/s`: **111.5 ✅**. Default=1 confirmed;
+external `None` callers now get the fastest regime. Upgrade path unchanged:
+FIND-59/FUT-12 (serial `insert_lock` + WAL fsync ceiling).
+
 ## 14. IVF search hot path — premisa-muerta + baseline post-`b4ff157d` (AUD-045)
 
 > **Source of truth:** `benches/ivf_bench.rs` (REVISAR-01). `canonical_p99.rs` **no** cubre IVF
