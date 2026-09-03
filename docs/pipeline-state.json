@@ -1,21 +1,23 @@
 {
-  "plan": "docs/plans/archive/2026-09-02-error-observability-excellence.md",
-  "campaignId": "20260902-error-observability",
-  "totalCompleted": 9,
+  "plan": "docs/plans/archive/2026-09-03-quality-gtm-wave.md",
+  "campaignId": "20260903-quality-gtm-wave",
+  "totalCompleted": 12,
   "totalFailed": 0,
-  "total": 9,
+  "total": 12,
   "consecutiveFails": 0,
   "failMode": "parallel",
-  "lastSync": "2026-09-02T21:30:00Z",
+  "lastSync": "2026-09-03T14:30:00Z",
   "branch": "develop",
   "waves": [
-    {"name": "Wave 0", "tasks": ["ERR-CORE-02", "ERR-DOCS-01"], "mode": "parallel", "done": true},
-    {"name": "Wave 1", "tasks": ["ERR-CORE-01"], "mode": "serial", "done": true},
-    {"name": "Wave 2", "tasks": ["ERR-PY-01", "ERR-TS-01", "ERR-MCP-01"], "mode": "parallel", "done": true},
-    {"name": "Wave 3", "tasks": ["ERR-DESK-01", "ERR-WEB-01", "ERR-OBS-01"], "mode": "parallel", "done": true}
+    {"name": "Wave0", "tasks": ["RES-07","GOV-TK1","GOV-TK9"], "mode": "parallel", "done": true},
+    {"name": "Wave1", "tasks": ["MKT-18h","SRV-07","MKT-18i"], "mode": "parallel", "done": true},
+    {"name": "Wave2", "tasks": ["RES-12","MKT-18f","RES-09"], "mode": "parallel", "done": true},
+    {"name": "Wave3", "tasks": ["RES-03","RES-15C"], "mode": "parallel", "done": true},
+    {"name": "Wave4", "tasks": ["AUD-045"], "mode": "solo", "done": true}
   ],
-  "commits": {"ERR-CORE-02":"af0bb8b8","ERR-DOCS-01":"962831ae","ERR-CORE-01":"e1fe7ec2","ERR-TS-01":"2686bea2","ERR-MCP-01":"0ce791ce","ERR-PY-01":"2da5f782","ERR-DESK-01":"6bdc2c5d","ERR-WEB-01":"10cc9671","ERR-OBS-01":"817b83e5"},
-  "followups": ["FIND-52", "FIND-53", "FIND-54", "sanitizacion-500-query_error_response"],
+  "commits": {"RES-07":"3a27c5f4","GOV-TK9":"bd22f387","GOV-TK1":"adf03752","MKT-18h":"b5d92059","SRV-07":"1ad28523","MKT-18i":"abb6594c","RES-12":"539dfa41","MKT-18f":"df9361ab","RES-09":"40deff12","RES-15C":"089225f0","RES-03":"5732e25a","AUD-045":"fa84cd66"},
+  "newFindings": ["FIND-56","FIND-57","FIND-58"],
+  "humanPending": ["MKT-18f-publicacion-PyPI(checklist task file)","MKT-18h-corrida-CI-aarch64","SRV-07-docker-build-CI","MKT-18i-AnythingLLM-upstream"],
   "outstanding": [],
   "note": "stash@{0} pertenece a GOV-C4, no tocar"
 }
