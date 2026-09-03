@@ -540,7 +540,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Effort | Descripción | Archivos / Origen | Estado |
 |----|--------|-------------|-------------------|--------|
-| `RES-12` | 🟢 | **Touch targets ≥44px — re-escalado 2026-09-03: no son ~20 componentes; grep de `<button>` con `h-7/h-9` arroja 4-5 archivos**: `docs-view.tsx` (copiar-código c:576 + otro), `shortcut-overlay.tsx`, `site-navbar.tsx`, `tutorial-modal.tsx`, `command-palette.tsx:232` (cerrar búsqueda). El resto de hits son decorativos (barras benchmark-race, spans de iconos) — fuera de WCAG 2.5.5. Solo los 3 severos fueron corregidos antes con `size-11` | `web/src/components/vanta/{docs-view,shortcut-overlay,site-navbar,tutorial-modal,command-palette}.tsx` · Origen: `INV-015-touch-targets-44px.md` | ⬜ Pendiente (alcance 4-5 archivos) |
 | `RES-15` | 🟢 | **Institucionalizar meta-001 C** — re-escalado 2026-09-03: B YA está institucionalizada (`research-decide.md:81` dirige WONTFIX/DESCARTES a `docs/avance/decisiones/wontfix.md` con motivo; wontfix.md con entries = micro-ADR vigente). Queda solo C: separar backlog negocio/técnico. Cruzar con GOV-TK5 (split Manual Estratégico) para no duplicar | `.opencode/rules/`, `docs/Backlog.md` · Origen: `meta-001-root-cause-analysis.md` | ⬜ Pendiente (solo C) |
 
 ### Decisiones de producto (antes de código)

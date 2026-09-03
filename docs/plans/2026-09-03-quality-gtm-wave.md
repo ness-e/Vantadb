@@ -145,7 +145,8 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 - **Risk Register:** | 🟢×🟢 | regresión visual | screenshot guard del spec e2e | verify |
 - **Cynefin:** 🟦 | **Uphill/Downhill:** ⬆️ 0 · ⬇️ 5 archivos
 - **DoD:** Task: contrato; Commit `fix(web): touch targets ≥44px en 5 componentes (RES-12)`; Release N/A
-- **Estado:** ⬜ PENDING | **Task file:** `.../tasks/RES-12.md` | **Ruta:** vanta-worker (web) | **Branch:** develop
+- **Estado:** ✅ COMPLETED 2026-09-03 | **Task file:** N/A (resumen en plan) | **Ruta:** vanta-worker (web) | **Branch:** develop
+- **Recitation cierre:** 8 `<button>` h-7/h-9 en los 5 archivos → hit-area `after:absolute after:-inset-2` (h-7) / `after:-inset-1` (h-9) = 44px exactos, borde visual intacto; gap navbar →`gap-2.5`; decorativos (badges/ticker) fuera. Contrato: `rg -U '<button[^>]*h-(7|9)[^>]*' web/src -g '*.tsx' | rg -v "inset|p-2 -m-2|hit"` = 0 líneas ✅ (baseline 30) · `npm run build --prefix web` exit 0 (36 rutas app; manifest 39 con internals) ✅ · `npm run lint` 0 errors (4 warnings pre-existentes) ✅ · `npx playwright test` 2 passed ✅ · sin harness unit web → guard E2E = verificación. Screenshots 1440×900 before/after sin colapso de layout ni pérdida de focus ring. Commit `539dfa41`. Fila Backlog RES-12 eliminada → `docs/avance/activo/web-frontend.md`.
 
 ### Task 8: MKT-18f — Publicar 5 adapters PyPI + PRs upstream
 
@@ -294,4 +295,26 @@ Resultado: ✅
 Próxima acción: Ninguno para MKT-18h. Wave1 completo por esta ruta; orquestador: verificar job aarch64 en proxima corrida CI (PR a main dispara por paths)
 Contrato: verificacion: rg -n aarch64-unknown-linux-gnu release-wheels-60.yml=1 match OK; actionlint exit 0 OK; Formula placeholders=0 + 4 SHA reales OK; cargo check -p vantadb_py --all-targets exit 0 OK | evidencia: claim 'SHA reales' -> Get-FileHash local de 4 tarballs v0.5.0 == sidecars CI (file: $envTEMP\mkt18h) confianza alta; claim 'cross container oficial' -> PyO3/maturin-action README v1.51.0 tabla manylinux_2_28-cross:aarch64 + dist/index.js target.length>0 OK confianza alta | artefactos: .opencode/skills/campaign-executor/tasks/MKT-18h.md | invariantes: release-binaries-63.yml y docker-compose.yml NO tocados (parallel tasks); cargo intacto | deuda: verificacion real job aarch64 diferida a corrida CI (stop-condition plan); FIND-candidate: input musllinux inexistente en maturin-action v1.51.0 (config muerta removida); anuncio brew install en FAQ = decision humana | queda_pendiente: lead reconciliar atribucion (wheels+plan cabalgaron commit ajeno 2ab706ec por race de worktree compartido; Formula/Backlog/avance/cierre en b5d92059)
 Próxima tarea si completa: SRV-07 completed; siguiente wave2 segun plan
+=== END RECITATION ===
+
+=== RECITATION RES-09 ===
+Campaign ID: 20260903-quality-gtm-wave
+Objetivo activo: RES-09 cerrada: roadmap huérfano trackeado como FUT-12/13/14
+Estado: completed
+Última acción: Commit 40deff12 con 3 archivos; contract rg/lint verificado post-commit
+Resultado: ✅
+Próxima acción: n/a — handoff al orquestador para siguiente Wave2 (RES-12/MKT-18f siguen)
+Contrato: verificacion: rg FUT-1[234]=5 (≥3), rg -c RES-09=5 (≥1), markdownlint-cli2 0 issues, filas 5 columnas ✅ | evidencia: claim=WAL sync-por-escritura gap real, evidencia=src/wal.rs:372 + src/config.rs:180 confianza=alta; claim=DiskANN in-memory, evidencia=src/index/diskann.rs:7,13 confianza=alta; claim=planner router+heuristic, evidencia=investigacion archive l.37,l.186 confianza=alta | artefactos: docs/Backlog.md P24+P38, docs/avance/investigaciones.md, plan Task9 | invariantes: solo docs/Backlog.md P24/P38+avance+plan editados; no stagear completions/.opencode | deuda: count P38 '16' conserva criterio de auditoria 2026-08-25 (filas vivas=6) — re-auditar en proximo sweep | queda_pendiente: nada para RES-09
+Próxima tarea si completa: Wave2 restantes: RES-12 | MKT-18f
+=== END RECITATION ===
+
+=== RECITATION RES-12 ===
+Campaign ID: 20260903-quality-gtm-wave
+Objetivo activo: RES-12: touch targets web ≥44px (WCAG 2.5.5) con hit-area invisible
+Estado: completed
+Última acción: Commit 539dfa41 (5 .tsx, −38 líneas netas) + fila Backlog eliminada + avance/web-frontend + plan Task7 ✅
+Resultado: ✅
+Próxima acción: Wave2 restante: MKT-18f; push develop = vanta-lead
+Contrato: verificacion: `rg -U '<button[^>]*h-(7|9)[^>]*' web/src -g '*.tsx' | rg -v "inset|p-2 -m-2|hit"` = 0 líneas (baseline 30) ✅; `npm run build --prefix web` exit 0 con 36 rutas app (manifest 39 con internals) ✅; `npm run lint` 0 errors (4 warnings pre-existentes) ✅; `npx playwright test` 2 passed (WEB-08/WEB-09) ✅ | evidencia: 8 buttons h-7/h-9 → `after:absolute after:-inset-2` (h-7) / `after:-inset-1` (h-9) = 44px exactos + gap navbar →2.5 (2.5.8); screenshots 1440×900 before/after /docs+home: cero colapso flex, focus ring intacto; sin harness unit web (package.json verificado, 0 scripts test) → guard E2E es la verificación | invariantes: NO tocados docker*/Formula/workflows/otros archivos; decorativos h-7 (badges span, ticker div) intactos; sin stage de completions/.opencode | deuda: className en línea única para que el match del contrato caiga en 1 línea legible por rg -v — trade-off formateo vs check mecánico, aceptado; verificación palette-open visual no cubre botón cerrar (Ctrl+K no abrió en shot), riesgo bajo (mismo patrón que cerrar-overlay verificado por layout) | queda_pendiente: nada para RES-12
+Próxima tarea si completa: Wave2 restante: MKT-18f
 === END RECITATION ===
