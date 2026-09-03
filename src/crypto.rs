@@ -40,7 +40,7 @@
 //! decryption falls back to the legacy scheme.
 
 use aes_gcm::{
-    aead::{Aead, AeadCore, KeyInit, OsRng},
+    aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
 };
 use rand::RngCore;
@@ -201,7 +201,11 @@ impl Cipher {
     /// fallible interface should use [`EncryptionStream`], which wraps this
     /// call into [`io::Result`] at the stream boundary.
     pub fn encrypt(&self, plaintext: &[u8]) -> Vec<u8> {
-        let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+        // aead 0.6 removed `AeadCore::generate_nonce`: fill from the OS CSPRNG
+        // directly (same source `Generate` would use) via rand 0.9.
+        let mut nonce_bytes = [0u8; 12];
+        rand::rng().fill_bytes(&mut nonce_bytes);
+        let nonce = Nonce::from(nonce_bytes);
         match &self.raw_key {
             Some(raw) => {
                 let inner = cipher_from_raw(raw);
@@ -257,7 +261,8 @@ impl Cipher {
                     let salt = &header[1..];
                     let inner = derive_from_password(password, salt);
                     let (nonce_bytes, ciphertext) = body.split_at(12);
-                    if let Ok(pt) = inner.decrypt(Nonce::from_slice(nonce_bytes), ciphertext) {
+                    let nonce_array: [u8; 12] = nonce_bytes.try_into().ok()?;
+                    if let Ok(pt) = inner.decrypt(&Nonce::from(nonce_array), ciphertext) {
                         return Some(pt);
                     }
                     // Fall through: a legacy message whose first nonce byte
@@ -300,9 +305,8 @@ fn decrypt_legacy(data: &[u8], key: &[u8; 32]) -> Option<Vec<u8>> {
     }
     let inner = Aes256Gcm::new_from_slice(key).ok()?;
     let (nonce_bytes, ciphertext) = data.split_at(12);
-    inner
-        .decrypt(Nonce::from_slice(nonce_bytes), ciphertext)
-        .ok()
+    let nonce_array: [u8; 12] = nonce_bytes.try_into().ok()?;
+    inner.decrypt(&Nonce::from(nonce_array), ciphertext).ok()
 }
 
 /// A transparent Read/Write wrapper that encrypts data on write and decrypts
@@ -504,7 +508,9 @@ mod tests {
         let password = b"short key";
         let legacy_key: [u8; 32] = Sha256::digest(password).into();
         let legacy_cipher = Aes256Gcm::new_from_slice(&legacy_key).unwrap();
-        let nonce = Aes256Gcm::generate_nonce(&mut OsRng);
+        let mut legacy_nonce_bytes = [0u8; 12];
+        rand::rng().fill_bytes(&mut legacy_nonce_bytes);
+        let nonce = Nonce::from(legacy_nonce_bytes);
         let ct = legacy_cipher
             .encrypt(&nonce, b"legacy payload".as_slice())
             .expect("legacy encryption is infallible");
