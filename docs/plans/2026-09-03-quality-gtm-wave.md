@@ -205,7 +205,7 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 - **Risk Register:** | 🟢×🟡 | contador back-drift | regla sync por rg | meta.md |
 - **Cynefin:** 🟦 | **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1
 - **DoD:** Task: contrato; Commit `docs(process): split backlog negocio/tecnico (RES-15-C)`; Release N/A
-- **Estado:** ⬜ PENDING | **Task file:** `.../tasks/RES-15.md` | **Ruta:** vanta-lead (docs/process) | **Branch:** develop
+- **Estado:** ✅ COMPLETADA 2026-09-03 (split hecho: `docs/Backlog-negocio.md` 15 filas; técnico 123→107; BLOG-CTA queda técnico con criterio documentado; regla en `docs/avance/meta.md`; contrato rg verde) | **Task file:** `.../tasks/RES-15.md` | **Ruta:** vanta-lead (docs/process) | **Branch:** develop
 
 ### Task 12: AUD-045 — IVF: clones por candidato en hot path → medir → A/B o decisión
 

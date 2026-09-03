@@ -12,6 +12,7 @@ aliases: [Roadmap, Milestones, Engineering Plan, Timeline, Plan de Acción]
 # VantaDB — Roadmap de Ejecución
 
 > **Backlog fuente:** [`docs/Backlog.md`](../Backlog.md) — ver `docs/Backlog.md` para conteo actual (regla de sync en Backlog header; el "165" original, "~24" intermedio y "~45" 2026-08-22 quedaron obsoletos)
+> **Backlog de negocio:** [`docs/Backlog-negocio.md`](../Backlog-negocio.md) — filas humano-dependientes (legal/ventas/publicación) separadas del técnico el 2026-09-03 (RES-15-C); los conteos viven solo en las cabeceras de cada backlog (regla GOV-C7, no duplicar aquí)
 > **Última revisión del proyecto:** 2026-07-16 (537 commits desde el roadmap anterior)
 > **⚠️ REVISIÓN 2026-08-17 (verificación multi-agente):** Este roadmap es **histórico** — las fases Sem 1-16 ya se ejecutaron (versión real **0.5.0** publicada 2026-08-01, no 0.2.0; ver `docs/Backlog.md` P0). Los riesgos R2/R5/R8 están **resueltos**; R4 (MSVC linker) y R6/R7 (SQ8, HNSW rebuild) **siguen vigentes** (ver tabla de riesgos). El estado actual de ejecución vive en `docs/Backlog.md` + `docs/progreso/README.md`; este documento se conserva como registro del plan original y de decisiones arquitectónicas (§6).
 > **Estas fuentes fueron analizadas para este roadmap:**
@@ -426,7 +427,7 @@ Sem 13-16: FASE 4 — MADUREZ
 | TEST-12 | 🟡 | Security testing fuzzing — postergar post-Show HN |
 | DOC-20 | 🟡 | mdBook adoption — postergar |
 | MKT-17 | 🟢 | Comparación competitiva — post-Show HN |
-| LEG-01 | 🔴 | Trademark — iniciar ahora (proceso legal lento) |
+| LEG-01 | 🔴 | Trademark — iniciar ahora (proceso legal lento) — fila en `docs/Backlog-negocio.md` |
 | MKT-03→05 | 🔴🟠 | Show HN + Reddit + Blog posts — Fase 0/1 |
 
 ---

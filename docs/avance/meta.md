@@ -15,6 +15,14 @@ aliases: []
 
 Los archivos de `docs/avance/activo/` **se actualizan al cierre de cada campaña** (no daily); los dominios del mirror = **crates activos** del workspace. Un crate nuevo ⇒ archivo de dominio nuevo en el mismo cierre. Verificación: muestreo cruzado `git log --grep MEM-` ↔ archivos de dominio (GOV-D1, 2026-08-22).
 
+## Regla de proceso — Dos backlogs: técnico y negocio (RES-15-C, 2026-09-03)
+
+- **Archivos:** `docs/Backlog.md` = **técnico** (ejecutable por agentes: código, docs, tests, CI). `docs/Backlog-negocio.md` = **negocio** (requiere abogado, pago, identidad/decisión humana o publicación manual).
+- **Criterio (Gate P):** lo que requiere agente/código → técnico (queda); lo que requiere abogado/plata/decisión humana/publicación → negocio (se mueve). Casos borderline documentados en la tabla "Criterio por fila borderline" de `Backlog-negocio.md` (PRO = negocio con nota "vuelve al técnico cuando arranque Pro"; BLOG-CTA/MKT-18f/i = técnico con lado humano solo al publicar).
+- **Sync anti-drift (regla GOV-C7):** en cada movimiento, actualizar los contadores "Total open items" de AMBAS cabeceras verificándolos con `rg -c` (nunca a mano), y confirmar que ningún ID movido sigue resolviendo en el otro archivo (`rg -c "<ID>"` == 0 post-movimiento, pre-mortem doble-match).
+- **Impacto en `/pipeline plan`:** el parser lee **solo** `docs/Backlog.md` — las filas de negocio NO entran al triage técnico a propósito (es el fix de la contaminación de métricas que originó la tarea). Revisar `Backlog-negocio.md` corresponde al humano/`/backlog`.
+- **No confundir con GOV-TK5:** GOV-TK5 es el split del **Manual Estratégico** (contenido negocio → `docs/business/` con banner snapshot), un split distinto de archivos; se enlaza, no se duplica (verificado 2026-09-03 — RES-15-C).
+
 ## Backlog housekeeping
 
 ### 2026-07-26 — Backlog Cleanup P0–P4, P7, P9–P10 (53 items → progreso)

@@ -12,8 +12,9 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 > **Purpose:** Single source of truth for all project tasks — organized by execution order.
 > **Execution state lives in:** `docs/plans/YYYY-MM-DD-<campaign>.md` (plan file) + task files — per campaign-executor RULES.md §2. This file is the task catalog; the plan file is the execution state.
 > **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
+> **Backlog de negocio:** [`docs/Backlog-negocio.md`](Backlog-negocio.md) — filas que requieren abogado/pago/decisión humana/publicación (criterio Gate P, split RES-15-C 2026-09-03). Este archivo es solo técnico: lo ejecutable por agentes.
 > **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 123 activas (post-paso0-plan 2026-09-03: -3 purgadas con evidencia - FIND-22 (cerrada 3b1b820b, fila stale), PY-02 (BENCHMARKS §2 SDK Python con comando reproducible ya existe), FIND-51 (premature: handlers.rs 1469L < umbral 2500L); ver plan 2026-09-03-quality-gtm-wave; previo 126)
+> **Total open items:** 107 activas (post-RES-15-C 2026-09-03: -16 = 15 filas movidas a `docs/Backlog-negocio.md` + RES-15 completada; previo 123, post-paso0-plan 2026-09-03: -3 purgadas con evidencia - FIND-22 (cerrada 3b1b820b, fila stale), PY-02 (BENCHMARKS §2 SDK Python con comando reproducible ya existe), FIND-51 (premature: handlers.rs 1469L < umbral 2500L); ver plan 2026-09-03-quality-gtm-wave)
 ---
 
 ## Exec Summary
@@ -25,10 +26,10 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 | **P2** ⚡ Quick Wins Técnicos | 0 | — | ✅ Cerrado |
 | **P3** 🧪 Test Coverage (core SDKs) | 0 — ✅ 4/4 ejecutadas (COV-001..004 completadas 2026-08-12) | — | ✅ Cerrada |
 | **P4** 🔧 Engineering Health | 0 — PERF-01..09 migradas a progreso 2026-08-12 | — | ✅ Cerrado |
-| **P5** 📖 Docs & Community | 3 (DISC-01..03) | ~1-2 semanas | 🟡 Media |
-| **P6** 🚀 Launch Campaign | 11 (LEG-01, MKT-04, MKT-18f/g/h/i, CLD-01/02/04, BLOG-CTA) | ~2-3 semanas | 🟡 Media |
+| **P5** 📖 Docs & Community | 1 (ICEBOX) — 2 filas community-ops (UI manual Discord) movidas a `docs/Backlog-negocio.md` | ~1-2 semanas | 🟡 Media |
+| **P6** 🚀 Launch Campaign | 3 (MKT-18f/g/h/i, BLOG-CTA) — 5 filas humanas (legal/marketing/cloud) movidas a `docs/Backlog-negocio.md` | ~2-3 semanas | 🟡 Media |
 | **P7** 🌐 WASM & Performance | 0 | — | ✅ Cerrado |
-| **P8** 🔮 Post-Launch & Enterprise | 1 (BIZ-01b) | ~3-5 semanas | 🔵 Futuro |
+| **P8** 🔮 Post-Launch & Enterprise | 0 — 1 fila enterprise movida a `docs/Backlog-negocio.md` | ~3-5 semanas | 🔵 Futuro |
 | **P9** 📚 Old Docs Rescue (reference) | 1 (OLD-01) | — | 📖 Referencia |
 | **P10** 🏗️ Competitive Features (catalog) | 0 | — | 🗺️ Roadmap |
 | **P11** 🐛 GitHub Issues | 0 | — | ✅ Cerrado |
@@ -37,7 +38,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 | **P14** 🔍 REVIEW items | 0 | — | ✅ Cerrada |
 | **P15** 🔍 ERR items (revisión multi-agente 2026-08-08) | 0 — ✅ todos resueltos (36 por plan 2026-08-09 + 10 migradas 2026-08-12 + ERR-007 ban-skip 2026-08-12) | — | ✅ Cerrada |
 | **P16** 🧩 Completitud de Features (investigación 2026-08-09) | 1 residual (CI-01) | 📆 Backlog | 🟢 Baja (19 ejecutadas 2026-08-09 + PERF-07/08/09 2026-08-12) |
-| **P23** 🔒 VantaDB Pro (Open Core) | 6 (PRO-01..06) | ~8-12 semanas | 🔵 Futuro |
+| **P23** 🔒 VantaDB Pro (Open Core) | 0 — 6 filas Pro movidas a `docs/Backlog-negocio.md` (trigger de inicio = decisión de negocio; vuelven aquí al arrancar Pro) | ~8-12 semanas | 🔵 Futuro |
 | **P24** 🧪 I+D futura (v3.0+) | 13 (FUT-02..14) | 📆 Futuro | 🗺️ Roadmap |
 | **P25** 🔌 Exposición MCP/HTTP | 11 (MCP-16..26) | ~2-3 semanas | 🟡 Media |
 | **P26** 🖥️ Vanta Studio (consola human-facing desktop) | Fase 0 ✅ (14/19) + Fase 1 ✅ (9/9) + Fase 2 ✅ (10/10: VS-CORE-04/05/06 + GRAFO-01..03 + ESPACIO-01..02 + OP-01..02) + Fase 3 ✅ (7/7: WEB-00..06) + **Fase 4 ✅ (18/18: DOC-01..04 + REST-01..06 + WASM-01..04 + FEAT-01..03 + VER-01)** | Planes archivados `docs/plans/archive/2026-08-18-vanta-studio-fase{1,2,3}.md` + `docs/plans/archive/2026-08-19-vanta-studio-fase4.md` | 🟢 Completada 2026-08-20 (ADR-027; E2E server + standalone WASM/OPFS PASS) |
@@ -45,7 +46,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 | **GOV** 📋 Gobernanza Documental (post-auditoría 2026-08-21, plan `docs/plans/2026-08-22-doc-governance-plan.md`) | 30 tareas (T0: TIR ×3 · A: medición ×5 · B: Show-HN ×6 · C: maestros ×7 · D: taxonomía ×6 · E: limpieza ×1 · F: auditoría intocadas ×2) | ~6 días | 🔴 Alta (Wave B bloqueante Show HN; decisiones D1-D14 del owner en `docs/reviews/auditoria-documentacion-2026-08-21.md`) |
 | **P36** 🔧 Auditoría AGENTS.md & sistema de agentes (2026-08-24) | 6 (AGT-01..06; 3 fixes ya aplicados en sesión) | ~1 día | 🟠 Media |
 | **P37** 🎨 Auditoría diseño desktop post-fix (2026-08-24, orquestador + 5 sub-agentes) | 0 — ✅ 9/9 ejecutadas (DAUD-01..09 — commits `3c53d8b2`,`480935a7`,`b865c625`; DAUD-02 via DESKTOP-QW4 `ad0f34b1`) | — | ✅ Cerrada 2026-08-26 |
-| **P38** 🔬 Research huérfanas → tarea (auditoría docs/research, 2026-08-25) | 16 (RES-01..15 + DEC-01/02; cada fila validada contra código con evidencia. RES-09 → FUT-12/13/14 en P24, 2026-09-03) | ~2-3 semanas (RES-01 es la más grande) | 🟡 Media (RES-01/RES-02 🔴 calidad/durabilidad) |
+| **P38** 🔬 Research huérfanas → tarea (auditoría docs/research, 2026-08-25) | 15 (RES-01..14 + DEC-01/02; cada fila validada contra código con evidencia. RES-09 → FUT-12/13/14 en P24, 2026-09-03; RES-15 completada 2026-09-03) | ~2-3 semanas (RES-01 es la más grande) | 🟡 Media (RES-01/RES-02 🔴 calidad/durabilidad) |
 | **P48** 🧪 Testing & Benchmarking Hardening (auditoría multi-agente 2026-08-30, plan `docs/plans/archive/2026-08-30-testing-bench-harden.md`) | 0 (cerrada 2026-08-31: 22 ✅ + 1 🟡 INCOMPLETO `TBH-06`; resumen en sección "P48 — CIERRE") | ~2-3 semanas | 🔴 **Cerrada 2026-08-31** |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
@@ -74,8 +75,6 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
 |----|-------------|----------|----------|------|-------------|
-| `DISC-01` | **Configurar Discord: reaction roles, autorole, logging, welcome DM, onboarding** | `docs/discord/todo.md` + assets SVG + server activo | 🟡 2-3d | 🟢 | ⚠️ Docs + assets OK. Config pendiente |
-| `DISC-02` | **Discord: AutoMod, stickers/emojis, forums seed** | — | 🟢 4-6h | 🟢 | ⚠️ Forums seedeado (9 threads: FAQ/Showcase/Ideas/Bug). AutoMod/stickers/emojis requieren Discord UI manual — no API-accessible |
 | `DISC-03` | **Discord: ticketing system, stage channel, Server Discovery, Canny.io** | — | 🟢 4-6h | 🟢 | ⏸️ **ICEBOX 2026-08-05** — Server Discovery exige 1000+ miembros; Canny.io SaaS externo; ticketing requiere bot externo (Ticket Tool/Helper.gg). Nada accionable hoy. Dependencias documentadas en `docs/discord/todo.md`. No cuenta como activa. |
 
 ---
@@ -86,31 +85,21 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 
 ### 👤 Tareas Humanas (no-delegables a agentes)
 
-> Requieren identidad legal, pago, o acceso manual a dashboards externos. `owner: human`. No ingresan al flujo de agentes. (Sección creada 2026-08-05 — LEG-01 movido aquí.)
-
-| ID | Descripción | Estimación real | Prioridad | Estado Real |
-|----|-------------|-----------------|-----------|-------------|
-| `LEG-01` | **Registrar trademark "VantaDB" (USPTO + EUIPO)** — Requiere abogado, pago (~$250-350/clase USPTO, ~€850 EUIPO), identidad legal. Estimación original "2-4h" irreal. | semanas, $2-5K | 🔴 | ❌ No iniciado — mover a `docs/strategy/GO_TO_MARKET.md` cuando exista |
+> Requieren identidad legal, pago, o acceso manual a dashboards externos. `owner: human`. No ingresan al flujo de agentes. (Sección creada 2026-08-05.) **Split RES-15-C 2026-09-03:** las filas puramente humanas (legal/trademark, publicación Reddit, cloud/pitch/case-study) viven ahora en [`docs/Backlog-negocio.md`](Backlog-negocio.md); aquí quedan las que tienen lado código verificado (MKT-18f/i).
 
 | ID | Descripción | Esfuerzo | Prio | Estado Real |
 |----|-------------|----------|------|-------------|
-| `MKT-04` | **Publicar 3 drafts de Reddit (r/rust, r/MachineLearning, r/LocalLLaMA)** — drafts listos en `docs/strategy/REDDIT_POSTS.md` (status: draft), NUNCA publicados. Verificado 2026-08-17. ⚠️ Corregir claims primero: "recall>0.998 SIFT1M"/"zero deps" no verificados (ver SHOW_HN_PREP.md nota). | 🟢 2-4h | 🟠 | ❌ Pendiente |
 | `MKT-18f` | **Publicar 5 adapters en PyPI (re-escalado 2026-09-03)** — lado código CERRADO: 5/5 `python -m build` + `twine check` exit 0, nombres verificados LIBRES (404 live ×5), `vantadb-py>=0.5.0,<0.6.0` pin válido (existe 0.5.0), workflow `release-adapters-62.yml` presente+actionlint 0 (creado por QW-7), READMEs honestos, borradores upstream en `docs/plans/artifacts/mkt-18f-prs/`. Restante = ACCIÓN HUMANA: checklist 3 pasos en `.opencode/skills/campaign-executor/tasks/MKT-18f.md` (environment `pypi` → dry-run TestPyPI → tag `adapters-v0.5.0` + limpieza post-release). Desbloquea GTM checkboxes al publicar. | 🟢 1-2h humano | 🔴 | 🟠 Pendiente (humano) |
 | `MKT-18i` | **AnythingLLM ↔ VantaDB (re-escalado 2026-09-03)** — compose demo Ollama+VantaDB shipped (`abb6594c`, ver `docs/avance/activo/operaciones.md`). Restante: AnythingLLM no soporta VantaDB como vector backend (evidencia: `server/.env.example` master de Mintplex-Labs/anything-llm — `VECTOR_DB` acepta lancedb/chroma/pgvector/qdrant/pinecone/astra/weaviate/milvus/zilliz/chromacloud). Requiere feature-request upstream (acción humana), no glue local. | ⚪ upstream | 🟡 | 🔴 BLOQUEADO |
-| `CLD-01` | **VantaDB Cloud beta on Fly.io** — checkbox vacío en `GO_TO_MARKET.md:420`; cero archivos de infra. Verificado 2026-08-17: no existe nada. | 🟠 1-2 sem | 🔵 | ❌ Pendiente |
-| `CLD-02` | **Pitch deck + one-pager** — checkbox vacío en `GO_TO_MARKET.md:408`; cero archivos `*pitch*`/`*deck*`. | 🟡 3-5d | 🔵 | ❌ Pendiente |
-| `CLD-04` | **Case study #1 (enterprise pilot)** — checkbox vacío en `GO_TO_MARKET.md:409`; cero archivos. Depende de pilot real. | 🟠 1 sem | 🔵 | ❌ Pendiente |
-| `BLOG-CTA` | **CTAs + metadata de la serie de blogs + posts 6-7** — M3 🟡 date drift (2026-06-06 vs web 2025), M4 🟡 title drift, CTA débil en 2 posts (`how_hybrid_search_works.md`, `sqlite_for_ai_agents.md`), posts 6-7 no redactados (Ollama+VantaDB, Claude Code MCP). M1/M2/M5/M6 ya resueltos. | 🟡 3-5d | 🟠 | ❌ Pendiente |
+| `BLOG-CTA` | **CTAs + metadata de la serie de blogs + posts 6-7** — M3 🟡 date drift (2026-06-06 vs web 2025), M4 🟡 title drift, CTA débil en 2 posts (`how_hybrid_search_works.md`, `sqlite_for_ai_agents.md`), posts 6-7 no redactados (Ollama+VantaDB, Claude Code MCP). M1/M2/M5/M6 ya resueltos. **RES-15-C: queda TÉCNICO** — contenido escribible por agente; sólo la publicación final es humana (como todo contenido editorial). | 🟡 3-5d | 🟠 | ❌ Pendiente |
 
 ---
 
 ## Phase 8: 🔮 Post-Launch & Enterprise
 
 > Features para después del lanzamiento público.
-
-| ID | Descripción | Esfuerzo | Prio |
-|----|-------------|----------|------|
-| `BIZ-01b` | **Enterprise features: encryption + RBAC ya en crate principal. Audit/replication/enterprise crate separado no existen** | 🟡 3-5d | 🟡 ⏳ |
+>
+> **RES-15-C 2026-09-03:** la única fila de esta fase (enterprise features → negocio) se movió a `docs/Backlog-negocio.md` §P8. El lado código que aparezca al planificarla se ticketea acá.
 
 
 ### 🔍 Investigaciones Post-Consolidación
@@ -316,15 +305,8 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 ## P23 - VantaDB Pro — Backlog de features (Open Core, 2026-08-17)
 
 > **Origen:** `docs/strategy/VANTADB-PRO-FEATURES.md` § "Backlog Pro" + verificación multi-agente 2026-08-17. **Meta-modelo implementado** (repo privado `vantadb-pro` existe con `license.rs::verify_string` + `generate-license.ps1` + 4 tests; workspace aislado `Cargo.toml:620-626`; core sin refs Pro — D4 respetado). **Las 6 features NO tienen código** (solo `lib.rs`+`license.rs`) **ni tracking** — esta sección las trackea. Nacen en `vantadb-pro` (repo privado, fuera del workspace). Proceso: D5 entrega manual Enterprise hasta entidad.
-
-| ID | Descripción (Feature Pro sugerida → qué clava) | Código actual | Esfuerzo | Prio | Estado |
-|----|-------------|----------|------|--------|--------|
-| `PRO-01` | **Multi-tenancy / RBAC** — aislamiento cifras org | `vantadb-pro`: solo `lib.rs`+`license.rs` | 🔴 2-3 sem | 🔵 | ❌ Sin código |
-| `PRO-02` | **Replicación multi-copy / Sync** — DR | ídem | 🔴 3-4 sem | 🔵 | ❌ Sin código |
-| `PRO-03` | **WAL shipping + PITR (gates ya existen en core)** — failover | gates `wal-shipping`/`pitr` en core (`src/lib.rs:138,142`) | 🟠 2-3 sem | 🔵 | ❌ Sin código |
-| `PRO-04` | **TTL / retention policies** — compliance | ídem | 🟡 1-2 sem | 🔵 | ❌ Sin código |
-| `PRO-05` | **Admin server + dashboard** — UX enterprise | ídem | 🟠 2-3 sem | 🔵 | ❌ Sin código |
-| `PRO-06` | **Audit trail / compliance** — ídem | ídem | 🟡 1-2 sem | 🔵 | ❌ Sin código |
+>
+> **RES-15-C 2026-09-03:** las 6 filas Pro se movieron a `docs/Backlog-negocio.md` §P23 — el trigger de inicio (pricing/licensing/entidad) es decisión de negocio; las features son implementables por agentes cuando Pro arranque, y vuelven a esta sección al activarse.
 
 ---
 
@@ -438,9 +420,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | GOV-TK7 | put_batch metadatas solo-str: alinear doc-tutorial vs API o ampliar coercion | 🟡 | B3 |
 | GOV-TK8 | Benchmarks: mejorar/probar/documentar (insumo: docs/benchmarks/_run_stdout.md se conserva como evidencia de corrida cruda) | 🟡 | owner E1 |
 
-> Ticketeados aparte con decisión previa: ACID 4a-4d (post-launch Fase A, D14) · release triage semver 0.6.0 (D5, diferido) · MKT-18h wheels ARM64 + MKT-18f adapters (confirmados live por GOV-A5).
-
-| `BND-07` | **Discord invite inválido + vantadb.dev sin DNS** (GOV-F1 🔴×2) — requieren acción externa del owner: crear invite nuevo de Discord y configurar DNS de vantadb.dev; luego actualizar README/CONTRIBUTING/SECURITY con los valores reales. Registrado en auditoría raíz pública GOV-F1 (commit dc3775ef). | README.md, CONTRIBUTING.md, SECURITY.md (externo al repo) | 🟡 | 🟠 | ⏳ Externo owner |
+> Ticketeados aparte con decisión previa: ACID 4a-4d (post-launch Fase A, D14) · release triage semver 0.6.0 (D5, diferido) · MKT-18h wheels ARM64 + MKT-18f adapters (confirmados live por GOV-A5). La fila de acción externa (DNS/invite) se movió a `docs/Backlog-negocio.md` §GOV (RES-15-C).
 
 ---
 
@@ -540,7 +520,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Effort | Descripción | Archivos / Origen | Estado |
 |----|--------|-------------|-------------------|--------|
-| `RES-15` | 🟢 | **Institucionalizar meta-001 C** — re-escalado 2026-09-03: B YA está institucionalizada (`research-decide.md:81` dirige WONTFIX/DESCARTES a `docs/avance/decisiones/wontfix.md` con motivo; wontfix.md con entries = micro-ADR vigente). Queda solo C: separar backlog negocio/técnico. Cruzar con GOV-TK5 (split Manual Estratégico) para no duplicar | `.opencode/rules/`, `docs/Backlog.md` · Origen: `meta-001-root-cause-analysis.md` | ⬜ Pendiente (solo C) |
 
 ### Decisiones de producto (antes de código)
 

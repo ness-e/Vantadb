@@ -376,7 +376,7 @@ docs/
 **Launch:**
 - [ ] Show HN post *(⚠️ corregir claims falsos primero → MKT-18g)*
 - [x] Blog: "Introducing VantaDB" *(✅ draft `docs/blog/introducing_vantadb.md`, commit `f51b2263`)*
-- [ ] Reddit posts (r/rust, r/MachineLearning, r/LocalLLaMA) *(drafts listos, NO publicados → MKT-04)*
+- [ ] Reddit posts (r/rust, r/MachineLearning, r/LocalLLaMA) *(drafts listos, NO publicados → MKT-04, fila en `docs/Backlog-negocio.md`)*
 
 ### Q4 2026: Post-Launch Growth
 
@@ -405,8 +405,8 @@ docs/
 - [ ] AES-256 at-rest encryption (TSK-72)
 - [ ] Audit logging (TSK-107b)
 - [ ] Async [[wal|WAL]] shipping (BIZ-02)
-- [ ] Pitch deck + one-pager (CLD-02)
-- [ ] Case study #1 (CLD-04)
+- [ ] Pitch deck + one-pager (CLD-02 → `docs/Backlog-negocio.md`)
+- [ ] Case study #1 (CLD-04 → `docs/Backlog-negocio.md`)
 - [ ] Enterprise pilot #1
 
 ### Q2 2027: Monetize
@@ -417,7 +417,7 @@ docs/
 - 🔄 $10K MRR
 
 **Deliverables:**
-- [ ] VantaDB Cloud beta on Fly.io (CLD-01)
+- [ ] VantaDB Cloud beta on Fly.io (CLD-01 → `docs/Backlog-negocio.md`)
 - [ ] Pricing page (BIZ-03)
 - [ ] Enterprise sales deck
 - [ ] Case study #2
