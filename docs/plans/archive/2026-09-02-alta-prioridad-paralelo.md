@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 20260902-alta-prioridad-paralelo
 > **Inicio:** 2026-09-02
-> **Estado:** ⬜ PENDING
+> **Estado:** ✅ CAMPAÑA EJECUTADA (82/88 con evidencia; 6 reabiertas 2026-09-03 → Backlog activo; ver §Eventos plan-adjust → Auditoría de cierre)
 > **Fuente:** `docs/Backlog.md` (130 activas post-sync 2026-09-01) + `docs/reviews/archive/auditoria-documentacion-2026-08-21.md` (D1-D14) + `docs/research/tdam/SYNTHESIS.md` (F1-F7) + `docs/research/archive/res02-backup-restore.md` (RES-01/02)
 > **Buckets seleccionados:** 86 tareas alta prioridad (GOV 30 + P27 MEM-01..38 + P38 RES-01..15+DEC-01/02 + P25 MCP-35)
 > **Orden elegido:** D) Todo en paralelo — 4 buckets en waves paralelas MAX_CONCURRENT=3
@@ -103,7 +103,7 @@ Cross-bucket DAG resumido: EMB-01..09 ✅ unblocks P27 F1-F3; MCP-35 independent
 - **Gate Justificación:** decisión tomada investigación TIR-02; datos existentes 23 entradas; cero riesgo producto; appetite 1h
 - **Contrato:** `node evals/dora.mjs 2>&1 | Select-String "Recovery" | Measure-Object Count` >=1 AND sección Recovery con 3 pares en `evals/dora.md`
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-T01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (re-verificado 2026-09-03 auditoría: dora.mjs recoveryPairs existe, task file COMPLETED — PENDING era stale)
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-T02 — TIR-04b contenedor tasks/closed/
@@ -622,7 +622,7 @@ last-synced: 2026-09-02T23:55
 - **Gate Justificación:** FND-01 follow-up; medida directa, no heurística
 - **Contrato:** `cargo bench --bench memory-budget 2>&1 | Select-String "rss|Throughput" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-07.md`
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬛ REABIERTO 2026-09-03 (plan.adjust: ✅ era premisa-falsa — DEFAULT_RSS_THRESHOLD sigue 0.80, sin bench 10k..100k; fila Backlog se mantiene activa)
 - **last-synced:** 2026-09-02T00:00
 
 ---
@@ -944,7 +944,7 @@ last-synced: 2026-09-02T23:59
 - **Gate Justificación:** medir antes de rediseñar; evitar complejidad innecesaria
 - **Contrato:** `cargo bench --bench delete_massive 2>&1 | Select-String "Throughput|time" | Measure-Object Count` >=1 AND ADR/documenta decisión
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-08.md`
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬛ REABIERTO 2026-09-03 (plan.adjust: ✅ era premisa-falsa — benches/delete_massive.rs no existe; fila Backlog se mantiene activa)
 - **last-synced:** 2026-09-02T00:00
 
 #### RES-09 — Trackear roadmap post-launch huérfano
@@ -953,7 +953,7 @@ last-synced: 2026-09-02T23:59
 - **Gate Justificación:** 3 gaps sin filas, validados con archivo:línea
 - **Contrato:** `Select-String -Path "docs/Backlog.md" -Pattern "WAL async ingest|query planner|DiskANN.*disk" | Measure-Object Count` >=3
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-09.md`
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬛ REABIERTO 2026-09-03 (plan.adjust: ✅ era premisa-falsa — 0 filas nuevas WAL-async/planner/DiskANN en P24; fila Backlog se mantiene activa)
 - **last-synced:** 2026-09-02T00:00
 
 ---
@@ -1218,7 +1218,7 @@ last-synced: 2026-09-02T23:59
 - **Gate Justificación:** a11y WCAG; delegar vanta-worker web
 - **Contrato:** `Select-String -Path "web/src/components/*" -Pattern "h-7|h-9" | Measure-Object Count` ==0 (o documentado excepción)
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-12.md`
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬛ REABIERTO 2026-09-03 (plan.adjust: ✅ era premisa-falsa — 20 h-7/h-9 restantes en web/src/components; fila Backlog se mantiene activa)
 - **last-synced:** 2026-09-02T00:00
 
 #### RES-13 — Activar pre-push hook git real
@@ -1245,7 +1245,7 @@ last-synced: 2026-09-02T23:59
 - **Gate Justificación:** process hygiene; esfuerzo 🟢
 - **Contrato:** `Select-String -Path ".opencode/rules/*" -Pattern "micro-ADR|WONTFIX.*ADR" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/RES-15.md`
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬛ REABIERTO 2026-09-03 (plan.adjust: ✅ era premisa-falsa — sin política micro-ADR en .opencode/rules ni split negocio/técnico; fila Backlog se mantiene activa)
 - **last-synced:** 2026-09-02T00:00
 
 #### DEC-01 — Session layer go/no-go ADR (ya resuelta research)
@@ -1263,7 +1263,7 @@ last-synced: 2026-09-02T23:59
 - **Gate Justificación:** TDAM #9 diferido fuera F1-F7 nunca trackeado; decisión previa a MEM-27 proxy/Pro
 - **Contrato:** `Test-Path docs/architecture/adr/ADR-0*billing*.md` == true AND `Select-String -Path "docs/architecture/adr/ADR-0*billing*.md" -Pattern "÷1000|÷10000|CreditCalculator" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/DEC-02.md`
-- **Estado:** ✅ COMPLETED
+- **Estado:** ⬛ REABIERTO 2026-09-03 (plan.adjust: ✅ era premisa-falsa — ningún ADR/decisión para CreditCalculator ÷1000 vs ÷10000; fila Backlog se mantiene activa)
 - **last-synced:** 2026-09-02T00:00
 
 ---
@@ -1325,6 +1325,15 @@ last-synced: 2026-09-02T23:59
 ---
 
 ## Eventos plan-adjust
+
+
+### Auditoría de cierre 2026-09-03 (vanta-lead)
+
+- **Reapertura (6):** RES-07/08/09/12/15 + DEC-02 marcadas ✅ sin recitación ni evidencia (estampilla masiva `T00:00`) — verificadas contra código/filesystem, reabiertas ⬛; sus filas de `docs/Backlog.md` quedan activas. Ejecución futura: `/pipeline task RES-07|RES-08|RES-09|RES-12|RES-15|DEC-02`.
+- **Stale corregido (1):** GOV-T01 ✅ (dora.mjs recoveryPairs ya implementado).
+- **Confirmadas con evidencia:** MCP-35 (`79a00ace`), phrase queries (plan-RES-03 ≡ fila RES-04 Backlog), scores (`5f49bd2b`+`d9c09ce7` ≡ fila RES-06), RES-13 (`.githooks/pre-push` + `core.hooksPath`), RES-14 (RULES.md §10c P2-01) — filas removidas del Backlog.
+- **Lección ID-collision:** sync 2026-09-01 borró por ID las filas P38 `RES-02`/`RES-03` cuya implementación no existió (sin chaos_failpoints; `Arc<Mutex<mpsc>>` intacto en ingestion.rs:72) porque el doc de research homónomo estaba COMPLETED. Filas restauradas. Regla: cotejar por CONTENIDO/evidencia, nunca por ID.
+- **Estado real:** 82 ✅ con evidencia + 6 ⬛ reabiertas.
 
 ```
 plan-adjust [2026-09-02]: creación inicial D — 86 DO / 0 DEFER / 0 SKIP / 0 BLOQUEADO

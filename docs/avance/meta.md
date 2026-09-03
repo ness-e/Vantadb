@@ -187,3 +187,8 @@ Los archivos de `docs/avance/activo/` **se actualizan al cierre de cada campaña
 
 Plan docs/plans/archive/2026-09-02-error-observability-excellence.md archivado con retrospectiva: 9/9 ✅ (4 waves, MAX_CONCURRENT=3, 89% first-try — único retry por fallo de infra uv_spawn, no de diseño). Contrato unificado VANTADB_* (10 códigos) core→WASM/Node/TS→Python/providers→MCP(-320xx)→Desktop→Web. Follow-ups: FIND-52/53/54 + sanitización 500.
 
+
+## Archivo 2026-09-03: campana alta-prioridad-paralelo (20260902-alta-prioridad-paralelo)
+
+Plan archivado con auditoria de cierre: 82/88 verificados con evidencia + 6 reaperturas (RES-07/08/09/12/15 + DEC-02, premisa-falsa sin ejecucion - stamps masivos T00:00). GOV-T01 corregido a completed (stale). Backlog: -5 filas (MCP-35, RES-04/06/13/14) +2 restauradas (RES-02/03, colision ID con docs de research en sync 09-01). Leccion: cotejar syncs por contenido/evidencia, nunca por ID.
+

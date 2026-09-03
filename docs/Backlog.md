@@ -13,7 +13,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 > **Execution state lives in:** `docs/plans/YYYY-MM-DD-<campaign>.md` (plan file) + task files — per campaign-executor RULES.md §2. This file is the task catalog; the plan file is the execution state.
 > **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
 > **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 121 activas (post-pipeline-task FIND-52..55 2026-09-02: 4/4 cerradas ✅ — 52 web_time/cfg-out wasm 278/278 vitest, 53 vantadb_errors_total in-tree, 54 cors flake, 55 sanitización 500; previo 125 post-campaña error-observability: +4 FIND-52..55 colaterales (52 wasm32/ICE, 53 métricas dep, 54 cors flake, 55 sanitización 500); previo 121 post-split-audit 2026-09-02: +4 FIND-48..51 graph/types/parser/handlers — 117+4; post-slice2 2026-09-02: 13 removidas — EMB-01..09 (9) + AUD-043/044/047 + FIND-23 (4) → activo/*.md; previo 130 activas post-sync 2026-09-01: 43 drift removidos; previo 173)
+> **Total open items:** 131 activas (post-limpieza-alta-prioridad 2026-09-03: -5 con evidencia (MCP-35 79a00ace, RES-04/06 scores+phrase, RES-13 githooks, RES-14 P2-01) +2 restauradas RES-02/03 (colisión ID sync 09-01); previo 125 con +4 FIND-52..55; historial: 173→130 sync drift 43, 130→117 slice2, 117→121 god-files)
 ---
 
 ## Exec Summary
@@ -356,7 +356,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (Gap → Acciones → Resultado) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `MCP-35` | **Fallback HTTP automático: N instancias MCP sobre la misma BD** — hoy `vanta-cli server --mcp --db X` muere con exit 1 si otra instancia tiene el lock exclusivo del engine (single-writer por diseño; incidente 2026-08-25: 2 sesiones OpenCode, la segunda sin tools). Acciones: (1) la primera instancia escribe discovery file en el data dir (`.vanta.server.json` con `{pid, http_port}`) y abre listener HTTP local; (2) instancias subsecuentes detectan "Database busy" al abrir el engine, leen el discovery file, verifican que el PID vivo responda `/health`, y arrancan en **modo proxy**: exponen las MISMAS tools MCP pero cada call se resuelve vía HTTP (`/api/v2/*`, reusando ServerConnection/auth token) contra el server dueño del lock; (3) si el discovery file apunta a un PID muerto → limpiar lock y abrir embebido normal. Delegar diseño de discovery/lock a vanta-arch (DISCOVERY), implementación a vanta-worker. Criterios: 2+ sesiones OpenCode simultáneas comparten memoria; crash del server dueño no corrompe; tools parity 1:1 con modo embebido | `src/cli_server.rs` (modo mcp), `vantadb-mcp/src/handlers/`, `src/config.rs` | 🟡 2-4d | 🔴 Alta (bloquea multi-sesión real) | ⬜ Pendiente |
 
 ---
 
@@ -529,13 +528,13 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Effort | Descripción | Archivos / Origen | Estado |
 |----|--------|-------------|-------------------|--------|
+| `RES-02` | 🟡 | **Separar binario `chaos_failpoints`** (race global de failpoints, flaky local) **+ crear `crash_kill_recovery.rs`** (kill real a mitad de escritura, fsync falso, concurrencia+kill). Plan completo en FND-15 (items 01-05); los archivos no existen hoy. Delegar a vanta-chaos | `tests/storage/` · Origen: `docs/research/FND-15-crash-recovery-verificacion.md` | ⬜ Pendiente (fila RESTAURADA 2026-09-03: borrada por error en sync 2026-09-01 por colisión de ID con el doc de research homónimo — la implementación no existe) |
 
 ### 🟡 Media
 
 | ID | Effort | Descripción | Archivos / Origen | Estado |
 |----|--------|-------------|-------------------|--------|
-| `RES-04` | 🟡 | **Phrase queries end-to-end**: condición `TextMatch` en parser IQL + tokenización literal de frases (sin stemming/stopwords) + highlight de frase completa en snippets. Enforcement base ya implementado en `lexical_search`; faltan estos 3 gaps | `src/iql/`, `src/sdk/search/` · Origen: `INV-009-phrase-queries-term-positions.md` | ⬜ Pendiente |
-| `RES-06` | 🟡 | **Semántica de scores oficial**: documentar scoring (RRF/cosine/BM25) en `docs/api/` + resolver drift zero-norm cosine entre core Rust y `vantadb.ts`. Grep docs/api "score semantics/zero-norm" → 0 hits (2026-08-25) | `docs/api/`, `vantadb-ts/src/vantadb.ts` · Origen: `FND-06-core-bindings-boundaries.md` (H1+H3) | ⬜ Pendiente |
+| `RES-03` | 🟡 | **Canal multi-consumidor en ingestion pipeline**: reemplazar `Arc<Mutex<mpsc::Receiver>>` por async-channel/flume (contención serializada; única instancia sospechosa del inventario FND-19). `src/ingestion.rs:72` intacto verificado 2026-09-03 | `src/ingestion.rs:72` · Origen: `FND-19-arc-mutex-inventario.md` | ⬜ Pendiente (fila RESTAURADA 2026-09-03: borrada por error en sync 2026-09-01 — colisión ID con doc de research, implementación no realizada) |
 | `RES-07` | 🟡 | **Calibrar `rss_threshold`** (F2: recalibrar `DEFAULT_RSS_THRESHOLD=0.80` con medición real) + bench full-scale `[10k..100k]` (F3) | `src/config.rs:22`, benches memory-budget · Origen: `FND-01-memory-budget.md` (follow-ups F2/F3) | ⬜ Pendiente |
 | `RES-08` | 🟢 | **Benchmark delete-masivo antes de rediseñar DashMap sweep** (H4): medir contención real del sweep en path de deletes; decidir rediseño solo si la medición lo justifica | `src/storage/engine/maintenance.rs` · Origen: `FND-02-multi-index-locks.md` (H4) | ⬜ Pendiente |
 | `RES-09` | 🟡 | **Trackear roadmap post-launch huérfano** (investigado con archivo:línea, sin filas): WAL async ingest (10-100×), query planner con optimizaciones reales, DiskANN disk-I/O real. Agregar como filas a P24 o sub-fase propia | P24 / `docs/research/investigacion-equipo-2026-08-09.md` §roadmap | ⬜ Pendiente |
@@ -545,8 +544,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | ID | Effort | Descripción | Archivos / Origen | Estado |
 |----|--------|-------------|-------------------|--------|
 | `RES-12` | 🟢 | **Touch targets ≥44px restantes** (~20 componentes web: navbar `h-9`, close buttons `h-7`, footer text-only). Solo los 3 severos fueron corregidos con `size-11`. Delegar a vanta-worker (web) | `web/src/components/*` · Origen: `INV-015-touch-targets-44px.md` | ⬜ Pendiente |
-| `RES-13` | 🟢 | **Activar pre-push hook git real** (template existe; `.git/hooks/pre-push` NO existe ni husky/lefthook — verificado 2026-08-25). Gate mecánico hoy manual/saltable | `.git/hooks/` o lefthook/husky · Origen: `gap-02-engineering.md` (P1-7) | ⬜ Pendiente |
-| `RES-14` | 🟠 | **Review por segundo agente obligatorio para tareas 🔴** (process-change): diagnosticado como *la falla más grave* del sistema de agentes (P2-1/P2-3 gap-02); no hay fila que lo trackee. Wiring: exigir `task(vanta-review)` antes de COMPLETED en tareas rojas | `.opencode/task-system/prompts/task.md`, workflows · Origen: `gap-02-engineering.md` | ⬜ Pendiente |
 | `RES-15` | 🟢 | **Institucionalizar meta-001 B/C**: micro-ADR obligatorio en cierres WONTFIX/DEFER + separar backlog negocio/técnico. Solo la recomendación A quedó implementada; B/C sin evidencia en `.opencode/rules/` (grep 0 hits 2026-08-25) | `.opencode/rules/`, `docs/Backlog.md` · Origen: `meta-001-root-cause-analysis.md` | ⬜ Pendiente |
 
 ### Decisiones de producto (antes de código)
