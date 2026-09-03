@@ -46,7 +46,9 @@ jobs:
           toolchain: nightly
           install-nextest: false
           install-llvm-cov: false
-          install-system-deps: false
+          # --all-features pulls rocksdb -> librocksdb-sys (bindgen) which
+          # needs libclang: system deps are required despite rustdoc itself.
+          install-system-deps: true
           swap-mb: 0
 
       - name: Build Documentation
