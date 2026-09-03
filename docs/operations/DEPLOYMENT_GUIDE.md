@@ -188,6 +188,8 @@ volumes:
   vantadb-data:
 ```
 
+For a full local-first demo stack (VantaDB + Ollama, CPU-only, no API keys), use the multi-service [`docker-compose.yml`](../../docker-compose.yml) at the repo root — quickstart and RAM/GPU notes are in its header.
+
 ### Quick Start
 
 ```bash

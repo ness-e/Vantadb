@@ -29,6 +29,8 @@ ollama pull llama3.2:3b
 ollama pull nomic-embed-text
 ```
 
+Skip the local installs entirely: [`docker-compose.yml`](../../docker-compose.yml) at the repo root runs VantaDB + Ollama in containers with `docker compose up -d --build`.
+
 ## 1. Connect VantaDB and set up embeddings
 
 ```python

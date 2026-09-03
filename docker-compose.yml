@@ -1,6 +1,36 @@
+# ──────────────────────────────────────────────────────────────────────
+# VantaDB local-first demo — VantaDB + Ollama (MKT-18i)
+#
+# Quickstart (CPU-only, no API keys, no GPU required):
+#   docker compose up -d --build
+#   docker compose exec ollama ollama pull llama3.2:3b
+#   docker compose exec ollama ollama pull nomic-embed-text
+#   curl http://localhost:8080/health        # VantaDB server
+#   curl http://localhost:11434/api/version  # Ollama
+# Then wire a client (e.g. docs/tutorials/02-local-rag-pipeline.md) to
+# http://localhost:11434 for embeddings/chat and http://localhost:8080
+# for VantaDB storage + hybrid search.
+#
+# RAM minimum: ~4 GB host (llama3.2:3b Q4 ≈ 2 GB + nomic-embed-text ≈ 0.3 GB
+# + VantaDB server < 0.2 GB + runtime overhead).
+# GPU is optional — CPU works out of the box (https://docs.ollama.com/docker):
+#   NVIDIA: install NVIDIA Container Toolkit, then add `gpus: all` to ollama.
+#   AMD:    use image ollama/ollama:0.33.2-rocm + --device /dev/kfd,/dev/dri.
+#
+# Why there is NO AnythingLLM service here (verified 2026-09-03):
+# AnythingLLM does not support VantaDB as a vector-database backend — its
+# VECTOR_DB env accepts only lancedb/chroma/chromacloud/pinecone/astra/
+# pgvector/weaviate/qdrant/milvus/zilliz (source: server/.env.example on
+# github.com/Mintplex-Labs/anything-llm@master). There is no AnythingLLM →
+# VantaDB connection env to document; glue lives upstream, not here.
+# ──────────────────────────────────────────────────────────────────────
 services:
   vantadb:
     build: .
+    # Explicit tag (no floating :latest). If SRV-07 publishes an official
+    # image (release-binaries-63.yml), replace `build: .` with
+    # `image: ghcr.io/ness-e/vantadb:<pinned-version>`.
+    image: vantadb/server:0.5.0
     ports:
       - "8080:8080"
     volumes:
@@ -17,5 +47,15 @@ services:
       retries: 3
       start_period: 10s
 
+  ollama:
+    # Pinned stable (== latest digest at pin time, pushed 2026-08-28, multi-arch).
+    image: ollama/ollama:0.33.2
+    ports:
+      - "11434:11434"
+    volumes:
+      # Persist pulled models across `docker compose down`.
+      - ollama-models:/root/.ollama
+
 volumes:
   vantadb-data:
+  ollama-models:
