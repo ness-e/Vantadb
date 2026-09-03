@@ -389,8 +389,10 @@ and heavy benchmarks across multiple package scopes.
 
 ### 9. Python Wheel Build & Publish (`release-wheels-60.yml`)
 
-Builds the Python SDK on Linux, macOS, and Windows with `maturin`, installs the generated wheel
-by resolved path, and runs the Python SDK smoke suite. Manual TestPyPI upload is available only
+Builds the Python SDK on Linux (x86_64 and aarch64 cross via maturin-action's manylinux_2_28
+cross container), macOS, and Windows with `maturin`, installs the generated wheel
+by resolved path, and runs the Python SDK smoke suite (native targets only — the aarch64
+cross wheel is validated by its platform tag and the PyPI install verify job). Manual TestPyPI upload is available only
 through an explicit workflow input and the `TEST_PYPI_API_TOKEN` secret. Production PyPI
 publication and signing remain deferred.
 
@@ -422,4 +424,23 @@ datasets. You can also trigger it manually from the GitHub Actions UI:
 2. Select **HEAVY: Certification — All Tests** from the left sidebar.
 3. Click **Run workflow**.
 4. You can optionally check the boxes to include `SIFT-1M validation` or `Competitive benchmarks`.
+
+## Docker Image Publishing (SRV-07)
+
+The release pipeline **builds** the Docker image but deliberately **does not push** it to any
+registry:
+
+- The `docker-image` job in `.github/workflows/release-binaries-63.yml` runs `docker build`
+  against the root `Dockerfile` on every release / tag / manual dispatch, then executes two
+  unprivileged smoke checks under an arbitrary uid (`--user 10001:10001`): data-dir
+  write-through and `vantadb-server --help` via the default entrypoint.
+- The image is exported with `docker save` and attached to the GitHub Release as a
+  `vantadb-server-<tag>-linux-amd64-image.tar.gz` asset (+ sha256), so self-hosted users can
+  `docker load` it without a registry dependency.
+- **Why no push:** the registry choice (ghcr.io vs Docker Hub vs both) fixes the canonical
+  `docker run <image>` string used in marketing/docs and needs credentials that are not
+  provisioned. It is a brand decision, not a CI default. When one is decided, add a
+  login/push step to this same job — the build and smoke halves already exist.
+- Machines without a Docker daemon cannot verify the image locally; this CI job is the
+  verification gate (build failure turns the release lane red — no silent breakage).
 

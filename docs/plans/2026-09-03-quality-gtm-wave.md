@@ -21,7 +21,7 @@
 
 **Gate P respondido por el usuario (question 2026-09-03):** set DO 12 confirmado; purgas FIND-22/PY-02/FIND-51 confirmadas; GTM dentro del plan (Show HN sept).
 
-Status: ⬆️ uphill = 4 (RES-03 approach canal, AUD-045 decisión A/B, SRV-07 wiring release, MKT-18h paradero Formula) · ⬇️ downhill = 12
+Status: ⬆️ uphill = 3 (RES-03 approach canal, AUD-045 decisión A/B, SRV-07 wiring release) · ⬇️ downhill = 12
 
 ## Regla de este plan (lección de la sesión)
 > Cada DO debe **revisar TODOS los archivos listados**, sin saltarse ninguno, y su `Verificación real` es evidencia ejecutada hoy (comando + output), no texto heredado del Backlog. Si en DISCOVERY la premisa muere → STOP CONDITION (no "COMPLETED por reuse" sin evidencia — regla aprendida de las 6 reaperturas del plan anterior).
@@ -102,7 +102,8 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 - **Risk Register:** | 🟡×🟡 | release workflow roto toca publish | probar en branch/tag rc, no en main | pre-merge | | 🟢×🟡 | fórmula en otro repo | handoff documentado | discovery |
 - **Cynefin:** 🟨 Complicado | **Top 3 riesgos:** repo del tap, artefactos sin runner ARM, secret de publish
 - **Uphill/Downhill:** ⬆️ 1 (paradero fórmula) · ⬇️ 2 | **DoD:** Task: contrato; Commit `ci(wheels): aarch64 linux + SHA reales (MKT-18h)`; Release: verificado en siguiente release-plz cycle
-- **Estado:** ⬜ PENDING | **Task file:** `.../tasks/MKT-18h.md` | **Ruta:** vanta-worker | **Branch:** develop
+- **Estado:** ✅ COMPLETED 2026-09-03 | **Task file:** `.../tasks/MKT-18h.md` | **Ruta:** vanta-worker | **Branch:** develop
+- **Verificación real (cierre):** contrato 4/4 — `rg -n "aarch64-unknown-linux-gnu" .github/workflows/release-wheels-60.yml` = 1 match; `actionlint release-wheels-60.yml` exit 0; `Formula/vantadb.rb` (paradero: LOCAL, no tap remoto) 0 placeholders con 4 SHA256 verificados por doble vía (Get-FileHash local de los tarballs v0.5.0 == sidecar CI); `cargo check -p vantadb_py --all-targets` exit 0. Fix extra: remove `bin.install vantadb-mcp` (no está en los tarballs) + input muerto `musllinux` (no existe en maturin-action v1.51.0). Verificación del job aarch64 diferida a corrida CI (stop-condition del plan). Fila Backlog eliminada.
 
 ### Task 5: SRV-07 — Dockerfile unprivileged + wiring release
 
@@ -116,7 +117,7 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 - **Risk Register:** | 🟡×🟢 | daemon no disponible | CI run como verificación | local |
 - **Cynefin:** 🟨 | **Top 3 riesgos:** daemon, entrypoint real, registry decisión
 - **Uphill/Downhill:** ⬆️ 1 · ⬇️ 2 | **DoD:** Task: contrato; Commit `ci(docker): unprivileged build + release wiring (SRV-07)`; Release: imagen en siguiente tag
-- **Estado:** ⬜ PENDING | **Task file:** `.../tasks/SRV-07.md` | **Ruta:** vanta-worker | **Branch:** develop
+- **Estado:** ✅ COMPLETED 2026-09-03 | **Task file:** `.../tasks/SRV-07.md` | **Ruta:** vanta-worker | **Branch:** develop
 
 ### Task 6: MKT-18i — compose multi-servicio Ollama + VantaDB + AnythingLLM
 
@@ -130,7 +131,7 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 - **Risk Register:** | 🟢×🟡 | tags floaty rompen demo | pinnear | review |
 - **Cynefin:** 🟦 | **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1
 - **DoD:** Task: contrato; Commit `feat(demo): compose ollama+vantadb+anythingllm (MKT-18i)`; Release N/A
-- **Estado:** ⬜ PENDING | **Task file:** `.../tasks/MKT-18i.md` | **Ruta:** vanta-worker | **Branch:** develop
+- **Estado:** ✅ COMPLETED (re-escalado por stop condition 2026-09-03: AnythingLLM sin soporte VantaDB — evidencia en `docs/avance/activo/operaciones.md`; demo shipped VantaDB+Ollama, commit `abb6594c`; fila Backlog re-escalada a 🔴 upstream) | **Task file:** `.../tasks/MKT-18i.md` | **Ruta:** vanta-worker | **Branch:** develop
 
 ### Task 7: RES-12 — Touch targets <44px (re-escalado: 4-5 archivos reales)
 
@@ -259,4 +260,15 @@ Resultado: ✅
 Próxima acción: ninguno (RES-07 cerrada)
 Contrato: verificacion: rg rss_threshold BENCHMARKS.md=4 + linea decision 2026-09-03 + cargo test config 54/0 + bench compile 9.57s + commit 3a27c5f4 | evidencia: BENCHMARKS.md §12; FND-01-memory-budget.md §8 (2 runs ±5%); src/config.rs:22 0.80 sin cambio | artefactos: docs/operations/BENCHMARKS.md, docs/plans/2026-09-03-quality-gtm-wave.md | invariantes: no tocar src/server/ src/index/ src/storage/; threshold 0.70..0.85 | deuda: full-scale F3 queda heavy; fmt drift GOV-TK1 ajeno no tocado; campaign state bloqueado por ERR-TS-01 WIP | queda_pendiente: orquestador valida y pasa a GOV-TK1/GOV-TK9
 Próxima tarea si completa: GOV-TK1
+=== END RECITATION ===
+
+=== RECITATION SRV-07 ===
+Campaign ID: 20260903-quality-gtm-wave
+Objetivo activo: SRV-07: Dockerfile unprivileged + wiring release (wave1/5)
+Estado: completed
+Última acción: Reescrito builder del Dockerfile (skeleton layer eliminado por roto: 73 [[test]] + [[bin]] paths validados al load, COPY desde cache-mount imposible), chmod 777 data dir + ARG VANTA_RUNAS_UID, job docker-image build-no-push + smoke uid 10001 en release, .dockerignore tests/+benches/ incluidos, docs DEPLOYMENT_GUIDE+CI_POLICY
+Resultado: ✅
+Próxima acción: Commit + fila Backlog SRV-07 eliminada + registro docs/avance/activo/operaciones.md
+Contrato: rg -n "^USER|runas|RUNAS" Dockerfile -> 5 hits (USER vantadb + ARG VANTA_RUNAS_UID); rg -ni docker release-binaries-63.yml -> 9; actionlint exit 0; continuation-lint Dockerfile OK. docker build/run diferido a CI job docker-image (sin daemon local, nota explicita en CI_POLICY.md). docker-compose.yml no tocado: path volumen /var/lib/vantadb sigue valido, named volume hereda modo 0777.
+Próxima tarea si completa: MKT-18i
 === END RECITATION ===
