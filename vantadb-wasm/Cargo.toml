@@ -30,13 +30,18 @@ wasm-bindgen-futures = "0.4"
 getrandom = { version = "0.4", features = ["wasm_js"] }
 
 # Direct dep on 0.4 carries `wasm_js`: on wasm32 it unifies with the
-# getrandom 0.4 pulled in transitively, so no alias is needed.
+# getrandom 0.4 pulled in transitively, so no 0.4 alias is needed.
+# The 0.3 copy (via ahash / rand_core, third-party pins) needs the same
+# treatment as its own version line: this wasm32-only alias enables its
+# `wasm_js` feature; the backend itself is selected in .cargo/config.toml.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"] }
 [features]
 default = ["tracing-wasm"]
 opfs = []
 
 [package.metadata.cargo-machete]
-ignored = ["getrandom"]
+ignored = ["getrandom", "getrandom_03"]
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"
