@@ -187,7 +187,7 @@ http = "1"
 futures = "0.3"
 console = "0.16"
 indicatif = "0.18"
-serial_test = "3.2"
+serial_test = "4.0"
 serde_json = "1.0"
 tower = { version = "0.5", features = ["util"] }
 serde_yaml = "0.9.34"
