@@ -38,14 +38,14 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 | **P15** 🔍 ERR items (revisión multi-agente 2026-08-08) | 0 — ✅ todos resueltos (36 por plan 2026-08-09 + 10 migradas 2026-08-12 + ERR-007 ban-skip 2026-08-12) | — | ✅ Cerrada |
 | **P16** 🧩 Completitud de Features (investigación 2026-08-09) | 1 residual (CI-01) | 📆 Backlog | 🟢 Baja (19 ejecutadas 2026-08-09 + PERF-07/08/09 2026-08-12) |
 | **P23** 🔒 VantaDB Pro (Open Core) | 6 (PRO-01..06) | ~8-12 semanas | 🔵 Futuro |
-| **P24** 🧪 I+D futura (v3.0+) | 10 (FUT-02..11) | 📆 Futuro | 🗺️ Roadmap |
+| **P24** 🧪 I+D futura (v3.0+) | 13 (FUT-02..14) | 📆 Futuro | 🗺️ Roadmap |
 | **P25** 🔌 Exposición MCP/HTTP | 11 (MCP-16..26) | ~2-3 semanas | 🟡 Media |
 | **P26** 🖥️ Vanta Studio (consola human-facing desktop) | Fase 0 ✅ (14/19) + Fase 1 ✅ (9/9) + Fase 2 ✅ (10/10: VS-CORE-04/05/06 + GRAFO-01..03 + ESPACIO-01..02 + OP-01..02) + Fase 3 ✅ (7/7: WEB-00..06) + **Fase 4 ✅ (18/18: DOC-01..04 + REST-01..06 + WASM-01..04 + FEAT-01..03 + VER-01)** | Planes archivados `docs/plans/archive/2026-08-18-vanta-studio-fase{1,2,3}.md` + `docs/plans/archive/2026-08-19-vanta-studio-fase4.md` | 🟢 Completada 2026-08-20 (ADR-027; E2E server + standalone WASM/OPFS PASS) |
 | **P27** 🧠 Vanta Memory Engine (TDAM, orden F1–F7) | 38 (MEM-01..38) | ~8-12 semanas | 🔴 Alta (decisión de producto) |
 | **GOV** 📋 Gobernanza Documental (post-auditoría 2026-08-21, plan `docs/plans/2026-08-22-doc-governance-plan.md`) | 30 tareas (T0: TIR ×3 · A: medición ×5 · B: Show-HN ×6 · C: maestros ×7 · D: taxonomía ×6 · E: limpieza ×1 · F: auditoría intocadas ×2) | ~6 días | 🔴 Alta (Wave B bloqueante Show HN; decisiones D1-D14 del owner en `docs/reviews/auditoria-documentacion-2026-08-21.md`) |
 | **P36** 🔧 Auditoría AGENTS.md & sistema de agentes (2026-08-24) | 6 (AGT-01..06; 3 fixes ya aplicados en sesión) | ~1 día | 🟠 Media |
 | **P37** 🎨 Auditoría diseño desktop post-fix (2026-08-24, orquestador + 5 sub-agentes) | 0 — ✅ 9/9 ejecutadas (DAUD-01..09 — commits `3c53d8b2`,`480935a7`,`b865c625`; DAUD-02 via DESKTOP-QW4 `ad0f34b1`) | — | ✅ Cerrada 2026-08-26 |
-| **P38** 🔬 Research huérfanas → tarea (auditoría docs/research, 2026-08-25) | 17 (RES-01..15 + DEC-01/02; cada fila validada contra código con evidencia) | ~2-3 semanas (RES-01 es la más grande) | 🟡 Media (RES-01/RES-02 🔴 calidad/durabilidad) |
+| **P38** 🔬 Research huérfanas → tarea (auditoría docs/research, 2026-08-25) | 16 (RES-01..15 + DEC-01/02; cada fila validada contra código con evidencia. RES-09 → FUT-12/13/14 en P24, 2026-09-03) | ~2-3 semanas (RES-01 es la más grande) | 🟡 Media (RES-01/RES-02 🔴 calidad/durabilidad) |
 | **P48** 🧪 Testing & Benchmarking Hardening (auditoría multi-agente 2026-08-30, plan `docs/plans/archive/2026-08-30-testing-bench-harden.md`) | 0 (cerrada 2026-08-31: 22 ✅ + 1 🟡 INCOMPLETO `TBH-06`; resumen en sección "P48 — CIERRE") | ~2-3 semanas | 🔴 **Cerrada 2026-08-31** |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
@@ -330,7 +330,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 ## P24 - I+D futura (v3.0+, re-verificada 2026-08-17)
 
-> **Origen:** `docs/backlog-futuro.md` — catálogo de I+D diferido (freeze R5). Re-verificación multi-agente 2026-08-17: **FUT-01 ✅ IMPLEMENTADO (sacado)** — RaBitQ 1-bit + Hamming ya existe (`quantization.rs:16,33-46`, `Binary(Box<[u64]>)`); **FUT-07/FUT-09 redefinidos** (bloques base existen, falta cableado); **FUT-02/03/04/05/06/08/10/11 siguen sin implementar**. Documento fuente es la versión canónica de cada fila.
+> **Origen:** `docs/backlog-futuro.md` — catálogo de I+D diferido (freeze R5). Re-verificación multi-agente 2026-08-17: **FUT-01 ✅ IMPLEMENTADO (sacado)** — RaBitQ 1-bit + Hamming ya existe (`quantization.rs:16,33-46`, `Binary(Box<[u64]>)`); **FUT-07/FUT-09 redefinidos** (bloques base existen, falta cableado); **FUT-02/03/04/05/06/08/10/11 siguen sin implementar**. Documento fuente es la versión canónica de cada fila. **Actualización 2026-09-03 (RES-09):** +FUT-12/13/14 del roadmap huérfano → `docs/research/archive/investigacion-equipo-2026-08-09.md` §roadmap.
 
 | ID | Descripción | Esfuerzo | Prio | Estado |
 |----|-------------|----------|------|--------|
@@ -344,6 +344,9 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | `FUT-09` | **Curación AUDN en ingesta** — `DuplicatePreventionFilter` (Bloom) existe SIN callers en write path; bucle semántico AUDN ausente | 🟠 | 🗺️ | 🟡 Redefinido (cablear primitiva) |
 | `FUT-10` | **Fuerza de retención Ebbinghaus / repetición espaciada** — solo `BayesianDecay` de eviction | 🟠 | 🗺️ | ❌ Sin implementar |
 | `FUT-11` | **Export bidireccional a Markdown legible** — hoy JSONL machine-readable; bajo valor | 🟢 | 🗺️ | ❌ Sin implementar |
+| `FUT-12` | **WAL fsync-batching / flush asíncrono** — hoy `src/wal.rs`: Periodic con threshold default 1 = sync por escritura (`wal.rs:372`; default Periodic `config.rs:180`, plumbing `SyncMode` existe sin group-commit). NO es «async ingest» genérico: `src/ingestion.rs` ya da pipeline async de nodos. Ganancia esperada 10-100× en ingesta batch (§roadmap:184). Riesgo: durabilidad — requiere decisión explícita de política de sync (ventana de pérdida vs throughput) antes de implementar. Trackeado desde RES-09 (investigación 2026-08-09 §roadmap) | 🔴 | 🗺️ | ❌ Sin implementar |
+| `FUT-13` | **Query planner con optimizaciones reales** — hoy router + heurística: clasifica la query Hybrid/TextOnly/VectorOnly (`src/planner.rs`; §roadmap:186 «hoy router + heurística»). Gap: optimizaciones más allá de la clasificación por tipo (estimación/costo para elegir camino de índices). Requiere ADR + benchmark Regla 9 antes de tocar. Trackeado desde RES-09 (investigación 2026-08-09 §roadmap) | 🔴 | 🗺️ | ❌ Sin implementar |
+| `FUT-14` | **DiskANN con disk-I/O real** — nombre engañoso: `src/index/diskann.rs:7,13` explícito «purely in-memory, **not disk-backed**» (Vamana en RAM; inv. l.93). Gap: page layout SSD (beam/sector reads) para datasets > RAM; mientras tanto exponerlo por SDK como in-memory (inv. l.72: IVF/SCANN/DiskANN sin exposición SDK). Trackeado desde RES-09 (investigación 2026-08-09 §roadmap) | 🟠 | 🗺️ | ❌ Sin implementar |
 
 ---
 
@@ -532,7 +535,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 |----|--------|-------------|-------------------|--------|
 | `RES-03` | 🟡 | **Canal multi-consumidor en ingestion pipeline**: reemplazar `Arc<Mutex<mpsc::Receiver>>` por async-channel/flume (contención serializada; única instancia sospechosa del inventario FND-19). `src/ingestion.rs:72` intacto verificado 2026-09-03 | `src/ingestion.rs:72` · Origen: `FND-19-arc-mutex-inventario.md` | ⬜ Pendiente (fila RESTAURADA 2026-09-03: borrada por error en sync 2026-09-01 — colisión ID con doc de research, implementación no realizada) |
 | `RES-07` | 🟡 | **Calibrar `rss_threshold`** (F2: recalibrar `DEFAULT_RSS_THRESHOLD=0.80` con medición real) + bench full-scale `[10k..100k]` (F3) | `src/config.rs:22`, benches memory-budget · Origen: `FND-01-memory-budget.md` (follow-ups F2/F3) | ⬜ Pendiente |
-| `RES-09` | 🟡 | **Trackear roadmap post-launch huérfano** (re-escalado 2026-09-03): agregar filas P24 para 3 gaps aún vigentes — WAL **fsync-batching/decoupling** (no «async ingest» genérico: `src/ingestion.rs` ya da pipeline async de nodos, el gap real es el sync por escritura de `wal.rs`), query planner con optimizaciones reales, DiskANN disk-I/O (`diskann.rs:7` confirma «purely in-memory, not disk-backed») | `docs/Backlog.md` P24 (filas nuevas) · Origen: `docs/research/investigacion-equipo-2026-08-09.md` §roadmap | ⬜ Pendiente (docs-only) |
 
 ### 🟢 Baja / proceso
 

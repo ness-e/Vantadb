@@ -193,3 +193,10 @@ aliases: []
 - **Resultado:** OK
 - **Commit:** a7e539a9
 - **Dominio:** investigaciones
+
+### RES-09: trackeado → FUT-12/13/14 en P24 (2026-09-03)
+- **Fecha:** 2026-09-03
+- **Objetivo:** roadmap huérfano de `docs/research/archive/investigacion-equipo-2026-08-09.md` §roadmap convertido en filas P24: FUT-12 WAL fsync-batching/flush asíncrono (`wal.rs:372` threshold default 1), FUT-13 query planner con optimizaciones reales (hoy router+heurística), FUT-14 DiskANN disk-I/O real (`diskann.rs:7` in-memory). Fila RES-09 eliminada de P38 con trazabilidad en las filas nuevas.
+- **Resultado:** OK (docs-only, wave quality-gtm Task 9, ruta vanta-docs)
+- **Commit:** este mismo commit — `docs(backlog): FUT-12/13/14 roadmap huérfano (RES-09)` (el hash exacto no se auto-referencia: `git log --oneline -1 docs/Backlog.md`)
+- **Dominio:** investigaciones

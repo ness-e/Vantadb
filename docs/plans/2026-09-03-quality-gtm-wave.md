@@ -174,7 +174,8 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 - **Risk Register:** | 🟢×🟢 | duplicar fila existente | rg previo | n/a |
 - **Cynefin:** 🟦 | **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1
 - **DoD:** Task: contrato; Commit `docs(backlog): trackear roadmap huérfano P24 (RES-09)`; Release N/A
-- **Estado:** ⬜ PENDING | **Task file:** `.../tasks/RES-09.md` | **Ruta:** vanta-docs | **Branch:** develop
+- **Estado:** ✅ COMPLETADA 2026-09-03 | **Task file:** `.../tasks/RES-09.md` | **Ruta:** vanta-docs | **Branch:** develop
+- **Recitation:** contrato OK — `rg FUT-1[234]`=5 filas/note ≥3 · `rg -c RES-09`≥1 (trazabilidad en 3 notas + blockquote P24) · markdownlint 0 issues · FUT-12/13/14 agregados en P24 (evidencia: `wal.rs:372`, `config.rs:180`, `planner.rs` router+heurística, `diskann.rs:7,13`) · fila P38 eliminada · registro en `docs/avance/investigaciones.md`. Deuda: server campaign no permitió claim (ERR-TS-01/GOV-TK9 in-progress por otras instancias); plan file es fuente de verdad.
 
 ### Task 10: RES-03 — Canal multi-consumidor en ingestion pipeline
 
