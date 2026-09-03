@@ -115,7 +115,7 @@ embed-local = ["dep:ort", "dep:tokenizers"]
 python_sdk = ["pyo3"]
 custom-allocator = ["mimalloc"]
 jemalloc = ["dep:tikv-jemallocator", "dep:tikv-jemalloc-ctl", "tikv-jemalloc-ctl/stats"]
-wasm = []
+wasm = ["dep:getrandom_03", "dep:getrandom_04"]
 advanced-tokenizer = ["dep:tantivy"]
 opentelemetry = [
     "dep:opentelemetry",
@@ -167,6 +167,20 @@ windows-sys = { version = "0.61", features = [
 libc = "0.2"
 [target.'cfg(target_os = "macos")'.dependencies]
 mach2 = "0.6"
+
+# FIND-58: the wasm32 raw gate (`-p vantadb --target wasm32-unknown-unknown
+# --no-default-features --features wasm`) builds this crate WITHOUT
+# `vantadb-wasm`, so the `wasm_js` aliases living there (175790a9) never enter
+# its graph. Both getrandom copies reachable here need the feature from THIS
+# crate: 0.3.4 via ahash 0.8 / rand_core 0.9 (cfg backend in .cargo/config.toml
+# selects wasm_js but still requires the feature) and 0.4.3 via
+# twox-hash -> rand 0.10 (no backend cfg arm at all in 0.4, purely
+# target_family="wasm" + feature). Optional + `wasm`-gated so host builds and
+# wasm32 builds without `wasm` are unaffected. Never `use`d in code (pure
+# unification) → listed under `[package.metadata.cargo-machete]` below.
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+getrandom_03 = { package = "getrandom", version = "0.3", features = ["wasm_js"], optional = true }
+getrandom_04 = { package = "getrandom", version = "0.4", features = ["wasm_js"], optional = true }
 [build-dependencies]
 clap = { version = "4.4", features = ["derive", "env"], optional = true }
 clap_complete = { version = "4.4", optional = true }
@@ -671,6 +685,11 @@ manual_clamp = "allow"
 unnecessary_cast = "allow"
 unwrap_used = "deny"
 expect_used = "deny"
+
+# FIND-58: `getrandom_03/_04` are pure feature-unification aliases (never `use`d)
+# — same rationale as `vantadb-wasm`'s `[package.metadata.cargo-machete]`.
+[package.metadata.cargo-machete]
+ignored = ["getrandom_03", "getrandom_04"]
 
 [workspace]
 members = [
