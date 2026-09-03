@@ -143,7 +143,14 @@ sudo systemctl stop vantadb-server
 # Confirm the corruption report with health diagnostics
 vanta-cli doctor -d /var/lib/vantadb/data/
 
-# Native WAL repair is NOT available yet (there is no doctor fix flag).
+# Safe automatic repairs (dry-run by default — lists what would be fixed,
+# changes nothing; `--force` creates missing database/data directories only):
+vanta-cli doctor --fix -d /var/lib/vantadb/data/
+vanta-cli doctor --fix --force -d /var/lib/vantadb/data/
+
+# Native WAL repair is NOT available via doctor --fix (it only creates
+# missing directories; it never deletes or rebuilds WAL segments or user
+# data — those steps stay manual).
 # If doctor reports inconsistent WAL state:
 # 1. Remove corrupted WAL segments (data since last flush is lost)
 mv /var/lib/vantadb/data/*.wal /tmp/wal-corrupted/

@@ -182,7 +182,9 @@ fn run() -> anyhow::Result<()> {
             rebuild,
         } => cli_handlers::cmd_restore(&args.db, &input, force, rebuild, args.verbose)?,
 
-        Commands::Doctor => cli_handlers::cmd_doctor(&args.db, args.verbose)?,
+        Commands::Doctor { fix, force } => {
+            cli_handlers::cmd_doctor(&args.db, fix, force, args.verbose)?
+        }
 
         Commands::Inspect { namespace, key } => {
             cli_handlers::cmd_inspect(&args.db, &namespace, &key, args.verbose)?

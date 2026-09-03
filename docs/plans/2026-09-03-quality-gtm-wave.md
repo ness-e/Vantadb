@@ -57,7 +57,7 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 - **Risk Register:** | 🟡×🟡 | threshold más bajo sheddea writes legítimos | mantener dentro 0.70..0.85 y registrar rationale | verify |
 - **Cynefin:** 🟦 Obvio (medir→documentar) | **Top 3 riesgos:** ruido de medición, sobre-interpretar 1 corrida, drift config-doc
 - **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1 | **DoD:** Task: contrato; Commit `fix(memory-budget): calibrar rss_threshold con bench F2 (RES-07)`; Release: nota en CHANGELOG si cambia el valor
-- **Estado:** ✅ COMPLETED 2026-09-03 | **Task file:** `.../tasks/RES-07.md` (Steps F2 4-6 ✅) | **Ruta:** vanta-worker | **Branch:** develop
+- **Estado:** ✅ COMPLETED
 - **Recitation cierre:** BENCHMARKS.md §12 `rss_threshold` con tabla FND-01 post-F1 (5k/10k/20k → pressure 0.003/0.005/0.011, slopes 11.6/20.0 KB-nodo) + decisión MANTENER 0.80 (cambio 0%, sin ADR); `cargo test -p vantadb --lib config` 54/0 ✅; bench compile ✅; fmt: solo diffs GOV-TK1 ajenos (no tocados). Commit `fix(memory-budget): calibrar rss_threshold con bench F2 (RES-07)`.
 
 ### Task 2: GOV-TK1 — `vanta-cli doctor --fix` (dry-run ya existe, fix falta)
@@ -72,7 +72,8 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 - **Risk Register:** | 🟡×🔴 | fix destructivo silencioso | dry-run por default + confirm | review |
 - **Cynefin:** 🟨 Complicado | **Top 3 riesgos:** daño a datos, scope creep de "fix", flag fantasma otra vez
 - **Uphill/Downhill:** ⬆️ 1 (qué es reparable) · ⬇️ 1 | **DoD:** Task: contrato; Commit `feat(cli): doctor --fix con dry-run seguro (GOV-TK1)`; Release: CLI docs + CHANGELOG
-- **Estado:** ⬜ PENDING | **Task file:** `.../tasks/GOV-TK1.md` | **Ruta:** vanta-worker | **Branch:** develop
+- **Estado:** ✅ COMPLETED 2026-09-03 | **Task file:** `.../tasks/GOV-TK1.md` (Steps 1-4 ✅) | **Ruta:** vanta-worker | **Branch:** develop
+- **Recitation cierre:** `Doctor { fix, force }` en cli.rs + dispatch + `cmd_doctor(db, fix, force, verbose)` con dry-run default (lista WOULD-FIX, cero mutación) y `--force` aditivo (create db + data/); `doctor --fix` exit 0 en missing/empty/healthy; runbook §2.3 honesto (3 hits VERDAD); `cargo test cli_tests doctor` 6/6 ✅; clippy workspace 0 ✅; fmt 0 ✅. Commit `feat(cli): doctor --fix con dry-run seguro (GOV-TK1)`. Backlog GOV-TK1 NO eliminada (mitad restore --dry-run pendiente).
 
 ### Task 3: GOV-TK9 — Verificar URL `vantadb-examples` del checklist
 
@@ -248,3 +249,14 @@ rg -n "FIND-22|PY-02|FIND-51" docs/Backlog.md            # = 0 (purga efectiva)
 - **Estado:** ⬜ PENDING (0/12)
 - **Próxima tarea:** Wave0 paralelo `T1 RES-07 + T2 GOV-TK1 + T3 GOV-TK9` (quick wins que desbloquean runbook y cierran follow-up de memoria)
 - **Decisiones del usuario (Gate P):** set 12 DO ✅, 3 purgas ✅, GTM dentro ✅
+
+=== RECITATION 1 ===
+Campaign ID: 20260903-quality-gtm-wave
+Objetivo activo: RES-07 — Calibrar DEFAULT_RSS_THRESHOLD con bench F2
+Estado: completed
+Última acción: Steps F2 4-6 ✅: §12 appended + plan sync ✅ + commit 3a27c5f4 (2 files, 50+/1-)
+Resultado: ✅
+Próxima acción: ninguno (RES-07 cerrada)
+Contrato: verificacion: rg rss_threshold BENCHMARKS.md=4 + linea decision 2026-09-03 + cargo test config 54/0 + bench compile 9.57s + commit 3a27c5f4 | evidencia: BENCHMARKS.md §12; FND-01-memory-budget.md §8 (2 runs ±5%); src/config.rs:22 0.80 sin cambio | artefactos: docs/operations/BENCHMARKS.md, docs/plans/2026-09-03-quality-gtm-wave.md | invariantes: no tocar src/server/ src/index/ src/storage/; threshold 0.70..0.85 | deuda: full-scale F3 queda heavy; fmt drift GOV-TK1 ajeno no tocado; campaign state bloqueado por ERR-TS-01 WIP | queda_pendiente: orquestador valida y pasa a GOV-TK1/GOV-TK9
+Próxima tarea si completa: GOV-TK1
+=== END RECITATION ===

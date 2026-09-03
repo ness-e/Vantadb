@@ -151,7 +151,15 @@ pub enum Commands {
     },
 
     /// Run comprehensive health diagnostics on the database
-    Doctor,
+    Doctor {
+        /// Apply safe repairs (create missing data directories).
+        /// Without --force this only lists what would be fixed (dry-run).
+        #[arg(long)]
+        fix: bool,
+        /// Actually apply the repairs listed by --fix (without it --fix is a dry-run).
+        #[arg(long)]
+        force: bool,
+    },
 
     /// Inspect a single record showing all fields, vectors, and metadata
     Inspect {

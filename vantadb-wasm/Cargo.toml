@@ -27,18 +27,16 @@ console_error_panic_hook = "0.1"
 tracing-wasm = { version = "0.2", optional = true }
 js-sys = "0.3"
 wasm-bindgen-futures = "0.4"
-getrandom = { version = "0.3", features = ["wasm_js"] }
+getrandom = { version = "0.4", features = ["wasm_js"] }
 
-# getrandom 0.4+ is pulled in transitively and needs wasm_js for WASM
-[target.'cfg(target_arch = "wasm32")'.dependencies]
-getrandom_04 = { package = "getrandom", version = "0.4", features = ["wasm_js"] }
-
+# Direct dep on 0.4 carries `wasm_js`: on wasm32 it unifies with the
+# getrandom 0.4 pulled in transitively, so no alias is needed.
 [features]
 default = ["tracing-wasm"]
 opfs = []
 
 [package.metadata.cargo-machete]
-ignored = ["getrandom", "getrandom_04"]
+ignored = ["getrandom"]
 
 [dev-dependencies]
 wasm-bindgen-test = "0.3"

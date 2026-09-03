@@ -642,11 +642,11 @@ fn test_doctor_no_db() {
     if std::path::Path::new(path).exists() {
         eprintln!("WARNING: test directory exists, using temp dir instead");
         let (_dir, tmp_path) = setup_temp_db();
-        let result = vantadb::cli_handlers::cmd_doctor(&tmp_path, false);
+        let result = vantadb::cli_handlers::cmd_doctor(&tmp_path, false, false, false);
         assert!(result.is_ok());
         return;
     }
-    let result = vantadb::cli_handlers::cmd_doctor(path, false);
+    let result = vantadb::cli_handlers::cmd_doctor(path, false, false, false);
     assert!(result.is_ok());
 }
 
@@ -654,7 +654,7 @@ fn test_doctor_no_db() {
 fn test_doctor_with_db() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "doc_ns", "k1", "doctor test");
-    let result = vantadb::cli_handlers::cmd_doctor(&path, false);
+    let result = vantadb::cli_handlers::cmd_doctor(&path, false, false, false);
     assert!(result.is_ok(), "doctor should succeed: {:?}", result);
 }
 
@@ -662,12 +662,58 @@ fn test_doctor_with_db() {
 fn test_doctor_verbose() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "doc_v_ns", "k1", "verbose doctor");
-    let result = vantadb::cli_handlers::cmd_doctor(&path, true);
+    let result = vantadb::cli_handlers::cmd_doctor(&path, false, false, true);
     assert!(
         result.is_ok(),
         "doctor verbose should succeed: {:?}",
         result
     );
+}
+
+#[test]
+fn test_doctor_fix_dry_run_no_mutation() {
+    // RED: --fix without --force must list repairs and change nothing.
+    let dir = tempfile::tempdir().expect("tempdir");
+    let missing = dir.path().join("ghost_db").to_string_lossy().to_string();
+    assert!(!std::path::Path::new(&missing).exists());
+    let result = vantadb::cli_handlers::cmd_doctor(&missing, true, false, false);
+    assert!(
+        result.is_ok(),
+        "doctor --fix dry-run should succeed: {:?}",
+        result
+    );
+    assert!(
+        !std::path::Path::new(&missing).exists(),
+        "dry-run must not create directories"
+    );
+}
+
+#[test]
+fn test_doctor_fix_force_creates_dirs() {
+    // GREEN: --fix --force creates the missing database directory (+ data/).
+    let dir = tempfile::tempdir().expect("tempdir");
+    let missing = dir.path().join("fixed_db").to_string_lossy().to_string();
+    let result = vantadb::cli_handlers::cmd_doctor(&missing, true, true, false);
+    assert!(
+        result.is_ok(),
+        "doctor --fix --force should succeed: {:?}",
+        result
+    );
+    assert!(
+        std::path::Path::new(&missing).exists(),
+        "force must create the database directory"
+    );
+}
+
+#[test]
+fn test_doctor_fix_nothing_to_fix() {
+    let (_dir, path) = setup_temp_db();
+    seed_record(&path, "doc_fix_ns", "k1", "healthy");
+    // Healthy DB: dry-run and force both exit 0 with "nothing to fix".
+    let dry = vantadb::cli_handlers::cmd_doctor(&path, true, false, false);
+    assert!(dry.is_ok(), "dry-run on healthy db: {:?}", dry);
+    let forced = vantadb::cli_handlers::cmd_doctor(&path, true, true, false);
+    assert!(forced.is_ok(), "force on healthy db: {:?}", forced);
 }
 
 // ─── inspect ──────────────────────────────────────────────────
