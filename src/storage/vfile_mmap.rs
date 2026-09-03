@@ -315,7 +315,8 @@ unsafe extern "C" fn sigbus_handler(
     // SAFETY: `_exit` is async-signal-safe (POSIX) and never returns. It must
     // be the last statement: the handler must not return to the faulting
     // instruction, which would restart the unresolvable fault in a loop.
-    libc::_exit(128 + libc::SIGBUS);
+    // (unsafe block required since libc 1.x marks _exit as unsafe fn.)
+    unsafe { libc::_exit(128 + libc::SIGBUS) };
 }
 
 /// Returns the number of resident (in-RAM) bytes for the given memory region.
