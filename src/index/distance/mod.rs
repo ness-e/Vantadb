@@ -15,6 +15,11 @@ pub use metrics::*;
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
+    // Scoped to miri: the only test in this module is #[cfg(miri)], so an
+    // ungated import would be unused (warning) under normal `cargo test`.
+    #[cfg(miri)]
+    use crate::node::DistanceMetric;
+
     #[cfg(miri)]
     #[test]
     fn miri_distance_public_dispatch_paths() {

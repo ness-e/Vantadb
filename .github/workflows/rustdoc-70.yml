@@ -52,7 +52,11 @@ jobs:
           swap-mb: 0
 
       - name: Build Documentation
-        run: cargo doc --no-deps --workspace --all-features --document-private-items
+        # rust-toolchain.toml pins stable, which would shadow the nightly
+        # installed above: override to nightly so -Z RUSTDOCFLAGS parse.
+        run: |
+          rustup override set nightly
+          cargo doc --no-deps --workspace --all-features --document-private-items
         env:
           RUSTDOCFLAGS: "--show-type-layout --enable-index-page -Z unstable-options"
 

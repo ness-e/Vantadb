@@ -114,8 +114,8 @@ jobs:
       # Each example runs as its own step so failures name the example that broke.
       - name: "Python smoke: agent_memory"
         run: python examples/python/agent_memory.py
-      - name: "Python smoke: langchain_rag"
-        run: python examples/python/langchain_rag.py
+      - name: "Python smoke: langchain_ollama_rag"
+        run: python examples/python/langchain_ollama_rag.py
       - name: "Python smoke: demo"
         run: python examples/demo/demo.py
       - name: "Python smoke: autogen_memory"

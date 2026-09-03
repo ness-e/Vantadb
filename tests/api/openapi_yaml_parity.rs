@@ -2,7 +2,7 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 //! OpenAPI YAML ↔ Real Implementation Parity Test
 //!
-//! Validates that docs/api/OPENAPI.yaml accurately reflects the actual
+//! Validates that docs/api/openapi.yaml accurately reflects the actual
 //! implementation in src/parser/mod.rs, src/cli_server.rs, and
 //! vantadb-mcp/src/handlers/tools.rs.
 
@@ -13,11 +13,12 @@ mod openapi_yaml_parity {
     use vantadb::parser::parse_statement;
     use vantadb::query::Condition;
 
-    /// Load and parse the OpenAPI YAML file
+    /// Load and parse the OpenAPI YAML file (lowercase: docs/api/openapi.yaml —
+    /// a previous UPPERCASE spelling broke Linux/macOS CI with NotFound).
     fn load_openapi() -> Value {
         let yaml_content =
-            fs::read_to_string("docs/api/OPENAPI.yaml").expect("Failed to read OPENAPI.yaml");
-        serde_yaml::from_str(&yaml_content).expect("Failed to parse OPENAPI.yaml")
+            fs::read_to_string("docs/api/openapi.yaml").expect("Failed to read openapi.yaml");
+        serde_yaml::from_str(&yaml_content).expect("Failed to parse openapi.yaml")
     }
 
     #[test]
