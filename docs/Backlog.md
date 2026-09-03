@@ -228,6 +228,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | FIND-48 | Alta | Split `src/index/graph.rs` 1846L — god-file HNSW: extraer `graph/hnsw.rs`, `graph/search.rs`, `graph/serialize.rs` por concern (verificado 2026-09-02: 75372 bytes, mayor archivo src) | `src/index/graph.rs` | 🟠 2-3d | 🟡 Media | ⬜ Pendiente |
 | FIND-49 | Media | Split `src/sdk/types.rs` 1699L — tipos SDK monolíticos: extraer `types/record.rs`, `types/search.rs`, `types/graph.rs` (verificado 2026-09-02: 63035 bytes) | `src/sdk/types.rs` | 🟡 1-2d | 🟡 Media | ⬜ Pendiente |
 | FIND-50 | Media | Split `src/parser/mod.rs` 1682L — parser IQL monolítico: extraer `parser/grammar.rs`, `parser/lexer.rs` por concern (verificado 2026-09-02: 64546 bytes) | `src/parser/mod.rs` | 🟡 1-2d | 🟡 Media | ⬜ Pendiente |
+| FIND-53 | Baja | Doc drift: tool MCP `embed_texts` (EMB-05, commit `241b0868`) sin sección en `docs/api/MCP.md` — `scripts/validate-docs-coverage.ps1` reporta 1/49 gaps (2026-09-03, hallazgo colateral GOV-TK9) | `docs/api/MCP.md` | 🟢 | 🟢 Baja | ⬜ Pendiente |
 
 
 ---
@@ -433,7 +434,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | GOV-TK5 | Split Manual Estratégico según recomendación F2 (negocio→docs/business/ con banner snapshot; estado técnico fuera; archivar monolito) | 🟠 | F2/D-decisión |
 | GOV-TK7 | put_batch metadatas solo-str: alinear doc-tutorial vs API o ampliar coercion | 🟡 | B3 |
 | GOV-TK8 | Benchmarks: mejorar/probar/documentar (insumo: docs/benchmarks/_run_stdout.md se conserva como evidencia de corrida cruda) | 🟡 | owner E1 |
-| GOV-TK9 | URL `vantadb-examples` repo distinto en pilot-onboarding-checklist:51 - verificar si existe | 🟢 | B3 |
 
 > Ticketeados aparte con decisión previa: ACID 4a-4d (post-launch Fase A, D14) · release triage semver 0.6.0 (D5, diferido) · MKT-18h wheels ARM64 + MKT-18f adapters (confirmados live por GOV-A5).
 

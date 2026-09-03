@@ -151,3 +151,10 @@ aliases: []
 - **Staged:** 5 archivos. vanta-worker no commitea (regla AGENTS.md §"Límites de herramientas por rol") — **BLOQUEO para vanta-lead**: `git commit -m "docs: MCP-40 — Registry manifest + ecosystem listings"`.
 - **Origen:** plan 2026-08-29-full-backlog-parallel.md W0-1 (parallel 3 con FIND-46 y PROV-08).
 - **Deuda abierta (no bloqueante):** `packages[]`/`remotes[]` ausentes — install via `cargo install --git`. Cuando se publique binario en `ghcr.io/ness-e/vantadb-mcp` (release firmado), regenerar server.json con OCI entry (FIND-49 propuesto). Submission PR al registry es manual (TBD).
+
+### GOV-TK9: Verificar URL `vantadb-examples` del checklist (Wave0 Task 3)
+- **Fecha:** 2026-09-03
+- **Objetivo:** el checklist piloto (doc de venta enterprise) tenía un paso clone a la org `vantadb` que no existe (FIND-17/ADR-030: owner real `ness-e/*`).
+- **Resultado:** ✅ ambas URLs verificadas live 404 (`github.com/vantadb/vantadb-examples` y `github.com/ness-e/vantadb-examples`); ningún repo existe en ninguna org → rama TODO-humano del contrato (no crear repos desde el agente). `docs/operations/pilot-onboarding-checklist.md:51` ahora TODO explícito en inglés; `rg "vantadb/vantadb-examples" docs/operations/ docs/api/` = 0. Fila Backlog eliminada (con ella muere la cita a la ruta vieja `pilot-onboarding-checklist.md` — la canónica es `docs/operations/...`).
+- **Archivos tocados:** `docs/operations/pilot-onboarding-checklist.md`, `docs/Backlog.md` (fila removida), `docs/plans/2026-09-03-quality-gtm-wave.md` (Task 3 → ✅)
+- **Deuda abierta:** crear el repo `vantadb-examples` (o apuntar a ejemplos reales) es acción humana externa.

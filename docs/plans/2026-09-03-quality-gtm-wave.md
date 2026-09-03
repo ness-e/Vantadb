@@ -85,7 +85,8 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 - **Risk Register:** | 🟢×🟢 | decisión humana pendiente | TODO etiquetado | docs |
 - **Cynefin:** 🟦 Obvio | **Uphill/Downhill:** ⬆️ 0 · ⬇️ 1
 - **DoD:** Task: contrato; Commit `docs(gov): verificar URL vantadb-examples (GOV-TK9)`; Release N/A
-- **Estado:** ⬜ PENDING | **Task file:** `.../tasks/GOV-TK9.md` | **Ruta:** vanta-docs | **Branch:** develop
+- **Estado:** ✅ COMPLETED 2026-09-03 | **Task file:** `.../tasks/GOV-TK9.md` | **Ruta:** vanta-docs | **Branch:** develop
+- **Verificación real (cierre):** `webfetch github.com/vantadb/vantadb-examples` → 404; `webfetch github.com/ness-e/vantadb-examples` → 404; `rg "vantadb/vantadb-examples" docs/operations/ docs/api/` = 0; checklist:51 ahora TODO-humano explícito; fila Backlog eliminada (progreso)
 
 ### Task 4: MKT-18h — Wheels ARM64 Linux + SHA256 reales del Formula Homebrew
 
