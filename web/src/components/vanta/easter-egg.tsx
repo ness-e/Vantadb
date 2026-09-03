@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { Sparkles, X } from "lucide-react";
 import { useLanguage } from "@/lib/language-provider";
 
@@ -74,9 +75,11 @@ export function EasterEgg() {
 
         <div className="relative border-4 border-[#FF5500] bg-[#FBF9F5] p-8 shadow-[12px_12px_0_0_#FF5500,12px_12px_0_4px_#000]">
           {/* Mascot */}
-          <img
+          <Image
             src="/assets/mascota_gato.png"
             alt={tt("easterEgg.alt", "VantaDB shadow cat")}
+            width={160}
+            height={160}
             className="mx-auto h-40 w-40 animate-flicker object-cover mix-blend-multiply "
           />
 

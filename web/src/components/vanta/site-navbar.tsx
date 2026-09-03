@@ -248,7 +248,7 @@ export function SiteNavbar({
       setMobileOpen(false);
       setOpenGroup(null);
     },
-    [onNavigate, router, t]
+    [onNavigate, router, t, tt]
   );
 
   const handleNav = useCallback(

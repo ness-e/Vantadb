@@ -195,6 +195,8 @@ export default async function OpengraphImage() {
           }}
         >
           {mascotData ? (
+            // next/image is unavailable in the OG ImageResponse runtime — plain img required
+            // eslint-disable-next-line @next/next/no-img-element
             <img
               src={`data:image/png;base64,${mascotData.toString("base64")}`}
               alt="VantaDB mascot"

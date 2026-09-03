@@ -1,6 +1,7 @@
 "use client";
 
 import { ArrowRight, Github, User } from "lucide-react";
+import Image from "next/image";
 import { PageHeader, PageSection } from "@/components/vanta/page-header";
 import { Reveal } from "@/components/vanta/reveal";
 import { TEAM_MEMBERS, VANTA } from "@/components/vanta/vanta-data";
@@ -46,9 +47,11 @@ export default function TeamPage() {
                   <div className="shrink-0">
                     {member.avatar ? (
                       <div className="relative h-20 w-20 overflow-hidden border-4 border-black bg-[#FF5500] shadow-[3px_3px_0_0_#000]  ">
-                        <img
+                        <Image
                           src={member.avatar}
                           alt={`Avatar of ${member.name}`}
+                          width={80}
+                          height={80}
                           className="h-full w-full object-cover"
                           loading="lazy"
                         />
