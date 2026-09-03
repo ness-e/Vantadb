@@ -1,7 +1,7 @@
 # Plan de Ejecución: Quality & GTM Wave — Post-Auditoría Backlog
 
 > **Inicio:** 2026-09-03
-> **Estado:** ⬜ PENDING (listo para `/pipeline run`)
+> **Estado:** ✅ CAMPAÑA COMPLETADA 2026-09-03 (12/12)
 > **Fuente:** `docs/Backlog.md` (123 activas post-paso0; 126 triadas + 3 purgadas con evidencia) + 4 audits de sesión 2026-09-02/03 + verificación código hoy
 > **Autonomous:** false
 > **Campaign ID:** 20260903-quality-gtm-wave
@@ -221,7 +221,7 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 - **Cynefin:** 🟨 Complicado | **Top 3 riesgos:** medir lo equivocado, borrow-vs-rayon, ruido
 - **Uphill/Downhill:** ⬆️ 1 (dónde está realmente el clone caliente) · ⬇️ 2
 - **DoD:** Task: contrato; Commit `perf(ivf): search sin clones por candidato con A/B canonical (AUD-045)` o `docs(bench): AUD-045 medido, no aplica`; Release: CHANGELOG perf si >5% p99
-- **Estado:** ⬜ PENDING | **Task file:** `.../tasks/AUD-045.md` | **Ruta:** vanta-tuner | **Branch:** develop
+- **Estado:** ✅ COMPLETED 2026-09-03 `fa84cd66` (PREMISA-MUERTA: b4ff157d ya había hecho clone→borrow; baseline IVF medido, BENCHMARKS §14) | **Task file:** `.../tasks/AUD-045.md` | **Ruta:** vanta-tuner | **Branch:** develop
 
 ---
 
@@ -250,8 +250,8 @@ rg -n "FIND-22|PY-02|FIND-51" docs/Backlog.md            # = 0 (purga efectiva)
 
 - **Fecha:** 2026-09-03
 - **Branch:** develop
-- **Estado:** ⬜ PENDING (0/12)
-- **Próxima tarea:** Wave0 paralelo `T1 RES-07 + T2 GOV-TK1 + T3 GOV-TK9` (quick wins que desbloquean runbook y cierran follow-up de memoria)
+- **Estado:** ✅ COMPLETADO (12/12, 0 failed)
+- **Próxima tarea:** ninguna — siguiente acción: `/audit quick` y `/ship` (GOV-TK2 habilitado: 12 tareas + adapters/wheels/docker listos para release)
 - **Decisiones del usuario (Gate P):** set 12 DO ✅, 3 purgas ✅, GTM dentro ✅
 
 === RECITATION 1 ===
@@ -322,11 +322,22 @@ Próxima tarea si completa: Wave2 restante: MKT-18f
 
 === RECITATION RES-03 ===
 Campaign ID: 20260903-quality-gtm-wave
-Objetivo activo: RES-03: canal multi-consumidor en ingestion pipeline (wave3/5, paralelo con RES-15-C)
-Estado: completed (MEDIDO-NO-APLICA)
-Última acción: BENCHMARKS §13 anexo + Backlog fila fuera + FIND-57/58 + avance core-engine + commit (bench+test+colateral tui)
+Objetivo activo: RES-03: canal multi-consumidor en ingestion pipeline (wave3/5)
+Estado: completed
+Última acción: Bench A/B medido x2, decision MEDIDO-NO-APLICA documentada, Backlog+avance+plan cerrados, commit 5732e25a
 Resultado: ✅
-Próxima acción: Handoff orquestador: AUD-045 (wave4, toca BENCHMARKS después de RES-03 — ya libre)
-Contrato: verificacion: rg "multi-consumidor|multi-consumer|RES-03" BENCHMARKS.md=6>=1 OK | cargo test -p vantadb --lib ingestion --features async-ingestion 1/0 OK (sin feature: 0 tests, 0 failed) | suite --lib 1983 passed/0 failed OK | cargo check --workspace --all-targets 0 OK | cargo clippy --workspace --all-targets --all-features -D warnings 0 OK | cargo fmt --all -- --check 0 OK | rg "Arc<Mutex<mpsc::Receiver" src/ingestion.rs = 1 (rama NO-aplicar del contrato: cierre valido "decidido: no aplicar", ambos son exit segun plan) | wasm: ingestion NO esta en build wasm (vantadb-wasm default-features=false sin async-ingestion; README/Cargo verificados) -> check crudo condicional N/A; el fallo crudo getrandom@0.3.4 es pre-existente (Cargo.lock intacto por mi diff) -> FIND-58 | evidencia: claim="el canal no es el cuello", evidencia=benches/ingestion_concurrent.rs 2x11 samples/celda + tabla §13 (113.5/78.5-81/65 ops/s, degradacion monotonica con consumers) + docs.rs tokio mpsc single-consumer, confianza=alta | artefactos: benches/ingestion_concurrent.rs, docs/operations/BENCHMARKS.md §13, docs/plans/artifacts implícitos ($env:TEMP/res03_run{1,2}.txt, efímeros) | invariantes: capacidad canal 1024 intacta; src/ingestion.rs logica de pipeline sin cambios (solo test mod anexado); no tocar Backlog.md hasta cierre (hecho: re-leido del disco, RES-15-C convivio OK) | deuda: FIND-57 worker_count default (Gate D), FIND-58 gate wasm crudo, debug_ops unused-imports release; claim FUT-12 (WAL fsync batching) es el que ataca el cuello medido | queda_pendiente: commit push = vanta-lead; orquestador reconcilia fila RES-07 (aun viva en Backlog pese a Task1 COMPLETED — no mia, NO tocada)
-Próxima tarea si completa: AUD-045 (wave4)
+Próxima acción: Orquestador: AUD-045 (wave4) ya puede tocar BENCHMARKS; opcional FUT-12 usa el bench nuevo
+Contrato: verificacion: rg multi-consumidor|RES-03 BENCHMARKS.md=6>=1 OK | cargo test --lib ingestion (features async-ingestion) 1/0 OK | suite --lib 1983/0 OK | check workspace all-targets 0 OK | clippy all-features -D warnings 0 OK (colateral tui 1L pre-existente) | fmt 0 OK | rg Arc<Mutex<mpsc::Receiver src/ingestion.rs=1 -> rama NO-aplicar del contrato (cierre valido con numeros) | evidencia: claim=cuello no es el canal, evidencia=benches/ingestion_concurrent.rs 2x11 samples (113.5/78.5-81/65 ops/s) + docs.rs/tokio mpsc single-consumer confianza=alta | artefactos: benches/ingestion_concurrent.rs, BENCHMARKS.md S13 | invariantes: capacity canal 1024 intacta; pipeline logico sin cambios | deuda: FIND-57 worker_count default (Gate D), FIND-58 gate wasm crudo getrandom@0.3.4, debug_ops unused release | queda_pendiente: push=lead; RES-07 fila aun viva en Backlog pese a Task1 completed (reconciliar, no tocada)
+Próxima tarea si completa: AUD-045
 === END RECITATION ===
+
+
+## Retrospectiva — 20260903-quality-gtm-wave (12/12, 0 failed, 5 waves)
+
+**Start (seguir haciendo):** contratos con rama "premuerta/medido-no-aplica" como salida válida (RES-03 y AUD-045 cerraron con datos sin escribir código — 2 tareas ahorradas); serialización explícita de archivos compartidos (BENCHMARKS.md, Backlog.md) entre waves; re-lectura del disco antes de editar Backlog (las 3 races de hoy se resolvieron sin corromper).
+**Stop (dejar de hacer):** asumir vigentes las filas del backlog sin `rg` en Paso 0 (3 de 12 nacieron premisa-muerta o medio-hecha: RES-03 patrón tokio multi-consumer inexistente, AUD-045 ya fixeado en b4ff157d, GOV-TK1 mitad hecha); confiar en el estado del plan para cerrar — 3 líneas PENDING stale quedaron al final.
+**Continue (igual):** commits por tarea + recitación con comando+output; Gate P antes de escribir el plan; progreso Trigger 1 inline por agente con fila re-escalada cuando queda mitad humana (MKT-18f publish, GOV-TK1 restore-verify, MKT-18i AnythingLLM upstream).
+**Acción medible:** 0 líneas-plan-stale-per-campaña (baseline: 3 — RES-07 fila + 2 estados sin actualizar). Mecanismo: en el cierre de campaña, `rg -c "⬜ PENDING" plan` debe ser 0 verificado por el orquestador ANTES del archivo (se aplicó en esta misma campaña; queda como gate permanente de `/pipeline run`).
+
+**Hallazgos nacidos de la campaña (ya en Backlog):** FIND-56 (server Dockerfile roto + hardening.md miente), FIND-57 (worker_count=4 default perjudica ingesta), FIND-58 (gate wasm getrandom). Diferidos a CI con evidencia: corrida real wheels aarch64 + build docker (sin daemon local — declarado, no fakeado).
+**Habilitado para release:** 12 tareas + lru unificado 0.18 (medio AUD-042) → `/ship` para GOV-TK2 (0.6.0) es el siguiente gate de decisión.

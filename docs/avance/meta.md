@@ -207,3 +207,8 @@ Plan archivado con auditoria de cierre: 82/88 verificados con evidencia + 6 reap
 
 -2 obsoletas (RES-02/08, evidencia en backlog-history) +3 re-escaladas (RES-09/12/15) + DEC-02 a ICEBOX. Backlog: 126 activas.
 
+
+## Archivo 2026-09-03: campana quality-gtm-wave (20260903-quality-gtm-wave)
+
+Plan archivado con retrospectiva: 12/12 en 5 waves, 0 failed. -11 filas Backlog ejecutadas (2 cerradas con premisa-muerta/medido-no-aplica), +3 FIND-56/57/58, split negocio 15 filas. Gate nuevo de cierre: rg PENDING en plan == 0.
+

@@ -14,7 +14,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 > **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
 > **Backlog de negocio:** [`docs/Backlog-negocio.md`](Backlog-negocio.md) — filas que requieren abogado/pago/decisión humana/publicación (criterio Gate P, split RES-15-C 2026-09-03). Este archivo es solo técnico: lo ejecutable por agentes.
 > **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 107 activas (post-RES-15-C 2026-09-03: -16 = 15 filas movidas a `docs/Backlog-negocio.md` + RES-15 completada; previo 123, post-paso0-plan 2026-09-03: -3 purgadas con evidencia - FIND-22 (cerrada 3b1b820b, fila stale), PY-02 (BENCHMARKS §2 SDK Python con comando reproducible ya existe), FIND-51 (premature: handlers.rs 1469L < umbral 2500L); ver plan 2026-09-03-quality-gtm-wave)
+> **Total open items:** 107 activas (post-campana quality-gtm-wave 2026-09-03: -11 filas por ejecucion RES-07/03/12/15C/09 + GOV-TK1/9 + MKT-18h/f/i + SRV-07 + AUD-045, +3 FIND-56/57/58 nuevos, GOV-TK1/MKT-18f re-escaladas; split negocio: 15 filas a Backlog-negocio.md; previo 126)
 ---
 
 ## Exec Summary
@@ -514,7 +514,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Effort | Descripción | Archivos / Origen | Estado |
 |----|--------|-------------|-------------------|--------|
-| `RES-07` | 🟡 | **Calibrar `rss_threshold`** (F2: recalibrar `DEFAULT_RSS_THRESHOLD=0.80` con medición real) + bench full-scale `[10k..100k]` (F3) | `src/config.rs:22`, benches memory-budget · Origen: `FND-01-memory-budget.md` (follow-ups F2/F3) | ⬜ Pendiente |
 
 ### 🟢 Baja / proceso
 
