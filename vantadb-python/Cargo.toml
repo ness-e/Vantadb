@@ -16,9 +16,9 @@ pyo3 = { version = "0.29", features = ["extension-module", "abi3-py311", "chrono
 rayon = "1.12"
 chrono = { version = "0.4", features = ["serde"] }
 tracing = "0.1"
-# O(1) LRU cache (AUD-039): same version the core crate resolves (0.16.x in lockfile).
-# Do not downgrade to the tantivy-transitive 0.12.x.
-lru = "0.16"
+# O(1) LRU cache (AUD-039): same version the core crate resolves (0.18.x in lockfile).
+# Do not downgrade to the tantivy-transitive 0.16.x.
+lru = "0.18"
 
 # In-process reference to the core engine (zero network overhead)
 vantadb = { path = "../", default-features = false, features = ["fjall", "memmap2", "rayon"] }

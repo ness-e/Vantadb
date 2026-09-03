@@ -6239,7 +6239,7 @@ name = "vantadb_py"
 version = "0.5.0"
 dependencies = [
  "chrono",
- "lru 0.16.4",
+ "lru 0.18.4",
  "pyo3",
  "rayon",
  "tracing",
