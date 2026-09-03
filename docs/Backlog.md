@@ -13,7 +13,7 @@ verified_by: "Historial de verificación: docs/avance/historial/backlog-history.
 > **Execution state lives in:** `docs/plans/YYYY-MM-DD-<campaign>.md` (plan file) + task files — per campaign-executor RULES.md §2. This file is the task catalog; the plan file is the execution state.
 > **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
 > **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 131 activas (post-limpieza-alta-prioridad 2026-09-03: -5 con evidencia (MCP-35 79a00ace, RES-04/06 scores+phrase, RES-13 githooks, RES-14 P2-01) +2 restauradas RES-02/03 (colisión ID sync 09-01); previo 125 con +4 FIND-52..55; historial: 173→130 sync drift 43, 130→117 slice2, 117→121 god-files)
+> **Total open items:** 129 activas (post-limpieza-alta-prioridad 2026-09-03: -5 con evidencia (MCP-35 79a00ace, RES-04/06 scores+phrase, RES-13 githooks, RES-14 P2-01) +2 restauradas RES-02/03 (colisión ID sync 09-01); previo 125 con +4 FIND-52..55; historial: 173→130 sync drift 43, 130→117 slice2, 117→121 god-files)
 ---
 
 ## Exec Summary
@@ -607,7 +607,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Archivos clave | Esfuerzo | Prioridad | Estado |
 |---|---|---|---|---|---|
-| `WSM-09` | **Unificar límites FFI entre transports en core**: MAX_F32_VEC_LEN=10M (wasm) vs MAX_VEC_DIM=10k (node); MAX_K=1k vs top_k≤10k — misma operación acepta límites distintos según transporte. Mover constantes al core y derivar | `vantadb-wasm/src/lib.rs:38-43`, `vantadb-node/src/lib.rs`, core | 🟡 | 🟢 Baja-Media | ⬜ Pendiente |
 | `WSM-11` | **Señalizar metadata descartada**: `memory_record_to_js` ignora error de serialización de metadata (record devuelto sin metadata sin señal); propagar error o contador | `vantadb-wasm/src/lib.rs:1582 aprox` | 🟢 | 🟢 Baja | ⬜ Pendiente |
 | `WSM-14` | **Plan adopción npm** (estrategia H-21 aprobada): README npm con posicionamiento del nicho "browser AI agent memory", demo Transformers.js enlazada, keywords/comparativa honesta vs Orama (5.44M desc/mes vs 187). Sin claims de performance sin benchmark (Regla 11) | `vantadb-wasm/pkg/README.md` template, landing docs | 🟡 | 🟠 Alta | ⬜ Pendiente |
 
@@ -615,7 +614,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | `WEB-02` | **Publicar benchmarks propios en /benchmarks**: convertir datos de `docs/operations/BENCHMARKS.md` en tablas p50/p99 públicas citando fuente reproducible (estilo Chroma home) — social proof honesto sin claims de adopción inexistentes (Regla 11). Verificar que la ruta existente muestre datos actuales. Origen: INV-web-01 H-10 | `web/src/app/benchmarks/page.tsx`, `docs/operations/BENCHMARKS.md` | 🟡 | 🟡 Media | ⬜ Pendiente |
 | `WEB-03` | **Restaurar/eliminar assets gato faltantes**: 4 refs a `mascota_gato.png`/`avatar_gato.png` con fallbacks silenciosos — restaurar en `public/assets/` o quitar refs muertas. Origen: INV-web-01 H-03 | `web/src/components/vanta/easter-egg.tsx:78`, `web/src/app/opengraph-image.tsx:15`, `web/src/components/vanta/vanta-data.ts:1062,1069` | 🟢 | 🟢 Baja | ⬜ Pendiente |
-| `WEB-05` | **Re-medir Lighthouse post-WDA-05** (−7.615 líneas, lazy command-palette): actualizar claim perf del registro y AGENTS.md web con medición fresca (Regla 11). Si EPERM ambiental persiste, documentar workaround. Origen: INV-web-01 H-06 | `web/` (Lighthouse), `.opencode/references/research-modules.md`, `web/AGENTS.md` | 🟢 | 🟢 Baja | ⬜ Pendiente |
 
 | `WEB-09` | **Densidad efectos decorativos home**: 73 usos (trust-bar ×11, hero 5 capas) — requiere criterio visual del owner; puede quedar diferida como decisión de diseño fino. Origen: INV-web-01 H-07 | `web/src/app/page.tsx` + componentes mark/trust-bar | 🟡 | 🟡 Media-Baja | ⬜ Pendiente (requiere input visual owner) |
 
