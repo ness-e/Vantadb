@@ -55,15 +55,21 @@ jobs:
           cache: npm
           cache-dependency-path: desktop/package-lock.json
 
-      # Sidecar for the installer bundle AND for the src-tauri sidecar tests.
+      # Sidecars for the installer bundle AND for the src-tauri sidecar tests.
       # custom-allocator (mimalloc on Windows) per release-ci.md rule 1:
-      # this exe ships inside the installer, same as release-binaries-63.
-      - name: Build vantadb-server sidecar
+      # these exes ship inside the installer, same as release-binaries-63.
+      # BOTH binaries are required: tauri.conf.json resources embeds
+      # binaries/vanta-cli.exe (the app spawns canonical vanta-cli per
+      # c684a83d), while src-tauri spawn tests exercise vantadb-server.exe
+      # via VANTADB_SERVER_BIN.
+      - name: Build sidecars (vanta-cli + vantadb-server)
         shell: pwsh
         run: |
           cargo build --release --package vantadb-server --features custom-allocator
+          cargo build --release --features "server,custom-allocator" --package vantadb --bin vanta-cli
           New-Item -ItemType Directory -Force -Path desktop/src-tauri/binaries | Out-Null
           Copy-Item target/release/vantadb-server.exe desktop/src-tauri/binaries/vantadb-server.exe
+          Copy-Item target/release/vanta-cli.exe desktop/src-tauri/binaries/vanta-cli.exe
           "VANTADB_SERVER_BIN=$PWD/desktop/src-tauri/binaries/vantadb-server.exe" >> $env:GITHUB_ENV
 
       - name: Install frontend dependencies
