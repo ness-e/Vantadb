@@ -7,8 +7,8 @@ publish = false
 description = "Optional local server wrapper and MCP interface for VantaDB"
 
 [dependencies]
-vantadb = { path = "..", version = "0.5.0", features = ["cli", "server"] }
-vantadb-mcp = { path = "../vantadb-mcp", version = "0.5.0" }
+vantadb = { path = "..", features = ["cli", "server"] }
+vantadb-mcp = { path = "../vantadb-mcp" }
 # ERR-CORE-02: bin-only human error chain (.context() en main).
 anyhow = "1"
 tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "signal", "net", "time"] }

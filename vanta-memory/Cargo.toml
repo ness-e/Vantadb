@@ -7,7 +7,7 @@ description = "VantaDB Memory Engine: four-layer (L0-L3) LLM-driven memory pipel
 publish = false
 
 [dependencies]
-vantadb = { path = "../", version = "0.5.0", default-features = false }
+vantadb = { path = "../", default-features = false }
 serde = { version = "1", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2"
@@ -28,7 +28,7 @@ tempfile = "3"
 # MEM-46: unification enables `vantadb::llm` (EmbeddingProvider trait) during
 # tests so D19 fakes can implement the real core trait. Production default
 # build stays lean (no reqwest from the core).
-vantadb = { path = "../", version = "0.5.0", features = ["remote-inference"] }
+vantadb = { path = "../", features = ["remote-inference"] }
 
 [features]
 # LLM-driven paths (L1 extraction, L2 scenes, L3 persona, recall composer).
