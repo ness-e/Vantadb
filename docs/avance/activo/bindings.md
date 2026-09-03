@@ -552,6 +552,12 @@ aliases: []
 - **Objetivo:** 9 paquetes en PyPI (langchain, llamaindex, dspy, haystack, crewai, letta, mem0, ollama, openai) v0.5.0.
 - **Resultado:** ✅ Workflow `release-adapters-62.yml` listo; todos los `pyproject.toml` en v0.5.0; build sdist/wheel + twine (Python puro). Publicación manual o via CI al tag `adapters-v*`.
 
+### MKT-18f: Gate de packaging PyPI 5/5 + docs honestas + PRs upstream (Wave quality-gtm)
+- **Fecha:** 2026-09-03
+- **Plan:** `docs/plans/2026-09-03-quality-gtm-wave.md` (Task 8)
+- **Objetivo:** verificar publishabilidad real de langchain/llamaindex/mem0/crewai/dspy antes del paso humano de publicación.
+- **Resultado:** ✅ 5/5 `python -m build` (wheel+sdist) exit 0 + `python -m twine check` PASSED 10/10; nombres PyPI verificados LIBRES live (404 ×5: `vantadb-langchain`, `vantadb-llamaindex`, `vantadb-mem0`, `vantadb-crewai`, `vantadb-dspy`; nota: el package real es `vantadb-llamaindex`, no `vantadb-llama-index`); dep `vantadb-py>=0.5.0,<0.6.0` válida (existe 0.5.0). Workflow NO duplicado: `release-adapters-62.yml` (QW-7) cubre cláusula, actionlint exit 0. 5 READMEs con sección honesta "Install from PyPI (after first release)" (antes anunciaban `pip install` con 404 vigente — Regla 11). Borradores upstream en `docs/plans/artifacts/mkt-18f-prs/` ×5. Pre-mortem #2 (extras): NO aplicado — langchain/llamaindex/mem0 importan framework top-level, extras rompería install base; convención repo/ecosistema = base dep (evidencia en task file). Publicación real = acción humana, checklist 3 pasos en `tasks/MKT-18f.md`. Backlog re-escalado a 🟠 humano.
+
 ### QW-8: Posicionamiento en READMEs — H-11
 - **Fecha:** 2026-08-26
 - **Plan:** `docs/plans/2026-08-25-integrations-research-wins.md` (Wave 3)

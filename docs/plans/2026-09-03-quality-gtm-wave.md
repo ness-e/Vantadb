@@ -160,7 +160,7 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 - **Cynefin:** 🟨 | **Top 3 riesgos:** squatting, deps drift, publish secrets
 - **Uphill/Downhill:** ⬆️ 1 · ⬇️ 5 adapters
 - **DoD:** Task: contrato; Commit `feat(integrations): paquete PyPI publishable x5 + release workflow (MKT-18f)`; Release: publicación real requiere `/ship`+token
-- **Estado:** ⬜ PENDING | **Task file:** `.../tasks/MKT-18f.md` | **Ruta:** vanta-worker | **Branch:** develop
+- **Estado:** ✅ COMPLETED (lado código; publicación = acción humana con checklist 3 pasos en task file) | **Task file:** `.../tasks/MKT-18f.md` | **Ruta:** vanta-worker | **Branch:** develop
 
 ### Task 9: RES-09 — Filas P24 del roadmap huérfano (docs)
 

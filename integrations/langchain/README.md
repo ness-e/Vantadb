@@ -4,6 +4,17 @@ LangChain `VectorStore` adapter for [VantaDB](https://github.com/ness-e/Vantadb)
 
 ## Install
 
+> **Not on PyPI yet.** The `vantadb-langchain` package builds and passes
+> `twine check` locally; it will go live with the first `adapters-v*` tag
+> release. Until then, install from source.
+
+```bash
+# Today, from a repo checkout
+cd integrations/langchain && pip install .
+```
+
+### Install from PyPI (after first release)
+
 ```bash
 pip install vantadb-langchain
 ```
