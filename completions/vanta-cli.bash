@@ -1,4 +1,4 @@
-_vanta-cli() {
+_vanta__cli() {
     local i cur prev opts cmd
     COMPREPLY=()
     if [[ "${BASH_VERSINFO[0]}" -ge 4 ]]; then
@@ -520,7 +520,7 @@ _vanta-cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__doctor)
-            opts="-d -v -h --db --verbose --memory-limit --help"
+            opts="-d -v -h --fix --force --db --verbose --memory-limit --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -2257,7 +2257,7 @@ _vanta-cli() {
 }
 
 if [[ "${BASH_VERSINFO[0]}" -eq 4 && "${BASH_VERSINFO[1]}" -ge 4 || "${BASH_VERSINFO[0]}" -gt 4 ]]; then
-    complete -F _vanta-cli -o nosort -o bashdefault -o default vanta-cli
+    complete -F _vanta__cli -o nosort -o bashdefault -o default vanta-cli
 else
-    complete -F _vanta-cli -o bashdefault -o default vanta-cli
+    complete -F _vanta__cli -o bashdefault -o default vanta-cli
 fi

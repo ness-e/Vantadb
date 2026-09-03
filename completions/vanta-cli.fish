@@ -130,6 +130,8 @@ complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand restore" -s v -l ver
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand restore" -s h -l help -d 'Print help'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand doctor" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand doctor" -l memory-limit -d 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand doctor" -l fix -d 'Apply safe repairs (create missing data directories). Without --force this only lists what would be fixed (dry-run)'
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand doctor" -l force -d 'Actually apply the repairs listed by --fix (without it --fix is a dry-run)'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand doctor" -s v -l verbose -d 'Enable verbose output'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand doctor" -s h -l help -d 'Print help'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand inspect" -l namespace -d 'Namespace of the record' -r
