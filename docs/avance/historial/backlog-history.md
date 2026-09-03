@@ -265,3 +265,9 @@ Filas completadas NO viven más en el Backlog: se eliminan al completar y su reg
 - **RES-08** (Benchmark delete-masivo antes de rediseñar DashMap sweep) — 🗑️ OBSOLETA: el rediseño ya está implementado, `delete.rs:102,212` llama `edge_index.remove_all_for_node(id)` (borrado O(1) por nodo; el full-shard sweep ya no existe en el camino de delete). H4 original era "documentar, no fixear" y terminó fixeado (FND-02: "los 2 fixes REDUCEN deuda"). No queda decisión que medir.
 
 Re-escaladas en el propio Backlog (misma fecha): RES-09 (fila WAL a fsync-batching; ingestion.rs ya cubre async-ingest de nodos), RES-12 (~20 componentes → 4-5 archivos reales con <button> h-7/h-9), RES-15 (B institucionalizada via research-decide.md→wontfix.md; queda solo C, cruzar con GOV-TK5). DEC-02 → ⏸️ ICEBOX (0 consumidores de billing; gate PRX-03/Pro).
+
+## Purgadas 2026-09-03 (Paso 0 del plan 2026-09-03-quality-gtm-wave)
+
+- **FIND-22** (formalizar exclusiones fast gate en CI_POLICY) — cerrada en 3b1b820b (docs(ci) FIND-22, plan vanta-next-wave) pero la fila quedo stale en L219.
+- **PY-02** (benchmarks reproducibles SDK Python) — obsoleta: `docs/operations/BENCHMARKS.md` \u00a72 `SDK Operations Performance (Python Wrapper)` + \u00a76 `search_batch` con comando reproducible (`benchmarks/vantadb_local_bench.py`); contrato ya satisfecho.
+- **FIND-51** (sub-split handlers.rs) — premature por su propio contrato: disparador `>2500L` no alcanzado (hoy 1469L post-REVIEW-10). Umbral documentado en la fila; reabrir al cruzarlo.
