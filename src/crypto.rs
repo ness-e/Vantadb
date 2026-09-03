@@ -135,7 +135,9 @@ const MAX_FRAME_LEN: usize = 512 * 1024 * 1024;
 
 /// AES-256-GCM cipher wrapping [`Aes256Gcm`] with a 12-byte nonce.
 ///
-/// Each encryption generates a fresh random nonce via [`OsRng`].
+/// Each encryption generates a fresh random nonce from the OS CSPRNG
+/// via `rand::rng()` (thread-local CSPRNG, same entropy source the removed
+/// `AeadCore::generate_nonce` used).
 #[derive(Clone)]
 pub struct Cipher {
     /// Raw 32-byte AES key. `Some` when the caller supplied exactly 32 bytes;

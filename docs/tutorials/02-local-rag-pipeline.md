@@ -119,7 +119,6 @@ ingest_pdf("manual.pdf")
 >
 > ```python
 > db.put_batch(
->     None,                                  # entries is a required positional arg
 >     keys=[f"{stem}-{i}" for i in range(len(chunks))],
 >     vectors=[embed(c) for c in chunks],
 >     payloads=chunks,

@@ -274,8 +274,8 @@ class AsyncVantaDB:
     async def put_batch(
         self,
         *,
-        keys=None,
-        vectors=None,
+        keys,
+        vectors,
         payloads=None,
         metadatas=None,
         namespace=None,

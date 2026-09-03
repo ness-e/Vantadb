@@ -22,6 +22,12 @@ npx vite preview --outDir dist-wasm
 `file://` will not work: the wasm glue is fetched over HTTP and OPFS requires
 a secure context (https or http://127.0.0.1/localhost).
 
+> **RNG prerequisite (wasm32):** `getrandom` needs the Web-Crypto backend on
+> `wasm32-unknown-unknown`. This is provided automatically by the committed
+> `.cargo/config.toml` (`getrandom_backend="wasm_js"`, honored by local,
+> CI and wasm-pack builds) — do not delete or override it. See
+> <https://docs.rs/getrandom#webassembly-support>.
+
 ## What works
 
 The full console surface (HOME / MEMORIAS / ACTIVITY / ÍNDICES / IQL) runs the

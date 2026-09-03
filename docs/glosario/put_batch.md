@@ -3,7 +3,7 @@ title: "put_batch"
 type: glossary-entry
 status: stable
 tags: [glosario, api, escritura, batch, rendimiento]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-09-03
 aliases: [put_batch, batch-insert, batch-write, insercion-por-lote]
 description: "Inserción o actualización masiva de registros en paralelo, hasta 5x más rápida que inserciones individuales"
 ---
@@ -18,11 +18,19 @@ description: "Inserción o actualización masiva de registros en paralelo, hasta
 
 ```python
 db.put_batch(
-    entries: List[Tuple[str, str, str, Optional[dict], Optional[List[float]], Optional[int]]]
-) -> List[dict]
+    keys: list[str],
+    vectors: list[list[float]],
+    payloads: list[str] | None = None,
+    metadatas: list[dict | None] | None = None,
+    namespace: str | None = None,
+    namespaces: list[str] | None = None,
+    ttls: list[int | None] | None = None,
+) -> list[dict]
 ```
 
-Cada entrada es: `(namespace, key, payload, metadata, vector, ttl_ms)`.
+`keys` y `vectors` son requeridos y deben tener la misma longitud; `namespaces`
+(opcional) enruta cada registro a su propio namespace. La forma legacy por
+tuplas `entries` fue eliminada (PY-QW2).
 
 ## Implementación
 
