@@ -104,6 +104,9 @@ jobs:
           args: --release --out dist --manifest-path ./vantadb-python/Cargo.toml
 
       - name: Install wheel + example requirements
+        # bash on all OSes: the wheel pick uses $(...) command substitution,
+        # which PowerShell (windows-latest default) cannot parse.
+        shell: bash
         run: |
           wheel="$(ls -t ./dist/vantadb_py-*.whl | head -n 1)"
           python -m pip install --upgrade pip
