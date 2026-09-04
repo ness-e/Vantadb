@@ -90,8 +90,8 @@ def test_get_record(db):
     assert record["key"] == "k1"
     assert record["payload"] == "hello world"
     assert record["namespace"] == "test_ollama"
-    assert "created_at_ms" in record
-    assert "updated_at_ms" in record
+    assert isinstance(record["created_at_ms"], int)
+    assert isinstance(record["updated_at_ms"], int)
 
 
 def test_delete_record(db):
@@ -111,5 +111,6 @@ def test_list_records(db):
 
 
 def test_list_namespaces(db):
+    db.put("test_ollama", "ns_key", "ns payload", vector=[0.4] * 128)
     namespaces = db.list_namespaces()
     assert "test_ollama" in namespaces
