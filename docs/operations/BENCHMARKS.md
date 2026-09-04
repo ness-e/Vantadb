@@ -510,6 +510,13 @@ Contract check `bench post-cambio ≥110 ops/s`: **111.5 ✅**. Default=1 confir
 external `None` callers now get the fastest regime. Upgrade path unchanged:
 FIND-59/FUT-12 (serial `insert_lock` + WAL fsync ceiling).
 
+### Análisis FIND-59 — decisión (d): mantener el lock global (2026-09-04)
+
+> análisis FIND-59: el lock global es load-bearing (ERR-010, topología HNSW, protocolo
+> delete↔consolidate) y el techo es fsync-dominado — ninguna granularidad supera el gate
+> >2× sin tocar la política de durabilidad (FUT-12). Detalle + matriz en `ADR-037`;
+> spike de medición trackeado como FIND-61 (desglose fsync-vs-lock + prototype batch).
+
 ## 14. IVF search hot path — premisa-muerta + baseline post-`b4ff157d` (AUD-045)
 
 > **Source of truth:** `benches/ivf_bench.rs` (REVISAR-01). `canonical_p99.rs` **no** cubre IVF
