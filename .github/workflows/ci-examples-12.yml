@@ -109,6 +109,12 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install "$wheel"
           python -m pip install -r examples/demo/requirements.txt
+          # langchain_ollama_rag.py imports vantadb_langchain (unpublished on
+          # PyPI): install the in-repo adapter. Its vantadb-py>=0.5.0 dep is
+          # already satisfied by the wheel above; langchain-core comes from
+          # PyPI. The example itself degrades to mock embeddings without
+          # Ollama running, so no server needed.
+          python -m pip install ./integrations/langchain
 
       # ── Smoke tests against the current API (vantadb-py 0.5.0) ──
       # Each example runs as its own step so failures name the example that broke.
