@@ -71,6 +71,11 @@ jobs:
           Copy-Item target/release/vantadb-server.exe desktop/src-tauri/binaries/vantadb-server.exe
           Copy-Item target/release/vanta-cli.exe desktop/src-tauri/binaries/vanta-cli.exe
           "VANTADB_SERVER_BIN=$PWD/desktop/src-tauri/binaries/vantadb-server.exe" >> $env:GITHUB_ENV
+          # Canonical override (priority 1 in locate_binary): the MCP sidecar
+          # tests spawn `<bin> server --mcp`, which only vanta-cli accepts.
+          # Leaving only VANTADB_SERVER_BIN set resolves to vantadb-server.exe
+          # and fails with "unrecognized argument 'server'".
+          "VANTADB_CLI_BIN=$PWD/desktop/src-tauri/binaries/vanta-cli.exe" >> $env:GITHUB_ENV
 
       - name: Install frontend dependencies
         working-directory: desktop
