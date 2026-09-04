@@ -72,4 +72,7 @@ jobs:
         working-directory: providers/${{ matrix.provider }}
         # NOTE: the step CWD is providers/<name>, so the script path must be
         # anchored at $GITHUB_WORKSPACE (a bare relative path 404s here).
-        run: python -c "import os,sys; sys.path.insert(0, '.').__class__; exec(open(os.path.join(os.environ['GITHUB_WORKSPACE'], '.github/scripts/verify_pyi.py')).read().replace('${PROVIDER}', '${{ matrix.provider }}'))"
+        # NOTE 2: '\${PROVIDER}' keeps the $ literal: unescaped, bash would
+        # expand ${PROVIDER} to empty and .replace('', ...) would interleave
+        # the provider name between every character of the script.
+        run: python -c "import os,sys; sys.path.insert(0, '.').__class__; exec(open(os.path.join(os.environ['GITHUB_WORKSPACE'], '.github/scripts/verify_pyi.py')).read().replace('\${PROVIDER}', '${{ matrix.provider }}'))"
