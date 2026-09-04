@@ -84,7 +84,7 @@ def db():
 
 
 def test_get_record(db):
-    record_id = db.put("test_ollama", "k1", "hello world", [0.1] * 128)
+    record_id = db.put("test_ollama", "k1", "hello world", vector=[0.1] * 128)
     record = db.get("test_ollama", "k1")
     assert record is not None
     assert record["key"] == "k1"
@@ -95,7 +95,7 @@ def test_get_record(db):
 
 
 def test_delete_record(db):
-    db.put("test_ollama", "k_del", "delete me", [0.2] * 128)
+    db.put("test_ollama", "k_del", "delete me", vector=[0.2] * 128)
     found = db.get("test_ollama", "k_del")
     assert found is not None
     db.delete("test_ollama", "k_del")
@@ -105,7 +105,7 @@ def test_delete_record(db):
 
 def test_list_records(db):
     for i in range(3):
-        db.put("test_ollama", f"lst_{i}", f"item {i}", [0.3 + i * 0.01] * 128)
+        db.put("test_ollama", f"lst_{i}", f"item {i}", vector=[0.3 + i * 0.01] * 128)
     page = db.list("test_ollama", limit=10)
     assert len(page["records"]) >= 3
 
