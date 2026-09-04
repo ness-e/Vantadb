@@ -73,6 +73,10 @@ jobs:
     name: "Python Examples (${{ matrix.os }})"
     runs-on: ${{ matrix.os }}
     timeout-minutes: 30
+    # Windows runners default to cp1252 stdout: examples print emoji, so force
+    # UTF-8 mode (no-op on ubuntu/macos, fixes UnicodeEncodeError on Windows).
+    env:
+      PYTHONUTF8: 1
     # CATEGORY: SMOKE — every example imports ONLY `vantadb_py` + stdlib.
     # None import framework libs (langchain, haystack, crewai, autogen, dspy,
     # semantic_kernel, mem0, langgraph) and none read API keys / env vars, so no
