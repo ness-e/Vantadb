@@ -1702,7 +1702,7 @@ _vanta__cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__restore)
-            opts="-d -v -h --input --force --rebuild --db --verbose --memory-limit --help"
+            opts="-d -v -h --input --force --rebuild --dry-run --db --verbose --memory-limit --help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0

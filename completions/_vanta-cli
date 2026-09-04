@@ -182,6 +182,7 @@ _arguments "${_arguments_options[@]}" : \
 '--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '--force[Overwrite existing database directory if it exists]' \
 '--rebuild[Rebuild indexes after restore]' \
+'--dry-run[Validate the backup without restoring (dry-run). Lists what would be restored and exits 0 without touching the target]' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
