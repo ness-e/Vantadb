@@ -42,11 +42,10 @@ impl VantaEmbedded {
                 continue;
             }
 
-            match self.search(ns_req) {
-                Ok(hits) => all_hits.extend(hits),
-                // Surface storage / engine errors; skip only validation errors.
-                Err(e) => return Err(e),
-            }
+            // Storage / engine errors propagate (only namespace validation
+            // above short-circuits per-namespace via continue).
+            let hits = self.search(ns_req)?;
+            all_hits.extend(hits);
         }
 
         // Merge: sort by score descending, stable (preserve per-namespace order

@@ -597,9 +597,10 @@ impl StorageEngine {
     ///
     /// # Consistency (FIND-25)
     ///
-    /// Before imaging, the engine is quiesced via [`Self::flush`] (insert_lock
-    /// + HNSW drain + backend flush + vector-index save, ERR-010 pattern), so
-    /// the imaged file set is mutually consistent at a single point in time.
+    /// Before imaging, the engine is quiesced via [`Self::flush`]
+    /// (insert_lock, HNSW drain, backend flush, vector-index save, ERR-010
+    /// pattern), so the imaged file set is mutually consistent at a single
+    /// point in time.
     /// Without this, a snapshot taken during active writes could capture a
     /// torn set — each individual file operation is atomic, but the *set* of
     /// files is not (e.g. a newer `vector_index.bin` referencing offsets past
