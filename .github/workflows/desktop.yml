@@ -104,5 +104,11 @@ jobs:
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: vantadb-desktop-windows-installers
-          path: ${{ steps.tauri.outputs.artifactPaths }}
+          # Recursive glob: `tauri bundle` (v1, no --target flag) emits to
+          # target/release/bundle while tauri-action looks under
+          # target/<triple>/release/bundle — cover both layouts instead of
+          # hardcoding one (which failed with "No files were found").
+          path: |
+            desktop/src-tauri/target/**/bundle/msi/*.msi
+            desktop/src-tauri/target/**/bundle/nsis/*.exe
           if-no-files-found: error

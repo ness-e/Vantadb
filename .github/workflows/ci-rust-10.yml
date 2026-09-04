@@ -92,8 +92,14 @@ jobs:
     # the latest published version on crates.io (0.4.x baseline vs 0.5.0).
     # Only `vantadb` is checked: vantadb-wasm is npm-distributed (release = false),
     # and python/server/mcp are not crates.io-distributed.
+    # SCOPE: main pushes + PRs targeting main only (base_ref guards PRs aimed
+    # at develop). On develop the baseline comparison is permanently red while
+    # features accumulate pre-release (13 majors today heading into 0.6.0) —
+    # pure noise that hides real regressions. The release decision (major vs
+    # minor) is made once, at the develop→main PR.
     name: Semver Checks (public API)
     runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
     timeout-minutes: 30
     concurrency:
       group: semver-${{ github.ref }}
