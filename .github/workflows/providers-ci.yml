@@ -62,6 +62,10 @@ jobs:
         working-directory: providers/${{ matrix.provider }}
         run: |
           pip install pytest pytest-asyncio
+          # Tests gate on importorskip(client lib): matrix name == PyPI
+          # package (openai/litellm/ollama). vantadb-py is published (0.5.0),
+          # matching the local core version under test.
+          pip install ${{ matrix.provider }} vantadb-py
           python -m pytest tests/ -v --tb=short
 
       - name: Verify .pyi matches signatures
