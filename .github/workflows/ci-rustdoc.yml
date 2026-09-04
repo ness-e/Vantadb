@@ -52,15 +52,16 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      # rust-setup composite: toolchain stable + sccache + cache. No necesitamos
-      # nextest ni llvm-cov ni system-deps (rustdoc no usa rocksdb/clang).
+      # rust-setup composite: toolchain stable + sccache + cache.
+      # --all-features pulls rocksdb -> librocksdb-sys (bindgen) which needs
+      # libclang: system deps ARE required (same fix as rustdoc-70.yml).
       - uses: ./.github/actions/rust-setup
         with:
           toolchain: stable
           components: ''
           install-nextest: false
           install-llvm-cov: false
-          install-system-deps: false
+          install-system-deps: true
           swap-mb: 0
 
       # `--no-deps` evita descargar/parsear crates externos (la doc de dependencias
