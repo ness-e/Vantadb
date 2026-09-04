@@ -517,6 +517,137 @@ FIND-59/FUT-12 (serial `insert_lock` + WAL fsync ceiling).
 > >2× sin tocar la política de durabilidad (FUT-12). Detalle + matriz en `ADR-037`;
 > spike de medición trackeado como FIND-61 (desglose fsync-vs-lock + prototype batch).
 
+### Spike FIND-61 — desglose insert_lock vs fsync + prototype batch (2026-09-04)
+
+> **Source of truth:** `benches/ingestion_concurrent.rs` (grupos bench-only
+> `find61_sync` + `find61_batch`, 0 código prod, 0 defaults cambiados).
+> Cierra FIND-61 (follow-up de FIND-59/ADR-037).
+> >
+> > **Reproduce (Regla 11):**
+> > ```powershell
+> > cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion -- "find61_sync"
+> > cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion -- "find61_batch"
+> > ```
+> >
+> > Metodología §13: criterion `sample_size(10)` + mediana por corrida;
+> > final = mediana de ×2 corridas. Celdas lentas (sync, ~4 s/iter): 1 warmup +
+> > 10 measured = mediana de 11. Celdas rápidas (batch, sub-segundo): el warmup
+> > de 3 s emite 2-3 filas → se median las 10 de `Collecting` (misma regla,
+> > sin filas de warmup). Logs completos en `$env:TEMP\opencode\find61_{sync,batch}_run{B,C}.log`
+> > (no versionados; los números de abajo son su transcripción).
+
+#### Scorecard (medido — fuente Bench criterion; live: not measured)
+
+| Metric | Value | Source | Target | Status |
+|--------|-------|--------|--------|--------|
+| p50 latency per-op (Always) | ~10.4 ms/op (1/96.5 ops/s) | Bench (criterion) | ≤ baseline §13 | Good (revalida §13) |
+| p99 latency | not measured | — | — | — |
+| Throughput Always p1/w1 | **96.5 ops/s** (97/96) | Bench (criterion) | ≥110 (§13 111.5) | Needs Work (−13% vs §13, ruido Windows — ver Entorno) |
+| Throughput Never* p1/w1 | **98.0 ops/s** (103/93) | Bench (criterion) | desglose | Good (dato, no gate) |
+| Throughput batch N=32 | **1016 ops/s** (1056/977) | Bench (criterion) | ≥223 (gate ≥2×) | Good (**9.1×**) |
+| Memory RSS | not measured | — | — | — |
+| Binary size | not measured | — | — | — |
+
+> Artifacts used: `benches/ingestion_concurrent.rs` grupos `find61_sync`/`find61_batch`
+> (×2 corridas filed) + `wal_throughput.rs` como evidencia de apoyo (diseño, no corrido acá).
+> Baseline: §13 post-FIND-57 p1/1 **111.5 ops/s** (114/109).
+> Campos no medidos = `not measured` (metric-honesty: el spike mide throughput+ack,
+> no p99/RSS/binario).
+
+#### Tabla 1 — Sync A/B: Always vs Never* (desglose lock vs fsync), BATCH=400 DIM=16 p1/w1
+
+`Never*` = `SyncMode::Never + flush_threshold=Some(1_000_000)` bench-only (WAL bytes
+sin fsync = solo lock+HNSW+memcpy). El `*` es load-bearing: **`SyncMode::Never`
+NO tiene rama propia en `WalWriter::maybe_sync` (`src/wal.rs:376-389` — solo
+`Always` vs `else threshold=1`); `rg "Never" src/` = definición (`config.rs:102`)
++ parsing (`config.rs:1308`), 0 branches de comportamiento. Con
+`flush_threshold=None`, `Never` fsyncea igual que Periodic-default. Sin el
+threshold bench-only el A/B no aísla nada (evidencia, no fix — `src/` prohibido
+en este spike; candidato a fila FIND futura).
+
+| modo | run B (ops/s) | run C (ops/s) | mediana | vs Always |
+|---|---|---|---|---|
+| Always p1/w1 (revalidación §13) | 97 (warmup 106 + 95/98/97/100/94/97/98/89/95/93) | 96 (warmup 105 + 103/87/96/92/97/87/90/98/88/98) | **96.5** | — |
+| Never* p1/w1 (lock+HNSW) | 103 (warmup 95 + 97/107/97/105/101/105/105/103/103/100) | 93 (warmup 91 + 104/87/96/93/100/95/93/95/83/84) | **98.0** | **+1.6%** |
+| Never* p1/w4 (testigo convoy sin fsync) | 63 | 60 | **61.5** | **−37% vs Never* p1/w1** |
+
+Desglose por-op: `t_Always = 1/96.5 ≈ 10.36 ms`; `t_Never* = 1/98 ≈ 10.20 ms`;
+**`t_fsync ≈ 0.16 ms (~1.5% de la op)`**; lock+HNSW ≈ 10.2 ms (~98.5%).
+Lectura: el fsync WAL por-op es medible pero NO dominante en este régimen
+(DIM=16, fjall tempdir Win11) — **revisa el "fsync-dominado" de ADR-037
+(razonamiento acotado, declarado no-medido) con evidencia: el techo es
+lock+HNSW-dominado.** La decisión (d) de ADR-037 queda intacta (ninguna
+granularidad del lock se justifica igual), pero el mecanismo medido es el
+lock, no el fsync. El convoy persiste SIN fsync (w=4 −37% sobre Never*):
+la serialización del `insert_lock` + topología HNSW es el término dominante,
+no el canal ni el fsync.
+
+#### Tabla 2 — Prototype micro-batching bench-only N={8,16,32} (default Periodic-1)
+
+Acumula N tasks → 1 `batch_insert_with_opts` (`skip_existing_check=true` IDs
+frescos, `skip_wal=false`, `Incremental`) bajo UN guard ERR-010. Cota superior
+honesta (sin overhead de canal; el pipeline real pagaría el canal además).
+Ventana de pérdida ante crash = **N writes** (batch en memoria no-acked; con
+`skip_wal=false` cada batch deja 1 `batch_append` durable, pero lo no-acumulado
+y lo no-acked se pierde).
+
+| N | run B ops/s (p50-ack) | run C ops/s (p50-ack) | mediana ops/s | mediana p50-ack | × vs §13 111.5 | ventana pérdida |
+|---|---|---|---|---|---|---|
+| 8 | 462.5 (16.91 ms) | 403.5 (20.24 ms) | **433** | **18.6 ms** | **3.9×** | 8 writes |
+| 16 | 728 (21.69 ms) | 698.5 (22.72 ms) | **713** | **22.2 ms** | **6.4×** | 16 writes |
+| 32 | 1056 (30.0 ms) | 977 (33.12 ms) | **1016** | **31.6 ms** | **9.1×** | 32 writes |
+
+Lectura: el batching amortiza a la vez 1 lock-take por N ops + 1 `batch_append`
+(≤1 sync por shard) por N ops + HNSW bulk (`add_with_level` ordenado, RNG
+local) — por eso supera ampliamente el gate aunque el fsync aislado sea ~1.5%.
+El p50-ack crece con N (el primero del batch espera al batch completo):
+N=32 ackea en ~32 ms vs ~10 ms per-op — tradeoff latencia/throughput explícito.
+Ruido entre corridas mayor que §13 (N=8: 462 vs 403, ~13%; celdas sub-segundo
++ compactions fjall de fondo en Win11) — se reporta mediana, no mejor corrida.
+
+#### Verificación ERR-010 del path `commit_transaction` (`txn.rs:119-213`) — VIOLA
+
+`commit_transaction` hace WAL `batch_append([Begin+ops+Prepare])` (L159-161) y
+aplica a stores (L167-195) **SIN `acquire_insert_lock` en ningún punto** (solo
+locks de `active_txns`/`txn_buffers` + `try_push` oportunista). Interleaving
+concreto: commit deja sus WAL records durables (contados por
+`total_record_count`) → `flush()` adquiere el guard, drena (el commit aún no
+pusheó → nada), serializa, lee el count (**incluye** los records del commit),
+escribe `checkpoint_seq`, libera → el commit pushea sus mutaciones HNSW (quedan
+encoladas para el próximo holder). Checkpoint cubre records cuya mutación no
+está en el snapshot = **invisible record en recovery** (replay los salta por
+`≤ checkpoint_seq`). **Veredicto: VIOLA ERR-010** (ventana pequeña — requiere
+`flush()` concurrente durante el apply — pero real; auto-flush por threshold y
+mantenimiento de fondo la abren). El prototype del spike **RESPETA** ERR-010
+(usa `batch_insert_with_opts`, UN guard L750, mismo que `insert`/`flush`).
+Fix (envolver el apply del commit en `insert_lock`) es cambio `src/` prod con
+tradeoff de serialización de commits → **fuera de este spike**; hallazgo
+colateral para el lead (candidato a fila FIND nueva, no creada acá por
+contrato).
+
+#### Decisión gate (explícita, por separado)
+
+- Gate ① batch ≥2× sobre §13 (111.5 → ≥223): **CUMPLE** (N=8 3.9×, N=16 6.4×, N=32 9.1×).
+- Gate ② FUT-12 decidió la política de ventana de pérdida: **NO CUMPLE**
+  (FUT-12 P24 ❌ Sin implementar al 2026-09-04; el batching ensancha la ventana
+  1→N y eso es decisión de durabilidad, no de este spike).
+- **Decisión: CERRAR con números — NO se abre slice de implementación.**
+  El bench queda como infra A/B para FUT-12 (cuando decida la ventana, el slice
+  usa Tabla 2 como baseline: N=8/16/32 + p50-ack + ventana). Revisit de ADR-037
+  solo vía FUT-12, no vía granularidad del lock.
+
+#### Entorno (Regla 11)
+
+Windows 11 (win32) · 12th Gen Intel Core i5-1235U (12 hilos lógicos, runtime
+tokio worker_threads=4) · RAM 31.78 GiB · rustc/cargo 1.95.0 · perfil `bench`
+(release + debuginfo) · DIM=16, text vacío, BATCH=400, canal capacity 1024,
+DB fjall fresca por iter (`tempdir` + `open_with_config`), `sample_size(10)`,
+×2 corridas + mediana. HEAD `7a0811cb`. Fecha: 2026-09-04. Ruido: celdas sync
+±7% entre corridas (Always 97/96, Never* 103/93); batch N=8 ±13% — máquinas
+Win11 con compactions fjall de fondo; por eso mediana-de-2, nunca mejor corrida.
+`cargo bench` warnings pre-existentes en `src/sdk/search/debug_ops.rs`
+(unused imports release-only, 5 warnings, no tocados acá).
+
 ## 14. IVF search hot path — premisa-muerta + baseline post-`b4ff157d` (AUD-045)
 
 > **Source of truth:** `benches/ivf_bench.rs` (REVISAR-01). `canonical_p99.rs` **no** cubre IVF
