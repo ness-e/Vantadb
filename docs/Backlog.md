@@ -383,7 +383,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Archivos | Effort | Prio | Estado |
 |----|-------------|----------|--------|------|--------|
-| `MEM-63` | **Quick-win docs+embeddings**: corregir doc stale `auto_recall.rs:69-73` (dice que embeddings "degradan hasta wirear"; MEM-47 ya implementó el hook) + embeddings auto-on cuando hay provider configurado (chars-fallback solo sin provider) | `vanta-memory/src/core/hooks/auto_recall.rs`, Cargo features | 🟢 | 🟢 | ⬜ Pendiente |
 | `MEM-66` | **claimStaleTasks (recuperación multi-worker)**: port del TDAM original no porteado (`pipeline_worker.rs:12-13` lo documenta) — worker muerto a mitad de tarea no debe atascar la tarea hasta el TTL; otro worker la reclama | `vanta-memory/src/services/pipeline_worker.rs`, `utils/local_backend.rs` | 🟡 | 🟠 | ⬜ Pendiente |
 | `MEM-68` | **Gate opcional de aprobación de capturas** (gap #6): config `capture_approval=off|on`; en `on`, las memorias extraídas van a cola pendiente y un comando/tool `memory_approve/reject` las publica o descarta (patrón Cursor). Default off (filosofía never-block intacta) | `vanta-memory/src/core/record/l1_writer.rs`, MCP tools | 🟡 | 🟠 | ⬜ Pendiente |
 | `MEM-69` | **Batch extracción costo-reducida**: agrupar split+dedup en menos llamadas LLM por flush (patrón Memobase: batch fijo −40-50% tokens) sin perder quality gate | `vanta-memory/src/core/record/l1_extractor.rs` | 🟡 | 🟢 | ⬜ Pendiente |

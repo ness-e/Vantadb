@@ -70,3 +70,9 @@ aliases: []
 - **Objetivo:** Job en downtime (idle ≥X min o cierre de sesión) que consolida L0/L1 crudo → learned context sin mutar el store original. Patrón Letta sleep-time compute validado via webfetch (`letta.com/blog/sleep-time-compute`, 2025-04-21).
 - **Resultado:** ✅ Módulo nuevo `vanta-memory/src/core/dream/mod.rs` (~530L) + integration test `tests/dreaming.rs` (320L, 7 tests). 4 funciones públicas LLM-free + `Dreamer` trait (`Send + Sync`) para sleep-time tiering. Store consolidado en namespace `dream/<session>/<run_id>`; **nunca** toca `l1/<session>` (3 integration tests verifican byte-identical pre/post). `promote_dream_run` queda stub documentado (MEM-65/W21 cubre integración al pipeline_worker). 321/321 lib tests + 508/508 integration tests. vanta-engine staged para vanta-lead commit.
 - **Invariante crítica:** la integración al `pipeline_worker.rs` se hace en MEM-65 (W21, parallel). MEM-61 solo entrega la primitiva standalone testeable.
+
+### MEM-63: auto_recall doc + embeddings auto-on (durability-release-readiness Task 3, Wave 0)
+- **Fecha:** 2026-09-05
+- **Objetivo:** Corregir doc stale (`auto_recall.rs` decía que embeddings "degradan hasta wirear"; MEM-47 ya implementó el hook) + embeddings auto-on con provider configurado, keyword/chars-fallback solo sin provider.
+- **Resultado:** ✅ Doc `auto_recall.rs` (módulo + `RecallMode::Embedding/Hybrid`) describe auto-on MEM-63; `L1DedupConfig::default()` wirea `local_embedding_hook()` con `embed-local`, `None` sin feature; tests `default_wires_local_provider_when_feature_on` + `default_stays_keyword_only_without_feature` verdes; suite 328 lib + 1 doc-test; fmt/clippy limpios. Código ya en HEAD vía `6058cc84` (trazabilidad documentada en task file).
+- **Commit:** `docs(memory): auto_recall doc + auto-on embeddings (MEM-63)` (registro plan+task+backlog+avance; fuente ya en HEAD).
