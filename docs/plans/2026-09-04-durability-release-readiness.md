@@ -28,7 +28,7 @@
 - **Gate Justificación:** premisa verificada hoy (0 refs a insert_lock en txn.rs; insert/delete/flush sí lo toman). Race real flush-vs-commit → record invisible en recovery. 🔴 correctness/durabilidad.
 - **Contrato:** nuevo test `commit_flush_interleaving` (flush concurrente durante commit → todos los records visibles post-recovery) verde + suite `storage` verde + `cargo clippy -D warnings` + `cargo fmt --check` limpios. Pre-mortem obligatorio: verificar que ningún caller mantiene el guard al llamar commit_transaction (lock no-reentrante → deadlock). Si el fix introduce riesgo de deadlock no resoluble en el appetite → cerrar como BLOQUEADO con evidencia, sin código a medias.
 - **Task file:** `tasks/FIND-62.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (2026-09-05, commit pendiente del worker — ver RECITATION FIND-62: guard ERR-010 + drain + test interleaving; suite storage 380/380 + lib 1985/1985 + clippy/fmt limpios)
 - **Ruta:** vanta-worker
 - **Branch:** develop
 - **Commit:** `fix(storage): commit_transaction bajo insert_lock + test interleaving (FIND-62)`
@@ -68,7 +68,7 @@
 - **Gate Justificación:** inconsistencia doc↔API 🟡 pequeña. Mini-decisión (alinear doc o ampliar coercion) se resuelve en DISCOVERY vía question-gates, sin nueva ronda.
 - **Contrato:** doc y API coinciden (una dirección, documentada) + test de coercion verde.
 - **Task file:** `tasks/GOV-TK7.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (2026-09-05 — dirección B: coercion ampliada vía `py_dict_to_metadata`, paridad put/put_batch/put_batch_raw; tutorial sin `str()`; `pytest test_sdk.py` 75/75 + stub/perf 16/16; fmt/check/clippy propios limpios)
 - **Ruta:** vanta-worker
 - **Branch:** develop
 - **Commit:** `fix(api): put_batch metadata coercion alineada (GOV-TK7)`
@@ -78,7 +78,7 @@
 - **Gate Justificación:** validación 🟠 para promoción default-members. DISCOVERY primero: verificar claim "264 tests / 26s" contra disco; si difiere, re-escalar con evidencia.
 - **Contrato:** `npm ci && npm run build && npx vitest run` verde + `npx eslint .` 0 + `npm pack` incluye `engines` + tiempo medido en CI limpio (<5 min o justificado como Heavy).
 - **Task file:** `tasks/STABLE-06.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (2026-09-05, commit `7ff70b01` — eslint 1 error fixeado (WikiClient disable D43) + job tests gatea lint/pack-engines + comentario TS-06 con números medidos; vitest 278/278 no 264, ~16s no 26s; porción TS ~58s wall → Fast Gate)
 - **Ruta:** vanta-worker
 - **Branch:** develop
 - **Commit:** `ci(ts): gate npm Fast Gate medido (STABLE-06)`
@@ -188,4 +188,26 @@ Resultado: OK
 Próxima acción: ninguno (orquestador: Wave 1)
 Contrato: verificacion: cargo test -p vanta-memory --lib 328/328 + embed-local l1_dedup 9/9 + fmt/clippy/doc OK; evidencia: claim doc sin degradan->grep 0 vanta-memory/ (alta); claim auto-on->default_wires_local_provider_when_feature_on PASS (alta); claim fallback->default_stays_keyword_only_without_feature PASS (alta); artefactos: auto_recall.rs + l1_dedup.rs (HEAD via 6058cc84), tasks/MEM-63.md (submodule 7e05f8a), plan Task 3 COMPLETO; invariantes: 0 edits fuente, ajenos sin tocar; deuda: cargo doc 60 warnings + sin deny(missing_docs) (pre-existentes); queda_pendiente: ninguno
 Próxima tarea si completa: ninguno
+=== END RECITATION ===
+
+=== RECITATION STABLE-06 ===
+Campaign ID: a6f16be4-a2a2-44eb-bfdb-1a84a4b573cf
+Objetivo activo: STABLE-06: gate npm TS como Fast Gate (Task 6 Wave 1)
+Estado: completed
+Última acción: EJECUCION+CIERRE: fix eslint WikiClient (1 linea) + workflow job tests con lint/pack-engines + comentario medido + commit 7ff70b01 (solo 2 archivos) + plan Task 6 COMPLETO sin stagear + 2 lessons
+Resultado: OK
+Próxima acción: ninguno (orquestador: push + Wave 1 FIND-62/GOV-TK7)
+Contrato: verificacion: npm ci 10.84s OK + npm run build OK (2.33s) + npx vitest run 278/278 OK (Duration ~16s, wall ~21s) + npx eslint . 0 errores OK (tras fix 1 linea) + npm pack --dry-run OK con engines >=22.19 + workflow YAML OK + pre-commit actionlint OK; evidencia: claim 264 tests -> evidencia: vitest 278 passed (278), 10 files (alta); claim 26s -> evidencia: Duration 15.92-16.43s, wall ~21s (alta); claim <5min Fast Gate -> evidencia: porcion TS ~58s wall (alta, nota: wasm-pack build CI no medido local); artefactos: 7ff70b01 (2 files), tasks/STABLE-06.md; invariantes: cero codigo productivo (solo comentario eslint + steps CI aditivos); ajenos intactos (FIND-62/GOV-TK7 hunk sin tocar, .opencode sin stagear); deuda: ninguna; queda_pendiente: orquestador decide push + Wave 1 restante (FIND-62, GOV-TK7)
+Próxima tarea si completa: ninguno
+=== END RECITATION ===
+
+=== RECITATION FIND-62 ===
+Campaign ID: a6f16be4-a2a2-44eb-bfdb-1a84a4b573cf
+Objetivo activo: FIND-62: commit_transaction bajo insert_lock + test interleaving
+Estado: completed
+Última acción: CIERRE: commit 19a9651c + plan Task1 COMPLETO sin stagear + 2 lessons
+Resultado: OK
+Próxima acción: ninguno (orquestador: push + GOV-TK7)
+Contrato: verificacion: storage 380/380 + lib 1985/1985 + clippy -D warnings OK + fmt OK + commit 19a9651c (3 files) + hooks pre-commit OK; evidencia: test commit_flush_interleaving PASS post-fix (alta); pre-mortem verde tools.rs:2131 sin guard (alta); artefactos: txn.rs, delete.rs, tests/ops.rs, tasks/FIND-62.md; invariantes: WAL/MVCC/lock-order intactos, ajenos sin stagear; deuda: ninguna; queda_pendiente: orquestador push + GOV-TK7
+Próxima tarea si completa: GOV-TK7
 === END RECITATION ===

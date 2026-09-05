@@ -558,3 +558,5 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Archivos:** benches/ingestion_concurrent.rs (grupos bench-only + imports, ~150L añadidas), docs/operations/BENCHMARKS.md (§13.1 spike), docs/Backlog.md (FIND-61 eliminada), docs/avance/activo/core-engine.md (esta entrada). Task file: `.opencode/skills/campaign-executor/tasks/FIND-61.md`.
 
 ### FIND-63 (worker): rama explicita SyncMode::Never - Resultado: match exhaustivo Always|Never|Periodic + test RED->GREEN; suite wal 63/63; fmt/clippy limpios. Commit a7285969 (2026-09-05).
+
+### FIND-62 (worker): commit_transaction bajo insert_lock - Resultado: guard en [WAL batch -> apply -> drain -> Commit] + test commit_flush_interleaving verde; suite storage 380/380, lib 1985/1985; sin deadlock (pre-mortem: unico caller productivo sin guard). Commit 19a9651c (2026-09-05).

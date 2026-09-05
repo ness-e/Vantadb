@@ -288,3 +288,5 @@ aliases: []
 - **Resultado:** OK - contrato 4/4: rg aarch64 ≥1, actionlint exit 0, 0 placeholders en Formula, cargo check -p vantadb_py exit 0. Verificación real del job aarch64 diferida a corrida CI (stop-condition plan)
 - **Commit:** `ci(wheels): aarch64 linux + SHA real formula (MKT-18h)` (2026-09-03; el cambio de workflow cabalgó `2ab706ec` por race de worktree compartido — ver nota en plan)
 - **Dominio:** ci-cd
+
+### STABLE-06 (worker): gate npm TS medido - Resultado: 278/278 vitest (no 264), ~16-21s wall; eslint 1 error fixeado; job tests+lint+pack en release-npm-61.yml. Commit 7ff70b01 (2026-09-05).

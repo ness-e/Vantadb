@@ -783,3 +783,5 @@ aliases: []
 - **No tocado (ruta):** `src/ingestion.rs` (FIND-57), `src/cli.rs`/`backup.rs` (GOV-TK1), `vantadb-server/` (FIND-56), `src/sdk/search/debug_ops.rs` (colateral release-only, queda para su dueño), `completions/*`, `.opencode/`, stash.
 - **Commit:** `fix(wasm): gate wasm32 crudo verde tras 175790a9 parcial (FIND-58)`
 - **Dominio:** bindings
+
+### GOV-TK7 (worker): put_batch metadata coercion ampliada - Resultado: direccion B (coercion via py_dict_to_metadata, paridad put/raw); tutorial + PYTHON_SDK alineados; pytest 75/75 + stubs 16/16. Commit 00157add (2026-09-05).
