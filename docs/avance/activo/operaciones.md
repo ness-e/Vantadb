@@ -186,3 +186,5 @@ aliases: []
 - **Deuda abierta:** verificación end-to-end en CI al primer dispatch/tag (job `docker-image`: build raíz + smoke `--user 10001:10001` + export como asset).
 
 - **Origen:** Backlog FIND-56 (L219) + deuda SRV-07 (2) de esta misma página.
+
+### GOV-TK3 (docs): drift yaml-real x3 - Resultado: doc-fix x3 (codigo verificado correcto); parity 5/5, parser 117/117, docs-coverage 0 gaps. Commit b3be4176 (2026-09-05).
