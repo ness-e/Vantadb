@@ -6,6 +6,8 @@ import { BannerV3 } from "./BannerV3";
 import { DemoTerminal } from "./DemoTerminal";
 import { MangaBrutal } from "./MangaBrutal";
 import { FavIcon } from "./FavIcon";
+import { OrgBadge } from "./OrgBadge";
+import { OrgMark } from "./OrgMark";
 
 export const RemotionRoot: React.FC = () => {
   return (
@@ -57,6 +59,40 @@ export const RemotionRoot: React.FC = () => {
         fps={30}
         width={200}
         height={200}
+      />
+      <Composition
+        id="OrgBadge"
+        component={OrgBadge}
+        durationInFrames={120}
+        fps={30}
+        width={960}
+        height={320}
+      />
+      <Composition
+        id="OrgBadgeLight"
+        component={OrgBadge}
+        durationInFrames={120}
+        fps={30}
+        width={960}
+        height={320}
+        defaultProps={{ theme: "light" }}
+      />
+      <Composition
+        id="OrgMark"
+        component={OrgMark}
+        durationInFrames={120}
+        fps={30}
+        width={960}
+        height={240}
+      />
+      <Composition
+        id="OrgMarkLight"
+        component={OrgMark}
+        durationInFrames={120}
+        fps={30}
+        width={960}
+        height={240}
+        defaultProps={{ theme: "light" }}
       />
     </>
   );
