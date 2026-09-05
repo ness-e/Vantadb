@@ -20,6 +20,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 
 # Windows consoles default to cp1252, which cannot encode emoji output.
 if hasattr(sys.stdout, "reconfigure"):
@@ -86,6 +87,21 @@ class McpSession:
             bufsize=1,
             env=env,
         )
+        # The server logs to stderr; drain it on a daemon thread so a full
+        # pipe never blocks its shutdown write (STABLE-04: unread stderr
+        # made close() hang past wait(timeout=15) deterministically).
+        # Keep a tail for the early-close diagnostic below.
+        self._stderr_tail = []
+        threading.Thread(target=self._pump_stderr, daemon=True).start()
+
+    def _pump_stderr(self):
+        try:
+            for line in self._proc.stderr:
+                tail = self._stderr_tail
+                tail.append(line)
+                del tail[:-50]
+        except ValueError:
+            pass  # stderr closed during teardown
 
     def request(self, method, _id, params=None):
         req = {"jsonrpc": "2.0", "id": _id, "method": method}
@@ -95,7 +111,7 @@ class McpSession:
         self._proc.stdin.flush()
         line = self._proc.stdout.readline()
         if not line:
-            stderr = self._proc.stderr.read() if self._proc.stderr else ""
+            stderr = "".join(self._stderr_tail)
             raise RuntimeError(
                 f"Server closed stdout before responding to {method}. stderr: {stderr}"
             )
