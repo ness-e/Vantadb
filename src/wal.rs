@@ -226,6 +226,7 @@ pub struct WalWriter {
     /// Number of records written since the last sync.
     records_since_sync: u64,
     /// If `Some(N)`, auto-sync after N records when sync_mode is Periodic.
+    /// Ignored when sync_mode is Never (no auto-sync; use `sync()` explicitly).
     flush_threshold: Option<usize>,
     /// Maximum segment size in bytes before auto-rotation (default: 256MB).
     max_segment_size: u64,
@@ -374,15 +375,19 @@ impl WalWriter {
     const DEFAULT_PERIODIC_THRESHOLD: u64 = 1;
 
     fn maybe_sync(&mut self) -> Result<()> {
-        if self.sync_mode == crate::config::SyncMode::Always {
-            self.sync()?;
-        } else {
-            let threshold = self
-                .flush_threshold
-                .map(|t| t as u64)
-                .unwrap_or(Self::DEFAULT_PERIODIC_THRESHOLD);
-            if self.records_since_sync >= threshold {
-                self.sync()?;
+        match self.sync_mode {
+            crate::config::SyncMode::Always => self.sync()?,
+            // `Never` disables automatic syncing entirely: durability is left
+            // to the OS page cache. Callers can still force it via `sync()`.
+            crate::config::SyncMode::Never => {}
+            crate::config::SyncMode::Periodic => {
+                let threshold = self
+                    .flush_threshold
+                    .map(|t| t as u64)
+                    .unwrap_or(Self::DEFAULT_PERIODIC_THRESHOLD);
+                if self.records_since_sync >= threshold {
+                    self.sync()?;
+                }
             }
         }
         Ok(())
@@ -858,6 +863,54 @@ mod tests {
         let data = b"vanta wal test";
         assert_eq!(compute_crc32c(data), compute_crc32c(data));
         assert_ne!(compute_crc32c(data), compute_crc32c(b"vanta wal tesx"));
+    }
+
+    /// FIND-63: `SyncMode::Never` must never auto-sync (OS page cache only).
+    /// `records_since_sync` is only reset by an explicit `sync()` call.
+    #[test]
+    fn test_sync_mode_never_skips_auto_sync() {
+        use crate::config::SyncMode;
+
+        let dir_never =
+            std::env::temp_dir().join(format!("vanta_test_wal_never_{}", rand::random::<u32>()));
+        let dir_periodic = std::env::temp_dir().join(format!(
+            "vanta_test_wal_never_ctrl_{}",
+            rand::random::<u32>()
+        ));
+        let _ = std::fs::remove_file(&dir_never);
+        let _ = std::fs::remove_file(&dir_periodic);
+
+        // Control: Periodic with threshold 1 auto-syncs (counter reset to 0).
+        {
+            let mut w =
+                WalWriter::open_with_buffer(&dir_periodic, SyncMode::Periodic, 4096, Some(1))
+                    .unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+            assert_eq!(
+                w.records_since_sync, 0,
+                "Periodic must auto-sync at threshold"
+            );
+        }
+
+        // Never: no auto-sync even at threshold 1; explicit sync() still works.
+        {
+            let mut w =
+                WalWriter::open_with_buffer(&dir_never, SyncMode::Never, 4096, Some(1)).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(2))).unwrap();
+            assert_eq!(
+                w.records_since_sync, 2,
+                "Never must never auto-sync (relies on OS page cache)"
+            );
+            w.sync().unwrap();
+            assert_eq!(
+                w.records_since_sync, 0,
+                "explicit sync() still resets the counter"
+            );
+        }
+
+        let _ = std::fs::remove_file(&dir_never);
+        let _ = std::fs::remove_file(&dir_periodic);
     }
 
     /// WAL v2 (RES-01 / ACID Phase 4a): `Prepare { txn_id, op_count }` round-trips
