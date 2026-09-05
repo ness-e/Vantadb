@@ -3,7 +3,7 @@
 ## Metadata
 - **Plan file:** `docs/plans/2026-09-04-durability-release-readiness.md` (Task 6, Wave 1)
 - **Creado:** 2026-09-05 (DISCOVERY)
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED (plan Task 6 COMPLETO commit `7ff70b01`; steps COMPLETED — header sincronizado, estaba stale en IN PROGRESS)
 - **Ruta:** vanta-worker
 - **Branch:** develop
 - **Commit:** `ci(ts): gate npm Fast Gate medido (STABLE-06)`

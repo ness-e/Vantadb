@@ -785,3 +785,5 @@ aliases: []
 - **Dominio:** bindings
 
 ### GOV-TK7 (worker): put_batch metadata coercion ampliada - Resultado: direccion B (coercion via py_dict_to_metadata, paridad put/raw); tutorial + PYTHON_SDK alineados; pytest 75/75 + stubs 16/16. Commit 00157add (2026-09-05).
+
+### STABLE-04 (worker): validar vantadb-mcp gates 1-6 + test-mcp.py - Resultado: DISCOVERY heredado con 5 claims re-escalados (91 attrs/82 fns en mcp_tests no 72; test-mcp.py 4 checks no 37; protocolo latest 2025-06-18 + 2024-11-05 backward-compat; OpGate no existe en el crate; skill 79 tools vigente). Gates: fmt/check/clippy -D warnings/deny exit 0/docs-coverage 0 gaps (MCP 49)/package --list exit 0 publish=false intacto; nextest ci-windows 86/86 + mcp_tests 91/91 0 ignored via cargo test (precedente heavy-cert). Hallazgos: (1) OOM os-error-1455 a parallelism pleno con cascada E0463 falsa -> retry -j 2/ci-windows verde; (2) test-mcp.py 4/4 funcional pero exit 1 por teardown: stderr PIPE sin drenar bloquea shutdown (repro: DEVNULL 0.0s vs PIPE >25s) -> fix harness thread-drain, re-run 4/4 exit 0. Commit d0bb4e91 (solo script). Fecha: 2026-09-05. Dominio: bindings"; echo OK

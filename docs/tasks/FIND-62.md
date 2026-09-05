@@ -4,7 +4,7 @@
 - **Backlog:** `docs/Backlog.md` (fila FIND-62, Alta, 1-2d, correctness/durabilidad)
 - **Plan:** `docs/plans/2026-09-04-durability-release-readiness.md` Task 1, Wave 1
 - **Creado:** 2026-09-05
-- **Estado:** ⏳ IN PROGRESS (DISCOVERY completo, pre-mortem verde, entra a ACT)
+- **Estado:** ✅ COMPLETED (plan Task 1 COMPLETO; steps DONE — header sincronizado, estaba stale en IN PROGRESS)
 - **SDP:** `source-driven-development` + `doubt-driven-development` + `ponytail` (base auto) + `campaign-executor` + `progreso` + `incremental-implementation` + `test-driven-development` + `context-engineering` (lifecycle BUILD) + `systematic-debugging` (bug-fix). Cargadas vía `skill`. Keywords: `insert_lock`, `commit_transaction`, `ERR-010`, `flush`, `checkpoint_seq`, `deadlock`, `WAL batch`.
 - **Sub-agente / Ruta:** vanta-worker (bug-fix)
 - **Área:** `src/storage/engine/txn.rs:119-213`, `src/storage/engine/tests/ops.rs` (nuevo test). NO tocar `wal.rs`, `vector/`, `storage/` backends (out-of-scope worker).

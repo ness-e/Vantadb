@@ -88,10 +88,10 @@
 - **Gate Justificación:** validación 🔴 para promoción; gates 1-6 + `test-mcp.py` 37 checks vs skill.
 - **Contrato:** gates 1-6 del contrato P47 pasados con números reportados (check/fmt/clippy/deny/nextest/docs-coverage) + `test-mcp.py` 37/37.
 - **Task file:** `tasks/STABLE-04.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (2026-09-05 — re-escalado DISCOVERY: 91 attrs/82 fns en mcp_tests + 150 total, test-mcp.py 4/4 no 37, protocolo latest 2025-06-18, OpGate no aplica; gates: fmt/check/clippy/deny/docs-coverage(0 gaps)/package-list/test-mcp.py 4/4 ✅; nextest audit-filtrado 86/86 + mcp_tests 91/91 vía cargo test (precedente heavy-cert); único edit = harness test-mcp.py drenaje stderr (teardown determinista); OOM-1455 documentado con retry -j 2; commit harness-only, plan+task sin stagear, push + Backlog/avance sync pendientes del orquestador)
 - **Ruta:** vanta-worker
 - **Branch:** develop
-- **Commit:** `ci(mcp): validación gates 1-6 (STABLE-04)`
+- **Commit:** `fix(mcp): drenar stderr en test-mcp.py para teardown determinista (STABLE-04)`
 
 ### Task 8: BND-08 — pipeline npm napi-rs end-to-end en dry-run (SIN publicar)
 - **Archivos clave:** `.github/workflows/release-npm-node.yml` (job Publish existe, OIDC), `vantadb-node/package.json` (0.5.0, npm 404 verificado hoy)
@@ -223,13 +223,13 @@ Contrato: verificacion: npm view 404 (nunca publicado) + npm pack exit 0 (6 file
 Próxima tarea si completa: STABLE-04
 === END RECITATION ===
 
-=== RECITATION 8 ===
+=== RECITATION STABLE-04 ===
 Campaign ID: a6f16be4-a2a2-44eb-bfdb-1a84a4b573cf
-Objetivo activo: BND-08: pipeline npm napi-rs dry-run + checklist (Task 8 Wave 2)
+Objetivo activo: STABLE-04: validar vantadb-mcp, gates 1-6 P47 + test-mcp.py (Task 7 Wave 2)
 Estado: completed
-Última acción: CIERRE: commit e9843100 + plan Task 8 COMPLETO sin stagear + 2 lessons
+Última acción: Step1+Step2 verificados, harness fix + commit d0bb4e91 (solo script), Task7 COMPLETO + recitation, Backlog row removida + avance bindings
 Resultado: OK
-Próxima acción: ninguno (orquestador: push + Wave 2 restante; BND-09 desbloqueada)
-Contrato: verificacion: npm view 404 + npm pack exit 0 (6 files) + npm publish --dry-run exit 0 + checklist + commit e9843100 (1 file) + pre-commit hook OK; evidencia: OIDC id-token:write+environment npm en workflow (alta); tarball respeta files (alta); dry-run sin publish real (alta); orden GOV-TK2 /ship GO en checklist (alta); artefactos: docs/plans/artifacts/bnd-08-publish-checklist.md, tasks/BND-08.md; invariantes: 0 publish real, 0 edits workflow/package/Cargo, .tgz borrado, ajenos intactos; deuda: ninguna; queda_pendiente: orquestador push + STABLE-04/FUT-12-spec
-Próxima tarea si completa: STABLE-04
+Próxima acción: orquestador: push d0bb4e91, Wave 3 (BND-09/MCP-34b/PRX-01)
+Contrato: verificacion: fmt/check/clippy/deny/docs-coverage(0 gaps)/package-list/test-mcp.py 4/4/nextest 86-86 + mcp_tests 91-91, todos exit 0; evidencia: claim 72 tests->91/91 pass | claim 37 checks->4/4 disco+pass | OOM-1455->retry -j2 verde | teardown-hang->harness stderr-drain fix + 4/4 exit 0; artefactos: d0bb4e91, docs/tasks/STABLE-04.md; invariantes: 0 cambios producto, publish=false intacto, ajenos sin stagear; deuda: deny warnings pre-existentes fuera de blast radius; queda_pendiente: orquestador push + Wave 3
+Próxima tarea si completa: BND-09
 === END RECITATION ===
