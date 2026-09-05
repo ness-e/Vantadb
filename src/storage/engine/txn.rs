@@ -156,6 +156,14 @@ impl StorageEngine {
         wal_records.push(WalRecord::Prepare { txn_id, op_count });
 
         // 4. Write WAL phase-1 batch atomically (Begin+ops+Prepare are durable now).
+        // ERR-010 (FIND-62): hold insert_lock across [WAL batch → apply → drain
+        // → Commit], exactly like insert()/delete()/batch_insert(). flush()
+        // counts WAL records under the same guard; without it a concurrent
+        // flush could checkpoint between this batch_append and the HNSW drain
+        // below, persisting a checkpoint_seq that covers records whose index
+        // mutation is still queued → invisible record on recovery.
+        let _guard =
+            self.acquire_insert_lock("acquire insert_lock in commit_transaction (ERR-010)")?;
         if let Some(ref sharded) = self.wal {
             sharded.batch_append(wal_records)?;
         }
@@ -186,8 +194,11 @@ impl StorageEngine {
                         self.apply_delete_stats(*id);
                         // Stamp metadata as deleted_by this txn instead of removing
                         self.stamp_deleted_in_backend(*id, txn_id)?;
-                        // Still tombstone vstore + remove from HNSW + cache
-                        self.apply_delete(*id)?;
+                        // Still tombstone vstore + remove from HNSW + cache.
+                        // FIND-62: insert_lock is held here (ERR-010), so use the
+                        // inner variant with acquire=false — apply_delete() would
+                        // re-acquire the non-reentrant lock and time out.
+                        self.apply_delete_inner(*id, false)?;
                     }
                 }
             }
@@ -203,6 +214,11 @@ impl StorageEngine {
             }
             return Err(e);
         }
+
+        // FIND-62: drain the batch queued via try_push_pending_hnsw above under
+        // the same guard (pattern from insert()), so the HNSW entries exist
+        // before any concurrent flush can checkpoint past our WAL records.
+        self.drain_hnsw_batch_locked()?;
 
         // 6. Phase 2: write the Commit marker. THIS is the durability commit point.
         if let Some(ref sharded) = self.wal {

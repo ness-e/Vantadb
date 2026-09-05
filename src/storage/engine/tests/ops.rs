@@ -1628,3 +1628,98 @@ fn test_delete_vs_evict_concurrent_no_zombie() {
         );
     }
 }
+
+// ─── FIND-62: commit vs flush interleaving (ERR-010) ────────────
+//
+// commit_transaction() hacía WAL batch_append + apply SIN insert_lock:
+// un flush() concurrente podía drenar-vacío → serializar → contar
+// (checkpoint_seq incluye esos records) → checkpoint → el commit pusheaba
+// tarde = record invisible en recovery. El fix retiene insert_lock en el
+// commit a través de [WAL batch → apply → drain → Commit], igual que
+// insert()/delete()/batch_insert().
+
+#[cfg(any(feature = "fjall", feature = "rocksdb"))]
+#[test]
+fn test_commit_flush_interleaving() {
+    use std::sync::{Arc, Barrier};
+
+    const ROUNDS: usize = 5;
+    const NODES_PER_ROUND: u128 = 8;
+    const BASE: u128 = 900_000;
+
+    let dir = tempfile::tempdir().expect("tempdir");
+    let path = dir.path().to_str().expect("db path").to_string();
+
+    let engine = Arc::new(StorageEngine::open(path.as_str()).expect("open disk engine with WAL"));
+
+    for round in 0..ROUNDS {
+        let base = BASE + round as u128 * NODES_PER_ROUND;
+        // Buffer de la ronda en una txn (el commit aplica WAL batch + stores).
+        let txn_id = engine.begin_transaction().expect("begin");
+        for i in 0..NODES_PER_ROUND {
+            let id = base + i;
+            let mut node = sample_node(id);
+            // Vectores distintos evitan el greedy insertion patológico del HNSW.
+            node.vector = crate::node::VectorRepresentations::Full(vec![
+                0.1 + id as f32 / 1_000_000.0,
+                0.2,
+                0.3,
+            ]);
+            engine.insert_in_txn(&node, txn_id).expect("insert in txn");
+        }
+
+        // El commit corre contra un flush concurrente: la Barrier maximiza la
+        // ventana de interleaving (el escenario ERR-010). El watchdog hace
+        // fail en vez de colgar CI si el fix deadlockeara el lock no-reentrante.
+        let barrier = Arc::new(Barrier::new(2));
+        let engine_commit = Arc::clone(&engine);
+        let barrier_commit = Arc::clone(&barrier);
+        let committer = std::thread::spawn(move || {
+            barrier_commit.wait();
+            engine_commit.commit_transaction(txn_id).expect("commit")
+        });
+        let engine_flush = Arc::clone(&engine);
+        let barrier_flush = Arc::clone(&barrier);
+        let flusher = std::thread::spawn(move || {
+            barrier_flush.wait();
+            engine_flush.flush().expect("concurrent flush")
+        });
+
+        let (tx, rx) = std::sync::mpsc::channel();
+        let watchdog = std::thread::spawn(move || {
+            committer.join().expect("committer panicked");
+            flusher.join().expect("flusher panicked");
+            tx.send(()).unwrap();
+        });
+        match rx.recv_timeout(std::time::Duration::from_secs(30)) {
+            Ok(()) => {}
+            Err(_) => {
+                panic!("FIND-62: deadlock suspected — commit vs flush exceeded 30s wall-clock")
+            }
+        }
+        watchdog.join().expect("watchdog panicked");
+
+        // Quiesce antes de verificar la ronda.
+        engine.flush().expect("quiesce flush");
+        for i in 0..NODES_PER_ROUND {
+            let id = base + i;
+            assert!(
+                engine.get(id).expect("get").is_some(),
+                "FIND-62: committed node {id} (round {round}) not visible after concurrent flush"
+            );
+        }
+    }
+
+    // Recovery: todos los records commiteados deben sobrevivir al reopen.
+    drop(engine);
+    let engine2 = StorageEngine::open(path.as_str()).expect("reopen");
+    for round in 0..ROUNDS {
+        for i in 0..NODES_PER_ROUND {
+            let id = BASE + round as u128 * NODES_PER_ROUND + i;
+            assert!(
+                engine2.get(id).expect("get after reopen").is_some(),
+                "FIND-62: committed node {id} invisible post-recovery"
+            );
+        }
+    }
+}

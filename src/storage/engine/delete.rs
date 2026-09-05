@@ -110,22 +110,18 @@ impl StorageEngine {
 
     /// Apply a delete to the stores (vstore tombstone, HNSW, cache).
     ///
-    /// Does NOT remove the backend metadata entry ΓÇö callers that need
+    /// Does NOT remove the backend metadata entry — callers that need
     /// physical removal (non-transactional deletes) must call
     /// `backend.delete()` separately alongside `stamp_deleted_in_backend`.
     /// Transactional deletes leave the metadata stamp so MVCC snapshots
     /// can still read the tombstone, and GC can later reclaim it.
     ///
-    /// Does NOT write to WAL ΓÇö the caller is responsible for WAL logging.
+    /// Does NOT write to WAL — the caller is responsible for WAL logging.
     /// Does NOT check active_txns or ensure_writable.
-    #[tracing::instrument(skip(self), level = "debug", err)]
-    pub(crate) fn apply_delete(&self, id: u128) -> Result<()> {
-        self.apply_delete_inner(id, true)
-    }
-
-    /// Shared delete-apply body. When `acquire` is false the caller already
-    /// holds `insert_lock` (delete()'s ERR-010 critical section), so the HNSW
-    /// removal must not re-acquire the non-reentrant lock.
+    ///
+    /// When `acquire` is false the caller already holds `insert_lock`
+    /// (delete()'s or commit_transaction()'s ERR-010 critical section), so
+    /// the HNSW removal must not re-acquire the non-reentrant lock.
     pub(crate) fn apply_delete_inner(&self, id: u128, acquire: bool) -> Result<()> {
         let packed = {
             let hnsw = self.hnsw.load();
