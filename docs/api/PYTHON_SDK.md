@@ -167,7 +167,9 @@ db.put_batch(
     ttls: Optional[List[Optional[int]]] = None,
 ) -> List[VantaMemoryRecord]
 ```
-Insert or update multiple records in parallel.
+Insert or update multiple records in parallel. Each entry of `metadatas`
+accepts the same scalar values as `put()` (`str`, `int`, `float`, `bool`,
+`datetime`, homogeneous lists).
 
 **Keyword API** (preferred):
 ```python

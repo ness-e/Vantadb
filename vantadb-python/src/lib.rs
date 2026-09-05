@@ -16,7 +16,7 @@ use vantadb::index::IndexType;
 use vantadb::metadata;
 use vantadb::sdk::{
     VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest,
-    VantaNodeInput, VantaValue,
+    VantaNodeInput,
 };
 // FFI guards: single source of truth from core (WSM-09).
 use vantadb::{DistanceMetric, MAX_K};
@@ -476,6 +476,10 @@ impl VantaDB {
     ///
     /// Returns a list of ``VantaMemoryRecord`` objects, up to ~5x faster
     /// than sequential ``put()`` for large batches.
+    ///
+    /// ``metadatas`` accepts the same scalar values as ``put()`` (str, int,
+    /// float, bool, datetime, list, or None) via ``py_dict_to_metadata``
+    /// (GOV-TK7) — e.g. ``metadatas=[{"chunk_index": 3}, None]``.
     #[pyo3(signature = (keys, vectors, payloads=None, metadatas=None, namespace=None, namespaces=None, ttls=None))]
     fn put_batch(
         &self,
@@ -483,7 +487,7 @@ impl VantaDB {
         keys: Vec<String>,
         vectors: Vec<Vec<f32>>,
         payloads: Option<Vec<String>>,
-        metadatas: Option<Vec<Option<HashMap<String, String>>>>,
+        metadatas: Option<Vec<Option<Py<PyAny>>>>,
         namespace: Option<String>,
         namespaces: Option<Vec<String>>,
         ttls: Option<Vec<Option<u64>>>,
@@ -553,12 +557,12 @@ impl VantaDB {
             let mut input = VantaMemoryInput::new(ns_i, keys[i].clone(), payload);
 
             if let Some(all_meta) = &metadatas {
-                if let Some(meta_dict) = &all_meta[i] {
-                    let mut btree = std::collections::BTreeMap::new();
-                    for (k, v) in meta_dict.iter() {
-                        btree.insert(k.clone(), VantaValue::String(v.clone()));
-                    }
-                    input.metadata = btree;
+                if let Some(meta_obj) = &all_meta[i] {
+                    // GOV-TK7: same scalar coercion as put()/put_batch_raw —
+                    // str, int, float, bool, datetime, list, None via
+                    // py_dict_to_metadata (was: solo-str HashMap).
+                    let dict: &Bound<'_, PyDict> = meta_obj.bind(py).cast::<PyDict>()?;
+                    input.metadata = py_dict_to_metadata(Some(dict))?;
                 }
             }
 

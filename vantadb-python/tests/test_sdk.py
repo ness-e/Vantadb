@@ -684,6 +684,28 @@ class TestNumPyIntegration:
         assert len(records) == 1, f"expected 1 record, got {len(records)}"
         assert records[0]["key"] == "x", f"expected key 'x', got {records[0]['key']}"
 
+    def test_put_batch_metadata_coercion(self):
+        """GOV-TK7: put_batch metadatas must coerce scalar values like put() does
+        (int/float/bool), not just str — parity with put/put_batch_raw via
+        py_dict_to_metadata."""
+        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        records = db.put_batch(
+            keys=["a", "b"],
+            vectors=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+            payloads=["alpha", "beta"],
+            metadatas=[
+                {"chunk_index": 3, "score": 0.5, "done": True},
+                {"source": "manual.pdf", "total_chunks": 12},
+            ],
+            namespace="ns",
+        )
+        assert records[0]["metadata"]["chunk_index"] == 3
+        assert records[0]["metadata"]["score"] == 0.5
+        assert records[0]["metadata"]["done"] is True
+        assert records[1]["metadata"]["total_chunks"] == 12
+        # tutorial arithmetic (02-local-rag-pipeline L144) must work on batch metadata
+        assert records[0]["metadata"]["chunk_index"] + 1 == 4
+
     def test_memory_search_with_numpy_vector(self):
         """Memory search with numpy array should work."""
         import numpy as np

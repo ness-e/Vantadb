@@ -122,7 +122,7 @@ ingest_pdf("manual.pdf")
 >     keys=[f"{stem}-{i}" for i in range(len(chunks))],
 >     vectors=[embed(c) for c in chunks],
 >     payloads=chunks,
->     metadatas=[{"source": name, "chunk_index": str(i), "total_chunks": str(len(chunks))} for i in range(len(chunks))],
+>     metadatas=[{"source": name, "chunk_index": i, "total_chunks": len(chunks)} for i in range(len(chunks))],
 >     namespace="documents",
 > )
 > ```
