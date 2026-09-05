@@ -6060,7 +6060,7 @@ checksum = "ba73ea9cf16a25df0c8caa16c51acb937d5712a8429db78a3ee29d5dcacd3a65"
 
 [[package]]
 name = "vanta-memory"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "chrono",
  "reqwest 0.12.28",
@@ -6075,7 +6075,7 @@ dependencies = [
 
 [[package]]
 name = "vanta-proxy"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "axum",
  "bytes",
@@ -6094,7 +6094,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "aes-gcm",
  "ahash",
@@ -6176,7 +6176,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-mcp"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "axum",
  "reqwest 0.12.28",
@@ -6192,7 +6192,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-server"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "anyhow",
  "axum",
@@ -6219,7 +6219,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb-wasm"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "console_error_panic_hook",
  "getrandom 0.3.4",
@@ -6238,7 +6238,7 @@ dependencies = [
 
 [[package]]
 name = "vantadb_py"
-version = "0.5.0"
+version = "0.6.0"
 dependencies = [
  "chrono",
  "lru 0.18.4",
