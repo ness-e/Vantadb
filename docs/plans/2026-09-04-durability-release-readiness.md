@@ -98,7 +98,7 @@
 - **Gate Justificación:** el pipeline existe pero el paquete nunca se publicó; scope aprobado: solo dry-run + checklist, publish real = decisión humana posterior.
 - **Contrato:** `npm pack` + prepublish artifacts OK + `npm publish --dry-run` verde + checklist de release escrita (`docs/plans/artifacts/bnd-08-publish-checklist.md`). PROHIBIDO publicar.
 - **Task file:** `tasks/BND-08.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Ruta:** vanta-worker
 - **Branch:** develop
 - **Commit:** `ci(node): prepublish verificado dry-run + checklist (BND-08)`
@@ -108,7 +108,7 @@
 - **Gate Justificación:** decisiones del usuario ya tomadas (opt-in only, group-commit, ≥10× + ventana declarada). La spec es el deliverable.
 - **Contrato:** spec escrita con objetivo/diseño group-commit/ACEPTACIÓN (≥10× batch + ventana declarada y testeable)/límites (default intacto) + registrada para futura implementación. Cero código productivo.
 - **Task file:** `tasks/FUT-12-spec.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (2026-09-05, spec-only sin código — ADR-038 proposed: group-commit opt-in ventana tiempo/tamaño sobre `batch_append`, aceptación ≥10× + ventana declarada/testeable, default intacto; suite wal no tocada por diseño)
 - **Ruta:** vanta-arch
 - **Branch:** develop
 - **Commit:** `docs(adr): spec WAL fsync-batching opt-in (FUT-12-spec)`
@@ -210,4 +210,26 @@ Resultado: OK
 Próxima acción: ninguno (orquestador: push + GOV-TK7)
 Contrato: verificacion: storage 380/380 + lib 1985/1985 + clippy -D warnings OK + fmt OK + commit 19a9651c (3 files) + hooks pre-commit OK; evidencia: test commit_flush_interleaving PASS post-fix (alta); pre-mortem verde tools.rs:2131 sin guard (alta); artefactos: txn.rs, delete.rs, tests/ops.rs, tasks/FIND-62.md; invariantes: WAL/MVCC/lock-order intactos, ajenos sin stagear; deuda: ninguna; queda_pendiente: orquestador push + GOV-TK7
 Próxima tarea si completa: GOV-TK7
+=== END RECITATION ===
+
+=== RECITATION BND-08 ===
+Campaign ID: a6f16be4-a2a2-44eb-bfdb-1a84a4b573cf
+Objetivo activo: BND-08: pipeline npm napi-rs end-to-end en dry-run + checklist (Task 8 Wave 2)
+Estado: completed
+Última acción: EJECUCION+CIERRE: S1 registry 404 + S2 npm pack 6 files + S3 publish --dry-run exit 0 + S4 checklist + commit e9843100 (solo 1 archivo) + plan Task 8 COMPLETO sin stagear
+Resultado: OK
+Próxima acción: ninguno (orquestador: push + Wave 2 STABLE-04/FUT-12-spec; BND-09 desbloqueada)
+Contrato: verificacion: npm view 404 (nunca publicado) + npm pack exit 0 (6 files, shasum 30130fb5) + npm publish --dry-run exit 0 (+ vantadb-node@0.5.0) + checklist docs/plans/artifacts/bnd-08-publish-checklist.md + pre-commit hook OK; evidencia: claim OIDC -> workflow id-token:write + environment npm (alta); claim pack -> tarball 6 files respeta files (alta); claim dry-run -> exit 0 sin publish real (alta); claim orden -> GOV-TK2 /ship GO primero en checklist (alta); artefactos: e9843100 (1 file), tasks/BND-08.md; invariantes: 0 publish real, 0 edits workflow/package/Cargo, .tgz borrado, ajenos intactos (M .opencode + ADR-038 FUT-12-spec sin tocar); deuda: ninguna; queda_pendiente: orquestador push + STABLE-04/FUT-12-spec
+Próxima tarea si completa: STABLE-04
+=== END RECITATION ===
+
+=== RECITATION 8 ===
+Campaign ID: a6f16be4-a2a2-44eb-bfdb-1a84a4b573cf
+Objetivo activo: BND-08: pipeline npm napi-rs dry-run + checklist (Task 8 Wave 2)
+Estado: completed
+Última acción: CIERRE: commit e9843100 + plan Task 8 COMPLETO sin stagear + 2 lessons
+Resultado: OK
+Próxima acción: ninguno (orquestador: push + Wave 2 restante; BND-09 desbloqueada)
+Contrato: verificacion: npm view 404 + npm pack exit 0 (6 files) + npm publish --dry-run exit 0 + checklist + commit e9843100 (1 file) + pre-commit hook OK; evidencia: OIDC id-token:write+environment npm en workflow (alta); tarball respeta files (alta); dry-run sin publish real (alta); orden GOV-TK2 /ship GO en checklist (alta); artefactos: docs/plans/artifacts/bnd-08-publish-checklist.md, tasks/BND-08.md; invariantes: 0 publish real, 0 edits workflow/package/Cargo, .tgz borrado, ajenos intactos; deuda: ninguna; queda_pendiente: orquestador push + STABLE-04/FUT-12-spec
+Próxima tarea si completa: STABLE-04
 === END RECITATION ===
