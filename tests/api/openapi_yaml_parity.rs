@@ -87,57 +87,168 @@ mod openapi_yaml_parity {
     }
 
     #[test]
-    fn test_graph_traversal_body_shape_matches_mcp_handler() {
+    fn test_iql_keywords_are_case_sensitive_uppercase() {
+        // GOV-TK3 drift 1: the OpenAPI description documents lowercase IQL
+        // (`from <entity> [where …]`, `insert <id> as <type>`) but the nom
+        // parser uses case-sensitive `tag("FROM")` etc. — lowercase fails.
+        // Live-fire evidence: tasks/GOV-B5.md (lowercase `from`/`insert` → parse error).
+        assert!(
+            parse_statement("from Test").is_err(),
+            "lowercase 'from' must fail: IQL keywords are UPPERCASE"
+        );
+        assert!(
+            parse_statement("FROM Test").is_ok(),
+            "uppercase 'FROM' must parse"
+        );
+        // Canonical UPPERCASE write statements from src/parser/mod.rs must parse.
+        for q in [
+            r#"INSERT NODE#7 TYPE note {title: "hello"} VECTOR [0.5, 0.5]"#,
+            r#"UPDATE NODE#7 SET title = "hi""#,
+            r#"DELETE NODE#7"#,
+            r#"RELATE NODE#1 --"knows"--> NODE#2 WEIGHT 0.5"#,
+            r#"INSERT MESSAGE USER "hello" TO THREAD#9"#,
+            r#"FROM Test SIGUE 1..3 "amigo" TYPE Persona AS p"#,
+        ] {
+            assert!(parse_statement(q).is_ok(), "must parse: {q}");
+        }
+        // Lowercase write keywords must fail.
+        for q in [
+            r#"insert 7 as note fields title=hello"#,
+            r#"update 7 set title=hi"#,
+            r#"relate 1 -> 2 as knows"#,
+        ] {
+            assert!(parse_statement(q).is_err(), "must fail: {q}");
+        }
+
+        // The OpenAPI description must document the UPPERCASE grammar.
+        let openapi = load_openapi();
+        let query_desc = openapi["paths"]["/api/v2/query"]["post"]["description"]
+            .as_str()
+            .unwrap();
+        assert!(
+            query_desc.contains("FROM <entity>"),
+            "OpenAPI must document UPPERCASE 'FROM <entity>'"
+        );
+        assert!(
+            query_desc.contains("SIGUE <min>..<max>"),
+            "OpenAPI must document 'SIGUE <min>..<max>' (.. range, not -)"
+        );
+        assert!(
+            !query_desc.contains("from <entity> [where"),
+            "OpenAPI must not document lowercase 'from <entity> [where'"
+        );
+        assert!(
+            !query_desc.contains("insert <id> as <type>"),
+            "OpenAPI must not document lowercase 'insert <id> as <type>'"
+        );
+    }
+
+    #[test]
+    fn test_graph_request_bodies_match_http_handlers() {
+        // GOV-TK3 drift 2: the yaml used to expose a single `GraphTraversalBody`
+        // (`start: string[]`, `mode`, `direction: outgoing|…` — the MCP
+        // `graph_traverse` shape) for all HTTP graph endpoints, but the real
+        // HTTP handlers take numeric `roots` + required `max_depth`
+        // (`GraphTraversalRequest` in src/server/handlers.rs).
+        // Live-fire evidence: tasks/GOV-B5.md (`{"roots":["7"]}` → 400 invalid
+        // number; `{"roots":[7]}` → 400 missing `max_depth`).
         let openapi = load_openapi();
 
-        // Get the GraphTraversalBody schema from components/requestBodies
-        let traversal_body = &openapi["components"]["requestBodies"]["GraphTraversalBody"];
-        let schema = &traversal_body["content"]["application/json"]["schema"];
-
-        // Required fields per MCP handler (vantadb-mcp/src/handlers/tools.rs:2356-2441):
-        // - start: array of u128 node IDs
-        // - mode: string enum ["bfs", "dfs"]
-        // - max_depth: integer (required)
-        // - direction: string enum ["outgoing", "incoming", "both"]
-        // - filter: optional object { labels: u32[], time_range: [u64, u64] }
-
-        let required = schema["required"].as_sequence().unwrap();
-        let required_fields: Vec<&str> = required.iter().map(|v| v.as_str().unwrap()).collect();
-
-        // OpenAPI currently only requires "roots" - this is the drift
-        // The real handler expects different fields
+        // The drifted shared body must be gone.
         assert!(
-            required_fields.contains(&"start"),
-            "GraphTraversalBody should require 'start' (u128[]), not 'roots'"
-        );
-        assert!(
-            required_fields.contains(&"mode"),
-            "GraphTraversalBody should require 'mode' (bfs|dfs)"
-        );
-        assert!(
-            required_fields.contains(&"max_depth"),
-            "GraphTraversalBody should require 'max_depth' (integer)"
-        );
-        assert!(
-            required_fields.contains(&"direction"),
-            "GraphTraversalBody should require 'direction' (outgoing|incoming|both)"
+            openapi["components"]["requestBodies"]["GraphTraversalBody"].is_null(),
+            "drifted GraphTraversalBody must be removed from the yaml"
         );
 
-        // Verify properties exist with correct types (check they're mappings/objects)
-        let props = &schema["properties"];
-        assert!(props["start"].is_mapping(), "start property should exist");
-        assert!(props["mode"].is_mapping(), "mode property should exist");
+        // bfs/dfs: numeric roots + required max_depth + optional direction.
+        for path in ["/api/v2/graph/bfs", "/api/v2/graph/dfs"] {
+            let body_ref = openapi["paths"][path]["post"]["requestBody"]["$ref"]
+                .as_str()
+                .unwrap();
+            assert_eq!(
+                body_ref, "#/components/requestBodies/GraphBfsDfsBody",
+                "{path} must use GraphBfsDfsBody"
+            );
+        }
+        let schema = &openapi["components"]["requestBodies"]["GraphBfsDfsBody"]["content"]
+            ["application/json"]["schema"];
+        let required: Vec<&str> = schema["required"]
+            .as_sequence()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        assert!(required.contains(&"roots"), "bfs/dfs must require 'roots'");
         assert!(
-            props["max_depth"].is_mapping(),
-            "max_depth property should exist"
+            required.contains(&"max_depth"),
+            "bfs/dfs must require 'max_depth'"
         );
-        assert!(
-            props["direction"].is_mapping(),
-            "direction property should exist"
+        assert_eq!(
+            schema["properties"]["roots"]["items"]["type"]
+                .as_str()
+                .unwrap(),
+            "integer",
+            "roots must be NUMERIC (u128 JSON numbers — strings are rejected with 400)"
         );
-        assert!(
-            props["filter"].is_mapping(),
-            "filter property should exist (optional)"
+        let direction_enum: Vec<&str> = schema["properties"]["direction"]["enum"]
+            .as_sequence()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        assert_eq!(
+            direction_enum,
+            vec!["forward", "reverse", "both"],
+            "direction must be forward|reverse|both (GraphDirection), not outgoing|…"
+        );
+
+        // degree/centrality: roots only.
+        for path in ["/api/v2/graph/degree", "/api/v2/graph/centrality"] {
+            let body_ref = openapi["paths"][path]["post"]["requestBody"]["$ref"]
+                .as_str()
+                .unwrap();
+            assert_eq!(
+                body_ref, "#/components/requestBodies/GraphRootsBody",
+                "{path} must use GraphRootsBody (roots only, no max_depth)"
+            );
+        }
+
+        // pagerank: roots + optional tuning params.
+        let body_ref = openapi["paths"]["/api/v2/graph/pagerank"]["post"]["requestBody"]["$ref"]
+            .as_str()
+            .unwrap();
+        assert_eq!(
+            body_ref, "#/components/requestBodies/GraphPageRankBody",
+            "pagerank must use GraphPageRankBody"
+        );
+
+        // v2 traversal: STRING roots (u128-safe wire) + required max_depth.
+        for path in ["/api/v2/graph/v2/bfs", "/api/v2/graph/v2/dfs"] {
+            let body_ref = openapi["paths"][path]["post"]["requestBody"]["$ref"]
+                .as_str()
+                .unwrap();
+            assert_eq!(
+                body_ref, "#/components/requestBodies/GraphV2TraversalBody",
+                "{path} must use GraphV2TraversalBody"
+            );
+        }
+        let v2_schema = &openapi["components"]["requestBodies"]["GraphV2TraversalBody"]["content"]
+            ["application/json"]["schema"];
+        assert_eq!(
+            v2_schema["properties"]["roots"]["items"]["type"]
+                .as_str()
+                .unwrap(),
+            "string",
+            "v2 roots must be decimal-u128 STRINGS"
+        );
+
+        // v2 degree: namespace, not node ids.
+        let body_ref = openapi["paths"]["/api/v2/graph/v2/degree"]["post"]["requestBody"]["$ref"]
+            .as_str()
+            .unwrap();
+        assert_eq!(
+            body_ref, "#/components/requestBodies/GraphV2DegreeBody",
+            "v2/degree must use GraphV2DegreeBody (namespace)"
         );
     }
 
@@ -151,6 +262,21 @@ mod openapi_yaml_parity {
 
         // The cli_server.rs:2100-2113 calls ensure_indexes_current() at startup
         // to avoid "text_index not found" on fresh DBs. This should be documented.
+        // GOV-TK3 drift 3 (precise): ensure runs ONCE at startup
+        // (src/server/bootstrap.rs) and does NOT cover records written
+        // afterwards via the record API — fresh DB + record PUT + text search
+        // fails with `text_index not found: bm25` until a manual rebuild
+        // (live-fire evidence: tasks/GOV-B5.md). The doc must state the
+        // condition + symptom + remedy, and must not point at the stale
+        // `src/cli_server.rs` (a shim since the 09-01 server split).
+        assert!(
+            search_desc.contains("text_index not found"),
+            "Search endpoint must document the 'text_index not found' symptom on fresh DBs"
+        );
+        assert!(
+            !search_desc.contains("cli_server"),
+            "Search endpoint must not reference stale src/cli_server.rs (see src/server/bootstrap.rs)"
+        );
         assert!(
             search_desc.contains("ensure_indexes_current") || search_desc.contains("rebuild-index"),
             "Search endpoint should document that ensure_indexes_current() runs at startup or reference /api/v2/maintenance/rebuild-index"

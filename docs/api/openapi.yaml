@@ -144,6 +144,9 @@ paths:
       summary: Execute IQL query
       description: |
         Execute an IQL (Interactive Query Language) statement against the database.
+        IQL keywords are case-sensitive UPPERCASE (`FROM`, `WHERE`, `SIGUE`,
+        `INSERT`, `TYPE`, …) — lowercase variants fail with a parse error.
+        Verified against `src/parser/mod.rs`.
 
         Supported operations are passed as a single IQL query string:
 
@@ -151,44 +154,55 @@ paths:
 
         **Query (search):** Scan an entity with optional filters, vector similarity search, graph traversal, sorting, and projection.
         ```
-        from <entity> [where <field> <op> <value>] [rank by <field> [asc|desc]] [fetch <field>,...]
+        FROM <entity> [SIGUE <min>..<max> "<edge_label>" [TYPE <type>] [AS <alias>] [<alias>]]
+          [WHERE <field> <op> <value> [AND <field> <op> <value> ...]]
+          [FETCH <field>,...] [RANK BY <field> [DESC]]
+          [WITH TEMPERATURE <float>] [ROLE "<role>"]
+          [PROFILE keyword|vector|hybrid [rrf_k <n>] [candidate_k <n>]]
         ```
+        (`MATCH <entity>` is accepted as an alias of `FROM <entity>`.)
 
         **Vector/hybrid search:** Include a vector similarity condition in the WHERE clause.
         ```
-        from <entity> where vec(<field>) <~> <text_query> [min_score <n>]
+        FROM <entity> WHERE <field> ~ "<text_query>", min = <score>
+        ```
+
+        **Text search:** Match a text field without a score threshold.
+        ```
+        FROM <entity> WHERE <field> ~ "<text_query>"
         ```
 
         **Graph traversal:** Follow edges from matched nodes.
         ```
-        from <entity> SIGUE <min>..<max> "<edge_label>" [TYPE <type>] [AS <alias>]
+        FROM <entity> SIGUE <min>..<max> "<edge_label>" [TYPE <type>] [AS <alias>]
         ```
 
         ## Write Operations
 
         **Insert:** Create a new node.
         ```
-        insert <id> as <type> [fields <key>=<value>,...] [with vector [<f32>,...]]
+        INSERT NODE#<id> TYPE <type> {<key>: <value>,...} [VECTOR [<f32>,...]]
         ```
 
         **Update:** Modify an existing node's fields or vector.
         ```
-        update <id> [set <key>=<value>,...] [with vector [<f32>,...]]
+        UPDATE NODE#<id> SET <key> = <value>,...
+        UPDATE NODE#<id> SET VECTOR [<f32>,...]
         ```
 
         **Delete:** Remove a node.
         ```
-        delete <id>
+        DELETE NODE#<id>
         ```
 
         **Relate:** Create a weighted or unweighted edge between two nodes.
         ```
-        relate <source_id> -> <target_id> as <label> [weight <f32>]
+        RELATE NODE#<source_id> --"<label>"--> NODE#<target_id> [WEIGHT <f32>]
         ```
 
         **Insert Message (conversational sugar):** Create a threaded message node with automatic embedding.
         ```
-        message <role> "<content>" in thread <thread_id>
+        INSERT MESSAGE <SYSTEM|USER|ASSISTANT> "<content>" TO THREAD#<thread_id>
         ```
       operationId: executeQuery
       tags:
@@ -498,11 +512,16 @@ paths:
         size; defaults to `top_k`). Wire format mirrors the SDK's
         `VantaMemorySearchRequest`.
 
-        **Fresh database note:** On server startup, `ensure_indexes_current()` is
-        called automatically (see `src/cli_server.rs`) to initialize text/BM25
-        indexes for new databases. This prevents "text_index not found" errors.
-        If text search is unavailable, call `POST /api/v2/maintenance/rebuild-index`
-        to rebuild indexes manually.
+        **Fresh database note:** `ensure_indexes_current()` runs ONCE at server
+        startup (see `src/server/bootstrap.rs`; skipped when `read_only`) and
+        reconciles missing/stale text/BM25 state at that moment. It does NOT
+        cover records written afterwards through the node/record API: on a
+        fresh DB, `PUT /api/v2/records/…` followed by `POST /api/v2/search`
+        with `text_query` fails with `text_index not found: bm25` until you
+        call `POST /api/v2/maintenance/rebuild-index` (verified live-fire —
+        campaign task GOV-B5). Single memory `PUT`/`DELETE` maintain the text
+        index incrementally and `put_batch` rebuilds it in one pass, so this
+        only bites the record-write-then-text-search flow on a fresh DB.
       operationId: searchRecords
       tags:
         - Search
@@ -666,17 +685,27 @@ paths:
   /api/v2/graph/bfs:
     post:
       summary: Breadth-first traversal
-      description: BFS from root nodes following edges (optionally label-filtered).
+      description: |
+        BFS from root node ids (`GraphTraversalRequest` in `src/server/handlers.rs`).
+        `roots` are bare JSON numbers (u128) — string ids are rejected with
+        400 (`invalid number`); `max_depth` is required. `direction` defaults
+        to `forward`. For ids above 2^53 use `/api/v2/graph/v2/bfs`.
       operationId: graphBfs
       tags:
         - Graph
       security:
         - bearerAuth: []
       requestBody:
-        $ref: "#/components/requestBodies/GraphTraversalBody"
+        $ref: "#/components/requestBodies/GraphBfsDfsBody"
       responses:
         "200":
-          $ref: "#/components/responses/GraphNodeList"
+          description: Visited node ids (u128) in visit order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: integer
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -691,17 +720,26 @@ paths:
   /api/v2/graph/dfs:
     post:
       summary: Depth-first traversal
-      description: DFS from root nodes following edges (optionally label-filtered).
+      description: |
+        DFS from root node ids (`GraphTraversalRequest` in `src/server/handlers.rs`).
+        Same wire shape as `/api/v2/graph/bfs`: numeric `roots`, required
+        `max_depth`, optional `direction` (default `forward`).
       operationId: graphDfs
       tags:
         - Graph
       security:
         - bearerAuth: []
       requestBody:
-        $ref: "#/components/requestBodies/GraphTraversalBody"
+        $ref: "#/components/requestBodies/GraphBfsDfsBody"
       responses:
         "200":
-          $ref: "#/components/responses/GraphNodeList"
+          description: Visited node ids (u128) in visit order
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: integer
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -716,14 +754,14 @@ paths:
   /api/v2/graph/degree:
     post:
       summary: Node degree
-      description: In/out degree counts for the given nodes.
+      description: In/out degree counts for the given nodes (`GraphRootsRequest` — numeric `roots` only, no `max_depth`).
       operationId: graphDegree
       tags:
         - Graph
       security:
         - bearerAuth: []
       requestBody:
-        $ref: "#/components/requestBodies/GraphTraversalBody"
+        $ref: "#/components/requestBodies/GraphRootsBody"
       responses:
         "200":
           description: Degree map per node
@@ -746,14 +784,14 @@ paths:
   /api/v2/graph/centrality:
     post:
       summary: Centrality scores
-      description: Centrality analytics over the graph (generic request/response envelope).
+      description: Centrality analytics over the graph (`GraphRootsRequest` — numeric `roots` only; maps to degree centrality).
       operationId: graphCentrality
       tags:
         - Graph
       security:
         - bearerAuth: []
       requestBody:
-        $ref: "#/components/requestBodies/GraphTraversalBody"
+        $ref: "#/components/requestBodies/GraphRootsBody"
       responses:
         "200":
           description: Centrality scores per node
@@ -776,14 +814,14 @@ paths:
   /api/v2/graph/pagerank:
     post:
       summary: PageRank scores
-      description: PageRank analytics over the graph (generic request/response envelope).
+      description: PageRank analytics over the graph (`GraphPageRankRequest` — numeric `roots`; tuning parameters optional with documented defaults).
       operationId: graphPagerank
       tags:
         - Graph
       security:
         - bearerAuth: []
       requestBody:
-        $ref: "#/components/requestBodies/GraphTraversalBody"
+        $ref: "#/components/requestBodies/GraphPageRankBody"
       responses:
         "200":
           description: PageRank score per node
@@ -806,17 +844,67 @@ paths:
   /api/v2/graph/v2/bfs:
     post:
       summary: Breadth-first traversal (v2 engine)
-      description: Second-generation BFS implementation (WEB-02 extended SDK surface).
+      description: |
+        Second-generation BFS (`GraphV2TraversalRequest` in `src/server/handlers.rs`).
+        `roots` are decimal u128 STRINGS (u128-safe wire for browsers — the legacy
+        endpoints take bare numbers instead). `max_depth` is required, `limit`
+        caps the returned nodes (default 50).
       operationId: graphV2Bfs
       tags:
         - Graph
       security:
         - bearerAuth: []
       requestBody:
-        $ref: "#/components/requestBodies/GraphTraversalBody"
+        $ref: "#/components/requestBodies/GraphV2TraversalBody"
       responses:
         "200":
-          $ref: "#/components/responses/GraphNodeList"
+          description: Traversal result — visited nodes plus their outgoing edges
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - nodes
+                  - edges
+                properties:
+                  nodes:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - label
+                        - degree
+                      properties:
+                        id:
+                          type: string
+                          description: Node id as decimal u128 string
+                        label:
+                          type: string
+                        group:
+                          type: string
+                          nullable: true
+                        degree:
+                          type: integer
+                          minimum: 0
+                  edges:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - source
+                        - target
+                      properties:
+                        source:
+                          type: string
+                        target:
+                          type: string
+                        label:
+                          type: string
+                          nullable: true
+                        weight:
+                          type: number
+                          nullable: true
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -831,17 +919,66 @@ paths:
   /api/v2/graph/v2/dfs:
     post:
       summary: Depth-first traversal (v2 engine)
-      description: Second-generation DFS implementation (WEB-02 extended SDK surface).
+      description: |
+        Second-generation DFS (`GraphV2TraversalRequest`). Same wire shape as
+        `/api/v2/graph/v2/bfs`: decimal-u128 string `roots`, required
+        `max_depth`, optional `direction`/`limit`.
       operationId: graphV2Dfs
       tags:
         - Graph
       security:
         - bearerAuth: []
       requestBody:
-        $ref: "#/components/requestBodies/GraphTraversalBody"
+        $ref: "#/components/requestBodies/GraphV2TraversalBody"
       responses:
         "200":
-          $ref: "#/components/responses/GraphNodeList"
+          description: Traversal result — visited nodes plus their outgoing edges
+          content:
+            application/json:
+              schema:
+                type: object
+                required:
+                  - nodes
+                  - edges
+                properties:
+                  nodes:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - id
+                        - label
+                        - degree
+                      properties:
+                        id:
+                          type: string
+                          description: Node id as decimal u128 string
+                        label:
+                          type: string
+                        group:
+                          type: string
+                          nullable: true
+                        degree:
+                          type: integer
+                          minimum: 0
+                  edges:
+                    type: array
+                    items:
+                      type: object
+                      required:
+                        - source
+                        - target
+                      properties:
+                        source:
+                          type: string
+                        target:
+                          type: string
+                        label:
+                          type: string
+                          nullable: true
+                        weight:
+                          type: number
+                          nullable: true
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -856,22 +993,42 @@ paths:
   /api/v2/graph/v2/degree:
     post:
       summary: Node degree (v2 engine)
-      description: Second-generation degree computation (WEB-02 extended SDK surface).
+      description: |
+        Degree computation over a namespace's records (`GraphV2DegreeRequest`).
+        Takes a `namespace` (not node ids) and returns node DTOs with degree
+        scores. An empty/unknown namespace resolves to an empty array.
       operationId: graphV2Degree
       tags:
         - Graph
       security:
         - bearerAuth: []
       requestBody:
-        $ref: "#/components/requestBodies/GraphTraversalBody"
+        $ref: "#/components/requestBodies/GraphV2DegreeBody"
       responses:
         "200":
-          description: Degree map per node
+          description: Node DTOs with in+out degree scores
           content:
             application/json:
               schema:
-                type: object
-                additionalProperties: true
+                type: array
+                items:
+                  type: object
+                  required:
+                    - id
+                    - label
+                    - degree
+                  properties:
+                    id:
+                      type: string
+                      description: Node id as decimal u128 string
+                    label:
+                      type: string
+                    group:
+                      type: string
+                      nullable: true
+                    degree:
+                      type: integer
+                      minimum: 0
         "400":
           $ref: "#/components/responses/BadRequest"
         "401":
@@ -2030,73 +2187,148 @@ components:
   # ── Request bodies ──
 
   requestBodies:
-    GraphTraversalBody:
+    # NOTE: there is intentionally no shared traversal body. The legacy
+    # `/api/v2/graph/*` endpoints take numeric `roots` (bare JSON numbers),
+    # the `v2` endpoints take decimal-u128 strings, and degree/pagerank take
+    # their own shapes. The MCP `graph_traverse` tool (`start`/`mode`/…)
+    # is a different surface — see `docs/api/MCP.md`.
+    GraphBfsDfsBody:
       description: |
-        Graph traversal request: root node IDs (start), traversal mode (bfs/dfs),
-        max depth, edge direction, and optional label/time filters.
-        Matches the MCP `graph_traverse` handler and SDK `graph_bfs`/`graph_dfs` methods.
+        Body for `POST /api/v2/graph/bfs` and `/dfs`.
+        Mirrors `GraphTraversalRequest` (`src/server/handlers.rs`): numeric
+        `roots` (u128 JSON numbers — `{"roots":["7"]}` is rejected with 400
+        `invalid number`) and required `max_depth` (missing → 400).
+        Verified live-fire (campaign task GOV-B5).
       required: true
       content:
         application/json:
           schema:
             type: object
             required:
-              - start
-              - mode
+              - roots
               - max_depth
-              - direction
             properties:
-              start:
+              roots:
+                type: array
+                items:
+                  type: integer
+                  minimum: 0
+                description: Root node ids (u128) to start traversal from
+              max_depth:
+                type: integer
+                minimum: 1
+                description: Maximum traversal depth (inclusive) — required
+              direction:
+                type: string
+                enum: [forward, reverse, both]
+                default: forward
+                description: Edge direction to follow (default forward)
+    GraphRootsBody:
+      description: |
+        Body for `POST /api/v2/graph/degree` and `/centrality`.
+        Mirrors `GraphRootsRequest`: numeric `roots` only (extra fields such
+        as `max_depth` are ignored).
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - roots
+            properties:
+              roots:
+                type: array
+                items:
+                  type: integer
+                  minimum: 0
+                description: Node ids (u128) to score
+    GraphPageRankBody:
+      description: |
+        Body for `POST /api/v2/graph/pagerank`.
+        Mirrors `GraphPageRankRequest`: numeric `roots`, tuning parameters optional.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - roots
+            properties:
+              roots:
+                type: array
+                items:
+                  type: integer
+                  minimum: 0
+                description: Node ids (u128) to score
+              max_iterations:
+                type: integer
+                minimum: 1
+                default: 100
+              damping:
+                type: number
+                default: 0.85
+              tolerance:
+                type: number
+                default: 0.000001
+    GraphV2TraversalBody:
+      description: |
+        Body for `POST /api/v2/graph/v2/bfs` and `/v2/dfs`.
+        Mirrors `GraphV2TraversalRequest`: `roots` are decimal u128 STRINGS
+        (u128-safe wire — browsers cannot parse bare u128 numbers).
+        `max_depth` is required; `limit` caps returned nodes (default 50).
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - roots
+              - max_depth
+            properties:
+              roots:
                 type: array
                 items:
                   type: string
                   pattern: '^[0-9]+$'
-                description: Root node IDs (u128) to start traversal from
-              mode:
-                type: string
-                enum: [bfs, dfs]
-                description: Traversal algorithm — breadth-first or depth-first
+                description: Root node ids as decimal u128 strings
               max_depth:
                 type: integer
                 minimum: 1
-                description: Maximum traversal depth (inclusive)
+                description: Maximum traversal depth (inclusive) — required
               direction:
                 type: string
-                enum: [outgoing, incoming, both]
-                description: Edge direction to follow
-              filter:
-                type: object
-                nullable: true
-                description: Optional label and time-range filter
-                properties:
-                  labels:
-                    type: array
-                    items:
-                      type: integer
-                      minimum: 0
-                    description: Edge label IDs to include (empty = all labels)
-                  time_range:
-                    type: array
-                    nullable: true
-                    minItems: 2
-                    maxItems: 2
-                    items:
-                      type: integer
-                      minimum: 0
-                    description: Optional [from_ms, to_ms] Unix-millisecond time range filter
+                enum: [forward, reverse, both]
+                default: forward
+                description: Edge direction to follow (default forward)
+              limit:
+                type: integer
+                minimum: 1
+                default: 50
+                description: Cap on the returned node count
+    GraphV2DegreeBody:
+      description: |
+        Body for `POST /api/v2/graph/v2/degree`.
+        Mirrors `GraphV2DegreeRequest`: scored by `namespace`, NOT by node ids.
+      required: true
+      content:
+        application/json:
+          schema:
+            type: object
+            required:
+              - namespace
+            properties:
+              namespace:
+                type: string
+                description: Namespace whose records are scored
+              limit:
+                type: integer
+                minimum: 1
+                default: 50
+                description: Cap on the returned node count
 
   # ── Reusable responses ──
 
   responses:
-    GraphNodeList:
-      description: Traversed nodes in visit order
-      content:
-        application/json:
-          schema:
-            type: array
-            items:
-              $ref: "#/components/schemas/NodeDTO"
-
     BadRequest:
       description: Invalid request (parse error, malformed query, etc.)
       content:

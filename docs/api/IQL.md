@@ -31,7 +31,7 @@ IQL supports six statement types:
 ### Syntax
 
 ```
-FROM <entity> [SIGUE <min>-<max> "<label>" [TIPO <type>] [AS <alias>]] [<alias>]
+FROM <entity> [SIGUE <min>..<max> "<label>" [TYPE <type>] [AS <alias>]] [<alias>]
   WHERE <condition> AND <condition> ...
   FETCH <field1>, <field2> ...
   RANK BY <field> [DESC]
@@ -44,8 +44,8 @@ FROM <entity> [SIGUE <min>-<max> "<label>" [TIPO <type>] [AS <alias>]] [<alias>]
 | Clause | Description |
 |--------|-------------|
 | `FROM <entity>` / `MATCH <entity>` | Entity type to search. `FROM` and `MATCH` are interchangeable. |
-| `SIGUE <min>-<max> "<label>"` | Graph traversal: follow edges with the given label, between `min` and `max` hops. |
-| `TIPO <type>` | Optional target type filter for traversal (Spanish for "type"). |
+| `SIGUE <min>..<max> "<label>"` | Graph traversal: follow edges with the given label, between `min` and `max` hops. |
+| `TYPE <type>` | Optional target type filter for traversal. |
 | `AS <alias>` | Alias for traversed nodes. |
 | `<alias>` | Target alias for result nodes (defaults to `"target"`). |
 | `WHERE <cond> AND <cond>...` | Filter conditions (see [Conditions](#conditions)). |
@@ -145,7 +145,7 @@ FROM person WHERE name = "Alice"
 ### Query with graph traversal
 
 ```
-FROM person SIGUE 1-3 "knows" TIPO place AS places p
+FROM person SIGUE 1..3 "knows" TYPE place AS places p
   WHERE p.age > "25" AND p.bio ~ "engineer", min = 0.7
   FETCH name, bio
   RANK BY name

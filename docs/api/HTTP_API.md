@@ -74,8 +74,11 @@ curl http://127.0.0.1:18099/api/v2/records/agent%2Fmain/note-1
 curl "http://127.0.0.1:18099/api/v2/list?namespace=agent/main"
 # → {"records":[...],"next_cursor":null}
 
-# Hybrid search (text/BM25) — index state is ensured at server startup
-# (no manual rebuild needed on a fresh database)
+# Hybrid search (text/BM25) — `ensure_indexes_current()` runs once at server
+# startup only. Records written afterwards via the record API still need one
+# `POST /api/v2/maintenance/rebuild-index` before `text_query` works on a
+# fresh DB (else `text_index not found: bm25`); single memory PUTs are indexed
+# incrementally. Verified live-fire (campaign task GOV-B5).
 curl -X POST http://127.0.0.1:18099/api/v2/search \
   -H "Content-Type: application/json" \
   -d '{"namespace":"agent/main","query_vector":[],"filters":{},"text_query":"vector-native","top_k":10,"distance_metric":"Cosine","explain":false}'
