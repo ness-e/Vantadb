@@ -42,8 +42,12 @@ jobs:
   tests:
     name: Tests (npm/TS)
     runs-on: ubuntu-latest
-    # TS-06: measured ~18s vitest + build/install → Fast Gate tier (well under
-    # the 5min Heavy threshold); runs on every PR and main push touching the SDK.
+    # STABLE-06: measured 2026-09-05 on clean `npm ci` (node v26.8.1):
+    # install ~11s + build ~2s + vitest 278/278 ~16s (Duration) + eslint 0
+    # ~24s → TS portion ~58s wall, Fast Gate tier (well under the 5min
+    # Heavy threshold); runs on every PR and main push touching the SDK.
+    # NOTE: clean-CI wall adds `wasm-pack build --release` (Rust compile,
+    # unmeasured locally) — the TS gate itself stays <2min.
     timeout-minutes: 10
 
     steps:
@@ -90,6 +94,19 @@ jobs:
       - name: Run tests
         working-directory: vantadb-ts
         run: npm test
+
+      - name: Lint TypeScript (STABLE-06)
+        working-directory: vantadb-ts
+        run: npm run lint
+
+      # STABLE-06: fail the Fast Gate here (not only at publish) if the
+      # tarball would ship without engines.node (TS-05 guard, mirrors the
+      # publish-ts integrity check) or if packing itself breaks.
+      - name: Verify packed manifest keeps engines (STABLE-06)
+        working-directory: vantadb-ts
+        run: |
+          node -e "const p=require('./package.json'); if(!p.engines||!p.engines.node){console.error('ERROR: engines.node missing from vantadb-ts/package.json — tarball would ship without it (STABLE-06)');process.exit(1);} console.log('engines ok:', JSON.stringify(p.engines));"
+          npm pack --dry-run > /dev/null
 
   publish-wasm:
     name: Publish vantadb-wasm to npm

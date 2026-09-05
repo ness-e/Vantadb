@@ -105,6 +105,7 @@ export interface GraphClient {
 }
 
 /** Empty in TS v1: wiki features are core-only per D43 (no WASM binding yet). */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- intentional placeholder surface for db.wiki (see getter below)
 export interface WikiClient {}
 
 export interface SystemClient {
