@@ -219,6 +219,10 @@ describe("Type guards: validateVector (asserts)", () => {
     expect(() => validateVector([0.1, 0.2])).not.toThrow();
   });
 
+  it("passes on Float32Array (zero-copy path)", () => {
+    expect(() => validateVector(new Float32Array([0.1, 0.2]))).not.toThrow();
+  });
+
   it("throws on non-array", () => {
     // ERR-TS-01: validateVector surfaces VantaError(VANTADB_VALIDATION_ERROR)
     // instead of the previous raw TypeError/RangeError (BREAKING documented).
@@ -234,6 +238,10 @@ describe("Type guards: validateVector (asserts)", () => {
 
   it("throws on NaN element", () => {
     expect(() => validateVector([1, NaN])).toThrow(VantaError);
+  });
+
+  it("throws on Float32Array with NaN element", () => {
+    expect(() => validateVector(new Float32Array([1, NaN]))).toThrow(VantaError);
   });
 });
 

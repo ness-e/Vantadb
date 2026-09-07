@@ -1,7 +1,7 @@
 import { VantaDB as WasmVantaDB } from "vantadb-wasm";
 
 import { VantaError, ERROR_CODES, wrapWasmError } from "./errors.js";
-import { isMemoryRecord } from "./guards.js";
+import { _mapRecord, buildSearchRequestBase } from "./guards.js";
 import { normalizeFilterItems, normalizeMetadata, normalizeValue } from "./metadata.js";
 
 import type {
@@ -129,22 +129,6 @@ export interface SystemClient {
   ): ExportReport;
   importRecords(records: MemoryInput[]): ImportReport;
   importFile(path: string): ImportReport;
-}
-
-function _mapRecord(r: unknown): MemoryRecord {
-  if (!r || typeof r !== "object") {
-    throw new VantaError(
-      ERROR_CODES.VALIDATION_ERROR,
-      "_mapRecord: expected an object, got " + typeof r,
-    );
-  }
-  if (!isMemoryRecord(r)) {
-    throw new VantaError(
-      ERROR_CODES.VALIDATION_ERROR,
-      "_mapRecord: invalid MemoryRecord structure or missing required fields",
-    );
-  }
-  return r;
 }
 
 export class VantaDB {
@@ -586,13 +570,9 @@ export class VantaDB {
     // (api-contract.md R-8). Pass the request through untouched, like
     // native.ts, so both backends behave identically.
     return {
-      namespace: request.namespace,
-      query_vector: request.query_vector,
+      ...buildSearchRequestBase(request, explain),
       filters: normalizeMetadata(request.filters) ?? {},
       text_query: request.text_query ?? null,
-      top_k: request.top_k ?? 10,
-      distance_metric: request.distance_metric ?? "Cosine",
-      explain: explain ?? (request.explain ?? false),
       exclude_superseded: request.exclude_superseded ?? false,
     };
   }
@@ -602,6 +582,7 @@ export class VantaDB {
    *
    * @param request - The search request parameters.
    * @returns Array of search hits ordered by relevance (closest first).
+   *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
    * @throws {VantaError} If the instance is closed or the search fails.
    *
    * @example
@@ -640,6 +621,7 @@ export class VantaDB {
    * @param namespaces - Namespaces to search independently.
    * @param request - Search parameters (omit `namespace`; use `namespaces`).
    * @returns Array of search hits ordered by relevance (highest score first).
+   *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
    * @throws {VantaError} If the instance is closed or any namespace fails.
    *
    * @example
@@ -728,6 +710,7 @@ export class VantaDB {
    * @param key - Key of the source record whose vector seeds the search.
    * @param topK - Maximum number of hits (default: 10).
    * @returns Array of search hits ordered by descending similarity.
+   *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
    * @throws {VantaError} If the source `key` does not exist or has no vector.
    *
    * @example
