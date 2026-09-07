@@ -812,6 +812,24 @@ aliases: []
 - **Resultado:** ✅ `npm run bench` emite p50/p95/p99 + JSON (insert p99 575.94 / search_vector p99 7.80 / search_hybrid p99 207.18 ms, i5-1235U/Win11/Node 26.8.1); tsc 0 + vitest 280/280 + eslint bench 0.
 - **Commit:** 55ad6488
 
+### FIND-BND12-01: node typings u64 → bigint (plan 2026-09-07-followup Wave0)
+- **Fecha:** 2026-09-07
+- **Objetivo:** `index.d.ts` mentía `Promise<number>` en 4 métodos u64; fix en
+  fuente (`#[napi(ts_return_type = "Promise<bigint>")]`, patrón existente ×12) +
+  d.ts + test `typeof bigint`.
+- **Resultado:** ✅ `Promise<number>` 0 / `Promise<bigint>` 4; `npm test` 35/35;
+  NODE_SDK.md ya documentaba truth (sin cambio doc).
+- **Commit:** 66ce130f
+
+### PERF-BENCH-01: A/B node native vs WASM §16 (plan 2026-09-07-followup Wave0)
+- **Fecha:** 2026-09-07
+- **Objetivo:** cerrar decisión "native primario condicionado a números" con
+  mediana ×3 (2000×384d×200q, seed 42) + binarios + fairness caveat.
+- **Resultado:** ✅ insert 2.64× / search_vector 1.33× (solape, sin separación) /
+  search_hybrid 1.57× native; `.node` 5.13 MiB vs `.wasm` 2.40 MiB; fmt/clippy/
+  nextest audit 2945/1 + coverage 0 gaps verificados por ejecutor.
+- **Commit:** 63e6a0e5
+
 ### BND-13: NODE_SDK.md completa + matriz + runtimes (plan 2026-09-07-backlog-triage Wave2)
 - **Fecha:** 2026-09-07
 - **Objetivo:** matriz native-vs-WASM + ejemplos CJS/TS/Bun/Deno + API full + nota runtime truth BigInt (FIND-BND12-01) + sección Benchmark difiriendo a §15.

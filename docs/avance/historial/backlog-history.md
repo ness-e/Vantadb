@@ -289,3 +289,10 @@ Re-escaladas en el propio Backlog (misma fecha): RES-09 (fila WAL a fsync-batchi
 - **SRV-01** (rotación audit log) — SKIP: `AuditLogger::with_rotation` + defaults 10MiB/5 ya en `src/audit.rs:15-17,121-204`; `init_audit` con rotación (`src/sdk/builder.rs:291-295`).
 - **WSM-11** (metadata descartada) — SKIP: `record_metadata_drop(1)` + comentario WSM-11 (`vantadb-wasm/src/lib.rs:2355-2363`).
 - **UX-14** (PersonaPanel traga errores) — SKIP: `.catch(onError(vantaErrorMessage))` + comentario UX-14 (`MemoryLens.tsx:173-175`).
+
+## Stale SKIP 2026-09-07 followup (plan 2026-09-07-followup-bench-a11y — verificado, 0 código)
+
+- **UX-17** (grid no refresca) — SKIP: `onRefresh?.()` en `IngestForm.tsx:65` + wiring `WorkspaceShell.tsx:945,955` + `key={gridKey}`.
+- **UX-13** (banner audit) — SKIP: texto redactado + `<details>` técnico (`ActivityPanel.tsx:149-170`).
+- **MOD-05** (deprecar InMemoryEngine) — SKIP: `rg InMemoryEngine src/` → 0 hits, clase ya eliminada.
+- **FIND-47** (dispatcher complejidad 295) — SKIP: el propio reporte declara "no hotspot algorítmico"; sin evidencia de problema.
