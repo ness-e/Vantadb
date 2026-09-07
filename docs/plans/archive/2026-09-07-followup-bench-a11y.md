@@ -332,3 +332,30 @@ Próxima acción: Orquestador/vanta-lead: git add docs/tasks/STABLE-07.md + comm
 Contrato: verificacion: npm test 35/35 (10.18s) + npm pack --dry-run 6 files con .node 5.4MB + YAML 7/7 targets + 1xCOE CATEGORY:INFORMATIONAL + cargo fmt --check exit 0; evidencia: claim matrix 7 targets — evidencia: release-npm-node.yml:38-58 vs package.json:36-44 (7/7 match) — confianza: alta; claim suite verde — evidencia: npm test 35/35 vitest 4.1.10 — confianza: alta; claim pack incluye .node — evidencia: npm pack dry-run vantadb_native.win32-x64-msvc.node 5.4MB — confianza: alta; claim Heavy justificado — evidencia: timeouts 20/10/15 + 7 jobs LTO 3 OS — confianza: media; artefactos: docs/tasks/STABLE-07.md (único archivo escrito); invariantes: plan file intacto, archivos Wave0 intactos (66ce130f,63e6a0e5,c61642d9), sin commit (orden runner); deuda: ninguna; queda_pendiente: commit vía vanta-lead + skill progreso + plan Task 4 → ✅
 Próxima tarea si completa: ninguno (Wave1 última)
 === END RECITATION ===
+
+## Retrospectiva de cierre (Start / Stop / Continue + 1 acción medible)
+
+**Start:**
+- Waves paralelas ×3 sin colisión (MAX 3, archivos disjuntos verificados por wave)
+- Paso 0 evitó 4 stale + 1 baseline stale (BND-12 suite ya en 34)
+- Contratos mecánicos verificados por el lead con cwd correcto (2 falsos-negativos
+  por cwd en campaña previa → lección aplicada: npm/node siempre con workdir del paquete)
+
+**Stop:**
+- Lanzar sub-agentes sin verificar que el runner los acepta (1 abort Wave1 →
+  relanzamiento; costo: 1 turno). Si un launch aborta, reintentar 1 vez antes de SARL.
+- `campaign_verify_cmd` con bug (`autoTransition is not defined`) — seguir por bash
+  hasta que el server lo corrija; no bloquear el gate por tool rota.
+
+**Continue:**
+- Commits atómicos + sync por wave + coverage 0 gaps como cierre.
+
+**Acción medible:** first-try COMPLETO 4/4 (100%, North Star >90%), 0 INCOMPLETE,
+1 abort-infra recuperado con relanzamiento (0 contexto perdido: no había arranco).
+
+**Commits campaña (develop):** 66ce130f FIND-BND12-01 · 63e6a0e5 PERF-BENCH-01 ·
+c61642d9 UX-19 · e56f102a sync Wave0 · 4d0f386b STABLE-07 · 34445564 sync Wave1 ·
++ archivo plan (siguiente commit).
+Colateral para el lead: binding nativo emite `DEBUG` en stdout pese a `RUST_LOG=warn`
+→ contamina línea `JSON:` machine-readable del bench (filtrar `^DEBUG` o seeking
+silencioso; candidato a FIND si rompe parsing).
