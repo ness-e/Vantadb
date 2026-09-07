@@ -811,3 +811,8 @@ aliases: []
 - **Objetivo:** `vantadb-ts/bench/bench.mjs` (insert+search, seed 42) + `smoke.mjs` + scripts `bench`/`bench:3x`; §15 con mediana 3 corridas + entorno + nota browser pendiente.
 - **Resultado:** ✅ `npm run bench` emite p50/p95/p99 + JSON (insert p99 575.94 / search_vector p99 7.80 / search_hybrid p99 207.18 ms, i5-1235U/Win11/Node 26.8.1); tsc 0 + vitest 280/280 + eslint bench 0.
 - **Commit:** 55ad6488
+
+### BND-13: NODE_SDK.md completa + matriz + runtimes (plan 2026-09-07-backlog-triage Wave2)
+- **Fecha:** 2026-09-07
+- **Objetivo:** matriz native-vs-WASM + ejemplos CJS/TS/Bun/Deno + API full + nota runtime truth BigInt (FIND-BND12-01) + sección Benchmark difiriendo a §15.
+- **Resultado:** ✅ quickstart + matriz con fairness caveat + 4 runtimes + API (lifecycle/search/graph/versions/advanced/maintenance) + errors + benchmark; validate-docs-coverage 0 gaps; 0 claims sin fuente (Regla 11). Ejecución SARL STRATEGY lead-inline (sub-agente caído por infra; WIP recuperado).

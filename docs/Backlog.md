@@ -204,7 +204,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | AUD-042 | Media | Upgrade tantivy ≥0.18 — elimina allowlist RUSTSEC-2026-0253 + desbloquea lru 0.18 (security debt, rec#6) | Cargo.toml (tantivy), deny.toml | 🟡 | 🟡 Media | 🔴 BLOQUEADO upstream — verificado 2026-08-13: tantivy 0.26.1 (última publicada) fija `lru ^0.16.3`; el fix (`lru = "0.18.2"`) está en tantivy main (0.27.0) pero NO publicada en crates.io (404). Re-evaluar cuando tantivy ≥0.27.0 publique: bump tantivy + lru directo a 0.18.2 y remover allowlist. Comentario deny.toml actualizado con el estado. |
 | REVIEW-10 | Alta | God-file `cli_server.rs` ~3800-4141 líneas (routing + RBAC + TLS + OTEL + tests inline) — blast radius total del server en un archivo. Split por concern bajo `src/server/`; congelar features nuevas ahí | src/cli_server.rs | 🟠 | 🔴 Alta | 🟠 Abierta — derivada de review-full-20260822 H06-ARCH-001 |
 | BND-08 | 🔴 P0 | **Pipeline npm release napi-rs** (H-01): nunca publicado (E404); crear workflow CI create-npm-dirs/artifacts/prepublish modelo LanceDB/napi.rs, 5 targets + musl futuro. Origen: research-vantadb-node-20260825 | .github/workflows/, antadb-node/package.json | 🔴 | 🔴 Alta | Pendiente |
-| BND-13 | 🟡 | **docs/api/NODE_SDK.md** (H-07): doc completa + ejemplos por runtime; README ya creado (quickstart + matriz native-vs-wasm). Origen: research-vantadb-node-20260825 | docs/api/NODE_SDK.md | 🟢 | 🟡 Media | Pendiente |
 | PERF-BENCH-01 | 🟡 | **Benchmark A/B vantadb-node nativo vs vantadb-ts WASM** (H-09): insert/search p99 + tamaño binario; decide posicionamiento (decisión tomada: native primario en Node condicionado a números). Regla 9. Origen: research-vantadb-node-20260825 | benches nuevos | 🟡 | 🟠 Media | Pendiente |
 | ~~FIND-26~~ | Baja | ✅ RESUELTA (remove, 2026-08-25): `src/wal_archiver.rs` eliminado + export/feature `pitr` removidos + docs actualizados (FEATURES.md, EXPERIMENTAL_FEATURES.md, ADR-014 superseded). Decisión del lead basada en RES-02 §2b: PITR necesita base snapshot + replay (prerrequisito grande sin consumer); código conservado en git history (`git log --follow src/wal_archiver.rs`) | research res02-backup-restore.md §2b · ADR-014 | 🟠 | 🟡 Media | Completada |
 
@@ -451,7 +450,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | `UX-11` | 🟢 | **Estados vacíos sin salida**: "Sin registros."/"No matches." sin acción siguiente (botón contextual "Ir a Ingestar" / "Limpiar búsqueda") | `DataExplorer.tsx:797-798`, `ResultsList.tsx:13-17` | ⬜ Pendiente |
 | `UX-12` | 🟢 | **RESUMEN sin énfasis primario**: 7 cards + Métricas + KPIs + SOP + Export compiten con el mismo peso (border 3-4 + sombra); título "VISTA GENERAL" se renderiza 2 veces con layouts distintos (card de carga vs h1) → salto visual | `HomeOverview.tsx:228-249`, `WorkspaceShell.tsx:835-873` | ⬜ Pendiente |
 | `UX-13` | 🟢 | **Banner audit filtra internos**: mensaje con `Unsupported("audit log no configurado")`, `NativeConnection::open` — redactar para usuario + `<details>` técnico | `ActivityPanel.tsx:149-158` | ⬜ Pendiente |
-| `UX-14` | 🟢 | **PersonaPanel traga errores**: `catch(() => {})` muestra error real como "sin snapshot" — propagar con `onError(vantaErrorMessage(err))` | `MemoryLens.tsx:172` | ⬜ Pendiente |
 | `UX-15` | 🟢 | **Misc menor**: badge `err` = `warn` en MetricsGrid (usar `text-destructive`); 2 formateadores de bytes (decimal vs binario) — extraer `fmtBytes` compartido; splash no saltable por teclado; notice bar sin botón ✕ enfocable; microcopy ES/EN mezclado ("waiting…"/"check"); botones sin clase `press` en ActivityPanel; skeleton en IndicesLens mientras llega el snapshot; párrafo de jerga en header Retrieval + magic number `h-[calc(100dvh-112px)]` duplicado | `MetricsGrid.tsx:120-136,7-12`, `KpiCards.tsx:16-18`, `SplashScreen.tsx:38-44`, `WorkspaceShell.tsx:752-760`, `ActivityPanel.tsx:111-134`, `IndicesLens.tsx:171-200`, `RetrievalLens.tsx:234-238` | ⬜ Pendiente |
 | `UX-17` | 🟢 | **Grid no se refresca tras ingest manual**: IngestForm hace `onDone` (notice) pero no remonta el DataExplorer (`gridKey`) — el registro nuevo no aparece hasta pulsar "Traer". Pasar `onRefresh` al IngestForm como ya hace el batch delete | `WorkspaceShell.tsx` (superficie MEMORIAS), `IngestForm.tsx` | ⬜ Pendiente |
 | `UX-19` | 🟢 | **Smoke E2E como guard de regresión**: el recorrido ingest→teclado→borrar→papelera→restore→paleta pasó verde con datos reales — convertirlo en test Playwright permanente (`desktop/e2e/`) para que el flujo crítico no dependa de QA manual | `desktop/` (nuevo e2e), CI | ⬜ Pendiente |
@@ -538,7 +536,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Archivos clave | Esfuerzo | Prioridad | Estado |
 |---|---|---|---|---|---|
-| `SRV-01` | **Rotación/retención del audit log JSONL** — hoy crece indefinido (`append-only` sin límite); qdrant v1.17 rota daily + `max_log_files`. Rotación por tamaño/día + retención configurable + test | `src/audit.rs`, `src/cli_server.rs` (`audit_events`, `read_audit_page`) | 🟢 | 🟡 Media | ⬜ Pendiente |
 | `SRV-06` | **OIDC/JWT authentication** (estratégica enterprise): requisito de facto para "equipos" (weaviate OIDC nativo, qdrant JWT RBAC HS256 offline). **DISCOVERY primero (vanta-arch):** jsonwebtoken HS256 offline vs OIDC discovery, alcance mínimo viable sobre `auth_middleware` | `src/cli_server.rs:633-773`, `src/config.rs`; research §2 | 🔴 | 🟡 Media | ⬜ Pendiente (requiere DISCOVERY) |
 
 ---
@@ -560,13 +557,9 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Archivos clave | Esfuerzo | Prioridad | Estado |
 |---|---|---|---|---|---|
-| `WSM-11` | **Señalizar metadata descartada**: `memory_record_to_js` ignora error de serialización de metadata (record devuelto sin metadata sin señal); propagar error o contador | `vantadb-wasm/src/lib.rs:1582 aprox` | 🟢 | 🟢 Baja | ⬜ Pendiente |
 | `WSM-14` | **Plan adopción npm** (estrategia H-21 aprobada): README npm con posicionamiento del nicho "browser AI agent memory", demo Transformers.js enlazada, keywords/comparativa honesta vs Orama (5.44M desc/mes vs 187). Sin claims de performance sin benchmark (Regla 11) | `vantadb-wasm/pkg/README.md` template, landing docs | 🟡 | 🟠 Alta | ⬜ Pendiente |
 
 ## P43 — Research web 2026-08-25 (INV-web-01, docs/reviews/research-web-prod-20260825.md)
-
-| `WEB-02` | **Publicar benchmarks propios en /benchmarks**: convertir datos de `docs/operations/BENCHMARKS.md` en tablas p50/p99 públicas citando fuente reproducible (estilo Chroma home) — social proof honesto sin claims de adopción inexistentes (Regla 11). Verificar que la ruta existente muestre datos actuales. Origen: INV-web-01 H-10 | `web/src/app/benchmarks/page.tsx`, `docs/operations/BENCHMARKS.md` | 🟡 | 🟡 Media | ⬜ Pendiente |
-| `WEB-03` | **Restaurar/eliminar assets gato faltantes**: 4 refs a `mascota_gato.png`/`avatar_gato.png` con fallbacks silenciosos — restaurar en `public/assets/` o quitar refs muertas. Origen: INV-web-01 H-03 | `web/src/components/vanta/easter-egg.tsx:78`, `web/src/app/opengraph-image.tsx:15`, `web/src/components/vanta/vanta-data.ts:1062,1069` | 🟢 | 🟢 Baja | ⬜ Pendiente |
 
 | `WEB-09` | **Densidad efectos decorativos home**: 73 usos (trust-bar ×11, hero 5 capas) — requiere criterio visual del owner; puede quedar diferida como decisión de diseño fino. Origen: INV-web-01 H-07 | `web/src/app/page.tsx` + componentes mark/trust-bar | 🟡 | 🟡 Media-Baja | ⬜ Pendiente (requiere input visual owner) |
 
