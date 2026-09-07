@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 3d601136-c620-4ec8-947b-f1fbe050471d
 > **Inicio:** 2026-09-07
-> **Estado:** ⏳ EN PROGRESO
+> **Estado:** ✅ COMPLETADA 8/8 (Wave0 3/3 + Wave1 3/3 + Wave2 2/2 vía SARL STRATEGY lead-inline)
 > **Fuente:** docs/Backlog.md
 > **Autonomous:** false
 > **SPEC:** no existe SPEC.md en raíz/docs/spec — DO set no incluye feature-add greenfield (INTG-01/02, TS-10 diferidos a DEFER); no se genera SPEC en este plan. Si un DO revela feature nueva, se pausa y se genera mini-spec vía spec-driven-development.
@@ -215,9 +215,9 @@ Set DO/SKIP/DEFER/BLOQUEADO confirmado vía `question` → "Aprobar plan (Recome
 - **DoD task:** contrato ✅ · sync · recitation. DoD release: API docs sincronizadas.
 - **Shape Up:** sí/sí/sí.
 - **Task file:** `docs/tasks/BND-13.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+- **Estado:** ✅ COMPLETED
+- **Branch:** develop
+- **Commit:** 582e1017 (SARL STRATEGY lead-inline: matriz + runtimes + BigInt + benchmark §15)
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -293,9 +293,9 @@ Set DO/SKIP/DEFER/BLOQUEADO confirmado vía `question` → "Aprobar plan (Recome
 - **DoD task:** contrato ✅ · sync · recitation.
 - **Shape Up:** sí/sí/sí.
 - **Task file:** `docs/tasks/WEB-02.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+- **Estado:** ✅ COMPLETED
+- **Branch:** develop
+- **Commit:** 7f8dcc87 (SARL STRATEGY lead-inline: JS_BENCH + §03 + renumber, tsc/eslint/build verde)
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -448,3 +448,40 @@ Próxima acción: Orquestador/vanta-lead: commit selectivo + skill progreso; WEB
 Contrato: verificacion: npm run bench emite p50/p95/p99 + JSON ✅; node bench/smoke.mjs OK ✅; npx tsc --noEmit 0 ✅; vitest 280/280 ✅; eslint bench/ 0 errors ✅; BENCHMARKS.md §15 con entorno+comando+fecha ✅ | evidencia: claim bench reproducible -> vantadb-ts/bench/bench.mjs + smoke.mjs + package.json scripts; claim numeros citables -> BENCHMARKS.md §15 (mediana x3 corridas 2000x384d); confianza: alta | artefactos: vantadb-ts/bench/bench.mjs, vantadb-ts/bench/smoke.mjs, docs/tasks/TS-09.md | invariantes: sin comparativa externa (D1); archivos BND-12/UX-A11Y-01 no tocados | deuda: browser OPFS/IDB no medido (nota en §15); skill progreso + commit pendientes de orquestador | queda_pendiente: vanta-lead: git add SOLO vantadb-ts/bench/ + vantadb-ts/package.json + docs/operations/BENCHMARKS.md + docs/tasks/TS-09.md + plan file y commit (hay archivos ajenos BND-12/UX-A11Y-01 en worktree, NO commitear todo)
 Próxima tarea si completa: WEB-02
 === END RECITATION ===
+
+=== RECITATION BND-13 ===
+Campaign ID: 3d601136-c620-4ec8-947b-f1fbe050471d
+Objetivo activo: BND-13: completar docs/api/NODE_SDK.md con quickstart + matriz native-vs-wasm + ejemplos por runtime
+Estado: in-progress
+Última acción: DISCOVERY: NODE_SDK.md existe (no nuevo); 13 metodos BND-10 sin doc; FIND-BND12-01 BigInt sin doc; Gate D no disparado (doc-only)
+Resultado: PARTIAL
+Próxima acción: Crear docs/tasks/BND-13.md + Step 1: completar NODE_SDK.md
+Contrato: verificacion: docs/api/NODE_SDK.md existe con quickstart + matriz + ejemplos; validate-docs-coverage.ps1 sin gaps; grep Regla 11 limpio | evidencia: docs/api/NODE_SDK.md (237L, 2026-08-26, gaps: sin matriz native-vs-wasm, sin Bun/Deno, sin 13 metodos BND-10, sin nota BigInt) | artefactos: docs/tasks/BND-13.md (nuevo) | invariantes: no tocar codigo ni plan file; BND-12 arch intactos | deuda: ninguna | queda_pendiente: implementar steps 1-3, verify, NO commit
+Próxima tarea si completa: WEB-02
+=== END RECITATION ===
+
+## Retrospectiva de cierre (Start / Stop / Continue + 1 acción medible)
+
+**Start (seguir haciendo):**
+- FAIL_MODE=parallel waves ×3: 6/8 tareas vía sub-agentes sin colisión de archivos
+- Paso 0 verificación real: detectó 12 filas stale y evitó trabajo muerto
+  (MOD-22/23, SRV-01, WSM-11, UX-02/03/07/14, WEB-03 + baseline BND-12 ya en 34 tests)
+- Commits selectivos por tarea + plan sync + backlog + avance en cada wave
+
+**Stop (dejar de hacer):**
+- Delegar sin `Ruta` explícita: 2 sub-agentes Wave2 escribieron recitations en el
+  plan file concurrente y dejaron WIP sin commitear al caer por infra
+- Invocar `node <script>` con cwd raíz cuando el script asume cwd de paquete
+  (2 verifies falsos-negativos del lead: smoke TS-09, vitest desktop)
+
+**Continue (igual):**
+- Contratos mecánicos por tarea + verify del lead antes de commit
+- Progreso Trigger 1 por wave (backlog + avance + coverage 0 gaps)
+
+**Acción medible:** first-try COMPLETO 8/8 (100% vs North Star >90%), 0 INCOMPLETE,
+2 caídas infra recuperadas vía SARL STRATEGY lead-inline con 0 trabajo perdido
+(WIP recuperado del worktree). Registrar caídas infra como categoría separada.
+
+**Commits campaña (develop):** 61821573 FIND-64 · 35bb05fb MOD-24 · 0f1f5e37 FIND-60 ·
+c36f501c sync Wave0 · 6f46b032 BND-12 · 55ad6488 TS-09 · c0cf7b31 UX-A11Y-01 ·
+bba8a455 sync Wave1 · 582e1017 BND-13 · 7f8dcc87 WEB-02 · + sync Wave2 (este commit).

@@ -282,3 +282,10 @@ Re-escaladas en el propio Backlog (misma fecha): RES-09 (fila WAL a fsync-batchi
 - **UX-02** (grid no navegable) — SKIP: `onKeyDown`+`tabIndex`+`aria-selected` ya en `desktop/src/components/DataExplorer.tsx:924-926`.
 - **UX-03** (focus trap) — SKIP: `useModalFocus` conectado en `ImportPaste.tsx:77` e `ImportDrop.tsx:79`.
 - **UX-07** (tabs ARIA) — ya resuelto (verificado Wave0: `role=tablist/tab/tabpanel` + roving tabindex `MemoryLens.tsx:456-486`); fila removida en próxima sync.
+
+## Stale SKIP 2026-09-07 Wave2 (plan 2026-09-07-backlog-triage — verificado, 0 código)
+
+- **WEB-03** (assets gato faltantes) — SKIP: `web/public/assets/mascota_gato.png` y `avatar_gato.png` ✅ EXISTEN (`Test-Path` True ×2); 4 refs válidas, 0 fallbacks rotos.
+- **SRV-01** (rotación audit log) — SKIP: `AuditLogger::with_rotation` + defaults 10MiB/5 ya en `src/audit.rs:15-17,121-204`; `init_audit` con rotación (`src/sdk/builder.rs:291-295`).
+- **WSM-11** (metadata descartada) — SKIP: `record_metadata_drop(1)` + comentario WSM-11 (`vantadb-wasm/src/lib.rs:2355-2363`).
+- **UX-14** (PersonaPanel traga errores) — SKIP: `.catch(onError(vantaErrorMessage))` + comentario UX-14 (`MemoryLens.tsx:173-175`).
