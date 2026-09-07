@@ -276,3 +276,9 @@ Re-escaladas en el propio Backlog (misma fecha): RES-09 (fila WAL a fsync-batchi
 
 - **MOD-22** (tipos grafo ficticios) — SKIP: `GraphBfsResult = bigint[]` + nota breaking ya en `vantadb-ts/src/types.ts:237`; grep `as GraphBfsResult` 0 hits.
 - **MOD-23** (`_native` solo sync) — SKIP: `_native` ya async+await con wrap (`vantadb-ts/src/native.ts:154-163`, comentario TS-02).
+
+## Stale SKIP 2026-09-07 Wave1 (plan 2026-09-07-backlog-triage — ya implementados, 0 código)
+
+- **UX-02** (grid no navegable) — SKIP: `onKeyDown`+`tabIndex`+`aria-selected` ya en `desktop/src/components/DataExplorer.tsx:924-926`.
+- **UX-03** (focus trap) — SKIP: `useModalFocus` conectado en `ImportPaste.tsx:77` e `ImportDrop.tsx:79`.
+- **UX-07** (tabs ARIA) — ya resuelto (verificado Wave0: `role=tablist/tab/tabpanel` + roving tabindex `MemoryLens.tsx:456-486`); fila removida en próxima sync.
