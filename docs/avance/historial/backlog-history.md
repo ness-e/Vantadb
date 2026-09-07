@@ -271,3 +271,8 @@ Re-escaladas en el propio Backlog (misma fecha): RES-09 (fila WAL a fsync-batchi
 - **FIND-22** (formalizar exclusiones fast gate en CI_POLICY) — cerrada en 3b1b820b (docs(ci) FIND-22, plan vanta-next-wave) pero la fila quedo stale en L219.
 - **PY-02** (benchmarks reproducibles SDK Python) — obsoleta: `docs/operations/BENCHMARKS.md` \u00a72 `SDK Operations Performance (Python Wrapper)` + \u00a76 `search_batch` con comando reproducible (`benchmarks/vantadb_local_bench.py`); contrato ya satisfecho.
 - **FIND-51** (sub-split handlers.rs) — premature por su propio contrato: disparador `>2500L` no alcanzado (hoy 1469L post-REVIEW-10). Umbral documentado en la fila; reabrir al cruzarlo.
+
+## Stale SKIP 2026-09-07 (Paso 0 plan 2026-09-07-backlog-triage — ya implementados, 0 código)
+
+- **MOD-22** (tipos grafo ficticios) — SKIP: `GraphBfsResult = bigint[]` + nota breaking ya en `vantadb-ts/src/types.ts:237`; grep `as GraphBfsResult` 0 hits.
+- **MOD-23** (`_native` solo sync) — SKIP: `_native` ya async+await con wrap (`vantadb-ts/src/native.ts:154-163`, comentario TS-02).

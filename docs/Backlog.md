@@ -213,8 +213,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | FIND-48 | Alta | Split `src/index/graph.rs` 1846L — god-file HNSW: extraer `graph/hnsw.rs`, `graph/search.rs`, `graph/serialize.rs` por concern (verificado 2026-09-02: 75372 bytes, mayor archivo src) | `src/index/graph.rs` | 🟠 2-3d | 🟡 Media | ⬜ Pendiente |
 | FIND-49 | Media | Split `src/sdk/types.rs` 1699L — tipos SDK monolíticos: extraer `types/record.rs`, `types/search.rs`, `types/graph.rs` (verificado 2026-09-02: 63035 bytes) | `src/sdk/types.rs` | 🟡 1-2d | 🟡 Media | ⬜ Pendiente |
 | FIND-50 | Media | Split `src/parser/mod.rs` 1682L — parser IQL monolítico: extraer `parser/grammar.rs`, `parser/lexer.rs` por concern (verificado 2026-09-02: 64546 bytes) | `src/parser/mod.rs` | 🟡 1-2d | 🟡 Media | ⬜ Pendiente |
-| FIND-60 | Media | **49 warnings de rustdoc en workspace (origen: certify 2026-09-03 L5):** `cargo doc --no-deps -p vantadb -p vantadb_py` emite 49 warnings (links intra-doc irresueltos: GcWorker, UnifiedNode, VantaError::*, items privados). Build pasa pero `-D warnings` fallaría. Fix: corregir links (paths `crate::` / fully-qualified) o boxear items privados; re-correr con `-D warnings` a cero | `src/sdk/api.rs` y otros (49 sitios) | 🟡 2-4h | 🟡 Media | ⬜ Pendiente |
-| FIND-64 | Media | **llamaindex adapter llama put_batch legacy roto (origen: colateral GOV-TK7 2026-09-05):** integrations/llamaindex vectorstore.py:134 llama put_batch(entries) con 1 posicional (lista de 6-tuplas), pero la firma actual es put_batch(keys, vectors, payloads, metadatas, namespace, namespaces, ttls) (lib.rs:484) -> TypeError en runtime. Roto desde PY-QW2. Fix: migrar call-site + test adapter | integrations/llamaindex/, vantadb-python/src/lib.rs:484 | media 2-4h | Media-Alta | PENDIENTE |
 
 
 ---
@@ -425,9 +423,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | ID | Módulo | Sev | Hallazgo → Acción | Referencia | Estado |
 |----|--------|-----|-------------------|------------|--------|
 | `MOD-05` | core | 🟢 | Deprecar `InMemoryEngine` hacia StorageEngine in-memory: elimina clase de bug MOD-01 y ~850 líneas | `engine.rs:72` · core.md R5 | ❌ Pendiente |
-| `MOD-22` | vantadb-ts | 🔴 | Tipos grafo ficticios: `GraphBfsResult{visited,levels,path}` vs wire format real (`u128[]` plano); blind-cast `as GraphBfsResult` + test que afirme shape real | `vantadb-ts/src/types.ts:208-212`, `vantadb-ts/src/vantadb.ts:1094` · ts.md R4#1 | ❌ Pendiente |
-| `MOD-23` | vantadb-ts | 🟠 | `NativeVantaDB._native` captura solo throws síncronos; rechazos async escapan sin envolver en `VantaError` | `vantadb-ts/src/native.ts:89-95` · ts.md R4#2 | ❌ Pendiente |
-| `MOD-24` | vantadb-ts | 🟡 | Nits agrupados TS: semántica distance/score JSDoc, guard type-lie (`validateVector` asserts Float32Array), duplicación `_mapRecord`/`_buildSearchRequest`, ejemplos JSDoc que no compilan, dep `pkg/` commiteada | `vantadb-ts/src/guards.ts`, `vantadb-ts/src/{vantadb,native}.ts` · ts.md R4#3–#10 | ❌ Pendiente |
 
 ---
 

@@ -562,3 +562,9 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 ### FIND-62 (worker): commit_transaction bajo insert_lock - Resultado: guard en [WAL batch -> apply -> drain -> Commit] + test commit_flush_interleaving verde; suite storage 380/380, lib 1985/1985; sin deadlock (pre-mortem: unico caller productivo sin guard). Commit 19a9651c (2026-09-05).
 
 ### MCP-34b (worker): tool snapshot_restore verificado sin codigo - Resultado: stop-condition S1+S2-S4 ya en HEAD via 4d964ac3 (FIND-25: flush en create_snapshot) + 29d21cba (snapshot_restore + validate + failpoint + dispatch MCP con confirm:true); tests E2E verdes: snapshot_certification 21/21 + failpoint 1/1 + mcp_tests snapshot_restore/tools-list/create 3/3; fmt/clippy limpios. Sin commit nuevo (2026-09-06).
+
+### FIND-60: rustdoc 47→0 warnings (plan 2026-09-07-backlog-triage Wave0)
+- **Fecha:** 2026-09-07
+- **Objetivo:** links intra-doc irresueltos + items privados en 23 archivos `src/` + `vantadb-python/src/lib.rs`; cero `pub` nuevos (paths `crate::` o ticks).
+- **Resultado:** ✅ `cargo doc --no-deps -p vantadb -p vantadb_py | grep -c warning` → 0; `-D warnings` exit 0; fmt+clippy hook verde. Colateral incluido: `completions/*` regenerados por cambio doc en `src/cli.rs`.
+- **Commit:** 0f1f5e37
