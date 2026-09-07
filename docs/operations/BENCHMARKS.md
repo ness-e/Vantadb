@@ -802,3 +802,94 @@ Corridas crudas (p50/p95/p99): insert (717.21/1449.01/1453.48) · (667.61/924.95
 1. Rama browser con OPFS/IDB (persistente) — re-correr el mismo harness en
    browser y anexar tabla lado a lado.
 2. Shape canonico 100k x 1536d x 1k (valido con Node >= 22, ~5-10 min).
+
+---
+
+## 16. A/B vantadb-node (native napi) vs vantadb-ts (WASM) — PERF-BENCH-01
+
+> **Source of truth:** `vantadb-node/bench/bench-abi.mjs` (ambas ramas en un proceso,
+> mismo dataset por corrida) + logs crudos en `$env:TEMP\opencode\bench_ab_run{A,B,C}.log`
+> (no versionados; los numeros de abajo son su transcripcion).
+> Cierra la decision condicionada de §10 ("native primario en Node, condicionada a numeros").
+> Solo numeros propios — comparativa head-to-head externa prohibida (D1).
+>
+> **Reproduce (Regla 11):**
+> ```bash
+> node vantadb-node/bench/bench-abi.mjs --records 2000 --dim 384 --searches 200
+> # ×3 corridas, mediana + rango (pre-mortem: varianza GC/timers — nunca mejor corrida)
+> ```
+> Prereqs: `vantadb-node` con `*.node` prebuilt + `vantadb-ts/dist/` construido
+> (`cd vantadb-ts && npm run build`). Rama WASM requiere Node ≥22 (ESM `.wasm` nativo).
+>
+> **Fairness caveat (by design, no bug):** `native` = `VantaDb.connect(dir)` persistente
+> fjall en disco (paga fsync); `wasm` = `VantaDB.create()` in-memory (Node no tiene OPFS).
+> Misma metrica, dos columnas honestas — el insert native incluye costo de durabilidad
+> que el WASM no paga.
+
+### Tabla lado a lado — medianas ×3 corridas (ms)
+
+Dataset: **2000 inserts x 384d (putBatch x 20 batches de 100) + 200 search queries**,
+seed 42, top_k=10, namespace `bench`. `insert` = ms por batch de 100 records;
+`search_*` = ms por query.
+
+| Operacion | native p50 / p99 (mediana ×3) | wasm p50 / p99 (mediana ×3) | rango p50 native A–C | rango p50 wasm A–C |
+| :--- | ---: | ---: | ---: | ---: |
+| **insert** (putBatch x100) | 191.69 / 498.26 | 507.15 / 886.35 | 171.43 – 209.79 | 491.91 – 1149.47 |
+| **search_vector** (cosine, top_k=10) | 2.26 / 4.60 | 3.01 / 5.85 | 2.18 – 7.51 | 2.70 – 7.41 |
+| **search_hybrid** (vector + BM25 + RRF) | 115.07 / 290.98 | 180.18 / 265.28 | 104.72 – 132.16 | 155.81 – 359.43 |
+
+Corridas crudas (p50/p99 por corrida A · B · C) — insert: native
+(191.69/498.26) · (171.43/485.27) · (209.79/1299.21); wasm (507.15/886.35) ·
+(1149.47/1504.17) · (491.91/640.50). search_vector: native (2.26/4.60) ·
+(2.18/4.13) · (7.51/19.74); wasm (2.70/4.45) · (7.41/13.53) · (3.01/5.85).
+search_hybrid: native (115.07/290.98) · (104.72/328.59) · (132.16/289.76);
+wasm (155.81/189.52) · (359.43/450.67) · (180.18/265.28).
+
+Ratios de medianas p50 (wasm/native): insert **2.64x** · search_vector **1.33x** ·
+search_hybrid **1.57x**. Los rangos de search_vector se solapan (native 2.18–7.51
+vs wasm 2.70–7.41): a 2000 docs el ruido domina y no hay separacion medible;
+para gate de release sobre search_vector: subir a 10k+ docs o ×5 corridas
+(mismo criterio que §14/§15 para p99 con n chico).
+
+### Binarios medidos (artefacto + comando, no absolutos universales)
+
+Comando: `(Get-Item <path>).Length` (PowerShell).
+
+| Backend | Artefacto | Bytes | MiB |
+| :--- | :--- | ---: | ---: |
+| **`vantadb-node` napi** | `vantadb-node/vantadb_native.win32-x64-msvc.node` | 5 379 072 | 5.13 |
+| **`vantadb-ts` WASM** | `vantadb-wasm/pkg/vantadb_wasm_bg.wasm` | 2 512 705 | 2.40 |
+| `vantadb-ts` JS glue | `vantadb-wasm/pkg/vantadb_wasm_bg.js` + `vantadb-ts/dist/vantadb.js` | 69 859 + 40 042 | 0.10 |
+
+Difieren de §10 (4.51 MB / 1.35 MB): toolchain y perfil de build distintos —
+se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo 3).
+
+### Entorno (Regla 11)
+
+| Campo | Valor |
+| :--- | :--- |
+| Fecha | 2026-09-07 |
+| OS | Windows 11 Pro (build 10.0.26200, 64-bit) |
+| CPU | 12th Gen Intel Core i5-1235U |
+| RAM | 31.78 GB |
+| Runtime | Node v26.8.1 (warning ExperimentalWarning ESM `.wasm` esperado) |
+| VantaDB version | 0.5.0 (`vantadb-node` + `vantadb-ts` + `vantadb-wasm`, prebuilt) |
+| Dataset seed | 42 (deterministico, hardcoded en `bench-abi.mjs`) |
+| Storage | native: fjall persistente en tempdir (se borra por corrida); wasm: in-memory |
+| Comando | `node vantadb-node/bench/bench-abi.mjs --records 2000 --dim 384 --searches 200` (×3) |
+
+### Lectura y cierre de §10
+
+- **insert:** nativo 191.69 ms/batch-100 p50 vs WASM 507.15 (2.64x) — aun pagando
+  fsync, el nativo inserta menos ms por batch en las 3 corridas. p99 con rango
+  amplio en ambos (485–1299 native, 640–1504 wasm): compactions fjall + GC.
+- **search_vector:** 2.26 vs 3.01 p50 con rangos solapados — sin separacion medible
+  a este shape; no usar para claims de posicionamiento, si para regresiones.
+- **search_hybrid:** 115.07 vs 180.18 p50 (1.57x); maxima aislada de 2–4 s en 1
+  query por corrida del lado WASM (GC mayor de Node, igual que §15) — por eso mediana ×3.
+- **Decision §10:** la condicion queda levantada con estos numeros — `vantadb-node`
+  (napi native) primario en Node.js: p50 menor en insert y search_hybrid medidos,
+  storage persistente real (fjall + WAL) vs WASM in-memory en Node, sin cold-start
+  WASM (compilacion streaming ~50–150 ms medida en §10). El `.wasm` (2.40 MiB)
+  mantiene ventaja de tamano para browser (2.1x menor que el `.node` de 5.13 MiB).
+- **No medido aca:** rama browser con OPFS/IDB; shape canonico 100k x 1536d x 1k.
