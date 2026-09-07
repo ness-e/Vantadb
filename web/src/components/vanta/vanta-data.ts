@@ -238,6 +238,39 @@ export const SIFT1M = {
   ],
 };
 
+// JS/WASM bench — vantadb-ts in Node (TS-09, 2026-09-07)
+// Numbers sourced from docs/operations/BENCHMARKS.md §15 (median of 3 runs,
+// 2000 inserts × 384d + 200 queries, seed 42). Reproduce: cd vantadb-ts && npm run bench
+export const JS_BENCH = {
+  title: "JS/WASM · vantadb-ts Bench",
+  subtitle:
+    "2K records · 384 dimensions · WASM in-memory in Node · seed 42 · median of 3 runs",
+  hardware:
+    "Intel i5-1235U, Windows 11, Node.js v26.8.1. WASM engine is in-memory in Node (no OPFS); browser backends pending.",
+  reproduce: "cd vantadb-ts && npm run bench",
+  source: "docs/operations/BENCHMARKS.md §15 · 2026-09-07",
+  rows: [
+    {
+      metric: "Insert (putBatch)",
+      p50: "667.61 ms",
+      p95: "1,065.11 ms",
+      p99: "1,453.48 ms",
+    },
+    {
+      metric: "Search (Vector)",
+      p50: "3.84 ms",
+      p95: "10.97 ms",
+      p99: "14.28 ms",
+    },
+    {
+      metric: "Search (Hybrid)",
+      p50: "184.04 ms",
+      p95: "377.25 ms",
+      p99: "447.18 ms",
+    },
+  ],
+};
+
 // Competitive benchmark — VantaDB vs LanceDB vs ChromaDB (measured locally) + Pinecone/Weaviate (CSP-managed).
 // Measured numbers source: benchmarks/competitive_bench.py → docs/blog/benchmarks_vs_lancedb_chroma.md
 // (glove-100-angular, 10K vectors, 100 queries, top_k=10, median of 3 runs, --batch-size 999).
