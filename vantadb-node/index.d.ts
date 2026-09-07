@@ -346,7 +346,7 @@ export declare class VantaDb {
    * Compact the vector store file (BFS grouping from the HNSW entry point).
    * Returns estimated bytes reclaimed.
    */
-  compactLayout(): Promise<number>
+  compactLayout(): Promise<bigint>
   /** Compact the WAL: flush, archive the current WAL file, and start fresh.
    *  (contract alias: `compact_wal`)
    */
@@ -356,14 +356,14 @@ export declare class VantaDb {
    * Returns the number of records purged.
    * (contract alias: `purge_expired`)
    */
-  purgeExpired(): Promise<number>
+  purgeExpired(): Promise<bigint>
   /**
    * Delete every record in `namespace` whose metadata matches the filter.
    * The filter must contain at least one item.
    */
-  deleteByFilter(namespace: string, filter: Array<FilterItem>): Promise<number>
+  deleteByFilter(namespace: string, filter: Array<FilterItem>): Promise<bigint>
   /** Count records in a namespace, optionally filtered. Pass `null` for no filter. */
-  count(namespace: string, filter: Array<FilterItem> | null | undefined): Promise<number>
+  count(namespace: string, filter: Array<FilterItem> | null | undefined): Promise<bigint>
   /** Find records similar to the vector of an existing record (filters out the source). */
   similarToKey(namespace: string, key: string, topK: number): Promise<MemorySearchHit[]>
   /**
