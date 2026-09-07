@@ -117,7 +117,10 @@ class VantaDBVectorStore(BasePydanticVectorStore):
 
     def add(self, nodes: Sequence[BaseNode], **kwargs: Any) -> List[str]:
         ids: List[str] = []
-        entries: List[tuple] = []
+        keys: List[str] = []
+        payloads: List[str] = []
+        metadatas: List[Dict[str, Any]] = []
+        vectors: List[List[float]] = []
 
         for node in nodes:
             node_id = self._node_to_key(node)
@@ -127,11 +130,20 @@ class VantaDBVectorStore(BasePydanticVectorStore):
                 node, remove_text=True, flat_metadata=self.flat_metadata
             )
 
-            entries.append((self._namespace, node_id, text, metadata, embedding, None))
+            keys.append(node_id)
+            payloads.append(text)
+            metadatas.append(metadata)
+            vectors.append(embedding)
             ids.append(node_id)
 
-        if entries:
-            self._client.put_batch(entries)
+        if keys:
+            self._client.put_batch(
+                keys=keys,
+                vectors=vectors,
+                payloads=payloads,
+                metadatas=metadatas,
+                namespace=self._namespace,
+            )
         return ids
 
     def delete(self, ref_doc_id: str, **delete_kwargs: Any) -> None:
