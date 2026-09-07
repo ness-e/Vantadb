@@ -799,3 +799,15 @@ aliases: []
 - **Objetivo:** `_mapRecord` ×2 → 1 en `guards.ts`, base común `_buildSearchRequest`, fix `validateVector` (number[]|Float32Array), JSDoc score→distance.
 - **Resultado:** ✅ build + vitest 280/280 + eslint 0; `function _mapRecord` ×1; diff +72/−47 sin cambio wire.
 - **Commit:** 35bb05fb
+
+### BND-12: node coverage 34 tests + BigInt asserts (plan 2026-09-07-backlog-triage Wave1)
+- **Fecha:** 2026-09-07
+- **Objetivo:** baseline plan (8 tests) stale — suite ya en 34 con 3 fails; fix test-only `purgeExpired`/`count` BigInt (`0n`/`2n`) + `supersede` record vivo.
+- **Resultado:** ✅ `npm test` 3 files / 34 tests passed; search/explain_search/put_batch/capabilities/close cubiertos. Colateral FIND-BND12-01: `index.d.ts:359,366` declara `Promise<number>` vs runtime BigInt (registrado, no tocado).
+- **Commit:** 6f46b032
+
+### TS-09: bench reproducible JS/WASM + BENCHMARKS §15 (plan 2026-09-07-backlog-triage Wave1)
+- **Fecha:** 2026-09-07
+- **Objetivo:** `vantadb-ts/bench/bench.mjs` (insert+search, seed 42) + `smoke.mjs` + scripts `bench`/`bench:3x`; §15 con mediana 3 corridas + entorno + nota browser pendiente.
+- **Resultado:** ✅ `npm run bench` emite p50/p95/p99 + JSON (insert p99 575.94 / search_vector p99 7.80 / search_hybrid p99 207.18 ms, i5-1235U/Win11/Node 26.8.1); tsc 0 + vitest 280/280 + eslint bench 0.
+- **Commit:** 55ad6488

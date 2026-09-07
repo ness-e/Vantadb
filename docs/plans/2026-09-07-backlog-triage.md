@@ -176,10 +176,10 @@ Set DO/SKIP/DEFER/BLOQUEADO confirmado vía `question` → "Aprobar plan (Recome
 - **Uphill/Downhill:** ⬇️ downhill.
 - **DoD task:** contrato ✅ · sync · recitation.
 - **Shape Up:** sí/sí/sí (pre-requisito publish).
-- **Task file:** `docs/tasks/BND-12.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+ - **Task file:** `docs/tasks/BND-12.md`
+- **Estado:** ✅ COMPLETED
+- **Branch:** develop
+- **Commit:** 6f46b032
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -252,15 +252,17 @@ Set DO/SKIP/DEFER/BLOQUEADO confirmado vía `question` → "Aprobar plan (Recome
 - **Uphill/Downhill:** ⬇️ downhill (patrón canonical_p99 existe).
 - **DoD task:** contrato ✅ · sync · recitation. Regla 9/11: bench + fuente.
 - **Shape Up:** sí/sí/sí (desbloquea claims).
-- **Task file:** `docs/tasks/TS-09.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+ - **Task file:** `docs/tasks/TS-09.md`
+- **Estado:** ✅ COMPLETED
+- **Branch:** develop
+- **Commit:** 55ad6488
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | DISCOVERY: task file creado + harness bench.mjs/smoke.mjs + scripts bench/bench:3x (RED Missing script → GREEN) | smoke OK + bench 200×32 emite p50/p95/p99 | node/npm |
+  | 2 | 3 corridas 2000×384d×200q + mediana + append §15 BENCHMARKS.md con entorno+comando+fecha | §15 anexado, hype-check 0 nuevos | bench.mjs |
+  | 3 | Verify: tsc 0 + vitest 280/280 + eslint 0 errors | verde, sin commit | tsc/vitest/eslint |
 
   **Notas:**
 
@@ -329,9 +331,9 @@ Set DO/SKIP/DEFER/BLOQUEADO confirmado vía `question` → "Aprobar plan (Recome
 - **DoD task:** contrato ✅ · sync · recitation.
 - **Shape Up:** sí/sí/sí (a11y bloqueante uso teclado).
 - **Task file:** `docs/tasks/UX-A11Y-01.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+- **Estado:** ✅ COMPLETED
+- **Branch:** develop
+- **Commit:** c0cf7b31
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -414,6 +416,17 @@ Contrato: verificacion: npm run build exit 0 + vitest 280/280 + eslint 0 + grep 
 Próxima tarea si completa: FIND-60
 === END RECITATION ===
 
+=== RECITATION BND-12 ===
+Campaign ID: 3d601136-c620-4ec8-947b-f1fbe050471d
+Objetivo activo: BND-12: cobertura tests vantadb-node (search/explain_search/put_batch/capabilities/close-drain)
+Estado: completed
+Última acción: GREEN test-only: bigint 0n/2n + supersede vía get(); npm test 34/34, sin commit
+Resultado: OK
+Próxima acción: vanta-lead: commit test: green node coverage 34/34 (BND-12)
+Contrato: verificacion: npm test en vantadb-node/ → 34 passed, 0 failed ✅ | evidencia: 34 tests (api 26+graph 5+persistence 3), cobertura search/explain/put_batch/capabilities/close en api.test.ts | artefactos: vantadb-node/tests/api.test.ts, docs/tasks/BND-12.md | invariantes: src/lib.rs e index.d.ts intactos; archivos MOD-24/TS-09/UX-A11Y-01 no tocados | deuda: FIND-BND12-01 (d.ts number vs bigint runtime); commit pendiente vanta-lead | queda_pendiente: commit via vanta-lead
+Próxima tarea si completa: ninguno (Wave1 externa: TS-09, UX-A11Y-01)
+=== END RECITATION ===
+
 === RECITATION FIND-60 ===
 Campaign ID: 3d601136-c620-4ec8-947b-f1fbe050471d
 Objetivo activo: FIND-60: 49 warnings rustdoc a cero
@@ -423,4 +436,15 @@ Resultado: OK
 Próxima acción: Orquestador: git add solo 23 archivos FIND-60 + docs/tasks/FIND-60.md y commit 'docs: fix rustdoc warnings to zero (FIND-60)'
 Contrato: verificacion: RUSTDOCFLAGS='-D warnings' cargo doc --no-deps -p vantadb -p vantadb_py exit 0 ✅ + grep -c warning → 0 ✅ + cargo fmt --check ✅ | evidencia: find60-verify.txt (0 warnings), diff 100% lineas /// ///! | artefactos: docs/tasks/FIND-60.md | invariantes: doc-only, ningun pub agregado, ningun cambio comportamiento | deuda: ninguna | queda_pendiente: commit selectivo de 23 archivos + task file (orquestador/vanta-lead; hay cambios ajenos FIND-64/MOD-24 en worktree, NO commitear todo)
 Próxima tarea si completa: ninguno (Wave0: FIND-64, MOD-24 en paralelo por otros agentes)
+=== END RECITATION ===
+
+=== RECITATION TS-09 ===
+Campaign ID: 3d601136-c620-4ec8-947b-f1fbe050471d
+Objetivo activo: TS-09 bench reproducible JS/WASM insert+search p50/p95/p99
+Estado: completed
+Última acción: Steps 1-3 ✅: harness + 3 corridas + §15 + verify full TS verde. SIN commit por orden explicita
+Resultado: OK
+Próxima acción: Orquestador/vanta-lead: commit selectivo + skill progreso; WEB-02 puede consumir §15
+Contrato: verificacion: npm run bench emite p50/p95/p99 + JSON ✅; node bench/smoke.mjs OK ✅; npx tsc --noEmit 0 ✅; vitest 280/280 ✅; eslint bench/ 0 errors ✅; BENCHMARKS.md §15 con entorno+comando+fecha ✅ | evidencia: claim bench reproducible -> vantadb-ts/bench/bench.mjs + smoke.mjs + package.json scripts; claim numeros citables -> BENCHMARKS.md §15 (mediana x3 corridas 2000x384d); confianza: alta | artefactos: vantadb-ts/bench/bench.mjs, vantadb-ts/bench/smoke.mjs, docs/tasks/TS-09.md | invariantes: sin comparativa externa (D1); archivos BND-12/UX-A11Y-01 no tocados | deuda: browser OPFS/IDB no medido (nota en §15); skill progreso + commit pendientes de orquestador | queda_pendiente: vanta-lead: git add SOLO vantadb-ts/bench/ + vantadb-ts/package.json + docs/operations/BENCHMARKS.md + docs/tasks/TS-09.md + plan file y commit (hay archivos ajenos BND-12/UX-A11Y-01 en worktree, NO commitear todo)
+Próxima tarea si completa: WEB-02
 === END RECITATION ===
