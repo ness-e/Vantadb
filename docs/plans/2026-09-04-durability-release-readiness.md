@@ -117,28 +117,28 @@
 - **Archivos clave:** `vantadb-node/package.json` (napi.targets), CI (matrix musl aarch64/x86_64)
 - **Gate Justificación:** 🟢 Docker/Alpine sin cobertura; desbloqueada porque el pipeline existe (verificado hoy).
 - **Contrato:** targets musl presentes en config + matriz CI los incluye; si el build cross falla por toolchain, documentar requisito y cerrar parcial con evidencia. Si BND-08 no verificó pipeline → cerrar como BLOQUEADO con evidencia, sin tocar nada.
-- **Task file:** `tasks/BND-09.md`
-- **Estado:** ⬜ PENDING
+- **Task file:** `tasks/BND-09.md` (`docs/tasks/BND-09.md`)
+- **Estado:** ✅ COMPLETO (2026-09-06, verificación sin código — contrato ya cumplido en HEAD vía `ed75cb0b` "feat(node): add musl targets + npm release workflow (BND-08/09)"; package.json:39,41 + release-npm-node.yml:44-46,50-52 verificados; toolchain local sin docker/cross/musl documentado; plan file actualizado sin stagear)
 - **Ruta:** vanta-worker
 - **Branch:** develop
-- **Commit:** `ci(node): targets linux musl (BND-09)`
+- **Commit:** `ci(node): targets linux musl (BND-09)` (no aplicado — sin diff productivo; contrato cumplido por pre-existencia en HEAD)
 
 ### Task 11: MCP-34b — tool `snapshot_restore(name)` (con stop-condition)
 - **Archivos clave:** `src/storage/engine/mod.rs:637-796` (`create_snapshot` + `snapshot_restore` + failpoint EXISTEN — verificado hoy), `docs/research/res02-backup-restore.md` §3, `vantadb-mcp/src/handlers/tools.rs`
 - **Gate Justificación:** 🟢 wrapper sobre API pública existente. Stop-condition: Step 1 verifica S1 (quiesce+flush en create_snapshot) + tests de restore; si falta → cerrar como BLOQUEADO con evidencia, cero código.
 - **Contrato:** tool funciona E2E (validación identifier + confirmación destructiva explícita) + tests MCP verdes, O fila BLOQUEADO documentada.
 - **Task file:** `tasks/MCP-34b.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (2026-09-06, verificación sin código — stop-condition S1+S2-S4 ya en HEAD vía `4d964ac3` (FIND-25 quiesce+flush) + `29d21cba` (MCP-34b core+SDK+MCP+tests); tests E2E verdes: `snapshot_certification` 21/21 (incl. roundtrip/rejects-unsafe-names/failpoint), `mcp_tests` 6/6 (snapshot_restore confirmation + tools-list + create round-trip); fmt/clippy -D warnings limpios; sin commit nuevo en main repo porque no hay diff productivo)
 - **Ruta:** vanta-worker
 - **Branch:** develop
-- **Commit:** `feat(mcp): snapshot_restore tool (MCP-34b)`
+- **Commit:** `feat(mcp): snapshot_restore tool (MCP-34b)` (no aplicado — contrato cumplido por pre-existencia en HEAD `29d21cba`)
 
 ### Task 12: PRX-01 — wiring proxy (advance + classifier + mem-commands + degraded)
 - **Archivos clave:** `vanta-proxy/src/server.rs`, `session.rs`, `session/claude_code.rs`, `mem_command.rs`, `rate_limit.rs`
 - **Gate Justificación:** 🟡 cablear código ya construido; decisiones tomadas (trigger header+ruta, degraded 3 fallos/5 éxitos).
 - **Contrato:** (1) `SessionStore::advance()` dispara por header Y ruta dedicada + test; (2) `classify_cc_request` consume routing Main/Fork/Sidequery + test; (3) `mem:sync`/`create-skill` ejecutan pipeline real (no stub) + test; (4) `set_degraded(true)` tras 3 upstream 429/5xx consecutivos, sale con 5 éxitos + test. Suite `vanta-proxy` verde + clippy/fmt.
 - **Task file:** `tasks/PRX-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETO (2026-09-07, suite `vanta-proxy` 111/111 + clippy/fmt limpios; commit `feat(proxy): wiring advance+classifier+mem-commands+degraded (PRX-01)`)
 - **Ruta:** vanta-worker
 - **Branch:** develop
 - **Commit:** `feat(proxy): wiring advance+classifier+mem-commands+degraded (PRX-01)`
@@ -232,4 +232,15 @@ Resultado: OK
 Próxima acción: orquestador: push d0bb4e91, Wave 3 (BND-09/MCP-34b/PRX-01)
 Contrato: verificacion: fmt/check/clippy/deny/docs-coverage(0 gaps)/package-list/test-mcp.py 4/4/nextest 86-86 + mcp_tests 91-91, todos exit 0; evidencia: claim 72 tests->91/91 pass | claim 37 checks->4/4 disco+pass | OOM-1455->retry -j2 verde | teardown-hang->harness stderr-drain fix + 4/4 exit 0; artefactos: d0bb4e91, docs/tasks/STABLE-04.md; invariantes: 0 cambios producto, publish=false intacto, ajenos sin stagear; deuda: deny warnings pre-existentes fuera de blast radius; queda_pendiente: orquestador push + Wave 3
 Próxima tarea si completa: BND-09
+=== END RECITATION ===
+
+=== RECITATION PRX-01 ===
+Campaign ID: a6f16be4-a2a2-44eb-bfdb-1a84a4b573cf
+Objetivo activo: PRX-01: wiring proxy advance+classifier+mem-commands+degraded
+Estado: in-progress
+Última acción: git diff 5 paths: S1 header+ruta, S2 sidequery bypass, S3 mem real hechos; S4 ausente
+Resultado: PARTIAL
+Próxima acción: S4: UpstreamHealth en rate_limit.rs + wiring en server.rs + tests
+Contrato: verificacion: pendiente (S4 impl + suite vanta-proxy + clippy/fmt); evidencia: git diff 4 files + prx01_wiring.rs nuevo, S1-S3 hechos en worktree, S4 UpstreamHealth faltante | confianza: alta; artefactos: vanta-proxy/src/{mem_command,rate_limit,server,session}.rs, vanta-proxy/tests/prx01_wiring.rs; invariantes: no tocar MM plan file salvo linea Task 12 sin stagear, no tocar BND-09.md ajeno, no stagear ajenos; deuda: S4 pendiente; queda_pendiente: S4 degraded tracker + S5 cierre
+Próxima tarea si completa: ninguno
 === END RECITATION ===

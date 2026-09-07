@@ -290,3 +290,5 @@ aliases: []
 - **Dominio:** ci-cd
 
 ### STABLE-06 (worker): gate npm TS medido - Resultado: 278/278 vitest (no 264), ~16-21s wall; eslint 1 error fixeado; job tests+lint+pack en release-npm-61.yml. Commit 7ff70b01 (2026-09-05).
+
+### BND-09 (worker): targets linux musl verificados sin codigo - Resultado: contrato ya cumplido en HEAD via ed75cb0b (napi.targets package.json:39,41 + matriz CI release-npm-node.yml:44-46,50-52); toolchain local sin docker/cross/musl documentado, sin codigo forzado. Gated por BND-08 (pipeline verificado e9843100). Sin commit nuevo (2026-09-06).

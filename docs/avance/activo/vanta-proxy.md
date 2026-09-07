@@ -36,3 +36,5 @@ aliases: []
 - **MEM-32** (`70048abf`): tools MCP `code_*` query-only sobre graphrag propio (D28).
 - **MEM-33** (`02c87177`): tools MCP `wiki_*` query-only con BM25 propio título×5, BFS cap 200, guard require_ready.
 - **Resultado:** ✅ F7 completa. Campaña 9/9 cerrada (`b316e3eb`, plan archivado). Roadmap TDAM F1-F7 al 100%.
+
+### PRX-01 (worker, cierre lead): wiring advance+classifier+mem-commands+degraded - Resultado: (1) POST /session/advance + header x-vanta-session disparan SessionStore::advance; (2) classify_cc_request consume routing Main/Fork/Sidequery; (3) mem:sync/create-skill ejecutan pipeline real (create-skill persiste record en SKILLS_NAMESPACE); (4) UpstreamHealth::observe: DEGRADED_ENTER_FAILURES=3 (429/5xx) -> set_degraded(true), DEGRADED_EXIT_SUCCESSES=5 -> sale; suite 111/111 (86 lib + 5 pipeline + 10 proxy_wire + 5 prx01_wiring + 5 tool_loop) + clippy -D warnings + fmt limpios. Commit a4f63290 (2026-09-07).

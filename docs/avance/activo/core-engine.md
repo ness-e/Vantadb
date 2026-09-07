@@ -560,3 +560,5 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 ### FIND-63 (worker): rama explicita SyncMode::Never - Resultado: match exhaustivo Always|Never|Periodic + test RED->GREEN; suite wal 63/63; fmt/clippy limpios. Commit a7285969 (2026-09-05).
 
 ### FIND-62 (worker): commit_transaction bajo insert_lock - Resultado: guard en [WAL batch -> apply -> drain -> Commit] + test commit_flush_interleaving verde; suite storage 380/380, lib 1985/1985; sin deadlock (pre-mortem: unico caller productivo sin guard). Commit 19a9651c (2026-09-05).
+
+### MCP-34b (worker): tool snapshot_restore verificado sin codigo - Resultado: stop-condition S1+S2-S4 ya en HEAD via 4d964ac3 (FIND-25: flush en create_snapshot) + 29d21cba (snapshot_restore + validate + failpoint + dispatch MCP con confirm:true); tests E2E verdes: snapshot_certification 21/21 + failpoint 1/1 + mcp_tests snapshot_restore/tools-list/create 3/3; fmt/clippy limpios. Sin commit nuevo (2026-09-06).
