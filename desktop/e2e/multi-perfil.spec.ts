@@ -44,10 +44,9 @@ test("Settings defaults topK/mode/lang persisten tras reload (mismo store que pe
   // modo → vector
   const modeSelect = page.getByLabel("modo");
   // Hay dos selects: el de kind perfil (cuando visible) y el de modo; en embedded solo el de modo está presente
-  // Elegimos el que tiene option "Híbrido"
-  const selectMode = modeSelect.or(page.locator('select').filter({ hasText: "Híbrido" }));
-  // Si el gate embedded oculta el select de perfiles, el único select visible es el de modo
-  const modeSel = page.locator("select").last();
+  // Elegimos el que tiene option "Híbrido" (el select "Modelo de embedding"
+  // añadido después es siempre .last() → por eso NO usar locator("select").last())
+  const modeSel = modeSelect.or(page.locator('select').filter({ hasText: "Híbrido" }));
   await modeSel.selectOption("vector");
   await expect(modeSel).toHaveValue("vector");
 
