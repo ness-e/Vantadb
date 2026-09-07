@@ -1,5 +1,5 @@
 import { VantaError, ERROR_CODES, classifyWasmError } from "./errors.js";
-import { isMemoryRecord } from "./guards.js";
+import { _mapRecord, buildSearchRequestBase } from "./guards.js";
 
 import type {
   Capabilities,
@@ -105,22 +105,6 @@ function normalizeMetadataForNative(
     }
   }
   return out;
-}
-
-function _mapRecord(r: unknown): MemoryRecord {
-  if (!r || typeof r !== "object") {
-    throw new VantaError(
-      ERROR_CODES.VALIDATION_ERROR,
-      "_mapRecord: expected an object, got " + typeof r,
-    );
-  }
-  if (!isMemoryRecord(r)) {
-    throw new VantaError(
-      ERROR_CODES.VALIDATION_ERROR,
-      "_mapRecord: invalid MemoryRecord structure or missing required fields",
-    );
-  }
-  return r;
 }
 
 /**
@@ -346,13 +330,9 @@ export class NativeVantaDB {
     // (api-contract.md R-8). vantadb.ts (WASM) does the same, so both backends
     // are aligned.
     return {
-      namespace: request.namespace,
-      query_vector: request.query_vector,
+      ...buildSearchRequestBase(request, explain),
       filters: request.filters !== undefined ? normalizeMetadataForNative(request.filters) : undefined,
       text_query: request.text_query ?? undefined,
-      top_k: request.top_k ?? 10,
-      distance_metric: request.distance_metric ?? "Cosine",
-      explain: explain ?? (request.explain ?? false),
     };
   }
 
@@ -362,6 +342,7 @@ export class NativeVantaDB {
    *
    * @param request - The search request parameters.
    * @returns Array of search hits ordered by relevance (closest first).
+   *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
    */
   async search(request: SearchRequest): Promise<SearchHit[]> {
     this._assertOpen();

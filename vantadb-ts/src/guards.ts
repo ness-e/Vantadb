@@ -4,6 +4,7 @@ import type {
   MemoryRecord,
   NodeRecord,
   SearchHit,
+  SearchRequest,
   VantaValue,
   VantaMetadata,
 } from "./types.js";
@@ -82,14 +83,16 @@ export function isValidVector(v: unknown): v is number[] {
 }
 
 /**
- * Validate a vector input. Throws `VantaError` with the canonical
+ * Validate a vector input. Accepts a plain `number[]` (copied downstream
+ * into a `Float32Array`) or a `Float32Array` (passed through zero-copy —
+ * prefer it on hot paths). Throws `VantaError` with the canonical
  * `VANTADB_VALIDATION_ERROR` code (ERR-TS-01 — previously raw
  * `TypeError`/`RangeError`, which bypassed the uniform error contract).
  * BREAKING for callers catching `TypeError` by name: catch `VantaError` and
  * check `.code` instead.
  */
-export function validateVector(v: unknown): asserts v is Float32Array {
-  if (!Array.isArray(v)) {
+export function validateVector(v: unknown): asserts v is number[] | Float32Array {
+  if (!Array.isArray(v) && !(v instanceof Float32Array)) {
     throw new VantaError(
       ERROR_CODES.VALIDATION_ERROR,
       "validateVector: expected an array, got " + typeof v,
@@ -109,4 +112,54 @@ export function validateVector(v: unknown): asserts v is Float32Array {
       );
     }
   }
+}
+
+/**
+ * Map a raw engine record to `MemoryRecord`, validating its shape.
+ * Single shared definition used by both the WASM (`vantadb.ts`) and native
+ * (`native.ts`) backends. The error strings are snapshot-covered — do not
+ * reword them.
+ */
+export function _mapRecord(r: unknown): MemoryRecord {
+  if (!r || typeof r !== "object") {
+    throw new VantaError(
+      ERROR_CODES.VALIDATION_ERROR,
+      "_mapRecord: expected an object, got " + typeof r,
+    );
+  }
+  if (!isMemoryRecord(r)) {
+    throw new VantaError(
+      ERROR_CODES.VALIDATION_ERROR,
+      "_mapRecord: invalid MemoryRecord structure or missing required fields",
+    );
+  }
+  return r;
+}
+
+/**
+ * Backend-neutral core of a search request, shared by the WASM (`vantadb.ts`)
+ * and native (`native.ts`) builders. Each backend spreads this base and adds
+ * its own wire encoding for `filters`/`text_query` (null-vs-undefined and
+ * tagged-metadata shapes differ per binding) — so the base stays wire-neutral
+ * and must NOT gain backend-specific fields.
+ */
+export interface SearchRequestBase {
+  namespace: string;
+  query_vector: number[];
+  top_k: number;
+  distance_metric: "Cosine" | "Euclidean";
+  explain: boolean;
+}
+
+export function buildSearchRequestBase(
+  request: SearchRequest,
+  explain?: boolean,
+): SearchRequestBase {
+  return {
+    namespace: request.namespace,
+    query_vector: request.query_vector,
+    top_k: request.top_k ?? 10,
+    distance_metric: request.distance_metric ?? "Cosine",
+    explain: explain ?? (request.explain ?? false),
+  };
 }
