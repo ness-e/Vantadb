@@ -2,7 +2,7 @@
 
 > **Campaign ID:** a6f16be4-a2a2-44eb-bfdb-1a84a4b573cf
 > **Inicio:** 2026-09-04
-> **Estado:** ⏳ IN PROGRESS (Wave 0: 3/3 ✅ — FIND-63 `a7285969`, GOV-TK3 `b3be4176`, MEM-63 verificado ya-en-HEAD `6058cc84`)
+> **Estado:** COMPLETO (12/12, 2026-09-07) (Wave 0: 3/3 ✅ — FIND-63 `a7285969`, GOV-TK3 `b3be4176`, MEM-63 verificado ya-en-HEAD `6058cc84`)
 > **Fuente:** docs/Backlog.md (105 activas, verificado contra código el 2026-09-04)
 > **Autonomous:** false
 > **Decisiones del usuario (Gate P + spec, 2026-09-04):** set DO 12 ✅ · publish real NO (solo dry-run+checklist) · FUT-12 entra como SPEC (opt-in only, group-commit, ≥10× + ventana declarada) · PRX-01 entra (trigger header+ruta, degraded 3 fallos/5 éxitos)
