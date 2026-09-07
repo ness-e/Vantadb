@@ -391,11 +391,14 @@ describe("vantadb-node api surface", () => {
       await db.put({ namespace: "ns", key: "old", payload: "first" });
       await db.put({ namespace: "ns", key: "new", payload: "second" });
       await db.supersede("ns", "old", "new");
+      // History is append-only snapshots: versions() keeps the pre-supersede
+      // shape. The marker lives on the live record (ADR-028).
       const versions = await db.versions("ns", "old");
       expect(versions.length).toBeGreaterThanOrEqual(1);
-      const latest = versions[versions.length - 1];
-      expect(latest.superseded_by).toBe("new");
-      expect(typeof latest.superseded_at_ms).toBe("number");
+      const live = await db.get("ns", "old");
+      expect(live).not.toBeNull();
+      expect(live!.superseded_by).toBe("new");
+      expect(typeof live!.superseded_at_ms).toBe("number");
     } finally {
       await db.close();
     }
@@ -422,23 +425,26 @@ describe("vantadb-node api surface", () => {
     }
   });
 
-  it("purgeExpired returns a number for an empty namespace", async () => {
+  // napi-rs maps Rust `u64` to JS BigInt, so u64-returning methods resolve
+  // with `0n`/`2n` — not `number` (`index.d.ts` still says `Promise<number>`,
+  // see FIND-BND12-01). Assert runtime truth via BigInt literals.
+  it("purgeExpired returns a bigint count for an empty namespace", async () => {
     const db = await VantaDb.connect(tmp("purgeExpired"));
     try {
-      await expect(db.purgeExpired()).resolves.toBe(0);
+      await expect(db.purgeExpired()).resolves.toBe(0n);
     } finally {
       await db.close();
     }
   });
 
-  it("count returns 0 for an empty namespace", async () => {
+  it("count returns a bigint count (0n empty, 2n after two puts)", async () => {
     const db = await VantaDb.connect(tmp("count"));
     try {
-      await expect(db.count("empty")).resolves.toBe(0);
+      await expect(db.count("empty")).resolves.toBe(0n);
       await db.put({ namespace: "ns", key: "k1", payload: "a" });
       await db.put({ namespace: "ns", key: "k2", payload: "b" });
-      await expect(db.count("ns")).resolves.toBe(2);
-      await expect(db.count("ns", null)).resolves.toBe(2);
+      await expect(db.count("ns")).resolves.toBe(2n);
+      await expect(db.count("ns", null)).resolves.toBe(2n);
     } finally {
       await db.close();
     }
