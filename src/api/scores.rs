@@ -34,7 +34,7 @@ pub fn rrf_contribution_0based(rank_0based: usize, rrf_k: Option<f32>) -> f32 {
 /// Canonical: `similarity = 1 - distance` (inverse of `cosine_similarity_to_distance`).
 /// `distance = 1 - similarity` — core HNSW similarity (higher-is-better) vs wire
 /// distance (lower-is-better, MCP `1 - similarity`). For normalized relevance
-/// ∈ [0,1] use `1 - distance/2` (adapter MMR).
+/// ∈ `[0,1]` use `1 - distance/2` (adapter MMR).
 #[inline]
 pub fn cosine_distance_to_similarity(distance: f32) -> f32 {
     1.0 - distance
@@ -54,7 +54,7 @@ pub fn cosine_distance_to_similarity_clamped(distance: f32) -> f32 {
     1.0 - d
 }
 
-/// Normalized relevance ∈ [0,1] from cosine distance ∈ [0,2] (adapter helper).
+/// Normalized relevance ∈ `[0,1]` from cosine distance ∈ `[0,2]` (adapter helper).
 ///
 /// Adapters duplicate `1.0 - s/2.0` for MMR relevance; centralize here.
 #[inline]

@@ -358,7 +358,7 @@ impl StorageEngine {
 
     /// Move a hot node to cold tier, persist metadata, and release mmap pages.
     /// Acquires `insert_lock` internally; for callers that already hold it, use
-    /// [`Self::consolidate_node_locked`].
+    /// `Self::consolidate_node_locked`.
     pub fn consolidate_node(&self, node: &UnifiedNode) -> Result<()> {
         self.consolidate_node_inner(node, false)
     }
@@ -460,7 +460,7 @@ impl StorageEngine {
 
     /// Evict a fraction of hot nodes with a specific reason for metrics.
     /// Acquires `insert_lock` internally; for callers that already hold it, use
-    /// [`Self::evict_cold_nodes_with_reason_locked`].
+    /// `Self::evict_cold_nodes_with_reason_locked`.
     pub fn evict_cold_nodes_with_reason(
         &self,
         ratio: f64,
@@ -793,7 +793,7 @@ impl StorageEngine {
     /// Merge (compact) the VantaFile if tombstone fragmentation exceeds the
     /// configured threshold.
     ///
-    /// Delegates to [`compact_layout_bfs`] which rewrites the VantaFile in
+    /// Delegates to [`compact_layout_bfs`](crate::storage::StorageEngine::compact_layout_bfs) which rewrites the VantaFile in
     /// BFS order of the HNSW graph, skipping tombstoned nodes.
     #[tracing::instrument(skip(self), level = "info", err)]
     pub fn merge_segments(&self) -> Result<MergeReport> {

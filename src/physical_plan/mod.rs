@@ -3,8 +3,8 @@
 //! [`PhysicalScan`] and related operators translate logical plan nodes
 //! into concrete storage reads, filtering, and projection.
 //!
-//! Split into per-operator submodules (REVIEW-05): [`scan`], [`filter`],
-//! [`vector`], [`project`], [`sort`], [`join`].
+//! Split into per-operator submodules (REVIEW-05): `scan`, `filter`,
+//! `vector`, `project`, `sort`, `join`.
 
 mod filter;
 mod join;

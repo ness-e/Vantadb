@@ -1,6 +1,6 @@
 //! Permission checker (allow-only) — eslabón "permission" de la cadena D7.
 //!
-//! [`PermissionChecker`] decide si un usuario puede actuar sobre un *asset*
+//! [`PermissionChecker`](crate::entity::checker::PermissionChecker) decide si un usuario puede actuar sobre un *asset*
 //! leyendo las entidades `entity_*` (MEM-03) con semántica **allow-only**: si
 //! no existe una regla que permita explícitamente la acción → denegar. Port del
 //! algoritmo de TDAM `metadata/service/permission-checker.ts` (172 líneas

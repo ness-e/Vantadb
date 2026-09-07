@@ -1,6 +1,6 @@
 //! Entity metadata store (teams, users, agents, tasks, assets).
 //!
-//! [`EntityStore`] persists scoped entities as JSON records in the
+//! [`EntityStore`](crate::entity::EntityStore) persists scoped entities as JSON records in the
 //! `InternalMetadata` partition — the same partition pattern used by
 //! [`crate::agentic::thread`] (data as serialized records, listed by key
 //! prefix). Each entity is addressed by `namespace` + `collection` +
@@ -11,10 +11,10 @@
 //! `team`, `agent`, `task`, `asset`), `entity_id` (e.g. `usr-3mfxa3b9c1`).
 //! Keys are `entity:{namespace}:{collection}::{entity_id}`; listing scans
 //! the collection prefix. Values must not contain `{`, `}` or `:` (ids from
-//! [`generate_id`] never do).
+//! [`generate_id`](crate::entity::generate_id) never do).
 //!
 //! Scene node anchors (MEM-12) live in the same `InternalMetadata` partition
-//! under the `scene:` key family — see [`scene::SceneNodeStore`].
+//! under the `scene:` key family — see [`scene::SceneNodeStore`](crate::entity::SceneNodeStore).
 
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::{ChainedError, Result, VantaError};

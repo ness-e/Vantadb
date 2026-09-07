@@ -1,7 +1,7 @@
 //! # Eviction Policies
 //!
 //! Scoring strategies for determining which nodes to evict under memory pressure.
-//! The [`EvictionPolicy`] enum wraps both the traditional weighted-score approach
+//! The [`EvictionPolicy`](crate::eviction::EvictionPolicy) enum wraps both the traditional weighted-score approach
 //! (via [`crate::node::EvictionWeights`]) and the Bayesian Beta-Binomial decay model.
 //!
 //! ## Feature gate

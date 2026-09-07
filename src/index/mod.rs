@@ -1,5 +1,5 @@
 //! HNSW index construction, serialization, and search operations.
-//! Defines [`VecIndex`] — the pluggable trait over all index backends.
+//! Defines `VecIndex` — the pluggable trait over all index backends.
 
 pub mod auto_tune;
 pub(crate) mod core; // tests only

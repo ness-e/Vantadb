@@ -4,11 +4,11 @@
 //! Memory-mapped vector store file (VantaFile) with read/write and in-memory variants.
 //!
 //! When the `encryption` feature is enabled, VantaFile can optionally hold a
-//! [`Cipher`] instance for transparent at-rest encryption. The cipher is stored
-//! for use by the storage layer and can be retrieved via [`VantaFile::cipher`].
+//! `Cipher` instance for transparent at-rest encryption. The cipher is stored
+//! for use by the storage layer and can be retrieved via `VantaFile::cipher`.
 //!
 //! The mmap primitives (memmap2 re-export / shim, SIGBUS handler, resident byte
-//! accounting, `AlignedBytes`) live in [`crate::storage::vfile_mmap`] and are
+//! accounting, `AlignedBytes`) live in `crate::storage::vfile_mmap` and are
 //! re-exported here so `crate::storage::vfile::*` paths keep resolving
 //! (REVIEW-04 split).
 

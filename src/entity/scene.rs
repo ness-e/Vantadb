@@ -8,7 +8,7 @@
 //! `namespace` (deployment/tenant) + `session_id` (the L0/L1 session) +
 //! `scene_name` (e.g. `2024-08-01-22-10` from the L1 scene segment).
 //!
-//! Storage reuses the exact [`super::EntityStore`] partition pattern (D4): a
+//! Storage reuses the exact [`super::EntityStore`](crate::entity::EntityStore) partition pattern (D4): a
 //! JSON record in the `InternalMetadata` partition under key
 //! `scene:{namespace}:{session_id}::{scene_name}` — distinguishable from
 //! `entity:*` records in the same partition scan, listed by key prefix.

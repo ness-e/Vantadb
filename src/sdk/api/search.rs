@@ -59,8 +59,8 @@ impl VantaEmbedded {
     /// excluded from the output.
     ///
     /// # Errors
-    /// * [`VantaError::NotFound`] if `key` does not exist in `namespace`.
-    /// * [`VantaError::NoVectorForKey`] if the record exists but carries no vector.
+    /// * [`VantaError::NotFound`](crate::VantaError::NotFound) if `key` does not exist in `namespace`.
+    /// * [`VantaError::NoVectorForKey`](crate::VantaError::NoVectorForKey) if the record exists but carries no vector.
     ///
     /// # Notes
     /// `search_vector()` queries the global HNSW index (all namespaces). Results

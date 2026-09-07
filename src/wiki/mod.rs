@@ -6,9 +6,9 @@
 //! the exact [`crate::entity::EntityStore`] partition pattern (D4), no new
 //! storage mechanism:
 //!
-//! - `wiki:{namespace}::{slug}` — the [`Wiki`] lifecycle record (state,
+//! - `wiki:{namespace}::{slug}` — the [`Wiki`](crate::wiki::Wiki) lifecycle record (state,
 //!   `run_id`, `sync_error`, optimistic `version`);
-//! - `wiki:{namespace}::{slug}:page:{path}` — one [`WikiPage`] per managed
+//! - `wiki:{namespace}::{slug}:page:{path}` — one [`WikiPage`](crate::wiki::WikiPage) per managed
 //!   page, addressed by its canonical path (`type + title`, TDAM dedup,
 //!   wiki-service.ts:392-410) and always `locked: true`.
 //!

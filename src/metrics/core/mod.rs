@@ -271,7 +271,7 @@ pub fn record_vanta_error(_code: &str) {}
 /// Record which vector index backend a memory search was routed to (OLD-21).
 ///
 /// Flat / IVF / HNSW are the three routing targets selected by
-/// [`CostEstimator::select_index_strategy`]. DiskAnn and Scann execute via the
+/// `CostEstimator::select_index_strategy`. DiskAnn and Scann execute via the
 /// HNSW-style non-flat path, so they count in the HNSW bucket conservatively.
 pub fn record_vector_index_routing(index_type: crate::index::IndexType) {
     match index_type {

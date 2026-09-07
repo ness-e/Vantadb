@@ -11,7 +11,7 @@
 //!   `(owner_agent, name) WHERE is_head`:
 //!   `entity:{skills}:{skill_head}::{owner_agent}#{name}`
 //!
-//! Concurrency (Regla 8): every write is an atomic [`StorageEngine::write_backend_batch`]
+//! Concurrency (Regla 8): every write is an atomic `StorageEngine::write_backend_batch`
 //! (version row + index row together). The optimistic lock `expected_version`
 //! serializes concurrent writers: each writer re-reads the head inside the
 //! same task and the batch commit is atomic, so a stale `expected_version`
