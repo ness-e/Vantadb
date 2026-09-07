@@ -1,78 +1,57 @@
-# WEB-02 — REST: resto del SDK (export/import, graph avanzado, mantenimiento, threads, snapshots)
+# WEB-02 — Benchmarks propios en /benchmarks (plan 2026-09-07-backlog-triage, Task 7)
 
-> Plan: `docs/plans/2026-08-18-vanta-studio-fase3.md` (Task 3, Wave 1)
-> Estado: ✅ COMPLETO (commit c856b3bd - fase 3)
-> Pre-requisito: WEB-01 (commit c81bc23a) — patrón de handlers `run_db_op`, helpers `vanta_error_status`/`vanta_error_response`, tests `raw_request`/`json_request`/`parse_response` en `src/cli_server.rs`.
+> Plan: `docs/plans/2026-09-07-backlog-triage.md` (Task 7, Wave2)
+> Estado: ✅ COMPLETED 2026-09-07 (lead cerró Step 2 tras caída infra del sub-agente; Step 1 era WIP recuperado)
+> NOTA COLISIÓN ID: existía un `docs/tasks/WEB-02.md` previo del plan `2026-08-18-vanta-studio-fase3` (REST SDK, ✅ COMPLETO c856b3bd). IDs colisionan entre planes; este file lo reemplaza para el WEB-02 actual (benchmarks). El contenido previo era de otro scope y no se re-ejecuta.
+> SDP: campaign-executor, frontend-ui-engineering, design-taste-frontend, incremental-implementation, test-driven-development, context-engineering, source-driven-development, doubt-driven-development (discover_skills_v2 BUILD, 8/8) + ponytail full siempre
+> Gate D: NO disparado — blast radius 2 archivos, sin hot path, sin endpoint/binding nuevo, contrato mecánico no ambiguo (tablas + cita + grep 0)
 
-## Contrato (mapeo 1:1 con el SDK `VantaEmbedded`)
+## Contrato (plan Task 7, literal)
 
-Errores: shape `{success:false,error}` con status de `vanta_error_status` (400/404/409/500). Todo engine work bajo pool permit en `spawn_blocking` vía `run_db_op`.
-
-| Endpoint | SDK op | Request → Response |
-|---|---|---|
-| `POST /api/v2/export` | `export_namespace(path, ns, filter)` / `export_all(path)` | `{path, namespace?, filter?}` → `VantaExportReport` (200) |
-| `POST /api/v2/import` | `import_records(Vec<VantaMemoryRecord>)` / `import_file(path)` / `bulk_import_file(path)` | `{records?[] , path?, format?:"jsonl"\|"bulk"}` → report (200); ambos reportes serializados a `serde_json::Value` para unificar T |
-| `POST /api/v2/graph/bfs` | `graph_bfs(roots, max_depth, direction)` | `{roots[], max_depth, direction?:"forward"\|"reverse"\|"both"}` → `Vec<u128>` (200) |
-| `POST /api/v2/graph/dfs` | `graph_dfs(...)` | igual → `Vec<u128>` |
-| `POST /api/v2/graph/degree` | `graph_degree_centrality(roots)` | `{roots[]}` → `HashMap<u128,(usize,usize)>` |
-| `POST /api/v2/graph/centrality` | `graph_degree_centrality(roots)` ⚠️ | idem degree — GDS solo expone degree_centrality y page_rank (ver Notas) |
-| `POST /api/v2/graph/pagerank` | `graph_page_rank(roots, max_iter, damping, tol)` | `{roots[], max_iterations?=100, damping?=0.85, tolerance?=1e-6}` → `HashMap<u128,f64>` |
-| `POST /api/v2/maintenance/purge` | `purge_expired()` | body vacío → `{purged: u64}` |
-| `POST /api/v2/maintenance/compact` | `compact_layout()` | body vacío → `{freed_bytes: u64}` |
-| `POST /api/v2/maintenance/flush` | `flush()` | body vacío → `{flushed: true}` |
-| `POST /api/v2/maintenance/rebuild-index` | `rebuild_index()` | body vacío → `VantaIndexRebuildReport` |
-| `POST /api/v2/threads` | `create_thread(title, ttl_secs)` | `{title, ttl_secs?}` → 201 `{thread_id: u128}` |
-| `GET /api/v2/threads` | `list_threads(limit, offset)` ⚠️ | query `limit?=100, offset?=0` → `Vec<MessageThread>` (agregado: plan no lo listaba pero SDK lo expone) |
-| `GET /api/v2/threads/{id}` | `get_thread(id)` | → `MessageThread` (200) / 404 si no existe |
-| `POST /api/v2/threads/{id}` | `send_message(id, role, content)` | `{role, content}` → `{sent: true}`; 404 vía NodeNotFound |
-| `DELETE /api/v2/threads/{id}` | `delete_thread(id)` | → `{deleted: true}` |
-| `GET /api/v2/snapshots` | `list_snapshots()` | → `Vec<String>` |
-| `POST /api/v2/snapshots/{name}` | `create_snapshot(name)` | → 201 `{name, path}` (wire propio — FsSnapshot no es Serialize, created_at es Instant) |
-
-## Fases / Steps
-
-### Fase 1 — DISCOVERY ✅
-- [x] Leer plan file + pipeline-full.md
-- [x] `codegraph_explore` sobre `cli_server.rs` (patrón run_db_op/vanta_error_status/vanta_error_response)
-- [x] Leer `src/cli_server.rs` completo (2177L) + tests existentes
-- [x] Mapear superficie real del SDK: api.rs, builder.rs, gds.rs, graph.rs, impl_export.rs, agentic/thread.rs, storage FsSnapshot
-- [x] Impacto mapeado (Regla 0) — ver abajo
-
-### Fase 2 — Implementación
-- [ ] Step 2.1: imports (`VantaMemoryRecord`, referencias `crate::graph::TraversalDirection`) + tipos wire (ExportRequest, ImportRequest, GraphTraversalRequest, GraphDirection, GraphPageRankRequest, ThreadCreateRequest, ThreadMessageRequest, ThreadsListParams)
-- [ ] Step 2.2: rutas nuevas en `app_with_cors` (protected router)
-- [ ] Step 2.3: handlers export/import
-- [ ] Step 2.4: handlers graph (bfs/dfs/degree/centrality/pagerank)
-- [ ] Step 2.5: handlers maintenance (purge/compact/flush/rebuild-index)
-- [ ] Step 2.6: handlers threads (list/create/get/send/delete)
-- [ ] Step 2.7: handlers snapshots (list/create)
-- [ ] Step 2.8: tests `v2_export_import_roundtrip`, `v2_threads_roundtrip`, `v2_graph_roundtrip`, `v2_maintenance_roundtrip`, `v2_snapshots_roundtrip`
-
-### Fase 3 — Verify
-- [ ] `cargo fmt`
-- [ ] `cargo check --features server`
-- [ ] `cargo test -p vantadb --features server --lib -- cli_server`
-
-### Fase 4 — Smoke
-- [ ] Arrancar `vanta serve` con DB temp (fjall en disco)
-- [ ] `Invoke-RestMethod` por endpoint: export→import roundtrip, graph con nodos+edges, maintenance, threads CRUD, snapshots
-- [ ] Devolver RESULTADO al lead
+- `/benchmarks` renderiza tablas p50/p99 con cita a fuente (`BENCHMARKS.md` § + comando + fecha)
+- `grep -ri "faster|ultrafast|blazing" web/src/app/benchmarks/` → 0 adjetivos sin número
+- Step 0 verifica WEB-03 (assets gato: si `public/assets/mascota_gato.png` falta → quitar refs muertas en el mismo PR, no restaurar binarios)
+- Sin claims de adopción; estilo Chroma honesto; Regla 11 (ningún número sin fuente reproducible)
 
 ## Impacto mapeado (Regla 0)
 
-**Archivos leídos completos:** `src/cli_server.rs` (2177L), `src/sdk/api.rs` (§1480-1599 bulk + grep pub fn), `src/sdk/builder.rs` (§130-246 threads/snapshots), `src/sdk/gds.rs` (37L), `src/sdk/graph.rs` (234L), `src/sdk/serialization/impl_export.rs` (710L), `src/agentic/thread.rs` (327L), `src/graph.rs` (§1-60 TraversalDirection), `src/gds.rs` (§1-120), `src/storage/engine/mod.rs` (§140-219 FsSnapshot, §455-539 create/list_snapshots), `src/sdk/serialization/graph_types.rs` (VantaNodeInput).
+- **Archivos leídos completos:** `web/src/app/benchmarks/page.tsx` (22L — solo monta 3 componentes), `web/src/components/vanta/benchmarks-view.tsx` (534L), `web/src/components/vanta/competitive-table.tsx` (168L), `web/src/components/vanta/benchmark-race.tsx` (264L), `web/src/components/vanta/vanta-data.ts` (§ BENCH01:146-178, SIFT1M:181-239, COMPETITIVE_TABLE:257-284), `docs/operations/BENCHMARKS.md` (§2 SDK, §5 SIFT1M, §7 competitiva 2026-06-06, §15 TS-09 JS/WASM 2026-09-07), `web/src/lib/dictionaries.ts` (benchmarkRace ES:1444-1454, EN:2925-2935)
+- **Referencias hacia dentro (quién usa lo que toco):** `page.tsx` → `BenchmarksView`, `BenchmarkRace`, `CompetitiveTable` (únicos callers); `BENCH01`/`SIFT1M` usados solo por `benchmarks-view.tsx`; `COMPETITIVE_TABLE` por `benchmarks-view.tsx` + `competitive-table.tsx` (vía `@/lib/vanta-data` JSON contract — ese import apunta a otro módulo, no se toca)
+- **Referencias salientes (lo que mis archivos usan):** `vanta-data.ts` (datos), `latency-comparator`, `reveal`, `useLanguage`/`dictionaries.ts` (i18n race — NO se toca, ya honesto), `lucide-react` iconos
+- **Veredicto:** editar SOLO `vanta-data.ts` (añadir const `JS_BENCH` §15) + `benchmarks-view.tsx` (2 líneas Source + 1 sección tabla JS). No se tocan `page.tsx`, `benchmark-race.tsx` (fallbacks stale pero dictionaries ES/EN ya honestos y mandan), `competitive-table.tsx` (ya cita fuente + comando + fecha), `dictionaries.ts`, ni archivos de TS-09/BND-13. Sin adopciones claims en página (verificado: solo métricas + "certified").
 
-**Referencias hacia dentro (dependen de cli_server.rs):** `src/lib.rs:72` (`pub mod cli_server`, `#[cfg(feature="server")]`), `src/cli_handlers/server.rs` (invoca `cli_server::run`/`app`), tests `#[cfg(test)] mod tests` dentro del propio archivo.
+## Discovery — estado actual vs contrato
 
-**Referencias salientes (lo que cli_server usa):** `VantaEmbedded` (sdk), `ServerState` campos (`storage`, `db`, `circuit_breaker`, `pool`, `api_key`, `rbac_config`, `trusted_proxies`), helpers `run_db_op`/`vanta_error_response`/`vanta_error_status`, `VantaMemoryInput`/`VantaMemoryRecord`/`VantaMemoryFilter`, `crate::graph::TraversalDirection`, `MessageThread` (agentic), `FsSnapshot` (storage).
+- Step 0a WEB-03: `web/public/assets/mascota_gato.png` ✅ EXISTE, `avatar_gato.png` ✅ EXISTE; 4 refs vivas (`opengraph-image.tsx:15`, `easter-egg.tsx:79`, `vanta-data.ts:1062,1069`) → refs válidas, NINGUNA acción (no quitar nada, no binarios)
+- Step 0b hype: `rg -i "faster|ultrafast|blazing" web/src/app/benchmarks/` → 0 matches ✅; único "faster" en componentes es label de eje "lower is faster →" (`benchmarks-view.tsx:149`), descriptivo de gráfica, no claim
+- Gap 1: secciones BENCH01/SIFT1M renderizan tablas p50/p99 pero SIN cita visible (solo hardware note; la cita vive en comentarios de código `vanta-data.ts:143-145` — invisible al lector) → añadir línea Source visible por sección
+- Gap 2: números TS-09 §15 (JS/WASM 2000×384d, mediana ×3, 2026-09-07) NO están en la página aunque el prerrequisito está COMPLETED (55ad6488) y el pre-mortem 1 ya no aplica → añadir tabla JS/WASM con cita §15 + `npm run bench` + fecha
+- No-Gap: race ya honesto vía dictionaries (competidores "—" = sin número medido, footer cita §1); competitive-table ya cita fuente + comando + fecha → no tocar (scope discipline)
+- Deuda observada (NO tocar en este task): valores BENCH01 hardcodeados (`vanta-data.ts:151-177`) no coinciden dígito a dígito con §2 (ej: ingest 13.174ms vs 10.678ms §2) — procedencia de corrida no documentada; se cita §2 como metodología/fuente canónica y se propone FIND de conciliación. No se cambian números acá.
 
-**Veredicto de impacto:** Editar SOLO `src/cli_server.rs` (agregar handlers + rutas + tests). No se modifica ningún tipo del SDK (`src/sdk/` read-only, protegido). `TraversalDirection` no es Serialize/Deserialize → wire enum local `GraphDirection` en cli_server.rs (no tocar `src/graph.rs`). `FsSnapshot` no es Serialize → respuesta wire manual `{name, path}`. Los handlers son nuevas funciones — no cambia ningún contrato existente (rutas WEB-01 intactas).
+## Steps (~100 líneas c/u, verify mecánico tsc + eslint + build web)
 
-## Notas de divergencia (contrato del plan vs SDK real)
+### Step 1: citas visibles BENCH01 (§2) + SIFT1M (§5) ✅/⬜
+- **Archivos:** `web/src/components/vanta/benchmarks-view.tsx` (2 bloques Source, estilo de `competitive-table.tsx:151-163`)
+- **Acción:** tras cada hardware note añadir línea `Source: docs/operations/BENCHMARKS.md §N · comando reproducible` (§2: `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000`; §5: SIFT1M + `cargo bench` + hardware AMD Ryzen)
+- **Verify:** `npx tsc --noEmit` + `npx eslint src/components/vanta/benchmarks-view.tsx` en `web/`
+- **Estado:** ✅ DONE (WIP recuperado del sub-agente: 2 bloques Source verificados en diff)
 
-1. **`/graph/centrality`** no tiene algoritmo dedicado — `src/gds.rs` expone SOLO `page_rank` y `degree_centrality`. Se mapea a `graph_degree_centrality` (misma op que `/graph/degree`). Documentado; si se quiere betweenness/closeness hay que implementarlo en el core primero.
-2. **`GET /api/v2/threads`** agregado (plan solo listaba POST /threads + GET/POST/DELETE /threads/{id}) — `list_threads` es la única vía de descubrimiento del SDK.
-3. **`compact_wal()`** existe en el SDK pero no está en el contrato (solo `compact`) → `compact` = `compact_layout()`.
-4. **`bulk_import_stream`** no se expone (requiere reader binario) — se expone `bulk_import_file` con `format:"bulk"`.
-5. **`create_snapshot` no funciona con backend InMemory** (`data_dir` inexistente) → tests/smoke de snapshots usan DB fjall en disco.
-6. **import_records** acepta `Vec<VantaMemoryRecord>` (formato export), no `VantaMemoryInput` — wire 1:1 con el SDK.
+### Step 2: tabla JS/WASM §15 (TS-09) ✅/⬜
+- **Archivos:** `web/src/components/vanta/vanta-data.ts` (const `JS_BENCH`: insert/search_vector/search_hybrid p50/p95/p99 medianas + env + comando + fecha 2026-09-07, números exactos §15) + `benchmarks-view.tsx` (sección § con tabla p50/p95/p99 + Source visible)
+- **Acción:** copiar números §15 verbatim (insert 667.61/1065.11/1453.48; search_vector 3.84/10.97/14.28; search_hybrid 184.04/377.25/447.18; rangos p50 A-B en nota); Source: `docs/operations/BENCHMARKS.md §15 · npm run bench (node bench/bench.mjs, 2000×384d×200q, seed 42) · 2026-09-07 · Node v26.8.1 in-memory WASM`
+- **Verify:** `npx tsc --noEmit` + `npx eslint` + `npm run build` en `web/`
+- **Estado:** ✅ DONE 2026-09-07 (lead: JS_BENCH + sección §03 + renumber §03→§04/§04→§05; tsc 0 + eslint 0 + build exit 0)
+
+## Verify contrato (cierre, sin commit por orden explícita)
+
+- `grep -ri "faster|ultrafast|blazing" web/src/app/benchmarks/` → 0
+- `Test-Path web/public/assets/mascota_gato.png` → True (WEB-03 sin acción)
+- `npx tsc --noEmit` (web/) → 0 errors; `npm run lint` → 0 errors; `npm run build` → exit 0
+- Inspección: cada tabla visible cita `docs/operations/BENCHMARKS.md §N + comando + fecha`; 0 claims adopción
+
+## Notas
+
+- `campaign_get_task_detail WEB-02` → "Task block not found" (plan triage no es plan campaign) — estado solo en este file, no tocar plan file por orden explícita
+- `check_index_coverage` 4 paths → `no_recorded_issue` (best-effort, fuente leída directo de disco igual)
+- ponytail: no se toca race ni competitive-table ni dictionaries (ya honestos); 2 archivos, diff mínimo
