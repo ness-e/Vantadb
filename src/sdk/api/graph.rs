@@ -60,7 +60,7 @@ impl VantaEmbedded {
     /// Purge tombstoned nodes from the HNSW index (vacuum).
     ///
     /// Scans all HNSW nodes and removes those flagged as tombstones.
-    /// Returns a [`VacuumReport`] with counts and timing.
+    /// Returns a `VacuumReport` with counts and timing.
     pub fn vacuum(&self) -> Result<crate::storage::engine::VacuumReport> {
         self.check_read_only()?;
         self.engine_handle()?.vacuum()
@@ -163,7 +163,7 @@ impl VantaEmbedded {
 
     /// Collect every live non-memory-record node as an SDK record (CORE-02).
     ///
-    /// Nodes that carry [`FIELD_NAMESPACE`] belong to the memory-record layer
+    /// Nodes that carry [`FIELD_NAMESPACE`](crate::sdk::FIELD_NAMESPACE) belong to the memory-record layer
     /// and are exported by the memory snapshot (`collect_all_deduped`); every
     /// other live node is a graph node (created via `insert_node`, `add_edge`
     /// or IQL INSERT/RELATE). The WASM binding persists these alongside

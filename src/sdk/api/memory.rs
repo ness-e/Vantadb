@@ -870,7 +870,7 @@ impl VantaEmbedded {
     ///
     /// Bypasses per-record validation (`validate_namespace`, `validate_key`,
     /// `validate_metadata`) for raw throughput. Commits to the engine in batches
-    /// sized by [`VantaConfig::bulk_commit_interval`] (default: 10 000).
+    /// sized by [`VantaConfig::bulk_commit_interval`](crate::VantaConfig::bulk_commit_interval) (default: 10 000).
     pub fn bulk_import_stream<R: std::io::Read>(&self, reader: &mut R) -> Result<BulkImportReport> {
         self.check_read_only()?;
         let start = Instant::now();

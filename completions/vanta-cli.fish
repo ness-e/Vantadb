@@ -116,7 +116,7 @@ complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand status" -s d -l db -
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand status" -l memory-limit -d 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand status" -s v -l verbose -d 'Enable verbose output'
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand status" -s h -l help -d 'Print help'
-complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand backup" -l out -d 'Output directory for the backup (default: vantadb_backups/backup_<timestamp>)' -r
+complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand backup" -l out -d 'Output directory for the backup (default: `vantadb_backups/backup_<timestamp>`)' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand backup" -s d -l db -d 'Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or \'./db\' if neither is set' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand backup" -l memory-limit -d 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable' -r
 complete -c vanta-cli -n "__fish_vanta_cli_using_subcommand backup" -s v -l verbose -d 'Enable verbose output'

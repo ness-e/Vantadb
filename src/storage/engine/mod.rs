@@ -49,7 +49,7 @@ pub(crate) const GIB: u64 = 1024 * 1024 * 1024;
 /// Selects which KV backend `StorageEngine` uses.
 pub use crate::backend::BackendKind;
 
-/// Options passed to [`StorageEngine::batch_insert_with_opts`](crate::storage::engine::insert::StorageEngine::batch_insert_with_opts).
+/// Options passed to [`StorageEngine::batch_insert_with_opts`](crate::storage::StorageEngine::batch_insert_with_opts).
 pub use self::ops::{BatchInsertOptions, InsertMode};
 
 /// Memory usage statistics for a `StorageEngine` instance.
@@ -148,7 +148,7 @@ pub struct Snapshot {
 
 /// A filesystem-level snapshot created via POSIX hard links (or copy on Windows).
 ///
-/// Unlike the MVCC [`Snapshot`], this is a point-in-time copy of all data files
+/// Unlike the MVCC `Snapshot`, this is a point-in-time copy of all data files
 /// in the storage directory — instant O(1) on Unix via hard links, O(n) on Windows
 /// via fallback copy.
 #[derive(Debug, Clone)]
@@ -435,10 +435,10 @@ impl StorageEngine {
 
 impl StorageEngine {
     /// Return a handle to the vector index (HNSW / IVF / flat) as a
-    /// [`VecIndex`](crate::index::VecIndex) trait object.
+    /// `VecIndex` trait object.
     ///
     /// The returned [`arc_swap::Guard`] auto-derefs to [`CPIndex`], which
-    /// implements [`VecIndex`](crate::index::VecIndex).  Callers invoke
+    /// implements `VecIndex`.  Callers invoke
     /// trait methods (`.search()`, `.len()`, …) without binding to the
     /// concrete index type.
     pub fn vec_index(&self) -> arc_swap::Guard<Arc<CPIndex>> {

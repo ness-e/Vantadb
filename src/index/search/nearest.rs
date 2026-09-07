@@ -14,7 +14,7 @@ impl CPIndex {
     /// index's configured distance metric. Config-driven entry point kept for
     /// direct callers (tests, benches, physical plan); bindings that need a
     /// per-request metric go through `VecIndex::search` →
-    /// [`Self::search_nearest_with_metric`] instead.
+    /// `Self::search_nearest_with_metric` instead.
     #[tracing::instrument(skip(self, query_vec, vector_store), level = "debug")]
     pub fn search_nearest(
         &self,

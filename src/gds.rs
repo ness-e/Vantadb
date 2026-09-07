@@ -1,4 +1,4 @@
-//! Graph Data Science algorithms (PageRank, centrality) over [`GraphAccumulator`]
+//! Graph Data Science algorithms (PageRank, centrality) over [`GraphAccumulator`](crate::accumulator::GraphAccumulator)
 //! and [`GraphTraverser`].
 //!
 //! # Warning

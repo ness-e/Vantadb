@@ -1,6 +1,6 @@
 //! Python bindings for the VantaDB vector-graph database via PyO3.
 //!
-//! This crate exposes the [`VantaDB`] class and a [`connect`] function
+//! This crate exposes the [`VantaDB`] class and a `connect` function
 //! for in-process, zero-network-overhead access to VantaDB from Python.
 #![warn(missing_docs)]
 #![allow(deprecated)]

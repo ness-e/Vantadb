@@ -316,13 +316,13 @@ impl VantaEmbedded {
     /// `expiring_soon`.
     ///
     /// Semantics: `count` includes not-yet-purged expired records (records
-    /// hidden by lazy TTL eviction in [`memory_record_from_node`]); use
+    /// hidden by lazy TTL eviction in [`memory_record_from_node`](crate::sdk::memory_record_from_node)]); use
     /// [`Self::count`] / [`Self::list`] for the read-visible subset. Records
     /// with no TTL count only toward `count`.
     ///
     /// # Arguments
     /// * `expiring_soon_window_ms` — How far into the future a TTL counts as
-    ///   "expiring soon". `None` uses [`DEFAULT_EXPIRING_SOON_WINDOW_MS`]
+    ///   "expiring soon". `None` uses `DEFAULT_EXPIRING_SOON_WINDOW_MS`
     ///   (24 hours).
     ///
     /// # Example

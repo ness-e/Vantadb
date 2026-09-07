@@ -132,7 +132,7 @@ pub enum Commands {
 
     /// Create a filesystem-level backup of the database directory
     Backup {
-        /// Output directory for the backup (default: vantadb_backups/backup_<timestamp>)
+        /// Output directory for the backup (default: `vantadb_backups/backup_<timestamp>`)
         #[arg(long)]
         out: Option<String>,
     },

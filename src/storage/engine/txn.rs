@@ -15,7 +15,7 @@ impl StorageEngine {
     /// Begin a write transaction.
     ///
     /// Registers this txn_id in the active set so subsequent insert/delete
-    /// ops (via [`insert_in_txn`] / [`delete_in_txn`]) are buffered.
+    /// ops (via [`Self::insert_in_txn`] / [`Self::delete_in_txn`]) are buffered.
     ///
     /// Multiple concurrent transactions are supported. Plain `insert()` /
     /// `delete()` route to the sole active txn if exactly one exists, or
@@ -32,7 +32,7 @@ impl StorageEngine {
     /// Create a read snapshot at the current transaction ID.
     ///
     /// The snapshot captures a point-in-time view of committed data.
-    /// Reads via [`get_with_snapshot`] see only data committed at or
+    /// Reads via [`Self::get_with_snapshot`] see only data committed at or
     /// before this txn_id ΓÇö uncommitted and later-committed data is
     /// invisible.
     #[tracing::instrument(skip(self), level = "debug")]

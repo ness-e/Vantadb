@@ -164,7 +164,7 @@ _arguments "${_arguments_options[@]}" : \
 ;;
 (backup)
 _arguments "${_arguments_options[@]}" : \
-'--out=[Output directory for the backup (default\: vantadb_backups/backup_<timestamp>)]:OUT:_default' \
+'--out=[Output directory for the backup (default\: \`vantadb_backups/backup_<timestamp>\`)]:OUT:_default' \
 '-d+[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--db=[Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
