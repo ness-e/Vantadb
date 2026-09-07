@@ -506,7 +506,7 @@ impl VantaDB {
 
     /// Compact the vector store file (BFS grouping from the HNSW entry point).
     /// Returns estimated bytes reclaimed.
-    #[napi]
+    #[napi(ts_return_type = "Promise<bigint>")]
     pub async fn compact_layout(&self) -> napi::Result<u64> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
@@ -525,7 +525,7 @@ impl VantaDB {
 
     /// Scan every memory record and physically delete those whose TTL has
     /// expired. Returns the number of records purged.
-    #[napi]
+    #[napi(ts_return_type = "Promise<bigint>")]
     pub async fn purge_expired(&self) -> napi::Result<u64> {
         let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
@@ -536,7 +536,7 @@ impl VantaDB {
 
     /// Delete every record in `namespace` whose metadata matches the given
     /// filter. Filter must contain at least one item (mirrors the SDK guard).
-    #[napi]
+    #[napi(ts_return_type = "Promise<bigint>")]
     pub async fn delete_by_filter(
         &self,
         namespace: String,
@@ -550,7 +550,7 @@ impl VantaDB {
 
     /// Count records in a namespace, optionally filtered by metadata.
     /// Pass `null`/`undefined` to count every record.
-    #[napi]
+    #[napi(ts_return_type = "Promise<bigint>")]
     pub async fn count(
         &self,
         namespace: String,

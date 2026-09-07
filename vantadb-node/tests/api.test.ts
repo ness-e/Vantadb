@@ -450,6 +450,22 @@ describe("vantadb-node api surface", () => {
     }
   });
 
+  // FIND-BND12-01: u64-returning methods must resolve with `bigint`
+  // (index.d.ts now declares `Promise<bigint>`, matching napi-rs runtime).
+  it("u64-returning methods resolve with typeof bigint", async () => {
+    const db = await VantaDb.connect(tmp("bigint-typeof"));
+    try {
+      await expect(db.count("empty").then((v) => typeof v)).resolves.toBe(
+        "bigint",
+      );
+      await expect(db.purgeExpired().then((v) => typeof v)).resolves.toBe(
+        "bigint",
+      );
+    } finally {
+      await db.close();
+    }
+  });
+
   it("deleteByFilter rejects an empty filter", async () => {
     const db = await VantaDb.connect(tmp("deleteByFilter"));
     try {
