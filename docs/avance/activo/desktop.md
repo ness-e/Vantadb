@@ -350,3 +350,12 @@ aliases: [DESKTOP]
 - **Objetivo:** `window.confirm` nativo en ImportPaste/ImportDrop rompía teclado/SR; reemplazar por confirm inline patrón IngestForm + tests.
 - **Resultado:** ✅ estado `confirming` + bloque `role="alert"` CONFIRMAR/CANCELAR; `rg window.confirm desktop/src` → 0; `ImportConfirm.test.tsx` 3/3; `tsc --noEmit` exit 0. UX-02/UX-03 verificados ya-presentes (grid tabIndex/onKeyDown DataExplorer.tsx:924-926; useModalFocus conectado ImportPaste:77/ImportDrop:79; labels IngestForm:131+) → filas removidas como stale.
 - **Commit:** c0cf7b31
+
+### UX-19: smoke guard permanente + fix locator (plan 2026-09-07-followup Wave0)
+- **Fecha:** 2026-09-07
+- **Objetivo:** el guard ya existía (`flujo-critico.spec.ts`); suite 11/12 por
+  locator `.last()` que atrapó el select "Modelo de embedding" nuevo.
+- **Resultado:** ✅ fix 3 líneas (locator `selectMode` + filtro "Híbrido");
+  `npx playwright test` 12/12. Decisión sustancia-sobre-forma: no duplicar spec
+  con nombre literal (rename de 1 línea si el owner lo exige).
+- **Commit:** c61642d9

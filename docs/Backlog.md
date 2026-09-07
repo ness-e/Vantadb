@@ -204,10 +204,8 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | AUD-042 | Media | Upgrade tantivy ≥0.18 — elimina allowlist RUSTSEC-2026-0253 + desbloquea lru 0.18 (security debt, rec#6) | Cargo.toml (tantivy), deny.toml | 🟡 | 🟡 Media | 🔴 BLOQUEADO upstream — verificado 2026-08-13: tantivy 0.26.1 (última publicada) fija `lru ^0.16.3`; el fix (`lru = "0.18.2"`) está en tantivy main (0.27.0) pero NO publicada en crates.io (404). Re-evaluar cuando tantivy ≥0.27.0 publique: bump tantivy + lru directo a 0.18.2 y remover allowlist. Comentario deny.toml actualizado con el estado. |
 | REVIEW-10 | Alta | God-file `cli_server.rs` ~3800-4141 líneas (routing + RBAC + TLS + OTEL + tests inline) — blast radius total del server en un archivo. Split por concern bajo `src/server/`; congelar features nuevas ahí | src/cli_server.rs | 🟠 | 🔴 Alta | 🟠 Abierta — derivada de review-full-20260822 H06-ARCH-001 |
 | BND-08 | 🔴 P0 | **Pipeline npm release napi-rs** (H-01): nunca publicado (E404); crear workflow CI create-npm-dirs/artifacts/prepublish modelo LanceDB/napi.rs, 5 targets + musl futuro. Origen: research-vantadb-node-20260825 | .github/workflows/, antadb-node/package.json | 🔴 | 🔴 Alta | Pendiente |
-| PERF-BENCH-01 | 🟡 | **Benchmark A/B vantadb-node nativo vs vantadb-ts WASM** (H-09): insert/search p99 + tamaño binario; decide posicionamiento (decisión tomada: native primario en Node condicionado a números). Regla 9. Origen: research-vantadb-node-20260825 | benches nuevos | 🟡 | 🟠 Media | Pendiente |
 | ~~FIND-26~~ | Baja | ✅ RESUELTA (remove, 2026-08-25): `src/wal_archiver.rs` eliminado + export/feature `pitr` removidos + docs actualizados (FEATURES.md, EXPERIMENTAL_FEATURES.md, ADR-014 superseded). Decisión del lead basada en RES-02 §2b: PITR necesita base snapshot + replay (prerrequisito grande sin consumer); código conservado en git history (`git log --follow src/wal_archiver.rs`) | research res02-backup-restore.md §2b · ADR-014 | 🟠 | 🟡 Media | Completada |
 
-| FIND-47 | Baja | `handle_tools_call` complejidad 295 (dispatcher MCP): match gigante 20+ brazos, 8 scans en loops batch — no hotspot algorítmico; si crece, extraer sub-dispatchers. Origen: codegraph-20260827-143245 Fase 5 | vantadb-mcp/src/handlers/tools.rs:549 | 🟢 | 🟢 Baja | Pendiente |
 | FIND-48 | Alta | Split `src/index/graph.rs` 1846L — god-file HNSW: extraer `graph/hnsw.rs`, `graph/search.rs`, `graph/serialize.rs` por concern (verificado 2026-09-02: 75372 bytes, mayor archivo src) | `src/index/graph.rs` | 🟠 2-3d | 🟡 Media | ⬜ Pendiente |
 | FIND-49 | Media | Split `src/sdk/types.rs` 1699L — tipos SDK monolíticos: extraer `types/record.rs`, `types/search.rs`, `types/graph.rs` (verificado 2026-09-02: 63035 bytes) | `src/sdk/types.rs` | 🟡 1-2d | 🟡 Media | ⬜ Pendiente |
 | FIND-50 | Media | Split `src/parser/mod.rs` 1682L — parser IQL monolítico: extraer `parser/grammar.rs`, `parser/lexer.rs` por concern (verificado 2026-09-02: 64546 bytes) | `src/parser/mod.rs` | 🟡 1-2d | 🟡 Media | ⬜ Pendiente |
@@ -420,7 +418,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Módulo | Sev | Hallazgo → Acción | Referencia | Estado |
 |----|--------|-----|-------------------|------------|--------|
-| `MOD-05` | core | 🟢 | Deprecar `InMemoryEngine` hacia StorageEngine in-memory: elimina clase de bug MOD-01 y ~850 líneas | `engine.rs:72` · core.md R5 | ❌ Pendiente |
 
 ---
 
@@ -449,10 +446,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | `UX-10` | 🟢 | **Densidad del grid MEMORIAS**: Payload max-w fijo + TTL w-24 + acciones ~90px → desborde horizontal a 1440px con Inspector abierto; sin toggle de visibilidad de columnas | `DataExplorer.tsx:265,169,620-641` | ⬜ Pendiente |
 | `UX-11` | 🟢 | **Estados vacíos sin salida**: "Sin registros."/"No matches." sin acción siguiente (botón contextual "Ir a Ingestar" / "Limpiar búsqueda") | `DataExplorer.tsx:797-798`, `ResultsList.tsx:13-17` | ⬜ Pendiente |
 | `UX-12` | 🟢 | **RESUMEN sin énfasis primario**: 7 cards + Métricas + KPIs + SOP + Export compiten con el mismo peso (border 3-4 + sombra); título "VISTA GENERAL" se renderiza 2 veces con layouts distintos (card de carga vs h1) → salto visual | `HomeOverview.tsx:228-249`, `WorkspaceShell.tsx:835-873` | ⬜ Pendiente |
-| `UX-13` | 🟢 | **Banner audit filtra internos**: mensaje con `Unsupported("audit log no configurado")`, `NativeConnection::open` — redactar para usuario + `<details>` técnico | `ActivityPanel.tsx:149-158` | ⬜ Pendiente |
 | `UX-15` | 🟢 | **Misc menor**: badge `err` = `warn` en MetricsGrid (usar `text-destructive`); 2 formateadores de bytes (decimal vs binario) — extraer `fmtBytes` compartido; splash no saltable por teclado; notice bar sin botón ✕ enfocable; microcopy ES/EN mezclado ("waiting…"/"check"); botones sin clase `press` en ActivityPanel; skeleton en IndicesLens mientras llega el snapshot; párrafo de jerga en header Retrieval + magic number `h-[calc(100dvh-112px)]` duplicado | `MetricsGrid.tsx:120-136,7-12`, `KpiCards.tsx:16-18`, `SplashScreen.tsx:38-44`, `WorkspaceShell.tsx:752-760`, `ActivityPanel.tsx:111-134`, `IndicesLens.tsx:171-200`, `RetrievalLens.tsx:234-238` | ⬜ Pendiente |
-| `UX-17` | 🟢 | **Grid no se refresca tras ingest manual**: IngestForm hace `onDone` (notice) pero no remonta el DataExplorer (`gridKey`) — el registro nuevo no aparece hasta pulsar "Traer". Pasar `onRefresh` al IngestForm como ya hace el batch delete | `WorkspaceShell.tsx` (superficie MEMORIAS), `IngestForm.tsx` | ⬜ Pendiente |
-| `UX-19` | 🟢 | **Smoke E2E como guard de regresión**: el recorrido ingest→teclado→borrar→papelera→restore→paleta pasó verde con datos reales — convertirlo en test Playwright permanente (`desktop/e2e/`) para que el flujo crítico no dependa de QA manual | `desktop/` (nuevo e2e), CI | ⬜ Pendiente |
 
 ## P36 - Auditoría AGENTS.md & sistema de agentes (2026-08-24)
 
