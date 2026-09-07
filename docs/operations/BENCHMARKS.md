@@ -733,3 +733,72 @@ Worker threads de LLVM con stack por defecto insuficiente en esta máquina/toolc
 `cargo check --workspace --all-targets` = 0 · `cargo clippy --workspace --all-targets
 --all-features -- -D warnings` = 0 · `cargo fmt --all -- --check` = 0 ·
 `cargo nextest run -p vantadb ivf` = 21/21 pass (incluida la ruta `index::search::tests::test_ivf_rebuilds_*`).
+
+---
+
+## 15. JS/WASM Bench: vantadb-ts (TS-09) — insert + search p50/p95/p99
+
+> **Source of truth:** `vantadb-ts/bench/bench.mjs` (harness) + `vantadb-ts/bench/smoke.mjs`
+> (smoke 50 x 8d x 5q que aserta la linea `JSON:` machine-readable).
+> Scope: **Node.js primero** — engine WASM in-memory (Node no tiene OPFS).
+> Backends persistentes de browser (OPFS/IDB) pendientes, no medidos aca.
+> Solo numeros propios — comparativa head-to-head prohibida (D1).
+>
+> **Reproduce (Regla 11):**
+> ```bash
+> cd vantadb-ts
+> npm run build          # el bench importa ../dist/vantadb.js
+> npm run bench          # 1 corrida, defaults 2000 x 384d x 200q
+> npm run bench:3x       # 3 corridas (mediana + varianza)
+> node bench/smoke.mjs   # smoke rapido (50 x 8d x 5q)
+> # shape canonico (lento, ~minutos): npm run bench -- --records 10000 --dim 1536 --searches 100
+> ```
+
+### Resultados medidos — vantadb-ts (WASM in-memory, Node)
+
+Dataset: **2000 inserts x 384d (batches de 100) + 200 search queries**, seed 42,
+top_k=10, namespace `bench`. Metodologia pre-mortem: x3 corridas + mediana
+(GC/timers en Windows meten ruido — se reporta mediana, nunca mejor corrida).
+
+| Operacion | p50 mediana (ms) | p95 mediana (ms) | **p99 mediana (ms)** | rango p50 A-B (ms) |
+| :--- | ---: | ---: | ---: | ---: |
+| **insert** (putBatch x 20 batches) | 667.61 | 1065.11 | **1453.48** | 432.13 – 717.21 |
+| **search_vector** (cosine, top_k=10) | 3.84 | 10.97 | **14.28** | 2.75 – 9.63 |
+| **search_hybrid** (vector + BM25 + RRF) | 184.04 | 377.25 | **447.18** | 176.66 – 204.47 |
+
+Corridas crudas (p50/p95/p99): insert (717.21/1449.01/1453.48) · (667.61/924.95/1191.30) ·
+(432.13/1065.11/1798.72); search_vector (3.84/10.97/14.28) · (2.75/4.17/6.00) ·
+(9.63/15.06/19.40); search_hybrid (204.47/455.44/501.43) · (184.04/377.25/447.18) ·
+(176.66/330.79/415.55).
+
+**Lectura:**
+
+- **insert** ~0.5–0.7 s por batch de 100 (~5–7 ms/record) con p99 dominado por el
+  batch mas lento (warmup del grafo HNSW + GC de Node sobre Float64[] de 384d).
+- **search_vector** en un digito de ms (dataset chico, 2000 docs): la varianza
+  relativa es alta (2.75 → 9.63) porque el ruido de GC/timers domina latencias
+  absolutas chicas — causa conocida, no DEFER (pre-mortem: reportar mediana +
+  varianza). Para gate de release sobre p99: subir a 10k+ docs o x5 corridas.
+- **search_hybrid** paga materializacion de snippets + BM25 + RRF por hit
+  (top_k=10); spikes aislados de 2–5 s en 1 query por corrida (GC mayor de Node)
+  inflan el max pero no la mediana — por eso se mediana x3.
+
+### Entorno (Regla 11)
+
+| Campo | Valor |
+| :--- | :--- |
+| Fecha | 2026-09-07 |
+| OS | Windows 11 Pro (build 10.0.26200, 64-bit) |
+| CPU | 12th Gen Intel Core i5-1235U |
+| RAM | 31.78 GB |
+| Runtime | Node v26.8.1 (ESM `.wasm` nativo; warning ExperimentalWarning esperado) |
+| VantaDB version | 0.5.0 (`vantadb-ts` + `vantadb-wasm` prebuilt) |
+| Dataset seed | 42 (deterministico, hardcoded en `bench.mjs`) |
+| Storage | in-memory WASM (sin OPFS en Node) |
+| Comando | `npm run bench` (= `node bench/bench.mjs`, defaults 2000/384/200/10/100) |
+
+### Pendiente (no medido aca)
+
+1. Rama browser con OPFS/IDB (persistente) — re-correr el mismo harness en
+   browser y anexar tabla lado a lado.
+2. Shape canonico 100k x 1536d x 1k (valido con Node >= 22, ~5-10 min).

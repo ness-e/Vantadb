@@ -30,7 +30,9 @@
     "test": "vitest run",
     "lint": "eslint .",
     "prepublishOnly": "npm run build",
-    "coverage": "npm run build && c8 --all --src ./src --reporter text --reporter json --reporter json-summary node test-runner.mjs"
+    "coverage": "npm run build && c8 --all --src ./src --reporter text --reporter json --reporter json-summary node test-runner.mjs",
+    "bench": "node bench/bench.mjs",
+    "bench:3x": "node bench/bench.mjs && node bench/bench.mjs && node bench/bench.mjs"
   },
   "repository": {
     "type": "git",
