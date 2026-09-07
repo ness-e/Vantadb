@@ -52,6 +52,9 @@ export default function ImportPaste({
   const [ns, setNs] = useState(defaultNamespace);
   const [busy, setBusy] = useState(false);
   const [report, setReport] = useState<ImportReport | null>(null);
+  // UX-A11Y-01: confirmación inline (patrón IngestForm confirming) — el
+  // window.confirm nativo rompía teclado/SR y el lenguaje de la app.
+  const [confirming, setConfirming] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   // UX-03: overlay del dialog para el trap de foco.
   const dialogRef = useRef<HTMLDivElement>(null);
@@ -63,6 +66,7 @@ export default function ImportPaste({
       setNs(defaultNamespace);
       setReport(null);
       setBusy(false);
+      setConfirming(false);
       requestAnimationFrame(() => textareaRef.current?.focus());
     }
   }, [open, defaultNamespace]);
@@ -85,8 +89,12 @@ export default function ImportPaste({
   const preview = rows.slice(0, PREVIEW_ROWS);
 
   async function handleImport() {
+    if (!parsed || parsed.valid === 0 || busy) return;
+    setConfirming(true);
+  }
+
+  async function doImport() {
     if (!parsed || parsed.valid === 0) return;
-    if (!window.confirm(`Importar ${parsed.valid} registros a ns "${targetNs}"?`)) return;
     setBusy(true);
     try {
       const r = await runImport(rows.filter((x) => x.item !== null), ingestBatch);
@@ -96,6 +104,7 @@ export default function ImportPaste({
       onError(vantaErrorMessage(err));
     } finally {
       setBusy(false);
+      setConfirming(false);
     }
   }
 
@@ -174,6 +183,7 @@ export default function ImportPaste({
               onChange={(e) => {
                 setPaste(e.target.value);
                 setReport(null);
+                setConfirming(false);
               }}
               spellCheck={false}
               rows={7}
@@ -187,13 +197,19 @@ export default function ImportPaste({
               namespace
               <input
                 value={ns}
-                onChange={(e) => setNs(e.target.value)}
+                onChange={(e) => {
+                  setNs(e.target.value);
+                  setConfirming(false);
+                }}
                 className="w-40 border-2 border-foreground bg-background px-1.5 py-0.5 font-tech text-[11px] outline-none focus:border-neon"
               />
             </label>
             <button
               className={`${btnBase} bg-background`}
-              onClick={() => setPaste(EXAMPLE_CSV)}
+              onClick={() => {
+                setPaste(EXAMPLE_CSV);
+                setConfirming(false);
+              }}
               disabled={busy}
               title="Cargar CSV de ejemplo"
             >
@@ -280,16 +296,40 @@ export default function ImportPaste({
           )}
         </div>
 
-        <footer className="flex items-center gap-2 border-t-4 border-foreground bg-card px-4 py-3">
+        <footer className="flex flex-wrap items-center gap-2 border-t-4 border-foreground bg-card px-4 py-3">
           {busy && (
             <span className="font-tech text-[10px] uppercase tracking-widest text-accent-text" role="status">
               importando…
             </span>
           )}
+          {confirming && (
+            <div role="alert" className="flex flex-wrap items-center gap-2 border-2 border-foreground bg-muted px-2 py-1.5">
+              <span className="font-tech text-[10px] uppercase tracking-widest">
+                Importar {parsed?.valid ?? 0} registros a ns “{targetNs}”?
+              </span>
+              <button
+                type="button"
+                onClick={() => void doImport()}
+                disabled={busy}
+                className="press border-2 border-foreground bg-neon px-2 py-1 text-[10px] font-bold text-background"
+              >
+                CONFIRMAR IMPORT
+              </button>
+              <button
+                type="button"
+                onClick={() => setConfirming(false)}
+                disabled={busy}
+                className="press border-2 border-foreground bg-background px-2 py-1 text-[10px]"
+                aria-label="Cancelar importación"
+              >
+                ✕ CANCELAR
+              </button>
+            </div>
+          )}
           <button
             className={`${btnBase} ml-auto bg-background`}
             onClick={handleImport}
-            disabled={disabled}
+            disabled={disabled || confirming}
             title="Importar registros válidos en chunks de 50"
           >
             ⤓ IMPORTAR {parsed?.valid ?? 0}
