@@ -3,7 +3,7 @@ title: Node.js Native SDK Documentation
 type: api
 status: active
 tags: [vantadb, api, node]
-last_reviewed: 2026-08-26
+last_reviewed: 2026-09-07
 aliases: []
 ---
 
@@ -16,6 +16,20 @@ aliases: []
 ([`vantadb`](TS_SDK.md)): the native `.node` module gives Node.js real
 filesystem persistence (fjall/WAL/fsync) that WASM cannot provide, plus
 multi-threaded execution via Tokio's blocking pool.
+
+## Native vs WASM — which binding to use
+
+|  | `vantadb-node` (native, this doc) | `vantadb-ts` (WASM) |
+|---|---|---|
+| Node.js ≥ 18 (backend, CLIs, agents) | ✅ **recommended** — real filesystem persistence (fjall/WAL/fsync) | ✅ works (in-memory in Node; no OPFS outside browsers) |
+| Bun / Deno | ⚠️ loads via Node compat — prefer WASM there | ✅ preferred path |
+| Browser / edge runtimes | ❌ native `.node` cannot load | ✅ only path |
+| Persistence | ✅ disk (fjall) + `":memory:"` opt-in | ⚠️ OPFS/IDB in browsers, memory-only in Node |
+| Performance numbers | harness only (`npm run bench`, PERF-BENCH-01) — claims published by release lead | citable bench in [BENCHMARKS.md §15](../operations/BENCHMARKS.md#15-jswasm-bench-vantadb-ts-ts-09--insert--search-p50p95p99) (TS-09) |
+
+> **Fairness caveat (by design):** native runs persistent fjall storage
+> (fsync included); WASM in Node is in-memory only. Native pays persistence
+> costs WASM never sees — compare harnesses, not headlines.
 
 ## Installation
 
@@ -70,7 +84,8 @@ blocking pool, so the JS event loop is never blocked.
 | Runtime | Support | Notes |
 |---------|---------|-------|
 | Node.js ≥ 18 | ✅ | ESM (`import`) and CJS (`require`) |
-| Bun / Deno | ⚠️ | Loads via Node compat; prefer the WASM SDK (`vantadb`) there |
+| Bun | ⚠️ | Loads via Node compat (`bun add` + `import`); no prebuilt Bun target — prefer the WASM SDK (`vantadb`) for Bun-first projects |
+| Deno | ⚠️ | Requires `--allow-read --allow-write --allow-ffi` and Node compat; prefer the WASM SDK (`vantadb`) for Deno-first projects |
 
 ### CommonJS
 
@@ -98,6 +113,37 @@ const req: SearchRequest = { namespace: "ts", query_vector: [1, 0], top_k: 3 };
 const hits = await db.search(req);
 await db.close();
 ```
+
+### Bun (via Node compat)
+
+```ts
+// bun add vantadb-node
+import { VantaDb } from "vantadb-node";
+
+const db = await VantaDb.connect(":memory:");
+await db.put({ namespace: "ns", key: "k", payload: "hello from bun" });
+console.log((await db.get("ns", "k"))?.payload);
+await db.close();
+```
+
+> Bun-first project? Prefer the WASM SDK (`vantadb`, see
+> [TS_SDK.md](TS_SDK.md)) — no prebuilt Bun target is shipped.
+
+### Deno (via Node compat, permissions required)
+
+```ts
+// deno add npm:vantadb-node
+// deno run --allow-read --allow-write --allow-ffi main.ts
+import { VantaDb } from "npm:vantadb-node";
+
+const db = await VantaDb.connect(":memory:");
+await db.put({ namespace: "ns", key: "k", payload: "hello from deno" });
+console.log((await db.get("ns", "k"))?.payload);
+await db.close();
+```
+
+> Deno-first project? Prefer the WASM SDK (`vantadb`, see
+> [TS_SDK.md](TS_SDK.md)).
 
 ## API Reference
 
@@ -129,6 +175,32 @@ manual type overrides). Summary:
 | `graphIsDag(roots)` | Whether the reachable subgraph is a DAG |
 | `graphFilteredTraversal(roots, maxDepth, direction, filter?)` | BFS with `{ labels?, time_range? }` edge filter |
 | `graphDegree(roots)` | Degree centrality entries `{ id, in_degree, out_degree }` |
+| `versions(ns, key)` | Every retained version of a record, ascending (v1..vN) |
+| `getVersion(ns, key, version)` | One historical version, or `null` |
+| `supersede(ns, oldKey, newKey)` | Mark `oldKey` superseded by `newKey` (ADR-028) |
+| `vacuum()` | Purge HNSW tombstones → `VacuumReport` |
+| `rebuildIndex()` | Rebuild vector/derived/text/scalar indexes → `RebuildReport` |
+| `compactLayout()` | Compact vector store file → estimated bytes reclaimed (`bigint`) |
+| `compactWal()` | Flush, archive WAL, start fresh |
+| `purgeExpired()` | Delete TTL-expired records → count purged (`bigint`) |
+| `deleteByFilter(ns, filter)` | Delete by metadata filter (≥1 item) → count deleted (`bigint`) |
+| `count(ns, filter?)` | Count records, optionally filtered (`bigint`; `null` = all) |
+| `similarToKey(ns, key, topK)` | Records similar to an existing record's vector (source excluded) |
+| `searchWithMethod(req, method?)` | `search()` with explicit backend (`Hnsw`/`Ivf`/`Flat`/`DiskAnn`/`Scann`, `null` = auto) |
+| `searchMulti(namespaces, req)` | Search several namespaces at once, merged by descending score |
+
+> **⚠️ `bigint` runtime truth (FIND-BND12-01):** `count()`, `purgeExpired()`,
+> `compactLayout()`, and `deleteByFilter()` return **`bigint`** at runtime
+> (napi-rs maps Rust `u64` → BigInt — verified by `tests/api.test.ts`,
+> BND-12). `index.d.ts` still declares `Promise<number>` for these — the
+> declaration is stale; **trust the runtime**. Compare with `0n`, or wrap
+> with `Number(...)` when you need a number:
+>
+> ```js
+> const n = await db.count("docs", null);
+> console.log(n === 0n ? "empty" : `${n} records`); // bigint comparison
+> const purged = Number(await db.purgeExpired());   // safe for small counts
+> ```
 
 ### Memory lifecycle
 
@@ -204,6 +276,50 @@ await db.deleteNode("42", "cleanup");
 await db.close();
 ```
 
+### Record lifecycle (versions & supersede)
+
+```js
+await db.put({ namespace: "lifecycle", key: "v1", payload: "first" });
+await db.put({ namespace: "lifecycle", key: "v2", payload: "second" });
+await db.supersede("lifecycle", "v1", "v2"); // both keys must exist and differ
+
+const history = await db.versions("lifecycle", "v1"); // v1..vN ascending
+const first = await db.getVersion("lifecycle", "v1", 1); // { … version: 1 }
+const live = await db.get("lifecycle", "v1"); // live record carries superseded_by: "v2"
+```
+
+### Advanced search
+
+```js
+// Metadata-filtered count + delete (FilterItem: { field, op, value })
+const n = await db.count("docs", [{ field: "lang", op: "Eq", value: { String: "en" } }]);
+const deleted = await db.deleteByFilter("docs", [{ field: "lang", op: "Eq", value: { String: "en" } }]);
+// op is one of: Eq | Neq | Gt | Lt | Gte | Lte (value uses the tagged VantaValue form)
+
+// "More like this" from an existing record's vector
+const similar = await db.similarToKey("docs", "seed-key", 5);
+
+// Pin the dense-vector backend (null/undefined = automatic routing)
+const flat = await db.searchWithMethod({ namespace: "docs", query_vector: [1, 0] }, "Flat");
+
+// One call across namespaces (request.namespace is ignored)
+const merged = await db.searchMulti(["docs", "notes"], { namespace: "", query_vector: [1, 0], top_k: 5 });
+```
+
+### Maintenance
+
+```js
+const vacuum = await db.vacuum();
+// { scanned_nodes, removed_nodes, reclaimed_bytes, duration_ms, success }
+
+const rebuild = await db.rebuildIndex();
+// { scanned_nodes, indexed_vectors, skipped_tombstones, duration_ms, derived_rebuild_ms, index_path, success }
+
+const reclaimed = await db.compactLayout(); // bigint: estimated bytes reclaimed
+await db.compactWal();                      // flush + archive WAL + fresh start
+const purged = await db.purgeExpired();     // bigint: TTL-expired records removed
+```
+
 ## Error Handling
 
 Rejected promises carry descriptive messages from the Rust engine, e.g.:
@@ -212,6 +328,21 @@ Rejected promises carry descriptive messages from the Rust engine, e.g.:
 - `'query_vector' exceeds max vector dimension 10000` — FFI dimension cap
 - `database is closing` — operation after `close()` began
 - `invalid direction 'Sideways': expected 'Forward', 'Reverse', or 'Both'`
+
+Engine failures are prefixed with the stable machine-readable code
+(`"{VANTADB_CODE}: {message}"`, ERR-TS-01 — e.g. `VANTADB_NOT_FOUND: …`),
+so you can branch on `err.message` without an error class hierarchy:
+
+```js
+try {
+  await db.getNode("nope");
+} catch (err) {
+  if (String(err.message).startsWith("VANTADB_NOT_FOUND")) {
+    // handle missing node
+  }
+  throw err;
+}
+```
 
 Use `.catch()` or try/catch on every await; there is no error class hierarchy.
 
