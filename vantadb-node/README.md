@@ -2,6 +2,11 @@
 
 VantaDB native Node.js bindings via [napi-rs](https://napi.rs) — persistent embedded memory & vector search, with graph traversal and hybrid search. The native backend to [`vantadb-ts`](../vantadb-ts) (WASM).
 
+> **Full reference:** [`docs/api/NODE_SDK.md`](../docs/api/NODE_SDK.md) is the
+> canonical source (quickstart, native-vs-WASM matrix, per-runtime examples,
+> full API incl. lifecycle/maintenance/advanced search). This README is a
+> minimal pointer — details live there.
+
 > **Estado 2026-08-25:** paquete pre-npm (instalación desde source). Ver
 > `docs/reviews/research-vantadb-node-20260825.md` para el plan de distribución.
 
