@@ -292,3 +292,9 @@ aliases: []
 ### STABLE-06 (worker): gate npm TS medido - Resultado: 278/278 vitest (no 264), ~16-21s wall; eslint 1 error fixeado; job tests+lint+pack en release-npm-61.yml. Commit 7ff70b01 (2026-09-05).
 
 ### BND-09 (worker): targets linux musl verificados sin codigo - Resultado: contrato ya cumplido en HEAD via ed75cb0b (napi.targets package.json:39,41 + matriz CI release-npm-node.yml:44-46,50-52); toolchain local sin docker/cross/musl documentado, sin codigo forzado. Gated por BND-08 (pipeline verificado e9843100). Sin commit nuevo (2026-09-06).
+
+### STABLE-07: validar matrix node 7 targets (plan 2026-09-07-followup Wave1)
+- **Fecha:** 2026-09-07
+- **Objetivo:** YAML 7/7 == napi 7/7, suite verde, pack incluye `.node`, 0 `continue-on-error` indebido, tiempo matrix medido.
+- **Resultado:** ✅ `npm test` 35/35; `npm pack --dry-run` 6 files incluye `.node` 5.4MB; único COE con CATEGORY:INFORMATIONAL permitida; veredicto **Heavy justificado** (7 jobs LTO × 3 OS, wall ≈45min worst-case). Validación read-only, 0 código (solo task file).
+- **Dominio:** ci-cd

@@ -219,9 +219,9 @@ Set confirmado vía `question` → "Aprobar plan (Recomendado)".
 - **DoD task:** contrato ✅ · sync · recitation.
 - **Shape Up:** sí/sí/sí.
 - **Task file:** `docs/tasks/STABLE-07.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+- **Estado:** ✅ COMPLETED
+- **Branch:** develop
+- **Commit:** (Wave1 commit, validación read-only)
 
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
@@ -309,4 +309,26 @@ Resultado: OK
 Próxima acción: vanta-lead: git add docs/operations/BENCHMARKS.md docs/tasks/PERF-BENCH-01.md + commit + skill progreso + plan file Task 2 → ✅
 Contrato: Contrato: § BENCHMARKS tabla insert/search p50/p99 + binarios + entorno + cmds ×3 mediana; 0 externas; 0 adjetivos sin número | verificacion: cargo fmt --check exit 0 + cargo clippy --workspace --all-targets --all-features 0 warnings + cargo nextest --profile audit 2945 passed/1 skipped + validate-docs-coverage.ps1 0 gaps (pwsh7) | evidencia: [{claim: 'tabla lado-a-lado medianas ×3 2000x384x200', evidencia: 'docs/operations/BENCHMARKS.md §16 + $env:TEMP/opencode/bench_ab_run{A,B,C}.log', confianza: 'alta'}, {claim: 'ratios p50 wasm/native 2.64x/1.33x/1.57x, search_vector rangos solapados', evidencia: 'BENCHMARKS.md §16 tabla crudas', confianza: 'alta'}, {claim: 'binarios .node 5.13MiB vs wasm 2.40MiB medidos', evidencia: '(Get-Item).Length 5379072/2512705', confianza: 'alta'}] | artefactos: docs/operations/BENCHMARKS.md (§16), docs/tasks/PERF-BENCH-01.md | invariantes: no tocados index.d.ts/src/lib.rs/api.test.ts (FIND-BND12-01), plan file, sin commit | deuda: skill progreso no ejecutada (movería Backlog/plan en Wave0 paralelo — lo hace el lead) | queda_pendiente: commit 'bench: node native vs wasm A/B numbers (PERF-BENCH-01)' lo hace vanta-lead; rama browser OPFS + shape canónico 100k quedan no-medidos (documentados en §16)
 Próxima tarea si completa: UX-19
+=== END RECITATION ===
+
+=== RECITATION 4 ===
+Campaign ID: 5ae0f404-9af7-4ffc-8a6e-117290842c97
+Objetivo activo: STABLE-07: Validar vantadb-node matrix 7 targets
+Estado: in-progress
+Última acción: DISCOVERY: plan+workflow+package.json+lib.rs+Cargo.toml+tests leidos; Gate D/P evaluados; task file STABLE-07.md creado
+Resultado: PARTIAL
+Próxima acción: S1: auditar YAML matrix 7 targets + continue-on-error; luego npm test local
+Contrato: verificacion: DISCOVERY completo (workflow+package.json+lib.rs+tests leidos); evidencia pendiente: npm test local + npm pack + YAML audit | artefactos: docs/tasks/STABLE-07.md (nuevo) | invariantes: no tocar plan file ni archivos Wave0 (66ce130f,63e6a0e5,c61642d9); sin commit (orden runner) | deuda: ninguna aun | queda_pendiente: S1-S4 validacion + cierre verify full
+Próxima tarea si completa: ninguno (Wave1 ultima)
+=== END RECITATION ===
+
+=== RECITATION STABLE-07 ===
+Campaign ID: 5ae0f404-9af7-4ffc-8a6e-117290842c97
+Objetivo activo: STABLE-07: Validar vantadb-node matrix 7 targets (gate npm + pre-requisito publish)
+Estado: completed
+Última acción: S5 cierre: re-verify S1-S4 + fmt exit 0 + medición Heavy documentada; task file sync; SIN commit
+Resultado: ✅
+Próxima acción: Orquestador/vanta-lead: git add docs/tasks/STABLE-07.md + commit + skill progreso + plan Task 4 → ✅
+Contrato: verificacion: npm test 35/35 (10.18s) + npm pack --dry-run 6 files con .node 5.4MB + YAML 7/7 targets + 1xCOE CATEGORY:INFORMATIONAL + cargo fmt --check exit 0; evidencia: claim matrix 7 targets — evidencia: release-npm-node.yml:38-58 vs package.json:36-44 (7/7 match) — confianza: alta; claim suite verde — evidencia: npm test 35/35 vitest 4.1.10 — confianza: alta; claim pack incluye .node — evidencia: npm pack dry-run vantadb_native.win32-x64-msvc.node 5.4MB — confianza: alta; claim Heavy justificado — evidencia: timeouts 20/10/15 + 7 jobs LTO 3 OS — confianza: media; artefactos: docs/tasks/STABLE-07.md (único archivo escrito); invariantes: plan file intacto, archivos Wave0 intactos (66ce130f,63e6a0e5,c61642d9), sin commit (orden runner); deuda: ninguna; queda_pendiente: commit vía vanta-lead + skill progreso + plan Task 4 → ✅
+Próxima tarea si completa: ninguno (Wave1 última)
 === END RECITATION ===
