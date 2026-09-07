@@ -22,9 +22,10 @@ use crate::handlers;
 use crate::inject::{self, Protocol};
 use crate::mem_command;
 use crate::memory_tools;
-use crate::rate_limit::{self, RateDecision, RateLimiter};
+use crate::rate_limit::{self, RateDecision, RateLimiter, UpstreamHealth};
 use crate::report::{model_from_body, now_ms_u64, Reporter, TurnReport, TurnTimer};
-use crate::session::{session_key_from_headers, SessionStore};
+use crate::session::claude_code::CcRequestKind;
+use crate::session::{parse_stage, session_key_from_headers, SessionStore};
 use crate::sse_intercept;
 use crate::writeback::WriteBack;
 
@@ -45,10 +46,28 @@ pub struct AppState {
     pub sessions: Arc<SessionStore>,
     /// In-process sliding-window rate limiter (D24/D35).
     pub limiter: Arc<RateLimiter>,
+    /// Upstream health tracker (PRX-01 S4): flips `limiter` degraded on
+    /// 3×429/5xx, recovers on 5×éxito.
+    pub upstream_health: Arc<UpstreamHealth>,
     /// L0 write-back coordinator (MEM-27).
     pub writeback: Arc<WriteBack>,
     /// Per-turn structured reporting (MEM-27).
     pub reporter: Arc<Reporter>,
+}
+
+/// PRX-01: true when an Anthropic request is a standalone CC sidequery
+/// (TITLE / verify_api_key — no marker, empty tools, thinking disabled).
+/// Sidequeries bypass session resolution, injection AND turn capture:
+/// they are not conversation and must not pollute memory. Malformed or
+/// non-Anthropic bodies never bypass (fail onto the full pipeline).
+fn is_cc_sidequery(protocol: Protocol, body: &[u8]) -> bool {
+    if !matches!(protocol, Protocol::Anthropic) {
+        return false;
+    }
+    let Ok(value) = serde_json::from_slice::<serde_json::Value>(body) else {
+        return false;
+    };
+    crate::session::claude_code::classify_cc_request(&value) == CcRequestKind::Sidequery
 }
 
 impl AppState {
@@ -82,6 +101,7 @@ impl AppState {
         }
         Ok(Self {
             limiter: RateLimiter::new(config.server.rate_limit_per_minute).into(),
+            upstream_health: UpstreamHealth::new().into(),
             writeback: WriteBack::new(persist_path).into(),
             reporter: reporter.into(),
             config: Arc::new(config),
@@ -113,8 +133,9 @@ impl AppState {
             .await;
         // D47/MEM-50: completed request → L0 turn capture. Fire-and-forget
         // AFTER the response is built — a slow or failing memory write can
-        // never delay or break the forward.
-        if response.status().is_success() {
+        // never delay or break the forward. Sidequeries bypass capture:
+        // they are not conversation turns (PRX-01).
+        if response.status().is_success() && !is_cc_sidequery(protocol, &body) {
             self.capture_turn(protocol, headers, space_id, &model, &body);
         }
         self.reporter.emit(&TurnReport {
@@ -164,8 +185,23 @@ impl AppState {
         if self.config.mem_command.enabled {
             if let Some(cmd) = mem_command::parse(&body) {
                 tracing::info!(command = %cmd.command, "mem: command intercepted");
-                return mem_command::respond(&mem_command::execute(&cmd));
+                // Commands run pre-session (work without context): scope to the
+                // header key when present, else to all turns (PRX-01).
+                let session_key = session_key_from_headers(headers).unwrap_or_default();
+                return mem_command::respond(&mem_command::execute(
+                    &self.memory,
+                    &session_key,
+                    &cmd,
+                ));
             }
+        }
+
+        // 3b) PRX-01: CC sidequeries are standalone (TITLE/verify_api_key)
+        // — forward verbatim, skipping session resolution + injection.
+        // Auth, rate-limit and mem-command above still apply.
+        if is_cc_sidequery(protocol, &body) {
+            tracing::debug!("cc sidequery — verbatim forward");
+            return self.forward_raw(wire_path, headers, body).await;
         }
 
         // 4) D26: resolve/create the session and refresh its TTL clock.
@@ -217,6 +253,24 @@ impl AppState {
         self.writeback.track(format!("turn:{session}"), job);
     }
 
+    /// PRX-01 S4: observe one upstream status and flip the limiter's
+    /// degraded flag on enter/recover edges. Transport errors
+    /// (timeout/unreachable) count as 503-class failures — the upstream
+    /// didn't serve the request.
+    fn note_upstream(&self, status: u16) {
+        match self.upstream_health.observe(status) {
+            Some(true) => {
+                tracing::warn!(status, "upstream degraded — fail-open rate limiting");
+                self.limiter.set_degraded(true);
+            }
+            Some(false) => {
+                tracing::info!("upstream recovered — rate limiting enforced");
+                self.limiter.set_degraded(false);
+            }
+            None => {}
+        }
+    }
+
     /// Verbatim forward (streaming passthrough).
     async fn forward_raw(
         &self,
@@ -224,7 +278,8 @@ impl AppState {
         headers: &HeaderMap,
         body: Bytes,
     ) -> Response<Body> {
-        self.forwarder
+        match self
+            .forwarder
             .forward(
                 &self.config.upstream,
                 Method::POST,
@@ -233,7 +288,16 @@ impl AppState {
                 body,
             )
             .await
-            .unwrap_or_else(IntoResponse::into_response)
+        {
+            Ok(resp) => {
+                self.note_upstream(resp.status().as_u16());
+                resp
+            }
+            Err(e) => {
+                self.note_upstream(503);
+                e.into_response()
+            }
+        }
     }
 
     /// O2 agentic loop (D46/D48): forward, buffer the upstream SSE response,
@@ -277,8 +341,14 @@ impl AppState {
                 )
                 .await;
             let (parts, body) = match response {
-                Ok(response) => response.into_parts(),
-                Err(e) => return e.into_response(),
+                Ok(response) => {
+                    self.note_upstream(response.status().as_u16());
+                    response.into_parts()
+                }
+                Err(e) => {
+                    self.note_upstream(503);
+                    return e.into_response();
+                }
             };
             // Only successful SSE responses are interceptable; anything else
             // flows through untouched.
@@ -347,6 +417,7 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/snapshot", get(snapshot))
+        .route("/session/advance", post(session_advance))
         .route(
             "/{agent}/{spaceId}/v1/chat/completions",
             post(handlers::openai::chat_completions),
@@ -361,6 +432,41 @@ pub fn router(state: AppState) -> Router {
 
 async fn health() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "status": "ok" }))
+}
+
+/// `POST /session/advance` (PRX-01): explicit session trigger alongside the
+/// `x-vanta-session` header. Body: `{ "target": "team"|"agent"|"task",
+/// "entity_id": "<id>" }`. Requires auth (401); missing key / bad target →
+/// 400; unknown entity or illegal transition → [`crate::error::ProxyError`]
+/// mapping (400).
+async fn session_advance(
+    axum::extract::State(state): axum::extract::State<AppState>,
+    headers: HeaderMap,
+    Json(body): Json<serde_json::Value>,
+) -> Result<Json<serde_json::Value>, crate::error::ProxyError> {
+    use crate::error::ProxyError;
+    state.auth.authenticate(&headers)?;
+    let Some(key) = session_key_from_headers(&headers) else {
+        return Err(ProxyError::InvalidRequest(
+            "missing session key: send `x-vanta-session` (or another session alias)".into(),
+        ));
+    };
+    let target = body
+        .get("target")
+        .and_then(serde_json::Value::as_str)
+        .and_then(parse_stage)
+        .ok_or_else(|| {
+            ProxyError::InvalidRequest("`target` must be one of: team, agent, task".into())
+        })?;
+    let entity_id = body
+        .get("entity_id")
+        .and_then(serde_json::Value::as_str)
+        .filter(|s| !s.trim().is_empty())
+        .ok_or_else(|| ProxyError::InvalidRequest("`entity_id` must be non-empty".into()))?;
+    let stage = state
+        .sessions
+        .advance(&state.auth, &key, target, entity_id)?;
+    Ok(Json(serde_json::json!({ "stage": stage.label() })))
 }
 
 /// Live operational snapshot (DESKTOP-38): recent TurnReports, active
@@ -393,5 +499,61 @@ fn protocol_name(protocol: Protocol) -> &'static str {
         Protocol::OpenAI => "openai",
         Protocol::Anthropic => "anthropic",
         Protocol::Responses => "responses",
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn anthropic_body(
+        messages: serde_json::Value,
+        extra: Option<(&str, serde_json::Value)>,
+    ) -> Vec<u8> {
+        let mut b = json!({"model": "claude-x", "messages": messages});
+        if let Some((k, v)) = extra {
+            b[k] = v;
+        }
+        serde_json::to_vec(&b).expect("serialize")
+    }
+
+    fn user_msg(content: serde_json::Value) -> serde_json::Value {
+        json!({"role": "user", "content": content})
+    }
+
+    #[test]
+    fn sidequery_body_on_anthropic_bypasses_pipeline() {
+        // PRX-01: standalone TITLE-style request (no marker, no tools,
+        // thinking off) skips session/inject/capture.
+        let body = anthropic_body(
+            json!([user_msg(json!("title this"))]),
+            Some(("thinking", json!({"type": "disabled"}))),
+        );
+        assert!(is_cc_sidequery(Protocol::Anthropic, &body));
+    }
+
+    #[test]
+    fn main_and_fork_bodies_stay_on_pipeline() {
+        let mut marked = user_msg(json!([{"type":"text","text":"latest"}]));
+        marked["content"][0]["cache_control"] = json!({"type": "ephemeral"});
+        let main = anthropic_body(json!([user_msg(json!("hi")), marked]), None);
+        assert!(!is_cc_sidequery(Protocol::Anthropic, &main));
+
+        let mut fork_marked = user_msg(json!([{"type":"text","text":"prefix"}]));
+        fork_marked["content"][0]["cache_control"] = json!({"type": "ephemeral"});
+        let fork = anthropic_body(json!([fork_marked, user_msg(json!("new tail"))]), None);
+        assert!(!is_cc_sidequery(Protocol::Anthropic, &fork));
+    }
+
+    #[test]
+    fn non_anthropic_and_garbage_never_bypass() {
+        let body = anthropic_body(
+            json!([user_msg(json!("title this"))]),
+            Some(("thinking", json!({"type": "disabled"}))),
+        );
+        assert!(!is_cc_sidequery(Protocol::OpenAI, &body));
+        assert!(!is_cc_sidequery(Protocol::Anthropic, b"not json"));
+        assert!(!is_cc_sidequery(Protocol::Anthropic, b"{}"));
     }
 }

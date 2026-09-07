@@ -19,7 +19,11 @@ use crate::auth::AuthDb;
 use crate::error::ProxyError;
 
 /// Header aliases consulted in order; first present wins (D26).
-pub const SESSION_HEADER_ALIASES: [&str; 5] = [
+///
+/// `x-vanta-session` (PRX-01) is the proxy's own explicit trigger and takes
+/// top priority; the TDAM parity order below it is unchanged.
+pub const SESSION_HEADER_ALIASES: [&str; 6] = [
+    "x-vanta-session",
     "x-conversation-id",
     "x-session-id",
     "x-claude-code-session-id",
@@ -54,8 +58,8 @@ impl Stage {
         self != Stage::Task
     }
 
-    /// Stable wire label (`/snapshot`).
-    fn label(self) -> &'static str {
+    /// Stable wire label (`/snapshot`, `/session/advance`).
+    pub(crate) fn label(self) -> &'static str {
         match self {
             Stage::Team => "team",
             Stage::Agent => "agent",
@@ -85,6 +89,17 @@ struct Entry {
 #[derive(Default)]
 pub struct SessionStore {
     sessions: Mutex<HashMap<String, Entry>>,
+}
+
+/// Parse a `POST /session/advance` body target (PRX-01). Case-insensitive,
+/// surrounding whitespace ignored; anything else is `None` (→ 400).
+pub fn parse_stage(target: &str) -> Option<Stage> {
+    match target.trim().to_ascii_lowercase().as_str() {
+        "team" => Some(Stage::Team),
+        "agent" => Some(Stage::Agent),
+        "task" => Some(Stage::Task),
+        _ => None,
+    }
 }
 
 /// Extract the session key from headers (alias priority order, trimmed).
@@ -227,6 +242,25 @@ mod tests {
         EntityStore::new(&db.engine())
             .entity_set("default", collection, id, HashMap::new())
             .expect("seed entity");
+    }
+
+    #[test]
+    fn x_vanta_session_header_wins_over_aliases() {
+        // PRX-01: the proxy's own trigger header has top priority.
+        let mut h = HeaderMap::new();
+        h.insert("x-conversation-id", "from-conv".parse().expect("hv"));
+        h.insert("x-vanta-session", "from-vanta".parse().expect("hv"));
+        assert_eq!(session_key_from_headers(&h).as_deref(), Some("from-vanta"));
+    }
+
+    #[test]
+    fn parse_stage_accepts_team_agent_task() {
+        // PRX-01: `POST /session/advance` body target values.
+        assert_eq!(parse_stage("team"), Some(Stage::Team));
+        assert_eq!(parse_stage("agent"), Some(Stage::Agent));
+        assert_eq!(parse_stage("task"), Some(Stage::Task));
+        assert_eq!(parse_stage("bogus"), None);
+        assert_eq!(parse_stage(""), None);
     }
 
     #[test]

@@ -6,7 +6,7 @@
 //! guard.ts:40-51): degraded → allow + warn log, never block the wire.
 
 use std::collections::{HashMap, VecDeque};
-use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicU32, AtomicU64, Ordering};
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -131,6 +131,58 @@ impl RateLimiter {
         RateDecision::Allowed {
             remaining: self.limit - bucket.hits.len() as u32,
         }
+    }
+}
+
+/// Consecutive upstream failures (429/5xx) that flip the limiter into
+/// degraded (PRX-01, decisión 6).
+pub const DEGRADED_ENTER_FAILURES: u32 = 3;
+/// Consecutive upstream successes (< 400) that recover out of degraded
+/// (PRX-01, decisión 6).
+pub const DEGRADED_EXIT_SUCCESSES: u32 = 5;
+
+/// Upstream health tracker (PRX-01 S4): observes upstream HTTP statuses and
+/// tells the caller when to flip [`RateLimiter::set_degraded`].
+/// - failure = 429 or 5xx → failures+=1, successes reset
+/// - success = status < 400 → successes+=1, failures reset
+/// - neutral = other 4xx → no state change (streaks preserved)
+///
+/// Atomics shared via `Arc` across tasks: a lost race only delays the flip
+/// by one observation — acceptable for a heuristic flag.
+pub struct UpstreamHealth {
+    failures: AtomicU32,
+    successes: AtomicU32,
+}
+
+impl UpstreamHealth {
+    pub fn new() -> Self {
+        Self {
+            failures: AtomicU32::new(0),
+            successes: AtomicU32::new(0),
+        }
+    }
+
+    /// Observe one upstream status. Returns `Some(true)` when the caller
+    /// should enter degraded, `Some(false)` when it should recover,
+    /// `None` otherwise (idempotent past the threshold — safe to re-apply).
+    pub fn observe(&self, status: u16) -> Option<bool> {
+        if status == 429 || (500..600).contains(&status) {
+            self.successes.store(0, Ordering::Relaxed);
+            let failures = self.failures.fetch_add(1, Ordering::Relaxed) + 1;
+            return (failures >= DEGRADED_ENTER_FAILURES).then_some(true);
+        }
+        if status < 400 {
+            self.failures.store(0, Ordering::Relaxed);
+            let successes = self.successes.fetch_add(1, Ordering::Relaxed) + 1;
+            return (successes >= DEGRADED_EXIT_SUCCESSES).then_some(false);
+        }
+        None
+    }
+}
+
+impl Default for UpstreamHealth {
+    fn default() -> Self {
+        Self::new()
     }
 }
 
@@ -296,5 +348,74 @@ mod tests {
         let _ = rl.check("s", "m");
         let _ = rl.check("s", "m");
         assert_eq!(rl.hits_total(), 2, "each 429 decision counts");
+    }
+
+    // PRX-01 S4 (RED): upstream health — 3×429/5xx → degraded, 5×éxito → recover.
+
+    #[test]
+    fn three_consecutive_failures_trip_degraded() {
+        let h = UpstreamHealth::new();
+        assert_eq!(h.observe(503), None);
+        assert_eq!(h.observe(429), None);
+        assert_eq!(h.observe(500), Some(true));
+    }
+
+    #[test]
+    fn neutral_4xx_preserves_streaks() {
+        let h = UpstreamHealth::new();
+        assert_eq!(h.observe(503), None);
+        assert_eq!(h.observe(500), None);
+        assert_eq!(h.observe(400), None, "neutral touches nothing");
+        assert_eq!(h.observe(499), None, "neutral touches nothing");
+        assert_eq!(h.observe(500), Some(true), "streak survived neutrals");
+    }
+
+    #[test]
+    fn success_resets_failure_streak() {
+        let h = UpstreamHealth::new();
+        assert_eq!(h.observe(503), None);
+        assert_eq!(h.observe(503), None);
+        assert_eq!(h.observe(200), None, "one success resets failures");
+        assert_eq!(h.observe(503), None);
+        assert_eq!(h.observe(503), None);
+        assert_eq!(h.observe(500), Some(true));
+    }
+
+    #[test]
+    fn five_consecutive_successes_recover() {
+        let h = UpstreamHealth::new();
+        assert_eq!(h.observe(503), None);
+        assert_eq!(h.observe(503), None);
+        assert_eq!(h.observe(503), Some(true));
+        for _ in 0..4 {
+            assert_eq!(h.observe(200), None);
+        }
+        assert_eq!(h.observe(201), Some(false));
+    }
+
+    #[test]
+    fn failure_resets_success_streak() {
+        let h = UpstreamHealth::new();
+        for _ in 0..4 {
+            assert_eq!(h.observe(200), None);
+        }
+        assert_eq!(h.observe(503), None, "failure resets successes");
+        for _ in 0..4 {
+            assert_eq!(h.observe(200), None);
+        }
+        assert_eq!(h.observe(200), Some(false));
+    }
+
+    #[test]
+    fn status_boundaries_classify_per_spec() {
+        // éxito = status < 400; fracaso = 429 o 5xx; resto neutral.
+        let h = UpstreamHealth::new();
+        assert_eq!(h.observe(399), None, "399 is success (streak 1)");
+        assert_eq!(h.observe(400), None, "400 neutral");
+        assert_eq!(h.observe(428), None, "428 neutral");
+        assert_eq!(h.observe(430), None, "430 neutral");
+        assert_eq!(h.observe(429), None, "429 failure (streak 1)");
+        assert_eq!(h.observe(599), None, "599 failure (streak 2)");
+        assert_eq!(h.observe(500), Some(true), "third failure trips");
     }
 }

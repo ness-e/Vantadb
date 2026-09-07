@@ -16,7 +16,16 @@ use axum::body::Body;
 use axum::http::{header, StatusCode};
 use axum::response::{IntoResponse, Response};
 use serde_json::Value;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
+use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata};
+
+/// Namespace holding skills created via `mem:create-skill` (PRX-01).
+pub const SKILLS_NAMESPACE: &str = "proxy-skills";
+
+/// Monotonic disambiguator so two skills in the same millisecond keep both
+/// records (same upsert-collision rationale as capture's `TURN_SEQ`).
+static SKILL_SEQ: AtomicU64 = AtomicU64::new(0);
 
 /// The three TDAM commands this proxy understands (D33).
 pub const KNOWN_COMMANDS: [&str; 3] = ["sync", "create-skill", "help"];
@@ -98,12 +107,63 @@ const HELP_TEXT: &str = "**VantaDB mem: commands**\n\n\
 | `mem:help` | Show this reference |\n\n\
 Examples:\n```\nmem:sync\nmem:create-skill summarize database migration notes\nmem:help\n```";
 
-/// Execute a parsed command and return the reply text shown to the user.
-pub fn execute(cmd: &MemCommand) -> String {
+/// Execute a parsed command against the real memory pipeline (PRX-01) and
+/// return the reply text shown to the user.
+/// - `sync` reads back this session's persisted turns (the D47 write path)
+///   and reports the real count — empty session scopes to all turns.
+/// - `create-skill` puts a real record in [`SKILLS_NAMESPACE`].
+/// - `help` / unknown keep static text (no storage involved).
+///
+/// Storage failures degrade into message text: the wire never breaks.
+pub fn execute(memory: &VantaEmbedded, session_key: &str, cmd: &MemCommand) -> String {
     match cmd.command.as_str() {
-        "sync" => "✅ Session memory refreshed (skills / knowledge / tasks).".to_string(),
-        "create-skill" if cmd.is_known() => {
-            format!("✅ Skill creation queued from prompt: “{}”.", cmd.args)
+        "sync" => {
+            let turns = crate::capture::list_turns(memory);
+            let n = if session_key.is_empty() {
+                turns.len()
+            } else {
+                turns
+                    .iter()
+                    .filter(|r| r.payload.contains(session_key))
+                    .count()
+            };
+            format!(
+                "✅ Session memory refreshed: {n} turn(s) stored \
+                 for session `{session_key}` (skills / knowledge / tasks)."
+            )
+        }
+        "create-skill" => {
+            if cmd.args.trim().is_empty() {
+                return "❌ `mem:create-skill` needs a prompt, e.g. \
+                    `mem:create-skill summarize database migration notes`."
+                    .to_string();
+            }
+            let now_ms = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_millis() as u64;
+            let key = format!("{now_ms}-{}", SKILL_SEQ.fetch_add(1, Ordering::Relaxed));
+            let payload = serde_json::json!({
+                "session": session_key,
+                "prompt": cmd.args,
+            })
+            .to_string();
+            let input = VantaMemoryInput {
+                namespace: SKILLS_NAMESPACE.into(),
+                key,
+                payload,
+                metadata: VantaMemoryMetadata::new(),
+                vector: None,
+                sparse_vector: None,
+                ttl_ms: None,
+            };
+            match memory.put(input) {
+                Ok(record) => format!(
+                    "✅ Skill saved from prompt: “{}” ({} v{}).",
+                    cmd.args, record.key, record.version
+                ),
+                Err(e) => format!("❌ couldn't save skill: {e}"),
+            }
         }
         "help" => HELP_TEXT.to_string(),
         other => format!("❌ Unknown command `mem:{other}` — type `mem:help`."),
@@ -166,7 +226,7 @@ mod tests {
         let parsed = parse(&bytes).expect("parsed");
         assert_eq!(parsed.command, "help");
         assert!(
-            execute(&parsed).contains("mem:create-skill"),
+            execute(&test_memory(), "", &parsed).contains("mem:create-skill"),
             "help lists commands"
         );
 
@@ -174,7 +234,7 @@ mod tests {
         let bytes = serde_json::to_vec(&body).expect("serialize");
         let parsed = parse(&bytes).expect("parsed");
         assert_eq!(parsed.args, "db migration summary");
-        assert!(execute(&parsed).contains("db migration summary"));
+        assert!(execute(&test_memory(), "", &parsed).contains("db migration summary"));
     }
 
     #[test]
@@ -199,8 +259,8 @@ mod tests {
     fn unknown_command_gets_typo_fallback_message() {
         let parsed = parse_text("mem:synk").expect("unknown still parses");
         assert!(!parsed.is_known());
-        assert!(execute(&parsed).contains("Unknown command"));
-        assert!(execute(&parsed).contains("mem:help"));
+        assert!(execute(&test_memory(), "", &parsed).contains("Unknown command"));
+        assert!(execute(&test_memory(), "", &parsed).contains("mem:help"));
     }
 
     #[test]
@@ -252,5 +312,93 @@ mod tests {
     #[test]
     fn known_commands_constant_matches_tdam_trio() {
         assert_eq!(KNOWN_COMMANDS, ["sync", "create-skill", "help"]);
+    }
+
+    fn test_memory() -> vantadb::sdk::VantaEmbedded {
+        let config = vantadb::config::VantaConfig {
+            backend_kind: vantadb::storage::BackendKind::InMemory,
+            ..Default::default()
+        };
+        vantadb::storage::StorageEngine::open_with_config(":memory:", Some(config))
+            .map(|engine| vantadb::sdk::VantaEmbedded::from_engine(engine.into()))
+            .expect("in-memory engine")
+    }
+
+    #[tokio::test]
+    async fn sync_reports_real_turn_count_for_session() {
+        // PRX-01: `mem:sync` runs the real pipeline (stored turns), not a stub.
+        let memory = test_memory();
+        for text in ["first turn", "second turn"] {
+            crate::capture::turn_job(memory.clone(), "sess-sync", "anthropic", "sp", "m", text)()
+                .await
+                .expect("seed turn");
+        }
+        crate::capture::turn_job(memory.clone(), "other", "anthropic", "sp", "m", "elsewhere")()
+            .await
+            .expect("seed turn");
+
+        let sync = MemCommand {
+            command: "sync".into(),
+            args: String::new(),
+        };
+        let msg = execute(&memory, "sess-sync", &sync);
+        assert!(msg.contains('2'), "real count for this session, got: {msg}");
+        assert!(msg.contains("sess-sync"));
+
+        let msg = execute(&memory, "nobody", &sync);
+        assert!(msg.contains('0'), "empty session reports zero, got: {msg}");
+    }
+
+    #[test]
+    fn create_skill_persists_a_real_record() {
+        // PRX-01: `mem:create-skill` puts a real record in `proxy-skills`.
+        let memory = test_memory();
+        let cmd = MemCommand {
+            command: "create-skill".into(),
+            args: "summarize db migration notes".into(),
+        };
+        let msg = execute(&memory, "sess-skill", &cmd);
+        assert!(msg.contains("summarize db migration notes"), "got: {msg}");
+
+        let page = memory
+            .list(
+                SKILLS_NAMESPACE,
+                vantadb::sdk::VantaMemoryListOptions {
+                    limit: 10,
+                    ..Default::default()
+                },
+            )
+            .expect("list skills");
+        assert_eq!(page.records.len(), 1);
+        assert!(page.records[0]
+            .payload
+            .contains("summarize db migration notes"));
+        assert!(page.records[0].payload.contains("sess-skill"));
+    }
+
+    #[test]
+    fn create_skill_rejects_empty_prompt_and_degrades_storage_errors() {
+        let memory = test_memory();
+        let empty = MemCommand {
+            command: "create-skill".into(),
+            args: String::new(),
+        };
+        assert!(execute(&memory, "s", &empty).contains("needs a prompt"));
+
+        // Read-only engine → put fails → descriptive text, never a panic.
+        let ro_config = vantadb::config::VantaConfig {
+            backend_kind: vantadb::storage::BackendKind::InMemory,
+            read_only: true,
+            ..Default::default()
+        };
+        let ro = vantadb::storage::StorageEngine::open_with_config(":memory:", Some(ro_config))
+            .map(|engine| vantadb::sdk::VantaEmbedded::from_engine(engine.into()))
+            .expect("ro engine");
+        let cmd = MemCommand {
+            command: "create-skill".into(),
+            args: "something".into(),
+        };
+        let msg = execute(&ro, "s", &cmd);
+        assert!(msg.contains("couldn't save"), "got: {msg}");
     }
 }
