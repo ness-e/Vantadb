@@ -298,3 +298,9 @@ aliases: []
 - **Objetivo:** YAML 7/7 == napi 7/7, suite verde, pack incluye `.node`, 0 `continue-on-error` indebido, tiempo matrix medido.
 - **Resultado:** ✅ `npm test` 35/35; `npm pack --dry-run` 6 files incluye `.node` 5.4MB; único COE con CATEGORY:INFORMATIONAL permitida; veredicto **Heavy justificado** (7 jobs LTO × 3 OS, wall ≈45min worst-case). Validación read-only, 0 código (solo task file).
 - **Dominio:** ci-cd
+
+### STABLE-05: validar wasm gates 1-8 (plan 2026-09-07-cleanup-gates Wave0)
+- **Fecha:** 2026-09-08
+- **Objetivo:** último paquete sin validar: toolchain + check + clippy + fmt + build bundler + test chrome + docs + deny.
+- **Resultado:** ✅ check/clippy/fmt 0 · build 1m06s (wasm 1.6MB) · chrome headless 67/67 · WASM_PERSISTENCE.md sin drift · deny ok (warning no-fatal advisory-not-detected documentado). Ejecución SARL STRATEGY lead-inline (ejecutor dejó G1-G8 con evidencia y murió pre-RESULTADO; 2 aborts infra).
+- **Commit:** 9d338a18
