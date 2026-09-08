@@ -1,7 +1,7 @@
 # FIND-49 — Split src/sdk/types.rs 1699L por dominio
 
 > **Plan:** docs/plans/2026-09-08-backlog.md (Task 2, Wave0)
-> **Estado:** ⏳ IN PROGRESS
+> **Estado:** ✅ COMPLETED (commit e3711dea; re-verificado 2026-09-08: check 0 + sdk:: 412/0 + fmt 0 + API 42/42 idéntica)
 > **Tipo:** refactor (pure move, sin cambio API pública)
 > **Workflow:** refactor (audit → migrate → cleanup → verify → review → accept → close)
 > **SDP:** campaign-executor, source-driven-development, doubt-driven-development, incremental-implementation, test-driven-development, context-engineering, api-and-interface-design (frontend-ui-engineering descartada: no toca web/)
