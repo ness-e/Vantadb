@@ -403,7 +403,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Prio | Fuente |
 |----|-------------|------|--------|
-| GOV-TK2 | **Release** para que el binario MCP exponga las 18 tools skill_*/code_*/wiki_* (skill ya documenta 33; binario publicado tiene 15) | 🔴 | B6 |
 | GOV-TK5 | Split Manual Estratégico según recomendación F2 (negocio→docs/business/ con banner snapshot; estado técnico fuera; archivar monolito) | 🟠 | F2/D-decisión |
 | GOV-TK8 | Benchmarks: mejorar/probar/documentar (insumo: docs/benchmarks/_run_stdout.md se conserva como evidencia de corrida cruda) | 🟡 | owner E1 |
 

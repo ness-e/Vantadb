@@ -290,6 +290,13 @@ Re-escaladas en el propio Backlog (misma fecha): RES-09 (fila WAL a fsync-batchi
 - **WSM-11** (metadata descartada) — SKIP: `record_metadata_drop(1)` + comentario WSM-11 (`vantadb-wasm/src/lib.rs:2355-2363`).
 - **UX-14** (PersonaPanel traga errores) — SKIP: `.catch(onError(vantaErrorMessage))` + comentario UX-14 (`MemoryLens.tsx:173-175`).
 
+## GAP-MUERTO 2026-09-08 (plan 2026-09-07-cleanup-gates — verificado, 0 código)
+
+- **GOV-TK2** (binario MCP expone 15 vs 33 tools) — GAP MUERTO: binario expone
+  79 tools en perfil Full (49 base + 30 extendidas por merge explícito
+  `tools.rs:1003-1022`) == skill "Available MCP Tools (79)". Fila stale en
+  ambos lados. Sin fix, sin commit de código (task file `docs/tasks/GOV-TK2.md`).
+
 ## Stale SKIP 2026-09-07 followup (plan 2026-09-07-followup-bench-a11y — verificado, 0 código)
 
 - **UX-17** (grid no refresca) — SKIP: `onRefresh?.()` en `IngestForm.tsx:65` + wiring `WorkspaceShell.tsx:945,955` + `key={gridKey}`.
