@@ -415,11 +415,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 > **Origen:** evaluación DX solicitada por owner sobre superficies que tocan usuarios (instalación, quickstart, SDKs Python/TS/WASM, docs/api). Hallazgos verificados contra disco hoy. Formato `prompts/findings.md`: fila FIND-* con ref de origen.
 > **Regla:** duplicados parciales referencian su fila MOD existente; no se recrean.
-
-| ID | Sev | Hallazgo → Acción | Referencia | Estado |
-|----|-----|-------------------|------------|--------|
-| `FIND-20` | 🟡 | Sin persistencia nativa de estado de ventana (posición/tamaño/maximizado): cada arranque abre default. Tauri window state plugin o persistencia manual en app config nativa | `desktop/src-tauri/` · research Studio 2026-08-23 | ❌ Pendiente |
-| `FIND-21` | 🟡 | Sin menú contextual nativo ni atajos globales: right-click usa menú del WebView; evaluar tauri menu API + global shortcut plugin + atajos in-app documentados en la guía de uso | `desktop/src/` (0 matches contextmenu) · research Studio 2026-08-23 | ❌ Pendiente |
+> Sin hallazgos pendientes (FIND-20/21 completadas plan 2026-09-10-fixes).
 
 ## P34 - Revisión diseño/UX Vanta Studio (auditoría 3 sub-agentes, 2026-08-24)
 
@@ -557,7 +553,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Effort | Descripción | Archivos | Estado |
 |----|--------|-------------|----------|--------|
-| `DESKTOP-40` | 🔴 | **i18n real ES/EN**: selector idioma en AJUSTES sin backing (DESKTOP-31 deuda); toda la UI ES hardcodeada mientras web usa tt(). Reutilizar patrón tt() de web con catálogos ES/EN; wiring Settings->shell. Origen: INV-desktop H-06 | `desktop/src/pages/Settings.tsx`, `WorkspaceShell.tsx` + catálogo nuevo | ⬜ Pendiente |
+| `DESKTOP-40-slice2` | 🔴 | **i18n resto UI desktop (DEFER de DESKTOP-40 slice 1 ✅ b64cbb30)**: WorkspaceShell nav/topbar/lentes + posible provider; catálogo `desktop/src/i18n/` listo para extender | `desktop/src/components/layout/WorkspaceShell.tsx` + `desktop/src/i18n/` | ⬜ Pendiente (DEFER) |
 | `DESKTOP-41` | 🟢 | **Smoke-test instalador en VM Windows limpia** (Step 3 DESKTOP-24 pendiente): instalar NSIS+MSI, verificar arranque, sidecar server, deep link vanta://, WebView2 bootstrapper | instaladores `desktop/src-tauri/target/release/bundle/*`, VM limpia | ⬜ Pendiente |
 | `DESKTOP-42` | 🔴 | **Bundles macOS/Linux** (prioridad baja): icns ya existe; falta target dmg/app + AppImage/deb, CI matrix y testing por SO. Toda la competencia GUI es cross-platform. Origen: INV-desktop H-09 | `tauri.conf.json:37` targets, `.github/workflows/desktop.yml` | ⬜ Pendiente |
 | `DESKTOP-43` | 🟡 | **Auto-update vía tauri-plugin-updater**, bloqueado por firma (wontfix DEVOPS-10) y endpoint de manifests; desbloquear tras decisión de distribución pública. Origen: INV-desktop H-10 | `tauri.conf.json` plugins, CI release | ⬜ Pendiente |
