@@ -141,21 +141,24 @@ pub fn build_memory_block(db: &VantaEmbedded, session_key: &str) -> String {
     out
 }
 
-/// Prepend `block` to a string field, returning `Some` only on change.
-fn prepend_string_field(body: &mut Value, key: &str, block: &str) {
+/// Prepend `block` to a string field, returning true only on change.
+fn prepend_string_field(body: &mut Value, key: &str, block: &str) -> bool {
     match body.get_mut(key) {
         Some(Value::String(existing)) if !existing.starts_with(block) => {
             *existing = format!("{block}\n\n{existing}");
+            true
         }
-        Some(_) => {} // non-string or already injected — leave alone
+        Some(_) => false, // non-string or already injected — leave alone
         None => {
             body[key] = Value::String(block.to_string());
+            true
         }
     }
 }
 
 /// Merge missing vantage tools into the `tools` array (creating it if absent).
-fn merge_tools(body: &mut Value, protocol: Protocol) {
+/// Returns true only when a tool was added.
+fn merge_tools(body: &mut Value, protocol: Protocol) -> bool {
     let make = |(name, desc): &(&str, &str)| match protocol {
         Protocol::OpenAI | Protocol::Responses => tool_json_openai(name, desc),
         Protocol::Anthropic => tool_json_anthropic(name, desc),
@@ -163,6 +166,7 @@ fn merge_tools(body: &mut Value, protocol: Protocol) {
 
     match body.get_mut("tools") {
         Some(Value::Array(tools)) => {
+            let mut changed = false;
             for spec in TOOL_SPECS.iter() {
                 let present = tools
                     .iter()
@@ -170,11 +174,14 @@ fn merge_tools(body: &mut Value, protocol: Protocol) {
                     .any(|n| n == spec.0);
                 if !present {
                     tools.push(make(spec));
+                    changed = true;
                 }
             }
+            changed
         }
         _ => {
             body["tools"] = Value::Array(TOOL_SPECS.iter().map(make).collect());
+            true
         }
     }
 }
@@ -200,27 +207,42 @@ pub fn inject_into(
     }
 
     // System-prompt position ONLY (D29): never touch history messages.
+    // PRX-04: every arm reports whether it mutated the prompt; a re-inject
+    // of an already-injected body must be a no-op (byte-stable prefix for
+    // prompt caching).
+    let mut prompt_changed = false;
     match protocol {
         Protocol::Anthropic => {
             if let Some(system) = value.get("system").cloned() {
                 match system {
-                    Value::String(existing) if !memory_block.is_empty() => {
+                    Value::String(existing)
+                        if !memory_block.is_empty() && !existing.starts_with(memory_block) =>
+                    {
                         value["system"] = Value::String(format!("{memory_block}\n\n{existing}"));
+                        prompt_changed = true;
                     }
                     Value::Array(blocks) if !memory_block.is_empty() => {
-                        let mut blocks = blocks;
-                        blocks.insert(0, json!({ "type": "text", "text": memory_block }));
-                        value["system"] = Value::Array(blocks);
+                        let already = blocks.first().is_some_and(|b| {
+                            b.get("type").and_then(Value::as_str) == Some("text")
+                                && b.get("text").and_then(Value::as_str) == Some(memory_block)
+                        });
+                        if !already {
+                            let mut blocks = blocks;
+                            blocks.insert(0, json!({ "type": "text", "text": memory_block }));
+                            value["system"] = Value::Array(blocks);
+                            prompt_changed = true;
+                        }
                     }
                     _ => {}
                 }
             } else if !memory_block.is_empty() {
                 value["system"] = Value::String(memory_block.to_string());
+                prompt_changed = true;
             }
         }
         Protocol::Responses => {
             if !memory_block.is_empty() {
-                prepend_string_field(&mut value, "instructions", memory_block);
+                prompt_changed = prepend_string_field(&mut value, "instructions", memory_block);
             }
         }
         Protocol::OpenAI => {
@@ -256,11 +278,18 @@ pub fn inject_into(
                     // No usable messages array → do not invent structure; skip.
                     tracing::debug!("openai body without messages array; prompt skipped");
                 }
+                prompt_changed = injected;
             }
         }
     }
 
-    merge_tools(&mut value, protocol);
+    let tools_changed = merge_tools(&mut value, protocol);
+
+    // PRX-04: nothing changed → None so callers forward the original bytes
+    // verbatim instead of a re-serialization (cache-safe).
+    if !prompt_changed && !tools_changed {
+        return Ok(None);
+    }
 
     serde_json::to_vec(&value)
         .map(Some)
@@ -380,5 +409,123 @@ mod tests {
             "empty block leaves prompt"
         );
         assert!(v["tools"].is_array());
+    }
+
+    /// PRX-04: re-injecting the same body must be byte-identical (prompt-cache
+    /// prefix stability). Applies per provider.
+    fn reinject_stable(protocol: Protocol, raw: &'static [u8], block: &str) {
+        let first = Bytes::from_static(raw);
+        let once = inject_into(&first, protocol, block)
+            .expect("ok")
+            .expect("first injection modifies");
+        let twice = inject_into(&Bytes::from(once.clone()), protocol, block);
+        match twice.expect("ok") {
+            None => {} // ideal: second pass is a no-op
+            Some(second) => assert_eq!(
+                once, second,
+                "second injection must be byte-identical to the first"
+            ),
+        }
+    }
+
+    #[test]
+    fn prx04_prefix_stable_anthropic_string() {
+        reinject_stable(
+            Protocol::Anthropic,
+            br#"{"model":"c","system":"base prompt","messages":[]}"#,
+            "BLOCK",
+        );
+    }
+
+    #[test]
+    fn prx04_prefix_stable_anthropic_array() {
+        reinject_stable(
+            Protocol::Anthropic,
+            br#"{"model":"c","system":[{"type":"text","text":"base"}],"messages":[]}"#,
+            "BLOCK",
+        );
+    }
+
+    #[test]
+    fn prx04_prefix_stable_openai() {
+        reinject_stable(
+            Protocol::OpenAI,
+            br#"{"model":"m","messages":[{"role":"system","content":"S"},{"role":"user","content":"u"}]}"#,
+            "BLOCK",
+        );
+    }
+
+    #[test]
+    fn prx04_prefix_stable_responses() {
+        reinject_stable(Protocol::Responses, br#"{"instructions":"base"}"#, "BLOCK");
+    }
+
+    #[test]
+    fn prx04_noop_returns_none_for_verbatim_forward() {
+        // Empty block + complete tools → nothing to change → None so the
+        // caller forwards the original bytes verbatim (cache-safe).
+        let body = Bytes::from_static(
+            br#"{"messages":[{"role":"user","content":"hi"}],"tools":[{"type":"function","function":{"name":"vanta_memory_capture","description":"d","parameters":{}}},{"type":"function","function":{"name":"vanta_memory_search","description":"d","parameters":{}}}]}"#,
+        );
+        let parsed: Result<Value, _> = serde_json::from_slice(body.as_ref());
+        assert!(parsed.is_ok(), "fixture must parse: {:?}", parsed.err());
+        assert!(parsed.unwrap().is_object(), "fixture must be an object");
+        assert!(
+            inject_into(&body, Protocol::OpenAI, "")
+                .expect("ok")
+                .is_none(),
+            "no prompt change and tools complete → None"
+        );
+    }
+
+    #[test]
+    fn prx04_cache_control_markers_and_tool_calls_preserved() {
+        // Realistic Anthropic fixture: cache breakpoint on a history block +
+        // a hanging tool_use — injection must preserve both byte-identical
+        // after the injected prefix.
+        let body = Bytes::from_static(
+            br#"{"model":"c","system":[{"type":"text","text":"base","cache_control":{"type":"ephemeral"}}],"messages":[{"role":"user","content":[{"type":"text","text":"hi","cache_control":{"type":"ephemeral"}}]},{"role":"assistant","content":[{"type":"tool_use","id":"toolu_1","name":"vanta_memory_search","input":{"query":"x"}}]}]}"#,
+        );
+        let out = inject_into(&body, Protocol::Anthropic, "BLOCK")
+            .expect("ok")
+            .expect("modified");
+        let v: Value = serde_json::from_slice(&out).expect("json");
+        // Injected prefix first, original cacheable block second with marker.
+        assert_eq!(v["system"][0]["text"], "BLOCK");
+        assert_eq!(v["system"][1]["text"], "base");
+        assert_eq!(
+            v["system"][1]["cache_control"],
+            serde_json::json!({"type": "ephemeral"}),
+            "cache breakpoint marker preserved"
+        );
+        // Hanging tool_use untouched.
+        let assistant = &v["messages"][1]["content"][0];
+        assert_eq!(assistant["id"], "toolu_1");
+        assert_eq!(assistant["name"], "vanta_memory_search");
+        // Prefix stable on re-inject.
+        let twice = inject_into(&Bytes::from(out.clone()), Protocol::Anthropic, "BLOCK");
+        match twice.expect("ok") {
+            None => {}
+            Some(second) => assert_eq!(out, second, "stable prefix byte-a-byte"),
+        }
+    }
+
+    #[test]
+    fn prx04_openai_cacheable_prefix_stable_with_tools_present() {
+        // Realistic OpenAI fixture: tools already announced + memory block.
+        let body = Bytes::from_static(
+            br#"{"model":"m","messages":[{"role":"system","content":"BASE"},{"role":"user","content":"hi"}],"tools":[{"type":"function","function":{"name":"other"}}]}"#,
+        );
+        let out = inject_into(&body, Protocol::OpenAI, "BLOCK")
+            .expect("ok")
+            .expect("modified");
+        let v: Value = serde_json::from_slice(&out).expect("json");
+        assert_eq!(v["messages"][0]["content"], "BLOCK\n\nBASE");
+        assert_eq!(v["messages"][1]["content"], "hi", "history intact");
+        let twice = inject_into(&Bytes::from(out.clone()), Protocol::OpenAI, "BLOCK");
+        match twice.expect("ok") {
+            None => {}
+            Some(second) => assert_eq!(out, second, "stable prefix byte-a-byte"),
+        }
     }
 }
