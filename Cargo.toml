@@ -710,9 +710,15 @@ exclude = ["fuzz"]
 default-members = [
     ".",
     "vantadb-python",
+    "vanta-memory",
+    "vantadb-server",
+    "vantadb-mcp",
 ]
-# CATEGORY: EXPERIMENTAL — vantadb-server, vantadb-mcp, vantadb-wasm were removed from
-# default-members. A failure in an experimental crate must not block core CI.
+# CATEGORY: EXPERIMENTAL — vanta-proxy, vantadb-wasm stay out of default-members
+# (STABLE-09 subset per ADR-031 Owner A 2026-09-09: only crates keeping Fast Gate
+# <5min are promoted; proxy = Heavy compile documented STABLE-02, wasm = wasm32 /
+# wasm-pack toolchain extra Tier 3). A failure in an experimental crate must not
+# block core CI.
 # See docs/operations/CI_POLICY.md for the experimental crate policy.
 
 [workspace.package]

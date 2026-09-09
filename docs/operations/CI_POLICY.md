@@ -172,6 +172,40 @@ green, but the circuit-breaker policy is deliberate: a failure in an experimenta
 core CI, and the planned desktop build (`DESKTOP-01b`) depends on being able to consume these crates
 with an empty `[workspace]` decoupling. Re-evaluate after desktop ships.
 
+#### STABLE-09 promotion 2026-09-09 — subset keeping Fast Gate <5min (Owner A)
+
+ADR-031 `accepted` (Owner chose A 2026-09-09: `<5 min` hard). Full-7 expansion
+measured Heavy (STABLE-08: `just verify` cold 8.26m), so only the subset that
+keeps `<5 min` is promoted; the rest stays experimental with Heavy justification:
+
+```toml
+default-members = [
+    ".",
+    "vantadb-python",
+    "vanta-memory",
+    "vantadb-server",
+    "vantadb-mcp",
+]
+```
+
+Excluded (stay in `experimental-check`, non-default): `vanta-proxy` — heaviest
+Rust compile, Heavy wall time documented STABLE-02 + ADR-031 §2 cost table;
+`vantadb-wasm` — `wasm32`/`wasm-pack`/`binaryen` toolchain extra, Tier 3
+(`wasm-test` BEST-EFFORT `continue-on-error`). `ts`/`node` never enter
+`default-members` (npm packages; equivalent gate `release-npm-61.yml`).
+
+Subset measurement 2026-09-09, Windows MSVC box (same host class as STABLE-08):
+`cargo check` (default-members) cold 132s ✅; `cargo nextest run --profile audit`
+(default-members, as `ci-rust-10.yml:test`) warm 296s / 2831 passed ✅ (<5min,
+steady-state second run; first warm 368s with link churn); `cargo package -p
+<memory,server,mcp> --list --allow-dirty` exit 0 ×3 ✅. Cold test-target compile
+on Windows MSVC is Heavy (core alone ~785s first build) — pre-existing for the
+current default too, not marginal to this promotion; CI `ubuntu-latest` + sccache
+warm mitigates (~1.5–2× faster per STABLE-08). `members` unchanged, `Cargo.lock`
+delta 0, `publish = false` intact → `cargo publish` unaffected.
+**Rollback (1 line):** `git revert <promotion-commit>` (restores
+`default-members = [".", "vantadb-python"]`).
+
 #### STABLE-08 measurement 2026-08-27 — branch `test/default-all`, `default-members` expanded, wall time & Heavy verdict (P47 gate 9)
 
 Branch `test/default-all` expands `Cargo.toml:636` to 7 members:
