@@ -366,7 +366,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Archivos | Effort | Prio | Estado |
 |----|-------------|----------|--------|------|--------|
-| `MEM-68` | **Gate opcional de aprobación de capturas** (gap #6): config `capture_approval=off|on`; en `on`, las memorias extraídas van a cola pendiente y un comando/tool `memory_approve/reject` las publica o descarta (patrón Cursor). Default off (filosofía never-block intacta) | `vanta-memory/src/core/record/l1_writer.rs`, MCP tools | 🟡 | 🟠 | ⬜ Pendiente |
 | `MEM-69` | **Batch extracción costo-reducida**: agrupar split+dedup en menos llamadas LLM por flush (patrón Memobase: batch fijo −40-50% tokens) sin perder quality gate | `vanta-memory/src/core/record/l1_extractor.rs` | 🟡 | 🟢 | ⬜ Pendiente |
 | `MEM-70` | **Benchmarks públicos LongMemEval-S + LoCoMo**: harness de evaluación contra vanta-memory y publicación en `docs/operations/BENCHMARKS.md` (Regla 11: bench archivo + comando reproducible). Referencia mercado: SuperMemory 81.6%, Hindsight 94.6% self-report | nuevo `evals/memory_bench.py` o Rust harness, `docs/operations/BENCHMARKS.md` | 🟡 | 🟡 | ⬜ Pendiente |
 
@@ -502,13 +501,11 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 |----|--------|-------------|----------|--------|
 | `PRX-02` | 🔴 | **Fallback multi-upstream + retries**: config `[upstreams]` array con prioridad; retries backoff exponencial ante 429/5xx; health pasivo (errores consecutivos degradan un upstream); el caso #1 de la comunidad: quota agotada → seguir sin cortar la sesión | `config.rs`, `forward.rs` | ⬜ Pendiente |
 | `PRX-03` | 🔴 | **Cost tracking + virtual keys**: contabilidad tokens/costo por key/sesión/modelo (tabla de precios configurable), budgets con enforcement (429 propio al agotar), `/snapshot` ampliado a dashboard de consumo. Base para equipos | nuevo `cost.rs`, `report.rs` | ⬜ Pendiente |
-| `PRX-05` | 🟡 | **Model discovery + endpoints auxiliares**: `GET /v1/models` (puebla el picker /model de Claude Code con `CLAUDE_CODE_ENABLE_GATEWAY_MODEL_DISCOVERY=1`), `count_tokens`, manejo de headers `anthropic-beta` — hoy 404s rompen clientes (litellm#13252) | `handlers/`, `forward.rs` | ⬜ Pendiente |
 | `PRX-06` | 🟠 | **Task-aware routing por tier**: slots haiku/sonnet/opus mapeables a modelos/upstreams distintos (patrón claude-code-router: −90% costo documentado) usando el clasificador CC ya existente; incluir `/v1/responses` en el tool-loop y con spaceId propio | `server.rs`, `config.rs` | ⬜ Pendiente |
 | `PRX-07` | 🟡 | **PII/secret redaction en egress**: patrones configurables (AWS keys, tokens, emails, custom regex) aplicados antes del forward; modo block/mask/log (estilo AegisGate/Kong Ent.) | nuevo `redact.rs` en pipeline pre-forward | ⬜ Pendiente |
-| `PRX-09` | 🟠 | **Semantic caching** (gateway completo): cache exact primero (barato), luego semántico opcional con embeddings del provider configurado — cuidado con invalidación por inyección de memoria (coordinar con PRX-04) | nuevo `cache.rs` | ⬜ Pendiente |
+| `PRX-09` | 🟠 | **Semantic caching slice 2** (gateway completo): semántico opcional con embeddings + TTL + LRU sobre el cache exacto de slice 1 (50b40228, plan 2026-09-09). Slice 1 ✅ en avance/operaciones | `vanta-proxy/src/cache.rs` | ⬜ Pendiente (slice 2) |
 | `PRX-10` | 🟢 | **Guardrails y MCP governance (fase posterior)**: moderación input/output conectable, allowlists MCP por virtual key (patrón Bifrost/Portkey). Requiere PRX-03 (keys) — no empezar antes | diseño previo requerido | ⬜ Pendiente |
 | `PRX-11` | 🔴 | **Traducción Anthropic↔OpenAI bidireccional fiel** (necesidad #4, pains #1/#4/#5/#6): hoy el proxy es verbatim passthrough — solo sirve upstreams del mismo protocolo. Gateway completo exige: `/v1/messages` → backend OpenAI-only (GLM/DeepSeek/Ollama) y viceversa, con streaming SSE + tool_use/tool_result incrementales + thinking/reasoning blocks bidireccionales + sanitización de campos Anthropic-only (`cache_control`, `thinking`) + guard de `max_tokens` para no truncar JSON de tool calls largos + manejo de beta headers (`anthropic-beta`) que Bedrock/upstreams rechazan. Es donde se rompen TODOS los proxies competidores — hacerlo bien es ventaja directa | nuevo `translate.rs`, `handlers/` | ⬜ Pendiente |
-| `PRX-12` | 🟡 | **Compat suite contra releases de coding agents** (pain estructural #3: "actualizaciones de Claude Code rompen proxies sin aviso", litellm#11358): fixtures de requests/responses REALES de Claude Code/Codex/OpenCode (incl. params nuevos `output_config`, beta headers, thinking variants) como tests de regresión que corren en cada PR; actualizar fixtures cuando salga release nueva de los agentes | `vanta-proxy/tests/fixtures/`, CI | ⬜ Pendiente |
 | `PRX-13` | 🟢 | **Optimización de contexto en tránsito** (necesidad #12, patrón shift proxy): resize/recompresión de imágenes en requests, modos performance/balanced/economy configurables por key — reduce tokens antes del forward | pipeline pre-forward, `config.rs` | ⬜ Pendiente |
 
 ---
@@ -531,7 +528,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 |---|---|---|---|---|---|
 | `TS-10` | **Plan de distribución/adopción** (estratégica): playground browser interactivo + docs-site + comparativa honesta vs Orama/vectra/wa-sqlite/DuckDB-WASM usando la matriz del informe §3 — adopción actual 12 dl/semana vs 35K-465K competidores (H-06) | web/, docs/, estrategia SHOW_HN; research §3 | 🔴 | 🟠 Media-Alta | ⬜ Pendiente (requiere DISCOVERY) |
 | `TS-11` | **Roadmap paridad sub-clientes**: planificar exposición vía WASM de wiki/conversation/skills cuando core lo permita — hoy `db.wiki` es `{}` documentado (H-12) | `vantadb-wasm/src/lib.rs`, `vantadb-ts/src/vantadb.ts:311-319` | 🔴 | 🟢 Baja | ⬜ Pendiente |
-| `TS-12` | **Publicar `vantadb-node` en npm** (prebuilds multiplataforma napi-rs): desbloquea la ruta `NativeVantaDB` (persistencia real fjall/WAL en Node) rota para consumidores hoy (npm 404) (H-14); marcar experimental hasta prebuilds completos | `vantadb-node/` (CI prebuilds), README native path | 🟡 | 🟠 Media-Alta | ⬜ Pendiente |
 | `TS-13` | **Posicionamiento vs Orama en web/** (decisión HITL: mover a módulo web): sección "Why VantaDB" honesta con matriz diferenciadores (durable WAL browser, híbrido RRF nativo, grafo+IQL, errores tipados) vs FTS-first de Orama (H-13) | `web/` (landing/docs); fuente: research-vantadb-ts §3 | 🟢 | 🟡 Media | ⬜ Pendiente |
 
 ## P42 - Investigación INV-vantadb-wasm (2026-08-25)
@@ -595,7 +591,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (→ Resultado) | Archivos clave | Esfuerzo | Prioridad | Estado |
 |---|---|---|---|---|---|
-| `STABLE-09` | **Promoción subset + rollback plan (Owner A 2026-09-09)** — ADR-031 accepted (hard <5min): PR único solo con el subset que mantenga Fast Gate + `docs/operations/CI_POLICY.md` §default-members (nota Heavy para lo excluido) + rollback 1 línea en descripción. Task file `docs/tasks/STABLE-09.md` con rollback redactado; falta medir subset exacto + PR. | `Cargo.toml`, `docs/operations/CI_POLICY.md`, `dev-tools/verify.ps1` | 🟢 4h | 🔴 Alta | ⏳ En progreso (carryover plan 2026-09-08) |
+| — | P47 cerrada 2026-09-09: STABLE-09 subset `[., python, memory, server, mcp]` (546dabd1, Owner A); proxy/wasm quedan experimental (Heavy/toolchain) | — | — | ✅ |
 ---
 
 ## Phase 48: 🧪 Testing & Benchmarking Hardening (auditoría multi-agente 2026-08-30)

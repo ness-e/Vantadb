@@ -316,3 +316,15 @@ aliases: []
 - **Objetivo:** último gate npm sin validar tras STABLE-05; "264 tests" confirmada stale.
 - **Resultado:** ✅ 280/280 vitest (275+5 graph) + eslint 0 + engines + pack dry-run + porción TS ~30s <5min.
 - **Commit:** ceb81d90 (solo task file)
+
+### STABLE-09: promoción subset default-members (plan 2026-09-09 Wave0, Owner A)
+- **Fecha:** 2026-09-09
+- **Objetivo:** carryover plan 2026-09-08 — PR único subset que mantiene Fast Gate <5min.
+- **Resultado:** ✅ `default-members` → `[., python, memory, server, mcp]`; proxy (Heavy) y wasm (toolchain Tier 3) fuera con justificación CI_POLICY; nextest warm ×2 296s 2831/0; rollback `git revert 546dabd1`.
+- **Commit:** 546dabd1
+
+### TS-12: prep publish vantadb-node en npm (plan 2026-09-09 Wave0)
+- **Fecha:** 2026-09-09
+- **Objetivo:** desbloqueada por BND-08 — prebuilds + README experimental + checklist publish humano.
+- **Resultado:** ✅ pack dry-run 6 files + tags sin colisión + secrets 0; publish real PROHIBIDO (humano vía checklist 9 ítems).
+- **Commit:** 88ef674b (RETRY tras abort sin task_id)
