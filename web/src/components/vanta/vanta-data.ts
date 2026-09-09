@@ -958,6 +958,14 @@ export const BLOG_POSTS = [
         type: "p",
         text: "In VantaDB, the query planner inspects each search request. If a vector is present and the namespace has an HNSW index, the vector path runs. If text is present and the namespace has a BM25 index, the lexical path runs. If both are present, both run in parallel and RRF fuses the results. If only one is present, the engine skips the other path entirely — no wasted work.",
       },
+      {
+        type: "h2",
+        text: "Try hybrid search in one install",
+      },
+      {
+        type: "p",
+        text: "Install the engine with pip install vantadb-py and run your first hybrid query from the quickstart in /docs. Star the repo on GitHub and join the Discord to show what you fused — then read SQLite for AI Agents: The Missing Memory Layer for the storage decisions behind the planner.",
+      },
     ],
   },
   {
@@ -993,6 +1001,14 @@ export const BLOG_POSTS = [
       {
         type: "p",
         text: "The analogy to SQLite is deliberate. SQLite did not replace PostgreSQL — it replaced the cases where PostgreSQL was overkill. VantaDB does not replace Pinecone — it replaces the cases where a network-attached vector database is the wrong shape for the problem. For agents running locally, that is most cases.",
+      },
+      {
+        type: "h2",
+        text: "Run the benchmarks on your own machine",
+      },
+      {
+        type: "p",
+        text: "Install with pip install vantadb-py and reproduce the batch numbers from docs/operations/BENCHMARKS.md on your hardware. Star the repo and share your results on Discord — then read How Hybrid Search Actually Works for how the planner fuses BM25 and HNSW.",
       },
     ],
   },

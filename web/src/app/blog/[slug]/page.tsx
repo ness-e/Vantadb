@@ -133,6 +133,37 @@ export default function BlogPostPage() {
             </div>
           </Reveal>
         </article>
+
+        {/* Try-it CTA — same primary/secondary pair as the series closing paragraphs */}
+        <div className="mx-auto mt-6 max-w-3xl">
+          <Reveal direction="up">
+            <div className="border-4 border-black bg-black p-5 shadow-[6px_6px_0_0_#000] sm:p-6">
+              <p className="font-display text-xl uppercase leading-none text-[#FF5500] sm:text-2xl">
+                {tt("blogPost.tryTitle", "Try VantaDB on your machine")}
+              </p>
+              <p className="mt-2 font-tech text-xs leading-relaxed text-[#F2EDE2]/80">
+                {tt("blogPost.tryBody", "One-line install, no server, no API key. The quickstart takes you from zero to your first hybrid query.")}
+              </p>
+              <div className="mt-4 flex flex-col gap-3 sm:flex-row">
+                <button
+                  onClick={() => router.push("/docs")}
+                  className="press inline-flex flex-1 items-center justify-center gap-2 border-2 border-[#FF5500] bg-[#FF5500] px-5 py-3 font-tech text-xs font-bold uppercase tracking-wider text-black transition-colors hover:bg-[#F2EDE2] hover:border-[#F2EDE2]"
+                >
+                  {tt("blogPost.tryDocs", "Start the quickstart")}
+                  <ArrowRight className="h-4 w-4" strokeWidth={2.5} aria-hidden />
+                </button>
+                <a
+                  href={VANTA.repo}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="press inline-flex flex-1 items-center justify-center gap-2 border-2 border-[#F2EDE2]/40 px-5 py-3 font-tech text-xs font-bold uppercase tracking-wider text-[#F2EDE2] transition-colors hover:border-[#FF5500] hover:text-[#FF5500]"
+                >
+                  {tt("blogPost.tryGithub", "Star on GitHub")}
+                </a>
+              </div>
+            </div>
+          </Reveal>
+        </div>
       </PageSection>
 
       {/* Suggested next read */}

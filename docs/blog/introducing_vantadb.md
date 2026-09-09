@@ -2,13 +2,13 @@
 title: "Introducing VantaDB"
 version: 0.5.0
 slug: introducing-vantadb
-date: 2026-06-06
+date: 2026-04-10
 author: "VantaDB Team"
 tags: ["announcement", "local-first", "embedded-database", "hybrid-search", "rust", "pyo3"]
 description: "Why we built an embedded Rust engine for local-first hybrid retrieval — and why \"local-first\" matters more than ever."
 tag: Announcement
 readTime: "6 min"
-canonical: https://vantadb.dev/blog/introducing-vantadb
+canonical: https://vantadb.vercel.app/blog/introducing-vantadb
 draft: true
 ---
 

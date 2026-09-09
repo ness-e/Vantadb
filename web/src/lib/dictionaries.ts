@@ -1047,6 +1047,10 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "blogPost.backToList": "Volver al Blog",
     "blogPost.discussOnGithub": "Discutir en GitHub",
     "blogPost.keepReading": "Seguir leyendo",
+    "blogPost.tryTitle": "Probá VantaDB en tu máquina",
+    "blogPost.tryBody": "Instalación en una línea, sin servidor, sin API key. El quickstart te lleva de cero a tu primera búsqueda híbrida.",
+    "blogPost.tryDocs": "Empezar quickstart",
+    "blogPost.tryGithub": "Estrella en GitHub",
 
     // ---- [...slug] (catch-all 404) ----
     "notFound.headerNote": "Ninguna ruta matcheó el path solicitado",
@@ -1245,13 +1249,13 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     // blog posts data (excerpt, tag, author — title stays as brand/SEO)
     "blogPost.data.0.excerpt": "Por qué construimos un motor Rust embebido para retrieval híbrido local-first — y por qué \"local-first\" importa más que nunca hoy.",
     "blogPost.data.0.tag": "Anuncio",
-    "blogPost.data.0.author": "ness-e",
+    "blogPost.data.0.author": "VantaDB Team",
     "blogPost.data.1.excerpt": "BM25 y HNSW no son competidores. Son dos lentes sobre el mismo problema de ranking. Así es como RRF los fusiona sin scores comparables.",
     "blogPost.data.1.tag": "Ingeniería",
-    "blogPost.data.1.author": "ness-e",
+    "blogPost.data.1.author": "VantaDB Team",
     "blogPost.data.2.excerpt": "Los agentes no necesitan una vector database. Necesitan una memory database que resulta soportar vectores. VantaDB es esa capa.",
     "blogPost.data.2.tag": "Arquitectura",
-    "blogPost.data.2.author": "ness-e",
+    "blogPost.data.2.author": "VantaDB Team",
     "blogPost.data.3.excerpt": "Una nota personal sobre la frustración que llevó a VantaDB — re-embeddear los mismos documentos cada sesión, pagar por query por mis propios datos, y ver a los agentes olvidar todo durante la noche.",
     "blogPost.data.3.tag": "Historia",
     "blogPost.data.3.author": "ness-e",
@@ -1272,6 +1276,8 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "blogPost.data.1.content.5": "La elegancia de RRF es que no requiere normalización de scores, ni tuning de pesos entre sistemas, ni vocabulario compartido entre las dos funciones de ranking. Solo requiere que cada sistema produzca una lista rankeada. Por eso se ha convertido en la estrategia de fusión por defecto en sistemas de hybrid search en producción.",
     "blogPost.data.1.content.6": "El query planner",
     "blogPost.data.1.content.7": "En VantaDB, el query planner inspecciona cada search request. Si hay un vector y el namespace tiene un índice HNSW, el path vectorial corre. Si hay texto y el namespace tiene un índice BM25, el path léxico corre. Si están ambos, los dos corren en paralelo y RRF fusiona los resultados. Si solo está uno, el motor saltea el otro path completamente — nada de trabajo desperdiciado.",
+    "blogPost.data.1.content.8": "Prueba la búsqueda híbrida con una instalación",
+    "blogPost.data.1.content.9": "Instala el motor con pip install vantadb-py y corre tu primera query híbrida desde el quickstart en /docs. Dale una estrella al repo en GitHub y únete al Discord para mostrar lo que fusionaste — después lee SQLite for AI Agents: The Missing Memory Layer para las decisiones de storage detrás del planner.",
     // blog post 2 content blocks (sqlite-for-ai-agents)
     "blogPost.data.2.content.0": "El patrón dominante en la infraestructura de AI agents es: vector database para recall semántico, key-value store para estado de sesión, base de datos relacional para datos de usuario, object storage para artefactos. Cuatro sistemas, cuatro clientes, cuatro modos de fallo. Esto funciona a escala, pero es overkill para el 90% de los agentes que operan en una sola máquina con un solo usuario.",
     "blogPost.data.2.content.1": "Lo que los agentes realmente necesitan",
@@ -1279,6 +1285,8 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "blogPost.data.2.content.3": "VantaDB como capa de memoria",
     "blogPost.data.2.content.4": "VantaDB provee exactamente esta superficie. put() almacena un payload con metadata y un vector opcional. get() recupera por clave exacta. search() corre retrieval híbrido. El WAL con CRC32C garantiza durabilidad. El core embebido en Rust significa que no hay servidor que manejar. Los bindings Python significan que la integración está a un pip install de distancia.",
     "blogPost.data.2.content.5": "La analogía con SQLite es deliberada. SQLite no reemplazó a PostgreSQL — reemplazó los casos donde PostgreSQL era overkill. VantaDB no reemplaza a Pinecone — reemplaza los casos donde una vector database network-attached tiene la forma equivocada para el problema. Para agentes corriendo localmente, esa es la mayoría de los casos.",
+    "blogPost.data.2.content.6": "Corre los benchmarks en tu propia máquina",
+    "blogPost.data.2.content.7": "Instala con pip install vantadb-py y reproduce los números de batch de docs/operations/BENCHMARKS.md en tu hardware. Dale una estrella al repo y comparte tus resultados en el Discord — después lee How Hybrid Search Actually Works para ver cómo el planner fusiona BM25 y HNSW.",
     // blog post 3 content blocks (why-i-built-vantadb-local-memory-engine)
     "blogPost.data.3.content.0": "Construí VantaDB porque estaba cansado. Cansado de re-embeddear los mismos 10.000 documentos cada vez que reiniciaba mi agente. Cansado de ver mi factura de cloud vector database escalar más allá de $300/mes para un side project. Cansado de agentes que olvidaban cada conversación en el momento en que el proceso salía. Cansado de explicar a amigos no-técnicos por qué mi \"AI local\" necesitaba una conexión a internet para recordar cosas.",
     "blogPost.data.3.content.1": "El punto de quiebre",
@@ -2528,6 +2536,10 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "blogPost.backToList": "Back to Blog",
     "blogPost.discussOnGithub": "Discuss on GitHub",
     "blogPost.keepReading": "Keep reading",
+    "blogPost.tryTitle": "Try VantaDB on your machine",
+    "blogPost.tryBody": "One-line install, no server, no API key. The quickstart takes you from zero to your first hybrid query.",
+    "blogPost.tryDocs": "Start the quickstart",
+    "blogPost.tryGithub": "Star on GitHub",
 
     // ---- [...slug] (catch-all 404) ----
     "notFound.headerNote": "No route matched the requested path",
@@ -2726,13 +2738,13 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     // blog posts data (excerpt, tag, author — title stays as brand/SEO)
     "blogPost.data.0.excerpt": "Why we built an embedded Rust engine for local-first hybrid retrieval — and why \"local-first\" matters more than ever today.",
     "blogPost.data.0.tag": "Announcement",
-    "blogPost.data.0.author": "ness-e",
+    "blogPost.data.0.author": "VantaDB Team",
     "blogPost.data.1.excerpt": "BM25 and HNSW are not competitors. They are two lenses on the same ranking problem. Here's how RRF fuses them without comparable scores.",
     "blogPost.data.1.tag": "Engineering",
-    "blogPost.data.1.author": "ness-e",
+    "blogPost.data.1.author": "VantaDB Team",
     "blogPost.data.2.excerpt": "Agents don't need a vector database. They need a memory database that happens to support vectors. VantaDB is that layer.",
     "blogPost.data.2.tag": "Architecture",
-    "blogPost.data.2.author": "ness-e",
+    "blogPost.data.2.author": "VantaDB Team",
     "blogPost.data.3.excerpt": "A personal note on the frustration that led to VantaDB — re-embedding the same documents every session, paying per query for my own data, and watching agents forget everything overnight.",
     "blogPost.data.3.tag": "Story",
     "blogPost.data.3.author": "ness-e",
@@ -2753,6 +2765,8 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "blogPost.data.1.content.5": "The elegance of RRF is that it requires no score normalization, no weight tuning between systems, and no shared vocabulary between the two ranking functions. It only requires that each system produces a ranked list. This is why it has become the default fusion strategy in production hybrid search systems.",
     "blogPost.data.1.content.6": "The query planner",
     "blogPost.data.1.content.7": "In VantaDB, the query planner inspects each search request. If a vector is present and the namespace has an HNSW index, the vector path runs. If text is present and the namespace has a BM25 index, the lexical path runs. If both are present, both run in parallel and RRF fuses the results. If only one is present, the engine skips the other path entirely — no wasted work.",
+    "blogPost.data.1.content.8": "Try hybrid search in one install",
+    "blogPost.data.1.content.9": "Install the engine with pip install vantadb-py and run your first hybrid query from the quickstart in /docs. Star the repo on GitHub and join the Discord to show what you fused — then read SQLite for AI Agents: The Missing Memory Layer for the storage decisions behind the planner.",
     // blog post 2 content blocks (sqlite-for-ai-agents)
     "blogPost.data.2.content.0": "The dominant pattern in AI agent infrastructure is: vector database for semantic recall, key-value store for session state, relational database for user data, object storage for artifacts. Four systems, four clients, four failure modes. This works at scale, but it is overkill for the 90% of agents that operate on a single machine with a single user.",
     "blogPost.data.2.content.1": "What agents actually need",
@@ -2760,6 +2774,8 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "blogPost.data.2.content.3": "VantaDB as the memory layer",
     "blogPost.data.2.content.4": "VantaDB provides exactly this surface. put() stores a payload with metadata and an optional vector. get() retrieves by exact key. search() runs hybrid retrieval. The WAL with CRC32C ensures durability. The embedded Rust core means there is no server to manage. The Python bindings mean integration is one pip install away.",
     "blogPost.data.2.content.5": "The analogy to SQLite is deliberate. SQLite did not replace PostgreSQL — it replaced the cases where PostgreSQL was overkill. VantaDB does not replace Pinecone — it replaces the cases where a network-attached vector database is the wrong shape for the problem. For agents running locally, that is most cases.",
+    "blogPost.data.2.content.6": "Run the benchmarks on your own machine",
+    "blogPost.data.2.content.7": "Install with pip install vantadb-py and reproduce the batch numbers from docs/operations/BENCHMARKS.md on your hardware. Star the repo and share your results on Discord — then read How Hybrid Search Actually Works for how the planner fuses BM25 and HNSW.",
     // blog post 3 content blocks (why-i-built-vantadb-local-memory-engine)
     "blogPost.data.3.content.0": "I built VantaDB because I was tired. Tired of re-embedding the same 10,000 documents every time I restarted my agent. Tired of watching my cloud vector database bill climb past $300/month for a side project. Tired of agents that forgot every conversation the moment the process exited. Tired of explaining to non-technical friends why my \"local AI\" needed an internet connection to remember things.",
     "blogPost.data.3.content.1": "The breaking point",
