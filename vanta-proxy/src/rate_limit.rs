@@ -18,6 +18,9 @@ use serde_json::json;
 /// Sliding window size (TDAM parity).
 pub const WINDOW_MS: u64 = 60_000;
 
+/// Hard cap on tracked buckets (PRX-08 S4): the map was unbounded.
+pub const MAX_BUCKETS: usize = 10_000;
+
 /// Outcome of one rate-limit check.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum RateDecision {
@@ -51,6 +54,27 @@ fn now_ms() -> u64 {
 fn bucket_key(space_id: &str, model: &str) -> String {
     // Unit separator: cannot appear in header-derived ids.
     format!("{space_id}\u{1f}{model}")
+}
+
+/// Drop a fully-expired bucket if any, else the bucket whose oldest hit is
+/// stalest (empty buckets sort first). Single linear scan, only on the
+/// insert that overflows the cap — steady state pays nothing.
+fn evict_oldest_bucket(buckets: &mut HashMap<String, Bucket>, now: u64, window_ms: u64) {
+    let victim = buckets
+        .iter()
+        .min_by_key(|(_, b)| {
+            // Empty or fully-expired buckets first, then stalest oldest-hit.
+            let expired = b
+                .hits
+                .back()
+                .copied()
+                .is_none_or(|t| now.saturating_sub(t) >= window_ms);
+            (!expired, b.hits.front().copied().unwrap_or(0))
+        })
+        .map(|(k, _)| k.clone());
+    if let Some(victim) = victim {
+        buckets.remove(&victim);
+    }
 }
 
 impl RateLimiter {
@@ -106,11 +130,13 @@ impl RateLimiter {
             Ok(guard) => guard,
             Err(poisoned) => poisoned.into_inner(),
         };
-        let bucket = buckets
-            .entry(bucket_key(space_id, model))
-            .or_insert_with(|| Bucket {
-                hits: VecDeque::new(),
-            });
+        let key = bucket_key(space_id, model);
+        if !buckets.contains_key(&key) && buckets.len() >= MAX_BUCKETS {
+            evict_oldest_bucket(&mut buckets, now, self.window_ms);
+        }
+        let bucket = buckets.entry(key).or_insert_with(|| Bucket {
+            hits: VecDeque::new(),
+        });
 
         while let Some(&ts) = bucket.hits.front() {
             if now.saturating_sub(ts) < self.window_ms {
@@ -417,5 +443,20 @@ mod tests {
         assert_eq!(h.observe(429), None, "429 failure (streak 1)");
         assert_eq!(h.observe(599), None, "599 failure (streak 2)");
         assert_eq!(h.observe(500), Some(true), "third failure trips");
+    }
+
+    #[test]
+    fn bucket_map_is_capped_with_newest_kept() {
+        // PRX-08 S4 RED: unbounded bucket map must stay at MAX_BUCKETS.
+        let rl = RateLimiter::new(1_000_000);
+        for i in 0..=MAX_BUCKETS {
+            assert!(matches!(
+                rl.check(&format!("space-{i}"), "m"),
+                RateDecision::Allowed { .. }
+            ));
+        }
+        let buckets = rl.buckets.lock().unwrap_or_else(|e| e.into_inner());
+        assert_eq!(buckets.len(), MAX_BUCKETS);
+        assert!(buckets.contains_key(&bucket_key("space-10000", "m")));
     }
 }

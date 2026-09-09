@@ -4,7 +4,9 @@
 //! every request MUST carry a valid `x-vanta-user-key` resolved against the
 //! local `user` entity collection — there is no open mode (D34).
 
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::Mutex;
 
 use axum::http::HeaderMap;
 use vantadb::entity::EntityStore;
@@ -36,12 +38,24 @@ pub struct UserIdentity {
 #[derive(Clone)]
 pub struct AuthDb {
     engine: Arc<StorageEngine>,
+    /// Cache-aside `user_key → identity` snapshot (PRX-08 S1): the first
+    /// miss scans once and memoizes EVERY user, so steady-state resolves
+    /// are O(1) HashMap lookups instead of a 10k `entity_list` scan per
+    /// request. Ceiling: per-process snapshot — external writers MUST call
+    /// [`AuthDb::invalidate`] (the proxy itself never writes `user`
+    /// entities, so steady state is exact).
+    index: Arc<Mutex<std::collections::HashMap<String, UserIdentity>>>,
+    indexed: Arc<AtomicBool>,
 }
 
 impl AuthDb {
     /// Wrap an already-open storage engine (tests / shared handles).
     pub fn new(engine: Arc<StorageEngine>) -> Self {
-        Self { engine }
+        Self {
+            engine,
+            index: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            indexed: Arc::new(AtomicBool::new(false)),
+        }
     }
 
     /// Open the local store at `path`.
@@ -53,6 +67,8 @@ impl AuthDb {
             .map_err(|e| ProxyError::Storage(format!("open {}: {e}", path)))?;
         Ok(Self {
             engine: Arc::new(engine),
+            index: Arc::new(Mutex::new(std::collections::HashMap::new())),
+            indexed: Arc::new(AtomicBool::new(false)),
         })
     }
 
@@ -78,32 +94,62 @@ impl AuthDb {
         self.resolve_user_key(key)?.ok_or(ProxyError::Unauthorized)
     }
 
-    /// Resolve a user key to its identity by scanning the `user` entity
-    /// collection and comparing keys in constant time (MEM-05 parity).
+    /// Drop the cached user index so the next resolve re-scans (call
+    /// after any external write to the `user` entity collection).
+    pub fn invalidate(&self) {
+        self.index
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner)
+            .clear();
+        self.indexed.store(false, Ordering::Relaxed);
+    }
+
+    /// Resolve a user key to its identity — O(1) once warm (PRX-08 S1).
+    ///
+    /// First call scans the `user` entity collection (comparing keys in
+    /// constant time, MEM-05 parity) and memoizes every user first-wins
+    /// (list order preserved via `or_insert`, so duplicate keys keep the
+    /// pre-index semantics); later calls are HashMap lookups.
     ///
     /// # Errors
     /// [`ProxyError::Storage`] on local read failures.
     pub fn resolve_user_key(&self, user_key: &str) -> Result<Option<UserIdentity>, ProxyError> {
+        if self.indexed.load(Ordering::Relaxed) {
+            return Ok(self
+                .index
+                .lock()
+                .unwrap_or_else(std::sync::PoisonError::into_inner)
+                .get(user_key)
+                .cloned());
+        }
         let store = EntityStore::new(&self.engine);
         let page = store
             .entity_list(AUTH_ENTITY_NS, "user", USER_SCAN_LIMIT, 0)
             .map_err(|e| ProxyError::Storage(format!("entity_list user: {e}")))?;
-        for entity in page.items {
+        let mut snapshot = std::collections::HashMap::with_capacity(page.items.len());
+        for entity in &page.items {
             let Some(FieldValue::String(candidate)) = entity.fields.get("user_key") else {
                 continue;
             };
-            if ct_eq(candidate.as_bytes(), user_key.as_bytes()) {
+            // First-wins preserves the pre-index duplicate-key semantics.
+            snapshot.entry(candidate.clone()).or_insert_with(|| {
                 let is_system_admin = matches!(
                     entity.fields.get("user_type"),
                     Some(FieldValue::String(t)) if t == "system_admin"
                 );
-                return Ok(Some(UserIdentity {
-                    user_id: entity.entity_id,
+                UserIdentity {
+                    user_id: entity.entity_id.clone(),
                     is_system_admin,
-                }));
-            }
+                }
+            });
         }
-        Ok(None)
+        let found = snapshot.get(user_key).cloned();
+        *self
+            .index
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = snapshot;
+        self.indexed.store(true, Ordering::Relaxed);
+        Ok(found)
     }
 
     /// Whether an entity exists in the given collection (session state
@@ -121,18 +167,6 @@ impl AuthDb {
             Err(e) => Err(ProxyError::Storage(format!("entity_get {collection}: {e}"))),
         }
     }
-}
-
-/// Constant-time byte equality (no external dep): accumulates the XOR of all
-/// byte differences so branch timing does not leak the match position.
-fn ct_eq(a: &[u8], b: &[u8]) -> bool {
-    if a.len() != b.len() {
-        return false;
-    }
-    a.iter()
-        .zip(b.iter())
-        .fold(0u8, |acc, (x, y)| acc | (x ^ y))
-        == 0
 }
 
 #[cfg(test)]
@@ -162,13 +196,6 @@ mod tests {
         EntityStore::new(&db.engine)
             .entity_set(AUTH_ENTITY_NS, "user", id, fields)
             .expect("seed user");
-    }
-
-    #[test]
-    fn ct_eq_basic() {
-        assert!(ct_eq(b"abc", b"abc"));
-        assert!(!ct_eq(b"abc", b"abd"));
-        assert!(!ct_eq(b"abc", b"ab"));
     }
 
     #[test]
@@ -208,5 +235,23 @@ mod tests {
             db.authenticate(&headers),
             Err(ProxyError::Unauthorized)
         ));
+    }
+
+    #[test]
+    fn index_serves_o1_after_warm_and_invalidate_refreshes() {
+        // PRX-08 S1 RED: cache-aside index — warm once, then O(1).
+        let db = in_memory_db();
+        seed_user(&db, "usr-1", Some("sk-1"), None);
+        assert!(db.resolve_user_key("sk-1").expect("resolve").is_some());
+
+        // Seeded after warm: invisible until invalidate (documented ceiling).
+        seed_user(&db, "usr-2", Some("sk-2"), None);
+        assert!(db.resolve_user_key("sk-2").expect("resolve").is_none());
+        db.invalidate();
+        let identity = db
+            .resolve_user_key("sk-2")
+            .expect("resolve")
+            .expect("found after invalidate");
+        assert_eq!(identity.user_id, "usr-2");
     }
 }

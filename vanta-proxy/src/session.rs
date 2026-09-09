@@ -34,6 +34,9 @@ pub const SESSION_HEADER_ALIASES: [&str; 6] = [
 /// TTL for pending states only (TDAM `store.ts:31,116` — 30 min).
 pub const PENDING_TTL_MS: u64 = 30 * 60 * 1000;
 
+/// Hard cap on live sessions (PRX-08 S3): the store was unbounded.
+pub const MAX_SESSIONS: usize = 10_000;
+
 /// Current point of the local form state machine.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Stage {
@@ -121,6 +124,22 @@ fn now_ms() -> u64 {
         .as_millis() as u64
 }
 
+/// Cap the store at [`MAX_SESSIONS`] by dropping the stalest entries
+/// (oldest activity first). Linear scan, but it only runs on the insert
+/// that overflows the cap — steady state pays nothing.
+fn evict_oldest_past_cap(sessions: &mut HashMap<String, Entry>) {
+    while sessions.len() > MAX_SESSIONS {
+        let Some(oldest) = sessions
+            .iter()
+            .min_by_key(|(_, e)| e.updated_at_ms)
+            .map(|(k, _)| k.clone())
+        else {
+            break;
+        };
+        sessions.remove(&oldest);
+    }
+}
+
 impl SessionStore {
     pub fn new() -> Self {
         Self::default()
@@ -146,7 +165,9 @@ impl SessionStore {
             updated_at_ms: now,
         });
         entry.updated_at_ms = now;
-        entry.stage
+        let stage = entry.stage;
+        evict_oldest_past_cap(&mut sessions);
+        stage
     }
 
     /// Advance the session to `target` (monotonic team→agent→task), requiring
@@ -192,10 +213,10 @@ impl SessionStore {
         }
         entry.stage = target;
         entry.updated_at_ms = now;
+        evict_oldest_past_cap(&mut sessions);
         Ok(target)
     }
 
-    // ponytail: HashMap unbounded — add an LRU cap if session counts ever matter.
     fn lock(&self) -> std::sync::MutexGuard<'_, HashMap<String, Entry>> {
         self.sessions
             .lock()
@@ -436,5 +457,33 @@ mod tests {
         assert_eq!(snap[1].key, "sess-b");
         assert_eq!(snap[1].stage, "task");
         assert_eq!(snap[1].expires_at_ms, None, "task never expires");
+    }
+
+    #[test]
+    fn store_evicts_oldest_past_cap() {
+        // PRX-08 S3 RED: unbounded HashMap must drop oldest past MAX_SESSIONS.
+        let store = SessionStore::new();
+        let now = now_ms();
+        {
+            let mut sessions = store.sessions.lock().expect("lock");
+            for i in 0..=MAX_SESSIONS {
+                sessions.insert(
+                    format!("sess-{i:05}"),
+                    Entry {
+                        stage: Stage::Team,
+                        // Fresh (sweep-proof): oldest is still < TTL old.
+                        updated_at_ms: now - i as u64,
+                    },
+                );
+            }
+        }
+        assert_eq!(store.ensure("fresh"), Stage::Team);
+        let sessions = store.sessions.lock().expect("lock");
+        assert_eq!(sessions.len(), MAX_SESSIONS);
+        assert!(sessions.contains_key("fresh"));
+        assert!(
+            !sessions.contains_key("sess-10000"),
+            "oldest evicted past cap"
+        );
     }
 }

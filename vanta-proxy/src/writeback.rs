@@ -71,7 +71,7 @@ impl WriteBack {
             .lock()
             .unwrap_or_else(std::sync::PoisonError::into_inner)
             .push(entry);
-        self.persist();
+        self.persist_append();
     }
 
     /// Number of pending (failed) writes awaiting flush.
@@ -94,32 +94,56 @@ impl WriteBack {
             .collect()
     }
 
-    /// Persist pending labels as JSON lines (best-effort; never blocks or
-    /// fails the wire). The closures themselves are not serializable — the
-    /// file is an audit trail of what was lost on a hard crash.
-    fn persist(&self) {
+    /// Append ONE label line (JSONL) per failure — O(1) incremental instead
+    /// of rewriting the whole file per failure (PRX-08 S5). Best-effort;
+    /// never blocks or fails the wire. The closures themselves are not
+    /// serializable — the file is an audit trail of what was lost on a
+    /// hard crash. Format note: entries before PRX-08 are a single
+    /// `{"pending":[...]}` doc; newer lines are `{"label":...}` JSONL —
+    /// both are audit-only (no reader), normalized to JSONL on flush.
+    fn persist_append(&self) {
+        use std::io::Write as _;
         let Some(path) = &self.inner.persist_path else {
             return;
         };
-        let (body, count) = {
+        let line = {
             let pending = self
                 .inner
                 .pending
                 .lock()
                 .unwrap_or_else(std::sync::PoisonError::into_inner);
-            let body: Vec<String> = pending.iter().map(|e| e.label.clone()).collect();
-            (
-                serde_json::to_string(&json!({ "pending": body })).unwrap_or_default(),
-                body.len(),
-            )
+            let last = pending.last().map(|e| e.label.clone()).unwrap_or_default();
+            serde_json::to_string(&json!({ "label": last })).unwrap_or_default()
         };
-        // ponytail: full-file rewrite per failure — fine at proxy scale;
-        // switch to append-only log if failure rates ever grow.
-        match std::fs::write(path, body) {
-            Ok(()) => tracing::debug!(path = %path.display(), count, "pending queue persisted"),
+        let mut opts = std::fs::OpenOptions::new();
+        match opts.create(true).append(true).open(path) {
+            Ok(mut file) => {
+                if writeln!(file, "{line}").is_err() {
+                    tracing::warn!(path = %path.display(), "could not append pending label");
+                }
+            }
             Err(e) => {
                 tracing::warn!(path = %path.display(), error = %e, "could not persist pending queue")
             }
+        }
+    }
+
+    /// Rewrite the file with exactly the surviving labels (flush-only path —
+    /// rare, so a full rewrite here is fine).
+    fn persist_rewrite(&self, labels: &[String]) {
+        let Some(path) = &self.inner.persist_path else {
+            return;
+        };
+        let body: String = labels
+            .iter()
+            .map(|l| serde_json::to_string(&json!({ "label": l })).unwrap_or_default())
+            .map(|mut s| {
+                s.push('\n');
+                s
+            })
+            .collect();
+        if let Err(e) = std::fs::write(path, body) {
+            tracing::warn!(path = %path.display(), error = %e, "could not persist pending queue");
         }
     }
 
@@ -165,7 +189,16 @@ impl WriteBack {
             *pending = remaining;
         }
         if n > 0 {
-            self.persist();
+            let labels: Vec<String> = {
+                self.inner
+                    .pending
+                    .lock()
+                    .unwrap_or_else(std::sync::PoisonError::into_inner)
+                    .iter()
+                    .map(|e| e.label.clone())
+                    .collect()
+            };
+            self.persist_rewrite(&labels);
         } else if let Some(path) = &self.inner.persist_path {
             let _ = std::fs::remove_file(path);
         }
@@ -320,5 +353,28 @@ mod tests {
             [500, 1000, 2000]
         );
         assert_eq!(DEFAULT_ATTEMPTS, 3);
+    }
+
+    #[test]
+    fn two_enqueues_append_without_clobber() {
+        // PRX-08 S5 RED: persist must be incremental (JSONL append), not a
+        // full-file rewrite per failure.
+        let dir = std::env::temp_dir().join(format!("vanta-wb-app-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("tmpdir");
+        let path = dir.join("pending.jsonl");
+        let wb = WriteBack::new(Some(path.clone()));
+        let dead: L0Job = Arc::new(|| Box::pin(async { Err("x".into()) }) as L0Future);
+        wb.enqueue(PendingEntry {
+            label: "first".into(),
+            job: dead.clone(),
+        });
+        wb.enqueue(PendingEntry {
+            label: "second".into(),
+            job: dead,
+        });
+        let body = std::fs::read_to_string(&path).expect("persisted file");
+        assert_eq!(body.lines().count(), 2, "one line per failure: {body}");
+        assert!(body.contains("first") && body.contains("second"));
+        let _ = std::fs::remove_dir_all(&dir);
     }
 }

@@ -139,13 +139,15 @@ fn search(memory: &VantaEmbedded, session_key: &str, call: &MemoryCall) -> Strin
 
 const NO_MEMORIES: &str = "No relevant memories found.";
 
-/// Append the assistant message (with its tool calls) plus the synthesized
-/// results to the request's history, in the standard shape of `protocol`.
+/// Append the assistant message (with its EXECUTED tool calls) plus the
+/// synthesized results to the request's history, in the standard shape of
+/// `protocol`.
 ///
-/// The assistant message carries ALL accumulated tool calls (faithful
-/// history); only memory-tool calls receive synthesized results — mixing in
-/// client-side tools mid-loop leaves those unanswered upstream-side
-/// (`ponytail:` documented ceiling; real agents rarely mix in one turn).
+/// Only calls we executed server-side are echoed: echoing foreign
+/// (client-side) calls without results leaves them dangling upstream-side
+/// (OpenAI 400s on result-less `tool_calls`), so mixed turns serve our
+/// tools this round and drop foreign ones with a warn (PRX-08 S6 —
+/// `ponytail:` ceiling: serving both needs protocol change, out of scope).
 pub(crate) fn append_exchange(
     protocol: Protocol,
     request: &mut Value,
@@ -155,10 +157,26 @@ pub(crate) fn append_exchange(
     let Some(messages) = request.get_mut("messages").and_then(Value::as_array_mut) else {
         return;
     };
+    let executed: Vec<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
+    let owned: Vec<_> = message
+        .tool_calls
+        .iter()
+        .filter(|call| executed.contains(&call.id.as_str()))
+        .collect();
+    for dropped in message
+        .tool_calls
+        .iter()
+        .filter(|call| !executed.contains(&call.id.as_str()))
+    {
+        tracing::warn!(
+            tool = %dropped.name,
+            id = %dropped.id,
+            "mixed tool turn: dropping unexecuted client tool call from re-request"
+        );
+    }
     match protocol {
         Protocol::OpenAI | Protocol::Responses => {
-            let calls: Vec<Value> = message
-                .tool_calls
+            let calls: Vec<Value> = owned
                 .iter()
                 .map(|call| {
                     json!({
@@ -185,7 +203,22 @@ pub(crate) fn append_exchange(
             }
         }
         Protocol::Anthropic => {
-            messages.push(json!({ "role": "assistant", "content": message.blocks }));
+            // Same filter for wire blocks: drop foreign `tool_use` blocks so
+            // every echoed use has a matching result below.
+            let owned_blocks: Vec<Value> = message
+                .blocks
+                .iter()
+                .filter(|b| {
+                    b.get("id").and_then(Value::as_str).is_none_or(|id| {
+                        // Non-tool blocks (text/thinking) always echo; tool_use
+                        // blocks echo only when executed.
+                        b.get("type").and_then(Value::as_str) != Some("tool_use")
+                            || executed.contains(&id)
+                    })
+                })
+                .cloned()
+                .collect();
+            messages.push(json!({ "role": "assistant", "content": owned_blocks }));
             let blocks: Vec<Value> = results
                 .iter()
                 .map(|(id, text)| {
@@ -298,6 +331,41 @@ mod tests {
         assert_eq!(messages[2]["role"], "user");
         assert_eq!(messages[2]["content"][0]["type"], "tool_result");
         assert_eq!(messages[2]["content"][0]["tool_use_id"], "tu1");
+    }
+
+    #[test]
+    fn append_exchange_drops_unanswered_foreign_calls() {
+        // PRX-08 S6 RED: mixed turn — the re-request assistant message must
+        // carry ONLY executed calls, so upstream never sees dangling ones.
+        let call = |name: &str, id: &str| crate::sse_intercept::ToolCallAcc {
+            id: id.to_string(),
+            name: name.to_string(),
+            arguments: "{}".to_string(),
+        };
+        let message = Accumulated {
+            tool_calls: vec![
+                call("vanta_memory_capture", "ours-1"),
+                call("client_shell", "theirs-1"),
+            ],
+            ..Default::default()
+        };
+        let mut request: Value =
+            serde_json::from_str(r#"{"messages":[{"role":"user","content":"hi"}]}"#).unwrap();
+        append_exchange(
+            Protocol::OpenAI,
+            &mut request,
+            &message,
+            &[("ours-1".into(), "Memory captured.".into())],
+        );
+        let messages = request["messages"].as_array().unwrap();
+        let echoed: Vec<&str> = messages[1]["tool_calls"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|c| c["id"].as_str().unwrap())
+            .collect();
+        assert_eq!(echoed, vec!["ours-1"], "foreign call must not echo");
+        assert_eq!(messages[2]["tool_call_id"], "ours-1");
     }
 
     #[test]

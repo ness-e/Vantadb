@@ -90,6 +90,14 @@ impl AppState {
         config: ProxyConfig,
         engine: Arc<StorageEngine>,
     ) -> Result<Self, crate::error::ProxyError> {
+        // PRX-08 S2: fail fast on self-forwarding loops (default upstream
+        // 127.0.0.1:8096 == default listen port) instead of recursing to timeout.
+        if config.upstream.points_at_self(config.server.port) {
+            return Err(crate::error::ProxyError::Config(format!(
+                "upstream {} points at this proxy itself (listen port {})",
+                config.upstream.url, config.server.port
+            )));
+        }
         let forwarder = Forwarder::new(&config.upstream)?;
         let persist_path = (!config.writeback.persist_path.is_empty())
             .then(|| std::path::PathBuf::from(&config.writeback.persist_path));
