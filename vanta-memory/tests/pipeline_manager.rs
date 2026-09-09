@@ -333,6 +333,78 @@ fn worker_skips_locked_sessions_without_losing_tasks() {
     assert_eq!(backend.queue_depth().1, 1);
 }
 
+// ═══ MEM-66: claim/pending lease + reclaim (Step 1 backend) ═══
+
+#[test]
+fn stale_pending_task_reclaimed_once_by_new_owner() {
+    let backend = LocalStateBackend::new(FakeClock::new(0));
+    backend.enqueue_task(task(TaskKind::L1, "s", 1, 0));
+    assert_eq!(backend.pending_count(), 0);
+
+    // Worker A claims the task (lease 1_000ms) and dies without completing.
+    let claimed = backend.claim_task("worker-A", 1_000).expect("A claims");
+    assert_eq!(claimed.session_id, "s");
+    assert_eq!(backend.pending_count(), 1);
+    // Queue is drained — nobody else can take it while the lease is live.
+    assert!(backend.claim_task("worker-B", 1_000).is_none());
+    assert!(backend.claim_stale_tasks("worker-B", 1_000, 8).is_empty());
+
+    // Lease expires while A is dead (heartbeat never renewed).
+    backend.clock().advance(1_001);
+
+    // Worker B reclaims the stale pending task exactly once.
+    let reclaimed = backend.claim_stale_tasks("worker-B", 1_000, 8);
+    assert_eq!(reclaimed.len(), 1);
+    assert_eq!(reclaimed[0].session_id, "s");
+    assert_eq!(backend.pending_count(), 1);
+    // Double-reclaim is impossible: a third worker finds nothing.
+    assert!(backend.claim_stale_tasks("worker-C", 1_000, 8).is_empty());
+
+    // Heartbeat vs session-lock TTL are separate: renewing the task lease
+    // extends it past the original expiry, and only the owner can do it.
+    assert!(!backend.renew_task_lease("worker-C", &reclaimed[0].id, 1_000));
+    backend.clock().advance(900); // t=1901 < B lease 2001
+    assert!(backend.renew_task_lease("worker-B", &reclaimed[0].id, 1_000));
+    backend.clock().advance(900); // t=2801 > original 2001, renewed to 2901
+    assert!(backend.claim_stale_tasks("worker-C", 1_000, 8).is_empty());
+
+    // Completion is owner-checked (fencing): wrong owner mutates nothing.
+    assert!(!backend.complete_task("worker-C", &reclaimed[0].id));
+    assert_eq!(backend.pending_count(), 1);
+    assert!(backend.complete_task("worker-B", &reclaimed[0].id));
+    assert_eq!(backend.pending_count(), 0);
+}
+
+// ═══ MEM-66: worker-muerto→reclaim end-to-end (Step 2 worker — contrato) ═══
+
+#[test]
+fn dead_worker_claim_reclaimed_and_processed_by_new_owner() {
+    let backend = LocalStateBackend::new(FakeClock::new(0));
+    backend.enqueue_task(task(TaskKind::L1, "s", 1, 0));
+
+    // Worker A claims the task and dies without finishing it.
+    assert!(backend.claim_task("worker-A", 1_000).is_some());
+    assert_eq!(backend.pending_count(), 1);
+
+    // Lease expires while A is dead (no heartbeat was ever sent).
+    backend.clock().advance(1_001);
+
+    // Worker B (distinct owner) reclaims and processes it end-to-end.
+    let mut worker_b =
+        PipelineWorker::new(&backend, WorkerConfig::default()).with_owner("worker-B");
+    let mut handler = FailingHandler {
+        fail_sessions: vec![],
+    };
+    let stats = worker_b.reclaim_stale(&mut handler, 1_000, 8);
+    assert_eq!(stats.processed, 1);
+    assert!(backend.list_queued_tasks().is_empty());
+    assert_eq!(backend.pending_count(), 0);
+    // Second reclaim finds nothing — exactly-once.
+    let again = worker_b.reclaim_stale(&mut handler, 1_000, 8);
+    assert_eq!(again.processed, 0);
+    assert_eq!(again.failed, 0);
+}
+
 // ═══ End-to-end: worker drives L0→L1→L3 with a fake runner ═══
 
 /// Canned runner keyed by task_id; panics on unexpected calls.
