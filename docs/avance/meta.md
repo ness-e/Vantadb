@@ -212,3 +212,14 @@ Plan archivado con auditoria de cierre: 82/88 verificados con evidencia + 6 reap
 
 Plan archivado con retrospectiva: 12/12 en 5 waves, 0 failed. -11 filas Backlog ejecutadas (2 cerradas con premisa-muerta/medido-no-aplica), +3 FIND-56/57/58, split negocio 15 filas. Gate nuevo de cierre: rg PENDING en plan == 0.
 
+
+## Archivo 2026-09-09: campana backlog splits+gates+proxy (5b5a8ce1)
+
+Plan `docs/plans/archive/2026-09-08-backlog.md` (+budget) archivado: 9/10 ✅ + 1 carryover (STABLE-09 subset PR, Owner A 2026-09-09, ADR-031 accepted). Backlog: -8 filas (FIND-48/49/50, BND-08, PRX-04/08, MEM-66, STABLE-06, BLOG-CTA), STABLE-09 re-scopeada a subset <5min. Avance: core-engine (FIND splits), ci-cd (BND-08, STABLE-06), operaciones (PRX-04/08), vanta-memory (MEM-66), web-frontend (BLOG-CTA). check-avance-coverage 1038/1038 (100%); validate-docs-coverage roto pre-existente (24d0b86d, verificado manual). Nota: quedan .budget.json huérfanos en raíz de campañas previas (08-25/08-28/09-01/09-04/09-07) — fuera de scope, no tocados.
+
+**Retrospectiva Start/Stop/Continue:**
+- **Start:** sub-agentes secuenciales con pipeline-full + bloque RESULTADO (tras abort de waves paralelas); SARL RESUME real — PRX-08 🟡→MEM-66→RESUME ✅ y rate-limit recovery sin pérdida (ses_f7af54d41).
+- **Stop:** waves paralelas ×3 en este runner (2 aborts infra); `campaign_verify_cmd` con bug exit -1 (fallback bash directa, 3er reporte).
+- **Continue:** task files como estado durable + scope discipline (commits solo paths propios, ajenos intactos).
+- **Acción medible:** default secuencial en este runner hasta resolver aborts — baseline: Wave1 paralela 0/3 por abort vs secuencial 8/8 primer intento (100%); métrica: aborts/sesión → 0.
+

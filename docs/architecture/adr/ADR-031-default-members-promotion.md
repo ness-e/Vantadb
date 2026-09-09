@@ -1,7 +1,7 @@
 ---
 title: "ADR-031: Promotion to default-members — 10-check DoD, cost table and reversible gate"
 type: adr
-status: proposed
+status: accepted (Owner eligió A, 2026-09-09; STABLE-08 midió 8.26m cold = Heavy)
 tags: [vantadb, architecture, adr, ci, default-members, promotion, fast-gate]
 created: 2026-08-27
 last_reviewed: 2026-08-27
@@ -136,10 +136,10 @@ promotion is **scoped** (promote only the subset that keeps `<5 min`, defer the 
 **Recorded answer:**
 
 ```
-Owner: ____________________________
-Date:  ____________________________
-Choice: [ ] A  [ ] B  (with 8-min ceiling)  [ ] other: ______________
-Rationale / condition: _______________________________________________
+Owner: Owner (vía /pipeline run 2026-09-09)
+Date:  2026-09-09
+Choice: [x] A  [ ] B  (with 8-min ceiling)  [ ] other: ______________
+Rationale / condition: STABLE-08 midió verify expandido 8.26m cold = Heavy; se promociona solo el subset que mantenga <5min, lo pesado queda experimental con justificación Heavy en CI_POLICY.md.
 ```
 
 Until recorded, this ADR is `status: proposed` and STABLE-09 must not merge. The answer is

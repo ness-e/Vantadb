@@ -568,3 +568,21 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** links intra-doc irresueltos + items privados en 23 archivos `src/` + `vantadb-python/src/lib.rs`; cero `pub` nuevos (paths `crate::` o ticks).
 - **Resultado:** ✅ `cargo doc --no-deps -p vantadb -p vantadb_py | grep -c warning` → 0; `-D warnings` exit 0; fmt+clippy hook verde. Colateral incluido: `completions/*` regenerados por cambio doc en `src/cli.rs`.
 - **Commit:** 0f1f5e37
+
+### FIND-48: split src/index/graph.rs 2031L por concern (plan 2026-09-08-backlog Wave0)
+- **Fecha:** 2026-09-08
+- **Objetivo:** god-file HNSW → `graph/{mod,types,prefetch,core,tests}` sin cambio semántico (pure move).
+- **Resultado:** ✅ cargo check 0 + clippy 0 + nextest audit 2145 passed/0 failed + equiv 2031/2031 VERBATIM OK.
+- **Commit:** fcd339b7
+
+### FIND-49: split src/sdk/types.rs por dominio record/search/graph (plan 2026-09-08-backlog Wave0)
+- **Fecha:** 2026-09-08
+- **Objetivo:** tipos SDK monolíticos → `types/{record,search,graph}` + re-exports intactos.
+- **Resultado:** ✅ check 0 + sdk tests 412/0 + API pública 42/42 idéntica + fmt 0.
+- **Commit:** e3711dea + 72eb4c0a (sync)
+
+### FIND-50: split src/parser/mod.rs en grammar.rs + lexer.rs (plan 2026-09-08-backlog Wave0)
+- **Fecha:** 2026-09-08
+- **Objetivo:** parser IQL monolítico → `lexer.rs`/`grammar.rs` + `mod.rs` thin.
+- **Resultado:** ✅ check 0 + parser 117/117 + insta 0 snap.new + clippy 0 + fmt 0.
+- **Commit:** dd2cb943
