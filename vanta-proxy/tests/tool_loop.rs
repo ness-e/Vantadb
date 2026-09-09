@@ -95,6 +95,7 @@ async fn setup(path: &'static str, responses: Vec<String>) -> Env {
             url: upstream_url,
             api_key: String::new(),
             forward_timeout_secs: 600,
+            models: Vec::new(),
         },
         auth: AuthConfig::default(),
         mem_command: MemCommandConfig::default(),
