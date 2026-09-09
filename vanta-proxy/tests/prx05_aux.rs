@@ -87,6 +87,7 @@ async fn setup_with_capture() -> (String, Shared) {
         auth: vanta_proxy::config::AuthConfig::default(),
         mem_command: vanta_proxy::config::MemCommandConfig::default(),
         writeback: vanta_proxy::config::WritebackConfig::default(),
+        cache: Default::default(),
     };
     let proxy_url = spawn(server::router(
         server::AppState::from_engine(cfg, seeded_engine()).unwrap(),

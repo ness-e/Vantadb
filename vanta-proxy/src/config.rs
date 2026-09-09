@@ -25,6 +25,8 @@ pub struct ProxyConfig {
     pub mem_command: MemCommandConfig,
     /// L0 write-back persistence settings.
     pub writeback: WritebackConfig,
+    /// Exact response cache (PRX-09 slice 1). Disabled by default (opt-in).
+    pub cache: CacheConfig,
     /// Optional per-turn span export to Langfuse/OTel over OTLP-JSON
     /// (MEM-56). Disabled by default (empty endpoint).
     pub report: ReportConfig,
@@ -62,6 +64,26 @@ impl Default for WritebackConfig {
     fn default() -> Self {
         Self {
             persist_path: "vanta-proxy-writeback-pending.json".to_string(),
+        }
+    }
+}
+
+/// Exact response cache (PRX-09 slice 1: exact-only). Disabled by default so
+/// the wire stays a transparent proxy unless explicitly opted in.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct CacheConfig {
+    /// When false (default), every lookup misses and stores are no-ops.
+    pub enabled: bool,
+    /// Max entries held (FIFO eviction past the cap).
+    pub max_entries: usize,
+}
+
+impl Default for CacheConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            max_entries: 128,
         }
     }
 }

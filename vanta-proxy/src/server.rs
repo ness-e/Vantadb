@@ -6,7 +6,7 @@
 use std::sync::Arc;
 
 use axum::body::Body;
-use axum::http::{HeaderMap, Method, Response};
+use axum::http::{HeaderMap, Method, Response, StatusCode};
 use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
@@ -15,6 +15,7 @@ use vantadb::sdk::VantaEmbedded;
 use vantadb::storage::StorageEngine;
 
 use crate::auth::AuthDb;
+use crate::cache::{self, CachedEntry, ExactCache};
 use crate::capture;
 use crate::config::ProxyConfig;
 use crate::forward::Forwarder;
@@ -53,6 +54,8 @@ pub struct AppState {
     pub writeback: Arc<WriteBack>,
     /// Per-turn structured reporting (MEM-27).
     pub reporter: Arc<Reporter>,
+    /// Exact response cache (PRX-09 slice 1: exact-only, opt-in).
+    pub cache: Arc<std::sync::Mutex<ExactCache>>,
 }
 
 /// PRX-01: true when an Anthropic request is a standalone CC sidequery
@@ -107,11 +110,13 @@ impl AppState {
         if let Some(hook) = crate::langfuse::langfuse_hook(&config.report) {
             reporter.add_hook(hook);
         }
+        let cache = ExactCache::new(config.cache.clone());
         Ok(Self {
             limiter: RateLimiter::new(config.server.rate_limit_per_minute).into(),
             upstream_health: UpstreamHealth::new().into(),
             writeback: WriteBack::new(persist_path).into(),
             reporter: reporter.into(),
+            cache: Arc::new(std::sync::Mutex::new(cache)),
             config: Arc::new(config),
             forwarder: Arc::new(forwarder),
             auth: AuthDb::new(engine.clone()).into(),
@@ -229,8 +234,93 @@ impl AppState {
             Err(e) => return e.into_response(),
         };
 
-        self.forward_with_tool_loop(protocol, wire_path, headers, body, space_id, &key, model)
-            .await
+        // 5b) PRX-09 slice 1: exact cache over the POST-INJECTION bytes
+        // (the key carries the PRX-04 prefix, so memory changes invalidate
+        // implicitly). Runs AFTER auth/session — a hit never bypasses D34.
+        let cacheable = self.cache_enabled() && cache::is_cacheable_request(body.as_ref());
+        if cacheable {
+            if let Some(entry) = self.cache_lookup(protocol, wire_path, &body) {
+                return cached_response(&entry);
+            }
+        }
+
+        let response = self
+            .forward_with_tool_loop(
+                protocol,
+                wire_path,
+                headers,
+                body.clone(),
+                space_id,
+                &key,
+                model,
+            )
+            .await;
+
+        // 5c) Store small JSON 2xx for the next identical request.
+        // SSE/chunked/unknown-length responses bypass — never buffered.
+        if cacheable {
+            return self.maybe_store(protocol, wire_path, body, response).await;
+        }
+        response
+    }
+
+    /// True when the exact cache is enabled. Sync-only lock section —
+    /// the guard never crosses `.await` (concurrency-async R-2).
+    fn cache_enabled(&self) -> bool {
+        self.cache.lock().is_ok_and(|guard| guard.enabled())
+    }
+
+    /// Sync-only lookup: lock, clone the entry, drop the guard.
+    fn cache_lookup(&self, protocol: Protocol, path: &str, body: &Bytes) -> Option<CachedEntry> {
+        let guard = self.cache.lock().ok()?;
+        guard.lookup(protocol_name(protocol), path, body.as_ref())
+    }
+
+    /// Buffer a small JSON 2xx and store it; anything else flows through
+    /// untouched. The body is only consumed after the cacheability gate
+    /// passed (known content-length within budget).
+    async fn maybe_store(
+        &self,
+        protocol: Protocol,
+        path: &str,
+        request: Bytes,
+        response: Response<Body>,
+    ) -> Response<Body> {
+        let (parts, body) = response.into_parts();
+        let status = parts.status.as_u16();
+        let content_type = parts
+            .headers
+            .get(axum::http::header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .to_string();
+        // NOTE: `forward.rs` strips `content-length` for streaming safety, so
+        // length is enforced here by the collection cap: JSON chat responses
+        // are small and complete; anything past the cap is a typed 502
+        // (documented ceiling — chat completions never legitimately exceed it).
+        if !cache::is_cacheable_response(status, Some(&content_type)) {
+            return Response::from_parts(parts, body);
+        }
+        let limit = usize::try_from(cache::MAX_CACHEABLE_BODY_BYTES + 1).unwrap_or(usize::MAX);
+        match axum::body::to_bytes(body, limit).await {
+            Ok(bytes) => {
+                let entry = CachedEntry {
+                    status,
+                    content_type,
+                    body: bytes.to_vec(),
+                };
+                // Sync-only store section — no `.await` under the guard.
+                if let Ok(mut guard) = self.cache.lock() {
+                    guard.store(protocol_name(protocol), path, request.as_ref(), entry);
+                }
+                Response::from_parts(parts, Body::from(bytes))
+            }
+            // Upstream lied about content-length (declared small, sent big):
+            // the consumed body is unrecoverable — typed 502, never a truncation.
+            Err(e) => {
+                crate::error::ProxyError::Forward(format!("cache buffer: {e}")).into_response()
+            }
+        }
     }
 
     /// D47: single L0 write path — track the conversation turn through
@@ -524,6 +614,25 @@ fn protocol_name(protocol: Protocol) -> &'static str {
         Protocol::Anthropic => "anthropic",
         Protocol::Responses => "responses",
     }
+}
+
+/// Replay a cached exact entry byte-for-byte (PRX-09 slice 1).
+fn cached_response(entry: &CachedEntry) -> Response<Body> {
+    let status = StatusCode::from_u16(entry.status).unwrap_or(StatusCode::OK);
+    let mut builder = Response::builder().status(status);
+    if let Some(headers) = builder.headers_mut() {
+        if let Ok(value) = axum::http::HeaderValue::from_str(&entry.content_type) {
+            headers.insert(axum::http::header::CONTENT_TYPE, value);
+        }
+        if let Ok(value) = axum::http::HeaderValue::from_str(&entry.body.len().to_string()) {
+            headers.insert(axum::http::header::CONTENT_LENGTH, value);
+        }
+    }
+    builder
+        .body(Body::from(entry.body.clone()))
+        .unwrap_or_else(|_| {
+            crate::error::ProxyError::Forward("cache replay failed".to_string()).into_response()
+        })
 }
 
 #[cfg(test)]

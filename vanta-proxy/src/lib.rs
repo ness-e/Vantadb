@@ -9,6 +9,7 @@
 //! - Generic Responses subset: `/v1/responses` (no Codex/WorkBuddy adapters)
 
 pub mod auth;
+pub mod cache;
 pub mod capture;
 pub mod config;
 pub mod error;
