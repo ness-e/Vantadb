@@ -25,6 +25,9 @@ struct Inner {
     timers: HashMap<String, u64>,
     /// Kept sorted: priority asc, then created_at asc.
     queue: Vec<TaskPayload>,
+    /// task id → (task, owner, lease expire_at ms). Claimed tasks stay here
+    /// until completed/requeued (MEM-66 multi-worker recovery).
+    pending: HashMap<String, (TaskPayload, String, u64)>,
     /// lock key → (owner, expire_at ms).
     locks: HashMap<String, (String, u64)>,
     next_task_seq: u64,
@@ -222,6 +225,129 @@ impl<C: Clock> LocalStateBackend<C> {
         self.lock().queue.clone()
     }
 
+    // ═══ Task claims / multi-worker recovery (MEM-66) ═══
+    //
+    // A claimed task leaves the queue and lives in `pending` under a lease
+    // (`owner`, `expire_at_ms`). The owner heartbeats via `renew_task_lease`
+    // (task lease — NOT the session lock TTL in `acquire/renew_lock`, which
+    // serializes per-session work). When a worker dies without completing,
+    // another worker reclaims the stale pending task via `claim_stale_tasks`.
+    // Every mutation happens under the single `Mutex` in ONE critical
+    // section, so double-reclaim is impossible in-process. Multi-process
+    // would need a CAS on the lease (documented ceiling, YAGNI here).
+
+    /// Claim the highest-priority oldest task for `owner` with a lease of
+    /// `lease_ttl_ms`. Returns `None` when the queue is empty.
+    pub fn claim_task(&self, owner: &str, lease_ttl_ms: u64) -> Option<TaskPayload> {
+        let now = self.clock.now_ms();
+        let mut inner = self.lock();
+        if inner.queue.is_empty() {
+            return None;
+        }
+        let task = inner.queue.remove(0);
+        inner.pending.insert(
+            task.id.clone(),
+            (
+                task.clone(),
+                owner.to_string(),
+                now.saturating_add(lease_ttl_ms),
+            ),
+        );
+        Some(task)
+    }
+
+    /// Complete a claimed task. Only the owning worker can complete it
+    /// (fencing); a wrong owner changes nothing and returns `false`.
+    pub fn complete_task(&self, owner: &str, task_id: &str) -> bool {
+        let mut inner = self.lock();
+        match inner.pending.get(task_id) {
+            Some((_, pending_owner, _)) if pending_owner == owner => {
+                inner.pending.remove(task_id);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Heartbeat a claimed task lease (extends it by `lease_ttl_ms` from
+    /// now). Only the owner can renew; returns `false` otherwise. This is
+    /// the CLAIM heartbeat — distinct from the session-lock TTL
+    /// (`renew_lock`), which serializes per-session work.
+    pub fn renew_task_lease(&self, owner: &str, task_id: &str, lease_ttl_ms: u64) -> bool {
+        let now = self.clock.now_ms();
+        let mut inner = self.lock();
+        match inner.pending.get_mut(task_id) {
+            Some((_, pending_owner, expire_at)) if pending_owner == owner => {
+                *expire_at = now.saturating_add(lease_ttl_ms);
+                true
+            }
+            _ => false,
+        }
+    }
+
+    /// Reclaim up to `limit` pending tasks whose lease expired (their owner
+    /// is presumed dead), re-assigning them to `new_owner` with a fresh
+    /// lease. Reassignment happens in ONE critical section, so two workers
+    /// racing here cannot reclaim the same task.
+    ///
+    /// ponytail: O(n) scan over `pending`, which stays tiny (≤ queue depth).
+    pub fn claim_stale_tasks(
+        &self,
+        new_owner: &str,
+        lease_ttl_ms: u64,
+        limit: usize,
+    ) -> Vec<TaskPayload> {
+        let now = self.clock.now_ms();
+        let mut inner = self.lock();
+        let stale: Vec<String> = inner
+            .pending
+            .iter()
+            .filter(|(_, (_, _, expire_at))| *expire_at <= now)
+            .take(limit)
+            .map(|(id, _)| id.clone())
+            .collect();
+        let mut reclaimed = Vec::with_capacity(stale.len());
+        for id in stale {
+            if let Some((task, owner, expire_at)) = inner.pending.get_mut(&id) {
+                *owner = new_owner.to_string();
+                *expire_at = now.saturating_add(lease_ttl_ms);
+                reclaimed.push(task.clone());
+            }
+        }
+        reclaimed
+    }
+
+    /// Requeue a claimed task to the back of its priority class, assigning
+    /// it a fresh id (same re-id rule as `enqueue_task`). Atomic under one
+    /// lock: the old pending entry is dropped only when the requeue lands.
+    /// Returns `false` (no mutation) when `owner` does not own the claim.
+    pub fn requeue_task(&self, task: &TaskPayload, owner: &str) -> bool {
+        let mut inner = self.lock();
+        match inner.pending.get(&task.id) {
+            Some((_, pending_owner, _)) if pending_owner == owner => {}
+            _ => return false,
+        }
+        let mut retry = task.clone();
+        retry.id = format!("t_{}_{}", retry.created_at_ms, inner.next_task_seq);
+        inner.next_task_seq += 1;
+        let pos = inner
+            .queue
+            .iter()
+            .position(|t| {
+                t.priority > retry.priority
+                    || (t.priority == retry.priority && t.created_at_ms > retry.created_at_ms)
+            })
+            .unwrap_or(inner.queue.len());
+        inner.queue.insert(pos, retry);
+        inner.pending.remove(&task.id);
+        true
+    }
+
+    /// Claimed-but-unfinished task count (diagnostic for reclaim tests).
+    pub fn pending_count(&self) -> usize {
+        self.lock().pending.len()
+    }
+
     // ═══ Locks ═══
 
     fn clean_expired_locks(inner: &mut Inner, now_ms: u64) {
@@ -325,6 +451,7 @@ impl<C: Clock> LocalStateBackend<C> {
         inner.states.clear();
         inner.timers.clear();
         inner.queue.clear();
+        inner.pending.clear();
         inner.locks.clear();
     }
 
@@ -336,6 +463,7 @@ impl<C: Clock> LocalStateBackend<C> {
             buffers: inner.buffers.len(),
             timers: inner.timers.len(),
             queue: inner.queue.len(),
+            pending: inner.pending.len(),
             locks: inner.locks.len(),
         }
     }
@@ -360,5 +488,7 @@ pub struct BackendSnapshot {
     pub buffers: usize,
     pub timers: usize,
     pub queue: usize,
+    /// Claimed-but-unfinished tasks (MEM-66 multi-worker recovery).
+    pub pending: usize,
     pub locks: usize,
 }

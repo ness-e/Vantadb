@@ -9,8 +9,10 @@
 //! (`persona_trigger`/`persona_generator`), with counters tracked in the
 //! [`Checkpoint`](crate::utils::checkpoint::Checkpoint).
 //!
-//! Not ported from TDAM: multi-worker pending recovery, `claimStaleTasks`,
-//! Prometheus metrics (single-process scope).
+//! Not ported from TDAM: Prometheus metrics (single-process scope).
+//! Multi-worker pending recovery (`claimStaleTasks`) IS ported (MEM-66):
+//! see [`PipelineWorker::reclaim_stale`] and the claim API on
+//! [`LocalStateBackend`](crate::utils::local_backend::LocalStateBackend).
 
 use std::time::Instant;
 
@@ -206,56 +208,114 @@ impl<'a, C: Clock> PipelineWorker<'a, C> {
         }
     }
 
+    /// Override the claim/lease owner (builder-style). `new()` defaults to
+    /// `worker-{pid}`, so two workers in one process would collide without
+    /// this — tests and multi-worker hosts set distinct owners.
+    pub fn with_owner(mut self, owner: impl Into<String>) -> Self {
+        self.owner = owner.into();
+        self
+    }
+
     /// Consume up to `batch_size` tasks and run them through `handler`.
     ///
-    /// A task whose session is locked is left for the next pass (it stays at
-    /// the queue head — consume order makes this safe without requeueing).
+    /// Each task is CLAIMED first (lease = `lock_ttl_ms`): a task whose
+    /// session is locked is requeued for the next pass (it stays claimed
+    /// under this owner until the requeue lands — never lost, never
+    /// double-processed). A worker that dies mid-task leaves its claim in
+    /// `pending` until the lease expires; another worker then picks it up
+    /// via [`Self::reclaim_stale`].
     pub fn run_once(&mut self, handler: &mut dyn TaskHandler) -> RunStats {
         let mut stats = RunStats::default();
         for _ in 0..self.config.batch_size {
-            let Some(task) = self.backend.consume_task() else {
+            let Some(task) = self
+                .backend
+                .claim_task(&self.owner, self.config.lock_ttl_ms)
+            else {
                 break;
             };
-            let lock_key = session_lock_key(&task.session_id);
-            if !self
-                .backend
-                .acquire_lock(&lock_key, &self.owner, self.config.lock_ttl_ms)
-            {
-                stats.skipped_locked += 1;
-                // Requeue at the back so one busy session cannot starve others,
-                // and stop this pass — the copy must not be re-consumed here.
-                let mut deferred = task.clone();
-                deferred.created_at_ms = self.backend.now_ms();
-                self.backend.enqueue_task(deferred);
+            if !self.run_task(handler, &task, &mut stats) {
                 break;
-            }
-
-            // Release BEFORE acting on the outcome: every branch below ends
-            // this pass, and a held lock would deadlock the retried task.
-            let outcome = handler.handle(&task);
-            self.backend.release_lock(&lock_key, &self.owner);
-
-            match outcome {
-                Ok(()) => stats.processed += 1,
-                Err(error) => {
-                    let mut retry = task.clone();
-                    retry.attempts += 1;
-                    if retry.attempts >= self.config.max_retries {
-                        tracing::warn!(task_id = %task.id, %error, "task dead-lettered");
-                        stats.failed += 1;
-                        self.dead_letters.push(DeadLetterEntry { task, error });
-                    } else {
-                        // Requeue for another attempt (back of its priority
-                        // class) and stop the pass — never re-consume it here.
-                        tracing::warn!(task_id = %task.id, attempt = retry.attempts, %error, "task retry");
-                        retry.created_at_ms = self.backend.now_ms();
-                        self.backend.enqueue_task(retry);
-                        break;
-                    }
-                }
             }
         }
         stats
+    }
+
+    /// Reclaim up to `limit` stale pending tasks (claimed by a dead worker
+    /// whose lease expired) and run them through `handler` with the same
+    /// settle path as [`Self::run_once`]. Returns the pass statistics.
+    pub fn reclaim_stale(
+        &mut self,
+        handler: &mut dyn TaskHandler,
+        lease_ttl_ms: u64,
+        limit: usize,
+    ) -> RunStats {
+        let mut stats = RunStats::default();
+        for task in self
+            .backend
+            .claim_stale_tasks(&self.owner, lease_ttl_ms, limit)
+        {
+            if !self.run_task(handler, &task, &mut stats) {
+                break;
+            }
+        }
+        stats
+    }
+
+    /// Run ONE claimed task through the session lock + handler + settle.
+    /// Returns `false` when the pass must stop (locked-session deferral or
+    /// retry requeued — the copy must not be re-consumed here).
+    fn run_task(
+        &mut self,
+        handler: &mut dyn TaskHandler,
+        task: &TaskPayload,
+        stats: &mut RunStats,
+    ) -> bool {
+        let lock_key = session_lock_key(&task.session_id);
+        if !self
+            .backend
+            .acquire_lock(&lock_key, &self.owner, self.config.lock_ttl_ms)
+        {
+            stats.skipped_locked += 1;
+            // Requeue at the back so one busy session cannot starve others,
+            // and stop this pass — the copy must not be re-consumed here.
+            let mut deferred = task.clone();
+            deferred.created_at_ms = self.backend.now_ms();
+            self.backend.requeue_task(&deferred, &self.owner);
+            return false;
+        }
+
+        // Release BEFORE acting on the outcome: every branch below ends
+        // this pass, and a held lock would deadlock the retried task.
+        let outcome = handler.handle(task);
+        self.backend.release_lock(&lock_key, &self.owner);
+
+        match outcome {
+            Ok(()) => {
+                self.backend.complete_task(&self.owner, &task.id);
+                stats.processed += 1;
+            }
+            Err(error) => {
+                let mut retry = task.clone();
+                retry.attempts += 1;
+                if retry.attempts >= self.config.max_retries {
+                    tracing::warn!(task_id = %task.id, %error, "task dead-lettered");
+                    stats.failed += 1;
+                    self.backend.complete_task(&self.owner, &task.id);
+                    self.dead_letters.push(DeadLetterEntry {
+                        task: task.clone(),
+                        error,
+                    });
+                } else {
+                    // Requeue for another attempt (back of its priority
+                    // class) and stop the pass — never re-consume it here.
+                    tracing::warn!(task_id = %task.id, attempt = retry.attempts, %error, "task retry");
+                    retry.created_at_ms = self.backend.now_ms();
+                    self.backend.requeue_task(&retry, &self.owner);
+                    return false;
+                }
+            }
+        }
+        true
     }
 
     /// Tasks that exhausted their attempts (oldest first).
