@@ -3,7 +3,7 @@
 ## Metadata
 - **Plan file:** `docs/plans/2026-09-08-backlog.md` (Task 6, Wave3)
 - **Creado:** 2026-09-09
-- **Estado:** 🟡 BLOQUEADO-DOCUMENTADO (no promocionar — ADR-031 `proposed`, Owner A/B sin respuesta; Heavy justificado heredado de STABLE-08)
+- **Estado:** ✅ COMPLETO-subset 2026-09-09 (Owner A; plan `docs/plans/2026-09-09-backlog.md` Task 1; ver §Ejecución subset abajo — el BLOQUEO previo era plan 2026-09-08 con ADR `proposed`)
 - **Fuente:** Backlog P47 — cierra P47; cambio reversible 1 línea con rollback en descripción del PR
 - **Esfuerzo:** 🟢 4h | **Prioridad:** 🔴 Alta | **Ruta:** `vanta-lead` (CI/CD, yo mismo)
 - **Tipo:** release/CI (detectado `docs` — validación + promoción; sin lógica nueva)
@@ -35,7 +35,52 @@
 | ¿`question` al Owner? | Deferido al orquestador/humano (no en runner) | ADR-031 §4 ya formula A vs B; este task file es la evidencia para que el Owner responda; `question` tool sin respuesta en runner = STOP per Gate V |
 | Rollback plan | Template §2b listo abajo (1-línea) para el futuro PR | Contrato exige "rollback 1-línea en descripción" — se deja redactado, no ejecutado |
 
-## Contrato — evaluación (NO pasa a COMPLETO por bloqueo externo)
+## Ejecución subset 2026-09-09 (plan 2026-09-09 Task 1, Owner A)
+
+Desbloqueo vs §Spec previa: ADR-031 `status: accepted` (Owner eligió A 2026-09-09;
+`docs/architecture/adr/ADR-031-default-members-promotion.md:4,139-143`) → modo
+subset: solo crates que mantienen Fast Gate <5min.
+
+Subset (decisión + evidencia por exclusión):
+- IN: `vanta-memory` (STABLE-01 ✅ gates 1-6), `vantadb-server` (STABLE-03 ✅),
+  `vantadb-mcp` (STABLE-04 gates 1-6 + `test-mcp.py` 4/4 per commit 682e094b).
+- OUT: `vanta-proxy` (STABLE-02 ✅ gates pero Heavy wall time documentado + ADR-031
+  §2 "heaviest compile, candidate Heavy") → queda experimental con justificación
+  Heavy. `vantadb-wasm` (STABLE-05 ✅ pero toolchain extra wasm32/wasm-pack, Tier 3
+  BEST-EFFORT) → queda experimental.
+
+Medición local 2026-09-09 (Windows MSVC, target/ limpio con `cargo clean`):
+- `cargo check` (usa `default-members` = subset) cold: **132s** ✅ <5min
+  (warm baseline pre-edit: default 36s + delta subset 33s ≈ 70s).
+- `cargo nextest run --profile audit --build-jobs 2` (subset, como
+  `ci-rust-10.yml:test`): cold Windows MSVC Heavy (primera corrida >20min:
+  compilación test-targets; core solo 785s en frío — pre-existente del default
+  actual, no marginal de la promoción); warm run1 368s (link churn), warm run2
+  **296s / 2831 passed, 0 failed** ✅ <5min (4s margen; CI ubuntu-latest + sccache
+  ~1.5–2× más rápido per STABLE-08 → margen cómodo en CI).
+- Gate 6: `cargo package -p <crate> --list --allow-dirty` exit 0 ×3
+  (memory/server/mcp; `--dry-run` literal no existe en `cargo package` —
+  precedente STABLE-01/03).
+
+Edición (2 archivos, reversible 1 línea):
+- `Cargo.toml:710-719` (`default-members` + comment EXPERIMENTAL actualizado:
+  proxy+wasm quedan fuera; `members`/`Cargo.lock`/`publish=false` intactos).
+- `docs/operations/CI_POLICY.md` §default-members: nota STABLE-09 subset +
+  Heavy excluidos con justificación + rollback 1-línea.
+
+## Contrato — evaluación subset 2026-09-09 (COMPLETO en modo Owner A)
+- [x] PR único con `default-members` subset — EJECUTADO en `develop` (commit de esta
+  tarea; `[".", "vantadb-python", "vanta-memory", "vantadb-server", "vantadb-mcp"]`)
+- [x] CI_POLICY §default-members — NOTA STABLE-09 agregada (subset + Heavy excluidos
+  proxy/wasm con justificación)
+- [x] `cargo package --dry-run` 0 — `--list --allow-dirty` exit 0 ×3 (memory/server/mcp;
+  `--dry-run` literal inexistente en `cargo package`, precedente STABLE-01/03)
+- [x] Rollback 1-línea en descripción — en mensaje del commit + CI_POLICY
+  (`git revert <commit-promocion>`)
+- [x] `just verify` <5min o etiqueta Heavy justificada — subset warm 296s <5min;
+  cold Windows documentado Heavy pre-existente (no marginal); proxy/wasm Heavy justificados
+
+## Contrato — evaluación previa 2026-09-08 (BLOQUEO, superada por Owner A)
 - [ ] PR único con `default-members` ampliado — NO EJECUTADO (bloqueado; diff futuro de 5 líneas ya documentado en STABLE-08 rama `test/default-all`)
 - [x] CI_POLICY §default-members — YA EXISTE (STABLE-08 measurement, sin duplicar)
 - [ ] `cargo package --dry-run` 0 — NO CORRIDO (sin cambio que empaquetar; STABLE-01/03 ya validaron `cargo package --list --allow-dirty` EXIT 0 con fix `version="0.5.0"`)
@@ -58,9 +103,21 @@
 | # | Step | Contrato verify | Estado |
 |---|------|-----------------|--------|
 | 1 | DISCOVERY: Regla 0 + SDP + estados STABLE-00..08 + ADR-031 + Cargo.toml real + WIP ajeno | Task file creado con Impacto + Spec + Contrato evaluado | ✅ PASS |
-| 2 | Cierre BLOQUEADO: verify ligero (fmt --check scoped docs) + commit SOLO este task file + recitation INCOMPLETO | `cargo fmt --check` exit 0 (docs-only) + `git status` solo este file staged + commit `docs:` | ✅ PASS (46153ee1, 1 file, pre-commit ok) |
+| 2 | Cierre BLOQUEADO (2026-09-08): verify ligero + commit SOLO task file + recitation INCOMPLETO | `cargo fmt --check` exit 0 + commit `46153ee1` (1 file) | ✅ PASS (superado: Owner A 2026-09-09) |
+| 3 | DISCOVERY delta (2026-09-09): ADR accepted + subset IN/OUT + campaign_update_task_state in-progress | §Ejecución subset redactada | ✅ PASS |
+| 4 | MEDICIÓN subset: check cold + nextest warm ×2 + package --list ×3 | 132s / 296s-2831-0fail / 0-0-0 | ✅ PASS |
+| 5 | EDICIÓN: Cargo.toml subset + CI_POLICY nota + task file sync | 2 archivos + task file | ✅ PASS |
+| 6 | CIERRE: fmt + verify_changed + commit solo archivos propios + recitation | fmt 0,changed 3/3,`904c7ae1` 3 files | ✅ PASS |
 
 ## SDP
+2026-09-08 (modo BLOQUEADO):
+2026-09-09 subset (plan 2026-09-09 Task 1): `campaign_detect_task_type` → `docs`;
+`campaign_discover_skills_v2` BUILD → 8 genéricas (filtradas por ponytail: ninguna
+específica CI — scoring por keywords `docs`; se cargan las 4 de dominio del perfil
+vanta-lead en su lugar): `ci-cd-and-automation` (Fast<5 vs Heavy, quality gates),
+`git-workflow-and-versioning` (commit atómico, no tocar WIP ajeno),
+`shipping-and-launch` (pre-launch + rollback 1-línea + thresholds),
+`documentation-and-adrs` (ADR-031 accepted, CI_POLICY source of truth).
 `campaign_discover_skills_v2` BUILD → base + lifecycle (8, filtradas por ponytail a 4 cargadas): `ci-cd-and-automation` (gates Fast<5 vs Heavy, circuit breaker), `git-workflow-and-versioning` (commit atómico 1-file, no tocar WIP ajeno), `shipping-and-launch` (pre-launch checklist + rollback 1-línea + thresholds), `documentation-and-adrs` (ADR-031 proposed, CI_POLICY source of truth). Omitidas con justificación: `incremental-implementation`/`test-driven-development` (sin código nuevo), `frontend-ui-engineering`/`api-and-interface-design`/`context-engineering`/`source-driven-development`/`doubt-driven-development` (scoring genérico tipo `docs`, sin UI/API/decisión framework adversaria real).
 
 ## Notas
