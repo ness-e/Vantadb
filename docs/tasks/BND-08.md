@@ -9,6 +9,11 @@
 - **Branch:** develop
 - **Commit:** `ci(node): prepublish verificado dry-run + checklist (BND-08)`
 - **Scope APROBADO:** SOLO dry-run + checklist — PROHIBIDO publicar (decisión Gate P del usuario)
+- **Reconciliación 2026-09-09 (plan `docs/plans/2026-09-08-backlog.md`, Task 4, Campaign `5b5a8ce1`):**
+  scope nuevo (workflow + matrix 5 targets) YA EXISTE en git (`ed75cb0b`/`3af4c598`/`f4394b7c`:
+  workflow 223L, matrix 7 targets ⊇ 5, artifacts + prepublish). Esta pasada: verify mecánico
+  del contrato + reconcile, SIN rewrite del workflow (ponytail: reescribir 223L funcionales = riesgo
+  sin beneficio). Invariantes heredados vigentes (nunca publish real, nunca stagear ajenos).
 
 ## Contrato
 `npm pack` + prepublish artifacts OK + `npm publish --dry-run` verde + checklist de release escrita en `docs/plans/artifacts/bnd-08-publish-checklist.md` (pasos para el humano: OIDC/trusted-publisher config, tag, orden vs GOV-TK2). PROHIBIDO ejecutar `npm publish` real.
@@ -81,3 +86,67 @@ Saldo neto: **sin deuda** — 0 código productivo, 1 doc aditiva.
 - `publish = false` en `vantadb-node/Cargo.toml` es del CRATE Rust (no se publica a crates.io); el artefacto npm `vantadb-node@0.5.0` es lo que verifica este task. No confundir.
 - BND-09 (musl) queda desbloqueada en cuanto BND-08 verifique pipeline: targets musl ya presentes (package.json napi.targets ×2 musl + workflow matrix ×2 musl) — BND-09 verificará matriz CI, no este task.
 - `attest-build-provenance` con `continue-on-error: true` lleva `# CATEGORY: INFORMATIONAL` (release-ci Regla 5 OK).
+
+## Reconciliación 2026-09-09 — verify mecánico del contrato (plan 2026-09-08 Task 4)
+
+**SDP:** `campaign_discover_skills_v2` BUILD → 8 skills (base: campaign-executor auto-vía-MCP,
+source-driven-development; lifecycle: incremental-implementation, test-driven-development,
+context-engineering, doubt-driven-development, frontend-ui-engineering, api-and-interface-design).
+Cargadas: doubt-driven-development + incremental-implementation (+ ponytail full activo, campaña base).
+Descartadas con motivo: frontend-ui-engineering / api-and-interface-design (misfire lifecycle —
+tarea CI/yaml, sin UI ni API nueva); test-driven-development N/A (sin lógica nueva; verify =
+comandos mecánicos); context-engineering N/A (contexto = 3 archivos, ya empaquetado);
+source-driven-development N/A (sin duda de API externa; napi build/attest ya fijados en workflow).
+**SDP: doubt-driven-development + incremental-implementation (+ base auto)**
+
+**Gates:** P no dispara (decisión publish-real-NO heredada, sigue vigente) · D no dispara
+(0 archivos productivos editados; workflow intacto) · V no dispara (0 fallas verify) ·
+C: `git status` confirma solo `docs/tasks/BND-08.md` propio stageado.
+
+**Impacto mapeado (Regla 0):**
+- **Leídos completos:** `.github/workflows/release-npm-node.yml` (223L, matrix 7, jobs build/test/publish),
+  `vantadb-node/package.json` (59L, `files` incluye `*.node`, napi targets 7, engines node>=18),
+  `vantadb-node/src/lib.rs` (`VantaDB::connect` lib.rs:62, verificado existencia previa).
+- **Referencias hacia dentro:** job build → `npm run build` = `napi build --platform --release` (doble: cjs+esm);
+  publish descarga artefactos `vantadb-node-*` + `vantadb-node-js`, verifica conteo ≥5, pack, skip-if-exists,
+  smoke-test, attest, publish (o `--dry-run` si dispatch con input).
+- **Referencias entrantes:** TS-12 BLOQUEADO por BND-08 (se desbloquea con este cierre); GOV-TK2 orden release
+  global (checklist previa `docs/plans/artifacts/bnd-08-publish-checklist.md` sigue vigente).
+- **Veredicto:** verify-only + 1 doc editada (este archivo). Cero cambios productivos. Reversible por construcción.
+
+**Doubt (degradado, anunciado):** CLAIM "workflow existente satisface contrato sin rewrite".
+Disproof intentada: (1) matrix 7≠5 → 7⊇5, quitar musl rompería BND-09 → mantener; (2) "workflow nuevo" →
+existe desde `ed75cb0b`, duplicar = riesgo → verificar; (3) `create-npm-dirs` literal ausente →
+estrategia single-package intencional (`files: *.node` empaqueta todos los .node; no hay per-platform
+dirs que crear; artifacts+prepublish presentes) → documentar, no reescribir; (4) "CI verde" multi-OS
+no ejecutable local sin riesgo (dispatch publicaría real si dry_run=false) → verificado lo verificable
+local + CI real corre en push-a-main (trigger existente). Cross-model skipped: contexto no-interactivo
+(pipeline run) — sin CLI externo sin autorización.
+
+### Steps reconcile (todos ✅ 2026-09-09)
+### Step R1 — workflow + matrix + artifacts + prepublish (lectura)
+- **Verify:** yaml parse OK (7 targets: msvc/gnu/musl×2/gnu-aarch64/musl-aarch64/darwin×2) +
+  jobs build (upload `*.node` + `vantadb-node-js`) / test / publish (verify-count≥5, pack,
+  check-node skip-if-exists, smoke-test, attest INFORMATIONAL, publish/`--dry-run`).
+- **Estado:** ✅ (matrix 7 ⊇ 5 contrato; `napi build --platform` vía `npm run build`)
+
+### Step R2 — actionlint 0
+- **Verify:** `actionlint .github/workflows/release-npm-node.yml` → exit 0, 0 findings.
+- **Estado:** ✅
+
+### Step R3 — `npm pack` incluye `*.node` + E404
+- **Verify:** `npm pack --dry-run` → 6 files incl. `vantadb_native.win32-x64-msvc.node` (5.4MB),
+  shasum `d2077dda…` (sin escribir `.tgz`); `npm view vantadb-node@0.5.0` → E404 (nunca publicado).
+- **Estado:** ✅
+
+### Step R4 — commit scope propio + cierre
+- **Verify:** `git status --short` solo `M docs/tasks/BND-08.md` stageado; ajenos
+  (`M .opencode`, `M opencode.jsonc`, `M vanta-memory/*`) intactos sin stagear.
+- **Estado:** ✅ (commit `ci(node): BND-08 reconcile — contrato verificado mecánicamente`)
+
+## Invariantes reconcile (extienden §Invariantes)
+6. NUNCA `workflow_dispatch` manual del workflow (publicaría real con dry_run=false por defecto).
+7. NUNCA reescribir workflow funcional para calzar nombres literales del contrato
+   (`create-npm-dirs` es estrategia multi-package; la vigente es single-package intencional).
+8. "CI verde" multi-OS queda a corrida CI real en push-a-main (trigger existente); lo verificable
+   local está verde (yaml + actionlint + pack-dry-run).
