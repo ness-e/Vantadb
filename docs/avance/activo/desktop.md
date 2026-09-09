@@ -359,3 +359,18 @@ aliases: [DESKTOP]
   `npx playwright test` 12/12. Decisión sustancia-sobre-forma: no duplicar spec
   con nombre literal (rename de 1 línea si el owner lo exige).
 - **Commit:** c61642d9
+
+### FIND-20: persistencia estado ventana desktop (plan 2026-09-10-fixes Wave1)
+- **Fecha:** 2026-09-10
+- **Objetivo:** cada arranque abría geometría default (0 matches window-state);
+  conservar posición/tamaño/maximizado entre sesiones.
+- **Resultado:** ✅ módulo nuevo `desktop/src-tauri/src/window_state.rs`
+  (load/restore/save_now/attach, `window-state.json` en app_data_dir;
+  ausente/corrupto → default tauri.conf 1280×800 centrada, nunca bloquea boot;
+  maximizado no pisa geometría normal) + wiring en `lib.rs` setup
+  (`get_webview_window("main")` — `get_window` no existe en Tauri 2.11.5).
+  Decisión manual sin `tauri-plugin-window-state` (0 deps nuevas; APIs
+  verificadas en vendored tauri-2.11.5). Verificación: check 8.12s, test
+  lib window_state 4/4, clippy -D warnings 0, fmt, `npm run build` 19.89s,
+  `tsc --noEmit` 0. Deuda: smoke con app viva (WebView, sesión manual).
+- **Commit:** 0e3e1e72 (+ syncs 74decf91, e22c420c)
