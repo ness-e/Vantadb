@@ -8,6 +8,7 @@
 pub mod commands;
 pub mod connections;
 pub mod error;
+pub mod window_state;
 
 pub use connections::{
     Capability, ConnectionInfo, ConnectionManager, ConnectionStatus, HealthReport, HealthStatus,
@@ -151,6 +152,15 @@ pub fn run() {
                         .lock()
                         .unwrap_or_else(|e| e.into_inner()) = vanta;
                 }
+            }
+            // FIND-20: restore persisted window geometry (best-effort — a
+            // missing/corrupt state falls back to tauri.conf.json defaults and
+            // never fails boot). `attach` subscribes Moved/Resized/
+            // CloseRequested → auto-save to app_data_dir/window-state.json.
+            if let Some(window) = app.get_webview_window("main") {
+                let state = window_state::load(app.handle());
+                window_state::restore(&window, &state);
+                window_state::attach(&window, app.handle());
             }
             Ok(())
         })
