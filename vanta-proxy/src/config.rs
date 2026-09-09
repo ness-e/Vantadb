@@ -138,6 +138,34 @@ pub struct UpstreamConfig {
     pub forward_timeout_secs: u64,
 }
 
+impl UpstreamConfig {
+    /// True when this upstream URL would route back into this proxy itself
+    /// (loopback host + our own listen port) — a self-forwarding loop that
+    /// recurses until the forward timeout (PRX-08 S2). Pure and total.
+    pub fn points_at_self(&self, listen_port: u16) -> bool {
+        let Some((host, port)) = split_host_port(&self.url) else {
+            return false;
+        };
+        let loopback = matches!(host.as_str(), "127.0.0.1" | "localhost" | "::1");
+        loopback && port == listen_port
+    }
+}
+
+/// Split `scheme://authority/rest` into lowercase (host, port). `None` when
+/// unparseable or portless (portless → cannot be a self-loop on our port).
+fn split_host_port(url: &str) -> Option<(String, u16)> {
+    let authority = url.split("://").nth(1)?.split('/').next()?;
+    let authority = authority.split('@').next_back()?;
+    if let Some(rest) = authority.strip_prefix('[') {
+        // [::1]:port
+        let (host, port) = rest.split_once("]:")?;
+        Some((host.to_ascii_lowercase(), port.parse().ok()?))
+    } else {
+        let (host, port) = authority.split_once(':')?;
+        Some((host.to_ascii_lowercase(), port.parse().ok()?))
+    }
+}
+
 impl Default for UpstreamConfig {
     fn default() -> Self {
         Self {
@@ -145,5 +173,36 @@ impl Default for UpstreamConfig {
             api_key: String::new(),
             forward_timeout_secs: DEFAULT_FORWARD_TIMEOUT_SECS,
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_upstream_points_at_default_port() {
+        // PRX-08 S2 RED: the shipped default IS a self-loop.
+        let cfg = UpstreamConfig::default();
+        assert!(cfg.points_at_self(DEFAULT_PORT));
+        assert!(cfg.points_at_self(8096));
+    }
+
+    #[test]
+    fn mock_upstream_on_other_port_is_not_self() {
+        let cfg = UpstreamConfig {
+            url: "http://127.0.0.1:51234".to_string(),
+            ..UpstreamConfig::default()
+        };
+        assert!(!cfg.points_at_self(DEFAULT_PORT));
+    }
+
+    #[test]
+    fn remote_upstream_is_not_self_even_on_same_port() {
+        let cfg = UpstreamConfig {
+            url: "https://api.anthropic.com".to_string(),
+            ..UpstreamConfig::default()
+        };
+        assert!(!cfg.points_at_self(443));
     }
 }
