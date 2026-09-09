@@ -38,3 +38,10 @@ aliases: []
 - **Resultado:** ✅ F7 completa. Campaña 9/9 cerrada (`b316e3eb`, plan archivado). Roadmap TDAM F1-F7 al 100%.
 
 ### PRX-01 (worker, cierre lead): wiring advance+classifier+mem-commands+degraded - Resultado: (1) POST /session/advance + header x-vanta-session disparan SessionStore::advance; (2) classify_cc_request consume routing Main/Fork/Sidequery; (3) mem:sync/create-skill ejecutan pipeline real (create-skill persiste record en SKILLS_NAMESPACE); (4) UpstreamHealth::observe: DEGRADED_ENTER_FAILURES=3 (429/5xx) -> set_degraded(true), DEGRADED_EXIT_SUCCESSES=5 -> sale; suite 111/111 (86 lib + 5 pipeline + 10 proxy_wire + 5 prx01_wiring + 5 tool_loop) + clippy -D warnings + fmt limpios. Commit a4f63290 (2026-09-07).
+
+### PRX-05: Model discovery + endpoints auxiliares
+- **Fecha:** 2026-09-09
+- **Objetivo:** `GET /v1/models` (picker /model Claude Code), `count_tokens`, beta headers sin 404s (litellm#13252)
+- **Resultado:** ✅
+- **Commit:** a1855dd6 (11 files: `handlers/auxiliary.rs` nuevo + `UpstreamConfig.models` + 4 rutas + `tests/prx05_aux.rs` + fix 1-línea `models: Vec::new()` en 4 suites existentes)
+- **Contrato:** `cargo test -p vanta-proxy` 134 passed 0 failed + clippy `-D warnings` 0 + fmt 0. Modelos derivados de `[upstream] models` (nunca hardcodeados); `count_tokens` estimación local `ceil(chars/4)`; beta headers passthrough verbatim + idempotencia PRX-04 byte-estable; auth D34 en las 4 rutas.
