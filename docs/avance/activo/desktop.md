@@ -374,3 +374,19 @@ aliases: [DESKTOP]
   lib window_state 4/4, clippy -D warnings 0, fmt, `npm run build` 19.89s,
   `tsc --noEmit` 0. Deuda: smoke con app viva (WebView, sesión manual).
 - **Commit:** 0e3e1e72 (+ syncs 74decf91, e22c420c)
+
+### FIND-21: menú contextual propio + atajos in-app desktop (plan 2026-09-10-fixes Wave1)
+- **Fecha:** 2026-09-10
+- **Objetivo:** right-click mostraba menú WebView genérico (0 matches
+  contextmenu/global-shortcut); menú propio + atajos documentados en guía.
+- **Resultado:** ✅ `AppContextMenu.tsx` nuevo (role=menu, items con atajo
+  visible, Esc/click-fuera cierra, clamp a viewport; nativo conservado en
+  editables) + test RTL 3/3 + wiring `WorkspaceShell` (`onContextMenu`,
+  `menuAt`, items Paleta/Guía/Tema/Ajustes) + atajos in-app Alt+T (tema) y
+  Ctrl+, (ajustes, skip en inputs) + `HelpPanel.SHORTCUTS` (+2 filas) +
+  `GUIDE.md` sección delta (menú + atajos + DEFER nativo documentado).
+  Decisión: sin `tauri-plugin-global-shortcut` (riesgo red/offline + colisión
+  SO, pre-mortem F1) → plugin nativo DEFER. Verificación: tsc 0, vitest 3/3,
+  `npm run build` 0 (10.94s, warning chunk preexistente). Deuda: smoke con
+  app viva (sesión manual).
+- **Commit:** 5c7b3928 (+ sync c302d050)
