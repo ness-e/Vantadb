@@ -24,6 +24,12 @@ pub mod l1_writer;
 /// L1 two-phase dedup pipeline (MEM-11).
 pub mod l1_dedup;
 
+/// MEM-68: optional capture-approval gate (default off, never-block).
+pub mod approval;
+
+pub use approval::{
+    should_gate, ApprovalError, CaptureApprovalConfig, CaptureApprovalQueue, PendingCapture,
+};
 pub use l1_dedup::{
     batch_dedup, parse_batch_result, prepare_pending, run_l1_dedup, L1DedupConfig, PendingMemory,
     CONFLICT_DETECTION_TASK_ID,
