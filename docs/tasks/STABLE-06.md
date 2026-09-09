@@ -1,9 +1,9 @@
 # STABLE-06 — gate npm TS como Fast Gate
 
 ## Metadata
-- **Plan file:** `docs/plans/2026-09-04-durability-release-readiness.md` (Task 6, Wave 1)
+- **Plan file:** `docs/plans/2026-09-04-durability-release-readiness.md` (Task 6, Wave 1) + re-validado bajo `docs/plans/2026-09-08-backlog.md` (Task 5, Wave2)
 - **Creado:** 2026-09-05 (DISCOVERY)
-- **Estado:** ✅ COMPLETED (plan Task 6 COMPLETO commit `7ff70b01`; steps COMPLETED — header sincronizado, estaba stale en IN PROGRESS)
+- **Estado:** ✅ COMPLETED (re-validación 2026-09-09: 280/280; sin cambios de código — solo este task file)
 - **Ruta:** vanta-worker
 - **Branch:** develop
 - **Commit:** `ci(ts): gate npm Fast Gate medido (STABLE-06)`
@@ -55,6 +55,13 @@ Validación 🟠 para promoción default-members. DISCOVERY primero: verificar c
 - **Acción:** re-verificado post-`npm ci` (build+vitest 278/278+eslint 0) + `git add` SOLO 2 archivos + commit `7ff70b01` + plan file Task 6→COMPLETO (sin stagear) + ajenos intactos.
 - **Verify:** `git log --oneline -1` = 7ff70b01.
 - **Estado:** ✅ COMPLETED
+
+## Re-validación 2026-09-09 (plan 2026-09-08-backlog Task 5, Wave2)
+- **Medido 2026-09-09 (node v26.8.1, npm 11.6.0):** `npm ci` ✅ · build (tsc) ✅ 1.53s · vitest ✅ 280/280 (10 files, Duration 14.16s) · eslint ✅ exit 0 · engines `>=22.19` ✅ · `npm pack --dry-run` ✅ 20 files (38.8 kB, shasum 6c13732b).
+- **Conteo estático (rg `^\s*(test|it)\s*\(`):** 280 (dx04 37, flat-metadata 7, hardening 72, integration 18, load 6, native-error 5, subclients 17, types 6, vanta 107, graph 5). Plan decía "280 (275+5 graph)" → coincide exacto; fila vieja "264" confirmada stale.
+- **CI limpio <5min:** porción TS ~30s wall → Fast Gate. Workflow ya contiene gates STABLE-06 (lint + engines-verify) y package.json ya tiene engines → cero ediciones de código/CI en esta pasada.
+- **campaign_verify_cmd:** no usado (bug conocido exit -1) → verificación por bash directa con workdir `vantadb-ts`; se reporta al orquestador.
+- **Ajenos intactos:** `M .opencode`, `M docs/Backlog.md`, `M opencode.jsonc`, `?? Investigacion-plan.md`, `?? docs/plans/2026-09-08-backlog.md` — no tocados ni stageados. Sync del plan file Task 5 → lead/orquestador.
 
 ## Notas
 - NUNCA stagear `.opencode` (submodule dirty de otra sesión).
