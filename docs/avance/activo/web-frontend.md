@@ -133,3 +133,8 @@ aliases: []
 - **Fuente:** Plan `docs/plans/2026-09-07-backlog-triage.md` Task 7 (Wave2) · Task file `docs/tasks/WEB-02.md`
 - **Resultado:** ✅ Step 1 (WIP sub-agente recuperado): citas Source visibles BENCH01 (§2 + comando) y SIFT1M (§5). Step 2 (lead): const `JS_BENCH` en `vanta-data.ts` + sección §03 (tabla p50/p95/p99 verbatim §15: insert 667.61/1065.11/1453.48 · search_vector 3.84/10.97/14.28 · search_hybrid 184.04/377.25/447.18) + Source §15 con reproduce + fecha; renumber §03→§04/§04→§05. Contrato: adjetivos hype 0 · assets gato existen (WEB-03 sin acción) · tsc 0 · eslint 0 · `npm run build` exit 0.
 
+## BLOG-CTA — CTAs + metadata serie blogs + posts 6-7 drafts (2026-09-09)
+
+- **Fuente:** Plan `docs/plans/2026-09-08-backlog.md` Task 10 (Wave2) · Task file `docs/tasks/BLOG-CTA.md`
+- **Resultado:** ✅ M3/M4 reconciliados (drafts adoptan fechas/títulos web; canonicals a vercel.app; byline why_i_built a ness-e); Regla 11 (59%/750→1195 QPS/10x sin fuente fuera; 4.01x/2.43ms con cita BENCHMARKS §6); CTA cierre en posts idx1,2 web + banner Try-it en `[slug]/page.tsx` + keys ES/EN; drafts 6-7 (Ollama+VantaDB, Claude Code MCP) solo en `docs/blog/` (no live). Contrato: tsc 0 + eslint 0. **Commit:** `ccc9183e` (10 files, 305+/26-). Deuda: dicts ES/EN stale ~90 keys (FIND futuro); plan Task 10 sync a lead.
+
