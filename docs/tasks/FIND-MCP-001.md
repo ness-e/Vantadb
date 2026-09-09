@@ -3,8 +3,8 @@
 ## Metadata
 - **Plan file:** docs/plans/2026-08-31-fast-gate-residues.md
 - **Creado:** 2026-08-31
-- **last-synced:** 2026-08-31
-- **Estado:** ✅ COMPLETED
+- **last-synced:** 2026-09-10 (re-verificación plan 2026-09-10-fixes)
+- **Estado:** ✅ COMPLETED (re-verificado 2026-09-10, contrato verde sin cambios)
 - **Tipo (campaign_detect_task_type):** fix / test compile (completar struct literal)
 - **Esfuerzo:** 🟢 ~5 min
 - **Prioridad:** 🔴 Alta (bloquea `cargo check --workspace --tests`; pre-existente)
@@ -94,3 +94,17 @@ let options = VantaMemoryInput {
   - Errores en test_embed_texts.rs = FIND-036 (separado).
 - **Problemas conocidos:** `cargo check -p vantadb-mcp --tests` sigue rojo por FIND-036.
 - **Próxima tarea:** TBH-06 (insta snapshots completion) o FIND-036 si se prioriza.
+
+## Re-verificación 2026-09-10 (plan 2026-09-10-fixes, verify-first)
+
+- **SDP:** systematic-debugging + test-driven-development + context-engineering + incremental-implementation (SDP v2 BUILD; frontend-ui-engineering/api-and-interface-design descartadas por score sin keyword-match — tarea MCP tests, no web/API pública)
+- **Gate D:** no disparado — verify-first sin edición (blast radius 0 archivos, sin símbolos públicos nuevos, contrato mecánico exacto).
+- **Verify-first (bash directa — campaign_verify_cmd con bug exit -1):**
+  1. `cargo check -p vantadb-mcp --tests --jobs 2` → exit 0 (5.83s), sin E0786 — contrato ✅
+  2. `cargo nextest run -p vantadb-mcp --test context_tests --test thread_tests --jobs 2` → 14/14 PASS ✅ (sin regresión suite mcp)
+  3. `cargo fmt --check` → exit 0 ✅
+  4. `grep heat|superseded_by vantadb-mcp/tests/` → `context_tests.rs:91-92` presentes ✅; línea 70 = doc-comment de `seed_l1`, válido ✅
+- **E0786:** NO reproducido en este runner (ni en check ni en nextest). Sin evidencia env esta vez → no aplica workaround ni cierre ENV; se registra no-repro como dato para Futuro.
+- **Cambios de código:** ninguno (cero archivos tocados — fix `43e0779e` sigue vigente).
+- **WIP ajeno respetado:** `M .opencode`, `M opencode.jsonc`, `?? Investigacion-plan.md` no tocados ni stageados.
+- **Próxima tarea:** ISSUE-TS-001 (Wave0).
