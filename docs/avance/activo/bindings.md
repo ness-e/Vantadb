@@ -835,3 +835,9 @@ aliases: []
 - **Fecha:** 2026-09-07
 - **Objetivo:** matriz native-vs-WASM + ejemplos CJS/TS/Bun/Deno + API full + nota runtime truth BigInt (FIND-BND12-01) + sección Benchmark difiriendo a §15.
 - **Resultado:** ✅ quickstart + matriz con fairness caveat + 4 runtimes + API (lifecycle/search/graph/versions/advanced/maintenance) + errors + benchmark; validate-docs-coverage 0 gaps; 0 claims sin fuente (Regla 11). Ejecución SARL STRATEGY lead-inline (sub-agente caído por infra; WIP recuperado).
+
+### ISSUE-TS-001: fix TS SDK verify-first (plan 2026-09-10-fixes Wave0)
+- **Fecha:** 2026-09-10
+- **Objetivo:** premisa 80/219 con `unreachable!()` WASM vs realidad.
+- **Resultado:** ✅ resuelto-stale: `unreachable!` = 0 matches + vitest 280/280 + tsc 0 (re-verificado orquestador); cero código; subagente abortado pre-sync recuperado sin pérdida.
+- **Commit:** (cierre orquestador)
