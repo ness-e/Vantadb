@@ -188,3 +188,15 @@ aliases: []
 - **Origen:** Backlog FIND-56 (L219) + deuda SRV-07 (2) de esta misma página.
 
 ### GOV-TK3 (docs): drift yaml-real x3 - Resultado: doc-fix x3 (codigo verificado correcto); parity 5/5, parser 117/117, docs-coverage 0 gaps. Commit b3be4176 (2026-09-05).
+
+### PRX-04: cache-preserving injection (plan 2026-09-08-backlog Wave2)
+- **Fecha:** 2026-09-09
+- **Objetivo:** inyección D29 preserva prompt caching (re-inyectar mismo body = no-op byte-a-byte por provider).
+- **Resultado:** ✅ test 125 passed/0 failed (7 prx04_* nuevos) + clippy 0 + fmt 0. RESUME tras rate-limit sin pérdida.
+- **Commit:** 7ecaff5f
+
+### PRX-08: higiene y ceilings proxy (plan 2026-09-08-backlog Wave1)
+- **Fecha:** 2026-09-09
+- **Objetivo:** auth O(1) + self-loop fail-fast + caps sesión/buckets + writeback JSONL append-only + filtro mixed-tools.
+- **Resultado:** ✅ test 118/118 + clippy 0 + fmt 0 (clippy final vía RESUME tras aterrizar MEM-66 6ad16fbf).
+- **Commit:** 4bbc2804 + 3f5dab48 (cierre)

@@ -78,3 +78,9 @@ aliases: []
 - **Commit:** `docs(memory): auto_recall doc + auto-on embeddings (MEM-63)` (registro plan+task+backlog+avance; fuente ya en HEAD).
 
 ### MEM-63 (docs): doc stale auto_recall + auto-on - Resultado: verificado ya-en-HEAD via 6058cc84 (sin diff); suite 328/328. Sin commit nuevo (2026-09-05).
+
+### MEM-66: claimStaleTasks multi-worker (plan 2026-09-08-backlog Wave1)
+- **Fecha:** 2026-09-09
+- **Objetivo:** port TDAM no porteado — worker muerto → otro worker reclama y procesa (exactly-once, lease sobre `lock_ttl_ms`).
+- **Resultado:** ✅ test vanta-memory 0 failed + e2e `dead_worker_claim_reclaimed_and_processed_by_new_owner` + clippy 0. WIP +3 absorbido (desbloqueó PRX-08).
+- **Commit:** 6ad16fbf

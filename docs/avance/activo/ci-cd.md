@@ -304,3 +304,15 @@ aliases: []
 - **Objetivo:** último paquete sin validar: toolchain + check + clippy + fmt + build bundler + test chrome + docs + deny.
 - **Resultado:** ✅ check/clippy/fmt 0 · build 1m06s (wasm 1.6MB) · chrome headless 67/67 · WASM_PERSISTENCE.md sin drift · deny ok (warning no-fatal advisory-not-detected documentado). Ejecución SARL STRATEGY lead-inline (ejecutor dejó G1-G8 con evidencia y murió pre-RESULTADO; 2 aborts infra).
 - **Commit:** 9d338a18
+
+### BND-08: pipeline npm napi-rs verificado (plan 2026-09-08-backlog Wave1)
+- **Fecha:** 2026-09-09
+- **Objetivo:** reconciliar scope dry-run 2026-09-05 con contrato workflow + matrix 5 targets.
+- **Resultado:** ✅ workflow `release-npm-node.yml` ya existía (223L, 7 targets ⊇ 5) + actionlint 0 + `npm pack --dry-run` 6 files + E404 (nunca publicado). PROHIBIDO publish real.
+- **Commit:** df1baa2e (solo task file)
+
+### STABLE-06: validar vantadb-ts gate npm Fast Gate (plan 2026-09-08-backlog Wave2)
+- **Fecha:** 2026-09-09
+- **Objetivo:** último gate npm sin validar tras STABLE-05; "264 tests" confirmada stale.
+- **Resultado:** ✅ 280/280 vitest (275+5 graph) + eslint 0 + engines + pack dry-run + porción TS ~30s <5min.
+- **Commit:** ceb81d90 (solo task file)
