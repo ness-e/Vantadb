@@ -390,3 +390,18 @@ aliases: [DESKTOP]
   `npm run build` 0 (10.94s, warning chunk preexistente). Deuda: smoke con
   app viva (sesión manual).
 - **Commit:** 5c7b3928 (+ sync c302d050)
+
+### DESKTOP-40: i18n real ES/EN slice 1 — infra + Settings (plan 2026-09-10-fixes Wave2)
+- **Fecha:** 2026-09-10
+- **Objetivo:** UI ES hardcodeada, 0 `tt(` en desktop/src; slice 1 = catálogo
+  ES/EN + `tt()` + Settings cableado (resto UI = slice 2 DEFER).
+- **Resultado:** ✅ `desktop/src/i18n/` nuevo (`dictionaries.ts` 26 claves
+  Settings ES/EN simétricas, `index.ts` barrel con `tt`/`tp`, `i18n.test.ts`
+  vitest 4/4 RED→GREEN) + `Settings.tsx` cableado (strings → tt/tp, idioma
+  fuente `connectionPrefs.lang`, quitó `DEFAULT_EMBED_MODEL` no usado).
+  Decisión: catálogo propio mínimo, NO portar web (2823L + `"use client"`
+  Next no portable); `tt` pura sin provider (1 pantalla, ponytail).
+  Verificación: vitest 4/4, tsc 0, `npm run build` 0 (14.00s, warning chunk
+  preexistente). WorkspaceShell NO tocado. Deuda: slice 2 DEFER
+  (WorkspaceShell nav/topbar/lentes + posible provider); smoke app viva manual.
+- **Commit:** b64cbb30
