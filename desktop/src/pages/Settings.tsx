@@ -4,9 +4,12 @@
 // la conexión real pasa por actions.connectNativePath/connectServerCfg del hook
 // useConnectionState — sin comandos Tauri nuevos (el transporte Bearer ya vive
 // en Rust: ServerClientConfig.token).
+// DESKTOP-40 (slice 1): strings vía tt()/tp() (desktop/src/i18n, catálogo
+// propio ES/EN mínimo); idioma fuente = connectionPrefs.lang.
 import { FormEvent, useState } from "react";
 import { connectionPrefs, ConnectionProfile, profileTarget } from "../store/connections";
-import { DEFAULT_EMBED_MODEL, EMBED_MODELS, EmbedModelId, embedPrefs } from "../store/embed-prefs";
+import { EMBED_MODELS, EmbedModelId, embedPrefs } from "../store/embed-prefs";
+import { tp, tt, type DesktopLang } from "../i18n";
 
 interface Props {
   /** WEB-05: en build embebido no hay multi-conexión → ocultar perfiles. */
@@ -33,6 +36,7 @@ export default function Settings({ embedded = false, busy = false, onConnectNati
   // write-through (el store persiste y este estado espeja para el render).
   const [prefs, setPrefs] = useState(connectionPrefs.get());
   const sync = () => setPrefs(connectionPrefs.get());
+  const lang: DesktopLang = prefs.lang ?? "es";
 
   // Formulario de nuevo perfil.
   const [name, setName] = useState("");
@@ -53,7 +57,7 @@ export default function Settings({ embedded = false, busy = false, onConnectNati
     setName("");
     setToken("");
     sync();
-    onNotice(`Perfil "${name.trim()}" guardado.`);
+    onNotice(tp(lang, "settings.profileSaved", 'Perfil "{name}" guardado.', { name: name.trim() }));
   }
 
   async function connectProfile(p: ConnectionProfile) {
@@ -64,14 +68,14 @@ export default function Settings({ embedded = false, busy = false, onConnectNati
     if (id) {
       connectionPrefs.set({ activeProfileId: p.id });
       sync();
-      onNotice(`Conectado vía perfil "${p.name}".`);
+      onNotice(tp(lang, "settings.connectedVia", 'Conectado vía perfil "{name}".', { name: p.name }));
     }
   }
 
   function removeProfile(p: ConnectionProfile) {
     connectionPrefs.removeProfile(p.id);
     sync();
-    onNotice(`Perfil "${p.name}" eliminado.`);
+    onNotice(tp(lang, "settings.profileRemoved", 'Perfil "{name}" eliminado.', { name: p.name }));
   }
 
   const profiles = prefs.profiles ?? [];
@@ -80,10 +84,10 @@ export default function Settings({ embedded = false, busy = false, onConnectNati
     <div className="mx-auto max-w-3xl space-y-5 p-6">
       {/* ===== (1+2) PERFILES DE CONEXIÓN + AUTH BEARER ===== */}
       {!embedded && (
-        <Section title="Conexiones guardadas">
+        <Section title={tt(lang, "settings.connections", "Conexiones guardadas")}>
           {profiles.length === 0 ? (
             <p className="font-tech text-[11px] text-muted-foreground">
-              Sin perfiles — guardá uno abajo para reconectar con un clic.
+              {tt(lang, "settings.noProfiles", "Sin perfiles — guardá uno abajo para reconectar con un clic.")}
             </p>
           ) : (
             <ul className="m-0 list-none space-y-1 p-0">
@@ -98,9 +102,9 @@ export default function Settings({ embedded = false, busy = false, onConnectNati
                       <span className="ml-2 truncate font-tech text-[10px] text-muted-foreground">{profileTarget(p)}</span>
                     </button>
                     <button type="button" onClick={() => void connectProfile(p)} disabled={busy} className="press ml-auto shrink-0 border-2 border-foreground bg-background px-2 py-0.5 text-[10px] font-semibold disabled:opacity-50">
-                      conectar
+                      {tt(lang, "settings.connect", "conectar")}
                     </button>
-                    <button type="button" onClick={() => removeProfile(p)} aria-label={`Eliminar ${p.name}`} className="press flex h-7 w-7 shrink-0 items-center justify-center border-2 border-foreground bg-background text-[10px]">
+                    <button type="button" onClick={() => removeProfile(p)} aria-label={tp(lang, "settings.removeProfile", "Eliminar {name}", { name: p.name })} className="press flex h-7 w-7 shrink-0 items-center justify-center border-2 border-foreground bg-background text-[10px]">
                       ✕
                     </button>
                   </li>
@@ -111,32 +115,32 @@ export default function Settings({ embedded = false, busy = false, onConnectNati
 
           <form onSubmit={handleAddProfile} className="mt-4 space-y-2 border-t-2 border-dashed border-muted-foreground pt-4">
             <div className="flex gap-2">
-              <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Nombre del perfil" aria-label="Nombre del perfil" className={inputCls} />
-              <select value={kind} onChange={(e) => setKind(e.target.value as ConnectionProfile["kind"])} aria-label="Tipo de conexión" className={inputCls}>
-                <option value="server">Server remoto</option>
-                <option value="native">Nativo (path)</option>
+              <input value={name} onChange={(e) => setName(e.target.value)} placeholder={tt(lang, "settings.profileName", "Nombre del perfil")} aria-label={tt(lang, "settings.profileName", "Nombre del perfil")} className={inputCls} />
+              <select value={kind} onChange={(e) => setKind(e.target.value as ConnectionProfile["kind"])} aria-label={tt(lang, "settings.connType", "Tipo de conexión")} className={inputCls}>
+                <option value="server">{tt(lang, "settings.server", "Server remoto")}</option>
+                <option value="native">{tt(lang, "settings.native", "Nativo (path)")}</option>
               </select>
             </div>
             {kind === "native" ? (
-              <input value={path} onChange={(e) => setPath(e.target.value)} placeholder="Ruta de base de datos" aria-label="Ruta nativa" className={inputCls} />
+              <input value={path} onChange={(e) => setPath(e.target.value)} placeholder={tt(lang, "settings.nativePath", "Ruta de base de datos")} aria-label={tt(lang, "settings.nativePath", "Ruta nativa")} className={inputCls} />
             ) : (
               <>
                 <div className="flex gap-2">
-                  <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://host" aria-label="URL del servidor" className={`${inputCls} min-w-0 flex-1`} />
-                  <input type="number" value={port} onChange={(e) => setPort(Number(e.target.value) || 0)} placeholder="Puerto" aria-label="Puerto" className={`${inputCls} w-24`} />
+                  <input value={url} onChange={(e) => setUrl(e.target.value)} placeholder="http://host" aria-label={tt(lang, "settings.serverUrl", "URL del servidor")} className={`${inputCls} min-w-0 flex-1`} />
+                  <input type="number" value={port} onChange={(e) => setPort(Number(e.target.value) || 0)} placeholder={tt(lang, "settings.port", "Puerto")} aria-label={tt(lang, "settings.port", "Puerto")} className={`${inputCls} w-24`} />
                 </div>
-                <input type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder="Bearer token (opcional)" aria-label="Bearer token" autoComplete="off" className={inputCls} />
+                <input type="password" value={token} onChange={(e) => setToken(e.target.value)} placeholder={tt(lang, "settings.bearer", "Bearer token (opcional)")} aria-label={tt(lang, "settings.bearer", "Bearer token")} autoComplete="off" className={inputCls} />
               </>
             )}
             <button type="submit" className="press border-2 border-foreground bg-neon px-3 py-1.5 text-xs font-bold text-accent-foreground">
-              + GUARDAR PERFIL
+              {tt(lang, "settings.saveProfile", "+ GUARDAR PERFIL")}
             </button>
           </form>
         </Section>
       )}
 
       {/* ===== (3) DEFAULTS DE BÚSQUEDA ===== */}
-      <Section title="Defaults de búsqueda">
+      <Section title={tt(lang, "settings.searchDefaults", "Defaults de búsqueda")}>
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex flex-col gap-1">
             <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">top_k</span>
@@ -153,7 +157,7 @@ export default function Settings({ embedded = false, busy = false, onConnectNati
             />
           </label>
           <label className="flex flex-col gap-1">
-            <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">modo</span>
+            <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">{tt(lang, "settings.mode", "modo")}</span>
             <select
               value={prefs.mode ?? "hybrid"}
               onChange={(e) => {
@@ -162,18 +166,18 @@ export default function Settings({ embedded = false, busy = false, onConnectNati
               }}
               className={inputCls}
             >
-              <option value="hybrid">Híbrido (BM25 · HNSW · RRF)</option>
-              <option value="vector">Vectorial</option>
+              <option value="hybrid">{tt(lang, "settings.modeHybrid", "Híbrido (BM25 · HNSW · RRF)")}</option>
+              <option value="vector">{tt(lang, "settings.modeVector", "Vectorial")}</option>
             </select>
           </label>
         </div>
         <p className="mt-2 font-tech text-[10px] text-muted-foreground">
-          La búsqueda global del topbar usa estos defaults cuando no hay filtros activos.
+          {tt(lang, "settings.searchHint", "La búsqueda global del topbar usa estos defaults cuando no hay filtros activos.")}
         </p>
       </Section>
 
       {/* ===== (4) IDIOMA ===== */}
-      <Section title="Idioma">
+      <Section title={tt(lang, "settings.language", "Idioma")}>
         <div className="flex gap-2">
           {(["es", "en"] as const).map((l) => (
             <button
@@ -193,17 +197,17 @@ export default function Settings({ embedded = false, busy = false, onConnectNati
       </Section>
 
       {/* ===== (5) MODELO DE EMBEDDING (DESKTOP-EMBED-01) ===== */}
-      <Section title="Modelo de embedding (local)">
+      <Section title={tt(lang, "settings.embedTitle", "Modelo de embedding (local)")}>
         <div className="flex flex-col gap-2">
           <label className="flex flex-col gap-1">
-            <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">modelo</span>
+            <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">{tt(lang, "settings.embedModel", "modelo")}</span>
             <select
               value={embedPrefs.get().model}
               onChange={(e) => {
                 embedPrefs.set({ model: e.target.value as EmbedModelId });
                 sync();
               }}
-              aria-label="Modelo de embedding"
+              aria-label={tt(lang, "settings.embedTitle", "Modelo de embedding (local)")}
               className={inputCls}
             >
               {EMBED_MODELS.map((m) => (
@@ -212,10 +216,11 @@ export default function Settings({ embedded = false, busy = false, onConnectNati
             </select>
           </label>
           <p className="font-tech text-[10px] text-muted-foreground">
-            Modelo ONNX usado por <code>vanta_embed_text</code>. El default ({DEFAULT_EMBED_MODEL}) coincide con
-            <code>embeddings/manifest.json</code>. Cambialo solo si el modelo esta descargado via
-            <code>python embeddings/download.py --only &lt;id&gt;</code>. Si el backend no expone
-            <code>embed-local</code>, la seleccion se ignora (vector dummy).
+            {tt(
+              lang,
+              "settings.embedHint",
+              "Modelo ONNX usado por vanta_embed_text. El default (multilingual-e5-small) coincide con embeddings/manifest.json. Cambialo solo si el modelo esta descargado via python embeddings/download.py --only <id>. Si el backend no expone embed-local, la seleccion se ignora (vector dummy).",
+            )}
           </p>
         </div>
       </Section>
