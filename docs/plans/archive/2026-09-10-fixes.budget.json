@@ -1,0 +1,49 @@
+{
+  "tasks": {
+    "1": {
+      "taskId": "1",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1788984293480,
+      "lastActivity": 1788984326396,
+      "traceId": "7fafe2c0-3ebd-4b6d-aa72-a423b74d7793"
+    },
+    "3": {
+      "taskId": "3",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1788985323357,
+      "lastActivity": 1788985792767,
+      "traceId": "227e984f-f30a-4264-9e4d-da99b61b4128"
+    },
+    "ISSUE-TS-001": {
+      "taskId": "ISSUE-TS-001",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1788984961227,
+      "lastActivity": 1788984961227,
+      "traceId": "dbd7f200-8a1d-41df-86f3-608a4cc3d48d"
+    },
+    "FIND-21": {
+      "taskId": "FIND-21",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1788986843492,
+      "lastActivity": 1788986843492,
+      "traceId": "901f1970-d150-4085-bc14-9e42e9455ba0"
+    },
+    "PROV-openai": {
+      "taskId": "PROV-openai",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1788991343601,
+      "lastActivity": 1788991343601,
+      "traceId": "c2b8e6de-cb0e-4aa8-9a03-0c6afd93d21c"
+    }
+  }
+}

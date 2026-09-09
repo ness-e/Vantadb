@@ -234,3 +234,14 @@ Plan `docs/plans/archive/2026-09-09-backlog.md` (+budget) archivado: 6/6 ✅ en 
 - **Continue:** scope discipline + avance por subagente (PRX-05/12) + sync plan/backlog del orquestador.
 - **Acción medible:** 0 aborts con impacto (2 aborts → 2 recoveries sin pérdida); métrica: tareas COMPLETO/retries.
 
+
+## Archivo 2026-09-10: plan fixes compilación + Desktop + Providers (43707934)
+
+Plan `docs/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ en 3 waves secuenciales, 0 failed. Patrón verify-first dominante: 3/6 cerradas cero-código (FIND-MCP-001 bug pre-fixado 43e0779e, ISSUE-TS-001 premisa stale vitest 280/280, PROV-openai serie PROV ya vigente check+offline+fmt verde); 3/6 con código real (FIND-20 window_state.rs, FIND-21 AppContextMenu in-app, DESKTOP-40 slice 1 i18n Settings). Avance: bindings (ISSUE-TS-001, PROV-openai). `campaign_verify_cmd` bug exit -1 persiste → bash directa (4to reporte). Lock churn providers/* standalone revertido, no stageado. WIP ajeno intacto en todos los cierres.
+
+**Retrospectiva Start/Stop/Continue:**
+- **Start:** verify-first antes de tocar código (3 fixes fantasma evitados); DISCOVERY completo cuando task file falta.
+- **Stop:** asumir premisa del plan sin re-verificar (2 premisas stale: unreachable, openai error sin aislar).
+- **Continue:** secuencial en este runner + commits solo paths propios + recitation canónica.
+- **Acción medible:** fixes-fantasma evitados 3/6; métrica: tareas cerradas cero-código / total.
+

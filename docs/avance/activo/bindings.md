@@ -841,3 +841,9 @@ aliases: []
 - **Objetivo:** premisa 80/219 con `unreachable!()` WASM vs realidad.
 - **Resultado:** ✅ resuelto-stale: `unreachable!` = 0 matches + vitest 280/280 + tsc 0 (re-verificado orquestador); cero código; subagente abortado pre-sync recuperado sin pérdida.
 - **Commit:** (cierre orquestador)
+
+### PROV-openai: fix compilación provider openai verify-first (plan 2026-09-10-fixes Wave2)
+- **Fecha:** 2026-09-10
+- **Objetivo:** error compilación crate standalone vantadb-openai (regresión 5.0→4.0 en review).
+- **Resultado:** ✅ resuelto-stale: contrato == comando CI experimental-check (`cargo check --manifest-path providers/openai/Cargo.toml`) exit 0 (25.16s) + offline 0.51s + fmt 0; serie PROV-01/04/05/07/10+ERR-PY-01 ya vigente; cero código; lock churn (lru 0.16.4→0.18.4) revertido no stageado; stop-migración-mayor no disparó. Plan 6/6 completo.
+- **Commit:** 43707934
