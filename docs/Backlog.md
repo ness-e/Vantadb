@@ -622,7 +622,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Por qué fuera |
 |----|-------------|---------------|
-| `ISSUE-TS-001` | **Fix TS SDK roto (80/219 tests con `unreachable!()` WASM)** | Pre-existente (snapshot-2026-08-07). Pertenece a capa de bindings (`vanta-worker`). D4: diferido a issue separado. |
+| `ISSUE-TS-001` | **Fix TS SDK** — ✅ resuelto-stale 2026-09-10: `unreachable!` = 0 matches + vitest 280/280 verde (plan 2026-09-10-fixes, cero código) | Pre-existente (snapshot-2026-08-07). Pertenece a capa de bindings (`vanta-worker`). D4: diferido a issue separado. |
 
 ### 📌 Notas & Referencias
 
@@ -710,5 +710,5 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 **Acción medible propuesta:**
 > **Reducir ratio `insta` snapshot churn** — la primera corrida de cada nuevo `insta::assert_snapshot!` genera un `.snap.new` que requiere review manual. Tracking: contar PRs que tocan `tests/**/snapshots/*.snap` sin cambio de test asociado. Baseline actual: N/A (TBH-06 fue el primer snapshot). Métrica: si >30% de PRs que tocan `.snap` no cambian el test source, ajustar a `--require-pristine` en CI.
 
-### Hallazgo pre-existente (no resuelto en P48)
-- `FIND-MCP-001` — `vantadb-mcp/tests/context_tests.rs:70` no compila. Pre-existente al inicio de P48. Owner: bindings layer (`vanta-worker`). Bloquea `cargo check --workspace --tests`. NO resuelto en este sprint — fuera de scope de P48 (que se limitó a testing/benchmarking hardening, no fix de bindings).
+### Hallazgo pre-existente (resuelto 2026-09-10)
+- `FIND-MCP-001` — ✅ resuelto: bug ya fixeado en `43e0779e`; verificado `cargo check -p vantadb-mcp --tests` 0 + nextest 14/14 (plan 2026-09-10-fixes, serie hasta 402d88ce).
