@@ -35,15 +35,15 @@
 
 ## Steps (~100 líneas c/u)
 
-- [ ] **Step 1 — `AppContextMenu.tsx` + test RTL:** componente menú propio (role=menu, items con
+- [x] **Step 1 — `AppContextMenu.tsx` + test RTL:** componente menú propio (role=menu, items con
   atajo visible, Esc/click-fuera cierra, clamp a viewport). Test: render items + click dispara
   acción + Esc cierra. ✅ DONE (3/3 PASS)
-- [ ] **Step 2 — wiring `WorkspaceShell` + atajos nuevos:** `onContextMenu` en root (suppress
+- [x] **Step 2 — wiring `WorkspaceShell` + atajos nuevos:** `onContextMenu` en root (suppress
   nativo), estado `menuAt`, items (Paleta Ctrl+K, Guía ?, Tema Alt+T, Ajustes Ctrl+,);
   extender handler `onKey` (Alt+T tema, Ctrl+, ajustes, skip inputs). ✅ DONE
-- [ ] **Step 3 — docs + verify + commit:** `HelpPanel.SHORTCUTS` (+2 filas), `GUIDE.md` sección
+- [x] **Step 3 — docs + verify + commit:** `HelpPanel.SHORTCUTS` (+2 filas), `GUIDE.md` sección
   delta (menú + atajos + DEFER nativo), `npm run build` 0 + `npx tsc --noEmit` 0 + vitest
-  focado verde, commit solo archivos propios. ✅ DONE
+  focado verde, commit solo archivos propios. ✅ DONE (re-verificado 2026-09-10: tsc 0, vitest 3/3, build 0 en 10.94s)
 
 ## Notas
 
