@@ -2,5 +2,6 @@
 //! verbatim forwarder — no business logic (that lands in MEM-26).
 
 pub mod anthropic;
+pub mod auxiliary;
 pub mod openai;
 pub mod responses;

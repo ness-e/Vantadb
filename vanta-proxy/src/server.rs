@@ -435,6 +435,22 @@ pub fn router(state: AppState) -> Router {
             post(handlers::anthropic::messages),
         )
         .route("/v1/responses", post(handlers::responses::responses))
+        // PRX-05: model discovery (Claude Code picker) + token counting.
+        // Both the plain and `{agent}/{spaceId}`-prefixed shapes (parity
+        // with responses vs chat/completions).
+        .route("/v1/models", get(handlers::auxiliary::models))
+        .route(
+            "/{agent}/{spaceId}/v1/models",
+            get(handlers::auxiliary::models),
+        )
+        .route(
+            "/v1/messages/count_tokens",
+            post(handlers::auxiliary::count_tokens),
+        )
+        .route(
+            "/{agent}/{spaceId}/v1/messages/count_tokens",
+            post(handlers::auxiliary::count_tokens),
+        )
         .with_state(state)
 }
 

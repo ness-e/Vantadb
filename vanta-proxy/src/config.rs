@@ -136,6 +136,10 @@ pub struct UpstreamConfig {
     pub api_key: String,
     /// Total forward timeout in seconds (D31/TDAM: default 600).
     pub forward_timeout_secs: u64,
+    /// Model IDs served by `GET /v1/models` (PRX-05: derived from config,
+    /// never hardcoded — a stale list breaks the Claude Code picker).
+    /// Empty (default) → `{"object":"list","data":[]}`.
+    pub models: Vec<String>,
 }
 
 impl UpstreamConfig {
@@ -172,6 +176,7 @@ impl Default for UpstreamConfig {
             url: "http://127.0.0.1:8096".to_string(),
             api_key: String::new(),
             forward_timeout_secs: DEFAULT_FORWARD_TIMEOUT_SECS,
+            models: Vec::new(),
         }
     }
 }
