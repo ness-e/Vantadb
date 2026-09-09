@@ -1,18 +1,18 @@
 ---
-title: "SQLite for AI Agents: Benchmarks and Architecture Decisions"
+title: "SQLite for AI Agents: The Missing Memory Layer"
 version: 0.5.0
 slug: sqlite-for-ai-agents
-date: 2026-06-06
+date: 2026-05-15
 author: "VantaDB Team"
 tags: ["sqlite", "ai-agents", "lsm-tree", "benchmarks", "architecture", "embedded-database"]
 description: "Why VantaDB chose LSM-trees over B-trees, memory-mapped HNSW with BFS compaction, and PyO3 batch parallelism for AI agent memory — with benchmark data."
 tag: Architecture
 readTime: "7 min"
-canonical: https://vantadb.dev/blog/sqlite-for-ai-agents
+canonical: https://vantadb.vercel.app/blog/sqlite-for-ai-agents
 draft: true
 ---
 
-# SQLite for AI Agents: Benchmarks and Architecture Decisions
+# SQLite for AI Agents: The Missing Memory Layer
 
 *By the VantaDB Team*
 
@@ -54,7 +54,7 @@ A major challenge for vector search on edge devices is RAM usage. A dataset of 1
 VantaDB uses **Memory-Mapped Files (`memmap2`)** to back its HNSW graph. This lets the operating system manage which pages of the graph reside in RAM, loading pages on-demand.
 
 ### The Random Read amplification Problem
-HNSW graph traversal is inherently graph-walk based. The search jumps from node to node, traversing links. If the nodes are written to disk in random order of insertion, each hop during a query traverses page boundaries, causing the OS to trigger a **page fault** and read from physical disk. Under search stress, this drops performance by $10x$.
+HNSW graph traversal is inherently graph-walk based. The search jumps from node to node, traversing links. If the nodes are written to disk in random order of insertion, each hop during a query can cross page boundaries, forcing the OS to fault pages in from physical disk instead of serving them from memory.
 
 ### The Solution: BFS Layout Compaction
 To restore cache locality, VantaDB implements a topological re-layout engine:
@@ -71,7 +71,7 @@ Logical Graph:    [Entry Point] ──► [Neighbor 1] ──► [Neighbor 2]
 Physical Disk (BFS): [Entry | Neighbor 1 | Neighbor 3 | Neighbor 2]  ◄── Same Page!
 ```
 
-**Benchmark Impact:** In our stress benchmarks, running search queries on an HNSW graph compacted with the BFS layout reduced physical OS major page faults by **59%**, increasing search throughput from 750 QPS to **1,195 QPS** under memory pressure.
+**Locality note:** the BFS layout co-locates topologically-close nodes on the same 4KB pages, so graph walks fault in fewer pages under memory pressure. We have not published a page-fault A/B for this layout — the numbers we stand behind live in `docs/operations/BENCHMARKS.md` (batch search §6, competitive runs §7). Reproduce them before quoting them.
 
 ---
 
@@ -91,7 +91,7 @@ To solve FFI overhead, VantaDB implements `search_batch(queries, top_k)`. Instea
 4. **Native Parallelism:** Rust runs the queries concurrently across all CPU cores using `Rayon`.
 5. **Re-acquire GIL:** Rust re-acquires the GIL at the very end to build the final Python list wrapper.
 
-**Benchmark Impact:** Our batch query benchmark shows a **4.01x speedup** when executing 10 concurrent queries via `search_batch` compared to sequential Python loops, dropping latency to **2.43ms** per query.
+**Benchmark Impact:** Our batch query benchmark shows a **4.01x speedup** when executing 10 concurrent queries via `search_batch` compared to sequential Python loops, dropping latency to **2.43ms** per query (full table and methodology: `docs/operations/BENCHMARKS.md` §6 — 5,000 records, 128d, batch 100).
 
 ---
 
