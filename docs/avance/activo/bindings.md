@@ -736,11 +736,12 @@ aliases: []
   - Import: `python -c "import vantadb; help(vantadb.VantaDB.graph_bfs_filtered)"` ✅ sin ImportError
 
 
-### FIND-MCP-001: sync 2026-09-01 (drift backlog)
-- **Fecha:** 2026-09-01
+### FIND-MCP-001: sync 2026-09-01 (drift backlog) + re-verificación 2026-09-10
+- **Fecha:** 2026-09-01 / 2026-09-10
 - **Objetivo:** FIND-MCP-001 completada previamente, removida del Backlog por drift (task file COMPLETED)
 - **Resultado:** OK
 - **Commit:** 7d6eabb2
+- **Re-verificación 2026-09-10 (plan 2026-09-10-fixes, verify-first):** `cargo check -p vantadb-mcp --tests --jobs 2` exit 0 (5.83s, E0786 no reproducido) + nextest context/thread 14/14 + fmt ✅; cero cambios; commits `8e98823f`+`c64d90fe`
 - **Dominio:** bindings
 
 ### TS-01: sync 2026-09-01 (drift backlog)
