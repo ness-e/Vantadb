@@ -200,3 +200,9 @@ aliases: []
 - **Objetivo:** auth O(1) + self-loop fail-fast + caps sesión/buckets + writeback JSONL append-only + filtro mixed-tools.
 - **Resultado:** ✅ test 118/118 + clippy 0 + fmt 0 (clippy final vía RESUME tras aterrizar MEM-66 6ad16fbf).
 - **Commit:** 4bbc2804 + 3f5dab48 (cierre)
+
+### PRX-09: cache exacto slice 1 (plan 2026-09-09 Wave1)
+- **Fecha:** 2026-09-09
+- **Objetivo:** `ExactCache` FIFO opt-in + hook session-path post-inyección; semántico = slice 2 DEFER.
+- **Resultado:** ✅ test 142/0 (8 nuevos) + PRX-04 sin regresión + clippy/fmt 0; cap 4MB con 502 tipado.
+- **Commit:** 50b40228

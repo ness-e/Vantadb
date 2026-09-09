@@ -84,3 +84,9 @@ aliases: []
 - **Objetivo:** port TDAM no porteado — worker muerto → otro worker reclama y procesa (exactly-once, lease sobre `lock_ttl_ms`).
 - **Resultado:** ✅ test vanta-memory 0 failed + e2e `dead_worker_claim_reclaimed_and_processed_by_new_owner` + clippy 0. WIP +3 absorbido (desbloqueó PRX-08).
 - **Commit:** 6ad16fbf
+
+### MEM-68: gate opcional de aprobación de capturas (plan 2026-09-09 Wave0)
+- **Fecha:** 2026-09-09
+- **Objetivo:** gap #6 — cola pendiente→approve/reject (patrón Cursor), default off.
+- **Resultado:** ✅ 27 suites 0 failed (4/4 nuevos) + clippy 0 + fmt; approve reusa `apply_dedup_batch`; `l1_writer.rs` intacto; worker wiring diferido por diseño.
+- **Commit:** a4c1e75b

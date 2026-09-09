@@ -223,3 +223,14 @@ Plan `docs/plans/archive/2026-09-08-backlog.md` (+budget) archivado: 9/10 ✅ + 
 - **Continue:** task files como estado durable + scope discipline (commits solo paths propios, ajenos intactos).
 - **Acción medible:** default secuencial en este runner hasta resolver aborts — baseline: Wave1 paralela 0/3 por abort vs secuencial 8/8 primer intento (100%); métrica: aborts/sesión → 0.
 
+
+## Archivo 2026-09-09 (noche): campana backlog carryover+desbloqueos+proxy-w2 (0a5c1fb8)
+
+Plan `docs/plans/archive/2026-09-09-backlog.md` (+budget) archivado: 6/6 ✅ en 2 waves secuenciales, 0 failed. Backlog: -5 filas (STABLE-09, TS-12, MEM-68, PRX-05, PRX-12) + PRX-09 re-scopeada a slice 2 (semántico/TTL/LRU). P47 cerrada (STABLE-09 subset `[., python, memory, server, mcp]` 546dabd1). Avance: ci-cd (STABLE-09, TS-12), vanta-memory (MEM-68), vanta-proxy.md nuevo (PRX-05/12), operaciones (PRX-09 slice 1). check-avance-coverage 1038/1038 (100%). 2 aborts de lanzamiento recuperados con RETRY fresco sin pérdida (TS-12, PRX-12); PRX-12 pedida como RESUME pero sin task_id → fresco (lección: abort pre-creación no deja sesión).
+
+**Retrospectiva Start/Stop/Continue:**
+- **Start:** secuencial directo + prompts pipeline-full completos (6/6 primer intento efectivo tras retries).
+- **Stop:** intentar RESUME sin task_id (imposible); asumir que abort = sesión viva.
+- **Continue:** scope discipline + avance por subagente (PRX-05/12) + sync plan/backlog del orquestador.
+- **Acción medible:** 0 aborts con impacto (2 aborts → 2 recoveries sin pérdida); métrica: tareas COMPLETO/retries.
+
