@@ -80,6 +80,28 @@ offline en un solo navegador.
 
 ---
 
+## 4. Menú contextual y atajos (FIND-21)
+
+Click derecho en cualquier parte del workspace abre el **menú propio** de la app
+(Paleta, Guía, Tema, Ajustes). Dentro de campos de texto se conserva el menú
+nativo del sistema (copiar/pegar).
+
+| Atajo | Acción |
+|-------|--------|
+| `Ctrl+K` / `⌘K` | Paleta de comandos |
+| `Ctrl+Z` | Deshacer (papelera) |
+| `Alt+T` | Cambiar tema claro/oscuro |
+| `Ctrl+,` | Ir a AJUSTES |
+| `F1` o `?` | Guía rápida (esta ayuda) |
+| `F2` | Ayuda proxy/ajustes (contextual) |
+| `Esc` | Cerrar diálogo/menú |
+
+Nota: los atajos son **in-app** (activos con la ventana enfocada). El atajo
+global a nivel SO (plugin `global-shortcut` de Tauri) queda **DEFER**: requiere
+evaluar colisiones con el sistema antes de activarlo.
+
+---
+
 ## Problemas comunes
 
 | Síntoma | Qué hacer |

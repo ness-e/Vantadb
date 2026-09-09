@@ -10,6 +10,8 @@ export type HelpTab = "general" | "proxy";
 const SHORTCUTS: Array<[string, string]> = [
   ["⌘K / Ctrl+K", "Paleta de comandos"],
   ["Ctrl+Z", "Deshacer (papelera)"],
+  ["Alt+T", "Cambiar tema claro/oscuro"],
+  ["Ctrl+,", "Ir a AJUSTES"],
   ["F1", "Ayuda general (esta guía)"],
   ["F2", "Ayuda proxy / ajustes (contextual)"],
   ["?", "Esta ayuda"],
