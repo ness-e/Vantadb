@@ -45,3 +45,10 @@ aliases: []
 - **Resultado:** ✅
 - **Commit:** a1855dd6 (11 files: `handlers/auxiliary.rs` nuevo + `UpstreamConfig.models` + 4 rutas + `tests/prx05_aux.rs` + fix 1-línea `models: Vec::new()` en 4 suites existentes)
 - **Contrato:** `cargo test -p vanta-proxy` 134 passed 0 failed + clippy `-D warnings` 0 + fmt 0. Modelos derivados de `[upstream] models` (nunca hardcodeados); `count_tokens` estimación local `ceil(chars/4)`; beta headers passthrough verbatim + idempotencia PRX-04 byte-estable; auth D34 en las 4 rutas.
+
+### PRX-12: Compat suite contra releases de coding agents
+- **Fecha:** 2026-09-09
+- **Objetivo:** escudo regresión barato contra releases que rompen proxies sin aviso (pain estructural #3, litellm#11358)
+- **Resultado:** ✅
+- **Commit:** 3b5ac241 (9 files: 6 fixtures JSON + `fixtures/README.md` proveniencia/sanitización/actualización + `tests/prx12_compat.rs` + task file)
+- **Contrato:** `cargo test -p vanta-proxy` 148 passed 0 failed (142 PRX-09 sin regresión + 6 nuevos) + clippy 0 + fmt 0 + grep secrets 0 hits. 3 pares req/resp (Messages/Claude Code, Responses/Codex, Chat/OpenCode) como shapes protocolares representativos (NO capturas live — stop condition); 3 round-trip verbatim + 3 contratos de campos. Sin cambios CI (job `test` ci-rust-10 ya corre el binario en cada PR). Hallazgo S3: `}` extra en fixture Codex diagnosticado con bracket-matching.
