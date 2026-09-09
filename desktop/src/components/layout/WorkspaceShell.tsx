@@ -11,13 +11,15 @@
 // SearchBar: misma llamada search() + ResultsList). Inspector derecho = master-detail del
 // registro seleccionado (VS-06: tabs General/Metadata/Vector/Payload con
 // commit explícito — grid pasa el record completo, búsqueda lo completa vía get).
-import { FormEvent, lazy, ReactNode, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { FormEvent, lazy, ReactNode, Suspense, type MouseEvent as ReactMouseEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { RuleGroupType } from "react-querybuilder";
 // FIX-D3a: glifos con presentación-EMOJI en Windows (♻ ⚙ ☀ ☾ 🔎 🗑 ✳) → Lucide.
 // Los glifos geométricos monocromos (◆ ▫ ▦ ◷ ⛁ ⠿ ⇄ ⌘ ◉ ⇋ ★ ✕ ⧩ ⤒ ⤓ ─ □)
 // son identidad linocut y se quedan. DAUD-06: ✎ (renombrar) → Pencil Lucide.
 import { Asterisk, Moon, Pencil, Search, Settings as SettingsIcon, Sun, Trash2 } from "lucide-react";
 import { HelpPanel, type HelpTab } from "./HelpPanel";
+// FIND-21: menú contextual propio (reemplaza el nativo del WebView).
+import { AppContextMenu } from "./AppContextMenu";
 import { createNamespace, get, list, namespaceStats, search, SearchResult, vantaErrorMessage, type MemoryRecord, type NamespaceStatsMap, type VantaDeepLink } from "../../vanta";
 import { useDeepLink } from "../../hooks/useDeepLink";
 import { ConnectionActions, VantaState } from "../../hooks/useConnectionState";
@@ -336,6 +338,17 @@ export default function WorkspaceShell({
   // FIND-25: in-app usage guide, toggled with "?" — DESKTOP-QW2 (H-03): F1=general, F2=proxy/ajustes contextual con tabs.
   const [helpOpen, setHelpOpen] = useState(false);
   const [helpTab, setHelpTab] = useState<HelpTab>("general");
+  // FIND-21: posición del menú contextual propio (null = cerrado).
+  const [menuAt, setMenuAt] = useState<{ x: number; y: number } | null>(null);
+
+  // FIND-21: right-click → menú propio; en editables se conserva el nativo
+  // (copy/paste del WebView).
+  function onContextMenu(e: ReactMouseEvent) {
+    const t = e.target as HTMLElement | null;
+    if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+    e.preventDefault();
+    setMenuAt({ x: e.clientX, y: e.clientY });
+  }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -350,6 +363,23 @@ export default function WorkspaceShell({
         if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
         e.preventDefault();
         void handleUndo();
+        return;
+      }
+      // FIND-21: Alt+T → tema (sin colisión con el navegador: Ctrl+T es
+      // "nueva pestaña"); Ctrl+, → AJUSTES (convención VS Code, sin binding
+      // del navegador). Skip inputs/contentEditable como el resto.
+      if (e.altKey && e.key.toLowerCase() === "t") {
+        const t = e.target as HTMLElement | null;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+        e.preventDefault();
+        onToggleTheme();
+        return;
+      }
+      if (ctrl && e.key === ",") {
+        const t = e.target as HTMLElement | null;
+        if (t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable)) return;
+        e.preventDefault();
+        setSurface("ajustes");
         return;
       }
       // FIND-25 + DESKTOP-QW2 (H-03): "?" / F1 → tab general, F2 → tab proxy/ajustes contextual.
@@ -522,7 +552,10 @@ export default function WorkspaceShell({
   return (
     // FIND-19: flex-1 (not fixed inset-0) — the shell lives inside App's
     // column layout, below the custom TitleBar. fixed inset-0 covered it.
-    <div className="relative flex min-h-0 flex-1 overflow-hidden bg-background text-foreground">
+    <div
+      className="relative flex min-h-0 flex-1 overflow-hidden bg-background text-foreground"
+      onContextMenu={onContextMenu}
+    >
       {/* ========== SIDEBAR ========== */}
       <aside
         className="flex w-60 shrink-0 flex-col border-r-4 border-foreground bg-background"
@@ -1100,6 +1133,21 @@ export default function WorkspaceShell({
 
       {/* ========== HELP PANEL (FIND-25, "?" global) — DESKTOP-QW2: F1 general, F2 proxy/ajustes contextual */}
       {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} initialTab={helpTab} />}
+
+      {/* ========== CONTEXT MENU (FIND-21, right-click propio) ========== */}
+      {menuAt && (
+        <AppContextMenu
+          x={menuAt.x}
+          y={menuAt.y}
+          items={[
+            { id: "palette", label: "Paleta de comandos", hint: "Ctrl+K", onSelect: () => setPaletteOpen(true) },
+            { id: "help", label: "Guía rápida", hint: "?", onSelect: () => { setHelpTab("general"); setHelpOpen(true); } },
+            { id: "theme", label: dark ? "Tema claro" : "Tema oscuro", hint: "Alt+T", onSelect: onToggleTheme },
+            { id: "settings", label: "Ir a Ajustes", hint: "Ctrl+,", onSelect: () => setSurface("ajustes") },
+          ]}
+          onClose={() => setMenuAt(null)}
+        />
+      )}
 
       {/* ========== NAMESPACE CRUD (DESKTOP-32, acciones de la sidebar) ========== */}
       {nsDialog && (
