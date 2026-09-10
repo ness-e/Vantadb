@@ -423,3 +423,9 @@ aliases: [DESKTOP]
 - **Objetivo:** specs graph/space lens + intento bench H-15.
 - **Resultado:** ✅ tsc 0 + e2e 2/2 (server embedded 32.1s); H-15 DEFER con evidencia; proxy lens no duplicada.
 - **Commit:** d2993c4f
+
+### DESKTOP-40-slice3: i18n lentes/paneles (cierre i18n desktop)
+- **Fecha:** 2026-09-10
+- **Objetivo:** lentes + paneles a `tt()/tp()` (retomó 40 archivos del árbol de intentos abortados).
+- **Resultado:** ✅ tsc 0 + vitest i18n 11/11 + build 0 errores; role/aria intactos; 13 fails vitest pre-existentes ajenos (localStorage Node).
+- **Commit:** ca6f2143

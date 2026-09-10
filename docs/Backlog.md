@@ -490,7 +490,8 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Effort | Descripción | Archivos | Estado |
 |----|--------|-------------|----------|--------|
-| `PRX-11-slice2` | 🔴 | **Traducción wiring opt-in + thinking fidelity fina** (DEFER de slice 1 ✅ 5c75c16b: lib pura `translate.rs` sin wire, verbatim por defecto) | `vanta-proxy/src/translate.rs`, `server.rs` | ⬜ Pendiente (slice 2) |
+| `PRX-11-slice3` | 🔴 | **Traducción wiring opt-in server-side** (DEFER de slice 2 ✅ c7361f94: lib + thinking fina + `TranslateConfig`/`should_translate`; diff en 6 pasos en task file) | `vanta-proxy/src/server.rs`, `config.rs` | ⬜ Pendiente (slice 3) |
+| `PRX-09-wiring` | 🟡 | **Wiring server-side `with_embedder` en AppState** (DEFER de embeddings ✅ 15157d39: `OllamaEmbedProvider::from_env()` + gate `semantic_enabled`; server construía cache sin embedder) | `vanta-proxy/src/server.rs` | ⬜ Pendiente |
 > Sin filas pendientes (PRX-10 completada plan 2026-09-10-code, 950df333).
 
 > Sin filas pendientes (PRX-13 completada plan 2026-09-10-code, 462488e9).
@@ -543,7 +544,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Effort | Descripción | Archivos | Estado |
 |----|--------|-------------|----------|--------|
-| `DESKTOP-40-slice3` | 🔴 | **i18n lentes/paneles desktop (DEFER de slice 2 ✅ bbdeae17)**: lentes + paneles restantes; shell chrome ya migrado | `desktop/src/` + `desktop/src/i18n/` | ⬜ Pendiente (DEFER) |
 | `DESKTOP-41` | 🟢 | **Smoke-test instalador en VM Windows limpia** (Step 3 DESKTOP-24 pendiente): instalar NSIS+MSI, verificar arranque, sidecar server, deep link vanta://, WebView2 bootstrapper | instaladores `desktop/src-tauri/target/release/bundle/*`, VM limpia | ⬜ Pendiente |
 | `DESKTOP-43` | 🟡 | **Auto-update vía tauri-plugin-updater**, bloqueado por firma (wontfix DEVOPS-10) y endpoint de manifests; desbloquear tras decisión de distribución pública. Origen: INV-desktop H-10 | `tauri.conf.json` plugins, CI release | ⬜ Pendiente |
 | `DESKTOP-44` | 🟡 | **Validación manual Proxy Dashboard con upstream LLM vivo** (TurnReports/sesiones/write-back/rate-limit end-to-end, deuda DESKTOP-38) — sesión guiada owner+agente, no tarea autónoma. Origen: INV-desktop H-12 | `desktop/src/components/proxy/ProxyDashboard.tsx`, vanta-proxy | ⬜ Pendiente |
