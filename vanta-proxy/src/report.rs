@@ -10,6 +10,10 @@ use std::sync::RwLock;
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 /// One turn's structured record.
+///
+/// Cost fields (PRX-03) are additive with `#[serde(default)]` so snapshots
+/// and log lines stay back-compatible: old consumers ignore them, and any
+/// JSON missing them still deserializes.
 #[derive(Debug, Clone, Serialize)]
 pub struct TurnReport {
     pub timestamp_ms: u64,
@@ -19,6 +23,21 @@ pub struct TurnReport {
     /// HTTP status the proxy returned to the client.
     pub status: u16,
     pub duration_ms: u128,
+    /// Virtual key (D34 `user_id`) the turn was billed to; "" when unknown.
+    #[serde(default)]
+    pub virtual_key: String,
+    /// Session key (`x-vanta-session`); "" when the turn had no session.
+    #[serde(default)]
+    pub session: String,
+    /// Request-side token estimate (`cost::tokens_from_request_body`).
+    #[serde(default)]
+    pub input_tokens: u64,
+    /// Response-side tokens (buffered bodies only; 0 on passthrough).
+    #[serde(default)]
+    pub output_tokens: u64,
+    /// Turn cost in USD at record time (price table may move later).
+    #[serde(default)]
+    pub cost_usd: f64,
 }
 
 /// Extract `"model"` from a request body for limiter/reporting keys ("_" if absent/non-JSON).
@@ -132,6 +151,11 @@ mod tests {
             model: "gpt-x".into(),
             status: 200,
             duration_ms: 12,
+            virtual_key: "user-7".into(),
+            session: "sess-1".into(),
+            input_tokens: 120,
+            output_tokens: 30,
+            cost_usd: 0.00054,
         };
         let line = serde_json::to_string(&report).expect("serialize");
         let value: serde_json::Value = serde_json::from_str(&line).expect("valid json");
@@ -141,6 +165,11 @@ mod tests {
         assert_eq!(value["status"], 200);
         assert_eq!(value["duration_ms"], 12);
         assert!(value["timestamp_ms"].is_u64());
+        assert_eq!(value["virtual_key"], "user-7");
+        assert_eq!(value["session"], "sess-1");
+        assert_eq!(value["input_tokens"], 120);
+        assert_eq!(value["output_tokens"], 30);
+        assert!((value["cost_usd"].as_f64().expect("f64") - 0.00054).abs() < 1e-12);
     }
 
     #[test]
@@ -160,6 +189,11 @@ mod tests {
             model: "_".into(),
             status: 429,
             duration_ms: 3,
+            virtual_key: String::new(),
+            session: String::new(),
+            input_tokens: 0,
+            output_tokens: 0,
+            cost_usd: 0.0,
         });
         assert_eq!(calls.load(Ordering::SeqCst), 1);
     }
@@ -193,6 +227,11 @@ mod tests {
                 model: "_".into(),
                 status: 200,
                 duration_ms: 1,
+                virtual_key: String::new(),
+                session: String::new(),
+                input_tokens: 0,
+                output_tokens: 0,
+                cost_usd: 0.0,
             });
         }
         let recent = reporter.recent_reports();

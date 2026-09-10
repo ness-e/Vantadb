@@ -34,6 +34,10 @@ pub struct ProxyConfig {
     /// Optional per-turn span export to Langfuse/OTel over OTLP-JSON
     /// (MEM-56). Disabled by default (empty endpoint).
     pub report: ReportConfig,
+    /// Cost tracking + virtual keys (PRX-03). Tracking on, enforcement off
+    /// by default (log-first — enforcement never blocks legitimate traffic
+    /// unless explicitly configured).
+    pub cost: CostConfig,
 }
 
 impl ProxyConfig {
@@ -121,6 +125,35 @@ impl ReportConfig {
     /// Export is on only when an endpoint is configured.
     pub fn enabled(&self) -> bool {
         !self.langfuse_endpoint.is_empty()
+    }
+}
+
+/// Cost tracking + virtual keys (PRX-03). All keys default so a TOML
+/// without `[cost]` parses unchanged (legacy compat).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct CostConfig {
+    /// When false, no budget check runs and no turn is recorded.
+    pub enabled: bool,
+    /// Fallback budget in USD applied to keys without their own budget
+    /// (`None` = untracked spend, always allowed). Per-key budgets
+    /// (PRX-10 allowlists) override this.
+    pub default_budget_usd: Option<f64>,
+    /// Fallback enforcement: over budget + enforce → 429; over budget
+    /// without enforce → warn + allow (log-first default).
+    pub enforce: bool,
+    /// Per-model USD/1K prices + `__default__` fallback for unknown models.
+    pub prices: crate::cost::PriceTable,
+}
+
+impl Default for CostConfig {
+    fn default() -> Self {
+        Self {
+            enabled: true,
+            default_budget_usd: None,
+            enforce: false,
+            prices: crate::cost::PriceTable::default(),
+        }
     }
 }
 
@@ -288,6 +321,41 @@ mod tests {
         .expect("legacy TOML must parse");
         assert!(cfg.upstreams.is_empty());
         assert_eq!(cfg.upstreams_resolved().len(), 1);
+    }
+
+    #[test]
+    fn legacy_toml_without_cost_still_parses_with_tracking_defaults() {
+        // PRX-03 compat: a pre-cost TOML file has no `[cost]` key —
+        // tracking on, no budget, no enforcement (log-first).
+        let cfg: ProxyConfig = toml::from_str(
+            "[server]\nhost = \"127.0.0.1\"\nport = 8096\n\
+             [upstream]\nurl = \"https://api.anthropic.com\"\napi_key = \"k\"\n",
+        )
+        .expect("legacy TOML must parse");
+        assert!(cfg.cost.enabled);
+        assert_eq!(cfg.cost.default_budget_usd, None);
+        assert!(!cfg.cost.enforce);
+        assert!(
+            cfg.cost.prices.cost_usd(
+                "gpt-4o",
+                &crate::cost::Usage {
+                    input_tokens: 1000,
+                    output_tokens: 0,
+                }
+            ) > 0.0
+        );
+    }
+
+    #[test]
+    fn toml_with_cost_parses_budget_and_enforce() {
+        let cfg: ProxyConfig = toml::from_str(
+            "[upstream]\nurl = \"https://api.anthropic.com\"\n\
+             [cost]\nenabled = true\ndefault_budget_usd = 5.0\nenforce = true\n",
+        )
+        .expect("cost TOML must parse");
+        assert!(cfg.cost.enabled);
+        assert_eq!(cfg.cost.default_budget_usd, Some(5.0));
+        assert!(cfg.cost.enforce);
     }
 
     #[test]

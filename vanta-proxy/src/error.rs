@@ -25,10 +25,36 @@ pub enum ProxyError {
     /// Local VantaDB storage failure while resolving auth/session/memory.
     #[error("local storage error: {0}")]
     Storage(String),
+    /// PRX-03: virtual key over budget with enforcement on. `key` is the
+    /// resolved D34 `user_id` (identity, never the raw secret header).
+    #[error(
+        "budget exceeded for virtual key `{key}`: spent ${spent_usd:.6} of ${budget_usd:.6} budget"
+    )]
+    BudgetExceeded {
+        key: String,
+        spent_usd: f64,
+        budget_usd: f64,
+    },
 }
 
 impl IntoResponse for ProxyError {
     fn into_response(self) -> Response {
+        // Budget shape is its own `type` (no Retry-After: not a window).
+        if let ProxyError::BudgetExceeded {
+            key,
+            spent_usd,
+            budget_usd,
+        } = &self
+        {
+            let body = json!({ "error": {
+                "type": "budget_exceeded",
+                "message": self.to_string(),
+                "key": key,
+                "spent_usd": spent_usd,
+                "budget_usd": budget_usd,
+            } });
+            return (StatusCode::TOO_MANY_REQUESTS, axum::Json(body)).into_response();
+        }
         let (status, message) = match &self {
             ProxyError::UpstreamTimeout => (StatusCode::GATEWAY_TIMEOUT, self.to_string()),
             ProxyError::Unauthorized => (StatusCode::UNAUTHORIZED, self.to_string()),
@@ -39,6 +65,9 @@ impl IntoResponse for ProxyError {
                 (StatusCode::BAD_GATEWAY, self.to_string())
             }
             ProxyError::Config(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
+            // Defensive: the early return above serves the `budget_exceeded`
+            // shape; this arm only satisfies exhaustiveness.
+            ProxyError::BudgetExceeded { .. } => (StatusCode::TOO_MANY_REQUESTS, self.to_string()),
         };
         let body = json!({ "error": { "type": "proxy_error", "message": message } });
         (status, axum::Json(body)).into_response()

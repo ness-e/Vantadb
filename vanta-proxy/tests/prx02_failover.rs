@@ -63,6 +63,7 @@ fn state_for_failover(a: &str, b: &str) -> server::AppState {
         writeback: vanta_proxy::config::WritebackConfig::default(),
         cache: Default::default(),
         report: Default::default(),
+        cost: Default::default(),
     };
     server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }

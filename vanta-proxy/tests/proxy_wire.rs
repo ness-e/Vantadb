@@ -106,6 +106,7 @@ async fn setup(extra_upstream_routes: Router) -> TestEnv {
     let upstream_url = spawn(app).await;
     let cfg = ProxyConfig {
         report: Default::default(),
+        cost: Default::default(),
         server: ServerConfig::default(),
         upstream: UpstreamConfig {
             url: upstream_url,
@@ -130,6 +131,7 @@ async fn setup(extra_upstream_routes: Router) -> TestEnv {
 fn cfg_with(upstream: &str, timeout_secs: u64) -> ProxyConfig {
     ProxyConfig {
         report: Default::default(),
+        cost: Default::default(),
         server: ServerConfig::default(),
         upstream: UpstreamConfig {
             url: upstream.to_string(),
@@ -388,6 +390,7 @@ async fn rate_limit_blocks_excess_with_429_and_retry_after_headers() {
     .await;
     let cfg = ProxyConfig {
         report: Default::default(),
+        cost: Default::default(),
         server: ServerConfig {
             rate_limit_per_minute: 2,
             ..ServerConfig::default()
@@ -479,6 +482,7 @@ async fn mem_command_enabled_intercepts_sync_and_help_locally() {
     let upstream_url = spawn(Router::new()).await; // nothing reachable should be called
     let cfg = ProxyConfig {
         report: Default::default(),
+        cost: Default::default(),
         mem_command: vanta_proxy::config::MemCommandConfig { enabled: true },
         ..cfg_with(&upstream_url, 600)
     };

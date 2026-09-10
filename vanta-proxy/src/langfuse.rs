@@ -150,6 +150,11 @@ mod tests {
             model: "gpt-x".into(),
             status: 200,
             duration_ms: 12,
+            virtual_key: String::new(),
+            session: String::new(),
+            input_tokens: 0,
+            output_tokens: 0,
+            cost_usd: 0.0,
         }
     }
 

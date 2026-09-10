@@ -18,6 +18,7 @@ use crate::auth::AuthDb;
 use crate::cache::{self, CachedEntry, ExactCache};
 use crate::capture;
 use crate::config::ProxyConfig;
+use crate::cost::{self, BudgetDecision, CostTracker, VirtualKey};
 use crate::forward::Forwarder;
 use crate::handlers;
 use crate::inject::{self, Protocol};
@@ -56,6 +57,8 @@ pub struct AppState {
     pub reporter: Arc<Reporter>,
     /// Exact response cache (PRX-09 slice 1: exact-only, opt-in).
     pub cache: Arc<std::sync::Mutex<ExactCache>>,
+    /// Cost ledger + virtual-key budgets (PRX-03). In-memory, fail-open.
+    pub cost: Arc<CostTracker>,
 }
 
 /// PRX-01: true when an Anthropic request is a standalone CC sidequery
@@ -111,12 +114,19 @@ impl AppState {
             reporter.add_hook(hook);
         }
         let cache = ExactCache::new(config.cache.clone());
+        // PRX-03: ledger over the configured price table + default budget.
+        let cost = CostTracker::new(
+            config.cost.prices.clone(),
+            config.cost.default_budget_usd,
+            config.cost.enforce,
+        );
         Ok(Self {
             limiter: RateLimiter::new(config.server.rate_limit_per_minute).into(),
             upstream_health: UpstreamHealth::new().into(),
             writeback: WriteBack::new(persist_path).into(),
             reporter: reporter.into(),
             cache: Arc::new(std::sync::Mutex::new(cache)),
+            cost: cost.into(),
             config: Arc::new(config),
             forwarder: Arc::new(forwarder),
             auth: AuthDb::new(engine.clone()).into(),
@@ -151,6 +161,26 @@ impl AppState {
         if response.status().is_success() && !is_cc_sidequery(protocol, &body) {
             self.capture_turn(protocol, headers, space_id, &model, &body);
         }
+        // PRX-03: request-side cost accounting. Best-effort and fail-open:
+        // an unresolvable identity simply records nothing — the wire
+        // already ran. Output side stays 0 until a buffered body exists
+        // (`record_response_usage`, wired by a future SSE drain).
+        let mut virtual_key = String::new();
+        let mut session = String::new();
+        let mut input_tokens = 0u64;
+        let mut turn_cost = 0.0;
+        if self.config.cost.enabled {
+            if let Ok(identity) = self.auth.authenticate(headers) {
+                virtual_key = identity.user_id;
+                session = session_key_from_headers(headers).unwrap_or_default();
+                let usage = cost::Usage {
+                    input_tokens: cost::tokens_from_request_body(body.as_ref()),
+                    output_tokens: 0,
+                };
+                input_tokens = usage.input_tokens;
+                turn_cost = self.cost.record(&virtual_key, &session, &model, &usage);
+            }
+        }
         self.reporter.emit(&TurnReport {
             timestamp_ms: now_ms_u64(),
             space_id: space_id.to_string(),
@@ -158,6 +188,11 @@ impl AppState {
             model,
             status: response.status().as_u16(),
             duration_ms: timer.elapsed_ms(),
+            virtual_key,
+            session,
+            input_tokens,
+            output_tokens: 0,
+            cost_usd: turn_cost,
         });
         response
     }
@@ -177,6 +212,35 @@ impl AppState {
         if let Err(e) = self.auth.authenticate(headers) {
             tracing::debug!(error = %e, "request rejected by auth");
             return e.into_response();
+        }
+
+        // 1b) PRX-03: virtual-key budget gate (log-first default). Runs
+        // right after D34 so only authenticated identities are checked —
+        // it can never bypass auth, and without enforce it only warns.
+        if self.config.cost.enabled {
+            if let Ok(identity) = self.auth.authenticate(headers) {
+                let key = VirtualKey {
+                    id: identity.user_id,
+                    budget_usd: self.config.cost.default_budget_usd,
+                    enforce: self.config.cost.enforce,
+                };
+                if let BudgetDecision::Limited {
+                    spent_usd,
+                    budget_usd,
+                } = self.cost.check_budget(&key)
+                {
+                    tracing::warn!(
+                        key = %key.id, spent_usd, budget_usd,
+                        "virtual key over budget — rejecting 429"
+                    );
+                    return crate::error::ProxyError::BudgetExceeded {
+                        key: key.id,
+                        spent_usd,
+                        budget_usd,
+                    }
+                    .into_response();
+                }
+            }
         }
 
         // 2) D24/D35: sliding-window limit keyed by spaceId×model.
@@ -602,6 +666,11 @@ async fn snapshot(
             "limit_per_minute": state.limiter.limit(),
             "hits_total": state.limiter.hits_total(),
             "degraded": state.limiter.is_degraded(),
+        },
+        "cost": {
+            "snapshot": state.cost.snapshot(),
+            "default_budget_usd": state.config.cost.default_budget_usd,
+            "enforce": state.config.cost.enforce,
         },
     }))
 }

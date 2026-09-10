@@ -53,6 +53,7 @@ fn seeded_engine() -> Arc<StorageEngine> {
 fn state_for(upstream_url: &str) -> vanta_proxy::server::AppState {
     let cfg = vanta_proxy::config::ProxyConfig {
         report: Default::default(),
+        cost: Default::default(),
         server: vanta_proxy::config::ServerConfig::default(),
         upstream: vanta_proxy::config::UpstreamConfig {
             url: upstream_url.to_string(),
