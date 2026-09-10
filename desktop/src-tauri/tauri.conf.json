@@ -45,7 +45,10 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis", "msi"],
+    "targets": ["nsis", "msi", "dmg", "app", "appimage", "deb"],
+    "category": "DeveloperTool",
+    "shortDescription": "VantaDB Studio — local-first vector memory workbench",
+    "longDescription": "VantaDB Studio is the desktop shell over the VantaDB engine: local-first vector + full-text memory with MCP sidecar support. macOS/Linux bundles are unsigned build-only artifacts (no notarization — no Apple certificate in CI).",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -59,7 +62,8 @@
       }
     },
     "resources": {
-      "binaries/vanta-cli.exe": "."
+      "binaries/vanta-cli*": ".",
+      "binaries/vantadb-server*": "."
     }
   }
 }
