@@ -25,6 +25,9 @@ classifiers = [
 dependencies = [
     "vantadb-py>=0.5.0,<0.6.0",
     "langchain-core>=0.3",
+    # INTG-01: LangGraph adapters (checkpointer + BaseStore).
+    # API inestable upstream → major pineado; spec en docs/tasks/INTG-01.md.
+    "langgraph-checkpoint>=2,<5",
 ]
 
 [project.urls]
