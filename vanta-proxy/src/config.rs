@@ -50,6 +50,9 @@ pub struct ProxyConfig {
     /// Per-key model allowlists (PRX-10 guardrails). Disabled by default
     /// so the wire stays a transparent proxy unless explicitly opted in.
     pub guardrails: crate::guardrails::GuardrailConfig,
+    /// Anthropic↔OpenAI translation (PRX-11 slice 3). Disabled by default
+    /// so the wire stays byte-identical unless explicitly opted in.
+    pub translate: crate::translate::TranslateConfig,
 }
 
 impl ProxyConfig {

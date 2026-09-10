@@ -262,6 +262,7 @@ fn state_with_context(upstream: &str, context: ContextConfig) -> server::AppStat
         redact: Default::default(),
         context,
         guardrails: Default::default(),
+        translate: Default::default(),
     };
     server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }

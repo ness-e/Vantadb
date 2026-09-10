@@ -33,6 +33,7 @@ use crate::routing::{tier_of, ResolvedRoute};
 use crate::session::claude_code::CcRequestKind;
 use crate::session::{parse_stage, session_key_from_headers, SessionStore};
 use crate::sse_intercept;
+use crate::translate::{self, TranslateSource};
 use crate::writeback::WriteBack;
 
 /// Hard iteration cap of the agentic memory-tool loop (D48): at most 3
@@ -437,20 +438,29 @@ impl AppState {
         // implicitly). Runs AFTER auth/session — a hit never bypasses D34.
         // Slice 2: on exact miss, a similarity hit over the same template
         // replays the entry (opt-in via `semantic_enabled`).
+        // 5d) PRX-11 slice 3: opt-in Anthropic→OpenAI translation runs here
+        // (AFTER auth/gates, BEFORE cache+forward) so translated bodies share
+        // cache entries with native OpenAI requests. Disabled default →
+        // byte-identical wire (tested).
+        let (eff_protocol, eff_wire_path, body, translated) =
+            match translate_request(&self.config.translate, protocol, wire_path, &body) {
+                Some((p, w, b)) => (p, w, b, true),
+                None => (protocol, wire_path.to_string(), body, false),
+            };
         let cacheable = self.cache_enabled() && cache::is_cacheable_request(body.as_ref());
         if cacheable {
-            if let Some(entry) = self.cache_lookup(protocol, wire_path, &body) {
+            if let Some(entry) = self.cache_lookup(eff_protocol, &eff_wire_path, &body) {
                 return cached_response(&entry);
             }
-            if let Some(entry) = self.cache_lookup_similar(protocol, wire_path, &body) {
+            if let Some(entry) = self.cache_lookup_similar(eff_protocol, &eff_wire_path, &body) {
                 return cached_response(&entry);
             }
         }
 
         let response = self
             .forward_with_tool_loop(
-                protocol,
-                wire_path,
+                eff_protocol,
+                &eff_wire_path,
                 headers,
                 body.clone(),
                 space_id,
@@ -459,11 +469,14 @@ impl AppState {
                 upstreams,
             )
             .await;
+        let response = map_translated_response(response, translated).await;
 
         // 5c) Store small JSON 2xx for the next identical request.
         // SSE/chunked/unknown-length responses bypass — never buffered.
         if cacheable {
-            return self.maybe_store(protocol, wire_path, body, response).await;
+            return self
+                .maybe_store(eff_protocol, &eff_wire_path, body, response)
+                .await;
         }
         response
     }
@@ -836,6 +849,93 @@ fn protocol_name(protocol: Protocol) -> &'static str {
 }
 
 /// Replay a cached exact entry byte-for-byte (PRX-09 slice 1).
+/// PRX-11 slice 3: opt-in request translation. Returns the effective
+/// (protocol, upstream path, body) for cache+forward, or `None` when the
+/// gate is closed / the body isn't JSON (wire stays byte-identical).
+/// Pure over its inputs (no self) so it unit-tests without AppState.
+fn translate_request(
+    cfg: &translate::TranslateConfig,
+    protocol: Protocol,
+    _wire_path: &str,
+    body: &Bytes,
+) -> Option<(Protocol, String, Bytes)> {
+    let src = match protocol {
+        Protocol::Anthropic => TranslateSource::Anthropic,
+        Protocol::OpenAI => TranslateSource::OpenAI,
+        _ => return None,
+    };
+    if !translate::should_translate(cfg, src) {
+        return None;
+    }
+    let value: serde_json::Value = serde_json::from_slice(body).ok()?;
+    let out = translate::anthropic_to_openai(&value);
+    let bytes = Bytes::from(serde_json::to_vec(&out).unwrap_or_else(|_| body.to_vec()));
+    // The translated body targets the OpenAI endpoint, not the client's
+    // Anthropic path — sharing the entry with native OpenAI requests.
+    Some((Protocol::OpenAI, "/v1/chat/completions".to_string(), bytes))
+}
+
+/// Cap for buffering a translated response before mapping it back
+/// (same order as the cache cap — chat completions are small).
+const MAX_TRANSLATED_RESPONSE_BYTES: usize = 4 * 1024 * 1024;
+
+/// PRX-11 slice 3: map a translated upstream response back to the client
+/// protocol. SSE streams pass through untouched (never buffered); small
+/// buffered JSON bodies are translated; anything else flows through
+/// unchanged (fail-open — a mapping failure must never break a valid
+/// upstream response, except an over-cap body which becomes a typed 502).
+async fn map_translated_response(response: Response<Body>, translated: bool) -> Response<Body> {
+    if !translated {
+        return response;
+    }
+    let (parts, body) = response.into_parts();
+    let is_sse = parts
+        .headers
+        .get(axum::http::header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|ct| ct.contains("event-stream"));
+    if is_sse {
+        return Response::from_parts(parts, body);
+    }
+    let too_big = parts
+        .headers
+        .get(axum::http::header::CONTENT_LENGTH)
+        .and_then(|v| v.to_str().ok())
+        .and_then(|s| s.parse::<usize>().ok())
+        .is_some_and(|len| len > MAX_TRANSLATED_RESPONSE_BYTES);
+    if too_big {
+        return Response::from_parts(parts, body);
+    }
+    let limit = usize::try_from(MAX_TRANSLATED_RESPONSE_BYTES + 1).unwrap_or(usize::MAX);
+    let bytes = match axum::body::to_bytes(body, limit).await {
+        Ok(b) => b,
+        Err(_) => {
+            return crate::error::ProxyError::Forward(
+                "translate: response too large to map back".to_string(),
+            )
+            .into_response()
+        }
+    };
+    let Ok(value) = serde_json::from_slice::<serde_json::Value>(&bytes) else {
+        return Response::from_parts(parts, Body::from(bytes));
+    };
+    let mapped = translate::openai_to_anthropic(&value);
+    let out = Bytes::from(serde_json::to_vec(&mapped).unwrap_or_else(|_| bytes.to_vec()));
+    let mut builder = Response::builder().status(parts.status);
+    if let Some(headers) = builder.headers_mut() {
+        headers.insert(
+            axum::http::header::CONTENT_TYPE,
+            axum::http::HeaderValue::from_static("application/json"),
+        );
+        if let Ok(value) = axum::http::HeaderValue::from_str(&out.len().to_string()) {
+            headers.insert(axum::http::header::CONTENT_LENGTH, value);
+        }
+    }
+    builder.body(Body::from(out)).unwrap_or_else(|_| {
+        crate::error::ProxyError::Forward("translate: rebuild failed".to_string()).into_response()
+    })
+}
+
 fn cached_response(entry: &CachedEntry) -> Response<Body> {
     let status = StatusCode::from_u16(entry.status).unwrap_or(StatusCode::OK);
     let mut builder = Response::builder().status(status);
@@ -907,5 +1007,136 @@ mod tests {
         assert!(!is_cc_sidequery(Protocol::OpenAI, &body));
         assert!(!is_cc_sidequery(Protocol::Anthropic, b"not json"));
         assert!(!is_cc_sidequery(Protocol::Anthropic, b"{}"));
+    }
+
+    // PRX-11 slice 3: translate hook gate + response map-back.
+    fn anth_req() -> Bytes {
+        Bytes::from(
+            serde_json::json!({"model": "claude-x", "max_tokens": 10, "messages": [{"role": "user", "content": "hi"}]})
+                .to_string(),
+        )
+    }
+
+    #[test]
+    fn translate_disabled_stays_verbatim() {
+        let cfg = crate::translate::TranslateConfig::default();
+        assert!(
+            translate_request(&cfg, Protocol::Anthropic, "/v1/messages", &anth_req()).is_none()
+        );
+    }
+
+    #[test]
+    fn translate_openai_client_never_rewritten() {
+        let cfg = crate::translate::TranslateConfig { enabled: true };
+        assert!(
+            translate_request(&cfg, Protocol::OpenAI, "/v1/chat/completions", &anth_req())
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn translate_enabled_maps_to_openai_path() {
+        let cfg = crate::translate::TranslateConfig { enabled: true };
+        let (proto, path, body) =
+            translate_request(&cfg, Protocol::Anthropic, "/v1/messages", &anth_req())
+                .expect("gate open + valid JSON");
+        assert!(matches!(proto, Protocol::OpenAI));
+        assert_eq!(path, "/v1/chat/completions");
+        let v: serde_json::Value = serde_json::from_slice(&body).expect("valid JSON");
+        assert_eq!(v["messages"][0]["role"], "user");
+    }
+
+    #[test]
+    fn translate_garbage_body_fails_open() {
+        let cfg = crate::translate::TranslateConfig { enabled: true };
+        assert!(translate_request(
+            &cfg,
+            Protocol::Anthropic,
+            "/v1/messages",
+            &Bytes::from("{{{")
+        )
+        .is_none());
+    }
+
+    fn json_response(body: serde_json::Value) -> Response<Body> {
+        Response::builder()
+            .status(StatusCode::OK)
+            .header(axum::http::header::CONTENT_TYPE, "application/json")
+            .body(Body::from(body.to_string()))
+            .expect("build")
+    }
+
+    #[tokio::test]
+    async fn mapback_passthrough_when_not_translated() {
+        let resp = json_response(serde_json::json!({"a": 1}));
+        let out = map_translated_response(resp, false).await;
+        assert_eq!(out.status(), StatusCode::OK);
+        let bytes = axum::body::to_bytes(out.into_body(), 1024)
+            .await
+            .expect("read");
+        assert_eq!(bytes.as_ref(), b"{\"a\":1}");
+    }
+
+    #[tokio::test]
+    async fn mapback_sse_never_buffered() {
+        let resp = Response::builder()
+            .status(StatusCode::OK)
+            .header(axum::http::header::CONTENT_TYPE, "text/event-stream")
+            .body(Body::from("data: {}\n\n"))
+            .expect("build");
+        let out = map_translated_response(resp, true).await;
+        assert_eq!(
+            out.headers()
+                .get(axum::http::header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok()),
+            Some("text/event-stream")
+        );
+        let bytes = axum::body::to_bytes(out.into_body(), 1024)
+            .await
+            .expect("read");
+        assert_eq!(bytes.as_ref(), b"data: {}\n\n");
+    }
+
+    #[tokio::test]
+    async fn mapback_json_gets_anthropic_shape() {
+        let upstream = serde_json::json!({
+            "id": "chatcmpl-1", "model": "gpt-x",
+            "choices": [{"message": {"role": "assistant", "content": "hi"}, "finish_reason": "stop"}]
+        });
+        let out = map_translated_response(json_response(upstream), true).await;
+        assert_eq!(out.status(), StatusCode::OK);
+        assert_eq!(
+            out.headers()
+                .get(axum::http::header::CONTENT_TYPE)
+                .and_then(|v| v.to_str().ok()),
+            Some("application/json")
+        );
+        let bytes = axum::body::to_bytes(out.into_body(), 4096)
+            .await
+            .expect("read");
+        let v: serde_json::Value = serde_json::from_slice(&bytes).expect("valid JSON");
+        assert_eq!(v["type"], "message");
+        assert_eq!(v["content"][0]["text"], "hi");
+    }
+
+    #[tokio::test]
+    async fn mapback_invalid_json_flows_untouched() {
+        let out = map_translated_response(json_response(serde_json::json!("oops")), true).await;
+        // `"oops"` is valid JSON (a string) → maps to an empty-content message.
+        let bytes = axum::body::to_bytes(out.into_body(), 4096)
+            .await
+            .expect("read");
+        let v: serde_json::Value = serde_json::from_slice(&bytes).expect("valid JSON");
+        assert_eq!(v["type"], "message");
+        let raw = Response::builder()
+            .status(StatusCode::OK)
+            .header(axum::http::header::CONTENT_TYPE, "application/json")
+            .body(Body::from("not json{{{"))
+            .expect("build");
+        let out = map_translated_response(raw, true).await;
+        let bytes = axum::body::to_bytes(out.into_body(), 4096)
+            .await
+            .expect("read");
+        assert_eq!(bytes.as_ref(), b"not json{{{");
     }
 }
