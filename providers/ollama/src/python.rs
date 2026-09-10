@@ -32,6 +32,29 @@ pub struct VantaDBOllama {
     timeout: Option<f64>,
 }
 
+/// Single embedding request for one chunk — shared by `embed`/`embed_batch`
+/// (free fn rather than a method: `&[String]` is not a valid `#[pymethods]`
+/// argument type, and the helper must not become Python-visible surface).
+fn ollama_embed_chunk(
+    store: &VantaDBOllama,
+    py: Python,
+    texts: &[String],
+) -> PyResult<Vec<Vec<f32>>> {
+    let client = store.client.bind(py);
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("model", &store.model)?;
+    kwargs.set_item("input", texts.to_vec())?;
+    let response = client
+        .getattr("embed")
+        .and_then(|func| func.call((), Some(&kwargs)))
+        .map_err(|e| PyRuntimeError::new_err(format!("Ollama embed error: {}", e)))?;
+
+    response
+        .get_item("embeddings")
+        .and_then(|v| v.extract::<Vec<Vec<f32>>>())
+        .map_err(|e| PyRuntimeError::new_err(format!("missing embeddings: {}", e)))
+}
+
 #[pymethods]
 impl VantaDBOllama {
     /// Creates a new VantaDB Ollama provider.
@@ -87,19 +110,41 @@ impl VantaDBOllama {
     /// Returns:
     ///     A list of embedding vectors, one per input text.
     fn embed(&self, py: Python, texts: Vec<String>) -> PyResult<Vec<Vec<f32>>> {
-        let client = self.client.bind(py);
-        let kwargs = PyDict::new(py);
-        kwargs.set_item("model", &self.model)?;
-        kwargs.set_item("input", texts)?;
-        let response = client
-            .getattr("embed")
-            .and_then(|func| func.call((), Some(&kwargs)))
-            .map_err(|e| PyRuntimeError::new_err(format!("Ollama embed error: {}", e)))?;
+        ollama_embed_chunk(self, py, &texts)
+    }
 
-        response
-            .get_item("embeddings")
-            .and_then(|v| v.extract::<Vec<Vec<f32>>>())
-            .map_err(|e| PyRuntimeError::new_err(format!("missing embeddings: {}", e)))
+    /// Generate embeddings in batches of at most `batch_size` texts (PROV-11).
+    ///
+    /// Additive chunked variant of [`Self::embed`]: large volumes are split
+    /// into one API request per chunk and concatenated preserving order, so a
+    /// single oversized request never hits provider limits. Inputs of
+    /// `batch_size` or fewer behave exactly like [`Self::embed`] (1 request).
+    /// Async callers: `await asyncio.to_thread(store.embed_batch, texts)`
+    /// (the method holds no Rust locks across chunks).
+    ///
+    /// Args:
+    ///     texts: List of strings to embed (empty → empty, no request).
+    ///     batch_size: Max texts per request (default: 100, must be >= 1).
+    ///
+    /// Returns:
+    ///     A list of embedding vectors, one per input text, in input order.
+    #[pyo3(signature = (texts, batch_size = 100))]
+    fn embed_batch(
+        &self,
+        py: Python,
+        texts: Vec<String>,
+        batch_size: usize,
+    ) -> PyResult<Vec<Vec<f32>>> {
+        let batch_size = common::validate_batch_size(batch_size)
+            .map_err(pyo3::exceptions::PyValueError::new_err)?;
+        if texts.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut out = Vec::with_capacity(texts.len());
+        for chunk in common::batch_slices(&texts, batch_size) {
+            out.extend(ollama_embed_chunk(self, py, &chunk)?);
+        }
+        Ok(out)
     }
 
     /// Search for similar records by vector similarity with optional filters.
@@ -306,6 +351,26 @@ mod tests {
         assert!(
             src.contains("cosine") && src.contains("euclidean") && src.contains("l2"),
             "ValueError message must reference the allowed metrics"
+        );
+    }
+
+    /// PROV-11: embed_batch() is an additive chunked API over embed().
+    /// Sanity check: the signature default, the shared helpers and the
+    /// intact sync `embed()` must all be present (aditivo, no breaking).
+    #[test]
+    fn embed_batch_is_additive_chunked_api() {
+        let src = include_str!("python.rs");
+        assert!(
+            src.contains("#[pyo3(signature = (texts, batch_size = 100))]"),
+            "embed_batch() signature must declare `batch_size = 100` default"
+        );
+        assert!(
+            src.contains("validate_batch_size") && src.contains("batch_slices"),
+            "embed_batch() must reuse the shared chunking helpers"
+        );
+        assert!(
+            src.contains("fn embed(&self, py: Python, texts: Vec<String>)"),
+            "sync embed() signature must stay intact (no regression)"
         );
     }
 

@@ -242,6 +242,65 @@ pub(super) fn build_search_request(
     }
 }
 
+/// Validate an `embed_batch` chunk size at the Python boundary.
+/// Returns the size unchanged or an `Err(message)` callers wrap in
+/// `PyValueError` (PROV-07 contract). PROV-11: batching primitive shared by
+/// the 3 providers so chunking semantics cannot drift per crate.
+pub(super) fn validate_batch_size(batch_size: usize) -> Result<usize, String> {
+    if batch_size < 1 {
+        return Err(format!(
+            "invalid batch_size '{batch_size}': expected an integer >= 1"
+        ));
+    }
+    Ok(batch_size)
+}
+
+/// Split items into consecutive chunks of at most `batch_size`, preserving
+/// order. PROV-11: pure (no GIL) so it is unit-testable; providers call one
+/// embedding request per chunk and concatenate the results.
+pub(super) fn batch_slices<T: Clone>(items: &[T], batch_size: usize) -> Vec<Vec<T>> {
+    if items.is_empty() || batch_size < 1 {
+        return Vec::new();
+    }
+    items.chunks(batch_size).map(<[T]>::to_vec).collect()
+}
+
+#[cfg(test)]
+mod prov11_batch_tests {
+    /// PROV-11 RED: chunking helper must split preserving order.
+    #[test]
+    fn batch_slices_chunks_and_preserves_order() {
+        let items: Vec<String> = (0..250).map(|i| format!("t{i}")).collect();
+        let chunks = super::batch_slices(&items, 100);
+        assert_eq!(chunks.len(), 3, "250 items / 100 → 3 chunks");
+        assert_eq!(chunks[0].len(), 100);
+        assert_eq!(chunks[1].len(), 100);
+        assert_eq!(chunks[2].len(), 50);
+        let flat: Vec<String> = chunks.into_iter().flatten().collect();
+        assert_eq!(flat, items, "order must be preserved");
+    }
+
+    /// PROV-11 RED: batch_size < 1 must be rejected at the boundary.
+    #[test]
+    fn validate_batch_size_rejects_zero() {
+        assert!(
+            super::validate_batch_size(0).is_err(),
+            "batch_size=0 must be rejected"
+        );
+        assert!(super::validate_batch_size(1).is_ok());
+        assert!(super::validate_batch_size(100).is_ok());
+    }
+
+    /// PROV-11 RED: small inputs stay a single chunk (no latency regression).
+    #[test]
+    fn batch_slices_small_input_is_single_chunk() {
+        let items = vec!["a".to_string(), "b".to_string()];
+        let chunks = super::batch_slices(&items, 100);
+        assert_eq!(chunks.len(), 1);
+        assert_eq!(chunks[0], items);
+    }
+}
+
 #[cfg(test)]
 mod err_py01_contract_tests {
     /// ERR-PY-01 sanity check (mirrors the PROV-07 `include_str!` pattern):
