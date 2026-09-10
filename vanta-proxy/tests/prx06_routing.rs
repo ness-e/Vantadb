@@ -237,6 +237,7 @@ async fn spawn_proxy(url_a: String, url_b: String) -> String {
             ..Default::default()
         },
         redact: Default::default(),
+        context: Default::default(),
     };
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();
@@ -374,6 +375,7 @@ async fn responses_with_memory_tool_executes_server_side_and_loops() {
         cost: Default::default(),
         routing: Default::default(),
         redact: Default::default(),
+        context: Default::default(),
     };
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let addr = listener.local_addr().unwrap();

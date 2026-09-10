@@ -55,6 +55,7 @@ fn state_for(upstream_url: &str) -> vanta_proxy::server::AppState {
         cache: Default::default(),
         routing: Default::default(),
         redact: Default::default(),
+        context: Default::default(),
     };
     vanta_proxy::server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }

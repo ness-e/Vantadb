@@ -66,6 +66,7 @@ fn state_for_failover(a: &str, b: &str) -> server::AppState {
         cost: Default::default(),
         routing: Default::default(),
         redact: Default::default(),
+        context: Default::default(),
     };
     server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }

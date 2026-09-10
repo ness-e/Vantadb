@@ -92,6 +92,7 @@ async fn setup_with_capture() -> (String, Shared) {
         cache: Default::default(),
         routing: Default::default(),
         redact: Default::default(),
+        context: Default::default(),
     };
     let proxy_url = spawn(server::router(
         server::AppState::from_engine(cfg, seeded_engine()).unwrap(),

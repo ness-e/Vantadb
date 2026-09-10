@@ -44,6 +44,9 @@ pub struct ProxyConfig {
     /// PII/secret redaction on egress (PRX-07). Disabled by default so the
     /// wire stays a transparent proxy unless explicitly opted in.
     pub redact: crate::redact::RedactConfig,
+    /// Context optimization in transit (PRX-13). Disabled by default so
+    /// the wire stays a transparent proxy unless explicitly opted in.
+    pub context: crate::context::ContextConfig,
 }
 
 impl ProxyConfig {
