@@ -102,4 +102,77 @@ Gaps (→ FIND-79): export/import/reindex sin tests, `importRecords` débil, `db
 3. **(Proceso)** Re-correr full suites con timeout ≥10min (mcp, server) para cerrar los 🟡 parciales.
 
 ---
-*Teams de revisión: 19 subagentes vanta-review read-only (waves ×3) + fan-in orquestador. Backlog sync: FIND-63..81. Reporte registrado en `docs/reports/INDEX.md`.*
+*Teams de revisión: 19 subagentes vanta-review read-only (waves ×3) + fan-in orquestador. Backlog sync: FIND-63..88.
+
+## Apendice A — Hallazgos completos por modulo (detalle verificable)
+
+> Efecto correctivo 2026-09-10: la consolidacion resumia; abajo esta TODO lo reportado por los 19 agentes con evidencia file:linea + comando.
+
+### benches (7) — H: ingestion_concurrent skip silencioso (FIND-70)
+- M: 17/23 sin mencion en BENCHMARKS.md (6 del nightly). M: sin benches/README.md. M: list_window sin bloque [[bench]] + requiere --features server. L: 1 unreachable! defensivo; OOM Windows sin -j 2; 157 unwrap bajo allow ponytail (aceptado).
+- Comandos: `cargo check --benches --jobs 2` exit 0 (46.55s); list_window resuelve por autodiscovery.
+
+### benchmarks (7) — M x5: batch sin CLI (cuelga >120s), competitive inejecutable aqui, requirements sin pins, Chroma WinError32, baselines placeholder honestos (FIND-72)
+- L: update_markdown path viejo en docstring, README omite 4 scripts, import deprecado x3.
+- Comandos: py_compile 6/6 exit 0; smoke BENCH-01 OK; embed dummy exit 0.
+
+### desktop (7.5) — H: vitest 73/86, 13 fails localStorage Node (FIND-63)
+- M: MemoryLens literal duplicado; TODO consolidate-core. L: default sin puerto.
+- Bien: tsc 0, cargo check 0, 0 window.confirm/console, CSP, a11y PASS, sidecar dual, deep-link, i18n pervasive, 8 specs E2E.
+
+### embeddings (7) — H: pesos 3-4x por ALLOW_PATTERNS duplicados (FIND-71)
+- M: verify_model dummy; threshold EN tautologico; .cache duplica GB. L: sizes README stale, verify.log parcial.
+- Comandos: py_compile 0, download --check OK, verify --check PASS, dry-run OK. embed-local bloqueado por OOM ambiental (no codigo).
+
+### examples (8 APROBADO) — M: requirements 0.4 vs 0.5.0; L: Rust sin cleanup, __pycache__ local (FIND-74)
+- Todo compila + APIs vigentes + CI ci-examples-12. Falta indice README + enlace QUICKSTART + decision TS.
+
+### Formula (6) — H x3 README desincronizado: mcp listado no instalado, ARM64 Planned ya servido, --head sin stanza (FIND-66)
+- M: update-homebrew-formula.sh apunta mal; formula huerfana en docs. L: test minimo, versiones intencionales.
+- Packaging mapeado: crates/bins/PyPI/npm/SBOM activos; Homebrew unico sin automatizar; sin Ruby en runner.
+
+### fuzz (7) — M: sin corpus commiteado ni upload crashes; docs fuzz-40 stale; sin targets HTTP/JSON/WASM (FIND-80)
+- L: comentario bincode drift, assert WAL debil, sanitizer default. Comandos: fuzz list 4/4, check bins exit 0.
+
+### integrations (7) — C: fallback dspy TypeError sin framework (FIND-69)
+- H: 7/9 deps sin upper-bound; fixtures fragiles (subdir + disco 23MB). M: dist/ sin decidir; NotImplementedError por diseno. L: sin secrets.
+- Tests: langchain 27, openai/ollama 9+9 mocks; crewai/letta bloqueo disco env; resto skip sin SDK. No publicado PyPI.
+- Fila nueva: pineos + fixtures + dist/ + PyPI decision (FIND-84).
+
+### providers (8 APROBADO) — M: .pyi omiten key, ollama/README stale (FIND-73)
+- L: locks re-resueltos, flake litellm 1 vez. 3/3 check verdes, superficie identica activa, ERR-PY-01 cerrado. PROV-12 pendiente.
+
+### skills — H: manifest 194 vs 195 en disco + duplicados divergentes + ponytail sin path (ver informe; fila nueva FIND-83 cubre drift C1/H1/H2/H3 + M1 assets)
+- Hallazgo cruzado: binario instalado sirve 56 vs 79 documentados (C1: test-mcp.py no aserta conteo, FIND-82); contradiccion MCP-27/29; api-ref omite 8 tools; ~ sin expandir; 0 secrets.
+
+### vanta-memory (8) — H: CI paths no matchean el crate (FIND-64)
+- M: MEM-69 wiring, tool 77, MEM-70 numeros (FIND-86). L: docs-coverage manual, sin README.
+- Comandos: check/test/clippy/fmt verdes (336/0). 0 unsafe, degradacion P4.
+
+### vanta-proxy (7) — H: TTL test overflow solo-test (FIND-65)
+- M: deny advisories pre-existentes; hot path limpio; sin doc dedicada ni config.toml completo (FIND-68).
+- Pipeline 12 gates verificado; 12 features opt-in activas; suite 273/1. Deuda: SSE response_usage + simetrico (FIND-88).
+
+### vantadb-mcp (8) — M: comentarios 76-79 stale (FIND-77)
+- 79 tools = docs; check/clippy/fmt + lib/mcp/wiki suites verdes; full suite >timeout (re-correr >=10min).
+
+### vantadb-node (8) — M: link review roto + nota engines (FIND-78)
+- 35/35 metodos activos, tests 35/35, pack OK, E404 coherente, OIDC listo; 1 prebuild local; sin tags node-v*.
+
+### vantadb-python (8.5 APROBADO) — M: matriz CI 3.11/3.13 vs classifiers + probe_lock_db 268MB + firma put_batch_raw (FIND-85)
+- 139 passed, 52 metodos activos, stubs anti-drift, UAF owned-copy, 0 unsafe.
+
+### vantadb-server (8 APROBADO) — M/L: vanta_certification.json + vantadb_data 335MB + sin README (FIND-81)
+- Wrapper minimo, 0 unwrap, HTTP_API.md par, JWT cableado, 45 tests (full >timeout parcial).
+
+### vantadb-ts (8 APROBADO) — M: export/import/reindex sin tests + importRecords debil (FIND-79)
+- build/tsc/eslint 0, 280/280, publicado 0.5.0 == local == core. Fila nueva: ./native exports + nota wiki (FIND-87).
+
+### vantadb-wasm (7) — H: README bundle stale 1.35 vs 1.58MB (FIND-75)
+- M: IQL parcial documentado, DTO diverge, input zero-copy pendiente. L: .d.ts src vs pkg. Check host 0, toolchain presente, tests browser-only.
+
+### docs (7) — H: QUICKSTART stale (FIND-67), sin PROXY.md (FIND-68)
+- M: jwt_secret gap + link roto HTTP_API:600 (FIND-76). 1458 md, indice + mdbook + markdownlint OK, 27 ADRs, CHANGELOG al dia, BENCHMARKS Regla 11 con fuentes. Informe completo original pegado por el usuario en el turno de correccion.
+
+## Apendice B — Comandos globales ejecutados por los agentes
+`git branch --show-current` (develop x19) · `cargo check/test/clippy/fmt -p <crate> --tests -j 2` · `python -m py_compile` · `npx tsc --noEmit` + `vitest run` + `eslint` (ts/desktop) · `npm pack --dry-run` (node) · `cargo fuzz list` · `cargo check --manifest-path` (providers/fuzz) · `Test-Path` + `Select-String` + `Get-ChildItem` en todo. Reporte registrado en `docs/reports/INDEX.md`.*

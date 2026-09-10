@@ -222,6 +222,13 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | `FIND-79` | Media | TS SDK: `exportAll/exportNamespace/importFile/reindexHnswFromText` sin tests + `importRecords` aserción débil | `vantadb-ts/src/` | 🟡 | 🟡 Media | ⬜ Pendiente |
 | `FIND-80` | Media | Fuzz sin seed corpus commiteado ni upload de crashes + `docs/workflow/fuzz-40.md` desactualizada (omite ci-gate/fuzz-pr) | `fuzz/`, `docs/workflow/fuzz-40.md` | 🟡 | 🟢 Baja | ⬜ Pendiente |
 | `FIND-81` | Media | Server: `vanta_certification.json` legacy huérfano + `vantadb_data/` 335MB junto al crate + sin README del crate | `vantadb-server/` | 🟢 | 🟢 Baja | ⬜ Pendiente |
+| `FIND-82` | Alta | Skills drift de contrato: 79 tools documentadas vs 56 servidas por binario instalado + `test-mcp.py` no aserta conteo (enmascara drift) — buildear desde fuente y asertar por perfil | `skills/vantadb-mcp/scripts/test-mcp.py`, `vantadb-mcp/` | 🟡 | 🔴 Alta | ⬜ Pendiente |
+| `FIND-83` | Alta | Skills copias divergentes (versionado vs runtime ambos sentidos) + contradicción MCP-27 vs MCP-29 + `api-reference.md` omite 8 tools — unificar, re-copiar con hash gate | `skills/`, `.opencode/skills/` | 🟡 | 🟠 Media-Alta | ⬜ Pendiente |
+| `FIND-84` | Media | Integrations: pineos superiores en 7/9 adapters + fixtures frágiles (subdir inexistente + disco) + `dist/` sin decidir + publicar PyPI o declarar Alpha | `integrations/` | 🟡 | 🟡 Media | ⬜ Pendiente |
+| `FIND-85` | Media | Python: matriz CI 3.11/3.13 vs classifiers 3.11-14 + `probe_lock_db/` 268MB en checkout + firma `put_batch_raw` asimétrica | `vantadb-python/`, `release-wheels-60.yml` | 🟡 | 🟡 Media | ⬜ Pendiente |
+| `FIND-86` | Media | Memory diferidos: MEM-69 wiring al worker + MCP tool 77 `scene_consolidate` (diseñada ADR-040) + MEM-70 números reales | `vanta-memory/` | 🟡 | 🟡 Media | ⬜ Pendiente |
+| `FIND-87` | Media | TS SDK: tests `exportAll/exportNamespace/importFile/reindexHnsw` + endurecer `importRecords` + exponer `./native` en exports + nota wiki en TS_SDK.md | `vantadb-ts/` | 🟡 | 🟡 Media | ⬜ Pendiente |
+| `FIND-88` | Media | Proxy output-side cost real (cablear `record_response_usage` al SSE drain; hoy `output_tokens: 0`) + translate simétrico OpenAI→Anthropic si el roadmap lo exige | `vanta-proxy/src/server.rs` | 🟠 | 🟢 Baja | ⬜ Pendiente |
 
 ---
 
