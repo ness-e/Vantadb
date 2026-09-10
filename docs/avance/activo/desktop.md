@@ -405,3 +405,21 @@ aliases: [DESKTOP]
   preexistente). WorkspaceShell NO tocado. Deuda: slice 2 DEFER
   (WorkspaceShell nav/topbar/lentes + posible provider); smoke app viva manual.
 - **Commit:** b64cbb30
+
+### DESKTOP-40-slice2: shell chrome i18n (plan 2026-09-10-code Wave0)
+- **Fecha:** 2026-09-10
+- **Objetivo:** App + TitleBar + SplashScreen + HelpPanel + NamespaceDialog + WorkspaceShell a `tt()/tp()`.
+- **Resultado:** ✅ build 18.5s + tsc 0 + vitest 8/8 + grep ES-hardcodeado 0; catálogo +11 claves; lentes/paneles → slice3 DEFER.
+- **Commit:** bbdeae17
+
+### DESKTOP-42: bundles macOS/Linux + CI matrix (plan 2026-09-10-code Wave1)
+- **Fecha:** 2026-09-10
+- **Objetivo:** targets ×6 + jobs macos/linux (build-only sin firma).
+- **Resultado:** ✅ parse/actionlint/fmt/check + NSIS debug bundle 14.3MB; release en CI (toolchain crash local documentado).
+- **Commit:** fbfc78b7
+
+### DESKTOP-45: specs E2E + bench recortado (plan 2026-09-10-code Wave3)
+- **Fecha:** 2026-09-10
+- **Objetivo:** specs graph/space lens + intento bench H-15.
+- **Resultado:** ✅ tsc 0 + e2e 2/2 (server embedded 32.1s); H-15 DEFER con evidencia; proxy lens no duplicada.
+- **Commit:** d2993c4f

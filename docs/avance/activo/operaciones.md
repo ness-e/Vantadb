@@ -206,3 +206,63 @@ aliases: []
 - **Objetivo:** `ExactCache` FIFO opt-in + hook session-path post-inyección; semántico = slice 2 DEFER.
 - **Resultado:** ✅ test 142/0 (8 nuevos) + PRX-04 sin regresión + clippy/fmt 0; cap 4MB con 502 tipado.
 - **Commit:** 50b40228
+
+### PRX-02: fallback multi-upstream + retries (plan 2026-09-10-code Wave0)
+- **Fecha:** 2026-09-10
+- **Objetivo:** config `[upstreams]` + failover 429/5xx + backoff exponencial + health pasivo.
+- **Resultado:** ✅ test 161/0 (prx02_failover 4/4) + clippy/fmt 0; solo reintentos idempotentes; commit tras RESUME (hook fmt bloqueado por WIP MEM-69, resuelto).
+- **Commit:** 7272ce87
+
+### PRX-03: cost tracking + virtual keys (plan 2026-09-10-code Wave1)
+- **Fecha:** 2026-09-10
+- **Objetivo:** `cost.rs` (PriceTable, CostTracker, ledger key×sesión×modelo) + enforcement 429 + `/snapshot` cost.
+- **Resultado:** ✅ test 0 failed (lib 134 + prx03_cost 3/3) + clippy/fmt 0; fail-open; modo log-first; SSE wiring futuro.
+- **Commit:** eb79dcd2
+
+### PRX-06: tier routing (plan 2026-09-10-code Wave2)
+- **Fecha:** 2026-09-10
+- **Objetivo:** slots haiku/sonnet/opus + `/v1/responses` en tool-loop.
+- **Resultado:** ✅ test 0 failed (134+11 suites, prx06 12/12 e2e) + clippy/fmt 0; Shadow default; D34 intacto; failover PRX-02 gratis.
+- **Commit:** ebb17de3
+
+### PRX-07: PII redaction egress (plan 2026-09-10-code Wave3)
+- **Fecha:** 2026-09-10
+- **Objetivo:** `redact.rs` + hook 5a + block/mask/log.
+- **Resultado:** ✅ test 0 failed (12 nuevos) + clippy/fmt 0; fail-open; deny advisories pre-existente (SRV-06, no tocado).
+- **Commit:** d4536d89
+
+### PRX-09-slice2: semantic caching + TTL + LRU (plan 2026-09-10-code Wave4)
+- **Fecha:** 2026-09-10
+- **Objetivo:** similitud léxica local + TTL por entrada + LRU touch (embeddings reales DEFER).
+- **Resultado:** ✅ test 216/0 (semántico + TTL/LRU) + sin regresión exact/PRX-04 + clippy 0.
+- **Commit:** e8419ce4
+
+### PRX-10: guardrails por virtual key (plan 2026-09-10-code Wave6)
+- **Fecha:** 2026-09-10
+- **Objetivo:** allowlists de modelos por key (gate 1c + 403 guardrail_blocked).
+- **Resultado:** ✅ test 0 failed (149+8 nuevos) + clippy/fmt 0; D34 intacto; retomó parcial S1/S2 del abort.
+- **Commit:** 950df333
+
+### PRX-11-slice1: translate lib pura (plan 2026-09-10-code Wave6)
+- **Fecha:** 2026-09-10
+- **Objetivo:** `translate.rs` request↔response + SSE mínimo + sanitize + guards, sin wiring.
+- **Resultado:** ✅ test 0 failed (9/9 nuevos) + clippy/fmt 0; server intacto; slice 2 (wiring + thinking fina) DEFER.
+- **Commit:** 5c75c16b
+
+### GOV-TK8: BENCHMARKS §18 run sintético (plan 2026-09-10-code Wave4)
+- **Fecha:** 2026-09-10
+- **Objetivo:** curar evidencia cruda en §18 con comando reproducible + Regla 11.
+- **Resultado:** ✅ R11 0 hits + append-only + hooks; benches no re-corridos (entorno contaminado documentado).
+- **Commit:** f6950738
+
+### PRX-13: contexto en tránsito (plan 2026-09-10-code Wave5)
+- **Fecha:** 2026-09-10
+- **Objetivo:** `context.rs` trim por budget (Performance/Balanced/Economy) + override por key.
+- **Resultado:** ✅ test 0 failed (14/14 nuevos) + clippy/fmt 0; default disabled; safe-mode a nivel mensaje.
+- **Commit:** 462488e9
+
+### SRV-06: JWT HS256 offline (plan 2026-09-10-code Wave2)
+- **Fecha:** 2026-09-10
+- **Objetivo:** DISCOVERY arch + MVP auth (OIDC discovery DEFER vía ADR-039).
+- **Resultado:** ✅ server 58/58 + auth 3/3 + rotation/rbac 13/13 + server 42/42 + clippy/fmt 0; race git-add paralela revertida.
+- **Commit:** a0a3087f (+ADR-039)
