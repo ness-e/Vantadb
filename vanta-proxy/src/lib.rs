@@ -29,4 +29,5 @@ pub mod routing;
 pub mod server;
 pub mod session;
 pub mod sse_intercept;
+pub mod translate;
 pub mod writeback;
