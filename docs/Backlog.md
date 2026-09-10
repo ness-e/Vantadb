@@ -600,6 +600,18 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | — | P47 cerrada 2026-09-09: STABLE-09 subset `[., python, memory, server, mcp]` (546dabd1, Owner A); proxy/wasm quedan experimental (Heavy/toolchain) | — | — | ✅ |
 ---
 
+## P49 - Ejemplos y prototipos showcase (investigación 2026-09-10)
+
+> **Origen:** investigación ejemplos-para-repo-y-producto 2026-09-10 (inventario: 14 ejemplos + notebook + 3 TS vigentes, CI `ci-examples-12.yml`; referentes: AgentDB 36 demos browser, RAG-chatbots, agent-memory, recetas copiables). Los ejemplos existen y funcionan; falta curaduría, recetas clicables y 2 prototipos estrella.
+
+| ID | Descripción (→ Resultado) | Archivos clave | Esfuerzo | Prioridad | Estado |
+|---|---|---|---|---|---|
+| `SHOW-01` | **`examples/README.md` índice**: tabla ejemplo → qué demuestra → comando CI (`cargo run --example <n>`, `pytest`) + nota TS fuera del árbol + enlace a showcase/playground | `examples/README.md` (nuevo) | 🟢 2h | 🟠 Media-Alta | ⬜ Pendiente |
+| `SHOW-02` | **Recetas clicables del playground** (5-6: RAG, híbrido, grafo, TTL, batch, persistencia) reutilizando `CodePlayground` + iframe WASM existente | `web/src/app/playground/`, `web/src/components/vanta/code-playground*` | 🟡 2-3d | 🟠 Media-Alta | ⬜ Pendiente |
+| `SHOW-03` | **Prototipo estrella RAG-sobre-PDFs** (subir PDF → chunk → embed → chat con citas, 100% local): reusa `haystack_documentstore.py` + `embed-local`; corre con 1 comando, sin credenciales obligatorias | `examples/` (nuevo `rag_pdf_chat/`) | 🟠 3-5d | 🔴 Alta | ⬜ Pendiente |
+| `SHOW-04` | **Prototipo estrella agente-con-memoria** (asistente CLI que recuerda entre sesiones vía `vanta-memory` scenes + MCP `inject_context`): reusa `langgraph_checkpoint.py` + `agent_memory.py` | `examples/` (nuevo `agent_memory_cli/`) | 🟠 3-5d | 🔴 Alta | ⬜ Pendiente |
+| `SHOW-05` | **Enlazado QUICKSTART → examples → showcase → playground**: 1 línea + sección en cada punto + `requirements.txt` a `vantadb-py>=0.5.0` + decidir `vantadb-ts/examples` (mover o referenciar) | `docs/QUICKSTART.md`, `README.md`, `examples/demo/requirements.txt` | 🟢 4h | 🟡 Media | ⬜ Pendiente |
+
 ## Phase 48: 🧪 Testing & Benchmarking Hardening (auditoría multi-agente 2026-08-30)
 
 > **Origen:** Auditoría multi-agente ejecutada 2026-08-30 (sesión `ses_fabf69692ffeP5c7mycKcsGSV0`) — 5 sub-agentes investigaron en paralelo: (1) prácticas externas, (2) tests Rust actuales, (3) benchmarks, (4) datasets/data, (5) CI/CD + scripts. Plan completo: `docs/plans/2026-08-30-testing-bench-harden.md`. Decisiones D1-D7 registradas en el plan.
