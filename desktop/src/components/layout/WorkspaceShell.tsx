@@ -54,7 +54,7 @@ import { searchHistory } from "../../store/search-history";
 // DESKTOP-23: preferencias de workspace persistidas (surface + filtros).
 import { workspacePrefs } from "../../store/preferences";
 // DESKTOP-31: perfiles de conexión + defaults de búsqueda persistidos.
-import { connectionPrefs, type ConnectionProfile } from "../../store/connections";
+import { connectionPrefs, LANG_EVENT, type ConnectionProfile } from "../../store/connections";
 // DESKTOP-37: lente MEMORIA — liviana (solo listas read-only), import estática
 // como RETRIEVAL/ÍNDICES/CONSOLIDAR.
 import MemoryLens from "../memory/MemoryLens";
@@ -62,6 +62,8 @@ import MemoryLens from "../memory/MemoryLens";
 // tablas), import estática. `proxyUrl`/PROXY_URL_EVENT condicionan el botón.
 import ProxyDashboard, { proxyUrl, PROXY_URL_EVENT } from "../proxy/ProxyDashboard";
 import Settings from "../../pages/Settings";
+// DESKTOP-40-slice2: chrome del shell vía tt()/tp() (patrón Settings slice 1).
+import { tp, tt, type DesktopLang } from "../../i18n";
 // CodeMirror/react-markdown pesan (~600 kB) y solo los usa el Inspector → chunk
 // lazy: el shell inicial no paga ese coste (Tauri local, carga on-demand).
 const Inspector = lazy(() => import("../inspector/Inspector"));
@@ -191,12 +193,12 @@ function SideButton({
   );
 }
 
-function LensPlaceholder({ title, phase }: { title: string; phase: string }) {
+function LensPlaceholder({ title, phase, lang }: { title: string; phase: string; lang: DesktopLang }) {
   return (
     <section className="press-lg mx-auto mt-6 max-w-2xl border-4 border-foreground bg-card p-8 text-center">
       <div className="font-display text-3xl text-stencil">{title}</div>
       <p className="mt-2 font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
-        lente pendiente · {phase}
+        {tp(lang, "shell.pendingLens", "lente pendiente · {phase}", { phase })}
       </p>
     </section>
   );
@@ -252,7 +254,7 @@ export default function WorkspaceShell({
     try {
       await createNamespace(name);
       setNsRefresh((k) => k + 1);
-      onNotice(`Namespace "${name}" creado.`);
+      onNotice(tp(lang, "shell.nsCreated", 'Namespace "{name}" creado.', { name }));
     } catch (err) {
       onError(vantaErrorMessage(err));
     }
@@ -262,7 +264,7 @@ export default function WorkspaceShell({
     try {
       const n = await undoStore.renameNamespace(from, to);
       setNsRefresh((k) => k + 1);
-      onNotice(`"${from}" renombrado a "${to}" (${n} registros) — Ctrl+Z para deshacer.`);
+      onNotice(tp(lang, "shell.nsRenamed", '"{from}" renombrado a "{to}" ({n} registros) — Ctrl+Z para deshacer.', { from, to, n: String(n) }));
     } catch (err) {
       onError(vantaErrorMessage(err));
     }
@@ -272,7 +274,7 @@ export default function WorkspaceShell({
     try {
       const n = await undoStore.deleteNamespace(name);
       setNsRefresh((k) => k + 1);
-      onNotice(`"${name}" movido a papelera (${n} registros) — Ctrl+Z para deshacer.`);
+      onNotice(tp(lang, "shell.nsToTrash", '"{name}" movido a papelera ({n} registros) — Ctrl+Z para deshacer.', { name, n: String(n) }));
     } catch (err) {
       onError(vantaErrorMessage(err));
     }
@@ -292,6 +294,14 @@ export default function WorkspaceShell({
     const sync = () => setProxyConfigured(!!proxyUrl());
     window.addEventListener(PROXY_URL_EVENT, sync);
     return () => window.removeEventListener(PROXY_URL_EVENT, sync);
+  }, []);
+
+  // DESKTOP-40-slice2: idioma reactivo del shell (mismo patrón que TitleBar).
+  const [lang, setLang] = useState<DesktopLang>(connectionPrefs.get().lang ?? "es");
+  useEffect(() => {
+    const syncLang = () => setLang(connectionPrefs.get().lang ?? "es");
+    window.addEventListener(LANG_EVENT, syncLang);
+    return () => window.removeEventListener(LANG_EVENT, syncLang);
   }, []);
 
   const filterActive = ruleGroup.rules.length > 0;
@@ -317,13 +327,13 @@ export default function WorkspaceShell({
   async function handleDelete() {
     const sel = selected;
     if (!sel) {
-      onNotice("Seleccioná un registro para borrarlo (grid → inspector)");
+      onNotice(tt(lang, "shell.selectToDelete", "Seleccioná un registro para borrarlo (grid → inspector)"));
       return;
     }
     try {
       await undoStore.softDelete(sel.record);
       setSelected(null);
-      onNotice(`movido a papelera ${sel.record.id}`);
+      onNotice(tp(lang, "shell.movedToTrash", "movido a papelera {id}", { id: sel.record.id }));
     } catch (err) {
       onError(vantaErrorMessage(err));
     }
@@ -457,7 +467,7 @@ export default function WorkspaceShell({
         : await actions.connectServerCfg(p.url ?? "", p.port ?? 8080, p.token ?? "");
     if (id) {
       connectionPrefs.set({ activeProfileId: p.id });
-      onNotice(`Conectado vía perfil "${p.name}".`);
+      onNotice(tp(lang, "shell.connectedVia", 'Conectado vía perfil "{name}".', { name: p.name }));
     }
   }
 
@@ -516,11 +526,12 @@ export default function WorkspaceShell({
     get,
     onError,
     onNotice,
+    lang,
   });
-  dlRefs.current = { setSurface, runSearch, openRecord, get, onError, onNotice };
+  dlRefs.current = { setSurface, runSearch, openRecord, get, onError, onNotice, lang };
 
   const handleDeepLink = useCallback((link: VantaDeepLink) => {
-    const { setSurface, runSearch, openRecord, get, onError, onNotice } = dlRefs.current;
+    const { setSurface, runSearch, openRecord, get, onError, onNotice, lang } = dlRefs.current;
     setSurface("memorias");
 
     // vanta://ns/key → abrir el registro en el Inspector.
@@ -544,7 +555,7 @@ export default function WorkspaceShell({
 
     // vanta://ns → superficie MEMORIAS (el grid lista sin filtro de namespace;
     // los conteos de la sidebar ya muestran qué contiene).
-    onNotice(`vanta://${link.namespace ?? ""} — abriendo MEMORIAS`);
+    onNotice(tp(lang, "shell.deeplinkMemories", "vanta://{link} — abriendo MEMORIAS", { link: link.namespace ?? "" }));
   }, []);
 
   useDeepLink(handleDeepLink);
@@ -559,7 +570,7 @@ export default function WorkspaceShell({
       {/* ========== SIDEBAR ========== */}
       <aside
         className="flex w-60 shrink-0 flex-col border-r-4 border-foreground bg-background"
-        aria-label="Panel lateral"
+        aria-label={tt(lang, "shell.sidebarTitle", "Panel lateral")}
       >
         {/* Brand */}
         <div className="border-b-4 border-foreground p-4">
@@ -577,38 +588,38 @@ export default function WorkspaceShell({
         </div>
 
         {/* Nav */}
-        <nav className="flex-1 overflow-y-auto scroll-manga p-3" aria-label="Navegación principal">
+        <nav className="flex-1 overflow-y-auto scroll-manga p-3" aria-label={tt(lang, "shell.navMain", "Navegación principal")}>
           <div className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-            Workspace
+            {tt(lang, "shell.workspace", "Workspace")}
           </div>
           <div className="mt-2 space-y-2">
-            <SideButton icon="◫" label="RESUMEN" title="Ir a RESUMEN — vista general de operaciones" active={surface === "resumen"} onClick={() => setSurface("resumen")} />
-            <SideButton icon="▦" label="MEMORIAS" title="Ir a MEMORIAS — ingestar y explorar registros" active={surface === "memorias"} onClick={() => setSurface("memorias")} />
-            <SideButton icon={<Trash2 className="h-4 w-4" strokeWidth={2.5} />} label="PAPELERA" hint="Ctrl+Z" title="Ir a PAPELERA — registros borrados (restaurar o purgar)" active={surface === "papelera"} onClick={() => setSurface("papelera")} />
-            <SideButton icon="◷" label="ACTIVIDAD" title="Ir a ACTIVIDAD — audit log de la base" active={surface === "actividad"} onClick={() => setSurface("actividad")} />
+            <SideButton icon="◫" label="RESUMEN" title={tt(lang, "shell.goResumen", "Ir a RESUMEN — vista general de operaciones")} active={surface === "resumen"} onClick={() => setSurface("resumen")} />
+            <SideButton icon="▦" label="MEMORIAS" title={tt(lang, "shell.goMemorias", "Ir a MEMORIAS — ingestar y explorar registros")} active={surface === "memorias"} onClick={() => setSurface("memorias")} />
+            <SideButton icon={<Trash2 className="h-4 w-4" strokeWidth={2.5} />} label="PAPELERA" hint="Ctrl+Z" title={tt(lang, "shell.goPapelera", "Ir a PAPELERA — registros borrados (restaurar o purgar)")} active={surface === "papelera"} onClick={() => setSurface("papelera")} />
+            <SideButton icon="◷" label="ACTIVIDAD" title={tt(lang, "shell.goActividad", "Ir a ACTIVIDAD — audit log de la base")} active={surface === "actividad"} onClick={() => setSurface("actividad")} />
             {/* VS-13: lente contextual — hereda el registro seleccionado como seed (P4). */}
-            <SideButton icon="⛁" label="BÚSQUEDA" title="Ir a BÚSQUEDA — lente retrieval híbrida (BM25 + vector)" active={surface === "retrieval"} onClick={() => setSurface("retrieval")} />
-            <SideButton icon="⠿" label="ÍNDICES" title="Ir a ÍNDICES — estado de HNSW, BM25 y WAL" active={surface === "indices"} onClick={() => setSurface("indices")} />
-            <SideButton icon="⇄" label="CONSOLIDAR" title="Ir a CONSOLIDAR — detectar y fusionar duplicados" active={surface === "consolidar"} onClick={() => setSurface("consolidar")} />
-            <SideButton icon="⌘" label="IQL" title="Ir a IQL — consola de queries sobre grafo" active={surface === "iql"} onClick={() => setSurface("iql")} />
-            <SideButton icon={<Asterisk className="h-4 w-4" strokeWidth={2.5} />} label="ESPACIO" title="Ir a ESPACIO — proyección 2D de embeddings" active={surface === "espacio"} onClick={() => setSurface("espacio")} />
+            <SideButton icon="⛁" label="BÚSQUEDA" title={tt(lang, "shell.goBusqueda", "Ir a BÚSQUEDA — lente retrieval híbrida (BM25 + vector)")} active={surface === "retrieval"} onClick={() => setSurface("retrieval")} />
+            <SideButton icon="⠿" label="ÍNDICES" title={tt(lang, "shell.goIndices", "Ir a ÍNDICES — estado de HNSW, BM25 y WAL")} active={surface === "indices"} onClick={() => setSurface("indices")} />
+            <SideButton icon="⇄" label="CONSOLIDAR" title={tt(lang, "shell.goConsolidar", "Ir a CONSOLIDAR — detectar y fusionar duplicados")} active={surface === "consolidar"} onClick={() => setSurface("consolidar")} />
+            <SideButton icon="⌘" label="IQL" title={tt(lang, "shell.goIql", "Ir a IQL — consola de queries sobre grafo")} active={surface === "iql"} onClick={() => setSurface("iql")} />
+            <SideButton icon={<Asterisk className="h-4 w-4" strokeWidth={2.5} />} label="ESPACIO" title={tt(lang, "shell.goEspacio", "Ir a ESPACIO — proyección 2D de embeddings")} active={surface === "espacio"} onClick={() => setSurface("espacio")} />
             {/* DESKTOP-37: sexta lente — memoria contextual de vanta-memory. */}
-            <SideButton icon="◉" label="MEMORIA" title="Ir a MEMORIA — escenas con heat, persona, skills versionadas y generation log (L1/L2/L3)" active={surface === "memoria"} onClick={() => setSurface("memoria")} />
+            <SideButton icon="◉" label="MEMORIA" title={tt(lang, "shell.goMemoria", "Ir a MEMORIA — escenas con heat, persona, skills versionadas y generation log (L1/L2/L3)")} active={surface === "memoria"} onClick={() => setSurface("memoria")} />
             {/* DESKTOP-38: lente PROXY — solo si el proxy está configurado. */}
             {proxyConfigured && (
-              <SideButton icon="⇋" label="PROXY" title="Ir a PROXY — TurnReports, sesiones activas, cola write-back y rate-limit del proxy local" active={surface === "proxy"} onClick={() => setSurface("proxy")} />
+              <SideButton icon="⇋" label="PROXY" title={tt(lang, "shell.goProxy", "Ir a PROXY — TurnReports, sesiones activas, cola write-back y rate-limit del proxy local")} active={surface === "proxy"} onClick={() => setSurface("proxy")} />
             )}
             {/* DESKTOP-31: ajustes — perfiles de conexión, defaults de búsqueda, idioma. */}
-            <SideButton icon={<SettingsIcon className="h-4 w-4" strokeWidth={2.5} />} label="AJUSTES" title="Ir a AJUSTES — perfiles de conexión (server + Bearer), defaults de búsqueda e idioma" active={surface === "ajustes"} onClick={() => setSurface("ajustes")} />
+            <SideButton icon={<SettingsIcon className="h-4 w-4" strokeWidth={2.5} />} label="AJUSTES" title={tt(lang, "shell.goAjustes", "Ir a AJUSTES — perfiles de conexión (server + Bearer), defaults de búsqueda e idioma")} active={surface === "ajustes"} onClick={() => setSurface("ajustes")} />
           </div>
 
           {/* VS-17: favoritos persistidos (ns o ns/key) — slice aditivo. */}
           <div className="mt-6 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-            Favoritos
+            {tt(lang, "shell.favorites", "Favoritos")}
           </div>
           <div className="mt-2 space-y-2">
             {favorites.length === 0 ? (
-              <p className="font-tech text-[10px] text-muted-foreground">sin favoritos — usá ★</p>
+              <p className="font-tech text-[10px] text-muted-foreground">{tt(lang, "shell.noFavorites", "sin favoritos — usá ★")}</p>
             ) : (
               favorites.map((f) => {
                 const label = f.key ? `${f.namespace}/${f.key}` : f.namespace;
@@ -618,7 +629,7 @@ export default function WorkspaceShell({
                       type="button"
                       onClick={() => handleOpenFavorite(f)}
                       className="press flex flex-1 items-center gap-2 border-2 border-foreground bg-background px-3 py-2 text-left text-sm"
-                      title={`Abrir ${label}`}
+                      title={tp(lang, "shell.openLabel", "Abrir {label}", { label })}
                     >
                       <span className="text-neon">★</span>
                       <span className="truncate">{label}</span>
@@ -627,8 +638,8 @@ export default function WorkspaceShell({
                       type="button"
                       onClick={() => favoritesStore.toggle(f.namespace, f.key)}
                       className="press flex w-9 items-center justify-center border-2 border-foreground text-[10px]"
-                      title={`Quitar ${label} de favoritos`}
-                      aria-label={`Quitar ${label} de favoritos`}
+                      title={tp(lang, "shell.removeFavLabel", "Quitar {label} de favoritos", { label })}
+                      aria-label={tp(lang, "shell.removeFavLabel", "Quitar {label} de favoritos", { label })}
                     >
                       ✕
                     </button>
@@ -640,22 +651,22 @@ export default function WorkspaceShell({
 
           <div className="mt-6 flex items-center justify-between">
             <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-              Namespaces
+              {tt(lang, "shell.namespaces", "Namespaces")}
             </span>
             <button
               type="button"
               onClick={() => setNsDialog({ mode: "create" })}
               disabled={!state.active}
               className="press flex h-8 w-8 items-center justify-center border-2 border-foreground text-sm leading-none"
-              title={state.active ? "Crear namespace vacío" : "Conectá un backend primero"}
-              aria-label="Crear namespace"
+              title={state.active ? tt(lang, "shell.createNsTitle", "Crear namespace vacío") : tt(lang, "shell.connectBackendFirst", "Conectá un backend primero")}
+              aria-label={tt(lang, "shell.createNs", "Crear namespace")}
             >
               +
             </button>
           </div>
           <div className="mt-2 space-y-2">
             {namespaces.length === 0 ? (
-              <p className="font-tech text-[10px] text-muted-foreground">sin registros</p>
+              <p className="font-tech text-[10px] text-muted-foreground">{tt(lang, "shell.noNamespaces", "sin registros")}</p>
             ) : (
               namespaces.map((n) => {
                 const fav = favoritesStore.isFavorite(n.name, null);
@@ -665,7 +676,7 @@ export default function WorkspaceShell({
                       type="button"
                       onClick={() => setSurface("memorias")}
                       className="press flex min-w-0 flex-1 items-center justify-between gap-2 border-2 border-foreground bg-background px-3 py-2 text-left text-sm"
-                      title={`Ver ${n.name} en MEMORIAS`}
+                      title={tp(lang, "shell.seeInMemories", "Ver {name} en MEMORIAS", { name: n.name })}
                     >
                       <span className="truncate">{n.name}</span>
                       <span className="font-display text-base leading-none">{n.count}</span>
@@ -677,8 +688,8 @@ export default function WorkspaceShell({
                       type="button"
                       onClick={() => setNsDialog({ mode: "rename", name: n.name })}
                       className="press flex w-9 items-center justify-center border-2 border-foreground bg-background text-xs opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-                      title={`Renombrar ${n.name}`}
-                      aria-label={`Renombrar ${n.name}`}
+                      title={tp(lang, "shell.renameNs", "Renombrar {name}", { name: n.name })}
+                      aria-label={tp(lang, "shell.renameNs", "Renombrar {name}", { name: n.name })}
                     >
                       <Pencil className="h-3.5 w-3.5" strokeWidth={2.5} />
                     </button>
@@ -686,8 +697,8 @@ export default function WorkspaceShell({
                       type="button"
                       onClick={() => setNsDialog({ mode: "delete", name: n.name })}
                       className="press flex w-9 items-center justify-center border-2 border-foreground bg-background text-xs opacity-0 transition-opacity focus-visible:opacity-100 group-hover:opacity-100"
-                      title={`Borrar ${n.name} (va a la papelera)`}
-                      aria-label={`Borrar ${n.name}`}
+                      title={tp(lang, "shell.deleteNsGoesTrash", "Borrar {name} (va a la papelera)", { name: n.name })}
+                      aria-label={tp(lang, "shell.deleteNs", "Borrar {name}", { name: n.name })}
                     >
                       <Trash2 className="h-3.5 w-3.5" strokeWidth={2.5} />
                     </button>
@@ -698,8 +709,8 @@ export default function WorkspaceShell({
                       className={`press flex w-9 items-center justify-center border-2 border-foreground text-sm transition-opacity focus-visible:opacity-100 group-hover:opacity-100 ${
                         fav ? "bg-neon text-background" : "bg-background opacity-0"
                       }`}
-                      title={fav ? `Quitar ${n.name} de favoritos` : `Agregar ${n.name} a favoritos`}
-                      aria-label={fav ? `Quitar ${n.name} de favoritos` : `Agregar ${n.name} a favoritos`}
+                      title={fav ? tp(lang, "shell.removeFromFav", "Quitar {name} de favoritos", { name: n.name }) : tp(lang, "shell.addToFav", "Agregar {name} a favoritos", { name: n.name })}
+                      aria-label={fav ? tp(lang, "shell.removeFromFav", "Quitar {name} de favoritos", { name: n.name }) : tp(lang, "shell.addToFav", "Agregar {name} a favoritos", { name: n.name })}
                     >
                       ★
                     </button>
@@ -720,8 +731,8 @@ export default function WorkspaceShell({
               type="button"
               onClick={onToggleTheme}
               className="press flex h-9 w-9 items-center justify-center border-2 border-foreground"
-              title="Cambiar tema"
-              aria-label="Cambiar tema claro/oscuro"
+              title={tt(lang, "shell.themeToggle", "Cambiar tema")}
+              aria-label={tt(lang, "shell.themeToggleAria", "Cambiar tema claro/oscuro")}
             >
               {dark ? <Sun className="h-4 w-4" strokeWidth={2.5} /> : <Moon className="h-4 w-4" strokeWidth={2.5} />}
             </button>
@@ -737,11 +748,11 @@ export default function WorkspaceShell({
             type="button"
             onClick={() => setSurface("resumen")}
             className="press flex items-center gap-2 border-2 border-foreground bg-background px-3 py-1.5 text-xs font-semibold"
-            title="Namespace activo — volver a RESUMEN"
+            title={tt(lang, "shell.activeNsBackResumen", "Namespace activo — volver a RESUMEN")}
           >
             <span className="text-neon">◆</span>
             <span className="max-w-[140px] truncate">
-              {state.active ? state.active.name : "sin backend"}
+              {state.active ? state.active.name : tt(lang, "shell.noBackend", "sin backend")}
             </span>
           </button>
 
@@ -751,8 +762,8 @@ export default function WorkspaceShell({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               type="search"
-              placeholder="Buscar memoria…"
-              aria-label="Búsqueda global"
+              placeholder={tt(lang, "shell.searchPlaceholder", "Buscar memoria…")}
+              aria-label={tt(lang, "shell.globalSearch", "Búsqueda global")}
               className="w-full border-2 border-foreground bg-background py-1.5 pr-3 pl-10 text-sm placeholder:text-muted-foreground"
             />
             <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-neon">
@@ -775,7 +786,7 @@ export default function WorkspaceShell({
             type="button"
             onClick={() => setShowFilters((v) => !v)}
             aria-pressed={filterActive}
-            title="Filtros compuestos por metadata (AND/OR, sin JSON)"
+            title={tt(lang, "shell.filtersAria", "Filtros compuestos por metadata (AND/OR, sin JSON)")}
             className={`press border-2 border-foreground px-2.5 py-1.5 text-xs font-semibold ${
               filterActive ? "bg-foreground text-background" : "bg-background"
             }`}
@@ -824,8 +835,8 @@ export default function WorkspaceShell({
                 onDismissNotice();
               }}
               className="press flex h-6 w-6 shrink-0 items-center justify-center border-2 border-foreground text-[10px]"
-              aria-label="Cerrar aviso"
-              title="Cerrar aviso"
+              aria-label={tt(lang, "shell.closeNotice", "Cerrar aviso")}
+              title={tt(lang, "shell.closeNotice", "Cerrar aviso")}
             >
               ✕
             </button>
@@ -834,14 +845,14 @@ export default function WorkspaceShell({
 
         {/* ========== FILTROS COMPUESTOS (VS-07) ========== */}
         {showFilters && (
-          <section className="border-b-4 border-foreground bg-card" aria-label="Filtros compuestos por metadata">
+          <section className="border-b-4 border-foreground bg-card" aria-label={tt(lang, "shell.filtersAria", "Filtros compuestos por metadata (AND/OR, sin JSON)")}>
             <div className="mx-auto max-w-6xl p-4">
               <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
                 <span className="font-tech text-[10px] uppercase tracking-widest text-accent-text">
-                  filtros compuestos · metadata tipada
+                  {tt(lang, "shell.filtersTitle", "filtros compuestos · metadata tipada")}
                   {filterActive && (
                     <span className="text-muted-foreground">
-                      {" "}· {toVantaMemoryFilter(ruleGroup).length} reglas → VantaMemoryFilter
+                      {tp(lang, "shell.rulesCount", "· {n} reglas → VantaMemoryFilter", { n: String(toVantaMemoryFilter(ruleGroup).length) })}
                     </span>
                   )}
                 </span>
@@ -852,7 +863,7 @@ export default function WorkspaceShell({
                       onClick={() => setRuleGroup(EMPTY_QUERY)}
                       className="press border-2 border-foreground bg-background px-2 py-0.5 text-[10px] font-semibold"
                     >
-                      ✕ limpiar
+                      {tt(lang, "shell.clearFilters", "✕ limpiar")}
                     </button>
                   )}
                   <button
@@ -860,17 +871,16 @@ export default function WorkspaceShell({
                     onClick={() => setShowFilters(false)}
                     className="press border-2 border-foreground bg-background px-2 py-0.5 text-[10px] font-semibold"
                   >
-                    ocultar
+                    {tt(lang, "shell.hideFilters", "ocultar")}
                   </button>
                 </div>
               </div>
               {filterFields.length === 0 ? (
                 <p className="font-tech text-[11px] text-muted-foreground">
-                  Sin campos de metadata en los resultados — ejecutá una búsqueda global para
-                  inferir tipos (string/int/float/bool/datetime).
+                  {tt(lang, "shell.noMetaFields", "Sin campos de metadata en los resultados — ejecutá una búsqueda global para inferir tipos (string/int/float/bool/datetime).")}
                 </p>
               ) : (
-                <Suspense fallback={<p className="font-tech text-[11px] text-muted-foreground">Cargando builder…</p>}>
+                <Suspense fallback={<p className="font-tech text-[11px] text-muted-foreground">{tt(lang, "shell.loadingBuilder", "Cargando builder…")}</p>}>
                   <FiltersBuilder fields={filterFields} query={ruleGroup} onChange={setRuleGroup} />
                 </Suspense>
               )}
@@ -885,10 +895,10 @@ export default function WorkspaceShell({
               <div className="mx-auto max-w-6xl p-4">
                 <div className="flex items-center justify-between">
                   <span className="font-tech text-[10px] uppercase tracking-widest text-accent-text">
-                    Resultados de búsqueda
+                    {tt(lang, "shell.searchResults", "Resultados de búsqueda")}
                     {filterActive && results && visibleResults && results.length !== visibleResults.length && (
                       <span className="text-muted-foreground">
-                        {" "}· {visibleResults.length}/{results.length} tras filtro
+                        {tp(lang, "shell.filteredCount", "· {v}/{r} tras filtro", { v: String(visibleResults.length), r: String(results.length) })}
                       </span>
                     )}
                   </span>
@@ -897,7 +907,7 @@ export default function WorkspaceShell({
                     onClick={() => setResults(null)}
                     className="press border-2 border-foreground bg-background px-2 py-1 text-xs"
                   >
-                    ✕ cerrar
+                    {tt(lang, "shell.closeResults", "✕ cerrar")}
                   </button>
                 </div>
                 <ResultsList
@@ -920,7 +930,7 @@ export default function WorkspaceShell({
                     <MarkStudio status="error" />
                   </div>
                   <p className="mt-2 text-center font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
-                    sin backend activo — conectá uno para operar
+                    {tt(lang, "shell.noBackendToOperate", "sin backend activo — conectá uno para operar")}
                   </p>
                 </section>
               )}
@@ -958,23 +968,23 @@ export default function WorkspaceShell({
                 <button
                   className="press border-2 border-foreground bg-background px-2 py-1 font-tech text-[10px] uppercase tracking-widest"
                   onClick={() => setImportOpen(true)}
-                  title="Importar CSV o JSON pegado (hasta 1000 registros)"
+                  title={tt(lang, "shell.importCsvHint", "Importar CSV o JSON pegado (hasta 1000 registros)")}
                 >
-                  ⤒ IMPORT CSV/JSON
+                  {tt(lang, "shell.importCsv", "⤒ IMPORT CSV/JSON")}
                 </button>
                 <button
                   className="press border-2 border-foreground bg-background px-2 py-1 font-tech text-[10px] uppercase tracking-widest"
                   onClick={() => setImportFileOpen(true)}
-                  title="Importar archivo .csv/.json/.jsonl/.vdbdump por drag&drop"
+                  title={tt(lang, "shell.importFileHint", "Importar archivo .csv/.json/.jsonl/.vdbdump por drag&drop")}
                 >
-                  ⤓ IMPORT ARCHIVO
+                  {tt(lang, "shell.importFile", "⤓ IMPORT ARCHIVO")}
                 </button>
               </div>
               {/* UX-15: microcopy ES (antes "Stored N record(s)."). UX-17: el
                   ingest manual refresca el grid vía remount (mismo gridKey que
                   batch delete/imports). */}
               <IngestForm
-                onDone={(ids) => onNotice(`Guardados ${ids.length} registro(s).`)}
+                onDone={(ids) => onNotice(tp(lang, "shell.savedRecords", "Guardados {n} registro(s).", { n: String(ids.length) }))}
                 onRefresh={() => setGridKey((k) => k + 1)}
                 runError={onError}
               />
@@ -1044,13 +1054,13 @@ export default function WorkspaceShell({
           )}
           {/* GRAFO-02: lente GRAFO montada en la surface IQL (F2). */}
           {surface === "iql" && (
-            <Suspense fallback={<LensPlaceholder title="IQL" phase="cargando visor…" />}>
+            <Suspense fallback={<LensPlaceholder title="IQL" phase={tt(lang, "shell.loadingViewer", "cargando visor…")} lang={lang} />}>
               <GraphLens onNotice={onNotice} onError={onError} dark={dark} />
             </Suspense>
           )}
           {/* ESPACIO-01: scatterplot WebGL de embeddings (worker UMAP-js). */}
           {surface === "espacio" && (
-            <Suspense fallback={<LensPlaceholder title="ESPACIO" phase="cargando visor…" />}>
+            <Suspense fallback={<LensPlaceholder title="ESPACIO" phase={tt(lang, "shell.loadingViewer", "cargando visor…")} lang={lang} />}>
               <SpaceLens
                 onNotice={onNotice}
                 onError={onError}
@@ -1132,7 +1142,7 @@ export default function WorkspaceShell({
       </Suspense>
 
       {/* ========== HELP PANEL (FIND-25, "?" global) — DESKTOP-QW2: F1 general, F2 proxy/ajustes contextual */}
-      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} initialTab={helpTab} />}
+      {helpOpen && <HelpPanel onClose={() => setHelpOpen(false)} initialTab={helpTab} lang={lang} />}
 
       {/* ========== CONTEXT MENU (FIND-21, right-click propio) ========== */}
       {menuAt && (
@@ -1140,10 +1150,10 @@ export default function WorkspaceShell({
           x={menuAt.x}
           y={menuAt.y}
           items={[
-            { id: "palette", label: "Paleta de comandos", hint: "Ctrl+K", onSelect: () => setPaletteOpen(true) },
-            { id: "help", label: "Guía rápida", hint: "?", onSelect: () => { setHelpTab("general"); setHelpOpen(true); } },
-            { id: "theme", label: dark ? "Tema claro" : "Tema oscuro", hint: "Alt+T", onSelect: onToggleTheme },
-            { id: "settings", label: "Ir a Ajustes", hint: "Ctrl+,", onSelect: () => setSurface("ajustes") },
+            { id: "palette", label: tt(lang, "shell.menuPalette", "Paleta de comandos"), hint: "Ctrl+K", onSelect: () => setPaletteOpen(true) },
+            { id: "help", label: tt(lang, "shell.menuHelp", "Guía rápida"), hint: "?", onSelect: () => { setHelpTab("general"); setHelpOpen(true); } },
+            { id: "theme", label: dark ? tt(lang, "shell.menuThemeLight", "Tema claro") : tt(lang, "shell.menuThemeDark", "Tema oscuro"), hint: "Alt+T", onSelect: onToggleTheme },
+            { id: "settings", label: tt(lang, "shell.menuSettings", "Ir a Ajustes"), hint: "Ctrl+,", onSelect: () => setSurface("ajustes") },
           ]}
           onClose={() => setMenuAt(null)}
         />
@@ -1158,6 +1168,7 @@ export default function WorkspaceShell({
           onCreate={handleCreateNs}
           onRename={handleRenameNs}
           onDelete={handleDeleteNs}
+          lang={lang}
         />
       )}
 
@@ -1170,7 +1181,7 @@ export default function WorkspaceShell({
           onImported={(count) => {
             setGridKey((k) => k + 1);
             setSurface("memorias");
-            onNotice(`Importados ${count} registros.`);
+            onNotice(tp(lang, "shell.imported", "Importados {n} registros.", { n: String(count) }));
           }}
           onError={onError}
         />
@@ -1185,7 +1196,7 @@ export default function WorkspaceShell({
           onImported={(count) => {
             setGridKey((k) => k + 1);
             setSurface("memorias");
-            onNotice(`Importados ${count} registros.`);
+            onNotice(tp(lang, "shell.imported", "Importados {n} registros.", { n: String(count) }));
           }}
           onError={onError}
         />
