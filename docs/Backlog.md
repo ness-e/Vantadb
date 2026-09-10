@@ -488,11 +488,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 > **Origen:** investigación profunda vanta-proxy vs estado del arte (LiteLLM/OpenRouter/Portkey/Helicone/Cloudflare AIG/claude-code-router/Bifrost/TensorZero) vs necesidades de usuarios de coding agents. **Identidad decidida por el owner: gateway completo** (no especialista). Diferenciador a preservar: memoria en tránsito + interceptor de tools server-side (único en el mercado). Deudas internas: state machine `advance()` sin wiring, clasificador Claude Code huérfano, mem-commands stub, fail-open sin trigger (`server.rs:177`, `claude_code.rs:57`, `mem_command.rs:102`).
 
-| ID | Effort | Descripción | Archivos | Estado |
-|----|--------|-------------|----------|--------|
-> Sin filas pendientes (PRX-11-slice3 completada lead-inline 2026-09-10, e6a12230; subagentes abortados ×3 sin task_id).
-| `PRX-09-wiring` | 🟡 | **Wiring server-side `with_embedder` en AppState** (DEFER de embeddings ✅ 15157d39: `OllamaEmbedProvider::from_env()` + gate `semantic_enabled`; server construía cache sin embedder) | `vanta-proxy/src/server.rs` | ⬜ Pendiente |
-> Sin filas pendientes (PRX-10 completada plan 2026-09-10-code, 950df333).
+> Sin filas pendientes (P39 completado: PRX-02/03/06/07/09/10/11/13 + slices — ver avance/operaciones).
 
 > Sin filas pendientes (PRX-13 completada plan 2026-09-10-code, 462488e9).
 
