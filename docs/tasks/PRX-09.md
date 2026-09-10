@@ -209,7 +209,10 @@ Gate D evaluado: símbolos `pub` nuevos (`ExactCache`, `CacheConfig`, `CachedEnt
 - **Archivos:** —
 - **Acción:** fmt + clippy all-targets/all-features + nextest scoped; commit solo-propios en develop (`feat: PRX-09-embeddings ...`); lesson; RESULTADO + nota resto al orquestador
 - **Verify:** contrato slice 3 ✅
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
+- **Verify real S13:** lib 155 ✅ · `cargo clippy -p vanta-proxy --all-targets --all-features -- -D warnings` 0 · `cargo fmt -p vanta-proxy --check` limpio en propios (diff restante = prx11 ajeno) · prx09 4/4 + 13 suites ✅ · commit `15157d39` (solo-propios: cache.rs + PRX-09.md) · sin regresión exact/PRX-04.
+- **Debug S13:** `Arc<dyn EmbedProvider>` rompe `#[derive(Debug)]` → Debug manual estilo `L1DedupConfig` (`embedder.is_some()`); `cargo test --tests` global bloqueado por WIP ajeno prx11_translate (símbolos inexistentes mid-slice) → verificado por suites individuales.
+- **Scope:** 2 archivos propios; WIP ajeno intacto, no stageado.
 
 ## Notas
 
