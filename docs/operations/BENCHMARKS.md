@@ -893,3 +893,59 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
   WASM (compilacion streaming ~50–150 ms medida en §10). El `.wasm` (2.40 MiB)
   mantiene ventaja de tamano para browser (2.1x menor que el `.node` de 5.13 MiB).
 - **No medido aca:** rama browser con OPFS/IDB; shape canonico 100k x 1536d x 1k.
+
+---
+
+## 17. Memory Benchmarks LongMemEval-S + LoCoMo — harness + metodología (MEM-70)
+
+> **Source of truth:** `evals/memory_bench.py` (MEM-70).
+> Emula el SHAPE de LongMemEval-S (sesiones largas, QA sobre hechos) y LoCoMo
+> (diálogo multi-turno con referencias) con sesiones sintéticas determinísticas —
+> SIN descargar sus datasets (licencia/peso; stop condition del plan).
+> Los números reales contra esos datasets quedan DEFER con loader versionado.
+>
+> **Reproduce (Regla 11):**
+> ```bash
+> python evals/memory_bench.py --sessions 20 --turns 16 --queries 40 --top-k 5 --output evals/memory_bench_report.json
+> # smoke offline/CI (sin vantadb_py):
+> python evals/memory_bench.py --sessions 4 --turns 8 --queries 8 --no-vantadb
+> ```
+
+### Metodología
+
+- Dataset sintético `synthetic-longmem-style`, seed 42: `--sessions` sesiones ×
+  `--turns` turnos con hechos `fact-{s}-{t}` + marcador `M{s}-{t}` + distractores;
+  queries muestrean hechos y preguntan por su marcador (gold = texto del hecho).
+- Métricas: recall@k (gold en top-k) + latencia query p50/p99 + ingest QPS.
+- Backend: `vantadb_py` si importable, si no fallback dict in-memory
+  (`--no-vantadb` lo fuerza; el harness avisa por stderr qué backend usó).
+- recall@k = 1.0 en fallback dict es TECHO del harness (match exacto por
+  marcador), NO claim de calidad de VantaDB — sirve como gate de regresión
+  del harness, no para posicionamiento vs SuperMemory/Hindsight.
+
+### Resultados medidos — smoke sintético (fallback dict, sin vantadb_py)
+
+| backend | dataset | docs | queries | recall@5 | q p50 (ms) | q p99 (ms) |
+| :--- | :--- | ---: | ---: | ---: | ---: | ---: |
+| dict-fallback | synthetic-longmem-style (20sess × 16turns, seed 42) | 320 | 40 | 1.0 | 0.195 | 0.687 |
+
+### Entorno (Regla 11)
+
+| Campo | Valor |
+| :--- | :--- |
+| Fecha | 2026-09-10 |
+| OS | Windows 10 Pro (build 26100, 64-bit) |
+| CPU | Intel64 Family 6 Model 154, 12 logical |
+| RAM | 31.78 GB |
+| Runtime | Python 3.14.7 |
+| Comando | `python evals/memory_bench.py --sessions 20 --turns 16 --queries 40 --top-k 5 --no-vantadb --output evals/memory_bench_report.json` |
+| Reporte JSON | `evals/memory_bench_report.json` (gitignored — regenerar con el comando) |
+
+### Pendiente (DEFER — stop condition MEM-70)
+
+1. Loader versionado LongMemEval-S + LoCoMo (licencia/peso verificados) con
+   submuestra documentada.
+2. Corrida con backend `vantadb` real (bindings compilados) sobre esa
+   submuestra: recall@k + p50/p99 comparables con metodología explícita.
+3. Tabla lado a lado solo con números propios reproducibles (Regla 11 —
+   ningún claim vs SuperMemory/Hindsight hasta entonces).

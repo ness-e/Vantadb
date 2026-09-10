@@ -256,6 +256,7 @@ embeddings/**/*.bin
 benchmarks/embed_bench_report*.json
 benchmarks/vanta_benchmark_report.json
 benchmarks/competitive_data/
+evals/memory_bench_report.json
 
 # Random build artifacts
 *.rar

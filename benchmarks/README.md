@@ -75,3 +75,4 @@ The scripts accept either install path (PyPI wheel or `maturin develop`).
 | `batch_vs_sequential_bench.py` | `search_batch()` vs sequential `search()` FFI amortization |
 | `prefetch_comparison.py` | Predictive kernel prefetch impact (SCALE-01) |
 | `wasm_bench.mjs` | WASM build benchmark |
+| `../evals/memory_bench.py` | MEM-70: harness sintético estilo LongMemEval-S/LoCoMo (recall@k + p50/p99, offline con `--no-vantadb`) |
