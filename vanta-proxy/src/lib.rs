@@ -16,6 +16,7 @@ pub mod context;
 pub mod cost;
 pub mod error;
 pub mod forward;
+pub mod guardrails;
 pub mod handlers;
 pub mod inject;
 pub mod langfuse;

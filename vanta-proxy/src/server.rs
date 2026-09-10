@@ -21,6 +21,7 @@ use crate::config::{ProxyConfig, UpstreamConfig};
 use crate::context::{self, ContextOptimizer};
 use crate::cost::{self, BudgetDecision, CostTracker, VirtualKey};
 use crate::forward::Forwarder;
+use crate::guardrails::GuardrailDecision;
 use crate::handlers;
 use crate::inject::{self, Protocol};
 use crate::mem_command;
@@ -312,6 +313,30 @@ impl AppState {
                     }
                     .into_response();
                 }
+            }
+        }
+
+        // 1c) PRX-10: per-key model allowlist (opt-in policy). Runs after
+        // 1b so `user_id` is already authenticated — the allowlist never
+        // authorizes, it only denies models outside the key's policy.
+        // Disabled default / unknown key / empty entry all allow (fail-open
+        // additive). Extension point: a pluggable moderation provider
+        // would hook this same gate.
+        if let Ok(identity) = self.auth.authenticate(headers) {
+            if let GuardrailDecision::Denied {
+                key,
+                model: denied_model,
+            } = self.config.guardrails.check(&identity.user_id, model)
+            {
+                tracing::warn!(
+                    key = %key, model = %denied_model,
+                    "model not allowed for virtual key — rejecting 403"
+                );
+                return crate::error::ProxyError::GuardrailBlocked {
+                    key,
+                    model: denied_model,
+                }
+                .into_response();
             }
         }
 

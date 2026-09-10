@@ -102,6 +102,7 @@ async fn setup() -> (String, Captured) {
         routing: Default::default(),
         redact: Default::default(),
         context: Default::default(),
+        guardrails: Default::default(),
     };
     let state = server::AppState::from_engine(cfg, seeded_engine()).unwrap();
     (spawn(server::router(state)).await, captured)

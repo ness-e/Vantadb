@@ -261,6 +261,7 @@ fn state_with_context(upstream: &str, context: ContextConfig) -> server::AppStat
         routing: Default::default(),
         redact: Default::default(),
         context,
+        guardrails: Default::default(),
     };
     server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }
