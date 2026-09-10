@@ -72,6 +72,7 @@ fn state_for(upstream_url: &str) -> vanta_proxy::server::AppState {
         cache: CacheConfig {
             enabled: true,
             max_entries: 128,
+            ..Default::default()
         },
         routing: Default::default(),
         redact: Default::default(),
@@ -214,8 +215,83 @@ async fn memory_change_invalidates_without_breaking_prefix() {
     assert_eq!(env.upstream.hits.load(Ordering::SeqCst), 2);
 }
 
-/// Coordinación cache↔PRX-04 a nivel unidad: la clave del cache son los
-/// bytes post-inyección, y la re-inyección es estable → misma clave.
+/// PRX-09 slice 2: prompt semánticamente igual (distintos bytes) → 1 solo
+/// hit upstream, respuestas byte-idénticas, sin regresión del exact-hit.
+fn state_for_semantic(upstream_url: &str) -> vanta_proxy::server::AppState {
+    let cfg = ProxyConfig {
+        report: Default::default(),
+        cost: Default::default(),
+        server: Default::default(),
+        upstream: vanta_proxy::config::UpstreamConfig {
+            url: upstream_url.to_string(),
+            api_key: String::new(),
+            forward_timeout_secs: 600,
+            models: Vec::new(),
+        },
+        upstreams: Vec::new(),
+        auth: Default::default(),
+        mem_command: Default::default(),
+        writeback: Default::default(),
+        cache: CacheConfig {
+            enabled: true,
+            max_entries: 128,
+            ttl_secs: 0,
+            semantic_enabled: true,
+            similarity_threshold: 0.9,
+        },
+        routing: Default::default(),
+        redact: Default::default(),
+    };
+    vanta_proxy::server::AppState::from_engine(cfg, seeded_engine()).unwrap()
+}
+
+#[tokio::test]
+async fn semantic_hit_replays_without_second_upstream_hit() {
+    let hits = Arc::new(AtomicUsize::new(0));
+    let h = hits.clone();
+    let upstream = Router::new().route(
+        "/v1/chat/completions",
+        post(move |_headers: HeaderMap, _body: Bytes| {
+            let h = h.clone();
+            async move {
+                h.fetch_add(1, Ordering::SeqCst);
+                Json(json!({ "id": "chatcmpl-sem-1", "choices": [] }))
+            }
+        }),
+    );
+    let upstream_url = spawn(upstream).await;
+    let state = state_for_semantic(&upstream_url);
+    let proxy_url = spawn(vanta_proxy::server::router(state)).await;
+    let env = TestEnv {
+        proxy_url,
+        upstream: Upstream {
+            hits,
+            bodies: Arc::new(Mutex::new(Vec::new())),
+        },
+        memory: {
+            let config = vantadb::config::VantaConfig {
+                backend_kind: vantadb::storage::BackendKind::InMemory,
+                ..Default::default()
+            };
+            vantadb::storage::StorageEngine::open_with_config(":memory:", Some(config))
+                .map(|engine| VantaEmbedded::from_engine(engine.into()))
+                .expect("in-memory engine")
+        },
+    };
+
+    let first_body = json!({ "model": "m", "messages": [{ "role": "user", "content": "What is the capital of France?" }] });
+    let near_body = json!({ "model": "m", "messages": [{ "role": "user", "content": "what is the capital of france" }] });
+
+    let first = post_chat(&env, "sess-sem", first_body).await;
+    let second = post_chat(&env, "sess-sem", near_body).await;
+
+    assert_eq!(first, second, "semantic hit must be byte-identical");
+    assert_eq!(
+        env.upstream.hits.load(Ordering::SeqCst),
+        1,
+        "near-duplicate prompt must not reach upstream twice"
+    );
+}
 #[test]
 fn cache_key_stable_under_reinjection() {
     let raw = Bytes::from_static(
@@ -231,6 +307,7 @@ fn cache_key_stable_under_reinjection() {
     let mut cache = ExactCache::new(CacheConfig {
         enabled: true,
         max_entries: 8,
+        ..Default::default()
     });
     assert!(is_cacheable_request(&once));
     assert!(!is_cacheable_request(b"not-json"));

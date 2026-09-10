@@ -93,15 +93,23 @@ impl Default for WritebackConfig {
     }
 }
 
-/// Exact response cache (PRX-09 slice 1: exact-only). Disabled by default so
-/// the wire stays a transparent proxy unless explicitly opted in.
+/// Exact + semantic response cache (PRX-09 slice 1: exact-only; slice 2:
+/// TTL + LRU + similarity). Disabled by default so the wire stays a
+/// transparent proxy unless explicitly opted in.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
 pub struct CacheConfig {
     /// When false (default), every lookup misses and stores are no-ops.
     pub enabled: bool,
-    /// Max entries held (FIFO eviction past the cap).
+    /// Max entries held (oldest-first eviction past the cap; lookups refresh
+    /// recency, so hot entries survive).
     pub max_entries: usize,
+    /// Per-entry TTL in seconds (slice 2). 0 = entries never expire.
+    pub ttl_secs: u64,
+    /// Similarity hits on near-duplicate prompts (slice 2). Off by default.
+    pub semantic_enabled: bool,
+    /// Cosine threshold over normalized prompt TF (slice 2).
+    pub similarity_threshold: f32,
 }
 
 impl Default for CacheConfig {
@@ -109,6 +117,9 @@ impl Default for CacheConfig {
         Self {
             enabled: false,
             max_entries: 128,
+            ttl_secs: 0,
+            semantic_enabled: false,
+            similarity_threshold: crate::cache::DEFAULT_SIMILARITY_THRESHOLD,
         }
     }
 }

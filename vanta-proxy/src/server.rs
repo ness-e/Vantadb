@@ -57,7 +57,7 @@ pub struct AppState {
     pub writeback: Arc<WriteBack>,
     /// Per-turn structured reporting (MEM-27).
     pub reporter: Arc<Reporter>,
-    /// Exact response cache (PRX-09 slice 1: exact-only, opt-in).
+    /// Exact + semantic response cache (PRX-09 slice 1+2, opt-in).
     pub cache: Arc<std::sync::Mutex<ExactCache>>,
     /// Cost ledger + virtual-key budgets (PRX-03). In-memory, fail-open.
     pub cost: Arc<CostTracker>,
@@ -375,12 +375,17 @@ impl AppState {
             }
         };
 
-        // 5b) PRX-09 slice 1: exact cache over the POST-INJECTION bytes
+        // 5b) PRX-09 slice 1+2: exact cache over the POST-INJECTION bytes
         // (the key carries the PRX-04 prefix, so memory changes invalidate
         // implicitly). Runs AFTER auth/session — a hit never bypasses D34.
+        // Slice 2: on exact miss, a similarity hit over the same template
+        // replays the entry (opt-in via `semantic_enabled`).
         let cacheable = self.cache_enabled() && cache::is_cacheable_request(body.as_ref());
         if cacheable {
             if let Some(entry) = self.cache_lookup(protocol, wire_path, &body) {
+                return cached_response(&entry);
+            }
+            if let Some(entry) = self.cache_lookup_similar(protocol, wire_path, &body) {
                 return cached_response(&entry);
             }
         }
@@ -414,8 +419,20 @@ impl AppState {
 
     /// Sync-only lookup: lock, clone the entry, drop the guard.
     fn cache_lookup(&self, protocol: Protocol, path: &str, body: &Bytes) -> Option<CachedEntry> {
-        let guard = self.cache.lock().ok()?;
+        let mut guard = self.cache.lock().ok()?;
         guard.lookup(protocol_name(protocol), path, body.as_ref())
+    }
+
+    /// Sync-only similarity lookup (slice 2): same session-path template +
+    /// cosine over the prompt. Unparseable bodies fail open (None → upstream).
+    fn cache_lookup_similar(
+        &self,
+        protocol: Protocol,
+        path: &str,
+        body: &Bytes,
+    ) -> Option<CachedEntry> {
+        let mut guard = self.cache.lock().ok()?;
+        guard.lookup_similar(protocol_name(protocol), path, body.as_ref())
     }
 
     /// Buffer a small JSON 2xx and store it; anything else flows through

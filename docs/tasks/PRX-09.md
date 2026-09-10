@@ -122,6 +122,50 @@ Gate D evaluado: símbolos `pub` nuevos (`ExactCache`, `CacheConfig`, `CachedEnt
 - **Cómo se probó:** —
 - **Veredicto:** ⬜ pendiente
 
+## Slice 2 — Semantic caching + TTL + LRU (plan 2026-09-10-code Task 13)
+
+- **Estado:** ⏳ IN PROGRESS
+- **SDP:** incremental-implementation · test-driven-development · context-engineering · source-driven-development · api-and-interface-design (+ campaign-executor/progreso base). Descartadas: frontend-ui-engineering (sin web/), doubt-driven-development (stakes medios, opt-in), security-and-hardening (sin input parsing nuevo, D34 intacto), performance-optimization (proxy I/O-bound, n≤max_entries).
+- **Context cargado:** AGENTS.md Reglas 0/1/4/6/9 · plan Task 13 (no re-derivar) · cache.rs 223L completo · config.rs CacheConfig · server.rs hook 5b/5c + maybe_store · prx09_cache.rs · inject.rs patrón `value.get_mut("messages")` · Cargo.toml vanta-proxy (sin lru dep; lock trae lru 0.16.4/0.18.4 transitivo).
+- **Diseño (aditivo, 0 deps nuevas):**
+  - `CachedEntry` pub INTACTA (Hyrum: no romper API pública slice 1).
+  - `TimedEntry{entry, inserted_at: Instant, prompt: String}` interna; `lookup(&mut self)` con touch LRU + expiración lazy; `lookup_similar()` tras exact-miss en server.rs.
+  - `CacheConfig += ttl_secs: u64 (0=sin expiración) + semantic_enabled: bool (false) + similarity_threshold: f32 (0.90)` — todo `#[serde(default)]`, TOML viejo compatible.
+  - Similitud = coseno sobre TF de tokens normalizados (lowercase, alfanumérico); techo conocido `ponytail:` — upgrade a embeddings cuando exista embed-local (verificado: NO existe en workspace; stop-condition no dispara porque near-dups sí hitean en fixtures).
+  - LRU hand-rolled (touch O(n), n≤max_entries=128 default) en vez de crate `lru` (versiones 0.16/0.18 en lock divergen; hand-roll = 0 riesgo) — `ponytail:` tag.
+- **Slices:** S6 RED → S7 GREEN cache.rs+config → S8 wiring server.rs + literales → S9 verify+commit.
+
+### Step 6: RED slice 2 — TTL/LRU/similitud (debe FALLAR: API inexistente)
+
+- **Archivos:** `vanta-proxy/src/cache.rs` (tests), `vanta-proxy/tests/prx09_cache.rs` (+1 integración)
+- **Acción:** tests `expired_fn`, `lru_touch_refreshes_recency`, `similar_hit_near_duplicate`, `similar_miss_different_prompt`, `similar_threshold_configurable`, `similar_disabled_by_default`, `extract_prompt_openai_anthropic`; integración `semantic_hit_replays_without_second_upstream_hit`
+- **Verify:** `cargo test -p vanta-proxy --lib cache` falla (E0432/E0599 — API nueva inexistente = RED correcto)
+- **Estado:** ✅ COMPLETED (RED confirmado: E0425 `TTL_DISABLED` + E0560 `ttl_secs`/`semantic_enabled`/`similarity_threshold`)
+
+### Step 7: GREEN — TimedEntry + TTL + LRU + similitud + config
+
+- **Archivos:** `vanta-proxy/src/cache.rs` (~+150L), `vanta-proxy/src/config.rs` (+3 campos + Default)
+- **Acción:** mínima para pasar RED; `lookup(&mut self)`; `store` extrae prompt best-effort (sin cambio de firma); FIFO-test slice 1 sigue verde (sin lookups previos no hay touch)
+- **Verify:** `cargo test -p vanta-proxy --lib` + `cargo check -p vanta-proxy`
+- **Estado:** ✅ COMPLETED (GREEN: 14/14 lib-cache incl. 7 nuevos; fifo slice-1 verde; `let mut guard` en server.rs incluido)
+
+### Step 8: Wiring server.rs + literales CacheConfig
+
+- **Archivos:** `vanta-proxy/src/server.rs` (cache_lookup → exact + similar; `let mut guard`), `vanta-proxy/tests/prx09_cache.rs` (2 literales `..Default::default()`-safe), `vanta-proxy/src/cache.rs` tests (2 literales)
+- **Acción:** `lookup_similar` tras exact-miss solo si semantic_enabled; parse-fail → skip (fail-open)
+- **Verify:** `cargo test -p vanta-proxy` 0 failed (incl. regresión exact/PRX-04)
+- **Estado:** ✅ COMPLETED (wiring `cache_lookup_similar` tras exact-miss; 5 literales `..Default::default()`; memory_change verde — template distingue contexto)
+
+### Step 9: Verify full + commit + cierre
+
+- **Archivos:** —
+- **Acción:** fmt + clippy + nextest scoped; commit solo-propios en develop; lesson; update-task-state completed; plan inline (sin stagear plan — compartido Wave4)
+- **Verify:** contrato Task 13 ✅
+- **Estado:** ✅ COMPLETED
+- **Verify real S9:** `cargo test -p vanta-proxy --tests -j 2` → 216 passed 0 failed (lib 145 incl. 12 cache + 12 suites incl. prx09 4/4 con `semantic_hit`) · `cargo fmt --check` 0 · `cargo clippy --all-targets -- -D warnings` 0 (1 fix propio `question_mark`) · sin regresión exact/PRX-04/PRX-12/tool_loop.
+- **Debug S9:** `lookup(&self)`→`&mut self` exigió `let mut guard` en server.rs; `let-chains` + `as_str_mut` inexistente en edition actual → reescritura sin let-chain; `is_none_or` mueve `best` → `match &best`.
+- **Scope:** 5 archivos propios (cache.rs/config.rs/server.rs/prx09_cache.rs/PRX-09.md); WIP ajeno intacto, no stageado.
+
 ## Notas
 
 - Slice 1 = solo exacto (stop condition plan: appetite >3d → shippear exact + DEFER semántico). Semántico slice 2.
