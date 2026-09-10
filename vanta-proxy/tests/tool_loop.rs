@@ -106,6 +106,7 @@ async fn setup(path: &'static str, responses: Vec<String>) -> Env {
         },
         cache: Default::default(),
         routing: Default::default(),
+        redact: Default::default(),
     };
     let proxy_url = spawn(server::router(
         server::AppState::from_engine(cfg, engine.clone()).unwrap(),

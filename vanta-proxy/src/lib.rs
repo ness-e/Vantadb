@@ -21,6 +21,7 @@ pub mod langfuse;
 pub mod mem_command;
 pub mod memory_tools;
 pub mod rate_limit;
+pub mod redact;
 pub mod report;
 pub mod routing;
 pub mod server;
