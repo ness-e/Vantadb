@@ -6,7 +6,8 @@
 use serde_json::{json, Value};
 use vanta_proxy::translate::{
     anthropic_event_to_openai, anthropic_to_openai, clamp_max_tokens, openai_chunk_to_anthropic,
-    openai_to_anthropic, pass_through_beta_headers, sanitize_request,
+    openai_to_anthropic, pass_through_beta_headers, sanitize_request, should_translate,
+    TranslateConfig, TranslateSource,
 };
 
 const CLAUDE_REQ: &str = include_str!("fixtures/claude_code_messages_request.json");
@@ -149,4 +150,111 @@ fn opencode_fixture_survives_sanitize_untouched() {
     let req: Value = serde_json::from_str(OPENCODE_REQ).expect("fixture parses");
     let clean = sanitize_request(&req);
     assert_eq!(clean["model"], "gpt-5-mini-test");
+}
+
+// ── slice 2: thinking fidelity fina por variante + hook contract ─────────────
+
+#[test]
+fn thinking_with_signature_dropped_on_request() {
+    // Extended-thinking block with opaque `signature` (multi-turn preservation;
+    // source: https://platform.claude.com/docs/en/build-with-claude/extended-thinking).
+    // OpenAI has no counterpart → dropped, neighboring text survives.
+    let req = json!({
+        "model": "m", "max_tokens": 8,
+        "messages": [{"role": "assistant", "content": [
+            {"type": "thinking", "thinking": "hmm", "signature": "opaque-sig"},
+            {"type": "text", "text": "done"}
+        ]}]
+    });
+    let out = anthropic_to_openai(&req);
+    assert_eq!(out["messages"][0]["content"], "done");
+}
+
+#[test]
+fn redacted_thinking_dropped_on_request() {
+    let req = json!({
+        "model": "m", "max_tokens": 8,
+        "messages": [{"role": "assistant", "content": [
+            {"type": "redacted_thinking", "data": "encrypted"},
+            {"type": "text", "text": "done"}
+        ]}]
+    });
+    let out = anthropic_to_openai(&req);
+    assert_eq!(out["messages"][0]["content"], "done");
+}
+
+#[test]
+fn reasoning_string_variant_maps_to_thinking() {
+    // Some OpenAI-compat gateways send `reasoning` (string) instead of
+    // `reasoning_content` — both land on an Anthropic thinking block.
+    let resp = json!({
+        "id": "chatcmpl_1", "model": "m",
+        "choices": [{"message": {"role": "assistant", "content": "hi",
+            "reasoning": "because"}, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1}
+    });
+    let out = openai_to_anthropic(&resp);
+    let blocks = out["content"].as_array().expect("blocks");
+    assert_eq!(blocks[0]["type"], "thinking");
+    assert_eq!(blocks[0]["thinking"], "because");
+}
+
+#[test]
+fn reasoning_object_variant_maps_to_thinking() {
+    let resp = json!({
+        "id": "chatcmpl_1", "model": "m",
+        "choices": [{"message": {"role": "assistant", "content": "hi",
+            "reasoning": {"content": "deep thought"}}, "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1}
+    });
+    let out = openai_to_anthropic(&resp);
+    let blocks = out["content"].as_array().expect("blocks");
+    assert_eq!(blocks[0]["type"], "thinking");
+    assert_eq!(blocks[0]["thinking"], "deep thought");
+}
+
+#[test]
+fn reasoning_signature_preserved() {
+    let resp = json!({
+        "id": "chatcmpl_1", "model": "m",
+        "choices": [{"message": {"role": "assistant", "content": "hi",
+            "reasoning_content": "hmm", "reasoning_signature": "sig-1"},
+            "finish_reason": "stop"}],
+        "usage": {"prompt_tokens": 1, "completion_tokens": 1}
+    });
+    let out = openai_to_anthropic(&resp);
+    let blocks = out["content"].as_array().expect("blocks");
+    assert_eq!(blocks[0]["type"], "thinking");
+    assert_eq!(blocks[0]["thinking"], "hmm");
+    assert_eq!(blocks[0]["signature"], "sig-1");
+}
+
+#[test]
+fn translate_config_default_off_and_gate_matrix() {
+    // Opt-in contract: Default off → hook never fires unless enabled.
+    let off = TranslateConfig::default();
+    assert!(!off.enabled);
+    assert!(!should_translate(&off, TranslateSource::Anthropic));
+    assert!(!should_translate(&off, TranslateSource::OpenAI));
+    let on = TranslateConfig { enabled: true };
+    // Slice 2 wires Anthropic→OpenAI only (the verbatim gap per Spec #1);
+    // OpenAI-client translation stays verbatim (DEFER).
+    assert!(should_translate(&on, TranslateSource::Anthropic));
+    assert!(!should_translate(&on, TranslateSource::OpenAI));
+}
+
+#[test]
+fn thinking_request_config_never_forwarded() {
+    // Characterization (locks existing behavior): the top-level `thinking`
+    // request config (`type: enabled|adaptive`, `budget_tokens`) is an
+    // Anthropic-only envelope — it must not leak into the OpenAI body.
+    // Source: https://platform.claude.com/docs/en/build-with-claude/extended-thinking
+    let req = json!({
+        "model": "m", "max_tokens": 8,
+        "thinking": {"type": "enabled", "budget_tokens": 1024},
+        "messages": [{"role": "user", "content": "hi"}]
+    });
+    let out = anthropic_to_openai(&req);
+    assert!(out.get("thinking").is_none());
+    assert_eq!(out["messages"][0]["content"], "hi");
 }
