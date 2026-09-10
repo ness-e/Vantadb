@@ -17,6 +17,7 @@
 
 use std::collections::hash_map::Entry;
 use std::collections::{HashMap, VecDeque};
+use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use crate::config::CacheConfig;
@@ -29,6 +30,17 @@ pub const TTL_DISABLED: Duration = Duration::ZERO;
 
 /// Default similarity threshold (cosine over normalized prompt TF).
 pub const DEFAULT_SIMILARITY_THRESHOLD: f32 = 0.90;
+
+/// Dense-vector embedding hook for the similarity path (PRX-09-embeddings).
+///
+/// Returning `None` (provider failure, empty text) must never break the
+/// lookup — callers degrade to the lexical TF-cosine path (P4 fail-open).
+/// The bundled [`OllamaEmbedProvider`] talks to an Ollama-compatible
+/// `/api/embed` endpoint; tests use a deterministic in-memory fake.
+pub trait EmbedProvider: Send + Sync {
+    /// Embed `text` into a dense vector, or `None` when unavailable.
+    fn embed(&self, text: &str) -> Option<Vec<f32>>;
+}
 
 /// A stored exact response (replayed byte-for-byte on hit).
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -46,15 +58,32 @@ struct Key {
 }
 
 /// Exact-match response cache with TTL + bounded LRU eviction + similarity.
-#[derive(Debug)]
 pub struct ExactCache {
     enabled: bool,
     max_entries: usize,
     ttl: Duration,
     semantic_enabled: bool,
     similarity_threshold: f32,
+    /// Optional dense-vector hook (PRX-09-embeddings). `None` (default) keeps
+    /// the slice-2 lexical path byte-for-byte; `Some` tries embeddings first
+    /// and degrades to lexical on any failure.
+    embedder: Option<Arc<dyn EmbedProvider>>,
     map: HashMap<Key, TimedEntry>,
     order: VecDeque<Key>,
+}
+
+impl std::fmt::Debug for ExactCache {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ExactCache")
+            .field("enabled", &self.enabled)
+            .field("max_entries", &self.max_entries)
+            .field("ttl", &self.ttl)
+            .field("semantic_enabled", &self.semantic_enabled)
+            .field("similarity_threshold", &self.similarity_threshold)
+            .field("embedder", &self.embedder.is_some())
+            .field("len", &self.map.len())
+            .finish()
+    }
 }
 
 /// Stored entry with insertion time (TTL) and similarity material
@@ -69,6 +98,9 @@ struct TimedEntry {
     /// Term frequencies of the normalized prompt (empty = not comparable).
     prompt_tf: HashMap<String, u32>,
     prompt_norm: u32,
+    /// Dense vector of the prompt (`None` = no embedder or hook failed —
+    /// that entry stays lexical-only).
+    prompt_vec: Option<Vec<f32>>,
 }
 
 /// True when `inserted_at` is older than `ttl` (`TTL_DISABLED` never expires).
@@ -85,9 +117,18 @@ impl ExactCache {
             ttl: Duration::from_secs(cfg.ttl_secs),
             semantic_enabled: cfg.semantic_enabled,
             similarity_threshold: cfg.similarity_threshold,
+            embedder: None,
             map: HashMap::new(),
             order: VecDeque::new(),
         }
+    }
+
+    /// Attach a dense-vector hook (builder — [`Self::new`] stays lexical).
+    /// Wiring it into `AppState` is a server-side follow-up (server.rs owned
+    /// by PRX-11); until then this is the opt-in contract for embed search.
+    pub fn with_embedder(mut self, provider: Arc<dyn EmbedProvider>) -> Self {
+        self.embedder = Some(provider);
+        self
     }
 
     /// False when the cache is disabled — callers must not store either.
@@ -134,6 +175,13 @@ impl ExactCache {
     /// threshold among entries with the same (protocol, path, template).
     /// None when disabled, unparseable, prompt-less, or below threshold.
     /// Refreshes LRU recency on hit; skips (and drops) expired entries.
+    ///
+    /// With an embedder attached ([`Self::with_embedder`]) the dense-vector
+    /// cosine runs first under the same template gate and the same
+    /// `similarity_threshold` (vectors are L2-normalized, so 0.90 stays
+    /// conservative); any embed failure or miss degrades to the lexical
+    /// TF-cosine path, which always runs — an embed hit can only *add* hits,
+    /// never remove the ones slice 2 already served.
     pub fn lookup_similar(
         &mut self,
         protocol: &str,
@@ -144,14 +192,64 @@ impl ExactCache {
             return None;
         }
         let prompt = extract_prompt_text(body)?;
-        let query_tf = term_freq(&normalize(&prompt));
+        let template = body_template(body);
+        let threshold = self.similarity_threshold;
+        let ttl = self.ttl;
+
+        // Embed path: dense cosine over precomputed vectors (fail-open —
+        // `None` anywhere drops to the lexical scan below).
+        if let Some(provider) = self.embedder.clone() {
+            if let Some(query_vec) = provider.embed(&prompt) {
+                let mut best: Option<(Key, f32)> = None;
+                for (key, timed) in &self.map {
+                    if key.protocol != protocol || key.path != path {
+                        continue;
+                    }
+                    if is_expired(timed.inserted_at, ttl) {
+                        continue;
+                    }
+                    let Some(stored_vec) = timed.prompt_vec.as_ref() else {
+                        continue;
+                    };
+                    if timed.template != template {
+                        continue;
+                    }
+                    let sim = cosine_f32(&query_vec, stored_vec);
+                    let better = match &best {
+                        None => true,
+                        Some((_, s)) => sim > *s,
+                    };
+                    if sim >= threshold && better {
+                        best = Some((key.clone(), sim));
+                    }
+                }
+                if let Some((winner, _)) = best {
+                    let entry = self.map.get(&winner)?.entry.clone();
+                    self.touch(&winner);
+                    return Some(entry);
+                }
+            }
+        }
+
+        self.lookup_similar_lexical(protocol, path, &prompt, &template, threshold, ttl)
+    }
+
+    /// Slice-2 lexical scan: TF-cosine over the normalized prompt.
+    /// Unchanged behavior — the embed path above only adds hits.
+    fn lookup_similar_lexical(
+        &mut self,
+        protocol: &str,
+        path: &str,
+        prompt: &str,
+        template: &[u8],
+        threshold: f32,
+        ttl: Duration,
+    ) -> Option<CachedEntry> {
+        let query_tf = term_freq(&normalize(prompt));
         if query_tf.is_empty() {
             return None;
         }
         let query_norm = norm(&query_tf);
-        let template = body_template(body);
-        let threshold = self.similarity_threshold;
-        let ttl = self.ttl;
 
         // Scan is O(entries) — bounded by max_entries (128 default).
         let mut best: Option<(Key, f32)> = None;
@@ -218,10 +316,12 @@ impl ExactCache {
                 let timed = slot.get_mut();
                 timed.entry = entry;
                 timed.inserted_at = Instant::now();
-                let (template, prompt_tf, prompt_norm) = similarity_material(body);
+                let (template, prompt_tf, prompt_norm, prompt_vec) =
+                    similarity_material(body, self.embedder.as_ref());
                 timed.template = template;
                 timed.prompt_tf = prompt_tf;
                 timed.prompt_norm = prompt_norm;
+                timed.prompt_vec = prompt_vec;
             }
             Entry::Vacant(slot) => {
                 let owned = slot.key().clone();
@@ -236,7 +336,8 @@ impl ExactCache {
                     }
                 }
                 self.order.push_back(owned.clone());
-                let (template, prompt_tf, prompt_norm) = similarity_material(body);
+                let (template, prompt_tf, prompt_norm, prompt_vec) =
+                    similarity_material(body, self.embedder.as_ref());
                 self.map.insert(
                     owned,
                     TimedEntry {
@@ -245,6 +346,7 @@ impl ExactCache {
                         template,
                         prompt_tf,
                         prompt_norm,
+                        prompt_vec,
                     },
                 );
             }
@@ -286,15 +388,20 @@ pub fn is_cacheable_response(status: u16, content_type: Option<&str>) -> bool {
 }
 
 /// Precompute similarity material for a request body: (template, prompt TF,
-/// prompt squared-norm). Unparseable/prompt-less bodies yield empty TF and
-/// never participate in similarity (exact-only).
-fn similarity_material(body: &[u8]) -> (Vec<u8>, HashMap<String, u32>, u32) {
+/// prompt squared-norm, prompt dense vector). Unparseable/prompt-less bodies
+/// yield empty TF and no vector and never participate in similarity
+/// (exact-only). A failing hook yields `None` vector (lexical-only entry).
+fn similarity_material(
+    body: &[u8],
+    embedder: Option<&Arc<dyn EmbedProvider>>,
+) -> (Vec<u8>, HashMap<String, u32>, u32, Option<Vec<f32>>) {
     let Some(prompt) = extract_prompt_text(body) else {
-        return (body.to_vec(), HashMap::new(), 0);
+        return (body.to_vec(), HashMap::new(), 0, None);
     };
     let tf = term_freq(&normalize(&prompt));
     let n = norm(&tf);
-    (body_template(body), tf, n)
+    let vec = embedder.and_then(|p| p.embed(&prompt));
+    (body_template(body), tf, n, vec)
 }
 
 /// Last-user prompt text of a chat body (OpenAI `messages[].content: str`
@@ -403,6 +510,88 @@ fn cosine(a: &HashMap<String, u32>, a_norm: u32, b: &HashMap<String, u32>, b_nor
         .map(|(t, c)| c * big.get(t).unwrap_or(&0))
         .sum();
     dot as f32 / ((a_norm as f32).sqrt() * (b_norm as f32).sqrt())
+}
+
+/// Dense-vector cosine (embed path). Zero-norm or dim mismatch → 0.0
+/// (fail-open: never a hit on garbage, never a panic).
+fn cosine_f32(a: &[f32], b: &[f32]) -> f32 {
+    if a.len() != b.len() || a.is_empty() {
+        return 0.0;
+    }
+    let dot: f32 = a.iter().zip(b.iter()).map(|(x, y)| x * y).sum();
+    let na: f32 = a.iter().map(|x| x * x).sum::<f32>().sqrt();
+    let nb: f32 = b.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if na == 0.0 || nb == 0.0 {
+        return 0.0;
+    }
+    dot / (na * nb)
+}
+
+/// Ollama-compatible embedding provider (`POST {base_url}/api/embed`).
+///
+/// Zero new crates: `reqwest/blocking` is already a vanta-proxy dependency.
+/// Every failure (no server, bad status, bad shape) returns `None` so the
+/// cache degrades to lexical — embeddings are best-effort, never blocking.
+/// Configure via [`Self::from_env`] (`VANTA_EMBED_BASE_URL`,
+/// `VANTA_EMBED_MODEL`, default `http://localhost:11434` + `nomic-embed-text`).
+#[derive(Debug, Clone)]
+pub struct OllamaEmbedProvider {
+    base_url: String,
+    model: String,
+    client: reqwest::blocking::Client,
+}
+
+impl OllamaEmbedProvider {
+    /// Build for an explicit endpoint + model.
+    pub fn new(base_url: String, model: String) -> Self {
+        Self {
+            base_url,
+            model,
+            client: reqwest::blocking::Client::new(),
+        }
+    }
+
+    /// Build from env (`VANTA_EMBED_BASE_URL`, `VANTA_EMBED_MODEL`).
+    pub fn from_env() -> Self {
+        let base_url = std::env::var("VANTA_EMBED_BASE_URL")
+            .unwrap_or_else(|_| "http://localhost:11434".to_string());
+        let model =
+            std::env::var("VANTA_EMBED_MODEL").unwrap_or_else(|_| "nomic-embed-text".to_string());
+        Self::new(base_url, model)
+    }
+}
+
+impl EmbedProvider for OllamaEmbedProvider {
+    fn embed(&self, text: &str) -> Option<Vec<f32>> {
+        if text.trim().is_empty() {
+            return None;
+        }
+        #[derive(serde::Serialize)]
+        struct EmbedRequest<'a> {
+            model: &'a str,
+            input: &'a str,
+        }
+        #[derive(serde::Deserialize)]
+        struct EmbedResponse {
+            #[serde(default)]
+            embeddings: Vec<Vec<f32>>,
+        }
+        let url = format!("{}/api/embed", self.base_url);
+        let response = self
+            .client
+            .post(url)
+            .json(&EmbedRequest {
+                model: &self.model,
+                input: text,
+            })
+            .send()
+            .ok()?;
+        if !response.status().is_success() {
+            return None;
+        }
+        let parsed: EmbedResponse = response.json().ok()?;
+        parsed.embeddings.into_iter().next()
+    }
 }
 
 #[cfg(test)]
@@ -618,5 +807,117 @@ mod tests {
 
         assert!(extract_prompt_text(b"not-json").is_none());
         assert!(extract_prompt_text(br#"{"model":"m"}"#).is_none());
+    }
+
+    // --- PRX-09-embeddings slice 3 RED: EmbedProvider inexistente ---
+
+    use super::EmbedProvider;
+    use std::sync::Arc;
+
+    /// Fake semántico test-only: buckets por keywords (determinístico, offline).
+    /// Misma familia → coseno 1.0; distinta → 0.0. Prueba el *wiring* del
+    /// embed-path, no calidad semántica (esa la da el provider real en prod).
+    struct BucketEmbed;
+
+    impl EmbedProvider for BucketEmbed {
+        fn embed(&self, text: &str) -> Option<Vec<f32>> {
+            let t = text.to_lowercase();
+            if t.contains("deploy") || t.contains("release") || t.contains("production") {
+                Some(vec![1.0, 0.0, 0.0])
+            } else if t.contains("quantum") || t.contains("entanglement") {
+                Some(vec![0.0, 1.0, 0.0])
+            } else {
+                Some(vec![0.0, 0.0, 1.0])
+            }
+        }
+    }
+
+    /// Embedder que siempre falla — el lookup debe degradar al léxico (P4).
+    struct FailEmbed;
+
+    impl EmbedProvider for FailEmbed {
+        fn embed(&self, _text: &str) -> Option<Vec<f32>> {
+            None
+        }
+    }
+
+    fn embed_cfg() -> CacheConfig {
+        CacheConfig {
+            enabled: true,
+            max_entries: 8,
+            ttl_secs: 0,
+            semantic_enabled: true,
+            similarity_threshold: 0.9,
+        }
+    }
+
+    fn with_embed() -> ExactCache {
+        ExactCache::new(embed_cfg()).with_embedder(Arc::new(BucketEmbed))
+    }
+
+    #[test]
+    fn embed_hit_paraphrase_lexical_miss() {
+        let stored = openai_body("How do I deploy the application to production?");
+        // Paráfrasis: solapamiento léxico ~0.45 < 0.9 → el TF-coseno NO hitea.
+        let paraphrase = openai_body("What are the steps to release to production?");
+
+        let mut lexical = ExactCache::new(embed_cfg());
+        lexical.store("openai", "/p", &stored, entry(b"deployed"));
+        assert!(
+            lexical
+                .lookup_similar("openai", "/p", &paraphrase)
+                .is_none(),
+            "lexical must MISS the paraphrase (proves the test is semantic)"
+        );
+
+        let mut cache = with_embed();
+        cache.store("openai", "/p", &stored, entry(b"deployed"));
+        let hit = cache
+            .lookup_similar("openai", "/p", &paraphrase)
+            .expect("embed path must HIT the paraphrase");
+        assert_eq!(hit.body, b"deployed");
+    }
+
+    #[test]
+    fn embed_miss_unrelated() {
+        let mut cache = with_embed();
+        let stored = openai_body("How do I deploy the application to production?");
+        cache.store("openai", "/p", &stored, entry(b"deployed"));
+        let other = openai_body("Explain quantum entanglement in detail please");
+        assert!(cache.lookup_similar("openai", "/p", &other).is_none());
+    }
+
+    #[test]
+    fn embed_failure_falls_back_to_lexical() {
+        let mut cache = ExactCache::new(embed_cfg()).with_embedder(Arc::new(FailEmbed));
+        let stored = openai_body("What is the capital of France?");
+        cache.store("openai", "/p", &stored, entry(b"paris"));
+        // Embed falla (None) → el léxico igual hitea el near-duplicate.
+        let near = openai_body("what is the capital of france");
+        let hit = cache
+            .lookup_similar("openai", "/p", &near)
+            .expect("lexical fallback must hit on embed failure");
+        assert_eq!(hit.body, b"paris");
+    }
+
+    #[test]
+    fn embed_lookup_latency_budget() {
+        use std::time::Instant;
+        let mut cache = with_embed();
+        for i in 0..128 {
+            let body = openai_body(&format!("deploy runbook step {i} for production"));
+            cache.store("openai", "/p", &body, entry(b"x"));
+        }
+        let probe = openai_body("How do I deploy the application to production?");
+        let start = Instant::now();
+        for _ in 0..50 {
+            let _ = cache.lookup_similar("openai", "/p", &probe);
+        }
+        let elapsed = start.elapsed();
+        eprintln!("embed lookup_similar 50x/128 entries: {elapsed:?}");
+        assert!(
+            elapsed.as_secs() < 5,
+            "embed scan must stay far inside budget, got {elapsed:?}"
+        );
     }
 }
