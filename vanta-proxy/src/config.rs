@@ -47,6 +47,9 @@ pub struct ProxyConfig {
     /// Context optimization in transit (PRX-13). Disabled by default so
     /// the wire stays a transparent proxy unless explicitly opted in.
     pub context: crate::context::ContextConfig,
+    /// Per-key model allowlists (PRX-10 guardrails). Disabled by default
+    /// so the wire stays a transparent proxy unless explicitly opted in.
+    pub guardrails: crate::guardrails::GuardrailConfig,
 }
 
 impl ProxyConfig {

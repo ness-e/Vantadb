@@ -40,6 +40,11 @@ pub enum ProxyError {
     /// values, so 422 responses can't echo secrets.
     #[error("request blocked by egress redaction: {kinds:?}")]
     RedactionBlocked { kinds: Vec<String> },
+    /// PRX-10: per-key model allowlist denied the request. `key` is the
+    /// resolved D34 `user_id` (identity, never the raw secret header);
+    /// `model` is the requested model name — neither echoes secrets.
+    #[error("model `{model}` not allowed for virtual key `{key}`")]
+    GuardrailBlocked { key: String, model: String },
 }
 
 impl IntoResponse for ProxyError {
@@ -69,6 +74,16 @@ impl IntoResponse for ProxyError {
             } });
             return (StatusCode::UNPROCESSABLE_ENTITY, axum::Json(body)).into_response();
         }
+        // Guardrail shape is its own `type` (identity + model, never secrets).
+        if let ProxyError::GuardrailBlocked { key, model } = &self {
+            let body = json!({ "error": {
+                "type": "guardrail_blocked",
+                "message": self.to_string(),
+                "key": key,
+                "model": model,
+            } });
+            return (StatusCode::FORBIDDEN, axum::Json(body)).into_response();
+        }
         let (status, message) = match &self {
             ProxyError::UpstreamTimeout => (StatusCode::GATEWAY_TIMEOUT, self.to_string()),
             ProxyError::Unauthorized => (StatusCode::UNAUTHORIZED, self.to_string()),
@@ -86,6 +101,7 @@ impl IntoResponse for ProxyError {
             ProxyError::RedactionBlocked { .. } => {
                 (StatusCode::UNPROCESSABLE_ENTITY, self.to_string())
             }
+            ProxyError::GuardrailBlocked { .. } => (StatusCode::FORBIDDEN, self.to_string()),
         };
         let body = json!({ "error": { "type": "proxy_error", "message": message } });
         (status, axum::Json(body)).into_response()
