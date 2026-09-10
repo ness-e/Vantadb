@@ -949,3 +949,72 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
    submuestra: recall@k + p50/p99 comparables con metodología explícita.
 3. Tabla lado a lado solo con números propios reproducibles (Regla 11 —
    ningún claim vs SuperMemory/Hindsight hasta entonces).
+
+---
+
+## 18. Competitive synthetic 2K — run 2026-08-12 (GOV-TK8)
+
+> **Source of truth (triple evidencia):** raw `docs/benchmarks/_run_stdout.md`
+> (121L, log íntegro del harness) + machine-readable
+> `docs/benchmarks/competitive_sdk_bench.json` (schema_version 1, 5 motores)
+> + curado `docs/benchmarks/COMPETITIVE_SDK_BENCH.md` (tabla + lectura honesta).
+> Harness: `benchmarks/competitive_bench.py`. Esta sección es el puntero
+> operativo al run; el análisis narrativo vive en el doc curado (no duplicado acá).
+> >
+> > **Reproduce (Regla 11):**
+> > ```powershell
+> > python benchmarks/competitive_bench.py --dataset synthetic --size 2000 --queries 50 --engines vanta,lance,chroma,qdrant --batch-size 999
+> > # fila Milvus (harness adaptado a IndexParams, ver caveats):
+> > pip install "pymilvus==2.5.18" "milvus-lite==3.2.0"
+> > python benchmarks/competitive_bench.py --engines milvus --dataset synthetic --size 2000 --queries 50 --json-output docs/benchmarks/competitive_sdk_bench_milvus.json --output benchmarks/_n.md --yes
+> > # cifras representativas (no sintéticas, ~1 GB ann-benchmarks):
+> > python benchmarks/competitive_bench.py --dataset glove-100-angular --size 10000 --queries 100
+> > ```
+
+### Tabla medida — synthetic 2K / 50q / top-10, euclidean
+
+| Engine | Ingest QPS | Index (ms) | Query QPS | p50 (ms) | p99 (ms) | Recall@10 | Peak RSS (MB) |
+|--------|-----------|------------|-----------|---------|---------|-----------|--------------|
+| **VantaDB** | 520.3 | 1695.7 | **635.6** | 1.510 | 2.655 | 59.20% | 236.1 |
+| LanceDB | 50,086.9 | 679.3 | 126.2 | 7.379 | 17.853 | 27.00% | 233.8 |
+| ChromaDB | 1,511.7 | N/A (Inc) | 398.8 | 2.242 | 5.769 | 97.60% | 257.1 |
+| Qdrant | 129.5 | N/A (Inc) | 490.9 | 1.855 | 4.377 | **100.00%** | 253.9 |
+| Milvus (lite) | 4,644.8 | 617.1 | 206.8 | 4.718 | 6.654 | 63.60% | 302.4 |
+
+Metodología: 3 iteraciones por motor, mediana (D4); warmup 10 queries (D3);
+ground truth brute-force numpy; `--batch-size 999` (evita doble rebuild).
+`N/A (Inc)` = índice incremental sin fase de build medible.
+
+### Entorno (Regla 11)
+
+| Campo | Valor |
+| :--- | :--- |
+| Fecha | 2026-08-12 (JSON `generated_at` 2026-08-12 13:23:52) |
+| OS | Windows 10 (build 26200) |
+| CPU | Intel 12-core (Intel64 Family 6 Model 154) |
+| RAM | 31.78 GB |
+| Runtime | Python 3.11.9 |
+| Versiones | vantadb 0.4.0, lancedb 0.30.0, chromadb 1.1.1, numpy 2.4.6, pymilvus 2.5.18, milvus-lite 3.2.0 |
+| Dataset seed | sintético determinístico (fallback del harness; `ann-benchmarks` list no incluye `synthetic`) |
+
+### Caveats (del propio raw — no maquillados)
+
+- **ChromaDB: 1 iteración válida.** Runs 2/3 fallan con `WinError 32` (lock de
+  archivo en cleanup entre corridas); sus números son menos robustos.
+- **Dataset 2K sintético no extrapolable** a GloVe/SIFT reales (§7) ni a producción.
+- **Entorno contaminado ese día** (health-check del raw): disco 5.6% libre,
+  CPU 65.8%, 15 procesos VS Code — los absolutos llevan ese ruido; usar para
+  orden de magnitud y comparativa same-process, no como récord.
+- **Milvus:** harness adaptado `create_index(dict)` → `IndexParams` +
+  `release_collection` + `drop_index` (milvus-lite 3.x / pymilvus 2.5.18);
+  no cambia qué se mide (HNSW M=16 / efConstruction=100).
+- **No-comparabilidad con §7:** §7 es GloVe-100-angular 10K cosine del
+  2026-06-06; este §18 es sintético 2K euclidean del 2026-08-12. Distinto
+  dataset, métrica y fecha — no restar ni dividir entre secciones.
+
+### Lectura en una línea (con fuente, sin claims nuevos)
+
+Query QPS: VantaDB 635.6 > Qdrant 490.9 > Chroma 398.8 > Milvus 206.8 >
+LanceDB 126.2; Recall@10: Qdrant 100% ≈ Chroma 97.6% > Milvus 63.6% ≈
+VantaDB 59.2% > LanceDB 27% — VantaDB no es superior en recall en esta
+configuración (ver doc curado § Lectura honesta).
