@@ -4,6 +4,7 @@
 > Estado: ⏳ IN PROGRESS (slice 1) · Appetite: max 5d · Rama: `develop`
 > SDP: campaign-executor, source-driven-development, incremental-implementation, test-driven-development, context-engineering, doubt-driven-development, api-and-interface-design (+systematic-debugging si RED falla)
 > Estado: ✅ COMPLETE slice 1 (2026-09-10: RED E0432 → GREEN 9/9 → suite 0 failed → clippy/fmt 0 → commit solo-propio)
+> Slice 2 (2026-09-10): 🟡 LIB-COMPLETE + WIRING-DEFERRED — thinking fidelity fina + `TranslateConfig`/`should_translate` (contract-first) en `translate.rs`, 16/16 tests, suite 0 failed, clippy/fmt 0. Hook `server.rs` + campo `ProxyConfig.translate` DEFERIDOS: `config.rs`/`cache.rs` bajo edición activa del wave-mate (PRX-09-embeddings, verificado `git status`: `M vanta-proxy/src/cache.rs`, `M docs/tasks/PRX-09.md`) — escribir `config.rs` violaría el write-scope (hook + translate.rs + tests propios) → BLOQUEO reportado, no FAILED.
 
 ## Contrato
 
@@ -45,3 +46,43 @@
 - `ponytail:` fns puras sobre `Value`, sin tipos nuevos — structs tipados si el wiring (slice 2) lo exige.
 - Gate D: feature-add con `pub fn` nuevos → Spec table arriba + slice aditivo sin wire = proceder sin `question` (registrado en GATES_EVALUADOS).
 - Deuda ajena NO tocada: `M .opencode, M opencode.jsonc, ?? Investigacion-plan.md`, resto `git status`.
+
+---
+
+## Slice 2 (2026-09-10) — wiring opt-in + thinking fidelity fina
+
+> SDP: test-driven-development, api-and-interface-design, systematic-debugging, incremental-implementation, security-and-hardening (+ base: campaign-executor, source-driven-development, context-engineering, doubt-driven-development) · `campaign_discover_skills_v2` BUILD 8 skills, lifecycle only, sin keyword-mapped.
+> Fuentes protocolo: https://platform.claude.com/docs/en/build-with-claude/extended-thinking (thinking blocks `{type,thinking,signature?}`, request config `{type:enabled|adaptive|disabled, budget_tokens?}`) + https://platform.openai.com/docs (chat completions `reasoning_content` — variante `reasoning` cubierta defensivamente, fail-open).
+
+### Spec slice 2 (aditiva sobre slice 1)
+
+| # | Decisión | Opciones | Evidencia / fuente | Elegido |
+|---|----------|----------|-------------------|---------|
+| S2-1 | Alcance ejecutable sin `config.rs` | A) lib + contract-first / B) tocar `config.rs` igual | `git status` verifica wave-mate editando `cache.rs`+`PRX-09.md`; write-scope = hook + translate.rs + tests propios; firma compartida → STOP+BLOQUEO | A: lib completa + gate puro; hook+`ProxyConfig.translate` DEFER con diff exacto abajo |
+| S2-2 | Thinking request por variante | A) catch-all `_` / B) arms explícitos | Docs confirman `thinking{thinking,signature?}` + `redacted_thinking{data}` como variantes distintas | B: `Some("thinking")\|Some("redacted_thinking") => {}` explícito, drop documentado (sin contraparte OpenAI) |
+| S2-3 | Reasoning response por variante | A) solo `reasoning_content` / B) + `reasoning` str/obj + signature | Gateways OpenAI-compat emiten `reasoning` además de `reasoning_content`; `signature` = preservación multi-turno (opaca, nunca inventada) | B: `extract_reasoning` → `(text, signature)`; desconocido → `(None,None)` fail-open |
+| S2-4 | Request `thinking` config top-level | A) copiar / B) no copiar | Solo campos compartidos se copian (Spec slice 1); config `{type,budget_tokens}` es envelope Anthropic-only | B: no se copia (lock con test caracterización) |
+| S2-5 | Gate opt-in | A) bool suelto / B) `TranslateConfig{enabled}` + `should_translate` | Precedente `GuardrailConfig`/`RedactConfig`: struct serde-defaulted + check puro; `TranslateSource` espeja `inject::Protocol` sin dependencia (hoja intacta) | B: Default off; `Anthropic→true` solo si enabled; OpenAI-cliente → verbatim (DEFER simétrico) |
+| S2-6 | Seguridad thinking/PII | — | thinking puede traer PII; hook diferido corre post-redact (5a) → lo dropeado nunca sale | Documentado en código + task; sin gate nuevo (usa PRX-07 existente) |
+
+### Steps slice 2
+
+- [x] **Step 0 — DISCOVERY:** PRX-11.md + orden hooks (`process_inner`: 1b cost → 1c guardrails → 2 rate → 5a redact → optimizer → 5b cache → `forward_with_tool_loop`) + fixtures PRX-12 + `ProxyConfig` literales explícitos en ~15 tests (blast radius que confirma S2-1). Sin código.
+- [x] **Step 1 — RED:** 6 tests nuevos en `tests/prx11_translate.rs` (thinking+signature, redacted, reasoning str/obj, signature, gate matrix) → E0432 `should_translate/TranslateConfig/TranslateSource` ✅ razón correcta.
+- [x] **Step 2 — GREEN lib:** `TranslateConfig` + `TranslateSource` + `should_translate` + arms explícitos + `extract_reasoning`/`reasoning_to_thinking` + 1 test caracterización (`thinking` config no se reenvía). ✅ 16/16.
+- [x] **Step 3 — VERIFY:** `cargo test -p vanta-proxy --tests -j 2` 0 failed (lib 155 + 15 suites, prx12 6/6 verbatim intacto) + clippy 0 + fmt ✅. (1 lock transitorio OS-32 en 1er run → retry verde; deuda conocida rustc-1.95/-j 2.)
+- [x] **Step 4 — WIRING:** ❌ BLOQUEADO (evidencia abajo) → DEFER, sin FAILED. Commit solo-propio.
+
+### Wiring DEFERRED — evidencia y próximo step exacto
+
+**BLOQUEO:** el hook necesita `pub translate: TranslateConfig` en `ProxyConfig` (`config.rs`) + `Arc` en `AppState::from_engine` + inserción en `process_inner` — `config.rs` fuera del write-scope (wave-mate PRX-09-embeddings activo en `cache.rs`/`config.rs`) y el campo rompería ~15 literales `ProxyConfig{...}` explícitos de otros tasks (pipeline, proxy_wire, prx01/02/03/05/06/07/09/12/13, tool_loop). Cambiar firma compartida → STOP per brief. Default-verbatim intacto verificado: prx12 6/6 ✅.
+
+**Diff diferido exacto (próxima invocación, tras clearance de `config.rs`):**
+1. `config.rs`: `pub translate: crate::translate::TranslateConfig` en `ProxyConfig` (con doc opt-in, tras `guardrails`) — serde-defaulted, TOML legacy intacto.
+2. `config.rs`: los ~15 literales de tests ganan `translate: Default::default(),` (1 línea c/u, mecánico).
+3. `server.rs` `from_engine`: `translate: config.translate.clone().into()` (nuevo campo `pub translate: TranslateConfig` en `AppState`).
+4. `server.rs` `process_inner`, punto 5d (tras optimizer, antes de 5b-cache): si `should_translate(&self.translate, map(protocol))` + body JSON parseable → `body = anthropic_to_openai(&v)` + protocolo efectivo OpenAI para forward; tras `forward_with_tool_loop`, si se tradujo + respuesta JSON buffered no-SSE → `openai_to_anthropic` + rebuild (SSE → passthrough, DEFER streaming-full; chunk mappers lib listos).
+5. Test integración: enabled → upstream recibe shape OpenAI + cliente recibe shape Anthropic; disabled → byte-idéntico (extiende prx12).
+6. Re-verify full + commit `feat: PRX-11-slice3 wiring opt-in translate`.
+
+**NOTICED BUT NOT TOUCHING:** `M vanta-proxy/src/cache.rs`, `M docs/tasks/PRX-09.md` (wave-mate); `M desktop/...`, `M docs/tasks/DESKTOP-40-slice3.md`, `?? docs/tasks/DESKTOP-40-slice3.md`, `M .opencode`, `M opencode.jsonc`, `?? Investigacion-plan.md`, `D docs/plans/2026-09-10-code.md` (orquestador).

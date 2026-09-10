@@ -1,10 +1,12 @@
-//! Anthropic↔OpenAI translation (PRX-11 slice 1).
+//! Anthropic↔OpenAI translation (PRX-11 slice 1 lib, slice 2 fidelity+contract).
 //!
 //! Pure functions over `serde_json::Value` — no I/O, no pipeline state, no
 //! new dependencies. The wire stays verbatim by default; this module only
 //! translates when a caller explicitly asks (slice-2 wiring decides policy).
-//! Fidelity notes: `thinking` request blocks are dropped (OpenAI has no
-//! counterpart); response `reasoning_content` maps back to `thinking`.
+//! Fidelity notes: `thinking` / `redacted_thinking` request blocks are dropped
+//! per-variant (OpenAI has no counterpart); response `reasoning_content` /
+//! `reasoning` (string or `{content|text}` object) maps back to `thinking`,
+//! preserving an opaque `signature` when the upstream carries one.
 
 use serde_json::{Map, Value};
 
@@ -18,6 +20,33 @@ pub const MAX_MAX_TOKENS: u64 = 128_000;
 /// absent. Pure and total.
 pub fn clamp_max_tokens(v: Option<u64>) -> u64 {
     v.unwrap_or(DEFAULT_MAX_TOKENS).clamp(1, MAX_MAX_TOKENS)
+}
+
+/// Opt-in switch for the pipeline hook (contract-first: the type and gate
+/// land in slice 2 so the hook consumes them; the `ProxyConfig` field +
+/// `server.rs` insertion are DEFERRED until `config.rs` ownership clears —
+/// see `docs/tasks/PRX-11.md` slice 2). Default off → verbatim wire.
+#[derive(Debug, Clone, Default, serde::Deserialize)]
+#[serde(default)]
+pub struct TranslateConfig {
+    /// When false (default), the hook never fires — byte-identical forward.
+    pub enabled: bool,
+}
+
+/// Inbound client protocol for the translate gate (mirror of
+/// `inject::Protocol` without the dependency — the hook maps it at the call
+/// site so this module stays a leaf: zero imports from the pipeline).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TranslateSource {
+    Anthropic,
+    OpenAI,
+}
+
+/// Pure gate: only Anthropic→OpenAI when explicitly enabled (the verbatim gap
+/// per Spec #1). OpenAI-client bodies stay verbatim — symmetric translation
+/// is DEFERRED with the hook. Pure and total.
+pub fn should_translate(cfg: &TranslateConfig, src: TranslateSource) -> bool {
+    cfg.enabled && matches!(src, TranslateSource::Anthropic)
 }
 
 fn str_field(v: &Value, key: &str) -> Option<String> {
@@ -108,8 +137,13 @@ pub fn anthropic_to_openai(req: &Value) -> Value {
                                 };
                                 tool_results.push((id, content));
                             }
-                            // `thinking` / `redacted_thinking` have no OpenAI
-                            // counterpart on the request path — dropped (Spec #4).
+                            // Extended-thinking content blocks have no OpenAI
+                            // counterpart on the request path — dropped per
+                            // variant (Spec #4, verified slice 2). NOTE
+                            // (PRX-07): thinking may carry PII; the deferred
+                            // hook runs post-redact, so dropped content never
+                            // leaves toward the upstream.
+                            Some("thinking") | Some("redacted_thinking") => {}
                             _ => {}
                         }
                     }
@@ -230,6 +264,59 @@ fn image_to_openai_url(b: &Value) -> Option<String> {
     }
 }
 
+/// Extract `(text, signature)` from the OpenAI-compat reasoning variants:
+/// `reasoning_content: string` (+ optional `reasoning_signature`), or
+/// `reasoning: string | {content|text: string}` (+ optional `signature`
+/// alongside). Unknown shapes → `(None, None)` — fail-open, never invented.
+fn extract_reasoning(message: &Value) -> (Option<String>, Option<String>) {
+    if let Some(s) = message
+        .get("reasoning_content")
+        .and_then(Value::as_str)
+        .filter(|s| !s.is_empty())
+    {
+        let sig = message
+            .get("reasoning_signature")
+            .and_then(Value::as_str)
+            .map(str::to_string);
+        return (Some(s.to_string()), sig);
+    }
+    match message.get("reasoning") {
+        Some(Value::String(s)) if !s.is_empty() => {
+            let sig = message
+                .get("signature")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            (Some(s.clone()), sig)
+        }
+        Some(obj) if obj.is_object() => {
+            let text = obj
+                .get("content")
+                .or_else(|| obj.get("text"))
+                .and_then(Value::as_str)
+                .filter(|s| !s.is_empty())
+                .map(str::to_string);
+            let sig = obj
+                .get("signature")
+                .and_then(Value::as_str)
+                .map(str::to_string);
+            (text, sig)
+        }
+        _ => (None, None),
+    }
+}
+
+/// Map the extracted reasoning to one Anthropic `thinking` block, preserving
+/// the opaque `signature` (multi-turn block preservation) when present.
+fn reasoning_to_thinking(message: &Value) -> Option<Value> {
+    let (text, signature) = extract_reasoning(message);
+    let text = text?;
+    let mut block = serde_json::json!({"type": "thinking", "thinking": text});
+    if let Some(sig) = signature {
+        block["signature"] = Value::String(sig);
+    }
+    Some(block)
+}
+
 /// Translate an OpenAI Chat Completions response to Anthropic Messages shape
 /// (`type: message`, content blocks, `stop_reason`, `usage`).
 pub fn openai_to_anthropic(resp: &Value) -> Value {
@@ -252,10 +339,8 @@ pub fn openai_to_anthropic(resp: &Value) -> Value {
     let message = choice.get("message").cloned().unwrap_or(Value::Null);
 
     let mut blocks: Vec<Value> = Vec::new();
-    if let Some(reasoning) = message.get("reasoning_content").and_then(Value::as_str) {
-        if !reasoning.is_empty() {
-            blocks.push(serde_json::json!({"type": "thinking", "thinking": reasoning}));
-        }
+    if let Some(thinking) = reasoning_to_thinking(&message) {
+        blocks.push(thinking);
     }
     match message.get("content") {
         Some(Value::String(s)) if !s.is_empty() => {
