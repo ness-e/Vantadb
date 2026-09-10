@@ -334,7 +334,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (Gap → Acciones → Resultado) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
-| `MCP-41` | **🟡 Memoria conversacional auto-consolidada** — la brecha competitiva vs mem0/graphiti/cognee (todos extraen y consolidan memoria de conversaciones vía LLM); nuestro hueco natural: hacerlo feature-gated reusando scenes (MEM-13/14) sin LLM key obligatoria. Acciones: DISCOVERY primero (vanta-arch) sobre diseño extract→consolidate→recall local-first. Ref: docs/reviews/mcp-research-20260825.md §7 apuestas | `vanta-memory/src/core/scene/`, `vantadb-mcp/src/` | 🔴 1-2s | 🟡 | ⬜ Pendiente (requiere DISCOVERY) |
+> Sin filas pendientes (MCP-41 completada plan 2026-09-10-code, 6bf42a89 + ADR-040).
 
 > **No trackeado aquí** (deliberadamente): (a) threads CRUD directos (`get/list/delete_thread`, `purge_expired_threads` — `builder.rs:168-195`, `src/agentic/thread.rs`) — `inject_context` cubre el caso agente; (b) HTTP REST completo — diferido por diseño (embedded-first, `cli_server.rs` solo `/health` + `/api/v2/query` + `/metrics`); (c) `add_edge`/`get_node`/`delete_node` directos — alcanzables vía IQL (`RELATE`/`FROM`/`DELETE`).
 
@@ -363,11 +363,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 ### Wave 2 — Memoria agéntica competitiva (investigación 3 frentes, 2026-08-25)
 
 > **Origen:** investigación profunda vanta-memory vs estado del arte (Mem0/Letta/Zep/Cognee/Memobase/OpenAI Dreaming/Anthropic Auto Dream) vs necesidades de usuarios de coding agents (Claude Code/OpenCode/Codex/Cursor/Antigravity/Windsurf). Diferenciadores ya propios: context engine integrado + wiki-ingest + proxy interceptor + skills. Decisiones del owner: gaps estratégicos todos agendados; lifecycle = heat+decay L1; quick-wins todos; optimizables todos; gate de captura opcional por config; benchmarks agendados.
-
-| ID | Descripción | Archivos | Effort | Prio | Estado |
-|----|-------------|----------|--------|------|--------|
-| `MEM-69` | **Batch extracción costo-reducida**: agrupar split+dedup en menos llamadas LLM por flush (patrón Memobase: batch fijo −40-50% tokens) sin perder quality gate | `vanta-memory/src/core/record/l1_extractor.rs` | 🟡 | 🟢 | ⬜ Pendiente |
-| `MEM-70` | **Benchmarks públicos LongMemEval-S + LoCoMo**: harness de evaluación contra vanta-memory y publicación en `docs/operations/BENCHMARKS.md` (Regla 11: bench archivo + comando reproducible). Referencia mercado: SuperMemory 81.6%, Hindsight 94.6% self-report | nuevo `evals/memory_bench.py` o Rust harness, `docs/operations/BENCHMARKS.md` | 🟡 | 🟡 | ⬜ Pendiente |
+> Sin filas pendientes (MEM-66/68/69/70 completadas planes 2026-09-08/09-10).
 
 ---
 
@@ -395,7 +391,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | ID | Descripción | Prio | Fuente |
 |----|-------------|------|--------|
 | GOV-TK5 | Split Manual Estratégico según recomendación F2 (negocio→docs/business/ con banner snapshot; estado técnico fuera; archivar monolito) | 🟠 | F2/D-decisión |
-| GOV-TK8 | Benchmarks: mejorar/probar/documentar (insumo: docs/benchmarks/_run_stdout.md se conserva como evidencia de corrida cruda) | 🟡 | owner E1 |
 
 > Ticketeados aparte con decisión previa: ACID 4a-4d (post-launch Fase A, D14) · release triage semver 0.6.0 (D5, diferido) · MKT-18h wheels ARM64 + MKT-18f adapters (confirmados live por GOV-A5). La fila de acción externa (DNS/invite) se movió a `docs/Backlog-negocio.md` §GOV (RES-15-C).
 
@@ -495,14 +490,10 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Effort | Descripción | Archivos | Estado |
 |----|--------|-------------|----------|--------|
-| `PRX-02` | 🔴 | **Fallback multi-upstream + retries**: config `[upstreams]` array con prioridad; retries backoff exponencial ante 429/5xx; health pasivo (errores consecutivos degradan un upstream); el caso #1 de la comunidad: quota agotada → seguir sin cortar la sesión | `config.rs`, `forward.rs` | ⬜ Pendiente |
-| `PRX-03` | 🔴 | **Cost tracking + virtual keys**: contabilidad tokens/costo por key/sesión/modelo (tabla de precios configurable), budgets con enforcement (429 propio al agotar), `/snapshot` ampliado a dashboard de consumo. Base para equipos | nuevo `cost.rs`, `report.rs` | ⬜ Pendiente |
-| `PRX-06` | 🟠 | **Task-aware routing por tier**: slots haiku/sonnet/opus mapeables a modelos/upstreams distintos (patrón claude-code-router: −90% costo documentado) usando el clasificador CC ya existente; incluir `/v1/responses` en el tool-loop y con spaceId propio | `server.rs`, `config.rs` | ⬜ Pendiente |
-| `PRX-07` | 🟡 | **PII/secret redaction en egress**: patrones configurables (AWS keys, tokens, emails, custom regex) aplicados antes del forward; modo block/mask/log (estilo AegisGate/Kong Ent.) | nuevo `redact.rs` en pipeline pre-forward | ⬜ Pendiente |
-| `PRX-09` | 🟠 | **Semantic caching slice 2** (gateway completo): semántico opcional con embeddings + TTL + LRU sobre el cache exacto de slice 1 (50b40228, plan 2026-09-09). Slice 1 ✅ en avance/operaciones | `vanta-proxy/src/cache.rs` | ⬜ Pendiente (slice 2) |
-| `PRX-10` | 🟢 | **Guardrails y MCP governance (fase posterior)**: moderación input/output conectable, allowlists MCP por virtual key (patrón Bifrost/Portkey). Requiere PRX-03 (keys) — no empezar antes | diseño previo requerido | ⬜ Pendiente |
-| `PRX-11` | 🔴 | **Traducción Anthropic↔OpenAI bidireccional fiel** (necesidad #4, pains #1/#4/#5/#6): hoy el proxy es verbatim passthrough — solo sirve upstreams del mismo protocolo. Gateway completo exige: `/v1/messages` → backend OpenAI-only (GLM/DeepSeek/Ollama) y viceversa, con streaming SSE + tool_use/tool_result incrementales + thinking/reasoning blocks bidireccionales + sanitización de campos Anthropic-only (`cache_control`, `thinking`) + guard de `max_tokens` para no truncar JSON de tool calls largos + manejo de beta headers (`anthropic-beta`) que Bedrock/upstreams rechazan. Es donde se rompen TODOS los proxies competidores — hacerlo bien es ventaja directa | nuevo `translate.rs`, `handlers/` | ⬜ Pendiente |
-| `PRX-13` | 🟢 | **Optimización de contexto en tránsito** (necesidad #12, patrón shift proxy): resize/recompresión de imágenes en requests, modos performance/balanced/economy configurables por key — reduce tokens antes del forward | pipeline pre-forward, `config.rs` | ⬜ Pendiente |
+| `PRX-11-slice2` | 🔴 | **Traducción wiring opt-in + thinking fidelity fina** (DEFER de slice 1 ✅ 5c75c16b: lib pura `translate.rs` sin wire, verbatim por defecto) | `vanta-proxy/src/translate.rs`, `server.rs` | ⬜ Pendiente (slice 2) |
+> Sin filas pendientes (PRX-10 completada plan 2026-09-10-code, 950df333).
+
+> Sin filas pendientes (PRX-13 completada plan 2026-09-10-code, 462488e9).
 
 ---
 
@@ -512,7 +503,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Archivos clave | Esfuerzo | Prioridad | Estado |
 |---|---|---|---|---|---|
-| `SRV-06` | **OIDC/JWT authentication** (estratégica enterprise): requisito de facto para "equipos" (weaviate OIDC nativo, qdrant JWT RBAC HS256 offline). **DISCOVERY primero (vanta-arch):** jsonwebtoken HS256 offline vs OIDC discovery, alcance mínimo viable sobre `auth_middleware` | `src/cli_server.rs:633-773`, `src/config.rs`; research §2 | 🔴 | 🟡 Media | ⬜ Pendiente (requiere DISCOVERY) |
+> Sin filas pendientes (SRV-06 completada plan 2026-09-10-code, a0a3087f + ADR-039).
 
 ---
 
@@ -544,8 +535,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción | Archivos clave | Esfuerzo | Prioridad | Estado |
 |---|---|---|---|---|---|
-| `INTG-01` | **Adapter LangGraph** (H-06, estrategia): checkpointer para memoria corto-plazo + `BaseStore` KV con namespaces jerárquicos — la persistencia moderna del ecosistema langchain vive en LangGraph, hoy solo cubrimos `VectorStore`. Fuente: reference.langchain.com/python/langgraph.store.base/BaseStore · docs.langchain.com/oss/python/langgraph/persistence | `integrations/langchain/` (nuevo paquete o submódulo), CI | 🔴 | 🟠 Alta (P1) | ⬜ Pendiente |
-| `INTG-02` | **Backend Memory unificada CrewAI** (H-07, estrategia): migrar de `BaseTool` a storage backend de la clase `Memory` unificada (v1.x reemplazó short/long/entity/external). Fuente: docs.crewai.com/concepts/memory | `integrations/crewai/vantadb_crewai/vectorstore.py` | 🟡 | 🟡 Media (P2) | ⬜ Pendiente |
+> Sin filas pendientes (INTG-01/02 completadas planes 2026-09-10-code, d7281744/876df446).
 
 ## P46 - Research desktop 2026-08-25 (INV-desktop-prod, docs/reviews/research-desktop-prod-20260825.md)
 
@@ -553,12 +543,11 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Effort | Descripción | Archivos | Estado |
 |----|--------|-------------|----------|--------|
-| `DESKTOP-40-slice2` | 🔴 | **i18n resto UI desktop (DEFER de DESKTOP-40 slice 1 ✅ b64cbb30)**: WorkspaceShell nav/topbar/lentes + posible provider; catálogo `desktop/src/i18n/` listo para extender | `desktop/src/components/layout/WorkspaceShell.tsx` + `desktop/src/i18n/` | ⬜ Pendiente (DEFER) |
+| `DESKTOP-40-slice3` | 🔴 | **i18n lentes/paneles desktop (DEFER de slice 2 ✅ bbdeae17)**: lentes + paneles restantes; shell chrome ya migrado | `desktop/src/` + `desktop/src/i18n/` | ⬜ Pendiente (DEFER) |
 | `DESKTOP-41` | 🟢 | **Smoke-test instalador en VM Windows limpia** (Step 3 DESKTOP-24 pendiente): instalar NSIS+MSI, verificar arranque, sidecar server, deep link vanta://, WebView2 bootstrapper | instaladores `desktop/src-tauri/target/release/bundle/*`, VM limpia | ⬜ Pendiente |
-| `DESKTOP-42` | 🔴 | **Bundles macOS/Linux** (prioridad baja): icns ya existe; falta target dmg/app + AppImage/deb, CI matrix y testing por SO. Toda la competencia GUI es cross-platform. Origen: INV-desktop H-09 | `tauri.conf.json:37` targets, `.github/workflows/desktop.yml` | ⬜ Pendiente |
 | `DESKTOP-43` | 🟡 | **Auto-update vía tauri-plugin-updater**, bloqueado por firma (wontfix DEVOPS-10) y endpoint de manifests; desbloquear tras decisión de distribución pública. Origen: INV-desktop H-10 | `tauri.conf.json` plugins, CI release | ⬜ Pendiente |
 | `DESKTOP-44` | 🟡 | **Validación manual Proxy Dashboard con upstream LLM vivo** (TurnReports/sesiones/write-back/rate-limit end-to-end, deuda DESKTOP-38) — sesión guiada owner+agente, no tarea autónoma. Origen: INV-desktop H-12 | `desktop/src/components/proxy/ProxyDashboard.tsx`, vanta-proxy | ⬜ Pendiente |
-| `DESKTOP-45` | 🟢 | **Restos scope-blocked del plan desktop-quickwins** (wave 1 INV-DECIDE): H-11 versión single-source vía release-plz (`[[package]]` + `release=false`, toca raíz del workspace), H-15 baseline perf del app (startup/RAM idle → BENCHMARKS.md, exige app corriendo — Regla 11), H-07 specs E2E nuevos (proxy dashboard/graph/space lenses — requieren sesión Playwright dedicada) | `release-plz.toml`, `desktop/package.json`, `docs/operations/BENCHMARKS.md`, `desktop/e2e/` | 🟡 mixto | ⬜ Pendiente |
+> Sin filas pendientes (DESKTOP-45 completada plan 2026-09-10-code, d2993c4f; H-15 DEFER con evidencia).
 
 ## P45 - Research providers 2026-08-25 (INV-providers-01, docs/reviews/research-providers-20260825.md)
 
@@ -566,8 +555,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripcion | Archivos clave | Esfuerzo | Prioridad | Estado |
 |---|---|---|---|---|---|
-| `PROV-11` | **Embed batching/async** (baja prioridad): aprovechar AsyncClient ollama / aembedding litellm cuando haya volumenes grandes. Origen: INV-providers-01 H-12 | los 3 `embed()` | ?? | ?? Baja | ? Pendiente |
-| `PROV-12` | **Publicar wheels PyPI** (estrategia H-04 aprobada): pyproject.toml + maturin, CI release multiplataforma (macos/windows/linux x86_64+aarch64), secrets PyPI. Desbloquea el diferenciador real (storage embebido local acoplado al embed). Pre-requisitos: PROV-01/02/04. Origen: INV-providers-01 H-04 | providers/*/, nuevo workflow release, CI_POLICY | ?? | ?? Alta | ? Pendiente |
+| `PROV-12` | **Publicar wheels PyPI** (estrategia H-04 aprobada): pyproject.toml + maturin, CI release multiplataforma (macos/windows/linux x86_64+aarch64), secrets PyPI. Desbloquea el diferenciador real (storage embebido local acoplado al embed). Pre-requisitos: PROV-01/02/04. Origen: INV-providers-01 H-04 | providers/*/, nuevo workflow release, CI_POLICY | 🟡 | 🟠 Alta | ⬜ Pendiente |
 
 ## P47 — Promoción a `default-members`: criterios 100% estables (server/mcp/memory/proxy + ts/node)
 

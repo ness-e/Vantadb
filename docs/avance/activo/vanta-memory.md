@@ -96,3 +96,15 @@ aliases: []
 - **Objetivo:** agrupar split+dedup en 1 llamada LLM por flush (−40/50% tokens) sin perder quality gate.
 - **Resultado:** ✅ módulo nuevo `l1_batch.rs` (`extract_dedup_batch` + `EXTRACT_DEDUP_TASK_ID`; juicio `dedup` inline por memoria, tolerancias exactas reutilizadas, pipeline_worker intacto) + `tests/l1_batch.rs` (7 tests incl. comparativo batch≡split: mismas memorias/acciones, 2 llamadas→1) + helper `split_messages` compartido y 2 visibility `pub(crate)`. Suite vanta-memory 0 failed (lib 328 + integración) + clippy `--all-targets --all-features -D warnings` 0 + fmt limpio. Deuda: wiring `pipeline_worker.rs` → slice 2 follow-up.
 - **Commit:** 29e5b354
+
+### MEM-70: harness LongMemEval-S/LoCoMo (plan 2026-09-10-code Wave1)
+- **Fecha:** 2026-09-10
+- **Objetivo:** harness reproducible + tabla BENCHMARKS.md §17 + Regla 11 limpia.
+- **Resultado:** ✅ `evals/memory_bench.py` sintético (shape 20×16×40) + metodología; números reales DEFER (datasets licencia/peso); sin claims.
+- **Commit:** e1f7daef
+
+### MCP-41: auto-consolidación local-first (plan 2026-09-10-code Wave5)
+- **Fecha:** 2026-09-10
+- **Objetivo:** DISCOVERY arch + slice extract→consolidate→recall sin LLM key.
+- **Resultado:** ✅ suite 0 failed + clippy/fmt 0 + ADR-040; commit tras RESUME (bloqueo fmt ajeno).
+- **Commit:** 6bf42a89

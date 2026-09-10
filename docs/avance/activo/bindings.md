@@ -847,3 +847,21 @@ aliases: []
 - **Objetivo:** error compilación crate standalone vantadb-openai (regresión 5.0→4.0 en review).
 - **Resultado:** ✅ resuelto-stale: contrato == comando CI experimental-check (`cargo check --manifest-path providers/openai/Cargo.toml`) exit 0 (25.16s) + offline 0.51s + fmt 0; serie PROV-01/04/05/07/10+ERR-PY-01 ya vigente; cero código; lock churn (lru 0.16.4→0.18.4) revertido no stageado; stop-migración-mayor no disparó. Plan 6/6 completo.
 - **Commit:** 43707934
+
+### PROV-11: embed batching/async (plan 2026-09-10-code Wave2)
+- **Fecha:** 2026-09-10
+- **Objetivo:** `embed_batch` aditivo ×3 providers + tests + .pyi.
+- **Resultado:** ✅ check ×3 + test 7/7 ×3 + pytest 18+17+19 + clippy/fmt 0; sync intacto.
+- **Commit:** 36dadf17
+
+### INTG-01: adapter LangGraph spec-first (plan 2026-09-10-code Wave3)
+- **Fecha:** 2026-09-10
+- **Objetivo:** `VantaDBCheckpointer` + `VantaDBStore` con mini-spec 5 fuentes.
+- **Resultado:** ✅ pytest 47/47 + e2e grafo real + review approve; dep pineada.
+- **Commit:** d7281744
+
+### INTG-02: backend Memory CrewAI (plan 2026-09-10-code Wave4)
+- **Fecha:** 2026-09-10
+- **Objetivo:** `VantaDBMemoryBackend` spec-first con mini-spec 5 fuentes.
+- **Resultado:** ✅ pytest 11+2skip + import OK + hooks; pin crewai v1.14.
+- **Commit:** 876df446

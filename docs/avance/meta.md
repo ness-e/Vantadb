@@ -235,6 +235,17 @@ Plan `docs/plans/archive/2026-09-09-backlog.md` (+budget) archivado: 6/6 ✅ en 
 - **Acción medible:** 0 aborts con impacto (2 aborts → 2 recoveries sin pérdida); métrica: tareas COMPLETO/retries.
 
 
+## Archivo 2026-09-10: campana codigo 19 DO (2c3d4e5f)
+
+Plan `docs/plans/archive/2026-09-10-code.md` (+budget) archivado: 19/19 ✅ en 7 waves paralelas (MAX 3) + W6 secuencial interno, 0 failed. Backlog: -17 filas + PRX-09-slice2/PRX-11-slice2/DESKTOP-40-slice3 re-scopeadas. Avance: operaciones (proxy ×8), vanta-memory (MEM-69/70, MCP-41), desktop (D40s2, D42, D45), bindings (PROV-11, INTG-01/02). check-avance-coverage 1038/1038 (100%). Deudas: deny advisories pre-existente (SRV-06 RSA+lru), validate-docs-coverage roto (parse L58), lock stale providers, rustc 1.95 crash paralelo (usar -j 2), aux = nombre DOS reservado.
+
+**Retrospectiva Start/Stop/Continue:**
+- **Start:** waves paralelas reales ×3 con archivos disjuntos (tras 2 aborts iniciales, el runner las aceptó); SARL RESUME efectivo ×3 (PRX-02 commit, MCP-41 commit, PRX-10 retomó parcial S1/S2 del abort).
+- **Stop:** `git add` amplio en waves paralelas (race absorbió WIP ajeno 1 vez — revertido); asumir staged estable entre sesiones (re-stagear en RESUME).
+- **Continue:** scope discipline solo-propios + avance por subagente + sync orquestador + verify-first (3 cerradas sin código innecesario esta semana).
+- **Acción medible:** mantener first-try ≥85% (esta campaña: 16/19 sin recovery); métrica: COMPLETO/retries por plan.
+
+
 ## Archivo 2026-09-10: plan fixes compilación + Desktop + Providers (43707934)
 
 Plan `docs/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ en 3 waves secuenciales, 0 failed. Patrón verify-first dominante: 3/6 cerradas cero-código (FIND-MCP-001 bug pre-fixado 43e0779e, ISSUE-TS-001 premisa stale vitest 280/280, PROV-openai serie PROV ya vigente check+offline+fmt verde); 3/6 con código real (FIND-20 window_state.rs, FIND-21 AppContextMenu in-app, DESKTOP-40 slice 1 i18n Settings). Avance: bindings (ISSUE-TS-001, PROV-openai). `campaign_verify_cmd` bug exit -1 persiste → bash directa (4to reporte). Lock churn providers/* standalone revertido, no stageado. WIP ajeno intacto en todos los cierres.

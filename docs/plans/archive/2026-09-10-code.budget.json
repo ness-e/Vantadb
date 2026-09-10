@@ -1,0 +1,175 @@
+{
+  "tasks": {
+    "1": {
+      "taskId": "1",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789006772436,
+      "lastActivity": 1789018341387,
+      "traceId": "ec7b0d30-dd58-4d5e-a138-dadf826e8bca"
+    },
+    "3": {
+      "taskId": "3",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789006948295,
+      "lastActivity": 1789006948295,
+      "traceId": "0aa5c0c6-becf-4d37-911d-737c1206f6ab"
+    },
+    "16": {
+      "taskId": "16",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789018483405,
+      "lastActivity": 1789018483405,
+      "traceId": "3cd8a1d6-9abe-44f3-9fce-beeb12a56acc"
+    },
+    "17": {
+      "taskId": "17",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789018498620,
+      "lastActivity": 1789018904256,
+      "traceId": "e28eb877-6b64-42b2-9b4d-a2390cd2bc6e"
+    },
+    "PRX-02": {
+      "taskId": "PRX-02",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789009304383,
+      "lastActivity": 1789009649113,
+      "traceId": "5159b8b7-1aa4-4422-92f5-ec119d7f9ece"
+    },
+    "DESKTOP-40-slice2": {
+      "taskId": "DESKTOP-40-slice2",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789009325846,
+      "lastActivity": 1789009325846,
+      "traceId": "e5019434-8028-4b47-a0de-9aa60912baea"
+    },
+    "MEM-69": {
+      "taskId": "MEM-69",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789009336163,
+      "lastActivity": 1789009336163,
+      "traceId": "3502946e-2575-4318-b8b0-358ab7b6f87a"
+    },
+    "MEM-70": {
+      "taskId": "MEM-70",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789011211253,
+      "lastActivity": 1789011586948,
+      "traceId": "1a4bdcef-f035-4e42-9d59-7d171e3aa3c6"
+    },
+    "PRX-03": {
+      "taskId": "PRX-03",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789011301384,
+      "lastActivity": 1789011301384,
+      "traceId": "7783dfbd-22c8-4222-830b-f739f1f3636d"
+    },
+    "DESKTOP-42": {
+      "taskId": "DESKTOP-42",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789011496276,
+      "lastActivity": 1789012081443,
+      "traceId": "56977a2b-5a0e-4502-93cc-e061066fe493"
+    },
+    "PRX-06": {
+      "taskId": "PRX-06",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789014169055,
+      "lastActivity": 1789014169055,
+      "traceId": "0172f23c-331d-4ebf-bf31-cb727eb0e209"
+    },
+    "SRV-06": {
+      "taskId": "SRV-06",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789014194707,
+      "lastActivity": 1789014194707,
+      "traceId": "28673e82-36cc-43a8-8b2e-1331e1d0301d"
+    },
+    "PRX-07": {
+      "taskId": "PRX-07",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789016539413,
+      "lastActivity": 1789016539413,
+      "traceId": "e7c576a7-bd9d-4665-9274-d679836127e4"
+    },
+    "INTG-01": {
+      "taskId": "INTG-01",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789016707103,
+      "lastActivity": 1789016707103,
+      "traceId": "deb6d54e-3d1d-4d98-b898-daddc636e01a"
+    },
+    "GOV-TK8": {
+      "taskId": "GOV-TK8",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789017608274,
+      "lastActivity": 1789017608274,
+      "traceId": "1f7e60cb-9144-4f5f-905d-e75fb93f347e"
+    },
+    "PRX-09-slice2": {
+      "taskId": "PRX-09-slice2",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789017670933,
+      "lastActivity": 1789017670933,
+      "traceId": "51327b97-a2c8-40de-bebd-32bdb1a0bb3c"
+    },
+    "INTG-02": {
+      "taskId": "INTG-02",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789017686139,
+      "lastActivity": 1789017686139,
+      "traceId": "d4b69b26-caf6-4497-a594-3cf8c0fbb2d3"
+    },
+    "PRX-10": {
+      "taskId": "PRX-10",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789019480700,
+      "lastActivity": 1789019480700,
+      "traceId": "98e57ba6-2232-4e89-97dc-3b6c3ad3bd94"
+    },
+    "PRX-11": {
+      "taskId": "PRX-11",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789020786716,
+      "lastActivity": 1789020786716,
+      "traceId": "25d35f20-2f78-4391-91ce-d11ea01f1c12"
+    }
+  }
+}
