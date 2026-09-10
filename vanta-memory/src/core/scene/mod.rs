@@ -1,5 +1,6 @@
 //! L2 scene contracts + LLM-free scene index (MEM-12) + sandboxed scene
-//! tools (MEM-13) + strategy extractor (MEM-14, F4).
+//! tools (MEM-13) + strategy extractor (MEM-14, F4) + local-first
+//! auto-consolidation (MCP-41, no LLM key).
 //!
 //! The scene is the L2 memory unit: the block format ([`scene_format`]) and
 //! the per-session index ([`scene_index`]) that anchors scene navigation
@@ -12,6 +13,7 @@
 //! [`filename_normalizer`] canonicalizes LLM-emitted scene names before they
 //! hit the store (MEM-14).
 
+pub mod auto_consolidate;
 pub mod filename_normalizer;
 pub mod scene_extractor;
 pub mod scene_format;
@@ -19,6 +21,7 @@ pub mod scene_index;
 pub mod scene_navigation;
 pub mod scene_tools;
 
+pub use auto_consolidate::{auto_consolidate, extract_local, LocalTurn};
 pub use filename_normalizer::{is_normalized_scene_name, normalize_scene_name};
 pub use scene_extractor::{
     apply_strategy, decide_strategy, extract_scenes, extract_scenes_with_llm, SceneAction,
