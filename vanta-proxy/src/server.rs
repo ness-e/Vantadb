@@ -376,15 +376,12 @@ impl AppState {
         headers: &HeaderMap,
         body: Bytes,
     ) -> Response<Body> {
+        // PRX-02: failover across the resolved upstream list (legacy single
+        // upstream when `upstreams` is empty).
+        let upstreams = self.config.upstreams_resolved();
         match self
             .forwarder
-            .forward(
-                &self.config.upstream,
-                Method::POST,
-                wire_path,
-                headers,
-                body,
-            )
+            .forward_with_failover(&upstreams, Method::POST, wire_path, headers, body)
             .await
         {
             Ok(resp) => {
@@ -428,10 +425,12 @@ impl AppState {
         let mut current = body;
         let mut executed = 0usize;
         loop {
+            // PRX-02: each tool-loop round also fails over across upstreams.
+            let upstreams = self.config.upstreams_resolved();
             let response = self
                 .forwarder
-                .forward(
-                    &self.config.upstream,
+                .forward_with_failover(
+                    &upstreams,
                     Method::POST,
                     wire_path,
                     headers,

@@ -19,6 +19,10 @@ pub struct ProxyConfig {
     pub server: ServerConfig,
     /// Upstream LLM endpoint.
     pub upstream: UpstreamConfig,
+    /// extra upstream endpoints for PRX-02 failover, tried in order after
+    /// `upstream`. Empty (default) → single-upstream legacy behavior, so old
+    /// TOML files without this key parse unchanged.
+    pub upstreams: Vec<UpstreamConfig>,
     /// Local auth/session store (D25/D34).
     pub auth: AuthConfig,
     /// In-band `mem:` commands (D33) — disabled by default (TDAM parity).
@@ -38,6 +42,17 @@ impl ProxyConfig {
         let raw = std::fs::read_to_string(path)
             .map_err(|e| ProxyError::Config(format!("cannot read {}: {e}", path.display())))?;
         toml::from_str(&raw).map_err(|e| ProxyError::Config(format!("invalid TOML: {e}")))
+    }
+
+    /// Ordered upstream list for PRX-02 failover: `upstreams` when configured,
+    /// otherwise the legacy single `upstream` (TOML compat — old files keep
+    /// working with zero changes). Pure and total.
+    pub fn upstreams_resolved(&self) -> Vec<UpstreamConfig> {
+        if self.upstreams.is_empty() {
+            vec![self.upstream.clone()]
+        } else {
+            self.upstreams.clone()
+        }
     }
 }
 
@@ -231,5 +246,60 @@ mod tests {
             ..UpstreamConfig::default()
         };
         assert!(!cfg.points_at_self(443));
+    }
+
+    #[test]
+    fn resolved_falls_back_to_legacy_single_upstream() {
+        // PRX-02: old TOML without `upstreams` → exactly the legacy upstream.
+        let cfg = ProxyConfig::default();
+        let list = cfg.upstreams_resolved();
+        assert_eq!(list.len(), 1);
+        assert_eq!(list[0].url, cfg.upstream.url);
+    }
+
+    #[test]
+    fn resolved_prefers_upstreams_when_configured() {
+        let cfg = ProxyConfig {
+            upstreams: vec![
+                UpstreamConfig {
+                    url: "http://127.0.0.1:9001".to_string(),
+                    ..UpstreamConfig::default()
+                },
+                UpstreamConfig {
+                    url: "http://127.0.0.1:9002".to_string(),
+                    ..UpstreamConfig::default()
+                },
+            ],
+            ..ProxyConfig::default()
+        };
+        let list = cfg.upstreams_resolved();
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[0].url, "http://127.0.0.1:9001");
+        assert_eq!(list[1].url, "http://127.0.0.1:9002");
+    }
+
+    #[test]
+    fn legacy_toml_without_upstreams_still_parses() {
+        // PRX-02 compat: a pre-failover TOML file has no `upstreams` key.
+        let cfg: ProxyConfig = toml::from_str(
+            "[server]\nhost = \"127.0.0.1\"\nport = 8096\n\
+             [upstream]\nurl = \"https://api.anthropic.com\"\napi_key = \"k\"\n",
+        )
+        .expect("legacy TOML must parse");
+        assert!(cfg.upstreams.is_empty());
+        assert_eq!(cfg.upstreams_resolved().len(), 1);
+    }
+
+    #[test]
+    fn toml_with_upstreams_parses_in_order() {
+        let cfg: ProxyConfig = toml::from_str(
+            "[upstream]\nurl = \"http://127.0.0.1:9001\"\n\
+             [[upstreams]]\nurl = \"http://127.0.0.1:9001\"\n\
+             [[upstreams]]\nurl = \"http://127.0.0.1:9002\"\napi_key = \"b\"\n",
+        )
+        .expect("multi-upstream TOML must parse");
+        let list = cfg.upstreams_resolved();
+        assert_eq!(list.len(), 2);
+        assert_eq!(list[1].api_key, "b");
     }
 }
