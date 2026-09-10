@@ -99,6 +99,7 @@ async fn setup() -> (String, Captured) {
         mem_command: vanta_proxy::config::MemCommandConfig::default(),
         writeback: vanta_proxy::config::WritebackConfig::default(),
         cache: Default::default(),
+        routing: Default::default(),
     };
     let state = server::AppState::from_engine(cfg, seeded_engine()).unwrap();
     (spawn(server::router(state)).await, captured)

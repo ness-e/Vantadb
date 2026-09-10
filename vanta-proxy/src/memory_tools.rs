@@ -11,7 +11,7 @@ use vantadb::sdk::VantaEmbedded;
 
 use crate::capture;
 use crate::inject::Protocol;
-use crate::sse_intercept::Accumulated;
+use crate::sse_intercept::{Accumulated, ToolCallAcc};
 use crate::writeback::WriteBack;
 
 pub(crate) const TOOL_CAPTURE: &str = "vanta_memory_capture";
@@ -139,6 +139,37 @@ fn search(memory: &VantaEmbedded, session_key: &str, call: &MemoryCall) -> Strin
 
 const NO_MEMORIES: &str = "No relevant memories found.";
 
+/// Responses history append (PRX-06): executed calls echo as
+/// `function_call` items plus their `function_call_output` results in the
+/// `input` item array (Responses bodies have no `messages`).
+fn append_responses_exchange(
+    request: &mut Value,
+    owned: Vec<&ToolCallAcc>,
+    results: &[(String, String)],
+) {
+    let Some(input) = request.get_mut("input").and_then(Value::as_array_mut) else {
+        // ponytail: string-form input can't carry tool history — replay
+        // without append (documented ceiling, loop still caps).
+        tracing::warn!("responses tool turn with non-array input: replaying");
+        return;
+    };
+    for call in owned {
+        input.push(json!({
+            "type": "function_call",
+            "call_id": call.id,
+            "name": call.name,
+            "arguments": call.arguments,
+        }));
+    }
+    for (id, text) in results {
+        input.push(json!({
+            "type": "function_call_output",
+            "call_id": id,
+            "output": text,
+        }));
+    }
+}
+
 /// Append the assistant message (with its EXECUTED tool calls) plus the
 /// synthesized results to the request's history, in the standard shape of
 /// `protocol`.
@@ -154,9 +185,6 @@ pub(crate) fn append_exchange(
     message: &Accumulated,
     results: &[(String, String)],
 ) {
-    let Some(messages) = request.get_mut("messages").and_then(Value::as_array_mut) else {
-        return;
-    };
     let executed: Vec<&str> = results.iter().map(|(id, _)| id.as_str()).collect();
     let owned: Vec<_> = message
         .tool_calls
@@ -174,8 +202,16 @@ pub(crate) fn append_exchange(
             "mixed tool turn: dropping unexecuted client tool call from re-request"
         );
     }
+    // Responses bodies carry history in `input`, not `messages`.
+    if protocol == Protocol::Responses {
+        append_responses_exchange(request, owned, results);
+        return;
+    }
+    let Some(messages) = request.get_mut("messages").and_then(Value::as_array_mut) else {
+        return;
+    };
     match protocol {
-        Protocol::OpenAI | Protocol::Responses => {
+        Protocol::OpenAI => {
             let calls: Vec<Value> = owned
                 .iter()
                 .map(|call| {
@@ -201,6 +237,9 @@ pub(crate) fn append_exchange(
                     "content": text,
                 }));
             }
+        }
+        Protocol::Responses => {
+            // Unreachable: Responses returns early above (history in `input`).
         }
         Protocol::Anthropic => {
             // Same filter for wire blocks: drop foreign `tool_use` blocks so

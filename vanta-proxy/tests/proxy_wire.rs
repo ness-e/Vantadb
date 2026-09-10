@@ -119,6 +119,7 @@ async fn setup(extra_upstream_routes: Router) -> TestEnv {
         mem_command: vanta_proxy::config::MemCommandConfig::default(),
         writeback: vanta_proxy::config::WritebackConfig::default(),
         cache: Default::default(),
+        routing: Default::default(),
     };
     let state = server::AppState::from_engine(cfg, seeded_engine()).unwrap();
     let proxy_url = spawn(server::router(state)).await;
@@ -144,6 +145,7 @@ fn cfg_with(upstream: &str, timeout_secs: u64) -> ProxyConfig {
         mem_command: vanta_proxy::config::MemCommandConfig::default(),
         writeback: vanta_proxy::config::WritebackConfig::default(),
         cache: Default::default(),
+        routing: Default::default(),
     }
 }
 

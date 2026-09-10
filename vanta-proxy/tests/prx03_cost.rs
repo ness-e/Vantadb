@@ -59,6 +59,7 @@ fn state_with_cost(upstream: &str, cost: CostConfig) -> server::AppState {
         cache: Default::default(),
         report: Default::default(),
         cost,
+        routing: Default::default(),
     };
     server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }

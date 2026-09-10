@@ -66,6 +66,7 @@ fn state_for(upstream_url: &str) -> vanta_proxy::server::AppState {
         mem_command: vanta_proxy::config::MemCommandConfig::default(),
         writeback: vanta_proxy::config::WritebackConfig::default(),
         cache: Default::default(),
+        routing: Default::default(),
     };
     vanta_proxy::server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }

@@ -73,6 +73,7 @@ fn state_for(upstream_url: &str) -> vanta_proxy::server::AppState {
             enabled: true,
             max_entries: 128,
         },
+        routing: Default::default(),
     };
     vanta_proxy::server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }

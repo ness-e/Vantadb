@@ -241,6 +241,81 @@ pub(crate) fn anthropic_message(events: &[Value]) -> Accumulated {
     acc
 }
 
+/// Reconstruct the assistant message from OpenAI Responses SSE
+/// (`response.output_item.added` / `response.function_call_arguments.delta` /
+/// `response.output_text.delta`).
+///
+/// Unknown event types are skipped: a shape drift degrades to "no calls"
+/// (fail-open verbatim replay), never an error.
+pub(crate) fn responses_message(events: &[Value]) -> Accumulated {
+    let mut acc = Accumulated::default();
+    for ev in events {
+        match ev.get("type").and_then(Value::as_str) {
+            Some("response.output_text.delta") => {
+                if let Some(d) = ev.get("delta").and_then(Value::as_str) {
+                    acc.text.push_str(d);
+                }
+            }
+            Some("response.output_item.added") => {
+                let item = ev.get("item").cloned().unwrap_or(Value::Null);
+                if item.get("type").and_then(Value::as_str) != Some("function_call") {
+                    continue;
+                }
+                let id = item
+                    .get("call_id")
+                    .or_else(|| item.get("id"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                let name = item
+                    .get("name")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                let arguments = item
+                    .get("arguments")
+                    .and_then(Value::as_str)
+                    .unwrap_or("")
+                    .to_string();
+                acc.tool_calls.push(ToolCallAcc {
+                    id,
+                    name,
+                    arguments,
+                });
+            }
+            Some("response.function_call_arguments.delta") => {
+                if let Some(d) = ev.get("delta").and_then(Value::as_str) {
+                    if let Some(last) = acc.tool_calls.last_mut() {
+                        last.arguments.push_str(d);
+                    }
+                }
+            }
+            Some("response.output_item.done") => {
+                // Fallback: full arguments when deltas were missed.
+                let item = ev.get("item").cloned().unwrap_or(Value::Null);
+                if item.get("type").and_then(Value::as_str) != Some("function_call") {
+                    continue;
+                }
+                let id = item
+                    .get("call_id")
+                    .or_else(|| item.get("id"))
+                    .and_then(Value::as_str)
+                    .unwrap_or("");
+                if let Some(slot) = acc.tool_calls.iter_mut().find(|c| c.id == id) {
+                    if slot.arguments.is_empty() {
+                        if let Some(args) = item.get("arguments").and_then(Value::as_str) {
+                            slot.arguments.push_str(args);
+                        }
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+    acc.tool_calls.retain(|c| !c.name.is_empty());
+    acc
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
