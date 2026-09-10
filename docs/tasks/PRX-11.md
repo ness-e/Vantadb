@@ -86,3 +86,11 @@
 6. Re-verify full + commit `feat: PRX-11-slice3 wiring opt-in translate`.
 
 **NOTICED BUT NOT TOUCHING:** `M vanta-proxy/src/cache.rs`, `M docs/tasks/PRX-09.md` (wave-mate); `M desktop/...`, `M docs/tasks/DESKTOP-40-slice3.md`, `?? docs/tasks/DESKTOP-40-slice3.md`, `M .opencode`, `M opencode.jsonc`, `?? Investigacion-plan.md`, `D docs/plans/2026-09-10-code.md` (orquestador).
+
+### Slice 3 ejecutado lead-inline (2026-09-10, subagentes abortados ×3 sin task_id)
+
+- **Diseño ejecutado:** hook 5d en `process_inner` (tras optimizer, antes de 5b-cache) + `ProxyConfig.translate` + wire_path efectivo `/v1/chat/completions` (comparte caché con nativo OpenAI) + `map_translated_response` (SSE passthrough, JSON→Anthropic con content-length fijo, fail-open).
+- **Desvío justificado vs diff:** sin campo en `AppState` (se lee de `self.config.translate`; evita romper literales AppState) + `wire_path` → `_wire_path` (target fijo, clippy).
+- **Tests nuevos (server.rs mod tests):** gate off/openai/garbage/mapeo (4) + mapback passthrough/SSE/JSON/inválido (4).
+- **Verify:** lib 163 + 15 suites 0 failed · clippy all-targets 0 · fmt 0 · hooks pre-commit.
+- **Commit:** (este cierre).
