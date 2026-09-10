@@ -41,6 +41,9 @@ pub struct ProxyConfig {
     /// Task-aware routing por tier (PRX-06). Disabled by default so the
     /// wire stays a transparent proxy unless explicitly opted in.
     pub routing: crate::routing::TierRoutingConfig,
+    /// PII/secret redaction on egress (PRX-07). Disabled by default so the
+    /// wire stays a transparent proxy unless explicitly opted in.
+    pub redact: crate::redact::RedactConfig,
 }
 
 impl ProxyConfig {

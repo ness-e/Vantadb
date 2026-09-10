@@ -25,6 +25,7 @@ use crate::inject::{self, Protocol};
 use crate::mem_command;
 use crate::memory_tools;
 use crate::rate_limit::{self, RateDecision, RateLimiter, UpstreamHealth};
+use crate::redact::{self, Redactor};
 use crate::report::{model_from_body, now_ms_u64, Reporter, TurnReport, TurnTimer};
 use crate::routing::{tier_of, ResolvedRoute};
 use crate::session::claude_code::CcRequestKind;
@@ -60,6 +61,9 @@ pub struct AppState {
     pub cache: Arc<std::sync::Mutex<ExactCache>>,
     /// Cost ledger + virtual-key budgets (PRX-03). In-memory, fail-open.
     pub cost: Arc<CostTracker>,
+    /// Egress PII/secret redaction (PRX-07). Disabled by default; compiled
+    /// once at startup so per-request work is only the scan.
+    pub redactor: Arc<Redactor>,
 }
 
 /// PRX-01: true when an Anthropic request is a standalone CC sidequery
@@ -121,6 +125,9 @@ impl AppState {
             config.cost.default_budget_usd,
             config.cost.enforce,
         );
+        // PRX-07: compile custom patterns once — invalid patterns fail
+        // closed here (proxy refuses to start) instead of per-request.
+        let redactor = Redactor::new(&config.redact)?;
         Ok(Self {
             limiter: RateLimiter::new(config.server.rate_limit_per_minute).into(),
             upstream_health: UpstreamHealth::new().into(),
@@ -128,6 +135,7 @@ impl AppState {
             reporter: reporter.into(),
             cache: Arc::new(std::sync::Mutex::new(cache)),
             cost: cost.into(),
+            redactor: redactor.into(),
             config: Arc::new(config),
             forwarder: Arc::new(forwarder),
             auth: AuthDb::new(engine.clone()).into(),
@@ -353,6 +361,18 @@ impl AppState {
             Ok(Some(modified)) => Bytes::from(modified),
             Ok(None) => body,
             Err(e) => return e.into_response(),
+        };
+
+        // 5a) PRX-07: egress PII/secret redaction over the post-injection
+        // bytes (what actually leaves toward the upstream). Disabled by
+        // default → identity. Block → 422 kinds-only; Mask → forward
+        // scrubbed bytes; Log → warn + forward verbatim. Verbatim paths
+        // above (sidequery, no-session) intentionally bypass.
+        let body = match self.redactor.apply(&body) {
+            redact::ApplyOutcome::Pass(scrubbed) => Bytes::from(scrubbed),
+            redact::ApplyOutcome::Block(kinds) => {
+                return crate::error::ProxyError::RedactionBlocked { kinds }.into_response();
+            }
         };
 
         // 5b) PRX-09 slice 1: exact cache over the POST-INJECTION bytes

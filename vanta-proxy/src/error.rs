@@ -35,6 +35,11 @@ pub enum ProxyError {
         spent_usd: f64,
         budget_usd: f64,
     },
+    /// PRX-07: egress redaction blocked the request in `Block` mode.
+    /// `kinds` are labels only (`aws_key`, `email`, …) — never matched
+    /// values, so 422 responses can't echo secrets.
+    #[error("request blocked by egress redaction: {kinds:?}")]
+    RedactionBlocked { kinds: Vec<String> },
 }
 
 impl IntoResponse for ProxyError {
@@ -55,6 +60,15 @@ impl IntoResponse for ProxyError {
             } });
             return (StatusCode::TOO_MANY_REQUESTS, axum::Json(body)).into_response();
         }
+        // Redaction shape is its own `type` (kinds only, never values).
+        if let ProxyError::RedactionBlocked { kinds } = &self {
+            let body = json!({ "error": {
+                "type": "redaction_blocked",
+                "message": self.to_string(),
+                "kinds": kinds,
+            } });
+            return (StatusCode::UNPROCESSABLE_ENTITY, axum::Json(body)).into_response();
+        }
         let (status, message) = match &self {
             ProxyError::UpstreamTimeout => (StatusCode::GATEWAY_TIMEOUT, self.to_string()),
             ProxyError::Unauthorized => (StatusCode::UNAUTHORIZED, self.to_string()),
@@ -65,9 +79,13 @@ impl IntoResponse for ProxyError {
                 (StatusCode::BAD_GATEWAY, self.to_string())
             }
             ProxyError::Config(_) => (StatusCode::INTERNAL_SERVER_ERROR, self.to_string()),
-            // Defensive: the early return above serves the `budget_exceeded`
-            // shape; this arm only satisfies exhaustiveness.
+            // Defensive: the early returns above serve the `budget_exceeded`
+            // and `redaction_blocked` shapes; these arms only satisfy
+            // exhaustiveness.
             ProxyError::BudgetExceeded { .. } => (StatusCode::TOO_MANY_REQUESTS, self.to_string()),
+            ProxyError::RedactionBlocked { .. } => {
+                (StatusCode::UNPROCESSABLE_ENTITY, self.to_string())
+            }
         };
         let body = json!({ "error": { "type": "proxy_error", "message": message } });
         (status, axum::Json(body)).into_response()
