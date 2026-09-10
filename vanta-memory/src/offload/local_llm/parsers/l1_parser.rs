@@ -152,7 +152,10 @@ fn string_array(v: Option<&Value>) -> Vec<String> {
         .unwrap_or_default()
 }
 
-fn memory_from_value(v: &Value, scene_name: &str) -> Option<ExtractedMemory> {
+/// Build one [`ExtractedMemory`] from a raw JSON object, tolerantly.
+/// `pub(crate)` for the MEM-69 batch path (reuses the exact extraction
+/// tolerance instead of a second parser).
+pub(crate) fn memory_from_value(v: &Value, scene_name: &str) -> Option<ExtractedMemory> {
     let obj = v.as_object()?;
     let content = obj
         .get("content")

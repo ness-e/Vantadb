@@ -256,8 +256,9 @@ fn store_decision(record_id: &str) -> DedupDecision {
 
 /// Build a [`DedupDecision`] from a raw JSON object, tolerantly. Invalid
 /// actions become `store`; invalid `merged_type` becomes `None` (keeps the
-/// original type — never fails the batch).
-fn decision_from_value(v: &serde_json::Value) -> Option<DedupDecision> {
+/// original type — never fails the batch). `pub(crate)` for the MEM-69 batch
+/// path (reuses the exact dedup tolerance instead of a second parser).
+pub(crate) fn decision_from_value(v: &serde_json::Value) -> Option<DedupDecision> {
     let obj = v.as_object()?;
     let record_id = obj.get("record_id")?.as_str()?.trim().to_string();
     if record_id.is_empty() {

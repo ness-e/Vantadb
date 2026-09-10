@@ -46,6 +46,26 @@ impl Default for L1ExtractorConfig {
     }
 }
 
+/// Split qualified messages into background (older, context-only) + new
+/// (recent, extractable): new = last `max_new`; background = up to `max_bg`
+/// immediately before. Shared with the MEM-69 batch path so both slices see
+/// the same split (single source of truth).
+pub(crate) fn split_messages(
+    qualified: &[L0Message],
+    max_new: usize,
+    max_bg: usize,
+) -> (&[L0Message], &[L0Message]) {
+    let new_start = qualified.len().saturating_sub(max_new);
+    let bg_end = new_start;
+    let bg_start = bg_end.saturating_sub(max_bg);
+    let background: &[L0Message] = if bg_end > 0 {
+        &qualified[bg_start..bg_end]
+    } else {
+        &[]
+    };
+    (&qualified[new_start..], background)
+}
+
 /// LLM timeout for one extraction call.
 const LLM_TIMEOUT: Duration = Duration::from_secs(180);
 
@@ -85,15 +105,11 @@ pub fn extract_l1_segments<R: LlmRunner>(
     }
 
     // Split: new = last max_new; background = up to max_bg immediately before.
-    let new_start = qualified.len().saturating_sub(config.max_new_messages);
-    let new_messages = &qualified[new_start..];
-    let bg_end = new_start;
-    let bg_start = bg_end.saturating_sub(config.max_background_messages);
-    let background_messages: &[L0Message] = if bg_end > 0 {
-        &qualified[bg_start..bg_end]
-    } else {
-        &[]
-    };
+    let (new_messages, background_messages) = split_messages(
+        &qualified,
+        config.max_new_messages,
+        config.max_background_messages,
+    );
 
     let params = LlmRunParams {
         prompt: format_extraction_prompt(new_messages, background_messages, previous_scene_name),

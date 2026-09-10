@@ -90,3 +90,9 @@ aliases: []
 - **Objetivo:** gap #6 — cola pendiente→approve/reject (patrón Cursor), default off.
 - **Resultado:** ✅ 27 suites 0 failed (4/4 nuevos) + clippy 0 + fmt; approve reusa `apply_dedup_batch`; `l1_writer.rs` intacto; worker wiring diferido por diseño.
 - **Commit:** a4c1e75b
+
+### MEM-69: batch extracción costo-reducida (plan 2026-09-10-code Wave0)
+- **Fecha:** 2026-09-10
+- **Objetivo:** agrupar split+dedup en 1 llamada LLM por flush (−40/50% tokens) sin perder quality gate.
+- **Resultado:** ✅ módulo nuevo `l1_batch.rs` (`extract_dedup_batch` + `EXTRACT_DEDUP_TASK_ID`; juicio `dedup` inline por memoria, tolerancias exactas reutilizadas, pipeline_worker intacto) + `tests/l1_batch.rs` (7 tests incl. comparativo batch≡split: mismas memorias/acciones, 2 llamadas→1) + helper `split_messages` compartido y 2 visibility `pub(crate)`. Suite vanta-memory 0 failed (lib 328 + integración) + clippy `--all-targets --all-features -D warnings` 0 + fmt limpio. Deuda: wiring `pipeline_worker.rs` → slice 2 follow-up.
+- **Commit:** 29e5b354
