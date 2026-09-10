@@ -333,3 +333,29 @@ fn cache_key_stable_under_reinjection() {
         .lookup("openai", "/v1/chat/completions", &raw)
         .is_none());
 }
+
+/// PRX-09-wiring: `semantic_enabled` en config cablea el embedder en la
+/// construcción del cache (offline-safe: `from_env` no toca red hasta el
+/// primer `embed`, y todo fallo degrada a léxico).
+#[test]
+fn wiring_attaches_embedder_when_semantic_enabled() {
+    // Nota: URL dummy — `from_engine` solo construye el cliente, sin I/O.
+    let state = state_for_semantic("http://127.0.0.1:9");
+    let guard = state.cache.lock().expect("cache lock");
+    assert!(
+        guard.has_embedder(),
+        "semantic_enabled must attach the Ollama embed hook"
+    );
+}
+
+/// PRX-09-wiring + doubt-driven default-off: sin `semantic_enabled` el
+/// comportamiento NO cambia — sin embedder, solo exacto/léxico.
+#[test]
+fn wiring_no_embedder_by_default() {
+    let state = state_for("http://127.0.0.1:9");
+    let guard = state.cache.lock().expect("cache lock");
+    assert!(
+        !guard.has_embedder(),
+        "default config must not attach any embed hook"
+    );
+}
