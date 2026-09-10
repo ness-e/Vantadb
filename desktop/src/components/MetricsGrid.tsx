@@ -5,6 +5,8 @@ import { HealthReport, OperationalMetrics } from "../vanta";
 import { useMetricsPoll } from "../hooks/useMetricsPoll";
 // UX-15: fmtBytes compartido (antes había un local idéntico acá).
 import { fmtBytes } from "../lib/format";
+import { tp, tt, type DesktopLang } from "../i18n";
+import { connectionPrefs } from "../store/connections";
 
 function fmtCount(n: number): string {
   if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
@@ -31,9 +33,10 @@ interface Props {
   health: HealthReport | null;
   healthStatus: "ok" | "warn" | "err" | "idle";
   activeName: string | null;
+  lang?: DesktopLang;
 }
 
-export default function MetricsGrid({ health, healthStatus, activeName }: Props) {
+export default function MetricsGrid({ health, healthStatus, activeName, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   // Shared poll history, newest last. Trend = delta(now,prev) vs delta(prev,prevprev).
   const { history: h, error, polledAt } = useMetricsPoll();
   const latest = h[h.length - 1] ?? null;
@@ -54,45 +57,45 @@ export default function MetricsGrid({ health, healthStatus, activeName }: Props)
     ? [
         {
           key: "rss",
-          title: "RSS",
+          title: tt(lang, "panels.metrics.rss", "RSS"),
           value: fmtBytes(latest.process_rss_bytes),
           ...deltaAndTrend((m) => m.process_rss_bytes, fmtBytes),
-          muted: "memoria residente",
+          muted: tt(lang, "panels.metrics.rssHint", "memoria residente"),
         },
         {
           key: "records",
-          title: "Registros",
+          title: tt(lang, "panels.metrics.records", "Registros"),
           value: fmtCount(latest.records_imported),
           ...deltaAndTrend((m) => m.records_imported, fmtCount),
-          muted: latest.import_errors > 0 ? `${latest.import_errors} errores de importación` : "registros importados",
+          muted: latest.import_errors > 0 ? tp(lang, "panels.metrics.recordsErrHint", "{n} errores de importación", { n: String(latest.import_errors) }) : tt(lang, "panels.metrics.recordsHint", "registros importados"),
         },
         {
           key: "queries",
-          title: "Consultas",
+          title: tt(lang, "panels.metrics.queries", "Consultas"),
           value: fmtCount(totalQueries(latest)),
           ...deltaAndTrend(totalQueries, fmtCount),
-          muted: `${fmtCount(latest.text_lexical_queries)} léxicas`,
+          muted: tp(lang, "panels.metrics.queriesHint", "{n} léxicas", { n: fmtCount(latest.text_lexical_queries) }),
         },
         {
           key: "scans",
-          title: "Escaneos",
+          title: tt(lang, "panels.metrics.scans", "Escaneos"),
           value: fmtCount(latest.derived_prefix_scans),
           ...deltaAndTrend((m) => m.derived_prefix_scans, fmtCount),
-          muted: `${latest.derived_full_scan_fallbacks} fallbacks de escaneo completo`,
+          muted: tp(lang, "panels.metrics.scansHint", "{n} fallbacks de escaneo completo", { n: String(latest.derived_full_scan_fallbacks) }),
         },
         {
           key: "wal",
-          title: "Replay WAL",
+          title: tt(lang, "panels.metrics.wal", "Replay WAL"),
           value: fmtCount(latest.wal_records_replayed),
           ...deltaAndTrend((m) => m.wal_records_replayed, fmtCount),
-          muted: `replay ${latest.wal_replay_ms}ms`,
+          muted: tp(lang, "panels.metrics.walHint", "replay {ms}ms", { ms: String(latest.wal_replay_ms) }),
         },
         {
           key: "text",
-          title: "Índice de texto",
+          title: tt(lang, "panels.metrics.textIdx", "Índice de texto"),
           value: fmtCount(latest.text_postings_written),
           ...deltaAndTrend((m) => m.text_postings_written, fmtCount),
-          muted: `${latest.text_index_repairs} reparaciones`,
+          muted: tp(lang, "panels.metrics.textHint", "{n} reparaciones", { n: String(latest.text_index_repairs) }),
         },
       ]
     : [];
@@ -102,15 +105,15 @@ export default function MetricsGrid({ health, healthStatus, activeName }: Props)
 
   return (
     <section
-      aria-label="Métricas operativas"
+      aria-label={tt(lang, "panels.metrics.aria", "Métricas operativas")}
       className="border-[3px] border-foreground bg-card p-4 shadow-ink"
     >
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="m-0 font-tech text-xs uppercase tracking-widest">Métricas</h2>
+        <h2 className="m-0 font-tech text-xs uppercase tracking-widest">{tt(lang, "panels.metrics.title", "Métricas")}</h2>
         <div className="flex items-center gap-2">
           <span className="text-muted-foreground text-sm">
-            {activeName ? activeName : "no backend"}
-            {polledAt ? ` · ${new Date(polledAt).toLocaleTimeString()}` : " · waiting…"}
+            {activeName ? activeName : tt(lang, "panels.metrics.noBackend", "no backend")}
+            {polledAt ? ` · ${new Date(polledAt).toLocaleTimeString()}` : tt(lang, "panels.metrics.waiting", "· waiting…")}
           </span>
           <span
             className={`border-2 px-2.5 py-1 text-xs ${
@@ -140,12 +143,12 @@ export default function MetricsGrid({ health, healthStatus, activeName }: Props)
           queda en consola, no en la cara del usuario (visual-critique). */}
       {error && (
         <p className="mt-2 text-sm text-muted-foreground">
-          métricas no disponibles todavía — reintentando automáticamente
+          {tt(lang, "panels.metrics.retrying", "métricas no disponibles todavía — reintentando automáticamente")}
         </p>
       )}
 
       {tiles.length === 0 ? (
-        <p className="mt-2 text-sm text-muted-foreground">Esperando el primer snapshot de métricas…</p>
+        <p className="mt-2 text-sm text-muted-foreground">{tt(lang, "panels.metrics.firstSnapshot", "Esperando el primer snapshot de métricas…")}</p>
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {tiles.map((t) => (

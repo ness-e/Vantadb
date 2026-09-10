@@ -16,6 +16,8 @@ import LensShell from "../layout/LensShell";
 import { recordsToJsonl, downloadText } from "../export/export-jsonl";
 import { undoStore } from "../../store/undo";
 import { TriangleAlert } from "lucide-react";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 function filenameStamp(): string {
   return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
@@ -27,6 +29,7 @@ interface Props {
   dark: boolean;
   /** Click en un punto → abrir el registro en el Inspector (patrón RetrievalLens). */
   onOpenRecord: (record: MemoryRecord, score: number | null) => void;
+  lang?: DesktopLang;
 }
 
 /** Paleta categórica por namespace (neón D4; `pointColor` indexado por valueA). */
@@ -51,8 +54,8 @@ function preview(record: MemoryRecord): string {
   return JSON.stringify(record.metadata ?? {}).slice(0, 140);
 }
 
-export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Props) {
-  const { state, project, setSelected } = useProjection();
+export default function SpaceLens({ onNotice, onError, dark, onOpenRecord, lang = connectionPrefs.get().lang ?? "es" }: Props) {
+  const { state, project, setSelected } = useProjection(lang);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const plotRef = useRef<ReturnType<typeof createScatterplot> | null>(null);
@@ -93,7 +96,7 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
     plotRef.current = plot;
 
     if (!plot.isSupported) {
-      onError("WebGL no soportado — no se puede renderizar el scatterplot");
+      onError(tt(lang, "space.webglErr", "WebGL no soportado — no se puede renderizar el scatterplot"));
     }
 
     plot.subscribe("pointOver", (idx: number) => setHovered(idx));
@@ -162,7 +165,7 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
   useEffect(() => {
     if (state.phase === "done" && !noticedDone.current) {
       noticedDone.current = true;
-      onNotice(`Proyección lista: ${state.points.length} puntos (seed fijo)`);
+      onNotice(tp(lang, "space.projDone", "Proyección lista: {n} puntos (seed fijo)", { n: String(state.points.length) }));
     } else if (state.phase !== "done") {
       noticedDone.current = false;
     }
@@ -178,7 +181,7 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
     setBusy("export");
     try {
       downloadText(`vanta-selection-${filenameStamp()}.jsonl`, recordsToJsonl(selectedRecords));
-      onNotice(`exportados ${selectedRecords.length} registros (JSONL importable 1:1)`);
+      onNotice(tp(lang, "space.exported", "exportados {n} registros (JSONL importable 1:1)", { n: String(selectedRecords.length) }));
     } catch (err) {
       onError(vantaErrorMessage(err));
     } finally {
@@ -197,7 +200,7 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
       await undoStore.softDeleteBatch(selectedRecords);
       setSelected(new Set());
       onNotice(
-        `movidos a papelera ${selectedRecords.length} registros — Ctrl+Z deshace el lote`,
+        tp(lang, "space.movedTrash", "movidos a papelera {n} registros — Ctrl+Z deshace el lote", { n: String(selectedRecords.length) }),
       );
     } catch (err) {
       onError(vantaErrorMessage(err));
@@ -214,11 +217,11 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
       <div className="border-b-4 border-foreground bg-card px-4 py-3">
         <LensShell
           title="ESPACIO"
-          meta={`${namespace || "todos"} · ${state.phase === "done" ? `${points.length} puntos` : state.phase}`}
+          meta={`${namespace || tt(lang, "space.allNs", "todos los namespaces")} · ${state.phase === "done" ? tp(lang, "space.pointsCount", "{n} puntos", { n: String(points.length) }) : state.phase}`}
         />
         <div className="mt-2 flex flex-wrap items-center gap-2">
         {state.phase === "loading" && (
-          <span className="font-tech text-[10px] text-muted-foreground">proyectando…</span>
+          <span className="font-tech text-[10px] text-muted-foreground">{tt(lang, "space.projecting", "proyectando…")}</span>
         )}
         {state.error && (
           <span className="font-tech text-[10px] font-bold text-destructive" role="alert">
@@ -230,10 +233,10 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
           <select
             value={namespace}
             onChange={(e) => setNamespace(e.target.value)}
-            aria-label="Namespace a proyectar"
+            aria-label={tt(lang, "space.nsAria", "Namespace a proyectar")}
             className="border-2 border-foreground bg-background px-2 py-1 text-[10px] font-semibold"
           >
-            <option value="">todos los namespaces</option>
+            <option value="">{tt(lang, "space.allNs", "todos los namespaces")}</option>
             {namespaces.map((n) => (
               <option key={n} value={n}>
                 {n}
@@ -244,9 +247,9 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
             type="button"
             onClick={() => void project(namespace || undefined)}
             className="press border-2 border-foreground bg-background px-2 py-1 text-[10px] font-semibold"
-            title="Re-proyectar con UMAP-js (seed fijo = reproducible)"
+            title={tt(lang, "space.reprojectTitle", "Re-proyectar con UMAP-js (seed fijo = reproducible)")}
           >
-            ⤒ proyectar
+            {tt(lang, "space.project", "⤒ proyectar")}
           </button>
         </div>
         </div>
@@ -256,6 +259,7 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
       <SelectionBar
         count={selectedCount}
         busy={busy}
+        lang={lang}
         onExport={() => void handleExport()}
         onDelete={() => void handleDelete()}
         onClear={() => setSelected(new Set())}
@@ -263,9 +267,8 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
 
       {/* Pista de interacción */}
       <p className="border-b border-foreground/40 bg-background px-4 py-1 font-tech text-[10px] text-muted-foreground">
-        hover = ver payload · click en un punto = abrir en Inspector · shift+arrastrar = lasso
-        → barra de batch ops
-        <span className="text-amber-700 dark:text-amber-300"> · UMAP-js distorsiona distancias — solo agrupa por vecindad</span>
+        {tt(lang, "space.hint", "hover = ver payload · click en un punto = abrir en Inspector · shift+arrastrar = lasso → barra de batch ops")}
+        <span className="text-amber-700 dark:text-amber-300"> {tt(lang, "space.hintWarn", "· UMAP-js distorsiona distancias — solo agrupa por vecindad")}</span>
       </p>
 
       {/* Canvas + tooltip overlay */}
@@ -276,7 +279,7 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
               ref={canvasRef}
               className="h-full w-full"
               role="img"
-              aria-label={`Scatterplot de ${points.length} embeddings proyectados con UMAP (los nombres de los puntos se listan abajo). Click en un punto lo abre en el Inspector; shift+arrastrar selecciona con lasso.`}
+              aria-label={tp(lang, "space.scatterAria", "Scatterplot de {n} embeddings proyectados con UMAP (los nombres de los puntos se listan abajo). Click en un punto lo abre en el Inspector; shift+arrastrar selecciona con lasso.", { n: String(points.length) })}
             />
             {hoverPoint && (
               <div
@@ -291,22 +294,22 @@ export default function SpaceLens({ onNotice, onError, dark, onOpenRecord }: Pro
             )}
             {/* UX-08: alternativa accesible al canvas WebGL — lista de puntos
                 para teclado/SR (sr-only, cap 200 para no saturar lectores). */}
-            <ul className="sr-only" aria-label="Puntos proyectados">
+            <ul className="sr-only" aria-label={tt(lang, "space.pointsAria", "Puntos proyectados")}>
               {points.slice(0, 200).map((p, i) => (
                 <li key={i}>
                   {p.record.namespace}/{p.record.id}
                 </li>
               ))}
-              {points.length > 200 && <li>… y {points.length - 200} puntos más</li>}
+              {points.length > 200 && <li>{tp(lang, "space.morePoints", "… y {n} puntos más", { n: String(points.length - 200) })}</li>}
             </ul>
           </>
         ) : (
           <div className="flex h-full items-center justify-center font-tech text-xs text-muted-foreground">
             {state.phase === "loading"
-              ? "proyectando embeddings… (worker UMAP-js)"
+              ? tt(lang, "space.loading", "proyectando embeddings… (worker UMAP-js)")
               : state.phase === "error"
                 ? state.error
-                : "sin proyección — click en «⤒ proyectar»"}
+                : tt(lang, "space.noProj", "sin proyección — click en «⤒ proyectar»")}
           </div>
         )}
       </div>

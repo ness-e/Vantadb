@@ -6,6 +6,8 @@
 // sin overlay fixed (antes era el 3er lenguaje de confirmación: modal).
 import { FormEvent, useEffect, useRef, useState } from "react";
 import type { PairRecord } from "./consolidate-core";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 const BTN_CANCEL =
   "press border-2 border-foreground bg-background px-3 py-1.5 font-tech text-[11px] uppercase tracking-widest";
@@ -17,11 +19,13 @@ export default function ConfirmDiscard({
   busy,
   onClose,
   onConfirm,
+  lang = connectionPrefs.get().lang ?? "es",
 }: {
   targets: PairRecord[];
   busy: boolean;
   onClose: () => void;
   onConfirm: (mode: "trash" | "purge") => Promise<void>;
+  lang?: DesktopLang;
 }) {
   const [step, setStep] = useState<1 | 2>(1);
   const [value, setValue] = useState("");
@@ -44,6 +48,9 @@ export default function ConfirmDiscard({
   const expected =
     targets.length === 1 ? `${targets[0].namespace}/${targets[0].id}` : "CONFIRMAR";
   const mismatch = step === 2 && value.trim() !== expected;
+  // Hint "Escribí {expected} para confirmar." partido para interpolar el <span> bold
+  // en cualquier posición que el idioma exija (ES/EN).
+  const writeHintParts = tp(lang, "consolidate.confirm.writeHint", "Escribí {e} para confirmar.", { e: expected }).split(expected);
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -61,12 +68,14 @@ export default function ConfirmDiscard({
     <div className="mt-4">
       <form
         role="region"
-        aria-label="Confirmar eliminación"
+        aria-label={tt(lang, "consolidate.confirm.aria", "Confirmar eliminación")}
         onSubmit={submit}
         className="w-full border-4 border-foreground bg-card p-5 shadow-[4px_4px_0_0_#000]"
       >
         <div className="font-display text-2xl text-stencil">
-          Eliminar {targets.length === 1 ? "registro" : `${targets.length} registros`}?
+          {targets.length === 1
+            ? tt(lang, "consolidate.confirm.titleOne", "Eliminar registro?")
+            : tp(lang, "consolidate.confirm.titleMany", "Eliminar {n} registros?", { n: String(targets.length) })}
         </div>
 
         {step === 1 ? (
@@ -86,7 +95,7 @@ export default function ConfirmDiscard({
                   checked={mode === "trash"}
                   onChange={() => setMode("trash")}
                 />
-                Mover a papelera (recuperable con Ctrl+Z o desde PAPELERA)
+                {tt(lang, "consolidate.confirm.trashLabel", "Mover a papelera (recuperable con Ctrl+Z o desde PAPELERA)")}
               </label>
               <label className="flex items-center gap-2">
                 <input
@@ -95,28 +104,28 @@ export default function ConfirmDiscard({
                   checked={mode === "purge"}
                   onChange={() => setMode("purge")}
                 />
-                Eliminar permanente (sin undo)
+                {tt(lang, "consolidate.confirm.purgeLabel", "Eliminar permanente (sin undo)")}
               </label>
             </div>
           </>
         ) : (
           <>
             <p className="mt-2 text-sm">
-              Escribí <span className="font-bold">{expected}</span> para confirmar.
+              {writeHintParts[0]}<span className="font-bold">{expected}</span>{writeHintParts[1]}
             </p>
             <input
               ref={inputRef}
               value={value}
               onChange={(e) => setValue(e.target.value)}
               placeholder={expected}
-              aria-label="Confirmar eliminación"
+              aria-label={tt(lang, "consolidate.confirm.aria", "Confirmar eliminación")}
               className={`mt-3 w-full border-2 px-3 py-1.5 text-sm ${
                 mismatch && value !== "" ? "border-red-500 bg-background" : "border-foreground bg-background"
               }`}
             />
             {mismatch && value !== "" && (
               <p className="mt-1 font-tech text-[10px] uppercase tracking-widest text-red-500">
-                no coincide — esta acción es destructiva
+                {tt(lang, "consolidate.confirm.mismatch", "no coincide — esta acción es destructiva")}
               </p>
             )}
           </>
@@ -124,10 +133,10 @@ export default function ConfirmDiscard({
 
         <div className="mt-4 flex justify-end gap-2">
           <button type="button" onClick={onClose} className={BTN_CANCEL}>
-            cancelar
+            {tt(lang, "consolidate.confirm.cancel", "cancelar")}
           </button>
           <button type="submit" disabled={busy || mismatch} className={BTN_OK}>
-            {step === 1 ? "continuar" : mode === "trash" ? "a papelera" : "eliminar"}
+            {step === 1 ? tt(lang, "consolidate.confirm.continue", "continuar") : mode === "trash" ? tt(lang, "consolidate.confirm.toTrash", "a papelera") : tt(lang, "consolidate.confirm.delete", "eliminar")}
           </button>
         </div>
       </form>

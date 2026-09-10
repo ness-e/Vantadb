@@ -28,6 +28,8 @@ import {
 import ScoreBars from "./ScoreBars";
 import LensShell from "../../layout/LensShell";
 import { fusionModeFromSlider } from "./retrieval-core";
+import { tp, tt, type DesktopLang } from "../../../i18n";
+import { connectionPrefs } from "../../../store/connections";
 
 // react-querybuilder (~200 kB) solo lo abre el panel de filtros → lazy igual
 // que el shell (VS-07).
@@ -41,6 +43,7 @@ interface Props {
   onError: (msg: string) => void;
   /** Abre un record en el Inspector (master-detail) — "ver contexto". */
   onOpenRecord?: (record: MemoryRecord, score: number | null) => void;
+  lang?: DesktopLang;
 }
 
 interface ResultRow extends SearchResult {
@@ -48,7 +51,7 @@ interface ResultRow extends SearchResult {
   context?: MemoryRecord | null;
 }
 
-export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }: Props) {
+export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   // --- Consulta --------------------------------------------------------------
   const [textQuery, setTextQuery] = useState("");
   const [topK, setTopK] = useState(10);
@@ -131,7 +134,7 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
     e?.preventDefault();
     const q = textQuery.trim();
     if (!q && !pickedRecord) {
-      onNotice("Escribí una query o elegí un registro vectorial");
+      onNotice(tt(lang, "retrieval.emptyQuery", "Escribí una query o elegí un registro vectorial"));
       return;
     }
     setSearching(true);
@@ -230,10 +233,14 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
           title="RETRIEVAL"
           // UX-15: el header hablaba jerga ("explain on", "fusión server-side
           // (MEM-01)", "resultados = explain del server") — texto de usuario.
-          meta="¿por qué recuperó esto? · desglose del score"
-          subtitle={`búsqueda híbrida BM25 + vector — el slider elige el modo de fusión, que decide el servidor: ${
-            weight === 0 ? "solo texto (BM25)" : weight === 100 ? "solo vector (HNSW)" : "híbrido (RRF)"
-          }`}
+          meta={tt(lang, "retrieval.meta", "¿por qué recuperó esto? · desglose del score")}
+          subtitle={tp(lang, "retrieval.subtitle", "búsqueda híbrida BM25 + vector — el slider elige el modo de fusión, que decide el servidor: {mode}", {
+            mode: weight === 0
+              ? tt(lang, "retrieval.modeText", "solo texto (BM25)")
+              : weight === 100
+                ? tt(lang, "retrieval.modeVector", "solo vector (HNSW)")
+                : tt(lang, "retrieval.modeHybrid", "híbrido (RRF)"),
+          })}
         />
       </div>
 
@@ -242,28 +249,28 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
         <div className="flex flex-wrap items-end gap-3">
           <label className="flex min-w-[220px] flex-1 flex-col gap-1">
             <span className="font-tech text-[10px] uppercase tracking-widest text-neon">
-              query de texto
+              {tt(lang, "retrieval.textLabel", "query de texto")}
             </span>
             <input
               type="search"
               value={textQuery}
               onChange={(e) => setTextQuery(e.target.value)}
-              placeholder="¿qué buscar? (BM25 + HNSW híbrido)"
+              placeholder={tt(lang, "retrieval.textPh", "¿qué buscar? (BM25 + HNSW híbrido)")}
               className="w-full border-2 border-foreground bg-background px-3 py-1.5 text-sm placeholder:text-muted-foreground"
             />
           </label>
 
           <label className="flex min-w-[220px] flex-1 flex-col gap-1">
             <span className="font-tech text-[10px] uppercase tracking-widest text-neon">
-              o vector de registro
+              {tt(lang, "retrieval.vecLabel", "o vector de registro")}
             </span>
             <select
               value={pickedId}
               onChange={(e) => setPickedId(e.target.value)}
               className="w-full border-2 border-foreground bg-background px-2 py-1.5 text-sm"
-              title="Usa el embedding de un registro existente como query vectorial"
+              title={tt(lang, "retrieval.vecTitle", "Usa el embedding de un registro existente como query vectorial")}
             >
-              <option value="">— ninguno —</option>
+              <option value="">{tt(lang, "retrieval.vecNone", "— ninguno —")}</option>
               {records.map((r) => (
                 <option key={`${r.namespace}:${r.id}`} value={`${r.namespace}:${r.id}`}>
                   {r.namespace}:{r.id}
@@ -285,7 +292,7 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
           </label>
 
           <label className="flex w-24 flex-col gap-1">
-            <span className="font-tech text-[10px] uppercase tracking-widest text-neon">umbral</span>
+            <span className="font-tech text-[10px] uppercase tracking-widest text-neon">{tt(lang, "retrieval.threshLabel", "umbral")}</span>
             <input
               type="number"
               min={0}
@@ -293,7 +300,7 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
               value={threshold}
               onChange={(e) => setThreshold(Number(e.target.value) || 0)}
               className="w-full border-2 border-foreground bg-background px-2 py-1.5 text-sm"
-              title="Descarta hits con score menor (0 = sin umbral)"
+              title={tt(lang, "retrieval.threshTitle", "Descarta hits con score menor (0 = sin umbral)")}
             />
           </label>
 
@@ -302,7 +309,7 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
             disabled={searching}
             className="btn-neon-glow border-2 border-foreground bg-neon px-4 py-1.5 text-xs font-bold text-background"
           >
-            {searching ? "…" : "▸ EXPLICAR"}
+            {searching ? "…" : tt(lang, "retrieval.explain", "▸ EXPLICAR")}
           </button>
           {results && (
             <button
@@ -310,7 +317,7 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
               onClick={clearResults}
               className="press border-2 border-foreground bg-background px-3 py-1.5 text-xs"
             >
-              ✕ limpiar
+              {tt(lang, "retrieval.clear", "✕ limpiar")}
             </button>
           )}
         </div>
@@ -318,12 +325,12 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
         {/* Slider de modo de fusión (DESKTOP-35): 0=BM25 puro · 50=RRF · 100=vector puro */}
         <label
           className="flex flex-col gap-1 border-2 border-foreground bg-background p-2"
-          title="Modo de fusión server-side (MEM-01): 0 = solo texto (BM25), 50 = RRF híbrido, 100 = solo vector. El cambio re-ejecuta la búsqueda en el servidor."
+          title={tt(lang, "retrieval.fusionTitle", "Modo de fusión server-side (MEM-01): 0 = solo texto (BM25), 50 = RRF híbrido, 100 = solo vector. El cambio re-ejecuta la búsqueda en el servidor.")}
         >
           <span className="flex items-baseline justify-between font-tech text-[10px] uppercase tracking-widest text-neon">
-            <span>modo de fusión · BM25 ⟷ vector</span>
+            <span>{tt(lang, "retrieval.fusionLabel", "modo de fusión · BM25 ⟷ vector")}</span>
             <span className="text-foreground">
-              {weight === 0 ? "BM25 puro" : weight === 100 ? "vector puro" : "RRF híbrido"}
+              {weight === 0 ? tt(lang, "retrieval.fusionBmv", "BM25 puro") : weight === 100 ? tt(lang, "retrieval.fusionVec", "vector puro") : tt(lang, "retrieval.fusionRrf", "RRF híbrido")}
             </span>
           </span>
           <input
@@ -334,7 +341,7 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
             value={weight}
             onChange={(e) => setWeight(Number(e.target.value))}
             className="vanta-slider w-full"
-            aria-label="Modo de fusión: 0 = solo texto (BM25), 50 = RRF híbrido, 100 = solo vector"
+            aria-label={tt(lang, "retrieval.fusionAria", "Modo de fusión: 0 = solo texto (BM25), 50 = RRF híbrido, 100 = solo vector")}
           />
         </label>
 
@@ -347,9 +354,9 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
             className={`press border-2 border-foreground px-2.5 py-1 text-[10px] font-semibold ${
               filterActive ? "bg-neon text-background" : "bg-background"
             }`}
-            title="Filtros compuestos por metadata (AND/OR, sin JSON)"
+            title={tt(lang, "retrieval.filtersTitle", "Filtros compuestos por metadata (AND/OR, sin JSON)")}
           >
-            ⧩ FILTROS{filterActive ? ` (${toVantaMemoryFilter(ruleGroup).length})` : ""}
+            {tt(lang, "retrieval.filtersBtn", "⧩ FILTROS")}{filterActive ? ` (${toVantaMemoryFilter(ruleGroup).length})` : ""}
           </button>
           {filterActive && (
             <button
@@ -357,7 +364,7 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
               onClick={() => setRuleGroup(EMPTY_QUERY)}
               className="press border-2 border-foreground bg-background px-2 py-0.5 text-[10px] font-semibold"
             >
-              ✕ limpiar filtros
+              {tt(lang, "retrieval.clearFilters", "✕ limpiar filtros")}
             </button>
           )}
           {pickedRecord && (
@@ -371,12 +378,11 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
           <div className="border-2 border-dashed border-foreground bg-background p-3">
             {filterFields.length === 0 ? (
               <p className="font-tech text-[11px] text-muted-foreground">
-                Sin campos de metadata — ejecutá una búsqueda para inferir tipos
-                (string/int/float/bool/datetime).
+                {tt(lang, "retrieval.noMetaFields", "Sin campos de metadata — ejecutá una búsqueda para inferir tipos (string/int/float/bool/datetime).")}
               </p>
             ) : (
               <Suspense
-                fallback={<p className="font-tech text-[11px] text-muted-foreground">Cargando builder…</p>}
+                fallback={<p className="font-tech text-[11px] text-muted-foreground">{tt(lang, "retrieval.loadingBuilder", "Cargando builder…")}</p>}
               >
                 <FiltersBuilder fields={filterFields} query={ruleGroup} onChange={setRuleGroup} />
               </Suspense>
@@ -390,16 +396,16 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
         {results === null ? (
           <p className="py-6 text-center font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
             {searching
-              ? "buscando…"
-              : "ejecutá una búsqueda para ver el desglose de score por hit"}
+              ? tt(lang, "retrieval.searching", "buscando…")
+              : tt(lang, "retrieval.runHint", "ejecutá una búsqueda para ver el desglose de score por hit")}
           </p>
         ) : results.length === 0 ? (
           <p className="py-6 text-center font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
-            sin resultados — probá otra query o subí el top-k
+            {tt(lang, "retrieval.noResults", "sin resultados — probá otra query o subí el top-k")}
           </p>
         ) : visibleResults === null || visibleResults.length === 0 ? (
           <p className="py-6 text-center font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
-            todos los hits cayeron bajo el umbral {threshold.toFixed(3)} o el filtro de metadata
+            {tp(lang, "retrieval.underThreshold", "todos los hits cayeron bajo el umbral {t} o el filtro de metadata", { t: threshold.toFixed(3) })}
           </p>
         ) : (
           <ol className="space-y-3">
@@ -410,7 +416,7 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
                 <li
                   key={key}
                   className="border-2 border-foreground bg-background p-3"
-                  aria-label={`Resultado ${r.id}`}
+                  aria-label={tp(lang, "retrieval.resultAria", "Resultado {id}", { id: r.id })}
                 >
                   <div className="flex items-baseline justify-between gap-2">
                     <div className="min-w-0">
@@ -422,7 +428,7 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
                     <span className="shrink-0 font-tech text-[10px] text-muted-foreground">
                       {r.explanation?.matched_tokens?.length
                         ? `tokens: ${r.explanation.matched_tokens.join(" ")}`
-                        : "sin tokens (vector-only)"}
+                        : tt(lang, "retrieval.noTokens", "sin tokens (vector-only)")}
                     </span>
                   </div>
                   <p className="mt-1 line-clamp-2 text-[13px] opacity-80">{r.text}</p>
@@ -433,6 +439,7 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
                       explanation={r.explanation}
                       score={r.score}
                       maxScore={displayMax}
+                      lang={lang}
                     />
                   </div>
 
@@ -446,7 +453,7 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
                         )}
                         className="press border-2 border-foreground bg-background px-2 py-0.5 text-[10px] font-semibold"
                       >
-                        ▸ INSPECTOR
+                        {tt(lang, "retrieval.inspector", "▸ INSPECTOR")}
                       </button>
                     )}
                     <button
@@ -457,7 +464,7 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
                         open ? "bg-neon text-background" : "bg-background"
                       }`}
                     >
-                      {open ? "▾ ocultar contexto" : "▸ ver contexto"}
+                      {open ? tt(lang, "retrieval.hideCtx", "▾ ocultar contexto") : tt(lang, "retrieval.showCtx", "▸ ver contexto")}
                     </button>
                     {r.explanation?.snippet && (
                       <span className="truncate font-tech text-[10px] text-muted-foreground">
@@ -469,13 +476,13 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
                   {open && (
                     <div className="mt-2 border-t-2 border-dashed border-foreground pt-2">
                       {contextLoading ? (
-                        <p className="font-tech text-[10px] text-muted-foreground">cargando contexto…</p>
+                        <p className="font-tech text-[10px] text-muted-foreground">{tt(lang, "retrieval.loadingCtx", "cargando contexto…")}</p>
                       ) : context ? (
                         <div className="space-y-2 font-tech text-[11px]">
                           {/* Vecino semántico (e) */}
                           <div>
                             <div className="font-tech text-[10px] uppercase tracking-widest text-neon">
-                              vecino semántico
+                              {tt(lang, "retrieval.neighborTitle", "vecino semántico")}
                             </div>
                             {context.record?.vector && context.record.vector.length > 0 ? (
                               context.neighbors.length > 0 ? (
@@ -490,25 +497,25 @@ export default function RetrievalLens({ seed, onNotice, onError, onOpenRecord }:
                                   ))}
                                 </ul>
                               ) : (
-                                <p className="mt-1 text-muted-foreground">sin vecinos</p>
+                                <p className="mt-1 text-muted-foreground">{tt(lang, "retrieval.noNeighbors", "sin vecinos")}</p>
                               )
                             ) : (
                               <p className="mt-1 text-muted-foreground">
-                                el registro no tiene vector propio — no hay vecinos semánticos
+                                {tt(lang, "retrieval.noVector", "el registro no tiene vector propio — no hay vecinos semánticos")}
                               </p>
                             )}
                           </div>
                           {/* Historial del audit (e) */}
                           <div>
                             <div className="font-tech text-[10px] uppercase tracking-widest text-neon">
-                              historial (audit)
+                              {tt(lang, "retrieval.auditTitle", "historial (audit)")}
                             </div>
                             {context.auditErr ? (
                               <p className="mt-1 text-muted-foreground">
-                                {context.auditErr} — {context.auditErr.includes("no configurado") ? "activá audit_log_path en el backend" : ""}
+                                {context.auditErr} — {context.auditErr.includes("no configurado") ? tt(lang, "retrieval.auditHint", "activá audit_log_path en el backend") : ""}
                               </p>
                             ) : context.audit.length === 0 ? (
-                              <p className="mt-1 text-muted-foreground">sin eventos para este key</p>
+                              <p className="mt-1 text-muted-foreground">{tt(lang, "retrieval.noAuditEvents", "sin eventos para este key")}</p>
                             ) : (
                               <ul className="mt-1 space-y-0.5">
                                 {context.audit.slice(0, 10).map((ev, i) => (

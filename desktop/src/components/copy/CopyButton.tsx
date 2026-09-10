@@ -4,6 +4,8 @@
 import { useState } from "react";
 import { vantaErrorMessage } from "../../vanta";
 import { copyText } from "./copy-as";
+import { tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 export function CopyButton({
   getText,
@@ -11,6 +13,7 @@ export function CopyButton({
   title,
   onError,
   className,
+  lang = connectionPrefs.get().lang ?? "es",
 }: {
   getText: () => string;
   /** Contenido del botón (ícono o texto corto). */
@@ -19,6 +22,7 @@ export function CopyButton({
   title: string;
   onError: (msg: string) => void;
   className?: string;
+  lang?: DesktopLang;
 }) {
   const [copied, setCopied] = useState(false);
 
@@ -42,7 +46,7 @@ export function CopyButton({
         copied ? "bg-neon text-background" : "bg-background"
       } ${className ?? ""}`}
     >
-      {copied ? "✓ copiado" : label}
+      {copied ? tt(lang, "copy.copied", "✓ copiado") : label}
     </button>
   );
 }

@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { listPage, type MemoryRecord } from "../../vanta";
 import type { ProjectResponse } from "./projection.worker";
+import { tt, type DesktopLang } from "../../i18n";
 
 const PAGE_SIZE = 5000;
 const MAX_POINTS = 100_000;
@@ -80,7 +81,7 @@ async function fetchAllVectors(
  * - Changing namespace cancels any in-flight projection (worker is terminated).
  * - Fixed seed → reproducible embedding.
  */
-export function useProjection() {
+export function useProjection(lang: DesktopLang = "es") {
   const [state, setState] = useState<ProjectionState>(IDLE);
   const workerRef = useRef<Worker | null>(null);
   const cancelledRef = useRef(false);
@@ -121,7 +122,7 @@ export function useProjection() {
           setState({
             ...IDLE,
             phase: "error",
-            error: "No hay registros con vector para proyectar",
+            error: tt(lang, "space.noVectors", "No hay registros con vector para proyectar"),
           });
           return;
         }

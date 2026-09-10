@@ -25,6 +25,8 @@ import {
 import { favoritesStore } from "../../store/favorites";
 import { CopyButton } from "../copy/CopyButton";
 import { recordToJson, recordToMarkdown } from "../copy/copy-as";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 export type InspectorTab = "general" | "metadata" | "vector" | "payload" | "historial";
 
@@ -37,6 +39,7 @@ interface Props {
   /** Record actualizado tras `vantaPut` (nuevo version). */
   onSaved: (updated: MemoryRecord) => void;
   onError: (msg: string) => void;
+  lang?: DesktopLang;
 }
 
 const TABS: { id: InspectorTab; label: string }[] = [
@@ -47,7 +50,7 @@ const TABS: { id: InspectorTab; label: string }[] = [
   { id: "historial", label: "HISTORIAL" },
 ];
 
-export default function Inspector({ record, score, dark, onClose, onSaved, onError }: Props) {
+export default function Inspector({ record, score, dark, onClose, onSaved, onError, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   const [tab, setTab] = useState<InspectorTab>("general");
   const [payloadText, setPayloadText] = useState(record.text);
   const [metaRows, setMetaRows] = useState<MetaRow[]>(() => metadataToRows(record.metadata ?? {}));
@@ -77,7 +80,7 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
 
   const diffItems = useMemo(() => {
     const items: string[] = [];
-    if (payloadDirty) items.push("payload (texto editado)");
+    if (payloadDirty) items.push(tt(lang, "inspector.payloadEdited", "payload (texto editado)"));
     if (metaDirty) {
       const before = new Set(Object.keys(record.metadata ?? {}));
       const after = new Set(metaRows.map((r) => r.key.trim()).filter(Boolean));
@@ -85,19 +88,21 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
       const removed = [...before].filter((k) => !after.has(k));
       const kept = [...after].filter((k) => before.has(k));
       const parts: string[] = [];
-      if (added.length) parts.push(`+${added.length} key`);
-      if (removed.length) parts.push(`-${removed.length} key`);
-      if (kept.length) parts.push(`~${kept.length} valor${kept.length === 1 ? "" : "es"}`);
-      items.push(`metadata (${parts.join(" ") || "sin cambios netos"})`);
+      if (added.length) parts.push(tp(lang, "inspector.diffAdded", "+{n} key", { n: String(added.length) }));
+      if (removed.length) parts.push(tp(lang, "inspector.diffRemoved", "-{n} key", { n: String(removed.length) }));
+      if (kept.length) parts.push(kept.length === 1
+        ? tp(lang, "inspector.diffKeptOne", "~{n} valor", { n: String(kept.length) })
+        : tp(lang, "inspector.diffKeptMany", "~{n} valores", { n: String(kept.length) }));
+      items.push(tp(lang, "inspector.metaEdited", "metadata ({p})", { p: parts.join(" ") || tt(lang, "inspector.metaNoNet", "sin cambios netos") }));
     }
     if (ttlDirty) {
       const before = record.expires_at_ms
-        ? `${fmtDuration(record.expires_at_ms - Date.now())} restante`
-        : "sin expiración";
-      items.push(`TTL (${before} → nueva)`);
+        ? tp(lang, "inspector.ttlRemaining", "{d} restante", { d: fmtDuration(record.expires_at_ms - Date.now()) })
+        : tt(lang, "inspector.noExpiry", "sin expiración");
+      items.push(tp(lang, "inspector.ttlChange", "TTL ({b} → nueva)", { b: before }));
     }
     return items;
-  }, [payloadDirty, metaDirty, ttlDirty, record, metaRows]);
+  }, [payloadDirty, metaDirty, ttlDirty, record, metaRows, lang]);
 
   async function handleSave() {
     if (metaCheck.error) {
@@ -149,7 +154,7 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
   return (
     <aside
       className="flex w-[400px] shrink-0 flex-col overflow-hidden border-l-4 border-foreground bg-card"
-      aria-label="Inspector de registro"
+      aria-label={tt(lang, "inspector.aria", "Inspector de registro")}
     >
       {/* Header: key/ns mono */}
       <div className="flex items-center justify-between gap-2 border-b-4 border-foreground px-4 py-3">
@@ -169,7 +174,7 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
           type="button"
           onClick={onClose}
           className="press flex h-6 w-6 shrink-0 items-center justify-center border-2 border-foreground text-xs"
-          aria-label="Cerrar inspector"
+          aria-label={tt(lang, "inspector.closeAria", "Cerrar inspector")}
         >
           ✕
         </button>
@@ -185,41 +190,44 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
           className={`press flex h-6 w-6 items-center justify-center border-2 border-foreground text-sm ${
             isFav ? "bg-neon text-background" : "bg-background"
           }`}
-          title={isFav ? `Quitar ${record.id} de favoritos` : `Agregar ${record.id} a favoritos`}
-          aria-label={isFav ? `Quitar ${record.id} de favoritos` : `Agregar ${record.id} a favoritos`}
+          title={isFav ? tp(lang, "inspector.favRemove", "Quitar {id} de favoritos", { id: record.id }) : tp(lang, "inspector.favAdd", "Agregar {id} a favoritos", { id: record.id })}
+          aria-label={isFav ? tp(lang, "inspector.favRemove", "Quitar {id} de favoritos", { id: record.id }) : tp(lang, "inspector.favAdd", "Agregar {id} a favoritos", { id: record.id })}
         >
           ★
         </button>
         <CopyButton
           getText={() => recordToJson(record)}
-          label="JSON"
-          title="Copiar registro completo (JSON)"
+          label={tt(lang, "inspector.jsonLabel", "JSON")}
+          title={tt(lang, "inspector.jsonTitle", "Copiar registro completo (JSON)")}
           onError={onError}
+          lang={lang}
           className="h-6 px-2"
         />
         <CopyButton
           getText={() => record.id}
-          label="KEY"
-          title="Copiar key"
+          label={tt(lang, "inspector.keyLabel", "KEY")}
+          title={tt(lang, "inspector.keyTitle", "Copiar key")}
           onError={onError}
+          lang={lang}
           className="h-6 px-2"
         />
         <CopyButton
           getText={() => recordToMarkdown(record)}
-          label="MD"
-          title="Copiar payload (markdown)"
+          label={tt(lang, "inspector.mdLabel", "MD")}
+          title={tt(lang, "inspector.mdTitle", "Copiar payload (markdown)")}
           onError={onError}
+          lang={lang}
           className="h-6 px-2"
         />
         <span className="ml-auto font-tech text-[9px] uppercase tracking-widest text-muted-foreground">
-          copiar
+          {tt(lang, "inspector.copyHint", "copiar")}
         </span>
       </div>
 
       {/* Tabs (UX-07: tablist + roving tabindex + flechas ←/→) */}
       <div
         role="tablist"
-        aria-label="Detalles del registro"
+        aria-label={tt(lang, "inspector.tabsAria", "Detalles del registro")}
         aria-orientation="horizontal"
         onKeyDown={onTablistKey}
         className="flex border-b-4 border-foreground bg-background"
@@ -250,11 +258,11 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
         aria-labelledby={`insp-tab-${tab}`}
         className="flex-1 overflow-y-auto scroll-manga p-4"
       >
-        {tab === "general" && <GeneralTab record={record} score={score} ttl={ttl} setTtl={setTtl} />}
-        {tab === "metadata" && <MetadataTab rows={metaRows} setRows={setMetaRows} />}
-        {tab === "vector" && <VectorTab record={record} />}
-        {tab === "payload" && <PayloadTab text={payloadText} onChange={setPayloadText} dark={dark} />}
-        {tab === "historial" && <HistorialTab record={record} onSaved={onSaved} onError={onError} />}
+        {tab === "general" && <GeneralTab record={record} score={score} ttl={ttl} setTtl={setTtl} lang={lang} />}
+        {tab === "metadata" && <MetadataTab rows={metaRows} setRows={setMetaRows} lang={lang} />}
+        {tab === "vector" && <VectorTab record={record} lang={lang} />}
+        {tab === "payload" && <PayloadTab text={payloadText} onChange={setPayloadText} dark={dark} lang={lang} />}
+        {tab === "historial" && <HistorialTab record={record} onSaved={onSaved} onError={onError} lang={lang} />}
       </div>
 
       {/* Footer: commit explícito (P6) */}
@@ -263,15 +271,15 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
           <>
             <div className="flex items-center justify-between">
               <span className="font-tech text-[10px] uppercase tracking-widest text-accent-text">
-                Cambios sin guardar
+                {tt(lang, "inspector.changesTitle", "Cambios sin guardar")}
               </span>
               {savedFlash && (
-                <span className="font-tech text-[10px] text-accent-text">✓ guardado v{record.version}</span>
+                <span className="font-tech text-[10px] text-accent-text">{tp(lang, "inspector.savedBadge", "✓ guardado v{v}", { v: String(record.version) })}</span>
               )}
             </div>
             <details className="mt-2 border-2 border-dashed border-foreground bg-background p-2">
               <summary className="cursor-pointer font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-                ver diff ({diffItems.length})
+                {tp(lang, "inspector.viewDiff", "ver diff ({n})", { n: String(diffItems.length) })}
               </summary>
               <ul className="mt-1 list-inside list-disc space-y-0.5 font-tech text-[10px]">
                 {diffItems.map((d) => (
@@ -286,7 +294,7 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
                 disabled={saving}
                 className="press flex-1 border-2 border-foreground bg-background px-3 py-2 text-xs font-semibold"
               >
-                REVERTIR
+                {tt(lang, "inspector.discardBtn", "REVERTIR")}
               </button>
               <button
                 type="button"
@@ -294,7 +302,7 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
                 disabled={saving || metaCheck.error !== null}
                 className="btn-neon-glow flex-1 border-2 border-foreground bg-neon px-3 py-2 text-xs font-bold text-background"
               >
-                {saving ? "GUARDANDO…" : "GUARDAR"}
+                {saving ? tt(lang, "inspector.savingBtn", "GUARDANDO…") : tt(lang, "inspector.saveBtn", "GUARDAR")}
               </button>
             </div>
             {metaCheck.error && (
@@ -303,11 +311,11 @@ export default function Inspector({ record, score, dark, onClose, onSaved, onErr
           </>
         ) : savedFlash ? (
           <div className="text-center font-tech text-[10px] uppercase tracking-widest text-accent-text">
-            ✓ guardado v{record.version}
+            {tp(lang, "inspector.savedBadge", "✓ guardado v{v}", { v: String(record.version) })}
           </div>
         ) : (
           <p className="text-center font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-            commit explícito — editar y guardar
+            {tt(lang, "inspector.cleanHint", "commit explícito — editar y guardar")}
           </p>
         )}
       </div>

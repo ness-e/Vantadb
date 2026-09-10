@@ -40,6 +40,8 @@ import {
 import ConfirmDiscard from "./ConfirmDiscard";
 import LensShell from "../layout/LensShell";
 import { ShieldCheck } from "lucide-react";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 const PAGE_SIZE = 100;
 
@@ -51,7 +53,7 @@ function fmtVal(v: unknown): string {
   return typeof v === "object" ? JSON.stringify(v) : String(v);
 }
 
-function RecordCard({ rec, score, maxScore }: { rec: PairRecord; score: number; maxScore: number }) {
+function RecordCard({ rec, score, maxScore, lang }: { rec: PairRecord; score: number; maxScore: number; lang: DesktopLang }) {
   const sup = supersededBy(rec.metadata);
   const sim = fmtSim(score, maxScore);
   const metaEntries = Object.entries(rec.metadata ?? {}).filter(([k]) => k !== SUPERSEDED_BY_KEY);
@@ -82,7 +84,7 @@ function RecordCard({ rec, score, maxScore }: { rec: PairRecord; score: number; 
       )}
       {sup && (
         <div className="border-t-2 border-foreground bg-foreground px-2 py-1 font-tech text-[9px] uppercase tracking-widest text-background">
-          ✕ superado por {sup}
+          {tp(lang, "consolidate.supersededBadge", "✕ superado por {s}", { s: sup })}
         </div>
       )}
     </div>
@@ -100,6 +102,7 @@ function MergeEditor({
   onSave,
   onCancel,
   busy,
+  lang,
 }: {
   p: CandidatePair;
   dominant: FieldSource;
@@ -109,6 +112,7 @@ function MergeEditor({
   onSave: () => void;
   onCancel: () => void;
   busy: boolean;
+  lang: DesktopLang;
 }) {
   const metaKeys = [
     ...new Set([...Object.keys(p.a.metadata ?? {}), ...Object.keys(p.b.metadata ?? {})]),
@@ -125,7 +129,7 @@ function MergeEditor({
   return (
     <div className="space-y-2 border-t-2 border-foreground p-2">
       <div className="flex flex-wrap items-center gap-2 font-tech text-[9px] uppercase tracking-widest">
-        <span className="text-muted-foreground">dominante (id vigente):</span>
+        <span className="text-muted-foreground">{tt(lang, "consolidate.dominantLabel", "dominante (id vigente):")}</span>
         {(["a", "b"] as const).map((d) => (
           <label
             key={d}
@@ -181,10 +185,10 @@ function MergeEditor({
           className="press border-2 border-foreground bg-neon px-2 py-0.5 font-tech text-[10px] font-bold uppercase tracking-widest text-background disabled:opacity-50"
         >
           <ShieldCheck className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" />
-          Guardar merge
+          {tt(lang, "consolidate.saveMerge", "Guardar merge")}
         </button>
         <button type="button" onClick={onCancel} disabled={busy} className={BTN}>
-          cancelar
+          {tt(lang, "consolidate.cancel", "cancelar")}
         </button>
       </div>
     </div>
@@ -196,11 +200,13 @@ export default function ConsolidateLens({
   activeName,
   onNotice,
   onError,
+  lang = connectionPrefs.get().lang ?? "es",
 }: {
   active: boolean;
   activeName: string | null;
   onNotice: (msg: string) => void;
   onError: (msg: string) => void;
+  lang?: DesktopLang;
 }) {
   const [ns, setNs] = useState("");
   const [detecting, setDetecting] = useState(false);
@@ -224,7 +230,7 @@ export default function ConsolidateLens({
 
   async function runDetection() {
     if (!active) {
-      onError("Sin backend activo — conectá uno para operar");
+      onError(tt(lang, "consolidate.noBackend", "Sin backend activo — conectá uno para operar"));
       return;
     }
     const nsArg = ns.trim() || undefined;
@@ -256,8 +262,8 @@ export default function ConsolidateLens({
           setRecords(recs);
           setPairs(null);
           const summary = formatAssembleReport(out);
-          setRunInfo(`engine real · ${summary}`);
-          onNotice(`Consolidación (engine real): ${summary}`);
+          setRunInfo(tp(lang, "consolidate.engineReport", "engine real · {s}", { s: summary }));
+          onNotice(tp(lang, "consolidate.engineNotice", "Consolidación (engine real): {s}", { s: summary }));
           return;
         } catch {
           // Sin pipeline real disponible → fallback heurístico.
@@ -282,12 +288,20 @@ export default function ConsolidateLens({
       setSelected(new Set());
       setEditing(null);
       setRunInfo(
-        `${recs.length} registros · ${scanned} búsquedas · ${found.length} pares (top ${MAX_PAIRS}) · umbral score ${found.length > 0 ? "aplicado" : "sin pares"}`,
+        tp(lang, "consolidate.runInfo", "{r} registros · {s} búsquedas · {f} pares (top {m}) · umbral score {t}", {
+          r: String(recs.length),
+          s: String(scanned),
+          f: String(found.length),
+          m: String(MAX_PAIRS),
+          t: found.length > 0
+            ? tt(lang, "consolidate.runInfoApplied", "aplicado")
+            : tt(lang, "consolidate.runInfoEmpty", "sin pares"),
+        }),
       );
       onNotice(
         found.length > 0
-          ? `Consolidación: ${found.length} par(es) candidato(s) detectado(s)`
-          : "Consolidación: sin pares candidatos sobre el umbral",
+          ? tp(lang, "consolidate.foundPairs", "Consolidación: {n} par(es) candidato(s) detectado(s)", { n: String(found.length) })
+          : tt(lang, "consolidate.noPairs", "Consolidación: sin pares candidatos sobre el umbral"),
       );
     } catch (err) {
       onError(vantaErrorMessage(err));
@@ -309,7 +323,7 @@ export default function ConsolidateLens({
       setRecords((prev) =>
         prev ? prev.map((r) => (r.id === sup.id ? { ...r, metadata: mergeSuperseded(r.metadata, kept.id) } : r)) : prev,
       );
-      onNotice(`marcado ${sup.namespace}/${sup.id} → superado por ${kept.id}`);
+      onNotice(tp(lang, "consolidate.marked", "marcado {ns}/{sup} → superado por {kept}", { ns: sup.namespace, sup: sup.id, kept: kept.id }));
     } catch (err) {
       onError(vantaErrorMessage(err));
     }
@@ -330,7 +344,7 @@ export default function ConsolidateLens({
     const kept = dominant === "a" ? p.a : p.b;
     const sup = dominant === "a" ? p.b : p.a;
     const merged = mergeFields(p.a, p.b, sources);
-    setProgress(`mergeando…`);
+    setProgress(tt(lang, "consolidate.progressMerge", "mergeando…"));
     try {
       await vantaPut({
         namespace: kept.namespace,
@@ -348,7 +362,7 @@ export default function ConsolidateLens({
       );
       setPairs((prev) => (prev ? prev.filter((x) => x.a.id !== sup.id && x.b.id !== sup.id) : prev));
       setEditing(null);
-      onNotice(`merge guardado en ${kept.namespace}/${kept.id} · ${sup.id} movido a papelera (Ctrl+Z restaura)`);
+      onNotice(tp(lang, "consolidate.mergeSaved", "merge guardado en {ns}/{id} · {sup} movido a papelera (Ctrl+Z restaura)", { ns: kept.namespace, id: kept.id, sup: sup.id }));
     } catch (err) {
       onError(vantaErrorMessage(err));
     } finally {
@@ -363,7 +377,7 @@ export default function ConsolidateLens({
     try {
       for (let i = 0; i < targets.length; i++) {
         const t = targets[i];
-        setProgress(`eliminando ${i + 1}/${targets.length}…`);
+        setProgress(tp(lang, "consolidate.progressDelete", "eliminando {i}/{n}…", { i: String(i + 1), n: String(targets.length) }));
         if (mode === "trash") {
           await discardToTrash(t);
         } else {
@@ -377,8 +391,8 @@ export default function ConsolidateLens({
       setConfirming(null);
       onNotice(
         mode === "trash"
-          ? `${targets.length} registro(s) movido(s) a papelera (Ctrl+Z restaura)`
-          : `${targets.length} registro(s) eliminado(s) definitivamente`,
+          ? tp(lang, "consolidate.movedTrash", "{n} registro(s) movido(s) a papelera (Ctrl+Z restaura)", { n: String(targets.length) })
+          : tp(lang, "consolidate.purged", "{n} registro(s) eliminado(s) definitivamente", { n: String(targets.length) }),
       );
     } catch (err) {
       onError(vantaErrorMessage(err));
@@ -402,7 +416,7 @@ export default function ConsolidateLens({
     const chosen = pairs.filter((p) => selected.has(pairKey(p.a.id, p.b.id)));
     for (let i = 0; i < chosen.length; i++) {
       const p = chosen[i];
-      setProgress(`marcando ${i + 1}/${chosen.length}…`);
+      setProgress(tp(lang, "consolidate.progressMark", "marcando {i}/{n}…", { i: String(i + 1), n: String(chosen.length) }));
       await markSuperseded(loser === "a" ? p.a : p.b, loser === "a" ? p.b : p.a);
     }
     setProgress("");
@@ -417,7 +431,7 @@ export default function ConsolidateLens({
       .flatMap((p) => [p.a, p.b])
       .filter((r) => supersededBy(r.metadata) !== null);
     if (targets.length === 0) {
-      onNotice("sin registros marcados como superados en la selección — marcá dirección primero");
+      onNotice(tt(lang, "consolidate.noMarked", "sin registros marcados como superados en la selección — marcá dirección primero"));
       return;
     }
     setConfirming(targets);
@@ -431,21 +445,21 @@ export default function ConsolidateLens({
   const allSelected = !!pairs && pairs.length > 0 && selected.size === pairs.length;
 
   return (
-    <section aria-label="Consolidación asistida" className="space-y-4">
+    <section aria-label={tt(lang, "consolidate.sectionAria", "Consolidación asistida")} className="space-y-4">
       {/* Header (UX-01: LensShell compartido) */}
-      <LensShell title="CONSOLIDAR" icon="⇄" meta="duplicados · superados · diff" />
+      <LensShell title="CONSOLIDAR" icon="⇄" meta={tt(lang, "consolidate.meta", "duplicados · superados · diff")} />
 
       {/* Controles */}
       <div className="flex flex-wrap items-center gap-2 border-2 border-foreground bg-card p-3">
         <label className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground" htmlFor="cons-ns">
-          namespace
+          {tt(lang, "consolidate.nsLabel", "namespace")}
         </label>
         <input
           id="cons-ns"
           value={ns}
           onChange={(e) => setNs(e.target.value)}
           placeholder={activeName ?? "default"}
-          aria-label="Namespace a consolidar (vacío = todos)"
+          aria-label={tt(lang, "consolidate.nsAria", "Namespace a consolidar (vacío = todos)")}
           className="w-40 border-2 border-foreground bg-background px-2 py-1 text-xs placeholder:text-muted-foreground"
         />
         <button
@@ -454,11 +468,11 @@ export default function ConsolidateLens({
           disabled={busy}
           className="press border-2 border-foreground bg-background px-3 py-1 text-xs font-semibold disabled:opacity-50"
         >
-          {detecting ? "detectando…" : "⛃ Detectar candidatos"}
+          {detecting ? tt(lang, "consolidate.detecting", "detectando…") : tt(lang, "consolidate.detect", "⛃ Detectar candidatos")}
         </button>
         {supersededCount > 0 && (
           <span className="font-tech text-[10px] uppercase tracking-widest text-neon">
-            {supersededCount} marcado(s)
+            {tp(lang, "consolidate.markedCount", "{n} marcado(s)", { n: String(supersededCount) })}
           </span>
         )}
         {progress && (
@@ -472,25 +486,25 @@ export default function ConsolidateLens({
         <div className="flex flex-wrap items-center gap-2 border-2 border-dashed border-foreground bg-muted px-2 py-1">
           <label className="flex cursor-pointer items-center gap-1 font-tech text-[9px] uppercase tracking-widest">
             <input type="checkbox" checked={!!allSelected} onChange={() => setSelected(allSelected ? new Set() : new Set(pairs.map((p) => pairKey(p.a.id, p.b.id))))} />
-            todos
+            {tt(lang, "consolidate.all", "todos")}
           </label>
           <span className="font-tech text-[9px] uppercase tracking-widest text-muted-foreground">
-            {selected.size} seleccionado(s)
+            {tp(lang, "consolidate.selected", "{n} seleccionado(s)", { n: String(selected.size) })}
           </span>
-          <button type="button" onClick={() => batchMark("a")} disabled={busy || selected.size === 0} className={BTN} title="Marca A como superado por B en cada par seleccionado">
-            superar a→b ({selected.size})
+          <button type="button" onClick={() => batchMark("a")} disabled={busy || selected.size === 0} className={BTN} title={tt(lang, "consolidate.superaATitle", "Marca A como superado por B en cada par seleccionado")}>
+            {tp(lang, "consolidate.superaA", "superar a→b ({n})", { n: String(selected.size) })}
           </button>
-          <button type="button" onClick={() => batchMark("b")} disabled={busy || selected.size === 0} className={BTN} title="Marca B como superado por A en cada par seleccionado">
-            superar b→a ({selected.size})
+          <button type="button" onClick={() => batchMark("b")} disabled={busy || selected.size === 0} className={BTN} title={tt(lang, "consolidate.superaBTitle", "Marca B como superado por A en cada par seleccionado")}>
+            {tp(lang, "consolidate.superaB", "superar b→a ({n})", { n: String(selected.size) })}
           </button>
           <button
             type="button"
             onClick={batchDiscardMarked}
             disabled={busy || selected.size === 0}
             className={BTN}
-            title="Mueve los miembros superados de los pares seleccionados (con confirmación)"
+            title={tt(lang, "consolidate.discardMarkedTitle", "Mueve los miembros superados de los pares seleccionados (con confirmación)")}
           >
-            ✕ descartar superados…
+            {tt(lang, "consolidate.discardMarked", "✕ descartar superados…")}
           </button>
         </div>
       )}
@@ -498,14 +512,14 @@ export default function ConsolidateLens({
       {/* Estado sin backend */}
       {!active && (
         <div className="border-2 border-foreground bg-card p-6 text-center font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
-          sin backend activo — conectá uno para operar
+          {tt(lang, "consolidate.noBackendBox", "sin backend activo — conectá uno para operar")}
         </div>
       )}
 
       {/* Pares candidatos */}
       {pairs !== null && pairs.length === 0 && (
         <div className="border-2 border-foreground bg-card p-6 text-center font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
-          sin pares candidatos sobre el umbral — probá otro namespace o ingerí duplicados primero
+          {tt(lang, "consolidate.noPairsBox", "sin pares candidatos sobre el umbral — probá otro namespace o ingerí duplicados primero")}
         </div>
       )}
       {pairs !== null &&
@@ -520,7 +534,7 @@ export default function ConsolidateLens({
                 <div className="flex min-w-0 items-center gap-2">
                   <input
                     type="checkbox"
-                    aria-label={`Seleccionar par ${key}`}
+                    aria-label={tp(lang, "consolidate.pairAria", "Seleccionar par {k}", { k: key })}
                     checked={checked}
                     onChange={() => toggleSelect(key)}
                   />
@@ -540,10 +554,10 @@ export default function ConsolidateLens({
                     }
                     disabled={busy}
                     className={BTN}
-                    title="Revisar lado a lado y mergear campo a campo"
+                    title={tt(lang, "consolidate.reviewTitle", "Revisar lado a lado y mergear campo a campo")}
                   >
                     <ShieldCheck className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" />
-                    revisar/mergear
+                    {tt(lang, "consolidate.review", "revisar/mergear")}
                   </button>
                   {marked.length > 0 && (
                     <button
@@ -553,7 +567,7 @@ export default function ConsolidateLens({
                       className={BTN}
                       title={`Descartar ${marked.map((m) => m.id).join(", ")}`}
                     >
-                      ✕ descartar superado{marked.length > 1 ? "s" : ""}…
+                      {tp(lang, "consolidate.discardMarkedBtn", "✕ descartar superado{s}…", { s: marked.length > 1 ? "s" : "" })}
                     </button>
                   )}
                 </div>
@@ -564,6 +578,7 @@ export default function ConsolidateLens({
                   dominant={editing.dominant}
                   sources={editing.sources}
                   busy={progress !== ""}
+                  lang={lang}
                   onDominant={(d) =>
                     setEditing({ p, dominant: d, sources: defaultSources(p.a, p.b, d) })
                   }
@@ -578,8 +593,8 @@ export default function ConsolidateLens({
               ) : (
                 <>
                   <div className="flex flex-col gap-2 p-2 sm:flex-row">
-                    <RecordCard rec={p.a} score={p.score} maxScore={maxScore} />
-                    <RecordCard rec={p.b} score={p.score} maxScore={maxScore} />
+                    <RecordCard rec={p.a} score={p.score} maxScore={maxScore} lang={lang} />
+                    <RecordCard rec={p.b} score={p.score} maxScore={maxScore} lang={lang} />
                   </div>
                   <div className="flex flex-wrap gap-1 border-t-2 border-foreground px-2 py-1">
                     <button
@@ -587,18 +602,18 @@ export default function ConsolidateLens({
                       onClick={() => markSuperseded(p.a, p.b)}
                       disabled={busy}
                       className={BTN}
-                      title={`Escribe metadata.superseded_by = ${p.b.id} en ${p.a.id}`}
+                      title={tp(lang, "consolidate.supersededByTitleA", "Escribe metadata.superseded_by = {b} en {a}", { b: p.b.id, a: p.a.id })}
                     >
-                      → {p.a.id} superado por {p.b.id}
+                      {tp(lang, "consolidate.supersededBy", "→ {a} superado por {b}", { a: p.a.id, b: p.b.id })}
                     </button>
                     <button
                       type="button"
                       onClick={() => markSuperseded(p.b, p.a)}
                       disabled={busy}
                       className={BTN}
-                      title={`Escribe metadata.superseded_by = ${p.a.id} en ${p.b.id}`}
+                      title={tp(lang, "consolidate.supersededByTitleA", "Escribe metadata.superseded_by = {b} en {a}", { b: p.a.id, a: p.b.id })}
                     >
-                      → {p.b.id} superado por {p.a.id}
+                      {tp(lang, "consolidate.supersededBy", "→ {a} superado por {b}", { a: p.b.id, b: p.a.id })}
                     </button>
                   </div>
                 </>
@@ -612,6 +627,7 @@ export default function ConsolidateLens({
         <ConfirmDiscard
           targets={confirming}
           busy={progress !== ""}
+          lang={lang}
           onClose={() => setConfirming(null)}
           onConfirm={handleConfirm}
         />

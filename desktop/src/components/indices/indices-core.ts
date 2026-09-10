@@ -11,6 +11,7 @@ import type { NamespaceStatsMap, OperationalMetrics } from "../../vanta";
 // Extensión .ts explícita: node --test (strip-types ESM) no resuelve sin ella.
 import { fmtBytes } from "../../lib/format.ts";
 export { fmtBytes };
+import { tt, type DesktopLang } from "../../i18n";
 
 export function fmtCount(n: number): string {
   if (n >= 1e9) return `${(n / 1e9).toFixed(2)}B`;
@@ -69,31 +70,31 @@ export interface IndexTile {
 
 /** HNSW/vector index tiles. `dims` is NOT exposed by the core — the tile
  * renders "—" and the gap is listed in CORE_GAPS (never invented). */
-export function vectorIndexTiles(m: OperationalMetrics): IndexTile[] {
+export function vectorIndexTiles(m: OperationalMetrics, lang: DesktopLang = "es"): IndexTile[] {
   return [
-    { key: "hnsw_nodes", label: "Nodos HNSW", value: fmtCount(m.hnsw_nodes_count) },
-    { key: "hnsw_bytes", label: "HNSW lógico", value: fmtBytes(m.hnsw_logical_bytes) },
-    { key: "ann_rebuild", label: "Rebuild ANN", value: fmtCount(m.ann_rebuild_ms) + "ms", muted: "último rebuild" },
-    { key: "dims", label: "Dimensionalidad", value: "—", gap: true, muted: "gap: el core no la expone" },
+    { key: "hnsw_nodes", label: tt(lang, "indices.tile.hnswNodes", "Nodos HNSW"), value: fmtCount(m.hnsw_nodes_count) },
+    { key: "hnsw_bytes", label: tt(lang, "indices.tile.hnswBytes", "HNSW lógico"), value: fmtBytes(m.hnsw_logical_bytes) },
+    { key: "ann_rebuild", label: tt(lang, "indices.tile.annRebuild", "Rebuild ANN"), value: fmtCount(m.ann_rebuild_ms) + "ms", muted: tt(lang, "indices.tile.annRebuildMuted", "último rebuild") },
+    { key: "dims", label: tt(lang, "indices.tile.dims", "Dimensionalidad"), value: "—", gap: true, muted: tt(lang, "indices.tile.dimsMuted", "gap: el core no la expone") },
   ];
 }
 
 /** BM25 text index tiles. */
-export function textIndexTiles(m: OperationalMetrics): IndexTile[] {
+export function textIndexTiles(m: OperationalMetrics, lang: DesktopLang = "es"): IndexTile[] {
   return [
-    { key: "postings", label: "Postings", value: fmtCount(m.text_postings_written) },
-    { key: "queries", label: "Queries BM25", value: fmtCount(m.text_lexical_queries) },
-    { key: "candidates", label: "Candidatos", value: fmtCount(m.text_candidates_scored) },
-    { key: "repairs", label: "Repairs", value: fmtCount(m.text_index_repairs) },
+    { key: "postings", label: tt(lang, "indices.tile.postings", "Postings"), value: fmtCount(m.text_postings_written) },
+    { key: "queries", label: tt(lang, "indices.tile.queries", "Queries BM25"), value: fmtCount(m.text_lexical_queries) },
+    { key: "candidates", label: tt(lang, "indices.tile.candidates", "Candidatos"), value: fmtCount(m.text_candidates_scored) },
+    { key: "repairs", label: tt(lang, "indices.tile.repairs", "Repairs"), value: fmtCount(m.text_index_repairs) },
   ];
 }
 
 /** WAL tiles. Only startup-replay counters exist — no live WAL status (gap). */
-export function walTiles(m: OperationalMetrics): IndexTile[] {
+export function walTiles(m: OperationalMetrics, lang: DesktopLang = "es"): IndexTile[] {
   return [
     {
       key: "wal_replay",
-      label: "Replay de arranque",
+      label: tt(lang, "indices.tile.walReplay", "Replay de arranque"),
       value: fmtCount(m.wal_records_replayed),
       muted: `${m.wal_replay_ms}ms`,
     },
@@ -101,14 +102,20 @@ export function walTiles(m: OperationalMetrics): IndexTile[] {
 }
 
 /** Métricas que el core NO expone hoy — documentadas, no inventadas (patrón
- * "no mentir en UI"). Follow-up: agregar campos a `VantaOperationalMetrics`. */
-export const CORE_GAPS: { label: string; detail: string }[] = [
-  {
-    label: "dims",
-    detail: "dimensión del índice vectorial — VantaOperationalMetrics no la expone",
-  },
-  {
-    label: "LSM/WAL status",
-    detail: "estado en vivo del storage — solo existen wal_replay_ms / wal_records_replayed de arranque",
-  },
-];
+ * "no mentir en UI"). Follow-up: agregar campos a `VantaOperationalMetrics`.
+ * Función por idioma (DESKTOP-40-slice3); `CORE_GAPS` preserva el default ES
+ * para compat con indices-core.test.ts. */
+export function coreGaps(lang: DesktopLang = "es"): { label: string; detail: string }[] {
+  return [
+    {
+      label: "dims",
+      detail: tt(lang, "indices.gap.dimsDetail", "dimensión del índice vectorial — VantaOperationalMetrics no la expone"),
+    },
+    {
+      label: "LSM/WAL status",
+      detail: tt(lang, "indices.gap.lsmDetail", "estado en vivo del storage — solo existen wal_replay_ms / wal_records_replayed de arranque"),
+    },
+  ];
+}
+
+export const CORE_GAPS: { label: string; detail: string }[] = coreGaps("es");

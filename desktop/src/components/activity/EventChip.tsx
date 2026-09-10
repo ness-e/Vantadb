@@ -2,6 +2,7 @@
 // texto, para que ningún estado dependa solo del color (VS-18 transversal usa
 // el mismo patrón). Reutilizados por Timeline y la tabla de ActivityPanel.
 import { opMeta, outcomeMeta, type OpTone } from "./logic";
+import { tp, type DesktopLang } from "../../i18n";
 
 /** Clases por tone — la distinción vive en el border/background/text, no solo
  * en el color; el label y el ícono acompañan siempre. */
@@ -13,12 +14,12 @@ const TONE_CLASS: Record<OpTone, string> = {
   unknown: "border-2 border-foreground bg-background text-muted-foreground",
 };
 
-export function OpChip({ op }: { op: string }) {
+export function OpChip({ op, lang }: { op: string; lang: DesktopLang }) {
   const meta = opMeta(op);
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-1 px-1.5 py-0.5 font-tech text-[10px] font-bold uppercase tracking-wider ${TONE_CLASS[meta.tone]}`}
-      title={`operación: ${op}`}
+      title={tp(lang, "activity.opTitle", "operación: {op}", { op })}
     >
       <span aria-hidden="true">{meta.icon}</span>
       {meta.label}
@@ -26,14 +27,14 @@ export function OpChip({ op }: { op: string }) {
   );
 }
 
-export function OutcomeBadge({ outcome }: { outcome: string }) {
+export function OutcomeBadge({ outcome, lang }: { outcome: string; lang: DesktopLang }) {
   const meta = outcomeMeta(outcome);
   return (
     <span
       className={`inline-flex shrink-0 items-center gap-1 font-tech text-[10px] font-bold uppercase tracking-wider ${
         meta.err ? "text-neon" : "text-muted-foreground"
       }`}
-      title={`outcome: ${outcome}`}
+      title={tp(lang, "activity.outcomeTitle", "outcome: {o}", { o: outcome })}
     >
       <span aria-hidden="true">{meta.icon}</span>
       {meta.label}

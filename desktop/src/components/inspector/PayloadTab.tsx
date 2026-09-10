@@ -8,14 +8,17 @@ import { json, jsonParseLinter } from "@codemirror/lang-json";
 import { linter, lintGutter } from "@codemirror/lint";
 import { oneDark } from "@codemirror/theme-one-dark";
 import ReactMarkdown from "react-markdown";
+import { tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 interface Props {
   text: string;
   onChange: (t: string) => void;
   dark: boolean;
+  lang?: DesktopLang;
 }
 
-export default function PayloadTab({ text, onChange, dark }: Props) {
+export default function PayloadTab({ text, onChange, dark, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   const [mode, setMode] = useState<"preview" | "edit">("preview");
 
   const parsedJson = useMemo(() => {
@@ -38,7 +41,7 @@ export default function PayloadTab({ text, onChange, dark }: Props) {
           }`}
           aria-pressed={mode === "preview"}
         >
-          preview
+          {tt(lang, "inspector.previewTab", "preview")}
         </button>
         <button
           type="button"
@@ -48,7 +51,7 @@ export default function PayloadTab({ text, onChange, dark }: Props) {
           }`}
           aria-pressed={mode === "edit"}
         >
-          editar json
+          {tt(lang, "inspector.editTab", "editar json")}
         </button>
       </div>
 

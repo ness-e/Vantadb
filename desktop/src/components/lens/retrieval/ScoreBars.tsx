@@ -9,6 +9,8 @@ import {
   computeSegments,
   type ScoreSegment,
 } from "./retrieval-core";
+import { tp, tt, type DesktopLang } from "../../../i18n";
+import { connectionPrefs } from "../../../store/connections";
 
 interface Props {
   /** Explanation del hit (puede faltar: search sin explain o backend sin soporte). */
@@ -17,6 +19,7 @@ interface Props {
   score: number;
   /** Mayor score del conjunto — escala común para todas las barras. */
   maxScore: number;
+  lang?: DesktopLang;
 }
 
 /** Estilo por tipo de segmento — gris escala + rayado CSS inline para el vector
@@ -30,9 +33,23 @@ const SEGMENT_STYLE: Record<ScoreSegment["key"], CSSProperties> = {
   rrf: { background: "var(--color-neon, #FF5500)" },
 };
 
-export default function ScoreBars({ explanation, score, maxScore }: Props) {
+/** Etiqueta de segmento en el idioma activo — retrieval-core sigue autónomo
+ * (sin imports) y devuelve solo `key`; la traducción vive acá. */
+const SEGMENT_LABEL_KEY: Record<ScoreSegment["key"], string> = {
+  text: "retrieval.segText",
+  vector: "retrieval.segVector",
+  rrf: "retrieval.segRrf",
+};
+const SEGMENT_LABEL_FB: Record<ScoreSegment["key"], string> = {
+  text: "texto (BM25)",
+  vector: "vector (HNSW)",
+  rrf: "fusión RRF",
+};
+
+export default function ScoreBars({ explanation, score, maxScore, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   const bd = computeSegments(explanation, maxScore);
   const hasSegments = bd.segments.length > 0;
+  const segLabel = (s: ScoreSegment) => tt(lang, SEGMENT_LABEL_KEY[s.key], SEGMENT_LABEL_FB[s.key]);
 
   // Tooltip: desglose por término BM25 (tf/df/doc_len/contribution) + ranks.
   const termLines =
@@ -41,23 +58,24 @@ export default function ScoreBars({ explanation, score, maxScore }: Props) {
     ) ?? [];
   const rankLine =
     explanation?.rrf_text_rank != null || explanation?.rrf_vector_rank != null
-      ? `texto rank=${explanation.rrf_text_rank ?? "—"} · vector rank=${explanation.rrf_vector_rank ?? "—"}`
+      ? tp(lang, "retrieval.rankLine", "texto rank={t} · vector rank={v}", { t: String(explanation.rrf_text_rank ?? "—"), v: String(explanation.rrf_vector_rank ?? "—") })
       : null;
   const tooltip = [
     `score ${score.toFixed(4)}`,
-    ...bd.segments.map((s) => `${s.label}: ${s.value.toFixed(4)} (${s.widthPct.toFixed(1)}%)`),
+    ...bd.segments.map((s) => `${segLabel(s)}: ${s.value.toFixed(4)} (${s.widthPct.toFixed(1)}%)`),
     rankLine,
-    termLines.length ? `términos: ${termLines.join(", ")}` : null,
-    bd.missing ? "sin desglose (explain off)" : null,
+    termLines.length ? tp(lang, "retrieval.termsLine", "términos: {t}", { t: termLines.join(", ") }) : null,
+    bd.missing ? tt(lang, "retrieval.noBreakdown", "sin desglose (explain off)") : null,
   ]
     .filter((l): l is string => !!l)
     .join("\n");
 
   const ariaLabel = bd.missing
-    ? `score ${score.toFixed(4)} — sin desglose`
-    : `score ${score.toFixed(4)}: ${bd.segments
-        .map((s) => `${s.label} ${s.value.toFixed(4)} (${s.widthPct.toFixed(1)}%)`)
-        .join(", ")}`;
+    ? tp(lang, "retrieval.scoreNoBreakdown", "score {s} — sin desglose", { s: score.toFixed(4) })
+    : tp(lang, "retrieval.scoreBreakdown", "score {s}: {segs}", {
+        s: score.toFixed(4),
+        segs: bd.segments.map((s) => `${segLabel(s)} ${s.value.toFixed(4)} (${s.widthPct.toFixed(1)}%)`).join(", "),
+      });
 
   return (
     <div className="flex items-center gap-2" title={tooltip}>
@@ -75,7 +93,7 @@ export default function ScoreBars({ explanation, score, maxScore }: Props) {
                 style={{ width: `${s.widthPct}%`, ...SEGMENT_STYLE[s.key] }}
               >
                 {/* tooltip por segmento (redundancia fina sobre el global) */}
-                <span className="sr-only">{`${s.label} ${s.value.toFixed(4)}`}</span>
+                <span className="sr-only">{`${segLabel(s)} ${s.value.toFixed(4)}`}</span>
               </div>
             ))}
           </div>

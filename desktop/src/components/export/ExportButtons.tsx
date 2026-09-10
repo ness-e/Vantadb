@@ -6,6 +6,8 @@ import { list } from "../../vanta";
 import { vantaErrorMessage } from "../../vanta";
 import { recordsToJsonl, downloadText, copyText } from "./export-jsonl";
 import { buildStatusReport } from "./statusReport";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 function filenameStamp(): string {
   return new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
@@ -15,11 +17,13 @@ export function ExportButtons({
   viewRecords,
   onError,
   onNotice = () => {},
+  lang = connectionPrefs.get().lang ?? "es",
 }: {
   /** Records currently visible in the grid (after column filters). */
   viewRecords: MemoryRecord[];
   onError: (msg: string) => void;
   onNotice?: (msg: string) => void;
+  lang?: DesktopLang;
 }) {
   const [busy, setBusy] = useState<"jsonl" | "report" | null>(null);
   const jsonl = useMemo(() => recordsToJsonl(viewRecords), [viewRecords]);
@@ -29,10 +33,10 @@ export function ExportButtons({
     try {
       if (kind === "download") {
         downloadText(`vanta-view-${filenameStamp()}.jsonl`, jsonl);
-        onNotice(`exported ${viewRecords.length} records (JSONL)`);
+        onNotice(tp(lang, "export.downloadedJsonl", "exportados {n} registros (JSONL)", { n: String(viewRecords.length) }));
       } else {
         const ok = await copyText(jsonl);
-        onNotice(ok ? `copied ${viewRecords.length} records (JSONL)` : "clipboard unavailable");
+        onNotice(ok ? tp(lang, "export.copiedRecords", "copiados {n} registros (JSONL)", { n: String(viewRecords.length) }) : tt(lang, "export.clipboardGone", "clipboard unavailable"));
       }
     } catch (err) {
       onError(vantaErrorMessage(err));
@@ -55,12 +59,12 @@ export function ExportButtons({
         downloadText(`vanta-report-${filenameStamp()}.md`, md);
         onNotice(
           all.length >= 500
-            ? `report generated (sampled: 500 — usa el grid para vistas más chicas)`
-            : `report generated from ${all.length} records (markdown)`,
+            ? tt(lang, "export.reportSampled", "reporte generado (muestra: 500 — usá el grid para vistas más chicas)")
+            : tp(lang, "export.reportGenerated", "reporte generado desde {n} registros (markdown)", { n: String(all.length) }),
         );
       } else {
         const ok = await copyText(md);
-        onNotice(ok ? "report copied (markdown)" : "clipboard unavailable");
+        onNotice(ok ? tt(lang, "export.reportCopied", "reporte copiado (markdown)") : tt(lang, "export.clipboardGone", "clipboard unavailable"));
       }
     } catch (err) {
       onError(vantaErrorMessage(err));
@@ -79,36 +83,36 @@ export function ExportButtons({
         className={btn}
         disabled={busy !== null || viewRecords.length === 0}
         onClick={() => handleJsonl("download")}
-        title={`Descargar la vista actual (${viewRecords.length} records) como JSONL importable`}
+        title={tp(lang, "export.jsonlTitle", "Descargar la vista actual ({n} registros) como JSONL importable", { n: String(viewRecords.length) })}
       >
-        {busy === "jsonl" ? "…" : "⭳ JSONL"}
+        {busy === "jsonl" ? "…" : tt(lang, "export.jsonl", "⭳ JSONL")}
       </button>
       <button
         type="button"
         className={btn}
         disabled={busy !== null || viewRecords.length === 0}
         onClick={() => handleJsonl("copy")}
-        title="Copiar la vista actual como JSONL"
+        title={tt(lang, "export.copyJsonlTitle", "Copiar la vista actual como JSONL")}
       >
-        {busy === "jsonl" ? "…" : "⧉ copiar"}
+        {busy === "jsonl" ? "…" : tt(lang, "export.copyJsonl", "⧉ copiar")}
       </button>
       <button
         type="button"
         className={btn}
         disabled={busy !== null}
         onClick={() => handleReport("download")}
-        title="Descargar reporte de estado markdown (counts, tipos de metadata, TTLs)"
+        title={tt(lang, "export.reportTitle", "Descargar reporte de estado markdown (counts, tipos de metadata, TTLs)")}
       >
-        {busy === "report" ? "…" : "⭳ reporte"}
+        {busy === "report" ? "…" : tt(lang, "export.report", "⭳ reporte")}
       </button>
       <button
         type="button"
         className={btn}
         disabled={busy !== null}
         onClick={() => handleReport("copy")}
-        title="Copiar reporte de estado markdown"
+        title={tt(lang, "export.copyReportTitle", "Copiar reporte de estado markdown")}
       >
-        {busy === "report" ? "…" : "⧉ copiar reporte"}
+        {busy === "report" ? "…" : tt(lang, "export.copyReport", "⧉ copiar reporte")}
       </button>
     </div>
   );

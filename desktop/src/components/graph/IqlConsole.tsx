@@ -11,6 +11,8 @@ import { oneDark } from "@codemirror/theme-one-dark";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { iqlAutocomplete, queryIql, vantaErrorMessage, type VantaQueryResult } from "../../vanta";
 import { TriangleAlert } from "lucide-react";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 const HISTORY_KEY = "vanta.iql.history";
 const MAX_HISTORY = 10;
@@ -42,6 +44,7 @@ interface Props {
   onHighlight: (nodeIds: string[]) => void;
   onNotice: (msg: string) => void;
   onError: (msg: string) => void;
+  lang?: DesktopLang;
 }
 
 type Outcome =
@@ -79,7 +82,7 @@ async function iqlCompletionSource(ctx: CompletionContext): Promise<CompletionRe
   }
 }
 
-export default function IqlConsole({ dark, onHighlight, onNotice, onError }: Props) {
+export default function IqlConsole({ dark, onHighlight, onNotice, onError, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   const [value, setValue] = useState("FROM ");
   const [history, setHistory] = useState<string[]>(loadHistory);
   const [running, setRunning] = useState(false);
@@ -105,17 +108,17 @@ export default function IqlConsole({ dark, onHighlight, onNotice, onError }: Pro
         });
         cbRef.current.onNotice(
           nodeIds.length === result.Read.length
-            ? `IQL read: ${result.Read.length} nodo(s) resaltados`
-            : `IQL read: ${result.Read.length} registros (${nodeIds.length} con node_id)`,
+            ? tp(lang, "graph.console.readNotice", "IQL read: {n} nodo(s) resaltados", { n: String(result.Read.length) })
+            : tp(lang, "graph.console.readNoticePartial", "IQL read: {n} registros ({m} con node_id)", { n: String(result.Read.length), m: String(nodeIds.length) }),
         );
       } else if ("Write" in result) {
         const w = result.Write;
         setOutcome({ kind: "write", message: w.message });
-        cbRef.current.onNotice(`IQL write: ${w.affected_nodes} nodo(s) afectados`);
+        cbRef.current.onNotice(tp(lang, "graph.console.writeNotice", "IQL write: {n} nodo(s) afectados", { n: String(w.affected_nodes) }));
       } else {
         // StaleContext
         setOutcome({ kind: "stale", nodeId: result.StaleContext.node_id });
-        cbRef.current.onNotice("IQL: contexto obsoleto — sincronizá el nodo y reintentá");
+        cbRef.current.onNotice(tt(lang, "graph.console.staleNotice", "IQL: contexto obsoleto — sincronizá el nodo y reintentá"));
       }
     } catch (err) {
       const message = vantaErrorMessage(err);
@@ -124,7 +127,7 @@ export default function IqlConsole({ dark, onHighlight, onNotice, onError }: Pro
     } finally {
       setRunning(false);
     }
-  }, [running]);
+  }, [running, lang]);
 
   const runRef = useRef<(q: string) => void>(() => {});
   runRef.current = (q) => void runQuery(q);
@@ -170,18 +173,18 @@ export default function IqlConsole({ dark, onHighlight, onNotice, onError }: Pro
       {/* Cabecera: título + resultado + acciones */}
       <div className="flex items-center gap-2 border-b border-foreground/40 px-3 py-1">
         <span className="font-tech text-[10px] uppercase tracking-widest text-neon">iql console</span>
-        {running && <span className="font-tech text-[10px] text-muted-foreground">ejecutando…</span>}
+        {running && <span className="font-tech text-[10px] text-muted-foreground">{tt(lang, "graph.console.running", "ejecutando…")}</span>}
         {outcome && (
           <span
             className={`font-tech text-[10px] ${outcome.kind === "error" ? "text-red-700" : "text-muted-foreground"}`}
             role="status"
           >
-            {outcome.kind === "read" && `✓ ${outcome.count} registros (${outcome.nodeIds.length} resaltados)`}
+            {outcome.kind === "read" && tp(lang, "graph.console.outcomeRead", "✓ {n} registros ({m} resaltados)", { n: String(outcome.count), m: String(outcome.nodeIds.length) })}
             {outcome.kind === "write" && `✓ ${outcome.message}`}
             {outcome.kind === "stale" && (
               <>
                 <TriangleAlert className="mr-0.5 inline h-3 w-3 align-[-2px]" strokeWidth={2.5} aria-hidden="true" />
-                contexto obsoleto ({outcome.nodeId})
+                {tp(lang, "graph.console.outcomeStale", "contexto obsoleto ({id})", { id: outcome.nodeId })}
               </>
             )}
             {outcome.kind === "error" && `✗ ${outcome.message}`}
@@ -193,9 +196,9 @@ export default function IqlConsole({ dark, onHighlight, onNotice, onError }: Pro
               type="button"
               onClick={clearHistory}
               className="press border border-foreground bg-background px-2 py-0.5 text-[10px] font-semibold"
-              title="Limpiar historial"
+              title={tt(lang, "graph.console.clearHistTitle", "Limpiar historial")}
             >
-              ✕ historial
+              {tt(lang, "graph.console.clearHist", "✕ historial")}
             </button>
           )}
           <button
@@ -203,9 +206,9 @@ export default function IqlConsole({ dark, onHighlight, onNotice, onError }: Pro
             disabled={running}
             onClick={() => execute(value)}
             className="press border-2 border-foreground bg-neon px-2 py-0.5 text-[10px] font-bold text-background disabled:opacity-50"
-            title="Ejecutar (Ctrl+Enter)"
+            title={tt(lang, "graph.console.execTitle", "Ejecutar (Ctrl+Enter)")}
           >
-            ▶ ejecutar
+            {tt(lang, "graph.console.exec", "▶ ejecutar")}
           </button>
         </div>
       </div>
@@ -228,7 +231,7 @@ export default function IqlConsole({ dark, onHighlight, onNotice, onError }: Pro
         {history.length > 0 && (
           <div className="w-56 shrink-0 overflow-y-auto border-l border-foreground/40 bg-background">
             <p className="border-b border-foreground/40 px-2 py-1 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-              historial
+              {tt(lang, "graph.console.histTitle", "historial")}
             </p>
             <ul>
               {history.map((q) => (
@@ -240,7 +243,7 @@ export default function IqlConsole({ dark, onHighlight, onNotice, onError }: Pro
                       execute(q);
                     }}
                     className="block w-full truncate px-2 py-1 text-left font-mono text-[10px] text-muted-foreground hover:bg-card hover:text-foreground"
-                    title={`Re-ejecutar: ${q}`}
+                    title={tp(lang, "graph.console.reexecTitle", "Re-ejecutar: {q}", { q })}
                   >
                     {q}
                   </button>

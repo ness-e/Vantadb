@@ -1,4 +1,6 @@
 import { useEffect, useRef } from "react";
+import { tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 /**
  * AppContextMenu (FIND-21) — menú contextual propio in-app: reemplaza el menú
@@ -20,11 +22,13 @@ export function AppContextMenu({
   y,
   items,
   onClose,
+  lang = connectionPrefs.get().lang ?? "es",
 }: {
   x: number;
   y: number;
   items: ContextMenuItem[];
   onClose: () => void;
+  lang?: DesktopLang;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -44,7 +48,7 @@ export function AppContextMenu({
     <div
       ref={ref}
       role="menu"
-      aria-label="Menú contextual"
+      aria-label={tt(lang, "ctxmenu.aria", "Menú contextual")}
       tabIndex={-1}
       onKeyDown={(e) => {
         if (e.key === "Escape") onClose();

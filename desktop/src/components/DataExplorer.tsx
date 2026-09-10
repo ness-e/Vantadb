@@ -36,6 +36,8 @@ import { favoritesStore } from "../store/favorites";
 import { CopyButton } from "./copy/CopyButton";
 import { recordToJson } from "./copy/copy-as";
 import { Trash2, TriangleAlert } from "lucide-react";
+import { tp, tt, type DesktopLang } from "../i18n";
+import { connectionPrefs } from "../store/connections";
 
 export interface ExplorerRow {
   id: string;
@@ -61,6 +63,7 @@ interface Props {
   onRefresh?: () => void;
   /** UX-11: navegar al formulario de ingest desde el empty state del grid. */
   onGoToIngest?: () => void;
+  lang?: DesktopLang;
 }
 
 const PAGE = 100;
@@ -201,10 +204,12 @@ function DeleteButton({
   record,
   onDeleted,
   onError,
+  lang,
 }: {
   record: MemoryRecord;
   onDeleted: () => void;
   onError: (msg: string) => void;
+  lang: DesktopLang;
 }) {
   const [confirming, setConfirming] = useState(false);
   const [busy, setBusy] = useState(false);
@@ -231,15 +236,15 @@ function DeleteButton({
             onClick={handleDelete}
             disabled={busy}
             className="press border-2 border-foreground bg-neon px-2 py-1 text-[10px] font-bold text-background"
-            title="Confirmar borrado"
+            title={tt(lang, "data.confirmDeleteTitle", "Confirmar borrado")}
           >
-            {busy ? "…" : "BORRAR"}
+            {busy ? "…" : tt(lang, "data.delete", "BORRAR")}
           </button>
           <button
             type="button"
             onClick={() => setConfirming(false)}
             className="press flex h-6 w-6 items-center justify-center border-2 border-foreground text-[10px]"
-            aria-label="Cancelar borrado"
+            aria-label={tt(lang, "data.cancelAria", "Cancelar borrado")}
           >
             ✕
           </button>
@@ -249,8 +254,8 @@ function DeleteButton({
           type="button"
           onClick={() => setConfirming(true)}
           className="press flex h-6 w-6 items-center justify-center border-2 border-foreground text-[10px]"
-          title="Mover a papelera (Ctrl+Z deshace)"
-          aria-label={`Mover ${record.id} a papelera`}
+          title={tt(lang, "data.deleteTitle", "Mover a papelera (Ctrl+Z deshace)")}
+          aria-label={tp(lang, "data.moveToTrashAria", "Mover {id} a papelera", { id: record.id })}
         >
           <Trash2 className="h-4 w-4" strokeWidth={2.5} aria-hidden="true" />
         </button>
@@ -374,7 +379,7 @@ const baseColumns = helper.columns([
   }),
 ]);
 
-export default function DataExplorer({ active, busy, runError, onSelectRow, onNotice, onRefresh, onGoToIngest }: Props) {
+export default function DataExplorer({ active, busy, runError, onSelectRow, onNotice, onRefresh, onGoToIngest, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   const [query, setQuery] = useState("");
   const [rows, setRows] = useState<ExplorerRow[] | null>(null);
   const [mode, setMode] = useState<"list" | "search">("list");
@@ -540,6 +545,10 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
   loadedKeysRef.current = loadedKeys;
   const selectedRef = useRef(selected);
   selectedRef.current = selected;
+  // Columnas con identidad estable (useMemo []) leen el idioma vía ref latest
+  // (mismo patrón errorRef/removeRowRef de VS-08).
+  const langRef = useRef(lang);
+  langRef.current = lang;
 
   const allLoadedSelected = loadedKeys.length > 0 && loadedKeys.every((k) => selected.has(k));
   const someLoadedSelected = loadedKeys.some((k) => selected.has(k));
@@ -561,7 +570,7 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
     try {
       const jsonl = recordsToJsonl(selectedRecords);
       downloadText(`vanta-selection-${batchStamp()}.jsonl`, jsonl);
-      onNotice?.(`exportados ${selectedRecords.length} registros (JSONL)`);
+      onNotice?.(tp(lang, "data.batchExported", "exportados {n} registros (JSONL)", { n: String(selectedRecords.length) }));
     } catch (err) {
       runError(vantaErrorMessage(err));
     } finally {
@@ -580,7 +589,7 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
         const gone = new Set(selected);
         setRows((prev) => prev?.filter((r) => !gone.has(rowKey(r.record))) ?? prev);
       }
-      onNotice?.(`movidos ${selectedRecords.length} registros a papelera (Ctrl+Z deshace)`);
+      onNotice?.(tp(lang, "data.batchMoved", "movidos {n} registros a papelera (Ctrl+Z deshace)", { n: String(selectedRecords.length) }));
     } catch (err) {
       runError(vantaErrorMessage(err));
     } finally {
@@ -609,10 +618,10 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
               onChange={() => setSelected((s) => selectAll(s, keys))}
               aria-label={
                 all
-                  ? "Quitar selección de todas las filas cargadas"
-                  : "Seleccionar todas las filas cargadas"
+                  ? tt(langRef.current, "data.selAllAriaOn", "Quitar selección de todas las filas cargadas")
+                  : tt(langRef.current, "data.selAllAriaOff", "Seleccionar todas las filas cargadas")
               }
-              title="Seleccionar todas las filas cargadas (página actual)"
+              title={tt(langRef.current, "data.selAllTitle", "Seleccionar todas las filas cargadas (página actual)")}
               className="h-4 w-4 cursor-pointer"
               onClick={(e) => e.stopPropagation()}
             />
@@ -626,8 +635,8 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
               type="checkbox"
               checked={checked}
               onChange={() => setSelected((s) => toggleId(s, key))}
-              aria-label={`Seleccionar ${row.original.id}`}
-              title="Seleccionar para operaciones por lote"
+              aria-label={tp(langRef.current, "data.selRowAria", "Seleccionar {id}", { id: row.original.id })}
+              title={tt(langRef.current, "data.selRowTitle", "Seleccionar para operaciones por lote")}
               className="h-4 w-4 cursor-pointer"
               onClick={(e) => e.stopPropagation()}
             />
@@ -651,20 +660,22 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
                 className={`press flex h-6 w-6 items-center justify-center border-2 border-foreground text-[10px] ${
                   fav ? "bg-neon text-background" : "bg-background"
                 }`}
-                title={fav ? `Quitar ${rec.id} de favoritos` : `Agregar ${rec.id} a favoritos`}
-                aria-label={fav ? `Quitar ${rec.id} de favoritos` : `Agregar ${rec.id} a favoritos`}
+                title={fav ? tp(langRef.current, "inspector.favRemove", "Quitar {id} de favoritos", { id: rec.id }) : tp(langRef.current, "inspector.favAdd", "Agregar {id} a favoritos", { id: rec.id })}
+                aria-label={fav ? tp(langRef.current, "inspector.favRemove", "Quitar {id} de favoritos", { id: rec.id }) : tp(langRef.current, "inspector.favAdd", "Agregar {id} a favoritos", { id: rec.id })}
               >
                 ★
               </button>
               <CopyButton
                 getText={() => recordToJson(rec)}
                 label="⧉"
-                title="Copiar registro completo (JSON)"
+                title={tt(langRef.current, "data.copyTitle", "Copiar registro completo (JSON)")}
                 onError={(m) => errorRef.current(m)}
+                lang={langRef.current}
                 className="h-6 px-1.5"
               />
               <DeleteButton
                 record={rec}
+                lang={langRef.current}
                 onDeleted={() => removeRowRef.current(row.original)}
                 onError={(m) => errorRef.current(m)}
               />
@@ -722,19 +733,20 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
 
   return (
     <section
-      aria-label="Memorias"
+      aria-label={tt(lang, "data.title", "Memorias")}
       className="border-[3px] border-foreground bg-card p-4 shadow-ink"
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="m-0 font-tech text-xs uppercase tracking-widest">Memorias</h2>
+        <h2 className="m-0 font-tech text-xs uppercase tracking-widest">{tt(lang, "data.title", "Memorias")}</h2>
         <span className="text-muted-foreground">
-          {mode} · {rows ? `${rows.length} cargados` : "inactivo"}
-          {mode === "list" && nextCursor != null && " · hay más"}
+          {mode} · {rows ? tp(lang, "data.loadedCount", "{r} cargados", { r: String(rows.length) }) : tt(lang, "data.statusIdle", "inactivo")}
+          {mode === "list" && nextCursor != null && tt(lang, "data.morePages", " · hay más")}
         </span>
         {rows && rows.length > 0 && (
           <ExportButtons
             viewRecords={table.getFilteredRowModel().rows.map((r) => r.original.record)}
             onError={runError}
+            lang={lang}
           />
         )}
       </div>
@@ -744,18 +756,18 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
       {selected.size > 0 && (
         <div
           role="toolbar"
-          aria-label="Operaciones por lote"
+          aria-label={tt(lang, "data.batchAria", "Operaciones por lote")}
           className="mt-2 flex flex-wrap items-center gap-2 border-2 border-neon bg-paper px-2 py-1.5 font-tech text-[10px] uppercase tracking-widest"
         >
-          <span className="font-bold text-foreground">{selected.size} seleccionados</span>
+          <span className="font-bold text-foreground">{tp(lang, "data.selectedCount", "{n} seleccionados", { n: String(selected.size) })}</span>
           <button
             type="button"
             className="press border-2 border-foreground bg-background px-2 py-1"
             disabled={batchBusy !== null}
             onClick={handleBatchExport}
-            title={`Exportar ${selectedRecords.length} registros seleccionados como JSONL`}
+            title={tp(lang, "data.exportTitle", "Exportar {n} registros seleccionados como JSONL", { n: String(selectedRecords.length) })}
           >
-            {batchBusy === "export" ? "…" : `Exportar (${selectedRecords.length})`}
+            {batchBusy === "export" ? "…" : tp(lang, "data.exportBtn", "Exportar ({n})", { n: String(selectedRecords.length) })}
           </button>
           {confirmBatchDelete ? (
             <>
@@ -764,15 +776,15 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
                 className="press border-2 border-foreground bg-neon px-2 py-1 font-bold text-background"
                 disabled={batchBusy !== null}
                 onClick={handleBatchDelete}
-                title="Confirmar borrado (Ctrl+Z deshace)"
+                title={tt(lang, "data.deleteConfirmTitle", "Confirmar borrado (Ctrl+Z deshace)")}
               >
-                {batchBusy === "delete" ? "…" : `BORRAR ${selectedRecords.length}`}
+                {batchBusy === "delete" ? "…" : tp(lang, "data.deleteBtn", "BORRAR {n}", { n: String(selectedRecords.length) })}
               </button>
               <button
                 type="button"
                 className="press flex h-6 w-6 items-center justify-center border-2 border-foreground text-[10px]"
                 onClick={() => setConfirmBatchDelete(false)}
-                aria-label="Cancelar borrado por lote"
+                aria-label={tt(lang, "data.cancelBatchAria", "Cancelar borrado por lote")}
               >
                 ✕
               </button>
@@ -783,9 +795,9 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
               className="press border-2 border-foreground bg-background px-2 py-1"
               disabled={batchBusy !== null}
               onClick={() => setConfirmBatchDelete(true)}
-              title="Mover a papelera (Ctrl+Z deshace)"
+              title={tt(lang, "data.deleteTitle", "Mover a papelera (Ctrl+Z deshace)")}
             >
-              Eliminar ({selectedRecords.length})
+              {tp(lang, "data.deleteBatch", "Eliminar ({n})", { n: String(selectedRecords.length) })}
             </button>
           )}
           <span className="flex-1" />
@@ -796,8 +808,8 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
               setSelected(new Set());
               setConfirmBatchDelete(false);
             }}
-            aria-label="Limpiar selección"
-            title="Limpiar selección"
+            aria-label={tt(lang, "data.clearSelAria", "Limpiar selección")}
+            title={tt(lang, "data.clearSelTitle", "Limpiar selección")}
           >
             ✕
           </button>
@@ -808,8 +820,8 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          placeholder="Consulta semántica (vacío = listar registros)"
-          aria-label="Consultar registros"
+          placeholder={tt(lang, "data.queryPh", "Consulta semántica (vacío = listar registros)")}
+          aria-label={tt(lang, "data.queryAria", "Consultar registros")}
           className="min-w-0 flex-1 border-2 border-foreground bg-background px-2.5 py-1.5"
         />
         <button
@@ -817,18 +829,18 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
           disabled={busy || loading || !active}
           className="press cursor-pointer border-2 border-foreground bg-background px-2.5 py-1.5 text-sm disabled:cursor-default disabled:opacity-50"
         >
-          {loading ? "Cargando…" : "Traer"}
+          {loading ? tt(lang, "data.loadingBtn", "Cargando…") : tt(lang, "data.bringBtn", "Traer")}
         </button>
       </form>
 
       {!active ? (
-        <p className="text-muted-foreground">Sin conexión activa — conectá una para explorar registros.</p>
+        <p className="text-muted-foreground">{tt(lang, "data.noConn", "Sin conexión activa — conectá una para explorar registros.")}</p>
       ) : rows === null ? (
-        <p className="text-muted-foreground">Cargando registros…</p>
+        <p className="text-muted-foreground">{tt(lang, "data.loadingRecs", "Cargando registros…")}</p>
       ) : rows.length === 0 ? (
         /* UX-11: empty state con salida — el grid no es un callejón sin salida. */
         <div className="flex flex-wrap items-center gap-2 py-2">
-          <p className="text-muted-foreground">Sin registros{mode === "search" ? " que coincidan" : ""}.</p>
+          <p className="text-muted-foreground">{tp(lang, "data.noRecs", "Sin registros{extra}.", { extra: mode === "search" ? tt(lang, "data.noRecsSearchExtra", " que coincidan") : "" })}</p>
           {mode === "search" ? (
             <button
               type="button"
@@ -838,16 +850,16 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
               }}
               className="press border-2 border-foreground bg-background px-2 py-1 text-xs"
             >
-              ✕ Limpiar búsqueda
+              {tt(lang, "data.clearSearch", "✕ Limpiar búsqueda")}
             </button>
           ) : onGoToIngest ? (
             <button
               type="button"
               onClick={onGoToIngest}
               className="press border-2 border-foreground bg-neon px-2 py-1 text-[10px] font-bold text-background"
-              title="Ingestar un registro manual"
+              title={tt(lang, "data.ingestTitle", "Ingestar un registro manual")}
             >
-              ＋ Ir a Ingestar
+              {tt(lang, "data.ingestBtn", "＋ Ir a Ingestar")}
             </button>
           ) : null}
         </div>
@@ -855,7 +867,7 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
         <>
           {visibleMeta.length > 0 && (
             <p className="mt-2 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-              campos de metadata en vista: {visibleMeta.join(" · ")}
+              {tp(lang, "data.visibleMeta", "campos de metadata en vista: {f}", { f: visibleMeta.join(" · ") })}
             </p>
           )}
           <div
@@ -881,7 +893,7 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
                               type="button"
                               className="flex items-center gap-1 hover:text-neon"
                               onClick={() => header.column.toggleSorting(sorted === "asc")}
-                              title="Ordenar por columna"
+                              title={tt(lang, "data.sortTitle", "Ordenar por columna")}
                             >
                               {flexRender(header.column.columnDef.header, header.getContext())}
                               <span className="text-accent-text">
@@ -895,8 +907,8 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
                             <input
                               value={(header.column.getFilterValue() as string) ?? ""}
                               onChange={(e) => header.column.setFilterValue(e.target.value)}
-                              placeholder="filtro"
-                              aria-label={`Filtrar ${header.column.id}`}
+                              placeholder={tt(lang, "data.filterPh", "filtro")}
+                              aria-label={tp(lang, "data.filterColAria", "Filtrar {c}", { c: header.column.id })}
                               className="mt-1 w-full border-2 border-ink bg-cream px-1 font-tech text-[10px]"
                             />
                           )}
@@ -925,7 +937,7 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
                       tabIndex={onSelectRow ? 0 : undefined}
                       aria-selected={onSelectRow ? openKey === row.id : undefined}
                       className={onSelectRow ? "cursor-pointer" : undefined}
-                      title={onSelectRow ? "Ver en inspector" : undefined}
+                      title={onSelectRow ? tt(lang, "data.seeInspectorTitle", "Ver en inspector") : undefined}
                       style={{
                         position: "absolute",
                         top: 0,
@@ -947,13 +959,12 @@ export default function DataExplorer({ active, busy, runError, onSelectRow, onNo
             </table>
             {loadingMore && (
               <div className="sticky bottom-0 z-10 border-t-4 border-ink bg-paper p-2 font-tech text-[10px] uppercase tracking-widest text-accent-text">
-                Cargando más…
+                {tt(lang, "data.loadingMore", "Cargando más…")}
               </div>
             )}
           </div>
           <p className="mt-2 text-[10px] text-muted-foreground">
-            {rowCount} filas mostradas · scroll para cargar más (cursor) · ordenar/filtrar por
-            columna sobre los datos cargados
+            {tp(lang, "data.footerHint", "{n} filas mostradas · scroll para cargar más (cursor) · ordenar/filtrar por columna sobre los datos cargados", { n: String(rowCount) })}
           </p>
         </>
       )}

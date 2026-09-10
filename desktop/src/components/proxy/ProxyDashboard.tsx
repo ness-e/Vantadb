@@ -7,6 +7,8 @@
 import { FormEvent, ReactNode, useEffect, useState } from "react";
 // DAUD-06: ✎ (editar URL) → Pencil Lucide — misma regla emoji-risk que FIX-D3a.
 import { Pencil } from "lucide-react";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 const LS_KEY = "vanta.proxy.url";
 /** Evento disparado al guardar la URL para que el shell refresque su botón. */
@@ -61,10 +63,10 @@ async function fetchSnapshot(base: string): Promise<SnapshotWire> {
 }
 
 /** TTL restante legible ("23m", "45s", expirado). */
-export function ttlLabel(expiresAtMs: number | undefined): string {
-  if (expiresAtMs === undefined) return "sin TTL";
+export function ttlLabel(expiresAtMs: number | undefined, lang: DesktopLang = "es"): string {
+  if (expiresAtMs === undefined) return tt(lang, "proxy.noTtl", "sin TTL");
   const s = Math.round((expiresAtMs - Date.now()) / 1000);
-  if (s <= 0) return "expirado";
+  if (s <= 0) return tt(lang, "proxy.expired", "expirado");
   if (s >= 60) return `${Math.floor(s / 60)}m`;
   return `${s}s`;
 }
@@ -82,7 +84,7 @@ function Panel({ title, children }: { title: string; children: ReactNode }) {
   );
 }
 
-export default function ProxyDashboard() {
+export default function ProxyDashboard({ lang = connectionPrefs.get().lang ?? "es" }: { lang?: DesktopLang }) {
   const [configured, setConfigured] = useState(!!proxyUrl());
   const [draft, setDraft] = useState("");
   const [snap, setSnap] = useState<SnapshotWire | null>(null);
@@ -124,20 +126,20 @@ export default function ProxyDashboard() {
     return (
       <div className="mx-auto max-w-2xl p-6">
         <section className="press-lg border-4 border-foreground bg-card p-8">
-          <div className="font-display text-2xl text-stencil">PROXY</div>
+          <div className="font-display text-2xl text-stencil">{tt(lang, "proxy.setupTitle", "PROXY")}</div>
           <p className="mt-2 font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
-            configurá la URL base del proxy local (default :8096)
+            {tt(lang, "proxy.setupHint", "configurá la URL base del proxy local (default :8096)")}
           </p>
           <form onSubmit={handleSave} className="mt-4 flex gap-2">
             <input
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
               placeholder="http://127.0.0.1:8096"
-              aria-label="URL base del proxy"
+              aria-label={tt(lang, "proxy.urlAria", "URL base del proxy")}
               className="min-w-0 flex-1 border-2 border-foreground bg-background px-3 py-1.5 text-sm placeholder:text-muted-foreground"
             />
             <button type="submit" className="press border-2 border-foreground bg-neon px-3 py-1.5 text-xs font-bold text-background">
-              CONECTAR
+              {tt(lang, "proxy.connect", "CONECTAR")}
             </button>
           </form>
         </section>
@@ -153,21 +155,21 @@ export default function ProxyDashboard() {
   return (
     <div className="mx-auto max-w-6xl space-y-5 p-6">
       {/* TurnReports */}
-      <Panel title={`Turn reports${snap ? ` · ${turns.length} recientes` : ""}`}>
-        {error && <p className="text-sm text-muted-foreground">proxy no disponible: {error}</p>}
+      <Panel title={`${tt(lang, "proxy.turnsTitle", "TurnReports")}${snap ? tp(lang, "proxy.turnsCount", "· {n} recientes", { n: String(turns.length) }) : ""}`}>
+        {error && <p className="text-sm text-muted-foreground">{tp(lang, "proxy.notAvailable", "proxy no disponible: {e}", { e: error })}</p>}
         {!error && turns.length === 0 && (
-          <p className="text-sm text-muted-foreground">esperando el primer snapshot…</p>
+          <p className="text-sm text-muted-foreground">{tt(lang, "proxy.waitingSnapshot", "esperando el primer snapshot…")}</p>
         )}
         {turns.length > 0 && (
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b-2 border-foreground text-left font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-                <th className="py-1 pr-2">hora</th>
-                <th className="py-1 pr-2">protocolo</th>
-                <th className="py-1 pr-2">modelo</th>
-                <th className="py-1 pr-2">status</th>
-                <th className="py-1 pr-2">duración</th>
-                <th className="py-1">space</th>
+                <th className="py-1 pr-2">{tt(lang, "proxy.colTime", "hora")}</th>
+                <th className="py-1 pr-2">{tt(lang, "proxy.colProto", "protocolo")}</th>
+                <th className="py-1 pr-2">{tt(lang, "proxy.colModel", "modelo")}</th>
+                <th className="py-1 pr-2">{tt(lang, "proxy.colStatus", "status")}</th>
+                <th className="py-1 pr-2">{tt(lang, "proxy.colDuration", "duración")}</th>
+                <th className="py-1">{tt(lang, "proxy.colSpace", "space")}</th>
               </tr>
             </thead>
             <tbody>
@@ -190,10 +192,10 @@ export default function ProxyDashboard() {
 
       <div className="grid grid-cols-1 gap-5 lg:grid-cols-2">
         {/* Sesiones activas team→agent→task */}
-        <Panel title={`Sesiones activas${snap ? ` · ${sessions.length}` : ""}`}>
+        <Panel title={`${tt(lang, "proxy.sessionsTitle", "Sesiones")}${snap ? tp(lang, "proxy.sessionsCount", "· {n}", { n: String(sessions.length) }) : ""}`}>
           {sessions.length === 0 ? (
             <p className="text-sm text-muted-foreground">
-              sin sesiones — el estado aparece cuando llega tráfico con session header
+              {tt(lang, "proxy.sessionsEmpty", "sin sesiones — el estado aparece cuando llega tráfico con session header")}
             </p>
           ) : (
             <ul className="space-y-1 text-sm">
@@ -204,8 +206,8 @@ export default function ProxyDashboard() {
                   <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
                     {s.stage}
                   </span>
-                  <span className="ml-auto shrink-0 font-tech text-[10px]" title="TTL restante">
-                    {ttlLabel(s.expires_at_ms)}
+                  <span className="ml-auto shrink-0 font-tech text-[10px]" title={tt(lang, "proxy.ttlTitle", "TTL restante")}>
+                    {ttlLabel(s.expires_at_ms, lang)}
                   </span>
                 </li>
               ))}
@@ -214,11 +216,11 @@ export default function ProxyDashboard() {
         </Panel>
 
         {/* Write-back pendiente */}
-        <Panel title="Write-back pendiente">
+        <Panel title={tt(lang, "proxy.wbTitle", "Write-back pendiente")}>
           {wb ? (
             <>
               <p className="m-0 text-[1.4rem] font-bold leading-tight">{wb.pending_count}</p>
-              <p className="mt-1 text-sm text-muted-foreground">escrituras L0 esperando flush</p>
+              <p className="mt-1 text-sm text-muted-foreground">{tt(lang, "proxy.wbHint", "escrituras L0 esperando flush")}</p>
               {wb.pending_labels.length > 0 && (
                 <ul className="mt-2 space-y-1 text-sm">
                   {wb.pending_labels.map((l) => (
@@ -233,21 +235,21 @@ export default function ProxyDashboard() {
         </Panel>
 
         {/* Rate limit */}
-        <Panel title="Rate limit">
+        <Panel title={tt(lang, "proxy.rlTitle", "Rate limit")}>
           {rl ? (
             <dl className="m-0 grid grid-cols-3 gap-2 text-center">
               <div>
-                <dt className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">límite</dt>
+                <dt className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">{tt(lang, "proxy.rlLimit", "límite")}</dt>
                 <dd className="m-0 text-[1.4rem] font-bold leading-tight">{rl.limit_per_minute}/min</dd>
               </div>
               <div>
-                <dt className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">hits 429</dt>
+                <dt className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">{tt(lang, "proxy.rlHits", "hits 429")}</dt>
                 <dd className="m-0 text-[1.4rem] font-bold leading-tight">{rl.hits_total}</dd>
               </div>
               <div>
-                <dt className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">estado</dt>
+                <dt className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">{tt(lang, "proxy.rlState", "estado")}</dt>
                 <dd className={`m-0 text-sm font-bold leading-tight ${rl.degraded ? "text-neon" : ""}`}>
-                  {rl.degraded ? "degraded (fail-open)" : "ok"}
+                  {rl.degraded ? tt(lang, "proxy.degraded", "degraded (fail-open)") : tt(lang, "proxy.okState", "ok")}
                 </dd>
               </div>
             </dl>
@@ -257,13 +259,13 @@ export default function ProxyDashboard() {
         </Panel>
 
         {/* Conexión */}
-        <Panel title="Conexión">
+        <Panel title={tt(lang, "proxy.connTitle", "Conexión")}>
           <p className="m-0 text-sm">
-            <span className="text-muted-foreground">proxy:</span> {proxyUrl()}
+            <span className="text-muted-foreground">{tt(lang, "proxy.proxyLabel", "proxy:")}</span> {proxyUrl()}
           </p>
           {polledAt && (
             <p className="mt-1 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-              último poll {new Date(polledAt).toLocaleTimeString()} · cada 5s
+              {tp(lang, "proxy.lastPoll", "último poll {t} · cada 5s", { t: new Date(polledAt).toLocaleTimeString() })}
             </p>
           )}
           <button
@@ -279,7 +281,7 @@ export default function ProxyDashboard() {
             className="press mt-2 border-2 border-foreground bg-background px-2 py-1 text-xs"
           >
             <Pencil className="mr-1 inline h-3 w-3" strokeWidth={2.5} />
-            cambiar URL
+            {tt(lang, "proxy.changeUrl", "cambiar URL")}
           </button>
         </Panel>
       </div>

@@ -11,11 +11,14 @@ import { eventClock, type BucketGranularity } from "./logic";
 import { OpChip, OutcomeBadge } from "./EventChip";
 import Timeline from "./Timeline";
 import { TriangleAlert } from "lucide-react";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 interface Props {
   onNotice: (msg: string) => void;
   /** Abrir un registro en el Inspector (el shell resuelve key → record). */
   onInspect: (namespace: string, key: string) => void;
+  lang?: DesktopLang;
 }
 
 /** Fragmento del mensaje de error de VS-12 cuando no hay audit configurado. */
@@ -30,7 +33,7 @@ interface Filters {
 
 const NO_FILTERS: Filters = { namespace: "", op: "", outcome: "" };
 
-export default function ActivityPanel({ onNotice, onInspect }: Props) {
+export default function ActivityPanel({ onNotice, onInspect, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   const [events, setEvents] = useState<AuditEvent[]>([]);
   const [cursor, setCursor] = useState<number | null>(null);
   const [filters, setFilters] = useState<Filters>(NO_FILTERS);
@@ -91,7 +94,7 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
 
   function handleInspect(e: AuditEvent) {
     if (e.namespace === "N/A" || e.key === "N/A") {
-      onNotice(`${e.op}: operación sin registro asociado (${e.namespace}:${e.key})`);
+      onNotice(tp(lang, "activity.noRecordNotice", "{op}: operación sin registro asociado ({ns}:{key})", { op: e.op, ns: e.namespace, key: e.key }));
       return;
     }
     onInspect(e.namespace, e.key);
@@ -103,13 +106,13 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
     "border-2 border-foreground bg-background px-2 py-1 font-tech text-[11px] uppercase tracking-wider";
 
   return (
-    <section className="press-lg border-4 border-foreground bg-card" aria-label="Actividad (audit log)">
+    <section className="press-lg border-4 border-foreground bg-card" aria-label={tt(lang, "activity.aria", "Actividad (audit log)")}>
       {/* Header */}
       <div className="border-b-4 border-foreground p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2">
           <h2 className="font-display text-3xl text-stencil">ACTIVITY</h2>
           <div className="flex items-center gap-2">
-            <div className="flex border-2 border-foreground bg-background font-tech text-[10px]" role="group" aria-label="Agrupación temporal">
+            <div className="flex border-2 border-foreground bg-background font-tech text-[10px]" role="group" aria-label={tt(lang, "activity.groupAria", "Agrupación temporal")}>
               {(["hour", "day"] as const).map((g) => (
                 <button
                   key={g}
@@ -122,7 +125,7 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
                     granularity === g ? "bg-neon text-background" : "text-muted-foreground"
                   }`}
                 >
-                  {g === "hour" ? "por hora" : "por día"}
+                  {g === "hour" ? tt(lang, "activity.hourBtn", "por hora") : tt(lang, "activity.dayBtn", "por día")}
                 </button>
               ))}
             </div>
@@ -131,14 +134,15 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
               onClick={() => void fetchPage(null, true)}
               disabled={loading}
               className="press border-2 border-foreground bg-background px-2 py-1 font-tech text-[10px] uppercase tracking-widest"
-              title="Recargar desde el tail del log"
+              title={tt(lang, "activity.reloadTitle", "Recargar desde el tail del log")}
+              aria-label={tt(lang, "activity.reload", "⟳ recargar")}
             >
               ⟳
             </button>
           </div>
         </div>
         <p className="mt-1 font-tech text-[11px] text-muted-foreground">
-          audit log del backend activo — escrituras, borrados, export/import · newest-first
+          {tt(lang, "activity.hint", "audit log del backend activo — escrituras, borrados, export/import · newest-first")}
         </p>
       </div>
 
@@ -150,16 +154,14 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
           <div className="border-2 border-dashed border-foreground bg-background p-4">
             <div className="font-tech text-[11px] font-bold uppercase tracking-widest text-neon">
               <TriangleAlert className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" />
-              audit log no habilitado
+              {tt(lang, "activity.unconfiguredTitle", "audit log no habilitado")}
             </div>
             <p className="mt-2 text-sm">
-              La conexión activa no tiene el audit log configurado, así que no hay
-              actividad para mostrar. Se habilita al conectar un backend nativo —
-              conectá uno desde RESUMEN y volvé a abrir ACTIVITY.
+              {tt(lang, "activity.unconfiguredBody", "La conexión activa no tiene el audit log configurado, así que no hay actividad para mostrar. Se habilita al conectar un backend nativo — conectá uno desde RESUMEN y volvé a abrir ACTIVITY.")}
             </p>
             <details className="mt-2">
               <summary className="cursor-pointer font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-                detalle técnico
+                {tt(lang, "activity.techDetail", "detalle técnico")}
               </summary>
               <p className="mt-1 font-tech text-[10px] text-muted-foreground">
                 El backend rechaza la consulta con <code>Unsupported("audit log no configurado")</code>.
@@ -174,40 +176,40 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
           {/* Filtros (namespace/op/outcome) — el filtrado real corre en Rust */}
           <div className="flex flex-wrap items-center gap-2 border-b-4 border-foreground bg-background p-3">
             <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-              filtrar
+              {tt(lang, "activity.filterLabel", "filtrar")}
             </span>
-            <label className="sr-only" htmlFor="act-namespace">Filtrar por namespace</label>
+            <label className="sr-only" htmlFor="act-namespace">{tt(lang, "activity.nsFilterAria", "Filtrar por namespace")}</label>
             <select
               id="act-namespace"
               className={selectCls}
               value={filters.namespace}
               onChange={(e) => setFilter("namespace", e.target.value)}
             >
-              <option value="">todos los namespaces</option>
+              <option value="">{tt(lang, "activity.nsAll", "todos los namespaces")}</option>
               {namespaces.map((n) => (
                 <option key={n} value={n}>{n}</option>
               ))}
             </select>
-            <label className="sr-only" htmlFor="act-op">Filtrar por operación</label>
+            <label className="sr-only" htmlFor="act-op">{tt(lang, "activity.opFilterAria", "Filtrar por operación")}</label>
             <select
               id="act-op"
               className={selectCls}
               value={filters.op}
               onChange={(e) => setFilter("op", e.target.value)}
             >
-              <option value="">todas las ops</option>
+              <option value="">{tt(lang, "activity.opAll", "todas las ops")}</option>
               {ops.map((o) => (
                 <option key={o} value={o}>{o}</option>
               ))}
             </select>
-            <label className="sr-only" htmlFor="act-outcome">Filtrar por outcome</label>
+            <label className="sr-only" htmlFor="act-outcome">{tt(lang, "activity.outcomeFilterAria", "Filtrar por outcome")}</label>
             <select
               id="act-outcome"
               className={selectCls}
               value={filters.outcome}
               onChange={(e) => setFilter("outcome", e.target.value)}
             >
-              <option value="">ok + err</option>
+              <option value="">{tt(lang, "activity.outcomeAll", "ok + err")}</option>
               <option value="ok">✓ ok</option>
               <option value="err">✕ err</option>
             </select>
@@ -217,46 +219,48 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
                 onClick={() => setFilters(NO_FILTERS)}
                 className="press border-2 border-foreground bg-background px-2 py-1 font-tech text-[10px] uppercase tracking-widest"
               >
-                ✕ limpiar
+                {tt(lang, "activity.clearFilters", "✕ limpiar")}
               </button>
             )}
             {loading && (
               <span className="ml-auto font-tech text-[10px] uppercase tracking-widest text-neon" role="status">
-                cargando…
+                {tt(lang, "activity.loading", "cargando…")}
               </span>
             )}
           </div>
 
           {loadError && (
             <div role="alert" className="border-b-4 border-foreground bg-card px-4 py-2 font-tech text-[11px] text-neon">
-              error al leer el audit log: {loadError}
+              {tp(lang, "activity.loadError", "error al leer el audit log: {e}", { e: loadError })}
             </div>
           )}
 
           {events.length === 0 && !loadError ? (
             <p className="p-8 text-center font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
               {filterActive
-                ? "ningún evento coincide con los filtros"
-                : "sin eventos de auditoría todavía — hacé un put/delete para generar actividad"}
+                ? tt(lang, "activity.emptyFiltered", "ningún evento coincide con los filtros")
+                : tt(lang, "activity.emptyNone", "sin eventos de auditoría todavía — hacé un put/delete para generar actividad")}
             </p>
           ) : (
             <>
               <div className="border-b-4 border-foreground p-4">
                 <div className="mb-3 flex items-baseline gap-2">
                   <span className="font-tech text-[10px] uppercase tracking-widest text-neon">
-                    timeline · {granularity === "hour" ? "por hora" : "por día"}
+                    {tp(lang, "activity.timelineTitle", "timeline · {g}", { g: granularity === "hour" ? tt(lang, "activity.hourBtn", "por hora") : tt(lang, "activity.dayBtn", "por día") })}
                   </span>
                   <span className="font-tech text-[10px] text-muted-foreground">
-                    {events.length} evento{events.length === 1 ? "" : "s"} cargados
+                    {events.length === 1
+                      ? tp(lang, "activity.eventsLoadedOne", "{n} evento cargado", { n: String(events.length) })
+                      : tp(lang, "activity.eventsLoadedMany", "{n} eventos cargados", { n: String(events.length) })}
                   </span>
                 </div>
-                <Timeline events={events} granularity={granularity} onInspect={handleInspect} onPeek={setPeek} />
+                <Timeline events={events} granularity={granularity} lang={lang} onInspect={handleInspect} onPeek={setPeek} />
               </div>
 
               {/* Tabla filtrable (contrato c) */}
               <div className="overflow-x-auto scroll-manga">
                 <table className="w-full border-collapse text-left">
-                  <caption className="sr-only">Eventos de auditoría</caption>
+                  <caption className="sr-only">{tt(lang, "activity.tableCaption", "Eventos de auditoría")}</caption>
                   <thead>
                     <tr className="border-b-2 border-foreground font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
                       <th scope="col" className="px-2 py-1.5">op</th>
@@ -267,7 +271,7 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
                       <th scope="col" className="px-2 py-1.5">reason</th>
                     </tr>
                   </thead>
-                  <tbody>
+                      <tbody>
                     {events.map((e, i) => (
                       <tr
                         key={`${e.timestamp}-${i}`}
@@ -276,7 +280,7 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
                         onMouseLeave={() => setPeek(null)}
                         className="cursor-pointer border-b border-foreground hover:bg-muted"
                       >
-                        <td className="px-2 py-1.5"><OpChip op={e.op} /></td>
+                        <td className="px-2 py-1.5"><OpChip op={e.op} lang={lang} /></td>
                         <td className="px-2 py-1.5">
                           <span className="border-2 border-foreground bg-background px-1.5 py-0.5 font-tech text-[10px]">
                             {e.namespace}
@@ -292,14 +296,14 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
                             className="font-tech text-[12px] underline decoration-neon underline-offset-2 hover:text-neon"
                             title={
                               e.namespace === "N/A" || e.key === "N/A"
-                                ? "operación sin registro asociado"
-                                : `abrir ${e.namespace}:${e.key} en Inspector`
+                                ? tt(lang, "activity.rowNoRecord", "operación sin registro asociado")
+                                : tp(lang, "activity.openInInspector", "abrir {ns}:{key} en Inspector", { ns: e.namespace, key: e.key })
                             }
                           >
                             {e.key}
                           </button>
                         </td>
-                        <td className="px-2 py-1.5"><OutcomeBadge outcome={e.outcome} /></td>
+                        <td className="px-2 py-1.5"><OutcomeBadge outcome={e.outcome} lang={lang} /></td>
                         <td className="px-2 py-1.5 font-tech text-[11px] text-muted-foreground">
                           {eventClock(e.timestamp)}
                         </td>
@@ -319,18 +323,17 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
               >
                 {peek ? (
                   <span className="truncate">
-                    <span className="text-neon">hover</span> · {peek.namespace}:{peek.key} — {peek.op}{" "}
-                    {peek.outcome === "err" ? "✕" : "✓"} · clic para abrir en Inspector
+                    <span className="text-neon">hover</span> · {tp(lang, "activity.peekRest", "{ns}:{key} — {op} {ok} · clic para abrir en Inspector", { ns: peek.namespace, key: peek.key, op: peek.op, ok: peek.outcome === "err" ? "✕" : "✓" })}
                   </span>
                 ) : (
-                  <span className="text-muted-foreground">hover sobre una fila para ver el registro</span>
+                  <span className="text-muted-foreground">{tt(lang, "activity.peekEmpty", "hover sobre una fila para ver el registro")}</span>
                 )}
               </div>
 
               {/* Paginación con cursor de VS-12 */}
               <div className="flex items-center justify-between gap-2 border-t-4 border-foreground p-3">
                 <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-                  {cursor != null ? "hay más eventos viejos" : events.length > 0 ? "fin del log" : ""}
+                  {cursor != null ? tt(lang, "activity.moreOld", "hay más eventos viejos") : events.length > 0 ? tt(lang, "activity.logEnd", "fin del log") : ""}
                 </span>
                 {cursor != null && (
                   <button
@@ -339,7 +342,7 @@ export default function ActivityPanel({ onNotice, onInspect }: Props) {
                     disabled={loading}
                     className="press border-2 border-foreground bg-background px-3 py-1.5 text-xs font-semibold"
                   >
-                    {loading ? "…" : "← cargar más viejos"}
+                    {loading ? tt(lang, "activity.loadingMore", "…") : tt(lang, "activity.loadMore", "← cargar más viejos")}
                   </button>
                 )}
               </div>
