@@ -60,6 +60,7 @@ fn state_for(upstream_url: &str) -> vanta_proxy::server::AppState {
             forward_timeout_secs: 600,
             models: Vec::new(),
         },
+        upstreams: Vec::new(),
         auth: vanta_proxy::config::AuthConfig::default(),
         mem_command: vanta_proxy::config::MemCommandConfig::default(),
         writeback: vanta_proxy::config::WritebackConfig::default(),

@@ -97,6 +97,7 @@ async fn setup(path: &'static str, responses: Vec<String>) -> Env {
             forward_timeout_secs: 600,
             models: Vec::new(),
         },
+        upstreams: Vec::new(),
         auth: AuthConfig::default(),
         mem_command: MemCommandConfig::default(),
         writeback: vanta_proxy::config::WritebackConfig {

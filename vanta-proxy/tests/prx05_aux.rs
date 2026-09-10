@@ -84,6 +84,7 @@ async fn setup_with_capture() -> (String, Shared) {
             forward_timeout_secs: 600,
             models: vec!["claude-opus-4-6".to_string(), "gpt-test".to_string()],
         },
+        upstreams: Vec::new(),
         auth: vanta_proxy::config::AuthConfig::default(),
         mem_command: vanta_proxy::config::MemCommandConfig::default(),
         writeback: vanta_proxy::config::WritebackConfig::default(),
