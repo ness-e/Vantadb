@@ -32,6 +32,49 @@ pub struct VantaDBLiteLLM {
     timeout: Option<f64>,
 }
 
+/// Single embedding request for one chunk — shared by `embed`/`embed_batch`
+/// (free fn rather than a method: `&[String]` is not a valid `#[pymethods]`
+/// argument type, and the helper must not become Python-visible surface).
+fn litellm_embed_chunk(
+    store: &VantaDBLiteLLM,
+    py: Python,
+    texts: &[String],
+) -> PyResult<Vec<Vec<f32>>> {
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("model", &store.model)?;
+    kwargs.set_item("input", texts.to_vec())?;
+    if !store.api_key.is_empty() {
+        kwargs.set_item("api_key", &store.api_key)?;
+    }
+    // litellm.embedding() accepts `timeout` (seconds) as an optional param.
+    // Source: https://docs.litellm.ai/docs/embedding/supported_embedding
+    if let Some(t) = store.timeout {
+        kwargs.set_item("timeout", t)?;
+    }
+    let func = store.embed_fn.as_ref().unwrap().bind(py);
+    let response = func
+        .call((), Some(&kwargs))
+        .map_err(|e| PyRuntimeError::new_err(format!("liteLLM embed error: {}", e)))?;
+
+    let data = response
+        .get_item("data")
+        .map_err(|e| PyRuntimeError::new_err(format!("missing data: {}", e)))?;
+    let data_list = data.cast::<PyList>()?;
+
+    let mut result = Vec::with_capacity(data_list.len());
+    for item in data_list.iter() {
+        let d = item.cast::<PyDict>()?;
+        let emb: Vec<f32> = d
+            .get_item("embedding")
+            .ok()
+            .flatten()
+            .and_then(|v| v.extract::<Vec<f32>>().ok())
+            .ok_or_else(|| PyRuntimeError::new_err("missing embedding"))?;
+        result.push(emb);
+    }
+    Ok(result)
+}
+
 #[pymethods]
 impl VantaDBLiteLLM {
     /// Creates a new VantaDB LiteLLM provider.
@@ -80,39 +123,41 @@ impl VantaDBLiteLLM {
     /// Returns:
     ///     A list of embedding vectors, one per input text.
     fn embed(&self, py: Python, texts: Vec<String>) -> PyResult<Vec<Vec<f32>>> {
-        let kwargs = PyDict::new(py);
-        kwargs.set_item("model", &self.model)?;
-        kwargs.set_item("input", texts)?;
-        if !self.api_key.is_empty() {
-            kwargs.set_item("api_key", &self.api_key)?;
-        }
-        // litellm.embedding() accepts `timeout` (seconds) as an optional param.
-        // Source: https://docs.litellm.ai/docs/embedding/supported_embedding
-        if let Some(t) = self.timeout {
-            kwargs.set_item("timeout", t)?;
-        }
-        let func = self.embed_fn.as_ref().unwrap().bind(py);
-        let response = func
-            .call((), Some(&kwargs))
-            .map_err(|e| PyRuntimeError::new_err(format!("liteLLM embed error: {}", e)))?;
+        litellm_embed_chunk(self, py, &texts)
+    }
 
-        let data = response
-            .get_item("data")
-            .map_err(|e| PyRuntimeError::new_err(format!("missing data: {}", e)))?;
-        let data_list = data.cast::<PyList>()?;
-
-        let mut result = Vec::with_capacity(data_list.len());
-        for item in data_list.iter() {
-            let d = item.cast::<PyDict>()?;
-            let emb: Vec<f32> = d
-                .get_item("embedding")
-                .ok()
-                .flatten()
-                .and_then(|v| v.extract::<Vec<f32>>().ok())
-                .ok_or_else(|| PyRuntimeError::new_err("missing embedding"))?;
-            result.push(emb);
+    /// Generate embeddings in batches of at most `batch_size` texts (PROV-11).
+    ///
+    /// Additive chunked variant of [`Self::embed`]: large volumes are split
+    /// into one API request per chunk and concatenated preserving order, so a
+    /// single oversized request never hits provider limits. Inputs of
+    /// `batch_size` or fewer behave exactly like [`Self::embed`] (1 request).
+    /// Async callers: `await asyncio.to_thread(store.embed_batch, texts)`
+    /// (the method holds no Rust locks across chunks).
+    ///
+    /// Args:
+    ///     texts: List of strings to embed (empty → empty, no request).
+    ///     batch_size: Max texts per request (default: 100, must be >= 1).
+    ///
+    /// Returns:
+    ///     A list of embedding vectors, one per input text, in input order.
+    #[pyo3(signature = (texts, batch_size = 100))]
+    fn embed_batch(
+        &self,
+        py: Python,
+        texts: Vec<String>,
+        batch_size: usize,
+    ) -> PyResult<Vec<Vec<f32>>> {
+        let batch_size = common::validate_batch_size(batch_size)
+            .map_err(pyo3::exceptions::PyValueError::new_err)?;
+        if texts.is_empty() {
+            return Ok(Vec::new());
         }
-        Ok(result)
+        let mut out = Vec::with_capacity(texts.len());
+        for chunk in common::batch_slices(&texts, batch_size) {
+            out.extend(litellm_embed_chunk(self, py, &chunk)?);
+        }
+        Ok(out)
     }
 
     /// Retrieve a memory record by namespace and key.
@@ -309,6 +354,26 @@ mod tests {
         assert!(
             src.contains("cosine") && src.contains("euclidean") && src.contains("l2"),
             "ValueError message must reference the allowed metrics"
+        );
+    }
+
+    /// PROV-11: embed_batch() is an additive chunked API over embed().
+    /// Sanity check: the signature default, the shared helpers and the
+    /// intact sync `embed()` must all be present (aditivo, no breaking).
+    #[test]
+    fn embed_batch_is_additive_chunked_api() {
+        let src = include_str!("python.rs");
+        assert!(
+            src.contains("#[pyo3(signature = (texts, batch_size = 100))]"),
+            "embed_batch() signature must declare `batch_size = 100` default"
+        );
+        assert!(
+            src.contains("validate_batch_size") && src.contains("batch_slices"),
+            "embed_batch() must reuse the shared chunking helpers"
+        );
+        assert!(
+            src.contains("fn embed(&self, py: Python, texts: Vec<String>)"),
+            "sync embed() signature must stay intact (no regression)"
         );
     }
 

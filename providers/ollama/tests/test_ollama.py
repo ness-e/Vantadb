@@ -67,6 +67,67 @@ class TestVantaDBOllama:
         assert len(out[0]) == 4
 
 
+class TestEmbedBatchProv11:
+    """PROV-11: embed_batch() chunking + async pattern (mocked, no network)."""
+
+    def _store(self, tmp_path, monkeypatch, calls):
+        class _FakeClient:
+            def __init__(self, **kwargs):
+                pass
+
+            def embed(self, *, model=None, input=None):
+                calls.append(list(input))
+                return {"embeddings": [[float(t[1:])] * 4 for t in input]}
+
+        import ollama
+
+        monkeypatch.setattr(ollama, "Client", _FakeClient)
+        from vantadb_ollama import VantaDBOllama as _Cls
+
+        return _Cls(str(tmp_path))
+
+    def test_batch_chunks_and_preserves_order(self, tmp_path, monkeypatch):
+        calls = []
+        store = self._store(tmp_path, monkeypatch, calls)
+        texts = [f"t{i}" for i in range(250)]
+        out = store.embed_batch(texts, batch_size=100)
+        assert len(out) == 250
+        assert [v[0] for v in out] == [float(i) for i in range(250)]
+        assert [len(c) for c in calls] == [100, 100, 50]
+
+    def test_batch_small_is_single_request(self, tmp_path, monkeypatch):
+        calls = []
+        store = self._store(tmp_path, monkeypatch, calls)
+        out = store.embed_batch(["t1", "t2"])
+        assert len(out) == 2
+        assert len(calls) == 1
+
+    def test_batch_empty_makes_no_request(self, tmp_path, monkeypatch):
+        calls = []
+        store = self._store(tmp_path, monkeypatch, calls)
+        assert store.embed_batch([]) == []
+        assert calls == []
+
+    def test_batch_invalid_size_raises(self, tmp_path, monkeypatch):
+        import pytest as _pt
+
+        calls = []
+        store = self._store(tmp_path, monkeypatch, calls)
+        with _pt.raises(ValueError, match="batch_size"):
+            store.embed_batch(["t1"], batch_size=0)
+        assert calls == []
+
+    def test_batch_async_via_to_thread(self, tmp_path, monkeypatch):
+        import asyncio
+
+        calls = []
+        store = self._store(tmp_path, monkeypatch, calls)
+        texts = [f"t{i}" for i in range(5)]
+        out = asyncio.run(asyncio.to_thread(store.embed_batch, texts, 2))
+        assert [v[0] for v in out] == [float(i) for i in range(5)]
+        assert [len(c) for c in calls] == [2, 2, 1]
+
+
 # ── Direct storage tests via vantadb_py ──────────────────────────────────
 
 import os
