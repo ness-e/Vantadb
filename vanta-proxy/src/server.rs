@@ -17,7 +17,7 @@ use vantadb::storage::StorageEngine;
 use crate::auth::AuthDb;
 use crate::cache::{self, CachedEntry, ExactCache};
 use crate::capture;
-use crate::config::ProxyConfig;
+use crate::config::{ProxyConfig, UpstreamConfig};
 use crate::cost::{self, BudgetDecision, CostTracker, VirtualKey};
 use crate::forward::Forwarder;
 use crate::handlers;
@@ -26,6 +26,7 @@ use crate::mem_command;
 use crate::memory_tools;
 use crate::rate_limit::{self, RateDecision, RateLimiter, UpstreamHealth};
 use crate::report::{model_from_body, now_ms_u64, Reporter, TurnReport, TurnTimer};
+use crate::routing::{tier_of, ResolvedRoute};
 use crate::session::claude_code::CcRequestKind;
 use crate::session::{parse_stage, session_key_from_headers, SessionStore};
 use crate::sse_intercept;
@@ -135,6 +136,49 @@ impl AppState {
         })
     }
 
+    /// PRX-06: resuelve el routing por tier para una request.
+    ///
+    /// Solo Anthropic clasifica (el CC classifier no vale en otros
+    /// protocolos); el resto es passthrough. Corre ANTES del pipeline pero
+    /// solo lee la identidad para `bypass_keys` — D34 sigue siendo el gate
+    /// en `process_inner`, esto nunca autoriza nada.
+    fn resolve_route(
+        &self,
+        protocol: Protocol,
+        headers: &HeaderMap,
+        body: &Bytes,
+    ) -> ResolvedRoute {
+        let upstreams = self.config.upstreams_resolved();
+        let Some(tier) = tier_of(protocol, body) else {
+            return ResolvedRoute::passthrough(body.clone(), upstreams);
+        };
+        let user_key = self
+            .auth
+            .authenticate(headers)
+            .map(|id| id.user_id)
+            .unwrap_or_default();
+        let Some(d) = self
+            .config
+            .routing
+            .resolve(tier, &user_key, upstreams.len())
+        else {
+            return ResolvedRoute::passthrough(body.clone(), upstreams);
+        };
+        if d.shadow {
+            tracing::info!(tier = ?d.tier, model_override = ?d.model_override, upstream_index = d.upstream_index, "routing shadow — decision logged, wire untouched");
+            return ResolvedRoute::passthrough(body.clone(), upstreams);
+        }
+        let out_body = match &d.model_override {
+            Some(m) => Bytes::from(crate::routing::rewrite_model(body, m)),
+            None => body.clone(),
+        };
+        tracing::info!(tier = ?d.tier, model_override = ?d.model_override, upstream_index = d.upstream_index, "routing enforce");
+        ResolvedRoute {
+            body: out_body,
+            upstreams: ResolvedRoute::prioritize(upstreams, d.upstream_index),
+        }
+    }
+
     /// The MEM-26/27 pipeline:
     /// auth (D34) → rate-limit (D24) → session (D26) → mem-command (D33)
     /// → inject (D29) → forward, wrapped in per-turn reporting.
@@ -150,9 +194,21 @@ impl AppState {
         space_id: &str,
     ) -> Response<Body> {
         let timer = TurnTimer::start();
+        // PRX-06: tier routing BEFORE model extraction so reports/rate-limit
+        // keys ven el modelo ruteado (shadow/enforce loguean la decisión).
+        let route = self.resolve_route(protocol, headers, &body);
+        let body = route.body.clone();
         let model = model_from_body(&body);
         let response = self
-            .process_inner(protocol, wire_path, headers, body.clone(), space_id, &model)
+            .process_inner(
+                protocol,
+                wire_path,
+                headers,
+                body.clone(),
+                space_id,
+                &model,
+                &route.upstreams,
+            )
             .await;
         // D47/MEM-50: completed request → L0 turn capture. Fire-and-forget
         // AFTER the response is built — a slow or failing memory write can
@@ -205,6 +261,7 @@ impl AppState {
         body: Bytes,
         space_id: &str,
         model: &str,
+        upstreams: &[UpstreamConfig],
     ) -> Response<Body> {
         // 1) D34: every request needs a valid user key — no open mode. Auth
         // runs BEFORE the limiter so unauthenticated traffic never burns
@@ -278,14 +335,14 @@ impl AppState {
         // Auth, rate-limit and mem-command above still apply.
         if is_cc_sidequery(protocol, &body) {
             tracing::debug!("cc sidequery — verbatim forward");
-            return self.forward_raw(wire_path, headers, body).await;
+            return self.forward_raw(wire_path, headers, body, upstreams).await;
         }
 
         // 4) D26: resolve/create the session and refresh its TTL clock.
         let Some(key) = session_key_from_headers(headers) else {
             // No session context → clean init: forward verbatim (D29 applies
             // to sessions only).
-            return self.forward_raw(wire_path, headers, body).await;
+            return self.forward_raw(wire_path, headers, body, upstreams).await;
         };
         self.sessions.ensure(&key);
 
@@ -317,6 +374,7 @@ impl AppState {
                 space_id,
                 &key,
                 model,
+                upstreams,
             )
             .await;
 
@@ -439,13 +497,13 @@ impl AppState {
         wire_path: &str,
         headers: &HeaderMap,
         body: Bytes,
+        upstreams: &[UpstreamConfig],
     ) -> Response<Body> {
-        // PRX-02: failover across the resolved upstream list (legacy single
-        // upstream when `upstreams` is empty).
-        let upstreams = self.config.upstreams_resolved();
+        // PRX-02: failover across the upstream list (PRX-06: tier-first
+        // order when routing enforced; legacy single upstream otherwise).
         match self
             .forwarder
-            .forward_with_failover(&upstreams, Method::POST, wire_path, headers, body)
+            .forward_with_failover(upstreams, Method::POST, wire_path, headers, body)
             .await
         {
             Ok(resp) => {
@@ -463,7 +521,8 @@ impl AppState {
     /// and while it invokes one of OUR memory tools, execute them server-side
     /// and re-request with synthesized tool results appended. Only the FINAL
     /// response reaches the client. Everything else (non-SSE, errors, bodies
-    /// without our tools, Responses protocol) forwards verbatim.
+    /// without our tools) forwards verbatim. PRX-06: Responses protocol
+    /// participates (history appends to the `input` array).
     ///
     /// Trade-off accepted by design D46: turns where our tools are announced
     /// lose incremental streaming for buffered rounds.
@@ -476,30 +535,27 @@ impl AppState {
         space_id: &str,
         session_key: &str,
         model: &str,
+        upstreams: &[UpstreamConfig],
     ) -> Response<Body> {
-        // Zero-overhead gate: only OpenAI/Anthropic shapes with our tools
-        // announced pay for interception; everything else is byte-identical
-        // passthrough.
-        if !matches!(protocol, Protocol::OpenAI | Protocol::Anthropic)
-            || !memory_tools::announces(&body)
+        // Zero-overhead gate: only shapes with our tools announced pay for
+        // interception (PRX-06: Responses included); everything else is
+        // byte-identical passthrough.
+        if !matches!(
+            protocol,
+            Protocol::OpenAI | Protocol::Anthropic | Protocol::Responses
+        ) || !memory_tools::announces(&body)
         {
-            return self.forward_raw(wire_path, headers, body).await;
+            return self.forward_raw(wire_path, headers, body, upstreams).await;
         }
         let protocol_label = protocol_name(protocol);
         let mut current = body;
         let mut executed = 0usize;
         loop {
-            // PRX-02: each tool-loop round also fails over across upstreams.
-            let upstreams = self.config.upstreams_resolved();
+            // PRX-02: each tool-loop round also fails over across upstreams
+            // (PRX-06: tier-first order when routing enforced).
             let response = self
                 .forwarder
-                .forward_with_failover(
-                    &upstreams,
-                    Method::POST,
-                    wire_path,
-                    headers,
-                    current.clone(),
-                )
+                .forward_with_failover(upstreams, Method::POST, wire_path, headers, current.clone())
                 .await;
             let (parts, body) = match response {
                 Ok(response) => {
@@ -528,7 +584,8 @@ impl AppState {
             };
             let events = sse_intercept::data_events(&captured.full);
             let message = match protocol {
-                Protocol::OpenAI | Protocol::Responses => sse_intercept::openai_message(&events),
+                Protocol::OpenAI => sse_intercept::openai_message(&events),
+                Protocol::Responses => sse_intercept::responses_message(&events),
                 Protocol::Anthropic => sse_intercept::anthropic_message(&events),
             };
             let calls = memory_tools::extract(&message);

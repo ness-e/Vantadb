@@ -22,6 +22,7 @@ pub mod mem_command;
 pub mod memory_tools;
 pub mod rate_limit;
 pub mod report;
+pub mod routing;
 pub mod server;
 pub mod session;
 pub mod sse_intercept;

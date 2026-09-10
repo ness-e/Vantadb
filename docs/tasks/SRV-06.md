@@ -8,9 +8,9 @@
 - **Tipo:** Rust (src/server/ + src/config.rs)
 - **Turns estimados:** 15-20
 - **Creado:** 2026-09-10
-- **Estado:** ⏳ IN PROGRESS (steps 1-5 ✅, step 6 commit pendiente)
+- **Estado:** ✅ COMPLETED (commit a0a3087f, 20 archivos solo-propios)
 - **Incógnitas (uphill):** 0 (HS256 gana por evidencia; OIDC DEFER documentado en ADR-039)
-- **Pendientes (downhill):** 1 (step 6 commit)
+- **Pendientes (downhill):** 0
 
 ## Blast Radius
 
@@ -133,7 +133,7 @@
 - **Archivos:** solo tocados por SRV-06
 - **Acción:** `git add` selectivo (NO opencode.jsonc/.opencode/Backlog/avance/Investigacion-plan.md) + commit `feat: SRV-06 — ...` + `campaign_update_task_state completed` + RESULTADO
 - **Verify:** `git status --short` limpio de ajenos + `git log --oneline -1`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (commit a0a3087f; incidente: 2 commits previos arrastraron WIP PRX-06 por `git add` concurrente del agente paralelo — revertidos vía soft-reset + pathspec; WIP ajeno intacto)
 
 ## Dependencias
 - Wave2 paralelo: PRX-06 (vanta-proxy/src/server.rs) + PROV-11 (providers/) — archivos disjuntos, sin orden requerido.
@@ -143,8 +143,8 @@
 - **Revisor:** doubt-driven-development (degraded, mismo contexto — no hay sub-agente distinto disponible en este runner; cross-model skipped: contexto no-interactivo) + `code-review-and-quality` pre-commit
 - **Enfoque:** ¿HS256-offline es el approach correcto vs OIDC? ¿JWT→Transport introduce escalada?
 - **Cómo se probó:** tests mecánicos del contrato (paso 4-5), no auto-reporte
-- **Checklist anti-hábitos tóxicos:** pendiente al cierre
-- **Veredicto:** pendiente
+- **Checklist anti-hábitos tóxicos:** verificado — sin salidas inventadas (todos los comandos corridos con output real), sin done sin verify (contrato mecánico), sin reintentos en bucle (1 retry con causa raíz: leeway 60s), error-paths de seguridad no degradados (401 genérico, leeway 0, empty-secret fail-closed)
+- **Veredicto:** ✅ approve (degraded: mismo contexto; slice aditivo opt-in con 9 tests nuevos + suites auth/rotation/rbac/request_id + vantadb-server 42 tests verdes como evidencia)
 
 ## Notas
 - Nunca silencio: si verify falla 2× mismo-error → Gate V (STOP con RESULTADO 🟡).

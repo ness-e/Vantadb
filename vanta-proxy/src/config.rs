@@ -38,6 +38,9 @@ pub struct ProxyConfig {
     /// by default (log-first — enforcement never blocks legitimate traffic
     /// unless explicitly configured).
     pub cost: CostConfig,
+    /// Task-aware routing por tier (PRX-06). Disabled by default so the
+    /// wire stays a transparent proxy unless explicitly opted in.
+    pub routing: crate::routing::TierRoutingConfig,
 }
 
 impl ProxyConfig {
