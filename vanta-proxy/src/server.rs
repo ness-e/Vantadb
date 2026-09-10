@@ -124,6 +124,17 @@ impl AppState {
             reporter.add_hook(hook);
         }
         let cache = ExactCache::new(config.cache.clone());
+        // PRX-09-wiring: attach the Ollama embed hook only when semantic
+        // search is opted in (`semantic_enabled`). Default-off keeps the wire
+        // byte-identical: without the hook the slice-2 lexical path runs
+        // alone. Offline-safe: `from_env` only reads env + builds a client —
+        // no I/O until the first `embed`, and every embed failure degrades
+        // to lexical (fail-open, hits only ever added).
+        let cache = if config.cache.semantic_enabled {
+            cache.with_embedder(Arc::new(cache::OllamaEmbedProvider::from_env()))
+        } else {
+            cache
+        };
         // PRX-03: ledger over the configured price table + default budget.
         let cost = CostTracker::new(
             config.cost.prices.clone(),

@@ -124,11 +124,17 @@ impl ExactCache {
     }
 
     /// Attach a dense-vector hook (builder — [`Self::new`] stays lexical).
-    /// Wiring it into `AppState` is a server-side follow-up (server.rs owned
-    /// by PRX-11); until then this is the opt-in contract for embed search.
+    /// Server-side wiring lives in `AppState::from_engine` (gated on
+    /// `CacheConfig::semantic_enabled`); until then this is also the opt-in
+    /// contract for embed search in isolation.
     pub fn with_embedder(mut self, provider: Arc<dyn EmbedProvider>) -> Self {
         self.embedder = Some(provider);
         self
+    }
+
+    /// True when a dense-vector hook is attached (wiring probe + ops/debug).
+    pub fn has_embedder(&self) -> bool {
+        self.embedder.is_some()
     }
 
     /// False when the cache is disabled — callers must not store either.
@@ -534,20 +540,52 @@ fn cosine_f32(a: &[f32], b: &[f32]) -> f32 {
 /// cache degrades to lexical — embeddings are best-effort, never blocking.
 /// Configure via [`Self::from_env`] (`VANTA_EMBED_BASE_URL`,
 /// `VANTA_EMBED_MODEL`, default `http://localhost:11434` + `nomic-embed-text`).
-#[derive(Debug, Clone)]
+///
+/// The blocking client lives on a dedicated worker thread (created AND
+/// dropped there): dropping a tokio Runtime inside an async context panics,
+/// and blocking HTTP on an executor thread would starve the pipeline.
+#[derive(Clone)]
 pub struct OllamaEmbedProvider {
     base_url: String,
     model: String,
-    client: reqwest::blocking::Client,
+    tx: std::sync::mpsc::Sender<EmbedJob>,
+}
+
+impl std::fmt::Debug for OllamaEmbedProvider {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("OllamaEmbedProvider")
+            .field("base_url", &self.base_url)
+            .field("model", &self.model)
+            .finish()
+    }
+}
+
+/// One embedding request handed to the worker thread.
+struct EmbedJob {
+    text: String,
+    reply: std::sync::mpsc::Sender<Option<Vec<f32>>>,
 }
 
 impl OllamaEmbedProvider {
     /// Build for an explicit endpoint + model.
     pub fn new(base_url: String, model: String) -> Self {
+        let (tx, rx) = std::sync::mpsc::channel::<EmbedJob>();
+        let worker_url = base_url.clone();
+        let worker_model = model.clone();
+        std::thread::spawn(move || {
+            let client = reqwest::blocking::Client::builder()
+                .timeout(std::time::Duration::from_secs(10))
+                .build()
+                .unwrap_or_else(|_| reqwest::blocking::Client::new());
+            for job in rx {
+                let out = embed_once(&client, &worker_url, &worker_model, &job.text);
+                let _ = job.reply.send(out);
+            }
+        });
         Self {
             base_url,
             model,
-            client: reqwest::blocking::Client::new(),
+            tx,
         }
     }
 
@@ -561,36 +599,53 @@ impl OllamaEmbedProvider {
     }
 }
 
+/// Single Ollama `/api/embed` round-trip (worker thread only).
+fn embed_once(
+    client: &reqwest::blocking::Client,
+    base_url: &str,
+    model: &str,
+    text: &str,
+) -> Option<Vec<f32>> {
+    if text.trim().is_empty() {
+        return None;
+    }
+    #[derive(serde::Serialize)]
+    struct EmbedRequest<'a> {
+        model: &'a str,
+        input: &'a str,
+    }
+    #[derive(serde::Deserialize)]
+    struct EmbedResponse {
+        #[serde(default)]
+        embeddings: Vec<Vec<f32>>,
+    }
+    let url = format!("{base_url}/api/embed");
+    let response = client
+        .post(url)
+        .json(&EmbedRequest { model, input: text })
+        .send()
+        .ok()?;
+    if !response.status().is_success() {
+        return None;
+    }
+    let parsed: EmbedResponse = response.json().ok()?;
+    parsed.embeddings.into_iter().next()
+}
+
 impl EmbedProvider for OllamaEmbedProvider {
     fn embed(&self, text: &str) -> Option<Vec<f32>> {
         if text.trim().is_empty() {
             return None;
         }
-        #[derive(serde::Serialize)]
-        struct EmbedRequest<'a> {
-            model: &'a str,
-            input: &'a str,
-        }
-        #[derive(serde::Deserialize)]
-        struct EmbedResponse {
-            #[serde(default)]
-            embeddings: Vec<Vec<f32>>,
-        }
-        let url = format!("{}/api/embed", self.base_url);
-        let response = self
-            .client
-            .post(url)
-            .json(&EmbedRequest {
-                model: &self.model,
-                input: text,
+        let (reply_tx, reply_rx) = std::sync::mpsc::channel();
+        self.tx
+            .send(EmbedJob {
+                text: text.to_string(),
+                reply: reply_tx,
             })
-            .send()
             .ok()?;
-        if !response.status().is_success() {
-            return None;
-        }
-        let parsed: EmbedResponse = response.json().ok()?;
-        parsed.embeddings.into_iter().next()
+        // Worker gone or timed-out upstream → None → lexical fallback.
+        reply_rx.recv().ok()?
     }
 }
 

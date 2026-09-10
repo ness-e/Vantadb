@@ -216,6 +216,38 @@ Gate D evaluado: símbolos `pub` nuevos (`ExactCache`, `CacheConfig`, `CachedEnt
 
 ## Notas
 
+## Slice 4 — Wiring server-side `with_embedder` (PRX-09-wiring, 2026-09-10)
+
+- **Estado:** ✅ COMPLETED
+- **Contrato:** `OllamaEmbedProvider::from_env()` cableado en construcción del cache + gate config + test wiring (con embedder / sin embedder) ✅ + `cargo test -p vanta-proxy` 0 failed + clippy 0
+- **SDP:** incremental-implementation (wiring mínimo: construcción + gate) · test-driven-development (RED E0599 → GREEN) · api-and-interface-design (gate `semantic_enabled` con serde default pre-existente → TOML legacy intacto, 0 campos nuevos) · doubt-driven-development (default-off: test explícito sin embedder) · context-engineering (+ campaign-executor/progreso/ponytail base). Descartada: frontend-ui-engineering (sin web/).
+- **Impacto mapeado (Regla 0):**
+  - **Archivos leídos (completos):** `vanta-proxy/src/server.rs` (`from_engine` L105-153, hook 5b/5c — SOLO lectura salvo 1 hunk), `vanta-proxy/src/cache.rs` (`with_embedder`, `OllamaEmbedProvider`, tests embed), `vanta-proxy/src/config.rs` (`CacheConfig`, `#[serde(default)]` intacto), `vanta-proxy/tests/prx09_cache.rs` (`state_for`, `state_for_semantic`).
+  - **Veredicto impacto:** mínimo — 1 hunk en `from_engine` (gate + builder), 1 accessor aditivo `has_embedder()`, fix de corrección en `OllamaEmbedProvider` (worker thread), 2 tests wiring; `config.rs`/`translate.rs` NO tocados (PRX-11-slice3 corre después, sin WIP suyo en árbol — verificado `git status` limpio en `vanta-proxy/`); threshold 0.90 + TTL + FIFO/LRU intactos; fallback léxico incondicional.
+- **Diseño:** gate SOLO en `config.cache.semantic_enabled` (0 campos config nuevos — scope discipline); `from_env()` no hace I/O hasta el primer `embed`; todo fallo embed → `None` → léxico (fail-open, hits solo se agregan).
+- **Deuda/resto:** ninguna — wiring cierra el follow-up de slice 3.
+
+### Step 14: RED — tests wiring (debe FALLAR: `has_embedder` inexistente)
+
+- **Archivos:** `vanta-proxy/tests/prx09_cache.rs` (+2 tests, reusan `state_for`/`state_for_semantic`, 0 literales nuevos)
+- **Acción:** `wiring_attaches_embedder_when_semantic_enabled` (URL dummy — `from_engine` sin I/O) + `wiring_no_embedder_by_default` (default-off, doubt-driven)
+- **Verify:** `cargo test -p vanta-proxy --test prx09_cache wiring_ -j 2` falla (E0599 ×2 = RED correcto)
+- **Estado:** ✅ COMPLETED
+
+### Step 15: GREEN — accessor + wiring + fix worker-thread
+
+- **Archivos:** `vanta-proxy/src/cache.rs` (`has_embedder()` + doc `with_embedder` actualizado), `vanta-proxy/src/server.rs` (gate `semantic_enabled` → `with_embedder(OllamaEmbedProvider::from_env())`)
+- **Debug S15 (sistemático, no retry ciego):** GREEN inicial hizo fallar `semantic_hit_replays...` — causa raíz: `reqwest::blocking::Client` crea un tokio Runtime interno; construido + dropeado dentro del contexto async del test → panic `Cannot drop a runtime...` en teardown (en prod paniquearía al apagar el server + bloquearía el executor). Fix: cliente mudado a worker thread dedicado (creación + drop fuera de async, timeout 10s, `recv` fail-open) — `cache.rs` local, 0 deps nuevas, alternativa `ureq` descartada (churn Cargo/lock). Debug manual `OllamaEmbedProvider` (base_url/model visibles, estilo `ExactCache`) para silenciar `dead_code` bajo `-D warnings`.
+- **Verify:** prx09 6/6 ✅
+- **Estado:** ✅ COMPLETED
+
+### Step 16: Verify full + commit + cierre
+
+- **Acción:** nextest scoped `--tests -j 2` + clippy all-targets/all-features + fmt + `git status` pre-stage; commit solo-propios en develop (`feat: PRX-09-wiring ...`); lesson; RESULTADO
+- **Verify real S16:** lib 155 ✅ · integración 14 suites ✅ (prx09 6/6 incl. 2 wiring nuevos; prx11_translate 16/16 — sin WIP ajeno) · `cargo clippy -p vanta-proxy --all-targets --all-features -- -D warnings` 0 · `cargo fmt -p vanta-proxy --check` 0 · sin regresión exact/PRX-04/semántico-léxico.
+- **Scope:** 4 archivos propios (cache.rs/server.rs/prx09_cache.rs/PRX-09.md); WIP ajeno intacto, no stageado (`M .opencode`, `M desktop/...Cargo.lock`, `M opencode.jsonc`, `?? Investigacion-plan.md`).
+- **Estado:** ✅ COMPLETED
+
 - Slice 1 = solo exacto (stop condition plan: appetite >3d → shippear exact + DEFER semántico). Semántico slice 2.
 - No re-derivar contexto del plan: gate/wave/cynefin ya verificados (plan Task 5).
 - `campaign_verify_cmd` con bug exit -1 conocido → bash directa si falla.
