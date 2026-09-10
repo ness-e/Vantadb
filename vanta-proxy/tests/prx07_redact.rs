@@ -212,6 +212,7 @@ fn state_with_redact(upstream: &str, redact: RedactConfig) -> server::AppState {
         cost: CostConfig::default(),
         routing: Default::default(),
         redact,
+        context: Default::default(),
     };
     server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }

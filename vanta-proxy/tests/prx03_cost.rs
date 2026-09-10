@@ -61,6 +61,7 @@ fn state_with_cost(upstream: &str, cost: CostConfig) -> server::AppState {
         cost,
         routing: Default::default(),
         redact: Default::default(),
+        context: Default::default(),
     };
     server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }

@@ -18,6 +18,7 @@ use crate::auth::AuthDb;
 use crate::cache::{self, CachedEntry, ExactCache};
 use crate::capture;
 use crate::config::{ProxyConfig, UpstreamConfig};
+use crate::context::{self, ContextOptimizer};
 use crate::cost::{self, BudgetDecision, CostTracker, VirtualKey};
 use crate::forward::Forwarder;
 use crate::handlers;
@@ -64,6 +65,9 @@ pub struct AppState {
     /// Egress PII/secret redaction (PRX-07). Disabled by default; compiled
     /// once at startup so per-request work is only the scan.
     pub redactor: Arc<Redactor>,
+    /// Context optimization in transit (PRX-13). Disabled by default;
+    /// stateless over config, built once at startup.
+    pub optimizer: Arc<ContextOptimizer>,
 }
 
 /// PRX-01: true when an Anthropic request is a standalone CC sidequery
@@ -128,6 +132,8 @@ impl AppState {
         // PRX-07: compile custom patterns once — invalid patterns fail
         // closed here (proxy refuses to start) instead of per-request.
         let redactor = Redactor::new(&config.redact)?;
+        // PRX-13: stateless over config — infallible build.
+        let optimizer = ContextOptimizer::new(&config.context);
         Ok(Self {
             limiter: RateLimiter::new(config.server.rate_limit_per_minute).into(),
             upstream_health: UpstreamHealth::new().into(),
@@ -136,6 +142,7 @@ impl AppState {
             cache: Arc::new(std::sync::Mutex::new(cache)),
             cost: cost.into(),
             redactor: redactor.into(),
+            optimizer: optimizer.into(),
             config: Arc::new(config),
             forwarder: Arc::new(forwarder),
             auth: AuthDb::new(engine.clone()).into(),
@@ -374,6 +381,20 @@ impl AppState {
                 return crate::error::ProxyError::RedactionBlocked { kinds }.into_response();
             }
         };
+
+        // PRX-13: context optimization in transit over the post-redaction
+        // bytes (what gets cached and forwarded). Disabled by default →
+        // identity. Never blocks: over-budget histories are trimmed
+        // (system + last turns survive); tool/image bodies pass through in
+        // Performance/Balanced (pre-mortem). Verbatim paths above
+        // (sidequery, no-session) intentionally bypass.
+        let user_key = self
+            .auth
+            .authenticate(headers)
+            .map(|id| id.user_id)
+            .unwrap_or_default();
+        let context::ApplyOutcome::Pass(trimmed) = self.optimizer.apply(&body, protocol, &user_key);
+        let body = Bytes::from(trimmed);
 
         // 5b) PRX-09 slice 1+2: exact cache over the POST-INJECTION bytes
         // (the key carries the PRX-04 prefix, so memory changes invalidate
