@@ -55,6 +55,37 @@ for doc in results:
 - `delete(ids=...)` — delete by key
 - `from_texts(texts, embedding, metadatas=None, ids=None)` — create + populate store
 
+## LangGraph (INTG-01)
+
+Persistent [LangGraph](https://docs.langchain.com/oss/python/langgraph/stores)
+adapters — same embedded database, no server. Requires
+`langgraph-checkpoint>=2,<5` (pinned major: upstream API is unstable).
+
+```python
+from vantadb_langchain import VantaDBCheckpointer, VantaDBStore
+
+# Short-term memory: per-thread checkpoints (put/get/list/writes/delete)
+checkpointer = VantaDBCheckpointer(db_path="./my_data")
+graph = builder.compile(checkpointer=checkpointer)
+graph.invoke(inputs, {"configurable": {"thread_id": "user-1"}})
+
+# Long-term memory: hierarchical KV store, namespaces are tuples
+store = VantaDBStore(db_path="./my_data", embeddings=embedding)
+await store.aput(("users", "123", "prefs"), "theme", {"mode": "dark"})
+item = await store.aget(("users", "123", "prefs"), "theme")
+results = await store.asearch(("users", "123"), query="dark mode")
+```
+
+Notes:
+
+- Namespace tuples map to VantaDB namespaces joined with `/`
+  (parts must be non-empty strings without `/`).
+- `search(filter=...)` matches scalar value fields exactly; nested
+  dicts/lists are payload-only.
+- Semantic `query` needs `embeddings=`; without it raises `ValueError`.
+- TTL is not supported (`supports_ttl = False`); `index=` is accepted
+  and ignored.
+
 ## Why VantaDB?
 
 - **Embedded & local-first:** the storage engine is a Rust library embedded
