@@ -59,6 +59,7 @@ fn server_state(
         pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
         api_key: Some(Arc::from(KEY)),
         alt_api_key: None,
+        jwt_secret: None,
         rbac_config: RbacConfig { token_role_map },
         trusted_proxies: Vec::new(),
         conversation_trigger: None,

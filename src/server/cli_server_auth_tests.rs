@@ -66,6 +66,7 @@ fn auth_state(
     AuthState::new(
         api_key,
         None, // alt_api_key
+        None, // jwt_secret
         RbacConfig::default(),
         Arc::new(Rbac::new()),
         &[],
@@ -255,6 +256,7 @@ fn server_state(storage: Arc<StorageEngine>, api_key: Option<&str>) -> Arc<Serve
         pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
         api_key: api_key.map(Arc::from),
         alt_api_key: None,
+        jwt_secret: None,
         rbac_config: RbacConfig::default(),
         trusted_proxies: Vec::new(),
         conversation_trigger: None,
@@ -275,6 +277,7 @@ fn server_state_with_alt_rbac(
         pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
         api_key: api_key.map(Arc::from),
         alt_api_key: alt_api_key.map(Arc::from),
+        jwt_secret: None,
         rbac_config,
         trusted_proxies: Vec::new(),
         conversation_trigger: None,
@@ -598,4 +601,107 @@ async fn auth_l1_alt_key_unknown_role_falls_through_to_transport() {
         s_alt, 200,
         "alt Bearer with no token_role_map entry must fall through to bare transport"
     );
+}
+
+// ── SRV-06: HS256 JWT fallback over HTTP (ADR-039) ──
+
+const SRV06_SECRET: &str = "srv06-test-secret-with-32-bytes!!!!";
+const SRV06_OTHER_SECRET: &str = "srv06-other-secret-with-32-bytes!!!";
+
+fn mint_srv06_jwt(sub: &str, exp_offset_secs: i64, secret: &str) -> String {
+    use jsonwebtoken::{encode, EncodingKey, Header};
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_secs() as i64;
+    let claims = crate::server::jwt::Claims {
+        sub: sub.to_string(),
+        exp: (now + exp_offset_secs).max(0) as u64,
+        iat: Some(now.max(0) as u64),
+    };
+    encode(
+        &Header::new(jsonwebtoken::Algorithm::HS256),
+        &claims,
+        &EncodingKey::from_secret(secret.as_bytes()),
+    )
+    .expect("mint srv06 jwt")
+}
+
+fn server_state_with_jwt(
+    storage: Arc<StorageEngine>,
+    api_key: Option<&str>,
+    jwt_secret: Option<&str>,
+) -> Arc<ServerState> {
+    let db = VantaEmbedded::from_engine(storage.clone());
+    Arc::new(ServerState {
+        storage,
+        db,
+        circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+        pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
+        api_key: api_key.map(Arc::from),
+        alt_api_key: None,
+        jwt_secret: jwt_secret.map(Arc::from),
+        rbac_config: RbacConfig::default(),
+        trusted_proxies: Vec::new(),
+        conversation_trigger: None,
+    })
+}
+
+#[tokio::test]
+async fn auth_jwt_accepts_valid_token() {
+    let state = server_state_with_jwt(in_memory_storage(None), Some("sk-test"), Some(SRV06_SECRET));
+    let addr = spawn(state).await;
+    let token = mint_srv06_jwt("svc-jwt", 3600, SRV06_SECRET);
+    let (status, _) = http_get(
+        addr,
+        "/api/v2/health",
+        &[(header::AUTHORIZATION.as_str(), &format!("Bearer {token}"))],
+    )
+    .await;
+    assert_eq!(status, 200, "valid JWT must reach the protected route");
+}
+
+#[tokio::test]
+async fn auth_jwt_rejects_foreign_secret_and_expired() {
+    let state = server_state_with_jwt(in_memory_storage(None), Some("sk-test"), Some(SRV06_SECRET));
+    let addr = spawn(state).await;
+    for token in [
+        mint_srv06_jwt("svc-jwt", 3600, SRV06_OTHER_SECRET),
+        mint_srv06_jwt("svc-jwt", -60, SRV06_SECRET),
+    ] {
+        let (status, body) = http_get(
+            addr,
+            "/api/v2/health",
+            &[(header::AUTHORIZATION.as_str(), &format!("Bearer {token}"))],
+        )
+        .await;
+        assert_eq!(status, 401, "bad JWT must 401, body: {body}");
+        assert!(
+            body.contains("\"error\":\"Unauthorized\""),
+            "JWT failure must use the generic 401 body (no oracle), got: {body}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn auth_jwt_disabled_without_secret() {
+    // No secret configured: a well-formed JWT for any secret is just an
+    // unknown Bearer → 401, and the api_key path still works.
+    let state = server_state_with_jwt(in_memory_storage(None), Some("sk-test"), None);
+    let addr = spawn(state).await;
+    let token = mint_srv06_jwt("svc-jwt", 3600, SRV06_SECRET);
+    let (s_jwt, _) = http_get(
+        addr,
+        "/api/v2/health",
+        &[(header::AUTHORIZATION.as_str(), &format!("Bearer {token}"))],
+    )
+    .await;
+    assert_eq!(s_jwt, 401, "JWT without configured secret must 401");
+    let (s_key, _) = http_get(
+        addr,
+        "/api/v2/health",
+        &[(header::AUTHORIZATION.as_str(), "Bearer sk-test")],
+    )
+    .await;
+    assert_eq!(s_key, 200, "api_key path intact without JWT secret");
 }

@@ -138,6 +138,7 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
     let auth_state = AuthState::new(
         state.api_key.as_ref().map(|k| k.to_string()),
         state.alt_api_key.as_ref().map(|k| k.to_string()),
+        state.jwt_secret.as_ref().map(|k| k.to_string()),
         state.rbac_config.clone(),
         rbac,
         &state.trusted_proxies,

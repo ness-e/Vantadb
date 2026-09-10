@@ -71,6 +71,7 @@ fn build_state(audit_path: &std::path::Path) -> Arc<ServerState> {
         pool: Arc::new(ConnectionPool::new(4, Duration::from_millis(100))),
         api_key: Some("test-key".into()),
         alt_api_key: None,
+        jwt_secret: None,
         rbac_config: Default::default(),
         trusted_proxies: Vec::new(),
         conversation_trigger: None,

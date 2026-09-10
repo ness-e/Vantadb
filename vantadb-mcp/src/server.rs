@@ -223,6 +223,7 @@ pub async fn spawn_writer_http(storage: Arc<StorageEngine>) -> std::io::Result<(
         pool,
         api_key,
         alt_api_key,
+        jwt_secret: config.jwt_secret.as_deref().map(std::sync::Arc::from),
         rbac_config: config.rbac_config.clone(),
         trusted_proxies: config.trusted_proxies.clone(),
         conversation_trigger: None,
