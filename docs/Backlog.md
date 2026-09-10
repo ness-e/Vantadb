@@ -490,7 +490,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Effort | Descripción | Archivos | Estado |
 |----|--------|-------------|----------|--------|
-| `PRX-11-slice3` | 🔴 | **Traducción wiring opt-in server-side** (DEFER de slice 2 ✅ c7361f94: lib + thinking fina + `TranslateConfig`/`should_translate`; diff en 6 pasos en task file) | `vanta-proxy/src/server.rs`, `config.rs` | ⬜ Pendiente (slice 3) |
+> Sin filas pendientes (PRX-11-slice3 completada lead-inline 2026-09-10, e6a12230; subagentes abortados ×3 sin task_id).
 | `PRX-09-wiring` | 🟡 | **Wiring server-side `with_embedder` en AppState** (DEFER de embeddings ✅ 15157d39: `OllamaEmbedProvider::from_env()` + gate `semantic_enabled`; server construía cache sin embedder) | `vanta-proxy/src/server.rs` | ⬜ Pendiente |
 > Sin filas pendientes (PRX-10 completada plan 2026-09-10-code, 950df333).
 

@@ -261,6 +261,12 @@ aliases: []
 - **Resultado:** ✅ 16/16 tests + clippy/fmt 0 + fuente protocolo citada; hook server-side DEFER (config.rs wave-owned, diff en 6 pasos en task file).
 - **Commit:** c7361f94
 
+### PRX-11-slice3: wiring opt-in (lead-inline, subagentes abortados ×3)
+- **Fecha:** 2026-09-10
+- **Objetivo:** hook 5d + `ProxyConfig.translate` + map-back con content-length fijo.
+- **Resultado:** ✅ lib 163 + 15 suites 0 failed (8 tests hook nuevos) + clippy/fmt 0; default verbatim intacto; sin campo AppState (lee config).
+- **Commit:** e6a12230
+
 ### GOV-TK8: BENCHMARKS §18 run sintético (plan 2026-09-10-code Wave4)
 - **Fecha:** 2026-09-10
 - **Objetivo:** curar evidencia cruda en §18 con comando reproducible + Regla 11.
