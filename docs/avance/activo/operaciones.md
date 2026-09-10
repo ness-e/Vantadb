@@ -255,6 +255,12 @@ aliases: []
 - **Resultado:** ✅ test 0 failed (9/9 nuevos) + clippy/fmt 0; server intacto; slice 2 (wiring + thinking fina) DEFER.
 - **Commit:** 5c75c16b
 
+### PRX-11-slice2: thinking fidelity + contract (lib-complete, wiring DEFER)
+- **Fecha:** 2026-09-10
+- **Objetivo:** thinking↔reasoning por variante + `TranslateConfig`/`should_translate`.
+- **Resultado:** ✅ 16/16 tests + clippy/fmt 0 + fuente protocolo citada; hook server-side DEFER (config.rs wave-owned, diff en 6 pasos en task file).
+- **Commit:** c7361f94
+
 ### GOV-TK8: BENCHMARKS §18 run sintético (plan 2026-09-10-code Wave4)
 - **Fecha:** 2026-09-10
 - **Objetivo:** curar evidencia cruda en §18 con comando reproducible + Regla 11.
