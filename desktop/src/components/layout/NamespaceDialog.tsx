@@ -3,6 +3,9 @@
 // precargado + validación de colisión) y borrar (confirmación en 2 pasos:
 // aviso → escribir el nombre exacto para habilitar el botón).
 import { FormEvent, useEffect, useRef, useState } from "react";
+// DESKTOP-40-slice2: títulos/placeholders/avisos/botones vía tt()/tp() (lang por prop).
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 export type NsDialog =
   | { mode: "create" }
@@ -17,6 +20,7 @@ interface Props {
   onCreate: (name: string) => Promise<void>;
   onRename: (from: string, to: string) => Promise<void>;
   onDelete: (name: string) => Promise<void>;
+  lang?: DesktopLang;
 }
 
 const BTN_CANCEL =
@@ -31,6 +35,7 @@ export default function NamespaceDialog({
   onCreate,
   onRename,
   onDelete,
+  lang = connectionPrefs.get().lang ?? "es",
 }: Props) {
   const destructive = dialog.mode === "delete";
   // Borrar es 2 pasos: 1 = aviso, 2 = tipear el nombre exacto (input vacío:
@@ -64,10 +69,10 @@ export default function NamespaceDialog({
 
   const title =
     dialog.mode === "create"
-      ? "Nuevo namespace"
+      ? tt(lang, "ns.createTitle", "Nuevo namespace")
       : dialog.mode === "rename"
-        ? `Renombrar "${dialog.name}"`
-        : `Borrar "${dialog.name}"`;
+        ? tp(lang, "ns.renameTitle", 'Renombrar "{name}"', { name: dialog.name })
+        : tp(lang, "ns.deleteTitle", 'Borrar "{name}"', { name: dialog.name });
 
   async function submit(e: FormEvent) {
     e.preventDefault();
@@ -110,8 +115,7 @@ export default function NamespaceDialog({
 
         {destructive && step === 1 ? (
           <p className="mt-2 text-sm">
-            Se moverán todos sus registros a la papelera. Podés recuperarlos con
-            Ctrl+Z o desde la superficie PAPELERA.
+            {tt(lang, "ns.deleteWarn", "Se moverán todos sus registros a la papelera. Podés recuperarlos con Ctrl+Z o desde la superficie PAPELERA.")}
           </p>
         ) : (
           <>
@@ -121,10 +125,10 @@ export default function NamespaceDialog({
               onChange={(e) => setValue(e.target.value)}
               placeholder={
                 destructive
-                  ? `Escribí "${dialog.name}" para confirmar`
-                  : "Nombre del namespace"
+                  ? tp(lang, "ns.confirmPlaceholder", 'Escribí "{name}" para confirmar', { name: dialog.name })
+                  : tt(lang, "ns.namePlaceholder", "Nombre del namespace")
               }
-              aria-label={destructive ? "Confirmar nombre del namespace" : "Nombre del namespace"}
+              aria-label={destructive ? tt(lang, "ns.confirmAria", "Confirmar nombre del namespace") : tt(lang, "ns.nameAria", "Nombre del namespace")}
               className={`mt-3 w-full border-2 px-3 py-1.5 text-sm ${
                 mismatch || (name !== "" && invalid)
                   ? "border-red-500 bg-background"
@@ -133,12 +137,12 @@ export default function NamespaceDialog({
             />
             {name !== "" && taken && !destructive && (
               <p className="mt-1 font-tech text-[10px] uppercase tracking-widest text-red-500">
-                ya existe un namespace con ese nombre
+                {tt(lang, "ns.taken", "ya existe un namespace con ese nombre")}
               </p>
             )}
             {mismatch && (
               <p className="mt-1 font-tech text-[10px] uppercase tracking-widest text-red-500">
-                el nombre no coincide — esta acción es destructiva
+                {tt(lang, "ns.mismatch", "el nombre no coincide — esta acción es destructiva")}
               </p>
             )}
           </>
@@ -146,10 +150,10 @@ export default function NamespaceDialog({
 
         <div className="mt-4 flex justify-end gap-2">
           <button type="button" onClick={onClose} className={BTN_CANCEL}>
-            cancelar
+            {tt(lang, "ns.cancel", "cancelar")}
           </button>
           <button type="submit" disabled={invalid || mismatch || busy} className={BTN_OK}>
-            {destructive ? (step === 1 ? "continuar" : "borrar") : dialog.mode === "create" ? "crear" : "renombrar"}
+            {destructive ? (step === 1 ? tt(lang, "ns.continue", "continuar") : tt(lang, "ns.delete", "borrar")) : dialog.mode === "create" ? tt(lang, "ns.create", "crear") : tt(lang, "ns.rename", "renombrar")}
           </button>
         </div>
       </form>

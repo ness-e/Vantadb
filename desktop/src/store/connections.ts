@@ -92,7 +92,12 @@ export class ConnectionPrefsStore {
   }
 
   set(patch: ConnectionsPrefs): void {
+    const langChanged = patch.lang !== undefined && patch.lang !== this.prefs.lang;
     this.prefs = { ...this.prefs, ...patch };
+    // DESKTOP-40-slice2: avisar cambio de idioma (mismo patrón que PROXY_URL_EVENT).
+    if (langChanged && typeof window !== "undefined") {
+      window.dispatchEvent(new Event(LANG_EVENT));
+    }
     if (!this.storage) return;
     try {
       this.storage.setItem(STORAGE_KEY, JSON.stringify(this.prefs));
@@ -119,6 +124,9 @@ export class ConnectionPrefsStore {
 }
 
 export const connectionPrefs = new ConnectionPrefsStore();
+
+/** DESKTOP-40-slice2: evento window para reactividad de idioma (el store no tiene subscribe). */
+export const LANG_EVENT = "vanta:lang";
 
 /** Id legible del objetivo de un perfil (dropdowns, listas). */
 export function profileTarget(p: ConnectionProfile): string {

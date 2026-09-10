@@ -1,5 +1,9 @@
+import { useEffect, useState } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { isEmbedded } from "../../transport";
+// DESKTOP-40-slice2: aria-labels vía tt() + reactividad de idioma.
+import { tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs, LANG_EVENT } from "../../store/connections";
 
 /**
  * TitleBar (FIND-19) — custom window chrome so the app doesn't feel like an
@@ -41,6 +45,12 @@ function ControlButton(props: {
 
 export function TitleBar() {
   const w = win();
+  const [lang, setLang] = useState<DesktopLang>(connectionPrefs.get().lang ?? "es");
+  useEffect(() => {
+    const sync = () => setLang(connectionPrefs.get().lang ?? "es");
+    window.addEventListener(LANG_EVENT, sync);
+    return () => window.removeEventListener(LANG_EVENT, sync);
+  }, []);
   return (
     <div
       data-tauri-drag-region
@@ -54,13 +64,13 @@ export function TitleBar() {
         VantaDB Studio
       </span>
       <div className="flex h-9 items-stretch">
-        <ControlButton label="Minimizar" glyph="─" onClick={() => void w?.minimize()} />
+        <ControlButton label={tt(lang, "titlebar.minimize", "Minimizar")} glyph="─" onClick={() => void w?.minimize()} />
         <ControlButton
-          label="Maximizar / restaurar"
+          label={tt(lang, "titlebar.maximize", "Maximizar / restaurar")}
           glyph="□"
           onClick={() => void w?.toggleMaximize()}
         />
-        <ControlButton label="Cerrar" glyph="✕" danger onClick={() => void w?.close()} />
+        <ControlButton label={tt(lang, "titlebar.close", "Cerrar")} glyph="✕" danger onClick={() => void w?.close()} />
       </div>
     </div>
   );

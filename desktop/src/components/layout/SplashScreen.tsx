@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MarkStudio } from "../mark/mark-studio";
+// DESKTOP-40-slice2: hint + aria vía tt() (transitorio ~3s: lee idioma una vez).
+import { tt } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 /**
  * SplashScreen (FIND-23) — cold-start intro using the Mark mascot.
@@ -21,6 +24,7 @@ export function SplashScreen({ onDismiss }: { onDismiss: () => void }) {
   const [closing, setClosing] = useState(false);
   const dismissedRef = useRef(false);
   const rootRef = useRef<HTMLDivElement>(null);
+  const lang = connectionPrefs.get().lang ?? "es";
 
   const beginExit = useCallback(() => {
     if (dismissedRef.current) return;
@@ -47,7 +51,7 @@ export function SplashScreen({ onDismiss }: { onDismiss: () => void }) {
       ref={rootRef}
       role="button"
       tabIndex={0}
-      aria-label="Saltar la introducción"
+      aria-label={tt(lang, "splash.skipIntro", "Saltar la introducción")}
       onClick={beginExit}
       onKeyDown={(e) => {
         if (e.key === "Enter" || e.key === " ") {
@@ -72,7 +76,7 @@ export function SplashScreen({ onDismiss }: { onDismiss: () => void }) {
         </p>
       </div>
       <p className="splash-hint absolute bottom-8 font-[family-name:var(--font-space-mono)] text-[10px] uppercase tracking-widest text-[var(--muted-foreground)] opacity-60">
-        click o Enter para entrar
+        {tt(lang, "splash.hint", "click o Enter para entrar")}
       </p>
     </div>
   );

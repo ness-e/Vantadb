@@ -2,6 +2,9 @@ import { useState } from "react";
 import "./App.css";
 import { isEmbedded } from "./transport";
 import { useConnectionState } from "./hooks/useConnectionState";
+// DESKTOP-40-slice2: fallback de reportError vía tt() (lee idioma al momento del error).
+import { tt } from "./i18n";
+import { connectionPrefs } from "./store/connections";
 import WorkspaceShell from "./components/layout/WorkspaceShell";
 import { TitleBar } from "./components/layout/TitleBar";
 import { SplashScreen } from "./components/layout/SplashScreen";
@@ -30,7 +33,7 @@ function App() {
 
   function reportError(msg: string) {
     actions.clearError();
-    setNotice(msg ?? "La operación falló.");
+    setNotice(msg ?? tt(connectionPrefs.get().lang ?? "es", "app.opFailed", "La operación falló."));
   }
 
   // FIND-23: cold-start splash, once per app session. Connection init runs in
