@@ -3,10 +3,13 @@
 // viven en `rowsToMetadata` (shared.ts) — el tab es presentacional.
 import { MetaRow, MetaType } from "./shared";
 import { TriangleAlert } from "lucide-react";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 interface Props {
   rows: MetaRow[];
   setRows: (rows: MetaRow[]) => void;
+  lang?: DesktopLang;
 }
 
 const TYPES: MetaType[] = ["str", "int", "flt", "bool", "date", "lst", "nil"];
@@ -15,7 +18,7 @@ function updateRow(rows: MetaRow[], i: number, patch: Partial<MetaRow>): MetaRow
   return rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r));
 }
 
-export default function MetadataTab({ rows, setRows }: Props) {
+export default function MetadataTab({ rows, setRows, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   // Keys duplicadas (después de trim) → highlight + bloqueo de guardado.
   const counts = new Map<string, number>();
   for (const r of rows) {
@@ -35,14 +38,14 @@ export default function MetadataTab({ rows, setRows }: Props) {
     return (
       <div>
         <p className="font-tech text-[11px] text-muted-foreground">
-          sin metadata — agregá una fila
+          {tt(lang, "inspector.metaEmpty", "sin metadata — agregá una fila")}
         </p>
         <button
           type="button"
           onClick={addRow}
           className="press mt-3 border-2 border-foreground bg-background px-3 py-1.5 text-xs font-semibold"
         >
-          + AGREGAR FILA
+          {tt(lang, "inspector.metaAdd", "+ AGREGAR FILA")}
         </button>
       </div>
     );
@@ -56,7 +59,7 @@ export default function MetadataTab({ rows, setRows }: Props) {
             <select
               value={row.type}
               onChange={(e) => setRows(updateRow(rows, i, { type: e.target.value as MetaType }))}
-              aria-label={`Tipo de ${row.key || `fila ${i + 1}`}`}
+              aria-label={tp(lang, "inspector.metaTypeAria", "Tipo de {k}", { k: row.key || `fila ${i + 1}` })}
               className="border-2 border-foreground bg-background px-1 py-1 font-tech text-[10px]"
             >
               {TYPES.map((t) => (
@@ -70,9 +73,9 @@ export default function MetadataTab({ rows, setRows }: Props) {
                 value={row.key}
                 onChange={(e) => setRows(updateRow(rows, i, { key: e.target.value }))}
                 placeholder="key"
-                aria-label="Key de metadata"
+                aria-label={tt(lang, "inspector.metaKeyAria", "Key de metadata")}
                 aria-invalid={isDup(row.key) || undefined}
-                title={isDup(row.key) ? "Key duplicada — el guardado se bloquea hasta corregirla" : undefined}
+                title={isDup(row.key) ? tt(lang, "inspector.metaDupTitle", "Key duplicada — el guardado se bloquea hasta corregirla") : undefined}
                 className={`w-full border-2 bg-background px-1.5 py-1 pr-5 font-mono text-[11px] ${
                   isDup(row.key) ? "border-neon text-foreground" : "border-foreground"
                 }`}
@@ -96,7 +99,7 @@ export default function MetadataTab({ rows, setRows }: Props) {
               <select
                 value={row.raw}
                 onChange={(e) => setRows(updateRow(rows, i, { raw: e.target.value }))}
-                aria-label="Valor booleano"
+                aria-label={tt(lang, "inspector.metaBoolAria", "Valor booleano")}
                 className="border-2 border-foreground bg-background px-1 py-1 font-tech text-[11px]"
               >
                 <option value="true">true</option>
@@ -106,8 +109,8 @@ export default function MetadataTab({ rows, setRows }: Props) {
               <input
                 value={row.raw}
                 onChange={(e) => setRows(updateRow(rows, i, { raw: e.target.value }))}
-                placeholder={row.type === "lst" ? '["a","b"]' : row.type === "date" ? "AAAA-MM-DDTHH:mm" : "valor"}
-                aria-label={`Valor de ${row.key || `fila ${i + 1}`}`}
+                placeholder={row.type === "lst" ? '["a","b"]' : row.type === "date" ? "AAAA-MM-DDTHH:mm" : tt(lang, "inspector.metaValuePh", "valor")}
+                aria-label={tp(lang, "inspector.metaValueAria", "Valor de {k}", { k: row.key || `fila ${i + 1}` })}
                 type={row.type === "int" || row.type === "flt" ? "number" : row.type === "date" ? "datetime-local" : "text"}
                 step={row.type === "int" ? 1 : "any"}
                 className="border-2 border-foreground bg-background px-1.5 py-1 font-mono text-[11px]"
@@ -116,7 +119,8 @@ export default function MetadataTab({ rows, setRows }: Props) {
             <button
               type="button"
               onClick={() => removeRow(i)}
-              aria-label={`Quitar fila ${row.key || i + 1}`}
+              aria-label={tp(lang, "inspector.metaDeleteAria", "Quitar fila {k}", { k: row.key || String(i + 1) })}
+              title={tt(lang, "inspector.metaDeleteTitle", "Quitar fila")}
               className="press flex h-6 w-6 items-center justify-center border-2 border-foreground text-xs"
             >
               ✕
@@ -129,7 +133,7 @@ export default function MetadataTab({ rows, setRows }: Props) {
         onClick={addRow}
         className="press mt-3 border-2 border-foreground bg-background px-3 py-1.5 text-xs font-semibold"
       >
-        + AGREGAR FILA
+        {tt(lang, "inspector.metaAdd", "+ AGREGAR FILA")}
       </button>
     </div>
   );

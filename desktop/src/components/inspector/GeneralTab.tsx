@@ -4,12 +4,15 @@ import { useEffect, useState } from "react";
 import type { MemoryRecord } from "../../vanta";
 import { fmtDateTime, fmtDuration, fmtRelative, ttlToMs, type TtlDraft } from "./shared";
 import { TriangleAlert } from "lucide-react";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 interface Props {
   record: MemoryRecord;
   score: number | null;
   ttl: TtlDraft;
   setTtl: (d: TtlDraft) => void;
+  lang?: DesktopLang;
 }
 
 function Row({ label, children }: { label: string; children: React.ReactNode }) {
@@ -23,7 +26,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
   );
 }
 
-export default function GeneralTab({ record, score, ttl, setTtl }: Props) {
+export default function GeneralTab({ record, score, ttl, setTtl, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   // Countdown TTL en vivo (1s; el grid usa 30s, acá el inspector es el foco).
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
@@ -101,26 +104,26 @@ export default function GeneralTab({ record, score, ttl, setTtl }: Props) {
             onClick={() => setEditingTtl((v) => !v)}
             className="press border-2 border-foreground bg-card px-2 py-0.5 font-tech text-[10px]"
           >
-            {editingTtl ? "cerrar" : "editar"}
+            {editingTtl ? tt(lang, "inspector.ttlClose", "cerrar") : tt(lang, "inspector.ttlEdit", "editar")}
           </button>
         </div>
 
         {!editingTtl ? (
           expiresMs == null ? (
-            <p className="mt-2 font-tech text-[11px] text-muted-foreground">sin expiración</p>
+            <p className="mt-2 font-tech text-[11px] text-muted-foreground">{tt(lang, "inspector.noExpiry", "sin expiración")}</p>
           ) : (
             <div className="mt-2">
               <div className="flex items-center justify-between font-tech text-[10px]">
                 <span className={expired ? "font-bold text-foreground" : "text-foreground"}>
                   {expired ? (
-                    "✕ EXPIRED"
+                    tt(lang, "inspector.ttlExpired", "✕ EXPIRED")
                   ) : expiring ? (
                     <>
                       <TriangleAlert className="mr-0.5 inline h-3 w-3 align-[-2px]" strokeWidth={2.5} aria-hidden="true" />
-                      {fmtDuration(remain)} left
+                      {tp(lang, "inspector.ttlLeftPlain", "{d} left", { d: fmtDuration(remain) })}
                     </>
                   ) : (
-                    `● ${fmtDuration(remain)} left`
+                    tp(lang, "inspector.ttlLeftDot", "● {d} left", { d: fmtDuration(remain) })
                   )}
                 </span>
                 <span className="text-muted-foreground">{fmtDateTime(expiresMs)}</span>
@@ -141,7 +144,7 @@ export default function GeneralTab({ record, score, ttl, setTtl }: Props) {
                 checked={ttl.mode === "never"}
                 onChange={() => setTtl({ mode: "never", relMinutes: 0, absLocal: "" })}
               />
-              nunca expira
+              {tt(lang, "inspector.ttlNever", "nunca expira")}
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -149,7 +152,7 @@ export default function GeneralTab({ record, score, ttl, setTtl }: Props) {
                 checked={ttl.mode === "relative"}
                 onChange={() => setTtl({ ...ttl, mode: "relative" })}
               />
-              expira en
+              {tt(lang, "inspector.ttlRelative", "expira en")}
               <input
                 type="number"
                 min={1}
@@ -158,9 +161,9 @@ export default function GeneralTab({ record, score, ttl, setTtl }: Props) {
                   setTtl({ ...ttl, mode: "relative", relMinutes: Number(e.target.value) })
                 }
                 className="w-20 border-2 border-foreground bg-card px-1 py-0.5 font-tech text-[11px]"
-                aria-label="Minutos hasta expiración"
+                aria-label={tt(lang, "inspector.ttlMinutesAria", "Minutos hasta expiración")}
               />
-              min
+              {tt(lang, "inspector.ttlMin", "min")}
             </label>
             <label className="flex items-center gap-2">
               <input
@@ -168,17 +171,17 @@ export default function GeneralTab({ record, score, ttl, setTtl }: Props) {
                 checked={ttl.mode === "absolute"}
                 onChange={() => setTtl({ ...ttl, mode: "absolute" })}
               />
-              hasta
+              {tt(lang, "inspector.ttlAbsolute", "hasta")}
               <input
                 type="datetime-local"
                 value={ttl.absLocal}
                 onChange={(e) => setTtl({ ...ttl, mode: "absolute", absLocal: e.target.value })}
                 className="border-2 border-foreground bg-card px-1 py-0.5 font-tech text-[11px]"
-                aria-label="Fecha y hora de expiración"
+                aria-label={tt(lang, "inspector.ttlDateAria", "Fecha y hora de expiración")}
               />
             </label>
             <p className="font-tech text-[10px] text-muted-foreground">
-              commit explícito: usá GUARDAR / REVERTIR en el pie del inspector
+              {tt(lang, "inspector.ttlCommitHint", "commit explícito: usá GUARDAR / REVERTIR en el pie del inspector")}
             </p>
           </div>
         )}

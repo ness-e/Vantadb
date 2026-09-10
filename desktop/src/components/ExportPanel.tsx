@@ -6,6 +6,8 @@
 import { useEffect, useState } from "react";
 import { OperationalMetrics } from "../vanta";
 import { useMetricsPoll } from "../hooks/useMetricsPoll";
+import { tp, tt, type DesktopLang } from "../i18n";
+import { connectionPrefs } from "../store/connections";
 
 const LS_KEY = "vanta.last_snapshot";
 
@@ -33,7 +35,7 @@ function fileName(at: number): string {
   return `vanta-snapshot-${ts}.json`;
 }
 
-export default function ExportPanel() {
+export default function ExportPanel({ lang = connectionPrefs.get().lang ?? "es" }: { lang?: DesktopLang }) {
   const [stored, setStored] = useState<Stored | null>(() => loadStored());
   const { history, error } = useMetricsPoll();
   const live = history[history.length - 1] ?? null;
@@ -63,13 +65,13 @@ export default function ExportPanel() {
 
   return (
     <section
-      aria-label="Exportar snapshot"
+      aria-label={tt(lang, "panels.export.aria", "Exportar snapshot")}
       className="border-[3px] border-foreground bg-card p-4 shadow-ink"
     >
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="m-0 font-tech text-xs uppercase tracking-widest">Exportar Snapshot</h2>
+        <h2 className="m-0 font-tech text-xs uppercase tracking-widest">{tt(lang, "panels.export.title", "Exportar Snapshot")}</h2>
         <span className="text-muted-foreground">
-          {error ? "snapshot no disponible — reintentando…" : "última corrida de vanta_metrics"}
+          {error ? tt(lang, "panels.export.noSnapshot", "snapshot no disponible — reintentando…") : tt(lang, "panels.export.lastRun", "última corrida de vanta_metrics")}
         </span>
       </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -79,13 +81,13 @@ export default function ExportPanel() {
           disabled={!snapshot}
           className="press cursor-pointer border-2 border-foreground bg-background px-2.5 py-1.5 text-sm disabled:cursor-default disabled:opacity-50"
         >
-          Exportar snapshot
+          {tt(lang, "panels.export.downloadBtn", "Exportar snapshot")}
         </button>
         <span
           className={`font-tech text-xs ${snapshot ? "text-foreground" : "text-muted-foreground"}`}
           data-status={snapshot ? "ok" : "idle"}
         >
-          {savedAt ? `guardado: ${new Date(savedAt).toLocaleString()}` : "sin snapshot aún"}
+          {savedAt ? tp(lang, "panels.export.savedAt", "guardado: {d}", { d: new Date(savedAt).toLocaleString() }) : tt(lang, "panels.export.noSnapshotYet", "sin snapshot aún")}
         </span>
       </div>
     </section>

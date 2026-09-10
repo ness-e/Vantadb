@@ -14,14 +14,17 @@ import IqlConsole from "./IqlConsole";
 import { MAX_NODES, useGraphData } from "./useGraphData";
 import LensShell from "../layout/LensShell";
 import { Tag, TriangleAlert } from "lucide-react";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 interface Props {
   onNotice: (msg: string) => void;
   onError: (msg: string) => void;
   dark: boolean;
+  lang?: DesktopLang;
 }
 
-export default function GraphLens({ onNotice, onError, dark }: Props) {
+export default function GraphLens({ onNotice, onError, dark, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   const [showLabels, setShowLabels] = useState(true);
   const [fitSignal, setFitSignal] = useState(0);
   const [consoleOpen, setConsoleOpen] = useState(true);
@@ -52,14 +55,14 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
         <div className="mt-2 flex flex-wrap items-center gap-2">
         {highlightIds.size > 0 && (
           <span className="font-tech text-[10px] font-bold text-cyan-700 dark:text-cyan-300" role="status">
-            ● {highlightIds.size} resaltados
+            {tp(lang, "graph.highlighted", "● {n} resaltados", { n: String(highlightIds.size) })}
           </span>
         )}
-        {g.busy && <span className="font-tech text-[10px] text-muted-foreground">expandiendo…</span>}
+        {g.busy && <span className="font-tech text-[10px] text-muted-foreground">{tt(lang, "graph.expanding", "expandiendo…")}</span>}
         {g.capped && (
           <span className="font-tech text-[10px] font-bold text-amber-700 dark:text-amber-300" role="status">
             <TriangleAlert className="mr-0.5 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" />
-            tope alcanzado — se desvanecen nodos viejos (click para re-expandir)
+            {tt(lang, "graph.capped", "tope alcanzado — se desvanecen nodos viejos (click para re-expandir)")}
           </span>
         )}
         <div className="ml-auto flex items-center gap-2">
@@ -70,7 +73,7 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
             className={`press border-2 border-foreground px-2 py-1 text-[10px] font-semibold ${
               consoleOpen ? "bg-neon text-background" : "bg-background"
             }`}
-            title="Mostrar/ocultar consola IQL (GRAFO-03)"
+            title={tt(lang, "graph.iqlTitle", "Mostrar/ocultar consola IQL (GRAFO-03)")}
           >
             ⌨ iql
           </button>
@@ -78,7 +81,7 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
             type="button"
             onClick={fit}
             className="press border-2 border-foreground bg-background px-2 py-1 text-[10px] font-semibold"
-            title="Ajustar vista al grafo"
+            title={tt(lang, "graph.fitTitle", "Ajustar vista al grafo")}
           >
             ⛶ fit
           </button>
@@ -86,7 +89,7 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
             type="button"
             onClick={handleReset}
             className="press border-2 border-foreground bg-background px-2 py-1 text-[10px] font-semibold"
-            title="Reiniciar al seed (hubs del namespace)"
+            title={tt(lang, "graph.resetTitle", "Reiniciar al seed (hubs del namespace)")}
           >
             ↺ reset
           </button>
@@ -97,9 +100,9 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
             className={`press border-2 border-foreground px-2 py-1 text-[10px] font-semibold ${
               showLabels ? "bg-neon text-background" : "bg-background"
             }`}
-            title="Mostrar/ocultar labels (solo top-20 por degree)"
+            title={tt(lang, "graph.labelsTitle", "Mostrar/ocultar labels (solo top-20 por degree)")}
           >
-            <Tag className="mr-1 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" /> labels
+            <Tag className="mr-1 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" /> {tt(lang, "graph.labels", "labels")}
           </button>
         </div>
         </div>
@@ -107,16 +110,20 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
 
       {/* Pista de interacción */}
       <p className="border-b border-foreground/40 bg-background px-4 py-1 font-tech text-[10px] text-muted-foreground">
-        click en un nodo → expande vecinos (≤50) · arrastrar = orbitar · scroll = zoom · click vacío = deseleccionar
-        {consoleOpen && " · ctrl+enter en la consola = ejecutar iql"}
+        {tt(lang, "graph.hint", "click en un nodo → expande vecinos (≤50) · arrastrar = orbitar · scroll = zoom · click vacío = deseleccionar")}
+        {consoleOpen && tt(lang, "graph.hintConsole", " · ctrl+enter en la consola = ejecutar iql")}
       </p>
 
       <div
         role="img"
-        aria-label={`Grafo de ${g.nodeCount} nodos y ${g.edgeCount} aristas${g.namespace ? ` del namespace ${g.namespace}` : ""}. Click en un nodo expande hasta 50 vecinos; la consola IQL permite consultar.`}
+        aria-label={tp(lang, "graph.canvasAria", "Grafo de {nodes} nodos y {edges} aristas{ns}. Click en un nodo expande hasta 50 vecinos; la consola IQL permite consultar.", {
+          nodes: String(g.nodeCount),
+          edges: String(g.edgeCount),
+          ns: g.namespace ? tp(lang, "graph.canvasNs", " del namespace {ns}", { ns: g.namespace }) : "",
+        })}
         className={`flex-1 overflow-hidden ${consoleOpen ? "min-h-0" : ""}`}
       >
-        <Suspense fallback={<div className="flex h-full items-center justify-center font-tech text-xs text-muted-foreground">cargando escena 3D…</div>}>
+        <Suspense fallback={<div className="flex h-full items-center justify-center font-tech text-xs text-muted-foreground">{tt(lang, "graph.loading3d", "cargando escena 3D…")}</div>}>
           <Canvas camera={{ position: [0, 0, 24], fov: 50 }} dpr={[1, 1.5]} onPointerMissed={() => g.setActiveId(null)}>
             <GraphScene
               nodes={g.nodes}
@@ -134,7 +141,7 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
 
       {/* UX-08: alternativa accesible al canvas 3D — lista de nodos para
           teclado/SR (sr-only; vive fuera del role="img" para no ocultarse). */}
-      <ul className="sr-only" aria-label="Nodos visibles del grafo">
+      <ul className="sr-only" aria-label={tt(lang, "graph.nodesAria", "Nodos visibles del grafo")}>
         {g.nodes.map((n) => (
           <li key={n.id}>{n.label || n.id}</li>
         ))}
@@ -143,7 +150,7 @@ export default function GraphLens({ onNotice, onError, dark }: Props) {
       {/* Consola IQL embebida (GRAFO-03) — panel inferior colapsable */}
       {consoleOpen && (
         <div className="h-[220px] shrink-0">
-          <IqlConsole dark={dark} onHighlight={handleHighlight} onNotice={onNotice} onError={onError} />
+          <IqlConsole dark={dark} lang={lang} onHighlight={handleHighlight} onNotice={onNotice} onError={onError} />
         </div>
       )}
     </div>

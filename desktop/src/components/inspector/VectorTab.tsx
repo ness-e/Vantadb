@@ -3,9 +3,12 @@
 // JSON de vector (solo inspección — vantaPut no acepta vector en Fase 0).
 import { useMemo, useState } from "react";
 import type { MemoryRecord } from "../../vanta";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 interface Props {
   record: MemoryRecord;
+  lang?: DesktopLang;
 }
 
 function vecStats(v: number[]) {
@@ -50,12 +53,12 @@ function Sparkline({ values }: { values: number[] }) {
   );
 }
 
-function Stats({ v }: { v: number[] }) {
+function Stats({ v, lang }: { v: number[]; lang: DesktopLang }) {
   const s = vecStats(v);
   return (
     <dl className="space-y-1 font-tech text-[11px]">
       <div className="flex justify-between">
-        <dt className="uppercase text-muted-foreground">dimensión</dt>
+        <dt className="uppercase text-muted-foreground">{tt(lang, "inspector.vecDim", "dimensión")}</dt>
         <dd className="font-mono">{s.dim}</dd>
       </div>
       <div className="flex justify-between">
@@ -72,7 +75,7 @@ function Stats({ v }: { v: number[] }) {
   );
 }
 
-export default function VectorTab({ record }: Props) {
+export default function VectorTab({ record, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   const vec = record.vector ?? null;
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -97,14 +100,14 @@ export default function VectorTab({ record }: Props) {
     try {
       const parsed = JSON.parse(pasteText);
       if (!Array.isArray(parsed) || !parsed.every((x) => typeof x === "number")) {
-        setPasteError("el JSON debe ser un array de números");
+        setPasteError(tt(lang, "inspector.vecPasteErrArray", "el JSON debe ser un array de números"));
         setPasted(null);
         return;
       }
       setPasted(parsed);
       setPasteError(null);
     } catch {
-      setPasteError("JSON inválido");
+      setPasteError(tt(lang, "inspector.vecPasteErrJson", "JSON inválido"));
       setPasted(null);
     }
   }
@@ -128,17 +131,17 @@ export default function VectorTab({ record }: Props) {
       {!open ? null : !vec ? (
         <div className="mt-2 border-2 border-foreground bg-background p-3">
           <p className="font-tech text-[10px] uppercase text-muted-foreground">
-            sin vector — solo texto
+            {tt(lang, "inspector.vecNoVector", "sin vector — solo texto")}
           </p>
           {sparseCount > 0 && (
             <p className="mt-1 font-tech text-[10px] text-muted-foreground">
-              sparse · {sparseCount} términos
+              {tp(lang, "inspector.vecSparse", "sparse · {n} términos", { n: String(sparseCount) })}
             </p>
           )}
         </div>
       ) : (
         <div className="mt-2 space-y-3 border-2 border-foreground bg-background p-3">
-          <Stats v={vec} />
+          <Stats v={vec} lang={lang} />
           <Sparkline values={vec} />
           <div className="flex gap-2">
             <button
@@ -146,25 +149,25 @@ export default function VectorTab({ record }: Props) {
               onClick={copyJson}
               className="press flex-1 border-2 border-foreground bg-card px-2 py-1.5 font-tech text-[10px]"
             >
-              {copied ? "✓ COPIADO" : "COPIAR JSON"}
+              {copied ? tt(lang, "inspector.vecCopied", "✓ COPIADO") : tt(lang, "inspector.vecCopy", "COPIAR JSON")}
             </button>
           </div>
           {sparseCount > 0 && (
             <p className="font-tech text-[10px] text-muted-foreground">
-              sparse · {sparseCount} términos
+              {tp(lang, "inspector.vecSparse", "sparse · {n} términos", { n: String(sparseCount) })}
             </p>
           )}
 
           <div className="border-t-2 border-dashed border-foreground pt-3">
             <div className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-              pegar JSON (análisis local, no persiste)
+              {tt(lang, "inspector.vecPasteTitle", "pegar JSON (análisis local, no persiste)")}
             </div>
             <textarea
               value={pasteText}
               onChange={(e) => setPasteText(e.target.value)}
-              placeholder="[0.1, -0.2, …]"
+              placeholder={tt(lang, "inspector.vecAnalyzePh", "[0.1, -0.2, …]")}
               rows={2}
-              aria-label="JSON de vector a analizar"
+              aria-label={tt(lang, "inspector.vecPasteAria", "JSON de vector a analizar")}
               className="mt-1 w-full border-2 border-foreground bg-background px-2 py-1 font-mono text-[10px]"
             />
             <button
@@ -172,12 +175,12 @@ export default function VectorTab({ record }: Props) {
               onClick={analyzePaste}
               className="press mt-1 border-2 border-foreground bg-card px-2 py-1 font-tech text-[10px]"
             >
-              ANALIZAR
+              {tt(lang, "inspector.vecAnalyze", "ANALIZAR")}
             </button>
             {pasteError && <p className="mt-1 font-tech text-[10px] text-destructive">{pasteError}</p>}
             {pasted && pastedStats && (
               <div className="mt-2 space-y-2">
-                <Stats v={pasted} />
+                <Stats v={pasted} lang={lang} />
                 <Sparkline values={pasted} />
               </div>
             )}

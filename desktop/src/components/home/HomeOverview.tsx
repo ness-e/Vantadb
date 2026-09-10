@@ -12,6 +12,8 @@
 import { useCallback, useEffect, useState } from "react";
 import { list, namespaceStats, MemoryRecord, NamespaceStatsMap } from "../../vanta";
 import { Hourglass } from "lucide-react";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 // 24h — espeja DEFAULT_EXPIRING_SOON_WINDOW_MS del core (src/sdk/types.rs:243).
 const EXPIRING_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -162,9 +164,9 @@ function fmtCountdown(ms: number): string {
 }
 
 /** Edad relativa compacta ("ahora", "5s", "3m", "2h", "1d"). */
-function relTime(ageMs: number): string {
+function relTime(ageMs: number, lang: DesktopLang): string {
   const s = Math.max(0, Math.floor(ageMs / 1000));
-  if (s < 5) return "ahora";
+  if (s < 5) return tt(lang, "home.relNow", "ahora");
   if (s < 60) return `${s}s`;
   const m = Math.floor(s / 60);
   if (m < 60) return `${m}m`;
@@ -193,15 +195,17 @@ function Card({ icon, title, children }: { icon: React.ReactNode; title: string;
 function OverviewHeader({
   refresh,
   children,
+  lang,
 }: {
   refresh?: () => void;
   children?: React.ReactNode;
+  lang: DesktopLang;
 }) {
   return (
     <div className="flex flex-wrap items-end justify-between gap-2">
       <div>
-        <div className="font-tech text-[11px] uppercase tracking-widest text-accent-text">Overview</div>
-        <h1 className="font-display text-4xl text-stencil">VISTA GENERAL</h1>
+        <div className="font-tech text-[11px] uppercase tracking-widest text-accent-text">{tt(lang, "home.overviewLabel", "Overview")}</div>
+        <h1 className="font-display text-4xl text-stencil">{tt(lang, "home.title", "VISTA GENERAL")}</h1>
       </div>
       <div className="flex items-center gap-2">
         {children}
@@ -210,8 +214,8 @@ function OverviewHeader({
             type="button"
             onClick={refresh}
             className="press flex h-7 w-7 items-center justify-center border-2 border-foreground bg-background text-sm"
-            title="Actualizar resumen"
-            aria-label="Actualizar resumen"
+            title={tt(lang, "home.refreshTitle", "Actualizar resumen")}
+            aria-label={tt(lang, "home.refreshAria", "Actualizar resumen")}
           >
             ⟳
           </button>
@@ -224,7 +228,7 @@ function OverviewHeader({
 // Ciclo de colores por fila del histograma (encoding redundante: color + label + %).
 const TYPE_COLORS = ["bg-foreground", "bg-neon", "bg-chart-3", "bg-chart-5", "bg-chart-4", "bg-muted-foreground"];
 
-export default function HomeOverview({ active }: { active: boolean }) {
+export default function HomeOverview({ active, lang = connectionPrefs.get().lang ?? "es" }: { active: boolean; lang?: DesktopLang }) {
   const [data, setData] = useState<HomeData | null>(null);
   const [failed, setFailed] = useState(false);
   const [tick, setTick] = useState(0);
@@ -263,12 +267,12 @@ export default function HomeOverview({ active }: { active: boolean }) {
   if (!active || data === null) {
     // UX-12: mismo header que el estado cargado — solo cambia el cuerpo.
     return (
-      <section aria-label="Resumen de la memoria">
-        <OverviewHeader />
+      <section aria-label={tt(lang, "home.sectionAria", "Resumen de la memoria")}>
+        <OverviewHeader lang={lang} />
         <div className="ink-divider mt-4" aria-hidden="true" />
         <div className="mt-6 border-2 border-dashed border-foreground bg-card p-8 text-center">
           <p className="font-tech text-[11px] uppercase tracking-widest text-muted-foreground">
-            {failed ? "no se pudo leer el backend" : "cargando…"}
+            {failed ? tt(lang, "home.loadFail", "no se pudo leer el backend") : tt(lang, "home.loading", "cargando…")}
           </p>
         </div>
       </section>
@@ -280,11 +284,11 @@ export default function HomeOverview({ active }: { active: boolean }) {
   const vectorPct = data.total ? Math.round((data.withVector / data.total) * 100) : 0;
 
   return (
-    <section aria-label="Resumen de la memoria">
+    <section aria-label={tt(lang, "home.sectionAria", "Resumen de la memoria")}>
       {/* Header + sync (UX-12: OverviewHeader compartido con el estado de carga) */}
-      <OverviewHeader refresh={refresh}>
+      <OverviewHeader refresh={refresh} lang={lang}>
         <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-          <span className="text-accent-text">▲ {data.updated7d}</span> actualizados / 7d
+          <span className="text-accent-text">▲ {data.updated7d}</span> {tt(lang, "home.updated7d", "actualizados / 7d")}
         </span>
       </OverviewHeader>
 
@@ -293,7 +297,7 @@ export default function HomeOverview({ active }: { active: boolean }) {
       {/* Cards overview (estáticas — la navegación profunda es del grid/inspector) */}
       <div className="stagger-children mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-3">
         {/* Total + tendencia (proxy 7d) */}
-        <Card icon="▦" title="Total de registros">
+        <Card icon="▦" title={tt(lang, "home.totalTitle", "Total de registros")}>
           <div className="mt-2 font-display text-5xl">{data.total.toLocaleString()}</div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1 border-2 border-foreground bg-muted px-2 py-0.5 font-tech text-[10px] uppercase">
@@ -306,10 +310,10 @@ export default function HomeOverview({ active }: { active: boolean }) {
         </Card>
 
         {/* Por namespace */}
-        <Card icon="▤" title="Por namespace">
+        <Card icon="▤" title={tt(lang, "home.byNsTitle", "Por namespace")}>
           <div className="mt-3 space-y-2">
             {data.namespaces.length === 0 ? (
-              <p className="font-tech text-[11px] text-muted-foreground">sin registros</p>
+              <p className="font-tech text-[11px] text-muted-foreground">{tt(lang, "home.noRecords", "sin registros")}</p>
             ) : (
               data.namespaces.map((n) => {
                 const pct = data.total ? Math.round((n.count / data.total) * 100) : 0;
@@ -330,10 +334,10 @@ export default function HomeOverview({ active }: { active: boolean }) {
         </Card>
 
         {/* Distribución de tipos metadata (mini-histograma) */}
-        <Card icon="▦" title="Tipos de metadata">
+        <Card icon="▦" title={tt(lang, "home.metaTypesTitle", "Tipos de metadata")}>
           <div className="mt-3 space-y-2">
             {data.types.length === 0 ? (
-              <p className="font-tech text-[11px] text-muted-foreground">sin metadata tipada</p>
+              <p className="font-tech text-[11px] text-muted-foreground">{tt(lang, "home.noMeta", "sin metadata tipada")}</p>
             ) : (
               data.types.map((t, i) => {
                 const pct = typeTotal ? Math.round((t.count / typeTotal) * 100) : 0;
@@ -354,13 +358,13 @@ export default function HomeOverview({ active }: { active: boolean }) {
         {/* Próximos a expirar (TTL) */}
         <Card
           icon={<Hourglass className="h-4 w-4" strokeWidth={2.5} />}
-          title="Próximos a expirar"
+          title={tt(lang, "home.expiringTitle", "Próximos a expirar")}
         >
           <div className="mt-2 font-display text-5xl">{data.expiringCount}</div>
-          <div className="mt-1 font-tech text-[11px] text-muted-foreground">en las próximas 24h</div>
+          <div className="mt-1 font-tech text-[11px] text-muted-foreground">{tt(lang, "home.next24h", "en las próximas 24h")}</div>
           <div className="mt-3 space-y-2">
             {data.expiringSoon.length === 0 ? (
-              <p className="font-tech text-[11px] text-muted-foreground">ninguno</p>
+              <p className="font-tech text-[11px] text-muted-foreground">{tt(lang, "home.noneExpire", "ninguno")}</p>
             ) : (
               data.expiringSoon.map((r) => {
                 const remaining = Math.max(0, r.expires_at_ms - now);
@@ -384,19 +388,19 @@ export default function HomeOverview({ active }: { active: boolean }) {
         </Card>
 
         {/* Expirados recientes */}
-        <Card icon="∅" title="Expirados recientes">
+        <Card icon="∅" title={tt(lang, "home.expiredTitle", "Expirados recientes")}>
           <div className="mt-2 font-display text-5xl">{data.expiredCount}</div>
-          <div className="mt-1 font-tech text-[11px] text-muted-foreground">expirados no purgados · auto-limpiados por WAL</div>
+          <div className="mt-1 font-tech text-[11px] text-muted-foreground">{tt(lang, "home.expiredHint", "expirados no purgados · auto-limpiados por WAL")}</div>
           <p className="mt-3 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-            incluye expirados que list() no trae — via namespace_stats (VS-CORE-02)
+            {tt(lang, "home.expiredNote", "incluye expirados que list() no trae — via namespace_stats (VS-CORE-02)")}
           </p>
         </Card>
 
         {/* Actividad reciente (updated_at desc — decisión usuario; audit log en Fase 1) */}
-        <Card icon="◷" title="Actividad reciente">
+        <Card icon="◷" title={tt(lang, "home.activityTitle", "Actividad reciente")}>
           <div className="mt-3 space-y-2.5">
             {data.activity.length === 0 ? (
-              <p className="font-tech text-[11px] text-muted-foreground">sin actividad reciente</p>
+              <p className="font-tech text-[11px] text-muted-foreground">{tt(lang, "home.noActivity", "sin actividad reciente")}</p>
             ) : (
               data.activity.map((a) => (
                 <div key={a.key} className="flex items-center gap-2">
@@ -405,7 +409,7 @@ export default function HomeOverview({ active }: { active: boolean }) {
                     {a.namespace}::{a.key}
                   </span>
                   <span className="ml-auto shrink-0 font-tech text-[10px] text-muted-foreground">
-                    {relTime(now - a.updated_at_ms)}
+                    {relTime(now - a.updated_at_ms, lang)}
                   </span>
                 </div>
               ))
@@ -414,10 +418,10 @@ export default function HomeOverview({ active }: { active: boolean }) {
         </Card>
 
         {/* Con vector */}
-        <Card icon="⠿" title="Registros con vector">
+        <Card icon="⠿" title={tt(lang, "home.vectorTitle", "Registros con vector")}>
           <div className="mt-2 font-display text-5xl">{data.withVector}</div>
           <div className="mt-1 font-tech text-[11px] text-muted-foreground">
-            {vectorPct}% del total · embedding denso
+            {tp(lang, "home.vectorHint", "{p}% del total · embedding denso", { p: String(vectorPct) })}
           </div>
         </Card>
       </div>

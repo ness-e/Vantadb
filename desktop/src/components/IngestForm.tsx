@@ -10,6 +10,8 @@ import {
   vantaErrorMessage,
 } from "../vanta";
 import { embedPrefs } from "../store/embed-prefs";
+import { tp, tt, type DesktopLang } from "../i18n";
+import { connectionPrefs } from "../store/connections";
 
 interface Props {
   onDone: (ids: string[]) => void;
@@ -17,6 +19,7 @@ interface Props {
   /** UX-17: remonta el grid tras un ingest manual (patrón `key={gridKey}`
    * de WorkspaceShell, igual que el batch delete y los imports). */
   onRefresh?: () => void;
+  lang?: DesktopLang;
 }
 
 const LABEL =
@@ -24,7 +27,7 @@ const LABEL =
 const INPUT =
   "border-2 border-foreground bg-background px-2.5 py-1.5";
 
-export default function IngestForm({ onDone, runError, onRefresh }: Props) {
+export default function IngestForm({ onDone, runError, onRefresh, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   const [id, setId] = useState("");
   const [text, setText] = useState("");
   const [namespace, setNamespace] = useState("");
@@ -78,7 +81,7 @@ export default function IngestForm({ onDone, runError, onRefresh }: Props) {
 
   async function handleGenerateEmbedding() {
     if (!text.trim()) {
-      setError("Escribí texto antes de generar el embedding");
+      setError(tt(lang, "ingest.textFirstErr", "Escribí texto antes de generar el embedding"));
       return;
     }
     setEmbeddingBusy(true);
@@ -125,20 +128,20 @@ export default function IngestForm({ onDone, runError, onRefresh }: Props) {
   return (
     // UX-11: id para que el empty state del grid navegue aquí (scrollIntoView).
     <section id="ingest-form" className="border-[3px] border-foreground bg-card p-4 shadow-ink">
-      <h2 className="m-0 font-tech text-xs uppercase tracking-widest">Ingestar</h2>
+      <h2 className="m-0 font-tech text-xs uppercase tracking-widest">{tt(lang, "ingest.title", "Ingestar")}</h2>
       <form className="mt-3 flex flex-col gap-2" onSubmit={handleSubmit}>
         {/* UX-04: labels VISIBLES (WCAG 3.3.2) — placeholder solo no alcanza. */}
         <label className="flex flex-col gap-1">
-          <span className={LABEL}>ID (opcional)</span>
+          <span className={LABEL}>{tt(lang, "ingest.idLabel", "ID (opcional)")}</span>
           <input
             value={id}
             onChange={(e) => setId(e.target.value)}
-            placeholder="el backend asigna uno"
+            placeholder={tt(lang, "ingest.idPh", "el backend asigna uno")}
             className={INPUT}
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className={LABEL}>Contenido de texto</span>
+          <span className={LABEL}>{tt(lang, "ingest.textLabel", "Contenido de texto")}</span>
           <textarea
             value={text}
             onChange={(e) => {
@@ -146,18 +149,18 @@ export default function IngestForm({ onDone, runError, onRefresh }: Props) {
               // El texto cambió → invalidar cualquier embedding previo
               if (embedding) setEmbedding(null);
             }}
-            placeholder="Texto a recordar"
+            placeholder={tt(lang, "ingest.textPh", "Texto a recordar")}
             rows={3}
             required
             className="resize-y border-2 border-foreground bg-background px-2.5 py-1.5"
           />
         </label>
         <label className="flex flex-col gap-1">
-          <span className={LABEL}>Namespace</span>
+          <span className={LABEL}>{tt(lang, "ingest.nsLabel", "Namespace")}</span>
           <input
             value={namespace}
             onChange={(e) => setNamespace(e.target.value)}
-            placeholder="por omisión 'default'"
+            placeholder={tt(lang, "ingest.nsPh", "por omisión 'default'")}
             className={INPUT}
           />
         </label>
@@ -168,7 +171,7 @@ export default function IngestForm({ onDone, runError, onRefresh }: Props) {
         )}
         {confirming && (
           <div role="alert" className="flex flex-wrap items-center gap-2 border-2 border-foreground bg-muted px-2 py-1.5">
-            <span className="text-xs">“{pendingRef.current?.id}” ya existe — ¿sobrescribir?</span>
+            <span className="text-xs">{tp(lang, "ingest.dupMsg", "“{id}” ya existe — ¿sobrescribir?", { id: pendingRef.current?.id ?? "" })}</span>
             <button
               type="button"
               onClick={() => {
@@ -178,15 +181,15 @@ export default function IngestForm({ onDone, runError, onRefresh }: Props) {
               }}
               className="press border-2 border-foreground bg-neon px-2 py-1 text-[10px] font-bold text-background"
             >
-              SOBRESCRIBIR
+              {tt(lang, "ingest.overwriteBtn", "SOBRESCRIBIR")}
             </button>
             <button
               type="button"
               onClick={() => setConfirming(false)}
               className="press border-2 border-foreground bg-background px-2 py-1 text-[10px]"
-              aria-label="Cancelar sobrescritura"
+              aria-label={tt(lang, "ingest.cancelOverwriteAria", "Cancelar sobrescritura")}
             >
-              ✕ CANCELAR
+              {tt(lang, "ingest.cancelOverwriteBtn", "✕ CANCELAR")}
             </button>
           </div>
         )}
@@ -196,7 +199,7 @@ export default function IngestForm({ onDone, runError, onRefresh }: Props) {
             disabled={busy || confirming || !text.trim()}
             className="press cursor-pointer border-2 border-foreground bg-background px-2.5 py-1.5 text-sm disabled:cursor-default disabled:opacity-50"
           >
-            {busy ? "Guardando…" : "Agregar registro"}
+            {busy ? tt(lang, "ingest.savingBtn", "Guardando…") : tt(lang, "ingest.addBtn", "Agregar registro")}
           </button>
           {/* DESKTOP-EMBED-01: generación de vector local vía IPC.
               El botón sólo aparece cuando el shell Tauri expone el comando
@@ -208,10 +211,10 @@ export default function IngestForm({ onDone, runError, onRefresh }: Props) {
               onClick={() => void handleGenerateEmbedding()}
               disabled={embeddingBusy || !text.trim() || busy}
               className="press cursor-pointer border-2 border-foreground bg-background px-2.5 py-1.5 text-xs disabled:cursor-default disabled:opacity-50"
-              aria-label="Generar embedding local con ONNX"
-              title={`Genera un vector de ${caps.default_model ?? "384"} dimensiones vía ort+tokenizers`}
+              aria-label={tt(lang, "ingest.genVectorAria", "Generar embedding local con ONNX")}
+              title={tp(lang, "ingest.genVectorTitle", "Genera un vector de {d} dimensiones vía ort+tokenizers", { d: String(caps.default_model ?? "384") })}
             >
-              {embeddingBusy ? "Embebiendo…" : embedding ? "↻ Regenerar vector" : "Generar vector local"}
+              {embeddingBusy ? tt(lang, "ingest.embedding", "Embebiendo…") : embedding ? tt(lang, "ingest.regen", "↻ Regenerar vector") : tt(lang, "ingest.genLocal", "Generar vector local")}
             </button>
           )}
         </div>
@@ -223,15 +226,14 @@ export default function IngestForm({ onDone, runError, onRefresh }: Props) {
             data-dim={embedding.dim}
             data-model={embedding.model}
           >
-            {embedding.source === "real" ? "✓" : "⚠"} vector {embedding.dim}d
-            {" "}({embedding.source === "real" ? "ONNX" : "dummy"}) — modelo {embedding.model}
+            {tp(lang, "ingest.embedSummary", "{ok} vector {dim}d ({src}) — modelo {model}", { ok: embedding.source === "real" ? "✓" : "⚠", dim: String(embedding.dim), src: embedding.source === "real" ? "ONNX" : "dummy", model: embedding.model })}
           </p>
         )}
         {!caps?.embed_local_compiled && (
-          <p className="m-0 text-xs opacity-60" title="El binario del desktop se compiló sin --features embed-local">
-            Sin vector: el registro se guarda como texto. Para búsqueda semántica local,
+          <p className="m-0 text-xs opacity-60" title={tt(lang, "ingest.noEmbedTitle", "El binario del desktop se compiló sin --features embed-local")}>
+            {tt(lang, "ingest.noEmbedLead", "Sin vector: el registro se guarda como texto. Para búsqueda semántica local,")}
             recompilá el desktop con <code>cargo tauri dev --features embed-local</code>
-            (o instalá un proveedor externo: Ollama u OpenAI).
+            {tt(lang, "ingest.noEmbedTail", "(o instalá un proveedor externo: Ollama u OpenAI).")}
           </p>
         )}
       </form>

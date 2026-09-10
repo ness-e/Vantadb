@@ -22,8 +22,11 @@ import {
 } from "../../vanta";
 import { useMetricsPoll } from "../../hooks/useMetricsPoll";
 import LensShell from "../layout/LensShell";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 import {
   CORE_GAPS,
+  coreGaps,
   namespaceBars,
   namespaceBarsFromCounts,
   textIndexTiles,
@@ -39,11 +42,14 @@ interface Props {
   health: HealthReport | null;
   healthStatus: "ok" | "warn" | "err" | "idle";
   activeName: string | null;
+  lang?: DesktopLang;
 }
 
-function Tile({ t }: { t: IndexTile }) {
+function Tile({ t, lang }: { t: IndexTile; lang: DesktopLang }) {
+  // Title del gap: detalle en el idioma activo (CORE_GAPS es el default ES).
+  const gaps = lang === "es" ? CORE_GAPS : coreGaps(lang);
   return (
-    <div className="border-2 border-foreground bg-card p-3" title={t.gap ? CORE_GAPS[0].detail : undefined}>
+    <div className="border-2 border-foreground bg-card p-3" title={t.gap ? gaps[0].detail : undefined}>
       <div className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">{t.label}</div>
       <div className={`font-display text-2xl leading-none ${t.gap ? "text-muted-foreground" : "text-foreground"}`}>
         {t.value}
@@ -53,7 +59,7 @@ function Tile({ t }: { t: IndexTile }) {
   );
 }
 
-export default function IndicesLens({ health, healthStatus, activeName }: Props) {
+export default function IndicesLens({ health, healthStatus, activeName, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   // Shared vanta_metrics poll (DESKTOP-29) — no local metrics interval.
   const { history, error } = useMetricsPoll();
   const snapshot = history[history.length - 1] ?? null;
@@ -99,24 +105,24 @@ export default function IndicesLens({ health, healthStatus, activeName }: Props)
   return (
     <div className="space-y-5">
       {/* Header (UX-01: LensShell compartido) */}
-      <LensShell title="ÍNDICES" meta={`${activeName ?? "sin backend"} · poll 4s`} />
+      <LensShell title="ÍNDICES" meta={tp(lang, "indices.meta", "{b} · poll 4s", { b: activeName ?? tt(lang, "indices.noBackend", "sin backend") })} />
 
       {error && (
         <p role="alert" className="border-2 border-foreground bg-card px-3 py-2 font-tech text-[11px]">
-          métricas no disponibles: {error}
+          {tp(lang, "indices.metricsErr", "métricas no disponibles: {e}", { e: error })}
         </p>
       )}
 
       {/* Salud */}
-      <section aria-label="Salud" className="border-2 border-foreground bg-card p-4">
-        <div className="font-tech text-[10px] uppercase tracking-widest text-neon">Salud</div>
+      <section aria-label={tt(lang, "indices.healthAria", "Salud")} className="border-2 border-foreground bg-card p-4">
+        <div className="font-tech text-[10px] uppercase tracking-widest text-neon">{tt(lang, "indices.healthTitle", "Salud")}</div>
         <div className="mt-2 flex flex-wrap items-center gap-4">
           <span
             className={`border-2 border-foreground px-2 py-1 font-tech text-[11px] uppercase ${
               ok ? "bg-neon text-background" : "bg-background text-muted-foreground"
             }`}
           >
-            {ok ? "● healthy" : healthStatus === "idle" ? "○ idle" : "○ offline"}
+            {ok ? tt(lang, "indices.healthy", "● healthy") : healthStatus === "idle" ? tt(lang, "indices.idle", "○ idle") : tt(lang, "indices.offline", "○ offline")}
           </span>
           {health && (
             <span className="font-tech text-[11px] text-muted-foreground">
@@ -124,26 +130,26 @@ export default function IndicesLens({ health, healthStatus, activeName }: Props)
             </span>
           )}
           {snapshot && (
-            <span className="font-tech text-[11px] text-muted-foreground">arranque {snapshot.startup_ms}ms</span>
+            <span className="font-tech text-[11px] text-muted-foreground">{tp(lang, "indices.startup", "arranque {ms}ms", { ms: String(snapshot.startup_ms) })}</span>
           )}
         </div>
       </section>
 
       {/* Namespaces */}
-      <section aria-label="Namespaces" className="border-2 border-foreground bg-card p-4">
+      <section aria-label={tt(lang, "indices.nsAria", "Namespaces")} className="border-2 border-foreground bg-card p-4">
         <div className="font-tech text-[10px] uppercase tracking-widest text-neon">
-          Namespaces {bars.length > 0 ? `(${bars.length})` : ""}
+          {tt(lang, "indices.nsTitle", "Namespaces")} {bars.length > 0 ? `(${bars.length})` : ""}
         </div>
         {/* UX-15: skeleton mientras el primer poll no llega (no mentir "sin
           registros" durante la carga). */}
         {loading ? (
-          <div className="mt-3 space-y-3" role="status" aria-label="Cargando namespaces">
+          <div className="mt-3 space-y-3" role="status" aria-label={tt(lang, "indices.loadingNsAria", "Cargando namespaces")}>
             {[0, 1, 2].map((i) => (
               <div key={i} className="h-9 animate-pulse border-2 border-foreground bg-muted" />
             ))}
           </div>
         ) : bars.length === 0 ? (
-          <p className="mt-2 font-tech text-[11px] text-muted-foreground">sin registros</p>
+          <p className="mt-2 font-tech text-[11px] text-muted-foreground">{tt(lang, "indices.noRecords", "sin registros")}</p>
         ) : (
           <ul className="mt-3 space-y-3">
             {bars.map((b) => (
@@ -152,17 +158,17 @@ export default function IndicesLens({ health, healthStatus, activeName }: Props)
                   <span className="truncate text-sm font-semibold">{b.name}</span>
                   <span className="shrink-0 font-tech text-[10px] text-muted-foreground">
                     {b.expiringSoon != null && b.expired != null && (b.expiringSoon > 0 || b.expired > 0)
-                      ? `${b.expiringSoon} expiran · ${b.expired} expirados`
+                      ? tp(lang, "indices.expiring", "{s} expiran · {e} expirados", { s: String(b.expiringSoon), e: String(b.expired) })
                       : b.expiringSoon != null
-                        ? "sin expiración"
-                        : "sin stats"}
+                        ? tt(lang, "indices.noExpiry", "sin expiración")
+                        : tt(lang, "indices.noStats", "sin stats")}
                   </span>
                 </div>
                 {/* Barra estilo ScoreBars: longitud primaria, color secundario. */}
                 <div className="mt-1 flex items-center gap-2">
                   <div
                     role="img"
-                    aria-label={`${b.name}: ${b.count} registros (${b.widthPct.toFixed(0)}% del máximo)`}
+                    aria-label={tp(lang, "indices.barAria", "{n}: {c} registros ({p}% del máximo)", { n: b.name, c: String(b.count), p: b.widthPct.toFixed(0) })}
                     className="relative h-4 min-w-0 flex-1 overflow-hidden border-2 border-foreground bg-background"
                   >
                     <div
@@ -181,20 +187,20 @@ export default function IndicesLens({ health, healthStatus, activeName }: Props)
       {/* Índices */}
       {snapshot && (
         <>
-          <section aria-label="Índice vectorial" className="border-2 border-foreground bg-card p-4">
-            <div className="font-tech text-[10px] uppercase tracking-widest text-neon">Índice vectorial · HNSW</div>
+          <section aria-label={tt(lang, "indices.vecAria", "Índice vectorial")} className="border-2 border-foreground bg-card p-4">
+            <div className="font-tech text-[10px] uppercase tracking-widest text-neon">{tt(lang, "indices.vecTitle", "Índice vectorial · HNSW")}</div>
             <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-              {vectorIndexTiles(snapshot).map((t) => (
-                <Tile key={t.key} t={t} />
+              {vectorIndexTiles(snapshot, lang).map((t) => (
+                <Tile key={t.key} t={t} lang={lang} />
               ))}
             </div>
           </section>
 
-          <section aria-label="Índice de texto" className="border-2 border-foreground bg-card p-4">
-            <div className="font-tech text-[10px] uppercase tracking-widest text-neon">Índice de texto · BM25</div>
+          <section aria-label={tt(lang, "indices.textAria", "Índice de texto")} className="border-2 border-foreground bg-card p-4">
+            <div className="font-tech text-[10px] uppercase tracking-widest text-neon">{tt(lang, "indices.textTitle", "Índice de texto · BM25")}</div>
             <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-              {textIndexTiles(snapshot).map((t) => (
-                <Tile key={t.key} t={t} />
+              {textIndexTiles(snapshot, lang).map((t) => (
+                <Tile key={t.key} t={t} lang={lang} />
               ))}
             </div>
           </section>
@@ -202,8 +208,8 @@ export default function IndicesLens({ health, healthStatus, activeName }: Props)
           <section aria-label="WAL" className="border-2 border-foreground bg-card p-4">
             <div className="font-tech text-[10px] uppercase tracking-widest text-neon">WAL</div>
             <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-              {walTiles(snapshot).map((t) => (
-                <Tile key={t.key} t={t} />
+              {walTiles(snapshot, lang).map((t) => (
+                <Tile key={t.key} t={t} lang={lang} />
               ))}
             </div>
           </section>
@@ -211,12 +217,12 @@ export default function IndicesLens({ health, healthStatus, activeName }: Props)
       )}
 
       {/* Gaps documentados — nunca inventar métricas en la UI. */}
-      <section aria-label="Métricas no expuestas por el core" className="border-2 border-dashed border-muted-foreground p-4">
+      <section aria-label={tt(lang, "indices.gapsAria", "Métricas no expuestas por el core")} className="border-2 border-dashed border-muted-foreground p-4">
         <div className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-          no expuesto por el core · follow-up
+          {tt(lang, "indices.gapsTitle", "no expuesto por el core · follow-up")}
         </div>
         <ul className="mt-2 space-y-1">
-          {CORE_GAPS.map((g) => (
+          {(lang === "es" ? CORE_GAPS : coreGaps(lang)).map((g) => (
             <li key={g.label} className="font-tech text-[11px] text-muted-foreground">
               <span className="text-foreground">{g.label}</span> — {g.detail}
             </li>

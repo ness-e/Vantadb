@@ -19,6 +19,8 @@ import { ArrowDownToLine, Asterisk, Moon, Search, Settings, Sun, Trash2 } from "
 import { list, vantaErrorMessage } from "../../vanta";
 // VS-17: favoritos persistidos (ns o ns/key) para el grupo FAVORITOS.
 import type { Favorite } from "../../store/favorites";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 // DESKTOP-34: todas las superficies del shell — mismo union que WorkspaceShell
 // Surface (duplicado a propósito: importarlo crearía un ciclo con el lazy).
@@ -69,6 +71,7 @@ interface CommandPaletteProps {
   /** H-02: la surface PROXY solo existe cuando el proxy está configurado
    * (mismo gate que el botón del sidebar en WorkspaceShell). */
   proxyConfigured?: boolean;
+  lang?: DesktopLang;
 }
 
 /** Export Fase 0: JSONL de los primeros 500 registros vía list() (el bridge no
@@ -108,7 +111,7 @@ function PaletteItem({
 }
 
 /** Fallback cuando ningún comando matchea: busca la key/query tipeada. */
-function SearchKeyFallback({ onSearch }: { onSearch: (q: string) => void }) {
+function SearchKeyFallback({ onSearch, lang }: { onSearch: (q: string) => void; lang: DesktopLang }) {
   const search = useCommandState((s) => s.search);
   const q = search.trim();
   return (
@@ -119,7 +122,7 @@ function SearchKeyFallback({ onSearch }: { onSearch: (q: string) => void }) {
         if (q) onSearch(q);
       }}
     >
-      <Search className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> Buscar key "{search}"…
+      <Search className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> {tp(lang, "palette.searchKey", 'Buscar key "{q}"…', { q: search })}
     </Command.Item>
   );
 }
@@ -141,6 +144,7 @@ export default function CommandPalette({
   history,
   onClearHistory,
   proxyConfigured = false,
+  lang = connectionPrefs.get().lang ?? "es",
 }: CommandPaletteProps) {
   // Atajos in-palette (Alt+…): se disparan solo mientras la palette está
   // montada. Alt+letra no inserta texto en el input → sin conflicto con typing.
@@ -188,17 +192,17 @@ export default function CommandPalette({
       <Command.Dialog
         open={open}
         onOpenChange={onOpenChange}
-        label="Comandos de Vanta Studio"
+        label={tt(lang, "palette.label", "Comandos de Vanta Studio")}
         overlayClassName="vcmd-overlay"
         contentClassName="vcmd-dialog"
       >
-        <Command.Input placeholder="Escribí un comando o buscá una key…" />
+        <Command.Input placeholder={tt(lang, "palette.inputPh", "Escribí un comando o buscá una key…")} />
         <Command.List>
           <Command.Empty>
-            <SearchKeyFallback onSearch={(q) => run(() => onSearch(q))} />
+            <SearchKeyFallback lang={lang} onSearch={(q) => run(() => onSearch(q))} />
           </Command.Empty>
 
-          <Command.Group heading="Navegación">
+          <Command.Group heading={tt(lang, "palette.navGroup", "Navegación")}>
             <PaletteItem value="nav-resumen" onSelect={() => run(() => onNavigate("resumen"))}>
               ◫ RESUMEN
             </PaletteItem>
@@ -218,7 +222,7 @@ export default function CommandPalette({
             </PaletteItem>
           </Command.Group>
 
-          <Command.Group heading="Lentes">
+          <Command.Group heading={tt(lang, "palette.lensesGroup", "Lentes")}>
             <PaletteItem
               value="lens-actividad"
               keywords={["activity", "actividad", "timeline"]}
@@ -289,10 +293,10 @@ export default function CommandPalette({
 
           {/* VS-17: favoritos persistidos (ns o ns/key). key → Inspector;
               namespace → MEMORIAS (mismo comportamiento que el sidebar). */}
-          <Command.Group heading="Favoritos">
+          <Command.Group heading={tt(lang, "palette.favGroup", "Favoritos")}>
             {favorites.length === 0 ? (
               <Command.Item value="fav-vacio" disabled>
-                sin favoritos — usá ★
+                {tt(lang, "palette.favEmpty", "sin favoritos — usá ★")}
               </Command.Item>
             ) : (
               favorites.map((f) => (
@@ -310,10 +314,10 @@ export default function CommandPalette({
             )}
           </Command.Group>
 
-          <Command.Group heading="Abrir namespace (en MEMORIAS)">
+          <Command.Group heading={tt(lang, "palette.nsGroup", "Abrir namespace (en MEMORIAS)")}>
             {namespaces.length === 0 ? (
               <Command.Item value="ns-vacio" disabled>
-                sin registros
+                {tt(lang, "palette.nsEmpty", "sin registros")}
               </Command.Item>
             ) : (
               namespaces.map((n) => (
@@ -330,14 +334,14 @@ export default function CommandPalette({
             )}
           </Command.Group>
 
-          <Command.Group heading="Acciones">
+          <Command.Group heading={tt(lang, "palette.actionsGroup", "Acciones")}>
             <PaletteItem
               value="accion-buscar"
               kbd="Alt+B"
               keywords={["buscar", "key", "search", "query"]}
               onSelect={() => run(() => onSearch(""))}
             >
-              <Search className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> Buscar key…
+              <Search className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> {tt(lang, "palette.searchAction", "Buscar key…")}
             </PaletteItem>
             <PaletteItem
               value="accion-exportar"
@@ -349,7 +353,7 @@ export default function CommandPalette({
                 })
               }
             >
-              <ArrowDownToLine className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> Exportar memorias (.jsonl)
+              <ArrowDownToLine className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> {tt(lang, "palette.exportAction", "Exportar memorias (.jsonl)")}
             </PaletteItem>
             <PaletteItem
               value="accion-borrar"
@@ -357,7 +361,7 @@ export default function CommandPalette({
               keywords={["borrar", "delete", "eliminar", "papelera", "trash"]}
               onSelect={() => run(() => onDelete?.())}
             >
-              ✕ Borrar registro…
+              {tt(lang, "palette.deleteAction", "✕ Borrar registro…")}
             </PaletteItem>
             <PaletteItem
               value="accion-undo"
@@ -365,7 +369,7 @@ export default function CommandPalette({
               keywords={["deshacer", "undo", "revert"]}
               onSelect={() => run(() => onUndo?.())}
             >
-              ↺ Deshacer
+              {tt(lang, "palette.undoAction", "↺ Deshacer")}
             </PaletteItem>
             <PaletteItem
               value="accion-tema"
@@ -375,21 +379,21 @@ export default function CommandPalette({
             >
               {dark ? (
                 <>
-                  <Sun className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> Tema claro
+                  <Sun className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> {tt(lang, "palette.themeLight", "Tema claro")}
                 </>
               ) : (
                 <>
-                  <Moon className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> Tema oscuro
+                  <Moon className="mr-1 inline h-3.5 w-3.5 align-[-2px]" strokeWidth={2.5} aria-hidden="true" /> {tt(lang, "palette.themeDark", "Tema oscuro")}
                 </>
               )}
             </PaletteItem>
           </Command.Group>
 
           {/* VS-17: últimas N búsquedas, re-ejecutables (onSearch). */}
-          <Command.Group heading="Historial de búsqueda">
+          <Command.Group heading={tt(lang, "palette.histGroup", "Historial de búsqueda")}>
             {history.length === 0 ? (
               <Command.Item value="hist-vacio" disabled>
-                sin búsquedas recientes
+                {tt(lang, "palette.histEmpty", "sin búsquedas recientes")}
               </Command.Item>
             ) : (
               history.map((q) => (
@@ -409,14 +413,14 @@ export default function CommandPalette({
                 keywords={["historial", "history", "limpiar", "clear"]}
                 onSelect={() => run(onClearHistory)}
               >
-                ✕ Limpiar historial
+                {tt(lang, "palette.clearHist", "✕ Limpiar historial")}
               </PaletteItem>
             )}
           </Command.Group>
         </Command.List>
 
         {activeConnection && (
-          <div className="vcmd-footer">◆ namespace activo · {activeConnection}</div>
+          <div className="vcmd-footer">{tp(lang, "palette.footerActive", "◆ namespace activo · {c}", { c: activeConnection })}</div>
         )}
       </Command.Dialog>
 

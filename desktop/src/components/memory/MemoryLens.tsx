@@ -23,6 +23,8 @@ import {
   type MemoryRecord,
 } from "../../vanta";
 import LensShell from "../layout/LensShell";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 interface LensActions {
   onNotice: (msg: string) => void;
@@ -57,7 +59,7 @@ function fmtMs(ms: number): string {
 }
 
 // --- ESCENAS -------------------------------------------------------------------
-function ScenesPanel({ sessionKey, onError }: { sessionKey: string } & Pick<LensActions, "onError">) {
+function ScenesPanel({ sessionKey, onError, lang }: { sessionKey: string; lang: DesktopLang } & Pick<LensActions, "onError">) {
   const [scenes, setScenes] = useState<SceneEntry[] | null>(null);
   const [detail, setDetail] = useState<SceneBlock | null>(null);
 
@@ -94,8 +96,8 @@ function ScenesPanel({ sessionKey, onError }: { sessionKey: string } & Pick<Lens
     [scenes],
   );
 
-  if (!scenes) return <PanelEmpty msg="cargando escenas…" />;
-  if (scenes.length === 0) return <PanelEmpty msg={`sin escenas en "${sessionKey}"`} />;
+  if (!scenes) return <PanelEmpty msg={tt(lang, "memory.scenesLoading", "cargando escenas…")} />;
+  if (scenes.length === 0) return <PanelEmpty msg={tp(lang, "memory.scenesEmpty", 'sin escenas en "{s}"', { s: sessionKey })} />;
 
   return (
     <div className="space-y-3">
@@ -122,23 +124,23 @@ function ScenesPanel({ sessionKey, onError }: { sessionKey: string } & Pick<Lens
         ))}
       </ol>
       {detail && (
-        <section className="border-4 border-foreground bg-card p-4" aria-label="Detalle de escena">
+        <section className="border-4 border-foreground bg-card p-4" aria-label={tt(lang, "memory.sceneDetailAria", "Detalle de escena")}>
           <div className="flex items-center justify-between gap-2">
             <code className="font-tech text-sm">{detail.scene_name}</code>
-            <button type="button" onClick={() => setDetail(null)} className="press border-2 border-foreground px-2 py-0.5 font-tech text-[10px]" aria-label="Cerrar detalle">
+            <button type="button" onClick={() => setDetail(null)} className="press border-2 border-foreground px-2 py-0.5 font-tech text-[10px]" aria-label={tt(lang, "memory.closeDetail", "Cerrar detalle")}>
               ✕
             </button>
           </div>
           {detail.deleted ? (
             <p className="mt-2 font-tech text-[11px] uppercase tracking-widest text-accent-text">
-              ⌫ soft-deleted — bloque no accesible
+              {tt(lang, "memory.sceneDeleted", "⌫ soft-deleted — bloque no accesible")}
             </p>
           ) : (
             <>
               <div className="mt-1 flex gap-3 font-tech text-[10px] text-muted-foreground">
-                <span>creada {detail.meta.created}</span>
-                <span>act. {detail.meta.updated}</span>
-                <span>heat {detail.meta.heat.toFixed(1)}</span>
+                <span>{tp(lang, "memory.createdAt", "creada {d}", { d: detail.meta.created })}</span>
+                <span>{tp(lang, "memory.updatedAt", "act. {d}", { d: detail.meta.updated })}</span>
+                <span>{tp(lang, "memory.heatVal", "heat {n}", { n: detail.meta.heat.toFixed(1) })}</span>
               </div>
               <pre className="mt-2 max-h-72 overflow-auto whitespace-pre-wrap border-2 border-foreground bg-background p-3 font-tech text-xs">{detail.content}</pre>
             </>
@@ -150,7 +152,7 @@ function ScenesPanel({ sessionKey, onError }: { sessionKey: string } & Pick<Lens
 }
 
 // --- PERSONA -------------------------------------------------------------------
-function PersonaPanel({ sessionKey, onError }: { sessionKey: string; onError: (msg: string) => void }) {
+function PersonaPanel({ sessionKey, onError, lang }: { sessionKey: string; lang: DesktopLang; onError: (msg: string) => void }) {
   const [snap, setSnap] = useState<PersonaSnapshot | null | undefined>(undefined);
   const [diff, setDiff] = useState<{ added: string[]; removed: string[] } | null>(null);
 
@@ -178,20 +180,20 @@ function PersonaPanel({ sessionKey, onError }: { sessionKey: string; onError: (m
     };
   }, [sessionKey]);
 
-  if (snap === undefined) return <PanelEmpty msg="cargando persona…" />;
-  if (snap === null) return <PanelEmpty msg={`sin snapshot de persona en "${sessionKey}" — generá uno con L3`} />;
+  if (snap === undefined) return <PanelEmpty msg={tt(lang, "memory.personaLoading", "cargando persona…")} />;
+  if (snap === null) return <PanelEmpty msg={tp(lang, "memory.personaEmpty", 'sin snapshot de persona en "{s}" — generá uno con L3', { s: sessionKey })} />;
 
   return (
     <div className="space-y-3">
       <div className="flex gap-3 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
         <span className="border-2 border-foreground bg-neon px-1.5 py-0.5 text-background">{snap.mode}</span>
-        <span>generada {snap.generated_at}</span>
+        <span>{tp(lang, "memory.generatedAt", "generada {d}", { d: snap.generated_at })}</span>
       </div>
       <pre className="max-h-96 overflow-auto whitespace-pre-wrap border-2 border-foreground bg-background p-3 font-tech text-xs">{snap.content}</pre>
       {diff && (
         <details open className="border-2 border-dashed border-foreground bg-background p-3">
           <summary className="cursor-pointer font-tech text-[10px] uppercase tracking-widest text-accent-text">
-            diff vs última snapshot vista (+{diff.added.length} / −{diff.removed.length})
+            {tp(lang, "memory.diffSummary", "diff vs última snapshot vista (+{a} / −{r})", { a: String(diff.added.length), r: String(diff.removed.length) })}
           </summary>
           <ul className="mt-2 space-y-0.5 font-tech text-xs">
             {diff.removed.map((l) => (
@@ -214,7 +216,7 @@ interface SkillGroup {
   versions: StoredSkillRecord[];
 }
 
-function SkillsPanel({ onError }: Pick<LensActions, "onError">) {
+function SkillsPanel({ onError, lang }: Pick<LensActions, "onError"> & { lang: DesktopLang }) {
   const [groups, setGroups] = useState<SkillGroup[] | null>(null);
   const [viewing, setViewing] = useState<{ name: string; hash: number; content: string } | null>(null);
 
@@ -249,8 +251,8 @@ function SkillsPanel({ onError }: Pick<LensActions, "onError">) {
     return (hash >>> 0).toString(16).padStart(8, "0").slice(-8);
   }
 
-  if (!groups) return <PanelEmpty msg="cargando skills…" />;
-  if (groups.length === 0) return <PanelEmpty msg="sin skills extraídas aún" />;
+  if (!groups) return <PanelEmpty msg={tt(lang, "memory.skillsLoading", "cargando skills…")} />;
+  if (groups.length === 0) return <PanelEmpty msg={tt(lang, "memory.skillsEmpty", "sin skills extraídas aún")} />;
 
   return (
     <div className="space-y-3">
@@ -259,7 +261,9 @@ function SkillsPanel({ onError }: Pick<LensActions, "onError">) {
           <div className="flex items-baseline justify-between gap-2">
             <code className="font-tech text-sm">{g.name}</code>
             <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-              {g.versions.length === 1 ? "1 versión" : `${g.versions.length} versiones`}
+              {g.versions.length === 1
+                ? tt(lang, "memory.versionsOne", "1 versión")
+                : tp(lang, "memory.versionsMany", "{n} versiones", { n: String(g.versions.length) })}
             </span>
           </div>
           <p className="mt-0.5 truncate font-tech text-[10px] text-muted-foreground">{g.versions[g.versions.length - 1].description}</p>
@@ -281,7 +285,7 @@ function SkillsPanel({ onError }: Pick<LensActions, "onError">) {
         </section>
       ))}
       {viewing && (
-        <section className="border-4 border-foreground bg-card p-4" aria-label="Contenido de skill">
+        <section className="border-4 border-foreground bg-card p-4" aria-label={tt(lang, "memory.skillContentAria", "Contenido de skill")}>
           <div className="flex items-center justify-between gap-2">
             <code className="font-tech text-sm">
               {viewing.name}
@@ -289,7 +293,7 @@ function SkillsPanel({ onError }: Pick<LensActions, "onError">) {
                 {(viewing.hash >>> 0).toString(16).padStart(8, "0").slice(-8)}
               </span>
             </code>
-            <button type="button" onClick={() => setViewing(null)} className="press border-2 border-foreground px-2 py-0.5 font-tech text-[10px]" aria-label="Cerrar skill">
+            <button type="button" onClick={() => setViewing(null)} className="press border-2 border-foreground px-2 py-0.5 font-tech text-[10px]" aria-label={tt(lang, "memory.closeSkill", "Cerrar skill")}>
               ✕
             </button>
           </div>
@@ -308,7 +312,7 @@ const LAYER_FILTERS: { id: GenerationLayer | "todos"; label: string }[] = [
   { id: "l3", label: "L3" },
 ];
 
-function GenlogPanel({ sessionKey, onOpenRecord, onError }: LensActions & { sessionKey: string }) {
+function GenlogPanel({ sessionKey, onOpenRecord, onError, lang }: LensActions & { sessionKey: string; lang: DesktopLang }) {
   const [layer, setLayer] = useState<GenerationLayer | "todos">("todos");
   const [entries, setEntries] = useState<GenlogEntry[] | null>(null);
 
@@ -337,7 +341,7 @@ function GenlogPanel({ sessionKey, onOpenRecord, onError }: LensActions & { sess
 
   return (
     <div className="space-y-3">
-      <div className="flex gap-1" role="group" aria-label="Filtrar por capa">
+      <div className="flex gap-1" role="group" aria-label={tt(lang, "memory.filterAria", "Filtrar por capa")}>
         {LAYER_FILTERS.map((f) => (
           <button
             key={f.id}
@@ -348,14 +352,14 @@ function GenlogPanel({ sessionKey, onOpenRecord, onError }: LensActions & { sess
               layer === f.id ? "bg-neon text-background" : "bg-background"
             }`}
           >
-            {f.label}
+            {f.id === "todos" ? tt(lang, "memory.allLayers", "TODOS") : f.label}
           </button>
         ))}
       </div>
       {!entries ? (
-        <PanelEmpty msg="cargando generation log…" />
+        <PanelEmpty msg={tt(lang, "memory.genlogLoading", "cargando generation log…")} />
       ) : entries.length === 0 ? (
-        <PanelEmpty msg={`sin entradas ${layer === "todos" ? "" : layer.toUpperCase() + " "}en "${sessionKey}"`} />
+        <PanelEmpty msg={tp(lang, "memory.genlogEmpty", 'sin entradas {l}en "{s}"', { l: layer === "todos" ? "" : layer.toUpperCase() + " ", s: sessionKey })} />
       ) : (
         <ol className="space-y-1 border-l-2 border-foreground pl-3">
           {entries.map((e, i) => (
@@ -398,14 +402,15 @@ const TABS: { id: MemTab; label: string }[] = [
 export default function MemoryLens({
   active,
   sessionKey: initialSession,
+  lang = connectionPrefs.get().lang ?? "es",
   ...actions
-}: LensActions & { active: boolean; sessionKey?: string }) {
+}: LensActions & { active: boolean; sessionKey?: string; lang?: DesktopLang }) {
   const [session, setSession] = useState(initialSession ?? "");
   const [sessionInput, setSessionInput] = useState(initialSession ?? "");
   const [tab, setTab] = useState<MemTab>("escenas");
 
   if (!active) {
-    return <PanelEmpty msg="sin backend activo — conectá uno (o sembrá datos con vanta-seed) para explorar memoria" />;
+    return <PanelEmpty msg={tt(lang, "memory.noBackend", "sin backend activo — conectá uno (o sembrá datos con vanta-seed) para explorar memoria")} />;
   }
 
   // UX-07 (WAI-ARIA APG tabs): flechas ←/→ mueven selección + foco entre tabs
@@ -425,7 +430,7 @@ export default function MemoryLens({
   return (
     <div className="space-y-4">
       {/* Header (UX-01: LensShell compartido) */}
-      <LensShell title="MEMORIA" meta="escenas · persona · skills · genlog" />
+      <LensShell title="MEMORIA" meta={tt(lang, "memory.meta", "escenas · persona · skills · genlog")} />
       {/* Selector de sesión (contexto de todas las consultas) */}
       <form
         onSubmit={(e) => {
@@ -435,7 +440,7 @@ export default function MemoryLens({
         className="flex items-center gap-2 border-2 border-foreground bg-background p-3"
       >
         <label htmlFor="mem-session" className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-          sesión
+          {tt(lang, "memory.sessionLabel", "sesión")}
         </label>
         <input
           id="mem-session"
@@ -445,17 +450,17 @@ export default function MemoryLens({
           className="min-w-0 flex-1 border-2 border-foreground bg-card px-2 py-1 font-tech text-sm outline-none focus:bg-neon focus:text-background"
         />
         <button type="submit" className="btn-neon-glow press border-2 border-foreground bg-neon px-3 py-1 font-tech text-[10px] font-bold uppercase tracking-widest text-background" disabled={!sessionInput.trim()}>
-          CARGAR
+          {tt(lang, "memory.load", "CARGAR")}
         </button>
       </form>
 
       {!session ? (
-        <PanelEmpty msg="indicá una session_key (la misma que usó vanta-seed) y CARGAR" />
+        <PanelEmpty msg={tt(lang, "memory.needSession", "indicá una session_key (la misma que usó vanta-seed) y CARGAR")} />
       ) : (
         <>
           <nav
             role="tablist"
-            aria-label="Secciones de memoria"
+            aria-label={tt(lang, "memory.tabsAria", "Secciones de memoria")}
             aria-orientation="horizontal"
             onKeyDown={onTablistKey}
             className="flex border-2 border-foreground bg-background"
@@ -485,10 +490,10 @@ export default function MemoryLens({
             aria-labelledby={`mem-tab-${tab}`}
             className="mt-3"
           >
-            {tab === "escenas" && <ScenesPanel sessionKey={session} onError={actions.onError} />}
-            {tab === "persona" && <PersonaPanel sessionKey={session} onError={actions.onError} />}
-            {tab === "skills" && <SkillsPanel onError={actions.onError} />}
-            {tab === "genlog" && <GenlogPanel sessionKey={session} {...actions} />}
+            {tab === "escenas" && <ScenesPanel sessionKey={session} lang={lang} onError={actions.onError} />}
+            {tab === "persona" && <PersonaPanel sessionKey={session} lang={lang} onError={actions.onError} />}
+            {tab === "skills" && <SkillsPanel lang={lang} onError={actions.onError} />}
+            {tab === "genlog" && <GenlogPanel sessionKey={session} lang={lang} {...actions} />}
           </div>
         </>
       )}

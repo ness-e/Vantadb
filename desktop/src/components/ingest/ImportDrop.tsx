@@ -16,6 +16,8 @@ import {
 import { FileText, TriangleAlert } from "lucide-react";
 // UX-03: trap de foco del dialog (Tab cicla, Escape cierra, foco restaurado).
 import { useModalFocus } from "./useModalFocus";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 interface Props {
   open: boolean;
@@ -25,6 +27,7 @@ interface Props {
   onImported: (count: number) => void;
   /** Error inesperado fuera del reporte (fallo del bridge no capturado). */
   onError: (msg: string) => void;
+  lang?: DesktopLang;
 }
 
 const PREVIEW_ROWS = 8;
@@ -47,6 +50,7 @@ export default function ImportDrop({
   defaultNamespace,
   onImported,
   onError,
+  lang = connectionPrefs.get().lang ?? "es",
 }: Props) {
   const [fileName, setFileName] = useState<string | null>(null);
   const [fileText, setFileText] = useState("");
@@ -137,7 +141,7 @@ export default function ImportDrop({
       className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto bg-black/55 p-6"
       role="dialog"
       aria-modal="true"
-      aria-label="Importar archivo CSV, JSON, JSONL o VDBDUMP"
+      aria-label={tt(lang, "import.fileAria", "Importar archivo CSV, JSON, JSONL o VDBDUMP")}
       onMouseDown={(e) => {
         if (e.target === e.currentTarget && !busy) onClose();
       }}
@@ -146,15 +150,15 @@ export default function ImportDrop({
         <header className="flex items-center gap-2 border-b-4 border-foreground bg-card px-4 py-3">
           <h2 className="font-display text-2xl text-stencil">IMPORT ARCHIVO</h2>
           <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-            máx {MAX_IMPORT} registros · ns: {targetNs}
+            {tp(lang, "import.maxMeta", "máx {m} registros · ns: {ns}", { m: String(MAX_IMPORT), ns: targetNs })}
           </span>
           <button
             className={`${btnBase} ml-auto bg-background`}
             onClick={onClose}
             disabled={busy}
-            aria-label="Cerrar"
+            aria-label={tt(lang, "import.closeAria", "Cerrar")}
           >
-            ✕ CERRAR
+            {tt(lang, "import.closeBtn", "✕ CERRAR")}
           </button>
         </header>
 
@@ -168,13 +172,13 @@ export default function ImportDrop({
         {report && (
           <div className="border-b-4 border-foreground bg-card px-4 py-3" aria-live="polite">
             <p className="font-tech text-[12px] font-bold uppercase tracking-widest text-accent-text">
-              ✓ {report.imported} importados
+              {tp(lang, "import.reportDone", "✓ {n} importados", { n: String(report.imported) })}
             </p>
             {report.errors.length > 0 && (
               <ul className="mt-1 space-y-0.5">
                 {report.errors.map((e, i) => (
                   <li key={i} className="font-tech text-[10px] text-muted-foreground">
-                    filas {e.rows}: {e.message}
+                    {tp(lang, "import.reportRows", "filas {r}: {m}", { r: e.rows, m: e.message })}
                   </li>
                 ))}
               </ul>
@@ -187,7 +191,7 @@ export default function ImportDrop({
                 setFileText("");
               }}
             >
-              ↺ NUEVO ARCHIVO
+              {tt(lang, "import.newFile", "↺ NUEVO ARCHIVO")}
             </button>
           </div>
         )}
@@ -230,15 +234,15 @@ export default function ImportDrop({
               </span>
             ) : (
               <>
-                <span className="text-foreground">⤓ ARRASTRÁ UN ARCHIVO</span>
-                <span>.csv · .json · .jsonl · .vdbdump — o hacé clic para elegir</span>
+                <span className="text-foreground">{tt(lang, "import.dropCta", "⤓ ARRASTRÁ UN ARCHIVO")}</span>
+                <span>{tt(lang, "import.dropSub", ".csv · .json · .jsonl · .vdbdump — o hacé clic para elegir")}</span>
               </>
             )}
           </label>
 
           <div className="flex flex-wrap items-center gap-2">
             <label className="flex items-center gap-1 font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-              namespace
+              {tt(lang, "import.nsLabel", "namespace")}
               <input
                 value={ns}
                 onChange={(e) => {
@@ -251,14 +255,14 @@ export default function ImportDrop({
             <span className="ml-auto font-tech text-[10px] uppercase tracking-widest">
               {parsed ? (
                 <>
-                  <span className="text-foreground">{parsed.valid} ✓</span>
+                  <span className="text-foreground">{tp(lang, "import.validCount", "{v} ✓", { v: String(parsed.valid) })}</span>
                   <span className="text-muted-foreground">
                     {" "}
-                    · {parsed.invalid} ✗ · {parsed.truncated ? `solo primeros ${MAX_IMPORT}` : `${rows.length} filas`}
+                    {tp(lang, "import.invalidCount", "· {i} ✗", { i: String(parsed.invalid) })} · {parsed.truncated ? tp(lang, "import.truncatedRows", "solo primeros {m}", { m: String(MAX_IMPORT) }) : tp(lang, "import.rowCount", "{n} filas", { n: String(rows.length) })}
                   </span>
                 </>
               ) : (
-                <span className="text-muted-foreground">sin archivo</span>
+                <span className="text-muted-foreground">{tt(lang, "import.noFile", "sin archivo")}</span>
               )}
             </span>
           </div>
@@ -266,7 +270,7 @@ export default function ImportDrop({
           {parsed?.truncated && (
             <p className="font-tech text-[10px] text-accent-text">
               <TriangleAlert className="mr-1 inline h-3 w-3 align-[-1px]" strokeWidth={2.5} aria-hidden="true" />
-              el archivo supera {MAX_IMPORT} registros — se importan solo los primeros.
+              {tp(lang, "import.truncatedWarnFile", "el archivo supera {m} registros — se importan solo los primeros.", { m: String(MAX_IMPORT) })}
             </p>
           )}
 
@@ -275,7 +279,7 @@ export default function ImportDrop({
               <thead>
                 <tr className="border-b-2 border-foreground font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
                   <th className="px-2 py-1 text-left">#</th>
-                  <th className="px-2 py-1 text-left">estado</th>
+                  <th className="px-2 py-1 text-left">{tt(lang, "import.stateCol", "estado")}</th>
                   <th className="px-2 py-1 text-left">key</th>
                   <th className="px-2 py-1 text-left">text</th>
                   <th className="px-2 py-1 text-left">ns</th>
@@ -291,16 +295,16 @@ export default function ImportDrop({
                     <td className="px-2 py-1 text-muted-foreground">{r.index}</td>
                     <td className="px-2 py-1">
                       {r.item ? (
-                        <span className="text-neon" aria-label="válida">
+                        <span className="text-neon" aria-label={tt(lang, "import.validAria", "válida")}>
                           ✓
                         </span>
                       ) : (
-                        <span className="text-foreground" title={r.error} aria-label="inválida">
+                        <span className="text-foreground" title={r.error} aria-label={tt(lang, "import.invalidAria", "inválida")}>
                           ✗
                         </span>
                       )}
                     </td>
-                    <td className="max-w-[120px] truncate px-2 py-1">{r.item?.id ?? <span className="text-muted-foreground">auto</span>}</td>
+                    <td className="max-w-[120px] truncate px-2 py-1">{r.item?.id ?? <span className="text-muted-foreground">{tt(lang, "import.autoId", "auto")}</span>}</td>
                     <td className="max-w-[240px] truncate px-2 py-1">
                       {r.item ? textSnippet(r.item) : <span className="text-accent-text">{r.error}</span>}
                     </td>
@@ -315,7 +319,7 @@ export default function ImportDrop({
                 {preview.length === 0 && (
                   <tr>
                     <td colSpan={6} className="p-3 text-center font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-                      {parsed ? "sin filas parseables" : "el preview aparece al elegir un archivo"}
+                      {parsed ? tt(lang, "import.noRowsPaste", "sin filas parseables") : tt(lang, "import.noRowsFile", "el preview aparece al elegir un archivo")}
                     </td>
                   </tr>
                 )}
@@ -324,7 +328,7 @@ export default function ImportDrop({
           </div>
           {rows.length > PREVIEW_ROWS && (
             <p className="font-tech text-[10px] text-muted-foreground">
-              … y {rows.length - PREVIEW_ROWS} más (mostrando primeras {PREVIEW_ROWS})
+              {tp(lang, "import.moreRows", "… y {n} más (mostrando primeras {p})", { n: String(rows.length - PREVIEW_ROWS), p: String(PREVIEW_ROWS) })}
             </p>
           )}
         </div>
@@ -332,13 +336,13 @@ export default function ImportDrop({
         <footer className="flex flex-wrap items-center gap-2 border-t-4 border-foreground bg-card px-4 py-3">
           {busy && (
             <span className="font-tech text-[10px] uppercase tracking-widest text-accent-text" role="status">
-              importando…
+              {tt(lang, "import.importing", "importando…")}
             </span>
           )}
           {confirming && (
             <div role="alert" className="flex flex-wrap items-center gap-2 border-2 border-foreground bg-muted px-2 py-1.5">
               <span className="font-tech text-[10px] uppercase tracking-widest">
-                Importar {parsed?.valid ?? 0} registros a ns “{targetNs}”?
+                {tp(lang, "import.confirmQ", "Importar {n} registros a ns “{ns}”?", { n: String(parsed?.valid ?? 0), ns: targetNs })}
               </span>
               <button
                 type="button"
@@ -346,16 +350,16 @@ export default function ImportDrop({
                 disabled={busy}
                 className="press border-2 border-foreground bg-neon px-2 py-1 text-[10px] font-bold text-background"
               >
-                CONFIRMAR IMPORT
+                {tt(lang, "import.confirmBtn", "CONFIRMAR IMPORT")}
               </button>
               <button
                 type="button"
                 onClick={() => setConfirming(false)}
                 disabled={busy}
                 className="press border-2 border-foreground bg-background px-2 py-1 text-[10px]"
-                aria-label="Cancelar importación"
+                aria-label={tt(lang, "import.cancelAria", "Cancelar importación")}
               >
-                ✕ CANCELAR
+                {tt(lang, "import.cancelBtn", "✕ CANCELAR")}
               </button>
             </div>
           )}
@@ -363,9 +367,9 @@ export default function ImportDrop({
             className={`${btnBase} ml-auto bg-background`}
             onClick={handleImport}
             disabled={disabled || confirming}
-            title="Importar registros válidos en chunks de 50"
+            title={tt(lang, "import.chunksTitle", "Importar registros válidos en chunks de 50")}
           >
-            ⤓ IMPORTAR {parsed?.valid ?? 0}
+            {tp(lang, "import.runBtn", "⤓ IMPORTAR {n}", { n: String(parsed?.valid ?? 0) })}
           </button>
         </footer>
       </section>

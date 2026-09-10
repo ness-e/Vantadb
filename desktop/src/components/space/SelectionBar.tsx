@@ -6,6 +6,8 @@
 // primer click arma ("¿BORRAR N?"), segundo ejecuta; ✕ cancela. Adiós
 // window.confirm nativo (rompía el lenguaje de la app y el teclado).
 import { useEffect, useState } from "react";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 export type SelectionBusy = "export" | "delete" | null;
 
 interface SelectionBarProps {
@@ -16,6 +18,7 @@ interface SelectionBarProps {
   onExport: () => void;
   onDelete: () => void;
   onClear: () => void;
+  lang?: DesktopLang;
 }
 
 export default function SelectionBar({
@@ -24,6 +27,7 @@ export default function SelectionBar({
   onExport,
   onDelete,
   onClear,
+  lang = connectionPrefs.get().lang ?? "es",
 }: SelectionBarProps) {
   // UX-09: confirmación inline armada (patrón DeleteButton/TrashLens).
   const [armed, setArmed] = useState(false);
@@ -41,19 +45,21 @@ export default function SelectionBar({
     <div
       className="flex flex-wrap items-center gap-2 border-b-4 border-foreground bg-neon/10 px-4 py-2"
       role="group"
-      aria-label="Acciones sobre la selección"
+      aria-label={tt(lang, "space.sel.groupAria", "Acciones sobre la selección")}
     >
       <span className="font-tech text-[10px] font-bold text-cyan-700" role="status">
-        ● {count} {count === 1 ? "seleccionado" : "seleccionados"}
+        ● {count === 1
+          ? tp(lang, "space.sel.selectedOne", "{n} seleccionado", { n: String(count) })
+          : tp(lang, "space.sel.selected", "{n} seleccionado(s)", { n: String(count) })}
       </span>
       <button
         type="button"
         className={btn}
         disabled={disabled}
         onClick={onExport}
-        title={`Exportar ${count} registro(s) como JSONL (importable 1:1)`}
+        title={tp(lang, "space.sel.exportTitle", "Exportar {n} registro(s) como JSONL (importable 1:1)", { n: String(count) })}
       >
-        {busy === "export" ? "…" : "⭳ exportar (n)"}
+        {busy === "export" ? "…" : tt(lang, "space.sel.export", "⭳ exportar (n)")}
       </button>
       {armed ? (
         <>
@@ -65,16 +71,16 @@ export default function SelectionBar({
               setArmed(false);
               onDelete();
             }}
-            title="Confirmar borrado (Ctrl+Z deshace)"
+            title={tt(lang, "space.sel.confirmTitle", "Confirmar borrado (Ctrl+Z deshace)")}
           >
-            {busy === "delete" ? "…" : `¿BORRAR ${count}?`}
+            {busy === "delete" ? "…" : tp(lang, "space.sel.deleteConfirm", "¿BORRAR {n}?", { n: String(count) })}
           </button>
           <button
             type="button"
             className={btn}
             disabled={disabled}
             onClick={() => setArmed(false)}
-            aria-label="Cancelar borrado"
+            aria-label={tt(lang, "space.sel.cancelAria", "Cancelar borrado")}
           >
             ✕
           </button>
@@ -85,9 +91,9 @@ export default function SelectionBar({
           className={`${btn} bg-red-100 hover:bg-red-200`}
           disabled={disabled}
           onClick={() => setArmed(true)}
-          title={`Mover ${count} registro(s) a la papelera (Ctrl+Z deshace)`}
+          title={tp(lang, "space.sel.deleteTitle", "Mover {n} registro(s) a la papelera (Ctrl+Z deshace)", { n: String(count) })}
         >
-          {busy === "delete" ? "…" : "✕ eliminar (n)"}
+          {busy === "delete" ? "…" : tt(lang, "space.sel.delete", "✕ eliminar (n)")}
         </button>
       )}
       <button
@@ -95,9 +101,9 @@ export default function SelectionBar({
         className={btn}
         disabled={disabled}
         onClick={onClear}
-        title="Limpiar selección (sin borrar nada)"
+        title={tt(lang, "space.sel.clearTitle", "Limpiar selección (sin borrar nada)")}
       >
-        ✕ limpiar
+        {tt(lang, "space.sel.clear", "✕ limpiar")}
       </button>
     </div>
   );

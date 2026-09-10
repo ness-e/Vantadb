@@ -11,6 +11,8 @@ import {
   OperationalMetrics,
   vantaErrorMessage,
 } from "../vanta";
+import { tp, tt, type DesktopLang } from "../i18n";
+import { connectionPrefs } from "../store/connections";
 
 type Status = "ok" | "err";
 interface Result {
@@ -24,27 +26,27 @@ const PANEL =
 /** ok detail when a metrics snapshot exists, err detail when polling failed.
  * El texto crudo del error (TypeError/HTTP) queda en consola; en la UI solo
  * el estado amigable (visual-critique: no filtrar stack a la cara del usuario). */
-function metricsResult(err: string | null, okDetail: string | null): Result | null {
+function metricsResult(err: string | null, okDetail: string | null, lang: DesktopLang): Result | null {
   if (err) {
     console.warn("[vanta] metrics poll:", err);
-    return { status: "err", detail: "sin snapshot de métricas" };
+    return { status: "err", detail: tt(lang, "panels.sop.noSnapshot", "sin snapshot de métricas") };
   }
   return okDetail ? { status: "ok", detail: okDetail } : null;
 }
 
-function SopResult({ result }: { result: Result | null }) {
+function SopResult({ result, lang }: { result: Result | null; lang: DesktopLang }) {
   return (
     <span
       className={`max-w-[60%] text-right font-tech text-xs [overflow-wrap:anywhere] ${
         result ? (result.status === "ok" ? "text-foreground" : "text-destructive") : "text-muted-foreground"
       }`}
     >
-      {result ? result.detail : "Sin datos aún"}
+      {result ? result.detail : tt(lang, "panels.sop.noData", "Sin datos aún")}
     </span>
   );
 }
 
-export default function SopPanel() {
+export default function SopPanel({ lang = connectionPrefs.get().lang ?? "es" }: { lang?: DesktopLang }) {
   const [m, setM] = useState<OperationalMetrics | null>(null);
   const [metricsErr, setMetricsErr] = useState<string | null>(null);
   const [healthResult, setHealthResult] = useState<Result | null>(null);
@@ -81,61 +83,65 @@ export default function SopPanel() {
 
   return (
     <section
-      aria-label="Operaciones SOP"
+      aria-label={tt(lang, "panels.sop.aria", "Operaciones SOP")}
       className="border-[3px] border-foreground bg-card p-4 shadow-ink"
     >
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="m-0 font-tech text-xs uppercase tracking-widest">Operaciones SOP</h2>
-        <span className="text-muted-foreground">runbook manual</span>
+        <h2 className="m-0 font-tech text-xs uppercase tracking-widest">{tt(lang, "panels.sop.title", "Operaciones SOP")}</h2>
+        <span className="text-muted-foreground">{tt(lang, "panels.sop.runbook", "runbook manual")}</span>
       </div>
       <div className="grid gap-4 md:grid-cols-3">
         {/* ADMIN-06/DESKTOP-28: sin trigger en core → solo lectura, sin botón falso. */}
         <article className={PANEL}>
           <div className="flex items-center justify-between gap-2">
-            <h3 className="m-0 font-tech text-xs uppercase tracking-widest text-muted-foreground">WAL Replay</h3>
+            <h3 className="m-0 font-tech text-xs uppercase tracking-widest text-muted-foreground">{tt(lang, "panels.sop.walTitle", "WAL Replay")}</h3>
             <span
-              title="Solo lectura — el core aún no expone trigger de replay (ADMIN-06)"
+              title={tt(lang, "panels.sop.walReadonly", "Solo lectura — el core aún no expone trigger de replay (ADMIN-06)")}
               className="border border-foreground px-1 font-tech text-[10px] uppercase tracking-widest text-muted-foreground"
             >
-              solo lectura
+              {tt(lang, "panels.sop.readonlyBadge", "solo lectura")}
             </span>
           </div>
           <p className="m-0 flex-1 text-xs text-muted-foreground">
-            Último replay registrado por el motor (no hay comando de disparo aún).
+            {tt(lang, "panels.sop.walHint", "Último replay registrado por el motor (no hay comando de disparo aún).")}
           </p>
           <SopResult
+            lang={lang}
             result={metricsResult(
               metricsErr,
-              m ? `replay de ${m.wal_records_replayed.toLocaleString()} registros en ${m.wal_replay_ms}ms` : null,
+              m ? tp(lang, "panels.sop.walResult", "replay de {n} registros en {ms}ms", { n: m.wal_records_replayed.toLocaleString(), ms: String(m.wal_replay_ms) }) : null,
+              lang,
             )}
           />
         </article>
         <article className={PANEL}>
           <div className="flex items-center justify-between gap-2">
-            <h3 className="m-0 font-tech text-xs uppercase tracking-widest text-muted-foreground">Reindex</h3>
+            <h3 className="m-0 font-tech text-xs uppercase tracking-widest text-muted-foreground">{tt(lang, "panels.sop.reindexTitle", "Reindex")}</h3>
             <span
-              title="Solo lectura — el core aún no expone trigger de reindex (ADMIN-06)"
+              title={tt(lang, "panels.sop.reindexReadonly", "Solo lectura — el core aún no expone trigger de reindex (ADMIN-06)")}
               className="border border-foreground px-1 font-tech text-[10px] uppercase tracking-widest text-muted-foreground"
             >
-              solo lectura
+              {tt(lang, "panels.sop.readonlyBadge", "solo lectura")}
             </span>
           </div>
           <p className="m-0 flex-1 text-xs text-muted-foreground">
-            Últimos rebuilds registrados (no hay comando de disparo aún).
+            {tt(lang, "panels.sop.reindexHint", "Últimos rebuilds registrados (no hay comando de disparo aún).")}
           </p>
           <SopResult
+            lang={lang}
             result={metricsResult(
               metricsErr,
               m
                 ? `ANN ${m.ann_rebuild_ms}ms · derived ${m.derived_rebuild_ms}ms · text ${m.text_index_rebuild_ms}ms`
                 : null,
+              lang,
             )}
           />
         </article>
         <article className={PANEL}>
-          <h3 className="m-0 font-tech text-xs uppercase tracking-widest text-muted-foreground">Health Check</h3>
+          <h3 className="m-0 font-tech text-xs uppercase tracking-widest text-muted-foreground">{tt(lang, "panels.sop.healthTitle", "Health Check")}</h3>
           <p className="m-0 flex-1 text-xs text-muted-foreground">
-            Probe del motor embebido vía vanta_health.
+            {tt(lang, "panels.sop.healthHint", "Probe del motor embebido vía vanta_health.")}
           </p>
           <div className="flex items-center justify-between gap-2">
             <button
@@ -144,9 +150,9 @@ export default function SopPanel() {
               disabled={healthBusy}
               className="press cursor-pointer border-2 border-foreground bg-background px-2.5 py-1.5 text-sm disabled:cursor-default disabled:opacity-50"
             >
-              {healthBusy ? "Verificando…" : "Ejecutar chequeo"}
+              {healthBusy ? tt(lang, "panels.sop.checkingBtn", "Verificando…") : tt(lang, "panels.sop.checkBtn", "Ejecutar chequeo")}
             </button>
-            <SopResult result={healthResult} />
+            <SopResult result={healthResult} lang={lang} />
           </div>
         </article>
       </div>

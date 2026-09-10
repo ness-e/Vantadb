@@ -10,12 +10,15 @@ import { getVersion, vantaErrorMessage, vantaPut, versions } from "../../vanta";
 import { diffVersions, type VersionDiff } from "./historial-diff";
 import { fmtDateTime, fmtRelative } from "./shared";
 import { TriangleAlert } from "lucide-react";
+import { tp, tt, type DesktopLang } from "../../i18n";
+import { connectionPrefs } from "../../store/connections";
 
 interface Props {
   record: MemoryRecord;
   /** Record actualizado tras `vantaPut` (revert crea versión nueva). */
   onSaved: (updated: MemoryRecord) => void;
   onError: (msg: string) => void;
+  lang?: DesktopLang;
 }
 
 /** Techo de líneas renderizadas en el diff de payload (evita scroll infinito). */
@@ -28,7 +31,7 @@ function fmtValue(v: unknown): string {
   return String(v);
 }
 
-export default function HistorialTab({ record, onSaved, onError }: Props) {
+export default function HistorialTab({ record, onSaved, onError, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   const [vers, setVers] = useState<MemoryRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
@@ -132,7 +135,7 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
     <div>
       {revertFlash != null && (
         <p className="mb-2 border-2 border-foreground bg-neon px-2 py-1 font-tech text-[10px] font-bold text-background">
-          ✓ revertido a v{revertFlash} (versión nueva creada)
+          {tp(lang, "inspector.histReverted", "✓ revertido a v{v} (versión nueva creada)", { v: String(revertFlash) })}
         </p>
       )}
 
@@ -140,10 +143,10 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
       <div className="border-2 border-foreground bg-background p-2">
         <div className="flex items-center justify-between">
           <span className="font-tech text-[10px] uppercase tracking-widest text-muted-foreground">
-            <span aria-hidden="true">≡</span> versiones ({vers.length})
+            <span aria-hidden="true">≡</span> {tp(lang, "inspector.histVersions", "versiones ({n})", { n: String(vers.length) })}
           </span>
           {loading && (
-            <span className="font-tech text-[9px] uppercase text-neon">cargando…</span>
+            <span className="font-tech text-[9px] uppercase text-neon">{tt(lang, "inspector.histLoading", "cargando…")}</span>
           )}
         </div>
 
@@ -151,7 +154,7 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
           <p className="mt-1 font-tech text-[10px] text-destructive">✕ {listError}</p>
         ) : vers.length === 0 && !loading ? (
           <p className="mt-1 font-tech text-[10px] text-muted-foreground">
-            sin versiones retenidas — el bridge nativo retiene hasta 32 por registro
+            {tt(lang, "inspector.histEmpty", "sin versiones retenidas — el bridge nativo retiene hasta 32 por registro")}
           </p>
         ) : (
           <div className="mt-1 space-y-1">
@@ -178,16 +181,16 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
                   </span>
                   {isActual ? (
                     <span className="shrink-0 font-tech text-[10px] font-bold">
-                      <span aria-hidden="true">●</span> ACTUAL
+                      <span aria-hidden="true">●</span> {tt(lang, "inspector.histActual", "ACTUAL")}
                     </span>
                   ) : (
                     <button
                       type="button"
                       onClick={() => setConfirmVer(ver)}
                       className="press shrink-0 border-2 border-foreground bg-background px-1.5 py-0.5 font-tech text-[9px] font-bold"
-                      title={`Revertir el registro al contenido de v${ver} (crea una versión nueva)`}
+                      title={tp(lang, "inspector.histRevertTitle", "Revertir el registro al contenido de v{v} (crea una versión nueva)", { v: String(ver) })}
                     >
-                      <span aria-hidden="true">↺</span> REVERTIR
+                      <span aria-hidden="true">↺</span> {tt(lang, "inspector.histRevert", "REVERTIR")}
                     </button>
                   )}
                 </div>
@@ -198,7 +201,7 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
 
         {hasVersions && vers.length === 1 && (
           <p className="mt-1 font-tech text-[10px] text-muted-foreground">
-            1 sola versión — editá el registro y guardá para crear v2
+            {tt(lang, "inspector.histSingle", "1 sola versión — editá el registro y guardá para crear v2")}
           </p>
         )}
       </div>
@@ -207,7 +210,7 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
       {hasVersions && vers.length >= 2 && (
         <div className="mt-2 flex items-center gap-2 border-2 border-foreground bg-background p-2">
           <label className="flex items-center gap-1 font-tech text-[9px] uppercase tracking-widest text-muted-foreground">
-            desde
+            {tt(lang, "inspector.histFrom", "desde")}
             <select
               value={baseVer ?? ""}
               onChange={(e) => setBaseVer(e.target.value === "" ? null : Number(e.target.value))}
@@ -224,7 +227,7 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
             ▸
           </span>
           <label className="flex items-center gap-1 font-tech text-[9px] uppercase tracking-widest text-muted-foreground">
-            hasta
+            {tt(lang, "inspector.ttlAbsolute", "hasta")}
             <select
               value={cmpVer ?? ""}
               onChange={(e) => setCmpVer(e.target.value === "" ? null : Number(e.target.value))}
@@ -247,12 +250,10 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
             <span aria-hidden="true">
               <TriangleAlert className="mr-1 inline h-3 w-3 align-[-2px]" strokeWidth={2.5} />
             </span>{" "}
-            ¿revertir a v{confirmTarget.version}?
+            {tp(lang, "inspector.histConfirmQ", "¿revertir a v{v}?", { v: String(confirmTarget.version) })}
           </p>
           <p className="mt-1 font-tech text-[10px] text-muted-foreground">
-            restaura payload + metadata + TTL de v{confirmTarget.version}. Crea una versión nueva
-            (v{(record.version ?? 0) + 1}) — el vector no se restaura (vantaPut no lo acepta en
-            Fase 0).
+            {tp(lang, "inspector.histConfirmDesc", "restaura payload + metadata + TTL de v{v}. Crea una versión nueva (v{next}) — el vector no se restaura (vantaPut no lo acepta en Fase 0).", { v: String(confirmTarget.version), next: String((record.version ?? 0) + 1) })}
           </p>
           <div className="mt-2 flex gap-2">
             <button
@@ -261,7 +262,7 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
               disabled={reverting}
               className="press flex-1 border-2 border-foreground bg-card px-2 py-1 font-tech text-[10px]"
             >
-              CANCELAR
+              {tt(lang, "inspector.histCancel", "CANCELAR")}
             </button>
             <button
               type="button"
@@ -269,7 +270,7 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
               disabled={reverting}
               className="press flex-1 border-2 border-foreground bg-foreground px-2 py-1 font-tech text-[10px] font-bold text-background"
             >
-              {reverting ? "REVIRTIENDO…" : "CONFIRMAR"}
+              {reverting ? tt(lang, "inspector.histReverting", "REVIRTIENDO…") : tt(lang, "inspector.histConfirm", "CONFIRMAR")}
             </button>
           </div>
         </div>
@@ -280,11 +281,11 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
         <div className="mt-3">
           {diffLoading ? (
             <p className="font-tech text-[10px] uppercase text-muted-foreground">
-              calculando diff…
+              {tt(lang, "inspector.histCalcDiff", "calculando diff…")}
             </p>
           ) : diffError ? (
             <p className="border-2 border-foreground bg-background p-2 font-tech text-[10px] text-neon">
-              ✕ {diffError} — puede que la versión haya sido evictada (cap 32); elegí otra.
+              ✕ {diffError} {tt(lang, "inspector.histEvicted", "— puede que la versión haya sido evictada (cap 32); elegí otra.")}
             </p>
           ) : diff ? (
             <div className="space-y-3">
@@ -304,11 +305,11 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
                 </div>
                 {diff.payload.length === 0 ? (
                   <p className="mt-1 font-tech text-[10px] text-muted-foreground">
-                    vacío en ambas versiones
+                    {tt(lang, "inspector.histEmptyBoth", "vacío en ambas versiones")}
                   </p>
                 ) : diff.payload.every((l) => l.kind === "ctx") ? (
                   <p className="mt-1 font-tech text-[10px] text-muted-foreground">
-                    <span aria-hidden="true">✓</span> sin cambios
+                    <span aria-hidden="true">✓</span> {tt(lang, "inspector.histNoChanges", "sin cambios")}
                   </p>
                 ) : (
                   <>
@@ -332,15 +333,15 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
                       ))}
                       {diff.payload.length > MAX_DIFF_LINES && (
                         <p className="font-tech text-[9px] text-muted-foreground">
-                          … +{diff.payload.length - MAX_DIFF_LINES} líneas ocultas
+                          {tp(lang, "inspector.histHiddenLines", "… +{n} líneas ocultas", { n: String(diff.payload.length - MAX_DIFF_LINES) })}
                         </p>
                       )}
                     </div>
                     <p className="mt-1 font-tech text-[9px] text-muted-foreground">
                       <span aria-hidden="true">+</span>{" "}
-                      {diff.payload.filter((l) => l.kind === "add").length} añadidas ·{" "}
+                      {tp(lang, "inspector.histAddedCount", "{a} añadidas", { a: String(diff.payload.filter((l) => l.kind === "add").length) })} ·{" "}
                       <span aria-hidden="true">−</span>{" "}
-                      {diff.payload.filter((l) => l.kind === "del").length} quitadas
+                      {tp(lang, "inspector.histRemovedCount", "{d} quitadas", { d: String(diff.payload.filter((l) => l.kind === "del").length) })}
                     </p>
                   </>
                 )}
@@ -355,19 +356,19 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
                 diff.metadata.removed.length === 0 &&
                 diff.metadata.changed.length === 0 ? (
                   <p className="mt-1 font-tech text-[10px] text-muted-foreground">
-                    <span aria-hidden="true">✓</span> sin cambios
+                    <span aria-hidden="true">✓</span> {tt(lang, "inspector.histNoChanges", "sin cambios")}
                   </p>
                 ) : (
                   <div className="mt-1 space-y-1 font-tech text-[10px]">
                     {diff.metadata.added.length > 0 && (
                       <p className="break-all">
-                        <span className="font-bold text-neon">+ añadido:</span>{" "}
+                        <span className="font-bold text-neon">{tt(lang, "inspector.histAddedLabel", "+ añadido:")}</span>{" "}
                         {diff.metadata.added.join(", ")}
                       </p>
                     )}
                     {diff.metadata.removed.length > 0 && (
                       <p className="break-all">
-                        <span className="font-bold text-muted-foreground">− quitado:</span>{" "}
+                        <span className="font-bold text-muted-foreground">{tt(lang, "inspector.histRemovedLabel", "− quitado:")}</span>{" "}
                         {diff.metadata.removed.join(", ")}
                       </p>
                     )}
@@ -393,8 +394,7 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
                   {diff.vecA && diff.vecB ? (
                     <>
                       <p className={diff.vectorChanged ? "font-bold text-neon" : "text-muted-foreground"}>
-                        <span aria-hidden="true">{diff.vectorChanged ? "✕" : "✓"}</span> vector
-                        cambió: {diff.vectorChanged ? "SÍ" : "no"}
+                        <span aria-hidden="true">{diff.vectorChanged ? "✕" : "✓"}</span> {tp(lang, "inspector.histVecChanged", "vector cambió: {v}", { v: diff.vectorChanged ? tt(lang, "inspector.histVecYes", "SÍ") : tt(lang, "inspector.histVecNo", "no") })}
                       </p>
                       <p className="text-muted-foreground">
                         v{baseVer}: {diff.vecA.dim}d · norma {diff.vecA.norm.toFixed(4)} → v{cmpVer}:{" "}
@@ -403,14 +403,11 @@ export default function HistorialTab({ record, onSaved, onError }: Props) {
                     </>
                   ) : diff.vecA || diff.vecB ? (
                     <p className="font-bold text-neon">
-                      <span aria-hidden="true">✕</span> vector cambió:{" "}
-                      {diff.vecA
-                        ? `solo en v${baseVer} (${diff.vecA.dim}d)`
-                        : `solo en v${cmpVer} (${diff.vecB?.dim}d)`}
+                      <span aria-hidden="true">✕</span> {tp(lang, "inspector.histVecChanged", "vector cambió: {v}", { v: tp(lang, "inspector.histVecOnlyHere", "solo en v{v} ({d}d)", { v: String(diff.vecA ? baseVer : cmpVer), d: String((diff.vecA ?? diff.vecB)?.dim) }) })}
                     </p>
                   ) : (
                     <p className="text-muted-foreground">
-                      <span aria-hidden="true">−</span> sin vector en ninguna
+                      <span aria-hidden="true">−</span> {tt(lang, "inspector.histNoVector", "sin vector en ninguna")}
                     </p>
                   )}
                 </div>

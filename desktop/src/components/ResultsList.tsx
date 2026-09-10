@@ -1,5 +1,7 @@
 import { type KeyboardEvent, useState } from "react";
 import { SearchResult } from "../vanta";
+import { tt, type DesktopLang } from "../i18n";
+import { connectionPrefs } from "../store/connections";
 
 interface Props {
   results: SearchResult[] | null;
@@ -7,12 +9,13 @@ interface Props {
   onSelect?: (r: SearchResult) => void;
   /** UX-11: salida del empty state "sin coincidencias" (limpia la búsqueda global). */
   onClearSearch?: () => void;
+  lang?: DesktopLang;
 }
 
 const CARD =
   "list-none border-2 border-foreground bg-card px-3 py-2 shadow-ink-sm [&_p]:my-1";
 
-export default function ResultsList({ results, onSelect, onClearSearch }: Props) {
+export default function ResultsList({ results, onSelect, onClearSearch, lang = connectionPrefs.get().lang ?? "es" }: Props) {
   // UX-02: resultado abierto en el Inspector → aria-selected del listbox.
   const [openKey, setOpenKey] = useState<string | null>(null);
 
@@ -29,27 +32,27 @@ export default function ResultsList({ results, onSelect, onClearSearch }: Props)
 
   if (results === null) {
     // UX-15: microcopy ES (antes "Run a search to see results.").
-    return <p className="text-muted-foreground">Ejecutá una búsqueda para ver resultados.</p>;
+    return <p className="text-muted-foreground">{tt(lang, "results.runHint", "Ejecutá una búsqueda para ver resultados.")}</p>;
   }
   if (results.length === 0) {
     // UX-11/UX-15: empty state con salida, microcopy ES (antes "No matches.").
     return (
       <div className="flex flex-wrap items-center gap-2">
-        <p className="text-muted-foreground">Sin coincidencias.</p>
+        <p className="text-muted-foreground">{tt(lang, "results.noMatches", "Sin coincidencias.")}</p>
         {onClearSearch && (
           <button
             type="button"
             onClick={onClearSearch}
             className="press border-2 border-foreground bg-background px-2 py-1 text-xs"
           >
-            ✕ Limpiar búsqueda
+            {tt(lang, "data.clearSearch", "✕ Limpiar búsqueda")}
           </button>
         )}
       </div>
     );
   }
   return (
-    <ol role="listbox" aria-label="Resultados de búsqueda" className="mt-3 flex flex-col gap-2 p-0">
+    <ol role="listbox" aria-label={tt(lang, "results.listAria", "Resultados de búsqueda")} className="mt-3 flex flex-col gap-2 p-0">
       {results.map((r) => {
         const key = `${r.namespace}:${r.id}`;
         return (
@@ -68,7 +71,7 @@ export default function ResultsList({ results, onSelect, onClearSearch }: Props)
             onKeyDown={onSelect ? (e) => handleKey(e, r) : undefined}
             tabIndex={onSelect ? 0 : undefined}
             className={`${CARD} ${onSelect ? "cursor-pointer" : ""}`}
-            title={onSelect ? "Ver en inspector" : undefined}
+            title={onSelect ? tt(lang, "results.seeInspector", "Ver en inspector") : undefined}
           >
             <div className="flex justify-between">
               <code>{r.id}</code>
