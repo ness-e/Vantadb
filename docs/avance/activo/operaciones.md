@@ -284,3 +284,9 @@ aliases: []
 - **Objetivo:** DISCOVERY arch + MVP auth (OIDC discovery DEFER vía ADR-039).
 - **Resultado:** ✅ server 58/58 + auth 3/3 + rotation/rbac 13/13 + server 42/42 + clippy/fmt 0; race git-add paralela revertida.
 - **Commit:** a0a3087f (+ADR-039)
+
+### PRX-09-wiring: verificada ya-implementada (sin cambios)
+- **Fecha:** 2026-09-10
+- **Objetivo:** confirmar wiring `with_embedder` tras PRX-11-slice3.
+- **Resultado:** ✅ hunk intacto en server.rs:127-138 + prx09 6/6 + suites 0 failed + clippy/fmt 0; cero ediciones.
+- **Commit:** 2c97d911 (pre-existente)
