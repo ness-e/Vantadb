@@ -90,6 +90,7 @@ async fn setup(path: &'static str, responses: Vec<String>) -> Env {
     let engine = seeded_engine();
     let cfg = ProxyConfig {
         report: Default::default(),
+        cost: Default::default(),
         server: ServerConfig::default(),
         upstream: UpstreamConfig {
             url: upstream_url,
@@ -294,6 +295,7 @@ async fn c_without_our_tools_passthrough_is_byte_identical() {
     });
     let cfg = ProxyConfig {
         report: Default::default(),
+        cost: Default::default(),
         upstream: UpstreamConfig {
             url: format!("http://{addr}"),
             ..UpstreamConfig::default()

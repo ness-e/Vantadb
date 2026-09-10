@@ -86,6 +86,7 @@ async fn setup() -> (String, Captured) {
     let upstream_url = spawn(app).await;
     let cfg = ProxyConfig {
         report: Default::default(),
+        cost: Default::default(),
         server: ServerConfig::default(),
         upstream: UpstreamConfig {
             url: upstream_url,

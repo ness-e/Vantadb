@@ -77,6 +77,7 @@ async fn setup_with_capture() -> (String, Shared) {
     let upstream_url = spawn(upstream).await;
     let cfg = ProxyConfig {
         report: Default::default(),
+        cost: Default::default(),
         server: ServerConfig::default(),
         upstream: UpstreamConfig {
             url: upstream_url,
