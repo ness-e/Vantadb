@@ -40,6 +40,7 @@ pub fn build_server_state(
         )),
         api_key: api_key.map(Arc::from),
         alt_api_key: None,
+        jwt_secret: None,
         rbac_config: Default::default(),
         trusted_proxies: vec![],
         conversation_trigger: None,

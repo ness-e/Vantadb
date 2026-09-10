@@ -120,6 +120,10 @@ pub struct ServerState {
     pub api_key: Option<Arc<str>>,
     /// Alternative API key for zero-downtime rotation (SRV-04).
     pub alt_api_key: Option<Arc<str>>,
+    /// HS256 secret for JWT Bearer authentication (SRV-06, ADR-039).
+    /// `None` (default) disables JWT auth; the middleware then only
+    /// accepts `api_key`/`alt_api_key`.
+    pub jwt_secret: Option<Arc<str>>,
     /// RBAC token-to-role mapping configuration.
     pub rbac_config: RbacConfig,
     /// Reverse-proxy IPs whose `X-Forwarded-For` header is honored for client
@@ -191,6 +195,9 @@ pub struct AuthState {
     /// Alternative API key for zero-downtime rotation (SRV-04).
     /// When set, both `api_key` and `alt_api_key` are accepted.
     pub alt_api_key: Option<Arc<str>>,
+    /// HS256 secret for JWT Bearer authentication (SRV-06, ADR-039).
+    /// `None` disables the JWT fallback in [`crate::server::middleware::auth_middleware`].
+    pub jwt_secret: Option<Arc<str>>,
     pub(crate) token_role_map: HashMap<String, String>,
     pub(crate) rbac: Arc<Rbac>,
     pub(crate) rate_limiter: Arc<AuthRateLimiter>,
@@ -207,6 +214,7 @@ impl AuthState {
     pub(crate) fn new(
         api_key: Option<String>,
         alt_api_key: Option<String>,
+        jwt_secret: Option<String>,
         rbac_config: RbacConfig,
         rbac: Arc<Rbac>,
         trusted_proxies: &[std::net::IpAddr],
@@ -216,6 +224,7 @@ impl AuthState {
         Self {
             api_key: api_key.map(|k| Arc::from(k.as_str())),
             alt_api_key: alt_api_key.map(|k| Arc::from(k.as_str())),
+            jwt_secret: jwt_secret.map(|k| Arc::from(k.as_str())),
             token_role_map: rbac_config.token_role_map,
             rbac,
             rate_limiter: Arc::new(AuthRateLimiter::new(5, 60)),

@@ -238,6 +238,7 @@ async fn test_e2e_persistence_across_restart() {
         pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: None,
         alt_api_key: None,
+        jwt_secret: None,
         rbac_config: Default::default(),
         trusted_proxies: vec![],
         conversation_trigger: None,

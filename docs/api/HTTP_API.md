@@ -630,8 +630,9 @@ Once the binary is on your `PATH`, see [Starting the Server](#starting-the-serve
   Weaviate all scale horizontally; VantaDB is currently single-node. See
   `docs/research/2026-08-25-vantadb-server/` for the distributed-mode
   roadmap and explicit non-goals.
-- **No OIDC / SSO yet.** SRV-06 is delegated; until then, API keys and
-  bearer tokens are the only auth surface.
+- **No OIDC / SSO yet.** SRV-06 MVP ships offline HS256 JWT Bearer
+  (`VANTADB_JWT_SECRET`, ADR-039); OIDC discovery stays delegated. Until
+  OIDC lands, API keys, JWT, and bearer tokens are the auth surface.
 - **No mTLS for inter-node.** SRV-09 is on the roadmap. Today the HTTP
   server is single-node, so the gap is not user-visible.
 - **No encryption at rest.** SRV-10 is on the roadmap. WAL and data files

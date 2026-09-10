@@ -306,6 +306,7 @@ pub async fn run(config: VantaConfig) -> Result<()> {
 
     let api_key: Option<Arc<str>> = config.api_key.as_deref().map(Arc::from);
     let alt_api_key: Option<Arc<str>> = config.alt_api_key.as_deref().map(Arc::from);
+    let jwt_secret: Option<Arc<str>> = config.jwt_secret.as_deref().map(Arc::from);
     let circuit_breaker = Arc::new(CircuitBreaker::new(
         config.circuit_breaker_failure_threshold,
         Duration::from_secs(config.circuit_breaker_open_timeout_secs),
@@ -322,6 +323,7 @@ pub async fn run(config: VantaConfig) -> Result<()> {
         pool,
         api_key,
         alt_api_key,
+        jwt_secret,
         rbac_config,
         trusted_proxies: config.trusted_proxies.clone(),
         conversation_trigger: None,

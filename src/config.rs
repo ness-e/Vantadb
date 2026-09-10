@@ -325,6 +325,14 @@ pub struct VantaConfig {
     /// promote to `api_key` and remove `alt_api_key`. Pattern from Qdrant
     /// v1.17 `alt_api_key`. If `None`, only `api_key` is validated.
     pub alt_api_key: Option<String>,
+    /// HS256 secret for JWT Bearer authentication (SRV-06, ADR-039).
+    ///
+    /// When set via `VANTADB_JWT_SECRET`, the server additionally accepts
+    /// `Authorization: Bearer <jwt>` where `<jwt>` is an HS256-signed token
+    /// with a present `sub` and a non-expired `exp`. Offline verification
+    /// (no network, CI-safe). If `None` (default), JWT auth is disabled and
+    /// only `api_key`/`alt_api_key` are accepted.
+    pub jwt_secret: Option<String>,
     /// If true, the server refuses to start unless an API key is configured.
     ///
     /// When set via `VANTADB_REQUIRE_AUTH` (or `--require-auth`), the server
@@ -712,6 +720,11 @@ impl Default for VantaConfig {
                 debug!(present = v.is_some(), "VANTADB_ALT_API_KEY");
                 v
             },
+            jwt_secret: {
+                let v = env::var("VANTADB_JWT_SECRET").ok();
+                debug!(present = v.is_some(), "VANTADB_JWT_SECRET");
+                v
+            },
             require_auth: {
                 let v = parse_env_or("VANTADB_REQUIRE_AUTH", false);
                 debug!(val = v, "VANTADB_REQUIRE_AUTH");
@@ -995,6 +1008,15 @@ impl VantaConfig {
     /// Use for rolling key rotation without downtime.
     pub fn with_alt_api_key(mut self, key: Option<String>) -> Self {
         self.alt_api_key = key;
+        self
+    }
+
+    /// Sets the HS256 secret for JWT Bearer authentication (SRV-06).
+    ///
+    /// When `Some`, the server accepts HS256 JWTs verified offline against
+    /// this secret. When `None` (default), JWT auth is disabled.
+    pub fn with_jwt_secret(mut self, secret: Option<String>) -> Self {
+        self.jwt_secret = secret;
         self
     }
 

@@ -104,7 +104,7 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Response {
         .and_then(|v| v.strip_prefix("Bearer "));
 
     // SRV-04: accept either primary or alt API key for zero-downtime rotation.
-    let authorized = match token {
+    let key_ok = match token {
         Some(token) => {
             let token_bytes = token.as_bytes();
             let primary_ok = expected_key.as_bytes().ct_eq(token_bytes).into();
@@ -117,6 +117,16 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Response {
         }
         None => false,
     };
+
+    // SRV-06: HS256 JWT fallback (ADR-039) — offline verification, only when a
+    // secret is configured. A valid JWT grants the same L1 transport identity
+    // as a valid API key; failures fall through to the generic 401 below
+    // (no api-key-vs-JWT oracle, same body and hint).
+    let jwt_ok = match (token, auth.jwt_secret.as_deref()) {
+        (Some(t), Some(secret)) => super::jwt::verify_jwt(t, secret).is_ok(),
+        _ => false,
+    };
+    let authorized = key_ok || jwt_ok;
 
     if !authorized {
         auth.rate_limiter.record_failure(&client_ip);
