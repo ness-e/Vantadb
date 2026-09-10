@@ -237,6 +237,12 @@ aliases: []
 - **Resultado:** ✅ test 216/0 (semántico + TTL/LRU) + sin regresión exact/PRX-04 + clippy 0.
 - **Commit:** e8419ce4
 
+### PRX-09-embeddings slice 3: EmbedProvider + embed-path en cache (sin plan file)
+- **Fecha:** 2026-09-10
+- **Objetivo:** similitud por embeddings reales: trait mínimo + stub offline + provider Ollama opcional.
+- **Resultado:** ✅ lib 155/0 (4 tests embed nuevos: paráfrasis deploy/release HIT donde léxico MISS, miss no-relacionado, fallback en fallo, budget latencia ~16µs/lookup) + prx09 4/4 + 13 suites ✅ + clippy all-targets/all-features 0 + fmt propio 0; sin regresión exact/PRX-04; server.rs/config.rs/Cargo intactos. Resto: wiring `with_embedder` en AppState (server.rs owned por PRX-11) → re-registrar fila PRX-09 en Backlog.
+- **Commit:** 15157d39 (+77585a4f docs cierre)
+
 ### PRX-10: guardrails por virtual key (plan 2026-09-10-code Wave6)
 - **Fecha:** 2026-09-10
 - **Objetivo:** allowlists de modelos por key (gate 1c + 403 guardrail_blocked).
