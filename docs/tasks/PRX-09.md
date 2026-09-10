@@ -166,6 +166,51 @@ Gate D evaluado: símbolos `pub` nuevos (`ExactCache`, `CacheConfig`, `CachedEnt
 - **Debug S9:** `lookup(&self)`→`&mut self` exigió `let mut guard` en server.rs; `let-chains` + `as_str_mut` inexistente en edition actual → reescritura sin let-chain; `is_none_or` mueve `best` → `match &best`.
 - **Scope:** 5 archivos propios (cache.rs/config.rs/server.rs/prx09_cache.rs/PRX-09.md); WIP ajeno intacto, no stageado.
 
+## Slice 3 — Embeddings reales (PRX-09-embeddings, 2026-09-10)
+
+- **Estado:** ⏳ IN PROGRESS
+- **Contrato:** similitud por embeddings reales + test hit semántico ✅ + sin regresión exact/PRX-04 + `cargo test -p vanta-proxy` 0 failed + `cargo clippy -p vanta-proxy --all-targets --all-features -- -D warnings` 0
+- **SDP:** test-driven-development (RED paráfrasis que lo léxico NO captura) · performance-optimization (medir latencia lookup embed vs léxico) · api-and-interface-design (trait `EmbedProvider` mínimo + stub offline) · doubt-driven-development (stakes: no romper hits exactos verdes) · incremental-implementation · context-engineering (+ campaign-executor/progreso/ponytail base). Descartada: frontend-ui-engineering (sin web/).
+- **Impacto mapeado (Regla 0):**
+  - **Archivos leídos (completos):** `vanta-proxy/src/cache.rs` (622L), `vanta-proxy/tests/prx09_cache.rs` (335L), `vanta-proxy/src/server.rs` (hook 5b/5c L424-481, SOLO lectura), `vanta-proxy/Cargo.toml` (sin ort/tokenizers), `Cargo.toml` raíz (`embed-local = dep:ort+tokenizers`, solo core), `vanta-memory/src/core/record/l1_writer.rs` (`EmbedFn`, `local_embedding_hook`, fail-open P4), `vanta-memory/src/core/record/l1_dedup.rs` (`recall_candidate_matches` + threshold configurable MEM-69).
+  - **Archivos referenciados hacia dentro:** `cache.rs` → `config::CacheConfig` (sin cambios), `std::sync::Arc` (nuevo import); tests → `cache::{EmbedProvider, ...}` nuevo.
+  - **Archivos que referencian a los editados:** `server.rs` (`cache_lookup_similar` ya existe — NO se edita, PRX-11-slice2 paralelo lo owns); `prx09_cache.rs` integración existente (no se toca — regresión intacta).
+  - **Veredicto impacto:** bajo — aditivo puro en `cache.rs` (trait + campo `Option` + builder + test-only fake); `new()`/`store`/`lookup` firmas INTACTAS (Hyrum); `Cargo.toml`/`Cargo.lock` sin cambios (0 deps nuevas); `config.rs` sin cambios (threshold existente reutilizado); `server.rs` NO tocado.
+- **Decisión A/B (evidencia):**
+  - A) adapter trait + stub offline + provider HTTP Ollama opcional — ELEGIDA.
+  - B) provider HTTP configurable solo — descartada como única vía (tests quedarían sin red; stub necesario igual).
+  - embed-local (ort, modelo 691MB — verificado `l1_writer.rs:64-67`) — descartado para proxy: desproporcionado para cache de wire; `reqwest/blocking` YA es dep de vanta-proxy → provider Ollama `/api/embed` con 0 crates nuevos, 0 peso binario, CI offline verde (fake determinístico en tests, fail-open `None` en prod).
+- **Diseño (aditivo):** `pub trait EmbedProvider: Send+Sync { fn embed(&self, text: &str) -> Option<Vec<f32>>; }` · `ExactCache::with_embedder(Arc<dyn EmbedProvider>)` (builder, `new()` intacto) · `TimedEntry += prompt_vec: Option<Vec<f32>>` (precompute en `store` vía `self.embedder`) · `lookup_similar`: embed-path primero si embedder presente (cosine f32 + mismo template-gate + mismo `similarity_threshold`), fallback léxico si embed falla/ausente · `OllamaEmbedProvider{base_url,model}` (blocking reqwest, `from_env`, fail-open) · fake semántico SOLO en `#[cfg(test)]` (buckets por keywords).
+- **Deuda/resto:** wiring server-side (`with_embedder` en `AppState`) = follow-up (server.rs owned por PRX-11) → nota al orquestador para re-registrar fila PRX-09 en Backlog si aplica. `campaign_update_task_state` inservible (sin plan file: "No plan file found") → estado vive en este task file + RESULTADO.
+
+### Step 10: RED — test paráfrasis (debe FALLAR: trait inexistente)
+
+- **Archivos:** `vanta-proxy/src/cache.rs` (tests)
+- **Acción:** fake `BucketEmbed` + tests `embed_hit_paraphrase_lexical_miss` (paráfrasis deploy/release: coseno léxico ~0.45 < 0.9 MISS, embed-coseno 1.0 HIT), `embed_miss_unrelated`, `embed_failure_falls_back_to_lexical`, `embed_latency_budget`
+- **Verify:** `cargo test -p vanta-proxy --lib cache` falla (E0432/E0599 — `EmbedProvider`/`with_embedder` inexistentes = RED correcto)
+- **Estado:** ✅ COMPLETED (RED confirmado: E0432 `no EmbedProvider in cache`)
+
+### Step 11: GREEN — trait + embed-path + Ollama provider
+
+- **Archivos:** `vanta-proxy/src/cache.rs`
+- **Acción:** mínima para pasar RED; sin `unwrap`/`expect` (workspace deny); fallback léxico fail-open
+- **Verify:** `cargo test -p vanta-proxy --lib cache` GREEN + exact/slice-2 tests intactos
+- **Estado:** ✅ COMPLETED (GREEN: 18/18 lib-cache incl. 4 embed nuevos; Debug manual estilo `L1DedupConfig`; refactor: scan léxico extraído a `lookup_similar_lexical` sin cambio de comportamiento)
+
+### Step 12: Integración cache + recalibración threshold + medición latencia
+
+- **Archivos:** `vanta-proxy/src/cache.rs` (docs + threshold reuse justificado)
+- **Acción:** confirmar mismo `similarity_threshold` para embed-coseno (vectores normalizados, 0.90 conservador); eprintln latencias embed vs léxico (evidencia, no assert flaky salvo budget holgado)
+- **Verify:** `cargo test -p vanta-proxy --tests -j 2` 0 failed
+- **Estado:** ✅ COMPLETED (lib 155 ✅ · prx09 4/4 ✅ · 13 suites ajenas al WIP paralelas ✅ · prx11_translate FALLA por WIP ajeno PRX-11-slice2 mid-slice — no mi blast radius; latencia embed 50×/128 entries = 818.7µs ≈16µs/lookup, fake en-memoria, techo documentado)
+
+### Step 13: Verify full + commit + cierre
+
+- **Archivos:** —
+- **Acción:** fmt + clippy all-targets/all-features + nextest scoped; commit solo-propios en develop (`feat: PRX-09-embeddings ...`); lesson; RESULTADO + nota resto al orquestador
+- **Verify:** contrato slice 3 ✅
+- **Estado:** ⬜ PENDING
+
 ## Notas
 
 - Slice 1 = solo exacto (stop condition plan: appetite >3d → shippear exact + DEFER semántico). Semántico slice 2.
