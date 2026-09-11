@@ -153,7 +153,7 @@ export class Client {
    *
    * @param path - Filesystem path for persistent storage. Omit or pass `":memory:"` for in-memory.
    * @returns A new Client instance.
-   * @throws {VantaError} If the WASM engine fails to initialise.
+   * @throws {DbError} If the WASM engine fails to initialise.
    *
    * @example
    * ```ts
@@ -187,7 +187,7 @@ export class Client {
    *
    * @param config - Optional configuration.
    * @returns A new Client instance.
-   * @throws {VantaError} If the WASM engine fails to initialise.
+   * @throws {DbError} If the WASM engine fails to initialise.
    *
    * @example
    * ```ts
@@ -213,7 +213,7 @@ export class Client {
    *
    * @param path - Filesystem path to the database.
    * @returns A new Client instance.
-   * @throws {VantaError} If the WASM engine fails to open the database.
+   * @throws {DbError} If the WASM engine fails to open the database.
    *
    * @example
    * ```ts
@@ -354,10 +354,10 @@ export class Client {
   /**
    * Close the database and release underlying WASM engine resources.
    *
-   * After close(), all public methods throw VantaError with code "VANTADB_CLOSED".
+   * After close(), all public methods throw DbError with code "VANTADB_CLOSED".
    * Calling close() multiple times is safe (no-op on subsequent calls).
    *
-   * @throws {VantaError} If the WASM engine fails during close.
+   * @throws {DbError} If the WASM engine fails during close.
    *
    * @example
    * ```ts
@@ -379,7 +379,7 @@ export class Client {
    * Get the capabilities of the underlying WASM engine.
    *
    * @returns The engine capabilities.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -406,7 +406,7 @@ export class Client {
    *
    * @param input - The memory record to store.
    * @returns The stored record with system-generated fields populated.
-   * @throws {VantaError} If the namespace or key is empty, or if the instance is closed.
+   * @throws {DbError} If the namespace or key is empty, or if the instance is closed.
    *
     * @example
     * ```ts
@@ -439,7 +439,7 @@ export class Client {
    *
    * @param inputs - Array of memory records to store.
    * @returns Array of stored records in the same order as the input.
-   * @throws {VantaError} If any input is invalid, or if the instance is closed.
+   * @throws {DbError} If any input is invalid, or if the instance is closed.
    *
    * @example
    * ```ts
@@ -473,7 +473,7 @@ export class Client {
    * @param namespace - The namespace.
    * @param key - The record key.
    * @returns The record if found, or null if it does not exist.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -495,7 +495,7 @@ export class Client {
    * @param namespace - The namespace.
    * @param key - The record key.
    * @returns true if the record was deleted, false if it did not exist.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -511,7 +511,7 @@ export class Client {
    * List all namespaces in the database.
    *
    * @returns Array of namespace strings.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -529,7 +529,7 @@ export class Client {
    * @param namespace - The namespace to list.
    * @param options - Pagination options (limit, cursor, filters).
    * @returns A page of records with an optional cursor for continuation.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -564,7 +564,7 @@ export class Client {
 
   private _buildSearchRequest(request: SearchRequest, explain?: boolean): Record<string, unknown> {
     // ERR-028 (AUDREP-55): a zero-norm cosine query vector is undefined
-    // (cosine = 0/0). The core rejects it with VantaError::InvalidInput
+    // (cosine = 0/0). The core rejects it with Error::InvalidInput
     // (src/sdk/search/mod.rs) and that error surfaces here via the WASM
     // binding — this layer is glue and must NOT make search decisions
     // (api-contract.md R-8). Pass the request through untouched, like
@@ -583,7 +583,7 @@ export class Client {
    * @param request - The search request parameters.
    * @returns Array of search hits ordered by relevance (closest first).
    *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
-   * @throws {VantaError} If the instance is closed or the search fails.
+   * @throws {DbError} If the instance is closed or the search fails.
    *
    * @example
    * ```ts
@@ -622,7 +622,7 @@ export class Client {
    * @param request - Search parameters (omit `namespace`; use `namespaces`).
    * @returns Array of search hits ordered by relevance (highest score first).
    *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
-   * @throws {VantaError} If the instance is closed or any namespace fails.
+   * @throws {DbError} If the instance is closed or any namespace fails.
    *
    * @example
    * ```ts
@@ -663,7 +663,7 @@ export class Client {
    * @param namespace - Namespace to count within.
    * @param filters - Optional list of `{field, op, value}` items.
    * @returns Number of matching records (bigint).
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -689,7 +689,7 @@ export class Client {
    * (soft-dead, recoverable) but gains `superseded_by`/`superseded_at_ms`,
    * and can be hidden from search/list with `exclude_superseded: true`.
    *
-   * @throws {VantaError} If either key is missing, `oldKey == newKey`, or
+   * @throws {DbError} If either key is missing, `oldKey == newKey`, or
    *   the old record is already superseded.
    *
    * @example
@@ -711,7 +711,7 @@ export class Client {
    * @param topK - Maximum number of hits (default: 10).
    * @returns Array of search hits ordered by descending similarity.
    *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
-   * @throws {VantaError} If the source `key` does not exist or has no vector.
+   * @throws {DbError} If the source `key` does not exist or has no vector.
    *
    * @example
    * ```ts
@@ -739,7 +739,7 @@ export class Client {
    * @param vector - Query vector (number array or Float32Array).
    * @param topK - Maximum number of results (default: 10).
    * @returns Array of results with node IDs and distances.
-   * @throws {VantaError} If the instance is closed or the vector is invalid.
+   * @throws {DbError} If the instance is closed or the vector is invalid.
    *
    * @example
    * ```ts
@@ -771,7 +771,7 @@ export class Client {
    *
    * @param request - The search request parameters.
    * @returns Raw explanation object from the engine.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -797,7 +797,7 @@ export class Client {
    * @param namespace - Namespace to export.
    * @param filter - Optional AND-combined metadata filter; omitting it exports the full namespace.
    * @returns Export report with counts and timing.
-   * @throws {VantaError} If the instance is closed or the export fails.
+   * @throws {DbError} If the instance is closed or the export fails.
    *
    * @example
    * ```ts
@@ -845,7 +845,7 @@ export class Client {
    *
    * @param path - Output file path.
    * @returns Export report with counts and timing.
-   * @throws {VantaError} If the instance is closed or the export fails.
+   * @throws {DbError} If the instance is closed or the export fails.
    *
    * @example
    * ```ts
@@ -862,7 +862,7 @@ export class Client {
    *
    * @param records - Array of memory record inputs to import.
    * @returns Import report with counts and timing.
-   * @throws {VantaError} If the instance is closed or the import fails.
+   * @throws {DbError} If the instance is closed or the import fails.
    *
    * @example
    * ```ts
@@ -892,7 +892,7 @@ export class Client {
    *
    * @param path - Path to the JSONL file.
    * @returns Import report with counts and timing.
-   * @throws {VantaError} If the instance is closed or the file cannot be read.
+   * @throws {DbError} If the instance is closed or the file cannot be read.
    *
    * @example
    * ```ts
@@ -908,7 +908,7 @@ export class Client {
    * Rebuild the ANN index from scratch.
    *
    * @returns Engine-specific rebuild result.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -929,7 +929,7 @@ export class Client {
    * @param namespace - The namespace to rebuild.
    * @param pageSize - Batch size (default 1000, max 1000).
    * @returns A rebuild report with scanned and indexed counts.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -946,7 +946,7 @@ export class Client {
    * Compact the internal storage layout to reclaim space.
    *
    * @returns Number of bytes reclaimed (bigint).
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -963,7 +963,7 @@ export class Client {
    *
    * @param namespace - Optional namespace to scope the audit.
    * @returns Audit report.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    */
   auditTextIndex(namespace?: string): unknown {
     this._assertOpen();
@@ -975,7 +975,7 @@ export class Client {
    *
    * @param namespace - Optional namespace to scope the audit.
    * @returns Detailed audit report.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    */
   auditTextIndexDeep(namespace?: string): unknown {
     this._assertOpen();
@@ -986,7 +986,7 @@ export class Client {
    * Repair the text index if inconsistencies are detected.
    *
    * @returns Repair report.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    */
   repairTextIndex(): unknown {
     this._assertOpen();
@@ -996,7 +996,7 @@ export class Client {
   /**
    * Flush all pending writes to storage.
    *
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -1011,7 +1011,7 @@ export class Client {
   /**
    * Compact the write-ahead log (WAL) to reclaim space.
    *
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -1027,7 +1027,7 @@ export class Client {
    * Purge all expired records (those past their TTL).
    *
    * @returns Number of records purged (bigint).
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -1043,7 +1043,7 @@ export class Client {
    * Get operational metrics from the engine.
    *
    * @returns Current operational metrics.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -1061,7 +1061,7 @@ export class Client {
    *
    * @param query - IQL query string (LISP-like syntax).
    * @returns Query result containing nodes or write confirmation.
-   * @throws {VantaError} If the instance is closed or the query is invalid.
+   * @throws {DbError} If the instance is closed or the query is invalid.
    *
    * @example
    * ```ts
@@ -1084,7 +1084,7 @@ export class Client {
    * @param content - Optional content string.
    * @param vector - Optional embedding vector.
    * @param fields - Optional typed metadata fields.
-   * @throws {VantaError} If the ID is not a safe integer, or if the instance is closed.
+   * @throws {DbError} If the ID is not a safe integer, or if the instance is closed.
    *
    * @example
    * ```ts
@@ -1122,7 +1122,7 @@ export class Client {
    *
    * @param id - Node ID.
    * @returns The node record if found, or null if it does not exist.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -1151,7 +1151,7 @@ export class Client {
    *
    * @param id - Node ID.
    * @param reason - Deletion reason (default: "deleted").
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -1170,7 +1170,7 @@ export class Client {
    * @param target - Target node ID.
    * @param label - Edge label (default: "").
    * @param weight - Optional edge weight.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -1203,7 +1203,7 @@ export class Client {
    * @param source - Source node ID.
    * @param target - Target node ID.
    * @param label - Edge label to remove (default: "").
-   * @throws {VantaError} If the instance is closed or a node is missing.
+   * @throws {DbError} If the instance is closed or a node is missing.
    *
    * @example
    * ```ts
@@ -1223,7 +1223,7 @@ export class Client {
    * @param roots - Array of root node IDs to start from.
    * @param maxDepth - Maximum traversal depth (default: 10).
    * @returns BFS result with visited nodes and levels.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -1248,7 +1248,7 @@ export class Client {
    * @param roots - Array of root node IDs to start from.
    * @param maxDepth - Maximum traversal depth (default: 10).
    * @returns DFS result with visited nodes and order.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -1271,7 +1271,7 @@ export class Client {
    *
    * @param roots - Array of root node IDs.
    * @returns Topological sort result.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -1291,7 +1291,7 @@ export class Client {
    *
    * @param roots - Array of root node IDs.
    * @returns true if the graph is a DAG (no cycles detected).
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -1314,7 +1314,7 @@ export class Client {
    * @param filter - Optional `{labels?: number[], time_range?: [number, number]}`
    *   to follow only matching edges. `null`/`undefined` disables filtering.
    * @returns Visited node ids (same shape as `graphBfs`).
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -1348,7 +1348,7 @@ export class Client {
    *
    * @param roots - Array of root node IDs.
    * @returns Array of `{id, in_degree, out_degree}` entries.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -1369,7 +1369,7 @@ export class Client {
    * @param query - The query string to highlight.
    * @param withHighlighting - If true, wrap matching terms in highlighting markers.
    * @returns The generated snippet, or undefined if snippet generation is not available.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -1392,14 +1392,7 @@ export class Client {
   }
 }
 
-/**
- * @deprecated Use {@link Client} instead (`VantaDB` repeats the package name).
- */
-export const VantaDB = Client;
-/** @deprecated Use {@link Client} instead. */
-export type VantaDB = Client;
-
-export { DbError, VantaError, ERROR_CODES } from "./errors.js";
+export { DbError, ERROR_CODES } from "./errors.js";
 export {
   isMemoryRecord,
   isSearchHit,

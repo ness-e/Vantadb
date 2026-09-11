@@ -9,18 +9,10 @@ mod record;
 mod search;
 
 pub use graph::{EdgeRecord, NodeInput, NodeRecord, QueryResult};
-#[allow(deprecated)]
-pub use graph::{VantaEdgeRecord, VantaNodeInput, VantaNodeRecord, VantaQueryResult};
 pub use record::{
     ExportReport, FilterOp, ImportReport, MemoryExportLine, MemoryFilter, MemoryFilterItem,
     MemoryInput, MemoryListOptions, MemoryListPage, MemoryRecord, NamespaceStats,
     NamespaceStatsMap, DEFAULT_EXPIRING_SOON_WINDOW_MS,
-};
-#[allow(deprecated)]
-pub use record::{
-    VantaExportReport, VantaFilterOp, VantaImportReport, VantaMemoryExportLine, VantaMemoryFilter,
-    VantaMemoryFilterItem, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryListPage,
-    VantaMemoryRecord, VantaNamespaceStats, VantaNamespaceStatsMap,
 };
 #[cfg(debug_assertions)]
 pub use search::MemorySearchDebugReport;
@@ -37,14 +29,6 @@ pub(crate) use search::{
     SparseIndexRebuildReport, SparseIndexState, TextIndexCounts, TextIndexMutationReport,
     TextIndexRebuildReport, TextIndexState,
 };
-#[allow(deprecated)]
-pub use search::{
-    VantaBm25TermContribution, VantaHybridFusionReport, VantaIndexRebuildReport,
-    VantaMemorySearchHit, VantaMemorySearchRequest, VantaSearchExplanation,
-    VantaSearchExplanationHit, VantaSearchHit, VantaTextIndexAuditReport,
-    VantaTextIndexRepairReport,
-};
-
 pub(crate) mod u128_serde {
     use serde::{Deserialize, Deserializer, Serializer};
 
@@ -392,44 +376,6 @@ pub struct SkillWriteResult {
     /// Whether the write was skipped as idempotent (no version appended).
     pub idempotent: bool,
 }
-
-/// Deprecated `Vanta`-prefixed aliases (AST-002, ADR-041).
-/// New code must use the unprefixed names; these exist only for semver migration.
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `RuntimeProfile` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaRuntimeProfile = RuntimeProfile;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `StorageTier` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaStorageTier = StorageTier;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `Value` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaValue = Value;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `Fields` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaFields = Fields;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `MemoryMetadata` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaMemoryMetadata = MemoryMetadata;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `OperationalMetrics` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaOperationalMetrics = OperationalMetrics;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `Capabilities` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaCapabilities = Capabilities;
 
 #[cfg(test)]
 #[allow(missing_docs)]

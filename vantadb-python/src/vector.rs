@@ -1,4 +1,4 @@
-//! Python bindings for VantaVector and VantaVectorIter.
+//! Python bindings for Vector and VectorIter.
 #![warn(missing_docs)]
 #![allow(deprecated)]
 
@@ -9,16 +9,16 @@ use pyo3::types::{PyBytes, PyDict, PyTuple};
 /// A vector wrapper that exposes f32 data to NumPy via `__array_interface__`
 /// with an *owned* buffer copy (safe under drop/mutation), while remaining
 /// sequence-iterable for pure-Python consumers.
-#[pyclass(name = "VantaVector")]
-pub(crate) struct VantaVector {
+#[pyclass(name = "Vector")]
+pub(crate) struct Vector {
     data: Box<[f32]>,
 }
 
 #[pymethods]
-impl VantaVector {
+impl Vector {
     #[new]
     pub(crate) fn new(data: Vec<f32>) -> Self {
-        VantaVector {
+        Vector {
             data: data.into_boxed_slice(),
         }
     }
@@ -36,8 +36,8 @@ impl VantaVector {
         Ok(self.data[idx as usize])
     }
 
-    fn __iter__(slf: PyRef<'_, Self>) -> VantaVectorIter {
-        VantaVectorIter {
+    fn __iter__(slf: PyRef<'_, Self>) -> VectorIter {
+        VectorIter {
             data: slf.data.to_vec(),
             index: 0,
         }
@@ -45,10 +45,10 @@ impl VantaVector {
 
     fn __repr__(&self) -> String {
         if self.data.len() <= 6 {
-            format!("VantaVector({:?})", &self.data[..])
+            format!("Vector({:?})", &self.data[..])
         } else {
             format!(
-                "VantaVector([{:.4}, ..., {:.4}], dim={})",
+                "Vector([{:.4}, ..., {:.4}], dim={})",
                 self.data[0],
                 self.data[self.data.len() - 1],
                 self.data.len()
@@ -92,16 +92,16 @@ impl VantaVector {
     }
 }
 
-/// Iterator for ``VantaVector`` that lets Python iterate over the elements
+/// Iterator for ``Vector`` that lets Python iterate over the elements
 /// without first converting the whole vector to a list.
-#[pyclass(name = "VantaVectorIter")]
-pub(crate) struct VantaVectorIter {
+#[pyclass(name = "VectorIter")]
+pub(crate) struct VectorIter {
     data: Vec<f32>,
     index: usize,
 }
 
 #[pymethods]
-impl VantaVectorIter {
+impl VectorIter {
     fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
         slf
     }

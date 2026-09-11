@@ -737,7 +737,7 @@ class TestNumPyIntegration:
 class TestArrayInterfaceMemorySafety:
     """AUDIT-01: ``__array_interface__`` must not expose a dangling buffer.
 
-    Regression tests for the use-after-free where ``np.asarray(VantaVector)``
+    Regression tests for the use-after-free where ``np.asarray(Vector)``
     created a zero-copy view over the pyclass's internal ``Box<[f32]>``.
     NumPy keeps the pyclass alive via ``arr.base``, so a bare ``del`` is not
     enough — the dangling window opens on *mutation*: ``__setstate__`` swaps
@@ -751,11 +751,11 @@ class TestArrayInterfaceMemorySafety:
         """ndarray must pin the private snapshot, not the pyclass buffer."""
         import numpy as np
 
-        vv = vanta.VantaVector([1.0, 2.0, 3.0, 4.0])
+        vv = vanta.Vector([1.0, 2.0, 3.0, 4.0])
         arr = np.asarray(vv)
         assert arr.dtype == np.float32, f"expected float32, got {arr.dtype}"
         assert arr.tolist() == [1.0, 2.0, 3.0, 4.0]
-        # Old code: arr.base was the VantaVector (zero-copy aliasing). The
+        # Old code: arr.base was the Vector (zero-copy aliasing). The
         # fixed getter hands NumPy an owned bytes snapshot, so base must NOT be
         # the pyclass and the array must survive mutating the pyclass.
         assert arr.base is not vv, "np.asarray(vv) aliases the pyclass buffer"
@@ -763,11 +763,11 @@ class TestArrayInterfaceMemorySafety:
         assert arr.tolist() == [1.0, 2.0, 3.0, 4.0], "ndarray aliases pyclass memory"
 
     def test_asarray_survives_pyclass_drop(self):
-        """ndarray must keep its data after the VantaVector is dropped."""
+        """ndarray must keep its data after the Vector is dropped."""
         import gc
         import numpy as np
 
-        vv = vanta.VantaVector([1.0, 2.0, 3.0, 4.0])
+        vv = vanta.Vector([1.0, 2.0, 3.0, 4.0])
         arr = np.asarray(vv)
         assert arr.tolist() == [1.0, 2.0, 3.0, 4.0]
 
@@ -779,7 +779,7 @@ class TestArrayInterfaceMemorySafety:
         # untouched. (NumPy currently pins the pyclass via arr.base, so this
         # is a safety net rather than the primary trigger.)
         for _ in range(2000):
-            vanta.VantaVector([9.0] * 4)
+            vanta.Vector([9.0] * 4)
 
         assert arr.tolist() == [1.0, 2.0, 3.0, 4.0], "ndarray is dangling after pyclass drop"
 
@@ -788,7 +788,7 @@ class TestArrayInterfaceMemorySafety:
         import gc
         import numpy as np
 
-        vv = vanta.VantaVector([5.0, 6.0, 7.0, 8.0])
+        vv = vanta.Vector([5.0, 6.0, 7.0, 8.0])
         arr = np.asarray(vv)
         assert arr.tolist() == [5.0, 6.0, 7.0, 8.0]
 
@@ -800,7 +800,7 @@ class TestArrayInterfaceMemorySafety:
         gc.collect()
 
         for _ in range(2000):
-            vanta.VantaVector([1.0] * 4)
+            vanta.Vector([1.0] * 4)
 
         assert arr.tolist() == [5.0, 6.0, 7.0, 8.0], "ndarray is dangling after __setstate__"
 
@@ -838,7 +838,7 @@ class TestArrayInterfaceMemorySafety:
         for _ in range(2000):
             db.put("ns", f"fill-{np.random.randint(0, 10**6)}", "x",
                    vector=np.random.rand(4).astype(np.float32))
-            vanta.VantaVector([9.0] * 4)
+            vanta.Vector([9.0] * 4)
 
         assert arr.tolist() == [1.0, 2.0, 3.0, 4.0], "ndarray is dangling after hit drop"
 

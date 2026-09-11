@@ -19,13 +19,13 @@
  */
 
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { VantaDB } from "../src/vantadb.js";
+import { Client } from "../src/vantadb.js";
 
 describe("TS-01: GraphBfsResult shape real (wire = bigint[] of u128 node IDs)", () => {
-  let db: VantaDB;
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
     // Build a tiny 3-node graph: 100 -> 101 -> 102
     db.insertNode(100, "root");
     db.insertNode(101, "mid");

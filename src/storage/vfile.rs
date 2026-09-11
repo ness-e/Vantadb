@@ -39,14 +39,6 @@ pub(crate) use crate::storage::vfile_mmap::{
 ///   - v2: migrated (bumped header only, data layout identical to v1)
 pub const VFILE_VERSION: u16 = 2;
 
-/// Deprecated `Vanta`-prefixed aliases (AST-002, ADR-041).
-/// New code must use the unprefixed names; these exist only for semver migration.
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `File` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaFile = File;
-
 /// Sum of resident mmap bytes across the HNSW index and vector store.
 /// Only compiled for tests — production code uses per-File metrics directly.
 #[cfg(test)]

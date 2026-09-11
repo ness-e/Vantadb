@@ -6,10 +6,6 @@
 //! `crate::sdk::serialization::graph_types` (used by `storage::engine`).
 
 pub use super::super::serialization::graph_types::{EdgeRecord, NodeInput, NodeRecord};
-#[allow(deprecated)]
-pub use super::super::serialization::graph_types::{
-    VantaEdgeRecord, VantaNodeInput, VantaNodeRecord,
-};
 use super::u128_serde;
 use serde::{Deserialize, Serialize};
 
@@ -34,14 +30,6 @@ pub enum QueryResult {
         node_id: u128,
     },
 }
-
-/// Deprecated `Vanta`-prefixed aliases (AST-002, ADR-041).
-/// New code must use the unprefixed names; these exist only for semver migration.
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `QueryResult` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaQueryResult = QueryResult;
 
 #[cfg(test)]
 #[allow(missing_docs)]

@@ -6,12 +6,9 @@ export interface ErrorJSON {
   timestamp: string;
 }
 
-/** @deprecated Use {@link ErrorJSON} instead. */
-export type VantaErrorJSON = ErrorJSON;
-
 /**
  * Canonical cross-binding error codes (ERR-TS-01). The VALUES are the ten
- * `VANTADB_*` strings emitted by `VantaError::code()` in the Rust core
+ * `VANTADB_*` strings emitted by `Error::code()` in the Rust core
  * (`docs/api/ERROR_HANDLING.md` §1.1) — previously TS/WASM carried the
  * unprefixed forms on the wire, which was a documented drift; the keys keep
  * their readable unprefixed names for TS consumers (`ERROR_CODES.BUSY`).
@@ -62,14 +59,6 @@ export class DbError extends Error {
   }
 }
 
-/**
- * @deprecated Use {@link DbError} instead. Never export a bare `Error` —
- * it collides with the global.
- */
-export const VantaError = DbError;
-/** @deprecated Use {@link DbError} instead. */
-export type VantaError = DbError;
-
 /** Codes that may legitimately arrive on an error thrown by the WASM binding. */
 const KNOWN_CODES: ReadonlySet<string> = new Set(Object.values(ERROR_CODES));
 
@@ -83,7 +72,7 @@ interface WasmErrorLike extends Error {
  *
  * Fallback used when the thrown error carries no structured `code` property
  * (e.g. a `vantadb-wasm` pkg build predating FIND-10). The core flattens
- * `VantaError` to its Display string at the wasm boundary, so the prefixes
+ * `Error` to its Display string at the wasm boundary, so the prefixes
  * mirror the variant messages in `src/error.rs` (corrupt / not-found /
  * validation are the contract classes).
  */

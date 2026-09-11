@@ -1,7 +1,7 @@
-"""MOD-20: typed VantaError hierarchy + structured query results.
+"""MOD-20: typed Error hierarchy + structured query results.
 
-The binding exposes a `VantaError` hierarchy (inheriting from `RuntimeError`
-so `except RuntimeError` keeps working) mapping the core `VantaError` variants
+The binding exposes a `Error` hierarchy (inheriting from `RuntimeError`
+so `except RuntimeError` keeps working) mapping the core `Error` variants
 to specific subclasses, plus `query_structured()` which returns a structured
 dict instead of the formatted string of `query()`.
 """
@@ -48,9 +48,9 @@ def _unique_path():
 
 
 def test_hierarchy_base_is_runtimeerror_and_exception():
-    """VantaError must be catchable as RuntimeError and Exception (backward compat)."""
-    assert issubclass(vanta.VantaError, RuntimeError)
-    assert issubclass(vanta.VantaError, Exception)
+    """Error must be catchable as RuntimeError and Exception (backward compat)."""
+    assert issubclass(vanta.Error, RuntimeError)
+    assert issubclass(vanta.Error, Exception)
     for name in (
         "NotFoundError",
         "ValidationError",
@@ -64,20 +64,20 @@ def test_hierarchy_base_is_runtimeerror_and_exception():
         "TimeoutError",
     ):
         cls = getattr(vanta, name)
-        assert issubclass(cls, vanta.VantaError), f"{name} must subclass VantaError"
+        assert issubclass(cls, vanta.Error), f"{name} must subclass Error"
 
 
 # ── Typed error mapping ──────────────────────────────────────────────────────
 
 
 def test_supersede_missing_key_raises_not_found():
-    """Missing keys on supersede map to NotFoundError (and are VantaError/RuntimeError)."""
+    """Missing keys on supersede map to NotFoundError (and are Error/RuntimeError)."""
     db = _db()
     try:
         db.put("ns", "k", "payload")
         with pytest.raises(vanta.NotFoundError) as exc:
             db.supersede("ns", "ghost", "k")
-        assert isinstance(exc.value, vanta.VantaError)
+        assert isinstance(exc.value, vanta.Error)
         assert isinstance(exc.value, RuntimeError)
     finally:
         db.close()
@@ -122,7 +122,7 @@ def test_error_to_dict_plain_shape():
     db = _db()
     try:
         db.put("ns", "k", "payload")
-        with pytest.raises(vanta.VantaError) as exc:
+        with pytest.raises(vanta.Error) as exc:
             db.supersede("ns", "ghost", "k")
         d = vanta.error_to_dict(exc.value)
         assert d["name"] == "NotFoundError"
@@ -146,7 +146,7 @@ def test_supersede_same_key_raises_validation():
 
 
 def test_catch_all_vanta_error_catches_all():
-    """A single `except VantaError` should catch both mapped families."""
+    """A single `except Error` should catch both mapped families."""
     db = _db()
     try:
         db.put("ns", "k", "payload")
@@ -157,8 +157,8 @@ def test_catch_all_vanta_error_catches_all():
                 else:
                     db.supersede("ns", "k", "k")
                 assert False, f"{trigger} should have raised"
-            except vanta.VantaError:
-                pass  # expected — both families are VantaError
+            except vanta.Error:
+                pass  # expected — both families are Error
     finally:
         db.close()
 

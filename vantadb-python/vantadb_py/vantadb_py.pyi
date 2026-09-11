@@ -27,7 +27,7 @@ from __future__ import annotations
 from typing import Any
 
 
-class VantaError(RuntimeError):
+class Error(RuntimeError):
     """Base class for every VantaDB error raised by this binding.
 
     Inherits from ``RuntimeError`` so existing ``except RuntimeError`` /
@@ -43,62 +43,62 @@ class VantaError(RuntimeError):
     code: str
     """Canonical ``VANTADB_*`` code (exact wire value, §1.1)."""
     retriable: bool
-    """Mirrors Rust ``VantaError::is_retriable()``."""
+    """Mirrors Rust ``Error::is_retriable()``."""
     hint: str | None
     """Recovery hint from ``recovery_hint()``; ``None`` when absent."""
 
 
-class NotFoundError(VantaError):
+class NotFoundError(Error):
     """A requested node/record/namespace was not found."""
 
 
-class ValidationError(VantaError):
+class ValidationError(Error):
     """Input validation failed (bad dimensions, invalid IQL, schema, etc.)."""
 
 
-class CorruptError(VantaError):
+class CorruptError(Error):
     """Persisted data is corrupt or uses an incompatible format."""
 
 
-class StorageError(VantaError):
+class StorageError(Error):
     """An I/O or storage-backend error occurred."""
 
 
-class ConflictError(VantaError):
+class ConflictError(Error):
     """An execution conflict or graph cycle was detected."""
 
 
-class UnsupportedError(VantaError):
+class UnsupportedError(Error):
     """An unsupported operation was attempted."""
 
 
-class ResourceLimitError(VantaError):
+class ResourceLimitError(Error):
     """A resource limit (e.g. memory) was exceeded."""
 
 
-class BusyError(VantaError):
+class BusyError(Error):
     """The database is busy or not initialized."""
 
 
-class NoVectorError(VantaError):
+class NoVectorError(Error):
     """A record exists but carries no vector."""
 
 
-class TimeoutError(VantaError):
+class TimeoutError(Error):
     """An operation exceeded its time budget (VantaDB's, not the builtin)."""
 
 
-class VantaVector:
+class Vector:
     """Read-only view over a ``f32`` vector exposed by search hits."""
 
     def __len__(self) -> int: ...
     def __getitem__(self, idx: int) -> float: ...
-    def __iter__(self) -> VantaVectorIter: ...
+    def __iter__(self) -> VectorIter: ...
     def __repr__(self) -> str: ...
 
 
-class VantaVectorIter:
-    def __iter__(self) -> VantaVectorIter: ...
+class VectorIter:
+    def __iter__(self) -> VectorIter: ...
     def __next__(self) -> float: ...
 
 
@@ -109,7 +109,7 @@ class SearchHit:
     key: str
     payload: str
     metadata: dict
-    vector: VantaVector | None
+    vector: Vector | None
     score: float
     id: int
     created_at_ms: int

@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
 import { NativeVantaDB } from "../native.js";
-import { VantaError, ERROR_CODES } from "../errors.js";
+import { DbError, ERROR_CODES } from "../errors.js";
 
 /**
  * TS-02 regression tests: every failure raised by the native binding —
  * synchronous throws AND async promise rejections — must surface to callers
- * as a wrapped `VantaError`, never as a raw binding error.
+ * as a wrapped `DbError`, never as a raw binding error.
  *
  * We bypass `NativeVantaDB.connect()` (needs a built native binary) and
  * inject a fake inner whose methods reject asynchronously.
@@ -38,7 +38,7 @@ describe("NativeVantaDB error wrapping (TS-02)", () => {
     const db = makeDbWith({
       get: () => Promise.reject(new Error("engine panicked on background thread")),
     });
-    await expect(db.get("ns", "k")).rejects.toBeInstanceOf(VantaError);
+    await expect(db.get("ns", "k")).rejects.toBeInstanceOf(DbError);
     await expect(db.get("ns", "k")).rejects.toMatchObject({
       code: "VANTADB_WASM_ERROR",
       message: expect.stringContaining(
@@ -47,11 +47,11 @@ describe("NativeVantaDB error wrapping (TS-02)", () => {
     });
   });
 
-  it("wraps an ASYNC rejection from the inner binding in a VantaError with code", async () => {
+  it("wraps an ASYNC rejection from the inner binding in a DbError with code", async () => {
     const db = makeDbWith({
       get: () => Promise.reject(new Error("engine panicked on background thread")),
     });
-    await expect(db.get("ns", "k")).rejects.toBeInstanceOf(VantaError);
+    await expect(db.get("ns", "k")).rejects.toBeInstanceOf(DbError);
     await expect(db.get("ns", "k")).rejects.toMatchObject({
       code: "VANTADB_WASM_ERROR",
       message: expect.stringContaining(
@@ -60,18 +60,18 @@ describe("NativeVantaDB error wrapping (TS-02)", () => {
     });
   });
 
-  it("wraps a SYNCHRONOUS throw from the inner binding in a VantaError", async () => {
+  it("wraps a SYNCHRONOUS throw from the inner binding in a DbError", async () => {
     const db = makeDbWith({
       flush: () => {
         throw new Error("sync boom");
       },
     });
-    await expect(db.flush()).rejects.toBeInstanceOf(VantaError);
+    await expect(db.flush()).rejects.toBeInstanceOf(DbError);
     await expect(db.flush()).rejects.toMatchObject({ code: "VANTADB_WASM_ERROR" });
   });
 
-  it("passes an existing VantaError through untouched", async () => {
-    const original = new VantaError(ERROR_CODES.BUSY, "database busy");
+  it("passes an existing DbError through untouched", async () => {
+    const original = new DbError(ERROR_CODES.BUSY, "database busy");
     const db = makeDbWith({ delete: () => Promise.reject(original) });
     let caught: unknown;
     try {

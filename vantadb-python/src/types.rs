@@ -8,7 +8,7 @@ use pyo3::types::{PyAnyMethods, PyBytes, PyDict, PyDictMethods, PyTuple};
 use vantadb::sdk::MemoryRecord;
 
 use crate::convert::{set_python_value, try_numpy_array};
-use crate::vector::VantaVector;
+use crate::vector::Vector;
 
 /// A zero-copy view over a 2D PyBuffer (NumPy ndarray) of f32 data.
 ///
@@ -84,13 +84,11 @@ impl VantaPyMemoryRecord {
 
     #[getter]
     fn vector(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
-        // PERF-31: try numpy array first; fall back to VantaVector (backward compat)
+        // PERF-31: try numpy array first; fall back to Vector (backward compat)
         match &self.inner.vector {
             Some(v) => match try_numpy_array(py, v)? {
                 Some(arr) => Ok(Some(arr)),
-                None => Ok(Some(
-                    py.get_type::<VantaVector>().call1((v.clone(),))?.unbind(),
-                )),
+                None => Ok(Some(py.get_type::<Vector>().call1((v.clone(),))?.unbind())),
             },
             None => Ok(None),
         }
@@ -317,13 +315,11 @@ impl VantaPySearchHit {
 
     #[getter]
     fn vector(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
-        // PERF-31: try numpy array first; fall back to VantaVector (backward compat)
+        // PERF-31: try numpy array first; fall back to Vector (backward compat)
         match &self.inner.vector {
             Some(v) => match try_numpy_array(py, v)? {
                 Some(arr) => Ok(Some(arr)),
-                None => Ok(Some(
-                    py.get_type::<VantaVector>().call1((v.clone(),))?.unbind(),
-                )),
+                None => Ok(Some(py.get_type::<Vector>().call1((v.clone(),))?.unbind())),
             },
             None => Ok(None),
         }

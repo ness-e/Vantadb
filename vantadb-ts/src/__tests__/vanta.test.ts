@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { Client, VantaError } from "../vantadb.js";
+import { Client, DbError } from "../vantadb.js";
 import {
   isMemoryRecord,
   isSearchHit,
@@ -224,50 +224,50 @@ describe("Type guards: validateVector (asserts)", () => {
   });
 
   it("throws on non-array", () => {
-    // ERR-TS-01: validateVector surfaces VantaError(VANTADB_VALIDATION_ERROR)
+    // ERR-TS-01: validateVector surfaces DbError(VANTADB_VALIDATION_ERROR)
     // instead of the previous raw TypeError/RangeError (BREAKING documented).
     let caught: unknown;
     try { validateVector("bad"); } catch (e) { caught = e; }
-    expect(caught).toBeInstanceOf(VantaError);
-    expect((caught as VantaError).code).toBe("VANTADB_VALIDATION_ERROR");
+    expect(caught).toBeInstanceOf(DbError);
+    expect((caught as DbError).code).toBe("VANTADB_VALIDATION_ERROR");
   });
 
   it("throws on empty array", () => {
-    expect(() => validateVector([])).toThrow(VantaError);
+    expect(() => validateVector([])).toThrow(DbError);
   });
 
   it("throws on NaN element", () => {
-    expect(() => validateVector([1, NaN])).toThrow(VantaError);
+    expect(() => validateVector([1, NaN])).toThrow(DbError);
   });
 
   it("throws on Float32Array with NaN element", () => {
-    expect(() => validateVector(new Float32Array([1, NaN]))).toThrow(VantaError);
+    expect(() => validateVector(new Float32Array([1, NaN]))).toThrow(DbError);
   });
 });
 
 // ---------------------------------------------------------------------------
-// VantaError unit tests
+// DbError unit tests
 // ---------------------------------------------------------------------------
-describe("VantaError", () => {
+describe("DbError", () => {
   it("creates error with code and message", () => {
-    const err = new VantaError("TEST_CODE", "something broke");
+    const err = new DbError("TEST_CODE", "something broke");
     expect(err.code).toBe("TEST_CODE");
     expect(err.message).toBe("something broke");
     expect(err.name).toBe("VantaError");
   });
 
   it("stores optional details", () => {
-    const err = new VantaError("DETAILS", "msg", { foo: 1 });
+    const err = new DbError("DETAILS", "msg", { foo: 1 });
     expect(err.details).toEqual({ foo: 1 });
   });
 
   it("has timestamp", () => {
-    const err = new VantaError("TS", "msg");
+    const err = new DbError("TS", "msg");
     expect(err.timestamp).toBeInstanceOf(Date);
   });
 
   it("toJSON produces structured output", () => {
-    const err = new VantaError("JSON_TEST", "msg", { x: 1 });
+    const err = new DbError("JSON_TEST", "msg", { x: 1 });
     const json = err.toJSON();
     expect(json.name).toBe("VantaError");
     expect(json.code).toBe("JSON_TEST");
@@ -277,7 +277,7 @@ describe("VantaError", () => {
   });
 
   it("toJSON omits details when undefined", () => {
-    const err = new VantaError("NO_DETAILS", "msg");
+    const err = new DbError("NO_DETAILS", "msg");
     const json = err.toJSON();
     expect(json.details).toBeUndefined();
   });
@@ -317,15 +317,15 @@ describe("Client lifecycle", () => {
     expect(() => db.close()).not.toThrow();
   });
 
-  it("operations after close() throw VantaError with code CLOSED", () => {
+  it("operations after close() throw DbError with code CLOSED", () => {
     const db = Client.create();
     db.close();
-    expect(() => db.put({ namespace: "ns", key: "k", payload: "p" })).toThrow(VantaError);
+    expect(() => db.put({ namespace: "ns", key: "k", payload: "p" })).toThrow(DbError);
     try {
       db.put({ namespace: "ns", key: "k", payload: "p" });
     } catch (e) {
-      expect(e).toBeInstanceOf(VantaError);
-      expect((e as VantaError).code).toBe("VANTADB_CLOSED");
+      expect(e).toBeInstanceOf(DbError);
+      expect((e as DbError).code).toBe("VANTADB_CLOSED");
     }
   });
 
@@ -803,14 +803,14 @@ describe("Client edge cases", () => {
     expect(records.length).toBeGreaterThanOrEqual(90);
   });
 
-  it("list after close throws VantaError", () => {
+  it("list after close throws DbError", () => {
     const tmp = Client.create();
     tmp.close();
-    expect(() => tmp.list("ns")).toThrow(VantaError);
+    expect(() => tmp.list("ns")).toThrow(DbError);
   });
 
-  it("VantaError caught instanceof Error works", () => {
-    const err = new VantaError("CODE", "msg");
+  it("DbError caught instanceof Error works", () => {
+    const err = new DbError("CODE", "msg");
     expect(err instanceof Error).toBe(true);
   });
 });

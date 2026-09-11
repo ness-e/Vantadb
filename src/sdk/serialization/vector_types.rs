@@ -76,24 +76,6 @@ pub struct MemorySearchHit {
     pub explanation: Option<SearchExplanationHit>,
 }
 
-/// Deprecated `Vanta`-prefixed aliases (AST-002, ADR-041).
-/// New code must use the unprefixed names; these exist only for semver migration.
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `MemorySearchRequest` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaMemorySearchRequest = MemorySearchRequest;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `SearchHit` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaSearchHit = SearchHit;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `MemorySearchHit` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaMemorySearchHit = MemorySearchHit;
-
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {

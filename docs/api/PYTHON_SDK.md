@@ -14,7 +14,7 @@ aliases: []
 > **Naming (ADR-041 anti-stutter):** canonical names are `Client`, `Record`,
 > `SearchHit` (`Hit` alias), `ListResult`, `Vector`, `SearchRequest`.
 > Legacy `VantaDB`, `VantaMemoryRecord`, `VantaSearchHit`, `VantaListResult`,
-> `VantaVector` remain as deprecated aliases and must not appear in new code.
+> `VantaVector`, `VantaError` aliases were removed in 0.6.0 (AST-010).
 > Memory methods `get_memory` / `list_memory` / `search_memory` /
 > `delete_memory` stay canonical — the short `get` / `delete` / `search` names
 > are node-level (graph-domain) ops in Python, unlike TS/WASM (see
@@ -137,7 +137,7 @@ vantadb.connect(
 ) -> Client
 ```
 
-Alternative constructor. Accepts a filesystem path, empty string `""`, or `":memory:"` for an in-memory database. This is equivalent to `Client(db_path=path, memory_limit_bytes=memory_limit, read_only=read_only, backend=backend)` (`VantaDB` is a deprecated alias of `Client`).
+Alternative constructor. Accepts a filesystem path, empty string `""`, or `":memory:"` for an in-memory database. This is equivalent to `Client(db_path=path, memory_limit_bytes=memory_limit, read_only=read_only, backend=backend)`.
 
 ```python
 import vantadb
@@ -842,7 +842,7 @@ print(snippet)  # e.g. "...**VantaDB** is a high-performance **vector database**
 ```python
 db.close() -> None
 ```
-Flush and close the embedded engine handle, releasing all resources. The database can be re-opened by creating a new `Client` instance (`VantaDB` is a deprecated alias). GIL-released.
+Flush and close the embedded engine handle, releasing all resources. The database can be re-opened by creating a new `Client` instance. GIL-released.
 
 ```python
 db.close()
@@ -889,7 +889,7 @@ records = db.put_batch_raw(
 ```python
 Client.__new__(cls, *args, **kwargs) -> Client
 ```
-Internal constructor — prefer the class constructor `Client(db_path, ...)` (`VantaDB` is a deprecated alias).
+Internal constructor — prefer the class constructor `Client(db_path, ...)`.
 
 ### NumPy / Buffer Protocol
 

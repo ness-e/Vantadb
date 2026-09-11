@@ -160,14 +160,10 @@ pub mod transcript;
 
 // Re-exports for ergonomic API
 pub use binary_header::VantaHeader;
-#[allow(deprecated)]
-pub use config::VantaConfig;
 pub use config::{Config, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K, MAX_VEC_DIM};
 pub use engine::{EngineStats, InMemoryEngine, SourceType};
 // NOTE (AST-002): `engine::QueryResult` stays namespaced (`engine::QueryResult`)
-// — crate-root `QueryResult` is the SDK graph result below (map: VantaQueryResult).
-#[allow(deprecated)]
-pub use error::VantaError;
+// — crate-root `QueryResult` is the SDK graph result.
 pub use error::{Error, Result};
 pub use index::graph::VECTOR_INDEX_VERSION;
 pub use node::{
@@ -186,17 +182,6 @@ pub use sdk::{
 pub use sdk::{
     SkillCreateInput, SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord,
     SkillUpdateInput, SkillWriteResult,
-};
-#[allow(deprecated)]
-pub use sdk::{
-    VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord, VantaEmbedded,
-    VantaExportReport, VantaFields, VantaFilterOp, VantaHybridFusionReport, VantaImportReport,
-    VantaIndexRebuildReport, VantaMemoryFilter, VantaMemoryFilterItem, VantaMemoryInput,
-    VantaMemoryListOptions, VantaMemoryListPage, VantaMemoryMetadata, VantaMemoryRecord,
-    VantaMemorySearchHit, VantaMemorySearchRequest, VantaNamespaceStats, VantaNamespaceStatsMap,
-    VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult,
-    VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit, VantaSearchHit,
-    VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
 };
 pub use storage::vfile::VFILE_VERSION;
 pub use storage::BackendKind;

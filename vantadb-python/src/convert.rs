@@ -15,7 +15,7 @@ use vantadb::sdk::{
     TextIndexAuditReport, TextIndexRepairReport, Value,
 };
 
-use crate::vector::VantaVector;
+use crate::vector::Vector;
 
 // ─── Typed Python exception hierarchy (MOD-20) ───────────────────────────────
 //
@@ -171,7 +171,7 @@ pub(crate) fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<Value> {
 /// Try to create a NumPy float32 array from `&[f32]` data using `numpy.array()`.
 ///
 /// Returns `Ok(None)` if numpy is not installed, allowing the caller to fall
-/// back to a plain Python list or `VantaVector` (PERF-31).
+/// back to a plain Python list or `Vector` (PERF-31).
 pub(crate) fn try_numpy_array(py: Python<'_>, data: &[f32]) -> PyResult<Option<Py<PyAny>>> {
     let numpy_mod = match PyModule::import(py, "numpy") {
         Ok(m) => m,
@@ -183,7 +183,7 @@ pub(crate) fn try_numpy_array(py: Python<'_>, data: &[f32]) -> PyResult<Option<P
         }
     };
     let array_fn = numpy_mod.getattr("array")?;
-    let vv = VantaVector::new(data.to_vec());
+    let vv = Vector::new(data.to_vec());
     let result = array_fn.call1((vv,))?;
     Ok(Some(result.unbind().into()))
 }

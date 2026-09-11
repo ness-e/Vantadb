@@ -302,14 +302,6 @@ fn init_audit(config: &Config) -> Option<Arc<crate::audit::AuditLogger>> {
     }
 }
 
-/// Deprecated `Vanta`-prefixed aliases (AST-002, ADR-041).
-/// New code must use the unprefixed names; these exist only for semver migration.
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `Embedded` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaEmbedded = Embedded;
-
 #[cfg(test)]
 mod tests {
     use super::*;

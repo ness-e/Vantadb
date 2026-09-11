@@ -111,7 +111,7 @@ Regla: rename DIRECTO, se eliminan aliases deprecated (no hay usuarios que migra
 - **Gate Result:** ✅ DO
 - **Contrato:** `rg -n "Vanta[A-Z]\w+" src/ vantadb-ts/src/ vantadb-python/vantadb_py/__init__.py | grep -v "VantaHeader\|VANTADB_" | wc -l` → `0`
 - **Task file:** `docs/tasks/AST-010.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
 
@@ -124,7 +124,11 @@ Regla: rename DIRECTO, se eliminan aliases deprecated (no hay usuarios que migra
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | S1–S2 Rust (heredado): 38 `pub type` + re-exports fuera; review restauró `VantaHeader` arrastrado | check+fmt verdes | cargo |
+  | 2 | S3 TS: aliases fuera + cola `tests/graph.test.ts`→Client | tsc + vitest 280/280 | edit/npm |
+  | 3 | S4 Python: `Vector`/`Error` nativos + stubs + tests + rebuild | pytest 135 passed | maturin/pytest |
+  | 4 | S5 docs: 7 docs + README + openapi en pasado | `deprecated alias` 0 | edit |
+  | 5 | S6 verify + commit (sin push); review doubt-driven con 1 fix | scoped 0, Gates abajo | git |
 
   **Notas:**
   - **Pre-mortem:** 1) alias usado en test olvidado; 2) compat-note huérfana; 3) historia docs/tasks inmutable (no tocar).
@@ -182,10 +186,21 @@ Próxima tarea si completa: AST-010
 === RECITATION AST-008 ===
 Campaign ID: 11eb06a6-bcc5-4894-ad55-697637426a63
 Objetivo activo: AST-008 Python directo: pyclass Client + Record/SearchHit/ListResult + search namespaced
-Estado: in-progress
-Última acción: Discovery completo: reglas, mapa, ADR-041, lib.rs/types.rs/vector.rs/__init__/.pyi/tests leidos; task file creado con Spec + Regla 0 + 7 steps
-Resultado: ✅
-Próxima acción: S1: rename struct VantaDB->Client en lib.rs + cargo check
-Contrato: verificacion: cargo check -p vantadb_py && cargo fmt --check -p vantadb_py (pendiente) + test_sdk/stub_drift/subclients/async verdes; evidencia: task file docs/tasks/AST-008.md creado con Spec D1-D7 + Regla 0 | claim: discovery completo sin editar codigo | evidencia: codegraph_explore + coverage no_recorded_issue + README naming note como canonico | confianza: alta; artefactos: docs/tasks/AST-008.md; invariantes: no tocar src/ core, TS, WASM, vector.rs, convert.rs, integrations, docs; deuda: integrations/examples/docs-API quedan con nombres viejos (Gate C al lead)
+Estado: completed
+Última acción: S1-S6 completos: Rust renames + stubs/wrapper + 11 tests + rebuild + pytest 135 passed + commit 0f36fc24 (sin push)
+Resultado: OK
+Próxima acción: Orquestador: AST-010 (quitar aliases + renames restantes + docs) — ver Gate C en task file
+Contrato: verificacion: cargo check -p vantadb_py + cargo fmt --check -p vantadb_py + cargo clippy -p vantadb_py TODOS VERDES; pytest 135 passed (29 drift/subclients, 75 sdk, 26 misc, 5 load; skips/deselects pre-existentes); maturin develop OK; evidencia: commit 0f36fc24 (19 files, 606+/387-); artefactos: docs/tasks/AST-008.md, commit 0f36fc24; invariantes: src/ core, TS, WASM, vector.rs, convert.rs intactos; VantaVector/VantaError nativos intactos (puente Vector, rename en AST-010); deuda: integrations/* (12+), examples/python/* (9), docs/api/PYTHON_SDK.md+READMEs con nombres viejos — Gate C al lead; queda_pendiente: AST-010 (quitar aliases + VantaVector/VantaError nativos + docs), AST-011 verify final; registro avance/ a cargo del orquestador
 Próxima tarea si completa: AST-010
+=== END RECITATION ===
+
+=== RECITATION AST-010 ===
+Campaign ID: 11eb06a6-bcc5-4894-ad55-697637426a63
+Objetivo activo: AST-010 — Quitar aliases deprecated + compat-notes
+Estado: completed
+Última acción: S1-S6 completos: S1/S2 heredados + restore VantaHeader (fix review), cola graph.test.ts→Client, S4 Python Vector/Error nativos + rebuild + pytest 135, S5 docs en pasado, verify full verde, commit sin push
+Resultado: OK
+Próxima acción: ninguno (AST-010 cerrada)
+Contrato: verificacion: scoped 0/0/0/0/0 + literal 129=100% excluidas + check --all-targets + tsc + vitest 280/280 + pytest 135 + nextest-mem 10/10 + fmt | evidencia: commit AST-010 (esta sesión) | artefactos: docs/tasks/AST-010.md | invariantes: VantaHeader/VANTADB_*/name-wire/prosa/historia/Node/Native/docstring intactos | deuda: FIND-AST010-01/02 + ADR-041 firma + FIND-AST010-03 search_vector gap | queda_pendiente: AST-011
+Próxima tarea si completa: AST-011
 === END RECITATION ===

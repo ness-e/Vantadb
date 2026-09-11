@@ -35,21 +35,19 @@ from .vantadb_py import (
     TimeoutError,
     UnsupportedError,
     Client,
-    VantaError,
+    Error,
     ValidationError,
     ListResult,
     Record,
     SearchHit,
-    VantaVector,
+    Vector,
     __version__,
     connect,
 )
 
-# AST-008 (directo, sin compat): los nombres canónicos vienen del módulo
-# nativo (Client/Record/SearchHit/ListResult). Solo sobrevive el puente
-# `Vector = VantaVector` hasta el rename nativo en AST-010 (vector.rs fuera
-# de scope aquí); el resto de aliases AST-003 se eliminan con el rename.
-Vector = VantaVector
+# AST-010: rename nativo completo (vector.rs `Vector`, convert.rs `Error`).
+# Sin puentes legacy: `Vector`/`Error` son los nombres expuestos por el módulo
+# nativo; los aliases `VantaVector`/`VantaError` se eliminaron con el rename.
 
 __all__ = [
     "Client",
@@ -57,10 +55,9 @@ __all__ = [
     "ListResult",
     "Record",
     "SearchHit",
-    "VantaVector",
     "Vector",
     "SearchRequest",
-    "VantaError",
+    "Error",
     "NotFoundError",
     "ValidationError",
     "CorruptError",
