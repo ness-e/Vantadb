@@ -1,4 +1,4 @@
-"""AsyncVantaDB smoke test (COV-001).
+"""AsyncClient smoke test (COV-001).
 
 Exercises the async wrapper paths the coverage plan flagged as under-exercised:
 ``flush``, ``purge_expired``, ``query`` (IQL), the graph_* traversal/algorithms
@@ -7,7 +7,7 @@ Exercises the async wrapper paths the coverage plan flagged as under-exercised:
 ``delete`` (node-level), ``memory.delete``, and ``export_*`` (``export_namespace`` /
 ``export_all``).
 
-Additive only — it does NOT modify the public ``AsyncVantaDB`` API.
+Additive only — it does NOT modify the public ``AsyncClient`` API.
 """
 
 import asyncio
@@ -31,7 +31,7 @@ def test_async_smoke_crud_flush_purge():
     path = _tmp_db()
     try:
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 path, memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 await db.put("ns", "k", "hello", metadata={"tag": "smoke"})
@@ -65,7 +65,7 @@ def test_async_smoke_query_graph():
     path = _tmp_db()
     try:
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 path, memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 write = await db.query('INSERT NODE#7 TYPE Person { name: "smoke" }')
@@ -110,7 +110,7 @@ def test_async_smoke_export():
     try:
         with tempfile.TemporaryDirectory() as tmp:
             async def run():
-                async with vanta.AsyncVantaDB(
+                async with vanta.AsyncClient(
                     path, memory_limit_bytes=128 * 1024 * 1024
                 ) as db:
                     await db.put(

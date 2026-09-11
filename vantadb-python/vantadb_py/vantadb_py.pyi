@@ -9,7 +9,7 @@ Package structure (``pyproject.toml [tool.maturin] module-name = "vantadb_py"``)
 
 - ``vantadb_py.pyd`` — the compiled extension, stubbed by THIS file.
 - ``vantadb_py/__init__.py`` — pure-Python wrapper (``SearchRequest``,
-  ``AsyncVantaDB``, re-exports); stubbed by ``__init__.pyi``.
+  ``AsyncClient``, re-exports); stubbed by ``__init__.pyi``.
 - ``vantadb/__init__.py`` — canonical ``import vantadb`` alias (re-exports
   ``vantadb_py``; typed transitively, no stub of its own).
 

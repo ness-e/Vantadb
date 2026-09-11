@@ -2,7 +2,7 @@
 
 Native signatures live in ``vantadb_py.pyi`` (the compiled extension,
 ``vantadb_py.pyd``). This stub only adds what ``__init__.py`` defines:
-``SearchRequest``, ``AsyncVantaDB`` and the re-exports — mirroring the real
+``SearchRequest``, ``AsyncClient`` and the re-exports — mirroring the real
 ``from .vantadb_py import ...`` so the package surface stays typed without
 re-declaring native classes.
 
@@ -39,7 +39,7 @@ from .vantadb_py import (
 
 __all__ = [
     "Client",
-    "AsyncVantaDB",
+    "AsyncClient",
     "ListResult",
     "Record",
     "SearchHit",
@@ -119,7 +119,7 @@ class AsyncMemoryClient:
     def __repr__(self) -> str: ...
 
 
-class AsyncVantaDB:
+class AsyncClient:
     """Async wrapper around ``Client``.
 
     Query methods run in a thread pool via ``asyncio.to_thread()``,
@@ -127,7 +127,7 @@ class AsyncVantaDB:
     """
 
     def __init__(self, *args: Any, max_concurrency: int = 4, **kwargs: Any) -> None: ...
-    async def __aenter__(self) -> AsyncVantaDB: ...
+    async def __aenter__(self) -> AsyncClient: ...
     async def __aexit__(self, *exc: Any) -> None: ...
 
     async def search(

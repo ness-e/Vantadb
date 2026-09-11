@@ -17,7 +17,7 @@ with warnings.catch_warnings():
 
 __all__ = [
     "Client",
-    "AsyncVantaDB",
+    "AsyncClient",
     "ListResult",
     "Record",
     "SearchHit",
