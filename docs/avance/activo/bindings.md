@@ -883,3 +883,27 @@ aliases: []
 - **Objetivo:** Migrar ejemplos/referencias a nombres canónicos (Client, Record, SearchHit, Config, DbError, Embedded) con notas compat; `search_memory/get_memory` y tool MCP preservados como canónicos; `VantaHeader`/`VANTADB_*` intactos.
 - **Resultado:** ✅ scoped type-contract 0 hits fuera de compat-notes + `validate-docs-coverage.ps1` 0 gaps (incl. row `jwt_secret` SRV-06); inglés técnico.
 - **Commit:** 40d32a06
+
+### AST-008: Python directo pyclass Client + Record/SearchHit/ListResult + search namespaced (plan 2026-09-11-anti-stutter-cierre)
+- **Fecha:** 2026-09-11
+- **Objetivo:** Rename directo sin aliases (0 usuarios): struct VantaDB->Client, search_memory->search (namespaced), search->search_vector (ANN puro), types name=Record/ListResult/SearchHit.
+- **Resultado:** ✅ check+fmt+clippy verdes + pytest 135 passed (29 drift/subclients, 75 sdk, 26 misc, 5 load).
+- **Commit:** 0f36fc24
+
+### AST-009: WASM struct + validadores TS + engine QueryResult + anexos (plan 2026-09-11-anti-stutter-cierre)
+- **Fecha:** 2026-09-11
+- **Objetivo:** guards isValidValue/isMetadata, tests Client, lib.rs struct->Client + rebuild wasm-pack, vantadb.ts WasmClient + docs.
+- **Resultado:** ✅ tsc exit 0 + vitest 280/280 + cargo check wasm OK + pkg exporta Client.
+- **Commit:** a786d5f0
+
+### AST-010: Quitar aliases deprecated + compat-notes (plan 2026-09-11-anti-stutter-cierre)
+- **Fecha:** 2026-09-11
+- **Objetivo:** Eliminar 38 `pub type Vanta*` + re-exports + aliases TS/Python/d.ts + compat-notes en pasado (breaking intencional, 0 usuarios).
+- **Resultado:** ✅ scoped 0/0/0/0/0 + check/tsc/vitest280/pytest135/nextest-mem10 + review restauro VantaHeader.
+- **Commit:** 1a566ef3
+
+### AST-011: Verify final + cierre (plan 2026-09-11-anti-stutter-cierre)
+- **Fecha:** 2026-09-11
+- **Objetivo:** Gates finales post-borrado (deny/fmt/check + nextest + tsc + pytest smoke + coverage) + retrospectiva + archivar plan.
+- **Resultado:** ✅ deny ok + fmt 0 + check 4.34s + nextest 3142 passed/1 skipped + tsc 0 + pytest smoke 75 passed + coverage solo gap conocido FIND-AST010-03.
+- **Commit:** (archivado, sin push)
