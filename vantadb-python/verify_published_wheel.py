@@ -31,7 +31,7 @@ def _check_version() -> None:
 
 
 def _check_functional(db_path: str) -> None:
-    db = vantadb_py.VantaDB(db_path=db_path)
+    db = vantadb_py.Client(db_path=db_path)
 
     record = db.put(
         "verify/main",
@@ -49,7 +49,7 @@ def _check_functional(db_path: str) -> None:
     page = db.list_memory("verify/main", filters={"category": "verify"})
     assert len(page["records"]) == 1, f"expected 1 record, got {len(page['records'])}"
 
-    hits = db.search_memory("verify/main", [0.1, 0.2, 0.3], top_k=1)
+    hits = db.search("verify/main", [0.1, 0.2, 0.3], top_k=1)
     assert hits, "vector search returned no hits"
     assert hits[0].key == "first", "nearest neighbour mismatch"
 
@@ -60,7 +60,7 @@ def _check_functional(db_path: str) -> None:
     db.close()
 
     # Durability: reopen and confirm the record survived.
-    db2 = vantadb_py.VantaDB(db_path=db_path)
+    db2 = vantadb_py.Client(db_path=db_path)
     reread = db2.get_memory("verify/main", "first")
     assert reread is not None, "record lost after reopen"
     assert reread["payload"] == "verified", "payload corrupted after reopen"

@@ -207,13 +207,13 @@ def test_native_stub_declares_every_module_name():
 
 
 @needs_native
-def test_vantadb_stub_matches_native_methods_and_properties():
-    stub = _parse_stub(PKG / "vantadb_py.pyi")["VantaDB"]
-    cls = native.VantaDB
-    _assert_method_parity(stub["methods"], cls, "VantaDB")
-    _assert_param_parity(stub["methods"], cls, "VantaDB")
+def test_client_stub_matches_native_methods_and_properties():
+    stub = _parse_stub(PKG / "vantadb_py.pyi")["Client"]
+    cls = native.Client
+    _assert_method_parity(stub["methods"], cls, "Client")
+    _assert_param_parity(stub["methods"], cls, "Client")
     assert set(stub["properties"]) == _public_noncallables(cls), (
-        f"VantaDB properties: stub {sorted(stub['properties'])} != nativo {sorted(_public_noncallables(cls))}"
+        f"Client properties: stub {sorted(stub['properties'])} != nativo {sorted(_public_noncallables(cls))}"
     )
 
 
@@ -222,7 +222,7 @@ def test_subclient_stubs_match_native_subclients():
     """db.memory|graph|system|wiki getters must expose exactly the methods
     declared for the corresponding stub classes (forward_to_db! macro)."""
     stub = _parse_stub(PKG / "vantadb_py.pyi")
-    db = native.VantaDB(":memory:", backend="memory")
+    db = native.Client(":memory:", backend="memory")
     try:
         for prop, stub_class in [
             ("memory", "MemoryClient"),
@@ -243,7 +243,7 @@ def test_subclient_stubs_match_native_subclients():
 @needs_native
 def test_put_batch_return_type_is_typed_not_dict():
     """Regression guard for the put_batch/put_batch_raw type fix: the native
-    methods return VantaMemoryRecord objects, not dicts."""
+    methods return Record objects, not dicts."""
     stub = _parse_stub(PKG / "vantadb_py.pyi")
     for name in ("put_batch", "put_batch_raw"):
         ret = None
@@ -251,14 +251,14 @@ def test_put_batch_return_type_is_typed_not_dict():
         for node in ast.walk(tree):
             if (
                 isinstance(node, ast.ClassDef)
-                and node.name == "VantaDB"
+                and node.name == "Client"
             ):
                 for item in node.body:
                     if isinstance(item, ast.FunctionDef) and item.name == name:
                         ret = ast.unparse(item.returns) if item.returns else None
-        assert ret is not None, f"VantaDB.{name} sin anotación de retorno en el stub"
-        assert "VantaMemoryRecord" in ret, (
-            f"VantaDB.{name} return type {ret!r} no menciona VantaMemoryRecord"
+        assert ret is not None, f"Client.{name} sin anotación de retorno en el stub"
+        assert "Record" in ret, (
+            f"Client.{name} return type {ret!r} no menciona Record"
         )
 
 

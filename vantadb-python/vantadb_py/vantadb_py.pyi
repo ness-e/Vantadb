@@ -14,7 +14,7 @@ Package structure (``pyproject.toml [tool.maturin] module-name = "vantadb_py"``)
   ``vantadb_py``; typed transitively, no stub of its own).
 
 ``MemoryClient``/``GraphClient``/``SystemClient``/``WikiClient`` are not
-module-level names at runtime (they are returned by the ``VantaDB`` getters
+module-level names at runtime (they are returned by the ``Client`` getters
 ``db.memory|graph|system|wiki``), so they are declared here only as types.
 
 Anti-drift: ``tests/test_stub_drift.py`` asserts this file matches the
@@ -102,7 +102,7 @@ class VantaVectorIter:
     def __next__(self) -> float: ...
 
 
-class VantaSearchHit:
+class SearchHit:
     """A single search result."""
 
     namespace: str
@@ -121,7 +121,7 @@ class VantaSearchHit:
     def __repr__(self) -> str: ...
 
 
-class VantaMemoryRecord:
+class Record:
     """A memory record with typed property access."""
 
     namespace: str
@@ -139,25 +139,25 @@ class VantaMemoryRecord:
     def __repr__(self) -> str: ...
 
 
-class VantaListResult:
+class ListResult:
     """A page of memory records with pagination info."""
 
-    records: list[VantaMemoryRecord]
+    records: list[Record]
     total_count: int
     next_cursor: int | None
 
     def __len__(self) -> int: ...
     def __getitem__(self, key: int | str) -> Any: ...
-    def __iter__(self) -> VantaListResultIter: ...
+    def __iter__(self) -> ListResultIter: ...
     def __repr__(self) -> str: ...
 
 
-class VantaListResultIter:
-    def __iter__(self) -> VantaListResultIter: ...
-    def __next__(self) -> VantaMemoryRecord: ...
+class ListResultIter:
+    def __iter__(self) -> ListResultIter: ...
+    def __next__(self) -> Record: ...
 
 
-class VantaDB:
+class Client:
     """Create or open a VantaDB database.
 
     Args:
@@ -189,7 +189,7 @@ class VantaDB:
         metadata: dict | None = None,
         vector: Any | None = None,
         ttl_ms: int | None = None,
-    ) -> VantaMemoryRecord: ...
+    ) -> Record: ...
     def put_batch(
         self,
         keys: list[str],
@@ -199,7 +199,7 @@ class VantaDB:
         namespace: str | None = None,
         namespaces: list[str] | None = None,
         ttls: list[int | None] | None = None,
-    ) -> list[VantaMemoryRecord]: ...
+    ) -> list[Record]: ...
     def put_batch_raw(
         self,
         vectors: Any,
@@ -208,14 +208,14 @@ class VantaDB:
         metadatas: list[dict | None] | None = None,
         namespaces: list[str] | None = None,
         ttls: list[int | None] | None = None,
-    ) -> list[VantaMemoryRecord]: ...
-    def get_memory(self, namespace: str, key: str) -> VantaMemoryRecord | None: ...
+    ) -> list[Record]: ...
+    def get_memory(self, namespace: str, key: str) -> Record | None: ...
     def delete_memory(self, namespace: str, key: str) -> bool: ...
     def delete_by_filter(self, namespace: str, filters: dict) -> int: ...
     def count(self, namespace: str, filters: dict | None = None) -> int: ...
     def similar_to_key(
         self, namespace: str, key: str, top_k: int = 10
-    ) -> list[VantaSearchHit]: ...
+    ) -> list[SearchHit]: ...
     def list_memory(
         self,
         namespace: str,
@@ -223,8 +223,8 @@ class VantaDB:
         limit: int = 100,
         cursor: int | None = None,
         exclude_superseded: bool = False,
-    ) -> VantaListResult: ...
-    def search_memory(
+    ) -> ListResult: ...
+    def search(
         self,
         namespace: str,
         query_vector: Any,
@@ -235,14 +235,14 @@ class VantaDB:
         method: str | None = None,
         explain: bool = False,
         exclude_superseded: bool = False,
-    ) -> list[VantaSearchHit]: ...
-    def search(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
+    ) -> list[SearchHit]: ...
+    def search_vector(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
     def search_batch(
         self, vectors: list[Any], top_k: int = 10
     ) -> list[list[tuple[int, float]]]: ...
     def search_batch_requests(
         self, requests: list[Any], top_k: int = 10
-    ) -> list[list[VantaSearchHit]]: ...
+    ) -> list[list[SearchHit]]: ...
     def explain_memory_search(
         self,
         namespace: str,
@@ -342,10 +342,10 @@ class VantaDB:
 
 
 class MemoryClient:
-    """Grouped view over ``VantaDB`` memory-record methods (``db.memory.*``).
+    """Grouped view over ``Client`` memory-record methods (``db.memory.*``).
 
     Native forwarder: every method delegates to the same-named flat method on
-    ``VantaDB`` (``forward_to_db!`` macro) — same signature, same result.
+    ``Client`` (``forward_to_db!`` macro) — same signature, same result.
     """
 
     def put(
@@ -356,7 +356,7 @@ class MemoryClient:
         metadata: dict | None = None,
         vector: Any | None = None,
         ttl_ms: int | None = None,
-    ) -> VantaMemoryRecord: ...
+    ) -> Record: ...
     def put_batch(
         self,
         keys: list[str],
@@ -366,7 +366,7 @@ class MemoryClient:
         namespace: str | None = None,
         namespaces: list[str] | None = None,
         ttls: list[int | None] | None = None,
-    ) -> list[VantaMemoryRecord]: ...
+    ) -> list[Record]: ...
     def put_batch_raw(
         self,
         vectors: Any,
@@ -375,14 +375,14 @@ class MemoryClient:
         metadatas: list[dict | None] | None = None,
         namespaces: list[str] | None = None,
         ttls: list[int | None] | None = None,
-    ) -> list[VantaMemoryRecord]: ...
-    def get_memory(self, namespace: str, key: str) -> VantaMemoryRecord | None: ...
+    ) -> list[Record]: ...
+    def get_memory(self, namespace: str, key: str) -> Record | None: ...
     def delete_memory(self, namespace: str, key: str) -> bool: ...
     def delete_by_filter(self, namespace: str, filters: dict) -> int: ...
     def count(self, namespace: str, filters: dict | None = None) -> int: ...
     def similar_to_key(
         self, namespace: str, key: str, top_k: int = 10
-    ) -> list[VantaSearchHit]: ...
+    ) -> list[SearchHit]: ...
     def list_memory(
         self,
         namespace: str,
@@ -390,8 +390,8 @@ class MemoryClient:
         limit: int = 100,
         cursor: int | None = None,
         exclude_superseded: bool = False,
-    ) -> VantaListResult: ...
-    def search_memory(
+    ) -> ListResult: ...
+    def search(
         self,
         namespace: str,
         query_vector: Any,
@@ -402,14 +402,14 @@ class MemoryClient:
         method: str | None = None,
         explain: bool = False,
         exclude_superseded: bool = False,
-    ) -> list[VantaSearchHit]: ...
-    def search(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
+    ) -> list[SearchHit]: ...
+    def search_vector(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
     def search_batch(
         self, vectors: list[Any], top_k: int = 10
     ) -> list[list[tuple[int, float]]]: ...
     def search_batch_requests(
         self, requests: list[Any], top_k: int = 10
-    ) -> list[list[VantaSearchHit]]: ...
+    ) -> list[list[SearchHit]]: ...
     def explain_memory_search(
         self,
         namespace: str,
@@ -428,15 +428,14 @@ class MemoryClient:
     ) -> str | None: ...
     def purge_expired(self) -> int: ...
     def list_namespaces(self) -> list[str]: ...
-    # AST-003 clean aliases (MemoryClient domain — see lib.rs OD-2 note).
+    # Domain-client short names (flat get/delete are node-level — hazard).
     def get(self, *args: Any, **kwargs: Any) -> Any: ...
     def list(self, *args: Any, **kwargs: Any) -> Any: ...
     def delete(self, *args: Any, **kwargs: Any) -> Any: ...
-    def search_vector(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
 class GraphClient:
-    """Grouped view over ``VantaDB`` graph methods (``db.graph.*``).
+    """Grouped view over ``Client`` graph methods (``db.graph.*``).
 
     Naming note: ``insert``/``get``/``delete`` are NODE-level ops
     (``id: u128``) in Python.
@@ -488,7 +487,7 @@ class GraphClient:
 
 
 class SystemClient:
-    """Catch-all grouped view over ``VantaDB`` system methods (``db.system.*``)."""
+    """Catch-all grouped view over ``Client`` system methods (``db.system.*``)."""
 
     def capabilities(self) -> dict: ...
     def hardware_profile(self) -> dict: ...
@@ -521,16 +520,6 @@ def connect(
     memory_limit: int | None = None,
     read_only: bool = False,
     backend: str | None = None,
-) -> VantaDB: ...
+) -> Client: ...
 
 __version__: str
-
-# AST-003: clean anti-stutter type-aliases (ADR-041). Mirror of the runtime
-# aliases in __init__.py. Plain assignments (not ClassDef) so
-# test_stub_drift._parse_stub is unaffected; legacy names stay canonical.
-Client = VantaDB
-Record = VantaMemoryRecord
-Hit = VantaSearchHit
-SearchHit = VantaSearchHit
-ListResult = VantaListResult
-Vector = VantaVector

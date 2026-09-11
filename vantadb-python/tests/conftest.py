@@ -2,11 +2,11 @@
 
 Two things happen here:
 
-1. Every ``VantaDB`` opened during a test is tracked and closed at teardown
+1. Every ``Client`` opened during a test is tracked and closed at teardown
    (MOD-16 contract). PyO3 instances are neither gc-visible nor weakref-able,
    so tracking hooks the package attribute (conftest imports before any test
-   module; both ``import vantadb_py as vanta`` and ``from vantadb_py import
-   VantaDB`` styles resolve it, including ``AsyncVantaDB``'s inner sync
+    module; both ``import vantadb_py as vanta`` and ``from vantadb_py import
+    Client`` styles resolve it, including ``AsyncVantaDB``'s inner sync
    handle). Reopening a file-backed path closes the previous tracked handle
    first (Fjall takes an exclusive lock per path), mirroring the
    refcount-release timing helpers like ``migrate_from_*`` rely on mid-test.
@@ -32,7 +32,7 @@ import vantadb_py
 
 _MIN_TEST_MEMORY_LIMIT = 1024 * 1024 * 1024  # 1 GiB — interpreter + test deps baseline + headroom
 
-_REGISTRY = []  # VantaDB instances created during the current test
+_REGISTRY = []  # Client instances created during the current test
 _BY_PATH = {}   # abspath -> instance, for file-backed handles only
 
 
@@ -50,7 +50,7 @@ def _drain():
     _BY_PATH.clear()
 
 
-_original_vantadb = vantadb_py.VantaDB
+_original_vantadb = vantadb_py.Client
 
 
 def _tracking_vantadb(*args, **kwargs):
@@ -77,12 +77,12 @@ def _tracking_vantadb(*args, **kwargs):
 
 
 # Rebind the package global so every construction path is tracked.
-vantadb_py.VantaDB = _tracking_vantadb
+vantadb_py.Client = _tracking_vantadb
 
 
 @pytest.fixture(autouse=True)
 def close_all_vanta_dbs():
-    """Close every VantaDB opened by the finished test (MOD-16)."""
+    """Close every Client opened by the finished test (MOD-16)."""
     _drain()  # defensive: nothing should survive the previous teardown
     yield
     _drain()

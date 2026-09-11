@@ -16,11 +16,11 @@ with warnings.catch_warnings():
     from vantadb_py import __version__  # noqa: F401
 
 __all__ = [
-    "VantaDB",
+    "Client",
     "AsyncVantaDB",
-    "VantaListResult",
-    "VantaMemoryRecord",
-    "VantaSearchHit",
+    "ListResult",
+    "Record",
+    "SearchHit",
     "VantaVector",
     "SearchRequest",
     "__version__",

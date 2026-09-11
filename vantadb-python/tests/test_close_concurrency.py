@@ -1,6 +1,6 @@
 """MOD-17: concurrent close() must not deadlock the interpreter.
 
-Root cause (pre-fix): ``VantaDB.close()`` called ``OpGate::drain()`` while
+Root cause (pre-fix): ``Client.close()`` called ``OpGate::drain()`` while
 holding the GIL. The drain waits on a condvar until the in-flight op count
 reaches zero, but every in-flight op returning from its own ``py.detach``
 must re-acquire the GIL before it can drop its ``OpGuard`` — so the count
@@ -44,7 +44,7 @@ def test_close_concurrent_stress(tmp_path):
     # faulthandler watchdog runs at C level, needs no GIL, and hard-exits
     # with all-thread tracebacks — turning the hang into a fast CI failure.
     faulthandler.dump_traceback_later(CLOSE_TIMEOUT_SECONDS, exit=True)
-    db = vantadb_py.VantaDB(str(tmp_path / "mod17"))
+    db = vantadb_py.Client(str(tmp_path / "mod17"))
     stop = threading.Event()
     closed = threading.Event()
     errors: list[Exception] = []
@@ -87,7 +87,7 @@ def test_close_concurrent_stress(tmp_path):
 
 def test_close_is_rejecting_new_ops_after_close(tmp_path):
     """Sanity: post-close contract unchanged (closing flag rejects new ops)."""
-    db = vantadb_py.VantaDB(str(tmp_path / "mod17b"))
+    db = vantadb_py.Client(str(tmp_path / "mod17b"))
     db.put("ns", "k", "v")
     db.close()
     with pytest.raises(RuntimeError, match="closing"):

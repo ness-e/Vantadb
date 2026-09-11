@@ -27,7 +27,7 @@ def _rm(path):
 
 
 def test_async_smoke_crud_flush_purge():
-    """put/get_memory/search_memory, flush, ttl purge, and delete_memory."""
+    """put/get_memory/search, flush, ttl purge, and delete_memory."""
     path = _tmp_db()
     try:
         async def run():
@@ -39,8 +39,8 @@ def test_async_smoke_crud_flush_purge():
                 assert rec is not None, "get_memory should return the put record"
                 assert rec["payload"] == "hello", f"expected 'hello', got {rec['payload']}"
 
-                hits = await db.search_memory("ns", [1.0, 0.0, 0.0], top_k=5)
-                assert isinstance(hits, list), "search_memory should return a list"
+                hits = await db.search("ns", [1.0, 0.0, 0.0], top_k=5)
+                assert isinstance(hits, list), "search should return a list"
 
                 await db.flush()
 
