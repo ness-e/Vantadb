@@ -1,4 +1,4 @@
-export type VantaValue =
+export type Value =
   | { String: string }
   | { Int: number }
   | { Float: number }
@@ -9,24 +9,36 @@ export type VantaValue =
   | { ListFloat: number[] }
   | { ListBool: boolean[] };
 
-export type VantaMetadata = Record<string, VantaValue>;
+/** @deprecated Use {@link Value} instead. */
+export type VantaValue = Value;
 
-/** Plain JS value accepted as metadata/filter input (normalized internally to `VantaValue`). */
-export type VantaFlatValue = string | number | boolean | null;
+export type Metadata = Record<string, Value>;
+
+/** @deprecated Use {@link Metadata} instead. */
+export type VantaMetadata = Metadata;
+
+/** Plain JS value accepted as metadata/filter input (normalized internally to `Value`). */
+export type FlatValue = string | number | boolean | null;
+
+/** @deprecated Use {@link FlatValue} instead. */
+export type VantaFlatValue = FlatValue;
 
 /**
  * Metadata/filters as provided by callers: plain JS values (preferred,
  * e.g. `{ lang: "en" }`) or the tagged wire form (backward compat,
  * e.g. `{ lang: { String: "en" } }`). Records returned by the engine
- * always use the tagged `VantaMetadata` form.
+ * always use the tagged `Metadata` form.
  */
-export type VantaMetadataInput = Record<string, VantaFlatValue | VantaValue>;
+export type MetadataInput = Record<string, FlatValue | Value>;
+
+/** @deprecated Use {@link MetadataInput} instead. */
+export type VantaMetadataInput = MetadataInput;
 
 export interface MemoryInput {
   namespace: string;
   key: string;
   payload: string;
-  metadata?: VantaMetadataInput;
+  metadata?: MetadataInput;
   vector?: number[];
   /** Sparse term-weight vector (e.g. raw-keyword weights). Sparse vectors
    * participate in sparse-dot search alongside the dense vector. Wire shape:
@@ -39,7 +51,7 @@ export interface MemoryRecord {
   namespace: string;
   key: string;
   payload: string;
-  metadata: VantaMetadata;
+  metadata: Metadata;
   created_at_ms: string | number;
   updated_at_ms: string | number;
   version: string | number;
@@ -52,7 +64,7 @@ export interface MemoryRecord {
 }
 
 export interface ListOptions {
-  filters?: VantaMetadataInput;
+  filters?: MetadataInput;
   limit?: number;
   cursor?: number;
 }
@@ -65,7 +77,7 @@ export interface MemoryListPage {
 export interface SearchRequest {
   namespace: string;
   query_vector: number[];
-  filters?: VantaMetadataInput;
+  filters?: MetadataInput;
   text_query?: string;
   top_k?: number;
   distance_metric?: "Cosine" | "Euclidean";
@@ -101,12 +113,12 @@ export interface NodeInput {
   id: number;
   content?: string;
   vector?: number[];
-  fields: Record<string, VantaFlatValue | VantaValue>;
+  fields: Record<string, FlatValue | Value>;
 }
 
 export interface NodeRecord {
   id: string;
-  fields: Record<string, VantaValue>;
+  fields: Record<string, Value>;
   // PERF-08: zero-copy Float32Array from the WASM layer (was number[]).
   vector?: Float32Array | number[];
   vector_dimensions: number;
@@ -144,16 +156,22 @@ export interface ExportReport {
   duration_ms: number;
 }
 
-/** Filter operators (PascalCase — wire-compatible with the core `VantaFilterOp`). */
-export type VantaFilterOp = "Eq" | "Neq" | "Gt" | "Gte" | "Lt" | "Lte";
+/** Filter operators (PascalCase — wire-compatible with the core `FilterOp`). */
+export type FilterOp = "Eq" | "Neq" | "Gt" | "Gte" | "Lt" | "Lte";
+
+/** @deprecated Use {@link FilterOp} instead. */
+export type VantaFilterOp = FilterOp;
 
 /** Single AND-combined filter item for export/delete operations. */
-export interface VantaMemoryFilterItem {
+export interface FilterItem {
   field: string;
-  op: VantaFilterOp;
+  op: FilterOp;
   /** Plain JS value (preferred) or tagged wire form (backward compat). */
-  value: VantaFlatValue | VantaValue;
+  value: FlatValue | Value;
 }
+
+/** @deprecated Use {@link FilterItem} instead. */
+export type VantaMemoryFilterItem = FilterItem;
 
 export interface ImportReport {
   inserted: number;
@@ -211,12 +229,15 @@ export interface Capabilities {
   read_only: boolean;
 }
 
-export interface VantaConfig {
+export interface Config {
   storage_path?: string;
   read_only?: boolean;
   rss_threshold?: number;
   memory_limit?: number;
 }
+
+/** @deprecated Use {@link Config} instead. */
+export type VantaConfig = Config;
 
 /**
  * Result of a BFS, DFS, filtered-traversal or topological-sort traversal.

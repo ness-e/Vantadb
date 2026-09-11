@@ -1,9 +1,9 @@
 import type {
-  VantaFlatValue,
-  VantaMemoryFilterItem,
-  VantaMetadata,
-  VantaMetadataInput,
-  VantaValue,
+  FlatValue,
+  FilterItem,
+  Metadata,
+  MetadataInput,
+  Value,
 } from "./types.js";
 
 /**
@@ -15,10 +15,10 @@ import type {
  * untouched (backward compat).
  */
 export function normalizeMetadata(
-  m?: VantaMetadataInput | null,
-): VantaMetadata | undefined {
+  m?: MetadataInput | null,
+): Metadata | undefined {
   if (m === undefined || m === null) return undefined;
-  const out: Record<string, VantaValue> = {};
+  const out: Record<string, Value> = {};
   for (const [k, v] of Object.entries(m)) {
     out[k] = normalizeValue(v);
   }
@@ -27,15 +27,15 @@ export function normalizeMetadata(
 
 /** Same normalization for AND-combined filter items. */
 export function normalizeFilterItems(
-  items: VantaMemoryFilterItem[],
-): VantaMemoryFilterItem[] {
+  items: FilterItem[],
+): FilterItem[] {
   return items.map((item) => ({
     ...item,
-    value: normalizeValue(item.value) as VantaFlatValue | VantaValue,
+    value: normalizeValue(item.value) as FlatValue | Value,
   }));
 }
 
-export function normalizeValue(v: unknown): VantaValue {
+export function normalizeValue(v: unknown): Value {
   if (v === null) return { Null: null };
   switch (typeof v) {
     case "string":
@@ -46,6 +46,6 @@ export function normalizeValue(v: unknown): VantaValue {
       return Number.isInteger(v) ? { Int: v } : { Float: v };
     default:
       // Already in tagged wire form ({ String, Int, Float, ... }) — pass through.
-      return v as VantaValue;
+      return v as Value;
   }
 }

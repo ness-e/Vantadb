@@ -1,4 +1,4 @@
-import { VantaError, ERROR_CODES, classifyWasmError } from "./errors.js";
+import { DbError, ERROR_CODES, classifyWasmError } from "./errors.js";
 import { _mapRecord, buildSearchRequestBase } from "./guards.js";
 
 import type {
@@ -9,7 +9,7 @@ import type {
   MemoryRecord,
   SearchHit,
   SearchRequest,
-  VantaMetadataInput,
+  MetadataInput,
 } from "./types.js";
 
 import type { SearchRequest as NativeSearchRequest } from "vantadb-node";
@@ -27,9 +27,9 @@ export interface NativeConnectOptions {
 }
 
 /**
- * Wrap an error thrown by the native binding in a uniform `VantaError`, the
+ * Wrap an error thrown by the native binding in a uniform `DbError`, the
  * same way `wrapWasmError` does for the WASM backend. Errors that already are
- * `VantaError` pass through untouched.
+ * `DbError` pass through untouched.
  *
  * `vantadb-node` prefixes engine errors with the canonical stable code
  * (`"VANTADB_NOT_FOUND: Node not found: 7"`, ERR-TS-01); when the prefix is
@@ -40,28 +40,28 @@ export interface NativeConnectOptions {
  */
 const NATIVE_CODE_PREFIX = /^(VANTADB_[A-Z0-9_]+): ([\s\S]*)$/;
 
-export function wrapNativeError(e: unknown, context: string): VantaError {
-  if (e instanceof VantaError) return e;
+export function wrapNativeError(e: unknown, context: string): DbError {
+  if (e instanceof DbError) return e;
   const message = e instanceof Error ? e.message : String(e);
   const details = e instanceof Error
     ? { name: e.name, stack: e.stack }
     : { original: e };
   const match = NATIVE_CODE_PREFIX.exec(message);
   if (match && (Object.values(ERROR_CODES) as readonly string[]).includes(match[1])) {
-    return new VantaError(match[1], `${context}: ${match[2]}`, details, { cause: e });
+    return new DbError(match[1], `${context}: ${match[2]}`, details, { cause: e });
   }
-  return new VantaError(classifyWasmError(message), `${context}: ${message}`, details, { cause: e });
+  return new DbError(classifyWasmError(message), `${context}: ${message}`, details, { cause: e });
 }
 
 /**
  * Convert caller-provided metadata (plain values or tagged) to the strict
- * tagged form expected by the native binding (`VantaMetadata`).
- * Accepts `VantaMetadataInput` where values can be plain JS primitives
- * (string, number, boolean, null) or already-tagged `VantaValue`.
+ * tagged form expected by the native binding (`VantaMetadata` in vantadb-node).
+ * Accepts `MetadataInput` where values can be plain JS primitives
+ * (string, number, boolean, null) or already-tagged `Value`.
  * The native binding uses `'Null'` string literal for null values.
  */
 function normalizeMetadataForNative(
-  input: VantaMetadataInput | undefined,
+  input: MetadataInput | undefined,
 ): import("vantadb-node").VantaMetadata | undefined {
   if (input === undefined) return undefined;
   const out: import("vantadb-node").VantaMetadata = {};
@@ -77,7 +77,7 @@ function normalizeMetadataForNative(
     } else if (typeof v === "boolean") {
       out[k] = { Bool: v };
     } else if (typeof v === "object" && v !== null) {
-      // Assume already a tagged VantaValue (e.g., { String: "..." })
+      // Assume already a tagged Value (e.g., { String: "..." })
       // Check if it matches native VantaValue variants
       const vv = v as Record<string, unknown>;
       if ('String' in vv && typeof vv.String === 'string') out[k] = { String: vv.String };
@@ -92,13 +92,13 @@ function normalizeMetadataForNative(
       else if ('ListDateTime' in vv && Array.isArray(vv.ListDateTime)) out[k] = { ListDateTime: vv.ListDateTime };
       else if ('Null' in vv) out[k] = 'Null';
       else {
-        throw new VantaError(
+        throw new DbError(
           ERROR_CODES.VALIDATION_ERROR,
           `normalizeMetadataForNative: unrecognized tagged value for key "${k}"`,
         );
       }
     } else {
-      throw new VantaError(
+      throw new DbError(
         ERROR_CODES.VALIDATION_ERROR,
         `normalizeMetadataForNative: unsupported value type for key "${k}": ${typeof v}`,
       );
@@ -122,9 +122,9 @@ function normalizeMetadataForNative(
  * - `connect` is an async factory; the WASM wrapper's sync `connect` has no
  *   native equivalent.
  *
- * Platform fallback: the native `.node` binary is platform-specific. If it is
- * not present for the current platform (e.g. a browser bundle), calling any
- * method throws a `VantaError` with a canonical `VANTADB_*` code and a clear
+  * Platform fallback: the native `.node` binary is platform-specific. If it is
+  * not present for the current platform (e.g. a browser bundle), calling any
+  * method throws a `DbError` with a canonical `VANTADB_*` code and a clear
  * message — browsers should use the WASM wrapper (`vantadb.ts`) instead.
  */
 export class NativeVantaDB {
@@ -157,7 +157,7 @@ export class NativeVantaDB {
    *   in-memory. Defaults to `":memory:"`.
    * @param options - Optional `{ read_only?, memory_limit? }`.
    * @returns A new NativeVantaDB instance.
-   * @throws {VantaError} If the native binding is unavailable for this platform
+   * @throws {DbError} If the native binding is unavailable for this platform
    *   or the engine fails to open.
    */
   static async connect(path: string = ":memory:", options?: NativeConnectOptions): Promise<NativeVantaDB> {
@@ -175,7 +175,7 @@ export class NativeVantaDB {
 
   private _assertOpen(): void {
     if (this._closed) {
-      throw new VantaError(ERROR_CODES.CLOSED, "NativeVantaDB instance is closed");
+      throw new DbError(ERROR_CODES.CLOSED, "NativeVantaDB instance is closed");
     }
   }
 
@@ -326,7 +326,7 @@ export class NativeVantaDB {
   private _buildSearchRequest(request: SearchRequest, explain?: boolean): NativeSearchRequest {
     // Pass the request through untouched. A zero-norm cosine query is rejected
     // by the core with ERR-028 (src/sdk/search/mod.rs) and surfaces as
-    // VantaError — this layer is glue, not a place for search decisions
+    // DbError — this layer is glue, not a place for search decisions
     // (api-contract.md R-8). vantadb.ts (WASM) does the same, so both backends
     // are aligned.
     return {

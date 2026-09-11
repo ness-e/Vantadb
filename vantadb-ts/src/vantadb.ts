@@ -1,13 +1,16 @@
 import { VantaDB as WasmVantaDB } from "vantadb-wasm";
 
-import { VantaError, ERROR_CODES, wrapWasmError } from "./errors.js";
+import { DbError, ERROR_CODES, wrapWasmError } from "./errors.js";
 import { _mapRecord, buildSearchRequestBase } from "./guards.js";
 import { normalizeFilterItems, normalizeMetadata, normalizeValue } from "./metadata.js";
 
 import type {
   BatchSearchRequest,
   Capabilities,
+  Config,
   ExportReport,
+  FilterItem,
+  FlatValue,
   GraphBfsResult,
   GraphDegreeEntry,
   GraphDfsResult,
@@ -23,10 +26,7 @@ import type {
   QueryResult,
   SearchHit,
   SearchRequest,
-  VantaConfig,
-  VantaFlatValue,
-  VantaMemoryFilterItem,
-  VantaValue,
+  Value,
 } from "./types.js";
 
 // ---------------------------------------------------------------------------
@@ -41,10 +41,10 @@ export interface MemoryClient {
   putBatch(inputs: MemoryInput[]): MemoryRecord[];
   get(namespace: string, key: string): MemoryRecord | null;
   delete(namespace: string, key: string): boolean;
-  deleteByFilter(namespace: string, filter: VantaMemoryFilterItem[]): bigint;
+  deleteByFilter(namespace: string, filter: FilterItem[]): bigint;
   list(namespace: string, options?: ListOptions): MemoryListPage;
   listNamespaces(): string[];
-  count(namespace: string, filters?: VantaMemoryFilterItem[]): bigint;
+  count(namespace: string, filters?: FilterItem[]): bigint;
   supersede(namespace: string, oldKey: string, newKey: string): void;
   search(request: SearchRequest): SearchHit[];
   searchMulti(namespaces: string[], request: BatchSearchRequest): SearchHit[];
@@ -71,7 +71,7 @@ export interface GraphClient {
     id: number | bigint,
     content?: string,
     vector?: number[],
-    fields?: Record<string, VantaFlatValue | VantaValue>,
+    fields?: Record<string, FlatValue | Value>,
   ): void;
   getNode(id: number): NodeRecord | null;
   deleteNode(id: number, reason?: string): void;
@@ -125,13 +125,13 @@ export interface SystemClient {
   exportNamespace(
     path: string,
     namespace: string,
-    filter?: VantaMemoryFilterItem[],
+    filter?: FilterItem[],
   ): ExportReport;
   importRecords(records: MemoryInput[]): ImportReport;
   importFile(path: string): ImportReport;
 }
 
-export class VantaDB {
+export class Client {
   private inner: WasmVantaDB;
   private _closed: boolean = false;
 
@@ -163,12 +163,12 @@ export class VantaDB {
    * const db = VantaDB.connect("./my_brain");
    * ```
    */
-  static connect(path?: string): VantaDB {
+  static connect(path?: string): Client {
     try {
       const inner = path && path !== ":memory:"
         ? WasmVantaDB.open(path)
         : new WasmVantaDB(null);
-      return new VantaDB(inner);
+      return new Client(inner);
     } catch (e) {
       throw wrapWasmError(e, "connect");
     }
@@ -194,7 +194,7 @@ export class VantaDB {
    * const db = VantaDB.create({ memory_limit: 1073741824 });
    * ```
    */
-  static create(config?: VantaConfig): VantaDB {
+  static create(config?: Config): Client {
     if (config?.storage_path) {
       console.warn(
         "VantaDB.create(): storage_path is ignored unless a persistent backend is connected via connect_persistent(), connect_idb(), or connect_worker().",
@@ -202,7 +202,7 @@ export class VantaDB {
     }
     try {
       const inner = new WasmVantaDB(config ?? null);
-      return new VantaDB(inner);
+      return new Client(inner);
     } catch (e) {
       throw wrapWasmError(e, "create");
     }
@@ -220,10 +220,10 @@ export class VantaDB {
    * const db = VantaDB.open("./my_brain");
    * ```
    */
-  static open(path: string): VantaDB {
+  static open(path: string): Client {
     try {
       const inner = WasmVantaDB.open(path);
-      return new VantaDB(inner);
+      return new Client(inner);
     } catch (e) {
       throw wrapWasmError(e, "open");
     }
@@ -231,7 +231,7 @@ export class VantaDB {
 
   private _assertOpen(): void {
     if (this._closed) {
-      throw new VantaError(ERROR_CODES.CLOSED, "VantaDB instance is closed");
+      throw new DbError(ERROR_CODES.CLOSED, "VantaDB instance is closed");
     }
   }
 
@@ -252,12 +252,12 @@ export class VantaDB {
       putBatch: (inputs: MemoryInput[]) => this.putBatch(inputs),
       get: (namespace: string, key: string) => this.get(namespace, key),
       delete: (namespace: string, key: string) => this.delete(namespace, key),
-      deleteByFilter: (namespace: string, filter: VantaMemoryFilterItem[]) =>
+      deleteByFilter: (namespace: string, filter: FilterItem[]) =>
         this.deleteByFilter(namespace, filter),
       list: (namespace: string, options?: ListOptions) =>
         this.list(namespace, options),
       listNamespaces: () => this.listNamespaces(),
-      count: (namespace: string, filters?: VantaMemoryFilterItem[]) =>
+      count: (namespace: string, filters?: FilterItem[]) =>
         this.count(namespace, filters),
       supersede: (namespace: string, oldKey: string, newKey: string) =>
         this.supersede(namespace, oldKey, newKey),
@@ -283,7 +283,7 @@ export class VantaDB {
         id: number | bigint,
         content?: string,
         vector?: number[],
-        fields?: Record<string, VantaValue>,
+        fields?: Record<string, Value>,
       ) => this.insertNode(id, content, vector, fields),
       getNode: (id: number) => this.getNode(id),
       deleteNode: (id: number, reason?: string) =>
@@ -343,7 +343,7 @@ export class VantaDB {
       auditTextIndexDeep: (namespace?: string) =>
         this.auditTextIndexDeep(namespace),
       exportAll: (path: string) => this.exportAll(path),
-      exportNamespace: (path: string, namespace: string, filter?: VantaMemoryFilterItem[]) =>
+      exportNamespace: (path: string, namespace: string, filter?: FilterItem[]) =>
         this.exportNamespace(path, namespace, filter),
       importRecords: (records: MemoryInput[]) => this.importRecords(records),
       importFile: (path: string) => this.importFile(path),
@@ -673,7 +673,7 @@ export class VantaDB {
    * ]);
    * ```
    */
-  count(namespace: string, filters?: VantaMemoryFilterItem[]): bigint {
+  count(namespace: string, filters?: FilterItem[]): bigint {
     this._assertOpen();
     return this._wasm("count", () =>
       this.inner.count(
@@ -810,7 +810,7 @@ export class VantaDB {
   exportNamespace(
     path: string,
     namespace: string,
-    filter?: VantaMemoryFilterItem[],
+    filter?: FilterItem[],
   ): ExportReport {
     this._assertOpen();
     return this._wasm("exportNamespace", () =>
@@ -833,7 +833,7 @@ export class VantaDB {
    * console.log(deleted); // 3n
    * ```
    */
-  deleteByFilter(namespace: string, filter: VantaMemoryFilterItem[]): bigint {
+  deleteByFilter(namespace: string, filter: FilterItem[]): bigint {
     this._assertOpen();
     return this._wasm("deleteByFilter", () =>
       this.inner.delete_by_filter(namespace, normalizeFilterItems(filter)),
@@ -1095,11 +1095,11 @@ export class VantaDB {
     id: number | bigint,
     content?: string,
     vector?: number[],
-    fields: Record<string, VantaFlatValue | VantaValue> = {},
+    fields: Record<string, FlatValue | Value> = {},
   ): void {
     this._assertOpen();
     if (typeof id === "number" && !Number.isSafeInteger(id)) {
-      throw new VantaError(
+      throw new DbError(
         "INVALID_ARGUMENT",
         `insertNode: id ${id} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
       );
@@ -1392,7 +1392,14 @@ export class VantaDB {
   }
 }
 
-export { VantaError, ERROR_CODES } from "./errors.js";
+/**
+ * @deprecated Use {@link Client} instead (`VantaDB` repeats the package name).
+ */
+export const VantaDB = Client;
+/** @deprecated Use {@link Client} instead. */
+export type VantaDB = Client;
+
+export { DbError, VantaError, ERROR_CODES } from "./errors.js";
 export {
   isMemoryRecord,
   isSearchHit,

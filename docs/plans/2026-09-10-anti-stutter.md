@@ -111,7 +111,7 @@ Regla universal: ninguna entidad repite su contenedor. `vantadb::VantaConfig` �
 - **Gate Result:** ✅ DO
 - **Contrato:** `target/audit-venv/Scripts/python -m pytest vantadb-python/tests/test_sdk.py -q`
 - **Task file:** `docs/tasks/AST-003.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
 
@@ -145,10 +145,10 @@ Regla universal: ninguna entidad repite su contenedor. `vantadb::VantaConfig` �
 - **Gate Justificación:** `VantaDB` repite paquete `vantadb` (tu ejemplo `user.ts`); `VantaError` colisiona con global → `DbError` o alias, nunca `Error` pelado.
 - **Gate Result:** ✅ DO
 - **Contrato:** `npx tsc --noEmit -p vantadb-ts/ && npm test --prefix vantadb-ts`
-- **Task file:** `docs/tasks/AST-004.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+ - **Task file:** `docs/tasks/AST-004.md`
+ - **Estado:** ✅ COMPLETED
+ - **Branch:**
+ - **Commit:** feat!: AST-004 TS/WASM anti-stutter (Client/DbError + aliases)
 
   **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger / Due |
@@ -159,7 +159,9 @@ Regla universal: ninguna entidad repite su contenedor. `vantadb::VantaConfig` �
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | DISCOVERY: Regla 0 + task file + Gates D/P (no disparan) | OD-1 sin ambigüedad; `this.name` conservado por evidencia tests | codegraph_explore, rg |
+  | 2 | S1-S5: 13 renames + aliases tipo+valor en types/errors/vantadb/d.ts/guards/metadata/native | shapes wire intactos; guard-fn names fuera de contrato | edit |
+  | 3 | S6: verify contrato + commit | tsc 0 err + d.ts 0 err + vitest 280/280 | tsc, vitest, git |
 
   **Notas:**
   - **Pre-mortem:** 1) `VantaDB→Client` rompe 20× `VantaDB.create` en tests si falta alias; 2) `VantaError.toJSON` shape usado por Python `error_to_dict`; 3) `wasm-pack` version drift.
@@ -308,4 +310,37 @@ Resultado: OK
 Próxima acción: ninguno (tarea completa); orquestador: /pipeline task AST-003
 Contrato: Contrato: cargo check -p vantadb && cargo clippy -p vantadb --all-targets --all-features -- -D warnings && cargo fmt --check -p vantadb -> TODO pasa (check 0 warnings, clippy 0 warnings 35s, fmt limpio). DoD extra: cargo nextest -p vantadb --profile audit -> 2145 passed 1 skipped. E2E alias: cargo check -p vantadb-mcp -> 0 errores (125 deprecation warnings esperados). evidencia: commit 97e29cac (234 files, hook pre-commit ok) / confianza: alta. artefactos: docs/tasks/AST-002.md, 38 aliases en 10 def-sites + re-exports 5 niveles. invariantes: VantaHeader + VANTADB_* + fns libres intactos; 0 cambios serde/campos (snapshots solo Debug). deuda: firma humana ADR-041; review post-hoc vanta-audit si toca serializacion (solo renames, sin cambio wire); renombrar engine::QueryResult en follow-up. queda_pendiente: AST-003 (PyO3) consume aliases.
 Próxima tarea si completa: AST-003
+=== END RECITATION ===
+
+=== RECITATION 2 ===
+Campaign ID: ca2e7931-6c31-4d30-97fb-5941e79ec806
+Objetivo activo: AST-002 Rust renames + aliases
+Estado: completed
+Última acción: vanta-worker COMPLETO 6/6 commit d524c67b + check True
+Resultado: ✅
+Próxima acción: AST-003 PyO3 + pyi
+Contrato: cargo check + clippy + fmt, check True
+Próxima tarea si completa: AST-003
+=== END RECITATION ===
+
+=== RECITATION 3 ===
+Campaign ID: ca2e7931-6c31-4d30-97fb-5941e79ec806
+Objetivo activo: AST-003 PyO3 aliases + pyi
+Estado: completed
+Última acción: vanta-worker COMPLETO 5/5 commit 34cf8a8e, aditivo cero breakage, OD-2 diferido Gate P
+Resultado: ✅
+Próxima acción: AST-004 TS/WASM
+Contrato: test_sdk 75 passed + stub_drift 7 passed (subagent verify)
+Próxima tarea si completa: AST-004
+=== END RECITATION ===
+
+=== RECITATION AST-004 ===
+Campaign ID: ca2e7931-6c31-4d30-97fb-5941e79ec806
+Objetivo activo: AST-004 WASM d.ts + TS types/errors/VantaDB
+Estado: in-progress
+Última acción: S0 Discovery: 8 archivos leidos + task file creado con Regla 0 y Spec
+Resultado: ✅
+Próxima acción: S1 types.ts renames + aliases
+Contrato: Contrato: npx tsc --noEmit -p vantadb-ts/ && npm test --prefix vantadb-ts. Verificacion: pendiente (S6). Evidencia: docs/tasks/AST-004.md creado con Regla 0. Invariantes: shapes wire intactos; VANTADB_* codes; this.name VantaError; nada fuera de vantadb-ts/wasm d.ts. Deuda: ninguna. Queda_pendiente: S1-S6.
+Próxima tarea si completa: AST-005
 === END RECITATION ===

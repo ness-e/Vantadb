@@ -120,7 +120,7 @@ export type SyncInitInput = BufferSource | WebAssembly.Module;
 // ─────────────────────────────────────────────────────────────────────────────
 
 /** WasmConfig accepted by the constructor (mirrors `WasmConfig` in `lib.rs`). */
-export interface VantaConfigInput {
+export interface ConfigInput {
     /** Storage path (default: `"vantadb_data"`). For OPFS/IDB backends, this is the database name. */
     storage_path?: string;
     /** Open in read-only mode. */
@@ -130,6 +130,9 @@ export interface VantaConfigInput {
     /** Optional memory limit in bytes. */
     memory_limit?: number;
 }
+
+/** @deprecated Use {@link ConfigInput} instead. */
+export type VantaConfigInput = ConfigInput;
 
 /** One record stored in a memory namespace. Returned by `get`, `put`, `list`, `search`. */
 export interface MemoryRecord {
@@ -296,7 +299,7 @@ export interface NodeInsertInput {
 }
 
 /** Capabilities reported by `capabilities()`. */
-export interface VantaCapabilities {
+export interface Capabilities {
     /** True when the engine is backed by durable storage (OPFS/IDB/Worker). */
     persistence: boolean;
     /** Engine backend in use. */
@@ -308,6 +311,9 @@ export interface VantaCapabilities {
     /** True if the engine is opened in read-only mode. */
     read_only: boolean;
 }
+
+/** @deprecated Use {@link Capabilities} instead. */
+export type VantaCapabilities = Capabilities;
 
 /** Operational metrics returned by `operational_metrics()`. All numbers are decimal strings. */
 export interface OperationalMetrics {
@@ -438,18 +444,18 @@ export type Snippet = string;
  *
  * @example
  * ```ts
- * import { VantaDB } from "vantadb-wasm";
+ * import { Client } from "vantadb-wasm";
  *
  * // In-memory
- * const db = new VantaDB({ storage_path: "my-app" });
+ * const db = new Client({ storage_path: "my-app" });
  * await db.put({ namespace: "notes", key: "k1", payload: "hello" });
  * const rec = await db.get("notes", "k1");
  *
  * // Persistent (OPFS in browser, IndexedDB fallback)
- * const persistent = await VantaDB.connect_persistent("my-app");
+ * const persistent = await Client.connect_persistent("my-app");
  * ```
  */
-export class VantaDB {
+export class Client {
     /** Free the wasm-bindgen wrapper (use `Symbol.dispose` or call directly). */
     free(): void;
     /** ES explicit resource management hook. */
@@ -459,14 +465,14 @@ export class VantaDB {
 
     /**
      * Create a new in-memory VantaDB instance from an optional config.
-     * @param config_val Optional {@link VantaConfigInput}.
+     * @param config_val Optional {@link ConfigInput}.
      */
-    constructor(config_val?: VantaConfigInput | null);
+    constructor(config_val?: ConfigInput | null);
 
     /**
      * Open VantaDB at the given storage path. Synchronous (in-memory by default).
      */
-    static open(path: string): VantaDB;
+    static open(path: string): Client;
 
     /**
      * Open VantaDB with OPFS-based persistent storage in the browser.
@@ -474,22 +480,22 @@ export class VantaDB {
      * NOTE: this call rejects with a descriptive `Error` if OPFS is unavailable
      * (e.g. `navigator.storage.getDirectory` rejects). The previous silent
      * in-memory fallback was removed; verify availability with
-     * `VantaDB.connect_idb` if OPFS might be blocked.
+     * `Client.connect_idb` if OPFS might be blocked.
      */
-    static connect_persistent(path: string): Promise<VantaDB>;
+    static connect_persistent(path: string): Promise<Client>;
 
     /**
      * Open VantaDB with IndexedDB-based persistent storage (fallback when OPFS
      * is unavailable). Always async.
      */
-    static connect_idb(path: string): Promise<VantaDB>;
+    static connect_idb(path: string): Promise<Client>;
 
     /**
      * Open VantaDB with a Web-Worker–backed OPFS layer. The caller must
      * register `spawnOpfsWorker` on the global scope (from
      * `vantadb-wasm/src/opfs_bridge.js`) before calling this.
      */
-    static connect_worker(path: string): Promise<VantaDB>;
+    static connect_worker(path: string): Promise<Client>;
 
     /**
      * Close the database and release underlying engine resources. After close
@@ -703,8 +709,8 @@ export class VantaDB {
 
     // ── Metrics / capabilities / IQL ───────────────────────────────────────
 
-    /** Return a {@link VantaCapabilities} object describing supported features. */
-    capabilities(): VantaCapabilities;
+    /** Return a {@link Capabilities} object describing supported features. */
+    capabilities(): Capabilities;
 
     /** Return operational metrics. All large numbers are stringified (policy string-u64). */
     operational_metrics(): OperationalMetrics;
@@ -770,6 +776,14 @@ export class VantaDB {
      */
     graph_degree(roots: string[]): GraphDegreeEntry[];
 }
+
+/**
+ * @deprecated Use {@link Client} instead (`VantaDB` repeats the package name).
+ * The wasm-pack runtime still exports `VantaDB`; this alias keeps that
+ * surface typed. Wire shapes are unchanged.
+ */
+export type VantaDB = Client;
+export const VantaDB: typeof Client;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Init functions (preserved from generated .d.ts verbatim — these are the
