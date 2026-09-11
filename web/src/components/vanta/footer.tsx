@@ -21,7 +21,7 @@ export function Footer() {
   };
 
   // Footer navigation groups — all 31 routes organized
-  const FOOTER_GROUPS = [
+  const GROUPS = [
     {
       title: tt("footer.colPlatform", "Platform"),
       links: [
@@ -140,7 +140,7 @@ export function Footer() {
         </div>
 
         {/* Navigation groups */}
-        {FOOTER_GROUPS.map((group) => (
+        {GROUPS.map((group) => (
           <div key={group.title}>
             <h3 className="mb-3 font-display text-sm uppercase tracking-wider text-[#FF5500]">
               {group.title}
