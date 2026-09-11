@@ -34,40 +34,29 @@ from .vantadb_py import (
     StorageError,
     TimeoutError,
     UnsupportedError,
-    VantaDB,
+    Client,
     VantaError,
     ValidationError,
-    VantaListResult,
-    VantaMemoryRecord,
-    VantaSearchHit,
+    ListResult,
+    Record,
+    SearchHit,
     VantaVector,
     __version__,
     connect,
 )
 
-# AST-003: clean anti-stutter aliases (ADR-041). Direct assignments — zero
-# logic in the binding (api-contract R-8). Legacy names stay canonical and
-# silent until the cleanup major (no DeprecationWarning yet; migration guide
-# ships in AST-006).
-Client = VantaDB
-Record = VantaMemoryRecord
-Hit = VantaSearchHit
-SearchHit = VantaSearchHit
-ListResult = VantaListResult
+# AST-008 (directo, sin compat): los nombres canónicos vienen del módulo
+# nativo (Client/Record/SearchHit/ListResult). Solo sobrevive el puente
+# `Vector = VantaVector` hasta el rename nativo en AST-010 (vector.rs fuera
+# de scope aquí); el resto de aliases AST-003 se eliminan con el rename.
 Vector = VantaVector
 
 __all__ = [
-    "VantaDB",
     "Client",
     "AsyncVantaDB",
-    "AsyncClient",
-    "VantaListResult",
     "ListResult",
-    "VantaMemoryRecord",
     "Record",
-    "VantaSearchHit",
     "SearchHit",
-    "Hit",
     "VantaVector",
     "Vector",
     "SearchRequest",
@@ -114,8 +103,8 @@ def error_to_dict(exc: BaseException) -> dict:
 class SearchRequest:
     """Full search request for batch searches.
 
-    Mirrors the keyword arguments of ``VantaDB.search_memory``. Pass instances
-    (or equivalent dicts) to ``VantaDB.search_batch_requests``, which runs them
+    Mirrors the keyword arguments of ``Client.search``. Pass instances
+    (or equivalent dicts) to ``Client.search_batch_requests``, which runs them
     in parallel in the Rust engine with GIL released.
 
     Args:
@@ -133,9 +122,9 @@ class SearchRequest:
 
     Example::
 
-        from vantadb_py import VantaDB, SearchRequest
+        from vantadb_py import Client, SearchRequest
 
-        db = VantaDB(":memory:")
+        db = Client(":memory:")
         requests = [
             SearchRequest("ns", [1.0, 0.0, 0.0], text_query="memory", top_k=5),
             SearchRequest("ns", [0.0, 1.0, 0.0], filters={"kind": "task"}, top_k=5),
@@ -160,9 +149,9 @@ class SearchRequest:
 
 
 class AsyncVantaDB:
-    """Async wrapper around VantaDB.
+    """Async wrapper around Client.
 
-    Query methods (search_memory, get_memory, list_memory) run
+    Query methods (search, get_memory, list_memory) run
     in a thread pool via ``asyncio.to_thread()``, releasing the GIL
     to the Rust engine which already uses ``py.allow_threads()``.
 
@@ -170,11 +159,11 @@ class AsyncVantaDB:
 
         async with AsyncVantaDB("./my_brain") as db:
             record = await db.get_memory("ns", "key")
-            results = await db.search_memory("ns", [1.0, 0.0, 0.0], top_k=5)
+            results = await db.search("ns", [1.0, 0.0, 0.0], top_k=5)
     """
 
     def __init__(self, *args, max_concurrency: int = 4, **kwargs):
-        self._sync = VantaDB(*args, **kwargs)
+        self._sync = Client(*args, **kwargs)
         self._sem = asyncio.Semaphore(max_concurrency)
 
     async def _run(self, fn, *args, **kwargs):
@@ -192,7 +181,7 @@ class AsyncVantaDB:
 
     # ── Query methods (async via to_thread) ──
 
-    async def search_memory(
+    async def search(
         self,
         namespace: str,
         query_vector: list[float],
@@ -206,7 +195,7 @@ class AsyncVantaDB:
         exclude_superseded: bool = False,
     ):
         return await self._run(
-            self._sync.search_memory,
+            self._sync.search,
             namespace,
             query_vector,
             filters,
@@ -239,15 +228,11 @@ class AsyncVantaDB:
             exclude_superseded,
         )
 
-    # AST-003 clean aliases (ADR-041). `list`/`search_vector` are free on this
-    # class; memory `get`/`delete` collide with node-level `get(id)`/`delete`
-    # (same BINDINGS_NAMESPACES hazard as flat VantaDB) so they stay
-    # `get_memory`/`delete_memory` here until OD-2 resolves (Gate P dividir).
+    # AST-008: `list` sigue como conveniencia (el flat no puede acortarse —
+    # hazard BINDINGS_NAMESPACES); `search` es el híbrido namespaced y
+    # `search_vector` el ANN puro (OD-2=B).
     async def list(self, namespace: str, **kwargs):
         return await self._run(self._sync.list_memory, namespace, **kwargs)
-
-    async def search_vector(self, vector, top_k: int = 10):
-        return await self._run(self._sync.search, vector, top_k)
 
     # ── Mutations (sync wrappers for completeness) ──
 
@@ -346,7 +331,7 @@ class AsyncVantaDB:
             namespaces: Optional list of N namespace strings (default "default").
             ttls: Optional list of N optional TTL values in ms.
 
-        Returns a list of ``VantaMemoryRecord`` dicts in input order.
+        Returns a list of ``Record`` dicts in input order.
         """
         return await self._run(
             self._sync.put_batch_raw,
@@ -407,8 +392,8 @@ class AsyncVantaDB:
     async def delete_node(self, id, reason="manual deletion"):
         return await self._run(self._sync.delete, id, reason)
 
-    async def search(self, vector, top_k=10):
-        return await self._run(self._sync.search, vector, top_k)
+    async def search_vector(self, vector, top_k=10):
+        return await self._run(self._sync.search_vector, vector, top_k)
 
     async def search_batch(self, vectors, top_k=10):
         return await self._run(
@@ -518,5 +503,3 @@ class AsyncVantaDB:
         return f"AsyncVantaDB(sync={self._sync!r})"
 
 
-# AST-003: alias definido tras la clase (forward reference imposible arriba).
-AsyncClient = AsyncVantaDB

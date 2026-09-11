@@ -1,7 +1,7 @@
 """SDKB-03: domain sub-clients (db.memory / db.graph / db.system / db.wiki).
 
 Mirror of SDKB-02 (TypeScript): each sub-client method must delegate to the
-flat ``VantaDB`` method of the same name with an IDENTICAL signature and
+flat ``Client`` method of the same name with an IDENTICAL signature and
 result. Grouping only — zero new logic (D43, D42).
 
 Canonical map: docs/api/BINDINGS_NAMESPACES.md. Naming hazard respected:
@@ -18,7 +18,7 @@ import vantadb_py as vanta
 @pytest.fixture()
 def db():
     """Fresh in-memory database per test."""
-    instance = vanta.VantaDB(":memory:", backend="memory")
+    instance = vanta.Client(":memory:", backend="memory")
     yield instance
     instance.close()
 
@@ -46,8 +46,8 @@ def test_memory_put_get_delete_identity(db):
 def test_memory_search_identity(db):
     db.put("ns", "m1", "alpha text")
     db.put("ns", "m2", "beta text")
-    hits_flat = db.search_memory("ns", [0.1, 0.2, 0.3], top_k=5)
-    hits_sub = db.memory.search_memory("ns", [0.1, 0.2, 0.3], top_k=5)
+    hits_flat = db.search("ns", [0.1, 0.2, 0.3], top_k=5)
+    hits_sub = db.memory.search("ns", [0.1, 0.2, 0.3], top_k=5)
     assert [(h.key, h.payload) for h in hits_sub] == [
         (h.key, h.payload) for h in hits_flat
     ]
@@ -95,8 +95,8 @@ def test_memory_generate_snippet_identity(db):
 
 def test_memory_pure_ann_search_identity(db):
     db.insert(1, "node one", [1.0, 0.0])
-    res_flat = db.search([1.0, 0.0], top_k=3)
-    res_sub = db.memory.search([1.0, 0.0], top_k=3)
+    res_flat = db.search_vector([1.0, 0.0], top_k=3)
+    res_sub = db.memory.search_vector([1.0, 0.0], top_k=3)
     assert res_sub == res_flat
 
 
@@ -253,7 +253,7 @@ def test_system_export_import_roundtrip(db, tmp_path):
     db.put("ns", "k", "v")
     report = db.system.export_all(path)
     assert report["records_exported"] == 1
-    other = vanta.VantaDB(":memory:", backend="memory")
+    other = vanta.Client(":memory:", backend="memory")
     try:
         imported = other.system.import_file(path)
         assert imported["inserted"] == 1
@@ -315,7 +315,7 @@ def test_backward_compat_flat_methods_untouched(db):
     rec = db.put("compat", "k", "v")
     assert rec.payload == "v"
     assert db.get_memory("compat", "k").payload == "v"
-    assert repr(db).startswith("VantaDB(")
+    assert repr(db).startswith("Client(")
 
 
 def test_subclients_are_distinct_objects(db):

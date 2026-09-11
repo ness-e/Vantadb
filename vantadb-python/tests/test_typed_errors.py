@@ -35,7 +35,7 @@ def glob_like():
 
 
 def _db():
-    return vanta.VantaDB(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+    return vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
 
 
 def _unique_path():

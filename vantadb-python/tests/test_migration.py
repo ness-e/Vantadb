@@ -1,7 +1,7 @@
 """Smoke test: migrate demo records from ChromaDB and LanceDB into VantaDB.
 
 Verifies that migrate_from_chroma / migrate_from_lancedb write records that
-can be recovered with get_memory() and search_memory().
+can be recovered with get_memory() and search().
 """
 
 from __future__ import annotations
@@ -12,7 +12,7 @@ from pathlib import Path
 
 import pytest
 
-from vantadb_py import VantaDB
+from vantadb_py import Client
 from vantadb_py.migrate import migrate_from_chroma, migrate_from_lancedb
 
 CHROMA_DOCS = [
@@ -59,14 +59,14 @@ def lancedb_source() -> Path:
 
 
 def _verify(target_path: Path, namespace: str, expected: list[tuple[str, list[float]]]) -> None:
-    db = VantaDB(str(target_path))
+    db = Client(str(target_path))
     try:
         for key, vector in expected:
             record = db.get_memory(namespace, key)
             assert record is not None, f"{namespace}/{key} missing"
             assert record.payload
-        hits = db.search_memory(namespace, expected[0][1], top_k=3)
-        assert len(hits) >= 1, "search_memory returned no hits"
+        hits = db.search(namespace, expected[0][1], top_k=3)
+        assert len(hits) >= 1, "search returned no hits"
         assert hits[0].key == expected[0][0], f"top hit {hits[0].key} != {expected[0][0]}"
     finally:
         db.close()

@@ -1,6 +1,6 @@
 //! Python bindings for the VantaDB vector-graph database via PyO3.
 //!
-//! This crate exposes the [`VantaDB`] class and a `connect` function
+//! This crate exposes the [`Client`] class and a `connect` function
 //! for in-process, zero-network-overhead access to VantaDB from Python.
 #![warn(missing_docs)]
 #![allow(deprecated)]
@@ -51,7 +51,7 @@ fn clamp_top_k(requested: usize) -> usize {
 #[pyclass]
 /// Python-accessible embedded VantaDB engine.
 ///
-/// Create or open a database with ``VantaDB(db_path, ...)``:
+/// Create or open a database with ``Client(db_path, ...)``:
 ///
 /// Args:
 ///     db_path: Path to the database directory. Pass ``":memory:"`` (or an
@@ -67,7 +67,7 @@ fn clamp_top_k(requested: usize) -> usize {
 ///         fall back to the default backend with a warning.
 ///
 /// Returns:
-///     VantaDB: A connected VantaDB database handle.
+///     Client: A connected VantaDB database handle.
 ///
 /// Raises:
 ///     ValueError: If the database file has an incompatible format or the
@@ -77,13 +77,13 @@ fn clamp_top_k(requested: usize) -> usize {
 ///
 /// Example:
 ///     ```python
-///     >>> from vantadb_py import VantaDB
-///     >>> db = VantaDB(":memory:", backend="memory")  # in-memory engine
+///     >>> from vantadb_py import Client
+///     >>> db = Client(":memory:", backend="memory")  # in-memory engine
 ///     >>> db.put("agent/main", "task-1", "alpha")
 ///     >>> db.get_memory("agent/main", "task-1").payload
 ///     'alpha'
 ///     ```
-pub struct VantaDB {
+pub struct Client {
     engine: Embedded,
     op_gate: OpGate,
 }
@@ -139,7 +139,7 @@ impl OpGate {
     /// MOD-17: MUST be called with the GIL released whenever Python threads
     /// may hold an `OpGuard`: an op returning from its own `py.detach` needs
     /// to re-acquire the GIL before it can drop its guard, so waiting here
-    /// with the GIL held deadlocks the interpreter. See `VantaDB::close`.
+    /// with the GIL held deadlocks the interpreter. See `Client::close`.
     fn drain(&self) {
         let (lock, cvar) = &*self.state;
         let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
@@ -189,7 +189,7 @@ fn parse_backend_kind(backend: Option<&str>) -> PyResult<vantadb::BackendKind> {
 
 /// Shared constructor: build the engine config and open the embedded database.
 ///
-/// Both Python entry points (`VantaDB.new` and `connect`) delegate here so
+/// Both Python entry points (`Client.new` and `connect`) delegate here so
 /// config construction stays in one place (AUD-037). The caller owns
 /// `storage_path` normalization: `new` passes `db_path` verbatim, `connect`
 /// maps `""`/`":memory:"` before calling.
@@ -199,7 +199,7 @@ fn open_vantadb(
     memory_limit: Option<u64>,
     read_only: bool,
     backend: Option<&str>,
-) -> PyResult<VantaDB> {
+) -> PyResult<Client> {
     let config = Config {
         storage_path,
         memory_limit,
@@ -210,7 +210,7 @@ fn open_vantadb(
     let engine = py
         .detach(move || Embedded::open_with_config(config))
         .map_err(map_vanta_error)?;
-    Ok(VantaDB {
+    Ok(Client {
         engine,
         op_gate: OpGate::new(),
     })
@@ -221,7 +221,7 @@ fn open_vantadb(
 //
 // Read-only grouping of ALREADY-EXPOSED flat methods by domain, per the
 // canonical map `docs/api/BINDINGS_NAMESPACES.md`. Delegation only — zero new
-// logic (D43). Each client holds a strong ref to its parent [`VantaDB`]; a
+// logic (D43). Each client holds a strong ref to its parent [`Client`]; a
 // fresh instance is built on every property access, so no reference cycle
 // outlives the reference the caller keeps.
 // ---------------------------------------------------------------------------
@@ -231,7 +231,7 @@ fn open_vantadb(
 #[pyclass]
 struct MemoryClient {
     /// Parent database handle every call is forwarded to.
-    db: Py<VantaDB>,
+    db: Py<Client>,
 }
 
 /// Grouped graph operations (``db.graph.*``): node/edge CRUD and traversals.
@@ -242,7 +242,7 @@ struct MemoryClient {
 #[pyclass]
 struct GraphClient {
     /// Parent database handle every call is forwarded to.
-    db: Py<VantaDB>,
+    db: Py<Client>,
 }
 
 /// Catch-all system operations (``db.system.*``): lifecycle, capabilities,
@@ -250,18 +250,18 @@ struct GraphClient {
 #[pyclass]
 struct SystemClient {
     /// Parent database handle every call is forwarded to.
-    db: Py<VantaDB>,
+    db: Py<Client>,
 }
 
 /// Wiki summary-archive recovery (``db.wiki.*``).
 #[pyclass]
 struct WikiClient {
     /// Parent database handle every call is forwarded to.
-    db: Py<VantaDB>,
+    db: Py<Client>,
 }
 
 /// Generates pymethods that forward each listed call VERBATIM to the flat
-/// method of the same name on the parent [`VantaDB`]. The varargs/kwargs
+/// method of the same name on the parent [`Client`]. The varargs/kwargs
 /// pass-through makes the exposed signature identical by construction — the
 /// flat method keeps doing all argument validation (single source of truth).
 /// Entries shaped `alias => target` expose a clean anti-stutter name that
@@ -271,7 +271,7 @@ macro_rules! forward_to_db {
         #[pymethods]
         impl $client {
             $(
-                #[doc = concat!("Delegates to ``VantaDB.", stringify!($method), "`` — same signature, same result.")]
+                #[doc = concat!("Delegates to ``Client.", stringify!($method), "`` — same signature, same result.")]
                 #[pyo3(signature = (*args, **kwargs))]
                 fn $method<'py>(
                     &self,
@@ -288,7 +288,7 @@ macro_rules! forward_to_db {
         #[pymethods]
         impl $client {
             $(
-                #[doc = concat!("Delegates to ``VantaDB.", stringify!($method), "`` — same signature, same result.")]
+                #[doc = concat!("Delegates to ``Client.", stringify!($method), "`` — same signature, same result.")]
                 #[pyo3(signature = (*args, **kwargs))]
                 fn $method<'py>(
                     &self,
@@ -300,7 +300,7 @@ macro_rules! forward_to_db {
                 }
             )*
             $(
-                #[doc = concat!("Clean alias of ``VantaDB.", stringify!($target), "`` — same signature, same result.")]
+                #[doc = concat!("Clean alias of ``Client.", stringify!($target), "`` — same signature, same result.")]
                 #[pyo3(signature = (*args, **kwargs))]
                 fn $alias<'py>(
                     &self,
@@ -325,8 +325,8 @@ forward_to_db!(MemoryClient {
     count,
     similar_to_key,
     list_memory,
-    search_memory,
     search,
+    search_vector,
     search_batch,
     search_batch_requests,
     explain_memory_search,
@@ -334,17 +334,15 @@ forward_to_db!(MemoryClient {
     generate_snippet,
     purge_expired,
     list_namespaces
-    // AST-003 clean aliases (ADR-041, OD-4). Additive: flat VantaDB keeps
-    // every legacy name. Flat-level memory aliases are impossible (get/
-    // delete/search are node-level on VantaDB — BINDINGS_NAMESPACES hazard),
-    // so clean names live on the domain client. OD-2/Gate P: hybrid `search`
-    // deliberately NOT aliased — MemoryClient.search is pure ANN
-    // (test_subclients.py:99); search_vector is the parity alias.
+    // AST-008 (OD-2=B, OD-4 cerrado: directo, sin compat). Flat `search` is
+    // the namespaced hybrid (ex-`search_memory`); flat `search_vector` is the
+    // pure-ANN node-level op (ex-`search`). Flat-level memory aliases stay
+    // impossible (get/delete are node-level on Client — BINDINGS_NAMESPACES
+    // hazard), so short `get`/`list`/`delete` live on the domain client only.
     ;
     get => get_memory,
     list => list_memory,
     delete => delete_memory,
-    search_vector => search,
 });
 
 forward_to_db!(GraphClient {
@@ -394,7 +392,7 @@ forward_to_db!(WikiClient {
 });
 
 #[pymethods]
-impl VantaDB {
+impl Client {
     /// Create or open a VantaDB database.
     ///
     /// Args:
@@ -411,7 +409,7 @@ impl VantaDB {
     ///         raise ``ValueError``.
     ///
     /// Returns:
-    ///     VantaDB: A connected VantaDB database handle.
+    ///     Client: A connected VantaDB database handle.
     ///
     /// Raises:
     ///     ValueError: If the database file has an incompatible format or the
@@ -421,8 +419,8 @@ impl VantaDB {
     ///
     /// Example:
     ///     ```python
-    ///     >>> from vantadb_py import VantaDB
-    ///     >>> db = VantaDB(":memory:", backend="memory")  # in-memory engine
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")  # in-memory engine
     ///     >>> db.put("agent/main", "task-1", "alpha")
     ///     >>> db.get_memory("agent/main", "task-1").payload
     ///     'alpha'
@@ -467,8 +465,8 @@ impl VantaDB {
     ///
     /// Example:
     ///     ```python
-    ///     >>> from vantadb_py import VantaDB
-    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
     ///     >>> db.insert(1, "first node", [0.1, 0.2, 0.3], {"kind": "note"})
     ///     >>> db.get(1)["fields"]["kind"]
     ///     'note'
@@ -830,8 +828,8 @@ impl VantaDB {
     ///
     /// Example:
     ///     ```python
-    ///     >>> from vantadb_py import VantaDB
-    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
     ///     >>> record = db.put("agent/main", "task-1", "organize the backlog",
     ///     ...                  metadata={"category": "task"}, vector=[1.0, 0.0, 0.0])
     ///     >>> record.key
@@ -889,8 +887,8 @@ impl VantaDB {
     ///
     /// Example:
     ///     ```python
-    ///     >>> from vantadb_py import VantaDB
-    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
     ///     >>> db.put("agent/main", "task-1", "organize the backlog")
     ///     >>> record = db.get_memory("agent/main", "task-1")
     ///     >>> record.payload
@@ -932,8 +930,8 @@ impl VantaDB {
     ///
     /// Example:
     ///     ```python
-    ///     >>> from vantadb_py import VantaDB
-    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
     ///     >>> db.put("agent/main", "temp", "delete me")
     ///     >>> db.delete_memory("agent/main", "temp")
     ///     True
@@ -1121,8 +1119,8 @@ impl VantaDB {
     ///
     /// Example:
     ///     ```python
-    ///     >>> from vantadb_py import VantaDB
-    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
     ///     >>> db.put("agent/main", "task-1", "alpha", metadata={"category": "task"})
     ///     >>> db.put("agent/main", "task-2", "beta", metadata={"category": "task"})
     ///     >>> page = db.list_memory("agent/main", filters={"category": "task"})
@@ -1205,11 +1203,11 @@ impl VantaDB {
     ///
     /// Example:
     ///     ```python
-    ///     >>> from vantadb_py import VantaDB
-    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
     ///     >>> db.put("agent/main", "task-1", "organize the backlog",
     ///     ...          vector=[1.0, 0.0, 0.0])
-    ///     >>> hits = db.search_memory("agent/main", [0.9, 0.1, 0.0], top_k=5)
+    ///     >>> hits = db.search("agent/main", [0.9, 0.1, 0.0], top_k=5)
     ///     >>> hits[0].key
     ///     'task-1'
     ///     >>> hits[0].score > 0.0
@@ -1218,7 +1216,7 @@ impl VantaDB {
     // PyO3 keyword argument binding requires matching function parameters in Rust.
     #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=false, exclude_superseded=false))]
     #[allow(clippy::too_many_arguments)]
-    fn search_memory(
+    fn search(
         &self,
         py: Python,
         namespace: &str,
@@ -1295,8 +1293,8 @@ impl VantaDB {
     ///
     /// Example:
     ///     ```python
-    ///     >>> from vantadb_py import VantaDB
-    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
     ///     >>> db.put("agent/main", "task-1", "alpha", vector=[1.0, 0.0, 0.0])
     ///     >>> report = db.rebuild_index()
     ///     >>> report["indexed_vectors"]
@@ -1356,8 +1354,8 @@ impl VantaDB {
     /// Example:
     ///     ```python
     ///     >>> import tempfile
-    ///     >>> from vantadb_py import VantaDB
-    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
     ///     >>> db.put("agent/main", "task-1", "alpha")
     ///     >>> with tempfile.TemporaryDirectory() as tmp:
     ///     ...     report = db.export_namespace(f"{tmp}/export.jsonl", "agent/main")
@@ -1397,8 +1395,8 @@ impl VantaDB {
     /// Example:
     ///     ```python
     ///     >>> import tempfile
-    ///     >>> from vantadb_py import VantaDB
-    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
     ///     >>> db.put("agent/main", "task-1", "alpha")
     ///     >>> with tempfile.TemporaryDirectory() as tmp:
     ///     ...     report = db.export_all(f"{tmp}/export.jsonl")
@@ -1435,13 +1433,13 @@ impl VantaDB {
     /// Example:
     ///     ```python
     ///     >>> import tempfile
-    ///     >>> from vantadb_py import VantaDB
-    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
     ///     >>> db.put("agent/main", "task-1", "alpha")
     ///     >>> with tempfile.TemporaryDirectory() as tmp:
     ///     ...     export_path = f"{tmp}/export.jsonl"
     ///     ...     db.export_namespace(export_path, "agent/main")
-    ///     ...     target = VantaDB(":memory:", backend="memory")
+    ///     ...     target = Client(":memory:", backend="memory")
     ///     ...     report = target.import_file(export_path)
     ///     ...     report["inserted"]
     ///     1
@@ -1531,8 +1529,8 @@ impl VantaDB {
     ///
     /// Example:
     ///     ```python
-    ///     >>> from vantadb_py import VantaDB
-    ///     >>> db = VantaDB(":memory:", backend="memory")
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
     ///     >>> db.put("agent/main", "task-1", "alpha")
     ///     >>> metrics = db.operational_metrics()
     ///     >>> metrics["startup_ms"] >= 0
@@ -1577,7 +1575,7 @@ impl VantaDB {
     ///     vector: Query embedding vector.
     ///     top_k: Number of nearest neighbors to return.
     #[pyo3(signature = (vector, top_k=10))]
-    fn search(
+    fn search_vector(
         &self,
         py: Python,
         vector: &Bound<'_, PyAny>,
@@ -1644,7 +1642,7 @@ impl VantaDB {
     /// Hybrid memory search for a batch of full search requests.
     ///
     /// Each element is a [`SearchRequest`][1] dataclass or an equivalent
-    /// ``dict`` with the same keys as ``search_memory``: ``namespace``,
+    /// ``dict`` with the same keys as ``search``: ``namespace``,
     /// ``query_vector``, ``filters``, ``text_query``, ``top_k``,
     /// ``distance_metric``, ``explain``.
     ///
@@ -1891,7 +1889,7 @@ impl VantaDB {
     ///
     /// Returns the database handle itself, enabling the Python idiom:
     /// ```python
-    /// with VantaDB(":memory:", backend="memory") as db:
+    ///     with Client(":memory:", backend="memory") as db:
     ///     db.put("ns", "key", "value")
     /// # WAL is flushed automatically on exit
     /// ```
@@ -1920,7 +1918,7 @@ impl VantaDB {
     fn __repr__(&self) -> String {
         let caps = self.engine.capabilities();
         format!(
-            "VantaDB(profile={}, read_only={}, vector_search={}, persistence={})",
+            "Client(profile={}, read_only={}, vector_search={}, persistence={})",
             runtime_profile_label(caps.runtime_profile),
             caps.read_only,
             caps.vector_search,
@@ -2244,7 +2242,7 @@ impl VantaDB {
     }
 }
 
-impl VantaDB {
+impl Client {
     /// Read a field from a batch search request element — either a ``dict``
     /// (mapping keys) or a ``SearchRequest`` dataclass (attribute access).
     fn request_field<'py>(
@@ -2386,7 +2384,7 @@ fn connect(
     memory_limit: Option<u64>,
     read_only: bool,
     backend: Option<&str>,
-) -> PyResult<VantaDB> {
+) -> PyResult<Client> {
     let storage_path = if path.is_empty() || path == ":memory:" {
         ":memory:".to_string()
     } else {
@@ -2399,7 +2397,7 @@ fn connect(
 /// Usage: `import vantadb_py`
 #[pymodule]
 fn vantadb_py(_py: Python, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
-    m.add_class::<VantaDB>()?;
+    m.add_class::<Client>()?;
     m.add_class::<VantaVector>()?;
     m.add_class::<VantaVectorIter>()?;
     m.add_class::<VantaPySearchHit>()?;

@@ -43,7 +43,7 @@ impl<'a> FlatBufferView<'a> {
 ///
 /// Wraps a `MemoryRecord` and exposes fields as individual properties
 /// instead of allocating a PyDict per record.
-#[pyclass(name = "VantaMemoryRecord", skip_from_py_object)]
+#[pyclass(name = "Record", skip_from_py_object)]
 #[derive(Clone)]
 pub struct VantaPyMemoryRecord {
     pub inner: MemoryRecord,
@@ -151,7 +151,7 @@ impl VantaPyMemoryRecord {
             "superseded_at_ms" => self.superseded_at_ms().into_pyobject(py)?.into_any(),
             _ => {
                 return Err(pyo3::exceptions::PyKeyError::new_err(format!(
-                    "VantaMemoryRecord has no field '{key}'"
+                    "Record has no field '{key}'"
                 )))
             }
         })
@@ -159,7 +159,7 @@ impl VantaPyMemoryRecord {
 
     fn __repr__(&self) -> String {
         format!(
-            "VantaMemoryRecord(namespace={}, key={}, dim={})",
+            "Record(namespace={}, key={}, dim={})",
             self.inner.namespace,
             self.inner.key,
             self.inner.vector.as_ref().map(|v| v.len()).unwrap_or(0),
@@ -170,7 +170,7 @@ impl VantaPyMemoryRecord {
 /// A Python-accessible list result page.
 ///
 /// Wraps a page of memory records with pagination info.
-#[pyclass(name = "VantaListResult", skip_from_py_object)]
+#[pyclass(name = "ListResult", skip_from_py_object)]
 #[derive(Clone)]
 pub struct VantaPyListResult {
     pub records: Vec<VantaPyMemoryRecord>,
@@ -229,12 +229,12 @@ impl VantaPyListResult {
                 "next_cursor" => Ok(self.next_cursor().into_pyobject(py)?.into_any()),
                 "total_count" => Ok(self.total_count().into_pyobject(py)?.into_any()),
                 _ => Err(pyo3::exceptions::PyKeyError::new_err(format!(
-                    "VantaListResult has no field '{s}'"
+                    "ListResult has no field '{s}'"
                 ))),
             }
         } else {
             Err(pyo3::exceptions::PyTypeError::new_err(
-                "VantaListResult indices must be integers or strings",
+                "ListResult indices must be integers or strings",
             ))
         }
     }
@@ -248,7 +248,7 @@ impl VantaPyListResult {
 
     fn __repr__(&self) -> String {
         format!(
-            "VantaListResult(count={}, next_cursor={:?})",
+            "ListResult(count={}, next_cursor={:?})",
             self.records.len(),
             self.next_cursor
         )
@@ -256,7 +256,7 @@ impl VantaPyListResult {
 }
 
 /// Iterator for `VantaListResult`.
-#[pyclass(name = "VantaListResultIter")]
+#[pyclass(name = "ListResultIter")]
 struct VantaListResultIter {
     inner: Vec<VantaPyMemoryRecord>,
     index: usize,
@@ -279,11 +279,11 @@ impl VantaListResultIter {
     }
 }
 
-/// A Python-accessible search hit returned by `search_memory`.
+/// A Python-accessible search hit returned by `search`.
 ///
 /// Wraps a `MemoryRecord` plus the relevance score as typed getters,
 /// avoiding per-hit PyDict allocation in the hot path.
-#[pyclass(name = "VantaSearchHit")]
+#[pyclass(name = "SearchHit")]
 pub(crate) struct VantaPySearchHit {
     pub(crate) inner: MemoryRecord,
     pub(crate) score: f32,
@@ -376,7 +376,7 @@ impl VantaPySearchHit {
 
     fn __repr__(&self) -> String {
         format!(
-            "VantaSearchHit(namespace={}, key={}, score={:.4}, dim={})",
+            "SearchHit(namespace={}, key={}, score={:.4}, dim={})",
             self.inner.namespace,
             self.inner.key,
             self.score,
@@ -411,7 +411,7 @@ impl VantaPySearchHit {
                 dict.set_item("version", 3)?;
                 Ok(dict.unbind().into())
             }
-            None => Err(PyRuntimeError::new_err("VantaSearchHit has no vector")),
+            None => Err(PyRuntimeError::new_err("SearchHit has no vector")),
         }
     }
 }

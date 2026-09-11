@@ -16,6 +16,7 @@ from typing import Any
 
 from .vantadb_py import (
     BusyError,
+    Client,
     ConflictError,
     CorruptError,
     NotFoundError,
@@ -24,39 +25,26 @@ from .vantadb_py import (
     StorageError,
     TimeoutError,
     UnsupportedError,
-    VantaDB,
     VantaError,
     ValidationError,
-    VantaListResult,
-    VantaMemoryRecord,
-    VantaSearchHit,
+    ListResult,
+    Record,
+    SearchHit,
     VantaVector,
     __version__,
     connect,
 )
 
-# AST-003: clean aliases — mirror of __init__.py (plain assignments so the
-# drift-test re-export check, which only inspects ImportFrom names, is
-# unaffected: these names are NOT imported from the native module).
-Client: type[VantaDB]
-Record: type[VantaMemoryRecord]
-Hit: type[VantaSearchHit]
-SearchHit: type[VantaSearchHit]
-ListResult: type[VantaListResult]
+# AST-008: solo sobrevive el puente `Vector = VantaVector` (rename nativo en
+# AST-010); el resto de aliases AST-003 se eliminan con el rename directo.
 Vector: type[VantaVector]
 
 __all__ = [
-    "VantaDB",
     "Client",
     "AsyncVantaDB",
-    "AsyncClient",
-    "VantaListResult",
     "ListResult",
-    "VantaMemoryRecord",
     "Record",
-    "VantaSearchHit",
     "SearchHit",
-    "Hit",
     "VantaVector",
     "Vector",
     "SearchRequest",
@@ -86,8 +74,8 @@ def error_to_dict(exc: BaseException) -> dict[str, Any]:
 class SearchRequest:
     """Full search request for batch searches.
 
-    Mirrors the keyword arguments of ``VantaDB.search_memory``. Pass
-    instances (or equivalent dicts) to ``VantaDB.search_batch_requests``.
+    Mirrors the keyword arguments of ``Client.search``. Pass
+    instances (or equivalent dicts) to ``Client.search_batch_requests``.
     """
 
     namespace: str
@@ -117,7 +105,7 @@ class SearchRequest:
 
 
 class AsyncVantaDB:
-    """Async wrapper around ``VantaDB``.
+    """Async wrapper around ``Client``.
 
     Query methods run in a thread pool via ``asyncio.to_thread()``,
     releasing the GIL to the Rust engine (``py.allow_threads``).
@@ -127,7 +115,7 @@ class AsyncVantaDB:
     async def __aenter__(self) -> AsyncVantaDB: ...
     async def __aexit__(self, *exc: Any) -> None: ...
 
-    async def search_memory(
+    async def search(
         self,
         namespace: str,
         query_vector: list[float],
@@ -139,8 +127,8 @@ class AsyncVantaDB:
         method: str | None = None,
         explain: bool = False,
         exclude_superseded: bool = False,
-    ) -> list[VantaSearchHit]: ...
-    async def get_memory(self, namespace: str, key: str) -> VantaMemoryRecord | None: ...
+    ) -> list[SearchHit]: ...
+    async def get_memory(self, namespace: str, key: str) -> Record | None: ...
     async def list_memory(
         self,
         namespace: str,
@@ -149,10 +137,13 @@ class AsyncVantaDB:
         limit: int = 100,
         cursor: int | None = None,
         exclude_superseded: bool = False,
-    ) -> VantaListResult: ...
-    # AST-003 clean aliases (mirror of __init__.py).
-    async def list(self, namespace: str, **kwargs: Any) -> VantaListResult: ...
-    async def search_vector(self, vector: Any, top_k: int = 10) -> Any: ...
+    ) -> ListResult: ...
+    # Domain-client conveniences (mirror of __init__.py): `list` forwards to
+    # `list_memory`; `search_vector` is the pure-ANN op (OD-2=B).
+    async def list(self, namespace: str, **kwargs: Any) -> ListResult: ...
+    async def search_vector(
+        self, vector: Any, top_k: int = 10
+    ) -> list[tuple[int, float]]: ...
     async def put(
         self,
         namespace: str,
@@ -162,13 +153,13 @@ class AsyncVantaDB:
         metadata: dict | None = None,
         vector: list[float] | None = None,
         ttl_ms: int | None = None,
-    ) -> VantaMemoryRecord: ...
+    ) -> Record: ...
     async def delete_memory(self, namespace: str, key: str) -> bool: ...
     async def delete_by_filter(self, namespace: str, filters: dict) -> int: ...
     async def count(self, namespace: str, filters: dict | None = None) -> int: ...
     async def similar_to_key(
         self, namespace: str, key: str, top_k: int = 10
-    ) -> list[VantaSearchHit]: ...
+    ) -> list[SearchHit]: ...
     async def compact_wal(self) -> None: ...
     async def supersede(self, namespace: str, old_key: str, new_key: str) -> None: ...
     async def purge_expired(self) -> int: ...
@@ -190,7 +181,7 @@ class AsyncVantaDB:
         namespace: str | None = None,
         namespaces: list[str] | None = None,
         ttls: list[int | None] | None = None,
-    ) -> list[VantaMemoryRecord]: ...
+    ) -> list[Record]: ...
     async def put_batch_raw(
         self,
         vectors: Any,
@@ -200,7 +191,7 @@ class AsyncVantaDB:
         metadatas: list[dict | None] | None = None,
         namespaces: list[str] | None = None,
         ttls: list[int | None] | None = None,
-    ) -> list[VantaMemoryRecord]: ...
+    ) -> list[Record]: ...
     async def rebuild_index(self) -> dict: ...
     async def bulk_import(self, path: str) -> dict: ...
     async def bulk_import_bytes(self, data: bytes) -> dict: ...
@@ -220,13 +211,13 @@ class AsyncVantaDB:
     # AST-003 node parity aliases (mirror of __init__.py).
     async def get_node(self, id: int) -> dict | None: ...
     async def delete_node(self, id: int, reason: str = "manual deletion") -> None: ...
-    async def search(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
+    async def search_vector(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
     async def search_batch(
         self, vectors: list[Any], top_k: int = 10
     ) -> list[list[tuple[int, float]]]: ...
     async def search_batch_requests(
         self, requests: list[Any], top_k: int = 10
-    ) -> list[list[VantaSearchHit]]: ...
+    ) -> list[list[SearchHit]]: ...
     async def query(self, iql_query: str) -> str: ...
     async def query_structured(self, iql_query: str) -> dict: ...
     async def capabilities(self) -> dict: ...
@@ -276,6 +267,3 @@ class AsyncVantaDB:
         distance_metric: str | None = None,
     ) -> dict: ...
     def __repr__(self) -> str: ...
-
-
-AsyncClient: type[AsyncVantaDB]
