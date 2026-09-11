@@ -51,3 +51,8 @@ aliases: []
 ### ERR-006 (deny.toml RUSTSEC-2024-0436 limpio) — migrado 2026-08-12 (ver docs/progreso/README.md)
 
 ### ERR-007 (multiple-versions ban-skip documentado) - migrado 2026-08-12 (ver docs/progreso/README.md)
+
+### AST-007 (deny triage 2026-09-11)
+- RUSTSEC-2023-0071 (rsa 0.9.10/Marvin via jsonwebtoken 11.0.0): triaged con evidencia HS256-only (src/server/jwt.rs:9,64-67; sin from_rsa_* en src/); ignore con owner vanta-lead + expiry 2027-01-01. Sin patch disponible segun advisory.
+- RUSTSEC-2026-0253 (lru): ignore removido - advisory-not-detected (lru directo 0.18.4 >= 0.18.2; 0.16.4 solo transitiva via tantivy 0.26.1).
+- Verificacion: cargo deny check exit 0 (advisories/bans/licenses/sources ok).

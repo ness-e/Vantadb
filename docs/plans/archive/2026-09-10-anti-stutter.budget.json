@@ -1,0 +1,90 @@
+{
+  "tasks": {
+    "1": {
+      "taskId": "1",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789088556864,
+      "lastActivity": 1789090325435,
+      "traceId": "ebcfd1e4-f384-4758-b816-972e2dcf7948"
+    },
+    "2": {
+      "taskId": "2",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789090343328,
+      "lastActivity": 1789090488176,
+      "traceId": "994a5179-3697-4c34-a9ce-7df5063f3f4c"
+    },
+    "3": {
+      "taskId": "3",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789093317607,
+      "lastActivity": 1789093317624,
+      "traceId": "77a2dad3-5109-4cc6-925b-28bc3c854849"
+    },
+    "4": {
+      "taskId": "4",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789094499222,
+      "lastActivity": 1789094499222
+    },
+    "5": {
+      "taskId": "5",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789095269199,
+      "lastActivity": 1789095269199
+    },
+    "6": {
+      "taskId": "6",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789097493879,
+      "lastActivity": 1789097493879
+    },
+    "AST-001": {
+      "taskId": "AST-001",
+      "toolCalls": 3,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789090199156,
+      "lastActivity": 1789090222138
+    },
+    "AST-004": {
+      "taskId": "AST-004",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789094648442,
+      "lastActivity": 1789094648442,
+      "traceId": "d3fd32a1-e39f-4d1b-b99e-6468c6c4d8c5"
+    },
+    "AST-005": {
+      "taskId": "AST-005",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789095461089,
+      "lastActivity": 1789095461089,
+      "traceId": "44b75082-8fa6-4e25-9c18-fe4821e11ef3"
+    },
+    "AST-007": {
+      "taskId": "AST-007",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789098649418,
+      "lastActivity": 1789098649418,
+      "traceId": "8447e975-32de-45ce-9b6a-59f626dd9294"
+    }
+  }
+}
