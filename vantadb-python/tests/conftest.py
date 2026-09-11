@@ -6,7 +6,7 @@ Two things happen here:
    (MOD-16 contract). PyO3 instances are neither gc-visible nor weakref-able,
    so tracking hooks the package attribute (conftest imports before any test
     module; both ``import vantadb_py as vanta`` and ``from vantadb_py import
-    Client`` styles resolve it, including ``AsyncVantaDB``'s inner sync
+    Client`` styles resolve it, including ``AsyncClient``'s inner sync
    handle). Reopening a file-backed path closes the previous tracked handle
    first (Fjall takes an exclusive lock per path), mirroring the
    refcount-release timing helpers like ``migrate_from_*`` rely on mid-test.

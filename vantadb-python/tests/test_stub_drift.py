@@ -8,8 +8,8 @@ MOD-18: two stubs ship in the wheel (``pyproject.toml`` includes
   single source of truth for native signatures: every method/parameter on
   the native classes must be declared here.
 - ``__init__.pyi``    — types the wrapper package (``SearchRequest``,
-  ``AsyncVantaDB``, re-exports). It must re-export from ``vantadb_py.pyi``
-  (not re-declare) and mirror the real ``AsyncVantaDB`` in ``__init__.py``.
+  ``AsyncClient``, re-exports). It must re-export from ``vantadb_py.pyi``
+  (not re-declare) and mirror the real ``AsyncClient`` in ``__init__.py``.
 
 These tests parse both stubs with :mod:`ast` and compare them against the
 *compiled* module via :func:`inspect.signature` (PyO3 exposes real
@@ -18,7 +18,7 @@ update fails here.
 
 The tests that need the compiled module skip cleanly when it is not
 importable (e.g. CI without a ``maturin develop`` build), keeping the plain
-``pytest`` unit gate green. The wrapper ``AsyncVantaDB`` is pure Python and
+``pytest`` unit gate green. The wrapper ``AsyncClient`` is pure Python and
 is always checked.
 """
 
@@ -291,36 +291,36 @@ def test_wrapper_stub_reexports_native_names():
 # ── Wrapper (pure Python — always runs, no compiled module needed) ─────────
 
 
-def test_async_wrapper_stub_matches_real_asyncvantadb():
-    """AsyncVantaDB in __init__.pyi must mirror the real wrapper in
+def test_async_wrapper_stub_matches_real_asyncclient():
+    """AsyncClient in __init__.pyi must mirror the real wrapper in
     __init__.py (methods + params + requiredness)."""
     if vanta is None:
         pytest.skip("compiled vantadb_py module not available (run `maturin develop` first)")
-    stub = _parse_stub(PKG / "__init__.pyi")["AsyncVantaDB"]
-    _assert_method_parity(stub["methods"], vanta.AsyncVantaDB, "AsyncVantaDB")
-    for name in sorted(set(stub["methods"]) & _public_callables(vanta.AsyncVantaDB)):
+    stub = _parse_stub(PKG / "__init__.pyi")["AsyncClient"]
+    _assert_method_parity(stub["methods"], vanta.AsyncClient, "AsyncClient")
+    for name in sorted(set(stub["methods"]) & _public_callables(vanta.AsyncClient)):
         real_params = [
-            p for p in inspect.signature(getattr(vanta.AsyncVantaDB, name)).parameters
+            p for p in inspect.signature(getattr(vanta.AsyncClient, name)).parameters
             if p != "self"
         ]
         real_required = {
             p
-            for p, par in inspect.signature(getattr(vanta.AsyncVantaDB, name)).parameters.items()
+            for p, par in inspect.signature(getattr(vanta.AsyncClient, name)).parameters.items()
             if p != "self" and par.default is inspect.Parameter.empty
         }
         for fn in ast.walk(ast.parse((PKG / "__init__.pyi").read_text(encoding="utf-8"))):
             if (
                 isinstance(fn, ast.ClassDef)
-                and fn.name == "AsyncVantaDB"
+                and fn.name == "AsyncClient"
             ):
                 for item in fn.body:
                     if isinstance(item, ast.FunctionDef) and item.name == name:
                         stub_params, stub_required = _stub_function(item)
                         assert stub_params == real_params, (
-                            f"AsyncVantaDB.{name}: params stub {stub_params} != real {real_params}"
+                            f"AsyncClient.{name}: params stub {stub_params} != real {real_params}"
                         )
                         assert stub_required == real_required, (
-                            f"AsyncVantaDB.{name}: requeridos stub {sorted(stub_required)} != real {sorted(real_required)}"
+                            f"AsyncClient.{name}: requeridos stub {sorted(stub_required)} != real {sorted(real_required)}"
                         )
 
 

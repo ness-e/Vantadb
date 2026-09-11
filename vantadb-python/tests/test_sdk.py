@@ -856,15 +856,15 @@ class TestMemoryBoundary:
         assert hw is not None, "hardware_profile should not be None after init with memory limit"
 
 
-class TestAsyncVantaDB:
+class TestAsyncClient:
     """Async wrapper for query methods."""
 
     def test_async_basic_crud(self):
-        """AsyncVantaDB should support put/memory.get/search."""
+        """AsyncClient should support put/memory.get/search."""
         import asyncio
 
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 await db.put("ns", "k", "hello", metadata={"tag": "test"})
@@ -879,11 +879,11 @@ class TestAsyncVantaDB:
         asyncio.run(run())
 
     def test_async_memory_list(self):
-        """AsyncVantaDB.memory.list should work."""
+        """AsyncClient.memory.list should work."""
         import asyncio
 
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 await db.put("ns", "a", "alpha")
@@ -894,11 +894,11 @@ class TestAsyncVantaDB:
         asyncio.run(run())
 
     def test_async_delete_and_flush(self):
-        """AsyncVantaDB.memory.delete and flush should work."""
+        """AsyncClient.memory.delete and flush should work."""
         import asyncio
 
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 await db.put("ns", "x", "to-delete")
@@ -909,13 +909,13 @@ class TestAsyncVantaDB:
         asyncio.run(run())
 
     def test_async_flush_persists_durability(self):
-        """AsyncVantaDB.flush should sync WAL + HNSW so data survives reopen."""
+        """AsyncClient.flush should sync WAL + HNSW so data survives reopen."""
         import asyncio
 
         path = _unique_path()
 
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 path, memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 await db.put("ns", "durable", "survives", metadata={"tag": "flush"})
@@ -934,11 +934,11 @@ class TestAsyncVantaDB:
         db.close()
 
     def test_async_purge_expired(self):
-        """AsyncVantaDB.purge_expired should physically remove expired records."""
+        """AsyncClient.purge_expired should physically remove expired records."""
         import asyncio
 
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 await db.put("ns", "keep", "alive")
@@ -959,11 +959,11 @@ class TestAsyncVantaDB:
         asyncio.run(run())
 
     def test_async_query_iql(self):
-        """AsyncVantaDB.query should execute IQL and return a formatted string."""
+        """AsyncClient.query should execute IQL and return a formatted string."""
         import asyncio
 
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 write = await db.query('INSERT NODE#42 TYPE Person { name: "queryable" }')
@@ -977,11 +977,11 @@ class TestAsyncVantaDB:
         asyncio.run(run())
 
     def test_async_graph_operations(self):
-        """AsyncVantaDB graph API: add_edge, BFS/DFS traversal, centrality."""
+        """AsyncClient graph API: add_edge, BFS/DFS traversal, centrality."""
         import asyncio
 
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 await db.insert(1, "Source", [])
@@ -1001,11 +1001,11 @@ class TestAsyncVantaDB:
         asyncio.run(run())
 
     def test_async_graph_algorithms(self):
-        """AsyncVantaDB graph algorithms: topological sort, DAG check, PageRank, layout."""
+        """AsyncClient graph algorithms: topological sort, DAG check, PageRank, layout."""
         import asyncio
 
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 await db.insert(1, "A", [])
@@ -1027,11 +1027,11 @@ class TestAsyncVantaDB:
         asyncio.run(run())
 
     def test_async_batch_and_node_apis(self):
-        """AsyncVantaDB batch APIs, node get/delete, and low-level search."""
+        """AsyncClient batch APIs, node get/delete, and low-level search."""
         import asyncio
 
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 # put_batch (keyword form)
@@ -1074,11 +1074,11 @@ class TestAsyncVantaDB:
         asyncio.run(run())
 
     def test_async_search_batch_requests(self):
-        """AsyncVantaDB.search_batch_requests should accept SearchRequest and asdict forms."""
+        """AsyncClient.search_batch_requests should accept SearchRequest and asdict forms."""
         import asyncio
 
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 for i in range(5):
@@ -1108,7 +1108,7 @@ class TestAsyncVantaDB:
         asyncio.run(run())
 
     def test_async_export_import(self):
-        """AsyncVantaDB export_namespace, export_all, and import_file round-trip."""
+        """AsyncClient export_namespace, export_all, and import_file round-trip."""
         import asyncio
         import tempfile
 
@@ -1116,7 +1116,7 @@ class TestAsyncVantaDB:
             with tempfile.TemporaryDirectory() as tmp:
                 export_path = f"{tmp}/agent-main.jsonl"
                 all_path = f"{tmp}/all.jsonl"
-                async with vanta.AsyncVantaDB(
+                async with vanta.AsyncClient(
                     _unique_path(), memory_limit_bytes=128 * 1024 * 1024
                 ) as db:
                     await db.put("agent/main", "export-me", "portable memory",
@@ -1130,7 +1130,7 @@ class TestAsyncVantaDB:
                     all_export = await db.export_all(all_path)
                     assert all_export["records_exported"] == 1, f"expected 1, got {all_export['records_exported']}"
 
-                async with vanta.AsyncVantaDB(
+                async with vanta.AsyncClient(
                     _unique_path(), memory_limit_bytes=128 * 1024 * 1024
                 ) as target:
                     imported = await target.import_file(export_path)
@@ -1143,11 +1143,11 @@ class TestAsyncVantaDB:
         asyncio.run(run())
 
     def test_async_admin_maintenance(self):
-        """AsyncVantaDB maintenance ops: WAL compaction, index rebuild/audit/repair, metrics."""
+        """AsyncClient maintenance ops: WAL compaction, index rebuild/audit/repair, metrics."""
         import asyncio
 
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 await db.put("agent/main", "a", "alpha", vector=[1.0, 0.0, 0.0])
@@ -1179,16 +1179,16 @@ class TestAsyncVantaDB:
                 assert "profile" in hw and "process_rss_bytes" in hw, \
                     f"hardware_profile should expose memory telemetry, got {list(hw.keys())}"
 
-                assert repr(db).startswith("AsyncVantaDB"), f"unexpected repr: {repr(db)}"
+                assert repr(db).startswith("AsyncClient"), f"unexpected repr: {repr(db)}"
 
         asyncio.run(run())
 
     def test_async_snippet_and_explain(self):
-        """AsyncVantaDB.generate_snippet and explain_memory_search."""
+        """AsyncClient.generate_snippet and explain_memory_search."""
         import asyncio
 
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 snippet = await db.generate_snippet(
@@ -1205,11 +1205,11 @@ class TestAsyncVantaDB:
         asyncio.run(run())
 
     def test_async_explicit_close(self):
-        """AsyncVantaDB.close() should flush and make the DB reopenable."""
+        """AsyncClient.close() should flush and make the DB reopenable."""
         import asyncio
 
         path = _unique_path()
-        db = vanta.AsyncVantaDB(path, memory_limit_bytes=128 * 1024 * 1024)
+        db = vanta.AsyncClient(path, memory_limit_bytes=128 * 1024 * 1024)
 
         async def run():
             await db.put("ns", "closed", "durable payload")
@@ -1224,7 +1224,7 @@ class TestAsyncVantaDB:
         reopened.close()
 
     def test_async_bulk_import_bytes(self, tmp_path):
-        """AsyncVantaDB.bulk_import_bytes should import a binary .vdbdump stream.
+        """AsyncClient.bulk_import_bytes should import a binary .vdbdump stream.
 
         COV-001: exercises the async wrapper for the bulk binary import path
         (the imported records are intentionally NOT asserted as retrievable via
@@ -1244,7 +1244,7 @@ class TestAsyncVantaDB:
         ])
 
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 report = await db.bulk_import_bytes(dump)
@@ -1256,7 +1256,7 @@ class TestAsyncVantaDB:
         asyncio.run(run())
 
     def test_async_bulk_import_file(self, tmp_path):
-        """AsyncVantaDB.bulk_import should import from a .vdbdump file."""
+        """AsyncClient.bulk_import should import from a .vdbdump file."""
         import asyncio
 
         dump_path = str(tmp_path / "import.vdbdump")
@@ -1272,7 +1272,7 @@ class TestAsyncVantaDB:
             ]))
 
         async def run():
-            async with vanta.AsyncVantaDB(
+            async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 report = await db.bulk_import(dump_path)

@@ -51,7 +51,7 @@ from .vantadb_py import (
 
 __all__ = [
     "Client",
-    "AsyncVantaDB",
+    "AsyncClient",
     "ListResult",
     "Record",
     "SearchHit",
@@ -150,14 +150,14 @@ class AsyncMemoryClient:
 
     AST-012 (paridad TS ``MemoryClient``): short names ``get``/``list``/
     ``delete`` — no ``*_memory`` surname anywhere. The flat ``get``/``delete``
-    names stay node-level (``id: u128``) on ``AsyncVantaDB``
+    names stay node-level (``id: u128``) on ``AsyncClient``
     (BINDINGS_NAMESPACES hazard), so the memory ops live here; every call
     runs in a thread pool via the parent's ``_run`` (same GIL-release as
-    the rest of ``AsyncVantaDB``).
+    the rest of ``AsyncClient``).
 
     Usage::
 
-        async with AsyncVantaDB("./my_brain") as db:
+        async with AsyncClient("./my_brain") as db:
             record = await db.memory.get("ns", "key")
             page = await db.memory.list("ns", limit=10)
             await db.memory.delete("ns", "key")
@@ -195,7 +195,7 @@ class AsyncMemoryClient:
         return f"AsyncMemoryClient(sync={self._sync!r})"
 
 
-class AsyncVantaDB:
+class AsyncClient:
     """Async wrapper around Client.
 
     Query methods (search, ``memory.get``, ``memory.list``) run
@@ -206,7 +206,7 @@ class AsyncVantaDB:
     no surname — AST-012, paridad TS); flat ``get``/``delete`` stay
     node-level (``id: u128``). Usage::
 
-        async with AsyncVantaDB("./my_brain") as db:
+        async with AsyncClient("./my_brain") as db:
             record = await db.memory.get("ns", "key")
             results = await db.search("ns", [1.0, 0.0, 0.0], top_k=5)
     """
@@ -527,6 +527,6 @@ class AsyncVantaDB:
         return await self._run(self._sync.hardware_profile)
 
     def __repr__(self):
-        return f"AsyncVantaDB(sync={self._sync!r})"
+        return f"AsyncClient(sync={self._sync!r})"
 
 
