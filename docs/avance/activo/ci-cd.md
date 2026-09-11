@@ -328,3 +328,9 @@ aliases: []
 - **Objetivo:** desbloqueada por BND-08 — prebuilds + README experimental + checklist publish humano.
 - **Resultado:** ✅ pack dry-run 6 files + tags sin colisión + secrets 0; publish real PROHIBIDO (humano vía checklist 9 ítems).
 - **Commit:** 88ef674b (RETRY tras abort sin task_id)
+
+### AST-007: Release major + barrido final cero-remanentes (plan 2026-09-10 anti-stutter 7/7)
+- **Fecha:** 2026-09-11
+- **Objetivo:** gate pre-publish (semver major, deny, verify) + barrido cero-remanentes + rollback plan + retrospectiva + archivar plan. Sin publish (via release-plz al mergear a main).
+- **Resultado:** ✅ semver-checks major 15/0 (FormatKind::VantaFile removida, QueryResult struct->enum + drift develop) + deny exit 0 (RUSTSEC-2023-0071 triaged HS256-only, stale RUSTSEC-2026-0253 removido) + just verify exit 0 (fmt + clippy -D warnings + nextest 3143 passed/1 skipped + deny); migracion 38 pares del mapa en 102 ficheros downstream (346 errores clippy -D warnings) + VantaFileMap->FileMap + WasmMemoryInput; superficie Python preservada (pyclass/m.add/repr).
+- **Commit:** 8fb3dd77 (+59b7b46c archiva plan)

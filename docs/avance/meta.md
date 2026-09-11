@@ -256,3 +256,8 @@ Plan `docs/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ en 3 
 - **Continue:** secuencial en este runner + commits solo paths propios + recitation canónica.
 - **Acción medible:** fixes-fantasma evitados 3/6; métrica: tareas cerradas cero-código / total.
 
+
+## Archivo plan 2026-09-10-anti-stutter (2026-09-11)
+- **Plan:** docs/plans/archive/2026-09-10-anti-stutter.md (+ .budget.json) - 7/7 COMPLETED (AST-001...007).
+- **Retrospectiva:** Start: just verify tras cada rename (caza usos downstream en AST-002, no AST-007). Stop: asumir aliases ⇒ cero churn (-D warnings los vuelve errores); asumir rg-cero literal sin scoped-contract. Continue: mapa unico + verify mecanico + triage con evidencia + recitation.
+- **Accion medible:** incluir crates consumidores en el blast radius de todo codemod de renames (verificado: 346 sitios downstream esta vez).
