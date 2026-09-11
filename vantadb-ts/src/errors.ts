@@ -1,10 +1,13 @@
-export interface VantaErrorJSON {
+export interface ErrorJSON {
   name: string;
   code: string;
   message: string;
   details?: unknown;
   timestamp: string;
 }
+
+/** @deprecated Use {@link ErrorJSON} instead. */
+export type VantaErrorJSON = ErrorJSON;
 
 /**
  * Canonical cross-binding error codes (ERR-TS-01). The VALUES are the ten
@@ -29,7 +32,7 @@ export const ERROR_CODES = {
 
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 
-export class VantaError extends Error {
+export class DbError extends Error {
   readonly code: string;
   readonly details?: unknown;
   readonly timestamp: Date;
@@ -37,14 +40,16 @@ export class VantaError extends Error {
   constructor(code: string, message: string, details?: unknown, options?: ErrorOptions) {
     // `options.cause` preserves the original error chain (ERR-TS-01, §4.3).
     super(message, options);
+    // Serialized `name` stays "VantaError" (AST-004): it is asserted by tests
+    // and mirrored in the toJSON wire shape consumed by Python `error_to_dict`.
     this.name = "VantaError";
     this.code = code;
     this.details = details;
     this.timestamp = new Date();
   }
 
-  toJSON(): VantaErrorJSON {
-    const json: VantaErrorJSON = {
+  toJSON(): ErrorJSON {
+    const json: ErrorJSON = {
       name: this.name,
       code: this.code,
       message: this.message,
@@ -57,6 +62,14 @@ export class VantaError extends Error {
   }
 }
 
+/**
+ * @deprecated Use {@link DbError} instead. Never export a bare `Error` —
+ * it collides with the global.
+ */
+export const VantaError = DbError;
+/** @deprecated Use {@link DbError} instead. */
+export type VantaError = DbError;
+
 /** Codes that may legitimately arrive on an error thrown by the WASM binding. */
 const KNOWN_CODES: ReadonlySet<string> = new Set(Object.values(ERROR_CODES));
 
@@ -66,7 +79,7 @@ interface WasmErrorLike extends Error {
 }
 
 /**
- * Classify a WASM-binding error message into a `VantaError` code.
+ * Classify a WASM-binding error message into a `DbError` code.
  *
  * Fallback used when the thrown error carries no structured `code` property
  * (e.g. a `vantadb-wasm` pkg build predating FIND-10). The core flattens
@@ -93,8 +106,8 @@ export function classifyWasmError(message: string): ErrorCode {
   return ERROR_CODES.WASM_ERROR;
 }
 
-export function wrapWasmError(e: unknown, context: string): VantaError {
-  if (e instanceof VantaError) return e;
+export function wrapWasmError(e: unknown, context: string): DbError {
+  if (e instanceof DbError) return e;
   const message = e instanceof Error ? e.message : String(e);
   const details = e instanceof Error
     ? { name: e.name, stack: e.stack }
@@ -106,7 +119,7 @@ export function wrapWasmError(e: unknown, context: string): VantaError {
     && KNOWN_CODES.has((e as WasmErrorLike).code as string)
     ? (e as WasmErrorLike).code as string
     : classifyWasmError(message);
-  return new VantaError(
+  return new DbError(
     code,
     `${context}: ${message}`,
     details,

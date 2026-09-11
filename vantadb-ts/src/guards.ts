@@ -1,12 +1,12 @@
-import { VantaError, ERROR_CODES } from "./errors.js";
+import { DbError, ERROR_CODES } from "./errors.js";
 
 import type {
   MemoryRecord,
   NodeRecord,
   SearchHit,
   SearchRequest,
-  VantaValue,
-  VantaMetadata,
+  Value,
+  Metadata,
 } from "./types.js";
 
 export function isMemoryRecord(r: unknown): r is MemoryRecord {
@@ -60,7 +60,7 @@ const VALID_VANTA_TYPES = [
   "ListBool",
 ] as const;
 
-export function isValidVantaValue(v: unknown): v is VantaValue {
+export function isValidVantaValue(v: unknown): v is Value {
   if (v === null || typeof v !== "object") return false;
   const obj = v as Record<string, unknown>;
   const keys = Object.keys(obj);
@@ -71,7 +71,7 @@ export function isValidVantaValue(v: unknown): v is VantaValue {
   return true;
 }
 
-export function isVantaMetadata(m: unknown): m is VantaMetadata {
+export function isVantaMetadata(m: unknown): m is Metadata {
   if (m === null || typeof m !== "object") return false;
   return Object.values(m).every(isValidVantaValue);
 }
@@ -85,28 +85,28 @@ export function isValidVector(v: unknown): v is number[] {
 /**
  * Validate a vector input. Accepts a plain `number[]` (copied downstream
  * into a `Float32Array`) or a `Float32Array` (passed through zero-copy —
- * prefer it on hot paths). Throws `VantaError` with the canonical
+ * prefer it on hot paths). Throws `DbError` with the canonical
  * `VANTADB_VALIDATION_ERROR` code (ERR-TS-01 — previously raw
  * `TypeError`/`RangeError`, which bypassed the uniform error contract).
- * BREAKING for callers catching `TypeError` by name: catch `VantaError` and
+ * BREAKING for callers catching `TypeError` by name: catch `DbError` and
  * check `.code` instead.
  */
 export function validateVector(v: unknown): asserts v is number[] | Float32Array {
   if (!Array.isArray(v) && !(v instanceof Float32Array)) {
-    throw new VantaError(
+    throw new DbError(
       ERROR_CODES.VALIDATION_ERROR,
       "validateVector: expected an array, got " + typeof v,
     );
   }
   if (v.length === 0) {
-    throw new VantaError(
+    throw new DbError(
       ERROR_CODES.VALIDATION_ERROR,
       "validateVector: vector cannot be empty",
     );
   }
   for (let i = 0; i < v.length; i++) {
     if (typeof v[i] !== "number" || !isFinite(v[i])) {
-      throw new VantaError(
+      throw new DbError(
         ERROR_CODES.VALIDATION_ERROR,
         `validateVector: invalid or non-finite element at index ${i}`,
       );
@@ -122,13 +122,13 @@ export function validateVector(v: unknown): asserts v is number[] | Float32Array
  */
 export function _mapRecord(r: unknown): MemoryRecord {
   if (!r || typeof r !== "object") {
-    throw new VantaError(
+    throw new DbError(
       ERROR_CODES.VALIDATION_ERROR,
       "_mapRecord: expected an object, got " + typeof r,
     );
   }
   if (!isMemoryRecord(r)) {
-    throw new VantaError(
+    throw new DbError(
       ERROR_CODES.VALIDATION_ERROR,
       "_mapRecord: invalid MemoryRecord structure or missing required fields",
     );
