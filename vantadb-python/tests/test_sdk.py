@@ -247,11 +247,11 @@ class TestPersistentMemoryApi:
         assert record["version"] == 1, f"expected version 1, got {record['version']}"
         assert record["metadata"]["category"] == "task", f"expected category 'task', got {record['metadata']['category']}"
 
-        fetched = db.get_memory("agent/main", "task-1")
-        assert fetched is not None, "get_memory should return the stored record"
+        fetched = db.memory.get("agent/main", "task-1")
+        assert fetched is not None, "memory.get should return the stored record"
         assert fetched["node_id"] == record["node_id"], f"expected node_id {record['node_id']}, got {fetched['node_id']}"
 
-        page = db.list_memory("agent/main", filters={"category": "task"})
+        page = db.memory.list("agent/main", filters={"category": "task"})
         assert len(page["records"]) == 1, f"expected 1 record, got {len(page['records'])}"
         assert page["records"][0]["key"] == "task-1", f"expected key 'task-1', got {page['records'][0]['key']}"
 
@@ -322,16 +322,16 @@ class TestPersistentMemoryApi:
         db.close()
 
         reopened = vanta.Client(path, memory_limit_bytes=128 * 1024 * 1024)
-        record = reopened.get_memory("agent/main", "persist")
+        record = reopened.memory.get("agent/main", "persist")
         assert record is not None, "memory record should survive flush/close/reopen"
         assert record["payload"] == "persistent payload", f"expected 'persistent payload', got {record['payload']}"
 
-    def test_delete_memory(self):
+    def test_memory_delete(self):
         """Deleting a memory record should make it unretrievable."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         db.put("agent/main", "delete-me", "temporary")
-        assert db.delete_memory("agent/main", "delete-me") is True, "delete_memory should return True"
-        assert db.get_memory("agent/main", "delete-me") is None, "deleted memory should not be retrievable"
+        assert db.memory.delete("agent/main", "delete-me") is True, "memory.delete should return True"
+        assert db.memory.get("agent/main", "delete-me") is None, "deleted memory should not be retrievable"
 
     def test_count_all_and_filtered(self):
         """count() should return total and operator-filtered record counts."""
@@ -362,7 +362,7 @@ class TestPersistentMemoryApi:
         deleted = db.delete_by_filter("agent/main", {"category": "task"})
         assert deleted == 2, f"expected 2 deleted, got {deleted}"
         assert db.count("agent/main") == 1, f"expected 1 remaining, got {db.count('agent/main')}"
-        assert db.get_memory("agent/main", "c") is not None, "note record should remain"
+        assert db.memory.get("agent/main", "c") is not None, "note record should remain"
 
     def test_delete_by_filter_empty_rejected(self):
         """delete_by_filter() must reject an empty filter to prevent full-namespace deletion."""
@@ -505,7 +505,7 @@ class TestPersistentMemoryApi:
         assert imported["inserted"] == 1, f"expected 1 inserted, got {imported}"
         assert imported["errors"] == 0, f"expected 0 errors, got {imported['errors']}"
 
-        fetched = target.get_memory("agent/main", "export-me")
+        fetched = target.memory.get("agent/main", "export-me")
         assert fetched is not None, "imported record should be retrievable"
         assert fetched["payload"] == "portable memory", f"expected 'portable memory', got {fetched['payload']}"
 
@@ -633,7 +633,7 @@ class TestNumPyIntegration:
         assert records[3]["metadata"]["rank"] == "4", f"expected '4', got {records[3]['metadata']['rank']}"
 
         # verify persisted
-        fetched = db.get_memory("ns1", "d")
+        fetched = db.memory.get("ns1", "d")
         assert fetched["payload"] == "delta", f"expected 'delta', got {fetched['payload']}"
 
     def test_put_batch_two_namespaces_isolated(self):
@@ -649,8 +649,8 @@ class TestNumPyIntegration:
         assert [r["namespace"] for r in records] == ["nsA", "nsB"]
 
         # Read-back isolation: nsA holds only its own record, likewise nsB.
-        keys_a = [r["key"] for r in db.list_memory("nsA", limit=100)["records"]]
-        keys_b = [r["key"] for r in db.list_memory("nsB", limit=100)["records"]]
+        keys_a = [r["key"] for r in db.memory.list("nsA", limit=100)["records"]]
+        keys_b = [r["key"] for r in db.memory.list("nsB", limit=100)["records"]]
         assert keys_a == ["k1"], f"nsA leaked records: {keys_a}"
         assert keys_b == ["k2"], f"nsB leaked records: {keys_b}"
 
@@ -860,7 +860,7 @@ class TestAsyncVantaDB:
     """Async wrapper for query methods."""
 
     def test_async_basic_crud(self):
-        """AsyncVantaDB should support put/get_memory/search."""
+        """AsyncVantaDB should support put/memory.get/search."""
         import asyncio
 
         async def run():
@@ -868,8 +868,8 @@ class TestAsyncVantaDB:
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 await db.put("ns", "k", "hello", metadata={"tag": "test"})
-                record = await db.get_memory("ns", "k")
-                assert record is not None, "get_memory should return a record after put"
+                record = await db.memory.get("ns", "k")
+                assert record is not None, "memory.get should return a record after put"
                 assert record["payload"] == "hello", f"expected 'hello', got {record['payload']}"
                 assert record["metadata"]["tag"] == "test", f"expected tag 'test', got {record['metadata']['tag']}"
 
@@ -878,8 +878,8 @@ class TestAsyncVantaDB:
 
         asyncio.run(run())
 
-    def test_async_list_memory(self):
-        """AsyncVantaDB.list_memory should work."""
+    def test_async_memory_list(self):
+        """AsyncVantaDB.memory.list should work."""
         import asyncio
 
         async def run():
@@ -888,13 +888,13 @@ class TestAsyncVantaDB:
             ) as db:
                 await db.put("ns", "a", "alpha")
                 await db.put("ns", "b", "beta")
-                page = await db.list_memory("ns")
+                page = await db.memory.list("ns")
                 assert len(page["records"]) == 2, f"expected 2 records, got {len(page['records'])}"
 
         asyncio.run(run())
 
     def test_async_delete_and_flush(self):
-        """AsyncVantaDB.delete_memory and flush should work."""
+        """AsyncVantaDB.memory.delete and flush should work."""
         import asyncio
 
         async def run():
@@ -902,8 +902,8 @@ class TestAsyncVantaDB:
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 await db.put("ns", "x", "to-delete")
-                deleted = await db.delete_memory("ns", "x")
-                assert deleted is True, "delete_memory should return True"
+                deleted = await db.memory.delete("ns", "x")
+                assert deleted is True, "memory.delete should return True"
                 await db.flush()
 
         asyncio.run(run())
@@ -920,7 +920,7 @@ class TestAsyncVantaDB:
             ) as db:
                 await db.put("ns", "durable", "survives", metadata={"tag": "flush"})
                 await db.flush()
-                record = await db.get_memory("ns", "durable")
+                record = await db.memory.get("ns", "durable")
                 assert record is not None, "record should be readable after flush"
                 assert record["payload"] == "survives", f"expected 'survives', got {record['payload']}"
 
@@ -928,7 +928,7 @@ class TestAsyncVantaDB:
 
         # reopen with the sync SDK and verify the flushed record is durable on disk
         db = vanta.Client(path, memory_limit_bytes=128 * 1024 * 1024)
-        record = db.get_memory("ns", "durable")
+        record = db.memory.get("ns", "durable")
         assert record is not None, "flushed record should survive a reopen"
         assert record["payload"] == "survives", f"expected 'survives', got {record['payload']}"
         db.close()
@@ -946,15 +946,15 @@ class TestAsyncVantaDB:
 
                 # wait until the 1ms TTL record is lazily evicted
                 for _ in range(200):
-                    if await db.get_memory("ns", "gone") is None:
+                    if await db.memory.get("ns", "gone") is None:
                         break
                     await asyncio.sleep(0.05)
-                assert await db.get_memory("ns", "gone") is None, "expired record should not be retrievable"
+                assert await db.memory.get("ns", "gone") is None, "expired record should not be retrievable"
 
                 purged = await db.purge_expired()
                 assert purged >= 1, f"expected at least 1 purge, got {purged}"
-                assert await db.get_memory("ns", "keep") is not None, "non-expired records should survive purge"
-                assert await db.get_memory("ns", "gone") is None, "expired records should be removed after purge"
+                assert await db.memory.get("ns", "keep") is not None, "non-expired records should survive purge"
+                assert await db.memory.get("ns", "gone") is None, "expired records should be removed after purge"
 
         asyncio.run(run())
 
@@ -1052,7 +1052,7 @@ class TestAsyncVantaDB:
                     vectors, ["k1", "k2"], payloads=["p1", "p2"], namespaces=["raw", "raw"]
                 )
                 assert len(raw) == 2, f"expected 2 raw records, got {len(raw)}"
-                assert await db.get_memory("raw", "k1") is not None, "put_batch_raw record should be retrievable"
+                assert await db.memory.get("raw", "k1") is not None, "put_batch_raw record should be retrievable"
 
                 # low-level node APIs
                 for i in range(5):
@@ -1136,7 +1136,7 @@ class TestAsyncVantaDB:
                     imported = await target.import_file(export_path)
                     assert imported["inserted"] == 1, f"expected 1 inserted, got {imported}"
                     assert imported["errors"] == 0, f"expected 0 errors, got {imported['errors']}"
-                    fetched = await target.get_memory("agent/main", "export-me")
+                    fetched = await target.memory.get("agent/main", "export-me")
                     assert fetched is not None and fetched["payload"] == "portable memory", \
                         f"imported record should be retrievable, got {fetched}"
 
@@ -1153,7 +1153,7 @@ class TestAsyncVantaDB:
                 await db.put("agent/main", "a", "alpha", vector=[1.0, 0.0, 0.0])
                 await db.put("agent/main", "b", "beta", vector=[0.0, 1.0, 0.0])
                 await db.compact_wal()
-                assert await db.get_memory("agent/main", "a") is not None, "data should survive compact_wal"
+                assert await db.memory.get("agent/main", "a") is not None, "data should survive compact_wal"
 
                 # NOTE: rebuild_index/reindex_hnsw_from_text are currently broken at the
                 # engine level (insert_lock -> flush self-deadlock, TimeoutError after 5s).
@@ -1218,7 +1218,7 @@ class TestAsyncVantaDB:
         asyncio.run(run())
 
         reopened = vanta.Client(path, memory_limit_bytes=128 * 1024 * 1024)
-        record = reopened.get_memory("ns", "closed")
+        record = reopened.memory.get("ns", "closed")
         assert record is not None, "record should survive explicit async close + reopen"
         assert record["payload"] == "durable payload", f"expected 'durable payload', got {record['payload']}"
         reopened.close()
@@ -1295,13 +1295,13 @@ class TestWALCompaction:
         db.compact_wal()
 
         # data still readable after compaction
-        assert db.get_memory("ns", "a")["payload"] == "alpha", "compact_wal should preserve 'alpha'"
-        assert db.get_memory("ns", "b")["payload"] == "beta", "compact_wal should preserve 'beta'"
+        assert db.memory.get("ns", "a")["payload"] == "alpha", "compact_wal should preserve 'alpha'"
+        assert db.memory.get("ns", "b")["payload"] == "beta", "compact_wal should preserve 'beta'"
         db.close()
 
         # reopen — data from rotated WAL still intact
         db2 = vanta.Client(path, memory_limit_bytes=128 * 1024 * 1024)
-        assert db2.get_memory("ns", "a")["payload"] == "alpha", "data should survive reopen after wal compaction"
+        assert db2.memory.get("ns", "a")["payload"] == "alpha", "data should survive reopen after wal compaction"
         db2.close()
 
     def test_compact_wal_read_only_raises(self):
@@ -1338,10 +1338,10 @@ class TestTTL:
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         # ttl_ms=1 means expires in 1ms — by the time we read, it's gone
         record = db.put("ns", "k", "gone", ttl_ms=1)
-        _wait_until(lambda: db.get_memory("ns", "k") is None, timeout=10.0)
-        assert db.get_memory("ns", "k") is None, "expired record should not be retrievable"
+        _wait_until(lambda: db.memory.get("ns", "k") is None, timeout=10.0)
+        assert db.memory.get("ns", "k") is None, "expired record should not be retrievable"
         # list should also exclude it
-        page = db.list_memory("ns")
+        page = db.memory.list("ns")
         assert len(page["records"]) == 0, f"expected 0 records in list, got {len(page['records'])}"
 
     def test_purge_expired(self):
@@ -1349,13 +1349,13 @@ class TestTTL:
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         db.put("ns", "keep", "alive")
         db.put("ns", "gone", "dead", ttl_ms=1)
-        _wait_until(lambda: db.get_memory("ns", "gone") is None, timeout=10.0)
+        _wait_until(lambda: db.memory.get("ns", "gone") is None, timeout=10.0)
         purged = db.purge_expired()
         assert purged >= 1, f"expected at least 1 purge, got {purged}"
         # keep is still there
-        assert db.get_memory("ns", "keep")["payload"] == "alive", "non-expired records should survive purge"
+        assert db.memory.get("ns", "keep")["payload"] == "alive", "non-expired records should survive purge"
         # gone is gone
-        assert db.get_memory("ns", "gone") is None, "expired records should be removed after purge"
+        assert db.memory.get("ns", "gone") is None, "expired records should be removed after purge"
 
 
 class TestPutBatchRaw:
@@ -1380,7 +1380,7 @@ class TestPutBatchRaw:
         assert records[1]["payload"] == "beta", f"expected 'beta', got {records[1]['payload']}"
         assert records[2]["namespace"] == "ns", f"expected namespace 'ns', got {records[2]['namespace']}"
 
-        fetched = db.get_memory("ns", "c")
+        fetched = db.memory.get("ns", "c")
         assert fetched is not None, "put_batch_raw record should be retrievable"
         assert fetched["payload"] == "gamma", f"expected 'gamma', got {fetched['payload']}"
 
@@ -1466,18 +1466,18 @@ class TestSearchHit:
         db.put("ns", "new", "new payload", vector=[1.0, 0.0, 0.0])
 
         # Both records start current.
-        old_before = db.get_memory("ns", "old")
+        old_before = db.memory.get("ns", "old")
         assert old_before["superseded_by"] is None
         assert old_before["superseded_at_ms"] is None
 
         db.supersede("ns", "old", "new")
 
         # Old record carries the marker; new record stays intact.
-        old = db.get_memory("ns", "old")
+        old = db.memory.get("ns", "old")
         assert old["superseded_by"] == "new", f"expected superseded_by='new', got {old['superseded_by']}"
         assert old["superseded_at_ms"] is not None, "superseded_at_ms must be recorded"
         assert old["payload"] == "old payload", "old payload must be preserved"
-        new = db.get_memory("ns", "new")
+        new = db.memory.get("ns", "new")
         assert new["superseded_by"] is None, "new record must stay intact"
         assert new["superseded_at_ms"] is None
 
@@ -1499,12 +1499,12 @@ class TestSearchHit:
         assert keys == ["new"], f"exclude_superseded search should hide old, got {keys}"
 
         # Default list keeps superseded records.
-        page = db.list_memory("ns")
+        page = db.memory.list("ns")
         keys = sorted(r["key"] for r in page["records"])
         assert keys == ["new", "old"], f"default list should keep both, got {keys}"
 
         # exclude_superseded=True hides the old record from list.
-        page = db.list_memory("ns", exclude_superseded=True)
+        page = db.memory.list("ns", exclude_superseded=True)
         keys = [r["key"] for r in page["records"]]
         assert keys == ["new"], f"exclude_superseded list should hide old, got {keys}"
 

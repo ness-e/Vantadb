@@ -101,6 +101,24 @@ class SearchRequest:
         ...
 
 
+class AsyncMemoryClient:
+    """Async view over ``db.memory`` (AST-012: short names, no surname)."""
+
+    def __init__(self, sync_db: Any, run: Any) -> None: ...
+    async def get(self, namespace: str, key: str) -> Record | None: ...
+    async def list(
+        self,
+        namespace: str,
+        *,
+        filters: dict | None = None,
+        limit: int = 100,
+        cursor: int | None = None,
+        exclude_superseded: bool = False,
+    ) -> ListResult: ...
+    async def delete(self, namespace: str, key: str) -> bool: ...
+    def __repr__(self) -> str: ...
+
+
 class AsyncVantaDB:
     """Async wrapper around ``Client``.
 
@@ -125,19 +143,9 @@ class AsyncVantaDB:
         explain: bool = False,
         exclude_superseded: bool = False,
     ) -> list[SearchHit]: ...
-    async def get_memory(self, namespace: str, key: str) -> Record | None: ...
-    async def list_memory(
-        self,
-        namespace: str,
-        *,
-        filters: dict | None = None,
-        limit: int = 100,
-        cursor: int | None = None,
-        exclude_superseded: bool = False,
-    ) -> ListResult: ...
-    # Domain-client conveniences (mirror of __init__.py): `list` forwards to
-    # `list_memory`; `search_vector` is the pure-ANN op (OD-2=B).
-    async def list(self, namespace: str, **kwargs: Any) -> ListResult: ...
+    @property
+    def memory(self) -> AsyncMemoryClient: ...
+    # `search_vector` is the pure-ANN op (OD-2=B).
     async def search_vector(
         self, vector: Any, top_k: int = 10
     ) -> list[tuple[int, float]]: ...
@@ -151,7 +159,6 @@ class AsyncVantaDB:
         vector: list[float] | None = None,
         ttl_ms: int | None = None,
     ) -> Record: ...
-    async def delete_memory(self, namespace: str, key: str) -> bool: ...
     async def delete_by_filter(self, namespace: str, filters: dict) -> int: ...
     async def count(self, namespace: str, filters: dict | None = None) -> int: ...
     async def similar_to_key(

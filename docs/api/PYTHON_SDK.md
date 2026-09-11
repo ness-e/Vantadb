@@ -15,10 +15,12 @@ aliases: []
 > `SearchHit` (`Hit` alias), `ListResult`, `Vector`, `SearchRequest`.
 > Legacy `VantaDB`, `VantaMemoryRecord`, `VantaSearchHit`, `VantaListResult`,
 > `VantaVector`, `VantaError` aliases were removed in 0.6.0 (AST-010).
-> Memory methods `get_memory` / `list_memory` / `search_memory` /
-> `delete_memory` stay canonical — the short `get` / `delete` / `search` names
-> are node-level (graph-domain) ops in Python, unlike TS/WASM (see
+> Memory-record ops live on the `db.memory` sub-client with short names
+> (`get` / `list` / `delete` / `search` — TS `MemoryClient` parity, AST-012).
+> Flat `get` / `delete` are node-level (graph-domain) ops in Python, unlike
+> TS/WASM, so the memory path is always `db.memory.*` (see
 > [BINDINGS_NAMESPACES.md](BINDINGS_NAMESPACES.md#naming-hazard-reminder)).
+> The flat `*_memory` surnames were removed (direct rename, no aliases).
 
 ## Installation
 
@@ -43,7 +45,7 @@ db.put(
 )
 
 # Hybrid search (memory API)
-results = db.search_memory(
+results = db.search(
     namespace="agent/main",
     text_query="What display mode does the user prefer?",
     query_vector=[0.1] * 384,
@@ -78,14 +80,24 @@ for the full brand-identity decision.
 
 ## Domain Sub-clients
 
-Every flat method is also reachable through a **domain sub-client**: `db.memory`, `db.graph`, `db.system`, `db.wiki`. Sub-clients are pure organizational sugar over the flat API — each call forwards verbatim to the same-named method on the parent handle.
+Every namespaced memory method is reachable through the **`db.memory`**
+domain sub-client with short names (`get`/`list`/`delete`/`search`,
+TS `MemoryClient` parity); `db.graph`, `db.system`, `db.wiki` group the
+remaining domains. Sub-clients are pure organizational sugar — shared-name
+calls forward verbatim to the same-named flat method with identical
+signatures and results.
 
-> **Backward-compat guarantee:** the flat API is unchanged. `db.memory.get_memory(...)` and `db.get_memory(...)` are the same call; existing code keeps working as-is. Canonical method→domain map: [BINDINGS_NAMESPACES.md](BINDINGS_NAMESPACES.md).
+> **Canonical paths (AST-012, no aliases):** `db.memory.get(...)`,
+> `db.memory.list(...)`, `db.memory.delete(...)`, `db.memory.search(...)`.
+> The flat `get_memory` / `list_memory` / `delete_memory` methods were
+> removed; flat `get` / `delete` stay node-level (`id: u128`). Canonical
+> method→domain map: [BINDINGS_NAMESPACES.md](BINDINGS_NAMESPACES.md).
 
 ```python
 # memory — namespace+key records, search, supersede, TTL
 record = db.memory.put(namespace="ns", key="k", payload="...", vector=[0.1] * 384)
-hits = db.memory.search_memory(namespace="ns", query_vector=[0.1] * 384)
+record = db.memory.get(namespace="ns", key="k")
+hits = db.memory.search(namespace="ns", query_vector=[0.1] * 384)
 db.memory.supersede(namespace="ns", old_key="draft-v1", new_key="draft-v2")
 
 # graph — node/edge CRUD + traversals
@@ -109,7 +121,8 @@ Notes:
 
 - Each attribute returns a lightweight delegate that holds a reference to the parent `Client`; calls are forwarded with identical signatures and results.
 - The full member lists per sub-client are fixed by [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md) (Python section): memory 15 · graph 10 · system 17 · wiki 1.
-- `AsyncVantaDB` does not expose sub-clients yet.
+- `AsyncVantaDB` exposes `db.memory` (`get`/`list`/`delete`); all other
+  async methods stay flat.
 
 ## API Reference
 
@@ -203,25 +216,25 @@ db.put_batch(
 
 Returns a list of `Record` objects, up to ~5x faster than sequential `put()` for large batches.
 
-#### `get_memory()`
+#### `memory.get()`
 ```python
-db.get_memory(
+db.memory.get(
     namespace: str,
     key: str,
 ) -> Optional[Record]
 ```
 
-#### `delete_memory()`
+#### `memory.delete()`
 ```python
-db.delete_memory(
+db.memory.delete(
     namespace: str,
     key: str,
 ) -> bool
 ```
 
-#### `list_memory()`
+#### `memory.list()`
 ```python
-db.list_memory(
+db.memory.list(
     namespace: str,
     filters: Optional[dict] = None,
     limit: int = 100,
@@ -231,7 +244,7 @@ db.list_memory(
 Returns a `ListResult` object with `.records`, `.total_count`, and `.next_cursor`. Supports `__getitem__` for dict-style access (`result["records"]`, `result["next_cursor"]`) and `__iter__` for record iteration.
 
 ```python
-page = db.list_memory("ns", limit=10)
+page = db.memory.list("ns", limit=10)
 for record in page:
     print(record.key, record.payload)
 
@@ -239,10 +252,10 @@ for record in page:
 records = page["records"]
 next_cursor = page["next_cursor"]
 ```
-#### `search_memory()`
+#### `memory.search()`
 
 ```python
-db.search_memory(
+db.memory.search(
     namespace: str,
     query_vector: VectorInput,
     filters: Optional[dict] = None,
@@ -259,6 +272,16 @@ Search namespace-scoped persistent memory records by vector + filters + text_que
 The `method` parameter accepts `"ivf"`, `"scann"`, `"flat"`, or `"hnsw"` to explicitly override the dense-vector index backend. `None` (default) keeps automatic engine routing.
 
 The `exclude_superseded` parameter (default `False`) controls whether superseded records are filtered from results (ADR-028).
+#### `search_vector()`
+```python
+db.search_vector(
+    vector: VectorInput,
+    top_k: int = 10,
+) -> List[Tuple[int, float]]
+```
+Pure-ANN vector search over nodes (no namespace, no filters, no text).
+Returns `(node_id, distance)` tuples with lower-is-better distance
+(AST-008: ex-`search`; the namespaced hybrid is `memory.search()`).
 #### `explain_memory_search()`
 
 ```python
@@ -312,7 +335,7 @@ Delete all memory records in a namespace matching a metadata filter. The
 implicit `$eq`, or `{"$op": value}` per key). Returns the number of records
 deleted. **The filter must not be empty** — the core rejects an empty filter
 with a `RuntimeError` to prevent accidental full-namespace deletion. Use
-`delete_memory()` to remove individual records. GIL-released.
+`memory.delete()` to remove individual records. GIL-released.
 
 ```python
 deleted = db.delete_by_filter("ns", {"category": "draft"})
@@ -981,7 +1004,7 @@ Each result is a `SearchHit` object with properties:
 vantadb.ListResult
 ```
 
-Returned by `list_memory()`. Typed page of memory records with pagination.
+Returned by `memory.list()`. Typed page of memory records with pagination.
 
 | Property | Type | Description |
 |---|---|---|
@@ -992,7 +1015,7 @@ Returned by `list_memory()`. Typed page of memory records with pagination.
 Supports iteration, indexing, and dict-style access:
 
 ```python
-page = db.list_memory("ns")
+page = db.memory.list("ns")
 len(page)                  # total_count
 for r in page:             # iterate records
     print(r.key)
@@ -1009,8 +1032,8 @@ page["next_cursor"]        # same as page.next_cursor
 from vantadb import AsyncVantaDB
 
 async with AsyncVantaDB("./my_brain") as db:
-    record = await db.get_memory("ns", "key")
-    results = await db.search_memory("ns", [1.0, 0.0, 0.0], top_k=5)
+    record = await db.memory.get("ns", "key")
+    results = await db.search("ns", [1.0, 0.0, 0.0], top_k=5)
     # Query, diagnostics, and mutations are also async
     query_result = await db.query("(match (node :content \"rust\") (return node))")
     metrics = await db.operational_metrics()
@@ -1034,7 +1057,7 @@ async with AsyncVantaDB("./my_brain") as db:
 # db.close() awaited automatically
 ```
 
-All Client methods are available on `AsyncVantaDB` with `async/await`, including `put()`, `put_batch()`, `insert()`, `delete_memory()`, `get_memory()`, `list_memory()`, `search_memory()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get()`, `delete()`, `search()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, `explain_memory_search()`, `count()`, `delete_by_filter()`, and `similar_to_key()`.
+All Client methods are available on `AsyncVantaDB` with `async/await`, including `put()`, `put_batch()`, `insert()`, `memory.get()`, `memory.list()`, `memory.delete()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get()`, `delete()`, `search()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, `explain_memory_search()`, `count()`, `delete_by_filter()`, and `similar_to_key()`.
 
 ## ID limits
 

@@ -4,7 +4,7 @@ Exercises the async wrapper paths the coverage plan flagged as under-exercised:
 ``flush``, ``purge_expired``, ``query`` (IQL), the graph_* traversal/algorithms
 (``add_edge``, ``graph_bfs``, ``graph_dfs``, ``graph_topological_sort``,
 ``graph_is_dag``, ``graph_page_rank``, ``graph_degree_centrality``), ``put``,
-``delete`` / ``delete_memory``, and ``export_*`` (``export_namespace`` /
+``delete`` (node-level), ``memory.delete``, and ``export_*`` (``export_namespace`` /
 ``export_all``).
 
 Additive only — it does NOT modify the public ``AsyncVantaDB`` API.
@@ -27,7 +27,7 @@ def _rm(path):
 
 
 def test_async_smoke_crud_flush_purge():
-    """put/get_memory/search, flush, ttl purge, and delete_memory."""
+    """put/memory.get/search, flush, ttl purge, and memory.delete."""
     path = _tmp_db()
     try:
         async def run():
@@ -35,8 +35,8 @@ def test_async_smoke_crud_flush_purge():
                 path, memory_limit_bytes=128 * 1024 * 1024
             ) as db:
                 await db.put("ns", "k", "hello", metadata={"tag": "smoke"})
-                rec = await db.get_memory("ns", "k")
-                assert rec is not None, "get_memory should return the put record"
+                rec = await db.memory.get("ns", "k")
+                assert rec is not None, "memory.get should return the put record"
                 assert rec["payload"] == "hello", f"expected 'hello', got {rec['payload']}"
 
                 hits = await db.search("ns", [1.0, 0.0, 0.0], top_k=5)
@@ -46,14 +46,14 @@ def test_async_smoke_crud_flush_purge():
 
                 await db.put("ns", "exp", "gone", ttl_ms=1)
                 for _ in range(80):
-                    if await db.get_memory("ns", "exp") is None:
+                    if await db.memory.get("ns", "exp") is None:
                         break
                     await asyncio.sleep(0.02)
                 purged = await db.purge_expired()
                 assert purged >= 1, f"expected >=1 purged, got {purged}"
 
-                deleted = await db.delete_memory("ns", "k")
-                assert deleted is True, "delete_memory should return True"
+                deleted = await db.memory.delete("ns", "k")
+                assert deleted is True, "memory.delete should return True"
 
         asyncio.run(run())
     finally:

@@ -75,8 +75,8 @@ def test_put_batch_raw_persists():
     db.close()
 
     db2 = vanta.Client(path, memory_limit_bytes=128 * 1024 * 1024)
-    assert db2.get_memory("ns", "x") is not None
-    assert db2.get_memory("ns", "y")["key"] == "y"
+    assert db2.memory.get("ns", "x") is not None
+    assert db2.memory.get("ns", "y")["key"] == "y"
 
 
 # ── PERF-16: SearchHit edge cases ───────────────────────────────────

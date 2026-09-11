@@ -1,11 +1,16 @@
-"""SDKB-03: domain sub-clients (db.memory / db.graph / db.system / db.wiki).
+"""AST-012: domain sub-clients without surname + clean flat (parity TS).
 
-Mirror of SDKB-02 (TypeScript): each sub-client method must delegate to the
-flat ``Client`` method of the same name with an IDENTICAL signature and
-result. Grouping only — zero new logic (D43, D42).
+Mirror of SDKB-02 (TypeScript): each sub-client method delegates to the
+same-domain operation with an IDENTICAL signature and result. Grouping
+only — zero new logic (D43, D42).
 
-Canonical map: docs/api/BINDINGS_NAMESPACES.md. Naming hazard respected:
-Python ``insert``/``get``/``delete`` are NODE-level ops (graph domain).
+Canonical map: docs/api/BINDINGS_NAMESPACES.md. Anti-stutter (ADR-041
+family): ``db.memory`` exposes short names (``get``/``list``/``delete``/
+``search``, model TS ``MemoryClient``) — the ``*_memory`` surnames are
+REMOVED from both the sub-client and the flat ``Client`` (direct rename,
+zero users, precedent AST-008/AST-010). Flat ``get``/``delete`` stay
+node-level ops (``id: u128``, graph domain) — the naming hazard is
+resolved by delegation (``db.memory.get``), never by magic overloads.
 """
 
 import os
@@ -31,16 +36,15 @@ def db():
 def test_memory_put_get_delete_identity(db):
     rec = db.memory.put("ns", "k1", "payload-1", metadata={"a": "b"})
     assert rec.payload == "payload-1"
-    got_flat = db.get_memory("ns", "k1")
-    got_sub = db.memory.get_memory("ns", "k1")
-    assert got_sub.payload == got_flat.payload == "payload-1"
-    assert got_sub.metadata == got_flat.metadata == {"a": "b"}
-    assert db.memory.delete_memory("ns", "k1") is True
-    assert db.memory.get_memory("ns", "k1") is None
-    # flat path deletes its own record identically
-    db.put("ns", "k2", "payload-2")
-    assert db.delete_memory("ns", "k2") is True
-    assert db.get_memory("ns", "k2") is None
+    got_sub = db.memory.get("ns", "k1")
+    assert got_sub.payload == "payload-1"
+    assert got_sub.metadata == {"a": "b"}
+    assert db.memory.delete("ns", "k1") is True
+    assert db.memory.get("ns", "k1") is None
+    # second record via the same short names
+    db.memory.put("ns", "k2", "payload-2")
+    assert db.memory.delete("ns", "k2") is True
+    assert db.memory.get("ns", "k2") is None
 
 
 def test_memory_search_identity(db):
@@ -59,9 +63,8 @@ def test_memory_list_and_namespaces_identity(db):
     assert sorted(db.memory.list_namespaces()) == sorted(
         db.list_namespaces()
     ) == ["ns-a", "ns-b"]
-    listed_flat = db.list_memory("ns-a")
-    listed_sub = db.memory.list_memory("ns-a")
-    assert listed_sub[0].key == listed_flat[0].key == "k"
+    listed_sub = db.memory.list("ns-a")
+    assert listed_sub[0].key == "k"
 
 
 def test_memory_supersede_identity(db):
@@ -69,10 +72,10 @@ def test_memory_supersede_identity(db):
     db.put("ns", "new", "new payload")
     db.memory.supersede("ns", "old", "new")
     # Old record carries the marker; new record stays intact (ADR-028).
-    old_rec = db.get_memory("ns", "old")
+    old_rec = db.memory.get("ns", "old")
     assert old_rec["superseded_by"] == "new"
     assert old_rec.payload == "old payload"
-    new_rec = db.get_memory("ns", "new")
+    new_rec = db.memory.get("ns", "new")
     assert new_rec["superseded_by"] is None
     assert new_rec.payload == "new payload"
 
@@ -257,7 +260,7 @@ def test_system_export_import_roundtrip(db, tmp_path):
     try:
         imported = other.system.import_file(path)
         assert imported["inserted"] == 1
-        assert other.get_memory("ns", "k").payload == "v"
+        assert other.memory.get("ns", "k").payload == "v"
     finally:
         other.close()
 
@@ -310,11 +313,25 @@ def test_wiki_recover_invalid_id_same_error(db):
 # ---------------------------------------------------------------------------
 
 
-def test_backward_compat_flat_methods_untouched(db):
-    """Suite-existente intacta: los métodos planos siguen funcionando igual."""
-    rec = db.put("compat", "k", "v")
+def test_flat_memory_surnames_removed(db):
+    """AST-012: los apellidos `*_memory` no existen ni en plano ni en subcliente.
+
+    Rename directo sin aliases (precedente AST-008/AST-010): el record path
+    canónico es ``db.memory.get/list/delete``; el plano conserva el
+    node-level ``get``/``delete`` (u128) y los shared-names
+    (``put``/``search``/``count``/...). Este guard impide reintroducir
+    los nombres viejos por accidente.
+    """
+    for name in ("get_memory", "list_memory", "delete_memory", "search_memory"):
+        assert not hasattr(db, name), f"flat Client.{name} debe estar eliminado"
+        assert not hasattr(db.memory, name), f"db.memory.{name} debe estar eliminado"
+    # canonical short names exist on the sub-client only (flat get/delete
+    # stay node-level — the hazard is resolved by delegation, not overloads)
+    for name in ("get", "list", "delete", "search", "put"):
+        assert hasattr(db.memory, name), f"db.memory.{name} debe existir"
+    rec = db.memory.put("compat", "k", "v")
     assert rec.payload == "v"
-    assert db.get_memory("compat", "k").payload == "v"
+    assert db.memory.get("compat", "k").payload == "v"
     assert repr(db).startswith("Client(")
 
 

@@ -209,21 +209,11 @@ class Client:
         namespaces: list[str] | None = None,
         ttls: list[int | None] | None = None,
     ) -> list[Record]: ...
-    def get_memory(self, namespace: str, key: str) -> Record | None: ...
-    def delete_memory(self, namespace: str, key: str) -> bool: ...
     def delete_by_filter(self, namespace: str, filters: dict) -> int: ...
     def count(self, namespace: str, filters: dict | None = None) -> int: ...
     def similar_to_key(
         self, namespace: str, key: str, top_k: int = 10
     ) -> list[SearchHit]: ...
-    def list_memory(
-        self,
-        namespace: str,
-        filters: dict | None = None,
-        limit: int = 100,
-        cursor: int | None = None,
-        exclude_superseded: bool = False,
-    ) -> ListResult: ...
     def search(
         self,
         namespace: str,
@@ -344,8 +334,10 @@ class Client:
 class MemoryClient:
     """Grouped view over ``Client`` memory-record methods (``db.memory.*``).
 
-    Native forwarder: every method delegates to the same-named flat method on
-    ``Client`` (``forward_to_db!`` macro) — same signature, same result.
+    Shared-name methods (``put``/``search``/...) forward verbatim to the
+    same-named flat method (``forward_to_db!`` macro); ``get``/``list``/
+    ``delete`` are real methods (moved from the removed flat ``*_memory``
+    — single implementation, AST-012, TS ``MemoryClient`` parity).
     """
 
     def put(
@@ -376,21 +368,11 @@ class MemoryClient:
         namespaces: list[str] | None = None,
         ttls: list[int | None] | None = None,
     ) -> list[Record]: ...
-    def get_memory(self, namespace: str, key: str) -> Record | None: ...
-    def delete_memory(self, namespace: str, key: str) -> bool: ...
     def delete_by_filter(self, namespace: str, filters: dict) -> int: ...
     def count(self, namespace: str, filters: dict | None = None) -> int: ...
     def similar_to_key(
         self, namespace: str, key: str, top_k: int = 10
     ) -> list[SearchHit]: ...
-    def list_memory(
-        self,
-        namespace: str,
-        filters: dict | None = None,
-        limit: int = 100,
-        cursor: int | None = None,
-        exclude_superseded: bool = False,
-    ) -> ListResult: ...
     def search(
         self,
         namespace: str,
@@ -428,10 +410,18 @@ class MemoryClient:
     ) -> str | None: ...
     def purge_expired(self) -> int: ...
     def list_namespaces(self) -> list[str]: ...
-    # Domain-client short names (flat get/delete are node-level — hazard).
-    def get(self, *args: Any, **kwargs: Any) -> Any: ...
-    def list(self, *args: Any, **kwargs: Any) -> Any: ...
-    def delete(self, *args: Any, **kwargs: Any) -> Any: ...
+    # AST-012 canonical short names (flat get/delete stay node-level — hazard;
+    # the memory path is db.memory.*). Real methods, not aliases.
+    def get(self, namespace: str, key: str) -> Record | None: ...
+    def list(
+        self,
+        namespace: str,
+        filters: dict | None = None,
+        limit: int = 100,
+        cursor: int | None = None,
+        exclude_superseded: bool = False,
+    ) -> ListResult: ...
+    def delete(self, namespace: str, key: str) -> bool: ...
 
 
 class GraphClient:
