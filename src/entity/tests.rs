@@ -31,12 +31,12 @@ fn set_get_roundtrip() {
     let store = EntityStore::new(&engine);
 
     let stored = store
-        .entity_set("default", "user", "usr-1", user_fields("alice", true))
+        .set("default", "user", "usr-1", user_fields("alice", true))
         .expect("set user");
 
     assert_eq!(stored.namespace, "default");
     assert_eq!(stored.collection, "user");
-    assert_eq!(stored.entity_id, "usr-1");
+    assert_eq!(stored.id, "usr-1");
     assert_eq!(
         stored.fields.get("name"),
         Some(&FieldValue::String("alice".into()))
@@ -46,7 +46,7 @@ fn set_get_roundtrip() {
     assert_eq!(stored.created_at, stored.updated_at);
 
     let got = store
-        .entity_get("default", "user", "usr-1")
+        .get("default", "user", "usr-1")
         .expect("get user")
         .expect("user exists");
     assert_eq!(got, stored);
@@ -57,9 +57,7 @@ fn get_missing_returns_none() {
     let engine = in_memory_engine();
     let store = EntityStore::new(&engine);
 
-    let got = store
-        .entity_get("default", "user", "usr-missing")
-        .expect("get");
+    let got = store.get("default", "user", "usr-missing").expect("get");
     assert!(got.is_none());
 }
 
@@ -69,11 +67,11 @@ fn set_upsert_preserves_created_at_and_refreshes_updated_at() {
     let store = EntityStore::new(&engine);
 
     let first = store
-        .entity_set("default", "user", "usr-1", user_fields("alice", true))
+        .set("default", "user", "usr-1", user_fields("alice", true))
         .expect("first set");
 
     let second = store
-        .entity_set(
+        .set(
             "default",
             "user",
             "usr-1",
@@ -102,15 +100,13 @@ fn delete_existing_returns_true_then_get_none() {
     let store = EntityStore::new(&engine);
 
     store
-        .entity_set("default", "user", "usr-1", user_fields("alice", true))
+        .set("default", "user", "usr-1", user_fields("alice", true))
         .expect("set");
 
-    let deleted = store
-        .entity_delete("default", "user", "usr-1")
-        .expect("delete");
+    let deleted = store.delete("default", "user", "usr-1").expect("delete");
     assert!(deleted, "delete of existing entity returns true");
 
-    let got = store.entity_get("default", "user", "usr-1").expect("get");
+    let got = store.get("default", "user", "usr-1").expect("get");
     assert!(got.is_none(), "entity gone after delete");
 }
 
@@ -120,7 +116,7 @@ fn delete_missing_returns_false() {
     let store = EntityStore::new(&engine);
 
     let deleted = store
-        .entity_delete("default", "user", "usr-ghost")
+        .delete("default", "user", "usr-ghost")
         .expect("delete");
     assert!(!deleted, "delete of missing entity returns false");
 }
@@ -130,21 +126,18 @@ fn list_paginates_sorted_by_id() {
     let engine = in_memory_engine();
     let store = EntityStore::new(&engine);
 
-    // Insert out of order; listing must be deterministic by entity_id.
+    // Insert out of order; listing must be deterministic by id.
     for id in ["usr-z", "usr-a", "usr-m", "usr-b", "usr-y"] {
         store
-            .entity_set("default", "user", id, user_fields(id, true))
+            .set("default", "user", id, user_fields(id, true))
             .expect("set");
     }
 
-    let page = store.entity_list("default", "user", 2, 1).expect("list");
+    let page = store.list("default", "user", 2, 1).expect("list");
 
     assert_eq!(page.total, 5, "total counts the whole collection");
     assert_eq!(
-        page.items
-            .iter()
-            .map(|e| e.entity_id.as_str())
-            .collect::<Vec<_>>(),
+        page.items.iter().map(|e| e.id.as_str()).collect::<Vec<_>>(),
         vec!["usr-b", "usr-m"],
         "sorted by id, offset 1 limit 2"
     );
@@ -156,13 +149,13 @@ fn list_isolates_namespaces() {
     let store = EntityStore::new(&engine);
 
     store
-        .entity_set("ns-a", "user", "usr-1", user_fields("alice", true))
+        .set("ns-a", "user", "usr-1", user_fields("alice", true))
         .expect("set ns-a");
     store
-        .entity_set("ns-b", "user", "usr-1", user_fields("bob", true))
+        .set("ns-b", "user", "usr-1", user_fields("bob", true))
         .expect("set ns-b");
 
-    let page = store.entity_list("ns-a", "user", 10, 0).expect("list ns-a");
+    let page = store.list("ns-a", "user", 10, 0).expect("list ns-a");
     assert_eq!(page.total, 1, "namespaces are isolated");
     assert_eq!(page.items[0].namespace, "ns-a");
     assert_eq!(
@@ -177,15 +170,13 @@ fn list_isolates_collections() {
     let store = EntityStore::new(&engine);
 
     store
-        .entity_set("default", "user", "usr-1", user_fields("alice", true))
+        .set("default", "user", "usr-1", user_fields("alice", true))
         .expect("set user");
     store
-        .entity_set("default", "team", "team-1", user_fields("acme", true))
+        .set("default", "team", "team-1", user_fields("acme", true))
         .expect("set team");
 
-    let page = store
-        .entity_list("default", "user", 10, 0)
-        .expect("list users");
+    let page = store.list("default", "user", 10, 0).expect("list users");
     assert_eq!(page.total, 1, "collections are isolated");
     assert_eq!(page.items[0].collection, "user");
 }
@@ -196,46 +187,40 @@ fn invalid_inputs_rejected() {
     let store = EntityStore::new(&engine);
 
     assert!(
-        store
-            .entity_set("", "user", "usr-1", HashMap::new())
-            .is_err(),
+        store.set("", "user", "usr-1", HashMap::new()).is_err(),
         "empty namespace"
     );
     assert!(
-        store
-            .entity_set("default", "", "usr-1", HashMap::new())
-            .is_err(),
+        store.set("default", "", "usr-1", HashMap::new()).is_err(),
         "empty collection"
     );
     assert!(
-        store
-            .entity_set("default", "user", "", HashMap::new())
-            .is_err(),
-        "empty entity_id"
+        store.set("default", "user", "", HashMap::new()).is_err(),
+        "empty id"
     );
     assert!(
         store
-            .entity_set("def{ault", "user", "usr-1", HashMap::new())
+            .set("def{ault", "user", "usr-1", HashMap::new())
             .is_err(),
         "namespace braces"
     );
     assert!(
         store
-            .entity_set("default", "user", "usr:1", HashMap::new())
+            .set("default", "user", "usr:1", HashMap::new())
             .is_err(),
         "id colon"
     );
 
     assert!(
-        store.entity_get("default", "user", "").is_err(),
+        store.get("default", "user", "").is_err(),
         "get with empty id"
     );
     assert!(
-        store.entity_delete("default", "user", "").is_err(),
+        store.delete("default", "user", "").is_err(),
         "delete with empty id"
     );
     assert!(
-        store.entity_list("default", "", 10, 0).is_err(),
+        store.list("default", "", 10, 0).is_err(),
         "list with empty collection"
     );
 }
@@ -255,4 +240,23 @@ fn generate_id_format_and_uniqueness() {
     assert!(a
         .chars()
         .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-'));
+}
+
+#[test]
+fn legacy_json_deserializes_to_new_field() {
+    // STU-003 S1 (RED): formato viejo en disco usa `entity_id`; el struct
+    // nuevo expone `id` con `#[serde(alias = "entity_id")]`.
+    let entity: super::Entity = serde_json::from_str(
+        r#"{"namespace":"default","collection":"user","entity_id":"usr-1","fields":{},"created_at":1,"updated_at":1}"#,
+    )
+    .expect("legacy entity JSON deserializes");
+    assert_eq!(entity.id, "usr-1");
+
+    let bytes = serde_json::to_vec(&entity).expect("serialize");
+    let value: serde_json::Value = serde_json::from_slice(&bytes).expect("value");
+    assert_eq!(value["id"], "usr-1");
+    assert!(
+        value.get("entity_id").is_none(),
+        "new writes use `id`, not `entity_id`"
+    );
 }

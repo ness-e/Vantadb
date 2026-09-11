@@ -29,19 +29,19 @@ fn set_get_roundtrip() {
     let store = SceneNodeStore::new(&engine);
 
     let stored = store
-        .scene_node_set(NS, SESSION, SCENE, CREATED, UPDATED, SUMMARY, 1)
+        .set(NS, SESSION, SCENE, CREATED, UPDATED, SUMMARY, 1)
         .expect("set scene");
 
     assert_eq!(stored.namespace, NS);
     assert_eq!(stored.session_id, SESSION);
-    assert_eq!(stored.scene_name, SCENE);
+    assert_eq!(stored.name, SCENE);
     assert_eq!(stored.created, CREATED);
     assert_eq!(stored.updated, UPDATED);
     assert_eq!(stored.summary, SUMMARY);
     assert_eq!(stored.heat, 1);
 
     let got = store
-        .scene_node_get(NS, SESSION, SCENE)
+        .get(NS, SESSION, SCENE)
         .expect("get scene")
         .expect("scene exists");
     assert_eq!(got, stored);
@@ -52,9 +52,7 @@ fn get_missing_returns_none() {
     let engine = in_memory_engine();
     let store = SceneNodeStore::new(&engine);
 
-    let got = store
-        .scene_node_get(NS, SESSION, "nope")
-        .expect("get missing");
+    let got = store.get(NS, SESSION, "nope").expect("get missing");
     assert!(got.is_none());
 }
 
@@ -64,11 +62,11 @@ fn set_replaces_wholesale() {
     let store = SceneNodeStore::new(&engine);
 
     store
-        .scene_node_set(NS, SESSION, SCENE, CREATED, UPDATED, SUMMARY, 1)
+        .set(NS, SESSION, SCENE, CREATED, UPDATED, SUMMARY, 1)
         .expect("set first");
     // L2-style update: caller preserves created, bumps updated/heat.
     let replaced = store
-        .scene_node_set(
+        .set(
             NS,
             SESSION,
             SCENE,
@@ -87,24 +85,24 @@ fn set_replaces_wholesale() {
     assert_eq!(replaced.summary, "new summary");
     assert_eq!(replaced.heat, 2);
     let got = store
-        .scene_node_get(NS, SESSION, SCENE)
+        .get(NS, SESSION, SCENE)
         .expect("get scene")
         .expect("scene exists");
     assert_eq!(got, replaced);
 }
 
 #[test]
-fn validation_rejects_bad_scene_name() {
+fn validation_rejects_bad_name() {
     let engine = in_memory_engine();
     let store = SceneNodeStore::new(&engine);
 
     let err = store
-        .scene_node_set(NS, SESSION, "bad:name", CREATED, UPDATED, SUMMARY, 1)
-        .expect_err("colon in scene_name rejected");
+        .set(NS, SESSION, "bad:name", CREATED, UPDATED, SUMMARY, 1)
+        .expect_err("colon in name rejected");
     assert!(err.to_string().contains("must not contain"), "err: {err}");
 
     let err = store
-        .scene_node_get(NS, "", SCENE)
+        .get(NS, "", SCENE)
         .expect_err("empty session rejected");
     assert!(err.to_string().contains("non-empty"), "err: {err}");
 }
@@ -116,24 +114,20 @@ fn list_isolates_sessions_and_paginates() {
 
     for (i, scene) in ["a-scene", "b-scene", "c-scene"].iter().enumerate() {
         store
-            .scene_node_set(NS, SESSION, scene, CREATED, UPDATED, SUMMARY, i as u32 + 1)
+            .set(NS, SESSION, scene, CREATED, UPDATED, SUMMARY, i as u32 + 1)
             .expect("set scene");
     }
     store
-        .scene_node_set(NS, "other-session", "z-scene", CREATED, UPDATED, SUMMARY, 1)
+        .set(NS, "other-session", "z-scene", CREATED, UPDATED, SUMMARY, 1)
         .expect("set other session");
 
-    let page = store
-        .scene_node_list(NS, SESSION, 2, 0)
-        .expect("list page 1");
+    let page = store.list(NS, SESSION, 2, 0).expect("list page 1");
     assert_eq!(page.total, 3, "total counts only this session");
-    let names: Vec<&str> = page.items.iter().map(|n| n.scene_name.as_str()).collect();
-    assert_eq!(names, ["a-scene", "b-scene"], "sorted by scene_name");
+    let names: Vec<&str> = page.items.iter().map(|n| n.name.as_str()).collect();
+    assert_eq!(names, ["a-scene", "b-scene"], "sorted by name");
 
-    let page2 = store
-        .scene_node_list(NS, SESSION, 2, 2)
-        .expect("list page 2");
-    let names2: Vec<&str> = page2.items.iter().map(|n| n.scene_name.as_str()).collect();
+    let page2 = store.list(NS, SESSION, 2, 2).expect("list page 2");
+    let names2: Vec<&str> = page2.items.iter().map(|n| n.name.as_str()).collect();
     assert_eq!(names2, ["c-scene"]);
 }
 
@@ -143,17 +137,32 @@ fn delete_returns_existed() {
     let store = SceneNodeStore::new(&engine);
 
     store
-        .scene_node_set(NS, SESSION, SCENE, CREATED, UPDATED, SUMMARY, 1)
+        .set(NS, SESSION, SCENE, CREATED, UPDATED, SUMMARY, 1)
         .expect("set scene");
 
+    assert!(store.delete(NS, SESSION, SCENE).expect("delete existing"));
+    assert!(!store.delete(NS, SESSION, SCENE).expect("delete missing"));
     assert!(store
-        .scene_node_delete(NS, SESSION, SCENE)
-        .expect("delete existing"));
-    assert!(!store
-        .scene_node_delete(NS, SESSION, SCENE)
-        .expect("delete missing"));
-    assert!(store
-        .scene_node_get(NS, SESSION, SCENE)
+        .get(NS, SESSION, SCENE)
         .expect("get after delete")
         .is_none());
+}
+
+#[test]
+fn legacy_json_deserializes_to_new_field() {
+    // STU-003 S1 (RED): formato viejo en disco usa `scene_name`; el struct
+    // nuevo expone `name` con `#[serde(alias = "scene_name")]`.
+    let node: super::SceneNode = serde_json::from_str(
+        r#"{"namespace":"default","session_id":"s","scene_name":"n","created":"c","updated":"u","summary":"s","heat":1}"#,
+    )
+    .expect("legacy scene JSON deserializes");
+    assert_eq!(node.name, "n");
+
+    let bytes = serde_json::to_vec(&node).expect("serialize");
+    let value: serde_json::Value = serde_json::from_slice(&bytes).expect("value");
+    assert_eq!(value["name"], "n");
+    assert!(
+        value.get("scene_name").is_none(),
+        "new writes use `name`, not `scene_name`"
+    );
 }

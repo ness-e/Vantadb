@@ -4,12 +4,12 @@
 //! `InternalMetadata` partition — the same partition pattern used by
 //! [`crate::agentic::thread`] (data as serialized records, listed by key
 //! prefix). Each entity is addressed by `namespace` + `collection` +
-//! caller-supplied `entity_id`, so one generic store serves every entity
+//! caller-supplied `id`, so one generic store serves every entity
 //! kind (D4, plan vanta-memory) without a fixed schema.
 //!
 //! Scope: `namespace` (deployment/tenant), `collection` (e.g. `user`,
-//! `team`, `agent`, `task`, `asset`), `entity_id` (e.g. `usr-3mfxa3b9c1`).
-//! Keys are `entity:{namespace}:{collection}::{entity_id}`; listing scans
+//! `team`, `agent`, `task`, `asset`), `id` (e.g. `usr-3mfxa3b9c1`).
+//! Keys are `entity:{namespace}:{collection}::{id}`; listing scans
 //! the collection prefix. Values must not contain `{`, `}` or `:` (ids from
 //! [`generate_id`](crate::entity::generate_id) never do).
 //!
@@ -43,13 +43,14 @@ pub use scene::{SceneNode, SceneNodePage, SceneNodeStore};
 pub struct Entity {
     pub namespace: String,
     pub collection: String,
-    pub entity_id: String,
+    #[serde(alias = "entity_id")]
+    pub id: String,
     pub fields: HashMap<String, FieldValue>,
     pub created_at: u64,
     pub updated_at: u64,
 }
 
-/// Paginated result of [`EntityStore::entity_list`].
+/// Paginated result of [`EntityStore::list`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct EntityPage {
     pub items: Vec<Entity>,
@@ -61,7 +62,7 @@ pub struct EntityPage {
 /// CRUD store for scoped entities backed by a [`StorageEngine`].
 ///
 /// Each entity is a JSON record in the `InternalMetadata` partition under
-/// key `entity:{namespace}:{collection}::{entity_id}`; listing scans the
+/// key `entity:{namespace}:{collection}::{id}`; listing scans the
 /// collection prefix and paginates. Mirrors the `agentic::thread` partition
 /// pattern (D4) without inventing new storage.
 pub struct EntityStore<'a> {
@@ -78,20 +79,20 @@ impl<'a> EntityStore<'a> {
     ///
     /// Upsert semantics: an existing `created_at` is preserved, `fields` are
     /// replaced wholesale and `updated_at` is refreshed.
-    pub fn entity_set(
+    pub fn set(
         &self,
         namespace: &str,
         collection: &str,
-        entity_id: &str,
+        id: &str,
         fields: HashMap<String, FieldValue>,
     ) -> Result<Entity> {
-        validate_key(namespace, collection, entity_id)?;
+        validate_key(namespace, collection, id)?;
         let now = now_secs();
-        let existing = self.entity_get(namespace, collection, entity_id)?;
+        let existing = self.get(namespace, collection, id)?;
         let entity = Entity {
             namespace: namespace.to_string(),
             collection: collection.to_string(),
-            entity_id: entity_id.to_string(),
+            id: id.to_string(),
             fields,
             created_at: existing.map_or(now, |e| e.created_at),
             updated_at: now,
@@ -100,23 +101,18 @@ impl<'a> EntityStore<'a> {
             .map_err(|e| Error::serialization(ChainedError::with_source("entity", e)))?;
         self.engine.put_to_partition(
             BackendPartition::InternalMetadata,
-            &entity_key(namespace, collection, entity_id),
+            &entity_key(namespace, collection, id),
             &bytes,
         )?;
         Ok(entity)
     }
 
     /// Retrieve an entity by scope + id, or `None` when absent.
-    pub fn entity_get(
-        &self,
-        namespace: &str,
-        collection: &str,
-        entity_id: &str,
-    ) -> Result<Option<Entity>> {
-        validate_key(namespace, collection, entity_id)?;
+    pub fn get(&self, namespace: &str, collection: &str, id: &str) -> Result<Option<Entity>> {
+        validate_key(namespace, collection, id)?;
         match self.engine.get_from_partition(
             BackendPartition::InternalMetadata,
-            &entity_key(namespace, collection, entity_id),
+            &entity_key(namespace, collection, id),
         )? {
             Some(bytes) => serde_json::from_slice(&bytes)
                 .map(Some)
@@ -126,14 +122,9 @@ impl<'a> EntityStore<'a> {
     }
 
     /// Delete an entity by scope + id. Returns `true` when it existed.
-    pub fn entity_delete(
-        &self,
-        namespace: &str,
-        collection: &str,
-        entity_id: &str,
-    ) -> Result<bool> {
-        validate_key(namespace, collection, entity_id)?;
-        let key = entity_key(namespace, collection, entity_id);
+    pub fn delete(&self, namespace: &str, collection: &str, id: &str) -> Result<bool> {
+        validate_key(namespace, collection, id)?;
+        let key = entity_key(namespace, collection, id);
         let existed = self
             .engine
             .get_from_partition(BackendPartition::InternalMetadata, &key)?
@@ -148,9 +139,9 @@ impl<'a> EntityStore<'a> {
 
     /// List entities in a `namespace`/`collection` with pagination.
     ///
-    /// Items are ordered by `entity_id` for deterministic pages; `total` is
+    /// Items are ordered by `id` for deterministic pages; `total` is
     /// the full collection size before `offset`/`limit` are applied.
-    pub fn entity_list(
+    pub fn list(
         &self,
         namespace: &str,
         collection: &str,
@@ -168,7 +159,7 @@ impl<'a> EntityStore<'a> {
                 .map_err(|e| Error::serialization(ChainedError::with_source("entity", e)))?;
             entities.push(entity);
         }
-        entities.sort_by(|a, b| a.entity_id.cmp(&b.entity_id));
+        entities.sort_by(|a, b| a.id.cmp(&b.id));
         let total = entities.len();
         let items: Vec<Entity> = entities.into_iter().skip(offset).take(limit).collect();
         Ok(EntityPage { items, total })
@@ -215,12 +206,8 @@ fn now_secs() -> u64 {
 }
 
 /// Key for a single entity record in the `InternalMetadata` partition.
-fn entity_key(namespace: &str, collection: &str, entity_id: &str) -> Vec<u8> {
-    format!(
-        "entity:{{{}}}:{{{}}}::{{{}}}",
-        namespace, collection, entity_id
-    )
-    .into_bytes()
+fn entity_key(namespace: &str, collection: &str, id: &str) -> Vec<u8> {
+    format!("entity:{{{}}}:{{{}}}::{{{}}}", namespace, collection, id).into_bytes()
 }
 
 /// Key prefix covering every entity record of a collection.
@@ -242,14 +229,14 @@ fn validate_scope(namespace: &str, collection: &str) -> Result<()> {
     Ok(())
 }
 
-fn validate_key(namespace: &str, collection: &str, entity_id: &str) -> Result<()> {
+fn validate_key(namespace: &str, collection: &str, id: &str) -> Result<()> {
     validate_scope(namespace, collection)?;
-    if entity_id.is_empty() {
-        return Err(Error::InvalidInput("entity_id must be non-empty".into()));
+    if id.is_empty() {
+        return Err(Error::InvalidInput("id must be non-empty".into()));
     }
-    if entity_id.contains(['{', '}', ':']) {
+    if id.contains(['{', '}', ':']) {
         return Err(Error::InvalidInput(
-            "entity_id must not contain '{', '}' or ':'".into(),
+            "id must not contain '{', '}' or ':'".into(),
         ));
     }
     Ok(())

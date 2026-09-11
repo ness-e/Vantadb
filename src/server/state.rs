@@ -310,7 +310,7 @@ pub(crate) fn resolve_user_key(
     namespace: &str,
     user_key: &str,
 ) -> crate::error::Result<Option<(String, bool)>> {
-    let page = store.entity_list(namespace, "user", 10_000, 0)?;
+    let page = store.list(namespace, "user", 10_000, 0)?;
     let key_bytes = user_key.as_bytes();
     for entity in page.items {
         let Some(FieldValue::String(candidate)) = entity.fields.get("user_key") else {
@@ -321,7 +321,7 @@ pub(crate) fn resolve_user_key(
                 entity.fields.get("user_type"),
                 Some(FieldValue::String(t)) if t == "system_admin"
             );
-            return Ok(Some((entity.entity_id, is_system_admin)));
+            return Ok(Some((entity.id, is_system_admin)));
         }
     }
     Ok(None)

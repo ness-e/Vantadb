@@ -45,7 +45,7 @@ fn seeded_engine() -> Arc<StorageEngine> {
     let mut fields: HashMap<String, FieldValue> = HashMap::new();
     fields.insert("user_key".into(), FieldValue::String(USER_KEY.to_string()));
     EntityStore::new(&engine)
-        .entity_set("default", "user", USER_ID, fields)
+        .set("default", "user", USER_ID, fields)
         .expect("seed user");
     Arc::new(engine)
 }

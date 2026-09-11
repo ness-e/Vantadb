@@ -6,11 +6,11 @@
 //! contract `{created, updated, summary, heat}` (same contract as
 //! `vanta-memory::core::abstractions::SceneMeta`) plus its identity:
 //! `namespace` (deployment/tenant) + `session_id` (the L0/L1 session) +
-//! `scene_name` (e.g. `2024-08-01-22-10` from the L1 scene segment).
+//! `name` (e.g. `2024-08-01-22-10` from the L1 scene segment).
 //!
 //! Storage reuses the exact [`super::EntityStore`](crate::entity::EntityStore) partition pattern (D4): a
 //! JSON record in the `InternalMetadata` partition under key
-//! `scene:{namespace}:{session_id}::{scene_name}` — distinguishable from
+//! `scene:{namespace}:{session_id}::{name}` — distinguishable from
 //! `entity:*` records in the same partition scan, listed by key prefix.
 //!
 //! The store is intentionally dumb CRUD: `set` replaces wholesale and never
@@ -36,14 +36,15 @@ use super::{validate_key, validate_scope};
 pub struct SceneNode {
     pub namespace: String,
     pub session_id: String,
-    pub scene_name: String,
+    #[serde(alias = "scene_name")]
+    pub name: String,
     pub created: String,
     pub updated: String,
     pub summary: String,
     pub heat: u32,
 }
 
-/// Paginated result of [`SceneNodeStore::scene_node_list`].
+/// Paginated result of [`SceneNodeStore::list`].
 #[derive(Debug, Clone, PartialEq)]
 pub struct SceneNodePage {
     pub items: Vec<SceneNode>,
@@ -55,7 +56,7 @@ pub struct SceneNodePage {
 /// CRUD store for scene node anchors backed by a [`StorageEngine`].
 ///
 /// Each node is a JSON record in the `InternalMetadata` partition under key
-/// `scene:{namespace}:{session_id}::{scene_name}`; listing scans the
+/// `scene:{namespace}:{session_id}::{name}`; listing scans the
 /// session prefix and paginates. Same partition pattern as
 /// [`super::EntityStore`] (D4) — no new storage mechanism.
 pub struct SceneNodeStore<'a> {
@@ -73,21 +74,21 @@ impl<'a> SceneNodeStore<'a> {
     /// Wholesale replace: the caller (L2 strategy) computes `created`,
     /// `updated`, `summary` and `heat` — this store never mutates them
     /// (preserving `created` on update is the strategy's job, MEM-14).
-    pub fn scene_node_set(
+    pub fn set(
         &self,
         namespace: &str,
         session_id: &str,
-        scene_name: &str,
+        name: &str,
         created: &str,
         updated: &str,
         summary: &str,
         heat: u32,
     ) -> Result<SceneNode> {
-        validate_key(namespace, session_id, scene_name)?;
+        validate_key(namespace, session_id, name)?;
         let node = SceneNode {
             namespace: namespace.to_string(),
             session_id: session_id.to_string(),
-            scene_name: scene_name.to_string(),
+            name: name.to_string(),
             created: created.to_string(),
             updated: updated.to_string(),
             summary: summary.to_string(),
@@ -97,23 +98,18 @@ impl<'a> SceneNodeStore<'a> {
             .map_err(|e| Error::serialization(ChainedError::with_source("scene", e)))?;
         self.engine.put_to_partition(
             BackendPartition::InternalMetadata,
-            &scene_key(namespace, session_id, scene_name),
+            &scene_key(namespace, session_id, name),
             &bytes,
         )?;
         Ok(node)
     }
 
     /// Retrieve a scene node by scope + scene name, or `None` when absent.
-    pub fn scene_node_get(
-        &self,
-        namespace: &str,
-        session_id: &str,
-        scene_name: &str,
-    ) -> Result<Option<SceneNode>> {
-        validate_key(namespace, session_id, scene_name)?;
+    pub fn get(&self, namespace: &str, session_id: &str, name: &str) -> Result<Option<SceneNode>> {
+        validate_key(namespace, session_id, name)?;
         match self.engine.get_from_partition(
             BackendPartition::InternalMetadata,
-            &scene_key(namespace, session_id, scene_name),
+            &scene_key(namespace, session_id, name),
         )? {
             Some(bytes) => serde_json::from_slice(&bytes)
                 .map(Some)
@@ -123,14 +119,9 @@ impl<'a> SceneNodeStore<'a> {
     }
 
     /// Delete a scene node by scope + scene name. Returns `true` when it existed.
-    pub fn scene_node_delete(
-        &self,
-        namespace: &str,
-        session_id: &str,
-        scene_name: &str,
-    ) -> Result<bool> {
-        validate_key(namespace, session_id, scene_name)?;
-        let key = scene_key(namespace, session_id, scene_name);
+    pub fn delete(&self, namespace: &str, session_id: &str, name: &str) -> Result<bool> {
+        validate_key(namespace, session_id, name)?;
+        let key = scene_key(namespace, session_id, name);
         let existed = self
             .engine
             .get_from_partition(BackendPartition::InternalMetadata, &key)?
@@ -145,9 +136,9 @@ impl<'a> SceneNodeStore<'a> {
 
     /// List scene node anchors in a `namespace`/`session_id` with pagination.
     ///
-    /// Items are ordered by `scene_name` for deterministic pages; `total` is
+    /// Items are ordered by `name` for deterministic pages; `total` is
     /// the full session size before `offset`/`limit` are applied.
-    pub fn scene_node_list(
+    pub fn list(
         &self,
         namespace: &str,
         session_id: &str,
@@ -165,7 +156,7 @@ impl<'a> SceneNodeStore<'a> {
                 .map_err(|e| Error::serialization(ChainedError::with_source("scene", e)))?;
             nodes.push(node);
         }
-        nodes.sort_by(|a, b| a.scene_name.cmp(&b.scene_name));
+        nodes.sort_by(|a, b| a.name.cmp(&b.name));
         let total = nodes.len();
         let items: Vec<SceneNode> = nodes.into_iter().skip(offset).take(limit).collect();
         Ok(SceneNodePage { items, total })
@@ -175,12 +166,8 @@ impl<'a> SceneNodeStore<'a> {
 // ── helpers ──
 
 /// Key for a single scene node record in the `InternalMetadata` partition.
-fn scene_key(namespace: &str, session_id: &str, scene_name: &str) -> Vec<u8> {
-    format!(
-        "scene:{{{}}}:{{{}}}::{{{}}}",
-        namespace, session_id, scene_name
-    )
-    .into_bytes()
+fn scene_key(namespace: &str, session_id: &str, name: &str) -> Vec<u8> {
+    format!("scene:{{{}}}:{{{}}}::{{{}}}", namespace, session_id, name).into_bytes()
 }
 
 /// Key prefix covering every scene node record of a session.

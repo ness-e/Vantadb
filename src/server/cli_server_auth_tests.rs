@@ -45,7 +45,7 @@ fn in_memory_storage(audit_log_path: Option<std::path::PathBuf>) -> Arc<StorageE
 
 fn seed_user(store: &EntityStore<'_>, user_id: &str, user_key: &str, user_type: &str) {
     store
-        .entity_set(
+        .set(
             "default",
             "user",
             user_id,

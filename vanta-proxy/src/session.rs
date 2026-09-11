@@ -261,7 +261,7 @@ mod tests {
 
     fn seed_entity(db: &AuthDb, collection: &str, id: &str) {
         EntityStore::new(&db.engine())
-            .entity_set("default", collection, id, HashMap::new())
+            .set("default", collection, id, HashMap::new())
             .expect("seed entity");
     }
 
