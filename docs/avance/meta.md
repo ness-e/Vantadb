@@ -260,4 +260,7 @@ Plan `docs/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ en 3 
 ## Archivo plan 2026-09-10-anti-stutter (2026-09-11)
 - **Plan:** docs/plans/archive/2026-09-10-anti-stutter.md (+ .budget.json) - 7/7 COMPLETED (AST-001...007).
 - **Retrospectiva:** Start: just verify tras cada rename (caza usos downstream en AST-002, no AST-007). Stop: asumir aliases ⇒ cero churn (-D warnings los vuelve errores); asumir rg-cero literal sin scoped-contract. Continue: mapa unico + verify mecanico + triage con evidencia + recitation.
-- **Accion medible:** incluir crates consumidores en el blast radius de todo codemod de renames (verificado: 346 sitios downstream esta vez).
+## Archivo plan 2026-09-11-anti-stutter-cierre (2026-09-11)
+- **Plan:** docs/plans/archive/2026-09-11-anti-stutter-cierre.md (+ .budget.json) - 4/4 COMPLETED (AST-008/009/010/011, Wave 1 + Wave 2).
+- **Retrospectiva:** Start: scoped-contract en vez de rg literal (el literal 129 era 100% prosa/wire/dueno-ajeno; el scoped 0/0/0/0/0 si es gate). Stop: dejar avance al orquestador (AST-008/009/010 llegaron a AST-011 sin registro; el cierre tuvo que registrar 4). Continue: triage deny con owner/expiry (patron AST-007 reutilizado sin cambios) + verify-full tras cada borrado + recitation canonica.
+- **Accion medible:** registrar avance en el mismo commit del task (no diferido): m/ma: tasks con avance diferido/total = 3/4 esta campana -> objetivo 0 en la proxima.

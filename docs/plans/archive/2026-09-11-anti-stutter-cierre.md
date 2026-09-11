@@ -150,9 +150,9 @@ Regla: rename DIRECTO, se eliminan aliases deprecated (no hay usuarios que migra
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo deny check && cargo fmt --check -p vantadb && cargo check -p vantadb`
 - **Task file:** `docs/tasks/AST-011.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+- **Estado:** ✅ COMPLETED
+- **Branch:** develop
+- **Commit:** (archivado, sin push)
 
   **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger / Due |
@@ -198,9 +198,31 @@ Próxima tarea si completa: AST-010
 Campaign ID: 11eb06a6-bcc5-4894-ad55-697637426a63
 Objetivo activo: AST-010 — Quitar aliases deprecated + compat-notes
 Estado: completed
-Última acción: S1-S6 completos: S1/S2 heredados + restore VantaHeader (fix review), cola graph.test.ts→Client, S4 Python Vector/Error nativos + rebuild + pytest 135, S5 docs en pasado, verify full verde, commit sin push
+Última acción: S6: review doubt-driven con 2 fixes (VantaHeader + allow memory_record_from_node), clippy -D warnings verde, commit 1a566ef3 hook verde sin push, task+plan actualizados, 2 lessons
 Resultado: OK
-Próxima acción: ninguno (AST-010 cerrada)
-Contrato: verificacion: scoped 0/0/0/0/0 + literal 129=100% excluidas + check --all-targets + tsc + vitest 280/280 + pytest 135 + nextest-mem 10/10 + fmt | evidencia: commit AST-010 (esta sesión) | artefactos: docs/tasks/AST-010.md | invariantes: VantaHeader/VANTADB_*/name-wire/prosa/historia/Node/Native/docstring intactos | deuda: FIND-AST010-01/02 + ADR-041 firma + FIND-AST010-03 search_vector gap | queda_pendiente: AST-011
+Próxima acción: Orquestador: skill progreso + AST-011 verify final + cierre
+Contrato: verificacion: scoped 0/0/0/0/0 + literal 129=100% excluidas + cargo check --all-targets + tsc + vitest 280/280 + pytest 135 + nextest-mem 10/10 + fmt + clippy -D warnings + hook pre-commit verde | evidencia: commit 1a566ef3 (45 files, +446/-612, sin push) | artefactos: docs/tasks/AST-010.md, commit 1a566ef3 | invariantes: VantaHeader/VANTADB_*/name-wire/prosa/historia-tasks-plans-changelog/Node-struct/NativeVantaDB/docstring-legacy intactos | deuda: FIND-AST010-01/02 + ADR-041 firma + FIND-AST010-03 search_vector gap (pre-existente) | queda_pendiente: orquestador: skill progreso + AST-011 (deny/semver/nextest/tsc/pytest/coverage finales)
 Próxima tarea si completa: AST-011
+=== END RECITATION ===
+
+=== RECITATION 3 ===
+Campaign ID: 11eb06a6-bcc5-4894-ad55-697637426a63
+Objetivo activo: AST-010 quitar aliases
+Estado: completed
+Última acción: RETRY COMPLETO 6/6 commit 1a566ef3; doubt-review restauro 2 excesos (VantaHeader, memory_record_from_node)
+Resultado: ✅
+Próxima acción: AST-011 verify final + cierre
+Contrato: scoped 0 + check/tsc/vitest280/pytest135
+Próxima tarea si completa: AST-011
+=== END RECITATION ===
+
+=== RECITATION AST-011 ===
+Campaign ID: 11eb06a6-bcc5-4894-ad55-697637426a63
+Objetivo activo: AST-011 Verify final + cierre
+Estado: in-progress
+Última acción: S0-S4 completos y verificados mecanicamente
+Resultado: PARTIAL
+Próxima acción: S5 retrospectiva + git mv plan a archive + skill progreso
+Contrato: verificacion: S0 scoped 0/0/0/0/0 + S1 deny/fmt/check verdes + S2 nextest 3142 passed + S3 tsc exit 0 + pytest 75 passed + S4 coverage solo gap conocido FIND-AST010-03 | evidencia: nextest log Temp/opencode/ast011-nextest.log | artefactos: docs/tasks/AST-011.md | invariantes: sin push/publish/tags/CHANGELOG; exclusiones intactas | deuda: FIND-01/02/03 + ADR-041 firma (heredadas) | queda_pendiente: S5 retrospectiva+archivar+progreso, S6 gates+cierre
+Próxima tarea si completa: ninguno (ultima)
 === END RECITATION ===
