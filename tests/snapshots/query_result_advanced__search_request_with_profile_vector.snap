@@ -2,7 +2,7 @@
 source: tests/query_result_advanced.rs
 expression: req
 ---
-VantaMemorySearchRequest {
+MemorySearchRequest {
     namespace: "embeddings",
     query_vector: [
         0.7,

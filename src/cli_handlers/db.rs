@@ -1,13 +1,13 @@
 //! Database open helpers.
 
-use crate::config::VantaConfig;
+use crate::config::Config;
 use crate::error::Result;
 use crate::storage::StorageEngine;
-use crate::VantaEmbedded;
+use crate::Embedded;
 
 /// Open a database at the given path with optional read-only mode
 pub fn open_database(path: &str, read_only: bool) -> Result<StorageEngine> {
-    let config = VantaConfig {
+    let config = Config {
         read_only,
         ..Default::default()
     };
@@ -15,13 +15,13 @@ pub fn open_database(path: &str, read_only: bool) -> Result<StorageEngine> {
 }
 
 /// Open the embedded VantaDB SDK with the given path and read-only mode
-pub fn open_embedded(path: &str, read_only: bool) -> Result<VantaEmbedded> {
-    let config = VantaConfig {
+pub fn open_embedded(path: &str, read_only: bool) -> Result<Embedded> {
+    let config = Config {
         storage_path: path.to_string(),
         read_only,
         ..Default::default()
     };
-    VantaEmbedded::open_with_config(config)
+    Embedded::open_with_config(config)
 }
 
 /// Compute a deterministic node ID from namespace and key using xxHash3-128

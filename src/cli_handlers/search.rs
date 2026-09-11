@@ -30,7 +30,7 @@ pub fn cmd_search(
     }
 
     let spinner = create_spinner("Opening database...");
-    // AUD-044: open read-write so `VantaEmbedded::open_with_config` runs
+    // AUD-044: open read-write so `Embedded::open_with_config` runs
     // `ensure_indexes_current` (skipped when read_only) — text_query fails on
     // fresh DBs with "text_index not found: bm25" otherwise. Same fix as MCP-01.
     let db = open_embedded(db_path, false)?;
@@ -40,7 +40,7 @@ pub fn cmd_search(
         qv.split(',')
             .map(|s| {
                 s.trim().parse::<f32>().map_err(|e| {
-                    crate::error::VantaError::InvalidInput(format!(
+                    crate::error::Error::InvalidInput(format!(
                         "Invalid vector component '{s}': {e}"
                     ))
                 })
@@ -50,11 +50,11 @@ pub fn cmd_search(
         vec![]
     };
 
-    let request = crate::sdk::VantaMemorySearchRequest {
+    let request = crate::sdk::MemorySearchRequest {
         namespace: namespace.to_string(),
         query_vector,
         query_sparse: None,
-        filters: crate::sdk::VantaMemoryMetadata::new(),
+        filters: crate::sdk::MemoryMetadata::new(),
         text_query: Some(query.to_string()),
         top_k: limit,
         distance_metric: crate::node::DistanceMetric::Cosine,
@@ -81,7 +81,7 @@ pub fn cmd_search(
         println!(
             "{}",
             serde_json::to_string_pretty(&results).map_err(|e| {
-                crate::error::VantaError::CliError(ChainedError::msg(format!(
+                crate::error::Error::CliError(ChainedError::msg(format!(
                     "JSON serialization error: {e}"
                 )))
             })?
@@ -203,7 +203,7 @@ pub fn cmd_similar_to_key(
         println!(
             "{}",
             serde_json::to_string_pretty(&results).map_err(|e| {
-                crate::error::VantaError::CliError(ChainedError::msg(format!(
+                crate::error::Error::CliError(ChainedError::msg(format!(
                     "JSON serialization error: {e}"
                 )))
             })?
@@ -278,7 +278,7 @@ fn parse_query_vector(s: Option<&str>) -> crate::error::Result<Vec<f32>> {
             .split(',')
             .map(|tok| {
                 tok.trim().parse::<f32>().map_err(|e| {
-                    crate::error::VantaError::InvalidInput(format!(
+                    crate::error::Error::InvalidInput(format!(
                         "Invalid vector component '{tok}': {e}"
                     ))
                 })
@@ -289,7 +289,7 @@ fn parse_query_vector(s: Option<&str>) -> crate::error::Result<Vec<f32>> {
 
 /// Render search hits to stdout (shared by search_multi and search_all).
 fn print_hits(
-    hits: &[crate::sdk::VantaMemorySearchHit],
+    hits: &[crate::sdk::MemorySearchHit],
     json_output: bool,
     header: &str,
 ) -> crate::error::Result<()> {
@@ -308,7 +308,7 @@ fn print_hits(
         println!(
             "{}",
             serde_json::to_string_pretty(&results).map_err(|e| {
-                crate::error::VantaError::CliError(crate::error::ChainedError::msg(format!(
+                crate::error::Error::CliError(crate::error::ChainedError::msg(format!(
                     "JSON serialization error: {e}"
                 )))
             })?
@@ -396,12 +396,12 @@ pub fn cmd_search_multi(
 
     let query_vector = parse_query_vector(query_vector_str)?;
 
-    let request = crate::sdk::VantaMemorySearchRequest {
+    let request = crate::sdk::MemorySearchRequest {
         // namespace is overridden per-namespace inside search_multi
         namespace: String::new(),
         query_vector,
         query_sparse: None,
-        filters: crate::sdk::VantaMemoryMetadata::new(),
+        filters: crate::sdk::MemoryMetadata::new(),
         text_query: query.map(str::to_string),
         top_k,
         distance_metric: crate::node::DistanceMetric::Cosine,
@@ -454,11 +454,11 @@ pub fn cmd_search_all(
 
     let query_vector = parse_query_vector(query_vector_str)?;
 
-    let request = crate::sdk::VantaMemorySearchRequest {
+    let request = crate::sdk::MemorySearchRequest {
         namespace: String::new(),
         query_vector,
         query_sparse: None,
-        filters: crate::sdk::VantaMemoryMetadata::new(),
+        filters: crate::sdk::MemoryMetadata::new(),
         text_query: query.map(str::to_string),
         top_k,
         distance_metric: crate::node::DistanceMetric::Cosine,
@@ -480,7 +480,7 @@ mod tests {
     /// AUD-044 regression: `search` on a fresh DB after `put` must work without
     /// a manual `rebuild-index` step. Before the fix, `open_embedded` was called
     /// with `read_only=true`, which skips `ensure_indexes_current` in
-    /// `VantaEmbedded::open_with_config` → text_query failed with
+    /// `Embedded::open_with_config` → text_query failed with
     /// `NotFound { kind: "text_index", id: "bm25" }`.
     #[test]
     fn search_on_fresh_db_after_put_works_without_manual_rebuild() {

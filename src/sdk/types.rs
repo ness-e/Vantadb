@@ -8,24 +8,40 @@ mod graph;
 mod record;
 mod search;
 
+pub use graph::{EdgeRecord, NodeInput, NodeRecord, QueryResult};
+#[allow(deprecated)]
 pub use graph::{VantaEdgeRecord, VantaNodeInput, VantaNodeRecord, VantaQueryResult};
+pub use record::{
+    ExportReport, FilterOp, ImportReport, MemoryExportLine, MemoryFilter, MemoryFilterItem,
+    MemoryInput, MemoryListOptions, MemoryListPage, MemoryRecord, NamespaceStats,
+    NamespaceStatsMap, DEFAULT_EXPIRING_SOON_WINDOW_MS,
+};
+#[allow(deprecated)]
 pub use record::{
     VantaExportReport, VantaFilterOp, VantaImportReport, VantaMemoryExportLine, VantaMemoryFilter,
     VantaMemoryFilterItem, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryListPage,
     VantaMemoryRecord, VantaNamespaceStats, VantaNamespaceStatsMap,
-    DEFAULT_EXPIRING_SOON_WINDOW_MS,
 };
 #[cfg(debug_assertions)]
-pub use search::VantaMemorySearchDebugReport;
+pub use search::MemorySearchDebugReport;
+// NOTE (AST-002): no `VantaMemorySearchDebugReport` re-export here — debug-only
+// `doc(hidden)` diagnostic that never crossed the `sdk` boundary; the def-site
+// alias in `search.rs` covers the migration path. Zero users post-rename.
+pub use search::{
+    Bm25TermContribution, HybridFusionReport, IndexRebuildReport, MemorySearchHit,
+    MemorySearchRequest, SearchExplanation, SearchExplanationHit, SearchHit, SearchProfileConfig,
+    SearchProfileMode, TextIndexAuditReport, TextIndexRepairReport,
+};
 pub(crate) use search::{
     DerivedIndexRebuildReport, DerivedIndexState, ExpectedTextIndexEntries, SparseIndexCounts,
     SparseIndexRebuildReport, SparseIndexState, TextIndexCounts, TextIndexMutationReport,
     TextIndexRebuildReport, TextIndexState,
 };
+#[allow(deprecated)]
 pub use search::{
-    SearchProfileConfig, SearchProfileMode, VantaBm25TermContribution, VantaHybridFusionReport,
-    VantaIndexRebuildReport, VantaMemorySearchHit, VantaMemorySearchRequest,
-    VantaSearchExplanation, VantaSearchExplanationHit, VantaSearchHit, VantaTextIndexAuditReport,
+    VantaBm25TermContribution, VantaHybridFusionReport, VantaIndexRebuildReport,
+    VantaMemorySearchHit, VantaMemorySearchRequest, VantaSearchExplanation,
+    VantaSearchExplanationHit, VantaSearchHit, VantaTextIndexAuditReport,
     VantaTextIndexRepairReport,
 };
 
@@ -58,7 +74,7 @@ pub(crate) mod u128_serde {
 
 /// Stable runtime profile exposed to SDKs without leaking hardware internals.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum VantaRuntimeProfile {
+pub enum RuntimeProfile {
     /// High-resource profile for enterprise-class hardware (AVX-512, 16+ GB RAM).
     Enterprise,
     /// Standard server profile (AVX2/NEON, 4+ GB RAM).
@@ -69,7 +85,7 @@ pub enum VantaRuntimeProfile {
 
 /// Stable storage tier view for external SDKs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum VantaStorageTier {
+pub enum StorageTier {
     /// Hot tier for frequently accessed nodes.
     Hot,
     /// Cold tier for infrequently accessed nodes.
@@ -78,7 +94,7 @@ pub enum VantaStorageTier {
 
 /// Stable field value representation for external SDKs.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
-pub enum VantaValue {
+pub enum Value {
     /// UTF-8 string value.
     String(String),
     /// Signed 64-bit integer.
@@ -103,34 +119,30 @@ pub enum VantaValue {
     Null,
 }
 
-impl VantaValue {
+impl Value {
     /// Flatten list variants into individual scalar values for index storage.
     /// Non-list variants return a single-element vector containing a clone of self.
-    pub fn to_index_values(&self) -> Vec<VantaValue> {
+    pub fn to_index_values(&self) -> Vec<Value> {
         match self {
-            VantaValue::ListString(vec) => {
-                vec.iter().map(|s| VantaValue::String(s.clone())).collect()
-            }
-            VantaValue::ListInt(vec) => vec.iter().map(|&i| VantaValue::Int(i)).collect(),
-            VantaValue::ListFloat(vec) => vec.iter().map(|&f| VantaValue::Float(f)).collect(),
-            VantaValue::ListBool(vec) => vec.iter().map(|&b| VantaValue::Bool(b)).collect(),
-            VantaValue::ListDateTime(vec) => {
-                vec.iter().map(|&dt| VantaValue::DateTime(dt)).collect()
-            }
+            Value::ListString(vec) => vec.iter().map(|s| Value::String(s.clone())).collect(),
+            Value::ListInt(vec) => vec.iter().map(|&i| Value::Int(i)).collect(),
+            Value::ListFloat(vec) => vec.iter().map(|&f| Value::Float(f)).collect(),
+            Value::ListBool(vec) => vec.iter().map(|&b| Value::Bool(b)).collect(),
+            Value::ListDateTime(vec) => vec.iter().map(|&dt| Value::DateTime(dt)).collect(),
             other => vec![other.clone()],
         }
     }
 }
 
 /// Stable relational fields map for external SDKs.
-pub type VantaFields = BTreeMap<String, VantaValue>;
+pub type Fields = BTreeMap<String, Value>;
 
 /// Stable metadata map for persistent memory records.
-pub type VantaMemoryMetadata = VantaFields;
+pub type MemoryMetadata = Fields;
 
 /// Stable snapshot of operational metrics used for validation and diagnostics.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VantaOperationalMetrics {
+pub struct OperationalMetrics {
     /// Engine startup duration in milliseconds.
     pub startup_ms: u64,
     /// WAL replay duration in milliseconds.
@@ -235,9 +247,9 @@ pub struct VantaOperationalMetrics {
 
 /// Stable capabilities summary exposed to external SDKs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VantaCapabilities {
+pub struct Capabilities {
     /// Current runtime performance profile.
-    pub runtime_profile: VantaRuntimeProfile,
+    pub runtime_profile: RuntimeProfile,
     /// Whether the database persists data to disk.
     pub persistence: bool,
     /// Whether vector search via HNSW is available.
@@ -381,122 +393,151 @@ pub struct SkillWriteResult {
     pub idempotent: bool,
 }
 
+/// Deprecated `Vanta`-prefixed aliases (AST-002, ADR-041).
+/// New code must use the unprefixed names; these exist only for semver migration.
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `RuntimeProfile` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaRuntimeProfile = RuntimeProfile;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `StorageTier` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaStorageTier = StorageTier;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `Value` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaValue = Value;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `Fields` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaFields = Fields;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `MemoryMetadata` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaMemoryMetadata = MemoryMetadata;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `OperationalMetrics` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaOperationalMetrics = OperationalMetrics;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `Capabilities` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaCapabilities = Capabilities;
+
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
     use super::*;
 
-    // ΓöÇΓöÇ VantaRuntimeProfile ΓöÇΓöÇ
+    // ΓöÇΓöÇ RuntimeProfile ΓöÇΓöÇ
 
     #[test]
     fn test_runtime_profile_variants() {
-        assert_ne!(
-            VantaRuntimeProfile::Enterprise,
-            VantaRuntimeProfile::Performance
-        );
-        assert_ne!(
-            VantaRuntimeProfile::LowResource,
-            VantaRuntimeProfile::Enterprise
-        );
+        assert_ne!(RuntimeProfile::Enterprise, RuntimeProfile::Performance);
+        assert_ne!(RuntimeProfile::LowResource, RuntimeProfile::Enterprise);
     }
 
     #[test]
     fn test_runtime_profile_clone_copy() {
-        let p = VantaRuntimeProfile::Performance;
+        let p = RuntimeProfile::Performance;
         let copied = p;
         assert_eq!(p, copied);
     }
 
     #[test]
     fn test_runtime_profile_debug() {
-        let d = format!("{:?}", VantaRuntimeProfile::LowResource);
+        let d = format!("{:?}", RuntimeProfile::LowResource);
         assert_eq!(d, "LowResource");
     }
 
-    // ΓöÇΓöÇ VantaStorageTier ΓöÇΓöÇ
+    // ΓöÇΓöÇ StorageTier ΓöÇΓöÇ
 
     #[test]
     fn test_storage_tier_variants() {
-        assert_ne!(VantaStorageTier::Hot, VantaStorageTier::Cold);
+        assert_ne!(StorageTier::Hot, StorageTier::Cold);
     }
 
     #[test]
     fn test_storage_tier_debug() {
-        let h = format!("{:?}", VantaStorageTier::Hot);
+        let h = format!("{:?}", StorageTier::Hot);
         assert_eq!(h, "Hot");
     }
 
-    // ΓöÇΓöÇ VantaValue ΓöÇΓöÇ
+    // ΓöÇΓöÇ Value ΓöÇΓöÇ
 
     #[test]
     fn test_vanta_value_string() {
-        let v = VantaValue::String("hello".into());
-        assert_eq!(
-            v.to_index_values(),
-            vec![VantaValue::String("hello".into())]
-        );
+        let v = Value::String("hello".into());
+        assert_eq!(v.to_index_values(), vec![Value::String("hello".into())]);
     }
 
     #[test]
     fn test_vanta_value_int() {
-        let v = VantaValue::Int(42);
-        assert_eq!(v.to_index_values(), vec![VantaValue::Int(42)]);
+        let v = Value::Int(42);
+        assert_eq!(v.to_index_values(), vec![Value::Int(42)]);
     }
 
     #[test]
     fn test_vanta_value_float() {
-        let v = VantaValue::Float(42.5);
-        assert_eq!(v.to_index_values(), vec![VantaValue::Float(42.5)]);
+        let v = Value::Float(42.5);
+        assert_eq!(v.to_index_values(), vec![Value::Float(42.5)]);
     }
 
     #[test]
     fn test_vanta_value_bool() {
-        let v = VantaValue::Bool(true);
-        assert_eq!(v.to_index_values(), vec![VantaValue::Bool(true)]);
+        let v = Value::Bool(true);
+        assert_eq!(v.to_index_values(), vec![Value::Bool(true)]);
     }
 
     #[test]
     fn test_vanta_value_null() {
-        let v = VantaValue::Null;
-        assert_eq!(v.to_index_values(), vec![VantaValue::Null]);
+        let v = Value::Null;
+        assert_eq!(v.to_index_values(), vec![Value::Null]);
     }
 
     #[test]
     fn test_vanta_value_datetime() {
         let dt: chrono::DateTime<chrono::Utc> = "2025-01-01T00:00:00Z".parse().unwrap();
-        let v = VantaValue::DateTime(dt);
+        let v = Value::DateTime(dt);
         let values = v.to_index_values();
         assert_eq!(values.len(), 1);
-        assert_eq!(values[0], VantaValue::DateTime(dt));
+        assert_eq!(values[0], Value::DateTime(dt));
     }
 
     #[test]
     fn test_vanta_value_to_index_list_string() {
-        let v = VantaValue::ListString(vec!["a".into(), "b".into(), "c".into()]);
+        let v = Value::ListString(vec!["a".into(), "b".into(), "c".into()]);
         let values = v.to_index_values();
         assert_eq!(values.len(), 3);
-        assert_eq!(values[0], VantaValue::String("a".into()));
-        assert_eq!(values[2], VantaValue::String("c".into()));
+        assert_eq!(values[0], Value::String("a".into()));
+        assert_eq!(values[2], Value::String("c".into()));
     }
 
     #[test]
     fn test_vanta_value_to_index_list_int() {
-        let v = VantaValue::ListInt(vec![1, 2, 3]);
+        let v = Value::ListInt(vec![1, 2, 3]);
         let values = v.to_index_values();
         assert_eq!(values.len(), 3);
-        assert_eq!(values[1], VantaValue::Int(2));
+        assert_eq!(values[1], Value::Int(2));
     }
 
     #[test]
     fn test_vanta_value_to_index_list_float() {
-        let v = VantaValue::ListFloat(vec![1.0, 2.0]);
+        let v = Value::ListFloat(vec![1.0, 2.0]);
         let values = v.to_index_values();
         assert_eq!(values.len(), 2);
     }
 
     #[test]
     fn test_vanta_value_to_index_list_bool() {
-        let v = VantaValue::ListBool(vec![true, false, true]);
+        let v = Value::ListBool(vec![true, false, true]);
         let values = v.to_index_values();
         assert_eq!(values.len(), 3);
     }
@@ -504,55 +545,55 @@ mod tests {
     #[test]
     fn test_vanta_value_to_index_list_datetime() {
         let dt: chrono::DateTime<chrono::Utc> = "2025-06-15T12:00:00Z".parse().unwrap();
-        let v = VantaValue::ListDateTime(vec![dt]);
+        let v = Value::ListDateTime(vec![dt]);
         let values = v.to_index_values();
         assert_eq!(values.len(), 1);
-        assert_eq!(values[0], VantaValue::DateTime(dt));
+        assert_eq!(values[0], Value::DateTime(dt));
     }
 
     #[test]
     fn test_vanta_value_to_index_empty_list() {
-        let v = VantaValue::ListString(vec![]);
+        let v = Value::ListString(vec![]);
         let values = v.to_index_values();
         assert!(values.is_empty());
     }
 
     #[test]
     fn test_vanta_value_clone() {
-        let v = VantaValue::String("test".into());
+        let v = Value::String("test".into());
         let cloned = v.clone();
         assert_eq!(v, cloned);
     }
 
     #[test]
     fn test_vanta_value_debug() {
-        let d = format!("{:?}", VantaValue::Bool(false));
+        let d = format!("{:?}", Value::Bool(false));
         assert!(d.contains("Bool") || d.contains("false"));
     }
 
-    // ΓöÇΓöÇ VantaCapabilities ΓöÇΓöÇ
+    // ΓöÇΓöÇ Capabilities ΓöÇΓöÇ
 
     #[test]
     fn test_capabilities_default() {
-        let caps = VantaCapabilities {
-            runtime_profile: VantaRuntimeProfile::Performance,
+        let caps = Capabilities {
+            runtime_profile: RuntimeProfile::Performance,
             persistence: true,
             vector_search: true,
             iql_queries: false,
             read_only: false,
         };
-        assert_eq!(caps.runtime_profile, VantaRuntimeProfile::Performance);
+        assert_eq!(caps.runtime_profile, RuntimeProfile::Performance);
         assert!(caps.persistence);
         assert!(caps.vector_search);
         assert!(!caps.iql_queries);
         assert!(!caps.read_only);
     }
 
-    // ΓöÇΓöÇ VantaOperationalMetrics ΓöÇΓöÇ
+    // ΓöÇΓöÇ OperationalMetrics ΓöÇΓöÇ
 
     #[test]
     fn test_operational_metrics_defaults() {
-        let m = VantaOperationalMetrics {
+        let m = OperationalMetrics {
             startup_ms: 100,
             wal_replay_ms: 50,
             wal_records_replayed: 200,
@@ -611,7 +652,7 @@ mod tests {
 
     #[test]
     fn test_operational_metrics_clone_debug() {
-        let m = VantaOperationalMetrics {
+        let m = OperationalMetrics {
             startup_ms: 1,
             wal_replay_ms: 2,
             wal_records_replayed: 3,
@@ -669,12 +710,12 @@ mod tests {
         assert!(dbg.contains("startup_ms"));
     }
 
-    // ΓöÇΓöÇ VantaCapabilities clone/debug ΓöÇΓöÇ
+    // ΓöÇΓöÇ Capabilities clone/debug ΓöÇΓöÇ
 
     #[test]
     fn test_capabilities_clone() {
-        let caps = VantaCapabilities {
-            runtime_profile: VantaRuntimeProfile::Enterprise,
+        let caps = Capabilities {
+            runtime_profile: RuntimeProfile::Enterprise,
             persistence: true,
             vector_search: false,
             iql_queries: true,
@@ -686,8 +727,8 @@ mod tests {
 
     #[test]
     fn test_capabilities_debug() {
-        let caps = VantaCapabilities {
-            runtime_profile: VantaRuntimeProfile::Performance,
+        let caps = Capabilities {
+            runtime_profile: RuntimeProfile::Performance,
             persistence: false,
             vector_search: true,
             iql_queries: false,
@@ -698,14 +739,14 @@ mod tests {
         assert!(dbg.contains("read_only"));
     }
 
-    // ΓöÇΓöÇ VantaValue Debug variant coverage ΓöÇΓöÇ
+    // ΓöÇΓöÇ Value Debug variant coverage ΓöÇΓöÇ
 
     #[test]
     fn test_vanta_value_debug_variants() {
-        assert!(format!("{:?}", VantaValue::String("a".into())).contains("String"));
-        assert!(format!("{:?}", VantaValue::Int(1)).contains("Int"));
-        assert!(format!("{:?}", VantaValue::Float(1.0)).contains("Float"));
-        assert!(format!("{:?}", VantaValue::Null).contains("Null"));
-        assert!(format!("{:?}", VantaValue::ListString(vec!["a".into()])).contains("List"));
+        assert!(format!("{:?}", Value::String("a".into())).contains("String"));
+        assert!(format!("{:?}", Value::Int(1)).contains("Int"));
+        assert!(format!("{:?}", Value::Float(1.0)).contains("Float"));
+        assert!(format!("{:?}", Value::Null).contains("Null"));
+        assert!(format!("{:?}", Value::ListString(vec!["a".into()])).contains("List"));
     }
 }

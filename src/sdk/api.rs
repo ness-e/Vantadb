@@ -1,4 +1,4 @@
-//! Public SDK surface for `VantaEmbedded`.
+//! Public SDK surface for `Embedded`.
 //!
 //! Domain modules split from the original `api.rs` god-file (REVIEW-12,
 //! 2026-08-30). Each submodule owns one concern:
@@ -24,28 +24,28 @@ pub use memory::BulkImportReport;
 
 #[cfg(test)]
 mod tests {
-    use super::super::builder::VantaEmbedded;
+    use super::super::builder::Embedded;
     use super::super::serialization::now_ms;
     use super::super::types::*;
-    use crate::config::VantaConfig;
-    use crate::error::VantaError;
+    use crate::config::Config;
+    use crate::error::Error;
     use crate::node::DistanceMetric;
 
-    fn make_embedded(read_only: bool) -> VantaEmbedded {
-        let config = VantaConfig {
+    fn make_embedded(read_only: bool) -> Embedded {
+        let config = Config {
             storage_path: ":memory:".into(),
             backend_kind: crate::BackendKind::InMemory,
             read_only,
             ..Default::default()
         };
-        VantaEmbedded::open_with_config(config).expect("open in-memory VantaEmbedded")
+        Embedded::open_with_config(config).expect("open in-memory Embedded")
     }
 
     #[test]
     fn test_capabilities_default() {
         let db = make_embedded(false);
         let caps = db.capabilities();
-        assert_eq!(caps.runtime_profile, VantaRuntimeProfile::Performance);
+        assert_eq!(caps.runtime_profile, RuntimeProfile::Performance);
         assert!(caps.persistence);
         assert!(caps.vector_search);
         assert!(caps.iql_queries);
@@ -79,7 +79,7 @@ mod tests {
         let db = make_embedded(true);
         let err = db.check_read_only().unwrap_err();
         match err {
-            VantaError::ValidationError { field, .. } => assert_eq!(field, "read_only"),
+            Error::ValidationError { field, .. } => assert_eq!(field, "read_only"),
             _ => panic!("expected ValidationError"),
         }
     }
@@ -87,10 +87,10 @@ mod tests {
     #[test]
     fn test_put_blocked_when_read_only() {
         let db = make_embedded(true);
-        let input = VantaMemoryInput::new("ns", "k", "v");
+        let input = MemoryInput::new("ns", "k", "v");
         let err = db.put(input).unwrap_err();
         match err {
-            VantaError::ValidationError { field, .. } => assert_eq!(field, "read_only"),
+            Error::ValidationError { field, .. } => assert_eq!(field, "read_only"),
             _ => panic!("expected ValidationError for read_only"),
         }
     }
@@ -112,11 +112,11 @@ mod tests {
     #[test]
     fn test_insert_node_no_engine() {
         let db = make_embedded(false);
-        let input = VantaNodeInput {
+        let input = NodeInput {
             id: 1,
             content: Some("hello".into()),
             vector: None,
-            fields: VantaFields::new(),
+            fields: Fields::new(),
         };
         // Without an open engine this will surface an engine-handle error —
         // valid outcome is `Err`, but in-memory :memory: may succeed depending on
@@ -140,7 +140,7 @@ mod tests {
     #[test]
     fn test_put_no_engine() {
         let db = make_embedded(false);
-        let input = VantaMemoryInput::new("ns", "k", "v");
+        let input = MemoryInput::new("ns", "k", "v");
         // test_empty opens an in-memory engine — put should succeed.
         let r = db.put(input);
         assert!(r.is_ok());
@@ -149,7 +149,7 @@ mod tests {
     #[test]
     fn test_put_batch_no_engine() {
         let db = make_embedded(false);
-        let inputs = vec![VantaMemoryInput::new("ns", "k1", "v1")];
+        let inputs = vec![MemoryInput::new("ns", "k1", "v1")];
         let r = db.put_batch(inputs);
         assert!(r.is_ok());
     }
@@ -176,7 +176,7 @@ mod tests {
     #[test]
     fn test_list_no_engine() {
         let db = make_embedded(false);
-        let page = db.list("ns", VantaMemoryListOptions::default()).unwrap();
+        let page = db.list("ns", MemoryListOptions::default()).unwrap();
         assert!(page.records.is_empty());
         assert!(page.next_cursor.is_none());
     }
@@ -222,11 +222,11 @@ mod tests {
         // ensure purge_expired runs end-to-end on an in-memory store with one
         // record whose TTL has already lapsed.
         let db = make_embedded(false);
-        let input = VantaMemoryInput {
+        let input = MemoryInput {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "payload".into(),
-            metadata: VantaFields::new(),
+            metadata: Fields::new(),
             vector: None,
             sparse_vector: None,
             ttl_ms: Some(1),
@@ -244,21 +244,21 @@ mod tests {
         let _ = db.add_edge(1, 2, "rel", None, None);
     }
 
-    fn make_embedded_real() -> VantaEmbedded {
-        let config = VantaConfig {
+    fn make_embedded_real() -> Embedded {
+        let config = Config {
             storage_path: ":memory:".into(),
             backend_kind: crate::BackendKind::InMemory,
             ..Default::default()
         };
-        VantaEmbedded::open_with_config(config).expect("open in-memory VantaEmbedded")
+        Embedded::open_with_config(config).expect("open in-memory Embedded")
     }
 
-    fn insert_node_input(id: u128) -> VantaNodeInput {
-        VantaNodeInput {
+    fn insert_node_input(id: u128) -> NodeInput {
+        NodeInput {
             id,
             content: Some(format!("node-{id}")),
             vector: None,
-            fields: VantaFields::new(),
+            fields: Fields::new(),
         }
     }
 
@@ -357,7 +357,7 @@ mod tests {
 
     #[test]
     fn test_node_input_default_fields() {
-        let input = VantaNodeInput::new(0);
+        let input = NodeInput::new(0);
         assert_eq!(input.id, 0);
         assert!(input.content.is_none());
         assert!(input.vector.is_none());
@@ -366,9 +366,9 @@ mod tests {
 
     #[test]
     fn test_node_input_with_content() {
-        let mut fields = VantaFields::new();
-        fields.insert("k".into(), VantaValue::String("v".into()));
-        let input = VantaNodeInput {
+        let mut fields = Fields::new();
+        fields.insert("k".into(), Value::String("v".into()));
+        let input = NodeInput {
             id: 7,
             content: Some("hi".into()),
             vector: Some(vec![0.1, 0.2, 0.3]),
@@ -387,9 +387,9 @@ mod tests {
         // larger than the visible record count).
         let db = make_embedded_real();
         for i in 0..10 {
-            let mut fields = VantaFields::new();
-            fields.insert("tag".into(), VantaValue::String("hit".into()));
-            let _ = db.put(VantaMemoryInput {
+            let mut fields = Fields::new();
+            fields.insert("tag".into(), Value::String("hit".into()));
+            let _ = db.put(MemoryInput {
                 namespace: "ns".into(),
                 key: format!("k{i}"),
                 payload: "payload".into(),
@@ -402,13 +402,13 @@ mod tests {
         let page = db
             .list(
                 "ns",
-                VantaMemoryListOptions {
+                MemoryListOptions {
                     #[allow(deprecated)]
-                    filters: VantaMemoryMetadata::new(),
-                    filter_ops: Some(vec![VantaMemoryFilterItem {
+                    filters: MemoryMetadata::new(),
+                    filter_ops: Some(vec![MemoryFilterItem {
                         field: "tag".into(),
-                        op: VantaFilterOp::Eq,
-                        value: VantaValue::String("hit".into()),
+                        op: FilterOp::Eq,
+                        value: Value::String("hit".into()),
                     }]),
                     limit: 100,
                     cursor: None,
@@ -427,9 +427,9 @@ mod tests {
         let page = db
             .list(
                 "ns",
-                VantaMemoryListOptions {
+                MemoryListOptions {
                     #[allow(deprecated)]
-                    filters: VantaMemoryMetadata::new(),
+                    filters: MemoryMetadata::new(),
                     filter_ops: None,
                     limit: 0,
                     cursor: None,
@@ -444,11 +444,11 @@ mod tests {
     #[test]
     fn test_list_filters_by_list_metadata() {
         let db = make_embedded_real();
-        let mut hit = VantaFields::new();
-        hit.insert("tag".into(), VantaValue::String("hit".into()));
-        let mut miss = VantaFields::new();
-        miss.insert("tag".into(), VantaValue::String("miss".into()));
-        db.put(VantaMemoryInput {
+        let mut hit = Fields::new();
+        hit.insert("tag".into(), Value::String("hit".into()));
+        let mut miss = Fields::new();
+        miss.insert("tag".into(), Value::String("miss".into()));
+        db.put(MemoryInput {
             namespace: "ns".into(),
             key: "k1".into(),
             payload: "a".into(),
@@ -458,7 +458,7 @@ mod tests {
             ttl_ms: None,
         })
         .unwrap();
-        db.put(VantaMemoryInput {
+        db.put(MemoryInput {
             namespace: "ns".into(),
             key: "k2".into(),
             payload: "b".into(),
@@ -471,13 +471,13 @@ mod tests {
         let page = db
             .list(
                 "ns",
-                VantaMemoryListOptions {
+                MemoryListOptions {
                     #[allow(deprecated)]
-                    filters: VantaMemoryMetadata::new(),
-                    filter_ops: Some(vec![VantaMemoryFilterItem {
+                    filters: MemoryMetadata::new(),
+                    filter_ops: Some(vec![MemoryFilterItem {
                         field: "tag".into(),
-                        op: VantaFilterOp::Eq,
-                        value: VantaValue::String("hit".into()),
+                        op: FilterOp::Eq,
+                        value: Value::String("hit".into()),
                     }]),
                     limit: 100,
                     cursor: None,
@@ -499,9 +499,9 @@ mod tests {
     #[test]
     fn namespace_stats_aggregates_count_and_ttl_states() {
         let db = make_embedded_real();
-        let _ = db.put(VantaMemoryInput::new("alpha", "k1", "p"));
-        let _ = db.put(VantaMemoryInput::new("alpha", "k2", "p"));
-        let _ = db.put(VantaMemoryInput::new("beta", "k1", "p"));
+        let _ = db.put(MemoryInput::new("alpha", "k1", "p"));
+        let _ = db.put(MemoryInput::new("alpha", "k2", "p"));
+        let _ = db.put(MemoryInput::new("beta", "k1", "p"));
         let stats = db.namespace_stats(None).unwrap();
         assert_eq!(stats["alpha"].count, 2);
         assert_eq!(stats["beta"].count, 1);
@@ -510,7 +510,7 @@ mod tests {
     #[test]
     fn namespace_stats_respects_custom_window_boundaries() {
         let db = make_embedded_real();
-        let _ = db.put(VantaMemoryInput::new("a", "soon", "p"));
+        let _ = db.put(MemoryInput::new("a", "soon", "p"));
         let stats = db.namespace_stats(Some(60_000)).unwrap();
         assert!(stats["a"].count >= 1);
     }
@@ -518,8 +518,8 @@ mod tests {
     #[test]
     fn namespace_stats_count_matches_count_method() {
         let db = make_embedded_real();
-        let _ = db.put(VantaMemoryInput::new("a", "k1", "p"));
-        let _ = db.put(VantaMemoryInput::new("a", "k2", "p"));
+        let _ = db.put(MemoryInput::new("a", "k1", "p"));
+        let _ = db.put(MemoryInput::new("a", "k2", "p"));
         let stats = db.namespace_stats(None).unwrap();
         let count = db.count("a", None).unwrap();
         assert_eq!(stats["a"].count as u64, count);
@@ -531,7 +531,7 @@ mod tests {
         let mut bad: &[u8] = b"NOTGOOD\n";
         let err = db.bulk_import_stream(&mut bad).unwrap_err();
         match err {
-            VantaError::ValidationError { field, .. } => assert_eq!(field, "header"),
+            Error::ValidationError { field, .. } => assert_eq!(field, "header"),
             _ => panic!("expected ValidationError"),
         }
     }
@@ -562,7 +562,7 @@ mod tests {
         payload.extend_from_slice(b"[]");
         let err = db.bulk_import_stream(&mut payload.as_slice()).unwrap_err();
         match err {
-            VantaError::ValidationError { field, .. } => assert_eq!(field, "count"),
+            Error::ValidationError { field, .. } => assert_eq!(field, "count"),
             _ => panic!("expected ValidationError"),
         }
     }
@@ -571,7 +571,7 @@ mod tests {
     fn test_bulk_import_roundtrip_addressable_via_memory_get() {
         // MCP-28: bulk-imported records must be addressable via get/list/delete.
         let db = make_embedded_real();
-        let inputs = vec![VantaMemoryInput::new("ns", "k1", "p1")];
+        let inputs = vec![MemoryInput::new("ns", "k1", "p1")];
         let total = inputs.len() as u64;
         let mut payload: Vec<u8> = Vec::new();
         payload.extend_from_slice(b"VDBJSON\n");
@@ -584,8 +584,8 @@ mod tests {
         assert!(got.is_some());
     }
 
-    fn put_mem(db: &VantaEmbedded, ns: &str, key: &str, payload: &str) {
-        db.put(VantaMemoryInput::new(ns, key, payload)).unwrap();
+    fn put_mem(db: &Embedded, ns: &str, key: &str, payload: &str) {
+        db.put(MemoryInput::new(ns, key, payload)).unwrap();
     }
 
     #[test]
@@ -606,7 +606,7 @@ mod tests {
         let db = make_embedded_real();
         let err = db.supersede("ns", "missing", "also_missing").unwrap_err();
         match err {
-            VantaError::NotFound { kind, id } => {
+            Error::NotFound { kind, id } => {
                 assert_eq!(kind, "memory record");
                 assert_eq!(id, "ns/missing");
             }
@@ -620,7 +620,7 @@ mod tests {
         put_mem(&db, "ns", "k", "p");
         let err = db.supersede("ns", "k", "k").unwrap_err();
         match err {
-            VantaError::InvalidInput(msg) => assert!(msg.contains("must be different")),
+            Error::InvalidInput(msg) => assert!(msg.contains("must be different")),
             _ => panic!("expected InvalidInput"),
         }
     }
@@ -633,7 +633,7 @@ mod tests {
         db.supersede("ns", "old", "new").unwrap();
         let err = db.supersede("ns", "old", "new").unwrap_err();
         match err {
-            VantaError::InvalidInput(msg) => assert!(msg.contains("already superseded")),
+            Error::InvalidInput(msg) => assert!(msg.contains("already superseded")),
             _ => panic!("expected InvalidInput"),
         }
     }
@@ -682,9 +682,9 @@ mod tests {
         let page_keep = db
             .list(
                 "ns",
-                VantaMemoryListOptions {
+                MemoryListOptions {
                     #[allow(deprecated)]
-                    filters: VantaMemoryMetadata::new(),
+                    filters: MemoryMetadata::new(),
                     filter_ops: None,
                     limit: 100,
                     cursor: None,
@@ -697,9 +697,9 @@ mod tests {
         let page_hide = db
             .list(
                 "ns",
-                VantaMemoryListOptions {
+                MemoryListOptions {
                     #[allow(deprecated)]
-                    filters: VantaMemoryMetadata::new(),
+                    filters: MemoryMetadata::new(),
                     filter_ops: None,
                     limit: 100,
                     cursor: None,
@@ -721,11 +721,11 @@ mod tests {
         db.supersede("ns", "old", "new").unwrap();
 
         let hits_keep = db
-            .search(VantaMemorySearchRequest {
+            .search(MemorySearchRequest {
                 namespace: "ns".into(),
                 query_vector: Vec::new(),
                 query_sparse: None,
-                filters: VantaMemoryMetadata::new(),
+                filters: MemoryMetadata::new(),
                 text_query: Some("alpha".into()),
                 top_k: 10,
                 distance_metric: DistanceMetric::Cosine,
@@ -737,11 +737,11 @@ mod tests {
         assert_eq!(hits_keep.len(), 2);
 
         let hits_hide = db
-            .search(VantaMemorySearchRequest {
+            .search(MemorySearchRequest {
                 namespace: "ns".into(),
                 query_vector: Vec::new(),
                 query_sparse: None,
-                filters: VantaMemoryMetadata::new(),
+                filters: MemoryMetadata::new(),
                 text_query: Some("alpha".into()),
                 top_k: 10,
                 distance_metric: DistanceMetric::Cosine,

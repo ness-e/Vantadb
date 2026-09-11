@@ -1,4 +1,4 @@
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::serialization::{validate_metadata, validate_namespace};
 #[cfg(debug_assertions)]
 use super::super::serialization::{DERIVED_INDEX_STATE_KEY, TEXT_INDEX_STATE_KEY};
@@ -7,9 +7,9 @@ use super::debug;
 use crate::backend::BackendPartition;
 #[cfg(debug_assertions)]
 use crate::backend::BackendWriteOp;
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 
-impl VantaEmbedded {
+impl Embedded {
     #[cfg(debug_assertions)]
     #[doc(hidden)]
     pub fn debug_memory_breakdown(&self) -> serde_json::Value {
@@ -93,7 +93,7 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
         let pkey = crate::text_index::posting_key(namespace, token, key);
         let Some(bytes) = engine.get_from_partition(BackendPartition::TextIndex, &pkey)? else {
-            return Err(VantaError::NotFound {
+            return Err(Error::NotFound {
                 kind: "posting".into(),
                 id: "unknown".into(),
             });
@@ -115,7 +115,7 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
         let pkey = crate::text_index::posting_key(namespace, token, key);
         let Some(bytes) = engine.get_from_partition(BackendPartition::TextIndex, &pkey)? else {
-            return Err(VantaError::NotFound {
+            return Err(Error::NotFound {
                 kind: "posting".into(),
                 id: "unknown".into(),
             });
@@ -150,7 +150,7 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
         let dkey = crate::text_index::doc_stats_key(namespace, key);
         let Some(bytes) = engine.get_from_partition(BackendPartition::TextIndex, &dkey)? else {
-            return Err(VantaError::NotFound {
+            return Err(Error::NotFound {
                 kind: "doc_stats".into(),
                 id: "unknown".into(),
             });
@@ -196,7 +196,7 @@ impl VantaEmbedded {
 
     #[cfg(debug_assertions)]
     #[doc(hidden)]
-    pub fn debug_text_index_audit_for_tests(&self) -> Result<VantaTextIndexAuditReport> {
+    pub fn debug_text_index_audit_for_tests(&self) -> Result<TextIndexAuditReport> {
         self.audit_text_index_deep(None)
     }
 
@@ -204,8 +204,8 @@ impl VantaEmbedded {
     #[doc(hidden)]
     pub fn debug_memory_search_plan_for_tests(
         &self,
-        request: VantaMemorySearchRequest,
-    ) -> Result<VantaMemorySearchDebugReport> {
+        request: MemorySearchRequest,
+    ) -> Result<MemorySearchDebugReport> {
         validate_namespace(&request.namespace)?;
         validate_metadata(&request.filters)?;
 
@@ -228,7 +228,7 @@ impl VantaEmbedded {
             SearchProfileMode::Hybrid => {}
         }
         if request.top_k == 0 {
-            return Ok(VantaMemorySearchDebugReport {
+            return Ok(MemorySearchDebugReport {
                 route: "empty".to_string(),
                 budget: 0,
                 text_candidates: 0,
@@ -270,7 +270,7 @@ impl VantaEmbedded {
                 };
                 let fused_candidates = fused_hits.len();
                 fused_hits.truncate(request.top_k);
-                Ok(VantaMemorySearchDebugReport {
+                Ok(MemorySearchDebugReport {
                     route: "hybrid".to_string(),
                     budget,
                     text_candidates,
@@ -295,7 +295,7 @@ impl VantaEmbedded {
                     crate::planner::fuse_rrf_many(vec![lexical_hits, sparse_hits], rrf_k);
                 let fused_candidates = fused_hits.len();
                 fused_hits.truncate(request.top_k);
-                Ok(VantaMemorySearchDebugReport {
+                Ok(MemorySearchDebugReport {
                     route: "hybrid".to_string(),
                     budget,
                     text_candidates,
@@ -311,7 +311,7 @@ impl VantaEmbedded {
                     &request.filters,
                     request.top_k,
                 )?;
-                Ok(VantaMemorySearchDebugReport {
+                Ok(MemorySearchDebugReport {
                     route: "text-only".to_string(),
                     budget: request.top_k,
                     text_candidates: hits.len(),
@@ -341,7 +341,7 @@ impl VantaEmbedded {
                     crate::planner::fuse_rrf_many(vec![vector_hits, sparse_hits], rrf_k);
                 let fused_candidates = fused_hits.len();
                 fused_hits.truncate(request.top_k);
-                Ok(VantaMemorySearchDebugReport {
+                Ok(MemorySearchDebugReport {
                     route: "hybrid".to_string(),
                     budget,
                     text_candidates: 0,
@@ -359,7 +359,7 @@ impl VantaEmbedded {
                     request.distance_metric,
                     None,
                 )?;
-                Ok(VantaMemorySearchDebugReport {
+                Ok(MemorySearchDebugReport {
                     route: "vector-only".to_string(),
                     budget: request.top_k,
                     text_candidates: 0,
@@ -375,7 +375,7 @@ impl VantaEmbedded {
                     &request.filters,
                     request.top_k,
                 )?;
-                Ok(VantaMemorySearchDebugReport {
+                Ok(MemorySearchDebugReport {
                     route: "sparse-only".to_string(),
                     budget: request.top_k,
                     text_candidates: 0,
@@ -384,7 +384,7 @@ impl VantaEmbedded {
                     top_identities: debug::hit_identities(&hits),
                 })
             }
-            (None, false, _) => Ok(VantaMemorySearchDebugReport {
+            (None, false, _) => Ok(MemorySearchDebugReport {
                 route: "empty".to_string(),
                 budget: 0,
                 text_candidates: 0,

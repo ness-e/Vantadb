@@ -7,15 +7,13 @@
 use std::process::Command;
 use std::sync::Mutex;
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
-use vantadb::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata, VantaMemorySearchRequest, VantaValue,
-};
+use vantadb::config::Config;
+use vantadb::{Embedded, MemoryInput, MemoryMetadata, MemorySearchRequest, Value};
 
 static TEXT_INDEX_REPAIR_METRIC_LOCK: Mutex<()> = Mutex::new(());
 
-fn input(namespace: &str, key: &str, payload: &str) -> VantaMemoryInput {
-    VantaMemoryInput::new(namespace, key, payload)
+fn input(namespace: &str, key: &str, payload: &str) -> MemoryInput {
+    MemoryInput::new(namespace, key, payload)
 }
 
 fn posting_key(namespace: &str, token: &str, key: &str) -> Vec<u8> {
@@ -37,18 +35,18 @@ fn assert_has_posting(keys: &[Vec<u8>], namespace: &str, token: &str, key: &str)
     );
 }
 
-fn field_string(value: &str) -> VantaValue {
-    VantaValue::String(value.to_string())
+fn field_string(value: &str) -> Value {
+    Value::String(value.to_string())
 }
 
 fn search_keys(
-    db: &VantaEmbedded,
+    db: &Embedded,
     namespace: &str,
     text_query: &str,
-    filters: VantaMemoryMetadata,
+    filters: MemoryMetadata,
     top_k: usize,
 ) -> Vec<String> {
-    db.search(VantaMemorySearchRequest {
+    db.search(MemorySearchRequest {
         namespace: namespace.to_string(),
         query_vector: Vec::new(),
         filters,
@@ -62,7 +60,7 @@ fn search_keys(
     .collect()
 }
 
-fn seed_hybrid_eval_corpus(db: &VantaEmbedded) {
+fn seed_hybrid_eval_corpus(db: &Embedded) {
     let mut both = input("agent/main", "both", "alpha fused");
     both.vector = Some(vec![1.0, 0.0]);
     db.put(both).expect("put both");
@@ -83,7 +81,7 @@ fn seed_hybrid_eval_corpus(db: &VantaEmbedded) {
 #[test]
 fn text_index_rebuilds_from_canonical_records() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     db.put(input("agent/main", "a", "Alpha alpha beta"))
         .expect("put");
@@ -124,7 +122,7 @@ fn text_index_repairs_on_open_when_postings_missing_or_state_corrupt() {
     let repairs_before;
 
     {
-        let db = VantaEmbedded::open(&path).expect("open");
+        let db = Embedded::open(&path).expect("open");
         db.put(input("agent/main", "repair", "repair alpha"))
             .expect("put");
         db.flush().expect("flush");
@@ -138,7 +136,7 @@ fn text_index_repairs_on_open_when_postings_missing_or_state_corrupt() {
         db.close().expect("close");
     }
 
-    let reopened = VantaEmbedded::open(&path).expect("reopen");
+    let reopened = Embedded::open(&path).expect("reopen");
     let keys = reopened
         .debug_text_index_posting_keys_for_tests()
         .expect("text keys after repair");
@@ -158,7 +156,7 @@ fn text_index_repairs_on_open_when_postings_missing_or_state_corrupt() {
 #[test]
 fn public_text_index_audit_detects_drift_without_repairing() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     db.put(input("agent/main", "audit", "audit alpha beta"))
         .expect("put audit record");
@@ -204,7 +202,7 @@ fn cli_audit_index_reports_json_and_drift_exit_code() {
     let db_path = dir.path().to_path_buf();
 
     {
-        let db = VantaEmbedded::open(&db_path).expect("open");
+        let db = Embedded::open(&db_path).expect("open");
         db.put(input("agent/main", "cli", "cli audit alpha"))
             .expect("put cli");
         db.flush().expect("flush clean cli db");
@@ -236,7 +234,7 @@ fn cli_audit_index_reports_json_and_drift_exit_code() {
     assert_eq!(clean_json["namespace_filter"], "agent/main");
 
     {
-        let db = VantaEmbedded::open(&db_path).expect("reopen for drift");
+        let db = Embedded::open(&db_path).expect("reopen for drift");
         db.debug_clear_text_index_for_tests()
             .expect("clear cli text index");
         db.flush().expect("flush drift cli db");
@@ -269,7 +267,7 @@ fn cli_repair_text_index_fixes_deep_logical_corruption() {
     let db_path = dir.path().to_path_buf();
 
     {
-        let db = VantaEmbedded::open(&db_path).expect("open");
+        let db = Embedded::open(&db_path).expect("open");
         db.put(input("agent/main", "cli-repair", "alpha beta gamma"))
             .expect("put repair seed");
         db.flush().expect("flush repair seed");
@@ -358,7 +356,7 @@ fn cli_repair_text_index_fixes_deep_logical_corruption() {
 #[test]
 fn text_index_update_delete_remove_stale_postings() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     db.put(input("agent/main", "item", "alpha beta"))
         .expect("put initial");
@@ -402,7 +400,7 @@ fn text_index_update_delete_remove_stale_postings() {
 #[test]
 fn text_index_tokenization_and_key_contract() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     db.put(input(
         "agent/main",
@@ -433,7 +431,7 @@ fn text_index_tokenization_and_key_contract() {
 #[test]
 fn phrase_query_uses_consecutive_positions_and_cleans_stale_positions() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     db.put(input("agent/main", "exact", "alpha beta gamma"))
         .expect("put exact");
@@ -476,7 +474,7 @@ fn text_index_export_import_round_trip_rebuildable() {
     let target_dir = tempdir().expect("target tempdir");
     let export_path = source_dir.path().join("memory.jsonl");
 
-    let source = VantaEmbedded::open(source_dir.path()).expect("open source");
+    let source = Embedded::open(source_dir.path()).expect("open source");
     source
         .put(input("agent/main", "portable", "portable alpha alpha"))
         .expect("put source");
@@ -484,7 +482,7 @@ fn text_index_export_import_round_trip_rebuildable() {
         .export_namespace(&export_path, "agent/main", None)
         .expect("export namespace");
 
-    let target = VantaEmbedded::open(target_dir.path()).expect("open target");
+    let target = Embedded::open(target_dir.path()).expect("open target");
     let imported = target.import_file(&export_path).expect("import file");
     assert_eq!(imported.inserted, 1);
     assert_eq!(imported.errors, 0);
@@ -532,14 +530,14 @@ fn text_index_export_import_round_trip_rebuildable() {
 #[test]
 fn text_query_bm25_uses_tf_df_and_document_length() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     db.put(input("agent/main", "tf-low", "alpha signal"))
         .expect("put low tf");
     db.put(input("agent/main", "tf-high", "alpha alpha alpha signal"))
         .expect("put high tf");
     let hits = db
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: Vec::new(),
             filters: Default::default(),
@@ -552,7 +550,7 @@ fn text_query_bm25_uses_tf_df_and_document_length() {
     assert!(hits[0].score > hits[1].score);
 
     let rare_dir = tempdir().expect("rare tempdir");
-    let rare_db = VantaEmbedded::open(rare_dir.path()).expect("open rare");
+    let rare_db = Embedded::open(rare_dir.path()).expect("open rare");
     rare_db
         .put(input("agent/main", "rare-doc", "common rare"))
         .expect("put rare");
@@ -571,7 +569,7 @@ fn text_query_bm25_uses_tf_df_and_document_length() {
     );
 
     let len_dir = tempdir().expect("len tempdir");
-    let len_db = VantaEmbedded::open(len_dir.path()).expect("open len");
+    let len_db = Embedded::open(len_dir.path()).expect("open len");
     len_db
         .put(input("agent/main", "short", "anchor"))
         .expect("put short");
@@ -583,7 +581,7 @@ fn text_query_bm25_uses_tf_df_and_document_length() {
         ))
         .expect("put long");
     let hits = len_db
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: Vec::new(),
             filters: Default::default(),
@@ -599,7 +597,7 @@ fn text_query_bm25_uses_tf_df_and_document_length() {
 #[test]
 fn text_query_is_namespace_scoped_filtered_and_deterministic() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     db.put(input("agent/a", "a1", "shared term"))
         .expect("put a");
@@ -619,7 +617,7 @@ fn text_query_is_namespace_scoped_filtered_and_deterministic() {
         .insert("category".to_string(), field_string("note"));
     db.put(note).expect("put note");
 
-    let mut filters = VantaMemoryMetadata::new();
+    let mut filters = MemoryMetadata::new();
     filters.insert("category".to_string(), field_string("task"));
     assert_eq!(
         search_keys(&db, "agent/main", "filtered", filters, 10),
@@ -634,7 +632,7 @@ fn text_query_is_namespace_scoped_filtered_and_deterministic() {
     assert_eq!(keys[..2], ["a".to_string(), "b".to_string()]);
 
     let before = db.operational_metrics();
-    db.search(VantaMemorySearchRequest {
+    db.search(MemorySearchRequest {
         namespace: "agent/main".to_string(),
         query_vector: Vec::new(),
         filters: Default::default(),
@@ -655,11 +653,11 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
     let path = dir.path().to_path_buf();
 
     {
-        let db = VantaEmbedded::open(&path).expect("open");
+        let db = Embedded::open(&path).expect("open");
         seed_hybrid_eval_corpus(&db);
 
         let hybrid = db
-            .search(VantaMemorySearchRequest {
+            .search(MemorySearchRequest {
                 namespace: "agent/main".to_string(),
                 query_vector: vec![1.0, 0.0],
                 filters: Default::default(),
@@ -675,7 +673,7 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
         assert!(!keys.contains(&"other"));
 
         let debug = db
-            .debug_memory_search_plan_for_tests(VantaMemorySearchRequest {
+            .debug_memory_search_plan_for_tests(MemorySearchRequest {
                 namespace: "agent/main".to_string(),
                 query_vector: vec![1.0, 0.0],
                 filters: Default::default(),
@@ -697,7 +695,7 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
         db.close().expect("close");
     }
 
-    let read_only = VantaEmbedded::open_with_config(VantaConfig {
+    let read_only = Embedded::open_with_config(Config {
         storage_path: path.to_string_lossy().into_owned(),
         read_only: true,
         ..Default::default()
@@ -713,7 +711,7 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
         read_only.operational_metrics().text_index_repairs,
         repairs_before_read_only_audit
     );
-    let text = read_only.search(VantaMemorySearchRequest {
+    let text = read_only.search(MemorySearchRequest {
         namespace: "agent/main".to_string(),
         query_vector: Vec::new(),
         filters: Default::default(),
@@ -722,7 +720,7 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
         ..Default::default()
     });
     assert!(text.is_err());
-    let hybrid = read_only.search(VantaMemorySearchRequest {
+    let hybrid = read_only.search(MemorySearchRequest {
         namespace: "agent/main".to_string(),
         query_vector: vec![1.0, 0.0],
         filters: Default::default(),
@@ -733,9 +731,9 @@ fn hybrid_text_vector_uses_rrf_and_read_only_does_not_repair() {
     assert!(hybrid.is_err());
     drop(read_only);
 
-    let reopened = VantaEmbedded::open(&path).expect("open writable");
+    let reopened = Embedded::open(&path).expect("open writable");
     let hybrid = reopened
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0],
             filters: Default::default(),
@@ -753,7 +751,7 @@ fn hybrid_respects_metadata_filters_and_reopen_import_export() {
     let target_dir = tempdir().expect("target tempdir");
     let export_path = source_dir.path().join("hybrid.jsonl");
 
-    let source = VantaEmbedded::open(source_dir.path()).expect("open source");
+    let source = Embedded::open(source_dir.path()).expect("open source");
     let mut keep = input("agent/main", "keep", "filtered alpha");
     keep.vector = Some(vec![1.0, 0.0]);
     keep.metadata
@@ -765,10 +763,10 @@ fn hybrid_respects_metadata_filters_and_reopen_import_export() {
         .insert("category".to_string(), field_string("note"));
     source.put(drop).expect("put drop");
 
-    let mut filters = VantaMemoryMetadata::new();
+    let mut filters = MemoryMetadata::new();
     filters.insert("category".to_string(), field_string("task"));
     let hits = source
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0],
             filters: filters.clone(),
@@ -780,10 +778,10 @@ fn hybrid_respects_metadata_filters_and_reopen_import_export() {
     assert_eq!(hits.len(), 1);
     assert_eq!(hits[0].record.key, "keep");
 
-    let mut missing_filter = VantaMemoryMetadata::new();
+    let mut missing_filter = MemoryMetadata::new();
     missing_filter.insert("category".to_string(), field_string("missing"));
     let empty = source
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0],
             filters: missing_filter,
@@ -799,14 +797,14 @@ fn hybrid_respects_metadata_filters_and_reopen_import_export() {
         .expect("export");
     source.close().expect("close source");
 
-    let target = VantaEmbedded::open(target_dir.path()).expect("open target");
+    let target = Embedded::open(target_dir.path()).expect("open target");
     target.import_file(&export_path).expect("import");
     target.flush().expect("flush target");
     target.close().expect("close target");
 
-    let reopened = VantaEmbedded::open(target_dir.path()).expect("reopen target");
+    let reopened = Embedded::open(target_dir.path()).expect("reopen target");
     let hits = reopened
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0],
             filters,
@@ -822,7 +820,7 @@ fn hybrid_respects_metadata_filters_and_reopen_import_export() {
 #[test]
 fn hybrid_ordering_is_deterministic_on_ties() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     let mut a = input("agent/main", "a", "tie alpha");
     a.vector = Some(vec![1.0, 0.0]);
@@ -832,7 +830,7 @@ fn hybrid_ordering_is_deterministic_on_ties() {
     db.put(b).expect("put b");
 
     let hits = db
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0],
             filters: Default::default(),
@@ -848,11 +846,11 @@ fn hybrid_ordering_is_deterministic_on_ties() {
 #[test]
 fn debug_search_explain_reports_snippet_bm25_and_rrf_ranks() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
     seed_hybrid_eval_corpus(&db);
 
     let explain = db
-        .explain_memory_search(VantaMemorySearchRequest {
+        .explain_memory_search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0],
             filters: Default::default(),
@@ -884,11 +882,11 @@ fn debug_search_explain_reports_snippet_bm25_and_rrf_ranks() {
 #[test]
 fn debug_memory_search_plan_reports_all_routes() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
     seed_hybrid_eval_corpus(&db);
 
     let text = db
-        .debug_memory_search_plan_for_tests(VantaMemorySearchRequest {
+        .debug_memory_search_plan_for_tests(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: Vec::new(),
             filters: Default::default(),
@@ -903,7 +901,7 @@ fn debug_memory_search_plan_reports_all_routes() {
     assert_eq!(text.vector_candidates, 0);
 
     let vector = db
-        .debug_memory_search_plan_for_tests(VantaMemorySearchRequest {
+        .debug_memory_search_plan_for_tests(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0],
             filters: Default::default(),
@@ -918,7 +916,7 @@ fn debug_memory_search_plan_reports_all_routes() {
     assert_eq!(vector.vector_candidates, 2);
 
     let empty = db
-        .debug_memory_search_plan_for_tests(VantaMemorySearchRequest {
+        .debug_memory_search_plan_for_tests(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0],
             filters: Default::default(),
@@ -936,7 +934,7 @@ fn debug_memory_search_plan_reports_all_routes() {
 fn text_index_deep_audit_and_logical_repair_workflow() {
     let _metric_guard = TEXT_INDEX_REPAIR_METRIC_LOCK.lock().expect("metric lock");
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     // Seed document with lexical terms
     db.put(input("agent/main", "a", "alpha beta gamma"))

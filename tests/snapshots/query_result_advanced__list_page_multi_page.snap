@@ -2,9 +2,9 @@
 source: tests/query_result_advanced.rs
 expression: page
 ---
-VantaMemoryListPage {
+MemoryListPage {
     records: [
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0001",
             payload: "record number 1",
@@ -19,7 +19,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0002",
             payload: "record number 2",
@@ -34,7 +34,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0003",
             payload: "record number 3",
@@ -49,7 +49,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0004",
             payload: "record number 4",
@@ -64,7 +64,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0005",
             payload: "record number 5",
@@ -79,7 +79,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0006",
             payload: "record number 6",
@@ -94,7 +94,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0007",
             payload: "record number 7",
@@ -109,7 +109,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0008",
             payload: "record number 8",
@@ -124,7 +124,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0009",
             payload: "record number 9",
@@ -139,7 +139,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0010",
             payload: "record number 10",
@@ -154,7 +154,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0011",
             payload: "record number 11",
@@ -169,7 +169,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0012",
             payload: "record number 12",
@@ -184,7 +184,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0013",
             payload: "record number 13",
@@ -199,7 +199,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0014",
             payload: "record number 14",
@@ -214,7 +214,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0015",
             payload: "record number 15",
@@ -229,7 +229,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0016",
             payload: "record number 16",
@@ -244,7 +244,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0017",
             payload: "record number 17",
@@ -259,7 +259,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0018",
             payload: "record number 18",
@@ -274,7 +274,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0019",
             payload: "record number 19",
@@ -289,7 +289,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0020",
             payload: "record number 20",
@@ -304,7 +304,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0021",
             payload: "record number 21",
@@ -319,7 +319,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0022",
             payload: "record number 22",
@@ -334,7 +334,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0023",
             payload: "record number 23",
@@ -349,7 +349,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0024",
             payload: "record number 24",
@@ -364,7 +364,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0025",
             payload: "record number 25",
@@ -379,7 +379,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0026",
             payload: "record number 26",
@@ -394,7 +394,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0027",
             payload: "record number 27",
@@ -409,7 +409,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0028",
             payload: "record number 28",
@@ -424,7 +424,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0029",
             payload: "record number 29",
@@ -439,7 +439,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0030",
             payload: "record number 30",
@@ -454,7 +454,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0031",
             payload: "record number 31",
@@ -469,7 +469,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0032",
             payload: "record number 32",
@@ -484,7 +484,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0033",
             payload: "record number 33",
@@ -499,7 +499,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0034",
             payload: "record number 34",
@@ -514,7 +514,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0035",
             payload: "record number 35",
@@ -529,7 +529,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0036",
             payload: "record number 36",
@@ -544,7 +544,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0037",
             payload: "record number 37",
@@ -559,7 +559,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0038",
             payload: "record number 38",
@@ -574,7 +574,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0039",
             payload: "record number 39",
@@ -589,7 +589,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0040",
             payload: "record number 40",
@@ -604,7 +604,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0041",
             payload: "record number 41",
@@ -619,7 +619,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0042",
             payload: "record number 42",
@@ -634,7 +634,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0043",
             payload: "record number 43",
@@ -649,7 +649,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0044",
             payload: "record number 44",
@@ -664,7 +664,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0045",
             payload: "record number 45",
@@ -679,7 +679,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0046",
             payload: "record number 46",
@@ -694,7 +694,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0047",
             payload: "record number 47",
@@ -709,7 +709,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0048",
             payload: "record number 48",
@@ -724,7 +724,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0049",
             payload: "record number 49",
@@ -739,7 +739,7 @@ VantaMemoryListPage {
             superseded_by: None,
             superseded_at_ms: None,
         },
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "large_ns",
             key: "key_0050",
             payload: "record number 50",

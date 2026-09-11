@@ -3,11 +3,11 @@
 //! Owns the namespace-level surface: `list_namespaces`, `list`, `count`,
 //! `delete_by_filter`, and `namespace_stats`. Cursor-based pagination and
 //! record filtering are shared with the memory module via
-//! `VantaMemoryListOptions`.
+//! `MemoryListOptions`.
 //!
 //! Extracted from `sdk::api` (REVIEW-12, 2026-08-30).
 
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::serialization::{
     is_scalar_indexable, matches_memory_filters, memory_record_from_node_include_expired, now_ms,
     validate_namespace,
@@ -17,7 +17,7 @@ use crate::backend::BackendPartition;
 use crate::error::Result;
 use std::collections::BTreeSet;
 
-impl VantaEmbedded {
+impl Embedded {
     /// List all namespaces that contain at least one memory record.
     #[tracing::instrument(skip(self), err)]
     pub fn list_namespaces(&self) -> Result<Vec<String>> {
@@ -51,11 +51,7 @@ impl VantaEmbedded {
     /// namespace-index order (stable by insertion/ID), not key-sorted.
     #[tracing::instrument(skip(self), err)]
     #[allow(deprecated)] // options.filters is legacy path kept for backward compatibility
-    pub fn list(
-        &self,
-        namespace: &str,
-        options: VantaMemoryListOptions,
-    ) -> Result<VantaMemoryListPage> {
+    pub fn list(&self, namespace: &str, options: MemoryListOptions) -> Result<MemoryListPage> {
         validate_namespace(namespace)?;
         super::super::serialization::validate_metadata(&options.filters)?;
 
@@ -67,7 +63,7 @@ impl VantaEmbedded {
         // Short-circuit before any scan so a zero-limit request is cheap and
         // never triggers the full-scan fallback below.
         if limit == 0 {
-            return Ok(VantaMemoryListPage {
+            return Ok(MemoryListPage {
                 records: Vec::new(),
                 next_cursor: None,
             });
@@ -83,7 +79,7 @@ impl VantaEmbedded {
         let (candidate_ids, has_index_entries) = if let Some(ops) = &options.filter_ops {
             if let Some(eq_op) = ops
                 .iter()
-                .find(|op| op.op == crate::sdk::types::VantaFilterOp::Eq)
+                .find(|op| op.op == crate::sdk::types::FilterOp::Eq)
             {
                 if is_scalar_indexable(&eq_op.value) {
                     self.indexed_ids_by_filter(
@@ -126,7 +122,7 @@ impl VantaEmbedded {
         } else {
             candidate_ids
         };
-        let mut records: Vec<VantaMemoryRecord> = Vec::with_capacity(window_ids.len());
+        let mut records: Vec<MemoryRecord> = Vec::with_capacity(window_ids.len());
         for node in engine.get_many(&window_ids)? {
             if let Some(record) = super::super::serialization::memory_record_from_node(&node) {
                 let matches = if let Some(ops) = &options.filter_ops {
@@ -185,7 +181,7 @@ impl VantaEmbedded {
         let page_full = records.len() == limit;
         let next_cursor = (page_full && scan_returned_full).then_some(end_cursor);
 
-        Ok(VantaMemoryListPage {
+        Ok(MemoryListPage {
             records,
             next_cursor,
         })
@@ -210,11 +206,11 @@ impl VantaEmbedded {
     /// V1 uses full paginated scan. For namespaces with millions of records,
     /// execution time scales linearly. Optimise to direct scan in V2 if needed.
     #[tracing::instrument(skip(self, filter), err)]
-    pub fn delete_by_filter(&self, namespace: &str, filter: VantaMemoryFilter) -> Result<u64> {
+    pub fn delete_by_filter(&self, namespace: &str, filter: MemoryFilter) -> Result<u64> {
         self.check_read_only()?;
         validate_namespace(namespace)?;
         if filter.is_empty() {
-            return Err(crate::error::VantaError::InvalidInput(
+            return Err(crate::error::Error::InvalidInput(
                 "delete_by_filter requires at least one filter item to prevent accidental \
                  full-namespace deletion. Use delete() to remove individual records."
                     .into(),
@@ -230,9 +226,9 @@ impl VantaEmbedded {
         loop {
             let page = self.list(
                 namespace,
-                VantaMemoryListOptions {
+                MemoryListOptions {
                     #[allow(deprecated)]
-                    filters: VantaMemoryMetadata::new(),
+                    filters: MemoryMetadata::new(),
                     filter_ops: Some(filter.clone()),
                     limit: PAGE_SIZE,
                     cursor,
@@ -279,7 +275,7 @@ impl VantaEmbedded {
     /// * `filter` — Optional list of filter items (AND-combined). Pass `None`
     ///   to count all records in the namespace.
     #[tracing::instrument(skip(self, filter), err)]
-    pub fn count(&self, namespace: &str, filter: Option<VantaMemoryFilter>) -> Result<u64> {
+    pub fn count(&self, namespace: &str, filter: Option<MemoryFilter>) -> Result<u64> {
         validate_namespace(namespace)?;
 
         const PAGE_SIZE: usize = 1000;
@@ -289,9 +285,9 @@ impl VantaEmbedded {
         loop {
             let page = self.list(
                 namespace,
-                VantaMemoryListOptions {
+                MemoryListOptions {
                     #[allow(deprecated)]
-                    filters: VantaMemoryMetadata::new(),
+                    filters: MemoryMetadata::new(),
                     filter_ops: filter.clone(),
                     limit: PAGE_SIZE,
                     cursor,
@@ -327,14 +323,14 @@ impl VantaEmbedded {
     ///
     /// # Example
     /// ```
-    /// use vantadb::{VantaEmbedded, VantaMemoryInput};
+    /// use vantadb::{Embedded, MemoryInput};
     ///
     /// let dir = std::env::temp_dir().join(format!(
     ///     "vantadb-ns-stats-doctest-{}",
     ///     std::process::id()
     /// ));
-    /// let db = VantaEmbedded::open(&dir).unwrap();
-    /// db.put(VantaMemoryInput::new("agent", "k", "payload")).unwrap();
+    /// let db = Embedded::open(&dir).unwrap();
+    /// db.put(MemoryInput::new("agent", "k", "payload")).unwrap();
     ///
     /// let stats = db.namespace_stats(None).unwrap();
     /// assert_eq!(stats["agent"].count, 1);
@@ -344,11 +340,11 @@ impl VantaEmbedded {
     pub fn namespace_stats(
         &self,
         expiring_soon_window_ms: Option<u64>,
-    ) -> Result<VantaNamespaceStatsMap> {
+    ) -> Result<NamespaceStatsMap> {
         let engine = self.engine_handle()?;
         let now = now_ms();
         let window = expiring_soon_window_ms.unwrap_or(DEFAULT_EXPIRING_SOON_WINDOW_MS);
-        let mut stats: VantaNamespaceStatsMap = std::collections::BTreeMap::new();
+        let mut stats: NamespaceStatsMap = std::collections::BTreeMap::new();
 
         for node in engine.scan_nodes()? {
             // Include expired (not-yet-purged) records so `expired` is observable;

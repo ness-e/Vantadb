@@ -1,4 +1,4 @@
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::serialization::{matches_memory_filters, memory_record_from_node};
 use super::super::types::*;
 use crate::cost_estimator::{CostEstimator, FilterStrategy};
@@ -7,7 +7,7 @@ use crate::index::cosine_sim_f32;
 use crate::index::VecIndex;
 use crate::node::UnifiedNode;
 
-impl VantaEmbedded {
+impl Embedded {
     /// Pre-filter path: use `records_for_namespace` to fetch only records
     /// matching the filters, then brute-force vector similarity on the
     /// (typically small) result set.
@@ -15,10 +15,10 @@ impl VantaEmbedded {
         &self,
         namespace: &str,
         query_vector: &[f32],
-        filters: &VantaMemoryMetadata,
+        filters: &MemoryMetadata,
         top_k: usize,
         distance_metric: crate::node::DistanceMetric,
-    ) -> Result<Vec<VantaMemorySearchHit>> {
+    ) -> Result<Vec<MemorySearchHit>> {
         let mut hits = Vec::with_capacity(top_k);
         for record in self.records_for_namespace(namespace, filters)? {
             let Some(vector) = record.vector.as_ref() else {
@@ -35,7 +35,7 @@ impl VantaEmbedded {
                 // Sparse search has its own brute-force path over sparse_vectors.
                 crate::node::DistanceMetric::SparseDot => 0.0,
             };
-            hits.push(VantaMemorySearchHit {
+            hits.push(MemorySearchHit {
                 score,
                 record,
                 explanation: None,
@@ -63,11 +63,11 @@ impl VantaEmbedded {
         &self,
         namespace: &str,
         query_vector: &[f32],
-        filters: &VantaMemoryMetadata,
+        filters: &MemoryMetadata,
         top_k: usize,
         distance_metric: crate::node::DistanceMetric,
         method: Option<crate::index::IndexType>,
-    ) -> Result<Vec<VantaMemorySearchHit>> {
+    ) -> Result<Vec<MemorySearchHit>> {
         if query_vector.is_empty() || top_k == 0 {
             return Ok(Vec::new());
         }
@@ -161,7 +161,7 @@ impl VantaEmbedded {
                         };
                         if passes {
                             let score = raw_score;
-                            hits.push(VantaMemorySearchHit {
+                            hits.push(MemorySearchHit {
                                 score,
                                 record,
                                 explanation: None,
@@ -194,7 +194,7 @@ impl VantaEmbedded {
                     // Sparse search has its own brute-force path over sparse_vectors.
                     crate::node::DistanceMetric::SparseDot => 0.0,
                 };
-                hits.push(VantaMemorySearchHit {
+                hits.push(MemorySearchHit {
                     score,
                     record,
                     explanation: None,

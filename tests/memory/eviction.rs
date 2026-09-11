@@ -1,13 +1,13 @@
 // ponytail: blanket allow — unwraps with documented invariants; documented per-call.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::{NodeTier, UnifiedNode};
 use vantadb::storage::StorageEngine;
 
 #[test]
 fn test_evict_cold_nodes_empty_engine() {
     let dir = tempfile::TempDir::new().unwrap();
-    let config = VantaConfig::default().with_storage_path(dir.path().to_str().unwrap().to_string());
+    let config = Config::default().with_storage_path(dir.path().to_str().unwrap().to_string());
     let engine =
         StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
     let report = engine.evict_cold_nodes(0.5).unwrap();
@@ -18,7 +18,7 @@ fn test_evict_cold_nodes_empty_engine() {
 #[test]
 fn test_evict_cold_nodes_with_hot_nodes() {
     let dir = tempfile::TempDir::new().unwrap();
-    let config = VantaConfig::default().with_storage_path(dir.path().to_str().unwrap().to_string());
+    let config = Config::default().with_storage_path(dir.path().to_str().unwrap().to_string());
     let engine =
         StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
 
@@ -38,7 +38,7 @@ fn test_evict_cold_nodes_with_hot_nodes() {
 #[test]
 fn test_evict_cold_nodes_zero_ratio() {
     let dir = tempfile::TempDir::new().unwrap();
-    let config = VantaConfig::default().with_storage_path(dir.path().to_str().unwrap().to_string());
+    let config = Config::default().with_storage_path(dir.path().to_str().unwrap().to_string());
     let engine =
         StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
     let report = engine.evict_cold_nodes(0.0).unwrap();

@@ -16,12 +16,12 @@ use common::{TerminalReporter, VantaHarness};
 use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::{
-    InMemoryEngine, UnifiedNode, VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions,
-    VantaMemorySearchRequest, VantaValue,
+    Embedded, InMemoryEngine, MemoryInput, MemoryListOptions, MemorySearchRequest, UnifiedNode,
+    Value,
 };
 
-fn field_string(value: &str) -> VantaValue {
-    VantaValue::String(value.to_string())
+fn field_string(value: &str) -> Value {
+    Value::String(value.to_string())
 }
 
 // ── 1. IQL Injection Tests ─────────────────────────────────
@@ -32,7 +32,7 @@ fn security_audit_iql_injection() {
 
     harness.execute("IQL: SQL Injection Patterns Rejected", || {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let injections = [
             "INSERT id:1 fields { text: \"1; DROP TABLE nodes\" }",
@@ -50,7 +50,7 @@ fn security_audit_iql_injection() {
 
     harness.execute("IQL: Extremely Long Query No Panic", || {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let long_payload = "A".repeat(100_000);
         let iql = format!("INSERT id:1 fields {{ text: \"{long_payload}\" }}");
@@ -63,7 +63,7 @@ fn security_audit_iql_injection() {
 
     harness.execute("IQL: Malformed Syntax No Panic", || {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let malformed = [
             "INSERT ",
@@ -88,7 +88,7 @@ fn security_audit_iql_injection() {
 
     harness.execute("IQL: Null Bytes Safely Rejected", || {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let null_payloads = [
             "INSERT \0 DROP",
@@ -170,13 +170,13 @@ fn security_audit_auth_bypass() {
     });
 
     harness.execute("Auth: RBAC Permission Guards", || {
-        // VantaEmbedded has no auth — the engine is always open.
+        // Embedded has no auth — the engine is always open.
         // This test documents the contract: embedded SDK operations
         // are unauthenticated. Auth + RBAC are HTTP server concerns.
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
-        let mut input = VantaMemoryInput::new("ns", "rbac-test", "payload");
+        let mut input = MemoryInput::new("ns", "rbac-test", "payload");
         input.metadata.insert("role".into(), field_string("admin"));
         let result = db.put(input);
         assert!(
@@ -187,17 +187,17 @@ fn security_audit_auth_bypass() {
 
     harness.execute("Auth: Token Rotation Safety", || {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         // Insert and fetch should work regardless of token state
-        db.put(VantaMemoryInput::new("ns", "rotate-k1", "v1"))
+        db.put(MemoryInput::new("ns", "rotate-k1", "v1"))
             .expect("Put before rotation");
         let r1 = db.get("ns", "rotate-k1").expect("Get").expect("Record");
         assert_eq!(r1.payload, "v1");
 
         // Close and reopen (simulating token rotation)
         db.close().expect("close");
-        let db2 = VantaEmbedded::open(dir.path()).expect("reopen");
+        let db2 = Embedded::open(dir.path()).expect("reopen");
 
         let r2 = db2.get("ns", "rotate-k1").expect("Get").expect("Record");
         assert_eq!(r2.payload, "v1");
@@ -212,18 +212,18 @@ fn security_audit_input_validation() {
 
     harness.execute("Input: Extremely Large Vectors", || {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         // Large but valid vector
         let large_vec: Vec<f32> = (0..10_000).map(|i| i as f32).collect();
-        let mut input = VantaMemoryInput::new("ns", "large-vec", "payload");
+        let mut input = MemoryInput::new("ns", "large-vec", "payload");
         input.vector = Some(large_vec.clone());
         let record = db.put(input).expect("Large vector should be accepted");
         assert_eq!(record.vector, Some(large_vec));
 
         // Search with a vector of different dimension
         let mismatched = vec![1.0f32; 128];
-        let req = VantaMemorySearchRequest {
+        let req = MemorySearchRequest {
             namespace: "ns".to_string(),
             query_vector: mismatched,
             top_k: 10,
@@ -263,10 +263,10 @@ fn security_audit_input_validation() {
 
     harness.execute("Input: Extremely Long Strings", || {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let long_key = "k".repeat(600);
-        let input = VantaMemoryInput::new("ns", &long_key, "payload");
+        let input = MemoryInput::new("ns", &long_key, "payload");
         let err = db.put(input).expect_err("Overly long key must fail");
         assert!(
             err.to_string().contains("512"),
@@ -274,10 +274,10 @@ fn security_audit_input_validation() {
         );
 
         let long_payload = "X".repeat(1_000_000);
-        let mut input = VantaMemoryInput::new("ns", "long-payload", &long_payload);
+        let mut input = MemoryInput::new("ns", "long-payload", &long_payload);
         input
             .metadata
-            .insert("big".into(), VantaValue::String("Y".repeat(50_000)));
+            .insert("big".into(), Value::String("Y".repeat(50_000)));
         let result = db.put(input);
         assert!(
             result.is_ok() || result.is_err(),
@@ -312,20 +312,20 @@ fn security_audit_input_validation() {
 
     harness.execute("Input: Null Bytes in Strings", || {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         // Key with null byte
         let key_with_null = "valid\0invalid";
-        let input = VantaMemoryInput::new("ns", key_with_null, "payload");
+        let input = MemoryInput::new("ns", key_with_null, "payload");
         let err = db.put(input).expect_err("Key with null byte must fail");
         let msg = err.to_string();
         assert!(msg.contains("NUL"), "Expected NUL byte error, got: {msg}");
 
         // Metadata key with null byte
-        let mut meta_input = VantaMemoryInput::new("ns", "meta-null", "payload");
+        let mut meta_input = MemoryInput::new("ns", "meta-null", "payload");
         meta_input
             .metadata
-            .insert("bad\0key".into(), VantaValue::String("x".into()));
+            .insert("bad\0key".into(), Value::String("x".into()));
         let err = db
             .put(meta_input)
             .expect_err("Metadata key with NUL must fail");
@@ -344,11 +344,11 @@ fn security_audit_resource_exhaustion() {
 
     harness.execute("Resource: Very Large Batch Operations", || {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let mut inputs = Vec::with_capacity(10_000);
         for i in 0..10_000usize {
-            let mut input = VantaMemoryInput::new(
+            let mut input = MemoryInput::new(
                 "batch-test",
                 format!("batch-key-{i:05}"),
                 format!("batch-payload-{i}"),
@@ -376,9 +376,9 @@ fn security_audit_resource_exhaustion() {
     harness.execute("Resource: Rapid Open/Close Cycles", || {
         for i in 0..30 {
             let dir = tempdir().expect("tempdir");
-            let db = VantaEmbedded::open(dir.path()).expect("open");
+            let db = Embedded::open(dir.path()).expect("open");
 
-            let mut input = VantaMemoryInput::new("cycle", format!("cycle-k-{i}"), "payload");
+            let mut input = MemoryInput::new("cycle", format!("cycle-k-{i}"), "payload");
             input.vector = Some(vec![i as f32, 0.0, 0.0]);
             db.put(input).expect("Put in rapid cycle");
             db.close().expect("Close in rapid cycle");
@@ -387,14 +387,14 @@ fn security_audit_resource_exhaustion() {
 
     harness.execute("Resource: Concurrent Put Spikes", || {
         let dir = Arc::new(tempdir().expect("tempdir"));
-        let db = Arc::new(VantaEmbedded::open(dir.path()).expect("open"));
+        let db = Arc::new(Embedded::open(dir.path()).expect("open"));
 
         let mut handles = Vec::new();
         for t in 0..8 {
             let db = Arc::clone(&db);
             let handle = std::thread::spawn(move || {
                 for i in 0..250 {
-                    let input = VantaMemoryInput::new(
+                    let input = MemoryInput::new(
                         "concurrent",
                         format!("concurrent-{t}-{i:04}"),
                         format!("data-{t}-{i}"),
@@ -411,7 +411,7 @@ fn security_audit_resource_exhaustion() {
 
         // Verify all 2000 records were inserted
         // Use explicit limit to avoid default page size of 100
-        let options = VantaMemoryListOptions {
+        let options = MemoryListOptions {
             limit: 3000,
             ..Default::default()
         };
@@ -579,7 +579,7 @@ fn security_audit_summary_report() {
         // Verify that the subtle crate is a dependency (proven by compilation)
         // and that key security features are reported via capabilities.
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let caps = db.capabilities();
         assert!(caps.persistence, "Persistence must be enabled");

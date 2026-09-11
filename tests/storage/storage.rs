@@ -45,7 +45,7 @@ fn storage_engine_read_only_barrier_test() {
         let db_path = dir.path();
 
         TerminalReporter::sub_step("Opening StorageEngine in read-only mode...");
-        use vantadb::config::VantaConfig;
+        use vantadb::config::Config;
         // Creamos una configuración de solo lectura
         // Nota: para evitar que falle porque el directorio no existe, primero creamos un Storage Engine normal
         // para inicializar el directorio, o bien nos aseguramos de que el backend pueda abrirlo.
@@ -56,7 +56,7 @@ fn storage_engine_read_only_barrier_test() {
                 .expect("Failed to init storage directory");
         }
 
-        let config = VantaConfig::default()
+        let config = Config::default()
             .with_read_only(true)
             .with_storage_path(db_path.to_str().unwrap().to_string());
 

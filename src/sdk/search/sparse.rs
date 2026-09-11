@@ -1,4 +1,4 @@
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::serialization::impl_sparse_index::{
     decode_sparse_posting, sparse_posting_prefix,
 };
@@ -9,7 +9,7 @@ use crate::error::Result;
 use crate::node::UnifiedNode;
 use std::collections::BTreeMap;
 
-impl VantaEmbedded {
+impl Embedded {
     /// Sparse-dot search over the derived sparse-vector inverted index.
     ///
     /// The `SparseIndex` partition stores one posting per (namespace, dim,
@@ -20,9 +20,9 @@ impl VantaEmbedded {
         &self,
         namespace: &str,
         query_sparse: &crate::node::SparseVector,
-        filters: &VantaMemoryMetadata,
+        filters: &MemoryMetadata,
         top_k: usize,
-    ) -> Result<Vec<VantaMemorySearchHit>> {
+    ) -> Result<Vec<MemorySearchHit>> {
         if query_sparse.is_empty() || top_k == 0 {
             return Ok(Vec::new());
         }
@@ -56,7 +56,7 @@ impl VantaEmbedded {
                     if let Some(record) = memory_record_from_node(node) {
                         if record.namespace == namespace && matches_memory_filters(&record, filters)
                         {
-                            hits.push(VantaMemorySearchHit {
+                            hits.push(MemorySearchHit {
                                 record,
                                 score,
                                 explanation: None,

@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 use web_time::{SystemTime, UNIX_EPOCH};
 
 use crate::backend::{BackendPartition, BackendWriteOp};
-use crate::error::{ChainedError, Result, VantaError};
+use crate::error::{ChainedError, Error, Result};
 use crate::storage::StorageEngine;
 
 use super::state::WikiState;
@@ -63,12 +63,12 @@ impl<'a> WikiStore<'a> {
 
     /// Create a wiki space in the `pending` state (initial build queued).
     ///
-    /// Errors with [`VantaError::ExecutionConflict`] if the slug already
+    /// Errors with [`Error::ExecutionConflict`] if the slug already
     /// exists in the namespace.
     pub fn create(&self, namespace: &str, slug: &str) -> Result<Wiki> {
         validate_scope(namespace, slug)?;
         if self.get(namespace, slug)?.is_some() {
-            return Err(VantaError::ExecutionConflict {
+            return Err(Error::ExecutionConflict {
                 resource: format!("wiki:{namespace}:{slug}"),
                 detail: "wiki already exists".into(),
             });
@@ -97,7 +97,7 @@ impl<'a> WikiStore<'a> {
         )? {
             Some(bytes) => serde_json::from_slice(&bytes)
                 .map(Some)
-                .map_err(|e| VantaError::serialization(ChainedError::with_source("wiki", e))),
+                .map_err(|e| Error::serialization(ChainedError::with_source("wiki", e))),
             None => Ok(None),
         }
     }
@@ -139,7 +139,7 @@ impl<'a> WikiStore<'a> {
 
 impl WikiStore<'_> {
     /// Request a (re-)ingest: `ready|failed → pending`. Rejected with
-    /// [`VantaError::ExecutionConflict`] while a build is queued/running
+    /// [`Error::ExecutionConflict`] while a build is queued/running
     /// (TDAM 409-busy, wiki-service.ts:272-288).
     pub fn request_ingest(&self, namespace: &str, slug: &str) -> Result<Wiki> {
         validate_scope(namespace, slug)?;
@@ -163,7 +163,7 @@ impl WikiStore<'_> {
         validate_scope(namespace, slug)?;
         let mut wiki = require(self.engine, namespace, slug)?;
         if wiki.state != WikiState::Pending {
-            return Err(VantaError::ExecutionConflict {
+            return Err(Error::ExecutionConflict {
                 resource: format!("wiki:{namespace}:{slug}"),
                 detail: format!(
                     "cannot start build from state `{}`; expected `pending`",
@@ -218,7 +218,7 @@ impl WikiStore<'_> {
 /// Shared guard: wiki must be `processing` under exactly this `run_id`.
 fn expect_processing(wiki: &Wiki, namespace: &str, slug: &str, run_id: &str) -> Result<()> {
     if wiki.state != WikiState::Processing {
-        return Err(VantaError::ExecutionConflict {
+        return Err(Error::ExecutionConflict {
             resource: format!("wiki:{namespace}:{slug}"),
             detail: format!(
                 "build completion for `{}` requires state `processing`",
@@ -228,7 +228,7 @@ fn expect_processing(wiki: &Wiki, namespace: &str, slug: &str, run_id: &str) -> 
     }
     match &wiki.run_id {
         Some(current) if current == run_id => Ok(()),
-        other => Err(VantaError::ExecutionConflict {
+        other => Err(Error::ExecutionConflict {
             resource: format!("wiki:{namespace}:{slug}"),
             detail: format!(
                 "stale run_id `{run_id}` (active: {})",
@@ -308,7 +308,7 @@ impl WikiStore<'_> {
             updated_at_ms: now_ms(),
         };
         let bytes = serde_json::to_vec(&page)
-            .map_err(|e| VantaError::serialization(ChainedError::with_source("wiki", e)))?;
+            .map_err(|e| Error::serialization(ChainedError::with_source("wiki", e)))?;
         self.engine.put_to_partition(
             BackendPartition::InternalMetadata,
             &page_key(namespace, slug, &page.path),
@@ -327,7 +327,7 @@ impl WikiStore<'_> {
         )? {
             Some(bytes) => serde_json::from_slice(&bytes)
                 .map(Some)
-                .map_err(|e| VantaError::serialization(ChainedError::with_source("wiki", e))),
+                .map_err(|e| Error::serialization(ChainedError::with_source("wiki", e))),
             None => Ok(None),
         }
     }
@@ -341,10 +341,10 @@ impl WikiStore<'_> {
         )?;
         let mut pages: Vec<WikiPage> = Vec::with_capacity(rows.len());
         for (_, bytes) in rows {
-            pages
-                .push(serde_json::from_slice(&bytes).map_err(|e| {
-                    VantaError::serialization(ChainedError::with_source("wiki", e))
-                })?);
+            pages.push(
+                serde_json::from_slice(&bytes)
+                    .map_err(|e| Error::serialization(ChainedError::with_source("wiki", e)))?,
+            );
         }
         pages.sort_by(|a, b| a.path.cmp(&b.path));
         Ok(pages)
@@ -372,7 +372,7 @@ impl WikiStore<'_> {
 /// Serialize and persist a wiki record (bumps nothing — callers set fields).
 pub(super) fn persist(engine: &StorageEngine, wiki: &Wiki) -> Result<()> {
     let bytes = serde_json::to_vec(wiki)
-        .map_err(|e| VantaError::serialization(ChainedError::with_source("wiki", e)))?;
+        .map_err(|e| Error::serialization(ChainedError::with_source("wiki", e)))?;
     engine.put_to_partition(
         BackendPartition::InternalMetadata,
         &wiki_key(&wiki.namespace, &wiki.slug),
@@ -384,7 +384,7 @@ pub(super) fn persist(engine: &StorageEngine, wiki: &Wiki) -> Result<()> {
 pub(super) fn require(engine: &StorageEngine, namespace: &str, slug: &str) -> Result<Wiki> {
     match WikiStore::new(engine).get(namespace, slug)? {
         Some(wiki) => Ok(wiki),
-        None => Err(VantaError::NotFound {
+        None => Err(Error::NotFound {
             kind: "wiki".into(),
             id: format!("{namespace}:{slug}"),
         }),
@@ -437,22 +437,20 @@ pub(super) fn page_key(namespace: &str, slug: &str, path: &str) -> Vec<u8> {
 
 fn validate_component(field: &str, value: &str) -> Result<()> {
     if value.is_empty() {
-        return Err(VantaError::InvalidInput(format!(
-            "{field} must be non-empty"
-        )));
+        return Err(Error::InvalidInput(format!("{field} must be non-empty")));
     }
     if value.len() > 512 {
-        return Err(VantaError::InvalidInput(format!(
+        return Err(Error::InvalidInput(format!(
             "{field} must be at most 512 bytes"
         )));
     }
     if value.as_bytes().contains(&0) {
-        return Err(VantaError::InvalidInput(format!(
+        return Err(Error::InvalidInput(format!(
             "{field} must not contain NUL bytes"
         )));
     }
     if value.contains(['{', '}', ':']) {
-        return Err(VantaError::InvalidInput(format!(
+        return Err(Error::InvalidInput(format!(
             "{field} must not contain '{{', '}}' or ':'"
         )));
     }

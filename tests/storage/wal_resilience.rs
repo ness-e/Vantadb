@@ -13,7 +13,7 @@ mod common;
 use common::{TerminalReporter, VantaSession};
 use std::fs::{File, OpenOptions};
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::{BackendKind, StorageEngine};
 
@@ -26,7 +26,7 @@ fn test_wal_durability_and_checkpoint_coherence() {
     let db_path = dir.path().to_str().unwrap();
 
     // 1. Inicializar con configuración explícita
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         wal_shards: 1,
         ..Default::default()
@@ -87,7 +87,7 @@ fn test_wal_middle_corruption_auto_healing() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         wal_shards: 1,
         ..Default::default()
@@ -215,7 +215,7 @@ fn test_wal_selective_crc_corruption_recovery() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         wal_shards: 1,
         ..Default::default()
@@ -327,7 +327,7 @@ fn test_sharded_wal_truncated_shard_recovery_fails_closed() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         wal_shards: 4,
         ..Default::default()
@@ -392,7 +392,7 @@ fn test_wal_write_failure_simulated() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         wal_shards: 1,
         ..Default::default()

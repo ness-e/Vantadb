@@ -546,7 +546,7 @@ pub static GRAPH_OPS_TOTAL: LazyLock<Option<IntCounterVec>> = LazyLock::new(|| {
 
 /// HTTP-served error counter (FIND-53), labelled by canonical error code.
 ///
-/// `code` ∈ the ten canonical `VANTADB_*` codes from `VantaError::code()`
+/// `code` ∈ the ten canonical `VANTADB_*` codes from `Error::code()`
 /// (enum-derived — bounded cardinality ≤10, never free-form strings).
 /// Incremented at the single HTTP error choke point
 /// `src/server/errors.rs::log_vanta_error`, so both error envelopes

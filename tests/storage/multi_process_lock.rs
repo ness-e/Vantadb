@@ -3,8 +3,8 @@
 use std::io::{BufRead, BufReader};
 use std::process::Command;
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
-use vantadb::error::VantaError;
+use vantadb::config::Config;
+use vantadb::error::Error;
 use vantadb::storage::StorageEngine;
 
 /// Certifica que:
@@ -17,7 +17,7 @@ fn test_exclusive_writer_lock_prevents_second_writer() {
     let path_str = dir.path().to_str().unwrap();
 
     // 1. Abrimos el primer StorageEngine de escritura (adquiere el lock exclusivo)
-    let config1 = VantaConfig {
+    let config1 = Config {
         read_only: false,
         ..Default::default()
     };
@@ -26,7 +26,7 @@ fn test_exclusive_writer_lock_prevents_second_writer() {
 
     // 2. Intentamos abrir un segundo escritor sobre el mismo directorio.
     //    Esto debe fallar con un error de lock explícito.
-    let config2 = VantaConfig {
+    let config2 = Config {
         read_only: false,
         ..Default::default()
     };
@@ -38,7 +38,7 @@ fn test_exclusive_writer_lock_prevents_second_writer() {
 
     // 3. Validar que el error sea explícito y contenga información de lock.
     match engine2_res.err().unwrap() {
-        VantaError::DatabaseBusy(msg) => {
+        Error::DatabaseBusy(msg) => {
             assert!(
                 msg.contains("locked by another process"),
                 "Expected 'locked by another process' in error message, got: {}",
@@ -46,7 +46,7 @@ fn test_exclusive_writer_lock_prevents_second_writer() {
             );
         }
         other => panic!(
-            "Expected VantaError::DatabaseBusy for lock failure, got: {:?}",
+            "Expected Error::DatabaseBusy for lock failure, got: {:?}",
             other
         ),
     }
@@ -55,7 +55,7 @@ fn test_exclusive_writer_lock_prevents_second_writer() {
     drop(_engine1);
 
     // 5. Tras liberar el lock, debe ser posible abrir de nuevo.
-    let config3 = VantaConfig {
+    let config3 = Config {
         read_only: false,
         ..Default::default()
     };
@@ -101,7 +101,7 @@ fn test_exclusive_writer_lock_prevents_second_writer_multi_process() {
 
     // 3. Con P1 en ejecución sosteniendo el lock, intentamos abrir el motor desde el proceso del test.
     // Esto debe fallar debido al bloqueo a nivel de OS.
-    let config2 = VantaConfig {
+    let config2 = Config {
         read_only: false,
         ..Default::default()
     };
@@ -110,14 +110,14 @@ fn test_exclusive_writer_lock_prevents_second_writer_multi_process() {
         engine_res.is_err(),
         "Current process should NOT be able to open the database while P1 holds the lock"
     );
-    if let Err(VantaError::DatabaseBusy(msg)) = engine_res {
+    if let Err(Error::DatabaseBusy(msg)) = engine_res {
         assert!(
             msg.contains("locked by another process"),
             "Expected lock failure message, got: {}",
             msg
         );
     } else {
-        panic!("Expected VantaError::DatabaseBusy for lock failure");
+        panic!("Expected Error::DatabaseBusy for lock failure");
     }
 
     // 4. Lanzamos un segundo lock_helper (Proceso P2) sobre el mismo directorio.
@@ -145,7 +145,7 @@ fn test_exclusive_writer_lock_prevents_second_writer_multi_process() {
     let _ = p1.wait();
 
     // 6. Con el lock liberado, la apertura desde el proceso del test debe tener éxito.
-    let config3 = VantaConfig {
+    let config3 = Config {
         read_only: false,
         ..Default::default()
     };

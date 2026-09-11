@@ -1,9 +1,9 @@
 //! HNSW index rebuild, layout compaction, and graph traversal utilities.
 
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::index::CPIndex;
 use crate::node::DiskNodeHeader;
-use crate::storage::vfile::{map_readwrite, VantaFile};
+use crate::storage::vfile::{map_readwrite, File};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::OpenOptions;
 use std::path::PathBuf;
@@ -38,14 +38,14 @@ fn payload_len_for_header(header: &DiskNodeHeader) -> u64 {
     }
 }
 
-/// Rewrite the VantaFile with nodes in BFS order, returning the new offset map and file size.
+/// Rewrite the File with nodes in BFS order, returning the new offset map and file size.
 pub fn compact_layout(
-    vstore: &mut VantaFile,
+    vstore: &mut File,
     hnsw: &CPIndex,
     bfs_order: &[u128],
     header_size: u64,
 ) -> Result<(HashMap<u128, u64>, u64)> {
-    // In-memory VantaFile has no disk backing to compact — return a trivial
+    // In-memory File has no disk backing to compact — return a trivial
     // offset map that preserves existing offsets (CODE-010).
     if vstore.file.is_none() {
         let offset_map: HashMap<u128, u64> = bfs_order
@@ -55,7 +55,7 @@ pub fn compact_layout(
         return Ok((offset_map, vstore.write_cursor));
     }
     if bfs_order.is_empty() {
-        return Err(VantaError::ValidationError {
+        return Err(Error::ValidationError {
             field: "bfs_order".into(),
             reason: "BFS order is empty — refusing to compact (would destroy the database)".into(),
         });
@@ -89,15 +89,13 @@ pub fn compact_layout(
         .create(true)
         .truncate(true)
         .open(&tmp_path)
-        .map_err(VantaError::IoError)?;
-    tmp_file
-        .set_len(new_file_size)
-        .map_err(VantaError::IoError)?;
+        .map_err(Error::IoError)?;
+    tmp_file.set_len(new_file_size).map_err(Error::IoError)?;
 
     // `map_readwrite` carries the (memmap2-only) SAFETY contract: tmp_file is a
     // valid, open handle with set_len() called beforehand (writable, valid
     // size); the returned mmap is valid for the file's lifetime.
-    let mut tmp_mmap = map_readwrite(&tmp_file).map_err(VantaError::IoError)?;
+    let mut tmp_mmap = map_readwrite(&tmp_file).map_err(Error::IoError)?;
 
     let mut new_offset_map: HashMap<u128, u64> = HashMap::with_capacity(bfs_order.len());
     let mut write_cursor: u64 = STORAGE_ALIGNMENT;
@@ -118,13 +116,13 @@ pub fn compact_layout(
             let new_vec_offset = new_node_offset + header_size;
             let end = new_vec_offset + vec_size_aligned;
             if end > new_file_size {
-                tmp_mmap.flush().map_err(VantaError::IoError)?;
+                tmp_mmap.flush().map_err(Error::IoError)?;
                 drop(tmp_mmap);
-                tmp_file.set_len(end + 4096).map_err(VantaError::IoError)?;
+                tmp_file.set_len(end + 4096).map_err(Error::IoError)?;
                 // `map_readwrite` carries the (memmap2-only) SAFETY contract:
                 // tmp_file was extended via set_len() before this call and the
                 // previous mmap was dropped, so there is no conflicting mapping.
-                tmp_mmap = map_readwrite(&tmp_file).map_err(VantaError::IoError)?;
+                tmp_mmap = map_readwrite(&tmp_file).map_err(Error::IoError)?;
             }
             let old_data = vstore.mmap_bytes();
             let src_start = old_offset as usize;
@@ -135,7 +133,7 @@ pub fn compact_layout(
             // slice longer than the source and panic copy_from_slice. Validate
             // the source is long enough and abort the compact with an error.
             if src_end > old_data.len() {
-                return Err(VantaError::IoError(std::io::Error::new(
+                return Err(Error::IoError(std::io::Error::new(
                     std::io::ErrorKind::UnexpectedEof,
                     format!(
                         "vstore truncated: node at offset {old_offset} claims {copy_len} bytes \
@@ -158,13 +156,13 @@ pub fn compact_layout(
 
     // AUDREP-04: flush final mmap writes to the OS, then sync + fsync the tmp
     // file so no unwritten garbage is renamed in as if it were a valid store.
-    tmp_mmap.flush().map_err(VantaError::IoError)?;
+    tmp_mmap.flush().map_err(Error::IoError)?;
     drop(tmp_mmap);
-    tmp_file.sync_all().map_err(VantaError::IoError)?;
-    std::fs::rename(&tmp_path, &vstore_path).map_err(VantaError::IoError)?;
+    tmp_file.sync_all().map_err(Error::IoError)?;
+    std::fs::rename(&tmp_path, &vstore_path).map_err(Error::IoError)?;
     // AUDREP-35: a rename is not durable until its parent dir is fsync'd —
     // without this, a crash can revert the swap and resurrect the old file.
-    crate::utils::fs::sync_parent_dir(&vstore_path).map_err(VantaError::IoError)?;
+    crate::utils::fs::sync_parent_dir(&vstore_path).map_err(Error::IoError)?;
     vstore.replace_backing_file(new_file_size)?;
     vstore.write_cursor = write_cursor;
     vstore.save_cursor()?;
@@ -218,20 +216,20 @@ pub(crate) fn fresh_index_like(existing: &CPIndex, index_path: PathBuf) -> CPInd
     }
 }
 
-/// Rebuild the entire HNSW index by scanning all nodes from the VantaFile.
+/// Rebuild the entire HNSW index by scanning all nodes from the File.
 /// If `segment_id` is Some(n), offsets are packed with the segment_id.
 pub(crate) fn rebuild_hnsw_from_vstore(
     hnsw: &mut CPIndex,
-    vstore: &VantaFile,
+    vstore: &File,
     index_path: PathBuf,
 ) -> Result<crate::storage::IndexRebuildReport> {
     rebuild_hnsw_from_vstore_with_segment(hnsw, vstore, index_path, None)
 }
 
-/// Rebuild HNSW from a VantaFile, optionally packing offsets with a segment_id.
+/// Rebuild HNSW from a File, optionally packing offsets with a segment_id.
 pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
     hnsw: &mut CPIndex,
-    vstore: &VantaFile,
+    vstore: &File,
     index_path: PathBuf,
     segment_id: Option<u8>,
 ) -> Result<crate::storage::IndexRebuildReport> {
@@ -483,13 +481,7 @@ mod tests {
         (len as u64 * 4 + 63) & !63
     }
 
-    fn write_node_to_vstore(
-        vstore: &mut VantaFile,
-        id: u128,
-        offset: u64,
-        data: &[f32],
-        flags: u32,
-    ) {
+    fn write_node_to_vstore(vstore: &mut File, id: u128, offset: u64, data: &[f32], flags: u32) {
         let vec_offset = offset + hdr_size();
         let mut header = DiskNodeHeader::new(id);
         header.vector_len = data.len() as u32;
@@ -630,7 +622,7 @@ mod tests {
 
     #[test]
     fn test_compact_layout_in_memory_trivial() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let hnsw = CPIndex::new();
         hnsw.add(
             1,
@@ -646,7 +638,7 @@ mod tests {
     fn test_compact_layout_empty_bfs_order_errors() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("test.vanta");
-        let mut vstore = VantaFile::open(path, 4096).unwrap();
+        let mut vstore = File::open(path, 4096).unwrap();
         let hnsw = CPIndex::new();
         let order: Vec<u128> = vec![];
         // Empty bfs_order is rejected — would destroy the database.
@@ -655,7 +647,7 @@ mod tests {
 
     #[test]
     fn test_compact_layout_in_memory_with_two_nodes() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let hnsw = CPIndex::new();
         hnsw.add(
             1,
@@ -677,7 +669,7 @@ mod tests {
 
     #[test]
     fn test_compact_layout_in_memory_node_not_in_hnsw() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let hnsw = CPIndex::new();
         // bfs_order mentions id 99 which is not in hnsw
         let (map, _size) = compact_layout(&mut vstore, &hnsw, &[99], hdr_size()).unwrap();
@@ -688,7 +680,7 @@ mod tests {
     fn test_compact_layout_disk_backed() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("test.vanta");
-        let mut vstore = VantaFile::open(path.clone(), 4096).unwrap();
+        let mut vstore = File::open(path.clone(), 4096).unwrap();
 
         // Write two headers at aligned offsets
         let hs = hdr_size();
@@ -728,7 +720,7 @@ mod tests {
         // actually contain the node data. A no-op tmp flush used to rename a
         // zero-filled file in non-memmap2 builds — silent data loss.
         drop(vstore);
-        let reopened = VantaFile::open(path, 4096).unwrap();
+        let reopened = File::open(path, 4096).unwrap();
         for (node_id, expected) in [(1u128, [0.1f32, 0.2]), (2, [0.3, 0.4])] {
             let offset = map.get(&node_id).copied().unwrap();
             let header = reopened.read_header(offset).unwrap();
@@ -756,7 +748,7 @@ mod tests {
         // zero-filled tmp file; a bad replace would clobber the compacted one).
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("test_reorder.vanta");
-        let mut vstore = VantaFile::open(path.clone(), 4096).unwrap();
+        let mut vstore = File::open(path.clone(), 4096).unwrap();
 
         let hs = hdr_size();
         write_node_to_vstore(&mut vstore, 1, 64, &[0.1, 0.2], 0);
@@ -787,7 +779,7 @@ mod tests {
         assert_eq!(map.len(), 2);
         drop(vstore);
 
-        let reopened = VantaFile::open(path, 4096).unwrap();
+        let reopened = File::open(path, 4096).unwrap();
         for (node_id, expected) in [(2u128, [0.3f32, 0.4]), (1, [0.1, 0.2])] {
             let offset = map.get(&node_id).copied().unwrap();
             let header = reopened.read_header(offset).unwrap();
@@ -809,7 +801,7 @@ mod tests {
     fn test_compact_layout_disk_backed_tombstone_skipped() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("test.vanta");
-        let mut vstore = VantaFile::open(path.clone(), 4096).unwrap();
+        let mut vstore = File::open(path.clone(), 4096).unwrap();
 
         let hs = hdr_size();
         let avs = aligned_vec_size(2);
@@ -840,10 +832,10 @@ mod tests {
     fn test_compact_layout_truncated_vstore_errors_not_panic() {
         // AUDREP-01: a header whose vector_len claims more bytes than the file
         // actually holds (crash mid-write) used to panic copy_from_slice and
-        // tear down the whole process. It must return Err(VantaError) instead.
+        // tear down the whole process. It must return Err(Error) instead.
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("test.vanta");
-        let mut vstore = VantaFile::open(path, 4096).unwrap();
+        let mut vstore = File::open(path, 4096).unwrap();
 
         let hs = hdr_size();
         // Write a header at offset 64 that claims a huge vector
@@ -870,7 +862,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_empty_vstore() {
-        let vstore = VantaFile::create_in_memory(4096);
+        let vstore = File::create_in_memory(4096);
         let mut hnsw = CPIndex::new();
         let report =
             rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
@@ -883,7 +875,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_with_two_nodes() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let hs = hdr_size();
         let avs = aligned_vec_size(3);
 
@@ -906,7 +898,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_skips_tombstoned_node() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let hs = hdr_size();
         let avs = aligned_vec_size(2);
 
@@ -929,7 +921,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_zero_id_not_scanned() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let hs = hdr_size();
         let avs = aligned_vec_size(2);
 
@@ -949,7 +941,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_without_vector_data() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
 
         let mut header = DiskNodeHeader::new(42);
         header.vector_len = 0;
@@ -969,7 +961,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_vector_data_beyond_mmap() {
-        let mut vstore = VantaFile::create_in_memory(64); // only header region
+        let mut vstore = File::create_in_memory(64); // only header region
 
         let mut header = DiskNodeHeader::new(7);
         header.vector_len = 100; // 400 bytes — way past the 64-byte buffer
@@ -988,7 +980,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_report_path() {
-        let vstore = VantaFile::create_in_memory(4096);
+        let vstore = File::create_in_memory(4096);
         let mut hnsw = CPIndex::new();
         let report =
             rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("custom/path.idx")).unwrap();
@@ -997,7 +989,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_duration_set() {
-        let vstore = VantaFile::create_in_memory(4096);
+        let vstore = File::create_in_memory(4096);
         let mut hnsw = CPIndex::new();
         let report =
             rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
@@ -1010,7 +1002,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_binary_vector() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let mut node = crate::node::UnifiedNode::new(101);
         let data: Box<[u64]> = vec![0xDEADBEEFCAFEu64, 0x0123456789ABCDEFu64].into_boxed_slice();
         node.vector = crate::node::VectorRepresentations::Binary(data.clone());
@@ -1032,7 +1024,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_turbo_vector() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let mut node = crate::node::UnifiedNode::new(102);
         let data: Box<[u8]> = vec![0xAB, 0xCD, 0xEF, 0x12].into_boxed_slice();
         node.vector = crate::node::VectorRepresentations::Turbo(data.clone());
@@ -1054,7 +1046,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_sq8_vector() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let mut node = crate::node::UnifiedNode::new(103);
         let data: Box<[i8]> = vec![10, -20, 30, -40].into_boxed_slice();
         let scale: f32 = 1.5;
@@ -1080,7 +1072,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_mixed_vectors_including_binary() {
-        let mut vstore = VantaFile::create_in_memory(8192);
+        let mut vstore = File::create_in_memory(8192);
         let hs = hdr_size();
         // node 1: Full
         let mut n1 = crate::node::UnifiedNode::new(201);

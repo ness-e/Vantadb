@@ -2,9 +2,9 @@
 source: tests/query_result_advanced.rs
 expression: page
 ---
-VantaMemoryListPage {
+MemoryListPage {
     records: [
-        VantaMemoryRecord {
+        MemoryRecord {
             namespace: "small_ns",
             key: "final_key",
             payload: "last record",

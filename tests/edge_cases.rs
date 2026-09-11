@@ -6,13 +6,10 @@
 use std::sync::Arc;
 use std::thread;
 use tempfile::tempdir;
-use vantadb::{
-    InMemoryEngine, UnifiedNode, VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest,
-    VantaValue,
-};
+use vantadb::{Embedded, InMemoryEngine, MemoryInput, MemorySearchRequest, UnifiedNode, Value};
 
-fn field_string(value: &str) -> VantaValue {
-    VantaValue::String(value.to_string())
+fn field_string(value: &str) -> Value {
+    Value::String(value.to_string())
 }
 
 // ── 1. NaN/Inf vectors ─────────────────────────────────────
@@ -65,9 +62,9 @@ fn neg_inf_vector_rejected() {
 #[test]
 fn empty_key_returns_error() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    let input = VantaMemoryInput::new("test", "", "payload");
+    let input = MemoryInput::new("test", "", "payload");
     let err = db.put(input).expect_err("empty key must fail");
     let msg = err.to_string();
     assert!(
@@ -81,7 +78,7 @@ fn empty_key_returns_error() {
 #[test]
 fn empty_batch_succeeds() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     let results = db.put_batch(vec![]).expect("empty batch must succeed");
     assert!(
@@ -95,9 +92,9 @@ fn empty_batch_succeeds() {
 #[test]
 fn empty_namespace_search_returns_error() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    let request = VantaMemorySearchRequest {
+    let request = MemorySearchRequest {
         namespace: String::new(),
         query_vector: vec![1.0, 0.0, 0.0],
         ..Default::default()
@@ -113,9 +110,9 @@ fn empty_namespace_search_returns_error() {
 #[test]
 fn empty_namespace_put_returns_error() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    let input = VantaMemoryInput::new("", "key", "payload");
+    let input = MemoryInput::new("", "key", "payload");
     let err = db.put(input).expect_err("empty namespace must fail");
     let msg = err.to_string();
     assert!(
@@ -129,7 +126,7 @@ fn empty_namespace_put_returns_error() {
 #[test]
 fn delete_non_existent_key_returns_false() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     let deleted = db
         .delete("nonexistent", "ghost-key")
@@ -144,7 +141,7 @@ fn delete_non_existent_engine_id_returns_error() {
         .delete(999_999)
         .expect_err("deleting unknown ID must fail");
     assert!(
-        matches!(err, vantadb::VantaError::NodeNotFound(999_999)),
+        matches!(err, vantadb::Error::NodeNotFound(999_999)),
         "expected NodeNotFound, got: {err}"
     );
 }
@@ -154,9 +151,9 @@ fn delete_non_existent_engine_id_returns_error() {
 #[test]
 fn metadata_unicode_and_emoji_keys() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    let mut input = VantaMemoryInput::new("test", "special-meta", "payload");
+    let mut input = MemoryInput::new("test", "special-meta", "payload");
     input
         .metadata
         .insert("café".to_string(), field_string("value1"));
@@ -201,9 +198,9 @@ fn metadata_unicode_and_emoji_keys() {
 #[test]
 fn zero_dim_vector_stored_without_vector() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    let mut input = VantaMemoryInput::new("test", "zero-vec", "payload");
+    let mut input = MemoryInput::new("test", "zero-vec", "payload");
     input.vector = Some(vec![]);
 
     let record = db.put(input).expect("zero-dim vector should succeed");
@@ -216,13 +213,13 @@ fn zero_dim_vector_stored_without_vector() {
 #[test]
 fn zero_dim_vector_search_empty() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    let mut input = VantaMemoryInput::new("test", "zero-vec", "payload");
+    let mut input = MemoryInput::new("test", "zero-vec", "payload");
     input.vector = Some(vec![]);
     db.put(input).expect("put zero-dim vector");
 
-    let request = VantaMemorySearchRequest {
+    let request = MemorySearchRequest {
         namespace: "test".to_string(),
         query_vector: vec![1.0],
         top_k: 10,
@@ -259,9 +256,9 @@ fn all_zeros_vector_insert_and_search() {
 #[test]
 fn all_zeros_vector_put_and_list() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    let mut input = VantaMemoryInput::new("test", "all-zeros", "payload");
+    let mut input = MemoryInput::new("test", "all-zeros", "payload");
     input.vector = Some(vec![0.0, 0.0, 0.0]);
     let record = db.put(input).expect("put all-zeros vector");
     assert!(record.vector.is_some(), "all-zeros vector should be stored");
@@ -280,14 +277,14 @@ fn all_zeros_vector_put_and_list() {
 #[test]
 fn concurrent_rapid_inserts_no_crash() {
     let dir = tempdir().expect("tempdir");
-    let db = Arc::new(VantaEmbedded::open(dir.path()).expect("open"));
+    let db = Arc::new(Embedded::open(dir.path()).expect("open"));
 
     let mut handles = Vec::new();
     for i in 0..20 {
         let db = Arc::clone(&db);
         handles.push(thread::spawn(move || {
             for j in 0..5 {
-                let input = VantaMemoryInput::new(
+                let input = MemoryInput::new(
                     "concurrent",
                     format!("key-{i}-{j}"),
                     format!("payload-{i}-{j}"),
@@ -315,11 +312,10 @@ fn concurrent_rapid_inserts_no_crash() {
 #[test]
 fn concurrent_rapid_searches_no_crash() {
     let dir = tempdir().expect("tempdir");
-    let db = Arc::new(VantaEmbedded::open(dir.path()).expect("open"));
+    let db = Arc::new(Embedded::open(dir.path()).expect("open"));
 
     for i in 0..50 {
-        let mut input =
-            VantaMemoryInput::new("search-test", format!("key-{i}"), format!("payload-{i}"));
+        let mut input = MemoryInput::new("search-test", format!("key-{i}"), format!("payload-{i}"));
         input.vector = Some(vec![i as f32 * 0.1, 0.0, 0.0]);
         db.put(input).expect("seed search data");
     }
@@ -329,7 +325,7 @@ fn concurrent_rapid_searches_no_crash() {
         let db = Arc::clone(&db);
         handles.push(thread::spawn(move || {
             for _ in 0..5 {
-                let request = VantaMemorySearchRequest {
+                let request = MemorySearchRequest {
                     namespace: "search-test".to_string(),
                     query_vector: vec![1.0, 0.0, 0.0],
                     top_k: 5,
@@ -351,13 +347,13 @@ fn concurrent_rapid_searches_no_crash() {
 #[test]
 fn search_top_k_zero_returns_empty() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    let mut input = VantaMemoryInput::new("test", "key1", "payload");
+    let mut input = MemoryInput::new("test", "key1", "payload");
     input.vector = Some(vec![1.0, 0.0, 0.0]);
     db.put(input).expect("put");
 
-    let request = VantaMemorySearchRequest {
+    let request = MemorySearchRequest {
         namespace: "test".to_string(),
         query_vector: vec![1.0, 0.0, 0.0],
         top_k: 0,
@@ -370,13 +366,13 @@ fn search_top_k_zero_returns_empty() {
 #[test]
 fn search_empty_query_vector_returns_no_vector_hits() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    let mut input = VantaMemoryInput::new("test", "key1", "payload");
+    let mut input = MemoryInput::new("test", "key1", "payload");
     input.vector = Some(vec![1.0, 0.0, 0.0]);
     db.put(input).expect("put");
 
-    let request = VantaMemorySearchRequest {
+    let request = MemorySearchRequest {
         namespace: "test".to_string(),
         query_vector: vec![],
         top_k: 10,
@@ -413,19 +409,19 @@ fn vector_dimension_mismatch_search() {
 #[test]
 fn large_metadata_value() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    let mut input = VantaMemoryInput::new("test", "large-meta", "payload");
+    let mut input = MemoryInput::new("test", "large-meta", "payload");
     let large_value = "x".repeat(10_000);
     input.metadata.insert(
         "large_field".to_string(),
-        VantaValue::String(large_value.clone()),
+        Value::String(large_value.clone()),
     );
 
     let record = db.put(input).expect("put with large metadata");
     assert_eq!(
         record.metadata.get("large_field"),
-        Some(&VantaValue::String(large_value))
+        Some(&Value::String(large_value))
     );
 }
 
@@ -434,9 +430,9 @@ fn large_metadata_value() {
 #[test]
 fn delete_expired_ttl_record() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    let mut input = VantaMemoryInput::new("test", "ttl-record", "will-expire");
+    let mut input = MemoryInput::new("test", "ttl-record", "will-expire");
     input.ttl_ms = Some(1);
     db.put(input).expect("put with 1ms TTL");
 
@@ -456,11 +452,11 @@ fn delete_expired_ttl_record() {
 #[test]
 fn same_key_different_namespaces_are_independent() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    db.put(VantaMemoryInput::new("ns1", "shared-key", "payload-a"))
+    db.put(MemoryInput::new("ns1", "shared-key", "payload-a"))
         .expect("put ns1");
-    db.put(VantaMemoryInput::new("ns2", "shared-key", "payload-b"))
+    db.put(MemoryInput::new("ns2", "shared-key", "payload-b"))
         .expect("put ns2");
 
     let a = db
@@ -487,7 +483,7 @@ fn duplicate_engine_id_returns_error() {
         .insert(UnifiedNode::new(42))
         .expect_err("duplicate insert must fail");
     assert!(
-        matches!(err, vantadb::VantaError::DuplicateNode(42)),
+        matches!(err, vantadb::Error::DuplicateNode(42)),
         "expected DuplicateNode(42), got: {err}"
     );
 }
@@ -501,7 +497,7 @@ fn update_non_existent_node_returns_error() {
         .update(999, UnifiedNode::new(999))
         .expect_err("update non-existent must fail");
     assert!(
-        matches!(err, vantadb::VantaError::NodeNotFound(999)),
+        matches!(err, vantadb::Error::NodeNotFound(999)),
         "expected NodeNotFound(999), got: {err}"
     );
 }

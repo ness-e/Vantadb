@@ -9,7 +9,7 @@ use crate::cli_handlers::{
     create_spinner, human_readable_size, memory_node_id, open_database, print_info, print_success,
     print_warning, FIELD_EXPIRES_AT_MS, FIELD_NAMESPACE, FIELD_PAYLOAD,
 };
-use crate::error::{ChainedError, Result, VantaError};
+use crate::error::{ChainedError, Error, Result};
 use crate::node::{FieldValue, NodeFlags, VectorRepresentations};
 
 /// A safe, non-destructive repair that `doctor --fix` can apply.
@@ -66,10 +66,10 @@ fn pending_safe_repairs(db_path: &str) -> Vec<PendingRepair> {
 /// Matches `NotFound` (missing path/lock/data dir) and the missing-schema
 /// message. Anything else (bad version, invalid header, busy, IO) is a real
 /// problem and must still surface as an error.
-fn is_empty_database_state(e: &VantaError) -> bool {
+fn is_empty_database_state(e: &Error) -> bool {
     match e {
-        VantaError::NotFound { .. } => true,
-        VantaError::SchemaError(msg) => msg.contains("no schema file"),
+        Error::NotFound { .. } => true,
+        Error::SchemaError(msg) => msg.contains("no schema file"),
         _ => false,
     }
 }
@@ -95,7 +95,7 @@ pub fn cmd_doctor(db_path: &str, fix: bool, force: bool, verbose: bool) -> Resul
                 print_success("doctor --fix: nothing to fix");
             } else {
                 for repair in &pending {
-                    std::fs::create_dir_all(&repair.path).map_err(VantaError::IoError)?;
+                    std::fs::create_dir_all(&repair.path).map_err(Error::IoError)?;
                     print_success(&format!("Fixed: {}", repair.description));
                 }
             }
@@ -464,7 +464,7 @@ pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> 
         println!(
             "{}",
             serde_json::to_string_pretty(&result).map_err(|e| {
-                crate::error::VantaError::CliError(ChainedError::msg(format!(
+                crate::error::Error::CliError(ChainedError::msg(format!(
                     "JSON serialization error: {e}"
                 )))
             })?

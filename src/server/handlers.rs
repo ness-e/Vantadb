@@ -8,16 +8,15 @@ use crate::connection_pool::PoolError;
 use crate::error::Result;
 use crate::metrics;
 use crate::sdk::{
-    VantaEmbedded, VantaMemoryFilter, VantaMemoryInput, VantaMemoryListOptions,
-    VantaMemoryListPage, VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest,
-    VantaNamespaceStatsMap, VantaOperationalMetrics,
+    Embedded, MemoryFilter, MemoryInput, MemoryListOptions, MemoryListPage, MemoryRecord,
+    MemorySearchHit, MemorySearchRequest, NamespaceStatsMap, OperationalMetrics,
 };
 use crate::server::errors::{
     not_found_response, panic_error_response, pool_error_response, query_error_response,
     thread_not_found_response, vanta_error_response,
 };
 use crate::server::state::{NodeDTO, QueryRequest, QueryResponse, RequestId, ServerState};
-use crate::VantaError;
+use crate::Error;
 use axum::{
     extract::{Path as AxumPath, Query, State},
     http::{header, StatusCode},
@@ -55,13 +54,13 @@ pub async fn metrics_endpoint() -> impl IntoResponse {
 }
 
 /// JSON wire shape for `GET /api/v2/metrics` (REST-02): the operational
-/// snapshot (same `VantaOperationalMetrics` shape the desktop `vanta_metrics`
+/// snapshot (same `OperationalMetrics` shape the desktop `vanta_metrics`
 /// wrapper consumes) plus per-namespace collection counts for the
 /// Índices/salud surface (FEAT-02). Both fields reuse existing SDK types.
 #[derive(Serialize)]
 struct MetricsV2Response {
-    metrics: VantaOperationalMetrics,
-    namespaces: VantaNamespaceStatsMap,
+    metrics: OperationalMetrics,
+    namespaces: NamespaceStatsMap,
 }
 
 /// `GET /api/v2/metrics` — engine metrics as JSON for the web console.
@@ -167,7 +166,7 @@ pub async fn execute_query(
 
 // ─── /api/v2 console surface (WEB-01) ───────────────────────────────────────
 //
-// Endpoints map 1:1 to the embedded SDK (`VantaEmbedded`) so the wire format
+// Endpoints map 1:1 to the embedded SDK (`Embedded`) so the wire format
 // is the SDK's own serde. Errors are `{success: false, error}` with the status
 // from `vanta_error_status` — the same shape the auth middleware and circuit
 // breaker already emit. All engine work runs under a pool permit in
@@ -175,11 +174,11 @@ pub async fn execute_query(
 
 /// Run a blocking SDK operation under a connection-pool permit.
 ///
-/// Pool, panic, and `VantaError` failures become HTTP responses; success
+/// Pool, panic, and `Error` failures become HTTP responses; success
 /// returns the raw SDK value for the handler to serialize.
 pub(crate) async fn run_db_op<T>(
     state: &ServerState,
-    op: impl FnOnce(&VantaEmbedded) -> Result<T> + Send + 'static,
+    op: impl FnOnce(&Embedded) -> Result<T> + Send + 'static,
 ) -> std::result::Result<T, Response>
 where
     T: Send + 'static,
@@ -242,7 +241,7 @@ pub async fn health_v2(State(state): State<Arc<ServerState>>) -> Response {
 #[tracing::instrument(skip(state))]
 pub async fn records_put(
     State(state): State<Arc<ServerState>>,
-    Json(input): Json<VantaMemoryInput>,
+    Json(input): Json<MemoryInput>,
 ) -> Response {
     match run_db_op(&state, move |db| db.put(input)).await {
         Ok(record) => (StatusCode::CREATED, Json(record)).into_response(),
@@ -253,7 +252,7 @@ pub async fn records_put(
 #[tracing::instrument(skip(state))]
 pub async fn records_put_batch(
     State(state): State<Arc<ServerState>>,
-    Json(inputs): Json<Vec<VantaMemoryInput>>,
+    Json(inputs): Json<Vec<MemoryInput>>,
 ) -> Response {
     match run_db_op(&state, move |db| db.put_batch(inputs)).await {
         Ok(records) => (StatusCode::CREATED, Json(records)).into_response(),
@@ -327,7 +326,7 @@ pub async fn records_delete(
 #[derive(Deserialize, Debug)]
 pub struct DeleteByFilterParams {
     namespace: String,
-    /// JSON array of `VantaMemoryFilterItem` (e.g.
+    /// JSON array of `MemoryFilterItem` (e.g.
     /// `[{"field":"kind","op":"Eq","value":{"String":"note"}}]`).
     filter: String,
 }
@@ -337,7 +336,7 @@ pub async fn records_delete_by_filter(
     State(state): State<Arc<ServerState>>,
     Query(params): Query<DeleteByFilterParams>,
 ) -> Response {
-    let filter: VantaMemoryFilter = match serde_json::from_str(&params.filter) {
+    let filter: MemoryFilter = match serde_json::from_str(&params.filter) {
         Ok(f) => f,
         Err(e) => {
             return (
@@ -362,8 +361,8 @@ pub async fn records_delete_by_filter(
 /// `next_cursor` was capped at `NS_CAP` mid-listing — it is reported in the
 /// returned `truncated_namespaces` so the client never sees silent truncation.
 fn merge_all_namespaces_pages(
-    pages: Vec<(String, VantaMemoryListPage)>,
-) -> (Vec<VantaMemoryRecord>, Vec<String>) {
+    pages: Vec<(String, MemoryListPage)>,
+) -> (Vec<MemoryRecord>, Vec<String>) {
     let mut records = Vec::new();
     let mut truncated_namespaces = Vec::new();
     for (ns, page) in pages {
@@ -383,7 +382,7 @@ pub struct ListParams {
     namespace: Option<String>,
     limit: Option<usize>,
     cursor: Option<usize>,
-    /// JSON array of `VantaMemoryFilterItem`.
+    /// JSON array of `MemoryFilterItem`.
     filter_ops: Option<String>,
 }
 
@@ -403,7 +402,7 @@ pub async fn records_list(
         .is_none();
     let filter_ops = match params.filter_ops.as_deref() {
         None => None,
-        Some(raw) => match serde_json::from_str::<VantaMemoryFilter>(raw) {
+        Some(raw) => match serde_json::from_str::<MemoryFilter>(raw) {
             Ok(f) => Some(f),
             Err(e) => {
                 return (
@@ -434,21 +433,21 @@ pub async fn records_list(
         // removed: the SDK now enforces the `limit` early-exit natively, so
         // there is no in-memory NS_CAP cost. Truncation at the namespace
         // boundary is still detected via `next_cursor` from each per-ns
-        // `VantaMemoryListPage` (see `merge_all_namespaces_pages`).
+        // `MemoryListPage` (see `merge_all_namespaces_pages`).
 
-        /// Fan-out response: same shape as `VantaMemoryListPage` plus an
+        /// Fan-out response: same shape as `MemoryListPage` plus an
         /// additive signal listing namespaces whose listing is still paginating
         /// (they may hold more records than this response contains).
         #[derive(Serialize)]
         struct AllNamespacesListPage {
-            records: Vec<VantaMemoryRecord>,
+            records: Vec<MemoryRecord>,
             next_cursor: Option<usize>,
             /// Namespaces still paginating during the fan-out (their
-            /// per-ns `VantaMemoryListPage.next_cursor` was `Some`).
+            /// per-ns `MemoryListPage.next_cursor` was `Some`).
             truncated_namespaces: Vec<String>,
         }
 
-        let options_for = move |_ns: String| VantaMemoryListOptions {
+        let options_for = move |_ns: String| MemoryListOptions {
             filter_ops: filter_ops.clone(),
             limit,
             cursor,
@@ -467,7 +466,7 @@ pub async fn records_list(
             let end = (start + limit).min(records.len());
             let window = records[start..end].to_vec();
             let next_cursor = (end < records.len()).then_some(end);
-            Ok::<_, VantaError>(AllNamespacesListPage {
+            Ok::<_, Error>(AllNamespacesListPage {
                 records: window,
                 next_cursor,
                 truncated_namespaces,
@@ -480,7 +479,7 @@ pub async fn records_list(
         };
     }
     let ns = params.namespace.unwrap_or_default();
-    let options = VantaMemoryListOptions {
+    let options = MemoryListOptions {
         filter_ops,
         limit,
         cursor,
@@ -499,7 +498,7 @@ pub async fn records_list(
 #[derive(Debug, Deserialize)]
 pub struct SearchPageRequest {
     #[serde(flatten)]
-    request: VantaMemorySearchRequest,
+    request: MemorySearchRequest,
     /// Zero-based offset into the ranked result set.
     #[serde(default)]
     cursor: Option<usize>,
@@ -508,11 +507,11 @@ pub struct SearchPageRequest {
     limit: Option<usize>,
 }
 
-/// Page-shaped search response mirroring `VantaMemoryListPage` so the web
+/// Page-shaped search response mirroring `MemoryListPage` so the web
 /// console paginates search the same way it paginates list (REST-04).
 #[derive(Serialize)]
 struct SearchPageV2 {
-    records: Vec<VantaMemorySearchHit>,
+    records: Vec<MemorySearchHit>,
     next_cursor: Option<usize>,
 }
 
@@ -704,14 +703,14 @@ pub struct ExportRequest {
     /// When present, exports only this namespace; otherwise exports all.
     namespace: Option<String>,
     /// Optional AND-combined filter applied to the exported records.
-    filter: Option<VantaMemoryFilter>,
+    filter: Option<MemoryFilter>,
 }
 
 /// Body for `POST /api/v2/import`.
 #[derive(Deserialize, Debug)]
 pub struct ImportRequest {
     /// Inline records to import (export wire format). Mutually exclusive with `path`.
-    records: Option<Vec<VantaMemoryRecord>>,
+    records: Option<Vec<MemoryRecord>>,
     /// Path to a JSONL export (default) or a `.vdbdump` bulk file (`format: "bulk"`).
     path: Option<String>,
     /// File format when `path` is set: `"jsonl"` (default) or `"bulk"`.
@@ -744,20 +743,19 @@ pub async fn import_v2(
     let records = req.records.clone();
     let path = req.path.clone();
     let format = req.format.clone();
-    // The three import ops return two report types (VantaImportReport vs
+    // The three import ops return two report types (ImportReport vs
     // BulkImportReport); normalize to a JSON value to keep one response path.
     match run_db_op(&state, move |db| -> Result<serde_json::Value> {
         let value = if let Some(records) = records {
-            serde_json::to_value(db.import_records(records)?).map_err(VantaError::serialization)?
+            serde_json::to_value(db.import_records(records)?).map_err(Error::serialization)?
         } else if let Some(path) = path {
             if format.as_deref() == Some("bulk") {
-                serde_json::to_value(db.bulk_import_file(&path)?)
-                    .map_err(VantaError::serialization)?
+                serde_json::to_value(db.bulk_import_file(&path)?).map_err(Error::serialization)?
             } else {
-                serde_json::to_value(db.import_file(&path)?).map_err(VantaError::serialization)?
+                serde_json::to_value(db.import_file(&path)?).map_err(Error::serialization)?
             }
         } else {
-            return Err(VantaError::InvalidInput(
+            return Err(Error::InvalidInput(
                 "import requires `records` or `path`".into(),
             ));
         };
@@ -967,23 +965,23 @@ pub struct GraphV2DegreeRequest {
 /// `parse_node_id`).
 fn parse_node_id_str(id: &str) -> Result<u128> {
     id.parse::<u128>().map_err(|_| {
-        VantaError::InvalidInput(format!(
+        Error::InvalidInput(format!(
             "invalid node id '{id}': expected a decimal u128 string"
         ))
     })
 }
 
 /// Label/group extraction mirror of native.rs `node_record_to_graph_node`.
-fn node_record_to_graph_dto(n: &crate::sdk::VantaNodeRecord) -> GraphNodeDTO {
+fn node_record_to_graph_dto(n: &crate::sdk::NodeRecord) -> GraphNodeDTO {
     let label = ["__vanta_payload", "text", "content"]
         .into_iter()
         .find_map(|k| match n.fields.get(k) {
-            Some(crate::sdk::VantaValue::String(s)) => Some(s.clone()),
+            Some(crate::sdk::Value::String(s)) => Some(s.clone()),
             _ => None,
         })
         .unwrap_or_else(|| n.id.to_string());
     let group = match n.fields.get("type") {
-        Some(crate::sdk::VantaValue::String(s)) => Some(s.clone()),
+        Some(crate::sdk::Value::String(s)) => Some(s.clone()),
         _ => None,
     };
     GraphNodeDTO {
@@ -997,7 +995,7 @@ fn node_record_to_graph_dto(n: &crate::sdk::VantaNodeRecord) -> GraphNodeDTO {
 /// Build the wire traversal result from visited node ids, mirror of native.rs
 /// `graph_traversal_result`: capped at `cap` nodes; each node's outgoing edges
 /// become the edge list (source = node, target = edge target).
-fn graph_traversal_dto(db: &VantaEmbedded, ids: &[u128], cap: usize) -> Result<GraphTraversalDTO> {
+fn graph_traversal_dto(db: &Embedded, ids: &[u128], cap: usize) -> Result<GraphTraversalDTO> {
     let mut result = GraphTraversalDTO::default();
     for id in ids.iter().take(cap) {
         if let Some(node) = db.get_node(*id)? {
@@ -1086,7 +1084,7 @@ pub async fn graph_v2_degree(
     let ns = req.namespace;
     let cap = req.limit.unwrap_or(50);
     match run_db_op(&state, move |db| {
-        let options = VantaMemoryListOptions {
+        let options = MemoryListOptions {
             limit: cap,
             cursor: None,
             ..Default::default()
@@ -1431,7 +1429,7 @@ pub async fn skill_listing(
 /// Query params for the mutating skill endpoints (PUT/PATCH/DELETE).
 ///
 /// `expected_version` is the optimistic lock (MEM-06 pattern): a stale value
-/// surfaces as 409 via `VantaError::ExecutionConflict`. `owner_agent` is
+/// surfaces as 409 via `Error::ExecutionConflict`. `owner_agent` is
 /// checked against the head's owner — a mismatch returns the SAME 404 as a
 /// missing skill (no existence oracle for other agents' skills).
 #[derive(Deserialize, Debug)]
@@ -1449,7 +1447,7 @@ fn require_owned_head(
 ) -> crate::error::Result<crate::sdk::SkillRecord> {
     match store.get_head(skill_id)? {
         Some(head) if head.owner_agent == owner_agent => Ok(head),
-        _ => Err(VantaError::NotFound {
+        _ => Err(Error::NotFound {
             kind: "skill".into(),
             id: skill_id.into(),
         }),

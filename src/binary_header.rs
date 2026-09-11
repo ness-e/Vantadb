@@ -5,7 +5,7 @@
 // without obscuring the call-site comments.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use web_time::SystemTime;
 
 /// Unified 16-byte binary header for all VantaDB persisted files.
@@ -59,7 +59,7 @@ impl VantaHeader {
     /// Deserialize from a slice of bytes.
     pub fn deserialize(bytes: &[u8]) -> Result<Self> {
         if bytes.len() < Self::SIZE {
-            return Err(VantaError::IoError(std::io::Error::new(
+            return Err(Error::IoError(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "Binary header slice is too short (less than 16 bytes)",
             )));
@@ -82,7 +82,7 @@ impl VantaHeader {
     }
 
     /// Validates the magic bytes and format version against expected values.
-    /// Returns VantaError::IncompatibleFormat on mismatch.
+    /// Returns Error::IncompatibleFormat on mismatch.
     pub fn validate(
         &self,
         expected_magic: [u8; 4],
@@ -90,7 +90,7 @@ impl VantaHeader {
         hint: &str,
     ) -> Result<()> {
         if self.magic != expected_magic || self.format_version != expected_version {
-            return Err(VantaError::IncompatibleFormat {
+            return Err(Error::IncompatibleFormat {
                 expected_magic,
                 expected_version,
                 found_magic: self.magic,
@@ -109,7 +109,7 @@ impl VantaHeader {
     /// by newer software. Future-format files (version > expected) are rejected.
     ///
     /// Use this instead of [`validate`](Self::validate) for hot paths where
-    /// backward compatibility is required (VantaFile, HNSW index, WAL).
+    /// backward compatibility is required (File, HNSW index, WAL).
     pub fn validate_compat(
         &self,
         expected_magic: [u8; 4],
@@ -117,7 +117,7 @@ impl VantaHeader {
         hint: &str,
     ) -> Result<()> {
         if self.magic != expected_magic {
-            return Err(VantaError::IncompatibleFormat {
+            return Err(Error::IncompatibleFormat {
                 expected_magic,
                 expected_version: max_version,
                 found_magic: self.magic,
@@ -129,7 +129,7 @@ impl VantaHeader {
             });
         }
         if self.format_version > max_version {
-            return Err(VantaError::IncompatibleFormat {
+            return Err(Error::IncompatibleFormat {
                 expected_magic,
                 expected_version: max_version,
                 found_magic: self.magic,

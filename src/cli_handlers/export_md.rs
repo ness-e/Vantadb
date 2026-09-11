@@ -25,7 +25,7 @@ use crate::cli_handlers::{
     create_spinner, open_embedded, print_info, print_success, print_warning,
 };
 use crate::error::Result;
-use crate::sdk::VantaMemoryRecord;
+use crate::sdk::MemoryRecord;
 
 /// Stable schema version for the MD export frontmatter. Bump on breaking change
 /// of the frontmatter shape (import side refuses unknown versions).
@@ -97,7 +97,7 @@ fn vector_dim_to_json(vector: Option<&Vec<f32>>) -> Option<usize> {
 }
 
 /// Render a single record to a Markdown string with JSON frontmatter.
-fn render_record_md(record: &VantaMemoryRecord) -> String {
+fn render_record_md(record: &MemoryRecord) -> String {
     let fm = Frontmatter {
         schema_version: MD_EXPORT_SCHEMA_VERSION,
         namespace: &record.namespace,
@@ -124,9 +124,7 @@ fn render_record_md(record: &VantaMemoryRecord) -> String {
     body
 }
 
-fn metadata_to_json(
-    metadata: &crate::sdk::VantaMemoryMetadata,
-) -> BTreeMap<String, serde_json::Value> {
+fn metadata_to_json(metadata: &crate::sdk::MemoryMetadata) -> BTreeMap<String, serde_json::Value> {
     let mut out = BTreeMap::new();
     for (k, v) in metadata.iter() {
         out.insert(k.clone(), metadata_value_to_json(v));
@@ -134,22 +132,22 @@ fn metadata_to_json(
     out
 }
 
-fn metadata_value_to_json(v: &crate::sdk::VantaValue) -> serde_json::Value {
-    use crate::sdk::VantaValue;
+fn metadata_value_to_json(v: &crate::sdk::Value) -> serde_json::Value {
+    use crate::sdk::Value;
     match v {
-        VantaValue::Null => serde_json::Value::Null,
-        VantaValue::Bool(b) => serde_json::Value::Bool(*b),
-        VantaValue::Int(i) => serde_json::Value::from(*i),
-        VantaValue::Float(f) => serde_json::Number::from_f64(*f)
+        Value::Null => serde_json::Value::Null,
+        Value::Bool(b) => serde_json::Value::Bool(*b),
+        Value::Int(i) => serde_json::Value::from(*i),
+        Value::Float(f) => serde_json::Number::from_f64(*f)
             .map(serde_json::Value::Number)
             .unwrap_or(serde_json::Value::Null),
-        VantaValue::String(s) => serde_json::Value::String(s.clone()),
-        VantaValue::DateTime(dt) => serde_json::Value::String(dt.to_rfc3339()),
-        VantaValue::ListString(xs) => serde_json::Value::from(xs.clone()),
-        VantaValue::ListInt(xs) => serde_json::Value::from(xs.clone()),
-        VantaValue::ListFloat(xs) => serde_json::Value::from(xs.clone()),
-        VantaValue::ListBool(xs) => serde_json::Value::from(xs.clone()),
-        VantaValue::ListDateTime(xs) => {
+        Value::String(s) => serde_json::Value::String(s.clone()),
+        Value::DateTime(dt) => serde_json::Value::String(dt.to_rfc3339()),
+        Value::ListString(xs) => serde_json::Value::from(xs.clone()),
+        Value::ListInt(xs) => serde_json::Value::from(xs.clone()),
+        Value::ListFloat(xs) => serde_json::Value::from(xs.clone()),
+        Value::ListBool(xs) => serde_json::Value::from(xs.clone()),
+        Value::ListDateTime(xs) => {
             serde_json::Value::from(xs.iter().map(|dt| dt.to_rfc3339()).collect::<Vec<_>>())
         }
     }
@@ -187,9 +185,9 @@ pub fn cmd_export_md(db_path: &str, namespace: Option<&str>, out_dir: &str) -> R
 
         let mut cursor: Option<usize> = None;
         loop {
-            let opts = crate::sdk::VantaMemoryListOptions {
+            let opts = crate::sdk::MemoryListOptions {
                 #[allow(deprecated)]
-                filters: crate::sdk::VantaMemoryMetadata::new(),
+                filters: crate::sdk::MemoryMetadata::new(),
                 filter_ops: None,
                 limit: BATCH_SIZE,
                 cursor,
@@ -241,7 +239,7 @@ pub fn cmd_export_md(db_path: &str, namespace: Option<&str>, out_dir: &str) -> R
         records: index_entries,
     };
     let index_json =
-        serde_json::to_string_pretty(&index).map_err(crate::error::VantaError::serialization)?;
+        serde_json::to_string_pretty(&index).map_err(crate::error::Error::serialization)?;
     let index_path = out_path.join("index.json");
     let mut index_file = fs::File::create(&index_path)?;
     index_file.write_all(index_json.as_bytes())?;
@@ -280,11 +278,11 @@ mod tests {
 
     #[test]
     fn render_record_md_has_frontmatter() {
-        let rec = VantaMemoryRecord {
+        let rec = MemoryRecord {
             namespace: "agent/team".into(),
             key: "k/1".into(),
             payload: "hello".into(),
-            metadata: crate::sdk::VantaMemoryMetadata::new(),
+            metadata: crate::sdk::MemoryMetadata::new(),
             created_at_ms: 1000,
             updated_at_ms: 2000,
             version: 1,

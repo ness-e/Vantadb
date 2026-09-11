@@ -1,7 +1,7 @@
 //! HS256 JWT Bearer authentication — offline verification (SRV-06, ADR-039).
 //!
 //! MVP scope: symmetric HS256 tokens verified locally against
-//! `VantaConfig::jwt_secret`. No network, no JWKS, no OIDC discovery
+//! `Config::jwt_secret`. No network, no JWKS, no OIDC discovery
 //! (DEFER — see ADR-039). Tokens carry `sub` (subject) + `exp` (expiry);
 //! anything else is ignored, never trusted.
 //!

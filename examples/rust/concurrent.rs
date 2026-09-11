@@ -1,17 +1,17 @@
 // ponytail: blanket allow — unwraps with documented invariants; documented per-call.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Concurrent access example: insert and search from multiple threads
-//! using VantaEmbedded behind an Arc reference.
-//! VantaEmbedded is Send + Sync and safe to share across threads.
+//! using Embedded behind an Arc reference.
+//! Embedded is Send + Sync and safe to share across threads.
 
 use std::error::Error;
 use std::sync::Arc;
 use std::thread;
-use vantadb::config::VantaConfig;
-use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
+use vantadb::config::Config;
+use vantadb::{Embedded, MemoryInput, MemorySearchRequest};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let db = Arc::new(VantaEmbedded::open_with_config(VantaConfig {
+    let db = Arc::new(Embedded::open_with_config(Config {
         storage_path: "./examples_concurrent_data".into(),
         ..Default::default()
     })?);
@@ -22,7 +22,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let db_clone = Arc::clone(&db);
     handles.push(thread::spawn(move || {
         for i in 0..100 {
-            if let Err(e) = db_clone.put(VantaMemoryInput::new(
+            if let Err(e) = db_clone.put(MemoryInput::new(
                 "concurrent",
                 format!("key-{}", i),
                 format!("Concurrent record number {}", i),
@@ -37,7 +37,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let db_clone = Arc::clone(&db);
     handles.push(thread::spawn(move || {
         for _ in 0..10 {
-            match db_clone.search(VantaMemorySearchRequest {
+            match db_clone.search(MemorySearchRequest {
                 namespace: "concurrent".into(),
                 query_vector: vec![0.1, 0.2, 0.3],
                 top_k: 5,

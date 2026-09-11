@@ -8,12 +8,12 @@
 //! ## Important clarification
 //!
 //! "InMemoryBackend" means **in-memory KV backend only**. When used with
-//! `StorageEngine`, VantaFile (vector store) and WAL are still initialized
+//! `StorageEngine`, File (vector store) and WAL are still initialized
 //! on disk at the provided path. This backend replaces only the RocksDB
 //! key-value layer, not the entire storage stack.
 
 use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use parking_lot::RwLock;
 use std::collections::{BTreeMap, HashMap};
 use std::path::Path;
@@ -136,7 +136,7 @@ impl StorageBackend for InMemoryBackend {
     }
 
     fn checkpoint(&self, _path: &Path) -> Result<()> {
-        Err(VantaError::backend_error(
+        Err(Error::backend_error(
             "Checkpoint not supported by InMemoryBackend",
         ))
     }

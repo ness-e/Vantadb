@@ -16,9 +16,9 @@
 mod hnsw_proptests {
     use proptest::prelude::*;
     use tempfile::TempDir;
-    use vantadb::config::VantaConfig;
+    use vantadb::config::Config;
     use vantadb::BackendKind;
-    use vantadb::{VantaEmbedded, VantaMemoryInput};
+    use vantadb::{Embedded, MemoryInput};
 
     const VEC_DIM: usize = 4;
 
@@ -30,14 +30,14 @@ mod hnsw_proptests {
         proptest::collection::vec(vec_strategy(), 1..=10)
     }
 
-    fn setup_db() -> (TempDir, VantaEmbedded) {
+    fn setup_db() -> (TempDir, Embedded) {
         let dir = TempDir::new().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             storage_path: dir.path().to_string_lossy().to_string(),
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };
-        let db = VantaEmbedded::open_with_config(config).unwrap();
+        let db = Embedded::open_with_config(config).unwrap();
         (dir, db)
     }
 
@@ -55,10 +55,10 @@ mod hnsw_proptests {
             prop_assume!(l2_norm_sq(&vec) > f32::EPSILON);
 
             let (_dir, db) = setup_db();
-            let input = VantaMemoryInput {
+            let input = MemoryInput {
                 vector: Some(vec.clone()),
                 sparse_vector: None,
-                ..VantaMemoryInput::new("hnsw", "identity", "payload")
+                ..MemoryInput::new("hnsw", "identity", "payload")
             };
             db.put(input).unwrap();
 
@@ -79,10 +79,10 @@ mod hnsw_proptests {
         ) {
             let (_dir, db) = setup_db();
             for (i, v) in vectors.iter().enumerate() {
-                let input = VantaMemoryInput {
+                let input = MemoryInput {
                     vector: Some(v.clone()),
                     sparse_vector: None,
-                    ..VantaMemoryInput::new("hnsw", format!("n{}", i), "payload")
+                    ..MemoryInput::new("hnsw", format!("n{}", i), "payload")
                 };
                 db.put(input).unwrap();
             }
@@ -106,10 +106,10 @@ mod hnsw_proptests {
         ) {
             let (_dir, db) = setup_db();
             for (i, v) in vectors.iter().enumerate() {
-                let input = VantaMemoryInput {
+                let input = MemoryInput {
                     vector: Some(v.clone()),
                     sparse_vector: None,
-                    ..VantaMemoryInput::new("hnsw", format!("n{}", i), "payload")
+                    ..MemoryInput::new("hnsw", format!("n{}", i), "payload")
                 };
                 db.put(input).unwrap();
             }
@@ -149,10 +149,10 @@ mod hnsw_proptests {
         #[test]
         fn prop_hnsw_zero_top_k(vec in vec_strategy()) {
             let (_dir, db) = setup_db();
-            let input = VantaMemoryInput {
+            let input = MemoryInput {
                 vector: Some(vec.clone()),
                 sparse_vector: None,
-                ..VantaMemoryInput::new("hnsw", "zero_topk", "payload")
+                ..MemoryInput::new("hnsw", "zero_topk", "payload")
             };
             db.put(input).unwrap();
 
@@ -166,10 +166,10 @@ mod hnsw_proptests {
             prop_assume!(l2_norm_sq(&vec) > f32::EPSILON);
 
             let (_dir, db) = setup_db();
-            let input = VantaMemoryInput {
+            let input = MemoryInput {
                 vector: Some(vec.clone()),
                 sparse_vector: None,
-                ..VantaMemoryInput::new("hnsw", "to_delete", "payload")
+                ..MemoryInput::new("hnsw", "to_delete", "payload")
             };
             db.put(input).unwrap();
 
@@ -192,10 +192,10 @@ mod hnsw_proptests {
             let (_dir, db) = setup_db();
             for (i, v) in vectors.iter().enumerate() {
                 let key = format!("mv_{}", i);
-                let input = VantaMemoryInput {
+                let input = MemoryInput {
                     vector: Some(v.clone()),
                     sparse_vector: None,
-                    ..VantaMemoryInput::new("hnsw", &key, "payload")
+                    ..MemoryInput::new("hnsw", &key, "payload")
                 };
                 db.put(input).unwrap();
             }
@@ -228,10 +228,10 @@ mod hnsw_proptests {
             vec![0.1, 0.2, 0.3, 0.4],
         ];
         for (i, v) in raw_vectors.iter().enumerate() {
-            let input = VantaMemoryInput {
+            let input = MemoryInput {
                 vector: Some(v.clone()),
                 sparse_vector: None,
-                ..VantaMemoryInput::new("hnsw", format!("mixed_{}", i), "payload")
+                ..MemoryInput::new("hnsw", format!("mixed_{}", i), "payload")
             };
             db.put(input).unwrap();
         }
@@ -264,7 +264,7 @@ mod hnsw_proptests {
         let hits = db.search_vector(&q, 10).unwrap();
         assert!(!hits.is_empty(), "collinear query should return results");
 
-        let close_matches: Vec<&vantadb::VantaSearchHit> =
+        let close_matches: Vec<&vantadb::SearchHit> =
             hits.iter().filter(|h| h.distance > 0.99).collect();
         assert!(
             !close_matches.is_empty(),

@@ -11,7 +11,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tempfile::tempdir;
-use vantadb::config::{SyncMode, VantaConfig};
+use vantadb::config::{Config, SyncMode};
 use vantadb::ingestion::{AsyncIngestionPipeline, IngestionTask};
 use vantadb::node::{FieldValue, UnifiedNode};
 use vantadb::storage::{BatchInsertOptions, InsertMode, StorageEngine};
@@ -138,7 +138,7 @@ fn open_engine_with_sync(
     mode: SyncMode,
     threshold: Option<usize>,
 ) -> Arc<StorageEngine> {
-    let mut cfg = VantaConfig::default().with_sync_mode(mode);
+    let mut cfg = Config::default().with_sync_mode(mode);
     if let Some(t) = threshold {
         cfg = cfg.with_flush_threshold(t);
     }

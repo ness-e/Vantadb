@@ -17,9 +17,9 @@
 use std::thread;
 use std::time::Instant;
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::storage::BackendKind;
-use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest};
+use vantadb::{Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest};
 
 const NS_COUNT: usize = 12;
 const OPS_PER_NS: usize = 1000;
@@ -29,12 +29,12 @@ const SEARCHES_PER_NS: usize = 200;
 fn concurrent_multi_namespace_stress() {
     let started = Instant::now();
     let dir = tempdir().expect("tempdir");
-    let config = VantaConfig {
+    let config = Config {
         storage_path: dir.path().to_string_lossy().into_owned(),
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     };
-    let db = VantaEmbedded::open_with_config(config).expect("open embedded db");
+    let db = Embedded::open_with_config(config).expect("open embedded db");
 
     let namespaces: Vec<String> = (0..NS_COUNT).map(|i| format!("ns-{i:02}")).collect();
 
@@ -46,7 +46,7 @@ fn concurrent_multi_namespace_stress() {
         writers.push(thread::spawn(move || {
             for j in 0..OPS_PER_NS {
                 let mut input =
-                    VantaMemoryInput::new(&ns, format!("key-{j}"), format!("payload-{ns}-{j}"));
+                    MemoryInput::new(&ns, format!("key-{j}"), format!("payload-{ns}-{j}"));
                 input.vector = Some(vec![(j % 128) as f32, ns.len() as f32, 0.5]);
                 db.put(input).expect("concurrent put must not fail");
             }
@@ -60,7 +60,7 @@ fn concurrent_multi_namespace_stress() {
     // ── Phase 2: isolation — each namespace holds exactly its own records ──
     let mut total_records = 0usize;
     for ns in &namespaces {
-        let options = VantaMemoryListOptions {
+        let options = MemoryListOptions {
             limit: OPS_PER_NS,
             ..Default::default()
         };
@@ -99,7 +99,7 @@ fn concurrent_multi_namespace_stress() {
         let ns = ns.clone();
         searchers.push(thread::spawn(move || {
             for _ in 0..SEARCHES_PER_NS {
-                let request = VantaMemorySearchRequest {
+                let request = MemorySearchRequest {
                     namespace: ns.clone(),
                     query_vector: vec![1.0, ns.len() as f32, 0.5],
                     top_k: 10,

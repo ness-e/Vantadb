@@ -23,7 +23,7 @@ impl CPIndex {
         _q_3bit: Option<(&[u8], f32)>,
         query_mask: &FilterBitset,
         top_k: usize,
-        vector_store: Option<&crate::storage::vfile::VantaFile>,
+        vector_store: Option<&crate::storage::vfile::File>,
     ) -> Vec<(u128, f32)> {
         self.search_nearest_with_metric(
             query_vec,
@@ -49,7 +49,7 @@ impl CPIndex {
         _q_3bit: Option<(&[u8], f32)>,
         query_mask: &FilterBitset,
         top_k: usize,
-        vector_store: Option<&crate::storage::vfile::VantaFile>,
+        vector_store: Option<&crate::storage::vfile::File>,
         metric: DistanceMetric,
     ) -> Vec<(u128, f32)> {
         // AUDREP-55: a zero-norm query is undefined under cosine similarity

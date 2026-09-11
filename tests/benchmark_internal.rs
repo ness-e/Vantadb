@@ -7,8 +7,8 @@ use std::fs::File;
 use std::io::Write;
 use std::time::Instant;
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
-use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
+use vantadb::config::Config;
+use vantadb::{Embedded, MemoryInput, MemorySearchRequest};
 
 fn generate_vector(i: usize) -> Vec<f32> {
     let v0 = (i % 10) as f32 / 10.0;
@@ -21,11 +21,11 @@ fn generate_vector(i: usize) -> Vec<f32> {
 #[test]
 fn test_benchmark_internal_10k() {
     let dir = tempdir().expect("create temp dir");
-    let config = VantaConfig {
+    let config = Config {
         storage_path: dir.path().to_string_lossy().to_string(),
         ..Default::default()
     };
-    let db = VantaEmbedded::open_with_config(config).expect("open vanta db");
+    let db = Embedded::open_with_config(config).expect("open vanta db");
 
     let num_records = 10000;
     let namespace = "bench/main";
@@ -39,7 +39,7 @@ fn test_benchmark_internal_10k() {
             i % 10,
             i % 500
         );
-        let mut input = VantaMemoryInput::new(namespace, format!("doc-{:05}", i), payload);
+        let mut input = MemoryInput::new(namespace, format!("doc-{:05}", i), payload);
         input.vector = Some(generate_vector(i));
         db.put(input).expect("put record");
     }
@@ -84,7 +84,7 @@ fn test_benchmark_internal_10k() {
         let text_q = format!("token_{} keyword_{}", i % 100, i % 500);
         let start_query = Instant::now();
         let results = db
-            .search(VantaMemorySearchRequest {
+            .search(MemorySearchRequest {
                 namespace: namespace.to_string(),
                 query_vector: q_vec,
                 filters: Default::default(),
@@ -107,7 +107,7 @@ fn test_benchmark_internal_10k() {
         let q_vec = generate_vector(i);
         let start_query = Instant::now();
         let results = db
-            .search(VantaMemorySearchRequest {
+            .search(MemorySearchRequest {
                 namespace: namespace.to_string(),
                 query_vector: q_vec,
                 filters: Default::default(),
@@ -130,7 +130,7 @@ fn test_benchmark_internal_10k() {
         let text_q = format!("token_{} keyword_{}", i % 100, i % 500);
         let start_query = Instant::now();
         let results = db
-            .search(VantaMemorySearchRequest {
+            .search(MemorySearchRequest {
                 namespace: namespace.to_string(),
                 query_vector: Vec::new(),
                 filters: Default::default(),

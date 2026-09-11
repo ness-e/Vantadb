@@ -147,15 +147,15 @@ mod tests {
     #[test]
     fn concurrent_insert_preserves_hnsw_invariants() {
         use crate::backend::BackendKind;
-        use crate::config::VantaConfig;
+        use crate::config::Config;
         use crate::node::UnifiedNode;
         use crate::storage::engine::StorageEngine;
         use std::sync::Arc;
         use std::thread;
 
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         };
         let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(config)).unwrap());
 

@@ -1,22 +1,22 @@
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::types::*;
 use crate::error::Result;
 use web_time::Instant;
 
-impl VantaEmbedded {
+impl Embedded {
     pub(super) fn hybrid_search(
         &self,
         namespace: &str,
         query_vector: &[f32],
         text_query: &str,
-        filters: &VantaMemoryMetadata,
+        filters: &MemoryMetadata,
         top_k: usize,
         distance_metric: crate::node::DistanceMetric,
         query_sparse: Option<&crate::node::SparseVector>,
         method: Option<crate::index::IndexType>,
         rrf_k: f32,
         candidate_k: Option<usize>,
-    ) -> Result<Vec<VantaMemorySearchHit>> {
+    ) -> Result<Vec<MemorySearchHit>> {
         let started = Instant::now();
         if top_k == 0 {
             crate::metrics::record_hybrid_query(0, 0);

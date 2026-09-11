@@ -6,17 +6,17 @@
 
 use insta::assert_debug_snapshot;
 use vantadb::{
-    DistanceMetric, VantaMemoryListPage, VantaMemoryMetadata, VantaMemoryRecord,
-    VantaMemorySearchHit, VantaMemorySearchRequest, VantaSearchHit, VantaValue,
+    DistanceMetric, MemoryListPage, MemoryMetadata, MemoryRecord, MemorySearchHit,
+    MemorySearchRequest, SearchHit, Value,
 };
 
 #[test]
 fn search_request_basic_snapshot() {
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "agent/main".into(),
         query_vector: vec![0.1, 0.2, 0.3],
         query_sparse: None,
-        filters: VantaMemoryMetadata::new(),
+        filters: MemoryMetadata::new(),
         text_query: Some("hello world".into()),
         top_k: 10,
         distance_metric: DistanceMetric::Cosine,
@@ -29,11 +29,11 @@ fn search_request_basic_snapshot() {
 
 #[test]
 fn search_request_vector_only_snapshot() {
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "docs".into(),
         query_vector: vec![0.5, 0.5, 0.5, 0.5],
         query_sparse: None,
-        filters: VantaMemoryMetadata::new(),
+        filters: MemoryMetadata::new(),
         text_query: None,
         top_k: 5,
         distance_metric: DistanceMetric::Euclidean,
@@ -46,10 +46,10 @@ fn search_request_vector_only_snapshot() {
 
 #[test]
 fn search_request_text_only_snapshot() {
-    let mut filters = VantaMemoryMetadata::new();
-    filters.insert("category".into(), VantaValue::String("tech".into()));
+    let mut filters = MemoryMetadata::new();
+    filters.insert("category".into(), Value::String("tech".into()));
 
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "knowledge".into(),
         query_vector: Vec::new(),
         query_sparse: None,
@@ -66,12 +66,12 @@ fn search_request_text_only_snapshot() {
 
 #[test]
 fn search_hit_basic_snapshot() {
-    let hit = VantaMemorySearchHit {
-        record: VantaMemoryRecord {
+    let hit = MemorySearchHit {
+        record: MemoryRecord {
             namespace: "agent/main".into(),
             key: "memory-1".into(),
             payload: "remember the contract".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 1000,
             updated_at_ms: 2000,
             version: 1,
@@ -90,7 +90,7 @@ fn search_hit_basic_snapshot() {
 
 #[test]
 fn search_hit_simple_snapshot() {
-    let hit = VantaSearchHit {
+    let hit = SearchHit {
         node_id: 12345,
         distance: 0.15,
     };
@@ -99,7 +99,7 @@ fn search_hit_simple_snapshot() {
 
 #[test]
 fn list_page_empty_snapshot() {
-    let page = VantaMemoryListPage {
+    let page = MemoryListPage {
         records: vec![],
         next_cursor: None,
     };
@@ -108,13 +108,13 @@ fn list_page_empty_snapshot() {
 
 #[test]
 fn list_page_with_records_snapshot() {
-    let page = VantaMemoryListPage {
+    let page = MemoryListPage {
         records: vec![
-            VantaMemoryRecord {
+            MemoryRecord {
                 namespace: "ns1".into(),
                 key: "key1".into(),
                 payload: "data1".into(),
-                metadata: VantaMemoryMetadata::new(),
+                metadata: MemoryMetadata::new(),
                 created_at_ms: 100,
                 updated_at_ms: 200,
                 version: 1,
@@ -125,11 +125,11 @@ fn list_page_with_records_snapshot() {
                 superseded_by: None,
                 superseded_at_ms: None,
             },
-            VantaMemoryRecord {
+            MemoryRecord {
                 namespace: "ns1".into(),
                 key: "key2".into(),
                 payload: "data2".into(),
-                metadata: VantaMemoryMetadata::new(),
+                metadata: MemoryMetadata::new(),
                 created_at_ms: 300,
                 updated_at_ms: 400,
                 version: 1,

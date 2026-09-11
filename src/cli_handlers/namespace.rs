@@ -80,9 +80,9 @@ pub fn cmd_namespace_info(db_path: &str, namespace: &str) -> Result<()> {
     let db = open_embedded(db_path, true)?;
     spinner.set_message("Scanning namespace...");
 
-    let options = crate::sdk::VantaMemoryListOptions {
+    let options = crate::sdk::MemoryListOptions {
         #[allow(deprecated)]
-        filters: crate::sdk::VantaMemoryMetadata::new(),
+        filters: crate::sdk::MemoryMetadata::new(),
         filter_ops: None,
         limit: usize::MAX,
         cursor: None,

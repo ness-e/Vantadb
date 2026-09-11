@@ -71,10 +71,10 @@ Regla universal: ninguna entidad repite su contenedor. `vantadb::VantaConfig` �
 - **Gate Justificación:** corazón del stutter crate-level; con aliases `pub type Viejo = Nuevo + #[deprecated]` no rompe callers internos.
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo check -p vantadb && cargo clippy -p vantadb --all-targets --all-features -- -D warnings && cargo fmt --check -p vantadb`
-- **Task file:** `docs/tasks/AST-002.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+ - **Task file:** `docs/tasks/AST-002.md`
+ - **Estado:** ✅ COMPLETED
+ - **Branch:**
+ - **Commit:** refactor!: AST-002 Rust tipos sin stutter + aliases deprecated (3526d591)
 
   **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger / Due |
@@ -83,13 +83,16 @@ Regla universal: ninguna entidad repite su contenedor. `vantadb::VantaConfig` �
   | 🟡×🟡 | caller fuera de blast radius | `codegraph_explore` + `trace_path inbound depth=3` antes de cada rename | 1 caller no mapeado |
   | 🟢×🔴 | `semver-checks` no reporta major | mapa incompleto → bloquear release | veredicto != major |
 
-  **Iteraciones:**
-  | # | Acción | Resultado | Herramienta |
-  |---|--------|-----------|-------------|
-  | — | — | — | — |
+   **Iteraciones:**
+   | # | Acción | Resultado | Herramienta |
+   |---|--------|-----------|-------------|
+   | 1 | DISCOVERY: task file + Impacto Regla 0 + OD-3 no-fusión | 38 defs, Gate D no dispara | codegraph_explore, rg |
+   | 2 | vfile.rs StdFile pre-fix + rename mecánico 38 símbolos (213 ficheros) | check verde tras fix colisiones File/QueryResult | python script, cargo check |
+   | 3 | 38 aliases deprecated + re-exports duales 5 niveles | clippy -D warnings verde | edit |
+   | 4 | snapshots insta (18, Debug-only) + verify contrato + nextest 2145✅ + commit 3526d591 | contrato + DoD verdes | nextest, git |
 
-  **Notas:**
-  - **Pre-mortem:** 1) fusión de Hits rompe wire; 2) re-export olvidado en `lib.rs` deja símbolo colgado; 3) `VantaHeader` tocado por error rompe compat binaria.
+   **Notas:**
+   - **Pre-mortem:** 1) fusión de Hits rompe wire; 2) re-export olvidado en `lib.rs` deja símbolo colgado; 3) `VantaHeader` tocado por error rompe compat binaria.
   - **Stop conditions:** 2 iteraciones sin green en VERIFY → abortar; appetite >1d → DEFER resto a S7.
   - **Cynefin:** 🟨 complicado — requiere decidir fusión vs alias por evidencia wire.
   - **Top 3 riesgos:** ver register.
@@ -273,3 +276,36 @@ Regla universal: ninguna entidad repite su contenedor. `vantadb::VantaConfig` �
 ## Anexos (estrategia original S0-S6 conservada)
 
 Ver historial de este archivo para investigación, mapa de archivos, análisis true/false stutter, herramientas y codemod (>500 líneas → automatizar, 2-hats Fowler).
+
+=== RECITATION AST-001 ===
+Campaign ID: ca2e7931-6c31-4d30-97fb-5941e79ec806
+Objetivo activo: AST-001 — Congelar mapa + ADR anti-stutter
+Estado: completed
+Última acción: Steps 1-3 completados: JSON congelado + ADR-041 + contrato verde + commit 8d32fde7 (hook ok). Plan file Task 1 -> COMPLETED con Iteraciones 1-4.
+Resultado: OK
+Próxima acción: Humano firma ADR-041; luego /pipeline task AST-002 (vanta-worker, Rust tipos + aliases deprecated)
+Contrato: Contrato: Test-Path scripts/anti_stutter_map.json + Get-Item docs/architecture/adr/*anti_stutter*.md -> True (campaign_verify_cmd exit 0). JSON parsea: counts rust 38 / typescript 10 / wasm_dts 3 / python_classes 8 / python_methods 4 / rust_methods 5 / exclusions 6 / open_decisions 4. Evidencia: commit 8d32fde7 (4 files, +587, hook pre-commit ok). Artefactos: scripts/anti_stutter_map.json, docs/architecture/adr/041_anti_stutter.md, docs/tasks/AST-001.md. Invariantes: engine/storage intactos; VantaHeader + VANTADB_* + fns libres excluidos; ADR-041 proposed pendiente firma humana. Deuda: ninguna. Queda_pendiente: firma humana ADR-041; review post-hoc vanta-review; AST-002 consume el mapa.
+Próxima tarea si completa: AST-002
+=== END RECITATION ===
+
+=== RECITATION 1 ===
+Campaign ID: ca2e7931-6c31-4d30-97fb-5941e79ec806
+Objetivo activo: AST-001 Congelar mapa + ADR
+Estado: completed
+Última acción: Sub-agente vanta-lead COMPLETO 3/3 commit 8d32fde7 + verify True
+Resultado: ✅
+Próxima acción: AST-002 Rust tipos + aliases
+Contrato: test -f map.json + ADR, verify True
+Próxima tarea si completa: AST-002
+=== END RECITATION ===
+
+=== RECITATION AST-002 ===
+Campaign ID: ca2e7931-6c31-4d30-97fb-5941e79ec806
+Objetivo activo: AST-002 Rust tipos + re-exports + aliases deprecated
+Estado: completed
+Última acción: S1-S6 completos: 38 renames + 38 aliases + re-exports + snapshots + verify + commit 97e29cac + plan sync + lesson
+Resultado: OK
+Próxima acción: ninguno (tarea completa); orquestador: /pipeline task AST-003
+Contrato: Contrato: cargo check -p vantadb && cargo clippy -p vantadb --all-targets --all-features -- -D warnings && cargo fmt --check -p vantadb -> TODO pasa (check 0 warnings, clippy 0 warnings 35s, fmt limpio). DoD extra: cargo nextest -p vantadb --profile audit -> 2145 passed 1 skipped. E2E alias: cargo check -p vantadb-mcp -> 0 errores (125 deprecation warnings esperados). evidencia: commit 97e29cac (234 files, hook pre-commit ok) / confianza: alta. artefactos: docs/tasks/AST-002.md, 38 aliases en 10 def-sites + re-exports 5 niveles. invariantes: VantaHeader + VANTADB_* + fns libres intactos; 0 cambios serde/campos (snapshots solo Debug). deuda: firma humana ADR-041; review post-hoc vanta-audit si toca serializacion (solo renames, sin cambio wire); renombrar engine::QueryResult en follow-up. queda_pendiente: AST-003 (PyO3) consume aliases.
+Próxima tarea si completa: AST-003
+=== END RECITATION ===

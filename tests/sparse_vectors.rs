@@ -4,10 +4,7 @@
 //! NUEVO-18 certification: native sparse vectors + sparse/dense coexistence.
 
 use tempfile::tempdir;
-use vantadb::{
-    SparseVector, VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions,
-    VantaMemorySearchRequest, VantaValue,
-};
+use vantadb::{Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, SparseVector, Value};
 
 fn sparse(pairs: &[(u32, f32)]) -> SparseVector {
     let mut v = SparseVector::new();
@@ -17,14 +14,14 @@ fn sparse(pairs: &[(u32, f32)]) -> SparseVector {
     v
 }
 
-fn field_string(value: &str) -> VantaValue {
-    VantaValue::String(value.to_string())
+fn field_string(value: &str) -> Value {
+    Value::String(value.to_string())
 }
 
 #[test]
 fn sparse_insert_top1_by_sparse_query() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     // Three sparse records with distinct term-weight signatures.
     for (key, terms) in [
@@ -32,7 +29,7 @@ fn sparse_insert_top1_by_sparse_query() {
         ("sparse-b", vec![(10_u32, 0.8_f32), (12_u32, 0.3_f32)]),
         ("sparse-c", vec![(3_u32, 0.2_f32)]),
     ] {
-        let mut input = VantaMemoryInput::new("agent/main", key, "sparse payload");
+        let mut input = MemoryInput::new("agent/main", key, "sparse payload");
         input
             .metadata
             .insert("category".to_string(), field_string("sparse"));
@@ -42,7 +39,7 @@ fn sparse_insert_top1_by_sparse_query() {
 
     // Query with the exact signature of sparse-a: dot scores are
     // 1.0*1.0 + 0.5*0.5 = 1.25 (a), 0.2*1.0 = 0.2 (c), 0 (b).
-    let request = VantaMemorySearchRequest {
+    let request = MemorySearchRequest {
         namespace: "agent/main".to_string(),
         query_sparse: Some(sparse(&[(3, 1.0), (7, 0.5)])),
         top_k: 3,
@@ -68,10 +65,10 @@ fn sparse_insert_top1_by_sparse_query() {
 #[test]
 fn sparse_and_dense_coexist() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     // Dense-only record.
-    let mut dense = VantaMemoryInput::new("agent/main", "dense-1", "dense payload");
+    let mut dense = MemoryInput::new("agent/main", "dense-1", "dense payload");
     dense
         .metadata
         .insert("category".to_string(), field_string("dense"));
@@ -79,7 +76,7 @@ fn sparse_and_dense_coexist() {
     db.put(dense).expect("put dense");
 
     // Sparse-only record.
-    let mut sparse_rec = VantaMemoryInput::new("agent/main", "sparse-1", "sparse payload");
+    let mut sparse_rec = MemoryInput::new("agent/main", "sparse-1", "sparse payload");
     sparse_rec
         .metadata
         .insert("category".to_string(), field_string("sparse"));
@@ -87,7 +84,7 @@ fn sparse_and_dense_coexist() {
     db.put(sparse_rec).expect("put sparse");
 
     // Dense-only search still works and finds the dense record.
-    let dense_req = VantaMemorySearchRequest {
+    let dense_req = MemorySearchRequest {
         namespace: "agent/main".to_string(),
         query_vector: vec![0.9, 0.1, 0.0],
         top_k: 5,
@@ -100,7 +97,7 @@ fn sparse_and_dense_coexist() {
     );
 
     // Sparse-only search still finds the sparse record.
-    let sparse_req = VantaMemorySearchRequest {
+    let sparse_req = MemorySearchRequest {
         namespace: "agent/main".to_string(),
         query_sparse: Some(sparse(&[(5, 1.0)])),
         top_k: 5,
@@ -110,7 +107,7 @@ fn sparse_and_dense_coexist() {
     assert_eq!(sparse_hits[0].record.key, "sparse-1");
 
     // Sparse + dense together fuse (RRF) without breaking either channel.
-    let fused_req = VantaMemorySearchRequest {
+    let fused_req = MemorySearchRequest {
         namespace: "agent/main".to_string(),
         query_vector: vec![1.0, 0.0, 0.0],
         query_sparse: Some(sparse(&[(5, 1.0)])),
@@ -128,14 +125,14 @@ fn sparse_and_dense_coexist() {
 #[test]
 fn sparse_roundtrip_persistence() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    let mut input = VantaMemoryInput::new("agent/main", "persist-1", "payload");
+    let mut input = MemoryInput::new("agent/main", "persist-1", "payload");
     input.sparse_vector = Some(sparse(&[(2, 0.25), (9, 1.5)]));
     db.put(input).expect("put");
 
     let list = db
-        .list("agent/main", VantaMemoryListOptions::default())
+        .list("agent/main", MemoryListOptions::default())
         .expect("list");
     let record = list
         .records
@@ -148,9 +145,9 @@ fn sparse_roundtrip_persistence() {
 
     // Reopen the database: sparse vector must survive from disk.
     drop(db);
-    let reopened = VantaEmbedded::open(dir.path()).expect("reopen");
+    let reopened = Embedded::open(dir.path()).expect("reopen");
     let list2 = reopened
-        .list("agent/main", VantaMemoryListOptions::default())
+        .list("agent/main", MemoryListOptions::default())
         .expect("list2");
     let record2 = list2
         .records

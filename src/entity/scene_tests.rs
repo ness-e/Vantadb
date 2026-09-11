@@ -4,14 +4,14 @@
 //! (same setup as `super::tests`).
 
 use super::SceneNodeStore;
-use crate::config::VantaConfig;
+use crate::config::Config;
 use crate::storage::{BackendKind, StorageEngine};
 
 fn in_memory_engine() -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         read_only: false,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     StorageEngine::open_with_config(":memory:", Some(config)).expect("open in-memory engine")
 }

@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::config::VantaConfig;
+use crate::config::Config;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 /// Memory usage governor with watermarks and eviction control.
@@ -24,7 +24,7 @@ pub(crate) struct MemoryGovernor {
 
 impl MemoryGovernor {
     /// Create a new governor from config.
-    pub fn new(config: &VantaConfig) -> Self {
+    pub fn new(config: &Config) -> Self {
         let caps = crate::hardware::HardwareCapabilities::global();
         let memory_limit = config.memory_limit.unwrap_or(caps.total_memory);
         let target_ratio = 0.75;
@@ -136,10 +136,10 @@ impl MemoryGovernor {
 #[allow(missing_docs)]
 mod tests {
     use super::*;
-    use crate::config::VantaConfig;
+    use crate::config::Config;
 
     fn make_gov(memory_limit: u64) -> MemoryGovernor {
-        let config = VantaConfig {
+        let config = Config {
             memory_limit: Some(memory_limit),
             backend_kind: crate::backend::BackendKind::InMemory,
             ..Default::default()

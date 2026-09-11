@@ -11,14 +11,14 @@ mod common;
 use common::{TerminalReporter, VantaSession};
 use std::sync::Arc;
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::{BackendKind, StorageEngine};
 
 // ─── HELPER: Open Engine ──────────────────────────────────────
 
 fn open_fjall(path: &str) -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -147,7 +147,7 @@ fn test_vector_index_cold_recovery() {
         let hnsw = engine.hnsw.load();
         let vs = engine.vector_store[0].read();
 
-        // Hacemos una búsqueda directamente contra el índice y VantaFile
+        // Hacemos una búsqueda directamente contra el índice y File
         let results = hnsw.search_nearest(
             &target_vector,
             None,

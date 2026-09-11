@@ -2,7 +2,7 @@
 source: tests/query_result_basic.rs
 expression: req
 ---
-VantaMemorySearchRequest {
+MemorySearchRequest {
     namespace: "docs",
     query_vector: [
         0.5,

@@ -14,7 +14,7 @@
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Barrier};
 use std::thread;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::{FieldValue, UnifiedNode};
 use vantadb::storage::{BackendKind, StorageEngine};
 
@@ -216,7 +216,7 @@ fn test_mutex_high_contention() {
 // This test validates insert/get/delete correctness sequentially.
 
 fn open_engine(path: &str, kind: BackendKind) -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: kind,
         ..Default::default()
     };

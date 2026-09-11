@@ -18,7 +18,7 @@ impl crate::index::VecIndex for CPIndex {
         query_vec: &[f32],
         query_mask: &crate::node::FilterBitset,
         top_k: usize,
-        vector_store: Option<&crate::storage::vfile::VantaFile>,
+        vector_store: Option<&crate::storage::vfile::File>,
         distance_metric: crate::node::DistanceMetric,
     ) -> Vec<(u128, f32)> {
         // MCP-02: the per-request `distance_metric` from the `VecIndex` trait

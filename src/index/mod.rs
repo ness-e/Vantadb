@@ -17,7 +17,7 @@ pub(crate) mod search;
 pub(crate) mod serialize;
 pub(crate) mod stats;
 
-use crate::storage::vfile::VantaFile;
+use crate::storage::vfile::File;
 
 pub use distance::*;
 pub use graph::*;
@@ -56,7 +56,7 @@ pub(crate) trait VecIndex: Send + Sync {
         query_vec: &[f32],
         query_mask: &crate::node::FilterBitset,
         top_k: usize,
-        vector_store: Option<&VantaFile>,
+        vector_store: Option<&File>,
         distance_metric: crate::node::DistanceMetric,
     ) -> Vec<(u128, f32)>;
 

@@ -13,7 +13,7 @@ use rand::{Rng, SeedableRng};
 use std::hint::black_box;
 use std::time::Instant;
 use tempfile::TempDir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::StorageEngine;
 use vantadb::BackendKind;
@@ -23,7 +23,7 @@ const QUERY_SAMPLE: usize = 500;
 
 fn setup_engine(backend: BackendKind) -> (StorageEngine, TempDir) {
     let dir = TempDir::new().expect("temp dir");
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: backend,
         storage_path: dir.path().to_string_lossy().to_string(),
         wal_shards: 0,

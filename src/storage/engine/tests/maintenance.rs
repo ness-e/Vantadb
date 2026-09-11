@@ -3,7 +3,7 @@
 use super::super::*;
 use super::{in_memory_engine, in_memory_read_only, in_memory_tiered_engine, sample_node};
 use crate::backend::BackendPartition;
-use crate::config::VantaConfig;
+use crate::config::Config;
 use crate::node::{NodeTier, UnifiedNode};
 
 // ─── Eviction ─────────────────────────────────────────────────
@@ -406,14 +406,14 @@ fn test_trigger_compaction_high_tombstone_fraction() {
 /// Mirrors `test_trigger_compaction_high_tombstone_fraction` (tombstoned header,
 /// node still indexed — the fragmentation state the maintenance API models):
 /// with 90% tombstone fragmentation (>15% default threshold) the disk-backed
-/// VantaFile must shrink after the call.
+/// File must shrink after the call.
 #[test]
 fn test_trigger_compaction_reclaims_disk_space_on_high_fragmentation() {
     let dir = tempfile::tempdir().expect("tempdir");
     let db_path = dir.path().to_str().expect("db path");
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: crate::backend::BackendKind::Fjall,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine =
         StorageEngine::open_with_config(db_path, Some(config)).expect("open disk-backed engine");
@@ -457,9 +457,9 @@ fn test_trigger_compaction_reclaims_disk_space_on_high_fragmentation() {
 
 #[test]
 fn test_compact_wal() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).expect("open");
     engine.insert(&sample_node(1)).expect("insert");
@@ -669,11 +669,11 @@ fn test_save_vector_index_mmap_roundtrip() {
     let dir = tempdir().expect("tempdir");
     let path = dir.path().to_str().unwrap().to_string();
 
-    let config = VantaConfig {
+    let config = Config {
         force_mmap: true,
         mmap_hnsw: true,
         memory_limit: Some(2 * 1024 * 1024 * 1024),
-        ..VantaConfig::default()
+        ..Config::default()
     };
 
     // First pass: build an mmap-backed engine, insert, then flush so
@@ -856,9 +856,9 @@ fn test_create_life_insurance_not_supported() {
 
 #[test]
 fn test_flush_empty_engine() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).expect("open");
     engine.flush().expect("flush on empty engine");

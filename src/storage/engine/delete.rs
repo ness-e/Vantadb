@@ -27,7 +27,7 @@ impl StorageEngine {
             if !active.is_empty() {
                 if active.len() == 1 {
                     let txn_id = active.iter().next().copied().ok_or_else(|| {
-                        crate::error::VantaError::generic_error(
+                        crate::error::Error::generic_error(
                             "active transaction set corrupted: len()==1 but no txn id".to_string(),
                         )
                     })?;
@@ -39,7 +39,7 @@ impl StorageEngine {
                         .push(BufferedWrite::Delete(id));
                     return Ok(());
                 }
-                return Err(crate::error::VantaError::InvalidInput(
+                return Err(crate::error::Error::InvalidInput(
                     "Multiple active transactions; use delete_in_txn() instead".into(),
                 ));
             }
@@ -179,7 +179,7 @@ impl StorageEngine {
         self.ensure_writable()?;
         #[cfg(feature = "failpoints")]
         fail::fail_point!("storage_insert_fail", |_| {
-            Err(crate::error::VantaError::IoError(std::io::Error::other(
+            Err(crate::error::Error::IoError(std::io::Error::other(
                 "Simulated Storage insert catastrophic I/O failure",
             )))
         });

@@ -4,12 +4,12 @@
 //! stores a truncated (`sync_error ≤500 chars`) reason. Re-ingest requests
 //! are rejected while the wiki is `pending` or `processing` — the 409-busy
 //! semantics of TDAM (`wiki-service.ts:272-288`) map to
-//! [`VantaError::ExecutionConflict`] here.
+//! [`Error::ExecutionConflict`] here.
 
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
-use crate::error::VantaError;
+use crate::error::Error;
 
 /// Lifecycle state of a wiki space.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -46,8 +46,8 @@ impl WikiState {
     }
 
     /// Error for ingest attempts on a busy wiki (409-equivalent).
-    pub fn busy_error(self, namespace: &str, slug: &str) -> VantaError {
-        VantaError::ExecutionConflict {
+    pub fn busy_error(self, namespace: &str, slug: &str) -> Error {
+        Error::ExecutionConflict {
             resource: format!("wiki:{namespace}:{slug}"),
             detail: format!(
                 "ingest rejected while wiki is `{self}`; wait for the current build to finish"

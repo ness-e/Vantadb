@@ -10,7 +10,7 @@ mod common;
 use common::{TerminalReporter, VantaHarness};
 use std::collections::{HashSet, VecDeque};
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::{BackendKind, StorageEngine};
 
@@ -46,7 +46,7 @@ fn antilocality_layout_certification() {
         let db_path = dir.path().to_str().unwrap();
 
         TerminalReporter::sub_step("Opening StorageEngine...");
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::Fjall,
             ..Default::default()
         };
@@ -127,7 +127,7 @@ fn antilocality_layout_certification() {
         let dir = tempdir().unwrap();
         let db_path = dir.path().to_str().unwrap();
 
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::Fjall,
             ..Default::default()
         };
@@ -206,7 +206,7 @@ fn antilocality_layout_certification() {
         let dir = tempdir().unwrap();
         let db_path = dir.path().to_str().unwrap();
 
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::Fjall,
             ..Default::default()
         };

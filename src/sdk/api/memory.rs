@@ -1,4 +1,4 @@
-//! Memory-record operations on `VantaEmbedded`.
+//! Memory-record operations on `Embedded`.
 //!
 //! Owns the per-record CRUD surface (put / get / delete / supersede), bulk
 //! import, version-history access, and TTL purge. Implementation was extracted
@@ -9,7 +9,7 @@
 //! `check_read_only`, `put_one`, `put_batch_inner`) were relocated here with
 //! `pub(super)` visibility so other domain modules can reuse them when needed.
 
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::serialization::{
     memory_node_id, memory_record_from_node, memory_record_to_node_owned, now_ms, validate_key,
     validate_metadata, validate_namespace, DERIVED_INDEX_SCHEMA_VERSION, FIELD_CREATED_AT_MS,
@@ -18,7 +18,7 @@ use super::super::serialization::{
 };
 use super::super::types::*;
 use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -32,7 +32,7 @@ pub struct BulkImportReport {
     pub duration_ms: u64,
 }
 
-impl VantaEmbedded {
+impl Embedded {
     /// True when a vector is entirely zeros — the HNSW core rejects
     /// zero-norm vectors under cosine similarity (AUDREP-27), so the
     /// SDK treats them like empty vectors: keep the document, skip the
@@ -43,7 +43,7 @@ impl VantaEmbedded {
 
     pub(super) fn check_read_only(&self) -> Result<()> {
         if self.config.read_only {
-            return Err(VantaError::ValidationError {
+            return Err(Error::ValidationError {
                 field: "read_only".into(),
                 reason: "this operation is not available when VantaDB is opened read-only".into(),
             });
@@ -53,7 +53,7 @@ impl VantaEmbedded {
 
     /// Shared logic for inserting/updating a single memory record.
     /// Used by both `put()` and `put_batch()`.
-    fn put_one(&self, input: VantaMemoryInput) -> Result<VantaMemoryRecord> {
+    fn put_one(&self, input: MemoryInput) -> Result<MemoryRecord> {
         self.check_read_only()?;
         validate_namespace(&input.namespace)?;
         validate_key(&input.key)?;
@@ -67,7 +67,7 @@ impl VantaEmbedded {
                     Some(record)
                 }
                 _ => {
-                    return Err(VantaError::NodeIdCollision(memory_node_id(
+                    return Err(Error::NodeIdCollision(memory_node_id(
                         &input.namespace,
                         &input.key,
                     )));
@@ -87,7 +87,7 @@ impl VantaEmbedded {
             .unwrap_or(1);
         let expires_at_ms = input.ttl_ms.map(|ttl| timestamp.saturating_add(ttl));
 
-        let record = VantaMemoryRecord {
+        let record = MemoryRecord {
             namespace: input.namespace,
             key: input.key,
             payload: input.payload,
@@ -136,10 +136,10 @@ impl VantaEmbedded {
     /// # Examples
     ///
     /// ```rust
-    /// use vantadb::config::VantaConfig;
-    /// use vantadb::{BackendKind, VantaEmbedded, VantaMemoryInput};
+    /// use vantadb::config::Config;
+    /// use vantadb::{BackendKind, Embedded, MemoryInput};
     ///
-    /// let db = VantaEmbedded::open_with_config(VantaConfig {
+    /// let db = Embedded::open_with_config(Config {
     ///     storage_path: ":memory:".into(),
     ///     backend_kind: BackendKind::InMemory,
     ///     ..Default::default()
@@ -147,7 +147,7 @@ impl VantaEmbedded {
     /// .expect("open in-memory database");
     ///
     /// let record = db
-    ///     .put(VantaMemoryInput::new("docs", "greeting", "Hello, VantaDB!"))
+    ///     .put(MemoryInput::new("docs", "greeting", "Hello, VantaDB!"))
     ///     .expect("put record");
     ///
     /// assert_eq!(record.namespace, "docs");
@@ -158,7 +158,7 @@ impl VantaEmbedded {
     /// db.close().expect("close database");
     /// ```
     #[tracing::instrument(skip(self, input), err)]
-    pub fn put(&self, input: VantaMemoryInput) -> Result<VantaMemoryRecord> {
+    pub fn put(&self, input: MemoryInput) -> Result<MemoryRecord> {
         let (namespace, key) = (input.namespace.clone(), input.key.clone());
         let res = self.put_one(input);
         self.audit(crate::audit::AuditEvent::new(
@@ -178,7 +178,7 @@ impl VantaEmbedded {
     /// Skips the per-node existence check (caller guarantees fresh inserts or
     /// uses `put()` for individual UPSERTS).
     #[tracing::instrument(skip(self, inputs), err)]
-    pub fn put_batch(&self, inputs: Vec<VantaMemoryInput>) -> Result<Vec<VantaMemoryRecord>> {
+    pub fn put_batch(&self, inputs: Vec<MemoryInput>) -> Result<Vec<MemoryRecord>> {
         let (namespace, key) = inputs
             .first()
             .map(|i| (i.namespace.clone(), i.key.clone()))
@@ -194,7 +194,7 @@ impl VantaEmbedded {
         res
     }
 
-    fn put_batch_inner(&self, inputs: Vec<VantaMemoryInput>) -> Result<Vec<VantaMemoryRecord>> {
+    fn put_batch_inner(&self, inputs: Vec<MemoryInput>) -> Result<Vec<MemoryRecord>> {
         use crate::storage::engine::{BatchInsertOptions, InsertMode};
 
         for input in &inputs {
@@ -205,7 +205,7 @@ impl VantaEmbedded {
 
         let engine = self.engine_handle()?;
         let batch_size = self.config.batch_size.unwrap_or(1000);
-        let mut all_results: Vec<VantaMemoryRecord> = Vec::with_capacity(inputs.len());
+        let mut all_results: Vec<MemoryRecord> = Vec::with_capacity(inputs.len());
         let mut rebuild_needed = false;
         // Track versions for keys seen earlier in this batch (in-batch dedup,
         // mirrors put_one's UPSERT semantics). Persisted before the chunk loop
@@ -215,7 +215,7 @@ impl VantaEmbedded {
         for chunk in inputs.chunks(batch_size) {
             let timestamp = now_ms();
             let mut nodes: Vec<UnifiedNode> = Vec::with_capacity(chunk.len());
-            let mut records: Vec<VantaMemoryRecord> = Vec::with_capacity(chunk.len());
+            let mut records: Vec<MemoryRecord> = Vec::with_capacity(chunk.len());
 
             for input in chunk {
                 let node_id = memory_node_id(&input.namespace, &input.key);
@@ -234,7 +234,7 @@ impl VantaEmbedded {
                                 Some((record.version, record.created_at_ms))
                             }
                             _ => {
-                                return Err(VantaError::NodeIdCollision(memory_node_id(
+                                return Err(Error::NodeIdCollision(memory_node_id(
                                     &input.namespace,
                                     &input.key,
                                 )));
@@ -250,7 +250,7 @@ impl VantaEmbedded {
                 let version = prev_version.map(|v| v.saturating_add(1)).unwrap_or(1);
                 seen_versions.insert(node_id, version);
 
-                let record = VantaMemoryRecord {
+                let record = MemoryRecord {
                     namespace: input.namespace.clone(),
                     key: input.key.clone(),
                     payload: input.payload.clone(),
@@ -344,17 +344,17 @@ impl VantaEmbedded {
     /// # Examples
     ///
     /// ```rust
-    /// use vantadb::config::VantaConfig;
-    /// use vantadb::{BackendKind, VantaEmbedded, VantaMemoryInput};
+    /// use vantadb::config::Config;
+    /// use vantadb::{BackendKind, Embedded, MemoryInput};
     ///
-    /// let db = VantaEmbedded::open_with_config(VantaConfig {
+    /// let db = Embedded::open_with_config(Config {
     ///     storage_path: ":memory:".into(),
     ///     backend_kind: BackendKind::InMemory,
     ///     ..Default::default()
     /// })
     /// .expect("open in-memory database");
     ///
-    /// db.put(VantaMemoryInput::new("docs", "greeting", "Hello, VantaDB!"))
+    /// db.put(MemoryInput::new("docs", "greeting", "Hello, VantaDB!"))
     ///     .expect("put record");
     ///
     /// let record = db
@@ -369,7 +369,7 @@ impl VantaEmbedded {
     /// db.close().expect("close database");
     /// ```
     #[tracing::instrument(skip(self), err)]
-    pub fn get(&self, namespace: &str, key: &str) -> Result<Option<VantaMemoryRecord>> {
+    pub fn get(&self, namespace: &str, key: &str) -> Result<Option<MemoryRecord>> {
         validate_namespace(namespace)?;
         validate_key(key)?;
 
@@ -380,7 +380,7 @@ impl VantaEmbedded {
 
         match memory_record_from_node(&node) {
             Some(record) if record.namespace == namespace && record.key == key => Ok(Some(record)),
-            Some(_record) => Err(VantaError::NodeIdCollision(memory_node_id(namespace, key))),
+            Some(_record) => Err(Error::NodeIdCollision(memory_node_id(namespace, key))),
             None => Ok(None),
         }
     }
@@ -397,7 +397,7 @@ impl VantaEmbedded {
         namespace: &str,
         key: &str,
         version: u64,
-    ) -> Result<Option<VantaMemoryRecord>> {
+    ) -> Result<Option<MemoryRecord>> {
         validate_namespace(namespace)?;
         validate_key(key)?;
         let engine = self.engine_handle()?;
@@ -410,7 +410,7 @@ impl VantaEmbedded {
     /// included as historical data until purged. `get_version(vN)` of the last
     /// element matches the live record.
     #[tracing::instrument(skip(self), err)]
-    pub fn versions(&self, namespace: &str, key: &str) -> Result<Vec<VantaMemoryRecord>> {
+    pub fn versions(&self, namespace: &str, key: &str) -> Result<Vec<MemoryRecord>> {
         validate_namespace(namespace)?;
         validate_key(key)?;
         let engine = self.engine_handle()?;
@@ -423,17 +423,17 @@ impl VantaEmbedded {
     /// # Examples
     ///
     /// ```rust
-    /// use vantadb::config::VantaConfig;
-    /// use vantadb::{BackendKind, VantaEmbedded, VantaMemoryInput};
+    /// use vantadb::config::Config;
+    /// use vantadb::{BackendKind, Embedded, MemoryInput};
     ///
-    /// let db = VantaEmbedded::open_with_config(VantaConfig {
+    /// let db = Embedded::open_with_config(Config {
     ///     storage_path: ":memory:".into(),
     ///     backend_kind: BackendKind::InMemory,
     ///     ..Default::default()
     /// })
     /// .expect("open in-memory database");
     ///
-    /// db.put(VantaMemoryInput::new("docs", "greeting", "Hello, VantaDB!"))
+    /// db.put(MemoryInput::new("docs", "greeting", "Hello, VantaDB!"))
     ///     .expect("put record");
     ///
     /// assert!(db.delete("docs", "greeting").expect("delete existing"));
@@ -473,7 +473,7 @@ impl VantaEmbedded {
     }
 
     /// Insert or update a record with exact fields (used internally by import).
-    pub(crate) fn put_record_exact(&self, record: VantaMemoryRecord) -> Result<VantaMemoryRecord> {
+    pub(crate) fn put_record_exact(&self, record: MemoryRecord) -> Result<MemoryRecord> {
         self.check_read_only()?;
         validate_namespace(&record.namespace)?;
         validate_key(&record.key)?;
@@ -481,7 +481,7 @@ impl VantaEmbedded {
 
         let expected_node_id = memory_node_id(&record.namespace, &record.key);
         if record.node_id != expected_node_id {
-            return Err(VantaError::ValidationError {
+            return Err(Error::ValidationError {
                 field: "node_id".into(),
                 reason: format!("node_id does not match deterministic namespace/key hash for namespace='{}' key='{}'", record.namespace, record.key),
             });
@@ -496,7 +496,7 @@ impl VantaEmbedded {
                     Some(previous)
                 }
                 _ => {
-                    return Err(VantaError::NodeIdCollision(record.node_id));
+                    return Err(Error::NodeIdCollision(record.node_id));
                 }
             },
             None => None,
@@ -524,7 +524,7 @@ impl VantaEmbedded {
         validate_key(old_key)?;
         validate_key(new_key)?;
         if old_key == new_key {
-            return Err(VantaError::InvalidInput(
+            return Err(Error::InvalidInput(
                 "supersede: old_key and new_key must be different".into(),
             ));
         }
@@ -539,18 +539,18 @@ impl VantaEmbedded {
 
         let old = self
             .get(namespace, old_key)?
-            .ok_or_else(|| VantaError::NotFound {
+            .ok_or_else(|| Error::NotFound {
                 kind: "memory record".into(),
                 id: format!("{namespace}/{old_key}"),
             })?;
         if old.superseded_by.is_some() {
-            return Err(VantaError::InvalidInput(format!(
+            return Err(Error::InvalidInput(format!(
                 "record '{old_key}' is already superseded by '{}'",
                 old.superseded_by.as_deref().unwrap_or_default()
             )));
         }
         if self.get(namespace, new_key)?.is_none() {
-            return Err(VantaError::NotFound {
+            return Err(Error::NotFound {
                 kind: "memory record".into(),
                 id: format!("{namespace}/{new_key}"),
             });
@@ -588,7 +588,7 @@ impl VantaEmbedded {
         self.check_read_only()?;
         let engine = self.engine_handle()?;
         let now = now_ms();
-        let mut to_delete: Vec<VantaMemoryRecord> = Vec::new();
+        let mut to_delete: Vec<MemoryRecord> = Vec::new();
 
         // MOD-04: select expired candidates via the scalar index
         // (`expires_at_ms <= now`) instead of a full O(N) engine scan that
@@ -641,13 +641,13 @@ impl VantaEmbedded {
                     Some(FieldValue::Int(v)) if *v >= 0 => *v as u64,
                     _ => 0,
                 };
-                let mut metadata_fields = VantaFields::new();
+                let mut metadata_fields = Fields::new();
                 for (fk, fv) in fields {
                     if !fk.starts_with("__vanta_") {
                         metadata_fields.insert(fk.clone(), fv.clone().into());
                     }
                 }
-                to_delete.push(VantaMemoryRecord {
+                to_delete.push(MemoryRecord {
                     namespace,
                     key,
                     payload,
@@ -866,11 +866,11 @@ impl VantaEmbedded {
     /// Bulk-import records from a binary stream.
     ///
     /// Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`,
-    /// 8-byte LE record count, then serde_json-serialized `Vec<VantaMemoryInput>`.
+    /// 8-byte LE record count, then serde_json-serialized `Vec<MemoryInput>`.
     ///
     /// Bypasses per-record validation (`validate_namespace`, `validate_key`,
     /// `validate_metadata`) for raw throughput. Commits to the engine in batches
-    /// sized by [`VantaConfig::bulk_commit_interval`](crate::VantaConfig::bulk_commit_interval) (default: 10 000).
+    /// sized by [`Config::bulk_commit_interval`](crate::Config::bulk_commit_interval) (default: 10 000).
     pub fn bulk_import_stream<R: std::io::Read>(&self, reader: &mut R) -> Result<BulkImportReport> {
         self.check_read_only()?;
         let start = Instant::now();
@@ -879,7 +879,7 @@ impl VantaEmbedded {
         let mut magic = [0u8; 8];
         reader.read_exact(&mut magic)?;
         if &magic != b"VDBJSON\n" {
-            return Err(VantaError::ValidationError {
+            return Err(Error::ValidationError {
                 field: "header".into(),
                 reason: format!(
                     "invalid magic bytes: expected VDBJSON\\n, got {:?}",
@@ -891,7 +891,7 @@ impl VantaEmbedded {
         let mut version = [0u8; 1];
         reader.read_exact(&mut version)?;
         if version[0] != 0x01 {
-            return Err(VantaError::ValidationError {
+            return Err(Error::ValidationError {
                 field: "version".into(),
                 reason: format!("unsupported format version: {}", version[0]),
             });
@@ -901,18 +901,18 @@ impl VantaEmbedded {
         reader.read_exact(&mut raw_count)?;
         let total = u64::from_le_bytes(raw_count) as usize;
 
-        // ── Body: serde_json-serialized Vec<VantaMemoryInput> ──
+        // ── Body: serde_json-serialized Vec<MemoryInput> ──
         let mut buf = Vec::new();
         reader.read_to_end(&mut buf)?;
 
-        let records: Vec<VantaMemoryInput> =
-            serde_json::from_slice(&buf).map_err(|e| VantaError::ValidationError {
+        let records: Vec<MemoryInput> =
+            serde_json::from_slice(&buf).map_err(|e| Error::ValidationError {
                 field: "body".into(),
                 reason: format!("JSON deserialization failed: {}", e),
             })?;
 
         if records.len() != total {
-            return Err(VantaError::ValidationError {
+            return Err(Error::ValidationError {
                 field: "count".into(),
                 reason: format!("declared {} records but got {}", total, records.len()),
             });
@@ -943,10 +943,10 @@ impl VantaEmbedded {
                 }
                 for (k, v) in &input.metadata {
                     let fv = match v {
-                        VantaValue::String(s) => FieldValue::String(s.clone()),
-                        VantaValue::Int(i) => FieldValue::Int(*i),
-                        VantaValue::Float(f) => FieldValue::Float(*f),
-                        VantaValue::Bool(b) => FieldValue::Bool(*b),
+                        Value::String(s) => FieldValue::String(s.clone()),
+                        Value::Int(i) => FieldValue::Int(*i),
+                        Value::Float(f) => FieldValue::Float(*f),
+                        Value::Bool(b) => FieldValue::Bool(*b),
                         // DateTime and list variants are not supported in bulk import.
                         _ => continue,
                     };

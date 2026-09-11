@@ -185,14 +185,14 @@ impl<'a> GraphDataScience<'a> {
 #[allow(missing_docs)]
 mod tests {
     use super::*;
-    use crate::config::VantaConfig;
+    use crate::config::Config;
     use crate::node::UnifiedNode;
     use crate::storage::{BackendKind, StorageEngine};
     use crate::Edge;
 
     fn setup_storage() -> (StorageEngine, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };

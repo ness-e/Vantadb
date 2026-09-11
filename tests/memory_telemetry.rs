@@ -14,12 +14,12 @@ use common::{TerminalReporter, VantaHarness};
 use std::fs;
 use std::path::Path;
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::{NodeFlags, UnifiedNode, VectorRepresentations};
 use vantadb::storage::{BackendKind, StorageEngine};
 
 fn open_fjall(path: &str) -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -107,7 +107,7 @@ fn memory_telemetry_contract() {
 
         assert!(
             l0_path.exists(),
-            "vstore_L0.vanta must exist after flush (L0 VantaFile)"
+            "vstore_L0.vanta must exist after flush (L0 File)"
         );
         assert!(
             ann_index.exists(),

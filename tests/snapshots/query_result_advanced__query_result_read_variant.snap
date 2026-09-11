@@ -4,7 +4,7 @@ expression: result
 ---
 Read(
     [
-        VantaNodeRecord {
+        NodeRecord {
             id: 1,
             fields: {
                 "name": String(

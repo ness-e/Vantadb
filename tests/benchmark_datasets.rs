@@ -7,7 +7,7 @@
 /// Skips gracefully if dataset is not present.
 use std::path::Path;
 use tempfile::TempDir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::{NodeTier, UnifiedNode};
 use vantadb::storage::StorageEngine;
 
@@ -21,7 +21,7 @@ fn test_glove100_hnsw_basic() {
     }
 
     let dir = TempDir::new().unwrap();
-    let config = VantaConfig::default()
+    let config = Config::default()
         .with_storage_path(dir.path().to_str().unwrap().to_string())
         .with_mmap_hnsw(true);
     let engine =

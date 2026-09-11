@@ -3,7 +3,7 @@
 //! Evaluates [`LogicalOperator`] trees against the [`StorageEngine`],
 //! returning materialized [`ExecutionResult`] variants.
 
-use crate::error::{ChainedError, Result, VantaError};
+use crate::error::{ChainedError, Error, Result};
 use crate::node::{UnifiedNode, VectorRepresentations};
 use crate::parser::parse_statement;
 use crate::query::{LogicalOperator, LogicalPlan, Statement};
@@ -152,7 +152,7 @@ impl<'a> Executor<'a> {
     pub fn execute_hybrid(&self, query_string: &str) -> Result<ExecutionResult> {
         let trimmed = query_string.trim_start();
         if trimmed.starts_with('(') {
-            Err(VantaError::IqlError(ChainedError::msg(
+            Err(Error::IqlError(ChainedError::msg(
                 "LISP query execution is not supported (archived 2024-06). Use IQL syntax instead - see docs/api/IQL.md.",
             )))
         } else {
@@ -160,7 +160,7 @@ impl<'a> Executor<'a> {
                 Ok((_, stmt)) => self.execute_statement(stmt),
                 Err(e) => {
                     let (line, col) = iql_error_position(trimmed, &e);
-                    Err(VantaError::IqlParseError {
+                    Err(Error::IqlParseError {
                         msg: e.to_string(),
                         line,
                         col,
@@ -270,7 +270,7 @@ impl<'a> Executor<'a> {
                 let mut node = match self.storage.get(update.node_id)? {
                     Some(n) => n,
                     None => {
-                        return Err(VantaError::NotFound {
+                        return Err(Error::NotFound {
                             kind: "node".into(),
                             id: update.node_id.to_string(),
                         })
@@ -303,7 +303,7 @@ impl<'a> Executor<'a> {
                 let mut node = match self.storage.get(relate.source_id)? {
                     Some(n) => n,
                     None => {
-                        return Err(VantaError::NotFound {
+                        return Err(Error::NotFound {
                             kind: "source_node".into(),
                             id: relate.source_id.to_string(),
                         })
@@ -313,12 +313,12 @@ impl<'a> Executor<'a> {
                 // Axiom: Topological Consistency
                 if self.storage.get(relate.target_id)?.is_none() {
                     if self.storage.is_deleted(relate.target_id).unwrap_or(false) {
-                        return Err(VantaError::NotFound {
+                        return Err(Error::NotFound {
                             kind: "tombstone_node".into(),
                             id: relate.target_id.to_string(),
                         });
                     } else {
-                        return Err(VantaError::NotFound {
+                        return Err(Error::NotFound {
                             kind: "target_node".into(),
                             id: relate.target_id.to_string(),
                         });
@@ -419,7 +419,7 @@ impl<'a> Executor<'a> {
             if let LogicalOperator::Scan { entity } = op {
                 if entity.starts_with("Conflict#") {
                     governor.free_allocation(estimated_mem_cost);
-                    return Err(VantaError::IqlError(ChainedError::msg(
+                    return Err(Error::IqlError(ChainedError::msg(
                         "Conflict# entity scans are not supported (governance framework archived 2024-06).",
                     )));
                 }
@@ -464,7 +464,7 @@ impl<'a> Executor<'a> {
 mod tests {
     use super::*;
     use crate::backend::BackendKind;
-    use crate::config::VantaConfig;
+    use crate::config::Config;
     use crate::node::FieldValue;
     #[cfg(feature = "remote-inference")]
     use crate::query::InsertMessageStatement;
@@ -474,7 +474,7 @@ mod tests {
 
     fn setup_storage() -> (StorageEngine, tempfile::TempDir) {
         let dir = tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };
@@ -578,7 +578,7 @@ mod tests {
         let (storage, _dir) = setup_storage();
         let ex = Executor::new(&storage);
         let err = ex.execute_hybrid("(match ...)").unwrap_err();
-        assert!(matches!(err, VantaError::IqlError(_)));
+        assert!(matches!(err, Error::IqlError(_)));
         assert!(err.to_string().contains("LISP"));
     }
 
@@ -587,7 +587,7 @@ mod tests {
         let (storage, _dir) = setup_storage();
         let ex = Executor::new(&storage);
         let err = ex.execute_hybrid("NOT_VALID_IQL").unwrap_err();
-        assert!(matches!(err, VantaError::IqlParseError { .. }));
+        assert!(matches!(err, Error::IqlParseError { .. }));
     }
 
     // ── execute_statement: Insert ──

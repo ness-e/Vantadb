@@ -7,16 +7,16 @@
 //!
 //! Extracted from `sdk::api` (REVIEW-12, 2026-08-30).
 
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::serialization::validate_namespace;
 use super::super::types::*;
 use crate::error::Result;
 use web_time::Instant;
 
-impl VantaEmbedded {
+impl Embedded {
     /// Rebuild the HNSW vector index, derived indexes, and text index from scratch.
     #[tracing::instrument(skip(self), err)]
-    pub fn rebuild_index(&self) -> Result<VantaIndexRebuildReport> {
+    pub fn rebuild_index(&self) -> Result<IndexRebuildReport> {
         self.check_read_only()?;
         let engine = self.engine_handle()?;
         let report = engine.rebuild_vector_index()?;
@@ -27,7 +27,7 @@ impl VantaEmbedded {
         // metadata — rebuild it alongside the other derived indexes so a
         // repaired DB serves `purge_expired` correctly.
         engine.rebuild_scalar_index()?;
-        let mut report: VantaIndexRebuildReport = report.into();
+        let mut report: IndexRebuildReport = report.into();
         report.derived_rebuild_ms = derived.duration_ms;
         Ok(report)
     }
@@ -46,7 +46,7 @@ impl VantaEmbedded {
         &self,
         namespace: &str,
         page_size: Option<usize>,
-    ) -> Result<VantaIndexRebuildReport> {
+    ) -> Result<IndexRebuildReport> {
         self.check_read_only()?;
         validate_namespace(namespace)?;
 
@@ -60,9 +60,9 @@ impl VantaEmbedded {
         loop {
             let page = self.list(
                 namespace,
-                VantaMemoryListOptions {
+                MemoryListOptions {
                     #[allow(deprecated)]
-                    filters: VantaMemoryMetadata::new(),
+                    filters: MemoryMetadata::new(),
                     filter_ops: None,
                     limit: batch_size,
                     cursor,
@@ -85,7 +85,7 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
         let report = engine.rebuild_vector_index()?;
 
-        let mut vanta_report: VantaIndexRebuildReport = report.into();
+        let mut vanta_report: IndexRebuildReport = report.into();
         vanta_report.derived_rebuild_ms = rebuild_ms;
 
         // If the enumeration phase found records, ensure the engine agreed
@@ -131,9 +131,9 @@ impl VantaEmbedded {
 
     /// Return stable runtime capabilities.
     #[tracing::instrument(skip(self))]
-    pub fn capabilities(&self) -> VantaCapabilities {
-        VantaCapabilities {
-            runtime_profile: VantaRuntimeProfile::Performance,
+    pub fn capabilities(&self) -> Capabilities {
+        Capabilities {
+            runtime_profile: RuntimeProfile::Performance,
             persistence: true,
             vector_search: true,
             iql_queries: true,
@@ -143,7 +143,7 @@ impl VantaEmbedded {
 
     /// Snapshot of current process-level operational metrics.
     #[tracing::instrument(skip(self))]
-    pub fn operational_metrics(&self) -> VantaOperationalMetrics {
+    pub fn operational_metrics(&self) -> OperationalMetrics {
         if let Ok(engine) = self.engine_handle() {
             let stats = engine.get_memory_stats();
             crate::metrics::record_memory_breakdown(

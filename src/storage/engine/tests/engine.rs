@@ -3,7 +3,7 @@
 use super::super::*;
 use super::{in_memory_engine, in_memory_read_only, sample_node};
 use crate::backend::{BackendKind, BackendPartition, BackendWriteOp};
-use crate::config::VantaConfig;
+use crate::config::Config;
 use crate::node::{NodeTier, UnifiedNode};
 
 // ─── Engine basics ────────────────────────────────────────────
@@ -146,9 +146,9 @@ fn test_purge_permanent() {
 
 #[test]
 fn test_guard_write_allowed_read_only() {
-    let config = VantaConfig {
+    let config = Config {
         read_only: true,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let result = StorageEngine::guard_write_allowed(&config);
     assert!(result.is_err());
@@ -157,7 +157,7 @@ fn test_guard_write_allowed_read_only() {
 
 #[test]
 fn test_guard_write_allowed_writable() {
-    let config = VantaConfig::default();
+    let config = Config::default();
     let result = StorageEngine::guard_write_allowed(&config);
     assert!(result.is_ok());
 }
@@ -365,11 +365,11 @@ fn test_insert_to_cf_invalid() {
 
 #[test]
 fn test_insert_fails_on_resource_limit() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         rss_threshold: 0.0001,
         memory_limit: Some(1),
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
     let result = engine.insert(&sample_node(1));
@@ -378,10 +378,10 @@ fn test_insert_fails_on_resource_limit() {
 
 #[test]
 fn test_insert_auto_flush_threshold() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         flush_threshold: Some(1),
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).expect("open engine");
     engine.insert(&sample_node(1)).expect("insert 1");
@@ -426,7 +426,7 @@ fn test_insert_cardinality_hundred_cap() {
 
 #[test]
 fn test_insert_with_hot_node_eviction() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         // 8 GiB — generous ceiling so neither node memory_size estimates
         // (~42KB/node on Linux vs ~20KB on Windows) nor the real process RSS
@@ -435,7 +435,7 @@ fn test_insert_with_hot_node_eviction() {
         // insert + retrieve of 50 Hot nodes; pressure/eviction paths are
         // covered by stats.rs tests.
         memory_limit: Some(8 * 1024 * 1024 * 1024),
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).expect("open");
     for i in 0..50u128 {

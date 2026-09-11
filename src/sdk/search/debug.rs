@@ -9,9 +9,9 @@ use super::phrase;
 use super::snippet;
 use crate::backend::BackendPartition;
 use crate::error::Result;
-use crate::sdk::builder::VantaEmbedded;
+use crate::sdk::builder::Embedded;
 use crate::sdk::types::{
-    VantaBm25TermContribution, VantaMemoryRecord, VantaMemorySearchHit, VantaSearchExplanationHit,
+    Bm25TermContribution, MemoryRecord, MemorySearchHit, SearchExplanationHit,
 };
 use crate::storage::StorageEngine;
 use std::collections::BTreeMap;
@@ -20,7 +20,7 @@ use std::collections::BTreeMap;
 ///
 /// Returns a map of `(namespace, key)` → 1-based rank. Higher-ranked hits
 /// get smaller numbers.
-pub fn rank_map(hits: &[VantaMemorySearchHit]) -> BTreeMap<(String, String), usize> {
+pub fn rank_map(hits: &[MemorySearchHit]) -> BTreeMap<(String, String), usize> {
     hits.iter()
         .enumerate()
         .map(|(index, hit)| {
@@ -36,23 +36,23 @@ pub fn rank_map(hits: &[VantaMemorySearchHit]) -> BTreeMap<(String, String), usi
 ///
 /// Only compiled in `debug_assertions` builds since all callers are test-only.
 #[cfg(debug_assertions)]
-pub fn hit_identities(hits: &[VantaMemorySearchHit]) -> Vec<String> {
+pub fn hit_identities(hits: &[MemorySearchHit]) -> Vec<String> {
     hits.iter()
         .map(|hit| format!("{}\0{}", hit.record.namespace, hit.record.key))
         .collect()
 }
 
-/// Build a full [`VantaSearchExplanationHit`] for one search hit.
+/// Build a full [`SearchExplanationHit`] for one search hit.
 ///
 /// Includes BM25 term breakdown, matched phrases, snippet, and RRF rank
 /// positions from both text and vector search arms.
 pub fn explain_hit(
     engine: &StorageEngine,
-    hit: VantaMemorySearchHit,
+    hit: MemorySearchHit,
     text_query: Option<&str>,
     text_ranks: &BTreeMap<(String, String), usize>,
     vector_ranks: &BTreeMap<(String, String), usize>,
-) -> Result<VantaSearchExplanationHit> {
+) -> Result<SearchExplanationHit> {
     let identity_tuple = (hit.record.namespace.clone(), hit.record.key.clone());
     let identity = format!("{}\0{}", hit.record.namespace, hit.record.key);
     let bm25_terms = if let Some(text_query) = text_query {
@@ -71,7 +71,7 @@ pub fn explain_hit(
     };
     let snippet = text_query.and_then(|query| snippet::debug_snippet(&hit.record.payload, query));
 
-    Ok(VantaSearchExplanationHit {
+    Ok(SearchExplanationHit {
         identity,
         score: hit.score,
         snippet,
@@ -88,20 +88,18 @@ pub fn explain_hit(
 /// Compute per-term BM25 contributions for a record given a text query.
 fn bm25_terms_for_record(
     engine: &StorageEngine,
-    record: &VantaMemoryRecord,
+    record: &MemoryRecord,
     text_query: &str,
-) -> Result<Vec<VantaBm25TermContribution>> {
+) -> Result<Vec<Bm25TermContribution>> {
     let query_plan = crate::text_index::query_plan(text_query);
     if query_plan.terms.is_empty() {
         return Ok(Vec::new());
     }
-    let Some(namespace_stats) =
-        VantaEmbedded::load_text_namespace_stats(engine, &record.namespace)?
+    let Some(namespace_stats) = Embedded::load_text_namespace_stats(engine, &record.namespace)?
     else {
         return Ok(Vec::new());
     };
-    let Some(doc_stats) =
-        VantaEmbedded::load_text_doc_stats(engine, &record.namespace, &record.key)?
+    let Some(doc_stats) = Embedded::load_text_doc_stats(engine, &record.namespace, &record.key)?
     else {
         return Ok(Vec::new());
     };
@@ -119,8 +117,7 @@ fn bm25_terms_for_record(
     let mut terms = Vec::new();
 
     for token in query_plan.terms {
-        let Some(term_stats) =
-            VantaEmbedded::load_text_term_stats(engine, &record.namespace, &token)?
+        let Some(term_stats) = Embedded::load_text_term_stats(engine, &record.namespace, &token)?
         else {
             continue;
         };
@@ -140,7 +137,7 @@ fn bm25_terms_for_record(
                 * (1.0 - crate::text_index::BM25_B
                     + crate::text_index::BM25_B * (doc_len / avg_doc_len));
         let contribution = idf * ((tf * (crate::text_index::BM25_K1 + 1.0)) / denominator);
-        terms.push(VantaBm25TermContribution {
+        terms.push(Bm25TermContribution {
             token,
             tf: posting.tf,
             df: term_stats.df,
@@ -155,7 +152,7 @@ fn bm25_terms_for_record(
 /// Find which phrases matched in a record for a given text query.
 fn matched_phrases_for_record(
     engine: &StorageEngine,
-    record: &VantaMemoryRecord,
+    record: &MemoryRecord,
     text_query: &str,
 ) -> Result<Vec<String>> {
     let query_plan = crate::text_index::query_plan(text_query);

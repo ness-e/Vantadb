@@ -1,9 +1,9 @@
 use crate::error::Result;
 use crate::node::DistanceMetric;
-use crate::sdk::{VantaEmbedded, VantaMemorySearchRequest};
+use crate::sdk::{Embedded, MemorySearchRequest};
 
 pub fn find_seeds(
-    embedded: &VantaEmbedded,
+    embedded: &Embedded,
     namespace: &str,
     query: Option<&str>,
     query_vector: Option<&[f32]>,
@@ -13,7 +13,7 @@ pub fn find_seeds(
         return Ok(Vec::new());
     }
 
-    let request = VantaMemorySearchRequest {
+    let request = MemorySearchRequest {
         namespace: namespace.to_string(),
         query_vector: query_vector.map(|v| v.to_vec()).unwrap_or_default(),
         text_query: query.map(|q| q.to_string()),

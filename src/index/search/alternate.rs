@@ -106,7 +106,7 @@ impl CPIndex {
         metric: DistanceMetric,
     ) -> crate::error::Result<Vec<(u128, f32)>> {
         let metric_bound_error = |backend: &str| {
-            crate::error::VantaError::InvalidInput(format!(
+            crate::error::Error::InvalidInput(format!(
                 "distance_metric {:?} requested but the {} backend is metric-bound to the \
                  configured metric {:?} (built at lazy-cache time). Use method=hnsw or \
                  method=flat for a per-request metric, or configure the engine with {:?}",

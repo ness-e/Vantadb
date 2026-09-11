@@ -7,11 +7,15 @@ use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
 pub use super::super::serialization::vector_types::{
+    MemorySearchHit, MemorySearchRequest, SearchHit,
+};
+#[allow(deprecated)]
+pub use super::super::serialization::vector_types::{
     VantaMemorySearchHit, VantaMemorySearchRequest, VantaSearchHit,
 };
 /// Stable report returned by manual ANN rebuild through the SDK boundary.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VantaIndexRebuildReport {
+pub struct IndexRebuildReport {
     /// Number of nodes scanned during the rebuild.
     pub scanned_nodes: u64,
     /// Number of vectors indexed into HNSW.
@@ -30,7 +34,7 @@ pub struct VantaIndexRebuildReport {
 
 /// Stable report returned by text index repair operations.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VantaTextIndexRepairReport {
+pub struct TextIndexRepairReport {
     /// Number of memory records indexed.
     pub record_count: u64,
     /// Number of posting list entries written.
@@ -50,7 +54,7 @@ pub struct VantaTextIndexRepairReport {
 #[cfg(debug_assertions)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 #[doc(hidden)]
-pub struct VantaMemorySearchDebugReport {
+pub struct MemorySearchDebugReport {
     pub route: String,
     pub budget: usize,
     pub text_candidates: usize,
@@ -91,7 +95,7 @@ pub struct SearchProfileConfig {
 
 /// Counts and configuration for a hybrid (text+vector) fusion pass.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaHybridFusionReport {
+pub struct HybridFusionReport {
     /// Number of candidates from the BM25 text search.
     pub text_candidates: usize,
     /// Number of candidates from the HNSW vector search.
@@ -104,18 +108,18 @@ pub struct VantaHybridFusionReport {
 
 /// Explanation of a memory search result, including route, hits, and fusion report.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaSearchExplanation {
+pub struct SearchExplanation {
     /// Route used for the search (hybrid, text-only, vector-only, empty).
     pub route: String,
     /// Explained search hits.
-    pub hits: Vec<VantaSearchExplanationHit>,
+    pub hits: Vec<SearchExplanationHit>,
     /// Fusion report present when the route was hybrid.
-    pub fusion_report: Option<VantaHybridFusionReport>,
+    pub fusion_report: Option<HybridFusionReport>,
 }
 
 /// Per-hit explanation with score, snippet, matched tokens, and BM25 breakdown.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaSearchExplanationHit {
+pub struct SearchExplanationHit {
     /// Unique identity string (`namespace\0key`) of the matched record.
     pub identity: String,
     /// Combined relevance score for this hit.
@@ -127,7 +131,7 @@ pub struct VantaSearchExplanationHit {
     /// Query phrases that matched in this record.
     pub matched_phrases: Vec<String>,
     /// Per-term BM25 scoring breakdown.
-    pub bm25_terms: Vec<VantaBm25TermContribution>,
+    pub bm25_terms: Vec<Bm25TermContribution>,
     /// Rank of this hit in the text-only result set, if applicable.
     pub rrf_text_rank: Option<usize>,
     /// Rank of this hit in the vector-only result set, if applicable.
@@ -136,7 +140,7 @@ pub struct VantaSearchExplanationHit {
 
 /// Per-term BM25 scoring decomposition for a single search hit.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaBm25TermContribution {
+pub struct Bm25TermContribution {
     /// The query term token.
     pub token: String,
     /// Term frequency in the matched document.
@@ -243,7 +247,7 @@ pub(crate) struct ExpectedTextIndexEntries {
 /// The audit is read-only. It compares text-index postings and BM25/phrase
 /// stats against canonical memory records and reports drift without repairing.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VantaTextIndexAuditReport {
+pub struct TextIndexAuditReport {
     /// Schema version of the text index spec.
     pub schema_version: u32,
     /// Tokenizer name used by the index.
@@ -296,6 +300,51 @@ pub struct VantaTextIndexAuditReport {
     pub status: String,
 }
 
+/// Deprecated `Vanta`-prefixed aliases (AST-002, ADR-041).
+/// New code must use the unprefixed names; these exist only for semver migration.
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `IndexRebuildReport` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaIndexRebuildReport = IndexRebuildReport;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `TextIndexRepairReport` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaTextIndexRepairReport = TextIndexRepairReport;
+#[cfg(debug_assertions)]
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `MemorySearchDebugReport` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+#[allow(dead_code)]
+pub type VantaMemorySearchDebugReport = MemorySearchDebugReport;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `HybridFusionReport` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaHybridFusionReport = HybridFusionReport;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `SearchExplanation` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaSearchExplanation = SearchExplanation;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `SearchExplanationHit` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaSearchExplanationHit = SearchExplanationHit;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `Bm25TermContribution` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaBm25TermContribution = Bm25TermContribution;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `TextIndexAuditReport` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaTextIndexAuditReport = TextIndexAuditReport;
+
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
@@ -305,7 +354,7 @@ mod tests {
 
     #[test]
     fn test_index_rebuild_report() {
-        let r = VantaIndexRebuildReport {
+        let r = IndexRebuildReport {
             scanned_nodes: 1000,
             indexed_vectors: 900,
             skipped_tombstones: 50,
@@ -321,7 +370,7 @@ mod tests {
 
     #[test]
     fn test_text_index_repair_report() {
-        let r = VantaTextIndexRepairReport {
+        let r = TextIndexRepairReport {
             record_count: 200,
             posting_entries: 1500,
             doc_stats_entries: 200,
@@ -334,11 +383,11 @@ mod tests {
         assert!(r.success);
     }
 
-    // ΓöÇΓöÇ VantaHybridFusionReport ΓöÇΓöÇ
+    // ΓöÇΓöÇ HybridFusionReport ΓöÇΓöÇ
 
     #[test]
     fn test_hybrid_fusion_report() {
-        let r = VantaHybridFusionReport {
+        let r = HybridFusionReport {
             text_candidates: 50,
             vector_candidates: 30,
             fused_candidates: 70,
@@ -348,11 +397,11 @@ mod tests {
         assert_eq!(r.fused_candidates, 70);
     }
 
-    // ΓöÇΓöÇ VantaBm25TermContribution ΓöÇΓöÇ
+    // ΓöÇΓöÇ Bm25TermContribution ΓöÇΓöÇ
 
     #[test]
     fn test_bm25_term_contribution() {
-        let c = VantaBm25TermContribution {
+        let c = Bm25TermContribution {
             token: "rust".into(),
             tf: 3,
             df: 10,
@@ -363,11 +412,11 @@ mod tests {
         assert_eq!(c.tf, 3);
     }
 
-    // ΓöÇΓöÇ VantaSearchExplanation ΓöÇΓöÇ
+    // ΓöÇΓöÇ SearchExplanation ΓöÇΓöÇ
 
     #[test]
     fn test_search_explanation_empty() {
-        let expl = VantaSearchExplanation {
+        let expl = SearchExplanation {
             route: "empty".into(),
             hits: vec![],
             fusion_report: None,
@@ -376,11 +425,11 @@ mod tests {
         assert!(expl.fusion_report.is_none());
     }
 
-    // ΓöÇΓöÇ VantaSearchExplanationHit ΓöÇΓöÇ
+    // ΓöÇΓöÇ SearchExplanationHit ΓöÇΓöÇ
 
     #[test]
     fn test_search_explanation_hit() {
-        let hit = VantaSearchExplanationHit {
+        let hit = SearchExplanationHit {
             identity: "ns\0k".into(),
             score: 0.95,
             snippet: Some("...hello world...".into()),
@@ -395,11 +444,11 @@ mod tests {
         assert!(hit.rrf_text_rank.is_some());
     }
 
-    // ΓöÇΓöÇ VantaTextIndexAuditReport ΓöÇΓöÇ
+    // ΓöÇΓöÇ TextIndexAuditReport ΓöÇΓöÇ
 
     #[test]
     fn test_text_index_audit_report_ok() {
-        let r = VantaTextIndexAuditReport {
+        let r = TextIndexAuditReport {
             schema_version: 1,
             tokenizer: "default".into(),
             tokenizer_version: 1,
@@ -430,11 +479,11 @@ mod tests {
         assert_eq!(r.status, "ok");
     }
 
-    // ΓöÇΓöÇ VantaHybridFusionReport clone/debug ΓöÇΓöÇ
+    // ΓöÇΓöÇ HybridFusionReport clone/debug ΓöÇΓöÇ
 
     #[test]
     fn test_hybrid_fusion_report_clone_debug() {
-        let r = VantaHybridFusionReport {
+        let r = HybridFusionReport {
             text_candidates: 10,
             vector_candidates: 20,
             fused_candidates: 25,
@@ -446,11 +495,11 @@ mod tests {
         assert!(dbg.contains("rrf_k"));
     }
 
-    // ΓöÇΓöÇ VantaBm25TermContribution clone ΓöÇΓöÇ
+    // ΓöÇΓöÇ Bm25TermContribution clone ΓöÇΓöÇ
 
     #[test]
     fn test_bm25_term_contribution_clone() {
-        let c = VantaBm25TermContribution {
+        let c = Bm25TermContribution {
             token: "test".into(),
             tf: 2,
             df: 5,
@@ -461,11 +510,11 @@ mod tests {
         assert_eq!(c, cloned);
     }
 
-    // ΓöÇΓöÇ VantaSearchExplanationHit clone ΓöÇΓöÇ
+    // ΓöÇΓöÇ SearchExplanationHit clone ΓöÇΓöÇ
 
     #[test]
     fn test_search_explanation_hit_clone() {
-        let hit = VantaSearchExplanationHit {
+        let hit = SearchExplanationHit {
             identity: "ns\0k".into(),
             score: 0.9,
             snippet: None,
@@ -479,14 +528,14 @@ mod tests {
         assert_eq!(hit, cloned);
     }
 
-    // ΓöÇΓöÇ VantaSearchExplanation with fusion ΓöÇΓöÇ
+    // ΓöÇΓöÇ SearchExplanation with fusion ΓöÇΓöÇ
 
     #[test]
     fn test_search_explanation_with_fusion() {
-        let expl = VantaSearchExplanation {
+        let expl = SearchExplanation {
             route: "hybrid".into(),
             hits: vec![],
-            fusion_report: Some(VantaHybridFusionReport {
+            fusion_report: Some(HybridFusionReport {
                 text_candidates: 10,
                 vector_candidates: 5,
                 fused_candidates: 12,
@@ -498,11 +547,11 @@ mod tests {
         assert_eq!(expl.fusion_report.unwrap().fused_candidates, 12);
     }
 
-    // ΓöÇΓöÇ VantaIndexRebuildReport clone ΓöÇΓöÇ
+    // ΓöÇΓöÇ IndexRebuildReport clone ΓöÇΓöÇ
 
     #[test]
     fn test_index_rebuild_report_clone() {
-        let r = VantaIndexRebuildReport {
+        let r = IndexRebuildReport {
             scanned_nodes: 100,
             indexed_vectors: 90,
             skipped_tombstones: 5,
@@ -515,11 +564,11 @@ mod tests {
         assert_eq!(r, cloned);
     }
 
-    // ΓöÇΓöÇ VantaTextIndexRepairReport clone ΓöÇΓöÇ
+    // ΓöÇΓöÇ TextIndexRepairReport clone ΓöÇΓöÇ
 
     #[test]
     fn test_text_index_repair_report_clone() {
-        let r = VantaTextIndexRepairReport {
+        let r = TextIndexRepairReport {
             record_count: 50,
             posting_entries: 200,
             doc_stats_entries: 50,
@@ -532,11 +581,11 @@ mod tests {
         assert_eq!(r, cloned);
     }
 
-    // ΓöÇΓöÇ VantaTextIndexAuditReport failure ΓöÇΓöÇ
+    // ΓöÇΓöÇ TextIndexAuditReport failure ΓöÇΓöÇ
 
     #[test]
     fn test_text_index_audit_report_failure() {
-        let r = VantaTextIndexAuditReport {
+        let r = TextIndexAuditReport {
             schema_version: 1,
             tokenizer: "default".into(),
             tokenizer_version: 1,

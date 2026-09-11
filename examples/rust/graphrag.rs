@@ -3,12 +3,12 @@
 //! Demonstrates the low-level Node/Graph API.
 
 use std::error::Error;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::graph::TraversalDirection;
-use vantadb::{VantaEmbedded, VantaFields, VantaNodeInput};
+use vantadb::{Embedded, Fields, NodeInput};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let db = VantaEmbedded::open_with_config(VantaConfig {
+    let db = Embedded::open_with_config(Config {
         storage_path: "./examples_graph_data".into(),
         ..Default::default()
     })?;
@@ -43,11 +43,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     ];
 
     for (id, content, vector) in &nodes {
-        db.insert_node(VantaNodeInput {
+        db.insert_node(NodeInput {
             id: *id,
             content: Some((*content).into()),
             vector: Some(vector.clone()),
-            fields: VantaFields::new(),
+            fields: Fields::new(),
         })?;
     }
 
@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .fields
                 .get("content")
                 .and_then(|v| {
-                    if let vantadb::VantaValue::String(s) = v {
+                    if let vantadb::Value::String(s) = v {
                         Some(s.as_str())
                     } else {
                         None

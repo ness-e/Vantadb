@@ -8,7 +8,7 @@ use crate::node::{
     DiskNodeHeader, DistanceMetric, FilterBitset, VectorRepresentations, ALL_BITSET,
 };
 use crate::storage::engine::FLAG_TOMBSTONE;
-use crate::storage::vfile::VantaFile;
+use crate::storage::vfile::File;
 use ahash::RandomState;
 use std::collections::{BinaryHeap, HashSet};
 
@@ -583,20 +583,20 @@ fn test_search_layer_tombstone_not_returned() {
 // ERR-042 hoisted `read_header` to once per candidate (reused for the
 // distance computation AND the tombstone eligibility check). These tests
 // prove the refactor did not change search behavior: searching through a
-// populated VantaFile (disk path, read_header) must return the same ids
+// populated File (disk path, read_header) must return the same ids
 // and scores as the in-memory path (fast_similarity), and a tombstone
 // flag in the disk header must still exclude the node.
 
 const ERR042_ALIGN: u64 = 64;
 
-/// Build a HNSW index AND a matching in-memory VantaFile where each
+/// Build a HNSW index AND a matching in-memory File where each
 /// node's `storage_offset` points at a readable header + vector payload.
 /// Both data paths see byte-identical vectors.
-fn build_index_with_vfile(metric: DistanceMetric) -> (CPIndex, VantaFile) {
+fn build_index_with_vfile(metric: DistanceMetric) -> (CPIndex, File) {
     let index = make_hnsw_index(metric);
     let hdr_size = std::mem::size_of::<DiskNodeHeader>() as u64;
     let total = 4096 + 512 * (hdr_size + 16 * 4 + ERR042_ALIGN);
-    let mut vfile = VantaFile::create_in_memory(total);
+    let mut vfile = File::create_in_memory(total);
     let mut offset = ERR042_ALIGN;
     for i in 0..200u128 {
         let vec: Vec<f32> = (0..16)
@@ -691,7 +691,7 @@ fn test_layer_align_to_decodes_original_values() {
     let hdr_size = std::mem::size_of::<DiskNodeHeader>() as u64;
     let vec: Vec<f32> = vec![1.0f32, -2.5, 3.25, 0.125, 1000.5, -0.0];
     let total = 4096 + hdr_size + vec.len() as u64 * 4;
-    let mut vfile = VantaFile::create_in_memory(total);
+    let mut vfile = File::create_in_memory(total);
     let offset = ERR042_ALIGN;
     let vec_offset = offset + hdr_size;
 
@@ -859,7 +859,7 @@ fn test_select_neighbors_discarded_fills_remaining() {
 // search.rs has 4 unsafe blocks: `from_raw_parts` in search_layer
 // for mmap-backed vector access (2 blocks in the entry_point loop,
 // 2 in the neighbor evaluation loop). These require an actual
-// VantaFile with mmap data which Miri cannot provide.
+// File with mmap data which Miri cannot provide.
 //
 // These Miri tests exercise search_layer and the HNSW search path
 // with `vector_store = None`, which routes through fast_similarity

@@ -1,7 +1,7 @@
 // ponytail: mmap-resident byte accounting invariants; documented per-call.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
-//! Memory-mapped primitives for [`crate::storage::vfile::VantaFile`]: the
+//! Memory-mapped primitives for [`crate::storage::vfile::File`]: the
 //! memmap2 re-export / fallback shim, the Unix SIGBUS fault handler, resident
 //! byte accounting, and the 4-aligned in-memory buffer.
 //!
@@ -20,7 +20,7 @@ use tracing::warn;
 #[cfg(unix)]
 use libc;
 
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 
 #[cfg(feature = "memmap2")]
 pub(crate) use memmap2::{Mmap, MmapMut, MmapOptions};
@@ -154,7 +154,7 @@ pub(crate) mod mmap_shim {
         // measurably matters (shim serves wasm32 + any non-memmap2 native build).
         // Note: like memmap2's msync(MS_SYNC), this is not an fsync — it stops
         // at the OS page cache. Power-loss durability is the WAL's/sync_all's
-        // job; don't treat VantaFile::flush() as a durability barrier.
+        // job; don't treat File::flush() as a durability barrier.
         fn write_back(&self) -> std::io::Result<()> {
             use std::io::{Seek, SeekFrom, Write};
             let mut f = self.file.try_clone()?;
@@ -216,11 +216,11 @@ pub(crate) fn map_readonly(file: &File) -> std::io::Result<Mmap> {
     #[cfg(feature = "memmap2")]
     {
         // SAFETY: `file` is a valid open handle whose size the caller has
-        // already validated/truncated before mapping (VantaFile::open_with_mode
+        // already validated/truncated before mapping (File::open_with_mode
         // truncates to min_header_size; archive.rs set_len()'s the temp file
         // before mapping it). The returned Mmap aliases `file`'s pages, so
         // `file` must stay open and its size unchanged for the mapping's
-        // lifetime — guaranteed by VantaFile, which owns the `File` and drops/
+        // lifetime — guaranteed by File, which owns the `File` and drops/
         // replaces the mapping together with it (remap_mut, replace_backing_file).
         unsafe { MmapOptions::new().map(file) }
     }
@@ -242,7 +242,7 @@ pub(crate) fn map_readwrite(file: &File) -> std::io::Result<MmapMut> {
     {
         // SAFETY: same invariants as `map_readonly`; additionally the caller
         // must not keep another writable mapping of the same region alive —
-        // archive.rs drops `tmp_mmap` before extending the file, and VantaFile
+        // archive.rs drops `tmp_mmap` before extending the file, and File
         // never holds two mappings of the same file.
         unsafe { MmapOptions::new().map_mut(file) }
     }
@@ -468,19 +468,18 @@ impl AlignedBytes {
         // Callers pass `len >= STORAGE_ALIGNMENT`, so size is non-zero. Even so,
         // report, rather than panic on, a layout-overflow (H01-CODE-001): this
         // is a long-lived store path where the error must propagate.
-        let layout = std::alloc::Layout::from_size_align(len, 4).map_err(|_| {
-            VantaError::ValidationError {
+        let layout =
+            std::alloc::Layout::from_size_align(len, 4).map_err(|_| Error::ValidationError {
                 field: "alloc".into(),
                 reason: format!("in-memory vstore buffer size {len} overflows layout with align 4"),
-            }
-        })?;
+            })?;
         // SAFETY: `layout` is valid (size >= 4, powers-of-two alignment).
         // `alloc_zeroed` returns a pointer to `len` zero-initialized bytes, or
         // null on OOM (checked below); ownership transfers to `AlignedBytes`,
         // whose Drop frees it with the identical layout.
         let ptr = unsafe { std::alloc::alloc_zeroed(layout) };
         let ptr = std::ptr::NonNull::new(ptr).ok_or_else(|| {
-            VantaError::ResourceLimit(format!("in-memory vstore allocation of {len} bytes failed"))
+            Error::ResourceLimit(format!("in-memory vstore allocation of {len} bytes failed"))
         })?;
         Ok(Self { ptr, len })
     }

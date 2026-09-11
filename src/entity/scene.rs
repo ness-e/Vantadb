@@ -22,7 +22,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::backend::{BackendPartition, BackendWriteOp};
-use crate::error::{ChainedError, Result, VantaError};
+use crate::error::{ChainedError, Error, Result};
 use crate::storage::StorageEngine;
 
 use super::{validate_key, validate_scope};
@@ -94,7 +94,7 @@ impl<'a> SceneNodeStore<'a> {
             heat,
         };
         let bytes = serde_json::to_vec(&node)
-            .map_err(|e| VantaError::serialization(ChainedError::with_source("scene", e)))?;
+            .map_err(|e| Error::serialization(ChainedError::with_source("scene", e)))?;
         self.engine.put_to_partition(
             BackendPartition::InternalMetadata,
             &scene_key(namespace, session_id, scene_name),
@@ -117,7 +117,7 @@ impl<'a> SceneNodeStore<'a> {
         )? {
             Some(bytes) => serde_json::from_slice(&bytes)
                 .map(Some)
-                .map_err(|e| VantaError::serialization(ChainedError::with_source("scene", e))),
+                .map_err(|e| Error::serialization(ChainedError::with_source("scene", e))),
             None => Ok(None),
         }
     }
@@ -162,7 +162,7 @@ impl<'a> SceneNodeStore<'a> {
         let mut nodes: Vec<SceneNode> = Vec::with_capacity(rows.len());
         for (_, bytes) in rows {
             let node: SceneNode = serde_json::from_slice(&bytes)
-                .map_err(|e| VantaError::serialization(ChainedError::with_source("scene", e)))?;
+                .map_err(|e| Error::serialization(ChainedError::with_source("scene", e)))?;
             nodes.push(node);
         }
         nodes.sort_by(|a, b| a.scene_name.cmp(&b.scene_name));

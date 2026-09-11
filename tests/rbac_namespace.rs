@@ -30,9 +30,9 @@ use std::time::Duration;
 
 use vantadb::circuit_breaker::CircuitBreaker;
 use vantadb::cli_server::{app, ServerState};
-use vantadb::config::{RbacConfig, VantaConfig};
+use vantadb::config::{Config, RbacConfig};
 use vantadb::connection_pool::ConnectionPool;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::sdk::Embedded;
 use vantadb::storage::{BackendKind, StorageEngine};
 
 const KEY: &str = "sk-rbac-ns-test-aaaa";
@@ -40,7 +40,7 @@ const KEY: &str = "sk-rbac-ns-test-aaaa";
 // ── helpers ─────────────────────────────────────────────────────────────
 
 fn in_memory_storage() -> Arc<StorageEngine> {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     };
@@ -51,7 +51,7 @@ fn server_state(
     storage: Arc<StorageEngine>,
     token_role_map: HashMap<String, String>,
 ) -> Arc<ServerState> {
-    let db = VantaEmbedded::from_engine(storage.clone());
+    let db = Embedded::from_engine(storage.clone());
     Arc::new(ServerState {
         storage,
         db,

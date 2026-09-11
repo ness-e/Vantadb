@@ -236,13 +236,13 @@ mod tests {
     #[test]
     fn test_accumulator_integration() {
         // Build a tiny graph (chain 0→1→2→3), traverse and accumulate contributions.
-        use crate::config::VantaConfig;
+        use crate::config::Config;
         use crate::node::UnifiedNode;
         use crate::storage::{BackendKind, StorageEngine};
         use crate::Edge;
 
         let dir = tempfile::tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };

@@ -12,7 +12,7 @@ use parking_lot::RwLock;
 const DEFAULT_INITIAL_CAPACITY: usize = 1024;
 
 use crate::edge_index::EdgeIndex;
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::node::{FieldValue, FilterBitset, LabelIntern, UnifiedNode, VectorRepresentations};
 use crate::scalar_index::ScalarIndex;
 use crate::wal::WalRecord;
@@ -237,7 +237,7 @@ impl InMemoryEngine {
         // retract from an append-only WAL).
         let mut nodes = self.nodes.write();
         if nodes.contains_key(&id) {
-            return Err(VantaError::DuplicateNode(id));
+            return Err(Error::DuplicateNode(id));
         }
 
         // WAL first (durability before visibility), now that the op is valid.
@@ -276,7 +276,7 @@ impl InMemoryEngine {
         let mut nodes = self.nodes.write();
         let old_node = nodes.get(&id).cloned();
         if old_node.is_none() {
-            return Err(VantaError::NodeNotFound(id));
+            return Err(Error::NodeNotFound(id));
         }
 
         self.append_to_wal(&WalRecord::Update {
@@ -311,7 +311,7 @@ impl InMemoryEngine {
         // uniform: nothing enters the WAL unvalidated.)
         let mut nodes = self.nodes.write();
         if !nodes.contains_key(&id) {
-            return Err(VantaError::NodeNotFound(id));
+            return Err(Error::NodeNotFound(id));
         }
 
         self.append_to_wal(&WalRecord::Delete { id })?;
@@ -375,7 +375,7 @@ impl InMemoryEngine {
         crate::metrics::record_graph_op("traverse");
         let nodes = self.nodes.read();
         if !nodes.contains_key(&start) {
-            return Err(VantaError::NodeNotFound(start));
+            return Err(Error::NodeNotFound(start));
         }
 
         let mut visited = HashMap::new();
@@ -572,7 +572,7 @@ mod tests {
         let engine = InMemoryEngine::new();
         engine.insert(create_node(1)).unwrap();
         let err = engine.insert(create_node(1)).unwrap_err();
-        assert!(matches!(err, VantaError::DuplicateNode(1)));
+        assert!(matches!(err, Error::DuplicateNode(1)));
     }
 
     #[test]
@@ -620,7 +620,7 @@ mod tests {
     fn test_update_nonexistent_errors() {
         let engine = InMemoryEngine::new();
         let err = engine.update(999, create_node(999)).unwrap_err();
-        assert!(matches!(err, VantaError::NodeNotFound(999)));
+        assert!(matches!(err, Error::NodeNotFound(999)));
     }
 
     // ── Delete ──
@@ -637,7 +637,7 @@ mod tests {
     fn test_delete_nonexistent_errors() {
         let engine = InMemoryEngine::new();
         let err = engine.delete(999).unwrap_err();
-        assert!(matches!(err, VantaError::NodeNotFound(999)));
+        assert!(matches!(err, Error::NodeNotFound(999)));
     }
 
     // ── scan_bitset ──
@@ -814,7 +814,7 @@ mod tests {
     fn test_traverse_nonexistent_start_errors() {
         let engine = InMemoryEngine::new();
         let err = engine.traverse(999, "x", 1, 3).unwrap_err();
-        assert!(matches!(err, VantaError::NodeNotFound(999)));
+        assert!(matches!(err, Error::NodeNotFound(999)));
     }
 
     #[test]
@@ -1012,7 +1012,7 @@ mod tests {
             let impostor = create_vector_node(1, vec![9.9, 9.9]);
             assert!(matches!(
                 engine.insert(impostor),
-                Err(VantaError::DuplicateNode(1))
+                Err(Error::DuplicateNode(1))
             ));
             engine.flush_wal().unwrap();
         }
@@ -1034,7 +1034,7 @@ mod tests {
             // re-crearlo (aplica Update como upsert incondicional).
             assert!(matches!(
                 engine.update(3, create_node(3)),
-                Err(VantaError::NodeNotFound(3))
+                Err(Error::NodeNotFound(3))
             ));
             engine.flush_wal().unwrap();
         }
@@ -1072,7 +1072,7 @@ mod tests {
             let engine = InMemoryEngine::with_wal(&path).unwrap();
             engine.insert(create_node(5)).unwrap();
             engine.delete(5).unwrap();
-            assert!(matches!(engine.delete(5), Err(VantaError::NodeNotFound(5))));
+            assert!(matches!(engine.delete(5), Err(Error::NodeNotFound(5))));
             engine.flush_wal().unwrap();
         }
         let reopened = InMemoryEngine::with_wal(&path).unwrap();

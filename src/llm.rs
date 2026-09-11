@@ -16,7 +16,7 @@
 //!
 //! Select the provider at runtime via `VANTA_EMBEDDING_PROVIDER` (ollama|openai|local).
 
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 #[cfg(feature = "remote-inference")]
 use reqwest::blocking::Client;
 use std::env;
@@ -422,9 +422,7 @@ impl LocalOnnxProvider {
 impl EmbeddingProvider for LocalOnnxProvider {
     fn embed(&self, text: &str) -> Result<Vec<f32>> {
         if text.is_empty() {
-            return Err(VantaError::InvalidInput(
-                "text must not be empty".to_string(),
-            ));
+            return Err(Error::InvalidInput("text must not be empty".to_string()));
         }
         // Try real ONNX first
         if let Some(v) = self.run_onnx(text) {
@@ -509,20 +507,20 @@ impl EmbeddingProvider for OllamaProvider {
             input: text,
         };
         let response = self.client.post(&url).json(&req_body).send().map_err(|e| {
-            VantaError::generic_error(format!(
+            Error::generic_error(format!(
                 "Network error communicating with Inference Bridge: {}",
                 e
             ))
         })?;
         if !response.status().is_success() {
             let status = response.status();
-            return Err(VantaError::generic_error(format!(
+            return Err(Error::generic_error(format!(
                 "Inference Bridge returned error status: {}",
                 status
             )));
         }
         let result: OllamaEmbeddingResponse = response.json().map_err(|e| {
-            VantaError::generic_error(format!(
+            Error::generic_error(format!(
                 "Invalid response format from Inference Bridge: {}",
                 e
             ))
@@ -531,7 +529,7 @@ impl EmbeddingProvider for OllamaProvider {
             .embeddings
             .into_iter()
             .next()
-            .ok_or_else(|| VantaError::generic_error("Ollama returned empty embeddings"))
+            .ok_or_else(|| Error::generic_error("Ollama returned empty embeddings"))
     }
 }
 
@@ -607,20 +605,20 @@ impl EmbeddingProvider for OpenAIProvider {
             .json(&req_body)
             .send()
             .map_err(|e| {
-                VantaError::generic_error(format!("Network error communicating with OpenAI: {}", e))
+                Error::generic_error(format!("Network error communicating with OpenAI: {}", e))
             })?;
 
         if !response.status().is_success() {
             let status = response.status();
             let body = response.text().unwrap_or_default();
-            return Err(VantaError::generic_error(format!(
+            return Err(Error::generic_error(format!(
                 "OpenAI returned error status {}: {}",
                 status, body
             )));
         }
 
         let result: OpenAiResponse = response.json().map_err(|e| {
-            VantaError::generic_error(format!("Invalid response format from OpenAI: {}", e))
+            Error::generic_error(format!("Invalid response format from OpenAI: {}", e))
         })?;
 
         result
@@ -628,7 +626,7 @@ impl EmbeddingProvider for OpenAIProvider {
             .into_iter()
             .next()
             .map(|d| d.embedding)
-            .ok_or_else(|| VantaError::generic_error("OpenAI returned empty embeddings"))
+            .ok_or_else(|| Error::generic_error("OpenAI returned empty embeddings"))
     }
 }
 
@@ -705,7 +703,7 @@ impl LlmClient {
         let full_context = context_blocks.join("\n\n");
 
         if full_context.trim().is_empty() {
-            return Err(VantaError::InvalidInput(
+            return Err(Error::InvalidInput(
                 "No summarizable content found in node group".to_string(),
             ));
         }
@@ -736,7 +734,7 @@ impl LlmClient {
         };
 
         let response = self.client.post(&url).json(&req_body).send().map_err(|e| {
-            VantaError::generic_error(format!(
+            Error::generic_error(format!(
                 "Network error during Semantic Summarization: {}",
                 e
             ))
@@ -744,14 +742,14 @@ impl LlmClient {
 
         if !response.status().is_success() {
             let status = response.status();
-            return Err(VantaError::generic_error(format!(
+            return Err(Error::generic_error(format!(
                 "Inference Bridge returned error status during summarization: {}",
                 status
             )));
         }
 
         let result: OllamaGenerateResponse = response.json().map_err(|e| {
-            VantaError::generic_error(format!(
+            Error::generic_error(format!(
                 "Invalid response format from Inference Bridge (summarize): {}",
                 e
             ))

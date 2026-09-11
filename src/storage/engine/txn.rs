@@ -57,7 +57,7 @@ impl StorageEngine {
                     BufferedWrite::Delete(id) => *id == node_id,
                 };
                 if conflicted {
-                    return Err(crate::error::VantaError::InvalidInput(format!(
+                    return Err(crate::error::Error::InvalidInput(format!(
                         "Write-write conflict: node {} is being modified by concurrent txn {}",
                         node_id, other_id
                     )));
@@ -71,7 +71,7 @@ impl StorageEngine {
     #[tracing::instrument(skip(self, node), level = "debug", err)]
     pub fn insert_in_txn(&self, node: &UnifiedNode, txn_id: u64) -> Result<()> {
         if !self.active_txns.lock().contains(&txn_id) {
-            return Err(crate::error::VantaError::InvalidInput(format!(
+            return Err(crate::error::Error::InvalidInput(format!(
                 "Transaction {} is not active",
                 txn_id
             )));
@@ -96,7 +96,7 @@ impl StorageEngine {
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn delete_in_txn(&self, id: u128, reason: &str, txn_id: u64) -> Result<()> {
         if !self.active_txns.lock().contains(&txn_id) {
-            return Err(crate::error::VantaError::InvalidInput(format!(
+            return Err(crate::error::Error::InvalidInput(format!(
                 "Transaction {} is not active",
                 txn_id
             )));
@@ -257,8 +257,8 @@ impl StorageEngine {
             );
             if let Ok(mut meta) = meta_result {
                 meta.deleted_by_txn = Some(txn_id);
-                let val = postcard::to_allocvec(&meta)
-                    .map_err(crate::error::VantaError::serialization)?;
+                let val =
+                    postcard::to_allocvec(&meta).map_err(crate::error::Error::serialization)?;
                 self.backend
                     .put(crate::backend::BackendPartition::Default, &key, &val)?;
             }
@@ -276,7 +276,7 @@ impl StorageEngine {
             created_by_txn: txn_id,
             deleted_by_txn: None,
         })
-        .map_err(crate::error::VantaError::serialization)?;
+        .map_err(crate::error::Error::serialization)?;
 
         let (local_off, storage_offset) = {
             let mut vstore = self.vstore0()?;
@@ -370,7 +370,7 @@ impl StorageEngine {
             .vector_store
             .get(seg_id as usize)
             .ok_or_else(|| {
-                crate::error::VantaError::generic_error(format!(
+                crate::error::Error::generic_error(format!(
                     "corrupt storage: segment {seg_id} out of range for node {id}"
                 ))
             })?

@@ -2,9 +2,9 @@
 //! to/from internal node representations and JSONL export lines.
 
 #[cfg(test)]
-use super::builder::VantaEmbedded;
+use super::builder::Embedded;
 use super::types::*;
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::node::{FieldValue, SparseVector, UnifiedNode, VectorRepresentations};
 use twox_hash::XxHash3_128;
 use web_time::{SystemTime, UNIX_EPOCH};
@@ -88,13 +88,13 @@ pub(crate) fn iql_table_name_for_namespace(namespace: &str) -> String {
 
 pub(crate) fn validate_namespace(namespace: &str) -> Result<()> {
     if namespace.is_empty() {
-        return Err(VantaError::ValidationError {
+        return Err(Error::ValidationError {
             field: "namespace".into(),
             reason: "namespace must not be empty".into(),
         });
     }
     if namespace.len() > 128 {
-        return Err(VantaError::ValidationError {
+        return Err(Error::ValidationError {
             field: "namespace".into(),
             reason: "namespace must be at most 128 bytes".into(),
         });
@@ -103,7 +103,7 @@ pub(crate) fn validate_namespace(namespace: &str) -> Result<()> {
         .bytes()
         .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'/' | b'-'))
     {
-        return Err(VantaError::ValidationError {
+        return Err(Error::ValidationError {
             field: "namespace".into(),
             reason: "namespace may contain only A-Z, a-z, 0-9, '.', '_', '/', '-'".into(),
         });
@@ -113,19 +113,19 @@ pub(crate) fn validate_namespace(namespace: &str) -> Result<()> {
 
 pub(crate) fn validate_key(key: &str) -> Result<()> {
     if key.is_empty() {
-        return Err(VantaError::ValidationError {
+        return Err(Error::ValidationError {
             field: "key".into(),
             reason: "key must not be empty".into(),
         });
     }
     if key.len() > 512 {
-        return Err(VantaError::ValidationError {
+        return Err(Error::ValidationError {
             field: "key".into(),
             reason: "key must be at most 512 bytes".into(),
         });
     }
     if key.as_bytes().contains(&0) {
-        return Err(VantaError::ValidationError {
+        return Err(Error::ValidationError {
             field: "key".into(),
             reason: "key must not contain NUL bytes".into(),
         });
@@ -133,15 +133,15 @@ pub(crate) fn validate_key(key: &str) -> Result<()> {
     Ok(())
 }
 
-pub(crate) fn validate_metadata(metadata: &VantaMemoryMetadata) -> Result<()> {
+pub(crate) fn validate_metadata(metadata: &MemoryMetadata) -> Result<()> {
     if let Some(key) = metadata.keys().find(|key| key.starts_with(RESERVED_PREFIX)) {
-        return Err(VantaError::ValidationError {
+        return Err(Error::ValidationError {
             field: "metadata".into(),
             reason: format!("metadata key '{}' is reserved for VantaDB internals", key),
         });
     }
     if let Some(key) = metadata.keys().find(|key| key.as_bytes().contains(&0)) {
-        return Err(VantaError::ValidationError {
+        return Err(Error::ValidationError {
             field: "metadata".into(),
             reason: format!("metadata key '{}' must not contain NUL bytes", key),
         });
@@ -164,41 +164,41 @@ pub(crate) fn namespace_index_prefix(namespace: &str) -> Vec<u8> {
     prefix
 }
 
-/// Whether a `VantaValue` can be encoded as a scalar payload-index key
+/// Whether a `Value` can be encoded as a scalar payload-index key
 /// (`encoded_scalar_value`). List variants cannot — the derived payload index
 /// stores flattened scalar entries, so a whole-list prefix scan is impossible.
 /// `list()`/`records_for_namespace` fall back to a namespace scan and apply
 /// the filter by equality (`matches_memory_filters`) for non-scalar filter
 /// values instead of failing (ERR-026: a list/null filter must narrow, not
 /// error out).
-pub(crate) fn is_scalar_indexable(value: &VantaValue) -> bool {
+pub(crate) fn is_scalar_indexable(value: &Value) -> bool {
     !matches!(
         value,
-        VantaValue::ListString(_)
-            | VantaValue::ListInt(_)
-            | VantaValue::ListFloat(_)
-            | VantaValue::ListBool(_)
-            | VantaValue::ListDateTime(_)
+        Value::ListString(_)
+            | Value::ListInt(_)
+            | Value::ListFloat(_)
+            | Value::ListBool(_)
+            | Value::ListDateTime(_)
     )
 }
 
-pub(crate) fn encoded_scalar_value(value: &VantaValue) -> Result<Vec<u8>> {
+pub(crate) fn encoded_scalar_value(value: &Value) -> Result<Vec<u8>> {
     match value {
-        VantaValue::String(value) => {
+        Value::String(value) => {
             let mut encoded = b"s:".to_vec();
             encoded.extend_from_slice(value.as_bytes());
             Ok(encoded)
         }
-        VantaValue::Int(value) => Ok(format!("i:{value}").into_bytes()),
-        VantaValue::Float(value) => Ok(format!("f:{:016x}", value.to_bits()).into_bytes()),
-        VantaValue::Bool(value) => {
+        Value::Int(value) => Ok(format!("i:{value}").into_bytes()),
+        Value::Float(value) => Ok(format!("f:{:016x}", value.to_bits()).into_bytes()),
+        Value::Bool(value) => {
             if *value {
                 Ok(b"b:1".to_vec())
             } else {
                 Ok(b"b:0".to_vec())
             }
         }
-        VantaValue::DateTime(dt) => {
+        Value::DateTime(dt) => {
             let mut encoded = b"d:".to_vec();
             encoded.extend_from_slice(
                 dt.to_rfc3339_opts(chrono::SecondsFormat::Micros, true)
@@ -206,23 +206,19 @@ pub(crate) fn encoded_scalar_value(value: &VantaValue) -> Result<Vec<u8>> {
             );
             Ok(encoded)
         }
-        VantaValue::ListString(_)
-        | VantaValue::ListInt(_)
-        | VantaValue::ListFloat(_)
-        | VantaValue::ListBool(_)
-        | VantaValue::ListDateTime(_) => Err(VantaError::ValidationError {
+        Value::ListString(_)
+        | Value::ListInt(_)
+        | Value::ListFloat(_)
+        | Value::ListBool(_)
+        | Value::ListDateTime(_) => Err(Error::ValidationError {
             field: "value".into(),
             reason: "Cannot encode list value as scalar index key".into(),
         }),
-        VantaValue::Null => Ok(b"n:".to_vec()),
+        Value::Null => Ok(b"n:".to_vec()),
     }
 }
 
-pub(crate) fn payload_index_prefix(
-    namespace: &str,
-    field: &str,
-    value: &VantaValue,
-) -> Result<Vec<u8>> {
+pub(crate) fn payload_index_prefix(namespace: &str, field: &str, value: &Value) -> Result<Vec<u8>> {
     let encoded = encoded_scalar_value(value)?;
     let mut prefix = Vec::with_capacity(namespace.len() + field.len() + encoded.len() + 3);
     prefix.extend_from_slice(namespace.as_bytes());
@@ -237,7 +233,7 @@ pub(crate) fn payload_index_prefix(
 pub(crate) fn payload_index_key(
     namespace: &str,
     field: &str,
-    value: &VantaValue,
+    value: &Value,
     key: &str,
 ) -> Result<Vec<u8>> {
     let mut index_key = payload_index_prefix(namespace, field, value)?;
@@ -258,16 +254,16 @@ pub(crate) fn decode_node_id(bytes: &[u8]) -> Option<u128> {
     Some(u128::from_le_bytes(id))
 }
 
-pub(crate) fn get_string_field(fields: &VantaFields, key: &str) -> Option<String> {
+pub(crate) fn get_string_field(fields: &Fields, key: &str) -> Option<String> {
     match fields.get(key) {
-        Some(VantaValue::String(value)) => Some(value.clone()),
+        Some(Value::String(value)) => Some(value.clone()),
         _ => None,
     }
 }
 
-pub(crate) fn get_u64_field(fields: &VantaFields, key: &str) -> Option<u64> {
+pub(crate) fn get_u64_field(fields: &Fields, key: &str) -> Option<u64> {
     match fields.get(key) {
-        Some(VantaValue::Int(value)) if *value >= 0 => Some(*value as u64),
+        Some(Value::Int(value)) if *value >= 0 => Some(*value as u64),
         _ => None,
     }
 }
@@ -306,28 +302,23 @@ fn sparse_vector_from_field(flat: &[f64]) -> Option<SparseVector> {
     Some(SparseVector(map))
 }
 
-pub fn memory_record_from_node(node: &UnifiedNode) -> Option<VantaMemoryRecord> {
+pub fn memory_record_from_node(node: &UnifiedNode) -> Option<MemoryRecord> {
     memory_record_from_node_inner(node, true)
 }
 
 /// Like [`memory_record_from_node`] but **without** lazy TTL eviction: records
 /// whose deadline has passed are still returned so callers can observe them
 /// (e.g. per-namespace TTL statistics).
-pub(crate) fn memory_record_from_node_include_expired(
-    node: &UnifiedNode,
-) -> Option<VantaMemoryRecord> {
+pub(crate) fn memory_record_from_node_include_expired(node: &UnifiedNode) -> Option<MemoryRecord> {
     memory_record_from_node_inner(node, false)
 }
 
-fn memory_record_from_node_inner(
-    node: &UnifiedNode,
-    apply_lazy_ttl: bool,
-) -> Option<VantaMemoryRecord> {
+fn memory_record_from_node_inner(node: &UnifiedNode, apply_lazy_ttl: bool) -> Option<MemoryRecord> {
     if !node.is_alive() {
         return None;
     }
 
-    let mut fields: VantaFields = node
+    let mut fields: Fields = node
         .relational
         .iter()
         .map(|(key, value)| (key.clone(), value.clone().into()))
@@ -416,7 +407,7 @@ fn memory_record_from_node_inner(
         _ => None,
     };
 
-    Some(VantaMemoryRecord {
+    Some(MemoryRecord {
         namespace,
         key,
         payload,
@@ -433,9 +424,7 @@ fn memory_record_from_node_inner(
     })
 }
 
-pub(crate) fn memory_record_to_node_owned(
-    mut record: VantaMemoryRecord,
-) -> (UnifiedNode, VantaMemoryRecord) {
+pub(crate) fn memory_record_to_node_owned(mut record: MemoryRecord) -> (UnifiedNode, MemoryRecord) {
     let namespace = std::mem::take(&mut record.namespace);
     let key = std::mem::take(&mut record.key);
     let payload = std::mem::take(&mut record.payload);
@@ -499,9 +488,9 @@ pub(crate) fn memory_record_to_node_owned(
     (node, record)
 }
 
-/// Convert a `VantaMemoryRecord` into a JSONL export line with schema version.
-pub fn export_line_from_record(record: VantaMemoryRecord) -> VantaMemoryExportLine {
-    VantaMemoryExportLine {
+/// Convert a `MemoryRecord` into a JSONL export line with schema version.
+pub fn export_line_from_record(record: MemoryRecord) -> MemoryExportLine {
+    MemoryExportLine {
         schema_version: EXPORT_SCHEMA_VERSION,
         namespace: record.namespace,
         key: record.key,
@@ -518,15 +507,15 @@ pub fn export_line_from_record(record: VantaMemoryRecord) -> VantaMemoryExportLi
     }
 }
 
-/// Rebuild a `VantaMemoryRecord` from a JSONL export line, recomputing the
+/// Rebuild a `MemoryRecord` from a JSONL export line, recomputing the
 /// deterministic node id (`memory_node_id(namespace, key)`). The inverse of
 /// [`export_line_from_record`] — used by import paths that receive JSONL
 /// content as a string (e.g. the MCP `import` tool) instead of a file.
 ///
 /// Fails if `schema_version` is not the current export schema.
-pub fn record_from_export_line(line: VantaMemoryExportLine) -> Result<VantaMemoryRecord> {
+pub fn record_from_export_line(line: MemoryExportLine) -> Result<MemoryRecord> {
     if line.schema_version != EXPORT_SCHEMA_VERSION {
-        return Err(VantaError::ValidationError {
+        return Err(Error::ValidationError {
             field: "schema_version".into(),
             reason: format!(
                 "unsupported memory export schema_version {}",
@@ -536,7 +525,7 @@ pub fn record_from_export_line(line: VantaMemoryExportLine) -> Result<VantaMemor
     }
 
     let node_id = memory_node_id(&line.namespace, &line.key);
-    Ok(VantaMemoryRecord {
+    Ok(MemoryRecord {
         namespace: line.namespace,
         key: line.key,
         payload: line.payload,
@@ -553,28 +542,25 @@ pub fn record_from_export_line(line: VantaMemoryExportLine) -> Result<VantaMemor
     })
 }
 
-pub(crate) fn matches_memory_filters(
-    record: &VantaMemoryRecord,
-    filters: &VantaMemoryMetadata,
-) -> bool {
+pub(crate) fn matches_memory_filters(record: &MemoryRecord, filters: &MemoryMetadata) -> bool {
     filters
         .iter()
         .all(|(key, expected)| record.metadata.get(key) == Some(expected))
 }
 
 pub(crate) fn matches_advanced_filters(
-    record: &VantaMemoryRecord,
-    filter_ops: &crate::sdk::types::VantaMemoryFilter,
+    record: &MemoryRecord,
+    filter_ops: &crate::sdk::types::MemoryFilter,
 ) -> bool {
     filter_ops.iter().all(|op_item| {
         if let Some(actual) = record.metadata.get(&op_item.field) {
             match op_item.op {
-                crate::sdk::types::VantaFilterOp::Eq => actual == &op_item.value,
-                crate::sdk::types::VantaFilterOp::Neq => actual != &op_item.value,
-                crate::sdk::types::VantaFilterOp::Gt => actual > &op_item.value,
-                crate::sdk::types::VantaFilterOp::Gte => actual >= &op_item.value,
-                crate::sdk::types::VantaFilterOp::Lt => actual < &op_item.value,
-                crate::sdk::types::VantaFilterOp::Lte => actual <= &op_item.value,
+                crate::sdk::types::FilterOp::Eq => actual == &op_item.value,
+                crate::sdk::types::FilterOp::Neq => actual != &op_item.value,
+                crate::sdk::types::FilterOp::Gt => actual > &op_item.value,
+                crate::sdk::types::FilterOp::Gte => actual >= &op_item.value,
+                crate::sdk::types::FilterOp::Lt => actual < &op_item.value,
+                crate::sdk::types::FilterOp::Lte => actual <= &op_item.value,
             }
         } else {
             false
@@ -590,49 +576,49 @@ mod tests {
     #[test]
     fn test_parse_term_stats_key_valid() {
         let key = b"\xffvanta_text_v3\0term\0myns\0mytoken";
-        let result = VantaEmbedded::parse_term_stats_key(key);
+        let result = Embedded::parse_term_stats_key(key);
         assert_eq!(result, Some(("myns".into(), "mytoken".into())));
     }
 
     #[test]
     fn test_parse_term_stats_key_invalid_utf8() {
         let key = b"\xffvanta_text_v3\0term\0myns\0\xff\xfe";
-        let result = VantaEmbedded::parse_term_stats_key(key);
+        let result = Embedded::parse_term_stats_key(key);
         assert_eq!(result, None);
     }
 
     #[test]
     fn test_parse_term_stats_key_invalid_namespace_utf8() {
         let key = b"\xffvanta_text_v3\0term\0\xff\xfe\0token";
-        let result = VantaEmbedded::parse_term_stats_key(key);
+        let result = Embedded::parse_term_stats_key(key);
         assert_eq!(result, None);
     }
 
     #[test]
     fn test_parse_term_stats_key_truncated() {
         let key = b"\xffvanta_text_v3\0term";
-        let result = VantaEmbedded::parse_term_stats_key(key);
+        let result = Embedded::parse_term_stats_key(key);
         assert_eq!(result, None);
     }
 
     #[test]
     fn test_parse_namespace_stats_key_valid() {
         let key = b"\xffvanta_text_v3\0ns\0myns";
-        let result = VantaEmbedded::parse_namespace_stats_key(key);
+        let result = Embedded::parse_namespace_stats_key(key);
         assert_eq!(result, Some("myns".into()));
     }
 
     #[test]
     fn test_parse_namespace_stats_key_invalid_utf8() {
         let key = b"\xffvanta_text_v3\0ns\0\xff\xfe";
-        let result = VantaEmbedded::parse_namespace_stats_key(key);
+        let result = Embedded::parse_namespace_stats_key(key);
         assert_eq!(result, None);
     }
 
     #[test]
     fn test_parse_namespace_stats_key_truncated() {
         let key = b"\xffvanta_text_v3\0ns";
-        let result = VantaEmbedded::parse_namespace_stats_key(key);
+        let result = Embedded::parse_namespace_stats_key(key);
         assert_eq!(result, None);
     }
 
@@ -725,26 +711,26 @@ mod tests {
 
     #[test]
     fn test_validate_metadata_reserved_prefix() {
-        let mut meta = VantaMemoryMetadata::new();
-        meta.insert("__vanta_foo".into(), VantaValue::String("x".into()));
+        let mut meta = MemoryMetadata::new();
+        meta.insert("__vanta_foo".into(), Value::String("x".into()));
         let err = validate_metadata(&meta).unwrap_err();
         assert!(err.to_string().contains("reserved"));
     }
 
     #[test]
     fn test_validate_metadata_nul_in_key() {
-        let mut meta = VantaMemoryMetadata::new();
-        meta.insert("bad\0key".into(), VantaValue::Int(1));
+        let mut meta = MemoryMetadata::new();
+        meta.insert("bad\0key".into(), Value::Int(1));
         let err = validate_metadata(&meta).unwrap_err();
         assert!(err.to_string().contains("NUL"));
     }
 
     #[test]
     fn test_validate_metadata_valid() {
-        let mut meta = VantaMemoryMetadata::new();
-        meta.insert("color".into(), VantaValue::String("blue".into()));
+        let mut meta = MemoryMetadata::new();
+        meta.insert("color".into(), Value::String("blue".into()));
         assert!(validate_metadata(&meta).is_ok());
-        assert!(validate_metadata(&VantaMemoryMetadata::new()).is_ok());
+        assert!(validate_metadata(&MemoryMetadata::new()).is_ok());
     }
 
     // ΓöÇΓöÇΓöÇ namespace_index_key / namespace_index_prefix ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
@@ -765,33 +751,27 @@ mod tests {
 
     #[test]
     fn test_encoded_scalar_value_string() {
-        let encoded = encoded_scalar_value(&VantaValue::String("hello".into())).unwrap();
+        let encoded = encoded_scalar_value(&Value::String("hello".into())).unwrap();
         assert_eq!(encoded, b"s:hello");
     }
 
     #[test]
     fn test_encoded_scalar_value_int() {
-        let encoded = encoded_scalar_value(&VantaValue::Int(42)).unwrap();
+        let encoded = encoded_scalar_value(&Value::Int(42)).unwrap();
         assert_eq!(encoded, b"i:42");
     }
 
     #[test]
     fn test_encoded_scalar_value_float() {
-        let encoded = encoded_scalar_value(&VantaValue::Float(1.5)).unwrap();
+        let encoded = encoded_scalar_value(&Value::Float(1.5)).unwrap();
         assert!(encoded.starts_with(b"f:"));
         assert_eq!(encoded.len(), 18); // "f:" + 16 hex chars
     }
 
     #[test]
     fn test_encoded_scalar_value_bool() {
-        assert_eq!(
-            encoded_scalar_value(&VantaValue::Bool(true)).unwrap(),
-            b"b:1"
-        );
-        assert_eq!(
-            encoded_scalar_value(&VantaValue::Bool(false)).unwrap(),
-            b"b:0"
-        );
+        assert_eq!(encoded_scalar_value(&Value::Bool(true)).unwrap(), b"b:1");
+        assert_eq!(encoded_scalar_value(&Value::Bool(false)).unwrap(), b"b:0");
     }
 
     #[test]
@@ -799,50 +779,48 @@ mod tests {
         let dt = chrono::DateTime::parse_from_rfc3339("2025-01-15T10:30:00Z")
             .unwrap()
             .with_timezone(&chrono::Utc);
-        let encoded = encoded_scalar_value(&VantaValue::DateTime(dt)).unwrap();
+        let encoded = encoded_scalar_value(&Value::DateTime(dt)).unwrap();
         assert!(encoded.starts_with(b"d:"));
         assert!(String::from_utf8_lossy(&encoded).contains("2025-01-15"));
     }
 
     #[test]
     fn test_encoded_scalar_value_null() {
-        assert_eq!(encoded_scalar_value(&VantaValue::Null).unwrap(), b"n:");
+        assert_eq!(encoded_scalar_value(&Value::Null).unwrap(), b"n:");
     }
 
     #[test]
     fn test_encoded_scalar_value_list_returns_error() {
-        assert!(encoded_scalar_value(&VantaValue::ListString(vec!["a".into()])).is_err());
-        assert!(encoded_scalar_value(&VantaValue::ListInt(vec![1])).is_err());
-        assert!(encoded_scalar_value(&VantaValue::ListFloat(vec![1.0])).is_err());
-        assert!(encoded_scalar_value(&VantaValue::ListBool(vec![true])).is_err());
-        assert!(encoded_scalar_value(&VantaValue::ListDateTime(vec![])).is_err());
+        assert!(encoded_scalar_value(&Value::ListString(vec!["a".into()])).is_err());
+        assert!(encoded_scalar_value(&Value::ListInt(vec![1])).is_err());
+        assert!(encoded_scalar_value(&Value::ListFloat(vec![1.0])).is_err());
+        assert!(encoded_scalar_value(&Value::ListBool(vec![true])).is_err());
+        assert!(encoded_scalar_value(&Value::ListDateTime(vec![])).is_err());
     }
 
     // ΓöÇΓöÇΓöÇ payload_index_prefix / payload_index_key ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
     #[test]
     fn test_payload_index_prefix_string() {
-        let prefix =
-            payload_index_prefix("ns", "color", &VantaValue::String("red".into())).unwrap();
+        let prefix = payload_index_prefix("ns", "color", &Value::String("red".into())).unwrap();
         assert_eq!(prefix, b"ns\0color\0s:red\0");
     }
 
     #[test]
     fn test_payload_index_prefix_int() {
-        let prefix = payload_index_prefix("ns", "age", &VantaValue::Int(30)).unwrap();
+        let prefix = payload_index_prefix("ns", "age", &Value::Int(30)).unwrap();
         assert_eq!(prefix, b"ns\0age\0i:30\0");
     }
 
     #[test]
     fn test_payload_index_prefix_list_error() {
-        let result = payload_index_prefix("ns", "f", &VantaValue::ListInt(vec![1]));
+        let result = payload_index_prefix("ns", "f", &Value::ListInt(vec![1]));
         assert!(result.is_err());
     }
 
     #[test]
     fn test_payload_index_key() {
-        let key =
-            payload_index_key("ns", "status", &VantaValue::String("ok".into()), "mykey").unwrap();
+        let key = payload_index_key("ns", "status", &Value::String("ok".into()), "mykey").unwrap();
         assert_eq!(key, b"ns\0status\0s:ok\0mykey");
     }
 
@@ -874,48 +852,48 @@ mod tests {
 
     #[test]
     fn test_get_string_field_present() {
-        let mut fields = VantaFields::new();
-        fields.insert("name".into(), VantaValue::String("Alice".into()));
+        let mut fields = Fields::new();
+        fields.insert("name".into(), Value::String("Alice".into()));
         assert_eq!(get_string_field(&fields, "name"), Some("Alice".into()));
     }
 
     #[test]
     fn test_get_string_field_missing() {
-        let fields = VantaFields::new();
+        let fields = Fields::new();
         assert_eq!(get_string_field(&fields, "name"), None);
     }
 
     #[test]
     fn test_get_string_field_wrong_type() {
-        let mut fields = VantaFields::new();
-        fields.insert("age".into(), VantaValue::Int(30));
+        let mut fields = Fields::new();
+        fields.insert("age".into(), Value::Int(30));
         assert_eq!(get_string_field(&fields, "age"), None);
     }
 
     #[test]
     fn test_get_u64_field_present() {
-        let mut fields = VantaFields::new();
-        fields.insert("count".into(), VantaValue::Int(42));
+        let mut fields = Fields::new();
+        fields.insert("count".into(), Value::Int(42));
         assert_eq!(get_u64_field(&fields, "count"), Some(42));
     }
 
     #[test]
     fn test_get_u64_field_negative_rejected() {
-        let mut fields = VantaFields::new();
-        fields.insert("neg".into(), VantaValue::Int(-5));
+        let mut fields = Fields::new();
+        fields.insert("neg".into(), Value::Int(-5));
         assert_eq!(get_u64_field(&fields, "neg"), None);
     }
 
     #[test]
     fn test_get_u64_field_missing() {
-        let fields = VantaFields::new();
+        let fields = Fields::new();
         assert_eq!(get_u64_field(&fields, "x"), None);
     }
 
     #[test]
     fn test_get_u64_field_wrong_type() {
-        let mut fields = VantaFields::new();
-        fields.insert("name".into(), VantaValue::String("x".into()));
+        let mut fields = Fields::new();
+        fields.insert("name".into(), Value::String("x".into()));
         assert_eq!(get_u64_field(&fields, "name"), None);
     }
 
@@ -996,7 +974,7 @@ mod tests {
         assert!(!record.metadata.contains_key(FIELD_EXPIRES_AT_MS));
         assert_eq!(
             record.metadata.get("custom_field"),
-            Some(&VantaValue::String("keep".into()))
+            Some(&Value::String("keep".into()))
         );
     }
 
@@ -1020,13 +998,13 @@ mod tests {
 
     #[test]
     fn test_memory_record_to_node_owned_roundtrip() {
-        let record = VantaMemoryRecord {
+        let record = MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "payload".into(),
             metadata: {
-                let mut m = VantaMemoryMetadata::new();
-                m.insert("color".into(), VantaValue::String("red".into()));
+                let mut m = MemoryMetadata::new();
+                m.insert("color".into(), Value::String("red".into()));
                 m
             },
             created_at_ms: 100,
@@ -1061,11 +1039,11 @@ mod tests {
 
     #[test]
     fn test_memory_record_to_node_owned_with_expiry() {
-        let record = VantaMemoryRecord {
+        let record = MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 1,
             updated_at_ms: 1,
             version: 1,
@@ -1085,11 +1063,11 @@ mod tests {
 
     #[test]
     fn test_memory_record_to_node_owned_empty_vector_not_stored() {
-        let record = VantaMemoryRecord {
+        let record = MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 1,
             updated_at_ms: 1,
             version: 1,
@@ -1111,13 +1089,13 @@ mod tests {
 
     #[test]
     fn test_export_line_roundtrip() {
-        let record = VantaMemoryRecord {
+        let record = MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "data".into(),
             metadata: {
-                let mut m = VantaMemoryMetadata::new();
-                m.insert("x".into(), VantaValue::Int(1));
+                let mut m = MemoryMetadata::new();
+                m.insert("x".into(), Value::Int(1));
                 m
             },
             created_at_ms: 10,
@@ -1147,12 +1125,12 @@ mod tests {
 
     #[test]
     fn test_record_from_export_line_wrong_schema_version() {
-        let line = VantaMemoryExportLine {
+        let line = MemoryExportLine {
             schema_version: 999,
             namespace: "ns".into(),
             key: "k".into(),
             payload: "".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             vector: None,
             sparse_vector: None,
             created_at_ms: 0,
@@ -1169,12 +1147,12 @@ mod tests {
 
     #[test]
     fn test_export_line_serialization_roundtrip() {
-        let line = VantaMemoryExportLine {
+        let line = MemoryExportLine {
             schema_version: 1,
             namespace: "myns".into(),
             key: "mykey".into(),
             payload: "my payload".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             vector: Some(vec![0.1, 0.2]),
             sparse_vector: None,
             created_at_ms: 100,
@@ -1185,8 +1163,8 @@ mod tests {
             superseded_at_ms: Some(1234),
         };
         let json = serde_json::to_string(&line).unwrap();
-        let deserialized: VantaMemoryExportLine = serde_json::from_str(&json).unwrap();
-        // Compare fields individually since VantaMemoryExportLine lacks PartialEq
+        let deserialized: MemoryExportLine = serde_json::from_str(&json).unwrap();
+        // Compare fields individually since MemoryExportLine lacks PartialEq
         assert_eq!(deserialized.schema_version, line.schema_version);
         assert_eq!(deserialized.namespace, line.namespace);
         assert_eq!(deserialized.key, line.key);
@@ -1203,11 +1181,11 @@ mod tests {
 
     #[test]
     fn test_export_line_superseded_roundtrip() {
-        let record = VantaMemoryRecord {
+        let record = MemoryRecord {
             namespace: "ns".into(),
             key: "old".into(),
             payload: "data".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 10,
             updated_at_ms: 20,
             version: 2,
@@ -1232,11 +1210,11 @@ mod tests {
     #[test]
     fn test_memory_record_superseded_node_roundtrip() {
         // ADR-028: superseded fields must survive record → node → record.
-        let record = VantaMemoryRecord {
+        let record = MemoryRecord {
             namespace: "ns".into(),
             key: "old".into(),
             payload: "data".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 10,
             updated_at_ms: 20,
             version: 2,
@@ -1279,7 +1257,7 @@ mod tests {
             "sparse_vector": null,
             "expires_at_ms": null
         });
-        let record: VantaMemoryRecord = serde_json::from_value(json).unwrap();
+        let record: MemoryRecord = serde_json::from_value(json).unwrap();
         assert_eq!(record.superseded_by, None);
         assert_eq!(record.superseded_at_ms, None);
     }
@@ -1288,11 +1266,11 @@ mod tests {
 
     #[test]
     fn test_matches_memory_filters_exact() {
-        let mut record = VantaMemoryRecord {
+        let mut record = MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 0,
             updated_at_ms: 0,
             version: 0,
@@ -1305,24 +1283,24 @@ mod tests {
         };
         record
             .metadata
-            .insert("color".into(), VantaValue::String("blue".into()));
+            .insert("color".into(), Value::String("blue".into()));
 
-        let mut filters = VantaMemoryMetadata::new();
-        filters.insert("color".into(), VantaValue::String("blue".into()));
+        let mut filters = MemoryMetadata::new();
+        filters.insert("color".into(), Value::String("blue".into()));
         assert!(matches_memory_filters(&record, &filters));
 
-        let mut bad_filters = VantaMemoryMetadata::new();
-        bad_filters.insert("color".into(), VantaValue::String("red".into()));
+        let mut bad_filters = MemoryMetadata::new();
+        bad_filters.insert("color".into(), Value::String("red".into()));
         assert!(!matches_memory_filters(&record, &bad_filters));
     }
 
     #[test]
     fn test_matches_memory_filters_empty() {
-        let record = VantaMemoryRecord {
+        let record = MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 0,
             updated_at_ms: 0,
             version: 0,
@@ -1333,16 +1311,16 @@ mod tests {
             superseded_by: None,
             superseded_at_ms: None,
         };
-        assert!(matches_memory_filters(&record, &VantaMemoryMetadata::new()));
+        assert!(matches_memory_filters(&record, &MemoryMetadata::new()));
     }
 
     #[test]
     fn test_matches_memory_filters_multi() {
-        let mut record = VantaMemoryRecord {
+        let mut record = MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 0,
             updated_at_ms: 0,
             version: 0,
@@ -1353,30 +1331,30 @@ mod tests {
             superseded_by: None,
             superseded_at_ms: None,
         };
-        record.metadata.insert("a".into(), VantaValue::Int(1));
+        record.metadata.insert("a".into(), Value::Int(1));
         record
             .metadata
-            .insert("b".into(), VantaValue::String("x".into()));
+            .insert("b".into(), Value::String("x".into()));
 
-        let mut filters = VantaMemoryMetadata::new();
-        filters.insert("a".into(), VantaValue::Int(1));
-        filters.insert("b".into(), VantaValue::String("x".into()));
+        let mut filters = MemoryMetadata::new();
+        filters.insert("a".into(), Value::Int(1));
+        filters.insert("b".into(), Value::String("x".into()));
         assert!(matches_memory_filters(&record, &filters));
 
-        let mut bad = VantaMemoryMetadata::new();
-        bad.insert("a".into(), VantaValue::Int(1));
-        bad.insert("b".into(), VantaValue::String("y".into()));
+        let mut bad = MemoryMetadata::new();
+        bad.insert("a".into(), Value::Int(1));
+        bad.insert("b".into(), Value::String("y".into()));
         assert!(!matches_memory_filters(&record, &bad));
     }
 
     // ΓöÇΓöÇ matches_advanced_filters ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
 
-    fn make_record_with_meta(pairs: &[(&str, VantaValue)]) -> VantaMemoryRecord {
-        let mut record = VantaMemoryRecord {
+    fn make_record_with_meta(pairs: &[(&str, Value)]) -> MemoryRecord {
+        let mut record = MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 0,
             updated_at_ms: 0,
             version: 0,
@@ -1395,83 +1373,83 @@ mod tests {
 
     #[test]
     fn test_advanced_filter_eq() {
-        let r = make_record_with_meta(&[("color", VantaValue::String("blue".into()))]);
-        let ops = vec![crate::sdk::types::VantaMemoryFilterItem {
+        let r = make_record_with_meta(&[("color", Value::String("blue".into()))]);
+        let ops = vec![crate::sdk::types::MemoryFilterItem {
             field: "color".into(),
-            op: crate::sdk::types::VantaFilterOp::Eq,
-            value: VantaValue::String("blue".into()),
+            op: crate::sdk::types::FilterOp::Eq,
+            value: Value::String("blue".into()),
         }];
         assert!(matches_advanced_filters(&r, &ops));
-        let ops_fail = vec![crate::sdk::types::VantaMemoryFilterItem {
+        let ops_fail = vec![crate::sdk::types::MemoryFilterItem {
             field: "color".into(),
-            op: crate::sdk::types::VantaFilterOp::Eq,
-            value: VantaValue::String("red".into()),
+            op: crate::sdk::types::FilterOp::Eq,
+            value: Value::String("red".into()),
         }];
         assert!(!matches_advanced_filters(&r, &ops_fail));
     }
 
     #[test]
     fn test_advanced_filter_neq() {
-        let r = make_record_with_meta(&[("status", VantaValue::String("active".into()))]);
-        let ops = vec![crate::sdk::types::VantaMemoryFilterItem {
+        let r = make_record_with_meta(&[("status", Value::String("active".into()))]);
+        let ops = vec![crate::sdk::types::MemoryFilterItem {
             field: "status".into(),
-            op: crate::sdk::types::VantaFilterOp::Neq,
-            value: VantaValue::String("inactive".into()),
+            op: crate::sdk::types::FilterOp::Neq,
+            value: Value::String("inactive".into()),
         }];
         assert!(matches_advanced_filters(&r, &ops));
     }
 
     #[test]
     fn test_advanced_filter_gt_gte_lt_lte_int() {
-        let r = make_record_with_meta(&[("score", VantaValue::Int(50))]);
-        let make_op = |op: crate::sdk::types::VantaFilterOp, v: i64| {
-            vec![crate::sdk::types::VantaMemoryFilterItem {
+        let r = make_record_with_meta(&[("score", Value::Int(50))]);
+        let make_op = |op: crate::sdk::types::FilterOp, v: i64| {
+            vec![crate::sdk::types::MemoryFilterItem {
                 field: "score".into(),
                 op,
-                value: VantaValue::Int(v),
+                value: Value::Int(v),
             }]
         };
         assert!(matches_advanced_filters(
             &r,
-            &make_op(crate::sdk::types::VantaFilterOp::Gt, 40)
+            &make_op(crate::sdk::types::FilterOp::Gt, 40)
         ));
         assert!(!matches_advanced_filters(
             &r,
-            &make_op(crate::sdk::types::VantaFilterOp::Gt, 60)
+            &make_op(crate::sdk::types::FilterOp::Gt, 60)
         ));
         assert!(matches_advanced_filters(
             &r,
-            &make_op(crate::sdk::types::VantaFilterOp::Gte, 50)
+            &make_op(crate::sdk::types::FilterOp::Gte, 50)
         ));
         assert!(!matches_advanced_filters(
             &r,
-            &make_op(crate::sdk::types::VantaFilterOp::Gte, 51)
+            &make_op(crate::sdk::types::FilterOp::Gte, 51)
         ));
         assert!(matches_advanced_filters(
             &r,
-            &make_op(crate::sdk::types::VantaFilterOp::Lt, 60)
+            &make_op(crate::sdk::types::FilterOp::Lt, 60)
         ));
         assert!(!matches_advanced_filters(
             &r,
-            &make_op(crate::sdk::types::VantaFilterOp::Lt, 40)
+            &make_op(crate::sdk::types::FilterOp::Lt, 40)
         ));
         assert!(matches_advanced_filters(
             &r,
-            &make_op(crate::sdk::types::VantaFilterOp::Lte, 50)
+            &make_op(crate::sdk::types::FilterOp::Lte, 50)
         ));
         assert!(!matches_advanced_filters(
             &r,
-            &make_op(crate::sdk::types::VantaFilterOp::Lte, 49)
+            &make_op(crate::sdk::types::FilterOp::Lte, 49)
         ));
     }
 
     #[test]
     fn test_advanced_filter_missing_field_returns_false() {
         let r = make_record_with_meta(&[]);
-        let ops = vec![crate::sdk::types::VantaMemoryFilterItem {
+        let ops = vec![crate::sdk::types::MemoryFilterItem {
             field: "nonexistent".into(),
-            op: crate::sdk::types::VantaFilterOp::Eq,
-            value: VantaValue::String("x".into()),
+            op: crate::sdk::types::FilterOp::Eq,
+            value: Value::String("x".into()),
         }];
         assert!(!matches_advanced_filters(&r, &ops));
     }
@@ -1479,34 +1457,34 @@ mod tests {
     #[test]
     fn test_advanced_filter_multi_and_logic() {
         let r = make_record_with_meta(&[
-            ("score", VantaValue::Int(75)),
-            ("status", VantaValue::String("active".into())),
+            ("score", Value::Int(75)),
+            ("status", Value::String("active".into())),
         ]);
         let ops = vec![
-            crate::sdk::types::VantaMemoryFilterItem {
+            crate::sdk::types::MemoryFilterItem {
                 field: "score".into(),
-                op: crate::sdk::types::VantaFilterOp::Gte,
-                value: VantaValue::Int(50),
+                op: crate::sdk::types::FilterOp::Gte,
+                value: Value::Int(50),
             },
-            crate::sdk::types::VantaMemoryFilterItem {
+            crate::sdk::types::MemoryFilterItem {
                 field: "status".into(),
-                op: crate::sdk::types::VantaFilterOp::Eq,
-                value: VantaValue::String("active".into()),
+                op: crate::sdk::types::FilterOp::Eq,
+                value: Value::String("active".into()),
             },
         ];
         assert!(matches_advanced_filters(&r, &ops));
 
         // Falla si uno de los filtros no coincide
         let ops_fail = vec![
-            crate::sdk::types::VantaMemoryFilterItem {
+            crate::sdk::types::MemoryFilterItem {
                 field: "score".into(),
-                op: crate::sdk::types::VantaFilterOp::Gte,
-                value: VantaValue::Int(80),
+                op: crate::sdk::types::FilterOp::Gte,
+                value: Value::Int(80),
             },
-            crate::sdk::types::VantaMemoryFilterItem {
+            crate::sdk::types::MemoryFilterItem {
                 field: "status".into(),
-                op: crate::sdk::types::VantaFilterOp::Eq,
-                value: VantaValue::String("active".into()),
+                op: crate::sdk::types::FilterOp::Eq,
+                value: Value::String("active".into()),
             },
         ];
         assert!(!matches_advanced_filters(&r, &ops_fail));
@@ -1522,12 +1500,12 @@ mod tests {
         sparse
     }
 
-    fn record_with_sparse(sparse: Option<SparseVector>) -> VantaMemoryRecord {
-        VantaMemoryRecord {
+    fn record_with_sparse(sparse: Option<SparseVector>) -> MemoryRecord {
+        MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "payload".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 100,
             updated_at_ms: 200,
             version: 1,

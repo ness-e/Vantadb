@@ -5,8 +5,8 @@
 //!
 //! # Purpose
 //!
-//! VantaDB stores memory records with metadata (`VantaMemoryMetadata` =
-//! `BTreeMap<String, VantaValue>`).  Filtering metadata historically required
+//! VantaDB stores memory records with metadata (`MemoryMetadata` =
+//! `BTreeMap<String, Value>`).  Filtering metadata historically required
 //! scanning every record (PostFilter) or using bitset-based derived indexes
 //! (InFilter / PreFilter).  JSON Shredding infers a typed schema from the
 //! metadata at insert time and stores values as binary **columns**, enabling
@@ -49,7 +49,7 @@
 
 use crate::backend::{BackendPartition, StorageBackend};
 use crate::query::RelOp;
-use crate::VantaValue;
+use crate::Value;
 use std::collections::{BTreeMap, HashMap};
 
 // ─── Schema Types ──────────────────────────────────────────────
@@ -93,16 +93,16 @@ pub struct ShreddedSchema {
 
 // ─── Type Inference ────────────────────────────────────────────
 
-/// Infer the shredded type from a `VantaValue`.
+/// Infer the shredded type from a `Value`.
 ///
 /// List values (ListString, ListInt, …) and `DateTime` fall back to `Null`
 /// because the shred store only supports scalar types in Phase 1.
-pub fn infer_field_type(value: &VantaValue) -> ShreddedFieldType {
+pub fn infer_field_type(value: &Value) -> ShreddedFieldType {
     match value {
-        VantaValue::Int(_) => ShreddedFieldType::I64,
-        VantaValue::Float(_) => ShreddedFieldType::F64,
-        VantaValue::Bool(_) => ShreddedFieldType::Bool,
-        VantaValue::String(_) => ShreddedFieldType::String,
+        Value::Int(_) => ShreddedFieldType::I64,
+        Value::Float(_) => ShreddedFieldType::F64,
+        Value::Bool(_) => ShreddedFieldType::Bool,
+        Value::String(_) => ShreddedFieldType::String,
         _ => ShreddedFieldType::Null,
     }
 }
@@ -113,31 +113,31 @@ pub fn infer_field_type(value: &VantaValue) -> ShreddedFieldType {
 /// Numeric types (`I64`, `F64`) support all six operators.
 /// `Bool` and `String` only support `Eq` / `Neq` — other operators return `false`.
 /// Type mismatches always return `false`.
-pub fn matches_shredded(field: &ShreddedField, op: &RelOp, expected: &VantaValue) -> bool {
+pub fn matches_shredded(field: &ShreddedField, op: &RelOp, expected: &Value) -> bool {
     match (field, op, expected) {
         // I64 — all operators
-        (ShreddedField::I64(a), RelOp::Eq, VantaValue::Int(b)) => a == b,
-        (ShreddedField::I64(a), RelOp::Neq, VantaValue::Int(b)) => a != b,
-        (ShreddedField::I64(a), RelOp::Gt, VantaValue::Int(b)) => a > b,
-        (ShreddedField::I64(a), RelOp::Lt, VantaValue::Int(b)) => a < b,
-        (ShreddedField::I64(a), RelOp::Gte, VantaValue::Int(b)) => a >= b,
-        (ShreddedField::I64(a), RelOp::Lte, VantaValue::Int(b)) => a <= b,
+        (ShreddedField::I64(a), RelOp::Eq, Value::Int(b)) => a == b,
+        (ShreddedField::I64(a), RelOp::Neq, Value::Int(b)) => a != b,
+        (ShreddedField::I64(a), RelOp::Gt, Value::Int(b)) => a > b,
+        (ShreddedField::I64(a), RelOp::Lt, Value::Int(b)) => a < b,
+        (ShreddedField::I64(a), RelOp::Gte, Value::Int(b)) => a >= b,
+        (ShreddedField::I64(a), RelOp::Lte, Value::Int(b)) => a <= b,
 
         // F64 — all operators
-        (ShreddedField::F64(a), RelOp::Eq, VantaValue::Float(b)) => a == b,
-        (ShreddedField::F64(a), RelOp::Neq, VantaValue::Float(b)) => a != b,
-        (ShreddedField::F64(a), RelOp::Gt, VantaValue::Float(b)) => a > b,
-        (ShreddedField::F64(a), RelOp::Lt, VantaValue::Float(b)) => a < b,
-        (ShreddedField::F64(a), RelOp::Gte, VantaValue::Float(b)) => a >= b,
-        (ShreddedField::F64(a), RelOp::Lte, VantaValue::Float(b)) => a <= b,
+        (ShreddedField::F64(a), RelOp::Eq, Value::Float(b)) => a == b,
+        (ShreddedField::F64(a), RelOp::Neq, Value::Float(b)) => a != b,
+        (ShreddedField::F64(a), RelOp::Gt, Value::Float(b)) => a > b,
+        (ShreddedField::F64(a), RelOp::Lt, Value::Float(b)) => a < b,
+        (ShreddedField::F64(a), RelOp::Gte, Value::Float(b)) => a >= b,
+        (ShreddedField::F64(a), RelOp::Lte, Value::Float(b)) => a <= b,
 
         // Bool — only Eq / Neq
-        (ShreddedField::Bool(a), RelOp::Eq, VantaValue::Bool(b)) => a == b,
-        (ShreddedField::Bool(a), RelOp::Neq, VantaValue::Bool(b)) => a != b,
+        (ShreddedField::Bool(a), RelOp::Eq, Value::Bool(b)) => a == b,
+        (ShreddedField::Bool(a), RelOp::Neq, Value::Bool(b)) => a != b,
 
         // String — only Eq / Neq
-        (ShreddedField::String(a), RelOp::Eq, VantaValue::String(b)) => a == b,
-        (ShreddedField::String(a), RelOp::Neq, VantaValue::String(b)) => a != b,
+        (ShreddedField::String(a), RelOp::Eq, Value::String(b)) => a == b,
+        (ShreddedField::String(a), RelOp::Neq, Value::String(b)) => a != b,
 
         _ => false,
     }
@@ -164,17 +164,17 @@ impl ShreddedRowStore {
     /// repeated for every field.
     pub(crate) fn put(
         node_id: u128,
-        fields: &BTreeMap<String, VantaValue>,
+        fields: &BTreeMap<String, Value>,
         backend: &dyn StorageBackend,
     ) -> crate::error::Result<()> {
         let mut buf = Vec::new();
         for (key, value) in fields {
             let ty = infer_field_type(value);
             let value_bytes = match value {
-                VantaValue::Int(v) => v.to_le_bytes().to_vec(),
-                VantaValue::Float(v) => v.to_le_bytes().to_vec(),
-                VantaValue::Bool(v) => vec![*v as u8],
-                VantaValue::String(v) => {
+                Value::Int(v) => v.to_le_bytes().to_vec(),
+                Value::Float(v) => v.to_le_bytes().to_vec(),
+                Value::Bool(v) => vec![*v as u8],
+                Value::String(v) => {
                     let len = v.len() as u32;
                     let mut b = len.to_le_bytes().to_vec();
                     b.extend_from_slice(v.as_bytes());
@@ -289,7 +289,7 @@ impl ShreddedRowStore {
 mod tests {
     use super::*;
     use crate::backends::in_memory::InMemoryBackend;
-    use crate::VantaValue;
+    use crate::Value;
 
     fn test_backend() -> InMemoryBackend {
         InMemoryBackend::new()
@@ -299,26 +299,23 @@ mod tests {
 
     #[test]
     fn test_infer_field_types() {
+        assert_eq!(infer_field_type(&Value::Int(42)), ShreddedFieldType::I64);
         assert_eq!(
-            infer_field_type(&VantaValue::Int(42)),
-            ShreddedFieldType::I64
-        );
-        assert_eq!(
-            infer_field_type(&VantaValue::Float(std::f64::consts::PI)),
+            infer_field_type(&Value::Float(std::f64::consts::PI)),
             ShreddedFieldType::F64
         );
         assert_eq!(
-            infer_field_type(&VantaValue::Bool(true)),
+            infer_field_type(&Value::Bool(true)),
             ShreddedFieldType::Bool
         );
         assert_eq!(
-            infer_field_type(&VantaValue::String("hi".into())),
+            infer_field_type(&Value::String("hi".into())),
             ShreddedFieldType::String
         );
-        assert_eq!(infer_field_type(&VantaValue::Null), ShreddedFieldType::Null);
+        assert_eq!(infer_field_type(&Value::Null), ShreddedFieldType::Null);
         // List types → Null (not supported in Phase 1)
         assert_eq!(
-            infer_field_type(&VantaValue::ListInt(vec![1, 2])),
+            infer_field_type(&Value::ListInt(vec![1, 2])),
             ShreddedFieldType::Null
         );
     }
@@ -329,10 +326,10 @@ mod tests {
     fn test_shredded_roundtrip() {
         let backend = test_backend();
         let mut fields = BTreeMap::new();
-        fields.insert("age".into(), VantaValue::Int(30));
-        fields.insert("score".into(), VantaValue::Float(9.5));
-        fields.insert("active".into(), VantaValue::Bool(true));
-        fields.insert("name".into(), VantaValue::String("Alice".into()));
+        fields.insert("age".into(), Value::Int(30));
+        fields.insert("score".into(), Value::Float(9.5));
+        fields.insert("active".into(), Value::Bool(true));
+        fields.insert("name".into(), Value::String("Alice".into()));
 
         ShreddedRowStore::put(42, &fields, &backend).unwrap();
 
@@ -353,7 +350,7 @@ mod tests {
     fn test_shredded_delete() {
         let backend = test_backend();
         let mut fields = BTreeMap::new();
-        fields.insert("x".into(), VantaValue::Int(1));
+        fields.insert("x".into(), Value::Int(1));
         ShreddedRowStore::put(7, &fields, &backend).unwrap();
         assert!(ShreddedRowStore::get(7, &backend).unwrap().is_some());
 
@@ -369,14 +366,14 @@ mod tests {
 
         // First write: "a" is an integer
         let mut f1 = BTreeMap::new();
-        f1.insert("a".into(), VantaValue::Int(42));
+        f1.insert("a".into(), Value::Int(42));
         ShreddedRowStore::put(1, &f1, &backend).unwrap();
         let r1 = ShreddedRowStore::get(1, &backend).unwrap().unwrap();
         assert_eq!(r1.get("a"), Some(&ShreddedField::I64(42)));
 
         // Second write: "a" is now a string  (last-write-wins)
         let mut f2 = BTreeMap::new();
-        f2.insert("a".into(), VantaValue::String("hello".into()));
+        f2.insert("a".into(), Value::String("hello".into()));
         ShreddedRowStore::put(1, &f2, &backend).unwrap();
         let r2 = ShreddedRowStore::get(1, &backend).unwrap().unwrap();
         assert_eq!(r2.get("a"), Some(&ShreddedField::String("hello".into())));
@@ -389,16 +386,16 @@ mod tests {
         let backend = test_backend();
 
         let mut f1 = BTreeMap::new();
-        f1.insert("color".into(), VantaValue::String("red".into()));
+        f1.insert("color".into(), Value::String("red".into()));
         ShreddedRowStore::put(10, &f1, &backend).unwrap();
 
         let mut f2 = BTreeMap::new();
-        f2.insert("color".into(), VantaValue::String("blue".into()));
-        f2.insert("size".into(), VantaValue::Int(5));
+        f2.insert("color".into(), Value::String("blue".into()));
+        f2.insert("size".into(), Value::Int(5));
         ShreddedRowStore::put(20, &f2, &backend).unwrap();
 
         let mut f3 = BTreeMap::new();
-        f3.insert("active".into(), VantaValue::Bool(false));
+        f3.insert("active".into(), Value::Bool(false));
         ShreddedRowStore::put(30, &f3, &backend).unwrap();
 
         // Verify each node independently
@@ -428,7 +425,7 @@ mod tests {
         let large = "A".repeat(100_000);
 
         let mut fields = BTreeMap::new();
-        fields.insert("data".into(), VantaValue::String(large.clone()));
+        fields.insert("data".into(), Value::String(large.clone()));
         ShreddedRowStore::put(99, &fields, &backend).unwrap();
 
         let result = ShreddedRowStore::get(99, &backend).unwrap().unwrap();
@@ -443,60 +440,60 @@ mod tests {
         assert!(matches_shredded(
             &ShreddedField::I64(10),
             &RelOp::Eq,
-            &VantaValue::Int(10)
+            &Value::Int(10)
         ));
         assert!(!matches_shredded(
             &ShreddedField::I64(10),
             &RelOp::Eq,
-            &VantaValue::Int(20)
+            &Value::Int(20)
         ));
 
         // F64 Eq
         assert!(matches_shredded(
             &ShreddedField::F64(3.5),
             &RelOp::Eq,
-            &VantaValue::Float(3.5)
+            &Value::Float(3.5)
         ));
         assert!(!matches_shredded(
             &ShreddedField::F64(3.5),
             &RelOp::Eq,
-            &VantaValue::Float(4.0)
+            &Value::Float(4.0)
         ));
 
         // Bool Eq
         assert!(matches_shredded(
             &ShreddedField::Bool(true),
             &RelOp::Eq,
-            &VantaValue::Bool(true)
+            &Value::Bool(true)
         ));
         assert!(!matches_shredded(
             &ShreddedField::Bool(true),
             &RelOp::Eq,
-            &VantaValue::Bool(false)
+            &Value::Bool(false)
         ));
 
         // String Eq
         assert!(matches_shredded(
             &ShreddedField::String("hi".into()),
             &RelOp::Eq,
-            &VantaValue::String("hi".into())
+            &Value::String("hi".into())
         ));
         assert!(!matches_shredded(
             &ShreddedField::String("hi".into()),
             &RelOp::Eq,
-            &VantaValue::String("bye".into())
+            &Value::String("bye".into())
         ));
 
         // type mismatch → false
         assert!(!matches_shredded(
             &ShreddedField::I64(1),
             &RelOp::Eq,
-            &VantaValue::String("1".into())
+            &Value::String("1".into())
         ));
         assert!(!matches_shredded(
             &ShreddedField::Null,
             &RelOp::Eq,
-            &VantaValue::Int(0)
+            &Value::Int(0)
         ));
     }
 
@@ -508,44 +505,32 @@ mod tests {
         let val_20 = ShreddedField::I64(20);
 
         // Eq
-        assert!(matches_shredded(&val_10, &RelOp::Eq, &VantaValue::Int(10)));
-        assert!(!matches_shredded(&val_10, &RelOp::Eq, &VantaValue::Int(20)));
+        assert!(matches_shredded(&val_10, &RelOp::Eq, &Value::Int(10)));
+        assert!(!matches_shredded(&val_10, &RelOp::Eq, &Value::Int(20)));
 
         // Neq
-        assert!(matches_shredded(&val_10, &RelOp::Neq, &VantaValue::Int(20)));
-        assert!(!matches_shredded(
-            &val_10,
-            &RelOp::Neq,
-            &VantaValue::Int(10)
-        ));
+        assert!(matches_shredded(&val_10, &RelOp::Neq, &Value::Int(20)));
+        assert!(!matches_shredded(&val_10, &RelOp::Neq, &Value::Int(10)));
 
         // Gt
-        assert!(matches_shredded(&val_20, &RelOp::Gt, &VantaValue::Int(15)));
-        assert!(!matches_shredded(&val_10, &RelOp::Gt, &VantaValue::Int(10)));
-        assert!(!matches_shredded(&val_10, &RelOp::Gt, &VantaValue::Int(15)));
+        assert!(matches_shredded(&val_20, &RelOp::Gt, &Value::Int(15)));
+        assert!(!matches_shredded(&val_10, &RelOp::Gt, &Value::Int(10)));
+        assert!(!matches_shredded(&val_10, &RelOp::Gt, &Value::Int(15)));
 
         // Lt
-        assert!(matches_shredded(&val_10, &RelOp::Lt, &VantaValue::Int(15)));
-        assert!(!matches_shredded(&val_20, &RelOp::Lt, &VantaValue::Int(15)));
-        assert!(!matches_shredded(&val_10, &RelOp::Lt, &VantaValue::Int(10)));
+        assert!(matches_shredded(&val_10, &RelOp::Lt, &Value::Int(15)));
+        assert!(!matches_shredded(&val_20, &RelOp::Lt, &Value::Int(15)));
+        assert!(!matches_shredded(&val_10, &RelOp::Lt, &Value::Int(10)));
 
         // Gte
-        assert!(matches_shredded(&val_20, &RelOp::Gte, &VantaValue::Int(15)));
-        assert!(matches_shredded(&val_20, &RelOp::Gte, &VantaValue::Int(20)));
-        assert!(!matches_shredded(
-            &val_10,
-            &RelOp::Gte,
-            &VantaValue::Int(15)
-        ));
+        assert!(matches_shredded(&val_20, &RelOp::Gte, &Value::Int(15)));
+        assert!(matches_shredded(&val_20, &RelOp::Gte, &Value::Int(20)));
+        assert!(!matches_shredded(&val_10, &RelOp::Gte, &Value::Int(15)));
 
         // Lte
-        assert!(matches_shredded(&val_10, &RelOp::Lte, &VantaValue::Int(15)));
-        assert!(matches_shredded(&val_10, &RelOp::Lte, &VantaValue::Int(10)));
-        assert!(!matches_shredded(
-            &val_20,
-            &RelOp::Lte,
-            &VantaValue::Int(15)
-        ));
+        assert!(matches_shredded(&val_10, &RelOp::Lte, &Value::Int(15)));
+        assert!(matches_shredded(&val_10, &RelOp::Lte, &Value::Int(10)));
+        assert!(!matches_shredded(&val_20, &RelOp::Lte, &Value::Int(15)));
     }
 
     // ── F64 comparisons ───────────────────────────────────────
@@ -556,96 +541,32 @@ mod tests {
         let val_3_0 = ShreddedField::F64(3.0);
 
         // Eq
-        assert!(matches_shredded(
-            &val_3_0,
-            &RelOp::Eq,
-            &VantaValue::Float(3.0)
-        ));
-        assert!(!matches_shredded(
-            &val_1_5,
-            &RelOp::Eq,
-            &VantaValue::Float(3.0)
-        ));
+        assert!(matches_shredded(&val_3_0, &RelOp::Eq, &Value::Float(3.0)));
+        assert!(!matches_shredded(&val_1_5, &RelOp::Eq, &Value::Float(3.0)));
 
         // Neq
-        assert!(matches_shredded(
-            &val_1_5,
-            &RelOp::Neq,
-            &VantaValue::Float(3.0)
-        ));
-        assert!(!matches_shredded(
-            &val_3_0,
-            &RelOp::Neq,
-            &VantaValue::Float(3.0)
-        ));
+        assert!(matches_shredded(&val_1_5, &RelOp::Neq, &Value::Float(3.0)));
+        assert!(!matches_shredded(&val_3_0, &RelOp::Neq, &Value::Float(3.0)));
 
         // Gt
-        assert!(matches_shredded(
-            &val_3_0,
-            &RelOp::Gt,
-            &VantaValue::Float(2.0)
-        ));
-        assert!(!matches_shredded(
-            &val_1_5,
-            &RelOp::Gt,
-            &VantaValue::Float(2.0)
-        ));
-        assert!(!matches_shredded(
-            &val_3_0,
-            &RelOp::Gt,
-            &VantaValue::Float(3.0)
-        ));
+        assert!(matches_shredded(&val_3_0, &RelOp::Gt, &Value::Float(2.0)));
+        assert!(!matches_shredded(&val_1_5, &RelOp::Gt, &Value::Float(2.0)));
+        assert!(!matches_shredded(&val_3_0, &RelOp::Gt, &Value::Float(3.0)));
 
         // Lt
-        assert!(matches_shredded(
-            &val_1_5,
-            &RelOp::Lt,
-            &VantaValue::Float(2.0)
-        ));
-        assert!(!matches_shredded(
-            &val_3_0,
-            &RelOp::Lt,
-            &VantaValue::Float(2.0)
-        ));
-        assert!(!matches_shredded(
-            &val_1_5,
-            &RelOp::Lt,
-            &VantaValue::Float(1.5)
-        ));
+        assert!(matches_shredded(&val_1_5, &RelOp::Lt, &Value::Float(2.0)));
+        assert!(!matches_shredded(&val_3_0, &RelOp::Lt, &Value::Float(2.0)));
+        assert!(!matches_shredded(&val_1_5, &RelOp::Lt, &Value::Float(1.5)));
 
         // Gte
-        assert!(matches_shredded(
-            &val_3_0,
-            &RelOp::Gte,
-            &VantaValue::Float(2.0)
-        ));
-        assert!(matches_shredded(
-            &val_3_0,
-            &RelOp::Gte,
-            &VantaValue::Float(3.0)
-        ));
-        assert!(!matches_shredded(
-            &val_1_5,
-            &RelOp::Gte,
-            &VantaValue::Float(2.0)
-        ));
+        assert!(matches_shredded(&val_3_0, &RelOp::Gte, &Value::Float(2.0)));
+        assert!(matches_shredded(&val_3_0, &RelOp::Gte, &Value::Float(3.0)));
+        assert!(!matches_shredded(&val_1_5, &RelOp::Gte, &Value::Float(2.0)));
 
         // Lte
-        assert!(matches_shredded(
-            &val_1_5,
-            &RelOp::Lte,
-            &VantaValue::Float(2.0)
-        ));
-        assert!(matches_shredded(
-            &val_1_5,
-            &RelOp::Lte,
-            &VantaValue::Float(1.5)
-        ));
-        assert!(!matches_shredded(
-            &val_3_0,
-            &RelOp::Lte,
-            &VantaValue::Float(2.0)
-        ));
+        assert!(matches_shredded(&val_1_5, &RelOp::Lte, &Value::Float(2.0)));
+        assert!(matches_shredded(&val_1_5, &RelOp::Lte, &Value::Float(1.5)));
+        assert!(!matches_shredded(&val_3_0, &RelOp::Lte, &Value::Float(2.0)));
     }
 
     // ── Bool Eq / Neq ─────────────────────────────────────────
@@ -655,15 +576,15 @@ mod tests {
         let t = ShreddedField::Bool(true);
         let f = ShreddedField::Bool(false);
 
-        assert!(matches_shredded(&t, &RelOp::Eq, &VantaValue::Bool(true)));
-        assert!(!matches_shredded(&t, &RelOp::Eq, &VantaValue::Bool(false)));
+        assert!(matches_shredded(&t, &RelOp::Eq, &Value::Bool(true)));
+        assert!(!matches_shredded(&t, &RelOp::Eq, &Value::Bool(false)));
 
-        assert!(matches_shredded(&t, &RelOp::Neq, &VantaValue::Bool(false)));
-        assert!(!matches_shredded(&t, &RelOp::Neq, &VantaValue::Bool(true)));
+        assert!(matches_shredded(&t, &RelOp::Neq, &Value::Bool(false)));
+        assert!(!matches_shredded(&t, &RelOp::Neq, &Value::Bool(true)));
 
         // Gt/Lt on Bool — unsupported → false
-        assert!(!matches_shredded(&t, &RelOp::Gt, &VantaValue::Bool(false)));
-        assert!(!matches_shredded(&f, &RelOp::Lt, &VantaValue::Bool(true)));
+        assert!(!matches_shredded(&t, &RelOp::Gt, &Value::Bool(false)));
+        assert!(!matches_shredded(&f, &RelOp::Lt, &Value::Bool(true)));
     }
 
     // ── String Eq / Neq ───────────────────────────────────────
@@ -676,30 +597,30 @@ mod tests {
         assert!(matches_shredded(
             &hi,
             &RelOp::Eq,
-            &VantaValue::String("hi".into())
+            &Value::String("hi".into())
         ));
         assert!(!matches_shredded(
             &hi,
             &RelOp::Eq,
-            &VantaValue::String("bye".into())
+            &Value::String("bye".into())
         ));
 
         assert!(matches_shredded(
             &hi,
             &RelOp::Neq,
-            &VantaValue::String("bye".into())
+            &Value::String("bye".into())
         ));
         assert!(!matches_shredded(
             &bye,
             &RelOp::Neq,
-            &VantaValue::String("bye".into())
+            &Value::String("bye".into())
         ));
 
         // Gt on String — unsupported → false
         assert!(!matches_shredded(
             &hi,
             &RelOp::Gt,
-            &VantaValue::String("bye".into())
+            &Value::String("bye".into())
         ));
     }
 
@@ -722,15 +643,15 @@ mod tests {
 
         // Insert 3 records with numeric price metadata
         let mut r1 = BTreeMap::new();
-        r1.insert("price".into(), VantaValue::Int(100));
+        r1.insert("price".into(), Value::Int(100));
         ShreddedRowStore::put(1, &r1, &backend).unwrap();
 
         let mut r2 = BTreeMap::new();
-        r2.insert("price".into(), VantaValue::Int(200));
+        r2.insert("price".into(), Value::Int(200));
         ShreddedRowStore::put(2, &r2, &backend).unwrap();
 
         let mut r3 = BTreeMap::new();
-        r3.insert("price".into(), VantaValue::Int(50));
+        r3.insert("price".into(), Value::Int(50));
         ShreddedRowStore::put(3, &r3, &backend).unwrap();
 
         // Retrieve shredded data and apply comparison filter price > 100
@@ -741,7 +662,7 @@ mod tests {
                 let shredded = ShreddedRowStore::get(id, &backend).unwrap().unwrap();
                 shredded
                     .get("price")
-                    .is_some_and(|field| matches_shredded(field, &RelOp::Gt, &VantaValue::Int(100)))
+                    .is_some_and(|field| matches_shredded(field, &RelOp::Gt, &Value::Int(100)))
             })
             .collect();
 
@@ -755,7 +676,7 @@ mod tests {
                 let shredded = ShreddedRowStore::get(id, &backend).unwrap().unwrap();
                 shredded
                     .get("price")
-                    .is_some_and(|field| matches_shredded(field, &RelOp::Lt, &VantaValue::Int(150)))
+                    .is_some_and(|field| matches_shredded(field, &RelOp::Lt, &Value::Int(150)))
             })
             .collect();
 
@@ -766,9 +687,9 @@ mod tests {
             .iter()
             .map(|&id| {
                 let shredded = ShreddedRowStore::get(id, &backend).unwrap().unwrap();
-                shredded.get("price").is_some_and(|field| {
-                    matches_shredded(field, &RelOp::Gte, &VantaValue::Int(100))
-                })
+                shredded
+                    .get("price")
+                    .is_some_and(|field| matches_shredded(field, &RelOp::Gte, &Value::Int(100)))
             })
             .collect();
 

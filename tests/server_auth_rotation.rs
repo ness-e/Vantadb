@@ -18,16 +18,16 @@ use std::time::Duration;
 
 use vantadb::circuit_breaker::CircuitBreaker;
 use vantadb::cli_server::{app, ServerState};
-use vantadb::config::{RbacConfig, VantaConfig};
+use vantadb::config::{Config, RbacConfig};
 use vantadb::connection_pool::ConnectionPool;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::sdk::Embedded;
 use vantadb::storage::{BackendKind, StorageEngine};
 
 const OLD_KEY: &str = "sk-old-primary-aaaaaaaa";
 const NEW_KEY: &str = "sk-new-primary-bbbbbbbb";
 
 fn in_memory_storage() -> Arc<StorageEngine> {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     };
@@ -39,7 +39,7 @@ fn server_state(
     api_key: Option<&str>,
     alt_api_key: Option<&str>,
 ) -> Arc<ServerState> {
-    let db = VantaEmbedded::from_engine(storage.clone());
+    let db = Embedded::from_engine(storage.clone());
     Arc::new(ServerState {
         storage,
         db,

@@ -4,16 +4,16 @@
 //! (same setup as `src/entity/tests.rs`).
 
 use super::{SkillStore, KEEP_RECENT};
-use crate::config::VantaConfig;
-use crate::error::VantaError;
+use crate::config::Config;
+use crate::error::Error;
 use crate::sdk::types::{SkillCreateInput, SkillListOptions, SkillPatchInput, SkillUpdateInput};
 use crate::storage::{BackendKind, StorageEngine};
 
 fn in_memory_engine() -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         read_only: false,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     StorageEngine::open_with_config(":memory:", Some(config)).expect("open in-memory engine")
 }
@@ -179,7 +179,7 @@ fn optimistic_lock_rejects_stale_expected_version() {
         )
         .expect_err("stale expected version must fail");
     match err {
-        VantaError::ExecutionConflict { resource, detail } => {
+        Error::ExecutionConflict { resource, detail } => {
             assert!(resource.contains(&skill_id));
             assert!(detail.contains("expected version 1, head is 2"));
         }
@@ -223,7 +223,7 @@ fn delete_rejects_stale_expected_version() {
 
     let err = store.delete(&skill_id, 1).expect_err("stale delete");
     match err {
-        VantaError::ExecutionConflict { .. } => {}
+        Error::ExecutionConflict { .. } => {}
         other => panic!("expected ExecutionConflict, got {other:?}"),
     }
     assert!(
@@ -385,7 +385,7 @@ fn unique_index_rejects_duplicate_owner_name() {
         .create(create_input("dup", "content b"))
         .expect_err("duplicate (owner, name) with different content");
     match err {
-        VantaError::ExecutionConflict { detail, .. } => {
+        Error::ExecutionConflict { detail, .. } => {
             assert!(detail.contains("already exists"), "detail: {detail}");
         }
         other => panic!("expected ExecutionConflict, got {other:?}"),
@@ -506,12 +506,12 @@ fn validation_rejects_bad_identifiers() {
     let bad_name = store
         .create(create_input("bad#name", "content"))
         .expect_err("bad name");
-    assert!(matches!(bad_name, VantaError::ValidationError { .. }));
+    assert!(matches!(bad_name, Error::ValidationError { .. }));
 
     let mut bad_owner = create_input("ok-name", "content");
     bad_owner.owner_agent = "owner:with:colon".into();
     let bad_owner = store.create(bad_owner).expect_err("bad owner");
-    assert!(matches!(bad_owner, VantaError::ValidationError { .. }));
+    assert!(matches!(bad_owner, Error::ValidationError { .. }));
 
     assert_eq!(KEEP_RECENT, 3, "contract: TTL keep-recent=3");
 }

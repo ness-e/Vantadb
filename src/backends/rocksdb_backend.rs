@@ -11,7 +11,7 @@
 //! `StorageEngine` — it never imports `desktop`, `tauri` or
 //! `NativeConnection`. The only caller is `StorageEngine`'s backend factory
 //! (`src/storage/engine/init.rs` `match BackendKind`). The call chain is a
-//! one-way DAG `NativeConnection (desktop) → VantaEmbedded → StorageEngine
+//! one-way DAG `NativeConnection (desktop) → Embedded → StorageEngine
 //! → StorageBackend → RocksDbBackend`; there is no back-edge, so the
 //! "3 cycles get/put/delete" reported by CodeGraph (Leiden clustering of the
 //! shared method names) is a false positive — verified by `rg` zero
@@ -23,8 +23,8 @@
 //! `// ponytail: doc justifies Leiden false positive without trait refactor; extract trait if real SCC emerges`
 
 use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
-use crate::config::VantaConfig;
-use crate::error::{Result, VantaError};
+use crate::config::Config;
+use crate::error::{Error, Result};
 use rocksdb::checkpoint::Checkpoint;
 use rocksdb::{Direction, FlushOptions, IteratorMode, Options, WriteBatch, DB};
 use std::path::Path;
@@ -47,7 +47,7 @@ impl RocksDbBackend {
     /// Preserves the original tuning: bloom filters, LRU cache sizing,
     /// memtable budgets, LZ4 compression, mmap access for low-RAM profiles,
     /// and per-CF block-based table options.
-    pub(crate) fn open(path: &str, config: &VantaConfig) -> Result<Self> {
+    pub(crate) fn open(path: &str, config: &Config) -> Result<Self> {
         let caps = crate::hardware::HardwareCapabilities::global();
 
         // Memory limit resolution priority:
@@ -153,13 +153,11 @@ impl RocksDbBackend {
         ];
 
         let db = if config.read_only {
-            DB::open_cf_descriptors_read_only(&opts, path, cf_descriptors, false).map_err(
-                |e: rocksdb::Error| VantaError::IoError(std::io::Error::other(e.to_string())),
-            )?
+            DB::open_cf_descriptors_read_only(&opts, path, cf_descriptors, false)
+                .map_err(|e: rocksdb::Error| Error::IoError(std::io::Error::other(e.to_string())))?
         } else {
-            DB::open_cf_descriptors(&opts, path, cf_descriptors).map_err(|e: rocksdb::Error| {
-                VantaError::IoError(std::io::Error::other(e.to_string()))
-            })?
+            DB::open_cf_descriptors(&opts, path, cf_descriptors)
+                .map_err(|e: rocksdb::Error| Error::IoError(std::io::Error::other(e.to_string())))?
         };
 
         Ok(Self { db })
@@ -169,7 +167,7 @@ impl RocksDbBackend {
     fn cf_handle(&self, partition: BackendPartition) -> Result<&rocksdb::ColumnFamily> {
         self.db
             .cf_handle(partition.cf_name())
-            .ok_or_else(|| VantaError::NotFound {
+            .ok_or_else(|| Error::NotFound {
                 kind: "column_family".into(),
                 id: partition.cf_name().into(),
             })
@@ -181,12 +179,12 @@ impl StorageBackend for RocksDbBackend {
         if partition == BackendPartition::Default {
             self.db
                 .put(key, value)
-                .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
         } else {
             let cf = self.cf_handle(partition)?;
             self.db
                 .put_cf(&cf, key, value)
-                .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
         }
     }
 
@@ -194,12 +192,12 @@ impl StorageBackend for RocksDbBackend {
         if partition == BackendPartition::Default {
             self.db
                 .get(key)
-                .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
         } else {
             let cf = self.cf_handle(partition)?;
             self.db
                 .get_cf(&cf, key)
-                .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
         }
     }
 
@@ -217,9 +215,7 @@ impl StorageBackend for RocksDbBackend {
                 .filter_map(|(res, k)| match res {
                     Ok(Some(val)) => Some(Ok((k.to_vec(), val))),
                     Ok(None) => None,
-                    Err(e) => Some(Err(VantaError::IoError(std::io::Error::other(
-                        e.to_string(),
-                    )))),
+                    Err(e) => Some(Err(Error::IoError(std::io::Error::other(e.to_string())))),
                 })
                 .collect::<Result<Vec<_>>>()?;
             Ok(results)
@@ -235,9 +231,7 @@ impl StorageBackend for RocksDbBackend {
                 .filter_map(|(res, k)| match res {
                     Ok(Some(val)) => Some(Ok((k.to_vec(), val))),
                     Ok(None) => None,
-                    Err(e) => Some(Err(VantaError::IoError(std::io::Error::other(
-                        e.to_string(),
-                    )))),
+                    Err(e) => Some(Err(Error::IoError(std::io::Error::other(e.to_string())))),
                 })
                 .collect::<Result<Vec<_>>>()?;
             Ok(results)
@@ -248,12 +242,12 @@ impl StorageBackend for RocksDbBackend {
         if partition == BackendPartition::Default {
             self.db
                 .delete(key)
-                .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
         } else {
             let cf = self.cf_handle(partition)?;
             self.db
                 .delete_cf(&cf, key)
-                .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
         }
     }
 
@@ -285,15 +279,14 @@ impl StorageBackend for RocksDbBackend {
         }
         self.db
             .write(batch)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
     }
 
     fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         let cf = self.cf_handle(partition)?;
         let mut result = Vec::new();
         for item in self.db.iterator_cf(&cf, rocksdb::IteratorMode::Start) {
-            let (k, v) =
-                item.map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            let (k, v) = item.map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))?;
             result.push((k.to_vec(), v.to_vec()));
         }
         Ok(result)
@@ -314,9 +307,7 @@ impl StorageBackend for RocksDbBackend {
             let (k, v) = match item {
                 Ok(kv) => kv,
                 Err(e) => {
-                    return Some(Err(VantaError::IoError(std::io::Error::other(
-                        e.to_string(),
-                    ))));
+                    return Some(Err(Error::IoError(std::io::Error::other(e.to_string()))));
                 }
             };
             if !k.starts_with(&prefix) {
@@ -331,12 +322,12 @@ impl StorageBackend for RocksDbBackend {
         flush_opt.set_wait(true);
         self.db
             .flush_opt(&flush_opt)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
     }
 
     fn checkpoint(&self, path: &Path) -> Result<()> {
         let cp = Checkpoint::new(&self.db).map_err(|e| {
-            VantaError::IoError(std::io::Error::other(format!(
+            Error::IoError(std::io::Error::other(format!(
                 "Error creating Checkpoint initializer: {}",
                 e
             )))
@@ -347,7 +338,7 @@ impl StorageBackend for RocksDbBackend {
         }
 
         cp.create_checkpoint(path).map_err(|e| {
-            VantaError::IoError(std::io::Error::other(format!(
+            Error::IoError(std::io::Error::other(format!(
                 "Error writing checkpoint: {}",
                 e
             )))
@@ -376,12 +367,12 @@ impl StorageBackend for RocksDbBackend {
 mod tests {
     use super::*;
     use crate::backend::BackendWriteOp;
-    use crate::config::VantaConfig;
+    use crate::config::Config;
     use tempfile::tempdir;
 
     fn open_rocksdb() -> (RocksDbBackend, tempfile::TempDir) {
         let dir = tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             memory_limit: Some((256 * MIB) as u64), // 256 MB to keep test lightweight
             ..Default::default()
         };

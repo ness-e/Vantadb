@@ -1,6 +1,6 @@
 //! Query-language surface for HTTP, Python, CLI, MCP, and SDK `query()`.
 //!
-//! The primary typed API lives in `src/sdk/` (VantaEmbedded) — keep both stable.
+//! The primary typed API lives in `src/sdk/` (Embedded) — keep both stable.
 
 pub mod grammar;
 pub mod lexer;

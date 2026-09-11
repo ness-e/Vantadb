@@ -332,7 +332,7 @@ fn test_batch_insert_cardinality_cap_eviction() {
     );
 }
 
-// ─── Insert batch (VantaNodeInput) ───────────────────────────
+// ─── Insert batch (NodeInput) ───────────────────────────
 
 #[test]
 fn test_insert_batch_empty() {
@@ -344,7 +344,7 @@ fn test_insert_batch_empty() {
 #[test]
 fn test_insert_batch_single() {
     let engine = in_memory_engine();
-    let input = crate::VantaNodeInput::new(42);
+    let input = crate::NodeInput::new(42);
     let ids = engine.insert_batch(&[input]).expect("insert_batch");
     assert_eq!(ids, vec![42]);
     let retrieved = engine.get(42).expect("get").unwrap();
@@ -354,12 +354,12 @@ fn test_insert_batch_single() {
 #[test]
 fn test_insert_batch_with_fields() {
     let engine = in_memory_engine();
-    let mut input = crate::VantaNodeInput::new(1);
+    let mut input = crate::NodeInput::new(1);
     input.content = Some("hello world".to_string());
     input.vector = Some(vec![0.1, 0.2, 0.3]);
     input.fields.insert(
         "color".to_string(),
-        crate::VantaValue::String("blue".to_string()),
+        crate::Value::String("blue".to_string()),
     );
     let ids = engine.insert_batch(&[input]).expect("insert_batch");
     assert_eq!(ids, vec![1]);
@@ -374,9 +374,9 @@ fn test_insert_batch_with_fields() {
 #[test]
 fn test_insert_batch_multiple() {
     let engine = in_memory_engine();
-    let inputs: Vec<crate::VantaNodeInput> = (1..=3)
+    let inputs: Vec<crate::NodeInput> = (1..=3)
         .map(|i| {
-            let mut input = crate::VantaNodeInput::new(i);
+            let mut input = crate::NodeInput::new(i);
             input.content = Some(format!("node {}", i));
             input
         })

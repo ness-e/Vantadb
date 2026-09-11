@@ -13,14 +13,14 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::{BackendKind, StorageEngine};
 
 // ─── HELPER: Open Engine with Specific Backend ────────────────
 
 fn open_engine(path: &str, kind: BackendKind) -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: kind,
         ..Default::default()
     };
