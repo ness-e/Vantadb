@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { VantaDB } from "../vantadb.js";
+import { Client } from "../vantadb.js";
 
 describe("DX-01: connect() API", () => {
   it("connect() with no args creates working DB", async () => {
-    const db = await VantaDB.connect();
+    const db = await Client.connect();
     const caps = db.capabilities();
     expect(caps.vector_search).toBe(true);
     expect(caps.persistence).toBeDefined();
@@ -11,14 +11,14 @@ describe("DX-01: connect() API", () => {
   });
 
   it("connect(':memory:') creates working DB", async () => {
-    const db = await VantaDB.connect(":memory:");
+    const db = await Client.connect(":memory:");
     const caps = db.capabilities();
     expect(caps.vector_search).toBe(true);
     db.close();
   });
 
   it("connect() returns a working DB", async () => {
-    const db = await VantaDB.connect();
+    const db = await Client.connect();
     const r = await db.put({ namespace: "dx01", key: "k", payload: "v" });
     expect(r.payload).toBe("v");
     const got = await db.get("dx01", "k");
@@ -29,10 +29,10 @@ describe("DX-01: connect() API", () => {
 });
 
 describe("DX-04: Error handling", () => {
-  let db: VantaDB;
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
   });
 
   afterAll(() => {
@@ -83,7 +83,7 @@ describe("DX-04: Error handling", () => {
   });
 
   it("operations after close() return error or are no-ops", async () => {
-    const tmp = VantaDB.create();
+    const tmp = Client.create();
     tmp.close();
     // Most operations should not panic after close
     // Note: implementation may vary - at minimum should not throw synchronously
@@ -91,10 +91,10 @@ describe("DX-04: Error handling", () => {
 });
 
 describe("DX-04: Edge cases", () => {
-  let db: VantaDB;
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
   });
 
   afterAll(() => {
@@ -206,10 +206,10 @@ describe("DX-04: Edge cases", () => {
 });
 
 describe("DX-04: Search and query", () => {
-  let db: VantaDB;
+  let db: Client;
 
   beforeAll(async () => {
-    db = VantaDB.create();
+    db = Client.create();
     // Seed some data for search tests
     await db.put({
       namespace: "search_test",
@@ -298,10 +298,10 @@ describe("DX-04: Search and query", () => {
 });
 
 describe("DX-04: Batch operations", () => {
-  let db: VantaDB;
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
   });
 
   afterAll(() => {
@@ -375,10 +375,10 @@ describe("DX-04: Batch operations", () => {
 });
 
 describe("DX-04: Lifecycle and maintenance", () => {
-  let db: VantaDB;
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
   });
 
   afterAll(() => {
@@ -411,10 +411,10 @@ describe("DX-04: Lifecycle and maintenance", () => {
 });
 
 describe("DX-04: Search (no matching)", () => {
-  let db: VantaDB;
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
   });
 
   afterAll(() => {

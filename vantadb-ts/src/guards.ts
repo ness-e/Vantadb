@@ -48,7 +48,7 @@ export function isNodeRecord(n: unknown): n is NodeRecord {
   );
 }
 
-const VALID_VANTA_TYPES = [
+const VALID_VALUE_TYPES = [
   "String",
   "Int",
   "Float",
@@ -60,20 +60,20 @@ const VALID_VANTA_TYPES = [
   "ListBool",
 ] as const;
 
-export function isValidVantaValue(v: unknown): v is Value {
+export function isValidValue(v: unknown): v is Value {
   if (v === null || typeof v !== "object") return false;
   const obj = v as Record<string, unknown>;
   const keys = Object.keys(obj);
   if (keys.length !== 1) return false;
   const type = keys[0];
-  if (!(VALID_VANTA_TYPES as readonly string[]).includes(type)) return false;
+  if (!(VALID_VALUE_TYPES as readonly string[]).includes(type)) return false;
   if (type === "Null") return obj[type] === null || obj[type] === undefined;
   return true;
 }
 
-export function isVantaMetadata(m: unknown): m is Metadata {
+export function isMetadata(m: unknown): m is Metadata {
   if (m === null || typeof m !== "object") return false;
-  return Object.values(m).every(isValidVantaValue);
+  return Object.values(m).every(isValidValue);
 }
 
 export function isValidVector(v: unknown): v is number[] {

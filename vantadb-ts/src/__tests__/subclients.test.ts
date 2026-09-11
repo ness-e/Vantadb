@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { VantaDB, VantaError } from "../vantadb.js";
+import { Client, VantaError } from "../vantadb.js";
 
 // ---------------------------------------------------------------------------
 // Sub-clients (SDKB-02) — domain-grouped views over the flat methods.
@@ -13,7 +13,7 @@ import { VantaDB, VantaError } from "../vantadb.js";
 
 describe("Sub-client shape", () => {
   it("getters return frozen objects", () => {
-    const db = VantaDB.create();
+    const db = Client.create();
     expect(Object.isFrozen(db.memory)).toBe(true);
     expect(Object.isFrozen(db.graph)).toBe(true);
     expect(Object.isFrozen(db.wiki)).toBe(true);
@@ -22,7 +22,7 @@ describe("Sub-client shape", () => {
   });
 
   it("getters are memoized (same object across accesses)", () => {
-    const db = VantaDB.create();
+    const db = Client.create();
     expect(db.memory).toBe(db.memory);
     expect(db.graph).toBe(db.graph);
     expect(db.system).toBe(db.system);
@@ -30,16 +30,16 @@ describe("Sub-client shape", () => {
   });
 
   it("wiki is empty in v1 (D43: wiki features are core-only)", () => {
-    const db = VantaDB.create();
+    const db = Client.create();
     expect(Object.keys(db.wiki)).toEqual([]);
     db.close();
   });
 });
 
 describe("db.memory delegates to flat memory methods", () => {
-  let db: VantaDB;
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("memory.put returns the identical record as flat put", () => {
@@ -86,7 +86,7 @@ describe("db.memory delegates to flat memory methods", () => {
   });
 
   it("operations after close() throw VantaError CLOSED via sub-client too", () => {
-    const tmp = VantaDB.create();
+    const tmp = Client.create();
     tmp.close();
     expect(() => tmp.memory.put({ namespace: "n", key: "k", payload: "p" })).toThrow(/closed/i);
     expect(() => tmp.memory.list("n")).toThrow();
@@ -95,9 +95,9 @@ describe("db.memory delegates to flat memory methods", () => {
 });
 
 describe("db.graph delegates to flat graph methods", () => {
-  let db: VantaDB;
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("graph.insertNode + getNode round-trip", () => {
@@ -153,9 +153,9 @@ describe("db.graph delegates to flat graph methods", () => {
 });
 
 describe("db.system delegates to flat system methods", () => {
-  let db: VantaDB;
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("system.capabilities returns the same shape as flat capabilities", () => {

@@ -120,10 +120,10 @@ Open a VantaDB instance with **IndexedDB-backed persistence** for browser enviro
 **Full example:**
 
 ```ts
-import { VantaDB as WasmVantaDB } from "vantadb-wasm";
+import { Client as WasmClient } from "vantadb-wasm";
 
 // Open or create an IndexedDB-backed database
-const db = await WasmVantaDB.connect_idb("./my_brain");
+const db = await WasmClient.connect_idb("./my_brain");
 
 // Insert records (in-memory — not yet persisted)
 db.put({

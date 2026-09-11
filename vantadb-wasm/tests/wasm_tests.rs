@@ -6,7 +6,7 @@
 //! not run in a standard Rust test runner. Use `wasm-pack test --chrome` (or
 //! `--firefox` / `--safari`) to execute them.
 
-use vantadb_wasm::{IdbStorage, OpfsFile, OpfsStorage, VantaDB};
+use vantadb_wasm::{Client, IdbStorage, OpfsFile, OpfsStorage};
 
 #[cfg(feature = "opfs")]
 use vantadb_wasm::worker::{OpfsWorker, WorkerRequest, WorkerResponse};
@@ -17,8 +17,8 @@ wasm_bindgen_test_configure!(run_in_browser);
 
 // ── Helpers ───────────────────────────────────────────────────────────
 
-fn create_db() -> VantaDB {
-    VantaDB::new(None).expect("failed to create VantaDB")
+fn create_db() -> Client {
+    Client::new(None).expect("failed to create Client")
 }
 
 /// Deterministic node id the core derives from namespace + key (XxHash3_128
@@ -1101,7 +1101,7 @@ async fn test_wasm_persistence_roundtrip() {
         return;
     }
 
-    let db = VantaDB::new(None).unwrap();
+    let db = Client::new(None).unwrap();
     db.put(make_put("persist_ns", "k1", "data1")).unwrap();
     db.put(make_put("persist_ns", "k2", "data2")).unwrap();
 
@@ -1109,7 +1109,7 @@ async fn test_wasm_persistence_roundtrip() {
     db.save_idb().await.unwrap();
 
     // Load into a new DB
-    let db2 = VantaDB::new(None).unwrap();
+    let db2 = Client::new(None).unwrap();
     db2.load_idb().await.unwrap();
 
     // Verify records survived
@@ -1132,10 +1132,10 @@ async fn test_wasm_persistence_roundtrip_empty() {
     }
 
     // Save and load an empty database — must not error.
-    let db = VantaDB::new(None).unwrap();
+    let db = Client::new(None).unwrap();
     db.save_idb().await.unwrap();
 
-    let db2 = VantaDB::new(None).unwrap();
+    let db2 = Client::new(None).unwrap();
     db2.load_idb().await.unwrap();
 
     // No state persisted, so get returns null.
@@ -1577,11 +1577,11 @@ async fn test_save_clears_dirty_flag() {
     }
 
     let db = if has_opfs {
-        VantaDB::connect_persistent("autosave_test_save_clear")
+        Client::connect_persistent("autosave_test_save_clear")
             .await
             .unwrap()
     } else {
-        VantaDB::connect_idb("autosave_test_save_clear")
+        Client::connect_idb("autosave_test_save_clear")
             .await
             .unwrap()
     };
