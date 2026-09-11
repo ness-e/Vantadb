@@ -365,9 +365,9 @@ impl From<OperationalMetrics> for JsOperationalMetrics {
     }
 }
 
-/// The main VantaDB handle exposed to JavaScript via `wasm_bindgen`.
+/// The main database client handle exposed to JavaScript via `wasm_bindgen`.
 #[wasm_bindgen]
-pub struct VantaDB {
+pub struct Client {
     inner: Embedded,
     opfs: Option<OpfsStorage>,
     /// Whether this handle has a durable persistence backend attached (OPFS,
@@ -528,10 +528,10 @@ fn console_warn(msg: &str) {
 const MAX_RECORDS: usize = 1_000_000;
 
 #[wasm_bindgen]
-impl VantaDB {
-    /// Create a new VantaDB instance from an optional WASM config object.
+impl Client {
+    /// Create a new Client instance from an optional WASM config object.
     #[wasm_bindgen(constructor)]
-    pub fn new(config_val: Option<JsValue>) -> Result<VantaDB, JsValue> {
+    pub fn new(config_val: Option<JsValue>) -> Result<Client, JsValue> {
         init();
         let wasm_cfg = match config_val {
             Some(val) => from_js::<WasmConfig>(val)?,
@@ -539,7 +539,7 @@ impl VantaDB {
         };
         let config = build_config(wasm_cfg);
         let inner = Embedded::open_with_config(config).map_err(to_js_err)?;
-        Ok(VantaDB {
+        Ok(Client {
             inner,
             opfs: None,
             persistence: false,
@@ -552,8 +552,8 @@ impl VantaDB {
         })
     }
 
-    /// Open VantaDB at the given storage path.
-    pub fn open(path: &str) -> Result<VantaDB, JsValue> {
+    /// Open a Client at the given storage path.
+    pub fn open(path: &str) -> Result<Client, JsValue> {
         init();
         let wasm_cfg = WasmConfig {
             storage_path: path.to_string(),
@@ -561,7 +561,7 @@ impl VantaDB {
         };
         let config = build_config(wasm_cfg);
         let inner = Embedded::open_with_config(config).map_err(to_js_err)?;
-        Ok(VantaDB {
+        Ok(Client {
             inner,
             opfs: None,
             persistence: false,
@@ -574,7 +574,7 @@ impl VantaDB {
         })
     }
 
-    /// Open VantaDB with OPFS-based persistent storage in the browser.
+    /// Open a Client with OPFS-based persistent storage in the browser.
     ///
     /// WSM-01: this no longer swallows `OpfsStorage::open` errors (previous
     /// `ok` fallback removed). If OPFS is unavailable (e.g.
@@ -582,7 +582,7 @@ impl VantaDB {
     /// the call now rejects with a descriptive `JsValue` so the caller never
     /// gets a silent in-memory DB under the illusion of persistence (capabilities
     /// would otherwise still claim `persistence:true`).
-    pub async fn connect_persistent(path: &str) -> Result<VantaDB, JsValue> {
+    pub async fn connect_persistent(path: &str) -> Result<Client, JsValue> {
         init();
         let opfs = OpfsStorage::open(path).await.map_err(|e| {
             let detail = js_sys::Error::from(e)
@@ -590,7 +590,7 @@ impl VantaDB {
                 .as_string()
                 .unwrap_or_else(|| "unknown OPFS error".to_string());
             JsValue::from(js_sys::Error::new(&format!(
-                "OPFS unavailable for '{path}': {detail} — use VantaDB.connect_idb for IndexedDB fallback"
+                "OPFS unavailable for '{path}': {detail} — use Client.connect_idb for IndexedDB fallback"
             )))
         })?;
         let wasm_cfg = WasmConfig {
@@ -599,7 +599,7 @@ impl VantaDB {
         };
         let config = build_config(wasm_cfg);
         let inner = Embedded::open_with_config(config).map_err(to_js_err)?;
-        let db = VantaDB {
+        let db = Client {
             inner,
             opfs: Some(opfs),
             persistence: true,
@@ -614,8 +614,8 @@ impl VantaDB {
         Ok(db)
     }
 
-    /// Open VantaDB with IndexedDB-based persistent storage (fallback when OPFS is unavailable).
-    pub async fn connect_idb(path: &str) -> Result<VantaDB, JsValue> {
+    /// Open a Client with IndexedDB-based persistent storage (fallback when OPFS is unavailable).
+    pub async fn connect_idb(path: &str) -> Result<Client, JsValue> {
         init();
         let wasm_cfg = WasmConfig {
             storage_path: path.to_string(),
@@ -623,7 +623,7 @@ impl VantaDB {
         };
         let config = build_config(wasm_cfg);
         let inner = Embedded::open_with_config(config).map_err(to_js_err)?;
-        let db = VantaDB {
+        let db = Client {
             inner,
             opfs: None,
             persistence: true,
@@ -638,7 +638,7 @@ impl VantaDB {
         Ok(db)
     }
 
-    /// Open VantaDB with OPFS persistence via a dedicated Web Worker.
+    /// Open a Client with OPFS persistence via a dedicated Web Worker.
     ///
     /// **Optional capability:** this method only exists when the package is
     /// built with the `opfs` feature (`wasm-pack build --features opfs`).
@@ -649,7 +649,7 @@ impl VantaDB {
     ///
     /// ```js
     /// import "vantadb-wasm/opfs_bridge.js";
-    /// const db = await VantaDB.connect_worker("my-db");
+    /// const db = await Client.connect_worker("my-db");
     /// ```
     ///
     /// For backwards compatibility, manual injection still works:
@@ -659,7 +659,7 @@ impl VantaDB {
     /// globalThis.spawnOpfsWorker = spawnOpfsWorker;
     /// ```
     #[cfg(feature = "opfs")]
-    pub async fn connect_worker(path: &str) -> Result<VantaDB, JsValue> {
+    pub async fn connect_worker(path: &str) -> Result<Client, JsValue> {
         init();
         let worker_proxy = {
             let global = js_sys::global();
@@ -681,7 +681,7 @@ impl VantaDB {
         };
         let config = build_config(wasm_cfg);
         let inner = Embedded::open_with_config(config).map_err(to_js_err)?;
-        let db = VantaDB {
+        let db = Client {
             inner,
             opfs: None,
             persistence: true,
@@ -998,7 +998,7 @@ impl VantaDB {
     /// # Example (JavaScript)
     /// ```js
     /// import { registerAutoSave } from "vantadb-wasm/src/opfs_bridge.js";
-    /// const db = await VantaDB.connect_persistent("my-db");
+    /// const db = await Client.connect_persistent("my-db");
     /// db.enable_auto_save();
     /// registerAutoSave(db);
     /// ```
@@ -1103,7 +1103,7 @@ impl VantaDB {
     }
 
     /// Close the database and release underlying engine resources.
-    /// After close, the VantaDB handle should not be used for further operations.
+    /// After close, the Client handle should not be used for further operations.
     /// This does NOT free the JS wrapper object — callers should drop references
     /// after close to allow WASM GC to reclaim the wrapper.
     pub fn close(&self) -> Result<(), JsValue> {
@@ -1640,7 +1640,7 @@ impl VantaDB {
         let _g = enter(&self.op_gate)?;
         if self.opfs.is_none() {
             console_warn(
-                "VantaDB.flush(): engine buffers flushed, but this is not a durability \
+                "Client.flush(): engine buffers flushed, but this is not a durability \
                  guarantee in the browser — call save() / save_idb() to persist.",
             );
         }
@@ -1993,7 +1993,7 @@ mod core02_graph_persist_tests {
     use wasm_bindgen_test::wasm_bindgen_test;
 
     /// Nodes created via IQL (typed), edges via the binding graph API.
-    fn seed_graph(db: &VantaDB) {
+    fn seed_graph(db: &Client) {
         db.query(r#"INSERT NODE#1 TYPE Person {}"#)
             .expect("insert#1");
         db.query(r#"INSERT NODE#2 TYPE Person {}"#)
@@ -2048,7 +2048,7 @@ mod core02_graph_persist_tests {
 
     #[wasm_bindgen_test]
     fn graph_roundtrip_through_snapshot_payload() {
-        let db = VantaDB::new(None).expect("db");
+        let db = Client::new(None).expect("db");
         seed_graph(&db);
 
         // In-session: IQL FROM sees the edge (MCP-29 scan path).
@@ -2064,7 +2064,7 @@ mod core02_graph_persist_tests {
 
         // Persistence boundary: snapshot → fresh engine → restore.
         let payload = db.graph_payload().expect("graph_payload");
-        let db2 = VantaDB::new(None).expect("db2");
+        let db2 = Client::new(None).expect("db2");
         db2.restore_graph_payload(&payload).expect("restore");
 
         let nodes2 = read_nodes(db2.query("SELECT * FROM Person").expect("query2"));
@@ -2147,7 +2147,7 @@ mod cursor_policy_tests {
     fn flush_smoke_without_persistent_backend() {
         // H-05: flush stays callable with no OPFS attached; it must warn
         // (console side-effect not asserted here) and still return Ok.
-        let db = VantaDB::new(None).expect("db");
+        let db = Client::new(None).expect("db");
         db.flush().expect("flush without persistent backend");
     }
 }
@@ -2183,7 +2183,7 @@ mod wsm01_persistence_tests {
             "return Promise.reject(new TypeError('OPFS blocked for WSM-01 test'));",
         );
         Reflect::set(&storage, &"getDirectory".into(), &stub).expect("set stub");
-        let result = VantaDB::connect_persistent("wsm01_fail_test").await;
+        let result = Client::connect_persistent("wsm01_fail_test").await;
         // Restore before asserting so later tests are not poisoned.
         if orig.is_undefined() {
             let _ = Reflect::set(&storage, &"getDirectory".into(), &JsValue::UNDEFINED);
@@ -2209,23 +2209,23 @@ mod wsm01_persistence_tests {
 
     #[wasm_bindgen_test]
     fn capabilities_persistence_fidelity_in_memory() {
-        let db = VantaDB::new(None).expect("new");
+        let db = Client::new(None).expect("new");
         let caps_js = db.capabilities().expect("capabilities");
         let caps: serde_json::Value =
             serde_wasm_bindgen::from_value(caps_js).expect("deserialize caps");
         assert_eq!(
             caps["persistence"],
             serde_json::Value::Bool(false),
-            "VantaDB::new in-memory must report persistence:false, got {caps}"
+            "Client::new in-memory must report persistence:false, got {caps}"
         );
-        let db2 = VantaDB::open("wsm01_open_test").expect("open");
+        let db2 = Client::open("wsm01_open_test").expect("open");
         let caps2_js = db2.capabilities().expect("caps2");
         let caps2: serde_json::Value =
             serde_wasm_bindgen::from_value(caps2_js).expect("deserialize caps2");
         assert_eq!(
             caps2["persistence"],
             serde_json::Value::Bool(false),
-            "VantaDB::open in-memory must report persistence:false, got {caps2}"
+            "Client::open in-memory must report persistence:false, got {caps2}"
         );
     }
 
@@ -2234,7 +2234,7 @@ mod wsm01_persistence_tests {
         if !IdbStorage::is_available() {
             return;
         }
-        let db = VantaDB::connect_idb("wsm01_idb_caps")
+        let db = Client::connect_idb("wsm01_idb_caps")
             .await
             .expect("connect_idb");
         let caps_js = db.capabilities().expect("caps");
@@ -2243,7 +2243,7 @@ mod wsm01_persistence_tests {
         assert_eq!(
             caps["persistence"],
             serde_json::Value::Bool(true),
-            "VantaDB::connect_idb must report persistence:true, got {caps}"
+            "Client::connect_idb must report persistence:true, got {caps}"
         );
         // Cleanup to avoid leaking state across tests.
         let _ = db.delete_idb().await;
@@ -2261,7 +2261,7 @@ mod wsm01_persistence_tests {
                        // If probe succeeded, the real connect should also succeed and report true.
                        // Use a fresh path to avoid probe leftovers.
         let path = "wsm01_persist_true_probe";
-        let db = match VantaDB::connect_persistent(path).await {
+        let db = match Client::connect_persistent(path).await {
             Ok(d) => d,
             Err(_) => return, // OPFS present but failed for this path — skip
         };
@@ -2271,7 +2271,7 @@ mod wsm01_persistence_tests {
         assert_eq!(
             caps["persistence"],
             serde_json::Value::Bool(true),
-            "VantaDB::connect_persistent success must report persistence:true, got {caps}"
+            "Client::connect_persistent success must report persistence:true, got {caps}"
         );
         // Cleanup OPFS file if any was created (load wrote nothing, but delete dir entry)
         // Best-effort: delete the test dir files via raw OpfsStorage if possible.
@@ -2387,8 +2387,8 @@ mod tests {
     // wasm-bindgen-test handles the executor. These tests require a
     // browser environment — run with `wasm-pack test --chrome`.
 
-    fn create_db() -> VantaDB {
-        VantaDB::new(None).expect("failed to create VantaDB")
+    fn create_db() -> Client {
+        Client::new(None).expect("failed to create Client")
     }
 
     /// Serialize a serde value into a JS value with the JSON-compatible

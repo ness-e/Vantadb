@@ -1,4 +1,4 @@
-import { VantaDB as WasmVantaDB } from "vantadb-wasm";
+import { Client as WasmClient } from "vantadb-wasm";
 
 import { DbError, ERROR_CODES, wrapWasmError } from "./errors.js";
 import { _mapRecord, buildSearchRequestBase } from "./guards.js";
@@ -132,10 +132,10 @@ export interface SystemClient {
 }
 
 export class Client {
-  private inner: WasmVantaDB;
+  private inner: WasmClient;
   private _closed: boolean = false;
 
-  private constructor(inner: WasmVantaDB) {
+  private constructor(inner: WasmClient) {
     this.inner = inner;
   }
 
@@ -152,22 +152,22 @@ export class Client {
    * Connect to a VantaDB database with persistent storage.
    *
    * @param path - Filesystem path for persistent storage. Omit or pass `":memory:"` for in-memory.
-   * @returns A new VantaDB instance.
+   * @returns A new Client instance.
    * @throws {VantaError} If the WASM engine fails to initialise.
    *
    * @example
    * ```ts
    * // In-memory
-   * const db = VantaDB.connect();
+   * const db = Client.connect();
    * // Persistent
-   * const db = VantaDB.connect("./my_brain");
+   * const db = Client.connect("./my_brain");
    * ```
    */
   static connect(path?: string): Client {
     try {
       const inner = path && path !== ":memory:"
-        ? WasmVantaDB.open(path)
-        : new WasmVantaDB(null);
+        ? WasmClient.open(path)
+        : new WasmClient(null);
       return new Client(inner);
     } catch (e) {
       throw wrapWasmError(e, "connect");
@@ -186,22 +186,22 @@ export class Client {
    * (OPFS), `connect_idb()` (IndexedDB), or `connect_worker()`.
    *
    * @param config - Optional configuration.
-   * @returns A new VantaDB instance.
+   * @returns A new Client instance.
    * @throws {VantaError} If the WASM engine fails to initialise.
    *
    * @example
    * ```ts
-   * const db = VantaDB.create({ memory_limit: 1073741824 });
+   * const db = Client.create({ memory_limit: 1073741824 });
    * ```
    */
   static create(config?: Config): Client {
     if (config?.storage_path) {
       console.warn(
-        "VantaDB.create(): storage_path is ignored unless a persistent backend is connected via connect_persistent(), connect_idb(), or connect_worker().",
+        "Client.create(): storage_path is ignored unless a persistent backend is connected via connect_persistent(), connect_idb(), or connect_worker().",
       );
     }
     try {
-      const inner = new WasmVantaDB(config ?? null);
+      const inner = new WasmClient(config ?? null);
       return new Client(inner);
     } catch (e) {
       throw wrapWasmError(e, "create");
@@ -212,17 +212,17 @@ export class Client {
    * Open a persistent VantaDB database at the given path.
    *
    * @param path - Filesystem path to the database.
-   * @returns A new VantaDB instance.
+   * @returns A new Client instance.
    * @throws {VantaError} If the WASM engine fails to open the database.
    *
    * @example
    * ```ts
-   * const db = VantaDB.open("./my_brain");
+   * const db = Client.open("./my_brain");
    * ```
    */
   static open(path: string): Client {
     try {
-      const inner = WasmVantaDB.open(path);
+      const inner = WasmClient.open(path);
       return new Client(inner);
     } catch (e) {
       throw wrapWasmError(e, "open");
@@ -231,7 +231,7 @@ export class Client {
 
   private _assertOpen(): void {
     if (this._closed) {
-      throw new DbError(ERROR_CODES.CLOSED, "VantaDB instance is closed");
+      throw new DbError(ERROR_CODES.CLOSED, "Client instance is closed");
     }
   }
 
@@ -1404,8 +1404,8 @@ export {
   isMemoryRecord,
   isSearchHit,
   isNodeRecord,
-  isValidVantaValue,
-  isVantaMetadata,
+  isValidValue,
+  isMetadata,
   isValidVector,
   validateVector,
 } from "./guards.js";

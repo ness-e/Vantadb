@@ -184,7 +184,7 @@ export interface MemoryRecordInput {
 /** Sparse term-weight vector: dimension id → weight. */
 export type SparseVector = Record<string, number>;
 
-/** AND-combined metadata filter. Mirrors `VantaMemoryFilterItem` from the core. */
+/** AND-combined metadata filter. Mirrors `MemoryFilterItem` from the core. */
 export type MetadataFilter = MetadataFilterItem[];
 
 /** One filter predicate inside a `MetadataFilter`. */
@@ -424,7 +424,7 @@ export interface GraphDegreeEntry {
 /** Traversal direction string accepted by graph traversal entry points. */
 export type TraversalDirectionStr = "Forward" | "Reverse" | "Both";
 
-/** IQL query result (returned by `query`). Shape mirrors the engine's `VantaQueryResult`. */
+/** IQL query result (returned by `query`). Shape mirrors the SDK `QueryResult` (graph result). */
 export type IqlResult =
     | { kind: "Read"; rows: IqlRow[] }
     | { kind: "Write"; affected_nodes: number; message: string; node_id?: string }

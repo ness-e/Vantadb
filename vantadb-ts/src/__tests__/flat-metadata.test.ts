@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { VantaDB } from "../vantadb.js";
+import { Client } from "../vantadb.js";
 
 /**
  * FIND-01 — Flat metadata input.
@@ -17,10 +17,10 @@ function metaOf(m: unknown): Record<string, unknown> {
 }
 
 describe("FIND-01: flat metadata input", () => {
-  let db: VantaDB;
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
   });
 
   afterAll(() => {

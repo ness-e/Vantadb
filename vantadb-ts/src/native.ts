@@ -113,7 +113,7 @@ function normalizeMetadataForNative(
  * (`vantadb.ts`): it provides real filesystem persistence (fjall/WAL/fsync)
  * which WASM cannot.
  *
- * API notes (isomorphic with `VantaDB` in `vantadb.ts`):
+ * API notes (isomorphic with `Client` in `vantadb.ts`):
  * - Same method names, input shapes and output shapes for the exposed subset
  *   (connect/close/flush/capabilities/put/putBatch/get/delete/list/
  *   listNamespaces/search).

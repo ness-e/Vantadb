@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { VantaDB } from "../vantadb.js";
+import { Client } from "../vantadb.js";
 
-describe("VantaDB WASM Integration", () => {
-  let db: VantaDB;
+describe("Client WASM Integration", () => {
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
   });
 
   afterAll(() => {

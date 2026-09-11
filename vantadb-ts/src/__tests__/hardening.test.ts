@@ -1,12 +1,12 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import { VantaDB, VantaError } from "../vantadb.js";
+import { Client, VantaError } from "../vantadb.js";
 import { wrapWasmError, classifyWasmError, ERROR_CODES } from "../errors.js";
 import {
   isMemoryRecord,
   isSearchHit,
   isNodeRecord,
-  isValidVantaValue,
-  isVantaMetadata,
+  isValidValue,
+  isMetadata,
   isValidVector,
 } from "../guards.js";
 import type { MemoryRecord, SearchHit, NodeRecord, SearchRequest, ImportReport } from "../types.js";
@@ -109,10 +109,10 @@ describe("WASM error classification (FIND-10)", () => {
   });
 });
 
-describe("VantaDB error codes from the real WASM engine (FIND-10)", () => {
-  let db: VantaDB;
+describe("Client error codes from the real WASM engine (FIND-10)", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("zero-norm cosine search surfaces VANTADB_VALIDATION_ERROR", () => {
@@ -165,21 +165,21 @@ describe("Type guards edge cases", () => {
     })).toBe(false);
   });
 
-  it("isValidVantaValue rejects Null with extra value", () => {
-    expect(isValidVantaValue({ Null: 1 })).toBe(false);
+  it("isValidValue rejects Null with extra value", () => {
+    expect(isValidValue({ Null: 1 })).toBe(false);
   });
 
-  it("isValidVantaValue rejects empty object", () => {
-    expect(isValidVantaValue({})).toBe(false);
+  it("isValidValue rejects empty object", () => {
+    expect(isValidValue({})).toBe(false);
   });
 
-  it("isValidVantaValue rejects multi-key object", () => {
-    expect(isValidVantaValue({ String: "a", Int: 1 })).toBe(false);
+  it("isValidValue rejects multi-key object", () => {
+    expect(isValidValue({ String: "a", Int: 1 })).toBe(false);
   });
 
-  it("isVantaMetadata rejects non-object values", () => {
-    expect(isVantaMetadata("string")).toBe(false);
-    expect(isVantaMetadata(null)).toBe(false);
+  it("isMetadata rejects non-object values", () => {
+    expect(isMetadata("string")).toBe(false);
+    expect(isMetadata(null)).toBe(false);
   });
 
   it("isValidVector rejects arrays with non-finite values", () => {
@@ -189,10 +189,10 @@ describe("Type guards edge cases", () => {
   });
 });
 
-describe("VantaDB input validation", () => {
-  let db: VantaDB;
+describe("Client input validation", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("put with null namespace throws", () => {
@@ -232,11 +232,11 @@ describe("VantaDB input validation", () => {
   });
 });
 
-describe("VantaDB search edge cases", () => {
-  let db: VantaDB;
+describe("Client search edge cases", () => {
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
     db.put({ namespace: "search_edge", key: "a", payload: "alpha", vector: [1, 0, 0] });
     db.put({ namespace: "search_edge", key: "b", payload: "beta", vector: [0, 1, 0] });
   });
@@ -296,11 +296,11 @@ describe("VantaDB search edge cases", () => {
   });
 });
 
-describe("VantaDB export/import roundtrip", () => {
-  let db: VantaDB;
+describe("Client export/import roundtrip", () => {
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
     db.put({ namespace: "export", key: "k1", payload: "v1", metadata: { tag: { String: "test" } } });
     db.put({ namespace: "export", key: "k2", payload: "v2" });
   });
@@ -330,11 +330,11 @@ describe("VantaDB export/import roundtrip", () => {
   });
 });
 
-describe("VantaDB list edge cases", () => {
-  let db: VantaDB;
+describe("Client list edge cases", () => {
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
     for (let i = 0; i < 25; i++) {
       db.put({ namespace: "list_edge", key: `k${i}`, payload: `v${i}` });
     }
@@ -366,15 +366,15 @@ describe("VantaDB list edge cases", () => {
   });
 });
 
-describe("VantaDB lifecycle harden", () => {
+describe("Client lifecycle harden", () => {
   it("double close is safe", () => {
-    const db = VantaDB.create();
+    const db = Client.create();
     db.close();
     expect(() => db.close()).not.toThrow();
   });
 
   it("operations after close throw typed error", () => {
-    const db = VantaDB.create();
+    const db = Client.create();
     db.close();
     expect(() => db.capabilities()).toThrow(VantaError);
     expect(() => db.listNamespaces()).toThrow(VantaError);
@@ -382,35 +382,35 @@ describe("VantaDB lifecycle harden", () => {
     expect(() => db.compactWal()).toThrow(VantaError);
   });
 
-  it("VantaDB.create with storage_path warns but does not throw", () => {
+  it("Client.create with storage_path warns but does not throw", () => {
     const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const db = VantaDB.create({ storage_path: "./ignored" });
+    const db = Client.create({ storage_path: "./ignored" });
     expect(spy).toHaveBeenCalled();
     spy.mockRestore();
     db.close();
   });
 
-  it("VantaDB.connect(':memory:') is equivalent to connect()", () => {
-    const db = VantaDB.connect(":memory:");
+  it("Client.connect(':memory:') is equivalent to connect()", () => {
+    const db = Client.connect(":memory:");
     expect(db.capabilities().vector_search).toBe(true);
     db.close();
   });
 
   it("open() returns a non-durable handle (persistence:false per WSM-01)", () => {
-    // WSM-01: `VantaDB.open` no longer fakes `persistence:true` — only
+    // WSM-01: `Client.open` no longer fakes `persistence:true` — only
     // `connect_persistent` (browser OPFS) claims durable persistence. In the
     // Node/wrapper build `open` attaches no durable backend, so capabilities
     // honestly reports false. The DB still opens and is usable.
-    const db = VantaDB.open("/nonexistent/test_" + Date.now());
+    const db = Client.open("/nonexistent/test_" + Date.now());
     expect(db.capabilities().persistence).toBe(false);
     db.close();
   });
 });
 
-describe("VantaDB graph edge cases", () => {
-  let db: VantaDB;
+describe("Client graph edge cases", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("getNode on non-existent returns null", () => {
@@ -440,10 +440,10 @@ describe("VantaDB graph edge cases", () => {
   });
 });
 
-describe("VantaDB batch edge cases", () => {
-  let db: VantaDB;
+describe("Client batch edge cases", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("putBatch with single element", () => {
@@ -468,10 +468,10 @@ describe("VantaDB batch edge cases", () => {
   });
 });
 
-describe("VantaDB maintenance edge cases", () => {
-  let db: VantaDB;
+describe("Client maintenance edge cases", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("rebuildIndex on empty DB throws IO error on non-persistent", () => {
@@ -490,10 +490,10 @@ describe("VantaDB maintenance edge cases", () => {
   });
 });
 
-describe("VantaDB TTL edge cases", () => {
-  let db: VantaDB;
+describe("Client TTL edge cases", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("put with TTL = null is same as no TTL", () => {
@@ -507,10 +507,10 @@ describe("VantaDB TTL edge cases", () => {
   });
 });
 
-describe("VantaDB metadata edge cases", () => {
-  let db: VantaDB;
+describe("Client metadata edge cases", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("put with all metadata types round-trips", () => {
@@ -533,10 +533,10 @@ describe("VantaDB metadata edge cases", () => {
   });
 });
 
-describe("VantaDB generate snippet edge cases", () => {
-  let db: VantaDB;
+describe("Client generate snippet edge cases", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("generateSnippet with empty query", () => {

@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { VantaDB } from "../vantadb.js";
+import { Client } from "../vantadb.js";
 
-describe("VantaDB Load Tests", () => {
-  let db: VantaDB;
+describe("Client Load Tests", () => {
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
   });
 
   afterAll(() => {
@@ -57,7 +57,7 @@ describe("VantaDB Load Tests", () => {
 
   it("should not error on repeated create/destroy cycles", async () => {
     for (let i = 0; i < 50; i++) {
-      const tmp = VantaDB.create();
+      const tmp = Client.create();
       await tmp.put({
         namespace: `cycle_${i}`,
         key: "k",
