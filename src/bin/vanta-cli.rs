@@ -22,7 +22,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
 // ERR-CORE-02: bin → anyhow con `.context()` (cadena humana en stderr).
 // La lib nunca usa anyhow; solo este bin. `?` sobre los handlers convierte
-// `VantaError` (Error + Send + Sync + 'static) vía el `From` genérico de anyhow.
+// `Error` (Error + Send + Sync + 'static) vía el `From` genérico de anyhow.
 fn main() -> anyhow::Result<()> {
     run().context("vanta-cli: command failed")
 }

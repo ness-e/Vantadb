@@ -2,7 +2,7 @@
 //!
 //! Provides packed offsets (segment_id in low 6 bits, 64-aligned offset in upper bits),
 //! LSM level identifiers, per-level configuration, segment metadata, and the
-//! [`SegmentRegistry`] which manages multi-level VantaFile lifecycle.
+//! [`SegmentRegistry`] which manages multi-level File lifecycle.
 //!
 //! ponytail: tier promotion hot→warm→cold→archive (L0→L3) driven by
 //! size/tombstone thresholds; Frequency/Age heuristics are config-only for now.
@@ -56,7 +56,7 @@ impl SegmentLevel {
         }
     }
 
-    /// File name for this level's VantaFile (e.g. "vstore_L0.vanta").
+    /// File name for this level's File (e.g. "vstore_L0.vanta").
     pub fn file_name(self) -> &'static str {
         match self {
             Self::L0 => "vstore_L0.vanta",
@@ -125,22 +125,19 @@ impl SegmentRegistry {
     /// Detects legacy `vector_store.vanta` and renames to `vstore_L0.vanta`.
     /// Pre-allocates all 4 LSM levels so `compact_level()` never needs to
     /// grow `vector_store` dynamically (no `unsafe` needed).
-    /// Returns `(Self, Vec<RwLock<VantaFile>>)` with a VantaFile per level.
+    /// Returns `(Self, Vec<RwLock<File>>)` with a File per level.
     pub fn open_or_create(
         data_dir: &std::path::Path,
         _config: &crate::storage::engine::SegmentOptimizerConfig,
-    ) -> crate::error::Result<(
-        Self,
-        Vec<parking_lot::RwLock<crate::storage::vfile::VantaFile>>,
-    )> {
+    ) -> crate::error::Result<(Self, Vec<parking_lot::RwLock<crate::storage::vfile::File>>)> {
         let mut registry = Self::new();
-        let mut vfiles: Vec<parking_lot::RwLock<crate::storage::vfile::VantaFile>> = Vec::new();
+        let mut vfiles: Vec<parking_lot::RwLock<crate::storage::vfile::File>> = Vec::new();
 
         // Legacy migration: detect vector_store.vanta → rename to vstore_L0.vanta
         let legacy_path = data_dir.join("vector_store.vanta");
         let l0_path = data_dir.join(SegmentLevel::L0.file_name());
         if legacy_path.exists() && !l0_path.exists() {
-            std::fs::rename(&legacy_path, &l0_path).map_err(crate::error::VantaError::IoError)?;
+            std::fs::rename(&legacy_path, &l0_path).map_err(crate::error::Error::IoError)?;
             tracing::info!(
                 "Migrated legacy vector_store.vanta → {}",
                 SegmentLevel::L0.file_name()
@@ -148,7 +145,7 @@ impl SegmentRegistry {
         }
 
         // Pre-allocate all 4 levels: L0 (hot), L1 (warm), L2 (cold), L3 (archive).
-        // Each VantaFile starts empty; unused levels cost only a file handle + mmap header.
+        // Each File starts empty; unused levels cost only a file handle + mmap header.
         for level in &[
             SegmentLevel::L0,
             SegmentLevel::L1,
@@ -156,7 +153,7 @@ impl SegmentRegistry {
             SegmentLevel::L3,
         ] {
             let path = data_dir.join(level.file_name());
-            let vf = crate::storage::vfile::VantaFile::open(path.clone(), 64 * 1024 * 1024)?;
+            let vf = crate::storage::vfile::File::open(path.clone(), 64 * 1024 * 1024)?;
             registry.register(level.as_u8(), level.as_u8(), path);
             vfiles.push(parking_lot::RwLock::new(vf));
         }

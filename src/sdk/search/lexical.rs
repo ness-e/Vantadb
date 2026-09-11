@@ -1,23 +1,23 @@
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::serialization::{matches_memory_filters, memory_record_from_node};
 use super::super::types::*;
 use super::phrase;
 use super::text_index;
 use crate::backend::BackendPartition;
-use crate::error::{ChainedError, Result, VantaError};
+use crate::error::{ChainedError, Error, Result};
 use crate::node::{FilterBitset, UnifiedNode};
 use crate::query::RelOp;
 use std::collections::BTreeMap;
 use web_time::Instant;
 
-impl VantaEmbedded {
+impl Embedded {
     pub(super) fn lexical_search(
         &self,
         namespace: &str,
         query_text: &str,
-        filters: &VantaMemoryMetadata,
+        filters: &MemoryMetadata,
         top_k: usize,
-    ) -> Result<Vec<VantaMemorySearchHit>> {
+    ) -> Result<Vec<MemorySearchHit>> {
         let started = Instant::now();
         let engine = self.engine_handle()?;
         text_index::ensure_text_index_query_ready(&engine)?;
@@ -70,7 +70,7 @@ impl VantaEmbedded {
                     continue;
                 }
                 let posting = crate::text_index::decode_posting(&posting_value).map_err(|err| {
-                    VantaError::SearchError(ChainedError::msg(format!(
+                    Error::SearchError(ChainedError::msg(format!(
                         "text_query found an unreadable posting; run rebuild_index: {err}"
                     )))
                 })?;
@@ -83,13 +83,13 @@ impl VantaEmbedded {
                 } else {
                     let Some(stats) = Self::load_text_doc_stats(&engine, namespace, record_key)?
                     else {
-                        return Err(VantaError::NotFound {
+                        return Err(Error::NotFound {
                             kind: "document_stats".into(),
                             id: "unknown".into(),
                         });
                     };
                     if stats.node_id != posting.node_id {
-                        return Err(VantaError::SearchError(ChainedError::msg(
+                        return Err(Error::SearchError(ChainedError::msg(
                             "text_query found posting/doc stats mismatch; run rebuild_index",
                         )));
                     }
@@ -137,7 +137,7 @@ impl VantaEmbedded {
             if let Some(node) = node_map.get(&node_id) {
                 if let Some(record) = memory_record_from_node(node) {
                     if record.namespace == namespace && matches_memory_filters(&record, filters) {
-                        hits.push(VantaMemorySearchHit {
+                        hits.push(MemorySearchHit {
                             record,
                             score,
                             explanation: None,
@@ -177,7 +177,7 @@ impl VantaEmbedded {
     pub(super) fn bitset_from_filters(
         &self,
         namespace: &str,
-        filters: &VantaMemoryMetadata,
+        filters: &MemoryMetadata,
     ) -> Result<FilterBitset> {
         // ── Shredded fast path ────────────────────────────────
         // Try resolving every filter field from the shredded column store.

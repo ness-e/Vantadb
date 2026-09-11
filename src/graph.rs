@@ -526,7 +526,7 @@ fn topo_from_cache(
     edges: &HashMap<u128, Vec<crate::node::Edge>>,
 ) -> Result<bool> {
     match state.get(&node_id) {
-        Some(1) => return Err(crate::error::VantaError::CycleDetected),
+        Some(1) => return Err(crate::error::Error::CycleDetected),
         Some(2) => return Ok(true),
         _ => {}
     }
@@ -549,7 +549,7 @@ fn topo_from_cache(
 #[allow(missing_docs)]
 mod tests {
     use super::*;
-    use crate::config::VantaConfig;
+    use crate::config::Config;
     use crate::node::UnifiedNode;
     use crate::storage::{BackendKind, StorageEngine};
     use crate::Edge;
@@ -557,7 +557,7 @@ mod tests {
 
     fn setup_storage() -> (StorageEngine, tempfile::TempDir) {
         let dir = tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };

@@ -1,15 +1,14 @@
 //! Vector-related SDK types: search requests, hits, and search results.
 
 use super::super::types::{
-    u128_serde, SearchProfileConfig, VantaMemoryMetadata, VantaMemoryRecord,
-    VantaSearchExplanationHit,
+    u128_serde, MemoryMetadata, MemoryRecord, SearchExplanationHit, SearchProfileConfig,
 };
 use crate::node::{DistanceMetric, SparseVector};
 use serde::{Deserialize, Serialize};
 
 /// Stable vector search request for persistent memory records.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaMemorySearchRequest {
+pub struct MemorySearchRequest {
     /// Namespace to restrict the search to.
     pub namespace: String,
     /// Query vector for similarity search. Empty means dense vector search is skipped.
@@ -20,14 +19,14 @@ pub struct VantaMemorySearchRequest {
     #[serde(default)]
     pub query_sparse: Option<SparseVector>,
     /// Metadata key-value filters to narrow results.
-    pub filters: VantaMemoryMetadata,
+    pub filters: MemoryMetadata,
     /// Optional text query for BM25 lexical search.
     pub text_query: Option<String>,
     /// Maximum number of results to return.
     pub top_k: usize,
     /// Distance metric for dense vector similarity. Defaults to Cosine.
     pub distance_metric: DistanceMetric,
-    /// When true, each result will carry a `VantaSearchExplanation`.
+    /// When true, each result will carry a `SearchExplanation`.
     pub explain: bool,
     /// When true, records marked as superseded (ADR-028) are dropped from the
     /// results. Defaults to false: superseded records remain searchable.
@@ -39,7 +38,7 @@ pub struct VantaMemorySearchRequest {
     pub search_profile: Option<SearchProfileConfig>,
 }
 
-impl Default for VantaMemorySearchRequest {
+impl Default for MemorySearchRequest {
     fn default() -> Self {
         Self {
             namespace: String::new(),
@@ -58,7 +57,7 @@ impl Default for VantaMemorySearchRequest {
 
 /// Stable vector search hit for external SDKs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaSearchHit {
+pub struct SearchHit {
     /// Numeric node identifier of the matched node.
     #[serde(with = "u128_serde")]
     pub node_id: u128,
@@ -68,25 +67,43 @@ pub struct VantaSearchHit {
 
 /// Stable vector search hit for persistent memory records.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaMemorySearchHit {
+pub struct MemorySearchHit {
     /// The matched memory record.
-    pub record: VantaMemoryRecord,
+    pub record: MemoryRecord,
     /// Relevance score (BM25, cosine similarity, or RRF fused score).
     pub score: f32,
     /// Optional explanation for explain-mode searches.
-    pub explanation: Option<VantaSearchExplanationHit>,
+    pub explanation: Option<SearchExplanationHit>,
 }
+
+/// Deprecated `Vanta`-prefixed aliases (AST-002, ADR-041).
+/// New code must use the unprefixed names; these exist only for semver migration.
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `MemorySearchRequest` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaMemorySearchRequest = MemorySearchRequest;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `SearchHit` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaSearchHit = SearchHit;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `MemorySearchHit` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaMemorySearchHit = MemorySearchHit;
 
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
     use super::*;
-    use crate::sdk::types::VantaValue;
+    use crate::sdk::types::Value;
     use crate::sdk::types::{SearchProfileConfig, SearchProfileMode};
 
     #[test]
     fn test_search_request_default() {
-        let req = VantaMemorySearchRequest::default();
+        let req = MemorySearchRequest::default();
         assert_eq!(req.namespace, "");
         assert!(req.query_vector.is_empty());
         assert!(req.filters.is_empty());
@@ -98,9 +115,9 @@ mod tests {
 
     #[test]
     fn test_search_request_custom() {
-        let mut filters = VantaMemoryMetadata::new();
-        filters.insert("type".into(), VantaValue::String("doc".into()));
-        let req = VantaMemorySearchRequest {
+        let mut filters = MemoryMetadata::new();
+        filters.insert("type".into(), Value::String("doc".into()));
+        let req = MemorySearchRequest {
             namespace: "test".into(),
             query_vector: vec![0.1, 0.2, 0.3],
             filters,
@@ -121,10 +138,10 @@ mod tests {
 
     #[test]
     fn test_search_request_serialization_roundtrip() {
-        let req = VantaMemorySearchRequest {
+        let req = MemorySearchRequest {
             namespace: "ns".into(),
             query_vector: vec![0.5, 0.5],
-            filters: VantaMemoryMetadata::new(),
+            filters: MemoryMetadata::new(),
             text_query: Some("query".into()),
             top_k: 20,
             distance_metric: DistanceMetric::Cosine,
@@ -134,29 +151,29 @@ mod tests {
             search_profile: None,
         };
         let json = serde_json::to_string(&req).unwrap();
-        let deserialized: VantaMemorySearchRequest = serde_json::from_str(&json).unwrap();
+        let deserialized: MemorySearchRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized, req);
     }
 
     #[test]
     fn test_search_hit_serialization_roundtrip() {
-        let hit = VantaSearchHit {
+        let hit = SearchHit {
             node_id: 12345,
             distance: 0.42,
         };
         let json = serde_json::to_string(&hit).unwrap();
-        let deserialized: VantaSearchHit = serde_json::from_str(&json).unwrap();
+        let deserialized: SearchHit = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized, hit);
     }
 
     #[test]
     fn test_memory_search_hit_serialization_roundtrip() {
-        let hit = VantaMemorySearchHit {
-            record: VantaMemoryRecord {
+        let hit = MemorySearchHit {
+            record: MemoryRecord {
                 namespace: "ns".into(),
                 key: "k".into(),
                 payload: "payload".into(),
-                metadata: VantaMemoryMetadata::new(),
+                metadata: MemoryMetadata::new(),
                 created_at_ms: 100,
                 updated_at_ms: 200,
                 version: 1,
@@ -171,13 +188,13 @@ mod tests {
             explanation: None,
         };
         let json = serde_json::to_string(&hit).unwrap();
-        let deserialized: VantaMemorySearchHit = serde_json::from_str(&json).unwrap();
+        let deserialized: MemorySearchHit = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized, hit);
     }
 
     #[test]
     fn test_search_hit_node_id_serialized_as_string() {
-        let hit = VantaSearchHit {
+        let hit = SearchHit {
             node_id: 999888777666,
             distance: 0.1,
         };
@@ -193,7 +210,7 @@ mod tests {
         assert_eq!(p.mode, SearchProfileMode::Hybrid);
         assert_eq!(p.rrf_k, None);
         assert_eq!(p.candidate_k, None);
-        let req = VantaMemorySearchRequest::default();
+        let req = MemorySearchRequest::default();
         assert_eq!(req.search_profile, None);
     }
 
@@ -231,7 +248,7 @@ mod tests {
 
     #[test]
     fn test_search_request_with_profile_roundtrip() {
-        let req = VantaMemorySearchRequest {
+        let req = MemorySearchRequest {
             namespace: "ns".into(),
             search_profile: Some(SearchProfileConfig {
                 mode: SearchProfileMode::Hybrid,
@@ -241,7 +258,7 @@ mod tests {
             ..Default::default()
         };
         let json = serde_json::to_string(&req).unwrap();
-        let back: VantaMemorySearchRequest = serde_json::from_str(&json).unwrap();
+        let back: MemorySearchRequest = serde_json::from_str(&json).unwrap();
         assert_eq!(back, req);
     }
 
@@ -249,7 +266,7 @@ mod tests {
     fn test_search_request_without_profile_field_is_none() {
         // Retrocompat: JSON antiguo sin `search_profile` deserializa a None.
         let json = r#"{"namespace":"ns","query_vector":[],"query_sparse":null,"filters":{},"text_query":null,"top_k":10,"distance_metric":"Cosine","explain":false,"exclude_superseded":false}"#;
-        let req: VantaMemorySearchRequest = serde_json::from_str(json).unwrap();
+        let req: MemorySearchRequest = serde_json::from_str(json).unwrap();
         assert_eq!(req.search_profile, None);
     }
 
@@ -271,12 +288,12 @@ mod tests {
     //   - src/sdk/api.rs:1661        — score: 1.0 - hit.distance (cosine)
     //   - src/sdk/search/vector.rs:30-60 — score formula por DistanceMetric
 
-    fn minimal_record(key: &str, ns: &str) -> VantaMemoryRecord {
-        VantaMemoryRecord {
+    fn minimal_record(key: &str, ns: &str) -> MemoryRecord {
+        MemoryRecord {
             namespace: ns.into(),
             key: key.into(),
             payload: String::new(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 0,
             updated_at_ms: 0,
             version: 1,
@@ -294,7 +311,7 @@ mod tests {
         // El SDK Rust expone `score` (higher = better) para Python/Node/HTTP.
         // JSON round-trip debe preservar el field verbatim — un futuro
         // "renombremos a distance" rompe este test.
-        let hit = VantaMemorySearchHit {
+        let hit = MemorySearchHit {
             record: minimal_record("k1", "agent/main"),
             score: 0.575_364_23_f32,
             explanation: None,
@@ -304,7 +321,7 @@ mod tests {
             json.contains("\"score\":0.575"),
             "score field must survive serde: {json}"
         );
-        let de: VantaMemorySearchHit = serde_json::from_str(&json).expect("deserialize");
+        let de: MemorySearchHit = serde_json::from_str(&json).expect("deserialize");
         assert!(
             (de.score - 0.575_364_23).abs() < 1e-6,
             "score round-trip drifted: {}",
@@ -316,7 +333,7 @@ mod tests {
     fn euclidean_score_supports_negative_values() {
         // Per src/sdk/search/vector.rs:32, Euclidean score = -||a-b||² (negative).
         // Pin this bound so the contract isn't accidentally re-flipped.
-        let hit = VantaMemorySearchHit {
+        let hit = MemorySearchHit {
             record: minimal_record("k1", "ns"),
             score: -4.0_f32,
             explanation: None,
@@ -334,7 +351,7 @@ mod tests {
         // indicates a broken normalization step (regression of zero-norm
         // cosine guard).
         for &score in &[-1.0_f32, -0.5, 0.0, 0.5, 1.0] {
-            let hit = VantaMemorySearchHit {
+            let hit = MemorySearchHit {
                 record: minimal_record("k1", "ns"),
                 score,
                 explanation: None,

@@ -24,7 +24,7 @@ impl CPIndex {
         layer: usize,
         query_mask: &FilterBitset,
         acorn_expansion: bool,
-        vector_store: Option<&crate::storage::vfile::VantaFile>,
+        vector_store: Option<&crate::storage::vfile::File>,
         metric: DistanceMetric,
         visited: &mut std::collections::HashSet<u128, RandomState>,
         profile: &mut SearchProfile,

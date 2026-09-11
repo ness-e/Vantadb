@@ -4,10 +4,10 @@
 //! Recovery certification for stale/corrupt derived memory index state.
 
 use tempfile::tempdir;
-use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaValue};
+use vantadb::{Embedded, MemoryInput, MemoryListOptions, Value};
 
-fn str_value(value: &str) -> VantaValue {
-    VantaValue::String(value.to_string())
+fn str_value(value: &str) -> Value {
+    Value::String(value.to_string())
 }
 
 #[test]
@@ -16,11 +16,11 @@ fn corrupt_state_and_missing_entries_rebuild_on_reopen() {
     let path = dir.path().to_path_buf();
 
     {
-        let db = VantaEmbedded::open(&path).expect("open");
-        let mut first = VantaMemoryInput::new("agent/main", "a", "alpha");
+        let db = Embedded::open(&path).expect("open");
+        let mut first = MemoryInput::new("agent/main", "a", "alpha");
         first.metadata.insert("kind".to_string(), str_value("task"));
         db.put(first).expect("put first");
-        db.put(VantaMemoryInput::new("agent/main", "b", "beta"))
+        db.put(MemoryInput::new("agent/main", "b", "beta"))
             .expect("put second");
         db.flush().expect("flush");
 
@@ -30,9 +30,9 @@ fn corrupt_state_and_missing_entries_rebuild_on_reopen() {
             .expect("corrupt derived state");
     }
 
-    let reopened = VantaEmbedded::open(&path).expect("reopen");
+    let reopened = Embedded::open(&path).expect("reopen");
     let page = reopened
-        .list("agent/main", VantaMemoryListOptions::default())
+        .list("agent/main", MemoryListOptions::default())
         .expect("list after repair");
     assert_eq!(page.records.len(), 2);
 
@@ -41,7 +41,7 @@ fn corrupt_state_and_missing_entries_rebuild_on_reopen() {
     let filtered = reopened
         .list(
             "agent/main",
-            VantaMemoryListOptions {
+            MemoryListOptions {
                 #[allow(deprecated)]
                 filters,
                 filter_ops: None,

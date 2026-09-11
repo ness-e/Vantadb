@@ -2,8 +2,8 @@
 source: tests/query_result_advanced.rs
 expression: hit
 ---
-VantaMemorySearchHit {
-    record: VantaMemoryRecord {
+MemorySearchHit {
+    record: MemoryRecord {
         namespace: "versioned",
         key: "doc_v3",
         payload: "latest version of the document",

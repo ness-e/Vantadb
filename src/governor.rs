@@ -3,7 +3,7 @@
 //! Tracks in-flight memory allocation via [`ALLOCATED_BYTES`] and gates
 //! query admission based on budget limits derived from [`LogicalPlan`] cost.
 
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::query::LogicalPlan;
 use crate::storage::StorageEngine;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -47,7 +47,7 @@ impl ResourceGovernor {
             let new_total = current + bytes;
 
             if new_total > self.max_memory_bytes {
-                return Err(VantaError::ResourceLimit(
+                return Err(Error::ResourceLimit(
                     "OOM Guard triggered: query exceeds soft memory limit.".to_string(),
                 ));
             }
@@ -151,11 +151,11 @@ mod tests {
     #[serial_test::serial]
     fn test_estimate_plan_cost_feeds_allocation() {
         use crate::backend::BackendKind;
-        use crate::config::VantaConfig;
+        use crate::config::Config;
         use crate::query::LogicalOperator;
 
         let dir = tempfile::tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };

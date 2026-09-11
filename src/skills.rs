@@ -15,7 +15,7 @@
 //! (version row + index row together). The optimistic lock `expected_version`
 //! serializes concurrent writers: each writer re-reads the head inside the
 //! same task and the batch commit is atomic, so a stale `expected_version`
-//! fails with [`VantaError::ExecutionConflict`] before any write lands.
+//! fails with [`Error::ExecutionConflict`] before any write lands.
 //!
 //! `content_hash` is FNV-1a 64-bit (hex) over the content only, mirroring TDAM
 //! `computeContentHash` — deliberately non-cryptographic: it exists for
@@ -23,7 +23,7 @@
 
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::entity::{generate_id, Entity, EntityStore};
-use crate::error::{ChainedError, Result, VantaError};
+use crate::error::{ChainedError, Error, Result};
 use crate::node::FieldValue;
 use crate::sdk::types::{
     SkillCreateInput, SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord,
@@ -159,7 +159,7 @@ impl<'a> SkillStore<'a> {
                     idempotent: true,
                 });
             }
-            return Err(VantaError::ExecutionConflict {
+            return Err(Error::ExecutionConflict {
                 resource: format!("skill:{}/{}", input.owner_agent, input.name),
                 detail: format!(
                     "name '{}' already exists for owner '{}'",
@@ -356,16 +356,15 @@ impl<'a> SkillStore<'a> {
     // ── Internal helpers ──
 
     fn require_head(&self, skill_id: &str) -> Result<SkillRecord> {
-        self.get_head(skill_id)?
-            .ok_or_else(|| VantaError::NotFound {
-                kind: "skill".into(),
-                id: skill_id.into(),
-            })
+        self.get_head(skill_id)?.ok_or_else(|| Error::NotFound {
+            kind: "skill".into(),
+            id: skill_id.into(),
+        })
     }
 
     fn check_version(&self, skill_id: &str, head: &SkillRecord, expected: u64) -> Result<()> {
         if head.version != expected {
-            return Err(VantaError::ExecutionConflict {
+            return Err(Error::ExecutionConflict {
                 resource: format!("skill:{skill_id}"),
                 detail: format!("expected version {expected}, head is {}", head.version),
             });
@@ -436,7 +435,7 @@ impl<'a> SkillStore<'a> {
         rows.into_iter()
             .map(|(_, bytes)| {
                 serde_json::from_slice(&bytes).map_err(|e| {
-                    VantaError::serialization(ChainedError::with_source("skill version", e))
+                    Error::serialization(ChainedError::with_source("skill version", e))
                 })
             })
             .collect()
@@ -464,7 +463,7 @@ fn record_to_entity(record: &SkillRecord) -> Result<Entity> {
         FieldValue::String(record.content_hash.clone()),
     );
     let metadata_json = serde_json::to_string(&record.metadata)
-        .map_err(|e| VantaError::serialization(ChainedError::with_source("skill metadata", e)))?;
+        .map_err(|e| Error::serialization(ChainedError::with_source("skill metadata", e)))?;
     fields.insert("metadata".into(), FieldValue::String(metadata_json));
     fields.insert(
         "created_at".into(),
@@ -508,9 +507,8 @@ fn entity_to_record(entity: Entity) -> Result<SkillRecord> {
         content_hash: str_field(&entity, "content_hash")?,
         metadata: {
             let raw = str_field(&entity, "metadata")?;
-            serde_json::from_str(&raw).map_err(|e| {
-                VantaError::serialization(ChainedError::with_source("skill metadata", e))
-            })?
+            serde_json::from_str(&raw)
+                .map_err(|e| Error::serialization(ChainedError::with_source("skill metadata", e)))?
         },
         created_at: int_field(&entity, "created_at")? as u64,
         updated_at: int_field(&entity, "updated_at")? as u64,
@@ -557,7 +555,7 @@ fn str_field(entity: &Entity, name: &str) -> Result<String> {
         .get(name)
         .and_then(FieldValue::as_str)
         .map(str::to_string)
-        .ok_or_else(|| VantaError::ValidationError {
+        .ok_or_else(|| Error::ValidationError {
             field: name.into(),
             reason: "missing or wrong type".into(),
         })
@@ -568,7 +566,7 @@ fn int_field(entity: &Entity, name: &str) -> Result<i64> {
         .fields
         .get(name)
         .and_then(FieldValue::as_int)
-        .ok_or_else(|| VantaError::ValidationError {
+        .ok_or_else(|| Error::ValidationError {
             field: name.into(),
             reason: "missing or wrong type".into(),
         })
@@ -579,7 +577,7 @@ fn bool_field(entity: &Entity, name: &str) -> Result<bool> {
         .fields
         .get(name)
         .and_then(FieldValue::as_bool)
-        .ok_or_else(|| VantaError::ValidationError {
+        .ok_or_else(|| Error::ValidationError {
             field: name.into(),
             reason: "missing or wrong type".into(),
         })
@@ -609,11 +607,11 @@ fn version_from_entity_id(entity_id: &str) -> Result<u64> {
     let version = entity_id
         .split("~v")
         .nth(1)
-        .ok_or_else(|| VantaError::ValidationError {
+        .ok_or_else(|| Error::ValidationError {
             field: "entity_id".into(),
             reason: "malformed version entity id".into(),
         })?;
-    version.parse().map_err(|_| VantaError::ValidationError {
+    version.parse().map_err(|_| Error::ValidationError {
         field: "entity_id".into(),
         reason: "malformed version entity id".into(),
     })
@@ -649,7 +647,7 @@ fn entity_key(namespace: &str, collection: &str, entity_id: &str) -> Vec<u8> {
 
 fn serialize_entity(entity: &Entity) -> Result<Vec<u8>> {
     serde_json::to_vec(entity)
-        .map_err(|e| VantaError::serialization(ChainedError::with_source("skill entity", e)))
+        .map_err(|e| Error::serialization(ChainedError::with_source("skill entity", e)))
 }
 
 fn now_secs() -> u64 {
@@ -661,7 +659,7 @@ fn now_secs() -> u64 {
 
 fn validate_skill_id(skill_id: &str) -> Result<()> {
     if skill_id.is_empty() || skill_id.contains(['#', '~', '{', '}', ':']) {
-        return Err(VantaError::InvalidInput(
+        return Err(Error::InvalidInput(
             "skill_id must be non-empty and must not contain '#', '~', '{', '}' or ':'".into(),
         ));
     }
@@ -670,7 +668,7 @@ fn validate_skill_id(skill_id: &str) -> Result<()> {
 
 fn validate_owner(owner: &str) -> Result<()> {
     if owner.is_empty() || owner.contains(['#', '{', '}', ':']) {
-        return Err(VantaError::ValidationError {
+        return Err(Error::ValidationError {
             field: "owner_agent".into(),
             reason: "must be non-empty and must not contain '#', '{', '}' or ':'".into(),
         });
@@ -680,7 +678,7 @@ fn validate_owner(owner: &str) -> Result<()> {
 
 fn validate_name(name: &str) -> Result<()> {
     if name.is_empty() || name.contains(['#', '{', '}', ':']) {
-        return Err(VantaError::ValidationError {
+        return Err(Error::ValidationError {
             field: "name".into(),
             reason: "must be non-empty and must not contain '#', '{', '}' or ':'".into(),
         });

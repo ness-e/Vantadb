@@ -4,7 +4,7 @@
 
 use super::*; // StorageEngine, MemoryStats, EvictionReason, EvictionReport, constants, etc.
 use crate::backend::BackendKind;
-use crate::config::VantaConfig;
+use crate::config::Config;
 use crate::node::UnifiedNode;
 
 // ─── Sub-modules (one per source module) ──────────────────────
@@ -21,20 +21,20 @@ mod types;
 // ─── Shared helpers used by all sub-modules ───────────────────
 
 pub(super) fn in_memory_engine() -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         read_only: false,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     StorageEngine::open_with_config(":memory:", Some(config))
         .expect("Failed to open in-memory engine")
 }
 
 pub(super) fn in_memory_read_only() -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         read_only: true,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     StorageEngine::open_with_config(":memory:", Some(config))
         .expect("Failed to open read-only in-memory engine")
@@ -48,7 +48,7 @@ pub(super) fn in_memory_read_only() -> StorageEngine {
 pub(super) fn in_memory_tiered_engine() -> StorageEngine {
     let mut engine = in_memory_engine();
     for _ in 1..4 {
-        let vs = crate::storage::vfile::VantaFile::create_in_memory(64 * MIB);
+        let vs = crate::storage::vfile::File::create_in_memory(64 * MIB);
         engine.vector_store.push(parking_lot::RwLock::new(vs));
     }
     engine

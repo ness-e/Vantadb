@@ -30,7 +30,7 @@ use criterion::{criterion_group, criterion_main, Criterion, Throughput};
 use std::hint::black_box;
 use std::time::Instant;
 use tempfile::tempdir;
-use vantadb::config::{SyncMode, VantaConfig};
+use vantadb::config::{Config, SyncMode};
 use vantadb::node::UnifiedNode;
 use vantadb::storage::StorageEngine;
 
@@ -44,7 +44,7 @@ const CORPUS_SIZES: &[u64] = &[100, 10_000, 100_000];
 /// using `SyncMode::Always` so every record reaches disk before we close
 /// the engine (simulates a real crash leaving durable WAL behind).
 fn pre_populate(db_path: &str, count: u64) {
-    let config = VantaConfig {
+    let config = Config {
         sync_mode: SyncMode::Always,
         ..Default::default()
     };

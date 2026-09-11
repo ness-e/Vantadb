@@ -4,12 +4,12 @@
 //! The guard lives in `src/storage/ops.rs`: `deserialize_node_payload` rejects
 //! persisted payloads larger than `MAX_PERSISTED_NODE_BYTES` (128 MiB) before
 //! `postcard` can act on an untrusted length prefix — converting a corrupt or
-//! oversized payload into a clean `VantaError` instead of a panic/OOM.
+//! oversized payload into a clean `Error` instead of a panic/OOM.
 //!
 //! The guard is `pub(crate)`, so these integration tests drive it through the
 //! public engine API:
 //!   - boundary payload (forces vstore growth) → insert/read round-trips OK
-//!   - oversized persisted payload (> cap) → `get` returns VantaError, no panic
+//!   - oversized persisted payload (> cap) → `get` returns Error, no panic
 
 use std::collections::BTreeMap;
 
@@ -66,7 +66,7 @@ fn oversized_write_guard_boundary_payload_roundtrips() {
     );
 }
 
-/// Oversized payload → VantaError, no panic: a node whose persisted metadata
+/// Oversized payload → Error, no panic: a node whose persisted metadata
 /// exceeds the AUDREP-45 byte cap must surface as an error on read, never a
 /// process panic or OOM.
 ///

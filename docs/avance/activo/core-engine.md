@@ -586,3 +586,9 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** parser IQL monolítico → `lexer.rs`/`grammar.rs` + `mod.rs` thin.
 - **Resultado:** ✅ check 0 + parser 117/117 + insta 0 snap.new + clippy 0 + fmt 0.
 - **Commit:** dd2cb943
+
+### AST-002: Rust tipos sin stutter + aliases deprecated (plan 2026-09-10-anti-stutter)
+- **Fecha:** 2026-09-11
+- **Objetivo:** 38 pub Vanta* -> nombres limpios (mapa) + pub type Viejo=Nuevo deprecated en 5 niveles; 0 cambios serde.
+- **Resultado:** OK check 0 + clippy-all-targets-all-features 0 + fmt 0 + nextest 2145/1 + mcp-alias-E2E 0 errores.
+- **Commit:** 97e29cac

@@ -4,7 +4,7 @@
 //! FIND-33: snapshot filesystem must capture backend KV state.
 //!
 //! Validation: after `create_snapshot`, the snapshot directory contains both
-//! `<snap>/data/` (VantaFile + HNSW + WAL) AND `<snap>/backend/` (Fjall LSM
+//! `<snap>/data/` (File + HNSW + WAL) AND `<snap>/backend/` (Fjall LSM
 //! files for namespace_index, internal_metadata, tombstones, etc.). Without
 //! the backend capture, a snapshot taken after `compact_wal()` would lose any
 //! state that lives only in the KV backend (metadata/edges/checkpoint_seq).
@@ -14,11 +14,11 @@
 
 use std::collections::BTreeMap;
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
-use vantadb::{BackendKind, VantaEmbedded, VantaMemoryInput};
+use vantadb::config::Config;
+use vantadb::{BackendKind, Embedded, MemoryInput};
 
-fn put_record(db: &VantaEmbedded, ns: &str, key: &str, payload: &str, vec: Vec<f32>) {
-    db.put(VantaMemoryInput {
+fn put_record(db: &Embedded, ns: &str, key: &str, payload: &str, vec: Vec<f32>) {
+    db.put(MemoryInput {
         namespace: ns.to_string(),
         key: key.to_string(),
         payload: payload.to_string(),
@@ -30,11 +30,11 @@ fn put_record(db: &VantaEmbedded, ns: &str, key: &str, payload: &str, vec: Vec<f
     .expect("put");
 }
 
-fn fjall_config(storage_path: &str) -> VantaConfig {
-    VantaConfig {
+fn fjall_config(storage_path: &str) -> Config {
+    Config {
         storage_path: storage_path.to_string(),
         backend_kind: BackendKind::Fjall,
-        ..VantaConfig::default()
+        ..Config::default()
     }
 }
 
@@ -46,7 +46,7 @@ fn snapshot_captures_backend_kv_state_after_compact_wal() {
     // Phase 1: open + seed + snapshot under Fjall backend (default feature).
     let snap_path = {
         let config = fjall_config(&storage_path);
-        let db = VantaEmbedded::open_with_config(config).expect("open fjalldb");
+        let db = Embedded::open_with_config(config).expect("open fjalldb");
 
         // 3 records across 2 namespaces — backend (namespace_index) tracks
         // these via Fjall LSM files under `<storage_path>/`.
@@ -99,13 +99,13 @@ fn snapshot_captures_backend_kv_state_after_compact_wal() {
          state not captured. FIND-33 regression: snapshot is unreliable after compact_wal."
     );
 
-    // Phase 3: restore + reopen via VantaEmbedded::restore_from (which calls
+    // Phase 3: restore + reopen via Embedded::restore_from (which calls
     // snapshot_restore + open_with_config). The reopened engine must surface
     // the seeded records — proves the captured backend checkpoint_seq plus
     // replayed WAL reconstruct namespace state.
     let restore_config = fjall_config(&storage_path);
     let restored =
-        VantaEmbedded::restore_from(restore_config, "post_compact").expect("restore from snapshot");
+        Embedded::restore_from(restore_config, "post_compact").expect("restore from snapshot");
     assert!(restored
         .get("ns/alpha", "rec-1")
         .expect("get rec-1")
@@ -130,7 +130,7 @@ fn snapshot_directory_layout_contains_both_data_and_backend() {
     // live storage layout (data/ + backend/ as siblings under the snap root).
     let dir = tempdir().expect("tempdir");
     let config = fjall_config(&dir.path().to_string_lossy());
-    let db = VantaEmbedded::open_with_config(config).expect("open");
+    let db = Embedded::open_with_config(config).expect("open");
     put_record(&db, "layout", "k", "v", vec![1.0, 0.0]);
     db.flush().expect("flush");
     let snap = db.create_snapshot("layout_check").expect("snapshot");

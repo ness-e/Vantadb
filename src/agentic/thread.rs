@@ -5,7 +5,7 @@
 //! TTL-based expiry via [`GcWorker`].
 
 use crate::backend::BackendPartition;
-use crate::error::{ChainedError, Result, VantaError};
+use crate::error::{ChainedError, Error, Result};
 use crate::gc::GcWorker;
 use crate::node::{FieldValue, UnifiedNode};
 use crate::storage::StorageEngine;
@@ -97,9 +97,9 @@ impl<'a> ThreadStore<'a> {
         let now = now_secs();
 
         let empty_messages = serde_json::to_string(&Vec::<Message>::new())
-            .map_err(|e| VantaError::serialization(ChainedError::with_source("messages", e)))?;
+            .map_err(|e| Error::serialization(ChainedError::with_source("messages", e)))?;
         let metadata_json = serde_json::to_string(&metadata)
-            .map_err(|e| VantaError::serialization(ChainedError::with_source("metadata", e)))?;
+            .map_err(|e| Error::serialization(ChainedError::with_source("metadata", e)))?;
 
         let mut node = UnifiedNode::new(thread_id);
         node.set_field(FIELD_TITLE, FieldValue::String(title.to_string()));
@@ -139,7 +139,7 @@ impl<'a> ThreadStore<'a> {
         let mut node = self
             .engine
             .get(thread_id)?
-            .ok_or(VantaError::NodeNotFound(thread_id))?;
+            .ok_or(Error::NodeNotFound(thread_id))?;
 
         let mut messages: Vec<Message> = self.load_messages(&node)?;
         messages.push(Message {
@@ -150,7 +150,7 @@ impl<'a> ThreadStore<'a> {
         });
 
         let messages_json = serde_json::to_string(&messages)
-            .map_err(|e| VantaError::serialization(ChainedError::with_source("messages", e)))?;
+            .map_err(|e| Error::serialization(ChainedError::with_source("messages", e)))?;
         node.set_field(FIELD_MESSAGES, FieldValue::String(messages_json));
         node.set_field(FIELD_UPDATED_AT, FieldValue::Int(now as i64));
 
@@ -245,7 +245,7 @@ impl<'a> ThreadStore<'a> {
     fn load_messages(&self, node: &UnifiedNode) -> Result<Vec<Message>> {
         match node.get_field(FIELD_MESSAGES) {
             Some(FieldValue::String(json)) => serde_json::from_str(json)
-                .map_err(|e| VantaError::serialization(ChainedError::with_source("messages", e))),
+                .map_err(|e| Error::serialization(ChainedError::with_source("messages", e))),
             _ => Ok(Vec::new()),
         }
     }
@@ -253,7 +253,7 @@ impl<'a> ThreadStore<'a> {
     fn load_metadata(&self, node: &UnifiedNode) -> Result<HashMap<String, String>> {
         match node.get_field(FIELD_METADATA) {
             Some(FieldValue::String(json)) => serde_json::from_str(json)
-                .map_err(|e| VantaError::serialization(ChainedError::with_source("metadata", e))),
+                .map_err(|e| Error::serialization(ChainedError::with_source("metadata", e))),
             _ => Ok(HashMap::new()),
         }
     }
@@ -289,16 +289,15 @@ impl<'a> ThreadStore<'a> {
             .engine
             .get_from_partition(BackendPartition::InternalMetadata, THREAD_INDEX_KEY)?
         {
-            Some(bytes) => serde_json::from_slice(&bytes).map_err(|e| {
-                VantaError::serialization(ChainedError::with_source("thread index", e))
-            }),
+            Some(bytes) => serde_json::from_slice(&bytes)
+                .map_err(|e| Error::serialization(ChainedError::with_source("thread index", e))),
             None => Ok(Vec::new()),
         }
     }
 
     fn save_thread_ids(&self, ids: &[u128]) -> Result<()> {
         let bytes = serde_json::to_vec(ids)
-            .map_err(|e| VantaError::serialization(ChainedError::with_source("thread index", e)))?;
+            .map_err(|e| Error::serialization(ChainedError::with_source("thread index", e)))?;
         self.engine
             .put_to_partition(BackendPartition::InternalMetadata, THREAD_INDEX_KEY, &bytes)
     }

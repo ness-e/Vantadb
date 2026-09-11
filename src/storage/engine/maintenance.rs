@@ -5,7 +5,7 @@ use std::sync::Arc;
 use web_time::Instant;
 
 use crate::backend::BackendPartition;
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::index::{CPIndex, IndexBackend};
 use crate::node::{NodeTier, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::{
@@ -23,7 +23,7 @@ impl StorageEngine {
     ///
     /// Delegates to [`Self::merge_segments`], which measures tombstone
     /// fragmentation against `segment_optimizer.vacuum_threshold_pct` and
-    /// rewrites the VantaFile via [`Self::compact_layout_bfs`], actually
+    /// rewrites the File via [`Self::compact_layout_bfs`], actually
     /// reclaiming the space held by tombstoned nodes (MOD-03: this used to be
     /// a stub that only logged).
     pub fn trigger_compaction(&self) -> Result<()> {
@@ -57,7 +57,7 @@ impl StorageEngine {
         #[cfg(feature = "failpoints")]
         {
             fail::fail_point!("snapshot_serialize_fail", |_| {
-                Err(crate::error::VantaError::IoError(std::io::Error::other(
+                Err(crate::error::Error::IoError(std::io::Error::other(
                     "Simulated snapshot serialize I/O failure",
                 )))
             });
@@ -81,7 +81,7 @@ impl StorageEngine {
 
         if current_wal_seq > 0 {
             let seq_bytes =
-                postcard::to_allocvec(&current_wal_seq).map_err(VantaError::serialization)?;
+                postcard::to_allocvec(&current_wal_seq).map_err(Error::serialization)?;
             self.backend.put(
                 BackendPartition::InternalMetadata,
                 b"checkpoint_seq",
@@ -207,7 +207,7 @@ impl StorageEngine {
                     self.hnsw.store(new_hnsw);
                 }
                 Err(e) => {
-                    return Err(VantaError::IoError(e));
+                    return Err(Error::IoError(e));
                 }
             }
         } else {
@@ -302,7 +302,7 @@ impl StorageEngine {
             created_by_txn: 0, // consolidation is pre-MVCC
             deleted_by_txn: None,
         };
-        let metadata_val = postcard::to_allocvec(&metadata).map_err(VantaError::serialization)?;
+        let metadata_val = postcard::to_allocvec(&metadata).map_err(Error::serialization)?;
         self.backend
             .put(BackendPartition::Default, &key, &metadata_val)?;
 
@@ -481,7 +481,7 @@ impl StorageEngine {
         self.evict_cold_nodes_inner(ratio, reason, true)
     }
 
-    /// Rebuild the HNSW vector index from scratch by scanning all nodes in the VantaFile.
+    /// Rebuild the HNSW vector index from scratch by scanning all nodes in the File.
     pub fn rebuild_vector_index(&self) -> Result<IndexRebuildReport> {
         self.ensure_writable()?;
 
@@ -513,7 +513,7 @@ impl StorageEngine {
         };
 
         if rebuilt.backend.is_mmap() {
-            rebuilt.sync_to_mmap().map_err(VantaError::IoError)?;
+            rebuilt.sync_to_mmap().map_err(Error::IoError)?;
         } else {
             rebuilt
                 .persist_to_file(
@@ -522,7 +522,7 @@ impl StorageEngine {
                         .mmap_path()
                         .unwrap_or(&self.data_dir.join("vector_index.bin")),
                 )
-                .map_err(VantaError::IoError)?;
+                .map_err(Error::IoError)?;
         }
 
         self.hnsw.store(Arc::new(rebuilt));
@@ -532,7 +532,7 @@ impl StorageEngine {
         Ok(report)
     }
 
-    /// Compacts the VantaFile by rewriting nodes in BFS order of the HNSW graph.
+    /// Compacts the File by rewriting nodes in BFS order of the HNSW graph.
     pub fn compact_layout_bfs(&self) -> Result<u64> {
         self.ensure_writable()?;
 
@@ -578,7 +578,7 @@ impl StorageEngine {
             nodes_compacted = nodes_compacted,
             new_file_size = new_file_size,
             elapsed_ms = elapsed_ms,
-            "compact_layout_bfs: VantaFile compactado en orden BFS"
+            "compact_layout_bfs: File compactado en orden BFS"
         );
 
         drop(vstore);
@@ -591,7 +591,7 @@ impl StorageEngine {
     pub fn create_life_insurance(&self, timestamp_name: &str) -> Result<()> {
         self.ensure_writable()?;
         if !self.supports_checkpoint() {
-            return Err(VantaError::backend_error(format!(
+            return Err(Error::backend_error(format!(
                 "Checkpoint (live snapshot) is not supported by the {:?} backend. \
                 Live backups are not available natively. Please use filesystem-level snapshots (e.g., EBS, ZFS, LVM) \
                 or perform a cold backup by safely shutting down the database process and copying the data directory.",
@@ -703,9 +703,9 @@ impl StorageEngine {
 
     /// Purge tombstoned nodes from the HNSW index.
     ///
-    /// Scans all HNSW nodes, reads each node's VantaFile header, and removes
+    /// Scans all HNSW nodes, reads each node's File header, and removes
     /// any node whose header has `FLAG_TOMBSTONE` set from the graph index.
-    /// The VantaFile layout is **not** rewritten — call `merge_segments()`
+    /// The File layout is **not** rewritten — call `merge_segments()`
     /// afterwards if you need to reclaim storage bytes.
     #[tracing::instrument(skip(self), level = "info", err)]
     pub fn vacuum(&self) -> Result<VacuumReport> {
@@ -790,10 +790,10 @@ impl StorageEngine {
         })
     }
 
-    /// Merge (compact) the VantaFile if tombstone fragmentation exceeds the
+    /// Merge (compact) the File if tombstone fragmentation exceeds the
     /// configured threshold.
     ///
-    /// Delegates to [`compact_layout_bfs`](crate::storage::StorageEngine::compact_layout_bfs) which rewrites the VantaFile in
+    /// Delegates to [`compact_layout_bfs`](crate::storage::StorageEngine::compact_layout_bfs) which rewrites the File in
     /// BFS order of the HNSW graph, skipping tombstoned nodes.
     #[tracing::instrument(skip(self), level = "info", err)]
     pub fn merge_segments(&self) -> Result<MergeReport> {
@@ -880,7 +880,7 @@ impl StorageEngine {
             nodes_compacted,
             saved_bytes,
             elapsed_ms,
-            "merge_segments: VantaFile compacted"
+            "merge_segments: File compacted"
         );
 
         Ok(MergeReport {
@@ -971,7 +971,7 @@ impl StorageEngine {
     ///
     /// Reads live (non-tombstone) nodes from `level` using `self.get()`,
     /// rewrites them to `level+1` using `write_node_to_vstore()`, updates
-    /// HNSW offset references, then truncates the source level's VantaFile.
+    /// HNSW offset references, then truncates the source level's File.
     ///
     /// Chain: L0(hot) -> L1(warm) -> L2(cold) -> L3(archive). L3 participates
     /// only when `LsmConfig::tier.archive` is enabled (see STORAGE-TIERS.md).

@@ -3,7 +3,7 @@
 use super::super::*;
 use super::{in_memory_engine, sample_node};
 use crate::backend::BackendKind;
-use crate::config::VantaConfig;
+use crate::config::Config;
 
 // ─── open_with_config paths ────────────────────────────────────
 
@@ -11,9 +11,9 @@ use crate::config::VantaConfig;
 fn test_open_path_traversal_rejected() {
     let result = StorageEngine::open_with_config(
         "../etc/passwd",
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     );
     let err = result.err().expect("path traversal should be rejected");
@@ -28,9 +28,9 @@ fn test_open_path_traversal_rejected() {
 fn test_open_in_memory_empty_path() {
     let engine = StorageEngine::open_with_config(
         "",
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     )
     .expect("empty path with InMemory should work");
@@ -39,10 +39,10 @@ fn test_open_in_memory_empty_path() {
 
 #[test]
 fn test_open_with_config_custom_memory_limit() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         memory_limit: Some(2 * 1024 * 1024),
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config.clone()))
         .expect("open with custom memory limit");
@@ -53,10 +53,10 @@ fn test_open_with_config_custom_memory_limit() {
 fn test_open_with_config_read_only_in_memory() {
     let engine = StorageEngine::open_with_config(
         ":memory:",
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
             read_only: true,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     )
     .expect("read-only in-memory");
@@ -65,10 +65,10 @@ fn test_open_with_config_read_only_in_memory() {
 
 #[test]
 fn test_open_with_config_force_mmap() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         force_mmap: true,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config))
         .expect("force_mmap should not break in-memory open");
@@ -81,9 +81,9 @@ fn test_open_with_config_force_mmap() {
 fn test_open_default_in_memory() {
     let engine = StorageEngine::open_with_config(
         ":memory:",
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     )
     .expect("open() convenience");
@@ -97,9 +97,9 @@ fn test_open_default_in_memory() {
 fn test_open_read_only_nonexistent_path() {
     let result = StorageEngine::open_with_config(
         "/nonexistent_vantadb_ro_test",
-        Some(VantaConfig {
+        Some(Config {
             read_only: true,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     );
     let err = result
@@ -117,10 +117,10 @@ fn test_open_read_only_without_lock_file() {
     let dir = tempfile::tempdir().expect("tempdir");
     let engine = StorageEngine::open_with_config(
         dir.path().to_str().unwrap(),
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
             read_only: true,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     )
     .expect("InMemory read-only with minimal path should succeed");
@@ -134,9 +134,9 @@ fn test_open_read_only_without_lock_file_fjall() {
     let dir = tempfile::tempdir().expect("tempdir");
     let result = StorageEngine::open_with_config(
         dir.path().to_str().unwrap(),
-        Some(VantaConfig {
+        Some(Config {
             read_only: true,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     );
     let err = result
@@ -155,17 +155,17 @@ fn test_open_then_reopen_read_only() {
     let dir = tempdir().expect("tempdir");
     let path = dir.path().to_str().unwrap().to_string();
 
-    let config_rw = VantaConfig {
+    let config_rw = Config {
         backend_kind: BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(&path, Some(config_rw)).expect("open writable");
     drop(engine);
 
-    let config_ro = VantaConfig {
+    let config_ro = Config {
         backend_kind: BackendKind::InMemory,
         read_only: true,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine_ro =
         StorageEngine::open_with_config(&path, Some(config_ro)).expect("reopen read-only");
@@ -180,9 +180,9 @@ fn test_open_rocksdb_without_feature() {
     let dir = tempfile::tempdir().expect("tempdir");
     let result = StorageEngine::open_with_config(
         dir.path().to_str().unwrap(),
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::RocksDb,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     );
     let err = result.err().expect("RocksDb without feature should error");
@@ -197,9 +197,9 @@ fn test_open_rocksdb_without_feature() {
 fn test_open_with_empty_backend_kind_in_memory() {
     let engine = StorageEngine::open_with_config(
         "",
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     )
     .expect("InMemory with empty path");
@@ -210,9 +210,9 @@ fn test_open_with_empty_backend_kind_in_memory() {
 fn test_open_with_none_config() {
     let engine = StorageEngine::open_with_config(
         ":memory:",
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     )
     .expect("open with explicit config");
@@ -223,9 +223,9 @@ fn test_open_with_none_config() {
 fn test_open_with_none_config_in_memory() {
     let engine = StorageEngine::open_with_config(
         ":memory:",
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     )
     .expect("open with None config");
@@ -236,11 +236,11 @@ fn test_open_with_none_config_in_memory() {
 #[test]
 fn test_init_indexes_mmap_fresh_start() {
     let dir = tempfile::tempdir().expect("tempdir");
-    let config = VantaConfig {
+    let config = Config {
         force_mmap: true,
         mmap_hnsw: true,
         memory_limit: Some(2 * 1024 * 1024 * 1024),
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
         .expect("open with force_mmap and fresh directory");
@@ -255,9 +255,9 @@ fn test_init_indexes_mmap_fresh_start() {
 #[test]
 fn test_open_lock_file_io_error() {
     let bad_path = std::path::Path::new("/nonexistent_vantadb_lock_test_xyz");
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(bad_path.to_str().unwrap(), Some(config))
         .expect("InMemory should not care about lock path");
@@ -266,11 +266,11 @@ fn test_open_lock_file_io_error() {
 
 #[test]
 fn test_open_with_read_only_wal_disabled() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         read_only: true,
         wal_shards: 0,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config))
         .expect("read-only with WAL disabled");
@@ -282,9 +282,9 @@ fn test_open_with_read_only_wal_disabled() {
 fn test_open_in_memory_with_relative_path() {
     let engine = StorageEngine::open_with_config(
         "test_in_memory_dir",
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     )
     .expect("InMemory with relative path");
@@ -296,9 +296,9 @@ fn test_open_in_memory_with_relative_path() {
 fn test_open_in_memory_with_empty_string() {
     let engine = StorageEngine::open_with_config(
         "",
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     )
     .expect("InMemory with empty string");
@@ -313,10 +313,10 @@ fn test_init_storage_read_only_missing_data_dir() {
 
     let engine = StorageEngine::open_with_config(
         path.to_str().unwrap(),
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
             read_only: true,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     )
     .expect("InMemory read-only with explicit path");
@@ -327,9 +327,9 @@ fn test_init_storage_read_only_missing_data_dir() {
 fn test_open_in_memory_with_name() {
     let engine = StorageEngine::open_with_config(
         "named_in_memory_db",
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     )
     .expect("open named in-memory");
@@ -391,9 +391,9 @@ fn test_engine_drop_no_panic() {
     let dir = tempfile::tempdir().expect("tempdir");
     let engine = StorageEngine::open_with_config(
         dir.path().to_str().unwrap(),
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     )
     .expect("open engine for drop test");
@@ -401,9 +401,9 @@ fn test_engine_drop_no_panic() {
     drop(engine);
     let engine2 = StorageEngine::open_with_config(
         dir.path().to_str().unwrap(),
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         }),
     )
     .expect("reopen after drop");

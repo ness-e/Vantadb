@@ -63,12 +63,12 @@ impl StorageEngine {
     /// Bounds-checked write guard for the segment-0 vector store.
     ///
     /// A corrupt or empty `vector_store` (zero segments) must surface as a
-    /// `VantaError` instead of a raw indexing panic (ERR-003).
+    /// `Error` instead of a raw indexing panic (ERR-003).
     pub(crate) fn vstore0(
         &self,
-    ) -> Result<parking_lot::RwLockWriteGuard<'_, crate::storage::vfile::VantaFile>> {
+    ) -> Result<parking_lot::RwLockWriteGuard<'_, crate::storage::vfile::File>> {
         self.vector_store.first().map(|v| v.write()).ok_or_else(|| {
-            crate::error::VantaError::generic_error(
+            crate::error::Error::generic_error(
                 "corrupt storage: vector_store has no segment 0".to_string(),
             )
         })
@@ -207,7 +207,7 @@ impl StorageEngine {
         self.ensure_writable()?;
         let partition = crate::storage::ops::partition_from_cf_name(cf_name)?;
         let key = node.id.to_le_bytes();
-        let val = postcard::to_allocvec(node).map_err(crate::error::VantaError::serialization)?;
+        let val = postcard::to_allocvec(node).map_err(crate::error::Error::serialization)?;
         self.backend.put(partition, &key, &val)?;
 
         let mut vstore = self.vstore0()?;
@@ -273,7 +273,7 @@ impl StorageEngine {
                     .vector_store
                     .get(seg_id as usize)
                     .ok_or_else(|| {
-                        crate::error::VantaError::generic_error(format!(
+                        crate::error::Error::generic_error(format!(
                             "corrupt storage: segment {seg_id} out of range for node {id}"
                         ))
                     })?

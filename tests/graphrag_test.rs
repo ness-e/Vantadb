@@ -3,27 +3,21 @@
 
 use tempfile::tempdir;
 use vantadb::graphrag::pipeline::GraphRagPipeline;
-use vantadb::{VantaEmbedded, VantaMemoryInput};
+use vantadb::{Embedded, MemoryInput};
 
-fn setup_test_db() -> (VantaEmbedded, tempfile::TempDir) {
+fn setup_test_db() -> (Embedded, tempfile::TempDir) {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
     (db, dir)
 }
 
-fn insert_text_node(db: &VantaEmbedded, ns: &str, key: &str, content: &str) -> u128 {
-    let input = VantaMemoryInput::new(ns, key, content);
+fn insert_text_node(db: &Embedded, ns: &str, key: &str, content: &str) -> u128 {
+    let input = MemoryInput::new(ns, key, content);
     db.put(input).expect("put").node_id
 }
 
-fn insert_vector_node(
-    db: &VantaEmbedded,
-    ns: &str,
-    key: &str,
-    content: &str,
-    vector: Vec<f32>,
-) -> u128 {
-    let mut input = VantaMemoryInput::new(ns, key, content);
+fn insert_vector_node(db: &Embedded, ns: &str, key: &str, content: &str, vector: Vec<f32>) -> u128 {
+    let mut input = MemoryInput::new(ns, key, content);
     input.vector = Some(vector);
     db.put(input).expect("put").node_id
 }

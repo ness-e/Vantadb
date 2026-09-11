@@ -8,12 +8,12 @@
 
 use crate::audit::AuditLogger;
 use crate::circuit_breaker::CircuitBreaker;
-use crate::config::{RbacConfig, VantaConfig};
+use crate::config::{Config, RbacConfig};
 use crate::connection_pool::ConnectionPool;
 use crate::entity::EntityStore;
 use crate::node::FieldValue;
 use crate::rbac::Rbac;
-use crate::sdk::VantaEmbedded;
+use crate::sdk::Embedded;
 use crate::server::middleware::resolve_identity;
 use crate::server::router::app;
 use crate::server::state::{
@@ -35,7 +35,7 @@ fn fields(pairs: &[(&str, &str)]) -> HashMap<String, FieldValue> {
 }
 
 fn in_memory_storage(audit_log_path: Option<std::path::PathBuf>) -> Arc<StorageEngine> {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         audit_log_path,
         ..Default::default()
@@ -248,7 +248,7 @@ async fn http_get(addr: SocketAddr, path: &str, headers: &[(&str, &str)]) -> (u1
 }
 
 fn server_state(storage: Arc<StorageEngine>, api_key: Option<&str>) -> Arc<ServerState> {
-    let db = VantaEmbedded::from_engine(storage.clone());
+    let db = Embedded::from_engine(storage.clone());
     Arc::new(ServerState {
         storage,
         db,
@@ -269,7 +269,7 @@ fn server_state_with_alt_rbac(
     alt_api_key: Option<&str>,
     rbac_config: RbacConfig,
 ) -> Arc<ServerState> {
-    let db = VantaEmbedded::from_engine(storage.clone());
+    let db = Embedded::from_engine(storage.clone());
     Arc::new(ServerState {
         storage,
         db,
@@ -632,7 +632,7 @@ fn server_state_with_jwt(
     api_key: Option<&str>,
     jwt_secret: Option<&str>,
 ) -> Arc<ServerState> {
-    let db = VantaEmbedded::from_engine(storage.clone());
+    let db = Embedded::from_engine(storage.clone());
     Arc::new(ServerState {
         storage,
         db,

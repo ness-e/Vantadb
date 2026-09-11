@@ -1,4 +1,4 @@
-//! Vector search and similarity operations on `VantaEmbedded`.
+//! Vector search and similarity operations on `Embedded`.
 //!
 //! Owns the K-NN path (`search_vector`) and key-anchored similarity
 //! (`similar_to_key`). Namespace-level operations that share the search path
@@ -6,15 +6,15 @@
 //!
 //! Extracted from `sdk::api` (REVIEW-12, 2026-08-30).
 
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::serialization::{memory_record_from_node, validate_key, validate_namespace};
 use super::super::types::*;
 use crate::error::Result;
 
-impl VantaEmbedded {
+impl Embedded {
     /// K-NN vector search across all nodes via HNSW index.
     #[tracing::instrument(skip(self, vector), err)]
-    pub fn search_vector(&self, vector: &[f32], top_k: usize) -> Result<Vec<VantaSearchHit>> {
+    pub fn search_vector(&self, vector: &[f32], top_k: usize) -> Result<Vec<SearchHit>> {
         if vector.is_empty() || top_k == 0 {
             return Ok(Vec::new());
         }
@@ -26,7 +26,7 @@ impl VantaEmbedded {
         if hnsw.config.distance_metric == crate::node::DistanceMetric::Cosine
             && crate::index::f32_l2_norm(vector) < f32::EPSILON
         {
-            return Err(crate::error::VantaError::InvalidInput(
+            return Err(crate::error::Error::InvalidInput(
                 "zero-norm cosine query vector is undefined; use a non-zero vector \
                  or the euclidean distance metric (AUDREP-55, ERR-028)"
                     .into(),
@@ -47,7 +47,7 @@ impl VantaEmbedded {
         };
         Ok(results
             .into_iter()
-            .map(|(node_id, distance)| VantaSearchHit { node_id, distance })
+            .map(|(node_id, distance)| SearchHit { node_id, distance })
             .collect())
     }
 
@@ -59,8 +59,8 @@ impl VantaEmbedded {
     /// excluded from the output.
     ///
     /// # Errors
-    /// * [`VantaError::NotFound`](crate::VantaError::NotFound) if `key` does not exist in `namespace`.
-    /// * [`VantaError::NoVectorForKey`](crate::VantaError::NoVectorForKey) if the record exists but carries no vector.
+    /// * [`Error::NotFound`](crate::Error::NotFound) if `key` does not exist in `namespace`.
+    /// * [`Error::NoVectorForKey`](crate::Error::NoVectorForKey) if the record exists but carries no vector.
     ///
     /// # Notes
     /// `search_vector()` queries the global HNSW index (all namespaces). Results
@@ -71,20 +71,20 @@ impl VantaEmbedded {
         namespace: &str,
         key: &str,
         top_k: usize,
-    ) -> Result<Vec<VantaMemorySearchHit>> {
+    ) -> Result<Vec<MemorySearchHit>> {
         validate_namespace(namespace)?;
         validate_key(key)?;
 
-        let record =
-            self.get(namespace, key)?
-                .ok_or_else(|| crate::error::VantaError::NotFound {
-                    kind: "memory record".into(),
-                    id: format!("{namespace}/{key}"),
-                })?;
+        let record = self
+            .get(namespace, key)?
+            .ok_or_else(|| crate::error::Error::NotFound {
+                kind: "memory record".into(),
+                id: format!("{namespace}/{key}"),
+            })?;
 
-        let vector = record.vector.ok_or_else(|| {
-            crate::error::VantaError::NoVectorForKey(format!("{namespace}/{key}"))
-        })?;
+        let vector = record
+            .vector
+            .ok_or_else(|| crate::error::Error::NoVectorForKey(format!("{namespace}/{key}")))?;
 
         // Search top_k + 1 to account for the source record itself being in results.
         let raw_hits = self.search_vector(&vector, top_k + 1)?;
@@ -93,13 +93,13 @@ impl VantaEmbedded {
         let raw_ids: Vec<u128> = raw_hits.iter().map(|h| h.node_id).collect();
         let nodes = engine.get_many(&raw_ids)?;
 
-        let hits: Vec<VantaMemorySearchHit> = raw_hits
+        let hits: Vec<MemorySearchHit> = raw_hits
             .into_iter()
             .zip(nodes)
             .filter_map(|(hit, node)| {
                 memory_record_from_node(&node).and_then(|r| {
                     if r.namespace == namespace && r.key != key {
-                        Some(VantaMemorySearchHit {
+                        Some(MemorySearchHit {
                             record: r,
                             score: 1.0 - hit.distance,
                             explanation: None,

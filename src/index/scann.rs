@@ -215,7 +215,7 @@ impl crate::index::VecIndex for ScannIndex {
         query_vec: &[f32],
         query_mask: &FilterBitset,
         top_k: usize,
-        _vector_store: Option<&crate::storage::vfile::VantaFile>,
+        _vector_store: Option<&crate::storage::vfile::File>,
         _distance_metric: DistanceMetric,
     ) -> Vec<(u128, f32)> {
         if top_k == 0 {
@@ -276,7 +276,7 @@ impl crate::index::VecIndex for ScannIndex {
         let vec = match &vec_data {
             VectorRepresentations::Full(v) => v.clone(),
             _ => {
-                return Err(crate::error::VantaError::ValidationError {
+                return Err(crate::error::Error::ValidationError {
                     field: "vec_data".into(),
                     reason: "ScannIndex::add only accepts full vectors (ERR-031)".into(),
                 })
@@ -288,7 +288,7 @@ impl crate::index::VecIndex for ScannIndex {
 
         let dim = *self.dim.lock().unwrap();
         if vec.len() != dim && !vec.is_empty() {
-            return Err(crate::error::VantaError::ValidationError {
+            return Err(crate::error::Error::ValidationError {
                 field: "vec_data".into(),
                 reason: format!(
                     "ScannIndex::add vector dim {} != index dim {dim} (ERR-031)",

@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 
 use crate::backend::{BackendPartition, StorageBackend};
-use crate::config::VantaConfig;
-use crate::error::{Result, VantaError};
+use crate::config::Config;
+use crate::error::{Error, Result};
 use crate::node::FieldValue;
 use crate::query::RelOp;
 use crate::storage::engine::{EvictionReason, MemoryStats, StorageEngine};
@@ -13,9 +13,9 @@ use crate::storage::ops::NodeMetadata;
 impl StorageEngine {
     /// Check that the engine is not read-only.
     #[inline]
-    pub fn guard_write_allowed(config: &VantaConfig) -> Result<()> {
+    pub fn guard_write_allowed(config: &Config) -> Result<()> {
         if config.read_only {
-            return Err(VantaError::ValidationError {
+            return Err(Error::ValidationError {
                 field: "read_only".into(),
                 reason: "StorageEngine is read-only; write operation rejected".into(),
             });
@@ -156,7 +156,7 @@ impl StorageEngine {
             if let Err(e) = self.evict_cold_nodes_with_reason(self.config.eviction_ratio, reason) {
                 tracing::warn!("eviction failed: {e}");
             }
-            return Err(VantaError::ResourceLimit(format!(
+            return Err(Error::ResourceLimit(format!(
                 "Memory pressure: {} bytes used ({}% of {} limit, threshold {}%)",
                 effective,
                 (effective as f64 / limit as f64 * 100.0) as u64,

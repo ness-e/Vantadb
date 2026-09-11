@@ -1,13 +1,13 @@
 // ponytail: blanket allow — unwraps with documented invariants; documented per-call.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 use tempfile::TempDir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::storage::StorageEngine;
 
 #[test]
 fn test_mmap_hnsw_config_respected() {
     let dir = TempDir::new().unwrap();
-    let config = VantaConfig::default()
+    let config = Config::default()
         .with_storage_path(dir.path().to_str().unwrap().to_string())
         .with_mmap_hnsw(true);
     let engine =
@@ -20,7 +20,7 @@ fn test_mmap_hnsw_config_respected() {
 #[test]
 fn test_mmap_hnsw_disabled() {
     let dir = TempDir::new().unwrap();
-    let config = VantaConfig::default()
+    let config = Config::default()
         .with_storage_path(dir.path().to_str().unwrap().to_string())
         .with_mmap_hnsw(false);
     let engine =

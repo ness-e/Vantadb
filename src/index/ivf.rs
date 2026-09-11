@@ -421,7 +421,7 @@ impl crate::index::VecIndex for IvfIndex {
         query_vec: &[f32],
         query_mask: &crate::node::FilterBitset,
         top_k: usize,
-        _vector_store: Option<&crate::storage::vfile::VantaFile>,
+        _vector_store: Option<&crate::storage::vfile::File>,
         _distance_metric: crate::node::DistanceMetric,
     ) -> Vec<(u128, f32)> {
         // IvfIndex does its own distance computation from stored vectors;
@@ -439,7 +439,7 @@ impl crate::index::VecIndex for IvfIndex {
         // ponytail: IvfIndex is read-only after build; use IvfIndex::build().
         // ERR-031: return an error instead of panicking so callers can
         // propagate the rejection rather than crash.
-        Err(crate::error::VantaError::ValidationError {
+        Err(crate::error::Error::ValidationError {
             field: "index".into(),
             reason: "IvfIndex is read-only after build; rebuild via IvfIndex::build()".into(),
         })

@@ -162,7 +162,7 @@ pub fn cmd_status(db_path: &str, verbose: bool) -> Result<()> {
 
     if verbose {
         let _ = term.write_line("");
-        print_info("Verbose mode: Extended metrics available via VantaOperationalMetrics API");
+        print_info("Verbose mode: Extended metrics available via OperationalMetrics API");
     }
 
     Ok(())
@@ -191,7 +191,7 @@ pub fn cmd_server(
     #[cfg(feature = "server")]
     {
         let rt = tokio::runtime::Runtime::new().map_err(|e| {
-            crate::error::VantaError::RuntimeError(ChainedError::msg(format!(
+            crate::error::Error::RuntimeError(ChainedError::msg(format!(
                 "Failed to start tokio runtime: {e}"
             )))
         })?;
@@ -209,7 +209,7 @@ pub fn cmd_server(
 
     #[cfg(not(feature = "server"))]
     {
-        Err(crate::error::VantaError::CliError(ChainedError::msg(
+        Err(crate::error::Error::CliError(ChainedError::msg(
             "HTTP server requires the 'server' feature. Rebuild with: cargo build --features server",
         )))
     }
@@ -225,18 +225,18 @@ async fn cmd_server_http(
     dashboard_dir: Option<String>,
     memory_limit: Option<&str>,
 ) -> Result<()> {
-    use crate::config::VantaConfig;
+    use crate::config::Config;
 
     let memory_limit = match memory_limit {
         Some(raw) => Some(crate::config::parse_memory_limit(raw).map_err(|e| {
-            crate::error::VantaError::CliError(ChainedError::msg(format!(
+            crate::error::Error::CliError(ChainedError::msg(format!(
                 "Invalid --memory-limit value: {e}"
             )))
         })?),
         None => None,
     };
 
-    let config = VantaConfig {
+    let config = Config {
         storage_path: db_path.to_string(),
         port: port.unwrap_or(8080),
         host: host.unwrap_or_else(|| "127.0.0.1".to_string()),
@@ -257,7 +257,7 @@ fn cmd_server_mcp(
     require_auth: bool,
     memory_limit: Option<&str>,
 ) -> Result<()> {
-    use crate::error::VantaError;
+    use crate::error::Error;
 
     let binary_name = "vantadb-server";
     let exe_name = if cfg!(windows) {
@@ -269,7 +269,7 @@ fn cmd_server_mcp(
     let build_cmd = |binary: &std::path::Path| -> std::process::Command {
         let mut cmd = std::process::Command::new(binary);
         cmd.env("VANTA_DB", db_path);
-        // ADR-012: el child resuelve storage via VantaConfig::from_env()
+        // ADR-012: el child resuelve storage via Config::from_env()
         // -> VANTADB_STORAGE_PATH (config.rs). VANTA_DB es solo flag CLI.
         cmd.env("VANTADB_STORAGE_PATH", db_path);
         if let Some(p) = port {
@@ -298,13 +298,13 @@ fn cmd_server_mcp(
                 current_exe.set_file_name(&exe_name);
                 if current_exe.exists() {
                     build_cmd(&current_exe).spawn().map_err(|e| {
-                        VantaError::CliError(ChainedError::msg(format!(
+                        Error::CliError(ChainedError::msg(format!(
                             "Failed to start vantadb-server from {}: {e}",
                             current_exe.display()
                         )))
                     })?
                 } else {
-                    return Err(VantaError::CliError(ChainedError::msg(format!(
+                    return Err(Error::CliError(ChainedError::msg(format!(
                         "vantadb-server binary not found. \
                          Searched PATH for '{}' and CLI directory for '{}'. \
                          The MCP server requires the vantadb-server binary (compiled with the 'server' feature). \
@@ -314,7 +314,7 @@ fn cmd_server_mcp(
                     ))));
                 }
             } else {
-                return Err(VantaError::CliError(ChainedError::msg(format!(
+                return Err(Error::CliError(ChainedError::msg(format!(
                     "vantadb-server binary '{}' not found in PATH. \
                      Current executable path could not be determined. \
                      Ensure vantadb-server is installed and available in PATH.",
@@ -323,7 +323,7 @@ fn cmd_server_mcp(
             }
         }
         Err(e) => {
-            return Err(VantaError::CliError(ChainedError::msg(format!(
+            return Err(Error::CliError(ChainedError::msg(format!(
                 "Failed to spawn vantadb-server process (db_path={}): {e}",
                 db_path
             ))));
@@ -331,7 +331,7 @@ fn cmd_server_mcp(
     };
 
     let status = child.wait().map_err(|e| {
-        VantaError::CliError(ChainedError::msg(format!(
+        Error::CliError(ChainedError::msg(format!(
             "Error waiting for vantadb-server process (db_path={}): {e}",
             db_path
         )))
@@ -341,7 +341,7 @@ fn cmd_server_mcp(
         if let Some(code) = status.code() {
             std::process::exit(code);
         } else {
-            return Err(VantaError::CliError(ChainedError::msg(format!(
+            return Err(Error::CliError(ChainedError::msg(format!(
                 "vantadb-server terminated by signal (db_path={})",
                 db_path
             ))));

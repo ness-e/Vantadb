@@ -1,7 +1,7 @@
-use super::builder::VantaEmbedded;
+use super::builder::Embedded;
 use super::serialization::{validate_metadata, validate_namespace};
 use super::types::*;
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use std::collections::BTreeMap;
 use tracing;
 
@@ -19,32 +19,32 @@ pub(crate) mod multi;
 pub(crate) mod sparse;
 pub(crate) mod vector;
 
-impl VantaEmbedded {
+impl Embedded {
     /// Hybrid search across memory records combining text (BM25) and vector (HNSW) retrieval.
     /// Route selection (text-only, vector-only, hybrid) is automatic based on the request payload.
     ///
     /// # Examples
     ///
     /// ```rust
-    /// use vantadb::config::VantaConfig;
+    /// use vantadb::config::Config;
     /// use vantadb::{
-    ///     BackendKind, VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest,
+    ///     BackendKind, Embedded, MemoryInput, MemorySearchRequest,
     /// };
     ///
-    /// let db = VantaEmbedded::open_with_config(VantaConfig {
+    /// let db = Embedded::open_with_config(Config {
     ///     storage_path: ":memory:".into(),
     ///     backend_kind: BackendKind::InMemory,
     ///     ..Default::default()
     /// })
     /// .expect("open in-memory database");
     ///
-    /// db.put(VantaMemoryInput::new(
+    /// db.put(MemoryInput::new(
     ///     "docs",
     ///     "fox",
     ///     "The quick brown fox jumps over the lazy dog",
     /// ))
     /// .expect("put first record");
-    /// db.put(VantaMemoryInput::new(
+    /// db.put(MemoryInput::new(
     ///     "docs",
     ///     "sleepy",
     ///     "The lazy dog sleeps all day",
@@ -52,7 +52,7 @@ impl VantaEmbedded {
     /// .expect("put second record");
     ///
     /// let hits = db
-    ///     .search(VantaMemorySearchRequest {
+    ///     .search(MemorySearchRequest {
     ///         namespace: "docs".into(),
     ///         text_query: Some("fox".into()),
     ///         top_k: 10,
@@ -66,7 +66,7 @@ impl VantaEmbedded {
     ///
     /// db.close().expect("close database");
     /// ```
-    pub fn search(&self, request: VantaMemorySearchRequest) -> Result<Vec<VantaMemorySearchHit>> {
+    pub fn search(&self, request: MemorySearchRequest) -> Result<Vec<MemorySearchHit>> {
         let exclude_superseded = request.exclude_superseded;
         let mut hits = self.search_impl(request, None)?;
         if exclude_superseded {
@@ -83,9 +83,9 @@ impl VantaEmbedded {
     /// keeps the automatic engine routing completely untouched.
     pub fn search_with_method(
         &self,
-        request: VantaMemorySearchRequest,
+        request: MemorySearchRequest,
         method: Option<crate::index::IndexType>,
-    ) -> Result<Vec<VantaMemorySearchHit>> {
+    ) -> Result<Vec<MemorySearchHit>> {
         let exclude_superseded = request.exclude_superseded;
         let mut hits = self.search_impl(request, method)?;
         if exclude_superseded {
@@ -98,9 +98,9 @@ impl VantaEmbedded {
     #[tracing::instrument(skip(self, request), err)]
     fn search_impl(
         &self,
-        request: VantaMemorySearchRequest,
+        request: MemorySearchRequest,
         method: Option<crate::index::IndexType>,
-    ) -> Result<Vec<VantaMemorySearchHit>> {
+    ) -> Result<Vec<MemorySearchHit>> {
         validate_namespace(&request.namespace)?;
         validate_metadata(&request.filters)?;
 
@@ -139,7 +139,7 @@ impl VantaEmbedded {
             && !request.query_vector.is_empty()
             && crate::index::f32_l2_norm(&request.query_vector) < f32::EPSILON
         {
-            return Err(VantaError::InvalidInput(
+            return Err(Error::InvalidInput(
                 "zero-norm cosine query vector is undefined; use a non-zero vector \
                  or the euclidean distance metric (AUDREP-55, ERR-028)"
                     .into(),

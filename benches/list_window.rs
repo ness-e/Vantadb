@@ -1,7 +1,7 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 //! FIND-24 — Cursor-paginated `list` performance regression bench.
 //!
-//! Compares the per-call latency of `VantaEmbedded::list(limit=N, cursor=K)`
+//! Compares the per-call latency of `Embedded::list(limit=N, cursor=K)`
 //! over a 10k-record namespace, for both the first page (cursor=0) and a
 //! deep cursor (cursor=9000). The fix should make both pages O(limit) instead
 //! of O(namespace_size): deep-page latency must not grow linearly with
@@ -20,23 +20,23 @@
 //! correctness; perf numbers here are qualitative.
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use vantadb::config::VantaConfig;
-use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions};
+use vantadb::config::Config;
+use vantadb::{Embedded, MemoryInput, MemoryListOptions};
 
 const TOTAL_RECORDS: usize = 10_000;
 const PAGE_SIZE: usize = 100;
 const DEEP_CURSOR: usize = 9_000;
 
-fn build_db_with_n_records(total: usize) -> VantaEmbedded {
+fn build_db_with_n_records(total: usize) -> Embedded {
     let dir = tempfile::tempdir().expect("tempdir");
-    let config = VantaConfig {
+    let config = Config {
         storage_path: dir.path().to_string_lossy().into_owned(),
         ..Default::default()
     };
-    let db = VantaEmbedded::open_with_config(config).expect("open db");
+    let db = Embedded::open_with_config(config).expect("open db");
 
     for i in 0..total {
-        db.put(VantaMemoryInput::new(
+        db.put(MemoryInput::new(
             "list-window-bench",
             format!("k-{i:06}"),
             format!("payload {i}"),
@@ -57,7 +57,7 @@ fn bench_list_window(c: &mut Criterion) {
             let page = db
                 .list(
                     ns,
-                    VantaMemoryListOptions {
+                    MemoryListOptions {
                         limit: PAGE_SIZE,
                         cursor: Some(0),
                         ..Default::default()
@@ -76,7 +76,7 @@ fn bench_list_window(c: &mut Criterion) {
             let page = db
                 .list(
                     ns,
-                    VantaMemoryListOptions {
+                    MemoryListOptions {
                         limit: PAGE_SIZE,
                         cursor: Some(DEEP_CURSOR),
                         ..Default::default()

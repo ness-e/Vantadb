@@ -21,17 +21,17 @@ fn seed_record(db_path: &str, namespace: &str, key: &str, payload: &str) {
 }
 
 fn seed_embedded(db_path: &str, namespace: &str, key: &str, payload: &str) {
-    let config = vantadb::config::VantaConfig {
+    let config = vantadb::config::Config {
         storage_path: db_path.to_string(),
         read_only: false,
         ..Default::default()
     };
-    let db = vantadb::VantaEmbedded::open_with_config(config).expect("seed embedded open failed");
-    db.put(vantadb::sdk::VantaMemoryInput {
+    let db = vantadb::Embedded::open_with_config(config).expect("seed embedded open failed");
+    db.put(vantadb::sdk::MemoryInput {
         namespace: namespace.to_string(),
         key: key.to_string(),
         payload: payload.to_string(),
-        metadata: vantadb::sdk::VantaMemoryMetadata::new(),
+        metadata: vantadb::sdk::MemoryMetadata::new(),
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
@@ -118,27 +118,27 @@ fn test_put_with_metadata_roundtrip() {
     .expect("put with metadata failed");
 
     // Verify via the SDK: metadata fields are read back as record metadata
-    let config = vantadb::config::VantaConfig {
+    let config = vantadb::config::Config {
         storage_path: path.clone(),
         read_only: true,
         ..Default::default()
     };
-    let db = vantadb::VantaEmbedded::open_with_config(config).expect("open read-only");
+    let db = vantadb::Embedded::open_with_config(config).expect("open read-only");
     let record = db
         .get("meta_ns", "m1")
         .expect("get record")
         .expect("record exists");
     assert_eq!(
         record.metadata.get("color"),
-        Some(&vantadb::sdk::VantaValue::String("blue".into()))
+        Some(&vantadb::sdk::Value::String("blue".into()))
     );
     assert_eq!(
         record.metadata.get("count"),
-        Some(&vantadb::sdk::VantaValue::Int(2))
+        Some(&vantadb::sdk::Value::Int(2))
     );
     assert_eq!(
         record.metadata.get("active"),
-        Some(&vantadb::sdk::VantaValue::Bool(true))
+        Some(&vantadb::sdk::Value::Bool(true))
     );
 }
 
@@ -922,17 +922,17 @@ fn test_list_verbose() {
 // ─── count / delete-by-filter (metadata filters) ───────────────
 
 fn seed_embedded_with_meta(db_path: &str, namespace: &str, key: &str, payload: &str, color: &str) {
-    use vantadb::sdk::{VantaMemoryInput, VantaMemoryMetadata, VantaValue};
+    use vantadb::sdk::{MemoryInput, MemoryMetadata, Value};
 
-    let config = vantadb::config::VantaConfig {
+    let config = vantadb::config::Config {
         storage_path: db_path.to_string(),
         read_only: false,
         ..Default::default()
     };
-    let db = vantadb::VantaEmbedded::open_with_config(config).expect("seed embedded open failed");
-    let mut metadata = VantaMemoryMetadata::new();
-    metadata.insert("color".to_string(), VantaValue::String(color.to_string()));
-    db.put(VantaMemoryInput {
+    let db = vantadb::Embedded::open_with_config(config).expect("seed embedded open failed");
+    let mut metadata = MemoryMetadata::new();
+    metadata.insert("color".to_string(), Value::String(color.to_string()));
+    db.put(MemoryInput {
         namespace: namespace.to_string(),
         key: key.to_string(),
         payload: payload.to_string(),

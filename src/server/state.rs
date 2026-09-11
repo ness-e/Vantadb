@@ -16,7 +16,7 @@ use crate::connection_pool::ConnectionPool;
 use crate::entity::EntityStore;
 use crate::node::FieldValue;
 use crate::rbac::Rbac;
-use crate::sdk::VantaEmbedded;
+use crate::sdk::Embedded;
 use crate::storage::StorageEngine;
 use axum::http::HeaderMap;
 use lru::LruCache;
@@ -111,7 +111,7 @@ pub struct ServerState {
     /// for the `/api/v2` record endpoints. Shared (not per-request) so the
     /// audit logger has a single file handle with its own mutex; per-request
     /// handles would interleave appends to the audit JSONL.
-    pub db: VantaEmbedded,
+    pub db: Embedded,
     /// Circuit breaker for fast-failing when the backend is failing.
     pub circuit_breaker: Arc<CircuitBreaker>,
     /// Connection pool bounding concurrent query execution.

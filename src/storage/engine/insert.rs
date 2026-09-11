@@ -27,8 +27,8 @@ impl StorageEngine {
     /// Insert or overwrite a node: persist to WAL, vector store, KV backend, and HNSW index.
     ///
     /// # ACID note
-    /// WAL is appended first, then VantaFile, then KV backend. If KV write fails after
-    /// VantaFile succeeds, the entry is tombstoned (P4). WAL replay post-crash covers all
+    /// WAL is appended first, then File, then KV backend. If KV write fails after
+    /// File succeeds, the entry is tombstoned (P4). WAL replay post-crash covers all
     /// other mid-operation failure gaps. In-process errors (non-crash) between WAL commit
     /// and store I/O may leave partial state ΓÇö caller should retry at the operation level.
     /// Full saga/2PC is deferred to ACID Phase 0.
@@ -45,7 +45,7 @@ impl StorageEngine {
             if !active.is_empty() {
                 if active.len() == 1 {
                     let txn_id = active.iter().next().copied().ok_or_else(|| {
-                        crate::error::VantaError::generic_error(
+                        crate::error::Error::generic_error(
                             "active transaction set corrupted: len()==1 but no txn id".to_string(),
                         )
                     })?;
@@ -63,7 +63,7 @@ impl StorageEngine {
                         .push(BufferedWrite::Insert(buffered));
                     return Ok(());
                 }
-                return Err(crate::error::VantaError::InvalidInput(
+                return Err(crate::error::Error::InvalidInput(
                     "Multiple active transactions; use insert_in_txn() instead".into(),
                 ));
             }
@@ -77,7 +77,7 @@ impl StorageEngine {
         self.ensure_writable()?;
         #[cfg(feature = "failpoints")]
         fail::fail_point!("storage_insert_fail", |_| {
-            Err(crate::error::VantaError::IoError(std::io::Error::other(
+            Err(crate::error::Error::IoError(std::io::Error::other(
                 "Simulated Storage insert catastrophic I/O failure",
             )))
         });
@@ -221,7 +221,7 @@ impl StorageEngine {
             created_by_txn: created_by,
             deleted_by_txn: None,
         })
-        .map_err(crate::error::VantaError::serialization)?;
+        .map_err(crate::error::Error::serialization)?;
 
         let (local_off, storage_offset) = {
             let mut vstore = self.vstore0()?;
@@ -527,7 +527,7 @@ impl StorageEngine {
         self.ensure_writable()?;
         #[cfg(feature = "failpoints")]
         fail::fail_point!("storage_insert_fail", |_| {
-            Err(crate::error::VantaError::IoError(std::io::Error::other(
+            Err(crate::error::Error::IoError(std::io::Error::other(
                 "Simulated Storage insert catastrophic I/O failure",
             )))
         });
@@ -732,8 +732,8 @@ impl StorageEngine {
                 created_by_txn: created_by,
                 deleted_by_txn: None,
             };
-            let metadata_val = postcard::to_allocvec(&metadata)
-                .map_err(crate::error::VantaError::serialization)?;
+            let metadata_val =
+                postcard::to_allocvec(&metadata).map_err(crate::error::Error::serialization)?;
             kv_ops.push(BackendWriteOp::Put {
                 partition: BackendPartition::Default,
                 key: key.to_vec(),
@@ -849,11 +849,11 @@ impl StorageEngine {
 
     /// Insert multiple SDK records in a single batch operation.
     ///
-    /// Converts `VantaNodeInput` records to internal `UnifiedNode` nodes,
+    /// Converts `NodeInput` records to internal `UnifiedNode` nodes,
     /// then delegates to `batch_insert` for batched persistence.
     /// Returns the IDs of all inserted records.
     #[tracing::instrument(skip(self, records), level = "debug", err)]
-    pub fn insert_batch(&self, records: &[crate::VantaNodeInput]) -> Result<Vec<u128>> {
+    pub fn insert_batch(&self, records: &[crate::NodeInput]) -> Result<Vec<u128>> {
         let nodes: Vec<UnifiedNode> = records
             .iter()
             .map(|input| {

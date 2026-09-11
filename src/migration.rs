@@ -9,8 +9,8 @@ use crate::wal::{WalHeader, WAL_POSTCARD_VERSION};
 /// Physical format kinds that can be migrated.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum FormatKind {
-    /// VantaFile vector store format.
-    VantaFile,
+    /// File vector store format.
+    File,
     /// HNSW vector index format.
     VectorIndex,
     /// Write-ahead log format.
@@ -23,7 +23,7 @@ impl FormatKind {
     /// Return all format kinds.
     pub fn all() -> &'static [FormatKind] {
         &[
-            FormatKind::VantaFile,
+            FormatKind::File,
             FormatKind::VectorIndex,
             FormatKind::Wal,
             FormatKind::Schema,
@@ -33,7 +33,7 @@ impl FormatKind {
     /// Return the human-readable name of this format kind.
     pub fn name(&self) -> &'static str {
         match self {
-            FormatKind::VantaFile => "vfile",
+            FormatKind::File => "vfile",
             FormatKind::VectorIndex => "index",
             FormatKind::Wal => "wal",
             FormatKind::Schema => "schema",
@@ -43,7 +43,7 @@ impl FormatKind {
     /// Parse a format kind from a string (case-insensitive).
     pub fn from_string(s: &str) -> Option<FormatKind> {
         match s.to_lowercase().as_str() {
-            "vfile" | "vantafile" => Some(FormatKind::VantaFile),
+            "vfile" | "vantafile" => Some(FormatKind::File),
             "index" | "vectorindex" => Some(FormatKind::VectorIndex),
             "wal" => Some(FormatKind::Wal),
             "schema" => Some(FormatKind::Schema),
@@ -123,7 +123,7 @@ impl MigrationEngine {
         if let Some(header) = self.read_header(&vfile_path, *b"VFLE")? {
             if header.format_version < VFILE_VERSION {
                 plans.push(MigrationPlan {
-                    format: FormatKind::VantaFile,
+                    format: FormatKind::File,
                     current_version: header.format_version,
                     target_version: VFILE_VERSION,
                     action: format!(
@@ -168,7 +168,7 @@ impl MigrationEngine {
     /// Migrate a single format kind to the latest version.
     pub fn migrate_format(&self, kind: FormatKind) -> Result<()> {
         match kind {
-            FormatKind::VantaFile => self.migrate_vfile_to_latest(),
+            FormatKind::File => self.migrate_vfile_to_latest(),
             FormatKind::VectorIndex => self.migrate_vector_index(),
             FormatKind::Wal => self.migrate_wal(),
             FormatKind::Schema => self.migrate_schema(),
@@ -178,7 +178,7 @@ impl MigrationEngine {
     fn migrate_vfile_to_latest(&self) -> Result<()> {
         let vfile_path = self.db_path.join("vector_store.vanta");
         if !vfile_path.exists() {
-            println!("  - No VantaFile found, skipping");
+            println!("  - No File found, skipping");
             return Ok(());
         }
 
@@ -187,7 +187,7 @@ impl MigrationEngine {
 
         if header.format_version >= VFILE_VERSION {
             println!(
-                "  - VantaFile already at version {} (latest: {})",
+                "  - File already at version {} (latest: {})",
                 header.format_version, VFILE_VERSION
             );
             return Ok(());
@@ -195,7 +195,7 @@ impl MigrationEngine {
 
         if self.dry_run {
             println!(
-                "  [dry-run] VantaFile v{} → v{}: would rewrite header",
+                "  [dry-run] File v{} → v{}: would rewrite header",
                 header.format_version, VFILE_VERSION
             );
             return Ok(());
@@ -211,7 +211,7 @@ impl MigrationEngine {
         std::fs::write(&vfile_path, &new_data)?;
 
         println!(
-            "  ✓ VantaFile migrated: v{} → v{}",
+            "  ✓ File migrated: v{} → v{}",
             header.format_version, VFILE_VERSION
         );
         println!("  - Backup saved at: {}", backup_path.display());
@@ -301,14 +301,14 @@ impl MigrationEngine {
 
         if self.dry_run {
             println!(
-                "  [dry-run] Vector index v{} → v{}: would rebuild index from VantaFile",
+                "  [dry-run] Vector index v{} → v{}: would rebuild index from File",
                 header.format_version, VECTOR_INDEX_VERSION
             );
             return Ok(());
         }
 
         let path_str = self.db_path.to_string_lossy();
-        let config = crate::config::VantaConfig {
+        let config = crate::config::Config {
             read_only: false,
             ..Default::default()
         };
@@ -364,7 +364,7 @@ impl MigrationEngine {
         {
             if header.format_version != VFILE_VERSION {
                 issues.push(format!(
-                    "VantaFile at v{}, latest is v{}",
+                    "File at v{}, latest is v{}",
                     header.format_version, VFILE_VERSION
                 ));
             }
@@ -415,7 +415,7 @@ mod tests {
 
     #[test]
     fn test_format_kind_names() {
-        assert_eq!(FormatKind::VantaFile.name(), "vfile");
+        assert_eq!(FormatKind::File.name(), "vfile");
         assert_eq!(FormatKind::VectorIndex.name(), "index");
         assert_eq!(FormatKind::Wal.name(), "wal");
         assert_eq!(FormatKind::Schema.name(), "schema");
@@ -429,14 +429,8 @@ mod tests {
 
     #[test]
     fn test_format_from_str() {
-        assert_eq!(
-            FormatKind::from_string("vfile"),
-            Some(FormatKind::VantaFile)
-        );
-        assert_eq!(
-            FormatKind::from_string("vantafile"),
-            Some(FormatKind::VantaFile)
-        );
+        assert_eq!(FormatKind::from_string("vfile"), Some(FormatKind::File));
+        assert_eq!(FormatKind::from_string("vantafile"), Some(FormatKind::File));
         assert_eq!(
             FormatKind::from_string("index"),
             Some(FormatKind::VectorIndex)
@@ -449,10 +443,7 @@ mod tests {
 
     #[test]
     fn test_format_from_str_case_insensitive() {
-        assert_eq!(
-            FormatKind::from_string("VFILE"),
-            Some(FormatKind::VantaFile)
-        );
+        assert_eq!(FormatKind::from_string("VFILE"), Some(FormatKind::File));
         assert_eq!(
             FormatKind::from_string("Index"),
             Some(FormatKind::VectorIndex)
@@ -480,11 +471,8 @@ mod tests {
 
         let engine = MigrationEngine::new(dir.path());
         let plans = engine.plan_all()?;
-        let vfile_plan = plans.iter().find(|p| p.format == FormatKind::VantaFile);
-        assert!(
-            vfile_plan.is_some(),
-            "should have a VantaFile migration plan"
-        );
+        let vfile_plan = plans.iter().find(|p| p.format == FormatKind::File);
+        assert!(vfile_plan.is_some(), "should have a File migration plan");
         let p = vfile_plan.unwrap();
         assert_eq!(p.current_version, 1);
         assert_eq!(p.target_version, VFILE_VERSION);
@@ -500,7 +488,7 @@ mod tests {
 
         let engine = MigrationEngine::new(dir.path());
         let plans = engine.plan_all()?;
-        let vfile_plan = plans.iter().find(|p| p.format == FormatKind::VantaFile);
+        let vfile_plan = plans.iter().find(|p| p.format == FormatKind::File);
         assert!(
             vfile_plan.is_none(),
             "v{VFILE_VERSION} file should not need migration"
@@ -554,7 +542,7 @@ mod tests {
     fn test_migrate_vfile_nonexistent() -> Result<()> {
         let dir = TempDir::new()?;
         let engine = MigrationEngine::new(dir.path());
-        engine.migrate_format(FormatKind::VantaFile)?;
+        engine.migrate_format(FormatKind::File)?;
         Ok(())
     }
 
@@ -569,7 +557,7 @@ mod tests {
         std::fs::write(&vfile_path, &data)?;
 
         let engine = MigrationEngine::new(dir.path());
-        engine.migrate_format(FormatKind::VantaFile)?;
+        engine.migrate_format(FormatKind::File)?;
 
         let migrated = std::fs::read(&vfile_path)?;
         let new_header = VantaHeader::deserialize(&migrated)?;

@@ -17,7 +17,7 @@ mod txn;
 #[cfg(test)]
 mod tests;
 
-use std::fs::File;
+use std::fs::File as StdFile;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::Arc;
@@ -28,14 +28,14 @@ use web_time::{Instant, SystemTime, UNIX_EPOCH};
 
 pub use crate::backend::BackendPartition;
 use crate::backend::StorageBackend;
-use crate::config::VantaConfig;
+use crate::config::Config;
 use crate::error::Result;
 use crate::index::CPIndex;
 pub use crate::index::FreshHnswReport;
 use crate::lsm::pack_offset;
 pub(crate) use crate::lsm::SegmentRegistry;
 use crate::node::{FilterBitset, LabelIntern, UnifiedNode, VectorRepresentations};
-use crate::storage::vfile::VantaFile;
+use crate::storage::vfile::File;
 
 // ─── Constants ──────────────────────────────────────────────────
 
@@ -211,9 +211,9 @@ pub struct VacuumReport {
 /// Report from a single merge (compaction) pass.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct MergeReport {
-    /// Number of segments before compaction (always 1 for single VantaFile).
+    /// Number of segments before compaction (always 1 for single File).
     pub segments_before: u64,
-    /// Number of segments after compaction (always 1 for single VantaFile).
+    /// Number of segments after compaction (always 1 for single File).
     pub segments_after: u64,
     /// Estimated bytes saved by compaction.
     pub saved_bytes: u64,
@@ -308,7 +308,7 @@ pub struct StorageEngine {
     /// Abstract KV backend. No RocksDB types leak through this field.
     pub(crate) backend: Arc<dyn StorageBackend>,
     /// Engine configuration including backend kind, memory limits, and sync mode.
-    pub config: VantaConfig,
+    pub config: Config,
     /// If true, all mutating operations must be rejected.
     pub read_only: bool,
     /// Thread-safe HNSW index (swappable via RCU).
@@ -339,7 +339,7 @@ pub struct StorageEngine {
     /// Vector store files for persistent node vector data — one per LSM level.
     /// Index 0 = L0 (hot), 1 = L1 (warm), 2 = L2 (cold).
     /// All new writes go to index 0. Reads use unpack_offset() to select the correct file.
-    pub vector_store: Vec<RwLock<VantaFile>>,
+    pub vector_store: Vec<RwLock<File>>,
     /// Multi-level LSM segment registry tracking level metadata.
     #[allow(dead_code)]
     pub(crate) segment_registry: SegmentRegistry,
@@ -361,7 +361,7 @@ pub struct StorageEngine {
     /// into an O(1) lookup (PERF-08).
     pub(crate) scalar_index: Option<std::sync::Arc<crate::scalar_index::ScalarIndex>>,
     /// File handle for multi-process isolation lock
-    pub(crate) _lock_file: Option<File>,
+    pub(crate) _lock_file: Option<StdFile>,
     /// In-memory cache for BM25 term stats to avoid redundant I/O during ingestion.
     pub(crate) text_stats_cache:
         RwLock<std::collections::HashMap<(String, String), crate::text_index::TextTermStats>>,
@@ -384,7 +384,7 @@ impl StorageEngine {
     /// Replay a single write operation during WAL recovery.
     /// Writes to L0 (always) and packs the segment_id into the offset.
     fn replay_write_node(
-        vector_store: &[RwLock<VantaFile>],
+        vector_store: &[RwLock<File>],
         hnsw: &CPIndex,
         backend: &dyn StorageBackend,
         node_id: u128,
@@ -405,7 +405,7 @@ impl StorageEngine {
             deleted_by_txn: None,
         };
         let metadata_val =
-            postcard::to_allocvec(&metadata).map_err(crate::error::VantaError::serialization)?;
+            postcard::to_allocvec(&metadata).map_err(crate::error::Error::serialization)?;
         backend.put(BackendPartition::Default, &key, &metadata_val)?;
         Ok(())
     }
@@ -425,8 +425,8 @@ impl StorageEngine {
         self.label_intern.lock().resolve(id).map(|s| s.to_string())
     }
 
-    /// Convert a `UnifiedNode` to an SDK `VantaNodeRecord`, resolving edge labels.
-    pub fn node_to_record(&self, node: crate::node::UnifiedNode) -> crate::sdk::VantaNodeRecord {
+    /// Convert a `UnifiedNode` to an SDK `NodeRecord`, resolving edge labels.
+    pub fn node_to_record(&self, node: crate::node::UnifiedNode) -> crate::sdk::NodeRecord {
         crate::sdk::serialization::graph_types::unified_to_record(node, &self.label_intern.lock())
     }
 }
@@ -587,7 +587,7 @@ impl StorageEngine {
             ));
         #[cfg(target_arch = "wasm32")]
         let guard = self.insert_lock.try_lock();
-        guard.ok_or_else(|| crate::error::VantaError::Timeout {
+        guard.ok_or_else(|| crate::error::Error::Timeout {
             operation: operation.into(),
             duration_ms: self.config.insert_lock_timeout_ms,
         })
@@ -604,7 +604,7 @@ impl StorageEngine {
     /// Without this, a snapshot taken during active writes could capture a
     /// torn set — each individual file operation is atomic, but the *set* of
     /// files is not (e.g. a newer `vector_index.bin` referencing offsets past
-    /// the end of an older-copied VantaFile segment).
+    /// the end of an older-copied File segment).
     ///
     /// # Performance trade-off
     ///
@@ -632,7 +632,7 @@ impl StorageEngine {
     ///
     /// The snapshot mirrors the live layout (`<snap_dir>/data/...` and
     /// `<snap_dir>/backend/...`) so it can be reopened directly as a database
-    /// via `VantaEmbedded::open`.
+    /// via `Embedded::open`.
     #[cfg(unix)]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
         // Read-only engines have nothing in flight to quiesce, and flush()
@@ -648,7 +648,7 @@ impl StorageEngine {
         #[cfg(feature = "failpoints")]
         {
             fail::fail_point!("snapshot_create_fail", |_| {
-                Err(crate::error::VantaError::IoError(std::io::Error::other(
+                Err(crate::error::Error::IoError(std::io::Error::other(
                     "Simulated snapshot create I/O failure",
                 )))
             });
@@ -679,7 +679,7 @@ impl StorageEngine {
     ///
     /// The snapshot mirrors the live layout (`<snap_dir>/data/...` and
     /// `<snap_dir>/backend/...`) so it can be reopened directly as a database
-    /// via `VantaEmbedded::open`.
+    /// via `Embedded::open`.
     #[cfg(any(windows, target_arch = "wasm32"))]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
         if !self.read_only {
@@ -693,7 +693,7 @@ impl StorageEngine {
         #[cfg(feature = "failpoints")]
         {
             fail::fail_point!("snapshot_create_fail", |_| {
-                Err(crate::error::VantaError::IoError(std::io::Error::other(
+                Err(crate::error::Error::IoError(std::io::Error::other(
                     "Simulated snapshot create I/O failure",
                 )))
             });
@@ -740,7 +740,7 @@ impl StorageEngine {
             || name.contains('\\')
             || name.chars().any(char::is_control)
         {
-            return Err(crate::error::VantaError::InvalidInput(format!(
+            return Err(crate::error::Error::InvalidInput(format!(
                 "snapshot name must be a plain identifier (no path separators, '.', '..', or control characters): {name:?}"
             )));
         }
@@ -756,7 +756,7 @@ impl StorageEngine {
     /// holds the database open: on Windows the fs2 lock makes the swap fail
     /// loudly; on Unix an open handle would keep writing into the renamed-aside
     /// directory, silently forking state. Callers must close/drop every handle
-    /// first (see [`crate::sdk::VantaEmbedded::restore_from`] for the full
+    /// first (see [`crate::sdk::Embedded::restore_from`] for the full
     /// close → restore → reopen flow).
     ///
     /// # Safety / rollback
@@ -775,7 +775,7 @@ impl StorageEngine {
     /// themselves.
     ///
     /// Returns the restored `<root>/data` path; reopen with
-    /// [`crate::sdk::VantaEmbedded::open_with_config`] — HNSW/text indexes are
+    /// [`crate::sdk::Embedded::open_with_config`] — HNSW/text indexes are
     /// rebuilt from storage on open (proven by tests/index_reconstruction.rs).
     pub fn snapshot_restore(
         storage_root: &std::path::Path,
@@ -785,7 +785,7 @@ impl StorageEngine {
         let data_dir = storage_root.join("data");
         let snap_data = data_dir.join("snapshots").join(name).join("data");
         if !snap_data.is_dir() {
-            return Err(crate::error::VantaError::NotFound {
+            return Err(crate::error::Error::NotFound {
                 kind: "snapshot".to_string(),
                 id: name.to_string(),
             });
@@ -794,7 +794,7 @@ impl StorageEngine {
         #[cfg(feature = "failpoints")]
         {
             fail::fail_point!("snapshot_restore_fail", |_| {
-                Err(crate::error::VantaError::IoError(std::io::Error::other(
+                Err(crate::error::Error::IoError(std::io::Error::other(
                     "Simulated snapshot restore I/O failure",
                 )))
             });
@@ -811,7 +811,7 @@ impl StorageEngine {
         // nanosecond stamp avoids collisions between consecutive restores.
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| crate::error::VantaError::IoError(std::io::Error::other(e)))?
+            .map_err(|e| crate::error::Error::IoError(std::io::Error::other(e)))?
             .as_nanos();
         let staging = storage_root.join(format!("data.pre_restore_{nanos}"));
         std::fs::rename(&data_dir, &staging)?;
@@ -838,7 +838,7 @@ impl StorageEngine {
                 // staged original is still available.
                 let _ = std::fs::remove_dir_all(&data_dir);
                 let _ = std::fs::rename(&staging, &data_dir);
-                Err(crate::error::VantaError::IoError(e))
+                Err(crate::error::Error::IoError(e))
             }
         }
     }

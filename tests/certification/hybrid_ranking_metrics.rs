@@ -7,7 +7,7 @@
 //! and computes information retrieval metrics against known relevance judgments.
 
 use tempfile::tempdir;
-use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
+use vantadb::{Embedded, MemoryInput, MemorySearchRequest};
 
 fn ndcg_at_k(ranked: &[String], relevant: &[String], k: usize) -> f64 {
     let k = k.min(ranked.len());
@@ -54,7 +54,7 @@ fn recall_at_k(ranked: &[String], relevant: &[String], k: usize) -> f64 {
 #[test]
 fn test_hybrid_ranking_metrics() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     // 20-document corpus with known relevance for hybrid queries
     let corpus: Vec<(&str, &str, Vec<f32>)> = vec![
@@ -161,7 +161,7 @@ fn test_hybrid_ranking_metrics() {
     ];
 
     for (key, text, vector) in &corpus {
-        let mut input = VantaMemoryInput::new("metrics", *key, *text);
+        let mut input = MemoryInput::new("metrics", *key, *text);
         input.vector = Some(vector.clone());
         db.put(input).expect("put doc");
     }
@@ -175,7 +175,7 @@ fn test_hybrid_ranking_metrics() {
     .map(String::from)
     .collect();
 
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "metrics".to_string(),
         query_vector: vec![0.85, 0.15, 0.10, 0.10],
         text_query: Some("transformer attention".to_string()),
@@ -200,7 +200,7 @@ fn test_hybrid_ranking_metrics() {
         .map(String::from)
         .collect();
 
-    let req2 = VantaMemorySearchRequest {
+    let req2 = MemorySearchRequest {
         namespace: "metrics".to_string(),
         query_vector: vec![0.20, 0.80, 0.10, 0.10],
         text_query: Some("deep learning".to_string()),

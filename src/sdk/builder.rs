@@ -1,6 +1,6 @@
 use crate::agentic::thread::ThreadStore;
-use crate::config::VantaConfig;
-use crate::error::{Result, VantaError};
+use crate::config::Config;
+use crate::error::{Error, Result};
 use crate::graphrag::pipeline::{GraphRagPipeline, GraphRagResult};
 use crate::index::set_prefetch_mode;
 use crate::storage::StorageEngine;
@@ -12,9 +12,9 @@ use tracing;
 
 /// Stable embedded database handle used by SDKs and bindings.
 #[derive(Clone)]
-pub struct VantaEmbedded {
+pub struct Embedded {
     engine: Arc<RwLock<Option<Arc<StorageEngine>>>>,
-    pub(crate) config: VantaConfig,
+    pub(crate) config: Config,
     audit: Option<Arc<crate::audit::AuditLogger>>,
     /// Serializes `supersede()`'s read-modify-write (REVIEW-13): the engine's
     /// `insert_lock` only covers the individual write, not the SDK-level
@@ -25,18 +25,18 @@ pub struct VantaEmbedded {
     pub(crate) supersede_lock: Arc<Mutex<()>>,
 }
 
-impl std::fmt::Debug for VantaEmbedded {
+impl std::fmt::Debug for Embedded {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         let is_open = self.engine.read().is_some();
-        f.debug_struct("VantaEmbedded")
+        f.debug_struct("Embedded")
             .field("config", &self.config)
             .field("is_open", &is_open)
             .finish()
     }
 }
 
-impl VantaEmbedded {
-    /// Wrap an existing engine handle in a VantaEmbedded instance.
+impl Embedded {
+    /// Wrap an existing engine handle in an Embedded instance.
     /// Copies the engine's config for use as the embedded config.
     #[tracing::instrument(skip(engine))]
     pub fn from_engine(engine: Arc<StorageEngine>) -> Self {
@@ -57,19 +57,19 @@ impl VantaEmbedded {
     /// removed after the engine is closed so the example leaves no files behind.
     ///
     /// ```rust
-    /// use vantadb::VantaEmbedded;
+    /// use vantadb::Embedded;
     ///
     /// let path = std::env::temp_dir().join(format!(
     ///     "vantadb-open-example-{}",
     ///     std::process::id()
     /// ));
-    /// let db = VantaEmbedded::open(&path).expect("open database");
+    /// let db = Embedded::open(&path).expect("open database");
     /// db.close().expect("close database");
     /// let _ = std::fs::remove_dir_all(&path);
     /// ```
     #[tracing::instrument(skip(path), err)]
     pub fn open(path: impl AsRef<Path>) -> Result<Self> {
-        let config = VantaConfig {
+        let config = Config {
             storage_path: path.as_ref().to_string_lossy().into_owned(),
             ..Default::default()
         };
@@ -84,19 +84,19 @@ impl VantaEmbedded {
     /// backend and `":memory:"` as the storage path:
     ///
     /// ```rust
-    /// use vantadb::config::VantaConfig;
-    /// use vantadb::{BackendKind, VantaEmbedded};
+    /// use vantadb::config::Config;
+    /// use vantadb::{BackendKind, Embedded};
     ///
-    /// let config = VantaConfig {
+    /// let config = Config {
     ///     storage_path: ":memory:".into(),
     ///     backend_kind: BackendKind::InMemory,
     ///     ..Default::default()
     /// };
-    /// let db = VantaEmbedded::open_with_config(config).expect("open database");
+    /// let db = Embedded::open_with_config(config).expect("open database");
     /// db.close().expect("close database");
     /// ```
     #[tracing::instrument(skip(config), err)]
-    pub fn open_with_config(config: VantaConfig) -> Result<Self> {
+    pub fn open_with_config(config: Config) -> Result<Self> {
         let final_config = config.clone();
         set_prefetch_mode(config.prefetch_mode);
 
@@ -117,7 +117,7 @@ impl VantaEmbedded {
     }
 
     pub(crate) fn engine_handle(&self) -> Result<Arc<StorageEngine>> {
-        self.engine.read().clone().ok_or(VantaError::NotInitialized)
+        self.engine.read().clone().ok_or(Error::NotInitialized)
     }
 
     /// Record an audit event if an audit log is configured; no-op otherwise.
@@ -140,7 +140,7 @@ impl VantaEmbedded {
     /// Create an empty handle (no engine) for tests.
     /// Produces `NotInitialized` errors on any engine-dependent operation.
     #[doc(hidden)]
-    pub fn test_empty(config: VantaConfig) -> Self {
+    pub fn test_empty(config: Config) -> Self {
         Self {
             engine: Arc::new(RwLock::new(None)),
             audit: init_audit(&config),
@@ -221,10 +221,7 @@ impl VantaEmbedded {
     /// edge targeting `summary_id`, re-activates them, and inserts them
     /// back into the active store.
     #[tracing::instrument(skip(self), err)]
-    pub fn recover_archived_nodes(
-        &self,
-        summary_id: u128,
-    ) -> Result<Vec<crate::sdk::VantaNodeRecord>> {
+    pub fn recover_archived_nodes(&self, summary_id: u128) -> Result<Vec<crate::sdk::NodeRecord>> {
         let engine = self.engine_handle()?;
         let nodes = engine.recover_archived_nodes(summary_id)?;
         Ok(nodes
@@ -269,7 +266,7 @@ impl VantaEmbedded {
     ///
     /// ```ignore
     /// db.close()?;                                        // release fs2 lock + handles
-    /// let db = VantaEmbedded::restore_from(config.clone(), "snap-1")?;  // swap + reopen
+    /// let db = Embedded::restore_from(config.clone(), "snap-1")?;  // swap + reopen
     /// ```
     ///
     /// Validates `name` as a plain identifier (anti path-traversal), fails
@@ -278,7 +275,7 @@ impl VantaEmbedded {
     /// back, and reopens a fresh engine over the restored directory (indexes
     /// rebuild from storage on open). See
     /// [`StorageEngine::snapshot_restore`] for the full safety contract.
-    pub fn restore_from(config: VantaConfig, name: &str) -> Result<Self> {
+    pub fn restore_from(config: Config, name: &str) -> Result<Self> {
         StorageEngine::snapshot_restore(Path::new(&config.storage_path), name)?;
         Self::open_with_config(config)
     }
@@ -286,7 +283,7 @@ impl VantaEmbedded {
 
 /// Open the audit logger when `config.audit_log_path` is set. A failed open is
 /// logged and treated as disabled — it must never block the database open.
-fn init_audit(config: &VantaConfig) -> Option<Arc<crate::audit::AuditLogger>> {
+fn init_audit(config: &Config) -> Option<Arc<crate::audit::AuditLogger>> {
     let path = config.audit_log_path.as_ref()?;
     match crate::audit::AuditLogger::with_rotation(
         path,
@@ -305,12 +302,20 @@ fn init_audit(config: &VantaConfig) -> Option<Arc<crate::audit::AuditLogger>> {
     }
 }
 
+/// Deprecated `Vanta`-prefixed aliases (AST-002, ADR-041).
+/// New code must use the unprefixed names; these exist only for semver migration.
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `Embedded` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaEmbedded = Embedded;
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
-    fn make_empty_embedded() -> VantaEmbedded {
-        VantaEmbedded::test_empty(VantaConfig::default())
+    fn make_empty_embedded() -> Embedded {
+        Embedded::test_empty(Config::default())
     }
 
     // ── Debug ──
@@ -319,7 +324,7 @@ mod tests {
     fn test_debug_impl_closed() {
         let e = make_empty_embedded();
         let d = format!("{:?}", e);
-        assert!(d.contains("VantaEmbedded"), "got: {d}");
+        assert!(d.contains("Embedded"), "got: {d}");
         assert!(d.contains("is_open"), "got: {d}");
         assert!(d.contains("false"), "got: {d}");
     }
@@ -361,11 +366,11 @@ mod tests {
         assert!(err.to_string().contains("initialized"), "got: {err}");
     }
 
-    // ── VantaConfig defaults used by builder ──
+    // ── Config defaults used by builder ──
 
     #[test]
     fn test_default_config_values() {
-        let cfg = VantaConfig::default();
+        let cfg = Config::default();
         assert!(!cfg.read_only);
         assert_eq!(cfg.port, 8080);
         assert_eq!(cfg.host, "127.0.0.1");
@@ -376,7 +381,7 @@ mod tests {
     #[test]
     fn test_recover_archived_nodes_empty() {
         let dir = tempfile::tempdir().unwrap();
-        let embedded = VantaEmbedded::open(dir.path()).unwrap();
+        let embedded = Embedded::open(dir.path()).unwrap();
         let result = embedded.recover_archived_nodes(42);
         assert!(
             result.is_ok(),
@@ -389,7 +394,7 @@ mod tests {
     #[test]
     fn test_recover_archived_nodes_with_data() {
         let dir = tempfile::tempdir().unwrap();
-        let embedded = VantaEmbedded::open(dir.path()).unwrap();
+        let embedded = Embedded::open(dir.path()).unwrap();
         let engine = embedded.engine_handle().unwrap();
 
         // Insert an archived node directly into TombstoneStorage

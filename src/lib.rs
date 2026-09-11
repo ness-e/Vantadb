@@ -16,11 +16,11 @@
 //!
 //! | Type | Role |
 //! |------|------|
-//! | [`VantaEmbedded`](sdk/struct.VantaEmbedded.html) | Top-level engine handle. Open/close, CRUD, search, graph ops. |
+//! | [`Embedded`](sdk/struct.Embedded.html) | Top-level engine handle. Open/close, CRUD, search, graph ops. |
 //! | [`InMemoryEngine`](engine/struct.InMemoryEngine.html) | In-memory engine with WAL persistence. |
 //! | [`UnifiedNode`](node/struct.UnifiedNode.html) | Single node representation (fields, vector, edges, metadata). |
-//! | [`VantaMemoryRecord`](sdk/struct.VantaMemoryRecord.html) | A stored memory record with namespace, key, payload, vector, metadata. |
-//! | [`VantaError`](error/enum.VantaError.html) | Typed error enum covering validation, I/O, serialization, and engine errors. |
+//! | [`MemoryRecord`](sdk/struct.MemoryRecord.html) | A stored memory record with namespace, key, payload, vector, metadata. |
+//! | [`Error`](error/enum.Error.html) | Typed error enum covering validation, I/O, serialization, and engine errors. |
 //!
 //! ## Feature Flags
 //!
@@ -38,13 +38,13 @@
 //! ## Quick Example
 //!
 //! ```rust,no_run
-//! use vantadb::sdk::{VantaEmbedded, VantaMemoryInput};
-//! use vantadb::config::VantaConfig;
+//! use vantadb::sdk::{Embedded, MemoryInput};
+//! use vantadb::config::Config;
 //!
-//! let config = VantaConfig::default();
-//! let engine = VantaEmbedded::open_with_config(config).unwrap();
+//! let config = Config::default();
+//! let engine = Embedded::open_with_config(config).unwrap();
 //!
-//! engine.put(VantaMemoryInput::new("docs", "example", "Hello, VantaDB!"))
+//! engine.put(MemoryInput::new("docs", "example", "Hello, VantaDB!"))
 //!     .unwrap();
 //!
 //! let record = engine.get("docs", "example").unwrap();
@@ -160,28 +160,43 @@ pub mod transcript;
 
 // Re-exports for ergonomic API
 pub use binary_header::VantaHeader;
-pub use config::{VantaConfig, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K, MAX_VEC_DIM};
-pub use engine::{EngineStats, InMemoryEngine, QueryResult, SourceType};
-pub use error::{Result, VantaError};
+#[allow(deprecated)]
+pub use config::VantaConfig;
+pub use config::{Config, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K, MAX_VEC_DIM};
+pub use engine::{EngineStats, InMemoryEngine, SourceType};
+// NOTE (AST-002): `engine::QueryResult` stays namespaced (`engine::QueryResult`)
+// — crate-root `QueryResult` is the SDK graph result below (map: VantaQueryResult).
+#[allow(deprecated)]
+pub use error::VantaError;
+pub use error::{Error, Result};
 pub use index::graph::VECTOR_INDEX_VERSION;
 pub use node::{
     DistanceMetric, Edge, FieldValue, NodeFlags, RelFields, SparseVector, UnifiedNode,
     VectorRepresentations,
 };
 pub use sdk::{
-    connect, BulkImportReport, VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord,
-    VantaEmbedded, VantaExportReport, VantaFields, VantaFilterOp, VantaHybridFusionReport,
-    VantaImportReport, VantaIndexRebuildReport, VantaMemoryFilter, VantaMemoryFilterItem,
-    VantaMemoryInput, VantaMemoryListOptions, VantaMemoryListPage, VantaMemoryMetadata,
-    VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest, VantaNamespaceStats,
-    VantaNamespaceStatsMap, VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics,
-    VantaQueryResult, VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit,
-    VantaSearchHit, VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport,
-    VantaValue,
+    connect, Bm25TermContribution, BulkImportReport, Capabilities, EdgeRecord, Embedded,
+    ExportReport, Fields, FilterOp, HybridFusionReport, ImportReport, IndexRebuildReport,
+    MemoryFilter, MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata,
+    MemoryRecord, MemorySearchHit, MemorySearchRequest, NamespaceStats, NamespaceStatsMap,
+    NodeInput, NodeRecord, OperationalMetrics, QueryResult, RuntimeProfile, SearchExplanation,
+    SearchExplanationHit, SearchHit, StorageTier, TextIndexAuditReport, TextIndexRepairReport,
+    Value,
 };
 pub use sdk::{
     SkillCreateInput, SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord,
     SkillUpdateInput, SkillWriteResult,
+};
+#[allow(deprecated)]
+pub use sdk::{
+    VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord, VantaEmbedded,
+    VantaExportReport, VantaFields, VantaFilterOp, VantaHybridFusionReport, VantaImportReport,
+    VantaIndexRebuildReport, VantaMemoryFilter, VantaMemoryFilterItem, VantaMemoryInput,
+    VantaMemoryListOptions, VantaMemoryListPage, VantaMemoryMetadata, VantaMemoryRecord,
+    VantaMemorySearchHit, VantaMemorySearchRequest, VantaNamespaceStats, VantaNamespaceStatsMap,
+    VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult,
+    VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit, VantaSearchHit,
+    VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
 };
 pub use storage::vfile::VFILE_VERSION;
 pub use storage::BackendKind;

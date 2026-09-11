@@ -231,7 +231,7 @@ impl CPIndex {
                 }
             }
             // Sparse vectors are searched via a dedicated brute-force path (see
-            // VantaEmbedded::sparse_memory_search), never through the dense HNSW.
+            // Embedded::sparse_memory_search), never through the dense HNSW.
             DistanceMetric::SparseDot => 0.0,
         }
     }
@@ -280,7 +280,7 @@ impl CPIndex {
         bitset: FilterBitset,
         vec_data: VectorRepresentations,
         storage_offset: u64,
-    ) -> Result<(), crate::error::VantaError> {
+    ) -> Result<(), crate::error::Error> {
         if self.validate_node(id, bitset.clone(), &vec_data, storage_offset) {
             return Ok(());
         }
@@ -298,7 +298,7 @@ impl CPIndex {
         vec_data: VectorRepresentations,
         storage_offset: u64,
         level: usize,
-    ) -> Result<(), crate::error::VantaError> {
+    ) -> Result<(), crate::error::Error> {
         if self.validate_node(id, bitset.clone(), &vec_data, storage_offset) {
             return Ok(());
         }
@@ -317,7 +317,7 @@ impl CPIndex {
         bitset: FilterBitset,
         vec_data: VectorRepresentations,
         storage_offset: u64,
-    ) -> Result<(), crate::error::VantaError> {
+    ) -> Result<(), crate::error::Error> {
         let level = self.random_layer();
         let ef_cons = self.config.ef_construction;
 
@@ -363,7 +363,7 @@ impl CPIndex {
         if self.config.distance_metric == DistanceMetric::Cosine {
             let norm = f32_l2_norm(&query_f32);
             if norm < f32::EPSILON {
-                return Err(crate::error::VantaError::InvalidInput(format!(
+                return Err(crate::error::Error::InvalidInput(format!(
                     "cannot index node {id}: zero-norm vector is undefined under \
                      cosine similarity"
                 )));
@@ -496,7 +496,7 @@ impl CPIndex {
         vec_data: VectorRepresentations,
         storage_offset: u64,
         level: usize,
-    ) -> Result<(), crate::error::VantaError> {
+    ) -> Result<(), crate::error::Error> {
         let ef_cons = self.config.ef_construction;
 
         let (inv_cached_norm, norm_sq) = self.compute_cached_norms(&vec_data);
@@ -537,7 +537,7 @@ impl CPIndex {
         if self.config.distance_metric == DistanceMetric::Cosine {
             let norm = f32_l2_norm(&query_f32);
             if norm < f32::EPSILON {
-                return Err(crate::error::VantaError::InvalidInput(format!(
+                return Err(crate::error::Error::InvalidInput(format!(
                     "cannot index node {id}: zero-norm vector is undefined under \
                      cosine similarity"
                 )));

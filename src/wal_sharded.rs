@@ -1,4 +1,4 @@
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::wal::{WalReader, WalRecord, WalWriter};
 use parking_lot::Mutex;
 use std::path::{Path, PathBuf};
@@ -259,7 +259,7 @@ impl ShardedWal {
                 continue;
             }
             let mut reader = WalReader::open(&path).map_err(|e| {
-                VantaError::wal_error(format!("Failed to open shard {} for recovery: {}", i, e))
+                Error::wal_error(format!("Failed to open shard {} for recovery: {}", i, e))
             })?;
 
             let shard_skip = skip_base + if (i as u64) < extra_shards { 1 } else { 0 };
@@ -279,7 +279,7 @@ impl ShardedWal {
         // exempt (no round-robin layout to corrupt).
         if self.num_shards > 1 {
             if let Some(msg) = verify_shard_counts(&shard_counts) {
-                return Err(VantaError::wal_error(msg));
+                return Err(Error::wal_error(msg));
             }
         }
         Ok(())

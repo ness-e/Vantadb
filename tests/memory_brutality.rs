@@ -4,12 +4,10 @@
 
 use std::time::Instant;
 use tempfile::tempdir;
-use vantadb::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest, VantaValue,
-};
+use vantadb::{Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, Value};
 
-fn str_value(value: &str) -> VantaValue {
-    VantaValue::String(value.to_string())
+fn str_value(value: &str) -> Value {
+    Value::String(value.to_string())
 }
 
 fn vector_for(i: usize) -> Vec<f32> {
@@ -23,8 +21,8 @@ fn recovery_rebuild_export_import_survive_restart_and_index_loss() {
     let export_path = dir.path().join("memory.jsonl");
 
     {
-        let db = VantaEmbedded::open(&path).expect("open");
-        let mut input = VantaMemoryInput::new("agent/main", "recover", "wal backed");
+        let db = Embedded::open(&path).expect("open");
+        let mut input = MemoryInput::new("agent/main", "recover", "wal backed");
         input
             .metadata
             .insert("category".to_string(), str_value("task"));
@@ -32,7 +30,7 @@ fn recovery_rebuild_export_import_survive_restart_and_index_loss() {
         db.put(input).expect("put");
     }
 
-    let reopened = VantaEmbedded::open(&path).expect("reopen");
+    let reopened = Embedded::open(&path).expect("reopen");
     let recovered = reopened
         .get("agent/main", "recover")
         .expect("get")
@@ -50,7 +48,7 @@ fn recovery_rebuild_export_import_survive_restart_and_index_loss() {
     assert!(index_path.exists());
 
     let hits = reopened
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0, 0.0],
             filters: Default::default(),
@@ -66,7 +64,7 @@ fn recovery_rebuild_export_import_survive_restart_and_index_loss() {
     assert_eq!(export.records_exported, 1);
 
     let imported_dir = tempdir().expect("imported tempdir");
-    let imported = VantaEmbedded::open(imported_dir.path()).expect("open imported");
+    let imported = Embedded::open(imported_dir.path()).expect("open imported");
     let import = imported.import_file(&export_path).expect("import file");
     assert_eq!(import.inserted, 1);
     assert_eq!(import.errors, 0);
@@ -83,7 +81,7 @@ fn recovery_rebuild_export_import_survive_restart_and_index_loss() {
 #[test]
 fn memory_volume_kpi_10k_records_namespaces_filters_export_import_rebuild() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
     let started = Instant::now();
 
     for i in 0..10_000usize {
@@ -92,8 +90,7 @@ fn memory_volume_kpi_10k_records_namespaces_filters_export_import_rebuild() {
             1 => "agent/b",
             _ => "agent/c",
         };
-        let mut input =
-            VantaMemoryInput::new(namespace, format!("key-{i:05}"), format!("payload {i}"));
+        let mut input = MemoryInput::new(namespace, format!("key-{i:05}"), format!("payload {i}"));
         input.metadata.insert(
             "kind".to_string(),
             str_value(if i % 2 == 0 { "even" } else { "odd" }),
@@ -112,7 +109,7 @@ fn memory_volume_kpi_10k_records_namespaces_filters_export_import_rebuild() {
     let filtered = db
         .list(
             "agent/a",
-            VantaMemoryListOptions {
+            MemoryListOptions {
                 #[allow(deprecated)]
                 filters,
                 filter_ops: None,
@@ -137,13 +134,13 @@ fn memory_volume_kpi_10k_records_namespaces_filters_export_import_rebuild() {
     assert!(rebuild.scanned_nodes >= 10_000);
 
     let target_dir = tempdir().expect("target tempdir");
-    let target = VantaEmbedded::open(target_dir.path()).expect("open target");
+    let target = Embedded::open(target_dir.path()).expect("open target");
     let import = target.import_file(&export_path).expect("import volume");
     assert_eq!(import.inserted, 10_000);
     assert_eq!(import.errors, 0);
 
     let page = target
-        .list("agent/b", VantaMemoryListOptions::default())
+        .list("agent/b", MemoryListOptions::default())
         .expect("list imported");
     assert_eq!(page.records.len(), 100);
 
@@ -159,26 +156,22 @@ fn delete_without_explicit_flush_survives_reopen() {
     let path = dir.path().to_path_buf();
 
     {
-        let db = VantaEmbedded::open(&path).expect("open");
-        db.put(VantaMemoryInput::new(
-            "agent/main",
-            "delete-replay",
-            "temporary",
-        ))
-        .expect("put");
+        let db = Embedded::open(&path).expect("open");
+        db.put(MemoryInput::new("agent/main", "delete-replay", "temporary"))
+            .expect("put");
         db.flush().expect("flush seed");
         assert!(db
             .delete("agent/main", "delete-replay")
             .expect("delete without explicit flush"));
     }
 
-    let reopened = VantaEmbedded::open(&path).expect("reopen");
+    let reopened = Embedded::open(&path).expect("reopen");
     assert!(reopened
         .get("agent/main", "delete-replay")
         .expect("get")
         .is_none());
     let page = reopened
-        .list("agent/main", VantaMemoryListOptions::default())
+        .list("agent/main", MemoryListOptions::default())
         .expect("list");
     assert!(page.records.is_empty());
 }

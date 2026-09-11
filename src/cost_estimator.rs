@@ -13,7 +13,7 @@
 use crate::index::IndexType;
 use crate::node::FieldValue;
 use crate::query::{LogicalOperator, LogicalPlan, RelOp};
-use crate::sdk::types::VantaMemoryMetadata;
+use crate::sdk::types::MemoryMetadata;
 use crate::storage::StorageEngine;
 
 /// Selectivity threshold below which **PreFilter** is chosen:
@@ -173,7 +173,7 @@ impl<'a> CostEstimator<'a> {
     /// engine's cardinality statistics, then pick the best filtering strategy.
     ///
     /// COMP-028: moved from `sdk/search/mod.rs` (logic unchanged).
-    pub(crate) fn select_filter_strategy(&self, filters: &VantaMemoryMetadata) -> FilterStrategy {
+    pub(crate) fn select_filter_strategy(&self, filters: &MemoryMetadata) -> FilterStrategy {
         if filters.is_empty() {
             return FilterStrategy::PostFilter;
         }
@@ -318,16 +318,16 @@ impl<'a> CostEstimator<'a> {
 mod tests {
     use super::*;
     use crate::backend::BackendKind;
-    use crate::config::VantaConfig;
+    use crate::config::Config;
     use crate::index::graph::CPIndex;
     use crate::node::{UnifiedNode, VectorRepresentations};
-    use crate::sdk::types::VantaValue;
+    use crate::sdk::types::Value;
 
     /// Open an empty in-memory engine for estimation tests.
     fn in_memory_engine() -> StorageEngine {
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         };
         StorageEngine::open_with_config(":memory:", Some(config)).expect("open in-memory engine")
     }
@@ -390,31 +390,31 @@ mod tests {
         let est = CostEstimator::new(&engine);
 
         // joint_sel < 0.01 → PreFilter
-        let mut filters = VantaMemoryMetadata::new();
-        filters.insert("color".into(), VantaValue::String("rare".into()));
+        let mut filters = MemoryMetadata::new();
+        filters.insert("color".into(), Value::String("rare".into()));
         assert_eq!(
             est.select_filter_strategy(&filters),
             FilterStrategy::PreFilter
         );
 
         // 0.01 ≤ joint_sel < 0.10 → InFilter
-        let mut filters = VantaMemoryMetadata::new();
-        filters.insert("color".into(), VantaValue::String("common".into()));
+        let mut filters = MemoryMetadata::new();
+        filters.insert("color".into(), Value::String("common".into()));
         assert_eq!(
             est.select_filter_strategy(&filters),
             FilterStrategy::InFilter
         );
 
         // joint_sel ≥ 0.10 → PostFilter
-        let mut filters = VantaMemoryMetadata::new();
-        filters.insert("color".into(), VantaValue::String("bulk".into()));
+        let mut filters = MemoryMetadata::new();
+        filters.insert("color".into(), Value::String("bulk".into()));
         assert_eq!(
             est.select_filter_strategy(&filters),
             FilterStrategy::PostFilter
         );
 
         // empty filters → PostFilter
-        let empty = VantaMemoryMetadata::new();
+        let empty = MemoryMetadata::new();
         assert_eq!(
             est.select_filter_strategy(&empty),
             FilterStrategy::PostFilter

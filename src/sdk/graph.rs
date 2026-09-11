@@ -1,10 +1,10 @@
-use super::builder::VantaEmbedded;
+use super::builder::Embedded;
 use crate::accumulator::GraphAccumulator;
 use crate::error::Result;
 use std::collections::HashMap;
 use tracing;
 
-impl VantaEmbedded {
+impl Embedded {
     /// Create a new graph accumulator.
     ///
     /// The accumulator is thread-safe and can be shared across worker threads
@@ -148,8 +148,8 @@ impl VantaEmbedded {
 mod tests {
     use super::*;
 
-    fn no_engine_embedded() -> VantaEmbedded {
-        VantaEmbedded::test_empty(crate::config::VantaConfig::default())
+    fn no_engine_embedded() -> Embedded {
+        Embedded::test_empty(crate::config::Config::default())
     }
 
     #[test]

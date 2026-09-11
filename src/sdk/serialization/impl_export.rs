@@ -1,12 +1,12 @@
-//! Export and import operations for `VantaEmbedded`.
+//! Export and import operations for `Embedded`.
 
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::{
     decode_node_id, export_line_from_record, matches_memory_filters, memory_record_from_node,
     namespace_index_prefix, payload_index_prefix, record_from_export_line, validate_namespace,
 };
 use crate::backend::BackendPartition;
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use std::collections::BTreeSet;
 use std::fs::File;
 use std::io::{BufRead, BufReader, BufWriter, Write};
@@ -14,7 +14,7 @@ use std::path::{Path, PathBuf};
 use tracing;
 use web_time::Instant;
 
-impl VantaEmbedded {
+impl Embedded {
     /// Validate a path against the configured export base dir, falling back to
     /// bare `..` traversal protection when no base dir is configured.
     fn resolve_export_path(&self, path: &Path) -> Result<PathBuf> {
@@ -45,8 +45,7 @@ impl VantaEmbedded {
         let entries =
             engine.scan_partition_prefix_iter(BackendPartition::NamespaceIndex, &prefix)?;
         let mut ids = Vec::new();
-        let has_index_entries =
-            super::super::VantaEmbedded::load_derived_index_state(engine)?.is_some();
+        let has_index_entries = super::super::Embedded::load_derived_index_state(engine)?.is_some();
         crate::metrics::record_derived_prefix_scan();
 
         let mut skipped = 0usize;
@@ -80,15 +79,14 @@ impl VantaEmbedded {
         engine: &crate::storage::StorageEngine,
         namespace: &str,
         field: &str,
-        value: &super::super::types::VantaValue,
+        value: &super::super::types::Value,
         skip: usize,
         take: Option<usize>,
     ) -> Result<(Vec<u128>, bool)> {
         let prefix = payload_index_prefix(namespace, field, value)?;
         let entries = engine.scan_partition_prefix_iter(BackendPartition::PayloadIndex, &prefix)?;
         let mut ids = Vec::new();
-        let has_index_entries =
-            super::super::VantaEmbedded::load_derived_index_state(engine)?.is_some();
+        let has_index_entries = super::super::Embedded::load_derived_index_state(engine)?.is_some();
         crate::metrics::record_derived_prefix_scan();
 
         let mut skipped = 0usize;
@@ -117,8 +115,8 @@ impl VantaEmbedded {
     pub(crate) fn records_for_namespace(
         &self,
         namespace: &str,
-        filters: &super::super::types::VantaMemoryMetadata,
-    ) -> Result<Vec<super::super::types::VantaMemoryRecord>> {
+        filters: &super::super::types::MemoryMetadata,
+    ) -> Result<Vec<super::super::types::MemoryRecord>> {
         let engine = self.engine_handle()?;
 
         let (candidate_ids, has_index_entries) = if let Some((field, value)) = filters.iter().next()
@@ -169,8 +167,8 @@ impl VantaEmbedded {
         &self,
         path: impl AsRef<Path>,
         namespace: &str,
-        filter: Option<super::super::types::VantaMemoryFilter>,
-    ) -> Result<super::super::types::VantaExportReport> {
+        filter: Option<super::super::types::MemoryFilter>,
+    ) -> Result<super::super::types::ExportReport> {
         let res = self.export_namespace_inner(path, namespace, filter);
         self.audit(crate::audit::AuditEvent::new(
             "export_namespace",
@@ -186,8 +184,8 @@ impl VantaEmbedded {
         &self,
         path: impl AsRef<Path>,
         namespace: &str,
-        filter: Option<super::super::types::VantaMemoryFilter>,
-    ) -> Result<super::super::types::VantaExportReport> {
+        filter: Option<super::super::types::MemoryFilter>,
+    ) -> Result<super::super::types::ExportReport> {
         validate_namespace(namespace)?;
         let resolved = self.resolve_export_path(path.as_ref())?;
         let started = Instant::now();
@@ -198,13 +196,13 @@ impl VantaEmbedded {
                 // scan as delete_by_filter. Some(vec![]) == None == full export.
                 const PAGE_SIZE: usize = 500;
                 let mut cursor: Option<usize> = None;
-                let mut records: Vec<super::super::types::VantaMemoryRecord> = Vec::new();
+                let mut records: Vec<super::super::types::MemoryRecord> = Vec::new();
                 loop {
                     let page = self.list(
                         namespace,
-                        super::super::types::VantaMemoryListOptions {
+                        super::super::types::MemoryListOptions {
                             #[allow(deprecated)]
-                            filters: super::super::types::VantaMemoryMetadata::new(),
+                            filters: super::super::types::MemoryMetadata::new(),
                             filter_ops: Some(ops.clone()),
                             limit: PAGE_SIZE,
                             cursor,
@@ -219,19 +217,15 @@ impl VantaEmbedded {
                 }
                 records
             }
-            _ => self.records_for_namespace(
-                namespace,
-                &super::super::types::VantaMemoryMetadata::new(),
-            )?,
+            _ => {
+                self.records_for_namespace(namespace, &super::super::types::MemoryMetadata::new())?
+            }
         };
         self.write_export_file(&resolved, records, vec![namespace.to_string()], started)
     }
 
     #[tracing::instrument(skip(self, path), err)]
-    pub fn export_all(
-        &self,
-        path: impl AsRef<Path>,
-    ) -> Result<super::super::types::VantaExportReport> {
+    pub fn export_all(&self, path: impl AsRef<Path>) -> Result<super::super::types::ExportReport> {
         let res = self.export_all_inner(path);
         self.audit(crate::audit::AuditEvent::new(
             "export_all",
@@ -246,16 +240,15 @@ impl VantaEmbedded {
     fn export_all_inner(
         &self,
         path: impl AsRef<Path>,
-    ) -> Result<super::super::types::VantaExportReport> {
+    ) -> Result<super::super::types::ExportReport> {
         let resolved = self.resolve_export_path(path.as_ref())?;
         let started = Instant::now();
         let namespaces = self.list_namespaces()?;
         let mut records = Vec::new();
         for namespace in &namespaces {
-            records.extend(self.records_for_namespace(
-                namespace,
-                &super::super::types::VantaMemoryMetadata::new(),
-            )?);
+            records.extend(
+                self.records_for_namespace(namespace, &super::super::types::MemoryMetadata::new())?,
+            );
         }
         self.write_export_file(&resolved, records, namespaces, started)
     }
@@ -263,27 +256,27 @@ impl VantaEmbedded {
     fn write_export_file(
         &self,
         path: &Path,
-        records: Vec<super::super::types::VantaMemoryRecord>,
+        records: Vec<super::super::types::MemoryRecord>,
         namespaces: Vec<String>,
         started: Instant,
-    ) -> Result<super::super::types::VantaExportReport> {
+    ) -> Result<super::super::types::ExportReport> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(VantaError::IoError)?;
+            std::fs::create_dir_all(parent).map_err(Error::IoError)?;
         }
 
-        let file = File::create(path).map_err(VantaError::IoError)?;
+        let file = File::create(path).map_err(Error::IoError)?;
         let mut writer = BufWriter::new(file);
         let records_exported = records.len() as u64;
 
         for record in records {
             let line = export_line_from_record(record);
-            serde_json::to_writer(&mut writer, &line).map_err(VantaError::serialization)?;
-            writer.write_all(b"\n").map_err(VantaError::IoError)?;
+            serde_json::to_writer(&mut writer, &line).map_err(Error::serialization)?;
+            writer.write_all(b"\n").map_err(Error::IoError)?;
         }
-        writer.flush().map_err(VantaError::IoError)?;
+        writer.flush().map_err(Error::IoError)?;
         crate::metrics::record_export(records_exported);
 
-        Ok(super::super::types::VantaExportReport {
+        Ok(super::super::types::ExportReport {
             records_exported,
             namespaces,
             path: path.to_string_lossy().into_owned(),
@@ -294,16 +287,16 @@ impl VantaEmbedded {
     #[tracing::instrument(skip(self, records), err)]
     pub fn import_records(
         &self,
-        records: Vec<super::super::types::VantaMemoryRecord>,
-    ) -> Result<super::super::types::VantaImportReport> {
+        records: Vec<super::super::types::MemoryRecord>,
+    ) -> Result<super::super::types::ImportReport> {
         if self.config.read_only {
-            return Err(VantaError::ValidationError {
+            return Err(Error::ValidationError {
                 field: "read_only".into(),
                 reason: "import_records is not available when VantaDB is opened read-only".into(),
             });
         }
         let started = Instant::now();
-        let mut report = super::super::types::VantaImportReport {
+        let mut report = super::super::types::ImportReport {
             inserted: 0,
             updated: 0,
             skipped: 0,
@@ -328,10 +321,7 @@ impl VantaEmbedded {
     }
 
     #[tracing::instrument(skip(self, path), err)]
-    pub fn import_file(
-        &self,
-        path: impl AsRef<Path>,
-    ) -> Result<super::super::types::VantaImportReport> {
+    pub fn import_file(&self, path: impl AsRef<Path>) -> Result<super::super::types::ImportReport> {
         let res = self.import_file_inner(path);
         self.audit(crate::audit::AuditEvent::new(
             "import_file",
@@ -346,30 +336,30 @@ impl VantaEmbedded {
     fn import_file_inner(
         &self,
         path: impl AsRef<Path>,
-    ) -> Result<super::super::types::VantaImportReport> {
+    ) -> Result<super::super::types::ImportReport> {
         let resolved = self.resolve_export_path(path.as_ref())?;
         if self.config.read_only {
-            return Err(VantaError::ValidationError {
+            return Err(Error::ValidationError {
                 field: "read_only".into(),
                 reason: "import_file is not available when VantaDB is opened read-only".into(),
             });
         }
         let started = Instant::now();
-        let file = File::open(&resolved).map_err(VantaError::IoError)?;
+        let file = File::open(&resolved).map_err(Error::IoError)?;
         let reader = BufReader::new(file);
         let mut records = Vec::new();
         let mut skipped = 0u64;
         let mut errors = 0u64;
 
         for line in reader.lines() {
-            let line = line.map_err(VantaError::IoError)?;
+            let line = line.map_err(Error::IoError)?;
             if line.trim().is_empty() {
                 skipped += 1;
                 continue;
             }
 
-            match serde_json::from_str::<super::super::types::VantaMemoryExportLine>(&line)
-                .map_err(VantaError::serialization)
+            match serde_json::from_str::<super::super::types::MemoryExportLine>(&line)
+                .map_err(Error::serialization)
                 .and_then(record_from_export_line)
             {
                 Ok(record) => records.push(record),
@@ -394,29 +384,29 @@ mod tests {
     use super::super::super::connect::connect;
     use super::super::super::types::*;
     use crate::backend::BackendKind;
-    use crate::config::VantaConfig;
-    use crate::sdk::builder::VantaEmbedded;
+    use crate::config::Config;
+    use crate::sdk::builder::Embedded;
 
-    fn in_memory_db() -> VantaEmbedded {
+    fn in_memory_db() -> Embedded {
         connect(":memory:").expect("in-memory db")
     }
 
-    fn sample_input(namespace: &str, key: &str) -> VantaMemoryInput {
-        VantaMemoryInput {
+    fn sample_input(namespace: &str, key: &str) -> MemoryInput {
+        MemoryInput {
             namespace: namespace.into(),
             key: key.into(),
             payload: format!("payload for {key}"),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
         }
     }
 
-    fn sample_input_with_meta(namespace: &str, key: &str, color: &str) -> VantaMemoryInput {
-        let mut metadata = VantaMemoryMetadata::new();
-        metadata.insert("color".into(), VantaValue::String(color.into()));
-        VantaMemoryInput {
+    fn sample_input_with_meta(namespace: &str, key: &str, color: &str) -> MemoryInput {
+        let mut metadata = MemoryMetadata::new();
+        metadata.insert("color".into(), Value::String(color.into()));
+        MemoryInput {
             namespace: namespace.into(),
             key: key.into(),
             payload: format!("payload for {key}"),
@@ -480,10 +470,10 @@ mod tests {
 
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("filtered.jsonl");
-        let filter = vec![VantaMemoryFilterItem {
+        let filter = vec![MemoryFilterItem {
             field: "color".into(),
-            op: VantaFilterOp::Eq,
-            value: VantaValue::String("red".into()),
+            op: FilterOp::Eq,
+            value: Value::String("red".into()),
         }];
         let report = db.export_namespace(&path, "myns", Some(filter)).unwrap();
 
@@ -527,11 +517,11 @@ mod tests {
     #[test]
     fn test_import_records_insert() {
         let db = in_memory_db();
-        let record = VantaMemoryRecord {
+        let record = MemoryRecord {
             namespace: "imp".into(),
             key: "k1".into(),
             payload: "imported".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 100,
             updated_at_ms: 100,
             version: 1,
@@ -559,13 +549,13 @@ mod tests {
         db.put(sample_input("upd", "k1")).unwrap();
 
         // Generate the same node_id by using same namespace+key
-        let record = VantaMemoryRecord {
+        let record = MemoryRecord {
             namespace: "upd".into(),
             key: "k1".into(),
             payload: "updated".into(),
             metadata: {
-                let mut m = VantaMemoryMetadata::new();
-                m.insert("new".into(), VantaValue::String("field".into()));
+                let mut m = MemoryMetadata::new();
+                m.insert("new".into(), Value::String("field".into()));
                 m
             },
             created_at_ms: 100,
@@ -588,11 +578,11 @@ mod tests {
     #[test]
     fn test_import_records_rejects_wrong_node_id() {
         let db = in_memory_db();
-        let record = VantaMemoryRecord {
+        let record = MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "bad".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 0,
             updated_at_ms: 0,
             version: 1,
@@ -615,11 +605,11 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("import.jsonl");
 
-        let record = VantaMemoryRecord {
+        let record = MemoryRecord {
             namespace: "file".into(),
             key: "k1".into(),
             payload: "from file".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 10,
             updated_at_ms: 10,
             version: 1,
@@ -650,11 +640,11 @@ mod tests {
 
         let mut content = String::new();
         // One valid record
-        let record = VantaMemoryRecord {
+        let record = MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "p".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 1,
             updated_at_ms: 1,
             version: 1,
@@ -690,13 +680,13 @@ mod tests {
 
     #[test]
     fn test_import_file_read_only_rejected() {
-        let config = VantaConfig {
+        let config = Config {
             storage_path: ":memory:".to_string(),
             backend_kind: BackendKind::InMemory,
             read_only: true,
             ..Default::default()
         };
-        let db = VantaEmbedded::open_with_config(config).unwrap();
+        let db = Embedded::open_with_config(config).unwrap();
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("x.jsonl");
         std::fs::write(&path, "").unwrap();
@@ -714,8 +704,8 @@ mod tests {
             .unwrap();
         db.put(sample_input("ns", "nocolor")).unwrap();
 
-        let mut filters = VantaMemoryMetadata::new();
-        filters.insert("color".into(), VantaValue::String("red".into()));
+        let mut filters = MemoryMetadata::new();
+        filters.insert("color".into(), Value::String("red".into()));
         let records = db
             .records_for_namespace("ns", &filters)
             .expect("filtered records");
@@ -730,7 +720,7 @@ mod tests {
         db.put(sample_input("ns", "b")).unwrap();
 
         let records = db
-            .records_for_namespace("ns", &VantaMemoryMetadata::new())
+            .records_for_namespace("ns", &MemoryMetadata::new())
             .expect("all records");
         assert_eq!(records.len(), 2);
     }

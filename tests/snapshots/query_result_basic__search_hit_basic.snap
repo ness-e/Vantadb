@@ -2,8 +2,8 @@
 source: tests/query_result_basic.rs
 expression: hit
 ---
-VantaMemorySearchHit {
-    record: VantaMemoryRecord {
+MemorySearchHit {
+    record: MemoryRecord {
         namespace: "agent/main",
         key: "memory-1",
         payload: "remember the contract",

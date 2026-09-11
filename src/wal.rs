@@ -5,7 +5,7 @@ use tracing::warn;
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::node::UnifiedNode;
 
 /// Current WAL format version.
@@ -145,7 +145,7 @@ impl WalHeader {
     /// Deserialize a header from bytes, validating magic, CRC, and version.
     pub fn deserialize(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != Self::SIZE {
-            return Err(VantaError::wal_error(format!(
+            return Err(Error::wal_error(format!(
                 "Invalid WAL header size: expected {}, got {}",
                 Self::SIZE,
                 bytes.len()
@@ -161,7 +161,7 @@ impl WalHeader {
 
         // Version 0 WAL was never a valid format — reject explicitly
         if base.format_version < 1 {
-            return Err(VantaError::WALVersionMismatch {
+            return Err(Error::WALVersionMismatch {
                 expected: WAL_FORMAT_VERSION as u32,
                 found: base.format_version as u32,
                 hint: "Delete WAL dir or run dump/restore before upgrading.".to_string(),
@@ -173,7 +173,7 @@ impl WalHeader {
 
         let computed_crc = header.compute_crc();
         if computed_crc != crc {
-            return Err(VantaError::wal_error(format!(
+            return Err(Error::wal_error(format!(
                 "WAL header CRC mismatch: stored={:#x}, computed={:#x}",
                 crc, computed_crc
             )));
@@ -306,12 +306,12 @@ impl WalWriter {
     pub fn append(&mut self, record: &WalRecord) -> Result<()> {
         #[cfg(feature = "failpoints")]
         fail::fail_point!("wal_append_fail", |_| {
-            Err(VantaError::IoError(std::io::Error::other(
+            Err(Error::IoError(std::io::Error::other(
                 "Simulated WAL append catastrophic I/O failure",
             )))
         });
 
-        let payload = postcard::to_allocvec(record).map_err(VantaError::serialization)?;
+        let payload = postcard::to_allocvec(record).map_err(Error::serialization)?;
         let len = payload.len() as u32;
         let crc = crc32c(&payload);
 
@@ -336,7 +336,7 @@ impl WalWriter {
 
         #[cfg(feature = "failpoints")]
         fail::fail_point!("wal_append_fail", |_| {
-            Err(VantaError::IoError(std::io::Error::other(
+            Err(Error::IoError(std::io::Error::other(
                 "Simulated WAL append catastrophic I/O failure",
             )))
         });
@@ -351,7 +351,7 @@ impl WalWriter {
 
         for record in records {
             payload.clear();
-            postcard::to_io(record, &mut payload).map_err(VantaError::serialization)?;
+            postcard::to_io(record, &mut payload).map_err(Error::serialization)?;
             let len = payload.len() as u32;
             let crc = crc32c(&payload);
             buf.extend_from_slice(&len.to_le_bytes());
@@ -667,7 +667,7 @@ impl WalReader {
         let file_len = file.metadata()?.len();
 
         if file_len < WalHeader::SIZE as u64 {
-            return Err(VantaError::wal_error(
+            return Err(Error::wal_error(
                 "WAL file is truncated or too small for header",
             ));
         }
@@ -745,7 +745,7 @@ impl WalReader {
 
             if is_valid {
                 let record: WalRecord =
-                    postcard::from_bytes(&payload).map_err(VantaError::serialization)?;
+                    postcard::from_bytes(&payload).map_err(Error::serialization)?;
                 self.records_read += 1;
                 return Ok(Some(record));
             } else {
@@ -807,7 +807,7 @@ impl WalRecord {
         {
             let computed = compute_crc32c(index_state);
             if computed != *expected {
-                return Err(VantaError::wal_error(format!(
+                return Err(Error::wal_error(format!(
                     "Checkpoint index checksum mismatch: expected={:#x}, computed={:#x}",
                     expected, computed
                 )));
@@ -1050,7 +1050,7 @@ mod tests {
             let r = WalReader::open(&dir);
             assert!(r.is_err());
             match r.err().unwrap() {
-                VantaError::IncompatibleFormat {
+                Error::IncompatibleFormat {
                     expected_magic,
                     expected_version,
                     ..

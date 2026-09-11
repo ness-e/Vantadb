@@ -48,7 +48,7 @@ pub fn nodes_to_record_batch(nodes: &[UnifiedNode]) -> Result<RecordBatch> {
     }
 
     let batch = RecordBatch::try_new(Arc::new(Schema::new(fields)), columns)
-        .map_err(|e| crate::error::VantaError::InvalidInput(e.to_string()))?;
+        .map_err(|e| crate::error::Error::InvalidInput(e.to_string()))?;
 
     Ok(batch)
 }

@@ -1,33 +1,30 @@
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::types::*;
 use super::snippet;
 use super::text_index;
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use tracing;
 
-impl VantaEmbedded {
+impl Embedded {
     /// Run a read-only structural audit of the derived persistent text index.
     #[tracing::instrument(skip(self), err)]
-    pub fn audit_text_index(&self, namespace: Option<&str>) -> Result<VantaTextIndexAuditReport> {
+    pub fn audit_text_index(&self, namespace: Option<&str>) -> Result<TextIndexAuditReport> {
         let engine = self.engine_handle()?;
         text_index::run_audit(&engine, namespace)
     }
 
     /// Run a deep structural audit of the derived persistent text index.
     #[tracing::instrument(skip(self), err)]
-    pub fn audit_text_index_deep(
-        &self,
-        namespace: Option<&str>,
-    ) -> Result<VantaTextIndexAuditReport> {
+    pub fn audit_text_index_deep(&self, namespace: Option<&str>) -> Result<TextIndexAuditReport> {
         let engine = self.engine_handle()?;
         text_index::run_audit_deep(&engine, namespace)
     }
 
     /// Public repair primitive for the text index.
     #[tracing::instrument(skip(self), err)]
-    pub fn repair_text_index(&self) -> Result<VantaTextIndexRepairReport> {
+    pub fn repair_text_index(&self) -> Result<TextIndexRepairReport> {
         if self.config.read_only {
-            return Err(VantaError::ValidationError {
+            return Err(Error::ValidationError {
                 field: "read_only".into(),
                 reason: "repair_text_index is not available when VantaDB is opened read-only"
                     .into(),

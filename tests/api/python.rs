@@ -7,8 +7,8 @@ mod common;
 
 use common::{TerminalReporter, VantaHarness};
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
-use vantadb::sdk::{VantaEmbedded, VantaNodeInput, VantaValue};
+use vantadb::config::Config;
+use vantadb::sdk::{Embedded, NodeInput, Value};
 
 #[test]
 fn python_bridge_certification() {
@@ -17,7 +17,7 @@ fn python_bridge_certification() {
     harness.execute("Embedded SDK Boundary: CRUD + Search + Restart", || {
         let dir = tempdir().expect("Failed to create temp dir");
         let path = dir.path();
-        let config = VantaConfig {
+        let config = Config {
             storage_path: path.to_string_lossy().into_owned(),
             // 8 GiB ceiling: the guard measures real process RSS (FND-01-F1),
             // so an embedded-SDK test binary must stay far below the RSS path.
@@ -25,14 +25,14 @@ fn python_bridge_certification() {
             read_only: false,
             ..Default::default()
         };
-        let sdk = VantaEmbedded::open_with_config(config).expect("Failed to open embedded SDK");
+        let sdk = Embedded::open_with_config(config).expect("Failed to open embedded SDK");
 
-        let mut input = VantaNodeInput::new(42);
+        let mut input = NodeInput::new(42);
         input.content = Some("sdk boundary".to_string());
         input.vector = Some(vec![1.0, 0.0, 0.0]);
         input
             .fields
-            .insert("category".into(), VantaValue::String("python-sdk".into()));
+            .insert("category".into(), Value::String("python-sdk".into()));
         sdk.insert_node(input).expect("Insert failed");
 
         let node = sdk
@@ -42,7 +42,7 @@ fn python_bridge_certification() {
         assert_eq!(node.id, 42);
         assert_eq!(
             node.fields.get("content"),
-            Some(&VantaValue::String("sdk boundary".into()))
+            Some(&Value::String("sdk boundary".into()))
         );
 
         let hits = sdk
@@ -57,7 +57,7 @@ fn python_bridge_certification() {
             "Closed embedded handle must reject further operations"
         );
 
-        let reopened = VantaEmbedded::open(path).expect("Reopen failed");
+        let reopened = Embedded::open(path).expect("Reopen failed");
         let reopened_node = reopened
             .get_node(42)
             .expect("Reopened get failed")
@@ -68,7 +68,7 @@ fn python_bridge_certification() {
 
     harness.execute("Capabilities Surface", || {
         let dir = tempdir().expect("Failed to create temp dir");
-        let sdk = VantaEmbedded::open(dir.path()).expect("Failed to open embedded SDK");
+        let sdk = Embedded::open(dir.path()).expect("Failed to open embedded SDK");
         let caps = sdk.capabilities();
         assert!(caps.persistence);
         assert!(caps.vector_search);

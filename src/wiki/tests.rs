@@ -2,15 +2,15 @@
 //! fixture as `src/entity/tests.rs`.
 
 use super::{canonical_path, WikiState, WikiStore};
-use crate::config::VantaConfig;
-use crate::error::VantaError;
+use crate::config::Config;
+use crate::error::Error;
 use crate::storage::{BackendKind, StorageEngine};
 
 fn in_memory_engine() -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         read_only: false,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     StorageEngine::open_with_config(":memory:", Some(config)).expect("open in-memory engine")
 }
@@ -43,7 +43,7 @@ fn create_duplicate_conflicts() {
     store.create(NS, SLUG).expect("create");
 
     let err = store.create(NS, SLUG).unwrap_err();
-    assert!(matches!(err, VantaError::ExecutionConflict { .. }));
+    assert!(matches!(err, Error::ExecutionConflict { .. }));
 }
 
 // ── (b) ingest while busy → 409-equivalent ──
@@ -56,19 +56,19 @@ fn ingest_rejected_while_pending_and_processing() {
 
     let err = store.request_ingest(NS, SLUG).unwrap_err();
     assert!(
-        matches!(err, VantaError::ExecutionConflict { .. }),
+        matches!(err, Error::ExecutionConflict { .. }),
         "expected conflict while pending, got {err:?}"
     );
 
     let processing = store.begin_processing(NS, SLUG).expect("begin");
     let err = store.request_ingest(NS, SLUG).unwrap_err();
     assert!(
-        matches!(err, VantaError::ExecutionConflict { .. }),
+        matches!(err, Error::ExecutionConflict { .. }),
         "expected conflict while processing, got {err:?}"
     );
     // begin_processing from non-pending also conflicts
     let err = store.begin_processing(NS, SLUG).unwrap_err();
-    assert!(matches!(err, VantaError::ExecutionConflict { .. }));
+    assert!(matches!(err, Error::ExecutionConflict { .. }));
     assert_eq!(processing.state, WikiState::Processing);
 }
 
@@ -109,7 +109,7 @@ fn stale_run_id_completion_rejected() {
     assert_ne!(old_run, new_run);
 
     let err = store.complete(NS, SLUG, &old_run).unwrap_err(); // late packet
-    assert!(matches!(err, VantaError::ExecutionConflict { .. }));
+    assert!(matches!(err, Error::ExecutionConflict { .. }));
 
     store
         .complete(NS, SLUG, &new_run)
@@ -229,7 +229,7 @@ fn missing_wiki_operations_not_found() {
 
     assert!(matches!(
         store.begin_processing(NS, "ghost"),
-        Err(VantaError::NotFound { kind, .. }) if kind == "wiki"
+        Err(Error::NotFound { kind, .. }) if kind == "wiki"
     ));
     assert!(store.get(NS, "ghost").expect("get").is_none());
 }

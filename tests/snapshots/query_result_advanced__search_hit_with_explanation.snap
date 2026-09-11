@@ -2,8 +2,8 @@
 source: tests/query_result_advanced.rs
 expression: hit
 ---
-VantaMemorySearchHit {
-    record: VantaMemoryRecord {
+MemorySearchHit {
+    record: MemoryRecord {
         namespace: "agent/main",
         key: "memory-42",
         payload: "critical production bug fix",
@@ -798,7 +798,7 @@ VantaMemorySearchHit {
     },
     score: 0.987,
     explanation: Some(
-        VantaSearchExplanationHit {
+        SearchExplanationHit {
             identity: "agent/main\0memory-42",
             score: 0.987,
             snippet: Some(
@@ -813,14 +813,14 @@ VantaMemorySearchHit {
                 "critical bug fix",
             ],
             bm25_terms: [
-                VantaBm25TermContribution {
+                Bm25TermContribution {
                     token: "critical",
                     tf: 2,
                     df: 5,
                     doc_len: 100,
                     contribution: 3.5,
                 },
-                VantaBm25TermContribution {
+                Bm25TermContribution {
                     token: "bug",
                     tf: 1,
                     df: 10,

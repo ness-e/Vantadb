@@ -252,7 +252,7 @@ pub fn record_graph_op(_op: &str) {}
 /// boundary (FIND-53).
 ///
 /// `code` must be one of the ten canonical `VANTADB_*` codes returned by
-/// `VantaError::code()` — enum-derived, bounded cardinality (≤10). Called from
+/// `Error::code()` — enum-derived, bounded cardinality (≤10). Called from
 /// the single error choke point `src/server/errors.rs::log_vanta_error`.
 /// No-op when the `prometheus` feature is off (same cfg-guard as the other
 /// counters; error rates stay derivable from the structured logs in

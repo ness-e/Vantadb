@@ -1,4 +1,4 @@
-//! Graph-node and edge operations on `VantaEmbedded`.
+//! Graph-node and edge operations on `Embedded`.
 //!
 //! Owns direct node CRUD (`insert_node`, `get_node`, `delete_node`), edge
 //! operations (`add_edge`, `remove_edge`), IQL execution (`query`), snapshot
@@ -9,18 +9,18 @@
 //!
 //! Extracted from `sdk::api` (REVIEW-12, 2026-08-30).
 
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::types::*;
 use crate::backend::BackendPartition;
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::executor::Executor;
 use crate::node::{FieldValue, UnifiedNode, VectorRepresentations};
 use crate::sdk::serialization::now_ms;
 
-impl VantaEmbedded {
+impl Embedded {
     /// Insert or update a node directly. The `input` provides id, content, vector, and fields.
     #[tracing::instrument(skip(self), err)]
-    pub fn insert_node(&self, input: VantaNodeInput) -> Result<()> {
+    pub fn insert_node(&self, input: NodeInput) -> Result<()> {
         self.check_read_only()?;
         let engine = self.engine_handle()?;
         let mut node = UnifiedNode::new(input.id);
@@ -43,7 +43,7 @@ impl VantaEmbedded {
 
     /// Retrieve a node by its numeric id. Returns `None` if the id does not exist.
     #[tracing::instrument(skip(self), err)]
-    pub fn get_node(&self, id: u128) -> Result<Option<VantaNodeRecord>> {
+    pub fn get_node(&self, id: u128) -> Result<Option<NodeRecord>> {
         let engine = self.engine_handle()?;
         engine
             .get(id)
@@ -113,7 +113,7 @@ impl VantaEmbedded {
 
         let mut source = engine
             .get(source_id)?
-            .ok_or(VantaError::NodeNotFound(source_id))?;
+            .ok_or(Error::NodeNotFound(source_id))?;
         source.edges.push(crate::node::Edge {
             target: target_id,
             label_id,
@@ -125,7 +125,7 @@ impl VantaEmbedded {
 
         let mut target = engine
             .get(target_id)?
-            .ok_or(VantaError::NodeNotFound(target_id))?;
+            .ok_or(Error::NodeNotFound(target_id))?;
         target.edges.push(crate::node::Edge {
             target: source_id,
             label_id,
@@ -146,7 +146,7 @@ impl VantaEmbedded {
 
         let mut source = engine
             .get(source_id)?
-            .ok_or(VantaError::NodeNotFound(source_id))?;
+            .ok_or(Error::NodeNotFound(source_id))?;
         source
             .edges
             .retain(|e| !(e.target == target_id && e.label_id == label_id));
@@ -154,7 +154,7 @@ impl VantaEmbedded {
 
         let mut target = engine
             .get(target_id)?
-            .ok_or(VantaError::NodeNotFound(target_id))?;
+            .ok_or(Error::NodeNotFound(target_id))?;
         target
             .edges
             .retain(|e| !(e.target == source_id && e.label_id == label_id));
@@ -168,7 +168,7 @@ impl VantaEmbedded {
     /// other live node is a graph node (created via `insert_node`, `add_edge`
     /// or IQL INSERT/RELATE). The WASM binding persists these alongside
     /// `db_state.json` so the graph store survives an OPFS/IDB reopen.
-    pub fn collect_graph_nodes(&self) -> Result<Vec<VantaNodeRecord>> {
+    pub fn collect_graph_nodes(&self) -> Result<Vec<NodeRecord>> {
         let engine = self.engine_handle()?;
         let ids: Vec<u128> = engine
             .backend
@@ -195,12 +195,12 @@ impl VantaEmbedded {
         Ok(out)
     }
 
-    /// Restore graph nodes previously exported by [`VantaEmbedded::collect_graph_nodes`]
+    /// Restore graph nodes previously exported by [`Embedded::collect_graph_nodes`]
     /// (CORE-02). Edge labels are re-interned into the fresh engine's label
     /// table; weights, direction (`reverse`) and creation timestamps are
     /// preserved so traversal behaves identically after restore. Returns the
     /// number of nodes restored.
-    pub fn restore_graph_nodes(&self, records: Vec<VantaNodeRecord>) -> Result<usize> {
+    pub fn restore_graph_nodes(&self, records: Vec<NodeRecord>) -> Result<usize> {
         self.check_read_only()?;
         crate::metrics::record_graph_op("restore_graph_nodes");
         let engine = self.engine_handle()?;
@@ -225,8 +225,8 @@ impl VantaEmbedded {
                 });
             }
             node.tier = match record.tier {
-                VantaStorageTier::Hot => crate::node::NodeTier::Hot,
-                VantaStorageTier::Cold => crate::node::NodeTier::Cold,
+                StorageTier::Hot => crate::node::NodeTier::Hot,
+                StorageTier::Cold => crate::node::NodeTier::Cold,
             };
             node.confidence_score = record.confidence_score;
             node.importance = record.importance;
@@ -241,12 +241,12 @@ impl VantaEmbedded {
 
     /// Execute an IQL query.
     #[tracing::instrument(skip(self), err)]
-    pub fn query(&self, query: &str) -> Result<VantaQueryResult> {
+    pub fn query(&self, query: &str) -> Result<QueryResult> {
         let engine = self.engine_handle()?;
         let executor = Executor::new(&engine);
         let result = executor.execute_hybrid(query)?;
         Ok(match result {
-            crate::executor::ExecutionResult::Read(nodes) => VantaQueryResult::Read(
+            crate::executor::ExecutionResult::Read(nodes) => QueryResult::Read(
                 nodes
                     .into_iter()
                     .map(|n| engine.node_to_record(n))
@@ -256,13 +256,13 @@ impl VantaEmbedded {
                 affected_nodes,
                 message,
                 node_id,
-            } => VantaQueryResult::Write {
+            } => QueryResult::Write {
                 affected_nodes,
                 message,
                 node_id,
             },
             crate::executor::ExecutionResult::StaleContext(node_id) => {
-                VantaQueryResult::StaleContext { node_id }
+                QueryResult::StaleContext { node_id }
             }
         })
     }

@@ -1,4 +1,4 @@
-//! Derived sparse-vector inverted index for `VantaEmbedded`.
+//! Derived sparse-vector inverted index for `Embedded`.
 //!
 //! Sparse vectors are user-provided `(dim: u32, weight: f32)` maps. Today the
 //! SDK persists them on memory record nodes, but search scored them with a
@@ -20,11 +20,11 @@
 //! `scan_partition_prefix_iter` for lexical terms able to collide with sparse
 //! keys. A dedicated partition keeps the two audits and rebuilds independent.
 
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::types::*;
 use super::{memory_record_from_node, now_ms, SPARSE_INDEX_SCHEMA_VERSION};
 use crate::backend::{BackendPartition, BackendWriteOp};
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::node::UnifiedNode;
 use crate::storage::StorageEngine;
 use postcard;
@@ -73,12 +73,12 @@ pub(crate) fn sparse_posting_prefix(namespace: &str, dim: u32) -> Vec<u8> {
 // ─── Value encode/decode ────────────────────────────────────
 
 fn serialize<T: Serialize>(value: &T) -> Result<Vec<u8>> {
-    postcard::to_allocvec(value).map_err(VantaError::serialization)
+    postcard::to_allocvec(value).map_err(Error::serialization)
 }
 
 fn deserialize<T: for<'de> Deserialize<'de>>(bytes: &[u8], label: &str) -> Result<T> {
     let val: T = postcard::from_bytes(bytes).map_err(|err| {
-        VantaError::SerializationError(Box::new(crate::error::SerdeMsgError::new(
+        Error::SerializationError(Box::new(crate::error::SerdeMsgError::new(
             format!("{label} decode error: {err}"),
             err,
         )))
@@ -99,7 +99,7 @@ pub(crate) fn decode_sparse_posting(bytes: &[u8]) -> Result<SparsePosting> {
 // ─── Write ops ──────────────────────────────────────────────
 
 /// Build write operations to upsert sparse postings for a record.
-pub(crate) fn sparse_put_ops(record: &VantaMemoryRecord) -> Result<Vec<BackendWriteOp>> {
+pub(crate) fn sparse_put_ops(record: &MemoryRecord) -> Result<Vec<BackendWriteOp>> {
     let Some(sparse) = record.sparse_vector.as_ref() else {
         return Ok(Vec::new());
     };
@@ -117,7 +117,7 @@ pub(crate) fn sparse_put_ops(record: &VantaMemoryRecord) -> Result<Vec<BackendWr
 }
 
 /// Build write operations to delete sparse postings for a record.
-pub(crate) fn sparse_delete_ops(record: &VantaMemoryRecord) -> Vec<BackendWriteOp> {
+pub(crate) fn sparse_delete_ops(record: &MemoryRecord) -> Vec<BackendWriteOp> {
     let Some(sparse) = record.sparse_vector.as_ref() else {
         return Vec::new();
     };
@@ -135,8 +135,8 @@ pub(crate) fn sparse_delete_ops(record: &VantaMemoryRecord) -> Vec<BackendWriteO
 /// (delete previous, put current). No term/namespace stats are needed:
 /// sparse scoring is a raw dot product.
 pub(crate) fn sparse_index_ops_for_replace(
-    previous: Option<&VantaMemoryRecord>,
-    current: Option<&VantaMemoryRecord>,
+    previous: Option<&MemoryRecord>,
+    current: Option<&MemoryRecord>,
 ) -> Result<Vec<BackendWriteOp>> {
     let mut ops = Vec::new();
     if let Some(previous) = previous {
@@ -149,7 +149,7 @@ pub(crate) fn sparse_index_ops_for_replace(
 }
 
 /// Number of sparse posting entries a record would contribute.
-pub(crate) fn sparse_posting_count(record: &VantaMemoryRecord) -> u64 {
+pub(crate) fn sparse_posting_count(record: &MemoryRecord) -> u64 {
     record
         .sparse_vector
         .as_ref()
@@ -159,7 +159,7 @@ pub(crate) fn sparse_posting_count(record: &VantaMemoryRecord) -> u64 {
 
 // ─── State, counts, rebuild ─────────────────────────────────
 
-impl VantaEmbedded {
+impl Embedded {
     pub(crate) fn ensure_sparse_index_current_with(
         &self,
         engine: &Arc<StorageEngine>,
@@ -214,14 +214,14 @@ impl VantaEmbedded {
         };
         postcard::from_bytes(&bytes)
             .map(Some)
-            .map_err(VantaError::serialization)
+            .map_err(Error::serialization)
     }
 
     pub(crate) fn write_sparse_index_state(
         engine: &StorageEngine,
         state: &SparseIndexState,
     ) -> Result<()> {
-        let bytes = postcard::to_allocvec(state).map_err(VantaError::serialization)?;
+        let bytes = postcard::to_allocvec(state).map_err(Error::serialization)?;
         engine.put_to_partition(
             BackendPartition::InternalMetadata,
             super::SPARSE_INDEX_STATE_KEY,
@@ -296,8 +296,8 @@ impl VantaEmbedded {
 
     pub(crate) fn adjust_sparse_index_state_after_replace(
         engine: &StorageEngine,
-        previous: Option<&VantaMemoryRecord>,
-        current: Option<&VantaMemoryRecord>,
+        previous: Option<&MemoryRecord>,
+        current: Option<&MemoryRecord>,
     ) -> Result<()> {
         let Some(mut state) = Self::load_sparse_index_state(engine)? else {
             return Ok(());
@@ -339,12 +339,12 @@ mod tests {
     use super::*;
     use crate::node::SparseVector;
 
-    fn record(namespace: &str, key: &str, sparse: Option<SparseVector>) -> VantaMemoryRecord {
-        VantaMemoryRecord {
+    fn record(namespace: &str, key: &str, sparse: Option<SparseVector>) -> MemoryRecord {
+        MemoryRecord {
             namespace: namespace.into(),
             key: key.into(),
             payload: "payload".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 100,
             updated_at_ms: 100,
             version: 1,

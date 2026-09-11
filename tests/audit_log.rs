@@ -3,11 +3,11 @@
 //! Integration tests for the append-only JSONL audit log (TSK-107b).
 
 use serde_json::Value;
-use vantadb::config::VantaConfig;
-use vantadb::{BackendKind, VantaEmbedded, VantaMemoryInput};
+use vantadb::config::Config;
+use vantadb::{BackendKind, Embedded, MemoryInput};
 
-fn audit_config(audit_path: &std::path::Path) -> VantaConfig {
-    VantaConfig {
+fn audit_config(audit_path: &std::path::Path) -> Config {
+    Config {
         storage_path: ":memory:".into(),
         backend_kind: BackendKind::InMemory,
         audit_log_path: Some(audit_path.to_path_buf()),
@@ -20,12 +20,12 @@ fn audit_log_records_operations_with_timestamp_op_and_reason() {
     let dir = tempfile::tempdir().unwrap();
     let audit_path = dir.path().join("sub/audit.jsonl");
 
-    let db = VantaEmbedded::open_with_config(audit_config(&audit_path)).unwrap();
+    let db = Embedded::open_with_config(audit_config(&audit_path)).unwrap();
 
-    db.put(VantaMemoryInput::new("docs", "a", "hello")).unwrap();
-    db.put(VantaMemoryInput::new("docs", "b", "world")).unwrap();
+    db.put(MemoryInput::new("docs", "a", "hello")).unwrap();
+    db.put(MemoryInput::new("docs", "b", "world")).unwrap();
     assert!(db.delete("docs", "a").unwrap());
-    db.search(vantadb::VantaMemorySearchRequest {
+    db.search(vantadb::MemorySearchRequest {
         namespace: "docs".into(),
         text_query: Some("hello".into()),
         top_k: 5,
@@ -72,7 +72,7 @@ fn audit_log_not_created_when_unconfigured() {
     let dir = tempfile::tempdir().unwrap();
     let audit_path = dir.path().join("nope/audit.jsonl");
 
-    let db = VantaEmbedded::open_with_config(VantaConfig {
+    let db = Embedded::open_with_config(Config {
         storage_path: ":memory:".into(),
         backend_kind: BackendKind::InMemory,
         audit_log_path: None,
@@ -80,7 +80,7 @@ fn audit_log_not_created_when_unconfigured() {
     })
     .unwrap();
 
-    db.put(VantaMemoryInput::new("docs", "a", "hello")).unwrap();
+    db.put(MemoryInput::new("docs", "a", "hello")).unwrap();
     db.delete("docs", "a").unwrap();
     drop(db);
 

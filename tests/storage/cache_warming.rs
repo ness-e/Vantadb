@@ -8,7 +8,7 @@
 //! These tests exercise the feature through the public StorageEngine API.
 
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::{NodeTier, UnifiedNode, VectorRepresentations};
 use vantadb::storage::StorageEngine;
 
@@ -16,9 +16,9 @@ use vantadb::storage::StorageEngine;
 
 /// Create an in-memory engine for testing.
 fn in_memory_engine() -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: vantadb::BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     StorageEngine::open_with_config(":memory:", Some(config))
         .expect("Failed to open in-memory engine")
@@ -185,9 +185,9 @@ fn test_cache_warming_persistent_engine() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: vantadb::BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(db_path, Some(config))
         .expect("Failed to open engine");

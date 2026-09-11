@@ -5,7 +5,7 @@
 //! posting/stat values, and write-op construction.
 
 use crate::backend::{BackendPartition, BackendWriteOp};
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 #[cfg(feature = "advanced-tokenizer")]
 use crate::tokenizer::{tokenize_advanced, AdvancedTokenizerConfig};
 use serde::{Deserialize, Serialize};
@@ -664,12 +664,12 @@ pub(crate) fn posting_count(payload: &str) -> u64 {
 }
 
 fn serialize<T: Serialize>(value: &T) -> Result<Vec<u8>> {
-    postcard::to_allocvec(value).map_err(VantaError::serialization)
+    postcard::to_allocvec(value).map_err(Error::serialization)
 }
 
 fn deserialize<T: for<'de> Deserialize<'de>>(bytes: &[u8], label: &str) -> Result<T> {
     let val: T = postcard::from_bytes(bytes).map_err(|err| {
-        VantaError::SerializationError(Box::new(crate::error::SerdeMsgError::new(
+        Error::SerializationError(Box::new(crate::error::SerdeMsgError::new(
             format!("{label} decode error: {err}"),
             err,
         )))

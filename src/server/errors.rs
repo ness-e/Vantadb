@@ -4,7 +4,7 @@
 //! construction for the server surface.
 
 use crate::server::state::QueryResponse;
-use crate::VantaError;
+use crate::Error;
 use axum::{
     http::{header, StatusCode},
     response::{IntoResponse, Response},
@@ -31,25 +31,25 @@ pub fn panic_error_response(panic_detail: &dyn Display) -> Response {
         .into_response()
 }
 
-/// Map a `VantaError` to the HTTP status clients receive (ERR-027).
+/// Map a `Error` to the HTTP status clients receive (ERR-027).
 ///
 /// Client mistakes (bad IQL, missing nodes, validation) map to explicit 4xx
 /// statuses; anything server-side stays a 500. Shared by the IQL endpoint and
 /// the `/api/v2` console surface so both speak the same error status language.
-pub fn vanta_error_status(e: &VantaError) -> StatusCode {
+pub fn vanta_error_status(e: &Error) -> StatusCode {
     match e {
-        VantaError::IqlParseError { .. }
-        | VantaError::IqlError(_)
-        | VantaError::InvalidInput(_)
-        | VantaError::DimensionMismatch { .. }
-        | VantaError::UnsupportedOperation { .. }
-        | VantaError::SchemaError(_)
-        | VantaError::NoVectorForKey(_) => StatusCode::BAD_REQUEST,
-        VantaError::ValidationError { .. } => StatusCode::UNPROCESSABLE_ENTITY,
-        VantaError::NodeNotFound(_) | VantaError::NotFound { .. } => StatusCode::NOT_FOUND,
-        VantaError::DuplicateNode(_)
-        | VantaError::NodeIdCollision(_)
-        | VantaError::ExecutionConflict { .. } => StatusCode::CONFLICT,
+        Error::IqlParseError { .. }
+        | Error::IqlError(_)
+        | Error::InvalidInput(_)
+        | Error::DimensionMismatch { .. }
+        | Error::UnsupportedOperation { .. }
+        | Error::SchemaError(_)
+        | Error::NoVectorForKey(_) => StatusCode::BAD_REQUEST,
+        Error::ValidationError { .. } => StatusCode::UNPROCESSABLE_ENTITY,
+        Error::NodeNotFound(_) | Error::NotFound { .. } => StatusCode::NOT_FOUND,
+        Error::DuplicateNode(_) | Error::NodeIdCollision(_) | Error::ExecutionConflict { .. } => {
+            StatusCode::CONFLICT
+        }
         // Storage/WAL/IO/resource failures and anything unclassified.
         _ => StatusCode::INTERNAL_SERVER_ERROR,
     }
@@ -68,7 +68,7 @@ fn error_log_level(status: StatusCode) -> tracing::Level {
     }
 }
 
-/// Structured observability event for a `VantaError` crossing the HTTP
+/// Structured observability event for a `Error` crossing the HTTP
 /// boundary (ERR-OBS-01). Fields are stable: `error.code` is one of the ten
 /// canonical `VANTADB_*` codes (low cardinality — safe for log pipelines and
 /// future metric labels). FIND-55: `error.display` carries the full engine
@@ -79,8 +79,8 @@ fn error_log_level(status: StatusCode) -> tracing::Level {
 /// it increments `vantadb_errors_total{code}` on the in-tree Prometheus
 /// registry (no-op when the `prometheus` feature is off). Both envelopes
 /// (`query_error_response`, `vanta_error_response`) route through here, so
-/// the series counts every HTTP-served `VantaError` exactly once.
-fn log_vanta_error(e: &VantaError, status: StatusCode) {
+/// the series counts every HTTP-served `Error` exactly once.
+fn log_vanta_error(e: &Error, status: StatusCode) {
     crate::metrics::record_vanta_error(e.code());
     // `tracing::event!` needs a compile-time-constant level, so branch on the
     // class; the field set stays identical across both arms.
@@ -119,7 +119,7 @@ fn log_vanta_error(e: &VantaError, status: StatusCode) {
 /// storage detail) goes to server-side logs via [`log_vanta_error`], and
 /// clients branch on `code`. 4xx messages are user-input data and stay
 /// descriptive (same rule `panic_error_response` applies for panics).
-pub fn query_error_response(e: &VantaError) -> Response {
+pub fn query_error_response(e: &Error) -> Response {
     let status = vanta_error_status(e);
     log_vanta_error(e, status);
     let data = if status.is_server_error() {
@@ -146,7 +146,7 @@ pub fn query_error_response(e: &VantaError) -> Response {
 ///
 /// FIND-55: 5xx bodies stay generic (chain only in logs, `code` to clients);
 /// 4xx keep the descriptive message.
-pub fn vanta_error_response(e: &VantaError) -> Response {
+pub fn vanta_error_response(e: &Error) -> Response {
     let status = vanta_error_status(e);
     log_vanta_error(e, status);
     let message = if status.is_server_error() {
@@ -209,12 +209,12 @@ pub fn thread_not_found_response(id: u128) -> Response {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::VantaError;
+    use crate::Error;
 
     #[test]
     fn vanta_error_status_maps_correctly() {
         assert_eq!(
-            vanta_error_status(&VantaError::IqlParseError {
+            vanta_error_status(&Error::IqlParseError {
                 msg: "x".into(),
                 line: 1,
                 col: 1
@@ -222,22 +222,22 @@ mod tests {
             StatusCode::BAD_REQUEST
         );
         assert_eq!(
-            vanta_error_status(&VantaError::ValidationError {
+            vanta_error_status(&Error::ValidationError {
                 field: "x".into(),
                 reason: "y".into()
             }),
             StatusCode::UNPROCESSABLE_ENTITY
         );
         assert_eq!(
-            vanta_error_status(&VantaError::NodeNotFound(42)),
+            vanta_error_status(&Error::NodeNotFound(42)),
             StatusCode::NOT_FOUND
         );
         assert_eq!(
-            vanta_error_status(&VantaError::DuplicateNode(42)),
+            vanta_error_status(&Error::DuplicateNode(42)),
             StatusCode::CONFLICT
         );
         assert_eq!(
-            vanta_error_status(&VantaError::IoError(std::io::Error::other("x"))),
+            vanta_error_status(&Error::IoError(std::io::Error::other("x"))),
             StatusCode::INTERNAL_SERVER_ERROR
         );
     }
@@ -283,7 +283,7 @@ mod tests {
     #[tokio::test]
     async fn error_envelopes_carry_canonical_code() {
         use axum::body::to_bytes;
-        let e = VantaError::NodeNotFound(7);
+        let e = Error::NodeNotFound(7);
 
         let body: serde_json::Value = serde_json::from_slice(
             &to_bytes(query_error_response(&e).into_body(), 4096)
@@ -315,7 +315,7 @@ mod tests {
     #[tokio::test]
     async fn five_xx_bodies_are_sanitized_to_generic_message() {
         use axum::body::to_bytes;
-        let e = VantaError::IoError(std::io::Error::other(
+        let e = Error::IoError(std::io::Error::other(
             "CONTRIVED_IO_LEAK_/srv/vanta/secrets/data.wal",
         ));
 
@@ -347,7 +347,7 @@ mod tests {
     #[tokio::test]
     async fn four_xx_bodies_keep_descriptive_message() {
         use axum::body::to_bytes;
-        let e = VantaError::ValidationError {
+        let e = Error::ValidationError {
             field: "payload".into(),
             reason: "vector must be non-empty".into(),
         };
@@ -390,7 +390,7 @@ mod tests {
         let counter = metrics::ERRORS_TOTAL
             .as_ref()
             .expect("vantadb_errors_total must register on the in-tree registry");
-        let timeout = VantaError::Timeout {
+        let timeout = Error::Timeout {
             operation: "test".into(),
             duration_ms: 1,
         };

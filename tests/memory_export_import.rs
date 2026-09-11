@@ -6,16 +6,14 @@
 use std::fs;
 use std::path::Path;
 use tempfile::tempdir;
-use vantadb::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest, VantaValue,
-};
+use vantadb::{Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, Value};
 
-fn str_value(value: &str) -> VantaValue {
-    VantaValue::String(value.to_string())
+fn str_value(value: &str) -> Value {
+    Value::String(value.to_string())
 }
 
-fn record(namespace: &str, key: &str, payload: &str, category: &str) -> VantaMemoryInput {
-    let mut input = VantaMemoryInput::new(namespace, key, payload);
+fn record(namespace: &str, key: &str, payload: &str, category: &str) -> MemoryInput {
+    let mut input = MemoryInput::new(namespace, key, payload);
     input
         .metadata
         .insert("category".to_string(), str_value(category));
@@ -43,7 +41,7 @@ fn export_import_namespace_round_trip() {
     let target_dir = tempdir().expect("target tempdir");
     let export_path = source_dir.path().join("agent-main.jsonl");
 
-    let source = VantaEmbedded::open(source_dir.path()).expect("open source");
+    let source = Embedded::open(source_dir.path()).expect("open source");
     source
         .put(record("agent/main", "a", "alpha memory", "task"))
         .expect("put a");
@@ -61,7 +59,7 @@ fn export_import_namespace_round_trip() {
     assert_eq!(export.records_exported, 2);
     assert_eq!(export.namespaces, vec!["agent/main".to_string()]);
 
-    let target = VantaEmbedded::open(target_dir.path()).expect("open target");
+    let target = Embedded::open(target_dir.path()).expect("open target");
     let import = target.import_file(&export_path).expect("import file");
     assert_eq!(import.inserted, 2);
     assert_eq!(import.updated, 0);
@@ -72,12 +70,12 @@ fn export_import_namespace_round_trip() {
     assert_eq!(fetched.metadata.get("category"), Some(&str_value("task")));
 
     let page = target
-        .list("agent/main", VantaMemoryListOptions::default())
+        .list("agent/main", MemoryListOptions::default())
         .expect("list");
     assert_eq!(page.records.len(), 2);
 
     let hits = target
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0, 0.0],
             filters: Default::default(),
@@ -99,7 +97,7 @@ fn export_all_import_updates_existing_records() {
     let target_dir = tempdir().expect("target tempdir");
     let export_path = source_dir.path().join("all.jsonl");
 
-    let source = VantaEmbedded::open(source_dir.path()).expect("open source");
+    let source = Embedded::open(source_dir.path()).expect("open source");
     source
         .put(record("agent/main", "a", "alpha memory", "task"))
         .expect("put a");
@@ -110,7 +108,7 @@ fn export_all_import_updates_existing_records() {
     let export = source.export_all(&export_path).expect("export all");
     assert_eq!(export.records_exported, 2);
 
-    let target = VantaEmbedded::open(target_dir.path()).expect("open target");
+    let target = Embedded::open(target_dir.path()).expect("open target");
     target
         .put(record("agent/main", "a", "stale alpha", "task"))
         .expect("seed stale");
@@ -135,7 +133,7 @@ fn fjall_cold_copy_restore_preserves_memory_text_and_hybrid_search() {
     let restore_path = restore_parent.path().join("restored-db");
 
     {
-        let source = VantaEmbedded::open(source_dir.path()).expect("open source");
+        let source = Embedded::open(source_dir.path()).expect("open source");
         let mut input = record("agent/main", "restore", "restore alpha phrase", "backup");
         input.vector = Some(vec![1.0, 0.0, 0.0]);
         source.put(input).expect("put restore");
@@ -145,7 +143,7 @@ fn fjall_cold_copy_restore_preserves_memory_text_and_hybrid_search() {
 
     copy_dir_all(source_dir.path(), &restore_path);
 
-    let restored = VantaEmbedded::open(&restore_path).expect("open restored");
+    let restored = Embedded::open(&restore_path).expect("open restored");
     let fetched = restored
         .get("agent/main", "restore")
         .expect("get restored")
@@ -158,7 +156,7 @@ fn fjall_cold_copy_restore_preserves_memory_text_and_hybrid_search() {
     assert!(audit.passed);
 
     let text_hits = restored
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: Vec::new(),
             filters: Default::default(),
@@ -170,7 +168,7 @@ fn fjall_cold_copy_restore_preserves_memory_text_and_hybrid_search() {
     assert_eq!(text_hits[0].record.key, "restore");
 
     let hybrid_hits = restored
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0, 0.0],
             filters: Default::default(),

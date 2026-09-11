@@ -1,6 +1,6 @@
 //! Configuration system for VantaDB engine.
 //!
-//! Defines [`VantaConfig`] with typed fields, environment variable parsing,
+//! Defines [`Config`] with typed fields, environment variable parsing,
 //! and per-backend configuration options with fallback defaults.
 //!
 //! ponytail: 1287L but cohesive — enums, structs, Default (env parsing), builder
@@ -143,7 +143,7 @@ pub struct RbacConfig {
     pub token_role_map: HashMap<String, String>,
 }
 
-/// Subset of [`VantaConfig`] fields that are safe to modify at runtime.
+/// Subset of [`Config`] fields that are safe to modify at runtime.
 ///
 /// Fields that change storage layout, backend, or security posture are excluded.
 /// Only tuning knobs and log-level controls are reloaded.
@@ -183,8 +183,8 @@ impl Default for HotReloadConfig {
 }
 
 impl HotReloadConfig {
-    /// Load hot-reloadable subset from a [`VantaConfig`].
-    pub fn from_config(cfg: &VantaConfig) -> Self {
+    /// Load hot-reloadable subset from a [`Config`].
+    pub fn from_config(cfg: &Config) -> Self {
         Self {
             prefetch_mode: cfg.prefetch_mode,
             log_format: cfg.log_format,
@@ -197,10 +197,10 @@ impl HotReloadConfig {
         }
     }
 
-    /// Refresh `VantaConfig` fields from this hot-reload snapshot.
+    /// Refresh `Config` fields from this hot-reload snapshot.
     ///
     /// Returns `true` if at least one field changed.
-    pub fn apply_to(&self, target: &mut VantaConfig) -> bool {
+    pub fn apply_to(&self, target: &mut Config) -> bool {
         let mut changed = false;
         macro_rules! update {
             ($field:ident) => {
@@ -232,20 +232,20 @@ impl HotReloadConfig {
 /// Override just the storage path and pass the rest of the defaults through:
 ///
 /// ```rust
-/// use vantadb::config::VantaConfig;
-/// use vantadb::{BackendKind, VantaEmbedded};
+/// use vantadb::config::Config;
+/// use vantadb::{BackendKind, Embedded};
 ///
-/// let config = VantaConfig {
+/// let config = Config {
 ///     storage_path: ":memory:".into(),
 ///     backend_kind: BackendKind::InMemory,
 ///     ..Default::default()
 /// };
 ///
-/// let db = VantaEmbedded::open_with_config(config).expect("open database");
+/// let db = Embedded::open_with_config(config).expect("open database");
 /// db.close().expect("close database");
 /// ```
 #[derive(Debug, Clone)]
-pub struct VantaConfig {
+pub struct Config {
     /// Directory path for persistent storage.
     pub storage_path: String,
     /// Host address to bind the HTTP server.
@@ -280,7 +280,7 @@ pub struct VantaConfig {
     pub prefetch_mode: PrefetchMode,
     /// RSS threshold (0.0–1.0) that triggers backpressure rejection.
     /// When the effective memory usage exceeds this fraction of the memory limit,
-    /// write operations return `VantaError::ResourceLimit`.
+    /// write operations return `Error::ResourceLimit`.
     /// Set to 0.0 to disable backpressure entirely.
     pub rss_threshold: f64,
     /// Weight for hit count in eviction scoring (default: 1.0).
@@ -440,7 +440,7 @@ pub struct VantaConfig {
     pub export_base_dir: Option<std::path::PathBuf>,
     /// Optional path for the append-only JSONL audit log of business operations.
     ///
-    /// When set, `VantaEmbedded` records every put/delete/export/import with an
+    /// When set, `Embedded` records every put/delete/export/import with an
     /// ISO 8601 timestamp, namespace, key, and outcome. Configured via
     /// `VANTADB_AUDIT_LOG_PATH`. Not hot-reloadable.
     pub audit_log_path: Option<std::path::PathBuf>,
@@ -461,7 +461,7 @@ pub struct VantaConfig {
     ///
     /// When `cfg(feature = "hot-reload")` is enabled, a background watcher
     /// thread monitors the config file and atomically swaps this value.
-    /// Read via [`VantaConfig::hot_reload()`].
+    /// Read via [`Config::hot_reload()`].
     #[cfg(feature = "hot-reload")]
     pub hot_reload_config: Arc<RwLock<HotReloadConfig>>,
 }
@@ -554,7 +554,7 @@ where
     }
 }
 
-impl Default for VantaConfig {
+impl Default for Config {
     fn default() -> Self {
         let default_max_blocking = std::thread::available_parallelism()
             .map(|n| n.get() * 2)
@@ -902,7 +902,7 @@ impl Default for VantaConfig {
     }
 }
 
-impl VantaConfig {
+impl Config {
     /// Creates a configuration from environment variables.
     pub fn from_env() -> Self {
         Self::default()
@@ -1257,7 +1257,7 @@ impl VantaConfig {
 /// Parse a `serde_json::Value` / `toml::Value` and apply hot-reloadable fields.
 #[cfg(feature = "hot-reload")]
 fn apply_hot_reload_from_value(
-    config: &Arc<RwLock<VantaConfig>>,
+    config: &Arc<RwLock<Config>>,
     value: &serde_json::Value,
 ) -> Result<bool, String> {
     use serde_json::Value;
@@ -1343,6 +1343,14 @@ fn apply_hot_reload_from_value(
     Ok(changed)
 }
 
+/// Deprecated `Vanta`-prefixed aliases (AST-002, ADR-041).
+/// New code must use the unprefixed names; these exist only for semver migration.
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `Config` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaConfig = Config;
+
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
@@ -1416,11 +1424,11 @@ mod tests {
         assert!(!PrefetchMode::Disabled.is_prefetch_enabled());
     }
 
-    // ── VantaConfig defaults ───────────────────────────────────
+    // ── Config defaults ───────────────────────────────────
 
     #[test]
     fn test_vanta_config_default_values() {
-        let cfg = VantaConfig::default();
+        let cfg = Config::default();
         assert_eq!(cfg.storage_path, "vantadb_data");
         assert_eq!(cfg.host, "127.0.0.1".to_string());
         assert_eq!(cfg.port, 8080);
@@ -1466,19 +1474,19 @@ mod tests {
 
     #[test]
     fn test_with_storage_path() {
-        let cfg = VantaConfig::default().with_storage_path("/tmp/vanta".into());
+        let cfg = Config::default().with_storage_path("/tmp/vanta".into());
         assert_eq!(cfg.storage_path, "/tmp/vanta");
     }
 
     #[test]
     fn test_with_memory_limit() {
-        let cfg = VantaConfig::default().with_memory_limit(4_096_000_000);
+        let cfg = Config::default().with_memory_limit(4_096_000_000);
         assert_eq!(cfg.memory_limit, Some(4_096_000_000));
     }
 
     #[test]
     fn test_with_audit_rotation() {
-        let cfg = VantaConfig::default()
+        let cfg = Config::default()
             .with_audit_max_bytes(1_024)
             .with_audit_max_files(2);
         assert_eq!(cfg.audit_max_bytes, 1_024);
@@ -1512,45 +1520,45 @@ mod tests {
 
     #[test]
     fn test_with_read_only() {
-        let cfg = VantaConfig::default().with_read_only(true);
+        let cfg = Config::default().with_read_only(true);
         assert!(cfg.read_only);
     }
 
     #[test]
     fn test_with_force_mmap() {
-        let cfg = VantaConfig::default().with_force_mmap(true);
+        let cfg = Config::default().with_force_mmap(true);
         assert!(cfg.force_mmap);
     }
 
     #[test]
     fn test_with_mmap_hnsw() {
-        let cfg = VantaConfig::default().with_mmap_hnsw(false);
+        let cfg = Config::default().with_mmap_hnsw(false);
         assert!(!cfg.mmap_hnsw);
     }
 
     #[test]
     fn test_with_rss_threshold() {
-        let cfg = VantaConfig::default().with_rss_threshold(0.5);
+        let cfg = Config::default().with_rss_threshold(0.5);
         assert!((cfg.rss_threshold - 0.5).abs() < 1e-9);
     }
 
     #[test]
     fn test_with_rss_threshold_clamps() {
-        let cfg = VantaConfig::default().with_rss_threshold(1.5);
+        let cfg = Config::default().with_rss_threshold(1.5);
         assert!((cfg.rss_threshold - 1.0).abs() < 1e-9);
-        let cfg = VantaConfig::default().with_rss_threshold(-0.5);
+        let cfg = Config::default().with_rss_threshold(-0.5);
         assert!((cfg.rss_threshold - 0.0).abs() < 1e-9);
     }
 
     #[test]
     fn test_with_rss_threshold_zero_disables() {
-        let cfg = VantaConfig::default().with_rss_threshold(0.0);
+        let cfg = Config::default().with_rss_threshold(0.0);
         assert!((cfg.rss_threshold - 0.0).abs() < 1e-9);
     }
 
     #[test]
     fn test_with_eviction_weights() {
-        let cfg = VantaConfig::default().with_eviction_weights(0.5, 1.5, 2.5, 3.5);
+        let cfg = Config::default().with_eviction_weights(0.5, 1.5, 2.5, 3.5);
         assert!((cfg.eviction_weight_hits - 0.5).abs() < 1e-9);
         assert!((cfg.eviction_weight_confidence - 1.5).abs() < 1e-9);
         assert!((cfg.eviction_weight_importance - 2.5).abs() < 1e-9);
@@ -1559,21 +1567,21 @@ mod tests {
 
     #[test]
     fn test_with_eviction_ratio() {
-        let cfg = VantaConfig::default().with_eviction_ratio(0.5);
+        let cfg = Config::default().with_eviction_ratio(0.5);
         assert!((cfg.eviction_ratio - 0.5).abs() < 1e-9);
     }
 
     #[test]
     fn test_with_eviction_ratio_clamps() {
-        let cfg = VantaConfig::default().with_eviction_ratio(1.5);
+        let cfg = Config::default().with_eviction_ratio(1.5);
         assert!((cfg.eviction_ratio - 1.0).abs() < 1e-9);
-        let cfg = VantaConfig::default().with_eviction_ratio(-0.5);
+        let cfg = Config::default().with_eviction_ratio(-0.5);
         assert!((cfg.eviction_ratio - 0.0).abs() < 1e-9);
     }
 
     #[test]
     fn test_eviction_weights_struct() {
-        let cfg = VantaConfig::default().with_eviction_weights(0.1, 0.2, 0.3, 0.4);
+        let cfg = Config::default().with_eviction_weights(0.1, 0.2, 0.3, 0.4);
         let w = cfg.eviction_weights();
         assert!((w.hits - 0.1).abs() < 1e-9);
         assert!((w.confidence - 0.2).abs() < 1e-9);
@@ -1583,109 +1591,109 @@ mod tests {
 
     #[test]
     fn test_with_backend() {
-        let cfg = VantaConfig::default().with_backend(BackendKind::RocksDb);
+        let cfg = Config::default().with_backend(BackendKind::RocksDb);
         assert_eq!(cfg.backend_kind, BackendKind::RocksDb);
-        let cfg = VantaConfig::default().with_backend(BackendKind::InMemory);
+        let cfg = Config::default().with_backend(BackendKind::InMemory);
         assert_eq!(cfg.backend_kind, BackendKind::InMemory);
     }
 
     #[test]
     fn test_with_max_blocking_threads() {
-        let cfg = VantaConfig::default().with_max_blocking_threads(32);
+        let cfg = Config::default().with_max_blocking_threads(32);
         assert_eq!(cfg.max_blocking_threads, 32);
     }
 
     #[test]
     fn test_with_sync_mode() {
-        let cfg = VantaConfig::default().with_sync_mode(SyncMode::Always);
+        let cfg = Config::default().with_sync_mode(SyncMode::Always);
         assert_eq!(cfg.sync_mode, SyncMode::Always);
     }
 
     #[test]
     fn test_with_api_key() {
-        let cfg = VantaConfig::default().with_api_key(Some("sk-test".into()));
+        let cfg = Config::default().with_api_key(Some("sk-test".into()));
         assert_eq!(cfg.api_key, Some("sk-test".into()));
-        let cfg = VantaConfig::default().with_api_key(None);
+        let cfg = Config::default().with_api_key(None);
         assert_eq!(cfg.api_key, None);
     }
 
     #[test]
     fn test_with_alt_api_key() {
-        let cfg = VantaConfig::default().with_alt_api_key(Some("sk-alt".into()));
+        let cfg = Config::default().with_alt_api_key(Some("sk-alt".into()));
         assert_eq!(cfg.alt_api_key, Some("sk-alt".into()));
-        let cfg = VantaConfig::default().with_alt_api_key(None);
+        let cfg = Config::default().with_alt_api_key(None);
         assert_eq!(cfg.alt_api_key, None);
     }
 
     #[test]
     fn test_with_require_auth() {
-        let cfg = VantaConfig::default().with_require_auth(true);
+        let cfg = Config::default().with_require_auth(true);
         assert!(cfg.require_auth);
-        let cfg = VantaConfig::default().with_require_auth(false);
+        let cfg = Config::default().with_require_auth(false);
         assert!(!cfg.require_auth);
     }
 
     #[test]
     fn test_with_rate_limit_rpm() {
-        let cfg = VantaConfig::default().with_rate_limit_rpm(0);
+        let cfg = Config::default().with_rate_limit_rpm(0);
         assert_eq!(cfg.rate_limit_rpm, 0);
     }
 
     #[test]
     fn test_with_batch_size() {
-        let cfg = VantaConfig::default().with_batch_size(500);
+        let cfg = Config::default().with_batch_size(500);
         assert_eq!(cfg.batch_size, Some(500));
     }
 
     #[test]
     fn test_with_wal_buffer_size() {
-        let cfg = VantaConfig::default().with_wal_buffer_size(131072);
+        let cfg = Config::default().with_wal_buffer_size(131072);
         assert_eq!(cfg.wal_buffer_size, Some(131072));
     }
 
     #[test]
     fn test_with_flush_threshold() {
-        let cfg = VantaConfig::default().with_flush_threshold(5000);
+        let cfg = Config::default().with_flush_threshold(5000);
         assert_eq!(cfg.flush_threshold, Some(5000));
     }
 
     #[test]
     fn test_with_tls() {
-        let cfg = VantaConfig::default().with_tls("cert.pem".into(), "key.pem".into());
+        let cfg = Config::default().with_tls("cert.pem".into(), "key.pem".into());
         assert_eq!(cfg.tls_cert_path, Some("cert.pem".into()));
         assert_eq!(cfg.tls_key_path, Some("key.pem".into()));
     }
 
     #[test]
     fn test_with_log_format() {
-        let cfg = VantaConfig::default().with_log_format(LogFormat::Json);
+        let cfg = Config::default().with_log_format(LogFormat::Json);
         assert_eq!(cfg.log_format, LogFormat::Json);
     }
 
     #[test]
     fn test_with_prefetch_mode() {
-        let cfg = VantaConfig::default().with_prefetch_mode(PrefetchMode::Disabled);
+        let cfg = Config::default().with_prefetch_mode(PrefetchMode::Disabled);
         assert_eq!(cfg.prefetch_mode, PrefetchMode::Disabled);
     }
 
     #[test]
     fn test_with_flat_threshold() {
-        let cfg = VantaConfig::default().with_flat_threshold(Some(5000));
+        let cfg = Config::default().with_flat_threshold(Some(5000));
         assert_eq!(cfg.flat_threshold, Some(5000));
-        let cfg = VantaConfig::default().with_flat_threshold(None);
+        let cfg = Config::default().with_flat_threshold(None);
         assert_eq!(cfg.flat_threshold, None);
-        let cfg = VantaConfig::default().with_flat_threshold(Some(0));
+        let cfg = Config::default().with_flat_threshold(Some(0));
         assert_eq!(cfg.flat_threshold, None);
     }
 
     #[test]
     fn test_with_audit_log_path() {
-        let cfg = VantaConfig::default().with_audit_log_path("logs/audit.jsonl");
+        let cfg = Config::default().with_audit_log_path("logs/audit.jsonl");
         assert_eq!(
             cfg.audit_log_path,
             Some(std::path::PathBuf::from("logs/audit.jsonl"))
         );
-        let cfg = VantaConfig::default();
+        let cfg = Config::default();
         assert_eq!(cfg.audit_log_path, None);
     }
 
@@ -1695,8 +1703,8 @@ mod tests {
         // In an isolated test environment with no preset vars, both yield
         // the same values. To verify the delegation itself:
         // `from_env()` calls `Self::default()` — structural equality check.
-        let cfg_default = VantaConfig::default();
-        let cfg_from_env = VantaConfig::from_env();
+        let cfg_default = Config::default();
+        let cfg_from_env = Config::from_env();
         // Basic structural fields (env-independent) match
         assert_eq!(cfg_default.memory_limit, cfg_from_env.memory_limit);
         assert_eq!(cfg_default.read_only, cfg_from_env.read_only);
@@ -1720,7 +1728,7 @@ mod tests {
 
     #[test]
     fn test_builder_chaining() {
-        let cfg = VantaConfig::default()
+        let cfg = Config::default()
             .with_storage_path("/data/vanta".into())
             .with_memory_limit(8_000_000_000)
             .with_read_only(true)

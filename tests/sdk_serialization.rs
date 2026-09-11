@@ -4,32 +4,32 @@
 use std::collections::BTreeMap;
 use vantadb::sdk::*;
 use vantadb::DistanceMetric;
-use vantadb::VantaValue;
+use vantadb::Value;
 
 #[test]
 fn test_vanta_value_roundtrip() {
-    let val = VantaValue::String("hello".into());
+    let val = Value::String("hello".into());
     let json = serde_json::to_string(&val).unwrap();
-    let back: VantaValue = serde_json::from_str(&json).unwrap();
+    let back: Value = serde_json::from_str(&json).unwrap();
     assert_eq!(val, back);
 }
 
 #[test]
 fn test_vanta_value_all_variants_serialize() {
     let variants = vec![
-        VantaValue::String("test".into()),
-        VantaValue::Int(42),
-        VantaValue::Float(std::f64::consts::PI),
-        VantaValue::Bool(true),
-        VantaValue::Null,
-        VantaValue::ListString(vec!["a".into(), "b".into()]),
-        VantaValue::ListInt(vec![1, 2, 3]),
-        VantaValue::ListFloat(vec![1.1, 2.2]),
-        VantaValue::ListBool(vec![true, false]),
+        Value::String("test".into()),
+        Value::Int(42),
+        Value::Float(std::f64::consts::PI),
+        Value::Bool(true),
+        Value::Null,
+        Value::ListString(vec!["a".into(), "b".into()]),
+        Value::ListInt(vec![1, 2, 3]),
+        Value::ListFloat(vec![1.1, 2.2]),
+        Value::ListBool(vec![true, false]),
     ];
     for v in variants {
         let json = serde_json::to_string(&v).unwrap();
-        let back: VantaValue = serde_json::from_str(&json).unwrap();
+        let back: Value = serde_json::from_str(&json).unwrap();
         assert_eq!(v, back);
     }
 }
@@ -37,8 +37,8 @@ fn test_vanta_value_all_variants_serialize() {
 #[test]
 fn test_memory_input_serialize_roundtrip() {
     let mut meta = BTreeMap::new();
-    meta.insert("source".into(), VantaValue::String("test".into()));
-    let input = VantaMemoryInput {
+    meta.insert("source".into(), Value::String("test".into()));
+    let input = MemoryInput {
         namespace: "ns1".into(),
         key: "k1".into(),
         payload: "hello world".into(),
@@ -48,7 +48,7 @@ fn test_memory_input_serialize_roundtrip() {
         ttl_ms: Some(60000),
     };
     let json = serde_json::to_string(&input).unwrap();
-    let back: VantaMemoryInput = serde_json::from_str(&json).unwrap();
+    let back: MemoryInput = serde_json::from_str(&json).unwrap();
     assert_eq!(input.namespace, back.namespace);
     assert_eq!(input.key, back.key);
     assert_eq!(input.payload, back.payload);
@@ -60,8 +60,8 @@ fn test_memory_input_serialize_roundtrip() {
 #[test]
 fn test_memory_record_serialize() {
     let mut meta = BTreeMap::new();
-    meta.insert("lang".into(), VantaValue::String("en".into()));
-    let record = VantaMemoryRecord {
+    meta.insert("lang".into(), Value::String("en".into()));
+    let record = MemoryRecord {
         namespace: "ns1".into(),
         key: "k1".into(),
         payload: "data".into(),
@@ -77,14 +77,14 @@ fn test_memory_record_serialize() {
         superseded_at_ms: None,
     };
     let json = serde_json::to_string(&record).unwrap();
-    let back: VantaMemoryRecord = serde_json::from_str(&json).unwrap();
+    let back: MemoryRecord = serde_json::from_str(&json).unwrap();
     assert_eq!(record.namespace, back.namespace);
     assert_eq!(record.node_id, back.node_id);
 }
 
 #[test]
 fn test_search_request_serialize() {
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "ns1".into(),
 
         query_vector: vec![0.1, 0.2],
@@ -99,7 +99,7 @@ fn test_search_request_serialize() {
         search_profile: None,
     };
     let json = serde_json::to_string(&req).unwrap();
-    let back: VantaMemorySearchRequest = serde_json::from_str(&json).unwrap();
+    let back: MemorySearchRequest = serde_json::from_str(&json).unwrap();
     assert_eq!(req.namespace, back.namespace);
     assert_eq!(req.top_k, back.top_k);
     assert_eq!(req.text_query, back.text_query);
@@ -107,7 +107,7 @@ fn test_search_request_serialize() {
 
 #[test]
 fn test_search_hit_serialize() {
-    let record = VantaMemoryRecord {
+    let record = MemoryRecord {
         namespace: "ns".into(),
         key: "k".into(),
         payload: "p".into(),
@@ -122,37 +122,37 @@ fn test_search_hit_serialize() {
         superseded_by: None,
         superseded_at_ms: None,
     };
-    let hit = VantaMemorySearchHit {
+    let hit = MemorySearchHit {
         record: record.clone(),
         score: 0.95,
         explanation: None,
     };
     let json = serde_json::to_string(&hit).unwrap();
-    let back: VantaMemorySearchHit = serde_json::from_str(&json).unwrap();
+    let back: MemorySearchHit = serde_json::from_str(&json).unwrap();
     assert_eq!(hit.score, back.score);
     assert_eq!(hit.record.node_id, back.record.node_id);
 }
 
 #[test]
 fn test_list_page_serialize() {
-    let page = VantaMemoryListPage {
+    let page = MemoryListPage {
         records: vec![],
         next_cursor: None,
     };
     let json = serde_json::to_string(&page).unwrap();
-    let back: VantaMemoryListPage = serde_json::from_str(&json).unwrap();
+    let back: MemoryListPage = serde_json::from_str(&json).unwrap();
     assert!(back.records.is_empty());
     assert!(back.next_cursor.is_none());
 }
 
 #[test]
 fn test_node_record_serialize() {
-    let record = VantaNodeRecord {
+    let record = NodeRecord {
         id: 1,
         fields: BTreeMap::new(),
         vector: None,
         vector_dimensions: 0,
-        edges: vec![VantaEdgeRecord {
+        edges: vec![EdgeRecord {
             target: 2,
             label: "related".into(),
             weight: 0.8,
@@ -164,11 +164,11 @@ fn test_node_record_serialize() {
         hits: 10,
         last_accessed: 1000,
         epoch: 0,
-        tier: VantaStorageTier::Hot,
+        tier: StorageTier::Hot,
         is_alive: true,
     };
     let json = serde_json::to_string(&record).unwrap();
-    let back: VantaNodeRecord = serde_json::from_str(&json).unwrap();
+    let back: NodeRecord = serde_json::from_str(&json).unwrap();
     assert_eq!(record.id, back.id);
     assert_eq!(record.edges.len(), back.edges.len());
     assert_eq!(record.edges[0].target, back.edges[0].target);
@@ -176,20 +176,20 @@ fn test_node_record_serialize() {
 
 #[test]
 fn test_query_result_serialize() {
-    let result = VantaQueryResult::Read(vec![]);
+    let result = QueryResult::Read(vec![]);
     let json = serde_json::to_string(&result).unwrap();
-    let back: VantaQueryResult = serde_json::from_str(&json).unwrap();
-    assert!(matches!(back, VantaQueryResult::Read(_)));
+    let back: QueryResult = serde_json::from_str(&json).unwrap();
+    assert!(matches!(back, QueryResult::Read(_)));
 
-    let write = VantaQueryResult::Write {
+    let write = QueryResult::Write {
         affected_nodes: 1,
         message: "ok".into(),
         node_id: Some(42),
     };
     let json = serde_json::to_string(&write).unwrap();
-    let back: VantaQueryResult = serde_json::from_str(&json).unwrap();
+    let back: QueryResult = serde_json::from_str(&json).unwrap();
     match back {
-        VantaQueryResult::Write {
+        QueryResult::Write {
             affected_nodes,
             message,
             node_id,
@@ -204,36 +204,36 @@ fn test_query_result_serialize() {
 
 #[test]
 fn test_capabilities_serialize() {
-    let caps = VantaCapabilities {
-        runtime_profile: VantaRuntimeProfile::LowResource,
+    let caps = Capabilities {
+        runtime_profile: RuntimeProfile::LowResource,
         persistence: false,
         vector_search: true,
         iql_queries: true,
         read_only: false,
     };
     let json = serde_json::to_string(&caps).unwrap();
-    let back: VantaCapabilities = serde_json::from_str(&json).unwrap();
+    let back: Capabilities = serde_json::from_str(&json).unwrap();
     assert_eq!(caps.vector_search, back.vector_search);
     assert_eq!(caps.persistence, back.persistence);
-    assert_eq!(back.runtime_profile, VantaRuntimeProfile::LowResource);
+    assert_eq!(back.runtime_profile, RuntimeProfile::LowResource);
 }
 
 #[test]
 fn test_export_report_serialize() {
-    let report = VantaExportReport {
+    let report = ExportReport {
         records_exported: 100,
         namespaces: vec!["ns1".into()],
         path: "/tmp/export.jsonl".into(),
         duration_ms: 50,
     };
     let json = serde_json::to_string(&report).unwrap();
-    let back: VantaExportReport = serde_json::from_str(&json).unwrap();
+    let back: ExportReport = serde_json::from_str(&json).unwrap();
     assert_eq!(report.records_exported, back.records_exported);
 }
 
 #[test]
 fn test_import_report_serialize() {
-    let report = VantaImportReport {
+    let report = ImportReport {
         inserted: 10,
         updated: 2,
         skipped: 0,
@@ -241,13 +241,13 @@ fn test_import_report_serialize() {
         duration_ms: 30,
     };
     let json = serde_json::to_string(&report).unwrap();
-    let back: VantaImportReport = serde_json::from_str(&json).unwrap();
+    let back: ImportReport = serde_json::from_str(&json).unwrap();
     assert_eq!(report.inserted, back.inserted);
 }
 
 #[test]
 fn test_index_rebuild_report_serialize() {
-    let report = VantaIndexRebuildReport {
+    let report = IndexRebuildReport {
         scanned_nodes: 100,
         indexed_vectors: 95,
         skipped_tombstones: 5,
@@ -257,14 +257,14 @@ fn test_index_rebuild_report_serialize() {
         success: true,
     };
     let json = serde_json::to_string(&report).unwrap();
-    let back: VantaIndexRebuildReport = serde_json::from_str(&json).unwrap();
+    let back: IndexRebuildReport = serde_json::from_str(&json).unwrap();
     assert_eq!(report.scanned_nodes, back.scanned_nodes);
     assert!(back.success);
 }
 
 #[test]
 fn test_text_index_audit_report_serialize() {
-    let report = VantaTextIndexAuditReport {
+    let report = TextIndexAuditReport {
         schema_version: 1,
         tokenizer: "ascii_alnum".into(),
         tokenizer_version: 1,
@@ -292,13 +292,13 @@ fn test_text_index_audit_report_serialize() {
         status: "clean".into(),
     };
     let json = serde_json::to_string(&report).unwrap();
-    let back: VantaTextIndexAuditReport = serde_json::from_str(&json).unwrap();
+    let back: TextIndexAuditReport = serde_json::from_str(&json).unwrap();
     assert!(back.passed);
 }
 
 #[test]
 fn test_operational_metrics_serialize() {
-    let metrics = VantaOperationalMetrics {
+    let metrics = OperationalMetrics {
         startup_ms: 100,
         wal_replay_ms: 20,
         wal_records_replayed: 50,
@@ -351,7 +351,7 @@ fn test_operational_metrics_serialize() {
         offload_latency_ms: 60,
     };
     let json = serde_json::to_string(&metrics).unwrap();
-    let back: VantaOperationalMetrics = serde_json::from_str(&json).unwrap();
+    let back: OperationalMetrics = serde_json::from_str(&json).unwrap();
     assert_eq!(metrics.startup_ms, back.startup_ms);
     assert_eq!(metrics.hnsw_nodes_count, back.hnsw_nodes_count);
     assert_eq!(back.l1_extraction_latency_ms, 15);
@@ -360,12 +360,12 @@ fn test_operational_metrics_serialize() {
 
 #[test]
 fn test_search_explanation_serialize() {
-    let explanation = VantaSearchExplanation {
+    let explanation = SearchExplanation {
         route: "hybrid".into(),
         hits: vec![],
         fusion_report: None,
     };
     let json = serde_json::to_string(&explanation).unwrap();
-    let back: VantaSearchExplanation = serde_json::from_str(&json).unwrap();
+    let back: SearchExplanation = serde_json::from_str(&json).unwrap();
     assert_eq!(back.route, "hybrid");
 }

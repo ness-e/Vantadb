@@ -5,17 +5,17 @@
 //! MEM-05/MEM-07 producers will, then asserts the allow-only chain.
 
 use super::{Action, PermissionChecker, TeamRole, Visibility};
-use crate::config::VantaConfig;
+use crate::config::Config;
 use crate::entity::EntityStore;
 use crate::node::FieldValue;
 use crate::storage::{BackendKind, StorageEngine};
 use std::collections::HashMap;
 
 fn in_memory_engine() -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         read_only: false,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     StorageEngine::open_with_config(":memory:", Some(config)).expect("open in-memory engine")
 }

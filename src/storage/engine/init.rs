@@ -1,6 +1,6 @@
 //! StorageEngine initialization: opening, backend setup, index loading, WAL recovery.
 
-use std::fs::{File, OpenOptions};
+use std::fs::{File as StdFile, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::info;
@@ -12,8 +12,8 @@ use crate::backends::fjall_backend::FjallBackend;
 use crate::backends::in_memory::InMemoryBackend;
 #[cfg(feature = "rocksdb")]
 use crate::backends::rocksdb_backend::RocksDbBackend;
-use crate::config::VantaConfig;
-use crate::error::{Result, VantaError};
+use crate::config::Config;
+use crate::error::{Error, Result};
 use crate::index::{CPIndex, IndexBackend};
 use crate::lsm::SegmentLevel;
 use crate::node::LabelIntern;
@@ -22,7 +22,7 @@ use crate::storage::engine::{BackendKind, FLAG_TOMBSTONE, GIB, MIB};
 use crate::storage::ops;
 #[cfg(unix)]
 use crate::storage::vfile::install_sigbus_handler;
-use crate::storage::vfile::VantaFile;
+use crate::storage::vfile::File;
 
 impl StorageEngine {
     /// Open with default configuration (backward-compatible).
@@ -31,7 +31,7 @@ impl StorageEngine {
     }
 
     /// Open with explicit configuration for memory budgets and mode overrides.
-    pub fn open_with_config(path: &str, config: Option<VantaConfig>) -> Result<Self> {
+    pub fn open_with_config(path: &str, config: Option<Config>) -> Result<Self> {
         let startup_started = Instant::now();
         let config = config.unwrap_or_default();
         let caps = crate::hardware::HardwareCapabilities::global();
@@ -42,7 +42,7 @@ impl StorageEngine {
         let (hnsw, vector_store, segment_registry, wal_writer, wal_replay_ms, wal_records_replayed) =
             if matches!(config.backend_kind, BackendKind::InMemory) {
                 let hnsw = CPIndex::new();
-                let vs = VantaFile::create_in_memory(64 * MIB);
+                let vs = File::create_in_memory(64 * MIB);
                 let vstore = vec![parking_lot::RwLock::new(vs)];
                 let reg = crate::lsm::SegmentRegistry::new();
                 let wal_writer = None;
@@ -158,8 +158,8 @@ impl StorageEngine {
 
     fn init_storage(
         path: &str,
-        config: &VantaConfig,
-    ) -> Result<(Option<File>, Arc<dyn StorageBackend>, PathBuf)> {
+        config: &Config,
+    ) -> Result<(Option<StdFile>, Arc<dyn StorageBackend>, PathBuf)> {
         ops::prevent_path_traversal(path)?;
         let base_path = PathBuf::from(path);
 
@@ -169,7 +169,7 @@ impl StorageEngine {
         }
 
         if config.read_only && !base_path.exists() {
-            return Err(VantaError::NotFound {
+            return Err(Error::NotFound {
                 kind: "database_path".into(),
                 id: base_path.display().to_string(),
             });
@@ -177,7 +177,7 @@ impl StorageEngine {
         let lock_file = {
             let lock_path = base_path.join(".vanta.lock");
             if !config.read_only {
-                std::fs::create_dir_all(&base_path).map_err(VantaError::IoError)?;
+                std::fs::create_dir_all(&base_path).map_err(Error::IoError)?;
             }
 
             let file_result = OpenOptions::new()
@@ -190,12 +190,12 @@ impl StorageEngine {
                 Ok(f) => f,
                 Err(e) => {
                     if config.read_only {
-                        return Err(VantaError::NotFound {
+                        return Err(Error::NotFound {
                             kind: "lock_file".into(),
                             id: base_path.join(".vanta.lock").display().to_string(),
                         });
                     } else {
-                        return Err(VantaError::IoError(e));
+                        return Err(Error::IoError(e));
                     }
                 }
             };
@@ -254,7 +254,7 @@ impl StorageEngine {
                         base_path.display()
                     )
                 };
-                return Err(VantaError::DatabaseBusy(msg));
+                return Err(Error::DatabaseBusy(msg));
             }
 
             Some(file)
@@ -283,7 +283,7 @@ impl StorageEngine {
             BackendKind::RocksDb => Arc::new(RocksDbBackend::open(path, config)?),
             #[cfg(not(feature = "rocksdb"))]
             BackendKind::RocksDb => {
-                return Err(VantaError::ValidationError {
+                return Err(Error::ValidationError {
                     field: "backend_feature".into(),
                     reason: "RocksDB backend requires the 'rocksdb' feature".into(),
                 })
@@ -292,7 +292,7 @@ impl StorageEngine {
             BackendKind::Fjall => Arc::new(FjallBackend::open(path, config)?),
             #[cfg(not(feature = "fjall"))]
             BackendKind::Fjall => {
-                return Err(VantaError::ValidationError {
+                return Err(Error::ValidationError {
                     field: "backend_feature".into(),
                     reason: "Fjall backend requires the 'fjall' feature".into(),
                 })
@@ -302,13 +302,13 @@ impl StorageEngine {
 
         let data_dir = base_path.join("data");
         if config.read_only && !data_dir.exists() {
-            return Err(VantaError::NotFound {
+            return Err(Error::NotFound {
                 kind: "data_directory".into(),
                 id: data_dir.display().to_string(),
             });
         }
         if !config.read_only {
-            std::fs::create_dir_all(&data_dir).map_err(VantaError::IoError)?;
+            std::fs::create_dir_all(&data_dir).map_err(Error::IoError)?;
         }
 
         Ok((lock_file, backend, data_dir))
@@ -316,12 +316,12 @@ impl StorageEngine {
 
     fn init_indexes(
         data_dir: &Path,
-        config: &VantaConfig,
+        config: &Config,
         caps: &crate::hardware::HardwareCapabilities,
         effective_memory: u64,
     ) -> Result<(
         CPIndex,
-        Vec<parking_lot::RwLock<VantaFile>>,
+        Vec<parking_lot::RwLock<File>>,
         crate::lsm::SegmentRegistry,
     )> {
         let index_path = data_dir.join("vector_index.bin");
@@ -372,7 +372,7 @@ impl StorageEngine {
             ] {
                 let path = data_dir.join(level.file_name());
                 if path.exists() {
-                    let vf = VantaFile::open_read_only(path.clone())?;
+                    let vf = File::open_read_only(path.clone())?;
                     reg.register(level.as_u8(), level.as_u8(), path);
                     vfs.push(parking_lot::RwLock::new(vf));
                 }
@@ -380,7 +380,7 @@ impl StorageEngine {
             // Fallback: if no levels exist, open legacy path (may fail)
             if vfs.is_empty() {
                 let legacy = data_dir.join("vector_store.vanta");
-                let vf = VantaFile::open_read_only(legacy)?;
+                let vf = File::open_read_only(legacy)?;
                 let path = data_dir.join(SegmentLevel::L0.file_name());
                 reg.register(0, 0, path);
                 vfs.push(parking_lot::RwLock::new(vf));
@@ -395,10 +395,10 @@ impl StorageEngine {
 
     fn recover_state(
         data_dir: &Path,
-        config: &VantaConfig,
+        config: &Config,
         backend: &dyn StorageBackend,
         hnsw: &mut CPIndex,
-        vector_store: &[parking_lot::RwLock<VantaFile>],
+        vector_store: &[parking_lot::RwLock<File>],
     ) -> Result<(u64, u64)> {
         let index_path = data_dir.join("vector_index.bin");
 
@@ -415,7 +415,7 @@ impl StorageEngine {
                     indexed_vectors = report.indexed_vectors,
                     skipped_tombstones = report.skipped_tombstones,
                     duration_ms = report.duration_ms,
-                    "Index reconstructed from VantaFile"
+                    "Index reconstructed from File"
                 );
             }
         }
@@ -482,7 +482,7 @@ impl StorageEngine {
                         continue;
                     }
                     let mut reader = crate::wal::WalReader::open(&shard_path).map_err(|e| {
-                        VantaError::wal_error(format!(
+                        Error::wal_error(format!(
                             "Failed to open WAL shard {shard_idx} during recovery: {e}"
                         ))
                     })?;
@@ -503,7 +503,7 @@ impl StorageEngine {
                 // WALs are exempt (there is no round-robin layout to corrupt).
                 if num_shards > 1 {
                     if let Some(msg) = crate::wal_sharded::verify_shard_counts(&shard_counts) {
-                        return Err(VantaError::wal_error(msg));
+                        return Err(Error::wal_error(msg));
                     }
                 }
                 pending.sort_by_key(|tr| tr.global_seq);

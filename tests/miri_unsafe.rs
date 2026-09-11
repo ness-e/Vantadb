@@ -128,8 +128,8 @@ fn miri_raw_ptr_subslice() {
 }
 
 /// AUDIT-03: drive the *real* engine vector paths under Miri, not just
-/// standalone `from_raw_parts`. An in-memory `VantaEmbedded` (BackendKind::InMemory
-/// short-circuits file/WAL I/O — see `init_storage`) uses a `VantaFile` whose
+/// standalone `from_raw_parts`. An in-memory `Embedded` (BackendKind::InMemory
+/// short-circuits file/WAL I/O — see `init_storage`) uses a `File` whose
 /// backing buffer is 4-aligned by construction (`AlignedBytes`, vfile.rs), so the
 /// HNSW search (`src/index/search.rs` `from_raw_parts`, INV-024 #22/#23) and
 /// engine get/insert (`src/storage/engine/ops.rs`, #28-#31) run fully under the
@@ -140,15 +140,15 @@ fn miri_raw_ptr_subslice() {
 /// `test_vfile_read_header_rejects_misaligned_vector_offset`.
 #[test]
 fn miri_engine_in_memory_hnsw_vector_paths() {
-    use vantadb::config::VantaConfig;
-    use vantadb::{BackendKind, VantaEmbedded, VantaNodeInput};
+    use vantadb::config::Config;
+    use vantadb::{BackendKind, Embedded, NodeInput};
 
-    let config = VantaConfig {
+    let config = Config {
         storage_path: ":memory:".into(),
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     };
-    let db = VantaEmbedded::open_with_config(config).expect("open in-memory db");
+    let db = Embedded::open_with_config(config).expect("open in-memory db");
 
     let vectors = [
         vec![1.0f32, 0.0, 0.0],
@@ -156,7 +156,7 @@ fn miri_engine_in_memory_hnsw_vector_paths() {
         vec![0.0, 0.0, 1.0],
     ];
     for (i, v) in vectors.iter().enumerate() {
-        let mut input = VantaNodeInput::new(i as u128 + 1);
+        let mut input = NodeInput::new(i as u128 + 1);
         input.content = Some(format!("node{i}"));
         input.vector = Some(v.clone());
         db.insert_node(input).expect("insert");

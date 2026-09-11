@@ -14,9 +14,9 @@
 //! P27 if crash-exact history is ever required.)
 
 use crate::backend::{BackendPartition, BackendWriteOp};
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::node::SparseVector;
-use crate::sdk::types::{VantaMemoryMetadata, VantaMemoryRecord};
+use crate::sdk::types::{MemoryMetadata, MemoryRecord};
 use crate::storage::engine::StorageEngine;
 use serde::{Deserialize, Serialize};
 
@@ -52,18 +52,18 @@ pub(crate) fn version_prefix(namespace: &str, key: &str) -> Vec<u8> {
 /// from store corruption (`BackendError`) — never user input.
 pub(crate) fn version_from_key(key: &[u8]) -> Result<u64> {
     let trailer = key.len().checked_sub(VERSION_LEN).ok_or_else(|| {
-        VantaError::backend_error(format!(
+        Error::backend_error(format!(
             "version-history key missing its {VERSION_LEN}-byte version trailer (len={})",
             key.len()
         ))
     })?;
     let bytes: [u8; VERSION_LEN] = key[trailer..]
         .try_into()
-        .map_err(|_| VantaError::backend_error("malformed version-history key trailer"))?;
+        .map_err(|_| Error::backend_error("malformed version-history key trailer"))?;
     Ok(u64::from_be_bytes(bytes))
 }
 
-/// Postcard-safe mirror of [`VantaMemoryRecord`].
+/// Postcard-safe mirror of [`MemoryRecord`].
 ///
 /// The public record carries `node_id: u128` through `u128_serde`, whose
 /// `#[serde(untagged)]` deserializer requires `deserialize_any` — which
@@ -72,13 +72,13 @@ pub(crate) fn version_from_key(key: &[u8]) -> Result<u64> {
 /// string instead, so the snapshot wire format roundtrips 1:1 through
 /// postcard without touching the public struct's serde behavior (JSON /
 /// export / binding compat unchanged). Converting back yields an identical
-/// `VantaMemoryRecord`.
+/// `MemoryRecord`.
 #[derive(Serialize, Deserialize)]
 struct SnapshotRecord {
     namespace: String,
     key: String,
     payload: String,
-    metadata: VantaMemoryMetadata,
+    metadata: MemoryMetadata,
     created_at_ms: u64,
     updated_at_ms: u64,
     version: u64,
@@ -109,8 +109,8 @@ mod node_id_str {
     }
 }
 
-impl From<&VantaMemoryRecord> for SnapshotRecord {
-    fn from(r: &VantaMemoryRecord) -> Self {
+impl From<&MemoryRecord> for SnapshotRecord {
+    fn from(r: &MemoryRecord) -> Self {
         Self {
             namespace: r.namespace.clone(),
             key: r.key.clone(),
@@ -127,7 +127,7 @@ impl From<&VantaMemoryRecord> for SnapshotRecord {
     }
 }
 
-impl From<SnapshotRecord> for VantaMemoryRecord {
+impl From<SnapshotRecord> for MemoryRecord {
     fn from(s: SnapshotRecord) -> Self {
         Self {
             namespace: s.namespace,
@@ -147,14 +147,14 @@ impl From<SnapshotRecord> for VantaMemoryRecord {
     }
 }
 
-fn encode_snapshot(record: &VantaMemoryRecord) -> Result<Vec<u8>> {
-    postcard::to_allocvec(&SnapshotRecord::from(record)).map_err(VantaError::serialization)
+fn encode_snapshot(record: &MemoryRecord) -> Result<Vec<u8>> {
+    postcard::to_allocvec(&SnapshotRecord::from(record)).map_err(Error::serialization)
 }
 
-fn decode_snapshot(bytes: &[u8]) -> Result<VantaMemoryRecord> {
+fn decode_snapshot(bytes: &[u8]) -> Result<MemoryRecord> {
     postcard::from_bytes::<SnapshotRecord>(bytes)
-        .map(VantaMemoryRecord::from)
-        .map_err(VantaError::serialization)
+        .map(MemoryRecord::from)
+        .map_err(Error::serialization)
 }
 
 /// Write the snapshot of a single record (used by `put_one`), then evict
@@ -162,7 +162,7 @@ fn decode_snapshot(bytes: &[u8]) -> Result<VantaMemoryRecord> {
 /// callers can choose to swallow them (`let _ =`).
 pub(crate) fn write_snapshot(
     engine: &StorageEngine,
-    record: &VantaMemoryRecord,
+    record: &MemoryRecord,
     limit: Option<usize>,
 ) -> Result<()> {
     let key = version_key(&record.namespace, &record.key, record.version);
@@ -175,7 +175,7 @@ pub(crate) fn write_snapshot(
 /// `write_batch`, then evict overflow per distinct key. Best-effort.
 pub(crate) fn write_snapshot_batch(
     engine: &StorageEngine,
-    records: &[VantaMemoryRecord],
+    records: &[MemoryRecord],
     limit: Option<usize>,
 ) -> Result<()> {
     if records.is_empty() {
@@ -222,7 +222,7 @@ pub(crate) fn get_version(
     namespace: &str,
     key: &str,
     version: u64,
-) -> Result<Option<VantaMemoryRecord>> {
+) -> Result<Option<MemoryRecord>> {
     let k = version_key(namespace, key, version);
     let Some(bytes) = engine.get_from_partition(BackendPartition::Versions, &k)? else {
         return Ok(None);
@@ -235,7 +235,7 @@ pub(crate) fn versions(
     engine: &StorageEngine,
     namespace: &str,
     key: &str,
-) -> Result<Vec<VantaMemoryRecord>> {
+) -> Result<Vec<MemoryRecord>> {
     let prefix = version_prefix(namespace, key);
     let entries = engine.scan_partition_prefix(BackendPartition::Versions, &prefix)?;
     entries
@@ -281,14 +281,14 @@ fn evict_overflow(
 mod tests {
     use super::*;
     use crate::backend::BackendKind;
-    use crate::config::VantaConfig;
+    use crate::config::Config;
     use crate::node::SparseVector;
-    use crate::sdk::builder::VantaEmbedded;
-    use crate::sdk::types::{VantaMemoryInput, VantaMemoryMetadata};
+    use crate::sdk::builder::Embedded;
+    use crate::sdk::types::{MemoryInput, MemoryMetadata};
     use std::collections::BTreeMap;
 
-    fn open_db(limit: Option<usize>) -> VantaEmbedded {
-        VantaEmbedded::open_with_config(VantaConfig {
+    fn open_db(limit: Option<usize>) -> Embedded {
+        Embedded::open_with_config(Config {
             storage_path: ":memory:".into(),
             backend_kind: BackendKind::InMemory,
             version_history_limit: limit,
@@ -319,7 +319,7 @@ mod tests {
         for len in 0..VERSION_LEN {
             let err = version_from_key(&vec![0xAB_u8; len]).unwrap_err();
             assert!(
-                matches!(err, VantaError::BackendError(_)),
+                matches!(err, Error::BackendError(_)),
                 "expected BackendError for len={len}, got {err:?}"
             );
         }
@@ -333,11 +333,11 @@ mod tests {
     #[test]
     fn put_snapshots_each_version_and_get_version_roundtrips() {
         let db = open_db(None);
-        db.put(VantaMemoryInput::new("docs", "greeting", "hello"))
+        db.put(MemoryInput::new("docs", "greeting", "hello"))
             .expect("put v1");
-        db.put(VantaMemoryInput::new("docs", "greeting", "hola"))
+        db.put(MemoryInput::new("docs", "greeting", "hola"))
             .expect("put v2");
-        db.put(VantaMemoryInput::new("docs", "greeting", "bonjour"))
+        db.put(MemoryInput::new("docs", "greeting", "bonjour"))
             .expect("put v3");
 
         let all = db.versions("docs", "greeting").expect("versions");
@@ -363,7 +363,7 @@ mod tests {
     #[test]
     fn get_version_missing_returns_none() {
         let db = open_db(None);
-        db.put(VantaMemoryInput::new("docs", "greeting", "hello"))
+        db.put(MemoryInput::new("docs", "greeting", "hello"))
             .expect("put");
         assert!(db
             .get_version("docs", "greeting", 999)
@@ -380,9 +380,9 @@ mod tests {
     fn put_batch_with_duplicate_keys_snapshots_bump_sequence() {
         let db = open_db(None);
         db.put_batch(vec![
-            VantaMemoryInput::new("docs", "k", "one"),
-            VantaMemoryInput::new("docs", "k", "two"),
-            VantaMemoryInput::new("docs", "other", "x"),
+            MemoryInput::new("docs", "k", "one"),
+            MemoryInput::new("docs", "k", "two"),
+            MemoryInput::new("docs", "other", "x"),
         ])
         .expect("put_batch");
 
@@ -397,7 +397,7 @@ mod tests {
     fn cap_evicts_oldest_fifo() {
         let db = open_db(Some(2));
         for i in 1..=3 {
-            db.put(VantaMemoryInput::new("docs", "k", format!("v{i}")))
+            db.put(MemoryInput::new("docs", "k", format!("v{i}")))
                 .expect("put");
         }
         let all = db.versions("docs", "k").expect("versions");
@@ -414,9 +414,9 @@ mod tests {
     #[test]
     fn delete_purges_history() {
         let db = open_db(None);
-        db.put(VantaMemoryInput::new("docs", "k", "one"))
+        db.put(MemoryInput::new("docs", "k", "one"))
             .expect("put v1");
-        db.put(VantaMemoryInput::new("docs", "k", "two"))
+        db.put(MemoryInput::new("docs", "k", "two"))
             .expect("put v2");
         assert_eq!(db.versions("docs", "k").expect("versions").len(), 2);
 
@@ -428,17 +428,17 @@ mod tests {
     #[test]
     fn purge_expired_removes_snapshots() {
         let db = open_db(None);
-        db.put(VantaMemoryInput {
+        db.put(MemoryInput {
             namespace: "docs".into(),
             key: "exp".into(),
             payload: "doomed".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             vector: None,
             sparse_vector: None,
             ttl_ms: Some(1),
         })
         .expect("put with ttl");
-        db.put(VantaMemoryInput::new("docs", "keep", "stays"))
+        db.put(MemoryInput::new("docs", "keep", "stays"))
             .expect("put no ttl");
         assert_eq!(db.versions("docs", "exp").expect("versions").len(), 1);
 
@@ -452,7 +452,7 @@ mod tests {
     fn import_does_not_generate_snapshots() {
         let db = open_db(None);
         let record = db
-            .put(VantaMemoryInput::new("docs", "src", "one"))
+            .put(MemoryInput::new("docs", "src", "one"))
             .expect("put source");
         assert_eq!(db.versions("docs", "src").expect("versions").len(), 1);
 
@@ -466,7 +466,7 @@ mod tests {
 
     #[test]
     fn postcard_roundtrip_with_vector_sparse_metadata() {
-        let rec = VantaMemoryRecord {
+        let rec = MemoryRecord {
             namespace: "docs".into(),
             key: "vec".into(),
             payload: "sparse + dense".into(),
@@ -497,7 +497,7 @@ mod tests {
         // through both backends via a fresh DB (backward-compat: opening a DB
         // that predates the feature must not error, history starts empty).
         for kind in [BackendKind::InMemory, BackendKind::Fjall] {
-            let cfg = VantaConfig {
+            let cfg = Config {
                 storage_path: if kind == BackendKind::Fjall {
                     std::env::temp_dir()
                         .join(format!("vantadb-versions-test-{}", std::process::id()))
@@ -512,11 +512,10 @@ mod tests {
             if kind == BackendKind::Fjall {
                 let _ = std::fs::remove_dir_all(&cfg.storage_path);
             }
-            let db = VantaEmbedded::open_with_config(cfg).expect("open");
+            let db = Embedded::open_with_config(cfg).expect("open");
             // pre-feature DB: partition exists but is empty
             assert!(db.versions("docs", "nope").expect("versions").is_empty());
-            db.put(VantaMemoryInput::new("docs", "k", "v1"))
-                .expect("put");
+            db.put(MemoryInput::new("docs", "k", "v1")).expect("put");
             assert_eq!(db.versions("docs", "k").expect("versions").len(), 1);
             if kind == BackendKind::Fjall {
                 db.close().expect("close");
@@ -533,11 +532,9 @@ mod tests {
         // Key format must keep "a" and "ab" (and namespaces "x" vs "xy")
         // separate: length prefixes make the boundary unambiguous.
         let db = open_db(None);
-        db.put(VantaMemoryInput::new("x", "a", "one")).expect("put");
-        db.put(VantaMemoryInput::new("x", "ab", "two"))
-            .expect("put");
-        db.put(VantaMemoryInput::new("xy", "a", "three"))
-            .expect("put");
+        db.put(MemoryInput::new("x", "a", "one")).expect("put");
+        db.put(MemoryInput::new("x", "ab", "two")).expect("put");
+        db.put(MemoryInput::new("xy", "a", "three")).expect("put");
         assert_eq!(db.versions("x", "a").expect("versions").len(), 1);
         assert_eq!(db.versions("x", "ab").expect("versions").len(), 1);
         assert_eq!(db.versions("xy", "a").expect("versions").len(), 1);

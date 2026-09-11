@@ -62,12 +62,10 @@ impl AsyncIngestionPipeline {
     pub async fn submit(&self, task: IngestionTask) -> Result<u128> {
         let (tx, rx) = oneshot::channel();
         self.sender.send((task, tx)).await.map_err(|_| {
-            crate::error::VantaError::IoError(std::io::Error::other(
-                "async ingestion pipeline closed",
-            ))
+            crate::error::Error::IoError(std::io::Error::other("async ingestion pipeline closed"))
         })?;
         rx.await.map_err(|_| {
-            crate::error::VantaError::IoError(std::io::Error::other(
+            crate::error::Error::IoError(std::io::Error::other(
                 "worker task terminated before responding",
             ))
         })?
@@ -92,7 +90,7 @@ impl AsyncIngestionPipeline {
 
                     let result = match run_res {
                         Ok(res) => res,
-                        Err(e) => Err(crate::error::VantaError::generic_error(format!(
+                        Err(e) => Err(crate::error::Error::generic_error(format!(
                             "Ingestion worker task panicked: {}",
                             e
                         ))),

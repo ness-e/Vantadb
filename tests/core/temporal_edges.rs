@@ -11,7 +11,7 @@ use common::{TerminalReporter, VantaHarness};
 use vantadb::graph::{GraphTraverser, TraversalDirection};
 use vantadb::node::{Edge, UnifiedNode};
 use vantadb::storage::StorageEngine;
-use vantadb::{VantaEmbedded, VantaNodeInput};
+use vantadb::{Embedded, NodeInput};
 
 /// Build a 3-node chain with explicit edge timestamps:
 ///   1 --ts=100--> 2 --ts=200--> 3
@@ -146,9 +146,9 @@ fn temporal_window_filters_traversal() {
 fn sdk_add_edge_explicit_timestamp_persists_both_directions() {
     let mut harness = VantaHarness::new("TEMPORAL EDGES (SDK ADD_EDGE)");
     let dir = tempfile::tempdir().unwrap();
-    let db = VantaEmbedded::open(dir.path()).unwrap();
-    db.insert_node(VantaNodeInput::new(1)).unwrap();
-    db.insert_node(VantaNodeInput::new(2)).unwrap();
+    let db = Embedded::open(dir.path()).unwrap();
+    db.insert_node(NodeInput::new(1)).unwrap();
+    db.insert_node(NodeInput::new(2)).unwrap();
 
     harness.execute("Forward edge carries the explicit timestamp", || {
         db.add_edge(1, 2, "rel", Some(1.0), Some(5000)).unwrap();
@@ -198,9 +198,9 @@ fn sdk_add_edge_explicit_timestamp_persists_both_directions() {
 #[test]
 fn sdk_add_edge_without_timestamp_stamps_now() {
     let dir = tempfile::tempdir().unwrap();
-    let db = VantaEmbedded::open(dir.path()).unwrap();
-    db.insert_node(VantaNodeInput::new(1)).unwrap();
-    db.insert_node(VantaNodeInput::new(2)).unwrap();
+    let db = Embedded::open(dir.path()).unwrap();
+    db.insert_node(NodeInput::new(1)).unwrap();
+    db.insert_node(NodeInput::new(2)).unwrap();
 
     db.add_edge(1, 2, "rel", Some(1.0), None).unwrap();
 

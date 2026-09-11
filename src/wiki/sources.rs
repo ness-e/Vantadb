@@ -12,7 +12,7 @@
 
 use std::path::{Path, PathBuf};
 
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 
 /// Total character budget for scanned sources (TDAM ingest-v2/index.ts:78).
 pub const SOURCE_CHAR_BUDGET: usize = 28_000;
@@ -27,17 +27,17 @@ pub struct SourceFile {
 }
 
 /// Recursively collect `.md` sources under `root`, oldest-budget-first in
-/// lexicographic path order. Errors with [`VantaError::InvalidInput`] when the
+/// lexicographic path order. Errors with [`Error::InvalidInput`] when the
 /// root does not exist / is not a directory.
 pub fn scan_local_sources(root: &Path) -> Result<Vec<SourceFile>> {
     let canon_root = root.canonicalize().map_err(|e| {
-        VantaError::InvalidInput(format!(
+        Error::InvalidInput(format!(
             "wiki source root `{}` is not accessible: {e}",
             root.display()
         ))
     })?;
     if !canon_root.is_dir() {
-        return Err(VantaError::InvalidInput(format!(
+        return Err(Error::InvalidInput(format!(
             "wiki source root `{}` is not a directory",
             root.display()
         )));
@@ -175,7 +175,7 @@ mod tests {
     #[test]
     fn nonexistent_root_is_a_clear_error() {
         let err = scan_local_sources(Path::new("Z:/definitely/not/here")).unwrap_err();
-        assert!(matches!(err, VantaError::InvalidInput(_)), "got {err:?}");
+        assert!(matches!(err, Error::InvalidInput(_)), "got {err:?}");
         let msg = err.to_string();
         assert!(msg.contains("not accessible"), "message: {msg}");
     }

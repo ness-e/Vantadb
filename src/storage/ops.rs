@@ -1,9 +1,9 @@
 //! Low-level storage operations: node serialization, backend I/O, partition resolution.
 
 use crate::backend::BackendPartition;
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::node::{DiskNodeHeader, UnifiedNode};
-use crate::storage::vfile::VantaFile;
+use crate::storage::vfile::File;
 use std::path::Path;
 use zerocopy::IntoBytes;
 
@@ -36,14 +36,14 @@ pub(crate) const MAX_PERSISTED_NODE_BYTES: usize = 128 * 1024 * 1024;
 ///
 /// Rejects buffers larger than [`MAX_PERSISTED_NODE_BYTES`] before
 /// `postcard::from_bytes` can act on an untrusted length prefix, converting
-/// a corrupt/oversized payload into a clean [`VantaError`] instead of a
+/// a corrupt/oversized payload into a clean [`Error`] instead of a
 /// panic or OOM.
 pub(crate) fn deserialize_node_payload<T: DeserializeOwned>(
     bytes: &[u8],
     label: &str,
 ) -> Result<T> {
     if bytes.len() > MAX_PERSISTED_NODE_BYTES {
-        return Err(VantaError::serialization(std::io::Error::new(
+        return Err(Error::serialization(std::io::Error::new(
             std::io::ErrorKind::InvalidData,
             format!(
                 "{label} payload of {} bytes exceeds {} byte cap",
@@ -52,16 +52,16 @@ pub(crate) fn deserialize_node_payload<T: DeserializeOwned>(
             ),
         )));
     }
-    postcard::from_bytes(bytes).map_err(VantaError::serialization)
+    postcard::from_bytes(bytes).map_err(Error::serialization)
 }
 
-/// Write a node's header and vector data into the VantaFile at the current cursor position.
+/// Write a node's header and vector data into the File at the current cursor position.
 ///
 /// ADR-032: persists all `VectorRepresentations` variants (Full, Binary, Turbo, SQ8) using
 /// a 4-bit kind field in `flags` (bits 10-13, `NodeFlags::VECTOR_KIND_*`) and a
 /// kind-dependent `vector_len` / payload layout. Legacy files with kind=0 and len>0 are
 /// read as Full for compat (see readers).
-pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -> Result<u64> {
+pub(crate) fn write_node_to_vstore(vstore: &mut File, node: &UnifiedNode) -> Result<u64> {
     let offset = vstore.write_cursor;
     let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
     // ADR-032: dispatch payload size / kind from the in-memory representation
@@ -69,7 +69,7 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
         crate::node::VectorRepresentations::Full(v) => {
             let len = v.len();
             if len > u32::MAX as usize {
-                return Err(VantaError::VectorLenOverflow {
+                return Err(Error::VectorLenOverflow {
                     id: node.id,
                     len,
                     limit: u32::MAX,
@@ -84,7 +84,7 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
         crate::node::VectorRepresentations::Binary(b) => {
             let len = b.len();
             if len > u32::MAX as usize {
-                return Err(VantaError::VectorLenOverflow {
+                return Err(Error::VectorLenOverflow {
                     id: node.id,
                     len,
                     limit: u32::MAX,
@@ -99,7 +99,7 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
         crate::node::VectorRepresentations::Turbo(t) => {
             let len = t.len();
             if len > u32::MAX as usize {
-                return Err(VantaError::VectorLenOverflow {
+                return Err(Error::VectorLenOverflow {
                     id: node.id,
                     len,
                     limit: u32::MAX,
@@ -114,7 +114,7 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
         crate::node::VectorRepresentations::SQ8(d, _) => {
             let len = d.len();
             if len > u32::MAX as usize {
-                return Err(VantaError::VectorLenOverflow {
+                return Err(Error::VectorLenOverflow {
                     id: node.id,
                     len,
                     limit: u32::MAX,
@@ -131,7 +131,7 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
             if let Some(slice) = node.vector.as_f32_slice() {
                 let len = slice.len();
                 if len > u32::MAX as usize {
-                    return Err(VantaError::VectorLenOverflow {
+                    return Err(Error::VectorLenOverflow {
                         id: node.id,
                         len,
                         limit: u32::MAX,
@@ -174,7 +174,7 @@ pub(crate) fn write_node_to_vstore(vstore: &mut VantaFile, node: &UnifiedNode) -
     // fail loudly instead of persisting a corrupt count.
     let edge_count = node.edges.len();
     if edge_count > u16::MAX as usize {
-        return Err(VantaError::EdgeCountOverflow {
+        return Err(Error::EdgeCountOverflow {
             id: node.id,
             count: edge_count,
             limit: u16::MAX,
@@ -231,7 +231,7 @@ pub(crate) fn prevent_path_traversal(path: &str) -> Result<()> {
     use std::path::Component;
     for component in std::path::Path::new(path).components() {
         if component == Component::ParentDir {
-            return Err(VantaError::ValidationError {
+            return Err(Error::ValidationError {
                 field: "path".into(),
                 reason: format!("Path '{path}' contains '..' traversal — rejected for security"),
             });
@@ -268,28 +268,26 @@ pub(crate) fn resolve_against_base(base: &Path, user_path: &Path) -> Result<std:
 
     // ── 3. canonicalize ────────────────────────────────────────────────
     let canonical = if combined.exists() {
-        combined.canonicalize().map_err(VantaError::IoError)?
+        combined.canonicalize().map_err(Error::IoError)?
     } else {
         let parent = combined.parent().unwrap_or(Path::new("."));
-        let file_name = combined
-            .file_name()
-            .ok_or_else(|| VantaError::ValidationError {
-                field: "path".into(),
-                reason: format!(
-                    "Path '{}' has no filename component — cannot resolve against base",
-                    user_path.display(),
-                ),
-            })?;
-        let canonical_parent = parent.canonicalize().map_err(VantaError::IoError)?;
+        let file_name = combined.file_name().ok_or_else(|| Error::ValidationError {
+            field: "path".into(),
+            reason: format!(
+                "Path '{}' has no filename component — cannot resolve against base",
+                user_path.display(),
+            ),
+        })?;
+        let canonical_parent = parent.canonicalize().map_err(Error::IoError)?;
         canonical_parent.join(file_name)
     };
 
     // ── 4. verify containment ─────────────────────────────────────────
-    let canonical_base = base.canonicalize().map_err(VantaError::IoError)?;
+    let canonical_base = base.canonicalize().map_err(Error::IoError)?;
     if canonical.starts_with(&canonical_base) {
         Ok(canonical)
     } else {
-        Err(VantaError::ValidationError {
+        Err(Error::ValidationError {
             field: "path".into(),
             reason: format!(
                 "Path '{}' resolves to '{}' which is outside the allowed directory '{}'",
@@ -313,7 +311,7 @@ pub(crate) fn partition_from_cf_name(cf_name: &str) -> Result<BackendPartition> 
         "text_index" => Ok(BackendPartition::TextIndex),
         "sparse_index" => Ok(BackendPartition::SparseIndex),
         "internal_metadata" => Ok(BackendPartition::InternalMetadata),
-        other => Err(VantaError::InvalidInput(format!(
+        other => Err(Error::InvalidInput(format!(
             "Unknown column family: '{}'",
             other
         ))),
@@ -393,7 +391,7 @@ mod tests {
     /// wrap to 1 — the test proves nothing is persisted on failure.
     #[test]
     fn write_node_to_vstore_rejects_over_u16_max_edges() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let mut node = UnifiedNode::new(42);
         node.edges = vec![crate::node::Edge::new(1, 0); u16::MAX as usize + 2];
 
@@ -422,7 +420,7 @@ mod tests {
     /// without truncation.
     #[test]
     fn write_node_to_vstore_persists_u16_max_edges() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let mut node = UnifiedNode::new(7);
         node.edges = vec![crate::node::Edge::new(1, 0); u16::MAX as usize];
 
@@ -434,7 +432,7 @@ mod tests {
     /// ADR-032: Binary vector must persist kind + payload and round-trip via header.
     #[test]
     fn write_node_to_vstore_persists_binary_vector() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let mut node = UnifiedNode::new(1001);
         let data: Box<[u64]> =
             vec![0xDEADBEEFu64, 0xCAFE1234u64, 0x0123456789ABCDEFu64].into_boxed_slice();
@@ -459,7 +457,7 @@ mod tests {
     /// ADR-032: Turbo vector must persist kind + payload.
     #[test]
     fn write_node_to_vstore_persists_turbo_vector() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let mut node = UnifiedNode::new(1002);
         let data: Box<[u8]> = vec![0xAB, 0xCD, 0xEF, 0x12, 0x34].into_boxed_slice();
         node.vector = crate::node::VectorRepresentations::Turbo(data.clone());
@@ -480,7 +478,7 @@ mod tests {
     /// ADR-032: SQ8 vector must persist kind + i8 payload + scale tail.
     #[test]
     fn write_node_to_vstore_persists_sq8_vector() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let mut node = UnifiedNode::new(1003);
         let data: Box<[i8]> = vec![10, -20, 30, -40, 127, -127].into_boxed_slice();
         let scale: f32 = 2.5;
@@ -506,7 +504,7 @@ mod tests {
     /// ADR-032: Full vector still persists as before (kind=FULL, len*4).
     #[test]
     fn write_node_to_vstore_persists_full_vector() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let mut node = UnifiedNode::new(1004);
         let data = vec![1.0f32, 2.5, -3.75, 0.0];
         node.vector = crate::node::VectorRepresentations::Full(data.clone());
@@ -529,7 +527,7 @@ mod tests {
     /// ADR-032: None vector persists as kind=NONE with len 0 and no payload.
     #[test]
     fn write_node_to_vstore_persists_none_vector() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let node = UnifiedNode::new(1005); // vector = None
         let offset = write_node_to_vstore(&mut vstore, &node).unwrap();
         let header = vstore.read_header(offset).expect("header readable");

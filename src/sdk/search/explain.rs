@@ -1,4 +1,4 @@
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::serialization::{validate_metadata, validate_namespace};
 use super::super::types::*;
 use super::debug;
@@ -6,13 +6,10 @@ use crate::error::Result;
 use std::collections::BTreeMap;
 use tracing;
 
-impl VantaEmbedded {
+impl Embedded {
     /// Explain the search plan for a memory search request without executing it.
     #[tracing::instrument(skip(self, request), err)]
-    pub fn explain_memory_search(
-        &self,
-        request: VantaMemorySearchRequest,
-    ) -> Result<VantaSearchExplanation> {
+    pub fn explain_memory_search(&self, request: MemorySearchRequest) -> Result<SearchExplanation> {
         validate_namespace(&request.namespace)?;
         validate_metadata(&request.filters)?;
 
@@ -40,7 +37,7 @@ impl VantaEmbedded {
             SearchProfileMode::Hybrid => {}
         }
         if request.top_k == 0 {
-            return Ok(VantaSearchExplanation {
+            return Ok(SearchExplanation {
                 route: "empty".to_string(),
                 hits: Vec::new(),
                 fusion_report: None,
@@ -51,10 +48,10 @@ impl VantaEmbedded {
         #[allow(clippy::type_complexity)]
         let (route, hits, text_ranks, vector_ranks, fusion_report): (
             String,
-            Vec<VantaMemorySearchHit>,
+            Vec<MemorySearchHit>,
             BTreeMap<(String, String), usize>,
             BTreeMap<(String, String), usize>,
-            Option<VantaHybridFusionReport>,
+            Option<HybridFusionReport>,
         ) = match (text_query, has_vector, query_sparse) {
             (Some(text_query), true, _) => {
                 let budget = crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
@@ -194,7 +191,7 @@ impl VantaEmbedded {
                 )
             }
             (None, false, _) => {
-                return Ok(VantaSearchExplanation {
+                return Ok(SearchExplanation {
                     route: "empty".to_string(),
                     hits: Vec::new(),
                     fusion_report: None,
@@ -207,7 +204,7 @@ impl VantaEmbedded {
             .map(|hit| debug::explain_hit(&engine, hit, text_query, &text_ranks, &vector_ranks))
             .collect::<Result<Vec<_>>>()?;
 
-        Ok(VantaSearchExplanation {
+        Ok(SearchExplanation {
             route,
             hits: explained_hits,
             fusion_report,

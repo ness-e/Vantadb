@@ -11,8 +11,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Barrier};
 use std::thread;
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
-use vantadb::error::VantaError;
+use vantadb::config::Config;
+use vantadb::error::Error;
 use vantadb::executor::Executor;
 use vantadb::node::{FieldValue, UnifiedNode};
 use vantadb::query::{DeleteStatement, InsertStatement, RelateStatement, Statement};
@@ -20,9 +20,9 @@ use vantadb::storage::{BackendKind, StorageEngine};
 
 // ── REGR-01: Stale mmap handle after HNSW compact_layout ──────────
 //
-// Fixed in 8a2ae8a: `VantaFile::replace_backing_file()` added.
+// Fixed in 8a2ae8a: `File::replace_backing_file()` added.
 // Bug: after `compact_layout_bfs`, the backing file was renamed but the
-// VantaFile held the old mmap handle, causing stale reads or SIGBUS.
+// File held the old mmap handle, causing stale reads or SIGBUS.
 // Fix: re-open the file and re-map via `replace_backing_file`.
 
 #[test]
@@ -30,7 +30,7 @@ fn compact_layout_does_not_stale_mmap() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -82,7 +82,7 @@ fn compact_layout_preserves_insert_search_afterwards() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -127,7 +127,7 @@ fn compact_layout_preserves_insert_search_afterwards() {
 //
 // Fixed in 56dd065: error variant changed from `IqlError` to `NotFound`.
 // Bug: relating to a non-existent node returned IqlError with "Topological Axiom violated".
-// Fix: use `VantaError::NotFound { kind, id }` to match other not-found patterns.
+// Fix: use `Error::NotFound { kind, id }` to match other not-found patterns.
 
 #[test]
 fn ghost_node_relation_returns_not_found() {
@@ -157,7 +157,7 @@ fn ghost_node_relation_returns_not_found() {
     assert!(result.is_err(), "relation to ghost node must be rejected");
 
     match result.unwrap_err() {
-        VantaError::NotFound { kind, id } => {
+        Error::NotFound { kind, id } => {
             assert_eq!(kind, "target_node", "error kind should be target_node");
             assert_eq!(id, "999", "error should reference ghost id");
         }
@@ -207,7 +207,7 @@ fn tombstone_node_relation_returns_not_found() {
         "relation to tombstoned node must be rejected"
     );
     assert!(
-        matches!(result.unwrap_err(), VantaError::NotFound { .. }),
+        matches!(result.unwrap_err(), Error::NotFound { .. }),
         "tombstone relation should return NotFound"
     );
 }
@@ -223,7 +223,7 @@ fn concurrent_read_write_parity() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -272,7 +272,7 @@ fn concurrent_rebuild_rcu_no_crash() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -322,7 +322,7 @@ fn large_metadata_string_roundtrip() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -369,7 +369,7 @@ fn separate_tempdirs_do_not_interfere() {
     let dir_a = tempdir().unwrap();
     let dir_b = tempdir().unwrap();
 
-    let cfg = VantaConfig {
+    let cfg = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -540,7 +540,7 @@ fn read_only_engine_rejects_write_operations() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let write_cfg = VantaConfig {
+    let write_cfg = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -549,7 +549,7 @@ fn read_only_engine_rejects_write_operations() {
     writable.flush().unwrap();
     drop(writable);
 
-    let ro_cfg = VantaConfig {
+    let ro_cfg = Config {
         backend_kind: BackendKind::Fjall,
         read_only: true,
         ..Default::default()
@@ -558,13 +558,13 @@ fn read_only_engine_rejects_write_operations() {
 
     let err = engine.insert(&UnifiedNode::new(2)).unwrap_err();
     assert!(
-        matches!(err, VantaError::ValidationError { .. }),
+        matches!(err, Error::ValidationError { .. }),
         "read-only insert should return ValidationError, got: {err:?}"
     );
 
     let err = engine.compact_layout_bfs().unwrap_err();
     assert!(
-        matches!(err, VantaError::ValidationError { .. }),
+        matches!(err, Error::ValidationError { .. }),
         "read-only compact_layout should return ValidationError, got: {err:?}"
     );
 }

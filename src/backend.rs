@@ -124,7 +124,7 @@ pub struct BackendCapabilities {
 /// Abstraction over the persistent KV store used by `StorageEngine`.
 ///
 /// Covers only the operations that `StorageEngine` actually needs.
-/// Does **not** include HNSW, VantaFile, WAL, or any higher-level
+/// Does **not** include HNSW, File, WAL, or any higher-level
 /// engine logic — those remain in `StorageEngine` directly.
 ///
 /// This trait is crate-internal and should not be exposed publicly.

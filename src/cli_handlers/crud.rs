@@ -38,9 +38,10 @@ pub fn cmd_put(
             Err(e) => {
                 spinner.finish_and_clear();
                 print_error(&format!("Invalid vector format: {}", e));
-                return Err(crate::error::VantaError::CliError(ChainedError::msg(
-                    format!("Vector must be comma-separated f32 values: {}", e),
-                )));
+                return Err(crate::error::Error::CliError(ChainedError::msg(format!(
+                    "Vector must be comma-separated f32 values: {}",
+                    e
+                ))));
             }
         }
     } else {
@@ -93,14 +94,14 @@ pub fn cmd_put(
         let parsed: serde_json::Value = serde_json::from_str(meta_str).map_err(|e| {
             spinner.finish_and_clear();
             print_error(&format!("Invalid metadata JSON: {e}"));
-            crate::error::VantaError::CliError(ChainedError::msg(format!(
+            crate::error::Error::CliError(ChainedError::msg(format!(
                 "Metadata must be a JSON object, e.g. '{{\"k\":\"v\"}}': {e}"
             )))
         })?;
         let obj = parsed.as_object().ok_or_else(|| {
             spinner.finish_and_clear();
             print_error("Metadata must be a JSON object at the root level");
-            crate::error::VantaError::CliError(ChainedError::msg(
+            crate::error::Error::CliError(ChainedError::msg(
                 "Metadata must be a JSON object at the root level, e.g. '{\"k\":\"v\"}'",
             ))
         })?;
@@ -110,7 +111,7 @@ pub fn cmd_put(
                 print_error(&format!(
                     "Metadata key '{field}' is reserved for VantaDB internals"
                 ));
-                return Err(crate::error::VantaError::ValidationError {
+                return Err(crate::error::Error::ValidationError {
                     field: "metadata".into(),
                     reason: format!("metadata key '{field}' is reserved for VantaDB internals"),
                 });
@@ -245,7 +246,7 @@ pub fn cmd_get(db_path: &str, namespace: &str, key: &str, verbose: bool) -> Resu
         None => {
             spinner.finish_and_clear();
             print_error(&format!("Record not found: {}:{}", namespace, key));
-            Err(crate::error::VantaError::NodeNotFound(node_id))
+            Err(crate::error::Error::NodeNotFound(node_id))
         }
     }
 }
@@ -385,7 +386,7 @@ pub fn cmd_delete(db_path: &str, namespace: &str, key: &str, verbose: bool) -> R
     Ok(())
 }
 
-/// Parse a JSON filter string (MongoDB-like) into a `VantaMemoryFilter`.
+/// Parse a JSON filter string (MongoDB-like) into a `MemoryFilter`.
 ///
 /// Accepts BOTH formats (AUD-048, unified semantics with the MCP channel):
 /// - Operator objects: `{"field": {"$eq": "value"}, "score": {"$gte": 50}}`
@@ -393,16 +394,14 @@ pub fn cmd_delete(db_path: &str, namespace: &str, key: &str, verbose: bool) -> R
 ///   `{"field": "value", "score": 50}`
 pub(crate) fn parse_filter_json(
     filter_str: &str,
-) -> crate::error::Result<crate::sdk::VantaMemoryFilter> {
-    use crate::sdk::{VantaFilterOp, VantaMemoryFilterItem};
+) -> crate::error::Result<crate::sdk::MemoryFilter> {
+    use crate::sdk::{FilterOp, MemoryFilterItem};
 
     let root: serde_json::Value = serde_json::from_str(filter_str)
-        .map_err(|e| crate::error::VantaError::InvalidInput(format!("Invalid filter JSON: {e}")))?;
+        .map_err(|e| crate::error::Error::InvalidInput(format!("Invalid filter JSON: {e}")))?;
 
     let obj = root.as_object().ok_or_else(|| {
-        crate::error::VantaError::InvalidInput(
-            "Filter must be a JSON object at the root level".into(),
-        )
+        crate::error::Error::InvalidInput("Filter must be a JSON object at the root level".into())
     })?;
 
     let mut items = Vec::new();
@@ -411,9 +410,9 @@ pub(crate) fn parse_filter_json(
             // AUD-048: flat value → implicit equality, matching the MCP
             // channel's published flat semantics `{"field": value}`.
             let value = json_to_vanta_value(spec)?;
-            items.push(VantaMemoryFilterItem {
+            items.push(MemoryFilterItem {
                 field: field.clone(),
-                op: VantaFilterOp::Eq,
+                op: FilterOp::Eq,
                 value,
             });
             continue;
@@ -421,20 +420,20 @@ pub(crate) fn parse_filter_json(
 
         for (op_str, val_json) in spec_obj {
             let op = match op_str.as_str() {
-                "$eq" => VantaFilterOp::Eq,
-                "$neq" => VantaFilterOp::Neq,
-                "$gt" => VantaFilterOp::Gt,
-                "$gte" => VantaFilterOp::Gte,
-                "$lt" => VantaFilterOp::Lt,
-                "$lte" => VantaFilterOp::Lte,
+                "$eq" => FilterOp::Eq,
+                "$neq" => FilterOp::Neq,
+                "$gt" => FilterOp::Gt,
+                "$gte" => FilterOp::Gte,
+                "$lt" => FilterOp::Lt,
+                "$lte" => FilterOp::Lte,
                 other => {
-                    return Err(crate::error::VantaError::InvalidInput(format!(
+                    return Err(crate::error::Error::InvalidInput(format!(
                     "Unknown filter operator '{other}'. Supported: $eq, $neq, $gt, $gte, $lt, $lte"
                 )))
                 }
             };
             let value = json_to_vanta_value(val_json)?;
-            items.push(VantaMemoryFilterItem {
+            items.push(MemoryFilterItem {
                 field: field.clone(),
                 op,
                 value,
@@ -444,23 +443,23 @@ pub(crate) fn parse_filter_json(
     Ok(items)
 }
 
-fn json_to_vanta_value(v: &serde_json::Value) -> crate::error::Result<crate::sdk::VantaValue> {
-    use crate::sdk::VantaValue;
+fn json_to_vanta_value(v: &serde_json::Value) -> crate::error::Result<crate::sdk::Value> {
+    use crate::sdk::Value;
     match v {
-        serde_json::Value::String(s) => Ok(VantaValue::String(s.clone())),
+        serde_json::Value::String(s) => Ok(Value::String(s.clone())),
         serde_json::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
-                Ok(VantaValue::Int(i))
+                Ok(Value::Int(i))
             } else if let Some(f) = n.as_f64() {
-                Ok(VantaValue::Float(f))
+                Ok(Value::Float(f))
             } else {
-                Err(crate::error::VantaError::InvalidInput(format!(
-                    "Cannot convert number {n} to VantaValue"
+                Err(crate::error::Error::InvalidInput(format!(
+                    "Cannot convert number {n} to Value"
                 )))
             }
         }
-        serde_json::Value::Bool(b) => Ok(VantaValue::Bool(*b)),
-        other => Err(crate::error::VantaError::InvalidInput(format!(
+        serde_json::Value::Bool(b) => Ok(Value::Bool(*b)),
+        other => Err(crate::error::Error::InvalidInput(format!(
             "Unsupported filter value type: {other}. Use string, number, or bool."
         ))),
     }

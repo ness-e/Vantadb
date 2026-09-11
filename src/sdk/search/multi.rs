@@ -1,8 +1,8 @@
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::serialization::validate_namespace;
-use super::super::types::VantaMemorySearchRequest;
+use super::super::types::MemorySearchRequest;
 
-impl VantaEmbedded {
+impl Embedded {
     /// Search across **multiple namespaces** with a single request.
     ///
     /// The `namespace` field on `request` is ignored; instead, every namespace
@@ -20,18 +20,18 @@ impl VantaEmbedded {
     pub fn search_multi(
         &self,
         namespaces: &[&str],
-        request: VantaMemorySearchRequest,
-    ) -> crate::Result<Vec<crate::sdk::types::VantaMemorySearchHit>> {
+        request: MemorySearchRequest,
+    ) -> crate::Result<Vec<crate::sdk::types::MemorySearchHit>> {
         if namespaces.is_empty() || request.top_k == 0 {
             return Ok(Vec::new());
         }
 
-        let mut all_hits: Vec<crate::sdk::types::VantaMemorySearchHit> = Vec::new();
+        let mut all_hits: Vec<crate::sdk::types::MemorySearchHit> = Vec::new();
 
         for &ns in namespaces {
             // Build a per-namespace request by cloning the prototype and
             // overwriting the namespace field.
-            let ns_req = VantaMemorySearchRequest {
+            let ns_req = MemorySearchRequest {
                 namespace: ns.to_string(),
                 ..request.clone()
             };
@@ -74,8 +74,8 @@ impl VantaEmbedded {
     /// Propagates any engine error from `list_namespaces` or `search_multi`.
     pub fn search_all(
         &self,
-        request: VantaMemorySearchRequest,
-    ) -> crate::Result<Vec<crate::sdk::types::VantaMemorySearchHit>> {
+        request: MemorySearchRequest,
+    ) -> crate::Result<Vec<crate::sdk::types::MemorySearchHit>> {
         let namespaces = self.list_namespaces()?;
         if namespaces.is_empty() {
             return Ok(Vec::new());

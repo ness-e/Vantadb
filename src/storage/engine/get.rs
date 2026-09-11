@@ -77,7 +77,7 @@ impl StorageEngine {
             let active = self.active_txns.lock();
             if active.len() == 1 {
                 let txn_id = active.iter().next().copied().ok_or_else(|| {
-                    crate::error::VantaError::generic_error(
+                    crate::error::Error::generic_error(
                         "active transaction set corrupted: len()==1 but no txn id".to_string(),
                     )
                 })?;
@@ -150,7 +150,7 @@ impl StorageEngine {
             .vector_store
             .get(seg_id as usize)
             .ok_or_else(|| {
-                crate::error::VantaError::generic_error(format!(
+                crate::error::Error::generic_error(format!(
                     "corrupt storage: segment {seg_id} out of range for node {id}"
                 ))
             })?
@@ -453,7 +453,7 @@ impl StorageEngine {
             std::collections::HashMap::with_capacity(backend_results.len());
         for (k, v) in backend_results {
             let key_slice: [u8; 16] = k.as_slice().try_into().map_err(|_| {
-                crate::error::VantaError::backend_error(format!(
+                crate::error::Error::backend_error(format!(
                     "corrupt backend: key length {} != 16",
                     k.len()
                 ))
@@ -487,7 +487,7 @@ impl StorageEngine {
                 .vector_store
                 .get(seg_id as usize)
                 .ok_or_else(|| {
-                    crate::error::VantaError::generic_error(format!(
+                    crate::error::Error::generic_error(format!(
                         "corrupt storage: segment {seg_id} out of range for node {id}"
                     ))
                 })?

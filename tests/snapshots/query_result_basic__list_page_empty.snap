@@ -2,7 +2,7 @@
 source: tests/query_result_basic.rs
 expression: page
 ---
-VantaMemoryListPage {
+MemoryListPage {
     records: [],
     next_cursor: None,
 }

@@ -11,14 +11,14 @@ mod common;
 use common::{TerminalReporter, VantaSession};
 use std::fs;
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::{BackendKind, StorageEngine};
 
 // ─── HELPER: Open Engine ──────────────────────────────────────
 
 fn open_engine(path: &str) -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -121,7 +121,7 @@ fn test_index_reconstruction_from_storage() {
     }
 
     // PHASE 3: Reopen and Rebuild
-    session.step("Phase 3: Restarting engine (should trigger rebuild from KV/VantaFile)");
+    session.step("Phase 3: Restarting engine (should trigger rebuild from KV/File)");
     {
         let engine = open_engine(db_path);
 

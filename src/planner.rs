@@ -4,7 +4,7 @@
 //! Search planner for VantaDB hybrid retrieval.
 //!
 //! This module owns the routing logic, RRF fusion constants, and candidate
-//! budget derivation that drive `VantaEmbedded::search`. Extracting these
+//! budget derivation that drive `Embedded::search`. Extracting these
 //! here keeps `sdk.rs` focused on orchestration while making the planner
 //! independently testable.
 //!
@@ -20,9 +20,7 @@ use std::collections::BTreeMap;
 
 use crate::node::FieldValue;
 use crate::query::RelOp;
-use crate::sdk::{
-    SearchProfileMode, VantaHybridFusionReport, VantaMemorySearchHit, VantaMemorySearchRequest,
-};
+use crate::sdk::{HybridFusionReport, MemorySearchHit, MemorySearchRequest, SearchProfileMode};
 
 // ── RRF constants ─────────────────────────────────────────────────────────
 
@@ -111,7 +109,7 @@ pub fn hybrid_candidate_budget(top_k: usize, candidate_k: Option<usize>) -> usiz
 /// Devuelve `(rrf_k, candidate_k)` efectivos: los valores del
 /// [`SearchProfileConfig`](crate::sdk::SearchProfileConfig) si están presentes,
 /// o las constantes core (`RRF_K`, `hybrid_candidate_budget`) en caso contrario.
-pub fn resolve_search_profile(request: &VantaMemorySearchRequest) -> (f32, Option<usize>) {
+pub fn resolve_search_profile(request: &MemorySearchRequest) -> (f32, Option<usize>) {
     let profile = request.search_profile;
     let rrf_k = profile
         .and_then(|p| p.rrf_k)
@@ -122,14 +120,14 @@ pub fn resolve_search_profile(request: &VantaMemorySearchRequest) -> (f32, Optio
 }
 
 /// Modo de búsqueda efectivo de un request (default `Hybrid`, MEM-01).
-pub fn search_mode(request: &VantaMemorySearchRequest) -> SearchProfileMode {
+pub fn search_mode(request: &MemorySearchRequest) -> SearchProfileMode {
     request.search_profile.map(|p| p.mode).unwrap_or_default()
 }
 
 // ── Normalised request fields ─────────────────────────────────────────────
 
 /// Extract the trimmed, non-empty text query from a search request.
-pub fn trimmed_text_query(request: &VantaMemorySearchRequest) -> Option<&str> {
+pub fn trimmed_text_query(request: &MemorySearchRequest) -> Option<&str> {
     request
         .text_query
         .as_deref()
@@ -146,17 +144,17 @@ pub fn trimmed_text_query(request: &VantaMemorySearchRequest) -> Option<&str> {
 /// from both rankings. The returned list is sorted descending by score,
 /// with ties broken by `key` then `node_id` for determinism.
 pub fn fuse_rrf(
-    lexical_hits: Vec<VantaMemorySearchHit>,
-    vector_hits: Vec<VantaMemorySearchHit>,
+    lexical_hits: Vec<MemorySearchHit>,
+    vector_hits: Vec<MemorySearchHit>,
     rrf_k: f32,
-) -> Vec<VantaMemorySearchHit> {
+) -> Vec<MemorySearchHit> {
     tracing::debug!(
         "Fusing lexical candidates ({}) and vector candidates ({}) with RRF_K = {}",
         lexical_hits.len(),
         vector_hits.len(),
         rrf_k
     );
-    let mut fused: BTreeMap<(String, String), VantaMemorySearchHit> = BTreeMap::new();
+    let mut fused: BTreeMap<(String, String), MemorySearchHit> = BTreeMap::new();
     apply_rrf_contributions(&mut fused, lexical_hits, rrf_k);
     apply_rrf_contributions(&mut fused, vector_hits, rrf_k);
 
@@ -170,11 +168,8 @@ pub fn fuse_rrf(
 /// ...) via reciprocal rank fusion. Each channel contributes RRF score by rank;
 /// hits appearing in several channels accumulate contributions. Sorted
 /// descending by score with deterministic tie-breaking (see `sort_hits`).
-pub fn fuse_rrf_many(
-    channels: Vec<Vec<VantaMemorySearchHit>>,
-    rrf_k: f32,
-) -> Vec<VantaMemorySearchHit> {
-    let mut fused: BTreeMap<(String, String), VantaMemorySearchHit> = BTreeMap::new();
+pub fn fuse_rrf_many(channels: Vec<Vec<MemorySearchHit>>, rrf_k: f32) -> Vec<MemorySearchHit> {
+    let mut fused: BTreeMap<(String, String), MemorySearchHit> = BTreeMap::new();
     for channel in channels {
         apply_rrf_contributions(&mut fused, channel, rrf_k);
     }
@@ -183,14 +178,14 @@ pub fn fuse_rrf_many(
     hits
 }
 pub fn fuse_rrf_with_report(
-    lexical_hits: Vec<VantaMemorySearchHit>,
-    vector_hits: Vec<VantaMemorySearchHit>,
+    lexical_hits: Vec<MemorySearchHit>,
+    vector_hits: Vec<MemorySearchHit>,
     rrf_k: f32,
-) -> (Vec<VantaMemorySearchHit>, VantaHybridFusionReport) {
+) -> (Vec<MemorySearchHit>, HybridFusionReport) {
     let text_candidates = lexical_hits.len();
     let vector_candidates = vector_hits.len();
     let fused_hits = fuse_rrf(lexical_hits, vector_hits, rrf_k);
-    let report = VantaHybridFusionReport {
+    let report = HybridFusionReport {
         text_candidates,
         vector_candidates,
         fused_candidates: fused_hits.len(),
@@ -200,8 +195,8 @@ pub fn fuse_rrf_with_report(
 }
 
 fn apply_rrf_contributions(
-    fused: &mut BTreeMap<(String, String), VantaMemorySearchHit>,
-    hits: Vec<VantaMemorySearchHit>,
+    fused: &mut BTreeMap<(String, String), MemorySearchHit>,
+    hits: Vec<MemorySearchHit>,
     rrf_k: f32,
 ) {
     for (rank, hit) in hits.into_iter().enumerate() {
@@ -210,7 +205,7 @@ fn apply_rrf_contributions(
         fused
             .entry(identity)
             .and_modify(|existing| existing.score += contribution)
-            .or_insert_with(|| VantaMemorySearchHit {
+            .or_insert_with(|| MemorySearchHit {
                 record: hit.record,
                 score: contribution,
                 explanation: None,
@@ -221,7 +216,7 @@ fn apply_rrf_contributions(
 // ── Sorting ───────────────────────────────────────────────────────────────
 
 /// Sort hits descending by score; ties broken by `key` then `node_id`.
-pub fn sort_hits(hits: &mut [VantaMemorySearchHit]) {
+pub fn sort_hits(hits: &mut [MemorySearchHit]) {
     hits.sort_by(|a, b| {
         b.score
             .partial_cmp(&a.score)
@@ -522,14 +517,14 @@ mod tests {
 
     // ── RRF fusion ───────────────────────────────────────────────────────
 
-    fn make_hit(ns: &str, key: &str, score: f32, node_id: u128) -> VantaMemorySearchHit {
-        use crate::sdk::{VantaMemoryMetadata, VantaMemoryRecord};
-        VantaMemorySearchHit {
-            record: VantaMemoryRecord {
+    fn make_hit(ns: &str, key: &str, score: f32, node_id: u128) -> MemorySearchHit {
+        use crate::sdk::{MemoryMetadata, MemoryRecord};
+        MemorySearchHit {
+            record: MemoryRecord {
                 namespace: ns.to_string(),
                 key: key.to_string(),
                 payload: String::new(),
-                metadata: VantaMemoryMetadata::new(),
+                metadata: MemoryMetadata::new(),
                 created_at_ms: 0,
                 updated_at_ms: 0,
                 expires_at_ms: Some(0),
@@ -592,7 +587,7 @@ mod tests {
 
     #[test]
     fn trimmed_text_query_none() {
-        let req = VantaMemorySearchRequest {
+        let req = MemorySearchRequest {
             text_query: None,
             ..Default::default()
         };
@@ -601,7 +596,7 @@ mod tests {
 
     #[test]
     fn trimmed_text_query_empty() {
-        let req = VantaMemorySearchRequest {
+        let req = MemorySearchRequest {
             text_query: Some(String::new()),
             ..Default::default()
         };
@@ -610,7 +605,7 @@ mod tests {
 
     #[test]
     fn trimmed_text_query_whitespace() {
-        let req = VantaMemorySearchRequest {
+        let req = MemorySearchRequest {
             text_query: Some("   ".into()),
             ..Default::default()
         };
@@ -619,7 +614,7 @@ mod tests {
 
     #[test]
     fn trimmed_text_query_valid() {
-        let req = VantaMemorySearchRequest {
+        let req = MemorySearchRequest {
             text_query: Some("hello world".into()),
             ..Default::default()
         };
@@ -628,7 +623,7 @@ mod tests {
 
     #[test]
     fn trimmed_text_query_trims_input() {
-        let req = VantaMemorySearchRequest {
+        let req = MemorySearchRequest {
             text_query: Some("  query  ".into()),
             ..Default::default()
         };
@@ -680,7 +675,7 @@ mod tests {
 
     #[test]
     fn resolve_search_profile_defaults_to_core_constants() {
-        let req = VantaMemorySearchRequest::default();
+        let req = MemorySearchRequest::default();
         let (rrf_k, candidate_k) = resolve_search_profile(&req);
         assert_eq!(rrf_k, RRF_K);
         assert_eq!(candidate_k, None);
@@ -689,7 +684,7 @@ mod tests {
     #[test]
     fn resolve_search_profile_uses_profile_values() {
         use crate::sdk::SearchProfileConfig;
-        let req = VantaMemorySearchRequest {
+        let req = MemorySearchRequest {
             search_profile: Some(SearchProfileConfig {
                 rrf_k: Some(100),
                 candidate_k: Some(128),
@@ -750,7 +745,7 @@ mod tests {
 
     #[test]
     fn sort_hits_empty_list() {
-        let mut hits: Vec<VantaMemorySearchHit> = vec![];
+        let mut hits: Vec<MemorySearchHit> = vec![];
         sort_hits(&mut hits);
         assert!(hits.is_empty());
     }
@@ -761,12 +756,12 @@ mod tests {
 
     #[test]
     fn optimize_and_compile_scan_only_produces_working_operator() {
-        use crate::config::VantaConfig;
+        use crate::config::Config;
         use crate::storage::{BackendKind, StorageEngine};
         use tempfile::tempdir;
 
         let dir = tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };
@@ -788,14 +783,14 @@ mod tests {
 
     #[test]
     fn optimize_and_compile_scan_with_filter() {
-        use crate::config::VantaConfig;
+        use crate::config::Config;
         use crate::node::{FieldValue, UnifiedNode};
         use crate::query::RelOp;
         use crate::storage::{BackendKind, StorageEngine};
         use tempfile::tempdir;
 
         let dir = tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };
@@ -832,14 +827,14 @@ mod tests {
 
     #[test]
     fn optimize_and_compile_scan_filter_no_match() {
-        use crate::config::VantaConfig;
+        use crate::config::Config;
         use crate::node::{FieldValue, UnifiedNode};
         use crate::query::RelOp;
         use crate::storage::{BackendKind, StorageEngine};
         use tempfile::tempdir;
 
         let dir = tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };
@@ -879,14 +874,14 @@ mod tests {
         // CBO Rule 2: a filter with selectivity ≈ 1.0 should be skipped.
         // Insert one node; a filter on `type = doc` matches all rows
         // (selectivity = 1/1 = 1.0) → the optimizer should eliminate it.
-        use crate::config::VantaConfig;
+        use crate::config::Config;
         use crate::node::{FieldValue, UnifiedNode};
         use crate::query::RelOp;
         use crate::storage::{BackendKind, StorageEngine};
         use tempfile::tempdir;
 
         let dir = tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };
@@ -928,13 +923,13 @@ mod tests {
 
     #[test]
     fn optimize_and_compile_with_sort_limit_project() {
-        use crate::config::VantaConfig;
+        use crate::config::Config;
         use crate::node::{FieldValue, UnifiedNode};
         use crate::storage::{BackendKind, StorageEngine};
         use tempfile::tempdir;
 
         let dir = tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };

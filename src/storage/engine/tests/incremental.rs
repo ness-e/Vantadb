@@ -9,12 +9,10 @@
 use super::super::*;
 use super::in_memory_engine;
 use crate::backend::BackendKind;
-use crate::config::VantaConfig;
+use crate::config::Config;
 use crate::index::VecIndex;
 use crate::node::{DistanceMetric, UnifiedNode, ALL_BITSET};
-use crate::sdk::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest,
-};
+use crate::sdk::{Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest};
 use crate::storage::engine::{BatchInsertOptions, InsertMode};
 
 const DIMS: usize = 8;
@@ -187,17 +185,17 @@ fn test_incremental_explicit_rebuild() {
 
 #[test]
 fn test_incremental_put_batch_small() {
-    let db = VantaEmbedded::open_with_config(VantaConfig {
+    let db = Embedded::open_with_config(Config {
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     })
-    .expect("open VantaEmbedded");
+    .expect("open Embedded");
 
     let n = 50;
-    let inputs: Vec<VantaMemoryInput> = (0..n)
+    let inputs: Vec<MemoryInput> = (0..n)
         .map(|i| {
             let mut input =
-                VantaMemoryInput::new("inc_test", format!("key_{}", i), format!("payload_{}", i));
+                MemoryInput::new("inc_test", format!("key_{}", i), format!("payload_{}", i));
             input.vector = Some(make_vector(i as u128, DIMS));
             input
         })
@@ -226,17 +224,17 @@ fn test_incremental_put_batch_small() {
 
 #[test]
 fn test_incremental_put_batch_large() {
-    let db = VantaEmbedded::open_with_config(VantaConfig {
+    let db = Embedded::open_with_config(Config {
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     })
-    .expect("open VantaEmbedded");
+    .expect("open Embedded");
 
     let n = 1500;
-    let inputs: Vec<VantaMemoryInput> = (0..n)
+    let inputs: Vec<MemoryInput> = (0..n)
         .map(|i| {
             let mut input =
-                VantaMemoryInput::new("inc_test", format!("key_{}", i), format!("payload_{}", i));
+                MemoryInput::new("inc_test", format!("key_{}", i), format!("payload_{}", i));
             input.vector = Some(make_vector(i as u128, DIMS));
             input
         })
@@ -329,16 +327,16 @@ fn test_incremental_recall_parity() {
 
 #[test]
 fn test_put_batch_list_count_text_consistent() {
-    let db = VantaEmbedded::open_with_config(VantaConfig {
+    let db = Embedded::open_with_config(Config {
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     })
-    .expect("open VantaEmbedded");
+    .expect("open Embedded");
 
     let n = 1200;
-    let inputs: Vec<VantaMemoryInput> = (0..n)
+    let inputs: Vec<MemoryInput> = (0..n)
         .map(|i| {
-            let mut input = VantaMemoryInput::new(
+            let mut input = MemoryInput::new(
                 "inc_test",
                 format!("key_{}", i),
                 format!("alpha payload {}", i),
@@ -354,7 +352,7 @@ fn test_put_batch_list_count_text_consistent() {
     let page = db
         .list(
             "inc_test",
-            VantaMemoryListOptions {
+            MemoryListOptions {
                 limit: 2000,
                 ..Default::default()
             },
@@ -373,7 +371,7 @@ fn test_put_batch_list_count_text_consistent() {
     );
 
     let hits = db
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "inc_test".into(),
             text_query: Some("payload".into()),
             top_k: 5,

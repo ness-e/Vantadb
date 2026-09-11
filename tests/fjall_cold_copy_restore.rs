@@ -9,14 +9,14 @@
 
 use std::collections::BTreeMap;
 use tempfile::tempdir;
-use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest, VantaValue};
+use vantadb::{Embedded, MemoryInput, MemorySearchRequest, Value};
 
-fn input(namespace: &str, key: &str, payload: &str) -> VantaMemoryInput {
-    VantaMemoryInput::new(namespace, key, payload)
+fn input(namespace: &str, key: &str, payload: &str) -> MemoryInput {
+    MemoryInput::new(namespace, key, payload)
 }
 
-fn input_with_vector(namespace: &str, key: &str, payload: &str, vec: Vec<f32>) -> VantaMemoryInput {
-    let mut inp = VantaMemoryInput::new(namespace, key, payload);
+fn input_with_vector(namespace: &str, key: &str, payload: &str, vec: Vec<f32>) -> MemoryInput {
+    let mut inp = MemoryInput::new(namespace, key, payload);
     inp.vector = Some(vec);
     inp
 }
@@ -26,22 +26,22 @@ fn input_with_meta(
     key: &str,
     payload: &str,
     vec: Vec<f32>,
-    meta: BTreeMap<String, VantaValue>,
-) -> VantaMemoryInput {
-    let mut inp = VantaMemoryInput::new(namespace, key, payload);
+    meta: BTreeMap<String, Value>,
+) -> MemoryInput {
+    let mut inp = MemoryInput::new(namespace, key, payload);
     inp.vector = Some(vec);
     inp.metadata = meta;
     inp
 }
 
 fn search_keys(
-    db: &VantaEmbedded,
+    db: &Embedded,
     namespace: &str,
     text_query: Option<&str>,
     query_vector: Vec<f32>,
     top_k: usize,
 ) -> Vec<String> {
-    db.search(VantaMemorySearchRequest {
+    db.search(MemorySearchRequest {
         namespace: namespace.to_string(),
         query_vector,
         filters: Default::default(),
@@ -77,7 +77,7 @@ fn fjall_cold_copy_restore_preserves_all_retrieval_paths() {
 
     // ── Phase 1: Seed source database ──────────────────────────────
     {
-        let db = VantaEmbedded::open(source_dir.path()).expect("open source");
+        let db = Embedded::open(source_dir.path()).expect("open source");
 
         // Records with vectors + text for hybrid search
         db.put(input_with_vector(
@@ -106,7 +106,7 @@ fn fjall_cold_copy_restore_preserves_all_retrieval_paths() {
 
         // Record with metadata for filtered search
         let mut meta = BTreeMap::new();
-        meta.insert("category".to_string(), VantaValue::String("task".into()));
+        meta.insert("category".to_string(), Value::String("task".into()));
         db.put(input_with_meta(
             "agent/main",
             "meta-rec",
@@ -148,7 +148,7 @@ fn fjall_cold_copy_restore_preserves_all_retrieval_paths() {
     copy_dir_all(source_dir.path(), &restore_path);
 
     // ── Phase 3: Open restored copy and validate ────────────────────
-    let restored = VantaEmbedded::open(&restore_path).expect("open restored");
+    let restored = Embedded::open(&restore_path).expect("open restored");
 
     // 3a. Canonical record retrieval
     let alpha = restored

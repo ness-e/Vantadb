@@ -7,14 +7,14 @@
 use std::collections::HashMap;
 use tempfile::tempdir;
 use vantadb::agentic::ThreadStore;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::gc::GcWorker;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::sdk::Embedded;
 use vantadb::storage::{BackendKind, StorageEngine};
 
 fn setup_engine() -> (StorageEngine, tempfile::TempDir) {
     let dir = tempdir().expect("tempdir");
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     };
@@ -23,13 +23,13 @@ fn setup_engine() -> (StorageEngine, tempfile::TempDir) {
     (engine, dir)
 }
 
-fn setup_embedded() -> (VantaEmbedded, tempfile::TempDir) {
+fn setup_embedded() -> (Embedded, tempfile::TempDir) {
     let dir = tempdir().expect("tempdir");
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     };
-    let db = VantaEmbedded::open_with_config(config.clone()).expect("open");
+    let db = Embedded::open_with_config(config.clone()).expect("open");
     (db, dir)
 }
 

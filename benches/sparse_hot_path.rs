@@ -12,8 +12,8 @@ use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use std::hint::black_box;
 use tempfile::TempDir;
 use vantadb::{
-    SparseVector, VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata, VantaMemoryRecord,
-    VantaMemorySearchHit, VantaMemorySearchRequest,
+    Embedded, MemoryInput, MemoryMetadata, MemoryRecord, MemorySearchHit, MemorySearchRequest,
+    SparseVector,
 };
 
 const VOCAB: u32 = 2000;
@@ -42,14 +42,14 @@ fn build_sparse(rng_seed: usize) -> SparseVector {
 
 struct Fixture {
     _dir: TempDir,
-    db: VantaEmbedded,
+    db: Embedded,
 }
 
 fn build_fixture() -> Fixture {
     let dir = tempfile::tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open bench db");
+    let db = Embedded::open(dir.path()).expect("open bench db");
     for i in 0..N_DOCS {
-        let mut input = VantaMemoryInput::new(
+        let mut input = MemoryInput::new(
             "bench/sparse",
             format!("doc-{i:05}"),
             format!("sparse doc number {i}"),
@@ -69,7 +69,7 @@ fn query_sparse() -> SparseVector {
 }
 
 // Comparador exacto de crate::planner::sort_hits (orden desc, tie por key, node_id).
-fn sort_hits_sim(hits: &mut [VantaMemorySearchHit]) {
+fn sort_hits_sim(hits: &mut [MemorySearchHit]) {
     hits.sort_by(|a, b| {
         b.score
             .partial_cmp(&a.score)
@@ -80,7 +80,7 @@ fn sort_hits_sim(hits: &mut [VantaMemorySearchHit]) {
 }
 
 // Propuesta de fix candidato 2: select_nth parcial + sort solo del top-k.
-fn sort_top_k(hits: &mut Vec<VantaMemorySearchHit>, k: usize) {
+fn sort_top_k(hits: &mut Vec<MemorySearchHit>, k: usize) {
     let k = k.min(hits.len());
     if k == 0 {
         return;
@@ -102,14 +102,14 @@ fn sort_top_k(hits: &mut Vec<VantaMemorySearchHit>, k: usize) {
     hits.truncate(k);
 }
 
-fn make_hits(n: usize) -> Vec<VantaMemorySearchHit> {
+fn make_hits(n: usize) -> Vec<MemorySearchHit> {
     (0..n)
-        .map(|i| VantaMemorySearchHit {
-            record: VantaMemoryRecord {
+        .map(|i| MemorySearchHit {
+            record: MemoryRecord {
                 namespace: "bench/sparse".into(),
                 key: format!("doc-{i:05}"),
                 payload: format!("sparse doc number {i}"),
-                metadata: VantaMemoryMetadata::new(),
+                metadata: MemoryMetadata::new(),
                 created_at_ms: i as u64,
                 updated_at_ms: i as u64,
                 version: 1,
@@ -131,7 +131,7 @@ fn bench_sparse_hot_path(c: &mut Criterion) {
 
     // Número de candidatos que realmente materializa la query: fuerza sort_hits
     // sobre C candidatos, top_k=10. Lo medimos una vez con top_k grande.
-    let req_count = VantaMemorySearchRequest {
+    let req_count = MemorySearchRequest {
         namespace: "bench/sparse".into(),
         query_sparse: Some(query_sparse()),
         top_k: N_DOCS,
@@ -145,7 +145,7 @@ fn bench_sparse_hot_path(c: &mut Criterion) {
     group.sample_size(20);
     group.bench_function("search_total_top10", |b| {
         b.iter(|| {
-            let req = VantaMemorySearchRequest {
+            let req = MemorySearchRequest {
                 namespace: "bench/sparse".into(),
                 query_sparse: Some(query_sparse()),
                 top_k: TOP_K,

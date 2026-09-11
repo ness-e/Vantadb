@@ -37,7 +37,7 @@ use std::path::PathBuf;
 use std::time::Instant;
 
 use vantadb::graphrag::pipeline::GraphRagPipeline;
-use vantadb::{VantaEmbedded, VantaMemoryInput};
+use vantadb::{Embedded, MemoryInput};
 
 // ── Deterministic corpus ────────────────────────────────────────────────────
 
@@ -74,7 +74,7 @@ const TOPICS: &[&str] = &[
 /// belongs to one cluster; edges within a cluster (chain + hub) plus sparse
 /// cross-cluster edges, so expansion has real graph structure to traverse.
 fn build_corpus(
-    db: &VantaEmbedded,
+    db: &Embedded,
     ns: &str,
     n: usize,
     n_topics: usize,
@@ -108,7 +108,7 @@ fn build_corpus(
             rng.next_u64() % 1000
         );
 
-        let mut input = VantaMemoryInput::new(ns, format!("doc-{i}"), &content);
+        let mut input = MemoryInput::new(ns, format!("doc-{i}"), &content);
         input.vector = Some(vec);
         let node_id = db.put(input).expect("put").node_id;
         ids.push(node_id);
@@ -201,7 +201,7 @@ fn run_bench() -> Result<(), Box<dyn std::error::Error + Send + Sync>> {
     let cpu_model = env::var("PROCESSOR_IDENTIFIER").unwrap_or_else(|_| "unknown".into());
 
     let temp_dir = tempfile::tempdir()?;
-    let db = VantaEmbedded::open(temp_dir.path())?;
+    let db = Embedded::open(temp_dir.path())?;
 
     println!("=== GraphRAG benchmark (MKT-16) ===");
     println!(

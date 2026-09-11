@@ -2,7 +2,7 @@
 source: tests/query_result_basic.rs
 expression: req
 ---
-VantaMemorySearchRequest {
+MemorySearchRequest {
     namespace: "knowledge",
     query_vector: [],
     query_sparse: None,

@@ -17,7 +17,7 @@
 //! under the `scene:` key family — see [`scene::SceneNodeStore`](crate::entity::SceneNodeStore).
 
 use crate::backend::{BackendPartition, BackendWriteOp};
-use crate::error::{ChainedError, Result, VantaError};
+use crate::error::{ChainedError, Error, Result};
 use crate::node::FieldValue;
 use crate::storage::StorageEngine;
 use rand::Rng;
@@ -97,7 +97,7 @@ impl<'a> EntityStore<'a> {
             updated_at: now,
         };
         let bytes = serde_json::to_vec(&entity)
-            .map_err(|e| VantaError::serialization(ChainedError::with_source("entity", e)))?;
+            .map_err(|e| Error::serialization(ChainedError::with_source("entity", e)))?;
         self.engine.put_to_partition(
             BackendPartition::InternalMetadata,
             &entity_key(namespace, collection, entity_id),
@@ -120,7 +120,7 @@ impl<'a> EntityStore<'a> {
         )? {
             Some(bytes) => serde_json::from_slice(&bytes)
                 .map(Some)
-                .map_err(|e| VantaError::serialization(ChainedError::with_source("entity", e))),
+                .map_err(|e| Error::serialization(ChainedError::with_source("entity", e))),
             None => Ok(None),
         }
     }
@@ -165,7 +165,7 @@ impl<'a> EntityStore<'a> {
         let mut entities: Vec<Entity> = Vec::with_capacity(rows.len());
         for (_, bytes) in rows {
             let entity: Entity = serde_json::from_slice(&bytes)
-                .map_err(|e| VantaError::serialization(ChainedError::with_source("entity", e)))?;
+                .map_err(|e| Error::serialization(ChainedError::with_source("entity", e)))?;
             entities.push(entity);
         }
         entities.sort_by(|a, b| a.entity_id.cmp(&b.entity_id));
@@ -230,12 +230,12 @@ fn collection_prefix(namespace: &str, collection: &str) -> String {
 
 fn validate_scope(namespace: &str, collection: &str) -> Result<()> {
     if namespace.is_empty() || collection.is_empty() {
-        return Err(VantaError::InvalidInput(
+        return Err(Error::InvalidInput(
             "namespace and collection must be non-empty".into(),
         ));
     }
     if namespace.contains(['{', '}', ':']) || collection.contains(['{', '}', ':']) {
-        return Err(VantaError::InvalidInput(
+        return Err(Error::InvalidInput(
             "namespace and collection must not contain '{', '}' or ':'".into(),
         ));
     }
@@ -245,12 +245,10 @@ fn validate_scope(namespace: &str, collection: &str) -> Result<()> {
 fn validate_key(namespace: &str, collection: &str, entity_id: &str) -> Result<()> {
     validate_scope(namespace, collection)?;
     if entity_id.is_empty() {
-        return Err(VantaError::InvalidInput(
-            "entity_id must be non-empty".into(),
-        ));
+        return Err(Error::InvalidInput("entity_id must be non-empty".into()));
     }
     if entity_id.contains(['{', '}', ':']) {
-        return Err(VantaError::InvalidInput(
+        return Err(Error::InvalidInput(
             "entity_id must not contain '{', '}' or ':'".into(),
         ));
     }

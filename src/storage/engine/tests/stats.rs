@@ -4,7 +4,7 @@
 use super::super::*;
 use super::{in_memory_engine, in_memory_read_only, sample_node};
 use crate::backend::BackendKind;
-use crate::config::VantaConfig;
+use crate::config::Config;
 use crate::node::{NodeTier, UnifiedNode};
 
 // ─── Memory stats ─────────────────────────────────────────────
@@ -214,10 +214,10 @@ fn test_memory_stats_pressure_ratio_exceeds_one() {
 
 #[test]
 fn test_check_memory_pressure_disabled() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         rss_threshold: 0.0,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
     assert!(engine.check_memory_pressure().is_ok());
@@ -225,11 +225,11 @@ fn test_check_memory_pressure_disabled() {
 
 #[test]
 fn test_check_memory_pressure_triggers_on_low_threshold() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         rss_threshold: 1.0,
         memory_limit: Some(1),
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
     let result = engine.insert(&sample_node(1));
@@ -246,11 +246,11 @@ fn test_check_memory_pressure_triggers_on_low_threshold() {
 
 #[test]
 fn test_check_memory_pressure_governor_watermark() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         rss_threshold: 0.9,
         memory_limit: Some(100_000_000),
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
     engine
@@ -275,14 +275,14 @@ fn test_check_memory_pressure_governor_watermark() {
 
 #[test]
 fn test_check_memory_pressure_governor_sync_eviction() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         rss_threshold: 0.9,
         // 8 GiB ceiling: with real process RSS as the guard's signal (FND-01-F1)
         // the RSS path must not trip on the test binary's own footprint; this
         // test exercises the MemoryGovernor sync path, not the RSS threshold.
         memory_limit: Some(8 * 1024 * 1024 * 1024),
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
     let result = engine.check_memory_pressure();
@@ -291,10 +291,10 @@ fn test_check_memory_pressure_governor_sync_eviction() {
 
 #[test]
 fn test_check_memory_pressure_no_threshold_returns_ok() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         rss_threshold: 0.0,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
     assert!(engine.check_memory_pressure().is_ok());
@@ -302,10 +302,10 @@ fn test_check_memory_pressure_no_threshold_returns_ok() {
 
 #[test]
 fn test_check_memory_pressure_negative_threshold_returns_ok() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         rss_threshold: -0.1,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
     assert!(engine.check_memory_pressure().is_ok());
@@ -315,9 +315,9 @@ fn test_check_memory_pressure_negative_threshold_returns_ok() {
 
 #[test]
 fn test_guard_write_allowed_read_only_message() {
-    let config = VantaConfig {
+    let config = Config {
         read_only: true,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let result = StorageEngine::guard_write_allowed(&config);
     let err = result.expect_err("should error");

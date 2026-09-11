@@ -104,17 +104,17 @@ impl PhysicalOperator for PhysicalScan<'_> {
 #[allow(missing_docs)]
 mod tests {
     use super::*;
-    use crate::config::VantaConfig;
+    use crate::config::Config;
     use crate::executor::Executor;
     use crate::node::FieldValue;
     use crate::sdk::serialization::iql_table_name_for_namespace;
     use crate::storage::{BackendKind, StorageEngine};
 
     fn in_memory_engine() -> StorageEngine {
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             read_only: false,
-            ..VantaConfig::default()
+            ..Config::default()
         };
         StorageEngine::open_with_config(":memory:", Some(config)).expect("open in-memory engine")
     }

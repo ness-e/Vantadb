@@ -45,9 +45,9 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
         embedded
             .list(
                 ns,
-                crate::sdk::VantaMemoryListOptions {
+                crate::sdk::MemoryListOptions {
                     #[allow(deprecated)]
-                    filters: crate::sdk::VantaMemoryMetadata::new(),
+                    filters: crate::sdk::MemoryMetadata::new(),
                     filter_ops: None,
                     limit: 1,
                     cursor: None,
@@ -73,9 +73,9 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
     for ns in &namespaces {
         let mut cursor: Option<usize> = None;
         loop {
-            let opts = crate::sdk::VantaMemoryListOptions {
+            let opts = crate::sdk::MemoryListOptions {
                 #[allow(deprecated)]
-                filters: crate::sdk::VantaMemoryMetadata::new(),
+                filters: crate::sdk::MemoryMetadata::new(),
                 filter_ops: None,
                 limit: BATCH_SIZE,
                 cursor,
@@ -88,7 +88,7 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
             for record in &page.records {
                 let line = crate::sdk::export_line_from_record(record.clone());
                 serde_json::to_writer(&mut writer, &line)
-                    .map_err(crate::error::VantaError::serialization)?;
+                    .map_err(crate::error::Error::serialization)?;
                 writer.write_all(b"\n")?;
             }
             let n = page.records.len() as u64;
@@ -148,9 +148,10 @@ pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()>
 
     if !std::path::Path::new(input_path).exists() {
         print_error(&format!("Input file not found: {}", input_path));
-        return Err(crate::error::VantaError::CliError(ChainedError::msg(
-            format!("Input file not found: {}", input_path),
-        )));
+        return Err(crate::error::Error::CliError(ChainedError::msg(format!(
+            "Input file not found: {}",
+            input_path
+        ))));
     }
 
     let spinner = create_spinner("Opening database...");

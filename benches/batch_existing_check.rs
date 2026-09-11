@@ -20,7 +20,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::hint::black_box;
 use std::time::{Duration, Instant};
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::{FieldValue, UnifiedNode};
 use vantadb::storage::{BackendKind, BatchInsertOptions, InsertMode, StorageEngine};
 
@@ -31,7 +31,7 @@ const SAMPLE_SIZE: usize = 10;
 fn make_engine() -> StorageEngine {
     StorageEngine::open_with_config(
         ":memory:",
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         }),

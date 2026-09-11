@@ -3,14 +3,14 @@
 //! Pure move of the record items from `super` (FIND-49). Public paths
 //! `crate::sdk::types::X` are preserved via re-exports in `super`.
 
-use super::{u128_serde, VantaMemoryMetadata, VantaValue};
+use super::{u128_serde, MemoryMetadata, Value};
 use crate::node::SparseVector;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// Operadores de comparación para filtros de metadata.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum VantaFilterOp {
+pub enum FilterOp {
     Eq,
     Neq,
     Gt,
@@ -21,18 +21,18 @@ pub enum VantaFilterOp {
 
 /// Un filtro individual: campo + operador + valor.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaMemoryFilterItem {
+pub struct MemoryFilterItem {
     pub field: String,
-    pub op: VantaFilterOp,
-    pub value: VantaValue,
+    pub op: FilterOp,
+    pub value: Value,
 }
 
 /// Lista de filtros combinados con AND lógico.
-pub type VantaMemoryFilter = Vec<VantaMemoryFilterItem>;
+pub type MemoryFilter = Vec<MemoryFilterItem>;
 
 /// Stable persistent memory payload accepted by external SDKs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaMemoryInput {
+pub struct MemoryInput {
     /// Namespace to scope the record under.
     pub namespace: String,
     /// Unique key within the namespace.
@@ -40,7 +40,7 @@ pub struct VantaMemoryInput {
     /// Payload text content.
     pub payload: String,
     /// Arbitrary metadata key-value pairs.
-    pub metadata: VantaMemoryMetadata,
+    pub metadata: MemoryMetadata,
     /// Optional embedding vector.
     pub vector: Option<Vec<f32>>,
     /// Optional sparse term-weight vector (e.g. raw-keyword weights). Sparse
@@ -53,7 +53,7 @@ pub struct VantaMemoryInput {
     pub ttl_ms: Option<u64>,
 }
 
-impl VantaMemoryInput {
+impl MemoryInput {
     /// Create a new memory input with the given namespace, key, and payload.
     ///
     /// Metadata defaults to empty, vector is `None`, and TTL is `None` (no expiry).
@@ -66,7 +66,7 @@ impl VantaMemoryInput {
             namespace: namespace.into(),
             key: key.into(),
             payload: payload.into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
@@ -76,7 +76,7 @@ impl VantaMemoryInput {
 
 /// Stable persistent memory view returned to external SDKs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaMemoryRecord {
+pub struct MemoryRecord {
     /// Namespace the record belongs to.
     pub namespace: String,
     /// Unique key within the namespace.
@@ -84,7 +84,7 @@ pub struct VantaMemoryRecord {
     /// Payload text content.
     pub payload: String,
     /// Arbitrary metadata key-value pairs.
-    pub metadata: VantaMemoryMetadata,
+    pub metadata: MemoryMetadata,
     /// Unix-ms creation timestamp.
     pub created_at_ms: u64,
     /// Unix-ms last-update timestamp.
@@ -115,15 +115,15 @@ pub struct VantaMemoryRecord {
 
 /// Stable list options for namespace-scoped memory records.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaMemoryListOptions {
+pub struct MemoryListOptions {
     /// Metadata key-value filters to narrow results (legacy).
     #[deprecated(note = "Use filter_ops instead")]
     #[serde(default)]
-    pub filters: VantaMemoryMetadata,
+    pub filters: MemoryMetadata,
 
     /// Advanced metadata filters with operators.
     #[serde(default)]
-    pub filter_ops: Option<VantaMemoryFilter>,
+    pub filter_ops: Option<MemoryFilter>,
 
     /// Maximum number of records to return.
     pub limit: usize,
@@ -135,11 +135,11 @@ pub struct VantaMemoryListOptions {
     pub exclude_superseded: bool,
 }
 
-impl Default for VantaMemoryListOptions {
+impl Default for MemoryListOptions {
     fn default() -> Self {
         Self {
             #[allow(deprecated)]
-            filters: VantaMemoryMetadata::new(),
+            filters: MemoryMetadata::new(),
             filter_ops: None,
             limit: 100,
             cursor: None,
@@ -150,19 +150,19 @@ impl Default for VantaMemoryListOptions {
 
 /// Stable list page returned by namespace-scoped scans.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaMemoryListPage {
+pub struct MemoryListPage {
     /// Records in the current page.
-    pub records: Vec<VantaMemoryRecord>,
+    pub records: Vec<MemoryRecord>,
     /// Cursor for the next page, or `None` if this was the last page.
     pub next_cursor: Option<usize>,
 }
 
-/// Default "expiring soon" window for [`VantaNamespaceStats`]: 24 hours.
+/// Default "expiring soon" window for [`NamespaceStats`]: 24 hours.
 pub const DEFAULT_EXPIRING_SOON_WINDOW_MS: u64 = 24 * 60 * 60 * 1000;
 
 /// Per-namespace memory statistics for overview UIs (e.g. Vanta Studio HOME).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VantaNamespaceStats {
+pub struct NamespaceStats {
     /// Total number of records in the namespace.
     pub count: u64,
     /// Records whose TTL expires within the "expiring soon" window.
@@ -171,12 +171,12 @@ pub struct VantaNamespaceStats {
     pub expired: u64,
 }
 
-/// Map of namespace → [`VantaNamespaceStats`], in BTreeMap (key-sorted) order.
-pub type VantaNamespaceStatsMap = BTreeMap<String, VantaNamespaceStats>;
+/// Map of namespace → [`NamespaceStats`], in BTreeMap (key-sorted) order.
+pub type NamespaceStatsMap = BTreeMap<String, NamespaceStats>;
 
 /// Stable report returned by JSONL memory export operations.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VantaExportReport {
+pub struct ExportReport {
     /// Number of records written to the export file.
     pub records_exported: u64,
     /// Namespaces that were included in the export.
@@ -189,7 +189,7 @@ pub struct VantaExportReport {
 
 /// Stable report returned by JSONL memory import operations.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VantaImportReport {
+pub struct ImportReport {
     /// Number of new records inserted.
     pub inserted: u64,
     /// Number of existing records updated.
@@ -204,7 +204,7 @@ pub struct VantaImportReport {
 
 /// A single JSONL export line representing one memory record at a point in time.
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VantaMemoryExportLine {
+pub struct MemoryExportLine {
     /// Export format schema version for forward compatibility.
     pub schema_version: u32,
     /// Namespace the record belongs to.
@@ -214,7 +214,7 @@ pub struct VantaMemoryExportLine {
     /// Payload text content.
     pub payload: String,
     /// Arbitrary metadata key-value pairs.
-    pub metadata: VantaMemoryMetadata,
+    pub metadata: MemoryMetadata,
     /// Optional embedding vector.
     pub vector: Option<Vec<f32>>,
     /// Optional sparse vector.
@@ -236,16 +236,79 @@ pub struct VantaMemoryExportLine {
     pub superseded_at_ms: Option<u64>,
 }
 
+/// Deprecated `Vanta`-prefixed aliases (AST-002, ADR-041).
+/// New code must use the unprefixed names; these exist only for semver migration.
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `FilterOp` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaFilterOp = FilterOp;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `MemoryFilterItem` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaMemoryFilterItem = MemoryFilterItem;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `MemoryFilter` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaMemoryFilter = MemoryFilter;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `MemoryInput` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaMemoryInput = MemoryInput;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `MemoryRecord` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaMemoryRecord = MemoryRecord;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `MemoryListOptions` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaMemoryListOptions = MemoryListOptions;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `MemoryListPage` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaMemoryListPage = MemoryListPage;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `NamespaceStats` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaNamespaceStats = NamespaceStats;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `NamespaceStatsMap` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaNamespaceStatsMap = NamespaceStatsMap;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `ExportReport` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaExportReport = ExportReport;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `ImportReport` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaImportReport = ImportReport;
+#[deprecated(
+    since = "0.5.0",
+    note = "Use `MemoryExportLine` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
+)]
+pub type VantaMemoryExportLine = MemoryExportLine;
+
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
     use super::*;
 
-    // ---- VantaMemoryInput ----
+    // ---- MemoryInput ----
 
     #[test]
     fn test_memory_input_new() {
-        let input = VantaMemoryInput::new("ns1", "key1", "payload text");
+        let input = MemoryInput::new("ns1", "key1", "payload text");
         assert_eq!(input.namespace, "ns1");
         assert_eq!(input.key, "key1");
         assert_eq!(input.payload, "payload text");
@@ -256,16 +319,16 @@ mod tests {
 
     #[test]
     fn test_memory_input_clone() {
-        let input = VantaMemoryInput::new("ns", "k", "p");
+        let input = MemoryInput::new("ns", "k", "p");
         let cloned = input.clone();
         assert_eq!(input, cloned);
     }
 
-    // ---- VantaMemoryListOptions ----
+    // ---- MemoryListOptions ----
 
     #[test]
     fn test_memory_list_options_default() {
-        let opts = VantaMemoryListOptions::default();
+        let opts = MemoryListOptions::default();
         #[allow(deprecated)]
         let _ = opts.filters.is_empty();
         assert!(opts.filter_ops.is_none());
@@ -273,11 +336,11 @@ mod tests {
         assert!(opts.cursor.is_none());
     }
 
-    // ---- VantaMemoryListPage ----
+    // ---- MemoryListPage ----
 
     #[test]
     fn test_memory_list_page_empty() {
-        let page = VantaMemoryListPage {
+        let page = MemoryListPage {
             records: vec![],
             next_cursor: None,
         };
@@ -289,7 +352,7 @@ mod tests {
 
     #[test]
     fn test_export_report() {
-        let r = VantaExportReport {
+        let r = ExportReport {
             records_exported: 500,
             namespaces: vec!["ns1".into()],
             path: "/tmp/export.jsonl".into(),
@@ -301,7 +364,7 @@ mod tests {
 
     #[test]
     fn test_import_report() {
-        let r = VantaImportReport {
+        let r = ImportReport {
             inserted: 100,
             updated: 10,
             skipped: 2,
@@ -313,15 +376,15 @@ mod tests {
         assert_eq!(r.errors, 1);
     }
 
-    // ---- VantaMemoryRecord ----
+    // ---- MemoryRecord ----
 
     #[test]
     fn test_memory_record_fields() {
-        let rec = VantaMemoryRecord {
+        let rec = MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "text".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 1000,
             updated_at_ms: 2000,
             version: 1,
@@ -337,16 +400,16 @@ mod tests {
         assert_eq!(rec.version, 1);
     }
 
-    // ---- VantaMemoryExportLine ----
+    // ---- MemoryExportLine ----
 
     #[test]
     fn test_export_line() {
-        let line = VantaMemoryExportLine {
+        let line = MemoryExportLine {
             schema_version: 1,
             namespace: "ns".into(),
             key: "k".into(),
             payload: "text".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             vector: None,
             sparse_vector: None,
             created_at_ms: 1000,
@@ -360,15 +423,15 @@ mod tests {
         assert_eq!(line.namespace, "ns");
     }
 
-    // ---- VantaMemoryInput with vector and ttl ----
+    // ---- MemoryInput with vector and ttl ----
 
     #[test]
     fn test_memory_input_with_vector_ttl() {
-        let input = VantaMemoryInput {
+        let input = MemoryInput {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "text".into(),
-            metadata: [("lang".into(), VantaValue::String("en".into()))].into(),
+            metadata: [("lang".into(), Value::String("en".into()))].into(),
             vector: Some(vec![0.1, 0.2, 0.3]),
             sparse_vector: None,
             ttl_ms: Some(60000),
@@ -379,19 +442,19 @@ mod tests {
         assert_eq!(input.ttl_ms, Some(60000));
         assert_eq!(
             input.metadata.get("lang").unwrap(),
-            &VantaValue::String("en".into())
+            &Value::String("en".into())
         );
     }
 
-    // ---- VantaMemoryRecord with expiry ----
+    // ---- MemoryRecord with expiry ----
 
     #[test]
     fn test_memory_record_with_expiry() {
-        let rec = VantaMemoryRecord {
+        let rec = MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "text".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 1000,
             updated_at_ms: 2000,
             version: 5,
@@ -409,11 +472,11 @@ mod tests {
 
     #[test]
     fn test_memory_record_clone() {
-        let rec = VantaMemoryRecord {
+        let rec = MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "text".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 1000,
             updated_at_ms: 2000,
             version: 1,
@@ -428,13 +491,13 @@ mod tests {
         assert_eq!(rec, cloned);
     }
 
-    // ---- VantaMemoryListOptions custom ----
+    // ---- MemoryListOptions custom ----
 
     #[test]
     fn test_memory_list_options_custom() {
-        let opts = VantaMemoryListOptions {
+        let opts = MemoryListOptions {
             #[allow(deprecated)]
-            filters: [("type".into(), VantaValue::String("doc".into()))].into(),
+            filters: [("type".into(), Value::String("doc".into()))].into(),
             filter_ops: None,
             limit: 50,
             cursor: Some(10),
@@ -443,14 +506,14 @@ mod tests {
         assert_eq!(opts.limit, 50);
         assert_eq!(opts.cursor, Some(10));
         #[allow(deprecated)]
-        let _ = opts.filters.get("type").unwrap() == &VantaValue::String("doc".into());
+        let _ = opts.filters.get("type").unwrap() == &Value::String("doc".into());
     }
 
-    // ---- VantaExportReport clone ----
+    // ---- ExportReport clone ----
 
     #[test]
     fn test_export_report_clone() {
-        let r = VantaExportReport {
+        let r = ExportReport {
             records_exported: 100,
             namespaces: vec!["ns1".into()],
             path: "/tmp/x.jsonl".into(),
@@ -460,11 +523,11 @@ mod tests {
         assert_eq!(r, cloned);
     }
 
-    // ---- VantaImportReport clone ----
+    // ---- ImportReport clone ----
 
     #[test]
     fn test_import_report_clone() {
-        let r = VantaImportReport {
+        let r = ImportReport {
             inserted: 10,
             updated: 5,
             skipped: 1,
@@ -475,16 +538,16 @@ mod tests {
         assert_eq!(r, cloned);
     }
 
-    // ---- VantaMemoryExportLine all fields ----
+    // ---- MemoryExportLine all fields ----
 
     #[test]
     fn test_export_line_full() {
-        let line = VantaMemoryExportLine {
+        let line = MemoryExportLine {
             schema_version: 2,
             namespace: "ns".into(),
             key: "k".into(),
             payload: "text".into(),
-            metadata: [("score".into(), VantaValue::Float(9.5))].into(),
+            metadata: [("score".into(), Value::Float(9.5))].into(),
             vector: Some(vec![0.1, 0.2]),
             sparse_vector: None,
             created_at_ms: 1000,
@@ -500,15 +563,15 @@ mod tests {
         assert!(line.expires_at_ms.is_some());
     }
 
-    // ---- VantaMemoryListPage with data ----
+    // ---- MemoryListPage with data ----
 
     #[test]
     fn test_memory_list_page_with_data() {
-        let rec = VantaMemoryRecord {
+        let rec = MemoryRecord {
             namespace: "ns".into(),
             key: "k".into(),
             payload: "p".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 1,
             updated_at_ms: 2,
             version: 1,
@@ -519,7 +582,7 @@ mod tests {
             superseded_by: None,
             superseded_at_ms: None,
         };
-        let page = VantaMemoryListPage {
+        let page = MemoryListPage {
             records: vec![rec],
             next_cursor: Some(1),
         };

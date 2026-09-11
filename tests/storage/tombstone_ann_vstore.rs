@@ -3,7 +3,7 @@
 //! logically deleted rows (disk tombstone flags on `DiskNodeHeader`).
 
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::{BackendKind, StorageEngine};
 
@@ -11,7 +11,7 @@ use vantadb::storage::{BackendKind, StorageEngine};
 fn raw_ann_layers_from_vantafile_exclude_tombstoned_neighbors() {
     let dir = tempdir().unwrap();
     let path = dir.path().to_str().unwrap();
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -27,7 +27,7 @@ fn raw_ann_layers_from_vantafile_exclude_tombstoned_neighbors() {
     engine.insert(&survivor).unwrap();
     engine.flush().unwrap();
 
-    // Hard delete marks VantaFile header tombstone flag; CPIndex node map may still retain graph refs.
+    // Hard delete marks File header tombstone flag; CPIndex node map may still retain graph refs.
     engine.delete(100, "test tombstone for ANN").unwrap();
     engine.flush().unwrap();
 

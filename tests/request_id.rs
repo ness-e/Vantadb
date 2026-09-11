@@ -22,10 +22,10 @@ use std::time::Duration;
 use vantadb::audit::AuditEvent;
 use vantadb::circuit_breaker::CircuitBreaker;
 use vantadb::cli_server::{app, ServerState};
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::connection_pool::ConnectionPool;
 use vantadb::storage::StorageEngine;
-use vantadb::{BackendKind, VantaEmbedded};
+use vantadb::{BackendKind, Embedded};
 
 // ── helpers ─────────────────────────────────────────────────────────────
 
@@ -57,13 +57,13 @@ async fn raw_request(addr: std::net::SocketAddr, request: String) -> String {
 /// Build the minimal `ServerState` needed to exercise the auth + metrics
 /// middlewares (the two layers that emit audit events on auth failures).
 fn build_state(audit_path: &std::path::Path) -> Arc<ServerState> {
-    let cfg = VantaConfig {
+    let cfg = Config {
         backend_kind: BackendKind::InMemory,
         audit_log_path: Some(audit_path.to_path_buf()),
         ..Default::default()
     };
     let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(cfg)).unwrap());
-    let db = VantaEmbedded::from_engine(storage.clone());
+    let db = Embedded::from_engine(storage.clone());
     Arc::new(ServerState {
         storage,
         db,

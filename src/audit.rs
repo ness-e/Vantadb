@@ -2,8 +2,8 @@
 //!
 //! Records *operations* (put/delete/export/import) with an ISO 8601 timestamp,
 //! subject, target, and outcome — distinct from runtime `tracing` logs. Opt-in
-//! via [`VantaConfig::audit_log_path`](crate::config::VantaConfig::audit_log_path);
-//! when unset, `VantaEmbedded` operations skip audit entirely.
+//! via [`Config::audit_log_path`](crate::config::Config::audit_log_path);
+//! when unset, `Embedded` operations skip audit entirely.
 
 use serde::{Deserialize, Serialize};
 use std::fs::{self, File, OpenOptions};
@@ -162,8 +162,7 @@ impl AuditLogger {
         if self.should_rotate(&guard) {
             self.rotate_locked(&mut guard)?;
         }
-        serde_json::to_writer(&mut *guard, event)
-            .map_err(crate::error::VantaError::serialization)?;
+        serde_json::to_writer(&mut *guard, event).map_err(crate::error::Error::serialization)?;
         guard.write_all(b"\n")?;
         guard.flush()?;
         Ok(())

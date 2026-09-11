@@ -1,24 +1,24 @@
-use super::VantaEmbedded;
+use super::Embedded;
 use crate::cost_estimator::{CostEstimator, FilterStrategy};
 use crate::node::DistanceMetric;
 use crate::sdk::connect::connect;
 use crate::sdk::types::*;
 
 /// Open an in-memory VantaDB for testing.
-fn setup() -> VantaEmbedded {
+fn setup() -> Embedded {
     connect(":memory:").expect("in-memory db open")
 }
 
 /// Insert a single record with optional vector and metadata.
 fn insert(
-    db: &VantaEmbedded,
+    db: &Embedded,
     namespace: &str,
     key: &str,
     payload: &str,
     vector: Option<Vec<f32>>,
-    metadata: VantaMemoryMetadata,
-) -> VantaMemoryRecord {
-    let input = VantaMemoryInput {
+    metadata: MemoryMetadata,
+) -> MemoryRecord {
+    let input = MemoryInput {
         namespace: namespace.into(),
         key: key.into(),
         payload: payload.into(),
@@ -35,7 +35,7 @@ fn insert(
 #[test]
 fn test_search_empty_no_text_no_vector() {
     let db = setup();
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         ..Default::default()
     };
@@ -53,11 +53,11 @@ fn test_search_top_k_zero() {
         "k1",
         "hello world",
         Some(vec![0.1, 0.2, 0.3]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
     // Text-only with top_k=0
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         top_k: 0,
@@ -66,7 +66,7 @@ fn test_search_top_k_zero() {
     assert!(db.search(req).unwrap().is_empty());
 
     // Vector-only with top_k=0
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         query_vector: vec![0.1, 0.2, 0.3],
         top_k: 0,
@@ -75,7 +75,7 @@ fn test_search_top_k_zero() {
     assert!(db.search(req).unwrap().is_empty());
 
     // Hybrid with top_k=0
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         query_vector: vec![0.1, 0.2, 0.3],
@@ -88,7 +88,7 @@ fn test_search_top_k_zero() {
 #[test]
 fn test_search_invalid_namespace() {
     let db = setup();
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "".into(),
         text_query: Some("hello".into()),
         ..Default::default()
@@ -112,7 +112,7 @@ fn test_search_text_only_matching() {
         "k1",
         "hello world welcome",
         None,
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
     insert(
         &db,
@@ -120,10 +120,10 @@ fn test_search_text_only_matching() {
         "k2",
         "hello earth",
         None,
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         top_k: 10,
@@ -152,10 +152,10 @@ fn test_search_text_only_no_matches() {
         "k1",
         "hello world",
         None,
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("goodbye".into()),
         top_k: 10,
@@ -168,18 +168,18 @@ fn test_search_text_only_no_matches() {
 #[test]
 fn test_search_text_only_with_filters() {
     let db = setup();
-    let mut meta_a = VantaMemoryMetadata::new();
-    meta_a.insert("lang".into(), VantaValue::String("en".into()));
+    let mut meta_a = MemoryMetadata::new();
+    meta_a.insert("lang".into(), Value::String("en".into()));
     insert(&db, "test", "k1", "hello world", None, meta_a);
 
-    let mut meta_b = VantaMemoryMetadata::new();
-    meta_b.insert("lang".into(), VantaValue::String("es".into()));
+    let mut meta_b = MemoryMetadata::new();
+    meta_b.insert("lang".into(), Value::String("es".into()));
     insert(&db, "test", "k2", "hola mundo", None, meta_b);
 
     // Search with filter for lang=en
-    let mut filters = VantaMemoryMetadata::new();
-    filters.insert("lang".into(), VantaValue::String("en".into()));
-    let req = VantaMemorySearchRequest {
+    let mut filters = MemoryMetadata::new();
+    filters.insert("lang".into(), Value::String("en".into()));
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         filters,
@@ -194,13 +194,13 @@ fn test_search_text_only_with_filters() {
 #[test]
 fn test_search_text_only_filter_no_match() {
     let db = setup();
-    let mut meta = VantaMemoryMetadata::new();
-    meta.insert("lang".into(), VantaValue::String("en".into()));
+    let mut meta = MemoryMetadata::new();
+    meta.insert("lang".into(), Value::String("en".into()));
     insert(&db, "test", "k1", "hello world", None, meta);
 
-    let mut filters = VantaMemoryMetadata::new();
-    filters.insert("lang".into(), VantaValue::String("de".into()));
-    let req = VantaMemorySearchRequest {
+    let mut filters = MemoryMetadata::new();
+    filters.insert("lang".into(), Value::String("de".into()));
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         filters,
@@ -227,11 +227,11 @@ fn test_search_vector_only_hnsw() {
         "k1",
         "some text",
         Some(vec![0.1, 0.2, 0.3]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
     // Search with exact same vector → cosine similarity = 1.0
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         query_vector: vec![0.1, 0.2, 0.3],
         top_k: 10,
@@ -256,11 +256,11 @@ fn test_search_vector_only_different_ns_no_match() {
         "k1",
         "some text",
         Some(vec![0.1, 0.2, 0.3]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
     // Search in a different namespace → no matches
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "other".into(),
         query_vector: vec![0.1, 0.2, 0.3],
         top_k: 10,
@@ -276,8 +276,8 @@ fn test_search_vector_only_different_ns_no_match() {
 #[test]
 fn test_search_vector_only_with_filters() {
     let db = setup();
-    let mut meta_a = VantaMemoryMetadata::new();
-    meta_a.insert("type".into(), VantaValue::String("doc".into()));
+    let mut meta_a = MemoryMetadata::new();
+    meta_a.insert("type".into(), Value::String("doc".into()));
     insert(
         &db,
         "test",
@@ -287,8 +287,8 @@ fn test_search_vector_only_with_filters() {
         meta_a,
     );
 
-    let mut meta_b = VantaMemoryMetadata::new();
-    meta_b.insert("type".into(), VantaValue::String("image".into()));
+    let mut meta_b = MemoryMetadata::new();
+    meta_b.insert("type".into(), Value::String("image".into()));
     insert(
         &db,
         "test",
@@ -298,9 +298,9 @@ fn test_search_vector_only_with_filters() {
         meta_b,
     );
 
-    let mut filters = VantaMemoryMetadata::new();
-    filters.insert("type".into(), VantaValue::String("doc".into()));
-    let req = VantaMemorySearchRequest {
+    let mut filters = MemoryMetadata::new();
+    filters.insert("type".into(), Value::String("doc".into()));
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         query_vector: vec![0.1, 0.2, 0.3],
         filters,
@@ -321,11 +321,11 @@ fn test_search_vector_only_no_matches() {
         "k1",
         "text",
         Some(vec![0.9, 0.8, 0.7]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
     // Search with a very different vector in an empty namespace
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "empty_ns".into(),
         query_vector: vec![0.1, 0.2, 0.3],
         top_k: 10,
@@ -347,7 +347,7 @@ fn test_search_hybrid_both_text_and_vector() {
         "k1",
         "hello world",
         Some(vec![0.1, 0.2, 0.3]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
     insert(
         &db,
@@ -355,7 +355,7 @@ fn test_search_hybrid_both_text_and_vector() {
         "k2",
         "hello there",
         Some(vec![0.11, 0.21, 0.31]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
     insert(
         &db,
@@ -363,10 +363,10 @@ fn test_search_hybrid_both_text_and_vector() {
         "k3",
         "goodbye world",
         Some(vec![0.9, 0.8, 0.7]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         query_vector: vec![0.1, 0.2, 0.3],
@@ -400,10 +400,10 @@ fn test_search_explain_mode() {
         "k1",
         "hello world",
         Some(vec![0.1, 0.2, 0.3]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         query_vector: vec![0.1, 0.2, 0.3],
@@ -439,7 +439,7 @@ fn test_search_bm25_scoring_correctness() {
         "k1",
         "hello hello world", // "hello" appears twice in k1
         None,
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
     insert(
         &db,
@@ -447,10 +447,10 @@ fn test_search_bm25_scoring_correctness() {
         "k2",
         "hello foo bar", // "hello" appears once in k2
         None,
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         top_k: 10,
@@ -495,14 +495,14 @@ fn test_search_corrupt_text_index_state() {
         "k1",
         "hello world",
         None,
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
     // Corrupt the text index state so ensure_text_index_query_ready fails
     db.debug_corrupt_text_index_state_for_tests()
         .expect("corrupt state");
 
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         top_k: 10,
@@ -526,11 +526,11 @@ fn test_search_cleared_text_index_returns_empty() {
         "k1",
         "hello world",
         None,
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
     // Verify text search works before clearing
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         top_k: 10,
@@ -562,11 +562,11 @@ fn test_search_empty_query_vector_with_text() {
         "k1",
         "hello world",
         None,
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
     // text_query + empty query_vector → text-only path
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         query_vector: vec![], // explicitly empty
@@ -588,7 +588,7 @@ fn test_search_vector_only_euclidean() {
         "k1",
         "text",
         Some(vec![0.1, 0.2, 0.3]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
     insert(
         &db,
@@ -596,10 +596,10 @@ fn test_search_vector_only_euclidean() {
         "k2",
         "text",
         Some(vec![0.9, 0.8, 0.7]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         query_vector: vec![0.1, 0.2, 0.3],
         top_k: 5,
@@ -624,7 +624,7 @@ fn test_search_vector_only_euclidean() {
 fn test_select_filter_strategy_empty() {
     let db = setup();
     let engine = db.engine_handle().unwrap();
-    let filters = VantaMemoryMetadata::new();
+    let filters = MemoryMetadata::new();
     let strategy = CostEstimator::new(&engine).select_filter_strategy(&filters);
     assert_eq!(
         strategy,
@@ -643,7 +643,7 @@ fn test_select_filter_strategy_highly_selective() {
         "red_one",
         "text",
         Some(vec![0.1, 0.2]),
-        VantaMemoryMetadata::from([("color".into(), VantaValue::String("red".into()))]),
+        MemoryMetadata::from([("color".into(), Value::String("red".into()))]),
     );
     insert(
         &db,
@@ -651,11 +651,11 @@ fn test_select_filter_strategy_highly_selective() {
         "blue_one",
         "text",
         Some(vec![0.3, 0.4]),
-        VantaMemoryMetadata::from([("color".into(), VantaValue::String("blue".into()))]),
+        MemoryMetadata::from([("color".into(), Value::String("blue".into()))]),
     );
 
     let engine = db.engine_handle().unwrap();
-    let mut filters = VantaMemoryMetadata::new();
+    let mut filters = MemoryMetadata::new();
     // "red" → 1 of 2 = selectivity 0.5.  That's above PREFILTER_THRESHOLD
     // but below HIGH_SELECTIVITY_THRESHOLD (0.1 < 0.5 < 0.1? no).
     // 0.5 is >= HIGH_SELECTIVITY_THRESHOLD (0.1) → PostFilter.
@@ -663,7 +663,7 @@ fn test_select_filter_strategy_highly_selective() {
     // With only 2 records, "red" has freq 1 and total_nodes = 2, so sel = 0.5.
     // That's > 0.1 → PostFilter + 0.01.  Let's use a value that doesn't exist.
     // Non-existent value → selectivity 0.0 → PreFilter.
-    filters.insert("nonexistent".into(), VantaValue::String("nope".into()));
+    filters.insert("nonexistent".into(), Value::String("nope".into()));
     let strategy = CostEstimator::new(&engine).select_filter_strategy(&filters);
     assert_eq!(
         strategy,
@@ -686,13 +686,13 @@ fn test_select_filter_strategy_moderate() {
             &format!("k{i}"),
             "text",
             Some(vec![0.1, 0.2]),
-            VantaMemoryMetadata::from([("color".into(), VantaValue::String(color.into()))]),
+            MemoryMetadata::from([("color".into(), Value::String(color.into()))]),
         );
     }
 
     let engine = db.engine_handle().unwrap();
-    let mut filters = VantaMemoryMetadata::new();
-    filters.insert("color".into(), VantaValue::String("red".into()));
+    let mut filters = MemoryMetadata::new();
+    filters.insert("color".into(), Value::String("red".into()));
     let strategy = CostEstimator::new(&engine).select_filter_strategy(&filters);
     // "red" has freq 1 / 20 = 0.05 → InFilter
     assert_eq!(
@@ -714,7 +714,7 @@ fn test_vector_memory_search_with_pre_filter() {
             &format!("k{i}"),
             "text",
             Some(vec![i as f32 * 0.1, (i + 1) as f32 * 0.1]),
-            VantaMemoryMetadata::from([("color".into(), VantaValue::String(color.into()))]),
+            MemoryMetadata::from([("color".into(), Value::String(color.into()))]),
         );
     }
 
@@ -722,11 +722,8 @@ fn test_vector_memory_search_with_pre_filter() {
     // Force PreFilter by choosing a highly selective value.
     // "teal" → 1 of 10 → sel = 0.1 (= HIGH_SELECTIVITY_THRESHOLD, not < PREFILTER_THRESHOLD 0.01)
     // To get PreFilter, we need sel < 0.01.  With 10 records, use a nonexistent value → sel 0.0.
-    let mut filters = VantaMemoryMetadata::new();
-    filters.insert(
-        "color".into(),
-        VantaValue::String("nonexistent_stuff".into()),
-    );
+    let mut filters = MemoryMetadata::new();
+    filters.insert("color".into(), Value::String("nonexistent_stuff".into()));
 
     let strategy = CostEstimator::new(&engine).select_filter_strategy(&filters);
     assert_eq!(
@@ -760,13 +757,13 @@ fn test_vector_memory_search_with_in_filter() {
             &format!("k{i}"),
             "text",
             Some(vec![i as f32 * 0.1, (i + 1) as f32 * 0.1]),
-            VantaMemoryMetadata::from([("color".into(), VantaValue::String(color.into()))]),
+            MemoryMetadata::from([("color".into(), Value::String(color.into()))]),
         );
     }
 
     let engine = db.engine_handle().unwrap();
-    let mut filters = VantaMemoryMetadata::new();
-    filters.insert("color".into(), VantaValue::String("red".into()));
+    let mut filters = MemoryMetadata::new();
+    filters.insert("color".into(), Value::String("red".into()));
 
     let strategy = CostEstimator::new(&engine).select_filter_strategy(&filters);
     assert_eq!(strategy, FilterStrategy::InFilter, "1/20 → InFilter");
@@ -790,7 +787,7 @@ fn test_vector_memory_search_with_in_filter() {
     for hit in &hits {
         assert_eq!(
             hit.record.metadata.get("color"),
-            Some(&VantaValue::String("red".into())),
+            Some(&Value::String("red".into())),
             "only red records should appear"
         );
     }
@@ -805,7 +802,7 @@ fn test_bitset_from_filters() {
         "a",
         "text",
         None,
-        VantaMemoryMetadata::from([("group".into(), VantaValue::String("alpha".into()))]),
+        MemoryMetadata::from([("group".into(), Value::String("alpha".into()))]),
     );
     insert(
         &db,
@@ -813,7 +810,7 @@ fn test_bitset_from_filters() {
         "b",
         "text",
         None,
-        VantaMemoryMetadata::from([("group".into(), VantaValue::String("beta".into()))]),
+        MemoryMetadata::from([("group".into(), Value::String("beta".into()))]),
     );
     insert(
         &db,
@@ -821,11 +818,11 @@ fn test_bitset_from_filters() {
         "c",
         "text",
         None,
-        VantaMemoryMetadata::from([("group".into(), VantaValue::String("alpha".into()))]),
+        MemoryMetadata::from([("group".into(), Value::String("alpha".into()))]),
     );
 
-    let mut filters = VantaMemoryMetadata::new();
-    filters.insert("group".into(), VantaValue::String("alpha".into()));
+    let mut filters = MemoryMetadata::new();
+    filters.insert("group".into(), Value::String("alpha".into()));
     let bitset = db
         .bitset_from_filters("test", &filters)
         .expect("bitset from filters");
@@ -853,10 +850,7 @@ fn test_vector_memory_search_with_metadata_filter() {
         "doc1",
         "payload1",
         Some(vec![0.5, 0.5]),
-        VantaMemoryMetadata::from([(
-            "department".into(),
-            VantaValue::String("engineering".into()),
-        )]),
+        MemoryMetadata::from([("department".into(), Value::String("engineering".into()))]),
     );
     insert(
         &db,
@@ -864,15 +858,12 @@ fn test_vector_memory_search_with_metadata_filter() {
         "doc2",
         "payload2",
         Some(vec![0.5, 0.5]),
-        VantaMemoryMetadata::from([("department".into(), VantaValue::String("marketing".into()))]),
+        MemoryMetadata::from([("department".into(), Value::String("marketing".into()))]),
     );
 
     let query = vec![0.5, 0.5];
-    let mut filters = VantaMemoryMetadata::new();
-    filters.insert(
-        "department".into(),
-        VantaValue::String("engineering".into()),
-    );
+    let mut filters = MemoryMetadata::new();
+    filters.insert("department".into(), Value::String("engineering".into()));
 
     let hits = db
         .vector_memory_search("test", &query, &filters, 10, DistanceMetric::Cosine, None)
@@ -890,7 +881,7 @@ fn test_vector_memory_search_no_filters() {
         "a",
         "text",
         Some(vec![0.1, 0.2]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
     insert(
         &db,
@@ -898,7 +889,7 @@ fn test_vector_memory_search_no_filters() {
         "b",
         "text",
         Some(vec![0.9, 0.8]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
     // No filters → PostFilter (current behavior).
@@ -906,7 +897,7 @@ fn test_vector_memory_search_no_filters() {
         .vector_memory_search(
             "test",
             &[0.1, 0.2],
-            &VantaMemoryMetadata::new(),
+            &MemoryMetadata::new(),
             5,
             DistanceMetric::Cosine,
             None,
@@ -926,11 +917,11 @@ fn test_sparse_search_roundtrip_recall_identical() {
     let mut sparse = crate::node::SparseVector::new();
     sparse.insert(1, 0.5);
     sparse.insert(2, 1.0);
-    let input = VantaMemoryInput {
+    let input = MemoryInput {
         namespace: "sparse".into(),
         key: "sparse-doc".into(),
         payload: "sparse payload".into(),
-        metadata: VantaMemoryMetadata::new(),
+        metadata: MemoryMetadata::new(),
         vector: None,
         sparse_vector: Some(sparse),
         ttl_ms: None,
@@ -951,7 +942,7 @@ fn test_sparse_search_roundtrip_recall_identical() {
     // Search by sparse query → recall identical to the stored vector.
     let mut query = crate::node::SparseVector::new();
     query.insert(2, 1.0);
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "sparse".into(),
         query_sparse: Some(query),
         top_k: 5,
@@ -973,7 +964,7 @@ fn test_search_profile_mode_keyword_forces_lexical_only() {
         "a",
         "cat chases mouse",
         Some(vec![1.0, 0.0, 0.0]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
     insert(
         &db,
@@ -981,12 +972,12 @@ fn test_search_profile_mode_keyword_forces_lexical_only() {
         "b",
         "dog sleeps all day",
         Some(vec![0.0, 1.0, 0.0]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
     // El vector favorece a "b", pero el modo Keyword ignora el canal vectorial:
     // solo "a" matchea el texto "cat".
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("cat".into()),
         query_vector: vec![0.0, 1.0, 0.0],
@@ -1011,7 +1002,7 @@ fn test_search_profile_mode_vector_ignores_text() {
         "a",
         "cat chases mouse",
         Some(vec![1.0, 0.0, 0.0]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
     insert(
         &db,
@@ -1019,13 +1010,13 @@ fn test_search_profile_mode_vector_ignores_text() {
         "b",
         "dog sleeps all day",
         Some(vec![0.0, 1.0, 0.0]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
     // El texto favorece a "a", pero el modo Vector ignora el texto: el orden
     // es puramente vectorial (b mas cercano, luego a) — identico a un search
     // sin text_query. Si el texto influyera (hybrid), "a" subiria por BM25.
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("cat".into()),
         query_vector: vec![0.0, 1.0, 0.0],
@@ -1045,7 +1036,7 @@ fn test_search_profile_mode_vector_ignores_text() {
     );
 
     // Control: vector-only sin texto produce el mismo orden.
-    let req_control = VantaMemorySearchRequest {
+    let req_control = MemorySearchRequest {
         namespace: "test".into(),
         query_vector: vec![0.0, 1.0, 0.0],
         top_k: 10,
@@ -1065,7 +1056,7 @@ fn test_search_profile_hybrid_uses_both_channels() {
         "a",
         "cat chases mouse",
         Some(vec![1.0, 0.0, 0.0]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
     insert(
         &db,
@@ -1073,12 +1064,12 @@ fn test_search_profile_hybrid_uses_both_channels() {
         "b",
         "dog sleeps all day",
         Some(vec![0.0, 1.0, 0.0]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
     // Modo Hybrid (default): ambos canales participan, por lo que ambos keys
     // aparecen (a por texto, b por vector).
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("cat".into()),
         query_vector: vec![0.0, 1.0, 0.0],
@@ -1100,11 +1091,11 @@ fn test_search_profile_candidate_k_affects_budget() {
         "a",
         "cat chases mouse",
         Some(vec![1.0, 0.0, 0.0]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
     // candidate_k Some(64) con top_k=5 => budget = max(64, 5) = 64 (vs clamp core = 32).
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("cat".into()),
         query_vector: vec![1.0, 0.0, 0.0],
@@ -1121,7 +1112,7 @@ fn test_search_profile_candidate_k_affects_budget() {
     assert_eq!(plan.budget, 64, "candidate_k del perfil define el budget");
 
     // Sin profile: clamp core (5*4=20 => 32).
-    let req_default = VantaMemorySearchRequest {
+    let req_default = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("cat".into()),
         query_vector: vec![1.0, 0.0, 0.0],
@@ -1143,11 +1134,11 @@ fn test_search_profile_rrf_k_reported_in_explain() {
         "a",
         "cat chases mouse",
         Some(vec![1.0, 0.0, 0.0]),
-        VantaMemoryMetadata::new(),
+        MemoryMetadata::new(),
     );
 
     // explain + profile rrf_k=100 => el fusion report expone rrf_k=100 (D20).
-    let req = VantaMemorySearchRequest {
+    let req = MemorySearchRequest {
         namespace: "test".into(),
         text_query: Some("cat".into()),
         query_vector: vec![1.0, 0.0, 0.0],

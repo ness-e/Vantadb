@@ -248,7 +248,7 @@ fn test_add_zero_norm_vector_rejected() {
         )
         .expect_err("zero-norm vector must be rejected under cosine");
     assert!(
-        matches!(err, crate::error::VantaError::InvalidInput(_)),
+        matches!(err, crate::error::Error::InvalidInput(_)),
         "expected InvalidInput, got {err:?}"
     );
     // The rejection happens before any graph mutation: no node survives,

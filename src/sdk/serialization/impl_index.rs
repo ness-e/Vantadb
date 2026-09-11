@@ -1,17 +1,17 @@
-//! Derived index state management for `VantaEmbedded`.
+//! Derived index state management for `Embedded`.
 
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::types::*;
 use super::{
     namespace_index_key, node_id_bytes, now_ms, payload_index_key, DERIVED_INDEX_SCHEMA_VERSION,
 };
 use crate::backend::{BackendPartition, BackendWriteOp};
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::node::UnifiedNode;
 use crate::storage::StorageEngine;
 use std::sync::Arc;
 
-impl VantaEmbedded {
+impl Embedded {
     /// Reconcile derived, text, and sparse index state against the current
     /// node set. Idempotent: rebuilds only when state is missing, schema
     /// mismatched, or counts disagree; writes fresh empty state otherwise.
@@ -88,14 +88,14 @@ impl VantaEmbedded {
         };
         postcard::from_bytes(&bytes)
             .map(Some)
-            .map_err(VantaError::serialization)
+            .map_err(Error::serialization)
     }
 
     pub(crate) fn write_derived_index_state(
         engine: &StorageEngine,
         state: &DerivedIndexState,
     ) -> Result<()> {
-        let bytes = postcard::to_allocvec(state).map_err(VantaError::serialization)?;
+        let bytes = postcard::to_allocvec(state).map_err(Error::serialization)?;
         engine.put_to_partition(
             BackendPartition::InternalMetadata,
             super::DERIVED_INDEX_STATE_KEY,
@@ -111,7 +111,7 @@ impl VantaEmbedded {
         Ok((namespace_entries, payload_entries))
     }
 
-    pub(crate) fn derived_put_ops(record: &VantaMemoryRecord) -> Result<Vec<BackendWriteOp>> {
+    pub(crate) fn derived_put_ops(record: &MemoryRecord) -> Result<Vec<BackendWriteOp>> {
         let mut ops = Vec::new();
         ops.push(BackendWriteOp::Put {
             partition: BackendPartition::NamespaceIndex,
@@ -132,7 +132,7 @@ impl VantaEmbedded {
         Ok(ops)
     }
 
-    pub(crate) fn derived_delete_ops(record: &VantaMemoryRecord) -> Result<Vec<BackendWriteOp>> {
+    pub(crate) fn derived_delete_ops(record: &MemoryRecord) -> Result<Vec<BackendWriteOp>> {
         let mut ops = Vec::new();
         ops.push(BackendWriteOp::Delete {
             partition: BackendPartition::NamespaceIndex,
@@ -154,8 +154,8 @@ impl VantaEmbedded {
     pub(crate) fn replace_derived_indexes(
         &self,
         engine: &StorageEngine,
-        previous: Option<&VantaMemoryRecord>,
-        current: Option<&VantaMemoryRecord>,
+        previous: Option<&MemoryRecord>,
+        current: Option<&MemoryRecord>,
     ) -> Result<()> {
         let mut ops = Vec::new();
         if let Some(previous) = previous {
@@ -241,8 +241,8 @@ impl VantaEmbedded {
 
     fn adjust_derived_index_state_after_replace(
         engine: &StorageEngine,
-        previous: Option<&VantaMemoryRecord>,
-        current: Option<&VantaMemoryRecord>,
+        previous: Option<&MemoryRecord>,
+        current: Option<&MemoryRecord>,
     ) -> Result<()> {
         let Some(mut state) = Self::load_derived_index_state(engine)? else {
             return Ok(());
@@ -285,14 +285,14 @@ mod tests {
     use crate::backend::{BackendPartition, BackendWriteOp};
     use crate::sdk::serialization::{namespace_index_key, node_id_bytes};
     use crate::sdk::types::*;
-    use crate::sdk::VantaEmbedded;
+    use crate::sdk::Embedded;
 
-    fn sample_record(namespace: &str, key: &str) -> VantaMemoryRecord {
-        VantaMemoryRecord {
+    fn sample_record(namespace: &str, key: &str) -> MemoryRecord {
+        MemoryRecord {
             namespace: namespace.into(),
             key: key.into(),
             payload: "test".into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             created_at_ms: 100,
             updated_at_ms: 100,
             version: 1,
@@ -305,11 +305,11 @@ mod tests {
         }
     }
 
-    fn record_with_metadata(namespace: &str, key: &str) -> VantaMemoryRecord {
-        let mut meta = VantaMemoryMetadata::new();
-        meta.insert("color".into(), VantaValue::String("blue".into()));
-        meta.insert("size".into(), VantaValue::Int(42));
-        VantaMemoryRecord {
+    fn record_with_metadata(namespace: &str, key: &str) -> MemoryRecord {
+        let mut meta = MemoryMetadata::new();
+        meta.insert("color".into(), Value::String("blue".into()));
+        meta.insert("size".into(), Value::Int(42));
+        MemoryRecord {
             metadata: meta,
             ..sample_record(namespace, key)
         }
@@ -320,7 +320,7 @@ mod tests {
     #[test]
     fn test_derived_put_ops_no_metadata() {
         let record = sample_record("ns", "k");
-        let ops = VantaEmbedded::derived_put_ops(&record).unwrap();
+        let ops = Embedded::derived_put_ops(&record).unwrap();
 
         assert_eq!(ops.len(), 1);
         match &ops[0] {
@@ -340,7 +340,7 @@ mod tests {
     #[test]
     fn test_derived_put_ops_with_metadata() {
         let record = record_with_metadata("ns", "k");
-        let ops = VantaEmbedded::derived_put_ops(&record).unwrap();
+        let ops = Embedded::derived_put_ops(&record).unwrap();
 
         // 1 namespace + 2 payload entries
         assert_eq!(ops.len(), 3);
@@ -366,16 +366,16 @@ mod tests {
 
     #[test]
     fn test_derived_put_ops_list_metadata() {
-        let mut meta = VantaMemoryMetadata::new();
+        let mut meta = MemoryMetadata::new();
         meta.insert(
             "tags".into(),
-            VantaValue::ListString(vec!["a".into(), "b".into()]),
+            Value::ListString(vec!["a".into(), "b".into()]),
         );
-        let record = VantaMemoryRecord {
+        let record = MemoryRecord {
             metadata: meta,
             ..sample_record("ns", "k")
         };
-        let ops = VantaEmbedded::derived_put_ops(&record).unwrap();
+        let ops = Embedded::derived_put_ops(&record).unwrap();
         // 1 namespace + 2 flattened list entries
         assert_eq!(ops.len(), 3);
     }
@@ -385,7 +385,7 @@ mod tests {
     #[test]
     fn test_derived_delete_ops_no_metadata() {
         let record = sample_record("ns", "k");
-        let ops = VantaEmbedded::derived_delete_ops(&record).unwrap();
+        let ops = Embedded::derived_delete_ops(&record).unwrap();
 
         assert_eq!(ops.len(), 1);
         match &ops[0] {
@@ -400,7 +400,7 @@ mod tests {
     #[test]
     fn test_derived_delete_ops_with_metadata() {
         let record = record_with_metadata("ns", "k");
-        let ops = VantaEmbedded::derived_delete_ops(&record).unwrap();
+        let ops = Embedded::derived_delete_ops(&record).unwrap();
 
         assert_eq!(ops.len(), 3);
         match &ops[0] {
@@ -425,13 +425,13 @@ mod tests {
     fn test_load_derived_index_state_none() {
         let engine = crate::storage::StorageEngine::open_with_config(
             ":memory:",
-            Some(crate::config::VantaConfig {
+            Some(crate::config::Config {
                 backend_kind: crate::backend::BackendKind::InMemory,
                 ..Default::default()
             }),
         )
         .unwrap();
-        let state = VantaEmbedded::load_derived_index_state(&engine).unwrap();
+        let state = Embedded::load_derived_index_state(&engine).unwrap();
         assert!(state.is_none());
     }
 
@@ -439,7 +439,7 @@ mod tests {
     fn test_write_then_load_derived_index_state() {
         let engine = crate::storage::StorageEngine::open_with_config(
             ":memory:",
-            Some(crate::config::VantaConfig {
+            Some(crate::config::Config {
                 backend_kind: crate::backend::BackendKind::InMemory,
                 ..Default::default()
             }),
@@ -452,8 +452,8 @@ mod tests {
             namespace_entries: 10,
             payload_entries: 25,
         };
-        VantaEmbedded::write_derived_index_state(&engine, &state).unwrap();
-        let loaded = VantaEmbedded::load_derived_index_state(&engine).unwrap();
+        Embedded::write_derived_index_state(&engine, &state).unwrap();
+        let loaded = Embedded::load_derived_index_state(&engine).unwrap();
         assert_eq!(loaded, Some(state));
     }
 
@@ -461,7 +461,7 @@ mod tests {
     fn test_overwrite_derived_index_state() {
         let engine = crate::storage::StorageEngine::open_with_config(
             ":memory:",
-            Some(crate::config::VantaConfig {
+            Some(crate::config::Config {
                 backend_kind: crate::backend::BackendKind::InMemory,
                 ..Default::default()
             }),
@@ -481,9 +481,9 @@ mod tests {
             namespace_entries: 20,
             payload_entries: 50,
         };
-        VantaEmbedded::write_derived_index_state(&engine, &state1).unwrap();
-        VantaEmbedded::write_derived_index_state(&engine, &state2).unwrap();
-        let loaded = VantaEmbedded::load_derived_index_state(&engine).unwrap();
+        Embedded::write_derived_index_state(&engine, &state1).unwrap();
+        Embedded::write_derived_index_state(&engine, &state2).unwrap();
+        let loaded = Embedded::load_derived_index_state(&engine).unwrap();
         assert_eq!(loaded, Some(state2));
     }
 }

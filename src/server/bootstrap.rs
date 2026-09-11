@@ -4,7 +4,7 @@
 //! the HTTP/TLS server.
 
 use crate::circuit_breaker::CircuitBreaker;
-use crate::config::VantaConfig;
+use crate::config::Config;
 use crate::connection_pool::ConnectionPool;
 use crate::error::ChainedError;
 use crate::error::Result;
@@ -12,7 +12,7 @@ use crate::server::router::{app_with_cors, mount_dashboard};
 use crate::server::state::ServerState;
 use crate::server::telemetry::init_telemetry;
 use crate::storage::StorageEngine;
-use crate::VantaError;
+use crate::Error;
 use std::sync::Arc;
 use std::time::Duration;
 use tokio::net::TcpListener;
@@ -38,9 +38,9 @@ fn is_loopback_host(host: &str) -> bool {
 /// `--allow-insecure` (dev only), which logs a prominent WARNING instead.
 /// Also returns an error if `require_auth` is set but no key is configured.
 /// SRV-04: `alt_api_key` requires `api_key` to be set (rotation needs a primary).
-pub fn validate_auth_config(config: &VantaConfig) -> Result<()> {
+pub fn validate_auth_config(config: &Config) -> Result<()> {
     if config.alt_api_key.is_some() && config.api_key.is_none() {
-        return Err(VantaError::InvalidInput(
+        return Err(Error::InvalidInput(
             "alt_api_key requires api_key to be set (rotation needs a primary key)".into(),
         ));
     }
@@ -53,7 +53,7 @@ pub fn validate_auth_config(config: &VantaConfig) -> Result<()> {
                  to allow unauthenticated (dev) mode.",
             ),
         );
-        return Err(VantaError::InvalidInput(
+        return Err(Error::InvalidInput(
             "require_auth is set but no api_key is configured".into(),
         ));
     }
@@ -78,7 +78,7 @@ pub fn validate_auth_config(config: &VantaConfig) -> Result<()> {
                     config.host
                 )),
             );
-            return Err(VantaError::InvalidInput(format!(
+            return Err(Error::InvalidInput(format!(
                 "non-loopback host '{}' without api_key; set VANTADB_API_KEY, bind a \
                  loopback host, or pass --allow-insecure",
                 config.host
@@ -88,7 +88,7 @@ pub fn validate_auth_config(config: &VantaConfig) -> Result<()> {
     Ok(())
 }
 
-fn log_security_mode(config: &VantaConfig) {
+fn log_security_mode(config: &Config) {
     let auth_status = match (&config.api_key, config.require_auth) {
         (Some(_), true) => "Bearer token auth ✓ (forced)",
         (Some(_), false) => "Bearer token auth ✓",
@@ -145,7 +145,7 @@ async fn flush_on_shutdown_async(storage: Arc<StorageEngine>) {
 async fn serve_http_or_tls(
     router: axum::Router,
     addr: String,
-    config: &VantaConfig,
+    config: &Config,
     storage: Arc<StorageEngine>,
 ) -> bool {
     #[cfg(feature = "tls")]
@@ -281,7 +281,7 @@ pub async fn build_tls13_config(
 }
 
 /// Start the HTTP (or TLS) server, binding to the address in the config.
-pub async fn run(config: VantaConfig) -> Result<()> {
+pub async fn run(config: Config) -> Result<()> {
     init_telemetry(false, Some(config.log_format));
 
     crate::console::print_banner();
@@ -318,7 +318,7 @@ pub async fn run(config: VantaConfig) -> Result<()> {
     let rbac_config = config.rbac_config.clone();
     let state = Arc::new(ServerState {
         storage: storage.clone(),
-        db: crate::sdk::VantaEmbedded::from_engine(storage.clone()),
+        db: crate::sdk::Embedded::from_engine(storage.clone()),
         circuit_breaker,
         pool,
         api_key,
@@ -330,7 +330,7 @@ pub async fn run(config: VantaConfig) -> Result<()> {
     });
 
     // MOD-12 (MCP-01 twin): a raw StorageEngine skips the
-    // `VantaEmbedded::open_with_config` index reconciliation, so lexical/hybrid
+    // `Embedded::open_with_config` index reconciliation, so lexical/hybrid
     // searches fail on fresh DBs with "text_index not found". Ensure index
     // state at startup: idempotent — no-op when counts match, writes fresh
     // empty state for new DBs. Read-only engines cannot rebuild, so they are
@@ -350,7 +350,7 @@ pub async fn run(config: VantaConfig) -> Result<()> {
     let addr = format!("{}:{}", config.host, config.port);
 
     if !serve_http_or_tls(router, addr, &config, storage.clone()).await {
-        return Err(VantaError::CliError(ChainedError::msg(
+        return Err(Error::CliError(ChainedError::msg(
             "Server exited with errors",
         )));
     }
@@ -383,12 +383,12 @@ pub async fn wait_for_shutdown_signal() {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::config::VantaConfig;
-    use crate::VantaError;
+    use crate::config::Config;
+    use crate::Error;
 
     #[test]
     fn validate_auth_allows_key_without_require() {
-        let cfg = VantaConfig {
+        let cfg = Config {
             api_key: Some("sk-test".into()),
             require_auth: false,
             ..Default::default()
@@ -398,7 +398,7 @@ mod tests {
 
     #[test]
     fn validate_auth_allows_no_key_without_require() {
-        let cfg = VantaConfig {
+        let cfg = Config {
             api_key: None,
             require_auth: false,
             host: "127.0.0.1".into(),
@@ -409,7 +409,7 @@ mod tests {
 
     #[test]
     fn validate_auth_allows_key_with_require() {
-        let cfg = VantaConfig {
+        let cfg = Config {
             api_key: Some("sk-test".into()),
             require_auth: true,
             ..Default::default()
@@ -419,14 +419,14 @@ mod tests {
 
     #[test]
     fn validate_auth_rejects_no_key_with_require() {
-        let cfg = VantaConfig {
+        let cfg = Config {
             api_key: None,
             require_auth: true,
             ..Default::default()
         };
         let err = validate_auth_config(&cfg).unwrap_err();
         match err {
-            VantaError::InvalidInput(msg) => {
+            Error::InvalidInput(msg) => {
                 assert!(msg.contains("require_auth"), "msg: {msg}");
             }
             other => panic!("expected InvalidInput, got {other:?}"),
@@ -437,7 +437,7 @@ mod tests {
     #[test]
     fn refuse_to_start_non_loopback_without_key() {
         for host in ["0.0.0.0", "192.168.1.10", "example.com", "::"] {
-            let cfg = VantaConfig {
+            let cfg = Config {
                 api_key: None,
                 require_auth: false,
                 allow_insecure: false,
@@ -446,7 +446,7 @@ mod tests {
             };
             let err = validate_auth_config(&cfg).unwrap_err();
             match err {
-                VantaError::InvalidInput(msg) => {
+                Error::InvalidInput(msg) => {
                     assert!(
                         msg.contains("VANTADB_API_KEY") && msg.contains("allow-insecure"),
                         "host {host}: msg lacks remediation: {msg}"
@@ -461,7 +461,7 @@ mod tests {
     /// (with a prominent WARNING logged to console).
     #[test]
     fn allow_insecure_bypasses_non_loopback_refusal() {
-        let cfg = VantaConfig {
+        let cfg = Config {
             api_key: None,
             require_auth: false,
             allow_insecure: true,
@@ -475,7 +475,7 @@ mod tests {
     #[test]
     fn loopback_hosts_start_normally() {
         for host in ["127.0.0.1", "localhost", "::1", "[::1]"] {
-            let cfg = VantaConfig {
+            let cfg = Config {
                 api_key: None,
                 require_auth: false,
                 allow_insecure: false,
@@ -492,7 +492,7 @@ mod tests {
     /// FIND-07: an API key makes any host acceptable regardless of the override.
     #[test]
     fn api_key_accepts_any_host() {
-        let cfg = VantaConfig {
+        let cfg = Config {
             api_key: Some("sk-test".into()),
             require_auth: false,
             allow_insecure: false,
