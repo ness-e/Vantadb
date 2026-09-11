@@ -1,5 +1,5 @@
 use super::super::builder::Embedded;
-use super::super::serialization::{matches_memory_filters, memory_record_from_node};
+use super::super::serialization::{matches_memory_filters, record_from_node};
 use super::super::types::*;
 use crate::cost_estimator::{CostEstimator, FilterStrategy};
 use crate::error::Result;
@@ -148,7 +148,7 @@ impl Embedded {
                     break;
                 }
                 if let Some(node) = node_map.get(&node_id) {
-                    if let Some(record) = memory_record_from_node(node) {
+                    if let Some(record) = record_from_node(node) {
                         // For InFilter, the bitset already guarantees the
                         // record matches filters (we built it from
                         // records_for_namespace). Only namespace check needed.

@@ -3,7 +3,7 @@
 //!
 //! Contract: measure **process RSS growth vs dataset size** under a sustained
 //! write workload, and compare it against the engine's *logical* memory
-//! estimate. Since FND-01-F1, `check_memory_pressure`
+//! estimate. Since FND-01-F1, `check_pressure`
 //! (src/storage/engine/stats.rs:98) uses the **real process RSS** as its
 //! back-pressure signal (with fallback to the logical estimate when the host
 //! measurement is unavailable), so `pressure_ratio` in the table mirrors the
@@ -101,7 +101,7 @@ fn bench_memory_budget(c: &mut Criterion) {
         drop(batch_vecs);
 
         let snap = vantadb::metrics::memory_breakdown_snapshot();
-        let stats = storage.get_memory_stats();
+        let stats = storage.stats();
         let rss = snap.process_rss_bytes;
         let logical = stats.logical_bytes;
         // Mirror the guard's effective signal (FND-01-F1): real process RSS when

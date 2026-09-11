@@ -263,7 +263,7 @@ impl VectorRepresentations {
     }
 
     /// Estimated heap memory in bytes
-    pub fn memory_size(&self) -> usize {
+    pub fn size(&self) -> usize {
         match self {
             VectorRepresentations::Full(v) => v.len() * 4,
             VectorRepresentations::MmapFull(_) => 0, // Zero heap allocations for mapped memory
@@ -272,6 +272,12 @@ impl VectorRepresentations {
             VectorRepresentations::SQ8(data, _) => data.len() + 4,
             VectorRepresentations::None => 0,
         }
+    }
+
+    /// Deprecated alias of [`VectorRepresentations::size`] (anti-stutter AST-005).
+    #[deprecated(since = "0.5.0", note = "use `VectorRepresentations::size` instead")]
+    pub fn memory_size(&self) -> usize {
+        self.size()
     }
 }
 
@@ -343,20 +349,29 @@ mod tests {
 
     #[test]
     fn test_vector_memory_size() {
-        assert_eq!(VectorRepresentations::Full(vec![0.0; 10]).memory_size(), 40);
-        assert_eq!(VectorRepresentations::None.memory_size(), 0);
-        assert_eq!(VectorRepresentations::MmapFull(None).memory_size(), 0);
+        assert_eq!(VectorRepresentations::Full(vec![0.0; 10]).size(), 40);
+        assert_eq!(VectorRepresentations::None.size(), 0);
+        assert_eq!(VectorRepresentations::MmapFull(None).size(), 0);
         assert_eq!(
-            VectorRepresentations::Binary(vec![0u64; 4].into()).memory_size(),
+            VectorRepresentations::Binary(vec![0u64; 4].into()).size(),
             32
         );
         assert_eq!(
-            VectorRepresentations::Turbo(vec![0u8; 100].into()).memory_size(),
+            VectorRepresentations::Turbo(vec![0u8; 100].into()).size(),
             100
         );
         assert_eq!(
-            VectorRepresentations::SQ8(vec![0i8; 16].into(), 2.0).memory_size(),
+            VectorRepresentations::SQ8(vec![0i8; 16].into(), 2.0).size(),
             20
+        );
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_vector_memory_size_deprecated_alias() {
+        assert_eq!(
+            VectorRepresentations::Full(vec![0.0; 10]).memory_size(),
+            VectorRepresentations::Full(vec![0.0; 10]).size()
         );
     }
 

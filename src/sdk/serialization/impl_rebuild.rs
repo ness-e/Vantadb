@@ -3,7 +3,7 @@
 use super::super::builder::Embedded;
 use super::super::types::*;
 use super::{
-    memory_record_from_node, memory_record_from_node_include_expired, now_ms, TextIndexCounts,
+    memory_record_from_node_include_expired, now_ms, record_from_node, TextIndexCounts,
     DERIVED_INDEX_SCHEMA_VERSION,
 };
 use crate::backend::{BackendPartition, BackendWriteOp};
@@ -34,7 +34,7 @@ impl Embedded {
             });
         }
         for node in engine.scan_nodes()? {
-            if let Some(record) = memory_record_from_node(&node) {
+            if let Some(record) = record_from_node(&node) {
                 record_count += 1;
                 namespace_entries += 1;
                 payload_entries += record.metadata.len() as u64;

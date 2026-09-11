@@ -12,7 +12,7 @@ fn test_mmap_hnsw_config_respected() {
         .with_mmap_hnsw(true);
     let engine =
         StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     // Engine opens and reports stats with mmap_hnsw=true
     assert!(stats.node_count == 0, "fresh engine has zero nodes");
 }
@@ -25,7 +25,7 @@ fn test_mmap_hnsw_disabled() {
         .with_mmap_hnsw(false);
     let engine =
         StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     // Engine opens and reports stats with mmap_hnsw=false
     assert!(stats.node_count == 0, "fresh engine has zero nodes");
 }

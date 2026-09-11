@@ -107,7 +107,7 @@ fn bench_bulk_insert_throughput() {
             elapsed.as_secs_f64(),
             throughput
         );
-        let stats = engine.get_memory_stats();
+        let stats = engine.stats();
         let rss_mb = stats
             .physical_rss
             .map(|b| b as f64 / (1024.0 * 1024.0))

@@ -2,7 +2,7 @@ use super::super::builder::Embedded;
 use super::super::serialization::impl_sparse_index::{
     decode_sparse_posting, sparse_posting_prefix,
 };
-use super::super::serialization::{matches_memory_filters, memory_record_from_node};
+use super::super::serialization::{matches_memory_filters, record_from_node};
 use super::super::types::*;
 use crate::backend::BackendPartition;
 use crate::error::Result;
@@ -53,7 +53,7 @@ impl Embedded {
             }
             for (node_id, score) in scores {
                 if let Some(node) = node_map.get(&node_id) {
-                    if let Some(record) = memory_record_from_node(node) {
+                    if let Some(record) = record_from_node(node) {
                         if record.namespace == namespace && matches_memory_filters(&record, filters)
                         {
                             hits.push(MemorySearchHit {

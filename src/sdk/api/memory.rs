@@ -11,7 +11,7 @@
 
 use super::super::builder::Embedded;
 use super::super::serialization::{
-    memory_node_id, memory_record_from_node, memory_record_to_node_owned, now_ms, validate_key,
+    memory_node_id, memory_record_to_node_owned, now_ms, record_from_node, validate_key,
     validate_metadata, validate_namespace, DERIVED_INDEX_SCHEMA_VERSION, FIELD_CREATED_AT_MS,
     FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS,
     FIELD_VERSION,
@@ -62,7 +62,7 @@ impl Embedded {
         let engine = self.engine_handle()?;
         let node_id = memory_node_id(&input.namespace, &input.key);
         let existing = match engine.get(node_id)? {
-            Some(node) => match memory_record_from_node(&node) {
+            Some(node) => match record_from_node(&node) {
                 Some(record) if record.namespace == input.namespace && record.key == input.key => {
                     Some(record)
                 }
@@ -226,7 +226,7 @@ impl Embedded {
                     Some((*v, timestamp))
                 } else {
                     match engine.get(node_id)? {
-                        Some(node) => match memory_record_from_node(&node) {
+                        Some(node) => match record_from_node(&node) {
                             Some(record)
                                 if record.namespace == input.namespace
                                     && record.key == input.key =>
@@ -378,7 +378,7 @@ impl Embedded {
             return Ok(None);
         };
 
-        match memory_record_from_node(&node) {
+        match record_from_node(&node) {
             Some(record) if record.namespace == namespace && record.key == key => Ok(Some(record)),
             Some(_record) => Err(Error::NodeIdCollision(memory_node_id(namespace, key))),
             None => Ok(None),
@@ -489,7 +489,7 @@ impl Embedded {
 
         let engine = self.engine_handle()?;
         let previous = match engine.get(record.node_id)? {
-            Some(node) => match memory_record_from_node(&node) {
+            Some(node) => match record_from_node(&node) {
                 Some(previous)
                     if previous.namespace == record.namespace && previous.key == record.key =>
                 {
@@ -929,7 +929,7 @@ impl Embedded {
                 let mut node = UnifiedNode::new(node_id);
                 // Reserved fields (MCP-28): mirror `memory_record_to_node_owned`
                 // so bulk-imported records are addressable via get/list/delete.
-                // Without these, `memory_record_from_node` returns None and the
+                // Without these, `record_from_node` returns None and the
                 // record is invisible to the memory API.
                 node.set_field(FIELD_NAMESPACE, FieldValue::String(input.namespace.clone()));
                 node.set_field(FIELD_KEY, FieldValue::String(input.key.clone()));

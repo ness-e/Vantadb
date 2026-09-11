@@ -19,7 +19,7 @@ impl StorageEngine {
     /// Full saga/2PC is deferred to ACID Phase 0.
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn delete(&self, id: u128, _reason: &str) -> Result<()> {
-        self.check_memory_pressure()?;
+        self.check_pressure()?;
         // Inside transaction ΓåÆ buffer in the txn's write set; stats, indexes
         // and store writes are applied only at commit (ERR-013).
         {
@@ -175,7 +175,7 @@ impl StorageEngine {
             return Ok(());
         }
 
-        self.check_memory_pressure()?;
+        self.check_pressure()?;
         self.ensure_writable()?;
         #[cfg(feature = "failpoints")]
         fail::fail_point!("storage_insert_fail", |_| {

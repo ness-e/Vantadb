@@ -444,7 +444,7 @@ impl StorageEngine {
                 self.consolidate_node(node)
             };
             if result.is_ok() {
-                bytes_freed += node.memory_size() as u64;
+                bytes_freed += node.size() as u64;
                 evicted += 1;
             }
         }

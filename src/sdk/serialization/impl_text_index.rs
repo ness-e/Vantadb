@@ -1,5 +1,5 @@
 use super::super::builder::Embedded;
-use super::{memory_record_from_node, memory_record_from_node_include_expired, now_ms};
+use super::{memory_record_from_node_include_expired, now_ms, record_from_node};
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::{Error, Result};
 use crate::node::UnifiedNode;
@@ -462,7 +462,7 @@ impl Embedded {
     pub(crate) fn count_memory_records_from(nodes: &[UnifiedNode]) -> u64 {
         let mut count = 0u64;
         for node in nodes {
-            if memory_record_from_node(node).is_some() {
+            if record_from_node(node).is_some() {
                 count += 1;
             }
         }

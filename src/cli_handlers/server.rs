@@ -73,7 +73,7 @@ pub fn cmd_status(db_path: &str, verbose: bool) -> Result<()> {
     let spinner = create_spinner("Opening database...");
 
     let engine = open_database(db_path, true)?;
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     let metrics = crate::metrics::operational_metrics_snapshot();
 
     spinner.finish_and_clear();

@@ -22,7 +22,7 @@
 
 use super::super::builder::Embedded;
 use super::super::types::*;
-use super::{memory_record_from_node, now_ms, SPARSE_INDEX_SCHEMA_VERSION};
+use super::{now_ms, record_from_node, SPARSE_INDEX_SCHEMA_VERSION};
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::{Error, Result};
 use crate::node::UnifiedNode;
@@ -241,7 +241,7 @@ impl Embedded {
     pub(crate) fn expected_sparse_index_counts_from(nodes: &[UnifiedNode]) -> SparseIndexCounts {
         let mut counts = SparseIndexCounts::default();
         for node in nodes {
-            if let Some(record) = memory_record_from_node(node) {
+            if let Some(record) = record_from_node(node) {
                 counts.record_count += 1;
                 counts.posting_entries += sparse_posting_count(&record);
             }
@@ -272,7 +272,7 @@ impl Embedded {
         }
 
         for node in engine.scan_nodes()? {
-            if let Some(record) = memory_record_from_node(&node) {
+            if let Some(record) = record_from_node(&node) {
                 counts.record_count += 1;
                 let put_ops = sparse_put_ops(&record)?;
                 counts.posting_entries += put_ops.len() as u64;

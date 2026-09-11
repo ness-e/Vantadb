@@ -26,7 +26,7 @@ pub struct DashboardData {
 impl DashboardData {
     /// Refresh from engine.
     pub fn refresh(&mut self, engine: &Arc<StorageEngine>) {
-        let mem = engine.get_memory_stats();
+        let mem = engine.stats();
         let metrics = operational_metrics_snapshot();
 
         self.node_count = mem.node_count;

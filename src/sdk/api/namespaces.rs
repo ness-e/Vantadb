@@ -27,7 +27,7 @@ impl Embedded {
 
         if entries.is_empty() {
             for node in engine.scan_nodes()? {
-                if let Some(record) = super::super::serialization::memory_record_from_node(&node) {
+                if let Some(record) = super::super::serialization::record_from_node(&node) {
                     namespaces.insert(record.namespace);
                 }
             }
@@ -124,7 +124,7 @@ impl Embedded {
         };
         let mut records: Vec<MemoryRecord> = Vec::with_capacity(window_ids.len());
         for node in engine.get_many(&window_ids)? {
-            if let Some(record) = super::super::serialization::memory_record_from_node(&node) {
+            if let Some(record) = super::super::serialization::record_from_node(&node) {
                 let matches = if let Some(ops) = &options.filter_ops {
                     crate::sdk::serialization::matches_advanced_filters(&record, ops)
                 } else {
@@ -141,7 +141,7 @@ impl Embedded {
             crate::metrics::record_derived_full_scan_fallback();
             let mut skipped = 0usize;
             for node in engine.scan_nodes()? {
-                if let Some(record) = super::super::serialization::memory_record_from_node(&node) {
+                if let Some(record) = super::super::serialization::record_from_node(&node) {
                     let matches = if let Some(ops) = &options.filter_ops {
                         crate::sdk::serialization::matches_advanced_filters(&record, ops)
                     } else {
@@ -312,7 +312,7 @@ impl Embedded {
     /// `expiring_soon`.
     ///
     /// Semantics: `count` includes not-yet-purged expired records (records
-    /// hidden by lazy TTL eviction in [`memory_record_from_node`](crate::sdk::memory_record_from_node)]); use
+    /// hidden by lazy TTL eviction in [`record_from_node`](crate::sdk::record_from_node)]); use
     /// [`Self::count`] / [`Self::list`] for the read-visible subset. Records
     /// with no TTL count only toward `count`.
     ///
