@@ -33,7 +33,7 @@ fn seeded_engine() -> Arc<vantadb::storage::StorageEngine> {
         vantadb::node::FieldValue::String(USER_KEY.to_string()),
     );
     vantadb::entity::EntityStore::new(&engine)
-        .entity_set("default", "user", "usr-loop", fields)
+        .set("default", "user", "usr-loop", fields)
         .unwrap();
     Arc::new(engine)
 }

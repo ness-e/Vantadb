@@ -40,7 +40,7 @@ pub struct AuthDb {
     engine: Arc<StorageEngine>,
     /// Cache-aside `user_key → identity` snapshot (PRX-08 S1): the first
     /// miss scans once and memoizes EVERY user, so steady-state resolves
-    /// are O(1) HashMap lookups instead of a 10k `entity_list` scan per
+    /// are O(1) HashMap lookups instead of a 10k `list` scan per
     /// request. Ceiling: per-process snapshot — external writers MUST call
     /// [`AuthDb::invalidate`] (the proxy itself never writes `user`
     /// entities, so steady state is exact).
@@ -124,8 +124,8 @@ impl AuthDb {
         }
         let store = EntityStore::new(&self.engine);
         let page = store
-            .entity_list(AUTH_ENTITY_NS, "user", USER_SCAN_LIMIT, 0)
-            .map_err(|e| ProxyError::Storage(format!("entity_list user: {e}")))?;
+            .list(AUTH_ENTITY_NS, "user", USER_SCAN_LIMIT, 0)
+            .map_err(|e| ProxyError::Storage(format!("list user: {e}")))?;
         let mut snapshot = std::collections::HashMap::with_capacity(page.items.len());
         for entity in &page.items {
             let Some(FieldValue::String(candidate)) = entity.fields.get("user_key") else {
@@ -138,7 +138,7 @@ impl AuthDb {
                     Some(FieldValue::String(t)) if t == "system_admin"
                 );
                 UserIdentity {
-                    user_id: entity.entity_id.clone(),
+                    user_id: entity.id.clone(),
                     is_system_admin,
                 }
             });
@@ -159,12 +159,12 @@ impl AuthDb {
     /// [`ProxyError::Storage`] on unexpected local failures.
     pub fn entity_exists(&self, collection: &str, entity_id: &str) -> Result<bool, ProxyError> {
         let store = EntityStore::new(&self.engine);
-        match store.entity_get(AUTH_ENTITY_NS, collection, entity_id) {
+        match store.get(AUTH_ENTITY_NS, collection, entity_id) {
             Ok(found) => Ok(found.is_some()),
             // ponytail: invalid ids (empty / '{' ':' '}') surface as InvalidInput —
             // treat as not-found so callers can reject with 400 instead of 500.
             Err(vantadb::error::Error::InvalidInput(_)) => Ok(false),
-            Err(e) => Err(ProxyError::Storage(format!("entity_get {collection}: {e}"))),
+            Err(e) => Err(ProxyError::Storage(format!("get {collection}: {e}"))),
         }
     }
 }
@@ -194,7 +194,7 @@ mod tests {
             fields.insert("user_type".into(), FieldValue::String(t.to_string()));
         }
         EntityStore::new(&db.engine)
-            .entity_set(AUTH_ENTITY_NS, "user", id, fields)
+            .set(AUTH_ENTITY_NS, "user", id, fields)
             .expect("seed user");
     }
 

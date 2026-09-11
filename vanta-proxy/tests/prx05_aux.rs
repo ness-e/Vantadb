@@ -28,7 +28,7 @@ fn seeded_engine() -> std::sync::Arc<vantadb::storage::StorageEngine> {
         vantadb::node::FieldValue::String(USER_KEY.to_string()),
     );
     vantadb::entity::EntityStore::new(&engine)
-        .entity_set("default", "user", "usr-prx05", fields)
+        .set("default", "user", "usr-prx05", fields)
         .unwrap();
     std::sync::Arc::new(engine)
 }

@@ -133,7 +133,7 @@ impl<'a> PermissionChecker<'a> {
         };
 
         // 1. resource: ausente o archivado → DENY.
-        let Some(asset) = self.store.entity_get(namespace, "asset", asset_id)? else {
+        let Some(asset) = self.store.get(namespace, "asset", asset_id)? else {
             return Ok(deny("asset_not_available"));
         };
         if asset.status() == Some("archived") {
@@ -212,7 +212,7 @@ impl<'a> PermissionChecker<'a> {
     /// Membership activa o `None` (status != `active` se reporta como `None`).
     fn membership(&self, namespace: &str, team_id: &str, user_id: &str) -> Result<Option<Member>> {
         let key = format!("{team_id}.{user_id}");
-        let Some(entity) = self.store.entity_get(namespace, "team_member", &key)? else {
+        let Some(entity) = self.store.get(namespace, "team_member", &key)? else {
             return Ok(None);
         };
         let role = match entity.fields.get("role").and_then(FieldValue::as_str) {
@@ -246,7 +246,7 @@ impl<'a> PermissionChecker<'a> {
                 continue;
             }
             let key = format!("{asset_id}.{subject_type}.{subject_id}.{action_str}");
-            let Some(acl) = self.store.entity_get(namespace, "acl", &key)? else {
+            let Some(acl) = self.store.get(namespace, "acl", &key)? else {
                 continue;
             };
             if acl.fields.get("effect").and_then(FieldValue::as_str) == Some("allow") {

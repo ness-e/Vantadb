@@ -75,7 +75,7 @@ impl<'a> SkillStore<'a> {
     pub fn get_version(&self, skill_id: &str, version: u64) -> Result<Option<SkillRecord>> {
         validate_skill_id(skill_id)?;
         self.entities
-            .entity_get(
+            .get(
                 SKILL_NS,
                 SKILL_COLLECTION,
                 &version_entity_id(skill_id, version),
@@ -110,7 +110,7 @@ impl<'a> SkillStore<'a> {
     pub fn list(&self, opts: SkillListOptions) -> Result<SkillListPage> {
         let page = self
             .entities
-            .entity_list(SKILL_NS, SKILL_HEAD_COLLECTION, usize::MAX, 0)?;
+            .list(SKILL_NS, SKILL_HEAD_COLLECTION, usize::MAX, 0)?;
         let mut records = Vec::with_capacity(page.items.len());
         for index in page.items {
             let skill_id = str_field(&index, "skill_id")?;
@@ -301,7 +301,7 @@ impl<'a> SkillStore<'a> {
                 key: entity_key(
                     SKILL_NS,
                     SKILL_COLLECTION,
-                    &version_entity_id(skill_id, version_from_entity_id(&row.entity_id)?),
+                    &version_entity_id(skill_id, version_from_entity_id(&row.id)?),
                 ),
             });
         }
@@ -343,7 +343,7 @@ impl<'a> SkillStore<'a> {
             }
             ops.push(BackendWriteOp::Delete {
                 partition: BackendPartition::InternalMetadata,
-                key: entity_key(SKILL_NS, SKILL_COLLECTION, &row.entity_id),
+                key: entity_key(SKILL_NS, SKILL_COLLECTION, &row.id),
             });
             deleted += 1;
         }
@@ -374,7 +374,7 @@ impl<'a> SkillStore<'a> {
 
     /// Resolve the head index row for `(owner_agent, name)`, then its record.
     fn head_by_owner_name(&self, owner: &str, name: &str) -> Result<Option<SkillRecord>> {
-        let Some(index) = self.entities.entity_get(
+        let Some(index) = self.entities.get(
             SKILL_NS,
             SKILL_HEAD_COLLECTION,
             &head_entity_id(owner, name),
@@ -399,7 +399,7 @@ impl<'a> SkillStore<'a> {
         self.write_batch(vec![
             BackendWriteOp::Put {
                 partition: BackendPartition::InternalMetadata,
-                key: entity_key(SKILL_NS, SKILL_COLLECTION, &old.entity_id),
+                key: entity_key(SKILL_NS, SKILL_COLLECTION, &old.id),
                 value: serialize_entity(&old)?,
             },
             BackendWriteOp::Put {
@@ -425,8 +425,8 @@ impl<'a> SkillStore<'a> {
 
     /// Scan all version rows of a skill (any version, any order).
     fn scan_versions(&self, skill_id: &str) -> Result<Vec<Entity>> {
-        // Keys are `entity:{skills}:{skill}::{skill_id}~v{N}` (entity_id wrapped
-        // in braces). The prefix opens the entity_id brace but leaves `~v`
+        // Keys are `entity:{skills}:{skill}::{skill_id}~v{N}` (id wrapped
+        // in braces). The prefix opens the id brace but leaves `~v`
         // inside so it matches every version of this skill only.
         let prefix = format!("entity:{{skills}}:{{skill}}::{{{skill_id}~v");
         let rows = self
@@ -483,7 +483,7 @@ fn record_to_entity(record: &SkillRecord) -> Result<Entity> {
     Ok(Entity {
         namespace: SKILL_NS.into(),
         collection: SKILL_COLLECTION.into(),
-        entity_id: version_entity_id(&record.skill_id, record.version),
+        id: version_entity_id(&record.skill_id, record.version),
         fields,
         created_at: record.created_at,
         updated_at: record.updated_at,
@@ -492,12 +492,7 @@ fn record_to_entity(record: &SkillRecord) -> Result<Entity> {
 
 fn entity_to_record(entity: Entity) -> Result<SkillRecord> {
     Ok(SkillRecord {
-        skill_id: entity
-            .entity_id
-            .split("~v")
-            .next()
-            .unwrap_or_default()
-            .to_string(),
+        skill_id: entity.id.split("~v").next().unwrap_or_default().to_string(),
         version: int_field(&entity, "version")? as u64,
         is_head: bool_field(&entity, "is_head")?,
         owner_agent: str_field(&entity, "owner_agent")?,
@@ -540,7 +535,7 @@ fn head_index_entity(record: &SkillRecord) -> Entity {
     Entity {
         namespace: SKILL_NS.into(),
         collection: SKILL_HEAD_COLLECTION.into(),
-        entity_id: head_entity_id(&record.owner_agent, &record.name),
+        id: head_entity_id(&record.owner_agent, &record.name),
         fields,
         created_at: record.created_at,
         updated_at: record.updated_at,

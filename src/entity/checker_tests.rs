@@ -34,7 +34,7 @@ const NS: &str = "default";
 fn seed_member(store: &EntityStore, team_id: &str, user_id: &str, role: &str, status: &str) {
     let id = format!("{team_id}.{user_id}");
     store
-        .entity_set(
+        .set(
             NS,
             "team_member",
             &id,
@@ -52,7 +52,7 @@ fn seed_asset(
     status: &str,
 ) {
     store
-        .entity_set(
+        .set(
             NS,
             "asset",
             asset_id,
@@ -76,7 +76,7 @@ fn seed_acl(
 ) {
     let id = format!("{asset_id}.{subject_type}.{subject_id}.{permission}");
     store
-        .entity_set(
+        .set(
             NS,
             "acl",
             &id,

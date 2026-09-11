@@ -27,11 +27,11 @@ fn seeded_engine() -> std::sync::Arc<vantadb::storage::StorageEngine> {
     let mut fields: HashMap<String, FieldValue> = HashMap::new();
     fields.insert("user_key".into(), FieldValue::String(USER_KEY.to_string()));
     EntityStore::new(&engine)
-        .entity_set("default", "user", USER_ID, fields)
+        .set("default", "user", USER_ID, fields)
         .expect("seed user");
     for (collection, id) in [("team", "team-1"), ("agent", "agent-1"), ("task", "task-1")] {
         EntityStore::new(&engine)
-            .entity_set("default", collection, id, HashMap::new())
+            .set("default", collection, id, HashMap::new())
             .expect("seed entity");
     }
     std::sync::Arc::new(engine)

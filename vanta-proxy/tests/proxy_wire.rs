@@ -32,7 +32,7 @@ fn seeded_engine() -> std::sync::Arc<vantadb::storage::StorageEngine> {
         vantadb::node::FieldValue::String(USER_KEY.to_string()),
     );
     vantadb::entity::EntityStore::new(&engine)
-        .entity_set("default", "user", "usr-wire", fields)
+        .set("default", "user", "usr-wire", fields)
         .unwrap();
     std::sync::Arc::new(engine)
 }
