@@ -871,3 +871,9 @@ aliases: []
 - **Objetivo:** Value/Metadata/FlatValue/MetadataInput/FilterOp/FilterItem/Config + ErrorJSON/DbError + Client con aliases deprecated; d.ts ConfigInput/Capabilities/Client.
 - **Resultado:** ✅ tsc 0 err + d.ts standalone 0 err + vitest 280/280; wire shapes intactos; this.name VantaError conservado.
 - **Commit:** 07406d9f
+
+### AST-005: Métodos que repiten clase anti-stutter (plan 2026-09-10-anti-stutter Wave1)
+- **Fecha:** 2026-09-11
+- **Objetivo:** `MemoryGovernor::memory_limit→limit`, `StorageEngine::{get_memory_stats→stats, check_memory_pressure→check_pressure}`, `UnifiedNode/VectorRepresentations::memory_size→size`, `memory_record_from_node→record_from_node`; aliases `#[deprecated(since 0.5.0)]`; falsos positivos intactos (`memory_node_id`, `parse_memory_limit`, `memory_breakdown_snapshot`).
+- **Resultado:** ✅ fmt limpio + clippy `-p vantadb --all-targets --all-features -D warnings` 0 + nextest workspace 3143 passed/1 skipped (36/36 focados incl. 5 alias-tests); sin colisión `size`/`stats`; `clippy --workspace -D warnings` rojo pre-existente en vanta-memory/vantadb-wasm (Vanta* AST-002, owned por AST-007).
+- **Commit:** 00665192
