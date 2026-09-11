@@ -267,6 +267,8 @@ struct WikiClient {
 /// method of the same name on the parent [`VantaDB`]. The varargs/kwargs
 /// pass-through makes the exposed signature identical by construction — the
 /// flat method keeps doing all argument validation (single source of truth).
+/// Entries shaped `alias => target` expose a clean anti-stutter name that
+/// delegates to a differently-named flat method (AST-003).
 macro_rules! forward_to_db {
     ($client:ident { $($method:ident),* $(,)? }) => {
         #[pymethods]
@@ -281,6 +283,35 @@ macro_rules! forward_to_db {
                     kwargs: Option<&Bound<'py, PyDict>>,
                 ) -> PyResult<Bound<'py, PyAny>> {
                     self.db.bind(py).call_method(stringify!($method), args, kwargs)
+                }
+            )*
+        }
+    };
+    ($client:ident { $($method:ident),* $(,)? ; $($alias:ident => $target:ident),* $(,)? }) => {
+        #[pymethods]
+        impl $client {
+            $(
+                #[doc = concat!("Delegates to ``VantaDB.", stringify!($method), "`` — same signature, same result.")]
+                #[pyo3(signature = (*args, **kwargs))]
+                fn $method<'py>(
+                    &self,
+                    py: Python<'py>,
+                    args: &Bound<'py, PyTuple>,
+                    kwargs: Option<&Bound<'py, PyDict>>,
+                ) -> PyResult<Bound<'py, PyAny>> {
+                    self.db.bind(py).call_method(stringify!($method), args, kwargs)
+                }
+            )*
+            $(
+                #[doc = concat!("Clean alias of ``VantaDB.", stringify!($target), "`` — same signature, same result.")]
+                #[pyo3(signature = (*args, **kwargs))]
+                fn $alias<'py>(
+                    &self,
+                    py: Python<'py>,
+                    args: &Bound<'py, PyTuple>,
+                    kwargs: Option<&Bound<'py, PyDict>>,
+                ) -> PyResult<Bound<'py, PyAny>> {
+                    self.db.bind(py).call_method(stringify!($target), args, kwargs)
                 }
             )*
         }
@@ -305,7 +336,18 @@ forward_to_db!(MemoryClient {
     supersede,
     generate_snippet,
     purge_expired,
-    list_namespaces,
+    list_namespaces
+    // AST-003 clean aliases (ADR-041, OD-4). Additive: flat VantaDB keeps
+    // every legacy name. Flat-level memory aliases are impossible (get/
+    // delete/search are node-level on VantaDB — BINDINGS_NAMESPACES hazard),
+    // so clean names live on the domain client. OD-2/Gate P: hybrid `search`
+    // deliberately NOT aliased — MemoryClient.search is pure ANN
+    // (test_subclients.py:99); search_vector is the parity alias.
+    ;
+    get => get_memory,
+    list => list_memory,
+    delete => delete_memory,
+    search_vector => search,
 });
 
 forward_to_db!(GraphClient {
@@ -319,7 +361,14 @@ forward_to_db!(GraphClient {
     graph_topological_sort,
     graph_is_dag,
     graph_page_rank,
-    graph_degree_centrality,
+    graph_degree_centrality
+    // AST-003 node parity aliases (WASM insert_node/get_node/delete_node,
+    // TS insertNode/getNode/deleteNode). Bare insert/get/delete stay
+    // canonical until the cleanup major.
+    ;
+    insert_node => insert,
+    get_node => get,
+    delete_node => delete,
 });
 
 forward_to_db!(SystemClient {
