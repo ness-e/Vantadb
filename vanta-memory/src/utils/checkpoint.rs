@@ -60,7 +60,7 @@ pub struct Checkpoint {
 pub enum CheckpointError {
     /// Underlying store error.
     #[error("checkpoint store: {0}")]
-    Store(#[from] vantadb::error::VantaError),
+    Store(#[from] vantadb::error::Error),
     /// Serialization error.
     #[error("checkpoint serialization: {0}")]
     Serde(#[from] serde_json::Error),
@@ -68,7 +68,7 @@ pub enum CheckpointError {
 
 /// Persistent checkpoint manager over the VantaDB store.
 pub struct CheckpointManager<'a> {
-    db: &'a vantadb::sdk::VantaEmbedded,
+    db: &'a vantadb::sdk::Embedded,
     namespace: String,
     key: String,
 }
@@ -76,7 +76,7 @@ pub struct CheckpointManager<'a> {
 impl<'a> CheckpointManager<'a> {
     /// Open a manager over an embedded database. The namespace is sanitized
     /// to the safe namespace set (`[A-Za-z0-9._/-]`, ≤128 bytes).
-    pub fn new(db: &'a vantadb::sdk::VantaEmbedded) -> Self {
+    pub fn new(db: &'a vantadb::sdk::Embedded) -> Self {
         Self {
             db,
             namespace: format!("pipeline_{}", sanitize_component("checkpoint", 128, false)),
@@ -94,12 +94,12 @@ impl<'a> CheckpointManager<'a> {
 
     /// Persist a full checkpoint.
     pub fn write(&self, checkpoint: &Checkpoint) -> Result<(), CheckpointError> {
-        use vantadb::sdk::{VantaMemoryInput, VantaMemoryMetadata};
-        self.db.put(VantaMemoryInput {
+        use vantadb::sdk::{MemoryInput, MemoryMetadata};
+        self.db.put(MemoryInput {
             namespace: self.namespace.clone(),
             key: self.key.clone(),
             payload: serde_json::to_string(checkpoint)?,
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             vector: None,
             sparse_vector: None,
             ttl_ms: None,

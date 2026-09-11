@@ -14,8 +14,8 @@ use std::sync::Arc;
 
 use thiserror::Error;
 
-use vantadb::error::VantaError;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata, VantaValue};
+use vantadb::error::Error;
+use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata, Value};
 
 use crate::core::abstractions::{
     DedupAction, DedupDecision, ExtractedMemory, MemoryRecord, MemoryType,
@@ -29,7 +29,7 @@ use crate::core::record::l1_reader::{l1_namespace, read_record};
 #[derive(Debug, Error)]
 pub enum L1Error {
     #[error("vantadb: {0}")]
-    Vanta(#[from] VantaError),
+    Vanta(#[from] Error),
     #[error("malformed l1 record payload: {0}")]
     Serde(#[from] serde_json::Error),
 }
@@ -109,7 +109,7 @@ fn embed_vector(embed: Option<&EmbedFn>, content: &str) -> Option<Vec<f32>> {
 /// record carries a dense vector; a hook failure stores the record without
 /// one (best-effort, P4).
 pub fn write_memory(
-    db: &VantaEmbedded,
+    db: &Embedded,
     session_key: &str,
     session_id: &str,
     memory: &ExtractedMemory,
@@ -239,7 +239,7 @@ pub fn write_memory(
 /// Apply a batch of decisions (one per pending memory) and return the records
 /// that were actually persisted. Convenience entry point for the pipeline.
 pub fn apply_dedup_batch(
-    db: &VantaEmbedded,
+    db: &Embedded,
     session_key: &str,
     session_id: &str,
     memories: &[ExtractedMemory],
@@ -280,7 +280,7 @@ pub fn apply_dedup_batch(
 /// Load target records by id; missing ids are skipped silently (defensive —
 /// a stale target id must not fail the whole batch).
 fn load_targets(
-    db: &VantaEmbedded,
+    db: &Embedded,
     session_key: &str,
     target_ids: &[String],
 ) -> Result<Vec<MemoryRecord>, L1Error> {
@@ -296,18 +296,18 @@ fn load_targets(
 }
 
 fn put_record(
-    db: &VantaEmbedded,
+    db: &Embedded,
     ns: &str,
     record: &MemoryRecord,
     vector: Option<Vec<f32>>,
 ) -> Result<(), L1Error> {
-    let mut metadata = VantaMemoryMetadata::new();
+    let mut metadata = MemoryMetadata::new();
     metadata.insert(
         "type".into(),
-        VantaValue::String(type_name(record.memory_type).to_string()),
+        Value::String(type_name(record.memory_type).to_string()),
     );
-    metadata.insert("priority".into(), VantaValue::Int(record.priority as i64));
-    db.put(VantaMemoryInput {
+    metadata.insert("priority".into(), Value::Int(record.priority as i64));
+    db.put(MemoryInput {
         namespace: ns.to_string(),
         key: sanitize_key(&record.id),
         payload: serde_json::to_string(record)?,

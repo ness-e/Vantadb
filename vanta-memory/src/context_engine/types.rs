@@ -75,7 +75,7 @@ pub enum ContextError {
     #[error("chars_per_token must be greater than zero")]
     InvalidConfig,
     #[error("vantadb store error: {0}")]
-    Store(#[from] vantadb::error::VantaError),
+    Store(#[from] vantadb::error::Error),
     #[error("malformed task-memory payload: {0}")]
     Payload(#[from] serde_json::Error),
 }

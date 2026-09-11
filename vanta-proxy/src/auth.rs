@@ -163,7 +163,7 @@ impl AuthDb {
             Ok(found) => Ok(found.is_some()),
             // ponytail: invalid ids (empty / '{' ':' '}') surface as InvalidInput —
             // treat as not-found so callers can reject with 400 instead of 500.
-            Err(vantadb::error::VantaError::InvalidInput(_)) => Ok(false),
+            Err(vantadb::error::Error::InvalidInput(_)) => Ok(false),
             Err(e) => Err(ProxyError::Storage(format!("entity_get {collection}: {e}"))),
         }
     }
@@ -175,10 +175,10 @@ mod tests {
     use std::collections::HashMap;
 
     fn in_memory_db() -> AuthDb {
-        let config = vantadb::config::VantaConfig {
+        let config = vantadb::config::Config {
             backend_kind: vantadb::storage::BackendKind::InMemory,
             read_only: false,
-            ..vantadb::config::VantaConfig::default()
+            ..vantadb::config::Config::default()
         };
         let engine =
             StorageEngine::open_with_config(":memory:", Some(config)).expect("in-memory engine");

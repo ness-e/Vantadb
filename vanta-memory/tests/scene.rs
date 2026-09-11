@@ -3,7 +3,7 @@
 //! D19 integration tests for the LLM-free scene index + META contract
 //! (MEM-12, F4).
 //!
-//! Pattern AAA: arrange → act → assert. Uses an in-memory `VantaEmbedded`
+//! Pattern AAA: arrange → act → assert. Uses an in-memory `Embedded`
 //! (same setup as `l0_capture.rs`).
 
 use vanta_memory::core::scene::scene_format::SceneBlock;
@@ -11,17 +11,17 @@ use vanta_memory::core::scene::scene_index::SceneError;
 use vanta_memory::core::scene::{
     current_scene, get_scene, list_scenes, scene_namespace, upsert_scene,
 };
-use vantadb::config::VantaConfig;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::config::Config;
+use vantadb::sdk::Embedded;
 use vantadb::storage::BackendKind;
 
-fn open_db() -> VantaEmbedded {
-    let config = VantaConfig {
+fn open_db() -> Embedded {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         read_only: false,
-        ..VantaConfig::default()
+        ..Config::default()
     };
-    VantaEmbedded::open_with_config(config).expect("open in-memory db")
+    Embedded::open_with_config(config).expect("open in-memory db")
 }
 
 const SESSION: &str = "sess-1";
@@ -155,6 +155,6 @@ fn scene_name_with_invalid_chars_is_sanitized_but_retrievable() {
 
 #[test]
 fn error_type_is_displayable() {
-    let err = SceneError::Vanta(vantadb::error::VantaError::InvalidInput("x".into()));
+    let err = SceneError::Vanta(vantadb::error::Error::InvalidInput("x".into()));
     assert!(err.to_string().contains("vantadb:"));
 }

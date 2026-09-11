@@ -19,13 +19,13 @@ use vanta_memory::core::profile::{
 };
 use vanta_memory::core::record::l1_reader::l1_namespace;
 use vanta_memory::core::scene::scene_navigation::generate_scene_navigation;
-use vantadb::config::VantaConfig;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::config::Config;
+use vantadb::sdk::Embedded;
 
-fn db() -> VantaEmbedded {
-    VantaEmbedded::open_with_config(VantaConfig {
+fn db() -> Embedded {
+    Embedded::open_with_config(Config {
         backend_kind: vantadb::storage::BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     })
     .expect("open in-memory db")
 }
@@ -54,7 +54,7 @@ fn record(id: &str, content: &str) -> MemoryRecord {
         superseded_by: None,
     }
 }
-fn write_persona(db: &VantaEmbedded, body: &str) {
+fn write_persona(db: &Embedded, body: &str) {
     let ns = "persona/sess-1";
     // Navigation footer in the exact format MEM-15 generates (strip depends
     // on its header).
@@ -71,12 +71,12 @@ fn write_persona(db: &VantaEmbedded, body: &str) {
         generated_at_ms: 1_000,
         generated_at: "2026-08-20T10:00:00Z".into(),
     };
-    use vantadb::sdk::{VantaMemoryInput, VantaMemoryMetadata};
-    db.put(VantaMemoryInput {
+    use vantadb::sdk::{MemoryInput, MemoryMetadata};
+    db.put(MemoryInput {
         namespace: ns.into(),
         key: "persona.md".into(),
         payload: serde_json::to_string(&record).unwrap(),
-        metadata: VantaMemoryMetadata::new(),
+        metadata: MemoryMetadata::new(),
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
@@ -85,13 +85,13 @@ fn write_persona(db: &VantaEmbedded, body: &str) {
 }
 
 /// Persist an L1 record exactly as `read_session_records` expects it.
-fn put_l1(db: &VantaEmbedded, record: &MemoryRecord) {
-    use vantadb::sdk::{VantaMemoryInput, VantaMemoryMetadata};
-    db.put(VantaMemoryInput {
+fn put_l1(db: &Embedded, record: &MemoryRecord) {
+    use vantadb::sdk::{MemoryInput, MemoryMetadata};
+    db.put(MemoryInput {
         namespace: l1_namespace(&record.session_key),
         key: record.id.clone(),
         payload: serde_json::to_string(record).unwrap(),
-        metadata: VantaMemoryMetadata::new(),
+        metadata: MemoryMetadata::new(),
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
@@ -374,7 +374,7 @@ fn scoped_record(
 }
 
 fn recall_with_scope(
-    db: &VantaEmbedded,
+    db: &Embedded,
     scope: RecallScope,
     isolation: ProfileIsolation,
 ) -> Option<vanta_memory::core::hooks::RecallResult> {
@@ -555,18 +555,18 @@ fn scope_agent_isolates_other_agents_and_legacy_records() {
 
 #[test]
 fn search_multi_merges_hits_across_namespaces() {
-    use vantadb::sdk::{VantaMemoryInput, VantaMemoryMetadata, VantaMemorySearchRequest};
+    use vantadb::sdk::{MemoryInput, MemoryMetadata, MemorySearchRequest};
 
     let db = db();
     for (ns, key, text) in [
         ("l1/sess-a", "m1", "user prefers dark mode"),
         ("l1/sess-b", "m2", "team uses dark dashboards"),
     ] {
-        db.put(VantaMemoryInput {
+        db.put(MemoryInput {
             namespace: ns.into(),
             key: key.into(),
             payload: text.into(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
@@ -577,10 +577,10 @@ fn search_multi_merges_hits_across_namespaces() {
     let hits = db
         .search_multi(
             &["l1/sess-a", "l1/sess-b"],
-            VantaMemorySearchRequest {
+            MemorySearchRequest {
                 text_query: Some("dark".into()),
                 top_k: 10,
-                ..VantaMemorySearchRequest::default()
+                ..MemorySearchRequest::default()
             },
         )
         .expect("search_multi");

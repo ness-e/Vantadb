@@ -28,7 +28,7 @@ use crate::core::skill::conversation_add::sink::StoredSkill;
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 use thiserror::Error;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata};
+use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
 
 /// Errors surfaced by the seed/import layer.
 #[derive(Debug, Error)]
@@ -45,7 +45,7 @@ pub enum SeedError {
     Validation(String),
     /// Underlying VantaDB storage error.
     #[error("vantadb: {0}")]
-    Vanta(#[from] vantadb::error::VantaError),
+    Vanta(#[from] vantadb::error::Error),
     /// Persona layer error (read/write of the persona record).
     #[error("persona: {0}")]
     Persona(#[from] crate::core::persona::PersonaError),
@@ -73,23 +73,20 @@ impl std::fmt::Display for SeedCounts {
 }
 
 /// Load, validate and import a seed JSON file.
-pub fn import_seed_file(
-    db: &VantaEmbedded,
-    path: &std::path::Path,
-) -> Result<SeedCounts, SeedError> {
+pub fn import_seed_file(db: &Embedded, path: &std::path::Path) -> Result<SeedCounts, SeedError> {
     let raw = std::fs::read_to_string(path)?;
     import_seed_str(db, &raw)
 }
 
 /// Validate and import a seed document from raw JSON text.
-pub fn import_seed_str(db: &VantaEmbedded, raw: &str) -> Result<SeedCounts, SeedError> {
+pub fn import_seed_str(db: &Embedded, raw: &str) -> Result<SeedCounts, SeedError> {
     let seed = parse_seed_input(raw)?;
     import_seed(db, &seed)
 }
 
 /// Import an already-parsed seed document. Idempotent: replaying the same
 /// document returns all-`unchanged` counts without writing.
-pub fn import_seed(db: &VantaEmbedded, seed: &SeedInput) -> Result<SeedCounts, SeedError> {
+pub fn import_seed(db: &Embedded, seed: &SeedInput) -> Result<SeedCounts, SeedError> {
     let mut counts = SeedCounts::default();
     for skill in &seed.skills {
         apply_skill(db, &seed.scope, skill, now_ms(), &mut counts)?;
@@ -109,23 +106,23 @@ fn skills_namespace(scope: &str) -> String {
 /// same frontmatter shape produced by `cli_handlers::export_md`. Used by
 /// integration tests in `tests/md_roundtrip.rs` to avoid a hard dependency
 /// on the core crate's internal types.
-pub fn test_render_md(record: &vantadb::sdk::VantaMemoryRecord) -> String {
+pub fn test_render_md(record: &vantadb::sdk::MemoryRecord) -> String {
     let mut meta_obj = serde_json::Map::new();
     for (k, v) in record.metadata.iter() {
         let jv = match v {
-            vantadb::sdk::VantaValue::Null => serde_json::Value::Null,
-            vantadb::sdk::VantaValue::Bool(b) => serde_json::Value::Bool(*b),
-            vantadb::sdk::VantaValue::Int(i) => serde_json::Value::from(*i),
-            vantadb::sdk::VantaValue::Float(f) => serde_json::Number::from_f64(*f)
+            vantadb::sdk::Value::Null => serde_json::Value::Null,
+            vantadb::sdk::Value::Bool(b) => serde_json::Value::Bool(*b),
+            vantadb::sdk::Value::Int(i) => serde_json::Value::from(*i),
+            vantadb::sdk::Value::Float(f) => serde_json::Number::from_f64(*f)
                 .map(serde_json::Value::Number)
                 .unwrap_or(serde_json::Value::Null),
-            vantadb::sdk::VantaValue::String(s) => serde_json::Value::String(s.clone()),
-            vantadb::sdk::VantaValue::DateTime(dt) => serde_json::Value::String(dt.to_rfc3339()),
-            vantadb::sdk::VantaValue::ListString(xs) => serde_json::Value::from(xs.clone()),
-            vantadb::sdk::VantaValue::ListInt(xs) => serde_json::Value::from(xs.clone()),
-            vantadb::sdk::VantaValue::ListFloat(xs) => serde_json::Value::from(xs.clone()),
-            vantadb::sdk::VantaValue::ListBool(xs) => serde_json::Value::from(xs.clone()),
-            vantadb::sdk::VantaValue::ListDateTime(xs) => {
+            vantadb::sdk::Value::String(s) => serde_json::Value::String(s.clone()),
+            vantadb::sdk::Value::DateTime(dt) => serde_json::Value::String(dt.to_rfc3339()),
+            vantadb::sdk::Value::ListString(xs) => serde_json::Value::from(xs.clone()),
+            vantadb::sdk::Value::ListInt(xs) => serde_json::Value::from(xs.clone()),
+            vantadb::sdk::Value::ListFloat(xs) => serde_json::Value::from(xs.clone()),
+            vantadb::sdk::Value::ListBool(xs) => serde_json::Value::from(xs.clone()),
+            vantadb::sdk::Value::ListDateTime(xs) => {
                 serde_json::Value::from(xs.iter().map(|dt| dt.to_rfc3339()).collect::<Vec<_>>())
             }
         };
@@ -164,7 +161,7 @@ fn content_hash(content: &str) -> u64 {
 }
 
 fn apply_skill(
-    db: &VantaEmbedded,
+    db: &Embedded,
     scope: &str,
     skill: &SeedSkill,
     now: u64,
@@ -193,16 +190,13 @@ fn apply_skill(
         content_hash: hash,
         updated_at_ms: now,
     };
-    let mut metadata = VantaMemoryMetadata::new();
-    metadata.insert(
-        "kind".into(),
-        vantadb::sdk::VantaValue::String("skill".into()),
-    );
+    let mut metadata = MemoryMetadata::new();
+    metadata.insert("kind".into(), vantadb::sdk::Value::String("skill".into()));
     metadata.insert(
         "name".into(),
-        vantadb::sdk::VantaValue::String(stored.name.clone()),
+        vantadb::sdk::Value::String(stored.name.clone()),
     );
-    db.put(VantaMemoryInput {
+    db.put(MemoryInput {
         namespace: ns,
         key,
         payload: serde_json::to_string(&stored)?,
@@ -220,7 +214,7 @@ fn apply_skill(
 }
 
 fn apply_persona(
-    db: &VantaEmbedded,
+    db: &Embedded,
     persona: &SeedPersona,
     now: u64,
     counts: &mut SeedCounts,
@@ -242,12 +236,9 @@ fn apply_persona(
         generated_at_ms: now,
         generated_at: epoch_ms_to_rfc3339(now),
     };
-    let mut metadata = VantaMemoryMetadata::new();
-    metadata.insert(
-        "kind".into(),
-        vantadb::sdk::VantaValue::String("persona".into()),
-    );
-    db.put(VantaMemoryInput {
+    let mut metadata = MemoryMetadata::new();
+    metadata.insert("kind".into(), vantadb::sdk::Value::String("persona".into()));
+    db.put(MemoryInput {
         namespace: persona_namespace(&persona.session_key),
         key: sanitize_key(PERSONA_KEY),
         payload: serde_json::to_string(&record)?,

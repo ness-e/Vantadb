@@ -13,8 +13,8 @@
 
 use crate::offload::types::PluginState;
 use crate::utils::sanitize::{sanitize_component, sanitize_key};
-use vantadb::error::VantaError;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput};
+use vantadb::error::Error;
+use vantadb::sdk::{Embedded, MemoryInput};
 
 /// Errors surfaced by the offload surface (state manager, storage, hooks).
 /// Wraps the SDK error so callers only depend on one error type.
@@ -22,7 +22,7 @@ use vantadb::sdk::{VantaEmbedded, VantaMemoryInput};
 #[non_exhaustive]
 pub enum OffloadError {
     #[error("vantadb: {0}")]
-    Vanta(#[from] VantaError),
+    Vanta(#[from] Error),
     #[error("malformed offload state payload: {0}")]
     State(#[from] serde_json::Error),
 }
@@ -30,15 +30,15 @@ pub enum OffloadError {
 /// State record key inside the `offload_state/<session>` namespace.
 const STATE_KEY: &str = "__state";
 
-/// Persistent offload state over the VantaDB SDK. Owns the [`VantaEmbedded`]
+/// Persistent offload state over the VantaDB SDK. Owns the [`Embedded`]
 /// handle; the host must keep it alive for the DB lifetime.
 pub struct OffloadStateManager {
-    db: VantaEmbedded,
+    db: Embedded,
 }
 
 impl OffloadStateManager {
     /// Open a state manager over an already-open embedded database.
-    pub fn new(db: VantaEmbedded) -> Self {
+    pub fn new(db: Embedded) -> Self {
         Self { db }
     }
 
@@ -62,11 +62,11 @@ impl OffloadStateManager {
     /// Persist the full state for a session (upsert).
     pub fn save_state(&self, session_id: &str, state: &PluginState) -> Result<(), OffloadError> {
         let payload = serde_json::to_string(state)?;
-        self.db.put(VantaMemoryInput {
+        self.db.put(MemoryInput {
             namespace: state_namespace(session_id),
             key: sanitize_key(STATE_KEY),
             payload,
-            metadata: vantadb::sdk::VantaMemoryMetadata::new(),
+            metadata: vantadb::sdk::MemoryMetadata::new(),
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
@@ -106,16 +106,16 @@ fn state_namespace(session_id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vantadb::config::VantaConfig;
+    use vantadb::config::Config;
     use vantadb::storage::BackendKind;
 
-    fn open_db() -> VantaEmbedded {
-        let config = VantaConfig {
+    fn open_db() -> Embedded {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             read_only: false,
-            ..VantaConfig::default()
+            ..Config::default()
         };
-        VantaEmbedded::open_with_config(config).expect("open in-memory db")
+        Embedded::open_with_config(config).expect("open in-memory db")
     }
 
     #[test]
@@ -169,11 +169,11 @@ mod tests {
     fn corrupt_state_payload_falls_back_to_default() {
         let db = open_db();
         // Write garbage directly under the state key.
-        db.put(VantaMemoryInput {
+        db.put(MemoryInput {
             namespace: state_namespace("sess-x"),
             key: sanitize_key(STATE_KEY),
             payload: "not-json{".into(),
-            metadata: vantadb::sdk::VantaMemoryMetadata::new(),
+            metadata: vantadb::sdk::MemoryMetadata::new(),
             vector: None,
             sparse_vector: None,
             ttl_ms: None,

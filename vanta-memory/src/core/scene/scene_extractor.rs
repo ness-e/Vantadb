@@ -207,7 +207,7 @@ pub fn decide_strategy(
 /// Apply a decided strategy to the store (UPDATE/CREATE via the sandboxed
 /// tools; MERGE/soft-delete via scene_index primitives).
 pub fn apply_strategy(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
     extraction: &SceneExtraction,
     strategy: &SceneStrategy,
@@ -314,7 +314,7 @@ pub fn apply_strategy(
 /// and never touches the store (TDAM parity — an empty extraction must not
 /// overwrite the scene index).
 pub fn extract_scenes(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
     extractions: &[SceneExtraction],
 ) -> Result<SceneExtractionResult, SceneExtractorError> {
@@ -351,7 +351,7 @@ pub fn extract_scenes(
 /// invalid JSON returns `success: false, empty_extraction: true` and writes
 /// NOTHING (an LLM failure never loses or overwrites stored data).
 pub fn extract_scenes_with_llm<R: LlmRunner>(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
     runner: &R,
     memories: &[SceneMemoryInput],
@@ -386,7 +386,7 @@ pub fn extract_scenes_with_llm<R: LlmRunner>(
 }
 
 fn extract_scenes_with_llm_inner<R: LlmRunner>(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
     runner: &R,
     memories: &[SceneMemoryInput],
@@ -586,15 +586,15 @@ mod tests {
 
     #[test]
     fn empty_batch_is_empty_extraction() {
-        use vantadb::config::VantaConfig;
+        use vantadb::config::Config;
         use vantadb::storage::BackendKind;
 
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             read_only: false,
-            ..VantaConfig::default()
+            ..Config::default()
         };
-        let db = vantadb::sdk::VantaEmbedded::open_with_config(config).expect("open in-memory db");
+        let db = vantadb::sdk::Embedded::open_with_config(config).expect("open in-memory db");
         let result = extract_scenes(&db, "sess-1", &[]).expect("empty batch");
         assert!(result.empty_extraction);
         assert!(result.applied.is_empty());

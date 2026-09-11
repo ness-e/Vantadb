@@ -249,10 +249,10 @@ mod tests {
     use vantadb::entity::EntityStore;
 
     fn in_memory_db() -> AuthDb {
-        let config = vantadb::config::VantaConfig {
+        let config = vantadb::config::Config {
             backend_kind: vantadb::storage::BackendKind::InMemory,
             read_only: false,
-            ..vantadb::config::VantaConfig::default()
+            ..vantadb::config::Config::default()
         };
         let engine = vantadb::storage::StorageEngine::open_with_config(":memory:", Some(config))
             .expect("in-memory engine");

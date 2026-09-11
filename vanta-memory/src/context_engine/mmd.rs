@@ -15,7 +15,7 @@ use crate::context_engine::token_estimator::truncate_content;
 use crate::context_engine::types::ContextError;
 use crate::core::abstractions::SceneMeta;
 use crate::utils::sanitize::{sanitize_component, sanitize_key};
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput};
+use vantadb::sdk::{Embedded, MemoryInput};
 
 /// Content ceiling in chars (TDAM ~1300-token guard ≈ 4000 chars at 3
 /// chars/token). Enforced on save via char-boundary-safe truncation.
@@ -47,7 +47,7 @@ pub fn fingerprint(content: &str) -> String {
 /// truncated on a char boundary first. If the stored active record has the
 /// same fingerprint, this is a no-op (dedup).
 pub fn save_active(
-    db: &VantaEmbedded,
+    db: &Embedded,
     session_id: &str,
     memory: &TaskMemory,
 ) -> Result<(), ContextError> {
@@ -65,10 +65,7 @@ pub fn save_active(
 
 /// Load the active MMD for a session. Missing or corrupt record → `None`
 /// (never fatal, mirrors the offload state manager).
-pub fn load_active(
-    db: &VantaEmbedded,
-    session_id: &str,
-) -> Result<Option<TaskMemory>, ContextError> {
+pub fn load_active(db: &Embedded, session_id: &str) -> Result<Option<TaskMemory>, ContextError> {
     match db.get(&active_ns(session_id), ACTIVE_KEY)? {
         None => Ok(None),
         Some(record) => match serde_json::from_str::<TaskMemory>(&record.payload) {
@@ -84,7 +81,7 @@ pub fn load_active(
 /// Append one MMD to the session history. Stable key derived from content +
 /// `meta.updated` (FNV-1a), so re-pushing identical data is idempotent.
 pub fn push_history(
-    db: &VantaEmbedded,
+    db: &Embedded,
     session_id: &str,
     memory: &TaskMemory,
 ) -> Result<(), ContextError> {
@@ -94,21 +91,21 @@ pub fn push_history(
 /// Read up to `limit` history entries, oldest → newest. Records whose payload
 /// fails to deserialize are skipped with a warning, never fatal.
 pub fn list_history(
-    db: &VantaEmbedded,
+    db: &Embedded,
     session_id: &str,
     limit: usize,
 ) -> Result<Vec<TaskMemory>, ContextError> {
-    use vantadb::sdk::{VantaMemoryListOptions, VantaMemoryListPage};
+    use vantadb::sdk::{MemoryListOptions, MemoryListPage};
     let ns = history_ns(session_id);
     let mut entries = Vec::new();
     let mut cursor: Option<usize> = None;
     loop {
-        let options = VantaMemoryListOptions {
+        let options = MemoryListOptions {
             limit: 1000,
             cursor,
             ..Default::default()
         };
-        let page: VantaMemoryListPage = db.list(&ns, options)?;
+        let page: MemoryListPage = db.list(&ns, options)?;
         for record in page.records {
             match serde_json::from_str::<TaskMemory>(&record.payload) {
                 Ok(entry) => entries.push(entry),
@@ -132,16 +129,16 @@ pub fn list_history(
 // ─── internals ──────────────────────────────────────────────────────────────
 
 fn put_task_memory(
-    db: &VantaEmbedded,
+    db: &Embedded,
     ns: &str,
     key: &str,
     memory: &TaskMemory,
 ) -> Result<(), ContextError> {
-    db.put(VantaMemoryInput {
+    db.put(MemoryInput {
         namespace: ns.to_string(),
         key: sanitize_key(key),
         payload: serde_json::to_string(memory)?,
-        metadata: vantadb::sdk::VantaMemoryMetadata::new(),
+        metadata: vantadb::sdk::MemoryMetadata::new(),
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
@@ -170,16 +167,16 @@ fn history_ns(session_id: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vantadb::config::VantaConfig;
+    use vantadb::config::Config;
     use vantadb::storage::BackendKind;
 
-    fn open_db() -> VantaEmbedded {
-        let config = VantaConfig {
+    fn open_db() -> Embedded {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             read_only: false,
             ..Default::default()
         };
-        VantaEmbedded::open_with_config(config).expect("open in-memory db")
+        Embedded::open_with_config(config).expect("open in-memory db")
     }
 
     fn memory(content: &str) -> TaskMemory {
@@ -262,18 +259,18 @@ mod tests {
     fn persistence_survives_reopen() {
         let dir = tempfile::tempdir().expect("tempdir");
         let path = dir.path().to_string_lossy().to_string();
-        let config = || VantaConfig {
+        let config = || Config {
             backend_kind: BackendKind::Fjall,
             storage_path: path.clone(),
             read_only: false,
             ..Default::default()
         };
         {
-            let db = VantaEmbedded::open_with_config(config()).expect("open 1");
+            let db = Embedded::open_with_config(config()).expect("open 1");
             save_active(&db, "s1", &memory("survives")).expect("save");
             push_history(&db, "s1", &memory("hist")).expect("push");
         } // drop → close
-        let db2 = VantaEmbedded::open_with_config(config()).expect("reopen");
+        let db2 = Embedded::open_with_config(config()).expect("reopen");
         let active = load_active(&db2, "s1").expect("load").expect("survives");
         assert_eq!(active.content, "survives");
         let hist = list_history(&db2, "s1", 10).expect("list");

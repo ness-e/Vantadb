@@ -2,24 +2,24 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 //! D19 integration tests for the sandboxed scene tools (MEM-13, F4).
 //!
-//! Pattern AAA: arrange → act → assert. Uses an in-memory `VantaEmbedded`
+//! Pattern AAA: arrange → act → assert. Uses an in-memory `Embedded`
 //! (same setup as `tests/scene.rs`).
 
 use vanta_memory::core::scene::scene_tools::{
     edit_scene_tool, execute_scene_tool, read_scene_tool, write_scene_tool, SceneToolCall,
     SceneToolError, SceneToolResult,
 };
-use vantadb::config::VantaConfig;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::config::Config;
+use vantadb::sdk::Embedded;
 use vantadb::storage::BackendKind;
 
-fn open_db() -> VantaEmbedded {
-    let config = VantaConfig {
+fn open_db() -> Embedded {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         read_only: false,
-        ..VantaConfig::default()
+        ..Config::default()
     };
-    VantaEmbedded::open_with_config(config).expect("open in-memory db")
+    Embedded::open_with_config(config).expect("open in-memory db")
 }
 
 const SESSION: &str = "sess-1";

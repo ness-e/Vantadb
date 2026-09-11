@@ -482,7 +482,7 @@ fn millis_to_iso8601(ms: u64) -> String {
 /// touches `l1/<session>`, and it does so **read-only** via the canonical
 /// [`read_session_records`] reader (MEM-11; paged + skips corrupt records).
 pub fn scan_session_records(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_id: &str,
 ) -> Result<Vec<MemoryRecord>, ConsolidationError> {
     if session_id.is_empty() {
@@ -507,17 +507,17 @@ fn dream_namespace(session_id: &str, run_id: &str) -> String {
 /// the consolidated records are persisted as one JSON record (atomic write).
 /// **The original L1 store is never touched.**
 pub fn write_dream_run(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     run: &DreamRun,
 ) -> Result<(), ConsolidationError> {
     let ns = dream_namespace(&run.session_id, &run.run_id);
     let payload = serde_json::to_string(run)
         .map_err(|e| ConsolidationError::Store(format!("serialize dream run: {e}")))?;
-    db.put(vantadb::sdk::VantaMemoryInput {
+    db.put(vantadb::sdk::MemoryInput {
         namespace: ns,
         key: "run.json".into(),
         payload,
-        metadata: vantadb::sdk::VantaMemoryMetadata::new(),
+        metadata: vantadb::sdk::MemoryMetadata::new(),
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
@@ -530,11 +530,11 @@ pub fn write_dream_run(
 /// demand via [`load_dream_run`]).
 ///
 /// Each run lives in its own namespace `dream/<session>/<run_id>`. We
-/// enumerate via [`VantaEmbedded::list_namespaces`] (canonical scanner) and
+/// enumerate via [`Embedded::list_namespaces`] (canonical scanner) and
 /// load each `run.json` key. Corrupt entries are skipped (best-effort,
 /// mirrors `load_active` from context_engine).
 pub fn list_dream_runs(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_id: &str,
 ) -> Result<Vec<DreamRunMeta>, ConsolidationError> {
     let prefix = format!("dream/{}/", sanitize_component(session_id, 128, false));
@@ -569,7 +569,7 @@ pub fn list_dream_runs(
 
 /// Load the full [`DreamRun`] for inspection / replay.
 pub fn load_dream_run(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_id: &str,
     run_id: &str,
 ) -> Result<Option<DreamRun>, ConsolidationError> {
@@ -591,7 +591,7 @@ pub fn load_dream_run(
 /// Discard one dream run (deletes the `dream/<s>/<run_id>` namespace). Use
 /// after review — original L1 store remains untouched.
 pub fn discard_dream_run(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_id: &str,
     run_id: &str,
 ) -> Result<(), ConsolidationError> {
@@ -612,7 +612,7 @@ pub fn discard_dream_run(
 /// because the function name implies mutation but does NOT — this is the
 /// explicit pre-mortem guarantee.
 pub fn promote_dream_run(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_id: &str,
     run_id: &str,
 ) -> Result<usize, ConsolidationError> {
@@ -627,7 +627,7 @@ pub fn promote_dream_run(
 ///
 /// This is the function the pipeline worker will call (MEM-65) once wired.
 pub fn consolidate_session(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_id: &str,
     now_ms: u64,
     last_active_at_ms: u64,

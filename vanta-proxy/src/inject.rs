@@ -7,7 +7,7 @@
 
 use bytes::Bytes;
 use serde_json::{json, Value};
-use vantadb::sdk::VantaEmbedded;
+use vantadb::sdk::Embedded;
 
 use crate::error::ProxyError;
 
@@ -88,7 +88,7 @@ fn tool_name_of(protocol: Protocol, tool: &Value) -> Option<&str> {
 /// (via vanta-memory lib re-exports). Best-effort: storage errors yield an
 /// empty block — injection must never fail the request. Empty when there is
 /// nothing to inject.
-pub fn build_memory_block(db: &VantaEmbedded, session_key: &str) -> String {
+pub fn build_memory_block(db: &Embedded, session_key: &str) -> String {
     use vanta_memory::core::persona::persona_generator::get_persona;
     use vanta_memory::core::scene::scene_index::{current_scene, list_scenes};
 

@@ -910,7 +910,7 @@ fn test_search_profile_mcp_passthrough_parity_with_native() {
 
     // StorageEngine::open alone leaves the text_index state missing; rebuild
     // so text queries work (AUD-044: "reopen writable or run rebuild_index").
-    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
     embedded.rebuild_index().expect("text index build");
 
     // Explicit profile → MCP and native API return IDENTICAL hits (keys + scores).
@@ -927,10 +927,10 @@ fn test_search_profile_mcp_passthrough_parity_with_native() {
     let res = handle_tools_call(&search_params, &executor, &storage, &default_config()).unwrap();
     let mcp_hits = hits_from_mcp_search(res);
 
-    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
     embedded.rebuild_index().expect("text index build");
 
-    let native_req = vantadb::sdk::VantaMemorySearchRequest {
+    let native_req = vantadb::sdk::MemorySearchRequest {
         namespace: "parity_ns".into(),
         query_vector: vec![0.9, 0.1, 0.0],
         text_query: Some("cat".into()),
@@ -971,7 +971,7 @@ fn test_search_profile_mcp_passthrough_parity_with_native() {
     }));
     let res_none = handle_tools_call(&search_none, &executor, &storage, &default_config()).unwrap();
     let mcp_none = hits_from_mcp_search(res_none);
-    let native_none_req = vantadb::sdk::VantaMemorySearchRequest {
+    let native_none_req = vantadb::sdk::MemorySearchRequest {
         namespace: "parity_ns".into(),
         query_vector: vec![0.9, 0.1, 0.0],
         text_query: Some("cat".into()),
@@ -1006,7 +1006,7 @@ fn test_search_profile_mode_force_channels() {
         handle_tools_call(&put_params, &executor, &storage, &default_config()).unwrap();
     }
 
-    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
     embedded.rebuild_index().expect("text index build");
 
     let search_with_mode = |mode: &str| {
@@ -2026,13 +2026,13 @@ fn test_mcp_get_node_neighbors_preserves_large_u128_ids() {
     let big_id = 9007199254740993u128; // 2^53 + 1 — first id a f64 cannot represent exactly
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
-    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
 
     embedded
-        .insert_node(vantadb::sdk::VantaNodeInput::new(7))
+        .insert_node(vantadb::sdk::NodeInput::new(7))
         .expect("insert source node");
     embedded
-        .insert_node(vantadb::sdk::VantaNodeInput::new(big_id))
+        .insert_node(vantadb::sdk::NodeInput::new(big_id))
         .expect("insert big-id node");
     embedded
         .add_edge(7, big_id, "knows", None, None)
@@ -2083,7 +2083,7 @@ fn test_mcp_parse_metadata_delegates_lists_and_null() {
     // ERR-026: parse_metadata used to silently drop non-scalar metadata
     // values (arrays/objects/null), producing a super-set of results. The
     // contract is: delegate what the core can filter (lists and null via
-    // VantaValue::List* / Null with strict equality) and explicitly reject
+    // Value::List* / Null with strict equality) and explicitly reject
     // only what it cannot represent (objects, mixed-type arrays).
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
@@ -2169,10 +2169,10 @@ fn test_mcp_parse_metadata_delegates_lists_and_null() {
     assert_eq!(
         records[0]["metadata"]["flag"],
         json!("Null"),
-        "stored null metadata must round-trip as VantaValue::Null, got: {page}"
+        "stored null metadata must round-trip as Value::Null, got: {page}"
     );
 
-    // An object cannot be represented by VantaValue → explicit rejection on
+    // An object cannot be represented by Value → explicit rejection on
     // both memory_put and memory_list filters.
     let object_put_params = Some(json!({
         "name": "memory_put",
@@ -2301,7 +2301,7 @@ fn test_mcp_memory_list_limit_zero_returns_empty() {
 
 // ── MCP-01: text index ready on fresh DB (regression) ─────────────────────
 //
-// The MCP server opens a raw `StorageEngine` (not `VantaEmbedded::open_with_config`),
+// The MCP server opens a raw `StorageEngine` (not `Embedded::open_with_config`),
 // so index state was never reconciled: text_query / hybrid / text-filter
 // searches failed on fresh DBs with "Search Error: text_index not found: bm25".
 // The server now calls `ensure_indexes_current()` at startup; this test
@@ -2340,7 +2340,7 @@ fn test_mcp_text_search_requires_index_ensure() {
     );
 
     // Simulate server startup (run_stdio_server does this before serving).
-    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
     embedded
         .ensure_indexes_current()
         .expect("startup index ensure should succeed");
@@ -2504,7 +2504,7 @@ fn test_mcp_list_filters_accept_operators() {
 fn test_mcp_search_filters_accept_eq_and_reject_range() {
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
-    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
     embedded
         .ensure_indexes_current()
         .expect("startup index ensure should succeed");
@@ -2543,7 +2543,7 @@ fn test_mcp_search_filters_accept_eq_and_reject_range() {
     );
 
     // Range operators cannot be expressed in a search request (flat-only slot
-    // in `VantaMemorySearchRequest`) → clear documented error, not silence.
+    // in `MemorySearchRequest`) → clear documented error, not silence.
     let gt_params = Some(json!({
         "name": "search_memory",
         "arguments": {
@@ -2580,7 +2580,7 @@ fn test_mcp_search_filters_accept_eq_and_reject_range() {
 fn test_mcp_search_memory_explain_shape() {
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
-    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
     embedded
         .ensure_indexes_current()
         .expect("startup index ensure should succeed");
@@ -2997,7 +2997,7 @@ fn test_mcp_tool_flow_backup_restore_roundtrip() {
     let res = handle_tools_call(&get, &executor2, &storage2, &default_config()).unwrap();
     let rec: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
     assert_eq!(rec["payload"], "Alpha payload");
-    // Metadata round-trips as a tagged VantaValue.
+    // Metadata round-trips as a tagged Value.
     assert_eq!(rec["metadata"]["priority"], json!({"Int": 1}));
 
     // Malformed line is counted as an error, not a crash; empty lines skipped.
@@ -3665,7 +3665,7 @@ fn test_recovery_tools_round_trip() {
 
     // Tests open a raw StorageEngine (server calls ensure_indexes_current at
     // startup); build the text index before auditing BM25-derived state.
-    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
     embedded
         .ensure_indexes_current()
         .expect("ensure_indexes_current must succeed");
@@ -3737,7 +3737,7 @@ fn test_capabilities_generate_snippet_list_snapshots_round_trip() {
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
 
-    // capabilities → object with the fields of VantaCapabilities.
+    // capabilities → object with the fields of Capabilities.
     let caps_val = recovery_call(&executor, &storage, "capabilities", json!({})).unwrap();
     assert!(
         caps_val["isError"].is_null(),
@@ -4855,11 +4855,11 @@ fn test_memory_recall_and_search_in_memory_profile() {
     );
 }
 
-// ── ERR-MCP-01: From<VantaError> for McpError (ERROR_HANDLING.md §6.2) ─────
+// ── ERR-MCP-01: From<Error> for McpError (ERROR_HANDLING.md §6.2) ─────
 
 #[test]
 fn err_mcp_01_from_maps_node_not_found_to_minus_32004() {
-    let m = McpError::from(vantadb::VantaError::NodeNotFound(1));
+    let m = McpError::from(vantadb::Error::NodeNotFound(1));
     assert_eq!(m.code, -32004, "NodeNotFound must map to vanta_not_found");
     assert!(
         m.message.contains("not found") || m.message.contains("Node"),
@@ -4877,7 +4877,7 @@ fn err_mcp_01_from_maps_node_not_found_to_minus_32004() {
 
 #[test]
 fn err_mcp_01_from_maps_not_found_struct_to_minus_32004() {
-    let m = McpError::from(vantadb::VantaError::NotFound {
+    let m = McpError::from(vantadb::Error::NotFound {
         kind: "wiki".into(),
         id: "ns:s".into(),
     });
@@ -4886,7 +4886,7 @@ fn err_mcp_01_from_maps_not_found_struct_to_minus_32004() {
 
 #[test]
 fn err_mcp_01_from_busy_is_retriable_minus_32001() {
-    let m = McpError::from(vantadb::VantaError::DatabaseBusy("lock held".into()));
+    let m = McpError::from(vantadb::Error::DatabaseBusy("lock held".into()));
     assert_eq!(m.code, -32001, "DatabaseBusy must map to vanta_busy");
     assert_eq!(
         m.to_json()["data"]["retriable"],
@@ -4897,7 +4897,7 @@ fn err_mcp_01_from_busy_is_retriable_minus_32001() {
 
 #[test]
 fn err_mcp_01_from_timeout_is_retriable_minus_32008() {
-    let m = McpError::from(vantadb::VantaError::Timeout {
+    let m = McpError::from(vantadb::Error::Timeout {
         operation: "flush".into(),
         duration_ms: 5,
     });
@@ -4918,11 +4918,11 @@ fn err_mcp_01_from_validation_and_conflict_share_minus_32009() {
     // Core code() folds conflict variants into VANTADB_VALIDATION_ERROR, so
     // per the code()-driven contract both dimension mismatch and a collision
     // surface as -32009 (docs/api/MCP.md updated to reflect this).
-    let m1 = McpError::from(vantadb::VantaError::DimensionMismatch {
+    let m1 = McpError::from(vantadb::Error::DimensionMismatch {
         expected: 4,
         got: 2,
     });
-    let m2 = McpError::from(vantadb::VantaError::ExecutionConflict {
+    let m2 = McpError::from(vantadb::Error::ExecutionConflict {
         resource: "node".into(),
         detail: "stale version".into(),
     });
@@ -4933,13 +4933,13 @@ fn err_mcp_01_from_validation_and_conflict_share_minus_32009() {
 
 #[test]
 fn err_mcp_01_from_resource_limit_minus_32007() {
-    let m = McpError::from(vantadb::VantaError::ResourceLimit("disk".into()));
+    let m = McpError::from(vantadb::Error::ResourceLimit("disk".into()));
     assert_eq!(m.code, -32007);
 }
 
 #[test]
 fn err_mcp_01_from_corrupt_minus_32002() {
-    let m = McpError::from(vantadb::VantaError::WALVersionMismatch {
+    let m = McpError::from(vantadb::Error::WALVersionMismatch {
         expected: 2,
         found: 1,
         hint: "x".into(),
@@ -4950,7 +4950,7 @@ fn err_mcp_01_from_corrupt_minus_32002() {
 #[test]
 fn err_mcp_01_unmapped_codes_fall_back_to_internal() {
     // VANTADB_IO_ERROR / VANTADB_WASM_ERROR have no §6.2 row → -32603.
-    let m = McpError::from(vantadb::VantaError::generic_error("odd"));
+    let m = McpError::from(vantadb::Error::generic_error("odd"));
     assert_eq!(m.code, -32603);
     assert_eq!(m.to_json()["data"]["code"], "VANTADB_WASM_ERROR");
 }

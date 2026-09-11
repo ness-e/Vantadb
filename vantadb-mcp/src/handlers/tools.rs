@@ -960,7 +960,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
             "name": "bulk_import_stream",
-            "description": "Bulk-imports records from inline content: either NDJSON (one VantaMemoryInput per line: namespace, key, payload, optional metadata/vector/ttl_ms) or a raw .vdbdump payload starting with the VDBJSON magic. Bypasses per-record validation for raw throughput; imported nodes are raw engine entries NOT addressable via memory_get/memory_list — use search or re-export paths that scan the engine. Max 10 MB per call.",
+            "description": "Bulk-imports records from inline content: either NDJSON (one MemoryInput per line: namespace, key, payload, optional metadata/vector/ttl_ms) or a raw .vdbdump payload starting with the VDBJSON magic. Bypasses per-record validation for raw throughput; imported nodes are raw engine entries NOT addressable via memory_get/memory_list — use search or re-export paths that scan the engine. Max 10 MB per call.",
             "annotations": {
                 "title": "Bulk Import Stream",
                 "readOnlyHint": false,
@@ -1237,7 +1237,7 @@ pub fn handle_tools_call(
                 if let Some(expected) = index_vector_dim(storage) {
                     if vector.len() != expected {
                         return Ok(error_content(
-                            vantadb::VantaError::DimensionMismatch {
+                            vantadb::Error::DimensionMismatch {
                                 expected,
                                 got: vector.len(),
                             }
@@ -1287,10 +1287,10 @@ pub fn handle_tools_call(
             let metadata = if let Some(obj) = args["metadata"].as_object() {
                 parse_metadata(obj).map_err(|e| e.to_json())?
             } else {
-                vantadb::sdk::VantaMemoryMetadata::new()
+                vantadb::sdk::MemoryMetadata::new()
             };
 
-            let input = vantadb::sdk::VantaMemoryInput {
+            let input = vantadb::sdk::MemoryInput {
                 key: key.to_string(),
                 namespace: namespace.to_string(),
                 payload: payload.to_string(),
@@ -1300,7 +1300,7 @@ pub fn handle_tools_call(
                 ttl_ms,
             };
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.put(input) {
                 Ok(record) => Ok(text_content_structured(&record)),
                 Err(e) => Ok(error_content_vanta(e)),
@@ -1338,7 +1338,7 @@ pub fn handle_tools_call(
                     if let Some(vector) = &input.vector {
                         if vector.len() != expected {
                             return Ok(error_content(
-                                vantadb::VantaError::DimensionMismatch {
+                                vantadb::Error::DimensionMismatch {
                                     expected,
                                     got: vector.len(),
                                 }
@@ -1349,7 +1349,7 @@ pub fn handle_tools_call(
                 }
             }
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.put_batch(inputs) {
                 Ok(records) => Ok(text_content_structured(&records)),
                 Err(e) => Ok(error_content_vanta(e)),
@@ -1368,7 +1368,7 @@ pub fn handle_tools_call(
                 .map_err(|e| e.to_json())?;
             validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.get(namespace, key) {
                 Ok(Some(record)) => Ok(text_content_structured(&record)),
                 Ok(None) => Ok(error_content("Record not found")),
@@ -1388,7 +1388,7 @@ pub fn handle_tools_call(
                 .map_err(|e| e.to_json())?;
             validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.delete(namespace, key) {
                 Ok(deleted) => Ok(text_content(serialize_content(
                     &json!({"deleted": deleted}),
@@ -1398,7 +1398,7 @@ pub fn handle_tools_call(
         }
 
         // MCP-18: batch delete by metadata filter — thin wrapper over the SDK
-        // delete_by_filter. Reuses the exact VantaMemoryFilter wire shape that
+        // delete_by_filter. Reuses the exact MemoryFilter wire shape that
         // memory_list already publishes (AUD-048 parse_filter_ops).
         "memory_delete_by_filter" => {
             let namespace = args["namespace"]
@@ -1412,7 +1412,7 @@ pub fn handle_tools_call(
                 .ok_or_else(|| McpError::invalid_params("Missing 'filters' object").to_json())?;
             let filter = parse_filter_ops(filter_obj).map_err(|e| e.to_json())?;
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.delete_by_filter(namespace, filter) {
                 Ok(count) => Ok(text_content(serialize_content(&json!({
                     "deleted_count": count
@@ -1449,16 +1449,16 @@ pub fn handle_tools_call(
                 None
             };
 
-            let options = vantadb::sdk::VantaMemoryListOptions {
+            let options = vantadb::sdk::MemoryListOptions {
                 limit,
                 cursor,
                 #[allow(deprecated)]
-                filters: vantadb::sdk::VantaMemoryMetadata::new(),
+                filters: vantadb::sdk::MemoryMetadata::new(),
                 filter_ops,
                 exclude_superseded: false,
             };
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.list(namespace, options) {
                 Ok(page) => {
                     // MCP-39: budget the envelope via apply_output_budget for
@@ -1486,7 +1486,7 @@ pub fn handle_tools_call(
         }
 
         "memory_list_namespaces" => {
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.list_namespaces() {
                 Ok(namespaces) => Ok(text_content(serialize_content(&namespaces))),
                 Err(e) => Ok(error_content_vanta(e)),
@@ -1507,7 +1507,7 @@ pub fn handle_tools_call(
                 .map_err(|e| e.to_json())?;
             validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.versions(namespace, key) {
                 Ok(records) => Ok(text_content(serialize_content(&records))),
                 Err(e) => Ok(error_content_vanta(e)),
@@ -1532,7 +1532,7 @@ pub fn handle_tools_call(
             validate_identifier(new_key, "new_key", config.max_key_length)
                 .map_err(|e| e.to_json())?;
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.supersede(namespace, old_key, new_key) {
                 Ok(()) => Ok(text_content(serialize_content(
                     &json!({ "superseded": true }),
@@ -1564,7 +1564,7 @@ pub fn handle_tools_call(
 
             match executor.execute_hybrid(trimmed) {
                 Ok(ExecutionResult::Read(nodes)) => {
-                    let records: Vec<vantadb::sdk::VantaNodeRecord> = nodes
+                    let records: Vec<vantadb::sdk::NodeRecord> = nodes
                         .into_iter()
                         .map(|n| storage.node_to_record(n))
                         .collect();
@@ -1655,7 +1655,7 @@ pub fn handle_tools_call(
                 config: config_recall,
             };
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match perform_auto_recall(&embedded, params, None) {
                 Ok(Some(result)) => {
                     let recalled: Vec<Value> = result
@@ -1706,7 +1706,7 @@ pub fn handle_tools_call(
                 ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
             };
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.search_with_method(request, method) {
                 Ok(hits) => Ok(text_content_structured(&hits)),
                 Err(e) => Ok(error_content_vanta(e)),
@@ -1740,7 +1740,7 @@ pub fn handle_tools_call(
             };
 
             let ns_refs: Vec<&str> = namespaces.iter().map(String::as_str).collect();
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.search_multi(&ns_refs, request) {
                 Ok(hits) => {
                     // MCP-39: budget the response via apply_output_budget for
@@ -1793,7 +1793,7 @@ pub fn handle_tools_call(
             if let Some(expected) = index_vector_dim(storage) {
                 if vector.len() != expected {
                     return Ok(error_content(
-                        vantadb::VantaError::DimensionMismatch {
+                        vantadb::Error::DimensionMismatch {
                             expected,
                             got: vector.len(),
                         }
@@ -1802,7 +1802,7 @@ pub fn handle_tools_call(
                 }
             }
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             let hits = match embedded.search_vector(&vector, k) {
                 Ok(hits) => hits,
                 Err(e) => {
@@ -1810,7 +1810,7 @@ pub fn handle_tools_call(
                 }
             };
 
-            // MCP-03: `VantaSearchHit.distance` carries the raw HNSW score —
+            // MCP-03: `SearchHit.distance` carries the raw HNSW score —
             // cosine SIMILARITY (identical → 1.0, orthogonal → 0.0) and the
             // negated euclidean distance. The `distance` field exposed here is
             // documented in docs/api/MCP.md as "lower is more similar", so
@@ -1842,7 +1842,7 @@ pub fn handle_tools_call(
                 McpError::invalid_params("Invalid or missing 'node_id'").to_json()
             })?;
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.get_node(node_id) {
                 Ok(Some(node)) => {
                     let mut neighbors = Vec::new();
@@ -1931,7 +1931,7 @@ pub fn handle_tools_call(
                 return Err(McpError::invalid_params("'description' must not be empty").to_json());
             }
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             // Auto-assign an id above the Iron Axioms (1-4) so agent axioms
             // never collide with the built-in set.
             let next_id = resolve_axioms(storage)
@@ -1945,7 +1945,7 @@ pub fn handle_tools_call(
                 })
                 .unwrap_or(5);
             let axiom = json!({"id": next_id, "name": name, "description": description});
-            let input = vantadb::sdk::VantaMemoryInput::new(
+            let input = vantadb::sdk::MemoryInput::new(
                 crate::axioms::AXIOMS_NAMESPACE,
                 name,
                 axiom.to_string(),
@@ -1962,7 +1962,7 @@ pub fn handle_tools_call(
                 .ok_or_else(|| McpError::invalid_params("Missing 'name'").to_json())?;
             validate_identifier(name, "name", config.max_key_length).map_err(|e| e.to_json())?;
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.delete(crate::axioms::AXIOMS_NAMESPACE, name) {
                 Ok(deleted) => Ok(text_content(serialize_content(
                     &json!({"deleted": deleted}),
@@ -1979,7 +1979,7 @@ pub fn handle_tools_call(
             validate_identifier(namespace, "namespace", config.max_namespace_length)
                 .map_err(|e| e.to_json())?;
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             let metrics = embedded.operational_metrics();
 
             let mut total_bytes = 0usize;
@@ -2019,7 +2019,7 @@ pub fn handle_tools_call(
         }
 
         "collection_list" => {
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
 
             let namespaces = match embedded.list_namespaces() {
                 Ok(ns) => ns,
@@ -2057,7 +2057,7 @@ pub fn handle_tools_call(
             let sid: u128 = summary_id.parse().map_err(|_| {
                 McpError::invalid_params("summary_id must be a valid integer (u128)").to_json()
             })?;
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             let recovered = embedded
                 .recover_archived_nodes(sid)
                 .map_err(|e| McpError::internal_error(e.to_string()).to_json())?;
@@ -2089,7 +2089,7 @@ pub fn handle_tools_call(
                 McpError::internal_error(format!("Failed to begin transaction: {}", e)).to_json()
             })?;
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             // Stream only keys — never materialize the full record set. Deletes
             // run after pagination: list() recomputes the ID window per call and
             // deleting mid-stream would shift the cursor offset and skip rows.
@@ -2144,7 +2144,7 @@ pub fn handle_tools_call(
         // back as Ok(error_content(...)) so the LLM client can read and
         // self-correct (MEM-32), never as a propagated JSON-RPC error.
         "purge_expired" => {
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.purge_expired() {
                 Ok(count) => Ok(text_content(serialize_content(&json!({ "purged": count })))),
                 Err(e) => Ok(error_content_vanta(e)),
@@ -2152,7 +2152,7 @@ pub fn handle_tools_call(
         }
 
         "compact_wal" => {
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.compact_wal() {
                 Ok(()) => Ok(text_content(serialize_content(
                     &json!({ "compacted_wal": true }),
@@ -2162,7 +2162,7 @@ pub fn handle_tools_call(
         }
 
         "flush" => {
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.flush() {
                 Ok(()) => Ok(text_content(serialize_content(&json!({ "flushed": true })))),
                 Err(e) => Ok(error_content_vanta(e)),
@@ -2170,7 +2170,7 @@ pub fn handle_tools_call(
         }
 
         "compact_layout" => {
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.compact_layout() {
                 Ok(bytes) => Ok(text_content(serialize_content(
                     &json!({ "bytes_reclaimed": bytes }),
@@ -2183,7 +2183,7 @@ pub fn handle_tools_call(
         // derive Serialize, so the report is built as an explicit JSON object
         // (same field set as the struct, src/storage/engine/mod.rs).
         "vacuum" => {
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.vacuum() {
                 Ok(report) => Ok(text_content(serialize_content(&json!({
                     "scanned_nodes": report.scanned_nodes,
@@ -2202,7 +2202,7 @@ pub fn handle_tools_call(
         // Ok(error_content(...)) so the LLM client can read and self-correct
         // (MEM-32), never as a propagated JSON-RPC error.
         "rebuild_index" => {
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.rebuild_index() {
                 Ok(report) => Ok(text_content(serialize_content(&json!(&report)))),
                 Err(e) => Ok(error_content_vanta(e)),
@@ -2219,7 +2219,7 @@ pub fn handle_tools_call(
                 None => None,
             };
             let deep = args["deep"].as_bool().unwrap_or(false);
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             let result = if deep {
                 embedded.audit_text_index_deep(namespace.as_deref())
             } else {
@@ -2232,7 +2232,7 @@ pub fn handle_tools_call(
         }
 
         "repair_text_index" => {
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.repair_text_index() {
                 Ok(report) => Ok(text_content(serialize_content(&json!(&report)))),
                 Err(e) => Ok(error_content_vanta(e)),
@@ -2243,7 +2243,7 @@ pub fn handle_tools_call(
         // introspection), generate_snippet (stateless text utility),
         // list_snapshots (physical snapshot names). Same MEM-32 error shape.
         "capabilities" => {
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             let caps = embedded.capabilities();
             Ok(text_content(serialize_content(&json!(&caps))))
         }
@@ -2258,7 +2258,7 @@ pub fn handle_tools_call(
             validate_payload(payload, config.max_payload_length).map_err(|e| e.to_json())?;
             let with_highlighting = args["with_highlighting"].as_bool().unwrap_or(false);
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.generate_snippet(payload, text_query, with_highlighting) {
                 Some(snippet) => Ok(text_content(serialize_content(
                     &json!({ "snippet": snippet }),
@@ -2275,7 +2275,7 @@ pub fn handle_tools_call(
         },
 
         // MCP-34a: create a filesystem snapshot — thin wrapper over the SDK's
-        // VantaEmbedded::create_snapshot. The name becomes a subdirectory under
+        // Embedded::create_snapshot. The name becomes a subdirectory under
         // <data_dir>/snapshots, so it is validated as an identifier AND rejects
         // path separators / '.' / '..' (trust boundary — prevents path
         // traversal). FsSnapshot does not derive Serialize, so the result is
@@ -2293,7 +2293,7 @@ pub fn handle_tools_call(
                 return Ok(error_content(e.message));
             }
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.create_snapshot(name) {
                 Ok(snap) => Ok(text_content(serialize_content(&json!({
                     "path": snap.path.to_string_lossy(),
@@ -2352,7 +2352,7 @@ pub fn handle_tools_call(
         // so the LLM client can read and self-correct (MEM-32), never as a
         // propagated JSON-RPC error.
         "export" => {
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             let namespaces: Vec<String> = match args["namespace"].as_str() {
                 Some(ns) => {
                     validate_identifier(ns, "namespace", config.max_namespace_length)
@@ -2424,7 +2424,7 @@ pub fn handle_tools_call(
                     skipped += 1;
                     continue;
                 }
-                let parsed = serde_json::from_str::<vantadb::sdk::VantaMemoryExportLine>(line)
+                let parsed = serde_json::from_str::<vantadb::sdk::MemoryExportLine>(line)
                     .ok()
                     .and_then(|l| vantadb::sdk::record_from_export_line(l).ok());
                 match parsed {
@@ -2433,7 +2433,7 @@ pub fn handle_tools_call(
                 }
             }
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.import_records(records) {
                 Ok(mut report) => {
                     report.skipped += skipped;
@@ -2457,7 +2457,7 @@ pub fn handle_tools_call(
             // layer for malformed input.
             validate_identifier(path, "path", config.max_key_length).map_err(|e| e.to_json())?;
             validate_safe_path(path, "path", config.max_key_length).map_err(|e| e.to_json())?;
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.bulk_import_file(path) {
                 Ok(report) => Ok(text_content(serialize_content(&report))),
                 Err(e) => {
@@ -2484,14 +2484,14 @@ pub fn handle_tools_call(
                 // Raw .vdbdump payload — pass through as-is.
                 bytes.to_vec()
             } else {
-                // NDJSON (one VantaMemoryInput per line) — synthesize the
+                // NDJSON (one MemoryInput per line) — synthesize the
                 // vdbdump header the SDK stream expects around the JSON array.
                 let mut inputs = Vec::new();
                 for (lineno, line) in content.lines().enumerate() {
                     if line.trim().is_empty() {
                         continue;
                     }
-                    match serde_json::from_str::<vantadb::sdk::VantaMemoryInput>(line) {
+                    match serde_json::from_str::<vantadb::sdk::MemoryInput>(line) {
                         Ok(input) => inputs.push(input),
                         Err(e) => {
                             return Ok(error_content(format!(
@@ -2514,7 +2514,7 @@ pub fn handle_tools_call(
                 framed
             };
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             let mut reader = std::io::Cursor::new(payload);
             match embedded.bulk_import_stream(&mut reader) {
                 Ok(report) => Ok(text_content(serialize_content(&report))),
@@ -2637,7 +2637,7 @@ pub fn handle_tools_call(
             let damping_factor = args["damping_factor"].as_f64().unwrap_or(0.85);
             let tolerance = args["tolerance"].as_f64().unwrap_or(1e-6);
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.graph_page_rank(&roots, max_iterations, damping_factor, tolerance) {
                 Ok(scores) => {
                     let map: serde_json::Map<String, Value> = scores
@@ -2657,7 +2657,7 @@ pub fn handle_tools_call(
                     .ok_or_else(|| McpError::invalid_params("Missing 'roots' array").to_json())?,
             )?;
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.graph_degree_centrality(&roots) {
                 Ok(degrees) => {
                     let map: serde_json::Map<String, Value> = degrees
@@ -2732,7 +2732,7 @@ pub fn handle_tools_call(
                 }
             };
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             let result = match (mode.to_lowercase().as_str(), &filter) {
                 ("bfs", None) => embedded.graph_bfs(&start, max_depth, direction),
                 ("dfs", None) => embedded.graph_dfs(&start, max_depth, direction),
@@ -2768,7 +2768,7 @@ pub fn handle_tools_call(
                     .ok_or_else(|| McpError::invalid_params("Missing 'roots' array").to_json())?,
             )?;
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.graph_topological_sort(&roots) {
                 Ok(order) => {
                     let ids: Vec<String> = order.iter().map(|id| id.to_string()).collect();
@@ -2785,7 +2785,7 @@ pub fn handle_tools_call(
                     .ok_or_else(|| McpError::invalid_params("Missing 'roots' array").to_json())?,
             )?;
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.graph_is_dag(&roots) {
                 Ok(is_dag) => Ok(text_content(serialize_content(
                     &json!({ "is_dag": is_dag }),
@@ -2809,7 +2809,7 @@ pub fn handle_tools_call(
                 .ok_or_else(|| McpError::invalid_params("Missing 'label'").to_json())?;
             validate_identifier(label, "label", config.max_key_length).map_err(|e| e.to_json())?;
 
-            let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.remove_edge(source_id, target_id, label) {
                 Ok(()) => Ok(text_content(serialize_content(&json!({ "removed": true })))),
                 Err(e) => Ok(error_content_vanta(e)),
@@ -2852,13 +2852,10 @@ fn index_vector_dim(storage: &Arc<StorageEngine>) -> Option<usize> {
         .find_map(|entry| entry.value().vector_slice().map(|v| v.len()))
 }
 
-/// MCP-19: parse one JSON object into a `VantaMemoryInput`, applying the same
+/// MCP-19: parse one JSON object into a `MemoryInput`, applying the same
 /// validation and wire semantics as `memory_put` (identifier/payload limits,
 /// sparse vector object, absolute expires_at_ms → relative ttl_ms).
-fn parse_memory_input(
-    obj: &Value,
-    config: &McpConfig,
-) -> Result<vantadb::sdk::VantaMemoryInput, Value> {
+fn parse_memory_input(obj: &Value, config: &McpConfig) -> Result<vantadb::sdk::MemoryInput, Value> {
     let namespace = obj["namespace"]
         .as_str()
         .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
@@ -2911,10 +2908,10 @@ fn parse_memory_input(
     let metadata = if let Some(meta_obj) = obj["metadata"].as_object() {
         parse_metadata(meta_obj).map_err(|e| e.to_json())?
     } else {
-        vantadb::sdk::VantaMemoryMetadata::new()
+        vantadb::sdk::MemoryMetadata::new()
     };
 
-    Ok(vantadb::sdk::VantaMemoryInput {
+    Ok(vantadb::sdk::MemoryInput {
         key: key.to_string(),
         namespace: namespace.to_string(),
         payload: payload.to_string(),
@@ -2967,7 +2964,7 @@ fn parse_direction(val: &Value) -> Result<vantadb::graph::TraversalDirection, Va
 /// JSON-RPC error. Param-level errors (bad types, unknown enum values) still
 /// come back as `Err(Value)` (JSON-RPC invalid-params).
 enum ParsedSearchRequest {
-    Ready(vantadb::sdk::VantaMemorySearchRequest),
+    Ready(vantadb::sdk::MemorySearchRequest),
     Rejected(Value),
 }
 
@@ -2990,7 +2987,7 @@ fn dispatch_search_memory(
         ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
     };
 
-    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
     match embedded.search(request) {
         Ok(hits) => Ok(text_content_structured(&hits)),
         Err(e) => Ok(error_content_vanta(e)),
@@ -3026,7 +3023,7 @@ fn parse_search_request(
         if let Some(expected) = index_vector_dim(storage) {
             if query_vector.len() != expected {
                 return Ok(ParsedSearchRequest::Rejected(error_content(
-                    vantadb::VantaError::DimensionMismatch {
+                    vantadb::Error::DimensionMismatch {
                         expected,
                         got: query_vector.len(),
                     }
@@ -3064,7 +3061,7 @@ fn parse_search_request(
     let explain = args["explain"].as_bool().unwrap_or(false);
 
     // AUD-048: unified filter semantics with the CLI channel. The search
-    // request (`VantaMemorySearchRequest`) is flat-only — it has no
+    // request (`MemorySearchRequest`) is flat-only — it has no
     // `filter_ops` slot — so flat values and explicit `$eq` both fold into the
     // flat metadata (identical equality semantics). Range/inequality operators
     // ($gt/$gte/$lt/$lte/$neq) cannot be expressed in a search request; return
@@ -3072,9 +3069,9 @@ fn parse_search_request(
     // filter_ops.
     let filters = if let Some(obj) = args["filters"].as_object() {
         let ops = parse_filter_ops(obj).map_err(|e| e.to_json())?;
-        let mut flat = vantadb::sdk::VantaMemoryMetadata::new();
+        let mut flat = vantadb::sdk::MemoryMetadata::new();
         for item in ops {
-            if item.op == vantadb::sdk::VantaFilterOp::Eq {
+            if item.op == vantadb::sdk::FilterOp::Eq {
                 flat.insert(item.field, item.value);
             } else {
                 return Ok(ParsedSearchRequest::Rejected(error_content(format!(
@@ -3086,7 +3083,7 @@ fn parse_search_request(
         }
         flat
     } else {
-        vantadb::sdk::VantaMemoryMetadata::new()
+        vantadb::sdk::MemoryMetadata::new()
     };
 
     // MEM-02: passthrough del SearchProfileConfig. La forma de wire es
@@ -3107,7 +3104,7 @@ fn parse_search_request(
     };
 
     Ok(ParsedSearchRequest::Ready(
-        vantadb::sdk::VantaMemorySearchRequest {
+        vantadb::sdk::MemorySearchRequest {
             namespace: namespace.to_string(),
             query_vector,
             query_sparse: None,

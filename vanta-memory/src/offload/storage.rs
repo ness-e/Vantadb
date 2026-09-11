@@ -11,16 +11,16 @@
 use crate::offload::state_manager::OffloadError;
 use crate::offload::types::OffloadEntry;
 use crate::utils::sanitize::{sanitize_component, sanitize_key};
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryListPage};
+use vantadb::sdk::{Embedded, MemoryInput, MemoryListOptions, MemoryListPage};
 
 /// Storage of offloaded tool-call summaries over the VantaDB SDK.
 pub struct OffloadStorage {
-    db: VantaEmbedded,
+    db: Embedded,
 }
 
 impl OffloadStorage {
     /// Open an offload storage over an already-open embedded database.
-    pub fn new(db: VantaEmbedded) -> Self {
+    pub fn new(db: Embedded) -> Self {
         Self { db }
     }
 
@@ -45,11 +45,11 @@ impl OffloadStorage {
             return Ok(false);
         }
         let payload = serde_json::to_string(entry)?;
-        self.db.put(VantaMemoryInput {
+        self.db.put(MemoryInput {
             namespace: entries_namespace(session_id),
             key,
             payload,
-            metadata: vantadb::sdk::VantaMemoryMetadata::new(),
+            metadata: vantadb::sdk::MemoryMetadata::new(),
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
@@ -66,12 +66,12 @@ impl OffloadStorage {
         let mut entries = Vec::new();
         let mut cursor: Option<usize> = None;
         loop {
-            let options = VantaMemoryListOptions {
+            let options = MemoryListOptions {
                 limit: 1000,
                 cursor,
                 ..Default::default()
             };
-            let page: VantaMemoryListPage = self.db.list(&ns, options)?;
+            let page: MemoryListPage = self.db.list(&ns, options)?;
             for record in page.records {
                 match serde_json::from_str::<OffloadEntry>(&record.payload) {
                     Ok(entry) => entries.push(entry),
@@ -98,13 +98,13 @@ pub(crate) fn entries_namespace(session_id: &str) -> String {
 mod tests {
     use super::*;
 
-    fn open_db() -> VantaEmbedded {
-        let config = vantadb::config::VantaConfig {
+    fn open_db() -> Embedded {
+        let config = vantadb::config::Config {
             backend_kind: vantadb::storage::BackendKind::InMemory,
             read_only: false,
-            ..vantadb::config::VantaConfig::default()
+            ..vantadb::config::Config::default()
         };
-        VantaEmbedded::open_with_config(config).expect("open in-memory db")
+        Embedded::open_with_config(config).expect("open in-memory db")
     }
 
     fn entry(id: &str) -> OffloadEntry {
@@ -151,11 +151,11 @@ mod tests {
     #[test]
     fn corrupt_payload_is_skipped_not_fatal() {
         let db = open_db();
-        db.put(VantaMemoryInput {
+        db.put(MemoryInput {
             namespace: entries_namespace("s1"),
             key: "bad".into(),
             payload: "{corrupt".into(),
-            metadata: vantadb::sdk::VantaMemoryMetadata::new(),
+            metadata: vantadb::sdk::MemoryMetadata::new(),
             vector: None,
             sparse_vector: None,
             ttl_ms: None,

@@ -24,7 +24,7 @@ pub fn l1_namespace(session_key: &str) -> String {
 
 /// Read all persisted L1 records of a session (idempotent, paged via list).
 pub fn read_session_records(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
 ) -> Result<Vec<MemoryRecord>, L1Error> {
     read_namespace_records(db, &l1_namespace(session_key))
@@ -34,21 +34,21 @@ pub fn read_session_records(
 /// (used by cross-session recall, MEM-40, where the namespace is already
 /// resolved — e.g. enumerated via `list_namespaces`).
 pub fn read_namespace_records(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     namespace: &str,
 ) -> Result<Vec<MemoryRecord>, L1Error> {
-    use vantadb::sdk::{VantaMemoryListOptions, VantaMemoryListPage};
+    use vantadb::sdk::{MemoryListOptions, MemoryListPage};
 
     let mut records = Vec::new();
     let mut cursor: Option<usize> = None;
 
     loop {
-        let options = VantaMemoryListOptions {
+        let options = MemoryListOptions {
             limit: 1000,
             cursor,
             ..Default::default()
         };
-        let page: VantaMemoryListPage = db.list(namespace, options)?;
+        let page: MemoryListPage = db.list(namespace, options)?;
         for record in page.records {
             if let Ok(mut mem) = serde_json::from_str::<MemoryRecord>(&record.payload) {
                 mem.vector = usable_vector_filter(record.vector.as_deref());
@@ -68,7 +68,7 @@ pub fn read_namespace_records(
 
 /// Read a single L1 record by id, if present.
 pub fn read_record(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
     record_id: &str,
 ) -> Result<Option<MemoryRecord>, L1Error> {

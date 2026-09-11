@@ -127,7 +127,7 @@ async fn mcp_proxy_handler(
         if !ok {
             // ERR-MCP-01: -32005 vanta_unauthorized per ERROR_HANDLING.md §6.2
             // (-32001 is vanta_busy; the previous hand-rolled code collided).
-            // No data.code: auth rejection is not a VantaError::code() output.
+            // No data.code: auth rejection is not a Error::code() output.
             let body = json!({"success": false, "error": {"code": -32005, "message": "Unauthorized: missing or invalid Bearer token for writer proxy", "data": {"retriable": false}}});
             return (axum::http::StatusCode::UNAUTHORIZED, axum::Json(body)).into_response();
         }
@@ -218,7 +218,7 @@ pub async fn spawn_writer_http(storage: Arc<StorageEngine>) -> std::io::Result<(
     ));
     let state = std::sync::Arc::new(vantadb::server::state::ServerState {
         storage: storage.clone(),
-        db: vantadb::sdk::VantaEmbedded::from_engine(storage.clone()),
+        db: vantadb::sdk::Embedded::from_engine(storage.clone()),
         circuit_breaker,
         pool,
         api_key,
@@ -301,13 +301,13 @@ pub async fn run_stdio_server(storage: Arc<StorageEngine>) {
     let config = McpConfig::from_storage(&storage);
 
     // MCP-01: a raw StorageEngine (as the server binary opens) skips the
-    // `VantaEmbedded::open_with_config` index reconciliation, so
+    // `Embedded::open_with_config` index reconciliation, so
     // text_query / hybrid / text-filter searches fail on fresh DBs with
     // "text_index not found: bm25". Ensure index state at startup:
     // idempotent — no-op when counts match, rebuilds only when state is
     // missing/stale (existing DBs), writes fresh empty state for new DBs.
     if !storage.config.read_only {
-        let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+        let embedded = vantadb::Embedded::from_engine(storage.clone());
         if let Err(e) = embedded.ensure_indexes_current() {
             error!(
                 error = %e,
@@ -832,8 +832,8 @@ pub async fn run_proxy_stdio_server(proxy: crate::proxy::ProxyHandle, config: Mc
 /// Called by the binary's MCP entry point (main.rs) instead of raw `StorageEngine::open`.
 pub async fn run_stdio_server_auto(
     storage_path: &str,
-    vanta_config: Option<vantadb::config::VantaConfig>,
-) -> Result<(), vantadb::VantaError> {
+    vanta_config: Option<vantadb::config::Config>,
+) -> Result<(), vantadb::Error> {
     let cfg = vanta_config.unwrap_or_default();
     // Clone cfg with correct storage_path (priority to explicit param)
     let mut cfg_with_path = cfg.clone();
@@ -853,7 +853,7 @@ pub async fn run_stdio_server_auto(
             }
             Ok(())
         }
-        Err(vantadb::VantaError::DatabaseBusy(msg)) => {
+        Err(vantadb::Error::DatabaseBusy(msg)) => {
             tracing::warn!(msg = %msg, "DatabaseBusy — trying proxy fallback");
             let api_key = cfg_with_path
                 .api_key
@@ -884,7 +884,7 @@ pub async fn run_stdio_server_auto(
                         }
                         Ok(())
                     }
-                    Err(e @ vantadb::VantaError::DatabaseBusy(_)) => {
+                    Err(e @ vantadb::Error::DatabaseBusy(_)) => {
                         // Final error with hint pid/port if file still exists
                         let hint = std::fs::read_to_string(discovery_path(&path))
                             .ok()
@@ -896,7 +896,7 @@ pub async fn run_stdio_server_auto(
                                 )
                             })
                             .unwrap_or_default();
-                        Err(vantadb::VantaError::DatabaseBusy(format!("{};{}", e, hint)))
+                        Err(vantadb::Error::DatabaseBusy(format!("{};{}", e, hint)))
                     }
                     Err(e) => Err(e),
                 }

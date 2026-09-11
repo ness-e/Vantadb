@@ -21,7 +21,7 @@
 //! stays at `skills_extract/{scope}/{name}` (status quo). Read API:
 //! [`SkillCoreSink::list_skill_versions`].
 //!
-//! Integration note: vanta-memory only holds [`VantaEmbedded`] (the core
+//! Integration note: vanta-memory only holds [`Embedded`] (the core
 //! `SkillStore` needs `&StorageEngine`, not exposed by the SDK), so skills
 //! land in the `skills_extract/{scope}` namespace with the same logical
 //! fields (name/description/content/content_hash). Wiring against MEM-06's
@@ -32,9 +32,7 @@ use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
 use crate::core::conversation::l0_recorder::{sanitize_component, sanitize_key};
-use vantadb::sdk::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryMetadata, VantaValue,
-};
+use vantadb::sdk::{Embedded, MemoryInput, MemoryListOptions, MemoryMetadata, Value};
 
 use super::archive::SkillArchiveError;
 use crate::core::skill::skill_extractor::ExtractedSkillCandidate;
@@ -87,11 +85,11 @@ pub struct SkillSinkCounts {
 
 /// Idempotent sink over the VantaDB SDK.
 pub struct SkillCoreSink<'a> {
-    db: &'a VantaEmbedded,
+    db: &'a Embedded,
 }
 
 impl<'a> SkillCoreSink<'a> {
-    pub fn new(db: &'a VantaEmbedded) -> Self {
+    pub fn new(db: &'a Embedded) -> Self {
         Self { db }
     }
 
@@ -128,10 +126,10 @@ impl<'a> SkillCoreSink<'a> {
     }
 
     fn write_skill(&self, scope: &str, stored: &StoredSkill) -> Result<(), SkillArchiveError> {
-        let mut metadata = VantaMemoryMetadata::new();
-        metadata.insert("kind".into(), VantaValue::String("skill".into()));
-        metadata.insert("name".into(), VantaValue::String(stored.name.clone()));
-        self.db.put(VantaMemoryInput {
+        let mut metadata = MemoryMetadata::new();
+        metadata.insert("kind".into(), Value::String("skill".into()));
+        metadata.insert("name".into(), Value::String(stored.name.clone()));
+        self.db.put(MemoryInput {
             namespace: Self::skills_ns(scope),
             key: sanitize_key(&stored.name),
             payload: serde_json::to_string(stored)?,
@@ -229,9 +227,9 @@ impl<'a> SkillCoreSink<'a> {
 
         // Cursor LAST: a crash before this point leaves the task re-appliable
         // (the upsert layer still prevents duplicates).
-        let mut metadata = VantaMemoryMetadata::new();
-        metadata.insert("kind".into(), VantaValue::String("cursor".into()));
-        self.db.put(VantaMemoryInput {
+        let mut metadata = MemoryMetadata::new();
+        metadata.insert("kind".into(), Value::String("cursor".into()));
+        self.db.put(MemoryInput {
             namespace: Self::cursor_ns(scope),
             key: sanitize_key(&cursor_key),
             payload: format!(
@@ -252,9 +250,9 @@ impl<'a> SkillCoreSink<'a> {
     /// (typical: <100).
     fn last_version_seq(&self, scope: &str, name: &str) -> Result<Option<u64>, SkillArchiveError> {
         let ns = Self::versions_ns(scope, name);
-        let opts = VantaMemoryListOptions {
+        let opts = MemoryListOptions {
             limit: 10_000,
-            ..VantaMemoryListOptions::default()
+            ..MemoryListOptions::default()
         };
         let page = self.db.list(&ns, opts)?;
         let mut latest: Option<u64> = None;
@@ -271,14 +269,11 @@ impl<'a> SkillCoreSink<'a> {
     /// failure here surfaces to the caller and a retry will re-emit the
     /// snapshot.
     fn record_version(&self, scope: &str, version: &SkillVersion) -> Result<(), SkillArchiveError> {
-        let mut metadata = VantaMemoryMetadata::new();
-        metadata.insert("kind".into(), VantaValue::String("skill_version".into()));
-        metadata.insert("name".into(), VantaValue::String(version.name.clone()));
-        metadata.insert(
-            "version_seq".into(),
-            VantaValue::Int(version.version_seq as i64),
-        );
-        self.db.put(VantaMemoryInput {
+        let mut metadata = MemoryMetadata::new();
+        metadata.insert("kind".into(), Value::String("skill_version".into()));
+        metadata.insert("name".into(), Value::String(version.name.clone()));
+        metadata.insert("version_seq".into(), Value::Int(version.version_seq as i64));
+        self.db.put(MemoryInput {
             namespace: Self::versions_ns(scope, &version.name),
             key: sanitize_key(&format!("{:020}", version.version_seq)),
             payload: serde_json::to_string(version)?,
@@ -297,9 +292,9 @@ impl<'a> SkillCoreSink<'a> {
         name: &str,
     ) -> Result<Vec<SkillVersion>, SkillArchiveError> {
         let ns = Self::versions_ns(scope, name);
-        let opts = VantaMemoryListOptions {
+        let opts = MemoryListOptions {
             limit: 10_000,
-            ..VantaMemoryListOptions::default()
+            ..MemoryListOptions::default()
         };
         let page = self.db.list(&ns, opts)?;
         let mut versions: Vec<SkillVersion> = page
@@ -324,12 +319,12 @@ fn content_hash(content: &str) -> u64 {
 mod tests {
     use super::*;
 
-    fn db() -> VantaEmbedded {
-        use vantadb::config::VantaConfig;
+    fn db() -> Embedded {
+        use vantadb::config::Config;
         use vantadb::storage::BackendKind;
-        VantaEmbedded::open_with_config(VantaConfig {
+        Embedded::open_with_config(Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         })
         .expect("open in-memory db")
     }

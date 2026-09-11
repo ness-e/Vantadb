@@ -12,7 +12,7 @@ use axum::{Json, Router};
 use serde_json::{json, Value};
 use vantadb::entity::EntityStore;
 use vantadb::node::FieldValue;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata};
+use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
 use vantadb::storage::StorageEngine;
 
 const USER_KEY: &str = "sk-test";
@@ -36,10 +36,10 @@ async fn spawn(router: Router) -> String {
 
 /// In-memory engine seeded with the test user entity (D34).
 fn seeded_engine() -> Arc<StorageEngine> {
-    let config = vantadb::config::VantaConfig {
+    let config = vantadb::config::Config {
         backend_kind: vantadb::storage::BackendKind::InMemory,
         read_only: false,
-        ..vantadb::config::VantaConfig::default()
+        ..vantadb::config::Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).expect("engine");
     let mut fields: HashMap<String, FieldValue> = HashMap::new();
@@ -128,7 +128,7 @@ async fn captured_body(env: &TestEnv) -> Value {
 }
 
 /// Seed persona + scene records for `session_key` via public SDK/lib APIs.
-fn seed_memory(db: &VantaEmbedded, session_key: &str) {
+fn seed_memory(db: &Embedded, session_key: &str) {
     use vanta_memory::core::abstractions::PersonaMode;
     use vanta_memory::core::persona::persona_generator::{
         persona_namespace, PersonaRecord, PERSONA_KEY,
@@ -141,11 +141,11 @@ fn seed_memory(db: &VantaEmbedded, session_key: &str) {
         generated_at_ms: 0,
         generated_at: "2026-08-21T00:00:00+00:00".into(),
     };
-    db.put(VantaMemoryInput {
+    db.put(MemoryInput {
         namespace: persona_namespace(session_key),
         key: PERSONA_KEY.into(),
         payload: serde_json::to_string(&record).expect("persona json"),
-        metadata: VantaMemoryMetadata::new(),
+        metadata: MemoryMetadata::new(),
         vector: None,
         sparse_vector: None,
         ttl_ms: None,

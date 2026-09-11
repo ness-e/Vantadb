@@ -7,7 +7,7 @@
 //! tool result is then synthesized so the upstream can continue the turn.
 
 use serde_json::{json, Value};
-use vantadb::sdk::VantaEmbedded;
+use vantadb::sdk::Embedded;
 
 use crate::capture;
 use crate::inject::Protocol;
@@ -72,7 +72,7 @@ pub(crate) fn extract(message: &Accumulated) -> Vec<MemoryCall> {
 /// Neither path can fail the request: storage errors degrade into descriptive
 /// result text the model can react to.
 pub(crate) fn execute(
-    memory: &VantaEmbedded,
+    memory: &Embedded,
     writeback: &WriteBack,
     session_key: &str,
     protocol_label: &str,
@@ -110,7 +110,7 @@ pub(crate) fn execute(
 
 /// Synchronous recall (D46): run one auto-recall pass scoped to the session
 /// and format the hits as the standard `<relevant-memories>` block.
-fn search(memory: &VantaEmbedded, session_key: &str, call: &MemoryCall) -> String {
+fn search(memory: &Embedded, session_key: &str, call: &MemoryCall) -> String {
     use vanta_memory::core::hooks::{perform_auto_recall, AutoRecallParams, RecallConfig};
 
     let query = call
@@ -464,13 +464,13 @@ mod tests {
         assert!(unknown.contains("Unknown memory tool"));
     }
 
-    fn memory() -> VantaEmbedded {
-        let config = vantadb::config::VantaConfig {
+    fn memory() -> Embedded {
+        let config = vantadb::config::Config {
             backend_kind: vantadb::storage::BackendKind::InMemory,
             ..Default::default()
         };
         vantadb::storage::StorageEngine::open_with_config(":memory:", Some(config))
-            .map(|engine| VantaEmbedded::from_engine(engine.into()))
+            .map(|engine| Embedded::from_engine(engine.into()))
             .expect("in-memory engine")
     }
 }

@@ -256,20 +256,25 @@ Regla universal: ninguna entidad repite su contenedor. `vantadb::VantaConfig` �
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo semver-checks --baseline-rev main` reporta `major` una vez y `cargo deny check && just verify` verdes
 - **Task file:** `docs/tasks/AST-007.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:**
-- **Commit:**
+- **Commit:** chore: AST-007 release gate major + cero-remanentes (semver 15/0 + deny + verify 3143✅)
 
   **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger / Due |
   |--------------|--------|------------|---------------|
   | 🟡×🔴 | publish sin canary rompe PyPI/npm | TestPyPI + `npm --tag next` 24-48h + thresholds error-rate/P95 | métrica roja → rollback |
-  | 🟢×🔴 | tag manual fuera de sync | solo release-plz taguea | bloquear tag manual |
+   | 🟢×🔴 | tag manual fuera de sync | solo release-plz taguea | bloquear tag manual |
 
-  **Iteraciones:**
-  | # | Acción | Resultado | Herramienta |
-  |---|--------|-----------|-------------|
-  | — | — | — | — |
+   **Iteraciones:**
+   | # | Acción | Resultado | Herramienta |
+   |---|--------|-----------|-------------|
+   | 1 | DISCOVERY: SDP + Regla 0 + Gate D no dispara + task file | semver-checks 0.49.0 + deny 0.19.9 presentes | campaign_discover_skills_v2, rg, codegraph |
+   | 2 | S1 barrido: core src/ solo alias-defs+reexports (38 pub type deprecated) + 1 enum privado | S1b: VantaFileMap→FileMap + lsm comments; check -p vantadb verde | rg, search_graph, edit |
+   | 3 | S2 semver: exit 100 esperado, "requires new major: 15 major/0 minor" (FormatKind::VantaFile + QueryResult→enum + drift) | major ✅ | cargo semver-checks |
+   | 4 | S3 deny: RUSTSEC-2023-0071 triaged HS256-only + stale 2026-0253 removido → exit 0 | deny ✅ | edit deny.toml |
+   | 5 | S3 verify: clippy -D warnings 346 usos downstream → migración 38 pares/102 ficheros + WasmMemoryInput + superficie py preservada + fmt → just verify exit 0 (3143✅) | verify ✅ | script mapa, cargo |
+   | 6 | S4/S5: pre-launch §2a + rollback plan + retrospectiva + commit chore + archivar + progreso | campaña cerrada | — |
 
   **Notas:**
   - **Pre-mortem:** 1) `semver-checks` dice minor (mapa incompleto); 2) canary con error-rate >2×; 3) `CARGO_REGISTRY_TOKEN/NPM_TOKEN` ausentes.
@@ -381,4 +386,37 @@ Resultado: ✅
 Próxima acción: AST-006 docs
 Contrato: clippy -p vantadb + nextest 3143 passed
 Próxima tarea si completa: AST-006
+=== END RECITATION ===
+
+=== RECITATION AST-006 ===
+Campaign ID: ca2e7931-6c31-4d30-97fb-5941e79ec806
+Objetivo activo: AST-006 Docs + OpenAPI + READMEs + llms.txt
+Estado: completed
+Última acción: S1-S5 + commit 40d32a06 + coverage verde
+Resultado: OK
+Próxima acción: Orquestador: /pipeline task AST-007
+Contrato: Scoped: tipos Vanta* 0 fuera de compat-notes + coverage 0 gaps. Verificacion: rg scoped 8 hits (todos compat-notes intencionales) + scripts/validate-docs-coverage.ps1 exit 0 (28+56+42+50+49 items). Evidencia: commit 40d32a06 (17 files). Artefactos: docs/api/*, README.md, llms.txt, openapi.yaml, QUICKSTART, CONFIGURATION jwt_secret row. Invariantes: VantaHeader/VANTADB_*/wire MCP/Python-metodos intactos; historia docs/tasks inmutable. Deuda: contrato literal wc-l 0 inalcanzable (metodos canonicos + compat-notes requeridas) - desvio justificado en task file. Queda_pendiente: AST-007 release major.
+Próxima tarea si completa: AST-007
+=== END RECITATION ===
+
+=== RECITATION 6 ===
+Campaign ID: ca2e7931-6c31-4d30-97fb-5941e79ec806
+Objetivo activo: AST-006 docs sync
+Estado: completed
+Última acción: vanta-docs COMPLETO 5/5 commits 40d32a06+197ced31
+Resultado: ✅
+Próxima acción: AST-007 release + barrido
+Contrato: tipos 0 fuera compat-notes + coverage 0 gaps
+Próxima tarea si completa: AST-007
+=== END RECITATION ===
+
+=== RECITATION AST-007 ===
+Campaign ID: ca2e7931-6c31-4d30-97fb-5941e79ec806
+Objetivo activo: AST-007 Release major + barrido final cero-remanentes
+Estado: in-progress
+Última acción: Pipeline-full cargado; SDP + skills shipping-and-launch, git-workflow-and-versioning, doubt-driven-development
+Resultado: ❌
+Próxima acción: Crear docs/tasks/AST-007.md + discovery (rg barridos, codegraph, semver/deny/verify)
+Contrato: Contrato: semver-checks major + deny + verify verdes; barrido cero-remanentes; rollback plan; retrospectiva; archivar plan. Verificacion: pendiente (discovery). Evidencia: plan Task7 PENDING; release-plz.toml semver_check=true; deny.toml MIT/Apache-2.0. Invariantes: no tags manuales, no CHANGELOG manual, no publish. Deuda: ninguna aun.
+Próxima tarea si completa: AST-007
 === END RECITATION ===

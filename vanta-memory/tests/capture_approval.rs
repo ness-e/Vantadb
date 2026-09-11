@@ -11,17 +11,17 @@ use vanta_memory::core::record::approval::{
     should_gate, CaptureApprovalConfig, CaptureApprovalQueue,
 };
 use vanta_memory::core::record::{apply_dedup_batch, read_session_records};
-use vantadb::config::VantaConfig;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::config::Config;
+use vantadb::sdk::Embedded;
 use vantadb::storage::BackendKind;
 
-fn open_db() -> VantaEmbedded {
-    let config = VantaConfig {
+fn open_db() -> Embedded {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         read_only: false,
-        ..VantaConfig::default()
+        ..Config::default()
     };
-    VantaEmbedded::open_with_config(config).expect("open in-memory db")
+    Embedded::open_with_config(config).expect("open in-memory db")
 }
 
 fn memory(content: &str) -> ExtractedMemory {

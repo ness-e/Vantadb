@@ -90,7 +90,7 @@ pub fn extract_local(turns: &[LocalTurn]) -> Vec<SceneExtraction> {
 /// (UPDATE>MERGE>CREATE + heat, MEM-14). The store gains one live scene per
 /// non-empty turn; recall via `scene_list`/`scene_query` (unchanged).
 pub fn auto_consolidate(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
     turns: &[LocalTurn],
 ) -> Result<SceneExtractionResult, SceneExtractorError> {
@@ -152,16 +152,16 @@ mod tests {
     use crate::core::scene::scene_index::{get_scene, list_scenes};
     use crate::core::scene::scene_tools::MAX_SUMMARY_BYTES;
     use crate::gateway::knowledge_handlers::{scene_query, SceneQueryRequest};
-    use vantadb::config::VantaConfig;
+    use vantadb::config::Config;
     use vantadb::storage::BackendKind;
 
-    fn open_db() -> vantadb::sdk::VantaEmbedded {
-        let config = VantaConfig {
+    fn open_db() -> vantadb::sdk::Embedded {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             read_only: false,
-            ..VantaConfig::default()
+            ..Config::default()
         };
-        vantadb::sdk::VantaEmbedded::open_with_config(config).expect("open in-memory db")
+        vantadb::sdk::Embedded::open_with_config(config).expect("open in-memory db")
     }
 
     fn turn(role: &str, content: &str) -> LocalTurn {

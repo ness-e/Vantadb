@@ -30,7 +30,7 @@ use crate::core::scene::scene_format::{SceneBlock, SOFT_DELETE_MARKER};
 pub enum SceneError {
     /// Underlying VantaDB storage error.
     #[error("vantadb: {0}")]
-    Vanta(#[from] vantadb::error::VantaError),
+    Vanta(#[from] vantadb::error::Error),
     /// Scene block failed to (de)serialize.
     #[error("scene record: {0}")]
     Serde(#[from] serde_json::Error),
@@ -46,7 +46,7 @@ pub fn scene_namespace(session_key: &str) -> String {
 /// CREATE: `created = updated = now`, `heat = 1`. UPDATE: `created`
 /// preserved, `updated = now`, `heat = old + 1`. Returns the written block.
 pub fn upsert_scene(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
     scene_name: &str,
     summary: &str,
@@ -81,7 +81,7 @@ pub fn upsert_scene(
 /// Idempotent: a missing scene returns `Ok(None)`; an already-deleted scene
 /// returns the existing block unchanged. Returns the written block on success.
 pub fn soft_delete_scene(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
     scene_name: &str,
 ) -> Result<Option<SceneBlock>, SceneError> {
@@ -99,7 +99,7 @@ pub fn soft_delete_scene(
 
 /// Read a scene block by name, if present.
 pub fn get_scene(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
     scene_name: &str,
 ) -> Result<Option<SceneBlock>, SceneError> {
@@ -115,7 +115,7 @@ pub fn get_scene(
 /// (heat descending, then `updated` descending). Soft-deleted scenes are
 /// excluded (MEM-14); recover them via [`get_scene`].
 pub fn list_scenes(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
 ) -> Result<Vec<SceneIndexEntry>, SceneError> {
     let blocks = read_blocks(db, session_key)?;
@@ -135,7 +135,7 @@ pub fn list_scenes(
 /// [`epoch_ms_to_rfc3339`] with a fixed-width format, so string order equals
 /// chronological order.
 pub fn current_scene(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
 ) -> Result<Option<SceneBlock>, SceneError> {
     let blocks = read_blocks(db, session_key)?;
@@ -154,20 +154,20 @@ pub fn current_scene(
 /// go through [`upsert_scene`] (CREATE/UPDATE heat semantics) or
 /// [`soft_delete_scene`].
 pub fn write_scene_block(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
     block: &SceneBlock,
 ) -> Result<(), SceneError> {
-    use vantadb::sdk::{VantaMemoryInput, VantaMemoryMetadata};
+    use vantadb::sdk::{MemoryInput, MemoryMetadata};
 
     let ns = scene_namespace(session_key);
     let key = sanitize_key(&block.scene_name);
     let payload = serde_json::to_string(block)?;
-    db.put(VantaMemoryInput {
+    db.put(MemoryInput {
         namespace: ns,
         key,
         payload,
-        metadata: VantaMemoryMetadata::new(),
+        metadata: MemoryMetadata::new(),
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
@@ -181,22 +181,22 @@ pub fn write_scene_block(
 /// `pub(crate)`: the gateway query handler (MEM-21) needs full blocks
 /// (content) which the index entries do not carry.
 pub(crate) fn read_blocks(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
 ) -> Result<Vec<SceneBlock>, SceneError> {
-    use vantadb::sdk::{VantaMemoryListOptions, VantaMemoryListPage};
+    use vantadb::sdk::{MemoryListOptions, MemoryListPage};
 
     let ns = scene_namespace(session_key);
     let mut blocks = Vec::new();
     let mut cursor: Option<usize> = None;
 
     loop {
-        let options = VantaMemoryListOptions {
+        let options = MemoryListOptions {
             limit: 1000,
             cursor,
             ..Default::default()
         };
-        let page: VantaMemoryListPage = db.list(&ns, options)?;
+        let page: MemoryListPage = db.list(&ns, options)?;
         for record in page.records {
             if let Ok(block) = serde_json::from_str::<SceneBlock>(&record.payload) {
                 blocks.push(block);
@@ -217,16 +217,16 @@ pub(crate) fn read_blocks(
 mod tests {
     use super::*;
     use crate::core::abstractions::SceneSegment;
-    use vantadb::config::VantaConfig;
+    use vantadb::config::Config;
     use vantadb::storage::BackendKind;
 
-    fn open_db() -> vantadb::sdk::VantaEmbedded {
-        let config = VantaConfig {
+    fn open_db() -> vantadb::sdk::Embedded {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             read_only: false,
-            ..VantaConfig::default()
+            ..Config::default()
         };
-        vantadb::sdk::VantaEmbedded::open_with_config(config).expect("open in-memory db")
+        vantadb::sdk::Embedded::open_with_config(config).expect("open in-memory db")
     }
 
     #[test]
@@ -238,7 +238,7 @@ mod tests {
 
     #[test]
     fn error_wraps_vanta_error() {
-        let err = SceneError::Vanta(vantadb::error::VantaError::InvalidInput("x".into()));
+        let err = SceneError::Vanta(vantadb::error::Error::InvalidInput("x".into()));
         assert!(err.to_string().contains("vantadb:"));
     }
 

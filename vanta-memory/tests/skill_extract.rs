@@ -12,8 +12,8 @@ use vanta_memory::core::skill::conversation_add::{
 use vanta_memory::core::skill::skill_extractor::{
     extract_skills_with_llm, ExtractMessage, SkillExtractorConfig, SkillSummary,
 };
-use vantadb::config::VantaConfig;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::config::Config;
+use vantadb::sdk::Embedded;
 
 /// Emits a fixed response regardless of prompt.
 struct FixedRunner(&'static str);
@@ -33,10 +33,10 @@ impl LlmRunner for FailingRunner {
     }
 }
 
-fn db() -> VantaEmbedded {
-    VantaEmbedded::open_with_config(VantaConfig {
+fn db() -> Embedded {
+    Embedded::open_with_config(Config {
         backend_kind: vantadb::storage::BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     })
     .expect("open in-memory db")
 }

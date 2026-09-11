@@ -18,7 +18,7 @@ use axum::response::{IntoResponse, Response};
 use serde_json::Value;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{SystemTime, UNIX_EPOCH};
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata};
+use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
 
 /// Namespace holding skills created via `mem:create-skill` (PRX-01).
 pub const SKILLS_NAMESPACE: &str = "proxy-skills";
@@ -115,7 +115,7 @@ Examples:\n```\nmem:sync\nmem:create-skill summarize database migration notes\nm
 /// - `help` / unknown keep static text (no storage involved).
 ///
 /// Storage failures degrade into message text: the wire never breaks.
-pub fn execute(memory: &VantaEmbedded, session_key: &str, cmd: &MemCommand) -> String {
+pub fn execute(memory: &Embedded, session_key: &str, cmd: &MemCommand) -> String {
     match cmd.command.as_str() {
         "sync" => {
             let turns = crate::capture::list_turns(memory);
@@ -148,11 +148,11 @@ pub fn execute(memory: &VantaEmbedded, session_key: &str, cmd: &MemCommand) -> S
                 "prompt": cmd.args,
             })
             .to_string();
-            let input = VantaMemoryInput {
+            let input = MemoryInput {
                 namespace: SKILLS_NAMESPACE.into(),
                 key,
                 payload,
-                metadata: VantaMemoryMetadata::new(),
+                metadata: MemoryMetadata::new(),
                 vector: None,
                 sparse_vector: None,
                 ttl_ms: None,
@@ -314,13 +314,13 @@ mod tests {
         assert_eq!(KNOWN_COMMANDS, ["sync", "create-skill", "help"]);
     }
 
-    fn test_memory() -> vantadb::sdk::VantaEmbedded {
-        let config = vantadb::config::VantaConfig {
+    fn test_memory() -> vantadb::sdk::Embedded {
+        let config = vantadb::config::Config {
             backend_kind: vantadb::storage::BackendKind::InMemory,
             ..Default::default()
         };
         vantadb::storage::StorageEngine::open_with_config(":memory:", Some(config))
-            .map(|engine| vantadb::sdk::VantaEmbedded::from_engine(engine.into()))
+            .map(|engine| vantadb::sdk::Embedded::from_engine(engine.into()))
             .expect("in-memory engine")
     }
 
@@ -363,7 +363,7 @@ mod tests {
         let page = memory
             .list(
                 SKILLS_NAMESPACE,
-                vantadb::sdk::VantaMemoryListOptions {
+                vantadb::sdk::MemoryListOptions {
                     limit: 10,
                     ..Default::default()
                 },
@@ -386,13 +386,13 @@ mod tests {
         assert!(execute(&memory, "s", &empty).contains("needs a prompt"));
 
         // Read-only engine → put fails → descriptive text, never a panic.
-        let ro_config = vantadb::config::VantaConfig {
+        let ro_config = vantadb::config::Config {
             backend_kind: vantadb::storage::BackendKind::InMemory,
             read_only: true,
             ..Default::default()
         };
         let ro = vantadb::storage::StorageEngine::open_with_config(":memory:", Some(ro_config))
-            .map(|engine| vantadb::sdk::VantaEmbedded::from_engine(engine.into()))
+            .map(|engine| vantadb::sdk::Embedded::from_engine(engine.into()))
             .expect("ro engine");
         let cmd = MemCommand {
             command: "create-skill".into(),

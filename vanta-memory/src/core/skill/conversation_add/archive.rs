@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 use crate::core::conversation::l0_recorder::{now_ms, sanitize_component, sanitize_key};
-use vantadb::error::VantaError;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata, VantaValue};
+use vantadb::error::Error;
+use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata, Value};
 
 use super::compressor::{CompressOptions, SkillMessage};
 use super::oversize::{apply_oversize_strategy, OversizeOptions};
@@ -23,7 +23,7 @@ use super::oversize::{apply_oversize_strategy, OversizeOptions};
 #[non_exhaustive]
 pub enum SkillArchiveError {
     #[error("vantadb: {0}")]
-    Vanta(#[from] VantaError),
+    Vanta(#[from] Error),
     #[error("malformed skill archive payload: {0}")]
     Serde(#[from] serde_json::Error),
 }
@@ -104,11 +104,11 @@ pub fn prepare_archive_payload(
 
 /// Persistent archive + task registry over the VantaDB SDK.
 pub struct ArchiveStore<'a> {
-    db: &'a VantaEmbedded,
+    db: &'a Embedded,
 }
 
 impl<'a> ArchiveStore<'a> {
-    pub fn new(db: &'a VantaEmbedded) -> Self {
+    pub fn new(db: &'a Embedded) -> Self {
         Self { db }
     }
 
@@ -118,9 +118,9 @@ impl<'a> ArchiveStore<'a> {
         key: &str,
         value: &impl Serialize,
     ) -> Result<(), SkillArchiveError> {
-        let mut metadata = VantaMemoryMetadata::new();
-        metadata.insert("kind".into(), VantaValue::String("skill_archive".into()));
-        self.db.put(VantaMemoryInput {
+        let mut metadata = MemoryMetadata::new();
+        metadata.insert("kind".into(), Value::String("skill_archive".into()));
+        self.db.put(MemoryInput {
             namespace: ns.to_string(),
             key: sanitize_key(key),
             payload: serde_json::to_string(value)?,
@@ -199,7 +199,7 @@ impl<'a> ArchiveStore<'a> {
 /// (`skill-extract-task-{archived_at_ms}`): no uuid dependency, and a client
 /// retry at the same millisecond lands on the same idempotent records.
 pub fn trigger_archive(
-    db: &VantaEmbedded,
+    db: &Embedded,
     session_id: &str,
     buffer_at_trigger: &[SkillMessage],
     archived_at_ms: u64,
@@ -224,7 +224,7 @@ pub fn trigger_archive(
 /// Convenience wrapper using the wall clock (tests inject their own ms via
 /// [`trigger_archive`] directly).
 pub fn trigger_archive_now(
-    db: &VantaEmbedded,
+    db: &Embedded,
     session_id: &str,
     buffer_at_trigger: &[SkillMessage],
 ) -> Result<TriggerResult, SkillArchiveError> {

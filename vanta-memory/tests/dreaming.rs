@@ -15,8 +15,8 @@
 //!   4. Relative dates are normalized to absolute ISO-8601.
 
 use serde_json::json;
-use vantadb::config::VantaConfig;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata};
+use vantadb::config::Config;
+use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
 use vantadb::storage::BackendKind;
 
 use vanta_memory::core::abstractions::{MemoryRecord, MemoryType};
@@ -25,22 +25,22 @@ use vanta_memory::core::dream::{
     normalize_relative_dates, promote_dream_run, resolve_contradictions, DreamConfig,
 };
 
-fn open_db() -> VantaEmbedded {
-    let config = VantaConfig {
+fn open_db() -> Embedded {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         read_only: false,
-        ..VantaConfig::default()
+        ..Config::default()
     };
-    VantaEmbedded::open_with_config(config).expect("open in-memory db")
+    Embedded::open_with_config(config).expect("open in-memory db")
 }
 
-fn put_record(db: &VantaEmbedded, session_id: &str, r: &MemoryRecord) {
+fn put_record(db: &Embedded, session_id: &str, r: &MemoryRecord) {
     let ns = format!("l1/{}", session_id);
-    db.put(VantaMemoryInput {
+    db.put(MemoryInput {
         namespace: ns,
         key: r.id.clone(),
         payload: serde_json::to_string(r).expect("serialize"),
-        metadata: VantaMemoryMetadata::new(),
+        metadata: MemoryMetadata::new(),
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
@@ -75,7 +75,7 @@ fn fixture(id: &str, scene: &str, content: &str, priority: i32) -> MemoryRecord 
 
 /// Read every record under `l1/<session>` and return them sorted by id (for
 /// stable byte-identity comparisons across run boundaries).
-fn read_l1(db: &VantaEmbedded, session_id: &str) -> Vec<MemoryRecord> {
+fn read_l1(db: &Embedded, session_id: &str) -> Vec<MemoryRecord> {
     use vanta_memory::core::record::read_session_records;
     let mut records = read_session_records(db, session_id).expect("read l1");
     records.sort_by(|a, b| a.id.cmp(&b.id));

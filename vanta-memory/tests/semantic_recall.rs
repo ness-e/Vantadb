@@ -18,8 +18,8 @@ use vanta_memory::core::record::l1_dedup::{prepare_pending, recall_candidate_mat
 use vanta_memory::core::record::l1_writer::EmbedFn;
 use vanta_memory::core::scene::upsert_scene;
 use vanta_memory::gateway::{scene_query, SceneQueryRequest};
-use vantadb::config::VantaConfig;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata};
+use vantadb::config::Config;
+use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
 
 // ── deterministic fake embeddings ─────────────────────────────────────────
 
@@ -90,10 +90,10 @@ fn shared_terms(a: &str, b: &str) -> usize {
 
 // ── fixtures ──────────────────────────────────────────────────────────────
 
-fn db() -> VantaEmbedded {
-    VantaEmbedded::open_with_config(VantaConfig {
+fn db() -> Embedded {
+    Embedded::open_with_config(Config {
         backend_kind: vantadb::storage::BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     })
     .expect("open in-memory db")
 }
@@ -125,12 +125,12 @@ fn record(id: &str, content: &str, session_key: &str) -> MemoryRecord {
 
 /// Persist an L1 record exactly as `read_session_records` expects it, with an
 /// explicit node vector (mirrors MEM-46's writer behavior).
-fn put_l1(db: &VantaEmbedded, rec: &MemoryRecord, vector: Option<Vec<f32>>) {
-    db.put(VantaMemoryInput {
+fn put_l1(db: &Embedded, rec: &MemoryRecord, vector: Option<Vec<f32>>) {
+    db.put(MemoryInput {
         namespace: vanta_memory::core::record::l1_reader::l1_namespace(&rec.session_key),
         key: rec.id.clone(),
         payload: serde_json::to_string(rec).expect("serialize record"),
-        metadata: VantaMemoryMetadata::new(),
+        metadata: MemoryMetadata::new(),
         vector,
         sparse_vector: None,
         ttl_ms: None,
@@ -139,7 +139,7 @@ fn put_l1(db: &VantaEmbedded, rec: &MemoryRecord, vector: Option<Vec<f32>>) {
 }
 
 fn recall(
-    db: &VantaEmbedded,
+    db: &Embedded,
     query: &str,
     session: &str,
     scope: RecallScope,

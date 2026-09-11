@@ -13,7 +13,7 @@ use std::sync::Mutex;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use vantadb::sdk::VantaEmbedded;
+use vantadb::sdk::Embedded;
 
 use crate::core::abstractions::{ExtractedMemory, MemoryRecord};
 use crate::core::record::l1_writer::{apply_dedup_batch, EmbedFn, L1Error};
@@ -120,7 +120,7 @@ impl CaptureApprovalQueue {
     /// timestamps; `embed` is the optional MEM-46 embedding hook.
     pub fn approve(
         &self,
-        db: &VantaEmbedded,
+        db: &Embedded,
         id: &str,
         now_ms: u64,
         embed: Option<&EmbedFn>,

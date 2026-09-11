@@ -117,16 +117,16 @@ impl<'a> AfterToolCallHook<'a> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vantadb::config::VantaConfig;
+    use vantadb::config::Config;
     use vantadb::storage::BackendKind;
 
-    fn open_db() -> vantadb::sdk::VantaEmbedded {
-        let config = VantaConfig {
+    fn open_db() -> vantadb::sdk::Embedded {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             read_only: false,
-            ..VantaConfig::default()
+            ..Config::default()
         };
-        vantadb::sdk::VantaEmbedded::open_with_config(config).expect("open in-memory db")
+        vantadb::sdk::Embedded::open_with_config(config).expect("open in-memory db")
     }
 
     fn pair(id: &str, result_size: usize) -> ToolPair {
@@ -141,7 +141,7 @@ mod tests {
         }
     }
 
-    fn managers(db: vantadb::sdk::VantaEmbedded) -> (OffloadStateManager, OffloadStorage) {
+    fn managers(db: vantadb::sdk::Embedded) -> (OffloadStateManager, OffloadStorage) {
         (
             OffloadStateManager::new(db.clone()),
             OffloadStorage::new(db),

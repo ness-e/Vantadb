@@ -84,7 +84,7 @@ impl GenerationLogEntry {
 #[non_exhaustive]
 pub enum GenLogError {
     #[error("vantadb: {0}")]
-    Vanta(#[from] vantadb::error::VantaError),
+    Vanta(#[from] vantadb::error::Error),
     #[error("malformed generation log payload: {0}")]
     Serde(#[from] serde_json::Error),
 }

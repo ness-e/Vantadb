@@ -30,8 +30,8 @@ use vanta_memory::core::state::{TaskKind, TaskPayload};
 use vanta_memory::services::pipeline_worker::{
     load_assembled_context, ContextAssemblyConfig, MemoryTaskHandler, TaskHandler,
 };
-use vantadb::config::VantaConfig;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::config::Config;
+use vantadb::sdk::Embedded;
 use vantadb::storage::BackendKind;
 
 // ── Scripted LLM responses (JSON shapes copied from the unit-test suites) ──
@@ -94,10 +94,10 @@ impl LlmRunner for E2eRunner {
 
 // ── Fixtures ──
 
-fn open_db() -> VantaEmbedded {
-    VantaEmbedded::open_with_config(VantaConfig {
+fn open_db() -> Embedded {
+    Embedded::open_with_config(Config {
         backend_kind: BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     })
     .expect("open in-memory db")
 }
@@ -134,14 +134,14 @@ fn turn(session: &str) -> L0Capture {
 }
 
 /// Record the canonical turn through the real L0 recorder.
-fn capture_turn(db: &VantaEmbedded, session: &str) {
+fn capture_turn(db: &Embedded, session: &str) {
     L0Recorder::new(db.clone())
         .record_turn(&turn(session), None)
         .expect("record turn");
 }
 
 /// Run L1 → L2 → L3 through the real orchestration handler.
-fn run_full_pass(db: &VantaEmbedded, runner: &E2eRunner, session: &str) -> Result<(), String> {
+fn run_full_pass(db: &Embedded, runner: &E2eRunner, session: &str) -> Result<(), String> {
     let mut handler = MemoryTaskHandler::new(
         db.clone(),
         runner,
@@ -156,7 +156,7 @@ fn run_full_pass(db: &VantaEmbedded, runner: &E2eRunner, session: &str) -> Resul
 }
 
 /// Run only L1 → L2 (used by the idempotency scenario).
-fn run_l1_l2(db: &VantaEmbedded, runner: &E2eRunner, session: &str) -> Result<(), String> {
+fn run_l1_l2(db: &Embedded, runner: &E2eRunner, session: &str) -> Result<(), String> {
     let mut handler = MemoryTaskHandler::new(
         db.clone(),
         runner,
@@ -170,7 +170,7 @@ fn run_l1_l2(db: &VantaEmbedded, runner: &E2eRunner, session: &str) -> Result<()
     Ok(())
 }
 
-fn recall(db: &VantaEmbedded, session: &str, query: &str) -> Option<RecallResult> {
+fn recall(db: &Embedded, session: &str, query: &str) -> Option<RecallResult> {
     perform_auto_recall(
         db,
         AutoRecallParams {
@@ -399,7 +399,7 @@ fn compress_then_recall_shares_one_budget_end_to_end() {
 /// Long synthetic history that forces compression inside the worker phase:
 /// fat turns (~600-char user + ~600-char assistant each) recorded through the
 /// REAL L0 recorder so the assembly reads genuine session data.
-fn capture_fat_history(db: &VantaEmbedded, session: &str, rounds: usize) {
+fn capture_fat_history(db: &Embedded, session: &str, rounds: usize) {
     let recorder = L0Recorder::new(db.clone());
     for i in 0..rounds {
         let ts = (i as u64 + 10) * 100;

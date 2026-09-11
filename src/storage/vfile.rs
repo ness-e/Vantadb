@@ -67,49 +67,49 @@ pub(crate) fn engine_mmap_resident_bytes(
     total
 }
 
-enum VantaFileMap {
+enum FileMap {
     ReadOnly(Mmap),
     ReadWrite(MmapMut),
     InMemory(AlignedBytes),
 }
 
-impl VantaFileMap {
+impl FileMap {
     fn as_slice(&self) -> &[u8] {
         match self {
-            VantaFileMap::ReadOnly(m) => m,
-            VantaFileMap::ReadWrite(m) => m,
-            VantaFileMap::InMemory(d) => d.as_slice(),
+            FileMap::ReadOnly(m) => m,
+            FileMap::ReadWrite(m) => m,
+            FileMap::InMemory(d) => d.as_slice(),
         }
     }
     fn as_ptr(&self) -> *const u8 {
         match self {
-            VantaFileMap::ReadOnly(m) => m.as_ptr(),
-            VantaFileMap::ReadWrite(m) => m.as_ptr(),
-            VantaFileMap::InMemory(d) => d.as_ptr(),
+            FileMap::ReadOnly(m) => m.as_ptr(),
+            FileMap::ReadWrite(m) => m.as_ptr(),
+            FileMap::InMemory(d) => d.as_ptr(),
         }
     }
     fn len(&self) -> usize {
         match self {
-            VantaFileMap::ReadOnly(m) => m.len(),
-            VantaFileMap::ReadWrite(m) => m.len(),
-            VantaFileMap::InMemory(d) => d.len(),
+            FileMap::ReadOnly(m) => m.len(),
+            FileMap::ReadWrite(m) => m.len(),
+            FileMap::InMemory(d) => d.len(),
         }
     }
     fn as_mut_slice(&mut self) -> Result<&mut [u8]> {
         match self {
-            VantaFileMap::ReadOnly(_) => Err(Error::ValidationError {
+            FileMap::ReadOnly(_) => Err(Error::ValidationError {
                 field: "read_only".into(),
                 reason: "File is read-only".into(),
             }),
-            VantaFileMap::ReadWrite(m) => Ok(m),
-            VantaFileMap::InMemory(d) => Ok(d.as_mut_slice()),
+            FileMap::ReadWrite(m) => Ok(m),
+            FileMap::InMemory(d) => Ok(d.as_mut_slice()),
         }
     }
     fn flush(&self) -> Result<()> {
         match self {
-            VantaFileMap::ReadOnly(_) => Ok(()),
-            VantaFileMap::ReadWrite(m) => m.flush().map_err(Error::IoError),
-            VantaFileMap::InMemory(_) => Ok(()),
+            FileMap::ReadOnly(_) => Ok(()),
+            FileMap::ReadWrite(m) => m.flush().map_err(Error::IoError),
+            FileMap::InMemory(_) => Ok(()),
         }
     }
 }
@@ -118,7 +118,7 @@ impl VantaFileMap {
 pub struct File {
     /// Optional backing file handle (None for in-memory mode).
     pub file: Option<StdFile>,
-    mmap: VantaFileMap,
+    mmap: FileMap,
     /// File system path to the backing file.
     pub path: PathBuf,
     /// Current file size in bytes.
@@ -132,7 +132,7 @@ pub struct File {
     pub cipher: Option<Cipher>,
 }
 
-// SAFETY: File owns a `File` handle, a `VantaFileMap` (Mmap/MmapMut/AlignedBytes),
+// SAFETY: File owns a `File` handle, a `FileMap` (Mmap/MmapMut/AlignedBytes),
 // a `PathBuf`, and an `AtomicBool` — all of which are `Send`. The mmap pointers
 // are managed by the memmap2 crate or the in-memory/shim buffers (AlignedBytes,
 // `unsafe impl Send + Sync` above), all `Send + Sync`. The cipher field (behind
@@ -170,7 +170,7 @@ impl File {
         data.as_mut_slice()[16..24].copy_from_slice(&STORAGE_ALIGNMENT.to_le_bytes());
         Self {
             file: None,
-            mmap: VantaFileMap::InMemory(data),
+            mmap: FileMap::InMemory(data),
             path: PathBuf::new(),
             size,
             write_cursor: STORAGE_ALIGNMENT,
@@ -212,9 +212,9 @@ impl File {
         // returned mapping is stored in `self.mmap` for the `File`'s
         // lifetime.
         let mut mmap = if read_only {
-            VantaFileMap::ReadOnly(map_readonly(&file).map_err(Error::IoError)?)
+            FileMap::ReadOnly(map_readonly(&file).map_err(Error::IoError)?)
         } else {
-            VantaFileMap::ReadWrite(map_readwrite(&file).map_err(Error::IoError)?)
+            FileMap::ReadWrite(map_readwrite(&file).map_err(Error::IoError)?)
         };
         if !read_only && current_size >= min_header_size && &mmap.as_slice()[0..4] != b"VFLE" {
             let header = VantaHeader::new(*b"VFLE", VFILE_VERSION, 0);
@@ -268,7 +268,7 @@ impl File {
                 reason: "read-only".into(),
             });
         }
-        if matches!(&self.mmap, VantaFileMap::InMemory(_)) {
+        if matches!(&self.mmap, FileMap::InMemory(_)) {
             return Ok(());
         }
         let file = self.file.as_ref().ok_or_else(|| Error::ValidationError {
@@ -278,7 +278,7 @@ impl File {
         // `map_readwrite` carries the (memmap2-only) SAFETY contract: `file` is
         // the existing backing handle at `self.size` bytes; the previous mapping
         // is dropped (safe — memmap2 unmaps on Drop).
-        self.mmap = VantaFileMap::ReadWrite(map_readwrite(file).map_err(Error::IoError)?);
+        self.mmap = FileMap::ReadWrite(map_readwrite(file).map_err(Error::IoError)?);
         Ok(())
     }
 
@@ -290,7 +290,7 @@ impl File {
                 reason: "read-only".into(),
             });
         }
-        if matches!(&self.mmap, VantaFileMap::InMemory(_)) {
+        if matches!(&self.mmap, FileMap::InMemory(_)) {
             self.size = new_size;
             return Ok(());
         }
@@ -370,7 +370,7 @@ impl File {
             });
         }
         match &mut self.mmap {
-            VantaFileMap::InMemory(data) => {
+            FileMap::InMemory(data) => {
                 data.grow_zeroed(new_size as usize)?;
                 self.size = new_size;
                 Ok(())
@@ -413,9 +413,9 @@ impl File {
         {
             use memmap2::Advice;
             let _ = match &self.mmap {
-                VantaFileMap::ReadOnly(m) => m.advise(Advice::WillNeed),
-                VantaFileMap::ReadWrite(m) => m.advise(Advice::WillNeed),
-                VantaFileMap::InMemory(_) => Ok(()),
+                FileMap::ReadOnly(m) => m.advise(Advice::WillNeed),
+                FileMap::ReadWrite(m) => m.advise(Advice::WillNeed),
+                FileMap::InMemory(_) => Ok(()),
             };
         }
         #[cfg(not(unix))]

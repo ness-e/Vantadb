@@ -153,7 +153,7 @@ async fn test_auth_health_exempt() {
 fn build_rbac_context(api_key: &str, role: &str) -> TestContext {
     let dir = tempfile::tempdir().unwrap();
     let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
-    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let db = vantadb::Embedded::from_engine(storage.clone());
     let state = Arc::new(ServerState {
         storage,
         db,
@@ -374,7 +374,7 @@ async fn test_circuit_breaker_open_returns_503_with_retry_after() {
     let dir = tempfile::tempdir().unwrap();
     let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
     let breaker = Arc::new(CircuitBreaker::new(1, Duration::from_secs(30)));
-    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let db = vantadb::Embedded::from_engine(storage.clone());
     let state = Arc::new(ServerState {
         storage,
         db,
@@ -421,7 +421,7 @@ async fn test_circuit_breaker_half_open_probe_success_closes() {
     let dir = tempfile::tempdir().unwrap();
     let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
     let breaker = Arc::new(CircuitBreaker::new(1, Duration::from_secs(0)));
-    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let db = vantadb::Embedded::from_engine(storage.clone());
     let state = Arc::new(ServerState {
         storage,
         db,

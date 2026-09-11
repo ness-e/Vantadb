@@ -22,13 +22,13 @@ use vanta_memory::core::scene::{
 
 const SESSION: &str = "sess-persona";
 
-fn open_db() -> vantadb::sdk::VantaEmbedded {
-    let config = vantadb::config::VantaConfig {
+fn open_db() -> vantadb::sdk::Embedded {
+    let config = vantadb::config::Config {
         backend_kind: vantadb::storage::BackendKind::InMemory,
         read_only: false,
-        ..vantadb::config::VantaConfig::default()
+        ..vantadb::config::Config::default()
     };
-    vantadb::sdk::VantaEmbedded::open_with_config(config).expect("open in-memory db")
+    vantadb::sdk::Embedded::open_with_config(config).expect("open in-memory db")
 }
 
 /// Fake runner returning one fixed payload.

@@ -5,7 +5,7 @@ use pyo3::buffer::ReadOnlyCell;
 use pyo3::exceptions::{PyRuntimeError, PyStopIteration};
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyBytes, PyDict, PyDictMethods, PyTuple};
-use vantadb::sdk::VantaMemoryRecord;
+use vantadb::sdk::MemoryRecord;
 
 use crate::convert::{set_python_value, try_numpy_array};
 use crate::vector::VantaVector;
@@ -41,17 +41,17 @@ impl<'a> FlatBufferView<'a> {
 
 /// A Python-accessible memory record with typed getter properties.
 ///
-/// Wraps a `VantaMemoryRecord` and exposes fields as individual properties
+/// Wraps a `MemoryRecord` and exposes fields as individual properties
 /// instead of allocating a PyDict per record.
 #[pyclass(name = "VantaMemoryRecord", skip_from_py_object)]
 #[derive(Clone)]
 pub struct VantaPyMemoryRecord {
-    pub inner: VantaMemoryRecord,
+    pub inner: MemoryRecord,
 }
 
 impl VantaPyMemoryRecord {
     /// Create from an owned SDK record (Rust-only, not a Python constructor).
-    pub fn new(inner: VantaMemoryRecord) -> Self {
+    pub fn new(inner: MemoryRecord) -> Self {
         Self { inner }
     }
 }
@@ -281,11 +281,11 @@ impl VantaListResultIter {
 
 /// A Python-accessible search hit returned by `search_memory`.
 ///
-/// Wraps a `VantaMemoryRecord` plus the relevance score as typed getters,
+/// Wraps a `MemoryRecord` plus the relevance score as typed getters,
 /// avoiding per-hit PyDict allocation in the hot path.
 #[pyclass(name = "VantaSearchHit")]
 pub(crate) struct VantaPySearchHit {
-    pub(crate) inner: VantaMemoryRecord,
+    pub(crate) inner: MemoryRecord,
     pub(crate) score: f32,
 }
 

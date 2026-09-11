@@ -6,13 +6,13 @@
 //! wrapper (`vantadb-ts/src/vantadb.ts`) for the methods covered here.
 //!
 //! Design notes (mirrors `vantadb-python/src/lib.rs`):
-//! - `VantaEmbedded` is `Clone`; every engine operation runs on a blocking
+//! - `Embedded` is `Clone`; every engine operation runs on a blocking
 //!   thread via `tokio::task::spawn_blocking` with a cloned handle so the
 //!   Node.js main thread is never blocked.
 //! - I/O boundary is `serde_json::Value`: inputs are parsed manually (the SDK
 //!   input structs have no `#[serde(default)]`), outputs are serialized with
 //!   the existing `Serialize` derives.
-//! - All `VantaError`s map to `napi::Error` with a `"{VANTADB_CODE}: {Display}"`
+//! - All `Error`s map to `napi::Error` with a `"{VANTADB_CODE}: {Display}"`
 //!   message so the TS wrapper can recover the stable error code (ERR-TS-01).
 
 use napi::Error;
@@ -20,13 +20,13 @@ use napi_derive::napi;
 use serde_json::{json, Map, Value};
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
 
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::graph::TraversalDirection;
 use vantadb::index::IndexType;
 use vantadb::node::DistanceMetric;
 use vantadb::sdk::{
-    VantaEmbedded, VantaMemoryFilterItem, VantaMemoryInput, VantaMemoryListOptions,
-    VantaMemoryMetadata, VantaMemorySearchRequest, VantaNodeInput, VantaSearchExplanation,
+    Embedded, MemoryFilterItem, MemoryInput, MemoryListOptions,
+    MemoryMetadata, MemorySearchRequest, NodeInput, SearchExplanation,
 };
 // FFI guards: single source of truth from core (WSM-09).
 use vantadb::{MAX_K, MAX_VEC_DIM};
@@ -43,10 +43,10 @@ fn clamp_top_k(requested: usize) -> usize {
 }
 
 /// Native VantaDB handle exposed to Node.js. Thin wrapper over the SDK's
-/// `VantaEmbedded`; all engine methods are async to avoid blocking the JS thread.
+/// `Embedded`; all engine methods are async to avoid blocking the JS thread.
 #[napi]
 pub struct VantaDB {
-    engine: VantaEmbedded,
+    engine: Embedded,
     op_gate: OpGate,
 }
 
@@ -67,7 +67,7 @@ impl VantaDB {
         #[napi(ts_arg_type = "ConnectOptions")] options: Option<Value>,
     ) -> napi::Result<VantaDB> {
         let config = build_config(&path, options.as_ref())?;
-        let engine = spawn_blocking(move || VantaEmbedded::open_with_config(config)).await?;
+        let engine = spawn_blocking(move || Embedded::open_with_config(config)).await?;
         Ok(VantaDB {
             engine,
             op_gate: OpGate::new(),
@@ -125,7 +125,7 @@ impl VantaDB {
         let inputs = arr
             .iter()
             .map(parse_memory_input)
-            .collect::<napi::Result<Vec<VantaMemoryInput>>>()?;
+            .collect::<napi::Result<Vec<MemoryInput>>>()?;
         let engine = self.engine.clone();
         let out = spawn_blocking(move || engine.put_batch(inputs)).await?;
         serde_json::to_value(&out).map_err(serde_map_err)
@@ -194,7 +194,7 @@ impl VantaDB {
     /// | `text_query` only     | (n/a)             | BM25 (positive, no fixed upper bound)           |
     /// | `query_vector` + `text_query` | any       | RRF-fused (higher = more relevant across channels) |
     ///
-    /// This is the same convention as the Rust core (`VantaMemorySearchHit.score`,
+    /// This is the same convention as the Rust core (`MemorySearchHit.score`,
     /// pinned by `src/sdk/serialization/vector_types.rs::tests`) and the Python SDK.
     /// It is **different** from the TypeScript wrapper `vantadb-ts`, which renames
     /// the field to `distance` and inverts the semantics (lower = more similar) —
@@ -208,7 +208,7 @@ impl VantaDB {
         let _g = enter(&self.op_gate)?;
         let request = parse_search_request(&request)?;
         let engine = self.engine.clone();
-        let out: Vec<vantadb::sdk::VantaMemorySearchHit> =
+        let out: Vec<vantadb::sdk::MemorySearchHit> =
             spawn_blocking(move || engine.search(request)).await?;
         serde_json::to_value(&out).map_err(serde_map_err)
     }
@@ -426,7 +426,7 @@ impl VantaDB {
         let _g = enter(&self.op_gate)?;
         let request = parse_search_request(&request)?;
         let engine = self.engine.clone();
-        let out: VantaSearchExplanation =
+        let out: SearchExplanation =
             spawn_blocking(move || engine.explain_memory_search(request)).await?;
         serde_json::to_value(&out).map_err(serde_map_err)
     }
@@ -630,21 +630,21 @@ impl VantaDB {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-fn runtime_profile_label(profile: vantadb::sdk::VantaRuntimeProfile) -> &'static str {
+fn runtime_profile_label(profile: vantadb::sdk::RuntimeProfile) -> &'static str {
     match profile {
-        vantadb::sdk::VantaRuntimeProfile::Enterprise => "Enterprise",
-        vantadb::sdk::VantaRuntimeProfile::Performance => "Performance",
-        vantadb::sdk::VantaRuntimeProfile::LowResource => "LowResource",
+        vantadb::sdk::RuntimeProfile::Enterprise => "Enterprise",
+        vantadb::sdk::RuntimeProfile::Performance => "Performance",
+        vantadb::sdk::RuntimeProfile::LowResource => "LowResource",
     }
 }
 
-/// Convert a core `VantaError` into a `napi::Error` whose message carries the
+/// Convert a core `Error` into a `napi::Error` whose message carries the
 /// stable machine-readable code as a `"{CODE}: {Display}"` prefix (ERR-TS-01).
 /// napi has no error-property channel, so the TS wrapper (`wrapNativeError`
 /// in `vantadb-ts/src/native.ts`) parses the prefix back into `err.code`;
-/// the codes are the canonical `VANTADB_*` set from `VantaError::code()`.
-fn map_err(e: vantadb::error::VantaError) -> napi::Error {
-    // The VantaError code is inlined ahead of the napi GenericFailure status
+/// the codes are the canonical `VANTADB_*` set from `Error::code()`.
+fn map_err(e: vantadb::error::Error) -> napi::Error {
+    // The Error code is inlined ahead of the napi GenericFailure status
     // so the TS wrapper can recover `err.code` from the message alone.
     let code = e.code();
     Error::new(napi::Status::GenericFailure, format!("{code}: {e}"))
@@ -746,8 +746,8 @@ where
         .map_err(map_err)
 }
 
-fn build_config(path: &str, options: Option<&Value>) -> napi::Result<VantaConfig> {
-    let mut config = VantaConfig {
+fn build_config(path: &str, options: Option<&Value>) -> napi::Result<Config> {
+    let mut config = Config {
         storage_path: path.to_string(),
         ..Default::default()
     };
@@ -776,11 +776,11 @@ fn build_config(path: &str, options: Option<&Value>) -> napi::Result<VantaConfig
     Ok(config)
 }
 
-fn parse_memory_input(value: &Value) -> napi::Result<VantaMemoryInput> {
+fn parse_memory_input(value: &Value) -> napi::Result<MemoryInput> {
     let obj = value
         .as_object()
         .ok_or_else(|| Error::from_reason("record must be an object"))?;
-    Ok(VantaMemoryInput {
+    Ok(MemoryInput {
         namespace: get_str(obj, "namespace")?,
         key: get_str(obj, "key")?,
         payload: get_str(obj, "payload")?,
@@ -791,8 +791,8 @@ fn parse_memory_input(value: &Value) -> napi::Result<VantaMemoryInput> {
     })
 }
 
-fn parse_list_options(value: Option<&Value>) -> napi::Result<VantaMemoryListOptions> {
-    let mut filters = VantaMemoryMetadata::new();
+fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> {
+    let mut filters = MemoryMetadata::new();
     let mut limit = 100usize;
     let mut cursor = None;
     if let Some(opts) = value {
@@ -817,7 +817,7 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<VantaMemoryListOpti
             );
         }
     }
-    Ok(VantaMemoryListOptions {
+    Ok(MemoryListOptions {
         #[allow(deprecated)]
         filters,
         filter_ops: None,
@@ -827,12 +827,12 @@ fn parse_list_options(value: Option<&Value>) -> napi::Result<VantaMemoryListOpti
     })
 }
 
-fn parse_search_request(value: &Value) -> napi::Result<VantaMemorySearchRequest> {
+fn parse_search_request(value: &Value) -> napi::Result<MemorySearchRequest> {
     let obj = value
         .as_object()
         .ok_or_else(|| Error::from_reason("request must be an object"))?;
     let query_vector = get_f32_vec(obj, "query_vector")?;
-    Ok(VantaMemorySearchRequest {
+    Ok(MemorySearchRequest {
         namespace: get_str(obj, "namespace")?,
         query_vector,
         query_sparse: None,
@@ -942,9 +942,9 @@ fn get_opt_f32_vec(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<V
     }
 }
 
-fn get_metadata(obj: &Map<String, Value>, key: &str) -> napi::Result<VantaMemoryMetadata> {
+fn get_metadata(obj: &Map<String, Value>, key: &str) -> napi::Result<MemoryMetadata> {
     match obj.get(key) {
-        None | Some(Value::Null) => Ok(VantaMemoryMetadata::new()),
+        None | Some(Value::Null) => Ok(MemoryMetadata::new()),
         Some(v) => serde_json::from_value(v.clone())
             .map_err(|e| Error::from_reason(format!("invalid `{key}`: {e}"))),
     }
@@ -998,11 +998,11 @@ fn parse_direction(direction: &str) -> napi::Result<TraversalDirection> {
     }
 }
 
-/// Parse a `VantaNodeInput` from a JSON object `{ id, content?, vector?, fields? }`.
+/// Parse a `NodeInput` from a JSON object `{ id, content?, vector?, fields? }`.
 ///
 /// `id` may be a decimal string or a number. `fields` uses the tagged
-/// `VantaValue` representation (e.g. `{ "name": { "String": "Ada" } }`).
-fn parse_node_input(value: &Value) -> napi::Result<VantaNodeInput> {
+/// `Value` representation (e.g. `{ "name": { "String": "Ada" } }`).
+fn parse_node_input(value: &Value) -> napi::Result<NodeInput> {
     let obj = value
         .as_object()
         .ok_or_else(|| Error::from_reason("node input must be an object"))?;
@@ -1015,7 +1015,7 @@ fn parse_node_input(value: &Value) -> napi::Result<VantaNodeInput> {
         Some(_) => return Err(Error::from_reason("`id` must be a string or number")),
         None => return Err(Error::from_reason("missing required field `id`")),
     };
-    Ok(VantaNodeInput {
+    Ok(NodeInput {
         id,
         content: get_opt_str(obj, "content")?,
         vector: get_opt_f32_vec(obj, "vector")?,
@@ -1076,14 +1076,14 @@ fn parse_graph_filter(filter: Option<&Value>) -> napi::Result<GraphFilter> {
 
 // ── filter & index-method helpers (BND-10) ──────────────────────────────────
 
-/// Parse a JSON array of `VantaMemoryFilterItem` objects.
+/// Parse a JSON array of `MemoryFilterItem` objects.
 ///
 /// Wire shape: `[{ field: string, op: "Eq"|"Neq"|"Gt"|"Lt"|"Gte"|"Lte",
-/// value: VantaValue }]`. The array must contain at least one item —
+/// value: Value }]`. The array must contain at least one item —
 /// `delete_by_filter` rejects empty filters at the SDK layer, so we mirror
 /// the guard here for an early, descriptive error instead of a generic
 /// "empty filter" string from deep inside the engine.
-fn parse_filter_items(value: &Value) -> napi::Result<Vec<VantaMemoryFilterItem>> {
+fn parse_filter_items(value: &Value) -> napi::Result<Vec<MemoryFilterItem>> {
     let arr = value
         .as_array()
         .ok_or_else(|| Error::from_reason("filter must be an array of filter items"))?;
@@ -1107,12 +1107,12 @@ fn parse_filter_items(value: &Value) -> napi::Result<Vec<VantaMemoryFilterItem>>
             .and_then(Value::as_str)
             .ok_or_else(|| Error::from_reason(format!("filter[{i}].op must be a string")))?;
         let op = match op_str {
-            "Eq" => vantadb::sdk::VantaFilterOp::Eq,
-            "Neq" => vantadb::sdk::VantaFilterOp::Neq,
-            "Gt" => vantadb::sdk::VantaFilterOp::Gt,
-            "Lt" => vantadb::sdk::VantaFilterOp::Lt,
-            "Gte" => vantadb::sdk::VantaFilterOp::Gte,
-            "Lte" => vantadb::sdk::VantaFilterOp::Lte,
+            "Eq" => vantadb::sdk::FilterOp::Eq,
+            "Neq" => vantadb::sdk::FilterOp::Neq,
+            "Gt" => vantadb::sdk::FilterOp::Gt,
+            "Lt" => vantadb::sdk::FilterOp::Lt,
+            "Gte" => vantadb::sdk::FilterOp::Gte,
+            "Lte" => vantadb::sdk::FilterOp::Lte,
             other => {
                 return Err(Error::from_reason(format!(
                     "filter[{i}].op '{other}' is not one of Eq|Neq|Gt|Lt|Gte|Lte"
@@ -1122,9 +1122,9 @@ fn parse_filter_items(value: &Value) -> napi::Result<Vec<VantaMemoryFilterItem>>
         let value_json = obj
             .get("value")
             .ok_or_else(|| Error::from_reason(format!("filter[{i}].value is required")))?;
-        let vanta_value: vantadb::sdk::VantaValue = serde_json::from_value(value_json.clone())
+        let vanta_value: vantadb::sdk::Value = serde_json::from_value(value_json.clone())
             .map_err(|e| Error::from_reason(format!("filter[{i}].value: {e}")))?;
-        out.push(VantaMemoryFilterItem {
+        out.push(MemoryFilterItem {
             field,
             op,
             value: vanta_value,
@@ -1156,9 +1156,9 @@ mod tests {
     use super::*;
     use serde_json::json;
 
-    /// Mirrors the JSON shape the TypeScript side emits for `VantaValue`. We
+    /// Mirrors the JSON shape the TypeScript side emits for `Value`. We
     /// don't load the `.node` binary in these tests — they exercise the pure
-    /// serde_json -> VantaMemoryFilterItem conversion path that napi-rs would
+    /// serde_json -> MemoryFilterItem conversion path that napi-rs would
     /// otherwise route through `Python::with_gil`. Keeping them Rust-native
     /// means `cargo test -p vantadb-node` reports ≥1 PASS without needing the
     /// Node runtime to be installed.
@@ -1172,10 +1172,10 @@ mod tests {
         let out = parse_filter_items(&raw).expect("filter parses");
         assert_eq!(out.len(), 1);
         assert_eq!(out[0].field, "env");
-        assert!(matches!(out[0].op, vantadb::sdk::VantaFilterOp::Eq));
+        assert!(matches!(out[0].op, vantadb::sdk::FilterOp::Eq));
         assert!(matches!(
             out[0].value,
-            vantadb::sdk::VantaValue::String(ref s) if s == "prod"
+            vantadb::sdk::Value::String(ref s) if s == "prod"
         ));
     }
 
@@ -1208,7 +1208,7 @@ mod tests {
     /// instead of collapsing every native failure into one bucket.
     #[test]
     fn map_err_prefixes_canonical_vantadb_code() {
-        let err = map_err(vantadb::error::VantaError::NodeNotFound(7));
+        let err = map_err(vantadb::error::Error::NodeNotFound(7));
         assert!(
             err.reason.starts_with("VANTADB_NOT_FOUND: "),
             "expected code prefix, got: {}",

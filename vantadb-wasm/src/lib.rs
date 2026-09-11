@@ -47,10 +47,10 @@ fn record_metadata_drop(n: u64) {
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::graph::TraversalDirection;
 use vantadb::sdk::*;
-use vantadb::{BackendKind, SparseVector, VantaError, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K};
+use vantadb::{BackendKind, Error, SparseVector, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K};
 use wasm_bindgen::prelude::*;
 
 mod opfs;
@@ -73,7 +73,7 @@ pub mod worker;
 // FFI guards (`MAX_F32_VEC_LEN`, `MAX_BATCH_SIZE`, `MAX_K`) now live in core
 // (`vantadb::config`) — single source of truth across transports (WSM-09).
 
-/// Minimal WASM-friendly config that maps to VantaConfig
+/// Minimal WASM-friendly config that maps to Config
 #[derive(Deserialize)]
 #[serde(default)]
 struct WasmConfig {
@@ -94,25 +94,25 @@ impl Default for WasmConfig {
     }
 }
 
-fn build_config(wasm: WasmConfig) -> VantaConfig {
-    VantaConfig {
+fn build_config(wasm: WasmConfig) -> Config {
+    Config {
         storage_path: wasm.storage_path,
         read_only: wasm.read_only,
         rss_threshold: wasm.rss_threshold,
         memory_limit: wasm.memory_limit,
         backend_kind: BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     }
 }
 
-/// Serializable wrapper for VantaMemoryInput
+/// Serializable wrapper for core `MemoryInput` (WASM serde shape)
 #[derive(Serialize, Deserialize)]
-struct MemoryInput {
+struct WasmMemoryInput {
     namespace: String,
     key: String,
     payload: String,
     #[serde(default)]
-    metadata: VantaMemoryMetadata,
+    metadata: MemoryMetadata,
     #[serde(skip_serializing_if = "Option::is_none")]
     vector: Option<Vec<f32>>,
     #[serde(
@@ -153,7 +153,7 @@ struct SearchRequest {
     namespace: String,
     query_vector: Vec<f32>,
     #[serde(default)]
-    filters: VantaMemoryMetadata,
+    filters: MemoryMetadata,
     /// Hide superseded records from results.
     #[serde(default)]
     exclude_superseded: bool,
@@ -178,7 +178,7 @@ fn default_distance() -> String {
 #[derive(Serialize, Deserialize)]
 struct ListOptions {
     #[serde(default)]
-    filters: VantaMemoryMetadata,
+    filters: MemoryMetadata,
     #[serde(default = "default_limit")]
     limit: usize,
     #[serde(default, deserialize_with = "deserialize_cursor")]
@@ -233,21 +233,21 @@ fn next_cursor_to_js(cursor: Option<u64>) -> JsValue {
 #[derive(Serialize)]
 struct JsNodeRecord {
     id: String,
-    fields: VantaFields,
+    fields: Fields,
     vector: Option<Vec<f32>>,
     vector_dimensions: usize,
-    edges: Vec<VantaEdgeRecord>,
+    edges: Vec<EdgeRecord>,
     confidence_score: f32,
     importance: f32,
     hits: u32,
     last_accessed: String,
     epoch: u32,
-    tier: VantaStorageTier,
+    tier: StorageTier,
     is_alive: bool,
 }
 
-impl From<VantaNodeRecord> for JsNodeRecord {
-    fn from(n: VantaNodeRecord) -> Self {
+impl From<NodeRecord> for JsNodeRecord {
+    fn from(n: NodeRecord) -> Self {
         JsNodeRecord {
             id: n.id.to_string(),
             fields: n.fields,
@@ -317,8 +317,8 @@ struct JsOperationalMetrics {
     metadata_drop_count: String,
 }
 
-impl From<VantaOperationalMetrics> for JsOperationalMetrics {
-    fn from(m: VantaOperationalMetrics) -> Self {
+impl From<OperationalMetrics> for JsOperationalMetrics {
+    fn from(m: OperationalMetrics) -> Self {
         JsOperationalMetrics {
             startup_ms: m.startup_ms.to_string(),
             wal_replay_ms: m.wal_replay_ms.to_string(),
@@ -368,7 +368,7 @@ impl From<VantaOperationalMetrics> for JsOperationalMetrics {
 /// The main VantaDB handle exposed to JavaScript via `wasm_bindgen`.
 #[wasm_bindgen]
 pub struct VantaDB {
-    inner: VantaEmbedded,
+    inner: Embedded,
     opfs: Option<OpfsStorage>,
     /// Whether this handle has a durable persistence backend attached (OPFS,
     /// IDB, or worker). `inner.capabilities().persistence` is hardcoded true
@@ -538,7 +538,7 @@ impl VantaDB {
             None => WasmConfig::default(),
         };
         let config = build_config(wasm_cfg);
-        let inner = VantaEmbedded::open_with_config(config).map_err(to_js_err)?;
+        let inner = Embedded::open_with_config(config).map_err(to_js_err)?;
         Ok(VantaDB {
             inner,
             opfs: None,
@@ -560,7 +560,7 @@ impl VantaDB {
             ..WasmConfig::default()
         };
         let config = build_config(wasm_cfg);
-        let inner = VantaEmbedded::open_with_config(config).map_err(to_js_err)?;
+        let inner = Embedded::open_with_config(config).map_err(to_js_err)?;
         Ok(VantaDB {
             inner,
             opfs: None,
@@ -598,7 +598,7 @@ impl VantaDB {
             ..WasmConfig::default()
         };
         let config = build_config(wasm_cfg);
-        let inner = VantaEmbedded::open_with_config(config).map_err(to_js_err)?;
+        let inner = Embedded::open_with_config(config).map_err(to_js_err)?;
         let db = VantaDB {
             inner,
             opfs: Some(opfs),
@@ -622,7 +622,7 @@ impl VantaDB {
             ..WasmConfig::default()
         };
         let config = build_config(wasm_cfg);
-        let inner = VantaEmbedded::open_with_config(config).map_err(to_js_err)?;
+        let inner = Embedded::open_with_config(config).map_err(to_js_err)?;
         let db = VantaDB {
             inner,
             opfs: None,
@@ -680,7 +680,7 @@ impl VantaDB {
             ..WasmConfig::default()
         };
         let config = build_config(wasm_cfg);
-        let inner = VantaEmbedded::open_with_config(config).map_err(to_js_err)?;
+        let inner = Embedded::open_with_config(config).map_err(to_js_err)?;
         let db = VantaDB {
             inner,
             opfs: None,
@@ -694,7 +694,7 @@ impl VantaDB {
         // Load from worker-backed storage
         let data = db.worker_read("db_state.json").await?;
         if let Some(d) = data {
-            let records: Vec<VantaMemoryRecord> = serde_json::from_slice(&d)
+            let records: Vec<MemoryRecord> = serde_json::from_slice(&d)
                 .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
             db.populate_cache_from_records(&records);
             if !records.is_empty() {
@@ -749,17 +749,17 @@ impl VantaDB {
     /// Dedup uses `node_id` (a u128 `XxHash3_128` over `namespace\0key`, see
     /// `vantadb::sdk::serialization::memory_node_id`) instead of allocating two
     /// Strings per record — identical semantics, zero per-record allocation.
-    fn collect_all_deduped(&self) -> Result<Vec<VantaMemoryRecord>, JsValue> {
+    fn collect_all_deduped(&self) -> Result<Vec<MemoryRecord>, JsValue> {
         let _g = enter(&self.op_gate)?;
         let mut seen: HashSet<u128> = HashSet::new();
-        let mut state: Vec<VantaMemoryRecord> = Vec::new();
+        let mut state: Vec<MemoryRecord> = Vec::new();
         let namespaces: Vec<String> = self.inner.list_namespaces().map_err(to_js_err)?;
         for ns in &namespaces {
             let mut cursor: Option<usize> = None;
             loop {
-                let opts = VantaMemoryListOptions {
+                let opts = MemoryListOptions {
                     #[allow(deprecated)]
-                    filters: VantaMemoryMetadata::new(),
+                    filters: MemoryMetadata::new(),
                     filter_ops: None,
                     limit: 10_000,
                     cursor,
@@ -822,7 +822,7 @@ impl VantaDB {
 
     /// Seed the cache from a freshly-loaded snapshot so the next `save` is a
     /// no-op unless a mutation occurs (avoids a redundant full re-serialize).
-    fn populate_cache_from_records(&self, records: &[VantaMemoryRecord]) {
+    fn populate_cache_from_records(&self, records: &[MemoryRecord]) {
         let mut cache = self
             .persist_cache
             .lock()
@@ -854,7 +854,7 @@ impl VantaDB {
     ///
     /// Only records whose `version` changed (or that were deleted) since the
     /// last persist are (re)serialized; every other record reuses its cached
-    /// JSON string. Output is a valid `Vec<VantaMemoryRecord>` JSON array,
+    /// JSON string. Output is a valid `Vec<MemoryRecord>` JSON array,
     /// byte-for-byte loadable by `load`/`load_idb`.
     fn persist_payload(&self) -> Result<Option<Vec<u8>>, JsValue> {
         let mut cache = self
@@ -929,7 +929,7 @@ impl VantaDB {
 
     /// Restore graph nodes from a `graph_state.json` payload (CORE-02).
     fn restore_graph_payload(&self, data: &[u8]) -> Result<(), JsValue> {
-        let nodes: Vec<VantaNodeRecord> = serde_json::from_slice(data)
+        let nodes: Vec<NodeRecord> = serde_json::from_slice(data)
             .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
         if !nodes.is_empty() {
             self.inner.restore_graph_nodes(nodes).map_err(to_js_err)?;
@@ -1057,7 +1057,7 @@ impl VantaDB {
             Some(d) => d,
             None => return Ok(()),
         };
-        let records: Vec<VantaMemoryRecord> = serde_json::from_slice(&data)
+        let records: Vec<MemoryRecord> = serde_json::from_slice(&data)
             .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
         self.populate_cache_from_records(&records);
         if !records.is_empty() {
@@ -1088,7 +1088,7 @@ impl VantaDB {
             Some(d) => d,
             None => return Ok(()),
         };
-        let records: Vec<VantaMemoryRecord> = serde_json::from_slice(&data)
+        let records: Vec<MemoryRecord> = serde_json::from_slice(&data)
             .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
         self.populate_cache_from_records(&records);
         if !records.is_empty() {
@@ -1129,17 +1129,17 @@ impl VantaDB {
     /// Insert or update a single memory record from a JS object.
     pub fn put(&self, input: JsValue) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
-        let input: MemoryInput = from_js(input)?;
+        let input: WasmMemoryInput = from_js(input)?;
         if let Some(ref v) = input.vector {
             if v.len() > MAX_F32_VEC_LEN {
-                return Err(to_js_err(VantaError::InvalidInput(format!(
+                return Err(to_js_err(Error::InvalidInput(format!(
                     "vector length {} exceeds max {}",
                     v.len(),
                     MAX_F32_VEC_LEN
                 ))));
             }
         }
-        let vanta_input = VantaMemoryInput {
+        let vanta_input = vantadb::MemoryInput {
             namespace: input.namespace.clone(),
             key: input.key.clone(),
             payload: input.payload,
@@ -1156,9 +1156,9 @@ impl VantaDB {
     /// Insert or update multiple memory records from a JS array.
     pub fn put_batch(&self, inputs: JsValue) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
-        let inputs: Vec<MemoryInput> = from_js(inputs)?;
+        let inputs: Vec<WasmMemoryInput> = from_js(inputs)?;
         if inputs.len() > MAX_BATCH_SIZE {
-            return Err(to_js_err(VantaError::InvalidInput(format!(
+            return Err(to_js_err(Error::InvalidInput(format!(
                 "batch size {} exceeds max {}",
                 inputs.len(),
                 MAX_BATCH_SIZE
@@ -1167,7 +1167,7 @@ impl VantaDB {
         for input in &inputs {
             if let Some(ref v) = input.vector {
                 if v.len() > MAX_F32_VEC_LEN {
-                    return Err(to_js_err(VantaError::InvalidInput(format!(
+                    return Err(to_js_err(Error::InvalidInput(format!(
                         "vector length {} exceeds max {}",
                         v.len(),
                         MAX_F32_VEC_LEN
@@ -1178,9 +1178,9 @@ impl VantaDB {
         for input in &inputs {
             self.mark_dirty(&input.namespace, &input.key);
         }
-        let vanta_inputs: Vec<VantaMemoryInput> = inputs
+        let vanta_inputs: Vec<vantadb::MemoryInput> = inputs
             .into_iter()
-            .map(|i| VantaMemoryInput {
+            .map(|i| vantadb::MemoryInput {
                 namespace: i.namespace,
                 key: i.key,
                 payload: i.payload,
@@ -1201,8 +1201,7 @@ impl VantaDB {
     /// Retrieve a single record by namespace and key.
     pub fn get(&self, namespace: &str, key: &str) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
-        let record: Option<VantaMemoryRecord> =
-            self.inner.get(namespace, key).map_err(to_js_err)?;
+        let record: Option<MemoryRecord> = self.inner.get(namespace, key).map_err(to_js_err)?;
         match record {
             Some(rec) => Ok(memory_record_to_js(rec)),
             None => Ok(JsValue::null()),
@@ -1230,7 +1229,7 @@ impl VantaDB {
     pub fn list(&self, namespace: &str, options: JsValue) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
         let opts: ListOptions = from_js(options)?;
-        let vanta_opts = VantaMemoryListOptions {
+        let vanta_opts = MemoryListOptions {
             #[allow(deprecated)]
             filters: opts.filters,
             filter_ops: None,
@@ -1255,9 +1254,9 @@ impl VantaDB {
         Ok(obj.into())
     }
 
-    /// Serialize a `VantaMemorySearchHit` into a JS object.
+    /// Serialize a `MemorySearchHit` into a JS object.
     /// Sanitizes NaN/Infinity in explanation scores to avoid JSON serialization errors.
-    fn search_hit_to_js(hit: VantaMemorySearchHit) -> JsValue {
+    fn search_hit_to_js(hit: MemorySearchHit) -> JsValue {
         let obj = js_sys::Object::new();
         js_sys::Reflect::set(&obj, &"record".into(), &memory_record_to_js(hit.record)).ok();
         js_sys::Reflect::set(&obj, &"score".into(), &(hit.score as f64).into()).ok();
@@ -1285,7 +1284,7 @@ impl VantaDB {
         let _g = enter(&self.op_gate)?;
         let req: SearchRequest = from_js(request)?;
         if req.query_vector.len() > MAX_F32_VEC_LEN {
-            return Err(to_js_err(VantaError::InvalidInput(format!(
+            return Err(to_js_err(Error::InvalidInput(format!(
                 "query vector length {} exceeds max {}",
                 req.query_vector.len(),
                 MAX_F32_VEC_LEN
@@ -1295,7 +1294,7 @@ impl VantaDB {
             "Euclidean" => vantadb::DistanceMetric::Euclidean,
             _ => vantadb::DistanceMetric::Cosine,
         };
-        let vanta_req = VantaMemorySearchRequest {
+        let vanta_req = MemorySearchRequest {
             namespace: req.namespace,
             query_vector: req.query_vector,
             query_sparse: None,
@@ -1320,12 +1319,12 @@ impl VantaDB {
     ///
     /// Returns one `{node_id, distance}` entry per result (u128 ids as decimal strings).
     /// The `distance` field is a **lower-is-better** raw L2 / cosine distance, mirroring
-    /// `VantaSearchHit.distance` in the Rust core. See `docs/api/WASM_API.md` for the
+    /// `SearchHit.distance` in the Rust core. See `docs/api/WASM_API.md` for the
     /// full score-vs-distance convention across the 3 transports (WSM-10).
     pub fn search_vector(&self, vector: Vec<f32>, top_k: usize) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
         if vector.len() > MAX_F32_VEC_LEN {
-            return Err(to_js_err(VantaError::InvalidInput(format!(
+            return Err(to_js_err(Error::InvalidInput(format!(
                 "vector length {} exceeds max {}",
                 vector.len(),
                 MAX_F32_VEC_LEN
@@ -1350,7 +1349,7 @@ impl VantaDB {
         let _g = enter(&self.op_gate)?;
         let req: SearchRequest = from_js(request)?;
         if req.query_vector.len() > MAX_F32_VEC_LEN {
-            return Err(to_js_err(VantaError::InvalidInput(format!(
+            return Err(to_js_err(Error::InvalidInput(format!(
                 "query vector length {} exceeds max {}",
                 req.query_vector.len(),
                 MAX_F32_VEC_LEN
@@ -1360,7 +1359,7 @@ impl VantaDB {
             "Euclidean" => vantadb::DistanceMetric::Euclidean,
             _ => vantadb::DistanceMetric::Cosine,
         };
-        let vanta_req = VantaMemorySearchRequest {
+        let vanta_req = MemorySearchRequest {
             namespace: req.namespace,
             query_vector: req.query_vector,
             query_sparse: None,
@@ -1399,7 +1398,7 @@ impl VantaDB {
         filter: JsValue,
     ) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
-        let filter: Vec<VantaMemoryFilterItem> = from_js(filter)?;
+        let filter: Vec<MemoryFilterItem> = from_js(filter)?;
         let report = self
             .inner
             .export_namespace(path, namespace, Some(filter))
@@ -1415,7 +1414,7 @@ impl VantaDB {
     /// deletion — that error propagates to the caller unchanged.
     pub fn delete_by_filter(&self, namespace: &str, filter: JsValue) -> Result<u64, JsValue> {
         let _g = enter(&self.op_gate)?;
-        let filter: Vec<VantaMemoryFilterItem> = from_js(filter)?;
+        let filter: Vec<MemoryFilterItem> = from_js(filter)?;
         let deleted = self
             .inner
             .delete_by_filter(namespace, filter)
@@ -1429,7 +1428,7 @@ impl VantaDB {
     /// filter array / `null` to count every record in the namespace.
     pub fn count(&self, namespace: &str, filter: JsValue) -> Result<u64, JsValue> {
         let _g = enter(&self.op_gate)?;
-        let filter: Vec<VantaMemoryFilterItem> = from_js(filter)?;
+        let filter: Vec<MemoryFilterItem> = from_js(filter)?;
         let filter_opt = if filter.is_empty() {
             None
         } else {
@@ -1485,7 +1484,7 @@ impl VantaDB {
         let ns_vec: Vec<String> = from_js(namespaces)?;
         let req: SearchRequest = from_js(request)?;
         if req.query_vector.len() > MAX_F32_VEC_LEN {
-            return Err(to_js_err(VantaError::InvalidInput(format!(
+            return Err(to_js_err(Error::InvalidInput(format!(
                 "query vector length {} exceeds max {}",
                 req.query_vector.len(),
                 MAX_F32_VEC_LEN
@@ -1495,7 +1494,7 @@ impl VantaDB {
             "Euclidean" => vantadb::DistanceMetric::Euclidean,
             _ => vantadb::DistanceMetric::Cosine,
         };
-        let vanta_req = VantaMemorySearchRequest {
+        let vanta_req = MemorySearchRequest {
             namespace: String::new(),
             query_vector: req.query_vector,
             #[allow(deprecated)]
@@ -1530,9 +1529,9 @@ impl VantaDB {
     /// Import records from a JS array of memory record objects.
     pub fn import_records(&self, records: JsValue) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
-        let records: Vec<VantaMemoryRecord> = from_js(records)?;
+        let records: Vec<MemoryRecord> = from_js(records)?;
         if records.len() > MAX_BATCH_SIZE {
-            return Err(to_js_err(VantaError::InvalidInput(format!(
+            return Err(to_js_err(Error::InvalidInput(format!(
                 "record batch size {} exceeds max {}",
                 records.len(),
                 MAX_BATCH_SIZE
@@ -1689,19 +1688,19 @@ impl VantaDB {
     ) -> Result<(), JsValue> {
         if let Some(ref v) = vector {
             if v.len() > MAX_F32_VEC_LEN {
-                return Err(to_js_err(VantaError::InvalidInput(format!(
+                return Err(to_js_err(Error::InvalidInput(format!(
                     "vector length {} exceeds max {}",
                     v.len(),
                     MAX_F32_VEC_LEN
                 ))));
             }
         }
-        let fields: VantaFields = if fields.is_undefined() || fields.is_null() {
-            VantaFields::new()
+        let fields: Fields = if fields.is_undefined() || fields.is_null() {
+            Fields::new()
         } else {
             from_js(fields)?
         };
-        let input = VantaNodeInput {
+        let input = NodeInput {
             id: parse_node_id(id)?,
             content,
             vector,
@@ -1714,7 +1713,7 @@ impl VantaDB {
     /// Retrieve a graph node by its numeric ID (decimal string).
     pub fn get_node(&self, id: &str) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
-        let node: Option<VantaNodeRecord> =
+        let node: Option<NodeRecord> =
             self.inner.get_node(parse_node_id(id)?).map_err(to_js_err)?;
         let js: Option<JsNodeRecord> = node.map(Into::into);
         to_js(&js)
@@ -1957,7 +1956,7 @@ struct GraphDegreeEntry {
     out_degree: usize,
 }
 
-/// Map a `VantaError` to a JS error carrying the `{code, message}` shape
+/// Map a `Error` to a JS error carrying the `{code, message}` shape
 /// shared across the TS/node/Python bindings (MOD-20 Python parity). The
 /// standard `error.message` and a `code` property are attached via
 /// `Reflect::set`; both reflect the underlying variant so consumers can
@@ -1965,10 +1964,10 @@ struct GraphDegreeEntry {
 /// `wrapWasmError` in `vantadb-ts/src/errors.ts` keeps reading `e.message`
 /// and `(e as WasmErrorLike).code` exactly as before.
 ///
-/// ERR-TS-01: the code comes straight from the core's `VantaError::code()`
+/// ERR-TS-01: the code comes straight from the core's `Error::code()`
 /// (single source of truth) — the old 30→8 lookup table was removed once
 /// `code()` became `pub`, so WASM now emits the canonical `VANTADB_*` codes.
-fn to_js_err(e: VantaError) -> JsValue {
+fn to_js_err(e: Error) -> JsValue {
     let message = e.to_string();
     let err = js_sys::Error::new(&message);
     // Attach a structured code so TS consumers can classify errors without
@@ -2004,7 +2003,7 @@ mod core02_graph_persist_tests {
     }
 
     /// Read result helper: `{"Read": [nodeRecord...]}`.
-    fn read_nodes(result: JsValue) -> Vec<(String, Vec<VantaEdgeRecord>)> {
+    fn read_nodes(result: JsValue) -> Vec<(String, Vec<EdgeRecord>)> {
         let arr = js_sys::Reflect::get(&result, &"Read".into()).expect("Read variant");
         let arr = js_sys::Array::from(&arr);
         let mut out = Vec::new();
@@ -2020,7 +2019,7 @@ mod core02_graph_persist_tests {
             let mut edges = Vec::new();
             for j in 0..edges_arr.length() {
                 let e = edges_arr.get(j);
-                edges.push(VantaEdgeRecord {
+                edges.push(EdgeRecord {
                     target: js_sys::Reflect::get(&e, &"target".into())
                         .unwrap()
                         .as_string()
@@ -2290,13 +2289,13 @@ mod wsm01_persistence_tests {
 /// strings (strings in, strings out — matches ERR-025 MCP and ERR-023 Python).
 fn parse_node_id(id: &str) -> Result<u128, JsValue> {
     id.parse::<u128>().map_err(|_| {
-        to_js_err(VantaError::InvalidInput(format!(
+        to_js_err(Error::InvalidInput(format!(
             "invalid node id '{id}': expected a decimal u128 string"
         )))
     })
 }
 
-fn memory_record_to_js(rec: VantaMemoryRecord) -> JsValue {
+fn memory_record_to_js(rec: MemoryRecord) -> JsValue {
     let obj = js_sys::Object::new();
     js_sys::Reflect::set(&obj, &"namespace".into(), &rec.namespace.into()).ok();
     js_sys::Reflect::set(&obj, &"key".into(), &rec.key.into()).ok();
@@ -2376,7 +2375,7 @@ fn to_js<T: serde::Serialize>(val: &T) -> Result<JsValue, JsValue> {
 // serde_wasm_bindgen::to_value(&Vec<f32>). Mismo shape; evita N allocs/Reflect
 // por vector en el hot path de search/list/put.
 // Input zero-copy (from_js) queda pendiente: requiere tocar el parseo de
-// MemoryInput/VantaNodeInput (fuera del scope de PERF-08).
+// MemoryInput/NodeInput (fuera del scope de PERF-08).
 
 #[cfg(test)]
 mod tests {

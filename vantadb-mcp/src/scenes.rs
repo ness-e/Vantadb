@@ -1,7 +1,7 @@
 //! MCP-30: MCP exposure of the vanta-memory gateway scene handlers.
 //!
 //! Three read-only tools wrapping [`vanta_memory::gateway`]'s pure functions
-//! over `&VantaEmbedded`: structured scene navigation for external agents.
+//! over `&Embedded`: structured scene navigation for external agents.
 //! The gateway request/response serde types ARE the wire shape (zero new
 //! wire types); domain errors surface as `error_content` results the LLM can
 //! self-correct (MEM-32) while param errors are JSON-RPC invalid-params.
@@ -109,8 +109,8 @@ fn session_key_arg(args: &Value, config: &McpConfig) -> Result<String, Value> {
     Ok(key.to_string())
 }
 
-fn db_from(storage: &Arc<StorageEngine>) -> vantadb::VantaEmbedded {
-    vantadb::VantaEmbedded::from_engine(storage.clone())
+fn db_from(storage: &Arc<StorageEngine>) -> vantadb::Embedded {
+    vantadb::Embedded::from_engine(storage.clone())
 }
 
 /// `scene_read(session_key, scene_name)`: one live block by name.

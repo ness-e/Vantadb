@@ -8,7 +8,7 @@
 use std::collections::HashSet;
 use std::str::FromStr;
 
-use vantadb::sdk::VantaEmbedded;
+use vantadb::sdk::Embedded;
 
 use super::super::conversation::l0_recorder::now_ms;
 use super::super::conversation::{L0Capture, L0Error, L0Message, L0Recorder, L0Role};
@@ -71,7 +71,7 @@ pub struct AutoCaptureHook {
 
 impl AutoCaptureHook {
     /// Build the hook over an open embedded database.
-    pub fn new(db: VantaEmbedded, config: AutoCaptureConfig) -> Self {
+    pub fn new(db: Embedded, config: AutoCaptureConfig) -> Self {
         Self {
             recorder: L0Recorder::new(db),
             config,

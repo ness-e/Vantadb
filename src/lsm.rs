@@ -79,7 +79,7 @@ pub(crate) struct SegmentInfo {
     pub tombstone_ratio: f32,
 }
 
-/// Multi-level segment registry that manages the lifecycle of level VantaFiles.
+/// Multi-level segment registry that manages the lifecycle of level Files.
 ///
 /// Tracks which segments exist, their levels, and provides a compact
 /// `by_id` lookup (64 entries — 6-bit segment_id, more than enough for 4 levels).
@@ -120,7 +120,7 @@ impl SegmentRegistry {
         Some(idx)
     }
 
-    /// Open or create multi-level VantaFiles for levels L0..=L3.
+    /// Open or create multi-level Files for levels L0..=L3.
     ///
     /// Detects legacy `vector_store.vanta` and renames to `vstore_L0.vanta`.
     /// Pre-allocates all 4 LSM levels so `compact_level()` never needs to

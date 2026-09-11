@@ -7,7 +7,7 @@
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use vantadb::sdk::VantaEmbedded;
+use vantadb::sdk::Embedded;
 
 use crate::core::abstractions::MemoryRecord;
 use crate::core::record::approval::{ApprovalError, CaptureApprovalQueue, PendingCapture};
@@ -96,7 +96,7 @@ pub fn capture_list_pending(queue: &CaptureApprovalQueue) -> CaptureListPendingR
 /// Approve a pending capture, persisting its memories.
 pub fn capture_approve(
     queue: &CaptureApprovalQueue,
-    db: &VantaEmbedded,
+    db: &Embedded,
     request: &CaptureApproveRequest,
     now_ms: u64,
     embed: Option<&EmbedFn>,
