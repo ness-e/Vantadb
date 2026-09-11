@@ -1727,7 +1727,7 @@ components:
           example: (memory:get "agent/main" "memory-1")
 
     RecordInput:
-      description: Upsert payload mirroring the SDK `MemoryInput` (`VantaMemoryInput` deprecated alias).
+      description: Upsert payload mirroring the SDK `MemoryInput` (legacy `VantaMemoryInput` alias removed in 0.6.0, AST-010).
       type: object
       required:
         - namespace

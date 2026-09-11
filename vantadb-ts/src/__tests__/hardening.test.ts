@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import { Client, VantaError } from "../vantadb.js";
+import { Client, DbError } from "../vantadb.js";
 import { wrapWasmError, classifyWasmError, ERROR_CODES } from "../errors.js";
 import {
   isMemoryRecord,
@@ -11,9 +11,9 @@ import {
 } from "../guards.js";
 import type { MemoryRecord, SearchHit, NodeRecord, SearchRequest, ImportReport } from "../types.js";
 
-describe("VantaError serialization", () => {
+describe("DbError serialization", () => {
   it("toJSON includes all fields", () => {
-    const err = new VantaError("TEST", "msg", { key: "val" });
+    const err = new DbError("TEST", "msg", { key: "val" });
     const json = err.toJSON();
     expect(json.name).toBe("VantaError");
     expect(json.code).toBe("TEST");
@@ -23,23 +23,23 @@ describe("VantaError serialization", () => {
   });
 
   it("toJSON omits details when undefined", () => {
-    const json = new VantaError("NO_DETAILS", "msg").toJSON();
+    const json = new DbError("NO_DETAILS", "msg").toJSON();
     expect(json.details).toBeUndefined();
   });
 
-  it("VantaError is instanceof Error", () => {
-    expect(new VantaError("C", "m") instanceof Error).toBe(true);
+  it("DbError is instanceof Error", () => {
+    expect(new DbError("C", "m") instanceof Error).toBe(true);
   });
 
-  it("VantaError has stack trace", () => {
-    const err = new VantaError("STACK", "trace");
+  it("DbError has stack trace", () => {
+    const err = new DbError("STACK", "trace");
     expect(typeof err.stack).toBe("string");
   });
 });
 
 describe("wrapWasmError", () => {
-  it("passes through VantaError", () => {
-    const original = new VantaError("EXISTING", "already wrapped");
+  it("passes through DbError", () => {
+    const original = new DbError("EXISTING", "already wrapped");
     expect(wrapWasmError(original, "context")).toBe(original);
   });
 
@@ -51,7 +51,7 @@ describe("wrapWasmError", () => {
 
   it("wraps Error with context prefix", () => {
     const wrapped = wrapWasmError(new Error("boom"), "myFunc");
-    expect(wrapped).toBeInstanceOf(VantaError);
+    expect(wrapped).toBeInstanceOf(DbError);
     expect(wrapped.code).toBe(ERROR_CODES.WASM_ERROR);
     expect(wrapped.message).toBe("myFunc: boom");
   });
@@ -122,8 +122,8 @@ describe("Client error codes from the real WASM engine (FIND-10)", () => {
     } catch (err) {
       caught = err;
     }
-    expect(caught).toBeInstanceOf(VantaError);
-    expect((caught as VantaError).code).toBe(ERROR_CODES.VALIDATION_ERROR);
+    expect(caught).toBeInstanceOf(DbError);
+    expect((caught as DbError).code).toBe(ERROR_CODES.VALIDATION_ERROR);
   });
 
   it("addEdge with missing nodes surfaces VANTADB_NOT_FOUND", () => {
@@ -133,8 +133,8 @@ describe("Client error codes from the real WASM engine (FIND-10)", () => {
     } catch (err) {
       caught = err;
     }
-    expect(caught).toBeInstanceOf(VantaError);
-    expect((caught as VantaError).code).toBe(ERROR_CODES.NOT_FOUND);
+    expect(caught).toBeInstanceOf(DbError);
+    expect((caught as DbError).code).toBe(ERROR_CODES.NOT_FOUND);
   });
 });
 
@@ -376,10 +376,10 @@ describe("Client lifecycle harden", () => {
   it("operations after close throw typed error", () => {
     const db = Client.create();
     db.close();
-    expect(() => db.capabilities()).toThrow(VantaError);
-    expect(() => db.listNamespaces()).toThrow(VantaError);
-    expect(() => db.flush()).toThrow(VantaError);
-    expect(() => db.compactWal()).toThrow(VantaError);
+    expect(() => db.capabilities()).toThrow(DbError);
+    expect(() => db.listNamespaces()).toThrow(DbError);
+    expect(() => db.flush()).toThrow(DbError);
+    expect(() => db.compactWal()).toThrow(DbError);
   });
 
   it("Client.create with storage_path warns but does not throw", () => {
@@ -422,7 +422,7 @@ describe("Client graph edge cases", () => {
   });
 
   it("addEdge with non-existent nodes throws", () => {
-    expect(() => db.addEdge(888, 999, "test")).toThrow(VantaError);
+    expect(() => db.addEdge(888, 999, "test")).toThrow(DbError);
   });
 
   it("graphIsDag on empty graph returns true", () => {
@@ -475,7 +475,7 @@ describe("Client maintenance edge cases", () => {
   afterAll(() => { db.close(); });
 
   it("rebuildIndex on empty DB throws IO error on non-persistent", () => {
-    expect(() => db.rebuildIndex()).toThrow(VantaError);
+    expect(() => db.rebuildIndex()).toThrow(DbError);
   });
 
   it("compactLayout on empty DB returns >= 0", () => {

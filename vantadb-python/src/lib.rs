@@ -25,7 +25,7 @@ mod vector;
 
 use types::{FlatBufferView, VantaPyListResult, VantaPyMemoryRecord, VantaPySearchHit};
 
-use vector::{VantaVector, VantaVectorIter};
+use vector::{Vector, VectorIter};
 
 use crate::convert::{
     bulk_import_report_to_pydict, capabilities_to_pydict, check_lens, export_report_to_pydict,
@@ -2398,14 +2398,14 @@ fn connect(
 #[pymodule]
 fn vantadb_py(_py: Python, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
     m.add_class::<Client>()?;
-    m.add_class::<VantaVector>()?;
-    m.add_class::<VantaVectorIter>()?;
+    m.add_class::<Vector>()?;
+    m.add_class::<VectorIter>()?;
     m.add_class::<VantaPySearchHit>()?;
     m.add_class::<VantaPyMemoryRecord>()?;
     m.add_class::<VantaPyListResult>()?;
     m.add_function(wrap_pyfunction!(connect, m)?)?;
     // Typed exception hierarchy (MOD-20).
-    m.add("VantaError", _py.get_type::<Error>())?;
+    m.add("Error", _py.get_type::<Error>())?;
     m.add("NotFoundError", _py.get_type::<NotFoundError>())?;
     m.add("ValidationError", _py.get_type::<ValidationError>())?;
     m.add("CorruptError", _py.get_type::<CorruptError>())?;

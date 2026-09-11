@@ -13,9 +13,8 @@ aliases: []
 >
 > **Naming (ADR-041 anti-stutter):** canonical names are `Client`, `Config`,
 > `DbError`, `SearchHit`, `Value`, `Metadata`, `FilterOp`. Legacy `VantaDB`,
-> `VantaConfig`, `VantaError`, `VantaValue`, … remain as deprecated aliases
-> and must not appear in new code. `VANTADB_*` error codes (wire) are
-> intentionally unchanged.
+> `VantaConfig`, `VantaError`, `VantaValue`, … aliases were removed in 0.6.0
+> (AST-010). `VANTADB_*` error codes (wire) are intentionally unchanged.
 
 ## Installation
 
@@ -595,7 +594,7 @@ const codes = ERROR_CODES;
 
 ### `DbError` class shape
 
-> **Compat:** `VantaError` remains as a deprecated alias (`export type VantaError = DbError`, value alias preserved with `name = "VantaError"` semantics intact). New code uses `DbError`.
+> **Compat (removed in 0.6.0, AST-010):** the `VantaError` alias was deleted (`export type VantaError = DbError` and the value alias are gone). New code uses `DbError`; the serialized `name = "VantaError"` wire value is unchanged.
 
 ```ts
 import { DbError } from "vantadb";

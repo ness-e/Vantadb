@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { Client, VantaError } from "../vantadb.js";
+import { Client, DbError } from "../vantadb.js";
 
 // ---------------------------------------------------------------------------
 // Sub-clients (SDKB-02) — domain-grouped views over the flat methods.
@@ -85,7 +85,7 @@ describe("db.memory delegates to flat memory methods", () => {
     expect(page.records.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("operations after close() throw VantaError CLOSED via sub-client too", () => {
+  it("operations after close() throw DbError CLOSED via sub-client too", () => {
     const tmp = Client.create();
     tmp.close();
     expect(() => tmp.memory.put({ namespace: "n", key: "k", payload: "p" })).toThrow(/closed/i);
@@ -169,13 +169,13 @@ describe("db.system delegates to flat system methods", () => {
     // queries throw. Delegation contract: sub-client and flat method produce
     // the exact same error (message included).
     const runFlat = () => db.query("(entity :id 1)");
-    expect(runFlat).toThrow(VantaError);
+    expect(runFlat).toThrow(DbError);
     const runClient = () => db.system.query("(entity :id 1)");
-    expect(runClient).toThrow(VantaError);
+    expect(runClient).toThrow(DbError);
     let flatMsg = "";
     let clientMsg = "";
-    try { runFlat(); } catch (e) { flatMsg = (e as VantaError).message; }
-    try { runClient(); } catch (e) { clientMsg = (e as VantaError).message; }
+    try { runFlat(); } catch (e) { flatMsg = (e as DbError).message; }
+    try { runClient(); } catch (e) { clientMsg = (e as DbError).message; }
     expect(clientMsg).toBe(flatMsg);
   });
 

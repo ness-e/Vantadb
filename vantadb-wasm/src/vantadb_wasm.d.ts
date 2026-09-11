@@ -16,7 +16,7 @@
  *  - JSDoc on every method (copied from the Rust doc comments)
  *
  * Build wiring: `dev-tools/build-wasm-types.mjs` replaces the generated
- * `export class VantaDB` block in `pkg/vantadb_wasm.d.ts` with the
+ * `export class Client` block in `pkg/vantadb_wasm.d.ts` with the
  * contents of this file after `wasm-pack build`. The generated `InitInput`,
  * `InitOutput`, and `SyncInitInput` types are preserved unchanged because
  * they map 1:1 to the wasm-bindgen runtime glue.
@@ -34,7 +34,7 @@ export type InitInput = RequestInfo | URL | Response | BufferSource | WebAssembl
 
 // `InitOutput` is the FFI glue wasm-bindgen exposes after `initSync` /
 // `__wbg_init`. Consumers do NOT touch this directly — they use the high-
-// level `VantaDB` class. The pointer-based signatures here are 1:1 with the
+// level `Client` class. The pointer-based signatures here are 1:1 with the
 // generated WebAssembly bindings and use `unknown` (not `any`) for the few
 // JsValue slots, so the file stays type-safe without `any`. The bindings
 // accept `unknown` at the call site because `unknown` is the top type.
@@ -130,9 +130,6 @@ export interface ConfigInput {
     /** Optional memory limit in bytes. */
     memory_limit?: number;
 }
-
-/** @deprecated Use {@link ConfigInput} instead. */
-export type VantaConfigInput = ConfigInput;
 
 /** One record stored in a memory namespace. Returned by `get`, `put`, `list`, `search`. */
 export interface MemoryRecord {
@@ -311,9 +308,6 @@ export interface Capabilities {
     /** True if the engine is opened in read-only mode. */
     read_only: boolean;
 }
-
-/** @deprecated Use {@link Capabilities} instead. */
-export type VantaCapabilities = Capabilities;
 
 /** Operational metrics returned by `operational_metrics()`. All numbers are decimal strings. */
 export interface OperationalMetrics {
@@ -591,7 +585,7 @@ export class Client {
     /**
      * Search nodes by raw vector without namespace scoping.
      * Returns one `{node_id, distance}` entry per result (u128 ids as decimal strings).
-     * `distance` is a **lower-is-better** raw L2 / cosine distance (mirrors `VantaSearchHit.distance`
+     * `distance` is a **lower-is-better** raw L2 / cosine distance (mirrors `SearchHit.distance`
      * in the Rust core). For higher-is-better relevance scores, use `search()` instead.
      * See `docs/api/WASM_API.md` for the full score-vs-distance convention (WSM-10).
      */
@@ -776,14 +770,6 @@ export class Client {
      */
     graph_degree(roots: string[]): GraphDegreeEntry[];
 }
-
-/**
- * @deprecated Use {@link Client} instead (`VantaDB` repeats the package name).
- * The wasm-pack runtime still exports `VantaDB`; this alias keeps that
- * surface typed. Wire shapes are unchanged.
- */
-export type VantaDB = Client;
-export const VantaDB: typeof Client;
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Init functions (preserved from generated .d.ts verbatim — these are the

@@ -9,19 +9,10 @@ export type Value =
   | { ListFloat: number[] }
   | { ListBool: boolean[] };
 
-/** @deprecated Use {@link Value} instead. */
-export type VantaValue = Value;
-
 export type Metadata = Record<string, Value>;
-
-/** @deprecated Use {@link Metadata} instead. */
-export type VantaMetadata = Metadata;
 
 /** Plain JS value accepted as metadata/filter input (normalized internally to `Value`). */
 export type FlatValue = string | number | boolean | null;
-
-/** @deprecated Use {@link FlatValue} instead. */
-export type VantaFlatValue = FlatValue;
 
 /**
  * Metadata/filters as provided by callers: plain JS values (preferred,
@@ -30,9 +21,6 @@ export type VantaFlatValue = FlatValue;
  * always use the tagged `Metadata` form.
  */
 export type MetadataInput = Record<string, FlatValue | Value>;
-
-/** @deprecated Use {@link MetadataInput} instead. */
-export type VantaMetadataInput = MetadataInput;
 
 export interface MemoryInput {
   namespace: string;
@@ -159,9 +147,6 @@ export interface ExportReport {
 /** Filter operators (PascalCase — wire-compatible with the core `FilterOp`). */
 export type FilterOp = "Eq" | "Neq" | "Gt" | "Gte" | "Lt" | "Lte";
 
-/** @deprecated Use {@link FilterOp} instead. */
-export type VantaFilterOp = FilterOp;
-
 /** Single AND-combined filter item for export/delete operations. */
 export interface FilterItem {
   field: string;
@@ -169,9 +154,6 @@ export interface FilterItem {
   /** Plain JS value (preferred) or tagged wire form (backward compat). */
   value: FlatValue | Value;
 }
-
-/** @deprecated Use {@link FilterItem} instead. */
-export type VantaMemoryFilterItem = FilterItem;
 
 export interface ImportReport {
   inserted: number;
@@ -235,9 +217,6 @@ export interface Config {
   rss_threshold?: number;
   memory_limit?: number;
 }
-
-/** @deprecated Use {@link Config} instead. */
-export type VantaConfig = Config;
 
 /**
  * Result of a BFS, DFS, filtered-traversal or topological-sort traversal.

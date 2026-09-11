@@ -73,12 +73,6 @@ impl MemoryGovernor {
         self.memory_limit
     }
 
-    /// Deprecated alias of [`MemoryGovernor::limit`] (anti-stutter AST-005).
-    #[deprecated(since = "0.5.0", note = "use `MemoryGovernor::limit` instead")]
-    pub fn memory_limit(&self) -> u64 {
-        self.limit()
-    }
-
     /// Returns `true` if usage is above the high watermark.
     pub fn should_evict(&self) -> bool {
         self.used_bytes.load(Ordering::Relaxed) > self.high_water_mark
@@ -169,13 +163,6 @@ mod tests {
     fn test_memory_governor_memory_limit() {
         let gov = make_gov(512_000);
         assert_eq!(gov.limit(), 512_000);
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn test_memory_governor_memory_limit_deprecated_alias() {
-        let gov = make_gov(512_000);
-        assert_eq!(gov.memory_limit(), gov.limit());
     }
 
     #[test]

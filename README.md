@@ -81,8 +81,8 @@ pip install vantadb-py
 
 > **Note:** The distribution name is `vantadb-py`, and the canonical import is `import vantadb` (same as the Rust crate and the npm package). `import vantadb_py` still works but emits a `DeprecationWarning`.
 >
-> **Naming (ADR-041 anti-stutter):** canonical names are `Client` (`VantaDB`
-> deprecated alias), `Record`, `SearchHit`, `Config`. Memory methods
+> **Naming (ADR-041 anti-stutter):** canonical names are `Client` (legacy
+> `VantaDB` alias removed in 0.6.0, AST-010), `Record`, `SearchHit`, `Config`. Memory methods
 > `get_memory` / `search_memory` stay canonical in Python (the short
 > `get` / `search` names are node-level ops there).
 
@@ -109,7 +109,6 @@ Initialize a persistent memory store, save structured records with vectors, and 
 import vantadb
 
 # 1. Open or create a local database (zero configuration)
-# (`VantaDB` remains as a deprecated alias of `Client`.)
 db = vantadb.Client("./vanta_data", memory_limit_bytes=512_000_000)
 
 # 2. Store a memory record with payload, metadata, and embedding

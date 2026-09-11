@@ -10,8 +10,9 @@ aliases: [WASM_API]
 # WASM API Reference
 
 > **Naming (ADR-041 anti-stutter):** canonical names are `Client`
-> (`VantaDB` deprecated alias), `Config` (`VantaConfig` deprecated), `SearchHit`
-> / `MemorySearchHit` (`VantaSearchHit` / `VantaMemorySearchHit` deprecated).
+> (legacy `VantaDB` alias removed in 0.6.0, AST-010), `Config` (legacy
+> `VantaConfig` removed), `SearchHit` / `MemorySearchHit` (legacy
+> `VantaSearchHit` / `VantaMemorySearchHit` removed).
 > `VANTADB_*` error codes (wire) are intentionally unchanged.
 
 This page is the canonical entry point for VantaDB's WebAssembly surface — the

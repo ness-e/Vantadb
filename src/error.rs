@@ -480,14 +480,6 @@ impl Error {
 /// Crate-wide Result alias
 pub type Result<T> = std::result::Result<T, Error>;
 
-/// Deprecated `Vanta`-prefixed aliases (AST-002, ADR-041).
-/// New code must use the unprefixed names; these exist only for semver migration.
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `Error` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaError = Error;
-
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {

@@ -21,7 +21,7 @@ __all__ = [
     "ListResult",
     "Record",
     "SearchHit",
-    "VantaVector",
+    "Vector",
     "SearchRequest",
     "__version__",
     "connect",

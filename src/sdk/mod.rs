@@ -13,8 +13,6 @@ pub(crate) mod version_history;
 
 pub use api::BulkImportReport;
 pub use builder::Embedded;
-#[allow(deprecated)]
-pub use builder::VantaEmbedded;
 pub use connect::connect;
 #[allow(deprecated)]
 pub use serialization::memory_record_from_node;
@@ -32,15 +30,4 @@ pub use types::{
     SearchHit, SearchProfileConfig, SearchProfileMode, SkillCreateInput, SkillListOptions,
     SkillListPage, SkillPatchInput, SkillRecord, SkillUpdateInput, SkillWriteResult, StorageTier,
     TextIndexAuditReport, TextIndexRepairReport, Value,
-};
-#[allow(deprecated)]
-pub use types::{
-    VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord, VantaExportReport, VantaFields,
-    VantaFilterOp, VantaHybridFusionReport, VantaImportReport, VantaIndexRebuildReport,
-    VantaMemoryExportLine, VantaMemoryFilter, VantaMemoryFilterItem, VantaMemoryInput,
-    VantaMemoryListOptions, VantaMemoryListPage, VantaMemoryMetadata, VantaMemoryRecord,
-    VantaMemorySearchHit, VantaMemorySearchRequest, VantaNamespaceStats, VantaNamespaceStatsMap,
-    VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult,
-    VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit, VantaSearchHit,
-    VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
 };

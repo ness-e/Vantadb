@@ -236,69 +236,6 @@ pub struct MemoryExportLine {
     pub superseded_at_ms: Option<u64>,
 }
 
-/// Deprecated `Vanta`-prefixed aliases (AST-002, ADR-041).
-/// New code must use the unprefixed names; these exist only for semver migration.
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `FilterOp` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaFilterOp = FilterOp;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `MemoryFilterItem` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaMemoryFilterItem = MemoryFilterItem;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `MemoryFilter` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaMemoryFilter = MemoryFilter;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `MemoryInput` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaMemoryInput = MemoryInput;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `MemoryRecord` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaMemoryRecord = MemoryRecord;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `MemoryListOptions` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaMemoryListOptions = MemoryListOptions;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `MemoryListPage` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaMemoryListPage = MemoryListPage;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `NamespaceStats` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaNamespaceStats = NamespaceStats;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `NamespaceStatsMap` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaNamespaceStatsMap = NamespaceStatsMap;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `ExportReport` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaExportReport = ExportReport;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `ImportReport` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaImportReport = ImportReport;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `MemoryExportLine` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaMemoryExportLine = MemoryExportLine;
-
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {

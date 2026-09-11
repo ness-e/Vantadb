@@ -9,10 +9,6 @@ use std::collections::{BTreeMap, BTreeSet};
 pub use super::super::serialization::vector_types::{
     MemorySearchHit, MemorySearchRequest, SearchHit,
 };
-#[allow(deprecated)]
-pub use super::super::serialization::vector_types::{
-    VantaMemorySearchHit, VantaMemorySearchRequest, VantaSearchHit,
-};
 /// Stable report returned by manual ANN rebuild through the SDK boundary.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct IndexRebuildReport {
@@ -299,52 +295,7 @@ pub struct TextIndexAuditReport {
     /// Machine-readable status string ("ok" or "repair_recommended").
     pub status: String,
 }
-
-/// Deprecated `Vanta`-prefixed aliases (AST-002, ADR-041).
-/// New code must use the unprefixed names; these exist only for semver migration.
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `IndexRebuildReport` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaIndexRebuildReport = IndexRebuildReport;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `TextIndexRepairReport` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaTextIndexRepairReport = TextIndexRepairReport;
 #[cfg(debug_assertions)]
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `MemorySearchDebugReport` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-#[allow(dead_code)]
-pub type VantaMemorySearchDebugReport = MemorySearchDebugReport;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `HybridFusionReport` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaHybridFusionReport = HybridFusionReport;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `SearchExplanation` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaSearchExplanation = SearchExplanation;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `SearchExplanationHit` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaSearchExplanationHit = SearchExplanationHit;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `Bm25TermContribution` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaBm25TermContribution = Bm25TermContribution;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `TextIndexAuditReport` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaTextIndexAuditReport = TextIndexAuditReport;
-
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {

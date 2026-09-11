@@ -136,24 +136,6 @@ pub(crate) fn unified_to_record(node: UnifiedNode, label_intern: &LabelIntern) -
     }
 }
 
-/// Deprecated `Vanta`-prefixed aliases (AST-002, ADR-041).
-/// New code must use the unprefixed names; these exist only for semver migration.
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `EdgeRecord` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaEdgeRecord = EdgeRecord;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `NodeInput` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaNodeInput = NodeInput;
-#[deprecated(
-    since = "0.5.0",
-    note = "Use `NodeRecord` instead - the `Vanta` prefix was removed (ADR-041). Will be removed in a future release."
-)]
-pub type VantaNodeRecord = NodeRecord;
-
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {

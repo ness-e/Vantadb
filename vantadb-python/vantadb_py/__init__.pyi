@@ -25,19 +25,17 @@ from .vantadb_py import (
     StorageError,
     TimeoutError,
     UnsupportedError,
-    VantaError,
+    Error,
     ValidationError,
     ListResult,
     Record,
     SearchHit,
-    VantaVector,
+    Vector,
     __version__,
     connect,
 )
 
-# AST-008: solo sobrevive el puente `Vector = VantaVector` (rename nativo en
-# AST-010); el resto de aliases AST-003 se eliminan con el rename directo.
-Vector: type[VantaVector]
+# AST-010: rename nativo completo — sin puentes legacy.
 
 __all__ = [
     "Client",
@@ -45,10 +43,9 @@ __all__ = [
     "ListResult",
     "Record",
     "SearchHit",
-    "VantaVector",
     "Vector",
     "SearchRequest",
-    "VantaError",
+    "Error",
     "NotFoundError",
     "ValidationError",
     "CorruptError",

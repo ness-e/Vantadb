@@ -26,8 +26,7 @@
 
 > **Naming (ADR-041 anti-stutter):** canonical names are `MemorySearchHit.score`
 > (memory/hybrid search) and `SearchHit.distance` (raw ANN). Legacy aliases
-> `VantaMemorySearchHit` / `VantaSearchHit` remain as deprecated re-exports
-> and must not appear in new code.
+> `VantaMemorySearchHit` / `VantaSearchHit` were removed in 0.6.0 (AST-010).
 
 | Transport | Memory/hybrid search field | Raw ANN field | Convention |
 |---|---|---|---|
