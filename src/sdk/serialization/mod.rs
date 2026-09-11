@@ -302,11 +302,17 @@ fn sparse_vector_from_field(flat: &[f64]) -> Option<SparseVector> {
     Some(SparseVector(map))
 }
 
-pub fn memory_record_from_node(node: &UnifiedNode) -> Option<MemoryRecord> {
+pub fn record_from_node(node: &UnifiedNode) -> Option<MemoryRecord> {
     memory_record_from_node_inner(node, true)
 }
 
-/// Like [`memory_record_from_node`] but **without** lazy TTL eviction: records
+/// Deprecated alias of [`record_from_node`] (anti-stutter AST-005).
+#[deprecated(since = "0.5.0", note = "use `record_from_node` instead")]
+pub fn memory_record_from_node(node: &UnifiedNode) -> Option<MemoryRecord> {
+    record_from_node(node)
+}
+
+/// Like [`record_from_node`] but **without** lazy TTL eviction: records
 /// whose deadline has passed are still returned so callers can observe them
 /// (e.g. per-namespace TTL statistics).
 pub(crate) fn memory_record_from_node_include_expired(node: &UnifiedNode) -> Option<MemoryRecord> {
@@ -912,9 +918,9 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_record_from_node_valid() {
+    fn test_record_from_node_valid() {
         let node = make_memory_node(42, "myns", "mykey");
-        let record = memory_record_from_node(&node).unwrap();
+        let record = record_from_node(&node).unwrap();
         assert_eq!(record.namespace, "myns");
         assert_eq!(record.key, "mykey");
         assert_eq!(record.payload, "test payload");
@@ -928,20 +934,30 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_record_from_node_deleted() {
+    #[allow(deprecated)]
+    fn test_record_from_node_deprecated_alias() {
+        let node = make_memory_node(42, "myns", "mykey");
+        let via_new = record_from_node(&node).unwrap();
+        let via_old = memory_record_from_node(&node).unwrap();
+        assert_eq!(via_new.node_id, via_old.node_id);
+        assert_eq!(via_new.payload, via_old.payload);
+    }
+
+    #[test]
+    fn test_record_from_node_deleted() {
         let mut node = make_memory_node(1, "ns", "k");
         node.mark_deleted();
-        assert!(memory_record_from_node(&node).is_none());
+        assert!(record_from_node(&node).is_none());
     }
 
     #[test]
-    fn test_memory_record_from_node_missing_required_fields() {
+    fn test_record_from_node_missing_required_fields() {
         let node = UnifiedNode::new(1);
-        assert!(memory_record_from_node(&node).is_none());
+        assert!(record_from_node(&node).is_none());
     }
 
     #[test]
-    fn test_memory_record_from_node_expired() {
+    fn test_record_from_node_expired() {
         let mut node = UnifiedNode::new(1);
         node.set_field(
             FIELD_NAMESPACE,
@@ -954,17 +970,17 @@ mod tests {
         node.set_field(FIELD_VERSION, crate::node::FieldValue::Int(1));
         // Expire in the past
         node.set_field(FIELD_EXPIRES_AT_MS, crate::node::FieldValue::Int(1));
-        assert!(memory_record_from_node(&node).is_none());
+        assert!(record_from_node(&node).is_none());
     }
 
     #[test]
-    fn test_memory_record_from_node_strips_internal_fields() {
+    fn test_record_from_node_strips_internal_fields() {
         let mut node = make_memory_node(1, "ns", "k");
         node.set_field(
             "custom_field",
             crate::node::FieldValue::String("keep".into()),
         );
-        let record = memory_record_from_node(&node).unwrap();
+        let record = record_from_node(&node).unwrap();
         assert!(!record.metadata.contains_key(FIELD_NAMESPACE));
         assert!(!record.metadata.contains_key(FIELD_KEY));
         assert!(!record.metadata.contains_key(FIELD_PAYLOAD));
@@ -979,18 +995,18 @@ mod tests {
     }
 
     #[test]
-    fn test_memory_record_from_node_with_vector() {
+    fn test_record_from_node_with_vector() {
         let mut node = make_memory_node(1, "ns", "k");
         node.vector = VectorRepresentations::Full(vec![0.1, 0.2]);
-        let record = memory_record_from_node(&node).unwrap();
+        let record = record_from_node(&node).unwrap();
         assert_eq!(record.vector, Some(vec![0.1, 0.2]));
     }
 
     #[test]
-    fn test_memory_record_from_node_without_expiry() {
+    fn test_record_from_node_without_expiry() {
         let mut node = make_memory_node(1, "ns", "k");
         node.set_field(FIELD_EXPIRES_AT_MS, crate::node::FieldValue::Int(0));
-        let record = memory_record_from_node(&node).unwrap();
+        let record = record_from_node(&node).unwrap();
         assert_eq!(record.expires_at_ms, Some(0));
     }
 
@@ -1236,7 +1252,7 @@ mod tests {
             Some(&crate::node::FieldValue::Int(4321))
         );
 
-        let recovered = memory_record_from_node(&node).unwrap();
+        let recovered = record_from_node(&node).unwrap();
         assert_eq!(recovered.superseded_by, record.superseded_by);
         assert_eq!(recovered.superseded_at_ms, record.superseded_at_ms);
     }
@@ -1537,7 +1553,7 @@ mod tests {
         );
 
         // Read path reconstructs the same vector.
-        let read = memory_record_from_node(&node).unwrap();
+        let read = record_from_node(&node).unwrap();
         assert_eq!(
             read.sparse_vector,
             Some(make_sparse(&[(1, 0.5), (42, -1.25), (7, 3.0)]))
@@ -1552,7 +1568,7 @@ mod tests {
             node.get_field(SPARSE_VECTOR_EXT_KEY),
             Some(&crate::node::FieldValue::ListFloat(vec![]))
         );
-        let read = memory_record_from_node(&node).unwrap();
+        let read = record_from_node(&node).unwrap();
         assert_eq!(read.sparse_vector, Some(SparseVector::new()));
     }
 
@@ -1561,7 +1577,7 @@ mod tests {
         let record = record_with_sparse(None);
         let (node, _) = memory_record_to_node_owned(record);
         assert_eq!(node.get_field(SPARSE_VECTOR_EXT_KEY), None);
-        let read = memory_record_from_node(&node).unwrap();
+        let read = record_from_node(&node).unwrap();
         assert_eq!(read.sparse_vector, None);
     }
 
@@ -1573,7 +1589,7 @@ mod tests {
             SPARSE_VECTOR_EXT_KEY,
             crate::node::FieldValue::String("{\"1\":0.5,\"42\":-1.25}".into()),
         );
-        let record = memory_record_from_node(&node).unwrap();
+        let record = record_from_node(&node).unwrap();
         assert_eq!(
             record.sparse_vector,
             Some(make_sparse(&[(1, 0.5), (42, -1.25)]))
@@ -1587,7 +1603,7 @@ mod tests {
             SPARSE_VECTOR_EXT_KEY,
             crate::node::FieldValue::String("not-json".into()),
         );
-        let record = memory_record_from_node(&node).unwrap();
+        let record = record_from_node(&node).unwrap();
         assert_eq!(record.sparse_vector, None);
     }
 
@@ -1598,7 +1614,7 @@ mod tests {
             SPARSE_VECTOR_EXT_KEY,
             crate::node::FieldValue::ListFloat(vec![1.0, 0.5, 2.0]),
         );
-        let record = memory_record_from_node(&node).unwrap();
+        let record = record_from_node(&node).unwrap();
         assert_eq!(record.sparse_vector, None);
     }
 
@@ -1619,7 +1635,7 @@ mod tests {
                 SPARSE_VECTOR_EXT_KEY,
                 crate::node::FieldValue::ListFloat(flat),
             );
-            let record = memory_record_from_node(&node).unwrap();
+            let record = record_from_node(&node).unwrap();
             assert_eq!(
                 record.sparse_vector, None,
                 "dims inválidas deben devolver None, no saturar silencioso"

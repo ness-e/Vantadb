@@ -34,7 +34,7 @@ fn insert_node(engine: &StorageEngine, id: u128) {
 
 /// Return how many entries are currently in the volatile cache.
 fn cache_size(engine: &StorageEngine) -> usize {
-    engine.get_memory_stats().cache_entries
+    engine.stats().cache_entries
 }
 
 // ─── Tests ─────────────────────────────────────────────────────
@@ -86,13 +86,13 @@ fn test_cache_warming_hnsw_top_layer() {
     }
 
     // Verify the HNSW graph is non-empty.
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     assert!(stats.node_count > 0, "HNSW should have nodes");
 
     // HNSW top-layer warming is called at engine startup.
     // Since the cache is populated on insert (Hot tier), the entry point
     // should already be in cache after startup warming.
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     assert!(
         stats.cache_entries > 0,
         "cache should contain HNSW top-layer nodes after warmup, found {}",
@@ -219,7 +219,7 @@ fn test_cache_warming_large_cache_eviction() {
     }
 
     // Cache should have entries but not exceed hardware-based limits
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     assert!(
         stats.cache_entries > 0,
         "cache should have entries after inserts"

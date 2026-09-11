@@ -159,11 +159,17 @@ impl UnifiedNode {
     }
 
     /// Estimate total memory usage (bytes)
-    pub fn memory_size(&self) -> usize {
+    pub fn size(&self) -> usize {
         std::mem::size_of::<Self>()
-            + self.vector.memory_size()
+            + self.vector.size()
             + self.edges.capacity() * std::mem::size_of::<Edge>()
             + self.relational.len() * 64 // rough BTreeMap node overhead
+    }
+
+    /// Deprecated alias of [`UnifiedNode::size`] (anti-stutter AST-005).
+    #[deprecated(since = "0.5.0", note = "use `UnifiedNode::size` instead")]
+    pub fn memory_size(&self) -> usize {
+        self.size()
     }
 
     /// Mark as deleted (tombstone)
@@ -300,11 +306,18 @@ mod tests {
     #[test]
     fn test_node_memory_size() {
         let node = UnifiedNode::new(1);
-        assert!(node.memory_size() >= std::mem::size_of::<UnifiedNode>());
+        assert!(node.size() >= std::mem::size_of::<UnifiedNode>());
         let mut node2 = UnifiedNode::with_vector(2, vec![0.0; 100]);
         node2.add_edge(3, 0);
         node2.set_field("key", FieldValue::String("val".into()));
-        assert!(node2.memory_size() > node.memory_size());
+        assert!(node2.size() > node.size());
+    }
+
+    #[test]
+    #[allow(deprecated)]
+    fn test_node_memory_size_deprecated_alias() {
+        let node = UnifiedNode::with_vector(1, vec![0.0; 10]);
+        assert_eq!(node.memory_size(), node.size());
     }
 
     #[test]

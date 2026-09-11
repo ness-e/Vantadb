@@ -16,8 +16,10 @@ pub use builder::Embedded;
 #[allow(deprecated)]
 pub use builder::VantaEmbedded;
 pub use connect::connect;
+#[allow(deprecated)]
+pub use serialization::memory_record_from_node;
 pub use serialization::{
-    export_line_from_record, memory_record_from_node, record_from_export_line, FIELD_CREATED_AT_MS,
+    export_line_from_record, record_from_export_line, record_from_node, FIELD_CREATED_AT_MS,
     FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS,
     FIELD_VERSION,
 };

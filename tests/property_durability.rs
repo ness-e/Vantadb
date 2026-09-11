@@ -127,7 +127,7 @@ proptest! {
         {
             let engine = StorageEngine::open(db_path).unwrap();
 
-            let stats = engine.get_memory_stats();
+            let stats = engine.stats();
             let index_count = stats.node_count;
 
             // Contar nodos desde el almacenamiento

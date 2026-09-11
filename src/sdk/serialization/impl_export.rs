@@ -2,8 +2,8 @@
 
 use super::super::builder::Embedded;
 use super::{
-    decode_node_id, export_line_from_record, matches_memory_filters, memory_record_from_node,
-    namespace_index_prefix, payload_index_prefix, record_from_export_line, validate_namespace,
+    decode_node_id, export_line_from_record, matches_memory_filters, namespace_index_prefix,
+    payload_index_prefix, record_from_export_line, record_from_node, validate_namespace,
 };
 use crate::backend::BackendPartition;
 use crate::error::{Error, Result};
@@ -134,7 +134,7 @@ impl Embedded {
             .collect();
 
         for node in engine.get_many(&unique_ids)? {
-            if let Some(record) = memory_record_from_node(&node) {
+            if let Some(record) = record_from_node(&node) {
                 if record.namespace == namespace && matches_memory_filters(&record, filters) {
                     records.push(record);
                 }
@@ -144,7 +144,7 @@ impl Embedded {
         if records.is_empty() && !has_index_entries {
             crate::metrics::record_derived_full_scan_fallback();
             for node in engine.scan_nodes()? {
-                if let Some(record) = memory_record_from_node(&node) {
+                if let Some(record) = record_from_node(&node) {
                     if record.namespace == namespace && matches_memory_filters(&record, filters) {
                         records.push(record);
                     }

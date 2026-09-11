@@ -7,7 +7,7 @@
 //! Extracted from `sdk::api` (REVIEW-12, 2026-08-30).
 
 use super::super::builder::Embedded;
-use super::super::serialization::{memory_record_from_node, validate_key, validate_namespace};
+use super::super::serialization::{record_from_node, validate_key, validate_namespace};
 use super::super::types::*;
 use crate::error::Result;
 
@@ -97,7 +97,7 @@ impl Embedded {
             .into_iter()
             .zip(nodes)
             .filter_map(|(hit, node)| {
-                memory_record_from_node(&node).and_then(|r| {
+                record_from_node(&node).and_then(|r| {
                     if r.namespace == namespace && r.key != key {
                         Some(MemorySearchHit {
                             record: r,

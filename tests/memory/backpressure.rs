@@ -13,7 +13,7 @@ fn test_backpressure_disabled_with_zero_threshold() {
         .with_rss_threshold(0.0);
     let engine =
         StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
-    assert!(engine.check_memory_pressure().is_ok());
+    assert!(engine.check_pressure().is_ok());
 }
 
 #[test]

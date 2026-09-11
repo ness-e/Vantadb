@@ -178,7 +178,7 @@ pub fn cmd_doctor(db_path: &str, fix: bool, force: bool, verbose: bool) -> Resul
         }
     }
 
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
 
     spinner.finish_and_clear();
 
@@ -418,7 +418,7 @@ pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> 
     let engine = open_database(db_path, true)?;
     spinner.set_message("Collecting statistics...");
 
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     let nodes = engine.scan_nodes()?;
     let namespaces: HashSet<String> = nodes
         .iter()

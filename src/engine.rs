@@ -488,7 +488,7 @@ impl InMemoryEngine {
                 stats.vector_count += 1;
                 stats.total_dimensions += node.vector.dimensions() as u64;
             }
-            stats.memory_estimate_bytes += node.memory_size() as u64;
+            stats.memory_estimate_bytes += node.size() as u64;
         }
         stats
     }

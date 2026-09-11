@@ -37,7 +37,7 @@ fn test_glove100_hnsw_basic() {
         engine.insert(&node).unwrap();
     }
 
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     assert!(
         stats.node_count > 0,
         "node_count should be > 0 after inserts"

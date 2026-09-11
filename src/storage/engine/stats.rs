@@ -51,7 +51,7 @@ impl StorageEngine {
     }
 
     /// Returns detailed memory usage statistics for this engine instance.
-    pub fn get_memory_stats(&self) -> MemoryStats {
+    pub fn stats(&self) -> MemoryStats {
         let hnsw = self.hnsw.load();
         let cache = self.volatile_cache.read();
 
@@ -94,13 +94,19 @@ impl StorageEngine {
         }
     }
 
+    /// Deprecated alias of [`StorageEngine::stats`] (anti-stutter AST-005).
+    #[deprecated(since = "0.5.0", note = "use `StorageEngine::stats` instead")]
+    pub fn get_memory_stats(&self) -> MemoryStats {
+        self.stats()
+    }
+
     /// Check current memory usage against the RSS threshold and trigger eviction if exceeded.
-    pub fn check_memory_pressure(&self) -> Result<()> {
+    pub fn check_pressure(&self) -> Result<()> {
         let threshold = self.config.rss_threshold;
         if threshold <= 0.0 {
             return Ok(());
         }
-        let stats = self.get_memory_stats();
+        let stats = self.stats();
         // FND-01-F1: usar el RSS real del proceso (Win32 GetProcessMemoryInfo /
         // Mach task_info / /proc/self/statm con fallback sysinfo, `_get_rss_virt`
         // en src/metrics/core/mod.rs:471). `physical_rss` (mmap) subestima ~6.5×
@@ -184,6 +190,12 @@ impl StorageEngine {
         }
 
         Ok(())
+    }
+
+    /// Deprecated alias of [`StorageEngine::check_pressure`] (anti-stutter AST-005).
+    #[deprecated(since = "0.5.0", note = "use `StorageEngine::check_pressure` instead")]
+    pub fn check_memory_pressure(&self) -> Result<()> {
+        self.check_pressure()
     }
 
     /// Perform an emergency shutdown: flush buffers and exit the process immediately.

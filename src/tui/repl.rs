@@ -82,7 +82,7 @@ impl ReplState {
                 self.output_lines.clear();
             }
             ".stats" | ".st" => {
-                let stats = self.engine.get_memory_stats();
+                let stats = self.engine.stats();
                 self.output_lines.push(format!(
                     " Nodes: {} | Cache: {} | Evictions: {} | Memory: {} logical",
                     stats.node_count,

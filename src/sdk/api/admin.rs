@@ -145,7 +145,7 @@ impl Embedded {
     #[tracing::instrument(skip(self))]
     pub fn operational_metrics(&self) -> OperationalMetrics {
         if let Ok(engine) = self.engine_handle() {
-            let stats = engine.get_memory_stats();
+            let stats = engine.stats();
             crate::metrics::record_memory_breakdown(
                 stats.node_count,
                 stats.logical_bytes,

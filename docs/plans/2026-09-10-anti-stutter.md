@@ -183,9 +183,9 @@ Regla universal: ninguna entidad repite su contenedor. `vantadb::VantaConfig` �
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo nextest run --profile audit --workspace --build-jobs 2`
 - **Task file:** `docs/tasks/AST-005.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:**
-- **Commit:**
+- **Commit:** refactor!: AST-005 métodos sin stutter + aliases deprecated
 
   **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger / Due |
@@ -195,7 +195,9 @@ Regla universal: ninguna entidad repite su contenedor. `vantadb::VantaConfig` �
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | DISCOVERY: task file + Impacto Regla 0 + decisiones (stats vs InMemoryEngine, size sin colisión, free-fn por orden explícita) | Gate D no dispara | codegraph_explore, rg |
+  | 2 | S1-S4: 6 renames + 6 aliases deprecated + ~45 caller-sites + 5 alias-tests | check verde por slice; incidente replaceAll→alias duplicado detectado por grep y reparado | edit, cargo check |
+  | 3 | S5: fmt + clippy -p vantadb -D warnings + nextest workspace 3143✅ + commit | contrato core verde; workspace-clippy rojo pre-existente documentado | nextest, git |
 
   **Notas:**
   - **Pre-mortem:** 1) `size` ambiguo; 2) métricas `operational_snapshot` leen `stats` viejo.
@@ -337,10 +339,32 @@ Próxima tarea si completa: AST-004
 === RECITATION AST-004 ===
 Campaign ID: ca2e7931-6c31-4d30-97fb-5941e79ec806
 Objetivo activo: AST-004 WASM d.ts + TS types/errors/VantaDB
-Estado: in-progress
-Última acción: S0 Discovery: 8 archivos leidos + task file creado con Regla 0 y Spec
+Estado: completed
+Última acción: S1-S6 completos: 13 renames + aliases, verify verde, commits 07406d9f y 7d18cbb4, avance/bindings registrado
 Resultado: ✅
-Próxima acción: S1 types.ts renames + aliases
-Contrato: Contrato: npx tsc --noEmit -p vantadb-ts/ && npm test --prefix vantadb-ts. Verificacion: pendiente (S6). Evidencia: docs/tasks/AST-004.md creado con Regla 0. Invariantes: shapes wire intactos; VANTADB_* codes; this.name VantaError; nada fuera de vantadb-ts/wasm d.ts. Deuda: ninguna. Queda_pendiente: S1-S6.
+Próxima acción: Orquestador: /pipeline task AST-005
+Contrato: Contrato: npx tsc --noEmit -p vantadb-ts/ (0 err, corrido desde pkg dir por resolucion npx) + tsc d.ts standalone 0 err + npm test 280/280 ✅. Evidencia: commits 07406d9f + 7d18cbb4. Artefactos: vantadb-ts/src/{types,errors,vantadb,guards,metadata,native}.ts, vantadb-wasm d.ts, docs/tasks/AST-004.md. Invariantes: wire shapes intactos; VANTADB_* codes; this.name=VantaError; nada fuera de vantadb-ts/wasm. Deuda: ninguna. Queda_pendiente: AST-005 (metodos Rust, vanta-worker).
 Próxima tarea si completa: AST-005
+=== END RECITATION ===
+
+=== RECITATION 4 ===
+Campaign ID: ca2e7931-6c31-4d30-97fb-5941e79ec806
+Objetivo activo: AST-004 TS/WASM renames
+Estado: completed
+Última acción: vanta-worker COMPLETO 7/7 commits 07406d9f+7d18cbb4
+Resultado: ✅
+Próxima acción: AST-005 metodos
+Contrato: tsc 0 errores + 280/280 tests
+Próxima tarea si completa: AST-005
+=== END RECITATION ===
+
+=== RECITATION AST-005 ===
+Campaign ID: ca2e7931-6c31-4d30-97fb-5941e79ec806
+Objetivo activo: AST-005 Metodos que repiten clase (6 renames + aliases deprecated)
+Estado: in-progress
+Última acción: DISCOVERY completo: task file creado, blast radius mapeado (codegraph+grep), colision size/stats descartada, decision free-fn documentada
+Resultado: PARTIAL
+Próxima acción: S1: MemoryGovernor::limit en src/memory_governor.rs + cargo check
+Contrato: Contrato: cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo nextest run --profile audit --workspace --build-jobs 2. Verificacion: pendiente. Evidencia: docs/tasks/AST-005.md creado con Impacto Regla 0 + decisiones. Artefactos: docs/tasks/AST-005.md. Invariantes: no tocar memory_node_id/parse_memory_limit/memory_breakdown_snapshot; sin cambio wire/comportamiento. Deuda: ninguna. Queda_pendiente: S1-S5.
+Próxima tarea si completa: AST-006
 === END RECITATION ===
