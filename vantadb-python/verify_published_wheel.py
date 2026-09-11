@@ -42,11 +42,11 @@ def _check_functional(db_path: str) -> None:
     )
     assert record is not None, "put returned no record"
 
-    read = db.get_memory("verify/main", "first")
-    assert read is not None, "get_memory returned None"
+    read = db.memory.get("verify/main", "first")
+    assert read is not None, "memory.get returned None"
     assert read["payload"] == "verified", f"unexpected payload: {read['payload']!r}"
 
-    page = db.list_memory("verify/main", filters={"category": "verify"})
+    page = db.memory.list("verify/main", filters={"category": "verify"})
     assert len(page["records"]) == 1, f"expected 1 record, got {len(page['records'])}"
 
     hits = db.search("verify/main", [0.1, 0.2, 0.3], top_k=1)
@@ -61,7 +61,7 @@ def _check_functional(db_path: str) -> None:
 
     # Durability: reopen and confirm the record survived.
     db2 = vantadb_py.Client(db_path=db_path)
-    reread = db2.get_memory("verify/main", "first")
+    reread = db2.memory.get("verify/main", "first")
     assert reread is not None, "record lost after reopen"
     assert reread["payload"] == "verified", "payload corrupted after reopen"
     db2.close()

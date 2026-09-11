@@ -186,17 +186,14 @@ relevance and `distance` for raw ANN distance.
 | `graph_is_dag` | graph | ✅ | |
 | `graph_page_rank` | graph | ✅ | Python-only |
 | `graph_degree_centrality` | graph | ✅ | Python-only (= wasm `graph_degree`) |
-| `put` | memory | ✅ | |
-| `put_batch` | memory | ✅ | |
-| `put_batch_raw` | memory | ✅ | Python-only |
-| `get_memory` | memory | ✅ | |
-| `delete_memory` | memory | ✅ | |
-| `delete_by_filter` | memory | ✅ | operator filter_ops (flat → `$eq`, or `{"$op": value}`) |
-| `count` | memory | ✅ | optional operator filter |
-| `similar_to_key` | memory | ✅ | vector search from an existing key |
-| `list_memory` | memory | ✅ | |
-| `search_memory` | memory | ✅ | hybrid |
-| `search` | memory | ✅ | pure vector ANN |
+| `put` | memory | ✅ | also on `db.memory` |
+| `put_batch` | memory | ✅ | also on `db.memory` |
+| `put_batch_raw` | memory | ✅ | Python-only, also on `db.memory` |
+| `delete_by_filter` | memory | ✅ | operator filter_ops (flat → `$eq`, or `{"$op": value}`), also on `db.memory` |
+| `count` | memory | ✅ | optional operator filter, also on `db.memory` |
+| `similar_to_key` | memory | ✅ | vector search from an existing key, also on `db.memory` |
+| `search` | memory | ✅ | hybrid (ex-`search_memory`, AST-008), also on `db.memory` |
+| `search_vector` | memory | ✅ | pure ANN (ex-`search`, AST-008), also on `db.memory` |
 | `search_batch` | memory | ✅ | Python-only |
 | `search_batch_requests` | memory | ✅ | Python-only |
 | `explain_memory_search` | memory | ✅ | |
@@ -223,11 +220,17 @@ relevance and `distance` for raw ANN distance.
 | `recover_archived_nodes` | wiki | ✅ | summary-node shadow archive recovery |
 | `close` | system | ✅ | lifecycle |
 
-**Totals:** memory 18 · graph 10 · wiki 1 · system 18 = 47 pyclass methods ✔ (+ module-level `connect()` → system, 48 total surface)
+**Totals:** memory 15 · graph 10 · wiki 1 · system 18 = 44 pyclass methods ✔ (+ module-level `connect()` → system, 45 total surface)
+
+> **AST-012 (anti-stutter, TS `MemoryClient` parity):** flat `get_memory` /
+> `list_memory` / `delete_memory` were REMOVED (direct rename, no aliases).
+> The memory path is `db.memory.get` / `.list` / `.delete` (real methods,
+> single implementation); flat `get` / `delete` stay node-level (`id: u128`).
+> (`search_memory`→`search`, `search`→`search_vector` already renamed by AST-008.)
 
 > **Naming hazard reminder:** Python `insert` is classified as graph (node-level). The name collides with memory-record insertion semantics in other ecosystems — sub-client tests must use the real signatures above.
 
-**Not exposed in Python (wasm/TS-only), deferred per D42:** `search_vector`, `audit_text_index_deep`, `export_namespace_filtered`, `import_records`.
+**Not exposed in Python (wasm/TS-only), deferred per D42:** `audit_text_index_deep`, `export_namespace_filtered`, `import_records`.
 
 ## Core-Only Capabilities (D43 — deferred, NOT part of this campaign)
 
@@ -267,15 +270,25 @@ class VantaDB {
 - **Delegation only** — zero new logic (D43); stop condition from plan applies.
 - `conversation`/`skills` getters are omitted in v1 (no methods exist; D43).
 - Types reuse existing `types.ts`; no duplicates.
-- `db.memory.x(...) === db.x(...)` result/firma identity is the test contract.
+- `db.memory.x(...) === db.x(...)` result/firma identity is the test contract
+  (holds in TS where the flat is memory-first).
 
-### Python (SDKB-03 — recommendation, final call at its DISCOVERY)
+### Python (SDKB-03 shipped, AST-012 rename applied)
 
-PyO3 nested properties are friction-heavy. Recommended (ponytail-simplest that satisfies `db.memory.*` tests):
+PyO3 `#[pyclass]` delegate structs (`MemoryClient`, `GraphClient`,
+`SystemClient`, `WikiClient`) hold `db: Py<Client>`; shared-name methods
+forward verbatim via the `forward_to_db!` macro (single source of truth).
+Exposed as read-only attributes via `#[getter]` on `Client` (fresh instance
+per access — no shared state).
 
-1. Define lightweight `#[pyclass]` delegate structs (`MemoryClient`, `GraphClient`, `SystemClient`, `WikiClient`) holding `db: Py<VantaDB>`; each `#[pymethod]` forwards to the flat method.
-2. Expose them as read-only attributes via `#[getter]` on `VantaDB`, constructing each delegate once lazily.
-3. Fallback (plan stop-condition): if getter wiring fights PyO3, ship helper functions instead and update this map.
+AST-012 (anti-stutter): `db.memory` exposes short names `get`/`list`/
+`delete`/`search` (TS `MemoryClient` parity) as REAL methods — the
+implementation moved from the removed flat `get_memory`/`list_memory`/
+`delete_memory` (direct rename, no aliases). Flat `get`/`delete` stay
+node-level (`id: u128`): the Python test contract is
+`db.memory.get/list/delete/search` ≡ removed-flat behavior with identical
+signature and result, and `db.graph.*` ≡ flat node ops. `AsyncVantaDB`
+mirrors this with `db.memory` (`get`/`list`/`delete` via `to_thread`).
 
 ### Cross-SDK rule
 

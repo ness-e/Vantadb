@@ -28,7 +28,7 @@ def _worker_loop(db, stop, errors, i):
         key = f"k{i}-{n}"
         try:
             db.put("stress", key, "x" * 256)
-            db.get_memory("stress", key)
+            db.memory.get("stress", key)
         except Exception as exc:
             # Races against the durability barrier are expected once
             # close() starts; anything else is a real failure.

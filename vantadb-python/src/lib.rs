@@ -80,7 +80,7 @@ fn clamp_top_k(requested: usize) -> usize {
 ///     >>> from vantadb_py import Client
 ///     >>> db = Client(":memory:", backend="memory")  # in-memory engine
 ///     >>> db.put("agent/main", "task-1", "alpha")
-///     >>> db.get_memory("agent/main", "task-1").payload
+///     >>> db.memory.get("agent/main", "task-1").payload
 ///     'alpha'
 ///     ```
 pub struct Client {
@@ -313,18 +313,38 @@ macro_rules! forward_to_db {
             )*
         }
     };
+    // AST-012: forwards + REAL methods in ONE #[pymethods] block (PyO3
+    // rejects two #[pymethods] impls for the same type — E0119). The
+    // `with { ... }` items are pasted verbatim: full-signature methods whose
+    // bodies reach the engine via `self.db` (single implementation, no
+    // string-dispatch hop, no logic duplication).
+    ($client:ident { $($method:ident),* $(,)? } with { $($real:tt)* }) => {
+        #[pymethods]
+        impl $client {
+            $(
+                #[doc = concat!("Delegates to ``Client.", stringify!($method), "`` — same signature, same result.")]
+                #[pyo3(signature = (*args, **kwargs))]
+                fn $method<'py>(
+                    &self,
+                    py: Python<'py>,
+                    args: &Bound<'py, PyTuple>,
+                    kwargs: Option<&Bound<'py, PyDict>>,
+                ) -> PyResult<Bound<'py, PyAny>> {
+                    self.db.bind(py).call_method(stringify!($method), args, kwargs)
+                }
+            )*
+            $($real)*
+        }
+    };
 }
 
 forward_to_db!(MemoryClient {
     put,
     put_batch,
     put_batch_raw,
-    get_memory,
-    delete_memory,
     delete_by_filter,
     count,
     similar_to_key,
-    list_memory,
     search,
     search_vector,
     search_batch,
@@ -333,16 +353,155 @@ forward_to_db!(MemoryClient {
     supersede,
     generate_snippet,
     purge_expired,
-    list_namespaces
-    // AST-008 (OD-2=B, OD-4 cerrado: directo, sin compat). Flat `search` is
-    // the namespaced hybrid (ex-`search_memory`); flat `search_vector` is the
-    // pure-ANN node-level op (ex-`search`). Flat-level memory aliases stay
-    // impossible (get/delete are node-level on Client — BINDINGS_NAMESPACES
-    // hazard), so short `get`/`list`/`delete` live on the domain client only.
-    ;
-    get => get_memory,
-    list => list_memory,
-    delete => delete_memory,
+    list_namespaces,
+} with {
+    // AST-012 (anti-stutter, paridad TS `MemoryClient.put/get/delete/search`):
+    // `get`/`list`/`delete` son métodos REALES (cuerpos movidos desde el
+    // flat — 1 sola implementación, sin duplicar lógica). Sin aliases.
+    /// Get a namespace-scoped persistent memory record.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during storage read.
+    ///
+    /// Args:
+    ///     namespace: Namespace the record belongs to.
+    ///     key: Record key within the namespace.
+    ///
+    /// Returns:
+    ///     The record, or None if no matching record exists.
+    ///
+    /// Raises:
+    ///     StorageError: If the storage cannot be read.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.memory.put("agent/main", "task-1", "organize the backlog")
+    ///     >>> record = db.memory.get("agent/main", "task-1")
+    ///     >>> record.payload
+    ///     'organize the backlog'
+    ///     >>> db.memory.get("agent/main", "missing") is None
+    ///     True
+    ///     ```
+    fn get(
+        &self,
+        py: Python,
+        namespace: &str,
+        key: &str,
+    ) -> PyResult<Option<VantaPyMemoryRecord>> {
+        let db = self.db.bind(py);
+        let client = db.borrow();
+        let _g = enter(&client.op_gate)?;
+        let engine = client.engine.clone();
+        let n = namespace.to_string();
+        let k = key.to_string();
+        let record = py.detach(move || engine.get(&n, &k).map_err(map_vanta_error))?;
+        match record {
+            Some(record) => Ok(Some(VantaPyMemoryRecord::new(record))),
+            None => Ok(None),
+        }
+    }
+
+    /// Delete a namespace-scoped persistent memory record.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during storage delete.
+    ///
+    /// Args:
+    ///     namespace: Namespace the record belongs to.
+    ///     key: Record key within the namespace.
+    ///
+    /// Returns:
+    ///     bool: True if a record was deleted, False if no matching record existed.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.memory.put("agent/main", "temp", "delete me")
+    ///     >>> db.memory.delete("agent/main", "temp")
+    ///     True
+    ///     >>> db.memory.get("agent/main", "temp") is None
+    ///     True
+    ///     ```
+    fn delete(&self, py: Python, namespace: &str, key: &str) -> PyResult<bool> {
+        let db = self.db.bind(py);
+        let client = db.borrow();
+        let _g = enter(&client.op_gate)?;
+        let engine = client.engine.clone();
+        let namespace = namespace.to_string();
+        let key = key.to_string();
+        py.detach(move || engine.delete(&namespace, &key).map_err(map_vanta_error))
+    }
+
+    /// List namespace-scoped persistent memory records.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during storage scan.
+    ///
+    /// Args:
+    ///     namespace: Namespace to list records from.
+    ///     filters: Optional dict of metadata field values to filter on.
+    ///     limit: Maximum number of records to return (default 100).
+    ///     cursor: Optional pagination cursor returned as ``next_cursor`` from a
+    ///         previous page.
+    ///
+    /// Returns:
+    ///     VantaListResult: A page of records with ``records``, ``total_count``,
+    ///     and ``next_cursor`` properties. Iterate or index into the result to
+    ///     access ``MemoryRecord`` items.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.memory.put("agent/main", "task-1", "alpha", metadata={"category": "task"})
+    ///     >>> db.memory.put("agent/main", "task-2", "beta", metadata={"category": "task"})
+    ///     >>> page = db.memory.list("agent/main", filters={"category": "task"})
+    ///     >>> len(page)
+    ///     2
+    ///     >>> page[0].key
+    ///     'task-1'
+    ///     ```
+    #[pyo3(signature = (namespace, filters=None, limit=100, cursor=None, exclude_superseded=false))]
+    fn list(
+        &self,
+        py: Python,
+        namespace: &str,
+        filters: Option<&Bound<'_, PyDict>>,
+        limit: usize,
+        cursor: Option<usize>,
+        exclude_superseded: bool,
+    ) -> PyResult<VantaPyListResult> {
+        let db = self.db.bind(py);
+        let client = db.borrow();
+        let _g = enter(&client.op_gate)?;
+        let namespace = namespace.to_string();
+        let filters_meta = py_dict_to_metadata(filters)?;
+        let engine = client.engine.clone();
+        let page = py.detach(move || {
+            engine
+                .list(
+                    &namespace,
+                    MemoryListOptions {
+                        #[allow(deprecated)]
+                        filters: filters_meta,
+                        filter_ops: None,
+                        limit,
+                        cursor,
+                        exclude_superseded,
+                    },
+                )
+                .map_err(map_vanta_error)
+        })?;
+
+        let records: Vec<VantaPyMemoryRecord> = page
+            .records
+            .into_iter()
+            .map(VantaPyMemoryRecord::new)
+            .collect();
+
+        Ok(VantaPyListResult::new(records, page.next_cursor))
+    }
 });
 
 forward_to_db!(GraphClient {
@@ -422,7 +581,7 @@ impl Client {
     ///     >>> from vantadb_py import Client
     ///     >>> db = Client(":memory:", backend="memory")  # in-memory engine
     ///     >>> db.put("agent/main", "task-1", "alpha")
-    ///     >>> db.get_memory("agent/main", "task-1").payload
+    ///     >>> db.memory.get("agent/main", "task-1").payload
     ///     'alpha'
     ///     ```
     #[new]
@@ -869,83 +1028,6 @@ impl Client {
         Ok(VantaPyMemoryRecord::new(record))
     }
 
-    /// Retrieve a namespace-scoped persistent memory record.
-    ///
-    /// GIL Policy: RELEASED — allows Python threads to run during storage read.
-    ///
-    /// Args:
-    ///     namespace: Namespace the record belongs to.
-    ///     key: Record key within the namespace.
-    ///
-    /// Returns:
-    ///     MemoryRecord or None: The stored record, or None if no record
-    ///     exists for the given namespace and key.
-    ///
-    /// Raises:
-    ///     StorageError: If the storage cannot be read.
-    ///     RuntimeError: For any other engine-level failure.
-    ///
-    /// Example:
-    ///     ```python
-    ///     >>> from vantadb_py import Client
-    ///     >>> db = Client(":memory:", backend="memory")
-    ///     >>> db.put("agent/main", "task-1", "organize the backlog")
-    ///     >>> record = db.get_memory("agent/main", "task-1")
-    ///     >>> record.payload
-    ///     'organize the backlog'
-    ///     >>> db.get_memory("agent/main", "missing") is None
-    ///     True
-    ///     ```
-    fn get_memory(
-        &self,
-        py: Python,
-        namespace: &str,
-        key: &str,
-    ) -> PyResult<Option<VantaPyMemoryRecord>> {
-        let _g = enter(&self.op_gate)?;
-        let engine = self.engine.clone();
-        let n = namespace.to_string();
-        let k = key.to_string();
-        let record = py.detach(move || engine.get(&n, &k).map_err(map_vanta_error))?;
-        match record {
-            Some(record) => Ok(Some(VantaPyMemoryRecord::new(record))),
-            None => Ok(None),
-        }
-    }
-
-    /// Delete a namespace-scoped persistent memory record.
-    ///
-    /// GIL Policy: RELEASED — allows Python threads to run during storage delete.
-    ///
-    /// Args:
-    ///     namespace: Namespace the record belongs to.
-    ///     key: Record key within the namespace.
-    ///
-    /// Returns:
-    ///     bool: True if a record was deleted, False if no matching record existed.
-    ///
-    /// Raises:
-    ///     StorageError: If the storage cannot be written.
-    ///     RuntimeError: For any other engine-level failure.
-    ///
-    /// Example:
-    ///     ```python
-    ///     >>> from vantadb_py import Client
-    ///     >>> db = Client(":memory:", backend="memory")
-    ///     >>> db.put("agent/main", "temp", "delete me")
-    ///     >>> db.delete_memory("agent/main", "temp")
-    ///     True
-    ///     >>> db.get_memory("agent/main", "temp") is None
-    ///     True
-    ///     ```
-    fn delete_memory(&self, py: Python, namespace: &str, key: &str) -> PyResult<bool> {
-        let _g = enter(&self.op_gate)?;
-        let engine = self.engine.clone();
-        let namespace = namespace.to_string();
-        let key = key.to_string();
-        py.detach(move || engine.delete(&namespace, &key).map_err(map_vanta_error))
-    }
-
     /// Delete all memory records in a namespace matching a metadata filter.
     ///
     /// The filter follows the canonical cross-SDK operator format: a flat value
@@ -1093,79 +1175,6 @@ impl Client {
                 })
             })
             .collect()
-    }
-
-    /// List namespace-scoped persistent memory records.
-    ///
-    /// GIL Policy: RELEASED — allows Python threads to run during storage scan.
-    ///
-    /// Args:
-    ///     namespace: Namespace to list records from.
-    ///     filters: Optional dict of metadata field values to filter on.
-    ///     limit: Maximum number of records to return (default 100).
-    ///     cursor: Optional pagination cursor returned as ``next_cursor`` from a
-    ///         previous page.
-    ///
-    /// Returns:
-    ///     VantaListResult: A page of records with ``records``, ``total_count``,
-    ///     and ``next_cursor`` properties. Iterate or index into the result to
-    ///     access ``MemoryRecord`` items.
-    ///
-    /// Raises:
-    ///     TypeError: If ``filters`` contains unsupported value types.
-    ///     ValueError: If a filter value is invalid.
-    ///     StorageError: If the storage cannot be read.
-    ///     RuntimeError: For any other engine-level failure.
-    ///
-    /// Example:
-    ///     ```python
-    ///     >>> from vantadb_py import Client
-    ///     >>> db = Client(":memory:", backend="memory")
-    ///     >>> db.put("agent/main", "task-1", "alpha", metadata={"category": "task"})
-    ///     >>> db.put("agent/main", "task-2", "beta", metadata={"category": "task"})
-    ///     >>> page = db.list_memory("agent/main", filters={"category": "task"})
-    ///     >>> len(page)
-    ///     2
-    ///     >>> page[0].key
-    ///     'task-1'
-    ///     ```
-    #[pyo3(signature = (namespace, filters=None, limit=100, cursor=None, exclude_superseded=false))]
-    fn list_memory(
-        &self,
-        py: Python,
-        namespace: &str,
-        filters: Option<&Bound<'_, PyDict>>,
-        limit: usize,
-        cursor: Option<usize>,
-        exclude_superseded: bool,
-    ) -> PyResult<VantaPyListResult> {
-        let _g = enter(&self.op_gate)?;
-        let namespace = namespace.to_string();
-        let filters_meta = py_dict_to_metadata(filters)?;
-        let engine = self.engine.clone();
-        let page = py.detach(move || {
-            engine
-                .list(
-                    &namespace,
-                    MemoryListOptions {
-                        #[allow(deprecated)]
-                        filters: filters_meta,
-                        filter_ops: None,
-                        limit,
-                        cursor,
-                        exclude_superseded,
-                    },
-                )
-                .map_err(map_vanta_error)
-        })?;
-
-        let records: Vec<VantaPyMemoryRecord> = page
-            .records
-            .into_iter()
-            .map(VantaPyMemoryRecord::new)
-            .collect();
-
-        Ok(VantaPyListResult::new(records, page.next_cursor))
     }
 
     /// Search namespace-scoped persistent memory records by vector + filters.
@@ -1443,7 +1452,7 @@ impl Client {
     ///     ...     report = target.import_file(export_path)
     ///     ...     report["inserted"]
     ///     1
-    ///     ...     target.get_memory("agent/main", "task-1").payload
+    ///     ...     target.memory.get("agent/main", "task-1").payload
     ///     'alpha'
     ///     ```
     fn import_file(&self, py: Python, path: &str) -> PyResult<Py<PyAny>> {
@@ -2204,7 +2213,7 @@ impl Client {
 
     // NOTE: Rust fn names differ from the exposed property names so the
     // generated trampolines (`__pymethod_get_<fn>__`) never collide with flat
-    // methods of the same shape (e.g. `get_memory`).
+    // methods of the same shape (e.g. node-level `get`).
     #[getter]
     #[pyo3(name = "memory")]
     fn memory_client(slf: &Bound<'_, Self>) -> MemoryClient {

@@ -145,17 +145,69 @@ class SearchRequest:
         return asdict(self)
 
 
-class AsyncVantaDB:
-    """Async wrapper around Client.
+class AsyncMemoryClient:
+    """Async view over ``db.memory`` (namespace+key records).
 
-    Query methods (search, get_memory, list_memory) run
-    in a thread pool via ``asyncio.to_thread()``, releasing the GIL
-    to the Rust engine which already uses ``py.allow_threads()``.
+    AST-012 (paridad TS ``MemoryClient``): short names ``get``/``list``/
+    ``delete`` — no ``*_memory`` surname anywhere. The flat ``get``/``delete``
+    names stay node-level (``id: u128``) on ``AsyncVantaDB``
+    (BINDINGS_NAMESPACES hazard), so the memory ops live here; every call
+    runs in a thread pool via the parent's ``_run`` (same GIL-release as
+    the rest of ``AsyncVantaDB``).
 
     Usage::
 
         async with AsyncVantaDB("./my_brain") as db:
-            record = await db.get_memory("ns", "key")
+            record = await db.memory.get("ns", "key")
+            page = await db.memory.list("ns", limit=10)
+            await db.memory.delete("ns", "key")
+    """
+
+    def __init__(self, sync_db, run):
+        self._sync = sync_db
+        self._run = run
+
+    async def get(self, namespace: str, key: str):
+        return await self._run(self._sync.memory.get, namespace, key)
+
+    async def list(
+        self,
+        namespace: str,
+        *,
+        filters: dict | None = None,
+        limit: int = 100,
+        cursor: int | None = None,
+        exclude_superseded: bool = False,
+    ):
+        return await self._run(
+            self._sync.memory.list,
+            namespace,
+            filters,
+            limit,
+            cursor,
+            exclude_superseded,
+        )
+
+    async def delete(self, namespace: str, key: str) -> bool:
+        return await self._run(self._sync.memory.delete, namespace, key)
+
+    def __repr__(self):
+        return f"AsyncMemoryClient(sync={self._sync!r})"
+
+
+class AsyncVantaDB:
+    """Async wrapper around Client.
+
+    Query methods (search, ``memory.get``, ``memory.list``) run
+    in a thread pool via ``asyncio.to_thread()``, releasing the GIL
+    to the Rust engine which already uses ``py.allow_threads()``.
+
+    Memory-record ops live on ``db.memory`` (``get``/``list``/``delete``,
+    no surname — AST-012, paridad TS); flat ``get``/``delete`` stay
+    node-level (``id: u128``). Usage::
+
+        async with AsyncVantaDB("./my_brain") as db:
+            record = await db.memory.get("ns", "key")
             results = await db.search("ns", [1.0, 0.0, 0.0], top_k=5)
     """
 
@@ -204,32 +256,13 @@ class AsyncVantaDB:
             exclude_superseded,
         )
 
-    async def get_memory(self, namespace: str, key: str):
-        return await self._run(self._sync.get_memory, namespace, key)
+    @property
+    def memory(self) -> AsyncMemoryClient:
+        """Grouped async memory-record operations (``await db.memory.get(...)``).
 
-    async def list_memory(
-        self,
-        namespace: str,
-        *,
-        filters: dict | None = None,
-        limit: int = 100,
-        cursor: int | None = None,
-        exclude_superseded: bool = False,
-    ):
-        return await self._run(
-            self._sync.list_memory,
-            namespace,
-            filters,
-            limit,
-            cursor,
-            exclude_superseded,
-        )
-
-    # AST-008: `list` sigue como conveniencia (el flat no puede acortarse —
-    # hazard BINDINGS_NAMESPACES); `search` es el híbrido namespaced y
-    # `search_vector` el ANN puro (OD-2=B).
-    async def list(self, namespace: str, **kwargs):
-        return await self._run(self._sync.list_memory, namespace, **kwargs)
+        AST-012: short names, no surname (paridad TS ``MemoryClient``).
+        """
+        return AsyncMemoryClient(self._sync, self._run)
 
     # ── Mutations (sync wrappers for completeness) ──
 
@@ -246,9 +279,6 @@ class AsyncVantaDB:
         return await self._run(
             self._sync.put, namespace, key, payload, metadata, vector, ttl_ms
         )
-
-    async def delete_memory(self, namespace: str, key: str) -> bool:
-        return await self._run(self._sync.delete_memory, namespace, key)
 
     async def delete_by_filter(self, namespace: str, filters: dict) -> int:
         return await self._run(self._sync.delete_by_filter, namespace, filters)
