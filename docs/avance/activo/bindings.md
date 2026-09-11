@@ -865,3 +865,9 @@ aliases: []
 - **Objetivo:** `VantaDBMemoryBackend` spec-first con mini-spec 5 fuentes.
 - **Resultado:** ✅ pytest 11+2skip + import OK + hooks; pin crewai v1.14.
 - **Commit:** 876df446
+
+### AST-004: WASM d.ts + TS types/errors/VantaDB anti-stutter (plan 2026-09-10-anti-stutter Wave1)
+- **Fecha:** 2026-09-11
+- **Objetivo:** Value/Metadata/FlatValue/MetadataInput/FilterOp/FilterItem/Config + ErrorJSON/DbError + Client con aliases deprecated; d.ts ConfigInput/Capabilities/Client.
+- **Resultado:** ✅ tsc 0 err + d.ts standalone 0 err + vitest 280/280; wire shapes intactos; this.name VantaError conservado.
+- **Commit:** 07406d9f
