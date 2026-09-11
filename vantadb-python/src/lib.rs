@@ -11,13 +11,10 @@ use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyModuleMethods, PyTuple};
 use std::collections::HashMap;
 use std::sync::{Arc, Condvar, Mutex, PoisonError};
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::index::IndexType;
 use vantadb::metadata;
-use vantadb::sdk::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest,
-    VantaNodeInput,
-};
+use vantadb::sdk::{Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, NodeInput};
 // FFI guards: single source of truth from core (WSM-09).
 use vantadb::{DistanceMetric, MAX_K};
 
@@ -36,9 +33,9 @@ use crate::convert::{
     operational_metrics_to_pydict, py_any_to_value, py_dict_to_filter_ops, py_dict_to_metadata,
     query_result_to_pydict, rebuild_report_to_pydict, runtime_profile_label,
     search_explanation_to_pydict, text_index_audit_report_to_pydict,
-    text_index_repair_report_to_pydict, BusyError, ConflictError, CorruptError, NoVectorError,
-    NotFoundError, ResourceLimitError, StorageError, TimeoutError, UnsupportedError,
-    ValidationError, VantaError,
+    text_index_repair_report_to_pydict, BusyError, ConflictError, CorruptError, Error,
+    NoVectorError, NotFoundError, ResourceLimitError, StorageError, TimeoutError, UnsupportedError,
+    ValidationError,
 };
 
 /// Clamp `top_k`/`k` to [`MAX_K`], warning when the caller requested more than
@@ -87,7 +84,7 @@ fn clamp_top_k(requested: usize) -> usize {
 ///     'alpha'
 ///     ```
 pub struct VantaDB {
-    engine: VantaEmbedded,
+    engine: Embedded,
     op_gate: OpGate,
 }
 
@@ -203,7 +200,7 @@ fn open_vantadb(
     read_only: bool,
     backend: Option<&str>,
 ) -> PyResult<VantaDB> {
-    let config = VantaConfig {
+    let config = Config {
         storage_path,
         memory_limit,
         read_only,
@@ -211,7 +208,7 @@ fn open_vantadb(
         ..Default::default()
     };
     let engine = py
-        .detach(move || VantaEmbedded::open_with_config(config))
+        .detach(move || Embedded::open_with_config(config))
         .map_err(map_vanta_error)?;
     Ok(VantaDB {
         engine,
@@ -486,7 +483,7 @@ impl VantaDB {
         fields: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<()> {
         let _g = enter(&self.op_gate)?;
-        let mut input = VantaNodeInput::new(id);
+        let mut input = NodeInput::new(id);
         input.content = Some(content.to_string());
         let v = extract_vector(vector, py)?;
         input.vector = (!v.is_empty()).then_some(v);
@@ -523,7 +520,7 @@ impl VantaDB {
     ///              namespaces=["ns1", "ns2"])
     /// ```
     ///
-    /// Returns a list of ``VantaMemoryRecord`` objects, up to ~5x faster
+    /// Returns a list of ``MemoryRecord`` objects, up to ~5x faster
     /// than sequential ``put()`` for large batches.
     ///
     /// ``metadatas`` accepts the same scalar values as ``put()`` (str, int,
@@ -603,7 +600,7 @@ impl VantaDB {
                 Some(nss) => nss[i].clone(),
                 None => ns.clone(),
             };
-            let mut input = VantaMemoryInput::new(ns_i, keys[i].clone(), payload);
+            let mut input = MemoryInput::new(ns_i, keys[i].clone(), payload);
 
             if let Some(all_meta) = &metadatas {
                 if let Some(meta_obj) = &all_meta[i] {
@@ -650,7 +647,7 @@ impl VantaDB {
         ttls: Option<Vec<Option<u64>>>,
     ) -> PyResult<Vec<VantaPyMemoryRecord>> {
         let _g = enter(&self.op_gate)?;
-        /// Build VantaMemoryInput vector from per-row parameters and a vector getter.
+        /// Build MemoryInput vector from per-row parameters and a vector getter.
         fn build_inputs(
             nrows: usize,
             _ndims: usize,
@@ -661,7 +658,7 @@ impl VantaDB {
             ttls: &Option<Vec<Option<u64>>>,
             py: Python,
             get_vector: &dyn Fn(usize) -> Vec<f32>,
-        ) -> PyResult<Vec<VantaMemoryInput>> {
+        ) -> PyResult<Vec<MemoryInput>> {
             let mut inputs = Vec::with_capacity(nrows);
             for i in 0..nrows {
                 let namespace = match namespaces {
@@ -674,7 +671,7 @@ impl VantaDB {
                     None => String::new(),
                 };
 
-                let mut input = VantaMemoryInput::new(namespace, key, payload);
+                let mut input = MemoryInput::new(namespace, key, payload);
 
                 if let Some(all_meta) = metadatas {
                     if let Some(meta_obj) = &all_meta[i] {
@@ -819,7 +816,7 @@ impl VantaDB {
     ///         after this duration.
     ///
     /// Returns:
-    ///     VantaMemoryRecord: The stored record, exposing ``namespace``, ``key``,
+    ///     MemoryRecord: The stored record, exposing ``namespace``, ``key``,
     ///     ``payload``, ``metadata``, ``vector``, ``created_at_ms``,
     ///     ``updated_at_ms``, ``version``, ``node_id``, and ``expires_at_ms``.
     ///
@@ -857,7 +854,7 @@ impl VantaDB {
         ttl_ms: Option<u64>,
     ) -> PyResult<VantaPyMemoryRecord> {
         let _g = enter(&self.op_gate)?;
-        let mut input = VantaMemoryInput::new(namespace, key, payload);
+        let mut input = MemoryInput::new(namespace, key, payload);
         input.metadata = py_dict_to_metadata(metadata)?;
         input.ttl_ms = ttl_ms;
         input.vector = match vector {
@@ -883,7 +880,7 @@ impl VantaDB {
     ///     key: Record key within the namespace.
     ///
     /// Returns:
-    ///     VantaMemoryRecord or None: The stored record, or None if no record
+    ///     MemoryRecord or None: The stored record, or None if no record
     ///     exists for the given namespace and key.
     ///
     /// Raises:
@@ -1059,7 +1056,7 @@ impl VantaDB {
     ///         ``MAX_K`` (1000) with a warning when larger.
     ///
     /// Returns:
-    ///     list[VantaSearchHit]: Hits ordered by similarity, each exposing
+    ///     list[SearchHit]: Hits ordered by similarity, each exposing
     ///     ``key``, ``payload``, ``metadata``, ``vector``, ``score``, and
     ///     ``node_id`` properties.
     ///
@@ -1114,7 +1111,7 @@ impl VantaDB {
     /// Returns:
     ///     VantaListResult: A page of records with ``records``, ``total_count``,
     ///     and ``next_cursor`` properties. Iterate or index into the result to
-    ///     access ``VantaMemoryRecord`` items.
+    ///     access ``MemoryRecord`` items.
     ///
     /// Raises:
     ///     TypeError: If ``filters`` contains unsupported value types.
@@ -1152,7 +1149,7 @@ impl VantaDB {
             engine
                 .list(
                     &namespace,
-                    VantaMemoryListOptions {
+                    MemoryListOptions {
                         #[allow(deprecated)]
                         filters: filters_meta,
                         filter_ops: None,
@@ -1194,7 +1191,7 @@ impl VantaDB {
     ///         (default False).
     ///
     /// Returns:
-    ///     list[VantaSearchHit]: Search hits ordered by relevance, each exposing
+    ///     list[SearchHit]: Search hits ordered by relevance, each exposing
     ///     ``key``, ``payload``, ``metadata``, ``vector``, ``score``, and
     ///     ``node_id`` properties.
     ///
@@ -1248,7 +1245,7 @@ impl VantaDB {
         };
         let method = parse_search_method(method);
 
-        let request = VantaMemorySearchRequest {
+        let request = MemorySearchRequest {
             namespace: namespace.to_string(),
             query_vector: extract_vector(query_vector, py)?,
             query_sparse: None,
@@ -1662,7 +1659,7 @@ impl VantaDB {
     ///     top_k: Fallback `top_k` for requests that omit it (default 10).
     ///
     /// Returns:
-    ///     list[list[VantaSearchHit]]: One hit list per request, in input order.
+    ///     list[list[SearchHit]]: One hit list per request, in input order.
     ///
     /// Raises:
     ///     ValueError: If a request fails engine validation (raised eagerly on
@@ -1677,7 +1674,7 @@ impl VantaDB {
     ) -> PyResult<Vec<Vec<VantaPySearchHit>>> {
         let _g = enter(&self.op_gate)?;
         // PERF-24: parse all requests (needs GIL) before detach
-        let parsed: PyResult<Vec<(VantaMemorySearchRequest, Option<IndexType>)>> = requests
+        let parsed: PyResult<Vec<(MemorySearchRequest, Option<IndexType>)>> = requests
             .iter()
             .map(|obj| self.parse_search_request(obj, py, top_k))
             .collect();
@@ -2113,7 +2110,7 @@ impl VantaDB {
     #[pyo3(signature = (summary_id))]
     fn recover_archived_nodes(&self, py: Python, summary_id: &str) -> PyResult<Vec<Py<PyAny>>> {
         let sid: u128 = summary_id.parse().map_err(|_| {
-            map_vanta_error(vantadb::VantaError::InvalidInput(format!(
+            map_vanta_error(vantadb::Error::InvalidInput(format!(
                 "Invalid summary_id: {summary_id}"
             )))
         })?;
@@ -2177,7 +2174,7 @@ impl VantaDB {
             None => DistanceMetric::Cosine,
         };
 
-        let request = VantaMemorySearchRequest {
+        let request = MemorySearchRequest {
             namespace: namespace.to_string(),
             query_vector: extract_vector(query_vector, py)?,
             query_sparse: None,
@@ -2272,14 +2269,14 @@ impl VantaDB {
     }
 
     /// Convert a Python batch-search request element (dict or `SearchRequest`
-    /// dataclass) into a [`VantaMemorySearchRequest`]. Field access needs the
+    /// dataclass) into a [`MemorySearchRequest`]. Field access needs the
     /// GIL, so this runs before `py.detach` (PERF-24 pattern).
     fn parse_search_request(
         &self,
         obj: &Bound<'_, PyAny>,
         py: Python<'_>,
         default_top_k: usize,
-    ) -> PyResult<(VantaMemorySearchRequest, Option<IndexType>)> {
+    ) -> PyResult<(MemorySearchRequest, Option<IndexType>)> {
         let namespace: String = Self::request_field(obj, "namespace")?
             .ok_or_else(|| {
                 PyValueError::new_err("search request missing required field 'namespace'")
@@ -2333,7 +2330,7 @@ impl VantaDB {
         };
 
         Ok((
-            VantaMemorySearchRequest {
+            MemorySearchRequest {
                 namespace,
                 query_vector,
                 query_sparse: None,
@@ -2410,7 +2407,7 @@ fn vantadb_py(_py: Python, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()>
     m.add_class::<VantaPyListResult>()?;
     m.add_function(wrap_pyfunction!(connect, m)?)?;
     // Typed exception hierarchy (MOD-20).
-    m.add("VantaError", _py.get_type::<VantaError>())?;
+    m.add("VantaError", _py.get_type::<Error>())?;
     m.add("NotFoundError", _py.get_type::<NotFoundError>())?;
     m.add("ValidationError", _py.get_type::<ValidationError>())?;
     m.add("CorruptError", _py.get_type::<CorruptError>())?;

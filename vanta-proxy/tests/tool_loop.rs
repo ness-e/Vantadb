@@ -20,10 +20,10 @@ use vanta_proxy::server;
 const USER_KEY: &str = "sk-loop-test";
 
 fn seeded_engine() -> Arc<vantadb::storage::StorageEngine> {
-    let config = vantadb::config::VantaConfig {
+    let config = vantadb::config::Config {
         backend_kind: vantadb::storage::BackendKind::InMemory,
         read_only: false,
-        ..vantadb::config::VantaConfig::default()
+        ..vantadb::config::Config::default()
     };
     let engine =
         vantadb::storage::StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
@@ -213,7 +213,7 @@ async fn a_openai_capture_executes_server_side_and_loops_to_final() {
     assert_eq!(tool_msg["tool_call_id"], "call_1");
 
     // Capture executed through WriteBack → record lands in proxy-turns.
-    let db = vantadb::sdk::VantaEmbedded::from_engine(env.engine.clone());
+    let db = vantadb::sdk::Embedded::from_engine(env.engine.clone());
     let mut persisted = false;
     for _ in 0..100 {
         if vanta_proxy::capture::list_turns(&db)

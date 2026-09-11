@@ -1,7 +1,7 @@
 //! Markdown-import counterpart of [`vanta_memory::seed::md_export`] (in
 //! `vantadb::cli_handlers::export_md`). Reads a directory of `.md` files
 //! produced by `vanta-cli export --format md` and idempotently writes them
-//! into a [`VantaEmbedded`].
+//! into a [`Embedded`].
 //!
 //! Round-trip guarantee: re-importing the same directory is a no-op
 //! (content-hash stable, all records report `unchanged`). This matches the
@@ -16,7 +16,7 @@ use std::path::Path;
 use serde::Deserialize;
 use thiserror::Error;
 
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata, VantaValue};
+use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata, Value};
 
 use super::SeedCounts;
 
@@ -39,7 +39,7 @@ pub enum MdImportError {
     Validation(String),
     /// Underlying VantaDB storage error.
     #[error("vantadb: {0}")]
-    Vanta(#[from] vantadb::error::VantaError),
+    Vanta(#[from] vantadb::error::Error),
 }
 
 /// Frontmatter shape we read back. Mirrors `cli_handlers::export_md::Frontmatter`
@@ -71,13 +71,13 @@ struct FrontmatterRead {
 }
 
 /// Parse one MD file: split frontmatter (between the two `---` lines) from
-/// the body and return a [`VantaMemoryInput`].
-pub fn parse_md_file(path: &Path) -> Result<VantaMemoryInput, MdImportError> {
+/// the body and return a [`MemoryInput`].
+pub fn parse_md_file(path: &Path) -> Result<MemoryInput, MdImportError> {
     let raw = fs::read_to_string(path)?;
     parse_md_str(&raw, path)
 }
 
-fn parse_md_str(raw: &str, path: &Path) -> Result<VantaMemoryInput, MdImportError> {
+fn parse_md_str(raw: &str, path: &Path) -> Result<MemoryInput, MdImportError> {
     let (fm_json, body) = split_frontmatter(raw).ok_or_else(|| {
         MdImportError::Validation(format!(
             "missing --- frontmatter delimiters in {}",
@@ -92,7 +92,7 @@ fn parse_md_str(raw: &str, path: &Path) -> Result<VantaMemoryInput, MdImportErro
         )));
     }
     let metadata = metadata_from_json(&fm.metadata);
-    Ok(VantaMemoryInput {
+    Ok(MemoryInput {
         namespace: fm.namespace,
         key: fm.key,
         payload: body.to_string(),
@@ -140,54 +140,54 @@ fn split_frontmatter(raw: &str) -> Option<(String, String)> {
     Some((fm_json, body))
 }
 
-fn metadata_from_json(json: &BTreeMap<String, serde_json::Value>) -> VantaMemoryMetadata {
-    let mut out = VantaMemoryMetadata::new();
+fn metadata_from_json(json: &BTreeMap<String, serde_json::Value>) -> MemoryMetadata {
+    let mut out = MemoryMetadata::new();
     for (k, v) in json {
         out.insert(k.clone(), json_to_vanta(v));
     }
     out
 }
 
-fn json_to_vanta(v: &serde_json::Value) -> VantaValue {
+fn json_to_vanta(v: &serde_json::Value) -> Value {
     match v {
-        serde_json::Value::Null => VantaValue::Null,
-        serde_json::Value::Bool(b) => VantaValue::Bool(*b),
+        serde_json::Value::Null => Value::Null,
+        serde_json::Value::Bool(b) => Value::Bool(*b),
         serde_json::Value::Number(n) => {
             if let Some(i) = n.as_i64() {
-                VantaValue::Int(i)
+                Value::Int(i)
             } else if let Some(f) = n.as_f64() {
-                VantaValue::Float(f)
+                Value::Float(f)
             } else {
-                VantaValue::Null
+                Value::Null
             }
         }
         serde_json::Value::String(s) => {
             // Try RFC3339 round-trip; if it parses, keep as DateTime, else String.
             if let Ok(dt) = chrono::DateTime::parse_from_rfc3339(s) {
-                VantaValue::DateTime(dt.with_timezone(&chrono::Utc))
+                Value::DateTime(dt.with_timezone(&chrono::Utc))
             } else {
-                VantaValue::String(s.clone())
+                Value::String(s.clone())
             }
         }
         serde_json::Value::Array(xs) => {
             // Coerce to the most-specific list variant the array supports.
             if xs.is_empty() {
-                VantaValue::ListString(Vec::new())
+                Value::ListString(Vec::new())
             } else if xs.iter().all(|v| v.is_string()) {
-                VantaValue::ListString(
+                Value::ListString(
                     xs.iter()
                         .filter_map(|v| v.as_str().map(str::to_string))
                         .collect(),
                 )
             } else if xs.iter().all(|v| v.is_i64()) {
-                VantaValue::ListInt(xs.iter().filter_map(|v| v.as_i64()).collect())
+                Value::ListInt(xs.iter().filter_map(|v| v.as_i64()).collect())
             } else if xs.iter().all(|v| v.is_f64()) {
-                VantaValue::ListFloat(xs.iter().filter_map(|v| v.as_f64()).collect())
+                Value::ListFloat(xs.iter().filter_map(|v| v.as_f64()).collect())
             } else if xs.iter().all(|v| v.is_boolean()) {
-                VantaValue::ListBool(xs.iter().filter_map(|v| v.as_bool()).collect())
+                Value::ListBool(xs.iter().filter_map(|v| v.as_bool()).collect())
             } else {
                 // Mixed: stringify every element.
-                VantaValue::ListString(
+                Value::ListString(
                     xs.iter()
                         .map(|v| match v {
                             serde_json::Value::String(s) => s.clone(),
@@ -198,8 +198,8 @@ fn json_to_vanta(v: &serde_json::Value) -> VantaValue {
             }
         }
         serde_json::Value::Object(_) => {
-            // Flatten to JSON string for round-trip (object shape not in VantaValue).
-            VantaValue::String(v.to_string())
+            // Flatten to JSON string for round-trip (object shape not in Value).
+            Value::String(v.to_string())
         }
     }
 }
@@ -213,7 +213,7 @@ fn content_hash(content: &str) -> u64 {
 /// Idempotently import every `.md` file under `dir` (recursively). Returns a
 /// [`SeedCounts`] reporting what each record did. Records with unchanged
 /// content (matching content-hash) are skipped.
-pub fn import_md_dir(db: &VantaEmbedded, dir: &Path) -> Result<SeedCounts, MdImportError> {
+pub fn import_md_dir(db: &Embedded, dir: &Path) -> Result<SeedCounts, MdImportError> {
     let mut counts = SeedCounts::default();
     walk(dir, &mut |path| {
         let input = parse_md_file(path)?;
@@ -239,7 +239,7 @@ pub fn import_md_dir(db: &VantaEmbedded, dir: &Path) -> Result<SeedCounts, MdImp
     Ok(counts)
 }
 
-fn canonical_form(input: &VantaMemoryInput) -> String {
+fn canonical_form(input: &MemoryInput) -> String {
     // Stable string used for idempotency hash. We hash namespace + key +
     // payload — metadata round-trips through the body (frontmatter) and is
     // already covered by payload equality for our MD shape.
@@ -252,7 +252,7 @@ fn canonical_form(input: &VantaMemoryInput) -> String {
     s
 }
 
-fn canonical_form_from_record(r: &vantadb::sdk::VantaMemoryRecord) -> String {
+fn canonical_form_from_record(r: &vantadb::sdk::MemoryRecord) -> String {
     let mut s = String::with_capacity(r.payload.len() + 64);
     s.push_str(&r.namespace);
     s.push('\u{1f}');
@@ -304,10 +304,10 @@ mod tests {
         m.insert("b".to_string(), serde_json::json!(true));
         let meta = metadata_from_json(&m);
         let a = meta.get("a").unwrap();
-        assert!(matches!(a, VantaValue::String(s) if s == "alpha"));
+        assert!(matches!(a, Value::String(s) if s == "alpha"));
         let n = meta.get("n").unwrap();
-        assert!(matches!(n, VantaValue::Int(7)));
+        assert!(matches!(n, Value::Int(7)));
         let b = meta.get("b").unwrap();
-        assert!(matches!(b, VantaValue::Bool(true)));
+        assert!(matches!(b, Value::Bool(true)));
     }
 }

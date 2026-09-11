@@ -11,8 +11,8 @@
 //!     "heat.*decay|contradiction" | Measure-Object | Select-Object Count` >= 1
 
 use serde_json::json;
-use vantadb::config::VantaConfig;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata};
+use vantadb::config::Config;
+use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
 use vantadb::storage::BackendKind;
 
 use vanta_memory::core::abstractions::{MemoryRecord, MemoryType};
@@ -21,13 +21,13 @@ use vanta_memory::core::record::lifecycle::{
     PRUNE_HEAT_THRESHOLD,
 };
 
-fn open_db() -> VantaEmbedded {
-    let config = VantaConfig {
+fn open_db() -> Embedded {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         read_only: false,
-        ..VantaConfig::default()
+        ..Config::default()
     };
-    VantaEmbedded::open_with_config(config).expect("open in-memory db")
+    Embedded::open_with_config(config).expect("open in-memory db")
 }
 
 fn fixture() -> MemoryRecord {
@@ -65,11 +65,11 @@ fn heat_bump_then_decay_persists_and_reaches_prune_threshold() {
     let key = "m1";
 
     let r = fixture();
-    db.put(VantaMemoryInput {
+    db.put(MemoryInput {
         namespace: namespace.to_string(),
         key: key.to_string(),
         payload: serde_json::to_string(&r).unwrap(),
-        metadata: VantaMemoryMetadata::new(),
+        metadata: MemoryMetadata::new(),
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
@@ -86,11 +86,11 @@ fn heat_bump_then_decay_persists_and_reaches_prune_threshold() {
         let mut parsed: MemoryRecord = serde_json::from_str(&raw).expect("parse");
         bump_heat(&mut parsed, 1);
         let payload = serde_json::to_string(&parsed).unwrap();
-        db.put(VantaMemoryInput {
+        db.put(MemoryInput {
             namespace: namespace.to_string(),
             key: key.to_string(),
             payload,
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             vector: None,
             sparse_vector: None,
             ttl_ms: None,

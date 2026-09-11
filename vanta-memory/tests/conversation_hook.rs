@@ -17,8 +17,8 @@ use vanta_memory::services::conversation_hook::{run_bridge_pass, HttpCaptureBrid
 use vanta_memory::utils::local_backend::LocalStateBackend;
 use vanta_memory::utils::managed_timer::SystemClock;
 use vantadb::cli_server::ConversationTrigger;
-use vantadb::config::VantaConfig;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::config::Config;
+use vantadb::sdk::Embedded;
 use vantadb::storage::BackendKind;
 
 /// L1 extraction response shape per `tests/l1_extractor.rs`.
@@ -59,10 +59,10 @@ impl LlmRunner for ScriptedRunner {
     }
 }
 
-fn open_db() -> VantaEmbedded {
-    VantaEmbedded::open_with_config(VantaConfig {
+fn open_db() -> Embedded {
+    Embedded::open_with_config(Config {
         backend_kind: BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     })
     .expect("open in-memory db")
 }

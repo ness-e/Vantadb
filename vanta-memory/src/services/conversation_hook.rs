@@ -27,19 +27,19 @@ use crate::services::pipeline_worker::{MemoryTaskHandler, PipelineWorker, RunSta
 use crate::utils::local_backend::LocalStateBackend;
 use crate::utils::managed_timer::{Clock, SystemClock};
 use std::sync::Arc;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::sdk::Embedded;
 
 /// Implements [`vantadb::cli_server::ConversationTrigger`]: captures the saved
 /// message into L0 (LLM-free — data is never lost) and enqueues an L1
 /// extraction task on the shared queue for the MEM-16 worker. The session id
 /// is the decimal thread id string, so memories land in `l1/<thread_id>`.
 pub struct HttpCaptureBridge<C: Clock = SystemClock> {
-    db: VantaEmbedded,
+    db: Embedded,
     queue: Arc<LocalStateBackend<C>>,
 }
 
 impl<C: Clock> HttpCaptureBridge<C> {
-    pub fn new(db: VantaEmbedded, queue: Arc<LocalStateBackend<C>>) -> Self {
+    pub fn new(db: Embedded, queue: Arc<LocalStateBackend<C>>) -> Self {
         Self { db, queue }
     }
 }
@@ -92,7 +92,7 @@ impl<C: Clock> vantadb::cli_server::ConversationTrigger for HttpCaptureBridge<C>
 /// [`MemoryTaskHandler`] over the same queue instead.
 pub fn run_bridge_pass<C: Clock, R: LlmRunner>(
     queue: &LocalStateBackend<C>,
-    db: VantaEmbedded,
+    db: Embedded,
     runner: &R,
 ) -> RunStats {
     let mut worker = PipelineWorker::new(queue, WorkerConfig::default());

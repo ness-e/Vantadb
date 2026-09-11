@@ -10,8 +10,8 @@ use tempfile::NamedTempFile;
 use vanta_memory::core::persona::{get_persona, persona_namespace, PERSONA_KEY};
 use vanta_memory::core::skill::conversation_add::sink::SkillCoreSink;
 use vanta_memory::seed::{import_seed_file, import_seed_str, SeedError};
-use vantadb::config::VantaConfig;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::config::Config;
+use vantadb::sdk::Embedded;
 use vantadb::storage::BackendKind;
 
 const SEED_JSON: &str = r##"{
@@ -23,11 +23,11 @@ const SEED_JSON: &str = r##"{
   "persona": { "session_key": "user one", "content": "# User Narrative Profile\nlikes rust" }
 }"##;
 
-fn open_db() -> VantaEmbedded {
-    VantaEmbedded::open_with_config(VantaConfig {
+fn open_db() -> Embedded {
+    Embedded::open_with_config(Config {
         backend_kind: BackendKind::InMemory,
         read_only: false,
-        ..VantaConfig::default()
+        ..Config::default()
     })
     .expect("open in-memory db")
 }

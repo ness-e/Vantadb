@@ -21,8 +21,8 @@
 use std::process::ExitCode;
 
 use vanta_memory::seed::{import_md_dir, import_seed_file, SeedCounts};
-use vantadb::config::VantaConfig;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::config::Config;
+use vantadb::sdk::Embedded;
 use vantadb::storage::BackendKind;
 
 #[derive(Debug)]
@@ -95,25 +95,25 @@ fn run(args: &[String]) -> Result<String, String> {
     })
 }
 
-fn open_db(db_path: Option<&str>) -> Result<VantaEmbedded, String> {
+fn open_db(db_path: Option<&str>) -> Result<Embedded, String> {
     match db_path {
         Some(path) => {
-            let config = VantaConfig {
+            let config = Config {
                 storage_path: path.to_string(),
                 backend_kind: BackendKind::Fjall,
-                ..VantaConfig::default()
+                ..Config::default()
             };
-            VantaEmbedded::open_with_config(config)
+            Embedded::open_with_config(config)
                 .map_err(|e| format!("failed to open database at {path}: {e}"))
         }
         None => {
             eprintln!("warning: no --db given; importing into an in-memory store (not persisted)");
-            let config = VantaConfig {
+            let config = Config {
                 backend_kind: BackendKind::InMemory,
                 read_only: false,
-                ..VantaConfig::default()
+                ..Config::default()
             };
-            VantaEmbedded::open_with_config(config)
+            Embedded::open_with_config(config)
                 .map_err(|e| format!("failed to open in-memory database: {e}"))
         }
     }

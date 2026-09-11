@@ -2,28 +2,28 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Integration test for MEM-62 round-trip: export MD → import MD preserves
 //! the records byte-for-byte (idempotency via content-hash). Runs against an
-//! in-memory VantaEmbedded so it doesn't need the `fjall` feature.
+//! in-memory Embedded so it doesn't need the `fjall` feature.
 
 use std::collections::BTreeMap;
 
-use vantadb::config::VantaConfig;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata, VantaValue};
+use vantadb::config::Config;
+use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata, Value};
 use vantadb::storage::BackendKind;
 
 #[test]
 fn round_trip_put_export_import_get() {
-    let db = VantaEmbedded::open_with_config(VantaConfig {
+    let db = Embedded::open_with_config(Config {
         backend_kind: BackendKind::InMemory,
         read_only: false,
-        ..VantaConfig::default()
+        ..Config::default()
     })
     .expect("open in-memory db");
 
     // Put 3 records with mixed metadata shapes.
-    let mut meta1 = VantaMemoryMetadata::new();
-    meta1.insert("author".into(), VantaValue::String("alice".into()));
-    meta1.insert("version".into(), VantaValue::Int(1));
-    db.put(VantaMemoryInput {
+    let mut meta1 = MemoryMetadata::new();
+    meta1.insert("author".into(), Value::String("alice".into()));
+    meta1.insert("version".into(), Value::Int(1));
+    db.put(MemoryInput {
         namespace: "agent/team".into(),
         key: "intro".into(),
         payload: "Welcome to the team.".into(),
@@ -34,12 +34,12 @@ fn round_trip_put_export_import_get() {
     })
     .expect("put intro");
 
-    let mut meta2 = VantaMemoryMetadata::new();
+    let mut meta2 = MemoryMetadata::new();
     meta2.insert(
         "tags".into(),
-        VantaValue::ListString(vec!["a".into(), "b".into()]),
+        Value::ListString(vec!["a".into(), "b".into()]),
     );
-    db.put(VantaMemoryInput {
+    db.put(MemoryInput {
         namespace: "agent/team".into(),
         key: "handbook".into(),
         payload: "Always commit before merging.".into(),
@@ -50,9 +50,9 @@ fn round_trip_put_export_import_get() {
     })
     .expect("put handbook");
 
-    let mut meta3 = VantaMemoryMetadata::new();
-    meta3.insert("priority".into(), VantaValue::Float(0.5));
-    db.put(VantaMemoryInput {
+    let mut meta3 = MemoryMetadata::new();
+    meta3.insert("priority".into(), Value::Float(0.5));
+    db.put(MemoryInput {
         namespace: "agent/team".into(),
         key: "oncall".into(),
         payload: "Weekly rotations: alice → bob.".into(),
@@ -70,7 +70,7 @@ fn round_trip_put_export_import_get() {
         let page = db
             .list(
                 ns,
-                vantadb::sdk::VantaMemoryListOptions {
+                vantadb::sdk::MemoryListOptions {
                     limit: 100,
                     ..Default::default()
                 },
@@ -87,10 +87,10 @@ fn round_trip_put_export_import_get() {
 
     // Now simulate import: drop the namespace from a fresh in-memory db,
     // then import via import_md_dir.
-    let db2 = VantaEmbedded::open_with_config(VantaConfig {
+    let db2 = Embedded::open_with_config(Config {
         backend_kind: BackendKind::InMemory,
         read_only: false,
-        ..VantaConfig::default()
+        ..Config::default()
     })
     .expect("open in-memory db #2");
 
@@ -125,7 +125,7 @@ fn round_trip_put_export_import_get() {
     assert_eq!(got.payload, "Welcome to the team.");
     assert!(matches!(
         got.metadata.get("author"),
-        Some(VantaValue::String(s)) if s == "alice"
+        Some(Value::String(s)) if s == "alice"
     ));
 
     let got2 = db2
@@ -134,7 +134,7 @@ fn round_trip_put_export_import_get() {
         .expect("handbook exists");
     assert!(matches!(
         got2.metadata.get("tags"),
-        Some(VantaValue::ListString(xs)) if xs == &vec!["a".to_string(), "b".to_string()]
+        Some(Value::ListString(xs)) if xs == &vec!["a".to_string(), "b".to_string()]
     ));
 
     // Cleanup

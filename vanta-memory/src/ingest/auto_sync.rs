@@ -198,10 +198,10 @@ mod tests {
     }
 
     fn in_memory_engine() -> vantadb::storage::StorageEngine {
-        let config = vantadb::config::VantaConfig {
+        let config = vantadb::config::Config {
             backend_kind: vantadb::storage::BackendKind::InMemory,
             read_only: false,
-            ..vantadb::config::VantaConfig::default()
+            ..vantadb::config::Config::default()
         };
         vantadb::storage::StorageEngine::open_with_config(":memory:", Some(config))
             .expect("open in-memory engine")

@@ -57,7 +57,7 @@ fn seed_scene(
     summary: &str,
     content: &str,
 ) {
-    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let db = vantadb::Embedded::from_engine(storage.clone());
     vanta_memory::core::scene::scene_index::upsert_scene(&db, session, name, summary, content)
         .expect("seed scene");
 }

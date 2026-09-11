@@ -11,7 +11,7 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::executor::Executor;
-use vantadb::sdk::VantaMemoryInput;
+use vantadb::sdk::MemoryInput;
 use vantadb::storage::StorageEngine;
 use vantadb_mcp::{handle_tools_call, handle_tools_list, McpConfig};
 
@@ -51,7 +51,7 @@ fn result_json(res: Result<Value, Value>) -> Value {
 
 /// Seed one persona document for `session` through vanta-seed.
 fn seed_persona(storage: &Arc<StorageEngine>, session: &str, content: &str) {
-    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let db = vantadb::Embedded::from_engine(storage.clone());
     let counts = vanta_memory::seed::import_seed(
         &db,
         &vanta_memory::seed::SeedInput {
@@ -91,14 +91,14 @@ fn seed_l1(storage: &Arc<StorageEngine>, session: &str, id: &str, content: &str)
         heat: 0,
         superseded_by: None,
     };
-    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
-    db.put(VantaMemoryInput {
+    let db = vantadb::Embedded::from_engine(storage.clone());
+    db.put(MemoryInput {
         namespace: format!("l1/{session}"),
         key: id.into(),
         payload: serde_json::to_string(&record).expect("serialize MemoryRecord"),
         vector: None,
         sparse_vector: None,
-        metadata: vantadb::sdk::VantaMemoryMetadata::new(),
+        metadata: vantadb::sdk::MemoryMetadata::new(),
         ttl_ms: None,
     })
     .expect("seed l1 record");

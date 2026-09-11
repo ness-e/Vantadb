@@ -9,12 +9,12 @@
 //!
 //! | Tool | Primitive | Edge direction |
 //! |---|---|---|
-//! | `code_search` | `VantaEmbedded::graphrag_search` (own pipeline) | n/a |
+//! | `code_search` | `Embedded::graphrag_search` (own pipeline) | n/a |
 //! | `code_explore` | `get_node` + depth-1 BFS Forward/Reverse | explicit |
 //! | `code_callers` | depth-1 BFS `Reverse` minus root (incoming edges) | Reverse |
 //! | `code_callees` | depth-1 BFS `Forward` minus root (outgoing edges) | Forward |
 //! | `code_impact` | `graph_bfs(id, max_depth, direction)` reachable subgraph | parameterized |
-//! | `code_node` | `get_node` → `VantaNodeRecord` | n/a |
+//! | `code_node` | `get_node` → `NodeRecord` | n/a |
 //! | `code_status` | `operational_metrics()` snapshot | n/a |
 //! | `code_files` | **not supported** stub — the own graphrag has no
 //!   file-per-node concept (D28); TDAM's file semantics are not ported | n/a |
@@ -27,7 +27,7 @@ use crate::validation::{
 use serde_json::{json, Value};
 use std::sync::Arc;
 use vantadb::graph::TraversalDirection;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::sdk::Embedded;
 use vantadb::storage::StorageEngine;
 
 /// Default traversal depth for `code_impact`.
@@ -187,7 +187,7 @@ pub(crate) fn handle_code_tool(
     storage: &Arc<StorageEngine>,
     config: &McpConfig,
 ) -> Result<Value, Value> {
-    let embedded = VantaEmbedded::from_engine(storage.clone());
+    let embedded = Embedded::from_engine(storage.clone());
     match name {
         "code_search" => {
             let namespace = required_str(args, "namespace")?;
@@ -351,9 +351,9 @@ fn required_node(args: &Value) -> Result<u128, Value> {
 /// yields `Ok(None)` so callers can respond with the domain-error
 /// `error_content` shape (self-correctable), matching `memory_get`.
 fn fetch_record(
-    embedded: &VantaEmbedded,
+    embedded: &Embedded,
     node_id: u128,
-) -> Result<Option<vantadb::sdk::VantaNodeRecord>, Value> {
+) -> Result<Option<vantadb::sdk::NodeRecord>, Value> {
     embedded
         .get_node(node_id)
         .map_err(|e| McpError::from(e).to_json())
@@ -362,7 +362,7 @@ fn fetch_record(
 /// Depth-1 BFS in `direction`, excluding the root itself, each neighbor
 /// serialized as a full node record.
 fn neighbors(
-    embedded: &VantaEmbedded,
+    embedded: &Embedded,
     roots: &[u128],
     max_depth: usize,
     direction: TraversalDirection,

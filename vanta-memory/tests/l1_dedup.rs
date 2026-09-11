@@ -18,17 +18,17 @@ use vanta_memory::core::record::{
     apply_dedup_batch, batch_dedup, generate_memory_id, l1_namespace, parse_batch_result,
     prepare_pending, read_session_records, run_l1_dedup, write_memory, EmbedFn, L1DedupConfig,
 };
-use vantadb::config::VantaConfig;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata};
+use vantadb::config::Config;
+use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
 use vantadb::storage::BackendKind;
 
-fn open_db() -> (VantaEmbedded, tempfile::TempDir) {
+fn open_db() -> (Embedded, tempfile::TempDir) {
     let dir = tempdir().expect("tempdir");
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     };
-    let db = VantaEmbedded::open_with_config(config).expect("open embedded");
+    let db = Embedded::open_with_config(config).expect("open embedded");
     (db, dir)
 }
 
@@ -379,14 +379,14 @@ fn run_l1_dedup_full_merge_flow() {
     assert_eq!(records.len(), 1); // target removed, merged stored
 }
 
-fn put_records(db: &VantaEmbedded, session: &str, records: &[MemoryRecord]) {
+fn put_records(db: &Embedded, session: &str, records: &[MemoryRecord]) {
     let ns = l1_namespace(session);
     for r in records {
-        db.put(VantaMemoryInput {
+        db.put(MemoryInput {
             namespace: ns.clone(),
             key: r.id.clone(),
             payload: serde_json::to_string(r).expect("serialize"),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
@@ -438,7 +438,7 @@ const FAKE_VALUE: f32 = 0.25;
 struct FixedEmbedding;
 
 impl vantadb::llm::EmbeddingProvider for FixedEmbedding {
-    fn embed(&self, _text: &str) -> Result<Vec<f32>, vantadb::error::VantaError> {
+    fn embed(&self, _text: &str) -> Result<Vec<f32>, vantadb::error::Error> {
         Ok(vec![FAKE_VALUE; FAKE_DIM])
     }
 }
@@ -447,8 +447,8 @@ impl vantadb::llm::EmbeddingProvider for FixedEmbedding {
 struct FailingEmbedding;
 
 impl vantadb::llm::EmbeddingProvider for FailingEmbedding {
-    fn embed(&self, _text: &str) -> Result<Vec<f32>, vantadb::error::VantaError> {
-        Err(vantadb::error::VantaError::backend_error("provider down"))
+    fn embed(&self, _text: &str) -> Result<Vec<f32>, vantadb::error::Error> {
+        Err(vantadb::error::Error::backend_error("provider down"))
     }
 }
 
@@ -457,11 +457,7 @@ fn hook<P: vantadb::llm::EmbeddingProvider + 'static>(p: P) -> EmbedFn {
 }
 
 /// Read a stored record straight from the SDK to inspect its vector.
-fn get_raw(
-    db: &VantaEmbedded,
-    session_key: &str,
-    id: &str,
-) -> Option<vantadb::sdk::VantaMemoryRecord> {
+fn get_raw(db: &Embedded, session_key: &str, id: &str) -> Option<vantadb::sdk::MemoryRecord> {
     db.get(&l1_namespace(session_key), id).expect("get")
 }
 

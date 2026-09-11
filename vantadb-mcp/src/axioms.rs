@@ -8,7 +8,7 @@
 
 use serde_json::{json, Value};
 use std::sync::Arc;
-use vantadb::sdk::VantaMemoryListOptions;
+use vantadb::sdk::MemoryListOptions;
 use vantadb::storage::StorageEngine;
 
 /// Reserved namespace for agent-managed axioms (MCP-33 convention).
@@ -33,14 +33,14 @@ pub(crate) const HARDCODED_AXIOMS: &str = r#"[
 /// `_axioms` namespace, sorted by id. Records with an unparseable payload are
 /// skipped rather than failing the whole read.
 pub(crate) fn resolve_axioms(storage: &Arc<StorageEngine>) -> Value {
-    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
     let mut axioms: Vec<Value> =
         serde_json::from_str(HARDCODED_AXIOMS).unwrap_or_else(|_| Vec::new());
-    let options = VantaMemoryListOptions {
+    let options = MemoryListOptions {
         limit: MAX_AXIOM_RECORDS,
         cursor: None,
         #[allow(deprecated)]
-        filters: vantadb::sdk::VantaMemoryMetadata::new(),
+        filters: vantadb::sdk::MemoryMetadata::new(),
         filter_ops: None,
         exclude_superseded: false,
     };

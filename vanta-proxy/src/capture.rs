@@ -7,9 +7,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 
 use serde_json::Value;
-use vantadb::sdk::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryMetadata, VantaMemoryRecord,
-};
+use vantadb::sdk::{Embedded, MemoryInput, MemoryListOptions, MemoryMetadata, MemoryRecord};
 
 use crate::writeback::L0Job;
 
@@ -39,7 +37,7 @@ pub fn last_user_text(body: &[u8]) -> Option<String> {
 
 /// Build the retryable L0 job persisting one conversation turn record.
 pub fn turn_job(
-    memory: VantaEmbedded,
+    memory: Embedded,
     session_key: &str,
     protocol: &str,
     space_id: &str,
@@ -62,11 +60,11 @@ pub fn turn_job(
 
     Arc::new(move || {
         let memory = memory.clone();
-        let input = VantaMemoryInput {
+        let input = MemoryInput {
             namespace: TURNS_NAMESPACE.into(),
             key: key.clone(),
             payload: payload.clone(),
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
@@ -80,10 +78,10 @@ pub fn turn_job(
 }
 
 /// Read back every persisted turn record (tests / tooling).
-pub fn list_turns(db: &VantaEmbedded) -> Vec<VantaMemoryRecord> {
+pub fn list_turns(db: &Embedded) -> Vec<MemoryRecord> {
     db.list(
         TURNS_NAMESPACE,
-        VantaMemoryListOptions {
+        MemoryListOptions {
             limit: 100,
             ..Default::default()
         },
@@ -99,13 +97,13 @@ mod tests {
 
     use crate::writeback::DEFAULT_ATTEMPTS;
 
-    fn memory() -> VantaEmbedded {
-        let config = vantadb::config::VantaConfig {
+    fn memory() -> Embedded {
+        let config = vantadb::config::Config {
             backend_kind: vantadb::storage::BackendKind::InMemory,
             ..Default::default()
         };
         vantadb::storage::StorageEngine::open_with_config(":memory:", Some(config))
-            .map(|engine| VantaEmbedded::from_engine(engine.into()))
+            .map(|engine| Embedded::from_engine(engine.into()))
             .expect("in-memory engine")
     }
 

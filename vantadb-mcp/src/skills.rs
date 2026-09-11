@@ -26,7 +26,7 @@ use vantadb::sdk::{
 };
 use vantadb::skills::SkillStore;
 use vantadb::storage::StorageEngine;
-use vantadb::VantaError;
+use vantadb::Error;
 
 /// Metadata key prefix under which `skill_files_write` resources are stored.
 ///
@@ -234,7 +234,7 @@ fn skill_not_found() -> Value {
     error_content("Skill not found")
 }
 
-fn store_err(e: VantaError) -> Value {
+fn store_err(e: Error) -> Value {
     // ERR-MCP-01: structured envelope (code/retriable/hint) instead of the
     // old "Skill Error: {e}" string, so clients can branch on code.
     error_content(crate::error::McpError::from(e).to_json().to_string())

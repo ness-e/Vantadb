@@ -7,7 +7,7 @@
 
 use std::sync::atomic::{AtomicU64, Ordering};
 
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryMetadata};
+use vantadb::sdk::{Embedded, MemoryInput, MemoryListOptions, MemoryMetadata};
 
 use super::{GenLogError, GenerationLayer, GenerationLogEntry};
 use crate::core::conversation::sanitize_component;
@@ -32,13 +32,13 @@ fn next_key(ts_ms: u64) -> String {
 
 /// Append one entry. Errors propagate (testable path); production callers use
 /// [`record_best_effort`].
-pub fn try_record(db: &VantaEmbedded, entry: &GenerationLogEntry) -> Result<(), GenLogError> {
+pub fn try_record(db: &Embedded, entry: &GenerationLogEntry) -> Result<(), GenLogError> {
     let ns = genlog_namespace(&entry.session_key);
-    db.put(VantaMemoryInput {
+    db.put(MemoryInput {
         namespace: ns.clone(),
         key: next_key(entry.ts_ms),
         payload: serde_json::to_string(entry)?,
-        metadata: VantaMemoryMetadata::new(),
+        metadata: MemoryMetadata::new(),
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
@@ -48,7 +48,7 @@ pub fn try_record(db: &VantaEmbedded, entry: &GenerationLogEntry) -> Result<(), 
 
 /// Best-effort append (Principio 4): a store failure is logged and swallowed —
 /// the memory pipeline continues unaffected.
-pub fn record_best_effort(db: &VantaEmbedded, entry: &GenerationLogEntry) {
+pub fn record_best_effort(db: &Embedded, entry: &GenerationLogEntry) {
     if let Err(err) = try_record(db, entry) {
         tracing::warn!(
             layer = ?entry.layer,
@@ -60,7 +60,7 @@ pub fn record_best_effort(db: &VantaEmbedded, entry: &GenerationLogEntry) {
 }
 
 /// Keep only the newest [`MAX_ENTRIES_PER_SESSION`] entries in the namespace.
-fn enforce_cap(db: &VantaEmbedded, ns: &str) -> Result<(), GenLogError> {
+fn enforce_cap(db: &Embedded, ns: &str) -> Result<(), GenLogError> {
     let keys = list_keys(db, ns)?;
     if keys.len() <= MAX_ENTRIES_PER_SESSION {
         return Ok(());
@@ -75,13 +75,13 @@ fn enforce_cap(db: &VantaEmbedded, ns: &str) -> Result<(), GenLogError> {
     Ok(())
 }
 
-fn list_keys(db: &VantaEmbedded, ns: &str) -> Result<Vec<String>, GenLogError> {
+fn list_keys(db: &Embedded, ns: &str) -> Result<Vec<String>, GenLogError> {
     let mut keys = Vec::new();
     let mut cursor: Option<usize> = None;
     loop {
         let page = db.list(
             ns,
-            VantaMemoryListOptions {
+            MemoryListOptions {
                 limit: 1000,
                 cursor,
                 ..Default::default()
@@ -98,7 +98,7 @@ fn list_keys(db: &VantaEmbedded, ns: &str) -> Result<Vec<String>, GenLogError> {
 /// Consult the generation log of a session, optionally filtered by layer,
 /// ordered oldest → newest by `ts_ms`.
 pub fn query_session(
-    db: &VantaEmbedded,
+    db: &Embedded,
     session_key: &str,
     layer: Option<GenerationLayer>,
 ) -> Result<Vec<GenerationLogEntry>, GenLogError> {
@@ -108,7 +108,7 @@ pub fn query_session(
     loop {
         let page = db.list(
             &ns,
-            VantaMemoryListOptions {
+            MemoryListOptions {
                 limit: 1000,
                 cursor,
                 ..Default::default()
@@ -140,15 +140,15 @@ mod tests {
     use super::*;
     use crate::core::memory_generation_log::{GenLogError, GenerationStatus};
 
-    fn test_db() -> VantaEmbedded {
-        use vantadb::config::VantaConfig;
+    fn test_db() -> Embedded {
+        use vantadb::config::Config;
         use vantadb::storage::BackendKind;
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             read_only: false,
-            ..VantaConfig::default()
+            ..Config::default()
         };
-        vantadb::sdk::VantaEmbedded::open_with_config(config).expect("open in-memory db")
+        vantadb::sdk::Embedded::open_with_config(config).expect("open in-memory db")
     }
 
     fn entry(layer: GenerationLayer, ts_ms: u64) -> GenerationLogEntry {

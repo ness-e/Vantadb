@@ -103,7 +103,7 @@ pub enum MemoryPromptError {
     AgentRequiresTeam,
     /// Underlying VantaDB storage error (store implementations).
     #[error("vantadb: {0}")]
-    Vanta(#[from] vantadb::error::VantaError),
+    Vanta(#[from] vantadb::error::Error),
 }
 
 /// Deterministic setting id for a target + layer. TDAM hashes the target with

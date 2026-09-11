@@ -18,10 +18,10 @@ const USER_KEY: &str = "sk-wire-test";
 
 /// In-memory engine seeded with the wire-test user (D34: auth is mandatory).
 fn seeded_engine() -> std::sync::Arc<vantadb::storage::StorageEngine> {
-    let config = vantadb::config::VantaConfig {
+    let config = vantadb::config::Config {
         backend_kind: vantadb::storage::BackendKind::InMemory,
         read_only: false,
-        ..vantadb::config::VantaConfig::default()
+        ..vantadb::config::Config::default()
     };
     let engine =
         vantadb::storage::StorageEngine::open_with_config(":memory:", Some(config)).unwrap();

@@ -13,7 +13,7 @@ use thiserror::Error;
 use crate::core::conversation::{now_ms, sanitize_component};
 use crate::core::persona::persona_generator::{get_persona, PersonaError};
 use crate::core::scene::scene_navigation::strip_scene_navigation;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata};
+use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
 
 /// Scope used when no isolation is provided (TDAM `DEFAULT_PROFILE_SCOPE`).
 pub const DEFAULT_PROFILE_SCOPE: &str = "global";
@@ -85,7 +85,7 @@ pub struct ScopedPersonaRecord {
 pub enum ProfileSyncError {
     /// Underlying VantaDB storage error.
     #[error("vantadb: {0}")]
-    Vanta(#[from] vantadb::error::VantaError),
+    Vanta(#[from] vantadb::error::Error),
     /// Persona layer failure.
     #[error("persona: {0}")]
     Persona(#[from] PersonaError),
@@ -111,7 +111,7 @@ pub struct PersonaSyncOutcome {
 /// record is simply overwritten by the verified session persona — local data
 /// loss is impossible because the source of truth is never deleted.
 pub fn sync_persona_to_scope(
-    db: &VantaEmbedded,
+    db: &Embedded,
     session_key: &str,
     isolation: &ProfileIsolation,
 ) -> Result<PersonaSyncOutcome, ProfileSyncError> {
@@ -146,11 +146,11 @@ pub fn sync_persona_to_scope(
         content: body,
         synced_at_ms: now_ms(),
     };
-    db.put(VantaMemoryInput {
+    db.put(MemoryInput {
         namespace: ns,
         key,
         payload: serde_json::to_string(&record)?,
-        metadata: VantaMemoryMetadata::new(),
+        metadata: MemoryMetadata::new(),
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
@@ -163,7 +163,7 @@ pub fn sync_persona_to_scope(
 
 /// Read the scoped persona body (navigation already stripped).
 pub fn read_scoped_persona(
-    db: &VantaEmbedded,
+    db: &Embedded,
     isolation: &ProfileIsolation,
 ) -> Result<Option<String>, ProfileSyncError> {
     let ns = profile_namespace(&build_profile_isolation_scope(isolation));

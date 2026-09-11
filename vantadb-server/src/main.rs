@@ -49,7 +49,7 @@ async fn main() -> anyhow::Result<()> {
     }
 
     let is_mcp = args.iter().any(|a| a == MCP_FLAG);
-    let config = vantadb::config::VantaConfig::from_env();
+    let config = vantadb::config::Config::from_env();
 
     if is_mcp {
         // Init telemetry first (MCP-35 proxy needs tracing before storage open)

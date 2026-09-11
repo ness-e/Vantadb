@@ -12,7 +12,7 @@
 
 use crate::core::abstractions::LlmRunner;
 use crate::core::skill::skill_extractor::{extract_skills_with_llm, ExtractMessage, SkillSummary};
-use vantadb::sdk::VantaEmbedded;
+use vantadb::sdk::Embedded;
 
 use super::archive::{ArchiveStore, SkillArchiveError, SkillTaskEntry};
 use super::compressor::SkillMessage;
@@ -40,7 +40,7 @@ pub enum SkillWorkerOutcome {
 /// Consume one skill-extraction task end-to-end:
 /// read task → ghost check → extract (LLM) → sink (idempotent) → mark done.
 pub fn run_skill_extract_once<R: LlmRunner>(
-    db: &VantaEmbedded,
+    db: &Embedded,
     runner: &R,
     session_id: &str,
     task_id: &str,

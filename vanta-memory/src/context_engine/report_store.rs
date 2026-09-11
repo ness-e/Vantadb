@@ -17,7 +17,7 @@
 use serde::{Deserialize, Serialize};
 
 use crate::context_engine::types::CompactionReport;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata};
+use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
 
 use super::engine::IntegratedContext;
 
@@ -71,7 +71,7 @@ impl PersistedCompactionReport {
 /// Errors are surfaced verbatim — the caller (the worker) decides whether
 /// to fail-fast or warn-and-continue.
 pub fn record_compaction_report(
-    db: &VantaEmbedded,
+    db: &Embedded,
     session_id: &str,
     record: &PersistedCompactionReport,
 ) -> Result<(), String> {
@@ -82,16 +82,16 @@ pub fn record_compaction_report(
     );
     let key = crate::utils::sanitize::sanitize_key(&record.run_id);
     let payload = serde_json::to_string(record).map_err(|e| e.to_string())?;
-    let mut metadata = VantaMemoryMetadata::new();
+    let mut metadata = MemoryMetadata::new();
     metadata.insert(
         "kind".into(),
-        vantadb::sdk::VantaValue::String("compaction_report".into()),
+        vantadb::sdk::Value::String("compaction_report".into()),
     );
     metadata.insert(
         "mode".into(),
-        vantadb::sdk::VantaValue::String(format!("{:?}", record.report.mode)),
+        vantadb::sdk::Value::String(format!("{:?}", record.report.mode)),
     );
-    db.put(VantaMemoryInput {
+    db.put(MemoryInput {
         namespace,
         key,
         payload,
@@ -107,7 +107,7 @@ pub fn record_compaction_report(
 /// Read every persisted [`PersistedCompactionReport`] for `session_id`,
 /// oldest first (sorted by `captured_at_ms`).
 pub fn list_compaction_reports(
-    db: &VantaEmbedded,
+    db: &Embedded,
     session_id: &str,
 ) -> Result<Vec<PersistedCompactionReport>, String> {
     let namespace = format!(
@@ -115,9 +115,9 @@ pub fn list_compaction_reports(
         crate::utils::sanitize::sanitize_component(session_id, 128, false),
         COMPACTION_REPORT_PREFIX,
     );
-    let opts = vantadb::sdk::VantaMemoryListOptions {
+    let opts = vantadb::sdk::MemoryListOptions {
         limit: 10_000,
-        ..vantadb::sdk::VantaMemoryListOptions::default()
+        ..vantadb::sdk::MemoryListOptions::default()
     };
     let page = db
         .list(&namespace, opts)
@@ -136,13 +136,13 @@ pub fn list_compaction_reports(
 mod tests {
     use super::*;
     use crate::context_engine::types::{ChatMessage, ChatRole, CompactionMode};
-    use vantadb::config::VantaConfig;
+    use vantadb::config::Config;
     use vantadb::storage::BackendKind;
 
-    fn db() -> VantaEmbedded {
-        VantaEmbedded::open_with_config(VantaConfig {
+    fn db() -> Embedded {
+        Embedded::open_with_config(Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         })
         .expect("open in-memory db")
     }

@@ -15,15 +15,15 @@ use vanta_memory::core::prompts::l1_extraction::PromptMode;
 use vanta_memory::core::record::write_memory;
 use vanta_memory::core::scene::{extract_scenes_with_llm, SceneMemoryInput};
 
-fn test_db() -> vantadb::sdk::VantaEmbedded {
-    use vantadb::config::VantaConfig;
+fn test_db() -> vantadb::sdk::Embedded {
+    use vantadb::config::Config;
     use vantadb::storage::BackendKind;
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         read_only: false,
-        ..VantaConfig::default()
+        ..Config::default()
     };
-    vantadb::sdk::VantaEmbedded::open_with_config(config).expect("open in-memory db")
+    vantadb::sdk::Embedded::open_with_config(config).expect("open in-memory db")
 }
 
 struct Failing;

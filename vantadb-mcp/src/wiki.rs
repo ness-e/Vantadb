@@ -322,13 +322,13 @@ fn with_store(
     storage: &Arc<StorageEngine>,
     namespace: &str,
     slug: &str,
-    f: impl FnOnce(&WikiStore<'_>) -> Result<Value, vantadb::VantaError>,
+    f: impl FnOnce(&WikiStore<'_>) -> Result<Value, vantadb::Error>,
 ) -> Result<Value, Value> {
     let store = WikiStore::new(storage);
     let wiki = match store.get(namespace, slug) {
         Ok(Some(wiki)) => wiki,
         Ok(None) => {
-            return Ok(domain_err(vantadb::VantaError::NotFound {
+            return Ok(domain_err(vantadb::Error::NotFound {
                 kind: "wiki".into(),
                 id: format!("{namespace}:{slug}"),
             }));
@@ -336,7 +336,7 @@ fn with_store(
         Err(e) => return Ok(domain_err(e)),
     };
     if wiki.state != WikiState::Ready {
-        return Ok(domain_err(vantadb::VantaError::ExecutionConflict {
+        return Ok(domain_err(vantadb::Error::ExecutionConflict {
             resource: format!("wiki:{namespace}:{slug}"),
             detail: format!(
                 "wiki not ready (state is `{}`); query tools require `ready`",
@@ -352,7 +352,7 @@ fn with_store(
 
 /// Domain errors are self-correctable tool results (`error_content`), never
 /// propagated protocol errors (MEM-32 learning).
-fn domain_err(e: vantadb::VantaError) -> Value {
+fn domain_err(e: vantadb::Error) -> Value {
     // Ok(error_content), NOT Err: an Err payload loses the {content:[...]}
     // shape and the client LLM never sees the self-correctable message
     // (MEM-32 learning). ERR-MCP-01: the text now carries the structured

@@ -3,7 +3,7 @@
 //! D19 integration tests for the L2 scene strategy (MEM-14, F4):
 //! UPDATE>MERGE>CREATE + heat + soft-delete + emptyExtraction.
 //!
-//! Pattern AAA: arrange → act → assert. Uses an in-memory `VantaEmbedded`
+//! Pattern AAA: arrange → act → assert. Uses an in-memory `Embedded`
 //! (same setup as `tests/scene_tools.rs`).
 
 use vanta_memory::core::abstractions::{LlmError, LlmRunParams, LlmRunner};
@@ -14,17 +14,17 @@ use vanta_memory::core::scene::scene_extractor::{
 use vanta_memory::core::scene::scene_index::{get_scene, list_scenes, soft_delete_scene};
 use vanta_memory::core::scene::scene_tools::{read_scene_tool, write_scene_tool};
 use vanta_memory::core::scene::SceneAction;
-use vantadb::config::VantaConfig;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::config::Config;
+use vantadb::sdk::Embedded;
 use vantadb::storage::BackendKind;
 
-fn open_db() -> VantaEmbedded {
-    let config = VantaConfig {
+fn open_db() -> Embedded {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         read_only: false,
-        ..VantaConfig::default()
+        ..Config::default()
     };
-    VantaEmbedded::open_with_config(config).expect("open in-memory db")
+    Embedded::open_with_config(config).expect("open in-memory db")
 }
 
 const SESSION: &str = "sess-1";
@@ -38,7 +38,7 @@ fn extraction(scene_name: &str, content: &str, merge_sources: &[&str]) -> SceneE
     }
 }
 
-fn live_names(db: &VantaEmbedded) -> Vec<String> {
+fn live_names(db: &Embedded) -> Vec<String> {
     list_scenes(db, SESSION)
         .expect("list")
         .iter()

@@ -20,7 +20,7 @@ use vanta_proxy::config::{CacheConfig, ProxyConfig};
 use vanta_proxy::inject::{inject_into, Protocol};
 use vantadb::entity::EntityStore;
 use vantadb::node::FieldValue;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata};
+use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
 use vantadb::storage::StorageEngine;
 
 const USER_KEY: &str = "sk-cache-test";
@@ -40,10 +40,10 @@ async fn spawn(router: Router) -> String {
 }
 
 fn seeded_engine() -> Arc<StorageEngine> {
-    let config = vantadb::config::VantaConfig {
+    let config = vantadb::config::Config {
         backend_kind: vantadb::storage::BackendKind::InMemory,
         read_only: false,
-        ..vantadb::config::VantaConfig::default()
+        ..vantadb::config::Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).expect("engine");
     let mut fields: HashMap<String, FieldValue> = HashMap::new();
@@ -83,7 +83,7 @@ fn state_for(upstream_url: &str) -> vanta_proxy::server::AppState {
     vanta_proxy::server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }
 
-fn seed_memory(db: &VantaEmbedded, session_key: &str) {
+fn seed_memory(db: &Embedded, session_key: &str) {
     use vanta_memory::core::abstractions::PersonaMode;
     use vanta_memory::core::persona::persona_generator::{
         persona_namespace, PersonaRecord, PERSONA_KEY,
@@ -96,11 +96,11 @@ fn seed_memory(db: &VantaEmbedded, session_key: &str) {
         generated_at_ms: 0,
         generated_at: "2026-09-09T00:00:00+00:00".into(),
     };
-    db.put(VantaMemoryInput {
+    db.put(MemoryInput {
         namespace: persona_namespace(session_key),
         key: PERSONA_KEY.into(),
         payload: serde_json::to_string(&record).expect("persona json"),
-        metadata: VantaMemoryMetadata::new(),
+        metadata: MemoryMetadata::new(),
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
@@ -112,7 +112,7 @@ fn seed_memory(db: &VantaEmbedded, session_key: &str) {
 struct TestEnv {
     proxy_url: String,
     upstream: Upstream,
-    memory: VantaEmbedded,
+    memory: Embedded,
 }
 
 async fn setup() -> TestEnv {
@@ -275,12 +275,12 @@ async fn semantic_hit_replays_without_second_upstream_hit() {
             bodies: Arc::new(Mutex::new(Vec::new())),
         },
         memory: {
-            let config = vantadb::config::VantaConfig {
+            let config = vantadb::config::Config {
                 backend_kind: vantadb::storage::BackendKind::InMemory,
                 ..Default::default()
             };
             vantadb::storage::StorageEngine::open_with_config(":memory:", Some(config))
-                .map(|engine| VantaEmbedded::from_engine(engine.into()))
+                .map(|engine| Embedded::from_engine(engine.into()))
                 .expect("in-memory engine")
         },
     };

@@ -1,7 +1,7 @@
 //! Error type for the MCP server.
 
 use serde_json::{json, Value};
-use vantadb::VantaError;
+use vantadb::Error;
 
 // ── Error type ─────────────────────────────────────────────────────────────
 
@@ -65,8 +65,8 @@ impl McpError {
 
     /// Build the structured error from a domain error, by reference so the
     /// tool handlers can enrich `message` (context suffixes) before rendering.
-    pub fn from_domain(e: &VantaError) -> Self {
-        // Mapping is driven by the canonical `VantaError::code()` (ERR-CORE-01),
+    pub fn from_domain(e: &Error) -> Self {
+        // Mapping is driven by the canonical `Error::code()` (ERR-CORE-01),
         // never by re-matching variants — that would duplicate the core table
         // (docs/api/ERROR_HANDLING.md §6.2). Codes with no §6.2 row fall back
         // to -32603 internal_error; conflict variants arrive folded into
@@ -111,11 +111,11 @@ impl McpError {
 
 // ── Domain → wire mapping (ERR-MCP-01) ─────────────────────────────────────
 
-/// Maps every `VantaError` onto its canonical JSON-RPC code plus a `data`
+/// Maps every `Error` onto its canonical JSON-RPC code plus a `data`
 /// envelope (`code`, `retriable`, `hint`) LLM clients can branch on
 /// programmatically (docs/api/ERROR_HANDLING.md §6.2/§6.3).
-impl From<VantaError> for McpError {
-    fn from(e: VantaError) -> Self {
+impl From<Error> for McpError {
+    fn from(e: Error) -> Self {
         Self::from_domain(&e)
     }
 }

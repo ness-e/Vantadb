@@ -81,7 +81,7 @@ pub struct SceneReadResponse {
 /// Read one live scene by name. Missing **or soft-deleted** scenes answer
 /// [`KnowledgeError::NotFound`] (soft-delete respected, MEM-14).
 pub fn scene_read(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     request: &SceneReadRequest,
 ) -> Result<SceneReadResponse, KnowledgeError> {
     validate_session(&request.session_key)?;
@@ -114,7 +114,7 @@ pub struct SceneListResponse {
 /// List the scene index of a session (heat desc, soft-deleted excluded) —
 /// direct parity with [`list_scenes`].
 pub fn scene_list(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     request: &SceneListRequest,
 ) -> Result<SceneListResponse, KnowledgeError> {
     validate_session(&request.session_key)?;
@@ -180,7 +180,7 @@ pub struct SceneQueryResponse {
 /// counts. Upgrade path: persist block vectors at write time and query the
 /// HNSW index instead.
 pub fn scene_query(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     request: &SceneQueryRequest,
     embed: Option<&EmbedFn>,
 ) -> Result<SceneQueryResponse, KnowledgeError> {
@@ -272,21 +272,21 @@ fn validate_session(session_key: &str) -> Result<(), KnowledgeError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vantadb::config::VantaConfig;
+    use vantadb::config::Config;
     use vantadb::storage::BackendKind;
 
     use crate::core::scene::scene_index::{soft_delete_scene, upsert_scene};
 
-    fn open_db() -> vantadb::sdk::VantaEmbedded {
-        let config = VantaConfig {
+    fn open_db() -> vantadb::sdk::Embedded {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             read_only: false,
-            ..VantaConfig::default()
+            ..Config::default()
         };
-        vantadb::sdk::VantaEmbedded::open_with_config(config).expect("open in-memory db")
+        vantadb::sdk::Embedded::open_with_config(config).expect("open in-memory db")
     }
 
-    fn seed(db: &vantadb::sdk::VantaEmbedded) {
+    fn seed(db: &vantadb::sdk::Embedded) {
         upsert_scene(
             db,
             "sess-1",

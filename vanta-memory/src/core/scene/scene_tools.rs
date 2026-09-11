@@ -103,7 +103,7 @@ pub enum SceneToolError {
 
 /// Read a scene block by name through the sandbox (session-confined).
 pub fn read_scene_tool(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
     scene_name: &str,
 ) -> Result<Option<SceneBlock>, SceneToolError> {
@@ -116,7 +116,7 @@ pub fn read_scene_tool(
 /// Delegates to [`upsert_scene`] (CREATE: heat 1; UPDATE: heat +1, `created`
 /// preserved) after boundary validation.
 pub fn write_scene_tool(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
     scene_name: &str,
     summary: &str,
@@ -134,7 +134,7 @@ pub fn write_scene_tool(
 /// through [`upsert_scene`] (heat bumps, `created` preserved). Errors with
 /// [`SceneToolError::NotFound`] when the scene is missing.
 pub fn edit_scene_tool(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
     scene_name: &str,
     summary: Option<&str>,
@@ -168,7 +168,7 @@ pub fn edit_scene_tool(
 
 /// Dispatch a sandboxed tool call against the session scene store.
 pub fn execute_scene_tool(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
     call: &SceneToolCall,
 ) -> Result<SceneToolResult, SceneToolError> {

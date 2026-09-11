@@ -10,7 +10,7 @@ use serde_json::{json, Value};
 use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::executor::Executor;
-use vantadb::sdk::VantaMemoryInput;
+use vantadb::sdk::MemoryInput;
 use vantadb::storage::StorageEngine;
 use vantadb_mcp::{handle_tools_call, handle_tools_list, McpConfig};
 
@@ -51,7 +51,7 @@ fn msg(res: Result<Value, Value>) -> String {
 /// left→sink, right→sink ("uses"/"enables" labels).
 /// Returns node ids [root, left, right, sink].
 fn seed_graph(storage: &Arc<StorageEngine>) -> [u128; 4] {
-    let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
     // MCP-01/AUD-044 pattern: StorageEngine::open alone leaves the text_index
     // registry missing, and graphrag's BM25 seeding fails with
     // "text_index not found: bm25" unless indexes are ensured first.
@@ -60,7 +60,7 @@ fn seed_graph(storage: &Arc<StorageEngine>) -> [u128; 4] {
         .expect("startup index ensure should succeed");
     let mut ids = Vec::new();
     for i in 0..4 {
-        let input = VantaMemoryInput::new(
+        let input = MemoryInput::new(
             "code",
             format!("n{i}"),
             format!("node {i} about vector database"),

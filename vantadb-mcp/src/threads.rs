@@ -1,6 +1,6 @@
 //! MCP-32: MCP exposure of agentic conversation threads (MessageThread CRUD).
 //!
-//! Six tools wrapping `VantaEmbedded`'s thread API (`src/agentic/thread.rs`,
+//! Six tools wrapping `Embedded`'s thread API (`src/agentic/thread.rs`,
 //! reached through the builder): create / send / get / list / delete / purge.
 //! Thread ids are `u128` and travel as JSON strings (the MEM-32 wire
 //! convention used by every other u128-facing tool). Domain errors surface as
@@ -143,8 +143,8 @@ pub(crate) fn handle_thread_tool(
     }
 }
 
-fn db_from(storage: &Arc<StorageEngine>) -> vantadb::VantaEmbedded {
-    vantadb::VantaEmbedded::from_engine(storage.clone())
+fn db_from(storage: &Arc<StorageEngine>) -> vantadb::Embedded {
+    vantadb::Embedded::from_engine(storage.clone())
 }
 
 /// `MessageThread` carries a `u128` id, which serde_json cannot serialize

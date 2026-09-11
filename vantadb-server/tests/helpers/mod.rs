@@ -24,7 +24,7 @@ pub fn build_server_state(
     let dir = tempfile::tempdir().unwrap();
     let storage_path = dir.path().join(path);
     let storage = Arc::new(StorageEngine::open(storage_path.to_str().unwrap()).unwrap());
-    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let db = vantadb::Embedded::from_engine(storage.clone());
     // MOD-12: mirror production startup (`cli_server::run`) which ensures
     // indexes are current after wrapping the raw engine — without this,
     // lexical/hybrid searches fail on fresh DBs ("text_index not found").

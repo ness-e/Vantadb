@@ -152,33 +152,33 @@ pub(crate) fn validate_search_profile(
     Ok(profile)
 }
 
-/// Convert a single JSON metadata value into a `VantaValue`.
+/// Convert a single JSON metadata value into a `Value`.
 ///
 /// Scalars map 1:1. `null` and homogeneous arrays are delegated to the core,
-/// which represents them as `VantaValue::Null` / `VantaValue::List*` and
+/// which represents them as `Value::Null` / `Value::List*` and
 /// filters them by strict equality (`matches_memory_filters`). This mirrors
 /// the Python binding's `py_any_to_value` contract (ERR-026: a filter must
 /// never be silently dropped — either the core applies it or the MCP rejects
-/// the request with an explicit error). JSON objects have no `VantaValue`
+/// the request with an explicit error). JSON objects have no `Value`
 /// variant and are rejected.
 pub(crate) fn json_value_to_vanta_value(
     key: &str,
     val: &Value,
-) -> Result<vantadb::sdk::VantaValue, McpError> {
+) -> Result<vantadb::sdk::Value, McpError> {
     if let Some(s) = val.as_str() {
-        return Ok(vantadb::sdk::VantaValue::String(s.to_string()));
+        return Ok(vantadb::sdk::Value::String(s.to_string()));
     }
     if let Some(b) = val.as_bool() {
-        return Ok(vantadb::sdk::VantaValue::Bool(b));
+        return Ok(vantadb::sdk::Value::Bool(b));
     }
     if let Some(i) = val.as_i64() {
-        return Ok(vantadb::sdk::VantaValue::Int(i));
+        return Ok(vantadb::sdk::Value::Int(i));
     }
     if let Some(f) = val.as_f64() {
-        return Ok(vantadb::sdk::VantaValue::Float(f));
+        return Ok(vantadb::sdk::Value::Float(f));
     }
     if val.is_null() {
-        return Ok(vantadb::sdk::VantaValue::Null);
+        return Ok(vantadb::sdk::Value::Null);
     }
     if let Some(items) = val.as_array() {
         return json_array_to_vanta_value(key, items);
@@ -188,7 +188,7 @@ pub(crate) fn json_value_to_vanta_value(
     )))
 }
 
-/// Convert a homogeneous JSON array into the matching `VantaValue::List*`
+/// Convert a homogeneous JSON array into the matching `Value::List*`
 /// variant, mirroring `py_any_to_value`: the first element fixes the element
 /// type and every element must match. Empty arrays become an empty string
 /// list. Mixed-type, nested, or null-containing arrays cannot be represented
@@ -196,9 +196,9 @@ pub(crate) fn json_value_to_vanta_value(
 pub(crate) fn json_array_to_vanta_value(
     key: &str,
     items: &[Value],
-) -> Result<vantadb::sdk::VantaValue, McpError> {
+) -> Result<vantadb::sdk::Value, McpError> {
     let Some(first) = items.first() else {
-        return Ok(vantadb::sdk::VantaValue::ListString(Vec::new()));
+        return Ok(vantadb::sdk::Value::ListString(Vec::new()));
     };
 
     if first.as_str().is_some() {
@@ -209,7 +209,7 @@ pub(crate) fn json_array_to_vanta_value(
                 None => return Err(mixed_array_error(key)),
             }
         }
-        return Ok(vantadb::sdk::VantaValue::ListString(out));
+        return Ok(vantadb::sdk::Value::ListString(out));
     }
     if first.as_bool().is_some() {
         let mut out = Vec::with_capacity(items.len());
@@ -219,7 +219,7 @@ pub(crate) fn json_array_to_vanta_value(
                 None => return Err(mixed_array_error(key)),
             }
         }
-        return Ok(vantadb::sdk::VantaValue::ListBool(out));
+        return Ok(vantadb::sdk::Value::ListBool(out));
     }
     // i64 before f64: integral arrays (e.g. [1, 2]) must stay ListInt, not
     // ListFloat, so equality against stored Int metadata keeps matching.
@@ -231,7 +231,7 @@ pub(crate) fn json_array_to_vanta_value(
                 None => return Err(mixed_array_error(key)),
             }
         }
-        return Ok(vantadb::sdk::VantaValue::ListInt(out));
+        return Ok(vantadb::sdk::Value::ListInt(out));
     }
     if first.as_f64().is_some() {
         let mut out = Vec::with_capacity(items.len());
@@ -241,7 +241,7 @@ pub(crate) fn json_array_to_vanta_value(
                 None => return Err(mixed_array_error(key)),
             }
         }
-        return Ok(vantadb::sdk::VantaValue::ListFloat(out));
+        return Ok(vantadb::sdk::Value::ListFloat(out));
     }
 
     Err(mixed_array_error(key))
@@ -287,15 +287,15 @@ pub(crate) fn parse_sparse_vector(
 
 pub(crate) fn parse_metadata(
     obj: &serde_json::Map<String, Value>,
-) -> Result<vantadb::sdk::VantaMemoryMetadata, McpError> {
-    let mut meta = vantadb::sdk::VantaMemoryMetadata::new();
+) -> Result<vantadb::sdk::MemoryMetadata, McpError> {
+    let mut meta = vantadb::sdk::MemoryMetadata::new();
     for (key, val) in obj {
         meta.insert(key.clone(), json_value_to_vanta_value(key, val)?);
     }
     Ok(meta)
 }
 
-/// Parse a JSON `filters` object into an operator-based `VantaMemoryFilter`,
+/// Parse a JSON `filters` object into an operator-based `MemoryFilter`,
 /// accepting BOTH published filter formats (AUD-048 — unified semantics with
 /// the CLI channel):
 ///
@@ -308,16 +308,16 @@ pub(crate) fn parse_metadata(
 /// (never silently ignored), same error contract as the CLI channel.
 pub(crate) fn parse_filter_ops(
     obj: &serde_json::Map<String, Value>,
-) -> Result<vantadb::sdk::VantaMemoryFilter, McpError> {
-    use vantadb::sdk::{VantaFilterOp, VantaMemoryFilterItem};
+) -> Result<vantadb::sdk::MemoryFilter, McpError> {
+    use vantadb::sdk::{FilterOp, MemoryFilterItem};
 
     let mut ops = Vec::with_capacity(obj.len());
     for (field, spec) in obj {
         let Some(spec_obj) = spec.as_object() else {
             // Flat value → implicit equality (MCP published flat form).
-            ops.push(VantaMemoryFilterItem {
+            ops.push(MemoryFilterItem {
                 field: field.clone(),
-                op: VantaFilterOp::Eq,
+                op: FilterOp::Eq,
                 value: json_value_to_vanta_value(field, spec)?,
             });
             continue;
@@ -325,12 +325,12 @@ pub(crate) fn parse_filter_ops(
 
         for (op_str, val_json) in spec_obj {
             let op = match op_str.as_str() {
-                "$eq" => VantaFilterOp::Eq,
-                "$neq" => VantaFilterOp::Neq,
-                "$gt" => VantaFilterOp::Gt,
-                "$gte" => VantaFilterOp::Gte,
-                "$lt" => VantaFilterOp::Lt,
-                "$lte" => VantaFilterOp::Lte,
+                "$eq" => FilterOp::Eq,
+                "$neq" => FilterOp::Neq,
+                "$gt" => FilterOp::Gt,
+                "$gte" => FilterOp::Gte,
+                "$lt" => FilterOp::Lt,
+                "$lte" => FilterOp::Lte,
                 other => {
                     return Err(McpError::invalid_params(format!(
                         "Unknown filter operator '{other}' for field '{field}'. Supported: $eq, $neq, $gt, $gte, $lt, $lte"
@@ -338,7 +338,7 @@ pub(crate) fn parse_filter_ops(
                 }
             };
             let value = json_value_to_vanta_value(field, val_json)?;
-            ops.push(VantaMemoryFilterItem {
+            ops.push(MemoryFilterItem {
                 field: field.clone(),
                 op,
                 value,
@@ -479,13 +479,13 @@ pub(crate) fn error_content(msg: impl Into<String>) -> Value {
     json!({"isError": true, "content": [{"type": "text", "text": msg.into()}]})
 }
 
-/// ERR-MCP-01: render a domain `VantaError` as an isError tool result whose
+/// ERR-MCP-01: render a domain `Error` as an isError tool result whose
 /// `content[0].text` carries the full JSON-RPC error object
 /// (`{code, message, data{code, retriable, hint}}`) — the same envelope the
 /// JSON-RPC error channel uses (docs/api/ERROR_HANDLING.md §6.3), so LLM
 /// clients can branch on `code`/`retriable` programmatically instead of
 /// parsing free-form "Tool Error: ..." strings.
-pub(crate) fn error_content_vanta(e: vantadb::VantaError) -> Value {
+pub(crate) fn error_content_vanta(e: vantadb::Error) -> Value {
     error_content(crate::error::McpError::from(e).to_json().to_string())
 }
 
@@ -527,7 +527,7 @@ pub(crate) fn budget_value<T: Serialize>(value: &T, byte_budget: usize) -> (Valu
     // Truncation path: pop trailing array elements until we fit. Two
     // shapes are supported:
     //  - top-level object with an array-valued key (e.g. `{records: [...]}`)
-    //  - top-level array (e.g. raw `Vec<VantaSearchHit>`)
+    //  - top-level array (e.g. raw `Vec<SearchHit>`)
     // In both cases the *first* array is the truncation target.
     let array_key: Option<String> = if let Value::Object(map) = &current {
         map.iter()
@@ -618,19 +618,19 @@ pub(crate) fn apply_output_budget<T: Serialize>(
 /// when stats/list/delete collected the whole set into a Vec per call).
 /// Returns the total number of records visited.
 pub(crate) fn for_each_record(
-    embedded: &vantadb::VantaEmbedded,
+    embedded: &vantadb::Embedded,
     namespace: &str,
     config: &McpConfig,
-    mut f: impl FnMut(&vantadb::sdk::VantaMemoryRecord),
+    mut f: impl FnMut(&vantadb::sdk::MemoryRecord),
 ) -> Result<usize, String> {
     let mut count = 0usize;
     let mut cursor: Option<usize> = None;
     loop {
-        let options = vantadb::sdk::VantaMemoryListOptions {
+        let options = vantadb::sdk::MemoryListOptions {
             limit: config.max_list_limit,
             cursor,
             #[allow(deprecated)]
-            filters: vantadb::sdk::VantaMemoryMetadata::new(),
+            filters: vantadb::sdk::MemoryMetadata::new(),
             filter_ops: None,
             exclude_superseded: false,
         };
@@ -710,9 +710,9 @@ mod tests {
     /// `parse_metadata` used to silently drop non-scalar metadata values
     /// (array/object/null), which turned a filter into no filter and returned
     /// a superset of results. The core CAN filter lists and null
-    /// (`VantaValue::List*` / `Null` with strict equality), so the MCP must
+    /// (`Value::List*` / `Null` with strict equality), so the MCP must
     /// delegate them — mirroring the Python binding's `py_any_to_value`.
-    /// Only JSON objects (no `VantaValue` variant) and mixed-type arrays are
+    /// Only JSON objects (no `Value` variant) and mixed-type arrays are
     /// rejected explicitly.
     #[test]
     fn parse_metadata_delegates_lists_and_null_rejects_objects() {
@@ -732,31 +732,31 @@ mod tests {
             .expect("lists, null, and scalars must be accepted");
         assert_eq!(
             meta.get("tags"),
-            Some(&vantadb::sdk::VantaValue::ListString(vec![
+            Some(&vantadb::sdk::Value::ListString(vec![
                 "a".to_string(),
                 "b".to_string()
             ]))
         );
         assert_eq!(
             meta.get("counts"),
-            Some(&vantadb::sdk::VantaValue::ListInt(vec![1, 2]))
+            Some(&vantadb::sdk::Value::ListInt(vec![1, 2]))
         );
         assert_eq!(
             meta.get("ratios"),
-            Some(&vantadb::sdk::VantaValue::ListFloat(vec![1.5, 2.5]))
+            Some(&vantadb::sdk::Value::ListFloat(vec![1.5, 2.5]))
         );
         assert_eq!(
             meta.get("flags"),
-            Some(&vantadb::sdk::VantaValue::ListBool(vec![true, false]))
+            Some(&vantadb::sdk::Value::ListBool(vec![true, false]))
         );
         assert_eq!(
             meta.get("empty"),
-            Some(&vantadb::sdk::VantaValue::ListString(Vec::new()))
+            Some(&vantadb::sdk::Value::ListString(Vec::new()))
         );
-        assert_eq!(meta.get("flag"), Some(&vantadb::sdk::VantaValue::Null));
+        assert_eq!(meta.get("flag"), Some(&vantadb::sdk::Value::Null));
         assert_eq!(meta.len(), 10);
 
-        // Objects cannot be represented by VantaValue → explicit error.
+        // Objects cannot be represented by Value → explicit error.
         let object_value = json!({"nested": {"a": 1}});
         let object = object_value.as_object().unwrap();
         let object_err = parse_metadata(object).unwrap_err();

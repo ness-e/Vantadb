@@ -131,7 +131,7 @@ pub struct PersonaRecord {
 pub enum PersonaError {
     /// Underlying VantaDB storage error.
     #[error("vantadb: {0}")]
-    Vanta(#[from] vantadb::error::VantaError),
+    Vanta(#[from] vantadb::error::Error),
     /// Persona record failed to (de)serialize.
     #[error("persona record: {0}")]
     Serde(#[from] serde_json::Error),
@@ -139,7 +139,7 @@ pub enum PersonaError {
 
 /// Read the stored persona record of a session, if any.
 pub fn get_persona(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
 ) -> Result<Option<PersonaRecord>, PersonaError> {
     let ns = persona_namespace(session_key);
@@ -201,7 +201,7 @@ pub struct PersonaGenerateParams<'a> {
 /// Generic over `R: LlmRunner` (trait not dyn-compatible). See the module
 /// docs for the full flow and degrade guarantees.
 pub fn generate_persona<R: LlmRunner>(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     runner: &R,
     params: &PersonaGenerateParams<'_>,
 ) -> PersonaGenerationResult {
@@ -231,7 +231,7 @@ pub fn generate_persona<R: LlmRunner>(
 }
 
 fn generate_persona_inner<R: LlmRunner>(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     runner: &R,
     params: &PersonaGenerateParams<'_>,
 ) -> PersonaGenerationResult {
@@ -370,20 +370,20 @@ fn generate_persona_inner<R: LlmRunner>(
 /// Persist a persona record (payload = serialized record, same pattern as
 /// `scene_index::write_scene_block`).
 fn write_persona(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_key: &str,
     record: &PersonaRecord,
 ) -> Result<(), PersonaError> {
-    use vantadb::sdk::{VantaMemoryInput, VantaMemoryMetadata};
+    use vantadb::sdk::{MemoryInput, MemoryMetadata};
 
     let ns = persona_namespace(session_key);
     let key = crate::core::conversation::sanitize_key(PERSONA_KEY);
     let payload = serde_json::to_string(record)?;
-    db.put(VantaMemoryInput {
+    db.put(MemoryInput {
         namespace: ns,
         key,
         payload,
-        metadata: VantaMemoryMetadata::new(),
+        metadata: MemoryMetadata::new(),
         vector: None,
         sparse_vector: None,
         ttl_ms: None,
@@ -397,16 +397,16 @@ mod tests {
     use crate::core::prompts::persona_generation::MAX_PERSONA_CHARS_CHAT;
     use crate::core::scene::scene_index::upsert_scene;
     use crate::core::scene::scene_navigation::NAV_HEADER;
-    use vantadb::config::VantaConfig;
+    use vantadb::config::Config;
     use vantadb::storage::BackendKind;
 
-    fn open_db() -> vantadb::sdk::VantaEmbedded {
-        let config = VantaConfig {
+    fn open_db() -> vantadb::sdk::Embedded {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             read_only: false,
-            ..VantaConfig::default()
+            ..Config::default()
         };
-        vantadb::sdk::VantaEmbedded::open_with_config(config).expect("open in-memory db")
+        vantadb::sdk::Embedded::open_with_config(config).expect("open in-memory db")
     }
 
     fn json_runner(payload: &'static str) -> impl LlmRunner {

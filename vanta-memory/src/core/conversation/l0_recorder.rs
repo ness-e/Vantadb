@@ -16,10 +16,9 @@ use std::str::FromStr;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
-use vantadb::error::VantaError;
+use vantadb::error::Error;
 use vantadb::sdk::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryListPage,
-    VantaMemoryMetadata, VantaMemoryRecord, VantaValue,
+    Embedded, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord, Value,
 };
 
 /// Conversational role of an L0 message. Serde snake_case keeps the wire
@@ -86,7 +85,7 @@ pub struct L0CaptureResult {
 #[derive(Debug, Error)]
 pub enum L0Error {
     #[error("vantadb: {0}")]
-    Vanta(#[from] VantaError),
+    Vanta(#[from] Error),
     #[error("invalid L0 role: {0}")]
     InvalidRole(String),
     #[error("malformed cursor payload: {0}")]
@@ -124,15 +123,15 @@ pub(crate) fn sanitize_key(s: &str) -> String {
     sanitize_component(s, 512, false)
 }
 
-/// Persistent L0 recorder over the VantaDB SDK. Owns the [`VantaEmbedded`]
+/// Persistent L0 recorder over the VantaDB SDK. Owns the [`Embedded`]
 /// handle; the host must keep the recorder alive for the DB lifetime.
 pub struct L0Recorder {
-    db: VantaEmbedded,
+    db: Embedded,
 }
 
 impl L0Recorder {
     /// Open a recorder over an already-open embedded database.
-    pub fn new(db: VantaEmbedded) -> Self {
+    pub fn new(db: Embedded) -> Self {
         Self { db }
     }
 
@@ -176,16 +175,16 @@ impl L0Recorder {
         let mut new_cursor = cursor_ms;
         let recorded_at = now_ms();
         for (key, msg) in pending {
-            let mut metadata = VantaMemoryMetadata::new();
-            metadata.insert(META_ROLE.into(), VantaValue::String(msg.role.to_string()));
+            let mut metadata = MemoryMetadata::new();
+            metadata.insert(META_ROLE.into(), Value::String(msg.role.to_string()));
             metadata.insert(
                 META_SESSION.into(),
-                VantaValue::String(capture.session_id.clone()),
+                Value::String(capture.session_id.clone()),
             );
-            metadata.insert(META_TS.into(), VantaValue::Int(msg.timestamp_ms as i64));
-            metadata.insert(META_RECORDED_AT.into(), VantaValue::Int(recorded_at as i64));
+            metadata.insert(META_TS.into(), Value::Int(msg.timestamp_ms as i64));
+            metadata.insert(META_RECORDED_AT.into(), Value::Int(recorded_at as i64));
 
-            self.db.put(VantaMemoryInput {
+            self.db.put(MemoryInput {
                 namespace: session_ns.clone(),
                 key,
                 payload: msg.content.clone(),
@@ -220,12 +219,12 @@ impl L0Recorder {
         let mut cursor: Option<usize> = None;
 
         loop {
-            let options = VantaMemoryListOptions {
+            let options = MemoryListOptions {
                 limit: 1000,
                 cursor,
                 ..Default::default()
             };
-            let page: VantaMemoryListPage = self.db.list(&session_ns, options)?;
+            let page: MemoryListPage = self.db.list(&session_ns, options)?;
             for record in page.records {
                 if record.key == CURSOR_KEY {
                     continue;
@@ -259,11 +258,11 @@ impl L0Recorder {
 
     fn write_cursor(&self, cursor_ns: &str, after_timestamp_ms: u64) -> Result<(), L0Error> {
         let payload = serde_json::json!({ "after_timestamp_ms": after_timestamp_ms }).to_string();
-        self.db.put(VantaMemoryInput {
+        self.db.put(MemoryInput {
             namespace: cursor_ns.into(),
             key: CURSOR_KEY.into(),
             payload,
-            metadata: VantaMemoryMetadata::new(),
+            metadata: MemoryMetadata::new(),
             vector: None,
             sparse_vector: None,
             ttl_ms: None,
@@ -284,9 +283,9 @@ fn cursor_namespace(session_id: &str) -> String {
 
 /// Rebuild an [`L0Message`] from a stored record. Records missing role or
 /// timestamp metadata are skipped (tracing::debug), never fatal.
-fn l0_message_from_record(record: &VantaMemoryRecord) -> Option<L0Message> {
+fn l0_message_from_record(record: &MemoryRecord) -> Option<L0Message> {
     let role_str = match record.metadata.get(META_ROLE)? {
-        VantaValue::String(s) => s.clone(),
+        Value::String(s) => s.clone(),
         _ => {
             tracing::debug!(key = %record.key, "l0 record missing role metadata");
             return None;
@@ -294,7 +293,7 @@ fn l0_message_from_record(record: &VantaMemoryRecord) -> Option<L0Message> {
     };
     let role = L0Role::from_str(&role_str).ok()?;
     let timestamp_ms = match record.metadata.get(META_TS)? {
-        VantaValue::Int(v) => u64::try_from(*v).ok()?,
+        Value::Int(v) => u64::try_from(*v).ok()?,
         _ => {
             tracing::debug!(key = %record.key, "l0 record missing timestamp_ms metadata");
             return None;

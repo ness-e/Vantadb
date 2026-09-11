@@ -218,7 +218,7 @@ pub fn parse_batch_result(raw: &str, matches: &[CandidateMatch]) -> Vec<DedupDec
 
 /// Pipeline entry point: read session records → recall → batch dedup → write.
 pub fn run_l1_dedup<R: LlmRunner>(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     runner: &R,
     session_key: &str,
     session_id: &str,

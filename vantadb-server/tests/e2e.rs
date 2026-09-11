@@ -233,7 +233,7 @@ async fn test_e2e_persistence_across_restart() {
     let storage2 = Arc::new(StorageEngine::open(&storage_path).unwrap());
     let state2 = Arc::new(ServerState {
         storage: storage2.clone(),
-        db: vantadb::VantaEmbedded::from_engine(storage2.clone()),
+        db: vantadb::Embedded::from_engine(storage2.clone()),
         circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
         pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
         api_key: None,
@@ -555,7 +555,7 @@ async fn test_e2e_text_search_fresh_db() {
     let client = reqwest::Client::new();
 
     // 1. Put a record with a distinctive text payload
-    let input = vantadb::sdk::VantaMemoryInput::new(
+    let input = vantadb::sdk::MemoryInput::new(
         "default",
         "mod12-doc",
         "The quantum flux capacitor regulates lexical energy for BM25 scoring",
@@ -569,7 +569,7 @@ async fn test_e2e_text_search_fresh_db() {
     assert_eq!(resp.status(), 201);
 
     // 2. Lexical search via /api/v2/search (no rebuild) must return hits
-    let search = vantadb::sdk::VantaMemorySearchRequest {
+    let search = vantadb::sdk::MemorySearchRequest {
         text_query: Some("quantum flux".into()),
         ..Default::default()
     };

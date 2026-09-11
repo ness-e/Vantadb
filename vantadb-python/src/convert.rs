@@ -9,20 +9,19 @@ use std::cell::RefCell;
 use std::num::NonZeroUsize;
 use vantadb::graph::TraversalDirection;
 use vantadb::sdk::{
-    VantaBm25TermContribution, VantaCapabilities, VantaExportReport, VantaFilterOp,
-    VantaHybridFusionReport, VantaImportReport, VantaIndexRebuildReport, VantaMemoryFilter,
-    VantaMemoryFilterItem, VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult,
-    VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit, VantaStorageTier,
-    VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
+    Bm25TermContribution, Capabilities, ExportReport, FilterOp, HybridFusionReport, ImportReport,
+    IndexRebuildReport, MemoryFilter, MemoryFilterItem, NodeRecord, OperationalMetrics,
+    QueryResult, RuntimeProfile, SearchExplanation, SearchExplanationHit, StorageTier,
+    TextIndexAuditReport, TextIndexRepairReport, Value,
 };
 
 use crate::vector::VantaVector;
 
 // ─── Typed Python exception hierarchy (MOD-20) ───────────────────────────────
 //
-// `VantaError` is the base for every VantaDB error raised by this binding. It
+// `Error` is the base for every VantaDB error raised by this binding. It
 // inherits from `RuntimeError` so existing `except RuntimeError` / `except
-// Exception` callers keep working (backward compat). Each core `VantaError`
+// Exception` callers keep working (backward compat). Each core `Error`
 // variant maps to a specific subclass below (see `map_vanta_error`).
 //
 // Single-inheritance only: CPython's built-in exceptions have fixed memory
@@ -31,20 +30,20 @@ use crate::vector::VantaVector;
 // at a time"), and PyO3's `create_exception!` takes a single base.
 use pyo3::create_exception;
 
-create_exception!(vantadb_py, VantaError, PyRuntimeError);
-create_exception!(vantadb_py, NotFoundError, VantaError);
-create_exception!(vantadb_py, ValidationError, VantaError);
-create_exception!(vantadb_py, CorruptError, VantaError);
-create_exception!(vantadb_py, StorageError, VantaError);
-create_exception!(vantadb_py, ConflictError, VantaError);
-create_exception!(vantadb_py, UnsupportedError, VantaError);
-create_exception!(vantadb_py, ResourceLimitError, VantaError);
-create_exception!(vantadb_py, BusyError, VantaError);
-create_exception!(vantadb_py, NoVectorError, VantaError);
-create_exception!(vantadb_py, TimeoutError, VantaError);
+create_exception!(vantadb_py, Error, PyRuntimeError);
+create_exception!(vantadb_py, NotFoundError, Error);
+create_exception!(vantadb_py, ValidationError, Error);
+create_exception!(vantadb_py, CorruptError, Error);
+create_exception!(vantadb_py, StorageError, Error);
+create_exception!(vantadb_py, ConflictError, Error);
+create_exception!(vantadb_py, UnsupportedError, Error);
+create_exception!(vantadb_py, ResourceLimitError, Error);
+create_exception!(vantadb_py, BusyError, Error);
+create_exception!(vantadb_py, NoVectorError, Error);
+create_exception!(vantadb_py, TimeoutError, Error);
 
 thread_local! {
-    static LRU_CACHE: RefCell<LruCache<String, std::collections::BTreeMap<String, VantaValue>>> =
+    static LRU_CACHE: RefCell<LruCache<String, std::collections::BTreeMap<String, Value>>> =
         RefCell::new(LruCache::new(CACHE_CAPACITY));
 }
 
@@ -56,22 +55,22 @@ const CACHE_CAPACITY: NonZeroUsize = match NonZeroUsize::new(64) {
     None => unreachable!(),
 };
 
-pub(crate) fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> {
+pub(crate) fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<Value> {
     if value.is_none() {
-        return Ok(VantaValue::Null);
+        return Ok(Value::Null);
     }
     if let Ok(boolean) = value.extract::<bool>() {
-        return Ok(VantaValue::Bool(boolean));
+        return Ok(Value::Bool(boolean));
     }
     if let Ok(dt) = value.extract::<chrono::DateTime<chrono::Utc>>() {
-        return Ok(VantaValue::DateTime(dt));
+        return Ok(Value::DateTime(dt));
     }
     if let Ok(dt) = value.extract::<chrono::DateTime<chrono::FixedOffset>>() {
-        return Ok(VantaValue::DateTime(dt.with_timezone(&chrono::Utc)));
+        return Ok(Value::DateTime(dt.with_timezone(&chrono::Utc)));
     }
     if let Ok(py_list) = value.cast::<pyo3::types::PyList>() {
         if py_list.is_empty() {
-            return Ok(VantaValue::ListString(Vec::new()));
+            return Ok(Value::ListString(Vec::new()));
         }
         let first = py_list.get_item(0)?;
         if first.is_none() {
@@ -84,14 +83,14 @@ pub(crate) fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> 
             for item in py_list.iter() {
                 vec.push(item.extract::<i64>()?);
             }
-            return Ok(VantaValue::ListInt(vec));
+            return Ok(Value::ListInt(vec));
         }
         if first.extract::<bool>().is_ok() {
             let mut vec = Vec::with_capacity(py_list.len());
             for item in py_list.iter() {
                 vec.push(item.extract::<bool>()?);
             }
-            return Ok(VantaValue::ListBool(vec));
+            return Ok(Value::ListBool(vec));
         }
         if first.extract::<chrono::DateTime<chrono::Utc>>().is_ok()
             || first
@@ -110,7 +109,7 @@ pub(crate) fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> 
                     ));
                 }
             }
-            return Ok(VantaValue::ListDateTime(vec));
+            return Ok(Value::ListDateTime(vec));
         }
         if first.extract::<f64>().is_ok() {
             let mut vec = Vec::with_capacity(py_list.len());
@@ -126,14 +125,14 @@ pub(crate) fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> 
                 }
                 vec.push(val);
             }
-            return Ok(VantaValue::ListFloat(vec));
+            return Ok(Value::ListFloat(vec));
         }
         if first.extract::<String>().is_ok() {
             let mut vec = Vec::with_capacity(py_list.len());
             for item in py_list.iter() {
                 vec.push(item.extract::<String>()?);
             }
-            return Ok(VantaValue::ListString(vec));
+            return Ok(Value::ListString(vec));
         }
         let first_type = first
             .get_type()
@@ -147,10 +146,10 @@ pub(crate) fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> 
         )));
     }
     if let Ok(string) = value.extract::<String>() {
-        return Ok(VantaValue::String(string));
+        return Ok(Value::String(string));
     }
     if let Ok(integer) = value.extract::<i64>() {
-        return Ok(VantaValue::Int(integer));
+        return Ok(Value::Int(integer));
     }
     if let Ok(float) = value.extract::<f64>() {
         if float.is_nan() {
@@ -161,7 +160,7 @@ pub(crate) fn py_any_to_value(value: &Bound<'_, PyAny>) -> PyResult<VantaValue> 
                 "Float field value cannot be Infinity.",
             ));
         }
-        return Ok(VantaValue::Float(float));
+        return Ok(Value::Float(float));
     }
 
     Err(PyTypeError::new_err(
@@ -247,44 +246,44 @@ pub(crate) fn set_python_value(
     py: Python<'_>,
     dict: &Bound<'_, PyDict>,
     key: &str,
-    value: &VantaValue,
+    value: &Value,
 ) -> PyResult<()> {
     match value {
-        VantaValue::String(value) => dict.set_item(key, value),
-        VantaValue::Int(value) => dict.set_item(key, value),
-        VantaValue::Float(value) => dict.set_item(key, value),
-        VantaValue::Bool(value) => dict.set_item(key, value),
-        VantaValue::DateTime(value) => dict.set_item(key, value),
-        VantaValue::ListString(value) => dict.set_item(key, value),
-        VantaValue::ListInt(value) => dict.set_item(key, value),
-        VantaValue::ListFloat(value) => dict.set_item(key, value),
-        VantaValue::ListBool(value) => dict.set_item(key, value),
-        VantaValue::ListDateTime(value) => {
+        Value::String(value) => dict.set_item(key, value),
+        Value::Int(value) => dict.set_item(key, value),
+        Value::Float(value) => dict.set_item(key, value),
+        Value::Bool(value) => dict.set_item(key, value),
+        Value::DateTime(value) => dict.set_item(key, value),
+        Value::ListString(value) => dict.set_item(key, value),
+        Value::ListInt(value) => dict.set_item(key, value),
+        Value::ListFloat(value) => dict.set_item(key, value),
+        Value::ListBool(value) => dict.set_item(key, value),
+        Value::ListDateTime(value) => {
             let py_list = pyo3::types::PyList::new(py, value.iter())?;
             dict.set_item(key, py_list)
         }
-        VantaValue::Null => dict.set_item(key, py.None()),
+        Value::Null => dict.set_item(key, py.None()),
     }
 }
 
-pub(crate) fn runtime_profile_label(profile: VantaRuntimeProfile) -> &'static str {
+pub(crate) fn runtime_profile_label(profile: RuntimeProfile) -> &'static str {
     match profile {
-        VantaRuntimeProfile::Enterprise => "ENTERPRISE",
-        VantaRuntimeProfile::Performance => "PERFORMANCE",
-        VantaRuntimeProfile::LowResource => "LOW_RESOURCE",
+        RuntimeProfile::Enterprise => "ENTERPRISE",
+        RuntimeProfile::Performance => "PERFORMANCE",
+        RuntimeProfile::LowResource => "LOW_RESOURCE",
     }
 }
 
-pub(crate) fn tier_label(tier: VantaStorageTier) -> &'static str {
+pub(crate) fn tier_label(tier: StorageTier) -> &'static str {
     match tier {
-        VantaStorageTier::Hot => "Hot",
-        VantaStorageTier::Cold => "Cold",
+        StorageTier::Hot => "Hot",
+        StorageTier::Cold => "Cold",
     }
 }
 
 /// Convert a stable SDK node into a Python dictionary for maximum interop
 /// with the AI ecosystem (LangChain, LlamaIndex, etc.)
-pub(crate) fn node_to_pydict(py: Python, node: &VantaNodeRecord) -> PyResult<Py<PyAny>> {
+pub(crate) fn node_to_pydict(py: Python, node: &NodeRecord) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("id", node.id)?;
     dict.set_item("confidence_score", node.confidence_score)?;
@@ -323,9 +322,9 @@ pub(crate) fn node_to_pydict(py: Python, node: &VantaNodeRecord) -> PyResult<Py<
 }
 
 /// Format a stable SDK query result into a JSON-like string for Python consumption.
-pub(crate) fn format_query_result(result: &VantaQueryResult) -> String {
+pub(crate) fn format_query_result(result: &QueryResult) -> String {
     match result {
-        VantaQueryResult::Read(nodes) => {
+        QueryResult::Read(nodes) => {
             let summaries: Vec<String> = nodes
                 .iter()
                 .map(|n| {
@@ -337,7 +336,7 @@ pub(crate) fn format_query_result(result: &VantaQueryResult) -> String {
                 .collect();
             format!("[{}]", summaries.join(", "))
         }
-        VantaQueryResult::Write {
+        QueryResult::Write {
             affected_nodes,
             message,
             node_id,
@@ -347,7 +346,7 @@ pub(crate) fn format_query_result(result: &VantaQueryResult) -> String {
                 affected_nodes, message, node_id
             )
         }
-        VantaQueryResult::StaleContext { node_id } => {
+        QueryResult::StaleContext { node_id } => {
             format!(
                 "{{stale_context: {}, action: \"rehydration_required\"}}",
                 node_id
@@ -356,16 +355,16 @@ pub(crate) fn format_query_result(result: &VantaQueryResult) -> String {
     }
 }
 
-/// Convert a `VantaQueryResult` into a structured Python dict (MOD-20),
+/// Convert a `QueryResult` into a structured Python dict (MOD-20),
 /// mirroring the string form produced by `format_query_result` but as data so
 /// callers can consume the result without parsing text.
 ///
 /// `u128` node ids are returned as strings to avoid precision loss (same wire
 /// convention as MCP/CLI).
-pub(crate) fn query_result_to_pydict(py: Python, result: &VantaQueryResult) -> PyResult<Py<PyAny>> {
+pub(crate) fn query_result_to_pydict(py: Python, result: &QueryResult) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     match result {
-        VantaQueryResult::Read(nodes) => {
+        QueryResult::Read(nodes) => {
             dict.set_item("kind", "read")?;
             let node_list = PyList::empty(py);
             for n in nodes {
@@ -378,7 +377,7 @@ pub(crate) fn query_result_to_pydict(py: Python, result: &VantaQueryResult) -> P
             }
             dict.set_item("nodes", node_list)?;
         }
-        VantaQueryResult::Write {
+        QueryResult::Write {
             affected_nodes,
             message,
             node_id,
@@ -388,7 +387,7 @@ pub(crate) fn query_result_to_pydict(py: Python, result: &VantaQueryResult) -> P
             dict.set_item("message", message)?;
             dict.set_item("node_id", node_id.map(|id| id.to_string()))?;
         }
-        VantaQueryResult::StaleContext { node_id } => {
+        QueryResult::StaleContext { node_id } => {
             dict.set_item("kind", "stale_context")?;
             dict.set_item("node_id", node_id.to_string())?;
         }
@@ -398,7 +397,7 @@ pub(crate) fn query_result_to_pydict(py: Python, result: &VantaQueryResult) -> P
 
 pub(crate) fn capabilities_to_pydict(
     py: Python,
-    capabilities: &VantaCapabilities,
+    capabilities: &Capabilities,
 ) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item(
@@ -412,10 +411,7 @@ pub(crate) fn capabilities_to_pydict(
     Ok(dict.unbind().into())
 }
 
-pub(crate) fn bm25_term_to_pydict(
-    py: Python,
-    term: &VantaBm25TermContribution,
-) -> PyResult<Py<PyAny>> {
+pub(crate) fn bm25_term_to_pydict(py: Python, term: &Bm25TermContribution) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("token", &term.token)?;
     dict.set_item("tf", term.tf)?;
@@ -427,7 +423,7 @@ pub(crate) fn bm25_term_to_pydict(
 
 pub(crate) fn explanation_hit_to_pydict(
     py: Python,
-    exp: &VantaSearchExplanationHit,
+    exp: &SearchExplanationHit,
 ) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("identity", &exp.identity)?;
@@ -449,7 +445,7 @@ pub(crate) fn explanation_hit_to_pydict(
 
 pub(crate) fn hybrid_fusion_report_to_pydict(
     py: Python,
-    report: &VantaHybridFusionReport,
+    report: &HybridFusionReport,
 ) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("text_candidates", report.text_candidates)?;
@@ -461,7 +457,7 @@ pub(crate) fn hybrid_fusion_report_to_pydict(
 
 pub(crate) fn search_explanation_to_pydict(
     py: Python,
-    exp: &VantaSearchExplanation,
+    exp: &SearchExplanation,
 ) -> PyResult<Py<PyAny>> {
     let dict = PyDict::new(py);
     dict.set_item("route", &exp.route)?;
@@ -494,7 +490,7 @@ macro_rules! pydict_set {
 
 pub(crate) fn rebuild_report_to_pydict(
     py: Python,
-    report: &VantaIndexRebuildReport,
+    report: &IndexRebuildReport,
 ) -> PyResult<Py<PyAny>> {
     pydict_set!(py,
         "scanned_nodes" => report.scanned_nodes,
@@ -507,10 +503,7 @@ pub(crate) fn rebuild_report_to_pydict(
     )
 }
 
-pub(crate) fn export_report_to_pydict(
-    py: Python,
-    report: &VantaExportReport,
-) -> PyResult<Py<PyAny>> {
+pub(crate) fn export_report_to_pydict(py: Python, report: &ExportReport) -> PyResult<Py<PyAny>> {
     pydict_set!(py,
         "records_exported" => report.records_exported,
         "namespaces" => report.namespaces.clone(),
@@ -519,10 +512,7 @@ pub(crate) fn export_report_to_pydict(
     )
 }
 
-pub(crate) fn import_report_to_pydict(
-    py: Python,
-    report: &VantaImportReport,
-) -> PyResult<Py<PyAny>> {
+pub(crate) fn import_report_to_pydict(py: Python, report: &ImportReport) -> PyResult<Py<PyAny>> {
     pydict_set!(py,
         "inserted" => report.inserted,
         "updated" => report.updated,
@@ -545,7 +535,7 @@ pub(crate) fn bulk_import_report_to_pydict(
 
 pub(crate) fn text_index_repair_report_to_pydict(
     py: Python,
-    report: &VantaTextIndexRepairReport,
+    report: &TextIndexRepairReport,
 ) -> PyResult<Py<PyAny>> {
     pydict_set!(py,
         "record_count" => report.record_count,
@@ -560,7 +550,7 @@ pub(crate) fn text_index_repair_report_to_pydict(
 
 pub(crate) fn text_index_audit_report_to_pydict(
     py: Python,
-    report: &VantaTextIndexAuditReport,
+    report: &TextIndexAuditReport,
 ) -> PyResult<Py<PyAny>> {
     pydict_set!(py,
         "schema_version" => report.schema_version,
@@ -593,7 +583,7 @@ pub(crate) fn text_index_audit_report_to_pydict(
 
 pub(crate) fn operational_metrics_to_pydict(
     py: Python,
-    metrics: &VantaOperationalMetrics,
+    metrics: &OperationalMetrics,
 ) -> PyResult<Py<PyAny>> {
     pydict_set!(py,
         "startup_ms" => metrics.startup_ms,
@@ -638,7 +628,7 @@ pub(crate) fn operational_metrics_to_pydict(
 
 pub(crate) fn py_dict_to_metadata(
     fields: Option<&Bound<'_, PyDict>>,
-) -> PyResult<std::collections::BTreeMap<String, VantaValue>> {
+) -> PyResult<std::collections::BTreeMap<String, Value>> {
     let mut metadata = std::collections::BTreeMap::new();
     if let Some(extra) = fields {
         if extra.is_empty() {
@@ -705,7 +695,7 @@ pub(crate) fn py_dict_to_metadata(
     Ok(metadata)
 }
 
-/// Build a core `VantaMemoryFilter` (operator filter_ops) from a Python dict,
+/// Build a core `MemoryFilter` (operator filter_ops) from a Python dict,
 /// following the canonical cross-SDK wire format used by CLI/MCP/TS:
 ///
 /// - Flat value → implicit `$eq`: `{"field": "value"}`
@@ -715,10 +705,8 @@ pub(crate) fn py_dict_to_metadata(
 /// An unknown operator raises `ValueError` (same error contract as the CLI/MCP
 /// channels — never silently ignored). Values are converted with
 /// `py_any_to_value` (str/int/float/bool/datetime/list/None).
-pub(crate) fn py_dict_to_filter_ops(
-    filters: Option<&Bound<'_, PyDict>>,
-) -> PyResult<VantaMemoryFilter> {
-    let mut ops: VantaMemoryFilter = Vec::new();
+pub(crate) fn py_dict_to_filter_ops(filters: Option<&Bound<'_, PyDict>>) -> PyResult<MemoryFilter> {
+    let mut ops: MemoryFilter = Vec::new();
     let Some(dict) = filters else {
         return Ok(ops);
     };
@@ -727,9 +715,9 @@ pub(crate) fn py_dict_to_filter_ops(
         let field: String = field.extract()?;
         // Flat value → implicit equality, matching the CLI/MCP flat form.
         if spec.cast::<PyDict>().is_err() {
-            ops.push(VantaMemoryFilterItem {
+            ops.push(MemoryFilterItem {
                 field: field.clone(),
-                op: VantaFilterOp::Eq,
+                op: FilterOp::Eq,
                 value: py_any_to_value(&spec)?,
             });
             continue;
@@ -739,19 +727,19 @@ pub(crate) fn py_dict_to_filter_ops(
         for (op_str, val) in op_dict.iter() {
             let op: &str = op_str.extract()?;
             let op = match op {
-                "$eq" => VantaFilterOp::Eq,
-                "$neq" => VantaFilterOp::Neq,
-                "$gt" => VantaFilterOp::Gt,
-                "$gte" => VantaFilterOp::Gte,
-                "$lt" => VantaFilterOp::Lt,
-                "$lte" => VantaFilterOp::Lte,
+                "$eq" => FilterOp::Eq,
+                "$neq" => FilterOp::Neq,
+                "$gt" => FilterOp::Gt,
+                "$gte" => FilterOp::Gte,
+                "$lt" => FilterOp::Lt,
+                "$lte" => FilterOp::Lte,
                 other => {
                     return Err(PyValueError::new_err(format!(
                         "Unknown filter operator '{other}' for field '{field}'. Supported: $eq, $neq, $gt, $gte, $lt, $lte"
                     )))
                 }
             };
-            ops.push(VantaMemoryFilterItem {
+            ops.push(MemoryFilterItem {
                 field: field.clone(),
                 op,
                 value: py_any_to_value(&val)?,
@@ -761,10 +749,10 @@ pub(crate) fn py_dict_to_filter_ops(
     Ok(ops)
 }
 
-/// Map a `VantaError` to the typed Python exception hierarchy (MOD-20).
+/// Map a `Error` to the typed Python exception hierarchy (MOD-20).
 ///
-/// Every core variant maps to a specific subclass of `VantaError`
-/// (see the `create_exception!` block above). `VantaError` inherits from
+/// Every core variant maps to a specific subclass of `Error`
+/// (see the `create_exception!` block above). `Error` inherits from
 /// `RuntimeError`, so `except RuntimeError` / `except Exception` callers keep
 /// working; specific handlers use `NotFoundError`, `ValidationError`, etc.
 ///
@@ -782,9 +770,9 @@ pub(crate) fn py_dict_to_filter_ops(
 /// - `NoVectorForKey` → `NoVectorError`
 /// - `Timeout` → `TimeoutError` (VantaDB's, not the builtin)
 /// - remaining (`RuntimeError`, `Generic`, `CliError`, `SearchError`,
-///   `RestoreError`, `BackupError`, …) → `VantaError` (base, catch-all)
-pub(crate) fn map_vanta_error(err: vantadb::error::VantaError) -> PyErr {
-    use vantadb::error::VantaError as CoreError;
+///   `RestoreError`, `BackupError`, …) → `Error` (base, catch-all)
+pub(crate) fn map_vanta_error(err: vantadb::error::Error) -> PyErr {
+    use vantadb::error::Error as CoreError;
     let py_err = match &err {
         CoreError::IoError(_) | CoreError::BackendError(_) => {
             StorageError::new_err(err.to_string())
@@ -815,7 +803,7 @@ pub(crate) fn map_vanta_error(err: vantadb::error::VantaError) -> PyErr {
         }
         CoreError::NoVectorForKey(_) => NoVectorError::new_err(err.to_string()),
         // RuntimeError, Generic, CliError, SearchError, RestoreError, BackupError, …
-        _ => VantaError::new_err(err.to_string()),
+        _ => Error::new_err(err.to_string()),
     };
     attach_err_meta(&py_err, &err);
     py_err
@@ -824,7 +812,7 @@ pub(crate) fn map_vanta_error(err: vantadb::error::VantaError) -> PyErr {
 /// ERR-PY-01: attach the canonical error metadata (spec
 /// `docs/api/ERROR_HANDLING.md` §5.1) to a freshly-mapped exception instance:
 ///
-/// - `code` — exact `VANTADB_*` wire value from `VantaError::code()` (cross-binding contract)
+/// - `code` — exact `VANTADB_*` wire value from `Error::code()` (cross-binding contract)
 /// - `retriable` — mirrors `is_retriable()`
 /// - `hint` — recovery hint from `recovery_hint()`, `None` when absent
 ///
@@ -837,7 +825,7 @@ pub(crate) fn map_vanta_error(err: vantadb::error::VantaError) -> PyErr {
 /// cheap no-op when the GIL is already ours. Attribute set on an exception
 /// instance cannot fail in practice (it has `__dict__`; values are
 /// str/bool/None), so setattr errors are deliberately swallowed.
-fn attach_err_meta(py_err: &PyErr, err: &vantadb::error::VantaError) {
+fn attach_err_meta(py_err: &PyErr, err: &vantadb::error::Error) {
     Python::attach(|py| {
         let obj = py_err.value(py);
         let _ = obj.setattr("code", err.code());

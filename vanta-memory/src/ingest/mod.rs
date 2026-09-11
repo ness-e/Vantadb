@@ -44,7 +44,7 @@ pub const DEFAULT_GLOBAL_LLM_CONCURRENCY: usize = 5;
 pub enum IngestError {
     /// Storage / state-machine error from the core wiki store.
     #[error(transparent)]
-    Store(#[from] vantadb::error::VantaError),
+    Store(#[from] vantadb::error::Error),
     /// Input rejected at the ingest boundary (bad root path, empty slug...).
     #[error("invalid ingest request: {0}")]
     Invalid(String),

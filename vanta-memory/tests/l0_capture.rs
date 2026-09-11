@@ -10,17 +10,17 @@ use std::collections::HashSet;
 use tempfile::tempdir;
 use vanta_memory::core::conversation::{L0Message, L0Recorder, L0Role};
 use vanta_memory::core::hooks::{AutoCaptureConfig, AutoCaptureHook, RawMessage};
-use vantadb::config::VantaConfig;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::config::Config;
+use vantadb::sdk::Embedded;
 use vantadb::storage::BackendKind;
 
-fn open_db() -> (VantaEmbedded, tempfile::TempDir) {
+fn open_db() -> (Embedded, tempfile::TempDir) {
     let dir = tempdir().expect("tempdir");
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     };
-    let db = VantaEmbedded::open_with_config(config).expect("open embedded");
+    let db = Embedded::open_with_config(config).expect("open embedded");
     (db, dir)
 }
 

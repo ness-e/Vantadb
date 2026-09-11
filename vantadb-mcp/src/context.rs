@@ -88,7 +88,7 @@ fn context_assemble(
     let query = args["query"].as_str().unwrap_or("");
     let messages = parse_messages(args, config)?;
 
-    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
+    let db = vantadb::Embedded::from_engine(storage.clone());
 
     // Session recall (L1 memories + persona + scene navigation). Empty query
     // still injects persona/navigation — documented hook behavior. No

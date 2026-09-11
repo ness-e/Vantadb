@@ -74,12 +74,12 @@ async fn proxy_put_visible_in_writer() {
         .proxy_tools_call(&params)
         .await
         .expect("proxy put via http");
-    // Check writer storage sees it via VantaEmbedded (high-level API)
-    let db = vantadb::VantaEmbedded::from_engine(storage.clone());
+    // Check writer storage sees it via Embedded (high-level API)
+    let db = vantadb::Embedded::from_engine(storage.clone());
     let list = db
         .list(
             "ns1",
-            vantadb::sdk::VantaMemoryListOptions {
+            vantadb::sdk::MemoryListOptions {
                 limit: 100,
                 ..Default::default()
             },

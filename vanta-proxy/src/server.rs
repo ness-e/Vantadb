@@ -11,7 +11,7 @@ use axum::response::IntoResponse;
 use axum::routing::{get, post};
 use axum::{Json, Router};
 use bytes::Bytes;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::sdk::Embedded;
 use vantadb::storage::StorageEngine;
 
 use crate::auth::AuthDb;
@@ -48,7 +48,7 @@ pub struct AppState {
     /// Local RBAC entity store handle (D25/D34).
     pub auth: Arc<AuthDb>,
     /// Embedded memory handle over the SAME storage (persona/scene injection).
-    pub memory: Arc<VantaEmbedded>,
+    pub memory: Arc<Embedded>,
     /// Local session state machine store (D26).
     pub sessions: Arc<SessionStore>,
     /// In-process sliding-window rate limiter (D24/D35).
@@ -159,7 +159,7 @@ impl AppState {
             config: Arc::new(config),
             forwarder: Arc::new(forwarder),
             auth: AuthDb::new(engine.clone()).into(),
-            memory: VantaEmbedded::from_engine(engine).into(),
+            memory: Embedded::from_engine(engine).into(),
             sessions: SessionStore::new().into(),
         })
     }

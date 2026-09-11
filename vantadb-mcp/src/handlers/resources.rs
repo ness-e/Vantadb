@@ -44,7 +44,7 @@ pub fn handle_resources_read(
         .ok_or_else(|| McpError::invalid_params("Missing 'uri'").to_json())?;
 
     if uri == "metrics://" {
-        let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+        let embedded = vantadb::Embedded::from_engine(storage.clone());
         let metrics_val = embedded.operational_metrics();
         let text = serialize_content(&metrics_val);
         Ok(json!({"contents": [{"uri": uri, "mimeType": "application/json", "text": text}]}))
@@ -71,7 +71,7 @@ pub fn handle_resources_read(
             return e.into_err();
         }
 
-        let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+        let embedded = vantadb::Embedded::from_engine(storage.clone());
         match embedded.get(namespace, key) {
             Ok(Some(record)) => {
                 let text = serialize_content(&record);
@@ -94,17 +94,17 @@ pub fn handle_resources_read(
             return e.into_err();
         }
 
-        let embedded = vantadb::VantaEmbedded::from_engine(storage.clone());
+        let embedded = vantadb::Embedded::from_engine(storage.clone());
         // MOD-11 (H7): page size aligned to the memory_list default instead
         // of a hardcoded 100. The resource returns the FIRST page with its
         // `next_cursor`; full pagination (up to config.max_list_limit) lives
         // in the memory_list tool, which accepts the cursor — documented in
         // SKILL.md § Available MCP Resources.
-        let options = vantadb::sdk::VantaMemoryListOptions {
+        let options = vantadb::sdk::MemoryListOptions {
             limit: config.default_list_limit,
             cursor: None,
             #[allow(deprecated)]
-            filters: vantadb::sdk::VantaMemoryMetadata::new(),
+            filters: vantadb::sdk::MemoryMetadata::new(),
             filter_ops: None,
             exclude_superseded: false,
         };

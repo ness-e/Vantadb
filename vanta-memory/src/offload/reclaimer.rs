@@ -26,7 +26,7 @@ use crate::offload::state_manager::{OffloadError, OffloadStateManager};
 use crate::offload::storage::{entries_namespace, OffloadStorage};
 use crate::offload::types::OffloadEntry;
 use crate::utils::sanitize::sanitize_key;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::sdk::Embedded;
 
 /// Minimum effective retention. Values below disable reclamation
 /// (TDAM `reclaimer.ts:75-78`).
@@ -45,12 +45,12 @@ pub struct ReclaimStats {
 
 /// Garbage collector for offloaded tool-call entries.
 pub struct OffloadReclaimer {
-    db: VantaEmbedded,
+    db: Embedded,
 }
 
 impl OffloadReclaimer {
     /// Open a reclaimer over an already-open embedded database.
-    pub fn new(db: VantaEmbedded) -> Self {
+    pub fn new(db: Embedded) -> Self {
         Self { db }
     }
 
@@ -211,21 +211,21 @@ fn days_from_civil(y: i64, m: u32, d: u32) -> i64 {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use vantadb::config::VantaConfig;
+    use vantadb::config::Config;
     use vantadb::storage::BackendKind;
 
-    fn open_db() -> VantaEmbedded {
-        let config = VantaConfig {
+    fn open_db() -> Embedded {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             read_only: false,
-            ..VantaConfig::default()
+            ..Config::default()
         };
-        VantaEmbedded::open_with_config(config).expect("open in-memory db")
+        Embedded::open_with_config(config).expect("open in-memory db")
     }
 
     /// Seed a session with three entries: old (day 1), cursor (day 5),
     /// future (day 9); cursor points at the day-5 entry. `now` = day 30.
-    fn seeded(db: &VantaEmbedded) -> (OffloadStateManager, OffloadStorage) {
+    fn seeded(db: &Embedded) -> (OffloadStateManager, OffloadStorage) {
         let state = OffloadStateManager::new(db.clone());
         let storage = OffloadStorage::new(db.clone());
         for (id, ts) in [

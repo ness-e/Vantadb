@@ -22,7 +22,7 @@
 
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::sdk::Embedded;
 
 use crate::core::abstractions::MemoryRecord;
 use crate::core::persona::persona_generator::{get_persona, PersonaError};
@@ -152,7 +152,7 @@ impl Default for RecallConfig {
 pub enum RecallError {
     /// Underlying VantaDB storage error.
     #[error("vantadb: {0}")]
-    Vanta(#[from] vantadb::error::VantaError),
+    Vanta(#[from] vantadb::error::Error),
     /// Persona layer failure.
     #[error("persona: {0}")]
     Persona(#[from] PersonaError),
@@ -196,7 +196,7 @@ searches, the information is not in memory — answer with what you have.\n\
 /// scene navigation (TDAM parity). When neither memories nor persona nor
 /// scenes yield content, returns `Ok(None)` — never an empty block.
 pub fn perform_auto_recall(
-    db: &VantaEmbedded,
+    db: &Embedded,
     params: AutoRecallParams<'_>,
     embed: Option<&EmbedFn>,
 ) -> Result<Option<RecallResult>, RecallError> {
@@ -287,7 +287,7 @@ pub fn perform_auto_recall(
 /// O(#sessions + #records) via `list_namespaces`; fine at hundreds of
 /// sessions. Upgrade path (plan stop-condition): sessions-per-agent index.
 fn read_scoped_records(
-    db: &VantaEmbedded,
+    db: &Embedded,
     scope: RecallScope,
     isolation: &ProfileIsolation,
     current_session: &str,

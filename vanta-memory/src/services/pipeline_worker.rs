@@ -340,7 +340,7 @@ fn session_lock_key(session_id: &str) -> String {
 /// failure degrades per Principio 4: the task fails into the worker's
 /// retry/dead-letter path and stored data is never lost or overwritten.
 pub struct MemoryTaskHandler<'a, R: LlmRunner> {
-    db: vantadb::sdk::VantaEmbedded,
+    db: vantadb::sdk::Embedded,
     runner: &'a R,
     extractor_config: L1ExtractorConfig,
     dedup_config: L1DedupConfig,
@@ -352,7 +352,7 @@ pub struct MemoryTaskHandler<'a, R: LlmRunner> {
 
 impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
     pub fn new(
-        db: vantadb::sdk::VantaEmbedded,
+        db: vantadb::sdk::Embedded,
         runner: &'a R,
         extractor_config: L1ExtractorConfig,
         dedup_config: L1DedupConfig,
@@ -662,11 +662,11 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
 
         let payload = serde_json::to_string(&out).map_err(|e| e.to_string())?;
         self.db
-            .put(vantadb::sdk::VantaMemoryInput {
+            .put(vantadb::sdk::MemoryInput {
                 namespace: assembled_namespace(session_id),
                 key: sanitize_key(ASSEMBLED_KEY),
                 payload,
-                metadata: vantadb::sdk::VantaMemoryMetadata::new(),
+                metadata: vantadb::sdk::MemoryMetadata::new(),
                 vector: None,
                 sparse_vector: None,
                 ttl_ms: None,
@@ -730,7 +730,7 @@ fn assembled_namespace(session_id: &str) -> String {
 /// Read back the last persisted post-L3 assembly for a session. Missing or
 /// corrupt record → `None` (never fatal, mirrors `load_active`).
 pub fn load_assembled_context(
-    db: &vantadb::sdk::VantaEmbedded,
+    db: &vantadb::sdk::Embedded,
     session_id: &str,
 ) -> Result<Option<crate::context_engine::IntegratedContext>, String> {
     match db

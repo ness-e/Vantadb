@@ -14,8 +14,8 @@ use vanta_memory::context_engine::{
 use vanta_memory::context_engine::{ChatMessage, ChatRole};
 use vanta_memory::core::abstractions::SceneMeta;
 use vanta_memory::offload::state_manager::OffloadStateManager;
-use vantadb::config::VantaConfig;
-use vantadb::sdk::VantaEmbedded;
+use vantadb::config::Config;
+use vantadb::sdk::Embedded;
 use vantadb::storage::BackendKind;
 
 fn est() -> TokenEstimator {
@@ -290,9 +290,9 @@ fn mem37_a_post_aggressive_recall_mmd_respect_total_budget() {
 /// D19 (b): mensajes ≤ cursor MEM-20 no se recomprimen ni duplican.
 #[test]
 fn mem37_b_messages_at_or_below_cursor_not_recompressed_nor_duplicated() {
-    let db = VantaEmbedded::open_with_config(VantaConfig {
+    let db = Embedded::open_with_config(Config {
         backend_kind: BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     })
     .expect("open in-memory db");
 
