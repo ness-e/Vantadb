@@ -220,7 +220,7 @@ pub enum TierPolicy {
 #[derive(Debug, Clone, Copy)]
 pub struct TierPolicyConfig {
     /// Which heuristic drives promotion.
-    pub policy: TierPolicy,
+    pub kind: TierPolicy,
     /// Whether the L3 archive level participates in compaction. When `false`,
     /// `should_compact_level` never selects L3 and L2 is the deepest tier.
     pub archive: bool,
@@ -233,7 +233,7 @@ pub struct TierPolicyConfig {
 impl Default for TierPolicyConfig {
     fn default() -> Self {
         Self {
-            policy: TierPolicy::SizeBased,
+            kind: TierPolicy::SizeBased,
             archive: true,
             cold_min_access: 3,
             cold_age_days: 30,

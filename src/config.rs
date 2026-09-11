@@ -128,7 +128,7 @@ impl PrefetchMode {
     }
 
     /// Returns `true` if prefetch is active for this mode.
-    pub fn is_prefetch_enabled(self) -> bool {
+    pub fn is_enabled(self) -> bool {
         match self {
             PrefetchMode::Disabled => false,
             PrefetchMode::Auto | PrefetchMode::Enabled => true,
@@ -1411,9 +1411,9 @@ mod tests {
 
     #[test]
     fn test_prefetch_mode_is_enabled() {
-        assert!(PrefetchMode::Auto.is_prefetch_enabled());
-        assert!(PrefetchMode::Enabled.is_prefetch_enabled());
-        assert!(!PrefetchMode::Disabled.is_prefetch_enabled());
+        assert!(PrefetchMode::Auto.is_enabled());
+        assert!(PrefetchMode::Enabled.is_enabled());
+        assert!(!PrefetchMode::Disabled.is_enabled());
     }
 
     // ── Config defaults ───────────────────────────────────
