@@ -10,6 +10,15 @@ aliases: []
 # Python SDK Documentation
 
 > **Stability:** the documented Python SDK API is covered by the [Versioning & Stability Policy](VERSIONING.md).
+>
+> **Naming (ADR-041 anti-stutter):** canonical names are `Client`, `Record`,
+> `SearchHit` (`Hit` alias), `ListResult`, `Vector`, `SearchRequest`.
+> Legacy `VantaDB`, `VantaMemoryRecord`, `VantaSearchHit`, `VantaListResult`,
+> `VantaVector` remain as deprecated aliases and must not appear in new code.
+> Memory methods `get_memory` / `list_memory` / `search_memory` /
+> `delete_memory` stay canonical — the short `get` / `delete` / `search` names
+> are node-level (graph-domain) ops in Python, unlike TS/WASM (see
+> [BINDINGS_NAMESPACES.md](BINDINGS_NAMESPACES.md#naming-hazard-reminder)).
 
 ## Installation
 
@@ -24,13 +33,13 @@ pip install vantadb-py
 ```python
 import vantadb
 
-db = vantadb.VantaDB("./vanta_data")
+db = vantadb.Client("./vanta_data")
 
 db.put(
     namespace="agent/main",
     key="memory-1",
     payload="The user prefers dark mode in all applications.",
-    vector=[0.1] * 384,  # VectorInput: List[float], VantaVector, or np.ndarray
+    vector=[0.1] * 384,  # VectorInput: List[float], Vector, or np.ndarray
 )
 
 # Hybrid search (memory API)
@@ -98,7 +107,7 @@ db.system.flush()
 
 Notes:
 
-- Each attribute returns a lightweight delegate that holds a reference to the parent `VantaDB`; calls are forwarded with identical signatures and results.
+- Each attribute returns a lightweight delegate that holds a reference to the parent `Client`; calls are forwarded with identical signatures and results.
 - The full member lists per sub-client are fixed by [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md) (Python section): memory 15 · graph 10 · system 17 · wiki 1.
 - `AsyncVantaDB` does not expose sub-clients yet.
 
@@ -107,12 +116,12 @@ Notes:
 ### Constructor
 
 ```python
-vantadb.VantaDB(
+vantadb.Client(
     db_path: str,
     memory_limit_bytes: Optional[int] = None,
     read_only: bool = False,
     backend: Optional[str] = None,
-) -> VantaDB
+) -> Client
 ```
 
 ### Module-Level Functions
@@ -125,10 +134,10 @@ vantadb.connect(
     memory_limit: Optional[int] = None,
     read_only: bool = False,
     backend: Optional[str] = None,
-) -> VantaDB
+) -> Client
 ```
 
-Alternative constructor. Accepts a filesystem path, empty string `""`, or `":memory:"` for an in-memory database. This is equivalent to `VantaDB(db_path=path, memory_limit_bytes=memory_limit, read_only=read_only, backend=backend)`.
+Alternative constructor. Accepts a filesystem path, empty string `""`, or `":memory:"` for an in-memory database. This is equivalent to `Client(db_path=path, memory_limit_bytes=memory_limit, read_only=read_only, backend=backend)` (`VantaDB` is a deprecated alias of `Client`).
 
 ```python
 import vantadb
@@ -151,7 +160,7 @@ db.put(
     metadata: Optional[dict] = None,
     vector: Optional[VectorInput] = None,
     ttl_ms: Optional[int] = None,
-) -> VantaMemoryRecord
+) -> Record
 ```
 Insert or update a memory record. The `metadata` is a dict of scalar fields.
 #### `put_batch()`
@@ -165,7 +174,7 @@ db.put_batch(
     namespace: Optional[str] = None,
     namespaces: Optional[List[str]] = None,
     ttls: Optional[List[Optional[int]]] = None,
-) -> List[VantaMemoryRecord]
+) -> List[Record]
 ```
 Insert or update multiple records in parallel. Each entry of `metadatas`
 accepts the same scalar values as `put()` (`str`, `int`, `float`, `bool`,
@@ -192,14 +201,14 @@ db.put_batch(
 )
 ```
 
-Returns a list of `VantaMemoryRecord` objects, up to ~5x faster than sequential `put()` for large batches.
+Returns a list of `Record` objects, up to ~5x faster than sequential `put()` for large batches.
 
 #### `get_memory()`
 ```python
 db.get_memory(
     namespace: str,
     key: str,
-) -> Optional[VantaMemoryRecord]
+) -> Optional[Record]
 ```
 
 #### `delete_memory()`
@@ -217,9 +226,9 @@ db.list_memory(
     filters: Optional[dict] = None,
     limit: int = 100,
     cursor: Optional[int] = None,
-) -> VantaListResult
+) -> ListResult
 ```
-Returns a `VantaListResult` object with `.records`, `.total_count`, and `.next_cursor`. Supports `__getitem__` for dict-style access (`result["records"]`, `result["next_cursor"]`) and `__iter__` for record iteration.
+Returns a `ListResult` object with `.records`, `.total_count`, and `.next_cursor`. Supports `__getitem__` for dict-style access (`result["records"]`, `result["next_cursor"]`) and `__iter__` for record iteration.
 
 ```python
 page = db.list_memory("ns", limit=10)
@@ -243,7 +252,7 @@ db.search_memory(
     method: Optional[str] = None,
     explain: bool = False,
     exclude_superseded: bool = False,
-) -> List[VantaSearchHit]
+) -> List[SearchHit]
 ```
 Search namespace-scoped persistent memory records by vector + filters + text_query.
 
@@ -316,7 +325,7 @@ db.similar_to_key(
     namespace: str,
     key: str,
     top_k: int = 10,
-) -> List[VantaSearchHit]
+) -> List[SearchHit]
 ```
 Search namespace-scoped memory records by vector similarity to an existing
 key, without supplying a query vector. Resolves the record at `key`, reads its
@@ -833,7 +842,7 @@ print(snippet)  # e.g. "...**VantaDB** is a high-performance **vector database**
 ```python
 db.close() -> None
 ```
-Flush and close the embedded engine handle, releasing all resources. The database can be re-opened by creating a new `VantaDB` instance. GIL-released.
+Flush and close the embedded engine handle, releasing all resources. The database can be re-opened by creating a new `Client` instance (`VantaDB` is a deprecated alias). GIL-released.
 
 ```python
 db.close()
@@ -841,13 +850,13 @@ db.close()
 
 #### `__enter__()` / `__exit__()` — Synchronous Context Manager
 ```python
-db.__enter__() -> VantaDB
+db.__enter__() -> Client
 db.__exit__(exc_type, exc_val, exc_tb) -> None
 ```
-Support for the synchronous context manager protocol (`with VantaDB(...) as db:`). `__enter__` returns the database handle; `__exit__` calls `close()` to flush and release resources. This ensures WAL is flushed even if an exception occurs within the `with` block. Available since 0.5.0 (RES-05).
+Support for the synchronous context manager protocol (`with Client(...) as db:`). `__enter__` returns the database handle; `__exit__` calls `close()` to flush and release resources. This ensures WAL is flushed even if an exception occurs within the `with` block. Available since 0.5.0 (RES-05).
 
 ```python
-with VantaDB("./my_brain") as db:
+with Client("./my_brain") as db:
     db.put("ns", "key", "payload", vector=[0.1]*384)
 # db.close() is called automatically on exit
 ```
@@ -861,7 +870,7 @@ db.put_batch_raw(
     metadatas: Optional[List[Optional[dict]]] = None,
     namespaces: Optional[List[str]] = None,
     ttls: Optional[List[Optional[int]]] = None,
-) -> List[VantaMemoryRecord]
+) -> List[Record]
 ```
 Batch insert with raw arrays (no tuple wrapping). Accepts `vectors` as a 2D NumPy array (shape `[N, D]`) for zero-copy buffer protocol input. Optimized for large batches with homogeneous vector dimensions. GIL-released.
 
@@ -878,9 +887,9 @@ records = db.put_batch_raw(
 
 #### `new()`
 ```python
-VantaDB.__new__(cls, *args, **kwargs) -> VantaDB
+Client.__new__(cls, *args, **kwargs) -> Client
 ```
-Internal constructor — prefer the class constructor `VantaDB(db_path, ...)`.
+Internal constructor — prefer the class constructor `Client(db_path, ...)` (`VantaDB` is a deprecated alias).
 
 ### NumPy / Buffer Protocol
 
@@ -893,7 +902,7 @@ Return `__array_interface__`-compatible descriptors for zero-copy NumPy interop.
 ### Iteration Protocol
 
 ```python
-db.__iter__() -> VantaDB    # iterator over search results / record lists
+db.__iter__() -> Client    # iterator over search results / record lists
 db.__next__() -> dict        # next record
 db.__len__() -> int          # length of current result set
 db.__getitem__(key) -> Any   # index into current result set
@@ -904,30 +913,30 @@ db.__setstate__(state) -> None  # pickle deserialization
 ## Type Aliases
 
 ```python
-VectorInput = Union[List[float], VantaVector, numpy.ndarray, memoryview]
+VectorInput = Union[List[float], Vector, numpy.ndarray, memoryview]
 ```
-Accepts plain Python lists, `VantaVector`, NumPy arrays, or any buffer-protocol object (zero-copy when possible).
+Accepts plain Python lists, `Vector`, NumPy arrays, or any buffer-protocol object (zero-copy when possible).
 
 ## Data Types
 
-### `VantaVector`
+### `Vector`
 
 ```python
-vantadb.VantaVector(data: List[float]) -> VantaVector
+vantadb.Vector(data: List[float]) -> Vector
 ```
 Zero-copy vector wrapper backed by a `Box<[f32]>`. Exposes NumPy's `__array_interface__` for zero-copy `np.asarray()` conversion, and supports Python sequence iteration, indexing, and pickle serialization.
 
 ```python
-vec = VantaVector([0.1, 0.2, 0.3])
+vec = Vector([0.1, 0.2, 0.3])
 arr = np.asarray(vec)  # zero-copy view
 len(vec)               # 3
 vec[0]                 # 0.1
 ```
 
-### `VantaMemoryRecord`
+### `Record`
 
 ```python
-vantadb.VantaMemoryRecord
+vantadb.Record
 ```
 
 Each memory record is a typed object with property access and `__getitem__` support:
@@ -938,7 +947,7 @@ Each memory record is a typed object with property access and `__getitem__` supp
 | `key` | `str` | Unique record key |
 | `payload` | `str` | Record payload text |
 | `metadata` | `dict` | Metadata key-value dict |
-| `vector` | `Optional[numpy.ndarray \| VantaVector]` | Embedding vector |
+| `vector` | `Optional[numpy.ndarray \| Vector]` | Embedding vector |
 | `created_at_ms` | `int` | Creation timestamp (ms) |
 | `updated_at_ms` | `int` | Last update timestamp (ms) |
 | `version` | `int` | Monotonic version counter |
@@ -956,27 +965,27 @@ print(record["namespace"], record["key"], record["version"])
 ```
 
 ### Search Result
-Each result is a `VantaSearchHit` object with properties:
+Each result is a `SearchHit` object with properties:
 - `namespace` — namespace of the matched record
 - `key` — key of the matched record
 - `payload` — payload text
 - `metadata` — metadata dict
-- `vector` — `VantaVector` or NumPy array
+- `vector` — `Vector` or NumPy array
 - `score` — relevance score (BM25, cosine similarity, or RRF fused)
 - `id` / `node_id` — numeric node identifier
 - `created_at_ms`, `updated_at_ms`, `version`, `expires_at_ms`
 
-### `VantaListResult`
+### `ListResult`
 
 ```python
-vantadb.VantaListResult
+vantadb.ListResult
 ```
 
 Returned by `list_memory()`. Typed page of memory records with pagination.
 
 | Property | Type | Description |
 |---|---|---|
-| `records` | `List[VantaMemoryRecord]` | Records in this page |
+| `records` | `List[Record]` | Records in this page |
 | `total_count` | `int` | Number of records in this page |
 | `next_cursor` | `Optional[int]` | Cursor for the next page, or `None` |
 
@@ -1025,7 +1034,7 @@ async with AsyncVantaDB("./my_brain") as db:
 # db.close() awaited automatically
 ```
 
-All VantaDB methods are available on `AsyncVantaDB` with `async/await`, including `put()`, `put_batch()`, `insert()`, `delete_memory()`, `get_memory()`, `list_memory()`, `search_memory()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get()`, `delete()`, `search()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, `explain_memory_search()`, `count()`, `delete_by_filter()`, and `similar_to_key()`.
+All Client methods are available on `AsyncVantaDB` with `async/await`, including `put()`, `put_batch()`, `insert()`, `delete_memory()`, `get_memory()`, `list_memory()`, `search_memory()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get()`, `delete()`, `search()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, `explain_memory_search()`, `count()`, `delete_by_filter()`, and `similar_to_key()`.
 
 ## ID limits
 

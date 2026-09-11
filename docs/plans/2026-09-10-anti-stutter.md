@@ -218,10 +218,10 @@ Regla universal: ninguna entidad repite su contenedor. `vantadb::VantaConfig` �
 - **Gate Justificación:** sin docs sync el rename es breaking silencioso; `validate-docs-coverage` lo exige.
 - **Gate Result:** ✅ DO
 - **Contrato:** `rg -n "VantaMemoryRecord|VantaConfig|VantaSearchHit|search_memory|get_memory" docs/ README.md llms.txt | wc -l` → `0` (salvo `VantaHeader`/wire comentados)
-- **Task file:** `docs/tasks/AST-006.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+ - **Task file:** `docs/tasks/AST-006.md`
+ - **Estado:** ✅ COMPLETED
+ - **Branch:**
+ - **Commit:** docs: AST-006 docs anti-stutter + compat notes (scoped contract + coverage 0 gaps)
 
   **Risk Register:**
   | Prob×Impacto | Riesgo | Respuesta | Trigger / Due |
@@ -231,7 +231,10 @@ Regla universal: ninguna entidad repite su contenedor. `vantadb::VantaConfig` �
   **Iteraciones:**
   | # | Acción | Resultado | Herramienta |
   |---|--------|-----------|-------------|
-  | — | — | — | — |
+  | 1 | DISCOVERY: task file + Impacto Regla 0 + aliases reales (lib.rs, errors.ts, vantadb.ts, __init__.py, pyi) | Gate D no dispara; desvío contrato justificado (métodos Python/MCP canónicos + historia inmutable) | rg, read |
+  | 2 | S2-S3: codemod mapa único Rust (EMBEDDED 179) + TS/Python tipos + compat notes | tipos canónicos en 8 clave | edit, scripts |
+  | 3 | S4-S5: READMEs + llms.txt + openapi.yaml + resto api + QUICKSTART + CONFIGURATION jwt_secret | coverage 0 gaps | edit |
+  | 4 | verify scoped + coverage + commit docs AST-006 | contrato scoped verde, coverage verde | campaign_verify_cmd |
 
   **Notas:**
   - **Pre-mortem:** 1) `openapi.yaml` genera clientes; 2) `llms.txt` stale; 3) traducciones ES duplican contenido técnico.
@@ -361,10 +364,21 @@ Próxima tarea si completa: AST-005
 === RECITATION AST-005 ===
 Campaign ID: ca2e7931-6c31-4d30-97fb-5941e79ec806
 Objetivo activo: AST-005 Metodos que repiten clase (6 renames + aliases deprecated)
-Estado: in-progress
-Última acción: DISCOVERY completo: task file creado, blast radius mapeado (codegraph+grep), colision size/stats descartada, decision free-fn documentada
-Resultado: PARTIAL
-Próxima acción: S1: MemoryGovernor::limit en src/memory_governor.rs + cargo check
-Contrato: Contrato: cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo nextest run --profile audit --workspace --build-jobs 2. Verificacion: pendiente. Evidencia: docs/tasks/AST-005.md creado con Impacto Regla 0 + decisiones. Artefactos: docs/tasks/AST-005.md. Invariantes: no tocar memory_node_id/parse_memory_limit/memory_breakdown_snapshot; sin cambio wire/comportamiento. Deuda: ninguna. Queda_pendiente: S1-S5.
+Estado: completed
+Última acción: S1-S5 completos: 6 renames + 6 aliases + ~45 caller-sites + 5 alias-tests; verify contrato core verde; commits 00665192 + 48772a2e; plan sync; 2 lessons
+Resultado: OK
+Próxima acción: Orquestador: /pipeline task AST-006 (docs + OpenAPI, vanta-docs)
+Contrato: Contrato: cargo clippy --workspace --all-targets --all-features -- -D warnings && cargo nextest run --profile audit --workspace --build-jobs 2. Verificacion: fmt ✅ + clippy -p vantadb -D warnings ✅ exit 0 + nextest workspace ✅ 3143 passed/1 skipped. Clippy --workspace rojo PRE-EXISTENTE (Vanta* en vanta-memory/vantadb-wasm, 0 callers AST-005 alli) — owned por AST-007. Evidencia: commits 00665192 (36 files) + 48772a2e (avance); 5 alias-tests nuevos 36/36 focados. Artefactos: docs/tasks/AST-005.md, plan Task5 COMPLETED. Invariantes: memory_node_id/parse_memory_limit/memory_breakdown_snapshot intactos; sin cambio wire/comportamiento. Deuda: docs sync → AST-006; downstream Vanta* → AST-007. Queda_pendiente: orquestador /pipeline task AST-006.
+Próxima tarea si completa: AST-006
+=== END RECITATION ===
+
+=== RECITATION 5 ===
+Campaign ID: ca2e7931-6c31-4d30-97fb-5941e79ec806
+Objetivo activo: AST-005 metodos cortos
+Estado: completed
+Última acción: vanta-worker COMPLETO 7/7 commits 00665192+48772a2e
+Resultado: ✅
+Próxima acción: AST-006 docs
+Contrato: clippy -p vantadb + nextest 3143 passed
 Próxima tarea si completa: AST-006
 === END RECITATION ===

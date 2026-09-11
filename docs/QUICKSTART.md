@@ -109,9 +109,9 @@ pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://
 Create `quickstart_memory.py`:
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
-db = vantadb.VantaDB("./quickstart_data", memory_limit_bytes=128_000_000)
+db = vantadb.Client("./quickstart_data", memory_limit_bytes=128_000_000)
 
 db.put(
     "agent/main",

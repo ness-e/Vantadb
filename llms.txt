@@ -20,7 +20,7 @@
 ```python
 import vantadb
 
-db = vantadb.VantaDB("./memory")
+db = vantadb.Client("./memory")
 db.put(
     namespace="default",
     key="key1",
@@ -37,10 +37,10 @@ results = db.search_memory(
 
 ### Rust
 ```rust
-use vantadb::{VantaEmbedded, VantaMemoryInput};
+use vantadb::{Embedded, MemoryInput};
 
-let db = VantaEmbedded::open("./memory")?;
-db.put(VantaMemoryInput {
+let db = Embedded::open("./memory")?;
+db.put(MemoryInput {
     namespace: "default".into(),
     key: "key1".into(),
     payload: "hello world".into(),

@@ -43,7 +43,7 @@ Helper centralization (this crate `src/api/scores.rs`): `cosine_distance_to_simi
 
 ## Zero-Norm Contract (ERR-028)
 
-- **Core:** `src/sdk/search/mod.rs:108-120` rejects **zero-norm cosine query vectors** (`f32_l2_norm < EPSILON`) with `VantaError::InvalidInput("zero-norm cosine query vector is undefined; use a non-zero vector or the euclidean distance metric (AUDREP-55, ERR-028)")`.
+- **Core:** `src/sdk/search/mod.rs:108-120` rejects **zero-norm cosine query vectors** (`f32_l2_norm < EPSILON`) with `Error::InvalidInput("zero-norm cosine query vector is undefined; use a non-zero vector or the euclidean distance metric (AUDREP-55, ERR-028)")`.
 - **Rationale:** cosine `dot/(||a||·||b||)` is `0/0` undefined when `||query||=0`.
 - **Drift documented (FND-06 H1):** `vantadb-ts/src/vantadb.ts:333-353` silently falls back to Euclidean on zero-norm; `vantadb-ts/src/native.ts:250-260` and `vantadb-python` correctly surface the core error. **Do not automate fallback in new bindings** — surface ERR-028 (R-8 boundary-violation).
 - **`metrics.rs:22-27` internal:** `cosine_sim_*` returns `0.0` on zero-norm (safe kernel), but the search path **must** reject at request validation (sdk/search) to avoid silent empty results.
@@ -55,7 +55,7 @@ Helper centralization (this crate `src/api/scores.rs`): `cosine_distance_to_simi
 | `vantadb` (Rust core) `VantaMemorySearchHit` | `score` | higher-is-better | similarity (cosine) or negated Euclidean; pinned by `src/sdk/serialization/vector_types.rs::tests` |
 | `vantadb-mcp` `search_memory`/`search_semantic` | `distance` | lower-is-better | `distance = 1 - similarity` (cosine), `sqrt(euclidean_sq)` |
 | `vantadb-python` `hit.score` | `score` | higher-is-better | mirrors core |
-| `vantadb-wasm` `VantaSearchHit` | `score` / `distance` | higher / lower | JS mapping; see `WASM_API.md` |
+| `vantadb-wasm` `SearchHit` | `score` / `distance` | higher / lower | JS mapping; see `WASM_API.md` |
 | `vantadb-ts` `SearchHit.distance` | `distance` | lower-is-better | `distance` = L2 or cosine distance (CODE-091 `docs/api/TS_SDK.md`) |
 | HTTP `POST /api/v2/search` | `score` | higher-is-better | core score |
 

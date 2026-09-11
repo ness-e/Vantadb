@@ -19,6 +19,12 @@ pip install vantadb-py
 ```
 
 > **Note:** The distribution name is `vantadb-py` and the canonical import is `import vantadb` (same as the Rust crate and the npm package). `import vantadb_py` remains available and is not broken.
+>
+> **Naming (ADR-041 anti-stutter):** canonical names are `Client` (`VantaDB`
+> deprecated alias), `Record` (`VantaMemoryRecord`), `SearchHit`/`Hit`
+> (`VantaSearchHit`), `ListResult`, `Vector`. Memory methods `get_memory` /
+> `list_memory` / `search_memory` / `delete_memory` stay canonical — the short
+> `get` / `delete` / `search` names are node-level ops in Python.
 
 ### From TestPyPI (Pre-release testing)
 ```bash
@@ -43,7 +49,7 @@ maturin develop --release
 import vantadb
 
 # 1. Open or create an embedded database
-db = vantadb.VantaDB("./my_agent_memory", memory_limit_bytes=128 * 1024 * 1024)
+db = vantadb.Client("./my_agent_memory", memory_limit_bytes=128 * 1024 * 1024)
 
 # 2. Store persistent memory (payload + vector + metadata)
 db.put(

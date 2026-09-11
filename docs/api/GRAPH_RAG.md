@@ -3,9 +3,16 @@
 > **GraphRAG** is a formal pipeline: seed → expand → retrieve → generate context.
 >
 > **Binding availability: Rust only.** GraphRAG is implemented in the core SDK
-> (`src/graphrag/`, `VantaEmbedded::graphrag_search`) and is **not** exposed by
+> (`src/graphrag/`, `Embedded::graphrag_search`) and is **not** exposed by
 > any binding yet — there is no `graphrag_search` method on the Python, WASM,
 > TypeScript, or Node bindings.
+>
+> **Naming (ADR-041 anti-stutter):** `Embedded` is canonical (`VantaEmbedded`
+> deprecated alias).
+
+## Rust
+
+GraphRAG runs through the embedded SDK handle (`Embedded`). The default
 
 ## Rust
 
@@ -14,10 +21,10 @@ pipeline configuration (`seed_k=10`, `expansion_hops=2`, `max_expansion_nodes=10
 `retrieval_top_k=20`) is available as a convenience method:
 
 ```rust
-use vantadb::VantaEmbedded;
+use vantadb::Embedded;
 
 let path = std::env::temp_dir().join(format!("vantadb-graphrag-{}", std::process::id()));
-let db = VantaEmbedded::open(&path).expect("open database");
+let db = Embedded::open(&path).expect("open database");
 
 // Default pipeline configuration:
 let result = db
@@ -32,11 +39,11 @@ let _ = std::fs::remove_dir_all(&path);
 For custom settings, construct `GraphRagPipeline` directly (all fields are public):
 
 ```rust
-use vantadb::VantaEmbedded;
+use vantadb::Embedded;
 use vantadb::graphrag::pipeline::GraphRagPipeline;
 
 let path = std::env::temp_dir().join(format!("vantadb-graphrag-{}", std::process::id()));
-let db = VantaEmbedded::open(&path).expect("open database");
+let db = Embedded::open(&path).expect("open database");
 
 let pipeline = GraphRagPipeline {
     seed_k: 20,

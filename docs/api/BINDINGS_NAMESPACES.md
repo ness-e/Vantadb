@@ -24,9 +24,14 @@
 > TS-side: [`TS_SDK.md` → "Distance vs Score (CODE-091)"](TS_SDK.md#distance-vs-score-code-091).
 > Node-side: [`NODE_SDK.md` → Search § "Score is relevance, not a distance (WSM-10)"](NODE_SDK.md#search).
 
+> **Naming (ADR-041 anti-stutter):** canonical names are `MemorySearchHit.score`
+> (memory/hybrid search) and `SearchHit.distance` (raw ANN). Legacy aliases
+> `VantaMemorySearchHit` / `VantaSearchHit` remain as deprecated re-exports
+> and must not appear in new code.
+
 | Transport | Memory/hybrid search field | Raw ANN field | Convention |
 |---|---|---|---|
-| Rust core | `VantaMemorySearchHit.score` | `VantaSearchHit.distance` | `score` higher-is-better; `distance` lower-is-better |
+| Rust core | `MemorySearchHit.score` | `SearchHit.distance` | `score` higher-is-better; `distance` lower-is-better |
 | WASM binding (`vantadb-wasm`) | `SearchHit.score` | `search_vector()` → **`distance`** *(WSM-10, was `score` before)* | matches core |
 | TypeScript wrapper (`vantadb-ts`) | `SearchHit.distance` *(inverted)* | `searchVector()` → `distance` | **`distance`** lower-is-better in both (CODE-091) |
 | Node binding (`vantadb-node`) | `score` | (no raw ANN binding) | `score` higher-is-better |
