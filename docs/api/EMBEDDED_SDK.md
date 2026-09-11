@@ -1,5 +1,5 @@
 ---
-title: VantaEmbedded SDK Reference
+title: Embedded SDK Reference
 type: api
 status: active
 tags: [vantadb, api]
@@ -7,51 +7,57 @@ last_reviewed: 2026-09-01
 aliases: []
 ---
 
-# VantaEmbedded SDK Reference
+# Embedded SDK Reference
 
-> Core Rust SDK struct `VantaEmbedded` — the primary entry point for all embedded database operations. Used directly in Rust and exposed via [[pyo3|PyO3]] (Python), wasm-bindgen (TypeScript), and [[mcp|MCP]].
+> Core Rust SDK struct `Embedded` — the primary entry point for all embedded database operations. Used directly in Rust and exposed via [[pyo3|PyO3]] (Python), wasm-bindgen (TypeScript), and [[mcp|MCP]].
+>
+> **Naming (ADR-041 anti-stutter):** canonical names are `Embedded`, `Config`,
+> `MemoryRecord`, `SearchHit`, `Error`, `MemoryInput`, `MemoryFilter`. Legacy
+> `Vanta*` aliases (`VantaEmbedded`, `VantaConfig`, …) remain as deprecated
+> re-exports and must not appear in new code. `VantaHeader` (on-disk format)
+> and `VANTADB_*` error codes (wire) are intentionally unchanged.
 
 **Source:** `src/sdk/mod.rs`, `src/sdk/builder.rs`, `src/sdk/api/*.rs`, `src/sdk/graph.rs`, `src/sdk/search/mod.rs`
 
 ## Construction
 
 ```rust
-use vantadb::{VantaEmbedded, VantaConfig, BackendKind};
+use vantadb::{Embedded, Config, BackendKind};
 
 // Open with defaults (path-based)
-let db = VantaEmbedded::open("./vanta_data").unwrap();
+let db = Embedded::open("./vanta_data").unwrap();
 
 // Open with full configuration
-let config = VantaConfig {
+let config = Config {
     storage_path: "./vanta_data".into(),
     memory_limit: Some(512_000_000),
     read_only: false,
     backend_kind: BackendKind::Fjall,
     ..Default::default()
 };
-let db = VantaEmbedded::open_with_config(config).unwrap();
+let db = Embedded::open_with_config(config).unwrap();
 
 // Wrap an existing StorageEngine handle
-let db = VantaEmbedded::from_engine(engine);
+let db = Embedded::from_engine(engine);
 ```
 
 | Method | Description |
 |--------|-------------|
 | `open(path)` | Open or create a database at the given filesystem path with default config |
-| `open_with_config(config)` | Open or create with full `VantaConfig` |
+| `open_with_config(config)` | Open or create with full `Config` |
 | `from_engine(engine)` | Wrap an existing `Arc<StorageEngine>` handle |
 
 ### Audit Log
 
-Set `VantaConfig.audit_log_path` (or `VANTADB_AUDIT_LOG_PATH`) to enable append-only JSONL audit logging of write/delete/export/import operations. Disabled by default (`None`).
+Set `Config.audit_log_path` (or `VANTADB_AUDIT_LOG_PATH`) to enable append-only JSONL audit logging of write/delete/export/import operations. Disabled by default (`None`).
 
 ```rust
-let config = VantaConfig {
+let config = Config {
     storage_path: "./vanta_data".into(),
     audit_log_path: Some("audit/audit.jsonl".into()),
     ..Default::default()
 };
-let db = VantaEmbedded::open_with_config(config).unwrap();
+let db = Embedded::open_with_config(config).unwrap();
 ```
 
 Each line is one JSON object: `{"timestamp":"2026-08-02T12:34:56Z","op":"put","namespace":"docs","key":"a","outcome":"ok","reason":null}`. Ops: `put`, `put_batch`, `delete`, `delete_by_filter`, `export_namespace`, `export_all`, `import_file`, `bulk_import_file`, `bulk_import_stream`. Read-only ops are not audited. See `docs/operations/CONFIGURATION.md`.
@@ -62,55 +68,55 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 
 | Method | Description |
 |--------|-------------|
-| `put(input: VantaMemoryInput)` | Insert or update a memory record. Returns `VantaMemoryRecord` |
-| `put_batch(inputs: Vec<VantaMemoryInput>)` | Batch insert/update (parallel, up to 5x faster). Returns `Vec<VantaMemoryRecord>` |
-| `get(namespace, key)` | Retrieve a record by namespace+key. Returns `Option<VantaMemoryRecord>` |
-| `get_version(namespace, key, version)` | Retrieve the record as it was at the given version (VS-CORE-07). Returns `Option<VantaMemoryRecord>` — `None` if that version was never persisted (unknown key, purged by the retention cap, or deleted). Snapshot durability is best-effort post-commit, so a crash window can leave a version gap — degraded but never corrupt |
-| `versions(namespace, key)` | List every retained version of a record, ascending (v1..vN) (VS-CORE-07). Returns `Vec<VantaMemoryRecord>` — empty if the key does not exist or has no history; expired versions are included as historical data until purged. `get_version(namespace, key, vN)` of the last element matches the live record |
+| `put(input: MemoryInput)` | Insert or update a memory record. Returns `MemoryRecord` |
+| `put_batch(inputs: Vec<MemoryInput>)` | Batch insert/update (parallel, up to 5x faster). Returns `Vec<MemoryRecord>` |
+| `get(namespace, key)` | Retrieve a record by namespace+key. Returns `Option<MemoryRecord>` |
+| `get_version(namespace, key, version)` | Retrieve the record as it was at the given version (VS-CORE-07). Returns `Option<MemoryRecord>` — `None` if that version was never persisted (unknown key, purged by the retention cap, or deleted). Snapshot durability is best-effort post-commit, so a crash window can leave a version gap — degraded but never corrupt |
+| `versions(namespace, key)` | List every retained version of a record, ascending (v1..vN) (VS-CORE-07). Returns `Vec<MemoryRecord>` — empty if the key does not exist or has no history; expired versions are included as historical data until purged. `get_version(namespace, key, vN)` of the last element matches the live record |
 | `delete(namespace, key)` | Delete a record. Returns `bool` (true if existed) |
-| `delete_by_filter(namespace, filter)` | Delete all records in a namespace matching a metadata filter. Returns `u64` count of deleted records. Filter uses `VantaMemoryFilter` (equality + operators). Empty filter rejected to prevent accidental full-namespace deletion |
-| `count(namespace, filter)` | Count memory records in a namespace, optionally filtered by metadata. Returns `u64`. Filter uses `VantaMemoryFilter` (equality + operators). `None` counts all records |
-| `list(namespace, options)` | List records in a namespace with cursor pagination. Returns `VantaMemoryListPage` |
+| `delete_by_filter(namespace, filter)` | Delete all records in a namespace matching a metadata filter. Returns `u64` count of deleted records. Filter uses `MemoryFilter` (equality + operators). Empty filter rejected to prevent accidental full-namespace deletion |
+| `count(namespace, filter)` | Count memory records in a namespace, optionally filtered by metadata. Returns `u64`. Filter uses `MemoryFilter` (equality + operators). `None` counts all records |
+| `list(namespace, options)` | List records in a namespace with cursor pagination. Returns `MemoryListPage` |
 | `list_namespaces()` | List all namespaces. Returns `Vec<String>` |
-| `search(request: VantaMemorySearchRequest)` | [[hybrid-search\|Hybrid]] (vector + lexical) search. Returns `Vec<VantaMemorySearchHit>` |
+| `search(request: MemorySearchRequest)` | [[hybrid-search\|Hybrid]] (vector + lexical) search. Returns `Vec<MemorySearchHit>` |
 | `search_with_method(request, method)` | Same as `search` with an explicit index backend override for the dense-vector portion: `Some(IndexType::Ivf)` / `Some(IndexType::Scann)` / `Some(IndexType::Flat)` / `Some(IndexType::Hnsw)`. `None` (default) keeps automatic engine routing untouched; the shared engine config is never mutated (thread-safe, per-search override) |
 | `search_multi(namespaces, request)` | Search across multiple namespaces, merging results by descending score, capped at `request.top_k`. Namespaces that produce no results or fail validation are silently skipped; an empty `namespaces` slice returns an empty `Vec` |
 | `similar_to_key(namespace, key, top_k)` | Vector similarity search from an existing record's vector, post-filtered to `namespace`. Errors `NotFound` if the key does not exist and `NoVectorForKey` if the record carries no vector |
-| `explain_memory_search(request)` | Search with detailed score breakdown. Returns `VantaSearchExplanation` |
-| `namespace_stats(expiring_soon_window_ms)` | Per-namespace statistics: total records, records expiring within the window, already-expired records. Single full scan (no N paginated `count`/`list` calls). `None` uses the 24h default window. Returns `VantaNamespaceStatsMap` |
+| `explain_memory_search(request)` | Search with detailed score breakdown. Returns `SearchExplanation` |
+| `namespace_stats(expiring_soon_window_ms)` | Per-namespace statistics: total records, records expiring within the window, already-expired records. Single full scan (no N paginated `count`/`list` calls). `None` uses the 24h default window. Returns `NamespaceStatsMap` |
 | `supersede(namespace, old_key, new_key)` | Mark `old_key` as superseded by `new_key`: the old record keeps its data (soft-dead, recoverable) but gains `superseded_by`/`superseded_at_ms`, and can be hidden from search/list with `exclude_superseded`. Errors if either key is missing, if `old_key == new_key`, or if the old record is already superseded (idempotency guard) |
 | `purge_expired()` | Scan all memory records and physically delete those whose TTL has expired. Returns `u64` count of purged records |
 | `bulk_import_file(path)` | Bulk-import from a binary `.vdbdump` file. Bypasses per-record validation for raw throughput; commits in batches sized by `bulk_commit_interval` (default 10000) |
-| `bulk_import_stream(reader)` | Bulk-import records from a binary stream. Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`, 8-byte LE record count, then serde_json-serialized `Vec<VantaMemoryInput>`. Same batching/validation behavior as `bulk_import_file` |
+| `bulk_import_stream(reader)` | Bulk-import records from a binary stream. Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`, 8-byte LE record count, then serde_json-serialized `Vec<MemoryInput>`. Same batching/validation behavior as `bulk_import_file` |
 
 ### Version History (VS-CORE-07)
 
-Every `put`/`put_batch` snapshots the new record into a `Versions` partition keyed by `(namespace, key, version)`; `version` increments monotonically per key. `VantaConfig.version_history_limit` caps retained snapshots per key (default `Some(32)`, FIFO eviction of the oldest beyond the cap — see `docs/operations/CONFIGURATION.md`); `delete` and `purge_expired` purge the full history. Imports (`import_file`/`bulk_import_*`) do **not** write snapshots. Only the embedded (native) SDK and the CLI/bridge expose version history.
+Every `put`/`put_batch` snapshots the new record into a `Versions` partition keyed by `(namespace, key, version)`; `version` increments monotonically per key. `Config.version_history_limit` caps retained snapshots per key (default `Some(32)`, FIFO eviction of the oldest beyond the cap — see `docs/operations/CONFIGURATION.md`); `delete` and `purge_expired` purge the full history. Imports (`import_file`/`bulk_import_*`) do **not** write snapshots. Only the embedded (native) SDK and the CLI/bridge expose version history.
 
 ### Bulk Import
 
-Bulk import operations bypass per-record validation for maximum throughput. Records are committed in batches sized by `VantaConfig::bulk_commit_interval` (default 10,000). The binary format (`.vdbdump`) uses magic `VDBJSON\n`, version `0x01`, LE record count, then JSON-serialized `Vec<VantaMemoryInput>`.
+Bulk import operations bypass per-record validation for maximum throughput. Records are committed in batches sized by `Config::bulk_commit_interval` (default 10,000). The binary format (`.vdbdump`) uses magic `VDBJSON\n`, version `0x01`, LE record count, then JSON-serialized `Vec<MemoryInput>`.
 
-### `VantaMemoryInput`
+### `MemoryInput`
 
 ```rust
-pub struct VantaMemoryInput {
+pub struct MemoryInput {
     pub namespace: String,
     pub key: String,
     pub payload: String,
-    pub metadata: VantaMemoryMetadata,  // BTreeMap<String, VantaValue>
+    pub metadata: MemoryMetadata,  // BTreeMap<String, Value>
     pub vector: Option<Vec<f32>>,       // 384-dim embedding
     pub ttl_ms: Option<u64>,            // auto-expiry in ms from now
 }
 ```
 
-### `VantaMemorySearchRequest`
+### `MemorySearchRequest`
 
 ```rust
-pub struct VantaMemorySearchRequest {
+pub struct MemorySearchRequest {
     pub namespace: String,
     pub query_vector: Vec<f32>,       // empty = no vector search
-    pub filters: VantaMemoryMetadata, // equality filter on metadata
+    pub filters: MemoryMetadata, // equality filter on metadata
     pub text_query: Option<String>,   // BM25 lexical query
     pub top_k: usize,                 // default: 10
     pub distance_metric: DistanceMetric, // Cosine (default) or Euclidean
@@ -119,14 +125,14 @@ pub struct VantaMemorySearchRequest {
 ```
 *Note: Lexical search uses the [[bm25|BM25]] algorithm.*
 
-### `VantaMemoryRecord`
+### `MemoryRecord`
 
 ```rust
-pub struct VantaMemoryRecord {
+pub struct MemoryRecord {
     pub namespace: String,
     pub key: String,
     pub payload: String,
-    pub metadata: VantaMemoryMetadata,
+    pub metadata: MemoryMetadata,
     pub created_at_ms: u64,
     pub updated_at_ms: u64,
     pub version: u64,
@@ -136,24 +142,24 @@ pub struct VantaMemoryRecord {
 }
 ```
 
-### `VantaNamespaceStats`
+### `NamespaceStats`
 
 ```rust
-pub struct VantaNamespaceStats {
+pub struct NamespaceStats {
     pub count: u64,          // total records in the namespace (includes not-yet-purged expired)
     pub expiring_soon: u64,  // records expiring within the window (never includes expired)
     pub expired: u64,        // records whose TTL has already passed
 }
 
-pub type VantaNamespaceStatsMap = BTreeMap<String, VantaNamespaceStats>;
+pub type NamespaceStatsMap = BTreeMap<String, NamespaceStats>;
 ```
 
-`namespace_stats` returns one `VantaNamespaceStats` per namespace, keyed by namespace in sorted order. `count` counts all physical records (including expired ones not yet purged); the read-visible subset is available via `count`/`list` (lazy TTL eviction). A record is `expired` if `expires_at_ms <= now` and `expiring_soon` if `now < expires_at_ms <= now + window`; a record never counts as both. Records without a TTL count only toward `count`.
+`namespace_stats` returns one `NamespaceStats` per namespace, keyed by namespace in sorted order. `count` counts all physical records (including expired ones not yet purged); the read-visible subset is available via `count`/`list` (lazy TTL eviction). A record is `expired` if `expires_at_ms <= now` and `expiring_soon` if `now < expires_at_ms <= now + window`; a record never counts as both. Records without a TTL count only toward `count`.
 
 ## Scene Nodes (L2 Memory Anchors) — Separate Module
 
 > **Source:** `src/entity/scene.rs` (`entity::scene::SceneNodeStore`) — documented as part of the
-> F5 memory pipeline closure (MEM-12 debt). This is a **separate module** from `VantaEmbedded`.
+> F5 memory pipeline closure (MEM-12 debt). This is a **separate module** from `Embedded`.
 
 A **scene** is the L2 memory unit that groups an episode of conversation. The
 scene NODE is the LLM-free anchor the L2 strategy reads/writes when it updates
@@ -192,7 +198,7 @@ let page: SceneNodePage = store.scene_node_list("default", "session-42", 20, 0)?
 (preserve `created` on update, bump `updated`, heat increment) live in the L2
 strategy (`vanta-memory/src/core/scene/scene_index.rs::upsert_scene`), not here.
 Keys are validated (`validate_key` / `validate_scope`); invalid scope names are
-rejected with `VantaError::InvalidInput`.
+rejected with `Error::InvalidInput`.
 
 ## Node / Graph API
 
@@ -200,13 +206,13 @@ Low-level operations on the node-graph model (numeric node IDs, edges, graph tra
 
 | Method | Description |
 |--------|-------------|
-| `insert_node(input: VantaNodeInput)` | Insert a graph node with content, vector, and fields |
-| `get_node(id: u128)` | Retrieve a node by numeric ID. Returns `Option<VantaNodeRecord>` |
+| `insert_node(input: NodeInput)` | Insert a graph node with content, vector, and fields |
+| `get_node(id: u128)` | Retrieve a node by numeric ID. Returns `Option<NodeRecord>` |
 | `delete_node(id, reason)` | Delete a node with auditable reason (tombstone) |
 | `add_edge(source_id, target_id, label, weight, created_at_ms)` | Add a directed edge between two nodes with optional weight and creation timestamp. Automatically creates a reverse edge |
 | `remove_edge(source_id, target_id, label)` | Remove all edges between two nodes with the given label (both directions) |
-| `collect_graph_nodes()` | Collect every live non-memory-record node as `Vec<VantaNodeRecord>` (edges with labels resolved). Excludes nodes carrying a namespace field — those belong to the memory snapshot. Used by the WASM binding to persist the graph store alongside `db_state.json` |
-| `restore_graph_nodes(records: Vec<VantaNodeRecord>)` | Restore graph nodes exported by `collect_graph_nodes` into the engine: re-interns edge labels, preserves weights, direction (`reverse`) and creation timestamps. Returns the number of nodes restored |
+| `collect_graph_nodes()` | Collect every live non-memory-record node as `Vec<NodeRecord>` (edges with labels resolved). Excludes nodes carrying a namespace field — those belong to the memory snapshot. Used by the WASM binding to persist the graph store alongside `db_state.json` |
+| `restore_graph_nodes(records: Vec<NodeRecord>)` | Restore graph nodes exported by `collect_graph_nodes` into the engine: re-interns edge labels, preserves weights, direction (`reverse`) and creation timestamps. Returns the number of nodes restored |
 | `graph_bfs(roots, max_depth, direction)` | BFS traversal. Returns `Vec<u128>` |
 | `graph_dfs(roots, max_depth, direction)` | DFS traversal. Returns `Vec<u128>` |
 | `graph_bfs_filtered(roots, max_depth, direction, labels, time_range)` | BFS traversal with label filtering and optional temporal window. Only follows edges whose `label_id` is in `labels` (empty = no filter); `time_range: Option<(from_ms, to_ms)>` restricts to edges created within the window |
@@ -217,44 +223,44 @@ Low-level operations on the node-graph model (numeric node IDs, edges, graph tra
 | `graph_accumulator_add(acc, node_id, delta)` | Atomically add `delta` to the accumulator for `node_id`. Returns the previous value |
 | `graph_accumulator_get(acc, node_id)` | Get the current value for `node_id`. Returns `Option<f64>` |
 | `graph_accumulator_snapshot(acc)` | Capture a consistent snapshot of all accumulator values. Returns `HashMap<u128, f64>` |
-| `search_vector(vector, top_k)` | Pure [[hnsw\|HNSW]] vector search. Returns `Vec<VantaSearchHit>` |
-| `query(iql_query)` | Execute IQL query string. Returns `VantaQueryResult` |
+| `search_vector(vector, top_k)` | Pure [[hnsw\|HNSW]] vector search. Returns `Vec<SearchHit>` |
+| `query(iql_query)` | Execute IQL query string. Returns `QueryResult` |
 | `vacuum()` | Purge tombstoned nodes from the HNSW index. Returns a `VacuumReport` with counts and timing |
 | `pipeline(mode)` | Run the segment optimizer pipeline (vacuum → merge → reindex). Each phase is logged independently; a phase failure does not abort subsequent phases |
 | `optimizer_config()` | Return the current segment optimizer configuration |
 | `set_optimizer_config(config)` | Override the segment optimizer configuration. Takes effect on the next pipeline invocation |
 
-### `VantaNodeInput`
+### `NodeInput`
 
 ```rust
-pub struct VantaNodeInput {
+pub struct NodeInput {
     pub id: u128,
     pub content: Option<String>,
     pub vector: Option<Vec<f32>>,
-    pub fields: VantaFields,  // BTreeMap<String, VantaValue>
+    pub fields: Fields,  // BTreeMap<String, Value>
 }
 ```
 
-### `VantaNodeRecord`
+### `NodeRecord`
 
 ```rust
-pub struct VantaNodeRecord {
+pub struct NodeRecord {
     pub id: u128,
-    pub fields: VantaFields,
+    pub fields: Fields,
     pub vector: Option<Vec<f32>>,
     pub vector_dimensions: usize,
-    pub edges: Vec<VantaEdgeRecord>,
+    pub edges: Vec<EdgeRecord>,
     pub confidence_score: f32,
     pub importance: f32,
     pub hits: u32,
     pub last_accessed: u64,
     pub epoch: u32,
-    pub tier: VantaStorageTier,  // Hot / Cold
+    pub tier: StorageTier,  // Hot / Cold
     pub is_alive: bool,
 }
 ```
 
-| `recover_archived_nodes(summary_id)` | Recover shadow-archived nodes that belonged to a summary node. Scans TombstoneStorage for nodes with a `belonged_to` edge targeting `summary_id`, re-activates them, and inserts them back into the active store. Returns `Vec<VantaNodeRecord>` |
+| `recover_archived_nodes(summary_id)` | Recover shadow-archived nodes that belonged to a summary node. Scans TombstoneStorage for nodes with a `belonged_to` edge targeting `summary_id`, re-activates them, and inserts them back into the active store. Returns `Vec<NodeRecord>` |
 
 ## Threads API
 
@@ -268,7 +274,7 @@ Conversation threads with append-only messages and optional TTL expiry.
 | `delete_thread(thread_id)` | Delete a thread by its ID |
 | `send_message(thread_id, role, content)` | Append a message to a thread. `role` is the message role (e.g., "user", "assistant") |
 | `purge_expired_threads()` | Purge threads whose TTL has expired. Returns the number of threads removed |
-| `recover_archived_nodes(summary_id)` | Recover shadow-archived nodes that belonged to a summary node. Scans TombstoneStorage for nodes with a `belonged_to` edge targeting `summary_id`, re-activates them, and inserts them back into the active store. Returns `Vec<VantaNodeRecord>` |
+| `recover_archived_nodes(summary_id)` | Recover shadow-archived nodes that belonged to a summary node. Scans TombstoneStorage for nodes with a `belonged_to` edge targeting `summary_id`, re-activates them, and inserts them back into the active store. Returns `Vec<NodeRecord>` |
 
 ## Snapshots API
 
@@ -278,13 +284,13 @@ Instant filesystem snapshots via hard links (Unix) or copy (Windows).
 |--------|-------------|
 | `create_snapshot(name)` | Create an instant point-in-time snapshot. All data files in the storage directory are hard-linked into `<data_dir>/snapshots/<name>` (O(1)) |
 | `list_snapshots()` | List all existing snapshot names. Returns `Vec<String>` |
-| `restore_from(config, name)` | DESTRUCTIVE static associated function: replace the live database directory with the contents of snapshot `<name>`, then reopen. Close every open handle first (`db.close()?; let db = VantaEmbedded::restore_from(config.clone(), "name")?;`). The current data is staged aside (atomic rename, sibling of `data_dir`) with best-effort rollback on failure; all snapshots survive the swap. `name` must be a plain identifier (path traversal rejected). Indexes rebuild from storage on reopen |
+| `restore_from(config, name)` | DESTRUCTIVE static associated function: replace the live database directory with the contents of snapshot `<name>`, then reopen. Close every open handle first (`db.close()?; let db = Embedded::restore_from(config.clone(), "name")?;`). The current data is staged aside (atomic rename, sibling of `data_dir`) with best-effort rollback on failure; all snapshots survive the swap. `name` must be a plain identifier (path traversal rejected). Indexes rebuild from storage on reopen |
 
 ### Restore flow
 
 ```rust,ignore
 db.close()?;                                       // release the fs2 lock + handles
-let db = VantaEmbedded::restore_from(config.clone(), "snap-1")?; // swap + reopen
+let db = Embedded::restore_from(config.clone(), "snap-1")?; // swap + reopen
 ```
 
 Restore requires exclusive access to the database directory: on Windows an open
@@ -293,7 +299,7 @@ state, so always close/drop handles first (the SDK wrapper reopens for you).
 
 ## Skills API — Separate Module
 
-> **Source:** `vantadb-skills` crate (`skill_store`/`skill_versioning` modules) — this is a **separate module** from `VantaEmbedded`.
+> **Source:** `vantadb-skills` crate (`skill_store`/`skill_versioning` modules) — this is a **separate module** from `Embedded`.
 
 Versioned skill store (agent skills / memory skills) — port of the TDAM
 `skill_store`/`skill_versioning` modules onto the entity pattern. Each skill
@@ -351,7 +357,7 @@ per `(owner_agent, name)` while a head exists. Content is stored as-is
 | `optimizer_config()` | Return the current segment optimizer configuration |
 | `set_optimizer_config(config)` | Override the segment optimizer configuration. Takes effect on the next pipeline invocation |
 | `purge_expired()` | Delete TTL-expired records. Returns count purged |
-| `rebuild_index()` | Rebuild ANN ([[hnsw\|HNSW]]), derived, and text indexes. Returns `VantaIndexRebuildReport` |
+| `rebuild_index()` | Rebuild ANN ([[hnsw\|HNSW]]), derived, and text indexes. Returns `IndexRebuildReport` |
 | `reindex_hnsw_from_text(namespace, page_size)` | Rebuild the vector index from text records using cursor-based pagination (`page_size` default 1000, max 1000). Safe alternative to unbounded enumeration |
 | `compact_layout()` | BFS-order physical compaction of vector store. Returns nodes compacted |
 
@@ -359,28 +365,28 @@ per `(owner_agent, name)` while a head exists. Content is stored as-is
 
 | Method | Description |
 |--------|-------------|
-| `export_namespace(path, namespace)` | Export namespace as JSONL. Returns `VantaExportReport` |
-| `export_all(path)` | Export all namespaces as JSONL. Returns `VantaExportReport` |
-| `import_file(path)` | Import from JSONL file. Returns `VantaImportReport` |
+| `export_namespace(path, namespace)` | Export namespace as JSONL. Returns `ExportReport` |
+| `export_all(path)` | Export all namespaces as JSONL. Returns `ExportReport` |
+| `import_file(path)` | Import from JSONL file. Returns `ImportReport` |
 | `bulk_import_file(path)` | Bulk-import from a binary `.vdbdump` file. Bypasses per-record validation for raw throughput; commits in batches sized by `bulk_commit_interval` (default 10000) |
-| `bulk_import_stream(reader)` | Bulk-import records from a binary stream. Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`, 8-byte LE record count, then serde_json-serialized `Vec<VantaMemoryInput>`. Same batching/validation behavior as `bulk_import_file` |
+| `bulk_import_stream(reader)` | Bulk-import records from a binary stream. Format: 8-byte magic `VDBJSON\n`, 1-byte version `0x01`, 8-byte LE record count, then serde_json-serialized `Vec<MemoryInput>`. Same batching/validation behavior as `bulk_import_file` |
 
-Free-function helper (used by the MCP `import` tool to rebuild records from JSONL content received as a string): `vantadb::sdk::record_from_export_line(VantaMemoryExportLine) -> Result<VantaMemoryRecord>` — the inverse of [`export_line_from_record`](#export--import); recomputes the deterministic node id from namespace/key.
+Free-function helper (used by the MCP `import` tool to rebuild records from JSONL content received as a string): `vantadb::sdk::record_from_export_line(MemoryExportLine) -> Result<MemoryRecord>` — the inverse of [`export_line_from_record`](#export--import); recomputes the deterministic node id from namespace/key.
 
 ## Text Index Diagnostics
 
 | Method | Description |
 |--------|-------------|
-| `audit_text_index(namespace)` | Read-only structural audit. Returns `VantaTextIndexAuditReport` |
-| `audit_text_index_deep(namespace)` | Deep audit (decodes TF, positions, DF, doc lengths). Returns `VantaTextIndexAuditReport` |
-| `repair_text_index()` | Rebuild text index from canonical storage. Returns `VantaTextIndexRepairReport` |
+| `audit_text_index(namespace)` | Read-only structural audit. Returns `TextIndexAuditReport` |
+| `audit_text_index_deep(namespace)` | Deep audit (decodes TF, positions, DF, doc lengths). Returns `TextIndexAuditReport` |
+| `repair_text_index()` | Rebuild text index from canonical storage. Returns `TextIndexRepairReport` |
 
 ## Observability
 
 | Method | Description |
 |--------|-------------|
-| `operational_metrics()` | Snapshot of runtime metrics. Returns `VantaOperationalMetrics` |
-| `capabilities()` | Stable runtime capabilities. Returns `VantaCapabilities` |
+| `operational_metrics()` | Snapshot of runtime metrics. Returns `OperationalMetrics` |
+| `capabilities()` | Stable runtime capabilities. Returns `Capabilities` |
 | `generate_snippet(payload, query, with_highlighting)` | Highlighted text snippet. Returns `Option<String>` |
 
 ## Lifecycle
@@ -392,10 +398,10 @@ Free-function helper (used by the MCP `import` tool to rebuild records from JSON
 
 ## Data Types
 
-### `VantaValue`
+### `Value`
 
 ```rust
-pub enum VantaValue {
+pub enum Value {
     String(String),
     Int(i64),
     Float(f64),
@@ -410,39 +416,39 @@ pub enum VantaValue {
 }
 ```
 
-### `VantaMemoryListOptions`
+### `MemoryListOptions`
 
 ```rust
-pub struct VantaMemoryListOptions {
-    pub filters: VantaMemoryMetadata,  // equality filter on metadata fields
+pub struct MemoryListOptions {
+    pub filters: MemoryMetadata,  // equality filter on metadata fields
     pub limit: usize,                  // max records to return (default: 100)
     pub cursor: Option<usize>,         // pagination cursor from previous page
 }
 ```
 
-### `VantaMemoryListPage`
+### `MemoryListPage`
 
 ```rust
-pub struct VantaMemoryListPage {
-    pub records: Vec<VantaMemoryRecord>,
+pub struct MemoryListPage {
+    pub records: Vec<MemoryRecord>,
     pub next_cursor: Option<usize>,
 }
 ```
 
-### `VantaMemorySearchHit`
+### `MemorySearchHit`
 
 ```rust
-pub struct VantaMemorySearchHit {
-    pub record: VantaMemoryRecord,
+pub struct MemorySearchHit {
+    pub record: MemoryRecord,
     pub score: f32,
-    pub explanation: Option<VantaSearchExplanationHit>,
+    pub explanation: Option<SearchExplanationHit>,
 }
 ```
 
-### `VantaEdgeRecord`
+### `EdgeRecord`
 
 ```rust
-pub struct VantaEdgeRecord {
+pub struct EdgeRecord {
     pub target: u128,
     pub label: String,
     pub weight: f32,
@@ -455,26 +461,26 @@ pub struct VantaEdgeRecord {
 }
 ```
 
-### `VantaRuntimeProfile` / `VantaStorageTier`
+### `RuntimeProfile` / `StorageTier`
 
 ```rust
-pub enum VantaRuntimeProfile {
+pub enum RuntimeProfile {
     Enterprise,
     Performance,
     LowResource,
 }
 
-pub enum VantaStorageTier {
+pub enum StorageTier {
     Hot,   // RAM-cached
     Cold,  // on-disk
 }
 ```
 
-### `VantaQueryResult`
+### `QueryResult`
 
 ```rust
-pub enum VantaQueryResult {
-    Read(Vec<VantaNodeRecord>),
+pub enum QueryResult {
+    Read(Vec<NodeRecord>),
     Write {
         affected_nodes: u64,
         message: String,
@@ -486,20 +492,20 @@ pub enum VantaQueryResult {
 }
 ```
 
-### `VantaSearchExplanation`
+### `SearchExplanation`
 
 ```rust
-pub struct VantaSearchExplanation {
+pub struct SearchExplanation {
     pub route: String,                          // "hybrid", "text_only", "vector_only"
-    pub hits: Vec<VantaSearchExplanationHit>,
-    pub fusion_report: Option<VantaHybridFusionReport>,
+    pub hits: Vec<SearchExplanationHit>,
+    pub fusion_report: Option<HybridFusionReport>,
 }
 ```
 
-### `VantaHybridFusionReport`
+### `HybridFusionReport`
 
 ```rust
-pub struct VantaHybridFusionReport {
+pub struct HybridFusionReport {
     pub text_candidates: usize,
     pub vector_candidates: usize,
     pub fused_candidates: usize,
@@ -507,11 +513,11 @@ pub struct VantaHybridFusionReport {
 }
 ```
 
-### `VantaCapabilities`
+### `Capabilities`
 
 ```rust
-pub struct VantaCapabilities {
-    pub runtime_profile: VantaRuntimeProfile,  // Enterprise / Performance / LowResource
+pub struct Capabilities {
+    pub runtime_profile: RuntimeProfile,  // Enterprise / Performance / LowResource
     pub persistence: bool,
     pub vector_search: bool,
     pub iql_queries: bool,
@@ -519,7 +525,7 @@ pub struct VantaCapabilities {
 }
 ```
 
-### `VantaOperationalMetrics` (37 fields)
+### `OperationalMetrics` (37 fields)
 
 Metrics grouped by subsystem:
 
@@ -534,25 +540,25 @@ Metrics grouped by subsystem:
 | Memory | `process_rss_bytes`, `process_virtual_bytes`, `hnsw_nodes_count`, `hnsw_logical_bytes`, `mmap_resident_bytes`, `volatile_cache_entries`, `volatile_cache_cap_bytes` |
 | Jemalloc (heap) | `jemalloc_allocated_bytes`, `jemalloc_active_bytes`, `jemalloc_metadata_bytes`, `jemalloc_resident_bytes`, `jemalloc_mapped_bytes`, `jemalloc_retained_bytes` |
 
-### `VantaSearchExplanationHit`
+### `SearchExplanationHit`
 
 ```rust
-pub struct VantaSearchExplanationHit {
+pub struct SearchExplanationHit {
     pub identity: String,          // namespace/key
     pub score: f32,
     pub snippet: Option<String>,   // highlighted text
     pub matched_tokens: Vec<String>,
     pub matched_phrases: Vec<String>,
-    pub bm25_terms: Vec<VantaBm25TermContribution>,  // per-term TF/DF/contribution
+    pub bm25_terms: Vec<Bm25TermContribution>,  // per-term TF/DF/contribution
     pub rrf_text_rank: Option<usize>,
     pub rrf_vector_rank: Option<usize>,
 }
 ```
 
-### `VantaBm25TermContribution`
+### `Bm25TermContribution`
 
 ```rust
-pub struct VantaBm25TermContribution {
+pub struct Bm25TermContribution {
     pub token: String,
     pub tf: u32,
     pub df: u64,
@@ -563,10 +569,10 @@ pub struct VantaBm25TermContribution {
 
 ## Report Types
 
-### `VantaIndexRebuildReport`
+### `IndexRebuildReport`
 
 ```rust
-pub struct VantaIndexRebuildReport {
+pub struct IndexRebuildReport {
     pub scanned_nodes: u64,
     pub indexed_vectors: u64,
     pub skipped_tombstones: u64,
@@ -577,10 +583,10 @@ pub struct VantaIndexRebuildReport {
 }
 ```
 
-### `VantaExportReport`
+### `ExportReport`
 
 ```rust
-pub struct VantaExportReport {
+pub struct ExportReport {
     pub records_exported: u64,
     pub namespaces: Vec<String>,
     pub path: String,
@@ -588,10 +594,10 @@ pub struct VantaExportReport {
 }
 ```
 
-### `VantaImportReport`
+### `ImportReport`
 
 ```rust
-pub struct VantaImportReport {
+pub struct ImportReport {
     pub inserted: u64,
     pub updated: u64,
     pub skipped: u64,
@@ -600,14 +606,14 @@ pub struct VantaImportReport {
 }
 ```
 
-### `VantaTextIndexAuditReport` (25 fields)
+### `TextIndexAuditReport` (25 fields)
 
 Key fields: `schema_version`, `tokenizer`, `namespaces_audited`, `records_scanned`, `expected_entries`, `actual_entries`, `missing_entries`, `unexpected_entries`, `value_mismatches`, `position_errors`, `tf_errors`, `df_errors`, `doc_len_errors`, `logical_corruptions`, `state_valid`, `passed`, `status`.
 
-### `VantaTextIndexRepairReport`
+### `TextIndexRepairReport`
 
 ```rust
-pub struct VantaTextIndexRepairReport {
+pub struct TextIndexRepairReport {
     pub record_count: u64,
     pub posting_entries: u64,
     pub doc_stats_entries: u64,
@@ -620,7 +626,7 @@ pub struct VantaTextIndexRepairReport {
 
 ## Error Handling
 
-All fallible methods return `Result<T, VantaError>`. `VantaError` is a
+All fallible methods return `Result<T, Error>`. `Error` is a
 `#[non_exhaustive]` enum defined in [`src/error.rs`](../../src/error.rs).
 
 > **Canonical reference:** [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md)
@@ -633,46 +639,46 @@ All fallible methods return `Result<T, VantaError>`. `VantaError` is a
 
 ### Stable error codes
 
-`VantaError::code() -> &'static str` (ERR-CORE-01) returns one of the ten
+`Error::code() -> &'static str` (ERR-CORE-01) returns one of the ten
 canonical `VANTADB_*` codes. Branch on `code()` — never on `Display` text,
 which can change without a major bump. The HTTP error envelopes in
 `docs/api/HTTP_API.md` carry the same value under the `"code"` JSON field.
 
 ### Variants
 
-`VantaError` covers:
+`Error` covers:
 
-- `VantaError::NodeNotFound(u128)` — node ID not found
-- `VantaError::DuplicateNode(u128)` — duplicate node ID on insert
-- `VantaError::DimensionMismatch { expected: usize, got: usize }` — vector dimension mismatch
-- `VantaError::WalError(ChainedError)` — WAL operation failure
-- `VantaError::WALVersionMismatch { expected: u32, found: u32, hint: String }` — incompatible WAL version
-- `VantaError::SerializationError(#[source] Box<dyn StdError + Send + Sync>)` — bincode/serde failures
-- `VantaError::IoError(std::io::Error)` — filesystem errors
-- `VantaError::IncompatibleFormat { expected_magic, expected_version, found_magic, found_version, hint }` — incompatible binary format
-- `VantaError::NotInitialized` — engine not open
-- `VantaError::ResourceLimit(String)` — resource limit exceeded (backpressure)
-- `VantaError::VectorLenOverflow { id, len, limit }` — serialized vector length exceeds the u32 on-disk header field (ERR-CORE-01)
-- `VantaError::EdgeCountOverflow { id, count, limit }` — edge count exceeds the u16 `DiskNodeHeader` field (ERR-CORE-01, hardens ERR-029)
-- `VantaError::NodeIdCollision(u128)` — two nodes have colliding IDs
-- `VantaError::CycleDetected` — cycle detected in graph operation
-- `VantaError::ValidationError { field, reason }` — input validation failed
-- `VantaError::Timeout { operation, duration_ms }` — operation exceeded time budget
-- `VantaError::UnsupportedOperation { operation, detail }` — unsupported operation
-- `VantaError::ExecutionConflict { resource, detail }` — concurrent modification conflict
-- `VantaError::IqlError(ChainedError)` — IQL query processing error
-- `VantaError::IqlParseError { msg, line, col }` — IQL parse error at a specific line/col
-- `VantaError::CliError(ChainedError)` — CLI command processing error
-- `VantaError::SearchError(ChainedError)` — search execution error
-- `VantaError::RuntimeError(ChainedError)` — unexpected runtime error
-- `VantaError::RestoreError(ChainedError)` — restore operation error
-- `VantaError::BackupError(ChainedError)` — backup operation error
-- `VantaError::BackendError(ChainedError)` — storage backend error
-- `VantaError::InvalidInput(String)` — invalid input provided
-- `VantaError::SchemaError(String)` — schema-related error
-- `VantaError::DatabaseBusy(String)` — database locked by another process
-- `VantaError::NoVectorForKey(String)` — a record exists but does not carry a vector, so vector-based operations (e.g. `similar_to_key`) cannot proceed
-- `VantaError::Generic(ChainedError)` — generic catch-all error
+- `Error::NodeNotFound(u128)` — node ID not found
+- `Error::DuplicateNode(u128)` — duplicate node ID on insert
+- `Error::DimensionMismatch { expected: usize, got: usize }` — vector dimension mismatch
+- `Error::WalError(ChainedError)` — WAL operation failure
+- `Error::WALVersionMismatch { expected: u32, found: u32, hint: String }` — incompatible WAL version
+- `Error::SerializationError(#[source] Box<dyn StdError + Send + Sync>)` — bincode/serde failures
+- `Error::IoError(std::io::Error)` — filesystem errors
+- `Error::IncompatibleFormat { expected_magic, expected_version, found_magic, found_version, hint }` — incompatible binary format
+- `Error::NotInitialized` — engine not open
+- `Error::ResourceLimit(String)` — resource limit exceeded (backpressure)
+- `Error::VectorLenOverflow { id, len, limit }` — serialized vector length exceeds the u32 on-disk header field (ERR-CORE-01)
+- `Error::EdgeCountOverflow { id, count, limit }` — edge count exceeds the u16 `DiskNodeHeader` field (ERR-CORE-01, hardens ERR-029)
+- `Error::NodeIdCollision(u128)` — two nodes have colliding IDs
+- `Error::CycleDetected` — cycle detected in graph operation
+- `Error::ValidationError { field, reason }` — input validation failed
+- `Error::Timeout { operation, duration_ms }` — operation exceeded time budget
+- `Error::UnsupportedOperation { operation, detail }` — unsupported operation
+- `Error::ExecutionConflict { resource, detail }` — concurrent modification conflict
+- `Error::IqlError(ChainedError)` — IQL query processing error
+- `Error::IqlParseError { msg, line, col }` — IQL parse error at a specific line/col
+- `Error::CliError(ChainedError)` — CLI command processing error
+- `Error::SearchError(ChainedError)` — search execution error
+- `Error::RuntimeError(ChainedError)` — unexpected runtime error
+- `Error::RestoreError(ChainedError)` — restore operation error
+- `Error::BackupError(ChainedError)` — backup operation error
+- `Error::BackendError(ChainedError)` — storage backend error
+- `Error::InvalidInput(String)` — invalid input provided
+- `Error::SchemaError(String)` — schema-related error
+- `Error::DatabaseBusy(String)` — database locked by another process
+- `Error::NoVectorForKey(String)` — a record exists but does not carry a vector, so vector-based operations (e.g. `similar_to_key`) cannot proceed
+- `Error::Generic(ChainedError)` — generic catch-all error
 
 ### `is_retriable()` — retry classification
 
@@ -680,15 +686,15 @@ Defined in `src/error.rs:269`. Returns `true` for variants where retrying
 after backoff is the correct response:
 
 ```rust
-impl VantaError {
+impl Error {
     pub fn is_retriable(&self) -> bool {
         matches!(
             self,
-            VantaError::DatabaseBusy(_)
-                | VantaError::Timeout { .. }
-                | VantaError::ResourceLimit(_)
-                | VantaError::BackendError(_)
-                | VantaError::WalError(_)
+            Error::DatabaseBusy(_)
+                | Error::Timeout { .. }
+                | Error::ResourceLimit(_)
+                | Error::BackendError(_)
+                | Error::WalError(_)
         )
     }
 }
@@ -705,19 +711,19 @@ Defined in `src/error.rs:281`. Returns `Option<&'static str>` with
 human-readable remediation:
 
 ```rust
-impl VantaError {
+impl Error {
     pub fn recovery_hint(&self) -> Option<&'static str> {
         match self {
-            VantaError::DatabaseBusy(_) => Some("Wait for the lock to be released and retry"),
-            VantaError::Timeout { .. } => Some("Increase the timeout or reduce system load"),
-            VantaError::ResourceLimit(_) => Some("Reduce memory pressure or increase configured limits"),
-            VantaError::IncompatibleFormat { .. } => Some("Delete the WAL or run dump/restore to migrate formats"),
-            VantaError::SchemaError(_) => Some("Reinitialize the database or restore from backup"),
-            VantaError::WALVersionMismatch { .. } => Some("The WAL was written by a different version of VantaDB"),
-            VantaError::RestoreError(_) => Some("Check that the backup file exists and is readable"),
-            VantaError::BackupError(_) => Some("Ensure the backup directory is writable and has free space"),
-            VantaError::NodeNotFound(_) => Some("The node may have been deleted or never existed"),
-            VantaError::NotFound { .. } => Some("Verify that the namespace or identifier is spelled correctly"),
+            Error::DatabaseBusy(_) => Some("Wait for the lock to be released and retry"),
+            Error::Timeout { .. } => Some("Increase the timeout or reduce system load"),
+            Error::ResourceLimit(_) => Some("Reduce memory pressure or increase configured limits"),
+            Error::IncompatibleFormat { .. } => Some("Delete the WAL or run dump/restore to migrate formats"),
+            Error::SchemaError(_) => Some("Reinitialize the database or restore from backup"),
+            Error::WALVersionMismatch { .. } => Some("The WAL was written by a different version of VantaDB"),
+            Error::RestoreError(_) => Some("Check that the backup file exists and is readable"),
+            Error::BackupError(_) => Some("Ensure the backup directory is writable and has free space"),
+            Error::NodeNotFound(_) => Some("The node may have been deleted or never existed"),
+            Error::NotFound { .. } => Some("Verify that the namespace or identifier is spelled correctly"),
             _ => None,
         }
     }
@@ -741,7 +747,7 @@ see actionable guidance instead of a generic error toast.
 ```rust
 use std::time::Duration;
 
-fn with_retry<T, F: FnMut() -> Result<T, VantaError>>(mut op: F) -> Result<T, VantaError> {
+fn with_retry<T, F: FnMut() -> Result<T, Error>>(mut op: F) -> Result<T, Error> {
     for attempt in 0..5u32 {
         match op() {
             Ok(v) => return Ok(v),

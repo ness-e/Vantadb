@@ -9,6 +9,11 @@ aliases: [WASM_API]
 
 # WASM API Reference
 
+> **Naming (ADR-041 anti-stutter):** canonical names are `Client`
+> (`VantaDB` deprecated alias), `Config` (`VantaConfig` deprecated), `SearchHit`
+> / `MemorySearchHit` (`VantaSearchHit` / `VantaMemorySearchHit` deprecated).
+> `VANTADB_*` error codes (wire) are intentionally unchanged.
+
 This page is the canonical entry point for VantaDB's WebAssembly surface — the
 `vantadb-wasm` crate compiled to `wasm32-unknown-unknown` and consumed from
 JavaScript / TypeScript. The WASM API has three documentation layers; this
@@ -37,15 +42,15 @@ before writing code that compares or sorts hits.**
 
 | Result type | Source APIs | Field convention | Math |
 |---|---|---|---|
-| `VantaMemorySearchHit` (memory / hybrid search) | `search()`, `similar_to_key()`, `search_multi()` (all transports) | **`score`** — higher is more relevant | BM25 (text), cosine similarity ∈ [-1.0, 1.0], RRF-fused (vector + text). Pinned by `src/sdk/serialization/vector_types.rs::tests`. |
-| `VantaSearchHit` (raw ANN vector search) | `search_vector()` (core) → WASM `search_vector()` → TS wrapper `searchVector()` | **`distance`** — lower is more similar | Raw L2 / cosine distance. No sign flip, no similarity transform. |
+| `MemorySearchHit` (memory / hybrid search) | `search()`, `similar_to_key()`, `search_multi()` (all transports) | **`score`** — higher is more relevant | BM25 (text), cosine similarity ∈ [-1.0, 1.0], RRF-fused (vector + text). Pinned by `src/sdk/serialization/vector_types.rs::tests`. |
+| `SearchHit` (raw ANN vector search) | `search_vector()` (core) → WASM `search_vector()` → TS wrapper `searchVector()` | **`distance`** — lower is more similar | Raw L2 / cosine distance. No sign flip, no similarity transform. |
 
 ### Per-transport field map
 
 | Transport | API | Field on hit | Convention | Notes |
 |---|---|---|---|---|
-| Rust core (`vantadb`) | `VantaMemorySearchHit` | `score` | higher is better | `[-1.0, 1.0]` cosine; `(-∞, 0.0]` Euclidean; BM25 ≥ 0; RRF-fused ≥ 0 |
-| Rust core (`vantadb`) | `VantaSearchHit` (raw ANN) | `distance` | lower is better | `[0.0, +∞)` |
+| Rust core (`vantadb`) | `MemorySearchHit` | `score` | higher is better | `[-1.0, 1.0]` cosine; `(-∞, 0.0]` Euclidean; BM25 ≥ 0; RRF-fused ≥ 0 |
+| Rust core (`vantadb`) | `SearchHit` (raw ANN) | `distance` | lower is better | `[0.0, +∞)` |
 | WASM binding (`vantadb-wasm`) | `SearchHit` (from `search` / `similar_to_key`) | `score` | higher is better | Mirrors `VantaMemorySearchHit` |
 | WASM binding (`vantadb-wasm`) | `search_vector()` return | **`distance`** *(WSM-10)* | lower is better | Was mislabeled `score` before WSM-10 — fixed 2026-08-30 |
 | TypeScript wrapper (`vantadb-ts`) | `SearchHit` | `distance` | **lower is better** *(inverted from WASM)* | CODE-091: pinned in CI; consumers must invert comparison when porting |

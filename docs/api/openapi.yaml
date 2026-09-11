@@ -305,7 +305,7 @@ paths:
         - name: filter
           in: query
           required: true
-          description: JSON-encoded metadata filter (`VantaMemoryFilter`)
+          description: JSON-encoded metadata filter (`MemoryFilter`)
           schema:
             type: string
       responses:
@@ -510,7 +510,7 @@ paths:
         Vector / sparse / BM25 hybrid similarity search over a namespace,
         with offset pagination (`cursor` = zero-based offset, `limit` = page
         size; defaults to `top_k`). Wire format mirrors the SDK's
-        `VantaMemorySearchRequest`.
+        `MemorySearchRequest`.
 
         **Fresh database note:** `ensure_indexes_current()` runs ONCE at server
         startup (see `src/server/bootstrap.rs`; skipped when `read_only`) and
@@ -1646,7 +1646,7 @@ paths:
   /api/v2/metrics:
     get:
       summary: Engine metrics (JSON)
-      description: Operational snapshot (`VantaOperationalMetrics`) plus per-namespace collection counts, for the web console.
+      description: Operational snapshot (`OperationalMetrics`) plus per-namespace collection counts, for the web console.
       operationId: engineMetrics
       tags:
         - System
@@ -1693,7 +1693,7 @@ components:
       scheme: bearer
       bearerFormat: JWT
       description: |
-        Bearer token authentication. If `api_key` is configured in VantaConfig,
+        Bearer token authentication. If `api_key` is configured in Config,
         all requests to `/api/*` endpoints must include this header.
         Use the environment variable `VANTADB_API_KEY` to set the key.
 
@@ -1727,7 +1727,7 @@ components:
           example: (memory:get "agent/main" "memory-1")
 
     RecordInput:
-      description: Upsert payload mirroring the SDK `VantaMemoryInput`.
+      description: Upsert payload mirroring the SDK `MemoryInput` (`VantaMemoryInput` deprecated alias).
       type: object
       required:
         - namespace
@@ -1773,7 +1773,7 @@ components:
 
     SearchPageRequest:
       description: |
-        SDK hybrid-search request (`VantaMemorySearchRequest` fields flattened)
+        SDK hybrid-search request (`MemorySearchRequest` fields flattened)
         plus offset pagination. Empty `query_vector` skips dense search;
         `text_query` drives BM25 lexical scoring.
       type: object
@@ -1819,7 +1819,7 @@ components:
         explain:
           type: boolean
           default: false
-          description: Include a `VantaSearchExplanation` per result
+          description: Include a `SearchExplanation` per result
         exclude_superseded:
           type: boolean
           default: false
@@ -1935,7 +1935,7 @@ components:
           nullable: true
 
     SearchPageResponse:
-      description: Offset-paginated search results mirroring `VantaMemoryListPage`.
+      description: Offset-paginated search results mirroring `MemoryListPage`.
       type: object
       required:
         - success
@@ -2036,7 +2036,7 @@ components:
     # ── DTOs ──
 
     NodeDTO:
-      description: A single node returned from a read query, matching VantaNodeRecord.
+      description: A single node returned from a read query, matching NodeRecord.
       type: object
       required:
         - id

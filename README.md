@@ -79,7 +79,12 @@ VantaDB is distributed as a native Python package with pre-compiled wheels for W
 pip install vantadb-py
 ```
 
-> **Note:** The distribution name is `vantadb-py`, but the importable module uses an underscore due to Python naming conventions: `import vantadb_py`.
+> **Note:** The distribution name is `vantadb-py`, and the canonical import is `import vantadb` (same as the Rust crate and the npm package). `import vantadb_py` still works but emits a `DeprecationWarning`.
+>
+> **Naming (ADR-041 anti-stutter):** canonical names are `Client` (`VantaDB`
+> deprecated alias), `Record`, `SearchHit`, `Config`. Memory methods
+> `get_memory` / `search_memory` stay canonical in Python (the short
+> `get` / `search` names are node-level ops there).
 
 For development from source:
 
@@ -101,10 +106,11 @@ vantadb = { git = "https://github.com/ness-e/Vantadb" }
 Initialize a persistent memory store, save structured records with vectors, and execute hybrid retrieval in pure Python:
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 # 1. Open or create a local database (zero configuration)
-db = vantadb.VantaDB("./vanta_data", memory_limit_bytes=512_000_000)
+# (`VantaDB` remains as a deprecated alias of `Client`.)
+db = vantadb.Client("./vanta_data", memory_limit_bytes=512_000_000)
 
 # 2. Store a memory record with payload, metadata, and embedding
 record = db.put(
@@ -138,7 +144,7 @@ print(caps)
 
 | Engine | Mechanism | Details |
 | :--- | :--- | :--- |
-| **Persistent Core** | `StorageBackend` + VantaFile + WAL | Fjall (default) or RocksDB fallback. Automatic crash recovery via Write-Ahead Log with CRC32C checksums. |
+| **Persistent Core** | `StorageBackend` + File + WAL | Fjall (default) or RocksDB fallback. Automatic crash recovery via Write-Ahead Log with CRC32C checksums. |
 | **Hybrid Search** | BM25 + HNSW via RRF | Fuses lexical scoring and vector similarity using Reciprocal Rank Fusion. Automatically routed via query planner. |
 | **Vector Retrieval** | Native HNSW | Cosine similarity with configurable `M`, `ef_construction`, and `ef_search`. Validated on 10K–100K synthetic datasets. |
 | **Memory API** | `namespace + key` records | `put/get/delete/list/search` store UTF-8 payloads, scalar metadata, optional vectors, timestamps, versions, and deterministic node IDs. |

@@ -778,7 +778,7 @@ CORS is **off by default**: the server sends no CORS headers unless origins are 
 configured. To allow specific origins to call the HTTP API from a browser, set:
 
 - Env var: `VANTADB_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com`
-- Config API: `VantaConfig::with_allowed_origins(vec![...])`
+- Config API: `Config::with_allowed_origins(vec![...])`
 
 When configured, the server mounts a `tower_http::cors::CorsLayer` as the outermost layer
 (so CORS preflight `OPTIONS` are answered before authentication), echoing

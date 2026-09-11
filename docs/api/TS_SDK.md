@@ -10,6 +10,12 @@ aliases: []
 # TypeScript SDK Documentation
 
 > **Stability:** the documented TypeScript SDK API is covered by the [Versioning & Stability Policy](VERSIONING.md).
+>
+> **Naming (ADR-041 anti-stutter):** canonical names are `Client`, `Config`,
+> `DbError`, `SearchHit`, `Value`, `Metadata`, `FilterOp`. Legacy `VantaDB`,
+> `VantaConfig`, `VantaError`, `VantaValue`, … remain as deprecated aliases
+> and must not appear in new code. `VANTADB_*` error codes (wire) are
+> intentionally unchanged.
 
 ## Installation
 
@@ -22,10 +28,10 @@ npm install vantadb
 ## Quick Start
 
 ```ts
-import { VantaDB } from "vantadb";
+import { Client } from "vantadb";
 
 // In-memory database (default)
-const db = VantaDB.create();
+const db = Client.create();
 
 // Store a record
 db.put({
@@ -61,28 +67,28 @@ db.close();
 
 ### Connecting
 
-#### `VantaDB.create(config?)`
+#### `Client.create(config?)`
 
 ```ts
-static create(config?: VantaConfig): VantaDB
+static create(config?: Config): Client
 ```
 
-Create a new in-memory instance. Accepts an optional `VantaConfig` object. To use persistent storage, call `connect()` or `open()` instead.
+Create a new in-memory instance. Accepts an optional `Config` object. To use persistent storage, call `connect()` or `open()` instead.
 
-**WASM note:** In WASM mode, `storage_path` in `VantaConfig` is ignored by `create()` (CODE-089) — the default factory opens an in-memory WASM engine. For persistent storage, use `connect()` / `open()` (Node on-disk), or in browsers `connect_persistent()` (OPFS) / `connect_idb()` (IndexedDB) / `connect_worker()`. A console warning is emitted when `storage_path` is supplied to `create()` but no persistent backend is selected.
+**WASM note:** In WASM mode, `storage_path` in `Config` is ignored by `create()` (CODE-089) — the default factory opens an in-memory WASM engine. For persistent storage, use `connect()` / `open()` (Node on-disk), or in browsers `connect_persistent()` (OPFS) / `connect_idb()` (IndexedDB) / `connect_worker()`. A console warning is emitted when `storage_path` is supplied to `create()` but no persistent backend is selected.
 
-#### `VantaDB.connect(path?)`
+#### `Client.connect(path?)`
 
 ```ts
-static connect(path?: string): VantaDB
+static connect(path?: string): Client
 ```
 
 If `path` is provided and not `":memory:"`, opens a persistent on-disk database. If `path` is empty, omitted, or `":memory:"`, opens an in-memory engine.
 
-#### `VantaDB.open(path)`
+#### `Client.open(path)`
 
 ```ts
-static open(path: string): VantaDB
+static open(path: string): Client
 ```
 
 Always opens a persistent database at the given filesystem path. Prefer `connect()` for portability.
@@ -90,7 +96,7 @@ Always opens a persistent database at the given filesystem path. Prefer `connect
 #### `connect_idb(path)`
 
 ```ts
-static connect_idb(path: string): Promise<VantaDB>
+static connect_idb(path: string): Promise<Client>
 ```
 
 Open a VantaDB instance with **IndexedDB-backed persistence** for browser environments. This is the recommended persistence backend when OPFS (the Origin Private File System) is unavailable, or when you need cross-tab coordination via `BroadcastChannel`.
@@ -103,7 +109,7 @@ Open a VantaDB instance with **IndexedDB-backed persistence** for browser enviro
 |-------|------|---------|-------------|
 | `path` | `string` | — | Storage path / database identifier used as the IndexedDB object-store key prefix |
 
-**Returns:** `Promise<VantaDB>` — a fully loaded VantaDB instance with all previously saved records restored into memory.
+**Returns:** `Promise<Client>` — a fully loaded Client instance with all previously saved records restored into memory.
 
 **How it works:**
 1. An inline JavaScript bridge (registered at wasm-bindgen time) connects to the `"VantaDB"` IndexedDB database with a `"state"` object store
@@ -207,7 +213,7 @@ put(input: {
   namespace: string;
   key: string;
   payload: string;
-  metadata?: Record<string, VantaValue>;
+  metadata?: Record<string, Value>;
   vector?: number[];
   ttl_ms?: number;
 }): MemoryRecord
@@ -222,7 +228,7 @@ putBatch(inputs: Array<{
   namespace: string;
   key: string;
   payload: string;
-  metadata?: Record<string, VantaValue>;
+  metadata?: Record<string, Value>;
   vector?: number[];
   ttl_ms?: number;
 }>): MemoryRecord[]
@@ -256,7 +262,7 @@ List records in a namespace with optional metadata filters, limit, and cursor pa
 
 ```ts
 interface ListOptions {
-  filters?: Record<string, VantaValue>;  // equality filter on metadata
+  filters?: Record<string, Value>;  // equality filter on metadata
   limit?: number;                         // default: 100
   cursor?: number;                        // from previous page's next_cursor
 }
@@ -289,7 +295,7 @@ Hybrid search combining vector similarity and BM25 text search with RRF fusion.
 interface SearchRequest {
   namespace: string;
   query_vector: number[];
-  filters?: Record<string, VantaValue>;
+  filters?: Record<string, Value>;
   text_query?: string;          // BM25 lexical search term
   top_k?: number;               // default: 10
   distance_metric?: "Cosine" | "Euclidean";  // default: "Cosine"
@@ -306,7 +312,7 @@ interface SearchRequest {
 | SDK binding | Field on hit | Convention | Range |
 |-------------|--------------|------------|-------|
 | `vantadb-ts` (this SDK) | `SearchHit.distance` | **lower is more similar** (raw L2 / cosine distance) | `[0.0, +∞)` for cosine; `[0.0, +∞)` for Euclidean |
-| `vantadb` (Rust core) | `VantaMemorySearchHit.score` | higher is better (cosine `1.0 - distance`; Euclidean `-distance²` then sqrt) | `[-1.0, 1.0]` cosine; `(-∞, 0.0]` Euclidean |
+| `vantadb` (Rust core) | `MemorySearchHit.score` | higher is better (cosine `1.0 - distance`; Euclidean `-distance²` then sqrt) | `[-1.0, 1.0]` cosine; `(-∞, 0.0]` Euclidean |
 | `vantadb-python` | `hit.score` | higher is better | `[-1.0, 1.0]` cosine |
 | `vantadb-node` | `{node_id, score}` | higher is better | `[-1.0, 1.0]` cosine |
 | HTTP API (`POST /api/v2/search`) | `score` | higher is better | `[-1.0, 1.0]` cosine |
@@ -323,7 +329,7 @@ searchVector(vector: number[], topK?: number): { node_id: string; distance: numb
 
 Pure HNSW vector search against the low-level node graph. Returns distance-ranked results where lower distance = more similar.
 
-**WASM note:** `searchVector()` is the TypeScript wrapper name. It delegates to `search_vector()` on the WASM binding (`vantadb-wasm`), which in turn calls the Rust core `VantaDB::search_vector`.
+**WASM note:** `searchVector()` is the TypeScript wrapper name. It delegates to `search_vector()` on the WASM binding (`vantadb-wasm`), which in turn calls the Rust core `Embedded::search_vector`.
 
 #### `explainSearch()`
 
@@ -342,7 +348,7 @@ insertNode(
   id: number | bigint,
   content?: string,
   vector?: number[],
-  fields?: Record<string, VantaValue>
+  fields?: Record<string, Value>
 ): void
 ```
 
@@ -455,10 +461,10 @@ Execute an IQL query string against the graph. Returns `QueryResult` which can b
 
 ## Types
 
-### `VantaValue`
+### `Value`
 
 ```ts
-type VantaValue =
+type Value =
   | { type: "String"; value: string }
   | { type: "Int"; value: number }
   | { type: "Float"; value: number }
@@ -477,7 +483,7 @@ interface MemoryRecord {
   namespace: string;
   key: string;
   payload: string;
-  metadata: Record<string, VantaValue>;
+  metadata: Record<string, Value>;
   created_at_ms: string;       // u64 as string
   updated_at_ms: string;       // u64 as string
   version: string;             // u64 as string
@@ -526,10 +532,10 @@ interface Capabilities {
 }
 ```
 
-### `VantaConfig`
+### `Config`
 
 ```ts
-interface VantaConfig {
+interface Config {
   storage_path?: string;   // ignored in WASM (CODE-089)
   read_only?: boolean;
   rss_threshold?: number;
@@ -539,7 +545,7 @@ interface VantaConfig {
 
 ## Error Handling
 
-Every error thrown by the SDK is an instance of the `VantaError` class (see
+Every error thrown by the SDK is an instance of the `DbError` class (see
 [`vantadb-ts/src/errors.ts`](../../vantadb-ts/src/errors.ts)). All errors carry
 a stable `code` from the 10-element `ERROR_CODES` contract — **branch on
 `code`, never on `message` text**.
@@ -552,7 +558,7 @@ a stable `code` from the 10-element `ERROR_CODES` contract — **branch on
 ### `ERROR_CODES` (10 — contract surface)
 
 ```ts
-import { ERROR_CODES, VantaError, wrapWasmError } from "vantadb";
+import { ERROR_CODES, DbError, wrapWasmError } from "vantadb";
 
 const codes = ERROR_CODES;
 // {
@@ -580,19 +586,21 @@ const codes = ERROR_CODES;
 | `VANTADB_INVALID_ARGUMENT` | Caller passed a malformed argument | `IqlError` | ❌ |
 | `VANTADB_IO_ERROR` | Filesystem or backend I/O failure | `IoError`, `WalError`, `BackendError`, `CliError`, `SearchError`, `RuntimeError` | ✅ |
 | `VANTADB_WASM_ERROR` | Generic WASM-binding fallback | `Generic` (only when no `code` is attached) | ❌ |
-| `VANTADB_CLOSED` | Operation on a closed database handle | (lifecycle, not in `VantaError`) | ❌ |
+| `VANTADB_CLOSED` | Operation on a closed database handle | (lifecycle, not in `DbError`) | ❌ |
 
-> **Resolved (`ERR-TS-01`):** the `VANTADB_` prefix from `VantaError::code()`
+> **Resolved (`ERR-TS-01`):** the `VANTADB_` prefix from `Error::code()`
 > is now live on the TS/WASM/Node wire — the values above are the contract.
 > TS keeps unprefixed *keys* (`ERROR_CODES.BUSY === "VANTADB_BUSY"`).
 > BREAKING for code that compared `err.code` against the unprefixed strings.
 
-### `VantaError` class shape
+### `DbError` class shape
+
+> **Compat:** `VantaError` remains as a deprecated alias (`export type VantaError = DbError`, value alias preserved with `name = "VantaError"` semantics intact). New code uses `DbError`.
 
 ```ts
-import { VantaError } from "vantadb";
+import { DbError } from "vantadb";
 
-export class VantaError extends Error {
+export class DbError extends Error {
   readonly code: string;        // one of the 10 VANTADB_* codes above
   readonly details?: unknown;   // structured payload (Rust variant fields)
   readonly timestamp: Date;
@@ -616,7 +624,7 @@ back to `classifyWasmError`, which uses message-prefix regex mirroring the
 `Display` strings in `src/error.rs`.
 
 ```ts
-import { VantaError, wrapWasmError } from "vantadb";
+import { DbError, wrapWasmError } from "vantadb";
 
 try {
   db.put({ namespace: "ns", key: "k", payload: "hello" });
@@ -640,7 +648,7 @@ try {
 ### Cause chain (TS 4.4+)
 
 > Since `ERR-TS-01`, `wrapWasmError`/`wrapNativeError` set
-> `VantaError.cause` to the original thrown value (ES2022 `ErrorOptions`),
+> `DbError.cause` to the original thrown value (ES2022 `ErrorOptions`),
 > while `details` keeps its legacy shape (`{name, stack}` or
 > `{original}`) for backward compatibility:
 
@@ -648,7 +656,7 @@ try {
 try {
   await db.put(record);
 } catch (err) {
-  if (err instanceof VantaError && err.cause instanceof Error) {
+  if (err instanceof DbError && err.cause instanceof Error) {
     console.error("root cause:", err.cause.message);
   }
 }
@@ -656,7 +664,7 @@ try {
 
 ### Lifecycle errors (closed handle)
 
-Calling any method after `close()` throws a `VantaError` with `code: "VANTADB_CLOSED"`.
+Calling any method after `close()` throws a `DbError` with `code: "VANTADB_CLOSED"`.
 This is safer than relying on WASM GC/finalization to prevent use-after-free:
 
 ```ts
@@ -664,7 +672,7 @@ db.close();
 try {
   db.get("ns", "k");
 } catch (err) {
-  if (err instanceof VantaError && err.code === "VANTADB_CLOSED") {
+  if (err instanceof DbError && err.code === "VANTADB_CLOSED") {
     console.warn("db was closed");
   }
 }
@@ -691,5 +699,5 @@ try {
 ## Data Types (Subpath Import)
 
 ```ts
-import type { VantaConfig, SearchHit, OperationalMetrics } from "vantadb/types";
+import type { Config, SearchHit, OperationalMetrics } from "vantadb/types";
 ```

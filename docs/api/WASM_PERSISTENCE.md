@@ -25,7 +25,7 @@ IndexedDB bridge lives in `vantadb-wasm/src/idb.rs` and registers
 `globalThis.vantaIdbStorage`. The worker bridge ships as
 `vantadb-wasm/src/opfs_bridge.js`.
 
-The persisted format is a JSON array of `VantaMemoryRecord`s. `save()` /
+The persisted format is a JSON array of `MemoryRecord`s. `save()` /
 `save_idb()` skip the file write entirely when nothing changed since the last
 successful persist (differential cache, PERF-08).
 
