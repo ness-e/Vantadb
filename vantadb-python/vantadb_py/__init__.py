@@ -45,13 +45,31 @@ from .vantadb_py import (
     connect,
 )
 
+# AST-003: clean anti-stutter aliases (ADR-041). Direct assignments — zero
+# logic in the binding (api-contract R-8). Legacy names stay canonical and
+# silent until the cleanup major (no DeprecationWarning yet; migration guide
+# ships in AST-006).
+Client = VantaDB
+Record = VantaMemoryRecord
+Hit = VantaSearchHit
+SearchHit = VantaSearchHit
+ListResult = VantaListResult
+Vector = VantaVector
+
 __all__ = [
     "VantaDB",
+    "Client",
     "AsyncVantaDB",
+    "AsyncClient",
     "VantaListResult",
+    "ListResult",
     "VantaMemoryRecord",
+    "Record",
     "VantaSearchHit",
+    "SearchHit",
+    "Hit",
     "VantaVector",
+    "Vector",
     "SearchRequest",
     "VantaError",
     "NotFoundError",
@@ -221,6 +239,16 @@ class AsyncVantaDB:
             exclude_superseded,
         )
 
+    # AST-003 clean aliases (ADR-041). `list`/`search_vector` are free on this
+    # class; memory `get`/`delete` collide with node-level `get(id)`/`delete`
+    # (same BINDINGS_NAMESPACES hazard as flat VantaDB) so they stay
+    # `get_memory`/`delete_memory` here until OD-2 resolves (Gate P dividir).
+    async def list(self, namespace: str, **kwargs):
+        return await self._run(self._sync.list_memory, namespace, **kwargs)
+
+    async def search_vector(self, vector, top_k: int = 10):
+        return await self._run(self._sync.search, vector, top_k)
+
     # ── Mutations (sync wrappers for completeness) ──
 
     async def put(
@@ -267,6 +295,11 @@ class AsyncVantaDB:
         return await self._run(self._sync.close)
 
     async def insert(self, id, content, vector, fields=None):
+        return await self._run(
+            self._sync.insert, id, content, vector, fields
+        )
+
+    async def insert_node(self, id, content, vector, fields=None):
         return await self._run(
             self._sync.insert, id, content, vector, fields
         )
@@ -365,6 +398,13 @@ class AsyncVantaDB:
         return await self._run(self._sync.get, id)
 
     async def delete(self, id, reason="manual deletion"):
+        return await self._run(self._sync.delete, id, reason)
+
+    # AST-003 node parity aliases (WASM get_node/delete_node/insert_node).
+    async def get_node(self, id):
+        return await self._run(self._sync.get, id)
+
+    async def delete_node(self, id, reason="manual deletion"):
         return await self._run(self._sync.delete, id, reason)
 
     async def search(self, vector, top_k=10):
@@ -476,3 +516,7 @@ class AsyncVantaDB:
 
     def __repr__(self):
         return f"AsyncVantaDB(sync={self._sync!r})"
+
+
+# AST-003: alias definido tras la clase (forward reference imposible arriba).
+AsyncClient = AsyncVantaDB

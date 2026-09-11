@@ -35,13 +35,30 @@ from .vantadb_py import (
     connect,
 )
 
+# AST-003: clean aliases — mirror of __init__.py (plain assignments so the
+# drift-test re-export check, which only inspects ImportFrom names, is
+# unaffected: these names are NOT imported from the native module).
+Client: type[VantaDB]
+Record: type[VantaMemoryRecord]
+Hit: type[VantaSearchHit]
+SearchHit: type[VantaSearchHit]
+ListResult: type[VantaListResult]
+Vector: type[VantaVector]
+
 __all__ = [
     "VantaDB",
+    "Client",
     "AsyncVantaDB",
+    "AsyncClient",
     "VantaListResult",
+    "ListResult",
     "VantaMemoryRecord",
+    "Record",
     "VantaSearchHit",
+    "SearchHit",
+    "Hit",
     "VantaVector",
+    "Vector",
     "SearchRequest",
     "VantaError",
     "NotFoundError",
@@ -133,6 +150,9 @@ class AsyncVantaDB:
         cursor: int | None = None,
         exclude_superseded: bool = False,
     ) -> VantaListResult: ...
+    # AST-003 clean aliases (mirror of __init__.py).
+    async def list(self, namespace: str, **kwargs: Any) -> VantaListResult: ...
+    async def search_vector(self, vector: Any, top_k: int = 10) -> Any: ...
     async def put(
         self,
         namespace: str,
@@ -155,6 +175,9 @@ class AsyncVantaDB:
     async def flush(self) -> None: ...
     async def close(self) -> None: ...
     async def insert(
+        self, id: int, content: str, vector: Any, fields: dict | None = None
+    ) -> None: ...
+    async def insert_node(
         self, id: int, content: str, vector: Any, fields: dict | None = None
     ) -> None: ...
     async def put_batch(
@@ -194,6 +217,9 @@ class AsyncVantaDB:
     async def operational_metrics(self) -> dict: ...
     async def get(self, id: int) -> dict | None: ...
     async def delete(self, id: int, reason: str = "manual deletion") -> None: ...
+    # AST-003 node parity aliases (mirror of __init__.py).
+    async def get_node(self, id: int) -> dict | None: ...
+    async def delete_node(self, id: int, reason: str = "manual deletion") -> None: ...
     async def search(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
     async def search_batch(
         self, vectors: list[Any], top_k: int = 10
@@ -250,3 +276,6 @@ class AsyncVantaDB:
         distance_metric: str | None = None,
     ) -> dict: ...
     def __repr__(self) -> str: ...
+
+
+AsyncClient: type[AsyncVantaDB]
