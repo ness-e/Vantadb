@@ -36,7 +36,7 @@ pub fn panic_error_response(panic_detail: &dyn Display) -> Response {
 /// Client mistakes (bad IQL, missing nodes, validation) map to explicit 4xx
 /// statuses; anything server-side stays a 500. Shared by the IQL endpoint and
 /// the `/api/v2` console surface so both speak the same error status language.
-pub fn vanta_error_status(e: &Error) -> StatusCode {
+pub fn status(e: &Error) -> StatusCode {
     match e {
         Error::IqlParseError { .. }
         | Error::IqlError(_)
@@ -78,9 +78,9 @@ fn error_log_level(status: StatusCode) -> tracing::Level {
 /// FIND-53: this is also the single metric choke point — every error fed to
 /// it increments `vantadb_errors_total{code}` on the in-tree Prometheus
 /// registry (no-op when the `prometheus` feature is off). Both envelopes
-/// (`query_error_response`, `vanta_error_response`) route through here, so
+/// (`query_error_response`, `response`) route through here, so
 /// the series counts every HTTP-served `Error` exactly once.
-fn log_vanta_error(e: &Error, status: StatusCode) {
+fn log_error(e: &Error, status: StatusCode) {
     crate::metrics::record_vanta_error(e.code());
     // `tracing::event!` needs a compile-time-constant level, so branch on the
     // class; the field set stays identical across both arms.
@@ -116,12 +116,12 @@ fn log_vanta_error(e: &Error, status: StatusCode) {
 /// identical because `node_id`/`nodes` are `None` here and skipped.
 ///
 /// FIND-55: 5xx bodies stay generic — the internal `Display` (io paths,
-/// storage detail) goes to server-side logs via [`log_vanta_error`], and
+/// storage detail) goes to server-side logs via [`log_error`], and
 /// clients branch on `code`. 4xx messages are user-input data and stay
 /// descriptive (same rule `panic_error_response` applies for panics).
 pub fn query_error_response(e: &Error) -> Response {
-    let status = vanta_error_status(e);
-    log_vanta_error(e, status);
+    let status = status(e);
+    log_error(e, status);
     let data = if status.is_server_error() {
         "internal error".to_string()
     } else {
@@ -146,9 +146,9 @@ pub fn query_error_response(e: &Error) -> Response {
 ///
 /// FIND-55: 5xx bodies stay generic (chain only in logs, `code` to clients);
 /// 4xx keep the descriptive message.
-pub fn vanta_error_response(e: &Error) -> Response {
-    let status = vanta_error_status(e);
-    log_vanta_error(e, status);
+pub fn response(e: &Error) -> Response {
+    let status = status(e);
+    log_error(e, status);
     let message = if status.is_server_error() {
         "internal error".to_string()
     } else {
@@ -212,9 +212,9 @@ mod tests {
     use crate::Error;
 
     #[test]
-    fn vanta_error_status_maps_correctly() {
+    fn status_maps_correctly() {
         assert_eq!(
-            vanta_error_status(&Error::IqlParseError {
+            status(&Error::IqlParseError {
                 msg: "x".into(),
                 line: 1,
                 col: 1
@@ -222,22 +222,16 @@ mod tests {
             StatusCode::BAD_REQUEST
         );
         assert_eq!(
-            vanta_error_status(&Error::ValidationError {
+            status(&Error::ValidationError {
                 field: "x".into(),
                 reason: "y".into()
             }),
             StatusCode::UNPROCESSABLE_ENTITY
         );
+        assert_eq!(status(&Error::NodeNotFound(42)), StatusCode::NOT_FOUND);
+        assert_eq!(status(&Error::DuplicateNode(42)), StatusCode::CONFLICT);
         assert_eq!(
-            vanta_error_status(&Error::NodeNotFound(42)),
-            StatusCode::NOT_FOUND
-        );
-        assert_eq!(
-            vanta_error_status(&Error::DuplicateNode(42)),
-            StatusCode::CONFLICT
-        );
-        assert_eq!(
-            vanta_error_status(&Error::IoError(std::io::Error::other("x"))),
+            status(&Error::IoError(std::io::Error::other("x"))),
             StatusCode::INTERNAL_SERVER_ERROR
         );
     }
@@ -297,19 +291,16 @@ mod tests {
         assert!(body.get("node_id").is_none(), "None fields stay skipped");
         assert!(body.get("nodes").is_none());
 
-        let body: serde_json::Value = serde_json::from_slice(
-            &to_bytes(vanta_error_response(&e).into_body(), 4096)
-                .await
-                .unwrap(),
-        )
-        .unwrap();
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response(&e).into_body(), 4096).await.unwrap())
+                .unwrap();
         assert_eq!(body["code"], "VANTADB_NOT_FOUND");
         assert_eq!(body["error"], "Node not found: 7");
     }
 
     /// FIND-55: 5xx bodies must not leak the engine's internal Display (io
     /// paths, storage detail) — clients branch on the canonical `code`, and
-    /// the full chain lives in server-side logs via `log_vanta_error`. Mirrors
+    /// the full chain lives in server-side logs via `log_error`. Mirrors
     /// the leak-mitigation pattern `panic_error_response` already applies
     /// (AUDREP-32).
     #[tokio::test]
@@ -330,7 +321,7 @@ mod tests {
             "io detail must not reach the wire: {body}"
         );
 
-        let resp = vanta_error_response(&e);
+        let resp = response(&e);
         assert_eq!(resp.status(), StatusCode::INTERNAL_SERVER_ERROR);
         let body: serde_json::Value =
             serde_json::from_slice(&to_bytes(resp.into_body(), 4096).await.unwrap()).unwrap();
@@ -364,12 +355,9 @@ mod tests {
         );
         assert_eq!(body["code"], "VANTADB_VALIDATION_ERROR");
 
-        let body: serde_json::Value = serde_json::from_slice(
-            &to_bytes(vanta_error_response(&e).into_body(), 4096)
-                .await
-                .unwrap(),
-        )
-        .unwrap();
+        let body: serde_json::Value =
+            serde_json::from_slice(&to_bytes(response(&e).into_body(), 4096).await.unwrap())
+                .unwrap();
         assert_eq!(
             body["error"],
             "Validation error on payload: vector must be non-empty"
@@ -377,7 +365,7 @@ mod tests {
         assert_eq!(body["code"], "VANTADB_VALIDATION_ERROR");
     }
 
-    /// FIND-53: both error envelopes route through `log_vanta_error`, the
+    /// FIND-53: both error envelopes route through `log_error`, the
     /// single choke point feeding `vantadb_errors_total{code}`. Uses the
     /// TIMEOUT code (no other test in this module increments it, so the
     /// before/after delta is exact even under parallel execution). Requires
@@ -398,13 +386,13 @@ mod tests {
 
         let before = counter.with_label_values(&["VANTADB_TIMEOUT"]).get();
         let _ = query_error_response(&timeout);
-        let _ = vanta_error_response(&timeout);
+        let _ = response(&timeout);
         let after = counter.with_label_values(&["VANTADB_TIMEOUT"]).get();
 
         assert_eq!(
             after,
             before + 2,
-            "each envelope through log_vanta_error must count exactly once"
+            "each envelope through log_error must count exactly once"
         );
         let scrape = metrics::export_metrics_text();
         assert!(

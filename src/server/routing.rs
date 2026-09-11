@@ -29,8 +29,8 @@ pub use crate::server::bootstrap::{run, validate_auth_config, wait_for_shutdown_
 
 // ── Errors ───────────────────────────────────────────────────────────────────
 pub use crate::server::errors::{
-    not_found_response, panic_error_response, pool_error_response, query_error_response,
-    thread_not_found_response, vanta_error_response, vanta_error_status,
+    not_found_response, panic_error_response, pool_error_response, query_error_response, response,
+    status, thread_not_found_response,
 };
 
 // ── Handlers ─────────────────────────────────────────────────────────────────

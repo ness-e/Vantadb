@@ -2,7 +2,7 @@
 //!
 //! A thin RAII wrapper over `tokio::sync::Semaphore` with an acquisition
 //! timeout. Guards release their permit on drop, so capacity is always
-//! reclaimed. `pool_saturated()` exposes saturation for the circuit breaker.
+//! reclaimed. `is_saturated()` exposes saturation for the circuit breaker.
 //!
 //! ponytail: intentionally NOT a pooled client (bb8/deadpool/r2d2) — the
 //! server execution is `spawn_blocking` per request, so bounding concurrency
@@ -83,7 +83,7 @@ impl ConnectionPool {
     }
 
     /// `true` when every permit is in use (no spare capacity).
-    pub fn pool_saturated(&self) -> bool {
+    pub fn is_saturated(&self) -> bool {
         self.active() >= self.max_connections
     }
 }
@@ -98,12 +98,12 @@ mod tests {
         let pool = ConnectionPool::new(2, Duration::from_millis(50));
         let g1 = pool.acquire().await.unwrap();
         let g2 = pool.acquire().await.unwrap();
-        assert!(pool.pool_saturated());
+        assert!(pool.is_saturated());
         assert_eq!(pool.active(), 2);
 
         drop(g2);
         assert_eq!(pool.active(), 1);
-        assert!(!pool.pool_saturated());
+        assert!(!pool.is_saturated());
 
         drop(g1);
         assert_eq!(pool.active(), 0);
@@ -116,23 +116,23 @@ mod tests {
     async fn test_acquire_times_out_when_saturated() {
         let pool = ConnectionPool::new(1, Duration::from_millis(20));
         let _g1 = pool.acquire().await.unwrap();
-        assert!(pool.pool_saturated());
+        assert!(pool.is_saturated());
         assert!(matches!(pool.acquire().await, Err(PoolError::Timeout)));
     }
 
     #[tokio::test]
     async fn test_saturation_signal_flips_with_usage() {
         let pool = ConnectionPool::new(3, Duration::from_millis(50));
-        assert!(!pool.pool_saturated());
+        assert!(!pool.is_saturated());
         let g1 = pool.acquire().await.unwrap();
         let g2 = pool.acquire().await.unwrap();
-        assert!(!pool.pool_saturated());
+        assert!(!pool.is_saturated());
         let g3 = pool.acquire().await.unwrap();
-        assert!(pool.pool_saturated());
+        assert!(pool.is_saturated());
         drop(g1);
         drop(g2);
         drop(g3);
-        assert!(!pool.pool_saturated());
+        assert!(!pool.is_saturated());
     }
 
     #[tokio::test]

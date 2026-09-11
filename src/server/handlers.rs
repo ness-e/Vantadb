@@ -12,8 +12,8 @@ use crate::sdk::{
     MemorySearchHit, MemorySearchRequest, NamespaceStatsMap, OperationalMetrics,
 };
 use crate::server::errors::{
-    not_found_response, panic_error_response, pool_error_response, query_error_response,
-    thread_not_found_response, vanta_error_response,
+    not_found_response, panic_error_response, pool_error_response, query_error_response, response,
+    thread_not_found_response,
 };
 use crate::server::state::{NodeDTO, QueryRequest, QueryResponse, RequestId, ServerState};
 use crate::Error;
@@ -168,7 +168,7 @@ pub async fn execute_query(
 //
 // Endpoints map 1:1 to the embedded SDK (`Embedded`) so the wire format
 // is the SDK's own serde. Errors are `{success: false, error}` with the status
-// from `vanta_error_status` — the same shape the auth middleware and circuit
+// from `status` — the same shape the auth middleware and circuit
 // breaker already emit. All engine work runs under a pool permit in
 // `spawn_blocking` (never on the Tokio runtime, R-2 server-mcp).
 
@@ -187,7 +187,7 @@ where
     let db = state.db.clone();
     match tokio::task::spawn_blocking(move || op(&db)).await {
         Ok(Ok(v)) => Ok(v),
-        Ok(Err(e)) => Err(vanta_error_response(&e)),
+        Ok(Err(e)) => Err(response(&e)),
         Err(e) => Err(panic_error_response(&e)),
     }
 }
@@ -691,8 +691,8 @@ pub async fn dashboard_disabled() -> Response {
 //
 // Second slice of the console API: export/import, graph traversal + GDS,
 // maintenance, threads, and snapshots. Same rules as WEB-01: the wire format
-// is the SDK's own serde, errors are `{success: false, error}` with the
-// status from `vanta_error_status`, and all engine work runs under a pool
+// is the SDK's own serde, errors are `{success: false, error}` with the HTTP
+// status from `status`, and all engine work runs under a pool
 // permit in `spawn_blocking` via `run_db_op`.
 
 /// Body for `POST /api/v2/export`.
@@ -1027,7 +1027,7 @@ pub async fn graph_v2_bfs(
         .collect::<Result<Vec<u128>>>()
     {
         Ok(roots) => roots,
-        Err(e) => return vanta_error_response(&e),
+        Err(e) => return response(&e),
     };
     let max_depth = req.max_depth;
     let direction = req.direction.unwrap_or(GraphDirection::Forward).into();
@@ -1057,7 +1057,7 @@ pub async fn graph_v2_dfs(
         .collect::<Result<Vec<u128>>>()
     {
         Ok(roots) => roots,
-        Err(e) => return vanta_error_response(&e),
+        Err(e) => return response(&e),
     };
     let max_depth = req.max_depth;
     let direction = req.direction.unwrap_or(GraphDirection::Forward).into();

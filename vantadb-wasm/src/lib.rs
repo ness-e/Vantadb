@@ -402,7 +402,7 @@ pub struct Client {
 /// changed — eliminating the multi-second event-loop block on >100MB datasets.
 ///
 /// `dirty`/`deleted` are fed by the mutation entry points (`put`, `delete`,
-/// ...). `cache_invalid` is set by bulk operations whose changed keys are not
+/// ...). `invalid` is set by bulk operations whose changed keys are not
 /// individually known (import/bulk/reindex/purge) and forces a one-time full
 /// rebuild of the cache on the next persist.
 struct PersistCache {
@@ -413,7 +413,7 @@ struct PersistCache {
     /// Keys deleted since the last persist.
     deleted: HashSet<(String, String)>,
     /// Cache must be rebuilt from a full `collect_all_deduped` (bulk op happened).
-    cache_invalid: bool,
+    invalid: bool,
 }
 
 impl PersistCache {
@@ -422,7 +422,7 @@ impl PersistCache {
             records: HashMap::new(),
             dirty: HashSet::new(),
             deleted: HashSet::new(),
-            cache_invalid: false,
+            invalid: false,
         }
     }
 }
@@ -810,12 +810,12 @@ impl Client {
     }
 
     /// Mark the cache stale because an unknown set of keys changed (bulk ops).
-    fn mark_cache_invalid(&self) {
+    fn mark_invalid(&self) {
         let mut cache = self
             .persist_cache
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
-        cache.cache_invalid = true;
+        cache.invalid = true;
         // WSM-03: Track that there are unsaved changes for auto-save
         self.dirty.store(true, Ordering::Relaxed);
     }
@@ -830,7 +830,7 @@ impl Client {
         cache.records.clear();
         cache.dirty.clear();
         cache.deleted.clear();
-        cache.cache_invalid = false;
+        cache.invalid = false;
         for rec in records {
             let key = (rec.namespace.clone(), rec.key.clone());
             match serde_json::to_string(rec) {
@@ -840,7 +840,7 @@ impl Client {
                 Err(_) => {
                     // Serialization failure is unrecoverable here; force a full
                     // rebuild on the next persist instead of silently dropping.
-                    cache.cache_invalid = true;
+                    cache.invalid = true;
                     break;
                 }
             }
@@ -862,11 +862,11 @@ impl Client {
             .lock()
             .unwrap_or_else(PoisonError::into_inner);
 
-        if cache.dirty.is_empty() && cache.deleted.is_empty() && !cache.cache_invalid {
+        if cache.dirty.is_empty() && cache.deleted.is_empty() && !cache.invalid {
             return Ok(None);
         }
 
-        if cache.cache_invalid {
+        if cache.invalid {
             // Bulk op changed an unknown key set — rebuild cache from a full
             // collect once, then fall through to emit the full snapshot.
             cache.records.clear();
@@ -879,7 +879,7 @@ impl Client {
                     .map_err(|e| JsValue::from(js_sys::Error::new(&e.to_string())))?;
                 cache.records.insert(key, (rec.version, s));
             }
-            cache.cache_invalid = false;
+            cache.invalid = false;
         } else {
             // Apply deletions.
             let deleted: Vec<(String, String)> = cache.deleted.drain().collect();
@@ -952,7 +952,7 @@ impl Client {
                 // Write failed: force a full rebuild+rewrite on the next
                 // save instead of silently skipping (dirty was already
                 // drained by persist_payload).
-                self.mark_cache_invalid();
+                self.mark_invalid();
                 return Err(e);
             }
         }
@@ -974,7 +974,7 @@ impl Client {
         let _g = enter(&self.op_gate)?;
         if let Some(data) = self.persist_payload()? {
             if let Err(e) = IdbStorage::write_file("db_state.json", &data).await {
-                self.mark_cache_invalid();
+                self.mark_invalid();
                 return Err(e);
             }
         }
@@ -1419,7 +1419,7 @@ impl Client {
             .inner
             .delete_by_filter(namespace, filter)
             .map_err(to_js_err)?;
-        self.mark_cache_invalid();
+        self.mark_invalid();
         Ok(deleted)
     }
 
@@ -1447,7 +1447,7 @@ impl Client {
         self.inner
             .supersede(namespace, old_key, new_key)
             .map_err(to_js_err)?;
-        self.mark_cache_invalid();
+        self.mark_invalid();
         Ok(())
     }
 
@@ -1538,7 +1538,7 @@ impl Client {
             ))));
         }
         let report = self.inner.import_records(records).map_err(to_js_err)?;
-        self.mark_cache_invalid();
+        self.mark_invalid();
         to_js(&report)
     }
 
@@ -1546,7 +1546,7 @@ impl Client {
     pub fn import_file(&self, path: &str) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
         let report = self.inner.import_file(path).map_err(to_js_err)?;
-        self.mark_cache_invalid();
+        self.mark_invalid();
         to_js(&report)
     }
 
@@ -1555,7 +1555,7 @@ impl Client {
     pub fn bulk_import(&self, path: &str) -> Result<JsValue, JsValue> {
         let _g = enter(&self.op_gate)?;
         let report = self.inner.bulk_import_file(path).map_err(to_js_err)?;
-        self.mark_cache_invalid();
+        self.mark_invalid();
         to_js(&report)
     }
 
@@ -1568,7 +1568,7 @@ impl Client {
             .inner
             .bulk_import_stream(&mut cursor)
             .map_err(to_js_err)?;
-        self.mark_cache_invalid();
+        self.mark_invalid();
         to_js(&report)
     }
 
@@ -1593,7 +1593,7 @@ impl Client {
             .inner
             .reindex_hnsw_from_text(namespace, page_size)
             .map_err(to_js_err)?;
-        self.mark_cache_invalid();
+        self.mark_invalid();
         to_js(&report)
     }
 
@@ -1658,7 +1658,7 @@ impl Client {
         let _g = enter(&self.op_gate)?;
         let removed = self.inner.purge_expired().map_err(to_js_err)?;
         if removed > 0 {
-            self.mark_cache_invalid();
+            self.mark_invalid();
         }
         Ok(removed)
     }
@@ -1761,7 +1761,7 @@ impl Client {
         self.inner
             .remove_edge(parse_node_id(source_id)?, parse_node_id(target_id)?, label)
             .map_err(to_js_err)?;
-        self.mark_cache_invalid();
+        self.mark_invalid();
         Ok(())
     }
 

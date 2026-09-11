@@ -80,7 +80,7 @@ pub fn set_prefetch_mode(mode: PrefetchMode) {
 #[inline(always)]
 pub(crate) fn should_prefetch() -> bool {
     if let Some(mode) = PREFETCH_MODE.get() {
-        return mode.is_prefetch_enabled();
+        return mode.is_enabled();
     }
     let mode = std::env::var("VANTA_PREFETCH")
         .ok()
@@ -90,7 +90,7 @@ pub(crate) fn should_prefetch() -> bool {
         .map(|v| v == "1" || v == "true")
         .unwrap_or(false);
     match (mode, disabled) {
-        (Some(m), _) => m.is_prefetch_enabled(),
+        (Some(m), _) => m.is_enabled(),
         (_, true) => false,
         // PERF-04: no configuration at all → default OFF (no prefetch syscalls).
         _ => false,
