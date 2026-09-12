@@ -1102,6 +1102,113 @@ fn test_run_pipeline_read_only() {
 }
 
 #[test]
+fn test_pipeline_vacuum_step_mode_gate() {
+    let engine = in_memory_engine();
+    let mut ok = true;
+    assert!(engine
+        .pipeline_vacuum_step(PipelineMode::MergeOnly, &mut ok)
+        .is_none());
+    assert!(ok, "skipped phase must not poison all_ok");
+    let mut ok2 = true;
+    assert!(engine
+        .pipeline_vacuum_step(PipelineMode::VacuumOnly, &mut ok2)
+        .is_some());
+    assert!(ok2);
+}
+
+#[test]
+fn test_pipeline_fresh_hnsw_step_mode_gate() {
+    let engine = in_memory_engine();
+    let mut ok = true;
+    assert!(engine
+        .pipeline_fresh_hnsw_step(PipelineMode::VacuumOnly, &mut ok)
+        .is_none());
+    assert!(ok);
+    let mut ok2 = true;
+    assert!(engine
+        .pipeline_fresh_hnsw_step(PipelineMode::FreshHnswOnly, &mut ok2)
+        .is_some());
+    assert!(ok2);
+}
+
+#[test]
+fn test_pipeline_merge_step_mode_gate() {
+    let engine = in_memory_engine();
+    let mut ok = true;
+    assert!(engine
+        .pipeline_merge_step(PipelineMode::VacuumOnly, &mut ok)
+        .is_none());
+    assert!(ok);
+    let mut ok2 = true;
+    assert!(engine
+        .pipeline_merge_step(PipelineMode::MergeOnly, &mut ok2)
+        .is_some());
+    assert!(ok2);
+}
+
+#[test]
+fn test_pipeline_index_step_mode_gate() {
+    let engine = in_memory_engine();
+    let mut ok = true;
+    assert!(engine
+        .pipeline_index_step(PipelineMode::MergeOnly, &mut ok)
+        .is_none());
+    assert!(ok);
+    let mut ok2 = true;
+    assert!(engine
+        .pipeline_index_step(PipelineMode::IndexOnly, &mut ok2)
+        .is_some());
+    assert!(ok2);
+}
+
+#[test]
+fn test_pipeline_lsm_steps_empty_unless_compact_mode() {
+    let engine = in_memory_engine();
+    let mut ok = true;
+    assert!(engine
+        .pipeline_lsm_steps(PipelineMode::MergeOnly, &mut ok)
+        .is_empty());
+    assert!(ok);
+}
+
+#[test]
+fn test_finish_pipeline_report_maps_empty_lsm_to_none() {
+    let r = StorageEngine::finish_pipeline_report(
+        PipelineMode::Full,
+        web_time::Instant::now(),
+        None,
+        None,
+        None,
+        None,
+        Vec::new(),
+        true,
+    );
+    assert!(r.lsm.is_none());
+    assert!(r.success);
+}
+
+#[test]
+fn test_finish_pipeline_report_keeps_nonempty_lsm() {
+    let r = StorageEngine::finish_pipeline_report(
+        PipelineMode::Full,
+        web_time::Instant::now(),
+        None,
+        None,
+        None,
+        None,
+        vec![LsmReport {
+            level: 0,
+            nodes_promoted: 0,
+            reclaimed_bytes: 0,
+            duration_ms: 0,
+            success: true,
+        }],
+        true,
+    );
+    assert_eq!(r.lsm.map(|v| v.len()), Some(1));
+}
+
+#[test]
 fn test_flush_pending_hnsw_with_mixed_ops() {
     let engine = in_memory_engine();
     engine.insert(&sample_node(77)).expect("insert");

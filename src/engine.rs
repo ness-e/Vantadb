@@ -123,6 +123,23 @@ fn collect_scores<'a>(
         .collect()
 }
 
+/// D1b: prefilter de un solo nivel para `vector_search` (viva + vector + mask).
+fn passes_vector_prefilter(n: &UnifiedNode, bitset_filter: Option<&FilterBitset>) -> bool {
+    if !n.is_alive() || n.vector.is_none() {
+        return false;
+    }
+    bitset_filter.is_none_or(|m| n.matches_mask(m))
+}
+
+/// D1b: clasifica la fuente del resultado según haya filtro bitset o no.
+fn vector_search_source(bitset_filter: Option<&FilterBitset>) -> SourceType {
+    if bitset_filter.is_some() {
+        SourceType::Hybrid
+    } else {
+        SourceType::VectorSearch
+    }
+}
+
 impl InMemoryEngine {
     /// Create engine (in-memory only, no persistence)
     pub fn new() -> Self {
@@ -344,23 +361,15 @@ impl InMemoryEngine {
     ) -> QueryResult {
         let query_vec = VectorRepresentations::Full(query.to_vec());
         let nodes = self.nodes.read();
-
         let mut scored = collect_scores(
-            nodes.values().filter(|n| {
-                n.is_alive()
-                    && !n.vector.is_none()
-                    && bitset_filter.is_none_or(|m| n.matches_mask(m))
-            }),
+            nodes
+                .values()
+                .filter(|n| passes_vector_prefilter(n, bitset_filter)),
             &query_vec,
             min_score,
         );
-
-        let source_type = if bitset_filter.is_some() {
-            SourceType::Hybrid
-        } else {
-            SourceType::VectorSearch
-        };
-        build_query_result_from_scored(&mut scored, &nodes, top_k, source_type)
+        let source = vector_search_source(bitset_filter);
+        build_query_result_from_scored(&mut scored, &nodes, top_k, source)
     }
 
     /// BFS graph traversal from start, following edges with matching label.
@@ -752,6 +761,30 @@ mod tests {
         assert_eq!(result.source_type, SourceType::VectorSearch);
         assert!(!result.is_partial);
         assert_eq!(result.exhaustivity, 1.0);
+    }
+
+    #[test]
+    fn test_vector_search_source_classifies_hybrid_vs_plain() {
+        assert_eq!(vector_search_source(None), SourceType::VectorSearch);
+        let mask = FilterBitset::from_u128(1 << 0);
+        assert_eq!(vector_search_source(Some(&mask)), SourceType::Hybrid);
+    }
+
+    #[test]
+    fn test_passes_vector_prefilter_respects_liveness_vector_and_mask() {
+        let mask = FilterBitset::from_u128(1 << 0);
+        let mut ok = create_vector_node(1, vec![1.0, 0.0]);
+        ok.set_bit(0);
+        assert!(passes_vector_prefilter(&ok, None));
+        assert!(passes_vector_prefilter(&ok, Some(&mask)));
+        assert!(!passes_vector_prefilter(&create_node(2), None));
+        let mut masked_out = create_vector_node(3, vec![1.0, 0.0]);
+        masked_out.set_bit(1);
+        assert!(!passes_vector_prefilter(&masked_out, Some(&mask)));
+        let mut dead = create_vector_node(4, vec![1.0, 0.0]);
+        dead.set_bit(0);
+        dead.flags.clear(crate::node::NodeFlags::ACTIVE);
+        assert!(!passes_vector_prefilter(&dead, None));
     }
 
     // ── traverse (BFS) ──
