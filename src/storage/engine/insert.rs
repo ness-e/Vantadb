@@ -15,12 +15,132 @@ use crate::wal::WalRecord;
 use super::{BatchInsertOptions, InsertMode};
 
 /// Field → value → count cardinality map (alias of `cardinality_stats`).
-type CardStats = std::collections::HashMap<String, std::collections::HashMap<String, usize>>;
+pub(crate) type CardStats =
+    std::collections::HashMap<String, std::collections::HashMap<String, usize>>;
 
 #[derive(Clone)]
-struct ExistingMeta {
+pub(crate) struct ExistingMeta {
     relational: RelFields,
     edges: Vec<Edge>,
+}
+
+// ─── D1a Slice 4: batch-phase free helpers (SLAP for `batch_insert_with_opts`) ───
+//
+// Mechanical split: same statements, same order, no optimization.
+
+/// HNSW insertion policy for a batch (pure; P1/P3 flags untouched).
+pub(crate) fn batch_should_insert_hnsw(opts: &BatchInsertOptions, batch_len: usize) -> bool {
+    match opts.insert_mode {
+        InsertMode::Incremental => true,
+        InsertMode::Rebuild => false,
+        InsertMode::Auto => batch_len < opts.incremental_threshold.unwrap_or(1000),
+    }
+}
+
+/// Cap cardinality pairs (was tripled inline: bump + both batch branches).
+pub(crate) fn cap_cardinality(stats: &mut CardStats) {
+    let total: usize = stats.values().map(|m| m.len()).sum();
+    if total <= crate::config::MAX_CARDINALITY_PAIRS {
+        return;
+    }
+    if let Some(min_field) = stats
+        .iter()
+        .min_by_key(|(_, m)| m.len())
+        .map(|(k, _)| k.clone())
+    {
+        stats.remove(&min_field);
+    }
+}
+
+/// Decrement cardinality counts for an overwritten node's old fields.
+pub(crate) fn decrement_existing_stats(stats: &mut CardStats, existing: &ExistingMeta) {
+    for (field, value) in &existing.relational {
+        let val_keys = value.to_cardinality_keys();
+        if let Some(val_map) = stats.get_mut(field.as_str()) {
+            for val_key in val_keys {
+                if let Some(count) = val_map.get_mut(&val_key) {
+                    if *count > 0 {
+                        *count -= 1;
+                    }
+                }
+            }
+            val_map.retain(|_, &mut v| v > 0);
+        }
+    }
+}
+
+/// Staged persist buffers for one batch (travel together serialize→commit).
+pub(crate) struct BatchStageBufs {
+    pub(crate) kv_ops: Vec<BackendWriteOp>,
+    pub(crate) hnsw_entries: Vec<(u128, FilterBitset, VectorRepresentations, u64)>,
+    pub(crate) vstore_offsets: Vec<u64>,
+}
+
+impl BatchStageBufs {
+    pub(crate) fn with_capacity(n: usize) -> Self {
+        Self {
+            kv_ops: Vec::with_capacity(n),
+            hnsw_entries: Vec::with_capacity(n),
+            vstore_offsets: Vec::with_capacity(n),
+        }
+    }
+
+    /// Stage one HNSW entry (id/bitset/vector snapshot + packed offset).
+    pub(crate) fn push_entry(
+        &mut self,
+        id: u128,
+        bitset: &FilterBitset,
+        vector: &VectorRepresentations,
+        offset: u64,
+    ) {
+        self.hnsw_entries
+            .push((id, bitset.clone(), vector.clone(), offset));
+    }
+}
+
+/// Pre-allocate vstore batch space (P4: avoid per-node grow_to syscalls).
+pub(crate) fn prealloc_vstore_batch(
+    vstore: &mut crate::storage::vfile::File,
+    batch_len: usize,
+) -> Result<()> {
+    // ponytail: fixed estimate; tune if fragmentation appears
+    let batch_estimate = batch_len as u64 * 1280;
+    let needed = vstore.write_cursor + batch_estimate;
+    if needed > vstore.size {
+        vstore.grow_to(std::cmp::max(vstore.size * 2, needed + 4096))?;
+    }
+    Ok(())
+}
+
+/// Bump one cardinality pair, capped at 100 values per field.
+pub(crate) fn bump_val_map(
+    val_map: &mut std::collections::HashMap<String, usize>,
+    val_key: String,
+) {
+    if val_map.len() < 100 || val_map.contains_key(&val_key) {
+        *val_map.entry(val_key).or_default() += 1;
+    }
+}
+
+/// Flag one staged offset as tombstoned after a KV batch failure (P4).
+pub(crate) fn tombstone_offset(
+    vstore: &mut crate::storage::vfile::File,
+    packed: u64,
+    batch_error: &crate::error::Error,
+) {
+    let (_seg_id, local_off) = crate::lsm::unpack_offset(packed);
+    let Some(mut hdr) = vstore.read_header(local_off) else {
+        return;
+    };
+    hdr.flags |= FLAG_TOMBSTONE;
+    if let Err(te) = vstore.write_header(local_off, &hdr) {
+        tracing::error!(
+            offset = local_off,
+            batch_error = %batch_error,
+            header_error = %te,
+            "failed to write tombstone header after KV batch write failure"
+        );
+    }
 }
 
 impl StorageEngine {
@@ -190,16 +310,304 @@ impl StorageEngine {
             }
         }
         // ponytail: drop the field with fewest entries if total pairs > global cap
-        let total: usize = stats.values().map(|m| m.len()).sum();
-        if total > crate::config::MAX_CARDINALITY_PAIRS {
-            if let Some(min_field) = stats
-                .iter()
-                .min_by_key(|(_, m)| m.len())
-                .map(|(k, _)| k.clone())
-            {
-                stats.remove(&min_field);
+        cap_cardinality(stats);
+    }
+
+    // ─── D1a Slice 4: batch-phase method helpers ───
+    //
+    // Mechanical split of `batch_insert_with_opts` phases (validate → stats →
+    // persist → metrics). Same statements, same order, no optimization.
+
+    /// Remove an overwritten node's old edge/scalar index entries.
+    pub(crate) fn remove_existing_indexes(&self, existing: &ExistingMeta, id: u128) {
+        if let Some(ref ei) = self.edge_index {
+            for edge in &existing.edges {
+                ei.remove_edge(id, edge.target);
             }
         }
+        if let Some(ref si) = self.scalar_index {
+            for (field, value) in &existing.relational {
+                si.remove(field, value, id);
+            }
+        }
+    }
+
+    /// Remove an overwritten node's old stats + index entries (batch path).
+    pub(crate) fn remove_existing_from_stats(
+        &self,
+        stats: &mut CardStats,
+        existing: &ExistingMeta,
+        id: u128,
+    ) {
+        decrement_existing_stats(stats, existing);
+        self.remove_existing_indexes(existing, id);
+    }
+
+    /// Add a batch node's new stats/edges/scalars (batch bookkeeping).
+    pub(crate) fn add_node_to_stats(&self, stats: &mut CardStats, node: &UnifiedNode) {
+        for (field, value) in &node.relational {
+            let val_keys = value.to_cardinality_keys();
+            let val_map = stats.entry(field.clone()).or_default();
+            for val_key in val_keys {
+                bump_val_map(val_map, val_key);
+            }
+        }
+        if let Some(ref ei) = self.edge_index {
+            for edge in &node.edges {
+                ei.insert(node.id, edge.target);
+            }
+        }
+        if let Some(ref si) = self.scalar_index {
+            for (field, value) in &node.relational {
+                si.insert(field, value, node.id);
+            }
+        }
+    }
+
+    /// Phase 3: WAL batch append (P3: skipped when `skip_wal`).
+    pub(crate) fn append_batch_wal(
+        &self,
+        nodes: &[UnifiedNode],
+        opts: &BatchInsertOptions,
+    ) -> Result<()> {
+        if opts.skip_wal {
+            return Ok(());
+        }
+        if let Some(ref sharded) = self.wal {
+            let records: Vec<WalRecord> =
+                nodes.iter().map(|n| WalRecord::Insert(n.clone())).collect();
+            sharded.batch_append(records)?;
+        }
+        Ok(())
+    }
+
+    /// Cache the batch's Hot nodes; returns whether eviction is needed.
+    pub(crate) fn cache_batch_hot_nodes(&self, nodes: &[UnifiedNode]) -> bool {
+        let mut cache = self.volatile_cache.write();
+        for node in nodes {
+            if node.tier == crate::node::NodeTier::Hot {
+                cache.insert(node.id, node.clone());
+            }
+        }
+        let caps = crate::hardware::HardwareCapabilities::global();
+        let max_nodes = (caps.total_memory / 4 / 1536) as usize;
+        cache.len() > max_nodes
+    }
+
+    /// FND-02: eviction after the cache guard drops (locked variant, since
+    /// insert_lock is held on the batch path).
+    pub(crate) fn run_batch_eviction_if_needed(&self, needs_eviction: bool) {
+        if !needs_eviction {
+            return;
+        }
+        self.emergency_maintenance_trigger
+            .store(true, Ordering::Release);
+        if let Err(e) = self.evict_cold_nodes_with_reason_locked(
+            self.config.eviction_ratio,
+            EvictionReason::Watermark,
+        ) {
+            tracing::warn!("eviction failed: {e}");
+        }
+    }
+
+    /// PERF-30: auto-flush past threshold (only when insert_lock is free).
+    pub(crate) fn maybe_auto_flush(&self) {
+        if let Some(threshold) = self.config.flush_threshold {
+            let hnsw = self.hnsw.load();
+            if hnsw.nodes.len() >= threshold && self.insert_lock.try_lock().is_some() {
+                drop(hnsw);
+                if let Err(e) = self.flush() {
+                    tracing::warn!("auto-flush failed: {e}");
+                }
+            }
+        }
+    }
+
+    // ─── D1a Slice 4-resto: prelude + persist-phase helpers ───
+
+    /// Validate + timestamp a batch. `None` = empty (caller returns `Ok(())`).
+    pub(crate) fn batch_prelude(&self, nodes: &[UnifiedNode]) -> Result<Option<u64>> {
+        if nodes.is_empty() {
+            return Ok(None);
+        }
+        self.check_pressure()?;
+        self.ensure_writable()?;
+        #[cfg(feature = "failpoints")]
+        fail::fail_point!("storage_insert_fail", |_| {
+            Err(crate::error::Error::IoError(std::io::Error::other(
+                "Simulated Storage insert catastrophic I/O failure",
+            )))
+        });
+        self.touch_activity();
+        // Reuse the shared clock read (same call the inline code made).
+        Ok(Some(super::get::now_ms_epoch_millis()))
+    }
+
+    /// Build the KV put op for one node (metadata payload, LE-id key).
+    pub(crate) fn build_kv_put_op(&self, node: &UnifiedNode) -> Result<BackendWriteOp> {
+        let created_by = self.next_txn_id.load(std::sync::atomic::Ordering::Relaxed);
+        let metadata = NodeMetadata {
+            relational: node.relational.clone(),
+            edges: node.edges.clone(),
+            created_by_txn: created_by,
+            deleted_by_txn: None,
+        };
+        let metadata_val =
+            postcard::to_allocvec(&metadata).map_err(crate::error::Error::serialization)?;
+        Ok(BackendWriteOp::Put {
+            partition: BackendPartition::Default,
+            key: node.id.to_le_bytes().to_vec(),
+            value: metadata_val,
+        })
+    }
+
+    /// Stage one node: vstore write + offset pack + KV op (HNSW entry inline).
+    pub(crate) fn stage_one_node(
+        &self,
+        vstore: &mut crate::storage::vfile::File,
+        node: &UnifiedNode,
+        now_ms: u64,
+    ) -> Result<(u64, BackendWriteOp)> {
+        let mut active_node = node.clone();
+        active_node.last_accessed = now_ms;
+        let local_off = crate::storage::ops::write_node_to_vstore(vstore, &active_node)?;
+        let storage_offset = crate::lsm::pack_offset(0, local_off);
+        let op = self.build_kv_put_op(&active_node)?;
+        Ok((storage_offset, op))
+    }
+
+    /// Phase 2: vstore writes + KV/HNSW staging for the whole batch.
+    pub(crate) fn serialize_batch_nodes(
+        &self,
+        nodes: &[UnifiedNode],
+        now_ms: u64,
+        should_insert_hnsw: bool,
+        bufs: &mut BatchStageBufs,
+    ) -> Result<()> {
+        let mut vstore = self.vstore0()?;
+        prealloc_vstore_batch(&mut vstore, nodes.len())?;
+        for node in nodes {
+            let (storage_offset, op) = self.stage_one_node(&mut vstore, node, now_ms)?;
+            bufs.vstore_offsets.push(storage_offset);
+            if should_insert_hnsw {
+                bufs.push_entry(node.id, &node.bitset, &node.vector, storage_offset);
+            }
+            bufs.kv_ops.push(op);
+        }
+        Ok(())
+    }
+
+    /// Bulk HNSW insert, highest level first (deterministic seed 42).
+    pub(crate) fn insert_hnsw_leveled(
+        &self,
+        entries: &[(u128, FilterBitset, VectorRepresentations, u64)],
+    ) -> Result<()> {
+        let hnsw = self.hnsw.load();
+        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+        let mut leveled: Vec<(usize, u128, FilterBitset, VectorRepresentations, u64)> =
+            Vec::with_capacity(entries.len());
+        for (id, bitset, vector, offset) in entries {
+            // ponytail: deterministic seed — reproducible HNSW topology
+            let level = crate::index::random_layer_from_config(&hnsw.config, &mut rng);
+            leveled.push((level, *id, bitset.clone(), vector.clone(), *offset));
+        }
+        // Higher level first — better entry point placement
+        leveled.sort_by_key(|k| std::cmp::Reverse(k.0));
+        for (level, id, bitset, vector, offset) in &leveled {
+            hnsw.add_with_level(*id, bitset.clone(), vector.clone(), *offset, *level)?;
+        }
+        Ok(())
+    }
+
+    /// Phase 4: KV batch write; on failure tombstone the staged offsets (P4).
+    pub(crate) fn write_batch_kv_or_tombstone(
+        &self,
+        kv_ops: Vec<BackendWriteOp>,
+        vstore_offsets: &[u64],
+    ) -> Result<()> {
+        if let Err(e) = self.backend.write_batch(kv_ops) {
+            let mut vstore = self.vstore0()?;
+            for &packed in vstore_offsets {
+                tombstone_offset(&mut vstore, packed, &e);
+            }
+            return Err(e);
+        }
+        Ok(())
+    }
+
+    /// Serial stats path (non-rayon): existing-probe + bookkeeping + cap.
+    #[cfg(not(feature = "rayon"))]
+    pub(crate) fn apply_batch_stats_serial(
+        &self,
+        nodes: &[UnifiedNode],
+        opts: &BatchInsertOptions,
+    ) {
+        let mut stats = self.cardinality_stats.write();
+        for node in nodes {
+            if !opts.skip_existing_check {
+                if let Some(existing_node) = self.existing_for_batch(node.id) {
+                    self.remove_existing_from_stats(&mut stats, &existing_node, node.id);
+                }
+            }
+            self.add_node_to_stats(&mut stats, node);
+        }
+        cap_cardinality(&mut stats);
+    }
+
+    /// Amortized existence probe, one lock pass per 256-chunk (ERR-037).
+    #[cfg(feature = "rayon")]
+    pub(crate) fn probe_existing_for_batch(
+        &self,
+        nodes: &[UnifiedNode],
+    ) -> Vec<Option<ExistingMeta>> {
+        use rayon::prelude::*;
+        nodes
+            .par_chunks(256)
+            .flat_map_iter(|chunk| {
+                let ids: Vec<u128> = chunk.iter().map(|n| n.id).collect();
+                self.existing_for_batch_many(&ids).into_iter()
+            })
+            .collect()
+    }
+
+    /// Rayon stats path: amortized probe + bookkeeping + cap.
+    #[cfg(feature = "rayon")]
+    pub(crate) fn apply_batch_stats_rayon(&self, nodes: &[UnifiedNode], opts: &BatchInsertOptions) {
+        let existing: Vec<Option<ExistingMeta>> = if opts.skip_existing_check {
+            vec![None; nodes.len()]
+        } else {
+            self.probe_existing_for_batch(nodes)
+        };
+        let mut stats = self.cardinality_stats.write();
+        for (i, node) in nodes.iter().enumerate() {
+            if let Some(ref existing_node) = existing[i] {
+                self.remove_existing_from_stats(&mut stats, existing_node, node.id);
+            }
+            self.add_node_to_stats(&mut stats, node);
+        }
+        cap_cardinality(&mut stats);
+    }
+
+    /// Commit under one insert_lock guard (ERR-010): WAL → KV → HNSW →
+    /// cache/evict → auto-flush. Same order as the inline code.
+    pub(crate) fn commit_batch_locked(
+        &self,
+        nodes: &[UnifiedNode],
+        opts: &BatchInsertOptions,
+        mut bufs: BatchStageBufs,
+        should_insert_hnsw: bool,
+    ) -> Result<()> {
+        let _guard = self.acquire_insert_lock("acquire insert_lock in batch_insert")?;
+        self.append_batch_wal(nodes, opts)?;
+        let kv_ops = std::mem::take(&mut bufs.kv_ops);
+        self.write_batch_kv_or_tombstone(kv_ops, &bufs.vstore_offsets)?;
+        if should_insert_hnsw {
+            self.insert_hnsw_leveled(&bufs.hnsw_entries)?;
+        }
+        let needs_eviction = self.cache_batch_hot_nodes(nodes);
+        self.run_batch_eviction_if_needed(needs_eviction);
+        self.maybe_auto_flush();
+        Ok(())
     }
 
     /// Apply an insert to the stores (vstore, KV backend, HNSW, cache).
@@ -519,331 +927,17 @@ impl StorageEngine {
         nodes: &[UnifiedNode],
         opts: BatchInsertOptions,
     ) -> Result<()> {
-        if nodes.is_empty() {
+        let Some(now_ms) = self.batch_prelude(nodes)? else {
             return Ok(());
-        }
-
-        self.check_pressure()?;
-        self.ensure_writable()?;
-        #[cfg(feature = "failpoints")]
-        fail::fail_point!("storage_insert_fail", |_| {
-            Err(crate::error::Error::IoError(std::io::Error::other(
-                "Simulated Storage insert catastrophic I/O failure",
-            )))
-        });
-
-        self.touch_activity();
-        let now_ms = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_millis() as u64;
-
-        let mut kv_ops: Vec<BackendWriteOp> = Vec::with_capacity(nodes.len());
-        let mut hnsw_entries: Vec<(u128, FilterBitset, VectorRepresentations, u64)> =
-            Vec::with_capacity(nodes.len());
-        let mut vstore_offsets: Vec<u64> = Vec::with_capacity(nodes.len());
-
+        };
+        let mut bufs = BatchStageBufs::with_capacity(nodes.len());
         #[cfg(feature = "rayon")]
-        {
-            use rayon::prelude::*;
-            let existing: Vec<Option<ExistingMeta>> = if opts.skip_existing_check {
-                vec![None; nodes.len()]
-            } else {
-                // ERR-037: existence probe instead of full get() per node ΓÇö
-                // no cache write lock, no HNSW/vstore vector read+clone.
-                // Chunked so cache-hit-heavy batches don't degenerate into a
-                // per-node SRWLOCK acquisition storm (overwrite regressions).
-                // ponytail: 256 per chunk; tune if lock hold time matters.
-                nodes
-                    .par_chunks(256)
-                    .flat_map_iter(|chunk| {
-                        let ids: Vec<u128> = chunk.iter().map(|n| n.id).collect();
-                        self.existing_for_batch_many(&ids).into_iter()
-                    })
-                    .collect()
-            };
-            let mut stats = self.cardinality_stats.write();
-            for (i, node) in nodes.iter().enumerate() {
-                if let Some(ref existing_node) = existing[i] {
-                    for (field, value) in &existing_node.relational {
-                        let val_keys = value.to_cardinality_keys();
-                        if let Some(val_map) = stats.get_mut(field.as_str()) {
-                            for val_key in val_keys {
-                                if let Some(count) = val_map.get_mut(&val_key) {
-                                    if *count > 0 {
-                                        *count -= 1;
-                                    }
-                                }
-                            }
-                            val_map.retain(|_, &mut v| v > 0);
-                        }
-                    }
-                    if let Some(ref ei) = self.edge_index {
-                        for edge in &existing_node.edges {
-                            ei.remove_edge(node.id, edge.target);
-                        }
-                    }
-                    if let Some(ref si) = self.scalar_index {
-                        for (field, value) in &existing_node.relational {
-                            si.remove(field, value, node.id);
-                        }
-                    }
-                }
-                for (field, value) in &node.relational {
-                    let val_keys = value.to_cardinality_keys();
-                    let val_map = stats.entry(field.clone()).or_default();
-                    for val_key in val_keys {
-                        if val_map.len() < 100 || val_map.contains_key(&val_key) {
-                            *val_map.entry(val_key).or_default() += 1;
-                        }
-                    }
-                }
-                if let Some(ref ei) = self.edge_index {
-                    for edge in &node.edges {
-                        ei.insert(node.id, edge.target);
-                    }
-                }
-                if let Some(ref si) = self.scalar_index {
-                    for (field, value) in &node.relational {
-                        si.insert(field, value, node.id);
-                    }
-                }
-            }
-            // ponytail: drop the field with fewest entries if total pairs > global cap
-            let total: usize = stats.values().map(|m| m.len()).sum();
-            if total > crate::config::MAX_CARDINALITY_PAIRS {
-                if let Some(min_field) = stats
-                    .iter()
-                    .min_by_key(|(_, m)| m.len())
-                    .map(|(k, _)| k.clone())
-                {
-                    stats.remove(&min_field);
-                }
-            }
-        }
+        self.apply_batch_stats_rayon(nodes, &opts);
         #[cfg(not(feature = "rayon"))]
-        {
-            let mut stats = self.cardinality_stats.write();
-            for node in nodes {
-                if !opts.skip_existing_check {
-                    if let Some(existing_node) = self.existing_for_batch(node.id) {
-                        for (field, value) in &existing_node.relational {
-                            let val_keys = value.to_cardinality_keys();
-                            if let Some(val_map) = stats.get_mut(field.as_str()) {
-                                for val_key in val_keys {
-                                    if let Some(count) = val_map.get_mut(&val_key) {
-                                        if *count > 0 {
-                                            *count -= 1;
-                                        }
-                                    }
-                                }
-                                val_map.retain(|_, &mut v| v > 0);
-                            }
-                        }
-                        if let Some(ref ei) = self.edge_index {
-                            for edge in &existing_node.edges {
-                                ei.remove_edge(node.id, edge.target);
-                            }
-                        }
-                        if let Some(ref si) = self.scalar_index {
-                            for (field, value) in &existing_node.relational {
-                                si.remove(field, value, node.id);
-                            }
-                        }
-                    }
-                }
-
-                for (field, value) in &node.relational {
-                    let val_keys = value.to_cardinality_keys();
-                    let val_map = stats.entry(field.clone()).or_default();
-                    for val_key in val_keys {
-                        if val_map.len() < 100 || val_map.contains_key(&val_key) {
-                            *val_map.entry(val_key).or_default() += 1;
-                        }
-                    }
-                }
-
-                if let Some(ref ei) = self.edge_index {
-                    for edge in &node.edges {
-                        ei.insert(node.id, edge.target);
-                    }
-                }
-                if let Some(ref si) = self.scalar_index {
-                    for (field, value) in &node.relational {
-                        si.insert(field, value, node.id);
-                    }
-                }
-            }
-            // ponytail: drop the field with fewest entries if total pairs > global cap
-            let total: usize = stats.values().map(|m| m.len()).sum();
-            if total > crate::config::MAX_CARDINALITY_PAIRS {
-                if let Some(min_field) = stats
-                    .iter()
-                    .min_by_key(|(_, m)| m.len())
-                    .map(|(k, _)| k.clone())
-                {
-                    stats.remove(&min_field);
-                }
-            }
-        }
-
-        // Determine whether to insert nodes into the HNSW index incrementally
-        let should_insert_hnsw = match opts.insert_mode {
-            InsertMode::Incremental => true,
-            InsertMode::Rebuild => false,
-            InsertMode::Auto => {
-                let threshold = opts.incremental_threshold.unwrap_or(1000);
-                nodes.len() < threshold
-            }
-        };
-
-        // ΓöÇΓöÇ Phase 2: vstore writes + KV/HNSW entry prep ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-        let mut vstore = self.vstore0()?;
-
-        // P4: pre-allocate batch space to avoid per-node grow_to syscalls
-        let approx_per_node: u64 = 1280; // ponytail: fixed estimate; tune if fragmentation appears
-        let batch_estimate = nodes.len() as u64 * approx_per_node;
-        let current_size = vstore.size;
-        let needed = vstore.write_cursor + batch_estimate;
-        if needed > current_size {
-            let new_size = std::cmp::max(current_size * 2, needed + 4096);
-            vstore.grow_to(new_size)?;
-        }
-
-        for node in nodes {
-            let mut active_node = node.clone();
-            active_node.last_accessed = now_ms;
-            let local_off = crate::storage::ops::write_node_to_vstore(&mut vstore, &active_node)?;
-            let storage_offset = crate::lsm::pack_offset(0, local_off);
-            vstore_offsets.push(storage_offset);
-            if should_insert_hnsw {
-                hnsw_entries.push((
-                    active_node.id,
-                    active_node.bitset.clone(),
-                    active_node.vector.clone(),
-                    storage_offset,
-                ));
-            }
-            let key = active_node.id.to_le_bytes();
-            let created_by = self.next_txn_id.load(std::sync::atomic::Ordering::Relaxed);
-            let metadata = NodeMetadata {
-                relational: active_node.relational.clone(),
-                edges: active_node.edges.clone(),
-                created_by_txn: created_by,
-                deleted_by_txn: None,
-            };
-            let metadata_val =
-                postcard::to_allocvec(&metadata).map_err(crate::error::Error::serialization)?;
-            kv_ops.push(BackendWriteOp::Put {
-                partition: BackendPartition::Default,
-                key: key.to_vec(),
-                value: metadata_val,
-            });
-        }
-        drop(vstore);
-
-        // ΓöÇΓöÇ Phases 3-4 (+HNSW): WAL, KV batch write and HNSW insertion all under
-        // ΓöÇΓöÇ one insert_lock guard (ERR-010). flush() counts WAL records while
-        // holding the same guard, so these records are never counted before
-        // their HNSW entries are drained into the serialized snapshot ΓÇö no
-        // invisible/duplicate records on recovery.
-        let _guard = self.acquire_insert_lock("acquire insert_lock in batch_insert")?;
-
-        // ΓöÇΓöÇ Phase 3: WAL (P3 ΓÇö skip_wal flag) ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-        if !opts.skip_wal {
-            if let Some(ref sharded) = self.wal {
-                let wal_records: Vec<WalRecord> =
-                    nodes.iter().map(|n| WalRecord::Insert(n.clone())).collect();
-                sharded.batch_append(wal_records)?;
-            }
-        }
-
-        // ΓöÇΓöÇ Phase 4: KV batch write + tombstone on failure ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
-        if let Err(e) = self.backend.write_batch(kv_ops) {
-            let mut vstore = self.vstore0()?;
-            for &packed in &vstore_offsets {
-                let (_seg_id, local_off) = crate::lsm::unpack_offset(packed);
-                if let Some(mut hdr) = vstore.read_header(local_off) {
-                    hdr.flags |= FLAG_TOMBSTONE;
-                    if let Err(te) = vstore.write_header(local_off, &hdr) {
-                        tracing::error!(
-                            offset = local_off,
-                            batch_error = %e,
-                            header_error = %te,
-                            "failed to write tombstone header after KV batch write failure"
-                        );
-                    }
-                }
-            }
-            return Err(e);
-        }
-
-        if should_insert_hnsw {
-            let hnsw = self.hnsw.load();
-
-            // P3 ΓÇö Layer-wise bulk insert: pre-compute levels with local RNG
-            // (avoids shared rng mutex) and sort descending so higher-level
-            // nodes are inserted first ΓÇö creating better entry points for
-            // lower-level nodes and reducing search-layer descent cost.
-            let config = &hnsw.config;
-            let mut rng = rand::rngs::StdRng::seed_from_u64(42);
-            let mut level_entries: Vec<(usize, u128, FilterBitset, VectorRepresentations, u64)> =
-                Vec::with_capacity(hnsw_entries.len());
-
-            for (id, bitset, vector, offset) in &hnsw_entries {
-                // ponytail: deterministic seed ΓÇö reproducible HNSW topology
-                let level = crate::index::random_layer_from_config(config, &mut rng);
-                level_entries.push((level, *id, bitset.clone(), vector.clone(), *offset));
-            }
-
-            // Higher level first ΓåÆ better entry point placement
-            level_entries.sort_by_key(|k| std::cmp::Reverse(k.0));
-
-            for (level, id, bitset, vector, offset) in &level_entries {
-                hnsw.add_with_level(*id, bitset.clone(), vector.clone(), *offset, *level)?;
-            }
-        }
-
-        let needs_eviction = {
-            let mut cache = self.volatile_cache.write();
-            for node in nodes {
-                if node.tier == crate::node::NodeTier::Hot {
-                    cache.insert(node.id, node.clone());
-                }
-            }
-            let caps = crate::hardware::HardwareCapabilities::global();
-            let cache_cap_bytes = caps.total_memory / 4;
-            let approx_node_size = 1536;
-            let max_nodes = (cache_cap_bytes / approx_node_size) as usize;
-            cache.len() > max_nodes
-        };
-
-        // FND-02: eviction runs after the cache guard is dropped (RwLock is
-        // not reentrant) and uses the locked variant because insert_lock is
-        // held here (ERR-010).
-        if needs_eviction {
-            self.emergency_maintenance_trigger
-                .store(true, Ordering::Release);
-            if let Err(e) = self.evict_cold_nodes_with_reason_locked(
-                self.config.eviction_ratio,
-                EvictionReason::Watermark,
-            ) {
-                tracing::warn!("eviction failed: {e}");
-            }
-        }
-
-        // PERF-30: auto-flush when total node count exceeds flush_threshold.
-        // batch_insert() holds insert_lock here (ERR-010, non-reentrant), so
-        // only auto-flush when the lock is free ΓÇö see apply_insert().
-        if let Some(threshold) = self.config.flush_threshold {
-            let hnsw = self.hnsw.load();
-            if hnsw.nodes.len() >= threshold && self.insert_lock.try_lock().is_some() {
-                drop(hnsw);
-                if let Err(e) = self.flush() {
-                    tracing::warn!("auto-flush failed: {e}");
-                }
-            }
-        }
+        self.apply_batch_stats_serial(nodes, &opts);
+        let should_insert_hnsw = batch_should_insert_hnsw(&opts, nodes.len());
+        self.serialize_batch_nodes(nodes, now_ms, should_insert_hnsw, &mut bufs)?;
+        self.commit_batch_locked(nodes, &opts, bufs, should_insert_hnsw)?;
         Ok(())
     }
 
