@@ -73,16 +73,16 @@ export interface GraphClient {
     vector?: number[],
     fields?: Record<string, FlatValue | Value>,
   ): void;
-  getNode(id: number): NodeRecord | null;
-  deleteNode(id: number, reason?: string): void;
+  getNode(id: number | bigint): NodeRecord | null;
+  deleteNode(id: number | bigint, reason?: string): void;
   addEdge(
-    source: number,
-    target: number,
+    source: number | bigint,
+    target: number | bigint,
     label?: string,
     weight?: number,
     createdAtMs?: number,
   ): void;
-  removeEdge(source: number, target: number, label?: string): void;
+  removeEdge(source: number | bigint, target: number | bigint, label?: string): void;
   bfs(
     roots: number[],
     maxDepth?: number,
@@ -285,17 +285,17 @@ export class Client {
         vector?: number[],
         fields?: Record<string, Value>,
       ) => this.insertNode(id, content, vector, fields),
-      getNode: (id: number) => this.getNode(id),
-      deleteNode: (id: number, reason?: string) =>
+      getNode: (id: number | bigint) => this.getNode(id),
+      deleteNode: (id: number | bigint, reason?: string) =>
         this.deleteNode(id, reason),
       addEdge: (
-        source: number,
-        target: number,
+        source: number | bigint,
+        target: number | bigint,
         label?: string,
         weight?: number,
         createdAtMs?: number,
       ) => this.addEdge(source, target, label, weight, createdAtMs),
-      removeEdge: (source: number, target: number, label?: string) =>
+      removeEdge: (source: number | bigint, target: number | bigint, label?: string) =>
         this.removeEdge(source, target, label),
       bfs: (roots: number[], maxDepth?: number, direction?: "Forward" | "Reverse" | "Both") =>
         this.graphBfs(roots, maxDepth, direction),
@@ -1133,9 +1133,12 @@ export class Client {
   /**
    * Retrieve a graph node by ID.
    *
-   * @param id - Node ID.
+   * For IDs > 2^53, use bigint — JavaScript Numbers lose integer precision
+   * above 2^53.
+   *
+   * @param id - Node ID (number or bigint).
    * @returns The node record if found, or null if it does not exist.
-   * @throws {DbError} If the instance is closed.
+   * @throws {DbError} If the ID is not a safe integer, or if the instance is closed.
    *
    * @example
    * ```ts
@@ -1143,8 +1146,14 @@ export class Client {
    * if (node) console.log(node.edges.length, "edges");
    * ```
    */
-  getNode(id: number): NodeRecord | null {
+  getNode(id: number | bigint): NodeRecord | null {
     this._assertOpen();
+    if (typeof id === "number" && !Number.isSafeInteger(id)) {
+      throw new DbError(
+        "INVALID_ARGUMENT",
+        `getNode: id ${id} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+      );
+    }
     return this._wasm("getNode", () => {
       const raw = this.inner.get_node(String(id));
       if (raw == null) return null;
@@ -1162,28 +1171,40 @@ export class Client {
   /**
    * Delete a graph node.
    *
-   * @param id - Node ID.
+   * For IDs > 2^53, use bigint — JavaScript Numbers lose integer precision
+   * above 2^53.
+   *
+   * @param id - Node ID (number or bigint).
    * @param reason - Deletion reason (default: "deleted").
-   * @throws {DbError} If the instance is closed.
+   * @throws {DbError} If the ID is not a safe integer, or if the instance is closed.
    *
    * @example
    * ```ts
    * db.deleteNode(1, "no longer needed");
    * ```
    */
-  deleteNode(id: number, reason: string = "deleted"): void {
+  deleteNode(id: number | bigint, reason: string = "deleted"): void {
     this._assertOpen();
+    if (typeof id === "number" && !Number.isSafeInteger(id)) {
+      throw new DbError(
+        "INVALID_ARGUMENT",
+        `deleteNode: id ${id} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+      );
+    }
     this._wasm("deleteNode", () => this.inner.delete_node(String(id), reason));
   }
 
   /**
    * Add a directed edge between two graph nodes.
    *
-   * @param source - Source node ID.
-   * @param target - Target node ID.
+   * For IDs > 2^53, use bigint — JavaScript Numbers lose integer precision
+   * above 2^53.
+   *
+   * @param source - Source node ID (number or bigint).
+   * @param target - Target node ID (number or bigint).
    * @param label - Edge label (default: "").
    * @param weight - Optional edge weight.
-   * @throws {DbError} If the instance is closed.
+   * @throws {DbError} If an ID is not a safe integer, or if the instance is closed.
    *
    * @example
    * ```ts
@@ -1191,13 +1212,25 @@ export class Client {
    * ```
    */
   addEdge(
-    source: number,
-    target: number,
+    source: number | bigint,
+    target: number | bigint,
     label: string = "",
     weight?: number,
     createdAtMs?: number,
   ): void {
     this._assertOpen();
+    if (typeof source === "number" && !Number.isSafeInteger(source)) {
+      throw new DbError(
+        "INVALID_ARGUMENT",
+        `addEdge: source id ${source} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+      );
+    }
+    if (typeof target === "number" && !Number.isSafeInteger(target)) {
+      throw new DbError(
+        "INVALID_ARGUMENT",
+        `addEdge: target id ${target} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+      );
+    }
     this._wasm("addEdge", () =>
       this.inner.add_edge(
         String(source),
@@ -1213,18 +1246,33 @@ export class Client {
    * Remove all edges between two graph nodes with the given label
    * (both forward and reverse directions).
    *
-   * @param source - Source node ID.
-   * @param target - Target node ID.
+   * For IDs > 2^53, use bigint — JavaScript Numbers lose integer precision
+   * above 2^53.
+   *
+   * @param source - Source node ID (number or bigint).
+   * @param target - Target node ID (number or bigint).
    * @param label - Edge label to remove (default: "").
-   * @throws {DbError} If the instance is closed or a node is missing.
+   * @throws {DbError} If an ID is not a safe integer, or if the instance is closed or a node is missing.
    *
    * @example
    * ```ts
    * db.removeEdge(1, 2, "knows");
    * ```
    */
-  removeEdge(source: number, target: number, label: string = ""): void {
+  removeEdge(source: number | bigint, target: number | bigint, label: string = ""): void {
     this._assertOpen();
+    if (typeof source === "number" && !Number.isSafeInteger(source)) {
+      throw new DbError(
+        "INVALID_ARGUMENT",
+        `removeEdge: source id ${source} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+      );
+    }
+    if (typeof target === "number" && !Number.isSafeInteger(target)) {
+      throw new DbError(
+        "INVALID_ARGUMENT",
+        `removeEdge: target id ${target} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+      );
+    }
     this._wasm("removeEdge", () =>
       this.inner.remove_edge(String(source), String(target), label),
     );
