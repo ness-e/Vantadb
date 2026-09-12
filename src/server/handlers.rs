@@ -4,6 +4,7 @@
 //! SDK operations under `run_db_op` (pool + spawn_blocking).
 
 use crate::audit::AuditEvent;
+use crate::config::MAX_K;
 use crate::connection_pool::PoolError;
 use crate::error::Result;
 use crate::metrics;
@@ -374,6 +375,17 @@ fn merge_all_namespaces_pages(
     (records, truncated_namespaces)
 }
 
+/// Clamp `limit`/`top_k` a [`MAX_K`], avisando cuando se pide más para que el
+/// recorte sea observable (ERR-022). Mismo patrón que `clamp_top_k` en Python
+/// (`vantadb-python/src/lib.rs`) — D5c: frontera HTTP sin cotas = DoS
+/// (un `limit`/`top_k` gigante materializa rankings gigantes en memoria).
+fn clamp_limit(requested: usize) -> usize {
+    if requested > MAX_K {
+        tracing::warn!("limit={requested} exceeds MAX_K={MAX_K}; clamping to {MAX_K} (ERR-022)");
+    }
+    requested.min(MAX_K)
+}
+
 /// Query params for `GET /api/v2/list`.
 #[derive(Deserialize, Debug)]
 pub struct ListParams {
@@ -416,7 +428,7 @@ pub async fn records_list(
             }
         },
     };
-    let limit = params.limit.unwrap_or(100);
+    let limit = clamp_limit(params.limit.unwrap_or(100));
     let cursor = params.cursor;
     if all_namespaces {
         // FIND-24: fan-out by namespace now respects the client's `limit`
@@ -529,9 +541,9 @@ pub async fn records_search(
     // cursor propio, así que el server traduce cursor/limit → top_k+1 (un extra
     // para saber si hay más página) y recorta. Los resultados se ordenan por
     // score, así que offset sobre el mismo ranking es estable entre páginas.
-    let page_size = page_request.limit.unwrap_or(request.top_k.max(1));
+    let page_size = clamp_limit(page_request.limit.unwrap_or(request.top_k.max(1)));
     let cursor = page_request.cursor.unwrap_or(0);
-    request.top_k = cursor.saturating_add(page_size).saturating_add(1);
+    request.top_k = clamp_limit(cursor.saturating_add(page_size).saturating_add(1));
     match run_db_op(&state, move |db| {
         if all_namespaces {
             db.search_all(request)
@@ -1563,5 +1575,27 @@ pub async fn snapshots_create(
         )
             .into_response(),
         Err(resp) => resp,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clamps_limit_to_max_k() {
+        assert_eq!(clamp_limit(100), 100);
+        assert_eq!(clamp_limit(MAX_K), MAX_K);
+        assert_eq!(clamp_limit(MAX_K + 1), MAX_K);
+        assert_eq!(clamp_limit(usize::MAX), MAX_K);
+    }
+
+    #[test]
+    fn clamps_search_page_to_max_k() {
+        // D5c: page_size y top_k derivado nunca superan MAX_K (DoS).
+        let page_size = clamp_limit(1_000_000);
+        let top_k = clamp_limit(500usize.saturating_add(page_size).saturating_add(1));
+        assert_eq!(page_size, MAX_K);
+        assert_eq!(top_k, MAX_K);
     }
 }
