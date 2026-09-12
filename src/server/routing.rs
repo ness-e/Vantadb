@@ -18,9 +18,9 @@ pub use crate::server::middleware::{
 };
 
 // ── Telemetry ────────────────────────────────────────────────────────────────
-pub use crate::server::telemetry::init_telemetry;
 #[cfg(feature = "opentelemetry")]
 pub use crate::server::telemetry::shutdown_telemetry;
+pub use crate::server::telemetry::{init_telemetry, TelemetrySink};
 
 // ── Bootstrap ────────────────────────────────────────────────────────────────
 #[cfg(feature = "tls")]

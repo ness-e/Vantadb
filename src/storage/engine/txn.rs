@@ -6,7 +6,7 @@ use crate::error::Result;
 use crate::lsm::unpack_offset;
 use crate::node::{FilterBitset, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::StorageEngine;
-use crate::storage::engine::{BufferedWrite, PendingHnswOp, Snapshot, FLAG_TOMBSTONE};
+use crate::storage::engine::{BufferedWrite, LockPolicy, PendingHnswOp, Snapshot, FLAG_TOMBSTONE};
 use crate::storage::ops::NodeMetadata;
 
 impl StorageEngine {
@@ -196,9 +196,9 @@ impl StorageEngine {
                         self.stamp_deleted_in_backend(*id, txn_id)?;
                         // Still tombstone vstore + remove from HNSW + cache.
                         // FIND-62: insert_lock is held here (ERR-010), so use the
-                        // inner variant with acquire=false — apply_delete() would
+                        // inner variant with AssumeHeld — apply_delete() would
                         // re-acquire the non-reentrant lock and time out.
-                        self.apply_delete_inner(*id, false)?;
+                        self.apply_delete_inner(*id, LockPolicy::AssumeHeld)?;
                     }
                 }
             }

@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use web_time::{SystemTime, UNIX_EPOCH};
 
+use crate::cli_handlers::diagnostics::Verbosity;
 use crate::cli_handlers::{
     create_spinner, dir_size, human_readable_size, open_database, open_embedded, print_info,
     print_success, print_warning,
@@ -222,6 +223,41 @@ pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()>
     Ok(())
 }
 
+/// Overwrite policy for the restore target (D2: replaces `force: bool`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum OverwritePolicy {
+    /// Fail when the target exists (default, safe).
+    #[default]
+    FailIfExists,
+    /// Remove and recreate the target (`--force`).
+    Overwrite,
+}
+
+/// Index rebuild after restore (D2: replaces `rebuild: bool`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum IndexRebuild {
+    #[default]
+    No,
+    Yes,
+}
+
+/// Execution mode for restore (D2: replaces `dry_run: bool`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RestoreMode {
+    #[default]
+    Apply,
+    DryRun,
+}
+
+/// Options for [`cmd_restore`] (D2: replaces `force`/`rebuild`/`dry_run`/`verbose` bool flags).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RestoreOptions {
+    pub overwrite: OverwritePolicy,
+    pub rebuild: IndexRebuild,
+    pub mode: RestoreMode,
+    pub verbose: Verbosity,
+}
+
 #[tracing::instrument]
 /// Validate a backup without restoring it (dry-run).
 ///
@@ -229,7 +265,7 @@ pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()>
 /// `MANIFEST.json` parses when present), reports total size, lists the files
 /// that would be restored, and reports target conflicts — without touching
 /// the target (no `create_dir_all`, no `remove_dir_all`, no copy, no open).
-fn cmd_restore_dry_run(db_path: &str, input: &str, force: bool, rebuild: bool) -> Result<()> {
+fn cmd_restore_dry_run(db_path: &str, input: &str, opts: RestoreOptions) -> Result<()> {
     let src = std::path::Path::new(input);
     if !src.is_dir() {
         return Err(crate::error::Error::restore_error(format!(
@@ -272,7 +308,7 @@ fn cmd_restore_dry_run(db_path: &str, input: &str, force: bool, rebuild: bool) -
 
     let dst = std::path::Path::new(db_path);
     if dst.exists() {
-        if force {
+        if matches!(opts.overwrite, OverwritePolicy::Overwrite) {
             print_warning(&format!(
                 "Destination '{db_path}' exists — would remove and recreate (--force) (dry-run: no changes made)"
             ));
@@ -305,7 +341,7 @@ fn cmd_restore_dry_run(db_path: &str, input: &str, force: bool, rebuild: bool) -
         human_readable_size(total),
         src.display()
     ));
-    if rebuild {
+    if matches!(opts.rebuild, IndexRebuild::Yes) {
         print_info("Would rebuild indexes after restore (--rebuild)");
     }
     print_info("dry-run: re-run without `--dry-run` to apply");
@@ -314,14 +350,7 @@ fn cmd_restore_dry_run(db_path: &str, input: &str, force: bool, rebuild: bool) -
 
 #[tracing::instrument]
 /// Restore the database from a previously created backup directory
-pub fn cmd_restore(
-    db_path: &str,
-    input: &str,
-    force: bool,
-    rebuild: bool,
-    dry_run: bool,
-    verbose: bool,
-) -> Result<()> {
+pub fn cmd_restore(db_path: &str, input: &str, opts: RestoreOptions) -> Result<()> {
     let src = std::path::Path::new(input);
     if !src.exists() {
         return Err(crate::error::Error::restore_error(format!(
@@ -330,13 +359,13 @@ pub fn cmd_restore(
         )));
     }
 
-    if dry_run {
-        return cmd_restore_dry_run(db_path, input, force, rebuild);
+    if matches!(opts.mode, RestoreMode::DryRun) {
+        return cmd_restore_dry_run(db_path, input, opts);
     }
 
     let dst = std::path::Path::new(db_path);
 
-    if dst.exists() && !force {
+    if dst.exists() && !matches!(opts.overwrite, OverwritePolicy::Overwrite) {
         return Err(crate::error::Error::restore_error(
             "Destination database directory already exists. Use --force to overwrite.",
         ));
@@ -344,7 +373,7 @@ pub fn cmd_restore(
 
     let spinner = create_spinner("Restoring from backup...");
 
-    if dst.exists() && force {
+    if dst.exists() && matches!(opts.overwrite, OverwritePolicy::Overwrite) {
         std::fs::remove_dir_all(dst).map_err(|e| {
             crate::error::Error::restore_error(format!(
                 "Failed to remove existing database directory: {e}"
@@ -362,7 +391,7 @@ pub fn cmd_restore(
 
     spinner.set_message("Verifying restored database...");
 
-    if rebuild {
+    if matches!(opts.rebuild, IndexRebuild::Yes) {
         spinner.set_message("Rebuilding indexes...");
         let db = open_embedded(db_path, false)?;
         db.rebuild_index().map_err(|e| {
@@ -379,7 +408,7 @@ pub fn cmd_restore(
             .display()
     ));
 
-    if verbose {
+    if opts.verbose.is_verbose() {
         let src_size = dir_size(src).unwrap_or(0) as u64;
         let dst_size = dir_size(dst).unwrap_or(0) as u64;
         print_info(&format!("Backup size: {}", human_readable_size(src_size)));

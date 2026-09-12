@@ -181,10 +181,44 @@ fn run() -> anyhow::Result<()> {
             force,
             rebuild,
             dry_run,
-        } => cli_handlers::cmd_restore(&args.db, &input, force, rebuild, dry_run, args.verbose)?,
+        } => cli_handlers::cmd_restore(
+            &args.db,
+            &input,
+            cli_handlers::RestoreOptions {
+                overwrite: if force {
+                    cli_handlers::OverwritePolicy::Overwrite
+                } else {
+                    cli_handlers::OverwritePolicy::FailIfExists
+                },
+                rebuild: if rebuild {
+                    cli_handlers::IndexRebuild::Yes
+                } else {
+                    cli_handlers::IndexRebuild::No
+                },
+                mode: if dry_run {
+                    cli_handlers::RestoreMode::DryRun
+                } else {
+                    cli_handlers::RestoreMode::Apply
+                },
+                verbose: cli_handlers::Verbosity::from_flag(args.verbose),
+            },
+        )?,
 
         Commands::Doctor { fix, force } => {
-            cli_handlers::cmd_doctor(&args.db, fix, force, args.verbose)?
+            let mode = if force {
+                cli_handlers::DoctorFix::Apply
+            } else if fix {
+                cli_handlers::DoctorFix::DryRun
+            } else {
+                cli_handlers::DoctorFix::Off
+            };
+            cli_handlers::cmd_doctor(
+                &args.db,
+                cli_handlers::DoctorOptions {
+                    fix: mode,
+                    verbose: cli_handlers::Verbosity::from_flag(args.verbose),
+                },
+            )?
         }
 
         Commands::Inspect { namespace, key } => {

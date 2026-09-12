@@ -6,7 +6,7 @@ use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::Result;
 use crate::lsm::unpack_offset;
 use crate::storage::engine::StorageEngine;
-use crate::storage::engine::{BufferedWrite, FLAG_TOMBSTONE};
+use crate::storage::engine::{BufferedWrite, LockPolicy, FLAG_TOMBSTONE};
 use crate::wal::WalRecord;
 
 impl StorageEngine {
@@ -56,7 +56,7 @@ impl StorageEngine {
             if let Some(ref sharded) = self.wal {
                 sharded.append(&crate::wal::WalRecord::Delete { id })?;
             }
-            self.apply_delete_inner(id, false)?;
+            self.apply_delete_inner(id, LockPolicy::AssumeHeld)?;
             self.backend
                 .delete(BackendPartition::Default, &id.to_le_bytes())
         }
@@ -119,10 +119,10 @@ impl StorageEngine {
     /// Does NOT write to WAL — the caller is responsible for WAL logging.
     /// Does NOT check active_txns or ensure_writable.
     ///
-    /// When `acquire` is false the caller already holds `insert_lock`
-    /// (delete()'s or commit_transaction()'s ERR-010 critical section), so
-    /// the HNSW removal must not re-acquire the non-reentrant lock.
-    pub(crate) fn apply_delete_inner(&self, id: u128, acquire: bool) -> Result<()> {
+    /// When `policy` is [`LockPolicy::AssumeHeld`] the caller already holds
+    /// `insert_lock` (delete()'s or commit_transaction()'s ERR-010 critical
+    /// section), so the HNSW removal must not re-acquire the non-reentrant lock.
+    pub(crate) fn apply_delete_inner(&self, id: u128, policy: LockPolicy) -> Result<()> {
         let packed = {
             let hnsw = self.hnsw.load();
             hnsw.nodes.get(&id).map(|n| n.storage_offset)
@@ -140,7 +140,7 @@ impl StorageEngine {
             }
         }
 
-        if acquire {
+        if matches!(policy, LockPolicy::Acquire) {
             let _guard = self.acquire_insert_lock("acquire insert_lock in apply_delete")?;
             self.remove_hnsw_entry(id);
         } else {
