@@ -542,7 +542,11 @@ impl EmbeddingProvider for OllamaProvider {
 #[cfg(feature = "remote-inference")]
 pub struct OpenAIProvider {
     client: Client,
-    api_key: String,
+    /// `None` when `VANTA_OPENAI_API_KEY` was absent at construction (B2b:
+    /// the missing key is reported as `InvalidInput` from `embed`, never a
+    /// construction panic — every call site already degrades gracefully on
+    /// embed errors).
+    api_key: Option<String>,
     model: String,
 }
 
@@ -550,9 +554,11 @@ pub struct OpenAIProvider {
 impl OpenAIProvider {
     /// Create a new OpenAI provider from environment variables.
     ///
-    /// Panics if `VANTA_OPENAI_API_KEY` is not set.
+    /// Reads `VANTA_OPENAI_MODEL` (default `text-embedding-3-small`).
+    /// A missing `VANTA_OPENAI_API_KEY` does NOT panic: it is reported as
+    /// [`Error::InvalidInput`] from [`EmbeddingProvider::embed`] instead.
     pub fn new() -> Self {
-        let api_key = env::var("VANTA_OPENAI_API_KEY").expect("VANTA_OPENAI_API_KEY must be set");
+        let api_key = env::var("VANTA_OPENAI_API_KEY").ok();
         let model =
             env::var("VANTA_OPENAI_MODEL").unwrap_or_else(|_| "text-embedding-3-small".to_string());
         Self {
@@ -598,10 +604,15 @@ impl EmbeddingProvider for OpenAIProvider {
             input: text.to_string(),
         };
 
+        // B2b: deferred-key check (see `new`) — fail the call, not the process.
+        let api_key = self.api_key.as_deref().ok_or_else(|| {
+            Error::InvalidInput("VANTA_OPENAI_API_KEY must be set to use OpenAIProvider".into())
+        })?;
+
         let response = self
             .client
             .post(url)
-            .header("Authorization", format!("Bearer {}", self.api_key))
+            .header("Authorization", format!("Bearer {api_key}"))
             .json(&req_body)
             .send()
             .map_err(|e| {
@@ -832,5 +843,32 @@ mod tests {
         let provider = LocalOnnxProvider::new_dummy(384);
         let res = provider.embed("");
         assert!(res.is_err());
+    }
+}
+
+// B2b Slice 4-bis — Tests (remote-inference only).
+
+#[cfg(all(test, feature = "remote-inference"))]
+mod openai_provider_tests {
+    use super::*;
+
+    // B2b RED: constructing without the env key must NOT panic; the missing
+    // key surfaces as `InvalidInput` from `embed` instead.
+    #[test]
+    fn missing_api_key_is_error_not_panic() {
+        let saved = std::env::var("VANTA_OPENAI_API_KEY").ok();
+        std::env::remove_var("VANTA_OPENAI_API_KEY");
+
+        let provider = OpenAIProvider::new();
+        let res = provider.embed("hello");
+
+        if let Some(key) = saved {
+            std::env::set_var("VANTA_OPENAI_API_KEY", key);
+        }
+        let err = res.unwrap_err();
+        assert!(
+            matches!(err, Error::InvalidInput(ref msg) if msg.contains("VANTA_OPENAI_API_KEY")),
+            "expected InvalidInput mentioning the key, got {err:?}"
+        );
     }
 }

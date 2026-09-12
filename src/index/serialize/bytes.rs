@@ -16,6 +16,7 @@ use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
 impl CPIndex {
     pub fn serialize_to_bytes(&self) -> Vec<u8> {
         let mut buf = Vec::with_capacity(self.nodes.len() * 256 + 128);
+        // INVARIANT (B2b, cat. (b)): `Write` on a `Vec` is infallible.
         self.serialize_to_writer(&mut buf)
             .expect("Vec::write cannot fail");
         buf
@@ -402,6 +403,9 @@ impl CPIndex {
                     let v = match bytemuck::try_cast_slice::<u8, f32>(vec_bytes) {
                         Ok(slice) => slice.to_vec(),
                         Err(_) => vec_bytes
+                            // INVARIANT (B2b, cat. (b)): `chunks_exact(4)`
+                            // yields exactly-4-byte chunks, so `try_into` to
+                            // `[u8; 4]` is infallible by construction.
                             .chunks_exact(4)
                             .map(|chunk| f32::from_le_bytes(chunk.try_into().unwrap()))
                             .collect(),

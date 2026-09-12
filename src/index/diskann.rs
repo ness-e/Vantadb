@@ -81,8 +81,10 @@ impl DiskAnnIndex {
         l_size: usize,
         visited: &mut HashSet<u128>,
     ) -> Vec<(u128, f32)> {
-        let graph = self.graph.lock().unwrap();
-        let vectors = self.vectors.lock().unwrap();
+        // INVARIANT (B2b): `greedy_search` feeds `search`, which returns `Vec`
+        // (trait `VecIndex`) — recover via `into_inner`, don't panic.
+        let graph = self.graph.lock().unwrap_or_else(|e| e.into_inner());
+        let vectors = self.vectors.lock().unwrap_or_else(|e| e.into_inner());
 
         // Max-heap: best similarity first
         let mut candidates: BinaryHeap<OrderedSim> = BinaryHeap::new();
@@ -155,11 +157,26 @@ impl DiskAnnIndex {
     /// 2. Build neighbor set from search results (up to R)
     /// 3. Apply robust pruning: keep only diverse neighbors
     /// 4. Update reverse edges
-    fn insert_vector(&self, id: u128, vec: Vec<f32>) {
+    // B2b: returns `Result` so poisoned locks / missing vectors fail the
+    // insert with a typed error instead of panicking (called once, from
+    // `add`, which propagates with `?`).
+    fn insert_vector(&self, id: u128, vec: Vec<f32>) -> crate::error::Result<()> {
         let config = &self.config;
-        let mut graph = self.graph.lock().unwrap();
-        let mut vectors = self.vectors.lock().unwrap();
-        let medoid_opt = *self.medoid.lock().unwrap();
+        let mut graph = self.graph.lock().map_err(|_| {
+            crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+                "DiskAnnIndex graph lock poisoned",
+            ))
+        })?;
+        let mut vectors = self.vectors.lock().map_err(|_| {
+            crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+                "DiskAnnIndex vectors lock poisoned",
+            ))
+        })?;
+        let medoid_opt = *self.medoid.lock().map_err(|_| {
+            crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+                "DiskAnnIndex medoid lock poisoned",
+            ))
+        })?;
 
         // Store the vector first
         vectors.insert(id, vec.clone());
@@ -194,36 +211,46 @@ impl DiskAnnIndex {
                 entry.push(id);
                 // Trim reverse edge list to 2*R to bound growth
                 if entry.len() > 2 * config.search_list_size_construction {
+                    // B2b: similarities are precomputed fallibly — the old code
+                    // unwrapped `vectors.get` twice inside the sort closure,
+                    // where `?` cannot reach. Every id in `entry` has
+                    // a vector (inserted above), so `Err` here signals index
+                    // corruption, not a routine miss.
+                    let mut sims: HashMap<u128, f32> = HashMap::with_capacity(entry.len());
+                    for &nid in entry.iter() {
+                        let v = vectors
+                            .get(&nid)
+                            .ok_or(crate::error::Error::NodeNotFound(nid))?;
+                        sims.insert(
+                            nid,
+                            calculate_similarity(
+                                &vec,
+                                None,
+                                None,
+                                None,
+                                &VectorRepresentations::Full(v.clone()),
+                                config.distance_metric,
+                            ),
+                        );
+                    }
                     entry.sort_unstable_by(|&a, &b| {
-                        let va = vectors.get(&a).unwrap();
-                        let vb = vectors.get(&b).unwrap();
-                        let sim_a = calculate_similarity(
-                            &vec,
-                            None,
-                            None,
-                            None,
-                            &VectorRepresentations::Full(va.clone()),
-                            config.distance_metric,
-                        );
-                        let sim_b = calculate_similarity(
-                            &vec,
-                            None,
-                            None,
-                            None,
-                            &VectorRepresentations::Full(vb.clone()),
-                            config.distance_metric,
-                        );
-                        sim_b
-                            .partial_cmp(&sim_a)
+                        sims.get(&b)
+                            .partial_cmp(&sims.get(&a))
                             .unwrap_or(std::cmp::Ordering::Equal)
                     });
                     entry.truncate(2 * config.search_list_size_construction);
                 }
             }
+            Ok(())
         } else {
             // First node: becomes medoid
             graph.insert(id, Vec::new());
-            *self.medoid.lock().unwrap() = Some(id);
+            *self.medoid.lock().map_err(|_| {
+                crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+                    "DiskAnnIndex medoid lock poisoned",
+                ))
+            })? = Some(id);
+            Ok(())
         }
     }
 
@@ -377,7 +404,9 @@ impl crate::index::VecIndex for DiskAnnIndex {
             return Vec::new();
         }
 
-        let medoid = match *self.medoid.lock().unwrap() {
+        // INVARIANT (B2b): `search` returns `Vec` (trait `VecIndex`) — recover
+        // via `into_inner`, don't panic. Hot read path, zero-cost happy path.
+        let medoid = match *self.medoid.lock().unwrap_or_else(|e| e.into_inner()) {
             Some(m) => m,
             None => return Vec::new(),
         };
@@ -391,7 +420,8 @@ impl crate::index::VecIndex for DiskAnnIndex {
         );
 
         // Filter by bitset
-        let bitsets = self.bitsets.lock().unwrap();
+        // INVARIANT (B2b): same as above — recover, don't panic.
+        let bitsets = self.bitsets.lock().unwrap_or_else(|e| e.into_inner());
         if !query_mask.is_all_set() {
             candidates.retain(|(id, _)| {
                 bitsets
@@ -423,14 +453,23 @@ impl crate::index::VecIndex for DiskAnnIndex {
             }
         };
 
-        self.bitsets.lock().unwrap().insert(id, bitset);
-        self.insert_vector(id, vec);
+        // B2b: poisoned lock fails the insert (don't persist torn state).
+        self.bitsets
+            .lock()
+            .map_err(|_| {
+                crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+                    "DiskAnnIndex bitsets lock poisoned",
+                ))
+            })?
+            .insert(id, bitset);
+        self.insert_vector(id, vec)?;
         Ok(())
     }
 
     fn estimate_memory_bytes(&self) -> usize {
-        let graph = self.graph.lock().unwrap();
-        let vectors = self.vectors.lock().unwrap();
+        // INVARIANT (B2b): non-`Result` introspection — recover, don't panic.
+        let graph = self.graph.lock().unwrap_or_else(|e| e.into_inner());
+        let vectors = self.vectors.lock().unwrap_or_else(|e| e.into_inner());
 
         let graph_bytes: usize = graph
             .values()
@@ -445,7 +484,8 @@ impl crate::index::VecIndex for DiskAnnIndex {
     }
 
     fn len(&self) -> usize {
-        self.vectors.lock().unwrap().len()
+        // INVARIANT (B2b): non-`Result` introspection — recover, don't panic.
+        self.vectors.lock().unwrap_or_else(|e| e.into_inner()).len()
     }
 }
 
@@ -547,5 +587,29 @@ mod tests {
         );
         assert!(result.is_err(), "non-full vector must be rejected");
         assert_eq!(idx.len(), 0, "rejected insert must not be stored");
+    }
+
+    // B2b RED: a poisoned lock must surface as `Err` on the write path
+    // (`add` → `insert_vector`), not a panic.
+    #[test]
+    fn add_returns_error_on_poisoned_lock() {
+        let idx = DiskAnnIndex::new(DiskAnnConfig::default());
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = idx.bitsets.lock().unwrap();
+            panic!("poison the diskann bitsets lock");
+        }));
+        assert!(idx.bitsets.is_poisoned());
+        let err = idx
+            .add(
+                1,
+                FilterBitset::new(),
+                VectorRepresentations::Full(vec![1.0, 0.0]),
+                0,
+            )
+            .unwrap_err();
+        assert!(
+            matches!(err, crate::error::Error::RuntimeError(_)),
+            "expected RuntimeError, got {err:?}"
+        );
     }
 }

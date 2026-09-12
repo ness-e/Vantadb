@@ -69,6 +69,8 @@ impl VantaHeader {
         let format_version = u16::from_le_bytes([bytes[4], bytes[5]]);
         let schema_version = u16::from_le_bytes([bytes[6], bytes[7]]);
         let timestamp = u64::from_le_bytes(
+            // INVARIANT (B2b, cat. (b)): `bytes.len() >= 16` was checked 6
+            // lines above, so `[8..16]` is exactly 8 bytes — infallible.
             bytes[8..16]
                 .try_into()
                 .expect("header bytes slice fits u64"),

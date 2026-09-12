@@ -66,6 +66,8 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
     bar.set_style(
         ProgressStyle::default_spinner()
             .template("{spinner:.cyan} Exporting... {pos} records written")
+            // INVARIANT (B2b, cat. (b)): hardcoded template, valid by
+            // construction — verified by the crate's CLI smoke tests.
             .expect("valid spinner template"),
     );
     bar.enable_steady_tick(Duration::from_millis(100));

@@ -212,6 +212,8 @@ impl ShreddedRowStore {
         let mut fields = HashMap::new();
         let mut offset = 0usize;
         while offset + 4 <= data.len() {
+            // INVARIANT (B2b, cat. (b)): the slice is exactly 4 bytes (loop
+            // guard), so `try_into` to `[u8; 4]` is infallible — no `?` needed.
             let key_len = u32::from_le_bytes(data[offset..offset + 4].try_into().unwrap()) as usize;
             offset += 4;
             if offset + key_len + 1 > data.len() {
@@ -229,6 +231,7 @@ impl ShreddedRowStore {
                     if offset + 8 > data.len() {
                         break;
                     }
+                    // INVARIANT (B2b, cat. (b)): exactly 8 bytes (guard above).
                     let v = i64::from_le_bytes(data[offset..offset + 8].try_into().unwrap());
                     fields.insert(key, ShreddedField::I64(v));
                     offset += 8;
@@ -238,6 +241,7 @@ impl ShreddedRowStore {
                     if offset + 8 > data.len() {
                         break;
                     }
+                    // INVARIANT (B2b, cat. (b)): exactly 8 bytes (guard above).
                     let v = f64::from_le_bytes(data[offset..offset + 8].try_into().unwrap());
                     fields.insert(key, ShreddedField::F64(v));
                     offset += 8;
@@ -255,6 +259,7 @@ impl ShreddedRowStore {
                     if offset + 4 > data.len() {
                         break;
                     }
+                    // INVARIANT (B2b, cat. (b)): exactly 4 bytes (guard above).
                     let str_len =
                         u32::from_le_bytes(data[offset..offset + 4].try_into().unwrap()) as usize;
                     offset += 4;

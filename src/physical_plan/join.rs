@@ -92,7 +92,13 @@ impl PhysicalOperator for PhysicalNestedLoopJoin<'_> {
                 }
             }
 
-            let left = self.current_left.as_ref().unwrap();
+            // INVARIANT (B2b, cat. (b)): `current_left` is `Some` here — the
+            // `is_none` branch above either fills it or returns early from the
+            // same loop iteration. `let-else` keeps E1 green with zero behavior
+            // change on valid data (hypothetical `None` ends iteration safely).
+            let Some(left) = self.current_left.as_ref() else {
+                return Ok(None);
+            };
 
             // Probe right nodes
             while self.right_cursor < self.right_nodes.len() {

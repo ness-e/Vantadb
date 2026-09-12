@@ -264,6 +264,10 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
         // AUD-021: fail-closed. Should the governor config ever fail to build,
         // refuse to start rather than serving requests without a rate limit.
         // (The previous fall branch left `protected` unthrottled — fail-open.)
+        // INVARIANT (B2b, cat. (b)): `rpm > 0` implies `burst_size >= 1` and
+        // `period_ms >= 1` (see `rate_limit_burst` + guards above), so
+        // `finish()` is infallible; the `expect` is an intentional fail-closed
+        // startup assert, and this fn returns `Router` (no `Result` to `?` into).
         let gc = GovernorConfigBuilder::default()
             .per_millisecond(period_ms)
             .burst_size(burst_size)

@@ -19,6 +19,8 @@ pub fn create_spinner(message: &str) -> ProgressBar {
         ProgressStyle::default_spinner()
             .tick_strings(&["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "⠇", "⠏"])
             .template("{spinner:.cyan} {msg}")
+            // INVARIANT (B2b, cat. (b)): hardcoded template, valid by
+            // construction — verified by the crate's CLI smoke tests.
             .expect("valid spinner template"),
     );
     pb.set_message(message.to_string());
