@@ -1076,6 +1076,158 @@ impl StorageEngine {
         })
     }
 
+    pub(super) fn pipeline_vacuum_step(
+        &self,
+        mode: PipelineMode,
+        all_ok: &mut bool,
+    ) -> Option<VacuumReport> {
+        if !matches!(mode, PipelineMode::Full | PipelineMode::VacuumOnly) {
+            return None;
+        }
+        match self.vacuum() {
+            Ok(r) => {
+                tracing::info!(removed = r.removed_nodes, "pipeline: vacuum ok");
+                Some(r)
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "pipeline: vacuum failed");
+                *all_ok = false;
+                None
+            }
+        }
+    }
+    pub(super) fn pipeline_fresh_hnsw_step(
+        &self,
+        mode: PipelineMode,
+        all_ok: &mut bool,
+    ) -> Option<FreshHnswReport> {
+        if !matches!(mode, PipelineMode::Full | PipelineMode::FreshHnswOnly) {
+            return None;
+        }
+        match self.fresh_hnsw() {
+            Ok(r) => {
+                tracing::info!(repaired = r.repaired_links, "pipeline: fresh_hnsw ok");
+                Some(r)
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "pipeline: fresh_hnsw failed");
+                *all_ok = false;
+                None
+            }
+        }
+    }
+    pub(super) fn pipeline_compact_one_level(
+        &self,
+        level: u8,
+        all_ok: &mut bool,
+    ) -> Option<LsmReport> {
+        if !self.should_compact_level(level) {
+            tracing::info!(level, "pipeline: compact skip (below threshold)");
+            return None;
+        }
+        match self.compact_level(level) {
+            Ok(r) => {
+                tracing::info!(level, promoted = r.nodes_promoted, "pipeline: compact ok");
+                Some(r)
+            }
+            Err(e) => {
+                tracing::error!(level, error = %e, "pipeline: compact failed");
+                *all_ok = false;
+                None
+            }
+        }
+    }
+    pub(super) fn pipeline_lsm_steps(
+        &self,
+        mode: PipelineMode,
+        all_ok: &mut bool,
+    ) -> Vec<LsmReport> {
+        if !matches!(
+            mode,
+            PipelineMode::Full | PipelineMode::CompactOnly | PipelineMode::CompactL0Only
+        ) {
+            return Vec::new();
+        }
+        let max_level = match mode {
+            PipelineMode::CompactL0Only => 0u8,
+            _ => 2u8.min(self.vector_store.len().saturating_sub(1) as u8),
+        };
+        let mut out = Vec::new();
+        for level in 0..=max_level {
+            if let Some(r) = self.pipeline_compact_one_level(level, all_ok) {
+                out.push(r);
+            }
+        }
+        out
+    }
+    pub(super) fn pipeline_merge_step(
+        &self,
+        mode: PipelineMode,
+        all_ok: &mut bool,
+    ) -> Option<MergeReport> {
+        if !matches!(mode, PipelineMode::Full | PipelineMode::MergeOnly) {
+            return None;
+        }
+        match self.merge_segments() {
+            Ok(r) => {
+                tracing::info!(saved = r.saved_bytes, "pipeline: merge ok");
+                Some(r)
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "pipeline: merge failed");
+                *all_ok = false;
+                None
+            }
+        }
+    }
+    pub(super) fn pipeline_index_step(
+        &self,
+        mode: PipelineMode,
+        all_ok: &mut bool,
+    ) -> Option<IndexRebuildReport> {
+        if !matches!(mode, PipelineMode::Full | PipelineMode::IndexOnly) {
+            return None;
+        }
+        match self.rebuild_vector_index() {
+            Ok(r) => {
+                tracing::info!(indexed = r.indexed_vectors, "pipeline: reindex ok");
+                Some(r)
+            }
+            Err(e) => {
+                tracing::error!(error = %e, "pipeline: reindex failed");
+                *all_ok = false;
+                None
+            }
+        }
+    }
+    pub(super) fn finish_pipeline_report(
+        mode: PipelineMode,
+        pipeline_start: Instant,
+        vacuum: Option<VacuumReport>,
+        fresh_hnsw: Option<FreshHnswReport>,
+        merge: Option<MergeReport>,
+        index: Option<IndexRebuildReport>,
+        lsm_reports: Vec<LsmReport>,
+        all_ok: bool,
+    ) -> PipelineReport {
+        let total_duration_ms = pipeline_start.elapsed().as_millis() as u64;
+        tracing::info!(
+            ?mode,
+            total_duration_ms,
+            success = all_ok,
+            "pipeline: finished"
+        );
+        PipelineReport {
+            vacuum,
+            fresh_hnsw,
+            merge,
+            index,
+            lsm: (!lsm_reports.is_empty()).then_some(lsm_reports),
+            total_duration_ms,
+            success: all_ok,
+        }
+    }
+
     /// Run the segment optimizer pipeline according to `mode`.
     ///
     /// Phases execute in order: Vacuum → FreshHNSW → Merge → Reindex.
@@ -1087,131 +1239,27 @@ impl StorageEngine {
         self.ensure_writable()?;
 
         let pipeline_start = Instant::now();
-        let mut vacuum_report: Option<VacuumReport> = None;
-        let mut fresh_hnsw_report: Option<FreshHnswReport> = None;
-        let mut merge_report: Option<MergeReport> = None;
-        let mut index_report: Option<IndexRebuildReport> = None;
         let mut all_ok = true;
-
         tracing::info!(?mode, "pipeline: starting");
+        let vacuum_report = self.pipeline_vacuum_step(mode, &mut all_ok);
 
-        // Phase 1: Vacuum
-        let run_vacuum = matches!(mode, PipelineMode::Full | PipelineMode::VacuumOnly);
-        if run_vacuum {
-            match self.vacuum() {
-                Ok(r) => {
-                    tracing::info!(removed = r.removed_nodes, "pipeline: vacuum ok");
-                    vacuum_report = Some(r);
-                }
-                Err(e) => {
-                    tracing::error!(error = %e, "pipeline: vacuum failed");
-                    all_ok = false;
-                }
-            }
-        }
+        let fresh_hnsw_report = self.pipeline_fresh_hnsw_step(mode, &mut all_ok);
 
-        // Phase 1.5: FreshHNSW (after Vacuum, before Merge)
-        // Vacuum has already purged tombstoned nodes from the DashMap,
-        // so FreshHNSW finds fewer orphan links.
-        let run_fresh = matches!(mode, PipelineMode::Full | PipelineMode::FreshHnswOnly);
-        if run_fresh {
-            match self.fresh_hnsw() {
-                Ok(r) => {
-                    tracing::info!(repaired = r.repaired_links, "pipeline: fresh_hnsw ok");
-                    fresh_hnsw_report = Some(r);
-                }
-                Err(e) => {
-                    tracing::error!(error = %e, "pipeline: fresh_hnsw failed");
-                    all_ok = false;
-                }
-            }
-        }
+        let lsm_reports = self.pipeline_lsm_steps(mode, &mut all_ok);
 
-        // Phase 1.75: LSM compaction (between FreshHNSW and Merge)
-        // CompactOnly runs all levels; CompactL0Only runs L0 only.
-        // Guarded by should_compact_level so we don't compact unnecessarily.
-        let run_lsm = matches!(
+        let merge_report = self.pipeline_merge_step(mode, &mut all_ok);
+
+        let index_report = self.pipeline_index_step(mode, &mut all_ok);
+        Ok(Self::finish_pipeline_report(
             mode,
-            PipelineMode::Full | PipelineMode::CompactOnly | PipelineMode::CompactL0Only
-        );
-        let mut lsm_reports: Vec<LsmReport> = Vec::new();
-        if run_lsm {
-            // Sources are L0..L2: compacting L2 promotes into the L3 archive
-            // tier. L3 itself is never a source (terminal). The archive gate
-            // lives in should_compact_level so disabling it stops at cold (L2).
-            let max_level = match mode {
-                PipelineMode::CompactL0Only => 0u8,
-                _ => 2u8.min(self.vector_store.len().saturating_sub(1) as u8),
-            };
-            for level in 0..=max_level {
-                if !self.should_compact_level(level) {
-                    tracing::info!(level, "pipeline: compact skip (below threshold)");
-                    continue;
-                }
-                match self.compact_level(level) {
-                    Ok(r) => {
-                        tracing::info!(level, promoted = r.nodes_promoted, "pipeline: compact ok");
-                        lsm_reports.push(r);
-                    }
-                    Err(e) => {
-                        tracing::error!(level, error = %e, "pipeline: compact failed");
-                        all_ok = false;
-                    }
-                }
-            }
-        }
-
-        // Phase 2: Merge
-        let run_merge = matches!(mode, PipelineMode::Full | PipelineMode::MergeOnly);
-        if run_merge {
-            match self.merge_segments() {
-                Ok(r) => {
-                    tracing::info!(saved = r.saved_bytes, "pipeline: merge ok");
-                    merge_report = Some(r);
-                }
-                Err(e) => {
-                    tracing::error!(error = %e, "pipeline: merge failed");
-                    all_ok = false;
-                }
-            }
-        }
-
-        // Phase 3: Reindex
-        let run_index = matches!(mode, PipelineMode::Full | PipelineMode::IndexOnly);
-        if run_index {
-            match self.rebuild_vector_index() {
-                Ok(r) => {
-                    tracing::info!(indexed = r.indexed_vectors, "pipeline: reindex ok");
-                    index_report = Some(r);
-                }
-                Err(e) => {
-                    tracing::error!(error = %e, "pipeline: reindex failed");
-                    all_ok = false;
-                }
-            }
-        }
-
-        let total_duration_ms = pipeline_start.elapsed().as_millis() as u64;
-        tracing::info!(
-            ?mode,
-            total_duration_ms,
-            success = all_ok,
-            "pipeline: finished"
-        );
-
-        Ok(PipelineReport {
-            vacuum: vacuum_report,
-            fresh_hnsw: fresh_hnsw_report,
-            merge: merge_report,
-            index: index_report,
-            lsm: if lsm_reports.is_empty() {
-                None
-            } else {
-                Some(lsm_reports)
-            },
-            total_duration_ms,
-            success: all_ok,
-        })
+            pipeline_start,
+            vacuum_report,
+            fresh_hnsw_report,
+            merge_report,
+            index_report,
+            lsm_reports,
+            all_ok,
+        ))
     }
 
     /// Recover archived nodes from TombstoneStorage that belonged to the given summary node.
