@@ -36,6 +36,19 @@ pub struct MessageThread {
     pub metadata: HashMap<String, String>,
 }
 
+/// Immutable command object for [`ThreadStore::create`] (D3: F2 command-object).
+///
+/// Groups the data params so the `create` signature stays thin. `gc` stays a
+/// separate param: it is a service handle (`&mut GcWorker`), not write data.
+/// Borrows `title` (`&str` at every caller) and moves `metadata` (already
+/// owned at every caller).
+#[derive(Debug, Clone)]
+pub struct CreateThread<'a> {
+    pub title: &'a str,
+    pub metadata: HashMap<String, String>,
+    pub ttl_secs: Option<u64>,
+}
+
 // ── Field keys stored on each thread node ──
 
 const FIELD_TITLE: &str = "_title";
@@ -81,18 +94,17 @@ impl<'a> ThreadStore<'a> {
 
     /// Create a new thread.
     ///
-    /// `ttl_secs` — if set, the thread auto-expires after this many seconds.
+    /// `input.ttl_secs` — if set, the thread auto-expires after this many seconds.
     /// The thread's messages are deleted on sweep.
     ///
     /// `gc` — if provided, the TTL expiry is registered with the garbage
     /// collector so it can be cleaned up automatically.
-    pub fn create(
-        &self,
-        title: &str,
-        metadata: HashMap<String, String>,
-        ttl_secs: Option<u64>,
-        gc: Option<&mut GcWorker<'a>>,
-    ) -> Result<u128> {
+    pub fn create(&self, input: CreateThread<'_>, gc: Option<&mut GcWorker<'a>>) -> Result<u128> {
+        let CreateThread {
+            title,
+            metadata,
+            ttl_secs,
+        } = input;
         let thread_id = generate_id();
         let now = now_secs();
 

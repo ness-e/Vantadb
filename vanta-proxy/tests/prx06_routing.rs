@@ -179,7 +179,12 @@ fn seeded_engine() -> Arc<vantadb::storage::StorageEngine> {
         vantadb::node::FieldValue::String(USER_KEY.to_string()),
     );
     vantadb::entity::EntityStore::new(&engine)
-        .set("default", "user", "usr-prx06", fields)
+        .set(vantadb::entity::EntityWrite {
+            namespace: "default",
+            collection: "user",
+            id: "usr-prx06",
+            fields,
+        })
         .unwrap();
     Arc::new(engine)
 }

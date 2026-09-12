@@ -6,7 +6,7 @@
 
 use std::collections::HashMap;
 use tempfile::tempdir;
-use vantadb::agentic::ThreadStore;
+use vantadb::agentic::{CreateThread, ThreadStore};
 use vantadb::config::Config;
 use vantadb::gc::GcWorker;
 use vantadb::sdk::Embedded;
@@ -41,7 +41,14 @@ fn test_create_and_send() {
     let store = ThreadStore::new(&engine);
 
     let thread_id = store
-        .create("test thread", HashMap::new(), None, None)
+        .create(
+            CreateThread {
+                title: "test thread",
+                metadata: HashMap::new(),
+                ttl_secs: None,
+            },
+            None,
+        )
         .expect("create");
 
     store
@@ -74,13 +81,34 @@ fn test_list() {
     let store = ThreadStore::new(&engine);
 
     let _id1 = store
-        .create("Thread A", HashMap::new(), None, None)
+        .create(
+            CreateThread {
+                title: "Thread A",
+                metadata: HashMap::new(),
+                ttl_secs: None,
+            },
+            None,
+        )
         .expect("create A");
     let _id2 = store
-        .create("Thread B", HashMap::new(), None, None)
+        .create(
+            CreateThread {
+                title: "Thread B",
+                metadata: HashMap::new(),
+                ttl_secs: None,
+            },
+            None,
+        )
         .expect("create B");
     let _id3 = store
-        .create("Thread C", HashMap::new(), None, None)
+        .create(
+            CreateThread {
+                title: "Thread C",
+                metadata: HashMap::new(),
+                ttl_secs: None,
+            },
+            None,
+        )
         .expect("create C");
 
     // All threads
@@ -108,7 +136,14 @@ fn test_delete() {
     let store = ThreadStore::new(&engine);
 
     let thread_id = store
-        .create("to-delete", HashMap::new(), None, None)
+        .create(
+            CreateThread {
+                title: "to-delete",
+                metadata: HashMap::new(),
+                ttl_secs: None,
+            },
+            None,
+        )
         .expect("create");
 
     // Exists before delete
@@ -135,7 +170,14 @@ fn test_thread_ttl_expiry() {
 
     let ttl_secs = 1u64;
     let thread_id = store
-        .create("ephemeral", HashMap::new(), Some(ttl_secs), Some(&mut gc))
+        .create(
+            CreateThread {
+                title: "ephemeral",
+                metadata: HashMap::new(),
+                ttl_secs: Some(ttl_secs),
+            },
+            Some(&mut gc),
+        )
         .expect("create with TTL");
 
     // Thread exists right away

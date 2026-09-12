@@ -3,7 +3,7 @@
 //! Pattern AAA: arrange → act → assert. Uses an in-memory `StorageEngine`
 //! (same setup as `super::tests`).
 
-use super::SceneNodeStore;
+use super::{SceneNodeStore, SceneNodeWrite};
 use crate::config::Config;
 use crate::storage::{BackendKind, StorageEngine};
 
@@ -29,7 +29,15 @@ fn set_get_roundtrip() {
     let store = SceneNodeStore::new(&engine);
 
     let stored = store
-        .set(NS, SESSION, SCENE, CREATED, UPDATED, SUMMARY, 1)
+        .set(SceneNodeWrite {
+            namespace: NS,
+            session_id: SESSION,
+            name: SCENE,
+            created: CREATED,
+            updated: UPDATED,
+            summary: SUMMARY,
+            heat: 1,
+        })
         .expect("set scene");
 
     assert_eq!(stored.namespace, NS);
@@ -62,19 +70,27 @@ fn set_replaces_wholesale() {
     let store = SceneNodeStore::new(&engine);
 
     store
-        .set(NS, SESSION, SCENE, CREATED, UPDATED, SUMMARY, 1)
+        .set(SceneNodeWrite {
+            namespace: NS,
+            session_id: SESSION,
+            name: SCENE,
+            created: CREATED,
+            updated: UPDATED,
+            summary: SUMMARY,
+            heat: 1,
+        })
         .expect("set first");
     // L2-style update: caller preserves created, bumps updated/heat.
     let replaced = store
-        .set(
-            NS,
-            SESSION,
-            SCENE,
-            CREATED,
-            "2024-08-01T22:20:00.000Z",
-            "new summary",
-            2,
-        )
+        .set(SceneNodeWrite {
+            namespace: NS,
+            session_id: SESSION,
+            name: SCENE,
+            created: CREATED,
+            updated: "2024-08-01T22:20:00.000Z",
+            summary: "new summary",
+            heat: 2,
+        })
         .expect("set update");
 
     assert_eq!(
@@ -97,7 +113,15 @@ fn validation_rejects_bad_name() {
     let store = SceneNodeStore::new(&engine);
 
     let err = store
-        .set(NS, SESSION, "bad:name", CREATED, UPDATED, SUMMARY, 1)
+        .set(SceneNodeWrite {
+            namespace: NS,
+            session_id: SESSION,
+            name: "bad:name",
+            created: CREATED,
+            updated: UPDATED,
+            summary: SUMMARY,
+            heat: 1,
+        })
         .expect_err("colon in name rejected");
     assert!(err.to_string().contains("must not contain"), "err: {err}");
 
@@ -114,11 +138,27 @@ fn list_isolates_sessions_and_paginates() {
 
     for (i, scene) in ["a-scene", "b-scene", "c-scene"].iter().enumerate() {
         store
-            .set(NS, SESSION, scene, CREATED, UPDATED, SUMMARY, i as u32 + 1)
+            .set(SceneNodeWrite {
+                namespace: NS,
+                session_id: SESSION,
+                name: scene,
+                created: CREATED,
+                updated: UPDATED,
+                summary: SUMMARY,
+                heat: i as u32 + 1,
+            })
             .expect("set scene");
     }
     store
-        .set(NS, "other-session", "z-scene", CREATED, UPDATED, SUMMARY, 1)
+        .set(SceneNodeWrite {
+            namespace: NS,
+            session_id: "other-session",
+            name: "z-scene",
+            created: CREATED,
+            updated: UPDATED,
+            summary: SUMMARY,
+            heat: 1,
+        })
         .expect("set other session");
 
     let page = store.list(NS, SESSION, 2, 0).expect("list page 1");
@@ -137,7 +177,15 @@ fn delete_returns_existed() {
     let store = SceneNodeStore::new(&engine);
 
     store
-        .set(NS, SESSION, SCENE, CREATED, UPDATED, SUMMARY, 1)
+        .set(SceneNodeWrite {
+            namespace: NS,
+            session_id: SESSION,
+            name: SCENE,
+            created: CREATED,
+            updated: UPDATED,
+            summary: SUMMARY,
+            heat: 1,
+        })
         .expect("set scene");
 
     assert!(store.delete(NS, SESSION, SCENE).expect("delete existing"));

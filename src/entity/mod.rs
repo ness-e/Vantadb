@@ -31,7 +31,7 @@ pub mod checker;
 /// Scene node anchors in the core graph (MEM-12, F4).
 pub mod scene;
 
-pub use scene::{SceneNode, SceneNodePage, SceneNodeStore};
+pub use scene::{SceneNode, SceneNodePage, SceneNodeStore, SceneNodeWrite};
 
 // ── Types ──
 
@@ -57,6 +57,20 @@ pub struct EntityPage {
     pub total: usize,
 }
 
+/// Immutable command object for [`EntityStore::set`] (D3: F2 command-object).
+///
+/// Groups the 4 write params so the `set` signature stays thin; `gc`-like
+/// services are not part of the command (there are none here — pure data).
+/// Borrows the key components (`validate_key` semantics unchanged) and moves
+/// `fields` (already owned at every caller).
+#[derive(Debug, Clone)]
+pub struct EntityWrite<'a> {
+    pub namespace: &'a str,
+    pub collection: &'a str,
+    pub id: &'a str,
+    pub fields: HashMap<String, FieldValue>,
+}
+
 // ── EntityStore ──
 
 /// CRUD store for scoped entities backed by a [`StorageEngine`].
@@ -79,13 +93,13 @@ impl<'a> EntityStore<'a> {
     ///
     /// Upsert semantics: an existing `created_at` is preserved, `fields` are
     /// replaced wholesale and `updated_at` is refreshed.
-    pub fn set(
-        &self,
-        namespace: &str,
-        collection: &str,
-        id: &str,
-        fields: HashMap<String, FieldValue>,
-    ) -> Result<Entity> {
+    pub fn set(&self, input: EntityWrite<'_>) -> Result<Entity> {
+        let EntityWrite {
+            namespace,
+            collection,
+            id,
+            fields,
+        } = input;
         validate_key(namespace, collection, id)?;
         let now = now_secs();
         let existing = self.get(namespace, collection, id)?;

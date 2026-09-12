@@ -1,4 +1,4 @@
-use crate::agentic::thread::ThreadStore;
+use crate::agentic::thread::{CreateThread, ThreadStore};
 use crate::config::Config;
 use crate::error::{Error, Result};
 use crate::graphrag::pipeline::{GraphRagPipeline, GraphRagResult};
@@ -171,7 +171,14 @@ impl Embedded {
     pub fn create_thread(&self, title: &str, ttl_secs: Option<u64>) -> Result<u128> {
         let engine = self.engine_handle()?;
         let store = ThreadStore::new(&engine);
-        store.create(title, HashMap::new(), ttl_secs, None)
+        store.create(
+            CreateThread {
+                title,
+                metadata: HashMap::new(),
+                ttl_secs,
+            },
+            None,
+        )
     }
 
     /// Append a message to a thread.

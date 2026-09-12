@@ -8,7 +8,7 @@
 
 use super::*;
 use crate::config::Config;
-use crate::entity::EntityStore;
+use crate::entity::{EntityStore, EntityWrite};
 use crate::node::FieldValue;
 use crate::sdk::Embedded;
 use crate::storage::{BackendKind, StorageEngine};
@@ -33,16 +33,16 @@ fn in_memory_storage(audit_log_path: Option<std::path::PathBuf>) -> Arc<StorageE
 
 fn seed_user(store: &EntityStore<'_>, user_id: &str, user_key: &str, user_type: &str) {
     store
-        .set(
-            "default",
-            "user",
-            user_id,
-            fields(&[
+        .set(EntityWrite {
+            namespace: "default",
+            collection: "user",
+            id: user_id,
+            fields: fields(&[
                 ("user_key", user_key),
                 ("user_type", user_type),
                 ("status", "active"),
             ]),
-        )
+        })
         .expect("seed user");
 }
 

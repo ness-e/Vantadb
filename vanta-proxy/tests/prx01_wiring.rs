@@ -10,7 +10,7 @@ use axum::response::IntoResponse;
 use axum::routing::post;
 use axum::{Json, Router};
 use serde_json::{json, Value};
-use vantadb::entity::EntityStore;
+use vantadb::entity::{EntityStore, EntityWrite};
 use vantadb::node::FieldValue;
 
 const USER_KEY: &str = "sk-test";
@@ -27,11 +27,21 @@ fn seeded_engine() -> std::sync::Arc<vantadb::storage::StorageEngine> {
     let mut fields: HashMap<String, FieldValue> = HashMap::new();
     fields.insert("user_key".into(), FieldValue::String(USER_KEY.to_string()));
     EntityStore::new(&engine)
-        .set("default", "user", USER_ID, fields)
+        .set(EntityWrite {
+            namespace: "default",
+            collection: "user",
+            id: USER_ID,
+            fields,
+        })
         .expect("seed user");
     for (collection, id) in [("team", "team-1"), ("agent", "agent-1"), ("task", "task-1")] {
         EntityStore::new(&engine)
-            .set("default", collection, id, HashMap::new())
+            .set(EntityWrite {
+                namespace: "default",
+                collection,
+                id,
+                fields: HashMap::new(),
+            })
             .expect("seed entity");
     }
     std::sync::Arc::new(engine)

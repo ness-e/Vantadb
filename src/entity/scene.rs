@@ -51,6 +51,21 @@ pub struct SceneNodePage {
     pub total: usize,
 }
 
+/// Immutable command object for [`SceneNodeStore::set`] (D3: F2 command-object).
+///
+/// Groups the 7 write params so the `set` signature stays thin. Borrows every
+/// component (`validate_key` semantics unchanged); `heat` copies.
+#[derive(Debug, Clone, Copy)]
+pub struct SceneNodeWrite<'a> {
+    pub namespace: &'a str,
+    pub session_id: &'a str,
+    pub name: &'a str,
+    pub created: &'a str,
+    pub updated: &'a str,
+    pub summary: &'a str,
+    pub heat: u32,
+}
+
 // ── SceneNodeStore ──
 
 /// CRUD store for scene node anchors backed by a [`StorageEngine`].
@@ -74,16 +89,16 @@ impl<'a> SceneNodeStore<'a> {
     /// Wholesale replace: the caller (L2 strategy) computes `created`,
     /// `updated`, `summary` and `heat` — this store never mutates them
     /// (preserving `created` on update is the strategy's job, MEM-14).
-    pub fn set(
-        &self,
-        namespace: &str,
-        session_id: &str,
-        name: &str,
-        created: &str,
-        updated: &str,
-        summary: &str,
-        heat: u32,
-    ) -> Result<SceneNode> {
+    pub fn set(&self, input: SceneNodeWrite<'_>) -> Result<SceneNode> {
+        let SceneNodeWrite {
+            namespace,
+            session_id,
+            name,
+            created,
+            updated,
+            summary,
+            heat,
+        } = input;
         validate_key(namespace, session_id, name)?;
         let node = SceneNode {
             namespace: namespace.to_string(),

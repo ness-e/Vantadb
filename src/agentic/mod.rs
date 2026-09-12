@@ -10,4 +10,4 @@
 //! efficient listing.
 
 pub mod thread;
-pub use thread::{Message, MessageThread, ThreadStore};
+pub use thread::{CreateThread, Message, MessageThread, ThreadStore};
