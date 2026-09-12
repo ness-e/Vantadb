@@ -86,7 +86,7 @@ impl<'a> ThreadStore<'a> {
     ///
     /// `gc` — if provided, the TTL expiry is registered with the garbage
     /// collector so it can be cleaned up automatically.
-    pub fn create_thread(
+    pub fn create(
         &self,
         title: &str,
         metadata: HashMap<String, String>,
@@ -170,7 +170,7 @@ impl<'a> ThreadStore<'a> {
     }
 
     /// Retrieve a thread by its ID.
-    pub fn get_thread(&self, thread_id: u128) -> Result<Option<MessageThread>> {
+    pub fn get(&self, thread_id: u128) -> Result<Option<MessageThread>> {
         match self.engine.get(thread_id)? {
             Some(node) => Ok(Some(self.node_to_thread(node)?)),
             None => Ok(None),
@@ -178,13 +178,13 @@ impl<'a> ThreadStore<'a> {
     }
 
     /// List threads with pagination.
-    pub fn list_threads(&self, limit: usize, offset: usize) -> Result<Vec<MessageThread>> {
+    pub fn list(&self, limit: usize, offset: usize) -> Result<Vec<MessageThread>> {
         let ids = self.load_thread_ids()?;
         let chunk: Vec<u128> = ids.into_iter().skip(offset).take(limit).collect();
 
         let mut threads = Vec::with_capacity(chunk.len());
         for id in chunk {
-            if let Some(thread) = self.get_thread(id)? {
+            if let Some(thread) = self.get(id)? {
                 threads.push(thread);
             }
         }
@@ -192,8 +192,8 @@ impl<'a> ThreadStore<'a> {
     }
 
     /// Delete a thread by its ID.
-    pub fn delete_thread(&self, thread_id: u128) -> Result<()> {
-        self.engine.delete(thread_id, "delete_thread")?;
+    pub fn delete(&self, thread_id: u128) -> Result<()> {
+        self.engine.delete(thread_id, "delete")?;
         self.remove_thread_id(thread_id)
     }
 
