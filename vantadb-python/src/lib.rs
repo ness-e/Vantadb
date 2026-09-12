@@ -187,6 +187,21 @@ fn parse_backend_kind(backend: Option<&str>) -> PyResult<vantadb::BackendKind> {
     }
 }
 
+/// Parse the Python `distance_metric` argument into a `DistanceMetric`.
+///
+/// `None` (or explicit `"cosine"`) selects cosine. Unknown values raise
+/// `ValueError` instead of silently falling back (D5b — same contract as
+/// `parse_backend_kind` above).
+fn parse_distance_metric(value: Option<&str>) -> PyResult<DistanceMetric> {
+    match value {
+        None | Some("cosine") => Ok(DistanceMetric::Cosine),
+        Some("euclidean") => Ok(DistanceMetric::Euclidean),
+        Some(other) => Err(PyValueError::new_err(format!(
+            "Unknown distance_metric \"{other}\" — known values: cosine, euclidean"
+        ))),
+    }
+}
+
 /// Shared constructor: build the engine config and open the embedded database.
 ///
 /// Both Python entry points (`Client.new` and `connect`) delegate here so
@@ -1239,18 +1254,8 @@ impl Client {
         exclude_superseded: bool,
     ) -> PyResult<Vec<VantaPySearchHit>> {
         let _g = enter(&self.op_gate)?;
-        let metric = match distance_metric {
-            Some("euclidean") => DistanceMetric::Euclidean,
-            Some(other) => {
-                tracing::warn!(
-                    "Unknown distance_metric \"{}\" — falling back to default (cosine). Known values: cosine, euclidean",
-                    other
-                );
-                DistanceMetric::Cosine
-            }
-            None => DistanceMetric::Cosine,
-        };
-        let method = parse_search_method(method);
+        let metric = parse_distance_metric(distance_metric)?;
+        let method = parse_search_method(method)?;
 
         let request = MemorySearchRequest {
             namespace: namespace.to_string(),
@@ -2169,17 +2174,7 @@ impl Client {
         top_k: usize,
         distance_metric: Option<&str>,
     ) -> PyResult<Py<PyAny>> {
-        let metric = match distance_metric {
-            Some("euclidean") => DistanceMetric::Euclidean,
-            Some(other) => {
-                tracing::warn!(
-                    "Unknown distance_metric \"{}\" — falling back to default (cosine). Known values: cosine, euclidean",
-                    other
-                );
-                DistanceMetric::Cosine
-            }
-            None => DistanceMetric::Cosine,
-        };
+        let metric = parse_distance_metric(distance_metric)?;
 
         let request = MemorySearchRequest {
             namespace: namespace.to_string(),
@@ -2314,17 +2309,7 @@ impl Client {
             Some(v) => Some(v.extract::<String>()?),
             None => None,
         };
-        let distance_metric = match distance_metric.as_deref() {
-            Some("euclidean") => DistanceMetric::Euclidean,
-            Some(other) => {
-                tracing::warn!(
-                    "Unknown distance_metric \"{}\" — falling back to default (cosine). Known values: cosine, euclidean",
-                    other
-                );
-                DistanceMetric::Cosine
-            }
-            None => DistanceMetric::Cosine,
-        };
+        let distance_metric = parse_distance_metric(distance_metric.as_deref())?;
 
         let explain: bool = match Self::request_field(obj, "explain")? {
             Some(v) => v.extract()?,
@@ -2332,7 +2317,10 @@ impl Client {
         };
 
         let method = match Self::request_field(obj, "method")? {
-            Some(v) => parse_search_method(Some(&v.extract::<String>()?)),
+            Some(v) => {
+                let s: String = v.extract()?;
+                parse_search_method(Some(s.as_str()))?
+            }
             None => None,
         };
 
@@ -2355,22 +2343,20 @@ impl Client {
 }
 
 /// Parse a per-search index backend override from a Python string.
-/// Mirrors the `distance_metric` fallback pattern: unknown values warn
-/// and fall back to the engine's configured routing.
-fn parse_search_method(value: Option<&str>) -> Option<IndexType> {
+///
+/// `None` selects the engine's configured routing. Unknown values raise
+/// `ValueError` instead of silently falling back (D5b — same contract as
+/// `parse_backend_kind`).
+fn parse_search_method(value: Option<&str>) -> PyResult<Option<IndexType>> {
     match value {
-        None => None,
-        Some("ivf") => Some(IndexType::Ivf),
-        Some("scann") => Some(IndexType::Scann),
-        Some("hnsw") => Some(IndexType::Hnsw),
-        Some("flat") => Some(IndexType::Flat),
-        Some(other) => {
-            tracing::warn!(
-                "Unknown search method \"{}\" — falling back to engine routing. Known values: ivf, scann, hnsw, flat",
-                other
-            );
-            None
-        }
+        None => Ok(None),
+        Some("ivf") => Ok(Some(IndexType::Ivf)),
+        Some("scann") => Ok(Some(IndexType::Scann)),
+        Some("hnsw") => Ok(Some(IndexType::Hnsw)),
+        Some("flat") => Ok(Some(IndexType::Flat)),
+        Some(other) => Err(PyValueError::new_err(format!(
+            "Unknown search method \"{other}\" — known values: ivf, scann, hnsw, flat"
+        ))),
     }
 }
 
