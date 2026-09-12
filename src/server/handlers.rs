@@ -12,6 +12,9 @@ use crate::sdk::{
     Embedded, MemoryFilter, MemoryInput, MemoryListOptions, MemoryListPage, MemoryRecord,
     MemorySearchHit, MemorySearchRequest, NamespaceStatsMap, OperationalMetrics,
 };
+use crate::server::conversation::{
+    ServerConversationPorts, StartConversationCommand, StartConversationUseCase,
+};
 use crate::server::errors::{
     not_found_response, panic_error_response, pool_error_response, query_error_response, response,
     thread_not_found_response,
@@ -1333,45 +1336,30 @@ pub async fn conversation_add(
         },
         None => None,
     };
-    let title = req
-        .title
-        .clone()
-        .unwrap_or_else(|| "conversation".to_string());
-    let ttl_secs = req.ttl_secs;
-    let role = req.role.clone();
-    let content = req.content.clone();
-    // SRV-02: carry the caller's tracing id into the audit event.
-    let rid = request_id.0;
+    // Humble object (B1): wire parsing stays here; the create → send →
+    // audit → trigger orchestration lives in `StartConversationUseCase`.
+    // `trigger` is cloned (Arc) so the 'static db closure can own it.
+    let cmd = StartConversationCommand {
+        thread_id,
+        title: req.title.clone(),
+        ttl_secs: req.ttl_secs,
+        role: req.role.clone(),
+        content: req.content.clone(),
+        // SRV-02: carry the caller's tracing id into the audit event.
+        request_id: request_id.0.clone(),
+    };
+    let trigger = state.conversation_trigger.clone();
 
     match run_db_op(&state, move |db| {
-        let id = match thread_id {
-            Some(id) => id,
-            None => db.create_thread(&title, ttl_secs)?,
-        };
-        db.send_message(id, &role, &content)?;
-        db.audit(
-            AuditEvent::memory("conversation", "threads", &id.to_string(), "ok", None)
-                .with_request_id_opt(rid),
-        );
-        Ok(id)
+        StartConversationUseCase::execute(&ServerConversationPorts { db, trigger }, cmd)
     })
     .await
     {
-        Ok(id) => {
-            // MEM-55: fire the memory-pipeline trigger best-effort. Any error
-            // is logged and swallowed — the HTTP response reflects only the
-            // thread save (P4: extraction failures never fail the request).
-            if let Some(trigger) = &state.conversation_trigger {
-                if let Err(err) = trigger.trigger(id, &req.role, &req.content) {
-                    tracing::warn!(thread = %id, %err, "conversation trigger failed; ignoring");
-                }
-            }
-            (
-                StatusCode::CREATED,
-                Json(serde_json::json!({ "success": true, "thread_id": id.to_string() })),
-            )
-                .into_response()
-        }
+        Ok(id) => (
+            StatusCode::CREATED,
+            Json(serde_json::json!({ "success": true, "thread_id": id.to_string() })),
+        )
+            .into_response(),
         Err(resp) => resp,
     }
 }

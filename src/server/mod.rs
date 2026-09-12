@@ -18,6 +18,7 @@
 //! `tests/request_id.rs`) keep working without edits.
 
 pub mod bootstrap;
+pub mod conversation;
 pub mod errors;
 pub mod handlers;
 pub mod jwt;
