@@ -304,14 +304,39 @@ class TestPersistentMemoryApi:
             assert len(hits) == 3, f"method={method}: expected 3 hits, got {len(hits)}"
             assert hits[0].key == "k0", f"method={method}: expected k0 first, got {hits[0].key}"
 
-        # Unknown method falls back to engine routing without error.
-        hits = db.search("agent/main", [1.0, 0.0, 0.0], top_k=3, method="quantum")
-        assert hits[0].key == "k0", f"unknown method: expected k0 first, got {hits[0].key}"
+        # Unknown method raises ValueError (D5b — no silent fallback).
+        with pytest.raises(ValueError, match="Unknown search method"):
+            db.search("agent/main", [1.0, 0.0, 0.0], top_k=3, method="quantum")
 
         # Batch search requests carry the method override through as well.
         requests = [vanta.SearchRequest("agent/main", [1.0, 0.0, 0.0], top_k=3, method="scann")]
         results = db.search_batch_requests(requests)
         assert results[0][0].key == "k0", f"batch scann: expected k0 first, got {results[0][0].key}"
+
+        # Batch unknown method also raises (D5b).
+        bad = [vanta.SearchRequest("agent/main", [1.0, 0.0, 0.0], top_k=3, method="quantum")]
+        with pytest.raises(ValueError, match="Unknown search method"):
+            db.search_batch_requests(bad)
+
+    def test_search_rejects_unknown_distance_metric(self):
+        """Unknown distance_metric must raise ValueError (D5b — no warn+fallback)."""
+        db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.put("agent/main", "k0", "identical", vector=[1.0, 0.0, 0.0])
+
+        # Valid values keep working (None/cosine/euclidean).
+        for metric in (None, "cosine", "euclidean"):
+            hits = db.search("agent/main", [1.0, 0.0, 0.0], top_k=1, distance_metric=metric)
+            assert len(hits) == 1
+
+        with pytest.raises(ValueError, match="Unknown distance_metric"):
+            db.search("agent/main", [1.0, 0.0, 0.0], top_k=1, distance_metric="manhattan")
+
+        with pytest.raises(ValueError, match="Unknown distance_metric"):
+            db.explain_memory_search("agent/main", [1.0, 0.0, 0.0], top_k=1, distance_metric="manhattan")
+
+        bad = [vanta.SearchRequest("agent/main", [1.0, 0.0, 0.0], top_k=1, distance_metric="manhattan")]
+        with pytest.raises(ValueError, match="Unknown distance_metric"):
+            db.search_batch_requests(bad)
 
     def test_memory_close_and_reopen(self):
         """Memory records should survive flush/close/reopen."""
