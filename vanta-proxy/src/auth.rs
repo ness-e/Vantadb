@@ -173,6 +173,7 @@ impl AuthDb {
 mod tests {
     use super::*;
     use std::collections::HashMap;
+    use vantadb::entity::EntityWrite;
 
     fn in_memory_db() -> AuthDb {
         let config = vantadb::config::Config {
@@ -194,7 +195,12 @@ mod tests {
             fields.insert("user_type".into(), FieldValue::String(t.to_string()));
         }
         EntityStore::new(&db.engine)
-            .set(AUTH_ENTITY_NS, "user", id, fields)
+            .set(EntityWrite {
+                namespace: AUTH_ENTITY_NS,
+                collection: "user",
+                id,
+                fields,
+            })
             .expect("seed user");
     }
 

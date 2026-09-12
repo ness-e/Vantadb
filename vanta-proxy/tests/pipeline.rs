@@ -10,7 +10,7 @@ use axum::http::HeaderMap;
 use axum::routing::post;
 use axum::{Json, Router};
 use serde_json::{json, Value};
-use vantadb::entity::EntityStore;
+use vantadb::entity::{EntityStore, EntityWrite};
 use vantadb::node::FieldValue;
 use vantadb::sdk::{Embedded, MemoryInput, MemoryMetadata};
 use vantadb::storage::StorageEngine;
@@ -45,7 +45,12 @@ fn seeded_engine() -> Arc<StorageEngine> {
     let mut fields: HashMap<String, FieldValue> = HashMap::new();
     fields.insert("user_key".into(), FieldValue::String(USER_KEY.to_string()));
     EntityStore::new(&engine)
-        .set("default", "user", USER_ID, fields)
+        .set(EntityWrite {
+            namespace: "default",
+            collection: "user",
+            id: USER_ID,
+            fields,
+        })
         .expect("seed user");
     Arc::new(engine)
 }

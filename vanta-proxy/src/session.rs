@@ -246,7 +246,7 @@ impl SessionStore {
 mod tests {
     use super::*;
 
-    use vantadb::entity::EntityStore;
+    use vantadb::entity::{EntityStore, EntityWrite};
 
     fn in_memory_db() -> AuthDb {
         let config = vantadb::config::Config {
@@ -261,7 +261,12 @@ mod tests {
 
     fn seed_entity(db: &AuthDb, collection: &str, id: &str) {
         EntityStore::new(&db.engine())
-            .set("default", collection, id, HashMap::new())
+            .set(EntityWrite {
+                namespace: "default",
+                collection,
+                id,
+                fields: HashMap::new(),
+            })
             .expect("seed entity");
     }
 

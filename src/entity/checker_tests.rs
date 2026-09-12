@@ -6,7 +6,7 @@
 
 use super::{Action, PermissionChecker, TeamRole, Visibility};
 use crate::config::Config;
-use crate::entity::EntityStore;
+use crate::entity::{EntityStore, EntityWrite};
 use crate::node::FieldValue;
 use crate::storage::{BackendKind, StorageEngine};
 use std::collections::HashMap;
@@ -34,12 +34,12 @@ const NS: &str = "default";
 fn seed_member(store: &EntityStore, team_id: &str, user_id: &str, role: &str, status: &str) {
     let id = format!("{team_id}.{user_id}");
     store
-        .set(
-            NS,
-            "team_member",
-            &id,
-            fields(&[("role", role), ("status", status)]),
-        )
+        .set(EntityWrite {
+            namespace: NS,
+            collection: "team_member",
+            id: &id,
+            fields: fields(&[("role", role), ("status", status)]),
+        })
         .expect("seed member");
 }
 
@@ -52,17 +52,17 @@ fn seed_asset(
     status: &str,
 ) {
     store
-        .set(
-            NS,
-            "asset",
-            asset_id,
-            fields(&[
+        .set(EntityWrite {
+            namespace: NS,
+            collection: "asset",
+            id: asset_id,
+            fields: fields(&[
                 ("team_id", team_id),
                 ("owner_user_id", owner),
                 ("visibility", visibility),
                 ("status", status),
             ]),
-        )
+        })
         .expect("seed asset");
 }
 
@@ -76,17 +76,17 @@ fn seed_acl(
 ) {
     let id = format!("{asset_id}.{subject_type}.{subject_id}.{permission}");
     store
-        .set(
-            NS,
-            "acl",
-            &id,
-            fields(&[
+        .set(EntityWrite {
+            namespace: NS,
+            collection: "acl",
+            id: &id,
+            fields: fields(&[
                 ("effect", effect),
                 ("permission", permission),
                 ("subject_id", subject_id),
                 ("subject_type", subject_type),
             ]),
-        )
+        })
         .expect("seed acl");
 }
 

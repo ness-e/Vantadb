@@ -3,7 +3,7 @@
 //! Pattern AAA: arrange → act → assert. Uses an in-memory `StorageEngine`
 //! (same setup as `src/storage/engine/tests/mod.rs`).
 
-use super::{generate_id, EntityStore};
+use super::{generate_id, EntityStore, EntityWrite};
 use crate::config::Config;
 use crate::node::FieldValue;
 use crate::storage::{BackendKind, StorageEngine};
@@ -31,7 +31,12 @@ fn set_get_roundtrip() {
     let store = EntityStore::new(&engine);
 
     let stored = store
-        .set("default", "user", "usr-1", user_fields("alice", true))
+        .set(EntityWrite {
+            namespace: "default",
+            collection: "user",
+            id: "usr-1",
+            fields: user_fields("alice", true),
+        })
         .expect("set user");
 
     assert_eq!(stored.namespace, "default");
@@ -67,16 +72,21 @@ fn set_upsert_preserves_created_at_and_refreshes_updated_at() {
     let store = EntityStore::new(&engine);
 
     let first = store
-        .set("default", "user", "usr-1", user_fields("alice", true))
+        .set(EntityWrite {
+            namespace: "default",
+            collection: "user",
+            id: "usr-1",
+            fields: user_fields("alice", true),
+        })
         .expect("first set");
 
     let second = store
-        .set(
-            "default",
-            "user",
-            "usr-1",
-            user_fields("alice-updated", false),
-        )
+        .set(EntityWrite {
+            namespace: "default",
+            collection: "user",
+            id: "usr-1",
+            fields: user_fields("alice-updated", false),
+        })
         .expect("second set");
 
     assert_eq!(
@@ -100,7 +110,12 @@ fn delete_existing_returns_true_then_get_none() {
     let store = EntityStore::new(&engine);
 
     store
-        .set("default", "user", "usr-1", user_fields("alice", true))
+        .set(EntityWrite {
+            namespace: "default",
+            collection: "user",
+            id: "usr-1",
+            fields: user_fields("alice", true),
+        })
         .expect("set");
 
     let deleted = store.delete("default", "user", "usr-1").expect("delete");
@@ -129,7 +144,12 @@ fn list_paginates_sorted_by_id() {
     // Insert out of order; listing must be deterministic by id.
     for id in ["usr-z", "usr-a", "usr-m", "usr-b", "usr-y"] {
         store
-            .set("default", "user", id, user_fields(id, true))
+            .set(EntityWrite {
+                namespace: "default",
+                collection: "user",
+                id,
+                fields: user_fields(id, true),
+            })
             .expect("set");
     }
 
@@ -149,10 +169,20 @@ fn list_isolates_namespaces() {
     let store = EntityStore::new(&engine);
 
     store
-        .set("ns-a", "user", "usr-1", user_fields("alice", true))
+        .set(EntityWrite {
+            namespace: "ns-a",
+            collection: "user",
+            id: "usr-1",
+            fields: user_fields("alice", true),
+        })
         .expect("set ns-a");
     store
-        .set("ns-b", "user", "usr-1", user_fields("bob", true))
+        .set(EntityWrite {
+            namespace: "ns-b",
+            collection: "user",
+            id: "usr-1",
+            fields: user_fields("bob", true),
+        })
         .expect("set ns-b");
 
     let page = store.list("ns-a", "user", 10, 0).expect("list ns-a");
@@ -170,10 +200,20 @@ fn list_isolates_collections() {
     let store = EntityStore::new(&engine);
 
     store
-        .set("default", "user", "usr-1", user_fields("alice", true))
+        .set(EntityWrite {
+            namespace: "default",
+            collection: "user",
+            id: "usr-1",
+            fields: user_fields("alice", true),
+        })
         .expect("set user");
     store
-        .set("default", "team", "team-1", user_fields("acme", true))
+        .set(EntityWrite {
+            namespace: "default",
+            collection: "team",
+            id: "team-1",
+            fields: user_fields("acme", true),
+        })
         .expect("set team");
 
     let page = store.list("default", "user", 10, 0).expect("list users");
@@ -187,26 +227,57 @@ fn invalid_inputs_rejected() {
     let store = EntityStore::new(&engine);
 
     assert!(
-        store.set("", "user", "usr-1", HashMap::new()).is_err(),
+        store
+            .set(EntityWrite {
+                namespace: "",
+                collection: "user",
+                id: "usr-1",
+                fields: HashMap::new(),
+            })
+            .is_err(),
         "empty namespace"
     );
     assert!(
-        store.set("default", "", "usr-1", HashMap::new()).is_err(),
+        store
+            .set(EntityWrite {
+                namespace: "default",
+                collection: "",
+                id: "usr-1",
+                fields: HashMap::new(),
+            })
+            .is_err(),
         "empty collection"
     );
     assert!(
-        store.set("default", "user", "", HashMap::new()).is_err(),
+        store
+            .set(EntityWrite {
+                namespace: "default",
+                collection: "user",
+                id: "",
+                fields: HashMap::new(),
+            })
+            .is_err(),
         "empty id"
     );
     assert!(
         store
-            .set("def{ault", "user", "usr-1", HashMap::new())
+            .set(EntityWrite {
+                namespace: "def{ault",
+                collection: "user",
+                id: "usr-1",
+                fields: HashMap::new(),
+            })
             .is_err(),
         "namespace braces"
     );
     assert!(
         store
-            .set("default", "user", "usr:1", HashMap::new())
+            .set(EntityWrite {
+                namespace: "default",
+                collection: "user",
+                id: "usr:1",
+                fields: HashMap::new(),
+            })
             .is_err(),
         "id colon"
     );
