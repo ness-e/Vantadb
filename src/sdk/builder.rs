@@ -171,7 +171,7 @@ impl Embedded {
     pub fn create_thread(&self, title: &str, ttl_secs: Option<u64>) -> Result<u128> {
         let engine = self.engine_handle()?;
         let store = ThreadStore::new(&engine);
-        store.create_thread(title, HashMap::new(), ttl_secs, None)
+        store.create(title, HashMap::new(), ttl_secs, None)
     }
 
     /// Append a message to a thread.
@@ -185,7 +185,7 @@ impl Embedded {
     pub fn get_thread(&self, thread_id: u128) -> Result<Option<crate::agentic::MessageThread>> {
         let engine = self.engine_handle()?;
         let store = ThreadStore::new(&engine);
-        store.get_thread(thread_id)
+        store.get(thread_id)
     }
 
     /// List threads with pagination.
@@ -196,14 +196,14 @@ impl Embedded {
     ) -> Result<Vec<crate::agentic::MessageThread>> {
         let engine = self.engine_handle()?;
         let store = ThreadStore::new(&engine);
-        store.list_threads(limit, offset)
+        store.list(limit, offset)
     }
 
     /// Delete a thread by its ID.
     pub fn delete_thread(&self, thread_id: u128) -> Result<()> {
         let engine = self.engine_handle()?;
         let store = ThreadStore::new(&engine);
-        store.delete_thread(thread_id)
+        store.delete(thread_id)
     }
 
     /// Purge threads whose TTL has expired.

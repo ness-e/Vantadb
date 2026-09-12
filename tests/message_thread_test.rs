@@ -41,8 +41,8 @@ fn test_create_and_send() {
     let store = ThreadStore::new(&engine);
 
     let thread_id = store
-        .create_thread("test thread", HashMap::new(), None, None)
-        .expect("create_thread");
+        .create("test thread", HashMap::new(), None, None)
+        .expect("create");
 
     store
         .send_message(thread_id, "user", "Hello!", HashMap::new(), None)
@@ -52,8 +52,8 @@ fn test_create_and_send() {
         .expect("send_message");
 
     let thread = store
-        .get_thread(thread_id)
-        .expect("get_thread")
+        .get(thread_id)
+        .expect("get")
         .expect("thread should exist");
 
     assert_eq!(thread.title, "test thread");
@@ -66,62 +66,62 @@ fn test_create_and_send() {
     assert!(thread.updated_at >= thread.created_at);
 }
 
-// ── test_list_threads ──
+// ── test_list ──
 
 #[test]
-fn test_list_threads() {
+fn test_list() {
     let (engine, _dir) = setup_engine();
     let store = ThreadStore::new(&engine);
 
     let _id1 = store
-        .create_thread("Thread A", HashMap::new(), None, None)
-        .expect("create_thread A");
+        .create("Thread A", HashMap::new(), None, None)
+        .expect("create A");
     let _id2 = store
-        .create_thread("Thread B", HashMap::new(), None, None)
-        .expect("create_thread B");
+        .create("Thread B", HashMap::new(), None, None)
+        .expect("create B");
     let _id3 = store
-        .create_thread("Thread C", HashMap::new(), None, None)
-        .expect("create_thread C");
+        .create("Thread C", HashMap::new(), None, None)
+        .expect("create C");
 
     // All threads
-    let all = store.list_threads(10, 0).expect("list_threads");
+    let all = store.list(10, 0).expect("list");
     assert_eq!(all.len(), 3);
 
     // Pagination: limit=2
-    let page = store.list_threads(2, 0).expect("list_threads page");
+    let page = store.list(2, 0).expect("list page");
     assert_eq!(page.len(), 2);
 
     // Pagination: offset=2
-    let rest = store.list_threads(10, 2).expect("list_threads rest");
+    let rest = store.list(10, 2).expect("list rest");
     assert_eq!(rest.len(), 1);
 
     // Offset beyond total
-    let empty = store.list_threads(10, 10).expect("list_threads empty");
+    let empty = store.list(10, 10).expect("list empty");
     assert!(empty.is_empty());
 }
 
-// ── test_delete_thread ──
+// ── test_delete ──
 
 #[test]
-fn test_delete_thread() {
+fn test_delete() {
     let (engine, _dir) = setup_engine();
     let store = ThreadStore::new(&engine);
 
     let thread_id = store
-        .create_thread("to-delete", HashMap::new(), None, None)
-        .expect("create_thread");
+        .create("to-delete", HashMap::new(), None, None)
+        .expect("create");
 
     // Exists before delete
-    assert!(store.get_thread(thread_id).unwrap().is_some());
+    assert!(store.get(thread_id).unwrap().is_some());
 
     // Delete
-    store.delete_thread(thread_id).expect("delete_thread");
+    store.delete(thread_id).expect("delete");
 
     // Gone after delete
-    assert!(store.get_thread(thread_id).unwrap().is_none());
+    assert!(store.get(thread_id).unwrap().is_none());
 
     // Not in list
-    let all = store.list_threads(10, 0).unwrap();
+    let all = store.list(10, 0).unwrap();
     assert!(all.iter().all(|t| t.thread_id != thread_id));
 }
 
@@ -135,11 +135,11 @@ fn test_thread_ttl_expiry() {
 
     let ttl_secs = 1u64;
     let thread_id = store
-        .create_thread("ephemeral", HashMap::new(), Some(ttl_secs), Some(&mut gc))
-        .expect("create_thread with TTL");
+        .create("ephemeral", HashMap::new(), Some(ttl_secs), Some(&mut gc))
+        .expect("create with TTL");
 
     // Thread exists right away
-    assert!(store.get_thread(thread_id).unwrap().is_some());
+    assert!(store.get(thread_id).unwrap().is_some());
 
     // Wait for TTL to expire
     std::thread::sleep(std::time::Duration::from_secs(ttl_secs + 1));
@@ -149,13 +149,13 @@ fn test_thread_ttl_expiry() {
     assert_eq!(swept, 1, "GcWorker should have swept 1 expired thread");
 
     // Thread should be gone
-    assert!(store.get_thread(thread_id).unwrap().is_none());
+    assert!(store.get(thread_id).unwrap().is_none());
 }
 
-// ── test_create_thread_via_embedded ──
+// ── test_create_via_embedded ──
 
 #[test]
-fn test_create_thread_via_embedded() {
+fn test_create_via_embedded() {
     let (db, _dir) = setup_embedded();
 
     let thread_id = db.create_thread("embedded test", None).expect("create");
