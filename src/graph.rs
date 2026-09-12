@@ -484,9 +484,15 @@ impl<'a> GraphTraverser<'a> {
                 }
 
                 // Queue unvisited targets
-                for edge in edges.get(&node.id).unwrap() {
-                    if !edges.contains_key(&edge.target) {
-                        next_level.push(edge.target);
+                // INVARIANT (B2b): `node.id` was inserted into `edges` in every
+                // branch above, so the entry always exists. `if let` keeps E1
+                // green and degrades gracefully (skip) on hypothetical
+                // inconsistency instead of panicking mid-traversal.
+                if let Some(neighbors) = edges.get(&node.id) {
+                    for edge in neighbors {
+                        if !edges.contains_key(&edge.target) {
+                            next_level.push(edge.target);
+                        }
                     }
                 }
             }

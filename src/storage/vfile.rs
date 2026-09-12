@@ -155,6 +155,7 @@ impl File {
         // construction time (equivalent to `Vec::with_capacity` aborting on
         // allocation failure), so a documented panic here is intentional — the
         // long-lived store paths (`map`/`map_mut`/`grow_to`) propagate instead.
+        // INVARIANT (B2b, cat. (b)): see above — intentional, documented, OOM-only.
         let mut data = AlignedBytes::zeroed(size as usize)
             .expect("in-memory vstore allocation failed at construction (OOM)");
         let header = VantaHeader::new(*b"VFLE", VFILE_VERSION, 0);

@@ -212,6 +212,8 @@ impl Cipher {
             Some(raw) => {
                 let inner = cipher_from_raw(raw);
                 let ciphertext = inner
+                    // INVARIANT (B2b, cat. (b)): AES-256-GCM encryption is
+                    // infallible per RustCrypto guarantee (only decryption fails).
                     .encrypt(&nonce, plaintext)
                     .expect("AES-256-GCM encryption is infallible per RustCrypto guarantee");
                 let mut out = Vec::with_capacity(12 + ciphertext.len());
@@ -220,6 +222,9 @@ impl Cipher {
                 out
             }
             None => {
+                // INVARIANT (B2b, cat. (b)): `Cipher` holds exactly one of
+                // `raw_key`/`password` by construction, so `None` here means
+                // `raw_key` is `None` and `password` is `Some`.
                 let password = self
                     .password
                     .as_deref()
@@ -230,6 +235,8 @@ impl Cipher {
                 rand::rng().fill_bytes(&mut salt);
                 let inner = derive_from_password(password, &salt);
                 let ciphertext = inner
+                    // INVARIANT (B2b, cat. (b)): same RustCrypto infallibility
+                    // guarantee as the raw-key arm above.
                     .encrypt(&nonce, plaintext)
                     .expect("AES-256-GCM encryption is infallible per RustCrypto guarantee");
                 let mut out = Vec::with_capacity(KDF_FRAME_MIN - 16 + ciphertext.len());
@@ -282,6 +289,7 @@ impl Cipher {
 
 /// Build an AES-256-GCM cipher from a raw 32-byte key.
 fn cipher_from_raw(key: &[u8; 32]) -> Aes256Gcm {
+    // INVARIANT (B2b, cat. (b)): 32-byte key always satisfies AES-256 length.
     Aes256Gcm::new_from_slice(key)
         .expect("Aes256Gcm::new_from_slice with a 32-byte key cannot fail")
 }
@@ -289,6 +297,7 @@ fn cipher_from_raw(key: &[u8; 32]) -> Aes256Gcm {
 /// Key-stretch a passphrase via PBKDF2-HMAC-SHA256 into a 32-byte AES key.
 fn derive_from_password(password: &[u8], salt: &[u8]) -> Aes256Gcm {
     let mut key = [0u8; 32];
+    // INVARIANT (B2b, cat. (b)): `KDF_ITERATIONS` is a non-zero const.
     let iterations = std::num::NonZeroU32::new(KDF_ITERATIONS).expect("KDF_ITERATIONS is non-zero");
     pbkdf2::derive(
         pbkdf2::PBKDF2_HMAC_SHA256,

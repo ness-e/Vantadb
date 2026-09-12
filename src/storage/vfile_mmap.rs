@@ -525,6 +525,9 @@ impl Drop for AlignedBytes {
         // SAFETY: `self.ptr` was allocated with `{len, align 4}` in `zeroed` and
         // `len` never changes, so this deallocate layout exactly matches the
         // allocation layout (allocator contract).
+        // INVARIANT (B2b, cat. (b)): `Drop` cannot return `Result`, and any
+        // `len` reachable here came from that same align-4 allocation, so the
+        // layout is valid by construction.
         unsafe {
             std::alloc::dealloc(
                 self.ptr.as_ptr(),
