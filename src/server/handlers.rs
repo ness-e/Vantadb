@@ -19,6 +19,7 @@ use crate::server::errors::{
     not_found_response, panic_error_response, pool_error_response, query_error_response, response,
     thread_not_found_response,
 };
+use crate::server::list_records::{ListRecordsCommand, ListRecordsUseCase, ServerListPorts};
 use crate::server::state::{NodeDTO, QueryRequest, QueryResponse, RequestId, ServerState};
 use crate::Error;
 use axum::{
@@ -360,24 +361,6 @@ pub async fn records_delete_by_filter(
     }
 }
 
-/// AUD-046: merge per-namespace pages (stable namespace-name order) for the
-/// `/api/v2/list` all-namespaces fan-out. A namespace whose page still has a
-/// `next_cursor` was capped at `NS_CAP` mid-listing — it is reported in the
-/// returned `truncated_namespaces` so the client never sees silent truncation.
-fn merge_all_namespaces_pages(
-    pages: Vec<(String, MemoryListPage)>,
-) -> (Vec<MemoryRecord>, Vec<String>) {
-    let mut records = Vec::new();
-    let mut truncated_namespaces = Vec::new();
-    for (ns, page) in pages {
-        if page.next_cursor.is_some() {
-            truncated_namespaces.push(ns);
-        }
-        records.extend(page.records);
-    }
-    (records, truncated_namespaces)
-}
-
 /// Clamp `limit`/`top_k` a [`MAX_K`], avisando cuando se pide más para que el
 /// recorte sea observable (ERR-022). Mismo patrón que `clamp_top_k` en Python
 /// (`vantadb-python/src/lib.rs`) — D5c: frontera HTTP sin cotas = DoS
@@ -433,75 +416,55 @@ pub async fn records_list(
     };
     let limit = clamp_limit(params.limit.unwrap_or(100));
     let cursor = params.cursor;
-    if all_namespaces {
-        // FIND-24: fan-out by namespace now respects the client's `limit`
-        // (instead of NS_CAP) — list(limit=100) used to materialize
-        // NS_CAP=10_000 records per namespace and slice in memory, blowing
-        // past REQUEST_TIMEOUT=30s for ≥10k records total. The SDK's
-        // `indexed_ids_by_namespace` early-exits at `limit`, so a per-ns
-        // `limit`-sized scan is O(limit) per namespace. Cross-namespace
-        // pagination walks namespaces in stable name order; the returned
-        // `next_cursor` is the cumulative offset within the merged window
-        // and remains backward-compatible with single-namespace clients.
-        //
-        // NS_CAP (10_000) was the previous fan-out ceiling per ns and has been
-        // removed: the SDK now enforces the `limit` early-exit natively, so
-        // there is no in-memory NS_CAP cost. Truncation at the namespace
-        // boundary is still detected via `next_cursor` from each per-ns
-        // `MemoryListPage` (see `merge_all_namespaces_pages`).
-
-        /// Fan-out response: same shape as `MemoryListPage` plus an
-        /// additive signal listing namespaces whose listing is still paginating
-        /// (they may hold more records than this response contains).
-        #[derive(Serialize)]
-        struct AllNamespacesListPage {
-            records: Vec<MemoryRecord>,
-            next_cursor: Option<usize>,
-            /// Namespaces still paginating during the fan-out (their
-            /// per-ns `MemoryListPage.next_cursor` was `Some`).
-            truncated_namespaces: Vec<String>,
-        }
-
-        let options_for = move |_ns: String| MemoryListOptions {
-            filter_ops: filter_ops.clone(),
-            limit,
-            cursor,
-            ..Default::default()
-        };
-        return match run_db_op(&state, move |db| {
-            let mut names: Vec<String> = db.namespace_stats(None)?.keys().cloned().collect();
-            names.sort();
-            let mut pages = Vec::new();
-            for ns in names {
-                let page = db.list(&ns, options_for(ns.clone()))?;
-                pages.push((ns, page));
-            }
-            let (records, truncated_namespaces) = merge_all_namespaces_pages(pages);
-            let start = cursor.unwrap_or(0).min(records.len());
-            let end = (start + limit).min(records.len());
-            let window = records[start..end].to_vec();
-            let next_cursor = (end < records.len()).then_some(end);
-            Ok::<_, Error>(AllNamespacesListPage {
-                records: window,
-                next_cursor,
-                truncated_namespaces,
-            })
-        })
-        .await
-        {
-            Ok(page) => Json(page).into_response(),
-            Err(resp) => resp,
-        };
+    // Humble object (D1c): wire parsing stays here; fan-out + merge +
+    // pagination lives in `ListRecordsUseCase` (patrón B1).
+    // FIND-24: cross-namespace pagination walks namespaces in stable name
+    // order; `next_cursor` is the cumulative offset within the merged window
+    // and remains backward-compatible with single-namespace clients.
+    /// Fan-out response: same shape as `MemoryListPage` plus an
+    /// additive signal listing namespaces whose listing is still paginating
+    /// (they may hold more records than this response contains).
+    #[derive(Serialize)]
+    struct AllNamespacesListPage {
+        records: Vec<MemoryRecord>,
+        next_cursor: Option<usize>,
+        /// Namespaces still paginating during the fan-out (their
+        /// per-ns `MemoryListPage.next_cursor` was `Some`).
+        truncated_namespaces: Vec<String>,
     }
-    let ns = params.namespace.unwrap_or_default();
-    let options = MemoryListOptions {
+
+    let namespace = params
+        .namespace
+        .clone()
+        .map(|n| n.trim().to_string())
+        .filter(|n| !n.is_empty());
+    let cmd = ListRecordsCommand {
+        namespace,
         filter_ops,
         limit,
         cursor,
-        ..Default::default()
     };
-    match run_db_op(&state, move |db| db.list(&ns, options)).await {
-        Ok(page) => Json(page).into_response(),
+    match run_db_op(&state, move |db| {
+        ListRecordsUseCase::execute(&ServerListPorts { db }, cmd)
+    })
+    .await
+    {
+        Ok(out) => {
+            if all_namespaces {
+                Json(AllNamespacesListPage {
+                    records: out.records,
+                    next_cursor: out.next_cursor,
+                    truncated_namespaces: out.truncated_namespaces,
+                })
+                .into_response()
+            } else {
+                Json(MemoryListPage {
+                    records: out.records,
+                    next_cursor: out.next_cursor,
+                })
+                .into_response()
+            }
+        }
         Err(resp) => resp,
     }
 }
