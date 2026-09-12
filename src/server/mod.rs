@@ -22,6 +22,7 @@ pub mod conversation;
 pub mod errors;
 pub mod handlers;
 pub mod jwt;
+pub mod list_records;
 pub mod middleware;
 pub mod router;
 pub mod routing;
