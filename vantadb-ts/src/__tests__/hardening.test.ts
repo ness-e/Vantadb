@@ -227,8 +227,19 @@ describe("Client input validation", () => {
     expect(() => db.search({ namespace: "", query_vector: [0.1, 0.2] })).toThrow();
   });
 
-  it("search with empty vector does not crash", () => {
-    expect(() => db.search({ namespace: "ns", query_vector: [] })).not.toThrow();
+  it("search with empty vector throws typed validation error (D5a)", () => {
+    // D5a: the TS frontier validates query_vector (non-empty, finite) like
+    // `validateVector` does — an empty vector is a caller error surfaced as
+    // DbError/VALIDATION_ERROR, not an engine round-trip. Previously asserted
+    // `.not.toThrow()` when the frontier passed everything through unchecked.
+    let caught: unknown;
+    try {
+      db.search({ namespace: "ns", query_vector: [] });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(DbError);
+    expect((caught as DbError).code).toBe(ERROR_CODES.VALIDATION_ERROR);
   });
 });
 

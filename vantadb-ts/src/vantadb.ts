@@ -640,7 +640,20 @@ export class Client {
     return this._wasm("searchMulti", () => {
       // The wire shape mirrors `search()`; reuse the same builder but ignore
       // any `namespace` field on the request (we route via `namespaces` arg).
-      const wire = this._buildSearchRequest({ ...request, namespace: "" });
+      // D5a: the base now rejects empty namespaces, so the synthetic field
+      // carries the first routed namespace (ignored downstream) instead of "".
+      // `namespaces` itself is validated here — an empty route list is a
+      // caller error, not an engine query.
+      if (!Array.isArray(namespaces) || namespaces.length === 0) {
+        throw new DbError(
+          ERROR_CODES.VALIDATION_ERROR,
+          "searchMulti: namespaces must be a non-empty array",
+        );
+      }
+      const wire = this._buildSearchRequest({
+        ...request,
+        namespace: namespaces[0],
+      });
       const raw = this.inner.search_multi(namespaces, wire) as unknown[];
       return raw.map((hit: unknown) => {
         const h = hit as Record<string, unknown>;
