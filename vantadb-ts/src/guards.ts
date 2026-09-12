@@ -151,15 +151,79 @@ export interface SearchRequestBase {
   explain: boolean;
 }
 
+/**
+ * Validate the backend-neutral core of a search request (D5a).
+ * Previously every field flowed through with `??` defaults and no checks,
+ * so `""`, `[]`, `NaN` or unknown metric strings reached the engine and
+ * failed there with worse errors (or silently misbehaved). Now malformed
+ * input throws `DbError` with `VALIDATION_ERROR` at the TS frontier —
+ * the same contract `validateVector` and `native.ts` enforce.
+ */
 export function buildSearchRequestBase(
   request: SearchRequest,
   explain?: boolean,
 ): SearchRequestBase {
+  if (request === null || typeof request !== "object") {
+    throw new DbError(
+      ERROR_CODES.VALIDATION_ERROR,
+      `buildSearchRequestBase: expected a SearchRequest object, got ${request === null ? "null" : typeof request}`,
+    );
+  }
+  if (typeof request.namespace !== "string" || request.namespace.length === 0) {
+    throw new DbError(
+      ERROR_CODES.VALIDATION_ERROR,
+      "buildSearchRequestBase: namespace must be a non-empty string",
+    );
+  }
+  if (
+    !Array.isArray(request.query_vector) ||
+    request.query_vector.length === 0
+  ) {
+    throw new DbError(
+      ERROR_CODES.VALIDATION_ERROR,
+      "buildSearchRequestBase: query_vector must be a non-empty array",
+    );
+  }
+  for (let i = 0; i < request.query_vector.length; i++) {
+    const n: unknown = request.query_vector[i];
+    if (typeof n !== "number" || !Number.isFinite(n)) {
+      throw new DbError(
+        ERROR_CODES.VALIDATION_ERROR,
+        `buildSearchRequestBase: invalid or non-finite query_vector element at index ${i}`,
+      );
+    }
+  }
+  const top_k = request.top_k ?? 10;
+  if (
+    typeof top_k !== "number" ||
+    !Number.isFinite(top_k) ||
+    !Number.isInteger(top_k) ||
+    top_k < 0
+  ) {
+    throw new DbError(
+      ERROR_CODES.VALIDATION_ERROR,
+      "buildSearchRequestBase: top_k must be an integer >= 0",
+    );
+  }
+  const distance_metric = request.distance_metric ?? "Cosine";
+  if (distance_metric !== "Cosine" && distance_metric !== "Euclidean") {
+    throw new DbError(
+      ERROR_CODES.VALIDATION_ERROR,
+      "buildSearchRequestBase: distance_metric must be Cosine or Euclidean",
+    );
+  }
+  const effExplain = explain ?? (request.explain ?? false);
+  if (typeof effExplain !== "boolean") {
+    throw new DbError(
+      ERROR_CODES.VALIDATION_ERROR,
+      "buildSearchRequestBase: explain must be a boolean",
+    );
+  }
   return {
     namespace: request.namespace,
     query_vector: request.query_vector,
-    top_k: request.top_k ?? 10,
-    distance_metric: request.distance_metric ?? "Cosine",
-    explain: explain ?? (request.explain ?? false),
+    top_k,
+    distance_metric,
+    explain: effExplain,
   };
 }
