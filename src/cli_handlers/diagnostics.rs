@@ -74,12 +74,55 @@ fn is_empty_database_state(e: &Error) -> bool {
     }
 }
 
+/// What `doctor --fix` should do (D2: replaces `fix`/`force` bool flags).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DoctorFix {
+    /// Check only, never propose repairs.
+    #[default]
+    Off,
+    /// List repairs without mutating (`--fix` without `--force`).
+    DryRun,
+    /// Apply additive-only repairs (`--fix --force`).
+    Apply,
+}
+
+/// Output verbosity for CLI diagnostics (D2: replaces `verbose: bool`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Verbosity {
+    #[default]
+    Normal,
+    Verbose,
+}
+
+impl Verbosity {
+    /// Map a CLI `--verbose` flag to [`Verbosity`].
+    pub fn from_flag(verbose: bool) -> Self {
+        if verbose {
+            Self::Verbose
+        } else {
+            Self::Normal
+        }
+    }
+
+    /// True for [`Verbosity::Verbose`].
+    pub fn is_verbose(self) -> bool {
+        matches!(self, Self::Verbose)
+    }
+}
+
+/// Options for [`cmd_doctor`] (D2: replaces `fix`/`force`/`verbose` bool flags).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct DoctorOptions {
+    pub fix: DoctorFix,
+    pub verbose: Verbosity,
+}
+
 #[tracing::instrument]
 /// Run comprehensive health diagnostics on the database
-pub fn cmd_doctor(db_path: &str, fix: bool, force: bool, verbose: bool) -> Result<()> {
-    if fix {
+pub fn cmd_doctor(db_path: &str, opts: DoctorOptions) -> Result<()> {
+    if !matches!(opts.fix, DoctorFix::Off) {
         let pending = pending_safe_repairs(db_path);
-        if !force {
+        if !matches!(opts.fix, DoctorFix::Apply) {
             // Dry-run by default: list, never mutate.
             if pending.is_empty() {
                 print_success("doctor --fix: nothing to fix");
@@ -109,7 +152,7 @@ pub fn cmd_doctor(db_path: &str, fix: bool, force: bool, verbose: bool) -> Resul
         // ponytail: stale `.vanta.lock` / permissions / WAL / user data are
         // intentionally left alone — deleting them risks data loss. Report
         // only; manual review required (GOV-TK1 stop condition).
-        if verbose && pending.is_empty() {
+        if opts.verbose.is_verbose() && pending.is_empty() {
             print_info(
                 "Left alone (manual review if unhealthy): .vanta.lock, WAL segments, user data",
             );
@@ -131,7 +174,7 @@ pub fn cmd_doctor(db_path: &str, fix: bool, force: bool, verbose: bool) -> Resul
     // (incompatible version, invalid header) still errors for manual review.
     let engine = match open_database(db_path, true) {
         Ok(engine) => engine,
-        Err(e) if fix && is_empty_database_state(&e) => {
+        Err(e) if !matches!(opts.fix, DoctorFix::Off) && is_empty_database_state(&e) => {
             spinner.finish_and_clear();
             print_warning(&format!(
                 "Database is empty/uninitialised ({e}); nothing further to diagnose."
@@ -228,7 +271,7 @@ pub fn cmd_doctor(db_path: &str, fix: bool, force: bool, verbose: bool) -> Resul
         header_style().apply_to("╚══════════════════════════════════════════════════════════════╝")
     ));
 
-    if verbose {
+    if opts.verbose.is_verbose() {
         let _ = term.write_line("");
         print_info("Namespaces:");
         for ns in &namespaces {

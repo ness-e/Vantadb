@@ -555,10 +555,11 @@ fn test_backup_and_restore() {
     let result = vantadb::cli_handlers::cmd_restore(
         &restore_path_rebuild,
         &backup_dir,
-        true,
-        false,
-        false,
-        true,
+        vantadb::cli_handlers::RestoreOptions {
+            overwrite: vantadb::cli_handlers::OverwritePolicy::Overwrite,
+            verbose: vantadb::cli_handlers::Verbosity::Verbose,
+            ..Default::default()
+        },
     );
     assert!(
         result.is_ok(),
@@ -576,8 +577,14 @@ fn test_backup_and_restore() {
 
     // Also try without rebuild (original path)
     let restore_path = format!("{}/restored", path);
-    let result =
-        vantadb::cli_handlers::cmd_restore(&restore_path, &backup_dir, true, false, false, false);
+    let result = vantadb::cli_handlers::cmd_restore(
+        &restore_path,
+        &backup_dir,
+        vantadb::cli_handlers::RestoreOptions {
+            overwrite: vantadb::cli_handlers::OverwritePolicy::Overwrite,
+            ..Default::default()
+        },
+    );
     assert!(result.is_ok(), "restore should succeed: {:?}", result);
     assert!(std::path::Path::new(&restore_path).exists());
     assert!(std::path::Path::new(&restore_path)
@@ -636,10 +643,10 @@ fn test_restore_missing_backup() {
     let result = vantadb::cli_handlers::cmd_restore(
         "./dummy",
         "./nonexistent_backup",
-        true,
-        false,
-        false,
-        false,
+        vantadb::cli_handlers::RestoreOptions {
+            overwrite: vantadb::cli_handlers::OverwritePolicy::Overwrite,
+            ..Default::default()
+        },
     );
     assert!(
         result.is_err(),
@@ -657,7 +664,14 @@ fn restore_dry_run_missing_backup_errors() {
         .join("no_such_backup")
         .to_string_lossy()
         .to_string();
-    let result = vantadb::cli_handlers::cmd_restore(&target, &missing, false, false, true, false);
+    let result = vantadb::cli_handlers::cmd_restore(
+        &target,
+        &missing,
+        vantadb::cli_handlers::RestoreOptions {
+            mode: vantadb::cli_handlers::RestoreMode::DryRun,
+            ..Default::default()
+        },
+    );
     assert!(result.is_err(), "dry-run missing backup should error");
     let msg = format!("{:?}", result.unwrap_err());
     assert!(
@@ -718,8 +732,14 @@ fn restore_dry_run_lists_without_mutating() {
     );
 
     // dry-run without --force on an existing target must still succeed (preview).
-    let result =
-        vantadb::cli_handlers::cmd_restore(&tgt_path, &backup_dir, false, false, true, false);
+    let result = vantadb::cli_handlers::cmd_restore(
+        &tgt_path,
+        &backup_dir,
+        vantadb::cli_handlers::RestoreOptions {
+            mode: vantadb::cli_handlers::RestoreMode::DryRun,
+            ..Default::default()
+        },
+    );
     assert!(result.is_ok(), "dry-run should succeed: {:?}", result);
 
     let after_files = snapshot_files_sorted(&tgt_root);
@@ -753,17 +773,37 @@ fn restore_dry_run_lists_without_mutating() {
 
 // ─── doctor ───────────────────────────────────────────────────
 
+/// D2 helper: build `DoctorOptions` without bool-flag call sites.
+fn doc_opts(
+    fix: vantadb::cli_handlers::DoctorFix,
+    verbose: vantadb::cli_handlers::Verbosity,
+) -> vantadb::cli_handlers::DoctorOptions {
+    vantadb::cli_handlers::DoctorOptions { fix, verbose }
+}
+
 #[test]
 fn test_doctor_no_db() {
     let path = "./nonexistent_doctor_test_dir_should_not_exist";
     if std::path::Path::new(path).exists() {
         eprintln!("WARNING: test directory exists, using temp dir instead");
         let (_dir, tmp_path) = setup_temp_db();
-        let result = vantadb::cli_handlers::cmd_doctor(&tmp_path, false, false, false);
+        let result = vantadb::cli_handlers::cmd_doctor(
+            &tmp_path,
+            doc_opts(
+                vantadb::cli_handlers::DoctorFix::Off,
+                vantadb::cli_handlers::Verbosity::Normal,
+            ),
+        );
         assert!(result.is_ok());
         return;
     }
-    let result = vantadb::cli_handlers::cmd_doctor(path, false, false, false);
+    let result = vantadb::cli_handlers::cmd_doctor(
+        path,
+        doc_opts(
+            vantadb::cli_handlers::DoctorFix::Off,
+            vantadb::cli_handlers::Verbosity::Normal,
+        ),
+    );
     assert!(result.is_ok());
 }
 
@@ -771,7 +811,13 @@ fn test_doctor_no_db() {
 fn test_doctor_with_db() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "doc_ns", "k1", "doctor test");
-    let result = vantadb::cli_handlers::cmd_doctor(&path, false, false, false);
+    let result = vantadb::cli_handlers::cmd_doctor(
+        &path,
+        doc_opts(
+            vantadb::cli_handlers::DoctorFix::Off,
+            vantadb::cli_handlers::Verbosity::Normal,
+        ),
+    );
     assert!(result.is_ok(), "doctor should succeed: {:?}", result);
 }
 
@@ -779,7 +825,13 @@ fn test_doctor_with_db() {
 fn test_doctor_verbose() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "doc_v_ns", "k1", "verbose doctor");
-    let result = vantadb::cli_handlers::cmd_doctor(&path, false, false, true);
+    let result = vantadb::cli_handlers::cmd_doctor(
+        &path,
+        doc_opts(
+            vantadb::cli_handlers::DoctorFix::Off,
+            vantadb::cli_handlers::Verbosity::Verbose,
+        ),
+    );
     assert!(
         result.is_ok(),
         "doctor verbose should succeed: {:?}",
@@ -793,7 +845,13 @@ fn test_doctor_fix_dry_run_no_mutation() {
     let dir = tempfile::tempdir().expect("tempdir");
     let missing = dir.path().join("ghost_db").to_string_lossy().to_string();
     assert!(!std::path::Path::new(&missing).exists());
-    let result = vantadb::cli_handlers::cmd_doctor(&missing, true, false, false);
+    let result = vantadb::cli_handlers::cmd_doctor(
+        &missing,
+        doc_opts(
+            vantadb::cli_handlers::DoctorFix::DryRun,
+            vantadb::cli_handlers::Verbosity::Normal,
+        ),
+    );
     assert!(
         result.is_ok(),
         "doctor --fix dry-run should succeed: {:?}",
@@ -810,7 +868,13 @@ fn test_doctor_fix_force_creates_dirs() {
     // GREEN: --fix --force creates the missing database directory (+ data/).
     let dir = tempfile::tempdir().expect("tempdir");
     let missing = dir.path().join("fixed_db").to_string_lossy().to_string();
-    let result = vantadb::cli_handlers::cmd_doctor(&missing, true, true, false);
+    let result = vantadb::cli_handlers::cmd_doctor(
+        &missing,
+        doc_opts(
+            vantadb::cli_handlers::DoctorFix::Apply,
+            vantadb::cli_handlers::Verbosity::Normal,
+        ),
+    );
     assert!(
         result.is_ok(),
         "doctor --fix --force should succeed: {:?}",
@@ -827,9 +891,21 @@ fn test_doctor_fix_nothing_to_fix() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "doc_fix_ns", "k1", "healthy");
     // Healthy DB: dry-run and force both exit 0 with "nothing to fix".
-    let dry = vantadb::cli_handlers::cmd_doctor(&path, true, false, false);
+    let dry = vantadb::cli_handlers::cmd_doctor(
+        &path,
+        doc_opts(
+            vantadb::cli_handlers::DoctorFix::DryRun,
+            vantadb::cli_handlers::Verbosity::Normal,
+        ),
+    );
     assert!(dry.is_ok(), "dry-run on healthy db: {:?}", dry);
-    let forced = vantadb::cli_handlers::cmd_doctor(&path, true, true, false);
+    let forced = vantadb::cli_handlers::cmd_doctor(
+        &path,
+        doc_opts(
+            vantadb::cli_handlers::DoctorFix::Apply,
+            vantadb::cli_handlers::Verbosity::Normal,
+        ),
+    );
     assert!(forced.is_ok(), "force on healthy db: {:?}", forced);
 }
 

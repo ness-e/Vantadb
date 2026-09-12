@@ -11,18 +11,23 @@ use std::sync::OnceLock;
 #[cfg(feature = "opentelemetry")]
 static OTEL_PROVIDER: OnceLock<opentelemetry_sdk::trace::SdkTracerProvider> = OnceLock::new();
 
+/// Where telemetry output goes (`Stderr` for MCP: stdout carries the protocol).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TelemetrySink {
+    Stdout,
+    Stderr,
+}
+
 /// Initialise the tracing subscriber with optional OpenTelemetry and MCP support.
-pub fn init_telemetry(is_mcp: bool, log_format: Option<LogFormat>) {
+pub fn init_telemetry(sink: TelemetrySink, log_format: Option<LogFormat>) {
     let env_filter = EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info"));
     let format = resolve_log_format(log_format);
-    let is_json = matches!(format, LogFormat::Json);
-    let is_full = matches!(format, LogFormat::Full);
 
     #[cfg(feature = "opentelemetry")]
-    _init_telemetry_otel(is_mcp, is_json, is_full, env_filter);
+    _init_telemetry_otel(sink, format, env_filter);
 
     #[cfg(not(feature = "opentelemetry"))]
-    init_telemetry_fmt(is_mcp, is_json, is_full, env_filter);
+    init_telemetry_fmt(sink, format, env_filter);
 }
 
 fn resolve_log_format(log_format: Option<LogFormat>) -> LogFormat {
@@ -42,10 +47,11 @@ fn resolve_log_format(log_format: Option<LogFormat>) -> LogFormat {
 }
 
 #[cfg(not(feature = "opentelemetry"))]
-fn init_telemetry_fmt(is_mcp: bool, is_json: bool, is_full: bool, env_filter: EnvFilter) {
+fn init_telemetry_fmt(sink: TelemetrySink, format: LogFormat, env_filter: EnvFilter) {
     let stderr = || Box::new(std::io::stderr()) as Box<dyn std::io::Write + Send>;
+    let is_mcp = matches!(sink, TelemetrySink::Stderr);
 
-    if is_json {
+    if matches!(format, LogFormat::Json) {
         let sub = tracing_subscriber::fmt()
             .with_env_filter(env_filter)
             .json()
@@ -59,7 +65,7 @@ fn init_telemetry_fmt(is_mcp: bool, is_json: bool, is_full: bool, env_filter: En
         } else {
             sub.init();
         }
-    } else if is_full {
+    } else if matches!(format, LogFormat::Full) {
         let sub = tracing_subscriber::fmt()
             .with_env_filter(env_filter)
             .with_target(true)
@@ -83,7 +89,7 @@ fn init_telemetry_fmt(is_mcp: bool, is_json: bool, is_full: bool, env_filter: En
 }
 
 #[cfg(feature = "opentelemetry")]
-fn _init_telemetry_otel(is_mcp: bool, is_json: bool, is_full: bool, env_filter: EnvFilter) {
+fn _init_telemetry_otel(sink: TelemetrySink, format: LogFormat, env_filter: EnvFilter) {
     use opentelemetry::trace::TracerProvider;
     use opentelemetry_otlp::WithExportConfig;
     use tracing_subscriber::{layer::SubscriberExt, util::SubscriberInitExt, Registry};
@@ -124,11 +130,11 @@ fn _init_telemetry_otel(is_mcp: bool, is_json: bool, is_full: bool, env_filter: 
 
     let subscriber = Registry::default().with(env_filter).with(telemetry);
 
-    if is_mcp {
+    if matches!(sink, TelemetrySink::Stderr) {
         subscriber
             .with(tracing_subscriber::fmt::layer().with_writer(std::io::stderr))
             .init();
-    } else if is_json {
+    } else if matches!(format, LogFormat::Json) {
         subscriber
             .with(
                 tracing_subscriber::fmt::layer()
@@ -139,7 +145,7 @@ fn _init_telemetry_otel(is_mcp: bool, is_json: bool, is_full: bool, env_filter: 
                     .with_line_number(true),
             )
             .init();
-    } else if is_full {
+    } else if matches!(format, LogFormat::Full) {
         subscriber
             .with(
                 tracing_subscriber::fmt::layer()

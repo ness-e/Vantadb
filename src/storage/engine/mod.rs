@@ -39,6 +39,18 @@ use crate::storage::vfile::File;
 
 // ─── Constants ──────────────────────────────────────────────────
 
+/// Whether the caller already holds `insert_lock` (D2: replaces `lock_held` /
+/// `acquire: bool` flags in `consolidate_node_inner`, `evict_cold_nodes_inner`,
+/// `apply_delete_inner`). The lock is non-reentrant: re-acquiring it times out
+/// after `insert_lock_timeout_ms`, so lock-holding callers use `AssumeHeld`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LockPolicy {
+    /// Acquire `insert_lock` for the critical section.
+    Acquire,
+    /// Caller already holds `insert_lock`; do not re-acquire.
+    AssumeHeld,
+}
+
 pub(crate) const FLAG_TOMBSTONE: u32 = 0x8;
 pub(crate) const STORAGE_ALIGNMENT: u64 = 64;
 pub(crate) const MIB: u64 = 1024 * 1024;

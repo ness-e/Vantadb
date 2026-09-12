@@ -19,6 +19,13 @@ pub(crate) enum Permission {
     NamespaceWrite(String),
 }
 
+/// Read vs write access for namespace-scoped checks (D2: replaces `write: bool`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum AccessMode {
+    Read,
+    Write,
+}
+
 /// Configuration for a single role.
 #[derive(Clone)]
 pub(crate) struct RoleConfig {
@@ -60,17 +67,16 @@ impl Rbac {
         }
     }
 
-    pub fn can_access_namespace(&self, role: &str, namespace: &str, write: bool) -> bool {
+    pub fn can_access_namespace(&self, role: &str, namespace: &str, mode: AccessMode) -> bool {
         let roles = self.roles.read();
         match roles.get(role) {
             Some(config) => {
                 if config.permissions.contains(&Permission::Admin) {
                     return true;
                 }
-                let ns_perm = if write {
-                    Permission::NamespaceWrite(namespace.to_string())
-                } else {
-                    Permission::NamespaceRead(namespace.to_string())
+                let ns_perm = match mode {
+                    AccessMode::Write => Permission::NamespaceWrite(namespace.to_string()),
+                    AccessMode::Read => Permission::NamespaceRead(namespace.to_string()),
                 };
                 config.permissions.contains(&ns_perm)
             }
@@ -138,27 +144,27 @@ mod tests {
     #[test]
     fn test_rbac_can_access_namespace_read() {
         let rbac = setup_rbac();
-        assert!(rbac.can_access_namespace("ns_admin", "team", false));
-        assert!(!rbac.can_access_namespace("ns_admin", "other", false));
+        assert!(rbac.can_access_namespace("ns_admin", "team", AccessMode::Read));
+        assert!(!rbac.can_access_namespace("ns_admin", "other", AccessMode::Read));
     }
 
     #[test]
     fn test_rbac_can_access_namespace_write() {
         let rbac = setup_rbac();
-        assert!(rbac.can_access_namespace("ns_admin", "team", true));
-        assert!(!rbac.can_access_namespace("ns_admin", "other", true));
+        assert!(rbac.can_access_namespace("ns_admin", "team", AccessMode::Write));
+        assert!(!rbac.can_access_namespace("ns_admin", "other", AccessMode::Write));
     }
 
     #[test]
     fn test_rbac_admin_can_access_any_namespace() {
         let rbac = setup_rbac();
-        assert!(rbac.can_access_namespace("admin", "anything", true));
-        assert!(rbac.can_access_namespace("admin", "anything", false));
+        assert!(rbac.can_access_namespace("admin", "anything", AccessMode::Write));
+        assert!(rbac.can_access_namespace("admin", "anything", AccessMode::Read));
     }
 
     #[test]
     fn test_rbac_reader_cannot_access_namespace() {
         let rbac = setup_rbac();
-        assert!(!rbac.can_access_namespace("reader", "team", false));
+        assert!(!rbac.can_access_namespace("reader", "team", AccessMode::Read));
     }
 }

@@ -9,9 +9,9 @@ use crate::error::{Error, Result};
 use crate::index::{CPIndex, IndexBackend};
 use crate::node::{NodeTier, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::{
-    EvictionReason, EvictionReport, FreshHnswReport, IndexRebuildReport, LsmReport, MergeReport,
-    PipelineMode, PipelineReport, QuantizationMaintenanceReport, StorageEngine, VacuumReport,
-    FLAG_TOMBSTONE, STORAGE_ALIGNMENT,
+    EvictionReason, EvictionReport, FreshHnswReport, IndexRebuildReport, LockPolicy, LsmReport,
+    MergeReport, PipelineMode, PipelineReport, QuantizationMaintenanceReport, StorageEngine,
+    VacuumReport, FLAG_TOMBSTONE, STORAGE_ALIGNMENT,
 };
 use crate::storage::ops::NodeMetadata;
 use crate::storage::vfile::MmapMut;
@@ -260,11 +260,12 @@ impl StorageEngine {
 
     /// Move a hot node to cold tier, persist metadata, and release mmap pages.
     ///
-    /// `lock_held` indicates the caller already holds `insert_lock` (insert
-    /// paths). In that case the HNSW entry is applied via
-    /// `apply_index_entry_unlocked` instead of re-acquiring the non-reentrant
-    /// lock, which would otherwise time out after `insert_lock_timeout_ms`.
-    fn consolidate_node_inner(&self, node: &UnifiedNode, lock_held: bool) -> Result<()> {
+    /// `policy` indicates whether the caller already holds `insert_lock`
+    /// (insert paths use [`LockPolicy::AssumeHeld`]). In that case the HNSW
+    /// entry is applied via `apply_index_entry_unlocked` instead of
+    /// re-acquiring the non-reentrant lock, which would otherwise time out
+    /// after `insert_lock_timeout_ms`.
+    fn consolidate_node_inner(&self, node: &UnifiedNode, policy: LockPolicy) -> Result<()> {
         self.ensure_writable()?;
 
         // FND-02-M3: when the caller does not already hold insert_lock
@@ -274,10 +275,11 @@ impl StorageEngine {
         // holding it here from the start closes the delete↔consolidate race
         // where a delete between backend.put and the HNSW re-add left a zombie
         // index entry (A), or a completed delete was silently resurrected (B).
-        let _guard = if lock_held {
-            None
-        } else {
-            Some(self.acquire_insert_lock("acquire insert_lock in consolidate_node")?)
+        let _guard = match policy {
+            LockPolicy::AssumeHeld => None,
+            LockPolicy::Acquire => {
+                Some(self.acquire_insert_lock("acquire insert_lock in consolidate_node")?)
+            }
         };
 
         // FND-02-M3: version check under insert_lock — if a concurrent
@@ -360,7 +362,7 @@ impl StorageEngine {
     /// Acquires `insert_lock` internally; for callers that already hold it, use
     /// `Self::consolidate_node_locked`.
     pub fn consolidate_node(&self, node: &UnifiedNode) -> Result<()> {
-        self.consolidate_node_inner(node, false)
+        self.consolidate_node_inner(node, LockPolicy::Acquire)
     }
 
     /// Same as [`Self::consolidate_node`] but assumes the caller already holds
@@ -368,7 +370,7 @@ impl StorageEngine {
     /// re-acquiring the non-reentrant lock. Callers must NOT hold
     /// `volatile_cache`'s write guard — this takes it itself.
     pub(crate) fn consolidate_node_locked(&self, node: &UnifiedNode) -> Result<()> {
-        self.consolidate_node_inner(node, true)
+        self.consolidate_node_inner(node, LockPolicy::AssumeHeld)
     }
 
     /// Evict a fraction of hot nodes from the volatile cache by lowest eviction score.
@@ -378,14 +380,14 @@ impl StorageEngine {
 
     /// Evict a fraction of hot nodes with a specific reason for metrics.
     ///
-    /// `lock_held` propagates to [`Self::consolidate_node_inner`]: when the
+    /// `policy` propagates to [`Self::consolidate_node_inner`]: when the
     /// caller already holds `insert_lock` (insert paths), the eviction runs the
     /// locked variants so the non-reentrant lock is never re-acquired.
     fn evict_cold_nodes_inner(
         &self,
         ratio: f64,
         reason: EvictionReason,
-        lock_held: bool,
+        policy: LockPolicy,
     ) -> Result<EvictionReport> {
         self.ensure_writable()?;
         let ratio = ratio.clamp(0.0, 1.0);
@@ -438,10 +440,9 @@ impl StorageEngine {
         let mut bytes_freed: u64 = 0;
         let mut evicted = 0;
         for (_score, node) in scored.iter().take(target) {
-            let result = if lock_held {
-                self.consolidate_node_locked(node)
-            } else {
-                self.consolidate_node(node)
+            let result = match policy {
+                LockPolicy::AssumeHeld => self.consolidate_node_locked(node),
+                LockPolicy::Acquire => self.consolidate_node(node),
             };
             if result.is_ok() {
                 bytes_freed += node.size() as u64;
@@ -466,7 +467,7 @@ impl StorageEngine {
         ratio: f64,
         reason: EvictionReason,
     ) -> Result<EvictionReport> {
-        self.evict_cold_nodes_inner(ratio, reason, false)
+        self.evict_cold_nodes_inner(ratio, reason, LockPolicy::Acquire)
     }
 
     /// Same as [`Self::evict_cold_nodes_with_reason`] but assumes the caller
@@ -478,7 +479,7 @@ impl StorageEngine {
         ratio: f64,
         reason: EvictionReason,
     ) -> Result<EvictionReport> {
-        self.evict_cold_nodes_inner(ratio, reason, true)
+        self.evict_cold_nodes_inner(ratio, reason, LockPolicy::AssumeHeld)
     }
 
     /// Rebuild the HNSW vector index from scratch by scanning all nodes in the File.

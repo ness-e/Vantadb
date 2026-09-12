@@ -5,7 +5,7 @@
 
 use crate::audit::AuditEvent;
 use crate::metrics;
-use crate::rbac::Permission;
+use crate::rbac::{AccessMode, Permission};
 use crate::server::state::{
     audit_auth, client_ip as state_client_ip, extract_namespace, extract_request_id,
     resolve_identity as state_resolve_identity, AuthIdentity, AuthState, RequestId,
@@ -191,9 +191,13 @@ pub async fn auth_middleware(mut req: Request, next: Next) -> Response {
                 } else {
                     None
                 };
-                let is_write = matches!(req.method().as_str(), "POST" | "PUT" | "PATCH" | "DELETE");
+                let mode = match req.method().as_str() {
+                    "POST" | "PUT" | "PATCH" | "DELETE" => AccessMode::Write,
+                    _ => AccessMode::Read,
+                };
+                let is_write = matches!(mode, AccessMode::Write);
                 let permitted = if let Some(ns) = namespace {
-                    auth.rbac.can_access_namespace(role, &ns, is_write)
+                    auth.rbac.can_access_namespace(role, &ns, mode)
                 } else {
                     // Fallback to global permissions for non-record endpoints or when ns not found
                     let permission = if is_write {

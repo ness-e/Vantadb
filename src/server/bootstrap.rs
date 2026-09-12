@@ -282,7 +282,10 @@ pub async fn build_tls13_config(
 
 /// Start the HTTP (or TLS) server, binding to the address in the config.
 pub async fn run(config: Config) -> Result<()> {
-    init_telemetry(false, Some(config.log_format));
+    init_telemetry(
+        crate::server::telemetry::TelemetrySink::Stdout,
+        Some(config.log_format),
+    );
 
     crate::console::print_banner();
 
