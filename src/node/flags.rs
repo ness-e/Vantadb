@@ -108,14 +108,19 @@ pub enum NodeTier {
     Cold,
 }
 
-/// Trait for tracking access patterns.
-pub trait AccessTracker {
+/// Read-only access statistics for eviction decisions (ISP read side).
+/// Eviction readers depend only on this trait, never on mutators.
+pub trait AccessStats {
     /// Returns the confidence score (0.0–1.0).
     fn confidence_score(&self) -> f32;
     /// Returns the number of hits (access count).
     fn hits(&self) -> u32;
     /// Returns the last access time in Unix milliseconds.
     fn last_accessed(&self) -> u64;
+}
+
+/// Pin / unpin capability (ISP mutation side).
+pub trait Pinnable {
     /// Pin the node in memory (exempt from eviction).
     fn pin(&mut self);
     /// Unpin the node, making it eligible for eviction.
@@ -123,6 +128,11 @@ pub trait AccessTracker {
     /// Returns `true` if the node is pinned.
     fn is_pinned(&self) -> bool;
 }
+
+/// Combined tracking trait (read + pin). Supertrait preserved for compat;
+/// blanket-impl over `AccessStats + Pinnable`, no semantic change.
+pub trait AccessTracker: AccessStats + Pinnable {}
+impl<T: AccessStats + Pinnable> AccessTracker for T {}
 
 #[cfg(test)]
 #[allow(missing_docs)]

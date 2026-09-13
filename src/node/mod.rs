@@ -19,7 +19,7 @@ pub use bitset::{FilterBitset, ALL_BITSET};
 pub use disk::DiskNodeHeader;
 pub use edge::{Edge, EvictionWeights};
 pub use field::{FieldValue, RelFields};
-pub use flags::{AccessTracker, NodeFlags, NodeTier};
+pub use flags::{AccessStats, AccessTracker, NodeFlags, NodeTier, Pinnable};
 pub use unified::UnifiedNode;
 pub use vector_data::{DistanceMetric, SparseVector, VectorRepresentations};
 
