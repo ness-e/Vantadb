@@ -23,7 +23,7 @@ impl Embedded {
             return Ok(Vec::new());
         }
 
-        let budget = crate::planner::hybrid_candidate_budget(top_k, candidate_k);
+        let budget = super::fusion::hybrid_candidate_budget(top_k, candidate_k);
         let lexical_hits = self.lexical_search(namespace, text_query, filters, budget)?;
         let vector_hits = self.vector_memory_search(
             namespace,
@@ -37,9 +37,9 @@ impl Embedded {
             Some(query_sparse) => {
                 let sparse_hits =
                     self.sparse_memory_search(namespace, query_sparse, filters, budget)?;
-                crate::planner::fuse_rrf_many(vec![lexical_hits, vector_hits, sparse_hits], rrf_k)
+                super::fusion::fuse_rrf_many(vec![lexical_hits, vector_hits, sparse_hits], rrf_k)
             }
-            None => crate::planner::fuse_rrf(lexical_hits, vector_hits, rrf_k),
+            None => super::fusion::fuse_rrf(lexical_hits, vector_hits, rrf_k),
         };
         let candidates_fused = hits.len() as u64;
         hits.truncate(top_k);

@@ -1,12 +1,12 @@
 //! Score semantics helpers — canonical scoring contract for VantaDB.
 //!
-//! Thin wrapper over `crate::planner::RRF_K` and `crate::index::distance`
+//! Thin wrapper over `crate::search_profile::RRF_K` and `crate::index::distance`
 //! kernels (ponytail: delegate, no SIMD duplication). Closes FND-06 H3 gap:
 //! adapters duplicated `1.0 - s/2.0` without a single source of truth.
 //!
 //! All helpers are pure `f32` — no alloc, no unsafe, no trust-boundary input.
 
-use crate::planner::RRF_K;
+use crate::search_profile::RRF_K;
 
 /// Reciprocal Rank Fusion contribution for a 1-based wire rank.
 ///

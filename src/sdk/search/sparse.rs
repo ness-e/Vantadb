@@ -67,7 +67,7 @@ impl Embedded {
             }
         }
 
-        crate::planner::sort_hits(&mut hits);
+        super::fusion::sort_hits(&mut hits);
         hits.truncate(top_k);
         Ok(hits)
     }

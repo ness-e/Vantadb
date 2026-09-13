@@ -41,7 +41,7 @@ impl Embedded {
                 explanation: None,
             });
         }
-        crate::planner::sort_hits(&mut hits);
+        super::fusion::sort_hits(&mut hits);
         hits.truncate(top_k);
 
         // Feed search results into cache warmer co-access tracking
@@ -200,7 +200,7 @@ impl Embedded {
                     explanation: None,
                 });
             }
-            crate::planner::sort_hits(&mut hits);
+            super::fusion::sort_hits(&mut hits);
             hits.truncate(top_k);
             if distance_metric == crate::node::DistanceMetric::Euclidean {
                 for hit in hits.iter_mut() {

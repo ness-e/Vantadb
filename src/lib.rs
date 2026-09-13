@@ -120,6 +120,8 @@ pub mod python;
 pub mod query;
 pub(crate) mod rbac;
 pub mod sdk;
+/// Neutral search-profile leaf (C2M3): profile types + RRF/budget consts.
+pub mod search_profile;
 pub mod serialization;
 #[cfg(feature = "server")]
 pub mod server;
