@@ -138,3 +138,9 @@ aliases: []
 - **Fuente:** Plan `docs/plans/2026-09-08-backlog.md` Task 10 (Wave2) · Task file `docs/tasks/BLOG-CTA.md`
 - **Resultado:** ✅ M3/M4 reconciliados (drafts adoptan fechas/títulos web; canonicals a vercel.app; byline why_i_built a ness-e); Regla 11 (59%/750→1195 QPS/10x sin fuente fuera; 4.01x/2.43ms con cita BENCHMARKS §6); CTA cierre en posts idx1,2 web + banner Try-it en `[slug]/page.tsx` + keys ES/EN; drafts 6-7 (Ollama+VantaDB, Claude Code MCP) solo en `docs/blog/` (no live). Contrato: tsc 0 + eslint 0. **Commit:** `ccc9183e` (10 files, 305+/26-). Deuda: dicts ES/EN stale ~90 keys (FIND futuro); plan Task 10 sync a lead.
 
+### C2A2: convencion prefijo--modificador utilities web (Fase 2 Wave 4)
+- **Fecha:** 2026-09-13
+- **Objetivo:** orphan-check (1 huerfana eliminada) + 4 renames (`press--lg/--neon`, `glow--neon/--box`) en ~50 tsx + norma R-FE-7; sin BEM total.
+- **Resultado:** ✅ build web 36/36 + lint 0 (Playwright N/A: 0 clases custom en e2e).
+- **Commit:** 5e2b0e89
+

@@ -264,3 +264,9 @@ Plan `docs/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ en 3 
 - **Plan:** docs/plans/archive/2026-09-11-anti-stutter-cierre.md (+ .budget.json) - 4/4 COMPLETED (AST-008/009/010/011, Wave 1 + Wave 2).
 - **Retrospectiva:** Start: scoped-contract en vez de rg literal (el literal 129 era 100% prosa/wire/dueno-ajeno; el scoped 0/0/0/0/0 si es gate). Stop: dejar avance al orquestador (AST-008/009/010 llegaron a AST-011 sin registro; el cierre tuvo que registrar 4). Continue: triage deny con owner/expiry (patron AST-007 reutilizado sin cambios) + verify-full tras cada borrado + recitation canonica.
 - **Accion medible:** registrar avance en el mismo commit del task (no diferido): m/ma: tasks con avance diferido/total = 3/4 esta campana -> objetivo 0 en la proxima.
+
+## Archivo plan 2026-09-13-cleanCA-fase2 (2026-09-13)
+- **Plan:** docs/plans/archive/2026-09-13-cleanCA-fase2.md - 18/18 COMPLETED (M1,C1,D0,A1,S1,S7,M2,S2,S5,S3,T1,T2,T3,S3b,C2,A2,M3,S6).
+- **Retrospectiva:** Start: verificar estado real por git+task files antes de despachar. Stop: re-despachar sin git log previo; copiar repos como sandbox. Continue: waves por DAG + adaptador 10 + commit atomico + verify del lead.
+- **Accion medible:** sincronizar estados PENDING→COMPLETED al commitear (metrica: 0 divergencias plan-vs-git; baseline: 19 etiquetas stale en este cierre).
+- **DEFER hecho despues:** S6 (DEFER-activo → GO humano → c2cdbf3e) + S3-slice2 CacheLayer (deuda → C2S3b → 836aece3). Sigue DEFER: reorg fisica (gate Fase 3). Futuro: S-split-config (D0 B+B).

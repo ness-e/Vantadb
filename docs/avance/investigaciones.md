@@ -200,3 +200,10 @@ aliases: []
 - **Resultado:** OK (docs-only, wave quality-gtm Task 9, ruta vanta-docs)
 - **Commit:** este mismo commit — `docs(backlog): FUT-12/13/14 roadmap huérfano (RES-09)` (el hash exacto no se auto-referencia: `git log --oneline -1 docs/Backlog.md`)
 - **Dominio:** investigaciones
+
+### C2D0: decision Config monolitico research + ADR-datos (Fase 2 Wave 0)
+- **Fecha:** 2026-09-13
+- **Objetivo:** evidencia git-log-por-seccion (14 commits intra-seccion) + constraints hot-reload/102 sitios/42 env + digest figment/config-rs + ADR-datos; decision humana B+B (split anidado + VANTADB_* mismo cambio; S-split-config futuro).
+- **Resultado:** research cero codigo.
+- **Commit:** 1ca58fa8
+- **Dominio:** investigaciones
