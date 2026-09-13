@@ -1,4 +1,4 @@
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 // vite-plugin-wasm is intentionally absent: it rewrites `import ... from
 // "*.wasm"` into the virtual module `__vite-plugin-wasm-helper`, which
@@ -8,6 +8,12 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   test: {
     include: ["src/**/__tests__/**/*.test.ts", "tests/**/*.test.ts"],
+    // FIRST-Fast (C2T1): load.test.ts (batches 5k/2k, timeout 30s) fuera del default.
+    // Completa: $env:VITEST_FULL="1"; npx vitest run src/__tests__/load.test.ts
+    // (spread obligatorio: redefinir exclude sin configDefaults pierde node_modules/.git).
+    exclude: process.env.VITEST_FULL
+      ? [...configDefaults.exclude]
+      : [...configDefaults.exclude, "src/__tests__/load.test.ts"],
     testTimeout: 30000,
     server: {
       deps: {
