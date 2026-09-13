@@ -53,7 +53,10 @@ async fn main() -> anyhow::Result<()> {
 
     if is_mcp {
         // Init telemetry first (MCP-35 proxy needs tracing before storage open)
-        vantadb::cli_server::init_telemetry(true, Some(config.log_format));
+        vantadb::cli_server::init_telemetry(
+            vantadb::cli_server::TelemetrySink::Stderr,
+            Some(config.log_format),
+        );
         let storage_path = config.storage_path.clone();
         // MCP-35: DatabaseBusy → HTTP proxy fallback (N instances over same DB)
         // `run_stdio_server_auto` handles writer discovery (.vanta.server.json),

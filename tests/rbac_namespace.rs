@@ -143,7 +143,7 @@ async fn ns_admin_role_can_access_any_namespace_record() {
 
 /// Pre-mortem coverage: a role with only `Permission::Read` (no
 /// `NamespaceRead("team")`) MUST NOT silently read across all namespaces.
-/// The middleware must call `can_access_namespace(reader, "team", false)`,
+/// The middleware must call `can_access_namespace(reader, "team", AccessMode::Read)`,
 /// which returns `false` for missing namespace permission → 403.
 #[tokio::test]
 async fn ns_reader_role_cannot_access_namespaced_record() {
@@ -161,7 +161,7 @@ async fn ns_reader_role_cannot_access_namespaced_record() {
 /// (no `NamespaceWrite("team")`) MUST NOT write across all namespaces. We
 /// hit `POST /api/v2/records?namespace=team` (query-param namespace), so
 /// `extract_namespace` picks up `team` and the middleware routes through
-/// `can_access_namespace(writer, "team", true)` → 403 (no
+/// `can_access_namespace(writer, "team", AccessMode::Write)` → 403 (no
 /// `NamespaceWrite("team")` on `writer`).
 #[tokio::test]
 async fn ns_writer_role_cannot_write_namespaced_record_without_namespace_perm() {
