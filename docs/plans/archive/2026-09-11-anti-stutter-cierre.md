@@ -219,10 +219,21 @@ Próxima tarea si completa: AST-011
 === RECITATION AST-011 ===
 Campaign ID: 11eb06a6-bcc5-4894-ad55-697637426a63
 Objetivo activo: AST-011 Verify final + cierre
-Estado: in-progress
-Última acción: S0-S4 completos y verificados mecanicamente
-Resultado: PARTIAL
-Próxima acción: S5 retrospectiva + git mv plan a archive + skill progreso
-Contrato: verificacion: S0 scoped 0/0/0/0/0 + S1 deny/fmt/check verdes + S2 nextest 3142 passed + S3 tsc exit 0 + pytest 75 passed + S4 coverage solo gap conocido FIND-AST010-03 | evidencia: nextest log Temp/opencode/ast011-nextest.log | artefactos: docs/tasks/AST-011.md | invariantes: sin push/publish/tags/CHANGELOG; exclusiones intactas | deuda: FIND-01/02/03 + ADR-041 firma (heredadas) | queda_pendiente: S5 retrospectiva+archivar+progreso, S6 gates+cierre
-Próxima tarea si completa: ninguno (ultima)
+Estado: completed
+Última acción: S0-S6 6/6: gates mecanicos + retrospectiva + archivado .md+budget + avance 4 registros + review approve + 2 commits sin push
+Resultado: OK
+Próxima acción: ninguno (ultima del plan; lead: push + release-plz flow)
+Contrato: verificacion: S0 scoped 0/0/0/0/0 (literal 129=100% excluidas) + deny ok + fmt exit 0 + check 4.34s + nextest 3142 passed/1 skipped 246s + tsc exit 0 + pytest smoke 75 passed + coverage solo gap FIND-AST010-03 + avance-coverage 100% (1038/1038) | evidencia: Temp/opencode/ast011-nextest.log; commits 135afafb+ef8c0dc8 sin push | artefactos: docs/tasks/AST-011.md, docs/plans/archive/2026-09-11-anti-stutter-cierre.md+budget | invariantes: exclusiones intactas; sin push/publish/tags/CHANGELOG | deuda: FIND-01/02/03 + ADR-041 firma (heredadas, con owner) | queda_pendiente: nada (campana 4/4 cerrada; push a cargo del lead)
+Próxima tarea si completa: ninguno
+=== END RECITATION ===
+
+=== RECITATION 4 ===
+Campaign ID: 11eb06a6-bcc5-4894-ad55-697637426a63
+Objetivo activo: AST-011 verify final + cierre
+Estado: completed
+Última acción: vanta-lead COMPLETO 7/7 commits 135afafb+ef8c0dc8, plan archivado
+Resultado: ✅
+Próxima acción: campaña 4/4 completa
+Contrato: deny+fmt+check+nextest3142+tsc+pytest75
+Próxima tarea si completa: ninguna
 === END RECITATION ===
