@@ -89,7 +89,7 @@ impl FileMap {
     }
     fn as_mut_slice(&mut self) -> Result<&mut [u8]> {
         match self {
-            FileMap::ReadOnly(_) => Err(Error::ValidationError {
+            FileMap::ReadOnly(_) => Err(Error::Validation {
                 field: "read_only".into(),
                 reason: "File is read-only".into(),
             }),
@@ -100,7 +100,7 @@ impl FileMap {
     fn flush(&self) -> Result<()> {
         match self {
             FileMap::ReadOnly(_) => Ok(()),
-            FileMap::ReadWrite(m) => m.flush().map_err(Error::IoError),
+            FileMap::ReadWrite(m) => m.flush().map_err(Error::Io),
             FileMap::InMemory(_) => Ok(()),
         }
     }
@@ -178,7 +178,7 @@ impl File {
             OpenOptions::new()
                 .read(true)
                 .open(&path)
-                .map_err(Error::IoError)?
+                .map_err(Error::Io)?
         } else {
             OpenOptions::new()
                 .read(true)
@@ -186,28 +186,28 @@ impl File {
                 .create(true)
                 .truncate(false)
                 .open(&path)
-                .map_err(Error::IoError)?
+                .map_err(Error::Io)?
         };
-        let mut current_size = file.metadata().map_err(Error::IoError)?.len();
+        let mut current_size = file.metadata().map_err(Error::Io)?.len();
         let min_header_size = 64u64;
         if current_size < min_header_size {
             if read_only {
-                return Err(Error::ValidationError {
+                return Err(Error::Validation {
                     field: "file_size".into(),
                     reason: format!("File {} too small", path.display()),
                 });
             }
             current_size = initial_size.max(min_header_size);
-            file.set_len(current_size).map_err(Error::IoError)?;
+            file.set_len(current_size).map_err(Error::Io)?;
         }
         // `map_readonly`/`map_readwrite` carry the (memmap2-only) SAFETY
         // contract: `file` is a valid open handle at the correct size, and the
         // returned mapping is stored in `self.mmap` for the `File`'s
         // lifetime.
         let mut mmap = if read_only {
-            FileMap::ReadOnly(map_readonly(&file).map_err(Error::IoError)?)
+            FileMap::ReadOnly(map_readonly(&file).map_err(Error::Io)?)
         } else {
-            FileMap::ReadWrite(map_readwrite(&file).map_err(Error::IoError)?)
+            FileMap::ReadWrite(map_readwrite(&file).map_err(Error::Io)?)
         };
         if !read_only && current_size >= min_header_size && &mmap.as_slice()[0..4] != b"VFLE" {
             let header = VantaHeader::new(*b"VFLE", VFILE_VERSION, 0);
@@ -220,9 +220,11 @@ impl File {
         }
         let header = VantaHeader::deserialize(&mmap.as_slice()[0..16])?;
         header.validate_compat(*b"VFLE", VFILE_VERSION, "File")?;
-        let cursor = u64::from_le_bytes(mmap.as_slice()[16..24].try_into().map_err(|e| {
-            Error::IoError(std::io::Error::new(std::io::ErrorKind::InvalidData, e))
-        })?);
+        let cursor = u64::from_le_bytes(
+            mmap.as_slice()[16..24]
+                .try_into()
+                .map_err(|e| Error::Io(std::io::Error::new(std::io::ErrorKind::InvalidData, e)))?,
+        );
         let write_cursor = if cursor < STORAGE_ALIGNMENT || cursor > current_size {
             STORAGE_ALIGNMENT
         } else {
@@ -256,7 +258,7 @@ impl File {
     /// Re-map the backing file into a new mutable memory mapping.
     pub(crate) fn remap_mut(&mut self) -> Result<()> {
         if self.read_only {
-            return Err(Error::ValidationError {
+            return Err(Error::Validation {
                 field: "read_only".into(),
                 reason: "read-only".into(),
             });
@@ -264,21 +266,21 @@ impl File {
         if matches!(&self.mmap, FileMap::InMemory(_)) {
             return Ok(());
         }
-        let file = self.file.as_ref().ok_or_else(|| Error::ValidationError {
+        let file = self.file.as_ref().ok_or_else(|| Error::Validation {
             field: "backing_file".into(),
             reason: "no backing file".into(),
         })?;
         // `map_readwrite` carries the (memmap2-only) SAFETY contract: `file` is
         // the existing backing handle at `self.size` bytes; the previous mapping
         // is dropped (safe — memmap2 unmaps on Drop).
-        self.mmap = FileMap::ReadWrite(map_readwrite(file).map_err(Error::IoError)?);
+        self.mmap = FileMap::ReadWrite(map_readwrite(file).map_err(Error::Io)?);
         Ok(())
     }
 
     /// Replace the backing file with a new one at the same path and re-map.
     pub(crate) fn replace_backing_file(&mut self, new_size: u64) -> Result<()> {
         if self.read_only {
-            return Err(Error::ValidationError {
+            return Err(Error::Validation {
                 field: "read_only".into(),
                 reason: "read-only".into(),
             });
@@ -293,7 +295,7 @@ impl File {
             .write(true)
             .create(false)
             .open(&path)
-            .map_err(Error::IoError)?;
+            .map_err(Error::Io)?;
         self.file = Some(new_file);
         self.size = new_size;
         self.remap_mut()
@@ -326,19 +328,19 @@ impl File {
     pub fn write_header(&mut self, offset: u64, header: &DiskNodeHeader) -> Result<()> {
         let header_size = std::mem::size_of::<DiskNodeHeader>() as u64;
         if !offset.is_multiple_of(STORAGE_ALIGNMENT) {
-            return Err(Error::IoError(std::io::Error::new(
+            return Err(Error::Io(std::io::Error::new(
                 std::io::ErrorKind::InvalidInput,
                 "misaligned",
             )));
         }
         let Some(end) = offset.checked_add(header_size) else {
-            return Err(Error::IoError(std::io::Error::new(
+            return Err(Error::Io(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "out of bounds",
             )));
         };
         if end > self.size {
-            return Err(Error::IoError(std::io::Error::new(
+            return Err(Error::Io(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "out of bounds",
             )));
@@ -354,7 +356,7 @@ impl File {
     /// `archive.rs` to reclaim space instead.
     pub fn grow_to(&mut self, new_size: u64) -> Result<()> {
         if new_size < self.size {
-            return Err(Error::ValidationError {
+            return Err(Error::Validation {
                 field: "new_size".into(),
                 reason: format!(
                     "grow_to called with new_size {} < current size {}",
@@ -378,11 +380,11 @@ impl File {
                 // orphaned inode). In memmap2 builds this is msync on the old
                 // mapping — harmless.
                 self.mmap.flush()?;
-                let file = self.file.as_ref().ok_or_else(|| Error::ValidationError {
+                let file = self.file.as_ref().ok_or_else(|| Error::Validation {
                     field: "backing_file".into(),
                     reason: "no backing file".into(),
                 })?;
-                file.set_len(new_size).map_err(Error::IoError)?;
+                file.set_len(new_size).map_err(Error::Io)?;
                 self.size = new_size;
                 self.remap_mut()
             }
@@ -393,7 +395,7 @@ impl File {
     pub fn flush(&self) -> Result<()> {
         #[cfg(feature = "failpoints")]
         {
-            fail::fail_point!("mmap_flush_fail", |_| Err(Error::IoError(
+            fail::fail_point!("mmap_flush_fail", |_| Err(Error::Io(
                 std::io::Error::other("injected")
             )));
         }

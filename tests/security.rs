@@ -42,7 +42,7 @@ mod iql_injection_tests {
             assert!(result.is_err(), "SQL injection pattern should fail: {iql}");
             let err = result.unwrap_err();
             assert!(
-                matches!(err, Error::IqlParseError { .. } | Error::IqlError(_)),
+                matches!(err, Error::IqlParse { .. } | Error::Iql(_)),
                 "Unexpected error for {iql}: {err}"
             );
         }

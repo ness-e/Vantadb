@@ -231,12 +231,12 @@ impl Embedded {
 
     pub(crate) fn checked_stats_value(value: i128, label: &str) -> Result<u64> {
         if value < 0 {
-            return Err(Error::ValidationError {
+            return Err(Error::Validation {
                 field: "stats".into(),
                 reason: format!("text index {label} would go negative"),
             });
         }
-        u64::try_from(value).map_err(|_| Error::ValidationError {
+        u64::try_from(value).map_err(|_| Error::Validation {
             field: "stats".into(),
             reason: format!("text index {label} exceeds supported range"),
         })

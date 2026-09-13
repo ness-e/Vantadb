@@ -150,7 +150,7 @@ pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()>
 
     if !std::path::Path::new(input_path).exists() {
         print_error(&format!("Input file not found: {}", input_path));
-        return Err(crate::error::Error::CliError(ChainedError::msg(format!(
+        return Err(crate::error::Error::Cli(ChainedError::msg(format!(
             "Input file not found: {}",
             input_path
         ))));

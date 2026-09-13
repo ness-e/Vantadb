@@ -55,47 +55,47 @@ impl FjallBackend {
     pub(crate) fn open(path: &str, _config: &Config) -> Result<Self> {
         let db = Database::builder(path)
             .open()
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let default = db
             .keyspace("default", KeyspaceCreateOptions::default)
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let tombstone_storage = db
             .keyspace("tombstone_storage", KeyspaceCreateOptions::default)
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let compressed_archive = db
             .keyspace("compressed_archive", KeyspaceCreateOptions::default)
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let tombstones = db
             .keyspace("tombstones", KeyspaceCreateOptions::default)
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let namespace_index = db
             .keyspace("namespace_index", KeyspaceCreateOptions::default)
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let payload_index = db
             .keyspace("payload_index", KeyspaceCreateOptions::default)
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let text_index = db
             .keyspace("text_index", KeyspaceCreateOptions::default)
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let sparse_index = db
             .keyspace("sparse_index", KeyspaceCreateOptions::default)
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let internal_metadata = db
             .keyspace("internal_metadata", KeyspaceCreateOptions::default)
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let versions = db
             .keyspace("versions", KeyspaceCreateOptions::default)
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         info!("Fjall database opened at '{}'", path);
 
@@ -135,14 +135,14 @@ impl StorageBackend for FjallBackend {
     fn put(&self, partition: BackendPartition, key: &[u8], value: &[u8]) -> Result<()> {
         self.keyspace(partition)
             .insert(key, value)
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
     }
 
     fn get(&self, partition: BackendPartition, key: &[u8]) -> Result<Option<Vec<u8>>> {
         self.keyspace(partition)
             .get(key)
             .map(|opt| opt.map(|slice| slice.to_vec()))
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
     }
 
     fn get_many(
@@ -155,7 +155,7 @@ impl StorageBackend for FjallBackend {
             .filter_map(|k| match ks.get(k) {
                 Ok(Some(val)) => Some(Ok((k.to_vec(), val.to_vec()))),
                 Ok(None) => None,
-                Err(e) => Some(Err(Error::IoError(std::io::Error::other(e.to_string())))),
+                Err(e) => Some(Err(Error::Io(std::io::Error::other(e.to_string())))),
             })
             .collect()
     }
@@ -163,7 +163,7 @@ impl StorageBackend for FjallBackend {
     fn delete(&self, partition: BackendPartition, key: &[u8]) -> Result<()> {
         self.keyspace(partition)
             .remove(key)
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
     }
 
     fn write_batch(&self, ops: Vec<BackendWriteOp>) -> Result<()> {
@@ -187,7 +187,7 @@ impl StorageBackend for FjallBackend {
         }
         batch
             .commit()
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
     }
 
     fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
@@ -196,7 +196,7 @@ impl StorageBackend for FjallBackend {
         for item in ks.iter() {
             let kv = item
                 .into_inner()
-                .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))?;
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
             result.push((kv.0.to_vec(), kv.1.to_vec()));
         }
         Ok(result)
@@ -215,7 +215,7 @@ impl StorageBackend for FjallBackend {
             let (key, value) = match guard.into_inner() {
                 Ok(kv) => kv,
                 Err(e) => {
-                    return Some(Err(Error::IoError(std::io::Error::other(e.to_string()))));
+                    return Some(Err(Error::Io(std::io::Error::other(e.to_string()))));
                 }
             };
             if !key.starts_with(&prefix) {
@@ -237,7 +237,7 @@ impl StorageBackend for FjallBackend {
     fn flush(&self) -> Result<()> {
         self.db
             .persist(PersistMode::SyncAll)
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
     }
 
     /// Checkpoint is not supported by Fjall.

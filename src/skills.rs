@@ -550,7 +550,7 @@ fn str_field(entity: &Entity, name: &str) -> Result<String> {
         .get(name)
         .and_then(FieldValue::as_str)
         .map(str::to_string)
-        .ok_or_else(|| Error::ValidationError {
+        .ok_or_else(|| Error::Validation {
             field: name.into(),
             reason: "missing or wrong type".into(),
         })
@@ -561,7 +561,7 @@ fn int_field(entity: &Entity, name: &str) -> Result<i64> {
         .fields
         .get(name)
         .and_then(FieldValue::as_int)
-        .ok_or_else(|| Error::ValidationError {
+        .ok_or_else(|| Error::Validation {
             field: name.into(),
             reason: "missing or wrong type".into(),
         })
@@ -572,7 +572,7 @@ fn bool_field(entity: &Entity, name: &str) -> Result<bool> {
         .fields
         .get(name)
         .and_then(FieldValue::as_bool)
-        .ok_or_else(|| Error::ValidationError {
+        .ok_or_else(|| Error::Validation {
             field: name.into(),
             reason: "missing or wrong type".into(),
         })
@@ -602,11 +602,11 @@ fn version_from_entity_id(entity_id: &str) -> Result<u64> {
     let version = entity_id
         .split("~v")
         .nth(1)
-        .ok_or_else(|| Error::ValidationError {
+        .ok_or_else(|| Error::Validation {
             field: "entity_id".into(),
             reason: "malformed version entity id".into(),
         })?;
-    version.parse().map_err(|_| Error::ValidationError {
+    version.parse().map_err(|_| Error::Validation {
         field: "entity_id".into(),
         reason: "malformed version entity id".into(),
     })
@@ -663,7 +663,7 @@ fn validate_skill_id(skill_id: &str) -> Result<()> {
 
 fn validate_owner(owner: &str) -> Result<()> {
     if owner.is_empty() || owner.contains(['#', '{', '}', ':']) {
-        return Err(Error::ValidationError {
+        return Err(Error::Validation {
             field: "owner_agent".into(),
             reason: "must be non-empty and must not contain '#', '{', '}' or ':'".into(),
         });
@@ -673,7 +673,7 @@ fn validate_owner(owner: &str) -> Result<()> {
 
 fn validate_name(name: &str) -> Result<()> {
     if name.is_empty() || name.contains(['#', '{', '}', ':']) {
-        return Err(Error::ValidationError {
+        return Err(Error::Validation {
             field: "name".into(),
             reason: "must be non-empty and must not contain '#', '{', '}' or ':'".into(),
         });

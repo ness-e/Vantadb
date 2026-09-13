@@ -18,7 +18,7 @@ pub(crate) fn prevent_path_traversal(path: &str) -> Result<()> {
     let p = std::path::Path::new(path);
     for component in p.components() {
         if component == Component::ParentDir {
-            return Err(VantaError::ValidationError { ... });
+            return Err(VantaError::Validation { ... });
         }
     }
     Ok(())
@@ -28,7 +28,7 @@ pub(crate) fn prevent_path_traversal(path: &str) -> Result<()> {
 **How it works:**
 - Iterates over every path component using `std::path::Component`
 - Rejects any component equal to `Component::ParentDir` (`..`)
-- Returns a `VantaError::ValidationError` with the offending path
+- Returns a `VantaError::Validation` with the offending path
 
 **Paths validated:**
 - Export/import file paths (`export_namespace`, `export_all`, `import_file`)

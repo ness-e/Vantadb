@@ -38,7 +38,7 @@ pub fn cmd_put(
             Err(e) => {
                 spinner.finish_and_clear();
                 print_error(&format!("Invalid vector format: {}", e));
-                return Err(crate::error::Error::CliError(ChainedError::msg(format!(
+                return Err(crate::error::Error::Cli(ChainedError::msg(format!(
                     "Vector must be comma-separated f32 values: {}",
                     e
                 ))));
@@ -94,14 +94,14 @@ pub fn cmd_put(
         let parsed: serde_json::Value = serde_json::from_str(meta_str).map_err(|e| {
             spinner.finish_and_clear();
             print_error(&format!("Invalid metadata JSON: {e}"));
-            crate::error::Error::CliError(ChainedError::msg(format!(
+            crate::error::Error::Cli(ChainedError::msg(format!(
                 "Metadata must be a JSON object, e.g. '{{\"k\":\"v\"}}': {e}"
             )))
         })?;
         let obj = parsed.as_object().ok_or_else(|| {
             spinner.finish_and_clear();
             print_error("Metadata must be a JSON object at the root level");
-            crate::error::Error::CliError(ChainedError::msg(
+            crate::error::Error::Cli(ChainedError::msg(
                 "Metadata must be a JSON object at the root level, e.g. '{\"k\":\"v\"}'",
             ))
         })?;
@@ -111,7 +111,7 @@ pub fn cmd_put(
                 print_error(&format!(
                     "Metadata key '{field}' is reserved for VantaDB internals"
                 ));
-                return Err(crate::error::Error::ValidationError {
+                return Err(crate::error::Error::Validation {
                     field: "metadata".into(),
                     reason: format!("metadata key '{field}' is reserved for VantaDB internals"),
                 });

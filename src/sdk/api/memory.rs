@@ -43,7 +43,7 @@ impl Embedded {
 
     pub(super) fn check_read_only(&self) -> Result<()> {
         if self.config.read_only {
-            return Err(Error::ValidationError {
+            return Err(Error::Validation {
                 field: "read_only".into(),
                 reason: "this operation is not available when VantaDB is opened read-only".into(),
             });
@@ -481,7 +481,7 @@ impl Embedded {
 
         let expected_node_id = memory_node_id(&record.namespace, &record.key);
         if record.node_id != expected_node_id {
-            return Err(Error::ValidationError {
+            return Err(Error::Validation {
                 field: "node_id".into(),
                 reason: format!("node_id does not match deterministic namespace/key hash for namespace='{}' key='{}'", record.namespace, record.key),
             });
@@ -879,7 +879,7 @@ impl Embedded {
         let mut magic = [0u8; 8];
         reader.read_exact(&mut magic)?;
         if &magic != b"VDBJSON\n" {
-            return Err(Error::ValidationError {
+            return Err(Error::Validation {
                 field: "header".into(),
                 reason: format!(
                     "invalid magic bytes: expected VDBJSON\\n, got {:?}",
@@ -891,7 +891,7 @@ impl Embedded {
         let mut version = [0u8; 1];
         reader.read_exact(&mut version)?;
         if version[0] != 0x01 {
-            return Err(Error::ValidationError {
+            return Err(Error::Validation {
                 field: "version".into(),
                 reason: format!("unsupported format version: {}", version[0]),
             });
@@ -906,13 +906,13 @@ impl Embedded {
         reader.read_to_end(&mut buf)?;
 
         let records: Vec<MemoryInput> =
-            serde_json::from_slice(&buf).map_err(|e| Error::ValidationError {
+            serde_json::from_slice(&buf).map_err(|e| Error::Validation {
                 field: "body".into(),
                 reason: format!("JSON deserialization failed: {}", e),
             })?;
 
         if records.len() != total {
-            return Err(Error::ValidationError {
+            return Err(Error::Validation {
                 field: "count".into(),
                 reason: format!("declared {} records but got {}", total, records.len()),
             });

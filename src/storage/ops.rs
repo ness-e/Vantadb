@@ -231,7 +231,7 @@ pub(crate) fn prevent_path_traversal(path: &str) -> Result<()> {
     use std::path::Component;
     for component in std::path::Path::new(path).components() {
         if component == Component::ParentDir {
-            return Err(Error::ValidationError {
+            return Err(Error::Validation {
                 field: "path".into(),
                 reason: format!("Path '{path}' contains '..' traversal — rejected for security"),
             });
@@ -268,26 +268,26 @@ pub(crate) fn resolve_against_base(base: &Path, user_path: &Path) -> Result<std:
 
     // ── 3. canonicalize ────────────────────────────────────────────────
     let canonical = if combined.exists() {
-        combined.canonicalize().map_err(Error::IoError)?
+        combined.canonicalize().map_err(Error::Io)?
     } else {
         let parent = combined.parent().unwrap_or(Path::new("."));
-        let file_name = combined.file_name().ok_or_else(|| Error::ValidationError {
+        let file_name = combined.file_name().ok_or_else(|| Error::Validation {
             field: "path".into(),
             reason: format!(
                 "Path '{}' has no filename component — cannot resolve against base",
                 user_path.display(),
             ),
         })?;
-        let canonical_parent = parent.canonicalize().map_err(Error::IoError)?;
+        let canonical_parent = parent.canonicalize().map_err(Error::Io)?;
         canonical_parent.join(file_name)
     };
 
     // ── 4. verify containment ─────────────────────────────────────────
-    let canonical_base = base.canonicalize().map_err(Error::IoError)?;
+    let canonical_base = base.canonicalize().map_err(Error::Io)?;
     if canonical.starts_with(&canonical_base) {
         Ok(canonical)
     } else {
-        Err(Error::ValidationError {
+        Err(Error::Validation {
             field: "path".into(),
             reason: format!(
                 "Path '{}' resolves to '{}' which is outside the allowed directory '{}'",

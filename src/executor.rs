@@ -152,7 +152,7 @@ impl<'a> Executor<'a> {
     pub fn execute_hybrid(&self, query_string: &str) -> Result<ExecutionResult> {
         let trimmed = query_string.trim_start();
         if trimmed.starts_with('(') {
-            Err(Error::IqlError(ChainedError::msg(
+            Err(Error::Iql(ChainedError::msg(
                 "LISP query execution is not supported (archived 2024-06). Use IQL syntax instead - see docs/api/IQL.md.",
             )))
         } else {
@@ -160,7 +160,7 @@ impl<'a> Executor<'a> {
                 Ok((_, stmt)) => self.execute_statement(stmt),
                 Err(e) => {
                     let (line, col) = iql_error_position(trimmed, &e);
-                    Err(Error::IqlParseError {
+                    Err(Error::IqlParse {
                         msg: e.to_string(),
                         line,
                         col,
@@ -419,7 +419,7 @@ impl<'a> Executor<'a> {
             if let LogicalOperator::Scan { entity } = op {
                 if entity.starts_with("Conflict#") {
                     governor.free_allocation(estimated_mem_cost);
-                    return Err(Error::IqlError(ChainedError::msg(
+                    return Err(Error::Iql(ChainedError::msg(
                         "Conflict# entity scans are not supported (governance framework archived 2024-06).",
                     )));
                 }
@@ -578,7 +578,7 @@ mod tests {
         let (storage, _dir) = setup_storage();
         let ex = Executor::new(&storage);
         let err = ex.execute_hybrid("(match ...)").unwrap_err();
-        assert!(matches!(err, Error::IqlError(_)));
+        assert!(matches!(err, Error::Iql(_)));
         assert!(err.to_string().contains("LISP"));
     }
 
@@ -587,7 +587,7 @@ mod tests {
         let (storage, _dir) = setup_storage();
         let ex = Executor::new(&storage);
         let err = ex.execute_hybrid("NOT_VALID_IQL").unwrap_err();
-        assert!(matches!(err, Error::IqlParseError { .. }));
+        assert!(matches!(err, Error::IqlParse { .. }));
     }
 
     // ── execute_statement: Insert ──

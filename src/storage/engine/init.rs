@@ -177,7 +177,7 @@ impl StorageEngine {
         let lock_file = {
             let lock_path = base_path.join(".vanta.lock");
             if !config.read_only {
-                std::fs::create_dir_all(&base_path).map_err(Error::IoError)?;
+                std::fs::create_dir_all(&base_path).map_err(Error::Io)?;
             }
 
             let file_result = OpenOptions::new()
@@ -195,7 +195,7 @@ impl StorageEngine {
                             id: base_path.join(".vanta.lock").display().to_string(),
                         });
                     } else {
-                        return Err(Error::IoError(e));
+                        return Err(Error::Io(e));
                     }
                 }
             };
@@ -283,7 +283,7 @@ impl StorageEngine {
             BackendKind::RocksDb => Arc::new(RocksDbBackend::open(path, config)?),
             #[cfg(not(feature = "rocksdb"))]
             BackendKind::RocksDb => {
-                return Err(Error::ValidationError {
+                return Err(Error::Validation {
                     field: "backend_feature".into(),
                     reason: "RocksDB backend requires the 'rocksdb' feature".into(),
                 })
@@ -292,7 +292,7 @@ impl StorageEngine {
             BackendKind::Fjall => Arc::new(FjallBackend::open(path, config)?),
             #[cfg(not(feature = "fjall"))]
             BackendKind::Fjall => {
-                return Err(Error::ValidationError {
+                return Err(Error::Validation {
                     field: "backend_feature".into(),
                     reason: "Fjall backend requires the 'fjall' feature".into(),
                 })
@@ -308,7 +308,7 @@ impl StorageEngine {
             });
         }
         if !config.read_only {
-            std::fs::create_dir_all(&data_dir).map_err(Error::IoError)?;
+            std::fs::create_dir_all(&data_dir).map_err(Error::Io)?;
         }
 
         Ok((lock_file, backend, data_dir))

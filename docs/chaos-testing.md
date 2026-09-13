@@ -64,7 +64,7 @@ silent data loss.
 #[cfg(feature = "failpoints")]
 {
     fail::fail_point!("my_new_failpoint", |_| {
-        Err(VantaError::IoError(std::io::Error::other(
+        Err(VantaError::Io(std::io::Error::other(
             "Simulated failure description",
         )))
     });

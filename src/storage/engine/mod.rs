@@ -660,7 +660,7 @@ impl StorageEngine {
         #[cfg(feature = "failpoints")]
         {
             fail::fail_point!("snapshot_create_fail", |_| {
-                Err(crate::error::Error::IoError(std::io::Error::other(
+                Err(crate::error::Error::Io(std::io::Error::other(
                     "Simulated snapshot create I/O failure",
                 )))
             });
@@ -705,7 +705,7 @@ impl StorageEngine {
         #[cfg(feature = "failpoints")]
         {
             fail::fail_point!("snapshot_create_fail", |_| {
-                Err(crate::error::Error::IoError(std::io::Error::other(
+                Err(crate::error::Error::Io(std::io::Error::other(
                     "Simulated snapshot create I/O failure",
                 )))
             });
@@ -806,7 +806,7 @@ impl StorageEngine {
         #[cfg(feature = "failpoints")]
         {
             fail::fail_point!("snapshot_restore_fail", |_| {
-                Err(crate::error::Error::IoError(std::io::Error::other(
+                Err(crate::error::Error::Io(std::io::Error::other(
                     "Simulated snapshot restore I/O failure",
                 )))
             });
@@ -823,7 +823,7 @@ impl StorageEngine {
         // nanosecond stamp avoids collisions between consecutive restores.
         let nanos = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|e| crate::error::Error::IoError(std::io::Error::other(e)))?
+            .map_err(|e| crate::error::Error::Io(std::io::Error::other(e)))?
             .as_nanos();
         let staging = storage_root.join(format!("data.pre_restore_{nanos}"));
         std::fs::rename(&data_dir, &staging)?;
@@ -850,7 +850,7 @@ impl StorageEngine {
                 // staged original is still available.
                 let _ = std::fs::remove_dir_all(&data_dir);
                 let _ = std::fs::rename(&staging, &data_dir);
-                Err(crate::error::Error::IoError(e))
+                Err(crate::error::Error::Io(e))
             }
         }
     }

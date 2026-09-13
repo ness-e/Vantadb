@@ -137,7 +137,7 @@ impl SegmentRegistry {
         let legacy_path = data_dir.join("vector_store.vanta");
         let l0_path = data_dir.join(SegmentLevel::L0.file_name());
         if legacy_path.exists() && !l0_path.exists() {
-            std::fs::rename(&legacy_path, &l0_path).map_err(crate::error::Error::IoError)?;
+            std::fs::rename(&legacy_path, &l0_path).map_err(crate::error::Error::Io)?;
             tracing::info!(
                 "Migrated legacy vector_store.vanta → {}",
                 SegmentLevel::L0.file_name()

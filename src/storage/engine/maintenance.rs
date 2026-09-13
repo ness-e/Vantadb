@@ -57,7 +57,7 @@ impl StorageEngine {
         #[cfg(feature = "failpoints")]
         {
             fail::fail_point!("snapshot_serialize_fail", |_| {
-                Err(crate::error::Error::IoError(std::io::Error::other(
+                Err(crate::error::Error::Io(std::io::Error::other(
                     "Simulated snapshot serialize I/O failure",
                 )))
             });
@@ -207,7 +207,7 @@ impl StorageEngine {
                     self.hnsw.store(new_hnsw);
                 }
                 Err(e) => {
-                    return Err(Error::IoError(e));
+                    return Err(Error::Io(e));
                 }
             }
         } else {
@@ -514,7 +514,7 @@ impl StorageEngine {
         };
 
         if rebuilt.backend.is_mmap() {
-            rebuilt.sync_to_mmap().map_err(Error::IoError)?;
+            rebuilt.sync_to_mmap().map_err(Error::Io)?;
         } else {
             rebuilt
                 .persist_to_file(
@@ -523,7 +523,7 @@ impl StorageEngine {
                         .mmap_path()
                         .unwrap_or(&self.data_dir.join("vector_index.bin")),
                 )
-                .map_err(Error::IoError)?;
+                .map_err(Error::Io)?;
         }
 
         self.hnsw.store(Arc::new(rebuilt));

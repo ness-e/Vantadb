@@ -17,7 +17,7 @@ pub fn cmd_migrate_plan(db_path: &str, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
         print_error(&format!("Database directory not found: {}", db_path));
-        return Err(crate::error::Error::CliError(ChainedError::msg(format!(
+        return Err(crate::error::Error::Cli(ChainedError::msg(format!(
             "Database path does not exist: {}",
             db_path
         ))));
@@ -70,7 +70,7 @@ pub fn cmd_migrate_check(db_path: &str, verbose: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
         print_error(&format!("Database directory not found: {}", db_path));
-        return Err(crate::error::Error::CliError(ChainedError::msg(format!(
+        return Err(crate::error::Error::Cli(ChainedError::msg(format!(
             "Database path does not exist: {}",
             db_path
         ))));
@@ -137,7 +137,7 @@ pub fn cmd_migrate(
     let target = std::path::Path::new(target_path);
     if !target.exists() {
         print_error(&format!("Database directory not found: {}", target_path));
-        return Err(crate::error::Error::CliError(ChainedError::msg(format!(
+        return Err(crate::error::Error::Cli(ChainedError::msg(format!(
             "Database path does not exist: {}",
             target_path
         ))));
@@ -157,7 +157,7 @@ pub fn cmd_migrate(
                     "Unknown format: {}. Valid values: all, vfile, index, wal, schema",
                     format
                 ));
-                return Err(crate::error::Error::CliError(ChainedError::msg(format!(
+                return Err(crate::error::Error::Cli(ChainedError::msg(format!(
                     "Unknown format: {}",
                     format
                 ))));
@@ -196,7 +196,7 @@ pub fn cmd_migrate(
                 "Database schema version {} is newer than this software (max {})",
                 current_header.version, CURRENT_SCHEMA_VERSION
             ));
-            return Err(crate::error::Error::SchemaError(format!(
+            return Err(crate::error::Error::Schema(format!(
                 "Schema version {} is too new for this version of VantaDB",
                 current_header.version
             )));

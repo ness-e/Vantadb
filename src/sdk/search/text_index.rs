@@ -27,7 +27,7 @@ pub(crate) fn ensure_text_index_query_ready(engine: &StorageEngine) -> Result<Te
         });
     };
     if !Embedded::text_index_state_matches_spec(&state) {
-        return Err(Error::ValidationError {
+        return Err(Error::Validation {
             field: "text_index_schema".into(),
             reason:
                 "text_query requires text_index schema v3; reopen writable or run rebuild_index"

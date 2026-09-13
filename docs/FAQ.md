@@ -167,7 +167,7 @@ Common causes:
 | `VantaError::DatabaseBusy` | Another process holds the `.vanta.lock` file |
 | `VantaError::ResourceLimit` | Backpressure eviction threshold was exceeded |
 | `VantaError::WALVersionMismatch` | WAL file was written by an incompatible engine version |
-| `VantaError::SerializationError` | Bincode/serde serialization failure (possible data corruption) |
+| `VantaError::Serialization` | Bincode/serde serialization failure (possible data corruption) |
 
 ### How do I recover from a corrupt WAL?
 

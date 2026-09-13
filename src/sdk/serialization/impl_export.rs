@@ -261,19 +261,19 @@ impl Embedded {
         started: Instant,
     ) -> Result<super::super::types::ExportReport> {
         if let Some(parent) = path.parent() {
-            std::fs::create_dir_all(parent).map_err(Error::IoError)?;
+            std::fs::create_dir_all(parent).map_err(Error::Io)?;
         }
 
-        let file = File::create(path).map_err(Error::IoError)?;
+        let file = File::create(path).map_err(Error::Io)?;
         let mut writer = BufWriter::new(file);
         let records_exported = records.len() as u64;
 
         for record in records {
             let line = export_line_from_record(record);
             serde_json::to_writer(&mut writer, &line).map_err(Error::serialization)?;
-            writer.write_all(b"\n").map_err(Error::IoError)?;
+            writer.write_all(b"\n").map_err(Error::Io)?;
         }
-        writer.flush().map_err(Error::IoError)?;
+        writer.flush().map_err(Error::Io)?;
         crate::metrics::record_export(records_exported);
 
         Ok(super::super::types::ExportReport {
@@ -290,7 +290,7 @@ impl Embedded {
         records: Vec<super::super::types::MemoryRecord>,
     ) -> Result<super::super::types::ImportReport> {
         if self.config.read_only {
-            return Err(Error::ValidationError {
+            return Err(Error::Validation {
                 field: "read_only".into(),
                 reason: "import_records is not available when VantaDB is opened read-only".into(),
             });
@@ -339,20 +339,20 @@ impl Embedded {
     ) -> Result<super::super::types::ImportReport> {
         let resolved = self.resolve_export_path(path.as_ref())?;
         if self.config.read_only {
-            return Err(Error::ValidationError {
+            return Err(Error::Validation {
                 field: "read_only".into(),
                 reason: "import_file is not available when VantaDB is opened read-only".into(),
             });
         }
         let started = Instant::now();
-        let file = File::open(&resolved).map_err(Error::IoError)?;
+        let file = File::open(&resolved).map_err(Error::Io)?;
         let reader = BufReader::new(file);
         let mut records = Vec::new();
         let mut skipped = 0u64;
         let mut errors = 0u64;
 
         for line in reader.lines() {
-            let line = line.map_err(Error::IoError)?;
+            let line = line.map_err(Error::Io)?;
             if line.trim().is_empty() {
                 skipped += 1;
                 continue;

@@ -439,7 +439,7 @@ impl crate::index::VecIndex for IvfIndex {
         // ponytail: IvfIndex is read-only after build; use IvfIndex::build().
         // ERR-031: return an error instead of panicking so callers can
         // propagate the rejection rather than crash.
-        Err(crate::error::Error::ValidationError {
+        Err(crate::error::Error::Validation {
             field: "index".into(),
             reason: "IvfIndex is read-only after build; rebuild via IvfIndex::build()".into(),
         })

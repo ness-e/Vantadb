@@ -55,7 +55,7 @@ pub fn compact_layout(
         return Ok((offset_map, vstore.write_cursor));
     }
     if bfs_order.is_empty() {
-        return Err(Error::ValidationError {
+        return Err(Error::Validation {
             field: "bfs_order".into(),
             reason: "BFS order is empty — refusing to compact (would destroy the database)".into(),
         });
@@ -89,13 +89,13 @@ pub fn compact_layout(
         .create(true)
         .truncate(true)
         .open(&tmp_path)
-        .map_err(Error::IoError)?;
-    tmp_file.set_len(new_file_size).map_err(Error::IoError)?;
+        .map_err(Error::Io)?;
+    tmp_file.set_len(new_file_size).map_err(Error::Io)?;
 
     // `map_readwrite` carries the (memmap2-only) SAFETY contract: tmp_file is a
     // valid, open handle with set_len() called beforehand (writable, valid
     // size); the returned mmap is valid for the file's lifetime.
-    let mut tmp_mmap = map_readwrite(&tmp_file).map_err(Error::IoError)?;
+    let mut tmp_mmap = map_readwrite(&tmp_file).map_err(Error::Io)?;
 
     let mut new_offset_map: HashMap<u128, u64> = HashMap::with_capacity(bfs_order.len());
     let mut write_cursor: u64 = STORAGE_ALIGNMENT;
@@ -116,13 +116,13 @@ pub fn compact_layout(
             let new_vec_offset = new_node_offset + header_size;
             let end = new_vec_offset + vec_size_aligned;
             if end > new_file_size {
-                tmp_mmap.flush().map_err(Error::IoError)?;
+                tmp_mmap.flush().map_err(Error::Io)?;
                 drop(tmp_mmap);
-                tmp_file.set_len(end + 4096).map_err(Error::IoError)?;
+                tmp_file.set_len(end + 4096).map_err(Error::Io)?;
                 // `map_readwrite` carries the (memmap2-only) SAFETY contract:
                 // tmp_file was extended via set_len() before this call and the
                 // previous mmap was dropped, so there is no conflicting mapping.
-                tmp_mmap = map_readwrite(&tmp_file).map_err(Error::IoError)?;
+                tmp_mmap = map_readwrite(&tmp_file).map_err(Error::Io)?;
             }
             let old_data = vstore.mmap_bytes();
             let src_start = old_offset as usize;
@@ -133,7 +133,7 @@ pub fn compact_layout(
             // slice longer than the source and panic copy_from_slice. Validate
             // the source is long enough and abort the compact with an error.
             if src_end > old_data.len() {
-                return Err(Error::IoError(std::io::Error::new(
+                return Err(Error::Io(std::io::Error::new(
                     std::io::ErrorKind::UnexpectedEof,
                     format!(
                         "vstore truncated: node at offset {old_offset} claims {copy_len} bytes \
@@ -156,13 +156,13 @@ pub fn compact_layout(
 
     // AUDREP-04: flush final mmap writes to the OS, then sync + fsync the tmp
     // file so no unwritten garbage is renamed in as if it were a valid store.
-    tmp_mmap.flush().map_err(Error::IoError)?;
+    tmp_mmap.flush().map_err(Error::Io)?;
     drop(tmp_mmap);
-    tmp_file.sync_all().map_err(Error::IoError)?;
-    std::fs::rename(&tmp_path, &vstore_path).map_err(Error::IoError)?;
+    tmp_file.sync_all().map_err(Error::Io)?;
+    std::fs::rename(&tmp_path, &vstore_path).map_err(Error::Io)?;
     // AUDREP-35: a rename is not durable until its parent dir is fsync'd —
     // without this, a crash can revert the swap and resurrect the old file.
-    crate::utils::fs::sync_parent_dir(&vstore_path).map_err(Error::IoError)?;
+    crate::utils::fs::sync_parent_dir(&vstore_path).map_err(Error::Io)?;
     vstore.replace_backing_file(new_file_size)?;
     vstore.write_cursor = write_cursor;
     vstore.save_cursor()?;
