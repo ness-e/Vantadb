@@ -27,7 +27,7 @@ use crate::error::Result;
 use crate::lsm::unpack_offset;
 use crate::node::{FilterBitset, NodeTier, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::StorageEngine;
-use crate::storage::engine::{BufferedWrite, FLAG_TOMBSTONE};
+use crate::storage::engine::{BufferProbe, FLAG_TOMBSTONE};
 use crate::storage::ops::NodeMetadata;
 
 // MCP-15: re-entrancy guard for `prefetch_related`.
@@ -194,39 +194,17 @@ pub(crate) fn now_ms_epoch_millis() -> u64 {
         .as_millis() as u64
 }
 
-/// Scan one txn buffer (newest first): buffered insert → hit, buffered
-/// delete → tombstone-hit, absent → miss.
-fn scan_txn_buffer(buffer: &[BufferedWrite], id: u128) -> Option<Option<UnifiedNode>> {
-    for op in buffer.iter().rev() {
-        match op {
-            BufferedWrite::Insert(n) if n.id == id => return Some(Some(n.clone())),
-            BufferedWrite::Delete(d) if *d == id => return Some(None),
-            _ => {}
-        }
-    }
-    None
-}
-
 impl StorageEngine {
     /// Read-your-writes probe of the active txn buffer. `None` = miss
     /// (caller continues); `Some(Some)` = buffered insert; `Some(None)` =
-    /// buffered delete.
+    /// buffered delete. Delegates to [`TxnManager::probe`](super::txn::TxnManager::probe):
+    /// same lock order and same tombstone/None mapping, no semantic change.
     pub(crate) fn lookup_txn_buffer(&self, id: u128) -> Result<Option<Option<UnifiedNode>>> {
-        let active = self.active_txns.lock();
-        if active.len() != 1 {
-            return Ok(None);
+        match self.txn.probe(id)? {
+            BufferProbe::NoSoleTxn | BufferProbe::Miss => Ok(None),
+            BufferProbe::Insert(n) => Ok(Some(Some(n))),
+            BufferProbe::Delete => Ok(Some(None)),
         }
-        let txn_id = active.iter().next().copied().ok_or_else(|| {
-            crate::error::Error::generic_error(
-                "active transaction set corrupted: len()==1 but no txn id".to_string(),
-            )
-        })?;
-        drop(active);
-        let buffers = self.txn_buffers.lock();
-        let Some(buffer) = buffers.get(&txn_id) else {
-            return Ok(None);
-        };
-        Ok(scan_txn_buffer(buffer, id))
     }
 
     /// Volatile-cache probe (ERR-036: never block the read hot path).

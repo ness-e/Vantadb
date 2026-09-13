@@ -84,8 +84,7 @@ impl StorageEngine {
     /// Returns the number of entries physically removed.
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn gc_mvcc_versions(&self, safe_cutoff: Option<u64>) -> Result<u64> {
-        let cutoff = safe_cutoff
-            .unwrap_or_else(|| self.next_txn_id.load(std::sync::atomic::Ordering::Acquire));
+        let cutoff = safe_cutoff.unwrap_or_else(|| self.txn.stable_id());
 
         let backend = &*self.backend;
         let entries = backend.scan(BackendPartition::Default)?;

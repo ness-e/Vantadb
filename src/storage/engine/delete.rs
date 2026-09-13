@@ -23,20 +23,9 @@ impl StorageEngine {
         // Inside transaction ΓåÆ buffer in the txn's write set; stats, indexes
         // and store writes are applied only at commit (ERR-013).
         {
-            let active = self.active_txns.lock();
-            if !active.is_empty() {
-                if active.len() == 1 {
-                    let txn_id = active.iter().next().copied().ok_or_else(|| {
-                        crate::error::Error::generic_error(
-                            "active transaction set corrupted: len()==1 but no txn id".to_string(),
-                        )
-                    })?;
-                    drop(active);
-                    let mut buffers = self.txn_buffers.lock();
-                    buffers
-                        .entry(txn_id)
-                        .or_default()
-                        .push(BufferedWrite::Delete(id));
+            if self.txn.has_active() {
+                if let Some(txn_id) = self.txn.sole_id() {
+                    self.txn.push(txn_id, BufferedWrite::Delete(id));
                     return Ok(());
                 }
                 return Err(crate::error::Error::InvalidInput(
