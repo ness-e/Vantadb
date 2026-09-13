@@ -9,6 +9,12 @@ import type {
   Metadata,
 } from "./types.js";
 
+/**
+ * Type guard for `MemoryRecord` (namespace/key/payload + version/node_id/timestamps).
+ *
+ * @param r - Unknown value (typically a raw engine record).
+ * @returns True when `r` has the full `MemoryRecord` shape.
+ */
 export function isMemoryRecord(r: unknown): r is MemoryRecord {
   if (r === null || typeof r !== "object") return false;
   const obj = r as Record<string, unknown>;
@@ -25,12 +31,24 @@ export function isMemoryRecord(r: unknown): r is MemoryRecord {
   );
 }
 
+/**
+ * Type guard for `SearchHit` (a `MemoryRecord` plus a numeric `distance`).
+ *
+ * @param h - Unknown value (typically a raw search hit).
+ * @returns True when `h.record` is a `MemoryRecord` and `h.distance` is a number.
+ */
 export function isSearchHit(h: unknown): h is SearchHit {
   if (h === null || typeof h !== "object") return false;
   const obj = h as Record<string, unknown>;
   return isMemoryRecord(obj.record) && typeof obj.distance === "number";
 }
 
+/**
+ * Type guard for `NodeRecord` (graph node metadata: id/dims/edges/scores/tier).
+ *
+ * @param n - Unknown value (typically a raw node record).
+ * @returns True when `n` has the full `NodeRecord` shape (`tier` is `"Hot"` or `"Cold"`).
+ */
 export function isNodeRecord(n: unknown): n is NodeRecord {
   if (n === null || typeof n !== "object") return false;
   const obj = n as Record<string, unknown>;
@@ -60,6 +78,12 @@ const VALID_VALUE_TYPES = [
   "ListBool",
 ] as const;
 
+/**
+ * Type guard for a tagged `Value` (single-key object with a known variant tag).
+ *
+ * @param v - Unknown value (typically a metadata field value).
+ * @returns True when `v` is a single-key object whose key is a known variant (`Null` requires a nullish payload).
+ */
 export function isValidValue(v: unknown): v is Value {
   if (v === null || typeof v !== "object") return false;
   const obj = v as Record<string, unknown>;
@@ -71,11 +95,26 @@ export function isValidValue(v: unknown): v is Value {
   return true;
 }
 
+/**
+ * Type guard for `Metadata` (every field value passes {@link isValidValue}).
+ *
+ * @param m - Unknown value (typically a record metadata dict).
+ * @returns True when `m` is an object whose values are all valid `Value`s.
+ */
 export function isMetadata(m: unknown): m is Metadata {
   if (m === null || typeof m !== "object") return false;
   return Object.values(m).every(isValidValue);
 }
 
+/**
+ * Type guard for a non-empty finite `number[]` vector input.
+ *
+ * Non-throwing counterpart of {@link validateVector}: returns false instead
+ * of throwing `DbError(VALIDATION_ERROR)`.
+ *
+ * @param v - Unknown value (typically a user-supplied embedding).
+ * @returns True when `v` is a non-empty array of finite numbers.
+ */
 export function isValidVector(v: unknown): v is number[] {
   if (!Array.isArray(v)) return false;
   if (v.length === 0) return false;
