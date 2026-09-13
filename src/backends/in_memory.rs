@@ -12,11 +12,10 @@
 //! on disk at the provided path. This backend replaces only the RocksDB
 //! key-value layer, not the entire storage stack.
 
-use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
-use crate::error::{Error, Result};
+use crate::backend::{BackendPartition, BackendWriteOp, Scannable, StorageBackend};
+use crate::error::Result;
 use parking_lot::RwLock;
 use std::collections::{BTreeMap, HashMap};
-use std::path::Path;
 
 /// In-memory `StorageBackend` implementation backed by a `BTreeMap` per partition.
 ///
@@ -106,6 +105,19 @@ impl StorageBackend for InMemoryBackend {
         Ok(())
     }
 
+    fn capabilities(&self) -> crate::backend::BackendCapabilities {
+        crate::backend::BackendCapabilities {
+            supports_checkpoint: false,
+            supports_manual_compaction: false,
+            kind: crate::backend::BackendKind::InMemory,
+        }
+    }
+}
+
+/// InMemory serves the scan role (every backend does). Snapshot and
+/// compaction roles are NOT implemented: non-support is declared via
+/// `as_*() == None` + `capabilities()`, not via runtime-only discovery.
+impl Scannable for InMemoryBackend {
     fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         let parts = self.partitions.read();
         Ok(parts
@@ -133,22 +145,6 @@ impl StorageBackend for InMemoryBackend {
             .map(|(k, v)| (k.clone(), v.clone()))
             .collect();
         Ok(Box::new(collected.into_iter().map(Ok)))
-    }
-
-    fn checkpoint(&self, _path: &Path) -> Result<()> {
-        Err(Error::backend_error(
-            "Checkpoint not supported by InMemoryBackend",
-        ))
-    }
-
-    // compact() inherits the default no-op from the trait.
-
-    fn capabilities(&self) -> crate::backend::BackendCapabilities {
-        crate::backend::BackendCapabilities {
-            supports_checkpoint: false,
-            supports_manual_compaction: false,
-            kind: crate::backend::BackendKind::InMemory,
-        }
     }
 }
 

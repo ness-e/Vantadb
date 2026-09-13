@@ -260,16 +260,23 @@ impl StorageEngine {
     }
 
     /// Request backend compaction.
+    ///
+    /// Only backends implementing the [`Compactable`](crate::backend::Compactable) role compact; the
+    /// rest skip with the same info log as before (same observable
+    /// behavior: only RocksDB compacts). A typed `Result<bool>` replaces
+    /// the old silent no-op, and failures warn instead of vanishing.
     pub fn request_compaction(&self) {
-        if !self.supports_manual_compaction() {
+        let Some(compactable) = self.backend.as_compactable() else {
             tracing::info!(
                 "Maintenance requested manual disk compaction, but it was skipped. \
                 The active backend ({:?}) manages compaction automatically. This is expected behavior.",
                 self.backend_kind()
             );
             return;
+        };
+        if let Err(e) = compactable.compact() {
+            tracing::warn!("Manual compaction failed: {e}");
         }
-        self.backend.compact();
     }
 
     /// Return the capabilities descriptor of the active KV backend.

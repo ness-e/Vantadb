@@ -589,16 +589,21 @@ impl StorageEngine {
     }
 
     /// Create a checkpoint (live snapshot) of the backend for backup purposes.
+    ///
+    /// Only backends implementing the [`Snapshotable`](crate::backend::Snapshotable) role support this.
+    /// Others get the same honest `backend_error` as before — non-support
+    /// is declared in the type (`as_snapshotable() == None`), not
+    /// discovered at runtime.
     pub fn create_life_insurance(&self, timestamp_name: &str) -> Result<()> {
         self.ensure_writable()?;
-        if !self.supports_checkpoint() {
+        let Some(snapshotable) = self.backend.as_snapshotable() else {
             return Err(Error::backend_error(format!(
                 "Checkpoint (live snapshot) is not supported by the {:?} backend. \
                 Live backups are not available natively. Please use filesystem-level snapshots (e.g., EBS, ZFS, LVM) \
                 or perform a cold backup by safely shutting down the database process and copying the data directory.",
                 self.backend_kind()
             )));
-        }
+        };
 
         let mut save_path = std::path::PathBuf::from("./vantadb_snapshots");
         if let Ok(override_dir) = std::env::var("VANTA_BACKUP_DIR") {
@@ -606,7 +611,7 @@ impl StorageEngine {
         }
         save_path.push(timestamp_name);
 
-        self.backend.checkpoint(&save_path)
+        snapshotable.checkpoint(&save_path)
     }
 
     /// Run periodic quantization maintenance (PERF-09).

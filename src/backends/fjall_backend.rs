@@ -17,15 +17,16 @@
 //! ## Limitations vs RocksDB
 //!
 //! - **No checkpoint**: Fjall does not expose a point-in-time snapshot-to-disk
-//!   API. `checkpoint()` returns an explicit error.
+//!   API, so it does NOT implement the `Snapshotable` role
+//!   (`as_snapshotable() == None`, `supports_checkpoint == false`).
 //! - **No manual compaction**: Fjall manages compaction internally via its
-//!   LSM background threads. `compact()` is a no-op.
+//!   LSM background threads, so it does NOT implement the `Compactable`
+//!   role (`as_compactable() == None`).
 
-use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
+use crate::backend::{BackendPartition, BackendWriteOp, Scannable, StorageBackend};
 use crate::config::Config;
 use crate::error::{Error, Result};
 use fjall::{Database, Keyspace, KeyspaceCreateOptions, PersistMode};
-use std::path::Path;
 use tracing::info;
 
 /// Fjall-backed implementation of `StorageBackend`.
@@ -190,6 +191,34 @@ impl StorageBackend for FjallBackend {
             .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
     }
 
+    /// Flush pending writes to durable storage.
+    ///
+    /// Uses `PersistMode::SyncAll` which calls `fsync` on both data and
+    /// metadata, providing the strongest durability guarantee Fjall offers.
+    ///
+    /// Per Fjall docs: "Persisting only affects durability, NOT consistency.
+    /// Even without flushing data is crash-safe." The journal architecture
+    /// provides crash consistency regardless; this call ensures data survives
+    /// power loss.
+    fn flush(&self) -> Result<()> {
+        self.db
+            .persist(PersistMode::SyncAll)
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
+    }
+
+    fn capabilities(&self) -> crate::backend::BackendCapabilities {
+        crate::backend::BackendCapabilities {
+            supports_checkpoint: false,
+            supports_manual_compaction: false,
+            kind: crate::backend::BackendKind::Fjall,
+        }
+    }
+}
+
+/// Fjall serves the scan role. Snapshot and compaction roles are NOT
+/// implemented (Fjall exposes no point-in-time snapshot or manual
+/// compaction API): callers see `as_*() == None` + `capabilities()`.
+impl Scannable for FjallBackend {
     fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         let ks = self.keyspace(partition);
         let mut result = Vec::new();
@@ -223,49 +252,6 @@ impl StorageBackend for FjallBackend {
             }
             Some(Ok((key.to_vec(), value.to_vec())))
         })))
-    }
-
-    /// Flush pending writes to durable storage.
-    ///
-    /// Uses `PersistMode::SyncAll` which calls `fsync` on both data and
-    /// metadata, providing the strongest durability guarantee Fjall offers.
-    ///
-    /// Per Fjall docs: "Persisting only affects durability, NOT consistency.
-    /// Even without flushing data is crash-safe." The journal architecture
-    /// provides crash consistency regardless; this call ensures data survives
-    /// power loss.
-    fn flush(&self) -> Result<()> {
-        self.db
-            .persist(PersistMode::SyncAll)
-            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
-    }
-
-    /// Checkpoint is not supported by Fjall.
-    ///
-    /// Fjall does not expose a point-in-time consistent snapshot-to-disk API
-    /// equivalent to RocksDB's `Checkpoint::create_checkpoint`. Returning an
-    /// honest error rather than simulating with unsafe file copies.
-    fn checkpoint(&self, _path: &Path) -> Result<()> {
-        Err(Error::backend_error(
-            "Checkpoint not supported by FjallBackend: Fjall does not expose a \
-             point-in-time snapshot-to-disk API equivalent to RocksDB checkpoints",
-        ))
-    }
-
-    /// No-op: Fjall manages LSM compaction automatically via internal
-    /// background threads. No manual compaction trigger is needed or
-    /// exposed for this use case.
-    fn compact(&self) {
-        // Fjall's LSM engine (lsm-tree crate) runs automatic background
-        // compaction. There is no public manual compaction API to call here.
-    }
-
-    fn capabilities(&self) -> crate::backend::BackendCapabilities {
-        crate::backend::BackendCapabilities {
-            supports_checkpoint: false,
-            supports_manual_compaction: false,
-            kind: crate::backend::BackendKind::Fjall,
-        }
     }
 }
 
@@ -435,17 +421,20 @@ mod tests {
     }
 
     #[test]
-    fn test_fjall_checkpoint_not_supported() {
+    fn test_fjall_snapshot_role_absent() {
         let (b, _dir) = open_fjall();
-        let dir = tempdir().unwrap();
-        let err = b.checkpoint(dir.path()).unwrap_err();
-        assert!(err.to_string().contains("not supported"));
+        // Fjall does NOT implement Snapshotable (no native snapshot API):
+        // non-support is declared in the type, not discovered at runtime.
+        assert!(b.as_snapshotable().is_none());
+        assert!(!b.capabilities().supports_checkpoint);
     }
 
     #[test]
-    fn test_fjall_compact_noop() {
+    fn test_fjall_compact_role_absent() {
         let (b, _dir) = open_fjall();
-        b.compact(); // should not panic
+        // Fjall manages LSM compaction internally: no Compactable role.
+        assert!(b.as_compactable().is_none());
+        assert!(!b.capabilities().supports_manual_compaction);
     }
 
     #[test]

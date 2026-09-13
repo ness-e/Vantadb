@@ -22,7 +22,9 @@
 //!
 //! `// ponytail: doc justifies Leiden false positive without trait refactor; extract trait if real SCC emerges`
 
-use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
+use crate::backend::{
+    BackendPartition, BackendWriteOp, Compactable, Scannable, Snapshotable, StorageBackend,
+};
 use crate::config::Config;
 use crate::error::{Error, Result};
 use rocksdb::checkpoint::Checkpoint;
@@ -282,6 +284,33 @@ impl StorageBackend for RocksDbBackend {
             .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
     }
 
+    fn flush(&self) -> Result<()> {
+        let mut flush_opt = FlushOptions::default();
+        flush_opt.set_wait(true);
+        self.db
+            .flush_opt(&flush_opt)
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
+    }
+
+    fn capabilities(&self) -> crate::backend::BackendCapabilities {
+        crate::backend::BackendCapabilities {
+            supports_checkpoint: true,
+            supports_manual_compaction: true,
+            kind: crate::backend::BackendKind::RocksDb,
+        }
+    }
+
+    fn as_snapshotable(&self) -> Option<&dyn Snapshotable> {
+        Some(self)
+    }
+
+    fn as_compactable(&self) -> Option<&dyn Compactable> {
+        Some(self)
+    }
+}
+
+/// RocksDB serves the scan role like every backend.
+impl Scannable for RocksDbBackend {
     fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         let cf = self.cf_handle(partition)?;
         let mut result = Vec::new();
@@ -316,15 +345,10 @@ impl StorageBackend for RocksDbBackend {
             Some(Ok((k.to_vec(), v.to_vec())))
         })))
     }
+}
 
-    fn flush(&self) -> Result<()> {
-        let mut flush_opt = FlushOptions::default();
-        flush_opt.set_wait(true);
-        self.db
-            .flush_opt(&flush_opt)
-            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
-    }
-
+/// RocksDB is the only backend with a native point-in-time snapshot API.
+impl Snapshotable for RocksDbBackend {
     fn checkpoint(&self, path: &Path) -> Result<()> {
         let cp = Checkpoint::new(&self.db).map_err(|e| {
             Error::Io(std::io::Error::other(format!(
@@ -344,20 +368,17 @@ impl StorageBackend for RocksDbBackend {
             )))
         })
     }
+}
 
-    fn compact(&self) {
+/// RocksDB is the only backend with real manual compaction.
+/// Returns `Ok(true)`: compaction was requested and ran.
+impl Compactable for RocksDbBackend {
+    fn compact(&self) -> Result<bool> {
         let mut c_opts = rocksdb::CompactOptions::default();
         c_opts.set_exclusive_manual_compaction(false);
         self.db
             .compact_range_opt(None::<&[u8]>, None::<&[u8]>, &c_opts);
-    }
-
-    fn capabilities(&self) -> crate::backend::BackendCapabilities {
-        crate::backend::BackendCapabilities {
-            supports_checkpoint: true,
-            supports_manual_compaction: true,
-            kind: crate::backend::BackendKind::RocksDb,
-        }
+        Ok(true)
     }
 }
 
@@ -496,7 +517,10 @@ mod tests {
         let cp_path = base.path().join("checkpoint");
         b.put(BackendPartition::Default, b"ck", b"cv").unwrap();
         b.flush().unwrap();
-        b.checkpoint(&cp_path).unwrap();
+        b.as_snapshotable()
+            .expect("RocksDB implements Snapshotable")
+            .checkpoint(&cp_path)
+            .unwrap();
 
         assert!(cp_path.join("CURRENT").exists());
     }
@@ -504,7 +528,12 @@ mod tests {
     #[test]
     fn test_rocksdb_compact() {
         let (b, _dir) = open_rocksdb();
-        b.compact(); // should not panic
+        // Typed outcome: Ok(true) = compaction ran (was silent no-op before).
+        assert!(b
+            .as_compactable()
+            .expect("RocksDB implements Compactable")
+            .compact()
+            .unwrap());
     }
 
     #[test]
