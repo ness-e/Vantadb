@@ -270,3 +270,5 @@ vantadb-node/node_modules/
 # Task-system runtime state (auto-generated)
 .opencode/task-system/enforcement/sessions/
 docs/plans/*.budget.json
+
+docs/reviews/dsm-baseline.json
