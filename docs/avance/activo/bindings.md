@@ -907,3 +907,9 @@ aliases: []
 - **Objetivo:** Gates finales post-borrado (deny/fmt/check + nextest + tsc + pytest smoke + coverage) + retrospectiva + archivar plan.
 - **Resultado:** ✅ deny ok + fmt 0 + check 4.34s + nextest 3142 passed/1 skipped + tsc 0 + pytest smoke 75 passed + coverage solo gap conocido FIND-AST010-03.
 - **Commit:** (archivado, sin push)
+
+### C2C2: documentar API publica bindings TS+Python+WASM baseline (Fase 2 Wave 4)
+- **Fecha:** 2026-09-13
+- **Objetivo:** JSDoc 11 exports TS + numpydoc/stubs Python + `cargo doc` WASM warn→deny; cero firmas.
+- **Resultado:** ✅ tsc/eslint + stub_drift 7 + doc deny + coverage 0 gaps.
+- **Commit:** 0ed0880c

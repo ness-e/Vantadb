@@ -334,3 +334,9 @@ aliases: []
 - **Objetivo:** gate pre-publish (semver major, deny, verify) + barrido cero-remanentes + rollback plan + retrospectiva + archivar plan. Sin publish (via release-plz al mergear a main).
 - **Resultado:** ✅ semver-checks major 15/0 (FormatKind::VantaFile removida, QueryResult struct->enum + drift develop) + deny exit 0 (RUSTSEC-2023-0071 triaged HS256-only, stale RUSTSEC-2026-0253 removido) + just verify exit 0 (fmt + clippy -D warnings + nextest 3143 passed/1 skipped + deny); migracion 38 pares del mapa en 102 ficheros downstream (346 errores clippy -D warnings) + VantaFileMap->FileMap + WasmMemoryInput; superficie Python preservada (pyclass/m.add/repr).
 - **Commit:** 8fb3dd77 (+59b7b46c archiva plan)
+
+### C2M1: baseline metricas Ca/Ce/I/A/D + gate ADP informativo (Fase 2 Wave 0)
+- **Fecha:** 2026-09-13
+- **Objetivo:** termometros pineados (cargo-modules 0.27 + cargo-coupling 0.4.0 + rust-dsm@5950a18) + JSON archivado + workflow informativo no bloqueante + tabla baseline.
+- **Resultado:** ✅ 352 modulos/6207 couplings/health C + 13 SCC + acyclic artefacto documentado.
+- **Commit:** 90aeca88

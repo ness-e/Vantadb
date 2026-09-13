@@ -592,3 +592,74 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** 38 pub Vanta* -> nombres limpios (mapa) + pub type Viejo=Nuevo deprecated en 5 niveles; 0 cambios serde.
 - **Resultado:** OK check 0 + clippy-all-targets-all-features 0 + fmt 0 + nextest 2145/1 + mcp-alias-E2E 0 errores.
 - **Commit:** 97e29cac
+
+### C2C1: limpieza comentarios redundantes guia 2.4 (Fase 2 Wave 0)
+- **Fecha:** 2026-09-13
+- **Objetivo:** solo-borrado en 5 archivos (in_memory/accumulator/flat/crud/tests mojibake); excepciones valiosas intactas (AUDREP-55, MEM-01).
+- **Resultado:** ✅ fmt + nextest 211/211.
+- **Commit:** a5d3d40a
+### C2A1: boundaries + doctrina hibrida + regla anti-ciclo (Fase 2 Wave 0)
+- **Fecha:** 2026-09-13
+- **Objetivo:** `docs/architecture/BOUNDARIES.md` (owners + BND-01…08 + ciclo storage-index como deuda + gate Fase 3) + enlace ARCHITECTURE.md.
+- **Resultado:** ✅ docs-only, cero `src/`.
+- **Commit:** e12a3871
+### C2S1: segregar StorageBackend en roles (Fase 2 Wave 1)
+- **Fecha:** 2026-09-13
+- **Objetivo:** 12 metodos → `Scannable`/`Snapshotable`/`Compactable` `pub(crate)` + checkpoint/compact honestos; 4 backends.
+- **Resultado:** ✅ backends 77/77 + maintenance/stats 131/131 + clippy/fmt 0.
+- **Commit:** eaa166d9
+### C2S7: partir AccessTracker en AccessStats+Pinnable (Fase 2 Wave 1)
+- **Fecha:** 2026-09-13
+- **Objetivo:** ISP: lectores de eviccion solo contra `AccessStats`; blanket-impl compat.
+- **Resultado:** ✅ node 209 + eviction 24 + fmt.
+- **Commit:** 96ebd9ec
+### C2M2: puerto EntityRepository en entity/ (Fase 2 Wave 1)
+- **Fecha:** 2026-09-13
+- **Objetivo:** trait DDD + `EntityStore` adaptador + `checker.rs`/`state.rs` a `&dyn`; 0 tests tocados.
+- **Resultado:** ✅ entity 46/46 + fmt.
+- **Commit:** 3c5beb72
+### C2S2: registry/factory de backends OCP (Fase 2 Wave 2)
+- **Fecha:** 2026-09-13
+- **Objetivo:** `BackendRegistry` + init/config consumen + backend ficticio sin tocar init; `handlers.rs` fuera.
+- **Resultado:** ✅ backend 80/80 + registry/kind 10/10 + config 54/54 + storage 445/445.
+- **Commit:** e5dc9022
+### C2S5: partir Executor por variante de Statement (Fase 2 Wave 2)
+- **Fecha:** 2026-09-13
+- **Objetivo:** 7 ramas → helpers por variante + embedding; correccion: split por variante (parse/auth viven fuera).
+- **Resultado:** ✅ executor 24/24 + integracion 27/27 + clippy/fmt.
+- **Commit:** a7df92bc
+### C2S3: extraer TxnManager de StorageEngine slice-txn (Fase 2 Wave 2)
+- **Fecha:** 2026-09-13
+- **Objetivo:** `TxnManager` `pub(crate)` + delegacion 1:1 + 7 tests; 26→24 campos; bench en CI al mergear.
+- **Resultado:** ✅ storage 452 + backend 80 + clippy/fmt; acyclic sin ciclos nuevos.
+- **Commit:** cdb15b3e
+### C2T1: aislar tests lentos intra-binario (Fase 2 Wave 3)
+- **Fecha:** 2026-09-13
+- **Objetivo:** `#[ignore]` core.rs + vitest env-gate `VITEST_FULL` + doc suite completa (Step 1 superado por C2T2).
+- **Resultado:** ✅ default 0 run + `--run-ignored all` 1 passed + vitest FULL 1 passed.
+- **Commit:** ed36bcbd
+### C2T2: determinismo seeds + clock inyectable (Fase 2 Wave 3)
+- **Fecha:** 2026-09-13
+- **Objetivo:** `StdRng::seed_from_u64` + `Clock`/`ManualClock`/`with_clock` + TTL sin sleep; 3 corridas.
+- **Resultado:** ✅ message_thread 6/6 x3 + index::core 13+1 x3 + clippy/fmt.
+- **Commit:** 930fc828
+### C2T3: AAA Act bulk en load/certification (Fase 2 Wave 3)
+- **Fecha:** 2026-09-13
+- **Objetivo:** un Act bulk por test + banners ordenados; loops verify solo-lectura conservados.
+- **Resultado:** ✅ vitest load 6/6 + cert 36/36 + fmt/clippy/tsc/eslint.
+- **Commit:** a075fe36
+### C2S3b: extraer CacheLayer de StorageEngine slice-2 (Fase 2 Wave 3.5)
+- **Fecha:** 2026-09-13
+- **Objetivo:** `CacheLayer` `pub(crate)` 5 campos + delegacion 1-token + tests; 24→20 campos; ERR-037 intacto.
+- **Resultado:** ✅ storage 456 + lib 2078 + structured_api_v2 + clippy/fmt.
+- **Commit:** 836aece3
+### C2M3: romper ciclos sdk-planner-query con hoja neutral (Fase 2 Wave 5)
+- **Fecha:** 2026-09-13
+- **Objetivo:** `search_profile.rs` + `fusion.rs` (inversion fns→sdk); `RelOp` se queda; `crate::planner::` en sdk = 0.
+- **Resultado:** ✅ planner 10 + sdk 438 + query 77 + parser 117 + scores 11 + fusion 25 + clippy/fmt.
+- **Commit:** beedebc4
+### C2S6: registro OperatorRegistry + Dedup sin tocar planner/executor (Fase 2 Wave 5)
+- **Fecha:** 2026-09-13
+- **Objetivo:** `OperatorRegistry` dispatch-by-name + operador-ejemplo `Dedup[field]` + test extension 4/4 + docs/api mismo PR.
+- **Resultado:** ✅ scopes 209/209 + extension 4/4 + check/clippy/fmt (acyclic global rojo pre-existente exceptuado BND-03).
+- **Commit:** c2cdbf3e
