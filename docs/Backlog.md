@@ -606,7 +606,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Descripción (→ Resultado) | Archivos clave | Esfuerzo | Prioridad | Estado |
 |---|---|---|---|---|---|
-| `SHOW-01` | **`examples/README.md` índice**: tabla ejemplo → qué demuestra → comando CI (`cargo run --example <n>`, `pytest`) + nota TS fuera del árbol + enlace a showcase/playground | `examples/README.md` (nuevo) | 🟢 2h | 🟠 Media-Alta | ⬜ Pendiente |
 | `SHOW-02` | **Recetas clicables del playground** (5-6: RAG, híbrido, grafo, TTL, batch, persistencia) reutilizando `CodePlayground` + iframe WASM existente | `web/src/app/playground/`, `web/src/components/vanta/code-playground*` | 🟡 2-3d | 🟠 Media-Alta | ⬜ Pendiente |
 | `SHOW-03` | **Prototipo estrella RAG-sobre-PDFs** (subir PDF → chunk → embed → chat con citas, 100% local): reusa `haystack_documentstore.py` + `embed-local`; corre con 1 comando, sin credenciales obligatorias | `examples/` (nuevo `rag_pdf_chat/`) | 🟠 3-5d | 🔴 Alta | ⬜ Pendiente |
 | `SHOW-04` | **Prototipo estrella agente-con-memoria** (asistente CLI que recuerda entre sesiones vía `vanta-memory` scenes + MCP `inject_context`): reusa `langgraph_checkpoint.py` + `agent_memory.py` | `examples/` (nuevo `agent_memory_cli/`) | 🟠 3-5d | 🔴 Alta | ⬜ Pendiente |
