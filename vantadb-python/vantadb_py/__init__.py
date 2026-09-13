@@ -75,17 +75,31 @@ __all__ = [
 
 
 def error_to_dict(exc: BaseException) -> dict:
-    """Serialize a VantaDB error to a plain dict (ERR-PY-01).
+    """Serialize a VantaDB error to a plain dict.
 
     Mirrors the TS ``VantaError.toJSON()`` shape from
     ``docs/api/ERROR_HANDLING.md`` §5.2 for cross-binding log correlation:
-
-    ``{"name", "code", "message", "retriable", "hint"}``
+    ``{"name", "code", "message", "retriable", "hint"}``.
 
     The Python exception classes are built with PyO3 ``create_exception!``,
     which cannot carry ``#[pymethods]`` — so the spec's ``exc.to_dict()`` is
-    exposed as this module-level helper instead. Works with any exception:
-    missing attributes degrade to ``None``.
+    exposed as this module-level helper instead (ERR-PY-01). Works with any
+    exception: missing attributes degrade to ``None``.
+
+    Parameters
+    ----------
+    exc:
+        Any exception (VantaDB or otherwise) to serialize.
+
+    Returns
+    -------
+    dict
+        Plain dict with ``name``/``code``/``message``/``retriable``/``hint``.
+
+    Examples
+    --------
+    >>> error_to_dict(NotFoundError("no such node"))
+    {'name': 'NotFoundError', 'code': ..., 'message': ..., ...}
     """
     return {
         "name": type(exc).__name__,
@@ -141,7 +155,13 @@ class SearchRequest:
     explain: bool = False
 
     def asdict(self):
-        """Return this request as a plain dict (for non-dataclass callers)."""
+        """Return this request as a plain dict (for non-dataclass callers).
+
+        Returns
+        -------
+        dict
+            Mapping with the same keys as the dataclass fields.
+        """
         return asdict(self)
 
 

@@ -1,3 +1,9 @@
+/**
+ * Wire shape of a {@link DbError} as produced by {@link DbError.toJSON}.
+ *
+ * Mirrors the Python `error_to_dict()` dict (`docs/api/ERROR_HANDLING.md` §5.2)
+ * for cross-binding log correlation.
+ */
 export interface ErrorJSON {
   name: string;
   code: string;
@@ -27,13 +33,34 @@ export const ERROR_CODES = {
   IO_ERROR: "VANTADB_IO_ERROR",
 } as const;
 
+/** Union of the canonical `VANTADB_*` code strings in {@link ERROR_CODES}. */
 export type ErrorCode = (typeof ERROR_CODES)[keyof typeof ERROR_CODES];
 
+/**
+ * Canonical VantaDB error (ERR-TS-01).
+ *
+ * Carries a `VANTADB_*` {@link DbError.code} (see `docs/api/ERROR_HANDLING.md` §1.1),
+ * an optional `details` payload, and a creation `timestamp`. Serialized `name`
+ * stays `"VantaError"` (AST-004, asserted by tests).
+ *
+ * @example
+ * ```ts
+ * throw new DbError(ERROR_CODES.NOT_FOUND, "node not found: 42");
+ * ```
+ */
 export class DbError extends Error {
   readonly code: string;
   readonly details?: unknown;
   readonly timestamp: Date;
 
+  /**
+   * Create a `DbError`.
+   *
+   * @param code - Canonical `VANTADB_*` code (use {@link ERROR_CODES}).
+   * @param message - Human-readable message (prefixed with context by {@link wrapWasmError}).
+   * @param details - Optional structured payload (preserved verbatim in {@link DbError.toJSON}).
+   * @param options - Forwarded to `Error` (`options.cause` preserves the original chain).
+   */
   constructor(code: string, message: string, details?: unknown, options?: ErrorOptions) {
     // `options.cause` preserves the original error chain (ERR-TS-01, §4.3).
     super(message, options);
@@ -45,6 +72,12 @@ export class DbError extends Error {
     this.timestamp = new Date();
   }
 
+  /**
+   * Serialize this error to its {@link ErrorJSON} wire shape.
+   *
+   * @returns Plain JSON object (`name`/`code`/`message`/`timestamp`, plus
+   * `details` when defined) consumed by Python `error_to_dict`.
+   */
   toJSON(): ErrorJSON {
     const json: ErrorJSON = {
       name: this.name,
@@ -95,6 +128,18 @@ export function classifyWasmError(message: string): ErrorCode {
   return ERROR_CODES.WASM_ERROR;
 }
 
+/**
+ * Wrap any value thrown by the WASM binding into a {@link DbError}.
+ *
+ * `DbError` inputs pass through untouched. Otherwise the structured `code`
+ * attached by `vantadb-wasm`'s `to_js_err` (FIND-10) wins when known;
+ * message-prefix classification ({@link classifyWasmError}) covers older
+ * pkg builds; `WASM_ERROR` is the final fallback.
+ *
+ * @param e - Thrown value (Error, WASM error, or anything).
+ * @param context - Operation label prefixed to the message (`"<context>: <message>"`).
+ * @returns A `DbError` with `cause` set to the original value.
+ */
 export function wrapWasmError(e: unknown, context: string): DbError {
   if (e instanceof DbError) return e;
   const message = e instanceof Error ? e.message : String(e);
