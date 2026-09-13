@@ -166,7 +166,8 @@ impl Embedded {
     ) -> Result<Option<crate::text_index::TextTermStats>> {
         // Cache-aside: check in-memory cache first
         if let Some(stats) = engine
-            .text_stats_cache
+            .cache
+            .text_stats
             .read()
             .get(&(namespace.to_string(), token.to_string()))
         {
@@ -179,7 +180,8 @@ impl Embedded {
         let stats = crate::text_index::decode_term_stats(&bytes).map_err(Error::serialization)?;
         // Populate cache on miss
         engine
-            .text_stats_cache
+            .cache
+            .text_stats
             .write()
             .insert((namespace.to_string(), token.to_string()), stats.clone());
         Ok(Some(stats))
@@ -190,7 +192,7 @@ impl Embedded {
         namespace: &str,
     ) -> Result<Option<crate::text_index::TextNamespaceStats>> {
         // Cache-aside: check in-memory cache first
-        if let Some(stats) = engine.text_ns_cache.read().get(namespace) {
+        if let Some(stats) = engine.cache.text_ns.read().get(namespace) {
             return Ok(Some(stats.clone()));
         }
         let key = crate::text_index::namespace_stats_key(namespace);
@@ -201,7 +203,8 @@ impl Embedded {
             crate::text_index::decode_namespace_stats(&bytes).map_err(Error::serialization)?;
         // Populate cache on miss
         engine
-            .text_ns_cache
+            .cache
+            .text_ns
             .write()
             .insert(namespace.to_string(), stats.clone());
         Ok(Some(stats))

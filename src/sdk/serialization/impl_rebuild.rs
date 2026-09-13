@@ -76,12 +76,12 @@ impl Embedded {
         let engine = self.engine_handle()?;
 
         {
-            let mut cache = engine.text_stats_cache.write();
-            cache.clear();
+            let mut guard = engine.cache.text_stats.write();
+            guard.clear();
         }
         {
-            let mut cache = engine.text_ns_cache.write();
-            cache.clear();
+            let mut guard = engine.cache.text_ns.write();
+            guard.clear();
         }
 
         let mut ops = Vec::new();

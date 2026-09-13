@@ -53,13 +53,13 @@ impl StorageEngine {
     /// Returns detailed memory usage statistics for this engine instance.
     pub fn stats(&self) -> MemoryStats {
         let hnsw = self.hnsw.load();
-        let cache = self.volatile_cache.read();
+        let guard = self.cache.volatile.read();
 
         // ponytail: sum across all LSM levels
         let total_vstore_size: u64 = self.vector_store.iter().map(|vs| vs.read().size).sum();
 
         let logical =
-            hnsw.estimate_memory_bytes() as u64 + total_vstore_size + (cache.len() as u64 * 1536);
+            hnsw.estimate_memory_bytes() as u64 + total_vstore_size + (guard.len() as u64 * 1536);
 
         let physical = {
             let mut total: Option<u64> = None;
@@ -86,7 +86,7 @@ impl StorageEngine {
             logical_bytes: logical,
             physical_rss: physical,
             node_count: hnsw.nodes.len() as u64,
-            cache_entries: cache.len(),
+            cache_entries: guard.len(),
             eviction_count: snap.evictions_total,
             eviction_bytes: snap.eviction_bytes_total,
             memory_limit,

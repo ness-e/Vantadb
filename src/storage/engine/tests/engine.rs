@@ -669,13 +669,13 @@ fn test_insert_overwrite_updates_scalar_index() {
 /// `get()` never inserts the node it materializes, so A and B stayed mutually
 /// uncached through the whole chain and the worker thread overflowed its stack.
 ///
-/// Uses Cold-tier nodes so neither A nor B enters `volatile_cache` on insert,
+/// Uses Cold-tier nodes so neither A nor B enters `volatile` on insert,
 /// reproducing the exact cache-miss trigger of the MCP-15 crash.
 #[test]
 fn test_get_prefetch_does_not_recurse_forever() {
     let engine = in_memory_engine();
     // Cold tier (the default from UnifiedNode::new) → insert() does NOT
-    // populate volatile_cache, so get() below takes the cache-miss path.
+    // populate volatile, so get() below takes the cache-miss path.
     let mut a = sample_node(1);
     a.tier = NodeTier::Cold;
     let mut b = sample_node(2);
@@ -686,7 +686,7 @@ fn test_get_prefetch_does_not_recurse_forever() {
     // Register the co-access pair A↔B the way get_many does when search
     // returns ≥2 hits. min_accesses is 3 by default, so record 3 times.
     for _ in 0..3 {
-        engine.cache_warmer.record_co_access(&[1, 2]);
+        engine.cache.warmer.record_co_access(&[1, 2]);
     }
 
     // Pre-fix this call recursed get(1)→prefetch→get(2)→prefetch→get(1)→…
@@ -695,7 +695,7 @@ fn test_get_prefetch_does_not_recurse_forever() {
     let node = engine.get(1).expect("get(1) should terminate");
     assert!(node.is_some(), "node 1 exists");
     assert!(
-        engine.volatile_cache.read().contains_key(&2),
+        engine.cache.volatile.read().contains_key(&2),
         "co-accessed node 2 should be prefetched into the volatile cache"
     );
 }
@@ -862,7 +862,7 @@ fn d1a_lookup_txn_delete_hit() {
 fn d1a_lookup_cache_miss_empty() {
     let engine = in_memory_engine();
     assert!(
-        engine.lookup_volatile_cache(99).is_none(),
+        engine.lookup_volatile(99).is_none(),
         "empty cache → miss (caller continues)"
     );
 }
@@ -873,7 +873,7 @@ fn d1a_lookup_cache_hit_hot_insert() {
     let mut node = sample_node(21);
     node.tier = NodeTier::Hot;
     engine.insert(&node).expect("insert hot");
-    let hit = engine.lookup_volatile_cache(21);
+    let hit = engine.lookup_volatile(21);
     assert!(
         matches!(hit, Some(Some(ref n)) if n.id == 21),
         "hot insert must be cached"
@@ -1353,7 +1353,7 @@ fn d1a_apply_stats_serial_tracks_field() {
         &crate::storage::engine::BatchInsertOptions::default(),
     );
     assert!(
-        engine.cardinality_stats.read().contains_key("d1a_f"),
+        engine.cache.cardinality_stats.read().contains_key("d1a_f"),
         "serial stats path must track the new field"
     );
 }
@@ -1379,7 +1379,7 @@ fn d1a_apply_stats_rayon_tracks_field() {
         &crate::storage::engine::BatchInsertOptions::default(),
     );
     assert!(
-        engine.cardinality_stats.read().contains_key("d1a_g"),
+        engine.cache.cardinality_stats.read().contains_key("d1a_g"),
         "rayon stats path must track the new field"
     );
 }

@@ -301,11 +301,11 @@ fn test_batch_insert_with_mixed_tiers() {
         .batch_insert(&[hot, cold])
         .expect("batch_insert mixed");
     assert!(
-        engine.volatile_cache.read().contains_key(&1),
+        engine.cache.volatile.read().contains_key(&1),
         "hot node should be in cache"
     );
     assert!(
-        !engine.volatile_cache.read().contains_key(&2),
+        !engine.cache.volatile.read().contains_key(&2),
         "cold node should not be in cache"
     );
 }
@@ -324,7 +324,7 @@ fn test_batch_insert_cardinality_cap_eviction() {
         })
         .collect();
     engine.batch_insert(&nodes).expect("batch_insert 101 nodes");
-    let stats = engine.cardinality_stats.read();
+    let stats = engine.cache.cardinality_stats.read();
     let total: usize = stats.values().map(|m| m.len()).sum();
     assert!(
         stats.contains_key("tag") || total > 0,
@@ -447,7 +447,7 @@ fn test_get_many_with_partial_cache_miss() {
     engine.insert(&sample_node(2)).expect("insert 2");
     let results = engine.get_many(&[1, 2]).expect("get_many");
     assert_eq!(results.len(), 2);
-    engine.volatile_cache.write().remove(&1);
+    engine.cache.volatile.write().remove(&1);
     let results2 = engine.get_many(&[1, 2]).expect("get_many");
     assert_eq!(results2.len(), 2);
     let ids: Vec<u128> = results2.iter().map(|n| n.id).collect();
@@ -459,7 +459,7 @@ fn test_get_many_all_cache_miss() {
     let engine = in_memory_engine();
     engine.insert(&sample_node(1)).expect("insert 1");
     engine.insert(&sample_node(2)).expect("insert 2");
-    engine.volatile_cache.write().clear();
+    engine.cache.volatile.write().clear();
     let results = engine.get_many(&[1, 2]).expect("get_many");
     assert_eq!(results.len(), 2);
     let ids: Vec<u128> = results.iter().map(|n| n.id).collect();
@@ -561,12 +561,12 @@ fn test_delete_batch_clears_cache() {
     hot.tier = NodeTier::Hot;
     engine.insert(&hot).expect("insert hot node");
     assert!(
-        engine.volatile_cache.read().contains_key(&42),
+        engine.cache.volatile.read().contains_key(&42),
         "hot node should be cached"
     );
     engine.delete_batch(&[42]).expect("delete_batch");
     assert!(
-        !engine.volatile_cache.read().contains_key(&42),
+        !engine.cache.volatile.read().contains_key(&42),
         "node should be removed from cache"
     );
 }
@@ -607,8 +607,8 @@ fn test_get_cache_tombstone_flag() {
     node.tier = NodeTier::Hot;
     engine.insert(&node).expect("insert");
     {
-        let mut cache = engine.volatile_cache.write();
-        let cached = cache.get_mut(&42).expect("node should be cached");
+        let mut guard = engine.cache.volatile.write();
+        let cached = guard.get_mut(&42).expect("node should be cached");
         cached.flags.set(crate::node::NodeFlags::TOMBSTONE);
     }
     let retrieved = engine.get(42).expect("get");
@@ -621,13 +621,13 @@ fn test_get_cache_hit_bumps_hits_uncontended() {
     // cached node via try_write — never a mandatory blocking write lock.
     let engine = in_memory_engine();
     let mut node = sample_node(42);
-    node.tier = NodeTier::Hot; // only Hot nodes enter volatile_cache
+    node.tier = NodeTier::Hot; // only Hot nodes enter volatile
     engine.insert(&node).expect("insert");
     assert!(engine.get(42).expect("get").is_some(), "first hit");
     assert!(engine.get(42).expect("get").is_some(), "second hit");
     {
-        let cache = engine.volatile_cache.read();
-        let cached = cache.get(&42).expect("node should be cached");
+        let guard = engine.cache.volatile.read();
+        let cached = guard.get(&42).expect("node should be cached");
         assert_eq!(
             cached.hits, 2,
             "uncontended hits accumulate: insert + 2 gets"
@@ -640,7 +640,7 @@ fn test_get_cache_hit_bumps_hits_uncontended() {
 fn test_get_corrupt_backend_metadata() {
     let engine = in_memory_engine();
     engine.insert(&sample_node(42)).expect("insert");
-    engine.volatile_cache.write().remove(&42);
+    engine.cache.volatile.write().remove(&42);
     let key = 42u128.to_le_bytes();
     engine
         .put_to_partition(BackendPartition::Default, &key, b"garbage bytes")
@@ -658,7 +658,7 @@ fn test_get_corrupt_backend_metadata() {
 fn test_get_missing_hnsw_entry() {
     let engine = in_memory_engine();
     engine.insert(&sample_node(42)).expect("insert");
-    engine.volatile_cache.write().remove(&42);
+    engine.cache.volatile.write().remove(&42);
     {
         let hnsw = engine.hnsw.load();
         hnsw.nodes.remove(&42);
@@ -671,7 +671,7 @@ fn test_get_missing_hnsw_entry() {
 fn test_get_vstore_tombstone() {
     let engine = in_memory_engine();
     engine.insert(&sample_node(42)).expect("insert");
-    engine.volatile_cache.write().remove(&42);
+    engine.cache.volatile.write().remove(&42);
     let offset = {
         let hnsw = engine.hnsw.load();
         hnsw.nodes.get(&42).map(|n| n.storage_offset).unwrap()
@@ -700,7 +700,7 @@ fn test_get_vector_bounds_exceeded() {
         let hnsw = engine.hnsw.load();
         hnsw.nodes.get(&42).map(|n| n.storage_offset).unwrap()
     };
-    engine.volatile_cache.write().remove(&42);
+    engine.cache.volatile.write().remove(&42);
     {
         let mut vstore = engine.vector_store[0].write();
         if let Some(mut header) = vstore.read_header(offset) {
@@ -1243,9 +1243,9 @@ fn test_concurrent_insert_get_immediate_visibility() {
 // apply_insert/batch_insert call eviction while holding insert_lock
 // (ERR-010, non-reentrant). On the buggy path, eviction → consolidate_node →
 // refresh_index re-acquired insert_lock via try_lock_for(5000ms), timing out
-// per candidate; worse, the call ran while the volatile_cache write guard was
+// per candidate; worse, the call ran while the volatile write guard was
 // still held, which would deadlock the eviction's own cache read/write.
-// The fix adds *_locked variants that apply the volatile_cache entry without re-locking.
+// The fix adds *_locked variants that apply the volatile entry without re-locking.
 
 #[test]
 fn test_evict_cold_nodes_locked_no_reentrant_timeout() {
@@ -1254,11 +1254,11 @@ fn test_evict_cold_nodes_locked_no_reentrant_timeout() {
     // Seed hot nodes so eviction has candidates to consolidate.
     for i in 0..4u128 {
         let mut node = sample_node(i);
-        node.tier = crate::node::NodeTier::Hot; // only Hot nodes enter volatile_cache
+        node.tier = crate::node::NodeTier::Hot; // only Hot nodes enter volatile
         engine.insert(&node).expect("seed insert");
     }
 
-    // Simulate the insert path: insert_lock held, volatile_cache free.
+    // Simulate the insert path: insert_lock held, volatile free.
     let guard = engine.insert_lock.lock();
     let start = std::time::Instant::now();
     let report = engine
@@ -1388,14 +1388,14 @@ fn test_evict_locked_under_contention_no_deadlock() {
     use std::sync::Arc;
     let engine = Arc::new(in_memory_engine());
 
-    const SEED: u128 = 256; // hot candidates → volatile_cache (pool de evicción)
+    const SEED: u128 = 256; // hot candidates → volatile (pool de evicción)
     const WRITER_BASE: u128 = 10_000_000;
     const SEED_BASE: u128 = 20_000_000; // rango del deleter (no toca candidatos)
     const WRITERS: usize = 4;
     const ITERS: usize = 40;
     const EVICTOR_THRESHOLD: usize = 64; // "max_nodes" bajo del test
 
-    // Candidatos de evicción: Hot tier entra a volatile_cache. Nadie más los
+    // Candidatos de evicción: Hot tier entra a volatile. Nadie más los
     // consume (writers insertan Cold, deleter borra otro rango), así que el
     // primer pass del evictor SIEMPRE ve el pool > umbral → evicted > 0.
     for i in 0..SEED {
@@ -1452,13 +1452,13 @@ fn test_evict_locked_under_contention_no_deadlock() {
 
     // Evictors: simulan apply_insert superando el watermark — insert_lock
     // tomado + evicción *_locked con razón Watermark. Contención real sobre
-    // insert_lock y volatile_cache con los threads de arriba.
+    // insert_lock y volatile con los threads de arriba.
     for _ in 0..2 {
         let engine = Arc::clone(&engine);
         let total_evicted = Arc::clone(&total_evicted);
         handles.push(std::thread::spawn(move || {
             for _ in 0..30 {
-                let over_watermark = engine.volatile_cache.read().len() > EVICTOR_THRESHOLD;
+                let over_watermark = engine.cache.volatile.read().len() > EVICTOR_THRESHOLD;
                 if !over_watermark {
                     std::thread::sleep(std::time::Duration::from_micros(200));
                     continue;
@@ -1511,7 +1511,7 @@ fn test_evict_locked_under_contention_no_deadlock() {
 fn test_delete_vs_consolidate_no_resurrection() {
     let engine = in_memory_engine();
 
-    // Seed hot node (Hot tier entra al volatile_cache).
+    // Seed hot node (Hot tier entra al volatile).
     let mut node = sample_node(42);
     node.tier = NodeTier::Hot;
     engine.insert(&node).expect("seed insert");
@@ -1519,11 +1519,12 @@ fn test_delete_vs_consolidate_no_resurrection() {
 
     // Snapshot del candidato, como lo toma evict_cold_nodes_inner.
     let candidate = engine
-        .volatile_cache
+        .cache
+        .volatile
         .read()
         .get(&42)
         .cloned()
-        .expect("candidate in volatile_cache");
+        .expect("candidate in volatile");
 
     // delete() completo: quita HNSW + cache + backend metadata.
     engine.delete(42, "FND-02-M3").expect("delete");
@@ -1560,7 +1561,7 @@ fn test_delete_vs_evict_concurrent_no_zombie() {
     use std::sync::Arc;
     let engine = Arc::new(in_memory_engine());
 
-    // Seed hot nodes: entran al volatile_cache y son candidatos de eviction.
+    // Seed hot nodes: entran al volatile y son candidatos de eviction.
     const N: u128 = 32;
     for i in 0..N {
         let mut node = sample_node(i);

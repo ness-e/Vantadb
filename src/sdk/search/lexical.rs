@@ -159,7 +159,7 @@ impl Embedded {
         // Feed search results into cache warmer co-access tracking
         if hits.len() >= 2 {
             let node_ids: Vec<u128> = hits.iter().map(|h| h.record.node_id).collect();
-            engine.cache_warmer.record_co_access(&node_ids);
+            engine.cache.warmer.record_co_access(&node_ids);
         }
 
         crate::metrics::record_text_lexical_query(

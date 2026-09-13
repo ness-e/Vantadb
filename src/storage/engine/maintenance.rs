@@ -118,7 +118,7 @@ impl StorageEngine {
             hnsw.nodes.len() as u64,
             hnsw.estimate_memory_bytes() as u64,
             resident_bytes,
-            self.volatile_cache.read().len() as u64,
+            self.cache.volatile.read().len() as u64,
             0,
         );
         Ok(())
@@ -285,12 +285,12 @@ impl StorageEngine {
         // FND-02-M3: version check under insert_lock — if a concurrent
         // delete() already removed the node, skip consolidation entirely:
         // re-persisting metadata / re-adding the entry would resurrect a node
-        // the caller deleted. delete() removes the node from volatile_cache
+        // the caller deleted. delete() removes the node from volatile
         // under insert_lock, so its presence here is the liveness signal.
-        // (Checked against volatile_cache, not HNSW: batch_insert with
+        // (Checked against volatile, not HNSW: batch_insert with
         // InsertMode::Rebuild puts Hot nodes in the cache without indexing
         // them, so an HNSW check would strand them in cache forever.)
-        if !self.volatile_cache.read().contains_key(&node.id) {
+        if !self.cache.volatile.read().contains_key(&node.id) {
             return Ok(());
         }
 
@@ -351,8 +351,8 @@ impl StorageEngine {
         }
 
         {
-            let mut cache = self.volatile_cache.write();
-            cache.remove(&node.id);
+            let mut guard = self.cache.volatile.write();
+            guard.remove(&node.id);
         }
 
         Ok(())
@@ -368,7 +368,7 @@ impl StorageEngine {
     /// Same as [`Self::consolidate_node`] but assumes the caller already holds
     /// `insert_lock` (insert paths). Applies the HNSW entry without
     /// re-acquiring the non-reentrant lock. Callers must NOT hold
-    /// `volatile_cache`'s write guard — this takes it itself.
+    /// `volatile`'s write guard — this takes it itself.
     pub(crate) fn consolidate_node_locked(&self, node: &UnifiedNode) -> Result<()> {
         self.consolidate_node_inner(node, LockPolicy::AssumeHeld)
     }
@@ -400,8 +400,8 @@ impl StorageEngine {
         }
 
         let candidates: Vec<UnifiedNode> = {
-            let cache = self.volatile_cache.read();
-            cache
+            let guard = self.cache.volatile.read();
+            guard
                 .values()
                 .filter(|n| n.tier == NodeTier::Hot)
                 .cloned()
@@ -472,7 +472,7 @@ impl StorageEngine {
 
     /// Same as [`Self::evict_cold_nodes_with_reason`] but assumes the caller
     /// already holds `insert_lock` (insert paths). Callers must also NOT hold
-    /// `volatile_cache`'s write guard — the eviction reads and mutates the
+    /// `volatile`'s write guard — the eviction reads and mutates the
     /// cache itself, and the RwLock is not reentrant.
     pub(crate) fn evict_cold_nodes_with_reason_locked(
         &self,

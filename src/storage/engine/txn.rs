@@ -332,7 +332,7 @@ impl StorageEngine {
                             let hnsw = self.hnsw.load();
                             hnsw.nodes.remove(&node.id);
                         }
-                        self.volatile_cache.write().remove(&node.id);
+                        self.cache.volatile.write().remove(&node.id);
                         self.apply_insert_with_txn(node, txn_id)?;
                     }
                     BufferedWrite::Delete(id) => {
@@ -458,8 +458,8 @@ impl StorageEngine {
         })?;
 
         if node.tier == crate::node::NodeTier::Hot {
-            let mut cache = self.volatile_cache.write();
-            cache.insert(node.id, node.clone());
+            let mut guard = self.cache.volatile.write();
+            guard.insert(node.id, node.clone());
         }
         Ok(())
     }

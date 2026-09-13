@@ -21,27 +21,26 @@ fn structured_api_v2_certification() {
         let executor = Executor::new(&storage);
 
         TerminalReporter::sub_step("Inserting nodes S1 and S2 via hybrid syntax...");
-        executor
+        // C2S3b: ids come from the public Write result (the volatile cache is
+        // now sealed inside `CacheLayer`, no longer `pub` on `StorageEngine`).
+        let s1_id = match executor
             .execute_hybrid("INSERT NODE#1 TYPE node { label: \"S1\" }")
-            .unwrap();
-        executor
-            .execute_hybrid("INSERT NODE#2 TYPE node { label: \"S2\" }")
-            .unwrap();
-
-        let (s1_id, s2_id);
+            .unwrap()
         {
-            let cache = storage.volatile_cache.read();
-            s1_id = *cache
-                .iter()
-                .find(|(_, n)| n.get_field("label").and_then(|v| v.as_str()) == Some("S1"))
-                .expect("Node with label='S1' not found in volatile_cache")
-                .0;
-            s2_id = *cache
-                .iter()
-                .find(|(_, n)| n.get_field("label").and_then(|v| v.as_str()) == Some("S2"))
-                .expect("Node with label='S2' not found in volatile_cache")
-                .0;
-        }
+            ExecutionResult::Write {
+                node_id: Some(id), ..
+            } => id,
+            _ => panic!("S1 insert did not return a node id"),
+        };
+        let s2_id = match executor
+            .execute_hybrid("INSERT NODE#2 TYPE node { label: \"S2\" }")
+            .unwrap()
+        {
+            ExecutionResult::Write {
+                node_id: Some(id), ..
+            } => id,
+            _ => panic!("S2 insert did not return a node id"),
+        };
 
         TerminalReporter::sub_step(&format!("Establishing relation {} -> {}...", s1_id, s2_id));
         let relate_query = format!(
