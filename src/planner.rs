@@ -105,6 +105,9 @@ pub fn optimize_and_compile<'a>(
         String,
     )> = None;
     let mut subquery_filters: Vec<(String, RelOp, crate::query::LogicalPlan)> = Vec::new();
+    // C2S6: extension operators (e.g. `Dedup`) never get a named arm here —
+    // they collect below and compile through `OperatorRegistry` by name.
+    let mut pending_extensions: Vec<crate::query::LogicalOperator> = Vec::new();
 
     for op in &plan.operators {
         match op {
@@ -158,7 +161,16 @@ pub fn optimize_and_compile<'a>(
             crate::query::LogicalOperator::Sort { field, desc } => {
                 sort = Some((field.clone(), *desc));
             }
-            _ => {} // Traverse and other operators are handled by the executor cycle
+            // C2S6 legacy: `Traverse` has no physical operator; keep the
+            // historical ignore (governor still reads it). Turning this into
+            // an error without a physical impl would be a breaking change —
+            // explicitly out of scope (design §4: no `Traverse` physical).
+            crate::query::LogicalOperator::Traverse { .. } => {}
+            // C2S6: anything else (today: `Dedup`; tomorrow: new operators)
+            // compiles via the registry — this match never names extensions.
+            _ => {
+                pending_extensions.push(op.clone());
+            }
         }
     }
 
@@ -300,6 +312,17 @@ pub fn optimize_and_compile<'a>(
             current_operator,
             lim,
         ));
+    }
+
+    // C2S6: wrap extension operators last (dispatch by name — adding an
+    // operator means a new variant + `register`, never an arm above).
+    // Extensions apply post-chain in plan order; like `sort/project/limit`
+    // they wrap whatever the base chain produced.
+    if !pending_extensions.is_empty() {
+        let registry = crate::operator_registry::OperatorRegistry::new();
+        for ext in &pending_extensions {
+            current_operator = registry.compile(ext, current_operator)?;
+        }
     }
 
     Ok(current_operator)

@@ -388,6 +388,14 @@ pub enum LogicalOperator {
         /// Maximum rows.
         top_k: usize,
     },
+    /// Deduplicate consecutive rows by a relational field (C2S6 extension
+    /// exemplar: compiles/costs through `OperatorRegistry` without touching
+    /// the proven `planner` / `executor` matches; test-constructed, H2
+    /// solo-physical authorized — no IQL producer yet).
+    Dedup {
+        /// Field whose first-seen value wins; rows missing it share one key.
+        field: String,
+    },
     /// A JOIN between two sub-plans.
     Join {
         /// Left-side sub-plan.
