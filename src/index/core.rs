@@ -4,7 +4,8 @@ mod tests {
     use crate::index::distance::{cosine_sim_f32, cosine_sim_with_query_norm, f32_l2_norm};
     use crate::index::*;
     use crate::node::DistanceMetric;
-    use rand::Rng;
+    use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
 
     #[test]
     fn cosine_with_precomputed_query_norm_matches_full_path() {
@@ -62,6 +63,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // FIRST-Fast (C2T1): barrera stress 1000ms — completa: nextest --run-ignored all
     fn concurrent_search_during_insert() {
         use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
@@ -88,7 +90,8 @@ mod tests {
             let stop = stop.clone();
             let insert_mutex = insert_mutex.clone();
             handles.push(thread::spawn(move || {
-                let mut rng = rand::rng();
+                // FIRST-Repeatable (C2T2): seeded stream — same vectors every run.
+                let mut rng = StdRng::seed_from_u64(42 + t as u64);
                 let start_id = t * 1000;
                 for i in 0..1000 {
                     if stop.load(Ordering::Relaxed) {
@@ -114,11 +117,12 @@ mod tests {
             }));
         }
 
-        for _ in 0..4 {
+        for q in 0..4 {
             let index = index.clone();
             let stop = stop.clone();
             handles.push(thread::spawn(move || {
-                let mut rng = rand::rng();
+                // FIRST-Repeatable (C2T2): seeded stream, disjoint from insert threads.
+                let mut rng = StdRng::seed_from_u64(0xC10C + q as u64);
                 while !stop.load(Ordering::Relaxed) {
                     let query: Vec<f32> = (0..32).map(|_| rng.random::<f32>()).collect();
                     let norm = f32_l2_norm(&query);
@@ -163,7 +167,8 @@ mod tests {
         for t in 0..4 {
             let storage = storage.clone();
             handles.push(thread::spawn(move || {
-                let mut rng = rand::rng();
+                // FIRST-Repeatable (C2T2): seeded stream — same vectors every run.
+                let mut rng = StdRng::seed_from_u64(42 + t as u64);
                 let start_id = t * 500 + 1;
                 for i in 0..500 {
                     let id = (start_id + i) as u128;
