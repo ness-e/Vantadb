@@ -558,14 +558,14 @@ fn read_only_engine_rejects_write_operations() {
 
     let err = engine.insert(&UnifiedNode::new(2)).unwrap_err();
     assert!(
-        matches!(err, Error::ValidationError { .. }),
-        "read-only insert should return ValidationError, got: {err:?}"
+        matches!(err, Error::Validation { .. }),
+        "read-only insert should return Validation, got: {err:?}"
     );
 
     let err = engine.compact_layout_bfs().unwrap_err();
     assert!(
-        matches!(err, Error::ValidationError { .. }),
-        "read-only compact_layout should return ValidationError, got: {err:?}"
+        matches!(err, Error::Validation { .. }),
+        "read-only compact_layout should return Validation, got: {err:?}"
     );
 }
 

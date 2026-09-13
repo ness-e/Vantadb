@@ -49,7 +49,7 @@ pub(crate) fn version_prefix(namespace: &str, key: &str) -> Vec<u8> {
 ///
 /// Keys are only ever produced by [`version_key`] from already-validated
 /// namespace/key strings, so a key shorter than the trailer can only come
-/// from store corruption (`BackendError`) — never user input.
+/// from store corruption (`Backend`) — never user input.
 pub(crate) fn version_from_key(key: &[u8]) -> Result<u64> {
     let trailer = key.len().checked_sub(VERSION_LEN).ok_or_else(|| {
         Error::backend_error(format!(
@@ -319,8 +319,8 @@ mod tests {
         for len in 0..VERSION_LEN {
             let err = version_from_key(&vec![0xAB_u8; len]).unwrap_err();
             assert!(
-                matches!(err, Error::BackendError(_)),
-                "expected BackendError for len={len}, got {err:?}"
+                matches!(err, Error::Backend(_)),
+                "expected Backend for len={len}, got {err:?}"
             );
         }
         // Boundary: exactly VERSION_LEN bytes decodes as pure big-endian.

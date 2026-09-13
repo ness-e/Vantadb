@@ -651,10 +651,10 @@ which can change without a major bump. The HTTP error envelopes in
 - `Error::NodeNotFound(u128)` — node ID not found
 - `Error::DuplicateNode(u128)` — duplicate node ID on insert
 - `Error::DimensionMismatch { expected: usize, got: usize }` — vector dimension mismatch
-- `Error::WalError(ChainedError)` — WAL operation failure
+- `Error::Wal(ChainedError)` — WAL operation failure
 - `Error::WALVersionMismatch { expected: u32, found: u32, hint: String }` — incompatible WAL version
-- `Error::SerializationError(#[source] Box<dyn StdError + Send + Sync>)` — bincode/serde failures
-- `Error::IoError(std::io::Error)` — filesystem errors
+- `Error::Serialization(#[source] Box<dyn StdError + Send + Sync>)` — bincode/serde failures
+- `Error::Io(std::io::Error)` — filesystem errors
 - `Error::IncompatibleFormat { expected_magic, expected_version, found_magic, found_version, hint }` — incompatible binary format
 - `Error::NotInitialized` — engine not open
 - `Error::ResourceLimit(String)` — resource limit exceeded (backpressure)
@@ -662,20 +662,20 @@ which can change without a major bump. The HTTP error envelopes in
 - `Error::EdgeCountOverflow { id, count, limit }` — edge count exceeds the u16 `DiskNodeHeader` field (ERR-CORE-01, hardens ERR-029)
 - `Error::NodeIdCollision(u128)` — two nodes have colliding IDs
 - `Error::CycleDetected` — cycle detected in graph operation
-- `Error::ValidationError { field, reason }` — input validation failed
+- `Error::Validation { field, reason }` — input validation failed
 - `Error::Timeout { operation, duration_ms }` — operation exceeded time budget
 - `Error::UnsupportedOperation { operation, detail }` — unsupported operation
 - `Error::ExecutionConflict { resource, detail }` — concurrent modification conflict
-- `Error::IqlError(ChainedError)` — IQL query processing error
-- `Error::IqlParseError { msg, line, col }` — IQL parse error at a specific line/col
-- `Error::CliError(ChainedError)` — CLI command processing error
-- `Error::SearchError(ChainedError)` — search execution error
-- `Error::RuntimeError(ChainedError)` — unexpected runtime error
-- `Error::RestoreError(ChainedError)` — restore operation error
-- `Error::BackupError(ChainedError)` — backup operation error
-- `Error::BackendError(ChainedError)` — storage backend error
+- `Error::Iql(ChainedError)` — IQL query processing error
+- `Error::IqlParse { msg, line, col }` — IQL parse error at a specific line/col
+- `Error::Cli(ChainedError)` — CLI command processing error
+- `Error::Search(ChainedError)` — search execution error
+- `Error::Runtime(ChainedError)` — unexpected runtime error
+- `Error::Restore(ChainedError)` — restore operation error
+- `Error::Backup(ChainedError)` — backup operation error
+- `Error::Backend(ChainedError)` — storage backend error
 - `Error::InvalidInput(String)` — invalid input provided
-- `Error::SchemaError(String)` — schema-related error
+- `Error::Schema(String)` — schema-related error
 - `Error::DatabaseBusy(String)` — database locked by another process
 - `Error::NoVectorForKey(String)` — a record exists but does not carry a vector, so vector-based operations (e.g. `similar_to_key`) cannot proceed
 - `Error::Generic(ChainedError)` — generic catch-all error
@@ -693,8 +693,8 @@ impl Error {
             Error::DatabaseBusy(_)
                 | Error::Timeout { .. }
                 | Error::ResourceLimit(_)
-                | Error::BackendError(_)
-                | Error::WalError(_)
+                | Error::Backend(_)
+                | Error::Wal(_)
         )
     }
 }
@@ -718,10 +718,10 @@ impl Error {
             Error::Timeout { .. } => Some("Increase the timeout or reduce system load"),
             Error::ResourceLimit(_) => Some("Reduce memory pressure or increase configured limits"),
             Error::IncompatibleFormat { .. } => Some("Delete the WAL or run dump/restore to migrate formats"),
-            Error::SchemaError(_) => Some("Reinitialize the database or restore from backup"),
+            Error::Schema(_) => Some("Reinitialize the database or restore from backup"),
             Error::WALVersionMismatch { .. } => Some("The WAL was written by a different version of VantaDB"),
-            Error::RestoreError(_) => Some("Check that the backup file exists and is readable"),
-            Error::BackupError(_) => Some("Ensure the backup directory is writable and has free space"),
+            Error::Restore(_) => Some("Check that the backup file exists and is readable"),
+            Error::Backup(_) => Some("Ensure the backup directory is writable and has free space"),
             Error::NodeNotFound(_) => Some("The node may have been deleted or never existed"),
             Error::NotFound { .. } => Some("Verify that the namespace or identifier is spelled correctly"),
             _ => None,

@@ -44,7 +44,7 @@ Applied to VantaDB:
 5. **Cause chain preserved** — `#[source]` (Rust) / `cause` (TS 4.4+) /
    `__cause__` (Python 3 `raise … from`) keeps the debug trail intact.
 6. **Backtrace captured, never displayed** (ERR-OBS-01) — `ChainedError`
-    variants (`Generic`, `WalError`, `BackendError`, …) capture a
+    variants (`Generic`, `Wal`, `Backend`, …) capture a
     `std::backtrace::Backtrace` at construction when `RUST_LIB_BACKTRACE=1` /
     `RUST_BACKTRACE=1`; exposed via `Debug` and `backtrace_str()`, never in
     `Display` (cross-language messages stay clean). See
@@ -70,21 +70,21 @@ the *code*, not the class name, is the cross-binding contract) (ERR-PY-01).
 
 | Code | Meaning | Source Rust variant(s) | Retriable |
 |------|---------|-------------------------|-----------|
-| `VANTADB_VALIDATION_ERROR` | Input failed validation (dimension, schema, duplicate, collision, cycle, conflict, IQL parse) | `DimensionMismatch`, `DuplicateNode`, `NodeIdCollision`, `CycleDetected`, `ExecutionConflict`, `ValidationError`, `InvalidInput`, `IqlParseError`, `UnsupportedOperation`, `NoVectorForKey` | ❌ |
+| `VANTADB_VALIDATION_ERROR` | Input failed validation (dimension, schema, duplicate, collision, cycle, conflict, IQL parse) | `DimensionMismatch`, `DuplicateNode`, `NodeIdCollision`, `CycleDetected`, `ExecutionConflict`, `Validation`, `InvalidInput`, `IqlParse`, `UnsupportedOperation`, `NoVectorForKey` | ❌ |
 | `VANTADB_NOT_FOUND` | Requested entity does not exist | `NodeNotFound`, `NotFound` | ❌ |
 | `VANTADB_TIMEOUT` | Operation exceeded its time budget | `Timeout` | ✅ |
 | `VANTADB_BUSY` | Resource locked or not initialized | `DatabaseBusy` (✅), `NotInitialized` (❌) | ✅/❌ per variant |
 | `VANTADB_RESOURCE_LIMIT` | Memory, disk, or backpressure limit exceeded; on-disk header field overflow | `ResourceLimit` (✅), `VectorLenOverflow` (❌ hard format limit), `EdgeCountOverflow` (❌ hard format limit) | see §2 |
-| `VANTADB_CORRUPT` | Persisted data is corrupt or incompatible format | `WALVersionMismatch`, `IncompatibleFormat`, `SerializationError`, `SchemaError`, `RestoreError`, `BackupError` | ❌ |
-| `VANTADB_INVALID_ARGUMENT` | Caller passed a malformed argument (runtime IQL failure) | `IqlError` | ❌ |
-| `VANTADB_IO_ERROR` | Filesystem or backend I/O failure | `IoError` (❌), `WalError` (✅), `BackendError` (✅), `CliError`, `SearchError`, `RuntimeError` | see §2 |
+| `VANTADB_CORRUPT` | Persisted data is corrupt or incompatible format | `WALVersionMismatch`, `IncompatibleFormat`, `Serialization`, `Schema`, `Restore`, `Backup` | ❌ |
+| `VANTADB_INVALID_ARGUMENT` | Caller passed a malformed argument (runtime IQL failure) | `Iql` | ❌ |
+| `VANTADB_IO_ERROR` | Filesystem or backend I/O failure | `Io` (❌), `Wal` (✅), `Backend` (✅), `Cli`, `Search`, `Runtime` | see §2 |
 | `VANTADB_WASM_ERROR` | Generic catch-all fallback (`Generic`) | `Generic` | ❌ |
 | `VANTADB_CLOSED` | Operation attempted on a closed database handle | (lifecycle, not an `Error` variant — never returned by `code()`) | ❌ |
 
 > **Final mapping note (ERR-CORE-01):** the previously provisional overlap
-> between `VALIDATION_ERROR` and `INVALID_ARGUMENT` on `IqlParseError` is
-> resolved: `IqlParseError` → `VANTADB_VALIDATION_ERROR` (matching the TS
-> classification), `IqlError` → `VANTADB_INVALID_ARGUMENT`. `code()` is a
+> between `VALIDATION_ERROR` and `INVALID_ARGUMENT` on `IqlParse` is
+> resolved: `IqlParse` → `VANTADB_VALIDATION_ERROR` (matching the TS
+> classification), `Iql` → `VANTADB_INVALID_ARGUMENT`. `code()` is a
 > compile-exhaustive match: every new variant must declare its code.
 
 ### 1.2 `VANTADB_*` prefixed codes (implemented)
@@ -119,8 +119,8 @@ impl Error {
             Error::DatabaseBusy(_)
                 | Error::Timeout { .. }
                 | Error::ResourceLimit(_)
-                | Error::BackendError(_)
-                | Error::WalError(_)
+                | Error::Backend(_)
+                | Error::Wal(_)
         )
     }
 }
@@ -131,9 +131,9 @@ impl Error {
 | `DatabaseBusy(_)` | ✅ | exponential, jitter, max 30s |
 | `Timeout { .. }` | ✅ | exponential |
 | `ResourceLimit(_)` | ✅ | linear, monitor memory |
-| `BackendError(_)` | ✅ | exponential, check disk |
-| `WalError(_)` | ✅ | exponential, check disk |
-| `IoError(_)` | ❌ | not retryable by the core classifier (OS-level failures are typically terminal; bindings may retry selectively) |
+| `Backend(_)` | ✅ | exponential, check disk |
+| `Wal(_)` | ✅ | exponential, check disk |
+| `Io(_)` | ❌ | not retryable by the core classifier (OS-level failures are typically terminal; bindings may retry selectively) |
 | `VectorLenOverflow { .. }` / `EdgeCountOverflow { .. }` | ❌ | hard on-disk format limits — shrink the node, do not retry |
 | All other 25 variants | ❌ | do not retry |
 
@@ -152,10 +152,10 @@ impl Error {
             Error::Timeout { .. } => Some("Increase the timeout or reduce system load"),
             Error::ResourceLimit(_) => Some("Reduce memory pressure or increase configured limits"),
             Error::IncompatibleFormat { .. } => Some("Delete the WAL or run dump/restore to migrate formats"),
-            Error::SchemaError(_) => Some("Reinitialize the database or restore from backup"),
+            Error::Schema(_) => Some("Reinitialize the database or restore from backup"),
             Error::WALVersionMismatch { .. } => Some("The WAL was written by a different version of VantaDB"),
-            Error::RestoreError(_) => Some("Check that the backup file exists and is readable"),
-            Error::BackupError(_) => Some("Ensure the backup directory is writable and has free space"),
+            Error::Restore(_) => Some("Check that the backup file exists and is readable"),
+            Error::Backup(_) => Some("Ensure the backup directory is writable and has free space"),
             Error::NodeNotFound(_) => Some("The node may have been deleted or never existed"),
             Error::NotFound { .. } => Some("Verify that the namespace or identifier is spelled correctly"),
             _ => None,
@@ -254,9 +254,9 @@ subclasses (`MOD-20`). All inherit from `RuntimeError` for backward compat.
 ```
 Error (RuntimeError)
 ├── NotFoundError         # NodeNotFound, NotFound
-├── ValidationError       # DimensionMismatch, DuplicateNode, ValidationError, InvalidInput, …
-├── CorruptError          # IncompatibleFormat, WALVersionMismatch, SchemaError, SerializationError, …
-├── StorageError          # IoError, WalError, BackendError
+├── ValidationError       # DimensionMismatch, DuplicateNode, Validation, InvalidInput, …
+├── CorruptError          # IncompatibleFormat, WALVersionMismatch, Schema, Serialization, …
+├── StorageError          # Io, Wal, Backend
 ├── ConflictError         # ExecutionConflict, NodeIdCollision, CycleDetected
 ├── UnsupportedError      # UnsupportedOperation
 ├── ResourceLimitError    # ResourceLimit
@@ -319,14 +319,14 @@ Mapped from `Error` (Task `ERR-MCP-01`):
 | Code | Constant | Error variant(s) | Meaning |
 |------|----------|------------------------|---------|
 | `-32001` | `vanta_busy` | `DatabaseBusy`, `NotInitialized` | Database is busy or not initialized |
-| `-32002` | `vanta_corrupt` | `WALVersionMismatch`, `IncompatibleFormat`, `SchemaError`, `SerializationError` | Persisted data is corrupt |
+| `-32002` | `vanta_corrupt` | `WALVersionMismatch`, `IncompatibleFormat`, `Schema`, `Serialization` | Persisted data is corrupt |
 | `-32003` | `vanta_conflict` | `ExecutionConflict`, `NodeIdCollision`, `CycleDetected` | Concurrent modification conflict |
 | `-32004` | `vanta_not_found` | `NodeNotFound`, `NotFound` | Requested entity does not exist |
 | `-32005` | `vanta_unauthorized` | (auth layer) | Caller not authorized for this operation |
 | `-32006` | `vanta_rate_limited` | (rate limit layer) | Too many requests |
 | `-32007` | `vanta_resource_limit` | `ResourceLimit` | Resource limit exceeded |
 | `-32008` | `vanta_timeout` | `Timeout` | Operation timed out |
-| `-32009` | `vanta_validation` | `DimensionMismatch`, `DuplicateNode`, `ValidationError`, `InvalidInput`, `IqlParseError` | Input validation failed |
+| `-32009` | `vanta_validation` | `DimensionMismatch`, `DuplicateNode`, `Validation`, `InvalidInput`, `IqlParse` | Input validation failed |
 
 ### 6.3 Response envelope
 
@@ -409,9 +409,9 @@ with HTTP status codes `400 / 404 / 409 / 422 / 429 / 500`. Mapping from
 - **2026-09-02 (ERR-CORE-01)** — `VantaError::code()` implemented in
   `src/error.rs`: 10 canonical `VANTADB_*` codes, exhaustive match, snapshot
   test `error::tests::code_snapshot_all_variants`. Final mapping resolved
-  (`IqlParseError` → `VANTADB_VALIDATION_ERROR`). Typed overflow variants
-  `VectorLenOverflow` / `EdgeCountOverflow` replace the `ResourceLimit(format!)`
-  catch-alls in `write_node_to_vstore`. HTTP envelopes gain the `code` field.
-  §2 corrected: `IoError` is **not** retriable per the code (was a doc error).
+   (`IqlParse` → `VANTADB_VALIDATION_ERROR`). Typed overflow variants
+   `VectorLenOverflow` / `EdgeCountOverflow` replace the `ResourceLimit(format!)`
+   catch-alls in `write_node_to_vstore`. HTTP envelopes gain the `code` field.
+   §2 corrected: `Io` is **not** retriable per the code (was a doc error).
 - **2026-09-02** — Created as part of `ERR-DOCS-01`. Provisional 10-code
   table pending `pub fn code()` from `ERR-CORE-01`.

@@ -758,40 +758,38 @@ pub(crate) fn py_dict_to_filter_ops(filters: Option<&Bound<'_, PyDict>>) -> PyRe
 ///
 /// Mapping (variant core → subclase Python):
 /// - `NotFound` / `NodeNotFound` → `NotFoundError`
-/// - `ValidationError`, `DuplicateNode`, `DimensionMismatch`,
-///   `SerializationError`, `InvalidInput`, `SchemaError`, `NodeIdCollision`,
-///   `IqlParseError`, `IqlError` → `ValidationError`
-/// - `IncompatibleFormat`, `WALVersionMismatch`, `WalError` → `CorruptError`
-/// - `IoError`, `BackendError` → `StorageError`
+/// - `Validation`, `DuplicateNode`, `DimensionMismatch`,
+///   `Serialization`, `InvalidInput`, `Schema`, `NodeIdCollision`,
+///   `IqlParse`, `Iql` → `ValidationError`
+/// - `IncompatibleFormat`, `WALVersionMismatch`, `Wal` → `CorruptError`
+/// - `Io`, `Backend` → `StorageError`
 /// - `ExecutionConflict`, `CycleDetected` → `ConflictError`
 /// - `UnsupportedOperation` → `UnsupportedError`
 /// - `ResourceLimit` → `ResourceLimitError`
 /// - `DatabaseBusy`, `NotInitialized` → `BusyError`
 /// - `NoVectorForKey` → `NoVectorError`
 /// - `Timeout` → `TimeoutError` (VantaDB's, not the builtin)
-/// - remaining (`RuntimeError`, `Generic`, `CliError`, `SearchError`,
-///   `RestoreError`, `BackupError`, …) → `Error` (base, catch-all)
+/// - remaining (`Runtime`, `Generic`, `Cli`, `Search`,
+///   `Restore`, `Backup`, …) → `Error` (base, catch-all)
 pub(crate) fn map_vanta_error(err: vantadb::error::Error) -> PyErr {
     use vantadb::error::Error as CoreError;
     let py_err = match &err {
-        CoreError::IoError(_) | CoreError::BackendError(_) => {
-            StorageError::new_err(err.to_string())
-        }
+        CoreError::Io(_) | CoreError::Backend(_) => StorageError::new_err(err.to_string()),
         CoreError::NotFound { .. } | CoreError::NodeNotFound(_) => {
             NotFoundError::new_err(err.to_string())
         }
-        CoreError::ValidationError { .. }
+        CoreError::Validation { .. }
         | CoreError::DuplicateNode(_)
         | CoreError::DimensionMismatch { .. }
-        | CoreError::SerializationError(_)
+        | CoreError::Serialization(_)
         | CoreError::InvalidInput(_)
-        | CoreError::SchemaError(_)
+        | CoreError::Schema(_)
         | CoreError::NodeIdCollision(_)
-        | CoreError::IqlParseError { .. }
-        | CoreError::IqlError(_) => ValidationError::new_err(err.to_string()),
+        | CoreError::IqlParse { .. }
+        | CoreError::Iql(_) => ValidationError::new_err(err.to_string()),
         CoreError::IncompatibleFormat { .. }
         | CoreError::WALVersionMismatch { .. }
-        | CoreError::WalError(_) => CorruptError::new_err(err.to_string()),
+        | CoreError::Wal(_) => CorruptError::new_err(err.to_string()),
         CoreError::Timeout { .. } => TimeoutError::new_err(err.to_string()),
         CoreError::ResourceLimit(_) => ResourceLimitError::new_err(err.to_string()),
         CoreError::ExecutionConflict { .. } | CoreError::CycleDetected => {
@@ -802,7 +800,7 @@ pub(crate) fn map_vanta_error(err: vantadb::error::Error) -> PyErr {
             BusyError::new_err(err.to_string())
         }
         CoreError::NoVectorForKey(_) => NoVectorError::new_err(err.to_string()),
-        // RuntimeError, Generic, CliError, SearchError, RestoreError, BackupError, …
+        // Runtime, Generic, Cli, Search, Restore, Backup, …
         _ => Error::new_err(err.to_string()),
     };
     attach_err_meta(&py_err, &err);

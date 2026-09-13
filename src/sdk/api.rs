@@ -79,8 +79,8 @@ mod tests {
         let db = make_embedded(true);
         let err = db.check_read_only().unwrap_err();
         match err {
-            Error::ValidationError { field, .. } => assert_eq!(field, "read_only"),
-            _ => panic!("expected ValidationError"),
+            Error::Validation { field, .. } => assert_eq!(field, "read_only"),
+            _ => panic!("expected Validation"),
         }
     }
 
@@ -90,8 +90,8 @@ mod tests {
         let input = MemoryInput::new("ns", "k", "v");
         let err = db.put(input).unwrap_err();
         match err {
-            Error::ValidationError { field, .. } => assert_eq!(field, "read_only"),
-            _ => panic!("expected ValidationError for read_only"),
+            Error::Validation { field, .. } => assert_eq!(field, "read_only"),
+            _ => panic!("expected Validation for read_only"),
         }
     }
 
@@ -531,8 +531,8 @@ mod tests {
         let mut bad: &[u8] = b"NOTGOOD\n";
         let err = db.bulk_import_stream(&mut bad).unwrap_err();
         match err {
-            Error::ValidationError { field, .. } => assert_eq!(field, "header"),
-            _ => panic!("expected ValidationError"),
+            Error::Validation { field, .. } => assert_eq!(field, "header"),
+            _ => panic!("expected Validation"),
         }
     }
 
@@ -562,8 +562,8 @@ mod tests {
         payload.extend_from_slice(b"[]");
         let err = db.bulk_import_stream(&mut payload.as_slice()).unwrap_err();
         match err {
-            Error::ValidationError { field, .. } => assert_eq!(field, "count"),
-            _ => panic!("expected ValidationError"),
+            Error::Validation { field, .. } => assert_eq!(field, "count"),
+            _ => panic!("expected Validation"),
         }
     }
 

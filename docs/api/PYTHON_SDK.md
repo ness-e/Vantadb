@@ -1115,9 +1115,9 @@ except NotFoundError as exc:
 ```
 VantaError (base, inherits RuntimeError)
 ├── NotFoundError          # VantaError::NodeNotFound, VantaError::NotFound
-├── ValidationError        # VantaError::DimensionMismatch, DuplicateNode, ValidationError, InvalidInput, IqlParseError, NoVectorForKey, UnsupportedOperation, CycleDetected, NodeIdCollision
-├── CorruptError           # VantaError::IncompatibleFormat, WALVersionMismatch, SerializationError, SchemaError, RestoreError, BackupError
-├── StorageError           # VantaError::IoError, WalError, BackendError, CliError, SearchError, RuntimeError
+├── ValidationError        # VantaError::DimensionMismatch, DuplicateNode, Validation, InvalidInput, IqlParse, NoVectorForKey, UnsupportedOperation, CycleDetected, NodeIdCollision
+├── CorruptError           # VantaError::IncompatibleFormat, WALVersionMismatch, Serialization, Schema, Restore, Backup
+├── StorageError           # VantaError::Io, Wal, Backend, Cli, Search, Runtime
 ├── ConflictError          # VantaError::ExecutionConflict
 ├── UnsupportedError       # VantaError::UnsupportedOperation (typed alias)
 ├── ResourceLimitError     # VantaError::ResourceLimit
@@ -1142,7 +1142,7 @@ cross-binding logic; the variant class is for human-readable dispatch only.**
 | `VANTADB_VALIDATION_ERROR` | `ValidationError`, `ConflictError`, `UnsupportedError`, `NoVectorError` |
 | `VANTADB_INVALID_ARGUMENT` | `ValidationError` (runtime IQL path) |
 | `VANTADB_CORRUPT` | `CorruptError` |
-| `VANTADB_IO_ERROR` | `StorageError`, `VantaError` base (`CliError`/`SearchError`/`RuntimeError`) |
+| `VANTADB_IO_ERROR` | `StorageError`, `VantaError` base (`Cli`/`Search`/`Runtime`) |
 | `VANTADB_RESOURCE_LIMIT` | `ResourceLimitError` |
 | `VANTADB_BUSY` | `BusyError` |
 | `VANTADB_TIMEOUT` | `TimeoutError` |

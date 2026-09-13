@@ -166,10 +166,10 @@ impl crate::index::VecIndex for FlatIndex {
             _ => 1.0,
         };
         // B2b: poisoned lock is a real error on the write path — fail the
-        // insert with `RuntimeError` so callers propagate with `?` instead of
+        // insert with `Runtime` so callers propagate with `?` instead of
         // persisting possibly-torn state under a panic.
         let mut nodes = self.nodes.lock().map_err(|_| {
-            crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
                 "FlatIndex nodes lock poisoned",
             ))
         })?;
@@ -353,8 +353,8 @@ mod flat_tests {
             )
             .unwrap_err();
         assert!(
-            matches!(err, crate::error::Error::RuntimeError(_)),
-            "expected RuntimeError, got {err:?}"
+            matches!(err, crate::error::Error::Runtime(_)),
+            "expected Runtime, got {err:?}"
         );
     }
 }

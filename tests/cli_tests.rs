@@ -1421,7 +1421,7 @@ fn test_migrate_unknown_format() {
 #[test]
 fn test_server_missing_feature() {
     let (_dir, path) = setup_temp_db();
-    // Without the `server` feature the http branch returns a CliError.
+    // Without the `server` feature the http branch returns a Cli.
     // (mcp mode spawns the vantadb-server binary -> not testable in CI.)
     let result = vantadb::cli_handlers::cmd_server(
         &path, true, false, None, None, false, false, None, None, false,

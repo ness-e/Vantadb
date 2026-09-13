@@ -152,7 +152,7 @@ impl VantaError {
         use vantadb::VantaError as Core;
         match e {
             Core::DatabaseBusy(msg) => Self::Lock(msg.clone()),
-            Core::IoError(io) => Self::Io(io.to_string()),
+            Core::Io(io) => Self::Io(io.to_string()),
             other => Self::Domain {
                 code: other.code().to_string(),
                 message: other.to_string(),
@@ -265,8 +265,7 @@ mod tests {
     fn from_core_keeps_lock_and_io_semantics() {
         let busy = VantaError::from_core(&vantadb::VantaError::DatabaseBusy("locked".into()));
         assert!(matches!(busy, VantaError::Lock(_)));
-        let io =
-            VantaError::from_core(&vantadb::VantaError::IoError(std::io::Error::other("disk")));
+        let io = VantaError::from_core(&vantadb::VantaError::Io(std::io::Error::other("disk")));
         assert!(matches!(io, VantaError::Io(_)));
     }
 }
