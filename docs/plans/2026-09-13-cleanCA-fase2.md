@@ -17,12 +17,12 @@
 
 | Resultado | Count |
 |-----------|-------|
-| ✅ DO | 17 (S6 con GO explícito humano 2026-09-13) |
+| ✅ DO | 18 (S6 con GO explícito humano 2026-09-13 + S3b CacheLayer, slice 2 de S3, registrada 2026-09-13) |
 | 🟡 DEFER | 1 (reorg física Screaming — se reactiva como Fase 3 solo con gate §Cierre) |
 | ❌ SKIP | 0 |
 | 🔴 BLOQUEADO | 0 |
 
-Status: ⬆️ uphill = 2 (Config monolítico intencional?, ciclo sdk↔parser alcance exacto) · ⬇️ downhill = 15
+Status: ⬆️ uphill = 2 (Config monolítico intencional?, ciclo sdk↔parser alcance exacto) · ⬇️ downhill = 16
 
 ## Gate P — triage (beneficio verificado vs costo)
 
@@ -141,6 +141,19 @@ Status: ⬆️ uphill = 2 (Config monolítico intencional?, ciclo sdk↔parser a
 - Contrato: un Act bulk por test + asserts finales + banners ordenados + suites verdes.
 - Task file `docs/tasks/C2T3.md` · ⬜ PENDING · Ruta vanta-worker.
 
+### Wave 3.5 — CacheLayer slice 2 de S3 (sesión propia, tras Wave 3, antes de Wave 4)
+
+**Task 13b: S3b — extraer `CacheLayer` de `StorageEngine` (slice 2 de S3, deuda registrada 2026-09-13)**
+- Appetite 1d · 🟡 · 🟠 · `src/storage/engine/mod.rs` (24 campos tras S3-txn `cdb15b3e`) + nuevo `cache.rs`
+- Alcance acotado (de `docs/tasks/C2S3.md` Step 2, verificado en DISCOVERY de S3): 5 campos (`volatile_cache`, `text_stats_cache`, `text_ns_cache`, `cardinality_stats`, `cache_warmer`) + probes en `get.rs` (`lookup_volatile_cache`) + inserts en `insert.rs`/apply paths + evicción en `maintenance.rs` + writers `text_index` + `stats`. Tamaño ≈ slice txn → sesión propia, NO junto a otra tarea del mismo `storage/engine/`.
+- Patrón obligatorio (mismo que slice txn): `pub(crate)` sellado + delegación 1:1 + `cloned_*` en paths batch (preservar ERR-037 en rayon); sin cambio semántico, sin optimización (hot path — bench en CI al mergear, decisión humana 2026-09-13).
+- Gate Justificación: completa la cura del god-object (24→~19 campos) y la baja de D que M1 ratifica; sin este slice la rigidez raíz queda a medias.
+- Contrato: `CacheLayer` extraído con tests propios + `StorageEngine` delega + suites storage verdes + `acyclic` sin ciclos nuevos + M1 post-números finales (D debe bajar vs 24 campos) + bench en CI al mergear.
+- Task file `docs/tasks/C2S3b.md` · ⬜ PENDING · Ruta vanta-worker. Depende de: S3-txn (`cdb15b3e`), Wave 3 cerrada (suite rápida+determinista como red). Bloquea: nada de Wave 4 (disjunta), pero debe cerrar antes de Wave 5 (M3/M1-full exigen la D final).
+- Skills: base 9 + `performance-optimization` (bench), `planning-and-task-breakdown`.
+- Verify: `cargo check -p vantadb --tests --all-targets` + `clippy -D warnings` + `fmt` + `nextest -p vantadb --lib storage --build-jobs 2` + `acyclic` + conteo campos después en task file.
+- NOTA RUNNER (`/pipeline run`): ejecutar esta task inmediatamente al terminar Wave 3 (T1+T2+T3 verdes), antes de Wave 4. No saltearla: es deuda con dueño y alcance cerrado, no opcional.
+
 ### Wave 4 — docs API + frontend (disjuntos)
 
 **Task 14: C2 — documentar API pública bindings (TS ~11 exports + Python stubs + WASM baseline)**
@@ -185,6 +198,7 @@ Wave0: M1 + C1 + D0 + A1
 Wave1: S1 + S7 + M2        (tras M1)
 Wave2: S2 + S5 (+ S3 arranca, slices largos)
 Wave3: T1 + T2 + T3
+Wave3.5: S3b (CacheLayer, sesión propia — INMEDIATAMENTE tras Wave 3, antes de Wave 4)
 Wave4: C2 + A2
 Wave5: M3 + S6
 ```
