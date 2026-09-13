@@ -5,10 +5,10 @@
 //! Covers: create, send, list, delete, and TTL-based expiry.
 
 use std::collections::HashMap;
+use std::sync::Arc;
 use tempfile::tempdir;
-use vantadb::agentic::{CreateThread, ThreadStore};
+use vantadb::agentic::{CreateThread, ManualClock, ThreadStore};
 use vantadb::config::Config;
-use vantadb::gc::GcWorker;
 use vantadb::sdk::Embedded;
 use vantadb::storage::{BackendKind, StorageEngine};
 
@@ -164,11 +164,15 @@ fn test_delete() {
 
 #[test]
 fn test_thread_ttl_expiry() {
+    // FIRST-Repeatable (C2T2): virtual time via ManualClock — no sleep, no
+    // scheduling flake. TTL semantics preserved: a real ttl_secs is set and
+    // expiry is proven in both states (not-yet-expired, then expired).
+    // GcWorker::sweep is intentionally not used: it reads wall time.
     let (engine, _dir) = setup_engine();
-    let store = ThreadStore::new(&engine);
-    let mut gc = GcWorker::new(&engine);
+    let clock = Arc::new(ManualClock::new(1_000_000, 1_000_000_000));
+    let store = ThreadStore::with_clock(&engine, clock.clone());
 
-    let ttl_secs = 1u64;
+    let ttl_secs = 60u64;
     let thread_id = store
         .create(
             CreateThread {
@@ -176,19 +180,22 @@ fn test_thread_ttl_expiry() {
                 metadata: HashMap::new(),
                 ttl_secs: Some(ttl_secs),
             },
-            Some(&mut gc),
+            None,
         )
         .expect("create with TTL");
 
     // Thread exists right away
     assert!(store.get(thread_id).unwrap().is_some());
 
-    // Wait for TTL to expire
-    std::thread::sleep(std::time::Duration::from_secs(ttl_secs + 1));
+    // Not yet expired → purge removes nothing
+    let swept = store.purge_expired_threads().expect("purge before expiry");
+    assert_eq!(swept, 0, "nothing must expire before its TTL elapses");
+    assert!(store.get(thread_id).unwrap().is_some());
 
-    // Run GcWorker sweep — this deletes the expired node from storage
-    let swept = gc.sweep().expect("gc sweep");
-    assert_eq!(swept, 1, "GcWorker should have swept 1 expired thread");
+    // Travel past the TTL → purge removes exactly the expired thread
+    clock.advance_secs(ttl_secs + 1);
+    let swept = store.purge_expired_threads().expect("purge after expiry");
+    assert_eq!(swept, 1, "purge should have removed 1 expired thread");
 
     // Thread should be gone
     assert!(store.get(thread_id).unwrap().is_none());

@@ -12,6 +12,8 @@ use crate::storage::StorageEngine;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use web_time::{SystemTime, UNIX_EPOCH};
 
 // ── Types ──
@@ -62,6 +64,69 @@ const FIELD_TTL_SECS: &str = "_ttl_secs";
 /// InternalMetadata key for the sorted list of thread IDs.
 const THREAD_INDEX_KEY: &[u8] = b"_thread_ids";
 
+// ── Clock (FIRST-Repeatable, C2T2) ──
+
+/// Time source for [`ThreadStore`].
+///
+/// Production code uses [`SystemClock`] (wall time). Tests inject
+/// [`ManualClock`] and travel forward instead of `sleep`ing through a TTL,
+/// which is flaky under CI scheduling pressure.
+pub trait Clock: Send + Sync + std::fmt::Debug {
+    /// Current time in whole seconds since UNIX epoch.
+    fn now_secs(&self) -> u64;
+    /// Current time in milliseconds since UNIX epoch.
+    fn now_ms(&self) -> u64;
+}
+
+/// [`Clock`] backed by wall time (`web_time`, WASM-safe).
+#[derive(Debug, Default, Clone, Copy)]
+pub struct SystemClock;
+
+impl Clock for SystemClock {
+    fn now_secs(&self) -> u64 {
+        now_secs()
+    }
+    fn now_ms(&self) -> u64 {
+        now_ms()
+    }
+}
+
+/// [`Clock`] with manually advanced virtual time, for deterministic TTL tests.
+///
+/// Both channels move together: `advance_secs` also advances millis so
+/// `created_at` (secs) and message `timestamp` (ms) stay consistent.
+#[derive(Debug, Default)]
+pub struct ManualClock {
+    secs: AtomicU64,
+    ms: AtomicU64,
+}
+
+impl ManualClock {
+    /// Create a clock pinned at `start_secs` / `start_ms`.
+    pub fn new(start_secs: u64, start_ms: u64) -> Self {
+        Self {
+            secs: AtomicU64::new(start_secs),
+            ms: AtomicU64::new(start_ms),
+        }
+    }
+
+    /// Move virtual time forward by `delta` seconds (saturating).
+    pub fn advance_secs(&self, delta: u64) {
+        self.secs.fetch_add(delta, Ordering::SeqCst);
+        self.ms
+            .fetch_add(delta.saturating_mul(1_000), Ordering::SeqCst);
+    }
+}
+
+impl Clock for ManualClock {
+    fn now_secs(&self) -> u64 {
+        self.secs.load(Ordering::SeqCst)
+    }
+    fn now_ms(&self) -> u64 {
+        self.ms.load(Ordering::SeqCst)
+    }
+}
+
 // ── helpers ──
 
 fn now_secs() -> u64 {
@@ -84,12 +149,24 @@ fn generate_id() -> u128 {
 /// TTL-based expiry pass a [`GcWorker`] reference into the relevant methods.
 pub struct ThreadStore<'a> {
     engine: &'a StorageEngine,
+    clock: Arc<dyn Clock>,
 }
 
 impl<'a> ThreadStore<'a> {
-    /// Wrap a storage engine reference.
+    /// Wrap a storage engine reference (wall-time clock).
     pub fn new(engine: &'a StorageEngine) -> Self {
-        Self { engine }
+        Self {
+            engine,
+            clock: Arc::new(SystemClock),
+        }
+    }
+
+    /// Wrap a storage engine reference with an explicit [`Clock`].
+    ///
+    /// Tests pass `Arc::new(ManualClock::new(..))` to expire TTLs by
+    /// advancing virtual time instead of sleeping.
+    pub fn with_clock(engine: &'a StorageEngine, clock: Arc<dyn Clock>) -> Self {
+        Self { engine, clock }
     }
 
     /// Create a new thread.
@@ -106,7 +183,7 @@ impl<'a> ThreadStore<'a> {
             ttl_secs,
         } = input;
         let thread_id = generate_id();
-        let now = now_secs();
+        let now = self.clock.now_secs();
 
         let empty_messages = serde_json::to_string(&Vec::<Message>::new())
             .map_err(|e| Error::serialization(ChainedError::with_source("messages", e)))?;
@@ -147,7 +224,7 @@ impl<'a> ThreadStore<'a> {
         metadata: HashMap<String, String>,
         gc: Option<&mut GcWorker<'a>>,
     ) -> Result<()> {
-        let now = now_secs();
+        let now = self.clock.now_secs();
         let mut node = self
             .engine
             .get(thread_id)?
@@ -157,7 +234,7 @@ impl<'a> ThreadStore<'a> {
         messages.push(Message {
             role: role.to_string(),
             content: content.to_string(),
-            timestamp: now_ms(),
+            timestamp: self.clock.now_ms(),
             metadata,
         });
 
@@ -213,7 +290,7 @@ impl<'a> ThreadStore<'a> {
     ///
     /// Returns the number of threads purged.
     pub fn purge_expired_threads(&self) -> Result<usize> {
-        let now = now_secs();
+        let now = self.clock.now_secs();
         let ids = self.load_thread_ids()?;
         let mut purged = 0;
 
@@ -236,7 +313,7 @@ impl<'a> ThreadStore<'a> {
                         .get(*id)
                         .ok()
                         .flatten()
-                        .is_some_and(|node| !self.is_expired(&node, now_secs()))
+                        .is_some_and(|node| !self.is_expired(&node, now))
                 })
                 .collect();
             self.save_thread_ids(&remaining)?;
