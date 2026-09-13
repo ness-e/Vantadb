@@ -35,7 +35,7 @@
         "-Command",
         "$t = (Get-Content '.env.tokens' | Where-Object {$_ -match '^DISCORD_BOT_TOKEN=\"(.+)\"$'} | ForEach-Object {$Matches[1]}); $env:DISCORD_TOKEN = $t; bunx @rayenking/discord-mcp"
       ],
-      "enabled": false
+      "enabled": true
     },
     "metasearchmcp": {
       "command": [

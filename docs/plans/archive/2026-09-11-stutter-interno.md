@@ -47,7 +47,7 @@ Regla: rename DIRECTO (sin usuarios). Familia entity/scene con `#[serde(alias)]`
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo check -p vantadb --all-targets && cargo clippy -p vantadb --all-targets --all-features -- -D warnings`
 - **Task file:** `docs/tasks/STU-001.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
 
@@ -82,7 +82,7 @@ Regla: rename DIRECTO (sin usuarios). Familia entity/scene con `#[serde(alias)]`
 - **Gate Result:** ✅ DO
 - **Contrato:** `rg -n "AsyncVantaDB" vantadb-python/ | wc -l` → `0` + pytest async smoke verde
 - **Task file:** `docs/tasks/STU-002.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
 
@@ -116,7 +116,7 @@ Regla: rename DIRECTO (sin usuarios). Familia entity/scene con `#[serde(alias)]`
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo check -p vantadb --all-targets && cargo nextest run --profile audit -p vantadb -- entity` (o filtro equivalente con evidencia)
 - **Task file:** `docs/tasks/STU-003.md`
-- **Estado:** ✅ COMPLETED (2026-09-11)
+- **Estado:** ✅ COMPLETED
 - **Branch:** develop
 - **Commit:** `b3ea6028` — `refactor: STU-003 entity/scene sin stutter + serde alias` (24 archivos, sin push)
 
@@ -151,7 +151,7 @@ Regla: rename DIRECTO (sin usuarios). Familia entity/scene con `#[serde(alias)]`
 - **Gate Result:** ✅ DO
 - **Contrato:** `npm run lint --prefix web` (o eslint equivalente con evidencia) + `cargo clippy --workspace -- -D warnings` verde
 - **Task file:** `docs/tasks/STU-004.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Branch:**
 - **Commit:**
 
@@ -182,4 +182,48 @@ Resultado: ✅
 Próxima acción: Ninguna en STU-003; STU-004 desbloqueado para archivar
 Contrato: check vantadb+proxy ✅, nextest entity 46/46 ✅, gate auth/checker/skills 45/45 ✅, clippy ✅, fmt ✅, rg cero ✅ (H7 inject.rs:115). Invariantes: claves byte-idénticas, alias lee-viejo/escribe-nuevo, checker/ct_eq intactos, firmas ajenas intactas. Deuda: ninguna viva. Commit b3ea6028, sin push.
 Próxima tarea si completa: STU-004
+=== END RECITATION ===
+
+=== RECITATION 1 ===
+Campaign ID: 69be5375-44c1-4169-ad63-84589614b196
+Objetivo activo: STU-001/002/004 Wave0 + STU-003
+Estado: completed
+Última acción: STU-003 RETRY COMPLETO commit b3ea6028; docs a8cba614
+Resultado: ✅
+Próxima acción: archivar plan
+Contrato: todos verdes + commits
+Próxima tarea si completa: ninguna
+=== END RECITATION ===
+
+=== RECITATION 2 ===
+Campaign ID: 69be5375-44c1-4169-ad63-84589614b196
+Objetivo activo: STU-002 AsyncClient
+Estado: completed
+Última acción: COMPLETO commit b2d6e1f4
+Resultado: ✅
+Próxima acción: archivar
+Contrato: rg0 + smoke + drift
+Próxima tarea si completa: ninguna
+=== END RECITATION ===
+
+=== RECITATION 4 ===
+Campaign ID: 69be5375-44c1-4169-ad63-84589614b196
+Objetivo activo: STU-004 footer + review
+Estado: completed
+Última acción: COMPLETO commits 5e7f6fd2 + review approve
+Resultado: ✅
+Próxima acción: archivar
+Contrato: eslint + clippy + review approve
+Próxima tarea si completa: ninguna
+=== END RECITATION ===
+
+=== RECITATION 3 ===
+Campaign ID: 69be5375-44c1-4169-ad63-84589614b196
+Objetivo activo: STU-003 entity/scene + alias
+Estado: completed
+Última acción: RETRY COMPLETO commit b3ea6028
+Resultado: ✅
+Próxima acción: archivar
+Contrato: check + nextest entity 46 + auth/checker 45 + rg0
+Próxima tarea si completa: ninguna
 === END RECITATION ===
