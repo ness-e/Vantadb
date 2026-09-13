@@ -13,7 +13,7 @@ use crate::audit::{AuditEvent, AuditLogger};
 use crate::circuit_breaker::CircuitBreaker;
 use crate::config::RbacConfig;
 use crate::connection_pool::ConnectionPool;
-use crate::entity::EntityStore;
+use crate::entity::{EntityRepository, EntityStore};
 use crate::node::FieldValue;
 use crate::rbac::Rbac;
 use crate::sdk::Embedded;
@@ -308,7 +308,7 @@ pub(crate) fn audit_auth(auth: &AuthState, event: AuditEvent) {
 /// ponytail: linear scan over all users; add a user_key→user_id index when
 /// the user collection grows past ~1k entries.
 pub(crate) fn resolve_user_key(
-    store: &EntityStore<'_>,
+    store: &dyn EntityRepository,
     namespace: &str,
     user_key: &str,
 ) -> crate::error::Result<Option<(String, bool)>> {

@@ -25,7 +25,7 @@
 //! El separador `.` es seguro: los ids de [`crate::entity::generate_id`] solo
 //! contienen `[a-z0-9-]`, y `validate_key` rechaza `{`, `}`, `:`.
 
-use crate::entity::EntityStore;
+use super::EntityRepository;
 use crate::error::Result;
 use crate::node::FieldValue;
 
@@ -76,12 +76,12 @@ pub struct PermDecision {
 
 /// Checker allow-only de acceso a assets basado en entidades `entity_*`.
 pub struct PermissionChecker<'a> {
-    store: &'a EntityStore<'a>,
+    store: &'a dyn EntityRepository,
 }
 
 impl<'a> PermissionChecker<'a> {
     /// Wrap a store reference.
-    pub fn new(store: &'a EntityStore<'a>) -> Self {
+    pub fn new(store: &'a dyn EntityRepository) -> Self {
         Self { store }
     }
 
