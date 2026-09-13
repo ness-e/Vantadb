@@ -55,7 +55,7 @@ export default function MaintPage() {
             const Icon = ICONS[pillar.icon] ?? Server;
             return (
               <Reveal key={pillar.title} direction="up" delay={i * 80} as="article">
-                <article className="press-lg group relative flex h-full flex-col border-4 border-black bg-[#FBF9F5] p-5  ">
+                <article className="press--lg group relative flex h-full flex-col border-4 border-black bg-[#FBF9F5] p-5  ">
                   <span className="absolute -left-2 -top-3 rotate-[-6deg] border-2 border-black bg-black px-2 py-0.5 font-display text-xs uppercase text-[#FF5500]   ">
                     0{i + 1}
                   </span>
@@ -98,7 +98,7 @@ export default function MaintPage() {
               href={VANTA.quickstart}
               target="_blank"
               rel="noopener noreferrer"
-              className="press-neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+              className="press--neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
             >
               {tt("maintPage.ctaButton", "Read the quickstart")}
               <ArrowRight className="h-4 w-4" strokeWidth={2.5} />

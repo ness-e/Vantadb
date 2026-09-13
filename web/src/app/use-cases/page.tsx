@@ -36,7 +36,7 @@ export default function UseCasesPage() {
             const Icon = ICONS[uc.icon] ?? Bot;
             return (
               <Reveal key={uc.slug} direction="up" delay={i * 80} as="article">
-                <article className="press-lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5  ">
+                <article className="press--lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5  ">
                   <span className="absolute -left-2 -top-3 rotate-[-6deg] border-2 border-black bg-black px-2 py-0.5 font-display text-xs uppercase text-[#FF5500]   ">
                     0{i + 1}
                   </span>

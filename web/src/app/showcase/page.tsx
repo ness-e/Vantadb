@@ -128,7 +128,7 @@ export default function ShowcasePage() {
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((it, i) => (
             <Reveal key={it.title} direction="up" delay={i * 60} as="article">
-              <article className="press-lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5  ">
+              <article className="press--lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5  ">
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center border-4 border-black bg-[#FBF9F5] text-2xl shadow-[3px_3px_0_0_#000]   ">
                     {it.emoji}
@@ -194,7 +194,7 @@ export default function ShowcasePage() {
                 href="https://github.com/ness-e/Vantadb"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="press-neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+                className="press--neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
               >
                 {tt("showcasePage.ctaBtn", "Submit your project")}
                 <ArrowUpRight className="h-4 w-4" strokeWidth={2.5} />

@@ -85,7 +85,7 @@ export function CtaFinal() {
               {tt("ctaFinal.titleLine1", "Start building")}
             </span>
             <span className="block text-[12vw] sm:text-[8vw] lg:text-[6vw]">
-              <span className="text-outline-neon glow-neon">{tt("ctaFinal.titleLine2", "today")}</span>
+              <span className="text-outline-neon glow--neon">{tt("ctaFinal.titleLine2", "today")}</span>
             </span>
           </h2>
         </Reveal>

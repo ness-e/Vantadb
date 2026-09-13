@@ -126,31 +126,31 @@
     box-shadow: 0 0 0 0 #000;
   }
 
-  .press-lg {
+  .press--lg {
     transition: transform 100ms var(--ease-default),
       box-shadow 100ms var(--ease-default);
     box-shadow: 8px 8px 0 0 #000;
   }
-  .press-lg:hover {
+  .press--lg:hover {
     transform: translate(3px, 3px);
     box-shadow: 5px 5px 0 0 #000;
   }
-  .press-lg:active {
+  .press--lg:active {
     transform: translate(8px, 8px);
     box-shadow: 0 0 0 0 #000;
   }
 
-  .press-neon {
+  .press--neon {
     transition: transform var(--duration-fast) var(--ease-default),
       box-shadow var(--duration-fast) var(--ease-default),
       background-color 120ms ease;
     box-shadow: 6px 6px 0 0 #000;
   }
-  .press-neon:hover {
+  .press--neon:hover {
     transform: translate(2px, 2px);
     box-shadow: 4px 4px 0 0 #000;
   }
-  .press-neon:active {
+  .press--neon:active {
     transform: translate(6px, 6px);
     box-shadow: 0 0 0 0 #000;
   }
@@ -177,18 +177,6 @@
       transparent 24px
     );
   }
-  .speed-lines-radial {
-    background: conic-gradient(
-      from 0deg,
-      transparent 0deg,
-      transparent 6deg,
-      rgba(0, 0, 0, 0.4) 6deg,
-      rgba(0, 0, 0, 0.4) 7deg,
-      transparent 7deg,
-      transparent 18deg
-    );
-  }
-
   /* Crosshatch grid (technical drafting) */
   .grid-tech {
     background-image:
@@ -480,13 +468,13 @@
    ============================================================ */
 
 /* Neon glow text effect */
-.glow-neon {
+.glow--neon {
   text-shadow: 0 0 8px rgba(255, 85, 0, 0.6), 0 0 16px rgba(255, 85, 0, 0.3);
 }
 
 
 /* Neon glow box effect */
-.glow-box-neon {
+.glow-box--neon {
   box-shadow: 0 0 0 0 rgba(255, 85, 0, 0.4);
   animation: vanta-glow-pulse 2.5s ease-in-out infinite;
 }
