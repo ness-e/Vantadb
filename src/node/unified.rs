@@ -3,8 +3,8 @@ use std::collections::{BTreeMap, HashMap};
 use web_time::{SystemTime, UNIX_EPOCH};
 
 use crate::node::{
-    AccessTracker, Edge, EvictionWeights, FieldValue, FilterBitset, NodeFlags, NodeTier, RelFields,
-    VectorRepresentations,
+    AccessStats, Edge, EvictionWeights, FieldValue, FilterBitset, NodeFlags, NodeTier, Pinnable,
+    RelFields, VectorRepresentations,
 };
 
 /// Core multimodel node: vector + graph + relational unified.
@@ -46,7 +46,7 @@ pub struct UnifiedNode {
     pub ext_metadata: HashMap<String, Vec<u8>>,
 }
 
-impl AccessTracker for UnifiedNode {
+impl AccessStats for UnifiedNode {
     fn confidence_score(&self) -> f32 {
         self.confidence_score
     }
@@ -56,6 +56,9 @@ impl AccessTracker for UnifiedNode {
     fn last_accessed(&self) -> u64 {
         self.last_accessed
     }
+}
+
+impl Pinnable for UnifiedNode {
     fn pin(&mut self) {
         self.flags.set(NodeFlags::PINNED);
     }
@@ -185,19 +188,21 @@ impl UnifiedNode {
 
     /// Compute a weighted eviction score for memory pressure decisions.
     /// Higher score = more valuable to keep in cache.
+    /// Reads only via [`AccessStats`] — never touches pin/mutation state.
     pub fn eviction_score(&self, weights: &EvictionWeights) -> f64 {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
             .unwrap_or_default()
             .as_millis() as u64;
-        let age_secs = if self.last_accessed > 0 {
-            ((now - self.last_accessed) / 1000).max(1)
+        let last = AccessStats::last_accessed(self);
+        let age_secs = if last > 0 {
+            ((now - last) / 1000).max(1)
         } else {
             1
         };
         let recency_score = 1.0 / (age_secs as f64).ln_1p();
-        self.hits as f64 * weights.hits
-            + self.confidence_score as f64 * weights.confidence
+        AccessStats::hits(self) as f64 * weights.hits
+            + AccessStats::confidence_score(self) as f64 * weights.confidence
             + self.importance as f64 * weights.importance
             + recency_score * weights.recency
     }

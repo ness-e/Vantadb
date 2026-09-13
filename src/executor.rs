@@ -191,7 +191,7 @@ impl<'a> Executor<'a> {
                 let plan = query.into_logical_plan();
                 let nodes = self.execute_plan(plan)?;
 
-                use crate::node::AccessTracker;
+                use crate::node::AccessStats;
                 // Phase 30: Archaeological Interception (Non-blocking)
                 let mut filtered_nodes = Vec::with_capacity(nodes.len());
                 for node in nodes {
