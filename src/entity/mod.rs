@@ -71,6 +71,33 @@ pub struct EntityWrite<'a> {
     pub fields: HashMap<String, FieldValue>,
 }
 
+// ── EntityRepository (puerto DDD) ──
+
+/// Puerto de repositorio de entidades (DDD) — DIP (C2M2).
+///
+/// Los consumidores (checker, auth, skills) dependen de este trait, no del
+/// struct concreto [`EntityStore`]. `EntityStore` es el adaptador
+/// `StorageEngine → EntityRepository` (el engine no conoce tipos de dominio).
+pub trait EntityRepository {
+    /// Insert or replace an entity (upsert semantics).
+    fn set(&self, input: EntityWrite<'_>) -> Result<Entity>;
+
+    /// Retrieve an entity by scope + id, or `None` when absent.
+    fn get(&self, namespace: &str, collection: &str, id: &str) -> Result<Option<Entity>>;
+
+    /// Delete an entity by scope + id. Returns `true` when it existed.
+    fn delete(&self, namespace: &str, collection: &str, id: &str) -> Result<bool>;
+
+    /// List entities with pagination (ordered by `id`; `total` pre-page).
+    fn list(
+        &self,
+        namespace: &str,
+        collection: &str,
+        limit: usize,
+        offset: usize,
+    ) -> Result<EntityPage>;
+}
+
 // ── EntityStore ──
 
 /// CRUD store for scoped entities backed by a [`StorageEngine`].
@@ -177,6 +204,30 @@ impl<'a> EntityStore<'a> {
         let total = entities.len();
         let items: Vec<Entity> = entities.into_iter().skip(offset).take(limit).collect();
         Ok(EntityPage { items, total })
+    }
+}
+
+impl EntityRepository for EntityStore<'_> {
+    fn set(&self, input: EntityWrite<'_>) -> Result<Entity> {
+        EntityStore::set(self, input)
+    }
+
+    fn get(&self, namespace: &str, collection: &str, id: &str) -> Result<Option<Entity>> {
+        EntityStore::get(self, namespace, collection, id)
+    }
+
+    fn delete(&self, namespace: &str, collection: &str, id: &str) -> Result<bool> {
+        EntityStore::delete(self, namespace, collection, id)
+    }
+
+    fn list(
+        &self,
+        namespace: &str,
+        collection: &str,
+        limit: usize,
+        offset: usize,
+    ) -> Result<EntityPage> {
+        EntityStore::list(self, namespace, collection, limit, offset)
     }
 }
 
