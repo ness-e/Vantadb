@@ -476,7 +476,7 @@ export function DocsView({ onNavigate }: { onNavigate: (v: View) => void }) {
                 </div>
                 <button
                   onClick={() => onNavigate("benchmarks")}
-                  className="press-neon inline-flex shrink-0 items-center gap-2 border-4 border-black bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+                  className="press--neon inline-flex shrink-0 items-center gap-2 border-4 border-black bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
                 >
                   View Benchmarks
                   <ArrowRight className="h-4 w-4" strokeWidth={2.5} />

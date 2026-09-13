@@ -180,7 +180,7 @@ export default function BlogPostPage() {
           <Reveal direction="up" delay={80}>
             <a
               href={`/blog/${nextPost.slug}`}
-              className="press-lg group flex flex-col gap-3 border-4 border-black bg-[#F2EDE2] p-5 shadow-[6px_6px_0_0_#000] transition-transform hover:translate-x-[-3px] hover:translate-y-[-3px] hover:shadow-[9px_9px_0_0_#FF5500]    sm:flex-row sm:items-center sm:justify-between"
+              className="press--lg group flex flex-col gap-3 border-4 border-black bg-[#F2EDE2] p-5 shadow-[6px_6px_0_0_#000] transition-transform hover:translate-x-[-3px] hover:translate-y-[-3px] hover:shadow-[9px_9px_0_0_#FF5500]    sm:flex-row sm:items-center sm:justify-between"
             >
               <div className="flex-1">
                 <span className="font-tech text-[10px] uppercase tracking-wider text-[#FF5500]">

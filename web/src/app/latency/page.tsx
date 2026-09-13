@@ -226,7 +226,7 @@ export default function LatencyPage() {
             <div className="mt-8">
               <Link
                 href="/benchmarks"
-                className="press-neon btn-neon-glow inline-flex items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+                className="press--neon btn-neon-glow inline-flex items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
               >
                 {tt("latencyPage.ctaBtn", "See full benchmarks")}
                 <ArrowRight className="h-4 w-4" strokeWidth={2.5} />

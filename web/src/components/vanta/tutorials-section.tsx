@@ -125,7 +125,7 @@ export function TutorialsSection({ onNavigate }: { onNavigate: (v: View) => void
                 <Reveal key={tutorial.num} direction={i % 2 === 0 ? "right" : "left"} delay={i * 60}>
                   <button
                     onClick={() => setSelected(originalIdx)}
-                    className="press-lg group block h-full w-full border-4 border-black bg-[#FBF9F5] p-5 text-left  "
+                    className="press--lg group block h-full w-full border-4 border-black bg-[#FBF9F5] p-5 text-left  "
                     aria-label={`Abrir tutorial: ${tutorial.title}`}
                   >
                     <div className="flex items-start justify-between gap-3">

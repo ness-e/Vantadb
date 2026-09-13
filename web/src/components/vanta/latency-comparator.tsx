@@ -254,7 +254,7 @@ export function LatencyComparator() {
             onChange={onDimChange}
             desc="Embedding vector width"
           />
-          <div className="press-lg border-4 border-black bg-[#FBF9F5] p-4  ">
+          <div className="press--lg border-4 border-black bg-[#FBF9F5] p-4  ">
             <div className="mb-2 flex items-center justify-between">
               <label className="font-tech text-[10px] font-bold uppercase tracking-[0.2em] text-black ">
                 dataset
@@ -509,7 +509,7 @@ function SliderCard({
 }) {
   const pct = ((value - min) / (max - min)) * 100;
   return (
-    <div className="press-lg border-4 border-black bg-[#FBF9F5] p-4  ">
+    <div className="press--lg border-4 border-black bg-[#FBF9F5] p-4  ">
       <div className="mb-2 flex items-center justify-between">
         <label className="font-tech text-[10px] font-bold uppercase tracking-[0.2em] text-black ">
           {label}

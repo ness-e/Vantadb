@@ -142,7 +142,7 @@ export function BenchmarkRace() {
               type="button"
               onClick={start}
               disabled={running}
-              className="press-lg inline-flex items-center gap-2 border-4 border-black bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black shadow-[4px_4px_0_0_#000] transition-opacity disabled:cursor-not-allowed disabled:opacity-50  "
+              className="press--lg inline-flex items-center gap-2 border-4 border-black bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black shadow-[4px_4px_0_0_#000] transition-opacity disabled:cursor-not-allowed disabled:opacity-50  "
             >
               <Play className="h-4 w-4" strokeWidth={2.5} />
               {tt("benchmarkRace.startBtn", "Start race")}
@@ -151,7 +151,7 @@ export function BenchmarkRace() {
               type="button"
               onClick={reset}
               disabled={running}
-              className="press-lg inline-flex items-center gap-2 border-4 border-black bg-[#F2EDE2] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black transition-opacity disabled:cursor-not-allowed disabled:opacity-50   "
+              className="press--lg inline-flex items-center gap-2 border-4 border-black bg-[#F2EDE2] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black transition-opacity disabled:cursor-not-allowed disabled:opacity-50   "
             >
               <RotateCcw className="h-4 w-4" strokeWidth={2.5} />
               {tt("benchmarkRace.resetBtn", "Reset")}

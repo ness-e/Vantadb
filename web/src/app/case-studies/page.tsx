@@ -37,7 +37,7 @@ export default function CaseStudiesPage() {
             <Reveal key={cs.slug} direction="up" delay={i * 80} as="article">
               <a
                 href={`/case-studies/${cs.slug}`}
-                className="press-lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5 shadow-[6px_6px_0_0_#000] transition-transform hover:translate-x-[-3px] hover:translate-y-[-3px] hover:shadow-[9px_9px_0_0_#FF5500]   "
+                className="press--lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5 shadow-[6px_6px_0_0_#000] transition-transform hover:translate-x-[-3px] hover:translate-y-[-3px] hover:shadow-[9px_9px_0_0_#FF5500]   "
               >
                 <span className="absolute -left-2 -top-3 rotate-[-6deg] border-2 border-black bg-black px-2 py-0.5 font-display text-xs uppercase text-[#FF5500]   ">
                   0{i + 1}

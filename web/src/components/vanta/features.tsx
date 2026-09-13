@@ -55,7 +55,7 @@ export function Features() {
             return (
               <Reveal key={cap.title} direction="up" delay={i * 60} as="article">
                 <article
-                  className="press-lg group relative flex h-full flex-col border-4 border-black bg-[#FBF9F5] p-5  "
+                  className="press--lg group relative flex h-full flex-col border-4 border-black bg-[#FBF9F5] p-5  "
                 >
                 {/* Panel number */}
                 <span className="absolute -left-2 -top-3 rotate-[-6deg] border-2 border-black bg-black px-2 py-0.5 font-display text-xs uppercase text-[#FF5500]   ">

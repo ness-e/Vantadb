@@ -69,7 +69,7 @@ export default function NotFoundPage() {
             <div className="mt-6 flex flex-wrap gap-3 border-t-4 border-black pt-6 ">
               <button
                 onClick={() => router.push("/")}
-                className="press-neon btn-neon-glow inline-flex items-center gap-2 border-4 border-black bg-[#FF5500] px-5 py-3 font-tech text-xs font-bold uppercase tracking-wider text-black shadow-[4px_4px_0_0_#000] transition-colors hover:bg-black hover:text-[#FF5500]  "
+                className="press--neon btn-neon-glow inline-flex items-center gap-2 border-4 border-black bg-[#FF5500] px-5 py-3 font-tech text-xs font-bold uppercase tracking-wider text-black shadow-[4px_4px_0_0_#000] transition-colors hover:bg-black hover:text-[#FF5500]  "
               >
                 <Home className="h-4 w-4" strokeWidth={2.5} aria-hidden />
                 {tt("notFound.backToHome", "Back to Home")}

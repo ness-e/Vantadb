@@ -189,7 +189,7 @@ export function TutorialModal({
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={onClose}
-                className="press-neon inline-flex items-center gap-1 border-4 border-black bg-[#FF5500] px-3 py-2 font-tech text-xs font-bold uppercase tracking-wider text-black"
+                className="press--neon inline-flex items-center gap-1 border-4 border-black bg-[#FF5500] px-3 py-2 font-tech text-xs font-bold uppercase tracking-wider text-black"
               >
                 <GraduationCap className="h-3.5 w-3.5" strokeWidth={2.5} />
                 Ver en GitHub
@@ -197,7 +197,7 @@ export function TutorialModal({
             ) : (
               <button
                 onClick={() => setStepIdx((i) => Math.min(i + 1, tutorial.steps.length - 1))}
-                className="press-neon inline-flex items-center gap-1 border-4 border-black bg-[#FF5500] px-3 py-2 font-tech text-xs font-bold uppercase tracking-wider text-black"
+                className="press--neon inline-flex items-center gap-1 border-4 border-black bg-[#FF5500] px-3 py-2 font-tech text-xs font-bold uppercase tracking-wider text-black"
                 aria-label="Siguiente paso"
               >
                 Siguiente

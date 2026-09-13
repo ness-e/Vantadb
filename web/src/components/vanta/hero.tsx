@@ -63,7 +63,7 @@ export function Hero({ onNavigate }: { onNavigate: (v: View) => void }) {
               Vanta
             </span>
             <span className="block text-[15vw] sm:text-[12vw] lg:text-[9.5vw] xl:text-[140px]">
-              <span className="text-outline-neon glow-neon">DB</span>
+              <span className="text-outline-neon glow--neon">DB</span>
             </span>
           </h1>
 

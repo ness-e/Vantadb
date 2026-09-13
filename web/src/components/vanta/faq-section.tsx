@@ -110,7 +110,7 @@ export function FaqSection() {
                 href={VANTA.discord}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="press-neon inline-flex items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-4 py-2.5 font-tech text-xs font-bold uppercase tracking-wider text-black"
+                className="press--neon inline-flex items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-4 py-2.5 font-tech text-xs font-bold uppercase tracking-wider text-black"
               >
                 {t("faq.discord")}
               </a>

@@ -285,7 +285,7 @@ function PipelineStage({
       : "bg-black text-[#FF5500] border-black   ";
 
   return (
-    <div className={`press-lg relative flex flex-col border-4 p-4 ${styles}`}>
+    <div className={`press--lg relative flex flex-col border-4 p-4 ${styles}`}>
       {/* Stage index stamp */}
       <span className="absolute -left-2 -top-3 rotate-[-6deg] border-2 border-black bg-black px-2 py-0.5 font-display text-xs uppercase text-[#FF5500]   ">
         {index}

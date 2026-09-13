@@ -149,7 +149,7 @@ export function WalSimulator() {
                   type="button"
                   onClick={triggerCrash}
                   disabled={state !== "ready"}
-                  className="press-lg inline-flex items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-4 py-2 font-tech text-xs font-bold uppercase tracking-wider text-black transition-opacity disabled:cursor-not-allowed disabled:opacity-30"
+                  className="press--lg inline-flex items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-4 py-2 font-tech text-xs font-bold uppercase tracking-wider text-black transition-opacity disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   <Skull className="h-3.5 w-3.5" strokeWidth={2.5} />
                   {tt("walSimulator.crashBtn", "Simulate Crash")}
@@ -158,7 +158,7 @@ export function WalSimulator() {
                   type="button"
                   onClick={recoverFromWAL}
                   disabled={state !== "crashed"}
-                  className="press-lg inline-flex items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-4 py-2 font-tech text-xs font-bold uppercase tracking-wider text-black transition-opacity disabled:cursor-not-allowed disabled:opacity-30"
+                  className="press--lg inline-flex items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-4 py-2 font-tech text-xs font-bold uppercase tracking-wider text-black transition-opacity disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   <RefreshCw className="h-3.5 w-3.5" strokeWidth={2.5} />
                   {tt("walSimulator.recoverBtn", "Recover from WAL")}
@@ -166,7 +166,7 @@ export function WalSimulator() {
                 <button
                   type="button"
                   onClick={reset}
-                  className="press-lg inline-flex items-center gap-2 border-4 border-[#FBF9F5]/40 bg-transparent px-4 py-2 font-tech text-xs font-bold uppercase tracking-wider text-[#FBF9F5]/60 transition-colors hover:border-[#FBF9F5] hover:text-[#FBF9F5]"
+                  className="press--lg inline-flex items-center gap-2 border-4 border-[#FBF9F5]/40 bg-transparent px-4 py-2 font-tech text-xs font-bold uppercase tracking-wider text-[#FBF9F5]/60 transition-colors hover:border-[#FBF9F5] hover:text-[#FBF9F5]"
                 >
                   <RotateCcw className="h-3.5 w-3.5" strokeWidth={2.5} />
                   {tt("walSimulator.resetBtn", "Reset")}

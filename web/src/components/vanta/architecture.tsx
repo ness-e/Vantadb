@@ -214,7 +214,7 @@ function FlowNode({
         : "bg-[#FBF9F5] text-black border-black   ";
   return (
     <div
-      className={`press-lg relative flex flex-col border-4 p-4 ${styles} ${className ?? ""}`}
+      className={`press--lg relative flex flex-col border-4 p-4 ${styles} ${className ?? ""}`}
     >
       <div className="mb-2 flex items-center gap-2">
         <span

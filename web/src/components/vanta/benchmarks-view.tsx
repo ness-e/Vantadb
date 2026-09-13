@@ -35,7 +35,7 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
           <h1 className="glitch-hover mt-5 font-display text-6xl uppercase leading-[0.85] text-black  sm:text-8xl">
             Bench
             <br />
-            <span className="text-outline-neon glow-neon">marks</span>
+            <span className="text-outline-neon glow--neon">marks</span>
           </h1>
           <p className="mt-5 max-w-2xl border-l-4 border-[#FF5500] pl-4 font-tech text-sm leading-relaxed text-black/80  sm:text-base">
             A formal Python-native performance benchmark suite captures ingestion
@@ -561,7 +561,7 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
             ].map((c) => (
               <div
                 key={c.step}
-                className="press-lg flex flex-col border-4 border-black bg-[#FBF9F5] p-5"
+                className="press--lg flex flex-col border-4 border-black bg-[#FBF9F5] p-5"
               >
                 <div className="mb-3 flex items-center justify-between">
                   <span className="font-display text-2xl text-[#FF5500]">{c.step}</span>
@@ -589,7 +589,7 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
             </div>
             <button
               onClick={() => onNavigate("docs")}
-              className="press-neon inline-flex shrink-0 items-center gap-2 border-4 border-black bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+              className="press--neon inline-flex shrink-0 items-center gap-2 border-4 border-black bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
             >
               Open Quickstart
               <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
