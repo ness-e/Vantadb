@@ -141,12 +141,9 @@ pub struct QuantizationMaintenanceReport {
 
 /// An operation buffered inside an uncommitted transaction.
 /// Written to WAL + stores atomically at commit time.
-#[derive(Clone)]
-#[allow(clippy::large_enum_variant)] // UnifiedNode is hot-path; boxing adds indirection per insert
-pub(crate) enum BufferedWrite {
-    Insert(UnifiedNode),
-    Delete(u128),
-}
+/// Defined in [`txn::TxnManager`]'s module (C2S3, SRP); re-exported here so
+/// existing `crate::storage::engine::BufferedWrite` paths keep resolving.
+pub(crate) use self::txn::{BufferProbe, BufferedWrite, TxnManager};
 
 /// A read snapshot capturing a consistent view of committed data.
 ///
@@ -335,15 +332,10 @@ pub struct StorageEngine {
     pub volatile_cache: RwLock<std::collections::HashMap<u128, UnifiedNode>>,
     /// Monotonic timestamp (ms since epoch) of the last query activity.
     pub last_query_timestamp: AtomicU64,
-    /// Monotonic transaction ID counter (P3 Phase 1).
-    pub(crate) next_txn_id: AtomicU64,
-    /// Active transaction IDs (concurrent: multiple active txns allowed).
-    /// Empty = no active transaction → insert/delete go direct.
-    /// Used for: snapshot visibility, write-write conflict detection.
-    pub(crate) active_txns: parking_lot::Mutex<std::collections::HashSet<u64>>,
-    /// Per-transaction write buffer. Keyed by txn_id.
-    /// Only the active txn's buffer is meaningful.
-    pub(crate) txn_buffers: parking_lot::Mutex<std::collections::HashMap<u64, Vec<BufferedWrite>>>,
+    /// Transaction bookkeeping: id counter, active set, write buffers.
+    /// Pure state lives in [`TxnManager`]; the engine only orchestrates
+    /// WAL + store application around it (C2S3, SRP).
+    pub(crate) txn: TxnManager,
     /// Flag signalling emergency maintenance (e.g. cache pressure).
     pub emergency_maintenance_trigger: AtomicBool,
     /// Path to the data directory.

@@ -1112,9 +1112,7 @@ fn test_gc_mvcc_versions() {
     engine.commit_transaction(txn2).expect("commit");
 
     // Both should be invisible via snapshot, but still in backend
-    let cutoff = engine
-        .next_txn_id
-        .load(std::sync::atomic::Ordering::Acquire);
+    let cutoff = engine.txn.stable_id();
     assert!(engine.get(700).expect("get").is_none());
     assert!(engine.get(701).expect("get").is_none());
 

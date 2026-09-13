@@ -1,4 +1,13 @@
 //! Transactional operations: snapshots, MVCC txn reads/writes, commit/abort.
+//!
+//! [`TxnManager`] owns the pure transaction bookkeeping extracted from
+//! `StorageEngine` (C2S3, SRP): id allocation, the active set, per-txn write
+//! buffers, write-write conflict checks and read-your-writes probes.
+//! WAL durability, store application and lock orchestration stay on the
+//! engine — the manager never touches wal/hnsw/cache/backend.
+
+use std::collections::{HashMap, HashSet};
+use std::sync::atomic::{AtomicU64, Ordering};
 
 use web_time::{SystemTime, UNIX_EPOCH};
 
@@ -6,47 +15,106 @@ use crate::error::Result;
 use crate::lsm::unpack_offset;
 use crate::node::{FilterBitset, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::StorageEngine;
-use crate::storage::engine::{BufferedWrite, LockPolicy, PendingHnswOp, Snapshot, FLAG_TOMBSTONE};
+use crate::storage::engine::{LockPolicy, PendingHnswOp, Snapshot, FLAG_TOMBSTONE};
 use crate::storage::ops::NodeMetadata;
 
-impl StorageEngine {
-    // ΓöÇΓöÇΓöÇ Transaction Support ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+/// An operation buffered inside an uncommitted transaction.
+/// Written to WAL + stores atomically at commit time.
+#[derive(Clone)]
+#[allow(clippy::large_enum_variant)] // UnifiedNode is hot-path; boxing adds indirection per insert
+pub(crate) enum BufferedWrite {
+    Insert(UnifiedNode),
+    Delete(u128),
+}
 
-    /// Begin a write transaction.
-    ///
-    /// Registers this txn_id in the active set so subsequent insert/delete
-    /// ops (via [`Self::insert_in_txn`] / [`Self::delete_in_txn`]) are buffered.
-    ///
-    /// Multiple concurrent transactions are supported. Plain `insert()` /
-    /// `delete()` route to the sole active txn if exactly one exists, or
-    /// error if >1 (use explicit `_in_txn` methods).
-    #[tracing::instrument(skip(self), level = "debug", err)]
-    pub fn begin_transaction(&self) -> Result<u64> {
-        let txn_id = self
-            .next_txn_id
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
-        self.active_txns.lock().insert(txn_id);
-        Ok(txn_id)
+/// Outcome of probing the sole active txn buffer for one node id.
+#[derive(Debug)]
+#[allow(clippy::large_enum_variant)] // Insert carries the hit clone transiently on the stack; boxing adds indirection per read (same rationale as BufferedWrite)
+pub(crate) enum BufferProbe {
+    /// Zero or >1 active txns — caller falls through to shared paths.
+    NoSoleTxn,
+    /// Sole active txn holds no buffered op for this id.
+    Miss,
+    /// Newest buffered op is an insert (clone of the buffered node).
+    Insert(UnifiedNode),
+    /// Newest buffered op is a delete.
+    Delete,
+}
+
+/// Pure transaction bookkeeping: id counter, active set, write buffers.
+///
+/// All methods are thin state operations with the same lock discipline the
+/// engine used inline (`active` then `buffers`, never nested in reverse).
+/// No I/O, no WAL, no store access — unit-testable without storage.
+pub(crate) struct TxnManager {
+    next_txn_id: AtomicU64,
+    active: parking_lot::Mutex<HashSet<u64>>,
+    buffers: parking_lot::Mutex<HashMap<u64, Vec<BufferedWrite>>>,
+}
+
+impl TxnManager {
+    pub(crate) fn new() -> Self {
+        Self {
+            next_txn_id: AtomicU64::new(1),
+            active: parking_lot::Mutex::new(HashSet::new()),
+            buffers: parking_lot::Mutex::new(HashMap::new()),
+        }
     }
 
-    /// Create a read snapshot at the current transaction ID.
-    ///
-    /// The snapshot captures a point-in-time view of committed data.
-    /// Reads via [`Self::get_with_snapshot`] see only data committed at or
-    /// before this txn_id ΓÇö uncommitted and later-committed data is
-    /// invisible.
-    #[tracing::instrument(skip(self), level = "debug")]
-    pub fn begin_snapshot(&self) -> Snapshot {
-        let txn_id = self.next_txn_id.load(std::sync::atomic::Ordering::Relaxed);
-        Snapshot { txn_id }
+    /// Allocate a fresh txn id and register it as active.
+    pub(crate) fn begin(&self) -> u64 {
+        let txn_id = self.next_txn_id.fetch_add(1, Ordering::Relaxed);
+        self.active.lock().insert(txn_id);
+        txn_id
     }
 
-    /// Check if another active txn holds a buffered write for `node_id`.
-    // ponytail: O(N) linear scan over all buffered ops per txn.
-    // Add a HashMap<u64, HashSet<u128>> hot-set indexed by txn_id
-    // for O(1) conflict checks if contention becomes a bottleneck.
-    fn check_write_conflict(&self, node_id: u128, my_txn_id: u64) -> Result<()> {
-        let buffers = self.txn_buffers.lock();
+    /// Current id for snapshots and non-txn MVCC stamps (Relaxed — same
+    /// ordering the engine used for `begin_snapshot`/insert stamps).
+    pub(crate) fn snapshot_id(&self) -> u64 {
+        self.next_txn_id.load(Ordering::Relaxed)
+    }
+
+    /// Current id for GC cutoffs (Acquire — preserves the `gc_mvcc_versions`
+    /// ordering, which must observe committed deletes).
+    pub(crate) fn stable_id(&self) -> u64 {
+        self.next_txn_id.load(Ordering::Acquire)
+    }
+
+    /// Whether `txn_id` is currently active.
+    pub(crate) fn is_active(&self, txn_id: u64) -> bool {
+        self.active.lock().contains(&txn_id)
+    }
+
+    /// Whether any transaction is active (direct-path fast check).
+    pub(crate) fn has_active(&self) -> bool {
+        !self.active.lock().is_empty()
+    }
+
+    /// The active id when exactly one txn is active, else `None`.
+    /// `None` covers both empty (direct path) and multi (explicit-path
+    /// error) — the caller distinguishes via [`Self::has_active`].
+    /// The impossible len==1-but-empty set degrades to `None` (safe
+    /// fallthrough, same as the AUD-031 probes) instead of panicking.
+    pub(crate) fn sole_id(&self) -> Option<u64> {
+        let active = self.active.lock();
+        if active.len() == 1 {
+            active.iter().next().copied()
+        } else {
+            None
+        }
+    }
+
+    /// Append `op` to `txn_id`'s buffer (caller must have checked active).
+    pub(crate) fn push(&self, txn_id: u64, op: BufferedWrite) {
+        self.buffers.lock().entry(txn_id).or_default().push(op);
+    }
+
+    /// Check whether another active txn holds a buffered write for `node_id`.
+    // ponytail: O(N) linear scan over all buffered ops per txn (moved as-is
+    // from the engine). Add a HashMap<u64, HashSet<u128>> hot-set indexed by
+    // txn_id for O(1) conflict checks if contention becomes a bottleneck.
+    pub(crate) fn check_conflict(&self, node_id: u128, my_txn_id: u64) -> Result<()> {
+        let buffers = self.buffers.lock();
         for (&other_id, ops) in buffers.iter() {
             if other_id == my_txn_id {
                 continue;
@@ -67,16 +135,112 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// End `txn_id` and drain its buffer. `None` = wasn't active (caller
+    /// takes the Phase-1 fallback path); `Some` = drained ops (maybe empty).
+    pub(crate) fn take(&self, txn_id: u64) -> Option<Vec<BufferedWrite>> {
+        if !self.active.lock().remove(&txn_id) {
+            return None;
+        }
+        Some(self.buffers.lock().remove(&txn_id).unwrap_or_default())
+    }
+
+    /// Drop `txn_id` without draining (abort path). Returns prior active state.
+    pub(crate) fn discard(&self, txn_id: u64) -> bool {
+        let was_active = self.active.lock().remove(&txn_id);
+        self.buffers.lock().remove(&txn_id);
+        was_active
+    }
+
+    /// Clone the sole active txn buffer (chunk-scan helper for batch paths).
+    /// `None` = zero or >1 active txns. One lock pass per call — callers
+    /// amortize across a chunk (ERR-037), never per id in a loop.
+    /// The impossible len==1-but-empty set degrades to `None` (AUD-031).
+    pub(crate) fn cloned_sole_buffer(&self) -> Option<Vec<BufferedWrite>> {
+        let active = self.active.lock();
+        if active.len() != 1 {
+            return None;
+        }
+        let txn_id = active.iter().next().copied()?;
+        drop(active);
+        Some(
+            self.buffers
+                .lock()
+                .get(&txn_id)
+                .cloned()
+                .unwrap_or_default(),
+        )
+    }
+
+    /// Read-your-writes probe of the sole active txn buffer (newest first).
+    /// `Err` only in the impossible active-set-corrupted case, preserving
+    /// the `get()` behavior; multi/empty degrade to `NoSoleTxn`.
+    pub(crate) fn probe(&self, id: u128) -> Result<BufferProbe> {
+        let active = self.active.lock();
+        if active.is_empty() || active.len() > 1 {
+            return Ok(BufferProbe::NoSoleTxn);
+        }
+        let txn_id = active.iter().next().copied().ok_or_else(|| {
+            crate::error::Error::generic_error(
+                "active transaction set corrupted: len()==1 but no txn id".to_string(),
+            )
+        })?;
+        drop(active);
+        let buffers = self.buffers.lock();
+        let Some(buffer) = buffers.get(&txn_id) else {
+            return Ok(BufferProbe::Miss);
+        };
+        for op in buffer.iter().rev() {
+            match op {
+                BufferedWrite::Insert(n) if n.id == id => {
+                    return Ok(BufferProbe::Insert(n.clone()));
+                }
+                BufferedWrite::Delete(d) if *d == id => return Ok(BufferProbe::Delete),
+                _ => {}
+            }
+        }
+        Ok(BufferProbe::Miss)
+    }
+}
+
+impl StorageEngine {
+    // ΓöÇΓöÇΓöÇ Transaction Support ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+
+    /// Begin a write transaction.
+    ///
+    /// Registers this txn_id in the active set so subsequent insert/delete
+    /// ops (via [`Self::insert_in_txn`] / [`Self::delete_in_txn`]) are buffered.
+    ///
+    /// Multiple concurrent transactions are supported. Plain `insert()` /
+    /// `delete()` route to the sole active txn if exactly one exists, or
+    /// error if >1 (use explicit `_in_txn` methods).
+    #[tracing::instrument(skip(self), level = "debug", err)]
+    pub fn begin_transaction(&self) -> Result<u64> {
+        Ok(self.txn.begin())
+    }
+
+    /// Create a read snapshot at the current transaction ID.
+    ///
+    /// The snapshot captures a point-in-time view of committed data.
+    /// Reads via [`Self::get_with_snapshot`] see only data committed at or
+    /// before this txn_id ΓÇö uncommitted and later-committed data is
+    /// invisible.
+    #[tracing::instrument(skip(self), level = "debug")]
+    pub fn begin_snapshot(&self) -> Snapshot {
+        Snapshot {
+            txn_id: self.txn.snapshot_id(),
+        }
+    }
+
     /// Insert inside an explicit transaction (concurrent-safe).
     #[tracing::instrument(skip(self, node), level = "debug", err)]
     pub fn insert_in_txn(&self, node: &UnifiedNode, txn_id: u64) -> Result<()> {
-        if !self.active_txns.lock().contains(&txn_id) {
+        if !self.txn.is_active(txn_id) {
             return Err(crate::error::Error::InvalidInput(format!(
                 "Transaction {} is not active",
                 txn_id
             )));
         }
-        self.check_write_conflict(node.id, txn_id)?;
+        self.txn.check_conflict(node.id, txn_id)?;
 
         let now_ms = SystemTime::now()
             .duration_since(UNIX_EPOCH)
@@ -84,31 +248,23 @@ impl StorageEngine {
             .as_millis() as u64;
         let mut buffered = node.clone();
         buffered.last_accessed = now_ms;
-        let mut buffers = self.txn_buffers.lock();
-        buffers
-            .entry(txn_id)
-            .or_default()
-            .push(BufferedWrite::Insert(buffered));
+        self.txn.push(txn_id, BufferedWrite::Insert(buffered));
         Ok(())
     }
 
     /// Delete inside an explicit transaction (concurrent-safe).
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn delete_in_txn(&self, id: u128, reason: &str, txn_id: u64) -> Result<()> {
-        if !self.active_txns.lock().contains(&txn_id) {
+        if !self.txn.is_active(txn_id) {
             return Err(crate::error::Error::InvalidInput(format!(
                 "Transaction {} is not active",
                 txn_id
             )));
         }
-        self.check_write_conflict(id, txn_id)?;
+        self.txn.check_conflict(id, txn_id)?;
 
         let _ = reason; // unused for now; reserved for audit log
-        let mut buffers = self.txn_buffers.lock();
-        buffers
-            .entry(txn_id)
-            .or_default()
-            .push(BufferedWrite::Delete(id));
+        self.txn.push(txn_id, BufferedWrite::Delete(id));
         Ok(())
     }
 
@@ -117,22 +273,13 @@ impl StorageEngine {
     /// then apply to stores.
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn commit_transaction(&self, txn_id: u64) -> Result<()> {
-        // 1. Verify and unregister
-        {
-            let mut active = self.active_txns.lock();
-            if !active.remove(&txn_id) {
-                // Phase 1 fallback: if no buffering, just append Commit marker
-                if let Some(ref sharded) = self.wal {
-                    sharded.append(&crate::wal::WalRecord::Commit(txn_id))?;
-                }
-                return Ok(());
+        // 1. Verify and unregister, draining the buffer in one step.
+        let Some(buffer) = self.txn.take(txn_id) else {
+            // Phase 1 fallback: if no buffering, just append Commit marker
+            if let Some(ref sharded) = self.wal {
+                sharded.append(&crate::wal::WalRecord::Commit(txn_id))?;
             }
-        }
-
-        // 2. Drain buffer for this txn
-        let buffer = {
-            let mut buffers = self.txn_buffers.lock();
-            buffers.remove(&txn_id).unwrap_or_default()
+            return Ok(());
         };
 
         if buffer.is_empty() {
@@ -231,11 +378,7 @@ impl StorageEngine {
     /// append an `Abort(txn_id)` marker to the WAL.
     #[tracing::instrument(skip(self), level = "debug", err)]
     pub fn abort_transaction(&self, txn_id: u64) -> Result<()> {
-        {
-            let mut active = self.active_txns.lock();
-            active.remove(&txn_id);
-        }
-        self.txn_buffers.lock().remove(&txn_id);
+        self.txn.discard(txn_id);
 
         if let Some(ref sharded) = self.wal {
             sharded.append(&crate::wal::WalRecord::Abort(txn_id))?;
@@ -526,5 +669,101 @@ impl StorageEngine {
             crate::node::NodeFlags(header.flags & !crate::node::NodeFlags::VECTOR_KIND_MASK);
 
         Ok(Some(node))
+    }
+}
+
+#[cfg(test)]
+mod txn_manager_tests {
+    use super::*;
+
+    fn node(id: u128) -> UnifiedNode {
+        UnifiedNode::new(id)
+    }
+
+    #[test]
+    fn begin_allocates_monotonic_ids() {
+        let m = TxnManager::new();
+        let a = m.begin();
+        let b = m.begin();
+        let c = m.begin();
+        assert!(a < b && b < c, "ids must be monotonic: {a} {b} {c}");
+        assert!(m.is_active(a) && m.is_active(b) && m.is_active(c));
+    }
+
+    #[test]
+    fn sole_id_tracks_routing_states() {
+        let m = TxnManager::new();
+        assert!(!m.has_active());
+        assert_eq!(m.sole_id(), None);
+        let a = m.begin();
+        assert!(m.has_active());
+        assert_eq!(m.sole_id(), Some(a));
+        let _b = m.begin();
+        assert!(m.has_active());
+        assert_eq!(m.sole_id(), None, "multi-txn routes to explicit path");
+    }
+
+    #[test]
+    fn conflict_detected_across_txns_only() {
+        let m = TxnManager::new();
+        let t1 = m.begin();
+        let t2 = m.begin();
+        m.push(t1, BufferedWrite::Insert(node(7)));
+        // Same txn: no conflict with itself.
+        assert!(m.check_conflict(7, t1).is_ok());
+        // Other txn: write-write conflict.
+        let err = m.check_conflict(7, t2).unwrap_err();
+        assert!(err.to_string().contains("Write-write conflict"), "{err:?}");
+        // Untouched id: no conflict.
+        assert!(m.check_conflict(8, t2).is_ok());
+    }
+
+    #[test]
+    fn take_drains_and_deactivates() {
+        let m = TxnManager::new();
+        let t = m.begin();
+        m.push(t, BufferedWrite::Delete(1));
+        let buf = m.take(t).expect("active txn drains");
+        assert_eq!(buf.len(), 1);
+        assert!(!m.is_active(t));
+        assert!(m.take(t).is_none(), "second take = not active");
+        assert!(m.take(999).is_none(), "unknown txn = not active");
+    }
+
+    #[test]
+    fn discard_clears_without_draining() {
+        let m = TxnManager::new();
+        let t = m.begin();
+        m.push(t, BufferedWrite::Delete(1));
+        assert!(m.discard(t));
+        assert!(!m.has_active());
+        assert!(!m.discard(t), "second discard = already gone");
+    }
+
+    #[test]
+    fn probe_hit_miss_and_multi() {
+        let m = TxnManager::new();
+        assert!(matches!(m.probe(1).unwrap(), BufferProbe::NoSoleTxn));
+        let t = m.begin();
+        assert!(matches!(m.probe(1).unwrap(), BufferProbe::Miss));
+        m.push(t, BufferedWrite::Insert(node(1)));
+        m.push(t, BufferedWrite::Delete(2));
+        assert!(matches!(m.probe(1).unwrap(), BufferProbe::Insert(_)));
+        assert!(matches!(m.probe(2).unwrap(), BufferProbe::Delete));
+        assert!(matches!(m.probe(3).unwrap(), BufferProbe::Miss));
+        // Newest op wins: overwrite insert over earlier delete.
+        m.push(t, BufferedWrite::Insert(node(2)));
+        assert!(matches!(m.probe(2).unwrap(), BufferProbe::Insert(_)));
+        let _u = m.begin();
+        assert!(matches!(m.probe(1).unwrap(), BufferProbe::NoSoleTxn));
+    }
+
+    #[test]
+    fn snapshot_ids_track_allocation() {
+        let m = TxnManager::new();
+        let before = m.snapshot_id();
+        let t = m.begin();
+        assert!(m.snapshot_id() > before);
+        assert!(m.stable_id() >= t);
     }
 }
