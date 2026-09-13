@@ -38,14 +38,14 @@ pub fn panic_error_response(panic_detail: &dyn Display) -> Response {
 /// the `/api/v2` console surface so both speak the same error status language.
 pub fn status(e: &Error) -> StatusCode {
     match e {
-        Error::IqlParseError { .. }
-        | Error::IqlError(_)
+        Error::IqlParse { .. }
+        | Error::Iql(_)
         | Error::InvalidInput(_)
         | Error::DimensionMismatch { .. }
         | Error::UnsupportedOperation { .. }
-        | Error::SchemaError(_)
+        | Error::Schema(_)
         | Error::NoVectorForKey(_) => StatusCode::BAD_REQUEST,
-        Error::ValidationError { .. } => StatusCode::UNPROCESSABLE_ENTITY,
+        Error::Validation { .. } => StatusCode::UNPROCESSABLE_ENTITY,
         Error::NodeNotFound(_) | Error::NotFound { .. } => StatusCode::NOT_FOUND,
         Error::DuplicateNode(_) | Error::NodeIdCollision(_) | Error::ExecutionConflict { .. } => {
             StatusCode::CONFLICT
@@ -214,7 +214,7 @@ mod tests {
     #[test]
     fn status_maps_correctly() {
         assert_eq!(
-            status(&Error::IqlParseError {
+            status(&Error::IqlParse {
                 msg: "x".into(),
                 line: 1,
                 col: 1
@@ -222,7 +222,7 @@ mod tests {
             StatusCode::BAD_REQUEST
         );
         assert_eq!(
-            status(&Error::ValidationError {
+            status(&Error::Validation {
                 field: "x".into(),
                 reason: "y".into()
             }),
@@ -231,7 +231,7 @@ mod tests {
         assert_eq!(status(&Error::NodeNotFound(42)), StatusCode::NOT_FOUND);
         assert_eq!(status(&Error::DuplicateNode(42)), StatusCode::CONFLICT);
         assert_eq!(
-            status(&Error::IoError(std::io::Error::other("x"))),
+            status(&Error::Io(std::io::Error::other("x"))),
             StatusCode::INTERNAL_SERVER_ERROR
         );
     }
@@ -306,7 +306,7 @@ mod tests {
     #[tokio::test]
     async fn five_xx_bodies_are_sanitized_to_generic_message() {
         use axum::body::to_bytes;
-        let e = Error::IoError(std::io::Error::other(
+        let e = Error::Io(std::io::Error::other(
             "CONTRIVED_IO_LEAK_/srv/vanta/secrets/data.wal",
         ));
 
@@ -338,7 +338,7 @@ mod tests {
     #[tokio::test]
     async fn four_xx_bodies_keep_descriptive_message() {
         use axum::body::to_bytes;
-        let e = Error::ValidationError {
+        let e = Error::Validation {
             field: "payload".into(),
             reason: "vector must be non-empty".into(),
         };
