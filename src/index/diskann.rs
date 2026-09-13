@@ -163,17 +163,17 @@ impl DiskAnnIndex {
     fn insert_vector(&self, id: u128, vec: Vec<f32>) -> crate::error::Result<()> {
         let config = &self.config;
         let mut graph = self.graph.lock().map_err(|_| {
-            crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
                 "DiskAnnIndex graph lock poisoned",
             ))
         })?;
         let mut vectors = self.vectors.lock().map_err(|_| {
-            crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
                 "DiskAnnIndex vectors lock poisoned",
             ))
         })?;
         let medoid_opt = *self.medoid.lock().map_err(|_| {
-            crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
                 "DiskAnnIndex medoid lock poisoned",
             ))
         })?;
@@ -246,7 +246,7 @@ impl DiskAnnIndex {
             // First node: becomes medoid
             graph.insert(id, Vec::new());
             *self.medoid.lock().map_err(|_| {
-                crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+                crate::error::Error::Runtime(crate::error::ChainedError::msg(
                     "DiskAnnIndex medoid lock poisoned",
                 ))
             })? = Some(id);
@@ -446,7 +446,7 @@ impl crate::index::VecIndex for DiskAnnIndex {
         let vec = match &vec_data {
             VectorRepresentations::Full(v) => v.clone(),
             _ => {
-                return Err(crate::error::Error::ValidationError {
+                return Err(crate::error::Error::Validation {
                     field: "vec_data".into(),
                     reason: "DiskAnnIndex::add only accepts full vectors (ERR-031)".into(),
                 })
@@ -457,7 +457,7 @@ impl crate::index::VecIndex for DiskAnnIndex {
         self.bitsets
             .lock()
             .map_err(|_| {
-                crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+                crate::error::Error::Runtime(crate::error::ChainedError::msg(
                     "DiskAnnIndex bitsets lock poisoned",
                 ))
             })?
@@ -608,8 +608,8 @@ mod tests {
             )
             .unwrap_err();
         assert!(
-            matches!(err, crate::error::Error::RuntimeError(_)),
-            "expected RuntimeError, got {err:?}"
+            matches!(err, crate::error::Error::Runtime(_)),
+            "expected Runtime, got {err:?}"
         );
     }
 }

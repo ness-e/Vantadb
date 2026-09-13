@@ -69,7 +69,7 @@ fn pending_safe_repairs(db_path: &str) -> Vec<PendingRepair> {
 fn is_empty_database_state(e: &Error) -> bool {
     match e {
         Error::NotFound { .. } => true,
-        Error::SchemaError(msg) => msg.contains("no schema file"),
+        Error::Schema(msg) => msg.contains("no schema file"),
         _ => false,
     }
 }
@@ -138,12 +138,12 @@ pub fn cmd_doctor(db_path: &str, opts: DoctorOptions) -> Result<()> {
                 print_success("doctor --fix: nothing to fix");
             } else {
                 for repair in &pending {
-                    std::fs::create_dir_all(&repair.path).map_err(Error::IoError)?;
+                    std::fs::create_dir_all(&repair.path).map_err(Error::Io)?;
                     print_success(&format!("Fixed: {}", repair.description));
                 }
             }
             // A freshly created (empty) database has no schema/lock yet —
-            // opening it read-only would fail with NotFound/SchemaError.
+            // opening it read-only would fail with NotFound/Schema.
             // That is the expected empty state, not an error: exit 0.
             if !pending.is_empty() {
                 return Ok(());
@@ -170,7 +170,7 @@ pub fn cmd_doctor(db_path: &str, opts: DoctorOptions) -> Result<()> {
     let spinner = create_spinner("Opening database for diagnostics...");
     // In --fix mode an empty/uninitialised database (fresh dirs, no
     // schema/lock yet) is the expected state after repairs — exit 0 with a
-    // warning instead of propagating NotFound/SchemaError. Genuine corruption
+    // warning instead of propagating NotFound/Schema. Genuine corruption
     // (incompatible version, invalid header) still errors for manual review.
     let engine = match open_database(db_path, true) {
         Ok(engine) => engine,
@@ -507,7 +507,7 @@ pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> 
         println!(
             "{}",
             serde_json::to_string_pretty(&result).map_err(|e| {
-                crate::error::Error::CliError(ChainedError::msg(format!(
+                crate::error::Error::Cli(ChainedError::msg(format!(
                     "JSON serialization error: {e}"
                 )))
             })?

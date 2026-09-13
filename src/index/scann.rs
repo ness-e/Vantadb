@@ -182,26 +182,26 @@ impl ScannIndex {
     /// Update min/max bounds from a new vector.
     ///
     /// B2b: returns `Result` so a poisoned bounds lock fails the insert with
-    /// `RuntimeError` instead of panicking (called once, from `add`, which
+    /// `Runtime` instead of panicking (called once, from `add`, which
     /// propagates with `?`).
     fn update_bounds(&self, vec: &[f32]) -> crate::error::Result<()> {
         let mut min_bound = self.min_bound.lock().map_err(|_| {
-            crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
                 "ScannIndex min_bound lock poisoned",
             ))
         })?;
         let mut max_bound = self.max_bound.lock().map_err(|_| {
-            crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
                 "ScannIndex max_bound lock poisoned",
             ))
         })?;
         let mut dim = self.dim.lock().map_err(|_| {
-            crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
                 "ScannIndex dim lock poisoned",
             ))
         })?;
         let mut initialized = self.bounds_initialized.lock().map_err(|_| {
-            crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
                 "ScannIndex bounds_initialized lock poisoned",
             ))
         })?;
@@ -302,7 +302,7 @@ impl crate::index::VecIndex for ScannIndex {
         let vec = match &vec_data {
             VectorRepresentations::Full(v) => v.clone(),
             _ => {
-                return Err(crate::error::Error::ValidationError {
+                return Err(crate::error::Error::Validation {
                     field: "vec_data".into(),
                     reason: "ScannIndex::add only accepts full vectors (ERR-031)".into(),
                 })
@@ -313,12 +313,12 @@ impl crate::index::VecIndex for ScannIndex {
         self.update_bounds(&vec)?;
 
         let dim = *self.dim.lock().map_err(|_| {
-            crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
                 "ScannIndex dim lock poisoned",
             ))
         })?;
         if vec.len() != dim && !vec.is_empty() {
-            return Err(crate::error::Error::ValidationError {
+            return Err(crate::error::Error::Validation {
                 field: "vec_data".into(),
                 reason: format!(
                     "ScannIndex::add vector dim {} != index dim {dim} (ERR-031)",
@@ -329,12 +329,12 @@ impl crate::index::VecIndex for ScannIndex {
 
         // Quantize
         let min_bound = self.min_bound.lock().map_err(|_| {
-            crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
                 "ScannIndex min_bound lock poisoned",
             ))
         })?;
         let max_bound = self.max_bound.lock().map_err(|_| {
-            crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
                 "ScannIndex max_bound lock poisoned",
             ))
         })?;
@@ -344,7 +344,7 @@ impl crate::index::VecIndex for ScannIndex {
         drop(max_bound);
 
         let mut entries = self.entries.lock().map_err(|_| {
-            crate::error::Error::RuntimeError(crate::error::ChainedError::msg(
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
                 "ScannIndex entries lock poisoned",
             ))
         })?;
@@ -547,8 +547,8 @@ mod tests {
             )
             .unwrap_err();
         assert!(
-            matches!(err, crate::error::Error::RuntimeError(_)),
-            "expected RuntimeError, got {err:?}"
+            matches!(err, crate::error::Error::Runtime(_)),
+            "expected Runtime, got {err:?}"
         );
     }
 }

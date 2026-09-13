@@ -68,22 +68,22 @@ fn attach_err_meta(py_err: &PyErr, err: &CoreError) {
 /// `Display` (never `Debug`); clients branch on `.code`, never on text.
 pub(super) fn err_to_py(e: CoreError) -> PyErr {
     let py_err = match &e {
-        CoreError::IoError(_) | CoreError::BackendError(_) => StorageError::new_err(e.to_string()),
+        CoreError::Io(_) | CoreError::Backend(_) => StorageError::new_err(e.to_string()),
         CoreError::NotFound { .. } | CoreError::NodeNotFound(_) => {
             NotFoundError::new_err(e.to_string())
         }
-        CoreError::ValidationError { .. }
+        CoreError::Validation { .. }
         | CoreError::DuplicateNode(_)
         | CoreError::DimensionMismatch { .. }
-        | CoreError::SerializationError(_)
+        | CoreError::Serialization(_)
         | CoreError::InvalidInput(_)
-        | CoreError::SchemaError(_)
+        | CoreError::Schema(_)
         | CoreError::NodeIdCollision(_)
-        | CoreError::IqlParseError { .. }
-        | CoreError::IqlError(_) => ValidationError::new_err(e.to_string()),
+        | CoreError::IqlParse { .. }
+        | CoreError::Iql(_) => ValidationError::new_err(e.to_string()),
         CoreError::IncompatibleFormat { .. }
         | CoreError::WALVersionMismatch { .. }
-        | CoreError::WalError(_) => CorruptError::new_err(e.to_string()),
+        | CoreError::Wal(_) => CorruptError::new_err(e.to_string()),
         CoreError::Timeout { .. } => TimeoutError::new_err(e.to_string()),
         CoreError::ResourceLimit(_) => ResourceLimitError::new_err(e.to_string()),
         CoreError::ExecutionConflict { .. } | CoreError::CycleDetected => {
@@ -92,7 +92,7 @@ pub(super) fn err_to_py(e: CoreError) -> PyErr {
         CoreError::UnsupportedOperation { .. } => UnsupportedError::new_err(e.to_string()),
         CoreError::DatabaseBusy(_) | CoreError::NotInitialized => BusyError::new_err(e.to_string()),
         CoreError::NoVectorForKey(_) => NoVectorError::new_err(e.to_string()),
-        // RuntimeError, Generic, CliError, SearchError, RestoreError, BackupError, …
+        // Runtime, Generic, Cli, Search, Restore, Backup, …
         _ => VantaError::new_err(e.to_string()),
     };
     attach_err_meta(&py_err, &e);

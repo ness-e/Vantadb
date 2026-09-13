@@ -356,10 +356,9 @@ pub fn optimize_and_compile<'a>(
         // INVARIANT (B2b): `has_join` is set true only in the `Join` arm above,
         // which always sets `join_spec` in the same statement — `None` here is
         // unreachable via the public API. `ok_or_else` keeps E1 green and turns
-        // a hypothetical inconsistency into `SchemaError` instead of a panic.
-        let (left_plan, right_plan, left_field, right_field) = join_spec.ok_or_else(|| {
-            crate::error::Error::SchemaError("JOIN operator without join spec".into())
-        })?;
+        // a hypothetical inconsistency into `Schema` instead of a panic.
+        let (left_plan, right_plan, left_field, right_field) = join_spec
+            .ok_or_else(|| crate::error::Error::Schema("JOIN operator without join spec".into()))?;
         let left_op = optimize_and_compile(&left_plan, storage)?;
         let right_op = optimize_and_compile(&right_plan, storage)?;
         let mut join_op: Box<dyn crate::query::PhysicalOperator + 'a> =

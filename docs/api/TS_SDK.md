@@ -576,14 +576,14 @@ const codes = ERROR_CODES;
 
 | Code (wire value) | Meaning | Source Rust variant(s) | Retriable |
 |------|---------|-------------------------|:---------:|
-| `VANTADB_VALIDATION_ERROR` | Input failed validation | `DimensionMismatch`, `DuplicateNode`, `ValidationError`, `InvalidInput`, `IqlParseError`, `UnsupportedOperation`, `NoVectorForKey`, `NodeIdCollision`, `CycleDetected`, `ExecutionConflict` | ❌ |
+| `VANTADB_VALIDATION_ERROR` | Input failed validation | `DimensionMismatch`, `DuplicateNode`, `Validation`, `InvalidInput`, `IqlParse`, `UnsupportedOperation`, `NoVectorForKey`, `NodeIdCollision`, `CycleDetected`, `ExecutionConflict` | ❌ |
 | `VANTADB_NOT_FOUND` | Requested entity does not exist | `NodeNotFound`, `NotFound` | ❌ |
 | `VANTADB_TIMEOUT` | Operation exceeded its time budget | `Timeout` | ✅ |
 | `VANTADB_BUSY` | Resource locked or not initialized | `DatabaseBusy`, `NotInitialized` | ✅ |
 | `VANTADB_RESOURCE_LIMIT` | Memory / disk / backpressure limit exceeded | `ResourceLimit` | ✅ |
-| `VANTADB_CORRUPT` | Persisted data is corrupt or incompatible format | `WALVersionMismatch`, `IncompatibleFormat`, `SerializationError`, `SchemaError`, `RestoreError`, `BackupError` | ❌ |
-| `VANTADB_INVALID_ARGUMENT` | Caller passed a malformed argument | `IqlError` | ❌ |
-| `VANTADB_IO_ERROR` | Filesystem or backend I/O failure | `IoError`, `WalError`, `BackendError`, `CliError`, `SearchError`, `RuntimeError` | ✅ |
+| `VANTADB_CORRUPT` | Persisted data is corrupt or incompatible format | `WALVersionMismatch`, `IncompatibleFormat`, `Serialization`, `Schema`, `Restore`, `Backup` | ❌ |
+| `VANTADB_INVALID_ARGUMENT` | Caller passed a malformed argument | `Iql` | ❌ |
+| `VANTADB_IO_ERROR` | Filesystem or backend I/O failure | `Io`, `Wal`, `Backend`, `Cli`, `Search`, `Runtime` | ✅ |
 | `VANTADB_WASM_ERROR` | Generic WASM-binding fallback | `Generic` (only when no `code` is attached) | ❌ |
 | `VANTADB_CLOSED` | Operation on a closed database handle | (lifecycle, not in `DbError`) | ❌ |
 

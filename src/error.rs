@@ -6,7 +6,7 @@ use thiserror::Error;
 
 /// A serialization error that preserves both context and the original error.
 ///
-/// Unlike `SerializationError(Box<dyn Error>)`, this variant adds a human-readable
+/// Unlike `Serialization(Box<dyn Error>)`, this variant adds a human-readable
 /// message while keeping the underlying error chainable via `.source()`.
 #[derive(Debug)]
 pub struct SerdeMsgError {
@@ -139,7 +139,7 @@ pub enum Error {
 
     /// Write-ahead log operation failed.
     #[error("WAL error: {0}")]
-    WalError(ChainedError),
+    Wal(ChainedError),
 
     /// WAL version does not match the expected version.
     #[error("WAL version mismatch: expected {expected}, found {found}. Hint: {hint}")]
@@ -154,11 +154,11 @@ pub enum Error {
 
     /// Serialization or deserialization failure with source chaining.
     #[error("Serialization error: {0}")]
-    SerializationError(#[source] Box<dyn StdError + Send + Sync>),
+    Serialization(#[source] Box<dyn StdError + Send + Sync>),
 
     /// Wrapped I/O error from the standard library.
     #[error("IO error: {0}")]
-    IoError(#[from] std::io::Error),
+    Io(#[from] std::io::Error),
 
     /// Binary format magic bytes or version mismatch.
     #[error("Incompatible binary format: expected magic {expected_magic:?}, version {expected_version}, found magic {found_magic:?}, version {found_version}. Hint: {hint}")]
@@ -193,7 +193,7 @@ pub enum Error {
 
     /// Parsing of an IQL query string failed.
     #[error("IQL parse error at line {line}, col {col}: {msg}")]
-    IqlParseError {
+    IqlParse {
         /// Parse error message.
         msg: String,
         /// Line number where the error occurred.
@@ -213,7 +213,7 @@ pub enum Error {
 
     /// Input validation failed.
     #[error("Validation error on {field}: {reason}")]
-    ValidationError {
+    Validation {
         /// Field that failed validation.
         field: String,
         /// Validation failure reason.
@@ -249,27 +249,27 @@ pub enum Error {
 
     /// Error during IQL processing.
     #[error("IQL error: {0}")]
-    IqlError(ChainedError),
+    Iql(ChainedError),
 
     /// Error in CLI command processing.
     #[error("CLI error: {0}")]
-    CliError(ChainedError),
+    Cli(ChainedError),
 
     /// Error during search execution.
     #[error("Search error: {0}")]
-    SearchError(ChainedError),
+    Search(ChainedError),
 
     /// Unexpected runtime error.
     #[error("Runtime error: {0}")]
-    RuntimeError(ChainedError),
+    Runtime(ChainedError),
 
     /// Error during database restore.
     #[error("Restore error: {0}")]
-    RestoreError(ChainedError),
+    Restore(ChainedError),
 
     /// Error during database backup.
     #[error("Backup error: {0}")]
-    BackupError(ChainedError),
+    Backup(ChainedError),
 
     /// Generic catch-all error.
     #[error("Generic error: {0}")]
@@ -277,7 +277,7 @@ pub enum Error {
 
     /// Error from the storage backend.
     #[error("Backend error: {0}")]
-    BackendError(ChainedError),
+    Backend(ChainedError),
 
     /// Invalid input provided.
     #[error("Invalid input: {0}")]
@@ -285,7 +285,7 @@ pub enum Error {
 
     /// Schema-related error.
     #[error("Schema error: {0}")]
-    SchemaError(String),
+    Schema(String),
 
     /// Database is busy and cannot accept the operation.
     #[error("Database busy: {0}")]
@@ -344,24 +344,24 @@ impl Error {
             | Error::EdgeCountOverflow { .. } => "VANTADB_RESOURCE_LIMIT",
             Error::WALVersionMismatch { .. }
             | Error::IncompatibleFormat { .. }
-            | Error::SerializationError(_)
-            | Error::SchemaError(_)
-            | Error::RestoreError(_)
-            | Error::BackupError(_) => "VANTADB_CORRUPT",
-            Error::IqlError(_) => "VANTADB_INVALID_ARGUMENT",
-            Error::IoError(_)
-            | Error::WalError(_)
-            | Error::BackendError(_)
-            | Error::CliError(_)
-            | Error::SearchError(_)
-            | Error::RuntimeError(_) => "VANTADB_IO_ERROR",
+            | Error::Serialization(_)
+            | Error::Schema(_)
+            | Error::Restore(_)
+            | Error::Backup(_) => "VANTADB_CORRUPT",
+            Error::Iql(_) => "VANTADB_INVALID_ARGUMENT",
+            Error::Io(_)
+            | Error::Wal(_)
+            | Error::Backend(_)
+            | Error::Cli(_)
+            | Error::Search(_)
+            | Error::Runtime(_) => "VANTADB_IO_ERROR",
             Error::Generic(_) => "VANTADB_WASM_ERROR",
             Error::DimensionMismatch { .. }
             | Error::DuplicateNode(_)
             | Error::NodeIdCollision(_)
             | Error::CycleDetected
-            | Error::IqlParseError { .. }
-            | Error::ValidationError { .. }
+            | Error::IqlParse { .. }
+            | Error::Validation { .. }
             | Error::UnsupportedOperation { .. }
             | Error::ExecutionConflict { .. }
             | Error::InvalidInput(_)
@@ -376,8 +376,8 @@ impl Error {
             Error::DatabaseBusy(_)
                 | Error::Timeout { .. }
                 | Error::ResourceLimit(_)
-                | Error::BackendError(_)
-                | Error::WalError(_)
+                | Error::Backend(_)
+                | Error::Wal(_)
         )
     }
 
@@ -390,14 +390,12 @@ impl Error {
             Error::IncompatibleFormat { .. } => {
                 Some("Delete the WAL or run dump/restore to migrate formats")
             }
-            Error::SchemaError(_) => Some("Reinitialize the database or restore from backup"),
+            Error::Schema(_) => Some("Reinitialize the database or restore from backup"),
             Error::WALVersionMismatch { .. } => {
                 Some("The WAL was written by a different version of VantaDB")
             }
-            Error::RestoreError(_) => Some("Check that the backup file exists and is readable"),
-            Error::BackupError(_) => {
-                Some("Ensure the backup directory is writable and has free space")
-            }
+            Error::Restore(_) => Some("Check that the backup file exists and is readable"),
+            Error::Backup(_) => Some("Ensure the backup directory is writable and has free space"),
             Error::NodeNotFound(_) => Some("The node may have been deleted or never existed"),
             Error::NotFound { .. } => {
                 Some("Verify that the namespace or identifier is spelled correctly")
@@ -416,7 +414,7 @@ impl Error {
 
     /// Create a WAL error from an error message (no source chain).
     pub fn wal_error(msg: impl Into<String>) -> Self {
-        Error::WalError(ChainedError::msg(msg))
+        Error::Wal(ChainedError::msg(msg))
     }
 
     /// Create a WAL error wrapping an underlying error with context.
@@ -424,12 +422,12 @@ impl Error {
         ctx: impl fmt::Display,
         source: impl StdError + Send + Sync + 'static,
     ) -> Self {
-        Error::WalError(ChainedError::with_source(ctx, source))
+        Error::Wal(ChainedError::with_source(ctx, source))
     }
 
     /// Create a serialization error from an underlying error.
     pub fn serialization(e: impl StdError + Send + Sync + 'static) -> Self {
-        Error::SerializationError(Box::new(e))
+        Error::Serialization(Box::new(e))
     }
 
     /// Create a generic error.
@@ -447,12 +445,12 @@ impl Error {
 
     /// Create a backend error.
     pub fn backend_error(msg: impl Into<String>) -> Self {
-        Error::BackendError(ChainedError::msg(msg))
+        Error::Backend(ChainedError::msg(msg))
     }
 
     /// Create a restore error.
     pub fn restore_error(msg: impl Into<String>) -> Self {
-        Error::RestoreError(ChainedError::msg(msg))
+        Error::Restore(ChainedError::msg(msg))
     }
 
     /// Create a restore error wrapping an underlying error.
@@ -460,12 +458,12 @@ impl Error {
         ctx: impl fmt::Display,
         source: impl StdError + Send + Sync + 'static,
     ) -> Self {
-        Error::RestoreError(ChainedError::with_source(ctx, source))
+        Error::Restore(ChainedError::with_source(ctx, source))
     }
 
     /// Create a backup error.
     pub fn backup_error(msg: impl Into<String>) -> Self {
-        Error::BackupError(ChainedError::msg(msg))
+        Error::Backup(ChainedError::msg(msg))
     }
 
     /// Create a backup error wrapping an underlying error.
@@ -473,7 +471,7 @@ impl Error {
         ctx: impl fmt::Display,
         source: impl StdError + Send + Sync + 'static,
     ) -> Self {
-        Error::BackupError(ChainedError::with_source(ctx, source))
+        Error::Backup(ChainedError::with_source(ctx, source))
     }
 }
 
@@ -598,7 +596,7 @@ mod tests {
 
     #[test]
     fn display_iql_parse_error() {
-        let e = Error::IqlParseError {
+        let e = Error::IqlParse {
             msg: "unexpected token".into(),
             line: 3,
             col: 15,
@@ -620,7 +618,7 @@ mod tests {
 
     #[test]
     fn display_validation_error() {
-        let e = Error::ValidationError {
+        let e = Error::Validation {
             field: "name".into(),
             reason: "cannot be empty".into(),
         };
@@ -696,31 +694,31 @@ mod tests {
 
     #[test]
     fn display_search_error() {
-        let e = Error::SearchError(ChainedError::msg("query failed"));
+        let e = Error::Search(ChainedError::msg("query failed"));
         assert_eq!(e.to_string(), "Search error: query failed");
     }
 
     #[test]
     fn display_runtime_error() {
-        let e = Error::RuntimeError(ChainedError::msg("unexpected crash"));
+        let e = Error::Runtime(ChainedError::msg("unexpected crash"));
         assert_eq!(e.to_string(), "Runtime error: unexpected crash");
     }
 
     #[test]
     fn display_restore_error() {
-        let e = Error::RestoreError(ChainedError::msg("checksum mismatch"));
+        let e = Error::Restore(ChainedError::msg("checksum mismatch"));
         assert_eq!(e.to_string(), "Restore error: checksum mismatch");
     }
 
     #[test]
     fn display_backup_error() {
-        let e = Error::BackupError(ChainedError::msg("disk full"));
+        let e = Error::Backup(ChainedError::msg("disk full"));
         assert_eq!(e.to_string(), "Backup error: disk full");
     }
 
     #[test]
     fn display_backend_error() {
-        let e = Error::BackendError(ChainedError::msg("rocksdb corruption"));
+        let e = Error::Backend(ChainedError::msg("rocksdb corruption"));
         assert_eq!(e.to_string(), "Backend error: rocksdb corruption");
     }
 
@@ -732,13 +730,13 @@ mod tests {
 
     #[test]
     fn display_cli_error() {
-        let e = Error::CliError(ChainedError::msg("bad flag"));
+        let e = Error::Cli(ChainedError::msg("bad flag"));
         assert_eq!(e.to_string(), "CLI error: bad flag");
     }
 
     #[test]
     fn display_iql_error() {
-        let e = Error::IqlError(ChainedError::msg("invalid syntax"));
+        let e = Error::Iql(ChainedError::msg("invalid syntax"));
         assert_eq!(e.to_string(), "IQL error: invalid syntax");
     }
 
@@ -750,7 +748,7 @@ mod tests {
 
     #[test]
     fn display_schema_error() {
-        let e = Error::SchemaError("missing field".into());
+        let e = Error::Schema("missing field".into());
         assert_eq!(e.to_string(), "Schema error: missing field");
     }
 
@@ -816,13 +814,13 @@ mod tests {
 
     #[test]
     fn is_retriable_true_for_backend_error() {
-        let e = Error::BackendError(ChainedError::msg("io error"));
+        let e = Error::Backend(ChainedError::msg("io error"));
         assert!(e.is_retriable());
     }
 
     #[test]
     fn is_retriable_true_for_wal_error() {
-        let e = Error::WalError(ChainedError::msg("crc fail"));
+        let e = Error::Wal(ChainedError::msg("crc fail"));
         assert!(e.is_retriable());
     }
 
@@ -834,7 +832,7 @@ mod tests {
 
     #[test]
     fn is_retriable_false_for_validation() {
-        let e = Error::ValidationError {
+        let e = Error::Validation {
             field: "name".into(),
             reason: "empty".into(),
         };
@@ -999,7 +997,7 @@ mod tests {
     #[test]
     fn vanta_error_source_for_serialization() {
         let inner = std::io::Error::new(std::io::ErrorKind::InvalidData, "bad bytes");
-        let e = Error::SerializationError(Box::new(inner));
+        let e = Error::Serialization(Box::new(inner));
         let src = e.source();
         assert!(src.is_some());
         assert_eq!(src.unwrap().to_string(), "bad bytes");
@@ -1040,7 +1038,7 @@ mod tests {
 
     #[test]
     fn recovery_hint_for_schema_error() {
-        let e = Error::SchemaError("migration failed".into());
+        let e = Error::Schema("migration failed".into());
         let hint = e.recovery_hint();
         assert!(hint.is_some());
         assert!(hint.unwrap().contains("Reinitialize"));
@@ -1060,7 +1058,7 @@ mod tests {
 
     #[test]
     fn recovery_hint_for_restore_error() {
-        let e = Error::RestoreError(ChainedError::msg("checksum fail"));
+        let e = Error::Restore(ChainedError::msg("checksum fail"));
         let hint = e.recovery_hint();
         assert!(hint.is_some());
         assert!(hint.unwrap().contains("backup file exists"));
@@ -1068,7 +1066,7 @@ mod tests {
 
     #[test]
     fn recovery_hint_for_backup_error() {
-        let e = Error::BackupError(ChainedError::msg("disk full"));
+        let e = Error::Backup(ChainedError::msg("disk full"));
         let hint = e.recovery_hint();
         assert!(hint.is_some());
         assert!(hint.unwrap().contains("writable"));
@@ -1091,13 +1089,13 @@ mod tests {
         assert!(e.to_string().contains("access denied"));
     }
 
-    // ── SerializationError display ──
+    // ── Serialization display ──
 
     #[test]
     fn display_serialization_error_with_serde_msg() {
         let inner = std::io::Error::new(std::io::ErrorKind::InvalidData, "bad data");
         let serde_err = SerdeMsgError::new("decode error", inner);
-        let e = Error::SerializationError(Box::new(serde_err));
+        let e = Error::Serialization(Box::new(serde_err));
         assert_eq!(e.to_string(), "Serialization error: decode error");
         let source = e.source().unwrap();
         assert_eq!(source.to_string(), "decode error");
@@ -1113,12 +1111,12 @@ mod tests {
         assert!(err.is_err());
     }
 
-    // ── Display for SerializationError with plain error ──
+    // ── Display for Serialization with plain error ──
 
     #[test]
     fn display_serialization_error_plain() {
         let inner = std::io::Error::new(std::io::ErrorKind::Other, "plain fail");
-        let e = Error::SerializationError(Box::new(inner));
+        let e = Error::Serialization(Box::new(inner));
         assert_eq!(e.to_string(), "Serialization error: plain fail");
     }
 
@@ -1141,7 +1139,7 @@ mod tests {
                 },
                 "VANTADB_VALIDATION_ERROR",
             ),
-            (WalError(ChainedError::msg("x")), "VANTADB_IO_ERROR"),
+            (Wal(ChainedError::msg("x")), "VANTADB_IO_ERROR"),
             (
                 WALVersionMismatch {
                     expected: 1,
@@ -1151,10 +1149,10 @@ mod tests {
                 "VANTADB_CORRUPT",
             ),
             (
-                SerializationError(Box::new(std::io::Error::other("x"))),
+                Serialization(Box::new(std::io::Error::other("x"))),
                 "VANTADB_CORRUPT",
             ),
-            (IoError(std::io::Error::other("x")), "VANTADB_IO_ERROR"),
+            (Io(std::io::Error::other("x")), "VANTADB_IO_ERROR"),
             (
                 IncompatibleFormat {
                     expected_magic: *b"VWAL",
@@ -1170,7 +1168,7 @@ mod tests {
             (NodeIdCollision(1), "VANTADB_VALIDATION_ERROR"),
             (CycleDetected, "VANTADB_VALIDATION_ERROR"),
             (
-                IqlParseError {
+                IqlParse {
                     msg: "m".into(),
                     line: 1,
                     col: 1,
@@ -1185,7 +1183,7 @@ mod tests {
                 "VANTADB_NOT_FOUND",
             ),
             (
-                ValidationError {
+                Validation {
                     field: "f".into(),
                     reason: "r".into(),
                 },
@@ -1212,16 +1210,16 @@ mod tests {
                 },
                 "VANTADB_VALIDATION_ERROR",
             ),
-            (IqlError(ChainedError::msg("x")), "VANTADB_INVALID_ARGUMENT"),
-            (CliError(ChainedError::msg("x")), "VANTADB_IO_ERROR"),
-            (SearchError(ChainedError::msg("x")), "VANTADB_IO_ERROR"),
-            (RuntimeError(ChainedError::msg("x")), "VANTADB_IO_ERROR"),
-            (RestoreError(ChainedError::msg("x")), "VANTADB_CORRUPT"),
-            (BackupError(ChainedError::msg("x")), "VANTADB_CORRUPT"),
+            (Iql(ChainedError::msg("x")), "VANTADB_INVALID_ARGUMENT"),
+            (Cli(ChainedError::msg("x")), "VANTADB_IO_ERROR"),
+            (Search(ChainedError::msg("x")), "VANTADB_IO_ERROR"),
+            (Runtime(ChainedError::msg("x")), "VANTADB_IO_ERROR"),
+            (Restore(ChainedError::msg("x")), "VANTADB_CORRUPT"),
+            (Backup(ChainedError::msg("x")), "VANTADB_CORRUPT"),
             (Generic(ChainedError::msg("x")), "VANTADB_WASM_ERROR"),
-            (BackendError(ChainedError::msg("x")), "VANTADB_IO_ERROR"),
+            (Backend(ChainedError::msg("x")), "VANTADB_IO_ERROR"),
             (InvalidInput("x".into()), "VANTADB_VALIDATION_ERROR"),
-            (SchemaError("x".into()), "VANTADB_CORRUPT"),
+            (Schema("x".into()), "VANTADB_CORRUPT"),
             (DatabaseBusy("x".into()), "VANTADB_BUSY"),
             (NoVectorForKey("k".into()), "VANTADB_VALIDATION_ERROR"),
             // ERR-CORE-01: typed overflow variants (replace the ResourceLimit(format!) catch-alls)
@@ -1288,14 +1286,14 @@ mod tests {
         // ERROR_HANDLING.md §1.1/§2 per-variant truth: TIMEOUT and BUSY
         // (DatabaseBusy only) are retriable; within RESOURCE_LIMIT only the
         // dynamic `ResourceLimit` is — the typed overflow variants are hard
-        // on-disk limits. Within IO_ERROR only BackendError/WalError are.
+        // on-disk limits. Within IO_ERROR only Backend/Wal are.
         for (e, code) in all_variants() {
             let retriable = match code {
                 "VANTADB_TIMEOUT" => true,
                 "VANTADB_BUSY" => matches!(e, Error::DatabaseBusy(_)),
                 "VANTADB_RESOURCE_LIMIT" => matches!(e, Error::ResourceLimit(_)),
                 "VANTADB_IO_ERROR" => {
-                    matches!(e, Error::BackendError(_) | Error::WalError(_))
+                    matches!(e, Error::Backend(_) | Error::Wal(_))
                 }
                 _ => false,
             };
