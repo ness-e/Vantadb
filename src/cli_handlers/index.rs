@@ -117,7 +117,7 @@ pub fn cmd_audit_index(
         println!(
             "{}",
             serde_json::to_string_pretty(&report).map_err(|err| {
-                crate::error::Error::CliError(ChainedError::msg(format!(
+                crate::error::Error::Cli(ChainedError::msg(format!(
                     "failed to encode audit report: {err}"
                 )))
             })?

@@ -179,7 +179,7 @@ impl StorageEngine {
         self.ensure_writable()?;
         #[cfg(feature = "failpoints")]
         fail::fail_point!("storage_insert_fail", |_| {
-            Err(crate::error::Error::IoError(std::io::Error::other(
+            Err(crate::error::Error::Io(std::io::Error::other(
                 "Simulated Storage insert catastrophic I/O failure",
             )))
         });

@@ -154,10 +154,10 @@ impl RocksDbBackend {
 
         let db = if config.read_only {
             DB::open_cf_descriptors_read_only(&opts, path, cf_descriptors, false)
-                .map_err(|e: rocksdb::Error| Error::IoError(std::io::Error::other(e.to_string())))?
+                .map_err(|e: rocksdb::Error| Error::Io(std::io::Error::other(e.to_string())))?
         } else {
             DB::open_cf_descriptors(&opts, path, cf_descriptors)
-                .map_err(|e: rocksdb::Error| Error::IoError(std::io::Error::other(e.to_string())))?
+                .map_err(|e: rocksdb::Error| Error::Io(std::io::Error::other(e.to_string())))?
         };
 
         Ok(Self { db })
@@ -179,12 +179,12 @@ impl StorageBackend for RocksDbBackend {
         if partition == BackendPartition::Default {
             self.db
                 .put(key, value)
-                .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
         } else {
             let cf = self.cf_handle(partition)?;
             self.db
                 .put_cf(&cf, key, value)
-                .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
         }
     }
 
@@ -192,12 +192,12 @@ impl StorageBackend for RocksDbBackend {
         if partition == BackendPartition::Default {
             self.db
                 .get(key)
-                .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
         } else {
             let cf = self.cf_handle(partition)?;
             self.db
                 .get_cf(&cf, key)
-                .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
         }
     }
 
@@ -215,7 +215,7 @@ impl StorageBackend for RocksDbBackend {
                 .filter_map(|(res, k)| match res {
                     Ok(Some(val)) => Some(Ok((k.to_vec(), val))),
                     Ok(None) => None,
-                    Err(e) => Some(Err(Error::IoError(std::io::Error::other(e.to_string())))),
+                    Err(e) => Some(Err(Error::Io(std::io::Error::other(e.to_string())))),
                 })
                 .collect::<Result<Vec<_>>>()?;
             Ok(results)
@@ -231,7 +231,7 @@ impl StorageBackend for RocksDbBackend {
                 .filter_map(|(res, k)| match res {
                     Ok(Some(val)) => Some(Ok((k.to_vec(), val))),
                     Ok(None) => None,
-                    Err(e) => Some(Err(Error::IoError(std::io::Error::other(e.to_string())))),
+                    Err(e) => Some(Err(Error::Io(std::io::Error::other(e.to_string())))),
                 })
                 .collect::<Result<Vec<_>>>()?;
             Ok(results)
@@ -242,12 +242,12 @@ impl StorageBackend for RocksDbBackend {
         if partition == BackendPartition::Default {
             self.db
                 .delete(key)
-                .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
         } else {
             let cf = self.cf_handle(partition)?;
             self.db
                 .delete_cf(&cf, key)
-                .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
         }
     }
 
@@ -279,14 +279,14 @@ impl StorageBackend for RocksDbBackend {
         }
         self.db
             .write(batch)
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
     }
 
     fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         let cf = self.cf_handle(partition)?;
         let mut result = Vec::new();
         for item in self.db.iterator_cf(&cf, rocksdb::IteratorMode::Start) {
-            let (k, v) = item.map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))?;
+            let (k, v) = item.map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
             result.push((k.to_vec(), v.to_vec()));
         }
         Ok(result)
@@ -307,7 +307,7 @@ impl StorageBackend for RocksDbBackend {
             let (k, v) = match item {
                 Ok(kv) => kv,
                 Err(e) => {
-                    return Some(Err(Error::IoError(std::io::Error::other(e.to_string()))));
+                    return Some(Err(Error::Io(std::io::Error::other(e.to_string()))));
                 }
             };
             if !k.starts_with(&prefix) {
@@ -322,12 +322,12 @@ impl StorageBackend for RocksDbBackend {
         flush_opt.set_wait(true);
         self.db
             .flush_opt(&flush_opt)
-            .map_err(|e| Error::IoError(std::io::Error::other(e.to_string())))
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
     }
 
     fn checkpoint(&self, path: &Path) -> Result<()> {
         let cp = Checkpoint::new(&self.db).map_err(|e| {
-            Error::IoError(std::io::Error::other(format!(
+            Error::Io(std::io::Error::other(format!(
                 "Error creating Checkpoint initializer: {}",
                 e
             )))
@@ -338,7 +338,7 @@ impl StorageBackend for RocksDbBackend {
         }
 
         cp.create_checkpoint(path).map_err(|e| {
-            Error::IoError(std::io::Error::other(format!(
+            Error::Io(std::io::Error::other(format!(
                 "Error writing checkpoint: {}",
                 e
             )))

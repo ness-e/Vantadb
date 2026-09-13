@@ -62,10 +62,10 @@ impl AsyncIngestionPipeline {
     pub async fn submit(&self, task: IngestionTask) -> Result<u128> {
         let (tx, rx) = oneshot::channel();
         self.sender.send((task, tx)).await.map_err(|_| {
-            crate::error::Error::IoError(std::io::Error::other("async ingestion pipeline closed"))
+            crate::error::Error::Io(std::io::Error::other("async ingestion pipeline closed"))
         })?;
         rx.await.map_err(|_| {
-            crate::error::Error::IoError(std::io::Error::other(
+            crate::error::Error::Io(std::io::Error::other(
                 "worker task terminated before responding",
             ))
         })?

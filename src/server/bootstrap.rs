@@ -353,9 +353,7 @@ pub async fn run(config: Config) -> Result<()> {
     let addr = format!("{}:{}", config.host, config.port);
 
     if !serve_http_or_tls(router, addr, &config, storage.clone()).await {
-        return Err(Error::CliError(ChainedError::msg(
-            "Server exited with errors",
-        )));
+        return Err(Error::Cli(ChainedError::msg("Server exited with errors")));
     }
 
     Ok(())

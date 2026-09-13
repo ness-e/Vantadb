@@ -24,7 +24,7 @@ impl Embedded {
     #[tracing::instrument(skip(self), err)]
     pub fn repair_text_index(&self) -> Result<TextIndexRepairReport> {
         if self.config.read_only {
-            return Err(Error::ValidationError {
+            return Err(Error::Validation {
                 field: "read_only".into(),
                 reason: "repair_text_index is not available when VantaDB is opened read-only"
                     .into(),

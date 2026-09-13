@@ -15,7 +15,7 @@ impl StorageEngine {
     #[inline]
     pub fn guard_write_allowed(config: &Config) -> Result<()> {
         if config.read_only {
-            return Err(Error::ValidationError {
+            return Err(Error::Validation {
                 field: "read_only".into(),
                 reason: "StorageEngine is read-only; write operation rejected".into(),
             });

@@ -157,7 +157,7 @@ pub enum SchemaError {
 
 impl From<SchemaError> for crate::error::Error {
     fn from(e: SchemaError) -> Self {
-        crate::error::Error::SchemaError(e.to_string())
+        crate::error::Error::Schema(e.to_string())
     }
 }
 
@@ -187,7 +187,7 @@ pub fn check_schema_compatibility(base_path: &Path) -> Result<StorageHeader> {
             header.is_compatible()?;
             Ok(header)
         }
-        None => Err(crate::error::Error::SchemaError(
+        None => Err(crate::error::Error::Schema(
             "no schema file found; database may be uninitialised or corrupt".into(),
         )),
     }

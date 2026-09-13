@@ -469,7 +469,7 @@ impl AlignedBytes {
         // report, rather than panic on, a layout-overflow (H01-CODE-001): this
         // is a long-lived store path where the error must propagate.
         let layout =
-            std::alloc::Layout::from_size_align(len, 4).map_err(|_| Error::ValidationError {
+            std::alloc::Layout::from_size_align(len, 4).map_err(|_| Error::Validation {
                 field: "alloc".into(),
                 reason: format!("in-memory vstore buffer size {len} overflows layout with align 4"),
             })?;

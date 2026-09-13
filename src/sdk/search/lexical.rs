@@ -70,7 +70,7 @@ impl Embedded {
                     continue;
                 }
                 let posting = crate::text_index::decode_posting(&posting_value).map_err(|err| {
-                    Error::SearchError(ChainedError::msg(format!(
+                    Error::Search(ChainedError::msg(format!(
                         "text_query found an unreadable posting; run rebuild_index: {err}"
                     )))
                 })?;
@@ -89,7 +89,7 @@ impl Embedded {
                         });
                     };
                     if stats.node_id != posting.node_id {
-                        return Err(Error::SearchError(ChainedError::msg(
+                        return Err(Error::Search(ChainedError::msg(
                             "text_query found posting/doc stats mismatch; run rebuild_index",
                         )));
                     }

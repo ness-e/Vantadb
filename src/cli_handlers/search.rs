@@ -81,7 +81,7 @@ pub fn cmd_search(
         println!(
             "{}",
             serde_json::to_string_pretty(&results).map_err(|e| {
-                crate::error::Error::CliError(ChainedError::msg(format!(
+                crate::error::Error::Cli(ChainedError::msg(format!(
                     "JSON serialization error: {e}"
                 )))
             })?
@@ -203,7 +203,7 @@ pub fn cmd_similar_to_key(
         println!(
             "{}",
             serde_json::to_string_pretty(&results).map_err(|e| {
-                crate::error::Error::CliError(ChainedError::msg(format!(
+                crate::error::Error::Cli(ChainedError::msg(format!(
                     "JSON serialization error: {e}"
                 )))
             })?
@@ -308,7 +308,7 @@ fn print_hits(
         println!(
             "{}",
             serde_json::to_string_pretty(&results).map_err(|e| {
-                crate::error::Error::CliError(crate::error::ChainedError::msg(format!(
+                crate::error::Error::Cli(crate::error::ChainedError::msg(format!(
                     "JSON serialization error: {e}"
                 )))
             })?

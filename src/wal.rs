@@ -306,7 +306,7 @@ impl WalWriter {
     pub fn append(&mut self, record: &WalRecord) -> Result<()> {
         #[cfg(feature = "failpoints")]
         fail::fail_point!("wal_append_fail", |_| {
-            Err(Error::IoError(std::io::Error::other(
+            Err(Error::Io(std::io::Error::other(
                 "Simulated WAL append catastrophic I/O failure",
             )))
         });
@@ -336,7 +336,7 @@ impl WalWriter {
 
         #[cfg(feature = "failpoints")]
         fail::fail_point!("wal_append_fail", |_| {
-            Err(Error::IoError(std::io::Error::other(
+            Err(Error::Io(std::io::Error::other(
                 "Simulated WAL append catastrophic I/O failure",
             )))
         });

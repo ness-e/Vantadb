@@ -34,7 +34,7 @@ impl<'a> GcWorker<'a> {
     pub fn sweep(&mut self) -> Result<usize> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|_| Error::ValidationError {
+            .map_err(|_| Error::Validation {
                 field: "system_time".into(),
                 reason: "System time before UNIX epoch".into(),
             })?

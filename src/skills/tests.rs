@@ -506,12 +506,12 @@ fn validation_rejects_bad_identifiers() {
     let bad_name = store
         .create(create_input("bad#name", "content"))
         .expect_err("bad name");
-    assert!(matches!(bad_name, Error::ValidationError { .. }));
+    assert!(matches!(bad_name, Error::Validation { .. }));
 
     let mut bad_owner = create_input("ok-name", "content");
     bad_owner.owner_agent = "owner:with:colon".into();
     let bad_owner = store.create(bad_owner).expect_err("bad owner");
-    assert!(matches!(bad_owner, Error::ValidationError { .. }));
+    assert!(matches!(bad_owner, Error::Validation { .. }));
 
     assert_eq!(KEEP_RECENT, 3, "contract: TTL keep-recent=3");
 }

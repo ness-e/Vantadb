@@ -88,13 +88,13 @@ pub(crate) fn iql_table_name_for_namespace(namespace: &str) -> String {
 
 pub(crate) fn validate_namespace(namespace: &str) -> Result<()> {
     if namespace.is_empty() {
-        return Err(Error::ValidationError {
+        return Err(Error::Validation {
             field: "namespace".into(),
             reason: "namespace must not be empty".into(),
         });
     }
     if namespace.len() > 128 {
-        return Err(Error::ValidationError {
+        return Err(Error::Validation {
             field: "namespace".into(),
             reason: "namespace must be at most 128 bytes".into(),
         });
@@ -103,7 +103,7 @@ pub(crate) fn validate_namespace(namespace: &str) -> Result<()> {
         .bytes()
         .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'/' | b'-'))
     {
-        return Err(Error::ValidationError {
+        return Err(Error::Validation {
             field: "namespace".into(),
             reason: "namespace may contain only A-Z, a-z, 0-9, '.', '_', '/', '-'".into(),
         });
@@ -113,19 +113,19 @@ pub(crate) fn validate_namespace(namespace: &str) -> Result<()> {
 
 pub(crate) fn validate_key(key: &str) -> Result<()> {
     if key.is_empty() {
-        return Err(Error::ValidationError {
+        return Err(Error::Validation {
             field: "key".into(),
             reason: "key must not be empty".into(),
         });
     }
     if key.len() > 512 {
-        return Err(Error::ValidationError {
+        return Err(Error::Validation {
             field: "key".into(),
             reason: "key must be at most 512 bytes".into(),
         });
     }
     if key.as_bytes().contains(&0) {
-        return Err(Error::ValidationError {
+        return Err(Error::Validation {
             field: "key".into(),
             reason: "key must not contain NUL bytes".into(),
         });
@@ -135,13 +135,13 @@ pub(crate) fn validate_key(key: &str) -> Result<()> {
 
 pub(crate) fn validate_metadata(metadata: &MemoryMetadata) -> Result<()> {
     if let Some(key) = metadata.keys().find(|key| key.starts_with(RESERVED_PREFIX)) {
-        return Err(Error::ValidationError {
+        return Err(Error::Validation {
             field: "metadata".into(),
             reason: format!("metadata key '{}' is reserved for VantaDB internals", key),
         });
     }
     if let Some(key) = metadata.keys().find(|key| key.as_bytes().contains(&0)) {
-        return Err(Error::ValidationError {
+        return Err(Error::Validation {
             field: "metadata".into(),
             reason: format!("metadata key '{}' must not contain NUL bytes", key),
         });
@@ -210,7 +210,7 @@ pub(crate) fn encoded_scalar_value(value: &Value) -> Result<Vec<u8>> {
         | Value::ListInt(_)
         | Value::ListFloat(_)
         | Value::ListBool(_)
-        | Value::ListDateTime(_) => Err(Error::ValidationError {
+        | Value::ListDateTime(_) => Err(Error::Validation {
             field: "value".into(),
             reason: "Cannot encode list value as scalar index key".into(),
         }),
@@ -521,7 +521,7 @@ pub fn export_line_from_record(record: MemoryRecord) -> MemoryExportLine {
 /// Fails if `schema_version` is not the current export schema.
 pub fn record_from_export_line(line: MemoryExportLine) -> Result<MemoryRecord> {
     if line.schema_version != EXPORT_SCHEMA_VERSION {
-        return Err(Error::ValidationError {
+        return Err(Error::Validation {
             field: "schema_version".into(),
             reason: format!(
                 "unsupported memory export schema_version {}",

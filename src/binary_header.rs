@@ -59,7 +59,7 @@ impl VantaHeader {
     /// Deserialize from a slice of bytes.
     pub fn deserialize(bytes: &[u8]) -> Result<Self> {
         if bytes.len() < Self::SIZE {
-            return Err(Error::IoError(std::io::Error::new(
+            return Err(Error::Io(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "Binary header slice is too short (less than 16 bytes)",
             )));

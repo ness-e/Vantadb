@@ -151,7 +151,7 @@ pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()>
     };
 
     if backup_dir.join("vantadb.dat").exists() || backup_dir.join("vantadb.wal").exists() {
-        return Err(crate::error::Error::CliError(ChainedError::msg(format!(
+        return Err(crate::error::Error::Cli(ChainedError::msg(format!(
             "Backup destination '{}' already contains database files. Choose a different location or remove existing files.",
             backup_dir.display()
         ))));

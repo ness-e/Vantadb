@@ -669,7 +669,7 @@ fn serialize<T: Serialize>(value: &T) -> Result<Vec<u8>> {
 
 fn deserialize<T: for<'de> Deserialize<'de>>(bytes: &[u8], label: &str) -> Result<T> {
     let val: T = postcard::from_bytes(bytes).map_err(|err| {
-        Error::SerializationError(Box::new(crate::error::SerdeMsgError::new(
+        Error::Serialization(Box::new(crate::error::SerdeMsgError::new(
             format!("{label} decode error: {err}"),
             err,
         )))
