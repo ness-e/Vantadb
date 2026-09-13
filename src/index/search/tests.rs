@@ -275,7 +275,7 @@ fn test_use_flat_search_default_threshold() {
     );
 }
 
-// ΓöÇΓöÇ AUDREP-55: zero-norm cosine queries ΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇΓöÇ
+// ── AUDREP-55: zero-norm cosine queries ────────────────────────────
 
 #[test]
 fn test_search_nearest_zero_norm_cosine_rejected() {

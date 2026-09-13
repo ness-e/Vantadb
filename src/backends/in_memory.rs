@@ -152,7 +152,6 @@ impl StorageBackend for InMemoryBackend {
     }
 }
 
-// ─── Unit Tests ─────────────────────────────────────────────
 //
 // These tests validate InMemoryBackend directly through the trait.
 // They live here (inside the crate) because StorageBackend is pub(crate).
@@ -167,12 +166,10 @@ mod tests {
     fn test_backend_in_memory_basic_crud() {
         let backend = InMemoryBackend::new();
 
-        // Put
         backend
             .put(BackendPartition::Default, b"key1", b"value1")
             .unwrap();
 
-        // Get
         let val = backend
             .get(BackendPartition::Default, b"key1")
             .unwrap()
@@ -185,7 +182,6 @@ mod tests {
             .unwrap()
             .is_none());
 
-        // Delete
         backend.delete(BackendPartition::Default, b"key1").unwrap();
         assert!(backend
             .get(BackendPartition::Default, b"key1")

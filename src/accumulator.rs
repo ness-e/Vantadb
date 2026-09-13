@@ -125,8 +125,6 @@ impl Default for GraphAccumulator {
 unsafe impl Send for GraphAccumulator {}
 unsafe impl Sync for GraphAccumulator {}
 
-// ─── Tests ─────────────────────────────────────────────────
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -140,7 +138,6 @@ mod tests {
         // Initially None
         assert_eq!(acc.get(42), None);
 
-        // Set and get
         acc.set(42, 10.5);
         let val = acc.get(42).unwrap();
         assert!((val - 10.5).abs() < 1e-10, "got {val}");
