@@ -204,6 +204,19 @@ Execution errors during query processing return:
 IQL error: <description>
 ```
 
+## Operator Extensibility (C2S6)
+
+Logical operators dispatch by name through `src/operator_registry.rs`
+(`OperatorRegistry`: `OperatorCompiler` + `OperatorCostModel` traits).
+`LogicalOperator::Dedup { field }` is the exemplar: it compiles, costs
+(passthrough, same convention as `Sort`/`Project`), and executes
+(`PhysicalDedup` Volcano wrapper in `src/physical_plan/dedup.rs`) with zero
+`match` edits in `planner`/`executor` — the planner catch-all routes unknown
+operators to the registry, and unregistered names fail as
+`Schema("SCHEMA_UNKNOWN_OPERATOR: ...")` instead of being silently dropped.
+`Dedup` has no IQL producer yet (test-constructed plans only). New operators:
+add the enum variant + physical file + one `register` line.
+
 ## Related
 
 - [`HTTP_API.md`](HTTP_API.md) — REST API endpoints that accept IQL queries

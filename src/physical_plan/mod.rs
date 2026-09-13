@@ -4,8 +4,9 @@
 //! into concrete storage reads, filtering, and projection.
 //!
 //! Split into per-operator submodules (REVIEW-05): `scan`, `filter`,
-//! `vector`, `project`, `sort`, `join`.
+//! `vector`, `project`, `sort`, `join`, `dedup` (C2S6 extension exemplar).
 
+mod dedup;
 mod filter;
 mod join;
 mod project;
@@ -13,6 +14,7 @@ mod scan;
 mod sort;
 mod vector;
 
+pub use dedup::PhysicalDedup;
 pub use filter::{PhysicalFilter, PhysicalTextFilter};
 pub use join::{PhysicalNestedLoopJoin, PhysicalSubqueryFilter};
 pub use project::{PhysicalLimit, PhysicalProject};

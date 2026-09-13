@@ -265,6 +265,19 @@ impl<'a> CostEstimator<'a> {
                 estimated_rows: in_rows,
                 estimated_bytes: (in_rows * AVG_NODE_BYTES as f64) as usize,
             },
+            // C2S6: the extension exemplar costs through its registered model
+            // (today: passthrough — see `DedupCost`). Single authority, no
+            // formula duplicated here. (Compiler-forced arm: new enum variants
+            // MUST appear in this exhaustive match; the arm delegates instead
+            // of inventing a formula.)
+            LogicalOperator::Dedup { .. } => {
+                let (rows, bytes) =
+                    crate::operator_registry::OperatorRegistry::new().estimate(op, in_rows);
+                OperatorCost {
+                    estimated_rows: rows,
+                    estimated_bytes: bytes,
+                }
+            }
         }
     }
 

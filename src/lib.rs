@@ -112,6 +112,8 @@ pub mod metrics;
 pub mod migration;
 /// Core node, edge, and field value types.
 pub mod node;
+/// Dispatch-by-name extension registry for logical operators (C2S6).
+pub mod operator_registry;
 pub mod parser;
 pub mod physical_plan;
 pub mod planner;
