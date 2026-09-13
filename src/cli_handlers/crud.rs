@@ -54,7 +54,6 @@ pub fn cmd_put(
     let node_id = memory_node_id(namespace, key);
     let mut node = crate::node::UnifiedNode::new(node_id);
 
-    // Set memory fields
     node.relational.insert(
         FIELD_NAMESPACE.to_string(),
         FieldValue::String(namespace.to_string()),

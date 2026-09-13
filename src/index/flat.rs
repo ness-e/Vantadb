@@ -54,10 +54,6 @@ pub(crate) fn flat_search(
     results
 }
 
-// ---------------------------------------------------------------------------
-// FlatIndex — standalone brute-force index implementing VecIndex
-// ---------------------------------------------------------------------------
-
 /// A simple brute-force (flat) index that stores vectors in a `Vec` and
 /// linearly scans all entries on every search.
 ///
