@@ -202,6 +202,7 @@ fn hnsw_recall_snapshot_deterministic_across_scales() {
         let queries = generate_vectors_seeded(n_queries, dims, seed + 1000);
 
         let mut recalls = Vec::new();
+        let mut run_lines = Vec::new();
         for run in 0..3 {
             let index = CPIndex::new_with_config(HnswConfig::default());
             for (id, vec) in &dataset {
@@ -226,10 +227,15 @@ fn hnsw_recall_snapshot_deterministic_across_scales() {
                 total += hits as f64 / k as f64;
             }
             let recall = total / n_queries as f64;
-            TerminalReporter::info(&format!("  Run {}: Recall@10 = {:.4}", run + 1, recall));
+            // Banners ordenados: el reporting se agrupa tras la medición,
+            // no interleado con el Act bulk.
+            run_lines.push(format!("  Run {}: Recall@10 = {:.4}", run + 1, recall));
             recalls.push(recall);
         }
 
+        for line in &run_lines {
+            TerminalReporter::info(line);
+        }
         for i in 1..recalls.len() {
             assert!(
                 (recalls[0] - recalls[i]).abs() < 1e-12,
