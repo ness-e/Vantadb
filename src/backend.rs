@@ -101,7 +101,7 @@ pub(crate) enum BackendWriteOp {
 // ─── Backend Capabilities ───────────────────────────────────
 
 /// Indicates which KV backend is being used.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub enum BackendKind {
     /// RocksDB storage backend.
     RocksDb,
@@ -110,6 +110,29 @@ pub enum BackendKind {
     Fjall,
     /// In-memory storage backend (no persistence).
     InMemory,
+}
+
+impl BackendKind {
+    /// Canonical display name (matches `backend_label` in server handlers).
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            BackendKind::Fjall => "fjall",
+            BackendKind::RocksDb => "rocksdb",
+            BackendKind::InMemory => "in-memory",
+        }
+    }
+
+    /// Parse a backend name from config/env. Accepts `"memory"` (legacy
+    /// `VANTA_BACKEND` value) as an alias of `"in-memory"`.
+    /// Returns `None` for unrecognized names (caller falls back + warns).
+    pub(crate) fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "rocksdb" => Some(BackendKind::RocksDb),
+            "fjall" => Some(BackendKind::Fjall),
+            "memory" | "in-memory" => Some(BackendKind::InMemory),
+            _ => None,
+        }
+    }
 }
 
 /// Introspection of a backend's supported features.
@@ -395,6 +418,42 @@ mod tests {
         assert!(f.contains("Fjall"));
         let m = format!("{:?}", BackendKind::InMemory);
         assert!(m.contains("InMemory"));
+    }
+
+    // ── BackendKind names (C2S2 registry) ──
+
+    #[test]
+    fn test_backend_kind_as_str_matches_handler_labels() {
+        // Same labels as `backend_label` in src/server/handlers.rs:212-216.
+        assert_eq!(BackendKind::Fjall.as_str(), "fjall");
+        assert_eq!(BackendKind::RocksDb.as_str(), "rocksdb");
+        assert_eq!(BackendKind::InMemory.as_str(), "in-memory");
+    }
+
+    #[test]
+    fn test_backend_kind_from_name_roundtrip() {
+        assert_eq!(
+            BackendKind::from_name("rocksdb"),
+            Some(BackendKind::RocksDb)
+        );
+        assert_eq!(BackendKind::from_name("fjall"), Some(BackendKind::Fjall));
+        assert_eq!(
+            BackendKind::from_name("memory"),
+            Some(BackendKind::InMemory)
+        );
+        assert_eq!(
+            BackendKind::from_name("in-memory"),
+            Some(BackendKind::InMemory)
+        );
+        assert_eq!(BackendKind::from_name("bogus"), None);
+        // as_str output always parses back (registry key stability).
+        for kind in [
+            BackendKind::RocksDb,
+            BackendKind::Fjall,
+            BackendKind::InMemory,
+        ] {
+            assert_eq!(BackendKind::from_name(kind.as_str()), Some(kind));
+        }
     }
 
     // ── BackendCapabilities ──

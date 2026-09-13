@@ -7,11 +7,6 @@ use tracing::info;
 use web_time::Instant;
 
 use crate::backend::{BackendPartition, StorageBackend};
-#[cfg(feature = "fjall")]
-use crate::backends::fjall_backend::FjallBackend;
-use crate::backends::in_memory::InMemoryBackend;
-#[cfg(feature = "rocksdb")]
-use crate::backends::rocksdb_backend::RocksDbBackend;
 use crate::config::Config;
 use crate::error::{Error, Result};
 use crate::index::{CPIndex, IndexBackend};
@@ -115,9 +110,7 @@ impl StorageEngine {
             pending_hnsw_batch: parking_lot::Mutex::new(Vec::new()),
             volatile_cache: parking_lot::RwLock::new(std::collections::HashMap::new()),
             last_query_timestamp: std::sync::atomic::AtomicU64::new(0),
-            next_txn_id: std::sync::atomic::AtomicU64::new(1),
-            active_txns: parking_lot::Mutex::new(std::collections::HashSet::new()),
-            txn_buffers: parking_lot::Mutex::new(std::collections::HashMap::new()),
+            txn: super::txn::TxnManager::new(),
             emergency_maintenance_trigger: std::sync::atomic::AtomicBool::new(false),
             data_dir,
             vector_store,
@@ -164,7 +157,8 @@ impl StorageEngine {
         let base_path = PathBuf::from(path);
 
         if matches!(config.backend_kind, BackendKind::InMemory) {
-            let backend: Arc<dyn StorageBackend> = Arc::new(InMemoryBackend::new());
+            let backend: Arc<dyn StorageBackend> =
+                Arc::new(crate::backends::in_memory::InMemoryBackend::new());
             return Ok((None, backend, PathBuf::new()));
         }
 
@@ -278,27 +272,15 @@ impl StorageEngine {
             crate::schema::check_schema_compatibility(&base_path)?;
         }
 
-        let backend: Arc<dyn StorageBackend> = match config.backend_kind {
-            #[cfg(feature = "rocksdb")]
-            BackendKind::RocksDb => Arc::new(RocksDbBackend::open(path, config)?),
-            #[cfg(not(feature = "rocksdb"))]
-            BackendKind::RocksDb => {
-                return Err(Error::Validation {
-                    field: "backend_feature".into(),
-                    reason: "RocksDB backend requires the 'rocksdb' feature".into(),
-                })
-            }
-            #[cfg(feature = "fjall")]
-            BackendKind::Fjall => Arc::new(FjallBackend::open(path, config)?),
-            #[cfg(not(feature = "fjall"))]
-            BackendKind::Fjall => {
-                return Err(Error::Validation {
-                    field: "backend_feature".into(),
-                    reason: "Fjall backend requires the 'fjall' feature".into(),
-                })
-            }
-            BackendKind::InMemory => Arc::new(InMemoryBackend::new()),
-        };
+        // C2S2 (OCP): construction goes through `BackendRegistry` — a new
+        // backend registers its factory there; this function never grows
+        // another `match` arm.
+        let backend: Arc<dyn StorageBackend> =
+            crate::backends::registry::BackendRegistry::default_registry().create(
+                config.backend_kind,
+                path,
+                config,
+            )?;
 
         let data_dir = base_path.join("data");
         if config.read_only && !data_dir.exists() {

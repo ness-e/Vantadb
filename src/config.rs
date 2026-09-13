@@ -658,18 +658,20 @@ impl Default for Config {
             eviction_weight_recency: 1.0,
             eviction_ratio: 0.20,
             backend_kind: {
+                // C2S2 (OCP): name mapping lives on `BackendKind::from_name`
+                // (shared with the registry); same warn + default as before.
                 let v = match env::var("VANTA_BACKEND").ok().as_deref() {
-                    Some("rocksdb") => BackendKind::RocksDb,
-                    Some("memory") => BackendKind::InMemory,
-                    Some("fjall") => BackendKind::Fjall,
-                    Some(other) => {
-                        warn!(
-                            "Unrecognized VANTA_BACKEND=\"{}\" — expected \"rocksdb\" or \"memory\". Using default: Fjall",
-                            other
-                        );
-                        BackendKind::Fjall
-                    }
                     None => BackendKind::Fjall,
+                    Some(name) => match BackendKind::from_name(name) {
+                        Some(kind) => kind,
+                        None => {
+                            warn!(
+                                "Unrecognized VANTA_BACKEND=\"{}\" — expected \"rocksdb\" or \"memory\". Using default: Fjall",
+                                name
+                            );
+                            BackendKind::Fjall
+                        }
+                    },
                 };
                 debug!(?v, "VANTA_BACKEND");
                 v
