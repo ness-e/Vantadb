@@ -183,14 +183,14 @@ impl Embedded {
                     if crate::text_index::is_term_stats_key(key) {
                         if let Some((ns, token)) = Self::parse_term_stats_key(key) {
                             if let Ok(stats) = crate::text_index::decode_term_stats(value) {
-                                let mut cache = engine.text_stats_cache.write();
-                                cache.insert((ns, token), stats);
+                                let mut guard = engine.cache.text_stats.write();
+                                guard.insert((ns, token), stats);
                                 // ponytail: watermark eviction — drop first half if over limit
-                                if cache.len() > crate::config::MAX_TEXT_STATS_CACHE {
+                                if guard.len() > crate::config::MAX_TEXT_STATS_CACHE {
                                     let keys: Vec<_> =
-                                        cache.keys().take(cache.len() / 2).cloned().collect();
+                                        guard.keys().take(guard.len() / 2).cloned().collect();
                                     for k in keys {
-                                        cache.remove(&k);
+                                        guard.remove(&k);
                                     }
                                 }
                             }
@@ -198,14 +198,14 @@ impl Embedded {
                     } else if crate::text_index::is_namespace_stats_key(key) {
                         if let Some(ns) = Self::parse_namespace_stats_key(key) {
                             if let Ok(stats) = crate::text_index::decode_namespace_stats(value) {
-                                let mut cache = engine.text_ns_cache.write();
-                                cache.insert(ns, stats);
+                                let mut guard = engine.cache.text_ns.write();
+                                guard.insert(ns, stats);
                                 // ponytail: watermark eviction — drop first half if over limit
-                                if cache.len() > crate::config::MAX_TEXT_NS_CACHE {
+                                if guard.len() > crate::config::MAX_TEXT_NS_CACHE {
                                     let keys: Vec<_> =
-                                        cache.keys().take(cache.len() / 2).cloned().collect();
+                                        guard.keys().take(guard.len() / 2).cloned().collect();
                                     for k in keys {
-                                        cache.remove(&k);
+                                        guard.remove(&k);
                                     }
                                 }
                             }
@@ -218,13 +218,13 @@ impl Embedded {
                 } => {
                     if crate::text_index::is_term_stats_key(key) {
                         if let Some((ns, token)) = Self::parse_term_stats_key(key) {
-                            let mut cache = engine.text_stats_cache.write();
-                            cache.remove(&(ns, token));
+                            let mut guard = engine.cache.text_stats.write();
+                            guard.remove(&(ns, token));
                         }
                     } else if crate::text_index::is_namespace_stats_key(key) {
                         if let Some(ns) = Self::parse_namespace_stats_key(key) {
-                            let mut cache = engine.text_ns_cache.write();
-                            cache.remove(&ns);
+                            let mut guard = engine.cache.text_ns.write();
+                            guard.remove(&ns);
                         }
                     }
                 }

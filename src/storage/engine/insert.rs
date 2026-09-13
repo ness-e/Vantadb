@@ -234,7 +234,7 @@ impl StorageEngine {
     /// for records that never committed (ERR-013).
     pub(crate) fn apply_insert_stats(&self, node: &UnifiedNode) {
         if let Ok(Some(existing_node)) = self.get(node.id) {
-            let mut stats = self.cardinality_stats.write();
+            let mut stats = self.cache.cardinality_stats.write();
             for (field, value) in &existing_node.relational {
                 let val_keys = value.to_cardinality_keys();
                 if let Some(val_map) = stats.get_mut(field.as_str()) {
@@ -266,7 +266,7 @@ impl StorageEngine {
             }
         } else {
             // insert-only: increment cardinality stats
-            let mut stats = self.cardinality_stats.write();
+            let mut stats = self.cache.cardinality_stats.write();
             Self::bump_cardinality(&mut stats, node);
         }
 
@@ -372,15 +372,15 @@ impl StorageEngine {
 
     /// Cache the batch's Hot nodes; returns whether eviction is needed.
     pub(crate) fn cache_batch_hot_nodes(&self, nodes: &[UnifiedNode]) -> bool {
-        let mut cache = self.volatile_cache.write();
+        let mut guard = self.cache.volatile.write();
         for node in nodes {
             if node.tier == crate::node::NodeTier::Hot {
-                cache.insert(node.id, node.clone());
+                guard.insert(node.id, node.clone());
             }
         }
         let caps = crate::hardware::HardwareCapabilities::global();
         let max_nodes = (caps.total_memory / 4 / 1536) as usize;
-        cache.len() > max_nodes
+        guard.len() > max_nodes
     }
 
     /// FND-02: eviction after the cache guard drops (locked variant, since
@@ -531,7 +531,7 @@ impl StorageEngine {
         nodes: &[UnifiedNode],
         opts: &BatchInsertOptions,
     ) {
-        let mut stats = self.cardinality_stats.write();
+        let mut stats = self.cache.cardinality_stats.write();
         for node in nodes {
             if !opts.skip_existing_check {
                 if let Some(existing_node) = self.existing_for_batch(node.id) {
@@ -567,7 +567,7 @@ impl StorageEngine {
         } else {
             self.probe_existing_for_batch(nodes)
         };
-        let mut stats = self.cardinality_stats.write();
+        let mut stats = self.cache.cardinality_stats.write();
         for (i, node) in nodes.iter().enumerate() {
             if let Some(ref existing_node) = existing[i] {
                 self.remove_existing_from_stats(&mut stats, existing_node, node.id);
@@ -669,14 +669,14 @@ impl StorageEngine {
 
         if node.tier == crate::node::NodeTier::Hot {
             // FND-02: eviction must run AFTER dropping the cache write guard —
-            // evict_cold_nodes_with_reason_locked reads/mutates volatile_cache
+            // evict_cold_nodes_with_reason_locked reads/mutates volatile
             // itself and parking_lot's RwLock is not reentrant (a write guard
             // held here would deadlock the eviction's own cache lock).
             let needs_eviction = {
-                let mut cache = self.volatile_cache.write();
-                cache.insert(node.id, node.clone());
+                let mut guard = self.cache.volatile.write();
+                guard.insert(node.id, node.clone());
                 // ponytail: cache clone is ~3KB/insert with 768d f32 vec.
-                // Switching volatile_cache to HashMap<u128, Arc<UnifiedNode>>
+                // Switching volatile to HashMap<u128, Arc<UnifiedNode>>
                 // would share allocations across get() reads and avoid the
                 // per-insert clone. Deferred until cache write throughput is
                 // a measured bottleneck.
@@ -686,7 +686,7 @@ impl StorageEngine {
                 let approx_node_size = 1536;
                 let max_nodes = (cache_cap_bytes / approx_node_size) as usize;
 
-                cache.len() > max_nodes
+                guard.len() > max_nodes
             };
 
             if needs_eviction {
@@ -759,7 +759,7 @@ impl StorageEngine {
         }
 
         // Shared read() only ΓÇö no write lock, no hits bookkeeping (probe, not a read).
-        if let Some(node) = self.volatile_cache.read().get(&id) {
+        if let Some(node) = self.cache.volatile.read().get(&id) {
             if !node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
                 return Some(ExistingMeta {
                     relational: node.relational.clone(),
@@ -820,9 +820,9 @@ impl StorageEngine {
 
         // One shared read() over the cache for all ids in the chunk.
         if !missing.is_empty() {
-            let cache = self.volatile_cache.read();
+            let guard = self.cache.volatile.read();
             missing.retain(|&i| {
-                if let Some(node) = cache.get(&ids[i]) {
+                if let Some(node) = guard.get(&ids[i]) {
                     if !node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
                         result[i] = Some(ExistingMeta {
                             relational: node.relational.clone(),

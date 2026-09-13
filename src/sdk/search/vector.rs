@@ -48,7 +48,7 @@ impl Embedded {
         if hits.len() >= 2 {
             let node_ids: Vec<u128> = hits.iter().map(|h| h.record.node_id).collect();
             if let Ok(cw_engine) = self.engine_handle() {
-                cw_engine.cache_warmer.record_co_access(&node_ids);
+                cw_engine.cache.warmer.record_co_access(&node_ids);
             }
         }
 
@@ -214,7 +214,7 @@ impl Embedded {
         // Feed search results into cache warmer co-access tracking
         if hits.len() >= 2 {
             let node_ids: Vec<u128> = hits.iter().map(|h| h.record.node_id).collect();
-            engine.cache_warmer.record_co_access(&node_ids);
+            engine.cache.warmer.record_co_access(&node_ids);
         }
 
         Ok(hits)

@@ -60,7 +60,7 @@ impl StorageEngine {
     /// records that were never removed (ERR-013).
     pub(crate) fn apply_delete_stats(&self, id: u128) {
         if let Ok(Some(node)) = self.get(id) {
-            let mut stats = self.cardinality_stats.write();
+            let mut stats = self.cache.cardinality_stats.write();
             for (field, value) in node.relational {
                 let val_keys = value.to_cardinality_keys();
                 if let Some(val_map) = stats.get_mut(&field) {
@@ -136,7 +136,7 @@ impl StorageEngine {
             self.remove_hnsw_entry(id);
         }
 
-        self.volatile_cache.write().remove(&id);
+        self.cache.volatile.write().remove(&id);
 
         Ok(())
     }
@@ -177,7 +177,7 @@ impl StorageEngine {
 
         // Phase 1: cardinality stats update, edge / scalar index removal
         {
-            let mut stats = self.cardinality_stats.write();
+            let mut stats = self.cache.cardinality_stats.write();
             for &id in ids {
                 if let Ok(Some(node)) = self.get(id) {
                     for (field, value) in &node.relational {
@@ -263,9 +263,9 @@ impl StorageEngine {
 
         // Phase 5: volatile cache removal
         {
-            let mut cache = self.volatile_cache.write();
+            let mut guard = self.cache.volatile.write();
             for &id in ids {
-                cache.remove(&id);
+                guard.remove(&id);
             }
         }
 

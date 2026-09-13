@@ -209,23 +209,10 @@ impl StorageEngine {
 
     /// Volatile-cache probe (ERR-036: never block the read hot path).
     /// `None` = miss; `Some(Some)` = hit; `Some(None)` = tombstoned hit.
-    pub(crate) fn lookup_volatile_cache(&self, id: u128) -> Option<Option<UnifiedNode>> {
-        match self.volatile_cache.try_write() {
-            Some(mut cache) => match cache.get_mut(&id) {
-                Some(n) if n.flags.is_set(crate::node::NodeFlags::TOMBSTONE) => Some(None),
-                Some(n) => {
-                    n.hits += 1;
-                    n.last_accessed = now_ms_epoch_millis();
-                    Some(Some(n.clone()))
-                }
-                None => None,
-            },
-            None => match self.volatile_cache.read().get(&id) {
-                Some(n) if n.flags.is_set(crate::node::NodeFlags::TOMBSTONE) => Some(None),
-                Some(n) => Some(Some(n.clone())),
-                None => None,
-            },
-        }
+    /// Delegates to [`CacheLayer::lookup_volatile`](super::cache::CacheLayer::lookup_volatile):
+    /// same lock order and same tombstone/None mapping, no semantic change.
+    pub(crate) fn lookup_volatile(&self, id: u128) -> Option<Option<UnifiedNode>> {
+        self.cache.lookup_volatile(id)
     }
 
     /// KV metadata fetch. `None` = absent (caller returns `Ok(None)`).
@@ -391,7 +378,7 @@ impl StorageEngine {
         if let Some(hit) = self.lookup_txn_buffer(id)? {
             return Ok(hit);
         }
-        if let Some(hit) = self.lookup_volatile_cache(id) {
+        if let Some(hit) = self.lookup_volatile(id) {
             return Ok(hit);
         }
         let Some(node) = self.materialize_uncached(id)? else {
@@ -432,9 +419,10 @@ impl StorageEngine {
             return;
         };
         let to_fetch = {
-            let cache = self.volatile_cache.read();
-            self.cache_warmer
-                .suggest_warm_ids(id, |i| cache.contains_key(&i))
+            let guard = self.cache.volatile.read();
+            self.cache
+                .warmer
+                .suggest_warm_ids(id, |i| guard.contains_key(&i))
         };
         if to_fetch.is_empty() {
             return;
@@ -444,10 +432,10 @@ impl StorageEngine {
             // (a nested get() → prefetch_related is a no-op). No locks are
             // held at the call site.
             if let Ok(Some(node)) = self.get(warm_id) {
-                let mut cache = self.volatile_cache.write();
-                if let std::collections::hash_map::Entry::Vacant(e) = cache.entry(warm_id) {
+                let mut guard = self.cache.volatile.write();
+                if let std::collections::hash_map::Entry::Vacant(e) = guard.entry(warm_id) {
                     e.insert(node);
-                    self.cache_warmer.record_prefetch_hit();
+                    self.cache.warmer.record_prefetch_hit();
                 }
             }
         }
@@ -474,11 +462,11 @@ impl StorageEngine {
         // try_write bumps hits/last_accessed when uncontended; when a writer is
         // active we degrade to a read-only lookup (stats not bumped) so batch
         // reads never serialize behind a writer — same contract as get().
-        match self.volatile_cache.try_write() {
-            Some(mut cache) => {
+        match self.cache.volatile.try_write() {
+            Some(mut guard) => {
                 for (i, &id) in ids.iter().enumerate() {
                     self.quantization_governor.record_access(id);
-                    if let Some(node) = cache.get_mut(&id) {
+                    if let Some(node) = guard.get_mut(&id) {
                         if node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
                             continue;
                         }
@@ -494,10 +482,10 @@ impl StorageEngine {
                 }
             }
             None => {
-                let cache = self.volatile_cache.read();
+                let guard = self.cache.volatile.read();
                 for (i, &id) in ids.iter().enumerate() {
                     self.quantization_governor.record_access(id);
-                    if let Some(node) = cache.get(&id) {
+                    if let Some(node) = guard.get(&id) {
                         if node.flags.is_set(crate::node::NodeFlags::TOMBSTONE) {
                             continue;
                         }
@@ -720,7 +708,7 @@ impl StorageEngine {
         // OLD-20: Record co-access patterns for all IDs fetched together.
         if results.len() >= 2 {
             let ids: Vec<u128> = results.iter().map(|n| n.id).collect();
-            self.cache_warmer.record_co_access(&ids);
+            self.cache.warmer.record_co_access(&ids);
         }
 
         Ok(results)

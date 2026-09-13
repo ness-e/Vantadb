@@ -4,6 +4,7 @@
 //! (in-memory, Fjall, or RocksDB), manages column-family partitions, and
 //! drives node archival / recovery.
 
+mod cache;
 mod delete;
 mod get;
 mod init;
@@ -328,8 +329,11 @@ pub struct StorageEngine {
     /// Pending HNSW mutations awaiting batch flush under a single
     /// `insert_lock` acquisition (Rayon micro-batching, P1).
     pub(crate) pending_hnsw_batch: parking_lot::Mutex<Vec<PendingHnswOp>>,
-    /// Volatile LRU cache for hot (frequently accessed) nodes.
-    pub volatile_cache: RwLock<std::collections::HashMap<u128, UnifiedNode>>,
+    /// Cache layer: volatile hot-node map, BM25 text caches,
+    /// cardinality stats and predictive warmer (C2S3b, SRP).
+    /// Pure state lives in [`cache::CacheLayer`]; the engine only
+    /// orchestrates around it. Call sites use `self.cache.*`.
+    pub(crate) cache: cache::CacheLayer,
     /// Monotonic timestamp (ms since epoch) of the last query activity.
     pub last_query_timestamp: AtomicU64,
     /// Transaction bookkeeping: id counter, active set, write buffers.
@@ -366,17 +370,6 @@ pub struct StorageEngine {
     pub(crate) scalar_index: Option<std::sync::Arc<crate::scalar_index::ScalarIndex>>,
     /// File handle for multi-process isolation lock
     pub(crate) _lock_file: Option<StdFile>,
-    /// In-memory cache for BM25 term stats to avoid redundant I/O during ingestion.
-    pub(crate) text_stats_cache:
-        RwLock<std::collections::HashMap<(String, String), crate::text_index::TextTermStats>>,
-    /// In-memory cache for BM25 namespace stats.
-    pub(crate) text_ns_cache:
-        RwLock<std::collections::HashMap<String, crate::text_index::TextNamespaceStats>>,
-    /// Lightweight cardinality statistics for query optimization.
-    pub(crate) cardinality_stats:
-        RwLock<std::collections::HashMap<String, std::collections::HashMap<String, usize>>>,
-    /// Predictive cache warmer for co-access tracking and prefetch (OLD-20).
-    pub(crate) cache_warmer: crate::cache_warmer::CacheWarmer,
     /// Bidirectional edge label interner: String ↔ u32.
     /// Reduces per-edge label overhead from ~24-32 bytes to 4 bytes.
     pub(crate) label_intern: parking_lot::Mutex<LabelIntern>,

@@ -98,7 +98,7 @@ impl<'a> CostEstimator<'a> {
     /// (src/storage/engine/stats.rs), which delegates here. Logic is a 1:1 move
     /// — the heuristic itself is unchanged.
     pub(crate) fn selectivity(&self, field: &str, op: &RelOp, value: &FieldValue) -> f32 {
-        let stats = self.storage.cardinality_stats.read();
+        let stats = self.storage.cache.cardinality_stats.read();
         let total_nodes = self.storage.hnsw.load().nodes.len();
         if total_nodes == 0 {
             let val_keys = value.to_cardinality_keys();

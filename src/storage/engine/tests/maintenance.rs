@@ -84,7 +84,7 @@ fn test_evict_cold_nodes_successful_eviction() {
     node.tier = NodeTier::Hot;
     engine.insert(&node).expect("insert");
     assert!(
-        engine.volatile_cache.read().contains_key(&42),
+        engine.cache.volatile.read().contains_key(&42),
         "hot node should be in cache before eviction"
     );
     let report = engine
@@ -93,7 +93,7 @@ fn test_evict_cold_nodes_successful_eviction() {
     assert!(report.evicted > 0, "should evict at least one hot node");
     assert_eq!(report.reason, EvictionReason::Periodic);
     assert!(
-        !engine.volatile_cache.read().contains_key(&42),
+        !engine.cache.volatile.read().contains_key(&42),
         "evicted node should be removed from cache"
     );
     let retrieved = engine.get(42).expect("get").unwrap();
@@ -196,14 +196,14 @@ fn test_consolidate_node_removes_from_cache() {
     node.tier = crate::node::NodeTier::Hot;
     engine.insert(&node).expect("insert");
     assert!(
-        engine.volatile_cache.read().contains_key(&42),
+        engine.cache.volatile.read().contains_key(&42),
         "hot node should be in cache"
     );
     engine
         .consolidate_node(&sample_node(42))
         .expect("consolidate");
     assert!(
-        !engine.volatile_cache.read().contains_key(&42),
+        !engine.cache.volatile.read().contains_key(&42),
         "consolidated node should be removed from cache"
     );
     let retrieved = engine.get(42).expect("get").unwrap();
