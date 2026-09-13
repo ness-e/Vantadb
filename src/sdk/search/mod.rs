@@ -13,6 +13,7 @@ pub(crate) mod text_index;
 pub(crate) mod audit;
 pub(crate) mod debug_ops;
 pub(crate) mod explain;
+pub(crate) mod fusion;
 pub(crate) mod hybrid;
 pub(crate) mod lexical;
 pub(crate) mod multi;
@@ -104,9 +105,9 @@ impl Embedded {
         validate_namespace(&request.namespace)?;
         validate_metadata(&request.filters)?;
 
-        let (rrf_k, candidate_k) = crate::planner::resolve_search_profile(&request);
-        let mode = crate::planner::search_mode(&request);
-        let mut text_query = crate::planner::trimmed_text_query(&request);
+        let (rrf_k, candidate_k) = fusion::resolve_search_profile(&request);
+        let mode = fusion::search_mode(&request);
+        let mut text_query = fusion::trimmed_text_query(&request);
         let mut has_vector = !request.query_vector.is_empty();
         let mut query_sparse = request
             .query_sparse
@@ -150,8 +151,7 @@ impl Embedded {
             let engine = self.engine_handle()?;
             let (hits, text_ranks, vector_ranks) = match (text_query, has_vector, query_sparse) {
                 (Some(text_query), true, _) => {
-                    let budget =
-                        crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
+                    let budget = fusion::hybrid_candidate_budget(request.top_k, candidate_k);
                     let lexical_hits = self.lexical_search(
                         &request.namespace,
                         text_query,
@@ -176,17 +176,14 @@ impl Embedded {
                                 &request.filters,
                                 budget,
                             )?;
-                            crate::planner::fuse_rrf_many(
+                            fusion::fuse_rrf_many(
                                 vec![lexical_hits, vector_hits, sparse_hits],
                                 rrf_k,
                             )
                         }
                         _ => {
-                            let (hits, _report) = crate::planner::fuse_rrf_with_report(
-                                lexical_hits,
-                                vector_hits,
-                                rrf_k,
-                            );
+                            let (hits, _report) =
+                                fusion::fuse_rrf_with_report(lexical_hits, vector_hits, rrf_k);
                             hits
                         }
                     };
@@ -194,8 +191,7 @@ impl Embedded {
                     (hits, text_ranks, vector_ranks)
                 }
                 (Some(text_query), false, Some(query_sparse)) => {
-                    let budget =
-                        crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
+                    let budget = fusion::hybrid_candidate_budget(request.top_k, candidate_k);
                     let lexical_hits = self.lexical_search(
                         &request.namespace,
                         text_query,
@@ -209,8 +205,7 @@ impl Embedded {
                         budget,
                     )?;
                     let text_ranks = debug::rank_map(&lexical_hits);
-                    let mut hits =
-                        crate::planner::fuse_rrf_many(vec![lexical_hits, sparse_hits], rrf_k);
+                    let mut hits = fusion::fuse_rrf_many(vec![lexical_hits, sparse_hits], rrf_k);
                     hits.truncate(request.top_k);
                     (hits, text_ranks, BTreeMap::new())
                 }
@@ -225,8 +220,7 @@ impl Embedded {
                     (hits, text_ranks, BTreeMap::new())
                 }
                 (None, true, Some(query_sparse)) => {
-                    let budget =
-                        crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
+                    let budget = fusion::hybrid_candidate_budget(request.top_k, candidate_k);
                     let vector_hits = self.vector_memory_search(
                         &request.namespace,
                         &request.query_vector,
@@ -242,8 +236,7 @@ impl Embedded {
                         budget,
                     )?;
                     let vector_ranks = debug::rank_map(&vector_hits);
-                    let mut hits =
-                        crate::planner::fuse_rrf_many(vec![vector_hits, sparse_hits], rrf_k);
+                    let mut hits = fusion::fuse_rrf_many(vec![vector_hits, sparse_hits], rrf_k);
                     hits.truncate(request.top_k);
                     (hits, BTreeMap::new(), vector_ranks)
                 }
@@ -307,7 +300,7 @@ impl Embedded {
             }
             (Some(text_query), false, Some(query_sparse)) => {
                 crate::metrics::record_planner_hybrid_query();
-                let budget = crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
+                let budget = fusion::hybrid_candidate_budget(request.top_k, candidate_k);
                 let lexical_hits =
                     self.lexical_search(&request.namespace, text_query, &request.filters, budget)?;
                 let sparse_hits = self.sparse_memory_search(
@@ -316,8 +309,7 @@ impl Embedded {
                     &request.filters,
                     budget,
                 )?;
-                let mut hits =
-                    crate::planner::fuse_rrf_many(vec![lexical_hits, sparse_hits], rrf_k);
+                let mut hits = fusion::fuse_rrf_many(vec![lexical_hits, sparse_hits], rrf_k);
                 hits.truncate(request.top_k);
                 Ok(hits)
             }
@@ -332,7 +324,7 @@ impl Embedded {
             }
             (None, true, Some(query_sparse)) => {
                 crate::metrics::record_planner_hybrid_query();
-                let budget = crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
+                let budget = fusion::hybrid_candidate_budget(request.top_k, candidate_k);
                 let vector_hits = self.vector_memory_search(
                     &request.namespace,
                     &request.query_vector,
@@ -347,7 +339,7 @@ impl Embedded {
                     &request.filters,
                     budget,
                 )?;
-                let mut hits = crate::planner::fuse_rrf_many(vec![vector_hits, sparse_hits], rrf_k);
+                let mut hits = fusion::fuse_rrf_many(vec![vector_hits, sparse_hits], rrf_k);
                 hits.truncate(request.top_k);
                 Ok(hits)
             }

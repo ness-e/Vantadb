@@ -21,7 +21,7 @@ use super::lexer::{
 };
 use crate::node::FieldValue;
 use crate::query::*;
-use crate::sdk::{SearchProfileConfig, SearchProfileMode};
+use crate::search_profile::{SearchProfileConfig, SearchProfileMode};
 
 pub(crate) fn parse_traversal(i: &str) -> IResult<&str, Traversal> {
     let (i, _) = ws(tag("SIGUE"))(i)?;

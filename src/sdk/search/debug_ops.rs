@@ -209,9 +209,9 @@ impl Embedded {
         validate_namespace(&request.namespace)?;
         validate_metadata(&request.filters)?;
 
-        let (rrf_k, candidate_k) = crate::planner::resolve_search_profile(&request);
-        let mode = crate::planner::search_mode(&request);
-        let mut text_query = crate::planner::trimmed_text_query(&request);
+        let (rrf_k, candidate_k) = super::fusion::resolve_search_profile(&request);
+        let mode = super::fusion::search_mode(&request);
+        let mut text_query = super::fusion::trimmed_text_query(&request);
         let mut has_vector = !request.query_vector.is_empty();
         let mut query_sparse = request
             .query_sparse
@@ -240,7 +240,7 @@ impl Embedded {
 
         match (text_query, has_vector, query_sparse) {
             (Some(text_query), true, _) => {
-                let budget = crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
+                let budget = super::fusion::hybrid_candidate_budget(request.top_k, candidate_k);
                 let lexical_hits =
                     self.lexical_search(&request.namespace, text_query, &request.filters, budget)?;
                 let vector_hits = self.vector_memory_search(
@@ -261,12 +261,12 @@ impl Embedded {
                             &request.filters,
                             budget,
                         )?;
-                        crate::planner::fuse_rrf_many(
+                        super::fusion::fuse_rrf_many(
                             vec![lexical_hits, vector_hits, sparse_hits],
                             rrf_k,
                         )
                     }
-                    _ => crate::planner::fuse_rrf(lexical_hits, vector_hits, rrf_k),
+                    _ => super::fusion::fuse_rrf(lexical_hits, vector_hits, rrf_k),
                 };
                 let fused_candidates = fused_hits.len();
                 fused_hits.truncate(request.top_k);
@@ -280,7 +280,7 @@ impl Embedded {
                 })
             }
             (Some(text_query), false, Some(query_sparse)) => {
-                let budget = crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
+                let budget = super::fusion::hybrid_candidate_budget(request.top_k, candidate_k);
                 let lexical_hits =
                     self.lexical_search(&request.namespace, text_query, &request.filters, budget)?;
                 let sparse_hits = self.sparse_memory_search(
@@ -292,7 +292,7 @@ impl Embedded {
                 let text_candidates = lexical_hits.len();
                 let vector_candidates = sparse_hits.len();
                 let mut fused_hits =
-                    crate::planner::fuse_rrf_many(vec![lexical_hits, sparse_hits], rrf_k);
+                    super::fusion::fuse_rrf_many(vec![lexical_hits, sparse_hits], rrf_k);
                 let fused_candidates = fused_hits.len();
                 fused_hits.truncate(request.top_k);
                 Ok(MemorySearchDebugReport {
@@ -321,7 +321,7 @@ impl Embedded {
                 })
             }
             (None, true, Some(query_sparse)) => {
-                let budget = crate::planner::hybrid_candidate_budget(request.top_k, candidate_k);
+                let budget = super::fusion::hybrid_candidate_budget(request.top_k, candidate_k);
                 let vector_hits = self.vector_memory_search(
                     &request.namespace,
                     &request.query_vector,
@@ -338,7 +338,7 @@ impl Embedded {
                 )?;
                 let vector_candidates = vector_hits.len();
                 let mut fused_hits =
-                    crate::planner::fuse_rrf_many(vec![vector_hits, sparse_hits], rrf_k);
+                    super::fusion::fuse_rrf_many(vec![vector_hits, sparse_hits], rrf_k);
                 let fused_candidates = fused_hits.len();
                 fused_hits.truncate(request.top_k);
                 Ok(MemorySearchDebugReport {

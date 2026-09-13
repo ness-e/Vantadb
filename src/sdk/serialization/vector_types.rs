@@ -1,9 +1,8 @@
 //! Vector-related SDK types: search requests, hits, and search results.
 
-use super::super::types::{
-    u128_serde, MemoryMetadata, MemoryRecord, SearchExplanationHit, SearchProfileConfig,
-};
+use super::super::types::{u128_serde, MemoryMetadata, MemoryRecord, SearchExplanationHit};
 use crate::node::{DistanceMetric, SparseVector};
+use crate::search_profile::SearchProfileConfig;
 use serde::{Deserialize, Serialize};
 
 /// Stable vector search request for persistent memory records.

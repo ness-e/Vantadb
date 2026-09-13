@@ -4,7 +4,7 @@
 //! related types that represent parsed queries before execution.
 
 use crate::node::FieldValue;
-use crate::sdk::SearchProfileConfig;
+use crate::search_profile::SearchProfileConfig;
 use std::collections::BTreeMap;
 
 /// Top-level statement type after parsing.
