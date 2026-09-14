@@ -11,8 +11,14 @@ use clap::{Parser, Subcommand, ValueEnum};
 #[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(about = "CLI for interacting with VantaDB", long_about = None)]
 pub struct Cli {
-    /// Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or './db' if neither is set.
-    #[arg(short, long, env = "VANTA_DB", default_value = "./db", global = true)]
+    /// Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or './db' if neither is set.
+    #[arg(
+        short,
+        long,
+        env = "VANTADB_STORAGE_PATH",
+        default_value = "./db",
+        global = true
+    )]
     pub db: String,
 
     /// Enable verbose output

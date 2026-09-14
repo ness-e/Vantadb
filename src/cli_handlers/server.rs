@@ -268,9 +268,6 @@ fn cmd_server_mcp(
 
     let build_cmd = |binary: &std::path::Path| -> std::process::Command {
         let mut cmd = std::process::Command::new(binary);
-        cmd.env("VANTA_DB", db_path);
-        // ADR-012: el child resuelve storage via Config::from_env()
-        // -> VANTADB_STORAGE_PATH (config.rs). VANTA_DB es solo flag CLI.
         cmd.env("VANTADB_STORAGE_PATH", db_path);
         if let Some(p) = port {
             cmd.env("VANTADB_PORT", p.to_string());
