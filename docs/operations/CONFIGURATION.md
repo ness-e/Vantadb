@@ -53,7 +53,10 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `llm_url` | `String` | `http://localhost:11434` | `VANTADB_LLM_URL` | Ollama endpoint for remote embeddings |
 | `llm_model` | `String` | `all-minilm` | `VANTADB_LLM_MODEL` | Model name for embeddings |
 | `llm_summarize_model` | `String` | `llama3` | `VANTADB_LLM_SUMMARIZE_MODEL` | Model name for summarization |
-| `local_model_path` | `String` | `embeddings/models/multilingual-e5-small/onnx` | `VANTADB_LOCAL_MODEL` | Local ONNX model directory for `embed-local` (e.g. `embeddings/models/multilingual-e5-small/onnx`) — TODO: verify usage in embed-local provider |
+| `local_model_path` | `String` | `embeddings/models/multilingual-e5-small/onnx` | `VANTADB_LOCAL_MODEL` | Local ONNX model directory for `embed-local` (e.g. `embeddings/models/multilingual-e5-small/onnx`) |
+| `openai_api_key` | `Option<String>` | `None` | `VANTADB_OPENAI_API_KEY` | OpenAI API key for remote embeddings (optional; missing key defers error to embed call, B2b) |
+| `openai_model` | `String` | `text-embedding-3-small` | `VANTADB_OPENAI_MODEL` | OpenAI embedding model name |
+| `embedding_provider` | `String` | `ollama` | `VANTADB_EMBEDDING_PROVIDER` | Embedding provider selector: `ollama`, `openai`, `local` (ONNX) |
 | `wal_shards` | `usize` | `4` | `VANTADB_WAL_SHARDS` | Number of round-robin [[wal\|WAL]] shard files for write parallelism |
 | `wal_buffer_size` | `Option<usize>` | `65536` (64KB) | `VANTADB_WAL_BUFFER_SIZE` | Per-shard WAL buffer in bytes (`None` = OS default) |
 | `flush_threshold` | `Option<usize>` | `None` (disabled) | `VANTADB_FLUSH_THRESHOLD` | Auto-flush after N nodes inserted (`None` = disabled) |
@@ -69,6 +72,7 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `allow_insecure` | `bool` | `false` | — (CLI flag `--allow-insecure`) | Dev override for the refuse-to-start guard: when the server binds a non-loopback host without an API key it refuses to start unless this is set; then it logs a prominent WARNING and starts unauthenticated (FIND-07) |
 | `token_role_map` | `HashMap<String, String>` | `{}` | — | `RbacConfig` field: token → role name mapping |
 | `export_base_dir` | `Option<PathBuf>` | `None` | `VANTADB_EXPORT_BASE_DIR` | Base directory for export/import path validation. When set, export and import paths are resolved canonically against this directory (symlink protection included). When `None`, only bare `..` traversal is blocked. |
+| `backup_dir` | `Option<PathBuf>` | `None` | `VANTADB_BACKUP_DIR` | Backup directory for live snapshots (checkpoints). When set, overrides the default `./vantadb_snapshots` output directory for `backup` and `snapshot create` commands. |
 | `audit_log_path` | `Option<PathBuf>` | `None` | `VANTADB_AUDIT_LOG_PATH` | Append-only JSONL audit log (ISO 8601 timestamp + op per write/delete/export/import). When `None`, audit is disabled. |
 | `audit_max_bytes` | `u64` | `10 MiB` | `VANTADB_AUDIT_MAX_BYTES` | Audit log rotation threshold (bytes; accepts `KB`/`MB`/`GB` suffixes in env). Rotates to `<path>.1` when exceeded (SRV-01). |
 | `audit_max_files` | `u32` | `5` | `VANTADB_AUDIT_MAX_FILES` | Rotated audit archives retained (`.1`..`.N`); older files deleted (SRV-01). |
@@ -76,30 +80,39 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 
 ### Environment Variables Outside `VantaConfig`
 
-> **F3C breaking (B+B, Q3=A):** the 7 legacy `VANTA_*` vars owned by `Config`
-> were unified to `VANTADB_*` **without shims** in the same change:
+> **F3C + FIND-89 breaking (B+B, Q3=A):** all legacy `VANTA_*` vars have been unified
+> to `VANTADB_*` **without shims**. The F3C change covered 7 vars owned by `Config`:
 > `VANTA_LLM_URL`→`VANTADB_LLM_URL`, `VANTA_LLM_MODEL`→`VANTADB_LLM_MODEL`,
 > `VANTA_LLM_SUMMARIZE_MODEL`→`VANTADB_LLM_SUMMARIZE_MODEL`,
 > `VANTA_LOCAL_MODEL`→`VANTADB_LOCAL_MODEL`, `VANTA_PREFETCH`→`VANTADB_PREFETCH`,
 > `VANTA_DISABLE_PREFETCH`→`VANTADB_DISABLE_PREFETCH`,
 > `VANTA_BACKEND`→`VANTADB_BACKEND`.
-> Migration: rename the vars in deploys (single pain, `feat!:` + `BREAKING CHANGE:`
-> footer generates the changelog via release-plz — this file is the migration note,
-> `docs/CHANGELOG.md` is NOT edited by hand per Regla 7).
-> Legacy reads **outside** `Config` (CLI flag `VANTA_DB`, providers in `src/llm.rs`,
-> `VANTA_BACKUP_DIR`, `VANTA_EMBEDDING_PROVIDER`, `VANTA_OPENAI_*`, prefetch mirror
-> in `src/index/graph/prefetch.rs`, `VANTA_LOCAL_MODEL` mirrors) were **not**
-> consolidated here (Q2=B) — tracked as FIND (Backlog) with owner.
+> **FIND-89** completes the consolidation for the remaining vars (providers, OpenAI, backup,
+> prefetch mirror), also without shims — same doctrine: rename in deploys, `feat!:` +
+> `BREAKING CHANGE:` footer generates the changelog via release-plz.
+> Migration note: this file documents the new canonical `VANTADB_*` names; legacy
+> `VANTA_*` reads have been removed from source.
+
+The following legacy env vars are **deprecated** and no longer read by VantaDB:
+(they were consolidated into `VantaConfig` with `VANTADB_*` prefixes)
+
+| Legacy Env Var | Replaced By | Notes |
+|----------------|-------------|-------|
+| `VANTA_EMBEDDING_PROVIDER` | `VANTADB_EMBEDDING_PROVIDER` | Moved into `Config` / `LlmCfg` |
+| `VANTA_OPENAI_API_KEY` | `VANTADB_OPENAI_API_KEY` | Moved into `Config` / `LlmCfg` |
+| `VANTA_OPENAI_MODEL` | `VANTADB_OPENAI_MODEL` | Moved into `Config` / `LlmCfg` |
+| `VANTA_BACKUP_DIR` | `VANTADB_BACKUP_DIR` | Moved into `Config` / `StorageCfg` |
+| `VANTA_PREFETCH` | `VANTADB_PREFETCH` | Moved into `Config` / `EvictionCfg` (F3C) |
+| `VANTA_DISABLE_PREFETCH` | `VANTADB_DISABLE_PREFETCH` | Moved into `Config` / `EvictionCfg` (F3C) |
+| `VANTA_LOCAL_MODEL` | `VANTADB_LOCAL_MODEL` | Moved into `Config` / `LlmCfg` (F3C) |
 
 These env vars are read at runtime outside `VantaConfig::from_env()`:
 
 | Env Var | Default | Description |
 |---------|---------|-------------|
-| `VANTA_EMBEDDING_PROVIDER` | `ollama` | Embedding provider selection: `openai` uses the OpenAI API, any other value (or unset) uses local Ollama (`src/llm.rs:40`) |
-| `VANTA_OPENAI_API_KEY` | — (required) | API key for OpenAI embeddings; startup panics if provider is `openai` and this is unset (`src/llm.rs:145`) |
-| `VANTA_OPENAI_MODEL` | `text-embedding-3-small` | Model name for OpenAI embeddings (`src/llm.rs:147`) |
-| `VANTA_BACKUP_DIR` | `./vantadb_snapshots` | Overrides the output directory for live backups / checkpoints (`src/storage/engine/maintenance.rs:658`) |
-| `VANTADB_REPORTED_VERSION` | crate version | Overrides the version string reported by banners and MCP surfaces (must be a valid semver, e.g. `1.2.3-rc1`; `src/metadata.rs:22`) |
+| `VANTADB_REPORTED_VERSION` | crate version | Overrides the version string reported by banners and MCP surfaces (must be a valid semver, e.g. `1.2.3-rc1`; internal mechanism, excepted from Config per FIND-89) |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | `http://localhost:4317` | OTLP gRPC endpoint (third-party OpenTelemetry standard, not a VantaDB config) |
+| `OTEL_SERVICE_NAME` | `vantadb-server` | Logical service name for trace identification (third-party OpenTelemetry standard) |
 
 ### Audit Log Format
 
@@ -291,6 +304,7 @@ The `--memory-limit` flag is global and accepts a byte count with an optional
 vanta-cli server --http --port 8080 --db ./vanta_data --memory-limit 500MB
 vanta-cli doctor --db ./vanta_data --memory-limit 2GB
 VANTADB_MEMORY_LIMIT=1GB vanta-cli status --db ./vanta_data
+VANTADB_STORAGE_PATH=/var/lib/vantadb vanta-cli status --db ./vanta_data
 ```
 
 ## 2. Python Constructor
@@ -330,12 +344,12 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 
 | Flag | Env Var | Default | Description |
 |------|---------|---------|-------------|
-| `--db` / `-d` | `VANTA_DB` | `./db` | Path to the database directory |
+| `--db` / `-d` | `VANTADB_STORAGE_PATH` | `./db` | Path to the database directory |
 | `--verbose` / `-v` | — | `false` | Enable verbose output |
 | `--json` | — | `false` | Output in JSON format |
 | `--quiet` | — | `false` | Suppress non-essential output |
 
-> **Note (ADR-012, 2026-08-05):** `VANTA_DB` is the CLI flag env (clap, global). `VANTADB_STORAGE_PATH` is the config env (`VantaConfig::from_env`). Precedence: CLI flag `--db` > `VANTA_DB` env > `VANTADB_STORAGE_PATH` > defaults. The `vantadb-server` child sets **both** vars from `--db` so the MCP/config path resolves correctly (fix TECH-01). See `docs/architecture/adr/012_env_var_naming.md`.
+> **Note (ADR-012, 2026-08-05; updated FIND-89 2026-09-14):** `VANTADB_STORAGE_PATH` is the unified config env for both CLI flag `--db` and `VantaConfig::from_env()`. Precedence: CLI flag `--db` > `VANTADB_STORAGE_PATH` env > defaults. The `vantadb-server` child sets `VANTADB_STORAGE_PATH` from `--db` so the MCP/config path resolves correctly (fix TECH-01). Legacy `VANTA_DB` is deprecated. See `docs/architecture/adr/012_env_var_naming.md`.
 
 ### Commands
 

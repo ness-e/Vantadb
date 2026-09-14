@@ -1,4 +1,4 @@
-// ponytail: `VANTA_OPENAI_API_KEY` is a required config (intentional panic
+// ponytail: `VANTADB_OPENAI_API_KEY` is a required config (intentional panic
 // on missing) + LLM embedding provider invariants; documented per-call.
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
@@ -613,7 +613,7 @@ impl EmbeddingProvider for OpenAIProvider {
 
         // B2b: deferred-key check (see `new`) — fail the call, not the process.
         let api_key = self.api_key.as_deref().ok_or_else(|| {
-            Error::InvalidInput("VANTA_OPENAI_API_KEY must be set to use OpenAIProvider".into())
+            Error::InvalidInput("VANTADB_OPENAI_API_KEY must be set to use OpenAIProvider".into())
         })?;
 
         let response = self
@@ -866,18 +866,18 @@ mod openai_provider_tests {
     // key surfaces as `InvalidInput` from `embed` instead.
     #[test]
     fn missing_api_key_is_error_not_panic() {
-        let saved = std::env::var("VANTA_OPENAI_API_KEY").ok();
-        std::env::remove_var("VANTA_OPENAI_API_KEY");
+        let saved = std::env::var("VANTADB_OPENAI_API_KEY").ok();
+        std::env::remove_var("VANTADB_OPENAI_API_KEY");
 
-        let provider = OpenAIProvider::new();
+        let provider = OpenAIProvider::from_env();
         let res = provider.embed("hello");
 
         if let Some(key) = saved {
-            std::env::set_var("VANTA_OPENAI_API_KEY", key);
+            std::env::set_var("VANTADB_OPENAI_API_KEY", key);
         }
         let err = res.unwrap_err();
         assert!(
-            matches!(err, Error::InvalidInput(ref msg) if msg.contains("VANTA_OPENAI_API_KEY")),
+            matches!(err, Error::InvalidInput(ref msg) if msg.contains("VANTADB_OPENAI_API_KEY")),
             "expected InvalidInput mentioning the key, got {err:?}"
         );
     }

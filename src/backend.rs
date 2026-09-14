@@ -123,7 +123,7 @@ impl BackendKind {
     }
 
     /// Parse a backend name from config/env. Accepts `"memory"` (legacy
-    /// `VANTA_BACKEND` value) as an alias of `"in-memory"`.
+    /// `VANTADB_BACKEND` value) as an alias of `"in-memory"`.
     /// Returns `None` for unrecognized names (caller falls back + warns).
     pub(crate) fn from_name(name: &str) -> Option<Self> {
         match name {
