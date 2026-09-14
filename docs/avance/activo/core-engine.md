@@ -674,3 +674,8 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** 6 dominios + fachada plana (vistas From, 108 sitios intactos) + 7 vars a VANTADB_* breaking; Q1=B/Q2=FIND-89/Q3=A.
 - **Resultado:** check/clippy/fmt + config 57/57 + 0 legacy.
 - **Commit:** d75459fe (feat!:+BREAKING CHANGE; ADR-043 datos, firma humana pendiente)
+### FIND-89: consolidar lecturas directas de env en `Config` (fuente única)
+- **Fecha:** 2026-09-14
+- **Objetivo:** migrar 7 ficheros con `env::var` real a vistas de dominio `Config` (F3C); espejos nuevos `VANTADB_OPENAI_API_KEY`/`VANTADB_OPENAI_MODEL`/`VANTADB_EMBEDDING_PROVIDER`/`VANTADB_BACKUP_DIR` (breaking C7 sin shims); excepciones `OTEL_*` + `ENV_REPORTED_VERSION` + test.
+- **Resultado:** rg env::var→solo excepciones documentadas; rg VANTA_→solo comentarios; check/clippy-lib/fmt + nextest 118/118 (llm/crypto/telemetry/prefetch/maintenance/metadata); review P2-01 vanta-audit ✅ approve.
+- **Commit:** 1ca57649 (S1) + 3a0e42d7 (S2) + 4cdc1970 (S3) + c4ddb217 (S4 feat!:) + 410b9b57 (fix clippy Default/test)

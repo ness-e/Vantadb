@@ -281,3 +281,8 @@ Plan `docs/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ en 3 
 - **Orden:** owner pidio firma por el lead + eliminar la regla; alcance elegido: excepcion local (recomendado).
 - **Motivo:** Regla 5 vive en .opencode/AGENTS.md (submodulo configOpencode compartido); borrarla ahi rige todos los proyectos.
 - **Efecto:** ADR-043 firmado por vanta-lead articulando decisiones humanas D0-B+B y F3C-Q1=B/Q2=B/Q3=A; la regla sigue vigente en el compartido.
+
+## Archivo plan 2026-09-14-find89-env-consolidation (2026-09-14)
+- **Plan:** docs/plans/archive/2026-09-14-find89-env-consolidation.md - 1/1 COMPLETED (FIND-89, slices S1→S2→S3→S4 + fix clippy; review P2-01 vanta-audit ✅ approve).
+- **Retrospectiva:** Start: reconocimiento con `rg` antes de heredar listas (ADR-043 decía 12, reales 7). Stop: `Default` impls delegando a shims deprecated `from_env` (rompe `clippy -D warnings`; fix 410b9b57). Continue: slices verticales compilables + tabla var→campo en task file + review de agente distinto con corridas propias.
+- **Accion medible:** 0 lectores legacy funcionales (`rg VANTA_`→solo comentarios); metrica: `rg "env::var" src/ --glob '!src/config.rs'` = solo excepciones documentadas.

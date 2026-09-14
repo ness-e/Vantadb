@@ -221,21 +221,21 @@ last-synced: 2026-09-14T15:30
 
 > Lo ejecuta un agente DISTINTO al implementador. Sin esto registrado, la tarea no está COMPLETED.
 
-- **Revisor:** vanta-audit (security + code review) o vanta-review / doubt-driven-development
-- **Enfoque:** ¿el approach de añadir campos mirror a `Config` es correcto? ¿alternativas mejores (ej. shims de compatibilidad)? Ver decisión Q3=A en ADR-043 (sin shims, breaking documentado).
-- **Cómo se probó:** evidencia de verificación real (comandos `rg` + `cargo check` + `nextest` output), no auto-reporte.
+- **Revisor:** vanta-audit (sesión 2026-09-14, LEAF read-only — distinto del implementador vanta-worker)
+- **Enfoque:** ✅ mirror `VANTADB_*` sin shims CORRECTO per ADR-043 C7/Q3=A; 8/8 decisiones Spec validadas; sin alternativa mejor no evaluada; defaults preservan valores (una unificación dual-feature→`ollama` documentada, no bloqueante); B2b preservada + test verificado con `--features remote-inference` 1/1.
+- **Cómo se probó:** corridas propias del revisor: `rg env::var`→4 hits esperados ✅; `rg VANTA_`→8 hits solo comentarios config.rs ✅; `cargo check -p vantadb --tests` 0.92s ✅; `clippy --lib --all-features -D warnings` 1.45s ✅; `fmt --check` ✅; nextest llm/crypto/telemetry/prefetch/maintenance/metadata 118/118 ✅; fallos `--all-targets` confirmados pre-existentes F3X (mcp handlers + durability:433, toque `13f0f729`, no tocado por FIND-89).
 - **Checklist anti-hábitos tóxicos:**
-  - [ ] No inventar salidas de comandos/herramientas que no se ejecutaron.
-  - [ ] No saltarse la clarificación por "ya sé qué quiere".
-  - [ ] No declarar done sin verificar contra los acceptance criteria.
-  - [ ] No ignorar fallos ni reportar "todo OK" cuando hubo fallo parcial.
-  - [ ] No hacer un solo intento de búsqueda y darlo por saturado.
-  - [ ] No copiar sin citar ni presentar supuestos propios como evidencia.
-  - [ ] No reintentar en bucle sin diagnóstico.
-  - [ ] No dejar huérfanos los pasos: cada paso conectado al objetivo.
-  - [ ] No degradar el chequeo de errores en paths de dinero/seguridad.
-  - [ ] No gastar presupuesto infinito; paradas explícitas.
-- **Veredicto:** ⬜ pending review
+  - [x] No inventar salidas de comandos/herramientas que no se ejecutaron.
+  - [x] No saltarse la clarificación por "ya sé qué quiere".
+  - [x] No declarar done sin verificar contra los acceptance criteria.
+  - [x] No ignorar fallos ni reportar "todo OK" cuando hubo fallo parcial.
+  - [x] No hacer un solo intento de búsqueda y darlo por saturado.
+  - [x] No copiar sin citar ni presentar supuestos propios como evidencia.
+  - [x] No reintentar en bucle sin diagnóstico.
+  - [x] No dejar huérfanos los pasos: cada paso conectado al objetivo.
+  - [x] No degradar el chequeo de errores en paths de dinero/seguridad.
+  - [x] No gastar presupuesto infinito; paradas explícitas.
+- **Veredicto:** ⬜ ✅ approve por vanta-audit 2026-09-14 (sin steps a reabrir; 4 hallazgos Info/Low no bloqueantes como follow-up ordinario)
 
 ## Notas
 - Decisiones de diseño: seguir patrón existente en `Config` para campos opcionales (`Option<String>` con `env::var(...).ok()`) y requeridos con default (`unwrap_or_else`).
