@@ -9,23 +9,37 @@ last_reviewed: 2026-09-14
 
 # ADR-043: S-split-config B+B (datos para firma humana)
 
-> **Regla 5:** Contexto/Decisión/Consecuencias los escribe el HUMANO con sus
-> palabras. Esta entrada aporta SOLO datos (implementación F3C-impl).
+> **Excepción a Regla 5 (orden explícita del owner 2026-09-14):** las secciones
+> Contexto/Decisión/Consecuencias las redactó vanta-lead articulando las decisiones
+> humanas tomadas vía `question` (D0 B+B + F3C Q1=B/Q2=B/Q3=A). Ver `docs/avance/meta.md`.
 > Diseño canónico: `docs/tasks/F3C.md`. Plan: `docs/plans/2026-09-13-cleanCA-fase3.md`.
 
 ## Contexto
 
-_(lo escribe el humano con sus palabras)_
+`Config` era un struct plano de ~52 campos donde cada feature solo escribía su sección
+pero todos leían todo (god-struct de lectura), con 42 variables de entorno en dos
+prefijos inconsistentes (`VANTA_*` legacy vs `VANTADB_*`). El churn medido es por
+dominio (D0: 14/14 commits tocan una sección), así que el struct no refleja cómo el
+código realmente cambia. El hot-reload (`apply_to`, 8 campos, watcher) vive 100% en
+`src/config.rs` y ninguna dependencia lo resuelve: cualquier opción debía preservarlo.
 
 ## Decisión
 
-_(la escribe el humano — Q1=B `RbacCfg` propio 6to dominio; Q2=B 12 ficheros
-con lectura directa no consolidados → FIND-89; Q3=A fachada A fuente única +
-C7 sin shims, B+B Q4 vigente)_
+**B+B:** split interno en 6 dominios (`StorageCfg`/`ServerCfg`/`LlmCfg`/`EvictionCfg`/
+`PoolCfg`/`RbacCfg` propio) con fachada `Config` plana y compatible (implementada como
+vistas `From<&Config>`, sin duplicar estado), más unificación `VANTA_*→VANTADB_*`
+(7 vars) con breaking limpio en el mismo cambio, sin shims. Los 12 ficheros con
+lectura directa de env no se consolidan ahora (van a FIND-89 con dueño).
 
 ## Consecuencias
 
-_(las escribe el humano; la IA solo aportó los datos de abajo)_
+Costos: bump major (breaking de 7 vars, documentado en CONFIGURATION.md + changelog
+vía release-plz); 108 sitios migran mecánicamente (compilador como árbitro).
+Riesgos: bajo — fachada conserva `Default`/`with_*`/acceso plano, warn+default intacto,
+suites 57/57. Deuda asumida: FIND-89 (12 ficheros con env directo) y firma de este
+ADR por excepción. Alternativas descartadas: mantener+documentar (el god-lector sigue),
+figment/config-rs (nueva dependencia sin resolver el hot-reload), shims temporales
+(dos dolores en vez de uno).
 
 ## Datos aportados por IA (referencia F3C-impl)
 
