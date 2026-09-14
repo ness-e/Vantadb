@@ -2,7 +2,7 @@
 //!
 //! REVIEW-10: extracted from `routing.rs` — all tracing/OTEL setup lives here.
 
-use crate::config::LogFormat;
+use crate::config::{Config, LogFormat};
 use tracing_subscriber::EnvFilter;
 
 #[cfg(feature = "opentelemetry")]
@@ -32,17 +32,8 @@ pub fn init_telemetry(sink: TelemetrySink, log_format: Option<LogFormat>) {
 
 fn resolve_log_format(log_format: Option<LogFormat>) -> LogFormat {
     log_format.unwrap_or_else(|| {
-        let legacy = std::env::var("VANTADB_LOG_JSON")
-            .map(|v| v == "1" || v == "true")
-            .unwrap_or(false);
-        if legacy {
-            LogFormat::Json
-        } else {
-            std::env::var("VANTADB_LOG_FORMAT")
-                .ok()
-                .map(|v| LogFormat::from_env_value(&v))
-                .unwrap_or_default()
-        }
+        // Use Config as the single source of truth for log format
+        Config::default().log_format
     })
 }
 

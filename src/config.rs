@@ -164,6 +164,9 @@ pub struct StorageCfg {
     pub wal_shards: usize,
     pub flat_threshold: Option<usize>,
     pub export_base_dir: Option<std::path::PathBuf>,
+    /// Backup directory for live snapshots (checkpoints).
+    /// Configured via `VANTADB_BACKUP_DIR` (legacy `VANTA_BACKUP_DIR` is deprecated).
+    pub backup_dir: Option<std::path::PathBuf>,
     pub segment_optimizer: SegmentOptimizerConfig,
 }
 
@@ -259,6 +262,7 @@ impl Default for StorageCfg {
             wal_shards: 4,
             flat_threshold: Some(10000),
             export_base_dir: None,
+            backup_dir: None,
             segment_optimizer: SegmentOptimizerConfig::default(),
         }
     }
@@ -352,6 +356,7 @@ impl From<&Config> for StorageCfg {
             wal_shards: cfg.wal_shards,
             flat_threshold: cfg.flat_threshold,
             export_base_dir: cfg.export_base_dir.clone(),
+            backup_dir: cfg.backup_dir.clone(),
             segment_optimizer: cfg.segment_optimizer,
         }
     }
@@ -767,6 +772,9 @@ pub struct Config {
     /// (including symlink protection). When `None`, only `..` traversal is checked.
     /// Configured via `VANTADB_EXPORT_BASE_DIR`.
     pub export_base_dir: Option<std::path::PathBuf>,
+    /// Backup directory for live snapshots (checkpoints).
+    /// Configured via `VANTADB_BACKUP_DIR` (legacy `VANTA_BACKUP_DIR` is deprecated).
+    pub backup_dir: Option<std::path::PathBuf>,
     /// Optional path for the append-only JSONL audit log of business operations.
     ///
     /// When set, `Embedded` records every put/delete/export/import with an
@@ -1215,6 +1223,11 @@ impl Default for Config {
             },
             export_base_dir: {
                 env::var("VANTADB_EXPORT_BASE_DIR")
+                    .ok()
+                    .map(std::path::PathBuf::from)
+            },
+            backup_dir: {
+                env::var("VANTADB_BACKUP_DIR")
                     .ok()
                     .map(std::path::PathBuf::from)
             },
