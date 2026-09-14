@@ -67,3 +67,15 @@ verified_by: "Split ejecutado 2026-09-03 por RES-15-C desde docs/Backlog.md (cri
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
 | `BND-07` | **Discord invite inválido + vantadb.dev sin DNS** (GOV-F1 🔴×2) — requieren acción externa del owner: crear invite nuevo de Discord y configurar DNS de vantadb.dev; luego actualizar README/CONTRIBUTING/SECURITY con los valores reales. Registrado en auditoría raíz pública GOV-F1 (commit dc3775ef). | README.md, CONTRIBUTING.md, SECURITY.md (externo al repo) | 🟡 | 🟠 | ⏳ Externo owner |
+
+## BIZ — Facturación y negocio (manual estratégico, 2026-09-14)
+
+> Origen: `VantaDB_Manual_Estrategico_Unificado.md` bloques C1/C2/C5/C6/C8/C10/C14/C15 + research `docs/research/manual-estrategico-validacion-2026-09-14.md` (§1-7). Todas son humanas (cuentas, decisiones, firmas). BIZ-02/03 reservados: en investigación de alcance, NO crear filas hasta definirlo con el owner.
+
+| ID | Descripción | Esfuerzo | Prio | Estado Real |
+|----|-------------|----------|------|-------------|
+| `BIZ-04` | **ToS mínimo viable (Terms + Privacy + Refund)** — MoR/Stripe los exigen para verificación; sin esto no hay cobro. Desde plantillas + adaptación VantaDB. Research: §7.3. | 🟢 1-2d humano | 🔴 | 🆕 Pendiente (investigación profunda en curso) |
+| `BIZ-05` | **One-pager comercial + propuesta de valor no-técnica** — 1 página para design partners/pilotos. Redactable por agente tras fijar ICP (dep: BIZ-08). Research: §7.3. | 🟢 1d | 🟠 | 🆕 Pendiente (bloqueado por BIZ-08) |
+| `BIZ-06` | **Jurisdicción y banca fase 2 (LLC + EIN + Mercury)** — solo si el volumen lo justifica (MoR cubre fase 1). Contactar 2-3 proveedores. Research: §2. | 🟡 2-3d humano | 🔵 | 🆕 Pendiente (fase 2) |
+| `BIZ-07` | **Cadena de titularidad IP escalonada** — 1) declaración de autoría propia (hoy); 2) DCO/CLA listo; 3) assignment al constituir entidad. Veracidad validada en §7.2 (assignment ≠ CLA ≠ DCO). | 🟢 1d | 🟠 | 🆕 Pendiente (investigación profunda en curso) |
+| `BIZ-08` | **Decisión ICP/vertical foco** — local-LLM vs frameworks vs AI-IDEs (evidencia interna favorece AI-IDEs vía MCP, decide el owner). Desbloquea MGR-20/EXE-03. Research: §7.3. | 🟢 2h owner | 🔴 | 🆕 Pendiente (decisión owner) |
