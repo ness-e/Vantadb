@@ -70,7 +70,7 @@ verified_by: "Split ejecutado 2026-09-03 por RES-15-C desde docs/Backlog.md (cri
 
 ## BIZ — Facturación y negocio (manual estratégico, 2026-09-14)
 
-> Origen: `VantaDB_Manual_Estrategico_Unificado.md` bloques C1/C2/C5/C6/C8/C10/C14/C15 + research `docs/research/manual-estrategico-validacion-2026-09-14.md` (§1-7). Todas son humanas (cuentas, decisiones, firmas). BIZ-02/03 reservados: en investigación de alcance, NO crear filas hasta definirlo con el owner.
+> Origen: `docs/strategy/VantaDB_Manual_Estrategico_Unificado.md` bloques C1/C2/C5/C6/C8/C10/C14/C15 + research `docs/research/manual-estrategico-validacion-2026-09-14.md` (§1-7). Todas son humanas (cuentas, decisiones, firmas). BIZ-02/03 reservados: en investigación de alcance, NO crear filas hasta definirlo con el owner.
 
 | ID | Descripción | Esfuerzo | Prio | Estado Real |
 |----|-------------|----------|------|-------------|
