@@ -196,6 +196,16 @@ pub struct LlmCfg {
     pub llm_model: String,
     pub llm_summarize_model: String,
     pub local_model_path: String,
+    /// OpenAI API key for remote embeddings (optional — missing key defers error to embed call, B2b).
+    /// Configured via `VANTADB_OPENAI_API_KEY` (legacy `VANTA_OPENAI_API_KEY` is deprecated).
+    pub openai_api_key: Option<String>,
+    /// OpenAI embedding model name (default: `text-embedding-3-small`).
+    /// Configured via `VANTADB_OPENAI_MODEL` (legacy `VANTA_OPENAI_MODEL` is deprecated).
+    pub openai_model: String,
+    /// Embedding provider selector (default: `ollama`).
+    /// Values: `ollama`, `openai`, `local` (ONNX). Configured via `VANTADB_EMBEDDING_PROVIDER`
+    /// (legacy `VANTA_EMBEDDING_PROVIDER` is deprecated).
+    pub embedding_provider: String,
     #[cfg(feature = "advanced-tokenizer")]
     pub advanced_tokenizer_config: Option<AdvancedTokenizerConfig>,
 }
@@ -285,6 +295,9 @@ impl Default for LlmCfg {
             llm_model: "all-minilm".to_string(),
             llm_summarize_model: "llama3".to_string(),
             local_model_path: "embeddings/models/multilingual-e5-small/onnx".to_string(),
+            openai_api_key: None,
+            openai_model: "text-embedding-3-small".to_string(),
+            embedding_provider: "ollama".to_string(),
             #[cfg(feature = "advanced-tokenizer")]
             advanced_tokenizer_config: None,
         }
@@ -375,6 +388,9 @@ impl From<&Config> for LlmCfg {
             llm_model: cfg.llm_model.clone(),
             llm_summarize_model: cfg.llm_summarize_model.clone(),
             local_model_path: cfg.local_model_path.clone(),
+            openai_api_key: cfg.openai_api_key.clone(),
+            openai_model: cfg.openai_model.clone(),
+            embedding_provider: cfg.embedding_provider.clone(),
             #[cfg(feature = "advanced-tokenizer")]
             advanced_tokenizer_config: cfg.advanced_tokenizer_config.clone(),
         }
@@ -564,6 +580,16 @@ pub struct Config {
     /// Local ONNX model directory for `embed-local` (e.g. `embeddings/models/multilingual-e5-small/onnx`).
     /// Configured via `VANTADB_LOCAL_MODEL`.
     pub local_model_path: String,
+    /// OpenAI API key for remote embeddings (optional — missing key defers error to embed call, B2b).
+    /// Configured via `VANTADB_OPENAI_API_KEY` (legacy `VANTA_OPENAI_API_KEY` is deprecated).
+    pub openai_api_key: Option<String>,
+    /// OpenAI embedding model name (default: `text-embedding-3-small`).
+    /// Configured via `VANTADB_OPENAI_MODEL` (legacy `VANTA_OPENAI_MODEL` is deprecated).
+    pub openai_model: String,
+    /// Embedding provider selector (default: `ollama`).
+    /// Values: `ollama`, `openai`, `local` (ONNX). Configured via `VANTADB_EMBEDDING_PROVIDER`
+    /// (legacy `VANTA_EMBEDDING_PROVIDER` is deprecated).
+    pub embedding_provider: String,
     /// Optional memory limit in bytes.
     pub memory_limit: Option<u64>,
     /// If true, the engine operates in read-only mode.
@@ -902,6 +928,25 @@ impl Default for Config {
                 let v = env::var("VANTADB_LOCAL_MODEL")
                     .unwrap_or_else(|_| "embeddings/models/multilingual-e5-small/onnx".to_string());
                 debug!(val = %v, "VANTADB_LOCAL_MODEL");
+                v
+            },
+            openai_api_key: {
+                let v = env::var("VANTADB_OPENAI_API_KEY").ok();
+                if v.is_some() {
+                    debug!("VANTADB_OPENAI_API_KEY is set (value not logged)");
+                }
+                v
+            },
+            openai_model: {
+                let v = env::var("VANTADB_OPENAI_MODEL")
+                    .unwrap_or_else(|_| "text-embedding-3-small".to_string());
+                debug!(val = %v, "VANTADB_OPENAI_MODEL");
+                v
+            },
+            embedding_provider: {
+                let v =
+                    env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+                debug!(val = %v, "VANTADB_EMBEDDING_PROVIDER");
                 v
             },
             memory_limit: {
