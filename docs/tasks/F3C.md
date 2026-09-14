@@ -147,3 +147,5 @@ Pre-mortem (plan): 108 sitios mecánicos con compilador como red; breaking env c
   `backend_tests`, `durability_recovery`) — toolchain local, deuda fuera de contrato.
 - **Estado:** ⏳ IN PROGRESS (implementado + verificado, SIN commit — commitea el lead
   con `feat!:` + footer `BREAKING CHANGE:`). nextTask: cierre de campaña.
+
+> **Cierre 2026-09-14:** COMPLETED (diseno + impl C1-C7 B/B/A + 57/57 + 0 legacy; commit d75459fe feat!:+BREAKING CHANGE; ADR-043 datos, firma humana pendiente Regla 5).

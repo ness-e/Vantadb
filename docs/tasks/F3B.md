@@ -79,3 +79,5 @@ No requerida (sin ambigüedad: patrón informativo copiado de `arch-metrics-info
 - **Decisiones:** trigger paths perf-source para no duplicar heavy-51; issues automáticos como monitoreo del INFORMATIONAL
 - **Problemas conocidos:** tantivy rompe build local (pre-mortem plan) — B1 verifica
 - **Próxima tarea:** cierre de campaña (tras F3C)
+
+> **Cierre 2026-09-14:** COMPLETED (B1-B3 verdes; commit e33c307f).

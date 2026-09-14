@@ -270,3 +270,9 @@ Plan `docs/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ en 3 
 - **Retrospectiva:** Start: verificar estado real por git+task files antes de despachar. Stop: re-despachar sin git log previo; copiar repos como sandbox. Continue: waves por DAG + adaptador 10 + commit atomico + verify del lead.
 - **Accion medible:** sincronizar estados PENDING→COMPLETED al commitear (metrica: 0 divergencias plan-vs-git; baseline: 19 etiquetas stale en este cierre).
 - **DEFER hecho despues:** S6 (DEFER-activo → GO humano → c2cdbf3e) + S3-slice2 CacheLayer (deuda → C2S3b → 836aece3). Sigue DEFER: reorg fisica (gate Fase 3). Futuro: S-split-config (D0 B+B).
+
+## Archivo plan 2026-09-13-cleanCA-fase3 (2026-09-14)
+- **Plan:** docs/plans/archive/2026-09-13-cleanCA-fase3.md - 4/4 COMPLETED (F3G,F3X,F3C,F3B; diseno-primero + Gates V: Q-F3X-impl A/ADR-042, Q-F3C B/B/A).
+- **Retrospectiva:** Start: Gate V ante muros (F3X pub-sigs). Stop: asumir diseno intacto (F3X-H2, F3C-vistas). Continue: diseno-primero + review P2-01 pre-commit.
+- **Accion medible:** HALLAZGO + Gate V ante divergencia diseno→impl (metrica: 0 divergencias no registradas).
+- **DEFER ahora cotizable:** reorg fisica (gate 4/4). Futuro: firma ADR-043 + revisit FIND-89.

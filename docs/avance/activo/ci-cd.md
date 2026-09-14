@@ -340,3 +340,14 @@ aliases: []
 - **Objetivo:** termometros pineados (cargo-modules 0.27 + cargo-coupling 0.4.0 + rust-dsm@5950a18) + JSON archivado + workflow informativo no bloqueante + tabla baseline.
 - **Resultado:** ✅ 352 modulos/6207 couplings/health C + 13 SCC + acyclic artefacto documentado.
 - **Commit:** 90aeca88
+
+### F3G: cierre gate Fase 2 a 4/4 (Fase 3 Wave 0)
+- **Fecha:** 2026-09-13
+- **Objetivo:** re-medicion M1 post (D crate 0.5238->0.5167, campos 26->20) + excepcion accumulator firmada BND-03X + firma A1.
+- **Resultado:** 3 artefactos + firmas con fecha, cero src.
+- **Commit:** dd892c4c
+### F3B: job CI informativo canonical_p99 (Fase 3 Wave 2)
+- **Fecha:** 2026-09-13
+- **Objetivo:** toolchain-check release (tantivy NO reproduce: compila 8m18s) + workflow no bloqueante + baseline publicado.
+- **Resultado:** YAML-OK + fmt; issues ante regresion, nunca verde falso.
+- **Commit:** e33c307f
