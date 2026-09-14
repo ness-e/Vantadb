@@ -39,6 +39,7 @@
 //! PBKDF2-framed path fails to authenticate (or the version marker is absent),
 //! decryption falls back to the legacy scheme.
 
+use crate::config::Config;
 use aes_gcm::{
     aead::{Aead, KeyInit},
     Aes256Gcm, Nonce,
@@ -175,8 +176,9 @@ impl Cipher {
     ///
     /// Expects a hex-encoded 32-byte key (64 hex characters, optional `0x` prefix).
     pub fn from_env() -> Result<Self, CryptoError> {
-        let encoded =
-            std::env::var("VANTADB_ENCRYPTION_KEY").map_err(|_| CryptoError::KeyNotSet)?;
+        let encoded = Config::default()
+            .encryption_key
+            .ok_or(CryptoError::KeyNotSet)?;
         let key = decode_hex(&encoded)?;
         Ok(Self::new(&key))
     }

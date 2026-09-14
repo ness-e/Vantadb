@@ -4,6 +4,7 @@ use std::sync::Arc;
 use web_time::Instant;
 
 use crate::backend::BackendPartition;
+use crate::config::Config;
 use crate::error::{Error, Result};
 use crate::index_port::FreshHnswReport;
 use crate::node::{NodeTier, UnifiedNode, VectorRepresentations};
@@ -546,9 +547,10 @@ impl StorageEngine {
             )));
         };
 
+        let cfg = Config::default();
         let mut save_path = std::path::PathBuf::from("./vantadb_snapshots");
-        if let Ok(override_dir) = std::env::var("VANTA_BACKUP_DIR") {
-            save_path = std::path::PathBuf::from(override_dir);
+        if let Some(ref backup_dir) = cfg.storage_cfg().backup_dir {
+            save_path = backup_dir.clone();
         }
         save_path.push(timestamp_name);
 
