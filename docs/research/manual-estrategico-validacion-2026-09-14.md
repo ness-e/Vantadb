@@ -1,6 +1,6 @@
 # Validación externa del Manual Estratégico Unificado (2026-09-14)
 
-> Origen: `VantaDB_Manual_Estrategico_Unificado.md` (v1.0, 31-jul-2026, fusión Gemini+GPT+Sonnet+GLM).
+> Origen: `docs/strategy/VantaDB_Manual_Estrategico_Unificado.md` (v1.0, 31-jul-2026, fusión Gemini+GPT+Sonnet+GLM).
 > Método: cada proposición accionable del manual se contrastó con fuentes primarias (docs oficiales, fee schedules) y literatura 2025-2026.
 > Estado: las cifras del manual marcadas abajo con ❌ quedan corregidas; el marco URG/6M/A1 se mantiene.
 
