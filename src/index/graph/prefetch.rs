@@ -1,7 +1,7 @@
 //! Mmap prefetch helpers and prefetch-mode flag for the HNSW graph.
 //! Split from graph.rs (FIND-48) — re-exported via graph/mod.rs.
 
-use crate::config::PrefetchMode;
+use crate::config::{Config, PrefetchMode};
 use std::sync::OnceLock;
 
 #[inline(always)]
@@ -52,17 +52,7 @@ pub(crate) fn should_prefetch() -> bool {
     if let Some(mode) = PREFETCH_MODE.get() {
         return mode.is_enabled();
     }
-    let mode = std::env::var("VANTA_PREFETCH")
-        .ok()
-        .map(|v| PrefetchMode::from_env_value(&v));
-    let disabled = std::env::var("VANTA_DISABLE_PREFETCH")
-        .ok()
-        .map(|v| v == "1" || v == "true")
-        .unwrap_or(false);
-    match (mode, disabled) {
-        (Some(m), _) => m.is_enabled(),
-        (_, true) => false,
-        // PERF-04: no configuration at all → default OFF (no prefetch syscalls).
-        _ => false,
-    }
+    let cfg = Config::default();
+    let mode = cfg.eviction_cfg().prefetch_mode;
+    mode.is_enabled()
 }

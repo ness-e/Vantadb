@@ -2,6 +2,8 @@
 //!
 //! Split out of the monolithic `physical_plan` module (REVIEW-05).
 
+#[cfg(feature = "embed-local")]
+use crate::config::Config;
 use crate::error::Result;
 use crate::node::UnifiedNode;
 use crate::query::PhysicalOperator;
@@ -60,9 +62,8 @@ impl PhysicalOperator for PhysicalVectorSearch<'_> {
         #[cfg(feature = "embed-local")]
         {
             if vector.is_none() {
-                let model_dir = std::env::var("VANTA_LOCAL_MODEL")
-                    .unwrap_or_else(|_| "embeddings/models/multilingual-e5-small/onnx".to_string());
-                if let Ok(provider) = crate::llm::LocalOnnxProvider::new(&model_dir) {
+                let cfg = Config::default().llm_cfg();
+                if let Ok(provider) = crate::llm::LocalOnnxProvider::from_llm_cfg(&cfg) {
                     if let Ok(vec) =
                         crate::llm::EmbeddingProvider::embed(&provider, &self.query_vec_text)
                     {
@@ -154,9 +155,8 @@ impl PhysicalOperator for PhysicalVectorRefine<'_> {
         #[cfg(feature = "embed-local")]
         {
             if self.query_vector.is_none() {
-                let model_dir = std::env::var("VANTA_LOCAL_MODEL")
-                    .unwrap_or_else(|_| "embeddings/models/multilingual-e5-small/onnx".to_string());
-                if let Ok(provider) = crate::llm::LocalOnnxProvider::new(&model_dir) {
+                let cfg = Config::default().llm_cfg();
+                if let Ok(provider) = crate::llm::LocalOnnxProvider::from_llm_cfg(&cfg) {
                     if let Ok(vec) =
                         crate::llm::EmbeddingProvider::embed(&provider, &self.query_vec_text)
                     {
