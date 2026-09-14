@@ -24,14 +24,14 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `read_only` | `bool` | `false` | — | Opens engine in read-only mode |
 | `force_mmap` | `bool` | `false` | — | Force memory-mapped I/O for vector store |
 | `mmap_hnsw` | `bool` | `true` | — | Enable memory-mapped [[hnsw\|HNSW]] index |
-| `prefetch_mode` | `PrefetchMode` | `Disabled` | `VANTA_PREFETCH`, `VANTA_DISABLE_PREFETCH` | MMap prefetch strategy (Auto/Enabled/Disabled; default OFF, PERF-04) |
+| `prefetch_mode` | `PrefetchMode` | `Disabled` | `VANTADB_PREFETCH`, `VANTADB_DISABLE_PREFETCH` | MMap prefetch strategy (Auto/Enabled/Disabled; default OFF, PERF-04) |
 | `rss_threshold` | `f64` | `0.80` | — | RSS pressure threshold for backpressure eviction (0.0-1.0) |
 | `eviction_weight_hits` | `f64` | `1.0` | — | Weight for access frequency in eviction score |
 | `eviction_weight_confidence` | `f64` | `2.0` | — | Weight for confidence score in eviction |
 | `eviction_weight_importance` | `f64` | `3.0` | — | Weight for importance score in eviction |
 | `eviction_weight_recency` | `f64` | `1.0` | — | Weight for recency in eviction |
 | `eviction_ratio` | `f64` | `0.20` | — | Fraction of hot nodes to evict when memory pressure triggers |
-| `backend_kind` | `BackendKind` | `Fjall` | `VANTA_BACKEND` | KV backend: `[[fjall]]`, `[[rocksdb]]`, `memory` |
+| `backend_kind` | `BackendKind` | `Fjall` | `VANTADB_BACKEND` | KV backend: `[[fjall]]`, `[[rocksdb]]`, `memory` |
 | `max_blocking_threads` | `usize` | `16` | `VANTADB_MAX_BLOCKING_THREADS` | Max threads for blocking thread pool |
 | `max_connections` | `usize` | `max_blocking_threads * 2` | `VANTADB_MAX_CONNECTIONS` | Max concurrent HTTP query pool permits |
 | `pool_acquire_timeout_ms` | `u64` | `5000` | `VANTADB_POOL_ACQUIRE_TIMEOUT_MS` | Timeout acquiring a pool permit before the query fails fast with 503 |
@@ -50,10 +50,10 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `tls_cert_path` | `Option<String>` | `None` | `VANTADB_TLS_CERT` | Path to TLS certificate PEM file |
 | `tls_key_path` | `Option<String>` | `None` | `VANTADB_TLS_KEY` | Path to TLS private key PEM file |
 | `log_format` | `LogFormat` | `Compact` | `VANTADB_LOG_FORMAT`, `VANTADB_LOG_JSON` | Log output: `compact`, `json`, `full` |
-| `llm_url` | `String` | `http://localhost:11434` | `VANTA_LLM_URL` | Ollama endpoint for remote embeddings |
-| `llm_model` | `String` | `all-minilm` | `VANTA_LLM_MODEL` | Model name for embeddings |
-| `llm_summarize_model` | `String` | `llama3` | `VANTA_LLM_SUMMARIZE_MODEL` | Model name for summarization |
-| `local_model_path` | `String` | `embeddings/models/multilingual-e5-small/onnx` | `VANTA_LOCAL_MODEL` | Local ONNX model directory for `embed-local` (e.g. `embeddings/models/multilingual-e5-small/onnx`) — TODO: verify usage in embed-local provider |
+| `llm_url` | `String` | `http://localhost:11434` | `VANTADB_LLM_URL` | Ollama endpoint for remote embeddings |
+| `llm_model` | `String` | `all-minilm` | `VANTADB_LLM_MODEL` | Model name for embeddings |
+| `llm_summarize_model` | `String` | `llama3` | `VANTADB_LLM_SUMMARIZE_MODEL` | Model name for summarization |
+| `local_model_path` | `String` | `embeddings/models/multilingual-e5-small/onnx` | `VANTADB_LOCAL_MODEL` | Local ONNX model directory for `embed-local` (e.g. `embeddings/models/multilingual-e5-small/onnx`) — TODO: verify usage in embed-local provider |
 | `wal_shards` | `usize` | `4` | `VANTADB_WAL_SHARDS` | Number of round-robin [[wal\|WAL]] shard files for write parallelism |
 | `wal_buffer_size` | `Option<usize>` | `65536` (64KB) | `VANTADB_WAL_BUFFER_SIZE` | Per-shard WAL buffer in bytes (`None` = OS default) |
 | `flush_threshold` | `Option<usize>` | `None` (disabled) | `VANTADB_FLUSH_THRESHOLD` | Auto-flush after N nodes inserted (`None` = disabled) |
@@ -75,6 +75,21 @@ All configuration fields available in `VantaConfig` (Rust) and via environment v
 | `segment_optimizer` | `SegmentOptimizerConfig` | `{enabled: true, vacuum_threshold_pct: 15.0, auto_run_interval_secs: 3600, max_pipeline_duration_secs: 300}` | — | Segment optimizer configuration: master switch, tombstone vacuum threshold (%), auto-run interval (s), max pipeline duration (s), and per-level LSM compaction config. See also `pipeline()` / `optimizer_config()` / `set_optimizer_config()` in the SDK. |
 
 ### Environment Variables Outside `VantaConfig`
+
+> **F3C breaking (B+B, Q3=A):** the 7 legacy `VANTA_*` vars owned by `Config`
+> were unified to `VANTADB_*` **without shims** in the same change:
+> `VANTA_LLM_URL`→`VANTADB_LLM_URL`, `VANTA_LLM_MODEL`→`VANTADB_LLM_MODEL`,
+> `VANTA_LLM_SUMMARIZE_MODEL`→`VANTADB_LLM_SUMMARIZE_MODEL`,
+> `VANTA_LOCAL_MODEL`→`VANTADB_LOCAL_MODEL`, `VANTA_PREFETCH`→`VANTADB_PREFETCH`,
+> `VANTA_DISABLE_PREFETCH`→`VANTADB_DISABLE_PREFETCH`,
+> `VANTA_BACKEND`→`VANTADB_BACKEND`.
+> Migration: rename the vars in deploys (single pain, `feat!:` + `BREAKING CHANGE:`
+> footer generates the changelog via release-plz — this file is the migration note,
+> `docs/CHANGELOG.md` is NOT edited by hand per Regla 7).
+> Legacy reads **outside** `Config` (CLI flag `VANTA_DB`, providers in `src/llm.rs`,
+> `VANTA_BACKUP_DIR`, `VANTA_EMBEDDING_PROVIDER`, `VANTA_OPENAI_*`, prefetch mirror
+> in `src/index/graph/prefetch.rs`, `VANTA_LOCAL_MODEL` mirrors) were **not**
+> consolidated here (Q2=B) — tracked as FIND (Backlog) with owner.
 
 These env vars are read at runtime outside `VantaConfig::from_env()`:
 
@@ -209,7 +224,7 @@ export VANTADB_PORT=8080
 
 # Engine
 export VANTADB_MEMORY_LIMIT=2GB          # or e.g. 500MB, 1GiB
-export VANTA_BACKEND=fjall               # fjall (default) | rocksdb | memory
+export VANTADB_BACKEND=fjall               # fjall (default) | rocksdb | memory
 export VANTADB_WAL_SHARDS=8
 export VANTADB_FLUSH_THRESHOLD=5000
 

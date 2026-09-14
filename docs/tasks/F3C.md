@@ -121,3 +121,29 @@ Pre-mortem (plan): 108 sitios mecánicos con compilador como red; breaking env c
 - **Invariantes:** `apply_to` 8 campos + watcher en `config.rs` intocables; warn+default (nunca fail-fast); `docs/CHANGELOG.md` solo vía release-plz; sin respuesta a §5 no hay F3C-impl.
 - **Deuda:** enumeración exhaustiva 55 campos → C0 de F3C-impl; §5 pendiente (BLOQUEO).
 - **Próxima:** F3B (disjunta, puede correr en paralelo) o F3C-impl tras respuesta humana.
+
+## F3C-impl (2026-09-14, decisiones humanas B/B/A vinculantes)
+
+- Q1=B `RbacCfg` propio (6to dominio) · Q2=B 12 ficheros no se tocan → FIND-89 ·
+  Q3=A fachada A fuente única + C7 sin shims (B+B Q4 vigente).
+- [x] **C1 `ServerCfg`** (17 campos) + `server_cfg()` — polo dominante primero
+- [x] **C2 `StorageCfg`** (15 campos) + `storage_cfg()` — releído `init.rs` post-F3X, sin colisión
+- [x] **C3 `LlmCfg`** (4+1 cfg) + `llm_cfg()` — incluye `advanced_tokenizer_config` cfg-gated
+- [x] **C4 `EvictionCfg`** (8 campos) + `eviction_cfg()` — `memory_limit`/`prefetch_mode` aquí
+- [x] **C5 `PoolCfg`** (8 campos) + `pool_cfg()` — `batch_size`/`insert_lock_timeout_ms` aquí
+- [x] **C6 `RbacCfg`** propio + alias compat `RbacConfig` + `rbac_cfg()` — 108 sitios intactos
+- [x] **C7 unificación breaking sin shims** (solo `src/config.rs`): 7 vars
+  `VANTA_LLM_URL/MODEL/SUMMARIZE/LOCAL/PREFETCH/DISABLE_PREFETCH/BACKEND` →
+  `VANTADB_*`; `rg -n "VANTA_" src/config.rs` vacío; `tests/prefetch_benchmark.rs`
+  migrado; nota de migración en `docs/operations/CONFIGURATION.md` (changelog vía
+  release-plz `feat!:` + `BREAKING CHANGE:`, Regla 7); FIND-89 para los 12 ficheros;
+  ADR-043 solo datos (firma = humano, Regla 5).
+- Verify: `cargo check -p vantadb --tests --all-targets` ✅ ·
+  `cargo clippy -p vantadb --all-targets -- -D warnings` ✅ (1 `clone_on_copy` fixed) ·
+  `cargo fmt --check -p vantadb` ✅ · `cargo test -p vantadb --lib config` 57 ✅
+  (3 F3C nuevos ✅) · censo `Config {` 108 (64+44) sin migración ·
+  `nextest -p vantadb config` full-suite no corrido: rustc `STATUS_STACK_BUFFER_OVERRUN`
+  compilando targets no relacionados (`openapi_yaml_parity`, `text_index_recovery`,
+  `backend_tests`, `durability_recovery`) — toolchain local, deuda fuera de contrato.
+- **Estado:** ⏳ IN PROGRESS (implementado + verificado, SIN commit — commitea el lead
+  con `feat!:` + footer `BREAKING CHANGE:`). nextTask: cierre de campaña.

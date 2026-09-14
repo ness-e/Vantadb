@@ -79,24 +79,24 @@ fn test_prefetch_impact_on_search_latency() {
     let query: Vec<f32> = (0..vector_dim).map(|_| rng.random::<f32>()).collect();
 
     // --- Run with prefetch ENABLED (explicit) ---
-    // PERF-04: default is now OFF, so enable explicitly via VANTA_PREFETCH.
+    // PERF-04: default is now OFF, so enable explicitly via VANTADB_PREFETCH (F3C C7 breaking).
     let avg_prefetch_on = {
         let dir = TempDir::new().unwrap();
-        let old_prefetch = std::env::var_os("VANTA_PREFETCH");
-        let old_disable = std::env::var_os("VANTA_DISABLE_PREFETCH");
-        std::env::set_var("VANTA_PREFETCH", "enabled");
-        std::env::remove_var("VANTA_DISABLE_PREFETCH");
+        let old_prefetch = std::env::var_os("VANTADB_PREFETCH");
+        let old_disable = std::env::var_os("VANTADB_DISABLE_PREFETCH");
+        std::env::set_var("VANTADB_PREFETCH", "enabled");
+        std::env::remove_var("VANTADB_DISABLE_PREFETCH");
         let db = Embedded::open(dir.path().to_str().unwrap()).unwrap();
         insert_vectors(&db, vector_count, vector_dim);
         let result =
             measure_search_latency(&db, query.clone(), vector_dim, query_iterations, top_k);
         match old_prefetch {
-            Some(val) => std::env::set_var("VANTA_PREFETCH", val),
-            None => std::env::remove_var("VANTA_PREFETCH"),
+            Some(val) => std::env::set_var("VANTADB_PREFETCH", val),
+            None => std::env::remove_var("VANTADB_PREFETCH"),
         }
         match old_disable {
-            Some(val) => std::env::set_var("VANTA_DISABLE_PREFETCH", val),
-            None => std::env::remove_var("VANTA_DISABLE_PREFETCH"),
+            Some(val) => std::env::set_var("VANTADB_DISABLE_PREFETCH", val),
+            None => std::env::remove_var("VANTADB_DISABLE_PREFETCH"),
         }
         result
     };
@@ -113,14 +113,14 @@ fn test_prefetch_impact_on_search_latency() {
         let dir = TempDir::new().unwrap();
         let db = Embedded::open(dir.path().to_str().unwrap()).unwrap();
         insert_vectors(&db, vector_count, vector_dim);
-        let old = std::env::var_os("VANTA_DISABLE_PREFETCH");
-        std::env::set_var("VANTA_DISABLE_PREFETCH", "1");
+        let old = std::env::var_os("VANTADB_DISABLE_PREFETCH");
+        std::env::set_var("VANTADB_DISABLE_PREFETCH", "1");
         let result =
             measure_search_latency(&db, query.clone(), vector_dim, query_iterations, top_k);
         if let Some(val) = old {
-            std::env::set_var("VANTA_DISABLE_PREFETCH", val);
+            std::env::set_var("VANTADB_DISABLE_PREFETCH", val);
         } else {
-            std::env::remove_var("VANTA_DISABLE_PREFETCH");
+            std::env::remove_var("VANTADB_DISABLE_PREFETCH");
         }
         result
     };
