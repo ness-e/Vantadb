@@ -499,7 +499,7 @@ impl OllamaProvider {
 #[cfg(feature = "remote-inference")]
 impl Default for OllamaProvider {
     fn default() -> Self {
-        Self::from_env()
+        Self::new(&crate::config::Config::default().llm_cfg())
     }
 }
 
@@ -584,7 +584,7 @@ impl OpenAIProvider {
 #[cfg(feature = "remote-inference")]
 impl Default for OpenAIProvider {
     fn default() -> Self {
-        Self::from_env()
+        Self::new(&crate::config::Config::default().llm_cfg())
     }
 }
 
@@ -665,7 +665,7 @@ pub struct LlmClient {
 #[cfg(feature = "remote-inference")]
 impl Default for LlmClient {
     fn default() -> Self {
-        Self::from_env()
+        Self::new(&crate::config::Config::default().llm_cfg())
     }
 }
 
@@ -869,7 +869,8 @@ mod openai_provider_tests {
         let saved = std::env::var("VANTADB_OPENAI_API_KEY").ok();
         std::env::remove_var("VANTADB_OPENAI_API_KEY");
 
-        let provider = OpenAIProvider::from_env();
+        let cfg = crate::config::Config::default();
+        let provider = OpenAIProvider::new(&cfg.llm_cfg());
         let res = provider.embed("hello");
 
         if let Some(key) = saved {
