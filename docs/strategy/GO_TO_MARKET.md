@@ -11,6 +11,8 @@ aliases: [GTM, Ecosystem, Marketing, Distribution, Pricing]
 
 > **Domain:** Marketing & Product
 > **Purpose:** Define distribution channels, strategic integrations, licensing model, and community building
+>
+> **Nota de vigencia 2026-09-14:** los IDs de ejecución viejos citados abajo (INT-01/02, MKT-05/13/17, REL-01/02, TSK-*, DEVOPS-*, SEC-13/14, DRV-*, VFY-*, COMP-*, WEB-02/03, TEST-11/12, DOC-20, BIZ-02/03) se completaron y archivaron en `docs/avance/historial/backlog-history.md` — no buscarlos en `docs/Backlog.md`. El trabajo pendiente vive en: adapters PyPI → MKT-18f · wheels ARM64/Homebrew → MKT-18h · gate Fase A + Show HN → EXE-03 · Reddit → MKT-04 (negocio) · posts 6-7 → BLOG-CTA · demos → EXE-01 · benchmarks externos → EXE-02.
 
 ---
 
@@ -374,7 +376,7 @@ docs/
 - [ ] Blog: "VantaDB as persistent memory for Claude Code"
 
 **Launch:**
-- [ ] Show HN post *(⚠️ corregir claims falsos primero → MKT-18g)*
+- [ ] Show HN post *(claims corregidos 2026-08-23 — fila MKT-18g histórica archivada; ver notas en SHOW_HN_PREP.md)*
 - [x] Blog: "Introducing VantaDB" *(✅ draft `docs/blog/introducing_vantadb.md`, commit `f51b2263`)*
 - [ ] Reddit posts (r/rust, r/MachineLearning, r/LocalLLaMA) *(drafts listos, NO publicados → MKT-04, fila en `docs/Backlog-negocio.md`)*
 
