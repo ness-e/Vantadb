@@ -1,0 +1,5 @@
+Error: circular dependency between `vantadb::accumulator::GraphAccumulator` and `vantadb::accumulator::GraphAccumulator::new`.
+
+┌> vantadb::accumulator::GraphAccumulator
+│  └─> vantadb::accumulator::GraphAccumulator::new
+└──────┘

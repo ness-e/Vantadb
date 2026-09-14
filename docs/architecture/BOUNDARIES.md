@@ -10,6 +10,7 @@
 > who owns what, which direction dependencies may point, which cycles are
 > known debt, and the gate for any future physical move (Phase 3).
 > `/cleanCA` (future A3 task) cites rules `BND-01…BND-08` from here.
+> **A1 review:** vanta-arch — verified against tree 5a1dae99 on 2026-09-13, no material drift; deriva trivial: engine/mod.rs 34-35, engine/init.rs 12, executor.rs 13; nota: index/flat.rs:18 es fn-local prod (no test-mod), index/search/layer.rs:13 FLAG_TOMBSTONE prod no tabulado — cubierto por plan FLAG_TOMBSTONE→kernel.
 
 ## 1. Ownership map
 
@@ -80,8 +81,23 @@ concrete methods directly for new code.
 (`storage ↔ index`, `sdk ↔ planner`, `sdk ↔ query`) are **errors**, not
 style. Gate: `cargo modules dependencies --lib --acyclic` must exit 0
 (M1 baseline recorded the current state; M3 breaks the sdk cycles).
-The single tolerated self-edge artefact (`GraphAccumulator↔new`, item-level
-`-> Self`) is documented in C2M1 and does not count.
+**Exception BND-03X (signed):** the single self-edge
+`vantadb::accumulator::GraphAccumulator ↔ GraphAccumulator::new` reported by
+`cargo modules dependencies --lib --acyclic` is an **analyzer artefact, not an
+architectural cycle**, and does not count toward this rule. Cause: item-level
+granularity — the struct *owns* its field (`values: DashMap<u128, AtomicU64>`,
+`src/accumulator.rs:31-34`) while the constructor *returns* `Self`
+(`src/accumulator.rs:41-45`), so every `new() -> Self` ctor trivially produces
+an owns + `-> Self` edge pair. Pre-existing since before Fase 2 (recorded in
+the C2M1 baseline `docs/reviews/acyclic-baseline.txt`, byte-identical
+post-Fase-2 per the F3G re-measurement
+`docs/reviews/acyclic-post-fase2.txt`). Scope: this one self-edge only — any
+other cycle, including any new inter-module edge, remains an error under
+BND-03. Disposition per human decision Q2 (Fase 3 plan, Gate P): sign the
+exception, do not fight the tool — changing prod code to silence an analyzer
+artefact has cost without benefit.
+> **Exception signed:** vanta-worker F3G, acting on human decision Q2 (Fase 3
+> plan Gate P), 2026-09-13. A1 architecture review sign-off: pending (F3G/G3).
 
 **Rule BND-04 (`pub use` re-export convention):** when a symbol moves
 between modules, keep the old path alive with a `pub use` re-export for
@@ -107,10 +123,11 @@ Not broken by M3 — needs its own trait-split task or explicit DEFER.
 
 | File | Line | Import |
 |---|---|---|
-| `src/index/flat.rs` | 18 (`#[cfg(test)]` mod) | `use crate::storage::engine::FLAG_TOMBSTONE;` |
+| `src/index/flat.rs` | 18 (fn-local `use` inside `flat_search`, prod — not the `#[cfg(test)]` mod at :216) | `use crate::storage::engine::FLAG_TOMBSTONE;` |
 | `src/index/mod.rs` | 20 | `use crate::storage::vfile::File;` |
 | `src/index/serialize/file.rs` | 2 | `use crate::storage::vfile::MmapMut;` |
 | `src/index/graph/types.rs` | 5 | `use crate::storage::vfile::MmapMut;` |
+| `src/index/search/layer.rs` | 13 (prod hot-path `search_layer`) | `use crate::storage::engine::FLAG_TOMBSTONE;` |
 
 (Paths normalized: on disk `serialize/file.rs` and `graph/types.rs` are
 subdirectories; the plan's `serialize-file.rs` / `graph-types.rs` shorthand
@@ -119,7 +136,8 @@ refers to these.)
 **Why it exists:** the engine orchestrates index builds/rebuilds (A is
 structural: orchestration needs the index types), while the index reuses
 persistence primitives and the tombstone flag (B is mostly legitimate
-layering toward `vfile`; the `FLAG_TOMBSTONE` test import is the smell).
+layering toward `vfile`; the two `FLAG_TOMBSTONE` prod imports are the smell,
+covered by the FLAG_TOMBSTONE→kernel plan).
 
 **Plan (pick one, no silent third option):**
 
