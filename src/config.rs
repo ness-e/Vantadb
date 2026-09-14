@@ -106,7 +106,7 @@ pub enum SyncMode {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PrefetchMode {
     /// Auto — currently behaves like `Enabled`. Only selected explicitly
-    /// (e.g. `VANTA_PREFETCH=auto`); not the default anymore.
+    /// (e.g. `VANTADB_PREFETCH=auto`); not the default anymore.
     Auto,
     /// Force prefetch on regardless of storage type.
     Enabled,
@@ -136,11 +136,314 @@ impl PrefetchMode {
     }
 }
 
-/// RBAC configuration mapping API tokens to roles.
+/// RBAC domain configuration mapping API tokens to roles (Q1=B: propio, 6to dominio).
 #[derive(Debug, Clone, Default)]
-pub struct RbacConfig {
+pub struct RbacCfg {
     /// Map of token values to role names.
     pub token_role_map: HashMap<String, String>,
+}
+
+/// Compat alias: `RbacConfig` es el nombre historico; `RbacCfg` es el canonico F3C.
+// Sin shims de env aqui — solo alias de tipo (cero costo, cero divergencia).
+pub type RbacConfig = RbacCfg;
+
+/// Storage domain view (F3C C2): organizacion interna; fuente unica sigue en [`Config`] plano.
+#[derive(Debug, Clone)]
+pub struct StorageCfg {
+    pub storage_path: String,
+    pub read_only: bool,
+    pub force_mmap: bool,
+    pub mmap_hnsw: bool,
+    pub backend_kind: BackendKind,
+    pub sync_mode: SyncMode,
+    pub version_history_limit: Option<usize>,
+    pub bulk_commit_interval: Option<usize>,
+    pub wal_buffer_size: Option<usize>,
+    pub flush_threshold: Option<usize>,
+    pub encryption_key: Option<String>,
+    pub wal_shards: usize,
+    pub flat_threshold: Option<usize>,
+    pub export_base_dir: Option<std::path::PathBuf>,
+    pub segment_optimizer: SegmentOptimizerConfig,
+}
+
+/// Server domain view (F3C C1, polo dominante 9/14 churn).
+#[derive(Debug, Clone)]
+pub struct ServerCfg {
+    pub host: String,
+    pub port: u16,
+    pub api_key: Option<String>,
+    pub alt_api_key: Option<String>,
+    pub jwt_secret: Option<String>,
+    pub require_auth: bool,
+    pub allow_insecure: bool,
+    pub rate_limit_rpm: u32,
+    pub trusted_proxies: Vec<std::net::IpAddr>,
+    pub allowed_origins: Vec<String>,
+    pub dashboard_dir: Option<std::path::PathBuf>,
+    pub tls_cert_path: Option<String>,
+    pub tls_key_path: Option<String>,
+    pub log_format: LogFormat,
+    pub audit_log_path: Option<std::path::PathBuf>,
+    pub audit_max_bytes: u64,
+    pub audit_max_files: u32,
+}
+
+/// LLM domain view (F3C C3).
+#[derive(Debug, Clone)]
+pub struct LlmCfg {
+    pub llm_url: String,
+    pub llm_model: String,
+    pub llm_summarize_model: String,
+    pub local_model_path: String,
+    #[cfg(feature = "advanced-tokenizer")]
+    pub advanced_tokenizer_config: Option<AdvancedTokenizerConfig>,
+}
+
+/// Eviction/memory domain view (F3C C4).
+#[derive(Debug, Clone)]
+pub struct EvictionCfg {
+    pub memory_limit: Option<u64>,
+    pub prefetch_mode: PrefetchMode,
+    pub rss_threshold: f64,
+    pub eviction_weight_hits: f64,
+    pub eviction_weight_confidence: f64,
+    pub eviction_weight_importance: f64,
+    pub eviction_weight_recency: f64,
+    pub eviction_ratio: f64,
+}
+
+/// Pool/runtime domain view (F3C C5).
+#[derive(Debug, Clone)]
+pub struct PoolCfg {
+    pub max_blocking_threads: usize,
+    pub max_connections: usize,
+    pub pool_acquire_timeout_ms: u64,
+    pub circuit_breaker_failure_threshold: u32,
+    pub circuit_breaker_open_timeout_secs: u64,
+    pub batch_size: Option<usize>,
+    pub insert_lock_timeout_ms: u64,
+    pub file_lock_timeout_ms: u64,
+}
+
+fn default_max_blocking_threads() -> usize {
+    std::thread::available_parallelism()
+        .map(|n| n.get() * 2)
+        .unwrap_or(16)
+}
+
+impl Default for StorageCfg {
+    fn default() -> Self {
+        Self {
+            storage_path: "vantadb_data".to_string(),
+            read_only: false,
+            force_mmap: false,
+            mmap_hnsw: true,
+            backend_kind: BackendKind::Fjall,
+            sync_mode: SyncMode::Periodic,
+            version_history_limit: Some(32),
+            bulk_commit_interval: None,
+            wal_buffer_size: None,
+            flush_threshold: None,
+            encryption_key: None,
+            wal_shards: 4,
+            flat_threshold: Some(10000),
+            export_base_dir: None,
+            segment_optimizer: SegmentOptimizerConfig::default(),
+        }
+    }
+}
+
+impl Default for ServerCfg {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".to_string(),
+            port: 8080,
+            api_key: None,
+            alt_api_key: None,
+            jwt_secret: None,
+            require_auth: false,
+            allow_insecure: false,
+            rate_limit_rpm: 600,
+            trusted_proxies: Vec::new(),
+            allowed_origins: Vec::new(),
+            dashboard_dir: None,
+            tls_cert_path: None,
+            tls_key_path: None,
+            log_format: LogFormat::Compact,
+            audit_log_path: None,
+            audit_max_bytes: 10 * 1024 * 1024,
+            audit_max_files: 5,
+        }
+    }
+}
+
+impl Default for LlmCfg {
+    fn default() -> Self {
+        Self {
+            llm_url: "http://localhost:11434".to_string(),
+            llm_model: "all-minilm".to_string(),
+            llm_summarize_model: "llama3".to_string(),
+            local_model_path: "embeddings/models/multilingual-e5-small/onnx".to_string(),
+            #[cfg(feature = "advanced-tokenizer")]
+            advanced_tokenizer_config: None,
+        }
+    }
+}
+
+impl Default for EvictionCfg {
+    fn default() -> Self {
+        Self {
+            memory_limit: None,
+            prefetch_mode: PrefetchMode::Disabled,
+            rss_threshold: DEFAULT_RSS_THRESHOLD,
+            eviction_weight_hits: 1.0,
+            eviction_weight_confidence: 2.0,
+            eviction_weight_importance: 3.0,
+            eviction_weight_recency: 1.0,
+            eviction_ratio: 0.20,
+        }
+    }
+}
+
+impl Default for PoolCfg {
+    fn default() -> Self {
+        let max_blocking = default_max_blocking_threads();
+        Self {
+            max_blocking_threads: max_blocking,
+            max_connections: max_blocking * 2,
+            pool_acquire_timeout_ms: 5000,
+            circuit_breaker_failure_threshold: 5,
+            circuit_breaker_open_timeout_secs: 30,
+            batch_size: None,
+            insert_lock_timeout_ms: 5000,
+            file_lock_timeout_ms: 1000,
+        }
+    }
+}
+
+impl From<&Config> for StorageCfg {
+    fn from(cfg: &Config) -> Self {
+        Self {
+            storage_path: cfg.storage_path.clone(),
+            read_only: cfg.read_only,
+            force_mmap: cfg.force_mmap,
+            mmap_hnsw: cfg.mmap_hnsw,
+            backend_kind: cfg.backend_kind,
+            sync_mode: cfg.sync_mode,
+            version_history_limit: cfg.version_history_limit,
+            bulk_commit_interval: cfg.bulk_commit_interval,
+            wal_buffer_size: cfg.wal_buffer_size,
+            flush_threshold: cfg.flush_threshold,
+            encryption_key: cfg.encryption_key.clone(),
+            wal_shards: cfg.wal_shards,
+            flat_threshold: cfg.flat_threshold,
+            export_base_dir: cfg.export_base_dir.clone(),
+            segment_optimizer: cfg.segment_optimizer,
+        }
+    }
+}
+
+impl From<&Config> for ServerCfg {
+    fn from(cfg: &Config) -> Self {
+        Self {
+            host: cfg.host.clone(),
+            port: cfg.port,
+            api_key: cfg.api_key.clone(),
+            alt_api_key: cfg.alt_api_key.clone(),
+            jwt_secret: cfg.jwt_secret.clone(),
+            require_auth: cfg.require_auth,
+            allow_insecure: cfg.allow_insecure,
+            rate_limit_rpm: cfg.rate_limit_rpm,
+            trusted_proxies: cfg.trusted_proxies.clone(),
+            allowed_origins: cfg.allowed_origins.clone(),
+            dashboard_dir: cfg.dashboard_dir.clone(),
+            tls_cert_path: cfg.tls_cert_path.clone(),
+            tls_key_path: cfg.tls_key_path.clone(),
+            log_format: cfg.log_format,
+            audit_log_path: cfg.audit_log_path.clone(),
+            audit_max_bytes: cfg.audit_max_bytes,
+            audit_max_files: cfg.audit_max_files,
+        }
+    }
+}
+
+impl From<&Config> for LlmCfg {
+    fn from(cfg: &Config) -> Self {
+        Self {
+            llm_url: cfg.llm_url.clone(),
+            llm_model: cfg.llm_model.clone(),
+            llm_summarize_model: cfg.llm_summarize_model.clone(),
+            local_model_path: cfg.local_model_path.clone(),
+            #[cfg(feature = "advanced-tokenizer")]
+            advanced_tokenizer_config: cfg.advanced_tokenizer_config.clone(),
+        }
+    }
+}
+
+impl From<&Config> for EvictionCfg {
+    fn from(cfg: &Config) -> Self {
+        Self {
+            memory_limit: cfg.memory_limit,
+            prefetch_mode: cfg.prefetch_mode,
+            rss_threshold: cfg.rss_threshold,
+            eviction_weight_hits: cfg.eviction_weight_hits,
+            eviction_weight_confidence: cfg.eviction_weight_confidence,
+            eviction_weight_importance: cfg.eviction_weight_importance,
+            eviction_weight_recency: cfg.eviction_weight_recency,
+            eviction_ratio: cfg.eviction_ratio,
+        }
+    }
+}
+
+impl From<&Config> for PoolCfg {
+    fn from(cfg: &Config) -> Self {
+        Self {
+            max_blocking_threads: cfg.max_blocking_threads,
+            max_connections: cfg.max_connections,
+            pool_acquire_timeout_ms: cfg.pool_acquire_timeout_ms,
+            circuit_breaker_failure_threshold: cfg.circuit_breaker_failure_threshold,
+            circuit_breaker_open_timeout_secs: cfg.circuit_breaker_open_timeout_secs,
+            batch_size: cfg.batch_size,
+            insert_lock_timeout_ms: cfg.insert_lock_timeout_ms,
+            file_lock_timeout_ms: cfg.file_lock_timeout_ms,
+        }
+    }
+}
+
+impl From<&Config> for RbacCfg {
+    fn from(cfg: &Config) -> Self {
+        Self {
+            token_role_map: cfg.rbac_config.token_role_map.clone(),
+        }
+    }
+}
+
+impl Config {
+    /// Vista de dominio storage (F3C fachada A: sin duplicar estado, construida al vuelo).
+    pub fn storage_cfg(&self) -> StorageCfg {
+        StorageCfg::from(self)
+    }
+    /// Vista de dominio server.
+    pub fn server_cfg(&self) -> ServerCfg {
+        ServerCfg::from(self)
+    }
+    /// Vista de dominio llm.
+    pub fn llm_cfg(&self) -> LlmCfg {
+        LlmCfg::from(self)
+    }
+    /// Vista de dominio eviction.
+    pub fn eviction_cfg(&self) -> EvictionCfg {
+        EvictionCfg::from(self)
+    }
+    /// Vista de dominio pool.
+    pub fn pool_cfg(&self) -> PoolCfg {
+        PoolCfg::from(self)
+    }
+    /// Vista de dominio rbac (Q1=B propio).
+    pub fn rbac_cfg(&self) -> RbacCfg {
+        RbacCfg::from(self)
+    }
 }
 
 /// Subset of [`Config`] fields that are safe to modify at runtime.
@@ -259,7 +562,7 @@ pub struct Config {
     /// Model name for LLM summarisation.
     pub llm_summarize_model: String,
     /// Local ONNX model directory for `embed-local` (e.g. `embeddings/models/multilingual-e5-small/onnx`).
-    /// Configured via `VANTA_LOCAL_MODEL`.
+    /// Configured via `VANTADB_LOCAL_MODEL`.
     pub local_model_path: String,
     /// Optional memory limit in bytes.
     pub memory_limit: Option<u64>,
@@ -276,7 +579,7 @@ pub struct Config {
     /// Controls whether `madvise(MADV_WILLNEED)` / `PrefetchVirtualMemory`
     /// is issued for unvisited neighbor pages in the hot search loop.
     /// Default: `Disabled` (prefetch off, PERF-04). Set `Enabled` or
-    /// `VANTA_PREFETCH=auto|enabled` to turn it on.
+    /// `VANTADB_PREFETCH=auto|enabled` to turn it on.
     pub prefetch_mode: PrefetchMode,
     /// RSS threshold (0.0–1.0) that triggers backpressure rejection.
     /// When the effective memory usage exceeds this fraction of the memory limit,
@@ -579,26 +882,26 @@ impl Default for Config {
                 v
             },
             llm_url: {
-                let v = env::var("VANTA_LLM_URL")
+                let v = env::var("VANTADB_LLM_URL")
                     .unwrap_or_else(|_| "http://localhost:11434".to_string());
-                debug!(val = %v, "VANTA_LLM_URL");
+                debug!(val = %v, "VANTADB_LLM_URL");
                 v
             },
             llm_model: {
-                let v = env::var("VANTA_LLM_MODEL").unwrap_or_else(|_| "all-minilm".to_string());
-                debug!(val = %v, "VANTA_LLM_MODEL");
+                let v = env::var("VANTADB_LLM_MODEL").unwrap_or_else(|_| "all-minilm".to_string());
+                debug!(val = %v, "VANTADB_LLM_MODEL");
                 v
             },
             llm_summarize_model: {
-                let v =
-                    env::var("VANTA_LLM_SUMMARIZE_MODEL").unwrap_or_else(|_| "llama3".to_string());
-                debug!(val = %v, "VANTA_LLM_SUMMARIZE_MODEL");
+                let v = env::var("VANTADB_LLM_SUMMARIZE_MODEL")
+                    .unwrap_or_else(|_| "llama3".to_string());
+                debug!(val = %v, "VANTADB_LLM_SUMMARIZE_MODEL");
                 v
             },
             local_model_path: {
-                let v = env::var("VANTA_LOCAL_MODEL")
+                let v = env::var("VANTADB_LOCAL_MODEL")
                     .unwrap_or_else(|_| "embeddings/models/multilingual-e5-small/onnx".to_string());
-                debug!(val = %v, "VANTA_LOCAL_MODEL");
+                debug!(val = %v, "VANTADB_LOCAL_MODEL");
                 v
             },
             memory_limit: {
@@ -623,9 +926,9 @@ impl Default for Config {
             force_mmap: false,
             mmap_hnsw: true,
             prefetch_mode: {
-                let raw = env::var("VANTA_PREFETCH").ok();
+                let raw = env::var("VANTADB_PREFETCH").ok();
                 let mode = raw.as_deref().map(PrefetchMode::from_env_value);
-                let disable = env::var("VANTA_DISABLE_PREFETCH")
+                let disable = env::var("VANTADB_DISABLE_PREFETCH")
                     .ok()
                     .map(|v| v == "1" || v == "true");
                 let v = match (mode, disable) {
@@ -638,7 +941,7 @@ impl Default for Config {
                             ];
                             if m == PrefetchMode::Auto && !known.contains(&trimmed.as_str()) {
                                 warn!(
-                                    "Unrecognized VANTA_PREFETCH=\"{}\" — expected \"enabled\", \"disabled\", or \"auto\". Using default: Disabled",
+                                    "Unrecognized VANTADB_PREFETCH=\"{}\" — expected \"enabled\", \"disabled\", or \"auto\". Using default: Disabled",
                                     val
                                 );
                             }
@@ -648,7 +951,7 @@ impl Default for Config {
                     (_, Some(true)) => PrefetchMode::Disabled,
                     _ => PrefetchMode::Disabled,
                 };
-                debug!(?v, "VANTA_PREFETCH");
+                debug!(?v, "VANTADB_PREFETCH");
                 v
             },
             rss_threshold: DEFAULT_RSS_THRESHOLD,
@@ -660,20 +963,21 @@ impl Default for Config {
             backend_kind: {
                 // C2S2 (OCP): name mapping lives on `BackendKind::from_name`
                 // (shared with the registry); same warn + default as before.
-                let v = match env::var("VANTA_BACKEND").ok().as_deref() {
+                // F3C C7 (breaking): legacy backend var -> VANTADB_BACKEND, sin shims (Q3=A).
+                let v = match env::var("VANTADB_BACKEND").ok().as_deref() {
                     None => BackendKind::Fjall,
                     Some(name) => match BackendKind::from_name(name) {
                         Some(kind) => kind,
                         None => {
                             warn!(
-                                "Unrecognized VANTA_BACKEND=\"{}\" — expected \"rocksdb\" or \"memory\". Using default: Fjall",
+                                "Unrecognized VANTADB_BACKEND=\"{}\" — expected \"rocksdb\" or \"memory\". Using default: Fjall",
                                 name
                             );
                             BackendKind::Fjall
                         }
                     },
                 };
-                debug!(?v, "VANTA_BACKEND");
+                debug!(?v, "VANTADB_BACKEND");
                 v
             },
             max_blocking_threads: {
@@ -1794,5 +2098,58 @@ mod tests {
                 "MAX_K regressed below legacy wasm limit 1000"
             )
         };
+    }
+
+    // ── F3C domain views (fachada A: vistas sin duplicar estado) ──
+
+    #[test]
+    fn test_f3c_domain_views_match_flat_facade() {
+        let cfg = Config::default()
+            .with_storage_path("/data/x".into())
+            .with_api_key(Some("sk-test".into()))
+            .with_eviction_weights(0.5, 1.5, 2.5, 3.5)
+            .with_max_blocking_threads(8);
+        let storage = cfg.storage_cfg();
+        let server = cfg.server_cfg();
+        let eviction = cfg.eviction_cfg();
+        let pool = cfg.pool_cfg();
+        let llm = cfg.llm_cfg();
+        let rbac = cfg.rbac_cfg();
+        assert_eq!(storage.storage_path, "/data/x");
+        assert_eq!(server.api_key, Some("sk-test".into()));
+        assert!((eviction.eviction_weight_hits - 0.5).abs() < 1e-9);
+        assert_eq!(pool.max_blocking_threads, 8);
+        assert_eq!(llm.llm_model, cfg.llm_model);
+        assert_eq!(
+            rbac.token_role_map.len(),
+            cfg.rbac_config.token_role_map.len()
+        );
+    }
+
+    #[test]
+    fn test_f3c_rbac_cfg_propio_con_alias_compat() {
+        // Q1=B: RbacCfg propio; RbacConfig sigue como alias (108 sitios intactos).
+        let cfg = RbacCfg {
+            token_role_map: [("tok".to_string(), "admin".to_string())]
+                .into_iter()
+                .collect(),
+        };
+        let legacy: RbacConfig = cfg.clone();
+        assert_eq!(legacy.token_role_map.get("tok").unwrap(), "admin");
+        let with = Config::default().with_rbac_config(cfg);
+        assert_eq!(with.rbac_config.token_role_map.get("tok").unwrap(), "admin");
+        assert_eq!(with.rbac_cfg().token_role_map.get("tok").unwrap(), "admin");
+    }
+
+    #[test]
+    fn test_f3c_hot_reload_subset_intacto() {
+        // Constraint inviolable C2D0: apply_to cubre los 8 campos, warn+default intactos.
+        let mut target = Config::default();
+        let hot = HotReloadConfig::from_config(&target);
+        assert!(!hot.apply_to(&mut target));
+        let mut changed_hot = hot.clone();
+        changed_hot.rate_limit_rpm = hot.rate_limit_rpm + 1;
+        assert!(changed_hot.apply_to(&mut target));
+        assert_eq!(target.rate_limit_rpm, changed_hot.rate_limit_rpm);
     }
 }

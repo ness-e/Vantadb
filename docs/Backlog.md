@@ -229,6 +229,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | `FIND-86` | Media | Memory diferidos: MEM-69 wiring al worker + MCP tool 77 `scene_consolidate` (diseñada ADR-040) + MEM-70 números reales | `vanta-memory/` | 🟡 | 🟡 Media | ⬜ Pendiente |
 | `FIND-87` | Media | TS SDK: tests `exportAll/exportNamespace/importFile/reindexHnsw` + endurecer `importRecords` + exponer `./native` en exports + nota wiki en TS_SDK.md | `vantadb-ts/` | 🟡 | 🟡 Media | ⬜ Pendiente |
 | `FIND-88` | Media | Proxy output-side cost real (cablear `record_response_usage` al SSE drain; hoy `output_tokens: 0`) + translate simétrico OpenAI→Anthropic si el roadmap lo exige | `vanta-proxy/src/server.rs` | 🟠 | 🟢 Baja | ⬜ Pendiente |
+| `FIND-89` | Media | Consolidar 12 ficheros con lectura directa `env::var`/env fuera de `Config` en fuente unica (Q2=B: no consolidado en F3C-impl; dos fuentes temporalmente) — incluye legacy `VANTA_DB` (CLI), `VANTA_EMBEDDING_PROVIDER`/`VANTA_OPENAI_*` (`src/llm.rs`), `VANTA_BACKUP_DIR`, mirrors `VANTA_PREFETCH`/`VANTA_LOCAL_MODEL` fuera de `config.rs`. Origen: ref: plan-2026-09-13-cleanCA-fase3#F3C H2 | `src/cli.rs`, `src/crypto.rs`, `src/cli_handlers/server.rs`, `src/llm.rs`, `src/metadata.rs`, `src/index/graph/prefetch.rs`, `src/server/bootstrap.rs`, `src/physical_plan/vector.rs`, `src/server/telemetry.rs`, `src/error.rs`, `src/server/errors.rs`, `src/storage/engine/maintenance.rs` | 🟡 | 🟡 Media | ⬜ Pendiente |
 
 ---
 
