@@ -279,3 +279,5 @@ SKILLS_CARGADAS: campaign-executor, progreso, systematic-debugging, code-review-
 - **B3 ✅:** comentario `// &***: Guard → Arc → Box → dyn (one deref per wrapper).` en los 4 sitios (maintenance.rs:501,505,511 — numeración pre-review; get.rs:399).
 - **B4 (anotado, no renombrar):** en futuros splits, no repetir patrón stutter (`fresh_index_like`→`fresh_like`→`fresh_box` convivieron); nombrar 1 sola vez desde el diseño.
 - **Re-verify mínimo:** `cargo check -p vantadb --tests --all-targets` ✅ · `cargo clippy -p vantadb --all-targets -- -D warnings` ✅ · `cargo fmt --check -p vantadb` ✅ · `cargo nextest run -p vantadb --lib storage index --build-jobs 2` → **783 passed, 0 failed** (incl. H1 GREEN + vacuum/quantize/rebuild/roundtrips/recall-parity/concurrent) ✅. SIN commit (commitea el lead con visa final).
+
+> **Cierre 2026-09-14:** COMPLETED (diseno A + impl X1-X3 + review changes-required atendido 7/7 + 783/783 + semver major esperado; commits 0afa8181 diseno + 13f0f729 codigo, ADR-042).

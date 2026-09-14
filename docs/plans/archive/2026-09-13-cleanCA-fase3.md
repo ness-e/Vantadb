@@ -5,7 +5,7 @@
 > 5 decisiones humanas vía `question` 2026-09-13 (ver §Gate P).
 > **Alcance:** SOLO lo que deja la mudanza Screaming cotizable + futuros con dueño de Fase 2.
 > La mudanza en sí sigue DEFER y NO parte de este plan.
-> **Estado:** ⬜ PENDING (plan listo, sin iniciar) · **Rama:** `develop`
+> **Estado:** ✅ COMPLETED (4/4, 2026-09-14) · **Rama:** `develop`
 > **Norma:** guía `.opencode/references/clean-code-clean-architecture.md` (Apéndice V manda) +
 > `docs/architecture/BOUNDARIES.md` (BND-01…08) + §10 Adaptador Fase 1/2 (sin campaign MCP para
 > IDs no registrados; glob-antes-de-Read; ≥10 skills vía tool `skill`; verify en bash;
@@ -47,7 +47,7 @@ Status: ⬇️ downhill = 4 (ninguna uphill: todo tiene precedente M1/M3/S3 o de
 - Appetite 4h · 🟢 · 🔴 Alta · Archivos clave: `docs/reviews/dsm-baseline-slim.json`, `docs/architecture/BOUNDARIES.md` (BND-03), `docs/architecture/ARCHITECTURE.md`, `src/accumulator.rs` (solo lectura)
 - Gate Justificación: el análisis DEFER midió 1/4 verde + 3/4 parciales; sin este cierre la Fase 3 no es cotizable y el gate queda en promesa.
 - Contrato: (1) re-medición same-tool M1 post-Fase-2 archivada en `docs/reviews/` con tabla D antes/después de `storage/engine` y `sdk` (D debe bajar vs baseline: 26→24→20 campos); (2) excepción `GraphAccumulator↔new` firmada en BOUNDARIES/BND-03 como artefacto del analizador (decisión humana Q2); (3) revisión vanta-arch de A1 firmada en el doc (cierra el "pendiente del lead" de C2A1). Todo verificable por archivo.
-- Task file `docs/tasks/F3G.md` · ⬜ PENDING · Ruta vanta-worker (con revisión vanta-arch para la firma A1).
+- Task file `docs/tasks/F3G.md` · ✅ COMPLETED · Ruta vanta-worker (con revisión vanta-arch para la firma A1).
 - Slices: G1 re-medición (rust-dsm pin `5950a18` + `cargo modules dependencies --lib --acyclic`, comparar same-tool, tabla D) → G2 excepción firmada (párrafo BND-03 + justificación artefacto-ctor + firma) → G3 firma A1 (arch revisa BOUNDARIES contra código actual, firma + fecha; si halla deriva → hallazgo, no reescritura).
 - Skills (≥10 vía `skill`): campaign-executor, progreso, codebase-memory, systematic-debugging, test-driven-development, code-review-and-quality, doubt-driven-development, source-driven-development, planning-and-task-breakdown, observability-and-instrumentation, documentation-and-adrs.
 - MCP/tools: `codebase-memory-mcp_get_architecture`, `check_index_coverage`; bash: `node dist/cli/commands.js . -f json`, `cargo modules dependencies --lib -p vantadb --acyclic`, `cargo fmt --check` (si toca `src/`, no previsto), `jq`/`ConvertFrom-Json`.
@@ -62,7 +62,7 @@ Status: ⬇️ downhill = 4 (ninguna uphill: todo tiene precedente M1/M3/S3 o de
 - Appetite 2–3d · 🔴 · 🔴 Alta · Archivos clave: `src/storage/archive.rs:4`, `src/storage/engine/mod.rs:33-34`, `src/storage/engine/init.rs:17`, `src/storage/engine/maintenance.rs:9` (storage→index: `CPIndex`/`IndexBackend`); `src/index/mod.rs:20`, `src/index/serialize/file.rs:2`, `src/index/graph/types.rs:5`, `src/index/flat.rs:18` (test-only), `src/index/search/layer.rs:13` (index→storage: `vfile`/`MmapMut`/`FLAG_TOMBSTONE`)
 - Gate Justificación: es el prerrequisito real de la mudanza (bidireccional verificado en A1 y Fase 2) y el único DEFER sin task/dueño; hipótesis inicial humana: hoja neutral (Q3), validada por el arch.
 - Contrato: `cargo modules dependencies --lib -p vantadb --acyclic` sin aristas storage↔index (artefacto accumulator exceptuado por F3G) + edge-audit `rg` de los 8 usos a ruta neutral + suites storage/index verdes + sin cambio semántico.
-- Task file `docs/tasks/F3X.md` · ⬜ PENDING · Ruta vanta-arch (diseño + ADR-datos) → vanta-worker (slices).
+- Task file `docs/tasks/F3X.md` · ✅ COMPLETED · Ruta vanta-arch (diseño + ADR-datos) → vanta-worker (slices).
 - Slices: X0 diseño arch (hoja neutral: qué traits, qué dirección consumen, qué se mueve vs qué se queda; ADR-datos; `question` al humano para aprobar el diseño — sin aprobación no hay código) → X1 hoja + migración storage→index → X2 migración index→storage → X3 suites + acyclic + edge-audit + cierre.
 - Skills: base 9 (como F3G) + `api-and-interface-design` (contract-first traits), `performance-optimization` (hot path: sin optimizar, solo mover; bench en CI si toca hot path).
 - MCP/tools: `codegraph_explore` (callers de `CPIndex`/`IndexBackend`/`vfile`/`MmapMut`), `detect_changes`; bash: `cargo check -p vantadb --tests --all-targets`, `clippy -D warnings`, `fmt`, `nextest -p vantadb --lib storage index`, `cargo modules dependencies --lib -p vantadb --acyclic`.
@@ -77,7 +77,7 @@ Status: ⬇️ downhill = 4 (ninguna uphill: todo tiene precedente M1/M3/S3 o de
 - Appetite 2–3d · 🔴 · 🟠 · Archivos clave: `src/config.rs:250-466` (~52 campos), `parse_env_or` desde `:538`, `apply_to` `:203` (8 campos hot-reload); 102 ficheros con literales `Config {`; 42 env vars (7 `VANTA_*` legacy)
 - Gate Justificación: decisión D0 B+B vigente (Q4 la ratifica); constraints verificados en C2D0.md (hot-reload 100% en config.rs; fachada conserva `Default`/`with_*`/acceso plano).
 - Contrato: sub-structs por dominio (`StorageCfg`/`ServerCfg`/`LlmCfg`/`EvictionCfg`/`PoolCfg`/`RbacCfg`, nombres a validar en diseño) + fachada `Config` plana + `apply_to`/watcher intactos + env unificadas a `VANTADB_*` (breaking documentado en changelog) + `cargo check` verde en los 102 sitios + suites config verdes.
-- Task file `docs/tasks/F3C.md` · ⬜ PENDING · Ruta vanta-arch (diseño + ADR-datos) → vanta-worker (slices por dominio).
+- Task file `docs/tasks/F3C.md` · ✅ COMPLETED · Ruta vanta-arch (diseño + ADR-datos) → vanta-worker (slices por dominio).
 - Slices: C0 diseño arch (dominios, fachada, orden de migración, ADR-datos; `question`/ADR humano Regla 5 — sin decisión no hay código) → C1..Cn un dominio por slice (mecánico `rg` + check por slice) → Cn+1 unificación env + changelog + suites + cierre.
 - Skills: base 9 + `documentation-and-adrs`, `doubt-driven-development`.
 - MCP/tools: `codegraph_explore Config` (constructores), `detect_changes`; bash: `cargo check -p vantadb --tests --all-targets`, `clippy -D warnings`, `fmt`, `nextest -p vantadb config`, `rg -l "Config \{"`.
@@ -90,7 +90,7 @@ Status: ⬇️ downhill = 4 (ninguna uphill: todo tiene precedente M1/M3/S3 o de
 - Appetite 4h · 🟢 · 🟡 · Archivos clave: `benches/canonical_p99.rs`, `docs/operations/BENCHMARKS.md`, `.github/workflows/` (nuevo job), `Cargo.toml` (features del bench)
 - Gate Justificación: decisión humana Q5 (informativo primero) + deuda Fase 2 (bench-en-CI al mergear S3/S5); sin número no hay optimización medible (Regla 9).
 - Contrato: job nuevo no bloqueante que (1) verifica que la toolchain de CI compila el bench en release (aquí tantivy rompe el build local — si en CI también rompe, el job lo reporta como hallazgo con dueño en vez de verde falso), (2) corre `canonical_p99` y publica el número vs baseline `BENCHMARKS.md`, (3) ante regresión abre hallazgo (no bloquea el merge en esta fase).
-- Task file `docs/tasks/F3B.md` · ⬜ PENDING · Ruta vanta-lead (CI) + vanta-worker (bench).
+- Task file `docs/tasks/F3B.md` · ✅ COMPLETED · Ruta vanta-lead (CI) + vanta-worker (bench).
 - Slices: B1 toolchain-check (compilar bench en release en CI; si falla → hallazgo + `question`: arreglar toolchain o documentar) → B2 job informativo + baseline publicado → B3 cierre (doc + task file).
 - Skills: base 9 + `observability-and-instrumentation`.
 - MCP/tools: bash: `cargo bench -p vantadb --bench canonical_p99 -- --help` (compila), `actionlint`, `yaml` parse; CI logs como evidencia.
@@ -98,6 +98,30 @@ Status: ⬇️ downhill = 4 (ninguna uphill: todo tiene precedente M1/M3/S3 o de
 - Revisión/análisis/comprobación/validación: job verde-en-CI (o hallazgo toolchain con dueño) + número publicado + `question` si la toolchain está rota (Gate V: arreglar toolchain vs documentar).
 - Dependencias: ninguna dura (disjunta de F3C); corre en Wave 2 con F3C si hay RAM (archivos disjuntos: workflows/benches vs config).
 - Verify: job existe + corre en CI + número publicado vs baseline (o hallazgo toolchain documentado).
+
+## Cierre (2026-09-14, 4/4 + retrospectiva)
+
+> Verificación de cierre: 4/4 con verify verde + 6 commits (F3G `dd892c4c`, F3X-diseño
+> `0afa8181`, F3X-impl `13f0f729` feat!:+ADR-042, F3B `e33c307f`, F3C-diseño + F3C-impl
+> `d75459fe` feat!:+BREAKING CHANGE) + `cargo fmt --check` limpio + tree limpio salvo
+> ajeno. Gate Fase 2: 4/4 verde con evidencia. `skill progreso`: campaña registrada en
+> `docs/avance/` + nota en `meta.md`; plan archivado a `docs/plans/archive/`.
+
+### Retrospectiva Start/Stop/Continue
+- **Start:** Gate V con `question` ante muros reales (F3X pub-sigs → ADR-042 en el acto;
+  sin el gate, la hoja quedaba muerta o el breaking entraba sin ADR).
+- **Stop:** asumir que el diseño sobrevive intacto a la implementación (F3X requirió
+  ajuste H2 + traits `pub` por benches; F3C fachada-vistas en vez de sub-structs
+  almacenados — registrar la divergencia, no esconderla).
+- **Continue:** diseño-primero con Gate D humano + review P2-01 antes del commit del lead
+  (H1 era cambio semántico real con suites verdes: solo el ojo fresco lo caza).
+- **Acción medible:** todo hallazgo de implementación que contradiga el diseño "= HALLAZGO +
+  Gate V, nunca migración silenciosa" (métrica: 0 divergencias no registradas por task).
+
+### Estado DEFER tras Fase 3
+- **Sigue DEFER:** reorg física Screaming — ahora COTIZABLE (gate 4/4 verde), no ejecutada
+  (nunca fue parte de ningún plan). Próximo paso si se quiere: plan de mudanza incremental.
+- **Futuro con dueño:** firma humana ADR-043 (Regla 5) + revisit FIND-89 (env::var directos).
 
 ## SKIP / DEFER / BLOQUEADO
 

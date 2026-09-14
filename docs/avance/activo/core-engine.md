@@ -663,3 +663,14 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** `OperatorRegistry` dispatch-by-name + operador-ejemplo `Dedup[field]` + test extension 4/4 + docs/api mismo PR.
 - **Resultado:** ✅ scopes 209/209 + extension 4/4 + check/clippy/fmt (acyclic global rojo pre-existente exceptuado BND-03).
 - **Commit:** c2cdbf3e
+
+### F3X: trait-split storage-index con hoja neutral (Fase 3 Wave 1)
+- **Fecha:** 2026-09-14
+- **Objetivo:** romper ciclo storage-index (8 aristas) con hoja src/index_port.rs + traits sellados + 6 firmas pub a traits (major ADR-042); review hallo H1 real (niveles HNSW) corregido con test RED-GREEN.
+- **Resultado:** check/clippy/fmt + nextest 783/783 + semver rojo esperado.
+- **Commit:** 13f0f729 (diseno 0afa8181)
+### F3C: S-split-config B+B con RbacCfg propio (Fase 3 Wave 2)
+- **Fecha:** 2026-09-14
+- **Objetivo:** 6 dominios + fachada plana (vistas From, 108 sitios intactos) + 7 vars a VANTADB_* breaking; Q1=B/Q2=FIND-89/Q3=A.
+- **Resultado:** check/clippy/fmt + config 57/57 + 0 legacy.
+- **Commit:** d75459fe (feat!:+BREAKING CHANGE; ADR-043 datos, firma humana pendiente)
