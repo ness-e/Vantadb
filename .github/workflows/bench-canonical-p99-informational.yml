@@ -1,0 +1,240 @@
+# BENCH: canonical_p99 — INFORMATIONAL ONLY (F3B).
+# Never blocks merge: every job/step has continue-on-error: true.
+# Q5 humano (informativo primero) + deuda Fase 2 (bench-en-CI al mergear S3/S5).
+#
+# Complements (does NOT duplicate) heavy-bench-nightly-51.yml:
+#   - heavy-51 triggers on benches/** + benchmarks/** + scripts/bench_regression.py
+#     + Cargo.toml, and runs the FULL bench matrix (8 benches + density).
+#   - THIS workflow triggers on perf-source paths (src/index, src/storage) that
+#     heavy-51 never watches, and runs ONLY canonical_p99 with a step-summary
+#     number + regression finding. Bench-file PRs stay owned by heavy-51
+#     (no benches/** trigger here — strictly disjoint).
+#   - Cargo.toml overlap is intentional: feature flags decide whether the bench
+#     compiles at all (B1). On overlap both run; neither blocks merge here.
+#
+# Toolchain-first (B1): job 1 compiles the bench in release WITHOUT running it.
+# If the toolchain cannot compile (tantivy broke the local build once), job 1
+# opens a HALLAZGO issue with an owner instead of reporting false-green.
+#
+# Baseline: docs/operations/BENCHMARKS.md §11 (consumo guard) + §1.
+# Regression policy (>10% p99 vs baseline needs ADR-or-revert) is EVALUATED
+# here but never enforced: on regression this workflow opens an issue with
+# labels (benchmark, regression) and stays green (Q5: informativo primero).
+
+name: 'BENCH: canonical_p99 — informational'
+
+on:
+  pull_request:
+    paths:
+      - 'src/index/**'
+      - 'src/storage/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  CARGO_TERM_COLOR: always
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: 1
+
+jobs:
+  toolchain-check:
+    name: Toolchain compiles bench (release, no run)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # CATEGORY: INFORMATIONAL — a broken toolchain is a finding with an owner,
+    # never a merge blocker and never false-green (see finding step below).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 6144
+          free-disk: true
+
+      - name: Compile canonical_p99 in release (no run)
+        id: compile
+        continue-on-error: true
+        run: cargo bench -p vantadb --bench canonical_p99 --no-run 2>&1 | tee toolchain-check.log
+
+      - name: Report toolchain failure as HALLAZGO (never false-green)
+        if: steps.compile.outcome == 'failure'
+        continue-on-error: true
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const fs = require('fs');
+            let log = '';
+            try { log = fs.readFileSync('toolchain-check.log', 'utf8').slice(-4000); }
+            catch (e) { log = '(no log captured)'; }
+            const body = `## 🔴 Toolchain HALLAZGO — canonical_p99 does not compile\n\n` +
+              `**Commit:** \`${context.sha}\`\n` +
+              `**Workflow:** [${context.workflow}](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})\n` +
+              `**Owner:** toolchain / CI (triage: fix toolchain vs document — Gate V, F3B-B1)\n\n` +
+              `The release compile-gate \`cargo bench -p vantadb --bench canonical_p99 --no-run\` failed. ` +
+              `This workflow stays green by design (informational); this issue is the signal.\n\n` +
+              `<details><summary>Tail of toolchain-check.log</summary>\n\n\`\`\`\n${log}\n\`\`\`\n</details>`;
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['benchmark', 'toolchain'],
+            });
+            const existing = issues.find(i =>
+              i.title.startsWith('[Benchmark] Toolchain cannot compile canonical_p99')
+            );
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `**Re-checked on ${new Date().toISOString()}** — toolchain still broken.\n\n${body}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: '[Benchmark] Toolchain cannot compile canonical_p99',
+                labels: ['benchmark', 'toolchain'],
+                body: body,
+              });
+            }
+
+      - name: Upload toolchain log
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-p99-toolchain-check
+          path: toolchain-check.log
+          retention-days: 14
+
+  bench-informational:
+    name: Run canonical_p99 vs baseline (informational)
+    needs: toolchain-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    # CATEGORY: INFORMATIONAL — numbers are published for Regla 9 decisions;
+    # regressions open issues, they never fail the PR (Q5 informativo primero).
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 6144
+          free-disk: true
+
+      - name: Run canonical_p99
+        id: bench
+        continue-on-error: true
+        run: cargo bench -p vantadb --bench canonical_p99 -- --nocapture 2>&1 | tee canonical_p99_results.txt
+
+      - name: Publish p50/p95/p99 vs baseline to summary
+        if: always()
+        continue-on-error: true
+        run: |
+          echo "## canonical_p99 (informational)" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Baseline: docs/operations/BENCHMARKS.md §11 (consumo guard) + §1." >> "$GITHUB_STEP_SUMMARY"
+          echo "Regression policy: p99 >10% vs baseline needs ADR-or-revert — evaluated here, never enforced (Q5)." >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          grep -E "canonical_p99 search" canonical_p99_results.txt >> "$GITHUB_STEP_SUMMARY" || echo "(p50/p95/p99 line not found — see artifact)" >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Extract criterion estimates
+        if: always()
+        continue-on-error: true
+        run: |
+          python scripts/bench_regression.py extract \
+            --criterion-root target/criterion \
+            --output benchmark_report_canonical_p99.json
+
+      # CATEGORY: INFORMATIONAL — compare may fail with no baseline or format
+      # drift. Non-blocking by design.
+      - name: Compare against baseline
+        id: compare
+        if: always()
+        continue-on-error: true
+        run: |
+          python scripts/bench_regression.py compare \
+            benchmark_report_canonical_p99.json \
+            --format json \
+            --output bench_comparison_canonical_p99.json \
+            --fail-on-regression
+        env:
+          GITHUB_SHA: ${{ github.sha }}
+
+      - name: Open regression finding (never blocks merge)
+        if: always()
+        continue-on-error: true
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
+        with:
+          script: |
+            const fs = require('fs');
+            let cmp = null;
+            try { cmp = JSON.parse(fs.readFileSync('bench_comparison_canonical_p99.json', 'utf8')); }
+            catch (e) { console.log('No comparison report — skipping finding.'); return; }
+            if (!cmp.has_regression) { console.log('No regression — nothing to file.'); return; }
+            let numbers = '';
+            try {
+              const txt = fs.readFileSync('canonical_p99_results.txt', 'utf8');
+              const m = txt.match(/canonical_p99 search.*/);
+              numbers = m ? m[0] : '(numbers line not found)';
+            } catch (e) { numbers = '(results file missing)'; }
+            let body = `## ⚠️ canonical_p99 Regression (informational, non-blocking)\n\n` +
+              `**Commit:** \`${context.sha}\`\n` +
+              `**Workflow:** [${context.workflow}](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})\n` +
+              `**Numbers:** \`${numbers}\`\n` +
+              `**Baseline:** docs/operations/BENCHMARKS.md §11 + benchmarks/criterion_baseline.json\n` +
+              `**Policy:** p99 >10% vs baseline needs ADR-or-revert (Regla 9). This issue is the finding; the PR stays green (Q5).\n\n` +
+              `### Regressions\n\n| Benchmark | Before (ms) | After (ms) | Change | Severity |\n|---|---|---|---|---|\n`;
+            for (const r of cmp.regressions || []) {
+              const icon = r.severity === 'critical' ? '🔴' : '🟡';
+              body += `| ${r.label} | ${r.prev_ms} | ${r.current_ms} | +${r.change_pct}% | ${icon} ${r.severity} |\n`;
+            }
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: ['benchmark', 'regression'],
+            });
+            const existing = issues.find(i =>
+              i.title.startsWith('[Benchmark] canonical_p99 regression')
+            );
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existing.number,
+                body: `**Re-checked on ${new Date().toISOString()}** — regression still present.\n\n${body}`,
+              });
+            } else {
+              await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `[Benchmark] canonical_p99 regression — ${new Date().toISOString().slice(0, 10)}`,
+                labels: ['benchmark', 'regression'],
+                body: body,
+              });
+            }
+
+      - name: Upload bench results
+        if: always()
+        continue-on-error: true
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: canonical-p99-results
+          path: |
+            canonical_p99_results.txt
+            benchmark_report_canonical_p99.json
+            bench_comparison_canonical_p99.json
+          retention-days: 30
