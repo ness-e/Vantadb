@@ -12,7 +12,7 @@ verified_by: "Split ejecutado 2026-09-03 por RES-15-C desde docs/Backlog.md (cri
 > **Propósito:** filas del backlog que **no** son ejecutables por agentes: requieren abogado, pago, identidad humana, decisión de negocio o publicación manual. Vivían mezcladas en `docs/Backlog.md` y distorsionaban cualquier métrica de prioridad técnica.
 > **Criterio de separación (Gate P, RES-15-C 2026-09-03):** lo que requiere agente/código → técnico (`docs/Backlog.md`); lo que requiere abogado/plata/decisión humana/publicación → aquí.
 > **Backlog técnico:** [`docs/Backlog.md`](Backlog.md) — fuente del parser de `/pipeline plan`. Las filas de este archivo **no** entran al triage técnico a propósito (regla documentada en `docs/avance/meta.md`).
-> **Total open items:** 15 activas (verificadas contra `rg -c "^\| \`?[A-Z]" docs/Backlog-negocio.md` el 2026-09-03; regla anti-drift GOV-C7 — actualizar este contador con `rg` en cada movimiento)
+> **Total open items:** 20 activas (15 orig. 2026-09-03 + BIZ-04..08 del manual estratégico 2026-09-14; regla anti-drift GOV-C7)
 
 ## Criterio por fila borderline (decisiones del split)
 
@@ -79,3 +79,4 @@ verified_by: "Split ejecutado 2026-09-03 por RES-15-C desde docs/Backlog.md (cri
 | `BIZ-06` | **Jurisdicción y banca fase 2 (LLC + EIN + Mercury)** — solo si el volumen lo justifica (MoR cubre fase 1). Contactar 2-3 proveedores. Research: §2. | 🟡 2-3d humano | 🔵 | 🆕 Pendiente (fase 2) |
 | `BIZ-07` | **Cadena de titularidad IP escalonada** — 1) declaración de autoría propia (hoy); 2) DCO/CLA listo; 3) assignment al constituir entidad. Veracidad validada en §7.2 (assignment ≠ CLA ≠ DCO). | 🟢 1d | 🟠 | 🆕 Pendiente (investigación profunda en curso) |
 | `BIZ-08` | **Decisión ICP/vertical foco** — local-LLM vs frameworks vs AI-IDEs (evidencia interna favorece AI-IDEs vía MCP, decide el owner). Desbloquea MGR-20/EXE-03. Research: §7.3. | 🟢 2h owner | 🔴 | 🆕 Pendiente (decisión owner) |
+| `BIZ-09` | **ADR session-layer defer-as-scoped (resto de DEC-01)** — DEC-01 resuelta por research pero el owner nunca escribió el ADR citando `docs/research/res03-session-layer-gonogo.md`. Detectado en auditoría backlog 2026-09-14 (no existe ADR session-* en `docs/architecture/adr/`). | 🟢 1h owner | 🟡 | 🆕 Pendiente (decisión owner) |
