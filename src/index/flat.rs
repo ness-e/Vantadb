@@ -2,7 +2,7 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 
 use crate::index::distance::calculate_similarity;
-use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
+use crate::node::{DistanceMetric, FilterBitset, NodeFlags, VectorRepresentations};
 use std::sync::Mutex;
 
 /// ponytail: full DashMap O(n) scan is by design — only called when
@@ -15,8 +15,6 @@ pub(crate) fn flat_search(
     top_k: usize,
     metric: crate::node::DistanceMetric,
 ) -> Vec<(u128, f32)> {
-    use crate::storage::engine::FLAG_TOMBSTONE;
-
     let query_inv_norm = if metric == DistanceMetric::Cosine {
         let norm = crate::index::f32_l2_norm(query_vec);
         if norm > f32::EPSILON {
@@ -32,7 +30,7 @@ pub(crate) fn flat_search(
         .iter()
         .filter(|entry| {
             let node = entry.value();
-            (node.flags & FLAG_TOMBSTONE) == 0
+            (node.flags & NodeFlags::TOMBSTONE) == 0
                 && (query_mask.is_all_set() || node.bitset.matches_mask(query_mask))
                 && !node.vec_data.is_none()
         })
@@ -95,7 +93,7 @@ impl crate::index::VecIndex for FlatIndex {
         query_vec: &[f32],
         query_mask: &FilterBitset,
         top_k: usize,
-        _vector_store: Option<&crate::storage::vfile::File>,
+        _vector_store: Option<&dyn crate::index_port::VectorStoreRef>,
         _distance_metric: DistanceMetric,
     ) -> Vec<(u128, f32)> {
         if top_k == 0 {

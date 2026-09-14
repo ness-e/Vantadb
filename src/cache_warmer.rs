@@ -238,21 +238,19 @@ impl CacheWarmer {
     /// The top layer of HNSW contains the entry point and its neighbors at
     /// the highest layer — these are the first nodes touched on every search
     /// and should be kept hot in cache.
-    pub fn hnsw_top_layer_ids(hnsw: &crate::index::CPIndex) -> Vec<u128> {
-        let ep = match hnsw.get_entry_point() {
+    pub fn hnsw_top_layer_ids(hnsw: &dyn crate::index_port::IndexPort) -> Vec<u128> {
+        let ep = match hnsw.entry_point() {
             Some(id) => id,
             None => return Vec::new(),
         };
-        let max_layer = hnsw.max_layer.load(Ordering::Relaxed);
+        let max_layer = hnsw.max_layer();
         if max_layer == 0 {
             return vec![ep];
         }
         let mut ids = vec![ep];
-        if let Some(neighbors) = hnsw.neighbor_index.get_neighbors_ref(ep, max_layer) {
-            for &nid in neighbors.iter() {
-                if !ids.contains(&nid) {
-                    ids.push(nid);
-                }
+        for nid in hnsw.layer_neighbors(ep, max_layer) {
+            if !ids.contains(&nid) {
+                ids.push(nid);
             }
         }
         ids

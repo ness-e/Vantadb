@@ -661,7 +661,7 @@ fn test_get_missing_hnsw_entry() {
     engine.cache.volatile.write().remove(&42);
     {
         let hnsw = engine.hnsw.load();
-        hnsw.nodes.remove(&42);
+        hnsw.remove_node(42);
     }
     let retrieved = engine.get(42).expect("get");
     assert!(retrieved.is_none(), "missing HNSW entry → get returns None");
@@ -674,7 +674,7 @@ fn test_get_vstore_tombstone() {
     engine.cache.volatile.write().remove(&42);
     let offset = {
         let hnsw = engine.hnsw.load();
-        hnsw.nodes.get(&42).map(|n| n.storage_offset).unwrap()
+        hnsw.storage_offset_of(42).unwrap()
     };
     {
         let mut vstore = engine.vector_store[0].write();
@@ -698,7 +698,7 @@ fn test_get_vector_bounds_exceeded() {
     engine.insert(&node).expect("insert");
     let offset = {
         let hnsw = engine.hnsw.load();
-        hnsw.nodes.get(&42).map(|n| n.storage_offset).unwrap()
+        hnsw.storage_offset_of(42).unwrap()
     };
     engine.cache.volatile.write().remove(&42);
     {
@@ -762,7 +762,7 @@ fn test_delete_entry_point_promotion() {
     }
     let ep = {
         let hnsw = engine.hnsw.load();
-        hnsw.get_entry_point().expect("entry point should exist")
+        hnsw.entry_point().expect("entry point should exist")
     };
     engine.delete(ep, "test").expect("delete entry point");
     for i in 0..10u128 {
@@ -780,7 +780,7 @@ fn test_delete_entry_point_promotion() {
     }
     let new_ep = {
         let hnsw = engine.hnsw.load();
-        hnsw.get_entry_point()
+        hnsw.entry_point()
     };
     assert!(
         new_ep.is_some() && new_ep.unwrap() != u128::MAX,
@@ -1528,7 +1528,7 @@ fn test_delete_vs_consolidate_no_resurrection() {
 
     // delete() completo: quita HNSW + cache + backend metadata.
     engine.delete(42, "FND-02-M3").expect("delete");
-    assert!(engine.hnsw.load().nodes.get(&42).is_none());
+    assert!(engine.hnsw.load().storage_offset_of(42).is_none());
     assert!(engine.get(42).expect("get after delete").is_none());
 
     // consolidate_node sobre el snapshot stale NO debe resucitar el nodo:
@@ -1547,7 +1547,7 @@ fn test_delete_vs_consolidate_no_resurrection() {
         "FND-02-M3: consolidate resucitó metadata en backend de un nodo eliminado"
     );
     assert!(
-        engine.hnsw.load().nodes.get(&42).is_none(),
+        engine.hnsw.load().storage_offset_of(42).is_none(),
         "FND-02-M3: consolidate resucitó la entrada HNSW de un nodo eliminado"
     );
     assert!(
@@ -1613,7 +1613,7 @@ fn test_delete_vs_evict_concurrent_no_zombie() {
     let hnsw = engine.hnsw.load();
     for i in 0..N {
         assert!(
-            hnsw.nodes.get(&i).is_none(),
+            hnsw.storage_offset_of(i).is_none(),
             "FND-02-M3: zombie HNSW entry para nodo eliminado {i}"
         );
         let key = i.to_le_bytes();

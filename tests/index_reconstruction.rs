@@ -65,7 +65,7 @@ fn test_index_persistence_roundtrip() {
             None,
             &vantadb::node::ALL_BITSET,
             5,
-            Some(&engine.vector_store[0].read()),
+            Some(&*engine.vector_store[0].read()),
         );
 
         assert!(!results.is_empty(), "Search failed after reload!");
@@ -135,7 +135,7 @@ fn test_index_reconstruction_from_storage() {
             None,
             &vantadb::node::ALL_BITSET,
             5,
-            Some(&engine.vector_store[0].read()),
+            Some(&*engine.vector_store[0].read()),
         );
 
         if results.is_empty() {

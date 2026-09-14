@@ -99,7 +99,7 @@ impl<'a> CostEstimator<'a> {
     /// — the heuristic itself is unchanged.
     pub(crate) fn selectivity(&self, field: &str, op: &RelOp, value: &FieldValue) -> f32 {
         let stats = self.storage.cache.cardinality_stats.read();
-        let total_nodes = self.storage.hnsw.load().nodes.len();
+        let total_nodes = self.storage.hnsw.load().node_count();
         if total_nodes == 0 {
             let val_keys = value.to_cardinality_keys();
             let val_key = val_keys
@@ -201,7 +201,7 @@ impl<'a> CostEstimator<'a> {
     fn estimate_operator(&self, op: &LogicalOperator, in_rows: f64) -> OperatorCost {
         match op {
             LogicalOperator::Scan { .. } => {
-                let rows = self.storage.hnsw.load().nodes.len() as f64;
+                let rows = self.storage.hnsw.load().node_count() as f64;
                 // Floor at 1 row so a scan always yields a positive byte cost.
                 let bytes = (rows.max(1.0) * AVG_NODE_BYTES as f64) as usize;
                 OperatorCost {
@@ -224,7 +224,7 @@ impl<'a> CostEstimator<'a> {
             LogicalOperator::VectorSearch { .. } => {
                 // No top-k on the operator itself (Limit follows); assume a
                 // default candidate pool capped by the index size.
-                let rows = (self.storage.hnsw.load().nodes.len() as f64).min(100.0);
+                let rows = (self.storage.hnsw.load().node_count() as f64).min(100.0);
                 let bytes = (rows * DEFAULT_EMBEDDING_DIMS as f64 * 4.0) as usize;
                 OperatorCost {
                     estimated_rows: rows,
@@ -295,11 +295,11 @@ impl<'a> CostEstimator<'a> {
     /// single authority for the decision so callers can record/EXPLAIN it.
     pub(crate) fn select_index_strategy(&self) -> IndexType {
         let index = self.storage.hnsw.load();
-        if index.config.index_type != IndexType::Hnsw {
-            return index.config.index_type;
+        if index.index_kind() != IndexType::Hnsw {
+            return index.index_kind();
         }
-        let nodes = index.nodes.len();
-        if index.config.flat_threshold.is_some_and(|t| nodes <= t) {
+        let nodes = index.node_count();
+        if index.flat_threshold().is_some_and(|t| nodes <= t) {
             return IndexType::Flat;
         }
         if nodes >= IVF_NODE_THRESHOLD {
@@ -443,7 +443,10 @@ mod tests {
     }
 
     /// Build a CPIndex with `n` nodes (level-0 only, fast for tests) using `cfg`.
-    fn index_with_n(n: usize, mut cfg: crate::index::graph::HnswConfig) -> std::sync::Arc<CPIndex> {
+    fn index_with_n(
+        n: usize,
+        mut cfg: crate::index::graph::HnswConfig,
+    ) -> Box<dyn crate::index_port::IndexPort> {
         cfg.m = 8;
         cfg.m_max0 = 8;
         cfg.ef_construction = 4;
@@ -460,7 +463,7 @@ mod tests {
             )
             .expect("test vectors are non-zero-norm");
         }
-        std::sync::Arc::new(idx)
+        Box::new(idx)
     }
 
     #[test]
@@ -481,7 +484,9 @@ mod tests {
             flat_threshold: None,
             ..Default::default()
         };
-        engine.hnsw.store(index_with_n(100, cfg));
+        engine
+            .hnsw
+            .store(std::sync::Arc::new(index_with_n(100, cfg)));
         assert_eq!(
             CostEstimator::new(&engine).select_index_strategy(),
             IndexType::Hnsw
@@ -496,7 +501,9 @@ mod tests {
             flat_threshold: None,
             ..Default::default()
         };
-        engine.hnsw.store(index_with_n(IVF_NODE_THRESHOLD, cfg));
+        engine
+            .hnsw
+            .store(std::sync::Arc::new(index_with_n(IVF_NODE_THRESHOLD, cfg)));
         assert_eq!(
             CostEstimator::new(&engine).select_index_strategy(),
             IndexType::Ivf
@@ -511,7 +518,7 @@ mod tests {
             index_type: IndexType::Ivf,
             ..Default::default()
         };
-        engine.hnsw.store(index_with_n(3, cfg));
+        engine.hnsw.store(std::sync::Arc::new(index_with_n(3, cfg)));
         assert_eq!(
             CostEstimator::new(&engine).select_index_strategy(),
             IndexType::Ivf

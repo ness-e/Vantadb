@@ -200,21 +200,18 @@ mod tests {
         let hnsw = storage.hnsw.load();
         assert!(hnsw.validate_index().is_ok());
 
-        let ep = hnsw.get_entry_point().expect("Should have entry point");
+        let ep = hnsw.entry_point().expect("Should have entry point");
         let mut visited = std::collections::HashSet::new();
         let mut queue = std::collections::VecDeque::new();
         queue.push_back(ep);
         visited.insert(ep);
 
         while let Some(node_id) = queue.pop_front() {
-            let nl = hnsw.neighbor_index.num_layers(node_id).unwrap_or(0);
+            let nl = hnsw.node_layers(node_id);
             for layer in 0..nl {
-                let neighbors = hnsw.neighbor_index.get_neighbors_ref(node_id, layer);
-                if let Some(neighbors) = neighbors {
-                    for &neighbor in neighbors.iter() {
-                        if visited.insert(neighbor) {
-                            queue.push_back(neighbor);
-                        }
+                for neighbor in hnsw.layer_neighbors(node_id, layer) {
+                    if visited.insert(neighbor) {
+                        queue.push_back(neighbor);
                     }
                 }
             }
@@ -222,7 +219,7 @@ mod tests {
 
         assert_eq!(
             visited.len(),
-            hnsw.nodes.len(),
+            hnsw.node_count(),
             "Not all nodes are reachable from the entry point!"
         );
     }

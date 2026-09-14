@@ -164,7 +164,7 @@ fn run_read_only_bench(
                         None,
                         &FilterBitset::all_set(),
                         10,
-                        Some(&vstore),
+                        Some(&*vstore),
                     );
                     std::hint::black_box(_results);
                 }
@@ -297,7 +297,7 @@ fn run_mixed_bench(
                         None,
                         &FilterBitset::all_set(),
                         10,
-                        Some(&vstore),
+                        Some(&*vstore),
                     );
                     std::hint::black_box(_results);
                 }

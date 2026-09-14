@@ -41,36 +41,6 @@ pub(crate) fn prefetch_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usiz
     #[cfg(not(any(unix, windows)))]
     let _ = (mmap_ptr, offset, len);
 }
-#[inline(always)]
-/// # Safety
-///
-/// `mmap_ptr` must point to a valid mmap region, and `offset + len` must be
-/// within that region. The caller must ensure the mapping is not concurrently
-/// unmapped or resized.
-#[allow(unused_variables)]
-pub unsafe fn release_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
-    #[cfg(unix)]
-    {
-        // SAFETY: caller guarantees `mmap_ptr` + `offset + len` is within a valid
-        // mmap region. `madvise` with `MADV_DONTNEED` is async-signal-safe; the
-        // mapping itself remains valid after the hint.
-        unsafe {
-            libc::madvise(
-                mmap_ptr.add(offset) as *mut libc::c_void,
-                len,
-                libc::MADV_DONTNEED,
-            );
-        }
-    }
-
-    #[cfg(windows)]
-    {
-        let _ = (mmap_ptr, offset, len);
-    }
-
-    #[cfg(not(any(unix, windows)))]
-    let _ = (mmap_ptr, offset, len);
-}
 static PREFETCH_MODE: OnceLock<PrefetchMode> = OnceLock::new();
 
 pub fn set_prefetch_mode(mode: PrefetchMode) {

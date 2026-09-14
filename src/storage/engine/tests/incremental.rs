@@ -10,7 +10,6 @@ use super::super::*;
 use super::in_memory_engine;
 use crate::backend::BackendKind;
 use crate::config::Config;
-use crate::index::VecIndex;
 use crate::node::{DistanceMetric, UnifiedNode, ALL_BITSET};
 use crate::sdk::{Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest};
 use crate::storage::engine::{BatchInsertOptions, InsertMode};
@@ -75,7 +74,7 @@ fn test_incremental_small_batch_auto() {
         .expect("batch_insert_with_opts");
 
     assert!(
-        engine.vec_index().len() > 0,
+        engine.vec_index().node_count() > 0,
         "HNSW should have nodes after incremental insert (Auto, batch < threshold)"
     );
     assert_search_finds_any(&engine, &nodes);
@@ -94,7 +93,7 @@ fn test_incremental_large_batch_auto() {
         .expect("batch_insert_with_opts");
 
     assert_eq!(
-        engine.vec_index().len(),
+        engine.vec_index().node_count(),
         0,
         "HNSW should be empty after large batch with Auto mode (no rebuild called)"
     );
@@ -109,7 +108,7 @@ fn test_incremental_large_batch_auto() {
 
     // Now HNSW should have nodes and search should find them
     assert!(
-        engine.vec_index().len() > 0,
+        engine.vec_index().node_count() > 0,
         "HNSW should have nodes after rebuild"
     );
     assert_search_finds_any(&engine, &nodes);
@@ -134,7 +133,7 @@ fn test_incremental_explicit_incremental() {
 
     // Nodes should be searchable immediately (no rebuild needed)
     assert!(
-        engine.vec_index().len() > 0,
+        engine.vec_index().node_count() > 0,
         "HNSW should have nodes after incremental insert"
     );
     assert_search_finds_any(&engine, &nodes);
@@ -159,7 +158,7 @@ fn test_incremental_explicit_rebuild() {
 
     // Before rebuild, HNSW should be empty
     assert_eq!(
-        engine.vec_index().len(),
+        engine.vec_index().node_count(),
         0,
         "HNSW should be empty before rebuild_vector_index"
     );
@@ -175,7 +174,7 @@ fn test_incremental_explicit_rebuild() {
 
     // After rebuild, HNSW should have nodes and search should find them
     assert!(
-        engine.vec_index().len() > 0,
+        engine.vec_index().node_count() > 0,
         "HNSW should have nodes after rebuild"
     );
     assert_search_finds_any(&engine, &nodes);
@@ -278,7 +277,7 @@ fn test_incremental_recall_parity() {
         )
         .expect("incremental insert");
     assert!(
-        engine_inc.vec_index().len() > 0,
+        engine_inc.vec_index().node_count() > 0,
         "Incremental HNSW should have nodes"
     );
 
@@ -295,7 +294,7 @@ fn test_incremental_recall_parity() {
         )
         .expect("rebuild insert");
     assert_eq!(
-        engine_rebuild.vec_index().len(),
+        engine_rebuild.vec_index().node_count(),
         0,
         "Rebuild HNSW should be empty before rebuild_vector_index"
     );
@@ -303,7 +302,7 @@ fn test_incremental_recall_parity() {
         .rebuild_vector_index()
         .expect("rebuild_vector_index");
     assert!(
-        engine_rebuild.vec_index().len() > 0,
+        engine_rebuild.vec_index().node_count() > 0,
         "Rebuild HNSW should have nodes after rebuild_vector_index"
     );
 

@@ -31,8 +31,8 @@ pub use crate::backend::BackendPartition;
 use crate::backend::StorageBackend;
 use crate::config::Config;
 use crate::error::Result;
-use crate::index::CPIndex;
-pub use crate::index::FreshHnswReport;
+pub use crate::index_port::FreshHnswReport;
+use crate::index_port::IndexPort;
 use crate::lsm::pack_offset;
 pub(crate) use crate::lsm::SegmentRegistry;
 use crate::node::{FilterBitset, LabelIntern, UnifiedNode, VectorRepresentations};
@@ -52,7 +52,9 @@ pub(crate) enum LockPolicy {
     AssumeHeld,
 }
 
-pub(crate) const FLAG_TOMBSTONE: u32 = 0x8;
+/// Tombstone flag — single source of truth is `crate::node::NodeFlags::TOMBSTONE`
+/// (F3X-H2: identical value `0x8`; index-side uses migrate straight to the kernel).
+pub(crate) const FLAG_TOMBSTONE: u32 = crate::node::NodeFlags::TOMBSTONE;
 pub(crate) const STORAGE_ALIGNMENT: u64 = 64;
 pub(crate) const MIB: u64 = 1024 * 1024;
 pub(crate) const GIB: u64 = 1024 * 1024 * 1024;
@@ -321,8 +323,9 @@ pub struct StorageEngine {
     pub config: Config,
     /// If true, all mutating operations must be rejected.
     pub read_only: bool,
-    /// Thread-safe HNSW index (swappable via RCU).
-    pub hnsw: ArcSwap<CPIndex>,
+    /// Thread-safe HNSW index behind the cycle-breaking handle (F3X: ADR-042).
+    /// Boxed because `Arc` requires `Sized` for arc-swap's `RefCnt`.
+    pub hnsw: ArcSwap<Box<dyn IndexPort>>,
     /// Serializes insert/refresh operations to avoid bidirectional
     /// neighbor update races. Searches acquire hnsw.read() freely.
     pub(crate) insert_lock: FairMutex<()>,
@@ -382,7 +385,7 @@ impl StorageEngine {
     /// Writes to L0 (always) and packs the segment_id into the offset.
     fn replay_write_node(
         vector_store: &[RwLock<File>],
-        hnsw: &CPIndex,
+        hnsw: &dyn IndexPort,
         backend: &dyn StorageBackend,
         node_id: u128,
         node: &UnifiedNode,
@@ -393,7 +396,7 @@ impl StorageEngine {
         let mut l0 = vector_store[0].write();
         let local_off = crate::storage::ops::write_node_to_vstore(&mut l0, node)?;
         let packed = pack_offset(0, local_off);
-        hnsw.add(node_id, node.bitset.clone(), node.vector.clone(), packed)?;
+        hnsw.add_node(node_id, node.bitset.clone(), node.vector.clone(), packed)?;
         let key = node.id.to_le_bytes();
         let metadata = NodeMetadata {
             relational: node.relational.clone(),
@@ -431,14 +434,12 @@ impl StorageEngine {
 // ─── VecIndex accessor ─────────────────────────────────────
 
 impl StorageEngine {
-    /// Return a handle to the vector index (HNSW / IVF / flat) as a
-    /// `VecIndex` trait object.
+    /// Return a handle to the vector index behind the cycle-breaking port.
     ///
-    /// The returned [`arc_swap::Guard`] auto-derefs to [`CPIndex`], which
-    /// implements `VecIndex`.  Callers invoke
-    /// trait methods (`.search()`, `.len()`, …) without binding to the
-    /// concrete index type.
-    pub fn vec_index(&self) -> arc_swap::Guard<Arc<CPIndex>> {
+    /// The returned [`arc_swap::Guard`] auto-derefs to `dyn IndexPort`, which
+    /// exposes the search/maintenance surface. Callers invoke trait methods
+    /// without binding to the concrete index type (F3X: ADR-042).
+    pub fn vec_index(&self) -> arc_swap::Guard<Arc<Box<dyn IndexPort>>> {
         self.hnsw.load()
     }
 }

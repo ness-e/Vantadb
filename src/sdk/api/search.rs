@@ -23,7 +23,7 @@ impl Embedded {
         // ERR-028: mirror the AUDREP-55 up-front guard using the index's own
         // metric (matches `search_nearest` exactly) so the legacy K-NN path
         // also reports InvalidInput instead of a silent empty result.
-        if hnsw.config.distance_metric == crate::node::DistanceMetric::Cosine
+        if hnsw.distance_metric() == crate::node::DistanceMetric::Cosine
             && crate::index::f32_l2_norm(vector) < f32::EPSILON
         {
             return Err(crate::error::Error::InvalidInput(

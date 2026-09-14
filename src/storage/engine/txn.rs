@@ -330,7 +330,7 @@ impl StorageEngine {
                         // Remove old from HNSW/cache so the new insert can take its place
                         {
                             let hnsw = self.hnsw.load();
-                            hnsw.nodes.remove(&node.id);
+                            hnsw.remove_node(node.id);
                         }
                         self.cache.volatile.write().remove(&node.id);
                         self.apply_insert_with_txn(node, txn_id)?;
@@ -502,11 +502,9 @@ impl StorageEngine {
         }
 
         let hnsw = self.hnsw.load();
-        let index_node = match hnsw.nodes.get(&id) {
-            Some(n) => n,
-            None => return Ok(None),
+        let Some((storage_offset, index_vec)) = hnsw.node_view(id) else {
+            return Ok(None);
         };
-        let storage_offset = index_node.storage_offset;
         let (seg_id, local_off) = unpack_offset(storage_offset);
 
         let vstore = self
@@ -632,23 +630,21 @@ impl StorageEngine {
         node.vector = vector;
         // ADR-032 legacy rescue for kind==0/none
         if kind == 0 || kind == crate::node::NodeFlags::VECTOR_KIND_NONE {
-            if let crate::node::VectorRepresentations::SQ8(data, scale) =
-                &index_node.value().vec_data
-            {
+            if let crate::node::VectorRepresentations::SQ8(data, scale) = &index_vec {
                 if matches!(node.vector, VectorRepresentations::None)
                     || node.vector.dimensions() == 0
                 {
                     node.vector = crate::node::VectorRepresentations::SQ8(data.clone(), *scale);
                 }
             }
-            if let crate::node::VectorRepresentations::Binary(b) = &index_node.value().vec_data {
+            if let crate::node::VectorRepresentations::Binary(b) = &index_vec {
                 if matches!(node.vector, VectorRepresentations::None)
                     || node.vector.dimensions() == 0
                 {
                     node.vector = crate::node::VectorRepresentations::Binary(b.clone());
                 }
             }
-            if let crate::node::VectorRepresentations::Turbo(t) = &index_node.value().vec_data {
+            if let crate::node::VectorRepresentations::Turbo(t) = &index_vec {
                 if matches!(node.vector, VectorRepresentations::None)
                     || node.vector.dimensions() == 0
                 {

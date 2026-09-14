@@ -1,20 +1,18 @@
 //! Maintenance operations: refresh, consolidate, evict, rebuild, compact, flush, WAL.
 
-use std::fs::OpenOptions;
 use std::sync::Arc;
 use web_time::Instant;
 
 use crate::backend::BackendPartition;
 use crate::error::{Error, Result};
-use crate::index::{CPIndex, IndexBackend};
+use crate::index_port::FreshHnswReport;
 use crate::node::{NodeTier, UnifiedNode, VectorRepresentations};
 use crate::storage::engine::{
-    EvictionReason, EvictionReport, FreshHnswReport, IndexRebuildReport, LockPolicy, LsmReport,
-    MergeReport, PipelineMode, PipelineReport, QuantizationMaintenanceReport, StorageEngine,
-    VacuumReport, FLAG_TOMBSTONE, STORAGE_ALIGNMENT,
+    EvictionReason, EvictionReport, IndexRebuildReport, LockPolicy, LsmReport, MergeReport,
+    PipelineMode, PipelineReport, QuantizationMaintenanceReport, StorageEngine, VacuumReport,
+    FLAG_TOMBSTONE, STORAGE_ALIGNMENT,
 };
 use crate::storage::ops::NodeMetadata;
-use crate::storage::vfile::MmapMut;
 use crate::vector::governor::QuantizationAction;
 
 impl StorageEngine {
@@ -111,11 +109,11 @@ impl StorageEngine {
                 resident_bytes = Some(resident_bytes.unwrap_or(0) + rb);
             }
         }
-        if let Some(rb) = hnsw.backend.mmap_resident_bytes() {
+        if let Some(rb) = hnsw.mmap_resident_bytes() {
             resident_bytes = Some(resident_bytes.unwrap_or(0) + rb);
         }
         crate::metrics::record_memory_breakdown(
-            hnsw.nodes.len() as u64,
+            hnsw.node_count() as u64,
             hnsw.estimate_memory_bytes() as u64,
             resident_bytes,
             self.cache.volatile.read().len() as u64,
@@ -149,67 +147,10 @@ impl StorageEngine {
         let index_path = self.data_dir.join("vector_index.bin");
         let current = self.hnsw.load();
 
-        if current.backend.is_mmap() {
-            let data = current.serialize_to_bytes();
-            let temp_path = index_path.with_extension("bin.tmp");
-
-            let result = (|| -> std::io::Result<Arc<CPIndex>> {
-                // Scope the temp file + its mapping so both are released (dropped)
-                // BEFORE the rename. Windows refuses `rename` while the source file
-                // has ANY open handle — including a live memory map. This ordering is
-                // the same proven pattern used in `CPIndex::sync_to_mmap`.
-                {
-                    let file = OpenOptions::new()
-                        .read(true)
-                        .write(true)
-                        .create(true)
-                        .truncate(true)
-                        .open(&temp_path)?;
-                    file.set_len(data.len() as u64)?;
-
-                    // SAFETY: `file` is a newly created/truncated handle at `data.len()` bytes.
-                    // `MmapMut::map_mut` from memmap2 creates a writable mapping of matching size.
-                    // The mapped memory is immediately initialized via `copy_from_slice` below.
-                    let mut mapped = unsafe { MmapMut::map_mut(&file)? };
-                    mapped.copy_from_slice(&data);
-                    mapped.flush()?;
-                    // `mapped` and `file` drop here — no handles left open on `temp_path`.
-                }
-
-                // Atomic swap into place. `temp_path` has no open handles now (mapping +
-                // File dropped above), so rename succeeds on Windows too. The destination
-                // `index_path` is re-mapped fresh below, after the rename takes effect.
-                std::fs::rename(&temp_path, &index_path)?;
-
-                // Re-open the final file and map it as the new zero-copy backend. Deserialize
-                // from the in-memory `data` (source of truth) rather than the mapping so the
-                // writeable destination handle is opened only after the rename completed.
-                let file = OpenOptions::new()
-                    .read(true)
-                    .write(true)
-                    .open(&index_path)?;
-                // SAFETY: `index_path` now holds the full serialized index (`data.len()` bytes),
-                // so the mapping size exactly covers the file; `map_mut` validates internally.
-                let mapped = unsafe { MmapMut::map_mut(&file)? };
-
-                let mut new_index = CPIndex::deserialize_from_bytes(&data, false).map_err(|e| {
-                    std::io::Error::new(std::io::ErrorKind::InvalidData, e.to_string())
-                })?;
-                new_index.backend = IndexBackend::MMapFile {
-                    path: index_path.clone(),
-                    mmap: Some(mapped),
-                };
-                Ok(Arc::new(new_index))
-            })();
-
-            match result {
-                Ok(new_hnsw) => {
-                    self.hnsw.store(new_hnsw);
-                }
-                Err(e) => {
-                    return Err(Error::Io(e));
-                }
-            }
+        if current.is_mmap() {
+            // Persist dance moved to `IndexPort::persist_mmap` (byte-identical).
+            let new_hnsw = current.persist_mmap(&index_path)?;
+            self.hnsw.store(Arc::new(new_hnsw));
         } else {
             current.persist_to_file(&index_path)?;
         }
@@ -231,7 +172,7 @@ impl StorageEngine {
         let index = self.hnsw.load();
         if node.flags.is_set(crate::node::NodeFlags::HAS_VECTOR) {
             if let VectorRepresentations::Full(vec) = &node.vector {
-                index.add(
+                index.add_node(
                     node.id,
                     node.bitset.clone(),
                     VectorRepresentations::Full(vec.clone()),
@@ -240,7 +181,7 @@ impl StorageEngine {
                 return Ok(());
             }
         }
-        index.add(
+        index.add_node(
             node.id,
             node.bitset.clone(),
             VectorRepresentations::None,
@@ -308,13 +249,7 @@ impl StorageEngine {
         self.backend
             .put(BackendPartition::Default, &key, &metadata_val)?;
 
-        let offset = {
-            let hnsw = self.hnsw.load();
-            hnsw.nodes
-                .get(&node.id)
-                .map(|n| n.storage_offset)
-                .unwrap_or(0)
-        };
+        let offset = self.hnsw.load().storage_offset_of(node.id).unwrap_or(0);
         // insert_lock is held in both branches now (caller's or ours), so the
         // HNSW entry is always applied without re-acquiring the non-reentrant
         // lock (FND-02-M3).
@@ -341,7 +276,7 @@ impl StorageEngine {
                 // the mmap region. `release_mmap_vector` expects the caller to
                 // ensure this (per its own `# Safety` doc).
                 unsafe {
-                    crate::index::release_mmap_vector(
+                    crate::storage::vfile::release_mmap_vector(
                         mmap.as_ptr(),
                         offset_usize,
                         vector_size_aligned,
@@ -498,7 +433,7 @@ impl StorageEngine {
         let index_path = self.data_dir.join("vector_index.bin");
         let mut rebuilt = {
             let hnsw = self.hnsw.load();
-            crate::storage::archive::fresh_index_like(&hnsw, index_path.clone())
+            hnsw.fresh_box(index_path.clone())?
         };
 
         let report = {
@@ -506,20 +441,19 @@ impl StorageEngine {
             // will be updated when the HNSW is populated from all levels.
             let vstore = self.vector_store[0].read();
             crate::storage::archive::rebuild_hnsw_from_vstore_with_segment(
-                &mut rebuilt,
+                &mut *rebuilt,
                 &vstore,
                 index_path.clone(),
                 Some(0),
             )?
         };
 
-        if rebuilt.backend.is_mmap() {
+        if rebuilt.is_mmap() {
             rebuilt.sync_to_mmap().map_err(Error::Io)?;
         } else {
             rebuilt
                 .persist_to_file(
                     rebuilt
-                        .backend
                         .mmap_path()
                         .unwrap_or(&self.data_dir.join("vector_index.bin")),
                 )
@@ -554,7 +488,7 @@ impl StorageEngine {
         let mut vstore = self.vector_store[0].write();
         let hnsw = self.hnsw.load();
 
-        let entry_point_id = match hnsw.get_entry_point() {
+        let entry_point_id = match hnsw.entry_point() {
             Some(ep) => ep,
             None => {
                 tracing::info!("compact_layout_bfs: empty index, skipping");
@@ -564,13 +498,20 @@ impl StorageEngine {
 
         let header_size = std::mem::size_of::<crate::node::DiskNodeHeader>() as u64;
 
-        let bfs_order = crate::storage::archive::traverse_graph(&hnsw, entry_point_id);
+        // &***: Guard → Arc → Box → dyn (one deref per wrapper).
+        let bfs_order = crate::storage::archive::traverse_graph(&***hnsw, entry_point_id);
 
-        let (new_offset_map, new_file_size) =
-            crate::storage::archive::compact_layout(&mut vstore, &hnsw, &bfs_order, header_size)?;
+        let (new_offset_map, new_file_size) = crate::storage::archive::compact_layout(
+            &mut vstore,
+            // &***: Guard → Arc → Box → dyn (one deref per wrapper).
+            &***hnsw,
+            &bfs_order,
+            header_size,
+        )?;
         let nodes_compacted = new_offset_map.len() as u64;
 
-        crate::storage::archive::reindex_nodes(&hnsw, &new_offset_map);
+        // &***: Guard → Arc → Box → dyn (one deref per wrapper).
+        crate::storage::archive::reindex_nodes(&***hnsw, &new_offset_map);
 
         drop(hnsw);
 
@@ -627,11 +568,8 @@ impl StorageEngine {
 
         let actions = {
             let hnsw = self.hnsw.load();
-            self.quantization_governor.collect_actions(|node_id| {
-                hnsw.nodes
-                    .get(&node_id)
-                    .map(|n| matches!(n.value().vec_data, VectorRepresentations::SQ8(..)))
-            })
+            self.quantization_governor
+                .collect_actions(|node_id| hnsw.is_sq8_vector(node_id))
         };
 
         if actions.is_empty() {
@@ -652,18 +590,17 @@ impl StorageEngine {
                             let (packed, scale) =
                                 crate::vector::governor::QuantizationGovernor::quantize_vector(vec);
                             node.vector = VectorRepresentations::SQ8(packed, scale);
-                            let offset = {
-                                let hnsw = self.hnsw.load();
-                                hnsw.nodes
-                                    .get(&node_id)
-                                    .map(|n| n.storage_offset)
-                                    .unwrap_or(0)
-                            };
+                            let offset = self.hnsw.load().storage_offset_of(node_id).unwrap_or(0);
                             let _guard = self.acquire_insert_lock(
                                 "acquire insert_lock in quantization maintenance",
                             )?;
                             let hnsw = self.hnsw.load();
-                            hnsw.add(node_id, node.bitset.clone(), node.vector.clone(), offset)?;
+                            hnsw.add_node(
+                                node_id,
+                                node.bitset.clone(),
+                                node.vector.clone(),
+                                offset,
+                            )?;
                             crate::metrics::record_quantization();
                             self.quantization_governor.reset(node_id);
                             quantized += 1;
@@ -678,18 +615,17 @@ impl StorageEngine {
                                 data, *scale,
                             );
                             node.vector = VectorRepresentations::Full(vec);
-                            let offset = {
-                                let hnsw = self.hnsw.load();
-                                hnsw.nodes
-                                    .get(&node_id)
-                                    .map(|n| n.storage_offset)
-                                    .unwrap_or(0)
-                            };
+                            let offset = self.hnsw.load().storage_offset_of(node_id).unwrap_or(0);
                             let _guard = self.acquire_insert_lock(
                                 "acquire insert_lock in quantization maintenance",
                             )?;
                             let hnsw = self.hnsw.load();
-                            hnsw.add(node_id, node.bitset.clone(), node.vector.clone(), offset)?;
+                            hnsw.add_node(
+                                node_id,
+                                node.bitset.clone(),
+                                node.vector.clone(),
+                                offset,
+                            )?;
                             crate::metrics::record_promotion();
                             self.quantization_governor.reset(node_id);
                             promoted += 1;
@@ -723,22 +659,20 @@ impl StorageEngine {
         let vstore = self.vector_store[0].read();
         let hnsw = self.hnsw.load();
 
-        let tombstone_ids: Vec<u128> = hnsw
-            .nodes
+        let entries = hnsw.scan_entries();
+        let tombstone_ids: Vec<u128> = entries
             .iter()
-            .filter_map(|entry| {
-                let node = entry.value();
-                let id = *entry.key();
-                let header = vstore.read_header(node.storage_offset)?;
+            .filter_map(|(id, storage_offset, _)| {
+                let header = vstore.read_header(*storage_offset)?;
                 if (header.flags & FLAG_TOMBSTONE) != 0 {
-                    Some(id)
+                    Some(*id)
                 } else {
                     None
                 }
             })
             .collect();
 
-        let scanned = hnsw.nodes.len() as u64;
+        let scanned = entries.len() as u64;
         let removed_count = tombstone_ids.len() as u64;
 
         if removed_count == 0 {
@@ -753,12 +687,22 @@ impl StorageEngine {
             });
         }
 
-        for id in &tombstone_ids {
-            hnsw.nodes.remove(id);
-            hnsw.total_nodes
-                .fetch_sub(1, std::sync::atomic::Ordering::Relaxed);
-            if let Some(ref scalar) = self.scalar_index {
-                scalar.remove_node(*id);
+        {
+            for id in &tombstone_ids {
+                hnsw.remove_node(*id);
+                hnsw.decrement_total_nodes(1);
+                if let Some(ref scalar) = self.scalar_index {
+                    scalar.remove_node(*id);
+                }
+            }
+
+            // If the entry point was removed, find a replacement
+            if let Some(ep) = hnsw.entry_point() {
+                if !hnsw.contains_node(ep) {
+                    if let Some(new_ep) = hnsw.find_new_entry_point() {
+                        hnsw.set_entry_point(new_ep);
+                    }
+                }
             }
         }
 
@@ -766,17 +710,7 @@ impl StorageEngine {
         // This is an upper bound; actual mmap pages won't be freed until compaction.
         let reclaimed_bytes = tombstone_ids.len() as u64 * 512;
 
-        // If the entry point was removed, find a replacement
-        if let Some(ep) = hnsw.get_entry_point() {
-            if !hnsw.nodes.contains_key(&ep) {
-                if let Some(new_ep) = hnsw.find_new_entry_point() {
-                    hnsw.set_entry_point(new_ep);
-                }
-            }
-        }
-
         drop(vstore);
-        drop(hnsw);
 
         let elapsed_ms = started.elapsed().as_millis() as u64;
         tracing::info!(
@@ -806,9 +740,8 @@ impl StorageEngine {
         self.ensure_writable()?;
 
         let started = Instant::now();
-        let hnsw = self.hnsw.load();
-
-        let total_nodes = hnsw.nodes.len();
+        let entries = self.hnsw.load().scan_entries();
+        let total_nodes = entries.len();
         if total_nodes == 0 {
             let elapsed_ms = started.elapsed().as_millis() as u64;
             tracing::info!("merge_segments: empty index, skipping");
@@ -822,13 +755,10 @@ impl StorageEngine {
         }
 
         // ponytail: merge_segments reads L0 headers to count tombstones.
-        let tombstone_count = hnsw
-            .nodes
+        let tombstone_count = entries
             .iter()
-            .filter(|r| {
-                let n = r.value();
-                let packed = n.storage_offset;
-                let (seg_id, local_off) = crate::lsm::unpack_offset(packed);
+            .filter(|(_, storage_offset, _)| {
+                let (seg_id, local_off) = crate::lsm::unpack_offset(*storage_offset);
                 if let Some(vs) = self.vector_store.get(seg_id as usize) {
                     let guard = vs.read();
                     if let Some(h) = guard.read_header(local_off) {
@@ -844,8 +774,6 @@ impl StorageEngine {
 
         let frag_pct = tombstone_count as f32 / total_nodes as f32 * 100.0;
         let threshold = self.config.segment_optimizer.vacuum_threshold_pct;
-
-        drop(hnsw);
 
         if frag_pct < threshold {
             let elapsed_ms = started.elapsed().as_millis() as u64;
@@ -951,20 +879,17 @@ impl StorageEngine {
             return true;
         }
         // Count tombstones from HNSW for this level
-        let hnsw = self.hnsw.load();
         let mut tombstone_count = 0u64;
         let mut total_count = 0u64;
-        for entry in hnsw.nodes.iter() {
-            let n = entry.value();
-            let (seg_id, _local_off) = crate::lsm::unpack_offset(n.storage_offset);
+        for (_, storage_offset, flags) in self.hnsw.load().scan_entries() {
+            let (seg_id, _local_off) = crate::lsm::unpack_offset(storage_offset);
             if seg_id as u8 == level {
                 total_count += 1;
-                if (n.flags & FLAG_TOMBSTONE) != 0 {
+                if (flags & FLAG_TOMBSTONE) != 0 {
                     tombstone_count += 1;
                 }
             }
         }
-        drop(hnsw);
         if total_count == 0 {
             return false;
         }
@@ -1002,17 +927,16 @@ impl StorageEngine {
         // All 4 LSM levels are pre-allocated at init (SegmentRegistry::open_or_create),
         // so vector_store has entries for L0..L3 — no unsafe growth needed.
 
-        let hnsw = self.hnsw.load();
-
         // Collect live node IDs in this level
-        let live_ids: Vec<u128> = hnsw
-            .nodes
-            .iter()
-            .filter_map(|entry| {
-                let n = entry.value();
-                let (seg_id, _) = crate::lsm::unpack_offset(n.storage_offset);
-                if seg_id as u8 == level && (n.flags & FLAG_TOMBSTONE) == 0 {
-                    Some(*entry.key())
+        let live_ids: Vec<u128> = self
+            .hnsw
+            .load()
+            .scan_entries()
+            .into_iter()
+            .filter_map(|(id, storage_offset, flags)| {
+                let (seg_id, _) = crate::lsm::unpack_offset(storage_offset);
+                if seg_id as u8 == level && (flags & FLAG_TOMBSTONE) == 0 {
+                    Some(id)
                 } else {
                     None
                 }
@@ -1020,7 +944,6 @@ impl StorageEngine {
             .collect();
 
         if live_ids.is_empty() {
-            drop(hnsw);
             return Ok(LsmReport {
                 level,
                 nodes_promoted: 0,
@@ -1048,12 +971,12 @@ impl StorageEngine {
         }
 
         // Update HNSW offsets
-        for (node_id, new_off) in &new_offsets {
-            if let Some(mut node_ref) = hnsw.nodes.get_mut(node_id) {
-                node_ref.storage_offset = *new_off;
+        {
+            let hnsw = self.hnsw.load();
+            for (node_id, new_off) in &new_offsets {
+                hnsw.set_storage_offset(*node_id, *new_off);
             }
         }
-        drop(hnsw);
 
         // Truncate source segment: reset write cursor past alignment header
         let reclaimed_bytes = {

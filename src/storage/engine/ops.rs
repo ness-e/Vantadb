@@ -146,9 +146,9 @@ impl StorageEngine {
         // `add` instead of cloning bitset+vector per insert (AUD-024).
         for op in ops {
             if op.is_delete {
-                hnsw.nodes.remove(&op.id);
+                hnsw.remove_node(op.id);
             } else {
-                hnsw.add(op.id, op.bitset, op.vector, op.storage_offset)?;
+                hnsw.add_node(op.id, op.bitset, op.vector, op.storage_offset)?;
             }
         }
         Ok(true)
@@ -192,9 +192,9 @@ impl StorageEngine {
             // consume the taken batch by value to avoid 2 heap clones/insert.
             for op in ops {
                 if op.is_delete {
-                    hnsw.nodes.remove(&op.id);
+                    hnsw.remove_node(op.id);
                 } else {
-                    hnsw.add(op.id, op.bitset, op.vector, op.storage_offset)?;
+                    hnsw.add_node(op.id, op.bitset, op.vector, op.storage_offset)?;
                 }
             }
             // guard dropped here
@@ -262,11 +262,10 @@ impl StorageEngine {
                         Err(_) => continue,
                     };
 
-                let index_node = match hnsw.nodes.get(&id) {
-                    Some(n) => n,
+                let storage_offset = match hnsw.storage_offset_of(id) {
+                    Some(off) => off,
                     None => continue,
                 };
-                let storage_offset = index_node.storage_offset;
                 let (seg_id, local_off) = unpack_offset(storage_offset);
                 let vstore = self
                     .vector_store

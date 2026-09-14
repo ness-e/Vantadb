@@ -421,7 +421,7 @@ impl crate::index::VecIndex for IvfIndex {
         query_vec: &[f32],
         query_mask: &crate::node::FilterBitset,
         top_k: usize,
-        _vector_store: Option<&crate::storage::vfile::File>,
+        _vector_store: Option<&dyn crate::index_port::VectorStoreRef>,
         _distance_metric: crate::node::DistanceMetric,
     ) -> Vec<(u128, f32)> {
         // IvfIndex does its own distance computation from stored vectors;

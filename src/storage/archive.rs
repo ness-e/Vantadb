@@ -1,7 +1,7 @@
 //! HNSW index rebuild, layout compaction, and graph traversal utilities.
 
 use crate::error::{Error, Result};
-use crate::index::CPIndex;
+use crate::index_port::IndexPort;
 use crate::node::DiskNodeHeader;
 use crate::storage::vfile::{map_readwrite, File};
 use std::collections::{HashMap, HashSet, VecDeque};
@@ -41,7 +41,7 @@ fn payload_len_for_header(header: &DiskNodeHeader) -> u64 {
 /// Rewrite the File with nodes in BFS order, returning the new offset map and file size.
 pub fn compact_layout(
     vstore: &mut File,
-    hnsw: &CPIndex,
+    hnsw: &dyn IndexPort,
     bfs_order: &[u128],
     header_size: u64,
 ) -> Result<(HashMap<u128, u64>, u64)> {
@@ -50,7 +50,7 @@ pub fn compact_layout(
     if vstore.file.is_none() {
         let offset_map: HashMap<u128, u64> = bfs_order
             .iter()
-            .filter_map(|&id| hnsw.nodes.get(&id).map(|n| (id, n.storage_offset)))
+            .filter_map(|&id| hnsw.storage_offset_of(id).map(|off| (id, off)))
             .collect();
         return Ok((offset_map, vstore.write_cursor));
     }
@@ -62,8 +62,7 @@ pub fn compact_layout(
     }
     let mut new_file_size: u64 = 64;
     for &node_id in bfs_order {
-        if let Some(node_ref) = hnsw.nodes.get(&node_id) {
-            let offset = node_ref.storage_offset;
+        if let Some(offset) = hnsw.storage_offset_of(node_id) {
             if let Some(old_header) = vstore.read_header(offset) {
                 let payload = payload_len_for_header(&old_header);
                 let vec_size = (payload + 63) & !63;
@@ -101,8 +100,7 @@ pub fn compact_layout(
     let mut write_cursor: u64 = STORAGE_ALIGNMENT;
 
     for &node_id in bfs_order {
-        if let Some(node_ref) = hnsw.nodes.get(&node_id) {
-            let old_offset = node_ref.storage_offset;
+        if let Some(old_offset) = hnsw.storage_offset_of(node_id) {
             let old_header = match vstore.read_header(old_offset) {
                 Some(h) => h,
                 None => continue,
@@ -170,8 +168,8 @@ pub fn compact_layout(
 }
 
 /// BFS traversal of the HNSW graph starting from the entry point, returning node IDs in visit order.
-pub fn traverse_graph(hnsw: &CPIndex, entry_point_id: u128) -> Vec<u128> {
-    let total_nodes = hnsw.nodes.len();
+pub fn traverse_graph(hnsw: &dyn IndexPort, entry_point_id: u128) -> Vec<u128> {
+    let total_nodes = hnsw.node_count();
     let mut bfs_order: Vec<u128> = Vec::with_capacity(total_nodes);
     let mut visited: HashSet<u128> = HashSet::with_capacity(total_nodes);
     let mut queue: VecDeque<u128> = VecDeque::with_capacity(total_nodes.min(BFS_QUEUE_CAPACITY));
@@ -179,47 +177,50 @@ pub fn traverse_graph(hnsw: &CPIndex, entry_point_id: u128) -> Vec<u128> {
     visited.insert(entry_point_id);
     while let Some(node_id) = queue.pop_front() {
         bfs_order.push(node_id);
-        if let Some(layer0) = hnsw.neighbor_index.get_neighbors_ref(node_id, 0) {
-            for &nid in layer0.iter() {
-                if visited.insert(nid) {
-                    queue.push_back(nid);
-                }
+        for nid in hnsw.layer_neighbors(node_id, 0) {
+            if visited.insert(nid) {
+                queue.push_back(nid);
             }
         }
     }
-    for entry in hnsw.nodes.iter() {
-        if visited.insert(*entry.key()) {
-            bfs_order.push(*entry.key());
+    for id in hnsw.all_node_ids() {
+        if visited.insert(id) {
+            bfs_order.push(id);
         }
     }
     bfs_order
 }
 
 /// Update each node's storage offset in the HNSW index after compaction.
-pub fn reindex_nodes(hnsw: &CPIndex, new_offsets: &HashMap<u128, u64>) {
+pub fn reindex_nodes(hnsw: &dyn IndexPort, new_offsets: &HashMap<u128, u64>) {
     for (&node_id, &new_offset) in new_offsets {
-        if let Some(mut node_ref) = hnsw.nodes.get_mut(&node_id) {
-            node_ref.storage_offset = new_offset;
-        }
+        hnsw.set_storage_offset(node_id, new_offset);
     }
 }
 
-/// Create a new CPIndex with the same backend configuration (mmap or in-memory) as the existing one.
-pub(crate) fn fresh_index_like(existing: &CPIndex, index_path: PathBuf) -> CPIndex {
+/// Test-only shim (F3X-X1b): production uses `IndexPort::fresh_box` via the
+/// `port_impl` factories. Kept concrete so the `fresh_index_like_*` tests keep
+/// covering the exact construction logic without a production `CPIndex` edge.
+#[cfg(test)]
+pub(crate) fn fresh_index_like(
+    existing: &crate::index::CPIndex,
+    index_path: PathBuf,
+) -> crate::index::CPIndex {
+    use crate::index::IndexBackend;
     let config = existing.config.clone();
     if existing.backend.is_mmap() {
-        let mut idx = CPIndex::with_backend(crate::index::IndexBackend::new_mmap(index_path));
+        let mut idx = crate::index::CPIndex::with_backend(IndexBackend::new_mmap(index_path));
         idx.config = config;
         idx
     } else {
-        CPIndex::new_with_config(config)
+        crate::index::CPIndex::new_with_config(config)
     }
 }
 
 /// Rebuild the entire HNSW index by scanning all nodes from the File.
 /// If `segment_id` is Some(n), offsets are packed with the segment_id.
 pub(crate) fn rebuild_hnsw_from_vstore(
-    hnsw: &mut CPIndex,
+    hnsw: &mut dyn IndexPort,
     vstore: &File,
     index_path: PathBuf,
 ) -> Result<crate::storage::IndexRebuildReport> {
@@ -228,7 +229,7 @@ pub(crate) fn rebuild_hnsw_from_vstore(
 
 /// Rebuild HNSW from a File, optionally packing offsets with a segment_id.
 pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
-    hnsw: &mut CPIndex,
+    hnsw: &mut dyn IndexPort,
     vstore: &File,
     index_path: PathBuf,
     segment_id: Option<u8>,
@@ -429,8 +430,8 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
 
         entries.into_par_iter().try_for_each(|entry| {
             let bitset = crate::node::FilterBitset::from_u128(entry.bitset);
-            let level = crate::index::random_layer_from_config(&hnsw.config, &mut rand::rng());
-            hnsw.add_with_level(
+            let level = hnsw.random_level();
+            hnsw.add_node_with_level(
                 entry.id,
                 bitset,
                 entry.vec_data,
@@ -444,7 +445,7 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
     {
         for entry in entries {
             let bitset = crate::node::FilterBitset::from_u128(entry.bitset);
-            hnsw.add(entry.id, bitset, entry.vec_data, entry.storage_offset)?;
+            hnsw.add_node(entry.id, bitset, entry.vec_data, entry.storage_offset)?;
         }
     }
 

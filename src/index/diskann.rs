@@ -397,7 +397,7 @@ impl crate::index::VecIndex for DiskAnnIndex {
         query_vec: &[f32],
         query_mask: &FilterBitset,
         top_k: usize,
-        _vector_store: Option<&crate::storage::vfile::File>,
+        _vector_store: Option<&dyn crate::index_port::VectorStoreRef>,
         _distance_metric: DistanceMetric,
     ) -> Vec<(u128, f32)> {
         if top_k == 0 {

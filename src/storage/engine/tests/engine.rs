@@ -1331,6 +1331,29 @@ fn d1a_insert_hnsw_leveled_indexes() {
         engine.lookup_index_offset(97).is_some(),
         "leveled insert must index the id"
     );
+    // H1 (review): levels must VARY across a bulk insert — one fresh RNG per
+    // entry collapses to a single constant level (broken stream).
+    let bulk: Vec<(u128, FilterBitset, VectorRepresentations, u64)> = (1000..1200u128)
+        .map(|id| {
+            (
+                id,
+                FilterBitset::all_set(),
+                VectorRepresentations::Full(vec![0.1, 0.2, 0.3]),
+                0u64,
+            )
+        })
+        .collect();
+    engine.insert_hnsw_leveled(&bulk).expect("bulk index");
+    let index = engine.vec_index();
+    let mut distinct = std::collections::HashSet::new();
+    for id in 1000..1200u128 {
+        distinct.insert(index.node_layers(id));
+    }
+    assert!(
+        distinct.len() > 1,
+        "bulk leveled insert must spread nodes across layers, got {:?}",
+        distinct
+    );
 }
 
 #[test]

@@ -1,6 +1,5 @@
 //! Insert and batch-insert operations (single node and bulk paths).
 
-use rand::SeedableRng;
 use std::sync::atomic::Ordering;
 use web_time::{SystemTime, UNIX_EPOCH};
 
@@ -403,7 +402,7 @@ impl StorageEngine {
     pub(crate) fn maybe_auto_flush(&self) {
         if let Some(threshold) = self.config.flush_threshold {
             let hnsw = self.hnsw.load();
-            if hnsw.nodes.len() >= threshold && self.insert_lock.try_lock().is_some() {
+            if hnsw.node_count() >= threshold && self.insert_lock.try_lock().is_some() {
                 drop(hnsw);
                 if let Err(e) = self.flush() {
                     tracing::warn!("auto-flush failed: {e}");
@@ -492,18 +491,18 @@ impl StorageEngine {
         entries: &[(u128, FilterBitset, VectorRepresentations, u64)],
     ) -> Result<()> {
         let hnsw = self.hnsw.load();
-        let mut rng = rand::rngs::StdRng::seed_from_u64(42);
+        // Single RNG stream (seed 42) shared by all entries — same draws as the
+        // pre-split loop; the sort below is only meaningful with real spread.
+        let levels = hnsw.bulk_levels_seeded(42, entries.len());
         let mut leveled: Vec<(usize, u128, FilterBitset, VectorRepresentations, u64)> =
             Vec::with_capacity(entries.len());
-        for (id, bitset, vector, offset) in entries {
-            // ponytail: deterministic seed — reproducible HNSW topology
-            let level = crate::index::random_layer_from_config(&hnsw.config, &mut rng);
+        for ((id, bitset, vector, offset), level) in entries.iter().zip(levels) {
             leveled.push((level, *id, bitset.clone(), vector.clone(), *offset));
         }
         // Higher level first — better entry point placement
         leveled.sort_by_key(|k| std::cmp::Reverse(k.0));
         for (level, id, bitset, vector, offset) in &leveled {
-            hnsw.add_with_level(*id, bitset.clone(), vector.clone(), *offset, *level)?;
+            hnsw.add_node_with_level(*id, bitset.clone(), vector.clone(), *offset, *level)?;
         }
         Ok(())
     }
@@ -650,7 +649,7 @@ impl StorageEngine {
             .backend
             .put(BackendPartition::Default, &key, &metadata_val)
         {
-            self.hnsw.load().nodes.remove(&node.id);
+            self.hnsw.load().remove_node(node.id);
             let mut vstore = self.vstore0()?;
             if let Some(mut hdr) = vstore.read_header(local_off) {
                 hdr.flags |= FLAG_TOMBSTONE;
@@ -711,7 +710,7 @@ impl StorageEngine {
         // next uncontended call or user-initiated flush().
         if let Some(threshold) = self.config.flush_threshold {
             let hnsw = self.hnsw.load();
-            if hnsw.nodes.len() >= threshold && self.insert_lock.try_lock().is_some() {
+            if hnsw.node_count() >= threshold && self.insert_lock.try_lock().is_some() {
                 drop(hnsw);
                 if let Err(e) = self.flush() {
                     tracing::warn!("auto-flush failed: {e}");

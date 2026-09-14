@@ -17,6 +17,8 @@ use crate::binary_header::VantaHeader;
 use crate::crypto::{Cipher, EncryptionStream};
 use crate::error::{Error, Result};
 use crate::node::DiskNodeHeader;
+#[cfg(unix)]
+use libc;
 use std::fs::{File as StdFile, OpenOptions};
 use std::path::PathBuf;
 use zerocopy::{FromBytes, IntoBytes};
@@ -459,6 +461,55 @@ impl File {
         let stream_cipher = Cipher::from_env().ok()?;
         Some(EncryptionStream::new(file, stream_cipher))
     }
+}
+
+impl crate::index_port::sealed::Sealed for File {}
+
+/// `VectorStoreRef` bridge (F3X): the index consumes the store through the leaf
+/// trait, so no `index → storage` item-edge escapes through search signatures.
+impl crate::index_port::VectorStoreRef for File {
+    fn read_header(&self, offset: u64) -> Option<DiskNodeHeader> {
+        // Inherent method wins — deliberate delegation.
+        self.read_header(offset)
+    }
+
+    fn mmap_bytes(&self) -> &[u8] {
+        // Same: inherent `File::mmap_bytes`.
+        self.mmap_bytes()
+    }
+}
+
+/// Advise the OS that a vector range is no longer needed (moved from
+/// `index::graph::prefetch`, F3X: sole caller is storage-side consolidation).
+#[inline(always)]
+/// # Safety
+///
+/// `mmap_ptr` must point to a valid mmap region, and `offset + len` must be
+/// within that region. The caller must ensure the mapping is not concurrently
+/// unmapped or resized.
+#[allow(unused_variables)]
+pub unsafe fn release_mmap_vector(mmap_ptr: *const u8, offset: usize, len: usize) {
+    #[cfg(unix)]
+    {
+        // SAFETY: caller guarantees `mmap_ptr` + `offset + len` is within a valid
+        // mmap region. `madvise` with `MADV_DONTNEED` is async-signal-safe; the
+        // mapping itself remains valid after the hint.
+        unsafe {
+            libc::madvise(
+                mmap_ptr.add(offset) as *mut libc::c_void,
+                len,
+                libc::MADV_DONTNEED,
+            );
+        }
+    }
+
+    #[cfg(windows)]
+    {
+        let _ = (mmap_ptr, offset, len);
+    }
+
+    #[cfg(not(any(unix, windows)))]
+    let _ = (mmap_ptr, offset, len);
 }
 
 #[cfg(test)]

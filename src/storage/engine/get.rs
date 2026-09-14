@@ -230,7 +230,7 @@ impl StorageEngine {
     /// HNSW index → packed storage offset. `None` = not indexed.
     pub(crate) fn lookup_index_offset(&self, id: u128) -> Option<u64> {
         let hnsw = self.hnsw.load();
-        hnsw.nodes.get(&id).map(|n| n.storage_offset)
+        hnsw.storage_offset_of(id)
     }
 
     /// vstore header at a packed offset. `None` = torn write; `Err` = bad segment.
@@ -293,10 +293,10 @@ impl StorageEngine {
             return decoded;
         }
         let hnsw = self.hnsw.load();
-        let Some(entry) = hnsw.nodes.get(&id) else {
+        let Some(vec_data) = hnsw.stored_vector(id) else {
             return decoded;
         };
-        pick_rescue_payload(&entry.value().vec_data, decoded)
+        pick_rescue_payload(&vec_data, decoded)
     }
 
     /// Materialize a node past the txn/cache fast paths: backend metadata →
@@ -396,7 +396,8 @@ impl StorageEngine {
     pub(crate) fn warm_hnsw_top_layer(&self) {
         let top_ids = {
             let hnsw = self.hnsw.load();
-            crate::cache_warmer::CacheWarmer::hnsw_top_layer_ids(&hnsw)
+            // &***: Guard → Arc → Box → dyn (one deref per wrapper).
+            crate::cache_warmer::CacheWarmer::hnsw_top_layer_ids(&***hnsw)
         };
         if top_ids.is_empty() {
             return;
@@ -538,10 +539,9 @@ impl StorageEngine {
                 Err(_) => continue,
             };
 
-            let Some(index_node) = hnsw.nodes.get(&id) else {
+            let Some((storage_offset, index_vec)) = hnsw.node_view(id) else {
                 continue;
             };
-            let storage_offset = index_node.storage_offset;
             let (seg_id, local_off) = unpack_offset(storage_offset);
 
             let vstore = self
@@ -565,17 +565,11 @@ impl StorageEngine {
             let vector = if kind == 0 {
                 // legacy pre-ADR-032: kind 0 with len>0 is FULL, with len==0 is NONE (or rescue)
                 if header.vector_len == 0 {
-                    if let crate::node::VectorRepresentations::Binary(b) =
-                        &index_node.value().vec_data
-                    {
+                    if let crate::node::VectorRepresentations::Binary(b) = &index_vec {
                         VectorRepresentations::Binary(b.clone())
-                    } else if let crate::node::VectorRepresentations::SQ8(d, s) =
-                        &index_node.value().vec_data
-                    {
+                    } else if let crate::node::VectorRepresentations::SQ8(d, s) = &index_vec {
                         VectorRepresentations::SQ8(d.clone(), *s)
-                    } else if let crate::node::VectorRepresentations::Turbo(t) =
-                        &index_node.value().vec_data
-                    {
+                    } else if let crate::node::VectorRepresentations::Turbo(t) = &index_vec {
                         VectorRepresentations::Turbo(t.clone())
                     } else {
                         VectorRepresentations::None

@@ -71,7 +71,7 @@ fn test_wal_durability_and_checkpoint_coherence() {
     // Validamos que el nodo 104 está presente en el índice reconstruido
     let hnsw = storage2.hnsw.load();
     assert!(
-        hnsw.nodes.contains_key(&104),
+        hnsw.contains_node(104),
         "WAL replay should recover un-flushed node 104"
     );
 
@@ -184,19 +184,19 @@ fn test_wal_middle_corruption_auto_healing() {
 
     let hnsw = storage2.hnsw.load();
     assert!(
-        hnsw.nodes.contains_key(&201),
+        hnsw.contains_node(201),
         "WAL recovery should retrieve node 201 before corruption"
     );
     assert!(
-        hnsw.nodes.contains_key(&203),
+        hnsw.contains_node(203),
         "WAL recovery should retrieve node 203 which was written before corruption but lies after the corrupt record"
     );
     assert!(
-        hnsw.nodes.contains_key(&204),
+        hnsw.contains_node(204),
         "WAL recovery should retrieve node 204 written after corruption"
     );
     assert!(
-        !hnsw.nodes.contains_key(&202),
+        !hnsw.contains_node(202),
         "Corrupted node 202 should be skipped gracefully"
     );
 
@@ -303,15 +303,15 @@ fn test_wal_selective_crc_corruption_recovery() {
     let hnsw = storage2.hnsw.load();
 
     assert!(
-        hnsw.nodes.contains_key(&301),
+        hnsw.contains_node(301),
         "WAL recovery should retrieve node 301 before the corrupted record"
     );
     assert!(
-        !hnsw.nodes.contains_key(&302),
+        !hnsw.contains_node(302),
         "Node 302 MUST be skipped because its record-level CRC is corrupt"
     );
     assert!(
-        hnsw.nodes.contains_key(&303),
+        hnsw.contains_node(303),
         "WAL recovery MUST scan forward and recover node 303 after the corrupted record"
     );
 

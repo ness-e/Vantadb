@@ -100,6 +100,7 @@ pub mod graph;
 pub mod graphrag;
 pub mod hardware;
 pub mod index;
+pub mod index_port;
 pub mod integrations;
 #[cfg(any(feature = "remote-inference", feature = "embed-local"))]
 pub mod llm;
