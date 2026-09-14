@@ -276,3 +276,8 @@ Plan `docs/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ en 3 
 - **Retrospectiva:** Start: Gate V ante muros (F3X pub-sigs). Stop: asumir diseno intacto (F3X-H2, F3C-vistas). Continue: diseno-primero + review P2-01 pre-commit.
 - **Accion medible:** HALLAZGO + Gate V ante divergencia diseno→impl (metrica: 0 divergencias no registradas).
 - **DEFER ahora cotizable:** reorg fisica (gate 4/4). Futuro: firma ADR-043 + revisit FIND-89.
+
+## Excepcion Regla 5 en ADR-043 (2026-09-14)
+- **Orden:** owner pidio firma por el lead + eliminar la regla; alcance elegido: excepcion local (recomendado).
+- **Motivo:** Regla 5 vive en .opencode/AGENTS.md (submodulo configOpencode compartido); borrarla ahi rige todos los proyectos.
+- **Efecto:** ADR-043 firmado por vanta-lead articulando decisiones humanas D0-B+B y F3C-Q1=B/Q2=B/Q3=A; la regla sigue vigente en el compartido.
