@@ -80,7 +80,7 @@ convencion_carpeta: >
 | CRIT-06 durabilidad WAL efectiva nula | ✅ MITIGADO | `DEFAULT_PERIODIC_THRESHOLD=1` → sync cada record (wal.rs:340); FAQ corregida |
 | TIR-02 recovery time métrica | ✅ IMPLEMENTADO | `recoveryPairs()` en evals/dora.mjs:207 |
 | TIR-08 saturación/broadening en prompts | ✅ IMPLEMENTADO | research-agent.md:31-32 |
-| TIR-07/TSYS-06 chaos runner task-system | ✅ RESUELTO — behavior changes + parsers.mjs + 29 tests; runner Fase 4 DEFERIDO ≤2026-09 | TSYS-06 §10 COMPLETO |
+| TIR-07/TSYS-06 chaos runner task-system | ✅ PARCIAL — F1 implementado (parsers, `bd4c3c22`); runner Fase 4 DEFER doctrinal, sin runner (corrección 2026-09-14) | TSYS-06 §10 COMPLETO |
 | TIR-04 dead-letter queue | ✅ Decisión: contenedor citado (tasks/closed/) — infra nueva WONTFIT | TIR-04 |
 | TIR-06 post-release monitoring | ✅ DECIDIDO: DEFER, per-release ownership (DoD + /ship) | TIR-06 |
 | TIR-05 LLM-as-judge | ✅ DECIDIDO: DEFER reactivo (<$1/trim, volumen bajo, review humano alcanza) | TIR-05 |
