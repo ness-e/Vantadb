@@ -14,12 +14,12 @@
 //! - [`OpenAIProvider`] - OpenAI `/v1/embeddings` (`remote-inference`)
 //! - [`LocalOnnxProvider`] - local ONNX via `ort`+`tokenizers` (`embed-local`)
 //!
-//! Select the provider at runtime via `VANTA_EMBEDDING_PROVIDER` (ollama|openai|local).
+//! Select the provider at runtime via `VANTADB_EMBEDDING_PROVIDER` (ollama|openai|local).
 
+use crate::config::Config;
 use crate::error::{Error, Result};
 #[cfg(feature = "remote-inference")]
 use reqwest::blocking::Client;
-use std::env;
 
 // ── EmbeddingProvider trait ────────────────────────────────────────────
 
@@ -45,23 +45,20 @@ pub trait EmbeddingProvider: Send + Sync {
 // ── Factory ───────────────────────────────────────────────────────────
 
 #[cfg(all(feature = "remote-inference", feature = "embed-local"))]
-/// Return the embedding provider selected by `VANTA_EMBEDDING_PROVIDER`.
+/// Return the embedding provider selected by `VANTADB_EMBEDDING_PROVIDER`.
 ///
 /// | Value   | Provider                                          |
 /// |---------|---------------------------------------------------|
-/// | `openai`| [`OpenAIProvider`] — requires `VANTA_OPENAI_API_KEY` |
+/// | `openai`| [`OpenAIProvider`] — requires `VANTADB_OPENAI_API_KEY` |
 /// | `ollama`| [`OllamaProvider`]                                |
 /// | `local` | [`LocalOnnxProvider`] — requires `embed-local` feature |
 pub fn get_embedding_provider() -> Box<dyn EmbeddingProvider> {
-    match env::var("VANTA_EMBEDDING_PROVIDER")
-        .as_deref()
-        .unwrap_or("local")
-    {
-        "openai" => Box::new(OpenAIProvider::new()),
-        "ollama" => Box::new(OllamaProvider::new()),
+    let cfg = Config::default().llm_cfg();
+    match cfg.embedding_provider.as_str() {
+        "openai" => Box::new(OpenAIProvider::new(&cfg)),
+        "ollama" => Box::new(OllamaProvider::new(&cfg)),
         "local" | "multilingual-e5-small" => {
-            let model_dir = env::var("VANTA_LOCAL_MODEL")
-                .unwrap_or_else(|_| "embeddings/models/multilingual-e5-small/onnx".to_string());
+            let model_dir = cfg.local_model_path;
             // ponytail: unwrap fallback to deterministic dummy if model missing — keeps CI green without 691MB download
             Box::new(
                 LocalOnnxProvider::new(&model_dir)
@@ -69,8 +66,7 @@ pub fn get_embedding_provider() -> Box<dyn EmbeddingProvider> {
             )
         }
         _ => {
-            let model_dir = env::var("VANTA_LOCAL_MODEL")
-                .unwrap_or_else(|_| "embeddings/models/multilingual-e5-small/onnx".to_string());
+            let model_dir = cfg.local_model_path;
             Box::new(
                 LocalOnnxProvider::new(&model_dir)
                     .unwrap_or_else(|_| LocalOnnxProvider::new_dummy(384)),
@@ -80,27 +76,25 @@ pub fn get_embedding_provider() -> Box<dyn EmbeddingProvider> {
 }
 
 #[cfg(all(feature = "remote-inference", not(feature = "embed-local")))]
-/// Return the embedding provider selected by `VANTA_EMBEDDING_PROVIDER`.
+/// Return the embedding provider selected by `VANTADB_EMBEDDING_PROVIDER`.
 ///
 /// | Value   | Provider                                          |
 /// |---------|---------------------------------------------------|
-/// | `openai`| [`OpenAIProvider`] — requires `VANTA_OPENAI_API_KEY` |
+/// | `openai`| [`OpenAIProvider`] — requires `VANTADB_OPENAI_API_KEY` |
 /// | _any_   | [`OllamaProvider`] (default)                      |
 pub fn get_embedding_provider() -> Box<dyn EmbeddingProvider> {
-    match env::var("VANTA_EMBEDDING_PROVIDER")
-        .as_deref()
-        .unwrap_or("ollama")
-    {
-        "openai" => Box::new(OpenAIProvider::new()),
-        _ => Box::new(OllamaProvider::new()),
+    let cfg = Config::default().llm_cfg();
+    match cfg.embedding_provider.as_str() {
+        "openai" => Box::new(OpenAIProvider::new(&cfg)),
+        _ => Box::new(OllamaProvider::new(&cfg)),
     }
 }
 
 #[cfg(all(not(feature = "remote-inference"), feature = "embed-local"))]
 /// Return the embedding provider — only `LocalOnnxProvider` available without `remote-inference`.
 pub fn get_embedding_provider() -> Box<dyn EmbeddingProvider> {
-    let model_dir = env::var("VANTA_LOCAL_MODEL")
-        .unwrap_or_else(|_| "embeddings/models/multilingual-e5-small/onnx".to_string());
+    let cfg = Config::default().llm_cfg();
+    let model_dir = cfg.local_model_path;
     Box::new(
         LocalOnnxProvider::new(&model_dir).unwrap_or_else(|_| LocalOnnxProvider::new_dummy(384)),
     )
@@ -128,6 +122,15 @@ impl LocalOnnxProvider {
     /// is used when `model.onnx` + `tokenizer.json` are present and `ort`
     /// loads successfully.
     pub fn new(model_dir: &str) -> Result<Self> {
+        Self::from_llm_cfg(&crate::config::LlmCfg {
+            local_model_path: model_dir.to_string(),
+            ..Default::default()
+        })
+    }
+
+    /// Create a new provider from [`LlmCfg`] (uses `local_model_path`).
+    pub fn from_llm_cfg(cfg: &crate::config::LlmCfg) -> Result<Self> {
+        let model_dir = &cfg.local_model_path;
         let dim = Self::detect_dim(model_dir);
         // try to load tokenizer
         let tokenizer = Self::try_load_tokenizer(model_dir);
@@ -461,8 +464,8 @@ struct OllamaEmbeddingResponse {
 
 /// Embedding provider backed by a local Ollama server.
 ///
-/// Reads `VANTA_LLM_URL` (default `http://localhost:11434`) and
-/// `VANTA_LLM_MODEL` (default `all-minilm`).
+/// Reads `VANTADB_LLM_URL` (default `http://localhost:11434`) and
+/// `VANTADB_LLM_MODEL` (default `all-minilm`).
 #[cfg(feature = "remote-inference")]
 pub struct OllamaProvider {
     client: Client,
@@ -472,12 +475,8 @@ pub struct OllamaProvider {
 
 #[cfg(feature = "remote-inference")]
 impl OllamaProvider {
-    /// Create a new Ollama provider from environment variables.
-    pub fn new() -> Self {
-        let base_url =
-            env::var("VANTA_LLM_URL").unwrap_or_else(|_| "http://localhost:11434".to_string());
-        let default_model =
-            env::var("VANTA_LLM_MODEL").unwrap_or_else(|_| "all-minilm".to_string());
+    /// Create a new Ollama provider from [`LlmCfg`].
+    pub fn new(cfg: &crate::config::LlmCfg) -> Self {
         Self {
             client: Client::builder()
                 .pool_idle_timeout(Some(std::time::Duration::from_secs(60)))
@@ -485,16 +484,22 @@ impl OllamaProvider {
                 .timeout(std::time::Duration::from_secs(30))
                 .build()
                 .unwrap_or_else(|_| Client::new()),
-            base_url,
-            default_model,
+            base_url: cfg.llm_url.clone(),
+            default_model: cfg.llm_model.clone(),
         }
+    }
+
+    /// Create a new Ollama provider from environment variables (legacy fallback).
+    #[deprecated = "Use `new(&LlmCfg)` instead; reads VANTADB_* via Config"]
+    pub fn from_env() -> Self {
+        Self::new(&Config::default().llm_cfg())
     }
 }
 
 #[cfg(feature = "remote-inference")]
 impl Default for OllamaProvider {
     fn default() -> Self {
-        Self::new()
+        Self::from_env()
     }
 }
 
@@ -537,12 +542,12 @@ impl EmbeddingProvider for OllamaProvider {
 
 /// Embedding provider backed by the OpenAI API.
 ///
-/// Requires `VANTA_OPENAI_API_KEY`.  Reads `VANTA_OPENAI_MODEL`
+/// Requires `VANTADB_OPENAI_API_KEY`.  Reads `VANTADB_OPENAI_MODEL`
 /// (default `text-embedding-3-small`).
 #[cfg(feature = "remote-inference")]
 pub struct OpenAIProvider {
     client: Client,
-    /// `None` when `VANTA_OPENAI_API_KEY` was absent at construction (B2b:
+    /// `None` when `VANTADB_OPENAI_API_KEY` was absent at construction (B2b:
     /// the missing key is reported as `InvalidInput` from `embed`, never a
     /// construction panic — every call site already degrades gracefully on
     /// embed errors).
@@ -552,15 +557,11 @@ pub struct OpenAIProvider {
 
 #[cfg(feature = "remote-inference")]
 impl OpenAIProvider {
-    /// Create a new OpenAI provider from environment variables.
+    /// Create a new OpenAI provider from [`LlmCfg`].
     ///
-    /// Reads `VANTA_OPENAI_MODEL` (default `text-embedding-3-small`).
-    /// A missing `VANTA_OPENAI_API_KEY` does NOT panic: it is reported as
+    /// A missing `VANTADB_OPENAI_API_KEY` does NOT panic: it is reported as
     /// [`Error::InvalidInput`] from [`EmbeddingProvider::embed`] instead.
-    pub fn new() -> Self {
-        let api_key = env::var("VANTA_OPENAI_API_KEY").ok();
-        let model =
-            env::var("VANTA_OPENAI_MODEL").unwrap_or_else(|_| "text-embedding-3-small".to_string());
+    pub fn new(cfg: &crate::config::LlmCfg) -> Self {
         Self {
             client: Client::builder()
                 .pool_idle_timeout(Some(std::time::Duration::from_secs(60)))
@@ -568,16 +569,22 @@ impl OpenAIProvider {
                 .timeout(std::time::Duration::from_secs(30))
                 .build()
                 .unwrap_or_else(|_| Client::new()),
-            api_key,
-            model,
+            api_key: cfg.openai_api_key.clone(),
+            model: cfg.openai_model.clone(),
         }
+    }
+
+    /// Create a new OpenAI provider from environment variables (legacy fallback).
+    #[deprecated = "Use `new(&LlmCfg)` instead; reads VANTADB_* via Config"]
+    pub fn from_env() -> Self {
+        Self::new(&Config::default().llm_cfg())
     }
 }
 
 #[cfg(feature = "remote-inference")]
 impl Default for OpenAIProvider {
     fn default() -> Self {
-        Self::new()
+        Self::from_env()
     }
 }
 
@@ -652,21 +659,20 @@ impl EmbeddingProvider for OpenAIProvider {
 pub struct LlmClient {
     client: Client,
     base_url: String,
+    summarize_model: String,
 }
 
 #[cfg(feature = "remote-inference")]
 impl Default for LlmClient {
     fn default() -> Self {
-        Self::new()
+        Self::from_env()
     }
 }
 
 #[cfg(feature = "remote-inference")]
 impl LlmClient {
-    /// Create a new client reading `VANTA_LLM_URL` from the environment.
-    pub fn new() -> Self {
-        let base_url =
-            env::var("VANTA_LLM_URL").unwrap_or_else(|_| "http://localhost:11434".to_string());
+    /// Create a new client from [`LlmCfg`].
+    pub fn new(cfg: &crate::config::LlmCfg) -> Self {
         Self {
             client: Client::builder()
                 .pool_idle_timeout(Some(std::time::Duration::from_secs(60)))
@@ -674,8 +680,15 @@ impl LlmClient {
                 .timeout(std::time::Duration::from_secs(30))
                 .build()
                 .unwrap_or_else(|_| Client::new()),
-            base_url,
+            base_url: cfg.llm_url.clone(),
+            summarize_model: cfg.llm_summarize_model.clone(),
         }
+    }
+
+    /// Create a new client from environment variables (legacy fallback).
+    #[deprecated = "Use `new(&LlmCfg)` instead; reads VANTADB_* via Config"]
+    pub fn from_env() -> Self {
+        Self::new(&Config::default().llm_cfg())
     }
 
     /// Invoke the LLM to generate a semantic summary of a group of archived nodes.
@@ -732,13 +745,10 @@ impl LlmClient {
             full_context
         );
 
-        let summarize_model =
-            env::var("VANTA_LLM_SUMMARIZE_MODEL").unwrap_or_else(|_| "llama3".to_string());
-
         let url = format!("{}/api/generate", self.base_url);
 
         let req_body = OllamaGenerateRequest {
-            model: &summarize_model,
+            model: &self.summarize_model,
             system: system_prompt,
             prompt: &user_prompt,
             stream: false,
