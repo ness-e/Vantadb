@@ -308,7 +308,7 @@ fn test_refresh_index_with_vector() {
     engine.insert(&node).expect("insert");
     let offset = {
         let hnsw = engine.hnsw.load();
-        hnsw.nodes.get(&42).map(|n| n.storage_offset).unwrap()
+        hnsw.storage_offset_of(42).unwrap()
     };
     engine.refresh_index(&node, offset).expect("refresh index");
     let retrieved = engine.get(42).expect("get").unwrap();
@@ -388,7 +388,7 @@ fn test_trigger_compaction_high_tombstone_fraction() {
     engine.insert(&node).expect("insert");
     let offset = {
         let hnsw = engine.hnsw.load();
-        hnsw.nodes.get(&42).map(|n| n.storage_offset).unwrap()
+        hnsw.storage_offset_of(42).unwrap()
     };
     {
         let mut vstore = engine.vector_store[0].write();
@@ -429,11 +429,7 @@ fn test_trigger_compaction_reclaims_disk_space_on_high_fragmentation() {
         let mut vstore = engine.vector_store[0].write();
         let hnsw = engine.hnsw.load();
         for id in 11..=100u128 {
-            let offset = hnsw
-                .nodes
-                .get(&id)
-                .map(|n| n.storage_offset)
-                .expect("offset");
+            let offset = hnsw.storage_offset_of(id).expect("offset");
             if let Some(mut header) = vstore.read_header(offset) {
                 header.flags |= FLAG_TOMBSTONE;
                 vstore.write_header(offset, &header).expect("write header");
@@ -555,12 +551,9 @@ fn test_run_quantization_maintenance_quantize() {
     assert_eq!(report.quantized, 1, "should quantize 1 node");
     assert_eq!(report.promoted, 0);
     let hnsw = engine.hnsw.load();
-    let entry = hnsw.nodes.get(&42).expect("node should exist");
+    let entry = hnsw.stored_vector(42).expect("node should exist");
     assert!(
-        matches!(
-            entry.value().vec_data,
-            crate::node::VectorRepresentations::SQ8(..)
-        ),
+        matches!(entry, crate::node::VectorRepresentations::SQ8(..)),
         "node should be quantized to SQ8 after maintenance"
     );
 }
@@ -573,12 +566,11 @@ fn test_run_quantization_maintenance_promote() {
     engine.insert(&node).expect("insert");
     {
         let hnsw = engine.hnsw.load();
-        let entry = hnsw.nodes.get(&7).expect("node should exist after insert");
+        let vec_data = hnsw
+            .stored_vector(7)
+            .expect("node should exist after insert");
         assert!(
-            matches!(
-                entry.value().vec_data,
-                crate::node::VectorRepresentations::SQ8(..)
-            ),
+            matches!(vec_data, crate::node::VectorRepresentations::SQ8(..)),
             "node should be SQ8 after insert"
         );
     }
@@ -600,12 +592,9 @@ fn test_run_quantization_maintenance_promote() {
     );
     assert_eq!(report.quantized, 0);
     let hnsw = engine.hnsw.load();
-    let entry = hnsw.nodes.get(&7).expect("node should exist");
+    let vec_data = hnsw.stored_vector(7).expect("node should exist");
     assert!(
-        matches!(
-            entry.value().vec_data,
-            crate::node::VectorRepresentations::Full(..)
-        ),
+        matches!(vec_data, crate::node::VectorRepresentations::Full(..)),
         "node should be Full after promotion"
     );
 }
@@ -998,7 +987,7 @@ fn test_vacuum_with_tombstone() {
     // Manually flag the node as tombstoned
     let offset = {
         let hnsw = engine.hnsw.load();
-        hnsw.nodes.get(&42).map(|n| n.storage_offset).unwrap()
+        hnsw.storage_offset_of(42).unwrap()
     };
     {
         let mut vstore = engine.vector_store[0].write();
@@ -1017,7 +1006,7 @@ fn test_vacuum_with_tombstone() {
 
     // Verify the node is no longer in the HNSW index
     let hnsw = engine.hnsw.load();
-    assert!(!hnsw.nodes.contains_key(&42), "node should be removed");
+    assert!(!hnsw.contains_node(42), "node should be removed");
 }
 
 #[test]
@@ -1231,7 +1220,7 @@ fn test_flush_pending_hnsw_with_mixed_ops() {
 /// Current LSM segment (0=L0 hot, 1=L1 warm, 2=L2 cold, 3=L3 archive) for a node.
 fn node_segment(engine: &StorageEngine, id: u128) -> u8 {
     let hnsw = engine.hnsw.load();
-    let off = hnsw.nodes.get(&id).map(|n| n.storage_offset).unwrap();
+    let off = hnsw.storage_offset_of(id).unwrap();
     crate::lsm::unpack_offset(off).0
 }
 

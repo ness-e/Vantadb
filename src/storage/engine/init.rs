@@ -9,7 +9,7 @@ use web_time::Instant;
 use crate::backend::{BackendPartition, StorageBackend};
 use crate::config::Config;
 use crate::error::{Error, Result};
-use crate::index::{CPIndex, IndexBackend};
+use crate::index_port::IndexPort;
 use crate::lsm::SegmentLevel;
 use crate::node::LabelIntern;
 use crate::storage::engine::StorageEngine;
@@ -36,7 +36,7 @@ impl StorageEngine {
 
         let (hnsw, vector_store, segment_registry, wal_writer, wal_replay_ms, wal_records_replayed) =
             if matches!(config.backend_kind, BackendKind::InMemory) {
-                let hnsw = CPIndex::new();
+                let hnsw = crate::index::port_impl::new_in_memory_port();
                 let vs = File::create_in_memory(64 * MIB);
                 let vstore = vec![parking_lot::RwLock::new(vs)];
                 let reg = crate::lsm::SegmentRegistry::new();
@@ -49,7 +49,7 @@ impl StorageEngine {
                     &data_dir,
                     &config,
                     backend.as_ref(),
-                    &mut hnsw,
+                    &mut *hnsw,
                     &vector_store,
                 )?;
                 let wal_writer = crate::storage::wal::init_wal(&data_dir, &config)?;
@@ -78,22 +78,22 @@ impl StorageEngine {
                     total = Some(total.unwrap_or(0) + rb);
                 }
             }
-            if let Some(rb) = hnsw.backend.mmap_resident_bytes() {
+            if let Some(rb) = hnsw.mmap_resident_bytes() {
                 total = Some(total.unwrap_or(0) + rb);
             }
             total
         };
         crate::metrics::record_memory_breakdown(
-            hnsw.nodes.len() as u64,
+            hnsw.node_count() as u64,
             estimated_hnsw_bytes,
             resident_bytes,
             0,
             0,
         );
 
-        if hnsw.nodes.len() > 10_000 && estimated_hnsw_bytes > effective_memory / 2 {
+        if hnsw.node_count() > 10_000 && estimated_hnsw_bytes > effective_memory / 2 {
             tracing::warn!(
-                hnsw_nodes = hnsw.nodes.len(),
+                hnsw_nodes = hnsw.node_count(),
                 estimated_mb = estimated_hnsw_bytes / MIB,
                 effective_mb = effective_memory / MIB,
                 "HNSW index exceeds 50% of memory budget",
@@ -105,7 +105,7 @@ impl StorageEngine {
         let engine = Self {
             config: config.clone(),
             read_only: config.read_only,
-            hnsw: arc_swap::ArcSwap::from_pointee(hnsw),
+            hnsw: arc_swap::ArcSwap::new(Arc::new(hnsw)),
             insert_lock: parking_lot::FairMutex::new(()),
             pending_hnsw_batch: parking_lot::Mutex::new(Vec::new()),
             cache: super::cache::CacheLayer::new(cardinality_stats),
@@ -298,7 +298,7 @@ impl StorageEngine {
         caps: &crate::hardware::HardwareCapabilities,
         effective_memory: u64,
     ) -> Result<(
-        CPIndex,
+        Box<dyn IndexPort>,
         Vec<parking_lot::RwLock<File>>,
         crate::lsm::SegmentRegistry,
     )> {
@@ -309,32 +309,36 @@ impl StorageEngine {
                 || caps.profile == crate::hardware::HardwareProfile::LowResource
                 || effective_memory < 16 * GIB);
 
-        let mut hnsw = if let Some(loaded) = CPIndex::load_from_file(&index_path, use_mmap) {
-            if use_mmap {
-                info!(
-                    backend = "mmap",
-                    "HNSW Resource Governance: MMap backend activated (cold-start)"
-                );
-            }
-            loaded
-        } else {
-            if use_mmap {
-                info!(
-                    backend = "mmap",
-                    "HNSW Resource Governance: MMap backend activated (fresh)"
-                );
-                CPIndex::with_backend(IndexBackend::new_mmap(index_path.clone()))
-            } else {
-                info!(
-                    backend = "in-memory",
-                    "HNSW Performance Mode: InMemory backend"
-                );
-                CPIndex::new()
-            }
-        };
+        let mut hnsw: Box<dyn IndexPort> =
+            match crate::index::port_impl::open_index_port(&index_path, use_mmap) {
+                Ok(loaded) => {
+                    if use_mmap {
+                        info!(
+                            backend = "mmap",
+                            "HNSW Resource Governance: MMap backend activated (cold-start)"
+                        );
+                    }
+                    loaded
+                }
+                Err(_) => {
+                    if use_mmap {
+                        info!(
+                            backend = "mmap",
+                            "HNSW Resource Governance: MMap backend activated (fresh)"
+                        );
+                        crate::index::port_impl::new_mmap_port(index_path.clone())
+                    } else {
+                        info!(
+                            backend = "in-memory",
+                            "HNSW Performance Mode: InMemory backend"
+                        );
+                        crate::index::port_impl::new_in_memory_port()
+                    }
+                }
+            };
 
         if let Some(threshold) = config.flat_threshold {
-            hnsw.config.flat_threshold = Some(threshold);
+            hnsw.set_flat_threshold(Some(threshold));
         }
 
         // Multi-level: open or create L0..L3 VantaFiles via SegmentRegistry
@@ -375,12 +379,12 @@ impl StorageEngine {
         data_dir: &Path,
         config: &Config,
         backend: &dyn StorageBackend,
-        hnsw: &mut CPIndex,
+        hnsw: &mut dyn IndexPort,
         vector_store: &[parking_lot::RwLock<File>],
     ) -> Result<(u64, u64)> {
         let index_path = data_dir.join("vector_index.bin");
 
-        if hnsw.nodes.is_empty() {
+        if hnsw.is_empty() {
             // Rebuild from L0 (and eventually all levels) — for now L0 is primary
             let report = {
                 let l0_vf = vector_store[0].write();
@@ -558,8 +562,7 @@ impl StorageEngine {
                             )?;
                         }
                         crate::wal::WalRecord::Delete { id } => {
-                            if let Some(index_node) = hnsw.nodes.get(&id) {
-                                let packed_offset = index_node.storage_offset;
+                            if let Some(packed_offset) = hnsw.storage_offset_of(id) {
                                 let (seg_id, local_off) = crate::lsm::unpack_offset(packed_offset);
                                 if let Some(vs) = vector_store.get(seg_id as usize) {
                                     let mut vstore = vs.write();
@@ -571,12 +574,11 @@ impl StorageEngine {
                                 }
                             }
                             // PERF-23/28: Remove from HNSW graph to prevent zombie nodes
-                            hnsw.nodes.remove(&id);
+                            hnsw.remove_node(id);
                             // If this was the entry point, promote a replacement
-                            if hnsw.entry_point.load(std::sync::atomic::Ordering::Relaxed) == id {
+                            if hnsw.entry_point() == Some(id) {
                                 let new_ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
-                                hnsw.entry_point
-                                    .store(new_ep, std::sync::atomic::Ordering::Relaxed);
+                                hnsw.set_entry_point(new_ep);
                             }
                             let _ = backend.delete(BackendPartition::Default, &id.to_le_bytes());
                         }

@@ -10,33 +10,19 @@ pub(crate) mod graph;
 
 pub mod ivf;
 pub(crate) mod neighbor_index;
-
+pub(crate) mod port_impl;
 pub(crate) mod refresh;
 pub(crate) mod scann;
 pub(crate) mod search;
 pub(crate) mod serialize;
 pub(crate) mod stats;
 
-use crate::storage::vfile::File;
-
 pub use distance::*;
 pub use graph::*;
 
-/// Supported vector index types.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum IndexType {
-    /// Hierarchical Navigable Small World graph index (default).
-    #[default]
-    Hnsw,
-    /// Inverted File index with flat (brute-force) encoding.
-    Ivf,
-    /// Brute-force flat scan — O(n) on every search.
-    Flat,
-    /// DiskANN-style Vamana graph (in-memory, no disk I/O).
-    DiskAnn,
-    /// SCANN-style scalar quantization (SQ8) with re-ranking.
-    Scann,
-}
+/// Re-exported from the neutral leaf (`crate::index_port`): routing discriminant
+/// shared by both sides of the storage↔index boundary (F3X; BND-04 compat).
+pub use crate::index_port::IndexType;
 
 /// Pluggable trait for vector index backends.
 ///
@@ -56,7 +42,7 @@ pub(crate) trait VecIndex: Send + Sync {
         query_vec: &[f32],
         query_mask: &crate::node::FilterBitset,
         top_k: usize,
-        vector_store: Option<&File>,
+        vector_store: Option<&dyn crate::index_port::VectorStoreRef>,
         distance_metric: crate::node::DistanceMetric,
     ) -> Vec<(u128, f32)>;
 

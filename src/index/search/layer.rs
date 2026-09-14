@@ -10,7 +10,6 @@ use crate::index::distance::{
 };
 use crate::index::graph::{self, CPIndex, NeighborVec, NodeSim, NodeSimMin};
 use crate::node::{DistanceMetric, FilterBitset, NodeFlags};
-use crate::storage::engine::FLAG_TOMBSTONE;
 
 impl CPIndex {
     #[allow(clippy::too_many_arguments)]
@@ -24,7 +23,7 @@ impl CPIndex {
         layer: usize,
         query_mask: &FilterBitset,
         acorn_expansion: bool,
-        vector_store: Option<&crate::storage::vfile::File>,
+        vector_store: Option<&dyn crate::index_port::VectorStoreRef>,
         metric: DistanceMetric,
         visited: &mut std::collections::HashSet<u128, RandomState>,
         profile: &mut SearchProfile,
@@ -112,10 +111,10 @@ impl CPIndex {
 
                 let eligible = if vector_store.is_some() {
                     node_header
-                        .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
+                        .map(|h| (h.flags & NodeFlags::TOMBSTONE) == 0)
                         .unwrap_or(false)
                 } else {
-                    (node.flags & FLAG_TOMBSTONE) == 0
+                    (node.flags & NodeFlags::TOMBSTONE) == 0
                 };
                 if !eligible {
                     continue;
@@ -285,10 +284,10 @@ impl CPIndex {
 
                             let eligible = if vector_store.is_some() {
                                 node_header
-                                    .map(|h| (h.flags & FLAG_TOMBSTONE) == 0)
+                                    .map(|h| (h.flags & NodeFlags::TOMBSTONE) == 0)
                                     .unwrap_or(false)
                             } else {
-                                (neighbor.flags & FLAG_TOMBSTONE) == 0
+                                (neighbor.flags & NodeFlags::TOMBSTONE) == 0
                             };
                             if !eligible {
                                 continue;
@@ -343,7 +342,7 @@ impl CPIndex {
                                                             metric,
                                                         );
                                                         let eligible2 = (second_node.flags
-                                                            & FLAG_TOMBSTONE)
+                                                            & NodeFlags::TOMBSTONE)
                                                             == 0;
                                                         if !eligible2 {
                                                             continue;

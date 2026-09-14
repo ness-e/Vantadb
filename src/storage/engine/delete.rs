@@ -1,7 +1,5 @@
 //! Delete, delete_batch, purge, and tombstone bookkeeping.
 
-use std::sync::atomic::Ordering;
-
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::Result;
 use crate::lsm::unpack_offset;
@@ -114,7 +112,7 @@ impl StorageEngine {
     pub(crate) fn apply_delete_inner(&self, id: u128, policy: LockPolicy) -> Result<()> {
         let packed = {
             let hnsw = self.hnsw.load();
-            hnsw.nodes.get(&id).map(|n| n.storage_offset)
+            hnsw.storage_offset_of(id)
         };
 
         // PERF-23: vector store tombstone
@@ -145,12 +143,12 @@ impl StorageEngine {
     /// if the removed node was the entry point. Caller must hold `insert_lock`.
     fn remove_hnsw_entry(&self, id: u128) {
         let hnsw = self.hnsw.load();
-        hnsw.nodes.remove(&id);
+        hnsw.remove_node(id);
 
         // PERF-23: If we just removed the entry point, promote a replacement
-        if hnsw.entry_point.load(Ordering::Relaxed) == id {
+        if hnsw.entry_point() == Some(id) {
             let new_ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
-            hnsw.entry_point.store(new_ep, Ordering::Relaxed);
+            hnsw.set_entry_point(new_ep);
         }
     }
 
@@ -228,7 +226,7 @@ impl StorageEngine {
         {
             let hnsw = self.hnsw.load();
             for &id in ids {
-                if let Some(packed) = hnsw.nodes.get(&id).map(|n| n.storage_offset) {
+                if let Some(packed) = hnsw.storage_offset_of(id) {
                     let (seg_id, local_off) = unpack_offset(packed);
                     if let Some(vs) = self.vector_store.get(seg_id as usize) {
                         let mut vstore = vs.write();
@@ -240,10 +238,10 @@ impl StorageEngine {
                 }
             }
             for &id in ids {
-                hnsw.nodes.remove(&id);
-                if hnsw.entry_point.load(Ordering::Relaxed) == id {
+                hnsw.remove_node(id);
+                if hnsw.entry_point() == Some(id) {
                     let new_ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
-                    hnsw.entry_point.store(new_ep, Ordering::Relaxed);
+                    hnsw.set_entry_point(new_ep);
                 }
             }
         }

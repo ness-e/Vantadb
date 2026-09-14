@@ -154,7 +154,7 @@ fn test_vector_index_cold_recovery() {
             None,
             &vantadb::node::ALL_BITSET,
             1,
-            Some(&vs),
+            Some(&*vs),
         );
 
         assert_eq!(
@@ -329,7 +329,7 @@ fn test_checkpoint_snapshot_interleave_not_lost_or_duplicated() {
     let hnsw = engine.hnsw.load();
     let vs = engine.vector_store[0].read();
 
-    let indexed_len = hnsw.nodes.len() as u64;
+    let indexed_len = hnsw.node_count() as u64;
     assert!(
         indexed_len >= NODES as u64,
         "Index lost records: expected >= {NODES} nodes, got {indexed_len} (invisible records)"
@@ -343,7 +343,7 @@ fn test_checkpoint_snapshot_interleave_not_lost_or_duplicated() {
             "node {i} missing from KV after recovery"
         );
         // The HNSW entry must exist (no checkpoint-skipped invisible record).
-        if hnsw.nodes.get(&(i as u128)).is_none() {
+        if hnsw.storage_offset_of(i as u128).is_none() {
             missing += 1;
         }
         // And it must not be duplicated inside the index (same id twice in
@@ -354,7 +354,7 @@ fn test_checkpoint_snapshot_interleave_not_lost_or_duplicated() {
             None,
             &vantadb::node::ALL_BITSET,
             16,
-            Some(&vs),
+            Some(&*vs),
         );
         let dup = results.iter().filter(|(id, _)| *id == i as u128).count();
         assert!(
@@ -434,7 +434,7 @@ fn test_checkpoint_not_advanced_on_snapshot_failure() {
                 "node {i} invisible in vector index after failed snapshot + replay"
             );
         }
-        let indexed_len = hnsw.nodes.len() as u64;
+        let indexed_len = hnsw.node_count() as u64;
         assert!(
             indexed_len == NODES as u64,
             "expected exactly {NODES} indexed nodes, got {indexed_len}"

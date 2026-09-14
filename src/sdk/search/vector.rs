@@ -4,7 +4,6 @@ use super::super::types::*;
 use crate::cost_estimator::{CostEstimator, FilterStrategy};
 use crate::error::Result;
 use crate::index::cosine_sim_f32;
-use crate::index::VecIndex;
 use crate::node::UnifiedNode;
 
 impl Embedded {

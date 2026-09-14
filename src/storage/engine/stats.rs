@@ -69,7 +69,7 @@ impl StorageEngine {
                     total = Some(total.unwrap_or(0) + rb);
                 }
             }
-            if let Some(rb) = hnsw.backend.mmap_resident_bytes() {
+            if let Some(rb) = hnsw.mmap_resident_bytes() {
                 total = Some(total.unwrap_or(0) + rb);
             }
             total
@@ -85,7 +85,7 @@ impl StorageEngine {
         MemoryStats {
             logical_bytes: logical,
             physical_rss: physical,
-            node_count: hnsw.nodes.len() as u64,
+            node_count: hnsw.node_count() as u64,
             cache_entries: guard.len(),
             eviction_count: snap.evictions_total,
             eviction_bytes: snap.eviction_bytes_total,

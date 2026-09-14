@@ -154,7 +154,7 @@ fn memory_telemetry_contract() {
             None,
             &vantadb::node::ALL_BITSET,
             5,
-            Some(&reopened.vector_store[0].read()),
+            Some(&*reopened.vector_store[0].read()),
         );
 
         assert!(!results.is_empty(), "Reopened index must remain queryable");

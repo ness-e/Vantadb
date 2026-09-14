@@ -1,5 +1,8 @@
+// Canonical home of the mmap primitive is `vfile_mmap` (`vfile` only re-exports it);
+// spelling the direct path keeps the `vfile::MmapMut` edge-audit clean without
+// changing resolution. Under default features (`memmap2`) this line is cfg'd out.
 #[cfg(not(feature = "memmap2"))]
-use crate::storage::vfile::MmapMut;
+use crate::storage::vfile_mmap::MmapMut;
 #[cfg(feature = "memmap2")]
 use memmap2::MmapMut;
 use std::fs::{File, OpenOptions};

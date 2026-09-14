@@ -197,3 +197,85 @@ BLOQUEO: Q-F3X al humano — ¿GO opción A (recomendada), B (otro nombre), o C 
 GATES_EVALUADOS: P:no (ya decidido en plan Gate P.3) D:disparado (Q-F3X emitida; hipótesis Q3 validada con ajuste H2) V:no (re-medición confirma A1; H1/H2 informativos misma dirección) C:no (diseño-only, commitea el lead)
 SKILLS_CARGADAS: campaign-executor, progreso, systematic-debugging, code-review-and-quality, doubt-driven-development, source-driven-development, planning-and-task-breakdown, codebase-memory, api-and-interface-design, documentation-and-adrs
 ```
+
+## F3X-impl (worker) — ejecución 2026-09-14 (base `0afa8181`, GO-humano opción A)
+
+### SDP (phase=BUILD + keywords traits/refactor/ports — 8, 1 línea c/u)
+- api-and-interface-design — Contract First del trait/hoja (firmas + errores + dirección). [core]
+- test-driven-development — RED (edge-audit + acyclic como repro) → GREEN → verify. [core]
+- systematic-debugging — root-cause del muro X1b con evidencia cargo antes de declarar HALLAZGO.
+- code-review-and-quality — auto-revisión 5 ejes del diff X1a.
+- doubt-driven-development — verificación adversarial (¿la hoja oculta una arista? focus-graph dice no).
+- source-driven-development — feature-gates `memmap2` + sellado verificados contra código (sin red: la guía externa C-SEALED queda [cita NO VERIFICADA]).
+- planning-and-task-breakdown — slices X1a/X1b + checkpoints.
+- codebase-memory — sustituido por `rg` + Read directos (sin campaign MCP en este runner; justificado).
+- Base extra cargada (fuera del cap SDP): campaign-executor, progreso, performance-optimization (hot path: mover, no mejorar).
+
+### X1a ✅ — hoja + impls (aditivo, cero cambio semántico)
+- NEW `src/index_port.rs` (~70L): `IndexBackendKind` + traits `VectorStoreRef`/`MmapBackend`/`IndexPort`, `pub(crate)` sellados por visibilidad (lectura del GO-humano "sellados pub(crate)"; el contrato proponía `pub` + seal; sin `serde` — import sin uso; sin `#[non_exhaustive]` — innecesario con `pub(crate)`).
+- NEW `src/index/port_impl.rs` (~110L): `impl VectorStoreRef for File`, `impl MmapBackend for IndexBackend` (+ `for CPIndex` delegando), `impl IndexPort for CPIndex` (`open_index`/`rebuild_from_bytes`/`fresh_like` byte-idéntico a `fresh_index_like`).
+- EDIT `src/lib.rs` (+1: `pub(crate) mod index_port;`), `src/index/mod.rs` (+1: `mod port_impl;`).
+- Deuda TEMP explícita: `#![allow(dead_code)]` en los 2 files nuevos (se retira en X3 al migrar el primer consumidor; grep `TEMP(F3X-X1)`).
+- Verify X1a: `cargo check -p vantadb --tests --all-targets` ✅ · `cargo clippy -p vantadb --all-targets -- -D warnings` ✅ · `cargo fmt --check -p vantadb` ✅ · focus-graph `index_port` → solo aristas a `std`/`core`, cero a `index`/`storage` ✅ (neutralidad probada).
+- Auto-revisión 5 ejes: correctness (impls espejan lógica inherente) / readability (TEMP marcado) / architecture (solo aristas descendentes) / security (N/A, sin unsafe/input) / performance (Regla 9: nada que medir — código aún no llamado).
+
+### X1b 🟡 BLOQUEADO — HALLAZGO-H4 (muro mecánico, no re-diseño en silencio)
+**HALLAZGO-H4: el contrato exige a la vez (i) `rg use crate::index::(CPIndex|IndexBackend) src/storage/ → 0` + acyclic sin aristas storage↔index, y (ii) "NO cambia sus firmas / aditivo minor". Con granularidad item-level de `cargo modules` (probada: `--acyclic` falla en `GraphAccumulator → GraphAccumulator::new`, i.e. tipo→fn), ambas son conjuntamente insatisfacibles:**
+- `src/storage/engine/mod.rs:325` `pub hnsw: ArcSwap<CPIndex>` + `:441` `pub vec_index() -> Guard<Arc<CPIndex>>` + `:385` `replay_write_node(... hnsw: &CPIndex ...)` — quitar el `use` rompe el tipo del campo/firmas (incl. API pública).
+- `src/storage/archive.rs:42,173,199` `pub fn (compact_layout|traverse_graph|reindex_nodes)(... &CPIndex ...)` + `:208,221,230` (`pub(crate)` fresh/rebuild) — idem; el focus-graph lista aristas fn-level (`:3080,3083,3088,3095,3101,3104`) que sobreviven a cualquier migración solo de `use`.
+- `src/storage/engine/init.rs:300-304` (`init_indexes -> ...(CPIndex,...)`), `:378` (`recover_state(... &mut CPIndex ...)`); `maintenance.rs` A4 + asignación `.backend` (`:198`).
+- Lado B: `src/index/search/nearest.rs:19` `pub search_nearest(... Option<&File>)` + firmas FQ H1 (`diskann.rs:400`, `ivf.rs:424`, `scann.rs:239`, `nearest.rs:26,52`, `search/mod.rs:21`, `layer.rs:27`, `flat.rs:98`) + `VecIndex::search` (`pub(crate)` — esa SÍ es migrable sin superficie).
+- Regla §8 del propio diseño: "si el worker detecta un `pub` que deba cambiar → ADR + semver major (precedente ADR-041)". Detectados 6 (`traverse_graph`, `compact_layout`, `reindex_nodes`, `hnsw`, `vec_index`, `search_nearest`) en crate v0.5.0 → corresponde ADR + decisión humana, NO migración silenciosa.
+- Evidencia: `cargo modules dependencies --lib -p vantadb --acyclic` → falla-rápido solo en el artefacto accumulator (BND-03X exceptuado por F3G); el gate no distingue storage↔index mientras el artefacto exista → evidencia primaria = focus-graph + `rg` (tal como anticipa el diseño §X3).
+- HALLAZGO-H3 (benigno): `src/storage/vfile.rs:46,858` es `#[cfg(test)]` — fuera de `--lib`, no requiere migración.
+
+### Gate V — question al humano (una ronda; sin respuesta no hay más código)
+> **Q-F3X-impl (muro X1b):** la migración exige cambiar 6 firmas `pub` (lista arriba) o el ciclo persiste a nivel item. ¿Cómo sigo?
+> - **Opción A — GO con ADR + major (recomendado):** el humano firma ADR (Regla 5) aceptando el cambio de firmas `pub` → worker ejecuta X1b/X2/X3 completos (sigs a `dyn`/`impl Trait` + TEMP-debt fuera + suites + edge-audit). Costo: superficie pública rota documentada.
+> - **Opción B — GO parcial sin tocar `pub`:** migrar solo lo `pub(crate)`/privado (B4 flag→kernel, `VecIndex`, `file.rs`/`types.rs` internos) + hoja en uso parcial; el ciclo item-level PERSISTE en las 6 firmas `pub` → contrato acyclic queda en rojo documentado como deuda con FIND + revisit date.
+> - **Opción C — DEFER explícito:** no más código; fila FIND con revisit date (BOUNDARIES §3 opción 2); la hoja X1a queda como base reutilizable o se revierte (2 files nuevos + 2 líneas mod).
+> - **(Recomendado): Opción A.**
+
+### Estado impl
+- X1a ✅ (en worktree, SIN commit — commitea el lead) · X1b 🟡 (bloqueado en Q-F3X-impl) · X2/X3 ⬜ (pendientes de la respuesta).
+- Worktree esperado: `M src/lib.rs`, `M src/index/mod.rs`, `?? src/index_port.rs`, `?? src/index/port_impl.rs` (+ este file).
+- nextTask: F3C sigue en cola tras la resolución de Q-F3X-impl.
+
+## F3X-impl — ejecución Opción A (2026-09-14, ADR-042) — COMPLETO ✅
+
+### X1b ✅ — migración storage→index (full-dyn, 6 firmas pub + internos)
+- `StorageEngine.hnsw: ArcSwap<Box<dyn IndexPort>>` (Box: `Arc` exige `Sized` para `RefCnt`; verificado contra fuente vendored arc-swap 1.9.2) + `vec_index() -> Guard<Arc<Box<dyn>>>` + `replay_write_node(&dyn)` + `FLAG_TOMBSTONE` alias a kernel.
+- `archive.rs`: 5 sigs a `&dyn/&mut dyn`, cuerpos vía trait, `fresh_index_like` → shim `#[cfg(test)]` (tests intactos), `random_level`, `add_node*`.
+- `init.rs`: factories `port_impl::{open,new_in_memory,new_mmap}` (Box único; `Arc::new` solo en stores), `set_flat_threshold`, `recover_state(&mut dyn)`, WAL paths vía trait.
+- `maintenance.rs`: dance `save_vector_index` → `persist_mmap` (movido byte-idéntico a port_impl, RCU), rebuild vía `fresh_box` + archive, scans vía `scan_entries`/`all_node_ids`, vacuum/merge/quantize/fresh (`repair_orphan_links`) vía trait, `release_mmap_vector` MOVIDO a `vfile.rs` (único caller).
+- `delete/get/insert/ops/txn/stats`: swaps mecánicos (`storage_offset_of`, `remove_node`, `add_node*`, `node_count`, `entry_point*`, `is_sq8_vector`, `stored_vector`/`node_view` en rescates legacy con lookup único).
+- `cache_warmer::hnsw_top_layer_ids(&dyn)` + `cost_estimator` (getters `index_kind/flat_threshold/node_count`) + `sdk/api` (`distance_metric`) + `sdk/vector` (sin cambio: `IndexPort::search` vía dyn) + `physical_plan` (`Some(&*vs)`).
+- Patrón `&***/&*` documentado (Guard→Arc→Box→dyn vs Box→dyn); llamadas a métodos `dyn` NO requieren import (probado: layer.rs); sigs sí.
+- Desviaciones forzadas del contrato (compilador/grafo, no gusto): D1 traits `pub` (benches externos llaman métodos dyn); D2 caídos `IndexBackendKind/resident_bytes/Snapshot/fresh_like(Sized)` (fábricas los superan) + ~25 métodos vivos por censo; D3 fábricas free fns (dyn no llama statics `Sized`); D4 `FreshHnswReport`+`IndexType` movidos a hoja (re-exports BND-04, sigs intactos); D5 `release_mmap_vector` a storage; D6 Box+`Arc::new` en stores; D7 7º cambio pub-clase: path de `release_mmap_vector` (flaggeado por semver-checks; misma clase ADR-042); D8 `MmapMut` cfg re-escrito a path canónico `vfile_mmap`; D9 iteración snapshot≡live (todo bajo `insert_lock`); D10 pairing `total_nodes` preservado (solo vacuum decrementa, comentado); D11 una indirección Box extra por load (ruido vs DashMap; red F3B).
+
+### X2 ✅ — migración index→storage
+- B4a/B4b + `search/tests.rs` → `NodeFlags::TOMBSTONE` (kernel existente); `VecIndex::search` + 8 sigs → `Option<&dyn VectorStoreRef>`; `layer.rs` vía trait (`read_header`+`mmap_bytes` añadidos tras hallazgo empírico E0599); `file.rs`/`types.rs` MmapMut al path canónico (cfg-fantasma bajo default); `search_nearest/with_metric` con dyn.
+- Ventana residual diseño-bendecida: `graph/types.rs` (`Mmap::map`, `get_resident_bytes` ×2, body-FQ invisible a cargo-modules) — unidireccional, sin ciclo.
+
+### X3 ✅ — verify contrato + cierre
+- `cargo check -p vantadb --tests --all-targets` ✅ · `clippy --all-targets -D warnings` ✅ · `fmt --check` ✅ (vía `cargo fmt`).
+- `nextest -p vantadb --lib storage index --build-jobs 2`: **783 passed, 0 failed** (incl. roundtrips mmap, rebuild idempotente, vacuum, quantize, recall parity, concurrent 130s) → sin cambio semántico probado.
+- `cargo modules --acyclic`: SOLO artefacto accumulator (BND-03X exceptuado F3G) ✅ · focus-graphs: cero aristas storage↔index en ambas direcciones; storage→leaf e index→leaf según diseño ✅.
+- Edge-audit rg: P1 scoped 0 (2× `cfg(test)` archive-shim/tests); P2 0; P3/P6 test-only (`search/tests.rs` es `#[cfg(test)]`, fixtures necesitan `File` concreto); P4 3× cfg-gated `vfile_mmap`; P5 ventana types.rs ×3; H1 7/7 migradas; FLAG alias ✅.
+- `cargo semver-checks -p vantadb --baseline-rev 0afa8181` (0.49.0, ~14min): **195 pass / 1 fail** — solo `function_missing: index::release_mmap_vector` (movido, D7). Las 6 firmas ADR-042 no las flaggea la tool (cobertura); el major va por ADR-042 + release-plz del lead. Rojo major = esperado y documentado.
+- TEMP `allow(dead_code)`: retirado orgánicamente (todo el surface tiene callers; clippy -D lo prueba; `rg TEMP(F3X` = 0).
+- `vanta-review`: SIN runner disponible → **visa pendiente del lead** (diff + este file + ADR-042 como paquete de revisión).
+- Gates: P:no (GO-A vigente) · D:no (diseño+ADR-042) · V:resuelto-ejecutado (opción A) · C:no (commitea el lead).
+- Worktree final: 41 archivos (lista en `git status`); SIN commit. nextTask: **F3C**.
+
+## F3X-impl — post-review vanta-review (CHANGES-REQUIRED atendido, SIN commit)
+
+- **H1-ALTA ✅ (bloqueante, TDD RED→GREEN):** `insert_hnsw_leveled` colapsaba niveles (RNG fresco por llamada → primer draw constante). RED: test extendido `d1a_insert_hnsw_leveled_indexes` (bulk 200 nodos, asevera `>1` nivel distinto vía `node_layers`) **falló pre-fix con `got {1}`**. Fix: `bulk_levels_seeded(seed, n) -> Vec<usize>` en trait (un StdRng, n draws — stream idéntico al loop pre-split) + loop con `zip` precomputado; `random_level_seeded` (1-draw) ELIMINADO del trait+impl (quedaba sin callers → clippy lo habría flaggeado). GREEN: test pasa en suite + full suite debajo. Claim "sin cambio semántico" restaurado por evidencia.
+- **H2-MEDIA ✅:** vacuum un solo Guard (`let hnsw = self.hnsw.load();` una vez, reutilizado en scan + removal). Sin `insert_lock` (cambio de concurrencia no pedido, no hecho).
+- **H3-MEDIA ✅:** traits sellados con `#[doc(hidden)] pub mod sealed` + bounds en los 3 traits + impls (`port_impl.rs` ×2, `vfile.rs` ×1). Nota mecánica: `mod private` literal es inimplementable (los impls deben vivir cross-module + E0365) y `pub(crate) mod` tripea `private_bounds` bajo `-D warnings`; la forma doc-hidden es el sello viable (llamar ✅, implementar fuera solo nombrando hidden = unsupported). clippy -D verde lo prueba.
+- **H4 ✅ (pre-cumplido):** `IndexBackendKind` ya no existe (borrado en S0a/D2 al quedar superado por fábricas); `rg IndexBackendKind` = 0 en todo el repo. Sin acción.
+- **B2:** hecho por el lead (7º item en ADR-042) — no tocado aquí.
+- **B1 ✅:** precisión §X3: evidencia = nivel `use` (P1 scoped-0, P2 0, P3/P6 test-only, P4 cfg-ghosts) + focus-graph (cero aristas cruzadas ambas direcciones); residual aceptado diseño-bendecido listado explícito = `graph/types.rs:74,89,99` (`get_resident_bytes` ×2, `Mmap::map` ×1; body-FQ invisible a cargo-modules, unidireccional).
+- **B3 ✅:** comentario `// &***: Guard → Arc → Box → dyn (one deref per wrapper).` en los 4 sitios (maintenance.rs:501,505,511 — numeración pre-review; get.rs:399).
+- **B4 (anotado, no renombrar):** en futuros splits, no repetir patrón stutter (`fresh_index_like`→`fresh_like`→`fresh_box` convivieron); nombrar 1 sola vez desde el diseño.
+- **Re-verify mínimo:** `cargo check -p vantadb --tests --all-targets` ✅ · `cargo clippy -p vantadb --all-targets -- -D warnings` ✅ · `cargo fmt --check -p vantadb` ✅ · `cargo nextest run -p vantadb --lib storage index --build-jobs 2` → **783 passed, 0 failed** (incl. H1 GREEN + vacuum/quantize/rebuild/roundtrips/recall-parity/concurrent) ✅. SIN commit (commitea el lead con visa final).

@@ -244,7 +244,7 @@ fn test_concurrency_rebuild_rcu() {
                 None,
                 &vantadb::node::ALL_BITSET,
                 5,
-                Some(&vs),
+                Some(&*vs),
             );
             if !results.is_empty() {
                 query_success += 1;
@@ -278,7 +278,7 @@ fn test_concurrency_rebuild_rcu() {
     // Validar que el nodo insertado post-rebuild es alcanzable y no se perdió
     let hnsw = engine.hnsw.load();
     assert!(
-        hnsw.nodes.contains_key(&999),
+        hnsw.contains_node(999),
         "Mitigación A-01: El nodo 999 se perdió tras el rebuild!"
     );
 

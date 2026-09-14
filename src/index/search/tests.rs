@@ -5,9 +5,8 @@ use crate::index::distance::cosine_sim_f32;
 use crate::index::distance::euclidean_distance_squared_f32;
 use crate::index::graph::{HnswConfig, NeighborVec, NodeSimMin};
 use crate::node::{
-    DiskNodeHeader, DistanceMetric, FilterBitset, VectorRepresentations, ALL_BITSET,
+    DiskNodeHeader, DistanceMetric, FilterBitset, NodeFlags, VectorRepresentations, ALL_BITSET,
 };
-use crate::storage::engine::FLAG_TOMBSTONE;
 use crate::storage::vfile::File;
 use ahash::RandomState;
 use std::collections::{BinaryHeap, HashSet};
@@ -195,7 +194,7 @@ fn test_select_neighbors_with_tombstone_skipped() {
     add_node(&index, 1, vec![0.0, 1.0, 0.0]);
     // Mark node 0 as tombstone
     if let Some(mut n) = index.nodes.get_mut(&0) {
-        n.flags |= FLAG_TOMBSTONE;
+        n.flags |= NodeFlags::TOMBSTONE;
     }
     let mut heap = BinaryHeap::new();
     heap.push(NodeSimMin(1.0, 0));
@@ -553,7 +552,7 @@ fn test_search_layer_tombstone_not_returned() {
     add_node(&index, 1, vec![0.9, 0.1, 0.0]);
     // Mark node 0 as tombstone
     if let Some(mut n) = index.nodes.get_mut(&0) {
-        n.flags |= FLAG_TOMBSTONE;
+        n.flags |= NodeFlags::TOMBSTONE;
     }
     let mut visited: HashSet<u128, RandomState> =
         HashSet::with_capacity_and_hasher(100, RandomState::new());
@@ -659,7 +658,7 @@ fn test_search_vfile_tombstone_header_excluded() {
     let (index, mut vfile) = build_index_with_vfile(DistanceMetric::Cosine);
     let victim_offset = ERR042_ALIGN;
     let mut header = vfile.read_header(victim_offset).expect("victim header");
-    header.flags |= FLAG_TOMBSTONE;
+    header.flags |= NodeFlags::TOMBSTONE;
     vfile
         .write_header(victim_offset, &header)
         .expect("write tombstone");

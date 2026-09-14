@@ -1,8 +1,9 @@
 //! HNSW graph types: nodes, config, backends and similarity ordering.
 //! Split from graph.rs (FIND-48) — re-exported via graph/mod.rs.
 
+// Same canonical-path spelling as `serialize/file.rs` (F3X edge-audit parity).
 #[cfg(not(feature = "memmap2"))]
-use crate::storage::vfile::MmapMut;
+use crate::storage::vfile_mmap::MmapMut;
 #[cfg(feature = "memmap2")]
 use memmap2::MmapMut;
 use serde::{Deserialize, Serialize};
@@ -13,25 +14,10 @@ use std::path::{Path, PathBuf};
 pub type NeighborVec = SmallVec<[u128; 32]>;
 
 pub(crate) const ENTRY_POINT_NONE: u128 = u128::MAX;
+/// Re-exported from the neutral leaf (`crate::index_port`): plain data shared by
+/// both sides of the storage↔index boundary (F3X; old paths keep working per BND-04).
+pub use crate::index_port::FreshHnswReport;
 pub use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
-/// Report from a single FreshHNSW repair pass.
-///
-/// FreshHNSW scans all nodes in the HNSW graph and removes
-/// neighbor links that point to node IDs no longer present in the index
-/// ("orphan links" left behind by delete operations).
-#[derive(Debug, Clone, Copy, Default)]
-pub struct FreshHnswReport {
-    /// Number of HNSW nodes scanned.
-    pub scanned_nodes: u64,
-    /// Total number of layers (across all nodes) checked.
-    pub total_layers: u64,
-    /// Number of orphan neighbor links removed.
-    pub repaired_links: u64,
-    /// Duration of the repair pass in milliseconds.
-    pub duration_ms: u64,
-    /// Whether the pass completed successfully.
-    pub success: bool,
-}
 /// Current HNSW vector index format version.
 pub const VECTOR_INDEX_VERSION: u16 = 8;
 
