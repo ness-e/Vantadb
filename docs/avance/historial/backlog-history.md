@@ -303,3 +303,13 @@ Re-escaladas en el propio Backlog (misma fecha): RES-09 (fila WAL a fsync-batchi
 - **UX-13** (banner audit) — SKIP: texto redactado + `<details>` técnico (`ActivityPanel.tsx:149-170`).
 - **MOD-05** (deprecar InMemoryEngine) — SKIP: `rg InMemoryEngine src/` → 0 hits, clase ya eliminada.
 - **FIND-47** (dispatcher complejidad 295) — SKIP: el propio reporte declara "no hotspot algorítmico"; sin evidencia de problema.
+
+## Auditoría backlog fila por fila 2026-09-14 (lead, validado en código)
+
+- **AUD-042** (tantivy/lru allowlist) - ✅ RESUELTO: allowlist RUSTSEC-2026-0253 removida 2026-09-11 (AST-007, `deny.toml`), `lru = "0.18"` directo en `Cargo.toml`. El bloqueo upstream desapareció por el camino del bypass, no del bump.
+- **REVIEW-10** (god-file `cli_server.rs`) - ✅ RESUELTO: el archivo mide 721 bytes; el server vive en `src/server/` (bootstrap, router, handlers, middleware, jwt, telemetry...). El split ya ocurrió.
+- **TBH-01** (verify_datasets + gate) - ✅ completado 2026-08-31 (commit `0e67f354`).
+- **FIND-26** (wal_archiver/PITR remove) - ✅ resuelta 2026-08-25 (remove + ADR-014 superseded).
+- **ISSUE-TS-001** (TS SDK `unreachable!`) - ✅ resuelto-stale 2026-09-10 (0 matches + vitest 280/280, cero código).
+
+- **FIND-89** (consolidar `env::var` en `Config`) - ✅ completado 2026-09-14 por sesión paralela (commits `1ca57649`/`3a0e42d7`/`4cdc1970`/`c4ddb217`, BREAKING: vars `VANTA_*` → `VANTADB_*`; excepciones: test `llm.rs`, `ENV_REPORTED_VERSION`, `OTEL_*`). Fila removida del catálogo en auditoría backlog misma fecha.
