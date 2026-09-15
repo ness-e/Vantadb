@@ -7,6 +7,24 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { MemoryRecord } from "../vanta";
 
+// FIND-63: Node ≥26 expone localStorage experimental sin --localstorage-file
+// (undefined + warning) y jsdom no lo provee → stub en memoria POR ARCHIVO
+// (no config global; vitest aísla por archivo, projection.worker node intacto).
+// Preserva semántica compartida: un solo store global limpiado en beforeEach.
+if (
+  typeof (globalThis as { localStorage?: unknown }).localStorage === "undefined"
+) {
+  const __find63map = new Map<string, string>();
+  (globalThis as Record<string, unknown>).localStorage = {
+    getItem: (k: string) => __find63map.get(String(k)) ?? null,
+    setItem: (k: string, v: string) => void __find63map.set(String(k), String(v)),
+    removeItem: (k: string) => void __find63map.delete(String(k)),
+    clear: () => __find63map.clear(),
+    key: () => null,
+    length: 0,
+  } satisfies Storage;
+}
+
 const mocks = vi.hoisted(() => ({
   remove: vi.fn<[string, string?], Promise<void>>(),
   vantaPut: vi.fn<[Record<string, unknown>], Promise<unknown>>(),

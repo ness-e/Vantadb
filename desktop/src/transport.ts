@@ -7,7 +7,7 @@
 import { invoke } from "@tauri-apps/api/core";
 import { getHttpMapping } from "./vanta-http-map.ts";
 import { getWasmMapping } from "./vanta-wasm-map.ts";
-import type { VantaDB } from "../../vantadb-wasm/pkg/vantadb_wasm.js";
+import type { Client as VantaDB } from "../../vantadb-wasm/pkg/vantadb_wasm.js"; // FIND-63: pkg expone Client
 
 export interface VantaTransport {
   call<T>(cmd: string, args?: Record<string, unknown>): Promise<T>;
@@ -75,7 +75,7 @@ async function httpError(res: Response, cmd: string): Promise<Error> {
 }
 
 /** WASM backend (WASM-02): runs the console 100% in the browser against the
- * wasm-bindgen `VantaDB` wrapper (OPFS persistence, IndexedDB fallback).
+ * wasm-bindgen `Client` wrapper (OPFS persistence, IndexedDB fallback).
  * Command resolution + DTO adaptation live in vanta-wasm-map.ts. The wasm
  * module is imported lazily on first call, so Tauri/HTTP builds never load it
  * (code-split chunk). */
@@ -88,13 +88,13 @@ export class WasmBackend implements VantaTransport {
       this.dbPromise = (async () => {
         const mod = await import("../../vantadb-wasm/pkg/vantadb_wasm.js");
         try {
-          const db = await mod.VantaDB.connect_persistent("vantadb"); // OPFS (auto-load)
+          const db = await mod.Client.connect_persistent("vantadb"); // OPFS (auto-load)
           this.storage = "opfs";
           return db;
         } catch {
           // OPFS unavailable (e.g. private mode) → IndexedDB.
           this.storage = "idb";
-          return await mod.VantaDB.connect_idb("vantadb");
+          return await mod.Client.connect_idb("vantadb");
         }
       })();
     }
