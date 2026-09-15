@@ -1,12 +1,12 @@
 # VantaDB Skills Manifest
 
-**Location:** **194 skills en `.opencode/skills/`** (git submodule → `configOpencode` private repo); total **194** (project-local; curated essential list below)
-**Updated:** 2026-09-01
+**Location:** **196 skills en `.opencode/skills/`** (git submodule → `configOpencode` private repo); total **196** (project-local; curated essential list below)
+**Updated:** 2026-09-15 (FIND-83: conteo re-medido + nota mirror `skills/`↔`.opencode/skills/`)
 
 > **AUDIT 2026-09-01 — Reestructuración completada + sync agent-skills:**
-> - `.opencode/skills/` = **194** skills (submodule `configOpencode` — todas las skills del proyecto viven aquí)
+> - `.opencode/skills/` = **196** skills (submodule `configOpencode` — todas las skills del proyecto viven aquí)
 > - `.agents/skills/` = **ELIMINADO** (2026-09-01) — contenido migrado a submodule
-> - **Total proyecto = 194** (todas en `.opencode/skills/`: 25 base agent-skills + 169 VantaDB)
+> - **Total proyecto = 196** (todas en `.opencode/skills/`; desglose 2026-09-01 era 25 base + 169 VantaDB)
 > - Global `~/.agents/skills/` = 160 dirs (139 con SKILL.md, 14 sin); `~/.claude/skills/` = 33 dirs
 > - **87 skills nuevas documentadas 2026-08-19**: 63 de accesibilidad (5 `a11y-*` + 58 `incl-*`), 17 de diseño/UX/utilidad, 7 de pipeline/VantaDB core
 > - **Sync 2026-09-01 desde addyosmani/agent-skills**: 24/25 skills actualizadas (1 nueva: `constraint-driven-development`), preservando customizaciones VantaDB
@@ -593,8 +593,9 @@ The following skills were removed during cleanup (158 total):
 
 ## Source Locations
 
-All skills are now consolidated in the project: **193 skills en `.opencode/skills/`** (git submodule → `configOpencode` private repo); total 193 (audited 2026-09-01). Skills not relevant to VantaDB live in `~/.agents/skills/` (160 dirs global) and `~/.claude/skills/` (33 dirs).
+All skills are now consolidated in the project: **196 skills en `.opencode/skills/`** (git submodule → `configOpencode` private repo); total 196 (audited 2026-09-01, re-medido 2026-09-15 en FIND-83). Skills not relevant to VantaDB live in `~/.agents/skills/` (160 dirs global) and `~/.claude/skills/` (33 dirs).
 The global locations still exist but are secondary — prefer the project-local copy. Regla de resolución (AGENTS.md): `.opencode/skills/` (submodule) → global, usar la primera que exista. **Nota:** `.agents/` fue eliminado 2026-09-01.
+**Mirror `skills/` ↔ `.opencode/skills/` (FIND-83):** el par `vantadb` + `vantadb-mcp` existe en `skills/` (repo parent) como mirror de `.opencode/skills/` (submodule). Regla: hash-SAME verificado por `scripts/validate-docs-coverage.ps1` §7; sync = merge bidireccional, nunca overwrite ciego; excepción: `skills/vantadb-mcp/scripts/test-mcp.py` owned by FIND-82.
 
 ### Removidas en batch 2026-08-19 (7)
 

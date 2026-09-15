@@ -188,6 +188,36 @@ if (Test-Path $pyLib) {
 # ═══════════════════════════════════════
 #  Resumen
 # ═══════════════════════════════════════
+# ═══════════════════════════════════════
+#  7. Skills mirror (FIND-83: skills/ ↔ .opencode/skills/ hash-SAME)
+# ═══════════════════════════════════════
+# Excepción: skills/vantadb-mcp/scripts/test-mcp.py owned by FIND-82 (asserts por perfil) — fuera de este gate.
+$skillsPairs = @(
+  @("skills\vantadb\SKILL.md", ".opencode\skills\vantadb\SKILL.md"),
+  @("skills\vantadb\scripts\install-vantadb.sh", ".opencode\skills\vantadb\scripts\install-vantadb.sh"),
+  @("skills\vantadb-mcp\SKILL.md", ".opencode\skills\vantadb-mcp\SKILL.md"),
+  @("skills\vantadb-mcp\references\api-reference.md", ".opencode\skills\vantadb-mcp\references\api-reference.md"),
+  @("skills\vantadb-mcp\references\configuration.md", ".opencode\skills\vantadb-mcp\references\configuration.md"),
+  @("skills\vantadb-mcp\references\mcp-protocol.md", ".opencode\skills\vantadb-mcp\references\mcp-protocol.md"),
+  @("skills\vantadb-mcp\scripts\setup-vantadb.sh", ".opencode\skills\vantadb-mcp\scripts\setup-vantadb.sh"),
+  @("skills\vantadb-mcp\assets\claude-desktop-config.json", ".opencode\skills\vantadb-mcp\assets\claude-desktop-config.json"),
+  @("skills\vantadb-mcp\assets\cursor-config.json", ".opencode\skills\vantadb-mcp\assets\cursor-config.json"),
+  @("skills\vantadb-mcp\assets\opencode-config.json", ".opencode\skills\vantadb-mcp\assets\opencode-config.json")
+)
+$skillsDrift = @()
+foreach ($p in $skillsPairs) {
+  $a = Join-Path $root $p[0]; $b = Join-Path $root $p[1]
+  if ((-not (Test-Path $a)) -or (-not (Test-Path $b))) { $skillsDrift += "$($p[0]) (missing)"; continue }
+  if ((Get-FileHash $a -Algorithm SHA256).Hash -ne (Get-FileHash $b -Algorithm SHA256).Hash) { $skillsDrift += $p[0] }
+}
+if ($skillsDrift.Count -gt 0) {
+  Write-Host "⚠️  skills mirror (FIND-83, $($skillsDrift.Count)/$($skillsPairs.Count) drift — merge, no overwrite):" -ForegroundColor Yellow
+  foreach ($d in $skillsDrift) { Write-Host "    - $d" }
+  if (-not $ReportOnly) { $script:exitCode = 1 }
+} else {
+  Write-Host "✅ skills mirror — $($skillsPairs.Count) pares hash-SAME (test-mcp.py exceptuado: FIND-82)" -ForegroundColor Green
+}
+
 if ($exitCode -eq 0) {
   Write-Host "`n✅ Validación de cobertura completada — 0 gaps" -ForegroundColor Green
 } else {
