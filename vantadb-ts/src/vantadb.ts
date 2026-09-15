@@ -873,9 +873,17 @@ export class Client {
   /**
    * Import records from an array.
    *
+   * Implemented over the `put` path — not the WASM `import_records`
+   * binding, which deserializes `Vec<MemoryRecord>` with numeric `u64`
+   * timestamps and rejects both `MemoryInput` (missing `created_at_ms`)
+   * and the stringified-`u64` shape returned by `get()` (FIND-79).
+   * Semantics mirror the core `import_records`: pre-existing keys count
+   * as `updated`, new keys as `inserted`, per-record failures as `errors`
+   * (counted, never thrown).
+   *
    * @param records - Array of memory record inputs to import.
    * @returns Import report with counts and timing.
-   * @throws {DbError} If the instance is closed or the import fails.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -887,17 +895,30 @@ export class Client {
    */
   importRecords(records: MemoryInput[]): ImportReport {
     this._assertOpen();
-    return this._wasm("importRecords", () =>
-      this.inner.import_records(
-        records.map((r) => {
+    return this._wasm("importRecords", () => {
+      const started = Date.now();
+      let inserted = 0;
+      let updated = 0;
+      let errors = 0;
+      for (const r of records) {
+        try {
+          const existed = this.inner.get(r.namespace, r.key) != null;
           const wire = { ...r } as MemoryInput;
           if (r.metadata !== undefined) {
             wire.metadata = normalizeMetadata(r.metadata);
           }
-          return wire;
-        }),
-      ),
-    );
+          this.inner.put(wire);
+          if (existed) {
+            updated += 1;
+          } else {
+            inserted += 1;
+          }
+        } catch {
+          errors += 1;
+        }
+      }
+      return { inserted, updated, skipped: 0, errors, duration_ms: Date.now() - started };
+    });
   }
 
   /**

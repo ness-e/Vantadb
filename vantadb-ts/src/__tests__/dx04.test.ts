@@ -349,28 +349,26 @@ describe("DX-04: Batch operations", () => {
     expect(Number(got!.version)).toBe(2);
   });
 
-  it("importRecords round-trip", () => {
-    expect.assertions(1);
-    const records = [
+  it("importRecords round-trip (strict counts, FIND-79)", () => {
+    const report = db.importRecords([
       { namespace: "import_rt", key: "k1", payload: "v1" },
       { namespace: "import_rt", key: "k2", payload: "v2" },
-    ];
-    try {
-      const report = db.importRecords(records);
-      expect(report).toBeDefined();
-    } catch (e: any) {
-      expect(e).toBeDefined();
-    }
+    ]);
+    expect(report.inserted).toBe(2);
+    expect(report.updated).toBe(0);
+    expect(report.errors).toBe(0);
+    expect(db.get("import_rt", "k1")!.payload).toBe("v1");
+    expect(db.get("import_rt", "k2")!.payload).toBe("v2");
   });
 
-  it("importRecords with empty array", () => {
-    expect.assertions(1);
-    try {
-      const report = db.importRecords([]);
-      expect(report).toBeDefined();
-    } catch (e: any) {
-      expect(e).toBeDefined();
-    }
+  it("importRecords with empty array (strict zeros, FIND-79)", () => {
+    expect(db.importRecords([])).toEqual({
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      errors: 0,
+      duration_ms: expect.any(Number),
+    });
   });
 });
 
