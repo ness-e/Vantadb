@@ -140,9 +140,9 @@ Sin deuda: 0 líneas de código productivo; gate script aditivo (~30L ps1); sald
 
 ## Review (GATE — agente distinto, P2-01)
 
-- **Revisor:** pendiente (sin tool sub-agente en este runner; se solicita vanta-docs/vanta-review al orquestador)
-- **Enfoque:** ¿merge bidireccional correcto? ¿direcciones validadas por código? ¿gate script no rompe EXIT 0 previo?
-- **Cómo se probó:** hashes + `git diff --check` + script exit 0 (evidencia en RESULTADO, no auto-reporte)
+- **Revisor:** vanta-review (ses_f5a300cdaffe0yZBOedObdKLXj, P2-01, VEREDICTO approve)
+- **Enfoque:** ¿merge bidireccional correcto? ¿direcciones validadas por código? ¿gate script no rompe EXIT 0 previo? + submodule 3-files vs WIP ajeno
+- **Cómo se probó:** reviewer ejecutó: Get-FileHash 11 pares → 10 SAME / 1 DIFF (test-mcp.py exceptuado FIND-82) ✅; `git diff --check` limpio ✅; `pwsh scripts/validate-docs-coverage.ps1` EXIT 0 (§7: 10 pares SAME, 0 gaps) ✅; manifest 196 medido en disco + nota mirror :598 ✅; `git show ab6827ba` completo sin secretos ✅
 - **Checklist anti-hábitos tóxicos:**
   - [x] No inventar salidas de comandos (toda evidencia es output real citado)
   - [x] No saltarse clarificación (Gate D evaluado con motivo; C6 decidió no commitear submodule con WIP ajeno)
@@ -154,7 +154,7 @@ Sin deuda: 0 líneas de código productivo; gate script aditivo (~30L ps1); sald
   - [x] Pasos conectados al objetivo (cada edit ↔ contrato)
   - [x] Sin paths dinero/seguridad (docs-only)
   - [x] Presupuesto explícito (appetite 1d, ejecución parcial de jornada)
-- **Veredicto:** ⏳ pendiente revisor distinto
+- **Veredicto:** ✅ APPROVE (vanta-review: 0 critical, 0 required; nit cosmético cabecera Resumen/ps1 ignorable; merge-no-overwrite probado: ERR-MCP-01 en :422 ambas + MCP-29 en :328 ambas; contradicción MCP-27/29 cerrada como scope reescrito con 0 ocurrencias frase stale; bump submodule selectivo 3-files confirmado sin dependencia del WIP ajeno)
 
 ## Notas
 - `campaign_verify_cmd` con bug exit -1 conocido (plan §Riesgos) → verificación vía bash directa, documentada.
