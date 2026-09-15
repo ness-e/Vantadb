@@ -13,7 +13,7 @@ VantaDB native Node.js bindings via [napi-rs](https://napi.rs) — persistent em
 
 > **Estado 2026-09-09:** paquete pre-npm (instalación desde source; `npm pack`
 > incluye el prebuild `*.node` verificado). Ver
-> `docs/reviews/research-vantadb-node-20260825.md` para el plan de distribución
+> `docs/reviews/archive/research-vantadb-node-20260825.md` para el plan de distribución
 > y `docs/tasks/TS-12.md` para la checklist del publish humano.
 
 ## Instalación (source)
@@ -24,7 +24,7 @@ npm install          # @napi-rs/cli + vitest
 npm run build        # napi build --platform --release (requiere Rust)
 ```
 
-Requisitos: Node ≥ 18 · Rust stable.
+Requisitos: Node ≥ 18 (este paquete) · Rust stable. Compat: `vantadb-ts` exige Node ≥ 22.19 (`vantadb-ts/package.json:engines`).
 
 ## Uso
 
