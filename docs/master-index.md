@@ -71,6 +71,7 @@ related: [Backlog.md, backlog-futuro.md, Backlog-negocio.md, CHANGELOG.md, QUICK
 | [HTTP API](api/HTTP_API.md) | REST / HTTP server specification (regenerated 2026-08-22, GOV-B5) |
 | [OpenAPI spec](api/openapi.yaml) | Machine-readable OpenAPI contract for the HTTP API (GOV-B4) |
 | [MCP API](api/MCP.md) | MCP server spec — **stub**; single source of truth: [`skills/vantadb-mcp/references/api-reference.md`](../skills/vantadb-mcp/references/api-reference.md) |
+| [Proxy](api/PROXY.md) | `vanta-proxy` reference — endpoints, 8 opt-in features, defaults, env |
 | [TypeScript SDK](api/TS_SDK.md) | TypeScript / WASM bindings — `vantadb-ts` |
 | [IQL](api/IQL.md) | Interactive Query Language reference |
 | [VANTA_MEMORY.md](api/VANTA_MEMORY.md) | Vanta memory subsystem API (LLM-free stores, personas, wiki) |
