@@ -687,6 +687,55 @@ try {
 | File I/O | Limited (export/import works via JS APIs) | Full filesystem access |
 | Memory | WebAssembly heap (limited) | Native heap |
 
+## Native backend (Node.js — `NativeVantaDB` via `vantadb/native`)
+
+The WASM wrapper above is the default backend (in-memory, browsers/Bun/Deno).
+For **real filesystem persistence on Node.js** (fjall backend with WAL/fsync —
+which WASM cannot provide, CODE-089), use the **native backend**
+[`NativeVantaDB`](../../vantadb-ts/src/native.ts), powered by the `vantadb-node`
+napi-rs binding (async API, platform-specific `.node` binaries).
+
+> **Engines:** the native backend requires `node>=22.19` (source:
+> `vantadb-ts/package.json` `engines`). The WASM wrapper additionally works on
+> Node.js 18+, Bun, Deno, and browsers (see `## Runtimes` below).
+
+```ts
+import { NativeVantaDB } from "vantadb";          // also re-exported via `.`
+import { NativeVantaDB as NativeVantaDBSubpath } from "vantadb/native"; // dedicated subpath
+
+// In-memory native engine
+const mem = await NativeVantaDB.connect(":memory:");
+
+// Persistent native engine (fjall/WAL/fsync) — the key differential vs WASM
+const db = await NativeVantaDB.connect("./vanta_data");
+
+await db.put({ namespace: "notes", key: "n1", payload: "hello", vector: [0.1, 0.2, 0.3] });
+await db.flush();
+await db.close();
+```
+
+**When to use which:**
+
+| Need | Use |
+|------|-----|
+| Browser / Bun / Deno / zero-install | WASM wrapper (`Client.create()` / `connect()`) |
+| Node.js + persistent on-disk (crash-safe WAL) | Native backend (`NativeVantaDB.connect(path)`) |
+| SSR / server components | Create lazily in client-only code; on Node prefer native (see `vantadb-ts/README.md` §SSR guidance) |
+
+**Notes:**
+
+- `NativeVantaDB` methods are **async** (the engine runs on background threads via
+  `spawn_blocking`, so the JS thread is never blocked); the WASM `Client` API is synchronous.
+- The native `.node` binary is **platform-specific**. If it is missing for the
+  current platform, every method throws a `DbError` with a canonical `VANTADB_*`
+  code — browsers must use the WASM wrapper instead.
+- Error surface is identical: `wrapNativeError` maps to the same 10-code
+  `ERROR_CODES` contract as `wrapWasmError` (`VANTADB_*`, branch on `code`),
+  covered by `vantadb-ts/src/__tests__/native-error.test.ts` (TS-02/ERR-TS-01).
+- Package layout: `vantadb/native` → `dist/native.js` + `dist/native.d.ts`
+  (shipped inside `files: ["dist/"]`; verify with `npm pack --dry-run`).
+  See also [`vantadb-ts/README.md` → vantadb vs vantadb-node](../../vantadb-ts/README.md#vantadb-vs-vantadb-node-npm).
+
 ## Runtimes
 
 | Runtime | Status |
