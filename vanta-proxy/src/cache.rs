@@ -752,13 +752,20 @@ mod tests {
     fn ttl_expiry_predicate() {
         use std::time::{Duration, Instant};
         // Entrada vieja con TTL corto → expirada; fresca → viva; TTL_ZERO nunca expira.
-        assert!(is_expired(
-            Instant::now() - Duration::from_secs(10),
-            Duration::from_secs(5)
-        ));
+        // `Instant` es monotónico desde boot: `now - d` paniquea si uptime < d
+        // (el `10_000s` original exigía 2.7h de uptime). `checked_sub` nunca paniquea.
+        let old = Instant::now()
+            .checked_sub(Duration::from_secs(10))
+            .unwrap_or_else(Instant::now);
+        // En hosts con uptime <10s `old` puede ser `now`: el sleep garantiza
+        // `elapsed >= ttl` sin restas que paniqueen.
+        std::thread::sleep(Duration::from_millis(10));
+        assert!(is_expired(old, Duration::from_millis(1)));
         assert!(!is_expired(Instant::now(), Duration::from_secs(60)));
         assert!(!is_expired(
-            Instant::now() - Duration::from_secs(10_000),
+            Instant::now()
+                .checked_sub(Duration::from_secs(10_000))
+                .unwrap_or_else(Instant::now),
             super::TTL_DISABLED
         ));
     }
