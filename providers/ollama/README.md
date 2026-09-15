@@ -33,7 +33,7 @@ print(rid, results)
 | Method | Signature | Description |
 |--------|-----------|-------------|
 | `embed` | `embed(texts) -> list[list[float]]` | Generate embeddings via Ollama's `/api/embed`. |
-| `store` | `store(text, embedding, metadata=None) -> str` | Store a record; returns `"<namespace>:<key>"`. Metadata values must be `str`/`bool`/`int`/`float`. |
+| `store` | `store(text, embedding, metadata=None, key=None) -> str` | Store a record; returns `"<namespace>:<key>"`. `key` upserts at a deterministic key, else auto-generated. Metadata values must be `str`/`bool`/`int`/`float`. |
 | `search` | `search(namespace, query_embedding, text_query=None, filters=None, distance_metric=None, top_k=10) -> list[dict]` | Hybrid vector + BM25 search (`distance_metric`: `"cosine"` or `"euclidean"`/`"l2"`). Returns `{id, text, score}` per hit. |
 | `get` | `get(namespace, key) -> dict \| None` | Retrieve a single record, or `None` if not found. |
 | `list` | `list(namespace, limit=100, cursor=None) -> dict` | Paginated listing: `{"records": [...], "cursor": str}` when a next page exists. |
