@@ -15,6 +15,7 @@ on:
       - 'deny.toml'
       - 'rust-toolchain.toml'
       - 'vantadb-*/**'
+      - 'vanta-memory/**'
       - 'integrations/**'
       - '!web/**'
   pull_request:
@@ -31,6 +32,7 @@ on:
       - 'deny.toml'
       - 'rust-toolchain.toml'
       - 'vantadb-*/**'
+      - 'vanta-memory/**'
       - 'integrations/**'
       - '!web/**'
   workflow_dispatch:
