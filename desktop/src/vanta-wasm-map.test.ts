@@ -9,7 +9,7 @@ import {
   wasmMappedCommands,
   wasmUnsupportedCommands,
 } from "./vanta-wasm-map.ts";
-import type { VantaDB } from "../../vantadb-wasm/pkg/vantadb_wasm.js";
+import type { Client as VantaDB } from "../../vantadb-wasm/pkg/vantadb_wasm.js"; // FIND-63: pkg expone Client
 import type { HealthReport, MemoryRecord, OperationalMetrics, SearchResult } from "./vanta.ts";
 
 const sdkRecord = {

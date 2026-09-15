@@ -1,7 +1,7 @@
 // Command → WASM method mapping for the standalone browser transport (WASM-02).
 //
 // Every `vanta_*` command wrapper in vanta.ts resolves here to a method on the
-// `VantaDB` class exposed by `vantadb-wasm/pkg` (wasm-bindgen). The wrapper is
+// `Client` class exposed by `vantadb-wasm/pkg` (wasm-bindgen). The wrapper is
 // thin (1:1 with the generated API); this file adapts the WASM wire to the
 // desktop DTOs the same way vanta-http-map.ts does for REST — components read
 // `record.text`/`record.id`, the WASM wire sends `key`/`payload` with
@@ -11,7 +11,7 @@
 // Commands with NO wire-compatible WASM method (multi-connection, version
 // history, audit log, graph DTOs, export-to-path) are rejected with a
 // descriptive error — never an invented call (WEB-04 pattern).
-import type { VantaDB } from "../../vantadb-wasm/pkg/vantadb_wasm.js";
+import type { Client as VantaDB } from "../../vantadb-wasm/pkg/vantadb_wasm.js"; // FIND-63: pkg expone Client
 import type {
   HealthReport,
   IngestItem,

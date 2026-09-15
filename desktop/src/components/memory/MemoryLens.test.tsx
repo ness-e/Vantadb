@@ -5,6 +5,22 @@ import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/re
 import { afterEach, describe, expect, it, vi } from "vitest";
 import MemoryLens, { lineDiff } from "./MemoryLens";
 
+// FIND-63: stub localStorage en memoria POR ARCHIVO (Node ≥26 sin
+// --localstorage-file → undefined; no config global, no toca worker node).
+if (
+  typeof (globalThis as { localStorage?: unknown }).localStorage === "undefined"
+) {
+  const __find63map = new Map<string, string>();
+  (globalThis as Record<string, unknown>).localStorage = {
+    getItem: (k: string) => __find63map.get(String(k)) ?? null,
+    setItem: (k: string, v: string) => void __find63map.set(String(k), String(v)),
+    removeItem: (k: string) => void __find63map.delete(String(k)),
+    clear: () => __find63map.clear(),
+    key: () => null,
+    length: 0,
+  } satisfies Storage;
+}
+
 const mocks = vi.hoisted(() => ({
   get: vi.fn(),
   memorySceneList: vi.fn(),
