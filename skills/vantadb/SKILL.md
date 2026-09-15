@@ -325,6 +325,8 @@ result = db.query('SELECT * FROM memory WHERE namespace = "agent/session-1" LIMI
 
 The MCP server exposes the same capability as the `query_iql` tool. (LISP is not supported.)
 
+Memory namespaces are also queryable as IQL tables (MCP-29): each namespace is reachable via its sanitized name — `/` and `-` become `_`, and a leading digit/`.` gets a `_` prefix. For example, records in namespace `mmd/s1/history` are returned by `SELECT * FROM mmd_s1_history`. Legacy records (written before this feature) are visible immediately; no migration required.
+
 ### In-Memory Mode
 
 Pass `":memory:"` as the database path to run fully in-memory — no persistence, ideal for tests and ephemeral workloads:

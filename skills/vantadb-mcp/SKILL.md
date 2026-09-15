@@ -197,7 +197,7 @@ The full contract for all **79 tools** lives in
 **query_iql** - Execute an IQL (Interactive Query Language) statement. Allows reading structures and inserting/mutating Nodes providing semantic context. **LISP is not supported; statements must be IQL.**
 - Parameters: `query`
 - Returns: Query results or execution status (read nodes, write result, or stale-context rehydration hint)
-- **Scope (MCP-27):** IQL operates over **typed graph nodes only** (`TYPE`). Memory records written via `memory_put` are NOT exposed as IQL tables — `SELECT * FROM <namespace>` returns `[]` without error because those records live as internal nodes with reserved `__vanta_*` fields and no `type` field. Use `memory_list` / `memory_get` / `search_memory` for memory records. To make data queryable via IQL from the agent channel, insert graph nodes directly: `INSERT NODE#<id> TYPE <Type> { ... }` then `SELECT * FROM <Type>`.
+- **Scope (MCP-27, extended by MCP-29):** IQL reads typed graph nodes (`TYPE`) **and** memory namespaces as tables. Each namespace is reachable via its sanitized table name — `/` and `-` become `_`, and a leading digit/`.` gets a `_` prefix (`src/sdk/serialization/mod.rs::iql_table_name_for_namespace`; e.g. `mmd/s1/history` → `mmd_s1_history`). A graph type and a namespace sanitizing to the same name return a UNION; an unknown or empty name returns `[]` without error (`src/physical_plan/scan.rs`, tests `collision_between_graph_type_and_namespace_returns_union`, `namespace_with_slashes_is_queryable_via_sanitized_table`). Memory records carry reserved `__vanta_*` fields and no `type` field — prefer `memory_list` / `memory_get` / `search_memory` for key-shaped access.
 
 #### IQL Syntax
 
