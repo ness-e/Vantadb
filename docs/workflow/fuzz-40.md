@@ -59,3 +59,12 @@ Antes de `build` corre el job `ci-gate` (reutiliza `.github/workflows/ci-gate.ym
 - En **workflow_dispatch**: el gate se salta (fuerza la ejecución).
 
 Requiere `checks: read` en el calling job.
+
+## PR Gate (`fuzz-pr`)
+
+Job acotado para pull requests que tocan `src/**` o `fuzz/**` (paths-filter nativo — los PRs docs-only no lo disparan). Corre los 4 targets en paralelo con `-max_total_time=75 -max_len=8192` (≈5-8 min). Ubuntu-only (Windows da flaky en fuzz); timeout ≤ 15 min; sin `continue-on-error` (Regla 2). El fuzz completo (sin límite de tiempo de PR) queda para `schedule`/`workflow_dispatch` en los jobs `build` + `fuzz`.
+
+## Seeds y artefactos
+
+- **Seeds:** `fuzz/corpus/<target>/` trae 1 seed mínimo por target commiteado al repo (bytes, no MB); el resto del corpus evoluciona por cache entre runs (`fuzz-corpus-<target>-*`).
+- **Artefactos:** tras cada run (jobs `fuzz` y `fuzz-pr`) se sube `fuzz/artifacts/<target>/` (crashes) + `fuzz/corpus/<target>/` (corpus) vía `actions/upload-artifact` con `if: always()` — los crashes quedan disponibles aunque el job falle.
