@@ -3,7 +3,7 @@ title: "similar_to_key"
 type: glossary-entry
 status: stable
 tags: [glosario, api, busqueda, similaridad]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-09-15
 aliases: [similar_to_key, search-by-key, buscar-por-clave]
 description: "Método de búsqueda por similitud que extrae el vector de un registro existente (clave) y ejecuta búsqueda vectorial contra él"
 ---

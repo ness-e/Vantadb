@@ -1,3 +1,13 @@
+---
+title: "VantaDB — Cómo Leer Failures de Nextest"
+type: reference
+status: active
+tags: [vantadb, references, nextest, test-output]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # VantaDB — Cómo Leer Failures de Nextest
 
 > **Cómo usar:** Cuando un test falla en nextest, consulta esta guía para interpretar el output antes de diagnosticar.

@@ -3,7 +3,7 @@ title: "Latencia"
 type: glossary-entry
 status: stable
 tags: [glosario, métricas, latencia, performance, percentiles]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-09-15
 aliases: [latency, response time, p50, p95, p99]
 ---
 

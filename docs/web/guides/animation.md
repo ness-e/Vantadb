@@ -1,3 +1,13 @@
+---
+title: "Animation System"
+type: web
+status: active
+tags: [vantadb, web, guides]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Animation System
 
 Three animation layers: CSS keyframe animations, framer-motion (page transitions + reveals), anime.js (interactive SVG mark).

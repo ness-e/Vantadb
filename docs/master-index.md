@@ -2,8 +2,10 @@
 title: VantaDB Master Index
 type: master-index
 status: active
-last_reviewed: 2026-09-02
 tags: [vantadb, documentation, index, master-index]
+last_reviewed: 2026-09-15
+aliases: []
+related: [Backlog.md, backlog-futuro.md, Backlog-negocio.md, CHANGELOG.md, QUICKSTART.md, avance/README.md]
 ---
 
 # VantaDB Master Index

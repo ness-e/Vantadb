@@ -1,3 +1,13 @@
+---
+title: "VantaDB — Bug Workflow"
+type: reference
+status: active
+tags: [vantadb, references, bug-workflow, debugging]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # VantaDB — Bug Workflow
 
 > **Cómo usar:** Al reportar un bug o test failure, sigue esta secuencia. NO intentes fixes sin diagnóstico (salvo Fase 0.5: contener primero si el entorno está roto).

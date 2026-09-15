@@ -1,3 +1,12 @@
+---
+title: "Heap-Usage Testing — `dhat` 0.3.3 Evaluation (2026-08-30)"
+type: research
+status: active
+tags: [vantadb, research, heap-profiling, dhat]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # Heap-Usage Testing — `dhat` 0.3.3 Evaluation (2026-08-30)
 
 > **Document type:** Research note / mini-ADR (not a full ADR — no formal template needed because

@@ -1,3 +1,13 @@
+---
+title: "Bindings Namespace Map"
+type: api
+status: active
+tags: [vantadb, api, bindings, namespaces]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Bindings Namespace Map
 
 > **Status:** canonical contract for SDKB campaign (`docs/plans/2026-08-22-vantadb-bindings-sdk.md`).

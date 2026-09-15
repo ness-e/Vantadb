@@ -1,3 +1,12 @@
+---
+title: "ENG-03 — ENTREGA DE PROYECTOS, PLANIFICACIÓN, RIESGO Y META-TRABAJO"
+type: research
+status: stable
+tags: [vantadb, research, gestion-proyectos, riesgo]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # ENG-03 — ENTREGA DE PROYECTOS, PLANIFICACIÓN, RIESGO Y META-TRABAJO
 
 **Fecha:** 2026-08-10

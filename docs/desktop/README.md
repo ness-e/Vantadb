@@ -1,3 +1,13 @@
+---
+title: "VantaDB Desktop (Vanta Studio)"
+type: reference
+status: active
+tags: [vantadb, desktop, overview, vanta-studio]
+last_reviewed: 2026-09-15
+aliases: [VANTA-STUDIO]
+related: []
+---
+
 # VantaDB Desktop (Vanta Studio)
 
 Desktop console for VantaDB built with **Tauri v2** (Rust shell + React frontend).

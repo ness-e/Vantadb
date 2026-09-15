@@ -3,7 +3,7 @@ title: "busqueda-vectorial"
 type: glossary-entry
 status: stable
 tags: [glosario, búsqueda, vectorial, ann, hnsw]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-09-15
 aliases: [vector search, ANN search, approximate nearest neighbor]
 ---
 

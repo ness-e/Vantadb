@@ -3,7 +3,7 @@ title: "PyO3"
 type: glossary-entry
 status: stable
 tags: [ffi, python, rust, bindings]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [PyO3 Bindings, Rust-Python Bindings]
 description: "Rust framework to create Python extensions and bidirectional bindings between Rust and Python, allowing you to expose Rust code as native Python modules"

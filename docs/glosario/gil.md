@@ -3,7 +3,7 @@ title: "Single-thread: 1 second"
 type: glossary-entry
 status: stable
 tags: [python, concurrencia, lock, threading]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Global Interpreter Lock, Python GIL]
 description: "Global mutex in the CPython interpreter that protects access to Python objects, ensuring that only one thread can execute Python bytecode at a time within a process"

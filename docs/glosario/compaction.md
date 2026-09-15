@@ -3,7 +3,7 @@ title: "Compaction"
 type: glossary-entry
 status: stable
 tags: [glosario, storage, mantenimiento, rendimiento, lsm]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-09-15
 aliases: [compaction, compactación, layout-compaction, compact]
 description: "Proceso de reorganización del almacenamiento para recuperar espacio, reducir fragmentación y mantener rendimiento de lectura"
 ---

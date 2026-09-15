@@ -1,3 +1,13 @@
+---
+title: "VantaDB IVF Benchmark — REVISAR-01"
+type: benchmark
+status: active
+tags: [vantadb, benchmarks, ivf, recall-bench]
+last_reviewed: 2026-09-15
+aliases: [IVF]
+related: []
+---
+
 # VantaDB IVF Benchmark — REVISAR-01
 
 > **Superseded (2026-09-15):** el baseline canónico post-`b4ff157d` vive en

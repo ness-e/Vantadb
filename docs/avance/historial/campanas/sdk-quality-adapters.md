@@ -1,3 +1,13 @@
+---
+title: "Calidad SDK y adapters — COMP/GH/REV/adapters"
+type: registro
+status: archived
+tags: [vantadb, avance, campana]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Calidad SDK y adapters — COMP/GH/REV/adapters
 
 > **Migrado desde** `docs/progreso/README.md` (split GOV-D2, 2026-08-22). Contenido histórico sin cambios salvo dedup indicado.

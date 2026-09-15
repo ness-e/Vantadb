@@ -3,8 +3,9 @@ title: VantaDB Vision & Strategic Positioning
 type: vision
 status: stable
 tags: [vantadb, product, strategy, uvp, icp, competitive, positioning]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-09-15
 aliases: [Vision, Positioning, UVP, ICP, Competitive Analysis]
+related: [GO_TO_MARKET.md, VANTADB-PRO-FEATURES.md]
 ---
 
 # VantaDB Vision & Strategic Positioning

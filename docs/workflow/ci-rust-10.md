@@ -1,3 +1,13 @@
+---
+title: "`ci-rust-10.yml` — CI: Rust — Build & Lint + Tests"
+type: workflow
+status: active
+tags: [vantadb, ci, ci-rust]
+last_reviewed: 2026-09-15
+aliases: []
+related: [".github/workflows/ci-rust-10.yml"]
+---
+
 # `ci-rust-10.yml` — CI: Rust — Build & Lint + Tests
 
 ## ¿Qué hace?

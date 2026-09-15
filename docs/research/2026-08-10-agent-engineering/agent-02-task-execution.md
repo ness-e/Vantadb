@@ -1,3 +1,12 @@
+---
+title: "Ejecución de Tareas Paso a Paso y Loop de Trabajo"
+type: research
+status: stable
+tags: [vantadb, research, agentes-ia, task-execution]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # Ejecución de Tareas Paso a Paso y Loop de Trabajo
 
 **Fecha:** 2026-08-10 · **Lote:** 2026-08-10-agent-engineering · **Agente:** agent-02

@@ -1,3 +1,13 @@
+---
+title: "Posicionamiento de Producto — VantaDB Web"
+type: web
+status: active
+tags: [vantadb, web, standards]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Posicionamiento de Producto — VantaDB Web
 
 > **Propósito:** Define cómo se posiciona VantaDB en el mercado, contra quién compite, para quién es, y qué NO es.

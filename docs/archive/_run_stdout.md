@@ -1,3 +1,13 @@
+---
+title: "Run Stdout Log"
+type: plan
+status: archived
+tags: [vantadb, archive, run-stdout, bench-log]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 [2026-08-12T16:45:55Z WARN  lance::dataset::write::insert] No existing dataset at C:\Users\Eros\VantaDB Proyect\VantaDB\benchmarks\competitive_data\lance_db\vectors.lance, it will be created
 [2026-08-12T16:45:57Z WARN  lance::dataset::write::insert] No existing dataset at C:\Users\Eros\VantaDB Proyect\VantaDB\benchmarks\competitive_data\lance_db\vectors.lance, it will be created
 [2026-08-12T16:45:59Z WARN  lance::dataset::write::insert] No existing dataset at C:\Users\Eros\VantaDB Proyect\VantaDB\benchmarks\competitive_data\lance_db\vectors.lance, it will be created

@@ -3,8 +3,9 @@ title: VantaDB — HNSW & Lexical Engine Performance Benchmarks
 type: operations
 status: active
 tags: [vantadb, operations, benchmarks]
-last_reviewed: 2026-08-30
+last_reviewed: 2026-09-15
 aliases: []
+related: [TEST_MAP.md, CI_POLICY.md, ivf_bench.md]
 ---
 
 # VantaDB — HNSW & Lexical Engine Performance Benchmarks

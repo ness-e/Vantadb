@@ -3,7 +3,7 @@ title: "OIDC (OpenID Connect)"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, seguridad, ci-cd]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[Glosario](./README.md)"
 ---
 

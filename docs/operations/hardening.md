@@ -1,3 +1,13 @@
+---
+title: "VantaDB Server — Security Hardening Guide"
+type: operations
+status: active
+tags: [vantadb, operations, hardening, security]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # VantaDB Server — Security Hardening Guide
 
 > **Audience**: Operators deploying VantaDB Server in production or semi-trusted environments.

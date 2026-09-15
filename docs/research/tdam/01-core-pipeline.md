@@ -1,3 +1,12 @@
+---
+title: "TDAM — 01: Core pipeline L0→L3 — Investigación profunda"
+type: research
+status: active
+tags: [vantadb, research, tdam, core-pipeline]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # TDAM — 01: Core pipeline L0→L3 — Investigación profunda
 
 > Fecha: 2026-08-18 · Agente: vanta-research · Fuente: `TencentCloud/TencentDB-Agent-Memory@97f9465` (branch `feat/server_team`, v2.0.0-beta.1, repo PÚBLICO)

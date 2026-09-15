@@ -1,3 +1,13 @@
+---
+title: "Review profunda — `vantadb-ts` (SDK TypeScript puro)"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Review profunda — `vantadb-ts` (SDK TypeScript puro)
 
 **Fecha:** 2026-08-22 · **Alcance:** lectura completa de `src/*.ts` (types, vantadb, errors, guards, native), `package.json`, y los 7 archivos de test. Verificación cruzada contra la superficie real del core (`vantadb/src/sdk/**`) y el binding WASM.

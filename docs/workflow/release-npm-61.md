@@ -1,3 +1,13 @@
+---
+title: "`release-npm-61.yml` — RELEASE: NPM — Publish"
+type: workflow
+status: active
+tags: [vantadb, ci, release-npm]
+last_reviewed: 2026-09-15
+aliases: []
+related: [".github/workflows/release-npm-61.yml"]
+---
+
 # `release-npm-61.yml` — RELEASE: NPM — Publish
 
 ## ¿Qué hace?

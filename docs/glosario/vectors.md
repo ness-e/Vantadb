@@ -3,7 +3,7 @@ title: "Vectores"
 type: glossary-entry
 status: stable
 tags: [concept, ml, embeddings, vectores, alta-dimensionalidad]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Vectors, Embeddings, High Dimensional Vectors]
 description: "Array of floating point numbers representing an object (text, image, audio) in a high-dimensional space, capturing semantic similarity"

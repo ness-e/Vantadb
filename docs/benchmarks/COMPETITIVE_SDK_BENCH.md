@@ -1,3 +1,13 @@
+---
+title: "VantaDB Competitive SDK Benchmark — Honest Results (PERF-03)"
+type: benchmark
+status: active
+tags: [vantadb, benchmarks, sdk-bench, comparison]
+last_reviewed: 2026-09-15
+aliases: [PERF-03]
+related: []
+---
+
 # VantaDB Competitive SDK Benchmark — Honest Results (PERF-03)
 
 > **Fecha:** 2026-08-12 · **HW:** Windows 10 (build 26200), Intel 12-core, Python 3.11.9

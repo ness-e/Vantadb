@@ -1,3 +1,12 @@
+---
+title: "GAP-02: Sistema de Tareas Automático vs Buenas Prácticas de Ingeniería"
+type: research
+status: stable
+tags: [vantadb, research, gap-analysis, ingenieria]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # GAP-02: Sistema de Tareas Automático vs Buenas Prácticas de Ingeniería
 
 > **Fecha:** 2026-08-10

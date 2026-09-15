@@ -3,7 +3,7 @@ title: "fsync — File Synchronization"
 type: glossary-entry
 status: stable
 tags: [persistence, durabilidad, io, syscall]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [File Sync, Disk Synchronization]
 description: "Syscall from the operating system that forces the writing of all buffers in memory to the physical disk, ensuring that data survives power outages"

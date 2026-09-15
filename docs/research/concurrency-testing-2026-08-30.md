@@ -1,3 +1,12 @@
+---
+title: "Concurrency Testing — `loom` Evaluation (2026-08-30)"
+type: research
+status: active
+tags: [vantadb, research, concurrencia, loom]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # Concurrency Testing — `loom` Evaluation (2026-08-30)
 
 > **Document type:** Research note / mini-ADR (not a full ADR — no formal template needed because

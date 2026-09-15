@@ -1,3 +1,12 @@
+---
+title: "VantaDB — Playbook de Marketing, Branding y Go-To-Market (primeros 1.000 usuarios)"
+type: research
+status: active
+tags: [vantadb, research, marketing, gtm]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # VantaDB — Playbook de Marketing, Branding y Go-To-Market (primeros 1.000 usuarios)
 
 **Fecha:** 2026-08-25 · **Autor:** Agente D (research GTM) · **Presupuesto:** ~cero (founder-led)

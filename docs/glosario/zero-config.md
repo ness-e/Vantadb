@@ -3,7 +3,7 @@ title: "Instalación"
 type: glossary-entry
 status: stable
 tags: [concept, ux, developer-experience, zero-config]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Zero Configuration, No Configuration, Zero Config]
 description: "Design principle where the software works correctly immediately after installation, without requiring configuration files or manual setup steps"

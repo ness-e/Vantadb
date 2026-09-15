@@ -1,3 +1,13 @@
+---
+title: "Audit Report: full"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Audit Report: full
 **Date:** 2026-07-18T17:19:45-04:00
 **Mode:** full

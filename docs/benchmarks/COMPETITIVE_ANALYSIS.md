@@ -1,3 +1,13 @@
+---
+title: "VantaDB Competitive Analysis"
+type: benchmark
+status: active
+tags: [vantadb, benchmarks, competitive-analysis, comparison]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # VantaDB Competitive Analysis
 
 > **Última actualización:** 2026-07-31 (Post-Verificación P0/P1/P2)

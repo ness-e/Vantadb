@@ -1,3 +1,13 @@
+---
+title: "Dependency Audit"
+type: web
+status: active
+tags: [vantadb, web, reference]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Dependency Audit
 
 ## Summary

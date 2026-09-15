@@ -3,7 +3,7 @@ title: "mmap — Memory-Mapped I/O"
 type: glossary-entry
 status: stable
 tags: [io, memoria, zero-copy, performance]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Memory-Mapped I/O, Memory Mapping]
 description: "Operating system syscall that maps a disk file directly to the virtual address space of a process, allowing zero-copy access to the file's contents"

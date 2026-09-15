@@ -1,3 +1,13 @@
+---
+title: "Guía de usuario — Modos de conexión de VantaDB Desktop"
+type: reference
+status: active
+tags: [vantadb, desktop, user-guide, connections]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Guía de usuario — Modos de conexión de VantaDB Desktop
 
 VantaDB Desktop (Vanta Studio) se conecta al motor de tres maneras. Elegí el

@@ -1,3 +1,13 @@
+---
+title: "Auditoría — Raíz pública (README ×2 + governance files)"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Auditoría — Raíz pública (README ×2 + governance files)
 
 > **Task:** GOV-F1 (auditoría segunda ola — batch público) · **Fecha:** 2026-08-22

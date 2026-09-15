@@ -1,3 +1,13 @@
+---
+title: "Changelog"
+type: plan
+status: stable
+tags: [vantadb, docs, changelog, releases]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Changelog
 
 All notable changes to the VantaDB engine will be documented in this file.

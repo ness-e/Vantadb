@@ -1,3 +1,13 @@
+---
+title: "VantaDB → Medium Competence: A Sequenced Curriculum"
+type: reference
+status: active
+tags: [vantadb, learning, curriculum, onboarding]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # VantaDB → Medium Competence: A Sequenced Curriculum
 
 **Learner:** motivated, 2–4 focused hours/day, wants AI as tutor/reviewer not substitute.

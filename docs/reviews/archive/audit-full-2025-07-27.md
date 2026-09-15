@@ -1,3 +1,13 @@
+---
+title: "AUDITORÍA COMPLETA — VantaDB"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # AUDITORÍA COMPLETA — VantaDB
 
 | Campo | Detalle |

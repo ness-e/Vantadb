@@ -1,3 +1,13 @@
+---
+title: "Error Observability — VantaDB"
+type: operations
+status: active
+tags: [vantadb, operations, observability, errors]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Error Observability — VantaDB
 
 > Added by ERR-OBS-01 (2026-09-02). Companion to `docs/api/ERROR_HANDLING.md`

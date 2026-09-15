@@ -1,3 +1,12 @@
+---
+title: "ENG-02 · Ingeniería de sistemas, resolución de problemas complejos y debugging sistemático"
+type: research
+status: stable
+tags: [vantadb, research, ingenieria-sistemas, debugging]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # ENG-02 · Ingeniería de sistemas, resolución de problemas complejos y debugging sistemático
 
 - **Fecha:** 2026-08-10

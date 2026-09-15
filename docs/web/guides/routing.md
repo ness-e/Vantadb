@@ -1,3 +1,13 @@
+---
+title: "Routing"
+type: web
+status: active
+tags: [vantadb, web, guides]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Routing
 
 ## Page Patterns (3)

@@ -1,3 +1,13 @@
+---
+title: "`heavy-bench-nightly-51.yml` — HEAVY: Benchmarks — Nightly Regression"
+type: workflow
+status: active
+tags: [vantadb, ci, heavy-bench-nightly]
+last_reviewed: 2026-09-15
+aliases: []
+related: [".github/workflows/heavy-bench-nightly-51.yml"]
+---
+
 # `heavy-bench-nightly-51.yml` — HEAVY: Benchmarks — Nightly Regression
 
 ## ¿Qué hace?

@@ -1,3 +1,13 @@
+---
+title: "GraphRAG API"
+type: api
+status: active
+tags: [vantadb, api, graphrag, retrieval]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # GraphRAG API
 
 > **GraphRAG** is a formal pipeline: seed → expand → retrieve → generate context.

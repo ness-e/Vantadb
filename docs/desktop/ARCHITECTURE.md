@@ -1,3 +1,13 @@
+---
+title: "VantaDB Desktop — Architecture"
+type: reference
+status: active
+tags: [vantadb, desktop, architecture, tauri]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # VantaDB Desktop — Architecture
 
 This document describes the **actual** multi-connection model of the desktop

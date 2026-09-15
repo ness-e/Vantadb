@@ -1,3 +1,13 @@
+---
+title: "Vanta Memory Engine — API Reference (`vanta-memory`)"
+type: api
+status: active
+tags: [vantadb, api, vanta-memory, memory-engine]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Vanta Memory Engine — API Reference (`vanta-memory`)
 
 > **Estado:** ✅ documentación canónica del crate (cierra la cita de ADR-029 §Nota mecánica).

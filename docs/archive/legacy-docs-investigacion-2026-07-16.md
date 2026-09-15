@@ -1,3 +1,13 @@
+---
+title: "Legacy Docs — Investigación (Extracción 2026-07-16)"
+type: plan
+status: archived
+tags: [vantadb, archive, legacy-docs, investigacion]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Legacy Docs — Investigación (Extracción 2026-07-16)
 
 > **Propósito:** Extracción de la información valiosa de los análisis históricos de `VANTADB DOC OLD\investigacion\` (21 archivos, ~280 docs antiguos leídos por sub-agentes). Los originales fueron eliminados el 2026-08-05 tras verificar que el contenido técnico ya vive en la doc activa. Este archivo conserva SOLO lo que no está duplicado en la doc viva ni en el backlog.

@@ -1,3 +1,13 @@
+---
+title: "Engineering Health Waves — bloqueantes F0, VFY, COMP, IVF"
+type: registro
+status: archived
+tags: [vantadb, avance, campana]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Engineering Health Waves — bloqueantes F0, VFY, COMP, IVF
 
 > **Migrado desde** `docs/progreso/README.md` (split GOV-D2, 2026-08-22). Contenido histórico sin cambios salvo dedup indicado.

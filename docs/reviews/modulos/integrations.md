@@ -1,3 +1,13 @@
+---
+title: "Review de Módulo — `integrations/`"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Review de Módulo — `integrations/`
 
 **Fecha:** 2026-08-23 · **Revisor:** ox-alpha (worker) · **Alcance:** los 9 adapters Python de `integrations/`

@@ -3,7 +3,7 @@ title: "RocksDB"
 type: glossary-entry
 status: stable
 tags: [storage, backend, lsm-tree, cpp]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [RocksDB Storage Engine]
 description: "High-performance LSM-tree storage engine developed by Facebook in C++. Alternative/fallback backend in VantaDB for benchmarking and compatibility"

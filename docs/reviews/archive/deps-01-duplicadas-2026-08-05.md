@@ -1,3 +1,13 @@
+---
+title: "DEPS-01 — Crates duplicadas en el grafo de dependencias"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # DEPS-01 — Crates duplicadas en el grafo de dependencias
 
 > **Fecha:** 2026-08-06

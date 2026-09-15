@@ -3,7 +3,7 @@ title: "chaos_test_wal.sh"
 type: glossary-entry
 status: stable
 tags: [testing, resiliencia, fault-injection]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Chaos Engineering, Fault Injection Testing]
 ---

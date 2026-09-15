@@ -1,3 +1,12 @@
+---
+title: "Visualización de embeddings y espacios vectoriales"
+type: research
+status: stable
+tags: [vantadb, research, embeddings, visualizacion]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # Visualización de embeddings y espacios vectoriales
 
 Cómo las bases de datos vectoriales y las herramientas de ML hacen VISIBLE y EXPLORABLE un espacio de embeddings a humanos. Investigación de escritorio con URLs reales (2024-2026). Contexto objetivo: VantaDB (base de datos embebida de memoria persistente para agentes: registros con texto + metadata + embeddings `Vec<f32>` de 384–1536 dims, sparse_vector, híbrido BM25+HNSW+RRF, capa de grafo con IQL).

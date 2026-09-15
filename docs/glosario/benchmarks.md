@@ -3,7 +3,7 @@ title: "Benchmarks"
 type: glossary-entry
 status: stable
 tags: [performance, testing, metricas]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Performance Testing, Benchmarking]
 ---

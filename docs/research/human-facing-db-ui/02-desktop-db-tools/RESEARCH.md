@@ -1,3 +1,12 @@
+---
+title: "Herramientas desktop de administración de bases de datos"
+type: research
+status: stable
+tags: [vantadb, research, desktop, db-tools]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # Herramientas desktop de administración de bases de datos
 
 > Investigación de patrones de UI en herramientas desktop/self-hosted de administración de bases de datos (2024–2026), orientada al diseño del módulo desktop de VantaDB (Tauri v2 + React + Vite).

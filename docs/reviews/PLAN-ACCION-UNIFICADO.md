@@ -6,6 +6,7 @@ date: 2026-08-26
 scope: Consolidación de docs/reviews/* (30 archivos) — solo pendientes VIGENTES accionables
 method: lectura completa + verificación mecánica contra código/registries/backlog de cada claim (git log, grep, Test-Path, npm/PyPI/DNS/discord)
 verdict: los hallazgos críticos de 2026-08-25 ya se resolvieron en su mayoría; quedan ~20 pendientes vigentes (1 P0, 7 alta, 6 media, 6 baja)
+related: [review-full-20260910-modulos.md]
 ---
 
 # Plan de Acción Unificado — VantaDB

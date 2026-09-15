@@ -1,3 +1,13 @@
+---
+title: "Pipeline Evaluation Report"
+type: report
+status: active
+tags: [vantadb, reports, pipeline-evals, evaluation]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Pipeline Evaluation Report
 
 > Generado por `evals/eval-metrics.mjs` (EVAL-01) — 2026-08-11T20:24:42.680Z

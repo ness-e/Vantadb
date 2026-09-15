@@ -1,3 +1,13 @@
+---
+title: "Validación de `docs/research/2026-08-10-agent-engineering` — 2026-08-11"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Validación de `docs/research/2026-08-10-agent-engineering` — 2026-08-11
 
 ## Summary

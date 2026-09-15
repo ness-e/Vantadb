@@ -1,3 +1,13 @@
+---
+title: "DORA Flow Metrics Report"
+type: report
+status: active
+tags: [vantadb, reports, dora, flow-metrics]
+last_reviewed: 2026-09-15
+aliases: [DORA]
+related: []
+---
+
 # DORA Flow Metrics Report
 
 > Generado por `evals/dora.mjs` (P3-07) — 2026-08-22T09:16:24.251Z

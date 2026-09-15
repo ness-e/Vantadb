@@ -1,3 +1,13 @@
+---
+title: "Reglas de Diseño — Frontend Web"
+type: web
+status: active
+tags: [vantadb, web, standards]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Reglas de Diseño — Frontend Web
 
 > Diseño: Manga / Linocut / Neo-Brutalist con Tailwind v4.

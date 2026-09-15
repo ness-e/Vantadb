@@ -1,3 +1,13 @@
+---
+title: "INV-web-prod — Investigación profunda: producto web VantaDB"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # INV-web-prod — Investigación profunda: producto web VantaDB
 
 > **Fecha:** 2026-08-25 · **Comando:** `/research web` · **Plantilla:** `prompts/research-module-product.md`
