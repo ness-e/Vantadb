@@ -1818,7 +1818,7 @@ pub fn handle_tools_call(
             // The core SDK keeps its score semantics for other consumers
             // (search_memory, WASM), so the conversion happens at this
             // serialization boundary.
-            let metric = storage.vec_index().config.distance_metric;
+            let metric = storage.vec_index().distance_metric();
             let mut results = Vec::new();
             for hit in hits {
                 if let Ok(Some(node)) = embedded.get_node(hit.node_id) {
@@ -2845,11 +2845,15 @@ pub fn handle_tools_call(
 /// `None` and dimension validation is skipped — there is nothing to compare
 /// against yet, and an empty result set is the correct answer anyway.
 fn index_vector_dim(storage: &Arc<StorageEngine>) -> Option<usize> {
-    storage
-        .vec_index()
-        .nodes
-        .iter()
-        .find_map(|entry| entry.value().vector_slice().map(|v| v.len()))
+    // F3X: `vec_index()` is `dyn IndexPort` (no `.nodes` field). Walk the
+    // trait's id snapshot + cloned vectors (cold per-request validation path,
+    // not a hot loop). `stored_vector → as_f32_slice` mirrors
+    // `HnswNode::vector_slice` exactly (`vec_data.as_f32_slice()`).
+    let index = storage.vec_index();
+    index
+        .all_node_ids()
+        .into_iter()
+        .find_map(|id| index.stored_vector(id)?.as_f32_slice().map(|v| v.len()))
 }
 
 /// MCP-19: parse one JSON object into a `MemoryInput`, applying the same
