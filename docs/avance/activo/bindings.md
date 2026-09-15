@@ -913,3 +913,9 @@ aliases: []
 - **Objetivo:** JSDoc 11 exports TS + numpydoc/stubs Python + `cargo doc` WASM warn→deny; cero firmas.
 - **Resultado:** ✅ tsc/eslint + stub_drift 7 + doc deny + coverage 0 gaps.
 - **Commit:** 0ed0880c
+
+### FIND-77: conteo 76→79 en comentarios MCP
+- **Fecha:** 2026-09-15
+- **Objetivo:** Sincronizar comentarios stale de conteo tools MCP (post-FIND-90) con recount mecanico.
+- **Resultado:** ✅ 79=49+30 verificado (parser JSON 79 rows; delta = 2 MEM-59 + embed_texts); bloque tools.rs:25-35 + config.rs:11,14 veraces (ro 46/33, de 11/68, id 61/18, ow 2/77, hits 85/115); check 0 warnings; profiles+annotations ok; review P2-01 aplicado.
+- **Commit:** c32940db
