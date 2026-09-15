@@ -3,13 +3,13 @@ title: VantaDB 5-Minute Quickstart
 type: documentation
 status: active
 tags: [vantadb]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-09-15
 aliases: []
 ---
 
 # VantaDB 5-Minute Quickstart
 
-This quickstart validates the current v0.4.x MVP boundary from a clean local
+This quickstart validates the current v0.5.0 MVP boundary from a clean local
 checkout. It uses the embedded CLI for operational flows and the source-installed
 Python binding for vector, text, and hybrid memory search.
 
@@ -87,8 +87,12 @@ GitHub Release, install it directly without needing the Rust toolchain:
 python -m venv .venv
 source .venv/bin/activate
 pip install --upgrade pip pytest
-pip install ./path/to/vantadb_py-0.1.1-*.whl
+pip install ./dist/vantadb_py-0.5.0-*.whl
 ```
+
+Wheels are attached to each GitHub Release (`release-wheels-60.yml`) and built
+locally with `maturin build --out dist --manifest-path ./vantadb-python/Cargo.toml`
+(`vantadb-python/dist/` when building from that directory).
 
 ### Alternative: Install from TestPyPI
 
@@ -135,9 +139,9 @@ db.put(
     vector=[0.9, 0.1, 0.0],
 )
 
-vector_hits = db.search_memory("agent/main", [1.0, 0.0, 0.0], top_k=3)
-text_hits = db.search_memory("agent/main", [], text_query="durable memory", top_k=3)
-hybrid_hits = db.search_memory(
+vector_hits = db.search("agent/main", [1.0, 0.0, 0.0], top_k=3)
+text_hits = db.search("agent/main", [], text_query="durable memory", top_k=3)
+hybrid_hits = db.search(
     "agent/main",
     [1.0, 0.0, 0.0],
     text_query="Hybrid Retrieval",
@@ -173,7 +177,10 @@ cargo run --bin vanta-cli -- audit-index \
 ```
 
 Expected result: export reports records written, and audit reports
-`"passed": true`.
+`"passed": true`. On a fresh database audit may report
+`"status": "repair_recommended"` until the text index state is built —
+run `cargo run --bin vanta-cli -- rebuild-index --db ./quickstart_data`
+and re-run audit (verified 2026-09-15: `passed: true` after rebuild).
 
 ## 7. Optional: Local Embeddings (`embed-local`)
 
@@ -185,7 +192,7 @@ python embeddings/download.py --only multilingual-e5-small
 
 # 2. Run with embed-local (Rust + CLI + MCP + SQL)
 cargo run --features embed-local --bin vanta-cli -- --help
-WANTA_EMBEDDING_PROVIDER=local WANTA_LOCAL_MODEL=embeddings/models/multilingual-e5-small/onnx \
+VANTADB_EMBEDDING_PROVIDER=local VANTADB_LOCAL_MODEL=embeddings/models/multilingual-e5-small/onnx \
   cargo run --features embed-local --bin vanta-cli -- put --db ./quickstart_data --namespace agent/main --key hello --payload "hola mundo"
 
 # 3. SQL auto-embed now works offline: VECTOR_SEARCH('hola mundo') → LocalOnnxProvider
