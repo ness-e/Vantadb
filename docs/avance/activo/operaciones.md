@@ -290,3 +290,9 @@ aliases: []
 - **Objetivo:** confirmar wiring `with_embedder` tras PRX-11-slice3.
 - **Resultado:** ✅ hunk intacto en server.rs:127-138 + prx09 6/6 + suites 0 failed + clippy/fmt 0; cero ediciones.
 - **Commit:** 2c97d911 (pre-existente)
+
+### FIND-65: checked_sub en test TTL de vanta-proxy (solo test)
+- **Fecha:** 2026-09-15
+- **Objetivo:** test ttl_expiry_predicate paniqueaba con uptime <2.7h (Instant - 10_000s); fix con checked_sub + sleep/TTL diminuto, prod elapsed() intacto.
+- **Resultado:** ✅ suite cache 18/18 + fmt OK + clippy vanta-proxy 0 warnings (clippy -D global bloqueado por dead_code pre-existente txn.rs:158 → FIND-93).
+- **Commit:** 432eee45 (3 files: cache.rs test + task file + Backlog)
