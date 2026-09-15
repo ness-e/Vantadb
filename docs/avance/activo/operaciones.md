@@ -296,3 +296,9 @@ aliases: []
 - **Objetivo:** test ttl_expiry_predicate paniqueaba con uptime <2.7h (Instant - 10_000s); fix con checked_sub + sleep/TTL diminuto, prod elapsed() intacto.
 - **Resultado:** ✅ suite cache 18/18 + fmt OK + clippy vanta-proxy 0 warnings (clippy -D global bloqueado por dead_code pre-existente txn.rs:158 → FIND-93).
 - **Commit:** 432eee45 (3 files: cache.rs test + task file + Backlog)
+
+### FIND-71: embeddings peso + verify smoke + sizes re-medidos
+- **Fecha:** 2026-09-15
+- **Objetivo:** ALLOW_PATTERNS global traía *.bin+*.safetensors (3-4× lo declarado); verify_model dummy sin documentar; sizes README por re-medir; lock sin validación repo/rev.
+- **Resultado:** ✅ base recortada (sin *.bin) + MODEL_PATTERNS/get_allow_patterns por modelo; --check --only 9/9 verde + tamper-lock detectado; smoke documentado (docstring + verify.log + README); sizes = manifest (253/170/878/2200/941/1079/691/3470/16000MB); download --check + verify --check + py_compile + diff-check verdes offline; review vanta-review approve.
+- **Commit:** 94c94f25 (4 files: download.py, verify.py, README.md, docs/tasks/FIND-71.md)
