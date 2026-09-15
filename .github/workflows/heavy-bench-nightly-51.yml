@@ -60,6 +60,13 @@ jobs:
       - name: Run concurrent benchmarks
         run: cargo bench --bench bench_concurrent -- --nocapture 2>&1 | tee nightly_concurrent_results.txt
 
+      # FIND-70: `ingestion_concurrent` requires `--features async-ingestion`
+      # (Cargo.toml `required-features`) — without the flag cargo silently
+      # SKIPS it, so the nightly gate cited in docs/operations/BENCHMARKS.md
+      # §13 never ran. Run it explicitly with the feature.
+      - name: Run ingestion_concurrent benchmarks
+        run: cargo bench --bench ingestion_concurrent --features async-ingestion -- --nocapture 2>&1 | tee nightly_ingestion_results.txt
+
       - name: Run canonical_p99 benchmarks
         run: cargo bench --bench canonical_p99 -- --nocapture 2>&1 | tee nightly_canonical_p99_results.txt
 
