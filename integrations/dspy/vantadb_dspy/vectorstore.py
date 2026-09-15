@@ -59,7 +59,13 @@ class VantaDBRetriever(DSPyRetrieve):
                 Defaults to False.
             backend: Optional backend identifier for VantaDB.
         """
-        super().__init__(k=k)
+        # Fallback path (dspy no instalado): la base es `object` y
+        # `object.__init__` no acepta `k` → tolerar sin romper el path CON framework.
+        try:
+            super().__init__(k=k)
+        except TypeError:
+            pass
+        self.k = k
         self.embedding = embedding
         self.namespace = namespace
         self.db_path = db_path
