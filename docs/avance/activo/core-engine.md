@@ -679,3 +679,8 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** migrar 7 ficheros con `env::var` real a vistas de dominio `Config` (F3C); espejos nuevos `VANTADB_OPENAI_API_KEY`/`VANTADB_OPENAI_MODEL`/`VANTADB_EMBEDDING_PROVIDER`/`VANTADB_BACKUP_DIR` (breaking C7 sin shims); excepciones `OTEL_*` + `ENV_REPORTED_VERSION` + test.
 - **Resultado:** rg env::var→solo excepciones documentadas; rg VANTA_→solo comentarios; check/clippy-lib/fmt + nextest 118/118 (llm/crypto/telemetry/prefetch/maintenance/metadata); review P2-01 vanta-audit ✅ approve.
 - **Commit:** 1ca57649 (S1) + 3a0e42d7 (S2) + 4cdc1970 (S3) + c4ddb217 (S4 feat!:) + 410b9b57 (fix clippy Default/test)
+### FIND-91: fallout F3X — `durability_recovery:433` a `contains_node`
+- **Fecha:** 2026-09-15
+- **Objetivo:** migrar assert `hnsw.nodes.get(..).is_some()` a `hnsw.contains_node(..)` (trait `IndexPort`; `dyn` no expone `.nodes` → E0609 con `--all-features`).
+- **Resultado:** ✅ check --all-features + clippy CI Windows + fmt + `cargo test --features failpoints --test durability_recovery` 8/8 (30.71s); review P2-01 vanta-review ✅ approve (semántica idéntica `contains_key`, assert por-nodo intacto). Nota: perfil nextest `chaos` excluye el binario por diseño (default-filter solo `chaos_integrity_failpoints`) — sin Heavy.
+- **Commit:** (fix: FIND-91, esta campaña)

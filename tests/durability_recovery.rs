@@ -430,7 +430,7 @@ fn test_checkpoint_not_advanced_on_snapshot_failure() {
                 "node {i} lost after failed snapshot + replay"
             );
             assert!(
-                hnsw.nodes.get(&(i as u128)).is_some(),
+                hnsw.contains_node(i as u128),
                 "node {i} invisible in vector index after failed snapshot + replay"
             );
         }
