@@ -1,7 +1,6 @@
 """Tests for VantaDB LlamaIndex vector store adapter."""
 import pytest
 pytest.importorskip("llama_index", reason="llama_index SDK not installed; adapter suite skipped")
-import tempfile
 import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -18,8 +17,8 @@ from llama_index.core.vector_stores.types import (
 
 
 @pytest.fixture
-def store():
-    path = os.path.join(tempfile.mkdtemp(), "test_li")
+def store(tmp_path):
+    path = str(tmp_path / "test_li")
     store = VantaDBVectorStore(db_path=path, namespace="test_li")
     yield store
 

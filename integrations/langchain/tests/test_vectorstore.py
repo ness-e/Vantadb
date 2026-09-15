@@ -1,7 +1,6 @@
 """Tests for VantaDB LangChain vector store adapter."""
 import pytest
 pytest.importorskip("langchain_core", reason="langchain_core SDK not installed; adapter suite skipped")
-import tempfile
 import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -19,9 +18,9 @@ class FakeEmbeddings:
 
 
 @pytest.fixture
-def store():
+def store(tmp_path):
     embeddings = FakeEmbeddings()
-    path = os.path.join(tempfile.mkdtemp(), "test_lc")
+    path = str(tmp_path / "test_lc")
     store = VantaDBVectorStore(embeddings, db_path=path, namespace="test_lc")
     yield store
 
@@ -191,25 +190,25 @@ def test_similarity_search_with_k_zero(store):
     assert len(results) == 0
 
 
-def test_from_texts_classmethod(store):
+def test_from_texts_classmethod(store, tmp_path):
     texts = ["from", "classmethod"]
     embeddings = FakeEmbeddings()
     vs = VantaDBVectorStore.from_texts(
         texts,
         embedding=embeddings,
-        db_path=os.path.join(tempfile.mkdtemp(), "test_ft"),
+        db_path=str(tmp_path / "test_ft"),
         namespace="test_ft",
     )
     results = vs.similarity_search("from", k=5)
     assert len(results) >= 1
 
 
-def test_from_texts_with_metadata():
+def test_from_texts_with_metadata(tmp_path):
     """from_texts classmethod should preserve metadata."""
     embeddings = FakeEmbeddings()
     texts = ["doc1", "doc2", "doc3"]
     metadatas = [{"type": "a"}, {"type": "b"}, {"type": "c"}]
-    path = os.path.join(tempfile.mkdtemp(), "test_ft")
+    path = str(tmp_path / "test_ft")
     store = VantaDBVectorStore.from_texts(
         texts, embeddings, metadatas=metadatas, db_path=path, namespace="test_ft"
     )

@@ -1,7 +1,6 @@
 """Tests for VantaDB Ollama adapter."""
 import pytest
 pytest.importorskip("ollama", reason="ollama SDK not installed; adapter suite skipped")
-import tempfile
 import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -21,8 +20,8 @@ class FakeOllama:
 
 
 @pytest.fixture
-def store(monkeypatch):
-    path = os.path.join(tempfile.mkdtemp(), "test_ol")
+def store(monkeypatch, tmp_path):
+    path = str(tmp_path / "test_ol")
     monkeypatch.setattr("vantadb_ollama.vectorstore.ollama", FakeOllama)
     s = VantaDBOllama(db_path=path, namespace="test_ol")
     yield s

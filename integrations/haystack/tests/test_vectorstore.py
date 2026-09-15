@@ -1,7 +1,6 @@
 """Tests for VantaDB Haystack adapter."""
 import pytest
 pytest.importorskip("haystack.dataclasses", reason="haystack SDK not installed; adapter suite skipped")
-import tempfile
 import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -10,8 +9,8 @@ from vantadb_haystack import VantaDBDocumentStore
 
 
 @pytest.fixture
-def store():
-    path = os.path.join(tempfile.mkdtemp(), "test_hs")
+def store(tmp_path):
+    path = str(tmp_path / "test_hs")
     s = VantaDBDocumentStore(db_path=path)
     yield s
 
@@ -139,14 +138,14 @@ def test_filter_documents_not(store):
 
 # ── count_documents ──
 
-def test_count_documents_many(monkeypatch):
+def test_count_documents_many(monkeypatch, tmp_path):
     """count_documents retorna el total paginando por páginas con cursor.
 
     Se reduce el tamaño de página a 10 para ejercitar múltiples iteraciones
     del bucle de paginación sin materializar miles de records.
     """
     monkeypatch.setattr("vantadb_haystack.vectorstore._COUNT_PAGE_SIZE", 10)
-    path = os.path.join(tempfile.mkdtemp(), "test_hs_cnt")
+    path = str(tmp_path / "test_hs_cnt")
     s = VantaDBDocumentStore(db_path=path)
     expected = 50
     for i in range(expected):
@@ -156,9 +155,9 @@ def test_count_documents_many(monkeypatch):
 
 # ── to_dict / from_dict roundtrip ──
 
-def test_to_dict_from_dict():
+def test_to_dict_from_dict(tmp_path):
     """to_dict/from_dict roundtrip preserva parámetros de inicialización."""
-    path = os.path.join(tempfile.mkdtemp(), "test_hs_ser")
+    path = str(tmp_path / "test_hs_ser")
     store = VantaDBDocumentStore(
         db_path=path,
         namespace="ser_test",
@@ -175,7 +174,7 @@ def test_to_dict_from_dict():
     assert "read_only" not in params  # False se omite
 
     # from_dict con path diferente para evitar lock de LSM
-    path2 = os.path.join(tempfile.mkdtemp(), "test_hs_ser_copy")
+    path2 = str(tmp_path / "test_hs_ser_copy")
     data["init_parameters"]["db_path"] = path2
     store2 = VantaDBDocumentStore.from_dict(data)
     assert store2._db_path == path2
@@ -184,16 +183,16 @@ def test_to_dict_from_dict():
     assert store2._backend == "memory"
 
 
-def test_to_dict_from_dict_minimal():
+def test_to_dict_from_dict_minimal(tmp_path):
     """to_dict/from_dict con solo db_path."""
-    path = os.path.join(tempfile.mkdtemp(), "test_hs_ser2")
+    path = str(tmp_path / "test_hs_ser2")
     store = VantaDBDocumentStore(db_path=path)
     data = store.to_dict()
     assert data["type"] == "VantaDBDocumentStore"
     assert data["init_parameters"]["db_path"] == path
     assert data["init_parameters"]["namespace"] == "haystack"
 
-    path2 = os.path.join(tempfile.mkdtemp(), "test_hs_ser2_copy")
+    path2 = str(tmp_path / "test_hs_ser2_copy")
     data["init_parameters"]["db_path"] = path2
     store2 = VantaDBDocumentStore.from_dict(data)
     assert store2._db_path == path2
@@ -202,9 +201,9 @@ def test_to_dict_from_dict_minimal():
 
 # ── search con embedding ──
 
-def test_search_with_embedding():
+def test_search_with_embedding(tmp_path):
     """search con embedding mockeado retorna documentos."""
-    path = os.path.join(tempfile.mkdtemp(), "test_hs_srch")
+    path = str(tmp_path / "test_hs_srch")
     emb = lambda x: [0.1, 0.2, 0.3]
     store = VantaDBDocumentStore(db_path=path, embedding=emb)
     store.write_documents([
