@@ -22,9 +22,9 @@ This tutorial walks you through the full migration: exporting your Vectara corpo
 | Document (`id`, `metadata`) | Memory record (`key`, `metadata`) |
 | Document part (`parts[].text`) | Payload (the record's text content) |
 | Document part metadata | Merged into the record `metadata` dict |
-| Semantic query (Boomerang) | `db.search_memory(ns, query_vector, ...)` with your own embeddings |
-| Keyword / lexical search | `db.search_memory(ns, ..., text_query="...")` (BM25) |
-| Hybrid search (RRF / MMR) | `search_memory` with both `query_vector` and `text_query` (RRF fusion) |
+| Semantic query (Boomerang) | `db.search(ns, query_vector, ...)` with your own embeddings |
+| Keyword / lexical search | `db.search(ns, ..., text_query="...")` (BM25) |
+| Hybrid search (RRF / MMR) | `search` with both `query_vector` and `text_query` (RRF fusion) |
 | Query filters (`metadata_filter`) | `filters={...}` |
 | API key / OAuth client credentials | None — embedded, no server, no auth |
 | Hosted API (`https://api.vectara.io/v2`) | Local library — no network required |
@@ -193,9 +193,9 @@ if __name__ == "__main__":
 
 ```python
 # vanta-skip: imports vantadb-import.jsonl produced by the step 2 conversion
-from vantadb_py import VantaDB
+from vantadb import Client
 
-db = VantaDB("./vantadb_data")
+db = Client("./vantadb_data")
 report = db.import_file("vantadb-import.jsonl")
 print(report)
 # {'inserted': ..., 'updated': ..., 'skipped': ..., 'errors': ..., 'duration_ms': ...}
@@ -220,11 +220,11 @@ db.flush()
 ```python
 # vanta-skip: depends on records imported in step 3 and a user-defined my_embedding()
 # Spot-check a record by its Vectara document id
-record = db.get_memory("vectara_docs", "my-vectara-doc-id#0")
+record = db.memory.get("vectara_docs", "my-vectara-doc-id#0")
 print(record.key, record.payload[:80], record.metadata)
 
 # Semantic search must return relevant hits
-results = db.search_memory(
+results = db.search(
     "vectara_docs",
     query_vector=my_embedding("your query"),
     top_k=5,
@@ -233,7 +233,7 @@ for hit in results:
     print(hit.key, round(hit.score, 4), hit.payload[:60])
 
 # Total count sanity check
-total = len(db.list_memory("vectara_docs", limit=1000))
+total = len(db.memory.list("vectara_docs", limit=1000))
 print(f"records in namespace: {total}")
 ```
 

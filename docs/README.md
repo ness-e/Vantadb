@@ -36,11 +36,11 @@ The primary entry point to all documentation is the [master-index](master-index.
 <!-- | [articles/](../web/content/blog/why-i-built-vantadb-local-memory-engine.md) | Published technical articles (planned) | -->
 | [graphrag/](graphrag/README.md) | GraphRAG architecture and design |
 | [iql/](api/IQL.md) | Interactive Query Language reference |
-| [progreso/](progreso/README.md) | Project progress dashboard |
+| [avance/](avance/README.md) | Project progress dashboard |
 | [Backlog.md](Backlog.md) | Active task backlog |
 | [CHANGELOG.md](CHANGELOG.md) | Project changelog |
 | [QUICKSTART.md](QUICKSTART.md) | 5-minute quickstart guide |
-| [progreso/bitacora.md](progreso/bitacora.md) | Development log and daily notes |
+| [avance/historial/backlog-history.md](avance/historial/backlog-history.md) | Development log and daily notes |
 | [README.md](README.md) | This overview file |
 
 ## Conventions

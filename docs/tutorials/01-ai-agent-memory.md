@@ -13,7 +13,7 @@ VantaDB gives AI agents **persistent memory** — the ability to store, recall, 
 In this tutorial you'll build a REPL agent that:
 
 - Stores every message as a **memory record** (payload + metadata) in a namespace
-- Searches past conversations by **semantic similarity** with `search_memory()`
+- Searches past conversations by **semantic similarity** with `search()`
 - Filters by metadata (`session_id`, `role`)
 - Uses **hybrid search** (vector + BM25 keyword) via `text_query`
 
@@ -30,9 +30,9 @@ Set your `OPENAI_API_KEY` environment variable (or swap in any OpenAI-compatible
 VantaDB is embedded — there is no server. Opening a database creates (or reopens) a directory on disk:
 
 ```python
-from vantadb_py import VantaDB
+from vantadb import Client
 
-db = VantaDB("agent-memory.db")
+db = Client("agent-memory.db")
 ```
 
 Records are stored under **namespaces** (the equivalent of a collection in other vector databases). Namespaces are created lazily on the first `put()`. Each record has a string `key`, a text `payload`, optional `metadata`, and an optional `vector`:
@@ -96,7 +96,7 @@ Embed the query, then search:
 ```python
 # vanta-skip: requires OPENAI_API_KEY — embed() calls the OpenAI embeddings API
 query = "What should I use instead of SQLite on Railway?"
-hits = db.search_memory(
+hits = db.search(
     "chat_history",
     embed(query),
     top_k=5,
@@ -116,16 +116,16 @@ Expected output — the top result is the assistant message about PostgreSQL:
   ...
 ```
 
-`search_memory()` returns `VantaSearchHit` objects exposing `.key`, `.payload`, `.metadata`, `.score`, and `.node_id`.
+`search()` returns `SearchHit` objects exposing `.key`, `.payload`, `.metadata`, `.score`, and `.node_id`.
 
 ## 4. Filter by metadata
 
-`search_memory()` accepts a `filters` dict. The Python SDK matches metadata values with **equality semantics**:
+`search()` accepts a `filters` dict. The Python SDK matches metadata values with **equality semantics**:
 
 ```python
 # vanta-skip: requires OPENAI_API_KEY — embed() calls the OpenAI embeddings API
 # Filter to a specific session
-hits = db.search_memory(
+hits = db.search(
     "chat_history",
     embed("deployment advice"),
     filters={"session_id": session_id},
@@ -133,7 +133,7 @@ hits = db.search_memory(
 )
 
 # Combine filters
-hits = db.search_memory(
+hits = db.search(
     "chat_history",
     embed("deployment"),
     filters={"session_id": session_id, "role": "assistant"},
@@ -151,7 +151,7 @@ Sometimes you need exact keyword matches alongside semantic ones. Pass `text_que
 
 ```python
 # vanta-skip: requires OPENAI_API_KEY — embed() calls the OpenAI embeddings API
-hits = db.search_memory(
+hits = db.search(
     "chat_history",
     embed("ephemeral filesystem PostgreSQL"),
     text_query="ephemeral filesystem PostgreSQL",
@@ -174,9 +174,9 @@ Putting it all together — a REPL that remembers past conversations:
 # vanta-skip: interactive REPL (input()) and requires OPENAI_API_KEY
 import time
 import uuid
-from vantadb_py import VantaDB
+from vantadb import Client
 
-db = VantaDB("agent-memory.db")
+db = Client("agent-memory.db")
 session_id = str(uuid.uuid4())
 seq = 0
 
@@ -206,7 +206,7 @@ while True:
 
     if user_input.lower().startswith("recall "):
         query = user_input[7:]
-        hits = db.search_memory(
+        hits = db.search(
             "chat_history",
             embed(query),
             filters={"session_id": session_id},
@@ -219,7 +219,7 @@ while True:
         continue
 
     # 1. Retrieve relevant context
-    context_chunks = db.search_memory(
+    context_chunks = db.search(
         "chat_history", embed(user_input), top_k=2
     )
     context = "\n".join(
@@ -255,7 +255,7 @@ Assistant:"""
 ## How it works
 
 ```
-User input ──▶ embed(query) ──▶ search_memory ──▶ relevant past messages
+User input ──▶ embed(query) ──▶ search ──▶ relevant past messages
                                              │
                                              ▼
                                      Prompt (context + query)
@@ -278,4 +278,4 @@ User input ──▶ embed(query) ──▶ search_memory ──▶ relevant pas
 
 ---
 
-**Key takeaway:** VantaDB turns "stateless LLM calls" into "stateful agents" with ~40 lines of Python. No separate vector database, no server to run — just `put()` and `search_memory()`.
+**Key takeaway:** VantaDB turns "stateless LLM calls" into "stateful agents" with ~40 lines of Python. No separate vector database, no server to run — just `put()` and `search()`.

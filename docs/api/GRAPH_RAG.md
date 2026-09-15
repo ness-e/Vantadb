@@ -13,10 +13,6 @@
 ## Rust
 
 GraphRAG runs through the embedded SDK handle (`Embedded`). The default
-
-## Rust
-
-GraphRAG runs through the embedded SDK handle (`VantaEmbedded`). The default
 pipeline configuration (`seed_k=10`, `expansion_hops=2`, `max_expansion_nodes=100`,
 `retrieval_top_k=20`) is available as a convenience method:
 
@@ -72,11 +68,11 @@ text query plus an optional query vector (either may be `None`).
 The Python entrypoint that *does* exist is the `VantaDB` class:
 
 ```python
-from vantadb_py import VantaDB
+from vantadb import Client
 
-db = VantaDB(":memory:", backend="memory")
+db = Client(":memory:", backend="memory")
 db.put("agent/main", "task-1", "organize the backlog", vector=[1.0, 0.0, 0.0])
-hits = db.search_memory("agent/main", [0.9, 0.1, 0.0], top_k=5)
+hits = db.search("agent/main", [0.9, 0.1, 0.0], top_k=5)
 print(hits[0].payload)
 ```
 

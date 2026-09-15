@@ -42,14 +42,14 @@ assume the value semantics from the name alone. The TS wrapper is the only
 binding that renames the field — every other transport exposes `score` for
 relevance and `distance` for raw ANN distance.
 
-## SDK Surface Differences (verified 2026-08-22 via grep)
+## SDK Surface Differences (verified 2026-09-15 via grep en `vantadb-ts/src/vantadb.ts`)
 
 | Capability | WASM | TS | Python |
 |---|---|---|---|
-| `supersede(namespace, old_key, new_key)` | ✅ | ❌ | ✅ |
-| `count(namespace, filter?)` | ✅ | ❌ | ✅ |
-| `similar_to_key(namespace, key, top_k)` | ✅ | ❌ | ✅ |
-| `remove_edge(source_id, target_id, label)` | ✅ | ❌ | ✅ |
+| `supersede(namespace, old_key, new_key)` | ✅ | ✅ | ✅ |
+| `count(namespace, filter?)` | ✅ | ✅ | ✅ |
+| `similar_to_key(namespace, key, top_k)` | ✅ | ✅ | ✅ |
+| `remove_edge(source_id, target_id, label)` | ✅ | ✅ | ✅ |
 | `search_multi(namespaces, request)` | ✅ | ✅ | ❌ |
 | `sparse_vector` on `put()` / `put_batch()` | ✅ | ✅ | ✅ |
 | `exclude_superseded` on `search()` | ✅ | ✅ | ✅ |
@@ -121,7 +121,7 @@ relevance and `distance` for raw ANN distance.
 
 **Totals:** memory 15 · graph 11 · system 21 = 47 ✔
 
-## TypeScript (`vantadb-ts/src/vantadb.ts`) — 38 public methods
+## TypeScript (`vantadb-ts/src/vantadb.ts`) — 43 public methods (verificado 2026-09-15: +`count`/`supersede`/`similarToKey`/`searchMulti`/`removeEdge`)
 
 (`native.ts` implements the sync subset: `capabilities`, `close`, `delete`, `flush`, `get`, `list`, `listNamespaces`, `put`, `putBatch`, `search`.)
 
@@ -139,10 +139,15 @@ relevance and `distance` for raw ANN distance.
 | `explainSearch` | memory | ✅ | wraps wasm `explain_memory_search` |
 | `generateSnippet` | memory | ✅ | |
 | `purgeExpired` | memory | ✅ | TTL housekeeping |
+| `count` | memory | ✅ | optional operator filter |
+| `supersede` | memory | ✅ | mark record as superseded |
+| `similarToKey` | memory | ✅ | vector search from existing key |
+| `searchMulti` | memory | ✅ | cross-namespace hybrid search |
 | `insertNode` | graph | ✅ | |
 | `getNode` | graph | ✅ | |
 | `deleteNode` | graph | ✅ | |
 | `addEdge` | graph | ✅ | |
+| `removeEdge` | graph | ✅ | |
 | `graphBfs` | graph | ✅ | |
 | `graphDfs` | graph | ✅ | |
 | `graphTopologicalSort` | graph | ✅ | |
@@ -166,9 +171,9 @@ relevance and `distance` for raw ANN distance.
 | `importRecords` | system | ✅ | |
 | `importFile` | system | ✅ | |
 
-**Totals:** memory 12 · graph 10 · system 16 = 38 ✔
+**Totals:** memory 16 · graph 11 · system 16 = 43 ✔
 
-**Not exposed in TS (wasm-only or Python-only), deferred per D43/D42:** `supersede` (Python-only), `graph_page_rank`/`graph_degree_centrality` (Python-only), `bulk_import`/`bulk_import_bytes` (wasm/Python-only), `hardware_profile` (Python-only), `recover_archived_nodes` (Python-only). Do NOT add wrappers in SDKB-02 — v1 is grouping only.
+**Not exposed in TS (wasm-only or Python-only), deferred per D43/D42:** `graph_page_rank`/`graph_degree_centrality` (Python-only), `bulk_import`/`bulk_import_bytes` (wasm/Python-only), `hardware_profile` (Python-only), `recover_archived_nodes` (Python-only). Do NOT add wrappers in SDKB-02 — v1 is grouping only.
 
 ## Python (`vantadb-python/src/lib.rs`) — 44 pyclass methods (+ module-level `connect()`)
 

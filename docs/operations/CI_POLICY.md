@@ -14,7 +14,7 @@ engine, VantaDB enforces a split Continuous Integration architecture.
 
 ## CI Workflow Inventory
 
-VantaDB has **14 active workflow files** in `.github/workflows/` (numbered by layer for dependency
+VantaDB has **26 active workflow files** in `.github/workflows/` (verificado 2026-09-15; numbered by layer for dependency
 ordering). Each workflow is documented below.
 
 ### Local Verification Scripts — Rutas Canónicas

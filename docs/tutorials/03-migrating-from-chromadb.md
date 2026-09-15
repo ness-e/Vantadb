@@ -16,13 +16,13 @@ If you're using ChromaDB today, switching to VantaDB unlocks **graph edges**, **
 
 | Operation | ChromaDB | VantaDB |
 |-----------|----------|---------|
-| Connect | `chromadb.PersistentClient(path)` | `VantaDB(path)` from `vantadb_py` |
+| Connect | `chromadb.PersistentClient(path)` | `Client(path)` from `vantadb` |
 | Create/get collection | `client.get_or_create_collection(name)` | Lazy — namespaces are created on first `put()` |
 | Insert documents | `collection.add(ids, documents, metadatas)` | `db.put(namespace, key, payload, ...)` |
-| Semantic search | `collection.query(query_texts)` | `db.search_memory(namespace, vector, ...)` |
-| Get by ID | `collection.get(ids)` | `db.get_memory(namespace, key)` |
-| Delete | `collection.delete(ids)` | `db.delete_memory(namespace, key)` |
-| List all | `collection.get()` | `db.list_memory(namespace)` |
+| Semantic search | `collection.query(query_texts)` | `db.search(namespace, vector, ...)` |
+| Get by ID | `collection.get(ids)` | `db.memory.get(namespace, key)` |
+| Delete | `collection.delete(ids)` | `db.memory.delete(namespace, key)` |
+| List all | `collection.get()` | `db.memory.list(namespace)` |
 
 ## 1. Setup comparison
 
@@ -41,9 +41,9 @@ collection = client.get_or_create_collection(
 **VantaDB:**
 
 ```python
-from vantadb_py import VantaDB
+from vantadb import Client
 
-db = VantaDB("./vantadb_data")
+db = Client("./vantadb_data")
 # HNSW with cosine is the default — nothing extra to configure.
 ```
 
@@ -115,7 +115,7 @@ results = collection.query(
 ```python
 query_vector = [0.1, 0.2, 0.3]  # embeddings from your embedding model
 
-results = db.search_memory(
+results = db.search(
     "my_docs",
     query_vector,
     filters={"source": "docs"},
@@ -123,7 +123,7 @@ results = db.search_memory(
 )
 ```
 
-VantaDB returns `VantaSearchHit` objects with attribute access (`hit.key`, `hit.payload`, `hit.metadata`, `hit.score`) instead of ChromaDB's dict-of-lists format.
+VantaDB returns `SearchHit` objects with attribute access (`hit.key`, `hit.payload`, `hit.metadata`, `hit.score`) instead of ChromaDB's dict-of-lists format.
 
 ## 4. Migration script
 
@@ -204,7 +204,7 @@ print(path)   # [node_id of doc1, node_id of doc2]
 query_vector = [0.1, 0.2, 0.3]  # embeddings from your embedding model
 
 # Hybrid (BM25 + HNSW) search on a text query:
-results = db.search_memory(
+results = db.search(
     "my_docs",
     query_vector,          # still required; pass your query embedding
     text_query="your query",
@@ -235,11 +235,11 @@ results = db.search_memory(
 
 | Task | ChromaDB equivalent | VantaDB equivalent |
 |------|-------------------|--------------------|
-| Connect | `PersistentClient(path)` | `VantaDB(path)` |
+| Connect | `PersistentClient(path)` | `Client(path)` |
 | Collection | `get_or_create_collection(name)` | namespace arg (lazy) |
 | Insert | `collection.add(ids, docs, metas)` | `db.put(ns, key, payload, metadata=...)` |
-| Query | `collection.query(query_texts)` | `db.search_memory(ns, vector, ...)` |
-| Delete | `collection.delete(ids)` | `db.delete_memory(ns, key)` |
+| Query | `collection.query(query_texts)` | `db.search(ns, vector, ...)` |
+| Delete | `collection.delete(ids)` | `db.memory.delete(ns, key)` |
 | Filter | `where={...}` | `filters={...}` |
 
 Migration takes ~5 minutes and you keep all your existing data and embeddings. From there, the graph engine, MCP protocol, WASM runtime, and hybrid search are available with zero additional setup.
@@ -268,7 +268,7 @@ db.compact_wal()  # archive + start fresh WAL
 ## Known limitations
 
 - **Collections → Namespaces**: ChromaDB collections are first-class objects with metadata. VantaDB namespaces are string prefixes on keys. There is no `create_namespace()` — namespaces are created lazily on first `put()`.
-- **No `peek()` equivalent**: Use `list_memory()` with `limit` and optional `filters`.
+- **No `peek()` equivalent**: Use `memory.list()` with `limit` and optional `filters`.
 - **No `where` document filter by content**: VantaDB metadata filters match on `metadata` field, not document text. Use `text_query` for payload search.
 - **No `update` vs `upsert` distinction**: VantaDB `put()` is always upsert.
 - **VantaDB is embedded only**: There is no VantaDB server to connect to remotely (the optional HTTP server is for localhost tooling).

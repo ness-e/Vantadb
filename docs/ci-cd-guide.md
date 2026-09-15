@@ -2,7 +2,7 @@
 
 ## Overview
 
-VantaDB uses GitHub Actions for continuous integration and delivery. The CI/CD pipeline is organized into 15 workflows, each with a clear category and purpose.
+VantaDB uses GitHub Actions for continuous integration and delivery. The CI/CD pipeline is organized into 26 workflows (verificado 2026-09-15), each with a clear category and purpose.
 
 ### File Naming Convention
 

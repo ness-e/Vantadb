@@ -3,7 +3,7 @@ title: TypeScript SDK Documentation
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-07-22
+last_reviewed: 2026-09-15
 aliases: []
 ---
 
