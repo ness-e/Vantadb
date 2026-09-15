@@ -35,6 +35,8 @@ python embeddings/verify.py --check
 
 - **Balance:** 3 EN + 3 ES + 3 Combined — tantos para español como para inglés y combinados.
 - **Formato:** ONNX (`onnx/model.onnx` o `model_int8.onnx` para bge-m3) + HF pytorch (`*.safetensors`). Comparar Rust `ort` vs Python `sentence-transformers`.
+- **Descarga recortada (FIND-71):** `download.py` usa `ALLOW_PATTERNS = ["*.json", "*.txt", "tokenizer*", "onnx/*", "*.safetensors"]` — sin `*.bin` global (duplicaba pesos cuando el repo trae ambos formatos → 3-4× lo declarado). Si un modelo resulta bin-only, añadir entrada explícita en `MODEL_PATTERNS` por id (`get_allow_patterns()`), nunca re-ampliar el global.
+- **Sizes re-medidos 2026-09-15 desde `manifest.json` (`size_onnx_mb + size_hf_mb`):** 253 / 170 / 878 / 2200 / 941 / 1079 / 691 / 3470 / 16000 MB — la tabla coincide con el manifest (fuente, Regla 11).
 - **Regla de oro:** un modelo por namespace (misma dim para writes y query; cross-model rompe HNSW). Ver `docs/tutorials/05-embedding-integrations.md:126`.
 - **bge-m3 int8:** fp32 ONNX 2.3 GB + HF 2.27 GB = 4.57 GB >3 GB; por eso se pinnea `model_int8.onnx` (1.20 GB).
 - **Qwen3:** sin ONNX oficial; solo HF (`trust_remote_code=True`), `onnx=null`, GPU-only, Matryoshka 4096→1024.
@@ -45,8 +47,8 @@ python embeddings/verify.py --check
 python -m py_compile embeddings/download.py   # contrato EMB-01
 python -m py_compile embeddings/verify.py
 python embeddings/download.py --help           # muestra --only
-python embeddings/download.py --check          # valida manifest sin red
-python embeddings/verify.py --check            # valida dims/rev sin modelos
+python embeddings/download.py --check          # valida manifest sin red (global o --only <id> por modelo + lock repo/rev)
+python embeddings/verify.py --check            # SMOKE: valida dims/rev sin modelos (no verificacion numerica)
 
 # descarga real (requiere huggingface_hub)
 pip install huggingface_hub
@@ -64,8 +66,8 @@ embeddings/
 ├── README.md          # esta tabla + one-liners
 ├── manifest.json      # source-of-truth (rev pinned)
 ├── manifest.lock      # shas fijados tras primera descarga (commitable)
-├── download.py        # huggingface_hub snapshot_download (lazy)
-├── verify.py          # ort+tokenizers dim+cosine checks
+├── download.py        # huggingface_hub snapshot_download (lazy, patterns recortados + check por modelo)
+├── verify.py          # SMOKE ort+tokenizers (abre sesion, hints cosine; numerico real en sanity_embed.py)
 └── models/            # gitignored — creado por download.py
 ```
 

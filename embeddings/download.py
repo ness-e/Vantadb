@@ -6,7 +6,7 @@ Usage:
   python embeddings/download.py --all
   python embeddings/download.py --only multilingual-e5-small,bge-m3
   python embeddings/download.py --only bge-small-en-v1.5 --skip-exception
-  python embeddings/download.py --check          # valida manifest sin red
+  python embeddings/download.py --check          # valida manifest sin red (global o --only <id> por modelo + lock)
   python embeddings/download.py --help
 
 Contrato EMB-01: huggingface_hub lazy, --only, --skip-exception, --check,
@@ -23,7 +23,20 @@ MANIFEST = pathlib.Path(__file__).parent / "manifest.json"
 LOCK = pathlib.Path(__file__).parent / "manifest.lock"
 MODELS_DIR = pathlib.Path(__file__).parent / "models"
 
-ALLOW_PATTERNS = ["*.json", "*.txt", "tokenizer*", "onnx/*", "*.safetensors", "*.bin"]
+# Base recortada FIND-71: sin "*.bin" global (duplicaba "*.safetensors" cuando el
+# repo trae ambos → descarga 3-4× lo declarado en README). safetensors es el
+# estándar moderno; si un modelo resulta bin-only, añadir entrada explícita
+# en MODEL_PATTERNS (lista cerrada por modelo, no re-ampliar el global).
+ALLOW_PATTERNS = ["*.json", "*.txt", "tokenizer*", "onnx/*", "*.safetensors"]
+
+# Override explícito por modelo (lista cerrada, no glob amplio). Vacío hoy:
+# los 9 repos exponen model.safetensors.
+MODEL_PATTERNS: dict[str, list[str]] = {}
+
+
+def get_allow_patterns(model_id: str) -> list[str]:
+    """Patterns de descarga para un modelo (base recortada salvo override)."""
+    return MODEL_PATTERNS.get(model_id, ALLOW_PATTERNS)
 
 
 def load_manifest() -> dict:
@@ -131,11 +144,36 @@ def main() -> int:
 
     if args.check:
         ok = check_manifest(manifest)
-        # también valida lock si existe
+        # --only: check por modelo, no global (pre-mortem FIND-71)
+        if args.only:
+            wanted = {s.strip() for s in args.only.split(",") if s.strip()}
+            targets = [m for m in manifest.get("models", []) if m["id"] in wanted]
+            missing = wanted - {m["id"] for m in targets}
+            if missing:
+                print(f"[check] FAIL ids no encontrados: {sorted(missing)}", file=sys.stderr)
+                ok = False
+            else:
+                print(f"[check] modelo(s): {sorted(m['id'] for m in targets)}")
+            # sizes re-medidos desde manifest.json (Regla 11: la fuente es el manifest)
+            for m in targets:
+                onnx_mb = m.get("size_onnx_mb") or 0
+                hf_mb = m.get("size_hf_mb") or 0
+                print(f"[check] {m['id']}: onnx={m.get('size_onnx_mb')} hf={m.get('size_hf_mb')} total={onnx_mb + hf_mb}MB patterns={get_allow_patterns(m['id'])}")
+        # lock: valida JSON + repo/rev vs manifest (subset acumulativo válido)
         if LOCK.exists():
             try:
-                json.loads(LOCK.read_text(encoding="utf-8"))
-                print(f"[check] lock OK ({LOCK})")
+                lock = json.loads(LOCK.read_text(encoding="utf-8"))
+                by_id = {m["id"]: m for m in manifest.get("models", [])}
+                bad = 0
+                for e in lock.get("models", []):
+                    ref = by_id.get(e.get("id"))
+                    if ref is None or ref.get("repo") != e.get("repo") or ref.get("rev") != e.get("rev"):
+                        print(f"[check] FAIL lock diverge en {e.get('id')}: lock={e} manifest={ref}", file=sys.stderr)
+                        bad += 1
+                        ok = False
+                if bad == 0:
+                    scope = "check por modelo" if args.only else "subset acumulativo"
+                    print(f"[check] lock OK ({LOCK} — {len(lock.get('models', []))} locked, {scope}, repo/rev vs manifest OK)")
             except Exception as e:
                 print(f"[check] lock JSON inválido: {e}", file=sys.stderr)
                 ok = False
@@ -181,7 +219,7 @@ def main() -> int:
                 repo_id=repo,
                 revision=rev,
                 local_dir=str(local_dir),
-                allow_patterns=ALLOW_PATTERNS,
+                allow_patterns=get_allow_patterns(mid),
             )
         except Exception as e:
             err = str(e)
@@ -196,7 +234,7 @@ def main() -> int:
                         repo_id=repo,
                         revision=actual,
                         local_dir=str(local_dir),
-                        allow_patterns=ALLOW_PATTERNS,
+                        allow_patterns=get_allow_patterns(mid),
                     )
                     # parchear manifest.json con el rev real para próximas corridas
                     m["rev"] = actual_short

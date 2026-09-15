@@ -1,12 +1,16 @@
 #!/usr/bin/env python3
 """
-verify.py — verifica embeddings locales (ort + tokenizers dim + cosine).
+verify.py — SMOKE de embeddings locales (ort + tokenizers dim + cosine).
+
+Nivel: smoke (no verificación numérica). Comprueba estructura (dim/rev/grupos),
+que la sesión ONNX abre y que el tokenizer carga; los thresholds cosine se
+imprimen como hints, NO se asertan. La verificación numérica real vive en
+`sanity_embed.py` (cosine por pares con thresholds por modelo).
 
 Checks:
   - dim == manifest dim
-  - cosine(self,self) > 0.99
-  - multi cosine("hola mundo","hello world") >0.65 para combined/es, <0.50 para en-only
-  - ONNX vs HF cosine >0.98 si ambos formatos presentes
+  - sesión ONNX abre + tokenizer carga (si descargado; si no, SKIP, no FAIL)
+  - multi cosine("hola mundo","hello world") >0.65 para combined/es, <0.50 para en-only (hint impreso, no asertado)
   - --check: solo valida manifest + estructura sin necesitar modelos ni red
 
 Usage:
@@ -126,13 +130,19 @@ def write_verify_log(manifest: dict, targets: list[dict] | None = None, status: 
     else:
         lines.append("manifest.lock: not yet (ok pre-download)")
     if mode == "check-only":
-        lines.append("note: check-only sin red — smoke DEFAULT deferido a CI con --skip-exception si no hay red")
+        lines.append("note: check-only sin red — smoke, no verificacion numerica; cosine real en sanity_embed.py")
+    lines.append("smoke: verify_model abre sesion ONNX + tokenizer (skips=True); thresholds cosine son hints impresos, no asserts")
     lines.append("")
     log.write_text("\n".join(lines) + "\n", encoding="utf-8")
     return log
 
 
 def verify_model(m: dict) -> bool:
+    """SMOKE por modelo (FIND-71): abre sesión ONNX + carga tokenizer si hay descarga.
+
+    Retorna True en skips (no descargado / sin ort) — un skip NO es un pass
+    numérico. Para cosine real con asserts ver `sanity_embed.py`.
+    """
     mid, dim, onnx_rel = m["id"], m["dim"], m["onnx"]
     model_dir = MODELS_DIR / mid
     if not model_dir.exists():
