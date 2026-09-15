@@ -4,7 +4,25 @@
 Spawns ONE server process and drives the MCP handshake sequentially:
 initialize -> tools/list -> resources/list -> prompts/list.
 
-Exit 0 if every request returns a valid JSON-RPC result; exit 1 otherwise.
+Exit 0 if every request returns a valid JSON-RPC result AND the surface
+counts match the expected profile counts; exit 1 otherwise (drift gate).
+
+BUILD FROM SOURCE (required — a stale installed binary masks drift):
+  cargo build -p vantadb-server -j 2
+  # `vanta-cli server --mcp` is a wrapper: it spawns `vantadb-server --mcp`
+  # (src/cli_handlers/server.rs), so rebuild BOTH when the wrapper is used:
+  cargo build --bin vanta-cli --bin vantadb-server -j 2
+  # Then point the script at the fresh binary (no PATH dependency):
+  python skills/vantadb-mcp/scripts/test-mcp.py target/debug/vantadb-server.exe
+  # Or via env var:
+  VANTADB_MCP_BIN=target/debug/vantadb-server.exe python skills/vantadb-mcp/scripts/test-mcp.py
+
+TOOL PROFILES (VANTADB_MCP_PROFILE env var, default "full"):
+  full   (default): 79 tools exacto
+  dev:              30..38 tools (Cursor ~40 budget + MEM-59)
+  memory:           15..22 tools (read-mostly + MEM-59)
+  Source of truth: vantadb-mcp/tests/mcp_tests.rs::test_mcp_tool_profiles
+  (+ handle_tools_list/profile_allowed_tools in handlers/tools.rs).
 
 The server binary is resolved from (in order):
   1. argv[1] or the VANTADB_MCP_BIN env var (explicit path)
@@ -26,6 +44,23 @@ import threading
 if hasattr(sys.stdout, "reconfigure"):
     sys.stdout.reconfigure(encoding="utf-8")
     sys.stderr.reconfigure(encoding="utf-8")
+
+
+# Drift gate (FIND-82): expected surface per tool profile.
+# Source of truth: vantadb-mcp/tests/mcp_tests.rs::test_mcp_tool_profiles
+# (Full == 79 exacto; Dev/Memory usan los rangos del Rust test para no
+# romperse con cada tool añadida dentro del budget).
+# Full = 22 memory + 16 dev + 41 extended (code 8 + wiki 6 + skill 6 +
+# thread 6 + scene 3 + context 1 + base-full 11). Profile via
+# VANTADB_MCP_PROFILE (default "full", see vantadb-mcp/src/config.rs).
+EXPECTED_TOOLS = {
+    "full": (79, 79),
+    "dev": (30, 38),
+    "memory": (15, 22),
+}
+EXPECTED_RESOURCES = 2  # metrics://, schema:// (handlers/resources.rs)
+EXPECTED_PROMPTS = 4  # search_memory, analyze_namespace, summarize_context,
+# query_builder (handlers/prompts.rs)
 
 
 def _candidate_paths(explicit):
@@ -125,7 +160,14 @@ class McpSession:
 def main():
     explicit = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("VANTADB_MCP_BIN")
     binary, kind = resolve_server(explicit)
-    print(f"🧪 Testing VantaDB MCP server: {binary} ({kind})")
+    profile = os.environ.get("VANTADB_MCP_PROFILE", "full").lower()
+    if profile not in EXPECTED_TOOLS:
+        print(
+            f"❌ unknown VANTADB_MCP_PROFILE={profile!r} "
+            f"(valid: {sorted(EXPECTED_TOOLS)})"
+        )
+        return 1
+    print(f"🧪 Testing VantaDB MCP server: {binary} ({kind}, profile {profile!r})")
     print("=" * 50)
 
     session = McpSession(binary, kind)
@@ -163,16 +205,40 @@ def main():
                 )
             elif label == "tools/list":
                 tools = result.get("tools", [])
-                print(f"   ✅ Found {len(tools)} tools")
+                lo, hi = EXPECTED_TOOLS[profile]
+                if not (lo <= len(tools) <= hi):
+                    print(
+                        f"   ❌ tools/list drift: got {len(tools)} tools "
+                        f"(profile {profile!r} expects {lo}..{hi}). "
+                        f"Stale binary? Rebuild from source: "
+                        f"cargo build -p vantadb-server -j 2, then rerun "
+                        f"with argv[1]/VANTADB_MCP_BIN pointing at it."
+                    )
+                    continue
+                print(f"   ✅ Found {len(tools)} tools (profile {profile!r}: {lo}..{hi} OK)")
                 for tool in tools[:5]:
                     print(f"      - {tool['name']}")
                 if len(tools) > 5:
                     print(f"      ... and {len(tools) - 5} more")
             elif label == "resources/list":
                 resources = result.get("resources", [])
+                if len(resources) != EXPECTED_RESOURCES:
+                    print(
+                        f"   ❌ resources/list drift: got {len(resources)} "
+                        f"(expects {EXPECTED_RESOURCES}). Stale binary? "
+                        f"Rebuild: cargo build -p vantadb-server -j 2."
+                    )
+                    continue
                 print(f"   ✅ Found {len(resources)} resources")
             elif label == "prompts/list":
                 prompts = result.get("prompts", [])
+                if len(prompts) != EXPECTED_PROMPTS:
+                    print(
+                        f"   ❌ prompts/list drift: got {len(prompts)} "
+                        f"(expects {EXPECTED_PROMPTS}). Stale binary? "
+                        f"Rebuild: cargo build -p vantadb-server -j 2."
+                    )
+                    continue
                 print(f"   ✅ Found {len(prompts)} prompts")
             passed += 1
     finally:
