@@ -919,3 +919,9 @@ aliases: []
 - **Objetivo:** Sincronizar comentarios stale de conteo tools MCP (post-FIND-90) con recount mecanico.
 - **Resultado:** ✅ 79=49+30 verificado (parser JSON 79 rows; delta = 2 MEM-59 + embed_texts); bloque tools.rs:25-35 + config.rs:11,14 veraces (ro 46/33, de 11/68, id 61/18, ow 2/77, hits 85/115); check 0 warnings; profiles+annotations ok; review P2-01 aplicado.
 - **Commit:** c32940db
+
+### FIND-69: dspy sin framework (fallback object explota)
+- **Fecha:** 2026-09-15
+- **Objetivo:** Tolerar fallback DSPyRetrieve = object sin romper path con-framework.
+- **Resultado:** ✅ try/except TypeError en super().__init__(k=k) + self.k = k explicito (vectorstore.py:62-70); fallback probado aislado con DB stub (INIT OK, forward _Prediction.passages, dump/load OK); py_compile 0; git diff --check limpio; vanta-review approve; suite 8/8 bloqueada por drift anta.VantaDB pre-existente → FIND-94 (9 adapters, fuera de scope).
+- **Commit:** (fix: FIND-69, esta campaña)
