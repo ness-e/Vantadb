@@ -318,26 +318,26 @@ describe("Client export/import roundtrip", () => {
 
   afterAll(() => { db.close(); });
 
-  it("importRecords round-trip (may require full record fields)", () => {
-    const records = [
+  it("importRecords round-trip with strict counts (FIND-79)", () => {
+    const report = db.importRecords([
       { namespace: "import_test", key: "a", payload: "pa", metadata: {} },
       { namespace: "import_test", key: "b", payload: "pb", metadata: {} },
-    ];
-    try {
-      const report = db.importRecords(records);
-      expect(report).toBeDefined();
-    } catch (err) {
-      console.error("WASM import_records error (expected type mismatch):", err);
-    }
+    ]);
+    expect(report.inserted).toBe(2);
+    expect(report.updated).toBe(0);
+    expect(report.errors).toBe(0);
+    expect(db.get("import_test", "a")!.payload).toBe("pa");
+    expect(db.get("import_test", "b")!.payload).toBe("pb");
   });
 
-  it("importRecords with empty array", () => {
-    try {
-      const report = db.importRecords([]);
-      expect(report).toBeDefined();
-    } catch (err) {
-      console.error("WASM import_records error (expected type mismatch):", err);
-    }
+  it("importRecords with empty array reports zeros (FIND-79)", () => {
+    expect(db.importRecords([])).toEqual({
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      errors: 0,
+      duration_ms: expect.any(Number),
+    });
   });
 });
 
