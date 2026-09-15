@@ -1,7 +1,6 @@
 """Tests for VantaDB OpenAI adapter."""
 import pytest
 pytest.importorskip("openai", reason="openai SDK not installed; adapter suite skipped")
-import tempfile
 import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -25,8 +24,8 @@ class FakeOpenAI:
 
 
 @pytest.fixture
-def store():
-    path = os.path.join(tempfile.mkdtemp(), "test_oa")
+def store(tmp_path):
+    path = str(tmp_path / "test_oa")
     s = VantaDBOpenAI(api_key="sk-test", db_path=path, namespace="test_oa", client=FakeOpenAI())
     yield s
 

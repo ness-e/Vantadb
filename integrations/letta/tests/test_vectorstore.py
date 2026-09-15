@@ -1,6 +1,5 @@
 """Tests for VantaDB Letta adapter."""
 import pytest
-import tempfile
 import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -19,15 +18,15 @@ def _dummy_embed(text: str) -> list:
 
 
 @pytest.fixture
-def store():
-    path = os.path.join(tempfile.mkdtemp(), "test_lt")
+def store(tmp_path):
+    path = str(tmp_path / "test_lt")
     s = VantaDBVectorStore(db_path=path, namespace="test_lt")
     yield s
 
 
 @pytest.fixture
-def store_with_embed():
-    path = os.path.join(tempfile.mkdtemp(), "test_lt_emb")
+def store_with_embed(tmp_path):
+    path = str(tmp_path / "test_lt_emb")
     s = VantaDBVectorStore(db_path=path, namespace="test_lt_emb",
                             embedding=_dummy_embed)
     yield s
@@ -96,10 +95,10 @@ def test_to_dict(store):
     assert d["namespace"] == store.namespace
 
 
-def test_to_dict_from_dict_roundtrip(store):
+def test_to_dict_from_dict_roundtrip(store, tmp_path):
     d = store.to_dict()
     # Use a different db_path so from_dict doesn't contend for the lock
-    d["db_path"] = os.path.join(tempfile.mkdtemp(), "test_lt_rt")
+    d["db_path"] = str(tmp_path / "test_lt_rt")
     s2 = VantaDBVectorStore.from_dict(d)
     assert s2.namespace == store.namespace
     # Verify the new store works

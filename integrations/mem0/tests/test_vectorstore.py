@@ -1,7 +1,6 @@
 """Tests for the mem0 VectorStoreBase-compliant VantaDBVectorStore."""
 import pytest
 pytest.importorskip("mem0.vector_stores", reason="mem0 SDK not installed; adapter suite skipped")
-import tempfile
 import os
 import sys
 
@@ -14,8 +13,8 @@ VEC_128_B = [0.2] * 128
 
 
 @pytest.fixture
-def store():
-    path = os.path.join(tempfile.mkdtemp(), "test_mem0")
+def store(tmp_path):
+    path = str(tmp_path / "test_mem0")
     s = VantaDBVectorStore(db_path=path, namespace="test_mem0")
     yield s
 

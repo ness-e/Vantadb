@@ -2,7 +2,6 @@
 import asyncio
 import os
 import sys
-import tempfile
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
 
@@ -35,8 +34,8 @@ def make_record(content="hello world", scope="/project/alpha", **kw):
 
 
 @pytest.fixture
-def backend():
-    path = os.path.join(tempfile.mkdtemp(), "test_mem")
+def backend(tmp_path):
+    path = str(tmp_path / "test_mem")
     return VantaDBMemoryBackend(db_path=path, namespace="crewai_memory")
 
 

@@ -1,6 +1,5 @@
 """Tests for VantaDB DSPy adapter."""
 import pytest
-import tempfile
 import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -9,8 +8,8 @@ from vantadb_dspy import VantaDBRetriever
 
 
 @pytest.fixture
-def retriever():
-    path = os.path.join(tempfile.mkdtemp(), "test_dspy")
+def retriever(tmp_path):
+    path = str(tmp_path / "test_dspy")
     r = VantaDBRetriever(db_path=path, namespace="test_dspy")
     r._add("hello world", "greeting")
     r._add("goodbye world", "farewell")
@@ -27,8 +26,8 @@ def test_empty(retriever):
     assert len(result.passages) == 0
 
 
-def test_k_param():
-    path = os.path.join(tempfile.mkdtemp(), "test_dspy_k")
+def test_k_param(tmp_path):
+    path = str(tmp_path / "test_dspy_k")
     r = VantaDBRetriever(db_path=path, namespace="td", k=3)
     for i in range(5):
         r._add(f"doc{i}", str(i))
@@ -52,9 +51,9 @@ def test_forward_returns_prediction_with_passages(retriever):
 
 # ── dump_state ──
 
-def test_dump_state():
+def test_dump_state(tmp_path):
     """dump_state serializa namespace, db_path, k, backend."""
-    path = os.path.join(tempfile.mkdtemp(), "test_dspy_dump")
+    path = str(tmp_path / "test_dspy_dump")
     r = VantaDBRetriever(
         db_path=path,
         namespace="test_dump",
@@ -69,9 +68,9 @@ def test_dump_state():
     assert state["backend"] == "memory"
 
 
-def test_dump_state_defaults():
+def test_dump_state_defaults(tmp_path):
     """dump_state incluye valores por defecto cuando no se especifican."""
-    path = os.path.join(tempfile.mkdtemp(), "test_dspy_dump2")
+    path = str(tmp_path / "test_dspy_dump2")
     r = VantaDBRetriever(db_path=path)
     state = r.dump_state()
     assert state["namespace"] == "dspy"
@@ -81,9 +80,9 @@ def test_dump_state_defaults():
 
 # ── _add con metadata ──
 
-def test_add_with_metadata():
+def test_add_with_metadata(tmp_path):
     """_add con metadata se ejecuta sin error y el texto es recuperable."""
-    path = os.path.join(tempfile.mkdtemp(), "test_dspy_add")
+    path = str(tmp_path / "test_dspy_add")
     r = VantaDBRetriever(db_path=path, namespace="test_add")
     r._add("document with metadata", "doc1", {"source": "test", "rank": 1})
     result = r("document")
@@ -92,9 +91,9 @@ def test_add_with_metadata():
 
 # ── k passthrough ──
 
-def test_k_passthrough():
+def test_k_passthrough(tmp_path):
     """k pasado como kwarg en forward limita la cantidad de resultados."""
-    path = os.path.join(tempfile.mkdtemp(), "test_dspy_kpt")
+    path = str(tmp_path / "test_dspy_kpt")
     r = VantaDBRetriever(
         db_path=path,
         namespace="tkpt",

@@ -1,7 +1,6 @@
 """Tests for VantaDB CrewAI adapter."""
 import pytest
 pytest.importorskip("crewai.tools", reason="crewai SDK not installed; adapter suite skipped")
-import tempfile
 import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -10,8 +9,8 @@ from vantadb_crewai import VantaDBTool
 
 
 @pytest.fixture
-def tool():
-    path = os.path.join(tempfile.mkdtemp(), "test_ca")
+def tool(tmp_path):
+    path = str(tmp_path / "test_ca")
     t = VantaDBTool(
         name="test_search",
         description="Test tool",
@@ -42,9 +41,9 @@ def test_put_empty_raises(tool):
         tool._put("   ")
 
 
-def test_put_with_embedding():
+def test_put_with_embedding(tmp_path):
     """_put con embedding mockeado se ejecuta sin error y el texto es recuperable."""
-    path = os.path.join(tempfile.mkdtemp(), "test_ca_emb")
+    path = str(tmp_path / "test_ca_emb")
     t = VantaDBTool(
         name="emb_test",
         description="Emb test",
@@ -57,9 +56,9 @@ def test_put_with_embedding():
     assert "embedded" in result
 
 
-def test_put_with_metadata():
+def test_put_with_metadata(tmp_path):
     """_put almacena metadata y el texto es recuperable."""
-    path = os.path.join(tempfile.mkdtemp(), "test_ca_meta")
+    path = str(tmp_path / "test_ca_meta")
     t = VantaDBTool(db_path=path, namespace="test_ca_meta")
     t._put("metadata test", {"key": "value", "num": 42})
     result = t._run("metadata")
@@ -69,13 +68,13 @@ def test_put_with_metadata():
 
 # ── to_dict / from_dict roundtrip (QW-1) ──
 
-def test_from_dict_roundtrip_no_typeerror():
+def test_from_dict_roundtrip_no_typeerror(tmp_path):
     """from_dict no debe pasar el string embedding_model como callable.
 
     Regresión: to_dict serializa el embedding como nombre de tipo; from_dict
     lo pasaba crudo como ``embedding`` y _run/_put lanzaban TypeError.
     """
-    path = os.path.join(tempfile.mkdtemp(), "test_ca_fd")
+    path = str(tmp_path / "test_ca_fd")
     t = VantaDBTool(
         db_path=path, namespace="test_ca_fd", embedding=lambda x: [0.1, 0.2, 0.3]
     )
@@ -87,9 +86,9 @@ def test_from_dict_roundtrip_no_typeerror():
     assert isinstance(t2._run("hello"), str)
 
 
-def test_list_cursor_string():
+def test_list_cursor_string(tmp_path):
     """list(cursor=...) acepta el cursor serializado como string (str→int)."""
-    path = os.path.join(tempfile.mkdtemp(), "test_ca_cur")
+    path = str(tmp_path / "test_ca_cur")
     t = VantaDBTool(db_path=path, namespace="test_ca_cur")
     for i in range(5):
         t._put(f"doc {i}")
