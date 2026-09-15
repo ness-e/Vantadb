@@ -8,10 +8,10 @@ use vantadb::storage::StorageEngine;
 /// Profiles are selected via the `VANTADB_MCP_PROFILE` environment variable:
 /// - `memory` (≤20 tools): Core memory CRUD + search + list only. For memory-only agents.
 /// - `dev` (≤35 tools): Memory + graph + collections + maintenance + introspection. Recommended for Cursor (cap ~40).
-/// - `full` (76 tools): All tools including code, wiki, skills, threads, scenes, context. Default for compat.
+/// - `full` (79 tools): All tools including code, wiki, skills, threads, scenes, context. Default for compat.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum McpProfile {
-    /// Full tool surface (76 tools) — all tools including code, wiki, skills, threads, scenes, context.
+    /// Full tool surface (79 tools) — all tools including code, wiki, skills, threads, scenes, context.
     /// Default for backward compatibility.
     #[default]
     Full,
