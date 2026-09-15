@@ -131,7 +131,18 @@ pub fn handle_resources_read(
 /// text index schema/tokenizer version.
 pub(crate) fn build_schema_resource(storage: &Arc<StorageEngine>) -> Value {
     let index = storage.vec_index();
-    let hnsw_config = serde_json::to_value(index.config.clone()).unwrap_or_else(|_| json!({}));
+    // F3X: `vec_index()` is `dyn IndexPort` (no `.config` field). Rebuild the
+    // serializable config from defaults + live routed getters. The engine only
+    // ever creates default configs (`port_impl` factories use `CPIndex::new()`),
+    // so this matches the old `.config.clone()` in every reachable state while
+    // keeping the exact serde shape of `HnswConfig`.
+    let live_config = vantadb::index::HnswConfig {
+        distance_metric: index.distance_metric(),
+        flat_threshold: index.flat_threshold(),
+        index_type: index.index_kind(),
+        ..Default::default()
+    };
+    let hnsw_config = serde_json::to_value(&live_config).unwrap_or_else(|_| json!({}));
     let text_spec = vantadb::TextIndexSpec::default();
     json!({
         "vector_index": {
