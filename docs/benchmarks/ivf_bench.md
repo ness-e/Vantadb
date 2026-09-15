@@ -1,5 +1,10 @@
 # VantaDB IVF Benchmark — REVISAR-01
 
+> **Superseded (2026-09-15):** el baseline canónico post-`b4ff157d` vive en
+> `docs/operations/BENCHMARKS.md` §14 (medido 2026-09-03, N=10 000/D=128/k=10).
+> Las tablas de este archivo son pre-fix (2026-08-09) y se conservan como
+> historia — no citar sus números como actuales.
+
 > **Última actualización:** 2026-08-09
 > **Versión evaluada:** v0.5.0 (local build, `src/index/ivf.rs` — k-means Forgy + Lloyd, max 20 iters, conv < 1e-4)
 > **Build config:** release bench profile (`cargo bench`), AVX2, 12 cores

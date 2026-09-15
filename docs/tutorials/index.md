@@ -6,7 +6,7 @@ Step-by-step guides for using VantaDB, ordered by increasing complexity.
 
 | Step | Tutorial | What you'll learn |
 |------|----------|-------------------|
-| 1 | [Building AI Agent Memory](01-ai-agent-memory.md) | Namespaces, `put()`, `search_memory()`, metadata filters, agent memory REPL |
+| 1 | [Building AI Agent Memory](01-ai-agent-memory.md) | Namespaces, `put()`, `search()`, metadata filters, agent memory REPL |
 | 2 | [Local RAG Pipeline](02-local-rag-pipeline.md) | Chunking, embedding, ingestion, retrieval-augmented generation with Ollama |
 | 3 | [Hybrid Search](04-hybrid-search-basics.md) | Vector-only, BM25 (`text_query`), hybrid fusion, filters, tuning |
 | 4 | [Embedding Providers](05-embedding-integrations.md) | OpenAI, Ollama, LiteLLM, and deterministic fallbacks — the BYO-vector model |
@@ -28,7 +28,7 @@ Already using another embedded vector database? Jump in here:
 
 ## Suggested order
 
-Start with **Building AI Agent Memory** — it covers the two primitives used everywhere (`put()` and `search_memory()`). Then build a **Local RAG Pipeline** on top. Once you're comfortable, the **Hybrid Search** and **Embedding Providers** tutorials cover production concerns: ranking quality, filter scoping, and provider choice.
+Start with **Building AI Agent Memory** — it covers the two primitives used everywhere (`put()` and `search()`). Then build a **Local RAG Pipeline** on top. Once you're comfortable, the **Hybrid Search** and **Embedding Providers** tutorials cover production concerns: ranking quality, filter scoping, and provider choice.
 
 The migration tutorials are standalone — read them when you have existing ChromaDB, LanceDB, or Vectara data to move.
 

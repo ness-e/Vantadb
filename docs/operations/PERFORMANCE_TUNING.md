@@ -217,17 +217,17 @@ VantaDB supports three storage backends via the `StorageBackend` trait.
 
 ### Selection Guidance
 
-- **Fjall** (env `VANTA_BACKEND=fjall`, default):
+- **Fjall** (env `VANTADB_BACKEND=fjall`, default):
   For embedded/local-first applications. Pure Rust, fast compilation, no
   system dependencies. Use unless you have a specific need for RocksDB.
 
-- **RocksDB** (env `VANTA_BACKEND=rocksdb`):
+- **RocksDB** (env `VANTADB_BACKEND=rocksdb`):
   For extreme write throughput (> 100K ops/sec) *(not verified — Rule 11)* or legacy infrastructure
   that depends on RocksDB tooling. Requires C++ build toolchain.
   Enables `supports_checkpoint` and `supports_manual_compaction` for
   advanced operational workflows.
 
-- **InMemory** (env `VANTA_BACKEND=memory`):
+- **InMemory** (env `VANTADB_BACKEND=memory`):
   For testing, ephemeral data, CI pipelines, and WASM targets. All data
   is lost on process exit. Enables the fastest possible throughput with
   zero durability guarantees.

@@ -18,7 +18,7 @@ This document compiles the certified performance metrics for **VantaDB** at the 
 These results come from the **Stress Protocol** (`tests/certification/stress_protocol.rs`), a 7-block certification suite that validates Recall consistency, scalability, [[hnsw|HNSW]] memory consumption, crash persistence, and graph consistency.
 
 > [!NOTE]
-> These metrics are run under the heavy certification suite (`heavy_certification.yml`) in a controlled environment with AVX2 vector instruction support.
+> These metrics are run under the heavy certification suite (`heavy-certification-50.yml`) in a controlled environment with AVX2 vector instruction support.
 
 ### Stress Protocol Summary (Scale: 10K to 100K)
 

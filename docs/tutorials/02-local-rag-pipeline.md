@@ -34,17 +34,17 @@ Skip the local installs entirely: [`docker-compose.yml`](../../docker-compose.ym
 ## 1. Connect VantaDB and set up embeddings
 
 ```python
-from vantadb_py import VantaDB
+from vantadb import Client
 import ollama
 
-db = VantaDB("rag-knowledge.db")
+db = Client("rag-knowledge.db")
 
 def embed(text: str) -> list[float]:
     """Embed text locally with Ollama."""
     return ollama.embeddings(model="nomic-embed-text", prompt=text)["embedding"]
 ```
 
-VantaDB is **BYO-vector**: you compute the embedding (OpenAI, Ollama, LiteLLM, or any model) and pass it to `put()` / `search_memory()`. Nothing leaves your machine.
+VantaDB is **BYO-vector**: you compute the embedding (OpenAI, Ollama, LiteLLM, or any model) and pass it to `put()` / `search()`. Nothing leaves your machine.
 
 ## 2. Ingest a document (chunk + embed + store)
 
@@ -133,7 +133,7 @@ ingest_pdf("manual.pdf")
 # vanta-skip: requires Ollama running (embed() calls the local Ollama service)
 def query_knowledge_base(question: str, top_k: int = 4):
     """Search for the most relevant document chunks."""
-    return db.search_memory("documents", embed(question), top_k=top_k)
+    return db.search("documents", embed(question), top_k=top_k)
 
 question = "How do I configure the database connection?"
 results = query_knowledge_base(question)
@@ -153,7 +153,7 @@ Now feed the retrieved chunks as context to a local LLM:
 # vanta-skip: requires Ollama running (embed() calls the local Ollama service)
 def ask(question: str, top_k: int = 4) -> str:
     # 1. Retrieve
-    results = db.search_memory("documents", embed(question), top_k=top_k)
+    results = db.search("documents", embed(question), top_k=top_k)
 
     if not results:
         return "No relevant documents found."
@@ -202,11 +202,11 @@ Usage:
 import sys
 import ollama
 from pathlib import Path
-from vantadb_py import VantaDB
+from vantadb import Client
 
 # ── Setup ──────────────────────────────────────────────────────────────
 
-db = VantaDB("rag-knowledge.db")
+db = Client("rag-knowledge.db")
 
 def embed(text: str) -> list[float]:
     return ollama.embeddings(model="nomic-embed-text", prompt=text)["embedding"]
@@ -253,7 +253,7 @@ def ingest(path_str: str):
 # ── Query ──────────────────────────────────────────────────────────────
 
 def query(question: str, top_k: int = 4) -> str:
-    results = db.search_memory("documents", embed(question), top_k=top_k)
+    results = db.search("documents", embed(question), top_k=top_k)
     if not results:
         return "No relevant documents found."
 
@@ -326,7 +326,7 @@ python rag_pipeline.py query "How do I reset the admin password?"
 
 ## Going further
 
-- **Hybrid search:** Pass `text_query="..."` to `search_memory()` for better keyword matching on code or product names
+- **Hybrid search:** Pass `text_query="..."` to `search()` for better keyword matching on code or product names
 - **Metadata filtering:** Tag chunks by chapter or section and filter with `filters={"source": "manual.pdf"}`
 - **Document streaming:** Ingest large documents incrementally without loading everything into memory
 - **WASM deployment:** This same pipeline runs in the browser — embed RAG directly in a static site

@@ -245,7 +245,7 @@ Spanish-language planning material (allowed exception to the English docs rule).
 
 | Document | Description |
 |----------|-------------|
-| [progreso/README.md](progreso/README.md) | Unified progress log and development history |
+| [avance/README.md](avance/README.md) | Unified progress log and development history |
 | [Backlog.md](Backlog.md) | Full project backlog and feature tracking |
 | [backlog-futuro.md](backlog-futuro.md) | Deferred / future backlog items |
 | [CHANGELOG.md](CHANGELOG.md) | Release history and version changelog |

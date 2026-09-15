@@ -19,7 +19,7 @@ LanceDB is an excellent embedded vector database, but it was designed around Apa
 | Feature | LanceDB | VantaDB |
 |---------|---------|---------|
 | **Schema** | Strict Arrow schema required | Schema-less document model (payload + metadata) |
-| **Hybrid search** | Not built-in | BM25 + HNSW fusion in `search_memory()` |
+| **Hybrid search** | Not built-in | BM25 + HNSW fusion in `search()` |
 | **GraphRAG** | Not supported | Native edges, BFS, DFS, topological sort |
 | **TTL** | Not built-in | Native `ttl_ms` on every record |
 | **Metadata filters** | SQL `WHERE` clauses | Native structured filters |
@@ -60,14 +60,14 @@ LanceDB is an excellent embedded vector database, but it was designed around Apa
 
 | Operation | LanceDB | VantaDB |
 |-----------|---------|---------|
-| Connect | `lancedb.connect(path)` | `VantaDB(path)` from `vantadb_py` |
+| Connect | `lancedb.connect(path)` | `Client(path)` from `vantadb` |
 | Create/get table | `db.create_table(name, schema)` | Lazy — namespaces created on first `put()` |
 | Insert records | `table.add(data)` | `db.put(namespace, key, payload, ...)` |
-| Vector search | `table.search(vector).limit(n).to_pandas()` | `db.search_memory(namespace, vector, top_k=n)` |
-| Get by ID | `table.search().where("id = ?")` | `db.get_memory(namespace, key)` |
-| Delete | `table.delete("id = ?")` | `db.delete_memory(namespace, key)` |
-| List all | `table.to_pandas()` | `db.list_memory(namespace)` |
-| Metadata filter | `table.filter("field = ?").search(...)` | `db.search_memory(..., filters={...})` |
+| Vector search | `table.search(vector).limit(n).to_pandas()` | `db.search(namespace, vector, top_k=n)` |
+| Get by ID | `table.search().where("id = ?")` | `db.memory.get(namespace, key)` |
+| Delete | `table.delete("id = ?")` | `db.memory.delete(namespace, key)` |
+| List all | `table.to_pandas()` | `db.memory.list(namespace)` |
+| Metadata filter | `table.filter("field = ?").search(...)` | `db.search(..., filters={...})` |
 | Graph traversal | Not supported | `db.graph_bfs(...)`, `db.graph_dfs(...)` |
 
 ## 1. Setup comparison
@@ -89,16 +89,16 @@ table = db.create_table(
 **VantaDB:**
 
 ```python
-from vantadb_py import VantaDB
+from vantadb import Client
 
-db = VantaDB("./vantadb_data")
+db = Client("./vantadb_data")
 # No schema needed — insert any document with any fields.
 ```
 
 **Key differences:**
 - LanceDB requires a schema (Arrow-based) on `create_table`. VantaDB is schema-less — namespaces are created lazily on first `put()`.
 - LanceDB stores vectors in a dedicated Arrow column. VantaDB stores vectors via the `vector` argument to `put()`.
-- LanceDB tables map to VantaDB namespaces — the `namespace` argument on `put()`/`search_memory()`.
+- LanceDB tables map to VantaDB namespaces — the `namespace` argument on `put()`/`search()`.
 
 ## 2. Inserting documents
 
@@ -144,7 +144,7 @@ results = (
 **VantaDB (vector search with metadata filter):**
 
 ```python
-results = db.search_memory(
+results = db.search(
     "my_table",
     [0.1, 0.2, 0.3],
     filters={"source": "docs"},
@@ -157,7 +157,7 @@ results = db.search_memory(
 ```python
 query_vector = [0.1, 0.2, 0.3]  # your query embedding
 
-results = db.search_memory(
+results = db.search(
     "my_table",
     query_vector,
     text_query="embedded database",   # BM25 component
@@ -297,7 +297,7 @@ print(path)   # [node_id of doc1, node_id of doc2]
 ```python
 query_vector = [0.1, 0.2, 0.3]
 
-results = db.search_memory(
+results = db.search(
     "my_table",
     query_vector,
     text_query="your query",
@@ -351,7 +351,7 @@ LanceDB stores Arrow data natively, so you can store image bytes or audio tensor
 
 ### Does VantaDB have reranking?
 
-LanceDB does not have built-in reranking. VantaDB supports cross-encoder reranking through `search_memory()` with the `rerank` parameter on the Rust SDK / integration packages.
+LanceDB does not have built-in reranking. VantaDB supports cross-encoder reranking through `search()` with the `rerank` parameter on the Rust SDK / integration packages.
 
 Requires the `vantadb-litellm` integration package for the cross-encoder model.
 
@@ -365,7 +365,7 @@ LanceDB supports SQL WHERE clauses for metadata filtering. VantaDB does **not** 
 # then apply the range condition client-side:
 query_vector = [0.1, 0.2, 0.3]
 
-results = db.search_memory("my_table", query_vector, top_k=10,
+results = db.search("my_table", query_vector, top_k=10,
                            filters={"category": "electronics"})
 matches = [r for r in results if r.metadata.get("price", 0) >= 100]
 ```

@@ -9,7 +9,7 @@ aliases: []
 
 # Embedding Integrations — BYO-Vector + `embed-local`
 
-VantaDB **does not embed text for you** by default. This is intentional (BYO-vector): you control the embedding model, dimension, and lifecycle. Bring your own `vector=[...]` on `put()` and `query_vector` on `search_memory()`.
+VantaDB **does not embed text for you** by default. This is intentional (BYO-vector): you control the embedding model, dimension, and lifecycle. Bring your own `vector=[...]` on `put()` and `query_vector` on `search()`.
 
 `embed-local` adds an **opt-in** local path: 9 ONNX+HF models (8 ≤3 GB + 1 exception) via `LocalOnnxProvider` (`ort`+`tokenizers`, `embed-local` feature). No breaking changes.
 
@@ -18,15 +18,15 @@ VantaDB **does not embed text for you** by default. This is intentional (BYO-vec
 ## BYO-vector (default) — you embed, VantaDB stores + searches
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
-db = vantadb.VantaDB("./vanta_data", memory_limit_bytes=512_000_000)
+db = vantadb.Client("./vanta_data", memory_limit_bytes=512_000_000)
 
 # You choose the model (e.g., sentence-transformers, OpenAI, Ollama) and pass vectors:
 db.put("agent/main", "k1", "hola mundo",  vector=[0.12]*384)
 db.put("agent/main", "k2", "hello world", vector=[0.11]*384)
 
-hits = db.search_memory("agent/main", query_vector=[0.12]*384, text_query="hola", top_k=5)
+hits = db.search("agent/main", query_vector=[0.12]*384, text_query="hola", top_k=5)
 ```
 
 Works with any provider. You are responsible for `dim` consistency.

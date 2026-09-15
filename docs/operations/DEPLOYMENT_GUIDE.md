@@ -174,7 +174,7 @@ services:
     environment:
       - VANTADB_RATE_LIMIT_RPM=1000
       - VANTADB_LOG_FORMAT=json
-      - VANTA_BACKEND=fjall
+      - VANTADB_BACKEND=fjall
       - RUST_LOG=info
       - VANTADB_API_KEY=${VANTADB_API_KEY}
     restart: unless-stopped
@@ -291,7 +291,7 @@ spec:
               value: "1000"
             - name: VANTADB_LOG_FORMAT
               value: json
-            - name: VANTA_BACKEND
+            - name: VANTADB_BACKEND
               value: fjall
             - name: RUST_LOG
               value: info
@@ -444,7 +444,7 @@ All configuration is via environment variables. See [CONFIGURATION.md](CONFIGURA
 | `VANTADB_LOG_FORMAT` | `compact` | `compact`, `json`, `full` |
 | `VANTADB_TLS_CERT` | `""` | TLS certificate PEM path |
 | `VANTADB_TLS_KEY` | `""` | TLS private key PEM path |
-| `VANTA_BACKEND` | `fjall` | `fjall`, `rocksdb`, `memory` |
+| `VANTADB_BACKEND` | `fjall` | `fjall`, `rocksdb`, `memory` |
 | `VANTADB_MAX_BLOCKING_THREADS` | `16` | Thread pool size |
 | `RUST_LOG` | `info` | Log severity filter |
 

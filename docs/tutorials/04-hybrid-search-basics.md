@@ -10,7 +10,7 @@ aliases: []
 
 Vector search finds *meaning*; keyword search finds *exact terms*. Most real queries need both. VantaDB fuses HNSW vector search with BM25 lexical search in a single call, so you get semantic recall *and* precise term matching without running two systems.
 
-In this tutorial you'll learn the four search modes of `search_memory()`:
+In this tutorial you'll learn the four search modes of `search()`:
 
 1. Vector-only search (semantic)
 2. Keyword search (BM25 via `text_query`)
@@ -26,7 +26,7 @@ pip install vantadb-py
 We'll use deterministic embeddings so the example runs offline:
 
 ```python
-from vantadb_py import VantaDB
+from vantadb import Client
 
 # Use a real embedding model in production; this is a demo stand-in.
 def embed(text: str, dim: int = 8) -> list[float]:
@@ -37,7 +37,7 @@ def embed(text: str, dim: int = 8) -> list[float]:
         out.append(int.from_bytes(h[:4], "big") / 2**32)
     return out
 
-db = VantaDB(":memory:", backend="memory")
+db = Client(":memory:", backend="memory")
 
 docs = [
     ("d1", "VantaDB is an embedded vector database written in Rust."),
@@ -52,7 +52,7 @@ for key, text in docs:
 print(f"Indexed {len(docs)} documents")
 ```
 
-`VantaDB(":memory:", backend="memory")` creates a throwaway in-memory database — handy for experiments. Use a path like `VantaDB("app.db")` for persistence.
+`Client(":memory:", backend="memory")` creates a throwaway in-memory database — handy for experiments. Use a path like `Client("app.db")` for persistence.
 
 ## 1. Vector-only search (semantic)
 
@@ -64,7 +64,7 @@ def embed(text: str, dim: int = 8) -> list[float]:
     import hashlib
     return [int.from_bytes(hashlib.sha256(f"{text}:{i}".encode()).digest()[:4], "big") / 2**32 for i in range(dim)]
 
-hits = db.search_memory("docs", embed("database written in rust"), top_k=2)
+hits = db.search("docs", embed("database written in rust"), top_k=2)
 for h in hits:
     print(f"  {h.key}: {h.payload[:60]}  (score={h.score:.3f})")
 ```
@@ -76,7 +76,7 @@ The top hit should be `d1` — the query never contains the literal words *"embe
 Pass `text_query` and an **empty vector** to search lexically:
 
 ```python
-hits = db.search_memory("docs", [], text_query="migration tools", top_k=2)
+hits = db.search("docs", [], text_query="migration tools", top_k=2)
 for h in hits:
     print(f"  {h.key}: {h.payload[:60]}  (score={h.score:.3f})")
 ```
@@ -93,7 +93,7 @@ def embed(text: str, dim: int = 8) -> list[float]:
     import hashlib
     return [int.from_bytes(hashlib.sha256(f"{text}:{i}".encode()).digest()[:4], "big") / 2**32 for i in range(dim)]
 
-hits = db.search_memory(
+hits = db.search(
     "docs",
     embed("vector database with keyword search"),
     text_query="hybrid BM25 keyword vector",
@@ -120,7 +120,7 @@ db.put("docs", "d5", "The WASM build runs fully in the browser.",
 db.put("docs", "d6", "The TypeScript SDK wraps the native engine.",
        metadata={"topic": "sdk", "lang": "typescript"}, vector=embed("typescript sdk"))
 
-hits = db.search_memory(
+hits = db.search(
     "docs",
     embed("browser runtime"),
     filters={"topic": "wasm"},
@@ -146,9 +146,9 @@ def embed(text: str, dim: int = 8) -> list[float]:
     import hashlib
     return [int.from_bytes(hashlib.sha256(f"{text}:{i}".encode()).digest()[:4], "big") / 2**32 for i in range(dim)]
 
-hits = db.search_memory("docs", embed("vector database"),
+hits = db.search("docs", embed("vector database"),
                         top_k=3, distance_metric="cosine")     # default
-hits = db.search_memory("docs", embed("vector database"),
+hits = db.search("docs", embed("vector database"),
                         top_k=3, distance_metric="euclidean")  # L2 distance
 ```
 
@@ -194,4 +194,4 @@ It returns a dict describing the search route, the fusion parameters, and each h
 
 ---
 
-**Key takeaway:** one method — `search_memory()` — covers semantic, keyword, hybrid, and filtered search. Add `text_query` to any vector search to get BM25 fusion, and use `filters` to scope results before ranking.
+**Key takeaway:** one method — `search()` — covers semantic, keyword, hybrid, and filtered search. Add `text_query` to any vector search to get BM25 fusion, and use `filters` to scope results before ranking.
