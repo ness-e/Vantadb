@@ -1,3 +1,13 @@
+---
+title: "Web perf, NUEVO, MCP, DX, DOC — tooling y docs"
+type: registro
+status: archived
+tags: [vantadb, avance, campana]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Web perf, NUEVO, MCP, DX, DOC — tooling y docs
 
 > **Migrado desde** `docs/progreso/README.md` (split GOV-D2, 2026-08-22). Contenido histórico sin cambios salvo dedup indicado.

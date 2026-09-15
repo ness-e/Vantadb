@@ -1,3 +1,13 @@
+---
+title: "Pipeline Run + auditoría Backlog (2026-07-24)"
+type: registro
+status: archived
+tags: [vantadb, avance, campana]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Pipeline Run + auditoría Backlog (2026-07-24)
 
 > **Migrado desde** `docs/progreso/README.md` (split GOV-D2, 2026-08-22). Contenido histórico sin cambios salvo dedup indicado.

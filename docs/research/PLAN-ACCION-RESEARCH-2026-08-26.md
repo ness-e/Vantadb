@@ -9,6 +9,7 @@ convencion_carpeta: >
   Esta carpeta es el hogar único de investigación (GOV-D4). Campañas estructuradas =
   subcarpeta con PLAN.md + NN-*.md + SYNTHESIS.md. Investigaciones puntuales = archivo
   single-file aquí. Historial archivado en docs/research/archive/.
+related: [manual-estrategico-validacion-2026-09-14.md]
 ---
 
 # Plan de Acción — Research Unificado

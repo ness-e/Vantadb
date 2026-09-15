@@ -1,3 +1,13 @@
+---
+title: "Review profunda — `vantadb-wasm` (binding wasm-bindgen, OPFS/IndexedDB)"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Review profunda — `vantadb-wasm` (binding wasm-bindgen, OPFS/IndexedDB)
 
 **Fecha:** 2026-08-22 · **Alcance:** lectura completa de `src/lib.rs` (1937 líneas), `src/opfs.rs`, `src/idb.rs`, `src/worker.rs`, `src/opfs_bridge.js`, `Cargo.toml`, glue `pkg/` (.d.ts), tests (`tests/wasm_tests.rs`, inline, `e2e/e2e-persistence.mjs`). Contexto: bug conocido **CORE-02** (consola IQL vía WASM lee graph-store vacío).

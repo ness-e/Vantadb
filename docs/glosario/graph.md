@@ -3,7 +3,7 @@ title: "Grafo"
 type: glossary-entry
 status: stable
 tags: [concept, graph, knowledge-graph, relaciones]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Graph, Knowledge Graph, Knowledge Graph, Property Graph]
 description: "Data structure composed of nodes (entities) and edges (relationships), where both can have associated properties, modeling connectivity and explicit relationships"

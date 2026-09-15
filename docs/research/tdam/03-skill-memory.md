@@ -1,3 +1,12 @@
+---
+title: "TDAM — 03: Skill Memory — Investigación profunda"
+type: research
+status: active
+tags: [vantadb, research, tdam, skill-memory]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # TDAM — 03: Skill Memory — Investigación profunda
 
 > Fecha: 2026-08-18 · Agente: vanta-research · Scope: core/skill (+ conversation-add, prompts, queue) — handlers HTTP en `src/gateway/skill-handlers.ts` (no core/skill/) · Stack: **TypeScript/Node** (no Rust)

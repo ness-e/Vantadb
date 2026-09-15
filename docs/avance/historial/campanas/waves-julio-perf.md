@@ -1,3 +1,13 @@
+---
+title: "Waves julio — quick wins, SIMD, governance, PERF/P1-P3"
+type: registro
+status: archived
+tags: [vantadb, avance, campana]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Waves julio — quick wins, SIMD, governance, PERF/P1-P3
 
 > **Migrado desde** `docs/progreso/README.md` (split GOV-D2, 2026-08-22). Contenido histórico sin cambios salvo dedup indicado.

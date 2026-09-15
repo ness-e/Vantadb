@@ -6,7 +6,9 @@ tags: [vantadb, roadmap, execution, timeline, priorities]
 version: 2.0
 created: 2026-07-16
 supersedes: 2026-07-01
+last_reviewed: 2026-09-15
 aliases: [Roadmap, Milestones, Engineering Plan, Timeline, Plan de Acción]
+related: [GO_TO_MARKET.md, SHOW_HN_PREP.md, VANTADB-PRO-FEATURES.md]
 ---
 
 # VantaDB — Roadmap de Ejecución

@@ -1,3 +1,13 @@
+---
+title: "VantaDB Project Evaluation"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # VantaDB Project Evaluation
 
 Date: 2026-07-21

@@ -63,4 +63,4 @@
 
 # Project
 - [Backlog](Backlog.md)
-- [Progress Dashboard](progreso/README.md)
+- [Progress Dashboard](avance/README.md)

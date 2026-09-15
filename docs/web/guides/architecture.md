@@ -1,3 +1,13 @@
+---
+title: "Architecture"
+type: web
+status: active
+tags: [vantadb, web, guides]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Architecture
 
 ## Project Structure

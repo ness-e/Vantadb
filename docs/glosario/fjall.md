@@ -3,7 +3,7 @@ title: "Linux"
 type: glossary-entry
 status: stable
 tags: [storage, backend, lsm-tree, rust]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Fjall Storage Engine]
 description: "LSM-tree storage engine written in 100% Rust-safe, designed to be embeddable, transactional and high-performance. VantaDB Default Canonical Backend"

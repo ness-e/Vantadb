@@ -1,3 +1,12 @@
+---
+title: "TDAM — 02: Scene extraction + Persona — Investigación profunda"
+type: research
+status: active
+tags: [vantadb, research, tdam, scene-persona]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # TDAM — 02: Scene extraction + Persona — Investigación profunda
 
 > Fecha: 2026-08-18 · Agente: vanta-research · Scope: core/scene, core/persona, core/profile

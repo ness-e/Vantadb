@@ -1,3 +1,13 @@
+---
+title: "Errores Encontrados — Revisión Multi-Agente"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Errores Encontrados — Revisión Multi-Agente
 
 > **Fecha:** 2026-08-08

@@ -3,8 +3,9 @@ title: Python SDK Documentation
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-09-01
+last_reviewed: 2026-09-15
 aliases: []
+related: [TS_SDK.md, NODE_SDK.md, EMBEDDED_SDK.md, BINDINGS_NAMESPACES.md]
 ---
 
 # Python SDK Documentation

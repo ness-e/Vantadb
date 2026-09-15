@@ -1,3 +1,12 @@
+---
+title: "07 — Archivos Esenciales del Repo y Contrato de Fiabilidad First-Run"
+type: research
+status: active
+tags: [vantadb, research, fiabilidad, first-run]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # 07 — Archivos Esenciales del Repo y Contrato de Fiabilidad First-Run
 
 **Fecha:** 2026-08-25 · **Agente:** G (auditoría release/producto) · **Alcance:** estado actual del repo vs checklist de lanzamiento público + definición del contrato "lo que NO debe fallar jamás" para un evaluador nuevo.

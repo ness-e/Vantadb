@@ -1,3 +1,13 @@
+---
+title: "Gestión de Estado — Frontend Web"
+type: web
+status: active
+tags: [vantadb, web, guides]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Gestión de Estado — Frontend Web
 
 > **Contexto:** Next.js 16 + React 19. Sin React Server Components (todo `"use client"`).

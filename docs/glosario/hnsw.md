@@ -3,7 +3,7 @@ title: "busqueda-vectorial"
 type: glossary-entry
 status: stable
 tags: [indice, ann, busqueda-vector, hnsw]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Hierarchical Navigable Small World, HNSW Index]
 description: "Indexing algorithm for approximate nearest neighbor search (ANN) that constructs a multi-layer graph of vectors, allowing searches in logarithmic time"

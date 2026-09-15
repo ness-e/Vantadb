@@ -1,3 +1,12 @@
+---
+title: "Licenciamiento OSS y Monetización Open-Core para VantaDB"
+type: research
+status: active
+tags: [vantadb, research, licenciamiento, open-core]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # Licenciamiento OSS y Monetización Open-Core para VantaDB
 
 **Fecha:** 2026-08-25 · **Autor:** Agente C (research delegada) · **Estado:** investigación completa; requiere revisión legal profesional antes del anuncio público

@@ -3,7 +3,7 @@ title: "mvcc"
 type: glossary-entry
 status: stable
 tags: [concurrencia, aislamiento, transacciones]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Multi-Version Concurrency Control, MVCC]
 description: "Concurrency control method where each transaction sees a consistent snapshot of the database, allowing readers and writers to operate simultaneously without blocking"

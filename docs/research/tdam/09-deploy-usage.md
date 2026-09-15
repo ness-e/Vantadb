@@ -1,3 +1,12 @@
+---
+title: "TDAM — 09: Deploy + Uso + Scripts + SDK — Investigación profunda"
+type: research
+status: active
+tags: [vantadb, research, tdam, deployment]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # TDAM — 09: Deploy + Uso + Scripts + SDK — Investigación profunda
 
 > **Serie:** Investigación fraccionada TDAM (TencentDB Agent Memory) · **Área:** despliegue, operación, plugins, scripts, CLI, SDK · **Repo:** TencentDB-Agent-Memory @ `97f9465` (rama `feat/server_team`) · **Verificación:** 100% contra clone local `C:\Users\Eros\AppData\Local\Temp\opencode\tdam` · **Fecha:** 2026-08-18 · **Estado:** ✅ COMPLETO

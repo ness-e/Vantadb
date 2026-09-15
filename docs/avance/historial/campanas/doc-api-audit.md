@@ -1,3 +1,13 @@
+---
+title: "Correcciones DOC-API (2026-07-21)"
+type: registro
+status: archived
+tags: [vantadb, avance, campana]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Correcciones DOC-API (2026-07-21)
 
 > **Migrado desde** `docs/progreso/README.md` (split GOV-D2, 2026-08-22). Contenido histórico sin cambios salvo dedup indicado.

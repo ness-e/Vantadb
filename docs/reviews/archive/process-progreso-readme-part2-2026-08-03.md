@@ -1,3 +1,13 @@
+---
+title: "Auditoría de Documentación — `docs/progreso/README.md` (líneas 1101–2200)"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Auditoría de Documentación — `docs/progreso/README.md` (líneas 1101–2200)
 
 - **Archivo:** `docs/progreso/README.md` (3320 líneas totales)

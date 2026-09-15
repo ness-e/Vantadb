@@ -1,3 +1,13 @@
+---
+title: "`sec-codeql-30.yml` — SEC: CodeQL — Analysis"
+type: workflow
+status: active
+tags: [vantadb, ci, sec-codeql]
+last_reviewed: 2026-09-15
+aliases: []
+related: [".github/workflows/sec-codeql-30.yml"]
+---
+
 # `sec-codeql-30.yml` — SEC: CodeQL — Analysis
 
 ## ¿Qué hace?

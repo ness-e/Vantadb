@@ -1,3 +1,12 @@
+---
+title: "Consolas y paneles de administración de Vector DBs"
+type: research
+status: stable
+tags: [vantadb, research, vector-db, consolas]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # Consolas y paneles de administración de Vector DBs
 
 Investigación de fuentes públicas (docs oficiales, repositorios y páginas de producto) recopilada entre 2024-2026. El objetivo es alimentar el diseño de una consola de administración humana para VantaDB: cómo las bases de datos vectoriales existentes le muestran sus datos a un humano (layout, visualización de vectores, editores de consulta, filtros, gestión de índices, monitoreo), qué funciona y qué no.

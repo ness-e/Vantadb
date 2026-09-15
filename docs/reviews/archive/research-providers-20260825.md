@@ -1,3 +1,13 @@
+---
+title: "INV-providers-01 — Investigación profunda: adapters de inference"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # INV-providers-01 — Investigación profunda: adapters de inference
 
 > **Fecha:** 2026-08-25 · **Comando:** `/research providers` · **Modo:** read-only

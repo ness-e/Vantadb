@@ -1,3 +1,13 @@
+---
+title: "INV-vantadb-server-01 — Investigación profunda: `vantadb-server`"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # INV-vantadb-server-01 — Investigación profunda: `vantadb-server`
 
 | Campo | Valor |

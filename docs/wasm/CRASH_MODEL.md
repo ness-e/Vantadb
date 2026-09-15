@@ -1,3 +1,13 @@
+---
+title: "WASM Crash and Durability Model"
+type: reference
+status: active
+tags: [vantadb, wasm, crash-model, durability]
+last_reviewed: 2026-09-15
+aliases: [WASM]
+related: []
+---
+
 # WASM Crash and Durability Model
 
 > Last reviewed: 2026-08-22 — sync post-PERF-08 (differential persistence, `vantadb-wasm/src/lib.rs`).

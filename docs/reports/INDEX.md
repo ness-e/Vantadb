@@ -1,3 +1,13 @@
+---
+title: "Report Registry — docs/reports/INDEX.md"
+type: report
+status: active
+tags: [vantadb, reports, index, registry]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Report Registry — docs/reports/INDEX.md
 
 > **Registro maestro de reportes de review/audit.** Una fila por reporte.

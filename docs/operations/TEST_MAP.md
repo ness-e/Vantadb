@@ -1,3 +1,13 @@
+---
+title: "Test Map — 2026-07-22"
+type: operations
+status: active
+tags: [vantadb, operations, test-map, testing]
+last_reviewed: 2026-09-15
+aliases: []
+related: [CI_POLICY.md]
+---
+
 # Test Map — 2026-07-22
 
 > If you change X, which test suite do you run? Quick reference for contributors.

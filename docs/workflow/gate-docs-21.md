@@ -1,3 +1,13 @@
+---
+title: "`gate-docs-21.yml` — GATE: Docs — Lint & Frontmatter"
+type: workflow
+status: active
+tags: [vantadb, ci, gate-docs]
+last_reviewed: 2026-09-15
+aliases: []
+related: [".github/workflows/gate-docs-21.yml"]
+---
+
 # `gate-docs-21.yml` — GATE: Docs — Lint & Frontmatter
 
 ## ¿Qué hace?

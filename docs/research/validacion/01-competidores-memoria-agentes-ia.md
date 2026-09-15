@@ -1,3 +1,12 @@
+---
+title: "Competidores: Memoria para Agentes de IA — Mapeo de Mercado"
+type: research
+status: active
+tags: [vantadb, research, competencia, agentes-ia]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # Competidores: Memoria para Agentes de IA — Mapeo de Mercado
 **Fecha:** 2026-08-25 (datos verificados en vivo el 25-08-2026 UTC) · Autor: vanta-research (Agente A) · Confianza marcada por dato
 

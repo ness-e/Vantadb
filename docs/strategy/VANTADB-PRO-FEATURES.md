@@ -1,3 +1,13 @@
+---
+title: "VantaDB Pro — Feature Inventory (Open Core boundary)"
+type: strategy
+status: active
+tags: [vantadb, strategy, pro-features, open-core]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # VantaDB Pro — Feature Inventory (Open Core boundary)
 
 > Source plan: `docs/plans/2026-08-06-oc-vantadb-pro.md`

@@ -1,3 +1,13 @@
+---
+title: "Backlog Futuro (I+D v3.0+)"
+type: plan
+status: stable
+tags: [vantadb, docs, backlog, futuro-id]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Backlog Futuro (I+D v3.0+)
 
 Diferidos tras el freeze del backlog (ROADMAP R5). Ideas preservadas durante la limpieza de documentación histórica (2026-08-04). Sin spec ni prioridad — I+D especulativa para hardware restrictivo / post product-market fit.

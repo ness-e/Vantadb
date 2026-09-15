@@ -1,3 +1,12 @@
+---
+title: "TDAM — 08: MemoryKnowledge + MemoryPanel + SDK — Investigación profunda (REVISADO)"
+type: research
+status: active
+tags: [vantadb, research, tdam, sdk]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # TDAM — 08: MemoryKnowledge + MemoryPanel + SDK — Investigación profunda (REVISADO)
 
 > **Fecha:** 2026-08-18 · **Fuente:** clone `tdam` @ `97f9465` (rama `feat/server_team`) · **Verificación:** 100% contra código real (glob/grep/Read)

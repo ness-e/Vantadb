@@ -1,3 +1,13 @@
+---
+title: "registros live — GOV-A5 Wave1 (2026-09-02)"
+type: report
+status: active
+tags: [vantadb, reports, gov-a5, registros-live]
+last_reviewed: 2026-09-15
+aliases: [GOV-A5]
+related: []
+---
+
 # registros live — GOV-A5 Wave1 (2026-09-02)
 
 > **Contrato:** `Select-String -Path "docs/reports/*" -Pattern "registros live" | Measure-Object Count` >=1

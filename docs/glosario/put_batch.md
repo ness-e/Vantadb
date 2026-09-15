@@ -3,7 +3,7 @@ title: "put_batch"
 type: glossary-entry
 status: stable
 tags: [glosario, api, escritura, batch, rendimiento]
-last_reviewed: 2026-09-03
+last_reviewed: 2026-09-15
 aliases: [put_batch, batch-insert, batch-write, insercion-por-lote]
 description: "Inserción o actualización masiva de registros en paralelo, hasta 5x más rápida que inserciones individuales"
 ---

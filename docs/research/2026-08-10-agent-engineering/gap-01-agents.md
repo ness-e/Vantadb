@@ -1,3 +1,12 @@
+---
+title: "GAP-01 · Análisis de brechas del sistema de tareas de VantaDB vs. mejores prácticas de agentes IA"
+type: research
+status: stable
+tags: [vantadb, research, gap-analysis, agentes-ia]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # GAP-01 · Análisis de brechas del sistema de tareas de VantaDB vs. mejores prácticas de agentes IA
 
 > **Fecha:** 2026-08-10 · **Idioma:** español (términos técnicos en inglés)

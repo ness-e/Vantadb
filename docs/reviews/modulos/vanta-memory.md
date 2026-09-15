@@ -1,3 +1,13 @@
+---
+title: "Deep Module Review — `vanta-memory`"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Deep Module Review — `vanta-memory`
 
 > **Fecha:** 2026-08-22 · **Revisor:** ox-alpha (segunda opinión, contexto fresco — P2-01)

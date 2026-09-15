@@ -1,3 +1,13 @@
+---
+title: "`ci-gate.yml` — CI Gate"
+type: workflow
+status: active
+tags: [vantadb, ci, ci-gate]
+last_reviewed: 2026-09-15
+aliases: []
+related: [".github/workflows/ci-gate.yml"]
+---
+
 # `ci-gate.yml` — CI Gate
 
 ## ¿Qué hace?

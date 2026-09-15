@@ -1,3 +1,13 @@
+---
+title: "P33 — Última Milla (integración producto end-to-end)"
+type: registro
+status: archived
+tags: [vantadb, avance, campana]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # P33 — Última Milla (integración producto end-to-end)
 
 > **Plan:** `docs/plans/archive/2026-08-22-vanta-ultima-milla.md` · **Fechas:** 2026-08-22 · **Resultado:** ✅ 10/10

@@ -1,3 +1,13 @@
+---
+title: "Tareas migradas desde Backlog — tabla histórica"
+type: registro
+status: archived
+tags: [vantadb, avance, campana]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Tareas migradas desde Backlog — tabla histórica
 
 > **Migrado desde** `docs/progreso/README.md` (split GOV-D2, 2026-08-22). Contenido histórico sin cambios salvo dedup indicado.

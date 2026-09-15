@@ -1,3 +1,12 @@
+---
+title: "Research — Human-Facing DB UI (Vanta Studio)"
+type: research
+status: stable
+tags: [vantadb, research, vanta-studio, db-ui]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # Research — Human-Facing DB UI (Vanta Studio)
 
 Investigación sobre cómo representar VantaDB a humanos: cómo hacer **visible, comprensible,

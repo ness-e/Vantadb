@@ -1,3 +1,13 @@
+---
+title: "Reviews archivados (2026-08-26)"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Reviews archivados (2026-08-26)
 
 > Movidos desde `docs/reviews/` el **2026-08-26** tras consolidar su contenido accionable

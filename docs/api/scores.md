@@ -1,3 +1,13 @@
+---
+title: "Scoring Semantics — VantaDB Official Score Contract"
+type: api
+status: active
+tags: [vantadb, api, scoring, search-scores]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Scoring Semantics — VantaDB Official Score Contract
 
 > **Source of truth:** this document is the canonical scoring contract for VantaDB search.

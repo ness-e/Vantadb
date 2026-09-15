@@ -1,3 +1,13 @@
+---
+title: "Audit Report: `docs/progreso/README.md` — Lines 2201–3320"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Audit Report: `docs/progreso/README.md` — Lines 2201–3320
 
 **Date:** 2026-08-03

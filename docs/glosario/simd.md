@@ -3,7 +3,7 @@ title: "SIMD (Single Instruction, Multiple Data)"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, performance, hardware, optimización]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[Glosario](./README.md)"
 ---
 

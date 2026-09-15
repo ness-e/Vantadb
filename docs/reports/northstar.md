@@ -1,3 +1,13 @@
+---
+title: "North Star Report"
+type: report
+status: active
+tags: [vantadb, reports, northstar, metrics]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # North Star Report
 
 > Generado por `evals/northstar.mjs` (P1-06) — 2026-08-11T20:24:42.570Z

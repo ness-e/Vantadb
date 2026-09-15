@@ -1,3 +1,13 @@
+---
+title: "`release-wheels-60.yml` — RELEASE: Wheels — Build & Publish"
+type: workflow
+status: active
+tags: [vantadb, ci, release-wheels]
+last_reviewed: 2026-09-15
+aliases: []
+related: [".github/workflows/release-wheels-60.yml"]
+---
+
 # `release-wheels-60.yml` — RELEASE: Wheels — Build & Publish
 
 ## ¿Qué hace?

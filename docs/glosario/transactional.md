@@ -3,7 +3,7 @@ title: "Transactional"
 type: glossary-entry
 status: stable
 tags: [concept, acid, durabilidad, consistencia]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Transaccional, ACID, Transactional]
 description: "Propiedad de un sistema que garantiza que las operaciones sobre datos cumplan las propiedades ACID (Atomicidad, Consistencia, Aislamiento, Durabilidad)"

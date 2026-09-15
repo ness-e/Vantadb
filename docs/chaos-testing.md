@@ -1,3 +1,13 @@
+---
+title: "Chaos Testing in VantaDB"
+type: operations
+status: active
+tags: [vantadb, docs, chaos-testing, resilience]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Chaos Testing in VantaDB
 
 ## Overview

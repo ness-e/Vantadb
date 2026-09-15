@@ -1,3 +1,13 @@
+---
+title: "INV-integrations-01 — Investigación profunda: adapters de frameworks (`integrations/`)"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # INV-integrations-01 — Investigación profunda: adapters de frameworks (`integrations/`)
 
 **Fecha:** 2026-08-25 · **Comando:** `/research integrations` · **Plantilla:** `research-module.md`

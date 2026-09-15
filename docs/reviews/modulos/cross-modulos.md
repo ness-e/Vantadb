@@ -1,3 +1,13 @@
+---
+title: "Review Cross-Módulos — VantaDB como Sistema"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Review Cross-Módulos — VantaDB como Sistema
 
 > **Fecha:** 2026-08-23 · **Revisor:** ox-alpha (segunda opinión, contexto fresco — P2-01)

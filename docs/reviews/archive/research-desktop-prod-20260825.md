@@ -1,3 +1,13 @@
+---
+title: "INV-desktop-prod — Investigación de producto: Vanta Studio (desktop Tauri 2)"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # INV-desktop-prod — Investigación de producto: Vanta Studio (desktop Tauri 2)
 
 > **Fecha:** 2026-08-25 · **Módulo:** `desktop` · **Tipo:** App desktop Tauri 2 (GUI multi-conexión)

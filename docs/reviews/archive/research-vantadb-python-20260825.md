@@ -1,3 +1,13 @@
+---
+title: "INV-vantadb-python-01 — Investigación profunda: SDK PyO3 `vantadb-python`"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # INV-vantadb-python-01 — Investigación profunda: SDK PyO3 `vantadb-python`
 
 > Generado por `/research vantadb-python` · 2026-08-25 · modo read-only.

@@ -1,3 +1,13 @@
+---
+title: "Extracción Histórica — VANTADB DOC OLD (audit-reports) — 2026-08-05"
+type: plan
+status: archived
+tags: [vantadb, archive, extraccion-historica, audit-reports]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Extracción Histórica — VANTADB DOC OLD (audit-reports) — 2026-08-05
 
 > **Propósito:** Contenido valioso preservado de la limpieza de la carpeta `VANTADB DOC OLD/audit-reports/`. Solo se extrajo información **única** (no duplicada en el proyecto actual); los archivos originales fueron eliminados. Verificado contra `src/`, `docs/Backlog.md`, ROADMAP, ADRs e INV-018/019/020 el 2026-08-05.

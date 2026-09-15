@@ -1,3 +1,13 @@
+---
+title: "Coding Conventions — VantaDB Web Frontend"
+type: web
+status: active
+tags: [vantadb, web, standards]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Coding Conventions — VantaDB Web Frontend
 
 ## File Organization

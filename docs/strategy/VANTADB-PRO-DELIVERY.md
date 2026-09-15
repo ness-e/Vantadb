@@ -1,3 +1,13 @@
+---
+title: "VantaDB Pro — Delivery & Distribution"
+type: strategy
+status: active
+tags: [vantadb, strategy, pro-delivery, distribution]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # VantaDB Pro — Delivery & Distribution
 
 > Source plan: `docs/plans/2026-08-06-oc-vantadb-pro.md`

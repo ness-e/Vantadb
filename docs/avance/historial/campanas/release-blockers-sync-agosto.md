@@ -1,3 +1,13 @@
+---
+title: "Release blockers y syncs (jul-agosto) + AUDIT-01/02"
+type: registro
+status: archived
+tags: [vantadb, avance, campana]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Release blockers y syncs (jul-agosto) + AUDIT-01/02
 
 > **Migrado desde** `docs/progreso/README.md` (split GOV-D2, 2026-08-22). Contenido histórico sin cambios salvo dedup indicado.

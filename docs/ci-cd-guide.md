@@ -1,3 +1,13 @@
+---
+title: "VantaDB CI/CD Guide"
+type: operations
+status: active
+tags: [vantadb, docs, ci-cd, pipelines]
+last_reviewed: 2026-09-15
+aliases: [CI-CD]
+related: []
+---
+
 # VantaDB CI/CD Guide
 
 ## Overview

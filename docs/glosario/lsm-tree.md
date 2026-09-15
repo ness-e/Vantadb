@@ -3,7 +3,7 @@ title: "LSM-Tree—Log-Structured Merge-Tree"
 type: glossary-entry
 status: stable
 tags: [storage, lsm, estructura-datos, write-optimized]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Log-Structured Merge-Tree, LSM Tree]
 description: "Sequential write-optimized data structure that maintains data in memory (MemTable) and periodically dumps it to disk in immutable files (SSTables)"

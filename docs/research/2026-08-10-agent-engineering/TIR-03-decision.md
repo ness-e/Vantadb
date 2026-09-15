@@ -1,3 +1,12 @@
+---
+title: "TIR-03 — Decisión: ¿fase de contención en el pipeline de bugs?"
+type: research
+status: stable
+tags: [vantadb, research, bugs, triage]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # TIR-03 — Decisión: ¿fase de contención en el pipeline de bugs?
 
 > Investigación/decisión. Origen: gap-01-agents.md FALTA#15, REPORTE-FINAL.md §3.3-15,

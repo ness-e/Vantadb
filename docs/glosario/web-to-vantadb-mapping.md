@@ -4,6 +4,7 @@ type: reference
 status: stable
 tags: [vantadb, mapping, web-developer, onboarding, architecture]
 description: "Translation layer for web developers learning VantaDB. Maps familiar web/DB concepts to their VantaDB equivalents with file pointers."
+last_reviewed: 2026-09-15
 ---
 
 # Web → VantaDB Concept Mapping

@@ -1,3 +1,12 @@
+---
+title: "TDAM — 04: Storage + Recall — Investigación profunda"
+type: research
+status: active
+tags: [vantadb, research, tdam, storage-recall]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # TDAM — 04: Storage + Recall — Investigación profunda
 
 > Fecha: 2026-08-18 · Agente: vanta-research · Fuente: `TencentCloud/TencentDB-Agent-Memory`, branch `feat/server_team`, v2.0.0-beta.1 (checkout local COMPLETO del commit `97f9465`, verificado contra `.git/logs/HEAD`). Ref = `MemoryCore/src/...` salvo indicación.

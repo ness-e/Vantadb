@@ -1,3 +1,13 @@
+---
+title: "CI/infraestructura junio-julio — AUD-WORK, WASM, TSK, CLI-EPIC"
+type: registro
+status: archived
+tags: [vantadb, avance, campana]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # CI/infraestructura junio-julio — AUD-WORK, WASM, TSK, CLI-EPIC
 
 > **Migrado desde** `docs/progreso/README.md` (split GOV-D2, 2026-08-22). Contenido histórico sin cambios salvo dedup indicado.

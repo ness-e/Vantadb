@@ -1,3 +1,12 @@
+---
+title: "VantaDB — Síntesis Ejecutiva Final v2: Competencia, Monetización Sin Nube y Estrategia de Producto"
+type: research
+status: active
+tags: [vantadb, research, estrategia, competencia]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # VantaDB — Síntesis Ejecutiva Final v2: Competencia, Monetización Sin Nube y Estrategia de Producto
 
 **Fecha:** 2026-08-25 · **v2 — corrige y reemplaza a `validacion/00-SINTESIS-EJECUTIVA.md`**

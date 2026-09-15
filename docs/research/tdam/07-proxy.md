@@ -1,3 +1,12 @@
+---
+title: "TDAM — 07: MemoryProxy — Investigación profunda (REVISADO)"
+type: research
+status: active
+tags: [vantadb, research, tdam, memory-proxy]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # TDAM — 07: MemoryProxy — Investigación profunda (REVISADO)
 
 > **Fecha:** 2026-08-18 · **Agente:** vanta-research · **Scope:** `MemoryProxy/**` — proxy LLM transparente en TypeScript (~160 archivos, `MemoryProxy/src/`)

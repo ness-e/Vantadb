@@ -1,3 +1,13 @@
+---
+title: "Campaña P31 — Cierre Final (port TDAM completo)"
+type: registro
+status: archived
+tags: [vantadb, avance, campana]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Campaña P31 — Cierre Final (port TDAM completo)
 
 > **Migrado desde** `docs/progreso/README.md` (split GOV-D2, 2026-08-22). Contenido histórico sin cambios salvo dedup indicado.

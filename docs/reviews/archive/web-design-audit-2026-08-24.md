@@ -1,3 +1,13 @@
+---
+title: "Auditoría de Diseño Web VantaDB — Reporte Final"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Auditoría de Diseño Web VantaDB — Reporte Final
 
 > **Fecha:** 2026-08-24 · **Plan:** `docs/plans/archive/2026-08-19-web-design-audit.md` · **Ejecución:** pipeline run secuencial WDA-00..WDA-07 + triage

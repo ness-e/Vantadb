@@ -5,6 +5,7 @@ status: active
 tags: [vantadb, api]
 last_reviewed: 2026-09-15
 aliases: []
+related: [PYTHON_SDK.md, NODE_SDK.md, BINDINGS_NAMESPACES.md]
 ---
 
 # TypeScript SDK Documentation

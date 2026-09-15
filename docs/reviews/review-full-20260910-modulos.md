@@ -1,3 +1,13 @@
+---
+title: "Revisión por módulo — 19 módulos — 2026-09-10"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Revisión por módulo — 19 módulos — 2026-09-10
 
 > **Modo:** 19 subagentes `vanta-review` (solo lectura) en waves ×3. Rama `develop`.

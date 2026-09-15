@@ -3,7 +3,7 @@ title: "rwlock"
 type: glossary-entry
 status: stable
 tags: [concurrencia, lock, sincronizacion, rust]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Read-Write Lock]
 ---

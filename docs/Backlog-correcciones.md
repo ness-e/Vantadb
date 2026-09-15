@@ -1,3 +1,13 @@
+---
+title: "Backlog — Correcciones urgentes y medias (2026-09-10)"
+type: plan
+status: stable
+tags: [vantadb, docs, backlog, correcciones]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Backlog — Correcciones urgentes y medias (2026-09-10)
 
 > **INGERIDO 2026-09-14:** las 26 filas (FIND-63..88) viven en `docs/Backlog.md` (verificado por conteo). Este archivo es el recibo original — no agregar filas aquí, solo allá.

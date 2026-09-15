@@ -1,3 +1,12 @@
+---
+title: "Visualización de memoria de agentes de IA y knowledge graphs"
+type: research
+status: stable
+tags: [vantadb, research, ai-memory, knowledge-graphs]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # Visualización de memoria de agentes de IA y knowledge graphs
 
 Cómo los sistemas de memoria para agentes de IA y los knowledge graphs hacen VISIBLE y ADMINISTRABLE su datos internos a humanos. Investigación de escritorio con URLs reales (2024-2026). Contexto objetivo: VantaDB (base de datos embebida de memoria persistente para agentes: registros con texto + metadata + embeddings, híbrido BM25+HNSW+RRF, capa de grafo con IQL, TTL, audit log, import/export).

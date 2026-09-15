@@ -1,3 +1,13 @@
+---
+title: "Review de Módulo — `vantadb-server/`"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Review de Módulo — `vantadb-server/`
 
 | Campo | Valor |

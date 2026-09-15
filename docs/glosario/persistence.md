@@ -3,7 +3,7 @@ title: "Persistencia"
 type: glossary-entry
 status: stable
 tags: [glosario, persistencia, storage, durabilidad]
-last_reviewed: 2026-07-07
+last_reviewed: 2026-09-15
 aliases: [persistence, storage, almacenamiento]
 ---
 

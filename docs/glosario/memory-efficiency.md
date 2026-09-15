@@ -3,7 +3,7 @@ title: "Memory Efficiency"
 type: glossary-entry
 status: stable
 tags: [glosario, métricas, memoria, eficiencia, ram]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-09-15
 aliases: [memory usage, RAM efficiency, footprint]
 ---
 

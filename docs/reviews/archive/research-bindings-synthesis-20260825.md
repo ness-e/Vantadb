@@ -1,3 +1,13 @@
+---
+title: "INV-SYNTHESIS — Síntesis global del programa de investigación INV-* (2026-08-25)"
+type: review
+status: archived
+tags: [vantadb, review]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # INV-SYNTHESIS — Síntesis global del programa de investigación INV-* (2026-08-25)
 
 > Generada por `/research synthesis` (INV-DECIDE, sesión 2026-08-26) como artefacto de cierre.

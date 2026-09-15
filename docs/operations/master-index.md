@@ -1,3 +1,13 @@
+---
+title: "Operations Master Index"
+type: operations
+status: active
+tags: [vantadb, operations, master-index, catalog]
+last_reviewed: 2026-09-15
+aliases: []
+related: [CONFIGURATION.md, BENCHMARKS.md, CI_POLICY.md, TEST_MAP.md, DEPLOYMENT_GUIDE.md]
+---
+
 # Operations Master Index
 
 **last_reviewed:** 2026-09-02

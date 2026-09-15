@@ -1,3 +1,12 @@
+---
+title: "Bases de Datos Embebidas/Vectoriales: Modelos de Negocio Reales"
+type: research
+status: active
+tags: [vantadb, research, embedded-db, modelos-negocio]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
 # Bases de Datos Embebidas/Vectoriales: Modelos de Negocio Reales
 
 **Investigación de mercado para VantaDB** · Fecha: 2026-08-25 · Agente: vanta-research (B) · Verificación: páginas oficiales de pricing extraídas el día de la fecha salvo indicación
