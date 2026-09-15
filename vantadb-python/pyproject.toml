@@ -13,6 +13,10 @@ authors = [
     {name = "VantaDB Team"}
 ]
 keywords = ["database", "vector-search", "embedded", "ai", "persistent-memory"]
+# FIND-85: classifiers listan solo lo que CI verifica (build 3.11 +
+# install-verify 3.13 en release-wheels-60.yml). El wheel es abi3-py311
+# (vantadb-python/Cargo.toml:15) — un artefacto por plataforma válido en
+# >=3.11 — pero prometer 3.12/3.14 sin probarlos es la brecha que cierra este recorte.
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -21,9 +25,7 @@ classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
-    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Database",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
