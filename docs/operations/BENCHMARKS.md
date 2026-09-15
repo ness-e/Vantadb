@@ -422,6 +422,10 @@ decisión: DEFAULT_RSS_THRESHOLD=0.80 calibrado 2026-09-03 — MANTENER 0.80 (ca
 > ```powershell
 > cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion
 > ```
+>
+> **Nightly coverage (FIND-70):** `heavy-bench-nightly-51.yml` (`light-benchmarks`)
+> runs this bench with `--features async-ingestion` — the flag is load-bearing
+> (`required-features` in `Cargo.toml`, otherwise cargo silently SKIPS the bench).
 
 ### Premisas verificadas en discovery (2026-09-03)
 
