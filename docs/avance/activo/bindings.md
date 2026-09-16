@@ -991,3 +991,15 @@ aliases: []
 - **Objetivo:** drift SDK 0.5.0 (`hasattr VantaDB` False, 12 hits) → `Client` + `db.memory.*` + score-similitud (vieja `1.0 - score/2.0` invertía) + shim temporal eliminado.
 - **Resultado:** ✅ suites verdes (dspy 8p, letta 17p, langchain 47p, ollama/openai 9p, pins 10p) + py_compile + diff-check; review APPROVE.
 - **Commit:** 880cd0f3
+
+### EMB-13: `embed_texts` al proveedor real + fallback avisado (núcleo FIND-99, Q5)
+- **Fecha:** 2026-09-16
+- **Objetivo:** cablear handler MCP al proveedor real (factory core) con fallback determinista avisado `"fallback": true`.
+- **Resultado:** ✅ señal real par 0.9282 vs impares 0.8427/0.8366 + budgeting 128/25k intacto + 7/7 ambas cfgs + full MCP 181/181 + clippy 0; review P2-01 approve.
+- **Commit:** ad8af1d1
+
+### EMB-18: regla una-dim-por-base con guía de regeneración (Q4)
+- **Fecha:** 2026-09-16
+- **Objetivo:** mismatch dim → error claro (esperada/obtenida + comando `rebuild_index`/`reindex_hnsw_from_text`) + base vacía sin gate.
+- **Resultado:** ✅ 4 gates (put/put_batch/search_semantic/parse_search) + 2 tests + mcp suite verde + clippy 0; review P2-01 approve.
+- **Commit:** 43405be3

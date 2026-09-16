@@ -696,3 +696,9 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** binario `vanta-cli` con motor ONNX + runtime-switchable por config + señal semántica verificada.
 - **Resultado:** ✅ build 13m36s (`ort` 4.64MB + tokenizers en deps) + fix `run_onnx` (feed por nombre + ceros `token_type_ids`; sin él inferencia muerta con dummy silencioso) + cat pares ≥0.91 vs impares ≤0.78 + matriz switch (ollama-sin-server avisado) + clippy 0 + llm 4/4; review P2-01 approve. HALLAZGOS → FIND-100/101/102 (FIND-B cubierto por EMB-13).
 - **Commit:** a0f65d29
+
+### EMB-16: prefijos e5 (`query:`/`passage:`) por familia + margen medido
+- **Fecha:** 2026-09-16
+- **Objetivo:** `LocalOnnxProvider` con prefijos familia e5 (MiniLM/resto sin prefijo) + `embed_query` en trait + fix doble `encode` en `run_onnx`.
+- **Resultado:** ✅ margen asimétrico 0.1204 (+48% vs simétrico) + llm 14/14 + clippy 0 + fmt; review P2-01 approve.
+- **Commit:** be6a3c27
