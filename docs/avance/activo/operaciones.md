@@ -326,3 +326,15 @@ aliases: []
 - **Objetivo:** resto probado (writer-only + mtimes stale + exe vivo con `--db` distinto) → borrados locales + README 5L; `.gitignore` ya cubría (no editado, ponytail).
 - **Resultado:** ✅ check server 0 warnings + diff-check + hooks; review trio approve.
 - **Commit:** 9713eb54
+
+### EMB-11: asistente de instalación embeddings con defaults + ORT nativo ≥1.27
+- **Fecha:** 2026-09-16
+- **Objetivo:** wizard `setup-embeddings.ps1` (`-NonInteractive` todo por default: local + e5-small; interactivo Enter=auto) + ORT 1.30 en store persistente + `ORT_DYLIB_PATH` en sesión; secrets nunca a disco.
+- **Resultado:** ✅ NI exit 0 + `download.py --check` verde + rerun idempotente + secrets audit 0 findings + OCR sin Critical/High; review P2-01 approve.
+- **Commit:** a3c4d903
+
+### EMB-12: script lanzador MCP con env explícito + smoke dim==384
+- **Fecha:** 2026-09-16
+- **Objetivo:** `vanta-mcp-local.ps1` (params `-DbPath` mandatory + env sesión + ORT autodetect + arranque `server --mcp --db`).
+- **Resultado:** ✅ smoke vivo `initialize` OK + `tools/list` 79 + `embed_texts` dim==384 + stdout stdio puro (fix Write-Host→stderr) + secrets audit CLAIM sostenido; review P2-01 approve.
+- **Commit:** f80b9886
