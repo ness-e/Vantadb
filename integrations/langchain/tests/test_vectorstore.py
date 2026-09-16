@@ -80,7 +80,7 @@ def test_add_texts_with_metadata(store):
     assert len(ids) == 3
 
     for key in ids:
-        record = store._db.get_memory(store.namespace, key)
+        record = store._db.memory.get(store.namespace, key)
         assert record is not None
 
 
@@ -250,10 +250,10 @@ def test_embeddings_property(store):
 # ── New tests: relevance score ─────────────────────────────────
 
 def test_cosine_relevance_score(store):
-    # 1.0 - distance / 2.0
-    assert store._cosine_relevance_score_fn(0.0) == 1.0
-    assert store._cosine_relevance_score_fn(1.0) == 0.5
-    assert store._cosine_relevance_score_fn(2.0) == 0.0
+    # FIND-94: backend emits similarity (higher=better) -> clamp to [0,1].
+    assert store._cosine_relevance_score_fn(0.0) == 0.0
+    assert store._cosine_relevance_score_fn(0.5) == 0.5
+    assert store._cosine_relevance_score_fn(1.0) == 1.0
 
 
 # ── QW-2: add_documents con ids parciales ──

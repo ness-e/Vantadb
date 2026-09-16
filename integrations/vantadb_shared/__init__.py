@@ -44,7 +44,7 @@ class EmbeddingVectorStore:
         read_only: bool = False,
     ):
         self.namespace = namespace
-        self._db = vanta.VantaDB(
+        self._db = vanta.Client(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
             read_only=read_only,
@@ -153,7 +153,7 @@ class EmbeddingVectorStore:
         if k <= 0:
             return []
         vector = self._embed(query)
-        results = self._db.search_memory(self.namespace, vector, top_k=k, distance_metric="cosine")
+        results = self._db.memory.search(self.namespace, vector, top_k=k, distance_metric="cosine")
         hits = []
         for hit in results:
             hits.append(Document(
@@ -200,7 +200,7 @@ class EmbeddingVectorStore:
         if not ids:
             return True
         for key in ids:
-            self._db.delete_memory(self.namespace, key)
+            self._db.memory.delete(self.namespace, key)
         return True
 
     async def adelete(self, ids: Optional[List[str]] = None, **kwargs: Any) -> Optional[bool]:

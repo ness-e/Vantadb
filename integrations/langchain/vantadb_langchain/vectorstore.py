@@ -41,7 +41,7 @@ class VantaDBVectorStore(VectorStore):
         """
         self.embedding = embedding
         self.namespace = namespace
-        self._db = vanta.VantaDB(
+        self._db = vanta.Client(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
             read_only=read_only,
@@ -60,7 +60,7 @@ class VantaDBVectorStore(VectorStore):
         return self.embedding
 
     @staticmethod
-    def _hit_to_dict(hit: vanta.VantaSearchHit) -> dict:
+    def _hit_to_dict(hit: vanta.SearchHit) -> dict:
         return {
             "key": hit.key,
             "node_id": hit.id,
@@ -197,7 +197,7 @@ class VantaDBVectorStore(VectorStore):
         cand_embs: List[List[float]] = []
         for doc, _score in docs_with_scores:
             key = doc.metadata.get("_key", "")
-            rec = self._db.get_memory(self.namespace, key) if key else None
+            rec = self._db.memory.get(self.namespace, key) if key else None
             vec: List[float] = []
             if rec is not None:
                 try:
@@ -209,11 +209,9 @@ class VantaDBVectorStore(VectorStore):
                 vec = embedding  # diversity-neutral fallback
             cand_embs.append(vec)
 
-        # 3. Relevance scores (cosine → [0,1])
-        # TODO(core) FND-06: assumes core cosine distance ∈ [0,2] — mapping
-        # duplicated across adapters; core owns score semantics
-        # (src/index/distance/). See api-contract.md R-8.
-        relevance = [1.0 - s / 2.0 for _, s in docs_with_scores]
+        # 3. Relevance scores (backend emits cosine similarity in [0,1],
+        # higher = more similar — FIND-94 probe: identical->1.0).
+        relevance = [s for _, s in docs_with_scores]
 
         # 4. Greedy MMR selection
         selected: List[int] = []
@@ -267,7 +265,7 @@ class VantaDBVectorStore(VectorStore):
 
         Returns:
             A list of ``(Document, score)`` tuples where score is a
-            distance value from VantaDB (lower = more similar).
+            similarity value from VantaDB (higher = more similar).
         """
         if not query:
             raise ValueError("query must be a non-empty string")
@@ -283,7 +281,7 @@ class VantaDBVectorStore(VectorStore):
         filters = {filter_key: filter_val} if filter_key is not None and filter_val is not None else None
 
         if text_query:
-            results = self._db.search_memory(
+            results = self._db.memory.search(
                 self.namespace,
                 embedding_vector,
                 top_k=k,
@@ -292,7 +290,7 @@ class VantaDBVectorStore(VectorStore):
                 filters=filters,
             )
         else:
-            results = self._db.search_memory(
+            results = self._db.memory.search(
                 self.namespace,
                 embedding_vector,
                 top_k=k,
@@ -346,7 +344,7 @@ class VantaDBVectorStore(VectorStore):
 
         Returns:
             A list of ``(Document, score)`` tuples where score is a
-            distance value from VantaDB (lower = more similar).
+            similarity value from VantaDB (higher = more similar).
         """
         if not embedding:
             raise ValueError("embedding vector must be a non-empty list")
@@ -359,7 +357,7 @@ class VantaDBVectorStore(VectorStore):
         filters = {filter_key: filter_val} if filter_key is not None and filter_val is not None else None
 
         if text_query:
-            results = self._db.search_memory(
+            results = self._db.memory.search(
                 self.namespace,
                 embedding,
                 top_k=k,
@@ -368,7 +366,7 @@ class VantaDBVectorStore(VectorStore):
                 filters=filters,
             )
         else:
-            results = self._db.search_memory(
+            results = self._db.memory.search(
                 self.namespace,
                 embedding,
                 top_k=k,
@@ -493,7 +491,7 @@ class VantaDBVectorStore(VectorStore):
             return True
 
         for key in ids:
-            self._db.delete_memory(self.namespace, key)
+            self._db.memory.delete(self.namespace, key)
         return True
 
     def delete_by_filter(self, filter_key: str, filter_val: Any) -> int:
@@ -514,7 +512,7 @@ class VantaDBVectorStore(VectorStore):
         count = 0
         cursor: Optional[int] = None
         while True:
-            page = self._db.list_memory(
+            page = self._db.memory.list(
                 self.namespace,
                 filters={filter_key: filter_val},
                 limit=1000,
@@ -525,7 +523,7 @@ class VantaDBVectorStore(VectorStore):
             for rec in page.records:
                 key = rec.key
                 if key:
-                    self._db.delete_memory(self.namespace, key)
+                    self._db.memory.delete(self.namespace, key)
                     count += 1
             cursor = page.next_cursor
             if cursor is None:
@@ -533,7 +531,7 @@ class VantaDBVectorStore(VectorStore):
         return count
 
     @staticmethod
-    def _record_to_dict(record: vanta.VantaMemoryRecord) -> dict:
+    def _record_to_dict(record: vanta.Record) -> dict:
         return {
             "key": record.key,
             "payload": record.payload,
@@ -558,7 +556,7 @@ class VantaDBVectorStore(VectorStore):
             return []
         documents: List[Document] = []
         for key in ids:
-            record = self._db.get_memory(self.namespace, key)
+            record = self._db.memory.get(self.namespace, key)
             if record:
                 documents.append(self._to_document(self._record_to_dict(record)))
         return documents
@@ -569,5 +567,10 @@ class VantaDBVectorStore(VectorStore):
         return self._cosine_relevance_score_fn
 
     @staticmethod
-    def _cosine_relevance_score_fn(distance: float) -> float:
-        return 1.0 - distance / 2.0
+    def _cosine_relevance_score_fn(similarity: float) -> float:
+        """Map backend similarity to LangChain relevance (both higher=better).
+
+        FIND-94: backend emits cosine similarity (identical->1.0), so this
+        is a clamp to [0,1], not the old distance mapping ``1 - d/2``.
+        """
+        return max(0.0, min(1.0, float(similarity)))

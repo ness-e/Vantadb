@@ -77,7 +77,7 @@ class VantaDBCheckpointer(BaseCheckpointSaver):
         backend: Optional[str] = None,
     ):
         super().__init__(serde=serde)
-        self._db = vanta.VantaDB(
+        self._db = vanta.Client(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
             read_only=read_only,
@@ -100,7 +100,7 @@ class VantaDBCheckpointer(BaseCheckpointSaver):
         cursor: Optional[int] = None
         filters = _ckpt_thread_meta(thread_id) if thread_id else None
         while True:
-            page = self._db.list_memory(
+            page = self._db.memory.list(
                 CKPT_NS, filters=filters, limit=1000, cursor=cursor
             )
             if not page or not page.records:
@@ -112,7 +112,7 @@ class VantaDBCheckpointer(BaseCheckpointSaver):
         return keys
 
     def _read_ckpt(self, key: str) -> Optional[dict[str, Any]]:
-        record = self._db.get_memory(CKPT_NS, key)
+        record = self._db.memory.get(CKPT_NS, key)
         if record is None:
             return None
         return json.loads(record.payload)
@@ -122,7 +122,7 @@ class VantaDBCheckpointer(BaseCheckpointSaver):
         pending: list[Any] = []
         cursor: Optional[int] = None
         while True:
-            page = self._db.list_memory(
+            page = self._db.memory.list(
                 WRITES_NS, filters=_ckpt_thread_meta(thread_id), limit=1000,
                 cursor=cursor,
             )
@@ -278,7 +278,7 @@ class VantaDBCheckpointer(BaseCheckpointSaver):
         checkpoint_id: str = config["configurable"]["checkpoint_id"]
         for idx, (channel, value) in enumerate(writes):
             key = json.dumps([thread_id, checkpoint_ns, checkpoint_id, task_id, idx])
-            if self._db.get_memory(WRITES_NS, key) is not None:
+            if self._db.memory.get(WRITES_NS, key) is not None:
                 continue
             payload = json.dumps(
                 {
@@ -299,7 +299,7 @@ class VantaDBCheckpointer(BaseCheckpointSaver):
         for ns in (CKPT_NS, WRITES_NS):
             cursor: Optional[int] = None
             while True:
-                page = self._db.list_memory(
+                page = self._db.memory.list(
                     ns, filters=_ckpt_thread_meta(thread_id), limit=1000,
                     cursor=cursor,
                 )
@@ -307,7 +307,7 @@ class VantaDBCheckpointer(BaseCheckpointSaver):
                     break
                 for rec in page.records:
                     if rec.key:
-                        self._db.delete_memory(ns, rec.key)
+                        self._db.memory.delete(ns, rec.key)
                 cursor = page.next_cursor
                 if cursor is None:
                     break
