@@ -690,3 +690,9 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** clippy `-D warnings` rojo en dependientes de `vantadb` por asimetría de feature-gating (caller `existing_for_batch_many` bajo `rayon`, método sin gatear; proxy usa `default-features = false`).
 - **Resultado:** ✅ `#[cfg(feature = "rayon")]` simétrico (1 atributo, 0 deuda) + clippy vantadb/proxy 0 + engine 383/383 + workspace check; review P2-01 approve.
 - **Commit:** 0cd54e47
+
+### EMB-10: build con `embed-local` + fix `token_type_ids` + cat test real
+- **Fecha:** 2026-09-16
+- **Objetivo:** binario `vanta-cli` con motor ONNX + runtime-switchable por config + señal semántica verificada.
+- **Resultado:** ✅ build 13m36s (`ort` 4.64MB + tokenizers en deps) + fix `run_onnx` (feed por nombre + ceros `token_type_ids`; sin él inferencia muerta con dummy silencioso) + cat pares ≥0.91 vs impares ≤0.78 + matriz switch (ollama-sin-server avisado) + clippy 0 + llm 4/4; review P2-01 approve. HALLAZGOS → FIND-100/101/102 (FIND-B cubierto por EMB-13).
+- **Commit:** a0f65d29

@@ -84,7 +84,7 @@
       ],
       "enabled": true,
       "type": "local",
-      "description": "VantaDB MCP — memoria persistente y vector retrieval (15 tools: memory_put/get, query_iql, search_semantic, rehydrate...)."
+      "description": "VantaDB MCP — memoria persistente y vector retrieval (79 tools en perfil full: memory, threads, scenes, graph, wiki, skills, code...)."
     },
     "lottiefiles-creator": {
       "command": [
