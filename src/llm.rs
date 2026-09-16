@@ -354,14 +354,38 @@ impl LocalOnnxProvider {
         let input_names: Vec<String> = sess.inputs().iter().map(|i| i.name().to_string()).collect();
         // Build inputs map
         let outputs = if input_names.len() >= 2 {
-            // assume input_ids, attention_mask
-            let a = sess
-                .run(ort::inputs![
-                    input_names[0].clone() => ids_tensor,
-                    input_names[1].clone() => mask_tensor
+            // Resolve ids/mask by name (order-robust), positional fallback
+            let pick = |subs: &[&str], fallback: usize| -> String {
+                input_names
+                    .iter()
+                    .find(|n| subs.iter().any(|s| n.contains(s)))
+                    .cloned()
+                    .unwrap_or_else(|| input_names[fallback].clone())
+            };
+            let ids_name = pick(&["input_ids"], 0);
+            let mask_name = pick(&["attention_mask"], 1);
+            // e5-style exports require `token_type_ids` (Gather node) — feed zeros when declared
+            if let Some(tt_name) = input_names
+                .iter()
+                .find(|n| n.contains("token_type"))
+                .cloned()
+            {
+                let type_tensor =
+                    Tensor::from_array(([1_usize, seq_len], vec![0i64; seq_len])).ok()?;
+                sess.run(ort::inputs![
+                    ids_name => ids_tensor,
+                    mask_name => mask_tensor,
+                    tt_name => type_tensor
                 ])
-                .ok()?;
-            a
+                .ok()?
+            } else {
+                // assume input_ids, attention_mask
+                sess.run(ort::inputs![
+                    ids_name => ids_tensor,
+                    mask_name => mask_tensor
+                ])
+                .ok()?
+            }
         } else if input_names.len() == 1 {
             sess.run(ort::inputs![input_names[0].clone() => ids_tensor])
                 .ok()?
