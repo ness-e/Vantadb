@@ -6,9 +6,16 @@
 //! [`FakeClock`] — deterministic, zero sleeps.
 
 use std::cell::RefCell;
+use std::collections::HashMap;
+use std::sync::Mutex;
 
+use vanta_memory::core::abstractions::{
+    DedupAction, DedupDecision, ExtractedMemory, LlmError, LlmRunParams, LlmRunner, MemoryType,
+};
 use vanta_memory::core::conversation::{L0Capture, L0Message, L0Recorder, L0Role};
+use vanta_memory::core::dream::list_dream_runs;
 use vanta_memory::core::persona::{evaluate_persona_trigger, get_persona};
+use vanta_memory::core::record::{read_session_records, write_memory, EXTRACT_DEDUP_TASK_ID};
 use vanta_memory::core::scene::{list_scenes, upsert_scene};
 use vanta_memory::core::state::{CaptureAtomicParams, TaskKind, TaskPayload};
 use vanta_memory::services::pipeline_worker::{
@@ -520,4 +527,258 @@ fn full_worker_pass_records_l0_then_runs_l1_noop() {
     // by handler_l1_noop_on_empty_session_and_l3_skips_when_quiet; here we
     // assert the scene index is still empty (no partial writes).
     assert!(list_scenes(&db, "flow").expect("scenes").is_empty());
+}
+
+// ═══ FIND-86 (D1+D2): worker wiring — Dream TaskKind + L1 batch opt-in ═══
+
+/// The Dream path is LLM-free: any runner call inside a Dream task is a bug.
+struct NeverCalled;
+
+impl LlmRunner for NeverCalled {
+    fn run(&self, params: &LlmRunParams) -> Result<String, LlmError> {
+        panic!(
+            "Dream path must be LLM-free; unexpected call: {}",
+            params.task_id
+        )
+    }
+}
+
+/// Scripted runner for wiring tests: routes one response per `task_id`,
+/// records every call. Missing script → error (unexpected call).
+struct WiringRunner {
+    calls: Mutex<Vec<String>>,
+    script: Mutex<HashMap<String, String>>,
+}
+
+impl WiringRunner {
+    fn new(script: Vec<(&str, &str)>) -> Self {
+        Self {
+            calls: Mutex::new(Vec::new()),
+            script: Mutex::new(
+                script
+                    .into_iter()
+                    .map(|(k, v)| (k.to_string(), v.to_string()))
+                    .collect(),
+            ),
+        }
+    }
+
+    fn calls(&self) -> Vec<String> {
+        self.calls.lock().unwrap().clone()
+    }
+}
+
+impl LlmRunner for WiringRunner {
+    fn run(&self, params: &LlmRunParams) -> Result<String, LlmError> {
+        self.calls.lock().unwrap().push(params.task_id.clone());
+        self.script
+            .lock()
+            .unwrap()
+            .remove(&params.task_id)
+            .ok_or_else(|| LlmError::Other(format!("unexpected call: {}", params.task_id)))
+    }
+}
+
+fn seed_l0(db: &vantadb::sdk::Embedded, session: &str, content: &str) {
+    L0Recorder::new(db.clone())
+        .record_turn(
+            &L0Capture {
+                session_id: session.into(),
+                messages: vec![L0Message {
+                    id: Some("m2".into()),
+                    role: L0Role::User,
+                    content: content.into(),
+                    timestamp_ms: 1200,
+                }],
+            },
+            None,
+        )
+        .expect("record L0");
+}
+
+/// Seed one stored L1 record (dedup `store` → persisted) for recall pools.
+fn seed_l1(db: &vantadb::sdk::Embedded, session: &str, id: &str, content: &str) {
+    let memory = ExtractedMemory {
+        content: content.into(),
+        memory_type: MemoryType::Persona,
+        priority: 80,
+        source_message_ids: vec!["m1".into()],
+        scene_name: "ui".into(),
+        metadata: serde_json::json!({}),
+    };
+    let decision = DedupDecision {
+        record_id: id.into(),
+        action: DedupAction::Store,
+        target_ids: vec![],
+        merged_content: None,
+        merged_type: None,
+        merged_priority: None,
+        merged_timestamps: None,
+    };
+    write_memory(
+        db,
+        session,
+        session,
+        &memory,
+        &decision,
+        1_700_000_000_000,
+        0,
+        None,
+    )
+    .expect("write")
+    .expect("stored");
+}
+
+/// Batch-shaped response: extraction + safe-default `store` (no inline
+/// `dedup` field → the memory is kept, never dropped).
+const BATCH_STORE_JSON: &str = r#"[
+  {"scene_name": "Setting up the project", "message_ids": ["m2"], "memories": [
+    {"content": "User prefers dark mode", "type": "persona", "priority": 80,
+     "source_message_ids": ["m2"], "metadata": {}}
+  ]}
+]"#;
+
+/// Split-path extraction response (same shape, no inline judgment).
+const EXTRACT_JSON: &str = BATCH_STORE_JSON;
+
+// (D1) A Dream task consolidates the session into `dream/<s>/<run_id>`
+// without touching the L1 store (MEM-61 invariant survives wiring).
+#[test]
+fn handler_dream_task_consolidates_session_without_touching_l1() {
+    let db = open_db();
+    seed_l1(&db, "dream-sess", "seed-1", "user prefers dark mode");
+    let before = read_session_records(&db, "dream-sess").expect("read before");
+
+    let runner = NeverCalled;
+    let mut handler = MemoryTaskHandler::new(
+        db.clone(),
+        &runner,
+        Default::default(),
+        Default::default(),
+        50,
+    );
+    handler
+        .handle(&task(TaskKind::Dream, "dream-sess", 1, 0))
+        .expect("Dream handled");
+
+    // One dream run persisted over the scanned input …
+    let runs = list_dream_runs(&db, "dream-sess").expect("list");
+    assert_eq!(runs.len(), 1, "Dream task writes exactly one run");
+    assert_eq!(runs[0].inputs_scanned, 1);
+    // … and the L1 store is byte-identical.
+    let after = read_session_records(&db, "dream-sess").expect("read after");
+    assert_eq!(before, after, "L1 untouched by dream wiring");
+}
+
+// (D1-skip) A premature Dream task (session active inside the idle window)
+// is a quiet `Ok` skip: no run persisted, no retry, no dead-letter. The host
+// timer re-enqueues later.
+#[test]
+fn handler_dream_task_skips_quietly_when_not_idle() {
+    let db = open_db();
+    // Wall-clock now (`now_ms` is `pub(crate)` — same epoch-ms basis).
+    let now = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("clock")
+        .as_millis() as u64;
+    CheckpointManager::new(&db)
+        .merge_pipeline_states_owned("busy-sess", |state| {
+            state.last_active_time_ms = now;
+        })
+        .expect("state");
+
+    let runner = NeverCalled;
+    let mut handler = MemoryTaskHandler::new(
+        db.clone(),
+        &runner,
+        Default::default(),
+        Default::default(),
+        50,
+    );
+    handler
+        .handle(&task(TaskKind::Dream, "busy-sess", 1, 0))
+        .expect("premature Dream skips Ok");
+    assert!(
+        list_dream_runs(&db, "busy-sess").expect("list").is_empty(),
+        "no run persisted before the idle threshold"
+    );
+}
+
+// (D2) Opt-in batch: one L1 task → exactly 1 LLM call (`l1-extract-dedup`),
+// and the fused memory is written, not dropped.
+#[test]
+fn handler_l1_batch_flag_fuses_extract_and_dedup_in_one_call() {
+    let db = open_db();
+    seed_l0(&db, "batch-sess", "I prefer dark mode");
+    seed_l1(&db, "batch-sess", "seed-1", "user prefers dark mode");
+
+    let runner = WiringRunner::new(vec![(EXTRACT_DEDUP_TASK_ID, BATCH_STORE_JSON)]);
+    let backend = LocalStateBackend::new(FakeClock::new(0));
+    backend.enqueue_task(task(TaskKind::L1, "batch-sess", 1, 0));
+    let mut worker = PipelineWorker::new(&backend, WorkerConfig::default());
+    let mut handler = MemoryTaskHandler::new(
+        db.clone(),
+        &runner,
+        Default::default(),
+        Default::default(),
+        50,
+    )
+    .with_use_batch(true);
+
+    let stats = worker.run_once(&mut handler);
+    assert_eq!(stats.processed, 1);
+    assert_eq!(
+        runner.calls(),
+        vec![EXTRACT_DEDUP_TASK_ID.to_string()],
+        "opt-in batch = exactly 1 LLM call"
+    );
+    let records = read_session_records(&db, "batch-sess").expect("read");
+    assert!(
+        records
+            .iter()
+            .any(|r| r.content == "User prefers dark mode"),
+        "fused memory is written, not dropped"
+    );
+}
+
+// (D2-control) Default path unchanged: extraction + conflict-detection.
+#[test]
+fn handler_l1_default_path_still_uses_two_calls() {
+    let db = open_db();
+    seed_l0(&db, "split-sess", "I prefer dark mode");
+    seed_l1(&db, "split-sess", "seed-1", "user prefers dark mode");
+
+    let runner = WiringRunner::new(vec![
+        ("l1-extraction", EXTRACT_JSON),
+        ("l1-conflict-detection", "[]"),
+    ]);
+    let backend = LocalStateBackend::new(FakeClock::new(0));
+    backend.enqueue_task(task(TaskKind::L1, "split-sess", 1, 0));
+    let mut worker = PipelineWorker::new(&backend, WorkerConfig::default());
+    let mut handler = MemoryTaskHandler::new(
+        db.clone(),
+        &runner,
+        Default::default(),
+        Default::default(),
+        50,
+    );
+
+    let stats = worker.run_once(&mut handler);
+    assert_eq!(stats.processed, 1);
+    assert_eq!(
+        runner.calls(),
+        vec![
+            "l1-extraction".to_string(),
+            "l1-conflict-detection".to_string()
+        ],
+        "default path unchanged: 2 LLM calls"
+    );
+    // Write parity with the fused path: the extracted memory lands in L1.
+    let records = read_session_records(&db, "split-sess").expect("read");
+    assert!(
+        records
+            .iter()
+            .any(|r| r.content == "User prefers dark mode"),
+        "default path writes the extracted memory"
+    );
 }

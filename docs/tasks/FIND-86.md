@@ -3,8 +3,8 @@
 ## Metadata
 - **Plan file:** `docs/plans/2026-09-15-find-correcciones.md` (Task 26, Wave8)
 - **Creado:** 2026-09-16 (DISCOVERY completo — task file NO existía)
-- **last-synced:** 2026-09-16
-- **Estado:** ⏳ IN PROGRESS (Steps 1-2 ✅ · Step 3 ⬜ bloqueado Gate D)
+- **last-synced:** 2026-09-16 (cierre Step 3)
+- **Estado:** ✅ COMPLETED (Steps 1-3 ✅ · Gate D resuelto A/A/B vía SARL 2026-09-16)
 - **Appetite / Branch / Commit:** 2d / develop / `feat: FIND-86`
 - **Ruta:** vanta-worker
 - **SDP:** `campaign_discover_skills_v2` phase=BUILD keywords=[memory-wiring, pipeline-worker, mcp-tool, mem-numbers] → 8 skills (ver §5)
@@ -18,7 +18,7 @@
   3. `scene_consolidate` diseñada (ADR-040 ya la diseña → cuenta) o implementada como tool MCP (conteos actualizados + tests).
   4. MEM-70: números medidos con harness o DEFER-ratificado con evidencia.
   5. `cargo test -p vanta-memory -j 2` verde + `cargo clippy -p vanta-memory --all-targets -- -D warnings` 0 warnings.
-- **Estado de ejecución:** criterios 3 (diseñada ✅), 4 (DEFER-ratificado ✅) y 5 (✅ medido hoy) cumplidos SIN tocar código. Criterios 1-2 con diseño listo (§4 Spec) pero ACT bloqueado por Gate D (símbolos públicos nuevos, worker sin tool `question` → BLOQUEO para el orquestador).
+- **Estado de ejecución:** criterios 1 (dream wiring ✅ `TaskKind::Dream` + `run_dream`), 2 (batch opt-in ✅ `with_use_batch(false)` + `run_l1_batch`), 3 (diseñada ✅ ADR-040, D3=B no implementar), 4 (DEFER-ratificado ✅) y 5 (✅ 541/0 + clippy 0) cumplidos. Gate D resuelto A/A/B por orquestador vía SARL 2026-09-16.
 
 ## 2. ARCHIVOS
 ### Clave (paths REALES verificados en disco — divergencia menor vs plan: el plan cita `core/record/l1_batch.rs` sin prefijo; los reales viven bajo `vanta-memory/src/` → HALLAZGO H1, no bloquea)
@@ -58,9 +58,9 @@
 ## Spec (gate mecánico spec-first — LLENA por tabla de decisiones; `question` pendiente del orquestador, worker sin esa tool)
 | # | Decisión | A | B | C | Default recomendado | Resuelto |
 |---|----------|---|---|---|---------------------|----------|
-| D1 | Forma del wiring dream→worker | Nuevo `TaskKind::Dream` + rama `handle` que llama `consolidate_session` con `DreamConfig::default()` (idle via `detect_idle(now, last_active, threshold)`; `last_active` desde `PipelineSessionState.last_active_time_ms`) | Método público `MemoryTaskHandler::run_dream(session, now, last_active, config)` sin variante enum (el host encola/llama directo) | DEFER: solo diseño (este file) + ticket sigue ⬜ | **A** (encaja en claim/lease/retry/dead-letter existentes; B deja scheduling al host) | ⬜ Gate D orquestador |
-| D2 | Forma del wiring batch→worker | Flag opt-in `use_batch: bool` (default `false`) en `MemoryTaskHandler` (o `L1DedupConfig`); `run_l1_inner` llama `extract_dedup_batch` cuando `true`, si no path actual intacto | Switch incondicional a batch (2 llamadas → 1 siempre) | DEFER: primitiva queda opt-in sin caller | **A** (safe default Regla incremental-4; B cambia comportamiento hot path sin before/after) | ⬜ Gate D orquestador |
-| D3 | Tool `scene_consolidate` | Implementar gateway `scene_consolidate(session_key, turns)` + MCP tool Full (conteos 79→80 en `tools.rs:25-26,1090` + `config.rs:11,14` + tests perfil) | Ratificar diseñada (ADR-040:38-41) y NO implementar (appetite; MCP-37 perfiles intactos) | Dividir en FIND nuevo (tool sola) | **B** (contrato acepta "diseñada"; A suma superficie + recount + e2e) | ⬜ Gate D orquestador |
+| D1 | Forma del wiring dream→worker | Nuevo `TaskKind::Dream` + rama `handle` que llama `consolidate_session` con `DreamConfig::default()` (idle via `detect_idle(now, last_active, threshold)`; `last_active` desde `PipelineSessionState.last_active_time_ms`) | Método público `MemoryTaskHandler::run_dream(session, now, last_active, config)` sin variante enum (el host encola/llama directo) | DEFER: solo diseño (este file) + ticket sigue ⬜ | **A** (encaja en claim/lease/retry/dead-letter existentes; B deja scheduling al host) | ✅ A orquestador SARL 2026-09-16 |
+| D2 | Forma del wiring batch→worker | Flag opt-in `use_batch: bool` (default `false`) en `MemoryTaskHandler` (o `L1DedupConfig`); `run_l1_inner` llama `extract_dedup_batch` cuando `true`, si no path actual intacto | Switch incondicional a batch (2 llamadas → 1 siempre) | DEFER: primitiva queda opt-in sin caller | **A** (safe default Regla incremental-4; B cambia comportamiento hot path sin before/after) | ✅ A orquestador SARL 2026-09-16 (flag en handler + builder `with_use_batch`, `new()` intacto) |
+| D3 | Tool `scene_consolidate` | Implementar gateway `scene_consolidate(session_key, turns)` + MCP tool Full (conteos 79→80 en `tools.rs:25-26,1090` + `config.rs:11,14` + tests perfil) | Ratificar diseñada (ADR-040:38-41) y NO implementar (appetite; MCP-37 perfiles intactos) | Dividir en FIND nuevo (tool sola) | **B** (contrato acepta "diseñada"; A suma superficie + recount + e2e) | ✅ B orquestador SARL 2026-09-16 |
 | D4 | Números MEM-70 | Re-correr harness sintético (hecho hoy §6) y declarar medido-sintético | Ratificar DEFER existente (BENCHMARKS §17 Pendiente 1-3: loader versionado + backend vantadb real) | Medir wiring batch con runner real (requiere LLM key/red — fuera de appetite) | **B** (A ya hecho como evidencia; C fuera de scope) | ✅ B (evidencia §6) |
 
 ## 5. SKILLS (SDP — `campaign_discover_skills_v2` phase=BUILD, keywords memory-wiring/pipeline-worker/mcp-tool/mem-numbers, 8 devueltas)
@@ -102,16 +102,16 @@ Comandos exactos (cargo SIEMPRE `-j 2`, timeouts generosos; `campaign_verify_cmd
 - No se espera (diseño interno ADR-040 + código propio). No se usó red. Sin ambigüedad externa irresoluble → sin citas NO VERIFICADAS ni deuda TSYS-13.
 
 ## 10. VALIDACIÓN+CIERRE
-- **Verify contrato (hoy, sin editar código):**
-  - MEM-69 wiring: ⬜ pendiente Gate D (diseño D1/D2 listo) — DEFER-ratificado propuesto
-  - tool 77: ✅ diseñada (ADR-040:38-41) — D3 propone ratificar (no implementar)
-  - MEM-70: ✅ DEFER-ratificado (BENCHMARKS §17 + smoke hoy §6)
-  - suite 336: ✅ 336/0 lib (538/0 total con integración+doc)
+- **Verify contrato (cierre Step 3, con código):**
+  - MEM-69 wiring: ✅ `TaskKind::Dream` + `run_dream` (idle fail-open documentado) + `with_use_batch(false)` + `run_l1_batch` (1 llamada, misma cola checkpoint que el path split)
+  - tool 77: ✅ diseñada (ADR-040:38-41) — D3=B no implementar
+  - MEM-70: ✅ DEFER-ratificado (BENCHMARKS §17 + smoke §6)
+  - suite 336: ✅ 336/0 lib exactos (541/0 total)
   - clippy 0: ✅ scoped vanta-memory
-- **Verify full:** fmt ✅ · clippy scoped ✅ (workspace `-D warnings` global bloqueado por `txn.rs:158` pre-existente = FIND-93, no tocado) · nextest NO corrido (cargo test usado; `cargo nextest run --profile audit` workspace excede appetite para este slice docs-only — deuda declarada) · docs-coverage NO corrido (sin docs técnicas nuevas) · OCR delegation (`dev-tools/ocr-review.ps1`) pendiente al commit (untracked en WIP ajeno — el orquestador decide; commit docs-only de 1 file nuevo).
-- **DoD 3 niveles:** task (Steps 1-2 ✅, Step 3 ⬜ Gate D) · commit (docs-only `docs/tasks/FIND-86.md`, pendiente) · release (N/A).
-- **Reviewer distinto P2-01:** pendiente (orquestador asigna vanta-review tras Gate D).
-- **Gates:** D disparado (BLOQUEO abajo) · V no · C pendiente al commit (colaterales: ninguno — 0 ediciones código) · P no (familia aprobada + feature con spec → D cubre).
+- **Verify full:** fmt ✅ · clippy scoped ✅ (workspace `-D warnings` global bloqueado por `txn.rs:158` pre-existente = FIND-93, no tocado) · cargo test ✅ 28/28 suites · nextest-audit workspace no corrido (deuda: suite supera en tamaño al gate rápido; comando canónico pendiente en Heavy) · docs-coverage no corrido (sin docs técnicas nuevas; cambio documentado en module-doc del worker) · OCR delegation: `dev-tools/ocr-review.ps1` untracked (WIP ajeno) — intento de ejecución al commit; si inviable, deuda.
+- **DoD 3 niveles:** task (Steps 1-3 ✅) · commit `feat:` 4 archivos propios (pendiente) · release (N/A).
+- **Reviewer distinto P2-01:** vanta-review vía `task` (o self-review + checklist si falla; orquestador puede forkear).
+- **Gates:** D ✅ resuelto A/A/B (SARL orquestador) · V no (1 solo error E0502, fix directo sin reintento ciego) · C al commit (colaterales: 1 edit accidental revertido — línea import borrada y restaurada, verificado por diff; ningún otro) · P no (familia aprobada, D cubre).
 - **Backlog→avance:** NO tocado (race paralelo, orquestador vía `progreso`). **Push:** vía vanta-lead.
 
 ## Impacto mapeado (Regla 0 — MUST antes del primer edit; no hubo edits en Steps 1-2)
@@ -132,10 +132,10 @@ Comandos exactos (cargo SIEMPRE `-j 2`, timeouts generosos; `campaign_verify_cmd
 - **Verify:** §6 + §10 (336/0 lib, 538/0 total, clippy 0, fmt limpio, smoke 1.0 techo).
 - **Estado:** ✅ DONE
 ### Step 3: Wiring ACT (dream TaskKind + batch opt-in + tests)
-- **Archivos:** `vanta-memory/src/core/state/types.rs`, `vanta-memory/src/services/pipeline_worker.rs`, tests (`dreaming.rs`/`l1_batch.rs`/`pipeline_manager.rs` según D1/D2)
-- **Acción:** RED (test wiring) → GREEN (D1 + D2 según respuesta Gate D) → REFACTOR → suite + clippy.
-- **Verify:** `cargo test -p vanta-memory -j 2` 0 failed + clippy 0 + nuevo test wiring verde.
-- **Estado:** ⬜ PENDING — BLOQUEADO Gate D (ver BLOQUEO en RESULTADO; orquestador pregunta D1-D3 y reanuda vía SARL)
+- **Archivos:** `vanta-memory/src/core/state/types.rs` (+4 `Dream`), `vanta-memory/src/services/pipeline_worker.rs` (+154: `use_batch` + `with_use_batch` + `run_l1_batch` + `run_dream` + rama `handle`), `vanta-memory/tests/pipeline_manager.rs` (+219: 3 tests + runners)
+- **Acción:** RED (2 errores E0599: sin variante `Dream` / sin `with_use_batch`) → GREEN (D1 + D2; fix E0502 bajando helpers a `&self` — `checkpoints` retiene `&self.db`) → suite + clippy + fmt.
+- **Verify:** `cargo test -p vanta-memory -j 2` 28/28 suites ok, **541 passed / 0 failed** (336 lib + 204 integración + 1 doc) + clippy scoped `-D warnings` 0 + `cargo fmt --check` limpio + `git diff --check` limpio.
+- **Estado:** ✅ DONE
 
 ## HALLAZGOS (divergencias plan↔código, con evidencia — no silenciadas)
 - **H1 (menor):** paths plan sin prefijo `vanta-memory/src/` para l1_batch/auto_consolidate; reales `vanta-memory/src/core/record/l1_batch.rs`, `vanta-memory/src/core/scene/auto_consolidate.rs` (Test-Path + lectura directa).
@@ -147,26 +147,27 @@ Comandos exactos (cargo SIEMPRE `-j 2`, timeouts generosos; `campaign_verify_cmd
 - **H7 (info):** `frontend-ui-engineering` (SDP lifecycle genérico) N/A en este scope; se declara y no se carga.
 
 ## Dependencias
-- Step 3 depende de Gate D (orquestador). Sin dependencias de código adicionales. FIND-72/FIND-92/93/94 no absorbidos.
+- Ninguna pendiente (Gate D resuelto). FIND-72/FIND-92/93/94 no absorbidos.
 
 ## Notas
 - `ponytail:` smoke MEM-70 usa fallback dict (techo recall 1.0) — upgrade = backend vantadb real + loader versionado (ya documentado en BENCHMARKS §17 Pendiente).
-- NOTICED BUT NOT TOUCHING: `txn.rs:158` (FIND-93) · WIP ajeno §2 · `evals/memory_bench_report.json` regenerado por el smoke (gitignored, se deja en disco o se borra al commitear — orquestador decide; no se stagea).
-- Redacción del commit sugerido: `docs: FIND-86 — discovery + spec + verify (wiring pendiente Gate D)`.
+- NOTICED BUT NOT TOUCHING: `txn.rs:158` (FIND-93) · WIP ajeno §2 · `evals/memory_bench_report.json` regenerado por el smoke (gitignored, no stageado).
+- Colateral del turno: 1 edit accidental (línea import borrada en pipeline_manager.rs) detectado y revertido antes del commit; imports verificados por `Select-String` + suite verde posterior.
+- Commit: `feat: FIND-86 — wiring dream TaskKind + batch opt-in + tests`.
 
 ## Context Save Point
-- **Fecha:** 2026-09-16 · **Branch:** develop (merge_base 5e428aea) · **CI pendiente:** no (verifies locales §6)
-- **Decisiones:** Spec D1 default A / D2 default A / D3 default B / D4=B ✅ (D1-D3 pendientes de `question` orquestador) · Regla 8 N/A justificado · Regla 9 sin claims P99
-- **Problemas conocidos:** worker sin tool `question` (Gates D vía BLOQUEO) · `campaign_verify_cmd` bug exit -1 (fallback bash) · nextest-audit workspace no corrido (deuda) · OCR review pendiente al commit
-- **Próxima tarea:** orquestador: preguntar D1-D3 (GO/ajustar/dividir) → SARL reanuda Step 3; luego Step 3 ACT + review P2-01 + commit `feat:` + `progreso` + push vía vanta-lead. Siguiente task del plan: FIND-72.
+- **Fecha:** 2026-09-16 · **Branch:** develop (base 0be84203) · **CI pendiente:** no (verifies locales §6+Step 3)
+- **Decisiones:** Spec D1=A / D2=A / D3=B / D4=B ✅ (orquestador SARL) · helpers a `&self` por E0502 (`checkpoints` retiene `&self.db`) · Regla 8 N/A justificado (sin locks nuevos) · Regla 9 sin claims P99 (opt-in default false)
+- **Problemas conocidos:** `campaign_verify_cmd` bug exit -1 (fallback bash) · nextest-audit workspace no corrido (deuda) · OCR review al commit (script untracked) · `use_batch` sin medición before/after con runner real (deuda honesta: opt-in + conteo por `task_id` en tests)
+- **Próxima tarea:** review P2-01 → commit `feat:` → `campaign_update_task_state completed` → `progreso` (orquestador) + push vía vanta-lead. Siguiente task del plan: FIND-72.
 
 === RECITATION ===
 Objetivo activo: FIND-86 — wiring MEM-69 + tool 77 + números MEM-70
-Estado: in-progress (Steps 1-2 DONE, Step 3 ⬜ Gate D)
-Última acción: DISCOVERY completo + task file creado + verify sin código (336/0 lib, 538/0 total, clippy 0, fmt limpio, smoke MEM-70 1.0 techo) + Spec D1-D4 con defaults
-Resultado: PARTIAL
-Próxima acción: orquestador pregunta Gate D (D1 dream A/B/C, D2 batch A/B/C, D3 tool A/B/C) → SARL reanuda Step 3 ACT
-Contrato: verificacion: cargo test -p vanta-memory -j 2 → 336 lib + 201 integración + 1 doc, 0 failed ✅; clippy scoped -D warnings ✅ 0; fmt ✅; diff-check ✅; harness smoke ✅ (4×8 recall@5 1.0 fallback). evidencia: claim suite 336 / evidencia salida cargo test "336 passed; 0 failed" / confianza alta; claim clippy 0 / evidencia "Finished dev profile" sin warnings scoped / alta; claim MEM-70 DEFER previo / evidencia BENCHMARKS.md:904-956 + memory_bench.py:1-19 + smoke hoy / alta; claim tool diseñada / evidencia ADR-040:36-41 / alta; claim wiring pendiente / evidencia dream/mod.rs:31 + l1_batch.rs:13 + TaskKind types.rs:38 + handle pipeline_worker.rs:701-717 / alta. artefactos: docs/tasks/FIND-86.md (nuevo, pendiente commit). invariantes: 0 ediciones código; prohibidos intactos (13 paths WIP ajeno sin stage); FIND-72/92/93/94 no absorbidos; Regla 11 (sin claims P99). deuda: Step 3 wiring (D1/D2) + tool (D3 si A) + review P2-01 + nextest-audit workspace + OCR review + progreso/push vía lead. queda_pendiente: Gate D D1-D3 al orquestador (opciones en Spec) + Step 3 ACT tras respuesta
+Estado: completed (Steps 1-3 DONE + verify + commit pendiente)
+Última acción: Step 3 RED (E0599×2) → GREEN (TaskKind::Dream + run_dream + with_use_batch + run_l1_batch; fix E0502 a &self) → 28/28 suites 541/0 + clippy 0 + fmt limpio + task file sync
+Resultado: OK
+Próxima acción: review P2-01 → git commit feat: FIND-86 (4 archivos propios) → campaign_update_task_state completed
+Contrato: verificacion: cargo test -p vanta-memory -j 2 → 28/28 suites, 541 passed (336 lib + 204 integración + 1 doc), 0 failed ✅; clippy scoped -D warnings ✅ 0; fmt ✅; diff-check ✅. evidencia: claim dream wiring / evidencia types.rs Dream + pipeline_worker.rs:809 run_dream + test handler_dream_task… ok / alta; claim batch 1 llamada / evidencia with_use_batch + run_l1_batch + test 1 call vs control 2 calls / alta; claim tool diseñada / evidencia ADR-040:36-41 (D3=B) / alta; claim MEM-70 DEFER / evidencia BENCHMARKS §17 + smoke / alta. artefactos: types.rs, pipeline_worker.rs, tests/pipeline_manager.rs, docs/tasks/FIND-86.md (commit feat: pendiente). invariantes: default behavior intacto (use_batch=false; Dream solo ante task explícita); prohibidos intactos; Regla 11 sin claims P99. deuda: review P2-01 + nextest-audit workspace + OCR review + progreso/push lead. queda_pendiente: commit + completed + FIND-72
 Próxima tarea si completa: FIND-72
 last-synced: 2026-09-16
 === END RECITATION ===

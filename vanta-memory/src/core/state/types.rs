@@ -42,6 +42,10 @@ pub enum TaskKind {
     L2,
     /// L3 persona trigger evaluation + generation.
     L3,
+    /// Idle consolidation over stored L1 memories (FIND-86 wiring of MEM-61
+    /// `dream::consolidate_session` — writes to `dream/<s>/<run_id>`, never
+    /// mutates `l1/<s>`).
+    Dream,
     /// Force-drain a session buffer regardless of threshold.
     Flush,
 }
