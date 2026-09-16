@@ -2,8 +2,14 @@
 """
 VantaDB FFI Batch vs Sequential Performance Benchmark
 Compares db.search_batch() with sequential db.search() to demonstrate FFI amortization and multi-core Rayon speedup.
+
+NOTE (Windows, FIND-72): every local DB teardown path uses
+shutil.rmtree(..., ignore_errors=True). Windows keeps file locks (WinError 32)
+on recently-closed DB handles; without ignore_errors a stale lock crashes
+teardown. Cleanup dirs are regenerable scratch, so a best-effort removal is correct.
 """
 
+import argparse
 import time
 import random
 import os
@@ -30,7 +36,7 @@ def generate_unit_vector(dim):
 
 def run_bench(db_path="./benchmarks/batch_bench_db", num_vectors=5000, dim=128, batch_size=100, top_k=10):
     if os.path.exists(db_path):
-        shutil.rmtree(db_path)
+        shutil.rmtree(db_path, ignore_errors=True)
 
     print("Initializing Database...")
     db = vantadb.VantaDB(db_path)
@@ -85,7 +91,7 @@ def run_bench(db_path="./benchmarks/batch_bench_db", num_vectors=5000, dim=128, 
 
     db.close()
     if os.path.exists(db_path):
-        shutil.rmtree(db_path)
+        shutil.rmtree(db_path, ignore_errors=True)
 
 
 BATCH_REQUESTS_TARGET = 3.0
@@ -104,7 +110,7 @@ def run_batch_requests_bench(
     filters) vs sequential search_memory, and verify the INV-008-B target:
     batch of 10 < 3x single-query time."""
     if os.path.exists(db_path):
-        shutil.rmtree(db_path)
+        shutil.rmtree(db_path, ignore_errors=True)
 
     print("\n=== INV-008-B: search_batch_requests (full SearchRequest) ===")
     print("Initializing Database...")
@@ -192,13 +198,49 @@ def run_batch_requests_bench(
 
     db.close()
     if os.path.exists(db_path):
-        shutil.rmtree(db_path)
+        shutil.rmtree(db_path, ignore_errors=True)
     return target_ok
 
 
 if __name__ == "__main__":
-    run_bench()
-    ok = run_batch_requests_bench()
+    parser = argparse.ArgumentParser(
+        description="VantaDB FFI Batch vs Sequential Performance Benchmark"
+    )
+    parser.add_argument("--db-path", type=str, default="./benchmarks/batch_bench_db",
+                        help="Database storage path for the search_batch vs sequential bench")
+    parser.add_argument("--num-vectors", type=int, default=5000,
+                        help="Number of vectors to ingest for the search_batch bench")
+    parser.add_argument("--dim", type=int, default=128, help="Dimension of vectors")
+    parser.add_argument("--batch-size", type=int, default=100,
+                        help="Number of queries in the search_batch bench")
+    parser.add_argument("--top-k", type=int, default=10, help="Top K neighbors to retrieve")
+    parser.add_argument("--requests-db-path", type=str, default="./benchmarks/batch_requests_bench_db",
+                        help="Database storage path for the INV-008-B batch-requests bench")
+    parser.add_argument("--num-records", type=int, default=2000,
+                        help="Number of memory records for the INV-008-B bench")
+    parser.add_argument("--requests-batch-size", type=int, default=10,
+                        help="Number of queries in the INV-008-B bench")
+    parser.add_argument("--skip-batch-requests", action="store_true",
+                        help="Run only the search_batch vs sequential bench (skip INV-008-B)")
+
+    args = parser.parse_args()
+    run_bench(
+        db_path=args.db_path,
+        num_vectors=args.num_vectors,
+        dim=args.dim,
+        batch_size=args.batch_size,
+        top_k=args.top_k,
+    )
+    if not args.skip_batch_requests:
+        ok = run_batch_requests_bench(
+            db_path=args.requests_db_path,
+            num_records=args.num_records,
+            dim=args.dim,
+            batch_size=args.requests_batch_size,
+            top_k=args.top_k,
+        )
+    else:
+        ok = True
     # Exit non-zero when the documented performance target is violated, so
     # CI and scheduled runs surface regressions.
     sys_exit = 0 if ok else 1

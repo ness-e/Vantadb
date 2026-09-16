@@ -13,18 +13,21 @@ vantadb-py>=0.5.0
 
 # --- Required only for competitive_bench.py (VantaDB vs LanceDB vs ChromaDB vs Qdrant) ---
 # Optional for vantadb_local_bench.py and batch_vs_sequential_bench.py.
-numpy
-h5py
-lancedb
-chromadb
-qdrant-client
-psutil
-tabulate
+# FIND-72: floors pinned so `pip install -r` is reproducible. Versions with
+# "[cita NO VERIFICADA — sin red]" were chosen offline against the APIs used in
+# competitive_bench.py and must be ratified with network (deuda TSYS-13).
+numpy>=1.26
+h5py>=3.8  # [cita NO VERIFICADA — sin red]
+lancedb>=0.10  # [cita NO VERIFICADA — sin red]
+chromadb>=0.4.22  # [cita NO VERIFICADA — sin red]
+qdrant-client>=1.10  # query_points API used by bench_qdrant; [cita NO VERIFICADA — sin red]
+psutil>=5.9
+tabulate>=0.9
 
 # --- Optional: Milvus (frugal, embedded via milvus-lite) ---
 # Uncomment to enable the `milvus` engine in competitive_bench.py.
 # Not installed by default; the harness skips it cleanly if absent.
 # NOTE: the harness uses the pymilvus>=2.5 `IndexParams` API, so both are required:
-# pymilvus
-# milvus-lite
+# pymilvus>=2.5  # [cita NO VERIFICADA — sin red]
+# milvus-lite  # [cita NO VERIFICADA — sin red]
 
