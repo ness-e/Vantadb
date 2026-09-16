@@ -2591,6 +2591,11 @@ pub fn handle_tools_call(
                 .get("model")
                 .and_then(|v| v.as_str())
                 .map(|s| s.to_string());
+            // EMB-17: switch por nombre — desconocido → invalid_params con lista
+            // válida (nunca ecoreo silencioso). Conocido sigue al provider.
+            if let Some(m) = model_opt.as_deref() {
+                validate_manifest_model_id(m)?;
+            }
             let mut texts: Vec<String> = Vec::with_capacity(arr.len());
             for (idx, val) in arr.iter().enumerate() {
                 let s = val.as_str().ok_or_else(|| {
@@ -3313,7 +3318,8 @@ fn embed_texts_fallback(texts: &[String], _model: Option<&str>) -> Result<Vec<Ve
 // - local (resto): `Ok` + archivos presentes → real (`fallback:false`, el cat
 //   test de señal lo confirma); `Ok` sin archivos o `Err` → dummy avisado.
 // - sin features `llm` compiladas → dummy avisado directo.
-// `model` se ecorea en la respuesta pero NO selecciona proveedor (EMB-17).
+// EMB-17: `model=Some(id)` SÍ selecciona (manifest id → local ONNX con caché);
+// `None` = path EMB-13 de arriba intacto.
 #[cfg(any(feature = "embed-local", feature = "remote-inference"))]
 fn local_model_files_present(dir: &str) -> bool {
     use std::path::{Path, PathBuf};
@@ -3348,13 +3354,216 @@ fn fallback_warning(provider: &str, detail: &str) -> String {
     )
 }
 
+// ── EMB-17: switch por nombre (Q2) ─────────────────────────────────────
+// `model` = manifest id → ese modelo local (caché de sesiones con tope).
+// Desconocido → `invalid_params` con lista válida (nunca silencio).
+// Conocido sin archivos → error con `download.py --only <id>` + tamaño
+// (nunca fallback con dim errónea). Dim distinta → gatea EMB-18, no aquí.
+// Manifest: `embeddings/manifest.json` + fallback hardcodeado (CWD frágil
+// en tests con CWD=package dir — la validación funciona igual).
+
+/// Tabla (id, dim, size_onnx_mb) desde el manifest o fallback verificado 2026-09-16.
+fn manifest_model_table() -> Vec<(String, usize, Option<u64>)> {
+    for candidate in [
+        "embeddings/manifest.json",
+        "../embeddings/manifest.json",
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../embeddings/manifest.json"),
+    ] {
+        if let Ok(txt) = std::fs::read_to_string(candidate) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
+                if let Some(models) = v.get("models").and_then(|m| m.as_array()) {
+                    let mut out = Vec::with_capacity(models.len());
+                    for m in models {
+                        if let Some(id) = m.get("id").and_then(|x| x.as_str()) {
+                            let dim = m
+                                .get("dim")
+                                .and_then(|x| x.as_u64())
+                                .map(|x| x as usize)
+                                .unwrap_or(384);
+                            let size = m.get("size_onnx_mb").and_then(|x| x.as_u64());
+                            out.push((id.to_string(), dim, size));
+                        }
+                    }
+                    if !out.is_empty() {
+                        return out;
+                    }
+                }
+            }
+        }
+    }
+    // Fallback hardcodeado = manifest verificado 2026-09-16 (9 ids).
+    vec![
+        ("bge-small-en-v1.5".to_string(), 384, Some(120)),
+        ("all-MiniLM-L6-v2".to_string(), 384, Some(80)),
+        ("bge-base-en-v1.5".to_string(), 768, Some(440)),
+        ("jina-es-v2-base".to_string(), 768, Some(1100)),
+        (
+            "paraphrase-multilingual-MiniLM-L12-v2".to_string(),
+            384,
+            Some(470),
+        ),
+        ("distiluse-multilingual".to_string(), 512, Some(540)),
+        ("multilingual-e5-small".to_string(), 384, Some(220)),
+        ("bge-m3".to_string(), 1024, Some(1200)),
+        ("qwen3-embedding-8b".to_string(), 4096, None),
+    ]
+}
+
+fn manifest_model_ids() -> Vec<String> {
+    manifest_model_table()
+        .into_iter()
+        .map(|(id, _, _)| id)
+        .collect()
+}
+
+fn resolve_manifest_model(id: &str) -> Option<(String, usize, Option<u64>)> {
+    for (mid, dim, size) in manifest_model_table() {
+        if mid == id {
+            return Some((format!("embeddings/models/{id}/onnx"), dim, size));
+        }
+    }
+    None
+}
+
+/// Candidatos de dir por CWD (tests corren con CWD=package dir; server con
+/// CWD=repo root; fallback compile-time absoluto). El primero con archivos gana.
+#[cfg(feature = "embed-local")]
+fn manifest_candidate_dirs(id: &str) -> Vec<String> {
+    vec![
+        format!("embeddings/models/{id}/onnx"),
+        format!("../embeddings/models/{id}/onnx"),
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../embeddings/models/{id}/onnx"
+        )
+        .to_string(),
+    ]
+}
+
+#[cfg(feature = "embed-local")]
+fn find_existing_model_dir(id: &str) -> Option<String> {
+    manifest_candidate_dirs(id)
+        .into_iter()
+        .find(|d| local_model_files_present(d))
+}
+
+fn validate_manifest_model_id(id: &str) -> Result<(), Value> {
+    if resolve_manifest_model(id).is_some() {
+        return Ok(());
+    }
+    let valid = manifest_model_ids().join(", ");
+    Err(McpError::invalid_params(format!(
+        "unknown embedding model: {id:?}; valid models: {valid}"
+    ))
+    .to_json())
+}
+
+/// Tope documentado: 2 sesiones residentes (~450MB c/u → ~900MB techo).
+/// Evicción arbitraria (HashMap, sin dep nueva) AVISADA vía `warn!`.
+#[cfg(feature = "embed-local")]
+const MAX_CACHED_LOCAL_MODELS: usize = 2;
+
+#[cfg(feature = "embed-local")]
+fn model_session_cache() -> &'static std::sync::Mutex<
+    std::collections::HashMap<String, Arc<vantadb::llm::LocalOnnxProvider>>,
+> {
+    static CACHE: std::sync::OnceLock<
+        std::sync::Mutex<std::collections::HashMap<String, Arc<vantadb::llm::LocalOnnxProvider>>>,
+    > = std::sync::OnceLock::new();
+    CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
+}
+
+#[cfg(feature = "embed-local")]
+fn cached_local_provider_for(
+    id: &str,
+    dir: &str,
+) -> Result<Arc<vantadb::llm::LocalOnnxProvider>, String> {
+    if let Some(hit) = model_session_cache()
+        .lock()
+        .map_err(|e| format!("model cache poisoned: {e}"))?
+        .get(id)
+        .cloned()
+    {
+        return Ok(hit);
+    }
+    if !local_model_files_present(dir) && find_existing_model_dir(id).is_none() {
+        let size_hint = resolve_manifest_model(id)
+            .and_then(|(_, _, s)| s)
+            .map(|mb| format!("~{mb}MB"))
+            .unwrap_or_else(|| "unknown size".to_string());
+        return Err(format!(
+            "ONNX model files not found for '{id}' at '{dir}/model.onnx' ({size_hint}); run `python embeddings/download.py --only {id}` then retry"
+        ));
+    }
+    let effective_dir = find_existing_model_dir(id).unwrap_or_else(|| dir.to_string());
+    let provider = vantadb::llm::LocalOnnxProvider::new(&effective_dir)
+        .map_err(|e| format!("provider '{id}' failed: {e}"))?;
+    let arc = Arc::new(provider);
+    {
+        let mut cache = model_session_cache()
+            .lock()
+            .map_err(|e| format!("model cache poisoned: {e}"))?;
+        if cache.len() >= MAX_CACHED_LOCAL_MODELS && !cache.contains_key(id) {
+            if let Some(evicted) = cache.keys().next().cloned() {
+                cache.remove(&evicted);
+                warn!(evicted = %evicted, new = %id, "EMB-17 model cache full — evicted entry (tope documentado)");
+            }
+        }
+        cache.insert(id.to_string(), arc.clone());
+    }
+    Ok(arc)
+}
+
+#[cfg(feature = "embed-local")]
+fn embed_texts_with_manifest_model(
+    texts: &[String],
+    id: &str,
+) -> Result<(Vec<Vec<f32>>, bool, Option<String>), String> {
+    use vantadb::llm::EmbeddingProvider;
+    let (dir, _, _) =
+        resolve_manifest_model(id).ok_or_else(|| format!("unknown embedding model: {id:?}"))?;
+    let provider = cached_local_provider_for(id, &dir)?;
+    provider
+        .embed_batch(texts)
+        .map_err(|e| format!("provider '{id}' failed: {e}"))
+        .map(|v| (v, false, None))
+}
+
 // ponytail: file-check O(1) por llamada (4 Path::exists); caché global si profiling lo pide.
+// EMB-17: `model=Some(id)` fuerza el local ONNX de ese manifest id (caché con
+// tope); `None` = path EMB-13 intacto (env provider + fallback Q5).
 fn embed_texts_via_provider(
     texts: &[String],
     model: Option<&str>,
 ) -> Result<(Vec<Vec<f32>>, bool, Option<String>), String> {
     #[cfg(any(feature = "embed-local", feature = "remote-inference"))]
     {
+        if let Some(id) = model {
+            #[cfg(feature = "embed-local")]
+            {
+                return embed_texts_with_manifest_model(texts, id);
+            }
+            #[cfg(not(feature = "embed-local"))]
+            {
+                // Sin engine ONNX: conocido → fallback avisado (decisión 5);
+                // desconocido ya fue rechazado en el handler, doble-guard aquí.
+                if resolve_manifest_model(id).is_none() {
+                    return Err(format!(
+                        "unknown embedding model: {id:?}; valid models: {}",
+                        manifest_model_ids().join(", ")
+                    ));
+                }
+                let vectors = embed_texts_fallback(texts, model)?;
+                return Ok((
+                    vectors,
+                    true,
+                    Some(fallback_warning(
+                        "unconfigured",
+                        "Binary compiled without embed-local; serving fallback for known model.",
+                    )),
+                ));
+            }
+        }
         let provider_name =
             std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
         let is_remote = provider_name == "ollama" || provider_name == "openai";
