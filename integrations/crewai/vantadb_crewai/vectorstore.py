@@ -60,12 +60,18 @@ class VantaDBTool(CrewAIBaseTool):
                 Defaults to False.
             backend: Optional backend identifier for VantaDB.
         """
-        super().__init__(name=name, description=description)
+        # Fallback path (crewai no instalado): la base es `object` y
+        # `object.__init__` no acepta kwargs → tolerar sin romper el path CON framework.
+        # Mismo patrón que dspy/vectorstore.py (FIND-69 f3d6c634).
+        try:
+            super().__init__(name=name, description=description)
+        except TypeError:
+            pass
         self.namespace = namespace
         self.embedding = embedding
         self.db_path = db_path
         self.top_k = top_k
-        self._db = vanta.VantaDB(
+        self._db = vanta.Client(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
             read_only=read_only,
@@ -99,7 +105,7 @@ class VantaDBTool(CrewAIBaseTool):
 
         if self.embedding:
             embedding = self.embedding(query)
-            results = self._db.search_memory(
+            results = self._db.memory.search(
                 self.namespace,
                 embedding,
                 top_k=k,
@@ -112,7 +118,7 @@ class VantaDBTool(CrewAIBaseTool):
             )
         else:
             # Fallback: list all
-            results = self._db.list_memory(namespace=self.namespace, limit=k)
+            results = self._db.memory.list(namespace=self.namespace, limit=k)
             records = (
                 results.records
                 if hasattr(results, "records")
@@ -162,7 +168,7 @@ class VantaDBTool(CrewAIBaseTool):
         Returns:
             True if the deletion succeeded.
         """
-        self._db.delete_memory(self.namespace, key)
+        self._db.memory.delete(self.namespace, key)
         return True
 
     def list(self, limit: int = 100, cursor: Optional[str] = None) -> dict:
@@ -175,7 +181,7 @@ class VantaDBTool(CrewAIBaseTool):
         Returns:
             A dict with ``records`` and, if more are available, a ``cursor``.
         """
-        # dspy pattern: cursor arrives as str from serialized pages; list_memory expects int.
+        # dspy pattern: cursor arrives as str from serialized pages; memory.list expects int.
         if cursor is None or (isinstance(cursor, str) and cursor == ""):
             cursor_int: Optional[int] = None
         else:
@@ -185,7 +191,7 @@ class VantaDBTool(CrewAIBaseTool):
                 raise ValueError(
                     f"Invalid cursor value {cursor!r}: must be int or int-like string"
                 ) from exc
-        results = self._db.list_memory(
+        results = self._db.memory.list(
             namespace=self.namespace, limit=limit, cursor=cursor_int,
         )
         records = (

@@ -40,7 +40,7 @@ class VantaDBVectorStore:
         self.memory_limit_bytes = memory_limit_bytes
         self.read_only = read_only
         self.backend = backend
-        self._db = vanta.VantaDB(
+        self._db = vanta.Client(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
             read_only=read_only,
@@ -105,13 +105,13 @@ class VantaDBVectorStore:
         if k <= 0:
             raise ValueError("k must be > 0")
         if self.embedding is None:
-            results = self._db.list_memory(self.namespace, limit=k)
+            results = self._db.memory.list(self.namespace, limit=k)
             return [
                 {"key": rec.key, "text": rec.payload, "metadata": dict(rec.metadata), "score": 1.0}
                 for rec in results.records
             ]
         vector = self.embedding(query)
-        results = self._db.search_memory(self.namespace, vector, top_k=k, distance_metric="cosine")
+        results = self._db.memory.search(self.namespace, vector, top_k=k, distance_metric="cosine")
         return [
             {"key": hit.key, "text": hit.payload, "metadata": dict(hit.metadata), "score": hit.score}
             for hit in results
@@ -126,7 +126,7 @@ class VantaDBVectorStore:
         Returns:
             ``True`` if the deletion succeeded, ``False`` otherwise.
         """
-        return self._db.delete_memory(self.namespace, key)
+        return self._db.memory.delete(self.namespace, key)
 
     def list(self, limit: int = 100, filters: Optional[Dict[str, Any]] = None) -> List[dict]:
         """List records in the store, with optional metadata filtering.
@@ -149,7 +149,7 @@ class VantaDBVectorStore:
         kwargs: Dict[str, Any] = {"namespace": self.namespace, "limit": limit}
         if filters:
             kwargs["filters"] = filters
-        results = self._db.list_memory(**kwargs)
+        results = self._db.memory.list(**kwargs)
         return [
             {"key": r.key, "text": r.payload, "metadata": dict(r.metadata)}
             for r in results.records

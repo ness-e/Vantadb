@@ -50,7 +50,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
         self._namespace = namespace
         self._db_path = db_path
         self._hybrid_mode = hybrid_mode
-        self._client = vanta.VantaDB(
+        self._client = vanta.Client(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
             read_only=read_only,
@@ -58,7 +58,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
         )
 
     @property
-    def client(self) -> vanta.VantaDB:
+    def client(self) -> vanta.Client:
         return self._client
 
     @property
@@ -69,7 +69,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
         return node.node_id
 
     @staticmethod
-    def _hit_to_dict(hit: vanta.VantaSearchHit) -> dict:
+    def _hit_to_dict(hit: vanta.SearchHit) -> dict:
         return {
             "key": hit.key,
             "node_id": hit.id,
@@ -81,7 +81,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
         }
 
     @staticmethod
-    def _record_to_dict(record: vanta.VantaMemoryRecord) -> dict:
+    def _record_to_dict(record: vanta.Record) -> dict:
         try:
             vec = record.vector
             if vec is not None:
@@ -149,7 +149,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
     def delete(self, ref_doc_id: str, **delete_kwargs: Any) -> None:
         cursor = None
         while True:
-            page = self._client.list_memory(
+            page = self._client.memory.list(
                 self._namespace,
                 filters={"ref_doc_id": ref_doc_id},
                 limit=1000,
@@ -160,7 +160,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
             for rec in page.records:
                 key = rec.key
                 if key:
-                    self._client.delete_memory(self._namespace, key)
+                    self._client.memory.delete(self._namespace, key)
             cursor = page.next_cursor
             if cursor is None:
                 break
@@ -181,7 +181,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
         RRF_K = 60
 
         # Vector search — oversample 2x for the fusion pool
-        vector_results = self._client.search_memory(
+        vector_results = self._client.memory.search(
             self._namespace,
             query_embedding,
             top_k=k * 2,
@@ -190,7 +190,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
         )
 
         # Text search — oversample 2x, vector is required positional but text_query does the work
-        text_results = self._client.search_memory(
+        text_results = self._client.memory.search(
             self._namespace,
             query_embedding,
             top_k=k * 2,
@@ -205,14 +205,14 @@ class VantaDBVectorStore(BasePydanticVectorStore):
 
         for rank, hit in enumerate(vector_results):
             scores[hit.key] += 1.0 / (RRF_K + rank)
-            # TODO(core) FND-06: assumes core cosine distance ∈ [0,2] for the
-            # score→similarity mapping (duplicated in langchain adapter).
-            seen[hit.key] = (hit, 1.0 - hit.score / 2.0)
+            # FIND-94: backend emits cosine similarity (higher=better,
+            # identical->1.0) — no distance mapping needed.
+            seen[hit.key] = (hit, hit.score)
 
         for rank, hit in enumerate(text_results):
             scores[hit.key] += 1.0 / (RRF_K + rank)
             if hit.key not in seen:
-                seen[hit.key] = (hit, 1.0 - hit.score / 2.0)
+                seen[hit.key] = (hit, hit.score)
 
         # Sort by combined RRF score, take top k
         ranked = sorted(scores.keys(), key=lambda key: scores[key], reverse=True)[:k]
@@ -242,7 +242,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
     ) -> VectorStoreQueryResult:
         """MMR — balance relevance and diversity."""
         # 1. Fetch fetch_k candidates
-        results = self._client.search_memory(
+        results = self._client.memory.search(
             self._namespace,
             query_embedding,
             top_k=fetch_k,
@@ -253,7 +253,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
             return VectorStoreQueryResult(nodes=[], similarities=[], ids=[])
 
         # 2. Load embeddings for each candidate
-        # VantaSearchHit includes .vector, so no extra get_memory call needed
+        # SearchHit includes .vector, so no extra memory.get call needed
         cand_embs: List[List[float]] = []
         nodes: List[TextNode] = []
         similarities: List[float] = []
@@ -261,7 +261,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
         for hit in results:
             node = self._record_to_node(self._hit_to_dict(hit))
             nodes.append(node)
-            similarities.append(1.0 - hit.score / 2.0)
+            similarities.append(hit.score)
 
             vec: List[float] = []
             try:
@@ -344,7 +344,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
 
         # Server-side hybrid (VantaDB internal) or pure vector
         if query.mode.value == "hybrid" or (query_str and query_embedding):
-            results = self._client.search_memory(
+            results = self._client.memory.search(
                 self._namespace,
                 query_embedding,
                 top_k=similarity_top_k,
@@ -353,7 +353,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
                 filters=filters,
             )
         else:
-            results = self._client.search_memory(
+            results = self._client.memory.search(
                 self._namespace,
                 query_embedding,
                 top_k=similarity_top_k,
@@ -368,7 +368,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
         for hit in results:
             node = self._record_to_node(self._hit_to_dict(hit))
             nodes.append(node)
-            similarities.append(1.0 - hit.score / 2.0)
+            similarities.append(hit.score)
             ids.append(hit.key)
 
         # Post-filter complex operators (NE, GT, LT, IN) client-side
@@ -462,7 +462,7 @@ class VantaDBVectorStore(BasePydanticVectorStore):
         nodes: List[BaseNode] = []
         if node_ids:
             for node_id in node_ids:
-                record = self._client.get_memory(self._namespace, node_id)
+                record = self._client.memory.get(self._namespace, node_id)
                 if record:
                     nodes.append(self._record_to_node(self._record_to_dict(record)))
         return nodes
@@ -475,19 +475,19 @@ class VantaDBVectorStore(BasePydanticVectorStore):
     ) -> None:
         if node_ids:
             for node_id in node_ids:
-                self._client.delete_memory(self._namespace, node_id)
+                self._client.memory.delete(self._namespace, node_id)
 
     def clear(self) -> None:
         """Remove all documents from the namespace."""
         cursor = None
         while True:
-            page = self._client.list_memory(self._namespace, limit=1000, cursor=cursor)
+            page = self._client.memory.list(self._namespace, limit=1000, cursor=cursor)
             if not page or not page.records:
                 break
             for rec in page.records:
                 key = rec.key
                 if key:
-                    self._client.delete_memory(self._namespace, key)
+                    self._client.memory.delete(self._namespace, key)
             cursor = page.next_cursor
             if cursor is None:
                 break

@@ -101,7 +101,7 @@ class VantaDBMemoryBackend(_Protocol):
     ):
         self.db_path = db_path
         self.namespace = namespace
-        self._db = vanta.VantaDB(
+        self._db = vanta.Client(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
             read_only=read_only,
@@ -145,7 +145,7 @@ class VantaDBMemoryBackend(_Protocol):
         """Yield stored records (newest last) filtered by scope prefix."""
         cursor = None
         while True:
-            page = self._db.list_memory(namespace=self.namespace, limit=200, cursor=cursor)
+            page = self._db.memory.list(namespace=self.namespace, limit=200, cursor=cursor)
             records = page.records if hasattr(page, "records") else list(page)
             if not records:
                 break
@@ -174,7 +174,7 @@ class VantaDBMemoryBackend(_Protocol):
 
     def get_record(self, record_id: str) -> Optional[_Rec]:
         try:
-            r = self._db.get_memory(self.namespace, record_id)
+            r = self._db.memory.get(self.namespace, record_id)
         except Exception:
             return None
         if r is None:
@@ -200,7 +200,7 @@ class VantaDBMemoryBackend(_Protocol):
             return []
         fetch = limit * 2 + 10  # oversample: el filtro por scope/categoría recorta
         try:
-            hits = self._db.search_memory(self.namespace, list(query_embedding), top_k=fetch)
+            hits = self._db.memory.search(self.namespace, list(query_embedding), top_k=fetch)
             hits = list(hits)
         except Exception:
             return []
@@ -245,7 +245,7 @@ class VantaDBMemoryBackend(_Protocol):
                 continue
             if metadata_filter and any(rec.metadata.get(k) != v for k, v in metadata_filter.items()):
                 continue
-            self._db.delete_memory(self.namespace, rec.id)
+            self._db.memory.delete(self.namespace, rec.id)
             n += 1
         return n
 

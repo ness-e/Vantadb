@@ -17,6 +17,21 @@ except ImportError:
             setattr(self, key, value)
 
     dspy = type("dspy", (), {"Prediction": _Prediction})()  # type: ignore[assignment]
+else:
+    if not hasattr(dspy, "Prediction"):
+        # FIND-94: `import dspy` puede resolver al directorio local
+        # `integrations/dspy/` (namespace package sin `Prediction`) cuando
+        # `integrations/` está en sys.path (conftest de tests). Adjuntar el
+        # fallback sin romper el framework real (que sí trae Prediction).
+        class _Prediction:
+            def __init__(self, passages=None):
+                self.passages = passages or []
+            def __getitem__(self, key):
+                return getattr(self, key)
+            def __setitem__(self, key, value):
+                setattr(self, key, value)
+
+        dspy.Prediction = _Prediction  # type: ignore[attr-defined]
 
 try:
     from dspy import Retrieve as DSPyRetrieve
@@ -72,7 +87,7 @@ class VantaDBRetriever(DSPyRetrieve):
         self.memory_limit_bytes = memory_limit_bytes
         self.read_only = read_only
         self.backend = backend
-        self._db = vanta.VantaDB(
+        self._db = vanta.Client(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
             read_only=read_only,
@@ -101,13 +116,13 @@ class VantaDBRetriever(DSPyRetrieve):
         k = kwargs.get("k", self.k)
         if self.embedding is not None:
             vector = self.embedding(query)
-            results = self._db.search_memory(
+            results = self._db.memory.search(
                 self.namespace, vector, top_k=k, distance_metric="cosine"
             )
             passages = [hit.payload for hit in results]
         else:
             # fallback: text-based filter over all records
-            results = self._db.list_memory(self.namespace, limit=k)
+            results = self._db.memory.list(self.namespace, limit=k)
             passages = [
                 r.payload for r in results.records
                 if r.payload and query.lower() in r.payload.lower()
@@ -162,7 +177,7 @@ class VantaDBRetriever(DSPyRetrieve):
         Returns:
             True if the record was deleted, False otherwise.
         """
-        return self._db.delete_memory(self.namespace, key)
+        return self._db.memory.delete(self.namespace, key)
 
     def list(self, limit: int = 100, cursor: Optional[str] = None) -> dict:
         """List records with cursor pagination.
@@ -176,7 +191,8 @@ class VantaDBRetriever(DSPyRetrieve):
             (int) for the next page.
         """
         cursor_int: Optional[int] = int(cursor) if cursor is not None else None
-        return dict(self._db.list_memory(self.namespace, limit=limit, cursor=cursor_int))
+        page = self._db.memory.list(self.namespace, limit=limit, cursor=cursor_int)
+        return {"records": page.records, "next_cursor": page.next_cursor}
 
     def _add(self, text: str, key: str, metadata: Optional[dict] = None) -> None:
         if not key or not key.strip():

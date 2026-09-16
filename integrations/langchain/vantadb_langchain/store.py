@@ -69,7 +69,7 @@ class VantaDBStore(BaseStore):
         db_path: Filesystem path for the VantaDB database.
         embeddings: Optional LangChain ``Embeddings`` used only when
             ``search`` receives a ``query`` (semantic search via
-            VantaDB ``search_memory``). Without it, ``query`` raises
+            VantaDB ``memory.search``). Without it, ``query`` raises
             ``ValueError``.
         namespace: VantaDB namespace is derived per-operation from the
             LangGraph namespace tuple (see module docstring).
@@ -85,7 +85,7 @@ class VantaDBStore(BaseStore):
         backend: Optional[str] = None,
     ):
         self._embeddings = embeddings
-        self._db = vanta.VantaDB(
+        self._db = vanta.Client(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
             read_only=read_only,
@@ -147,7 +147,7 @@ class VantaDBStore(BaseStore):
         if not ns:
             raise InvalidNamespaceError("namespace must not be empty for put")
         payload = json.dumps(value)  # TypeError if not JSON-serializable
-        # Mirror scalar value fields into VantaDB metadata so list_memory
+        # Mirror scalar value fields into VantaDB metadata so memory.list
         # filters implement BaseStore filter semantics (exact match on
         # value keys). Nested dicts/lists are payload-only.
         metadata = {
@@ -162,7 +162,7 @@ class VantaDBStore(BaseStore):
         ns = encode_namespace(tuple(namespace))
         if not ns:
             return None
-        record = self._db.get_memory(ns, str(key))
+        record = self._db.memory.get(ns, str(key))
         if record is None:
             return None
         return self._to_item(tuple(namespace), record)
@@ -171,7 +171,7 @@ class VantaDBStore(BaseStore):
         ns = encode_namespace(tuple(namespace))
         if not ns:
             return
-        self._db.delete_memory(ns, str(key))
+        self._db.memory.delete(ns, str(key))
 
     @staticmethod
     def _to_item(ns_tuple: tuple[str, ...], record: Any) -> Item:
@@ -206,7 +206,7 @@ class VantaDBStore(BaseStore):
             ns_str = encode_namespace(ns)
             cursor: Optional[int] = None
             while True:
-                page = self._db.list_memory(
+                page = self._db.memory.list(
                     ns_str, filters=filter, limit=1000, cursor=cursor
                 )
                 if not page or not page.records:
@@ -243,7 +243,7 @@ class VantaDBStore(BaseStore):
         qvec = self._embeddings.embed_query(query)
         scored: list[tuple[float, SearchItem]] = []
         for ns in sorted(namespaces):
-            hits = self._db.search_memory(
+            hits = self._db.memory.search(
                 encode_namespace(ns),
                 qvec,
                 filters=filter,
@@ -251,9 +251,9 @@ class VantaDBStore(BaseStore):
                 distance_metric="cosine",
             )
             for hit in hits:
-                # VantaDB score = cosine distance (lower = closer);
-                # LangGraph SearchItem.score ranks higher = more similar.
-                score = 1.0 - hit.score / 2.0
+                # FIND-94: backend emits cosine similarity (higher = more
+                # similar, identical->1.0); SearchItem.score ranks the same way.
+                score = max(0.0, min(1.0, float(hit.score)))
                 scored.append(
                     (
                         score,
