@@ -70,8 +70,8 @@ const MAX_TRANSFER_BYTES: usize = 10 * 1024 * 1024;
 pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
     let base_tools = json!([
         {
-            "name": "memory_put",
-            "description": "Inserts or updates a memory record in a namespace with payload, vector, optional sparse vector, optional metadata, and optional TTL.",
+                "name": "memory_put",
+                "description": "Inserts or updates a memory record in a namespace with payload, vector, optional sparse vector, optional metadata, and optional TTL. Records without 'vector' are auto-embedded via the active provider (EMB-14); without a provider they are stored vectorless with 'fallback:true' + 'warning' (never a hard error).",
             "annotations": {
                 "title": "Memory Put",
                 "readOnlyHint": false,
@@ -98,8 +98,8 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
             }
         },
         {
-            "name": "memory_put_batch",
-            "description": "Stores multiple memory records in a single batch operation. Each input carries namespace, key, payload and optional vector/sparse_vector/metadata/expires_at_ms. All-or-nothing: an invalid input fails the whole call before any write. Duplicate keys are UPSERTs (version bumps). Vector dimensions must match the live index.",
+                "name": "memory_put_batch",
+                "description": "Stores multiple memory records in a single batch operation. Each input carries namespace, key, payload and optional vector/sparse_vector/metadata/expires_at_ms. All-or-nothing: an invalid input fails the whole call before any write. Duplicate keys are UPSERTs (version bumps). Vector dimensions must match the live index. Inputs without 'vector' are auto-embedded in one batch call (EMB-14); without a provider they are stored vectorless with 'fallback:true' + 'warning'.",
             "annotations": {
                 "title": "Memory Put Batch",
                 "readOnlyHint": false,
@@ -1221,7 +1221,7 @@ pub fn handle_tools_call(
             validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
             validate_payload(payload, config.max_payload_length).map_err(|e| e.to_json())?;
 
-            let vector = if let Some(arr) = args["vector"].as_array() {
+            let mut vector = if let Some(arr) = args["vector"].as_array() {
                 Some(validate_vector(arr, config.max_vector_dim).map_err(|e| e.to_json())?)
             } else {
                 None
@@ -1233,6 +1233,21 @@ pub fn handle_tools_call(
             // index — `vector_count` rises but the node never surfaces in
             // search, corrupting the index with mixed dims. An empty index
             // (first vector put) has no dim yet and defines it.
+            if let Some(vector) = &vector {
+                if let Some(expected) = index_vector_dim(storage) {
+                    if vector.len() != expected {
+                        return Ok(error_content(dim_mismatch_guidance(expected, vector.len())));
+                    }
+                }
+            }
+
+            // EMB-14: auto-embed — solo cuando no vino vector (el provisto se
+            // respeta byte-exacto, nunca re-embed). Orden con EMB-18: los
+            // provistos ya se validaron arriba (mensajes exactos primero).
+            let (fallback, warning) = auto_embed_one(&mut vector, payload);
+            // El auto-vector también debe respetar una-dim-por-base (Q4): si
+            // el proveedor activo tiene otra dim que la base, bloquear con la
+            // guía EMB-18 en vez de corromper el índice (nunca auto-reindex).
             if let Some(vector) = &vector {
                 if let Some(expected) = index_vector_dim(storage) {
                     if vector.len() != expected {
@@ -1296,7 +1311,22 @@ pub fn handle_tools_call(
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.put(input) {
-                Ok(record) => Ok(text_content_structured(&record)),
+                // EMB-14: flat+flags — el record sigue plano (paridad
+                // AUD-045/structured) + `fallback` siempre + `warning` si hubo
+                // fallback (patrón avisado EMB-13, R-4 aditivo).
+                Ok(record) => {
+                    let mut v = serde_json::to_value(&record)
+                        .unwrap_or(json!({"error": "Serialization failed"}));
+                    if let Some(obj) = v.as_object_mut() {
+                        obj.insert("fallback".to_string(), json!(fallback));
+                        if let Some(w) = warning {
+                            obj.insert("warning".to_string(), json!(w));
+                        }
+                        Ok(structured_text_content(&v))
+                    } else {
+                        Ok(text_content_structured(&record))
+                    }
+                }
                 Err(e) => Ok(error_content_vanta(e)),
             }
         }
@@ -1340,9 +1370,38 @@ pub fn handle_tools_call(
                 }
             }
 
+            // EMB-14: UN solo `embed_batch` para todos los faltantes (no 1×1).
+            // Los provistos ya se validaron arriba y se respetan byte-exacto.
+            let outcome = auto_embed_missing(&mut inputs);
+            // Los auto-vectores también respetan una-dim-por-base (Q4): solo
+            // se chequean los recién rellenados (los provistos ya pasaron).
+            if !outcome.filled.is_empty() {
+                if let Some(expected) = index_vector_dim(storage) {
+                    for &idx in &outcome.filled {
+                        if let Some(vector) = inputs.get(idx).and_then(|i| i.vector.as_ref()) {
+                            if vector.len() != expected {
+                                return Ok(error_content(dim_mismatch_guidance(
+                                    expected,
+                                    vector.len(),
+                                )));
+                            }
+                        }
+                    }
+                }
+            }
+
             let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.put_batch(inputs) {
-                Ok(records) => Ok(text_content_structured(&records)),
+                // EMB-14: envelope `{records, fallback, warning?}` — el batch
+                // es array y no admite flags planos; `records` preserva el
+                // shape anterior para no perder cobertura (1 re-point).
+                Ok(records) => {
+                    let mut result = json!({"records": records, "fallback": outcome.fallback});
+                    if let Some(w) = outcome.warning {
+                        result["warning"] = json!(w);
+                    }
+                    Ok(structured_text_content(&result))
+                }
                 Err(e) => Ok(error_content_vanta(e)),
             }
         }
@@ -3260,9 +3319,10 @@ fn embed_texts_via_provider(
         let is_remote = provider_name == "ollama" || provider_name == "openai";
         match vantadb::llm::get_embedding_provider().embed_batch(texts) {
             Ok(vectors) => {
-                if is_remote {
-                    Ok((vectors, false, None))
-                } else if is_local_model_available() {
+                // EMB-14 (colateral rápido, pre-existente EMB-13): colapsar
+                // ramas idénticas que clippy `if_same_then_else` rechaza bajo
+                // `--features` (semántica intacta, mismo `Ok` en ambas).
+                if is_remote || is_local_model_available() {
                     Ok((vectors, false, None))
                 } else {
                     // `Ok` pero sin archivos → son dummies silenciosos: avisar.
@@ -3307,5 +3367,127 @@ fn embed_texts_via_provider(
                 "Binary compiled without embedding features (embed-local/remote-inference).",
             )),
         ))
+    }
+}
+
+// ── EMB-14: auto-embed en put/put_batch (cierra FIND-99 con EMB-13) ───────
+// Rellena vectores ausentes con el proveedor activo. Difiere de
+// `embed_texts_via_provider` en un punto crítico: aquí NUNCA se usan vectores
+// dummy — sin proveedor se guarda sin vector + aviso (un hash persistido
+// contaminaría el índice con vecinos falsos, peor que null). Reusa
+// `is_local_model_available` + `fallback_warning` de EMB-13 verbatim.
+
+/// Resultado del auto-embed: qué posiciones se rellenaron + si hubo fallback.
+struct AutoEmbedOutcome {
+    filled: Vec<usize>,
+    fallback: bool,
+    warning: Option<String>,
+}
+
+/// Intenta UN `embed_batch` del proveedor activo. `Ok` = vectores reales (con
+/// check de archivos locales para no tragar dummies silenciosos);
+/// `Err(warning)` = sin vectores + motivo (nunca dummies, nunca pánico).
+fn try_provider_embed(texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
+    #[cfg(any(feature = "embed-local", feature = "remote-inference"))]
+    {
+        let provider_name =
+            std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+        let is_remote = provider_name == "ollama" || provider_name == "openai";
+        match vantadb::llm::get_embedding_provider().embed_batch(texts) {
+            Ok(vectors) => {
+                if vectors.len() != texts.len() {
+                    Err(fallback_warning(
+                        &provider_name,
+                        "Provider returned a mismatched batch size.",
+                    ))
+                } else if is_remote || is_local_model_available() {
+                    Ok(vectors)
+                } else {
+                    // `Ok` local sin archivos → dummies silenciosos: descartar.
+                    Err(fallback_warning(
+                        &provider_name,
+                        "Local model files (model.onnx + tokenizer.json) not found.",
+                    ))
+                }
+            }
+            Err(e) => Err(fallback_warning(
+                &provider_name,
+                &format!("Provider error: {e}"),
+            )),
+        }
+    }
+    #[cfg(not(any(feature = "embed-local", feature = "remote-inference")))]
+    {
+        let _ = texts.len();
+        Err(fallback_warning(
+            "unconfigured",
+            "Binary compiled without embedding features (embed-local/remote-inference).",
+        ))
+    }
+}
+
+/// Auto-embed para `memory_put`: rellena `*vector` solo si es `None` (el
+/// provisto se respeta). Devuelve `(fallback, warning)`.
+fn auto_embed_one(vector: &mut Option<Vec<f32>>, payload: &str) -> (bool, Option<String>) {
+    if vector.is_some() {
+        return (false, None);
+    }
+    match try_provider_embed(&[payload.to_string()]) {
+        Ok(mut vectors) => {
+            if let Some(v) = vectors.pop() {
+                *vector = Some(v);
+            }
+            (false, None)
+        }
+        Err(warning) => {
+            warn!("memory_put: embedding unavailable — storing without vector");
+            (true, Some(warning))
+        }
+    }
+}
+
+/// Auto-embed para `memory_put_batch`: UN `embed_batch` para todos los
+/// faltantes (no 1×1), zip-back por índice. Los provistos no se tocan.
+fn auto_embed_missing(inputs: &mut [vantadb::sdk::MemoryInput]) -> AutoEmbedOutcome {
+    let missing: Vec<usize> = inputs
+        .iter()
+        .enumerate()
+        .filter(|(_, i)| i.vector.is_none())
+        .map(|(idx, _)| idx)
+        .collect();
+    if missing.is_empty() {
+        return AutoEmbedOutcome {
+            filled: Vec::new(),
+            fallback: false,
+            warning: None,
+        };
+    }
+    let texts: Vec<String> = missing
+        .iter()
+        .map(|&idx| inputs[idx].payload.clone())
+        .collect();
+    match try_provider_embed(&texts) {
+        Ok(vectors) => {
+            // `try_provider_embed` garantiza `len == texts.len() == missing.len()`.
+            for (pos, &idx) in missing.iter().enumerate() {
+                inputs[idx].vector = Some(vectors[pos].clone());
+            }
+            AutoEmbedOutcome {
+                filled: missing,
+                fallback: false,
+                warning: None,
+            }
+        }
+        Err(warning) => {
+            warn!(
+                count = missing.len(),
+                "memory_put_batch: embedding unavailable — storing without vectors"
+            );
+            AutoEmbedOutcome {
+                filled: Vec::new(),
+                fallback: true,
+                warning: Some(warning),
+            }
+        }
     }
 }

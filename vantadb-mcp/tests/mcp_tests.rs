@@ -3242,8 +3242,12 @@ fn test_memory_put_batch_round_trip() {
         "put_batch should succeed: {}",
         res["content"][0]["text"]
     );
-    let records: Vec<Value> = serde_json::from_str(res["content"][0]["text"].as_str().unwrap())
-        .expect("put_batch result should serialize as a JSON array of records");
+    let records: Vec<Value> =
+        serde_json::from_str::<Value>(res["content"][0]["text"].as_str().unwrap())
+            .expect("put_batch result should serialize as a JSON envelope")["records"]
+            .as_array()
+            .cloned()
+            .expect("put_batch envelope must carry a 'records' array (EMB-14)");
     assert_eq!(records.len(), 3);
 
     // memory_list returns the 3 batch-inserted records (derived indexes rebuilt
