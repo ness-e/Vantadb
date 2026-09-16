@@ -82,7 +82,7 @@ fn embed_texts_with_model_param() {
     let val: serde_json::Value = serde_json::from_str(text).unwrap();
     assert_eq!(val["count"], 1);
     assert_eq!(val["model"], "multilingual-e5-small");
-    // EMB-13: `model` se ecorea pero NO selecciona proveedor (EMB-17).
+    // EMB-17: `model` válido selecciona ese modelo (ecoreo canónico); desconocido → Err.
     assert!(
         val.get("fallback").is_some() && val["fallback"].is_boolean(),
         "embed_texts debe incluir 'fallback' bool, got: {}",
