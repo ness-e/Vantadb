@@ -60,6 +60,9 @@ aliases: []
 ### FIND-96 (audit-quick 2026-09-16)
 - RUSTSEC-2026-0285 (rustls 0.23.43, TLS 1.3 cross-nivel): `cargo update -p rustls` 0.23.43→0.23.45 (+ webpki/aws-lc); audit limpio de este ID; `check --workspace --tests` 2m12s ✅.
 
+### FIND-97 (audit-quick 2026-09-16)
+- RUSTSEC-2023-0071 (rsa/Marvin): análisis profundo (cadena única `cargo tree`; HS256-only; backends `rust_crypto`/`aws_lc_rs` verificados en fuente jsonwebtoken 11) → opción A elegida por owner: espejado del triage AST-007 a `.cargo/audit.toml` (owner/expiry 2027-01-01); swap a `aws_lc_rs` descartado (compilación C para riesgo inalcanzable). `cargo audit` exit 0 ✅.
+
 ### Nota lru 0.16.4 (solo documentación, sin acción — audit-quick 2026-09-16)
 - `cargo audit` muestra warning unsound RUSTSEC-2026-0253 sobre lru 0.16.4, que entra solo vía tantivy 0.26.1 (cadena única verificada con `cargo tree`; direct lru 0.18.4 ya ≥ parche).
 - No hay fix desde nuestro código: se resuelve cuando tantivy publique versión sin lru 0.16. Tensión conocida: la allowlist se removió en AST-007 por advisory-not-detected y el warning reapareció vía transitiva — re-evaluar al triagear FIND-97 o ante bump de tantivy. No bloquea gates (deny exit 0, audit lo marca allowed).

@@ -127,6 +127,7 @@ Thumbs.db
 !.agents/references/
 .cargo/*
 !.cargo/config.toml
+!.cargo/audit.toml
 
 # Local Python test database and virtual environments
 vantadb-python/test_vanta_db/
