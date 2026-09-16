@@ -302,3 +302,27 @@ aliases: []
 - **Objetivo:** ALLOW_PATTERNS global traía *.bin+*.safetensors (3-4× lo declarado); verify_model dummy sin documentar; sizes README por re-medir; lock sin validación repo/rev.
 - **Resultado:** ✅ base recortada (sin *.bin) + MODEL_PATTERNS/get_allow_patterns por modelo; --check --only 9/9 verde + tamper-lock detectado; smoke documentado (docstring + verify.log + README); sizes = manifest (253/170/878/2200/941/1079/691/3470/16000MB); download --check + verify --check + py_compile + diff-check verdes offline; review vanta-review approve.
 - **Commit:** 94c94f25 (4 files: download.py, verify.py, README.md, docs/tasks/FIND-71.md)
+
+### FIND-67: QUICKSTART a 0.5.0 (+ legacy `WANTA_*`)
+- **Fecha:** 2026-09-15
+- **Objetivo:** puerta de entrada veraz ×4 (boundary 0.5.0, wheel `./dist/vantadb_py-0.5.0-*.whl`, `VANTADB_*`, last_reviewed) + HALLAZGOS inline (`db.search`, nota audit/rebuild).
+- **Resultado:** ✅ 23L/6 hunks + revalidación literal (put/get/list/search/export/audit/verify) + coverage 0 gaps; review trio approve.
+- **Commit:** b5d9b3f8
+
+### FIND-72: CLI argparse + pins + WinError32 en benches py
+- **Fecha:** 2026-09-16
+- **Objetivo:** `--help` exit 0 sin correr benches (defaults exactos preservados) + floors 7 deps + 8 `rmtree` con `ignore_errors` + notas WinError32.
+- **Resultado:** ✅ py_compile 0 + diff-check + OCR 0 Critical/High + `/cleanCA` 0 🔴; review approve.
+- **Commit:** 107550d8
+
+### FIND-74: requirements + enlaces + decisión TS
+- **Fecha:** 2026-09-15
+- **Objetivo:** `vantadb-py>=0.5.0` + 1 línea QUICKSTART→examples + 1 fila README→demo/colab + decisión TS (referenciar `vantadb-ts/examples/`, no mover); hunks FIND-67 intactos.
+- **Resultado:** ✅ diff-check + coverage 0 gaps + OCR sin Critical/High; review P2-01 approve.
+- **Commit:** 5e428aea
+
+### FIND-81: higiene `vantadb-server/` (artefactos + README)
+- **Fecha:** 2026-09-15
+- **Objetivo:** resto probado (writer-only + mtimes stale + exe vivo con `--db` distinto) → borrados locales + README 5L; `.gitignore` ya cubría (no editado, ponytail).
+- **Resultado:** ✅ check server 0 warnings + diff-check + hooks; review trio approve.
+- **Commit:** 9713eb54

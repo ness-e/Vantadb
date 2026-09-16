@@ -429,3 +429,9 @@ aliases: [DESKTOP]
 - **Objetivo:** lentes + paneles a `tt()/tp()` (retomó 40 archivos del árbol de intentos abortados).
 - **Resultado:** ✅ tsc 0 + vitest i18n 11/11 + build 0 errores; role/aria intactos; 13 fails vitest pre-existentes ajenos (localStorage Node).
 - **Commit:** ca6f2143
+
+### FIND-63: remanente vitest localStorage desktop (campaña 2026-09-15; distinto del FIND-63 worker SyncMode 2026-09-05)
+- **Fecha:** 2026-09-15
+- **Objetivo:** suite desktop verde por archivo (stubs localStorage en undo/ProxyDashboard/MemoryLens; jsdom global + worker node intactos) + tsc Client alias.
+- **Resultado:** ✅ vitest 14 files 86/86 + tsc 0 + diff-check limpio; review P2-01 approve.
+- **Commit:** 33f60d20

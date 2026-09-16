@@ -683,4 +683,10 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Fecha:** 2026-09-15
 - **Objetivo:** migrar assert `hnsw.nodes.get(..).is_some()` a `hnsw.contains_node(..)` (trait `IndexPort`; `dyn` no expone `.nodes` → E0609 con `--all-features`).
 - **Resultado:** ✅ check --all-features + clippy CI Windows + fmt + `cargo test --features failpoints --test durability_recovery` 8/8 (30.71s); review P2-01 vanta-review ✅ approve (semántica idéntica `contains_key`, assert por-nodo intacto). Nota: perfil nextest `chaos` excluye el binario por diseño (default-filter solo `chaos_integrity_failpoints`) — sin Heavy.
-- **Commit:** (fix: FIND-91, esta campaña)
+- **Commit:** 71aedbde (fix 1 línea; hooks verdes)
+
+### FIND-93: `cloned_sole_buffer` bajo feature `rayon` (no era dead code)
+- **Fecha:** 2026-09-15
+- **Objetivo:** clippy `-D warnings` rojo en dependientes de `vantadb` por asimetría de feature-gating (caller `existing_for_batch_many` bajo `rayon`, método sin gatear; proxy usa `default-features = false`).
+- **Resultado:** ✅ `#[cfg(feature = "rayon")]` simétrico (1 atributo, 0 deuda) + clippy vantadb/proxy 0 + engine 383/383 + workspace check; review P2-01 approve.
+- **Commit:** 0cd54e47

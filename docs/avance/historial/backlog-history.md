@@ -315,3 +315,7 @@ Re-escaladas en el propio Backlog (misma fecha): RES-09 (fila WAL a fsync-batchi
 - **FIND-89** (consolidar `env::var` en `Config`) - ✅ completado 2026-09-14 por sesión paralela (commits `1ca57649`/`3a0e42d7`/`4cdc1970`/`c4ddb217`, BREAKING: vars `VANTA_*` → `VANTADB_*`; excepciones: test `llm.rs`, `ENV_REPORTED_VERSION`, `OTEL_*`). Fila removida del catálogo en auditoría backlog misma fecha.
 
 - **EXE-08** (Utopia a futuro) - ✅ completado 2026-09-14 en auditoría: DoD era "fila FUT-15 creada o registro equivalente" y FUT-15 ya existe en P24 con triggers. Fila removida del catálogo.
+
+## SKIP campaña FIND 2026-09-15 (plan 2026-09-15-find-correcciones, Gate P owner)
+
+- **FIND-76** (gap `jwt_secret` + link `HTTP_API.md:600`) — ❌ SKIP verificado stale 2026-09-15: `validate-docs-coverage.ps1` EXIT 0 (0 gaps), `CONFIGURATION.md:45` documenta `jwt_secret`, link `HTTP_API.md:600` → `.opencode/references/research-modules.md` existe. Ambos sub-items resueltos; owner aprobó SKIP en Gate P. Fila removida sin completar.

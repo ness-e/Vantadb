@@ -174,3 +174,9 @@ aliases: []
 ## Fuentes
 - `docs/Backlog.md` fases security/audit.
 - `docs/historial/autopsias-2026-06-19.md` (AUD-01..44).
+
+### FIND-80: seed corpus + crash upload + fuzz-pr (fuzz decorativo → real)
+- **Fecha:** 2026-09-15
+- **Objetivo:** 4 seeds mínimos (59B, resto por cache) + upload corpus/crashes en `fuzz-40.yml` + doc fuzz-pr aditiva; ci-gate existente intacto.
+- **Resultado:** ✅ `cargo check --bins` 0 + actionlint 0 + diff-check + review approve.
+- **Commit:** e3260652
