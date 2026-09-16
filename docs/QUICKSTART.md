@@ -212,3 +212,5 @@ BM25 text retrieval, Hybrid Retrieval v1, JSONL export, and text-index audit.
 
 It does not cover IQL/LISP/DQL, MCP, enterprise features, cloud, plugins, or graph database behavior.
 Remote Ollama/LLM integration remains an external optional path; the preferred offline path is now `embed-local` (no external service). See `docs/operations/EXPERIMENTAL_FEATURES.md` for the full boundary.
+
+> For runnable examples beyond this quickstart, see [examples/](../examples/README.md) (demo + Colab).
