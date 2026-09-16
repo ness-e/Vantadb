@@ -8,6 +8,7 @@ on:
       - 'docs/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'vanta-memory/**'
       - '*.md'
       - '.github/workflows/rustdoc-70.yml'
   pull_request:
@@ -17,6 +18,7 @@ on:
       - 'docs/**'
       - 'Cargo.toml'
       - 'Cargo.lock'
+      - 'vanta-memory/**'
       - '*.md'
       - '.github/workflows/rustdoc-70.yml'
   workflow_dispatch:
