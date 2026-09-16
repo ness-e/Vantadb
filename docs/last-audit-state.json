@@ -1,7 +1,1 @@
-{
-  "timestamp": "2026-08-25T03:10:11-04:00",
-  "mode": "full",
-  "veredicto": "PASS",
-  "findings_critical": 0,
-  "report_file": "docs/reviews/audit-full-20260825-031011.md"
-}
+{"findings_critical":0,"mode":"quick","report_file":"docs/reviews/audit-quick-20260916-061609.md","timestamp":"2026-09-16T06:16:09Z","veredicto":"FAIL"}
