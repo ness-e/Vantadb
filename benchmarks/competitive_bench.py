@@ -26,6 +26,12 @@ Supports glove-100-angular, sift-128-euclidean, and synthetic datasets.
    (`np.linalg.norm`), no JIT ground-truth (compute_ground_truth), no warmup,
    and no median-of-3 iterations. Any comparison against those numbers is
    approximate only.
+
+3. WINDOWS TEARDOWN (FIND-72) — every local DB teardown path uses
+   shutil.rmtree(..., ignore_errors=True). Windows keeps file locks
+   (WinError 32) on recently-closed DB handles (VantaDB, LanceDB, ChromaDB,
+   Qdrant embedded, Milvus lite); without ignore_errors a stale lock crashes
+   teardown. Cleanup dirs are regenerable scratch.
 """
 
 import argparse
@@ -236,7 +242,7 @@ def compute_ground_truth(train_vectors, test_vectors, metric, top_k=100):
 def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, top_k, batch_size=0):
     print("\nBenchmarking VantaDB...")
     if os.path.exists(db_path):
-        shutil.rmtree(db_path)
+        shutil.rmtree(db_path, ignore_errors=True)
 
     rss_start = get_current_rss()
     
@@ -358,7 +364,7 @@ def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, to
 def bench_lancedb(db_path, train_vectors, test_vectors, ground_truth, metric, top_k):
     print("\nBenchmarking LanceDB...")
     if os.path.exists(db_path):
-        shutil.rmtree(db_path)
+        shutil.rmtree(db_path, ignore_errors=True)
 
     rss_start = get_current_rss()
     
@@ -449,7 +455,7 @@ def bench_lancedb(db_path, train_vectors, test_vectors, ground_truth, metric, to
 def bench_chromadb(db_path, train_vectors, test_vectors, ground_truth, metric, top_k):
     print("\nBenchmarking ChromaDB...")
     if os.path.exists(db_path):
-        shutil.rmtree(db_path)
+        shutil.rmtree(db_path, ignore_errors=True)
 
     rss_start = get_current_rss()
     
@@ -556,7 +562,7 @@ def bench_qdrant(db_path, train_vectors, test_vectors, ground_truth, metric, top
         return None
     print("\nBenchmarking Qdrant (embedded local mode, no docker)...")
     if os.path.exists(db_path):
-        shutil.rmtree(db_path)
+        shutil.rmtree(db_path, ignore_errors=True)
 
     rss_start = get_current_rss()
     dim = train_vectors.shape[1]
