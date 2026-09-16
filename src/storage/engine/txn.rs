@@ -155,6 +155,10 @@ impl TxnManager {
     /// `None` = zero or >1 active txns. One lock pass per call — callers
     /// amortize across a chunk (ERR-037), never per id in a loop.
     /// The impossible len==1-but-empty set degrades to `None` (AUD-031).
+    /// Rayon-only: the sole caller (`existing_for_batch_many`) is
+    /// `#[cfg(feature = "rayon")]` — without the gate this method is dead
+    /// code (FIND-93) when dependents build with `default-features = false`.
+    #[cfg(feature = "rayon")]
     pub(crate) fn cloned_sole_buffer(&self) -> Option<Vec<BufferedWrite>> {
         let active = self.active.lock();
         if active.len() != 1 {
