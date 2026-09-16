@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 6a794efa-ad83-4a19-9fb8-5e6385f36016
 > **Inicio:** 2026-09-16
-> **Estado:** ⏳ EN PROGRESO (EMB-10 ✅ + Wave1 ✅ 2026-09-16; Wave2 siguiente)
+> **Estado:** ⏳ EN PROGRESO (EMB-10 ✅ + Wave1 ✅ + Wave2 ✅ 2026-09-16; Wave3 siguiente)
 > **Fuente:** pedido owner 2026-09-16 + FIND-99 (dummy `embed_texts`) + inventario verificado `embeddings/` + Propuesta (matriz REAL/PARCIAL)
 > **Autonomous:** false
 > **FAIL_MODE:** `parallel` (MAX 3; secuencial interno si colisionan archivos)
@@ -111,7 +111,7 @@ Q1→asistente con defaults (Enter=auto, configurable); Q2→3 en disco + resto 
 - **Referencias:** `.opencode/rules/api-contract.md` (superficie MCP) + `server-mcp.md` + clean-code Apéndice V + doubt-driven-development (falso-positivo es peor que error).
 - **Skills:** campaign-executor, progreso, systematic-debugging, test-driven-development, codebase-memory, api-and-interface-design, doubt-driven-development.
 - **Herramientas:** `cargo test -p vantadb-mcp`, MCP stdio cat test, `codegraph_explore`, `campaign_verify_cmd`.
-- Task file `docs/tasks/EMB-13.md` · ⬜ PENDING · Ruta vanta-worker.
+- Task file `docs/tasks/EMB-13.md` · ✅ COMPLETED 2026-09-16 (`ad8af1d1`) · Ruta vanta-worker.
 
 **Task EMB-16: prefijos e5 + calidad por familia**
 - Appetite 4h · 🟢 · 🟡 · `src/llm.rs` (embed impl, pooling), manifest (familias)
@@ -127,7 +127,7 @@ Q1→asistente con defaults (Enter=auto, configurable); Q2→3 en disco + resto 
 - **Referencias:** core-engine.md + source-driven-development.
 - **Skills:** campaign-executor, progreso, test-driven-development, source-driven-development, systematic-debugging.
 - **Herramientas:** `cargo test -p vantadb`, cat test con umbrales, `campaign_verify_cmd`.
-- Task file `docs/tasks/EMB-16.md` · ⬜ PENDING · Ruta vanta-worker.
+- Task file `docs/tasks/EMB-16.md` · ✅ COMPLETED 2026-09-16 (`be6a3c27`) · Ruta vanta-worker.
 
 **Task EMB-18: regla una-dim-por-base (Q4: bloquear+guiar)**
 - Appetite 4h · 🟢 · 🟡 · arranque server MCP (`server.rs`), `error.rs:132` (mismatch existe), `reindex_hnsw_from_text`
@@ -143,7 +143,7 @@ Q1→asistente con defaults (Enter=auto, configurable); Q2→3 en disco + resto 
 - **Referencias:** server-mcp.md + documentation-and-adrs + doubt-driven-development.
 - **Skills:** campaign-executor, progreso, test-driven-development, documentation-and-adrs, doubt-driven-development.
 - **Herramientas:** `cargo test -p vantadb-mcp`, MCP stdio (provocar mismatch), `campaign_verify_cmd`.
-- Task file `docs/tasks/EMB-18.md` · ⬜ PENDING · Ruta vanta-worker.
+- Task file `docs/tasks/EMB-18.md` · ✅ COMPLETED 2026-09-16 (`43405be3`) · Ruta vanta-worker.
 
 ### Wave3 — cableado real II (tools.rs, solo para no colisionar con EMB-13)
 
@@ -270,14 +270,14 @@ FIND-99 (dummy `embed_texts` + sin auto-embed) queda como épica padre: la cierr
 
 === RECITATION ===
 Objetivo activo: PLAN embeddings-auto (EMB-10..20)
-Estado: act (EMB-10 ✅ + Wave1 ✅, Wave2 siguiente)
-Última acción: Wave1 cerrada (EMB-11 `a3c4d903` + EMB-12 `f80b9886`, ambas review approve) + progreso (Backlog ✅ + avance operaciones) — EMB-12 no necesitó resume: el corte no devolvió ID pero el trabajo estaba completo y commiteado (verificado, no re-delegado)
+Estado: act (EMB-10 ✅ + Wave1 ✅ + Wave2 ✅, Wave3 siguiente)
+Última acción: Wave2 cerrada (EMB-13 `ad8af1d1` + EMB-16 `be6a3c27` + EMB-18 `43405be3`, las 3 review approve) + progreso (Backlog ✅ + avance bindings/core-engine)
 Resultado: ✅
-Próxima acción: Wave2 (EMB-13 + EMB-16 + EMB-18 en paralelo, MAX 3)
+Próxima acción: Wave3 (EMB-14 auto-embed put/put_batch)
 Contrato: plan file con 11 tasks DO + waves + gates; EMB-10 verde verificado
-Invariantes: binario global NO instalado (PID 3864); Backlog EMB-10/11/12 ✅ + FIND-100/101/102 ⬜; ORT persistente en LOCALAPPDATA (EMB-11)
+Invariantes: binario global NO instalado (PID 3864); Backlog EMB-10/11/12/13/16/18 ✅ + EMB-14/15/17/19/20 ⬜ + FIND-100/101/102 ⬜; ORT persistente en LOCALAPPDATA (EMB-11)
 Deuda: ninguna (FIND-100/101/102 trackeados)
-Próxima tarea si completa: EMB-13/16/18 (Wave2)
+Próxima tarea si completa: EMB-14 (Wave3)
 last-synced: 2026-09-16
 === END RECITATION ===
 
@@ -290,4 +290,37 @@ Resultado: OK
 Próxima acción: Orquestador: push via vanta-lead + filas FIND-A..D + Wave1 EMB-11/12
 Contrato: verificacion: cargo build OK 13m36s + libort 4.64MB/libtokenizers 14.40MB + MISMO binario local senal (ranking 12,11,14,13; pares>=0.91 vs impares<=0.78) + ollama-sin-server 200+WARN sin crash + clippy 0 warnings + fmt clean + llm lib 4/4 + OCR sin Critical/High + commit a0f65d29 | evidencia: target/debug/vanta-cli.exe 23.7MB, srv4.log sin Gather-error, HTTP JSON ranking, sanity_embed.py numeros, srv8.log WARN+500-con-server-vivo | artefactos: src/llm.rs (fix), docs/tasks/EMB-10.md, commit a0f65d29 (NO push) | invariantes: no tocar prohibidos (WIP ajeno intacto), no instalar global (PID 3864, EMB-19), ORT 1.30 solo en Temp (fuera del repo) | deuda: FIND-A (ort expect/abort vs graceful), FIND-B (dummy silencioso->EMB-13), FIND-C (query CLI read-only), FIND-D (sdk_serialization no compila); Backlog NO tocado por orden; EMB-11 debe descargar nativo >=1.27 | queda_pendiente: push via vanta-lead; crear filas FIND (orquestador); EMB-11/12 Wave1
 Próxima tarea si completa: EMB-11
+=== END RECITATION ===
+
+=== RECITATION EMB-13 ===
+Campaign ID: 6a794efa-ad83-4a19-9fb8-5e6385f36016
+Objetivo activo: EMB-13 embed_texts al proveedor real + fallback avisado
+Estado: completed
+Última acción: Steps 1-3 + cfg-gate fix + tests 7/7 ambas cfgs + cat test real/fallback + verify scope + OCR + commit ad8af1d1 + lessons/decisions
+Resultado: OK
+Próxima acción: Orquestador: push via vanta-lead; next EMB-14 (tools.rs:1303-1360, tras este commit)
+Contrato: Contrato: señal real par=0.9282 vs impares 0.8427/0.8366 con fallback:false + sin modelo fallback:true+warning nunca error duro + budgeting 128/25k intacto + tests nuevos; verificacion: fmt ✅ + clippy -D warnings ✅ + test_embed_texts 7/7 default y features ✅ + full MCP 181/181 ✅ + diff --check ✅ + OCR advisory sin Critical/High + commit ad8af1d1 | evidencia: eprintln señal en test features+local; 93/93 mcp_tests; commit ad8af1d1 3 files | artefactos: vantadb-mcp/src/handlers/tools.rs, vantadb-mcp/tests/test_embed_texts.rs, docs/tasks/EMB-13.md, commit ad8af1d1 (sin push) | invariantes: budgeting intacto; src/llm.rs no editado; sin unwrap en prod; WIP ajeno excluido del commit | deuda: dim_mismatch_guidance dead_code pre-existente bajo --tests --features (dueño EMB-18/Wave2; sin FIND aun); vanta-review no disponible (deuda leve) | queda_pendiente: push via vanta-lead; EMB-14 mismo archivo secuencial
+Próxima tarea si completa: EMB-14
+=== END RECITATION ===
+
+=== RECITATION EMB-16 ===
+Campaign ID: 6a794efa-ad83-4a19-9fb8-5e6385f36016
+Objetivo activo: EMB-16 prefijos e5 (query:/passage:) por familia + margen medido
+Estado: in-progress
+Última acción: Paso 0c (core-engine.md + clean-code Ap. V + Notion 4 paginas) + SDP 8 skills cargadas (7 + descarte frontend-ui) + codegraph blast radius + gate 0 hits + model card e5 verificada + task file EMB-16.md creado con Spec e Impacto Regla 0
+Resultado: PARTIAL
+Próxima acción: Step 1 Slice 1: agregar 7 tests RED por familia en src/llm.rs y confirmar que fallan
+Contrato: verificacion: DISCOVERY completo + task file docs/tasks/EMB-16.md creado; gate 0 hits query:/passage: en src/llm.rs reverificado 2026-09-16; model card e5 oficial verificada HTTP 200 | evidencia: rg sin matches en src/llm.rs; README intfloat (query:/passage: retrieval asimetrico); sanity_embed.py (MiniLM crudo); ORT persistente %LOCALAPPDATA%/VantaDB/onnxruntime + 3 modelos en disco | artefactos: docs/tasks/EMB-16.md | invariantes: no tocar prohibidos (tools.rs EMB-13, server.rs EMB-18, Cargo.toml, Backlog/avance); WIP ajeno en worktree excluido del commit; sin push (via vanta-lead) | deuda: ninguna | queda_pendiente: Step 1 slices RED-GREEN + Step 2 cat test margen + cierre
+Próxima tarea si completa: EMB-14
+=== END RECITATION ===
+
+=== RECITATION EMB-18 ===
+Campaign ID: 6a794efa-ad83-4a19-9fb8-5e6385f36016
+Objetivo activo: EMB-18 regla una-dim-por-base (Q4 bloquear+guiar)
+Estado: completed
+Última acción: Steps 0-3 completos: DISCOVERY + RED + GREEN + suite/clippy/fmt + commit parcial 43405be3
+Resultado: OK
+Próxima acción: Orquestador: push via vanta-lead + review P2-01 + recitation EMB-18 en plan file
+Contrato: verificacion: cargo test -p vantadb-mcp -j 2 todo verde (93 mcp_tests incl. 2 nuevos emb18) + fmt --check + clippy -D warnings 0 + pre-commit hooks ok + commit 43405be3 | evidencia: tools.rs helper dim_mismatch_guidance + 4 sites, mcp_tests.rs emb18 x2, RED fallo previo confirmado | artefactos: docs/tasks/EMB-18.md, commit 43405be3 (parcial, solo hunks propios) | invariantes: prefijo AUD-046 intacto, base vacia sin gate, embargo EMB-13/EMB-16/archivos prohibidos intactos en worktree | deuda: ninguna | queda_pendiente: push via vanta-lead; review P2-01 por agente distinto; recitation plan file (orquestador)
+Próxima tarea si completa: EMB-14
 === END RECITATION ===
