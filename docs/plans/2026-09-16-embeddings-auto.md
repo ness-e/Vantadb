@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 6a794efa-ad83-4a19-9fb8-5e6385f36016
 > **Inicio:** 2026-09-16
-> **Estado:** ⏳ EN PROGRESO (EMB-10 ✅ + Wave1 ✅ + Wave2 ✅ + Wave3 ✅ 2026-09-16; Wave4 siguiente)
+> **Estado:** ⏳ EN PROGRESO (EMB-10 ✅ + Wave1 ✅ + Wave2 ✅ + Wave3 ✅ + Wave4 ✅ 2026-09-16; Wave5 siguiente)
 > **Fuente:** pedido owner 2026-09-16 + FIND-99 (dummy `embed_texts`) + inventario verificado `embeddings/` + Propuesta (matriz REAL/PARCIAL)
 > **Autonomous:** false
 > **FAIL_MODE:** `parallel` (MAX 3; secuencial interno si colisionan archivos)
@@ -270,14 +270,14 @@ FIND-99 (dummy `embed_texts` + sin auto-embed) queda como épica padre: la cierr
 
 === RECITATION ===
 Objetivo activo: PLAN embeddings-auto (EMB-10..20)
-Estado: act (EMB-10 ✅ + Wave1 ✅ + Wave2 ✅ + Wave3 ✅, Wave4 siguiente)
-Última acción: Wave3 cerrada (EMB-14 `11de0d42`, review approve) + FIND-99 épica cerrada + progreso (Backlog ✅ + avance bindings)
+Estado: act (EMB-10 ✅ + Wave1 ✅ + Wave2 ✅ + Wave3 ✅ + Wave4 ✅, Wave5 siguiente)
+Última acción: Wave4 cerrada (EMB-15 `9f4fd725` + EMB-17 `34b6ca63`, ambas review approve) + progreso (Backlog ✅ + avance bindings)
 Resultado: ✅
-Próxima acción: Wave4 (EMB-15 + EMB-17, secuencial interno si colisionan en tools.rs)
+Próxima acción: Wave5 (EMB-19 e2e + EMB-20 docs)
 Contrato: plan file con 11 tasks DO + waves + gates; EMB-10 verde verificado
-Invariantes: binario global NO instalado (PID 3864); Backlog EMB-10/11/12/13/14/16/18 + FIND-99 ✅ + EMB-15/17/19/20 ⬜ + FIND-100/101/102 ⬜; ORT persistente en LOCALAPPDATA (EMB-11)
+Invariantes: binario global NO instalado (PID 3864); Backlog EMB-10/11/12/13/14/15/16/17/18 + FIND-99 ✅ + EMB-19/20 ⬜ + FIND-100/101/102 ⬜; ORT persistente en LOCALAPPDATA (EMB-11)
 Deuda: ninguna (FIND-100/101/102 trackeados)
-Próxima tarea si completa: EMB-15+EMB-17 (Wave4)
+Próxima tarea si completa: EMB-19+EMB-20 (Wave5)
 last-synced: 2026-09-16
 === END RECITATION ===
 
@@ -334,4 +334,26 @@ Resultado: OK
 Próxima acción: Orquestador: push via vanta-lead; next EMB-15 (recall mismo proveedor)
 Contrato: verificacion: RED 4-fail correcto + GREEN 5/5 default y features + real par=0.9282 vs 0.8427/0.8366 fallback:false + fallback ollama-sin-server sin error duro + full default (93+5+7) y features (93+7+5) + fmt/clippy default+features + diff --check + OCR advisory sin Critical/High + commit 11de0d42 | evidencia: test_auto_embed.rs 5 tests; tools.rs try_provider_embed/auto_embed_one/auto_embed_missing + flat+flags single + envelope batch; mcp_tests:3245 re-point; eprintln senal en test features+local | artefactos: commit 11de0d42 (4 files, sin push) | invariantes: diff EMB-13 intacto salvo colateral clippy (re-verificado 7/7); mensajes EMB-18 exactos; sin unwrap prod; sin editar src/llm.rs; WIP ajeno excluido | deuda: vanta-review no disponible (leve, igual que EMB-13); OllamaProvider sin override embed_batch (techo futuro) | queda_pendiente: push via vanta-lead; FIND-99 marcar ✅ (orquestador, con EMB-13); EMB-15 siguiente
 Próxima tarea si completa: EMB-15
+=== END RECITATION ===
+
+=== RECITATION EMB-15 ===
+Campaign ID: 6a794efa-ad83-4a19-9fb8-5e6385f36016
+Objetivo activo: EMB-15 embed de query con el MISMO proveedor + prueba sinonimos
+Estado: completed
+Última acción: Steps 1-3 + verify full + stash-proof 3 fallos + OCR advisory + review approve + commit 9f4fd725 + lessons
+Resultado: OK
+Próxima acción: Orquestador: push via vanta-lead; next EMB-17 (hunks disjuntos verificados)
+Contrato: verificacion: RED 2-fail razon correcta (keys [d1], mode keyword) + GREEN 4/4 default y features+local + full default todo verde + full features sin-model-env todo verde (93 mcp) + fmt/clippy ambas cfgs + diff --check + pre-commit hooks + commit 9f4fd725 | evidencia: search keys=[d1,d0,d2] + recall mode=hybrid con D0(gato); 3 fallos model-env probados pre-existentes via stash (mismo fallo sin diff) | artefactos: tools.rs (3 hunks), test_query_embed.rs (4 tests), docs/tasks/EMB-15.md, commit 9f4fd725 (sin push) | invariantes: shapes respuesta intactos; RRF/ranking intacto; src/llm.rs solo lectura; hunks disjuntos EMB-17; sin unwrap prod; WIP ajeno excluido | deuda: vanta-review no disponible (leve); 3 fallos model-env = HALLAZGO al orquestador (Backlog no tocado por prohibicion) | queda_pendiente: push via vanta-lead; EMB-17 luego EMB-19
+Próxima tarea si completa: EMB-17
+=== END RECITATION ===
+
+=== RECITATION EMB-17 ===
+Campaign ID: 6a794efa-ad83-4a19-9fb8-5e6385f36016
+Objetivo activo: EMB-17 parametro model honrado (switch por nombre, Q2)
+Estado: completed
+Última acción: Steps 1-3 + CWD-fix + manual_find-fix + verify scope + OCR + commit 34b6ca63 + lessons
+Resultado: OK
+Próxima acción: Orquestador: push via vanta-lead; next EMB-19
+Contrato: verificacion: RED 1-fail razon correcta (unknown Ok-ecoreo) + GREEN 3/3 default + test_embed_texts 7/7 + auto_embed 5/5 + query_embed 4/4 + mcp_tests 93/93 + fmt + clippy default y features + diff --check + OCR advisory sin Critical/High + commit 34b6ca63 | evidencia: test_model_switch.rs 3 tests; tools.rs hunks 2591/3318/3354 disjuntos EMB-15; abort ORT features con paridad test_embed_texts (FIND-100 pre-existente) | artefactos: tools.rs, test_model_switch.rs, test_embed_texts.rs (1L comment), docs/tasks/EMB-17.md, commit 34b6ca63 (sin push) | invariantes: shapes embed_texts intactos; budgeting intacto; fallback Q5 para None; mensajes EMB-18 exactos; prefijos EMB-16 intactos; hunks EMB-15 intactos; sin unwrap prod; sin editar src/llm.rs; WIP ajeno excluido | deuda: vanta-review no disponible (leve); ORT features-run = HALLAZGO (FIND-100, Backlog no tocado) | queda_pendiente: push via vanta-lead; EMB-19 luego EMB-20
+Próxima tarea si completa: EMB-19
 === END RECITATION ===

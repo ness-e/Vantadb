@@ -1009,3 +1009,15 @@ aliases: []
 - **Objetivo:** put sin vector guarda CON vector del proveedor activo (batch único); provisto byte-exacto; fallo → guarda + `fallback:true`+warning.
 - **Resultado:** ✅ 5 tests cfg-agnósticos + señal real par 0.9282 + full default/features verde + clippy 0; review P2-01 approve. FIND-99 épica cerrada.
 - **Commit:** 11de0d42
+
+### EMB-15: embed de query con el MISMO proveedor + sinónimos
+- **Fecha:** 2026-09-16
+- **Objetivo:** `search_memory`/`memory_search`/`with_method`/`multi` + `memory_recall` embeben query vía `embed_query` activo; sin proveedor → keyword avisado.
+- **Resultado:** ✅ 4 tests + full default/features verde + clippy 0 + sinónimos felino↔gato; review P2-01 approve.
+- **Commit:** 9f4fd725
+
+### EMB-17: parámetro `model` honrado (switch por nombre, Q2)
+- **Fecha:** 2026-09-16
+- **Objetivo:** `model: "<id manifest>"` usa ese modelo (caché tope 2 avisado) + desconocido → error con lista + sin-archivos → download hint.
+- **Resultado:** ✅ 3 tests + suites EMB-13/14/15 intactas + mcp 93/93 + clippy ambas cfgs; review P2-01 approve.
+- **Commit:** 34b6ca63
