@@ -203,6 +203,8 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 
 | ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado |
 |----|-----------|----------|---------------|----------|-----------|--------|
+| `FIND-96` | Media | cargo audit: rustls 0.23.43 acepta mensajes handshake TLS 1.3 en niveles de cifrado incorrectos (RUSTSEC-2026-0285, CVSS 5.3) — bump a >=0.23.45 vía `cargo update -p rustls` + re-run audit. Origen: docs/reviews/audit-quick-20260916-061609.md (H01-CODE-002) | `Cargo.lock:4798`, `Cargo.toml` (cadena reqwest/hyper-rustls/tokio-rustls) | 🟢 | 🟡 Media | ✅ Completada 2026-09-16 (`cargo update -p rustls` 0.23.43→0.23.45 + webpki/aws-lc; audit ya no reporta RUSTSEC-2026-0285; `check --workspace --tests` 2m12s ✅) |
+| `FIND-97` | Media | cargo audit: rsa 0.9.10 vía jsonwebtoken 11.0.0 — Marvin Attack sidechannel (RUSTSEC-2023-0071, CVSS 5.9), sin fix upstream. Exposición acotada (JWT HS256-only, `src/server/jwt.rs:9,64-67`, path RSA no ejercido; `rsa` entra solo vía feature `rust_crypto` de jsonwebtoken — cadena única verificada con `cargo tree`) — evaluar cambiar feature `rust_crypto` → `aws_lc_rs` para dropear el crate `rsa` (contrapartida: compila C, build más pesado) o aceptar riesgo con justificación. Origen: docs/reviews/audit-quick-20260916-061609.md (H01-CODE-001) | `src/server/jwt.rs`, `Cargo.lock:4740` | 🟢 | 🟡 Media | ⬜ Pendiente |
 
 _Campaña FIND 2026-09-15/16: 31 filas completadas migradas a `docs/avance/` (ver `meta.md`); FIND-76 SKIP → `historial/backlog-history.md`._
 
