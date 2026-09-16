@@ -1236,13 +1236,7 @@ pub fn handle_tools_call(
             if let Some(vector) = &vector {
                 if let Some(expected) = index_vector_dim(storage) {
                     if vector.len() != expected {
-                        return Ok(error_content(
-                            vantadb::Error::DimensionMismatch {
-                                expected,
-                                got: vector.len(),
-                            }
-                            .to_string(),
-                        ));
+                        return Ok(error_content(dim_mismatch_guidance(expected, vector.len())));
                     }
                 }
             }
@@ -1337,13 +1331,10 @@ pub fn handle_tools_call(
                 for input in &inputs {
                     if let Some(vector) = &input.vector {
                         if vector.len() != expected {
-                            return Ok(error_content(
-                                vantadb::Error::DimensionMismatch {
-                                    expected,
-                                    got: vector.len(),
-                                }
-                                .to_string(),
-                            ));
+                            return Ok(error_content(dim_mismatch_guidance(
+                                expected,
+                                vector.len(),
+                            )));
                         }
                     }
                 }
@@ -1792,13 +1783,7 @@ pub fn handle_tools_call(
             // garbage distances (all ~0.0) with success.
             if let Some(expected) = index_vector_dim(storage) {
                 if vector.len() != expected {
-                    return Ok(error_content(
-                        vantadb::Error::DimensionMismatch {
-                            expected,
-                            got: vector.len(),
-                        }
-                        .to_string(),
-                    ));
+                    return Ok(error_content(dim_mismatch_guidance(expected, vector.len())));
                 }
             }
 
@@ -2844,6 +2829,20 @@ pub fn handle_tools_call(
 /// is derived from the first node that carries a vector. An empty index returns
 /// `None` and dimension validation is skipped — there is nothing to compare
 /// against yet, and an empty result set is the correct answer anyway.
+/// EMB-18 (Q4 bloquear+guiar): actionable hint appended to every
+/// dimension-mismatch rejection. Keeps the `Vector dimension mismatch:
+/// expected {expected}, got {got}` prefix (AUD-046/MCP-04 contract) and
+/// tells the agent how to recover: re-embed with the base dim, or re-ingest
+/// with the new dim then `rebuild_index`. Never auto-reindexes.
+fn dim_mismatch_guidance(expected: usize, got: usize) -> String {
+    format!(
+        "Vector dimension mismatch: expected {expected}, got {got}. Hint: one-dimension-per-base — \
+         the base already holds {expected}d vectors. Re-embed with the original dim, or re-ingest all \
+         records with the new dim then run the 'rebuild_index' tool \
+         (SDK: reindex_hnsw_from_text(namespace, page_size)) to regenerate the index."
+    )
+}
+
 fn index_vector_dim(storage: &Arc<StorageEngine>) -> Option<usize> {
     // F3X: `vec_index()` is `dyn IndexPort` (no `.nodes` field). Walk the
     // trait's id snapshot + cloned vectors (cold per-request validation path,
@@ -3027,11 +3026,7 @@ fn parse_search_request(
         if let Some(expected) = index_vector_dim(storage) {
             if query_vector.len() != expected {
                 return Ok(ParsedSearchRequest::Rejected(error_content(
-                    vantadb::Error::DimensionMismatch {
-                        expected,
-                        got: query_vector.len(),
-                    }
-                    .to_string(),
+                    dim_mismatch_guidance(expected, query_vector.len()),
                 )));
             }
         }

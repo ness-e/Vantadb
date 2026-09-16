@@ -4964,3 +4964,112 @@ fn err_mcp_01_std_factories_keep_null_data() {
         "legacy factories must not carry data: {j}"
     );
 }
+
+// ── EMB-18 (Q4 bloquear+guiar): dim mismatch lleva guía de regeneración ──
+
+/// Seed helper: put one 4d vector so the base defines dim=4.
+fn emb18_seed_4d(executor: &Executor, storage: &Arc<StorageEngine>, ns: &str) {
+    let seed = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": ns, "key": "seed", "payload": "seed",
+            "vector": [1.0, 0.0, 0.0, 0.0]
+        }
+    }));
+    let res = handle_tools_call(&seed, executor, storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "seed 4d put must succeed: {res:?}"
+    );
+}
+
+/// Mismatch text shared by all 4 gates: expected/got + regen command.
+fn emb18_assert_guidance(text: &str) {
+    assert!(
+        text.contains("Vector dimension mismatch: expected 4, got 2"),
+        "must name expected/got dims, got: {text}"
+    );
+    assert!(
+        text.contains("rebuild_index"),
+        "must name the MCP regen tool, got: {text}"
+    );
+    assert!(
+        text.contains("reindex_hnsw_from_text"),
+        "must name the SDK regen fn, got: {text}"
+    );
+}
+
+#[test]
+fn emb18_dim_mismatch_blocks_with_regen_guidance() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+    emb18_seed_4d(&executor, &storage, "emb18_ns");
+
+    // 1. memory_put with 2d vector → blocked with guidance.
+    let bad_put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "emb18_ns", "key": "bad", "payload": "bad",
+            "vector": [0.5, 0.5]
+        }
+    }));
+    let put_res = handle_tools_call(&bad_put, &executor, &storage, &cfg).unwrap();
+    assert_eq!(put_res["isError"], true, "wrong-dim put must error");
+    emb18_assert_guidance(put_res["content"][0]["text"].as_str().unwrap());
+
+    // 2. memory_put_batch with 2d vector → blocked with guidance.
+    let bad_batch = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {"inputs": [
+            {"namespace": "emb18_ns", "key": "b1", "payload": "ok"},
+            {"namespace": "emb18_ns", "key": "b2", "payload": "v",
+             "vector": [1.0, 2.0]}
+        ]}
+    }));
+    let batch_res = handle_tools_call(&bad_batch, &executor, &storage, &cfg).unwrap();
+    assert_eq!(batch_res["isError"], true, "wrong-dim batch must error");
+    emb18_assert_guidance(batch_res["content"][0]["text"].as_str().unwrap());
+
+    // 3. search_semantic with 2d query vector → blocked with guidance.
+    let bad_search = Some(json!({
+        "name": "search_semantic",
+        "arguments": {"vector": [0.5, 0.5], "k": 5}
+    }));
+    let search_res = handle_tools_call(&bad_search, &executor, &storage, &cfg).unwrap();
+    assert_eq!(search_res["isError"], true, "wrong-dim query must error");
+    emb18_assert_guidance(search_res["content"][0]["text"].as_str().unwrap());
+
+    // 4. search_memory with 2d query_vector → blocked with guidance.
+    let bad_mem = Some(json!({
+        "name": "search_memory",
+        "arguments": {"namespace": "emb18_ns", "query_vector": [0.5, 0.5]}
+    }));
+    let mem_res = handle_tools_call(&bad_mem, &executor, &storage, &cfg).unwrap();
+    assert_eq!(
+        mem_res["isError"], true,
+        "wrong-dim search_memory must error"
+    );
+    emb18_assert_guidance(mem_res["content"][0]["text"].as_str().unwrap());
+}
+
+#[test]
+fn emb18_empty_base_defines_dim_no_gate() {
+    // Pre-mortem: base vacía/mixta-vacía NUNCA gatea — el primer put con
+    // vector define la dim (aquí 2d, distinta del default 384d).
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+    let first = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "emb18_empty", "key": "first", "payload": "hi",
+            "vector": [0.5, 0.5]
+        }
+    }));
+    let res = handle_tools_call(&first, &executor, &storage, &cfg).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "first vector put on empty base must succeed (no gate): {res:?}"
+    );
+}
