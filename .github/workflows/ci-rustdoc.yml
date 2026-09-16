@@ -22,6 +22,7 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'vantadb-*/**'
+      - 'vanta-memory/**'
       - 'providers/**'
   pull_request:
     branches: ["main"]
@@ -31,6 +32,7 @@ on:
       - 'Cargo.toml'
       - 'Cargo.lock'
       - 'vantadb-*/**'
+      - 'vanta-memory/**'
       - 'providers/**'
   workflow_dispatch:
 
