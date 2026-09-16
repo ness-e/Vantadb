@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 6a794efa-ad83-4a19-9fb8-5e6385f36016
 > **Inicio:** 2026-09-16
-> **Estado:** ⏳ EN PROGRESO (EMB-10 ✅ 2026-09-16; Wave1 en curso)
+> **Estado:** ⏳ EN PROGRESO (EMB-10 ✅ + Wave1 ✅ 2026-09-16; Wave2 siguiente)
 > **Fuente:** pedido owner 2026-09-16 + FIND-99 (dummy `embed_texts`) + inventario verificado `embeddings/` + Propuesta (matriz REAL/PARCIAL)
 > **Autonomous:** false
 > **FAIL_MODE:** `parallel` (MAX 3; secuencial interno si colisionan archivos)
@@ -77,7 +77,7 @@ Q1→asistente con defaults (Enter=auto, configurable); Q2→3 en disco + resto 
 - **Referencias:** writing-guidelines (mensajes claros) + security-and-hardening (secrets).
 - **Skills:** campaign-executor, progreso, incremental-implementation, test-driven-development, writing-guidelines, security-and-hardening, source-driven-development.
 - **Herramientas:** `pwsh -NoProfile`, `python embeddings/download.py --check`, `campaign_verify_cmd`.
-- Task file `docs/tasks/EMB-11.md` · ⬜ PENDING · Ruta vanta-worker.
+- Task file `docs/tasks/EMB-11.md` · ✅ COMPLETED 2026-09-16 (`a3c4d903`) · Ruta vanta-worker.
 
 **Task EMB-12: script lanzador (env + arranque)**
 - Appetite 4h · 🟢 · 🟠 · `vanta-mcp-local.ps1` (nuevo), `opencode.jsonc:77-88`, `config.rs:935-940`
@@ -93,7 +93,7 @@ Q1→asistente con defaults (Enter=auto, configurable); Q2→3 en disco + resto 
 - **Referencias:** security-and-hardening + `docs/api/MCP.md:18,218` (stdio, perfil full).
 - **Skills:** campaign-executor, progreso, incremental-implementation, security-and-hardening, writing-guidelines.
 - **Herramientas:** `pwsh`, MCP stdio smoke (`initialize` + `embed_texts`), `campaign_verify_cmd`.
-- Task file `docs/tasks/EMB-12.md` · ⬜ PENDING · Ruta vanta-worker.
+- Task file `docs/tasks/EMB-12.md` · ✅ COMPLETED 2026-09-16 (`f80b9886`) · Ruta vanta-worker.
 
 ### Wave2 — cableado real I (archivos disjuntos: tools.rs / llm.rs / server.rs+docs)
 
@@ -270,12 +270,12 @@ FIND-99 (dummy `embed_texts` + sin auto-embed) queda como épica padre: la cierr
 
 === RECITATION ===
 Objetivo activo: PLAN embeddings-auto (EMB-10..20)
-Estado: act (EMB-10 ✅, Wave1 en curso vía sub-agentes)
-Última acción: EMB-10 cerrado (`a0f65d29`: build + token_type_ids + cat real) + progreso (Backlog ✅ + avance core-engine) + FIND-100/101/102 + plan anotado
+Estado: act (EMB-10 ✅ + Wave1 ✅, Wave2 siguiente)
+Última acción: Wave1 cerrada (EMB-11 `a3c4d903` + EMB-12 `f80b9886`, ambas review approve) + progreso (Backlog ✅ + avance operaciones) — EMB-12 no necesitó resume: el corte no devolvió ID pero el trabajo estaba completo y commiteado (verificado, no re-delegado)
 Resultado: ✅
-Próxima acción: Wave1 (EMB-11 wizard + EMB-12 launcher en paralelo) — delegadas; luego Wave2
+Próxima acción: Wave2 (EMB-13 + EMB-16 + EMB-18 en paralelo, MAX 3)
 Contrato: plan file con 11 tasks DO + waves + gates; EMB-10 verde verificado
-Invariantes: binario global NO instalado (PID 3864); Backlog EMB-10 ✅ + FIND-100/101/102 ⬜; ORT 1.30 Temp efímero (EMB-11 lo re-descarga)
+Invariantes: binario global NO instalado (PID 3864); Backlog EMB-10/11/12 ✅ + FIND-100/101/102 ⬜; ORT persistente en LOCALAPPDATA (EMB-11)
 Deuda: ninguna (FIND-100/101/102 trackeados)
 Próxima tarea si completa: EMB-13/16/18 (Wave2)
 last-synced: 2026-09-16
