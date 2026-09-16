@@ -1003,3 +1003,9 @@ aliases: []
 - **Objetivo:** mismatch dim → error claro (esperada/obtenida + comando `rebuild_index`/`reindex_hnsw_from_text`) + base vacía sin gate.
 - **Resultado:** ✅ 4 gates (put/put_batch/search_semantic/parse_search) + 2 tests + mcp suite verde + clippy 0; review P2-01 approve.
 - **Commit:** 43405be3
+
+### EMB-14: auto-embed en `memory_put`/`put_batch` (cierra FIND-99 con EMB-13)
+- **Fecha:** 2026-09-16
+- **Objetivo:** put sin vector guarda CON vector del proveedor activo (batch único); provisto byte-exacto; fallo → guarda + `fallback:true`+warning.
+- **Resultado:** ✅ 5 tests cfg-agnósticos + señal real par 0.9282 + full default/features verde + clippy 0; review P2-01 approve. FIND-99 épica cerrada.
+- **Commit:** 11de0d42

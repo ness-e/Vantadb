@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 6a794efa-ad83-4a19-9fb8-5e6385f36016
 > **Inicio:** 2026-09-16
-> **Estado:** ⏳ EN PROGRESO (EMB-10 ✅ + Wave1 ✅ + Wave2 ✅ 2026-09-16; Wave3 siguiente)
+> **Estado:** ⏳ EN PROGRESO (EMB-10 ✅ + Wave1 ✅ + Wave2 ✅ + Wave3 ✅ 2026-09-16; Wave4 siguiente)
 > **Fuente:** pedido owner 2026-09-16 + FIND-99 (dummy `embed_texts`) + inventario verificado `embeddings/` + Propuesta (matriz REAL/PARCIAL)
 > **Autonomous:** false
 > **FAIL_MODE:** `parallel` (MAX 3; secuencial interno si colisionan archivos)
@@ -161,7 +161,7 @@ Q1→asistente con defaults (Enter=auto, configurable); Q2→3 en disco + resto 
 - **Referencias:** api-contract.md + server-mcp.md + clean-code Apéndice V.
 - **Skills:** campaign-executor, progreso, systematic-debugging, test-driven-development, codebase-memory, api-and-interface-design.
 - **Herramientas:** `cargo test -p vantadb-mcp`, MCP stdio (put→get con vector), `campaign_verify_cmd`.
-- Task file `docs/tasks/EMB-14.md` · ⬜ PENDING · Ruta vanta-worker.
+- Task file `docs/tasks/EMB-14.md` · ✅ COMPLETED 2026-09-16 (`11de0d42`) · Ruta vanta-worker. FIND-99 épica cerrada (EMB-13+EMB-14).
 
 ### Wave4 — cableado real III (tools.rs recall + llm.rs sesiones; secuencial interno si colisionan)
 
@@ -270,14 +270,14 @@ FIND-99 (dummy `embed_texts` + sin auto-embed) queda como épica padre: la cierr
 
 === RECITATION ===
 Objetivo activo: PLAN embeddings-auto (EMB-10..20)
-Estado: act (EMB-10 ✅ + Wave1 ✅ + Wave2 ✅, Wave3 siguiente)
-Última acción: Wave2 cerrada (EMB-13 `ad8af1d1` + EMB-16 `be6a3c27` + EMB-18 `43405be3`, las 3 review approve) + progreso (Backlog ✅ + avance bindings/core-engine)
+Estado: act (EMB-10 ✅ + Wave1 ✅ + Wave2 ✅ + Wave3 ✅, Wave4 siguiente)
+Última acción: Wave3 cerrada (EMB-14 `11de0d42`, review approve) + FIND-99 épica cerrada + progreso (Backlog ✅ + avance bindings)
 Resultado: ✅
-Próxima acción: Wave3 (EMB-14 auto-embed put/put_batch)
+Próxima acción: Wave4 (EMB-15 + EMB-17, secuencial interno si colisionan en tools.rs)
 Contrato: plan file con 11 tasks DO + waves + gates; EMB-10 verde verificado
-Invariantes: binario global NO instalado (PID 3864); Backlog EMB-10/11/12/13/16/18 ✅ + EMB-14/15/17/19/20 ⬜ + FIND-100/101/102 ⬜; ORT persistente en LOCALAPPDATA (EMB-11)
+Invariantes: binario global NO instalado (PID 3864); Backlog EMB-10/11/12/13/14/16/18 + FIND-99 ✅ + EMB-15/17/19/20 ⬜ + FIND-100/101/102 ⬜; ORT persistente en LOCALAPPDATA (EMB-11)
 Deuda: ninguna (FIND-100/101/102 trackeados)
-Próxima tarea si completa: EMB-14 (Wave3)
+Próxima tarea si completa: EMB-15+EMB-17 (Wave4)
 last-synced: 2026-09-16
 === END RECITATION ===
 
@@ -323,4 +323,15 @@ Resultado: OK
 Próxima acción: Orquestador: push via vanta-lead + review P2-01 + recitation EMB-18 en plan file
 Contrato: verificacion: cargo test -p vantadb-mcp -j 2 todo verde (93 mcp_tests incl. 2 nuevos emb18) + fmt --check + clippy -D warnings 0 + pre-commit hooks ok + commit 43405be3 | evidencia: tools.rs helper dim_mismatch_guidance + 4 sites, mcp_tests.rs emb18 x2, RED fallo previo confirmado | artefactos: docs/tasks/EMB-18.md, commit 43405be3 (parcial, solo hunks propios) | invariantes: prefijo AUD-046 intacto, base vacia sin gate, embargo EMB-13/EMB-16/archivos prohibidos intactos en worktree | deuda: ninguna | queda_pendiente: push via vanta-lead; review P2-01 por agente distinto; recitation plan file (orquestador)
 Próxima tarea si completa: EMB-14
+=== END RECITATION ===
+
+=== RECITATION EMB-14 ===
+Campaign ID: 6a794efa-ad83-4a19-9fb8-5e6385f36016
+Objetivo activo: EMB-14 auto-embed en memory_put/put_batch (FIND-99 con EMB-13)
+Estado: completed
+Última acción: Steps 1-3 + colateral clippy-features fix + verify full ambas cfgs + OCR + lessons + commit 11de0d42
+Resultado: OK
+Próxima acción: Orquestador: push via vanta-lead; next EMB-15 (recall mismo proveedor)
+Contrato: verificacion: RED 4-fail correcto + GREEN 5/5 default y features + real par=0.9282 vs 0.8427/0.8366 fallback:false + fallback ollama-sin-server sin error duro + full default (93+5+7) y features (93+7+5) + fmt/clippy default+features + diff --check + OCR advisory sin Critical/High + commit 11de0d42 | evidencia: test_auto_embed.rs 5 tests; tools.rs try_provider_embed/auto_embed_one/auto_embed_missing + flat+flags single + envelope batch; mcp_tests:3245 re-point; eprintln senal en test features+local | artefactos: commit 11de0d42 (4 files, sin push) | invariantes: diff EMB-13 intacto salvo colateral clippy (re-verificado 7/7); mensajes EMB-18 exactos; sin unwrap prod; sin editar src/llm.rs; WIP ajeno excluido | deuda: vanta-review no disponible (leve, igual que EMB-13); OllamaProvider sin override embed_batch (techo futuro) | queda_pendiente: push via vanta-lead; FIND-99 marcar ✅ (orquestador, con EMB-13); EMB-15 siguiente
+Próxima tarea si completa: EMB-15
 === END RECITATION ===
