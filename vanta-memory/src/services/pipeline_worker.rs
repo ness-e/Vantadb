@@ -5,8 +5,11 @@
 //! work through TTL locks, retries failures and dead-letters exhausted tasks.
 //! [`MemoryTaskHandler`] wires the task kinds to the existing pipeline
 //! modules: L0 capture (`l0_recorder`) → L1 extraction + dedup
-//! (`l1_extractor`/`l1_dedup`) → L2 scenes (`scene_extractor`) → L3 persona
-//! (`persona_trigger`/`persona_generator`), with counters tracked in the
+//! (`l1_extractor`/`l1_dedup`, or the fused single-call `l1_batch` when the
+//! handler opts in via [`MemoryTaskHandler::with_use_batch`]) → L2 scenes
+//! (`scene_extractor`) → L3 persona (`persona_trigger`/`persona_generator`)
+//! → idle consolidation (`dream::consolidate_session` on `TaskKind::Dream`),
+//! with counters tracked in the
 //! [`Checkpoint`](crate::utils::checkpoint::Checkpoint).
 //!
 //! Not ported from TDAM: Prometheus metrics (single-process scope).
@@ -21,7 +24,8 @@ use crate::context_engine::{
     ChatRole, PersistedCompactionReport, TokenEstimator,
 };
 use crate::core::abstractions::LlmRunner;
-use crate::core::conversation::{L0Recorder, L0Role};
+use crate::core::conversation::{L0Message, L0Recorder, L0Role};
+use crate::core::dream::{consolidate_session, detect_idle, DreamConfig};
 use crate::core::hooks::{perform_auto_recall, AutoRecallParams, RecallConfig};
 use crate::core::persona::{
     evaluate_persona_trigger, generate_persona, get_persona, has_persona_body,
@@ -29,7 +33,8 @@ use crate::core::persona::{
 };
 use crate::core::prompts::l1_extraction::{epoch_ms_to_rfc3339, PromptMode};
 use crate::core::record::{
-    extract_l1_segments, read_session_records, run_l1_dedup, L1DedupConfig, L1ExtractorConfig,
+    apply_dedup_batch, extract_dedup_batch, extract_l1_segments, read_session_records,
+    run_l1_dedup, L1DedupConfig, L1ExtractorConfig,
 };
 use crate::core::scene::{extract_scenes_with_llm, list_scenes, SceneMemoryInput};
 use crate::core::state::{TaskKind, TaskPayload};
@@ -346,6 +351,9 @@ pub struct MemoryTaskHandler<'a, R: LlmRunner> {
     dedup_config: L1DedupConfig,
     trigger_every_n: usize,
     context_config: ContextAssemblyConfig,
+    /// Opt-in MEM-69 single-call extract+dedup (FIND-86 D2). `false` (default)
+    /// keeps the two-call `extract_l1_segments` + `run_l1_dedup` path intact.
+    use_batch: bool,
     /// Per-layer latency accumulator (MEM-65). Read with [`Self::telemetry`].
     telemetry: LayerTelemetry,
 }
@@ -365,8 +373,18 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
             dedup_config,
             trigger_every_n,
             context_config: ContextAssemblyConfig::default(),
+            use_batch: false,
             telemetry: LayerTelemetry::default(),
         }
+    }
+
+    /// Opt-in MEM-69 fused extract+dedup (builder-style): one
+    /// `l1-extract-dedup` call instead of `l1-extraction` +
+    /// `l1-conflict-detection`. `new()` keeps its signature so existing
+    /// callers are untouched; default `false` preserves current behavior.
+    pub fn with_use_batch(mut self, use_batch: bool) -> Self {
+        self.use_batch = use_batch;
+        self
     }
 
     /// Override the post-L3 context-assembly configuration (builder-style).
@@ -425,33 +443,42 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
             Some(runner_state.last_scene_name)
         };
 
-        let (result, memories) = extract_l1_segments(
-            self.runner,
-            &messages,
-            previous_scene.as_deref(),
-            &self.extractor_config,
-        );
-        if !result.success {
-            return Err("L1 extraction failed".to_string());
-        }
-        if memories.is_empty() {
-            return Ok(()); // nothing passed the quality gate — no-op
-        }
+        // FIND-86 (D2): opt-in fused path; default keeps the two-call path.
+        let (stored_count, last_scene_name) = if self.use_batch {
+            match self.run_l1_batch(session_id, &messages, previous_scene.as_deref())? {
+                Some(out) => out,
+                None => return Ok(()), // nothing passed the quality gate — no-op
+            }
+        } else {
+            let (result, memories) = extract_l1_segments(
+                self.runner,
+                &messages,
+                previous_scene.as_deref(),
+                &self.extractor_config,
+            );
+            if !result.success {
+                return Err("L1 extraction failed".to_string());
+            }
+            if memories.is_empty() {
+                return Ok(()); // nothing passed the quality gate — no-op
+            }
 
-        let records = run_l1_dedup(
-            &self.db,
-            self.runner,
-            session_id,
-            session_id,
-            &memories,
-            &self.dedup_config,
-        )
-        .map_err(|e| format!("L1 dedup failed: {e}"))?;
+            let records = run_l1_dedup(
+                &self.db,
+                self.runner,
+                session_id,
+                session_id,
+                &memories,
+                &self.dedup_config,
+            )
+            .map_err(|e| format!("L1 dedup failed: {e}"))?;
+            (records.len(), result.last_scene_name)
+        };
 
         checkpoints
-            .add_memories_extracted(records.len() as u64)
+            .add_memories_extracted(stored_count as u64)
             .map_err(|e| e.to_string())?;
-        if let Some(scene) = result.last_scene_name.as_deref() {
+        if let Some(scene) = last_scene_name.as_deref() {
             update_runner_state(&checkpoints, session_id, |state| {
                 state.last_scene_name = scene.to_string();
                 state.last_l1_cursor = messages.last().map(|m| m.timestamp_ms).unwrap_or(0);
@@ -459,6 +486,82 @@ impl<'a, R: LlmRunner> MemoryTaskHandler<'a, R> {
             .map_err(|e| e.to_string())?;
         }
         Ok(())
+    }
+
+    /// MEM-69 fused extract+dedup core (FIND-86 D2 — only called when
+    /// [`Self::with_use_batch`] opted in). Mirrors the two-call contract:
+    /// `success: false` → `Err` (worker retry path, L0 intact — Principio 4);
+    /// empty pending → `None` (no-op); else writes via [`apply_dedup_batch`]
+    /// and returns `(stored_count, last_scene_name)` for the shared
+    /// checkpoint tail in [`Self::run_l1_inner`].
+    fn run_l1_batch(
+        &self,
+        session_id: &str,
+        messages: &[L0Message],
+        previous_scene: Option<&str>,
+    ) -> Result<Option<(usize, Option<String>)>, String> {
+        let now_ms = crate::core::conversation::now_ms();
+        let existing = read_session_records(&self.db, session_id)
+            .map_err(|e| format!("L1 record read failed: {e}"))?;
+        let (result, pending, decisions) = extract_dedup_batch(
+            self.runner,
+            messages,
+            &existing,
+            previous_scene,
+            &self.extractor_config,
+            &self.dedup_config,
+            now_ms,
+        );
+        if !result.success {
+            return Err("L1 extraction failed".to_string());
+        }
+        if pending.is_empty() {
+            return Ok(None);
+        }
+        let raw: Vec<_> = pending.iter().map(|p| p.memory.clone()).collect();
+        let last_scene_name = result.last_scene_name.clone();
+        let records = apply_dedup_batch(
+            &self.db,
+            session_id,
+            session_id,
+            &raw,
+            &decisions,
+            now_ms,
+            self.dedup_config.embed.as_ref(),
+        )
+        .map_err(|e| format!("L1 batch write failed: {e}"))?;
+        Ok(Some((records.len(), last_scene_name)))
+    }
+
+    /// Idle consolidation wired to MEM-61 [`consolidate_session`] (FIND-86
+    /// D1). `last_active` comes from the checkpoint's [`PipelineSessionState`]
+    /// (missing session → 0 = unknown → treated as idle; fail-open is safe
+    /// because dream writes go to `dream/<s>/<run_id>` and L1 is never
+    /// mutated). A premature Dream task (not idle yet) is a quiet `Ok` skip —
+    /// the host timer re-enqueues; only store/runner failures reach the
+    /// worker's retry/dead-letter path. No new locks: the task already runs
+    /// under the session lock (Regla 8 N/A — single `std::sync::Mutex`
+    /// backend, lock order unchanged).
+    fn run_dream(&self, session_id: &str) -> Result<(), String> {
+        use crate::core::state::PipelineSessionState;
+
+        let config = DreamConfig::default();
+        let now_ms = crate::core::conversation::now_ms();
+        let checkpoints = CheckpointManager::new(&self.db);
+        let checkpoint = checkpoints.read().map_err(|e| e.to_string())?;
+        let last_active = checkpoint
+            .pipeline_states
+            .get(session_id)
+            .map(|s: &PipelineSessionState| s.last_active_time_ms)
+            .unwrap_or(0);
+        // Pre-check with the same args the call below re-validates: no
+        // string-matching on errors, no dead-letter spam for early timers.
+        if !detect_idle(now_ms, last_active, config.idle_threshold_ms) {
+            return Ok(());
+        }
+        consolidate_session(&self.db, session_id, now_ms, last_active, &config)
+            .map(|_| ())
+            .map_err(|e| e.to_string())
     }
 
     fn run_l2(&mut self, session_id: &str) -> Result<(), String> {
@@ -703,6 +806,7 @@ impl<'a, R: LlmRunner> TaskHandler for MemoryTaskHandler<'a, R> {
         match task.kind {
             TaskKind::L1 | TaskKind::Flush => self.run_l1(&task.session_id),
             TaskKind::L2 => self.run_l2(&task.session_id),
+            TaskKind::Dream => self.run_dream(&task.session_id),
             // L3 runs first; the context-assembly phase is strictly post-L3
             // (order asserted by the D19 e2e test).
             TaskKind::L3 => {
