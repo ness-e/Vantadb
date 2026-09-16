@@ -978,7 +978,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
             "name": "embed_texts",
-            "description": "Embeds a batch of texts into dense float vectors via EmbeddingProvider::embed_batch (local ONNX default, deterministic 384d fallback). Supports pagination via cursor/next_cursor and budgeting via max_embed_tokens / max_embed_batch_size.",
+            "description": "Embeds a batch of texts into dense float vectors via EmbeddingProvider::embed_batch (local ONNX default, deterministic 384d fallback). Returns fallback:true + warning when serving deterministic vectors (Q5, never silent). Supports pagination via cursor/next_cursor and budgeting via max_embed_tokens / max_embed_batch_size.",
             "annotations": {
                 "title": "Embed Texts",
                 "readOnlyHint": true,
@@ -2589,8 +2589,11 @@ pub fn handle_tools_call(
             let to_embed: &[String] = &texts[cursor..cutoff];
             let truncated = cutoff < texts.len();
             let next_cursor = if truncated { Some(cutoff) } else { None };
-            let embeddings = embed_texts_fallback(to_embed, model_opt.as_deref())
-                .map_err(|e| McpError::internal_error(e).to_json())?;
+            // EMB-13: proveedor real con fallback avisado (Q5). Nunca error duro
+            // sin modelo: el fallback determinista vuelve con `"fallback": true`.
+            let (embeddings, fallback, warning) =
+                embed_texts_via_provider(to_embed, model_opt.as_deref())
+                    .map_err(|e| McpError::internal_error(e).to_json())?;
             let dim = embeddings.first().map(|v| v.len()).unwrap_or(0);
             let mut result = json!({
                 "embeddings": embeddings,
@@ -2600,7 +2603,11 @@ pub fn handle_tools_call(
                 "count": embeddings.len(),
                 "truncated": truncated,
                 "next_cursor": next_cursor,
+                "fallback": fallback,
             });
+            if fallback {
+                result["warning"] = json!(warning.unwrap_or_else(|| "Embedding model unavailable; using deterministic fallback vectors (no semantic signal).".to_string()));
+            }
             if truncated {
                 result["total_texts"] = json!(texts.len());
             }
@@ -3196,4 +3203,109 @@ fn embed_texts_fallback(texts: &[String], _model: Option<&str>) -> Result<Vec<Ve
         out.push(deterministic_embed(t, dim));
     }
     Ok(out)
+}
+
+// ── EMB-13: proveedor real + fallback avisado (Q5) ───────────────────────
+// El flag NO puede venir del `Result` porque `LocalOnnxProvider::embed`
+// cae a `Ok(dummy)` en silencio (FIND-B). Se decide así:
+// - remoto (`ollama`/`openai`): `Ok` → real (`fallback:false`);
+//   `Err` (sin servidor/key) → dummy avisado (`fallback:true`, nunca error duro).
+// - local (resto): `Ok` + archivos presentes → real (`fallback:false`, el cat
+//   test de señal lo confirma); `Ok` sin archivos o `Err` → dummy avisado.
+// - sin features `llm` compiladas → dummy avisado directo.
+// `model` se ecorea en la respuesta pero NO selecciona proveedor (EMB-17).
+#[cfg(any(feature = "embed-local", feature = "remote-inference"))]
+fn local_model_files_present(dir: &str) -> bool {
+    use std::path::{Path, PathBuf};
+    let base = Path::new(dir);
+    let onnx_candidates = [
+        base.join("model.onnx"),
+        base.join("onnx/model.onnx"),
+        base.join("model_int8.onnx"),
+        PathBuf::from("embeddings/models/multilingual-e5-small/onnx/model.onnx"),
+    ];
+    let tok_candidates = [
+        base.join("tokenizer.json"),
+        base.join("../tokenizer.json"),
+        base.join("../../tokenizer.json"),
+        PathBuf::from("embeddings/models/multilingual-e5-small/tokenizer.json"),
+    ];
+    let has_onnx = onnx_candidates.iter().any(|p| p.exists());
+    let has_tok = tok_candidates.iter().any(|p| p.exists());
+    has_onnx && has_tok
+}
+
+#[cfg(any(feature = "embed-local", feature = "remote-inference"))]
+fn is_local_model_available() -> bool {
+    let path = std::env::var("VANTADB_LOCAL_MODEL")
+        .unwrap_or_else(|_| "embeddings/models/multilingual-e5-small/onnx".to_string());
+    local_model_files_present(&path)
+}
+
+fn fallback_warning(provider: &str, detail: &str) -> String {
+    format!(
+        "Embedding model unavailable (provider='{provider}'); using deterministic fallback vectors (no semantic signal). {detail} Set VANTADB_EMBEDDING_PROVIDER=local with model files present, or start the configured remote provider. [EMB-13 Q5]"
+    )
+}
+
+// ponytail: file-check O(1) por llamada (4 Path::exists); caché global si profiling lo pide.
+fn embed_texts_via_provider(
+    texts: &[String],
+    model: Option<&str>,
+) -> Result<(Vec<Vec<f32>>, bool, Option<String>), String> {
+    #[cfg(any(feature = "embed-local", feature = "remote-inference"))]
+    {
+        let provider_name =
+            std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+        let is_remote = provider_name == "ollama" || provider_name == "openai";
+        match vantadb::llm::get_embedding_provider().embed_batch(texts) {
+            Ok(vectors) => {
+                if is_remote {
+                    Ok((vectors, false, None))
+                } else if is_local_model_available() {
+                    Ok((vectors, false, None))
+                } else {
+                    // `Ok` pero sin archivos → son dummies silenciosos: avisar.
+                    warn!(
+                        provider = %provider_name,
+                        "embed_texts: local model files missing — serving fallback vectors"
+                    );
+                    Ok((
+                        vectors,
+                        true,
+                        Some(fallback_warning(
+                            &provider_name,
+                            "Local model files (model.onnx + tokenizer.json) not found.",
+                        )),
+                    ))
+                }
+            }
+            Err(e) => {
+                // Q5: nunca error duro sin modelo → dummy avisado.
+                warn!(provider = %provider_name, error = %e, "embed_texts: provider failed — serving fallback vectors");
+                let vectors = embed_texts_fallback(texts, model)?;
+                Ok((
+                    vectors,
+                    true,
+                    Some(fallback_warning(
+                        &provider_name,
+                        &format!("Provider error: {e}"),
+                    )),
+                ))
+            }
+        }
+    }
+    #[cfg(not(any(feature = "embed-local", feature = "remote-inference")))]
+    {
+        // Compilado sin `vantadb::llm`: dummy avisado directo (CI sin modelo).
+        let vectors = embed_texts_fallback(texts, model)?;
+        Ok((
+            vectors,
+            true,
+            Some(fallback_warning(
+                "unconfigured",
+                "Binary compiled without embedding features (embed-local/remote-inference).",
+            )),
+        ))
+    }
 }
