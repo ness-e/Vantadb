@@ -52,3 +52,15 @@ aliases: []
 - **Resultado:** ✅
 - **Commit:** 3b5ac241 (9 files: 6 fixtures JSON + `fixtures/README.md` proveniencia/sanitización/actualización + `tests/prx12_compat.rs` + task file)
 - **Contrato:** `cargo test -p vanta-proxy` 148 passed 0 failed (142 PRX-09 sin regresión + 6 nuevos) + clippy 0 + fmt 0 + grep secrets 0 hits. 3 pares req/resp (Messages/Claude Code, Responses/Codex, Chat/OpenCode) como shapes protocolares representativos (NO capturas live — stop condition); 3 round-trip verbatim + 3 contratos de campos. Sin cambios CI (job `test` ci-rust-10 ya corre el binario en cada PR). Hallazgo S3: `}` extra en fixture Codex diagnosticado con bracket-matching.
+
+### FIND-68: `docs/api/PROXY.md` + config/env documentados
+- **Fecha:** 2026-09-15
+- **Objetivo:** doc dedicada proxy (8 endpoints lógicos = 10 route regs + 8 opt-in + defaults + env) con fuente ruta:línea + enlace master-index; scope sin tutorial.
+- **Resultado:** ✅ PROXY.md 148L + enlace + diff-check limpio; review P2-01 approve.
+- **Commit:** c9a38972
+
+### FIND-88: `record_response_usage` al SSE drain (DEFER-ratificado)
+- **Fecha:** 2026-09-15
+- **Objetivo:** cablear coste output-side o ratificar DEFER con evidencia.
+- **Resultado:** ✅ DEFER-ratificado: sin punto de buffer general (forward + drain gated inútil para usage, 0 callers prod, sin doble conteo); suite proxy 163/163 + clippy 0.
+- **Commit:** 33d0da0a (docs solo-task-file)

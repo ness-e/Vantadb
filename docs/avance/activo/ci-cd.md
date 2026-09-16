@@ -351,3 +351,33 @@ aliases: []
 - **Objetivo:** toolchain-check release (tantivy NO reproduce: compila 8m18s) + workflow no bloqueante + baseline publicado.
 - **Resultado:** YAML-OK + fmt; issues ante regresion, nunca verde falso.
 - **Commit:** e33c307f
+
+### FIND-64: `'vanta-memory/**'` en paths `ci-rust-10.yml` (campaña 2026-09-15; distinto del FIND-64 llamaindex 2026-09-07)
+- **Fecha:** 2026-09-15
+- **Objetivo:** cambios solo-`vanta-memory/` disparan CI (push+PR); fix 2 líneas + gemelo `ci-rustdoc.yml` ticketado como FIND-92.
+- **Resultado:** ✅ YAML parse + actionlint 0 + diff-check limpio; review P2-01 approve.
+- **Commit:** 9a419d65 (nota: Backlog citaba hash `0f16cd39` erróneo; real `9a419d65`)
+
+### FIND-66: Formula sync (ARM64 + head + mcp)
+- **Fecha:** 2026-09-15
+- **Objetivo:** `Formula/README.md` veraz ×3 (fila mcp quitada, Linux x86_64-or-ARM64, sección `--head` sin stanza eliminada, macOS ARM64 ✅ + fila Linux ARM64); rb shas intactos.
+- **Resultado:** ✅ diff +3/-11 solo README + hooks verdes; review P2-01 approve.
+- **Commit:** f50da880
+
+### FIND-70: bench `ingestion_concurrent` en nightly con feature
+- **Fecha:** 2026-09-15
+- **Objetivo:** nightly corre el bench con `--features async-ingestion` (antes citado pero jamás corrido); `Cargo.toml` intacto.
+- **Resultado:** ✅ actionlint 0 + YAML 12 steps + diff-check limpio; monitorear 1ª corrida nightly.
+- **Commit:** 34effd35
+
+### FIND-92: `'vanta-memory/**'` en paths `ci-rustdoc.yml` (gemelo FIND-64)
+- **Fecha:** 2026-09-15
+- **Objetivo:** réplica del fix FIND-64 sobre `ci-rustdoc.yml` push+PR + HALLAZGO gemelo-del-gemelo (`rustdoc-70.yml` → FIND-95).
+- **Resultado:** ✅ YAML + actionlint 0 + rg 4 hits/0 gaps; review P2-01 reconciliado.
+- **Commit:** e395b563
+
+### FIND-95: `'vanta-memory/**'` en paths `rustdoc-70.yml` (gemelo-del-gemelo FIND-92)
+- **Fecha:** 2026-09-16
+- **Objetivo:** `rustdoc-70.yml` (`cargo doc --workspace`) ciego a `vanta-memory/`; +2 líneas push+PR.
+- **Resultado:** ✅ actionlint 0 + YAML parse + review P2-01 approve.
+- **Commit:** 79a4942d

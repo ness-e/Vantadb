@@ -108,3 +108,9 @@ aliases: []
 - **Objetivo:** DISCOVERY arch + slice extract→consolidate→recall sin LLM key.
 - **Resultado:** ✅ suite 0 failed + clippy/fmt 0 + ADR-040; commit tras RESUME (bloqueo fmt ajeno).
 - **Commit:** 6bf42a89
+
+### FIND-86: wiring MEM-69 (dream TaskKind + batch opt-in) + tool 77 + MEM-70
+- **Fecha:** 2026-09-16
+- **Objetivo:** cablear memoria diferida ADR-040 (Gate D A/A/B vía `question`): `TaskKind::Dream` + rama handle + flag batch opt-in + 4 tests wiring; tool 77 ratificada diseñada; MEM-70 DEFER-ratificado.
+- **Resultado:** ✅ 542 passed / 0 failed (336 lib + 205 integración + 1 doc) + clippy 0 + fmt; review P2-01 approve.
+- **Commit:** 0be84203 (discovery+spec) + 29ec9f02 (feat wiring)

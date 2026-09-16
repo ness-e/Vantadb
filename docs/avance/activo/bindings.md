@@ -924,4 +924,70 @@ aliases: []
 - **Fecha:** 2026-09-15
 - **Objetivo:** Tolerar fallback DSPyRetrieve = object sin romper path con-framework.
 - **Resultado:** ✅ try/except TypeError en super().__init__(k=k) + self.k = k explicito (vectorstore.py:62-70); fallback probado aislado con DB stub (INIT OK, forward _Prediction.passages, dump/load OK); py_compile 0; git diff --check limpio; vanta-review approve; suite 8/8 bloqueada por drift anta.VantaDB pre-existente → FIND-94 (9 adapters, fuera de scope).
-- **Commit:** (fix: FIND-69, esta campaña)
+- **Commit:** f3d6c634
+
+### FIND-73: `key` en 3 `.pyi` + `verify_pyi` con firmas
+- **Fecha:** 2026-09-15
+- **Objetivo:** cerrar drift stub-vs-runtime PROV-10 (`store()` sin `key`) + script de gate real (`inspect`/`ast`, no solo `hasattr`) + READMEs providers.
+- **Resultado:** ✅ `key: str | None = None` ×3 + script compara firmas incl. `__init__` + py_compile + hooks; review P2-01 approve.
+- **Commit:** ad53f7c4
+
+### FIND-75: WASM README re-medido + d.ts sync (input zero-copy DEFER)
+- **Fecha:** 2026-09-15
+- **Objetivo:** números reales del `pkg/` (1.58 MB / ~671 KB, +17% vs plan — HALLAZGO, no copiado) + d.ts sincronizado vía script; input zero-copy DEFER-ratificado (14 call sites + 3 adapters > ganancia).
+- **Resultado:** ✅ README + `--check` exit 0 + check/clippy wasm 0; review P2-01 approve.
+- **Commit:** 62687a98
+
+### FIND-78: link review a archive + nota engines node18 vs ts22.19
+- **Fecha:** 2026-09-15
+- **Objetivo:** 0 links rotos en `vantadb-node/README.md` + compat explícita (review existe en archive).
+- **Resultado:** ✅ Test-Path + diff-check + hooks; review P2-01 approve.
+- **Commit:** 56e6fa67
+
+### FIND-79: portabilidad TS con `importRecords` estricto
+- **Fecha:** 2026-09-15
+- **Objetivo:** endurecer + completar tests TS (export/import/reindex; `importRecords` sin try/catch blando; fix put-loop cazado por round-trip).
+- **Resultado:** ✅ build + vitest 12f/311t + tsc + eslint 0 + RED 6-fails old-impl; review APPROVE.
+- **Commit:** 0e140763
+
+### FIND-82: asserts de conteo por perfil en `test-mcp.py`
+- **Fecha:** 2026-09-15
+- **Objetivo:** gate anti-drift (full 79 exacto, dev/memory por rango; binario stale 56 → exit 1).
+- **Resultado:** ✅ fresco 79→4/4, stale 56→3/4 exit 1, dev/memory 4/4 + py_compile + diff-check; review approve.
+- **Commit:** 23c56257
+
+### FIND-83: unificar skills (copias + MCP-27/29 + api-ref)
+- **Fecha:** 2026-09-15
+- **Objetivo:** copias `skills/` ↔ `.opencode/skills/` hash-SAME + contradicción MCP-27/29 cerrada (scope reescrito, no feature en disputa) + api-ref completa + manifest 196 + gate §7.
+- **Resultado:** ✅ 10/11 SAME (test-mcp.py exceptuado FIND-82) + coverage 0 gaps; review P2-01 approve; submodule bump selectivo 3-files.
+- **Commit:** ab6827ba + 8b8b9a4 (submodule) + d483bb4e (bump)
+
+### FIND-84: pins + fixtures + dist/PyPI integrations (9 adapters)
+- **Fecha:** 2026-09-15
+- **Objetivo:** upper-bounds 8 adapters + `test_pins.py` + `vantadb_test_shim.py` + conftest por adapter + README central (PyPI/Alpha + decisión `dist/`); FIND-94 explícitamente fuera.
+- **Resultado:** ✅ suites verdes (mocks) + py_compile + diff-check; review P2-01 approve.
+- **Commit:** ebf76936
+
+### FIND-85: recorte classifiers 3.11/3.13 + firma `put_batch_raw` 3 vías
+- **Fecha:** 2026-09-15
+- **Objetivo:** classifiers honestos (`abi3-py311`, 1 wheel/plataforma; matriz sin eje python-version) + firmas rs/pyi/async sin drift + `probe_lock_db/` 335MB eliminado local.
+- **Resultado:** ✅ stub_drift 7/7 + SDK put_batch 14/14 + hooks; review approve.
+- **Commit:** 15ea513f
+
+### FIND-87: `./native` en exports + sección native TS_SDK
+- **Fecha:** 2026-09-15
+- **Objetivo:** subpath `./native` (alias descubrimiento; `NativeVantaDB` ya accesible vía `.`) + sección wiki native; pack dry-run verde.
+- **Resultado:** ✅ build + vitest 311 + pack 20 files + import `dist/native.js`; review approve.
+- **Commit:** 32aa0a5e
+
+### FIND-90: handlers MCP a getters `IndexPort` (fallout F3X E0609)
+- **Fecha:** 2026-09-15
+- **Objetivo:** 3 accesos migrados (resources + tools ×2); forma `schema://` intacta; Fast Gate workspace verde.
+- **Resultado:** ✅ check mcp --tests + clippy `-D` + mcp_tests 91/91 + check server + fmt; review P2-01 approve.
+- **Commit:** 26e6ebc0
+
+### FIND-94: migrar 9 adapters `vanta.VantaDB` → `Client`/`memory.*`
+- **Fecha:** 2026-09-16
+- **Objetivo:** drift SDK 0.5.0 (`hasattr VantaDB` False, 12 hits) → `Client` + `db.memory.*` + score-similitud (vieja `1.0 - score/2.0` invertía) + shim temporal eliminado.
+- **Resultado:** ✅ suites verdes (dspy 8p, letta 17p, langchain 47p, ollama/openai 9p, pins 10p) + py_compile + diff-check; review APPROVE.
+- **Commit:** 880cd0f3
