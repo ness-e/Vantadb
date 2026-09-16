@@ -54,7 +54,7 @@ impl PhysicalOperator for PhysicalVectorSearch<'_> {
         #[cfg(feature = "remote-inference")]
         {
             let provider = crate::llm::get_embedding_provider();
-            if let Ok(vec) = provider.embed(&self.query_vec_text) {
+            if let Ok(vec) = provider.embed_query(&self.query_vec_text) {
                 vector = Some(vec);
             }
         }
@@ -65,7 +65,7 @@ impl PhysicalOperator for PhysicalVectorSearch<'_> {
                 let cfg = Config::default().llm_cfg();
                 if let Ok(provider) = crate::llm::LocalOnnxProvider::from_llm_cfg(&cfg) {
                     if let Ok(vec) =
-                        crate::llm::EmbeddingProvider::embed(&provider, &self.query_vec_text)
+                        crate::llm::EmbeddingProvider::embed_query(&provider, &self.query_vec_text)
                     {
                         vector = Some(vec);
                     }
@@ -147,7 +147,7 @@ impl PhysicalOperator for PhysicalVectorRefine<'_> {
         #[cfg(feature = "remote-inference")]
         {
             let provider = crate::llm::get_embedding_provider();
-            if let Ok(vec) = provider.embed(&self.query_vec_text) {
+            if let Ok(vec) = provider.embed_query(&self.query_vec_text) {
                 self.query_vector = Some(crate::node::VectorRepresentations::Full(vec));
             }
         }
@@ -158,7 +158,7 @@ impl PhysicalOperator for PhysicalVectorRefine<'_> {
                 let cfg = Config::default().llm_cfg();
                 if let Ok(provider) = crate::llm::LocalOnnxProvider::from_llm_cfg(&cfg) {
                     if let Ok(vec) =
-                        crate::llm::EmbeddingProvider::embed(&provider, &self.query_vec_text)
+                        crate::llm::EmbeddingProvider::embed_query(&provider, &self.query_vec_text)
                     {
                         self.query_vector = Some(crate::node::VectorRepresentations::Full(vec));
                     }

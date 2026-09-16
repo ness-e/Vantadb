@@ -30,7 +30,17 @@ use reqwest::blocking::Client;
 /// transport and authentication.
 pub trait EmbeddingProvider: Send + Sync {
     /// Embed `text` and return a dense `f32` vector.
+    ///
+    /// Document semantics: e5-style providers apply the `passage:` prefix.
     fn embed(&self, text: &str) -> Result<Vec<f32>>;
+
+    /// Embed a retrieval *query* (vs [`Self::embed`], which embeds documents).
+    ///
+    /// Default impl = same as documents. e5-style providers override it with
+    /// the `query:` prefix.
+    fn embed_query(&self, text: &str) -> Result<Vec<f32>> {
+        self.embed(text)
+    }
 
     /// Embed a batch of texts. Default impl loops over [`Self::embed`].
     fn embed_batch(&self, texts: &[String]) -> Result<Vec<Vec<f32>>> {
@@ -107,8 +117,64 @@ pub struct LocalOnnxProvider {
     session: Option<parking_lot::Mutex<ort::session::Session>>,
     tokenizer: Option<tokenizers::Tokenizer>,
     dim: usize,
+    family: EmbedFamily,
     #[allow(dead_code)]
     model_dir: String,
+}
+
+/// Embedding model family — decides the e5 `query:`/`passage:` prefixes.
+#[cfg(feature = "embed-local")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum EmbedFamily {
+    /// intfloat e5 (`*e5*` in model dir): trained with `query:`/`passage:` prefixes.
+    E5,
+    /// sentence-transformers MiniLM (`*minilm*`): raw text, no prefixes.
+    MiniLM,
+    /// Anything else (bge, jina, distiluse, qwen, dummy): safe default, no prefixes.
+    Other,
+}
+
+/// Which side of a retrieval pair is being embedded (e5 asymmetric regime).
+#[cfg(feature = "embed-local")]
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum EmbedKind {
+    Query,
+    Document,
+}
+
+/// Classify the family from the model dir.
+// ponytail: substring match on model_dir; exact id map if a non-e5 path ever contains "e5".
+#[cfg(feature = "embed-local")]
+fn family_of(model_dir: &str) -> EmbedFamily {
+    let lower = model_dir.to_ascii_lowercase();
+    if lower.contains("e5") {
+        EmbedFamily::E5
+    } else if lower.contains("minilm") {
+        EmbedFamily::MiniLM
+    } else {
+        EmbedFamily::Other
+    }
+}
+
+/// Pure prefix rule (no model needed — unit-tested). Only e5 is prefixed, per
+/// intfloat model card (retrieval = `query:`/`passage:`, symmetric/other = `query:`).
+#[cfg(feature = "embed-local")]
+fn prefix_for<'a>(
+    family: EmbedFamily,
+    kind: EmbedKind,
+    text: &'a str,
+) -> std::borrow::Cow<'a, str> {
+    use std::borrow::Cow;
+    if family != EmbedFamily::E5 {
+        return Cow::Borrowed(text);
+    }
+    if text.starts_with("query:") || text.starts_with("passage:") {
+        return Cow::Borrowed(text);
+    }
+    match kind {
+        EmbedKind::Query => Cow::Owned(format!("query: {}", text)),
+        EmbedKind::Document => Cow::Owned(format!("passage: {}", text)),
+    }
 }
 
 #[cfg(feature = "embed-local")]
@@ -132,6 +198,7 @@ impl LocalOnnxProvider {
     pub fn from_llm_cfg(cfg: &crate::config::LlmCfg) -> Result<Self> {
         let model_dir = &cfg.local_model_path;
         let dim = Self::detect_dim(model_dir);
+        let family = family_of(model_dir);
         // try to load tokenizer
         let tokenizer = Self::try_load_tokenizer(model_dir);
         // try to load session
@@ -142,6 +209,7 @@ impl LocalOnnxProvider {
             session: session.map(parking_lot::Mutex::new),
             tokenizer,
             dim,
+            family,
             model_dir: model_dir.to_string(),
         })
     }
@@ -152,6 +220,7 @@ impl LocalOnnxProvider {
             session: None,
             tokenizer: None,
             dim,
+            family: EmbedFamily::Other,
             model_dir: "__dummy__".to_string(),
         }
     }
@@ -328,6 +397,27 @@ impl LocalOnnxProvider {
         v
     }
 
+    /// Apply the family prefix for this provider (e5 only, see [`prefix_for`]).
+    fn apply_prefix<'a>(&self, text: &'a str, kind: EmbedKind) -> std::borrow::Cow<'a, str> {
+        prefix_for(self.family, kind, text)
+    }
+
+    /// Embed as query or document: prefix (e5) → real ONNX → deterministic
+    /// fallback on the ORIGINAL text (keeps CI green without the 691MB model
+    /// and preserves the dummy test contract).
+    fn embed_as(&self, text: &str, kind: EmbedKind) -> Result<Vec<f32>> {
+        if text.is_empty() {
+            return Err(Error::InvalidInput("text must not be empty".to_string()));
+        }
+        let effective = self.apply_prefix(text, kind);
+        if let Some(v) = self.run_onnx(&effective) {
+            if v.len() == self.dim {
+                return Ok(v);
+            }
+        }
+        Ok(self.deterministic_embed(text))
+    }
+
     fn run_onnx(&self, text: &str) -> Option<Vec<f32>> {
         let tokenizer = self.tokenizer.as_ref()?;
         let session_opt = self.session.as_ref()?;
@@ -338,6 +428,12 @@ impl LocalOnnxProvider {
             .get_attention_mask()
             .iter()
             .map(|&x| x as i64)
+            .collect();
+        // float mask for mean pooling — reuses this encoding (no second encode)
+        let mask_f: Vec<f32> = encoding
+            .get_attention_mask()
+            .iter()
+            .map(|&x| x as f32)
             .collect();
         if ids.is_empty() {
             return None;
@@ -407,14 +503,7 @@ impl LocalOnnxProvider {
         } else {
             return None;
         };
-        // Mean pooling with attention mask
-        // Need mask for pooling
-        let encoding2 = tokenizer.encode(text, true).ok()?;
-        let mask_f: Vec<f32> = encoding2
-            .get_attention_mask()
-            .iter()
-            .map(|&x| x as f32)
-            .collect();
+        // Mean pooling with attention mask (reuses the first encoding)
         let mut pooled = vec![0.0f32; dim];
         let mut mask_sum = 0.0f32;
         for (tok_idx, &m) in mask_f.iter().enumerate() {
@@ -448,17 +537,11 @@ impl LocalOnnxProvider {
 #[cfg(feature = "embed-local")]
 impl EmbeddingProvider for LocalOnnxProvider {
     fn embed(&self, text: &str) -> Result<Vec<f32>> {
-        if text.is_empty() {
-            return Err(Error::InvalidInput("text must not be empty".to_string()));
-        }
-        // Try real ONNX first
-        if let Some(v) = self.run_onnx(text) {
-            if v.len() == self.dim {
-                return Ok(v);
-            }
-        }
-        // Fallback deterministic (keeps CI green without 691MB)
-        Ok(self.deterministic_embed(text))
+        self.embed_as(text, EmbedKind::Document)
+    }
+
+    fn embed_query(&self, text: &str) -> Result<Vec<f32>> {
+        self.embed_as(text, EmbedKind::Query)
     }
 
     fn embed_batch(&self, texts: &[String]) -> Result<Vec<Vec<f32>>> {
@@ -877,6 +960,121 @@ mod tests {
         let provider = LocalOnnxProvider::new_dummy(384);
         let res = provider.embed("");
         assert!(res.is_err());
+    }
+
+    // EMB-16 RED: prefijos por familia (e5 query:/passage:, resto ninguno)
+    #[test]
+    fn e16_e5_family_detected_from_model_dir() {
+        assert_eq!(
+            family_of("embeddings/models/multilingual-e5-small/onnx"),
+            EmbedFamily::E5
+        );
+    }
+
+    #[test]
+    fn e16_minilm_family_detected() {
+        assert_eq!(
+            family_of("embeddings/models/all-MiniLM-L6-v2/onnx"),
+            EmbedFamily::MiniLM
+        );
+        assert_eq!(
+            family_of("embeddings/models/paraphrase-multilingual-MiniLM-L12-v2"),
+            EmbedFamily::MiniLM
+        );
+    }
+
+    #[test]
+    fn e16_other_family_detected() {
+        assert_eq!(
+            family_of("embeddings/models/bge-small-en-v1.5/onnx"),
+            EmbedFamily::Other
+        );
+        assert_eq!(family_of("__dummy__"), EmbedFamily::Other);
+    }
+
+    #[test]
+    fn e16_e5_prefixes_query_and_passage() {
+        assert_eq!(
+            prefix_for(EmbedFamily::E5, EmbedKind::Query, "hola mundo").as_ref(),
+            "query: hola mundo"
+        );
+        assert_eq!(
+            prefix_for(EmbedFamily::E5, EmbedKind::Document, "hola mundo").as_ref(),
+            "passage: hola mundo"
+        );
+    }
+
+    #[test]
+    fn e16_minilm_gets_no_prefix() {
+        assert_eq!(
+            prefix_for(EmbedFamily::MiniLM, EmbedKind::Query, "hola mundo").as_ref(),
+            "hola mundo"
+        );
+        assert_eq!(
+            prefix_for(EmbedFamily::MiniLM, EmbedKind::Document, "hola mundo").as_ref(),
+            "hola mundo"
+        );
+    }
+
+    #[test]
+    fn e16_other_gets_no_prefix() {
+        assert_eq!(
+            prefix_for(EmbedFamily::Other, EmbedKind::Query, "hello").as_ref(),
+            "hello"
+        );
+        assert_eq!(
+            prefix_for(EmbedFamily::Other, EmbedKind::Document, "hello").as_ref(),
+            "hello"
+        );
+    }
+
+    #[test]
+    fn e16_prefix_is_idempotent() {
+        assert_eq!(
+            prefix_for(EmbedFamily::E5, EmbedKind::Query, "query: hola").as_ref(),
+            "query: hola"
+        );
+        assert_eq!(
+            prefix_for(EmbedFamily::E5, EmbedKind::Document, "passage: hola").as_ref(),
+            "passage: hola"
+        );
+        // cross-kind never stacks a second prefix
+        assert_eq!(
+            prefix_for(EmbedFamily::E5, EmbedKind::Query, "passage: hola").as_ref(),
+            "passage: hola"
+        );
+    }
+
+    #[test]
+    fn e16_embed_query_rejects_empty() {
+        let provider = LocalOnnxProvider::new_dummy(384);
+        assert!(provider.embed_query("").is_err());
+    }
+
+    #[test]
+    fn e16_embed_batch_matches_embed_documents() {
+        // batch = lado-documento: debe coincidir con embed() uno por uno (P2-01 BAJO)
+        let provider = LocalOnnxProvider::new_dummy(384);
+        let texts = ["hola mundo".to_string(), "hello world".to_string()];
+        let batch = provider.embed_batch(&texts).expect("batch");
+        assert_eq!(batch.len(), 2);
+        assert_eq!(batch[0], provider.embed(&texts[0]).expect("embed 0"));
+        assert_eq!(batch[1], provider.embed(&texts[1]).expect("embed 1"));
+    }
+
+    #[test]
+    fn e16_embed_query_dummy_matches_embed() {
+        // dummy family = Other → no prefix → same deterministic vector
+        let provider = LocalOnnxProvider::new_dummy(384);
+        let v_doc = provider.embed("hola mundo").expect("embed doc");
+        let v_q = provider.embed_query("hola mundo").expect("embed query");
+        assert_eq!(v_doc.len(), 384);
+        assert_eq!(v_q.len(), 384);
+        assert!(
+            cosine(&v_doc, &v_q) > 0.99,
+            "dummy query/doc must match, got {}",
+            cosine(&v_doc, &v_q)
+        );
     }
 }
 
