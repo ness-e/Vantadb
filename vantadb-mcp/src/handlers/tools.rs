@@ -1706,7 +1706,14 @@ pub fn handle_tools_call(
             };
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
-            match perform_auto_recall(&embedded, params, None) {
+            // EMB-15: hook de query con el MISMO proveedor (antes `None` →
+            // keyword siempre, D38). Sin proveedor → `None` + modo keyword
+            // avisado (`effective_mode`, nunca error duro).
+            let hook = query_embed_hook();
+            if hook.is_none() {
+                warn!("memory_recall: embedding unavailable — keyword fallback");
+            }
+            match perform_auto_recall(&embedded, params, hook.as_ref()) {
                 Ok(Some(result)) => {
                     let recalled: Vec<Value> = result
                         .recalled_memories
@@ -3074,7 +3081,7 @@ fn parse_search_request(
     config: &McpConfig,
     storage: &Arc<StorageEngine>,
 ) -> Result<ParsedSearchRequest, Value> {
-    let query_vector = if let Some(arr) = args["query_vector"].as_array() {
+    let mut query_vector = if let Some(arr) = args["query_vector"].as_array() {
         if arr.is_empty() {
             Vec::new()
         } else {
@@ -3099,6 +3106,40 @@ fn parse_search_request(
     }
 
     let text_query = args["text_query"].as_str().map(String::from);
+
+    // EMB-15: embed de query con el MISMO proveedor (paridad con EMB-14, que
+    // guarda con vector). Solo si el llamante no dio vector y hay texto: el
+    // provisto se respeta byte-exacto (nunca re-embed). Sin proveedor →
+    // keyword honesto + `warn!` (nunca error duro, nunca dummies). El ranking
+    // (dual-pool + RRF, D38) no se toca: solo se rellena `query_vector`.
+    if query_vector.is_empty() {
+        if let Some(tq) = text_query
+            .as_deref()
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+        {
+            match try_embed_query(tq) {
+                Ok(q) => {
+                    // Misma dim que el índice por construcción (mismo proveedor
+                    // que EMB-14); si difiere (base legacy de otro modelo) →
+                    // keyword + aviso, nunca rechazo (el texto-solo hoy anda).
+                    match index_vector_dim(storage) {
+                        Some(expected) if q.len() != expected => {
+                            warn!(
+                                expected,
+                                got = q.len(),
+                                "search_memory: query vector dim differs from index — keyword fallback"
+                            );
+                        }
+                        _ => query_vector = q,
+                    }
+                }
+                Err(warning) => {
+                    warn!("search_memory: {warning} — keyword fallback");
+                }
+            }
+        }
+    }
     let raw_top_k = args["top_k"]
         .as_u64()
         .unwrap_or(config.default_top_k as u64);
@@ -3490,4 +3531,89 @@ fn auto_embed_missing(inputs: &mut [vantadb::sdk::MemoryInput]) -> AutoEmbedOutc
             }
         }
     }
+}
+
+// ── EMB-15: embed de query con el MISMO proveedor ────────────────────────
+// Difiere de `try_provider_embed` en un punto: usa `embed_query` (semántica
+// query, prefijo `query:` en e5 vía EMB-16 — paridad con `vector.rs` IQL).
+// La query es UN texto: 1 inferencia, no hay batch que aplicar (pre-mortem
+// "donde aplique" = no aplica aquí). Filtra dummies igual que EMB-14: un
+// vector sin señal a la búsqueda es peor que keyword honesto. Reusa
+// `is_local_model_available` + `fallback_warning` verbatim.
+#[cfg(any(feature = "embed-local", feature = "remote-inference"))]
+fn try_embed_query(text: &str) -> Result<Vec<f32>, String> {
+    let provider_name =
+        std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+    let is_remote = provider_name == "ollama" || provider_name == "openai";
+    match vantadb::llm::get_embedding_provider().embed_query(text) {
+        Ok(q) => {
+            if q.is_empty() || q.iter().all(|&x| x == 0.0) {
+                Err(fallback_warning(
+                    &provider_name,
+                    "Provider returned an empty/zero query vector.",
+                ))
+            } else if is_remote || is_local_model_available() {
+                Ok(q)
+            } else {
+                // `Ok` local sin archivos → dummies silenciosos: descartar.
+                Err(fallback_warning(
+                    &provider_name,
+                    "Local model files (model.onnx + tokenizer.json) not found.",
+                ))
+            }
+        }
+        Err(e) => Err(fallback_warning(
+            &provider_name,
+            &format!("Provider error: {e}"),
+        )),
+    }
+}
+
+#[cfg(not(any(feature = "embed-local", feature = "remote-inference")))]
+fn try_embed_query(text: &str) -> Result<Vec<f32>, String> {
+    let _ = text.len();
+    Err(fallback_warning(
+        "unconfigured",
+        "Binary compiled without embedding features (embed-local/remote-inference).",
+    ))
+}
+
+// ── EMB-15: hook de query para `memory_recall` ───────────────────────────
+// `EmbedFn = Arc<dyn Fn(&str) -> Option<Vec<f32>>>`: el hook embebe la QUERY
+// (no el documento) con el MISMO proveedor que EMB-14 usó al guardar.
+// `None` = sin proveedor → keyword honesto con `effective_mode: "keyword"`
+// (aviso existente). NO se usa `core/local_embedding_hook` de vanta-memory:
+// embeben con `embed` (doc-semántica `passage:`) y leen otro env (`VANTA_*`)
+// — peras con manzanas otra vez (decisión 5 del task file).
+// ponytail: 1 provider por recall (igual costo que 1 put EMB-14); sin caché nueva.
+#[cfg(any(feature = "embed-local", feature = "remote-inference"))]
+fn query_embed_hook() -> Option<vanta_memory::core::record::EmbedFn> {
+    let provider_name =
+        std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+    let is_remote = provider_name == "ollama" || provider_name == "openai";
+    if !is_remote && !is_local_model_available() {
+        // Sin archivos locales el provider daría dummies: mejor `None`
+        // (keyword) que semántica falsa.
+        return None;
+    }
+    Some(std::sync::Arc::new(move |q: &str| {
+        let name =
+            std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+        let remote = name == "ollama" || name == "openai";
+        match vantadb::llm::get_embedding_provider().embed_query(q) {
+            Ok(v)
+                if !v.is_empty()
+                    && v.iter().any(|&x| x != 0.0)
+                    && (remote || is_local_model_available()) =>
+            {
+                Some(v)
+            }
+            _ => None,
+        }
+    }))
+}
+
+#[cfg(not(any(feature = "embed-local", feature = "remote-inference")))]
+fn query_embed_hook() -> Option<vanta_memory::core::record::EmbedFn> {
+    None
 }
