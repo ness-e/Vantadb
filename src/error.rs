@@ -406,6 +406,12 @@ impl Error {
             Error::EdgeCountOverflow { .. } => {
                 Some("Reduce the node's outgoing edge fan-out below the persisted header limit")
             }
+            // FIND-109: truncated-shard abort (ERR-011) is fail-closed by
+            // design; point the operator at the explicit opt-in repair path.
+            // `code()` stays VANTADB_IO_ERROR (no wire compat change).
+            Error::Wal(_) => {
+                Some("Run 'vanta-cli wal salvage --dry-run' on a copy, then without it to repair")
+            }
             _ => None,
         }
     }
@@ -899,6 +905,14 @@ mod tests {
     fn recovery_hint_none_for_cycle_detected() {
         let e = Error::CycleDetected;
         assert!(e.recovery_hint().is_none());
+    }
+
+    #[test]
+    fn recovery_hint_for_wal_points_at_salvage() {
+        // FIND-109: ERR-011 abort must guide to the opt-in repair path.
+        let e = Error::wal_error("WAL shard 1 is truncated: 39 durable records");
+        assert!(e.recovery_hint().unwrap().contains("wal salvage"));
+        assert_eq!(e.code(), "VANTADB_IO_ERROR");
     }
 
     // ── ChainedError ──
