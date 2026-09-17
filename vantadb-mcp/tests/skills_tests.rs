@@ -96,6 +96,7 @@ fn test_tools_list_includes_skill_tools() {
         "skill_update",
         "skill_patch",
         "skill_files_write",
+        "skill_extract",
     ] {
         assert!(
             names.contains(&expected),
@@ -722,4 +723,82 @@ fn test_skill_mcp_parity_with_native_skillstore() {
     let record: Value = serde_json::from_str(&head.metadata["file:notes.txt"]).unwrap();
     assert_eq!(record["content"], "hello");
     assert_eq!(record["size_bytes"], 5);
+}
+
+// ── FIND-111: skill_extract solo-candidatos read-only ───────────────────────
+// Sin runner en MCP → degrada honesta `{success:false, candidates:[], error}`,
+// nunca bloqueo. Sin sink: la tool NUNCA escribe (candidatos solo lectura).
+
+#[test]
+fn test_tools_list_includes_skill_extract_read_only() {
+    let res = handle_tools_list(&McpConfig::default()).expect("tools/list should succeed");
+    let tools = res["tools"].as_array().expect("tools array");
+    let def = tools
+        .iter()
+        .find(|t| t["name"] == "skill_extract")
+        .expect("tools/list must include skill_extract");
+    let ann = &def["annotations"];
+    assert_eq!(
+        ann["readOnlyHint"], true,
+        "candidates-only must be read-only"
+    );
+    assert_eq!(ann["destructiveHint"], false);
+    assert_eq!(ann["idempotentHint"], true);
+    assert_eq!(ann["openWorldHint"], false);
+    let required: Vec<&str> = def["inputSchema"]["required"]
+        .as_array()
+        .expect("required array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert!(required.contains(&"messages"));
+}
+
+#[test]
+fn test_skill_extract_degrades_without_runner() {
+    let (_dir, storage) = setup_storage();
+    let cfg = McpConfig::default();
+    let body = tool_text(tool_call(
+        "skill_extract",
+        json!({ "messages": [{ "role": "user", "content": "deploys keep failing" }] }),
+        &storage,
+        &cfg,
+    ));
+    assert_eq!(
+        body["success"], false,
+        "no runner → honest degrade, never blocks"
+    );
+    assert_eq!(body["candidates"], json!([]));
+    assert!(
+        body["error"]
+            .as_str()
+            .map(|e| !e.is_empty())
+            .unwrap_or(false),
+        "degrade must carry an error message"
+    );
+}
+
+#[test]
+fn test_skill_extract_empty_messages_succeed_trivially() {
+    let (_dir, storage) = setup_storage();
+    let cfg = McpConfig::default();
+    let body = tool_text(tool_call(
+        "skill_extract",
+        json!({ "messages": [] }),
+        &storage,
+        &cfg,
+    ));
+    assert_eq!(body["success"], true);
+    assert_eq!(body["candidates"], json!([]));
+}
+
+#[test]
+fn test_skill_extract_rejects_missing_messages() {
+    let (_dir, storage) = setup_storage();
+    let cfg = McpConfig::default();
+    let err = tool_error(tool_call("skill_extract", json!({}), &storage, &cfg));
+    assert!(
+        err.contains("messages"),
+        "param error must name 'messages', got: {err}"
+    );
 }

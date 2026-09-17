@@ -195,13 +195,13 @@ so LLM agents can branch on a stable identifier without parsing message text:
 
 ## Tool Families
 
-**86 tools in 8 families (spec 2025-06-18, every tool carries `annotations` with `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` per [MCP Tool Annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) / [blog 2026-03-16](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations)):**
+**87 tools in 8 families (spec 2025-06-18, every tool carries `annotations` with `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` per [MCP Tool Annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) / [blog 2026-03-16](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations)):**
 
 | Family | Count | Source module |
 |--------|-------|---------------|
 | Core | 49 | `handlers/tools.rs` — listed in `tools/list` |
 | `code_*` | 8 | `code.rs` |
-| `skill_*` | 6 | `skills.rs` |
+| `skill_*` | 7 | `skills.rs` |
 | `wiki_*` | 6 | `wiki.rs` |
 | `context_assemble` | 1 | `context.rs` |
 | `scene_*` | 5 | `scenes.rs` |
@@ -216,7 +216,7 @@ The VantaDB MCP server exposes a **tool surface profile** via the `VANTADB_MCP_P
 
 | Profile | Tool Count | Description | Recommended For |
 |---------|------------|-------------|-----------------|
-| `full` (default) | 86 | All tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence, wiki, skills, threads, scenes, dreams, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients |
+| `full` (default) | 87 | All tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence, wiki, skills, threads, scenes, dreams, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients |
 | `dev` | ~35 | Memory CRUD + search + IQL + graph traversal + collections + key maintenance (snapshots, export/import, flush, compact) + axioms. Excludes: code intelligence, wiki, skills, threads, scenes, context engine, bulk import, index audit/repair, vacuum, rebuild_index. | **Cursor** (cap ~40), VS Code extensions, clients with moderate tool caps |
 | `memory` | ~18 | Core memory CRUD (put/get/delete/list/versions/supersede) + search (semantic/memory/with_method/multi) + IQL + collections + capabilities + generate_snippet. | Memory-only agents, minimal clients, testing |
 
@@ -251,7 +251,7 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
 - The profile is read once at server startup from `VANTADB_MCP_PROFILE`.
 - `tools/list` returns only the tools allowed by the selected profile.
 - `tools/call` for a non-listed tool returns `method_not_found` with a clear error: `Tool not found: <name> (not in profile <profile>)`.
-- Profile `full` preserves backward compatibility — existing clients see all 86 tools by default.
+- Profile `full` preserves backward compatibility — existing clients see all 87 tools by default.
 
 ## Core Tools (49)
 
@@ -398,7 +398,7 @@ Dispatched via `tools/call`, defined outside `handlers/tools.rs` (8+6+6+5+6+1+5 
 | `code_files` | Lists indexed files. |
 | `code_status` | Index health/status of the code graph. |
 
-### Skills Management — `skills.rs` (6)
+### Skills Management — `skills.rs` (7)
 
 | Tool | Description |
 |------|-------------|
@@ -408,6 +408,7 @@ Dispatched via `tools/call`, defined outside `handlers/tools.rs` (8+6+6+5+6+1+5 
 | `skill_update` | Updates an existing skill. |
 | `skill_patch` | Applies targeted patches to a skill. |
 | `skill_files_write` | Writes supporting files for a skill. |
+| `skill_extract` | Reviews a transcript and returns reusable-skill candidates WITHOUT writing anything (candidates-only, read-only). No LLM runner is configured in MCP, so non-empty transcripts honestly degrade to `{success:false, candidates:[], error}`; empty transcripts succeed trivially with `[]`. |
 
 ### Wiki — `wiki.rs` (6)
 

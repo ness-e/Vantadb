@@ -17,10 +17,16 @@
 
 use crate::config::McpConfig;
 use crate::error::McpError;
-use crate::validation::{error_content, serialize_content, text_content, validate_identifier};
+use crate::validation::{
+    error_content, serialize_content, text_content, validate_identifier, validate_payload,
+};
 use serde_json::{json, Value};
 use std::collections::BTreeMap;
 use std::sync::Arc;
+use vanta_memory::core::abstractions::{LlmError, LlmRunParams, LlmRunner};
+use vanta_memory::core::skill::{
+    extract_skills_with_llm, ExtractMessage, SkillExtractorConfig, SkillSummary,
+};
 use vantadb::sdk::{
     SkillCreateInput, SkillListOptions, SkillPatchInput, SkillRecord, SkillUpdateInput,
 };
@@ -174,6 +180,25 @@ pub(crate) fn skill_tool_definitions() -> Vec<Value> {
                 "required": ["skill_id", "owner_agent", "expected_version", "path", "content"]
             }
         }),
+        json!({
+            "name": "skill_extract",
+            "description": "Reviews a transcript and returns reusable-skill candidates WITHOUT writing anything (candidates-only, read-only). No LLM runner is configured in MCP, so non-empty transcripts honestly degrade to {success:false, candidates:[], error}; empty transcripts succeed trivially with [].",
+            "annotations": {
+                "title": "Skill Extract Candidates",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "messages": { "type": "array", "items": {"type": "object"}, "description": "Transcript turns to review: [{role, content}]. Max 512 turns." },
+                    "existing_skills": { "type": "array", "items": {"type": "object"}, "description": "Optional known skills to prefer updating over duplicating: [{name, description}]." }
+                },
+                "required": ["messages"]
+            }
+        }),
     ]
 }
 
@@ -196,6 +221,7 @@ pub(crate) fn handle_skill_tool(
         "skill_update" => skill_update(args, &store, config),
         "skill_patch" => skill_patch(args, &store, config),
         "skill_files_write" => skill_files_write(args, &store, config),
+        "skill_extract" => skill_extract(args, config),
         _ => McpError::method_not_found(format!("Tool not found: {}", name)).into_err(),
     }
 }
@@ -716,4 +742,107 @@ fn file_record_size(value: &str) -> Result<usize, Value> {
         .and_then(|v| v["size_bytes"].as_u64())
         .map(|s| s as usize)
         .ok_or_else(|| error_content("Skill file metadata is corrupt"))
+}
+
+// ── skill_extract (FIND-111, S5) ────────────────────────────────────────────
+// Candidates-only read-only: reviews a transcript via the core pure function
+// and returns `{success, candidates, error}` WITHOUT touching the sink or any
+// storage. Glue per R-8: parse + validate at the boundary, delegate, serialize.
+
+/// LLM-free stand-in: MCP configures no runner, so every non-trivial call
+/// degrades exactly like a missing runner (`NotConfigured`) and the core
+/// answers `success:false` per Principio 4 — never blocks, never writes.
+struct NoRunner;
+
+impl LlmRunner for NoRunner {
+    fn run(&self, _params: &LlmRunParams) -> Result<String, LlmError> {
+        Err(LlmError::NotConfigured)
+    }
+}
+
+/// Max transcript turns per call (pipe guard, precedent MCP-17/25).
+const MAX_EXTRACT_MESSAGES: usize = 512;
+
+fn skill_extract(args: &Value, config: &McpConfig) -> Result<Value, Value> {
+    let messages = parse_extract_messages(args, config)?;
+    let existing = parse_existing_skills(args, config)?;
+    let result = extract_skills_with_llm(
+        &NoRunner,
+        &messages,
+        &existing,
+        &SkillExtractorConfig::default(),
+    );
+    let candidates: Vec<Value> = result
+        .candidates
+        .iter()
+        .map(|c| {
+            json!({
+                "action": c.action,
+                "name": c.name,
+                "description": c.description,
+                "content": c.content,
+            })
+        })
+        .collect();
+    Ok(text_content(serialize_content(&json!({
+        "success": result.success,
+        "candidates": candidates,
+        "error": result.error,
+    }))))
+}
+
+fn parse_extract_messages(args: &Value, config: &McpConfig) -> Result<Vec<ExtractMessage>, Value> {
+    let items = args["messages"].as_array().ok_or_else(|| {
+        McpError::invalid_params("Missing or invalid 'messages' (array of {role, content})")
+            .to_json()
+    })?;
+    if items.len() > MAX_EXTRACT_MESSAGES {
+        return Err(McpError::invalid_params(format!(
+            "'messages' exceeds maximum of {MAX_EXTRACT_MESSAGES} turns"
+        ))
+        .to_json());
+    }
+    items
+        .iter()
+        .map(|m| parse_extract_message(m, config))
+        .collect()
+}
+
+fn parse_extract_message(item: &Value, config: &McpConfig) -> Result<ExtractMessage, Value> {
+    let role = item["role"].as_str().ok_or_else(|| {
+        McpError::invalid_params("Each 'messages' item needs a string 'role'").to_json()
+    })?;
+    let content = item["content"].as_str().ok_or_else(|| {
+        McpError::invalid_params("Each 'messages' item needs a string 'content'").to_json()
+    })?;
+    validate_identifier(role, "messages[].role", config.max_key_length).map_err(|e| e.to_json())?;
+    validate_payload(content, config.max_payload_length).map_err(|e| e.to_json())?;
+    Ok(ExtractMessage::new(role, content))
+}
+
+fn parse_existing_skills(args: &Value, config: &McpConfig) -> Result<Vec<SkillSummary>, Value> {
+    let Some(items) = args.get("existing_skills") else {
+        return Ok(vec![]);
+    };
+    let items = items.as_array().ok_or_else(|| {
+        McpError::invalid_params("'existing_skills' must be an array of {name, description}")
+            .to_json()
+    })?;
+    items
+        .iter()
+        .map(|s| {
+            let name = s["name"].as_str().ok_or_else(|| {
+                McpError::invalid_params("Each 'existing_skills' item needs a string 'name'")
+                    .to_json()
+            })?;
+            validate_identifier(name, "existing_skills[].name", config.max_key_length)
+                .map_err(|e| e.to_json())?;
+            let description = s["description"].as_str().unwrap_or_default();
+            validate_payload(description, config.max_payload_length).map_err(|e| e.to_json())?;
+            Ok(SkillSummary {
+                name: name.to_string(),
+                description: description.to_string(),
+            })
+        })
+        .collect()
 }
