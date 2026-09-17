@@ -42,6 +42,18 @@ fn test_mcp_initialize() {
         val["capabilities"]["prompts"].is_object(),
         "capabilities.prompts should be an object"
     );
+    // FIND-103: recall-first instructions are part of the initialize contract.
+    let instructions = val["instructions"]
+        .as_str()
+        .expect("initialize must carry an `instructions` string (MCP 2025-06-18)");
+    assert!(
+        !instructions.is_empty(),
+        "initialize `instructions` must be non-empty"
+    );
+    assert!(
+        instructions.contains("memory_recall"),
+        "initialize `instructions` must state the recall-first policy: {instructions}"
+    );
 }
 
 #[test]
@@ -226,6 +238,15 @@ fn test_mcp_prompts_get() {
     assert!(
         msg.contains("learning rust"),
         "search_memory prompt should include query 'learning rust'"
+    );
+    // FIND-103: recall-first workflow is part of the prompt contract.
+    assert!(
+        msg.contains("memory_recall"),
+        "search_memory prompt must state the recall-first workflow: {msg}"
+    );
+    assert!(
+        msg.contains("created_at_ms"),
+        "search_memory prompt must document the honest temporal path: {msg}"
     );
 
     // analyze_namespace prompt

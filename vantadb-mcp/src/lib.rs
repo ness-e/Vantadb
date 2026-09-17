@@ -22,6 +22,7 @@ mod proxy;
 mod scenes;
 mod server;
 mod skills;
+mod temporal;
 mod threads;
 mod validation;
 mod wiki;
@@ -32,7 +33,7 @@ pub use config::McpConfig;
 pub use config::McpProfile;
 /// MCP error type used across the server.
 pub use error::McpError;
-/// Handle the `initialize` request, returning protocol version, server info and capabilities.
+/// Handle the `initialize` request, returning protocol version, server info, capabilities and recall-first instructions.
 pub use handlers::initialize::handle_initialize;
 /// Get a specific prompt and its arguments.
 pub use handlers::prompts::handle_prompts_get;
@@ -56,6 +57,10 @@ pub use server::run_stdio_server;
 pub use server::run_stdio_server_auto;
 /// MCP-35 discovery file shape.
 pub use server::{discovery_path, is_pid_alive, spawn_writer_http, ServerInfo, WriterGuard};
+/// Deterministic ES/EN temporal-expression → inclusive Unix-ms range (FIND-103).
+pub use temporal::parse_temporal_expression;
+/// Policy default (days) for the unresolvable-expression fallback.
+pub use temporal::FALLBACK_LAST_DAYS;
 /// Lifecycle state + progress of an async wiki build, by run_id (MEM-31).
 pub use wiki::ingest_status;
 /// Start an async wiki ingest build, returning its run_id immediately (MEM-52).

@@ -2,15 +2,15 @@
 
 > Verified against the real SDK boundary: `src/sdk/types.rs`, `src/sdk/api.rs`, `src/sdk/builder.rs`, `src/index/graph.rs`, `src/error.rs`. Only symbols that exist in the code are documented here.
 
-## MCP Tools (79)
+## MCP Tools (86)
 
 > **This is the single source of truth for the VantaDB MCP contract.**
-> Verified against `vantadb-mcp/src/`: exactly **79 tools** = 49 core
+> Verified against `vantadb-mcp/src/`: exactly **86 tools** = 49 core
 > (`handlers/tools.rs` `base_tools` — 49) + 6 `skill_*` (`skills.rs`) + 8 `code_*`
 > (`code.rs`) + 6 `wiki_*` (`wiki.rs`) + 1 `context_assemble`
-> (`context.rs`) + 3 `scene_*` (`scenes.rs`) + 6 `thread_*` (`threads.rs`). All seven sets are announced together
+> (`context.rs`) + 5 `scene_*` (`scenes.rs`) + 6 `thread_*` (`threads.rs`) + 5 `dream_*` (`dreams.rs`). All eight sets are announced together
 > in `tools/list` via extend (`handlers/tools.rs`).
-> Last synced against code: 2026-09-02 — 79 tools = 49 core + 6 skill_* + 8 code_* + 6 wiki_* + 1 context_assemble + 3 scene_* + 6 thread_* (verified `vantadb-mcp/src/handlers/tools.rs` base_tools 49).
+> Last synced against code: 2026-09-17 — 86 tools = 49 core + 6 skill_* + 8 code_* + 6 wiki_* + 1 context_assemble + 5 scene_* + 6 thread_* + 5 dream_* (FIND-103 recount: +`scene_write`/`scene_edit` S1, +`dream_list`/`dream_load`/`dream_discard` S2, +`dream_consolidate`/`dream_promote` S3).
 
 ### Core — Memory / Search / Collections / Graph / IQL / GDS / Recovery (49)
 
@@ -113,19 +113,38 @@ Read-only MCP exposure of the vanta-memory context engine (`assemble_with_recall
 |------|---------|-------------|
 | `context_assemble` | Assemble a context window under a token budget: compacts the chat history and injects recall blocks (relevant L1 memories, user persona, scene navigation) | `session_key`, `token_budget` (req, > 0); `query`, `messages` (`{role, content, id?}`, optional); returns `{messages, report{mode,msgs_conserved,msgs_before,tokens_before,tokens_after}, mmd_injected, recall_injected}`. Note: when the protected final messages alone exceed the budget, output intentionally exceeds it (engine cursor guarantee) |
 
-### Scenes API (3 × `scene_*`, MCP-30)
+### Scenes API (5 × `scene_*`, MCP-30 + FIND-107 S1)
 
-Read-only MCP exposure of the vanta-memory gateway scene handlers
-(`vanta_memory::gateway` pure functions over `&VantaEmbedded`) — structured
-scene navigation for external agents. Domain errors (unknown session, missing
-scene) surface as error-content messages, never protocol errors. `scene_query`
-ranks by keyword overlap only (no embedding hook in MCP).
+Read tools wrap the vanta-memory gateway scene handlers
+(`vanta_memory::gateway` pure functions over `&Embedded`); write tools
+(`scene_write`/`scene_edit`, FIND-107 S1) wrap the sandboxed write path
+(`vanta_memory::core::scene::scene_tools`) — structured scene navigation for
+external agents. Domain errors (unknown session, missing scene) surface as
+error-content messages, never protocol errors. `scene_query` ranks by keyword
+overlap only (no embedding hook in MCP).
 
 | Tool | Purpose | Main params |
 |------|---------|-------------|
 | `scene_read` | Read one live scene block by name; soft-deleted and missing scenes are indistinguishable ("not found") | `session_key`, `scene_name` (req); returns `{scene:{scene_name, meta{created,updated,summary,heat}, content}}` |
 | `scene_list` | List the session's scene index, heat descending, soft-deleted excluded | `session_key` (req); returns `{scenes:[{filename,summary,heat,created,updated}]}` where `filename` is the id for `scene_read` |
 | `scene_query` | Keyword search over live scene blocks (term overlap vs summary+content, ties by heat) | `session_key`, `keyword` (req); `top_k` (optional, default 5); returns `{hits:[{scene_name,summary,heat,updated,score}]}` — load hits via `scene_read` |
+| `scene_write` | Create or fully replace one scene block (upsert; empty content rejected) | `session_key`, `scene_name`, `content` (req); `summary`; returns `{scene:{...}}` — write path |
+| `scene_edit` | Patch `summary` and/or `content` of an existing scene (missing → "not found") | `session_key`, `scene_name` (req); `summary` and/or `content`; returns `{scene:{...}}` — write path |
+
+### Dreams API (5 × `dream_*`, FIND-107 S2+S3)
+
+Read wrappers plus a scoped delete over the vanta-memory dream store
+(`dream/<session>/<run_id>`) plus the LLM-free consolidation pass and the
+promote preview. The L1 store is never touched. Domain errors surface as
+error-content messages.
+
+| Tool | Purpose | Main params |
+|------|---------|-------------|
+| `dream_list` | List every dream run for a session (metadata only) | `session_key` (req); load a run via `dream_load` — read-only |
+| `dream_load` | Load the full persisted dream run (consolidated view; originals never replaced) | `session_key`, `run_id` (req); missing → "not found" — read-only |
+| `dream_discard` | Discard one dream run after review; L1 untouched | `session_key`, `run_id` (req) — scoped destructive (dream namespace only) |
+| `dream_consolidate` | Run one LLM-free consolidation pass and persist the view | `session_key` (req); fails as error-content when not idle — write path |
+| `dream_promote` | PREVIEW ONLY: returns `{preview_count, mutated:false}` without mutating anything | `session_key`, `run_id` (req) — read-only |
 
 ## Python SDK
 

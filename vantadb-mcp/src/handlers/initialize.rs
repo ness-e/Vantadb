@@ -9,7 +9,17 @@ pub const LATEST_PROTOCOL_VERSION: &str = "2025-06-18";
 /// All protocol versions this server understands (latest first).
 pub const SUPPORTED_PROTOCOL_VERSIONS: &[&str] = &["2025-06-18", "2024-11-05"];
 
-// ── initialize handler ────────────────────────────────────────────────────
+/// Recall-first server instructions, surfaced to the agent via the MCP
+/// `initialize` result (`instructions` field, spec 2025-06-18 — see
+/// https://modelcontextprotocol.io/specification/2025-06-18/basic/lifecycle/).
+/// This is what the agent reads before any tool call: recall before answering,
+/// never improvise temporal ranges (see `temporal::parse_temporal_expression`),
+/// and curate through threads — never depend on ambient files for memory.
+pub const SERVER_INSTRUCTIONS: &str = "VantaDB persistent memory. Recall-first policy: \
+    before answering any question about past work, call `memory_recall` (scope agent, top_k 5) and only inject hits into context when recalled is non-empty — when nothing is recalled, say so and do not fill the gap. \
+    Temporal expressions (\"yesterday at 2pm\", \"ayer a las 2pm\") are deterministic [from_ms, to_ms] ranges, never guesses — see the skill recall policy. \
+    Capture durable turns with `thread_send`; curate proxy turns into threads through the approval inbox. \
+    Namespaces isolate contexts; TTL + supersession govern vigencia; `audit_text_index` verifies the text index.";
 
 /// Handle the `initialize` request, returning protocol version, server info and capabilities.
 ///
@@ -36,6 +46,7 @@ pub fn handle_initialize(params: Option<&Value>) -> Result<Value, Value> {
             "tools": {},
             "resources": {},
             "prompts": {}
-        }
+        },
+        "instructions": SERVER_INSTRUCTIONS
     }))
 }

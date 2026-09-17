@@ -35,7 +35,7 @@ vanta-cli server --mcp --db ~/.vantadb
 
 ### Client configuration
 
-All three clients use the same server command; only the config file differs. Use an **absolute path** for `--db` if your client does not expand `~`.
+All three clients use the same server command; only the config file differs. **Never use `~` in these JSON configs**: MCP clients spawn the server process directly, without a shell, so `~/.vantadb` arrives literally and the open fails (`Path::new` receives the verbatim string — verified `src/cli_handlers/server.rs`). Always use an **absolute path** for `--db` (shown as `C:/Users/<you>/.vantadb`; on macOS e.g. `/Users/<you>/.vantadb`).
 
 **Claude Desktop** — `%APPDATA%\Claude\claude_desktop_config.json` (Windows) / `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
 
@@ -44,7 +44,7 @@ All three clients use the same server command; only the config file differs. Use
   "mcpServers": {
     "vantadb": {
       "command": "vanta-cli",
-      "args": ["server", "--mcp", "--db", "~/.vantadb"]
+      "args": ["server", "--mcp", "--db", "C:/Users/<you>/.vantadb"]
     }
   }
 }
@@ -57,7 +57,7 @@ All three clients use the same server command; only the config file differs. Use
   "mcpServers": {
     "vantadb": {
       "command": "vanta-cli",
-      "args": ["server", "--mcp", "--db", "~/.vantadb"]
+      "args": ["server", "--mcp", "--db", "C:/Users/<you>/.vantadb"]
     }
   }
 }
@@ -66,7 +66,7 @@ All three clients use the same server command; only the config file differs. Use
 **Claude Code** — project-level `.mcp.json`, or one-shot via CLI:
 
 ```bash
-claude mcp add vantadb -- vanta-cli server --mcp --db ~/.vantadb
+claude mcp add vantadb -- vanta-cli server --mcp --db C:/Users/<you>/.vantadb
 ```
 
 ```json
@@ -74,7 +74,7 @@ claude mcp add vantadb -- vanta-cli server --mcp --db ~/.vantadb
   "mcpServers": {
     "vantadb": {
       "command": "vanta-cli",
-      "args": ["server", "--mcp", "--db", "~/.vantadb"]
+      "args": ["server", "--mcp", "--db", "C:/Users/<you>/.vantadb"]
     }
   }
 }
@@ -195,7 +195,7 @@ so LLM agents can branch on a stable identifier without parsing message text:
 
 ## Tool Families
 
-**79 tools in 7 families (spec 2025-06-18, every tool carries `annotations` with `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` per [MCP Tool Annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) / [blog 2026-03-16](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations)):**
+**86 tools in 8 families (spec 2025-06-18, every tool carries `annotations` with `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` per [MCP Tool Annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) / [blog 2026-03-16](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations)):**
 
 | Family | Count | Source module |
 |--------|-------|---------------|
@@ -204,8 +204,9 @@ so LLM agents can branch on a stable identifier without parsing message text:
 | `skill_*` | 6 | `skills.rs` |
 | `wiki_*` | 6 | `wiki.rs` |
 | `context_assemble` | 1 | `context.rs` |
-| `scene_*` | 3 | `scenes.rs` |
+| `scene_*` | 5 | `scenes.rs` |
 | `thread_*` | 6 | `threads.rs` |
+| `dream_*` | 5 | `dreams.rs` |
 
 > Annotations are display hints (untrusted, not enforcement): `readOnlyHint` true = no persistent mutation, `destructiveHint` true = may delete/overwrite (11 tools), `idempotentHint` true = retry-safe, `openWorldHint` true = host filesystem (wiki_ingest, bulk_import_file only). Clients that ignore annotations assume pessimistic defaults.
 
@@ -215,7 +216,7 @@ The VantaDB MCP server exposes a **tool surface profile** via the `VANTADB_MCP_P
 
 | Profile | Tool Count | Description | Recommended For |
 |---------|------------|-------------|-----------------|
-| `full` (default) | 79 | All tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence, wiki, skills, threads, scenes, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients |
+| `full` (default) | 86 | All tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence, wiki, skills, threads, scenes, dreams, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients |
 | `dev` | ~35 | Memory CRUD + search + IQL + graph traversal + collections + key maintenance (snapshots, export/import, flush, compact) + axioms. Excludes: code intelligence, wiki, skills, threads, scenes, context engine, bulk import, index audit/repair, vacuum, rebuild_index. | **Cursor** (cap ~40), VS Code extensions, clients with moderate tool caps |
 | `memory` | ~18 | Core memory CRUD (put/get/delete/list/versions/supersede) + search (semantic/memory/with_method/multi) + IQL + collections + capabilities + generate_snippet. | Memory-only agents, minimal clients, testing |
 
@@ -239,7 +240,7 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
   "mcpServers": {
     "vantadb": {
       "command": "vanta-cli",
-      "args": ["server", "--mcp", "--db", "~/.vantadb"],
+      "args": ["server", "--mcp", "--db", "C:/Users/<you>/.vantadb"],
       "env": { "VANTADB_MCP_PROFILE": "dev" }
     }
   }
@@ -250,7 +251,7 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
 - The profile is read once at server startup from `VANTADB_MCP_PROFILE`.
 - `tools/list` returns only the tools allowed by the selected profile.
 - `tools/call` for a non-listed tool returns `method_not_found` with a clear error: `Tool not found: <name> (not in profile <profile>)`.
-- Profile `full` preserves backward compatibility — existing clients see all 79 tools by default.
+- Profile `full` preserves backward compatibility — existing clients see all 86 tools by default.
 
 ## Core Tools (49)
 
@@ -380,7 +381,7 @@ Model catalog source of truth: `embeddings/manifest.json` (9 ids, rev pinned). F
 | `bulk_import_file` | Bulk-imports from a binary `.vdbdump` file on the host filesystem, bypassing per-record validation for throughput. |
 | `bulk_import_stream` | Bulk-imports inline NDJSON or raw `.vdbdump` content (max 10 MB); imported entries are raw engine nodes. |
 
-## Extended Tool Families (30)
+## Extended Tool Families (37)
 
 Dispatched via `tools/call`, defined outside `handlers/tools.rs` (8+6+6+5+6+1+5 = 37):
 
@@ -495,7 +496,7 @@ After oversize trimming, `truncated` flips to `true` and the last items are drop
 
 ## Parity
 
-Tool coverage on this page is enforced mechanically by `scripts/validate-docs-coverage.ps1` against `handle_tools_list()` in `vantadb-mcp/src/handlers/tools.rs`. Last sync: **2026-08-23**.
+Tool coverage on this page is enforced mechanically by `scripts/validate-docs-coverage.ps1` against `handle_tools_list()` in `vantadb-mcp/src/handlers/tools.rs`. Last sync: **2026-09-17** (FIND-103 recount 79→86: +2 scenes S1, +5 dreams S2+S3).
 
 ## Registry manifest
 

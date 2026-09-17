@@ -2,7 +2,8 @@
 """Functional test for the VantaDB MCP server over stdio JSON-RPC.
 
 Spawns ONE server process and drives the MCP handshake sequentially:
-initialize -> tools/list -> resources/list -> prompts/list.
+initialize -> tools/list -> resources/list -> prompts/list -> recall smoke
+(tools/call memory_recall on the fresh temp DB).
 
 Exit 0 if every request returns a valid JSON-RPC result AND the surface
 counts match the expected profile counts; exit 1 otherwise (drift gate).
@@ -186,6 +187,18 @@ def main():
             ("tools/list", "tools/list", None),
             ("resources/list", "resources/list", None),
             ("prompts/list", "prompts/list", None),
+            (
+                "recall",
+                "tools/call",
+                {
+                    "name": "memory_recall",
+                    "arguments": {
+                        "query": "recall policy smoke probe",
+                        "scope": "agent",
+                        "top_k": 5,
+                    },
+                },
+            ),
         ]
         for label, method, params in tests:
             print(f"🔍 Testing {label}...")
@@ -240,13 +253,36 @@ def main():
                     )
                     continue
                 print(f"   ✅ Found {len(prompts)} prompts")
+            elif label == "recall":
+                # FIND-103: recall smoke beyond the handshake. On a fresh temp
+                # DB the recall path must answer the honest-empty shape
+                # (recalled [], prepend_context null) — never an error.
+                if result.get("isError"):
+                    print(f"   ❌ recall failed: {result['content'][0]['text']}")
+                    continue
+                try:
+                    payload = json.loads(result["content"][0]["text"])
+                except (KeyError, IndexError, ValueError) as e:
+                    print(f"   ❌ recall failed: bad envelope: {e}")
+                    continue
+                missing = {"recalled", "prepend_context", "effective_mode"} - set(payload)
+                if missing:
+                    print(f"   ❌ recall failed: missing keys {sorted(missing)}")
+                    continue
+                if payload["recalled"] != [] or payload["prepend_context"] is not None:
+                    print("   ❌ recall failed: fresh DB must recall nothing")
+                    continue
+                print(
+                    f"   ✅ recall honest-empty "
+                    f"(mode {payload['effective_mode']})"
+                )
             passed += 1
     finally:
         session.close()
 
     print("\n" + "=" * 50)
-    print(f"📊 Results: {passed}/4 passed")
-    return 0 if passed == 4 else 1
+    print(f"📊 Results: {passed}/5 passed")
+    return 0 if passed == 5 else 1
 
 
 if __name__ == "__main__":

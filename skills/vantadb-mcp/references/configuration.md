@@ -16,6 +16,8 @@ Default: `vantadb_data` (relative to the working directory).
 
 > Note: the legacy name `VANTADB_PATH` does not exist. The CLI's `--db` flag (env `VANTA_DB`, default `./db`) is separate and only affects `vanta-cli`.
 
+> `~` is NOT expanded: `Path::new(db_path)` is used verbatim (`src/cli_handlers/server.rs`, `vantadb-mcp/src/server.rs`). In a shell `~/.vantadb` expands, but MCP clients spawn the server **without a shell** — always use an **absolute path** in client JSON configs (see the `~` warning in `SKILL.md` § Quick Start and `docs/api/MCP.md` § Client configuration).
+
 ### VANTA_BACKEND
 
 Key-value storage backend. Accepted values: `fjall` (default), `rocksdb`, `memory`.
@@ -116,6 +118,26 @@ Pool-permit acquisition timeout in ms (default 5000).
 
 HTTP query pool circuit breaker: consecutive failures before opening (default 5) and seconds it stays open (default 30).
 
+## MCP Server (tool surface + budgeting)
+
+Verified against `vantadb-mcp/src/config.rs` (`McpConfig::from_storage`).
+
+### VANTADB_MCP_PROFILE
+
+Tool surface profile for clients with tool caps (e.g. Cursor ~40 tools). Read once at server startup. Accepted values: `full` (default, 86 tools), `dev` (~35: memory + graph + collections + key maintenance + axioms), `memory` (~18: core CRUD + search + IQL + collections + capabilities).
+
+```bash
+export VANTADB_MCP_PROFILE=dev
+```
+
+### VANTADB_MCP_BYTE_BUDGET
+
+Target response envelope size in bytes for one-shot list/search tools (`memory_list`, `search_multi`). Default `40 * 1024` (40 KB); clamped to `[1 KB, 1 MB]`. Changing it requires a server restart. See `docs/api/MCP.md` § Output budgeting.
+
+```bash
+export VANTADB_MCP_BYTE_BUDGET=40960
+```
+
 ## Logging
 
 ### VANTADB_LOG_FORMAT
@@ -149,6 +171,20 @@ Optional append-only JSONL audit log of business operations (every put/delete/ex
 ### VANTA_LLM_URL / VANTA_LLM_MODEL / VANTA_LLM_SUMMARIZE_MODEL
 
 LLM inference endpoint (default `http://localhost:11434`), embedding model (default `all-minilm`), and summarisation model (default `llama3`). Only relevant when the `remote-inference` feature is enabled.
+
+### Embedding provider selection (MCP + core)
+
+Verified against `src/config.rs:203-209,586-595,936-957` + `vantadb-mcp/src/handlers/tools.rs:3374,3596` + `src/llm.rs:58-93,308-311`.
+
+| Variable | Meaning | Default / requirement |
+|----------|---------|----------------------|
+| `VANTADB_EMBEDDING_PROVIDER` | `ollama` \| `openai` \| `local` (ONNX) | `ollama` when unset |
+| `VANTADB_LOCAL_MODEL` | Absolute dir of the ONNX model (`.../embeddings/models/<id>/onnx`) | Required when provider is `local` |
+| `VANTADB_OPENAI_API_KEY` | OpenAI key (**session env only, NEVER to disk**) | Required when provider is `openai`; legacy `VANTA_OPENAI_API_KEY` deprecated |
+| `VANTADB_OPENAI_MODEL` | OpenAI embedding model id | Optional; legacy `VANTA_OPENAI_MODEL` deprecated |
+| `ORT_DYLIB_PATH` | Path to `onnxruntime` ≥ 1.27 dylib/dll | Required when provider is `local` |
+
+Without a working provider, `memory_put` stores vectorless and `embed_texts` answers `fallback:true` + `warning` (never a hard error, never silent). See `SKILL.md` § Embeddings for the full contract.
 
 ## HNSW Tuning
 

@@ -11,7 +11,7 @@ pub fn handle_prompts_list() -> Result<Value, Value> {
         "prompts": [
             {
                 "name": "search_memory",
-                "description": "Optimized prompt for searching memory records with hybrid vector and text search",
+                "description": "Recall-first memory search: memory_recall, then hybrid search_memory with deterministic temporal ranges",
                 "arguments": [
                     { "name": "namespace", "description": "Target namespace for search", "required": true },
                     { "name": "query", "description": "Search query (text or vector)", "required": true },
@@ -20,14 +20,14 @@ pub fn handle_prompts_list() -> Result<Value, Value> {
             },
             {
                 "name": "analyze_namespace",
-                "description": "Analyze the content and structure of a namespace",
+                "description": "Analyze a namespace for structure AND vigencia: clusters plus TTL, supersession and curation signals",
                 "arguments": [
                     { "name": "namespace", "description": "Namespace to analyze", "required": true }
                 ]
             },
             {
                 "name": "summarize_context",
-                "description": "Generate a summary of context from memory records",
+                "description": "Summarize context honouring supersession and TTL: superseded records are history, not current state",
                 "arguments": [
                     { "name": "namespace", "description": "Source namespace", "required": true },
                     { "name": "limit", "description": "Number of records to include", "required": false }
@@ -35,7 +35,7 @@ pub fn handle_prompts_list() -> Result<Value, Value> {
             },
             {
                 "name": "query_builder",
-                "description": "Build IQL queries for VantaDB",
+                "description": "Build IQL queries with honest temporal rules: no server-side time-travel WHERE on memory records",
                 "arguments": [
                     { "name": "operation", "description": "Operation type (SELECT, INSERT, UPDATE, DELETE)", "required": true },
                     { "name": "target", "description": "Target (nodes, memory, etc.)", "required": true },
@@ -62,8 +62,8 @@ pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
                 .unwrap_or("default");
             let query = args.and_then(|a| a["query"].as_str()).unwrap_or("");
             Ok(json!({
-                "description": "Optimized prompt for searching memory records with hybrid vector and text search",
-                "messages": [{"role": "user", "content": {"type": "text", "text": format!("Search the VantaDB memory in namespace '{}' for: '{}'. Use hybrid search combining vector similarity and lexical matching. Apply any specified filters and return the top K results with confidence scores.", namespace, query)}}]
+                "description": "Recall-first memory search: memory_recall, then hybrid search_memory with deterministic temporal ranges",
+                "messages": [{"role": "user", "content": {"type": "text", "text": format!("Recall-first search in VantaDB namespace '{}' for: '{}'. Step 1: call `memory_recall` with this query (scope agent, top_k 5). Step 2: if the question carries a temporal expression (e.g. 'yesterday at 2pm'), translate it to a DETERMINISTIC [from_ms, to_ms] range — never guess; an unresolvable expression falls back to the last 30 days and you must say so. Step 3: run `search_memory` (hybrid vector + text) and, for time-bounded questions, page `memory_list` keeping only records whose created_at_ms falls inside the range (`search_memory` filters are equality-only). Only inject recalled hits into context when recalled is non-empty; when nothing is recalled, say so instead of filling the gap.", namespace, query)}}]
             }))
         }
         "analyze_namespace" => {
@@ -71,8 +71,8 @@ pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
                 .and_then(|a| a["namespace"].as_str())
                 .unwrap_or("default");
             Ok(json!({
-                "description": "Analyze the content and structure of a namespace",
-                "messages": [{"role": "user", "content": {"type": "text", "text": format!("Analyze the VantaDB namespace '{}'. List all records, examine metadata patterns, identify clusters, and provide insights about the namespace structure and content distribution.", namespace)}}]
+                "description": "Analyze a namespace for structure AND vigencia: clusters plus TTL, supersession and curation signals",
+                "messages": [{"role": "user", "content": {"type": "text", "text": format!("Analyze the VantaDB namespace '{}' for structure AND vigencia. List records, examine metadata patterns and identify clusters; then check curation signals: records past their TTL (`purge_expired` candidates), superseded records (follow the `memory_supersede` chain via `memory_versions`), pending approval-inbox items, and near-duplicates to merge. Report what is current, what is obsolete, and what needs a human decision.", namespace)}}]
             }))
         }
         "summarize_context" => {
@@ -81,8 +81,8 @@ pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
                 .unwrap_or("default");
             let limit = args.and_then(|a| a["limit"].as_u64()).unwrap_or(10);
             Ok(json!({
-                "description": "Generate a summary of context from memory records",
-                "messages": [{"role": "user", "content": {"type": "text", "text": format!("Retrieve the last {} records from namespace '{}' and generate a comprehensive summary of the context, identifying key themes, relationships, and important information.", limit, namespace)}}]
+                "description": "Summarize context honouring supersession and TTL: superseded records are history, not current state",
+                "messages": [{"role": "user", "content": {"type": "text", "text": format!("Retrieve the last {} records from namespace '{}' and summarize key themes, relationships and important information. Exclude superseded records from the 'current state' (check `memory_versions` when a record looks replaced); flag records past their TTL as expired, not valid. Quote record keys so the summary stays traceable.", limit, namespace)}}]
             }))
         }
         "query_builder" => {
@@ -92,8 +92,8 @@ pub fn handle_prompts_get(params: Option<&Value>) -> Result<Value, Value> {
             let target = args.and_then(|a| a["target"].as_str()).unwrap_or("nodes");
             let conditions = args.and_then(|a| a["conditions"].as_str()).unwrap_or("");
             Ok(json!({
-                "description": "Build IQL queries for VantaDB",
-                "messages": [{"role": "user", "content": {"type": "text", "text": format!("Build an IQL query for VantaDB. Operation: {}, Target: {}, Conditions: {}. Ensure the query follows IQL syntax and is properly formatted.", operation, target, conditions)}}]
+                "description": "Build IQL queries with honest temporal rules: no server-side time-travel WHERE on memory records",
+                "messages": [{"role": "user", "content": {"type": "text", "text": format!("Build an IQL query for VantaDB. Operation: {}, Target: {}, Conditions: {}. Rules: IQL is not Cypher and not LISP (LINK does not exist — use RELATE); UPDATE uses SET field = value. Temporal conditions on memory records have NO server-side WHERE filter — express them as a deterministic [from_ms, to_ms] range and apply client-side over created_at_ms from `memory_list` pages (graph edge windows use `graph_traverse` time_range).", operation, target, conditions)}}]
             }))
         }
         _ => McpError::invalid_params(format!("Prompt not found: {}", name)).into_err(),

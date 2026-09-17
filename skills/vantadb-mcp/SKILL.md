@@ -5,7 +5,7 @@ description: VantaDB Model Context Protocol (MCP) server integration for persist
 
 # VantaDB MCP Integration
 
-VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **79 tools** (49 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*` + 1 `context_assemble` + 3 `scene_*` + 6 `thread_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
+VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **86 tools** (49 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*` + 1 `context_assemble` + 5 `scene_*` + 6 `thread_*` + 5 `dream_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
 
 ## Quick Start
 
@@ -46,11 +46,16 @@ Configure your MCP client to connect to VantaDB:
   "mcpServers": {
     "vantadb": {
       "command": "vanta-cli",
-      "args": ["server", "--mcp", "--db", "~/.vantadb"]
+      "args": ["server", "--mcp", "--db", "C:/Users/<you>/.vantadb"]
     }
   }
 }
 ```
+
+> `~` does NOT expand in client configs: MCP clients spawn the command
+> directly, without a shell (`Path::new` receives the literal string — see
+> [references/configuration.md](references/configuration.md) § Storage).
+> Always use an **absolute path** for `--db`.
 
 **Pre-configured templates available in assets/:**
 - `assets/claude-desktop-config.json` - Claude Desktop configuration
@@ -83,7 +88,9 @@ python scripts/test-mcp.py
 
 The script spawns one server process and drives the MCP handshake
 (`initialize` → `tools/list` → `resources/list` → `prompts/list`), exiting 0 if
-every request returns a valid result. The server binary is resolved from (in
+every request returns a valid result. The `initialize` result carries an
+`instructions` string with the recall-first policy (MCP 2025-06-18) — read it
+before any tool call. The server binary is resolved from (in
 order): `argv[1]` or the `VANTADB_MCP_BIN` environment variable (explicit
 path), `vanta-cli` on PATH, `target/debug|release/vanta-cli.exe`, then
 `vantadb-server` on PATH / `target/debug|release/vantadb-server.exe`.
@@ -113,10 +120,10 @@ first write; list what exists with `collection_list` (or `memory_list_namespaces
 }
 ```
 
-## Available MCP Tools (79)
+## Available MCP Tools (86)
 
-The full contract for all **79 tools** lives in
-[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 49 core tools in detail; the other 30 are summarized here.
+The full contract for all **86 tools** lives in
+[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 49 core tools in detail; the other 37 are summarized here.
 
 | Group | Count | Tools | Precondition |
 |-------|-------|-------|--------------|
@@ -125,8 +132,9 @@ The full contract for all **79 tools** lives in
 | Code Intelligence (`code_*`) | 8 | `code_search`, `code_explore`, `code_callers`, `code_callees`, `code_impact`, `code_node`, `code_status`, `code_files`* | graph nodes/edges ingested first; query-only |
 | Wiki Knowledge (`wiki_*`) | 6 | `wiki_search`, `wiki_read`, `wiki_list`, `wiki_graph`, `wiki_ingest`, `wiki_ingest_status` | wiki lifecycle in `ready` state |
 | Context Engine (`context_assemble`) | 1 | `context_assemble` | read-only; session recall needs prior memory capture into the session |
-| Scenes API (`scene_*`) | 3 | `scene_read`, `scene_list`, `scene_query` | read-only; scenes need prior scene capture into the session store |
+| Scenes API (`scene_*`) | 5 | `scene_read`, `scene_list`, `scene_query`, `scene_write`, `scene_edit` | reads are query-only; writes need an existing session store |
 | Threads (`thread_*`) | 6 | `thread_create`, `thread_send`, `thread_get`, `thread_list`, `thread_delete`, `thread_purge_expired` | conversation history CRUD; ids are u128 strings; delete is permanent |
+| Dreams (`dream_*`) | 5 | `dream_list`, `dream_load`, `dream_discard`, `dream_consolidate`, `dream_promote` | reviewable consolidation runs; L1 never mutated (`dream_promote` is preview-only) |
 
 \* `code_files` is a documented not-supported stub: the built-in GraphRAG has no file-per-node concept.
 
@@ -432,10 +440,25 @@ The server lists 2 static resources in `resources/list`; 2 additional dynamic UR
 
 ## Available MCP Prompts
 
-- **search_memory** - Optimized prompt for memory search
-- **analyze_namespace** - Analyze namespace content and structure
-- **summarize_context** - Generate context summaries
-- **query_builder** - Build IQL queries
+Recall-first workflows (not bare search strings) — `prompts/get` interpolates
+your arguments into the workflow text:
+
+- **search_memory** - Recall-first search: `memory_recall` (scope agent, top_k 5), then hybrid `search_memory`; temporal expressions become deterministic `[from_ms, to_ms]` ranges, never guesses; empty recall injects nothing
+- **analyze_namespace** - Structure AND vigencia: clusters plus TTL expiry, supersession chains, approval-inbox items and duplicates
+- **summarize_context** - Summaries honouring supersession/TTL: superseded records are history, keys quoted for traceability
+- **query_builder** - IQL with honest temporal rules (no server-side time-travel WHERE on memory records; `graph_traverse` `time_range` for edge windows)
+
+## Continuous Recall
+
+This skill is the recall engine, not a search cheat-sheet. The full policy —
+hook map (`SessionStart`/per-message/`PreCompact`/`Stop`), `memory_recall`
+defaults (`scope: agent`, `top_k: 5`), when NOTHING is injected (empty recall
+injects nothing, never fill the gap), deterministic temporal ranges
+(`parse_temporal_expression`, 30-day announced fallback), `additionalContext`
+budget, and proxy-turns→threads curation via the approval inbox — lives in
+[references/recall-policy.md](references/recall-policy.md). The `initialize`
+`instructions` string states the same policy in one paragraph; per-client hook
+templates are FIND-106 (not here).
 
 ## Behavior Notes
 
@@ -565,7 +588,7 @@ VantaDB provides Python SDK integrations for popular AI frameworks:
 
 ## Editor Integration
 
-For per-IDE setup (Cursor, Claude Code, Windsurf, OpenCode, Cline, VS Code), see [docs/api/MCP.md](../../docs/api/MCP.md) (a stub). The source of truth for the MCP contract is this skill — [references/api-reference.md](references/api-reference.md) § "MCP Tools (45)".
+For per-IDE setup (Cursor, Claude Code, Windsurf, OpenCode, Cline, VS Code), see [docs/api/MCP.md](../../docs/api/MCP.md) (a stub). The source of truth for the MCP contract is this skill — [references/api-reference.md](references/api-reference.md) § "MCP Tools (86)".
 
 Supported editors:
 - Cursor
@@ -628,6 +651,7 @@ server — stdio, local, single-user. Threat model for the host-file tools:
 For comprehensive documentation, see the reference files:
 
 - **[references/mcp-protocol.md](references/mcp-protocol.md)** - Complete MCP protocol specification
+- **[references/recall-policy.md](references/recall-policy.md)** - Continuous recall policy: hooks, thresholds, temporal rules, curation
 - **[references/api-reference.md](references/api-reference.md)** - Full VantaDB API reference (Python and Rust)
 - **[references/configuration.md](references/configuration.md)** - Advanced configuration guide (environment variables)
 
