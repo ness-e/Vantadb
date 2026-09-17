@@ -1,0 +1,56 @@
+{
+  "description": "FIND-106 template_version 1.0.0, docs_verified 2026-09-17 (https://developers.openai.com/codex/hooks). Copy to <repo>/.codex/hooks.json (or ~/.codex/hooks.json); review via /hooks. Launcher: pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>. Secrets: session env only.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "timeout": 15,
+            "statusMessage": "VantaDB session recall (top 5)",
+            "additionalContextLimit": 5000
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "timeout": 15,
+            "statusMessage": "VantaDB per-message recall (verbatim query)"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "timeout": 15,
+            "statusMessage": "VantaDB save-state (thread_send/scene_write)"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "timeout": 15,
+            "statusMessage": "VantaDB auto-capture (thread_send)"
+          }
+        ]
+      }
+    ]
+  }
+}
