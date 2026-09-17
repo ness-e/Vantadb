@@ -16,6 +16,42 @@ Python binding for vector, text, and hybrid memory search.
 No external database service, Docker container, Ollama runtime, or network LLM is
 required.
 
+## 0. Install without cloning (one-liner)
+
+No clone, no Rust toolchain. Installs the pre-compiled `vanta-cli` and chains
+to the interactive setup wizard (model + MCP block per client + proxy
+default-on; skip with `--no-wizard` / `-NoWizard`):
+
+- **Linux / macOS / WSL**:
+
+  ```bash
+  curl -fsSL https://raw.githubusercontent.com/ness-e/Vantadb/main/scripts/install.sh | sh
+  ```
+
+- **Windows (PowerShell)**:
+
+  ```powershell
+  irm https://raw.githubusercontent.com/ness-e/Vantadb/main/scripts/install.ps1 | iex
+  ```
+
+Preview the installer→wizard chain without effects (or verify manually by
+downloading the script first and comparing its hash with the published
+`.sha256` release asset):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/ness-e/Vantadb/main/scripts/install.sh -o install.sh
+sh install.sh --dry-run
+```
+
+```powershell
+irm https://raw.githubusercontent.com/ness-e/Vantadb/main/scripts/install.ps1 -OutFile install.ps1
+pwsh -NoProfile -File install.ps1 -DryRun
+```
+
+> **Note**: the Python examples in §5 use `vantadb-py>=0.5.0` (verified in
+> `examples/demo/requirements.txt` and `benchmarks/requirements.txt`).
+> The steps below (§1-§4) are the from-source path for contributors.
+
 ## 1. Prerequisites
 
 - Rust stable toolchain
