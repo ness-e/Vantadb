@@ -382,7 +382,7 @@ Model catalog source of truth: `embeddings/manifest.json` (9 ids, rev pinned). F
 
 ## Extended Tool Families (30)
 
-Dispatched via `tools/call`, defined outside `handlers/tools.rs` (8+6+6+5+6+1+3 = 35):
+Dispatched via `tools/call`, defined outside `handlers/tools.rs` (8+6+6+5+6+1+5 = 37):
 
 ### Code Intelligence — `code.rs` (8)
 
@@ -437,15 +437,17 @@ Read wrappers over the vanta-memory gateway scene handlers (`vanta_memory::gatew
 | `scene_write` | Creates or fully replaces one scene block (upsert: heat bump, `created` preserved on update). Returns `{scene:{...}}`. Empty/whitespace-only content is rejected as an error-content message. Write path. |
 | `scene_edit` | Patches `summary` and/or `content` of an existing scene (at least one field; missing scene answers "not found"). Returns `{scene:{...}}`. Write path. |
 
-### Dreams API - `dreams.rs` (3)
+### Dreams API - `dreams.rs` (5)
 
-Read wrappers plus a scoped delete over the vanta-memory dream store (`vanta_memory::core::dream` over `dream/<session>/<run_id>`) — reviewable, discardable idle consolidation. The L1 store is never touched. Domain errors surface as error-content messages.
+Read wrappers plus a scoped delete over the vanta-memory dream store (`vanta_memory::core::dream` over `dream/<session>/<run_id>`) — reviewable, discardable idle consolidation — plus the LLM-free consolidation pass and the promote preview. The L1 store is never touched. Domain errors surface as error-content messages.
 
 | Tool | Description |
 |------|-------------|
 | `dream_list` | Lists every dream run for a session (metadata only: `run_id`, `started_at_ms`, `ended_at_ms`, `inputs_scanned`, `runner_label`). Load a run via `dream_load`. Read-only. |
 | `dream_load` | Loads the full persisted dream run (consolidated view; originals never replaced). Missing runs answer "not found". Read-only. |
 | `dream_discard` | Discards one dream run (deletes `dream/<session>/<run_id>`) after review. L1 remains untouched. Idempotent. Scoped destructive (dream namespace only). |
+| `dream_consolidate` | Runs one LLM-free consolidation pass (`dedupe + contradictions + date normalization`) and persists the view to `dream/<session>/<run_id>`. Fails as error-content when not idle. Write path. |
+| `dream_promote` | PREVIEW ONLY: returns `{preview_count, mutated:false}` — the count a run would merge, without mutating anything. Read-only. |
 
 ## Output budgeting (`byte_budget`, MCP-39)
 

@@ -155,7 +155,8 @@
   - **Commit S1 (2026-09-18, hook verde tras FIND-100 `22d5a142`):** re-verificado 5/5 + 7/7 en esta sesión; commit selectivo 8 paths con `feat: FIND-107 S1 — scene_write/scene_edit MCP tools (81 total)`. ✅
 - [x] **Step 2 — S2 sueños-lectura** (`dream_list/load/discard`): nuevo `src/dreams.rs` + registro + tests + docs.
   - **Hecho 2026-09-18:** RED (`dream_list missing from tools/list`) → GREEN (4/4 `dream_tests` ✅: list/load/discard roundtrip con L1 intacto, not-found como content, params→`-32602`; 5/5 scene_write_edit + 7/7 scene_tests + 11/11 mcp_tool sin regresión; fmt+clippy limpios). Full 81→84 (Full-only). `dream_discard` añadido al `destructive_set` del test annotations (destructive scoped dream-ns). ✅
-- [ ] **Step 3 — S3 sueños-escritura** (`dream_consolidate` LLM-free + `dream_promote` preview): + tests (not-idle, roundtrip, L1-intacto) + docs (advertir `mutated:false`).
+- [x] **Step 3 — S3 sueños-escritura** (`dream_consolidate` LLM-free + `dream_promote` preview): + tests (not-idle, roundtrip, L1-intacto) + docs (advertir `mutated:false`).
+  - **Hecho 2026-09-18:** RED (nueva suite falla con `missing from tools/list`, compila) → GREEN (10/10 `dream_tests` ✅: consolidate crea run visible en list con L1 intacto, not-idle como content, promote preview `{preview_count, mutated:false}` sin mutar, missing→content, params→`-32602`; 11/11 mcp_tool + 5/5 + 7/7 scenes sin regresión; fmt+clippy limpios; coverage 0 gaps). Full 84→86 (Full-only). ✅
 - [ ] **Step 4 — S4 aprobación** (Gate diseño lifecycle; si no cierra → DEFER-ratificado + fila Backlog).
 - [ ] **Step 5 — S5 skill_extract** (solo-candidatos + degrada sin runner; si runner exige dependencia → DEFER).
 - [ ] **Step 6 — S6a/S6b ingesta-real + programador** (por defecto DEFER-ratificado puntual salvo runner real disponible).
