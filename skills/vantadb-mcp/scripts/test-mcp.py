@@ -18,7 +18,7 @@ BUILD FROM SOURCE (required — a stale installed binary masks drift):
   VANTADB_MCP_BIN=target/debug/vantadb-server.exe python skills/vantadb-mcp/scripts/test-mcp.py
 
 TOOL PROFILES (VANTADB_MCP_PROFILE env var, default "full"):
-  full   (default): 79 tools exacto
+  full   (default): 81 tools exacto
   dev:              30..38 tools (Cursor ~40 budget + MEM-59)
   memory:           15..22 tools (read-mostly + MEM-59)
   Source of truth: vantadb-mcp/tests/mcp_tests.rs::test_mcp_tool_profiles
@@ -48,13 +48,13 @@ if hasattr(sys.stdout, "reconfigure"):
 
 # Drift gate (FIND-82): expected surface per tool profile.
 # Source of truth: vantadb-mcp/tests/mcp_tests.rs::test_mcp_tool_profiles
-# (Full == 79 exacto; Dev/Memory usan los rangos del Rust test para no
+# (Full == 81 exacto; Dev/Memory usan los rangos del Rust test para no
 # romperse con cada tool añadida dentro del budget).
-# Full = 22 memory + 16 dev + 41 extended (code 8 + wiki 6 + skill 6 +
-# thread 6 + scene 3 + context 1 + base-full 11). Profile via
+# Full = 22 memory + 16 dev + 43 extended (code 8 + wiki 6 + skill 6 +
+# thread 6 + scene 5 + context 1 + base-full 11). Profile via
 # VANTADB_MCP_PROFILE (default "full", see vantadb-mcp/src/config.rs).
 EXPECTED_TOOLS = {
-    "full": (79, 79),
+    "full": (81, 81),
     "dev": (30, 38),
     "memory": (15, 22),
 }

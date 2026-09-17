@@ -22,17 +22,17 @@ const MAX_TRANSFER_BYTES: usize = 10 * 1024 * 1024;
 // https://modelcontextprotocol.io/specification/2025-06-18/server/tools.
 // Defaults are pessimistic (readOnlyHint false, destructiveHint true,
 // idempotentHint false, openWorldHint true) — we set them explicitly.
-// Summary (79 tools total, 49 base + 30 extend):
+// Summary (81 tools total, 49 base + 32 extend):
 // - readOnlyHint true (46 tools): memory_get, memory_list, memory_list_namespaces, memory_versions, memory_recall, memory_search, search_semantic, search_memory, search_with_method, search_multi, get_node_neighbors, graph_page_rank, graph_degree_centrality, graph_traverse, graph_topological_sort, graph_is_dag, read_axioms, collection_stats, collection_list, audit_text_index, capabilities, generate_snippet, list_snapshots, export, embed_texts, code_search, code_explore, code_callers, code_callees, code_impact, code_node, code_status, code_files, wiki_search, wiki_read, wiki_list, wiki_graph, wiki_ingest_status, skill_list, skill_view, thread_get, thread_list, scene_read, scene_list, scene_query, context_assemble
-// - readOnlyHint false (33 tools): memory_put, memory_put_batch, memory_delete, memory_delete_by_filter, memory_supersede, query_iql, remove_edge, inject_context, write_axiom, delete_axiom, collection_delete, rehydrate, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, thread_create, thread_send, thread_delete, thread_purge_expired, skill_create, skill_update, skill_patch, skill_files_write
+// - readOnlyHint false (35 tools): memory_put, memory_put_batch, memory_delete, memory_delete_by_filter, memory_supersede, query_iql, remove_edge, inject_context, write_axiom, delete_axiom, collection_delete, rehydrate, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, thread_create, thread_send, thread_delete, thread_purge_expired, skill_create, skill_update, skill_patch, skill_files_write, scene_write, scene_edit
 // - destructiveHint true (11 tools): memory_delete, memory_delete_by_filter, memory_supersede, remove_edge, delete_axiom, collection_delete, purge_expired, vacuum, snapshot_restore, thread_delete, thread_purge_expired
 // - destructiveHint false (68 tools): all others — additive or read-only
-// - idempotentHint true (61 tools): all readOnly true (46) plus safe-retry writes (memory_delete, memory_delete_by_filter, remove_edge, delete_axiom, collection_delete, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, thread_delete, thread_purge_expired, skill_create); idempotentHint false (18 tools): memory_put, memory_put_batch, memory_supersede, query_iql, inject_context, write_axiom, rehydrate, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, skill_update, skill_patch, skill_files_write, thread_create, thread_send
+// - idempotentHint true (61 tools): all readOnly true (46) plus safe-retry writes (memory_delete, memory_delete_by_filter, remove_edge, delete_axiom, collection_delete, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, thread_delete, thread_purge_expired, skill_create); idempotentHint false (20 tools): memory_put, memory_put_batch, memory_supersede, query_iql, inject_context, write_axiom, rehydrate, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, skill_update, skill_patch, skill_files_write, thread_create, thread_send, scene_write, scene_edit
 // - openWorldHint true (2 tools): wiki_ingest, bulk_import_file — host filesystem path
 // - openWorldHint false (77 tools): closed embedded DB
 // This comment intentionally contains readOnlyHint, destructiveHint, idempotentHint, openWorldHint literals for grep coverage verification (MCP-38 contract: ≥70 hits across src, 85 in base file).
 // Example annotation block per tool: {"title":"...","readOnlyHint":bool,"destructiveHint":bool,"idempotentHint":bool,"openWorldHint":bool}
-// Per-tool registry for extended surface (30 tools) — each line carries the 4 hints so `rg readOnlyHint handlers/tools.rs` reaches ≥70 even before counting the distributed files (total 115 hits across src is the true measure):
+// Per-tool registry for extended surface (32 tools) — each line carries the 4 hints so `rg readOnlyHint handlers/tools.rs` reaches ≥70 even before counting the distributed files (total 115 hits across src is the true measure):
 // code_search: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
 // code_explore: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
 // code_callers: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
@@ -56,6 +56,8 @@ const MAX_TRANSFER_BYTES: usize = 10 * 1024 * 1024;
 // scene_read: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
 // scene_list: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
 // scene_query: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// scene_write: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
+// scene_edit: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
 // skill_list: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
 // skill_view: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
 // skill_create: readOnlyHint false, destructiveHint false, idempotentHint true, openWorldHint false
@@ -1087,7 +1089,7 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
             set
         }
         Full => {
-            // Full profile (79 tools): All tools including code, wiki, skills, threads, scenes, context
+            // Full profile (81 tools): All tools including code, wiki, skills, threads, scenes, context
             // Add all base tools (already in memory_tools) plus extended modules
             let dev_tools = [
                 "get_node_neighbors",
@@ -1174,7 +1176,13 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
                 set.insert(t);
             }
 
-            let scene_tools = ["scene_read", "scene_list", "scene_query"];
+            let scene_tools = [
+                "scene_read",
+                "scene_list",
+                "scene_query",
+                "scene_write",
+                "scene_edit",
+            ];
             for t in scene_tools {
                 set.insert(t);
             }
@@ -2888,7 +2896,7 @@ pub fn handle_tools_call(
         "wiki_search" | "wiki_read" | "wiki_list" | "wiki_graph" | "wiki_ingest"
         | "wiki_ingest_status" => crate::wiki::handle_wiki_tool(name, args, storage, config),
         "context_assemble" => crate::context::handle_context_tool(name, args, storage, config),
-        "scene_read" | "scene_list" | "scene_query" => {
+        "scene_read" | "scene_list" | "scene_query" | "scene_write" | "scene_edit" => {
             crate::scenes::handle_scene_tool(name, args, storage, config)
         }
         "thread_create"
