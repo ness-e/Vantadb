@@ -145,3 +145,11 @@ docs:
 # Collect code snapshot for AI context
 code-snapshot:
     pwsh -NoProfile -File dev-tools/scripts/collect_code.ps1
+
+# OCR delegation review (advisory, sin API key — Alibaba open-code-review)
+ocr:
+    pwsh -NoProfile -File dev-tools/ocr-review.ps1
+
+# OCR delegation spec en JSON (para agentes: preview + rules)
+ocr-json:
+    pwsh -NoProfile -File dev-tools/ocr-review.ps1 -Format json
