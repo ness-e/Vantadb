@@ -173,7 +173,10 @@ fn normalize(expr: &str) -> String {
 }
 
 fn contains_any(hay: &str, needles: &[&str]) -> bool {
-    needles.iter().any(|n| hay.contains(n))
+    // ponytail: space-padded whole-phrase match — bare `contains` false-positives
+    // ("blast week" contains "last week"); padding is cheaper than tokenizing.
+    let padded = format!(" {hay} ");
+    needles.iter().any(|n| padded.contains(&format!(" {n} ")))
 }
 
 /// If `hay` equals a needle or starts with `needle + " "` — allowing a leading

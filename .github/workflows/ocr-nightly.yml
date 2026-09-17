@@ -54,7 +54,7 @@ jobs:
 
       - name: Self-test rule mapping (deterministic, must pass)
         run: |
-          for p in src/wal.rs src/vector/hnsw.rs src/parser/planner.rs src/memory_governor.rs src/ingestion.rs src/engine.rs src/sdk/mod.rs vantadb-server/src/main.rs vantadb-python/src/lib.rs vantadb-wasm/src/lib.rs web/app/page.tsx Cargo.toml Dockerfile; do
+          for p in src/wal.rs src/index/core.rs src/parser/mod.rs src/memory_governor.rs src/ingestion.rs src/engine.rs src/sdk/mod.rs vantadb-server/src/main.rs vantadb-python/src/lib.rs vantadb-wasm/src/lib.rs web/src/app/page.tsx Cargo.toml Dockerfile; do
             SRC=$(ocr rules check --rule .opencodereview/rule.json "$p" | sed -n '2p')
             echo "$p -> $SRC"
             echo "$SRC" | grep -q "Custom" || { echo "::error::no custom rule for $p"; exit 1; }
@@ -93,8 +93,10 @@ jobs:
       has_key: ${{ steps.check.outputs.has_key }}
     steps:
       - id: check
+        env:
+          HAS_KEY: ${{ secrets.OCR_LLM_TOKEN != '' }}
         run: |
-          if [ -n "${{ secrets.OCR_LLM_TOKEN }}" ]; then
+          if [ "$HAS_KEY" = "true" ]; then
             echo "has_key=true" >> "$GITHUB_OUTPUT"
           else
             echo "has_key=false" >> "$GITHUB_OUTPUT"

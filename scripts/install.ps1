@@ -7,7 +7,8 @@
 # Flags: -DryRun (simulate, no effects) -NoWizard (skip chain)
 #        -WizardNonInteractive (wizard with defaults)
 # Trust: TLS 1.2 + official repo URL + sha256 of the payload verified
-# in-script. To verify manually, download the file and compare its hash
+# in-script when the .sha256 asset exists (warn-and-continue otherwise).
+# To verify manually, download the file and compare its hash
 # against the published .sha256 asset before piping to iex.
 param(
   [switch]$NoWizard,
@@ -50,7 +51,7 @@ try {
     $latestRelease = $releases.tag_name
 } catch {
     $latestRelease = "v0.4.0"
-    Write-Host "⚠️ Could not fetch latest release via API. Falling back to v0.4.0" -ForegroundColor Yellow
+    Write-Host "⚠️ Could not fetch latest release via API. Falling back to v0.4.0 (pin may skew vs wizard; prefer -Version <tag> explicitly)" -ForegroundColor Yellow
 }
 
 $zipName = "vantadb-x86_64-pc-windows-msvc.zip"

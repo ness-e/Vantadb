@@ -168,7 +168,7 @@
 
 ### Step 2: `.github/workflows/ocr-nightly.yml` — job CI nocturno
 - **Archivos:** `.github/workflows/ocr-nightly.yml` (NUEVO)
-- **Acción:** job `delegate` (siempre, sin key: preview+rules+artefactos) + job `full` (`if: secrets.OCR_LLM_TOKEN != ''`: review json + artefactos; sin secret: skip documentado verde). Header comenta viewer como replay. Pins como `ocr-delegate.yml`; CATEGORY tags en cada `continue-on-error`.
+- **Acción:** job `delegate` (siempre, sin key: preview+rules+artefactos) + jobs `check-key`→`full` (`check-key` exporta `has_key` desde el secret solo vía env; `full` con `needs: [check-key]` + `if: has_key == 'true'` — `secrets` no vale en `if:` de job: review json + artefactos; sin secret: skip documentado verde). Header comenta viewer como replay. Pins como `ocr-delegate.yml`; CATEGORY tags en cada `continue-on-error`.
 - **Verify:** `actionlint .github/workflows/ocr-nightly.yml` exit 0
 - **Estado:** ✅ (2026-09-17: actionlint 1.7.12 exit 0 tras agregar job `check-key` faltante — el draft referenciaba `needs: [check-key]` sin definirlo; fix mínimo: job que exporta `has_key` desde `secrets.OCR_LLM_TOKEN` sin exponer el secret)
 

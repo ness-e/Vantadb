@@ -195,7 +195,8 @@ fn dream_load_tool(
     }
 }
 
-/// `dream_discard(session_key, run_id)`: delete the run namespace; L1 intact.
+/// `dream_discard(session_key, run_id)`: delete the run key (`run.json`); an empty
+/// namespace may persist but `dream_list` skips it. L1 intact.
 fn dream_discard_tool(
     args: &Value,
     storage: &Arc<StorageEngine>,
