@@ -1,0 +1,154 @@
+# OCR Nightly — delegation (always, no key) + full review (only with secret).
+#
+# Evidence story (audit): every run uploads versioned artifacts
+# (ocr-preview.json + ocr-rules.json, and ocr-result.json when the full job runs).
+# Replay them locally as audit evidence:
+#   ocr session list --json                    # sessions persisted under ~/.opencodereview/sessions/
+#   ocr session show <session-id>              # metadata + per-file items of one run
+#   ocr viewer                                 # WebUI session viewer (default localhost:5483) to browse/replay findings
+# Delegation is the default (zero cost, zero secrets); the full LLM review only
+# runs when the OCR_LLM_* secrets exist. Without them the workflow stays green
+# by design (documented skip, never a red nightly). No secrets ever hit disk:
+# tokens travel via env only and GitHub masks secret values in logs.
+# Rule source: .opencodereview/rule.json (auto-loaded by the ocr resolver at
+# high priority — no --rule flag needed). Pins mirror ocr-delegate.yml.
+
+name: OCR Nightly (delegation + full con key)
+
+on:
+  schedule:
+    # 04:00 UTC daily — off-peak vs heavy-bench-nightly-51 (03:00 UTC).
+    - cron: '0 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  delegate:
+    name: Delegation spec, last 24h (no key required)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install OCR CLI
+        run: npm install -g @alibaba-group/open-code-review
+
+      - name: Resolve 24h window
+        id: window
+        run: |
+          SINCE=$(git log --since="24 hours ago" --pretty=format:%H | tail -n 1)
+          echo "since=${SINCE:-HEAD}" >> "$GITHUB_OUTPUT"
+          echo "Window base: ${SINCE:-HEAD (empty window — workspace preview fallback)}"
+
+      - name: Self-test rule mapping (deterministic, must pass)
+        run: |
+          for p in src/wal.rs src/vector/hnsw.rs src/parser/planner.rs src/memory_governor.rs src/ingestion.rs src/engine.rs src/sdk/mod.rs vantadb-server/src/main.rs vantadb-python/src/lib.rs vantadb-wasm/src/lib.rs web/app/page.tsx Cargo.toml Dockerfile; do
+            SRC=$(ocr rules check --rule .opencodereview/rule.json "$p" | sed -n '2p')
+            echo "$p -> $SRC"
+            echo "$SRC" | grep -q "Custom" || { echo "::error::no custom rule for $p"; exit 1; }
+          done
+
+      - name: Delegation preview (24h window)
+        run: |
+          ocr delegate preview -f json \
+            --from "${{ steps.window.outputs.since }}" --to HEAD \
+            > ocr-preview.json || ocr delegate preview -f json > ocr-preview.json
+          cat ocr-preview.json
+
+      - name: Delegation rules (repo rule.json auto-loaded)
+        run: |
+          FILES=$(jq -r '.reviewable_files[]?.path | select(. != ".opencode")' ocr-preview.json | tr '\n' ' ')
+          if [ -z "$FILES" ]; then echo "nothing reviewable in window"; echo '{"groups":[]}' > ocr-rules.json; exit 0; fi
+          # shellcheck disable=SC2086
+          ocr delegate rule $FILES -f json \
+            --from "${{ steps.window.outputs.since }}" --to HEAD \
+            > ocr-rules.json
+          cat ocr-rules.json
+
+      - name: Upload delegation evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-nightly-delegate
+          path: |
+            ocr-preview.json
+            ocr-rules.json
+          retention-days: 30
+
+  check-key:
+    name: Check for LLM key (no secret exposure)
+    runs-on: ubuntu-latest
+    outputs:
+      has_key: ${{ steps.check.outputs.has_key }}
+    steps:
+      - id: check
+        run: |
+          if [ -n "${{ secrets.OCR_LLM_TOKEN }}" ]; then
+            echo "has_key=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_key=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  full:
+    name: Full LLM review, last 24h (requires secrets)
+    runs-on: ubuntu-latest
+    # Delegation is the default: without a key this job is skipped (green) —
+    # `secrets` is not allowed in job `if:`, so the check lives in `check-key`.
+    needs: [check-key]
+    if: ${{ needs.check-key.outputs.has_key == 'true' }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install OCR CLI
+        run: npm install -g @alibaba-group/open-code-review
+
+      - name: Configure LLM from secrets (never logged)
+        env:
+          OCR_LLM_URL: ${{ secrets.OCR_LLM_URL }}
+          OCR_LLM_MODEL: ${{ secrets.OCR_LLM_MODEL }}
+        run: |
+          ocr config set llm.url "$OCR_LLM_URL"
+          ocr config set llm.model "$OCR_LLM_MODEL"
+          ocr config set llm.auth_token_cmd 'printf "%s" "$OCR_LLM_TOKEN"'
+
+      - name: Full review (24h window, json evidence)
+        env:
+          OCR_LLM_TOKEN: ${{ secrets.OCR_LLM_TOKEN }}
+        run: |
+          SINCE=$(git log --since="24 hours ago" --pretty=format:%H | tail -n 1)
+          ocr review --format json --audience agent \
+            --from "${SINCE:-HEAD}" --to HEAD \
+            -o ocr-result.json
+          cat ocr-result.json
+
+      - name: Export session index for viewer replay (best-effort)
+        # CATEGORY: BEST-EFFORT — internal session layout may change across ocr versions; evidence is ocr-result.json
+        continue-on-error: true
+        run: ocr session list --json > ocr-sessions.json || echo '[]' > ocr-sessions.json
+
+      - name: Upload full-review evidence
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-nightly-full
+          path: |
+            ocr-result.json
+            ocr-sessions.json
+          retention-days: 30
