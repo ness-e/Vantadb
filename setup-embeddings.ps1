@@ -25,7 +25,10 @@
 [CmdletBinding()]
 param(
   [switch]$NonInteractive,
-  [switch]$Help
+  [switch]$Help,
+  [string]$DbPath,
+  [switch]$NoProxy,
+  [switch]$SkipLiveTest
 )
 
 Set-StrictMode -Version Latest
@@ -220,6 +223,116 @@ function Ensure-OrtNative($AutoDownload) {
   Write-Host '[setup] ORT_DYLIB_PATH seteado en SESION (no persistente: re-ejecuta este script o exportalo vos).'
 }
 
+function Get-DefaultDbPath {
+  $home = $HOME
+  if ([string]::IsNullOrEmpty($home)) { $home = $env:USERPROFILE }
+  Join-Path $home '.vantadb'
+}
+
+function Write-TextIfChanged($Path, $Content) {
+  # Idempotente: no toca el archivo si el contenido es identico.
+  # Si existe y cambia -> backup .bak fechado antes de sobrescribir.
+  $existing = $null
+  if (Test-Path $Path) { $existing = Get-Content -Raw -Path $Path }
+  if ($existing -eq $Content) { return 'unchanged' }
+  if (Test-Path $Path) {
+    $stamp = Get-Date -Format 'yyyyMMdd-HHmmss'
+    Copy-Item $Path "$Path.bak-$stamp" -Force
+  }
+  $dir = Split-Path $Path -Parent
+  if ($dir -and -not (Test-Path $dir)) { New-Item -ItemType Directory -Force $dir | Out-Null }
+  Set-Content -Path $Path -Value $Content -Encoding UTF8 -NoNewline
+  return ($null -eq $existing) ? 'created' : 'updated-backup'
+}
+
+function Get-LauncherPath { Join-Path (Get-RepoRoot) 'vanta-mcp-local.ps1' }
+
+function Get-McpBlock($Client, $Launcher, $Db) {
+  $escLauncher = $Launcher -replace '\\', '/'
+  $escDb = $Db -replace '\\', '/'
+  switch ($Client) {
+    'opencode' {
+      return @"
+{
+  "mcp": {
+    "vantadb": {
+      "type": "local",
+      "command": ["pwsh", "-NoProfile", "-File", "$escLauncher", "-DbPath", "$escDb"],
+      "enabled": true
+    }
+  }
+}
+"@
+    }
+    'claude' {
+      return @"
+{
+  "mcpServers": {
+    "vantadb": {
+      "command": "pwsh",
+      "args": ["-NoProfile", "-File", "$escLauncher", "-DbPath", "$escDb"],
+      "env": { "VANTADB_MEMORY_LIMIT": "512MB" }
+    }
+  }
+}
+"@
+    }
+    'cursor' {
+      return @"
+{
+  "mcpServers": {
+    "vantadb": {
+      "command": "pwsh",
+      "args": ["-NoProfile", "-File", "$escLauncher", "-DbPath", "$escDb"],
+      "env": { "VANTADB_MEMORY_LIMIT": "512MB" }
+    }
+  }
+}
+"@
+    }
+    default { throw "cliente '$Client' desconocido (opencode/claude/cursor; codex es manual, ver assets/install/codex-manual.md)" }
+  }
+}
+
+function Install-McpBlocks($Db) {
+  # Escribe bloques MCP personalizados (rutas absolutas launcher+Db) junto a la
+  # DB (<Db>/mcp-opencode.json, etc.) — NUNCA a .opencode/ vivo ni sobre las
+  # plantillas versionadas skills/vantadb-mcp/assets/install/ (placeholders).
+  # Idempotente con backup.
+  $launcher = Get-LauncherPath
+  foreach ($c in @('opencode', 'claude', 'cursor')) {
+    $block = Get-McpBlock $c $launcher $Db
+    $out = Join-Path $Db "mcp-$c.json"
+    $st = Write-TextIfChanged $out $block
+    Write-Host "[setup] MCP $c -> $out ($st)"
+  }
+  Write-Host '[setup] Plantillas versionadas: skills/vantadb-mcp/assets/install/ (placeholders <REPO>/<DB_PATH>).'
+  Write-Host '[setup] Codex: sin formato verificable -> ver skills/vantadb-mcp/assets/install/codex-manual.md (documentado-manual, no bloquea).'
+}
+
+$script:agentRuleLine = 'VantaDB es memoria persistente: ante cada mensaje hace memory_recall con el texto verbatim (scope agent, top_k 5) e inyecta prepend_context; al cerrar captura el turno con thread_send (proxy-turns se cura via inbox, nunca auto-promote).'
+
+function Install-AgentRule {
+  # Append idempotente de 1 linea a ./AGENTS.md y ./CLAUDE.md del CWD
+  # (proyecto TARGET, nunca al repo VantaDB). Crea el archivo si no existe.
+  foreach ($name in @('AGENTS.md', 'CLAUDE.md')) {
+    $p = Join-Path (Get-Location) $name
+    $line = $script:agentRuleLine
+    if (Test-Path $p) {
+      $content = Get-Content -Raw -Path $p
+      if ($content -match [regex]::Escape($line)) {
+        Write-Host "[setup] regla ya presente en $name (sin cambios)."
+        continue
+      }
+      Add-Content -Path $p -Value "`n$line`n" -Encoding UTF8
+      Write-Host "[setup] regla agregada a $name."
+    } else {
+      Set-Content -Path $p -Value "# Agent notes`n`n$line`n" -Encoding UTF8
+      Write-Host "[setup] $name creado con regla VantaDB."
+    }
+  }
+}
+
 # --- main ---
 if ($Help) {
   Get-Help $PSCommandPath -Detailed
@@ -301,3 +414,81 @@ if ($provider -eq 'local') { Ensure-OrtNative $NonInteractive; Write-Host "[setu
 if ($provider -eq 'local') {
   Write-Host "[setup] OK modelo $($model.id) dim=$($model.dim) langs=$($model.langs -join ',') presente y verificado (--check)."
 }
+
+# --- S1: carpeta de base + bloques MCP + regla agente (FIND-104) ---
+if ([string]::IsNullOrWhiteSpace($DbPath)) {
+  $DbPath = $NonInteractive ? (Get-DefaultDbPath) : (Read-WithDefault 'Carpeta de base VantaDB' (Get-DefaultDbPath))
+}
+if (-not (Test-Path $DbPath)) {
+  New-Item -ItemType Directory -Force $DbPath | Out-Null
+  Write-Host "[setup] DB creada: $DbPath"
+} else { Write-Host "[setup] DB existente (re-ejecutable, sin romper): $DbPath" }
+Install-McpBlocks $DbPath
+if ($NonInteractive) {
+  Write-Host '[setup] -NonInteractive: omito regla AGENTS.md/CLAUDE.md (ejecuta interactivo para agregarla).'
+} else {
+  if (Confirm-YesNo 'Agregar linea de regla VantaDB a ./AGENTS.md y ./CLAUDE.md (idempotente)?') { Install-AgentRule }
+  else { Write-Host '[setup] regla agente omitida (re-ejecuta para agregarla).' }
+}
+
+# --- S2: proxy default-on + TOML minima + guia + resumen (FIND-104, SPEC Q4) ---
+$proxyOn = -not $NoProxy
+if (-not $NonInteractive -and -not $NoProxy) {
+  Write-Host '[setup] Proxy vanta-proxy: proceso extra :8096 que captura turnos a proxy-turns (curaduria a hilos via inbox, nunca auto-promote). Apagado facil: no arranques el proxy o Ctrl+C.'
+  $proxyOn = Confirm-YesNo 'Prender proxy por defecto (recomendado, opt-out en 1 paso)?'
+}
+if ($proxyOn) {
+  $proxyToml = Join-Path $DbPath 'vanta-proxy.toml'
+  if (-not (Test-Path $proxyToml)) {
+    $proxyContent = @'
+# vanta-proxy config minima (FIND-104 default-on). Start: vanta-proxy "<esta-ruta>"
+# Stop: Ctrl+C (no arrancar = proxy off). Captura turnos a namespace proxy-turns;
+# curalos a hilos con thread_send via inbox (nunca auto-promote, ver recall-policy §6).
+
+[server]
+host = "127.0.0.1"
+port = 8096
+rate_limit_per_minute = 60
+
+[upstream]
+url = "https://api.anthropic.com"
+api_key = ""
+forward_timeout_secs = 600
+models = []
+'@
+    Write-TextIfChanged $proxyToml $proxyContent | Out-Null
+    Write-Host "[setup] proxy TOML creada: $proxyToml"
+  } else { Write-Host "[setup] proxy TOML existente (sin overwrite): $proxyToml" }
+  Write-Host '[setup] PROXY base_url por cliente: http://127.0.0.1:8096 (OpenAI-compat: --base-url / baseURL / openai.api_base).'
+  Write-Host '[setup] Curaduria: memory_list en proxy-turns (keys {ms}-{seq}) -> propuesta thread_send -> inbox aprueba/rechaza.'
+} else { Write-Host '[setup] proxy OFF (opt-out; re-ejecuta sin -NoProxy para prenderlo).' }
+
+Write-Host ''
+Write-Host '========== RESUMEN =========='
+Write-Host "[setup] provider=$provider model=$($model.id) db=$DbPath proxy=$(($proxyOn) ? 'ON :8096' : 'OFF')"
+Write-Host "[setup] MCP bloques: $DbPath/mcp-opencode.json, mcp-claude.json, mcp-cursor.json (+ plantillas skills/vantadb-mcp/assets/install/)"
+Write-Host "[setup] Siguiente: apunta tu cliente al bloque MCP + (si proxy ON) base_url http://127.0.0.1:8096 + arranca: vanta-proxy `"$DbPath/vanta-proxy.toml`""
+Write-Host '============================='
+
+# --- S4: prueba viva final put->get->search (FIND-104) ---
+function Invoke-LiveTest($Db) {
+  $cli = Join-Path (Get-RepoRoot) 'target/debug/vanta-cli.exe'
+  if (-not (Test-Path $cli)) {
+    $cmd = Get-Command 'vanta-cli' -ErrorAction SilentlyContinue
+    if ($cmd) { $cli = $cmd.Source }
+  }
+  if (-not (Test-Path $cli)) { throw 'prueba viva: vanta-cli no encontrado (cargo build --bin vanta-cli).' }
+  $ns = 'wizard/selftest'
+  $key = 'hello'
+  $payload = 'wizard live test memory'
+  & $cli --db $Db put --namespace $ns --key $key --payload $payload | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'prueba viva: put fallo.' }
+  $got = & $cli --db $Db get --namespace $ns --key $key
+  if ($LASTEXITCODE -ne 0) { throw 'prueba viva: get fallo.' }
+  if ("$got" -notmatch [regex]::Escape($payload)) { throw 'prueba viva: get no devuelve el payload.' }
+  & $cli --db $Db search --namespace $ns --query 'live test' --limit 3 | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'prueba viva: search fallo.' }
+  Write-Host '[setup] PRUEBA VIVA verde: put->get->search OK.'
+}
+if (-not $SkipLiveTest) { Invoke-LiveTest $DbPath }
+else { Write-Host '[setup] prueba viva omitida (-SkipLiveTest).' }
