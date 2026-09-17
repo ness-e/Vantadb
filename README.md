@@ -209,6 +209,17 @@ Download and install the CLI binary instantly in a single command without compil
   irm https://raw.githubusercontent.com/ness-e/Vantadb/main/scripts/install.ps1 | iex
   ```
 
+> **Trust:** both one-liners use TLS against the official `ness-e/Vantadb`
+> repo, and the script verifies the payload `.sha256` before installing
+> (see the `Trust:` header in `scripts/install.sh` / `scripts/install.ps1`).
+> To verify manually, download the script and compare its hash against the
+> published `.sha256` release asset before piping it to a shell.
+>
+> **What happens next:** the installer chains to the interactive setup wizard
+> (`setup-embeddings.ps1` — model, MCP block per client, proxy default-on)
+> unless skipped with `--no-wizard` (sh) / `-NoWizard` (PowerShell).
+> Preview the chain without effects via `--dry-run` / `-DryRun`.
+
 #### 2. Via Cargo (Rust Developers)
 
 Installs and registers `vanta-cli` directly into your Cargo binary directory:
