@@ -237,6 +237,9 @@ fn run() -> anyhow::Result<()> {
         Commands::Wal(cmd) => match cmd {
             vantadb::cli::WalCommand::Compact => cli_handlers::cmd_wal_compact(&args.db)?,
             vantadb::cli::WalCommand::Vacuum => cli_handlers::cmd_wal_vacuum(&args.db)?,
+            vantadb::cli::WalCommand::Salvage { dry_run } => {
+                cli_handlers::cmd_wal_salvage(&args.db, dry_run)?
+            }
         },
 
         Commands::Completions { shell } => cli_handlers::cmd_completions(shell),

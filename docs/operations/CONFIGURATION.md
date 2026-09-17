@@ -389,6 +389,7 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 | `snapshot list` | List all existing snapshots |
 | `wal compact` | Compact the WAL: flush all data, archive the current WAL file, and start a fresh one |
 | `wal vacuum` | Remove tombstoned nodes from HNSW and reclaim space |
+| `wal salvage [--dry-run]` | Salvage a truncated sharded WAL (explicit opt-in): replay the coherent prefix and report explicit discards (tails quarantined to `<shard>.salvage[.N]`); `--dry-run` previews without mutating |
 | `server [--http] [--mcp] [--port <N>] [--host <host>] [--dashboard-dir <dir>]` | Start the HTTP or MCP server wrapper; `--dashboard-dir` (env `VANTADB_DASHBOARD_DIR`) serves the Vanta Studio static console at `/dashboard` (WEB-03) |
 | `repl` | Interactive rustyline REPL with tab autocomplete |
 | `tui` | Live dashboard refreshing every 2s |

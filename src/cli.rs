@@ -414,6 +414,14 @@ pub enum WalCommand {
     Compact,
     /// Remove tombstoned nodes from HNSW and reclaim space
     Vacuum,
+    /// Salvage a truncated sharded WAL (FIND-109, opt-in): replay the coherent
+    /// prefix and report explicit discards. The ERR-011 guard still aborts
+    /// normal opens; this command is the explicit repair path.
+    Salvage {
+        /// Preview only: report what would be kept/discarded without mutating.
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+    },
 }
 
 /// Shell type for shell completion scripts

@@ -776,6 +776,14 @@ impl WalReader {
         }
         Ok(count)
     }
+
+    /// Byte offset of the next unread byte (end of the last record returned
+    /// by `next_record`). FIND-109: lets salvage truncate exactly after the
+    /// K-th *validated* record, even with scan-forward gaps in the file.
+    pub fn pos(&mut self) -> Result<u64> {
+        use std::io::Seek;
+        Ok(self.reader.stream_position()?)
+    }
 }
 
 // ─── Checkpoint Helpers ───────────────────────────────────
