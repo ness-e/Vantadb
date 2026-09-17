@@ -1,7 +1,7 @@
 # FIND-107 — Exponer lo que falta de `vanta-memory` en el MCP
 
 > **Plan:** `docs/plans/2026-09-17-mvp-memoria-agentes.md` (Wave0, appetite 3d, branch `develop`, commit `feat: FIND-107 — ...`)
-> **Ruta:** vanta-worker · **Estado:** ⏳ IN PROGRESS (Slice 1 en curso, resto ⬜)
+> **Ruta:** vanta-worker · **Estado:** ✅ COMPLETO (S1+S2+S3 shippeados; S4-S6 DEFER-ratificado)
 > **Campaign:** b2ece025-e9d3-4f8b-835d-1d0143a86b66 · **NextTask:** FIND-103 (la ejecuta el orquestador)
 
 ## 1. TAREA
@@ -157,14 +157,20 @@
   - **Hecho 2026-09-18:** RED (`dream_list missing from tools/list`) → GREEN (4/4 `dream_tests` ✅: list/load/discard roundtrip con L1 intacto, not-found como content, params→`-32602`; 5/5 scene_write_edit + 7/7 scene_tests + 11/11 mcp_tool sin regresión; fmt+clippy limpios). Full 81→84 (Full-only). `dream_discard` añadido al `destructive_set` del test annotations (destructive scoped dream-ns). ✅
 - [x] **Step 3 — S3 sueños-escritura** (`dream_consolidate` LLM-free + `dream_promote` preview): + tests (not-idle, roundtrip, L1-intacto) + docs (advertir `mutated:false`).
   - **Hecho 2026-09-18:** RED (nueva suite falla con `missing from tools/list`, compila) → GREEN (10/10 `dream_tests` ✅: consolidate crea run visible en list con L1 intacto, not-idle como content, promote preview `{preview_count, mutated:false}` sin mutar, missing→content, params→`-32602`; 11/11 mcp_tool + 5/5 + 7/7 scenes sin regresión; fmt+clippy limpios; coverage 0 gaps). Full 84→86 (Full-only). ✅
-- [ ] **Step 4 — S4 aprobación** (Gate diseño lifecycle; si no cierra → DEFER-ratificado + fila Backlog).
-- [ ] **Step 5 — S5 skill_extract** (solo-candidatos + degrada sin runner; si runner exige dependencia → DEFER).
-- [ ] **Step 6 — S6a/S6b ingesta-real + programador** (por defecto DEFER-ratificado puntual salvo runner real disponible).
-- [ ] **Step 7 — Cierre FIND-107**: verify full + OCR + commit `feat:` + recitation + progreso + RESULTADO.
+- [x] **Step 4 — S4 aprobación** → **DEFER-ratificado (2026-09-18, puntual).**
+  - **Gate diseño (no cierra):** `CaptureApprovalQueue` es in-memory por proceso (`approval.rs:9,64-72`) y NINGUNA tool MCP la alimenta (sin `capture_submit`; el submit vive en los hosts del pipeline con `CaptureApprovalConfig`). Exponer `capture_list_pending/approve/reject` con una queue estática del proceso MCP = mostrador vacío (list siempre `[]`, approve siempre `NotFound`) — viola `api-contract.md` R-3 (espíritu `query_lisp`: no exponer lo que siempre falla). Persistir la queue o añadir submit = cambio de lifecycle fuera de appetite + sin spec. **Decisión: DEFER (opción C del §4).** Fila propuesta: `FIND-110`.
+- [x] **Step 5 — S5 skill_extract** → **DEFER-ratificado (2026-09-18, puntual).**
+  - **Gate runner (no cierra):** `run_skill_extract_once<R: LlmRunner>` (`conversation_add/worker.rs:42`) y `extract_skills_with_llm<R: LlmRunner>` (`skill_extractor.rs:209`) EXIGEN runner genérico — no hay path `Option`/LLM-free en esta capa (verificado en código). El MCP no tiene runner LLM (`NoLlm` es solo facade de wiki-ingest). Cablear un runner real = transporte + config + secrets → SPEC "Ask first: nueva dependencia" + fuera de appetite. Una tool que siempre devuelve `success:false` es mostrador vacío (R-3). **Decisión: DEFER.** Fila propuesta: `FIND-111`.
+- [x] **Step 6 — S6a/S6b ingesta-real + programador** → **DEFER-ratificado (2026-09-18, puntual, pre-mortem #2).**
+  - **S6a:** `start_ingest::<NoLlm>` fijo (`wiki.rs:274`); runner real = nueva dependencia/config → Ask first, fuera de appetite. **DEFER.** Fila propuesta: `FIND-112`.
+  - **S6b:** `PipelineWorker::run_once` necesita `LocalStateBackend` + dir estado + quién encola tareas; ningún caller MCP encola hoy → exponer `run_once` con backend vacío = no-op. Requiere diseño de lifecycle del scheduler en el proceso MCP. **DEFER.** Fila propuesta: `FIND-113`.
+- [x] **Step 7 — Cierre FIND-107**: verify full + OCR + commit `feat:` + recitation + progreso + RESULTADO.
+  - **Verify full (2026-09-18):** `cargo fmt --check` workspace ✅ · `cargo clippy --workspace --all-targets --all-features -- -D warnings` ✅ · `cargo test -p vantadb-mcp -j 2` suite completa 18 targets 0 failed ✅ (dream 10 + scenes 7+5 + mcp 93) · `validate-docs-coverage.ps1` 0 gaps ✅ · OCR delegation sin Critical/High ✅ · smoke stdio real (`test-mcp.py` vs `target/debug/vantadb-server.exe` recién compilado: initialize + tools/list 86/86 + resources 2 + prompts 4 = 4/4) ✅.
+  - **Commits (NO PUSH):** `472526dc` S1 · `325b1237` S2 · `74c225a0` S3.
+  - **DoD 3 niveles:** (1) contrato S1-S3 ✅ (tools/list + tests + docs + coverage); S4-S6 DEFER-ratificado con filas propuestas ✅; (2) standing DoD ✅; (3) ratchet v1 (capa 0-5 + pre-commit 7) ✅. P2-01 → orquestador.
 
-## Context Save Point (actualizado 2026-09-17, post-S1)
+## Context Save Point (FINAL 2026-09-18 — tarea completa)
 
-- **Dónde quedó:** Step 0 ✅ + Step 1 ✅ (S1 commiteado, ver COMMIT abajo). Steps 2-7 ⬜.
-- **Próximo:** Step 2 (S2 sueños-lectura) — nuevo `vantadb-mcp/src/dreams.rs` (`dream_list/load/discard`) + registro + tests + docs, mismo patrón S1.
-- **Comandos:** `cargo test -p vantadb-mcp -j 2 --test scene_write_edit` · `cargo test -p vantadb-mcp -j 2 --test scene_tests` · `cargo fmt --check` · `cargo clippy -p vantadb-mcp --all-targets -- -D warnings`
-- **Deuda:** S4/S5/S6a/S6b pendientes de Gate diseño (posible DEFER-ratificado). P2-01 (review por agente distinto) pendiente al orquestador.
+- **Dónde quedó:** Steps 0-7 ✅. Commits `472526dc` (S1) · `325b1237` (S2) · `74c225a0` (S3). S4→FIND-110, S5→FIND-111, S6a→FIND-112, S6b→FIND-113 (propuestas al orquestador; Backlog NO tocado por este agente).
+- **Superficie final:** Full 79→86 (scene_write/edit + dream_list/load/discard/consolidate/promote); dev/memory intactos; `test-mcp.py` EXPECTED 86.
+- **Deuda:** ninguna propia. P2-01 (review por agente distinto) pendiente al orquestador.
