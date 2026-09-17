@@ -509,6 +509,48 @@ Minimal example — hybrid query (vector + text) against a namespace:
 }
 ```
 
+## Embeddings (local ONNX + providers — read before storing/searching vectors)
+
+Model catalog: `embeddings/manifest.json` (9 ids, rev pinned). Full table
+(model → dim → langs → size → when to use) + download commands: `embeddings/README.md`.
+Verified end-to-end EMB-19 (`a5d549af`) — document ONLY what is green there (Regla 11).
+
+**Providers (selection is env-only, no rebuild):**
+
+| Provider | Activation | Requirement |
+|----------|------------|-------------|
+| `local` (ONNX, recommended) | `VANTADB_EMBEDDING_PROVIDER=local` + `VANTADB_LOCAL_MODEL=<absolute>/embeddings/models/<id>/onnx` + `ORT_DYLIB_PATH=<onnxruntime>=1.27.dll`, or launcher `.\vanta-mcp-local.ps1 -DbPath <db>` | Model on disk + onnxruntime ≥ 1.27 (EMB-11 persistent `%LOCALAPPDATA%/VantaDB/onnxruntime/onnxruntime.dll`) |
+| `ollama` (core default when no env is set) | `VANTADB_EMBEDDING_PROVIDER=ollama` | Live server + embedding model pulled. Without models → `fallback:true` + `warning` (no crash) |
+| `openai` | `VANTADB_EMBEDDING_PROVIDER=openai` + `VANTADB_OPENAI_API_KEY=<key>` (session env only, NEVER to disk) | Valid key. Without key → `fallback:true` + `warning` |
+
+Default model `multilingual-e5-small` (384d, ES+EN 16+). On disk: `all-MiniLM-L6-v2`,
+`multilingual-e5-small`, `paraphrase-multilingual-MiniLM-L12-v2` (all 384d). Rest on demand
+(`python embeddings/download.py --only <id>`). Same-dim switch (384d: bge-small / MiniLM /
+paraphrase / e5-small) needs no re-ingest; cross-dim switch needs a new DB or full re-ingest.
+
+**Limits the next agent MUST respect:**
+
+1. **Check `fallback` on every `embed_texts` response.** `fallback:false` = real vectors
+   (verified: `s(par)=0.9158` vs `0.8427/0.8423`, `dim=384`, `model=multilingual-e5-small`).
+   `fallback:true` + `warning` = deterministic hash with NO semantic signal — fix
+   env/model/ORT instead of trusting the ranking.
+2. **One dim per database (EMB-18).** A put/search whose vector dim differs from the stored
+   vectors is REJECTED with expected + got dims and the regen command. Empty DB has no gate
+   (first vector write defines the dim); text-only puts are never gated. `rebuild_index`
+   alone does NOT change dims — re-embed with the original dim OR re-ingest everything with
+   the new model first.
+3. **`model` param (EMB-17).** `embed_texts` accepts `model: "<manifest id>"` (cache cap
+   `MAX_CACHED_LOCAL_MODELS=2`). Unknown id → `invalid_params` with the 9-id list. Known id
+   without files → error with the `download.py --only <id>` command. Only `embed_texts` has
+   this slot — puts/search use the active provider.
+4. **Auto-embed (EMB-14) + same-provider query (EMB-15).** `memory_put` without `vector`
+   stores WITH the active provider's vector; a supplied `vector` is respected. Text-only
+   `search_memory`/`memory_recall` embed the query with the SAME provider (verified synonyms
+   `keys=["d1","d0","d2"]` + recall `hybrid`). Budgeting is unchanged (128 items / 25k tokens,
+   `cursor`/`next_cursor`).
+5. **e5 prefixes (EMB-16).** e5 family: `query:` for queries, `passage:` for documents
+   (handled inside the provider). MiniLM/others: none. Do not pre-prefix texts yourself.
+
 ## AI Framework Integrations
 
 VantaDB provides Python SDK integrations for popular AI frameworks:
