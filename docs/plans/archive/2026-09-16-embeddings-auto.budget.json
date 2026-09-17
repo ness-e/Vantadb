@@ -1,0 +1,49 @@
+{
+  "tasks": {
+    "EMB-10": {
+      "taskId": "EMB-10",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789573371384,
+      "lastActivity": 1789573371384,
+      "traceId": "41c0a6a0-ed52-4023-b162-98b46fed20d0"
+    },
+    "EMB-13": {
+      "taskId": "EMB-13",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789586420353,
+      "lastActivity": 1789587622686,
+      "traceId": "0f57708e-0c39-4e83-b527-d7a34beb0c76"
+    },
+    "EMB-16": {
+      "taskId": "EMB-16",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789586538876,
+      "lastActivity": 1789586538877,
+      "traceId": "f7267447-3aba-45de-a361-4e2e3987ce66"
+    },
+    "EMB-14": {
+      "taskId": "EMB-14",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789591083125,
+      "lastActivity": 1789591083125,
+      "traceId": "9c43383a-9e1e-4f1a-aa0d-954aeaea797d"
+    },
+    "EMB-15": {
+      "taskId": "EMB-15",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789594861590,
+      "lastActivity": 1789594861590,
+      "traceId": "88ef6038-2bc8-4af1-a352-de3838c74b47"
+    }
+  }
+}
