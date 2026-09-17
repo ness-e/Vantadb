@@ -5,25 +5,25 @@
   "hooks": {
     "sessionStart": [
       {
-        "command": ".cursor/hooks/vantadb-recall.sh",
+        "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
         "timeout": 15
       }
     ],
     "beforeSubmitPrompt": [
       {
-        "command": ".cursor/hooks/vantadb-recall.sh",
+        "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
         "timeout": 15
       }
     ],
     "preCompact": [
       {
-        "command": ".cursor/hooks/vantadb-save.sh",
+        "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
         "timeout": 15
       }
     ],
     "stop": [
       {
-        "command": ".cursor/hooks/vantadb-capture.sh",
+        "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
         "timeout": 15,
         "loop_limit": 5
       }
@@ -35,5 +35,5 @@
     "preCompact": "save-state via thread_send and/or scene_write",
     "stop": "auto-capture via thread_send role+content; proxy-turns via inbox, never auto-promote"
   },
-  "_scripts": "Each .cursor/hooks/vantadb-*.sh reads hook JSON on stdin and calls: pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>. Exit 0 = use JSON output; exit 2 = block; other non-zero = fail-open (Cursor default)."
+  "_scripts": "No wrapper scripts needed: every hook invokes the pwsh launcher directly (same pattern as claude/codex templates). The launcher starts the MCP server on stdio; the agent issues memory_recall/thread_send. Exit 0 = use JSON output; other non-zero = fail-open (Cursor default)."
 }

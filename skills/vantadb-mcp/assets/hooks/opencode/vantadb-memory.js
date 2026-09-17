@@ -54,6 +54,8 @@ export const VantadbMemory = async () => ({
     );
   },
   // Stop auto-capture: proxy-turns auto-captured; direct turns need explicit thread_send.
+  // NOTE: the idle event carries no transcript — this records a static marker only;
+  // per-turn content capture happens in `tool.execute.before` above.
   "session.idle": async () => {
     mcpCall("thread_send", { role: "assistant", content: "session idle auto-capture" });
   },

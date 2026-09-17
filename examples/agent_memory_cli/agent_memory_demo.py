@@ -23,7 +23,6 @@ import argparse
 import shutil
 import sys
 import tempfile
-from pathlib import Path
 
 from vantadb import Client
 

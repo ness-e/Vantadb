@@ -366,7 +366,9 @@ impl LocalOnnxProvider {
                     return false;
                 }
             };
-            let _ = builder.commit();
+            // Layer 0 (P2-01 follow-up): even `commit()` must never panic-escape
+            // (poisoned global) — wrap it too; strictly safer, zero cost.
+            let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| builder.commit()));
             // Layer 2: force `setup_api` now, outside `G_ENV`. A failure here only
             // poisons `ort`'s `OnceLock` (catchable forever after), never its `Mutex`.
             if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -1077,9 +1079,10 @@ mod tests {
     // El `ORT_DYLIB_PATH` apunta a un archivo inexistente; antes del fix,
     // `Session::builder()` paniqueaba en `ort::setup_api` (.expect BadVersion/Dlopen)
     // y envenenaba el mutex global → abort del proceso.
-    // Nota: este test muta env del proceso; es seguro en paralelo porque el único
-    // otro lector (`ensure_ort_ready`) degrada a dummy ante basura, y el contrato
-    // dummy satisface todos los asserts vecinos.
+    // Nota: los tests f100 mutan env del proceso (ORT_DYLIB_PATH) — NO son
+    // seguros en paralelo entre sí; la suite `llm` SIEMPRE corre serial
+    // (`--test-threads=1`, ver task file FIND-100). No añadir tests con env
+    // a este módulo sin mantener el pin serial.
     #[test]
     fn f100_incompatible_dylib_never_panics() {
         let key = "ORT_DYLIB_PATH";

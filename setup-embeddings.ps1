@@ -324,8 +324,9 @@ function Install-AgentRule {
         Write-Host "[setup] regla ya presente en $name (sin cambios)."
         continue
       }
+      Copy-Item -Path $p -Destination "$p.bak" -Force
       Add-Content -Path $p -Value "`n$line`n" -Encoding UTF8
-      Write-Host "[setup] regla agregada a $name."
+      Write-Host "[setup] regla agregada a $name (backup en $name.bak)."
     } else {
       Set-Content -Path $p -Value "# Agent notes`n`n$line`n" -Encoding UTF8
       Write-Host "[setup] $name creado con regla VantaDB."

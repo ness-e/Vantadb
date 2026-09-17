@@ -10,7 +10,8 @@ set -e
 # Flags: --dry-run (simulate, no effects) --no-wizard (skip chain)
 #        --wizard-non-interactive (wizard with defaults) --help
 # Trust: TLS required + official repo URL + sha256 of the payload verified
-# in-script. To verify manually, download the file and compare against the
+# in-script when the .sha256 asset exists (warn-and-continue otherwise).
+# To verify manually, download the file and compare against the
 # published .sha256 asset before piping to sh.
 
 INSTALL_DIR="$HOME/.vanta/bin"
