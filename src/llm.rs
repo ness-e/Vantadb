@@ -303,9 +303,120 @@ impl LocalOnnxProvider {
         None
     }
 
+    /// Resolve which ONNX Runtime dylib `ort` would load.
+    ///
+    /// Mirrors `ort`'s own selection (`ORT_DYLIB_PATH` wins, else the platform
+    /// default searched via PATH): pure, touches no `ort` globals, unit-tested.
+    fn resolve_ort_dylib_path() -> std::path::PathBuf {
+        match std::env::var("ORT_DYLIB_PATH") {
+            Ok(s) if !s.is_empty() => std::path::PathBuf::from(s),
+            _ => std::path::PathBuf::from({
+                #[cfg(target_os = "windows")]
+                {
+                    "onnxruntime.dll"
+                }
+                #[cfg(any(target_os = "linux", target_os = "android", target_os = "freebsd"))]
+                {
+                    "libonnxruntime.so"
+                }
+                #[cfg(any(target_os = "macos", target_os = "ios"))]
+                {
+                    "libonnxruntime.dylib"
+                }
+                #[cfg(not(any(
+                    target_os = "windows",
+                    target_os = "linux",
+                    target_os = "android",
+                    target_os = "freebsd",
+                    target_os = "macos",
+                    target_os = "ios"
+                )))]
+                {
+                    "onnxruntime"
+                }
+            }),
+        }
+    }
+
+    /// Pre-check the ONNX Runtime dylib WITHOUT panicking.
+    ///
+    /// FIND-100: `ort`'s lazy loader `expect`s on `Dlopen`/`MissingApi`/`BadVersion`.
+    /// Worse, a panic inside `Session` building can fire while `ort` holds its global
+    /// `G_ENV` mutex; the poisoned mutex then panics again in `ort`'s nounwind process-
+    /// exit handler (`release_env_on_exit`) → abort even after a graceful run.
+    /// Two layers: (1) `ort::init_from` performs the load + version check returning
+    /// `Err` instead of panicking; (2) probe `ort::api()` under `catch_unwind` NOW,
+    /// outside any session/environment lock, so `setup_api` can never panic later
+    /// under `Environment::current`'s guard. Returns `true` when ORT is usable.
+    fn ensure_ort_ready() -> bool {
+        // wasm32 has no `init_from` (no `load-dynamic` there); session load below
+        // stays behind `catch_unwind` (gate FIND-58: wasm32 raw build must compile).
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let path = Self::resolve_ort_dylib_path();
+            let builder = match ort::init_from(&path) {
+                Ok(b) => b,
+                Err(e) => {
+                    tracing::warn!(
+                        fallback = true,
+                        error = %e,
+                        path = %path.display(),
+                        "ONNX Runtime dylib unusable; using deterministic dummy embeddings"
+                    );
+                    return false;
+                }
+            };
+            let _ = builder.commit();
+            // Layer 2: force `setup_api` now, outside `G_ENV`. A failure here only
+            // poisons `ort`'s `OnceLock` (catchable forever after), never its `Mutex`.
+            if std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                let _ = ort::api();
+            }))
+            .is_err()
+            {
+                tracing::warn!(
+                    fallback = true,
+                    path = %path.display(),
+                    "ONNX Runtime API unavailable; using deterministic dummy embeddings"
+                );
+                return false;
+            }
+            true
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            let _ = ort::init().commit();
+            true
+        }
+    }
+
     fn try_load_session(model_dir: &str) -> Option<ort::session::Session> {
-        // init ort once (load-dynamic); ignore errors — fallback to dummy
-        let _ = ort::init().commit();
+        // FIND-100: never let an `ort` panic (incompatible dylib, poisoned global)
+        // escape — the factory contract is graceful dummy fallback.
+        if !Self::ensure_ort_ready() {
+            return None;
+        }
+        match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            Self::load_session_inner(model_dir)
+        })) {
+            Ok(sess) => sess,
+            Err(payload) => {
+                let msg = payload
+                    .downcast_ref::<&str>()
+                    .copied()
+                    .or_else(|| payload.downcast_ref::<String>().map(String::as_str))
+                    .unwrap_or("<non-string panic payload>");
+                tracing::warn!(
+                    fallback = true,
+                    panic = msg,
+                    "ONNX Runtime panicked while loading session; using deterministic dummy embeddings"
+                );
+                None
+            }
+        }
+    }
+
+    fn load_session_inner(model_dir: &str) -> Option<ort::session::Session> {
         let candidates = [
             std::path::Path::new(model_dir)
                 .join("model.onnx")
@@ -960,6 +1071,49 @@ mod tests {
         let provider = LocalOnnxProvider::new_dummy(384);
         let res = provider.embed("");
         assert!(res.is_err());
+    }
+
+    // FIND-100 (Prove-It): dylib incompatible + modelo presente → dummy, sin pánico.
+    // El `ORT_DYLIB_PATH` apunta a un archivo inexistente; antes del fix,
+    // `Session::builder()` paniqueaba en `ort::setup_api` (.expect BadVersion/Dlopen)
+    // y envenenaba el mutex global → abort del proceso.
+    // Nota: este test muta env del proceso; es seguro en paralelo porque el único
+    // otro lector (`ensure_ort_ready`) degrada a dummy ante basura, y el contrato
+    // dummy satisface todos los asserts vecinos.
+    #[test]
+    fn f100_incompatible_dylib_never_panics() {
+        let key = "ORT_DYLIB_PATH";
+        let saved = std::env::var(key).ok();
+        std::env::set_var(key, "C:/nonexistent-dir-find100/onnxruntime.dll");
+        let built = std::panic::catch_unwind(|| {
+            LocalOnnxProvider::new("embeddings/models/multilingual-e5-small/onnx")
+        });
+        match saved {
+            Some(v) => std::env::set_var(key, v),
+            None => std::env::remove_var(key),
+        }
+        let provider = built
+            .expect("provider construction must not panic with incompatible dylib")
+            .expect("new returns Ok via dummy fallback");
+        let v = provider.embed("hola mundo").expect("dummy embed works");
+        assert_eq!(v.len(), 384);
+    }
+
+    // FIND-100: la resolución del dylib respeta `ORT_DYLIB_PATH` (pura, sin globals ORT).
+    #[test]
+    fn f100_resolve_ort_dylib_path_honors_env() {
+        let key = "ORT_DYLIB_PATH";
+        let saved = std::env::var(key).ok();
+        std::env::set_var(key, "C:/custom/onnxruntime.dll");
+        let resolved = super::LocalOnnxProvider::resolve_ort_dylib_path();
+        match saved {
+            Some(v) => std::env::set_var(key, v),
+            None => std::env::remove_var(key),
+        }
+        assert_eq!(
+            resolved,
+            std::path::PathBuf::from("C:/custom/onnxruntime.dll")
+        );
     }
 
     // EMB-16 RED: prefijos por familia (e5 query:/passage:, resto ninguno)
