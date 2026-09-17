@@ -382,7 +382,7 @@ Model catalog source of truth: `embeddings/manifest.json` (9 ids, rev pinned). F
 
 ## Extended Tool Families (30)
 
-Dispatched via `tools/call`, defined outside `handlers/tools.rs` (8+6+6+3+6+1 = 30):
+Dispatched via `tools/call`, defined outside `handlers/tools.rs` (8+6+6+5+6+1 = 32):
 
 ### Code Intelligence — `code.rs` (8)
 
@@ -425,15 +425,17 @@ Dispatched via `tools/call`, defined outside `handlers/tools.rs` (8+6+6+3+6+1 = 
 |------|-------------|
 | `context_assemble` | Assembles a context window under a token budget with the vanta-memory context engine (MCP-31): compacts the provided chat history and injects session recall (relevant L1 memories, persona, scene navigation). Returns `{messages, report, mmd_injected, recall_injected}`. Read-only. |
 
-### Scenes API - `scenes.rs` (3)
+### Scenes API - `scenes.rs` (5)
 
-Read-only wrappers over the vanta-memory gateway scene handlers (`vanta_memory::gateway`) — structured scene navigation for external agents. Domain errors surface as error-content messages; `scene_query` ranks by keyword overlap only.
+Read wrappers over the vanta-memory gateway scene handlers (`vanta_memory::gateway`) plus the sandboxed write path (`vanta_memory::core::scene::scene_tools`) — structured scene navigation for external agents. Domain errors surface as error-content messages; `scene_query` ranks by keyword overlap only.
 
 | Tool | Description |
 |------|-------------|
 | `scene_read` | Reads one live scene block by name from a session's scene store. Returns `{scene:{scene_name, meta{created,updated,summary,heat}, content}}`. Missing or soft-deleted scenes answer "not found". Read-only. |
 | `scene_list` | Lists the scene index of a session (heat descending, soft-deleted excluded). Returns `{scenes:[{filename,summary,heat,created,updated}]}` where `filename` is the id for `scene_read`. Read-only. |
 | `scene_query` | Keyword search over live scene blocks: ranks scenes by term overlap between the keyword and summary+content, ties by heat. Returns `{hits:[{scene_name,summary,heat,updated,score}]}`; load hits via `scene_read`. Read-only. |
+| `scene_write` | Creates or fully replaces one scene block (upsert: heat bump, `created` preserved on update). Returns `{scene:{...}}`. Empty/whitespace-only content is rejected as an error-content message. Write path. |
+| `scene_edit` | Patches `summary` and/or `content` of an existing scene (at least one field; missing scene answers "not found"). Returns `{scene:{...}}`. Write path. |
 
 ## Output budgeting (`byte_budget`, MCP-39)
 
