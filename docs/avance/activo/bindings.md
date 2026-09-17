@@ -1039,3 +1039,21 @@ aliases: []
 - **Objetivo:** 2 corridas (la 2ª recuerda lo de la 1ª, assert mecánico) + 1 comando sin credenciales.
 - **Resultado:** ✅ `examples/agent_memory_cli/` nuevo (demo + pytest e2e 3 passed + README); demo 1-comando SESION 1/2 OK + MEMORIA VERIFICADA; determinista (vectores fijos, asserts contenido); local-first (0 hits env/http/keys); regresión `test_sdk` 2/2; OCR delegate sin Critical/High; review P2-01 → orquestador.
 - **Commit:** 3bb5210d
+
+### FIND-103: skills correctas + motor de recall continuo
+- **Fecha:** 2026-09-17
+- **Objetivo:** skill verificada contra codigo (86 tools) + `instructions` en initialize + traductor temporal + politica recall.
+- **Resultado:** ✅ counts 86 en 6 superficies, `~`->absolutos, 6 env vars, SERVER_INSTRUCTIONS recall-first, 4 prompts recall-first, `temporal.rs` ES/EN std-only (12/12 tests), recall-policy.md (umbrales top_k 5, additionalContext, curaduria proxy-turns->inbox), test-mcp.py 5/5; P2-01 approve.
+- **Commit:** c01baa90 + 25109073 (follow-ups P2-01)
+
+### FIND-106: ganchos de memoria por cliente
+- **Fecha:** 2026-09-17
+- **Objetivo:** plantillas OpenCode+Claude+Cursor+Codex que implementan la politica FIND-103.
+- **Resultado:** ✅ 4 hooks x 4 clientes (SessionStart/message/PreCompact/Stop, docs oficiales via webfetch) + test-hooks.ps1 50/50 + TOKEN-BUDGET.md (~10%/msg, top_k 5, 4 reglas NADA) + VERSION.md; P2-01 approve + follow-ups (cursor a launcher pwsh directo, nota idle estatico).
+- **Commit:** 5b09fb54 + 25109073 (follow-ups P2-01)
+
+### FIND-107: exponer vanta-memory en el MCP (S1-S3 + 4 DEFER)
+- **Fecha:** 2026-09-17
+- **Objetivo:** mostrador MCP completo por sub-modulo: escenas-escritura, suenos-lectura/escritura.
+- **Resultado:** ✅ 7 tools (Full 79->86): scene_write/edit + dream_list/load/discard + dream_consolidate (LLM-free)/promote (preview honesto mutated:false); tests por tool + docs + coverage 0 gaps + smoke 86/86; S4/S5/S6a/S6b DEFER-ratificado -> FIND-110/111/112/113; P2-01 approve.
+- **Commit:** 472526dc + 325b1237 + 74c225a0 + 41af793d + 25109073 (follow-ups P2-01)

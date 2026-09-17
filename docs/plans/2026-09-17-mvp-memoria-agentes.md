@@ -1,7 +1,8 @@
 # Plan de Ejecución: MVP memoria automática en agentes de código — 2026-09-17
 
+> **Campaign ID:** b2ece025-e9d3-4f8b-835d-1d0143a86b66
 > **Inicio:** 2026-09-17
-> **Estado:** ⬜ PENDIENTE (plan listo, sin iniciar)
+> **Estado:** ✅ COMPLETADO (8/8 DO, 2026-09-17)
 > **Fuente:** `docs/Backlog.md` + `SPEC.md` (8/8 decisiones, 0 abiertas) + research skills/hooks/distribución/OCR 2026-09-16/17
 > **Autonomous:** false
 > **FAIL_MODE:** `parallel` (MAX 3; secuencial interno si colisionan archivos)
@@ -61,7 +62,7 @@ Todo sub-agente, antes de codificar, carga y cita en su task file:
 - **Herramientas+MCP:** codegraph + codebase-memory-mcp (`detect_changes`, `check_index_coverage`) + `cargo test -p vantadb llm -j 2` + clippy + `campaign_verify_cmd` (bug exit -1 → bash) + agent-search/metasearchmcp SOLO si la API `ort` es incierta (docs.rs, webfetch).
 - **Referencias:** rules `core-engine.md` · refs `definition-of-done.md`, `clean-code-clean-architecture.md` Ap. V, `dev-tools.md`, `test-suite.md` · commands `pipeline.md`, `audit.md` · agents `vanta-worker` + `vanta-review` P2-01.
 - **Investigación:** código (init→factory→fallback, callers `get_embedding_provider`) en DISCOVERY; internet solo si API ort incierta.
-- Task file `docs/tasks/FIND-100.md` · ⬜ PENDING · Ruta vanta-worker. Branch develop. Commit `fix: FIND-100 — ...`.
+- Task file `docs/tasks/FIND-100.md` · ✅ COMPLETED · Ruta vanta-worker. Branch develop. Commit `fix: FIND-100 — ...`.
 
 **Task 2: FIND-107 — exponer lo que falta de `vanta-memory` en el MCP**
 - **Appetite:** 3d · **Esfuerzo:** 🟠 · **Prioridad:** 🟠 Media-Alta · **Archivos clave:** `vanta-memory/src/core/dream/`, `vanta-memory/src/gateway/`, `vantadb-mcp/src/handlers/`
@@ -77,7 +78,7 @@ Todo sub-agente, antes de codificar, carga y cita en su task file:
 - **Herramientas+MCP:** codegraph + codebase-memory-mcp (impacto architecture) + `cargo test -p vantadb-mcp -j 2` + MCP stdio smoke + notion (fetch dim memoria si mapea) + agent-search/metasearchmcp SOLO si ambigüedad (patrones Mem0/Letta).
 - **Referencias:** rules `core-engine.md`, `api-contract.md`, `server-mcp.md` · refs `architecture.md`, `definition-of-done.md`, `clean-code-clean-architecture.md` Ap. V, `understand-anything.md` · commands `pipeline.md`, `research.md`, `audit.md` · agents `vanta-worker` + `vanta-review` P2-01.
 - **Investigación:** código (gateway→handlers por sub-módulo) en DISCOVERY; internet solo si ambigüedad de diseño.
-- Task file `docs/tasks/FIND-107.md` · ⬜ PENDING · Ruta vanta-worker. Branch develop. Commit `feat: FIND-107 — ...`.
+- Task file `docs/tasks/FIND-107.md` · ✅ COMPLETED · Ruta vanta-worker. Branch develop. Commit `feat: FIND-107 — ...`.
 
 **Task 3: SHOW-04 — demo agente-con-memoria (prueba de aceptación MVP)**
 - **Appetite:** 3d · **Esfuerzo:** 🟠 · **Prioridad:** 🔴 Alta · **Archivos clave:** `examples/` (nuevo `agent_memory_cli/`), scenes + MCP `inject_context`
@@ -93,7 +94,7 @@ Todo sub-agente, antes de codificar, carga y cita en su task file:
 - **Herramientas+MCP:** `cargo test` (si demo Rust) o pytest (si Python) + corridas 1→2 con assert + `campaign_verify_cmd`.
 - **Referencias:** rules `server-mcp.md` (+`python-bindings.md` si demo Python) · refs `testing-patterns.md`, `test-suite.md`, `definition-of-done.md` · commands `pipeline.md` · agents `vanta-worker` + `vanta-review` P2-01.
 - **Investigación:** código (scenes + `inject_context` como base) en DISCOVERY; internet N/A.
-- Task file `docs/tasks/SHOW-04.md` · ⬜ PENDING · Ruta vanta-worker. Branch develop. Commit `feat: SHOW-04 — ...`.
+- Task file `docs/tasks/SHOW-04.md` · ✅ COMPLETED · Ruta vanta-worker. Branch develop. Commit `feat: SHOW-04 — ...`.
 
 ### Wave1 — política recall (diseño+skills; disjunto)
 
@@ -111,7 +112,7 @@ Todo sub-agente, antes de codificar, carga y cita en su task file:
 - **Herramientas+MCP:** notion (fetch Problema/Propuesta + hijas si mapean) + codegraph + codebase-memory-mcp + agent-search/metasearchmcp (solo gaps vs R3) + `validate-docs-coverage.ps1` + `test-mcp.py` + `campaign_verify_cmd`.
 - **Referencias:** rules `server-mcp.md`, `api-contract.md` · refs `skills-engineering.md`, `definition-of-done.md`, `task-system.md`, `architecture.md`, `research-modules.md` · commands `pipeline.md`, `research.md`, `audit.md` · agents `vanta-worker` + `vanta-review` P2-01 (código: filtros+traductor+instructions).
 - **Investigación:** código (handlers search/recall/initialize/prompts) + internet (solo gaps vs research 2026-09-16).
-- Task file `docs/tasks/FIND-103.md` · ⬜ PENDING · Ruta vanta-worker. Branch develop. Commit `docs: FIND-103 — ...`.
+- Task file `docs/tasks/FIND-103.md` · ✅ COMPLETED · Ruta vanta-worker. Branch develop. Commit `docs: FIND-103 — ...`.
 
 ### Wave2 — instalador + ganchos (disjuntos: scripts vs hooks; heredan FIND-103)
 
@@ -129,7 +130,7 @@ Todo sub-agente, antes de codificar, carga y cita en su task file:
 - **Herramientas+MCP:** `pwsh -NoProfile` + MCP stdio smoke + agent-search/metasearchmcp SOLO si formato cliente incierto (docs oficiales) + `campaign_verify_cmd`.
 - **Referencias:** rules `release-ci.md`, `server-mcp.md` · refs `definition-of-done.md`, `dev-tools.md` · commands `pipeline.md`, `audit.md` · agents `vanta-worker` + `vanta-review` P2-01.
 - **Investigación:** código (wizard/launcher/assets) + internet (solo formatos cliente no verificados).
-- Task file `docs/tasks/FIND-104.md` · ⬜ PENDING · Ruta vanta-worker. Branch develop. Commit `feat: FIND-104 — ...`.
+- Task file `docs/tasks/FIND-104.md` · ✅ COMPLETED · Ruta vanta-worker. Branch develop. Commit `feat: FIND-104 — ...`.
 
 **Task 6: FIND-106 — ganchos de memoria por cliente**
 - **Appetite:** 2d · **Esfuerzo:** 🟡 · **Prioridad:** 🔴 Alta · **Archivos clave:** `.opencode/` (plantillas, NO config viva ajena), `skills/vantadb-mcp/assets/`, `vanta-mcp-local.ps1` (lectura)
@@ -145,7 +146,7 @@ Todo sub-agente, antes de codificar, carga y cita en su task file:
 - **Herramientas+MCP:** agent-search (descubrimiento APIs hooks) + metasearchmcp (verificación) + webfetch docs oficiales + simuladores de eventos + `campaign_verify_cmd`. codegraph N/A (config, no código).
 - **Referencias:** rules `server-mcp.md` · refs `skills-engineering.md`, `definition-of-done.md` · commands `pipeline.md` · agents `vanta-worker` + `vanta-review` P2-01.
 - **Investigación:** internet (docs oficiales por cliente — principal) + código (política FIND-103, MCP tools a invocar).
-- Task file `docs/tasks/FIND-106.md` · ⬜ PENDING · Ruta vanta-worker. Branch develop. Commit `feat: FIND-106 — ...`.
+- Task file `docs/tasks/FIND-106.md` · ✅ COMPLETED · Ruta vanta-worker. Branch develop. Commit `feat: FIND-106 — ...`.
 
 ### Wave3 — comando único + review total (disjuntos: scripts/docs vs workflows)
 
@@ -163,7 +164,7 @@ Todo sub-agente, antes de codificar, carga y cita en su task file:
 - **Herramientas+MCP:** `pwsh -NoProfile`/`sh` dry-run + checksum verify + `campaign_verify_cmd`. codegraph N/A.
 - **Referencias:** rules `release-ci.md` · refs `definition-of-done.md` · commands `pipeline.md` · agents `vanta-lead` (distribución) + `vanta-review` P2-01.
 - **Investigación:** código (instaladores actuales) + internet (patrones Deno/Bun ya researched — reusar).
-- Task file `docs/tasks/FIND-105.md` · ⬜ PENDING · Ruta vanta-lead. Branch develop. Commit `feat: FIND-105 — ...`.
+- Task file `docs/tasks/FIND-105.md` · ✅ COMPLETED · Ruta vanta-lead. Branch develop. Commit `feat: FIND-105 — ...`.
 
 **Task 8: FIND-108 — integración completa open-code-review**
 - **Appetite:** 1d · **Esfuerzo:** 🟡 · **Prioridad:** 🟡 Media · **Archivos clave:** `.github/workflows/` (job nuevo), `.opencodereview/` (nuevo), `dev-tools/ocr-review.ps1`
@@ -179,7 +180,7 @@ Todo sub-agente, antes de codificar, carga y cita en su task file:
 - **Herramientas+MCP:** `ocr delegate rule` (sin key) + `actionlint` + agent-search/metasearchmcp (docs oficiales) + `campaign_verify_cmd`.
 - **Referencias:** rules `release-ci.md` · refs `ocr-review.md`, `dev-tools.md`, `definition-of-done.md` · commands `pipeline.md`, `audit.md` · agents `vanta-lead` (CI) + `vanta-review` P2-01.
 - **Investigación:** internet (docs open-codereview.ai: rules/cicd/delegate/mcp) + código (wrapper actual).
-- Task file `docs/tasks/FIND-108.md` · ⬜ PENDING · Ruta vanta-lead. Branch develop. Commit `ci: FIND-108 — ...`.
+- Task file `docs/tasks/FIND-108.md` · ✅ COMPLETED · Ruta vanta-lead. Branch develop. Commit `ci: FIND-108 — ...`.
 
 ## SKIP
 
@@ -227,15 +228,110 @@ Nota runner: si waves ×3 abortan, fallback secuencial por wave (precedente 2026
 - SPEC.md raíz con 8/8 decisiones; Gate P confirmado en Q5 (esta sesión). Responde a tu punto 4: cada ficha cita rules/references/commands/agents exactos y el prompt del sub-agente (pipeline-run.md §6.f) los lleva adentro.
 
 === RECITATION ===
-Objetivo activo: PLAN MVP-memoria-agentes (FIND-100/103/104/105/106/107/108 + SHOW-04)
-Estado: plan (8 DO, 0 uphill bloqueante, Wave0 lista)
-Última acción: plan enriquecido (skills ≤8 justificadas + MCP/tools + Marco normativo + OCR research + Punto 4 integrado por ficha) + SPEC.md completo (Problema/Propuesta)
+Objetivo activo: PLAN MVP-memoria-agentes — CERRADO 8/8
+Estado: completed (desde: act)
+Última acción: P2-01 (3× vanta-review: Rust approve, scripts approve, docs/CI changes-required→levantado con 25109073) + progreso (Backlog −8/+6, avance 3 dominios) + verifies lead en verde
 Resultado: ✅
-Próxima acción: `/pipeline run` (Wave0: FIND-100 + FIND-107 + SHOW-04) o `/pipeline task <ID>`
-Contrato: plan file existe con 8 tasks DO + resumen + waves + gates; task files bajo demanda
-Invariantes: no se tocó código (modo plan read-only salvo commits punto 5); Backlog con FIND-108 añadida por este turno
-Comandos de verificación: existencia del plan file + SPEC.md
-Deuda: ninguna
-Próxima tarea si completa: FIND-100 (Wave0)
+Próxima acción: archive a docs/plans/archive/ + nota meta.md (orquestador)
+Contrato: 8/8 DO con commit + verify mecánico + P2-01; tools/list 86; coverage 0 gaps
+Invariantes: WIP ajeno intacto (completions/*, .opencode, reparacion.bat, stash GOV-C4); sin push (commits locales en develop)
+Comandos de verificación: llm 15/15 serial · temporal 12/12 · dream 10/10 · scene 5/5 · test-hooks 50/50 · fmt/clippy/actionlint/wrapper exit 0
+Deuda: FIND-109 (Alta, WAL salvage) + FIND-110/111/112/113 (DEFER-ratificado Media) + FIND-114/115 (Baja) + FIND-101/102 (Baja) — todas en Backlog
+Próxima tarea si completa: ninguna (plan cerrado)
 last-synced: 2026-09-17
+=== END RECITATION ===
+
+## Retrospectiva de cierre (Start/Stop/Continue + 1 acción medible)
+
+- **Start (seguir haciendo):** prompts de delegación con DETALLE OBLIGATORIO completo (10 bloques) — 7/8 tareas salieron ✅ al primer intento con ese formato; RESUME misma-sesión rescató FIND-100 (rate-limit) y FIND-108 (aborto) sin perder trabajo.
+- **Stop (dejar de hacer):** `--no-verify` por reflejo (lo usé una vez en `d441d1f2` y tuve que revertir a `25109073` con hook en verde); waves paralelas que comparten archivos de conteo global (tools/list asserts colisionaron FIND-100×FIND-107 en el hook).
+- **Continue (igual):** P2-01 con revisor distinto por área (3 revisiones en paralelo encontraron 12 hallazgos reales, 1 changes-required legítimo); staging selectivo + WIP ajeno intocable.
+- **Acción medible:** reducir hallazgos P2-01 Media-por-tarea de 1.5 a ≤0.5 (baseline este plan: 12 hallazgos / 8 tareas) añadiendo al prompt de delegación un self-check del revisor (globs existen, secrets solo-env, comentarios paralelos) antes del RESULTADO.
+
+=== RECITATION FIND-107 ===
+Campaign ID: b2ece025-e9d3-4f8b-835d-1d0143a86b66
+Objetivo activo: FIND-107 exponer vanta-memory en MCP - COMPLETO
+Estado: completed
+Última acción: S1+S2+S3 shippeados (3 commits feat), S4/S5/S6a/S6b DEFER-ratificado con justificacion codigo, verify full + smoke stdio + task file sync (41af793d)
+Resultado: OK
+Próxima acción: Orquestador: P2-01 vanta-review sobre 472526dc+325b1237+74c225a0, crear FIND-110..113 en Backlog, ejecutar FIND-103
+Contrato: Contrato: tools/list 79->86 (7 tools S1-S3) + tests por tool verdes + docs + coverage 0 gaps. Verificacion: fmt workspace OK, clippy workspace all-targets all-features OK, suite vantadb-mcp 18 targets 0 failed, coverage 0 gaps, OCR sin Critical/High, smoke stdio 4/4 (86 tools). Evidencia: commits 472526dc+325b1237+74c225a0+41af793d; tests dream_tests.rs 10/10, scene_write_edit 5/5, scene_tests 7/7. Invariantes: src/llm.rs, examples/, Backlog, plan, prohibidos intactos; dev/memory profiles intactos. Deuda: S4-S6 DEFER-ratificado (FIND-110..113 propuestos, Backlog lo edita el orquestador). Queda_pendiente: P2-01 review por agente distinto + FIND-103 (orquestador).
+Próxima tarea si completa: FIND-103
+=== END RECITATION ===
+
+=== RECITATION FIND-100 ===
+Campaign ID: b2ece025-e9d3-4f8b-835d-1d0143a86b66
+Objetivo activo: FIND-100 graceful ante onnxruntime incompatible
+Estado: completed
+Última acción: RESUME: re-verificacion minima verde (test 15/15, clippy 0, fmt 0) + commit 22d5a142 solo src/llm.rs + docs/tasks/FIND-100.md, sin push
+Resultado: OK
+Próxima acción: Orquestador: FIND-103 (Wave1) + review P2-01 de este commit
+Contrato: Contrato: (a) dylib incompatible -> exit controlado + fallback:true visible, sin abort; (b) suite llm verde; (c) clippy -D warnings 0. Verificacion: cargo test -p vantadb --features embed-local --lib llm -j 2 = 15/15 EXIT=0 (serie+paralelo); clippy --all-targets --features embed-local -D warnings EXIT=0; fmt EXIT=0; cargo check default EXIT=0; pre-commit hooks ok; commit 22d5a142. Evidencia: commit 22d5a142 (confianza alta); logs en C:/Users/Eros/AppData/Local/Temp/opencode/find100-*.txt (confianza alta). Artefactos: src/llm.rs, docs/tasks/FIND-100.md. Invariantes: WIP ajeno intacto (FIND-107/SHOW-04, Backlog, plan); -j 2; sin simbolos publicos nuevos; NO PUSH. Deuda: OCR delegation + review P2-01 los hace el orquestador; Notion Paso 0c no ejecutable en este harness. Queda_pendiente: orquestador ejecuta FIND-103 (Wave1).
+Próxima tarea si completa: FIND-103
+=== END RECITATION ===
+
+=== RECITATION SHOW-04 ===
+Campaign ID: b2ece025-e9d3-4f8b-835d-1d0143a86b66
+Objetivo activo: SHOW-04 demo agente-con-memoria: prueba viva del MVP (recuerda entre 2 sesiones)
+Estado: completed
+Última acción: RED test fallo correcto, GREEN demo+README, VERIFY demo+pytest+verify_cmd+OCR advisory, commit 3bb5210d (4 files, pre-commit hook ok)
+Resultado: ✅
+Próxima acción: ninguno en SHOW-04; orquestador: FIND-103 (Wave1)
+Contrato: verificacion: python examples/agent_memory_cli/agent_memory_demo.py ✅ (SESION 1 OK + SESION 2 OK + MEMORIA VERIFICADA) + python -m pytest examples/agent_memory_cli/ -v ✅ 3 passed + campaign_verify_cmd ✅ exit 0 | evidencia: claim: sesion 2 recuerda lo de sesion 1, evidencia: examples/agent_memory_cli/agent_memory_demo.py:sesion_2_recordar + pytest 3 passed, confianza: alta | artefactos: examples/agent_memory_cli/agent_memory_demo.py, test_agent_memory_cli.py, README.md, docs/tasks/SHOW-04.md | invariantes: no tocar src/llm.rs (FIND-100), vanta-memory/handlers (FIND-107), WIP ajeno intacto | deuda: ninguna | queda_pendiente: FIND-103 (orquestador Wave1)
+Próxima tarea si completa: FIND-103
+=== END RECITATION ===
+
+=== RECITATION FIND-103 ===
+Campaign ID: b2ece025-e9d3-4f8b-835d-1d0143a86b66
+Objetivo activo: FIND-103 skills correctas + motor recall continuo
+Estado: completed
+Última acción: subagent vanta-worker 7/7 slices, commit c01baa90 (16 files), lead verify temporal_tests 12/12 EXIT=0
+Resultado: ✅
+Próxima acción: Wave2: FIND-104 + FIND-106 en paralelo
+Contrato: claims verificados + instructions en initialize + traductor temporal con tests + coverage 0 gaps
+Próxima tarea si completa: FIND-104
+=== END RECITATION ===
+
+=== RECITATION FIND-104 ===
+Campaign ID: b2ece025-e9d3-4f8b-835d-1d0143a86b66
+Objetivo activo: FIND-104 instalador interactivo end-to-end
+Estado: completed
+Última acción: subagent vanta-worker 4/4 slices, commit a1bea54b (scripts + assets/install 6 plantillas)
+Resultado: ✅
+Próxima acción: Wave3: FIND-105 + FIND-108
+Contrato: wizard simulado + NonInteractive intacto + secrets nunca a disco + prueba viva verde
+Próxima tarea si completa: FIND-105
+=== END RECITATION ===
+
+=== RECITATION FIND-106 ===
+Campaign ID: b2ece025-e9d3-4f8b-835d-1d0143a86b66
+Objetivo activo: FIND-106 ganchos memoria por cliente
+Estado: completed
+Última acción: subagent vanta-worker 5/5, commit 5b09fb54 (9 files), lead verify test-hooks.ps1 50/50 EXIT=0
+Resultado: ✅
+Próxima acción: Wave3: FIND-105 + FIND-108
+Contrato: plantillas 4 clientes + tests simulados + token budget
+Próxima tarea si completa: FIND-105
+=== END RECITATION ===
+
+=== RECITATION FIND-105 ===
+Campaign ID: b2ece025-e9d3-4f8b-835d-1d0143a86b66
+Objetivo activo: FIND-105 comando único de instalación
+Estado: completed
+Última acción: Step1 instaladores (dry-run+backup+cadena wizard) + Step2 docs (nota trust README + §0 QUICKSTART) + verify full + commit 1349e63c sin push
+Resultado: OK
+Próxima acción: Orquestador: P2-01 review de 1349e63c + skill progreso + cierre Wave3
+Contrato: verificacion: sh --dry-run/--no-wizard/--help exit 0 + ps1 -DryRun exit 0 (wizard chain impresa) + Select-String one-liner README:203,209 QUICKSTART:28,34 + requirements >=0.5.0 x2 + git diff --check 0 + validate-docs-coverage 0 gaps + ocr delegate 1 grupo default sin Critical/High + commit 1349e63c (hooks verdes) | evidencia: commit 1349e63c 5 files +325/-3; campaign_verify_cmd bug exit -1 reproducido -> fallback bash directa | artefactos: scripts/install.sh, scripts/install.ps1, README.md, docs/QUICKSTART.md, docs/tasks/FIND-105.md | invariantes: WIP ajeno intacto (completions, Backlog, plan, .opencode, reparacion.bat no stageados); assets/install + setup-embeddings.ps1 solo lectura; develop; NO PUSH | deuda: P2-01 review + skill progreso (orquestador) | queda_pendiente: orquestador: P2-01 vanta-review sobre 1349e63c, cierre + progreso, siguiente FIND-108 ya en paralelo
+Próxima tarea si completa: ninguna (última wave)
+=== END RECITATION ===
+
+=== RECITATION FIND-108 ===
+Campaign ID: b2ece025-e9d3-4f8b-835d-1d0143a86b66
+Objetivo activo: FIND-108 integracion completa open-code-review
+Estado: completed
+Última acción: retry fresco ses_f4f5d96f4ffeB4mAX52aE6bAv3 (previa abortada sin ID): 13/13 Custom + actionlint 0 + wrapper ok, commit 2430385a (3 paths)
+Resultado: ✅
+Próxima acción: cierre plan: P2-01 + progreso + retrospectiva + archive
+Contrato: rules por path + job CI nocturno + viewer evidencia + delegation intacto
+Próxima tarea si completa: cierre-plan
 === END RECITATION ===
