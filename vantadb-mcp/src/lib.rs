@@ -13,6 +13,7 @@ mod axioms;
 mod code;
 mod config;
 mod context;
+mod dreams;
 mod error;
 mod handlers;
 mod metrics;
