@@ -1,0 +1,56 @@
+{
+  "$schema": "https://code.claude.com/docs/hooks-reference/schema.json",
+  "_template": "FIND-106 template_version 1.0.0, docs_verified 2026-09-17 (https://docs.anthropic.com/en/docs/claude-code/hooks). Merge into .claude/settings.json. Launcher: pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>. Secrets: session env only.",
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "timeout": 15,
+            "_policy": "memory_recall scope=agent top_k=5 -> additionalContext; empty recall injects NOTHING"
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "timeout": 15,
+            "_policy": "memory_recall query=<verbatim user text> scope=agent top_k=5; never paraphrase"
+          }
+        ]
+      }
+    ],
+    "PreCompact": [
+      {
+        "matcher": "manual|auto",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "timeout": 15,
+            "_policy": "save-state via thread_send and/or scene_write before compaction"
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "timeout": 15,
+            "_policy": "auto-capture turn via thread_send role+content; proxy-turns curated via inbox, never auto-promote"
+          }
+        ]
+      }
+    ]
+  }
+}

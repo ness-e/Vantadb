@@ -1,0 +1,39 @@
+{
+  "$schema": "https://cursor.com/docs/agent/hooks/schema.json",
+  "_template": "FIND-106 template_version 1.0.0, docs_verified 2026-09-17 (https://cursor.com/docs/agent/hooks). Copy to <project>/.cursor/hooks.json (runs from project root). Launcher: pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>. Secrets: session env only.",
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": ".cursor/hooks/vantadb-recall.sh",
+        "timeout": 15
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": ".cursor/hooks/vantadb-recall.sh",
+        "timeout": 15
+      }
+    ],
+    "preCompact": [
+      {
+        "command": ".cursor/hooks/vantadb-save.sh",
+        "timeout": 15
+      }
+    ],
+    "stop": [
+      {
+        "command": ".cursor/hooks/vantadb-capture.sh",
+        "timeout": 15,
+        "loop_limit": 5
+      }
+    ]
+  },
+  "_policy": {
+    "sessionStart": "memory_recall scope=agent top_k=5 -> additionalContext; empty injects NOTHING",
+    "beforeSubmitPrompt": "memory_recall query=<verbatim user text> scope=agent top_k=5",
+    "preCompact": "save-state via thread_send and/or scene_write",
+    "stop": "auto-capture via thread_send role+content; proxy-turns via inbox, never auto-promote"
+  },
+  "_scripts": "Each .cursor/hooks/vantadb-*.sh reads hook JSON on stdin and calls: pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>. Exit 0 = use JSON output; exit 2 = block; other non-zero = fail-open (Cursor default)."
+}
