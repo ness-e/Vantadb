@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 6a794efa-ad83-4a19-9fb8-5e6385f36016
 > **Inicio:** 2026-09-16
-> **Estado:** ⏳ EN PROGRESO (EMB-10 ✅ + Wave1 ✅ + Wave2 ✅ + Wave3 ✅ + Wave4 ✅ 2026-09-16; Wave5 siguiente)
+> **Estado:** ✅ COMPLETADA 2026-09-16 (11/11, 0 failed; cierre skill progreso + archive)
 > **Fuente:** pedido owner 2026-09-16 + FIND-99 (dummy `embed_texts`) + inventario verificado `embeddings/` + Propuesta (matriz REAL/PARCIAL)
 > **Autonomous:** false
 > **FAIL_MODE:** `parallel` (MAX 3; secuencial interno si colisionan archivos)
@@ -213,7 +213,7 @@ Q1→asistente con defaults (Enter=auto, configurable); Q2→3 en disco + resto 
 - **Referencias:** task-system.md (verify) + test-suite.md.
 - **Skills:** campaign-executor, progreso, test-driven-development, systematic-debugging, codebase-memory.
 - **Herramientas:** MCP stdio, `cargo test`, `cargo audit`, `actionlint` si toca yml, `campaign_verify_cmd`.
-- Task file `docs/tasks/EMB-19.md` · ⬜ PENDING · Ruta vanta-lead (CI/release/instalación).
+- Task file `docs/tasks/EMB-19.md` · ✅ COMPLETED 2026-09-16 (`a5d549af`) · Ruta vanta-lead (CI/release/instalación).
 
 **Task EMB-20: docs (README + MCP + SKILL)**
 - Appetite 4h · 🟢 · 🟢 · `embeddings/README.md`, `docs/api/MCP.md`, `skills/vantadb-mcp/SKILL.md`
@@ -229,7 +229,7 @@ Q1→asistente con defaults (Enter=auto, configurable); Q2→3 en disco + resto 
 - **Referencias:** documentation-and-adrs + writing-guidelines.
 - **Skills:** campaign-executor, progreso, documentation-and-adrs, writing-guidelines, source-driven-development.
 - **Herramientas:** `validate-docs-coverage.ps1`, `git diff --check`, `campaign_verify_cmd`.
-- Task file `docs/tasks/EMB-20.md` · ⬜ PENDING · Ruta vanta-docs.
+- Task file `docs/tasks/EMB-20.md` · ✅ COMPLETED 2026-09-16 (`46992d8c`) · Ruta vanta-docs.
 
 ## SKIP / DEFER / BLOQUEADO
 
@@ -269,17 +269,24 @@ FIND-99 (dummy `embed_texts` + sin auto-embed) queda como épica padre: la cierr
 - Backlog: filas EMB-10..20 creadas 2026-09-16 (fuente: este plan). FIND-99 padre de 13/14.
 
 === RECITATION ===
-Objetivo activo: PLAN embeddings-auto (EMB-10..20)
-Estado: act (EMB-10 ✅ + Wave1 ✅ + Wave2 ✅ + Wave3 ✅ + Wave4 ✅, Wave5 siguiente)
-Última acción: Wave4 cerrada (EMB-15 `9f4fd725` + EMB-17 `34b6ca63`, ambas review approve) + progreso (Backlog ✅ + avance bindings)
+Objetivo activo: PLAN embeddings-auto (EMB-10..20) — CIERRE
+Estado: completed (11/11, 0 failed, consecutiveFails 0)
+Última acción: Wave5 cerrada (EMB-19 `a5d549af` + EMB-20 `46992d8c`, ambas review approve) + progreso (Backlog EMB-19/20 ✅ + avance bindings) + retrospectiva + archive con budget
 Resultado: ✅
-Próxima acción: Wave5 (EMB-19 e2e + EMB-20 docs)
-Contrato: plan file con 11 tasks DO + waves + gates; EMB-10 verde verificado
-Invariantes: binario global NO instalado (PID 3864); Backlog EMB-10/11/12/13/14/15/16/17/18 + FIND-99 ✅ + EMB-19/20 ⬜ + FIND-100/101/102 ⬜; ORT persistente en LOCALAPPDATA (EMB-11)
-Deuda: ninguna (FIND-100/101/102 trackeados)
-Próxima tarea si completa: EMB-19+EMB-20 (Wave5)
+Próxima acción: `/audit quick` o `/ship` (vanta-lead: push + release)
+Contrato: 0 tareas pendientes + Backlog sin filas EMB pendientes + avance con 11 registros + plan archivado
+Invariantes: WIP ajeno y submodule intactos; reinstall global verificable con rollback .bak-emb19
+Deuda: FIND-100/101/102 abiertas (fuera de campaña); mirror .opencode commit por su dueño
+Próxima tarea si completa: ninguna (campaña cerrada)
 last-synced: 2026-09-16
 === END RECITATION ===
+
+## Retrospectiva de cierre (2026-09-16, orquestador)
+
+- **Start** (seguir haciendo): re-verificar cada claim contra código actual antes de despachar (EMB-10: binario sin motor; EMB-17: `_model` ignorado) + Gate D vía `question` para superficie pública (EMB-17 switch, EMB-86 previo) + checkpoint por wave + Paso 0c (references+Notion) desde el inicio.
+- **Stop** (dejar de hacer): asumir que el binario instalado == fuente (FIND-98: 56 vs 79 tools; EMB-19 rebuild lo probó) + Backlog desde sub-agentes en paralelo (race → migración al cierre por el orquestador).
+- **Continue** (igual): waves MAX 3 por DAG + review P2-01 con corridas propias + commits atómicos + SARL RESUME misma sesión + task files como estado durable.
+- **UNA acción medible:** rebuild de verificación antes de dar e2e por verde (métrica: bins STALE detectados/rebuilds = 1/1 en esta campaña; baseline North Star >90% primer intento ✅: 11/11 COMPLETO sin recovery).
 
 === RECITATION EMB-10 ===
 Campaign ID: 6a794efa-ad83-4a19-9fb8-5e6385f36016
@@ -356,4 +363,26 @@ Resultado: OK
 Próxima acción: Orquestador: push via vanta-lead; next EMB-19
 Contrato: verificacion: RED 1-fail razon correcta (unknown Ok-ecoreo) + GREEN 3/3 default + test_embed_texts 7/7 + auto_embed 5/5 + query_embed 4/4 + mcp_tests 93/93 + fmt + clippy default y features + diff --check + OCR advisory sin Critical/High + commit 34b6ca63 | evidencia: test_model_switch.rs 3 tests; tools.rs hunks 2591/3318/3354 disjuntos EMB-15; abort ORT features con paridad test_embed_texts (FIND-100 pre-existente) | artefactos: tools.rs, test_model_switch.rs, test_embed_texts.rs (1L comment), docs/tasks/EMB-17.md, commit 34b6ca63 (sin push) | invariantes: shapes embed_texts intactos; budgeting intacto; fallback Q5 para None; mensajes EMB-18 exactos; prefijos EMB-16 intactos; hunks EMB-15 intactos; sin unwrap prod; sin editar src/llm.rs; WIP ajeno excluido | deuda: vanta-review no disponible (leve); ORT features-run = HALLAZGO (FIND-100, Backlog no tocado) | queda_pendiente: push via vanta-lead; EMB-19 luego EMB-20
 Próxima tarea si completa: EMB-19
+=== END RECITATION ===
+
+=== RECITATION EMB-19 ===
+Campaign ID: 6a794efa-ad83-4a19-9fb8-5e6385f36016
+Objetivo activo: EMB-19 verificacion punta a punta + reinstalacion coordinada
+Estado: completed
+Última acción: Steps 1-3 + rebuild bin final + e2e + matriz + suites + reinstall ventana autorizada + verify full + commit a5d549af + lessons
+Resultado: OK
+Próxima acción: Orquestador: push via vanta-lead; next EMB-20 (docs)
+Contrato: verificacion: cat 0.9158 vs 0.8427/0.8423 fb:false dim384 + search [d1,d0,d2] + recall hybrid con D0 + ollama/openai fallback:true avisado + mcp 93/93 + memory todo verde + test-mcp 4/4x3 perfiles + audit 1 pre-existente sin nuevos + deny ok + reinstall global 24.83/26.26MB + tools/list 79 via PATH + fmt/clippy/docs-coverage 0 gaps + OCR sin C/H + commit a5d549af | evidencia: docs/tasks/EMB-19.md + commit a5d549af + bins ~/.cargo/bin .bak-emb19 | artefactos: docs/tasks/EMB-19.md, commit a5d549af | invariantes: 0 edicion prod; WIP ajeno excluido; DB temporal e2e; secrets nunca a disco | deuda: openai-real no ejecutado (sin key, FIND-69); vanta-review no disponible (leve) | queda_pendiente: EMB-20 docs describen lo verificado}
+Próxima tarea si completa: EMB-20
+=== END RECITATION ===
+
+=== RECITATION EMB-20 ===
+Campaign ID: 6a794efa-ad83-4a19-9fb8-5e6385f36016
+Objetivo activo: EMB-20 docs (README + MCP + SKILL) — última
+Estado: completed
+Última acción: Steps 1-3 + mirror hash-SAME + coverage 0 gaps + fmt + OCR + commit 46992d8c + lessons
+Resultado: OK
+Próxima acción: Orquestador: push via vanta-lead; progreso; cierre campaña
+Contrato: verificacion: validate-docs-coverage 0 gaps (mcp-tools 49 + mirror 10 SAME) + diff --check limpio + fmt exit 0 + OCR md unsupported_ext sin C/H + commit 46992d8c | evidencia: EMB-19 a5d549af (cat 0.9158/gap 0.0732/dim384/fb:false, search [d1,d0,d2], recall hybrid, matriz parcial, 93/93, 79 PATH) + manifest.json 9 ids + config.rs/llm.rs envs | artefactos: embeddings/README.md, docs/api/MCP.md, skills/vantadb-mcp/SKILL.md (+ mirror worktree), docs/tasks/EMB-20.md, commit 46992d8c (sin push) | invariantes: solo-verde-EMB-19, shapes intactos, budgeting 128/25k, secrets nunca a disco, WIP ajeno excluido | deuda: mirror .opencode en worktree (submodule con WIP ajeno, commit separado por su dueño); openai-real documentado-no-ejecutado (FIND-69); vanta-review no disponible (leve) | queda_pendiente: push via vanta-lead; progreso masivo + retrospectiva + archive (orquestador); submodule mirror commit por su dueño
+Próxima tarea si completa: ninguna (última)
 === END RECITATION ===

@@ -1021,3 +1021,15 @@ aliases: []
 - **Objetivo:** `model: "<id manifest>"` usa ese modelo (caché tope 2 avisado) + desconocido → error con lista + sin-archivos → download hint.
 - **Resultado:** ✅ 3 tests + suites EMB-13/14/15 intactas + mcp 93/93 + clippy ambas cfgs; review P2-01 approve.
 - **Commit:** 34b6ca63
+
+### EMB-19: verificación e2e + reinstalación coordinada (cierra campaña)
+- **Fecha:** 2026-09-16
+- **Objetivo:** rebuild final (STALE tras Wave2-4) + e2e completa + reinstall global en ventana autorizada.
+- **Resultado:** ✅ cat 0.9158 vs 0.8427/0.8423 + put→get con vector + search/recall + matriz ollama/openai avisada + suites mcp/memory verdes + test-mcp 4/4×3 + audit/deny/fmt/clippy/coverage verdes + `tools/list`=79 vía PATH; review P2-01 approve.
+- **Commit:** a5d549af
+
+### EMB-20: docs embeddings (README + MCP + SKILL)
+- **Fecha:** 2026-09-16
+- **Objetivo:** tabla 9 modelos + 3 proveedores + dim-gate + `embed_texts` real (solo lo verde, Regla 11).
+- **Resultado:** ✅ coverage 0 gaps (49 tools + 10 pares SAME) + diff-check + fmt; review P2-01 approve.
+- **Commit:** 46992d8c
