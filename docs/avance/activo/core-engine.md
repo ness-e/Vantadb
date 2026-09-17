@@ -702,3 +702,9 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** `LocalOnnxProvider` con prefijos familia e5 (MiniLM/resto sin prefijo) + `embed_query` en trait + fix doble `encode` en `run_onnx`.
 - **Resultado:** ✅ margen asimétrico 0.1204 (+48% vs simétrico) + llm 14/14 + clippy 0 + fmt; review P2-01 approve.
 - **Commit:** be6a3c27
+
+### FIND-100: graceful ante onnxruntime incompatible
+- **Fecha:** 2026-09-17
+- **Objetivo:** el init ORT no debe abortar sin dylib compatible; degradacion a dummy determinista.
+- **Resultado:** ✅ `resolve_ort_dylib_path()` + `ensure_ort_ready()` (init_from graceful + probe `ort::api()` bajo catch_unwind fuera de G_ENV) + `try_load_session` con catch_unwind y `warn!(fallback=true)`; 15/15 llm serial EXIT=0 + clippy 0 + fmt; P2-01 approve + follow-ups (commit() bajo catch_unwind, pin serial `--test-threads=1` documentado).
+- **Commit:** 22d5a142 + 25109073 (follow-ups P2-01)

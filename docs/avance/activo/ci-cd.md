@@ -381,3 +381,21 @@ aliases: []
 - **Objetivo:** `rustdoc-70.yml` (`cargo doc --workspace`) ciego a `vanta-memory/`; +2 líneas push+PR.
 - **Resultado:** ✅ actionlint 0 + YAML parse + review P2-01 approve.
 - **Commit:** 79a4942d
+
+### FIND-104: instalador interactivo completo end-to-end
+- **Fecha:** 2026-09-17
+- **Objetivo:** wizard guiado cero-friccion (proxy default-on + opt-out, bloques MCP por cliente, regla agente, prueba viva final).
+- **Resultado:** ✅ setup-embeddings.ps1 (DbPath + MCP + regla + proxy TOML + resumen + live test) + launcher passthrough -ProxyConfig + assets/install/ (6 plantillas); NonInteractive intacto, secrets 0 hits, idempotente, test-mcp 5/5; P2-01 approve + follow-ups (backup .bak en Install-AgentRule).
+- **Commit:** a1bea54b + 25109073 (follow-ups P2-01)
+
+### FIND-105: comando unico de instalacion
+- **Fecha:** 2026-09-17
+- **Objetivo:** one-liner por OS (sin clone ni rustup) que encadena instalador->wizard + docs; incluye resto SHOW-05.
+- **Resultado:** ✅ install.sh/ps1 con dry-run/no-wizard, backup idempotente, trust header honesto (sha256 cuando hay asset), README + QUICKSTART con one-liner; P2-01 approve + follow-ups (header sha256 suavizado, nota skew fallback).
+- **Commit:** 1349e63c + 25109073 (follow-ups P2-01)
+
+### FIND-108: integracion completa open-code-review
+- **Fecha:** 2026-09-17
+- **Objetivo:** review-rules por path + job CI nocturno + viewer como evidencia; delegation default sin key.
+- **Resultado:** ✅ .opencodereview/rule.json (13 entradas 1:1, pretty, 13/13 Custom) + ocr-nightly.yml (delegate siempre-verde + full con key via check-key env-only + artefactos 30d) + task file sync; actionlint 0 + wrapper exit 0; P2-01 changes-required levantado (paths reales, secret via env, glob docs/api/**).
+- **Commit:** 2430385a + 25109073 (follow-ups P2-01)
