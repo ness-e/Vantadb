@@ -1,0 +1,9 @@
+{
+  "mcp": {
+    "vantadb": {
+      "type": "local",
+      "command": ["pwsh", "-NoProfile", "-File", "<REPO>/vanta-mcp-local.ps1", "-DbPath", "<DB_PATH>"],
+      "enabled": true
+    }
+  }
+}

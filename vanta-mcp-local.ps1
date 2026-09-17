@@ -37,6 +37,9 @@ param(
     [Parameter()]
     [string]$VantaCli,
 
+    [Parameter()]
+    [string]$ProxyConfig,
+
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$ServerArgs
 )
@@ -94,6 +97,17 @@ info "VANTADB_EMBEDDING_PROVIDER=$Provider"
 info "VANTADB_LOCAL_MODEL=$Model"
 info "DB=$DbPath"
 info "BIN=$VantaCli"
+
+# --- Proxy passthrough (FIND-104, SPEC Q4): info-only, nunca stdout ---
+# El proxy (vanta-proxy :8096) es un proceso HTTP SEPARADO; este launcher no lo
+# arranca (stdout es JSON-RPC). Si se pasa -ProxyConfig existente, se valida
+# legible y se exporta VANTADB_PROXY_CONFIG para el hijo + guia a stderr.
+if ($ProxyConfig) {
+    if (-not (Test-Path $ProxyConfig)) { throw "proxy config no encontrada: $ProxyConfig (wizard: setup-embeddings.ps1 la crea en <Db>/vanta-proxy.toml)" }
+    $env:VANTADB_PROXY_CONFIG = [System.IO.Path]::GetFullPath($ProxyConfig)
+    info "VANTADB_PROXY_CONFIG=$env:VANTADB_PROXY_CONFIG"
+    info 'Proxy base_url: http://127.0.0.1:8096 (arranca aparte: vanta-proxy "<config>"; apaga: Ctrl+C)'
+}
 
 # --- Start MCP server over stdio (inherits session env) ---
 & $VantaCli server --mcp --db $DbPath @ServerArgs
