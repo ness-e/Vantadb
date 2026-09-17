@@ -1033,3 +1033,9 @@ aliases: []
 - **Objetivo:** tabla 9 modelos + 3 proveedores + dim-gate + `embed_texts` real (solo lo verde, Regla 11).
 - **Resultado:** ✅ coverage 0 gaps (49 tools + 10 pares SAME) + diff-check + fmt; review P2-01 approve.
 - **Commit:** 46992d8c
+
+### SHOW-04: demo agente-con-memoria (prueba viva del MVP)
+- **Fecha:** 2026-09-17
+- **Objetivo:** 2 corridas (la 2ª recuerda lo de la 1ª, assert mecánico) + 1 comando sin credenciales.
+- **Resultado:** ✅ `examples/agent_memory_cli/` nuevo (demo + pytest e2e 3 passed + README); demo 1-comando SESION 1/2 OK + MEMORIA VERIFICADA; determinista (vectores fijos, asserts contenido); local-first (0 hits env/http/keys); regresión `test_sdk` 2/2; OCR delegate sin Critical/High; review P2-01 → orquestador.
+- **Commit:** 3bb5210d
