@@ -279,7 +279,44 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
 | `query_iql` | Executes an IQL statement against typed graph nodes and memory namespaces (each namespace is queryable as a table named by its sanitized form: `/` and `-` → `_`, leading digit/`.` gets a `_` prefix). LISP not supported. |
 | `memory_search` | MEM-59: Semantic alias of `search_memory` with the canonical agent-friendly name (mem0/Letta parity). Same wire shape and engine path as `search_memory`; both tools share the same dispatch so behavior cannot diverge. |
 | `memory_recall` | MEM-59: High-level recall mirroring vanta-memory's auto-recall hook (MEM-18) over the public MCP surface. Runs keyword/embedding/hybrid search over L1 records visible under the given scope (session/agent/team), ranks with D38 dual-pool + RRF logic, and returns structured hits plus prepended context block. Read-only; idempotent; does not require a session_key. |
-| `embed_texts` | EMB-05: Embeds a batch of texts into dense float vectors (local ONNX default, deterministic 384d fallback). Inputs: `texts` (required, 1–128 items of 1–8000 chars), optional `model` override, `cursor` pagination offset. Supports `max_embed_tokens` / `max_embed_batch_size` budgeting. Read-only; idempotent. |
+| `embed_texts` | Embeds a batch of texts into dense float vectors with the active provider (local ONNX real; `ollama`/`openai` when configured) and an explicit deterministic fallback. Inputs: `texts` (required, 1–128 items of 1–8000 chars), optional `model` (manifest id override, EMB-17), `cursor` pagination offset. Response always carries `fallback: false` (real vectors) or `fallback: true` + `warning` (deterministic hash, no semantic signal — never silent, Q5). Supports `max_embed_tokens` (25k) / `max_embed_batch_size` (128) budgeting. Read-only; idempotent. Verified EMB-19 (`a5d549af`): `multilingual-e5-small` dim 384 `fallback:false`, `s(par)=0.9158` vs `0.8427/0.8423` gap `0.0732`. See [Embeddings](#embeddings-providers-model-selection-and-dim-gate) below. |
+
+## Embeddings — providers, model selection, and dim gate
+
+Model catalog source of truth: `embeddings/manifest.json` (9 ids, rev pinned). Full table
+(model → dim → langs → size → when to use) lives in `embeddings/README.md`
+(§ "Cuándo usar cada modelo"); this section is the MCP-surface contract.
+
+| Provider | Activation | Requirement | Verified state (EMB-19 `a5d549af`) |
+|----------|------------|-------------|-------------------------------------|
+| `local` (ONNX, recommended) | `VANTADB_EMBEDDING_PROVIDER=local` + `VANTADB_LOCAL_MODEL=<absolute>/embeddings/models/<id>/onnx` + `ORT_DYLIB_PATH=<onnxruntime>=1.27.dll`, or launcher `.\vanta-mcp-local.ps1 -DbPath <db>` | Model on disk (`python embeddings/download.py --only <id>`) + onnxruntime ≥ 1.27 (EMB-11 persistent `%LOCALAPPDATA%/VantaDB/onnxruntime/onnxruntime.dll`; System32 1.17.1 aborts — FIND-100) | REAL: `multilingual-e5-small` dim 384 `fallback:false`, `0.9158` vs `0.8427/0.8423` |
+| `ollama` (core default when no env is set, `src/config.rs:956`) | `VANTADB_EMBEDDING_PROVIDER=ollama` (server `localhost:11434`) | Live Ollama server + embedding model pulled (`ollama pull nomic-embed-text`) | DEGRADATION-ANNOUNCED: server v0.33.2 alive but `/api/tags` → `{"models":[]}` → `fallback:true` + `warning` with `404`, exit 0. Real embedding: documented-not-executed (FIND-69 precedent) |
+| `openai` | `VANTADB_EMBEDDING_PROVIDER=openai` + `VANTADB_OPENAI_API_KEY=<key>` (session env only, NEVER to disk) + optional `VANTADB_OPENAI_MODEL` | Valid key with credit | DEGRADATION-ANNOUNCED without key (`fallback:true` + `warning="VANTADB_OPENAI_API_KEY must be set"`). Real embedding: documented-not-executed without key (FIND-69 precedent) |
+
+- **Model override (EMB-17):** `embed_texts` accepts `model: "<manifest id>"` and uses THAT
+  model (per-model session cache, cap `MAX_CACHED_LOCAL_MODELS=2` with warned eviction).
+  Unknown id → `invalid_params` with the valid 9-id list. Known id without files on disk →
+  clear error with `python embeddings/download.py --only <id>` + size. `model: null` =
+  active provider from env (EMB-13 behavior intact). Only `embed_texts` has a `model`
+  slot; puts/search use the active provider (no per-call slot — by design).
+- **Auto-embed (EMB-14):** `memory_put`/`put_batch` without `vector` store WITH the active
+  provider's vector (`memory_get` shows it, len == dim). A supplied `vector` is respected
+  (no re-embed). Provider failure → stored without vector + explicit notice.
+- **Same-provider query (EMB-15):** `search_memory`/`memory_recall` with text embed the
+  query with the ACTIVE provider. Verified synonyms `keys=["d1","d0","d2"]` + recall
+  `hybrid` recovering D0 via felino↔gato (EMB-19 Step 1, same as EMB-15).
+- **e5 prefixes (EMB-16):** e5 family uses `query:` (queries) / `passage:` (documents);
+  MiniLM and others use none. Measured margin: asymmetric `0.1204` vs symmetric `0.0812`
+  (+48% relative; source `docs/tasks/EMB-16.md`).
+- **One-dim-per-database (Q4, EMB-18):** one database = one dimension. Writing a vector
+  whose dim differs from the stored vectors is REJECTED with expected + got dims and the
+  exact regen command. Never silent auto-reindex. Empty base has no gate (first vector
+  write defines the dim); text-only puts are never gated. Honest guide: re-embed with the
+  original dim OR re-ingest everything with the new model + `rebuild_index` (MCP tool) /
+  `reindex_hnsw_from_text(ns, page_size)` (SDK). `rebuild_index` alone does NOT change dims.
+- **On disk (EMB-19):** `all-MiniLM-L6-v2`, `multilingual-e5-small` (default, 384d),
+  `paraphrase-multilingual-MiniLM-L12-v2` (all 384d). Rest on demand (Q2: size/time warning
+  before large downloads).
 
 ### Graph (7)
 

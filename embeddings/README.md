@@ -87,6 +87,54 @@ MIT: bge-*, multilingual-e5-small, bge-m3. Apache-2.0: all-MiniLM, jina-es, para
 - **Bench:** solo con `python benchmarks/embed_bench.py --include-exception` (o `--models qwen3-embedding-8b --include-exception`). Por defecto bench omite Qwen3 (`--skip-exception` implícito si `--models all` sin flag) para no OOM en CI. Con flag: 9 modelos.
 - **Matryoshka:** embeddings 4096d pueden truncarse a 1024/2048 sin re-entrenar (Matryoshka Representation Learning) — útil para RRF híbrido con dims menores. Ver `docs/api/EMBEDDINGS.md` y `benchmarks/embed_bench.py` multi cosine.
 
-## Env vars (para EMB-02)
+## Env vars — providers (verificado EMB-19, fuentes: `src/config.rs:203-209,936-957`, `src/llm.rs:17,58-93`, `vanta-mcp-local.ps1:1-99`)
 
-`VANTA_EMBEDDING_PROVIDER=local` y `VANTA_LOCAL_MODEL=embeddings/models/multilingual-e5-small/onnx` (cuando `embed-local` feature esté disponible).
+Tres proveedores, selección solo por env (sin recompilar):
+
+| Proveedor | Activación | Requisito | Estado verificado (EMB-19 `a5d549af`) |
+|-----------|------------|-----------|----------------------------------------|
+| `local` (ONNX, default recomendado) | `VANTADB_EMBEDDING_PROVIDER=local` + `VANTADB_LOCAL_MODEL=<absoluta>/embeddings/models/<id>/onnx` + `ORT_DYLIB_PATH=<onnxruntime>=1.27.dll` — o lanzador `.\vanta-mcp-local.ps1 -DbPath <db>` (setea ambas + autodetecta ORT) | Modelo en disco (`python embeddings/download.py --only <id>`) + onnxruntime ≥1.27 (`%LOCALAPPDATA%/VantaDB/onnxruntime/onnxruntime.dll`, EMB-11; System32 1.17.1 aborta — FIND-100) | REAL ejecutado: `multilingual-e5-small` dim 384 `fallback:false`, `s(par)=0.9158` vs `0.8427/0.8423` gap `0.0732` (fuente: `docs/tasks/EMB-19.md` Step 1) |
+| `ollama` (default del core si no se setea nada) | `VANTADB_EMBEDDING_PROVIDER=ollama` (lee servidor `localhost:11434`) | Servidor Ollama vivo + modelo con embeddings descargado (`ollama pull nomic-embed-text`) | DEGRADACIÓN AVISADA ejecutada: servidor v0.33.2 vivo pero `/api/tags` → `{"models":[]}` → `fallback:true` + `warning` con `404`, exit 0 sin crash (fuente: `docs/tasks/EMB-19.md` Step 2). Embedding real: documentado-no-ejecutado (precedente FIND-69) |
+| `openai` | `VANTADB_EMBEDDING_PROVIDER=openai` + `VANTADB_OPENAI_API_KEY=<key>` (solo env de sesión, NUNCA a disco ni al script) + opcional `VANTADB_OPENAI_MODEL` | Key válida con crédito | DEGRADACIÓN AVISADA ejecutada (sin key: `fallback:true` + `warning="VANTADB_OPENAI_API_KEY must be set"`, fuente: `docs/tasks/EMB-19.md` Step 2). Embedding real: documentado-no-ejecutado sin key (precedente FIND-69) |
+
+- Default del core sin env: `ollama` (fuente: `src/config.rs:956`). El lanzador fija `local` explícito para no depender del default.
+- Path del modelo: usar ABSOLUTA (el default relativo es frágil por CWD; fuente: plan §Verificación + EMB-13 nota CWD).
+- Secrets: keys solo env de sesión (contrato EMB-11/12; review lo audita).
+
+## Cuándo usar cada modelo (guía operativa — dims/idiomas/tamaños de `manifest.json`)
+
+| # | id | Cuándo usar |
+|---|----|-------------|
+| 1 | `bge-small-en-v1.5` (384d, 120+133=253 MB) | Baseline rápido solo-inglés, CPU modesta; alternativa ligera al default cuando no hay español. |
+| 2 | `all-MiniLM-L6-v2` (384d, 80+90=170 MB) | Ultra-ligero solo-inglés (el más chico); CI/smoke y switching por nombre (`model` param EMB-17). Sin prefijos e5 (familia MiniLM). |
+| 3 | `bge-base-en-v1.5` (768d, 440+438=878 MB) | Inglés con más calidad que small, si la base es 768d desde el inicio. Requiere descarga (`--only bge-base-en-v1.5`, no está en los 3 en disco). |
+| 4 | `jina-es-v2-base` (768d, 1.10+1.10=2.20 GB) | Español optimizado 768d; solo si la base nace 768d y hay disco/RAM para 2.2 GB. |
+| 5 | `paraphrase-multilingual-MiniLM-L12-v2` (384d, 470+471=941 MB) | Multilingüe ligero 384d compatible en dim con el default (cambio sin re-ingerir si la base ya es 384d). En disco (verificado EMB-19). |
+| 6 | `distiluse-multilingual` (512d, 540+539=1.08 GB) | Multilingüe base 512d; base nueva 512d o nada (no mezclar con 384d). |
+| 7 | **`multilingual-e5-small` (384d, 220+471=691 MB) DEFAULT** | Default: ES+EN 16+ idiomas, dim 384, e5 con prefijos `query:/passage:` (EMB-16, margen asimétrico 0.1204 vs simétrico 0.0812, fuente: `docs/tasks/EMB-16.md`). En disco. Primera opción salvo razón explícita. |
+| 8 | `bge-m3` (1024d, int8 1.20+2.27=3.47 GB) | SOTA local ≤3 GB (int8 `model_int8.onnx`); base nueva 1024d, disco ≥4 GB. Multilingüe 100+. |
+| 9 | `qwen3-embedding-8b` (4096d, 16.0 GB HF-only, `onnx:null`) | EXCEPCIÓN GPU-only (≥16 GB VRAM, `trust_remote_code=True`, Matryoshka 4096→1024). Fuera de `ort` CPU. Solo `--include-exception`. |
+
+- En disco verificado (EMB-19): `all-MiniLM-L6-v2`, `multilingual-e5-small`, `paraphrase-multilingual-MiniLM-L12-v2` (los 3 × 384d). Resto: bajo demanda con `python embeddings/download.py --only <id>` (aviso Q2: tamaño/tiempo antes de descargar).
+- Cambiar de modelo con distinta dim exige base nueva o re-ingerir (ver regla abajo). Misma dim (384d: 1/2/5/7) = switch sin re-ingerir.
+
+## Regla una-dim-por-base (Q4: bloquear+guiar — fuente: `docs/tasks/EMB-18.md`, verificado EMB-19)
+
+Una base = una dimensión. Si la base contiene vectores de dim distinta al vector entrante (modelo cambiado), el put/search es RECHAZADO con error que dice dim esperada + obtenida + comando exacto de regeneración. Nunca auto-reindex silencioso.
+
+- Base vacía: sin gate (la primera escritura con vector define la dim). Puts solo-texto (sin vector): nunca gateados.
+- Guía honesta del error: re-embeder con la dim original O re-ingerir todo con el modelo nuevo + `rebuild_index` (tool MCP) / `reindex_hnsw_from_text(ns, page_size)` (SDK). `rebuild_index` solo NO cambia dims (reconstruye desde vectores almacenados).
+- Ver `docs/tutorials/05-embedding-integrations.md:126` (regla de oro citada) y `docs/tasks/EMB-18.md` (spec de decisiones).
+
+## Nota `embed_texts` real (verificado EMB-19 `a5d549af`, fuentes: `docs/tasks/EMB-19.md` Steps 1-2 + `docs/tasks/EMB-13.md`)
+
+`embed_texts` ya no es dummy: con modelo real devuelve vectores con señal semántica; sin modelo devuelve fallback determinista AVISADO (nunca silencioso, nunca error duro — Q5).
+
+- Respuesta: `{embeddings, model, dim, dimensions, count, fallback, warning?, truncated, next_cursor}`. `fallback:false` = vectores reales; `fallback:true` + `warning` = hash sin semántica (revisar env/modelo/ORT).
+- Medición EMB-19 (binario final rebuild, `VANTADB_EMBEDDING_PROVIDER=local`, modelo `multilingual-e5-small`): `s(D0-D1 par)=0.9158` vs `s(D0-D2)=0.8427` vs `s(D0-D3)=0.8423`, gap `0.0732`, `dim=384`, `fallback:false`, `model=multilingual-e5-small` (precedentes: EMB-13 `0.9282 vs 0.8427/0.8366`; EMB-10 `pares≥0.91 vs impares≤0.78`).
+- `model` param (EMB-17): `model:"<id del manifest>"` usa ESE modelo (caché por modelo, tope `MAX_CACHED_LOCAL_MODELS=2` + evicción avisada). Id desconocido → `invalid_params` con lista válida (9 ids). Id conocido sin archivos → error con `python embeddings/download.py --only <id>` + tamaño. `model:null` = proveedor activo por env (comportamiento EMB-13 intacto).
+- Budgeting intacto: 128 items / 25k tokens + paginación `cursor`/`next_cursor` (fuente: `vantadb-mcp/src/config.rs:75-78,111-112`).
+- Auto-embed (EMB-14): `memory_put`/`put_batch` sin vector guarda CON vector del proveedor activo (`memory_get` lo muestra, len == dim); vector provisto se respeta; fallo de proveedor → guarda sin vector + aviso.
+- Query mismo-proveedor (EMB-15): `search_memory`/`memory_recall` con texto embebe la query con el proveedor activo; sinónimos verificados `keys=["d1","d0","d2"]` + recall `hybrid` con D0 (fuente: EMB-19 Step 1, idéntico a EMB-15).
+- Prefijos e5 (EMB-16): familia e5 usa `query:` (queries) / `passage:` (documentos); MiniLM y resto ninguno. Margen medido: asimétrico `0.1204` vs simétrico `0.0812` (+48% relativo; fuente: `docs/tasks/EMB-16.md`).
+- e2e puesto en EMB-19: `memory_put` (d0,d1,d2 sin vector) → `memory_get d0` con `vector` len 384; `search_memory {text_query:"felino descansando"}` (0 palabras comunes con D0) → `keys=["d1","d0","d2"]`; focado recall `mode="hybrid" recalled=[felino…, gato…, cuántica…]` 4/4.
