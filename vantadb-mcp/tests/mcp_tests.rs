@@ -4481,7 +4481,7 @@ fn test_mcp_structured_output_and_output_schema() {
 
 /// MCP-38: Tool annotations coverage — every tool must expose the 4 hints
 /// per spec 2025-06-18 (blog.modelcontextprotocol.io 2026-03-16).
-/// Verifies: total 86 tools (46 base + 37 extend + 2 MEM-59 + embed_texts), each has
+/// Verifies: total 87 tools (46 base + 38 extend + 2 MEM-59 + embed_texts), each has
 /// title + 4 bools, destructiveHint true only on mutating deletes,
 /// openWorldHint only on fs paths. MEM-59 added `memory_recall` and
 /// `memory_search` (both read-only/idempotent) — see the contract comment
@@ -4492,8 +4492,8 @@ fn test_mcp_tool_annotations_coverage() {
     let tools = res["tools"].as_array().expect("tools array");
     assert_eq!(
         tools.len(),
-        86,
-        "expected 86 tools (46 base + 37 extend + 2 MEM-59 + embed_texts), got {}",
+        87,
+        "expected 87 tools (46 base + 38 extend + 2 MEM-59 + embed_texts), got {}",
         tools.len()
     );
 
@@ -4592,7 +4592,7 @@ fn test_mcp_tool_annotations_coverage() {
 fn test_mcp_tool_profiles() {
     use vantadb_mcp::{handle_tools_list, McpConfig, McpProfile};
 
-    // Full profile (default) — all 86 tools (76 + 2 MEM-59 + embed_texts + 2 FIND-107 S1 + 3 FIND-107 S2 + 2 FIND-107 S3)
+    // Full profile (default) — all 87 tools (76 + 2 MEM-59 + embed_texts + 2 FIND-107 S1 + 3 FIND-107 S2 + 2 FIND-107 S3 + 1 FIND-111 skill_extract)
     let full_config = McpConfig {
         profile: McpProfile::Full,
         ..McpConfig::default()
@@ -4601,8 +4601,8 @@ fn test_mcp_tool_profiles() {
     let full_tools = full_res["tools"].as_array().unwrap();
     assert_eq!(
         full_tools.len(),
-        86,
-        "Full profile should have 86 tools (76 + 2 MEM-59 + embed_texts + 2 FIND-107 S1 + 3 FIND-107 S2 + 2 FIND-107 S3), got {}",
+        87,
+        "Full profile should have 87 tools (76 + 2 MEM-59 + embed_texts + 2 FIND-107 S1 + 3 FIND-107 S2 + 2 FIND-107 S3 + 1 FIND-111 skill_extract), got {}",
         full_tools.len()
     );
 

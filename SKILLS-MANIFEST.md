@@ -473,7 +473,7 @@ Batch 2026-08-19 (5 `a11y-*` pipeline WCAG 2.2 + 58 `incl-*` inclusive design). 
 | `campaign-executor` | 9 | KEEP | Núcleo del task system; unifica backlog-executor (SUPERSEDED) + task-executor. Entry point `/pipeline plan\|task\|run`, states PLAN/ACT/VERIFY, budget, SARL. |
 | `unified-review` | 9 | KEEP | Gate universal de review/certify; reemplaza vantadb-full-review, vantadb-certify y vantadb-audit. Modos quick/certify/review/full, fan-out paralelo, perfil `vantadb`. |
 | `vantadb` | 8 | KEEP | Guía experta del producto: put/get/search/list, hybrid search (BM25 + HNSW + RRF), Python SDK, integraciones LangChain/LlamaIndex, benchmarks. |
-| `vantadb-mcp` | 8 | KEEP | Referencia del MCP server propio (86 tools, 2 resources, 4 prompts); uso de VantaDB como memoria desde agentes OpenCode/Claude/Cursor. |
+| `vantadb-mcp` | 8 | KEEP | Referencia del MCP server propio (87 tools, 2 resources, 4 prompts); uso de VantaDB como memoria desde agentes OpenCode/Claude/Cursor. |
 | `review-deep` | 7 | KEEP | Loop de revisión profunda módulo por módulo (análisis → web research → competidores → triage → Backlog). Complementa unified-review (one-shot). |
 | `progreso` | 7 | KEEP | Migración Backlog → docs/progreso + reconciliación de memorias + sync de reportes. MUST al inicio y cierre de sesión (AGENTS.md). |
 | `playwright-cli` | 7 | KEEP | Automatización de browser por CLI (snapshots, forms, screenshots, sessions, DevTools). Canónico para testing de web/; reemplaza a agent-browser/browser-use (removidas). |
