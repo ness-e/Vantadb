@@ -1057,3 +1057,9 @@ aliases: []
 - **Objetivo:** mostrador MCP completo por sub-modulo: escenas-escritura, suenos-lectura/escritura.
 - **Resultado:** ✅ 7 tools (Full 79->86): scene_write/edit + dream_list/load/discard + dream_consolidate (LLM-free)/promote (preview honesto mutated:false); tests por tool + docs + coverage 0 gaps + smoke 86/86; S4/S5/S6a/S6b DEFER-ratificado -> FIND-110/111/112/113; P2-01 approve.
 - **Commit:** 472526dc + 325b1237 + 74c225a0 + 41af793d + 25109073 (follow-ups P2-01)
+
+### FIND-111: S5 skill_extract solo-candidatos read-only (SHIP)
+- **Fecha:** 2026-09-17
+- **Objetivo:** cerrar S5 de FIND-107 sin runner: tool MCP solo-candidatos read-only con degrada honesta.
+- **Resultado:** ✅ `skill_extract` en `skills.rs` (NoRunner local → `NotConfigured`, core Principio 4 responde `{success:false, candidates:[], error}`; vacío trivial `success:true`; sin sink); Full 86→87; skills_tests 14/14 + mcp_tests 87 + vanta-memory skill 10/10 + coverage 0 gaps + smoke stdio 5/5 + clippy workspace 0. Deuda lead: mirrors skills↔.opencode en 86 (sync bidireccional) + fila Backlog.
+- **Commit:** 234f0627
