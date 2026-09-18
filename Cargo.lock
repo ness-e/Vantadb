@@ -6416,6 +6416,7 @@ dependencies = [
  "tempfile",
  "thiserror 2.0.20",
  "tiktoken-rs",
+ "toml",
  "tracing",
  "vantadb",
 ]

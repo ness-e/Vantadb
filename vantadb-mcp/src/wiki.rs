@@ -33,7 +33,9 @@ use std::path::PathBuf;
 use std::sync::{Arc, Mutex, OnceLock};
 use vanta_memory::core::abstractions::{LlmError, LlmRunParams, LlmRunner};
 use vanta_memory::ingest::callback::{IngestPhase, IngestProgress, ProgressTracker};
-use vanta_memory::ingest::{worker, IngestConfig};
+use vanta_memory::ingest::runner_config::{build_ingest_runner, ConcreteRunner, IngestRunnerCfg};
+use vanta_memory::ingest::worker;
+use vanta_memory::ingest::IngestConfig;
 use vantadb::storage::StorageEngine;
 use vantadb::wiki::{WikiState, WikiStore};
 
@@ -271,13 +273,20 @@ pub(crate) fn handle_wiki_tool(
                     "Source root is not a directory: {root}"
                 )));
             }
-            match start_ingest::<NoLlm>(
+            // IMPL-112-S1: server-side runner (env + `<db>/vanta-ingest.toml`,
+            // never tool input — inputSchema unchanged by contract S6).
+            // Default (no config, no model) → `None`: the exact pre-S1 path,
+            // so local-without-model degrades bit-for-bit like `NoLlm` (P4).
+            let runner_cfg = IngestRunnerCfg::from_env_toml(&ingest_toml_path(storage));
+            let pipeline = runner_cfg.pipeline_config();
+            let runner = build_ingest_runner(&runner_cfg);
+            match start_ingest::<ConcreteRunner>(
                 storage.clone(),
                 namespace,
                 slug,
                 path,
-                None,
-                IngestConfig::default(),
+                runner,
+                pipeline,
             ) {
                 Ok(run_id) => Ok(text_content(serialize_content(&json!({
                     "run_id": run_id,
@@ -361,6 +370,18 @@ fn domain_err(e: vantadb::Error) -> Value {
 }
 
 // ── Async ingest facade (MEM-52) ─────────────────────────────────────────
+
+/// Resolve the server-side ingest TOML path: `VANTADB_INGEST_CONFIG` wins,
+/// else `<db>/vanta-ingest.toml`. An absent file is NOT an error (defaults =
+/// pre-S1 behaviour); only operator config opts into runners.
+fn ingest_toml_path(storage: &Arc<StorageEngine>) -> PathBuf {
+    if let Ok(p) = std::env::var("VANTADB_INGEST_CONFIG") {
+        if !p.trim().is_empty() {
+            return PathBuf::from(p);
+        }
+    }
+    storage.data_dir.join("vanta-ingest.toml")
+}
 
 /// One async build known to this process, keyed by `run_id`.
 #[derive(Clone)]
