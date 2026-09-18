@@ -6,7 +6,7 @@ Official Python bindings for **VantaDB**, an embedded, native-Rust database engi
 
 Most embedded vector databases (e.g. ChromaDB) index vectors and stop there. VantaDB ships the missing pieces agents actually need:
 
-- **Hybrid search with RRF fusion** — dense vector ANN (HNSW) and lexical BM25 run together and fuse via Reciprocal Rank Fusion, so semantic misses get caught by keyword matches (and vice versa). One call (`search_memory`), one ranked result set.
+- **Hybrid search with RRF fusion** — dense vector ANN (HNSW) and lexical BM25 run together and fuse via Reciprocal Rank Fusion, so semantic misses get caught by keyword matches (and vice versa). One call (`search`), one ranked result set.
 - **Graph and memory in one engine** — namespace-scoped memory records live next to a property graph with typed edges: BFS/DFS traversals, PageRank, cycle detection and topological sort, all queryable through IQL (`query` / `query_structured`).
 - **Explicit memory lifecycle** — per-record TTL expiry (`purge_expired`) and atomic fact replacement (`supersede`) without delete/reinsert races.
 - **Built-in migration paths** — `bulk_import` / `bulk_import_bytes` for fast ingestion, `export_namespace` / `export_all` for backup, and `reindex_hnsw_from_text` to rebuild indexes from stored payloads after schema or index changes.
@@ -20,11 +20,12 @@ pip install vantadb-py
 
 > **Note:** The distribution name is `vantadb-py` and the canonical import is `import vantadb` (same as the Rust crate and the npm package). `import vantadb_py` remains available and is not broken.
 >
-> **Naming (ADR-041 anti-stutter):** canonical names are `Client` (`VantaDB`
-> deprecated alias), `Record` (`VantaMemoryRecord`), `SearchHit`/`Hit`
-> (`VantaSearchHit`), `ListResult`, `Vector`. Memory methods `get_memory` /
-> `list_memory` / `search_memory` / `delete_memory` stay canonical — the short
-> `get` / `delete` / `search` names are node-level ops in Python.
+> **Naming (ADR-041 anti-stutter):** the canonical client name is `Client`
+> (`VantaDB` was removed — use `Client`); canonical type names are `Record`,
+> `SearchHit`/`Hit`, `ListResult`, `Vector`. Memory methods live under
+> `db.memory` (`get` / `list` / `search` / `delete`); the flat `Client`
+> keeps shared names (`put` / `search` / `count` / ...) that delegate to
+> the same operations — `db.search(...)` ≡ `db.memory.search(...)`.
 
 ### From TestPyPI (Pre-release testing)
 ```bash
@@ -61,13 +62,13 @@ db.put(
 )
 
 # 3. Retrieve the exact record
-record = db.get_memory("agent/session_1", "fact_001")
+record = db.memory.get("agent/session_1", "fact_001")
 print(record["payload"])
 
 # 4. Hybrid search (vector + lexical)
 # Note: The query vector must match the dimensionality of the stored vectors
 query_vector = [0.15, 0.25, 0.35, 0.45]
-results = db.search_memory(
+results = db.search(
     namespace="agent/session_1",
     query_vector=query_vector,
     text_query="user preferences",
@@ -125,21 +126,23 @@ Python and TypeScript. The canonical method→domain map lives in
 
 | Capability | Python SDK | TypeScript SDK |
 |---|---|---|
-| `search()` meaning | **Pure vector ANN** (K-NN) → returns `(node_id, distance)` | **Hybrid** search (vector + text) → returns `SearchHit[]` |
-| Pure vector ANN | `search(vector, top_k=10)` | `searchVector(vector, topK?)` |
-| Hybrid (vector + text) | `search_memory(namespace, query_vector, text_query=...)` | `search({ namespace, query_vector, text_query })` |
-| Namespace scoping | `search_memory(namespace=...)` (`search()` is global over nodes) | `search({ namespace })` |
-| Filters | `search_memory(filters=...)` | `search({ filters })` |
-| `top_k` | `search(top_k=)` / `search_memory(top_k=)` | `search({ top_k })` / `searchVector(v, topK)` |
-| `distance_metric` | `search_memory(distance_metric="cosine"/"euclidean")` | `search({ distance_metric: "Cosine"/"Euclidean" })` |
-| `text_query` | `search_memory(text_query=...)` | `search({ text_query })` |
-| Explain | `search_memory(explain=True)` + `explain_memory_search()` | `search({ explain })` + `explainSearch()` |
+| `search()` meaning | **Hybrid memory search** (vector + text, namespace-scoped) → returns `SearchHit[]` | **Hybrid** search (vector + text) → returns `SearchHit[]` |
+| Pure vector ANN | `search_vector(vector, top_k=10)` | `searchVector(vector, topK?)` |
+| Hybrid (vector + text) | `search(namespace, query_vector, text_query=...)` | `search({ namespace, query_vector, text_query })` |
+| Namespace scoping | `search(namespace=...)` (`search_vector()` is global over nodes) | `search({ namespace })` |
+| Filters | `search(filters=...)` | `search({ filters })` |
+| `top_k` | `search(top_k=)` | `search({ top_k })` / `searchVector(v, topK)` |
+| `distance_metric` | `search(distance_metric="cosine"/"euclidean")` | `search({ distance_metric: "Cosine"/"Euclidean" })` |
+| `text_query` | `search(text_query=...)` | `search({ text_query })` |
+| Explain | `search(explain=True)` + `explain_memory_search()` | `search({ explain })` + `explainSearch()` |
 | Batch search | `search_batch(vectors)` / `search_batch_requests(requests)` — **Python-only** | — |
-| Hybrid method / profile override | `search_memory(method=...)` — **Python-only** | — |
+| Hybrid method / profile override | `search(method=...)` — **Python-only** | — |
 
-> **Porting hazard:** `search()` in Python and `search()` in TypeScript do **different
-> things**. To get hybrid search in Python use `search_memory()`; to get pure vector
-> ANN in TypeScript use `searchVector()`.
+> **Porting hazard:** `search()` in Python is namespace-scoped hybrid memory
+> search, while `search()` in TypeScript takes an options object — read the
+> table rows before porting. To get hybrid search in Python use `search()` /
+> `memory.search()`; to get pure vector ANN in Python use `search_vector()`
+> (in TypeScript use `searchVector()`).
 
 ## 🤖 Use Case: Memory for AI Agents
 

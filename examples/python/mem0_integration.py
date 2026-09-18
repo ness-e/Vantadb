@@ -5,7 +5,7 @@ This example demonstrates how to use VantaDB as the persistence backend for Mem0
 VantaDB provides a robust, high-performance storage engine for Mem0's memory operations.
 """
 
-import vantadb_py as vantadb
+import vantadb
 from typing import List, Dict, Any, Optional
 import json
 import os
@@ -27,7 +27,7 @@ class VantaDBMem0Backend:
             db_path: Path to VantaDB database
             namespace: Namespace for Mem0 memories
         """
-        self.db = vantadb.VantaDB(db_path, memory_limit_bytes=512_000_000)
+        self.db = vantadb.Client(db_path, memory_limit_bytes=512_000_000)
         self.namespace = namespace
         
     def add(
@@ -84,7 +84,7 @@ class VantaDBMem0Backend:
         Returns:
             Memory record or None
         """
-        record = self.db.get(self.namespace, memory_id)
+        record = self.db.memory.get(self.namespace, memory_id)
         if record:
             return {
                 "id": record["key"],
@@ -121,7 +121,7 @@ class VantaDBMem0Backend:
         if user_id:
             search_filters["user_id"] = user_id
         
-        hits = self.db.search_memory(
+        hits = self.db.search(
             self.namespace,
             query_vector=query_vector or [],
             text_query=query,
@@ -190,7 +190,7 @@ class VantaDBMem0Backend:
         Returns:
             True if deleted
         """
-        return self.db.delete(self.namespace, memory_id)
+        return self.db.memory.delete(self.namespace, memory_id)
     
     def get_all(
         self,
@@ -208,7 +208,7 @@ class VantaDBMem0Backend:
             List of memories
         """
         filters = {"user_id": user_id} if user_id else {}
-        records = self.db.list_memory(self.namespace, filters=filters, limit=limit)
+        records = self.db.memory.list(self.namespace, filters=filters, limit=limit)
         
         return [
             {

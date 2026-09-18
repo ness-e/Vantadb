@@ -6,7 +6,7 @@ VantaDB provides high-performance hybrid vector + text search optimized
 for retrieval-augmented generation in DSPy pipelines.
 """
 
-import vantadb_py as vantadb
+import vantadb
 from typing import List, Dict, Any, Optional, Union
 import os
 
@@ -33,7 +33,7 @@ class VantaDBRetriever:
             namespace: Namespace for documents
             k: Number of documents to retrieve
         """
-        self.db = vantadb.VantaDB(db_path, memory_limit_bytes=1_000_000_000)
+        self.db = vantadb.Client(db_path, memory_limit_bytes=1_000_000_000)
         self.namespace = namespace
         self.k = k
         
@@ -95,7 +95,7 @@ class VantaDBRetriever:
         top_k = k or self.k
         search_filters = filters or {}
         
-        hits = self.db.search_memory(
+        hits = self.db.search(
             self.namespace,
             query_vector=query_vector or [],
             text_query=query,
@@ -142,7 +142,7 @@ class VantaDBRetriever:
         Returns:
             Document or None
         """
-        record = self.db.get(self.namespace, doc_id)
+        record = self.db.memory.get(self.namespace, doc_id)
         if record:
             return {
                 "text": record["payload"],
@@ -160,7 +160,7 @@ class VantaDBRetriever:
         Returns:
             True if deleted
         """
-        return self.db.delete(self.namespace, doc_id)
+        return self.db.memory.delete(self.namespace, doc_id)
     
     def get_document_count(self) -> int:
         """
@@ -169,7 +169,7 @@ class VantaDBRetriever:
         Returns:
             Number of documents
         """
-        records = self.db.list_memory(self.namespace, limit=1000000)
+        records = self.db.memory.list(self.namespace, limit=1000000)
         return len(records)
     
     def clear(self) -> int:
@@ -179,10 +179,10 @@ class VantaDBRetriever:
         Returns:
             Number of deleted documents
         """
-        documents = self.db.list_memory(self.namespace, limit=1000000)
+        documents = self.db.memory.list(self.namespace, limit=1000000)
         count = 0
         for doc in documents:
-            if self.db.delete(self.namespace, doc["key"]):
+            if self.db.memory.delete(self.namespace, doc["key"]):
                 count += 1
         return count
     
