@@ -1,6 +1,6 @@
 # Plan de Ejecución: Publicación MVP (PyPI + parity + showcase + gate Fase A) — 2026-09-19
 
-> **Campaign ID:** (asigna `campaign_get_next_task` al arrancar)
+> **Campaign ID:** 2c1b931f-977c-4500-8eb3-62de7c934bd7
 > **Inicio:** 2026-09-19
 > **Estado:** ⬜ PENDIENTE (plan listo, sin iniciar)
 > **Fuente:** `docs/Backlog.md` (PROV-12, FIND-98 re-DEFER, SHOW-02/03, TS-10, WSM-14, EXE-03) + smoke E2E 7 fases verdes (`docs/plans/2026-09-18-smoke-e2e.md`, GO sin bugs nuevos) + Gate P owner 2026-09-19
