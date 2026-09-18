@@ -62,7 +62,7 @@ VantaDB is a local-first, embedded database engine designed for AI agents, local
 | Use the embedded CLI | [CLI Reference](#embedded-cli) |
 | Run as a local server | [Server Mode](#optional-server-mode) |
 | Follow a tutorial | [Tutorials](docs/tutorials/) |
-| Run runnable examples | [Demo + Colab](examples/README.md) |
+| Run runnable examples | [Demo + Colab](examples/README.md) · [TypeScript](vantadb-ts/examples/) |
 | Read the FAQ | [FAQ](docs/FAQ.md) |
 | Read the blog | [Blog Posts](docs/blog/) |
 | Read architecture docs | [Documentation](#documentation) |

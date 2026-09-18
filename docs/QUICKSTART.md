@@ -50,6 +50,8 @@ pwsh -NoProfile -File install.ps1 -DryRun
 
 > **Note**: the Python examples in §5 use `vantadb-py>=0.5.0` (verified in
 > `examples/demo/requirements.txt` and `benchmarks/requirements.txt`).
+> TypeScript examples live in [`vantadb-ts/examples/`](../vantadb-ts/examples/)
+> (LangChain, LlamaIndex, Vercel AI SDK — indexed in [examples/README.md](../examples/README.md)).
 > The steps below (§1-§4) are the from-source path for contributors.
 
 ## 1. Prerequisites
