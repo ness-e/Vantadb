@@ -311,3 +311,7 @@ Plan `docs/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ en 3 
 - **Plan:** docs/plans/archive/2026-09-18-cierre-mvp.md - 9/9 COMPLETED (Wave0: FIND-98 re-DEFER lock / 110-spec / 113-spec; Wave1: IMPL-112-S1 / FIND-116 / FIND-119; Wave2: IMPL-112-S2 / FIND-117 / SHOW-05; +P2-01 3 reviews approve + SPEC alcance). Gate C -> FIND-118 (remocion alias 0.6.0, nueva). MVP CERRADO: IMPL-112 matriz completa + S4/S6b disenados + parity documentado + consistencia.
 - **Retrospectiva:** Start: secuencial-desde-inicio (0/12 rate-fails vs 4/13 anterior) + veredicto friccion explicito como Gate V S1->S2. Stop: burst paralelo inicial con free-tier limitado. Continue: P2-01 batch por area + spec-first uphill + verify lead por tarea.
 - **Accion medible:** rate-fails 0% (0/12) nueva baseline con secuencial+backoff-2min; mantener en proximos planes.
+
+## Archivo plan 2026-09-18-smoke-e2e (2026-09-19)
+- **Plan:** docs/plans/archive/2026-09-18-smoke-e2e.md - 7/7 fases verdes (MCP 79/87, loop memoria + fallback:false, hooks 50/50, wizard/demo/roundtrip/salvage, superficie honesta, fmt/clippy + full nextest 3331 passed) + triage (0 bugs nuevos, GO a Publicacion). Sin budget.json (run manual asistido, sin campana MCP).
+- **Retrospectiva:** Start: smoke E2E manual antes de planificar (0 bugs tras 26 tareas dice mas que otro audit). Stop: asumir sintaxis/conteos de memoria (2 parseos errados del operador). Continue: DBs solo Temp + binario explicito por objetivo (instalado/fuente/instalado+ORT130).
