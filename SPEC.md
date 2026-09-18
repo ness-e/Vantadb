@@ -32,9 +32,9 @@ Rust workspace (`vantadb`, `vanta-memory`, `vantadb-mcp`, `vantadb-server`, `van
 ## Commands
 
 ```powershell
-# Instalar (usuario final, sin clone) — FIND-105
-iwr <release-url>/install.ps1 | iex          # Windows
-curl -fsSL <release-url>/install.sh | sh     # Linux/macOS
+# Instalar (usuario final, sin clone) — FIND-105 (URLs reales desde 2026-09-17)
+iwr https://raw.githubusercontent.com/ness-e/Vantadb/main/scripts/install.ps1 | iex          # Windows
+curl -fsSL https://raw.githubusercontent.com/ness-e/Vantadb/main/scripts/install.sh | sh     # Linux/macOS
 pwsh setup-embeddings.ps1 -NonInteractive    # wizard defaults
 # Lanzar MCP con modelo local
 .\vanta-mcp-local.ps1 -DbPath C:\data\vantadb

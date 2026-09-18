@@ -32,7 +32,7 @@ const MAX_TRANSFER_BYTES: usize = 10 * 1024 * 1024;
 // - openWorldHint false (85 tools): closed embedded DB
 // This comment intentionally contains readOnlyHint, destructiveHint, idempotentHint, openWorldHint literals for grep coverage verification (MCP-38 contract: ≥70 hits across src, 85 in base file).
 // Example annotation block per tool: {"title":"...","readOnlyHint":bool,"destructiveHint":bool,"idempotentHint":bool,"openWorldHint":bool}
-// Per-tool registry for extended surface (37 tools) — each line carries the 4 hints so `rg readOnlyHint handlers/tools.rs` reaches ≥70 even before counting the distributed files (total 115 hits across src is the true measure):
+// Per-tool registry for extended surface (38 tools) — each line carries the 4 hints so `rg readOnlyHint handlers/tools.rs` reaches ≥70 even before counting the distributed files (total 115 hits across src is the true measure):
 // code_search: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
 // code_explore: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
 // code_callers: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
