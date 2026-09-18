@@ -125,6 +125,10 @@ pub enum Commands {
     },
 
     /// Execute a structured query (IQL/hybrid)
+    ///
+    /// Read statements (`SELECT`, `FROM`/`MATCH`) open the database
+    /// read-only; mutating statements (`INSERT`/`INSERT MESSAGE`, `UPDATE`,
+    /// `DELETE`, `RELATE`) open it read-write.
     Query {
         /// Query string
         query: String,

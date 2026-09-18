@@ -209,7 +209,10 @@ pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Res
 
     let spinner = create_spinner("Opening database...");
 
-    let engine = open_database(db_path, true)?;
+    // FIND-101: the open mode follows the statement kind. Reads stay
+    // read-only (shared lock, no WAL replay); mutating IQL opens read-write.
+    let read_only = !query_is_mutating(query);
+    let engine = open_database(db_path, read_only)?;
     spinner.set_message("Executing query...");
 
     let start = Instant::now();
@@ -217,6 +220,14 @@ pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Res
     // Parse and execute query using the executor
     let executor = crate::executor::Executor::new(&engine);
     let result = executor.execute_hybrid(query)?;
+
+    // FIND-101: flush after mutating statements. The write is WAL-buffered
+    // and read-only reopens skip WAL replay (ERR-050b), so without this a
+    // later read-only open would not see the mutation. (A Write result only
+    // happens on a read-write open, so the flush guard holds.)
+    if matches!(result, crate::executor::ExecutionResult::Write { .. }) {
+        engine.flush()?;
+    }
 
     let duration = start.elapsed();
     spinner.finish_and_clear();
@@ -301,4 +312,24 @@ pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Res
     }
 
     Ok(())
+}
+
+/// FIND-101: true when the IQL string is a mutating statement (`INSERT`,
+/// `UPDATE`, `DELETE`, `RELATE`, `INSERT MESSAGE`). Reads (`SELECT`,
+/// `FROM`/`MATCH`) return false. Uses the same parser as the executor on the
+/// same `trim_start`ed input, so the classification matches what
+/// `execute_hybrid` will run. Unparseable input and LISP `(` return false —
+/// the executor reports those errors without needing write access.
+fn query_is_mutating(query: &str) -> bool {
+    let trimmed = query.trim_start();
+    if trimmed.starts_with('(') {
+        return false;
+    }
+    match crate::parser::parse_statement(trimmed) {
+        Ok((_, stmt)) => !matches!(
+            stmt,
+            crate::query::Statement::Select(_) | crate::query::Statement::Query(_)
+        ),
+        Err(_) => false,
+    }
 }

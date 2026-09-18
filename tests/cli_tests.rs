@@ -477,6 +477,72 @@ fn test_cmd_query_empty_db() {
     );
 }
 
+// FIND-101: mutating IQL via `query` must open the database read-write.
+#[test]
+fn test_find101_query_insert_mutates() {
+    let (_dir, path) = setup_temp_db();
+    let result = vantadb::cli_handlers::cmd_query(
+        &path,
+        r#"INSERT NODE#101 TYPE Usuario { nombre: "Eros" }"#,
+        10,
+        false,
+    );
+    assert!(
+        result.is_ok(),
+        "INSERT via query should succeed: {:?}",
+        result
+    );
+    let engine = vantadb::cli_handlers::open_database(&path, true).unwrap();
+    assert!(
+        engine.get(101).unwrap().is_some(),
+        "node inserted via query should be readable"
+    );
+    drop(engine);
+
+    // UPDATE via query mutates the same node.
+    let result = vantadb::cli_handlers::cmd_query(
+        &path,
+        r#"UPDATE NODE#101 SET nombre = "Eros Dev""#,
+        10,
+        false,
+    );
+    assert!(
+        result.is_ok(),
+        "UPDATE via query should succeed: {:?}",
+        result
+    );
+    let engine = vantadb::cli_handlers::open_database(&path, true).unwrap();
+    let node = engine.get(101).unwrap().expect("node should still exist");
+    assert_eq!(
+        node.relational.get("nombre"),
+        Some(&vantadb::node::FieldValue::String("Eros Dev".to_string())),
+        "UPDATE via query should change the field"
+    );
+    drop(engine);
+
+    // DELETE via query tombstones the node.
+    let result = vantadb::cli_handlers::cmd_query(&path, "DELETE NODE#101", 10, false);
+    assert!(
+        result.is_ok(),
+        "DELETE via query should succeed: {:?}",
+        result
+    );
+    let engine = vantadb::cli_handlers::open_database(&path, true).unwrap();
+    assert!(
+        engine.get(101).unwrap().is_none(),
+        "node deleted via query should be gone"
+    );
+    drop(engine);
+
+    // Reads still work (read-only path unchanged).
+    let result = vantadb::cli_handlers::cmd_query(&path, "FROM Usuario", 10, false);
+    assert!(
+        result.is_ok(),
+        "SELECT via query should succeed: {:?}",
+        result
+    );
+}
+
 // ─── backup / restore ────────────────────────────────────────
 
 #[test]
