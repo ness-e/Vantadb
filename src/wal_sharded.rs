@@ -243,9 +243,12 @@ fn prefix_byte_end(shard_path: &Path, keep: u64) -> Result<u64> {
 }
 
 /// Quarantine `[valid_end, len)` to `<path>.salvage[.N]`, then truncate.
+/// Callers only invoke this when truncating (`valid_end < len`); the assert
+/// documents that contract (P2-01 follow-up — today unreachable otherwise).
 fn quarantine_and_truncate(shard_path: &Path, valid_end: u64) -> Result<PathBuf> {
     use std::io::{Read, Seek, SeekFrom};
     let len = std::fs::metadata(shard_path)?.len();
+    debug_assert!(valid_end < len, "quarantine with nothing to truncate");
     let mut backup = PathBuf::from(format!("{}.salvage", shard_path.display()));
     if backup.exists() {
         for n in 1..1000u32 {

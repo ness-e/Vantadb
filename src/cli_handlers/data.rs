@@ -225,6 +225,9 @@ pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Res
     // and read-only reopens skip WAL replay (ERR-050b), so without this a
     // later read-only open would not see the mutation. (A Write result only
     // happens on a read-write open, so the flush guard holds.)
+    // NOTE (P2-01 follow-up): `StaleContext` is intentionally NOT flushed —
+    // it has no post-mutation producer today, and flushing a read-only open
+    // could error. Revisit if a writer ever returns it after mutating.
     if matches!(result, crate::executor::ExecutionResult::Write { .. }) {
         engine.flush()?;
     }

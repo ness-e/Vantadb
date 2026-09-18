@@ -211,7 +211,8 @@ Download and install the CLI binary instantly in a single command without compil
 
 > **Trust:** both one-liners use TLS against the official `ness-e/Vantadb`
 > repo, and the script verifies the payload `.sha256` before installing
-> (see the `Trust:` header in `scripts/install.sh` / `scripts/install.ps1`).
+> (warn-and-continue if the `.sha256` asset is missing — see the `Trust:`
+> header in `scripts/install.sh` / `scripts/install.ps1`).
 > To verify manually, download the script and compare its hash against the
 > published `.sha256` release asset before piping it to a shell.
 >
