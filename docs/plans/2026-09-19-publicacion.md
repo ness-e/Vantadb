@@ -62,6 +62,7 @@ Todo sub-agente, antes de codificar, carga y cita en su task file:
 - **Herramientas+MCP:** MCP stdio smoke + `cargo build -j 2` + `campaign_verify_cmd` (bug exit -1 → bash).
 - **Referencias:** rules `release-ci.md` · agents `vanta-worker` + `vanta-review` P2-01.
 - **Investigación:** código (flags EMB-10, entry bins, lock por handle) en DISCOVERY; internet N/A.
+- **Dependencias:** Wave0 (SHOW-02 en paralelo-secuencial, disjuntos). Sin bloqueantes. NextTask: SHOW-02 (orquestador).
 - Task file `docs/tasks/FIND-98.md` (EXISTE — continuar, no re-crear) · ⬜ PENDING · Ruta vanta-worker. Branch develop. Commit `fix: FIND-98-retry — ...`.
 
 **Task 2: SHOW-02 — recetas clicables del playground (5-6)**
@@ -78,6 +79,7 @@ Todo sub-agente, antes de codificar, carga y cita en su task file:
 - **Herramientas+MCP:** Playwright MCP si aplica + `campaign_verify_cmd`.
 - **Referencias:** rules `frontend-web.md` si toca `web/` · agents `vanta-worker` + `vanta-review` P2-01.
 - **Investigación:** código (playground existente) en DISCOVERY; internet N/A.
+- **Dependencias:** Wave0 (FIND-98-retry en secuencia, disjuntos). Sin bloqueantes. NextTask: SHOW-03 (orquestador).
 - Task file `docs/tasks/SHOW-02.md` · ⬜ PENDING · Ruta vanta-worker. Branch develop. Commit `feat: SHOW-02 — ...`.
 
 ### Wave1 — demo RAG + distribución (disjuntos: examples · docs/strategia)
@@ -96,6 +98,7 @@ Todo sub-agente, antes de codificar, carga y cita en su task file:
 - **Herramientas+MCP:** pytest/smoke + `campaign_verify_cmd`.
 - **Referencias:** rules `server-mcp.md` (+`python-bindings.md` si es Python) · agents `vanta-worker` + `vanta-review` P2-01.
 - **Investigación:** código (MGR-25 + wiki ingestores) en DISCOVERY; internet solo si formato incierto.
+- **Dependencias:** Wave1 (DIST-10/14 en secuencia, disjuntos). Sin bloqueantes. NextTask: DIST-10/14 (orquestador).
 - Task file `docs/tasks/SHOW-03.md` · ⬜ PENDING · Ruta vanta-worker. Branch develop. Commit `feat: SHOW-03 — ...`.
 
 **Task 4: DIST-10/14 — plan distribución + adopción npm (estrategia escrita)**
@@ -112,6 +115,7 @@ Todo sub-agente, antes de codificar, carga y cita en su task file:
 - **Herramientas+MCP:** grep referencias + coverage ps1 + `campaign_verify_cmd`.
 - **Referencias:** agents `vanta-lead` (distribución) + `vanta-review` P2-01.
 - **Investigación:** N/A código (inventario docs); internet solo para datos de comparativa con URLs verificadas.
+- **Dependencias:** Wave1 (SHOW-03 en secuencia, disjuntos). Sin bloqueantes. NextTask: PROV-12 (orquestador).
 - Task file `docs/tasks/DIST-10-14.md` · ⬜ PENDING · Ruta vanta-lead. Branch develop. Commit `docs: DIST-10/14 — ...`.
 
 ### Wave2 — release + humanos (disjuntos: packaging · kit-docs)
@@ -130,6 +134,7 @@ Todo sub-agente, antes de codificar, carga y cita en su task file:
 - **Herramientas+MCP:** maturin + TestPyPI + entorno limpio + `campaign_verify_cmd`.
 - **Referencias:** rules `release-ci.md`, `python-bindings.md` · agents `vanta-lead` + `vanta-review` P2-01.
 - **Investigación:** código (pyproject/maturin/CI) en DISCOVERY; internet solo si docs PyPI inciertas.
+- **Dependencias:** Wave2 (EXE-03-prep en secuencia, disjuntos). Bloqueante honesto: Gate V del owner (token/estrategia/versión) ANTES de codificar. NextTask: EXE-03-prep (orquestador).
 - Task file `docs/tasks/PROV-12.md` · ⬜ PENDING · Ruta vanta-lead. Branch develop. Commit `ci: PROV-12 — ...`.
 
 **Task 6: EXE-03-prep — kit gate Fase A listo (la ejecución es owner-side)**
@@ -146,6 +151,7 @@ Todo sub-agente, antes de codificar, carga y cita en su task file:
 - **Herramientas+MCP:** grep/auditoría README-vs-código + coverage ps1 + `campaign_verify_cmd`.
 - **Referencias:** agents `vanta-lead` + `vanta-review` P2-01.
 - **Investigación:** N/A código (auditoría docs); internet N/A.
+- **Dependencias:** Wave2 última en secuencia (PROV-12 en secuencia, disjuntos). Sin bloqueantes. NextTask: ninguna — última del plan (cierre del orquestador: P2-01 batch + progreso + archive).
 - Task file `docs/tasks/EXE-03-prep.md` · ⬜ PENDING · Ruta vanta-lead. Branch develop. Commit `docs: EXE-03-prep — ...`.
 
 ## SKIP
