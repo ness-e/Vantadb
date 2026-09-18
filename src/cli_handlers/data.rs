@@ -323,7 +323,8 @@ pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Res
 /// same `trim_start`ed input, so the classification matches what
 /// `execute_hybrid` will run. Unparseable input and LISP `(` return false —
 /// the executor reports those errors without needing write access.
-fn query_is_mutating(query: &str) -> bool {
+/// Shared with the TUI REPL (FIND-117) so both paths classify identically.
+pub(crate) fn query_is_mutating(query: &str) -> bool {
     let trimmed = query.trim_start();
     if trimmed.starts_with('(') {
         return false;
