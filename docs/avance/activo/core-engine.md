@@ -727,3 +727,21 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** 39 errores EMB-10 (`QueryResult` no declarado) ensucian `check --tests`.
 - **Resultado:** drift autocorregido por refactors intermedios (FIND-49 + AST-002 re-exports); 0 errores, 16/16 verde, asserts intactos, cero codigo tocado; P2-01 approve.
 - **Commit:** bb33903e (docs-only; subject con backslash corregido via amend)
+
+### IMPL-112-S1: runner local de ingesta (slice mecanico 1)
+- **Fecha:** 2026-09-18
+- **Objetivo:** construir el `R` local para `start_ingest<R>`: `IngestRunnerCfg` + enum `ConcreteRunner` + wiring `wiki_ingest`.
+- **Resultado:** `IngestRunnerCfg` (TOML minima + env con precedencia) + enum por delegacion (reusa `LlmRunner`, sin `Box<dyn>`) + runner por llamada + `NoLlm` vive + inputSchema intacto; G0/G1/G3 + tests 1-6,9-10; veredicto S2: SIN FRICCION; P2-01 approve.
+- **Commit:** 1dd9019c
+
+### IMPL-112-S2: runners ollama/openai (slice mecanico 2)
+- **Fecha:** 2026-09-18
+- **Objetivo:** completar matriz owner local+ollama/openai: tests 7-8 G2 + mock-escribe.
+- **Resultado:** degrada-P4 real en ambas variantes (puerto cerrado / sin key) + mitad canned escribe; 0 codigo prod (S1 ya traia variantes); 5/5 wiki_ingest_runner; matriz IMPL-112 completa; P2-01 approve.
+- **Commit:** 82cc2c2d
+
+### FIND-117: TUI REPL mutantes (limite documentado adaptativo)
+- **Fecha:** 2026-09-18
+- **Objetivo:** mismo bug FIND-101 en REPL con engine read-only long-lived (no vale parse-then-open directo: lock exclusiva).
+- **Resultado:** diseno limite-documentado adaptativo (E1-E4 con evidencia: RO rechaza, handle RW imposible con RO vivo, RW-de-entrada regresa, swap = rediseno) + flush tras Write; tui::repl 5/5; P2-01 approve.
+- **Commit:** 83b176bc

@@ -405,3 +405,15 @@ aliases: []
 - **Objetivo:** superficies con instrucciones viejas muestran el one-liner FIND-105 o referencian la fuente unica.
 - **Resultado:** ✅ comandos bare byte-identicos en 4 superficies (delta = contexto Trust/wizard/dry-run); README_ES nota-referencia ES (sin re-traduccion) + docs-view parrafo Trust/wizard EN + referencia a fuente; path web confirmado existente (sin SKIP); coverage 0 gaps + diff-check 0 + tsc exit 0 + OCR advisory sin Critical/High.
 - **Commit:** c1e72d88
+
+### FIND-119: sync counts mirrors `.opencode` (solo strings)
+- **Fecha:** 2026-09-18
+- **Objetivo:** 6 x `86 tools` stale en mirrors submodule vs 87 fuente.
+- **Resultado:** 12 strings (submodule + espejo parent por invariante FIND-83 hash-SAME); 0 hits 86 + coverage 0 gaps + 10 pares SAME; cero commit en submodule; breakdowns suman-86 tracked a configOpencode; P2-01 approve.
+- **Commit:** 83ff5ce0 (docs-only padre)
+
+### SHOW-05 (resto): decision `vantadb-ts/examples`
+- **Fecha:** 2026-09-18
+- **Objetivo:** resto pendiente: mover-vs-referenciar `vantadb-ts/examples/`.
+- **Resultado:** decision REFERENCIAR (precedente FIND-74, sin evidencia nueva) + 2 lineas (README:65, QUICKSTART:53); coverage 0 gaps; P2-01 approve.
+- **Commit:** 9398b2bc

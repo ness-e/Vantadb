@@ -8,7 +8,7 @@ Que un usuario nuevo pase de ver el repo en GitHub a tener memoria persistente f
 
 **El problema que resuelve** (Notion `Problema`, completo): los agentes no tienen capa que gobierne el ciclo de vida de la memoria — olvidar decisiones, repetir errores corregidos, contaminarse con información obsoleta/duplicada/alucinada (`autoenvenenamiento`), deriva por resúmenes, cascadas multiagente. La ventana de contexto NO sustituye memoria persistente (tabla ventana-vs-memoria + "Lost in the Middle"). VantaDB ataca 6 áreas: persistencia, recuperación, selección, evolución, gobernanza, seguridad; y 8 dimensiones (trabajo, episódica, semántica, procedimental, temporal, confianza, identidad, meta-memoria).
 
-**Dónde estamos** (Notion `Propuesta`, matriz REAL/PARCIAL 2026-09-14): motor v0.5.0 REAL (persistencia WAL, híbrido BM25+HNSW+RRF, CRUD/TTL/supersession, grafos, SDKs, server, MCP ~79 tools, memoria L0→L3 parcial); PROPUESTA v0.7 (governance manual: `mark_duplicate`, `detect_conflicts`, `extract_skills`) → v1.0 (automática). **Regla de interpretación:** ¿fortalece la memoria embebida gobernada? Lo demás queda fuera. Este plan NO implementa v0.7/v1.0 (programa MGR, DEFER): deja el v0.5.0 usable automáticamente.
+**Dónde estamos** (Notion `Propuesta`, matriz REAL/PARCIAL 2026-09-14): motor v0.5.0 REAL (persistencia WAL, híbrido BM25+HNSW+RRF, CRUD/TTL/supersession, grafos, SDKs, server, MCP 87 tools, memoria L0→L3 parcial); PROPUESTA v0.7 (governance manual: `mark_duplicate`, `detect_conflicts`, `extract_skills`) → v1.0 (automática). **Regla de interpretación:** ¿fortalece la memoria embebida gobernada? Lo demás queda fuera. Este plan NO implementa v0.7/v1.0 (programa MGR, DEFER): deja el v0.5.0 usable automáticamente.
 
 ## Target Users
 
@@ -67,7 +67,7 @@ Convenciones del repo (Rust: `?`+`Result`, sin `unwrap` en prod, clippy `-D warn
 
 ## Testing Strategy
 
-`cargo test -p <crate> -j 2` (unit+integración) · cat tests semánticos con umbrales medidos (pares≥0.90, gap≥0.05, Regla 11) · smoke MCP stdio en DB temporal (`initialize`+`tools/list`=79+put→get+search) · `test-mcp.py` por perfil (full/dev/memory) · hooks con eventos simulados por cliente · `validate-docs-coverage.ps1` 0 gaps · OCR delegation sin Critical/High. Sin red en tests (mocks/tmpdir).
+`cargo test -p <crate> -j 2` (unit+integración) · cat tests semánticos con umbrales medidos (pares≥0.90, gap≥0.05, Regla 11) · smoke MCP stdio en DB temporal (`initialize`+`tools/list`=87+put→get+search) · `test-mcp.py` por perfil (full/dev/memory) · hooks con eventos simulados por cliente · `validate-docs-coverage.ps1` 0 gaps · OCR delegation sin Critical/High. Sin red en tests (mocks/tmpdir).
 
 ## Boundaries
 
@@ -88,6 +88,14 @@ Convenciones del repo (Rust: `?`+`Result`, sin `unwrap` en prod, clippy `-D warn
 | 7 | Dummy solo con flag / dim bloquea+guía | ✅ Q4/Q5 embeddings-auto |
 | 8 | OCR: delegation default sin key; full solo nocturno con key | ✅ research 2026-09-17 |
 
+## Alcance cierre-mvp (plan `2026-09-18-cierre-mvp.md`, Gate P 2026-09-18)
+
+- **IMPL-112 (ingesta real):** la fuente de verdad es la spec `docs/tasks/FIND-112.md` (trait `LlmRunner` reutilizado, matriz local+ollama/openai, TOML+env secrets-solo-env, gates G0–G4, 10 tests nombrados). S1 local primero; S2 solo si S1 sale sin fricción (Gate V si friccionó).
+- **S4/S6b (aprobación/programador):** diseño primero en `FIND-110-spec` / `FIND-113-spec` (cero código); ship solo con dueño defendible, si no re-DEFER honesto.
+- **TUI REPL:** los mutantes IQL deben funcionar en sesión (`src/tui/repl.rs`, engine read-only hoy) o quedar el límite documentado en su help con motivo (decide FIND-117, no re-diseñar el TUI).
+- **Ask-first `~/.cargo/bin` → APROBADO** para FIND-98 (reinstall parity 79→87) vía Gate P 2026-09-18; si el lock persiste → STOP sin forzar.
+- **`vantadb-ts/examples/`:** referenciar desde README/QUICKSTART salvo motivo escrito para mover (decide SHOW-05-resto).
+
 ## Success Criteria
 
 1. Usuario nuevo: 1 comando → `embed_texts` real (`fallback:false`) + recuerdo guardado y recuperado por sinónimo en su agente (<30 min, sin compilar ni clonar).
@@ -97,4 +105,4 @@ Convenciones del repo (Rust: `?`+`Result`, sin `unwrap` en prod, clippy `-D warn
 
 ## Open Questions
 
-Ninguna bloqueante. Abiertas para DISCOVERY por tarea: APIs exactas de hooks por cliente (FIND-106), superficie exacta a exponer (FIND-107), atrapabilidad del pánico ORT (FIND-100).
+Ninguna bloqueante del MVP original (FIND-100/106/107 cerradas en campaña — ver avance). Abiertas del cierre-mvp, para DISCOVERY por tarea: fricción del trait en S1 (decide S2, Gate V); semántica TUI (handle de escritura vs límite documentado, FIND-117); productor `submit` S4 y dueño backend S6b (specs 110/113).
