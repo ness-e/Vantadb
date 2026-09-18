@@ -6,7 +6,7 @@ VantaDB provides a high-performance, hybrid vector + text search backend optimiz
 for document retrieval in RAG pipelines.
 """
 
-import vantadb_py as vantadb
+import vantadb
 from typing import List, Dict, Any, Optional, Union
 import json
 import os
@@ -28,7 +28,7 @@ class VantaDBDocumentStore:
             db_path: Path to VantaDB database
             namespace: Namespace for documents
         """
-        self.db = vantadb.VantaDB(db_path, memory_limit_bytes=1_000_000_000)
+        self.db = vantadb.Client(db_path, memory_limit_bytes=1_000_000_000)
         self.namespace = namespace
         
     def write_documents(
@@ -86,7 +86,7 @@ class VantaDBDocumentStore:
         """
         documents = []
         for doc_id in ids:
-            record = self.db.get(self.namespace, doc_id)
+            record = self.db.memory.get(self.namespace, doc_id)
             if record:
                 doc = {
                     "id": record["key"],
@@ -94,7 +94,7 @@ class VantaDBDocumentStore:
                     "meta": record["metadata"]
                 }
                 if return_embedding:
-                    doc["embedding"] = record.get("vector")
+                    doc["embedding"] = record["vector"]
                 documents.append(doc)
         return documents
     
@@ -139,7 +139,7 @@ class VantaDBDocumentStore:
         """
         search_filters = filters or {}
         
-        hits = self.db.search_memory(
+        hits = self.db.search(
             self.namespace,
             query_vector=query_vector or [],
             text_query=query,
@@ -179,16 +179,16 @@ class VantaDBDocumentStore:
         if ids:
             count = 0
             for doc_id in ids:
-                if self.db.delete(self.namespace, doc_id):
+                if self.db.memory.delete(self.namespace, doc_id):
                     count += 1
             return count
         
         if filters:
             # Get all documents matching filters
-            records = self.db.list_memory(self.namespace, filters=filters, limit=1000)
+            records = self.db.memory.list(self.namespace, filters=filters, limit=1000)
             count = 0
             for record in records:
-                if self.db.delete(self.namespace, record["key"]):
+                if self.db.memory.delete(self.namespace, record["key"]):
                     count += 1
             return count
         
@@ -201,7 +201,7 @@ class VantaDBDocumentStore:
         Returns:
             Number of documents
         """
-        records = self.db.list_memory(self.namespace, limit=1000000)
+        records = self.db.memory.list(self.namespace, limit=1000000)
         return len(records)
     
     def get_all_documents(
@@ -221,7 +221,7 @@ class VantaDBDocumentStore:
         Returns:
             List of all documents
         """
-        records = self.db.list_memory(self.namespace, filters=filters or {}, limit=1000000)
+        records = self.db.memory.list(self.namespace, filters=filters or {}, limit=1000000)
         
         documents = []
         for record in records:
@@ -231,7 +231,7 @@ class VantaDBDocumentStore:
                 "meta": record["metadata"]
             }
             if return_embedding:
-                doc["embedding"] = record.get("vector")
+                doc["embedding"] = record["vector"]
             documents.append(doc)
         
         return documents
@@ -255,13 +255,13 @@ class VantaDBDocumentStore:
         Returns:
             True if updated
         """
-        existing = self.db.get(self.namespace, id)
+        existing = self.db.memory.get(self.namespace, id)
         if not existing:
             return False
         
         new_content = content or existing["payload"]
         new_meta = meta or existing["metadata"]
-        new_vector = embedding or existing.get("vector")
+        new_vector = embedding or existing["vector"]
         
         self.db.put(
             self.namespace,

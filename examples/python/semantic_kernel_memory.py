@@ -6,7 +6,7 @@ VantaDB provides persistent, namespace-scoped memory with hybrid vector and text
 for AI applications built with Semantic Kernel.
 """
 
-import vantadb_py as vantadb
+import vantadb
 from typing import List, Dict, Any, Optional
 import json
 import os
@@ -32,7 +32,7 @@ class VantaDBSemanticMemory:
             db_path: Path to VantaDB database
             collection_name: Collection name for memory isolation
         """
-        self.db = vantadb.VantaDB(db_path, memory_limit_bytes=512_000_000)
+        self.db = vantadb.Client(db_path, memory_limit_bytes=512_000_000)
         self.collection_name = collection_name
         self.namespace = f"semantic-kernel/{collection_name}"
         
@@ -138,7 +138,7 @@ class VantaDBSemanticMemory:
         """
         search_filters = filters or {}
         
-        hits = self.db.search_memory(
+        hits = self.db.search(
             self.namespace,
             query_vector=query_embedding or [],
             text_query=query,
@@ -168,7 +168,7 @@ class VantaDBSemanticMemory:
         Returns:
             Memory or None
         """
-        record = self.db.get(self.namespace, key)
+        record = self.db.memory.get(self.namespace, key)
         if record:
             return {
                 "key": record["key"],
@@ -188,7 +188,7 @@ class VantaDBSemanticMemory:
         Returns:
             True if removed
         """
-        return self.db.delete(self.namespace, key)
+        return self.db.memory.delete(self.namespace, key)
     
     def list(
         self,
@@ -205,7 +205,7 @@ class VantaDBSemanticMemory:
         Returns:
             List of memories
         """
-        records = self.db.list_memory(self.namespace, filters=filters or {}, limit=limit)
+        records = self.db.memory.list(self.namespace, filters=filters or {}, limit=limit)
         
         return [
             {

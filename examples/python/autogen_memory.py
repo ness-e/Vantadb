@@ -6,7 +6,7 @@ for AutoGen conversational agents. VantaDB provides namespace-scoped memory
 with hybrid vector and text search for context-aware conversations.
 """
 
-import vantadb_py as vantadb
+import vantadb
 from typing import List, Dict, Any, Optional
 import json
 import os
@@ -32,7 +32,7 @@ class VantaDBAutoGenMemory:
             db_path: Path to VantaDB database
             thread_id: Conversation thread identifier
         """
-        self.db = vantadb.VantaDB(db_path, memory_limit_bytes=512_000_000)
+        self.db = vantadb.Client(db_path, memory_limit_bytes=512_000_000)
         self.thread_id = thread_id
         self.namespace = f"autogen/thread-{thread_id}"
         
@@ -94,7 +94,7 @@ class VantaDBAutoGenMemory:
         Returns:
             Message record or None
         """
-        record = self.db.get(self.namespace, message_id)
+        record = self.db.memory.get(self.namespace, message_id)
         if record:
             return {
                 "id": record["key"],
@@ -129,7 +129,7 @@ class VantaDBAutoGenMemory:
         if role_filter:
             filters["role"] = role_filter
         
-        hits = self.db.search_memory(
+        hits = self.db.search(
             self.namespace,
             query_vector=query_vector or [],
             text_query=query,
@@ -167,7 +167,7 @@ class VantaDBAutoGenMemory:
             List of messages in chronological order
         """
         filters = {"role": role_filter} if role_filter else {}
-        records = self.db.list_memory(self.namespace, filters=filters, limit=limit)
+        records = self.db.memory.list(self.namespace, filters=filters, limit=limit)
         
         return [
             {
@@ -190,7 +190,7 @@ class VantaDBAutoGenMemory:
         Returns:
             True if deleted
         """
-        return self.db.delete(self.namespace, message_id)
+        return self.db.memory.delete(self.namespace, message_id)
     
     def clear_conversation(self) -> int:
         """
