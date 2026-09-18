@@ -277,6 +277,17 @@ export function DocsView({ onNavigate }: { onNavigate: (v: View) => void }) {
                     cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli
                   </code>
                 </p>
+                <p className="mt-3 font-tech text-[11px] text-black/60">
+                  Trust: both one-liners use TLS against the official{" "}
+                  <code className="border border-black/30 bg-[#F2EDE2] px-1 font-mono text-[10px]">
+                    ness-e/Vantadb
+                  </code>{" "}
+                  repo, and the script verifies the payload `.sha256` before
+                  installing. The installer chains to the setup wizard unless
+                  skipped with `--no-wizard` / `-NoWizard`; preview with{" "}
+                  `--dry-run` / `-DryRun`. Source: README § One-Line
+                  Installation + QUICKSTART §0.
+                </p>
               </InstallCard>
 
               <div className="mt-4 flex items-start gap-3 border-l-4 border-[#FF5500] bg-[#FBF9F5] px-4 py-3">
