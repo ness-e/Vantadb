@@ -1087,3 +1087,21 @@ aliases: []
 - **Objetivo:** ejemplo legacy (`vantadb_py.VantaDB`) -> patron `Client` SHOW-04.
 - **Resultado:** migracion 1:1 (3 lineas: import + ctor + `search_memory`->`search`), smoke Temp exit 0, py-compile, grep cero-legacy; Gate C propone FIND-116 (otros ejemplos legacy) -> creado por lead al cierre; P2-01 approve.
 - **Commit:** ff05d663
+
+### FIND-110-spec: diseno lifecycle S4 (spec-first)
+- **Fecha:** 2026-09-18
+- **Objetivo:** convertir re-DEFER S4 en slice mecanico futuro (submit + ownership + restart).
+- **Resultado:** dueno writer-side `Arc` en contexto server + productor diferido (no tool publica v1) + restart efimero re-extraible; ship condicionado a productor; P2-01-spec approve.
+- **Commit:** 89b118be (docs-only)
+
+### FIND-113-spec: diseno dueno scheduler (spec-first)
+- **Fecha:** 2026-09-18
+- **Objetivo:** dueno del backend + superficie minima + coherencia FIND-112 sec c.
+- **Resultado:** owner writer-side `Arc<LocalStateBackend>`, RAM-only con motivo, locks efimeros scope-proceso, pull-based (precedente MEM-16), daemon descartado; P2-01-spec approve.
+- **Commit:** e2a920b6 (docs-only)
+
+### FIND-116: otros ejemplos con API legacy
+- **Fecha:** 2026-09-18
+- **Objetivo:** cerrar FIND-114: 7 ejemplos + demo + smoke + README a `Client`.
+- **Resultado:** mapeo G1-G8 1:1, grep cero-legacy, py_compile x10, smokes exit 0 (demo 7 secciones, smoke 9 asserts, 7/7 ejemplos), README sin stale; P2-01 approve.
+- **Commit:** 08b7ac8d
