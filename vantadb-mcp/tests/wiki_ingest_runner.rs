@@ -17,7 +17,9 @@ use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 use tempfile::tempdir;
 use vanta_memory::core::abstractions::{LlmError, LlmRunParams, LlmRunner};
-use vanta_memory::ingest::runner_config::{build_ingest_runner, ConcreteRunner, IngestRunnerCfg};
+use vanta_memory::ingest::runner_config::{
+    build_ingest_runner, ConcreteRunner, IngestRunnerCfg, IngestRunnerProvider,
+};
 use vanta_memory::ingest::{worker, IngestConfig};
 use vantadb::storage::StorageEngine;
 use vantadb::wiki::WikiStore;
@@ -228,4 +230,208 @@ fn ingest_tool_input_schema_unchanged() {
         json!(["namespace", "slug", "root"]),
         "required set byte-stable"
     );
+}
+
+#[test]
+fn ingest_ollama_down_degrades() {
+    // G2 ollama (spec FIND-112 §(d) test 7): base_url a puerto cerrado →
+    // degrada P4 con el MISMO assert que G1 (sources_skipped == nº fuentes,
+    // ready consultable, nunca hard error). Feature-agnóstico: sin
+    // `llm-driver` el inner devuelve NotConfigured, con la feature devuelve
+    // Transport — ambos caen en el skip de `worker.rs:199-211`.
+    // ponytail: 127.0.0.1:9 es discard (refused inmediato, sin timing); si un
+    // entorno lo bindeara, cambiar a puerto efímero cerrado (bind+drop).
+    let src = tempdir().expect("tempdir");
+    std::fs::write(src.path().join("a.md"), "# A\ncontent a.").expect("write");
+    std::fs::write(src.path().join("b.md"), "# B\ncontent b.").expect("write");
+
+    let (_db, storage) = test_engine();
+    WikiStore::new(&storage).create(NS, SLUG).expect("create");
+
+    let mut cfg = IngestRunnerCfg::from_toml_str(
+        "[ingest]\nprovider = \"ollama\"\nbase_url = \"http://127.0.0.1:9\"\ntimeout_secs = 5\n",
+    );
+    cfg.apply_env(|_| None);
+    assert_eq!(cfg.provider, IngestRunnerProvider::Ollama);
+    assert_eq!(cfg.base_url, "http://127.0.0.1:9");
+    assert!(!cfg.model.is_empty(), "ollama model defaults (all-minilm)");
+
+    // Nivel runner: construido por llamada (S3) y su run falla degradable.
+    let runner = build_ingest_runner(&cfg).expect("ollama builds Some");
+    assert!(
+        matches!(runner, ConcreteRunner::Ollama(_)),
+        "ollama cfg builds the Ollama variant"
+    );
+    let err = runner
+        .run(&LlmRunParams::new("hello", "ingest-extract"))
+        .expect_err("closed port must not succeed");
+    assert!(
+        matches!(
+            err,
+            LlmError::NotConfigured | LlmError::Transport(_) | LlmError::Timeout
+        ),
+        "degradable error only, never a panic path: {err:?}"
+    );
+
+    // Nivel worker: el report prueba sources_skipped == nº fuentes (assert G1).
+    let store = WikiStore::new(&storage);
+    let report = worker::run(
+        &store,
+        NS,
+        SLUG,
+        src.path(),
+        Some(&runner),
+        &cfg.pipeline_config(),
+    )
+    .expect("ollama-down run completes (P4)");
+    let mut skipped = report.sources_skipped.clone();
+    skipped.sort();
+    assert_eq!(skipped, vec!["a.md".to_string(), "b.md".to_string()]);
+    assert!(report.sources_processed.is_empty());
+
+    // Nivel facade: completa + consultable por run_id.
+    store.request_ingest(NS, SLUG).expect("re-request");
+    let runner2 = build_ingest_runner(&cfg).expect("per-call rebuild");
+    let run_id = start_ingest::<ConcreteRunner>(
+        storage.clone(),
+        NS,
+        SLUG,
+        src.path().to_path_buf(),
+        Some(runner2),
+        cfg.pipeline_config(),
+    )
+    .expect("facade start");
+    let status = poll_ready(&storage, &run_id);
+    assert_eq!(status["state"], "ready", "ollama-down completes ready");
+
+    // Mitad mock de G2: bajo la misma cfg ollama, con runner canned
+    // extract+merge escriben (sin HTTP real — el genérico ya absorbe el R).
+    store.request_ingest(NS, SLUG).expect("re-request");
+    let fake = ScriptedRunner {
+        outputs: Mutex::new(vec![
+            Ok(file_block(
+                "wiki/entities/ollama-one.md",
+                "Ollama mock one.",
+            )),
+            Ok(file_block(
+                "wiki/entities/ollama-two.md",
+                "Ollama mock two.",
+            )),
+        ]),
+    };
+    let report = worker::run(
+        &store,
+        NS,
+        SLUG,
+        src.path(),
+        Some(&fake),
+        &cfg.pipeline_config(),
+    )
+    .expect("canned run under ollama cfg");
+    assert_eq!(report.sources_processed.len(), 2);
+    assert!(report.sources_skipped.is_empty());
+    let page = store
+        .get_page(NS, SLUG, "wiki/entities/ollama-one.md")
+        .expect("get_page")
+        .expect("page exists");
+    assert!(page.content.contains("Ollama mock one"));
+}
+
+#[test]
+fn ingest_openai_no_key_degrades() {
+    // G2 openai (spec FIND-112 §(d) test 8): env ausente → `NotConfigured`
+    // diferido al `run` (patrón B2b `src/llm.rs`), nunca panic en
+    // construcción; degrada P4 con el MISMO assert que G1. Secrets-solo-env:
+    // la key solo puede venir de `VANTADB_OPENAI_API_KEY` (aquí inyectamos
+    // env vacío, sin tocar `std::env` global bajo el harness paralelo).
+    let src = tempdir().expect("tempdir");
+    std::fs::write(src.path().join("a.md"), "# A\ncontent a.").expect("write");
+    std::fs::write(src.path().join("b.md"), "# B\ncontent b.").expect("write");
+
+    let (_db, storage) = test_engine();
+    WikiStore::new(&storage).create(NS, SLUG).expect("create");
+
+    let mut cfg = IngestRunnerCfg::from_toml_str(
+        "[ingest]\nprovider = \"openai\"\nmodel = \"gpt-4o-mini\"\n",
+    );
+    cfg.apply_env(|_| None);
+    assert_eq!(cfg.provider, IngestRunnerProvider::OpenAi);
+    assert_eq!(
+        cfg.openai_api_key, None,
+        "no env key → no authentication material (G0)"
+    );
+
+    // Sin key el constructor degrada a la variante explícita LLM-free (S4).
+    let runner = build_ingest_runner(&cfg).expect("openai builds Some");
+    assert!(
+        matches!(runner, ConcreteRunner::None),
+        "openai without env key degrades like NoLlm"
+    );
+    let err = runner
+        .run(&LlmRunParams::new("hello", "ingest-extract"))
+        .expect_err("must degrade");
+    assert!(matches!(err, LlmError::NotConfigured));
+
+    // Nivel worker: sources_skipped == nº fuentes (assert G1).
+    let store = WikiStore::new(&storage);
+    let report = worker::run(
+        &store,
+        NS,
+        SLUG,
+        src.path(),
+        Some(&runner),
+        &cfg.pipeline_config(),
+    )
+    .expect("openai-no-key run completes (P4)");
+    let mut skipped = report.sources_skipped.clone();
+    skipped.sort();
+    assert_eq!(skipped, vec!["a.md".to_string(), "b.md".to_string()]);
+    assert!(report.sources_processed.is_empty());
+
+    // Nivel facade: completa + consultable por run_id.
+    store.request_ingest(NS, SLUG).expect("re-request");
+    let runner2 = build_ingest_runner(&cfg).expect("per-call rebuild");
+    let run_id = start_ingest::<ConcreteRunner>(
+        storage.clone(),
+        NS,
+        SLUG,
+        src.path().to_path_buf(),
+        Some(runner2),
+        cfg.pipeline_config(),
+    )
+    .expect("facade start");
+    let status = poll_ready(&storage, &run_id);
+    assert_eq!(status["state"], "ready", "openai-no-key completes ready");
+
+    // Mitad mock de G2: bajo la misma cfg openai, con runner canned
+    // extract+merge escriben.
+    store.request_ingest(NS, SLUG).expect("re-request");
+    let fake = ScriptedRunner {
+        outputs: Mutex::new(vec![
+            Ok(file_block(
+                "wiki/entities/openai-one.md",
+                "OpenAI mock one.",
+            )),
+            Ok(file_block(
+                "wiki/entities/openai-two.md",
+                "OpenAI mock two.",
+            )),
+        ]),
+    };
+    let report = worker::run(
+        &store,
+        NS,
+        SLUG,
+        src.path(),
+        Some(&fake),
+        &cfg.pipeline_config(),
+    )
+    .expect("canned run under openai cfg");
+    assert_eq!(report.sources_processed.len(), 2);
+    assert!(report.sources_skipped.is_empty());
+    let page = store
+        .get_page(NS, SLUG, "wiki/entities/openai-one.md")
+        .expect("get_page")
+        .expect("page exists");
+    assert!(page.content.contains("OpenAI mock one"));
 }
