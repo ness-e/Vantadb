@@ -1,0 +1,76 @@
+{
+  "tasks": {
+    "FIND-110-spec": {
+      "taskId": "FIND-110-spec",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789703592603,
+      "lastActivity": 1789703592603,
+      "traceId": "cf77f332-b77a-441c-8f35-033e08c8c38e"
+    },
+    "FIND-113-spec": {
+      "taskId": "FIND-113-spec",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789703828463,
+      "lastActivity": 1789703828463,
+      "traceId": "329e425c-ffb2-409d-94b8-8b9ffe9f3d77"
+    },
+    "IMPL-112-S1": {
+      "taskId": "IMPL-112-S1",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789704330650,
+      "lastActivity": 1789704330650,
+      "traceId": "341316d3-91b4-4f8d-b4b6-8e0c921c04e2"
+    },
+    "FIND-116": {
+      "taskId": "FIND-116",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789707003246,
+      "lastActivity": 1789707003246,
+      "traceId": "f96daa2c-6c53-407b-9280-85186114073a"
+    },
+    "FIND-119": {
+      "taskId": "FIND-119",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789707873663,
+      "lastActivity": 1789708221775,
+      "traceId": "994dd446-e102-4746-854e-adfd0c7a0d56"
+    },
+    "IMPL-112-S2": {
+      "taskId": "IMPL-112-S2",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789711597267,
+      "lastActivity": 1789712326114,
+      "traceId": "f1c913c4-e0f8-4331-a6dc-da0823738a68"
+    },
+    "FIND-117": {
+      "taskId": "FIND-117",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789712679474,
+      "lastActivity": 1789712679474,
+      "traceId": "6d9852da-ca38-4d55-a510-51aa3cc06809"
+    },
+    "SHOW-05": {
+      "taskId": "SHOW-05",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789714557056,
+      "lastActivity": 1789714557056,
+      "traceId": "1ff1aca1-9da4-4fb0-b26f-f05259fc560a"
+    }
+  }
+}
