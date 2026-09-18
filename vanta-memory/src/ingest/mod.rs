@@ -20,6 +20,7 @@ pub mod auto_sync;
 pub mod callback;
 pub mod merge;
 pub mod prompts;
+pub mod runner_config;
 pub mod worker;
 
 use serde::{Deserialize, Serialize};
