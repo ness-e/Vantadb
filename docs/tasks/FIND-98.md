@@ -1,8 +1,8 @@
 # FIND-98 — reinstalar `vanta-cli` (parity 79→87)
 
-> **Estado:** 🟡 STOP — lock Windows persistente (2/2 intentos), re-DEFER propuesto al orquestador
-> **Fecha ejecución:** 2026-09-18 · **Ruta:** vanta-worker · **Branch:** develop
-> **Plan:** `docs/plans/2026-09-18-cierre-mvp.md` (Wave0, primera en secuencia)
+> **Estado:** 🟡 STOP — lock Windows persistente (2/2 en retry), re-DEFER vigente; rebuild con motor COMPLETO y verificado en fuente (87 + `fallback:false`)
+> **Fecha ejecución:** 2026-09-18 · **Retry:** 2026-09-19 · **Ruta:** vanta-worker · **Branch:** develop
+> **Plan:** `docs/plans/2026-09-18-cierre-mvp.md` (Wave0) → retry por `docs/plans/2026-09-19-publicacion.md` Task 1 (alcance corregido por smoke: rebuild con `embed-local`, no basta copiar)
 > **SDP:** `campaign-executor` · `source-driven-development` · `doubt-driven-development` · `incremental-implementation` · `test-driven-development` · `context-engineering` · `systematic-debugging` · `shipping-and-launch` (8 total; `frontend-ui-engineering`/`api-and-interface-design` del scoring descartadas por irrelevantes al slice — distribución binaria, sin UI ni API nueva)
 
 ## 1. TAREA
@@ -112,4 +112,43 @@ VERIFY_CONTRATO: falla (instalado 79≠87 — STOP contractual, binario intacto)
 BLOQUEO: lock Windows persistente 2/2 en ambos instalados (PIDs vivos 28612/6460) — matar prohibido → re-DEFER válido
 GATES_EVALUADOS: P:no|heredado-Gate-P-2026-09-18 D:no|distribucion-sin-codigo V:no|cero-fallos-verify C:disparado|par-obligatorio-en-file
 SKILLS_CARGADAS: campaign-executor, source-driven-development, doubt-driven-development, incremental-implementation, test-driven-development, context-engineering, systematic-debugging, shipping-and-launch (+ progreso)
+```
+
+## 11. RETRY 2026-09-19 (plan `2026-09-19-publicacion.md` Task 1 — alcance corregido)
+
+**Cambio de alcance vs intento 2026-09-18:** el smoke E2E probó que copiar no basta — hay que compilar la feature. Contrato retry: rebuild `cargo build --bin vanta-cli --bin vantadb-server --features embed-local -j 2` (flags a verificar contra EMB-10 en DISCOVERY) + reinstall del par + instalado 87 + `initialize` OK + `embed_texts` `fallback:false` (ORT 1.30); lock → STOP sin forzar.
+
+**DISCOVERY retry (re-verificado, no asumido):**
+- **Flags exactos EMB-10:** `cargo build --bin vanta-cli --features embed-local,remote-inference -j 2` (`docs/tasks/EMB-10.md:16`, comando reverificado en su DISCOVERY). **Hallazgo:** el comando literal del plan (`--bin vanta-cli --bin vantadb-server` sin `-p`) NO compila en este workspace — `vantadb-server` es crate aparte (`vantadb-server/src/main.rs`) y no reenvía `embed-local` (su `[features]` no lo tiene; `vantadb-mcp` sí: `embed-local = ["vantadb/embed-local"]` en `vantadb-mcp/Cargo.toml`). Comando corregido equivalente (misma intención, unificación de features por invocación):
+  1. `cargo build -p vantadb --bin vanta-cli --features embed-local,remote-inference -j 2` (fiel a EMB-10)
+  2. `cargo build -p vantadb-server --bin vantadb-server --features vantadb-mcp/embed-local,vantadb-mcp/remote-inference -j 2` (motor vía forwarding; sin esto el server enlaza `vantadb` sin motor)
+- **ORT/modelo presentes:** `%LOCALAPPDATA%/VantaDB/onnxruntime/onnxruntime.dll` 16.46MB (EMB-11 persistente) + `Temp/opencode/ort130` 1.30.0 + `embeddings/models/multilingual-e5-small/onnx/model.onnx` en disco.
+- **Lock re-chequeado (intento 1 retry):** ambos `LOCKED` (PIDs nuevos 23396/17036 — los MCP rotaron desde el intento anterior; siguen vivos).
+
+**EJECUCIÓN retry:**
+- **Slice 1 — rebuild vanta-cli:** ✅ `Finished dev profile in 9m 22s` (`ort v2.0.0-rc.13` + `tokenizers v0.22.2` compilados).
+- **Slice 2 — rebuild server:** ✅ `Finished dev profile in 4m 31s` (`vantadb` recompilado con el feature-set unificado + `vantadb-mcp` + `vantadb-server`).
+- **Slice 3 — smoke fuente (par recién compilado):** ✅ `target/debug/vanta-cli.exe` → `initialize` (`vantadb 0.5.0`) + `tools/list` **87** (`embed_texts` presente) + `embed_texts(["el gato duerme","the cat sleeps"])` → `count 2, dim 384, model multilingual-e5-small, fallback False` (env: `VANTADB_EMBEDDING_PROVIDER=local` + `VANTADB_LOCAL_MODEL=<repo>/embeddings/models/multilingual-e5-small/onnx` + `ORT_DYLIB_PATH=<localappdata>/onnxruntime.dll`; DB temporal; script scratch eliminado tras medir).
+- **Slice 4 — reinstall:** ⬜ BLOQUEADO — re-check lock (intento 2 retry): ambos `LOCKED` (23396/17036 vivos) → **STOP sin forzar** per contrato. Cero writes a `~/.cargo/bin`, cero kills.
+
+**AC retry + veredicto:**
+
+| AC | Resultado |
+|----|-----------|
+| (a) rebuild con features verificadas contra EMB-10 | ✅ (`embed-local,remote-inference` EMB-10 + forwarding del server documentado arriba) |
+| (b) reinstall del par | ⬜ bloqueado por lock 2/2 → STOP contractual |
+| (c) instalado == 87 + smoke + `fallback:false` | ❌ pendiente del reinstall (fuente ya en 87 + `fallback:false` verificados) |
+
+**Verify/DoD retry:** `git diff --check` ✅ (bash directa — `campaign_verify_cmd` bug exit -1 conocido); `git status` limpio de scratch propio (solo este file como cambio propio; WIP ajeno intacto: `.opencode`, `completions/*`, `skills/vantadb-mcp/*`, `reparacion.bat`, plan file con recitation del `campaign_update_task_state` — no se tocan, staging selectivo). OCR N/A (cero código, solo este file). P2-01 → orquestador. Gates: P:no (heredado Gate P 2026-09-19) · D:no (distribución, 0 código, 0 símbolos públicos — `question` tool no disponible en este runner, se registra sin tool) · V:no (cero fallos verify) · C:no (sin colaterales nuevos; hallazgo forwarding ya incorporado a este file).
+
+```
+RESULTADO: 🟡 INCOMPLETO
+STEPS_OK: 3/4 retry (discovery-flags ✅ · rebuild par ✅ · smoke fuente 87+fallback:false ✅ · reinstall ⬜ bloqueado por lock)
+PROXIMO_STEP: copiar el PAR de target/debug (ya verificado 87 + fallback:false) a C:/Users/Eros/.cargo/bin cuando PIDs 23396/17036 liberen, o decisión owner (bajar MCP / cargo install release por release-ci Regla 1) — luego smoke instalado 87 + embed_texts fallback:false + cerrar
+COMMIT_HASH: (al commitear este file)
+ARCHIVOS: docs/tasks/FIND-98.md
+VERIFY_CONTRATO: parcial (fuente ✅ 87 + fallback:false · instalado ⬜ 79 por lock — STOP contractual, binario intacto)
+BLOQUEO: lock Windows persistente 2/2 retry en ambos instalados (PIDs vivos 23396/17036) — matar prohibido → re-DEFER vigente
+GATES_EVALUADOS: P:no|heredado-Gate-P-2026-09-19 D:no|distribucion-sin-codigo V:no|cero-fallos-verify C:no|sin-colaterales-nuevos
+SKILLS_CARGADAS: campaign-executor, source-driven-development, doubt-driven-development, incremental-implementation, test-driven-development, context-engineering, systematic-debugging, shipping-and-launch
 ```
