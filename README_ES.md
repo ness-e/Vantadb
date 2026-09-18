@@ -256,6 +256,11 @@ Descarga e instala el binario de la CLI al instante en un solo comando, sin comp
   irm https://raw.githubusercontent.com/ness-e/Vantadb/main/scripts/install.ps1 | iex
   ```
 
+> [!NOTE]
+> Fuente vigente: `README.md` § One-Line Installation y `docs/QUICKSTART.md` §0
+> (one-liner FIND-105 + verificación `.sha256` + wizard `--no-wizard`/`-NoWizard`
+> + `--dry-run`/`-DryRun`). Si este bloque difiere, manda la fuente.
+
 #### 2. Vía Cargo (desarrolladores Rust)
 
 Instala y registra `vanta-cli` directamente en tu directorio binario de Cargo:
