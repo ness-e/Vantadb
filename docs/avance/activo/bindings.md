@@ -1063,3 +1063,27 @@ aliases: []
 - **Objetivo:** cerrar S5 de FIND-107 sin runner: tool MCP solo-candidatos read-only con degrada honesta.
 - **Resultado:** ✅ `skill_extract` en `skills.rs` (NoRunner local → `NotConfigured`, core Principio 4 responde `{success:false, candidates:[], error}`; vacío trivial `success:true`; sin sink); Full 86→87; skills_tests 14/14 + mcp_tests 87 + vanta-memory skill 10/10 + coverage 0 gaps + smoke stdio 5/5 + clippy workspace 0. Deuda lead: mirrors skills↔.opencode en 86 (sync bidireccional) + fila Backlog.
 - **Commit:** 234f0627
+
+### FIND-110: S4 bandeja de aprobacion - re-DEFER fundado
+- **Fecha:** 2026-09-18
+- **Objetivo:** lifecycle del `CaptureApprovalQueue` in-memory o re-DEFER (no mostrador vacio).
+- **Resultado:** re-DEFER: 0 callers `should_gate` en prod, sin submitter MCP, MCP-35 impide cola process-local trivial; shippear seria mostrador vacio prohibido; mecanica existente 4/4 verde; P2-01 approve.
+- **Commit:** 1b3b3409 (docs-only)
+
+### FIND-112: spec runner real de ingesta (SIN codigo)
+- **Fecha:** 2026-09-18
+- **Objetivo:** spec 5 puntos (trait+matriz, TOML+env, lifecycle-dueno, gates+tests, degradado) con decisiones owner (matriz local+ollama/openai, TOML+env secrets-solo-env, wiki+pipeline).
+- **Resultado:** spec 307L: trait `LlmRunner` reutilizado, tabla variante x (transporte/config/secret/test), TOML minima + 8 env con precedencia, dueno proceso-MCP por llamada, gates G0-G4 + 10 tests, `NoLlm` igual a default-local; IMPL-112 por etapas en plan subsiguiente; P2-01-spec approve.
+- **Commit:** 062300a8 (docs-only)
+
+### FIND-113: S6b programador - re-DEFER fundado
+- **Fecha:** 2026-09-18
+- **Objetivo:** dueno del backend (`LocalStateBackend` + locks TTL) o re-DEFER (espejo FIND-110).
+- **Resultado:** re-DEFER: 0 productor en `vantadb-mcp`, daemon prohibido, MEM-65 intacto 21/21 verde; coherente con FIND-112 sec c (lifecycles opuestos, sin bloqueo); P2-01 approve.
+- **Commit:** b2b20073 (docs-only)
+
+### FIND-114: migrar `agent_memory.py` a `Client`
+- **Fecha:** 2026-09-18
+- **Objetivo:** ejemplo legacy (`vantadb_py.VantaDB`) -> patron `Client` SHOW-04.
+- **Resultado:** migracion 1:1 (3 lineas: import + ctor + `search_memory`->`search`), smoke Temp exit 0, py-compile, grep cero-legacy; Gate C propone FIND-116 (otros ejemplos legacy) -> creado por lead al cierre; P2-01 approve.
+- **Commit:** ff05d663

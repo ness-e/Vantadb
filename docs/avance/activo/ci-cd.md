@@ -399,3 +399,9 @@ aliases: []
 - **Objetivo:** review-rules por path + job CI nocturno + viewer como evidencia; delegation default sin key.
 - **Resultado:** ✅ .opencodereview/rule.json (13 entradas 1:1, pretty, 13/13 Custom) + ocr-nightly.yml (delegate siempre-verde + full con key via check-key env-only + artefactos 30d) + task file sync; actionlint 0 + wrapper exit 0; P2-01 changes-required levantado (paths reales, secret via env, glob docs/api/**).
 - **Commit:** 2430385a + 25109073 (follow-ups P2-01)
+
+### FIND-115: sync one-liner con FIND-105
+- **Fecha:** 2026-09-18
+- **Objetivo:** superficies con instrucciones viejas muestran el one-liner FIND-105 o referencian la fuente unica.
+- **Resultado:** ✅ comandos bare byte-identicos en 4 superficies (delta = contexto Trust/wizard/dry-run); README_ES nota-referencia ES (sin re-traduccion) + docs-view parrafo Trust/wizard EN + referencia a fuente; path web confirmado existente (sin SKIP); coverage 0 gaps + diff-check 0 + tsc exit 0 + OCR advisory sin Critical/High.
+- **Commit:** c1e72d88

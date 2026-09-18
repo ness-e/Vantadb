@@ -708,3 +708,22 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** el init ORT no debe abortar sin dylib compatible; degradacion a dummy determinista.
 - **Resultado:** ✅ `resolve_ort_dylib_path()` + `ensure_ort_ready()` (init_from graceful + probe `ort::api()` bajo catch_unwind fuera de G_ENV) + `try_load_session` con catch_unwind y `warn!(fallback=true)`; 15/15 llm serial EXIT=0 + clippy 0 + fmt; P2-01 approve + follow-ups (commit() bajo catch_unwind, pin serial `--test-threads=1` documentado).
 - **Commit:** 22d5a142 + 25109073 (follow-ups P2-01)
+
+### FIND-101: `vanta-cli query` doc-vs-fix — FIX parse-then-open (plan 2026-09-17-seguimiento-mvp Wave1)
+- **Fecha:** 2026-09-18
+- **Objetivo:** `query` abría siempre read-only (`data.rs:212`) → todo IQL INSERT/UPDATE/DELETE fallaba; decidir doc-vs-fix con evidencia + implementar + `--help` coherente, sin rediseño IQL.
+- **Resultado:** ✅ FIX parse-then-open: helper privado `query_is_mutating` (mismo `parse_statement` que el executor sobre misma entrada → coherencia por construcción; reads `SELECT`/`Query`→ro, 5 mutantes→rw, parse-fail/LISP→ro) + `engine.flush()?` gated en `Write` (root cause #2: WAL-buffered invisible a reopen read-only, ERR-050b; precedente `cmd_put crud.rs:131`) + help 3 líneas en `cli.rs`. fmt ✅ + clippy `-D warnings` 0 ✅ + `cli_tests` 85/85 (test nuevo `test_find101_query_insert_mutates`: RED pre-fix con `read_only` exacto → GREEN CRUD) ✅ + `--help` smoke ✅ + binario E2E en Temp INSERT→SELECT→UPDATE→DELETE→SELECT-vacío ✅ + OCR delegation sin bloqueantes + P2-01 vanta-review ✅ approve (0 bloqueantes; sugerencia help `INSERT MESSAGE` aplicada). Colateral: TUI REPL mismo bug latente → propuesta fila FIND nueva (fuera de scope).
+- **Commit:** de3bd119 (selectivo 4 files; hooks pre-commit verdes; sin PUSH)
+- **Nota:** fila FIND-101 en `docs/Backlog.md` pendiente de sync por el lead (prohibido en este slice).
+
+### FIND-109: `vanta-cli wal salvage` opt-in + MCP WAL error tipado
+- **Fecha:** 2026-09-18
+- **Objetivo:** MCP hard-down por WAL truncado sin via de reparacion (ERR-011 aborta open rw).
+- **Resultado:** wal salvage opt-in (preview read-only + prefijo coherente + quarantine `.salvage[.N]` + reporte kept/discarded) + `WalCommand::Salvage --dry-run` + `recovery_hint()` en `Wal` (code intacto); guard ERR-011 intacto; MCP tipado imposible sin rediseno (cero bytes JSON-RPC) -> documentado + hint; fixture real Temp kept 146/discarded 8, `doctor` + `vacuum` exit 0; wal 69/69 + wal_resilience 5/5 + error 121/121 + nextest 2259 + clippy 0; P2-01 approve (2 Baja -> follow-ups c1eacebd).
+- **Commit:** 9c881ac5 + c1eacebd (follow-ups P2-01)
+
+### FIND-102: `tests/sdk_serialization.rs` no compila - verify-only
+- **Fecha:** 2026-09-18
+- **Objetivo:** 39 errores EMB-10 (`QueryResult` no declarado) ensucian `check --tests`.
+- **Resultado:** drift autocorregido por refactors intermedios (FIND-49 + AST-002 re-exports); 0 errores, 16/16 verde, asserts intactos, cero codigo tocado; P2-01 approve.
+- **Commit:** bb33903e (docs-only; subject con backslash corregido via amend)
