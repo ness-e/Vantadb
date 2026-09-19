@@ -169,6 +169,13 @@ export function VsTable() {
           </div>
         </Reveal>
 
+        <p className="mt-3 font-tech text-[10px] leading-relaxed text-black/60">
+          {tt(
+            "vsTable.footnote",
+            "VantaDB 1.2 ms: p50 HNSW search, 10K vectors, 128d cosine — docs/operations/BENCHMARKS.md. Competitor latencies and prices are approximate public ranges (Sep 2026), not reproduced benchmarks; actuals vary by tier, region, and workload. * Vector-only in the single-index path (keyword/sparse via separate index). $0 = self-hosted license cost, infra excluded. Feature cells are simplified."
+          )}
+        </p>
+
         <Reveal direction="up" delay={120}>
           <div className="mt-8 flex flex-col items-center justify-between gap-4 border-4 border-black bg-black p-6 text-[#FBF9F5] shadow-[6px_6px_0_0_#FF5500]  sm:flex-row">
             <div className="flex items-center gap-3">
