@@ -134,3 +134,47 @@ fn invalid_role_is_best_effort_error_without_side_effects() {
         .unwrap()
         .is_empty());
 }
+
+// CODEX-132: concurrent back-to-back triggers (same-ms race) must lose no
+// messages — the L0 cursor+sequence tie-break keeps every capture.
+#[test]
+fn concurrent_same_ms_triggers_lose_no_messages() {
+    use std::sync::Barrier;
+
+    let db = open_db();
+    let queue = Arc::new(LocalStateBackend::new(SystemClock));
+    let bridge = Arc::new(HttpCaptureBridge::new(db.clone(), queue.clone()));
+
+    const N: usize = 8;
+    let barrier = Arc::new(Barrier::new(N));
+    let handles: Vec<_> = (0..N)
+        .map(|i| {
+            let bridge = bridge.clone();
+            let barrier = barrier.clone();
+            std::thread::spawn(move || {
+                barrier.wait(); // maximize same-ms collision odds
+                bridge
+                    .trigger(99, "user", &format!("concurrent message {i}"))
+                    .expect("trigger");
+            })
+        })
+        .collect();
+    for handle in handles {
+        handle.join().expect("worker thread");
+    }
+
+    let messages = L0Recorder::new(db).read_messages("99").expect("read l0");
+    assert_eq!(
+        messages.len(),
+        N,
+        "0 messages may be lost, got: {messages:?}"
+    );
+    for i in 0..N {
+        assert!(
+            messages
+                .iter()
+                .any(|m| m.content == format!("concurrent message {i}")),
+            "missing message {i} in {messages:?}"
+        );
+    }
+}

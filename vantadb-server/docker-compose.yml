@@ -1,7 +1,12 @@
 # VantaDB Server — Docker Compose for local development and production
 # Usage:
-#   docker compose -f vantadb-server/docker-compose.yml up -d          # dev (local build)
+#   docker compose -f vantadb-server/docker-compose.yml up -d          # dev (local build, loopback by default)
 #   docker compose -f vantadb-server/docker-compose.yml -f vantadb-server/docker-compose.prod.yml up -d  # prod (release binary)
+#
+# Auth: loopback by default starts without a key. To expose on the LAN, set
+# BOTH VANTADB_HOST=0.0.0.0 and VANTADB_API_KEY (export it, never commit it);
+# otherwise the server refuses to start (fail-closed, see src/server/bootstrap.rs).
+# Production reference: docker-compose.prod.yml (REQUIRE_AUTH=true + hardening).
 
 version: "3.9"
 
@@ -16,12 +21,15 @@ services:
       - "8080:8080"
     environment:
       - VANTADB_STORAGE_PATH=/var/lib/vantadb/data
-      - VANTADB_HOST=0.0.0.0
+      # Loopback by default: `up -d` starts keyless and the healthcheck
+      # passes; override both lines below together for LAN exposure.
+      - VANTADB_HOST=${VANTADB_HOST:-127.0.0.1}
       - VANTADB_PORT=8080
-      # Authentication (set in production!)
-      # - VANTADB_API_KEY=${VANTADB_API_KEY:-}
+      # Authentication (required when VANTADB_HOST is non-loopback):
+      #   export VANTADB_API_KEY="<secret>"  (never commit secrets)
+      # - VANTADB_API_KEY=${VANTADB_API_KEY}
       # - VANTADB_ALT_API_KEY=${VANTADB_ALT_API_KEY:-}
-      # - VANTADB_REQUIRE_AUTH=false
+      # - VANTADB_REQUIRE_AUTH=true
       # Rate limiting
       # - VANTADB_RATE_LIMIT_RPM=600
       # Audit logging (SRV-01)
@@ -60,8 +68,12 @@ services:
       - "8081:8080"
     environment:
       - VANTADB_STORAGE_PATH=/var/lib/vantadb/data
-      - VANTADB_HOST=0.0.0.0
+      # Same loopback-by-default policy as `vantadb` above; LAN exposure
+      # needs VANTADB_HOST=0.0.0.0 + VANTADB_API_KEY (fail-closed otherwise).
+      - VANTADB_HOST=${VANTADB_HOST:-127.0.0.1}
       - VANTADB_PORT=8080
+      # - VANTADB_API_KEY=${VANTADB_API_KEY}
+      # - VANTADB_REQUIRE_AUTH=true
     volumes:
       - vantadb-data:/var/lib/vantadb/data
     # Security hardening (Qdrant pattern)

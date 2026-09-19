@@ -21,6 +21,7 @@ use crate::core::abstractions::{
     DedupAction, DedupDecision, ExtractedMemory, MemoryRecord, MemoryType,
 };
 use crate::core::conversation::sanitize_key;
+use crate::core::profile::profile_sync::ProfileIsolation;
 use crate::core::prompts::l1_extraction::epoch_ms_to_rfc3339;
 use crate::core::record::l1_reader::{l1_namespace, read_record};
 
@@ -99,6 +100,18 @@ fn embed_vector(embed: Option<&EmbedFn>, content: &str) -> Option<Vec<f32>> {
     }
 }
 
+/// Default tenancy stamp for pipeline-written L1 records.
+///
+/// The extraction pipeline knows no tenant, but cross-session Agent/Team
+/// recall matches on `agent_id`/`team_id` — unstamped records would stay
+/// invisible outside their own session (incl. the synthetic MCP session).
+/// Stamping the default isolation keeps D22 semantics: explicitly-tenanted
+/// records are untouched, and legacy `None` records stay session-only.
+fn default_tenancy() -> (Option<String>, Option<String>) {
+    let iso = ProfileIsolation::default();
+    (Some(iso.team_id), Some(iso.agent_id))
+}
+
 /// Apply one dedup decision for a new memory. Returns the persisted record, or
 /// `None` when the decision was `skip`.
 ///
@@ -120,6 +133,7 @@ pub fn write_memory(
 ) -> Result<Option<MemoryRecord>, L1Error> {
     let ns = l1_namespace(session_key);
     let now = epoch_ms_to_rfc3339(now_ms);
+    let (team_id, agent_id) = default_tenancy();
     let record_id = if decision.record_id.trim().is_empty() {
         generate_memory_id(now_ms, idx)
     } else {
@@ -144,9 +158,9 @@ pub fn write_memory(
                 session_key: session_key.to_string(),
                 session_id: session_id.to_string(),
                 task_id: None,
-                team_id: None,
+                team_id: team_id.clone(),
                 user_id: None,
-                agent_id: None,
+                agent_id: agent_id.clone(),
                 vector: None,
                 heat: 0,
                 superseded_by: None,
@@ -211,9 +225,9 @@ pub fn write_memory(
                 session_key: session_key.to_string(),
                 session_id: session_id.to_string(),
                 task_id: None,
-                team_id: None,
+                team_id,
                 user_id: None,
-                agent_id: None,
+                agent_id,
                 vector: None,
                 heat: 0,
                 superseded_by: None,

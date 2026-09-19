@@ -598,3 +598,67 @@ fn search_multi_merges_hits_across_namespaces() {
         );
     }
 }
+
+// ── CODEX-130: synthetic MCP session sees pipeline L1 ──
+
+#[test]
+fn mcp_synthetic_session_sees_pipeline_l1_under_default_agent_scope() {
+    use vanta_memory::core::abstractions::{DedupAction, DedupDecision, ExtractedMemory};
+    use vanta_memory::core::record::write_memory;
+
+    let db = db();
+    // Pipeline write path: conversation L1 for thread "42".
+    let memory = ExtractedMemory {
+        content: "User prefers dark mode".into(),
+        memory_type: MemoryType::Episodic,
+        priority: 80,
+        source_message_ids: vec!["t1_0".into()],
+        scene_name: "UI Preferences".into(),
+        metadata: serde_json::Value::Null,
+    };
+    let decision = DedupDecision {
+        record_id: String::new(), // pipeline defers the id to the writer
+        action: DedupAction::Store,
+        target_ids: vec![],
+        merged_content: None,
+        merged_type: None,
+        merged_priority: None,
+        merged_timestamps: None,
+    };
+    write_memory(
+        &db,
+        "42",
+        "42",
+        &memory,
+        &decision,
+        1_700_000_000_000,
+        0,
+        None,
+    )
+    .expect("pipeline write");
+
+    // EXACT params of vantadb-mcp `memory_recall` (tools.rs): synthetic
+    // session "mcp" + default isolation + Hybrid/Agent.
+    let out = perform_auto_recall(
+        &db,
+        AutoRecallParams {
+            user_text: "what does the user prefer about dark mode?",
+            session_key: "mcp",
+            isolation: Some(ProfileIsolation::default()),
+            config: RecallConfig {
+                mode: RecallMode::Hybrid,
+                scope: RecallScope::Agent,
+                max_results: 5,
+                min_overlap: 1,
+                max_chars_per_memory: None,
+                max_total_recall_chars: None,
+            },
+        },
+        None,
+    )
+    .expect("recall")
+    .expect("pipeline L1 must be visible to memory_recall");
+
+    let prepend = out.prepend_context.expect("prepend");
+    assert!(prepend.contains("dark mode"), "got: {prepend}");
+}

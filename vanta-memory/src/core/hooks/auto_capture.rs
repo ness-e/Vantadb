@@ -20,7 +20,7 @@ use super::super::conversation::{L0Capture, L0Error, L0Message, L0Recorder, L0Ro
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct RawMessage {
     /// Stable message id when the host has one; `None` falls back to a
-    /// derived `t{timestamp_ms}_{index}` key in the recorder.
+    /// stable derived key (`t{timestamp_ms}_{index}_{fnv}`) in the recorder.
     pub id: Option<String>,
     pub role: String,
     pub content: String,
