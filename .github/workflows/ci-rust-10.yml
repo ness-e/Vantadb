@@ -159,7 +159,10 @@ jobs:
               break
             fi
           done
-          adr="$(printf '%s\n' "$changed" | grep -E '^docs/architecture/adr/ADR-[0-9]{3}' || true)"
+          # Single-line: a multiline value breaks the $GITHUB_OUTPUT file-command
+          # parser ("Invalid format" / "Unable to process file command 'output'"
+          # when a PR touches 2+ ADRs — run 35467546726). paste joins with spaces.
+          adr="$(printf '%s\n' "$changed" | grep -E '^docs/architecture/adr/ADR-[0-9]{3}' | paste -sd' ' - || true)"
 
           echo "api=$api" >> "$GITHUB_OUTPUT"
           echo "adr=$adr" >> "$GITHUB_OUTPUT"
