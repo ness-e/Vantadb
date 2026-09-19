@@ -144,9 +144,12 @@ N/A (todo local; sin ambigüedad de APIs externas).
 - [x] **Step 3 — tests + cierre**: `npm test` **12 files / 311 tests passed**; `git diff --stat` limpio (3 archivos, 66+/26-); commit `fix: FIND-125 — ...`; recitation completed; RESULTADO §7.
 
 ## Context Save Point
-
 - Rama `develop`; tsc repro: 16 errores (output guardado arriba §1).
 - Tras Step 1: esperar 14 errores (quedan 395, 603, 657, 801, 802, 829, 870, 938, 1108, 1181, 1322, 1346, 1366, 1413).
 - Tras Step 2: esperar 0 errores.
 - `native.ts` debe seguir verde en ambos steps (mismo `tsc --noEmit` lo cubre).
 - Si un cast revela shape runtime distinta al correr tests → STOP (contrato c) y re-scope, no "arreglar" runtime.
+
+## P2-01 follow-up (lead, 2026-09-19 — veredicto approve)
+
+- Conteo frontera corregido: **12× `as unknown as` en `vantadb.ts` + 1 narrow en `native.ts:312`** (total 13 casts de frontera, cero runtime). Cualquier mención a "14 casts" en reportes previos queda superada por este conteo verificado (`rg` en vivo).

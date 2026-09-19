@@ -1480,6 +1480,7 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "vsTable.row.6.feature": "Cost @ 1M vectors",
     "vsTable.ctaTitle": "Probar en 30 segundos",
     "vsTable.ctaBody": "pip install vantadb-py — in-process, no account, no API key.",
+    "vsTable.footnote": "VantaDB 1.2 ms: p50 búsqueda HNSW, 10K vectores, coseno 128d — docs/operations/BENCHMARKS.md. Latencias y precios competidores son rangos públicos aproximados (sep 2026), no benchmarks reproducidos; varían por tier, región y carga. * Solo-vector en el path de índice único (keyword/sparse vía índice separado). $0 = costo de licencia self-host, infra excluida.",
 
     // ============================================================
     // FIX-TRADUCCION-DATOS — pillar tags (técnico, idénticos en ES+EN per REGLA B2)
@@ -2969,6 +2970,7 @@ export const dictionaries: Record<Lang, Record<string, string>> = {
     "vsTable.row.6.feature": "Cost @ 1M vectors",
     "vsTable.ctaTitle": "Try it in 30 seconds",
     "vsTable.ctaBody": "pip install vantadb-py — in-process, no account, no API key.",
+    "vsTable.footnote": "VantaDB 1.2 ms: p50 HNSW search, 10K vectors, 128d cosine — docs/operations/BENCHMARKS.md. Competitor latencies and prices are approximate public ranges (Sep 2026), not reproduced benchmarks; actuals vary by tier, region, and workload. * Vector-only in the single-index path (keyword/sparse via separate index). $0 = self-hosted license cost, infra excluded.",
 
     // ============================================================
     // FIX-TRADUCCION-DATOS — pillar tags (técnico, idénticos en ES+EN per REGLA B2)

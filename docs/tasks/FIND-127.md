@@ -176,7 +176,7 @@ Comandos owner (orden): `gh pr review 180 --approve && gh pr merge 180 --squash`
 | #36/#23/#17/#10 js-yaml (transitivo de `@eslint/eslintrc`, solo lint build-time) | YAML solo local; CVE-2026-59870 sin backport a 4.x → sin fix disponible; review al renovar eslint |
 | #32/#30 vitest+`@vitest/mocker` (dev-only test runner) | exploit = test malicioso local (auto-ataque); sin path prod [URLs NO VERIFICADAS — deuda TSYS-13] |
 | #15 prismjs DOM clobbering (highlighting docs estático) | contenido autor-controlado [URL NO VERIFICADA — deuda TSYS-13] |
-| #1 lru low (Stacked Borrows teórico, Rust) | sin exploit conocido; #183 puede traer el bump — verificar al mergearlo |
+| #1 lru low (Stacked Borrows teórico, Rust) | sin exploit conocido; resuelto de paso por este slice: el rebuild fijó `lru 0.16.4→0.18.4` + `hashbrown 0.16.1→0.17.1` en `providers/*/Cargo.lock` (resolución transitiva de cargo, sin cambio de código; P2-01 verificó motivo) |
 
 brace-expansion (citado en el plan): 0 alerts abiertas hoy → ya cerrado, sin acción.
 
