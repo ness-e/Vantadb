@@ -4,9 +4,9 @@
 > **Ruta:** vanta-arch (diseño) → vanta-worker (slice) · **Estado:** ⏳ IN PROGRESS
 > **Rama:** `develop` (verificado `git branch --show-current`)
 > **SDP:** campaign-executor, spec-driven-development, interview-me, idea-refine,
->   vanta-design-orchestrator, impeccable, source-driven-development,
->   security-and-hardening + manual arch: documentation-and-adrs,
->   api-and-interface-design, database-design, doubt-driven-development
+> vanta-design-orchestrator, impeccable, source-driven-development,
+> security-and-hardening + manual arch: documentation-and-adrs,
+> api-and-interface-design, database-design, doubt-driven-development
 
 ## Spec (spec-first gate — feature-add sin spec no entra a ACT)
 

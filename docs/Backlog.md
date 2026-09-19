@@ -234,7 +234,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | `EMB-20` | Baja | Docs: README tabla + MCP doc + SKILL (Regla 11) | `embeddings/README.md`, `docs/api/MCP.md`, `docs/tasks/EMB-20.md` | 🟢 | 🟢 Baja | ✅ Completada 2026-09-16 (tabla 9 modelos + 3 proveedores + dim-gate + `embed_texts` real + coverage 0 gaps; commit `46992d8c`; review P2-01 approve) |
 | `FIND-99` | Media | `embed_texts` dummy + sin auto-embed MCP (épica padre: la cierran EMB-13+EMB-14) | `vantadb-mcp/src/handlers/tools.rs:2607`, `src/llm.rs`, `embeddings/models/` | 🟡 | 🟡 Media | ✅ Completada 2026-09-16 (EMB-13 `ad8af1d1` proveedor real + EMB-14 `11de0d42` auto-embed; ver avance bindings) |
 
-_Campaña FIND 2026-09-15/16: 31 filas completadas migradas a `docs/avance/` (ver `meta.md`); FIND-76 SKIP → `historial/backlog-history.md`._
+*Campaña FIND 2026-09-15/16: 31 filas completadas migradas a `docs/avance/` (ver `meta.md`); FIND-76 SKIP → `historial/backlog-history.md`.*
 
 ---
 
@@ -368,7 +368,7 @@ _Campaña FIND 2026-09-15/16: 31 filas completadas migradas a `docs/avance/` (ve
 | ID | Descripción (Gap → Acciones → Resultado) | Archivos | Esfuerzo | Prio | Estado |
 |----|-------------|----------|----------|------|--------|
 > Sin filas pendientes (MCP-41 completada plan 2026-09-10-code, 6bf42a89 + ADR-040).
-
+>
 > **No trackeado aquí** (deliberadamente): (a) threads CRUD directos (`get/list/delete_thread`, `purge_expired_threads` — `builder.rs:168-195`, `src/agentic/thread.rs`) — `inject_context` cubre el caso agente; (b) HTTP REST completo — diferido por diseño (embedded-first, `cli_server.rs` solo `/health` + `/api/v2/query` + `/metrics`); (c) `add_edge`/`get_node`/`delete_node` directos — alcanzables vía IQL (`RELATE`/`FROM`/`DELETE`).
 
 ---
@@ -533,9 +533,9 @@ _Campaña FIND 2026-09-15/16: 31 filas completadas migradas a `docs/avance/` (ve
 ## P39 - vanta-proxy — Gateway agéntico completo (investigación 3 frentes, 2026-08-25)
 
 > **Origen:** investigación profunda vanta-proxy vs estado del arte (LiteLLM/OpenRouter/Portkey/Helicone/Cloudflare AIG/claude-code-router/Bifrost/TensorZero) vs necesidades de usuarios de coding agents. **Identidad decidida por el owner: gateway completo** (no especialista). Diferenciador a preservar: memoria en tránsito + interceptor de tools server-side (único en el mercado). Deudas internas: state machine `advance()` sin wiring, clasificador Claude Code huérfano, mem-commands stub, fail-open sin trigger (`server.rs:177`, `claude_code.rs:57`, `mem_command.rs:102`).
-
+>
 > Sin filas pendientes (P39 completado: PRX-02/03/06/07/09/10/11/13 + slices — ver avance/operaciones).
-
+>
 > Sin filas pendientes (PRX-13 completada plan 2026-09-10-code, 462488e9).
 
 ---

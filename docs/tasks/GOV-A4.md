@@ -56,7 +56,7 @@ contract:
   verificacion: python dev-tools/validate_doc_snippets.py → 27 PASS, 0 FAIL, 27 SKIP ✅
   evidencia:
     - claim: QUICKSTART VantaSearchHit attribute access corregido
-      evidencia: docs/QUICKSTART.md:147 hit.key (antes hit["record"]["key"]) + python -c VantaSearchHit dir check
+      evidencia: docs/QUICKSTART.md:147 hit.key (antes `hit["record"]["key"]`) + python -c VantaSearchHit dir check
       confianza: alta
     - claim: migrators snippets skippeados correctamente sin FAIL
       evidencia: docs/tutorials/03-migrating-from-chromadb.md:156 # vanta-skip + migration-from-lancedb.md:214 # vanta-skip + validate run 0 FAIL
@@ -103,7 +103,7 @@ contract:
 SDP: 8 skills justificadas (4 base + 4 extras por keywords snippets/tutorial/validate_doc). Sin candidatos adicionales más allá de 8.
 
 ## Investigation Notes
-- Discovery: `python dev-tools/validate_doc_snippets.py` inicial 26 PASS 3 FAIL 25 SKIP — FAILs: chromadb ImportError (03:156), lancedb ImportError (lancedb:214), QUICKSTART TypeError VantaSearchHit not subscriptable (hit["record"]["key"]).
+- Discovery: `python dev-tools/validate_doc_snippets.py` inicial 26 PASS 3 FAIL 25 SKIP — FAILs: chromadb ImportError (03:156), lancedb ImportError (lancedb:214), QUICKSTART TypeError VantaSearchHit not subscriptable (`hit["record"]["key"]`).
 - Root cause QUICKSTART: `VantaSearchHit` expone `key, payload, metadata, score, node_id` como attrs (python -c dir), no dict. Fix: `hit.key`.
 - Root cause migrators: `validate_doc_snippets.py` solo auto-skip si top-level import missing es no-local; `from vantadb_py.migrate import` no es missing, por lo que runtime falla dentro de función. Fix minimal: añadir `# vanta-skip: requires chromadb/lancedb package`.
 - Blast radius CodeGraph: dev-tools/validate_doc_snippets.py no es importado por runtime; docs/*.md no tienen callers Rust; verify no toca RES-02/GOV-A3 paths.

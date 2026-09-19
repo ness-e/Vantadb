@@ -27,7 +27,7 @@
   - `providers/openai/vantadb_openai.pyi` (31 líneas, HEAD 2fa8ea4f) — clase con __init__ 5 params + 7 métodos + __version__.
   - `providers/litellm/vantadb_litellm.pyi` (31 líneas, HEAD b8e376a5) — idem con api_key opcional.
   - `providers/ollama/vantadb_ollama.pyi` (31 líneas, HEAD 16eb9a67) — idem con base_url.
-   - `providers/openai/Cargo.toml`, `providers/litellm/Cargo.toml`, `providers/ollama/Cargo.toml` — `pyo3 = { version = "0.29", optional = true, features = ["extension-module"] }` (verificado 2026-08-26 via `Select-String pyo3 Cargo.toml`), fuera del workspace (standalone).
+  - `providers/openai/Cargo.toml`, `providers/litellm/Cargo.toml`, `providers/ollama/Cargo.toml` — `pyo3 = { version = "0.29", optional = true, features = ["extension-module"] }` (verificado 2026-08-26 via `Select-String pyo3 Cargo.toml`), fuera del workspace (standalone).
   - `SKILLS-MANIFEST.md` grep `pyi|python|pyo3|provider` → 0 hits directos; `source-driven-development` (engineering lifecycle) y `ponytail` (modo lazy) aplican.
   - `.opencode/references/skills-engineering.md` §Lifecycle mapping — fase VERIFY para pyi sync.
 - **Referencias hacia dentro (qué importa este archivo):**
