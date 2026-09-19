@@ -1,5 +1,7 @@
 import { Client as WasmClient } from "vantadb-wasm";
 
+import type { SearchRequestInput } from "vantadb-wasm";
+
 import { DbError, ERROR_CODES, wrapWasmError } from "./errors.js";
 import { _mapRecord, buildSearchRequestBase } from "./guards.js";
 import { normalizeFilterItems, normalizeMetadata, normalizeValue } from "./metadata.js";
@@ -390,7 +392,10 @@ export class Client {
   capabilities(): Capabilities {
     this._assertOpen();
     return this._wasm("capabilities", () => {
-      const raw = this.inner.capabilities();
+      // FIND-125: the hand-written wasm `.d.ts` omits `runtime_profile`
+      // (present at runtime from the core `Capabilities` struct,
+      // `src/sdk/types.rs:234`). Erased cast: zero runtime change.
+      const raw = this.inner.capabilities() as unknown as Capabilities;
       return {
         runtime_profile: raw.runtime_profile,
         persistence: raw.persistence,
@@ -562,19 +567,23 @@ export class Client {
     });
   }
 
-  private _buildSearchRequest(request: SearchRequest, explain?: boolean): Record<string, unknown> {
+  private _buildSearchRequest(request: SearchRequest, explain?: boolean): SearchRequestInput {
     // ERR-028 (AUDREP-55): a zero-norm cosine query vector is undefined
     // (cosine = 0/0). The core rejects it with Error::InvalidInput
     // (src/sdk/search/mod.rs) and that error surfaces here via the WASM
     // binding — this layer is glue and must NOT make search decisions
     // (api-contract.md R-8). Pass the request through untouched, like
     // native.ts, so both backends behave identically.
+    // FIND-125: the emitted shape is what the engine deserializes
+    // (`SearchRequest` in `vantadb-wasm/src/lib.rs:152-168` — tagged
+    // filters, `text_query: null` = None); the hand-written `.d.ts` input
+    // type is narrower/drifted. Erased cast: zero runtime change.
     return {
       ...buildSearchRequestBase(request, explain),
       filters: normalizeMetadata(request.filters) ?? {},
       text_query: request.text_query ?? null,
       exclude_superseded: request.exclude_superseded ?? false,
-    };
+    } as unknown as SearchRequestInput;
   }
 
   /**
@@ -799,7 +808,7 @@ export class Client {
   explainSearch(request: SearchRequest): Record<string, unknown> {
     this._assertOpen();
     return this._wasm("explainSearch", () =>
-      this.inner.explain_memory_search(this._buildSearchRequest(request, true)),
+      this.inner.explain_memory_search(this._buildSearchRequest(request, true)) as unknown as Record<string, unknown>,
     );
   }
 
@@ -826,10 +835,15 @@ export class Client {
     filter?: FilterItem[],
   ): ExportReport {
     this._assertOpen();
-    return this._wasm("exportNamespace", () =>
-      filter && filter.length > 0
-        ? this.inner.export_namespace_filtered(path, namespace, normalizeFilterItems(filter))
-        : this.inner.export_namespace(path, namespace),
+    return this._wasm(
+      "exportNamespace",
+      () =>
+        // FIND-125: runtime is the core `ExportReport`
+        // (`src/sdk/types/record.rs:179-188`); the wasm `.d.ts` shape is
+        // drifted. Erased cast: zero runtime change.
+        (filter && filter.length > 0
+          ? this.inner.export_namespace_filtered(path, namespace, normalizeFilterItems(filter))
+          : this.inner.export_namespace(path, namespace)) as unknown as ExportReport,
     );
   }
 
@@ -867,7 +881,7 @@ export class Client {
    */
   exportAll(path: string): ExportReport {
     this._assertOpen();
-    return this._wasm("exportAll", () => this.inner.export_all(path));
+    return this._wasm("exportAll", () => this.inner.export_all(path) as unknown as ExportReport);
   }
 
   /**
@@ -935,7 +949,7 @@ export class Client {
    */
   importFile(path: string): ImportReport {
     this._assertOpen();
-    return this._wasm("importFile", () => this.inner.import_file(path));
+    return this._wasm("importFile", () => this.inner.import_file(path) as unknown as ImportReport);
   }
 
   /**
@@ -1105,7 +1119,10 @@ export class Client {
    */
   query(query: string): QueryResult {
     this._assertOpen();
-    return this._wasm("query", () => this.inner.query(query));
+    // FIND-125: runtime is the core `QueryResult` enum, externally tagged
+    // (`src/sdk/types/graph.rs:14-32`); the wasm `.d.ts` `IqlResult {kind…}`
+    // shape is drifted. Erased cast: zero runtime change.
+    return this._wasm("query", () => this.inner.query(query) as unknown as QueryResult);
   }
 
   /**
@@ -1178,7 +1195,11 @@ export class Client {
     return this._wasm("getNode", () => {
       const raw = this.inner.get_node(String(id));
       if (raw == null) return null;
-      const node = raw as NodeRecord;
+      // FIND-125: runtime is `JsNodeRecord` (`vantadb-wasm/src/lib.rs:234-247`
+      // — tagged `Value` fields, `target` edges, `Hot|Cold` only); the wasm
+      // `.d.ts` (`target_id`, `Warm`) is drifted. Erased cast: zero runtime
+      // change — the `target→BigInt` mapping below is untouched.
+      const node = raw as unknown as NodeRecord;
       // WASM serializes u128 edge targets as strings; expose them as bigint
       // (the SDK contract — see integration.test.ts "graph operations").
       node.edges = node.edges.map((e) => ({
@@ -1320,7 +1341,7 @@ export class Client {
   ): GraphBfsResult {
     this._assertOpen();
     return this._wasm("graphBfs", () =>
-      this.inner.graph_bfs(roots.map(String), maxDepth, direction),
+      this.inner.graph_bfs(roots.map(String), maxDepth, direction) as unknown as GraphBfsResult,
     );
   }
 
@@ -1344,7 +1365,7 @@ export class Client {
   ): GraphDfsResult {
     this._assertOpen();
     return this._wasm("graphDfs", () =>
-      this.inner.graph_dfs(roots.map(String), maxDepth, direction),
+      this.inner.graph_dfs(roots.map(String), maxDepth, direction) as unknown as GraphDfsResult,
     );
   }
 
@@ -1364,7 +1385,7 @@ export class Client {
   graphTopologicalSort(roots: number[]): GraphTopologicalSortResult {
     this._assertOpen();
     return this._wasm("graphTopologicalSort", () =>
-      this.inner.graph_topological_sort(roots.map(String)),
+      this.inner.graph_topological_sort(roots.map(String)) as unknown as GraphTopologicalSortResult,
     );
   }
 
@@ -1411,6 +1432,9 @@ export class Client {
   ): GraphBfsResult {
     this._assertOpen();
     return this._wasm("graphFilteredTraversal", () =>
+      // FIND-125 (graph ×4): the wire is `Vec<u128>` → `bigint[]`
+      // (`to_js`, proven by `tests/graph.test.ts` TS-01); the wasm `.d.ts`
+      // `string[]` is drifted. Erased casts: zero runtime change.
       this.inner.graph_filtered_traversal(
         roots.map(String),
         maxDepth,
@@ -1420,7 +1444,7 @@ export class Client {
         filter === null || filter === undefined
           ? null
           : { ...filter, time_range: filter.time_range ?? undefined },
-      ),
+      ) as unknown as GraphBfsResult,
     );
   }
 

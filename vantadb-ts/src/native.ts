@@ -309,7 +309,10 @@ export class NativeVantaDB {
       const wire = {
         filters: options.filters !== undefined ? normalizeMetadataForNative(options.filters) : undefined,
         limit: options.limit,
-        cursor: options.cursor,
+        // FIND-125: `ListOptions.cursor` is `string | number` (union of both
+        // backends — WASM emits decimal strings); napi only takes numbers, so
+        // narrow at the boundary. Erased cast: zero runtime change.
+        cursor: options.cursor as number | undefined,
       };
       const raw = await this.inner.list(namespace, wire);
       const items: unknown[] = raw.records ?? [];

@@ -54,12 +54,17 @@ export interface MemoryRecord {
 export interface ListOptions {
   filters?: MetadataInput;
   limit?: number;
-  cursor?: number;
+  /** Opaque page cursor: the WASM backend emits decimal strings (policy
+   * string-u64) while the native backend emits numbers; both accept either
+   * form back (FIND-125 resync against `vantadb-wasm/src/lib.rs:200-229`). */
+  cursor?: string | number;
 }
 
 export interface MemoryListPage {
   records: MemoryRecord[];
-  next_cursor?: number;
+  /** Opaque next cursor (decimal string from WASM, number from native);
+   * absent on the last page. Feed back into `ListOptions.cursor`. */
+  next_cursor?: string | number;
 }
 
 export interface SearchRequest {
@@ -192,15 +197,23 @@ export interface OperationalMetrics {
   process_virtual_bytes: string;
   hnsw_nodes_count: string;
   hnsw_logical_bytes: string;
-  mmap_resident_bytes: string | null;
+  /** Absent (undefined) when the OS/backend reports no value — the WASM
+   * layer serializes `Option<String>` as absent, never `null`
+   * (FIND-125 resync against `JsOperationalMetrics`,
+   * `vantadb-wasm/src/lib.rs:269-318`). */
+  mmap_resident_bytes?: string;
   volatile_cache_entries: string;
   volatile_cache_cap_bytes: string;
-  jemalloc_allocated_bytes: string | null;
-  jemalloc_active_bytes: string | null;
-  jemalloc_metadata_bytes: string | null;
-  jemalloc_resident_bytes: string | null;
-  jemalloc_mapped_bytes: string | null;
-  jemalloc_retained_bytes: string | null;
+  jemalloc_allocated_bytes?: string;
+  jemalloc_active_bytes?: string;
+  jemalloc_metadata_bytes?: string;
+  jemalloc_resident_bytes?: string;
+  jemalloc_mapped_bytes?: string;
+  jemalloc_retained_bytes?: string;
+  /** Cumulative NaN/Inf→0.0 sanitizations on outgoing payloads (WSM-12). */
+  nan_sanitization_count: string;
+  /** Cumulative metadata fields dropped from outgoing records (WSM-11). */
+  metadata_drop_count: string;
 }
 
 export interface Capabilities {
