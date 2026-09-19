@@ -249,10 +249,20 @@ Próxima tarea si completa: DIST-10-14
 Campaign ID: 2c1b931f-977c-4500-8eb3-62de7c934bd7
 Objetivo activo: DIST-10/14 plan distribucion + adopcion npm
 Estado: completed
-Última acción: estrategia escrita docs/DISTRIBUTION.md (canales PyPI/npm/GH-releases/CLI, comparativa Orama con fuentes verificadas 2026-09-19, nicho "browser AI agent memory", checklist anuncio PREPARADO no publicado) + task file, commit 30721042; verify coverage 0 gaps + diff-check limpio
+Última acción: subagent estrategia + checklist, commit 8bcdd0a4; lead creo FIND-123 (Gate C: vs-table numeros competidores sin fuente, vantadb 1.2ms OK); coverage ya verificado por worker
 Resultado: ✅
-Próxima acción: PROV-12 publicar wheels (Gate V owner: token/estrategia/version)
-Contrato: DISTRIBUTION.md + comparativa honesta (Regla 11) + nicho + checklist + coverage 0 gaps
-Deuda: H-21 cifra nuestra (187/mes) re-verificar antes de anunciar; bundlephobia re-verificar; VsTable web numeros sin fuente -> FIND via orquestador (Gate C)
+Próxima acción: Wave2: PROV-12 (Gate V owner) + EXE-03-prep
+Contrato: DISTRIBUTION.md + comparativa honesta + nicho + checklist + coverage 0 gaps
 Próxima tarea si completa: PROV-12
+=== END RECITATION ===
+
+=== RECITATION PROV-12 ===
+Campaign ID: 2c1b931f-977c-4500-8eb3-62de7c934bd7
+Objetivo activo: PROV-12 publicar wheels PyPI via CI
+Estado: completed
+Última acción: dry-run verde + commit selectivo sin push
+Resultado: OK
+Próxima acción: EXE-03-prep (orquestador)
+Contrato: verificacion: actionlint exit 0 + maturin build OK + venv smoke PASSED + commit a4f482e8 | evidencia: wheel 0.5.0 + docs/tasks/PROV-12.md | artefactos: commit a4f482e8 | invariantes: sin publish, sin secrets, sin cambios src | deuda: publish owner-side | queda_pendiente: EXE-03-prep
+Próxima tarea si completa: EXE-03-prep
 === END RECITATION ===
