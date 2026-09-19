@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 use tauri::State;
 use tokio::task::spawn_blocking;
 
-use vantadb::sdk::{VantaMemoryListOptions, VantaMemoryListPage};
-use vantadb::VantaEmbedded;
+use vantadb::sdk::Embedded;
+use vantadb::sdk::{MemoryListOptions, MemoryListPage};
 
 use vanta_memory::context_engine::{
     assemble_with_recall, AssembleConfig, ChatMessage, IntegratedContext, TokenEstimator,
@@ -91,13 +91,13 @@ pub struct RecallOutcome {
 /// Convert a storage/pipeline error into the desktop [`VantaError`] without
 /// collapsing typed core errors (ERR-DESK-01). If the error itself — or any
 /// `source()` in its chain, like `L0Error::Vanta(..)` — is a core
-/// `vantadb::VantaError`, it is mapped through [`VantaError::from_core`] so
+/// `vantadb::error::Error`, it is mapped through [`VantaError::from_core`] so
 /// the frontend keeps the canonical `VANTADB_*` code (or `Lock`/`Io`) and
 /// can branch on it. Foreign-only errors keep the previous `Native` text.
 fn mem_err(e: impl std::error::Error + 'static) -> VantaError {
     let mut source: Option<&(dyn std::error::Error + 'static)> = Some(&e);
     while let Some(s) = source {
-        if let Some(core) = s.downcast_ref::<vantadb::VantaError>() {
+        if let Some(core) = s.downcast_ref::<vantadb::error::Error>() {
             return VantaError::from_core(core);
         }
         source = s.source();
@@ -116,7 +116,7 @@ async fn offload<T: Send + 'static>(
 
 /// L0 capture: filter roles → sanitize → record via the idempotent recorder.
 fn run_capture(
-    db: &VantaEmbedded,
+    db: &Embedded,
     session_id: &str,
     messages: Vec<MemoryMessage>,
 ) -> Result<CaptureOutcome, VantaError> {
@@ -140,7 +140,7 @@ fn run_capture(
 
 /// Auto-recall: relevant L1 memories + persona + scene navigation.
 fn run_recall(
-    db: &VantaEmbedded,
+    db: &Embedded,
     user_text: &str,
     session_key: &str,
     config: RecallConfig,
@@ -166,7 +166,7 @@ fn run_recall(
 /// Every stored skill across all `skills_extract/*` namespaces, most
 /// recently updated first. Delegation-only: namespaces come from the SDK,
 /// payloads parse as `StoredSkill`.
-fn run_skills_list(db: &VantaEmbedded) -> Result<Vec<StoredSkill>, VantaError> {
+fn run_skills_list(db: &Embedded) -> Result<Vec<StoredSkill>, VantaError> {
     let mut skills = Vec::new();
     for ns in db.list_namespaces().map_err(mem_err)? {
         if !ns.starts_with("skills_extract/") {
@@ -174,10 +174,10 @@ fn run_skills_list(db: &VantaEmbedded) -> Result<Vec<StoredSkill>, VantaError> {
         }
         let mut cursor: Option<usize> = None;
         loop {
-            let page: VantaMemoryListPage = db
+            let page: MemoryListPage = db
                 .list(
                     &ns,
-                    VantaMemoryListOptions {
+                    MemoryListOptions {
                         limit: 1000,
                         cursor,
                         ..Default::default()
@@ -207,7 +207,7 @@ fn run_skills_list(db: &VantaEmbedded) -> Result<Vec<StoredSkill>, VantaError> {
 /// [`IntegratedContext`] (report mode/tokens + injected messages) travels
 /// back over IPC — the wire type IS the engine type (already serde).
 fn run_assemble(
-    db: &VantaEmbedded,
+    db: &Embedded,
     messages: Vec<ChatMessage>,
     budget_tokens: u64,
     user_text: Option<String>,
@@ -483,7 +483,7 @@ mod tests {
         (
             crate::AppState {
                 manager,
-                config: vantadb::config::VantaConfig::default(),
+                config: vantadb::config::Config::default(),
                 pending_deep_links: Default::default(),
                 progress: ProgressTracker::default(),
                 embeddings: Default::default(),
@@ -871,15 +871,15 @@ mod tests {
     // ── ERR-DESK-01: mem_err must not collapse typed core errors ──
 
     /// Foreign error like the vanta-memory wrappers: holds a core
-    /// `vantadb::VantaError` as `source()` (same shape as `L0Error::Vanta`).
+    /// `vantadb::error::Error` as `source()` (same shape as `L0Error::Vanta`).
     #[derive(Debug, thiserror::Error)]
     #[error("l0: {0}")]
-    struct ChainedError(#[source] vantadb::VantaError);
+    struct ChainedError(#[source] vantadb::error::Error);
 
     #[test]
     fn mem_err_propagates_core_error_structured() {
         // Direct core error (e.g. `db.list` failures) must keep its code.
-        let err = mem_err(vantadb::VantaError::NodeNotFound(7));
+        let err = mem_err(vantadb::error::Error::NodeNotFound(7));
         assert!(
             matches!(
                 &err,
@@ -890,7 +890,7 @@ mod tests {
         // Core error one level down the source chain (L0Error::Vanta shape)
         // must surface structured too — the frontend needs to tell retry
         // (VANTADB_BUSY → Lock) from not-found, never a plain string.
-        let chained = mem_err(ChainedError(vantadb::VantaError::DatabaseBusy(
+        let chained = mem_err(ChainedError(vantadb::error::Error::DatabaseBusy(
             "locked".into(),
         )));
         assert!(

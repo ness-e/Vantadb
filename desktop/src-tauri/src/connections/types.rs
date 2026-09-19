@@ -79,7 +79,7 @@ pub struct SearchQuery {
     #[serde(default)]
     pub explain: bool,
     /// Per-request hybrid search profile (MEM-01/02), forwarded 1:1 to the core
-    /// request (`VantaMemorySearchRequest::search_profile`). `None` → core
+    /// request (`MemorySearchRequest::search_profile`). `None` → core
     /// defaults (`RRF_K = 60`, hybrid routing). Backends without profile support
     /// (server relational IQL) ignore it.
     #[serde(default)]
@@ -105,7 +105,7 @@ pub struct SearchResult {
 
 /// Per-hit score breakdown for explain-mode searches ([`SearchQuery::explain`]).
 ///
-/// Mirrors `VantaSearchExplanationHit` (`src/sdk/types.rs`) 1:1 so the UI can
+/// Mirrors `SearchExplanationHit` (`src/sdk/types.rs`) 1:1 so the UI can
 /// render BM25 term contributions and RRF rank positions per result.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct ExplanationHit {
@@ -135,7 +135,7 @@ pub struct ExplanationHit {
 
 /// Per-term BM25 scoring decomposition for a single explanation hit.
 ///
-/// Mirrors `VantaBm25TermContribution` (`src/sdk/types.rs`).
+/// Mirrors `Bm25TermContribution` (`src/sdk/types.rs`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Bm25Term {
     /// The query term token.
@@ -152,7 +152,7 @@ pub struct Bm25Term {
 
 /// A stored memory record returned by `get` / `list`.
 ///
-/// Mirrors `VantaMemoryRecord` (`src/sdk/types.rs`) so the UI can render
+/// Mirrors `MemoryRecord` (`src/sdk/types.rs`) so the UI can render
 /// version, update time, TTL and vector data. Fields are `Option` + serde
 /// default because the server backend (IQL nodes) cannot supply them — the
 /// native backend fills every one.
@@ -189,7 +189,7 @@ pub struct MemoryRecord {
 
 /// A page of records returned by `list`, with the cursor for the next page.
 ///
-/// Mirrors `VantaMemoryListPage` (`src/sdk/types.rs`) so the UI can paginate
+/// Mirrors `MemoryListPage` (`src/sdk/types.rs`) so the UI can paginate
 /// virtualized grids. `next_cursor` is a zero-based offset into the
 /// namespace's stable id order; `None` means this was the last page.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -201,7 +201,7 @@ pub struct ListPage {
 
 /// Per-namespace record statistics (VS-CORE-02).
 ///
-/// Mirrors `VantaNamespaceStats` (`src/sdk/types.rs`) 1:1 so the UI can show
+/// Mirrors `NamespaceStats` (`src/sdk/types.rs`) 1:1 so the UI can show
 /// real counts, expiring-soon and expired buckets per namespace without a
 /// client-side `list()` scan.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -215,26 +215,26 @@ pub struct NamespaceStats {
     pub expired: u64,
 }
 
-/// Namespace → stats map (mirror of `VantaNamespaceStatsMap`).
+/// Namespace → stats map (mirror of `NamespaceStatsMap`).
 pub type NamespaceStatsMap = BTreeMap<String, NamespaceStats>;
 
 /// A single AND-combined metadata filter item for export/delete operations
 /// (VS-CORE-04/05).
 ///
-/// `op` reuses the core `VantaFilterOp` so wire values stay PascalCase
+/// `op` reuses the core `FilterOp` so wire values stay PascalCase
 /// (`"Eq"`, `"Neq"`, `"Gt"`, ...) — the same shape the UI query builder emits
 /// (`desktop/src/components/search/filters-core.ts`). `value` is untagged JSON
 /// so any JSON-able value roundtrips.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct MemoryFilterItem {
     pub field: String,
-    pub op: vantadb::sdk::VantaFilterOp,
+    pub op: vantadb::sdk::FilterOp,
     pub value: serde_json::Value,
 }
 
 /// Result of a namespace export (VS-CORE-04).
 ///
-/// Mirrors `VantaExportReport` (`src/sdk/types.rs`) 1:1 so the UI can show
+/// Mirrors `ExportReport` (`src/sdk/types.rs`) 1:1 so the UI can show
 /// counts, path and duration.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ExportReport {
@@ -310,7 +310,7 @@ pub struct ConnectionInfo {
 
 /// Wire result of an IQL statement (VS-CORE-06).
 ///
-/// Mirrors the core `VantaQueryResult` enum externally-tagged (no
+/// Mirrors the core `QueryResult` enum externally-tagged (no
 /// `rename_all`): variant names serialize exactly as `Read` / `Write` /
 /// `StaleContext`. `node_id` is a string on the wire (u128 ids exceed JS
 /// `Number.MAX_SAFE_INTEGER`), consistent with [`MemoryRecord::node_id`].
@@ -653,7 +653,7 @@ mod tests {
     fn memory_filter_item_roundtrip_wire_shape() {
         let item = MemoryFilterItem {
             field: "color".into(),
-            op: vantadb::VantaFilterOp::Eq,
+            op: vantadb::FilterOp::Eq,
             value: serde_json::Value::from("red"),
         };
         assert_eq!(rt(&item), item);

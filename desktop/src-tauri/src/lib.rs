@@ -20,7 +20,7 @@ use std::sync::{Arc, Mutex};
 
 use tauri::{Emitter, Manager};
 use tauri_plugin_deep_link::DeepLinkExt;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 
 /// Event name emitted (Rust → frontend) when a `vanta://` deep link arrives
 /// while the app is already running (single-instance callback). The payload
@@ -38,7 +38,7 @@ pub struct AppState {
     /// Registry of live connections (native / server / …).
     pub manager: ConnectionManager,
     /// Embedded-engine configuration for native connections.
-    pub config: VantaConfig,
+    pub config: Config,
     /// Raw `vanta://` URLs waiting for the frontend to take them (VS-16).
     pub pending_deep_links: Arc<Mutex<Vec<String>>>,
     /// Wiki-ingest progress channel (MEM-53): pipeline workers push
@@ -89,7 +89,7 @@ fn ping() -> String {
 pub fn run() {
     let state = AppState {
         manager: ConnectionManager::new(),
-        config: VantaConfig::default(),
+        config: Config::default(),
         pending_deep_links: Arc::new(Mutex::new(Vec::new())),
         progress: Default::default(),
         embeddings: Default::default(),

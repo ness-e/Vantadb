@@ -1,6 +1,6 @@
 //! Connection-facing IPC commands (DESK-03).
 //!
-//! `vanta_health` proves the core [`VantaEmbedded`] engine works from the Tauri
+//! `vanta_health` proves the core [`Embedded`] engine works from the Tauri
 //! shell: it opens the database in a throwaway temp dir, probes capabilities,
 //! reports the backend, and closes. Duplicate-open lock handling is deliberately
 //! covered by DESK-05 NativeConnection, so the health probe uses a unique dir
@@ -10,7 +10,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::Deserialize;
 use tauri::State;
-use vantadb::VantaEmbedded;
+use vantadb::sdk::Embedded;
 
 use crate::connections::native::NativeConnection;
 use crate::connections::{ConnectionInfo, ServerClientConfig, ServerConnection, VantaConnection};
@@ -36,7 +36,7 @@ fn probe_dir() -> String {
 /// Map a core `vantadb` engine error onto the desktop contract error.
 /// Delegates to the shared mapping (ERR-DESK-01): `Lock`/`Io` semantics kept,
 /// every other variant preserves its canonical `VANTADB_*` code.
-fn map_core_error(err: vantadb::VantaError) -> VantaError {
+fn map_core_error(err: vantadb::error::Error) -> VantaError {
     VantaError::from_core(&err)
 }
 
@@ -49,7 +49,7 @@ pub fn vanta_health(_app_state: State<AppState>) -> Result<HealthReport, VantaEr
     let started = SystemTime::now();
     let dir = probe_dir();
 
-    let db = VantaEmbedded::open(&dir).map_err(map_core_error)?;
+    let db = Embedded::open(&dir).map_err(map_core_error)?;
     // capabilities() is the cheapest proof the engine is fully initialized.
     let caps = db.capabilities();
     db.close().map_err(map_core_error)?;
