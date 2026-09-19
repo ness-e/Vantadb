@@ -435,3 +435,9 @@ aliases: [DESKTOP]
 - **Objetivo:** suite desktop verde por archivo (stubs localStorage en undo/ProxyDashboard/MemoryLens; jsdom global + worker node intactos) + tsc Client alias.
 - **Resultado:** ✅ vitest 14 files 86/86 + tsc 0 + diff-check limpio; review P2-01 approve.
 - **Commit:** 33f60d20
+
+### FIND-124: migrar `desktop/src-tauri` a API post-AST-010
+- **Fecha:** 2026-09-19
+- **Objetivo:** Build & Test x3 OS rojos por drift (imports `Vanta*` eliminados).
+- **Resultado:** renombre puro 1:1 en 9 archivos (125+/125-); `cargo check --tests` + 106 tests verdes; P2-01 approve.
+- **Commit:** 797059b

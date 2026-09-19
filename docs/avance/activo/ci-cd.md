@@ -417,3 +417,15 @@ aliases: []
 - **Objetivo:** resto pendiente: mover-vs-referenciar `vantadb-ts/examples/`.
 - **Resultado:** decision REFERENCIAR (precedente FIND-74, sin evidencia nueva) + 2 lineas (README:65, QUICKSTART:53); coverage 0 gaps; P2-01 approve.
 - **Commit:** 9398b2bc
+
+### FIND-126: limpieza docs formato-only (frontmatter + 70 lints)
+- **Fecha:** 2026-09-19
+- **Objetivo:** Lint Markdown + Frontmatter rojos en PR #182.
+- **Resultado:** 11 archivos formato-only + acote `docs/research/archive/**` en config; 1423 files 0 issues + frontmatter 0 missing; P2-01 approve.
+- **Commit:** aa07c887
+
+### FIND-127: triage infra CI + Dependabot (PR #182)
+- **Fecha:** 2026-09-19
+- **Objetivo:** providers sin rustc, wheel aarch64 sin docker, CodeQL/Vercel, 20 vulns npm/web.
+- **Resultado:** renombres providers a API actual + wheels portable + triage 12 fix-ya / 8 aceptar-riesgo; P2-01 approve + follow-ups (lru motivo).
+- **Commit:** d3774c1a/909a119b (mismo contenido) + d755aeec (follow-ups P2-01)
