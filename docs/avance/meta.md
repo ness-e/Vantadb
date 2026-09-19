@@ -315,3 +315,8 @@ Plan `docs/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ en 3 
 ## Archivo plan 2026-09-18-smoke-e2e (2026-09-19)
 - **Plan:** docs/plans/archive/2026-09-18-smoke-e2e.md - 7/7 fases verdes (MCP 79/87, loop memoria + fallback:false, hooks 50/50, wizard/demo/roundtrip/salvage, superficie honesta, fmt/clippy + full nextest 3331 passed) + triage (0 bugs nuevos, GO a Publicacion). Sin budget.json (run manual asistido, sin campana MCP).
 - **Retrospectiva:** Start: smoke E2E manual antes de planificar (0 bugs tras 26 tareas dice mas que otro audit). Stop: asumir sintaxis/conteos de memoria (2 parseos errados del operador). Continue: DBs solo Temp + binario explicito por objetivo (instalado/fuente/instalado+ORT130).
+
+## Archivo plan 2026-09-19-ci-green (2026-09-19)
+- **Plan:** docs/plans/archive/2026-09-19-ci-green.md - 5/5 COMPLETED (Wave0: FIND-124 desktop + FIND-123 vs-table; Wave1: FIND-125 TS + FIND-126 docs; Wave2: FIND-127 infra; +P2-01 2 reviews approve + follow-ups d755aeec). Deuda: FIND-128/129/130/131/132 siguiente plan.
+- **Retrospectiva:** Start: secuencial + P2-01 batch por area (7 hallazgos reales). Stop: nada nuevo. Continue: verify lead + staging selectivo + follow-ups en 1 commit.
+- **Accion medible:** rate-fails 0% (0/8) baseline secuencial+backoff; mantener.
