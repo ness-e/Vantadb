@@ -3,8 +3,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyDictMethods, PyModuleMethods};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
-use vantadb::config::VantaConfig;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions};
+use vantadb::config::Config;
+use vantadb::sdk::{Embedded, MemoryInput, MemoryListOptions};
 
 #[path = "../../shared_py.rs"]
 mod common;
@@ -24,7 +24,7 @@ mod common;
 /// ```
 #[pyclass(name = "VantaDBOllama")]
 pub struct VantaDBOllama {
-    engine: VantaEmbedded,
+    engine: Embedded,
     client: Py<PyAny>,
     model: String,
     namespace: String,
@@ -77,11 +77,11 @@ impl VantaDBOllama {
         namespace: &str,
         timeout: Option<f64>,
     ) -> PyResult<Self> {
-        let config = VantaConfig {
+        let config = Config {
             storage_path: db_path.to_string(),
             ..Default::default()
         };
-        let engine = VantaEmbedded::open_with_config(config).map_err(common::err_to_py)?;
+        let engine = Embedded::open_with_config(config).map_err(common::err_to_py)?;
         let ollama_mod = pyo3::types::PyModule::import(py, "ollama")
             .map_err(|e| PyRuntimeError::new_err(format!("ollama import error: {}", e)))?;
         let client_kwargs = PyDict::new(py);
@@ -224,7 +224,7 @@ impl VantaDBOllama {
                 .as_nanos();
             format!("ollama_{ts}")
         });
-        let mut input = VantaMemoryInput::new(&namespace, &key, text);
+        let mut input = MemoryInput::new(&namespace, &key, text);
         input.vector = Some(embedding);
 
         let (parsed_meta, dropped_keys) = common::extract_metadata(metadata)?;
@@ -294,9 +294,9 @@ impl VantaDBOllama {
         limit: usize,
         cursor: Option<usize>,
     ) -> PyResult<Py<PyAny>> {
-        let options = VantaMemoryListOptions {
+        let options = MemoryListOptions {
             #[allow(deprecated)]
-            filters: vantadb::sdk::VantaMemoryMetadata::new(),
+            filters: vantadb::sdk::MemoryMetadata::new(),
             filter_ops: None,
             limit,
             cursor,

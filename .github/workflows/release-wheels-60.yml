@@ -101,8 +101,10 @@ jobs:
           args: --release --out dist --manifest-path ./vantadb-python/Cargo.toml
           target: ${{ matrix.target }}
           manylinux: 2_28
+          # FIND-127: el container cross aarch64 (ghcr.io/rust-cross/manylinux_2_28-cross)
+          # es Debian-based (sin yum) mientras el pypa x86_64 usa yum — rama portable.
           before-script-linux: |
-            yum install -y clang clang-devel
+            if command -v yum >/dev/null 2>&1; then yum install -y clang clang-devel; else apt-get update && apt-get install -y clang; fi
 
       - name: Install & smoke test (Unix)
         if: matrix.os != 'windows-latest' && !matrix.target

@@ -3,8 +3,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyDictMethods, PyList, PyModule, PyModuleMethods};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
-use vantadb::config::VantaConfig;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions};
+use vantadb::config::Config;
+use vantadb::sdk::{Embedded, MemoryInput, MemoryListOptions};
 
 #[path = "../../shared_py.rs"]
 mod common;
@@ -24,7 +24,7 @@ mod common;
 /// ```
 #[pyclass(name = "VantaDBLiteLLM")]
 pub struct VantaDBLiteLLM {
-    engine: VantaEmbedded,
+    engine: Embedded,
     api_key: String,
     embed_fn: Option<Py<PyAny>>,
     model: String,
@@ -97,11 +97,11 @@ impl VantaDBLiteLLM {
         namespace: &str,
         timeout: Option<f64>,
     ) -> PyResult<Self> {
-        let config = VantaConfig {
+        let config = Config {
             storage_path: db_path.to_string(),
             ..Default::default()
         };
-        let engine = VantaEmbedded::open_with_config(config).map_err(common::err_to_py)?;
+        let engine = Embedded::open_with_config(config).map_err(common::err_to_py)?;
         let litellm = PyModule::import(py, "litellm")
             .map_err(|e| PyRuntimeError::new_err(format!("litellm import error: {}", e)))?;
         let embed_fn = Some(litellm.getattr("embedding")?.unbind());
@@ -185,9 +185,9 @@ impl VantaDBLiteLLM {
             engine
                 .list(
                     &namespace,
-                    VantaMemoryListOptions {
+                    MemoryListOptions {
                         #[allow(deprecated)]
-                        filters: vantadb::sdk::VantaMemoryMetadata::new(),
+                        filters: vantadb::sdk::MemoryMetadata::new(),
                         filter_ops: None,
                         limit,
                         cursor,
@@ -285,7 +285,7 @@ impl VantaDBLiteLLM {
                 .as_nanos();
             format!("litellm_{ts}")
         });
-        let mut input = VantaMemoryInput::new(&namespace, &key, text);
+        let mut input = MemoryInput::new(&namespace, &key, text);
         input.vector = Some(embedding);
 
         let (parsed_meta, dropped_keys) = common::extract_metadata(metadata)?;
