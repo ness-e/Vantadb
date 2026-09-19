@@ -209,7 +209,6 @@ so LLM agents can branch on a stable identifier without parsing message text:
 | `dream_*` | 5 | `dreams.rs` |
 
 > Annotations are display hints (untrusted, not enforcement): `readOnlyHint` true = no persistent mutation, `destructiveHint` true = may delete/overwrite (11 tools), `idempotentHint` true = retry-safe, `openWorldHint` true = host filesystem (wiki_ingest, bulk_import_file only). Clients that ignore annotations assume pessimistic defaults.
-
 > Dependent ops (e.g. `put` then `search` over the new record) go in sequential invocations, not one multi-call batch: batches may reorder (smoke Fase 2 note).
 
 ## Tool Surface Profiles (MCP-37)
