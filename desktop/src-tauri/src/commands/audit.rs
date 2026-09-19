@@ -85,16 +85,25 @@ fn read_audit_events(
 mod tests {
     use super::*;
     use std::path::PathBuf;
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    /// Monotonic suffix so concurrent fixtures never share a path, even when
+    /// the OS clock tick is coarser than the call rate (WIN-FLAKY-AUDIT:
+    /// Windows `SystemTime` granularity let two parallel tests build the same
+    /// `pid-nanos` dir and overwrite each other's fixture).
+    static FIXTURE_SEQ: AtomicU64 = AtomicU64::new(0);
 
     /// Write a JSONL fixture into a temp file, return its path.
     fn write_fixture(events: &[&str]) -> PathBuf {
         let dir = std::env::temp_dir().join(format!(
-            "vantadb-desktop-audit-{}-{}",
+            "vantadb-desktop-audit-{}-{:?}-{}-{}",
             std::process::id(),
+            std::thread::current().id(),
             std::time::SystemTime::now()
                 .duration_since(std::time::UNIX_EPOCH)
                 .map(|d| d.as_nanos())
-                .unwrap_or(0)
+                .unwrap_or(0),
+            FIXTURE_SEQ.fetch_add(1, Ordering::Relaxed),
         ));
         std::fs::create_dir_all(&dir).expect("create temp dir");
         let path = dir.join("audit.jsonl");
@@ -214,6 +223,31 @@ mod tests {
         let page = read_audit_events(&empty, None, None, None, 100, None).expect("read");
         assert!(page.events.is_empty());
         assert_eq!(page.next_cursor, None);
+    }
+
+    #[test]
+    fn fixture_paths_are_unique_across_threads() {
+        // Regression guard for WIN-FLAKY-AUDIT: concurrent fixtures must never
+        // share a path (pre-fix `pid-nanos` collided on coarse Windows ticks).
+        let handles: Vec<_> = (0..8)
+            .map(|_| {
+                std::thread::spawn(|| {
+                    (0..8)
+                        .map(|_| write_fixture(&["not json"]))
+                        .collect::<Vec<_>>()
+                })
+            })
+            .collect();
+        let mut all = Vec::new();
+        for h in handles {
+            all.extend(h.join().expect("thread"));
+        }
+        let unique: std::collections::HashSet<_> = all.iter().collect();
+        assert_eq!(
+            unique.len(),
+            all.len(),
+            "concurrent fixtures must not share paths"
+        );
     }
 
     #[test]
