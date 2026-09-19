@@ -54,7 +54,8 @@ impl fmt::Display for L0Role {
 /// A single captured L0 message.
 ///
 /// `id` is the stable key used for SDK upsert idempotency. When `None`, the
-/// recorder derives `t{timestamp_ms}_{index}` from the message position.
+/// recorder derives a stable `t{timestamp_ms}_{index}_{fnv}` key from the
+/// message position plus an FNV-1a hash of role+content (see `derived_key`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct L0Message {
     pub id: Option<String>,
@@ -90,6 +91,40 @@ pub enum L0Error {
     InvalidRole(String),
     #[error("malformed cursor payload: {0}")]
     Cursor(#[from] serde_json::Error),
+}
+
+/// Stable derived L0 key: `t{timestamp_ms}_{index}_{fnv}` where `fnv` is the
+/// FNV-1a-64 hex of `role\0content`. Identical input always yields the same
+/// key — in any thread, in any call — so concurrent same-ms captures never
+/// overwrite each other (distinct content → distinct keys) while exact
+/// redeliveries stay idempotent (same key → upsert + cursor skip).
+fn derived_key(timestamp_ms: u64, index: usize, role: &str, content: &str) -> String {
+    format!("t{timestamp_ms}_{index}_{}", fnv1a_hex(role, content))
+}
+
+/// FNV-1a 64-bit, hex-encoded. Deterministic across runs (unlike SipHash),
+/// so derived keys double as restart-stable idempotency keys. Not
+/// cryptographic — keys are identifiers, never secrets.
+fn fnv1a_hex(role: &str, content: &str) -> String {
+    const OFFSET: u64 = 0xcbf29ce484222325;
+    const PRIME: u64 = 0x100000001b3;
+    let mut hash = OFFSET;
+    for byte in role
+        .bytes()
+        .chain(std::iter::once(0))
+        .chain(content.bytes())
+    {
+        hash ^= u64::from(byte);
+        hash = hash.wrapping_mul(PRIME);
+    }
+    format!("{hash:016x}")
+}
+
+/// Outcome of the same-millisecond tie-break: either the message is a
+/// replay (`Skip`) or it is new and persists under the returned key.
+enum TieBreak {
+    Skip,
+    Accept(String),
 }
 
 /// Metadata keys used on L0 records (none use the reserved `__vanta_` prefix).
@@ -149,26 +184,40 @@ impl L0Recorder {
         let session_ns = l0_namespace(&capture.session_id);
         let cursor_ns = cursor_namespace(&capture.session_id);
 
-        let cursor_ms = self
-            .read_cursor(&cursor_ns)?
-            .unwrap_or(plugin_start_timestamp_ms.unwrap_or(0));
+        let persisted_cursor = self.read_cursor(&cursor_ns)?;
+        let cursor_ms = persisted_cursor.unwrap_or(plugin_start_timestamp_ms.unwrap_or(0));
 
-        // Filter: only messages strictly newer than the cursor.
+        // Filter: messages older than the cursor are replays. A message AT the
+        // cursor is a replay too — except when it is genuinely new (same-ms
+        // race: two captures inside one millisecond, e.g. back-to-back
+        // `/conversation/add`). The tie-break below tells them apart by
+        // stored key+content, so no message is ever lost.
         let mut seen: BTreeSet<String> = BTreeSet::new();
         let mut pending: Vec<(String, &L0Message)> = Vec::new();
         for (idx, msg) in capture.messages.iter().enumerate() {
-            if msg.timestamp_ms <= cursor_ms {
+            if msg.timestamp_ms < cursor_ms {
                 continue;
             }
-            let key = msg
-                .id
-                .clone()
-                .unwrap_or_else(|| format!("t{}_{}", msg.timestamp_ms, idx));
-            let key = sanitize_key(&key);
-            if !seen.insert(key.clone()) {
+            let base = msg.id.clone().unwrap_or_else(|| {
+                derived_key(msg.timestamp_ms, idx, &msg.role.to_string(), &msg.content)
+            });
+            let base = sanitize_key(&base);
+            if msg.timestamp_ms == cursor_ms {
+                match self.tie_break(&session_ns, &base, msg, persisted_cursor.is_some())? {
+                    TieBreak::Skip => continue,
+                    TieBreak::Accept(key) => {
+                        if !seen.insert(key.clone()) {
+                            continue; // duplicate within the same batch
+                        }
+                        pending.push((key, msg));
+                    }
+                }
+                continue;
+            }
+            if !seen.insert(base.clone()) {
                 continue; // duplicate within the same batch
             }
-            pending.push((key, msg));
+            pending.push((base, msg));
         }
 
         let mut recorded = Vec::with_capacity(pending.len());
@@ -253,6 +302,44 @@ impl L0Recorder {
                     .and_then(serde_json::Value::as_u64))
             }
             None => Ok(None),
+        }
+    }
+
+    /// Same-millisecond tie-break (CODEX-132): a message stamped exactly at
+    /// the cursor is a replay when its key already stores the same
+    /// role+content, and a genuinely new message otherwise. New messages
+    /// reuse the free derived key, or probe a `_<n>` sequence suffix on
+    /// collision — so back-to-back captures in one millisecond lose nothing.
+    /// Runs only when a cursor was already persisted; without one (fresh
+    /// session under a plugin-start floor) ties keep the legacy skip.
+    fn tie_break(
+        &self,
+        session_ns: &str,
+        base: &str,
+        msg: &L0Message,
+        cursor_persisted: bool,
+    ) -> Result<TieBreak, L0Error> {
+        if !cursor_persisted {
+            return Ok(TieBreak::Skip);
+        }
+        match self.db.get(session_ns, base)? {
+            None => Ok(TieBreak::Accept(base.to_string())),
+            Some(stored) => {
+                let same = l0_message_from_record(&stored)
+                    .is_some_and(|m| m.role == msg.role && m.content == msg.content);
+                if same {
+                    return Ok(TieBreak::Skip);
+                }
+                for n in 1..1000u32 {
+                    let candidate = format!("{base}_{n}");
+                    if self.db.get(session_ns, &candidate)?.is_none() {
+                        return Ok(TieBreak::Accept(candidate));
+                    }
+                }
+                Err(L0Error::Vanta(Error::InvalidInput(format!(
+                    "l0 key space exhausted for base {base:?}: 1000 same-ms collisions"
+                ))))
+            }
         }
     }
 

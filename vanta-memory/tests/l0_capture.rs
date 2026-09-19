@@ -168,3 +168,52 @@ fn read_messages_returns_only_messages() {
         "cursor record must never leak into read_messages"
     );
 }
+
+// (f) CODEX-132: two same-ms messages without stable ids (as the
+// `/conversation/add` bridge sends them) must both persist — the second
+// must not be dropped by the cursor filter.
+#[test]
+fn same_ms_second_message_is_not_lost() {
+    use vanta_memory::core::conversation::L0Capture;
+
+    let (db, _dir) = open_db();
+    let recorder = L0Recorder::new(db);
+    let session = "sess-f";
+
+    let anon = |content: &str| L0Message {
+        id: None,
+        role: L0Role::User,
+        content: content.into(),
+        timestamp_ms: 9000,
+    };
+
+    let r1 = recorder
+        .record_turn(
+            &L0Capture {
+                session_id: session.into(),
+                messages: vec![anon("first")],
+            },
+            None,
+        )
+        .expect("first");
+    assert_eq!(r1.recorded_count, 1);
+
+    let r2 = recorder
+        .record_turn(
+            &L0Capture {
+                session_id: session.into(),
+                messages: vec![anon("second")],
+            },
+            None,
+        )
+        .expect("second");
+    assert_eq!(
+        r2.recorded_count, 1,
+        "same-ms second message must not be dropped"
+    );
+
+    let stored = recorder.read_messages(session).expect("read");
+    assert_eq!(stored.len(), 2, "0 messages may be lost, got: {stored:?}");
+    assert!(stored.iter().any(|m| m.content == "first"));
+    assert!(stored.iter().any(|m| m.content == "second"));
+}
