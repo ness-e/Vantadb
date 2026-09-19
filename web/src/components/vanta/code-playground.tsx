@@ -45,46 +45,77 @@ db.flush();`;
 
 const EXAMPLES = [
   {
-    name: "Full Quickstart",
-    code: STARTER_CODE,
-  },
-  {
-    name: "Put & Get",
-    code: `const record = db.put({
-  namespace: "agent/main",
-  key: "memory-001",
-  payload: "In-process execution minimizes latency.",
-  metadata: { category: "architecture", priority: 1 },
-  vector: [0.12, 0.88, 0.54],
-});
-console.log("put version", record.version);
+    name: "RAG Mini",
+    code: `// RAG: ingest 3 docs, retrieve top-2, synthesize an answer with citations.
+db.put({ namespace: "kb", key: "doc-auth", payload: "VantaDB authenticates MCP clients over stdio with an API key header.", vector: [0.9, 0.1, 0.2] });
+db.put({ namespace: "kb", key: "doc-wasm", payload: "The browser playground runs the real engine compiled to WASM.", vector: [0.1, 0.9, 0.2] });
+db.put({ namespace: "kb", key: "doc-ttl", payload: "Records with ttl_ms expire automatically via purge_expired.", vector: [0.1, 0.2, 0.9] });
 
-const stored = db.get("agent/main", "memory-001");
-console.log("get", stored.payload);
-console.log("metadata", stored.metadata);
+const hits = db.search({ namespace: "kb", query_vector: [0.85, 0.15, 0.2], text_query: "authenticate", top_k: 2 });
+console.log("retrieved", hits.length, "chunks:");
+for (const hit of hits) {
+  console.log("  [" + hit.record.key + "] score=" + hit.score.toFixed(4));
+  console.log("  " + hit.record.payload);
+}
+console.log("answer (cited): auth runs over stdio — see " + hits.map((h) => h.record.key).join(", "));
 
 db.flush();`,
   },
   {
     name: "Hybrid Search",
-    code: `for (let i = 0; i < 5; i++) {
-  db.put({
-    namespace: "docs",
-    key: "doc-" + i,
-    payload: "document content " + i,
-    vector: [0.1 * i, 0.9 - 0.1 * i, 0.5],
-  });
-}
+    code: `db.put({ namespace: "docs", key: "doc-0", payload: "in-process vector engine minimizes latency", vector: [0.9, 0.1, 0.5] });
+db.put({ namespace: "docs", key: "doc-1", payload: "persistent storage with write-ahead log", vector: [0.5, 0.5, 0.5] });
+db.put({ namespace: "docs", key: "doc-2", payload: "hybrid BM25 plus vector search ranking", vector: [0.2, 0.8, 0.5] });
 
-// Hybrid search: vector similarity + optional text query
+// Hybrid search: vector similarity + BM25 text query in one call
 const hits = db.search({
   namespace: "docs",
   query_vector: [0.2, 0.8, 0.5],
+  text_query: "hybrid search",
   top_k: 5,
 });
 for (const hit of hits) {
-  console.log(hit.record.key, "score=" + hit.score.toFixed(4));
+  console.log(hit.record.key, "score=" + hit.score.toFixed(4), "-", hit.record.payload);
 }
+
+db.flush();`,
+  },
+  {
+    name: "Graph BFS",
+    code: `// Graph: 3 nodes linked alice -> bob -> carol, then traverse.
+const alice = db.put({ namespace: "social", key: "alice", payload: "Alice", vector: [1.0, 0.0, 0.0] });
+const bob = db.put({ namespace: "social", key: "bob", payload: "Bob", vector: [0.0, 1.0, 0.0] });
+const carol = db.put({ namespace: "social", key: "carol", payload: "Carol", vector: [0.0, 0.0, 1.0] });
+const byId = {};
+byId[alice.node_id] = "alice";
+byId[bob.node_id] = "bob";
+byId[carol.node_id] = "carol";
+
+db.add_edge(alice.node_id, bob.node_id, "knows");
+db.add_edge(bob.node_id, carol.node_id, "knows");
+
+const visited = db.graph_bfs([alice.node_id], 2, "Forward");
+console.log("bfs from alice (depth 2):", visited.length, "nodes");
+for (const id of visited) {
+  console.log("  " + (byId[id] || id));
+}
+
+db.flush();`,
+  },
+  {
+    name: "TTL Expiry",
+    code: `// TTL: ttl_ms is relative — expires_at = now + ttl_ms (server-side).
+db.put({ namespace: "cache", key: "session", payload: "short-lived session", vector: [0.5, 0.5, 0.5], ttl_ms: 1 });
+db.put({ namespace: "cache", key: "pinned", payload: "never expires", vector: [0.5, 0.5, 0.5] });
+
+// Let the 1ms TTL lapse, then reap expired records
+await new Promise((r) => setTimeout(r, 10));
+const purged = db.purge_expired();
+console.log("purged", purged.toString(), "expired record(s)");
+
+console.log("session ->", db.get("cache", "session"));
+const pinned = db.get("cache", "pinned");
+console.log("pinned  ->", pinned.key, "-", pinned.payload);
 
 db.flush();`,
   },
@@ -108,6 +139,21 @@ const hits = db.search({
   top_k: 10,
 });
 console.log("found", hits.length, "results");
+
+db.flush();`,
+  },
+  {
+    name: "Persistence",
+    code: `// Persistence: save() writes to OPFS (browser) under "playground_data".
+db.put({ namespace: "agent/main", key: "notita", payload: "survives save/load roundtrip", vector: [0.3, 0.6, 0.5] });
+await db.save();
+console.log("saved to OPFS");
+
+// Roundtrip proof: reload persisted state and read it back
+await db.load();
+const back = db.get("agent/main", "notita");
+console.log("after load ->", back.key, "-", back.payload);
+console.log("namespaces:", db.list_namespaces().join(", "));
 
 db.flush();`,
   },
