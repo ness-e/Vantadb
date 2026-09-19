@@ -211,3 +211,48 @@ Deuda: PROV-12 espera secrets owner + EXE-03 ejecución humana + P51/features po
 Próxima tarea si completa: FIND-98-retry (Wave0)
 last-synced: 2026-09-19
 === END RECITATION ===
+
+=== RECITATION FIND-98-retry ===
+Campaign ID: 2c1b931f-977c-4500-8eb3-62de7c934bd7
+Objetivo activo: FIND-98-retry rebuild + reinstall parity 87
+Estado: completed
+Última acción: subagent rebuild par verificado (fuente 87 + fallback:false, test-mcp 5/5), reinstall STOP lock 2/2 PIDs 23396/17036 vivos, commit 8d7d1bbf; lead verifico: PIDs vivos reales + fuente 87 en vivo; Stop contractual del plan, re-DEFER vigente
+Resultado: ✅
+Próxima acción: SHOW-02 recetas playground
+Contrato: rebuild embed-local + reinstall par + instalado 87 + fallback:false, o STOP sin forzar
+Próxima tarea si completa: SHOW-02
+=== END RECITATION ===
+
+=== RECITATION SHOW-02 ===
+Campaign ID: 2c1b931f-977c-4500-8eb3-62de7c934bd7
+Objetivo activo: SHOW-02 recetas clicables playground
+Estado: completed
+Última acción: subagent 6 recetas (RAG/Hybrid/Graph/TTL/Batch/Persist) + linea MCP.md, commit d585a37d; lead verify: grep 6 names + diff MCP.md + coverage 0 gaps via verify_cmd EXIT=0
+Resultado: ✅
+Próxima acción: Wave1: SHOW-03 RAG-PDF
+Contrato: 6 recetas + linea MCP.md secuencial + coverage 0 gaps
+Próxima tarea si completa: SHOW-03
+=== END RECITATION ===
+
+=== RECITATION SHOW-03 ===
+Campaign ID: 2c1b931f-977c-4500-8eb3-62de7c934bd7
+Objetivo activo: SHOW-03 RAG-sobre-PDFs local
+Estado: completed
+Última acción: subagent demo stdlib-only + 3 tests, commit 5ff118b5; lead verify pytest 3/3
+Resultado: ✅
+Próxima acción: DIST-10/14 distribucion
+Contrato: 1 comando sin credenciales + cita verificable + README
+Próxima tarea si completa: DIST-10-14
+=== END RECITATION ===
+
+=== RECITATION DIST-10-14 ===
+Campaign ID: 2c1b931f-977c-4500-8eb3-62de7c934bd7
+Objetivo activo: DIST-10/14 plan distribucion + adopcion npm
+Estado: completed
+Última acción: estrategia escrita docs/DISTRIBUTION.md (canales PyPI/npm/GH-releases/CLI, comparativa Orama con fuentes verificadas 2026-09-19, nicho "browser AI agent memory", checklist anuncio PREPARADO no publicado) + task file, commit 30721042; verify coverage 0 gaps + diff-check limpio
+Resultado: ✅
+Próxima acción: PROV-12 publicar wheels (Gate V owner: token/estrategia/version)
+Contrato: DISTRIBUTION.md + comparativa honesta (Regla 11) + nicho + checklist + coverage 0 gaps
+Deuda: H-21 cifra nuestra (187/mes) re-verificar antes de anunciar; bundlephobia re-verificar; VsTable web numeros sin fuente -> FIND via orquestador (Gate C)
+Próxima tarea si completa: PROV-12
+=== END RECITATION ===
