@@ -1,0 +1,31 @@
+{
+  "tasks": {
+    "FIND-125": {
+      "taskId": "FIND-125",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789790271411,
+      "lastActivity": 1789790271411,
+      "traceId": "538861fd-e2b0-4ad5-bd3c-e66c1352488c"
+    },
+    "FIND-126": {
+      "taskId": "FIND-126",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789791468494,
+      "lastActivity": 1789791468494,
+      "traceId": "81e2d5c7-fecc-4910-8dce-70dc27a1357d"
+    },
+    "FIND-127": {
+      "taskId": "FIND-127",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789795069613,
+      "lastActivity": 1789795069613,
+      "traceId": "7c29ebef-6022-4d06-842c-c1aa35b6b609"
+    }
+  }
+}
