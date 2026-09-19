@@ -400,7 +400,7 @@ impl ConnectionManager {
     /// blocking pool, so the handle is cloned out and the read guard released.
     /// Non-native active connections (server/subprocess) fail with
     /// [`VantaError::Unsupported`].
-    pub async fn active_embedded(&self) -> Result<vantadb::VantaEmbedded, VantaError> {
+    pub async fn active_embedded(&self) -> Result<vantadb::sdk::Embedded, VantaError> {
         let id = self.active_id().await?;
         let inner = self.inner.read().await;
         let conn = inner

@@ -101,7 +101,7 @@ pub trait VantaConnection: Send + Sync {
     ///
     /// Default implementation: transports without an IQL endpoint report
     /// [`VantaError::Unsupported`] — only native (embedded) implements it via
-    /// the core `VantaEmbedded::query`.
+    /// the core `Embedded::query`.
     async fn query(&self, query: &str) -> Result<VantaQueryResult, VantaError> {
         let _ = query;
         Err(VantaError::Unsupported(
@@ -167,7 +167,7 @@ pub trait VantaConnection: Send + Sync {
     /// `limit` caps the number of nodes/edges returned (default 50). Default
     /// implementation: transports without graph traversal report
     /// [`VantaError::Unsupported`] — only native (embedded) implements it via
-    /// the core `VantaEmbedded::graph_bfs`.
+    /// the core `Embedded::graph_bfs`.
     async fn graph_bfs(
         &self,
         roots: Vec<String>,
@@ -184,7 +184,7 @@ pub trait VantaConnection: Send + Sync {
     /// Depth-first graph traversal from root node ids (GRAFO-01).
     ///
     /// Same contract as [`Self::graph_bfs`]; only native (embedded) implements
-    /// it via the core `VantaEmbedded::graph_dfs`.
+    /// it via the core `Embedded::graph_dfs`.
     async fn graph_dfs(
         &self,
         roots: Vec<String>,
@@ -202,7 +202,7 @@ pub trait VantaConnection: Send + Sync {
     /// (GRAFO-01). Returns nodes up to `limit` (default 50) with their
     /// `degree` populated; an empty/unknown namespace returns an empty list,
     /// not an error. Only native (embedded) implements it via the core
-    /// `VantaEmbedded::graph_degree_centrality`.
+    /// `Embedded::graph_degree_centrality`.
     async fn graph_degree(
         &self,
         namespace: &str,
@@ -246,7 +246,7 @@ pub trait VantaConnection: Send + Sync {
 
     /// Downcast view of this transport as the native embedded adapter (MEM-53).
     ///
-    /// The memory-pipeline commands need the raw `VantaEmbedded` handle that
+    /// The memory-pipeline commands need the raw `Embedded` handle that
     /// only the native transport holds; server/subprocess transports report
     /// `None` and the commands fail with [`crate::error::VantaError::Unsupported`].
     fn as_native(&self) -> Option<&super::native::NativeConnection> {

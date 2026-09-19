@@ -1,7 +1,7 @@
 //! Native embedded adapter (`NativeConnection`) for the desktop multi-connection
 //! contract (DESKTOP-05).
 //!
-//! Wraps [`vantadb::VantaEmbedded`] and implements [`VantaConnection`]. Every
+//! Wraps [`vantadb::sdk::Embedded`] and implements [`VantaConnection`]. Every
 //! synchronous SDK call runs on the blocking thread pool via
 //! `tokio::task::spawn_blocking` so the async trait never blocks the runtime.
 //!
@@ -9,10 +9,10 @@
 //!
 //! `NativeConnection` lives in the isolated Tauri workspace
 //! (`desktop/src-tauri` `[workspace] members = ["."]` — `vantadb = {path="../.."}`)
-//! and depends one-way on `vantadb` via `VantaEmbedded`/`VantaConfig`; the
+//! and depends one-way on `vantadb` via `Embedded`/`Config`; the
 //! core crate (`src/backends/rocksdb_backend.rs` `RocksDbBackend`) never
 //! imports this file. The call chain is a DAG
-//! `NativeConnection → VantaEmbedded → StorageEngine → StorageBackend → RocksDbBackend`
+//! `NativeConnection → Embedded → StorageEngine → StorageBackend → RocksDbBackend`
 //! — the reported "3 cycles get/put/delete" is name collision + Leiden
 //! clustering, not a CALLS SCC (verified `rg` 0 cross-imports + `cargo check`
 //! 0 cycles). Frontier trait is `StorageBackend` (`pub(crate)`, `Send+Sync`,
@@ -27,13 +27,13 @@ use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use async_trait::async_trait;
 use serde_json::Value as JsonValue;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
+use vantadb::error::Error as CoreError;
 use vantadb::graph::TraversalDirection;
-use vantadb::VantaError as CoreVantaError;
 use vantadb::{
-    VantaBm25TermContribution, VantaEmbedded, VantaMemoryFilterItem, VantaMemoryInput,
-    VantaMemoryListOptions, VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest,
-    VantaNodeRecord, VantaQueryResult as CoreQueryResult, VantaSearchExplanationHit, VantaValue,
+    Bm25TermContribution, Embedded, MemoryFilterItem as CoreMemoryFilterItem, MemoryInput,
+    MemoryListOptions, MemoryRecord as CoreMemoryRecord, MemorySearchHit, MemorySearchRequest,
+    NodeRecord, QueryResult as CoreQueryResult, SearchExplanationHit, Value as CoreValue,
 };
 
 use super::types::{
@@ -51,11 +51,11 @@ const DEFAULT_NAMESPACE: &str = "default";
 /// Monotonic counter for synthesizing ids when the caller omits one.
 static ID_SEQ: AtomicU64 = AtomicU64::new(0);
 
-/// A `VantaConnection` backed by an embedded `VantaEmbedded` handle.
+/// A `VantaConnection` backed by an embedded `Embedded` handle.
 pub struct NativeConnection {
     id: String,
     path: PathBuf,
-    db: VantaEmbedded,
+    db: Embedded,
     /// Audit log path configured on open; `None` = audit disabled (VS-12).
     audit_log_path: Option<PathBuf>,
 }
@@ -63,7 +63,7 @@ pub struct NativeConnection {
 impl NativeConnection {
     /// Raw embedded-SDK handle (MEM-53): the memory-pipeline commands run
     /// vanta-memory APIs directly over it.
-    pub fn db(&self) -> &VantaEmbedded {
+    pub fn db(&self) -> &Embedded {
         &self.db
     }
 
@@ -90,12 +90,12 @@ impl NativeConnection {
         audit_log_path: Option<PathBuf>,
     ) -> Result<Self, VantaError> {
         let path = path.into();
-        let config = VantaConfig {
+        let config = Config {
             storage_path: path.to_string_lossy().into_owned(),
             audit_log_path: audit_log_path.clone(),
             ..Default::default()
         };
-        let db = VantaEmbedded::open_with_config(config).map_err(map_core_error)?;
+        let db = Embedded::open_with_config(config).map_err(map_core_error)?;
         let id = format!("native:{}", path.display());
         Ok(Self {
             id,
@@ -134,10 +134,10 @@ impl NativeConnection {
     }
 }
 
-/// Translate a core `vantadb::VantaError` into the desktop `VantaError`.
+/// Translate a core `vantadb::error::Error` into the desktop `VantaError`.
 /// Delegates to the shared mapping so every transport keeps the canonical
 /// `VANTADB_*` code instead of collapsing to `Native(String)` (ERR-DESK-01).
-fn map_core_error(e: CoreVantaError) -> VantaError {
+fn map_core_error(e: CoreError) -> VantaError {
     VantaError::from_core(&e)
 }
 
@@ -168,75 +168,75 @@ async fn blocking<T: Send + 'static>(
         .map_err(|e| VantaError::Native(format!("blocking task failed: {e}")))?
 }
 
-/// Convert desktop `serde_json::Value` metadata into `VantaValue`.
-fn to_vanta_value(v: JsonValue) -> VantaValue {
+/// Convert desktop `serde_json::Value` metadata into `CoreValue`.
+fn to_vanta_value(v: JsonValue) -> CoreValue {
     match v {
-        JsonValue::Null => VantaValue::Null,
-        JsonValue::Bool(b) => VantaValue::Bool(b),
+        JsonValue::Null => CoreValue::Null,
+        JsonValue::Bool(b) => CoreValue::Bool(b),
         JsonValue::Number(n) => n
             .as_i64()
-            .map(VantaValue::Int)
-            .or_else(|| n.as_f64().map(VantaValue::Float))
-            .unwrap_or(VantaValue::Null),
-        JsonValue::String(s) => VantaValue::String(s),
+            .map(CoreValue::Int)
+            .or_else(|| n.as_f64().map(CoreValue::Float))
+            .unwrap_or(CoreValue::Null),
+        JsonValue::String(s) => CoreValue::String(s),
         JsonValue::Array(items) => {
             if items.iter().all(JsonValue::is_string) {
-                VantaValue::ListString(
+                CoreValue::ListString(
                     items
                         .iter()
                         .map(|i| i.as_str().unwrap().to_string())
                         .collect(),
                 )
             } else if items.iter().all(JsonValue::is_boolean) {
-                VantaValue::ListBool(items.iter().map(|i| i.as_bool().unwrap()).collect())
+                CoreValue::ListBool(items.iter().map(|i| i.as_bool().unwrap()).collect())
             } else if items.iter().all(JsonValue::is_i64) {
-                VantaValue::ListInt(items.iter().map(|i| i.as_i64().unwrap()).collect())
+                CoreValue::ListInt(items.iter().map(|i| i.as_i64().unwrap()).collect())
             } else if items.iter().all(JsonValue::is_number) {
-                VantaValue::ListFloat(
+                CoreValue::ListFloat(
                     items
                         .iter()
                         .map(|i| i.as_f64().unwrap_or_default())
                         .collect(),
                 )
             } else {
-                VantaValue::String(serde_json::to_string(&items).unwrap_or_default())
+                CoreValue::String(serde_json::to_string(&items).unwrap_or_default())
             }
         }
-        JsonValue::Object(_) => VantaValue::String(serde_json::to_string(&v).unwrap_or_default()),
+        JsonValue::Object(_) => CoreValue::String(serde_json::to_string(&v).unwrap_or_default()),
     }
 }
 
-/// Convert a desktop metadata map into the core's `BTreeMap<String, VantaValue>`.
+/// Convert a desktop metadata map into the core's `BTreeMap<String, CoreValue>`.
 fn metadata_to_vanta(
     metadata: &std::collections::HashMap<String, JsonValue>,
-) -> BTreeMap<String, VantaValue> {
+) -> BTreeMap<String, CoreValue> {
     metadata
         .iter()
         .map(|(k, v)| (k.clone(), to_vanta_value(v.clone())))
         .collect()
 }
 
-/// Convert a `VantaValue` back into `serde_json::Value`.
-fn from_vanta_value(v: &VantaValue) -> JsonValue {
+/// Convert a `CoreValue` back into `serde_json::Value`.
+fn from_vanta_value(v: &CoreValue) -> JsonValue {
     match v {
-        VantaValue::String(s) => JsonValue::String(s.clone()),
-        VantaValue::Int(i) => JsonValue::from(*i),
-        VantaValue::Float(f) => JsonValue::from(*f),
-        VantaValue::Bool(b) => JsonValue::from(*b),
-        VantaValue::Null => JsonValue::Null,
-        VantaValue::DateTime(dt) => JsonValue::String(dt.to_rfc3339()),
-        VantaValue::ListString(items) => JsonValue::from(items.clone()),
-        VantaValue::ListInt(items) => JsonValue::from(items.clone()),
-        VantaValue::ListFloat(items) => JsonValue::from(items.clone()),
-        VantaValue::ListBool(items) => JsonValue::from(items.clone()),
-        VantaValue::ListDateTime(items) => {
+        CoreValue::String(s) => JsonValue::String(s.clone()),
+        CoreValue::Int(i) => JsonValue::from(*i),
+        CoreValue::Float(f) => JsonValue::from(*f),
+        CoreValue::Bool(b) => JsonValue::from(*b),
+        CoreValue::Null => JsonValue::Null,
+        CoreValue::DateTime(dt) => JsonValue::String(dt.to_rfc3339()),
+        CoreValue::ListString(items) => JsonValue::from(items.clone()),
+        CoreValue::ListInt(items) => JsonValue::from(items.clone()),
+        CoreValue::ListFloat(items) => JsonValue::from(items.clone()),
+        CoreValue::ListBool(items) => JsonValue::from(items.clone()),
+        CoreValue::ListDateTime(items) => {
             JsonValue::from(items.iter().map(|d| d.to_rfc3339()).collect::<Vec<_>>())
         }
     }
 }
 
-fn ingest_to_input(item: &IngestItem, key: &str) -> VantaMemoryInput {
-    let mut input = VantaMemoryInput::new(item.namespace.clone(), key, item.text.clone());
+fn ingest_to_input(item: &IngestItem, key: &str) -> MemoryInput {
+    let mut input = MemoryInput::new(item.namespace.clone(), key, item.text.clone());
     input.metadata = metadata_to_vanta(&item.metadata);
     input.vector = item.embedding.clone();
     // H-04: propagate the sparse term-weight vector into the core input so
@@ -248,7 +248,7 @@ fn ingest_to_input(item: &IngestItem, key: &str) -> VantaMemoryInput {
     input
 }
 
-fn record_to_memory(r: VantaMemoryRecord) -> MemoryRecord {
+fn record_to_memory(r: CoreMemoryRecord) -> MemoryRecord {
     MemoryRecord {
         id: r.key,
         namespace: r.namespace,
@@ -268,7 +268,7 @@ fn record_to_memory(r: VantaMemoryRecord) -> MemoryRecord {
     }
 }
 
-/// Map the core `VantaQueryResult` into the desktop wire DTO (VS-CORE-06).
+/// Map the core `QueryResult` into the desktop wire DTO (VS-CORE-06).
 fn core_query_to_wire(r: CoreQueryResult) -> VantaQueryResult {
     match r {
         CoreQueryResult::Read(records) => {
@@ -289,14 +289,14 @@ fn core_query_to_wire(r: CoreQueryResult) -> VantaQueryResult {
     }
 }
 
-/// Convert a `VantaNodeRecord` (IQL result) into a desktop `MemoryRecord`.
+/// Convert a `NodeRecord` (IQL result) into a desktop `MemoryRecord`.
 ///
 /// IQL nodes don't carry memory-SDK timestamps/version; those stay `None`
 /// (the UI already treats them as optional). The `__vanta_*` reserved fields
 /// (namespace, payload, key, ...) are stripped from metadata, mirroring the
 /// memory SDK's `record_to_memory`; namespace and text are recovered from
 /// them, falling back to `text`/`content` for nodes created via IQL.
-fn node_record_to_memory(n: VantaNodeRecord) -> MemoryRecord {
+fn node_record_to_memory(n: NodeRecord) -> MemoryRecord {
     let metadata: std::collections::HashMap<String, JsonValue> = n
         .fields
         .iter()
@@ -306,12 +306,12 @@ fn node_record_to_memory(n: VantaNodeRecord) -> MemoryRecord {
     let text = ["__vanta_payload", "text", "content"]
         .into_iter()
         .find_map(|k| match n.fields.get(k) {
-            Some(VantaValue::String(s)) => Some(s.clone()),
+            Some(CoreValue::String(s)) => Some(s.clone()),
             _ => None,
         })
         .unwrap_or_default();
     let namespace = match n.fields.get("__vanta_namespace") {
-        Some(VantaValue::String(s)) => s.clone(),
+        Some(CoreValue::String(s)) => s.clone(),
         _ => DEFAULT_NAMESPACE.to_string(),
     };
     MemoryRecord {
@@ -329,23 +329,23 @@ fn node_record_to_memory(n: VantaNodeRecord) -> MemoryRecord {
     }
 }
 
-/// Map a core `VantaNodeRecord` into the desktop graph node DTO (GRAFO-01).
+/// Map a core `NodeRecord` into the desktop graph node DTO (GRAFO-01).
 ///
 /// `label` reuses the memory-SDK text recovery order (`__vanta_payload` →
 /// `text` → `content`), falling back to the numeric id so the visor always
 /// has something to render. `group` is the node `type` field when present
 /// (the visor colors by it); `degree` is filled in by degree queries, which
 /// take a different code path.
-fn node_record_to_graph_node(n: &VantaNodeRecord) -> VantaGraphNodeInfo {
+fn node_record_to_graph_node(n: &NodeRecord) -> VantaGraphNodeInfo {
     let label = ["__vanta_payload", "text", "content"]
         .into_iter()
         .find_map(|k| match n.fields.get(k) {
-            Some(VantaValue::String(s)) => Some(s.clone()),
+            Some(CoreValue::String(s)) => Some(s.clone()),
             _ => None,
         })
         .unwrap_or_else(|| n.id.to_string());
     let group = match n.fields.get("type") {
-        Some(VantaValue::String(s)) => Some(s.clone()),
+        Some(CoreValue::String(s)) => Some(s.clone()),
         _ => None,
     };
     VantaGraphNodeInfo {
@@ -362,9 +362,9 @@ fn parse_node_id(id: &str) -> Result<u128, VantaError> {
         .map_err(|_| VantaError::Native(format!("invalid node id: {id}")))
 }
 
-/// Map the core `VantaNamespaceStats` into the desktop wire DTO (VS-CORE-02).
-impl From<vantadb::VantaNamespaceStats> for NamespaceStats {
-    fn from(s: vantadb::VantaNamespaceStats) -> Self {
+/// Map the core `NamespaceStats` into the desktop wire DTO (VS-CORE-02).
+impl From<vantadb::NamespaceStats> for NamespaceStats {
+    fn from(s: vantadb::NamespaceStats) -> Self {
         Self {
             count: s.count,
             expiring_soon: s.expiring_soon,
@@ -385,7 +385,7 @@ fn parse_direction(direction: &str) -> Result<TraversalDirection, VantaError> {
     }
 }
 
-fn hit_to_result(h: VantaMemorySearchHit) -> SearchResult {
+fn hit_to_result(h: MemorySearchHit) -> SearchResult {
     SearchResult {
         id: h.record.key,
         namespace: h.record.namespace,
@@ -401,9 +401,9 @@ fn hit_to_result(h: VantaMemorySearchHit) -> SearchResult {
     }
 }
 
-/// Mirror a core `VantaSearchExplanationHit` 1:1 into the desktop wire DTO
+/// Mirror a core `SearchExplanationHit` 1:1 into the desktop wire DTO
 /// (`ExplanationHit`), which the frontend consumes (VS-CORE-03).
-fn explanation_to_dto(h: VantaSearchExplanationHit) -> ExplanationHit {
+fn explanation_to_dto(h: SearchExplanationHit) -> ExplanationHit {
     ExplanationHit {
         identity: h.identity,
         score: h.score,
@@ -413,7 +413,7 @@ fn explanation_to_dto(h: VantaSearchExplanationHit) -> ExplanationHit {
         bm25_terms: h
             .bm25_terms
             .into_iter()
-            .map(|t: VantaBm25TermContribution| Bm25Term {
+            .map(|t: Bm25TermContribution| Bm25Term {
                 token: t.token,
                 tf: t.tf,
                 df: t.df,
@@ -426,7 +426,7 @@ fn explanation_to_dto(h: VantaSearchExplanationHit) -> ExplanationHit {
     }
 }
 
-fn search_request(q: &SearchQuery) -> VantaMemorySearchRequest {
+fn search_request(q: &SearchQuery) -> MemorySearchRequest {
     let text_query = {
         let t = q.query.trim();
         if t.is_empty() {
@@ -435,7 +435,7 @@ fn search_request(q: &SearchQuery) -> VantaMemorySearchRequest {
             Some(t.to_string())
         }
     };
-    VantaMemorySearchRequest {
+    MemorySearchRequest {
         namespace: q
             .namespace
             .clone()
@@ -444,7 +444,7 @@ fn search_request(q: &SearchQuery) -> VantaMemorySearchRequest {
         filters: metadata_to_vanta(&q.filters),
         text_query,
         top_k: q.top_k,
-        // The core fills `VantaMemorySearchHit.explanation` when this flag is
+        // The core fills `MemorySearchHit.explanation` when this flag is
         // set (src/sdk/search/mod.rs), so explain mode needs no extra calls.
         explain: q.explain,
         // MEM-01/02: per-request fusion profile (mode/rrf_k/candidate_k),
@@ -511,7 +511,7 @@ impl VantaConnection for NativeConnection {
             .iter()
             .map(|it| it.id.clone().unwrap_or_else(gen_id))
             .collect();
-        let inputs: Vec<VantaMemoryInput> = items
+        let inputs: Vec<MemoryInput> = items
             .iter()
             .zip(&keys)
             .map(|(it, key)| ingest_to_input(it, key))
@@ -600,7 +600,7 @@ impl VantaConnection for NativeConnection {
         cursor: Option<usize>,
     ) -> Result<ListPage, VantaError> {
         let ns = namespace.unwrap_or(DEFAULT_NAMESPACE).to_string();
-        let options = VantaMemoryListOptions {
+        let options = MemoryListOptions {
             limit,
             cursor,
             ..Default::default()
@@ -680,7 +680,7 @@ impl VantaConnection for NativeConnection {
     ) -> Result<Vec<VantaGraphNodeInfo>, VantaError> {
         let ns = namespace.to_string();
         let cap = limit.unwrap_or(50);
-        let options = VantaMemoryListOptions {
+        let options = MemoryListOptions {
             limit: cap,
             cursor: None,
             ..Default::default()
@@ -726,7 +726,7 @@ impl VantaConnection for NativeConnection {
         let core_filter = filter.map(|items| {
             items
                 .into_iter()
-                .map(|item| VantaMemoryFilterItem {
+                .map(|item| CoreMemoryFilterItem {
                     field: item.field,
                     op: item.op,
                     value: to_vanta_value(item.value),
@@ -753,9 +753,9 @@ impl VantaConnection for NativeConnection {
     ) -> Result<u64, VantaError> {
         let db = self.db.clone();
         let namespace = namespace.to_string();
-        let core_filter: Vec<VantaMemoryFilterItem> = filter
+        let core_filter: Vec<CoreMemoryFilterItem> = filter
             .into_iter()
-            .map(|item| VantaMemoryFilterItem {
+            .map(|item| CoreMemoryFilterItem {
                 field: item.field,
                 op: item.op,
                 value: to_vanta_value(item.value),

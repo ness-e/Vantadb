@@ -101,7 +101,7 @@ pub enum VantaError {
     /// instead of parsing a flattened `Native` message.
     #[error("domain {code}: {message}")]
     Domain {
-        /// Canonical core code (`vantadb::VantaError::code()`).
+        /// Canonical core code (`vantadb::error::Error::code()`).
         code: String,
         /// Human-readable detail (core `Display`).
         message: String,
@@ -144,12 +144,12 @@ impl VantaError {
         }
     }
 
-    /// Translate a core `vantadb::VantaError` into the desktop contract
+    /// Translate a core `vantadb::error::Error` into the desktop contract
     /// WITHOUT collapsing it to a plain string (ERR-DESK-01). Retries stay
     /// distinguishable: `DatabaseBusy` → `Lock`, I/O → `Io`, anything else
     /// keeps its canonical `VANTADB_*` code in `Domain`.
-    pub fn from_core(e: &vantadb::VantaError) -> Self {
-        use vantadb::VantaError as Core;
+    pub fn from_core(e: &vantadb::error::Error) -> Self {
+        use vantadb::error::Error as Core;
         match e {
             Core::DatabaseBusy(msg) => Self::Lock(msg.clone()),
             Core::Io(io) => Self::Io(io.to_string()),
@@ -246,7 +246,7 @@ mod tests {
 
     #[test]
     fn from_core_preserves_canonical_code() {
-        let err = VantaError::from_core(&vantadb::VantaError::NodeNotFound(7));
+        let err = VantaError::from_core(&vantadb::error::Error::NodeNotFound(7));
         assert!(
             matches!(
                 &err,
@@ -263,9 +263,9 @@ mod tests {
 
     #[test]
     fn from_core_keeps_lock_and_io_semantics() {
-        let busy = VantaError::from_core(&vantadb::VantaError::DatabaseBusy("locked".into()));
+        let busy = VantaError::from_core(&vantadb::error::Error::DatabaseBusy("locked".into()));
         assert!(matches!(busy, VantaError::Lock(_)));
-        let io = VantaError::from_core(&vantadb::VantaError::Io(std::io::Error::other("disk")));
+        let io = VantaError::from_core(&vantadb::error::Error::Io(std::io::Error::other("disk")));
         assert!(matches!(io, VantaError::Io(_)));
     }
 }
