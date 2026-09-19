@@ -144,3 +144,9 @@ aliases: []
 - **Resultado:** ✅ build web 36/36 + lint 0 (Playwright N/A: 0 clases custom en e2e).
 - **Commit:** 5e2b0e89
 
+
+### FIND-123: fuentes/calificacion Regla 11 en vs-table
+- **Fecha:** 2026-09-19
+- **Objetivo:** celdas comparativas sin fuente visible.
+- **Resultado:** footnote con fuente VantaDB (BENCHMARKS.md p50 10K) + competidoras calificadas aprox/sep-2026; resto filas verificado; P2-01 approve + follow-up ES/EN (d755aeec).
+- **Commit:** f0d6e9cb + d755aeec (follow-ups P2-01)

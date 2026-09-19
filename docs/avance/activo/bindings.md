@@ -1105,3 +1105,9 @@ aliases: []
 - **Objetivo:** cerrar FIND-114: 7 ejemplos + demo + smoke + README a `Client`.
 - **Resultado:** mapeo G1-G8 1:1, grep cero-legacy, py_compile x10, smokes exit 0 (demo 7 secciones, smoke 9 asserts, 7/7 ejemplos), README sin stale; P2-01 approve.
 - **Commit:** 08b7ac8d
+
+### FIND-125: resync tipos `vantadb-ts` contra core/wasm
+- **Fecha:** 2026-09-19
+- **Objetivo:** 16 errores `tsc` por drift `.d.ts` hand-written vs runtime Rust.
+- **Resultado:** resync solo-tipos + 12 casts frontera (+1 narrow); `tsc` 0 + 311/311 tests; cero runtime; P2-01 approve.
+- **Commit:** 121f98d4 + d755aeec (conteo corregido 12+1)
