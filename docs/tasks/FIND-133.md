@@ -100,9 +100,9 @@ Cero refactors, WIP ajeno intacto.
 - `campaign_verify_cmd`: bug exit -1 conocido → bash directa + mención (esta).
 - 2-fallas-mismo-error → Gate V N/A (0 fallas de edición; 0 ediciones Rust).
 
-### Step 6 — Commit selectivo NO PUSH ⬜ PENDING
-`git add docs/tasks/FIND-133.md docs/architecture/adr/ADR-044-*` + `git commit "fix: FIND-133 — ..."`.
-NO PUSH (solo vanta-lead).
+### Step 6 — Commit selectivo NO PUSH ✅
+Commit `3c4f146c` (2 files, +157: este file + ADR-044; pre-commit hook verde).
+NO PUSH (solo vanta-lead). Recitation in-progress + RESULTADO §7 abajo.
 
 ## Deuda / Notas
 - Notion Paso 0c (4 páginas fetch): pendiente — Internet N/A declarado; deuda registrada, no bloquea.
