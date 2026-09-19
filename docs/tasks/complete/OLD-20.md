@@ -36,10 +36,10 @@ La implementación está ~90% completa. `CacheWarmer` ya existe y está conectad
 ### 2 gaps reales a cerrar:
 
 **Gap 2: Métricas no exportadas** — `CacheWarmerMetrics` struct (line 36) tiene `#[allow(dead_code)]` stale. No conectado a Prometheus counters. Acción:
-  - Quitar `#[allow(dead_code)]` de `CacheWarmerMetrics` (line 36) y `clear()` (line 183)
-  - Quitar `#[allow(dead_code)]` de `decay()` (line 131) — ya llamado, atributo stale
-  - Agregar counters Prometheus en `src/metrics/` para tracked_nodes, total_pairs, total_events, prefetch_hits
-  - Opcional: incluir cache warmer stats en `get_memory_stats()`
+- Quitar `#[allow(dead_code)]` de `CacheWarmerMetrics` (line 36) y `clear()` (line 183)
+- Quitar `#[allow(dead_code)]` de `decay()` (line 131) — ya llamado, atributo stale
+- Agregar counters Prometheus en `src/metrics/` para tracked_nodes, total_pairs, total_events, prefetch_hits
+- Opcional: incluir cache warmer stats en `get_memory_stats()`
 
 **Gap 3: `record_co_access()` no llamado desde search paths** — Search paths (lexical, vector, hybrid) devuelven hits de búsqueda pero NO llaman `record_co_access()`. Solo `get_many()` lo llama. Esto omite co-access tracking para queries que vienen por búsqueda en vez de fetch directo.
 

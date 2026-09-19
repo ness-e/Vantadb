@@ -116,10 +116,10 @@ Verificación mecánica:
   - get.rs / txn.rs: decode kind, leer payload por kind (validate checked_mul/add, end<=mmap), construir `VectorRepresentations` nativa; legacy kind==0 fallback Full/None + rescue desde HNSW para get hot path.
   - search/layer.rs: vstore branch despacha por kind a rabitq/turbo/sq8 similarity (reusa quantization.rs helpers), o fallback 0.0.
   - disk.rs: doc `vector_len` reinterp.
- - **Verify:** `rg -n "vector_len.*0" src/storage/ops.rs` → 0 (solo doc + None test) + `cargo check -p vantadb --all-targets` ✅ + `cargo nextest -p vantadb -E 'test(write_node_to_vstore_persists|test_rebuild_binary)'` 5/5 ✅ + `cargo nextest --profile audit -E 'test(persistence|vstore|rebuild)'` 62/62 ✅
- - **Estado:** ✅ COMPLETED (2026-08-28 — flags 4-bit kind + ops 6-variants payload + archive compact/rebuild dispatch + get/txn kind decode + search quantized fast_similarity + disk doc; fmt 0 + check 0 + nextest persistence 14/14 y rebuild 62/62 ✅)
+- **Verify:** `rg -n "vector_len.*0" src/storage/ops.rs` → 0 (solo doc + None test) + `cargo check -p vantadb --all-targets` ✅ + `cargo nextest -p vantadb -E 'test(write_node_to_vstore_persists|test_rebuild_binary)'` 5/5 ✅ + `cargo nextest --profile audit -E 'test(persistence|vstore|rebuild)'` 62/62 ✅
+- **Estado:** ✅ COMPLETED (2026-08-28 — flags 4-bit kind + ops 6-variants payload + archive compact/rebuild dispatch + get/txn kind decode + search quantized fast_similarity + disk doc; fmt 0 + check 0 + nextest persistence 14/14 y rebuild 62/62 ✅)
 
- ### Step 3: Tests roundtrip + migración doc + cierre verify full + commit + progreso (VERIFY)
+### Step 3: Tests roundtrip + migración doc + cierre verify full + commit + progreso (VERIFY)
 
 - **Archivos:** `src/storage/ops.rs` tests, `src/storage/archive.rs` tests, `src/storage/engine/tests/*` maybe nuevo `test_persistence_binary_roundtrip`, `docs/plans/2026-08-27-backlog-v2.md`, `docs/Backlog.md` (progreso), `docs/avance/activo/core-engine.md`
 - **Acción:**
@@ -127,8 +127,8 @@ Verificación mecánica:
   - `cargo nextest run -p vantadb --profile audit -E 'test(persistence|vstore|rebuild)'`  + `cargo nextest run -p vantadb -E 'test(persistence|vstore)'` ambos ✅.
   - `cargo fmt --check` + `cargo clippy --workspace --all-targets --all-features -- -D warnings` 0.
   - Actualizar plan file Task 4 → ✅ COMPLETED + recitation. Commit `feat: CORE-01 — persistencia Binary en vstore, requiere ADR de formato`. Ejecutar skill progreso (Backlog → docs/avance).
- - **Verify:** `cargo fmt --check` 0 ✅ + `cargo clippy -p vantadb --all-targets -- -D warnings` 0 ✅ (full --all-features gateway = verify.ps1) + `cargo nextest --profile audit -E 'test(persistence|vstore|rebuild)'` 76/76 y `-E 'test(persistence|vstore)'` 15/15 ✅ + `rg vector_len.*0` 0 ✅ + ADR existe ✅
- - **Estado:** ✅ COMPLETED (2026-08-28 — 4 persistence roundtrip tests Binary/Turbo/SQ8/Full + 5 ops tests + 4 archive rebuild tests + 76-wide persistence|vstore|rebuild 76/76 ✅; fmt/clippy 0; commit feat CORE-01)
+- **Verify:** `cargo fmt --check` 0 ✅ + `cargo clippy -p vantadb --all-targets -- -D warnings` 0 ✅ (full --all-features gateway = verify.ps1) + `cargo nextest --profile audit -E 'test(persistence|vstore|rebuild)'` 76/76 y `-E 'test(persistence|vstore)'` 15/15 ✅ + `rg vector_len.*0` 0 ✅ + ADR existe ✅
+- **Estado:** ✅ COMPLETED (2026-08-28 — 4 persistence roundtrip tests Binary/Turbo/SQ8/Full + 5 ops tests + 4 archive rebuild tests + 76-wide persistence|vstore|rebuild 76/76 ✅; fmt/clippy 0; commit feat CORE-01)
 
 ## Dependencias
 

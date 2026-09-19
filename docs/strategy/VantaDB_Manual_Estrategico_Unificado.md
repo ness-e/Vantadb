@@ -429,9 +429,9 @@ De tus tres verticales identificados en GO_TO_MARKET.md, evaluémoslos con el fr
 | Vertical | Dolor agudo HOY | Ciclo de adopción | Viable para USD 5k en 4 meses? |
 | --- | --- | --- | --- |
 
-1. Local LLM Stack (Ollama + AnythingLLM)	Alto pero fragmentado; AnythingLLM usa LanceDB con recall pobre (23-25% cosine en benchmarks)	Corto: pip install + Docker Compose. Dev prueba en una tarde.	Sí pero ticket bajo ($10-49/mo); necesita volumen
-2. Agentic Frameworks (LangGraph, CrewAI)	Muy alto: CrewAI memory con ChromaDB+SQLite falla en prod; LangGraph dev usa InMemorySaver, prod usa PostgresSaver caro	Medio: integración con adapter existente (LangChain, LlamaIndex ya listos)	Sí y ticket medio-alto ($49-199/mo); equipos pagando ya por herramientas
-3. AI-IDE Tooling (Claude Code, Cursor, Windsurf)	Alto: Claude Code no tiene memoria persistente entre sesiones; claude-mem (89K★) usa SQLite simple	Largo: requiere MCP server integration + IDE-specific docs	Sí pero ciclo largo; más para Q1 2027 que para USD 5k en 4 meses
+1. Local LLM Stack (Ollama + AnythingLLM) Alto pero fragmentado; AnythingLLM usa LanceDB con recall pobre (23-25% cosine en benchmarks) Corto: pip install + Docker Compose. Dev prueba en una tarde. Sí pero ticket bajo ($10-49/mo); necesita volumen
+2. Agentic Frameworks (LangGraph, CrewAI) Muy alto: CrewAI memory con ChromaDB+SQLite falla en prod; LangGraph dev usa InMemorySaver, prod usa PostgresSaver caro Medio: integración con adapter existente (LangChain, LlamaIndex ya listos) Sí y ticket medio-alto ($49-199/mo); equipos pagando ya por herramientas
+3. AI-IDE Tooling (Claude Code, Cursor, Windsurf) Alto: Claude Code no tiene memoria persistente entre sesiones; claude-mem (89K★) usa SQLite simple Largo: requiere MCP server integration + IDE-specific docs Sí pero ciclo largo; más para Q1 2027 que para USD 5k en 4 meses
 ICP RECOMENDADO PARA LANZAMIENTO
 Vertical 2: Agentic Frameworks. Razones: (a) dolor agudo documentado en producción (CrewAI falla, LangGraph gap dev/prod); (b) ya tienes 9 adapters PyPI listos (LangChain, LlamaIndex, Mem0, CrewAI, DSPy, Letta); (c) equipos que construyen agentes en empresas SaaS Series A-B tienen presupuesto para tools de $49-199/mo; (d) ciclo de adopción medio, no largo como IDE; (e) puedes facturar ticket Business $199/mo a 3-5 equipos = $597-$995 MRR.
 Tu Buyer Persona específica para este ICP: 'AI Engineer o Senior Backend Engineer en startup Series A-B (50-200 empleados, USD 10-50M ARR), construyendo agentes LLM en Python con LangGraph o CrewAI, equipo de 5-15 ingenieros, dolor concreto: su agente pierde contexto entre sesiones o no escala más allá de 10-50 conversaciones activas porque la memoria actual (ChromaDB + SQLite) no es confiable en producción. Compra tools de $50-500/mo con tarjeta corporativa, decisión técnica propia, no necesita aprobación de procurement.'
@@ -998,16 +998,16 @@ Versión condensada del Business Model Canvas adaptada a VantaDB. Completa los 9
 | Bloque | Pregunta clave | VantaDB (rellenar) |
 | --- | --- | --- |
 
-1. Segmentos de clientes	¿A quién sirves?	【(a) Equipos 5-30 devs con agentes LLM; (b) Indie devs en local LLM stack; (c) Equipos 30+ devs enterprise】
-2. Propuesta de valor	¿Qué problema resuelves y cómo?	【Memoria persistente de baja latencia para agentes LLM, sin servidor ni cloud, en un pip install】
-3. Canales	¿Cómo llegas a los clientes?	【GitHub, Show HN, Reddit, Discord LangGraph/CrewAI, blog técnico, newsletter】
-4. Relación con clientes	¿Cómo te relacionas?	【Self-service para Pro; soporte prioritario email; consultoría directa para Enterprise】
-5. Fuentes de ingresos	¿Cómo cobras?	【(a) Subscriptions Pro $49/mo; (b) Business $199/mo; (c) Enterprise annual $2.500+; (d) On-prem license fees】
-6. Recursos clave	¿Qué necesitas para operar?	【Codebase Rust (~42K LOC); comunidad GitHub/Discord; documentación; founder tiempo】
-7. Actividades clave	¿Qué haces día a día?	【Desarrollo core; adapters para frameworks; soporte; contenido técnico; outreach design partners】
-8. Socios clave	¿Con quién cooperas?	【Frameworks (LangChain, LlamaIndex, CrewAI); plataformas distribución (PyPI, crates.io, npm); comunidad OSS】
+1. Segmentos de clientes ¿A quién sirves? 【(a) Equipos 5-30 devs con agentes LLM; (b) Indie devs en local LLM stack; (c) Equipos 30+ devs enterprise】
+2. Propuesta de valor ¿Qué problema resuelves y cómo? 【Memoria persistente de baja latencia para agentes LLM, sin servidor ni cloud, en un pip install】
+3. Canales ¿Cómo llegas a los clientes? 【GitHub, Show HN, Reddit, Discord LangGraph/CrewAI, blog técnico, newsletter】
+4. Relación con clientes ¿Cómo te relacionas? 【Self-service para Pro; soporte prioritario email; consultoría directa para Enterprise】
+5. Fuentes de ingresos ¿Cómo cobras? 【(a) Subscriptions Pro $49/mo; (b) Business $199/mo; (c) Enterprise annual $2.500+; (d) On-prem license fees】
+6. Recursos clave ¿Qué necesitas para operar? 【Codebase Rust (~42K LOC); comunidad GitHub/Discord; documentación; founder tiempo】
+7. Actividades clave ¿Qué haces día a día? 【Desarrollo core; adapters para frameworks; soporte; contenido técnico; outreach design partners】
+8. Socios clave ¿Con quién cooperas? 【Frameworks (LangChain, LlamaIndex, CrewAI); plataformas distribución (PyPI, crates.io, npm); comunidad OSS】
 
-## 9. Estructura de costos	¿En qué gastas?	【Tiempo founder (opportunity cost); GitHub (free); Cloudflare (free); Polar.sh/Paddle fees 4-5%】
+## 9. Estructura de costos ¿En qué gastas? 【Tiempo founder (opportunity cost); GitHub (free); Cloudflare (free); Polar.sh/Paddle fees 4-5%】
 
 
 Plantilla 4: ICP y Buyer Persona (1 vertical)

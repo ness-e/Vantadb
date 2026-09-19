@@ -33,7 +33,7 @@ related: []
 > [`WASM_API.md` → "Score vs distance semantics (WSM-10)"](WASM_API.md#score-vs-distance-semantics-wsm-10).
 > TS-side: [`TS_SDK.md` → "Distance vs Score (CODE-091)"](TS_SDK.md#distance-vs-score-code-091).
 > Node-side: [`NODE_SDK.md` → Search § "Score is relevance, not a distance (WSM-10)"](NODE_SDK.md#search).
-
+>
 > **Naming (ADR-041 anti-stutter):** canonical names are `MemorySearchHit.score`
 > (memory/hybrid search) and `SearchHit.distance` (raw ANN). Legacy aliases
 > `VantaMemorySearchHit` / `VantaSearchHit` were removed in 0.6.0 (AST-010).
@@ -242,7 +242,7 @@ relevance and `distance` for raw ANN distance.
 > The memory path is `db.memory.get` / `.list` / `.delete` (real methods,
 > single implementation); flat `get` / `delete` stay node-level (`id: u128`).
 > (`search_memory`→`search`, `search`→`search_vector` already renamed by AST-008.)
-
+>
 > **Naming hazard reminder:** Python `insert` is classified as graph (node-level). The name collides with memory-record insertion semantics in other ecosystems — sub-client tests must use the real signatures above.
 
 **Not exposed in Python (wasm/TS-only), deferred per D42:** `audit_text_index_deep`, `export_namespace_filtered`, `import_records`.
