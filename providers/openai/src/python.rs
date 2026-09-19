@@ -3,8 +3,8 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyDictMethods, PyList, PyModuleMethods};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
-use vantadb::config::VantaConfig;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions};
+use vantadb::config::Config;
+use vantadb::sdk::{Embedded, MemoryInput, MemoryListOptions};
 
 #[path = "../../shared_py.rs"]
 mod common;
@@ -24,7 +24,7 @@ mod common;
 /// ```
 #[pyclass(name = "VantaDBOpenAI")]
 pub struct VantaDBOpenAI {
-    engine: VantaEmbedded,
+    engine: Embedded,
     client: Py<PyAny>,
     model: String,
     namespace: String,
@@ -91,11 +91,11 @@ impl VantaDBOpenAI {
         namespace: &str,
         timeout: Option<f64>,
     ) -> PyResult<Self> {
-        let config = VantaConfig {
+        let config = Config {
             storage_path: db_path.to_string(),
             ..Default::default()
         };
-        let engine = VantaEmbedded::open_with_config(config).map_err(common::err_to_py)?;
+        let engine = Embedded::open_with_config(config).map_err(common::err_to_py)?;
         let openai_mod = pyo3::types::PyModule::import(py, "openai")
             .map_err(|e| PyRuntimeError::new_err(format!("openai import error: {}", e)))?;
         let client_kwargs = PyDict::new(py);
@@ -235,7 +235,7 @@ impl VantaDBOpenAI {
                 .as_nanos();
             format!("openai_{ts}")
         });
-        let mut input = VantaMemoryInput::new(&namespace, &key, text);
+        let mut input = MemoryInput::new(&namespace, &key, text);
         input.vector = Some(embedding);
 
         let (parsed_meta, dropped_keys) = common::extract_metadata(metadata)?;
@@ -298,9 +298,9 @@ impl VantaDBOpenAI {
             engine
                 .list(
                     &namespace,
-                    VantaMemoryListOptions {
+                    MemoryListOptions {
                         #[allow(deprecated)]
-                        filters: vantadb::sdk::VantaMemoryMetadata::new(),
+                        filters: vantadb::sdk::MemoryMetadata::new(),
                         filter_ops: None,
                         limit,
                         cursor,

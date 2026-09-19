@@ -20,8 +20,8 @@ use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyDictMethods};
 use std::collections::{BTreeMap, HashMap};
-use vantadb::error::VantaError as CoreError;
-use vantadb::sdk::{VantaMemoryRecord, VantaMemorySearchRequest, VantaValue};
+use vantadb::error::Error as CoreError;
+use vantadb::sdk::{MemoryRecord, MemorySearchRequest, Value};
 
 // ─── Typed Python exception hierarchy (MOD-20 parity, ERR-PY-01) ────────────
 //
@@ -117,11 +117,11 @@ pub(super) fn register_errors(m: &Bound<'_, PyModule>) -> PyResult<()> {
     Ok(())
 }
 
-/// Build a `PyDict` from a `VantaMemoryRecord` with the canonical surface:
+/// Build a `PyDict` from a `MemoryRecord` with the canonical surface:
 ///
 /// Fields: `namespace`, `key`, `text`, `metadata`, `created_at_ms`,
 /// `updated_at_ms`, `version`, `node_id`, optional `vector`, optional `expires_at_ms`.
-pub(super) fn record_to_pydict(py: Python<'_>, r: VantaMemoryRecord) -> PyResult<Py<PyAny>> {
+pub(super) fn record_to_pydict(py: Python<'_>, r: MemoryRecord) -> PyResult<Py<PyAny>> {
     let d = PyDict::new(py);
     d.set_item("namespace", &r.namespace)?;
     d.set_item("key", &r.key)?;
@@ -140,30 +140,27 @@ pub(super) fn record_to_pydict(py: Python<'_>, r: VantaMemoryRecord) -> PyResult
     Ok(d.unbind().into())
 }
 
-/// Convert a `VantaMemoryMetadata` (alias for `BTreeMap<String, VantaValue>`)
+/// Convert a `MemoryMetadata` (alias for `BTreeMap<String, Value>`)
 /// to a `PyDict` with native Python types. The match is exhaustive (ERR-PY-01
-/// removed the `Debug` fallback): a new `VantaValue` variant is now a
+/// removed the `Debug` fallback): a new `Value` variant is now a
 /// compile error here instead of leaking `Debug` text into user metadata.
-fn vanta_values_to_pydict(
-    py: Python<'_>,
-    meta: &BTreeMap<String, VantaValue>,
-) -> PyResult<Py<PyDict>> {
+fn vanta_values_to_pydict(py: Python<'_>, meta: &BTreeMap<String, Value>) -> PyResult<Py<PyDict>> {
     let d = PyDict::new(py);
     for (mk, mv) in meta {
         match mv {
-            VantaValue::String(s) => d.set_item(mk, s)?,
-            VantaValue::Int(i) => d.set_item(mk, i)?,
-            VantaValue::Float(f) => d.set_item(mk, f)?,
-            VantaValue::Bool(b) => d.set_item(mk, b)?,
-            VantaValue::DateTime(dt) => d.set_item(mk, dt.to_rfc3339())?,
-            VantaValue::ListString(v) => d.set_item(mk, v)?,
-            VantaValue::ListInt(v) => d.set_item(mk, v)?,
-            VantaValue::ListFloat(v) => d.set_item(mk, v)?,
-            VantaValue::ListBool(v) => d.set_item(mk, v)?,
-            VantaValue::ListDateTime(v) => {
+            Value::String(s) => d.set_item(mk, s)?,
+            Value::Int(i) => d.set_item(mk, i)?,
+            Value::Float(f) => d.set_item(mk, f)?,
+            Value::Bool(b) => d.set_item(mk, b)?,
+            Value::DateTime(dt) => d.set_item(mk, dt.to_rfc3339())?,
+            Value::ListString(v) => d.set_item(mk, v)?,
+            Value::ListInt(v) => d.set_item(mk, v)?,
+            Value::ListFloat(v) => d.set_item(mk, v)?,
+            Value::ListBool(v) => d.set_item(mk, v)?,
+            Value::ListDateTime(v) => {
                 d.set_item(mk, v.iter().map(|dt| dt.to_rfc3339()).collect::<Vec<_>>())?
             }
-            VantaValue::Null => d.set_item(mk, py.None())?,
+            Value::Null => d.set_item(mk, py.None())?,
         };
     }
     Ok(d.unbind())
@@ -174,8 +171,8 @@ fn vanta_values_to_pydict(
 /// when unsupported value types are encountered (matches existing UX).
 pub(super) fn extract_metadata(
     meta: Option<&Bound<'_, PyDict>>,
-) -> PyResult<(HashMap<String, VantaValue>, Vec<String>)> {
-    let mut parsed: HashMap<String, VantaValue> = HashMap::new();
+) -> PyResult<(HashMap<String, Value>, Vec<String>)> {
+    let mut parsed: HashMap<String, Value> = HashMap::new();
     let mut dropped_keys: Vec<String> = Vec::new();
     if let Some(meta) = meta {
         for (k, v) in meta.iter() {
@@ -186,10 +183,10 @@ pub(super) fn extract_metadata(
             let val = v
                 .extract::<String>()
                 .ok()
-                .map(VantaValue::String)
-                .or_else(|| v.extract::<bool>().ok().map(VantaValue::Bool))
-                .or_else(|| v.extract::<i64>().ok().map(VantaValue::Int))
-                .or_else(|| v.extract::<f64>().ok().map(VantaValue::Float));
+                .map(Value::String)
+                .or_else(|| v.extract::<bool>().ok().map(Value::Bool))
+                .or_else(|| v.extract::<i64>().ok().map(Value::Int))
+                .or_else(|| v.extract::<f64>().ok().map(Value::Float));
             match val {
                 Some(val) => {
                     parsed.insert(key, val);
@@ -213,8 +210,8 @@ pub(super) fn parse_distance_metric(s: Option<&str>) -> Result<vantadb::Distance
     }
 }
 
-/// Build a `VantaMemorySearchRequest` from individual arguments.
-/// Filters are coerced to `VantaValue::String` (matches existing semantics).
+/// Build a `MemorySearchRequest` from individual arguments.
+/// Filters are coerced to `Value::String` (matches existing semantics).
 #[allow(clippy::too_many_arguments)]
 pub(super) fn build_search_request(
     namespace: &str,
@@ -223,14 +220,14 @@ pub(super) fn build_search_request(
     filters: Option<HashMap<String, String>>,
     metric: vantadb::DistanceMetric,
     top_k: usize,
-) -> VantaMemorySearchRequest {
-    VantaMemorySearchRequest {
+) -> MemorySearchRequest {
+    MemorySearchRequest {
         namespace: namespace.to_string(),
         query_vector: query_embedding,
         filters: filters
             .unwrap_or_default()
             .into_iter()
-            .map(|(k, v)| (k, VantaValue::String(v)))
+            .map(|(k, v)| (k, Value::String(v)))
             .collect(),
         text_query,
         top_k,
