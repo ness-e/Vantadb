@@ -313,7 +313,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - VS-00 prototipo Vanta Studio — HOME/MEMORIAS/Inspector HTML validado con Playwright
 - AUD-048 unify filter semantics between CLI and MCP
 - AUD-048 unify filter semantics between CLI and MCP
-- *(cli)* AUD-051 add --metadata flag, block __vanta_* filters, doc filter scope
+- *(cli)* AUD-051 add --metadata flag, block `__vanta_*` filters, doc filter scope
 - *(python)* AUD-049 add vantadb shim module re-exporting vantadb_py
 - *(FND-23-F1)* instrumenta vanta_graph_ops_total (traverse, edge queries, add/remove_edge) - deuda ADR-024 saldada
 - *(FND-01)* regla memory-budget + bench OOM confirma RSS sin limite (guard subestima 6.5x)
@@ -533,7 +533,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(mcp)* MOD-07 acepta notifications JSON-RPC sin id — handshake clientes estrictos
 - *(task-system)* H1-H3 hardening del campaign server
 - *(build)* BND-06 nextest scope-safe + BND-01 LinkError pkg WASM + BND-03 tipos verificados (3 fixes técnicos)
-- *(sdk)* MCP-28 bulk import writes __vanta_* fields (records now addressable) + payload key fix
+- *(sdk)* MCP-28 bulk import writes `__vanta_*` fields (records now addressable) + payload key fix
 - *(gov)* review P2-01 — master-index Investigaciones->research residual, skill configuration rate_limit 600 re-sync hash-SAME, addendum post-ejecucion al informe
 - *(ci)* nextest default profile filtra binarios reales python/hnsw_recall (antes python_sdk_boundary/hnsw_recall_certification inexistentes) + TEST_MAP alineado (GOV-C1)
 - callers export_namespace con filtro (vantadb-python) + clippy mcp_tests (VS-CORE-04)
@@ -1832,6 +1832,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Security
 
 - *(mcp)* log internal error detail instead of leaking to client (AUDREP-61)
+
 ---
 title: "Changelog"
 type: plan
@@ -1840,6 +1841,7 @@ tags: [vantadb, docs, changelog, releases]
 last_reviewed: 2026-09-15
 aliases: []
 related: []
+
 ---
 
 # Changelog
