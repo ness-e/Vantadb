@@ -4,6 +4,8 @@
 
 This file exists only for compatibility with agents that look for `AGENTS.md` at the repo root (Claude Code, etc.). **Do not duplicate content here** — edit `.opencode/AGENTS.md`.
 
+> **Note (C-01):** `.opencode/` is local-only tooling (untracked from git, stays on disk). A fresh clone won't have it; the repo builds and tests without it.
+
 ## Entry points
 
 | Document | Content |

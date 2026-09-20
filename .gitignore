@@ -273,3 +273,6 @@ vantadb-node/node_modules/
 docs/plans/*.budget.json
 
 docs/reviews/dsm-baseline.json
+
+# Local-only agent tooling (C-01: untracked from git, stays on disk)
+.opencode/
