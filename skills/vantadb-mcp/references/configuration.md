@@ -124,7 +124,7 @@ Verified against `vantadb-mcp/src/config.rs` (`McpConfig::from_storage`).
 
 ### VANTADB_MCP_PROFILE
 
-Tool surface profile for clients with tool caps (e.g. Cursor ~40 tools). Read once at server startup. Accepted values: `full` (default, 86 tools), `dev` (~35: memory + graph + collections + key maintenance + axioms), `memory` (~18: core CRUD + search + IQL + collections + capabilities).
+Tool surface profile for clients with tool caps (e.g. Cursor ~40 tools). Read once at server startup. Accepted values: `full` (default, 87 tools), `dev` (~35: memory + graph + collections + key maintenance + axioms), `memory` (~18: core CRUD + search + IQL + collections + capabilities).
 
 ```bash
 export VANTADB_MCP_PROFILE=dev

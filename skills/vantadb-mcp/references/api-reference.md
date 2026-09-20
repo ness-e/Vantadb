@@ -5,12 +5,12 @@
 ## MCP Tools (86)
 
 > **This is the single source of truth for the VantaDB MCP contract.**
-> Verified against `vantadb-mcp/src/`: exactly **86 tools** = 49 core
+> Verified against `vantadb-mcp/src/`: exactly **87 tools** = 49 core
 > (`handlers/tools.rs` `base_tools` — 49) + 6 `skill_*` (`skills.rs`) + 8 `code_*`
 > (`code.rs`) + 6 `wiki_*` (`wiki.rs`) + 1 `context_assemble`
 > (`context.rs`) + 5 `scene_*` (`scenes.rs`) + 6 `thread_*` (`threads.rs`) + 5 `dream_*` (`dreams.rs`). All eight sets are announced together
 > in `tools/list` via extend (`handlers/tools.rs`).
-> Last synced against code: 2026-09-17 — 86 tools = 49 core + 6 skill_* + 8 code_* + 6 wiki_* + 1 context_assemble + 5 scene_* + 6 thread_* + 5 dream_* (FIND-103 recount: +`scene_write`/`scene_edit` S1, +`dream_list`/`dream_load`/`dream_discard` S2, +`dream_consolidate`/`dream_promote` S3).
+> Last synced against code: 2026-09-17 — 87 tools = 49 core + 6 skill_* + 8 code_* + 6 wiki_* + 1 context_assemble + 5 scene_* + 6 thread_* + 5 dream_* (FIND-103 recount: +`scene_write`/`scene_edit` S1, +`dream_list`/`dream_load`/`dream_discard` S2, +`dream_consolidate`/`dream_promote` S3).
 
 ### Core — Memory / Search / Collections / Graph / IQL / GDS / Recovery (49)
 
