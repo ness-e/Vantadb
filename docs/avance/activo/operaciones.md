@@ -338,3 +338,15 @@ aliases: []
 - **Objetivo:** `vanta-mcp-local.ps1` (params `-DbPath` mandatory + env sesión + ORT autodetect + arranque `server --mcp --db`).
 - **Resultado:** ✅ smoke vivo `initialize` OK + `tools/list` 79 + `embed_texts` dim==384 + stdout stdio puro (fix Write-Host→stderr) + secrets audit CLAIM sostenido; review P2-01 approve.
 - **Commit:** f80b9886
+
+### CODEX-131: compose con loopback por defecto + auth documentada
+- **Fecha:** 2026-09-19
+- **Objetivo:** `docker-compose.yml` bind no-loopback sin key = contenedor muere antes del healthcheck (Codex P1).
+- **Resultado:** `VANTADB_HOST=${...:-127.0.0.1}` + auth documentada sin secretos (footgun `Some("")` verificado, sin key por defecto); P2-01 approve.
+- **Commit:** e0e74673 (rebase de 5b871993)
+
+### EXE-03-prep: kit gate Fase A listo
+- **Fecha:** 2026-09-19
+- **Objetivo:** checklist + plantilla usuario-01 + README honesto (desbloqueador del anuncio, ejecución humana owner-side).
+- **Resultado:** `docs/FASE-A.md` (checklist 5 familias + usuario-01 + auditoría README + handoff); coverage 0 gaps; P2-01 lead-docs approve (verificación abajo).
+- **Commit:** 0a33a73e

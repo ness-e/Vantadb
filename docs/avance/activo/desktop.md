@@ -441,3 +441,9 @@ aliases: [DESKTOP]
 - **Objetivo:** Build & Test x3 OS rojos por drift (imports `Vanta*` eliminados).
 - **Resultado:** renombre puro 1:1 en 9 archivos (125+/125-); `cargo check --tests` + 106 tests verdes; P2-01 approve.
 - **Commit:** 797059b
+
+### WIN-FLAKY-AUDIT: fixture única por llamada en audit tests
+- **Fecha:** 2026-09-19
+- **Objetivo:** `filters_by_namespace_op_and_outcome` FAIL en CI-Windows (90/91, `both docs events match`) vs PASS re-run mismo commit.
+- **Resultado:** colisión `pid+nanos` entre tests paralelos → sufijo `pid-thread-nanos-seq` (`AtomicU64`); regression test 8×8 hilos; 3 runs verdes + clippy/fmt; lead verify 6 passed.
+- **Commit:** 44a37d1b (rebase de 0f93edd3)

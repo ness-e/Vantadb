@@ -320,3 +320,11 @@ Plan `docs/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ en 3 
 - **Plan:** docs/plans/archive/2026-09-19-ci-green.md - 5/5 COMPLETED (Wave0: FIND-124 desktop + FIND-123 vs-table; Wave1: FIND-125 TS + FIND-126 docs; Wave2: FIND-127 infra; +P2-01 2 reviews approve + follow-ups d755aeec). Deuda: FIND-128/129/130/131/132 siguiente plan.
 - **Retrospectiva:** Start: secuencial + P2-01 batch por area (7 hallazgos reales). Stop: nada nuevo. Continue: verify lead + staging selectivo + follow-ups en 1 commit.
 - **Accion medible:** rate-fails 0% (0/8) baseline secuencial+backoff; mantener.
+
+## Archivo plan 2026-09-19-cierre-total (2026-09-19)
+- **Plan:** docs/plans/archive/2026-09-19-cierre-total.md - Wave A (FIND-133 triage+ADR-044 · CODEX-130/131/132 · FIND-128 ADR-fix) + Wave B (FIND-129 4 merges · WIN-flaky fix · P2-01 approve). Backlog −6, avance 4 dominios. Deuda: bump 0.6.0 en main, #180 a main, Lote1b/2, ruleset↔triggers, Vercel owner-side.
+- **Retrospectiva:** Start: waves disjuntas + paralelo ×3 sin colisiones. Stop: python -c en pwsh. Continue: verify lead + P2-01 batch + transcripción.
+- **Accion medible:** duplicados push-vs-PR mismo SHA como detector de flakies; mantener.
+
+## Archivo plan 2026-09-19-publicacion (2026-09-19)
+- **Plan:** docs/plans/archive/2026-09-19-publicacion.md - EXE-03-prep kit Fase A + P2-01 lead-docs approve. Deuda: ejecución humana del gate (owner-side).

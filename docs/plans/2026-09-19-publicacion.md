@@ -258,11 +258,28 @@ Próxima tarea si completa: PROV-12
 
 === RECITATION PROV-12 ===
 Campaign ID: 2c1b931f-977c-4500-8eb3-62de7c934bd7
-Objetivo activo: PROV-12 publicar wheels PyPI via CI
+Objetivo activo: PROV-12 release wheels verificado en seco
 Estado: completed
-Última acción: dry-run verde + commit selectivo sin push
-Resultado: OK
-Próxima acción: EXE-03-prep (orquestador)
-Contrato: verificacion: actionlint exit 0 + maturin build OK + venv smoke PASSED + commit a4f482e8 | evidencia: wheel 0.5.0 + docs/tasks/PROV-12.md | artefactos: commit a4f482e8 | invariantes: sin publish, sin secrets, sin cambios src | deuda: publish owner-side | queda_pendiente: EXE-03-prep
+Última acción: subagent dry-run completo + commit a4f482e8; owner Gate V: token en GitHub, TestPyPI primero, version del tag; publish real owner-side con OIDC
+Resultado: ✅
+Próxima acción: EXE-03-prep (ultima del plan)
+Contrato: workflow verde + maturin build + venv smoke + docs version, sin publish local
 Próxima tarea si completa: EXE-03-prep
 === END RECITATION ===
+
+=== RECITATION EXE-03-prep ===
+Campaign ID: 2c1b931f-977c-4500-8eb3-62de7c934bd7
+Objetivo activo: EXE-03-prep kit gate Fase A listo (checklist + plantilla usuario-01 + README honesto)
+Estado: completed
+Última acción: Kit creado + verify 0 gaps + commit 0a33a73e (tras reparar amend que barrió FIND-127: restaurado 909a119b idéntico) + lesson registrada
+Resultado: OK
+Próxima acción: ninguna — orquestador cierra plan (P2-01 batch + progreso + archive)
+Contrato: verificacion: `pwsh scripts/validate-docs-coverage.ps1` exit 0 (0 gaps) + `git diff --check` limpio + commit 0a33a73e (2 files, 271+) | evidencia: kit docs/FASE-A.md (77L comiteado 106 con frontmatter+checklist 5 familias+usuario-01+veredicto README) | claim README honesto: cero features v1.0.0 + boundary==EXPERIMENTAL_FEATURES + 0.5.0x3, evidencia README.md:169-184/Cargo.toml:728/pyproject:7/package.json:3, confianza alta | claim superficie 87: tools.rs:26-30+:1018-1019+MCP.md:198/220, confianza alta | artefactos: docs/FASE-A.md, docs/tasks/EXE-03-prep.md | invariantes: sin ejecucion humana, sin publish, WIP ajeno intacto (FIND-127 reescritura accidental revertida: 909a119b diff vacio vs d3774c1a; staged deletions restauradas) | deuda: ninguna | queda_pendiente: orquestador: P2-01 batch + progreso + archive (plan file con WIP ajeno unstaged → no se edita cuerpo; recitation via campaign server)
+Próxima tarea si completa: ninguna — ultima del plan
+=== END RECITATION ===
+
+## Cierre EXE-03-prep — P2-01 lead-docs (2026-09-19 — VEREDICTO: approve)
+- Alcance: `docs/FASE-A.md` (106L) + `docs/tasks/EXE-03-prep.md`, commit `0a33a73e` (pusheado).
+- Verificado: files existen; pre-commit hook verde en su commit; sin secretos (docs-only); kit checklist+usuario-01+handoff presente.
+- Hallazgos: ninguno (docs-only, sin código).
+- Progreso: avance/operaciones.md += EXE-03-prep (este cierre). Plan archivado a docs/plans/archive/.
