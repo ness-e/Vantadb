@@ -100,9 +100,6 @@ _vanta__cli() {
             vanta__cli,status)
                 cmd="vanta__cli__subcmd__status"
                 ;;
-            vanta__cli,tui)
-                cmd="vanta__cli__subcmd__tui"
-                ;;
             vanta__cli,wal)
                 cmd="vanta__cli__subcmd__wal"
                 ;;
@@ -190,9 +187,6 @@ _vanta__cli() {
             vanta__cli__subcmd__help,status)
                 cmd="vanta__cli__subcmd__help__subcmd__status"
                 ;;
-            vanta__cli__subcmd__help,tui)
-                cmd="vanta__cli__subcmd__help__subcmd__tui"
-                ;;
             vanta__cli__subcmd__help,wal)
                 cmd="vanta__cli__subcmd__help__subcmd__wal"
                 ;;
@@ -219,6 +213,9 @@ _vanta__cli() {
                 ;;
             vanta__cli__subcmd__help__subcmd__wal,compact)
                 cmd="vanta__cli__subcmd__help__subcmd__wal__subcmd__compact"
+                ;;
+            vanta__cli__subcmd__help__subcmd__wal,salvage)
+                cmd="vanta__cli__subcmd__help__subcmd__wal__subcmd__salvage"
                 ;;
             vanta__cli__subcmd__help__subcmd__wal,vacuum)
                 cmd="vanta__cli__subcmd__help__subcmd__wal__subcmd__vacuum"
@@ -289,6 +286,9 @@ _vanta__cli() {
             vanta__cli__subcmd__wal,help)
                 cmd="vanta__cli__subcmd__wal__subcmd__help"
                 ;;
+            vanta__cli__subcmd__wal,salvage)
+                cmd="vanta__cli__subcmd__wal__subcmd__salvage"
+                ;;
             vanta__cli__subcmd__wal,vacuum)
                 cmd="vanta__cli__subcmd__wal__subcmd__vacuum"
                 ;;
@@ -297,6 +297,9 @@ _vanta__cli() {
                 ;;
             vanta__cli__subcmd__wal__subcmd__help,help)
                 cmd="vanta__cli__subcmd__wal__subcmd__help__subcmd__help"
+                ;;
+            vanta__cli__subcmd__wal__subcmd__help,salvage)
+                cmd="vanta__cli__subcmd__wal__subcmd__help__subcmd__salvage"
                 ;;
             vanta__cli__subcmd__wal__subcmd__help,vacuum)
                 cmd="vanta__cli__subcmd__wal__subcmd__help__subcmd__vacuum"
@@ -308,7 +311,7 @@ _vanta__cli() {
 
     case "${cmd}" in
         vanta__cli)
-            opts="-d -v -h -V --db --verbose --memory-limit --help --version put get list rebuild-index audit-index repair-text-index export import query status backup restore doctor inspect stats tui completions search delete delete-by-filter count similar-to-key migrate namespace snapshot wal search-multi search-all server help"
+            opts="-d -v -h -V --db --verbose --memory-limit --help --version put get list rebuild-index audit-index repair-text-index export import query status backup restore doctor inspect stats completions search delete delete-by-filter count similar-to-key migrate namespace snapshot wal search-multi search-all server help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 1 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -624,7 +627,7 @@ _vanta__cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__help)
-            opts="put get list rebuild-index audit-index repair-text-index export import query status backup restore doctor inspect stats tui completions search delete delete-by-filter count similar-to-key migrate namespace snapshot wal search-multi search-all server help"
+            opts="put get list rebuild-index audit-index repair-text-index export import query status backup restore doctor inspect stats completions search delete delete-by-filter count similar-to-key migrate namespace snapshot wal search-multi search-all server help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1127,22 +1130,8 @@ _vanta__cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        vanta__subcmd__cli__subcmd__help__subcmd__tui)
-            opts=""
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
         vanta__subcmd__cli__subcmd__help__subcmd__wal)
-            opts="compact vacuum"
+            opts="compact vacuum salvage"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -1156,6 +1145,20 @@ _vanta__cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__help__subcmd__wal__subcmd__compact)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__help__subcmd__wal__subcmd__salvage)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
@@ -2139,34 +2142,8 @@ _vanta__cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
-        vanta__subcmd__cli__subcmd__tui)
-            opts="-d -v -h --db --verbose --memory-limit --help"
-            if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
-                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-                return 0
-            fi
-            case "${prev}" in
-                --db)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                -d)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                --memory-limit)
-                    COMPREPLY=($(compgen -f "${cur}"))
-                    return 0
-                    ;;
-                *)
-                    COMPREPLY=()
-                    ;;
-            esac
-            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
-            return 0
-            ;;
         vanta__subcmd__cli__subcmd__wal)
-            opts="-d -v -h --db --verbose --memory-limit --help compact vacuum help"
+            opts="-d -v -h --db --verbose --memory-limit --help compact vacuum salvage help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 2 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -2218,7 +2195,7 @@ _vanta__cli() {
             return 0
             ;;
         vanta__subcmd__cli__subcmd__wal__subcmd__help)
-            opts="compact vacuum help"
+            opts="compact vacuum salvage help"
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
                 COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
                 return 0
@@ -2259,6 +2236,20 @@ _vanta__cli() {
             COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
             return 0
             ;;
+        vanta__subcmd__cli__subcmd__wal__subcmd__help__subcmd__salvage)
+            opts=""
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
         vanta__subcmd__cli__subcmd__wal__subcmd__help__subcmd__vacuum)
             opts=""
             if [[ ${cur} == -* || ${COMP_CWORD} -eq 4 ]] ; then
@@ -2266,6 +2257,32 @@ _vanta__cli() {
                 return 0
             fi
             case "${prev}" in
+                *)
+                    COMPREPLY=()
+                    ;;
+            esac
+            COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+            return 0
+            ;;
+        vanta__subcmd__cli__subcmd__wal__subcmd__salvage)
+            opts="-d -v -h --dry-run --db --verbose --memory-limit --help"
+            if [[ ${cur} == -* || ${COMP_CWORD} -eq 3 ]] ; then
+                COMPREPLY=( $(compgen -W "${opts}" -- "${cur}") )
+                return 0
+            fi
+            case "${prev}" in
+                --db)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                -d)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
+                --memory-limit)
+                    COMPREPLY=($(compgen -f "${cur}"))
+                    return 0
+                    ;;
                 *)
                     COMPREPLY=()
                     ;;

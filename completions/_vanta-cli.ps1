@@ -45,7 +45,6 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('doctor', 'doctor', [CompletionResultType]::ParameterValue, 'Run comprehensive health diagnostics on the database')
             [CompletionResult]::new('inspect', 'inspect', [CompletionResultType]::ParameterValue, 'Inspect a single record showing all fields, vectors, and metadata')
             [CompletionResult]::new('stats', 'stats', [CompletionResultType]::ParameterValue, 'Display detailed database statistics in human-readable or JSON format')
-            [CompletionResult]::new('tui', 'tui', [CompletionResultType]::ParameterValue, 'Launch the interactive TUI (requires `tui` feature)')
             [CompletionResult]::new('completions', 'completions', [CompletionResultType]::ParameterValue, 'Generate shell completion scripts')
             [CompletionResult]::new('search', 'search', [CompletionResultType]::ParameterValue, 'Search records semantically across a namespace')
             [CompletionResult]::new('delete', 'delete', [CompletionResultType]::ParameterValue, 'Delete a record by namespace and key')
@@ -165,8 +164,8 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
-            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help (see more with ''--help'')')
             break
         }
         'vanta-cli;status' {
@@ -233,16 +232,6 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
             [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
             [CompletionResult]::new('--json', '--json', [CompletionResultType]::ParameterName, 'Output statistics as JSON')
-            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
-            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
-            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
-            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
-            break
-        }
-        'vanta-cli;tui' {
-            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
-            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
-            [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
             [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
             [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
@@ -498,6 +487,7 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             [CompletionResult]::new('compact', 'compact', [CompletionResultType]::ParameterValue, 'Compact the WAL: flush all data, archive the current WAL file, and start a fresh one')
             [CompletionResult]::new('vacuum', 'vacuum', [CompletionResultType]::ParameterValue, 'Remove tombstoned nodes from HNSW and reclaim space')
+            [CompletionResult]::new('salvage', 'salvage', [CompletionResultType]::ParameterValue, 'Salvage a truncated sharded WAL (FIND-109, opt-in): replay the coherent prefix and report explicit discards. The ERR-011 guard still aborts normal opens; this command is the explicit repair path')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -521,9 +511,21 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
             break
         }
+        'vanta-cli;wal;salvage' {
+            [CompletionResult]::new('-d', '-d', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--db', '--db', [CompletionResultType]::ParameterName, 'Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or ''./db'' if neither is set')
+            [CompletionResult]::new('--memory-limit', '--memory-limit', [CompletionResultType]::ParameterName, 'Optional memory limit for the database engine, in bytes. Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable')
+            [CompletionResult]::new('--dry-run', '--dry-run', [CompletionResultType]::ParameterName, 'Preview only: report what would be kept/discarded without mutating')
+            [CompletionResult]::new('-v', '-v', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('--verbose', '--verbose', [CompletionResultType]::ParameterName, 'Enable verbose output')
+            [CompletionResult]::new('-h', '-h', [CompletionResultType]::ParameterName, 'Print help')
+            [CompletionResult]::new('--help', '--help', [CompletionResultType]::ParameterName, 'Print help')
+            break
+        }
         'vanta-cli;wal;help' {
             [CompletionResult]::new('compact', 'compact', [CompletionResultType]::ParameterValue, 'Compact the WAL: flush all data, archive the current WAL file, and start a fresh one')
             [CompletionResult]::new('vacuum', 'vacuum', [CompletionResultType]::ParameterValue, 'Remove tombstoned nodes from HNSW and reclaim space')
+            [CompletionResult]::new('salvage', 'salvage', [CompletionResultType]::ParameterValue, 'Salvage a truncated sharded WAL (FIND-109, opt-in): replay the coherent prefix and report explicit discards. The ERR-011 guard still aborts normal opens; this command is the explicit repair path')
             [CompletionResult]::new('help', 'help', [CompletionResultType]::ParameterValue, 'Print this message or the help of the given subcommand(s)')
             break
         }
@@ -531,6 +533,9 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             break
         }
         'vanta-cli;wal;help;vacuum' {
+            break
+        }
+        'vanta-cli;wal;help;salvage' {
             break
         }
         'vanta-cli;wal;help;help' {
@@ -599,7 +604,6 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
             [CompletionResult]::new('doctor', 'doctor', [CompletionResultType]::ParameterValue, 'Run comprehensive health diagnostics on the database')
             [CompletionResult]::new('inspect', 'inspect', [CompletionResultType]::ParameterValue, 'Inspect a single record showing all fields, vectors, and metadata')
             [CompletionResult]::new('stats', 'stats', [CompletionResultType]::ParameterValue, 'Display detailed database statistics in human-readable or JSON format')
-            [CompletionResult]::new('tui', 'tui', [CompletionResultType]::ParameterValue, 'Launch the interactive TUI (requires `tui` feature)')
             [CompletionResult]::new('completions', 'completions', [CompletionResultType]::ParameterValue, 'Generate shell completion scripts')
             [CompletionResult]::new('search', 'search', [CompletionResultType]::ParameterValue, 'Search records semantically across a namespace')
             [CompletionResult]::new('delete', 'delete', [CompletionResultType]::ParameterValue, 'Delete a record by namespace and key')
@@ -661,9 +665,6 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
         'vanta-cli;help;stats' {
             break
         }
-        'vanta-cli;help;tui' {
-            break
-        }
         'vanta-cli;help;completions' {
             break
         }
@@ -722,12 +723,16 @@ Register-ArgumentCompleter -Native -CommandName 'vanta-cli' -ScriptBlock {
         'vanta-cli;help;wal' {
             [CompletionResult]::new('compact', 'compact', [CompletionResultType]::ParameterValue, 'Compact the WAL: flush all data, archive the current WAL file, and start a fresh one')
             [CompletionResult]::new('vacuum', 'vacuum', [CompletionResultType]::ParameterValue, 'Remove tombstoned nodes from HNSW and reclaim space')
+            [CompletionResult]::new('salvage', 'salvage', [CompletionResultType]::ParameterValue, 'Salvage a truncated sharded WAL (FIND-109, opt-in): replay the coherent prefix and report explicit discards. The ERR-011 guard still aborts normal opens; this command is the explicit repair path')
             break
         }
         'vanta-cli;help;wal;compact' {
             break
         }
         'vanta-cli;help;wal;vacuum' {
+            break
+        }
+        'vanta-cli;help;wal;salvage' {
             break
         }
         'vanta-cli;help;search-multi' {

@@ -146,8 +146,8 @@ _arguments "${_arguments_options[@]}" : \
 '--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
-'-h[Print help]' \
-'--help[Print help]' \
+'-h[Print help (see more with '\''--help'\'')]' \
+'--help[Print help (see more with '\''--help'\'')]' \
 ':query -- Query string:_default' \
 && ret=0
 ;;
@@ -221,17 +221,6 @@ _arguments "${_arguments_options[@]}" : \
 '--db=[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
 '--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '--json[Output statistics as JSON]' \
-'-v[Enable verbose output]' \
-'--verbose[Enable verbose output]' \
-'-h[Print help]' \
-'--help[Print help]' \
-&& ret=0
-;;
-(tui)
-_arguments "${_arguments_options[@]}" : \
-'-d+[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
-'--db=[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
-'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
 '-v[Enable verbose output]' \
 '--verbose[Enable verbose output]' \
 '-h[Print help]' \
@@ -607,6 +596,18 @@ _arguments "${_arguments_options[@]}" : \
 '--help[Print help]' \
 && ret=0
 ;;
+(salvage)
+_arguments "${_arguments_options[@]}" : \
+'-d+[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--db=[Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or '\''./db'\'' if neither is set]:DB:_default' \
+'--memory-limit=[Optional memory limit for the database engine, in bytes. Accepts suffixes\: KB, MB, GB (also KiB, MiB, GiB), e.g. \`500MB\` or \`2GB\`. Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable]:MEMORY_LIMIT:_default' \
+'--dry-run[Preview only\: report what would be kept/discarded without mutating]' \
+'-v[Enable verbose output]' \
+'--verbose[Enable verbose output]' \
+'-h[Print help]' \
+'--help[Print help]' \
+&& ret=0
+;;
 (help)
 _arguments "${_arguments_options[@]}" : \
 ":: :_vanta-cli__subcmd__wal__subcmd__help_commands" \
@@ -624,6 +625,10 @@ _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
 (vacuum)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
+(salvage)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
@@ -761,10 +766,6 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
-(tui)
-_arguments "${_arguments_options[@]}" : \
-&& ret=0
-;;
 (completions)
 _arguments "${_arguments_options[@]}" : \
 && ret=0
@@ -885,6 +886,10 @@ _arguments "${_arguments_options[@]}" : \
 _arguments "${_arguments_options[@]}" : \
 && ret=0
 ;;
+(salvage)
+_arguments "${_arguments_options[@]}" : \
+&& ret=0
+;;
         esac
     ;;
 esac
@@ -932,7 +937,6 @@ _vanta-cli_commands() {
 'doctor:Run comprehensive health diagnostics on the database' \
 'inspect:Inspect a single record showing all fields, vectors, and metadata' \
 'stats:Display detailed database statistics in human-readable or JSON format' \
-'tui:Launch the interactive TUI (requires \`tui\` feature)' \
 'completions:Generate shell completion scripts' \
 'search:Search records semantically across a namespace' \
 'delete:Delete a record by namespace and key' \
@@ -1013,7 +1017,6 @@ _vanta-cli__subcmd__help_commands() {
 'doctor:Run comprehensive health diagnostics on the database' \
 'inspect:Inspect a single record showing all fields, vectors, and metadata' \
 'stats:Display detailed database statistics in human-readable or JSON format' \
-'tui:Launch the interactive TUI (requires \`tui\` feature)' \
 'completions:Generate shell completion scripts' \
 'search:Search records semantically across a namespace' \
 'delete:Delete a record by namespace and key' \
@@ -1216,16 +1219,12 @@ _vanta-cli__subcmd__help__subcmd__status_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help status commands' commands "$@"
 }
-(( $+functions[_vanta-cli__subcmd__help__subcmd__tui_commands] )) ||
-_vanta-cli__subcmd__help__subcmd__tui_commands() {
-    local commands; commands=()
-    _describe -t commands 'vanta-cli help tui commands' commands "$@"
-}
 (( $+functions[_vanta-cli__subcmd__help__subcmd__wal_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__wal_commands() {
     local commands; commands=(
 'compact:Compact the WAL\: flush all data, archive the current WAL file, and start a fresh one' \
 'vacuum:Remove tombstoned nodes from HNSW and reclaim space' \
+'salvage:Salvage a truncated sharded WAL (FIND-109, opt-in)\: replay the coherent prefix and report explicit discards. The ERR-011 guard still aborts normal opens; this command is the explicit repair path' \
     )
     _describe -t commands 'vanta-cli help wal commands' commands "$@"
 }
@@ -1233,6 +1232,11 @@ _vanta-cli__subcmd__help__subcmd__wal_commands() {
 _vanta-cli__subcmd__help__subcmd__wal__subcmd__compact_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli help wal compact commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__help__subcmd__wal__subcmd__salvage_commands] )) ||
+_vanta-cli__subcmd__help__subcmd__wal__subcmd__salvage_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli help wal salvage commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__help__subcmd__wal__subcmd__vacuum_commands] )) ||
 _vanta-cli__subcmd__help__subcmd__wal__subcmd__vacuum_commands() {
@@ -1455,16 +1459,12 @@ _vanta-cli__subcmd__status_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli status commands' commands "$@"
 }
-(( $+functions[_vanta-cli__subcmd__tui_commands] )) ||
-_vanta-cli__subcmd__tui_commands() {
-    local commands; commands=()
-    _describe -t commands 'vanta-cli tui commands' commands "$@"
-}
 (( $+functions[_vanta-cli__subcmd__wal_commands] )) ||
 _vanta-cli__subcmd__wal_commands() {
     local commands; commands=(
 'compact:Compact the WAL\: flush all data, archive the current WAL file, and start a fresh one' \
 'vacuum:Remove tombstoned nodes from HNSW and reclaim space' \
+'salvage:Salvage a truncated sharded WAL (FIND-109, opt-in)\: replay the coherent prefix and report explicit discards. The ERR-011 guard still aborts normal opens; this command is the explicit repair path' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'vanta-cli wal commands' commands "$@"
@@ -1479,6 +1479,7 @@ _vanta-cli__subcmd__wal__subcmd__help_commands() {
     local commands; commands=(
 'compact:Compact the WAL\: flush all data, archive the current WAL file, and start a fresh one' \
 'vacuum:Remove tombstoned nodes from HNSW and reclaim space' \
+'salvage:Salvage a truncated sharded WAL (FIND-109, opt-in)\: replay the coherent prefix and report explicit discards. The ERR-011 guard still aborts normal opens; this command is the explicit repair path' \
 'help:Print this message or the help of the given subcommand(s)' \
     )
     _describe -t commands 'vanta-cli wal help commands' commands "$@"
@@ -1493,10 +1494,20 @@ _vanta-cli__subcmd__wal__subcmd__help__subcmd__help_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli wal help help commands' commands "$@"
 }
+(( $+functions[_vanta-cli__subcmd__wal__subcmd__help__subcmd__salvage_commands] )) ||
+_vanta-cli__subcmd__wal__subcmd__help__subcmd__salvage_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli wal help salvage commands' commands "$@"
+}
 (( $+functions[_vanta-cli__subcmd__wal__subcmd__help__subcmd__vacuum_commands] )) ||
 _vanta-cli__subcmd__wal__subcmd__help__subcmd__vacuum_commands() {
     local commands; commands=()
     _describe -t commands 'vanta-cli wal help vacuum commands' commands "$@"
+}
+(( $+functions[_vanta-cli__subcmd__wal__subcmd__salvage_commands] )) ||
+_vanta-cli__subcmd__wal__subcmd__salvage_commands() {
+    local commands; commands=()
+    _describe -t commands 'vanta-cli wal salvage commands' commands "$@"
 }
 (( $+functions[_vanta-cli__subcmd__wal__subcmd__vacuum_commands] )) ||
 _vanta-cli__subcmd__wal__subcmd__vacuum_commands() {
