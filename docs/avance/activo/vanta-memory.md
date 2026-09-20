@@ -114,3 +114,15 @@ aliases: []
 - **Objetivo:** cablear memoria diferida ADR-040 (Gate D A/A/B vía `question`): `TaskKind::Dream` + rama handle + flag batch opt-in + 4 tests wiring; tool 77 ratificada diseñada; MEM-70 DEFER-ratificado.
 - **Resultado:** ✅ 542 passed / 0 failed (336 lib + 205 integración + 1 doc) + clippy 0 + fmt; review P2-01 approve.
 - **Commit:** 0be84203 (discovery+spec) + 29ec9f02 (feat wiring)
+
+### CODEX-130: `memory_recall` ve L1 del pipeline
+- **Fecha:** 2026-09-19
+- **Objetivo:** recall con sesión `mcp` vacía + filtro agent/team vs writer None = L1 invisible (Codex P1 PR #182).
+- **Resultado:** `default_tenancy()` en writer (Store+Merge), D22 intacto; test sintético RED→GREEN; P2-01 approve.
+- **Commit:** e0e74673 (rebase de 5b871993)
+
+### CODEX-132: L0 mismo-ms sin pérdida
+- **Fecha:** 2026-09-19
+- **Objetivo:** key `t{ts}_0` + `timestamp_ms <= cursor` = 1 mensaje perdido en silencio (Codex P2).
+- **Resultado:** key `t{ts}_{idx}_{fnv}` + tie-break probe; test determinista + concurrente verdes (expuso overwrite entre hilos, fixed sin locks); P2-01 approve.
+- **Commit:** e0e74673 (rebase de 5b871993)

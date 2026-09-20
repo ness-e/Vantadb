@@ -429,3 +429,21 @@ aliases: []
 - **Objetivo:** providers sin rustc, wheel aarch64 sin docker, CodeQL/Vercel, 20 vulns npm/web.
 - **Resultado:** renombres providers a API actual + wheels portable + triage 12 fix-ya / 8 aceptar-riesgo; P2-01 approve + follow-ups (lru motivo).
 - **Commit:** d3774c1a/909a119b (mismo contenido) + d755aeec (follow-ups P2-01)
+
+### FIND-128: fix ADR-Gate multiline + matriz triggers 28 workflows
+- **Fecha:** 2026-09-19
+- **Objetivo:** ADR Gate rojo (`Invalid format ADR-015` + `output` command) + duplicados push-vs-PR en PR #182.
+- **Resultado:** 1 línea (`paste -sd`) + comentario; matriz 28 triggers (duplicados = push[develop]+PR[main] mismo SHA); dedup como propuesta escrita; P2-01 approve.
+- **Commit:** 50c799d9 (rebase de ddd9d58c)
+
+### FIND-129: triage 20 PRs dependabot + release-plz
+- **Fecha:** 2026-09-19
+- **Objetivo:** 20 PRs abiertos sin cerrar a ciegas.
+- **Resultado:** Lote1a mergeado (#168/#165/#164/#163 pins CI); 9 rebases pateados; majors #174/#175 + #180 + #161 con veredicto; hallazgo: ruleset 11 checks vs triggers PR-a-main (ningún dependabot-PR lo satisface).
+- **Commit:** remotos #168/#165/#164/#163 + 72b29b92 (task file)
+
+### FIND-133: triage semver ~20 breakings intencional-0.6.0
+- **Fecha:** 2026-09-19
+- **Objetivo:** Semver Checks rojo (develop vs crates.io 0.5.0) — HACERLO PASAR con triage, no con revert ciego.
+- **Resultado:** 21 cats/~100 ítems, 0 accidentales; ADR-044 sin-revert; verde real solo con bump 0.6.0 vía release-plz en main (rojo-en-develop bendecido por scope main-only); P2-01 approve.
+- **Commit:** 30b6a1f2/ab3eb373 (rebase de 3c4f146c/6afbe06e)
