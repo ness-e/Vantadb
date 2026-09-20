@@ -193,3 +193,7 @@ N/A — bug-fix CI, Phase 1b negativa: no agrega `pub fn`, tools, endpoints ni m
 4. **release-npm-61 / release-npm-node `push.tags + branches + paths`:** combinación inválida (tags ignoran branches/paths) — separar en 2 bloques `push:` o documentar intención. Solo propuesta (release-sensitive).
 5. **CI_POLICY.md:17 `26` → `28`** + inventario (falta `ci-gate.yml`/`opencode.yml` u otros 2): hacerlo cuando se toque ese archivo (no ahora).
 6. **No propuesto:** concurrency unificada por SHA, `paths-ignore`, ni migrar a `merge_group` — refactors, fuera del contrato mínimo.
+
+## Review P2-01 (transcripción dictamen revisor distinto, 2026-09-19 — VEREDICTO: approve)
+- Self-gate degradado declarado por implementador (sin question tool) — subsanado por este dictamen distinto, no re-abrir fix.
+- Revisor verificó: `ddd9d58c` diff 1 línea + comentario; sim OLD 2-líneas INVALID / NEW 1-línea VALID; `actionlint` EXIT 0; matriz triggers coherente con `on:` reales (push[main,develop]+PR[main] → duplicados mismo SHA); cero refactors CI.
