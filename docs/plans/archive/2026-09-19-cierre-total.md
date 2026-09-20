@@ -43,3 +43,25 @@ Deuda: bump 0.6.0 en main vía release-plz · #180 a main tras proof · Lote1b/2
 Próxima tarea si completa: ninguna (plan cerrado)
 last-synced: 2026-09-19
 === END RECITATION ===
+
+=== RECITATION FIND-129 ===
+Campaign ID: 8ae06b20-0178-41bc-8261-1634feb71271
+Objetivo activo: FIND-129 triage 20 PRs
+Estado: completed
+Última acción: subagent 4 merges remotos + 9 rebases + task file; lead rebase limpio + push develop
+Resultado: ✅
+Próxima acción: monitorear CI post-merge; Lote1b/2 tras verde
+Contrato: Lote1a mergeado + resto veredicto + cero closes ciegos
+Próxima tarea si completa: cierre
+=== END RECITATION ===
+
+=== RECITATION WIN-FLAKY-AUDIT ===
+Campaign ID: 8ae06b20-0178-41bc-8261-1634feb71271
+Objetivo activo: WIN-FLAKY-AUDIT fixture unica
+Estado: completed
+Última acción: subagent fix seq+thread + regression test, commit 44a37d1b; lead verify lib 6 passed + push
+Resultado: ✅
+Próxima acción: cierre
+Contrato: causa + fix determinista + 3 runs verdes
+Próxima tarea si completa: cierre
+=== END RECITATION ===
