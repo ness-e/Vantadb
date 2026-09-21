@@ -21,9 +21,12 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
 
 ## Fase 0 — Cierre release 0.6.0 (puerta de todo lo demás)
 
-- [ ] R-01 · Mergear PR #182 a `main` (`--squash`; main solo permite squash/rebase).
+- [x] R-01 · Mergear PR #182 a `main` (`--squash`; main solo permite squash/rebase).
   Contrato: los 11 checks requeridos verdes + Semver verde (0.6.0 absorbe breakings).
   Rollback: `git revert` del squash en `main`.
+  ✅ 2026-09-21 mergeado (`cd22b55a`). Incidente: GitHub auto-borró `develop` (head del PR);
+  recuperado reseteando a `main` (árboles idénticos verificados) + `deleteBranchOnMerge=false`.
+  Deuda: #187 DIRTY (release-plz la actualiza sola; ver R-04).
 - [ ] R-02 · PyPI `vantadb-py 0.6.0`: diagnosticar por qué el tag no disparó publish
   (sin corrida tag en Actions) y publicar (re-push tag o dispatch documentado).
   Contrato: `pip index versions vantadb-py` muestra 0.6.0 + `pip install vantadb-py==0.6.0` en venv limpio importa `Client`.
