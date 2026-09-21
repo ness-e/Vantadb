@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 550f7331-35bf-469f-ba10-1959407cbaf9
 > **Inicio:** 2026-09-20
-> **Estado:** ⬜ PENDIENTE (plan listo, sin iniciar)
+> **Estado:** 🔄 EN PROGRESO (Wave0: C-01 ✅ · R-03 ✅ · R-02 ✅ diag · C-02 ✅ ∅ · C-07 ramas ✅; R-01 ⏳ CI; TestPyPI staging en curso)
 > **Fuente:** análisis profundo 2026-09-20 (inspección repo + docs oficiales Vercel/GitHub) + decisiones owner (5/5)
 
 ## Decisiones del owner (vinculantes)
@@ -104,4 +104,15 @@ Próxima acción: `/pipeline run docs/plans/2026-09-20-estabilizacion-total.md` 
 Contrato: plan file existe con fases, contratos, rollbacks y gates; task files bajo demanda
 Próxima tarea: R-01 (merge #182 a main)
 last-synced: 2026-09-20
+=== END RECITATION ===
+
+=== RECITATION C-02 ===
+Campaign ID: 550f7331-35bf-469f-ba10-1959407cbaf9
+Objetivo activo: C-02 mover SOLO docs sin dependencias a docs/user/
+Estado: completed
+Última acción: DISCOVERY completo + verifies locales verdes + task file + commit selectivo ccc8ee4e sin push
+Resultado: OK
+Próxima acción: orquestador: C-10 con docs/tasks/C-02.md como input
+Contrato: verificacion: markdownlint 1433 files 0 issues + ](docs/ 49 links 0 rotos + parent-links 0 rotos + spot-check 4/4 + frontmatter 0 faltantes + commit ccc8ee4e (solo C-02.md, hooks verdes) | evidencia: claim subset=∅ → docs/tasks/C-02.md (tabla 7 filas) | confianza: alta; artefactos: docs/tasks/C-02.md; invariantes: PROHIBIDOS intactos (api, operations, workflows, scripts, src, web, desktop, Backlog, avance, plans, tasks, CHANGELOG), NO PUSH; deuda: CI re-run delegado (requiere push); queda_pendiente: orquestador C-10 + decision re-scope C-02 (cerrar NO-APPLICA o wave ampliada)
+Próxima tarea si completa: C-10
 === END RECITATION ===
