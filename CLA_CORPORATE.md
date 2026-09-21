@@ -71,4 +71,4 @@ By signing below, Your Entity agrees to the terms of this Agreement.
 
 ---
 
-*Please email the signed copy to cla@vantadb.dev. For individuals contributing on their own behalf, see CLA_INDIVIDUAL.md.*
+_Please email the signed copy to cla@vantadb.dev. For individuals contributing on their own behalf, see CLA_INDIVIDUAL.md._

@@ -1,26 +1,23 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 use tempfile::tempdir;
 use vantadb::graphrag::pipeline::GraphRagPipeline;
-use vantadb::{VantaEmbedded, VantaMemoryInput};
+use vantadb::{Embedded, MemoryInput};
 
-fn setup_test_db() -> (VantaEmbedded, tempfile::TempDir) {
+fn setup_test_db() -> (Embedded, tempfile::TempDir) {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
     (db, dir)
 }
 
-fn insert_text_node(db: &VantaEmbedded, ns: &str, key: &str, content: &str) -> u128 {
-    let input = VantaMemoryInput::new(ns, key, content);
+fn insert_text_node(db: &Embedded, ns: &str, key: &str, content: &str) -> u128 {
+    let input = MemoryInput::new(ns, key, content);
     db.put(input).expect("put").node_id
 }
 
-fn insert_vector_node(
-    db: &VantaEmbedded,
-    ns: &str,
-    key: &str,
-    content: &str,
-    vector: Vec<f32>,
-) -> u128 {
-    let mut input = VantaMemoryInput::new(ns, key, content);
+fn insert_vector_node(db: &Embedded, ns: &str, key: &str, content: &str, vector: Vec<f32>) -> u128 {
+    let mut input = MemoryInput::new(ns, key, content);
     input.vector = Some(vector);
     db.put(input).expect("put").node_id
 }
@@ -63,11 +60,16 @@ fn test_simple_graphrag_search() {
         ));
     }
 
-    db.add_edge(ids[0], ids[1], "uses", Some(1.0)).unwrap();
-    db.add_edge(ids[0], ids[2], "uses", Some(0.9)).unwrap();
-    db.add_edge(ids[0], ids[4], "uses", Some(0.8)).unwrap();
-    db.add_edge(ids[1], ids[3], "enables", Some(1.0)).unwrap();
-    db.add_edge(ids[2], ids[3], "enables", Some(1.0)).unwrap();
+    db.add_edge(ids[0], ids[1], "uses", Some(1.0), None)
+        .unwrap();
+    db.add_edge(ids[0], ids[2], "uses", Some(0.9), None)
+        .unwrap();
+    db.add_edge(ids[0], ids[4], "uses", Some(0.8), None)
+        .unwrap();
+    db.add_edge(ids[1], ids[3], "enables", Some(1.0), None)
+        .unwrap();
+    db.add_edge(ids[2], ids[3], "enables", Some(1.0), None)
+        .unwrap();
 
     let pipeline = GraphRagPipeline::new();
     let result = pipeline
@@ -148,7 +150,7 @@ fn test_max_expansion() {
         ));
     }
     for pair in ids.windows(2) {
-        db.add_edge(pair[0], pair[1], "connects", Some(1.0))
+        db.add_edge(pair[0], pair[1], "connects", Some(1.0), None)
             .unwrap();
     }
 

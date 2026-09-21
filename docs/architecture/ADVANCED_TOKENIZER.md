@@ -11,22 +11,29 @@ aliases: []
 
 ## Overview
 
-The advanced tokenizer provides multilingual text processing with stemming, stopwords removal, and Unicode folding for improved text search quality across multiple languages. It is built on top of [Tantivy](https://github.com/quickwit-oss/tantivy) and is available as an optional feature.
+The advanced tokenizer provides multilingual text processing with stemming, stopwords removal, and Unicode folding for improved text search quality across multiple languages. It is built on top of [Tantivy](https://github.com/quickwit-oss/tantivy). The feature is **enabled by default**; you only need to opt out if you want the basic tokenizer.
 
 ## Features
 
 - **Stemming**: Reduces words to their root form (e.g., "jumping" → "jump", "quickly" → "quick")
 - **Stopwords Removal**: Filters out common words that add little semantic value (e.g., "the", "and", "is")
-- **Unicode Folding**: Normalizes Unicode characters to ASCII (e.g., "cafe" → "cafe", "naive" → "naive")
+- **Unicode Folding**: Normalizes Unicode characters to ASCII (e.g., "café" → "cafe", "naïve" → "naive")
 - **Multilingual Support**: Supports multiple languages with language-specific stemming and stopwords
 
 ## Installation
 
-Add the `advanced-tokenizer` feature to your `Cargo.toml`:
+The `advanced-tokenizer` feature is **enabled by default**. You only need to add it explicitly if you disabled default features:
 
 ```toml
 [dependencies]
-vantadb = { version = "0.2.0", features = ["advanced-tokenizer"] }
+vantadb = { version = "0.5", default-features = false, features = ["advanced-tokenizer"] }
+```
+
+To opt out and use the basic tokenizer instead, disable the feature:
+
+```toml
+[dependencies]
+vantadb = { version = "0.5", default-features = false, features = ["cli", "arrow", "fjall", "roaring", "memmap2", "fs2", "sysinfo", "rayon"] }
 ```
 
 ## Usage
@@ -131,20 +138,20 @@ When the `advanced-tokenizer` feature is enabled, the text index schema version 
 ## Performance Considerations
 
 The advanced tokenizer has some performance overhead compared to the basic ASCII tokenizer:
-- **Stemming**: Adds ~10-20% overhead to tokenization
+- **Stemming**: Adds measurable overhead to tokenization
 - **Stopwords Removal**: Minimal overhead
 - **Unicode Folding**: Minimal overhead
 
-For most use cases, the improved search quality outweighs the performance cost. If you need maximum performance and only work with ASCII text, consider using the basic tokenizer instead.
+The exact cost depends on language and text length. For most use cases, the improved search quality outweighs the performance cost. If you need maximum performance and only work with ASCII text, consider using the basic tokenizer instead.
 
 ## Migration
 
 If you have an existing VantaDB database and want to enable the advanced tokenizer:
 
-1. Enable the feature in your `Cargo.toml`
-2. The text index will automatically use schema version v4
-3. Existing indexes will continue to work, but new indexes will use the advanced tokenizer
-4. For best results, consider rebuilding your text index after enabling the feature
+1. Enable the feature in your `Cargo.toml` (or use the default feature set)
+2. The text index will use schema version v4
+3. On open, the engine detects the schema version change (v3 → v4) and rebuilds the text index automatically — you don't need to rebuild it manually
+4. Builds must be consistent: don't mix databases created with different tokenizer configurations, and keep the feature enabled across all builds
 
 ## Comparison with Basic Tokenizer
 
@@ -178,22 +185,20 @@ let text = "El perro rapido salta sobre el perro perezoso";
 ### Unicode Text
 
 ```rust
-let text = "Cafe naive resume";
+let text = "Café naïve résumé";
 // Basic tokenizer: May not handle Unicode correctly
 // Advanced tokenizer: ["cafe", "naiv", "resum"] (Unicode folded)
 ```
 
 ## Troubleshooting
 
-### Warnings about unused functions
-
-When the `advanced-tokenizer` feature is enabled, you may see warnings about unused functions like `tokenize` and `tokenize_with_spec`. This is expected - these are the basic tokenizer functions that are no longer used when the advanced tokenizer is active.
-
 ### Schema version mismatch
 
 If you see schema version errors, ensure that:
 1. The `advanced-tokenizer` feature is consistently enabled across all builds
 2. You're not mixing databases created with different tokenizer configurations
+
+The text index rebuilds automatically when the schema version changes (v3 ↔ v4), so a one-time version mismatch is expected and handled on open.
 
 ## Future Enhancements
 

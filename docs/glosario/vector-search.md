@@ -3,7 +3,7 @@ title: "busqueda-vectorial"
 type: glossary-entry
 status: stable
 tags: [glosario, búsqueda, vectorial, ann, hnsw]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-09-15
 aliases: [vector search, ANN search, approximate nearest neighbor]
 ---
 
@@ -52,7 +52,7 @@ impl CPIndex {
         &self,
         query: &[f32],
         k: usize,
-        ef_search: usize,
+        ef: usize,
     ) -> Vec<(u64, f32)> {
         // Búsqueda greedy multi-capa
         let mut candidates = BinaryHeap::new();
@@ -65,7 +65,7 @@ impl CPIndex {
         }
         
         // Búsqueda exhaustiva en capa 0
-        self.search_layer_0(query, current, k, ef_search)
+        self.search_layer_0(query, current, k, ef)
     }
 }
 ```
@@ -73,14 +73,11 @@ impl CPIndex {
 ### Parámetros de Configuración
 
 ```python
-db = VantaEmbedded("./data", config={
-    "hnsw": {
-        "M": 16,                    # Conexiones por nodo
-        "ef_construction": 200,     # Candidatos en construcción
-        "ef_search": 100,           # Candidatos en búsqueda
-        "metric": "cosine"          # "cosine", "euclidean", "dot"
-    }
-})
+import vantadb_py as vantadb
+
+# HNSW params (M, ef_construction, ef) + metric live in the Rust engine
+# config, not the constructor.
+db = vantadb.VantaDB("./data")  # metric: "cosine" (default), "euclidean", "dot"
 ```
 
 ### Aceleración SIMD
@@ -132,6 +129,6 @@ $$\text{Recall@K} = \frac{|\text{resultados} \cap \text{ground\_truth}|}{K}$$
 
 - [HNSW](HNSW.md) - Algoritmo de índice vectorial
 - [ANN](ANN.md) - Approximate Nearest Neighbor
-- [Vector Similarity](Vector Similarity.md) - Métricas de similitud
-- [Vectores](Vectores.md) - Representaciones vectoriales
-- [busqueda-hibrida](busqueda-hibrida.md) - Combinación con busqueda-lexica
+- [Vector Similarity](vector-similarity.md) - Métricas de similitud
+- [Vectores](vectors.md) - Representaciones vectoriales
+- [busqueda-hibrida](hybrid-search.md) - Combinación con busqueda-lexica

@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! ACORN Filtered Vector Search Benchmark.
 //!
 //! Measures VantaDB's ACORN filtered graph navigation performance
@@ -103,7 +105,7 @@ fn main() {
     let t_build = Instant::now();
     let index = CPIndex::new_with_config(config);
     for (id, vec, bitset) in &dataset {
-        index.add(
+        let _ = index.add(
             *id,
             bitset.clone(),
             VectorRepresentations::Full(vec.clone()),

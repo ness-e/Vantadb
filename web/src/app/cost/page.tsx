@@ -1,18 +1,13 @@
 "use client";
 
 import { ArrowRight, TrendingDown, Server, Cloud } from "lucide-react";
-import Link from "next/link";
 import { PageHeader, PageSection } from "@/components/vanta/page-header";
 import { Reveal } from "@/components/vanta/reveal";
 import { TCO_COMPARISON, VANTA } from "@/components/vanta/vanta-data";
 import { useLanguage } from "@/lib/language-provider";
 
 export default function CostPage() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader
@@ -142,7 +137,7 @@ export default function CostPage() {
               href={VANTA.pypi}
               target="_blank"
               rel="noopener noreferrer"
-              className="press-neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+              className="press--neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
             >
               pip install vantadb-py
               <ArrowRight className="h-4 w-4" strokeWidth={2.5} />

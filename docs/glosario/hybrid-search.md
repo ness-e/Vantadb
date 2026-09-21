@@ -3,7 +3,7 @@ title: "busqueda-hibrida"
 type: glossary-entry
 status: stable
 tags: [glosario, búsqueda, híbrida, rrf, fusion]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-09-15
 aliases: [hybrid search, search fusion, combined search]
 ---
 
@@ -11,7 +11,7 @@ aliases: [hybrid search, search fusion, combined search]
 
 ## Definición
 
-La **busqueda-hibrida** combina múltiples estrategias de recuperación (típicamente [vectorial](busqueda-vectorial.md) + [léxica](busqueda-lexica.md)) para aprovechar las fortalezas de cada una y mejorar el recall general del sistema.
+La **busqueda-hibrida** combina múltiples estrategias de recuperación (típicamente [vectorial](vector-search.md) + [léxica](lexical-search.md)) para aprovechar las fortalezas de cada una y mejorar el recall general del sistema.
 
 ## Por Qué Híbrida
 
@@ -86,7 +86,7 @@ impl HybridSearch {
         let vector_results = self.vector_index.search_nearest(
             query_vector,
             top_k * 2,  // Over-fetch para RRF
-            self.ef_search
+            self.ef
         );
         
         let text_results = self.text_index.search(
@@ -120,34 +120,30 @@ impl HybridSearch {
 ### Uso desde Python
 
 ```python
-from vantadb import VantaEmbedded
+import vantadb_py as vantadb
 
-db = VantaEmbedded("./data")
+db = vantadb.VantaDB("./data")
 
-# busqueda-hibrida
-results = db.search(
-    vector=embed("¿Cómo funciona la persistencia?"),
-    text="persistencia WAL durability",
+# busqueda-hibrida (vector + BM25 con RRF dentro de search_memory)
+results = db.search_memory(
+    namespace="default",
+    query_vector=embed("¿Cómo funciona la persistencia?"),
+    text_query="persistencia WAL durability",
     top_k=10,
-    mode="hybrid"  # Usa HNSW + BM25 + RRF
 )
 
 for result in results:
     print(f"{result.key}: {result.score:.4f}")
-    print(f"  {result.text[:100]}...")
+    print(f"  {result.payload[:100]}...")
 ```
 
 ### Configuración
 
 ```python
-db = VantaEmbedded("./data", config={
-    "hybrid": {
-        "rrf_k": 60,              # Constante de suavizado
-        "vector_weight": 0.5,     # Peso relativo (para weighted fusion)
-        "text_weight": 0.5,       # Peso relativo
-        "min_score": 0.01         # Score mínimo para incluir
-    }
-})
+import vantadb_py as vantadb
+
+# RRF fusion happens inside search_memory when both query_vector and text_query are set
+db = vantadb.VantaDB("./data")
 ```
 
 ## Modos de Fusión
@@ -155,11 +151,12 @@ db = VantaEmbedded("./data", config={
 ### 1. RRF (Default)
 
 ```python
-results = db.search(
-    vector=query_vector,
-    text=query_text,
-    mode="hybrid"  # RRF con k=60
-)
+results = db.search_memory(
+    namespace="default",
+    query_vector=query_vector,
+    text_query=query_text,
+    top_k=10,
+)  # RRF con k=60 (default del motor)
 ```
 
 **Ventajas:**
@@ -170,12 +167,12 @@ results = db.search(
 ### 2. Weighted Sum (Alternativo)
 
 ```python
-results = db.search(
-    vector=query_vector,
-    text=query_text,
-    mode="hybrid",
-    fusion="weighted",
-    weights={"vector": 0.7, "text": 0.3}
+# RRF fusion with search_memory (weighted mixing is engine config)
+results = db.search_memory(
+    namespace="default",
+    query_vector=query_vector,
+    text_query=query_text,
+    top_k=10,
 )
 ```
 
@@ -231,8 +228,8 @@ En VantaDB:
 ## Véase También
 
 - [RRF](RRF.md) - Algoritmo de fusión
-- [busqueda-vectorial](busqueda-vectorial.md) - Similitud semántica
-- [busqueda-lexica](busqueda-lexica.md) - Coincidencia de keywords
+- [busqueda-vectorial](vector-search.md) - Similitud semántica
+- [busqueda-lexica](lexical-search.md) - Coincidencia de keywords
 - [HNSW](HNSW.md) - Índice vectorial
 - [BM25](BM25.md) - Scoring léxico
-- [GraphRAG](GraphRAG.md) - Extensión con grafos
+- [GraphRAG](graphrag.md) - Extensión con grafos

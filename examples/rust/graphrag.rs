@@ -3,12 +3,12 @@
 //! Demonstrates the low-level Node/Graph API.
 
 use std::error::Error;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::graph::TraversalDirection;
-use vantadb::{VantaEmbedded, VantaFields, VantaNodeInput};
+use vantadb::{Embedded, Fields, NodeInput};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let db = VantaEmbedded::open_with_config(VantaConfig {
+    let db = Embedded::open_with_config(Config {
         storage_path: "./examples_graph_data".into(),
         ..Default::default()
     })?;
@@ -43,11 +43,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     ];
 
     for (id, content, vector) in &nodes {
-        db.insert_node(VantaNodeInput {
+        db.insert_node(NodeInput {
             id: *id,
             content: Some((*content).into()),
             vector: Some(vector.clone()),
-            fields: VantaFields::new(),
+            fields: Fields::new(),
         })?;
     }
 
@@ -55,11 +55,11 @@ fn main() -> Result<(), Box<dyn Error>> {
     // VantaDB -> HNSW -> Hybrid Search
     // VantaDB -> BM25  -> Hybrid Search
     // VantaDB -> WAL
-    db.add_edge(1, 2, "uses", Some(1.0))?;
-    db.add_edge(1, 3, "uses", Some(0.9))?;
-    db.add_edge(1, 5, "uses", Some(0.8))?;
-    db.add_edge(2, 4, "enables", Some(1.0))?;
-    db.add_edge(3, 4, "enables", Some(1.0))?;
+    db.add_edge(1, 2, "uses", Some(1.0), None)?;
+    db.add_edge(1, 3, "uses", Some(0.9), None)?;
+    db.add_edge(1, 5, "uses", Some(0.8), None)?;
+    db.add_edge(2, 4, "enables", Some(1.0), None)?;
+    db.add_edge(3, 4, "enables", Some(1.0), None)?;
 
     println!("Inserted {} nodes with {} edges", nodes.len(), 5);
 
@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 .fields
                 .get("content")
                 .and_then(|v| {
-                    if let vantadb::VantaValue::String(s) = v {
+                    if let vantadb::Value::String(s) = v {
                         Some(s.as_str())
                     } else {
                         None

@@ -92,8 +92,7 @@ impl MonitorData {
             .highlight_style(Style::default().fg(Color::Yellow));
 
         // Use a scrollable list if there are many entries
-        let list_state = ratatui::widgets::ListState::default();
-        let mut state = list_state.clone();
+        let mut state = ratatui::widgets::ListState::default();
         frame.render_stateful_widget(query_list, chunks[1], &mut state);
 
         // ── Status bar ──

@@ -12,6 +12,7 @@ from haystack.document_stores.types import DuplicatePolicy
 DEFAULT_NAMESPACE = "haystack"
 DEFAULT_TOP_K = 4
 _MAX_LIST_LIMIT = 1_000_000
+_COUNT_PAGE_SIZE = 1_000  # page size for cursor-paginated counting
 
 
 def _post_filter_documents(
@@ -131,7 +132,7 @@ class VantaDBDocumentStore:
         self._memory_limit_bytes = memory_limit_bytes
         self._read_only = read_only
         self._backend = backend
-        self._db = vanta.VantaDB(
+        self._db = vanta.Client(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
             read_only=read_only,
@@ -147,7 +148,7 @@ class VantaDBDocumentStore:
         return self.embedding(text)
 
     @staticmethod
-    def _record_to_document(record: vanta.VantaMemoryRecord) -> Document:
+    def _record_to_document(record: vanta.Record) -> Document:
         return Document(
             id=record.key,
             content=record.payload,
@@ -155,7 +156,7 @@ class VantaDBDocumentStore:
         )
 
     @staticmethod
-    def _hit_to_document(hit: vanta.VantaSearchHit) -> Document:
+    def _hit_to_document(hit: vanta.SearchHit) -> Document:
         return Document(
             id=hit.key,
             content=hit.payload,
@@ -271,19 +272,19 @@ class VantaDBDocumentStore:
             doc_id, content, meta = self._normalize(doc)
 
             if policy == DuplicatePolicy.FAIL:
-                existing = self._db.get_memory(self.namespace, doc_id)
+                existing = self._db.memory.get(self.namespace, doc_id)
                 if existing is not None:
                     raise ValueError(
                         f"Document with id '{doc_id}' already exists"
                     )
             elif policy == DuplicatePolicy.SKIP:
-                existing = self._db.get_memory(self.namespace, doc_id)
+                existing = self._db.memory.get(self.namespace, doc_id)
                 if existing is not None:
                     continue
             elif policy == DuplicatePolicy.OVERWRITE:
                 # Delete existing record first so the new one replaces it
                 # with fresh metadata, content, and vector.
-                self._db.delete_memory(self.namespace, doc_id)
+                self._db.memory.delete(self.namespace, doc_id)
 
             vector = self._embed(content)
             self._db.put(
@@ -312,7 +313,7 @@ class VantaDBDocumentStore:
             A list of matching ``Document`` objects.
         """
         vanta_filters = self._haystack_filter_to_vanta(filters)
-        results = self._db.list_memory(
+        results = self._db.memory.list(
             self.namespace,
             filters=vanta_filters or {},
             limit=_MAX_LIST_LIMIT,
@@ -349,7 +350,7 @@ class VantaDBDocumentStore:
         # Protocol path: delete_documents(["id1", "id2"])
         if document_ids is not None:
             for doc_id in document_ids:
-                self._db.delete_memory(self.namespace, doc_id)
+                self._db.memory.delete(self.namespace, doc_id)
             return
 
         # Backward compat: delete_documents(filters={"id": "x"})
@@ -358,28 +359,39 @@ class VantaDBDocumentStore:
             filters = dict(filters)  # copy before mutating
             doc_id = filters.pop("id", None)
             if doc_id:
-                self._db.delete_memory(self.namespace, str(doc_id))
+                self._db.memory.delete(self.namespace, str(doc_id))
                 return
-        results = self._db.list_memory(
+        results = self._db.memory.list(
             self.namespace, filters=filters or {}, limit=_MAX_LIST_LIMIT,
         )
         for rec in results.records:
             if rec.key:
-                self._db.delete_memory(self.namespace, rec.key)
+                self._db.memory.delete(self.namespace, rec.key)
 
     def count_documents(self) -> int:
         """Return the total number of documents in the store.
 
         Implements the Haystack ``DocumentStore.count_documents``
-        protocol.
+        protocol. Counts by cursor-paginated pages (page size
+        ``_COUNT_PAGE_SIZE``) instead of materializing up to
+        ``_MAX_LIST_LIMIT`` records in memory.
 
         Returns:
             The document count as an integer.
         """
-        results = self._db.list_memory(
-            self.namespace, filters={}, limit=_MAX_LIST_LIMIT,
-        )
-        return len(results.records)
+        count = 0
+        cursor = None
+        while True:
+            page = self._db.memory.list(
+                self.namespace, filters={}, limit=_COUNT_PAGE_SIZE, cursor=cursor,
+            )
+            if not page or not page.records:
+                break
+            count += len(page.records)
+            cursor = page.next_cursor
+            if cursor is None:
+                break
+        return count
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialize the store configuration to a dictionary.
@@ -458,12 +470,12 @@ class VantaDBDocumentStore:
             A list of ``Document`` objects matching the query.
         """
         if self.embedding is None:
-            results = self._db.list_memory(
+            results = self._db.memory.list(
                 self.namespace, filters={}, limit=k,
             )
             return [self._record_to_document(r) for r in results.records]
         vector = self.embedding(query)
-        results = self._db.search_memory(
+        results = self._db.memory.search(
             self.namespace, vector,
             top_k=k, distance_metric="cosine",
         )

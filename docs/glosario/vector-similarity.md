@@ -3,7 +3,7 @@ title: "vector-similarity"
 type: glossary-entry
 status: stable
 tags: [vectores, distancia, metricas, busqueda]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Vector Distance Metrics]
 ---

@@ -1,0 +1,20 @@
+{
+  "tasks": {
+    "1": {
+      "taskId": "1",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1788420396868,
+      "lastActivity": 1788420428117
+    },
+    "MKT-18i": {
+      "taskId": "MKT-18i",
+      "toolCalls": 3,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1788453769834,
+      "lastActivity": 1788453778909
+    }
+  }
+}

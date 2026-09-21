@@ -236,7 +236,7 @@ Client: db.put("doc1", vector, text, metadata)
 ### Hybrid Search Path
 
 ```
-Client: db.search(vector, text, top_k=10)
+Client: db.search_memory(namespace, query_vector, text_query, top_k=10)
     │
     ├─▶ HNSW Index
     │   └─▶ Candidate List 1: [doc5, doc12, doc23, ...]
@@ -294,8 +294,8 @@ Client: db.search(vector, text, top_k=10)
 | **VantaEmbedded** | `src/sdk/api.rs` | Public API boundary |
 | **StorageEngine** | `src/storage/engine/ops.rs` | Storage orchestration |
 | **WalWriter** | `src/storage/wal.rs` | Write-ahead log |
-| **WalSharded** | `src/wal_sharded.rs` | Sharded WAL writer |
-| **HnswIndex** | `src/index/core.rs` | Vector ANN index |
+| **ShardedWal** | `src/wal_sharded.rs` | Sharded WAL writer |
+| **CPIndex** | `src/index/graph.rs` | Vector ANN index |
 | **VantaFile** | `src/storage/vfile.rs` | Memory-mapped vector storage |
 | **Bm25Index** | `src/text_index.rs` | Lexical search index |
 | **FjallBackend** | `src/backends/fjall_backend.rs` | LSM-tree backend |
@@ -324,7 +324,7 @@ Layer 0 (densest, all vectors):
 
 **Parameters:**
 - **M:** Max connections per node (default: 32)
-- **ef_construction:** Candidates during construction (default: 400)
+- **ef_construction:** Candidates during construction (default: 100)
 - **ef_search:** Candidates during search (default: 100)
 
 **Persistence:** Full graph memory-mapped (mmap) → instant load.
@@ -499,3 +499,4 @@ See [Memory Telemetry Contract](../operations/MEMORY_TELEMETRY.md) for the curre
 
 - [Mutation and Recovery Protocol](MUTATION_RECOVERY_PROTOCOL.md) defines the canonical mutation order and rebuild behavior for ANN and derived indexes.
 - [Persistent Text Index Design](TEXT_INDEX_DESIGN.md) defines the BM25 text index, phrase-position support, and Hybrid Retrieval v1 RRF behavior for memory search.
+- [Module Boundaries](BOUNDARIES.md) defines owners, allowed dependency directions (rules BND-01…BND-08), the storage↔index cycle as documented debt, the hybrid doctrine (slices outside, layers inside), and the Phase 3 gate for physical reorganization.

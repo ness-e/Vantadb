@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Certification test suite for physical HNSW node alignment (antilocality layout).
 //! Verifies BFS ordering layout, search equivalence, monotonicity, and correctness.
 
@@ -7,7 +10,7 @@ mod common;
 use common::{TerminalReporter, VantaHarness};
 use std::collections::{HashSet, VecDeque};
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::{BackendKind, StorageEngine};
 
@@ -43,7 +46,7 @@ fn antilocality_layout_certification() {
         let db_path = dir.path().to_str().unwrap();
 
         TerminalReporter::sub_step("Opening StorageEngine...");
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::Fjall,
             ..Default::default()
         };
@@ -72,7 +75,7 @@ fn antilocality_layout_certification() {
         );
 
         TerminalReporter::sub_step("Checking BFS offset monotonicity...");
-        let entry_point_id = hnsw.get_entry_point().expect("Missing entry point");
+        let entry_point_id = hnsw.entry_point().expect("Missing entry point");
         let mut bfs_order: Vec<u128> = Vec::new();
         let mut visited = HashSet::new();
         let mut queue = VecDeque::new();
@@ -82,20 +85,15 @@ fn antilocality_layout_certification() {
 
         while let Some(node_id) = queue.pop_front() {
             bfs_order.push(node_id);
-            if let Some(node_ref) = hnsw.nodes.get(&node_id) {
-                if let Some(layer0_neighbors) = node_ref.neighbor_lists.first() {
-                    for &neighbor_id in layer0_neighbors {
-                        if visited.insert(neighbor_id) {
-                            queue.push_back(neighbor_id);
-                        }
-                    }
+            for neighbor_id in hnsw.inline_neighbors(node_id, 0) {
+                if visited.insert(neighbor_id) {
+                    queue.push_back(neighbor_id);
                 }
             }
         }
 
         // Agregar nodos aislados (si los hay)
-        for entry in hnsw.nodes.iter() {
-            let node_id: u128 = *entry.key();
+        for node_id in hnsw.all_node_ids() {
             if visited.insert(node_id) {
                 bfs_order.push(node_id);
             }
@@ -103,8 +101,9 @@ fn antilocality_layout_certification() {
 
         let mut last_offset = 0;
         for &node_id in &bfs_order {
-            let node_ref = hnsw.nodes.get(&node_id).expect("Node should be in HNSW");
-            let offset = node_ref.storage_offset;
+            let offset = hnsw
+                .storage_offset_of(node_id)
+                .expect("Node should be in HNSW");
             assert!(
                 offset > last_offset,
                 "Offsets are not strictly increasing. Node: {}, Offset: {}, Last: {}",
@@ -124,7 +123,7 @@ fn antilocality_layout_certification() {
         let dir = tempdir().unwrap();
         let db_path = dir.path().to_str().unwrap();
 
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::Fjall,
             ..Default::default()
         };
@@ -155,7 +154,7 @@ fn antilocality_layout_certification() {
                     None,
                     &vantadb::node::ALL_BITSET,
                     5,
-                    Some(&vs),
+                    Some(&*vs),
                 );
                 pre_results.push(hits);
             }
@@ -176,7 +175,7 @@ fn antilocality_layout_certification() {
                     None,
                     &vantadb::node::ALL_BITSET,
                     5,
-                    Some(&vs),
+                    Some(&*vs),
                 );
                 post_results.push(hits);
             }
@@ -203,7 +202,7 @@ fn antilocality_layout_certification() {
         let dir = tempdir().unwrap();
         let db_path = dir.path().to_str().unwrap();
 
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::Fjall,
             ..Default::default()
         };

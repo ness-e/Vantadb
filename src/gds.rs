@@ -1,4 +1,4 @@
-//! Graph Data Science algorithms (PageRank, centrality) over [`GraphAccumulator`]
+//! Graph Data Science algorithms (PageRank, centrality) over [`GraphAccumulator`](crate::accumulator::GraphAccumulator)
 //! and [`GraphTraverser`].
 //!
 //! # Warning
@@ -185,14 +185,14 @@ impl<'a> GraphDataScience<'a> {
 #[allow(missing_docs)]
 mod tests {
     use super::*;
-    use crate::config::VantaConfig;
+    use crate::config::Config;
     use crate::node::UnifiedNode;
     use crate::storage::{BackendKind, StorageEngine};
     use crate::Edge;
 
     fn setup_storage() -> (StorageEngine, tempfile::TempDir) {
         let dir = tempfile::tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };
@@ -210,6 +210,7 @@ mod tests {
                 weight,
                 label_id: 0,
                 reverse: false,
+                created_at_ms: 1,
             })
             .collect();
         storage.insert(&node).unwrap();

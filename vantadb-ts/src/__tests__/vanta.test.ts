@@ -1,11 +1,11 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { VantaDB, VantaError } from "../vantadb.js";
+import { Client, DbError } from "../vantadb.js";
 import {
   isMemoryRecord,
   isSearchHit,
   isNodeRecord,
-  isValidVantaValue,
-  isVantaMetadata,
+  isValidValue,
+  isMetadata,
   isValidVector,
   validateVector,
 } from "../guards.js";
@@ -54,6 +54,34 @@ describe("Type guards: isMemoryRecord", () => {
 
   it("rejects objects with non-string namespace", () => {
     expect(isMemoryRecord({ ...validRecord, namespace: 123 } as unknown)).toBe(false);
+  });
+
+  it("accepts numeric version/node_id/timestamps (WASM-returned numbers)", () => {
+    const numericRecord = {
+      ...validRecord,
+      version: 3,
+      node_id: 42,
+      created_at_ms: 1000,
+      updated_at_ms: 2000,
+    };
+    expect(isMemoryRecord(numericRecord)).toBe(true);
+  });
+
+  it("accepts mixed string/number version and node_id", () => {
+    expect(
+      isMemoryRecord({ ...validRecord, version: "1", node_id: 7 }),
+    ).toBe(true);
+    expect(
+      isMemoryRecord({ ...validRecord, version: 2, node_id: "8" }),
+    ).toBe(true);
+  });
+
+  it("still rejects invalid version/node_id/timestamps", () => {
+    expect(isMemoryRecord({ ...validRecord, version: {} } as unknown)).toBe(false);
+    expect(isMemoryRecord({ ...validRecord, version: null } as unknown)).toBe(false);
+    expect(isMemoryRecord({ ...validRecord, node_id: true } as unknown)).toBe(false);
+    expect(isMemoryRecord({ ...validRecord, created_at_ms: [] } as unknown)).toBe(false);
+    expect(isMemoryRecord({ ...validRecord, updated_at_ms: undefined } as unknown)).toBe(false);
   });
 });
 
@@ -114,53 +142,53 @@ describe("Type guards: isNodeRecord", () => {
   });
 });
 
-describe("Type guards: isValidVantaValue", () => {
+describe("Type guards: isValidValue", () => {
   it("accepts String", () => {
-    expect(isValidVantaValue({ String: "hello" })).toBe(true);
+    expect(isValidValue({ String: "hello" })).toBe(true);
   });
 
   it("accepts Int", () => {
-    expect(isValidVantaValue({ Int: 42 })).toBe(true);
+    expect(isValidValue({ Int: 42 })).toBe(true);
   });
 
   it("accepts Float", () => {
-    expect(isValidVantaValue({ Float: 3.14 })).toBe(true);
+    expect(isValidValue({ Float: 3.14 })).toBe(true);
   });
 
   it("accepts Bool", () => {
-    expect(isValidVantaValue({ Bool: true })).toBe(true);
+    expect(isValidValue({ Bool: true })).toBe(true);
   });
 
   it("accepts Null", () => {
-    expect(isValidVantaValue({ Null: null })).toBe(true);
+    expect(isValidValue({ Null: null })).toBe(true);
   });
 
   it("accepts ListString", () => {
-    expect(isValidVantaValue({ ListString: ["a", "b"] })).toBe(true);
+    expect(isValidValue({ ListString: ["a", "b"] })).toBe(true);
   });
 
   it("rejects unknown type", () => {
-    expect(isValidVantaValue({ Unknown: "foo" })).toBe(false);
+    expect(isValidValue({ Unknown: "foo" })).toBe(false);
   });
 
-  it("rejects null", () => expect(isValidVantaValue(null)).toBe(false));
+  it("rejects null", () => expect(isValidValue(null)).toBe(false));
 
-  it("rejects non-object", () => expect(isValidVantaValue("string")).toBe(false));
+  it("rejects non-object", () => expect(isValidValue("string")).toBe(false));
 
   it("rejects Null with extra value", () => {
-    expect(isValidVantaValue({ Null: 1 })).toBe(false);
+    expect(isValidValue({ Null: 1 })).toBe(false);
   });
 });
 
-describe("Type guards: isVantaMetadata", () => {
+describe("Type guards: isMetadata", () => {
   it("accepts valid metadata", () => {
     const m = { name: { String: "test" } };
-    expect(isVantaMetadata(m)).toBe(true);
+    expect(isMetadata(m)).toBe(true);
   });
 
   it("rejects invalid metadata value", () => {
     const m = { name: { Invalid: "test" } };
-    expect(isVantaMetadata(m)).toBe(false);
+    expect(isMetadata(m)).toBe(false);
   });
 });
 
@@ -191,42 +219,55 @@ describe("Type guards: validateVector (asserts)", () => {
     expect(() => validateVector([0.1, 0.2])).not.toThrow();
   });
 
+  it("passes on Float32Array (zero-copy path)", () => {
+    expect(() => validateVector(new Float32Array([0.1, 0.2]))).not.toThrow();
+  });
+
   it("throws on non-array", () => {
-    expect(() => validateVector("bad")).toThrow(TypeError);
+    // ERR-TS-01: validateVector surfaces DbError(VANTADB_VALIDATION_ERROR)
+    // instead of the previous raw TypeError/RangeError (BREAKING documented).
+    let caught: unknown;
+    try { validateVector("bad"); } catch (e) { caught = e; }
+    expect(caught).toBeInstanceOf(DbError);
+    expect((caught as DbError).code).toBe("VANTADB_VALIDATION_ERROR");
   });
 
   it("throws on empty array", () => {
-    expect(() => validateVector([])).toThrow(RangeError);
+    expect(() => validateVector([])).toThrow(DbError);
   });
 
   it("throws on NaN element", () => {
-    expect(() => validateVector([1, NaN])).toThrow(TypeError);
+    expect(() => validateVector([1, NaN])).toThrow(DbError);
+  });
+
+  it("throws on Float32Array with NaN element", () => {
+    expect(() => validateVector(new Float32Array([1, NaN]))).toThrow(DbError);
   });
 });
 
 // ---------------------------------------------------------------------------
-// VantaError unit tests
+// DbError unit tests
 // ---------------------------------------------------------------------------
-describe("VantaError", () => {
+describe("DbError", () => {
   it("creates error with code and message", () => {
-    const err = new VantaError("TEST_CODE", "something broke");
+    const err = new DbError("TEST_CODE", "something broke");
     expect(err.code).toBe("TEST_CODE");
     expect(err.message).toBe("something broke");
     expect(err.name).toBe("VantaError");
   });
 
   it("stores optional details", () => {
-    const err = new VantaError("DETAILS", "msg", { foo: 1 });
+    const err = new DbError("DETAILS", "msg", { foo: 1 });
     expect(err.details).toEqual({ foo: 1 });
   });
 
   it("has timestamp", () => {
-    const err = new VantaError("TS", "msg");
+    const err = new DbError("TS", "msg");
     expect(err.timestamp).toBeInstanceOf(Date);
   });
 
   it("toJSON produces structured output", () => {
-    const err = new VantaError("JSON_TEST", "msg", { x: 1 });
+    const err = new DbError("JSON_TEST", "msg", { x: 1 });
     const json = err.toJSON();
     expect(json.name).toBe("VantaError");
     expect(json.code).toBe("JSON_TEST");
@@ -236,7 +277,7 @@ describe("VantaError", () => {
   });
 
   it("toJSON omits details when undefined", () => {
-    const err = new VantaError("NO_DETAILS", "msg");
+    const err = new DbError("NO_DETAILS", "msg");
     const json = err.toJSON();
     expect(json.details).toBeUndefined();
   });
@@ -245,51 +286,51 @@ describe("VantaError", () => {
 // ---------------------------------------------------------------------------
 // Integration tests (require WASM engine)
 // ---------------------------------------------------------------------------
-describe("VantaDB lifecycle", () => {
+describe("Client lifecycle", () => {
   it("connect() with no args creates a working DB", () => {
-    const db = VantaDB.connect();
-    expect(db).toBeInstanceOf(VantaDB);
+    const db = Client.connect();
+    expect(db).toBeInstanceOf(Client);
     db.close();
   });
 
   it("connect(':memory:') creates a working DB", () => {
-    const db = VantaDB.connect(":memory:");
+    const db = Client.connect(":memory:");
     expect(db.capabilities().vector_search).toBe(true);
     db.close();
   });
 
   it("create() with no args creates a working DB", () => {
-    const db = VantaDB.create();
+    const db = Client.create();
     expect(db.capabilities().persistence).toBeDefined();
     db.close();
   });
 
   it("create() with config does not throw", () => {
-    const db = VantaDB.create({ memory_limit: 1_073_741_824 });
-    expect(db).toBeInstanceOf(VantaDB);
+    const db = Client.create({ memory_limit: 1_073_741_824 });
+    expect(db).toBeInstanceOf(Client);
     db.close();
   });
 
   it("close() is idempotent", () => {
-    const db = VantaDB.create();
+    const db = Client.create();
     db.close();
     expect(() => db.close()).not.toThrow();
   });
 
-  it("operations after close() throw VantaError with code CLOSED", () => {
-    const db = VantaDB.create();
+  it("operations after close() throw DbError with code CLOSED", () => {
+    const db = Client.create();
     db.close();
-    expect(() => db.put({ namespace: "ns", key: "k", payload: "p" })).toThrow(VantaError);
+    expect(() => db.put({ namespace: "ns", key: "k", payload: "p" })).toThrow(DbError);
     try {
       db.put({ namespace: "ns", key: "k", payload: "p" });
     } catch (e) {
-      expect(e).toBeInstanceOf(VantaError);
-      expect((e as VantaError).code).toBe("CLOSED");
+      expect(e).toBeInstanceOf(DbError);
+      expect((e as DbError).code).toBe("VANTADB_CLOSED");
     }
   });
 
   it("capabilities() returns expected shape", () => {
-    const db = VantaDB.create();
+    const db = Client.create();
     const caps = db.capabilities();
     expect(caps.vector_search).toBe(true);
     expect(typeof caps.persistence).toBe("boolean");
@@ -299,10 +340,10 @@ describe("VantaDB lifecycle", () => {
   });
 });
 
-describe("VantaDB put / get / delete", () => {
-  let db: VantaDB;
+describe("Client put / get / delete", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("put stores and returns a record", () => {
@@ -370,10 +411,44 @@ describe("VantaDB put / get / delete", () => {
   });
 });
 
-describe("VantaDB putBatch", () => {
-  let db: VantaDB;
+describe("Client deleteByFilter", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
+  afterAll(() => { db.close(); });
+
+  it("deletes matching records and returns the count as bigint", () => {
+    for (let i = 0; i < 3; i++) {
+      db.put({
+        namespace: "filterdel",
+        key: `hot_${i}`,
+        payload: "x",
+        metadata: { tier: { String: "hot" } },
+      });
+    }
+    db.put({
+      namespace: "filterdel",
+      key: "keep",
+      payload: "x",
+      metadata: { tier: { String: "cold" } },
+    });
+
+    const deleted = db.deleteByFilter("filterdel", [
+      { field: "tier", op: "Eq", value: { String: "hot" } },
+    ]);
+    expect(deleted).toBe(3n);
+    expect(db.get("filterdel", "keep")).not.toBeNull();
+  });
+
+  it("propagates the empty-filter rejection", () => {
+    expect(() => db.deleteByFilter("filterdel", [])).toThrow();
+  });
+});
+
+describe("Client putBatch", () => {
+  let db: Client;
+
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("putBatch with empty array returns empty array", () => {
@@ -413,10 +488,10 @@ describe("VantaDB putBatch", () => {
   });
 });
 
-describe("VantaDB list and namespace operations", () => {
-  let db: VantaDB;
+describe("Client list and namespace operations", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("listNamespaces returns created namespaces", () => {
@@ -442,11 +517,11 @@ describe("VantaDB list and namespace operations", () => {
   });
 });
 
-describe("VantaDB search", () => {
-  let db: VantaDB;
+describe("Client search", () => {
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
     db.put({ namespace: "search_db", key: "a", payload: "apple", vector: [1, 0, 0, 0] });
     db.put({ namespace: "search_db", key: "b", payload: "banana", vector: [0, 1, 0, 0] });
     db.put({ namespace: "search_db", key: "c", payload: "cherry", vector: [0, 0, 1, 0] });
@@ -500,10 +575,10 @@ describe("VantaDB search", () => {
   });
 });
 
-describe("VantaDB graph operations", () => {
-  let db: VantaDB;
+describe("Client graph operations", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("insertNode creates a node", () => {
@@ -557,16 +632,29 @@ describe("VantaDB graph operations", () => {
     expect(result).toBeDefined();
   });
 
+  it("graphFilteredTraversal traverses with filter", () => {
+    db.insertNode(60, "f1");
+    db.insertNode(61, "f2");
+    db.addEdge(60, 61, "link");
+    const result = db.graphFilteredTraversal([60], 5, "Forward", { labels: [] });
+    expect(result).toBeDefined();
+  });
+
+  it("graphDegree computes centrality", () => {
+    const degrees = db.graphDegree([60]);
+    expect(Array.isArray(degrees)).toBe(true);
+  });
+
   it("graphTopologicalSort works on DAG", () => {
     const result = db.graphTopologicalSort([40]);
     expect(result).toBeDefined();
   });
 });
 
-describe("VantaDB maintenance operations", () => {
-  let db: VantaDB;
+describe("Client maintenance operations", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("flush does not throw", () => {
@@ -597,10 +685,10 @@ describe("VantaDB maintenance operations", () => {
   });
 });
 
-describe("VantaDB text index", () => {
-  let db: VantaDB;
+describe("Client text index", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("auditTextIndex returns result or null", () => {
@@ -618,10 +706,10 @@ describe("VantaDB text index", () => {
   });
 });
 
-describe("VantaDB generateSnippet", () => {
-  let db: VantaDB;
+describe("Client generateSnippet", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("returns snippet with highlighting", () => {
@@ -640,10 +728,10 @@ describe("VantaDB generateSnippet", () => {
   });
 });
 
-describe("VantaDB edge cases", () => {
-  let db: VantaDB;
+describe("Client edge cases", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("unicode payload round-trips", () => {
@@ -715,14 +803,14 @@ describe("VantaDB edge cases", () => {
     expect(records.length).toBeGreaterThanOrEqual(90);
   });
 
-  it("list after close throws VantaError", () => {
-    const tmp = VantaDB.create();
+  it("list after close throws DbError", () => {
+    const tmp = Client.create();
     tmp.close();
-    expect(() => tmp.list("ns")).toThrow(VantaError);
+    expect(() => tmp.list("ns")).toThrow(DbError);
   });
 
-  it("VantaError caught instanceof Error works", () => {
-    const err = new VantaError("CODE", "msg");
+  it("DbError caught instanceof Error works", () => {
+    const err = new DbError("CODE", "msg");
     expect(err instanceof Error).toBe(true);
   });
 });

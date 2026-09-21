@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { VantaDB } from "../vantadb.js";
+import { Client } from "../vantadb.js";
 
 describe("DX-01: connect() API", () => {
   it("connect() with no args creates working DB", async () => {
-    const db = await VantaDB.connect();
+    const db = await Client.connect();
     const caps = db.capabilities();
     expect(caps.vector_search).toBe(true);
     expect(caps.persistence).toBeDefined();
@@ -11,14 +11,14 @@ describe("DX-01: connect() API", () => {
   });
 
   it("connect(':memory:') creates working DB", async () => {
-    const db = await VantaDB.connect(":memory:");
+    const db = await Client.connect(":memory:");
     const caps = db.capabilities();
     expect(caps.vector_search).toBe(true);
     db.close();
   });
 
   it("connect() returns a working DB", async () => {
-    const db = await VantaDB.connect();
+    const db = await Client.connect();
     const r = await db.put({ namespace: "dx01", key: "k", payload: "v" });
     expect(r.payload).toBe("v");
     const got = await db.get("dx01", "k");
@@ -29,10 +29,10 @@ describe("DX-01: connect() API", () => {
 });
 
 describe("DX-04: Error handling", () => {
-  let db: VantaDB;
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
   });
 
   afterAll(() => {
@@ -83,7 +83,7 @@ describe("DX-04: Error handling", () => {
   });
 
   it("operations after close() return error or are no-ops", async () => {
-    const tmp = VantaDB.create();
+    const tmp = Client.create();
     tmp.close();
     // Most operations should not panic after close
     // Note: implementation may vary - at minimum should not throw synchronously
@@ -91,10 +91,10 @@ describe("DX-04: Error handling", () => {
 });
 
 describe("DX-04: Edge cases", () => {
-  let db: VantaDB;
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
   });
 
   afterAll(() => {
@@ -206,10 +206,10 @@ describe("DX-04: Edge cases", () => {
 });
 
 describe("DX-04: Search and query", () => {
-  let db: VantaDB;
+  let db: Client;
 
   beforeAll(async () => {
-    db = VantaDB.create();
+    db = Client.create();
     // Seed some data for search tests
     await db.put({
       namespace: "search_test",
@@ -298,10 +298,10 @@ describe("DX-04: Search and query", () => {
 });
 
 describe("DX-04: Batch operations", () => {
-  let db: VantaDB;
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
   });
 
   afterAll(() => {
@@ -349,36 +349,34 @@ describe("DX-04: Batch operations", () => {
     expect(Number(got!.version)).toBe(2);
   });
 
-  it("importRecords round-trip", () => {
-    expect.assertions(1);
-    const records = [
+  it("importRecords round-trip (strict counts, FIND-79)", () => {
+    const report = db.importRecords([
       { namespace: "import_rt", key: "k1", payload: "v1" },
       { namespace: "import_rt", key: "k2", payload: "v2" },
-    ];
-    try {
-      const report = db.importRecords(records);
-      expect(report).toBeDefined();
-    } catch (e: any) {
-      expect(e).toBeDefined();
-    }
+    ]);
+    expect(report.inserted).toBe(2);
+    expect(report.updated).toBe(0);
+    expect(report.errors).toBe(0);
+    expect(db.get("import_rt", "k1")!.payload).toBe("v1");
+    expect(db.get("import_rt", "k2")!.payload).toBe("v2");
   });
 
-  it("importRecords with empty array", () => {
-    expect.assertions(1);
-    try {
-      const report = db.importRecords([]);
-      expect(report).toBeDefined();
-    } catch (e: any) {
-      expect(e).toBeDefined();
-    }
+  it("importRecords with empty array (strict zeros, FIND-79)", () => {
+    expect(db.importRecords([])).toEqual({
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      errors: 0,
+      duration_ms: expect.any(Number),
+    });
   });
 });
 
 describe("DX-04: Lifecycle and maintenance", () => {
-  let db: VantaDB;
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
   });
 
   afterAll(() => {
@@ -411,10 +409,10 @@ describe("DX-04: Lifecycle and maintenance", () => {
 });
 
 describe("DX-04: Search (no matching)", () => {
-  let db: VantaDB;
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
   });
 
   afterAll(() => {

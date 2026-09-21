@@ -1,3 +1,13 @@
+---
+title: "Custom Hooks — `src/hooks/`"
+type: web
+status: active
+tags: [vantadb, web, reference]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Custom Hooks — `src/hooks/`
 
 8 hooks total. All single default exports. No external hook libraries used.

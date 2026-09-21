@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! 🔒 Security test suite for VantaDB.
 //!
 //! Covers: IQL injection fuzzing, input validation, auth bypass attempts,
@@ -8,8 +10,7 @@
 use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::{
-    InMemoryEngine, UnifiedNode, VantaEmbedded, VantaError, VantaMemoryInput,
-    VantaMemorySearchRequest, VantaValue,
+    Embedded, Error, InMemoryEngine, MemoryInput, MemorySearchRequest, UnifiedNode, Value,
 };
 
 // ── IQL Injection Tests ────────────────────────────────────
@@ -18,9 +19,9 @@ use vantadb::{
 mod iql_injection_tests {
     use super::*;
 
-    fn setup_db() -> (VantaEmbedded, tempfile::TempDir) {
+    fn setup_db() -> (Embedded, tempfile::TempDir) {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
         (db, dir)
     }
 
@@ -41,10 +42,7 @@ mod iql_injection_tests {
             assert!(result.is_err(), "SQL injection pattern should fail: {iql}");
             let err = result.unwrap_err();
             assert!(
-                matches!(
-                    err,
-                    VantaError::IqlParseError { .. } | VantaError::IqlError(_)
-                ),
+                matches!(err, Error::IqlParse { .. } | Error::Iql(_)),
                 "Unexpected error for {iql}: {err}"
             );
         }
@@ -134,10 +132,10 @@ mod iql_injection_tests {
             "..\\..\\windows\\system32",
         ];
         for &val in &specials {
-            let mut input = VantaMemoryInput::new("test", "special-key", "payload");
+            let mut input = MemoryInput::new("test", "special-key", "payload");
             input
                 .metadata
-                .insert("injected".to_string(), VantaValue::String(val.to_string()));
+                .insert("injected".to_string(), Value::String(val.to_string()));
             let result = db.put(input);
             assert!(
                 result.is_ok() || result.is_err(),
@@ -146,7 +144,7 @@ mod iql_injection_tests {
             if let Ok(record) = result {
                 assert_eq!(
                     record.metadata.get("injected"),
-                    Some(&VantaValue::String(val.to_string()))
+                    Some(&Value::String(val.to_string()))
                 );
             }
         }
@@ -192,7 +190,7 @@ mod input_validation_tests {
     #[test]
     fn test_namespace_with_invalid_chars() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
         let invalid = [
             "space in ns",
             "newline\nns",
@@ -206,7 +204,7 @@ mod input_validation_tests {
             "ns😀emoji",
         ];
         for ns in &invalid {
-            let input = VantaMemoryInput::new(*ns, "key", "payload");
+            let input = MemoryInput::new(*ns, "key", "payload");
             let err = db.put(input).expect_err("invalid namespace must fail");
             let msg = err.to_string();
             assert!(
@@ -219,10 +217,10 @@ mod input_validation_tests {
     #[test]
     fn test_key_with_null_byte() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let key_with_null = "valid\0invalid";
-        let input = VantaMemoryInput::new("ns", key_with_null, "payload");
+        let input = MemoryInput::new("ns", key_with_null, "payload");
         let err = db.put(input).expect_err("key with null must fail");
         let msg = err.to_string();
         assert!(msg.contains("NUL"), "Expected NUL byte error, got: {msg}");
@@ -231,10 +229,10 @@ mod input_validation_tests {
     #[test]
     fn test_key_too_long() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let long_key = "k".repeat(600);
-        let input = VantaMemoryInput::new("ns", &long_key, "payload");
+        let input = MemoryInput::new("ns", &long_key, "payload");
         let err = db.put(input).expect_err("overly long key must fail");
         let msg = err.to_string();
         assert!(msg.contains("512"), "Expected length error, got: {msg}");
@@ -243,10 +241,10 @@ mod input_validation_tests {
     #[test]
     fn test_namespace_too_long() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let long_ns = "n".repeat(200);
-        let input = VantaMemoryInput::new(&long_ns, "key", "payload");
+        let input = MemoryInput::new(&long_ns, "key", "payload");
         let err = db.put(input).expect_err("overly long namespace must fail");
         let msg = err.to_string();
         assert!(msg.contains("128"), "Expected length error, got: {msg}");
@@ -255,7 +253,7 @@ mod input_validation_tests {
     #[test]
     fn test_reserved_metadata_key_rejected() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let reserved_keys = [
             "__vanta_payload",
@@ -268,10 +266,10 @@ mod input_validation_tests {
             "__vanta_user_defined",
         ];
         for key in &reserved_keys {
-            let mut input = VantaMemoryInput::new("ns", "key", "payload");
+            let mut input = MemoryInput::new("ns", "key", "payload");
             input
                 .metadata
-                .insert(key.to_string(), VantaValue::String("x".into()));
+                .insert(key.to_string(), Value::String("x".into()));
             let err = db.put(input).expect_err("reserved metadata key must fail");
             let msg = err.to_string();
             assert!(
@@ -284,12 +282,12 @@ mod input_validation_tests {
     #[test]
     fn test_metadata_key_with_nul_byte_rejected() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
-        let mut input = VantaMemoryInput::new("ns", "key", "payload");
+        let mut input = MemoryInput::new("ns", "key", "payload");
         input
             .metadata
-            .insert("bad\0key".to_string(), VantaValue::String("x".into()));
+            .insert("bad\0key".to_string(), Value::String("x".into()));
         let err = db.put(input).expect_err("metadata key with NUL must fail");
         let msg = err.to_string();
         assert!(msg.contains("NUL"), "Expected NUL error, got: {msg}");
@@ -298,16 +296,16 @@ mod input_validation_tests {
     #[test]
     fn test_vector_with_nan_values_via_sdk() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
-        let mut input = VantaMemoryInput::new("ns", "nan-vec", "payload");
+        let mut input = MemoryInput::new("ns", "nan-vec", "payload");
         input.vector = Some(vec![f32::NAN, 1.0, 2.0]);
         let result = db.put(input);
         // The SDK may allow storing NaN vectors (the engine does)
         // but search should never crash on them
         if let Ok(record) = result {
             assert!(record.vector.is_some());
-            let search = VantaMemorySearchRequest {
+            let search = MemorySearchRequest {
                 namespace: "ns".to_string(),
                 query_vector: vec![1.0, 0.0, 0.0],
                 top_k: 10,
@@ -323,13 +321,13 @@ mod input_validation_tests {
     #[test]
     fn test_malformed_payload_extremely_large() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let huge_payload = "X".repeat(1_000_000);
-        let mut input = VantaMemoryInput::new("ns", "huge", &huge_payload);
+        let mut input = MemoryInput::new("ns", "huge", &huge_payload);
         input
             .metadata
-            .insert("large".to_string(), VantaValue::String("Y".repeat(10_000)));
+            .insert("large".to_string(), Value::String("Y".repeat(10_000)));
         let result = db.put(input);
         // Should either succeed with large payload or fail gracefully
         assert!(
@@ -341,7 +339,7 @@ mod input_validation_tests {
     #[test]
     fn test_get_with_empty_namespace() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let err = db.get("", "key").expect_err("empty namespace must fail");
         assert!(
@@ -353,7 +351,7 @@ mod input_validation_tests {
     #[test]
     fn test_get_with_empty_key() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let err = db.get("ns", "").expect_err("empty key must fail");
         assert!(
@@ -365,7 +363,7 @@ mod input_validation_tests {
     #[test]
     fn test_delete_with_invalid_namespace() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let err = db.delete("", "key").expect_err("empty namespace must fail");
         assert!(
@@ -377,12 +375,12 @@ mod input_validation_tests {
     #[test]
     fn test_put_batch_validation_fails_fast() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         let inputs = vec![
-            VantaMemoryInput::new("valid", "key1", "ok"),
-            VantaMemoryInput::new("", "key2", "bad-ns"),
-            VantaMemoryInput::new("valid", "key3", "ok"),
+            MemoryInput::new("valid", "key1", "ok"),
+            MemoryInput::new("", "key2", "bad-ns"),
+            MemoryInput::new("valid", "key3", "ok"),
         ];
         let err = db
             .put_batch(inputs)
@@ -409,12 +407,12 @@ mod auth_security_tests {
     #[test]
     fn test_auth_token_empty_rejected() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
-        // VantaEmbedded has no built-in auth — that's the server layer.
+        // Embedded has no built-in auth — that's the server layer.
         // This test verifies the embedded SDK always allows operations
         // (auth is not its responsibility).
-        let result = db.put(VantaMemoryInput::new("test", "no-auth", "payload"));
+        let result = db.put(MemoryInput::new("test", "no-auth", "payload"));
         assert!(
             result.is_ok(),
             "Embedded SDK should work without auth: {result:?}"
@@ -455,22 +453,22 @@ mod auth_security_tests {
         // when no Authorization header is present and an API key is configured.
         // In the embedded SDK, there's no middleware — the SDK is always open.
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
-        db.put(VantaMemoryInput::new("ns", "key", "payload"))
+        let db = Embedded::open(dir.path()).expect("open");
+        db.put(MemoryInput::new("ns", "key", "payload"))
             .expect("Embedded SDK must work without auth headers");
     }
 
     #[test]
     fn test_auth_wrong_key_rejected() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         // The SDK's capabilities() reports iql_queries: true
         let capabilities = db.capabilities();
         assert!(capabilities.iql_queries);
 
         // Auth is at the HTTP server layer only
-        db.put(VantaMemoryInput::new("ns", "key", "payload"))
+        db.put(MemoryInput::new("ns", "key", "payload"))
             .expect("Embedded SDK does not enforce auth");
     }
 
@@ -509,7 +507,7 @@ mod fuzzing_tests {
         use std::time::{SystemTime, UNIX_EPOCH};
 
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         // Seed with deterministic value for reproducibility
         let seed = SystemTime::now()
@@ -534,8 +532,7 @@ mod fuzzing_tests {
                 .collect();
             let payload = String::from_utf8_lossy(&bytes);
 
-            let input =
-                VantaMemoryInput::new("fuzz", format!("fuzz-key-{i}"), payload.into_owned());
+            let input = MemoryInput::new("fuzz", format!("fuzz-key-{i}"), payload.into_owned());
             let result = db.put(input);
             // Random bytes may or may not be valid — but must never panic
             assert!(
@@ -595,8 +592,8 @@ mod fuzzing_tests {
     fn test_rapid_open_close_cycle_no_crash() {
         for i in 0..20 {
             let dir = tempdir().expect("tempdir");
-            let db = VantaEmbedded::open(dir.path()).expect("open");
-            db.put(VantaMemoryInput::new("cycle", format!("k-{i}"), "p"))
+            let db = Embedded::open(dir.path()).expect("open");
+            db.put(MemoryInput::new("cycle", format!("k-{i}"), "p"))
                 .ok();
             db.close().expect("close");
         }
@@ -605,25 +602,23 @@ mod fuzzing_tests {
     #[test]
     fn test_list_with_extreme_filters() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
         // Insert one record
-        db.put(VantaMemoryInput::new("ns", "k1", "p")).expect("put");
+        db.put(MemoryInput::new("ns", "k1", "p")).expect("put");
 
         // List with problematic filters
-        let options = vantadb::VantaMemoryListOptions {
+        let options = vantadb::MemoryListOptions {
             #[allow(deprecated)]
             filters: {
                 let mut m = std::collections::BTreeMap::new();
-                m.insert(
-                    "__vanta_reserved".to_string(),
-                    VantaValue::String("x".into()),
-                );
+                m.insert("__vanta_reserved".to_string(), Value::String("x".into()));
                 m
             },
             filter_ops: None,
             limit: 10,
             cursor: None,
+            exclude_superseded: false,
         };
         let err = db
             .list("ns", options)
@@ -637,9 +632,9 @@ mod fuzzing_tests {
     #[test]
     fn test_search_with_bizarre_text_query() {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open");
+        let db = Embedded::open(dir.path()).expect("open");
 
-        db.put(VantaMemoryInput::new("ns", "k1", "hello world"))
+        db.put(MemoryInput::new("ns", "k1", "hello world"))
             .expect("put");
 
         let bizarre_queries = [
@@ -650,7 +645,7 @@ mod fuzzing_tests {
             &"a".repeat(100_000),
         ];
         for query in &bizarre_queries {
-            let req = VantaMemorySearchRequest {
+            let req = MemorySearchRequest {
                 namespace: "ns".to_string(),
                 query_vector: vec![1.0, 0.0, 0.0],
                 text_query: Some(query.to_string()),
@@ -667,7 +662,7 @@ mod fuzzing_tests {
     #[test]
     fn test_multiple_concurrent_fuzz_no_crash() {
         let dir = Arc::new(tempdir().expect("tempdir"));
-        let db = Arc::new(VantaEmbedded::open(dir.path()).expect("open"));
+        let db = Arc::new(Embedded::open(dir.path()).expect("open"));
 
         let mut handles = Vec::new();
         for i in 0..10 {
@@ -675,7 +670,7 @@ mod fuzzing_tests {
             handles.push(std::thread::spawn(move || {
                 for j in 0..10 {
                     let input =
-                        VantaMemoryInput::new("fuzz", format!("k-{i}-{j}"), format!("p-{i}-{j}"));
+                        MemoryInput::new("fuzz", format!("k-{i}-{j}"), format!("p-{i}-{j}"));
                     let _ = db.put(input);
                 }
             }));

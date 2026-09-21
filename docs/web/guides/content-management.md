@@ -1,3 +1,13 @@
+---
+title: "Gestión de Contenido Estático — Frontend Web"
+type: web
+status: active
+tags: [vantadb, web, guides]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Gestión de Contenido Estático — Frontend Web
 
 > **App:** Next.js 16 App Router (todo `"use client"`)  

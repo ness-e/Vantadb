@@ -15,11 +15,7 @@ const TAG_STYLES: Record<string, string> = {
 };
 
 export default function BlogPage() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader
@@ -52,7 +48,7 @@ export default function BlogPage() {
             <Reveal key={post.slug} direction="up" delay={i * 60} as="article">
               <a
                 href={`/blog/${post.slug}`}
-                className="press-lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5 shadow-[6px_6px_0_0_#000] transition-transform hover:translate-x-[-3px] hover:translate-y-[-3px] hover:shadow-[9px_9px_0_0_#FF5500]   "
+                className="press--lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5 shadow-[6px_6px_0_0_#000] transition-transform hover:translate-x-[-3px] hover:translate-y-[-3px] hover:shadow-[9px_9px_0_0_#FF5500]   "
               >
                 <span
                   className={cn(

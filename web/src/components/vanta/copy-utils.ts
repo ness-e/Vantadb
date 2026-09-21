@@ -14,8 +14,11 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     try {
       await navigator.clipboard.writeText(text);
       return true;
-    } catch {
-      // fall through to legacy path
+    } catch (e) {
+      // Degradación intencional: permisos/secure-context pueden denegar la
+      // Clipboard API; el caller NO debe ver un fallo, recién fallaría si
+      // también falla el fallback legacy abajo. Se loggea para diagnóstico.
+      console.warn("copyToClipboard: Clipboard API unavailable, using legacy fallback", e);
     }
   }
 
@@ -34,7 +37,10 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     const ok = document.execCommand("copy");
     document.body.removeChild(textarea);
     return ok;
-  } catch {
+  } catch (e) {
+    // Ambos paths fallaron: se retorna false y el caller muestra el toast
+    // ("No se pudo copiar"). Se loggea la causa para no silenciar el error.
+    console.warn("copyToClipboard: legacy execCommand fallback failed", e);
     return false;
   }
 }

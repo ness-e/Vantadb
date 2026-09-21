@@ -1,22 +1,22 @@
 //! Python bindings for the VantaDB vector-graph database via PyO3.
 //!
-//! This crate exposes the [`VantaDB`] class and a [`connect`] function
+//! This crate exposes the [`Client`] class and a `connect` function
 //! for in-process, zero-network-overhead access to VantaDB from Python.
 #![warn(missing_docs)]
 #![allow(deprecated)]
 
 use pyo3::buffer::PyBuffer;
-use pyo3::exceptions::{PyTypeError, PyValueError};
+use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
-use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyModuleMethods, PyTuple, PyTupleMethods};
+use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyModuleMethods, PyTuple};
 use std::collections::HashMap;
-use vantadb::config::VantaConfig;
+use std::sync::{Arc, Condvar, Mutex, PoisonError};
+use vantadb::config::Config;
+use vantadb::index::IndexType;
 use vantadb::metadata;
-use vantadb::sdk::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest,
-    VantaNodeInput, VantaValue,
-};
-use vantadb::DistanceMetric;
+use vantadb::sdk::{Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, NodeInput};
+// FFI guards: single source of truth from core (WSM-09).
+use vantadb::{DistanceMetric, MAX_K};
 
 mod convert;
 use convert::parse_direction;
@@ -25,33 +25,580 @@ mod vector;
 
 use types::{FlatBufferView, VantaPyListResult, VantaPyMemoryRecord, VantaPySearchHit};
 
-use vector::{VantaVector, VantaVectorIter};
+use vector::{Vector, VectorIter};
 
 use crate::convert::{
     bulk_import_report_to_pydict, capabilities_to_pydict, check_lens, export_report_to_pydict,
     extract_vector, format_query_result, import_report_to_pydict, map_vanta_error, node_to_pydict,
-    operational_metrics_to_pydict, py_any_to_value, py_dict_to_metadata, rebuild_report_to_pydict,
-    runtime_profile_label, search_explanation_to_pydict, text_index_audit_report_to_pydict,
-    text_index_repair_report_to_pydict,
+    operational_metrics_to_pydict, py_any_to_value, py_dict_to_filter_ops, py_dict_to_metadata,
+    query_result_to_pydict, rebuild_report_to_pydict, runtime_profile_label,
+    search_explanation_to_pydict, text_index_audit_report_to_pydict,
+    text_index_repair_report_to_pydict, BusyError, ConflictError, CorruptError, Error,
+    NoVectorError, NotFoundError, ResourceLimitError, StorageError, TimeoutError, UnsupportedError,
+    ValidationError,
 };
+
+/// Clamp `top_k`/`k` to [`MAX_K`], warning when the caller requested more than
+/// the cap so silent truncation is observable (ERR-022). `MAX_K` is unified in
+/// core (`vantadb::config::MAX_K`) — see WSM-09.
+fn clamp_top_k(requested: usize) -> usize {
+    if requested > MAX_K {
+        tracing::warn!("top_k={requested} exceeds MAX_K={MAX_K}; clamping to {MAX_K} (ERR-022)");
+    }
+    requested.min(MAX_K)
+}
 
 #[pyclass]
 /// Python-accessible embedded VantaDB engine.
-pub struct VantaDB {
-    engine: VantaEmbedded,
+///
+/// Create or open a database with ``Client(db_path, ...)``:
+///
+/// Args:
+///     db_path: Path to the database directory. Pass ``":memory:"`` (or an
+///         empty string) to create an in-memory database that is discarded
+///         when the connection closes.
+///     memory_limit_bytes: Optional memory budget in bytes for the Rust engine.
+///         Isolates the DB's memory from Python's heap. If None, uses hardware
+///         detection or VANTADB_MEMORY_LIMIT env var.
+///     read_only: If True, opens the DB in read-only mode. Safe for multi-process
+///         access when another process holds the write lock.
+///     backend: Storage backend to use — ``"memory"``, ``"rocksdb"``, or None
+///         (None selects the default persistent backend, fjall). Unknown values
+///         fall back to the default backend with a warning.
+///
+/// Returns:
+///     Client: A connected VantaDB database handle.
+///
+/// Raises:
+///     ValueError: If the database file has an incompatible format or the
+///         configuration is invalid.
+///     StorageError: If the database directory cannot be created or opened.
+///     RuntimeError: For any other engine-level failure.
+///
+/// Example:
+///     ```python
+///     >>> from vantadb_py import Client
+///     >>> db = Client(":memory:", backend="memory")  # in-memory engine
+///     >>> db.put("agent/main", "task-1", "alpha")
+///     >>> db.memory.get("agent/main", "task-1").payload
+///     'alpha'
+///     ```
+pub struct Client {
+    engine: Embedded,
+    op_gate: OpGate,
 }
 
+/// Durability gate: rejects new operations once `close()` has begun and keeps
+/// `close()` waiting until every in-flight operation finishes. Mirrors
+/// `vantadb-node/src/lib.rs` — closes the write-after-close race where a
+/// thread whose engine call had not yet run (or is running GIL-released via
+/// `py.detach`) would write after `close()` returned.
+#[derive(Clone)]
+struct OpGate {
+    state: Arc<(Mutex<OpState>, Condvar)>,
+}
+
+struct OpState {
+    closing: bool,
+    count: usize,
+}
+
+impl OpGate {
+    fn new() -> Self {
+        Self {
+            state: Arc::new((
+                Mutex::new(OpState {
+                    closing: false,
+                    count: 0,
+                }),
+                Condvar::new(),
+            )),
+        }
+    }
+
+    /// Register a new in-flight operation. Returns `None` if `close()` has
+    /// started (new operations are rejected past the durability barrier).
+    fn try_enter(&self) -> Option<OpGuard> {
+        let (lock, _) = &*self.state;
+        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
+        if state.closing {
+            return None;
+        }
+        state.count += 1;
+        Some(OpGuard {
+            state: self.state.clone(),
+        })
+    }
+
+    /// Start closing and block until every in-flight operation drains.
+    ///
+    /// Sets `closing = true` (so new ops are rejected) then waits until
+    /// `count == 0`. Blocks the calling thread; acceptable: this is the
+    /// durability barrier and engine operations are bounded.
+    ///
+    /// MOD-17: MUST be called with the GIL released whenever Python threads
+    /// may hold an `OpGuard`: an op returning from its own `py.detach` needs
+    /// to re-acquire the GIL before it can drop its guard, so waiting here
+    /// with the GIL held deadlocks the interpreter. See `Client::close`.
+    fn drain(&self) {
+        let (lock, cvar) = &*self.state;
+        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
+        state.closing = true;
+        while state.count > 0 {
+            state = cvar.wait(state).unwrap_or_else(PoisonError::into_inner);
+        }
+    }
+}
+
+/// RAII guard that decrements the in-flight count and wakes `close()` when
+/// dropped (at the end of the owning method, after the engine call completes).
+struct OpGuard {
+    state: Arc<(Mutex<OpState>, Condvar)>,
+}
+
+impl Drop for OpGuard {
+    fn drop(&mut self) {
+        let (lock, cvar) = &*self.state;
+        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
+        state.count -= 1;
+        cvar.notify_one();
+    }
+}
+
+/// Enter the gate for an engine operation, or fail with a descriptive error
+/// if the database is closing.
+fn enter(gate: &OpGate) -> PyResult<OpGuard> {
+    gate.try_enter()
+        .ok_or_else(|| PyRuntimeError::new_err("database is closing"))
+}
+
+/// Parse the Python `backend` argument into a `BackendKind`.
+///
+/// `None` selects the default persistent backend (fjall). Unknown values
+/// raise `ValueError` instead of silently falling back (AUD-037).
+fn parse_backend_kind(backend: Option<&str>) -> PyResult<vantadb::BackendKind> {
+    match backend {
+        None => Ok(vantadb::BackendKind::Fjall),
+        Some("rocksdb") => Ok(vantadb::BackendKind::RocksDb),
+        Some("memory") => Ok(vantadb::BackendKind::InMemory),
+        Some(other) => Err(PyValueError::new_err(format!(
+            "Unknown backend \"{other}\" — known values: rocksdb, memory (or None for the default, fjall)"
+        ))),
+    }
+}
+
+/// Parse the Python `distance_metric` argument into a `DistanceMetric`.
+///
+/// `None` (or explicit `"cosine"`) selects cosine. Unknown values raise
+/// `ValueError` instead of silently falling back (D5b — same contract as
+/// `parse_backend_kind` above).
+fn parse_distance_metric(value: Option<&str>) -> PyResult<DistanceMetric> {
+    match value {
+        None | Some("cosine") => Ok(DistanceMetric::Cosine),
+        Some("euclidean") => Ok(DistanceMetric::Euclidean),
+        Some(other) => Err(PyValueError::new_err(format!(
+            "Unknown distance_metric \"{other}\" — known values: cosine, euclidean"
+        ))),
+    }
+}
+
+/// Shared constructor: build the engine config and open the embedded database.
+///
+/// Both Python entry points (`Client.new` and `connect`) delegate here so
+/// config construction stays in one place (AUD-037). The caller owns
+/// `storage_path` normalization: `new` passes `db_path` verbatim, `connect`
+/// maps `""`/`":memory:"` before calling.
+fn open_vantadb(
+    py: Python<'_>,
+    storage_path: String,
+    memory_limit: Option<u64>,
+    read_only: bool,
+    backend: Option<&str>,
+) -> PyResult<Client> {
+    let config = Config {
+        storage_path,
+        memory_limit,
+        read_only,
+        backend_kind: parse_backend_kind(backend)?,
+        ..Default::default()
+    };
+    let engine = py
+        .detach(move || Embedded::open_with_config(config))
+        .map_err(map_vanta_error)?;
+    Ok(Client {
+        engine,
+        op_gate: OpGate::new(),
+    })
+}
+
+// ---------------------------------------------------------------------------
+// Domain sub-clients (SDKB-03)
+//
+// Read-only grouping of ALREADY-EXPOSED flat methods by domain, per the
+// canonical map `docs/api/BINDINGS_NAMESPACES.md`. Delegation only — zero new
+// logic (D43). Each client holds a strong ref to its parent [`Client`]; a
+// fresh instance is built on every property access, so no reference cycle
+// outlives the reference the caller keeps.
+// ---------------------------------------------------------------------------
+
+/// Grouped memory-record operations (``db.memory.*``): namespace+key records,
+/// hybrid and pure-ANN search, supersede, snippets, TTL housekeeping.
+#[pyclass]
+struct MemoryClient {
+    /// Parent database handle every call is forwarded to.
+    db: Py<Client>,
+}
+
+/// Grouped graph operations (``db.graph.*``): node/edge CRUD and traversals.
+///
+/// Naming note: ``insert``/``get``/``delete`` are NODE-level ops (``id: u128``)
+/// in Python — unlike the memory-record semantics those names carry in the
+/// TS/WASM bindings (see BINDINGS_NAMESPACES.md naming hazard).
+#[pyclass]
+struct GraphClient {
+    /// Parent database handle every call is forwarded to.
+    db: Py<Client>,
+}
+
+/// Catch-all system operations (``db.system.*``): lifecycle, capabilities,
+/// hardware profile, metrics, IQL query engine, index maintenance, import/export.
+#[pyclass]
+struct SystemClient {
+    /// Parent database handle every call is forwarded to.
+    db: Py<Client>,
+}
+
+/// Wiki summary-archive recovery (``db.wiki.*``).
+#[pyclass]
+struct WikiClient {
+    /// Parent database handle every call is forwarded to.
+    db: Py<Client>,
+}
+
+/// Generates pymethods that forward each listed call VERBATIM to the flat
+/// method of the same name on the parent [`Client`]. The varargs/kwargs
+/// pass-through makes the exposed signature identical by construction — the
+/// flat method keeps doing all argument validation (single source of truth).
+/// Entries shaped `alias => target` expose a clean anti-stutter name that
+/// delegates to a differently-named flat method (AST-003).
+macro_rules! forward_to_db {
+    ($client:ident { $($method:ident),* $(,)? }) => {
+        #[pymethods]
+        impl $client {
+            $(
+                #[doc = concat!("Delegates to ``Client.", stringify!($method), "`` — same signature, same result.")]
+                #[pyo3(signature = (*args, **kwargs))]
+                fn $method<'py>(
+                    &self,
+                    py: Python<'py>,
+                    args: &Bound<'py, PyTuple>,
+                    kwargs: Option<&Bound<'py, PyDict>>,
+                ) -> PyResult<Bound<'py, PyAny>> {
+                    self.db.bind(py).call_method(stringify!($method), args, kwargs)
+                }
+            )*
+        }
+    };
+    ($client:ident { $($method:ident),* $(,)? ; $($alias:ident => $target:ident),* $(,)? }) => {
+        #[pymethods]
+        impl $client {
+            $(
+                #[doc = concat!("Delegates to ``Client.", stringify!($method), "`` — same signature, same result.")]
+                #[pyo3(signature = (*args, **kwargs))]
+                fn $method<'py>(
+                    &self,
+                    py: Python<'py>,
+                    args: &Bound<'py, PyTuple>,
+                    kwargs: Option<&Bound<'py, PyDict>>,
+                ) -> PyResult<Bound<'py, PyAny>> {
+                    self.db.bind(py).call_method(stringify!($method), args, kwargs)
+                }
+            )*
+            $(
+                #[doc = concat!("Clean alias of ``Client.", stringify!($target), "`` — same signature, same result.")]
+                #[pyo3(signature = (*args, **kwargs))]
+                fn $alias<'py>(
+                    &self,
+                    py: Python<'py>,
+                    args: &Bound<'py, PyTuple>,
+                    kwargs: Option<&Bound<'py, PyDict>>,
+                ) -> PyResult<Bound<'py, PyAny>> {
+                    self.db.bind(py).call_method(stringify!($target), args, kwargs)
+                }
+            )*
+        }
+    };
+    // AST-012: forwards + REAL methods in ONE #[pymethods] block (PyO3
+    // rejects two #[pymethods] impls for the same type — E0119). The
+    // `with { ... }` items are pasted verbatim: full-signature methods whose
+    // bodies reach the engine via `self.db` (single implementation, no
+    // string-dispatch hop, no logic duplication).
+    ($client:ident { $($method:ident),* $(,)? } with { $($real:tt)* }) => {
+        #[pymethods]
+        impl $client {
+            $(
+                #[doc = concat!("Delegates to ``Client.", stringify!($method), "`` — same signature, same result.")]
+                #[pyo3(signature = (*args, **kwargs))]
+                fn $method<'py>(
+                    &self,
+                    py: Python<'py>,
+                    args: &Bound<'py, PyTuple>,
+                    kwargs: Option<&Bound<'py, PyDict>>,
+                ) -> PyResult<Bound<'py, PyAny>> {
+                    self.db.bind(py).call_method(stringify!($method), args, kwargs)
+                }
+            )*
+            $($real)*
+        }
+    };
+}
+
+forward_to_db!(MemoryClient {
+    put,
+    put_batch,
+    put_batch_raw,
+    delete_by_filter,
+    count,
+    similar_to_key,
+    search,
+    search_vector,
+    search_batch,
+    search_batch_requests,
+    explain_memory_search,
+    supersede,
+    generate_snippet,
+    purge_expired,
+    list_namespaces,
+} with {
+    // AST-012 (anti-stutter, paridad TS `MemoryClient.put/get/delete/search`):
+    // `get`/`list`/`delete` son métodos REALES (cuerpos movidos desde el
+    // flat — 1 sola implementación, sin duplicar lógica). Sin aliases.
+    /// Get a namespace-scoped persistent memory record.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during storage read.
+    ///
+    /// Args:
+    ///     namespace: Namespace the record belongs to.
+    ///     key: Record key within the namespace.
+    ///
+    /// Returns:
+    ///     The record, or None if no matching record exists.
+    ///
+    /// Raises:
+    ///     StorageError: If the storage cannot be read.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.memory.put("agent/main", "task-1", "organize the backlog")
+    ///     >>> record = db.memory.get("agent/main", "task-1")
+    ///     >>> record.payload
+    ///     'organize the backlog'
+    ///     >>> db.memory.get("agent/main", "missing") is None
+    ///     True
+    ///     ```
+    fn get(
+        &self,
+        py: Python,
+        namespace: &str,
+        key: &str,
+    ) -> PyResult<Option<VantaPyMemoryRecord>> {
+        let db = self.db.bind(py);
+        let client = db.borrow();
+        let _g = enter(&client.op_gate)?;
+        let engine = client.engine.clone();
+        let n = namespace.to_string();
+        let k = key.to_string();
+        let record = py.detach(move || engine.get(&n, &k).map_err(map_vanta_error))?;
+        match record {
+            Some(record) => Ok(Some(VantaPyMemoryRecord::new(record))),
+            None => Ok(None),
+        }
+    }
+
+    /// Delete a namespace-scoped persistent memory record.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during storage delete.
+    ///
+    /// Args:
+    ///     namespace: Namespace the record belongs to.
+    ///     key: Record key within the namespace.
+    ///
+    /// Returns:
+    ///     bool: True if a record was deleted, False if no matching record existed.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.memory.put("agent/main", "temp", "delete me")
+    ///     >>> db.memory.delete("agent/main", "temp")
+    ///     True
+    ///     >>> db.memory.get("agent/main", "temp") is None
+    ///     True
+    ///     ```
+    fn delete(&self, py: Python, namespace: &str, key: &str) -> PyResult<bool> {
+        let db = self.db.bind(py);
+        let client = db.borrow();
+        let _g = enter(&client.op_gate)?;
+        let engine = client.engine.clone();
+        let namespace = namespace.to_string();
+        let key = key.to_string();
+        py.detach(move || engine.delete(&namespace, &key).map_err(map_vanta_error))
+    }
+
+    /// List namespace-scoped persistent memory records.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during storage scan.
+    ///
+    /// Args:
+    ///     namespace: Namespace to list records from.
+    ///     filters: Optional dict of metadata field values to filter on.
+    ///     limit: Maximum number of records to return (default 100).
+    ///     cursor: Optional pagination cursor returned as ``next_cursor`` from a
+    ///         previous page.
+    ///
+    /// Returns:
+    ///     VantaListResult: A page of records with ``records``, ``total_count``,
+    ///     and ``next_cursor`` properties. Iterate or index into the result to
+    ///     access ``MemoryRecord`` items.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.memory.put("agent/main", "task-1", "alpha", metadata={"category": "task"})
+    ///     >>> db.memory.put("agent/main", "task-2", "beta", metadata={"category": "task"})
+    ///     >>> page = db.memory.list("agent/main", filters={"category": "task"})
+    ///     >>> len(page)
+    ///     2
+    ///     >>> page[0].key
+    ///     'task-1'
+    ///     ```
+    #[pyo3(signature = (namespace, filters=None, limit=100, cursor=None, exclude_superseded=false))]
+    fn list(
+        &self,
+        py: Python,
+        namespace: &str,
+        filters: Option<&Bound<'_, PyDict>>,
+        limit: usize,
+        cursor: Option<usize>,
+        exclude_superseded: bool,
+    ) -> PyResult<VantaPyListResult> {
+        let db = self.db.bind(py);
+        let client = db.borrow();
+        let _g = enter(&client.op_gate)?;
+        let namespace = namespace.to_string();
+        let filters_meta = py_dict_to_metadata(filters)?;
+        let engine = client.engine.clone();
+        let page = py.detach(move || {
+            engine
+                .list(
+                    &namespace,
+                    MemoryListOptions {
+                        #[allow(deprecated)]
+                        filters: filters_meta,
+                        filter_ops: None,
+                        limit,
+                        cursor,
+                        exclude_superseded,
+                    },
+                )
+                .map_err(map_vanta_error)
+        })?;
+
+        let records: Vec<VantaPyMemoryRecord> = page
+            .records
+            .into_iter()
+            .map(VantaPyMemoryRecord::new)
+            .collect();
+
+        Ok(VantaPyListResult::new(records, page.next_cursor))
+    }
+});
+
+forward_to_db!(GraphClient {
+    insert,
+    get,
+    delete,
+    add_edge,
+    graph_bfs,
+    graph_bfs_filtered,
+    graph_dfs,
+    graph_topological_sort,
+    graph_is_dag,
+    graph_page_rank,
+    graph_degree_centrality
+    // AST-003 node parity aliases (WASM insert_node/get_node/delete_node,
+    // TS insertNode/getNode/deleteNode). Bare insert/get/delete stay
+    // canonical until the cleanup major.
+    ;
+    insert_node => insert,
+    get_node => get,
+    delete_node => delete,
+});
+
+forward_to_db!(SystemClient {
+    capabilities,
+    hardware_profile,
+    operational_metrics,
+    query,
+    query_structured,
+    flush,
+    compact_wal,
+    compact_layout,
+    rebuild_index,
+    reindex_hnsw_from_text,
+    repair_text_index,
+    audit_text_index,
+    export_namespace,
+    export_all,
+    import_file,
+    bulk_import,
+    bulk_import_bytes,
+    close,
+});
+
+forward_to_db!(WikiClient {
+    recover_archived_nodes
+});
+
 #[pymethods]
-impl VantaDB {
+impl Client {
     /// Create or open a VantaDB database.
     ///
     /// Args:
-    ///     db_path: Path to the database directory.
+    ///     db_path: Path to the database directory. Pass ``":memory:"`` (or an
+    ///         empty string) to create an in-memory database that is discarded
+    ///         when the connection closes.
     ///     memory_limit_bytes: Optional memory budget in bytes for the Rust engine.
     ///         Isolates the DB's memory from Python's heap. If None, uses hardware
     ///         detection or VANTADB_MEMORY_LIMIT env var.
     ///     read_only: If True, opens the DB in read-only mode. Safe for multi-process
     ///         access when another process holds the write lock.
+    ///     backend: Storage backend to use — ``"memory"``, ``"rocksdb"``, or None
+    ///         (None selects the default persistent backend, fjall). Unknown values
+    ///         raise ``ValueError``.
+    ///
+    /// Returns:
+    ///     Client: A connected VantaDB database handle.
+    ///
+    /// Raises:
+    ///     ValueError: If the database file has an incompatible format or the
+    ///         configuration is invalid.
+    ///     StorageError: If the database directory cannot be created or opened.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")  # in-memory engine
+    ///     >>> db.put("agent/main", "task-1", "alpha")
+    ///     >>> db.memory.get("agent/main", "task-1").payload
+    ///     'alpha'
+    ///     ```
     #[new]
     #[pyo3(signature = (db_path, memory_limit_bytes=None, read_only=false, backend=None))]
     fn new(
@@ -61,30 +608,13 @@ impl VantaDB {
         read_only: bool,
         backend: Option<&str>,
     ) -> PyResult<Self> {
-        let backend_kind = match backend {
-            Some("rocksdb") => vantadb::BackendKind::RocksDb,
-            Some("memory") => vantadb::BackendKind::InMemory,
-            Some(other) => {
-                tracing::warn!(
-                    "Unknown backend \"{}\" — falling back to default (fjall). Known values: rocksdb, memory",
-                    other
-                );
-                vantadb::BackendKind::Fjall
-            }
-            None => vantadb::BackendKind::Fjall,
-        };
-        let config = VantaConfig {
-            storage_path: db_path.to_string(),
-            memory_limit: memory_limit_bytes,
+        open_vantadb(
+            py,
+            db_path.to_string(),
+            memory_limit_bytes,
             read_only,
-            backend_kind,
-            ..Default::default()
-        };
-        let engine = py
-            .detach(move || VantaEmbedded::open_with_config(config))
-            .map_err(map_vanta_error)?;
-
-        Ok(VantaDB { engine })
+            backend,
+        )
     }
 
     /// Insert a node with content and an optional embedding vector.
@@ -92,10 +622,29 @@ impl VantaDB {
     /// GIL Policy: RELEASED — allows Python threads to run during node insert.
     ///
     /// Args:
-    ///     id: Unique node identifier (u64).
+    ///     id: Unique node identifier (u128).
     ///     content: Text content stored as a relational field.
     ///     vector: Embedding vector (list of floats). Pass empty list for no vector.
     ///     fields: Optional dict of additional relational fields.
+    ///
+    /// Returns:
+    ///     None
+    ///
+    /// Raises:
+    ///     TypeError: If ``vector`` is not a list of floats or ``fields`` contains
+    ///         unsupported value types.
+    ///     ValueError: If the node ID already exists, the vector dimension is
+    ///         inconsistent, or another validation error occurs.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.insert(1, "first node", [0.1, 0.2, 0.3], {"kind": "note"})
+    ///     >>> db.get(1)["fields"]["kind"]
+    ///     'note'
+    ///     ```
     #[pyo3(signature = (id, content, vector, fields=None))]
     fn insert(
         &self,
@@ -105,7 +654,8 @@ impl VantaDB {
         vector: &Bound<'_, PyAny>,
         fields: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<()> {
-        let mut input = VantaNodeInput::new(id);
+        let _g = enter(&self.op_gate)?;
+        let mut input = NodeInput::new(id);
         input.content = Some(content.to_string());
         let v = extract_vector(vector, py)?;
         input.vector = (!v.is_empty()).then_some(v);
@@ -126,105 +676,42 @@ impl VantaDB {
 
     /// Insert or update multiple namespace-scoped records in parallel (batched).
     ///
-    /// Supports two calling conventions:
+    /// **Keyword-only API** — typed per-column arrays:
+    /// ```
+    /// db.put_batch(keys=["k1", "k2"], vectors=[[0.1]*384, [0.2]*384],
+    ///              payloads=["p1", "p2"], metadatas=[{"f": "v"}, None],
+    ///              namespace="ns", ttls=[None, 1000])
+    /// ```
+    /// A batch is single-namespace by default: every record goes to
+    /// ``namespace`` (or ``"default"`` when omitted). To route records of one
+    /// batch into different namespaces, pass the parallel per-record column
+    /// ``namespaces`` (length must equal ``keys``); it overrides
+    /// ``namespace`` for each record:
+    /// ```
+    /// db.put_batch(keys=["k1", "k2"], vectors=[[0.1]*384, [0.2]*384],
+    ///              namespaces=["ns1", "ns2"])
+    /// ```
     ///
-    /// 1. **Positional (tuple list)** — backward-compatible:
-    ///    ```
-    ///    db.put_batch([(namespace, key, payload, metadata, vector, ttl), ...])
-    ///    ```
-    ///    Each entry is a tuple of up to 6 elements.
-    ///
-    /// 2. **Keyword** — typed per-column arrays:
-    ///    ```
-    ///    db.put_batch(keys=["k1", "k2"], vectors=[[0.1]*384, [0.2]*384],
-    ///                 payloads=["p1", "p2"], metadatas=[{"f": "v"}, None],
-    ///                 namespace="ns", ttls=[None, 1000])
-    ///    ```
-    ///
-    /// Returns a list of ``VantaMemoryRecord`` objects, up to ~5x faster
+    /// Returns a list of ``MemoryRecord`` objects, up to ~5x faster
     /// than sequential ``put()`` for large batches.
-    #[deprecated(
-        note = "use keyword arguments (keys=..., vectors=..., payloads=..., metadatas=..., namespace=..., ttls=...) instead"
-    )]
-    #[allow(deprecated)]
-    #[pyo3(signature = (entries, keys=None, vectors=None, payloads=None, metadatas=None, namespace=None, ttls=None))]
+    ///
+    /// ``metadatas`` accepts the same scalar values as ``put()`` (str, int,
+    /// float, bool, datetime, list, or None) via ``py_dict_to_metadata``
+    /// (GOV-TK7) — e.g. ``metadatas=[{"chunk_index": 3}, None]``.
+    #[pyo3(signature = (keys, vectors, payloads=None, metadatas=None, namespace=None, namespaces=None, ttls=None))]
     fn put_batch(
         &self,
         py: Python,
-        entries: Option<&Bound<'_, PyAny>>,
-        keys: Option<Vec<String>>,
-        vectors: Option<Vec<Vec<f32>>>,
+        keys: Vec<String>,
+        vectors: Vec<Vec<f32>>,
         payloads: Option<Vec<String>>,
-        metadatas: Option<Vec<Option<HashMap<String, String>>>>,
+        metadatas: Option<Vec<Option<Py<PyAny>>>>,
         namespace: Option<String>,
+        namespaces: Option<Vec<String>>,
         ttls: Option<Vec<Option<u64>>>,
     ) -> PyResult<Vec<VantaPyMemoryRecord>> {
-        // Backward compat: old tuple-based list-of-entries API
-        if let Some(entries_list) = entries {
-            let _ = py.import("warnings")?.call_method1("warn", ("put_batch() with positional tuples is deprecated; use keyword arguments (keys=..., vectors=..., ...) instead",))?;
-            let mut inputs = Vec::with_capacity(entries_list.len().unwrap_or(0));
-            for entry in entries_list.try_iter()? {
-                let entry = entry?.cast::<PyTuple>()?.clone();
-                if entry.len() < 3 {
-                    return Err(PyValueError::new_err(
-                        "each entry must be a tuple of at least (namespace, key, payload)",
-                    ));
-                }
-                let namespace: String = entry.get_item(0)?.extract()?;
-                let key: String = entry.get_item(1)?.extract()?;
-                let payload: String = entry.get_item(2)?.extract()?;
-                let dict = if entry.len() > 3 && !entry.get_item(3)?.is_none() {
-                    let item = entry.get_item(3)?;
-                    Some(item.cast::<PyDict>()?.clone())
-                } else {
-                    None
-                };
-                let vector_obj: Option<Bound<'_, PyAny>> =
-                    if entry.len() > 4 && !entry.get_item(4)?.is_none() {
-                        Some(entry.get_item(4)?)
-                    } else {
-                        None
-                    };
-                let ttl_ms: Option<u64> = if entry.len() > 5 {
-                    let item = entry.get_item(5)?;
-                    if item.is_none() {
-                        None
-                    } else {
-                        Some(item.extract()?)
-                    }
-                } else {
-                    None
-                };
+        let _g = enter(&self.op_gate)?;
 
-                let mut input = VantaMemoryInput::new(namespace, key, payload);
-                input.metadata = py_dict_to_metadata(dict.as_ref())?;
-                input.ttl_ms = ttl_ms;
-                input.vector = match &vector_obj {
-                    Some(v) => {
-                        let vec = extract_vector(v, py)?;
-                        (!vec.is_empty()).then_some(vec)
-                    }
-                    None => None,
-                };
-                inputs.push(input);
-            }
-
-            let engine = self.engine.clone();
-            let records = py.detach(move || engine.put_batch(inputs).map_err(map_vanta_error))?;
-            return Ok(records.into_iter().map(VantaPyMemoryRecord::new).collect());
-        }
-
-        // New keyword-based API
-        let keys = keys.ok_or_else(|| {
-            PyTypeError::new_err(
-                "either positional 'entries' or keyword 'keys' + 'vectors' is required",
-            )
-        })?;
-        let vectors = vectors.ok_or_else(|| {
-            PyTypeError::new_err(
-                "either positional 'entries' or keyword 'keys' + 'vectors' is required",
-            )
-        })?;
         let n = keys.len();
         if vectors.len() != n {
             return Err(PyValueError::new_err(format!(
@@ -260,6 +747,15 @@ impl VantaDB {
                 )));
             }
         }
+        if let Some(ref nss) = namespaces {
+            if nss.len() != n {
+                return Err(PyValueError::new_err(format!(
+                    "namespaces.len() ({}) must equal keys.len() ({})",
+                    nss.len(),
+                    n
+                )));
+            }
+        }
 
         let ns = namespace.unwrap_or_else(|| "default".to_string());
         let mut inputs = Vec::with_capacity(n);
@@ -268,15 +764,23 @@ impl VantaDB {
                 Some(p) => p[i].clone(),
                 None => String::new(),
             };
-            let mut input = VantaMemoryInput::new(ns.clone(), keys[i].clone(), payload);
+            // ERR-030: per-record namespace routing. A batch is single-namespace
+            // by default (`namespace`, falling back to "default"), but each
+            // record's intended namespace is honored when the parallel
+            // per-record `namespaces` column is supplied.
+            let ns_i = match &namespaces {
+                Some(nss) => nss[i].clone(),
+                None => ns.clone(),
+            };
+            let mut input = MemoryInput::new(ns_i, keys[i].clone(), payload);
 
             if let Some(all_meta) = &metadatas {
-                if let Some(meta_dict) = &all_meta[i] {
-                    let mut btree = std::collections::BTreeMap::new();
-                    for (k, v) in meta_dict.iter() {
-                        btree.insert(k.clone(), VantaValue::String(v.clone()));
-                    }
-                    input.metadata = btree;
+                if let Some(meta_obj) = &all_meta[i] {
+                    // GOV-TK7: same scalar coercion as put()/put_batch_raw —
+                    // str, int, float, bool, datetime, list, None via
+                    // py_dict_to_metadata (was: solo-str HashMap).
+                    let dict: &Bound<'_, PyDict> = meta_obj.bind(py).cast::<PyDict>()?;
+                    input.metadata = py_dict_to_metadata(Some(dict))?;
                 }
             }
 
@@ -314,7 +818,8 @@ impl VantaDB {
         namespaces: Option<Vec<String>>,
         ttls: Option<Vec<Option<u64>>>,
     ) -> PyResult<Vec<VantaPyMemoryRecord>> {
-        /// Build VantaMemoryInput vector from per-row parameters and a vector getter.
+        let _g = enter(&self.op_gate)?;
+        /// Build MemoryInput vector from per-row parameters and a vector getter.
         fn build_inputs(
             nrows: usize,
             _ndims: usize,
@@ -325,7 +830,7 @@ impl VantaDB {
             ttls: &Option<Vec<Option<u64>>>,
             py: Python,
             get_vector: &dyn Fn(usize) -> Vec<f32>,
-        ) -> PyResult<Vec<VantaMemoryInput>> {
+        ) -> PyResult<Vec<MemoryInput>> {
             let mut inputs = Vec::with_capacity(nrows);
             for i in 0..nrows {
                 let namespace = match namespaces {
@@ -338,7 +843,7 @@ impl VantaDB {
                     None => String::new(),
                 };
 
-                let mut input = VantaMemoryInput::new(namespace, key, payload);
+                let mut input = MemoryInput::new(namespace, key, payload);
 
                 if let Some(all_meta) = metadatas {
                     if let Some(meta_obj) = &all_meta[i] {
@@ -467,6 +972,45 @@ impl VantaDB {
     }
 
     /// Put or update a namespace-scoped persistent memory record.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during storage write
+    /// and index update.
+    ///
+    /// Args:
+    ///     namespace: Namespace that groups related records.
+    ///     key: Unique record key within the namespace. Reusing an existing key
+    ///         updates the stored record.
+    ///     payload: Text payload stored with the record.
+    ///     metadata: Optional dict of scalar values (str, int, float, bool,
+    ///         datetime, list, or None) used for filtering.
+    ///     vector: Optional embedding vector (list of floats or NumPy array).
+    ///     ttl_ms: Optional time-to-live in milliseconds; the record expires
+    ///         after this duration.
+    ///
+    /// Returns:
+    ///     MemoryRecord: The stored record, exposing ``namespace``, ``key``,
+    ///     ``payload``, ``metadata``, ``vector``, ``created_at_ms``,
+    ///     ``updated_at_ms``, ``version``, ``node_id``, and ``expires_at_ms``.
+    ///
+    /// Raises:
+    ///     TypeError: If ``vector`` is not a list of floats or ``metadata``
+    ///         contains unsupported value types.
+    ///     ValueError: If the vector dimension is inconsistent with the index or
+    ///         validation fails.
+    ///     StorageError: If the write cannot be persisted (WAL or storage I/O failure).
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> record = db.put("agent/main", "task-1", "organize the backlog",
+    ///     ...                  metadata={"category": "task"}, vector=[1.0, 0.0, 0.0])
+    ///     >>> record.key
+    ///     'task-1'
+    ///     >>> record["metadata"]["category"]
+    ///     'task'
+    ///     ```
 
     // PyO3 keyword argument binding requires matching function parameters in Rust.
     #[allow(clippy::too_many_arguments)]
@@ -481,7 +1025,8 @@ impl VantaDB {
         vector: Option<&Bound<'_, PyAny>>,
         ttl_ms: Option<u64>,
     ) -> PyResult<VantaPyMemoryRecord> {
-        let mut input = VantaMemoryInput::new(namespace, key, payload);
+        let _g = enter(&self.op_gate)?;
+        let mut input = MemoryInput::new(namespace, key, payload);
         input.metadata = py_dict_to_metadata(metadata)?;
         input.ttl_ms = ttl_ms;
         input.vector = match vector {
@@ -498,73 +1043,204 @@ impl VantaDB {
         Ok(VantaPyMemoryRecord::new(record))
     }
 
-    /// Retrieve a namespace-scoped persistent memory record.
-    fn get_memory(
+    /// Delete all memory records in a namespace matching a metadata filter.
+    ///
+    /// The filter follows the canonical cross-SDK operator format: a flat value
+    /// is an implicit ``$eq`` (``{"lang": "en"}``), and a nested dict selects an
+    /// operator per key (``{"score": {"$gte": 50}}``). Supported operators:
+    /// ``$eq``, ``$neq``, ``$gt``, ``$gte``, ``$lt``, ``$lte``.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during deletion.
+    ///
+    /// Args:
+    ///     namespace: Namespace to delete within.
+    ///     filters: Metadata filter dict. Must not be empty — the core rejects
+    ///         an empty filter to prevent accidental full-namespace deletion.
+    ///
+    /// Returns:
+    ///     int: Number of records deleted.
+    ///
+    /// Raises:
+    ///     ValueError: If ``filters`` is empty or contains an unknown operator.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> deleted = db.delete_by_filter("agent/main", {"category": "draft"})
+    ///     >>> deleted
+    ///     2
+    ///     ```
+    fn delete_by_filter(
         &self,
         py: Python,
         namespace: &str,
-        key: &str,
-    ) -> PyResult<Option<VantaPyMemoryRecord>> {
-        let engine = self.engine.clone();
-        let n = namespace.to_string();
-        let k = key.to_string();
-        let record = py.detach(move || engine.get(&n, &k).map_err(map_vanta_error))?;
-        match record {
-            Some(record) => Ok(Some(VantaPyMemoryRecord::new(record))),
-            None => Ok(None),
-        }
-    }
-
-    /// Delete a namespace-scoped persistent memory record.
-    fn delete_memory(&self, py: Python, namespace: &str, key: &str) -> PyResult<bool> {
+        filters: &Bound<'_, PyDict>,
+    ) -> PyResult<u64> {
+        let _g = enter(&self.op_gate)?;
+        let filter_ops = py_dict_to_filter_ops(Some(filters))?;
         let engine = self.engine.clone();
         let namespace = namespace.to_string();
-        let key = key.to_string();
-        py.detach(move || engine.delete(&namespace, &key).map_err(map_vanta_error))
+        py.detach(move || {
+            engine
+                .delete_by_filter(&namespace, filter_ops)
+                .map_err(map_vanta_error)
+        })
     }
 
-    /// List namespace-scoped persistent memory records.
-    #[pyo3(signature = (namespace, filters=None, limit=100, cursor=None))]
-    fn list_memory(
+    /// Count memory records in a namespace, optionally filtered by metadata.
+    ///
+    /// The filter follows the canonical cross-SDK operator format (same as
+    /// ``delete_by_filter``): flat value → implicit ``$eq``, or a nested dict of
+    /// ``$op`` keys. Pass ``None`` (or omit) to count all records.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during the count.
+    ///
+    /// Args:
+    ///     namespace: Namespace to count within.
+    ///     filters: Optional metadata filter dict (default ``None`` = count all).
+    ///
+    /// Returns:
+    ///     int: Number of matching records.
+    ///
+    /// Raises:
+    ///     ValueError: If ``filters`` contains an unknown operator.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> db.count("agent/main")
+    ///     3
+    ///     >>> db.count("agent/main", {"category": "task"})
+    ///     2
+    ///     ```
+    #[pyo3(signature = (namespace, filters=None))]
+    fn count(
         &self,
         py: Python,
         namespace: &str,
         filters: Option<&Bound<'_, PyDict>>,
-        limit: usize,
-        cursor: Option<usize>,
-    ) -> PyResult<VantaPyListResult> {
-        let namespace = namespace.to_string();
-        let filters_meta = py_dict_to_metadata(filters)?;
+    ) -> PyResult<u64> {
+        let _g = enter(&self.op_gate)?;
+        let filter_ops = py_dict_to_filter_ops(filters)?;
+        let filter_ops = if filter_ops.is_empty() {
+            None
+        } else {
+            Some(filter_ops)
+        };
         let engine = self.engine.clone();
-        let page = py.detach(move || {
+        let namespace = namespace.to_string();
+        py.detach(move || {
             engine
-                .list(
-                    &namespace,
-                    VantaMemoryListOptions {
-                        #[allow(deprecated)]
-                        filters: filters_meta,
-                        filter_ops: None,
-                        limit,
-                        cursor,
-                    },
-                )
+                .count(&namespace, filter_ops)
+                .map_err(map_vanta_error)
+        })
+    }
+
+    /// Search namespace-scoped memory records by vector similarity from an
+    /// existing key, without supplying a query vector.
+    ///
+    /// Resolves the record at ``key``, reads its embedding, and runs a vector
+    /// search. The source record itself is excluded from the results.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during HNSW traversal.
+    ///
+    /// Args:
+    ///     namespace: Namespace to search within.
+    ///     key: Key of the source record whose vector seeds the search.
+    ///     top_k: Maximum number of hits to return (default 10). Clamped to
+    ///         ``MAX_K`` (1000) with a warning when larger.
+    ///
+    /// Returns:
+    ///     list[SearchHit]: Hits ordered by similarity, each exposing
+    ///     ``key``, ``payload``, ``metadata``, ``vector``, ``score``, and
+    ///     ``node_id`` properties.
+    ///
+    /// Raises:
+    ///     RuntimeError: If the source ``key`` does not exist or has no vector
+    ///         (``NoVectorForKey``), or for any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> hits = db.similar_to_key("agent/main", "task-1", top_k=5)
+    ///     >>> hits[0].key
+    ///     'task-2'
+    ///     ```
+    #[pyo3(signature = (namespace, key, top_k=10))]
+    fn similar_to_key(
+        &self,
+        py: Python,
+        namespace: &str,
+        key: &str,
+        top_k: usize,
+    ) -> PyResult<Vec<VantaPySearchHit>> {
+        let _g = enter(&self.op_gate)?;
+        let engine = self.engine.clone();
+        let namespace = namespace.to_string();
+        let key = key.to_string();
+        let hits = py.detach(move || {
+            engine
+                .similar_to_key(&namespace, &key, clamp_top_k(top_k))
                 .map_err(map_vanta_error)
         })?;
-
-        let records: Vec<VantaPyMemoryRecord> = page
-            .records
-            .into_iter()
-            .map(VantaPyMemoryRecord::new)
-            .collect();
-
-        Ok(VantaPyListResult::new(records, page.next_cursor))
+        hits.into_iter()
+            .map(|hit| {
+                Ok(VantaPySearchHit {
+                    inner: hit.record,
+                    score: hit.score,
+                })
+            })
+            .collect()
     }
 
     /// Search namespace-scoped persistent memory records by vector + filters.
+    ///
+    /// Combines ANN vector search with optional metadata filters and an optional
+    /// lexical text query (hybrid search).
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during distance
+    /// computation and HNSW traversal.
+    ///
+    /// Args:
+    ///     namespace: Namespace to search within.
+    ///     query_vector: Query embedding vector (list of floats or NumPy array).
+    ///     filters: Optional dict of metadata field values to filter on.
+    ///     text_query: Optional full-text query to combine with the vector search.
+    ///     top_k: Maximum number of hits to return (default 10). Clamped to
+    ///         ``MAX_K`` (1000) with a warning when larger.
+    ///     distance_metric: Distance metric — ``"cosine"`` (default) or
+    ///         ``"euclidean"``. Unknown values fall back to cosine with a warning.
+    ///     explain: If True, include search explanation data on each hit
+    ///         (default False).
+    ///
+    /// Returns:
+    ///     list[SearchHit]: Search hits ordered by relevance, each exposing
+    ///     ``key``, ``payload``, ``metadata``, ``vector``, ``score``, and
+    ///     ``node_id`` properties.
+    ///
+    /// Raises:
+    ///     TypeError: If ``query_vector`` is not a list of floats or ``filters``
+    ///         contains unsupported value types.
+    ///     ValueError: If the vector dimension is inconsistent with the index or
+    ///         validation fails.
+    ///     StorageError: If the storage cannot be read.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.put("agent/main", "task-1", "organize the backlog",
+    ///     ...          vector=[1.0, 0.0, 0.0])
+    ///     >>> hits = db.search("agent/main", [0.9, 0.1, 0.0], top_k=5)
+    ///     >>> hits[0].key
+    ///     'task-1'
+    ///     >>> hits[0].score > 0.0
+    ///     True
+    ///     ```
     // PyO3 keyword argument binding requires matching function parameters in Rust.
-    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, explain=false))]
+    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=false, exclude_superseded=false))]
     #[allow(clippy::too_many_arguments)]
-    fn search_memory(
+    fn search(
         &self,
         py: Python,
         namespace: &str,
@@ -573,33 +1249,34 @@ impl VantaDB {
         text_query: Option<String>,
         top_k: usize,
         distance_metric: Option<&str>,
+        method: Option<&str>,
         explain: bool,
+        exclude_superseded: bool,
     ) -> PyResult<Vec<VantaPySearchHit>> {
-        let metric = match distance_metric {
-            Some("euclidean") => DistanceMetric::Euclidean,
-            Some(other) => {
-                tracing::warn!(
-                    "Unknown distance_metric \"{}\" — falling back to default (cosine). Known values: cosine, euclidean",
-                    other
-                );
-                DistanceMetric::Cosine
-            }
-            None => DistanceMetric::Cosine,
-        };
+        let _g = enter(&self.op_gate)?;
+        let metric = parse_distance_metric(distance_metric)?;
+        let method = parse_search_method(method)?;
 
-        let request = VantaMemorySearchRequest {
+        let request = MemorySearchRequest {
             namespace: namespace.to_string(),
             query_vector: extract_vector(query_vector, py)?,
+            query_sparse: None,
             filters: py_dict_to_metadata(filters)?,
             text_query,
-            top_k,
+            top_k: clamp_top_k(top_k),
             distance_metric: metric,
             explain,
+            exclude_superseded,
+            search_profile: None,
         };
 
         let engine = self.engine.clone();
         // PERF-24: GIL RELEASED — pure Rust distance computation + HNSW traversal
-        let hits = py.detach(move || engine.search(request).map_err(map_vanta_error))?;
+        let hits = py.detach(move || {
+            engine
+                .search_with_method(request, method)
+                .map_err(map_vanta_error)
+        })?;
 
         // Pure Rust struct wrapping — no Python objects created
         hits.into_iter()
@@ -613,7 +1290,34 @@ impl VantaDB {
     }
 
     /// Rebuild ANN and derived memory indexes from canonical storage.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during index rebuild.
+    ///
+    /// Args:
+    ///     None
+    ///
+    /// Returns:
+    ///     dict: Rebuild report with keys ``scanned_nodes``, ``indexed_vectors``,
+    ///     ``skipped_tombstones``, ``duration_ms``, ``derived_rebuild_ms``,
+    ///     ``index_path``, and ``success``.
+    ///
+    /// Raises:
+    ///     StorageError: If the index cannot be written to disk.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.put("agent/main", "task-1", "alpha", vector=[1.0, 0.0, 0.0])
+    ///     >>> report = db.rebuild_index()
+    ///     >>> report["indexed_vectors"]
+    ///     1
+    ///     >>> report["success"]
+    ///     True
+    ///     ```
     fn rebuild_index(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let report = py.detach(move || engine.rebuild_index().map_err(map_vanta_error))?;
         rebuild_report_to_pydict(py, &report)
@@ -631,6 +1335,7 @@ impl VantaDB {
         namespace: &str,
         page_size: usize,
     ) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let namespace = namespace.to_string();
         let report = py.detach(move || {
@@ -642,20 +1347,78 @@ impl VantaDB {
     }
 
     /// Export one namespace as JSONL.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during export.
+    ///
+    /// Args:
+    ///     path: Destination file path for the JSONL export.
+    ///     namespace: Namespace to export.
+    ///
+    /// Returns:
+    ///     dict: Export report with keys ``records_exported``, ``namespaces``,
+    ///     ``path``, and ``duration_ms``.
+    ///
+    /// Raises:
+    ///     StorageError: If the target directory does not exist.
+    ///     StorageError: If the target path is not writable.
+    ///     StorageError: For other file I/O failures.
+    ///     ValueError: If the namespace does not exist or is invalid.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> import tempfile
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.put("agent/main", "task-1", "alpha")
+    ///     >>> with tempfile.TemporaryDirectory() as tmp:
+    ///     ...     report = db.export_namespace(f"{tmp}/export.jsonl", "agent/main")
+    ///     ...     report["records_exported"]
+    ///     1
+    ///     ```
     fn export_namespace(&self, py: Python, path: &str, namespace: &str) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let path = path.to_string();
         let namespace = namespace.to_string();
         let report = py.detach(move || {
             engine
-                .export_namespace(&path, &namespace)
+                .export_namespace(&path, &namespace, None)
                 .map_err(map_vanta_error)
         })?;
         export_report_to_pydict(py, &report)
     }
 
     /// Export all namespaces as JSONL.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during export.
+    ///
+    /// Args:
+    ///     path: Destination file path for the JSONL export.
+    ///
+    /// Returns:
+    ///     dict: Export report with keys ``records_exported``, ``namespaces``,
+    ///     ``path``, and ``duration_ms``.
+    ///
+    /// Raises:
+    ///     StorageError: If the target directory does not exist.
+    ///     StorageError: If the target path is not writable.
+    ///     StorageError: For other file I/O failures.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> import tempfile
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.put("agent/main", "task-1", "alpha")
+    ///     >>> with tempfile.TemporaryDirectory() as tmp:
+    ///     ...     report = db.export_all(f"{tmp}/export.jsonl")
+    ///     ...     report["records_exported"]
+    ///     1
+    ///     ```
     fn export_all(&self, py: Python, path: &str) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let path = path.to_string();
         let report = py.detach(move || engine.export_all(&path).map_err(map_vanta_error))?;
@@ -663,7 +1426,42 @@ impl VantaDB {
     }
 
     /// Import records from a VantaDB memory JSONL export.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during import.
+    ///
+    /// Args:
+    ///     path: Path to a JSONL file previously produced by ``export_namespace()``
+    ///         or ``export_all()``.
+    ///
+    /// Returns:
+    ///     dict: Import report with keys ``inserted``, ``updated``, ``skipped``,
+    ///     ``errors``, and ``duration_ms``.
+    ///
+    /// Raises:
+    ///     StorageError: If the import file does not exist.
+    ///     ValueError: If the file is not a valid VantaDB JSONL export.
+    ///     StorageError: If the file cannot be read.
+    ///     StorageError: For other file I/O failures.
+    ///     RuntimeError: For any other engine-level failure.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> import tempfile
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.put("agent/main", "task-1", "alpha")
+    ///     >>> with tempfile.TemporaryDirectory() as tmp:
+    ///     ...     export_path = f"{tmp}/export.jsonl"
+    ///     ...     db.export_namespace(export_path, "agent/main")
+    ///     ...     target = Client(":memory:", backend="memory")
+    ///     ...     report = target.import_file(export_path)
+    ///     ...     report["inserted"]
+    ///     1
+    ///     ...     target.memory.get("agent/main", "task-1").payload
+    ///     'alpha'
+    ///     ```
     fn import_file(&self, py: Python, path: &str) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let path = path.to_string();
         let report = py.detach(move || engine.import_file(&path).map_err(map_vanta_error))?;
@@ -673,6 +1471,7 @@ impl VantaDB {
     /// Bulk-import records from a binary .vdbdump file.
     /// Returns a dict with total_records, batches_committed, duration_ms.
     fn bulk_import(&self, py: Python, path: &str) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let path = path.to_string();
         let report = py.detach(move || engine.bulk_import_file(&path).map_err(map_vanta_error))?;
@@ -682,6 +1481,7 @@ impl VantaDB {
     /// Bulk-import records from binary bytes (.vdbdump format).
     /// Returns a dict with total_records, batches_committed, duration_ms.
     fn bulk_import_bytes(&self, py: Python, data: &[u8]) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let data = data.to_vec();
         let report = py.detach(move || {
@@ -701,6 +1501,7 @@ impl VantaDB {
         namespace: Option<&str>,
         deep: bool,
     ) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let namespace = namespace.map(|s| s.to_string());
         let report = py
@@ -718,6 +1519,7 @@ impl VantaDB {
 
     /// Rebuild the text index from canonical storage as a repair primitive.
     fn repair_text_index(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let report = py.detach(move || engine.repair_text_index().map_err(map_vanta_error))?;
         text_index_repair_report_to_pydict(py, &report)
@@ -726,7 +1528,30 @@ impl VantaDB {
     /// Return operational metrics for startup, replay, rebuild, export, and import.
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during metrics snapshot.
+    ///
+    /// Args:
+    ///     None
+    ///
+    /// Returns:
+    ///     dict: Operational counters and memory telemetry, including
+    ///     ``startup_ms``, ``wal_replay_ms``, ``ann_rebuild_ms``,
+    ///     ``records_exported``, ``records_imported``, ``process_rss_bytes``,
+    ///     ``hnsw_nodes_count``, and jemalloc allocation counters.
+    ///
+    /// Raises:
+    ///     RuntimeError: For any engine-level failure while snapshotting metrics.
+    ///
+    /// Example:
+    ///     ```python
+    ///     >>> from vantadb_py import Client
+    ///     >>> db = Client(":memory:", backend="memory")
+    ///     >>> db.put("agent/main", "task-1", "alpha")
+    ///     >>> metrics = db.operational_metrics()
+    ///     >>> metrics["startup_ms"] >= 0
+    ///     True
+    ///     ```
     fn operational_metrics(&self, py: Python) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let metrics = py.detach(move || engine.operational_metrics());
         operational_metrics_to_pydict(py, &metrics)
@@ -736,6 +1561,7 @@ impl VantaDB {
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during database retrieval.
     fn get(&self, py: Python, id: u128) -> PyResult<Option<Py<PyAny>>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let node = py.detach(move || engine.get_node(id).map_err(map_vanta_error))?;
         match node {
@@ -748,14 +1574,11 @@ impl VantaDB {
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during node deletion.
     #[pyo3(signature = (id, reason="manual deletion"))]
-    fn delete(&self, py: Python, id: u64, reason: &str) -> PyResult<()> {
+    fn delete(&self, py: Python, id: u128, reason: &str) -> PyResult<()> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let reason_str = reason.to_string();
-        py.detach(move || {
-            engine
-                .delete_node(id.into(), &reason_str)
-                .map_err(map_vanta_error)
-        })
+        py.detach(move || engine.delete_node(id, &reason_str).map_err(map_vanta_error))
     }
 
     /// K-NN vector search. Returns a list of (node_id, distance) tuples.
@@ -766,23 +1589,25 @@ impl VantaDB {
     ///     vector: Query embedding vector.
     ///     top_k: Number of nearest neighbors to return.
     #[pyo3(signature = (vector, top_k=10))]
-    fn search(
+    fn search_vector(
         &self,
         py: Python,
         vector: &Bound<'_, PyAny>,
         top_k: usize,
-    ) -> PyResult<Vec<(u64, f32)>> {
+    ) -> PyResult<Vec<(u128, f32)>> {
+        let _g = enter(&self.op_gate)?;
         // PERF-24: vector extraction (needs GIL) — done before detach
         let v = extract_vector(vector, py)?;
         let engine = self.engine.clone();
         // GIL RELEASED: only pure Rust — distance computation + graph traversal
         py.detach(move || {
             engine
-                .search_vector(&v, top_k)
+                .search_vector(&v, clamp_top_k(top_k))
                 .map(|hits| {
                     // Pure Rust tuple mapping — no Python objects created
+                    // node_id is u128 in core; keep full precision (ERR-023)
                     hits.into_iter()
-                        .map(|hit| (hit.node_id as u64, hit.distance))
+                        .map(|hit| (hit.node_id, hit.distance))
                         .collect()
                 })
                 .map_err(map_vanta_error)
@@ -802,7 +1627,8 @@ impl VantaDB {
         py: Python,
         vectors: Vec<Bound<'_, PyAny>>,
         top_k: usize,
-    ) -> PyResult<Vec<Vec<(u64, f32)>>> {
+    ) -> PyResult<Vec<Vec<(u128, f32)>>> {
+        let _g = enter(&self.op_gate)?;
         // PERF-24: vector extraction (needs GIL) — done before detach
         let parsed: PyResult<Vec<Vec<f32>>> =
             vectors.iter().map(|v| extract_vector(v, py)).collect();
@@ -815,16 +1641,86 @@ impl VantaDB {
                 .into_par_iter()
                 .map(|vector| {
                     engine
-                        .search_vector(&vector, top_k)
+                        .search_vector(&vector, clamp_top_k(top_k))
                         .map(|hits| {
                             hits.into_iter()
-                                .map(|hit| (hit.node_id as u64, hit.distance))
+                                .map(|hit| (hit.node_id, hit.distance))
                                 .collect()
                         })
                         .map_err(map_vanta_error)
                 })
-                .collect::<Result<Vec<Vec<(u64, f32)>>, _>>()
+                .collect::<Result<Vec<Vec<(u128, f32)>>, _>>()
         })
+    }
+
+    /// Hybrid memory search for a batch of full search requests.
+    ///
+    /// Each element is a [`SearchRequest`][1] dataclass or an equivalent
+    /// ``dict`` with the same keys as ``search``: ``namespace``,
+    /// ``query_vector``, ``filters``, ``text_query``, ``top_k``,
+    /// ``distance_metric``, ``explain``.
+    ///
+    /// [1]: https://vantadb.github.io (see `vantadb_py.SearchRequest`)
+    ///
+    /// GIL Policy: RELEASED eager, runs searches in parallel using Rayon.
+    /// Fail-fast: ``try_for_each`` aborts at the first failing request and the
+    /// first error is raised to Python.
+    ///
+    /// Args:
+    ///     requests: List of `SearchRequest` dataclass instances (or dicts).
+    ///     top_k: Fallback `top_k` for requests that omit it (default 10).
+    ///
+    /// Returns:
+    ///     list[list[SearchHit]]: One hit list per request, in input order.
+    ///
+    /// Raises:
+    ///     ValueError: If a request fails engine validation (raised eagerly on
+    ///         the first failing request).
+    ///     RuntimeError: For internal failures or engine errors.
+    #[pyo3(signature = (requests, top_k=10))]
+    fn search_batch_requests(
+        &self,
+        py: Python,
+        requests: Vec<Bound<'_, PyAny>>,
+        top_k: usize,
+    ) -> PyResult<Vec<Vec<VantaPySearchHit>>> {
+        let _g = enter(&self.op_gate)?;
+        // PERF-24: parse all requests (needs GIL) before detach
+        let parsed: PyResult<Vec<(MemorySearchRequest, Option<IndexType>)>> = requests
+            .iter()
+            .map(|obj| self.parse_search_request(obj, py, top_k))
+            .collect();
+        let parsed = parsed?;
+        let count = parsed.len();
+        let engine = self.engine.clone();
+        let results: std::sync::Mutex<Vec<Vec<VantaPySearchHit>>> =
+            std::sync::Mutex::new((0..count).map(|_| Vec::new()).collect());
+        let results_ref = &results;
+        // GIL RELEASED: pure Rust — parallel hybrid search, no Python objects
+        py.detach(move || -> PyResult<()> {
+            use rayon::prelude::*;
+            parsed
+                .into_par_iter()
+                .enumerate()
+                .try_for_each(|(index, (request, method))| {
+                    let hits = engine
+                        .search_with_method(request, method)
+                        .map_err(map_vanta_error)?;
+                    results_ref.lock().map_err(|_| {
+                        PyRuntimeError::new_err("search_batch_requests: result mutex poisoned")
+                    })?[index] = hits
+                        .into_iter()
+                        .map(|hit| VantaPySearchHit {
+                            inner: hit.record,
+                            score: hit.score,
+                        })
+                        .collect();
+                    Ok(())
+                })
+        })?;
+        results
+            .into_inner()
+            .map_err(|_| PyRuntimeError::new_err("search_batch_requests: result mutex poisoned"))
     }
 
     /// Execute an IQL or LISP query string. Returns a formatted result string.
@@ -832,6 +1728,7 @@ impl VantaDB {
     /// GIL Policy: RELEASED during Tokio execution — allows other Python
     /// threads to run while VantaDB processes the query.
     fn query(&self, py: Python, iql_query: &str) -> PyResult<String> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let query_str = iql_query.to_string();
 
@@ -843,10 +1740,34 @@ impl VantaDB {
         })
     }
 
+    /// Execute an IQL or LISP query string. Returns a structured dict (MOD-20)
+    /// instead of a formatted string, so callers can consume the result as data.
+    ///
+    /// The returned dict has a ``kind`` discriminator:
+    /// - ``{"kind": "read", "nodes": [{"id": str, "tier": str,
+    ///   "confidence": float, "hits": int}, ...]}`` for ``SELECT``-style reads.
+    /// - ``{"kind": "write", "affected_nodes": int, "message": str,
+    ///   "node_id": str | None}`` for writes.
+    /// - ``{"kind": "stale_context", "node_id": str}`` when rehydration is needed.
+    ///
+    /// ``u128`` node ids are returned as strings to avoid precision loss.
+    ///
+    /// GIL Policy: RELEASED during Tokio execution — allows other Python
+    /// threads to run while VantaDB processes the query.
+    fn query_structured(&self, py: Python, iql_query: &str) -> PyResult<Py<PyAny>> {
+        let _g = enter(&self.op_gate)?;
+        let engine = self.engine.clone();
+        let query_str = iql_query.to_string();
+
+        let result = py.detach(move || engine.query(&query_str).map_err(map_vanta_error))?;
+        query_result_to_pydict(py, &result)
+    }
+
     /// Flush WAL and HNSW index to disk for durability.
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during disk sync.
     fn flush(&self, py: Python) -> PyResult<()> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || engine.flush().map_err(map_vanta_error))
     }
@@ -855,6 +1776,7 @@ impl VantaDB {
     /// ``vanta.wal.<timestamp>``, and start a fresh WAL.
     #[pyo3(signature = ())]
     fn compact_wal(&self, py: Python) -> PyResult<()> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || engine.compact_wal().map_err(map_vanta_error))
     }
@@ -863,8 +1785,31 @@ impl VantaDB {
     /// Returns the number of records purged.
     #[pyo3(signature = ())]
     fn purge_expired(&self, py: Python) -> PyResult<u64> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || engine.purge_expired().map_err(map_vanta_error))
+    }
+
+    /// Mark an existing record as superseded by another existing record
+    /// (ADR-028). The old record keeps its data but gains
+    /// ``superseded_by``/``superseded_at_ms`` and can be hidden from
+    /// search/list with ``exclude_superseded=True``.
+    ///
+    /// Raises:
+    ///     RuntimeError: If either key is missing, ``old_key == new_key``,
+    ///         or the old record is already superseded.
+    #[pyo3(signature = (namespace, old_key, new_key))]
+    fn supersede(&self, py: Python, namespace: &str, old_key: &str, new_key: &str) -> PyResult<()> {
+        let _g = enter(&self.op_gate)?;
+        let namespace = namespace.to_string();
+        let old_key = old_key.to_string();
+        let new_key = new_key.to_string();
+        let engine = self.engine.clone();
+        py.detach(move || {
+            engine
+                .supersede(&namespace, &old_key, &new_key)
+                .map_err(map_vanta_error)
+        })
     }
 
     /// Introspect the stable runtime capabilities exposed by the SDK boundary.
@@ -916,7 +1861,8 @@ impl VantaDB {
     ///     target_id: Target node ID.
     ///     label: Edge label (e.g., "belongs_to", "similar_to").
     ///     weight: Optional edge weight (default 1.0).
-    #[pyo3(signature = (source_id, target_id, label, weight=None))]
+    ///     created_at_ms: Optional creation timestamp (Unix ms). Defaults to now.
+    #[pyo3(signature = (source_id, target_id, label, weight=None, created_at_ms=None))]
     fn add_edge(
         &self,
         py: Python,
@@ -924,27 +1870,69 @@ impl VantaDB {
         target_id: u128,
         label: &str,
         weight: Option<f32>,
+        created_at_ms: Option<u64>,
     ) -> PyResult<()> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let label_str = label.to_string();
         py.detach(move || {
             engine
-                .add_edge(source_id, target_id, &label_str, weight)
+                .add_edge(source_id, target_id, &label_str, weight, created_at_ms)
                 .map_err(map_vanta_error)
         })
     }
 
     /// Flush and close the embedded engine handle.
     fn close(&self, py: Python) -> PyResult<()> {
+        // Durability barrier: reject new ops and wait for in-flight ones to
+        // finish BEFORE the engine is closed (see OpGate docs).
+        //
+        // MOD-17: drain waits on its condvar OUTSIDE the GIL — an in-flight
+        // op returning from its own `py.detach` must be able to re-acquire
+        // the GIL to drop its OpGuard, so waiting with the GIL held would
+        // deadlock the whole interpreter. Source: PyO3 0.29 parallelism
+        // guide (https://pyo3.rs/v0.29.0/parallelism): always detach when
+        // blocked work needs the GIL back.
+        let gate = self.op_gate.clone();
+        py.detach(move || gate.drain());
         let engine = self.engine.clone();
         py.detach(move || engine.close().map_err(map_vanta_error))
+    }
+
+    /// Enter the synchronous context manager.
+    ///
+    /// Returns the database handle itself, enabling the Python idiom:
+    /// ```python
+    ///     with Client(":memory:", backend="memory") as db:
+    ///     db.put("ns", "key", "value")
+    /// # WAL is flushed automatically on exit
+    /// ```
+    fn __enter__(self_: PyRef<'_, Self>) -> PyRef<'_, Self> {
+        self_
+    }
+
+    /// Exit the synchronous context manager, closing the database for durability.
+    ///
+    /// Calls `close()` to ensure all pending writes are persisted and the
+    /// engine is shut down cleanly. If an exception occurred, it is not
+    /// suppressed (returns `Ok(())` to propagate the exception).
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during disk sync.
+    fn __exit__(
+        &self,
+        py: Python,
+        _exc_type: Option<&Bound<'_, PyAny>>,
+        _exc_val: Option<&Bound<'_, PyAny>>,
+        _exc_tb: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<()> {
+        self.close(py)
     }
 
     /// String representation showing the stable runtime profile.
     fn __repr__(&self) -> String {
         let caps = self.engine.capabilities();
         format!(
-            "VantaDB(profile={}, read_only={}, vector_search={}, persistence={})",
+            "Client(profile={}, read_only={}, vector_search={}, persistence={})",
             runtime_profile_label(caps.runtime_profile),
             caps.read_only,
             caps.vector_search,
@@ -965,10 +1953,49 @@ impl VantaDB {
         direction: &str,
     ) -> PyResult<Vec<u128>> {
         let dir = parse_direction(direction)?;
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || {
             engine
                 .graph_bfs(&roots, max_depth, dir)
+                .map_err(map_vanta_error)
+        })
+    }
+
+    /// Breadth-First-Search with optional edge label and time filtering.
+    ///
+    /// GIL Policy: RELEASED — allows Python threads to run during graph traversal.
+    ///
+    /// Args:
+    ///     roots: Starting node IDs for traversal.
+    ///     max_depth: Maximum traversal depth (default: effectively unlimited).
+    ///     direction: Traversal direction — "Forward", "Reverse", or "Both" (default: "Forward").
+    ///     labels: Edge label IDs to follow. Empty list disables label filtering.
+    ///     time_range: Optional inclusive (from_ms, to_ms) window for edge creation time.
+    ///
+    /// Returns:
+    ///     list[int]: Visited node IDs in BFS order.
+    ///
+    /// Raises:
+    ///     ValueError: If direction is invalid or time_range is malformed.
+    ///     RuntimeError: For any engine-level failure.
+    #[pyo3(signature = (roots, max_depth=999999, direction="Forward", labels=None, time_range=None))]
+    fn graph_bfs_filtered(
+        &self,
+        py: Python,
+        roots: Vec<u128>,
+        max_depth: usize,
+        direction: &str,
+        labels: Option<Vec<u32>>,
+        time_range: Option<(u64, u64)>,
+    ) -> PyResult<Vec<u128>> {
+        let dir = parse_direction(direction)?;
+        let labels = labels.unwrap_or_default();
+        let _g = enter(&self.op_gate)?;
+        let engine = self.engine.clone();
+        py.detach(move || {
+            engine
+                .graph_bfs_filtered(&roots, max_depth, dir, &labels, time_range)
                 .map_err(map_vanta_error)
         })
     }
@@ -986,6 +2013,7 @@ impl VantaDB {
         direction: &str,
     ) -> PyResult<Vec<u128>> {
         let dir = parse_direction(direction)?;
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || {
             engine
@@ -999,6 +2027,7 @@ impl VantaDB {
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during topological sort.
     fn graph_topological_sort(&self, py: Python, roots: Vec<u128>) -> PyResult<Vec<u128>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || {
             engine
@@ -1011,6 +2040,7 @@ impl VantaDB {
     ///
     /// GIL Policy: RELEASED — allows Python threads to run during cycle detection.
     fn graph_is_dag(&self, py: Python, roots: Vec<u128>) -> PyResult<bool> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || engine.graph_is_dag(&roots).map_err(map_vanta_error))
     }
@@ -1036,6 +2066,7 @@ impl VantaDB {
         damping: f64,
         tolerance: f64,
     ) -> PyResult<HashMap<u128, f64>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || {
             engine
@@ -1059,6 +2090,7 @@ impl VantaDB {
         py: Python,
         roots: Vec<u128>,
     ) -> PyResult<HashMap<u128, (usize, usize)>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || {
             engine
@@ -1070,6 +2102,7 @@ impl VantaDB {
     /// Compact the storage layout: reorders nodes in BFS order to improve
     /// locality and free unused pages. Returns the number of nodes compacted.
     fn compact_layout(&self, py: Python) -> PyResult<u64> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || engine.compact_layout().map_err(map_vanta_error))
     }
@@ -1089,10 +2122,11 @@ impl VantaDB {
     #[pyo3(signature = (summary_id))]
     fn recover_archived_nodes(&self, py: Python, summary_id: &str) -> PyResult<Vec<Py<PyAny>>> {
         let sid: u128 = summary_id.parse().map_err(|_| {
-            map_vanta_error(vantadb::VantaError::InvalidInput(format!(
+            map_vanta_error(vantadb::Error::InvalidInput(format!(
                 "Invalid summary_id: {summary_id}"
             )))
         })?;
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let nodes =
             py.detach(move || engine.recover_archived_nodes(sid).map_err(map_vanta_error))?;
@@ -1101,6 +2135,7 @@ impl VantaDB {
 
     /// List all namespaces currently registered in the database.
     fn list_namespaces(&self, py: Python) -> PyResult<Vec<String>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         py.detach(move || engine.list_namespaces().map_err(map_vanta_error))
     }
@@ -1114,6 +2149,7 @@ impl VantaDB {
         text_query: &str,
         with_highlighting: bool,
     ) -> PyResult<Option<String>> {
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let payload = payload.to_string();
         let text_query = text_query.to_string();
@@ -1138,28 +2174,22 @@ impl VantaDB {
         top_k: usize,
         distance_metric: Option<&str>,
     ) -> PyResult<Py<PyAny>> {
-        let metric = match distance_metric {
-            Some("euclidean") => DistanceMetric::Euclidean,
-            Some(other) => {
-                tracing::warn!(
-                    "Unknown distance_metric \"{}\" — falling back to default (cosine). Known values: cosine, euclidean",
-                    other
-                );
-                DistanceMetric::Cosine
-            }
-            None => DistanceMetric::Cosine,
-        };
+        let metric = parse_distance_metric(distance_metric)?;
 
-        let request = VantaMemorySearchRequest {
+        let request = MemorySearchRequest {
             namespace: namespace.to_string(),
             query_vector: extract_vector(query_vector, py)?,
+            query_sparse: None,
             filters: py_dict_to_metadata(filters)?,
             text_query,
-            top_k,
+            top_k: clamp_top_k(top_k),
             distance_metric: metric,
             explain: true,
+            exclude_superseded: false,
+            search_profile: None,
         };
 
+        let _g = enter(&self.op_gate)?;
         let engine = self.engine.clone();
         let explanation = py.detach(move || {
             engine
@@ -1168,6 +2198,165 @@ impl VantaDB {
         })?;
 
         search_explanation_to_pydict(py, &explanation)
+    }
+
+    // -- Domain sub-clients (SDKB-03) ----------------------------------------
+    //
+    // Grouped views over the flat methods above (delegation only, D43).
+    // A fresh client is built on each access; it holds a strong ref to this
+    // handle, so drop the client when done if you also dropped the DB.
+
+    // NOTE: Rust fn names differ from the exposed property names so the
+    // generated trampolines (`__pymethod_get_<fn>__`) never collide with flat
+    // methods of the same shape (e.g. node-level `get`).
+    #[getter]
+    #[pyo3(name = "memory")]
+    fn memory_client(slf: &Bound<'_, Self>) -> MemoryClient {
+        MemoryClient {
+            db: slf.clone().unbind(),
+        }
+    }
+
+    /// Grouped graph operations (``db.graph.*``) — node/edge CRUD + traversals.
+    #[getter]
+    #[pyo3(name = "graph")]
+    fn graph_client(slf: &Bound<'_, Self>) -> GraphClient {
+        GraphClient {
+            db: slf.clone().unbind(),
+        }
+    }
+
+    /// Catch-all system operations (``db.system.*``): lifecycle, metrics,
+    /// IQL, index maintenance, import/export.
+    #[getter]
+    #[pyo3(name = "system")]
+    fn system_client(slf: &Bound<'_, Self>) -> SystemClient {
+        SystemClient {
+            db: slf.clone().unbind(),
+        }
+    }
+
+    /// Wiki summary-archive recovery (``db.wiki.*``).
+    #[getter]
+    #[pyo3(name = "wiki")]
+    fn wiki_client(slf: &Bound<'_, Self>) -> WikiClient {
+        WikiClient {
+            db: slf.clone().unbind(),
+        }
+    }
+}
+
+impl Client {
+    /// Read a field from a batch search request element — either a ``dict``
+    /// (mapping keys) or a ``SearchRequest`` dataclass (attribute access).
+    fn request_field<'py>(
+        obj: &Bound<'py, PyAny>,
+        key: &str,
+    ) -> PyResult<Option<Bound<'py, PyAny>>> {
+        if let Ok(dict) = obj.cast::<PyDict>() {
+            match dict.get_item(key)? {
+                Some(value) if value.is_none() => Ok(None),
+                Some(value) => Ok(Some(value)),
+                None => Ok(None),
+            }
+        } else if let Ok(value) = obj.getattr(key) {
+            if value.is_none() {
+                Ok(None)
+            } else {
+                Ok(Some(value))
+            }
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Convert a Python batch-search request element (dict or `SearchRequest`
+    /// dataclass) into a [`MemorySearchRequest`]. Field access needs the
+    /// GIL, so this runs before `py.detach` (PERF-24 pattern).
+    fn parse_search_request(
+        &self,
+        obj: &Bound<'_, PyAny>,
+        py: Python<'_>,
+        default_top_k: usize,
+    ) -> PyResult<(MemorySearchRequest, Option<IndexType>)> {
+        let namespace: String = Self::request_field(obj, "namespace")?
+            .ok_or_else(|| {
+                PyValueError::new_err("search request missing required field 'namespace'")
+            })?
+            .extract()?;
+
+        let query_vector = match Self::request_field(obj, "query_vector")? {
+            Some(v) => extract_vector(&v, py)?,
+            None => Vec::new(),
+        };
+
+        let filters = match Self::request_field(obj, "filters")? {
+            Some(f) => py_dict_to_metadata(f.cast::<PyDict>().ok())?,
+            None => Default::default(),
+        };
+
+        let text_query: Option<String> = match Self::request_field(obj, "text_query")? {
+            Some(v) => Some(v.extract()?),
+            None => None,
+        };
+
+        let top_k: usize = match Self::request_field(obj, "top_k")? {
+            Some(v) => clamp_top_k(v.extract::<usize>()?),
+            None => clamp_top_k(default_top_k),
+        };
+
+        let distance_metric = match Self::request_field(obj, "distance_metric")? {
+            Some(v) => Some(v.extract::<String>()?),
+            None => None,
+        };
+        let distance_metric = parse_distance_metric(distance_metric.as_deref())?;
+
+        let explain: bool = match Self::request_field(obj, "explain")? {
+            Some(v) => v.extract()?,
+            None => false,
+        };
+
+        let method = match Self::request_field(obj, "method")? {
+            Some(v) => {
+                let s: String = v.extract()?;
+                parse_search_method(Some(s.as_str()))?
+            }
+            None => None,
+        };
+
+        Ok((
+            MemorySearchRequest {
+                namespace,
+                query_vector,
+                query_sparse: None,
+                filters,
+                text_query,
+                top_k,
+                distance_metric,
+                explain,
+                exclude_superseded: false,
+                search_profile: None,
+            },
+            method,
+        ))
+    }
+}
+
+/// Parse a per-search index backend override from a Python string.
+///
+/// `None` selects the engine's configured routing. Unknown values raise
+/// `ValueError` instead of silently falling back (D5b — same contract as
+/// `parse_backend_kind`).
+fn parse_search_method(value: Option<&str>) -> PyResult<Option<IndexType>> {
+    match value {
+        None => Ok(None),
+        Some("ivf") => Ok(Some(IndexType::Ivf)),
+        Some("scann") => Ok(Some(IndexType::Scann)),
+        Some("hnsw") => Ok(Some(IndexType::Hnsw)),
+        Some("flat") => Ok(Some(IndexType::Flat)),
+        Some(other) => Err(PyValueError::new_err(format!(
+            "Unknown search method \"{other}\" — known values: ivf, scann, hnsw, flat"
+        ))),
     }
 }
 
@@ -1178,35 +2367,50 @@ impl VantaDB {
 ///     memory_limit: Optional memory budget in bytes.
 ///         Sets an upper bound on heap usage; when exceeded, VantaDB triggers a
 ///         controlled flush and architection of cold data to stay within budget.
+///     read_only: If True, opens the DB in read-only mode (default False).
+///         Safe for multi-process access when another process holds the write lock.
+///     backend: Storage backend — ``"memory"``, ``"rocksdb"``, or None
+///         (None selects the default persistent backend, fjall).
 #[pyfunction]
-#[pyo3(signature = (path, memory_limit=None))]
-fn connect(path: &str, memory_limit: Option<u64>) -> PyResult<VantaDB> {
-    use vantadb::config::VantaConfig;
-    use vantadb::sdk::VantaEmbedded;
-    let config = VantaConfig {
-        storage_path: if path.is_empty() || path == ":memory:" {
-            ":memory:".to_string()
-        } else {
-            path.to_string()
-        },
-        memory_limit,
-        ..Default::default()
+#[pyo3(signature = (path, memory_limit=None, read_only=false, backend=None))]
+fn connect(
+    py: Python<'_>,
+    path: &str,
+    memory_limit: Option<u64>,
+    read_only: bool,
+    backend: Option<&str>,
+) -> PyResult<Client> {
+    let storage_path = if path.is_empty() || path == ":memory:" {
+        ":memory:".to_string()
+    } else {
+        path.to_string()
     };
-    let engine = VantaEmbedded::open_with_config(config).map_err(map_vanta_error)?;
-    Ok(VantaDB { engine })
+    open_vantadb(py, storage_path, memory_limit, read_only, backend)
 }
 
 /// The Python module for VantaDB.
 /// Usage: `import vantadb_py`
 #[pymodule]
 fn vantadb_py(_py: Python, m: &Bound<'_, pyo3::types::PyModule>) -> PyResult<()> {
-    m.add_class::<VantaDB>()?;
-    m.add_class::<VantaVector>()?;
-    m.add_class::<VantaVectorIter>()?;
+    m.add_class::<Client>()?;
+    m.add_class::<Vector>()?;
+    m.add_class::<VectorIter>()?;
     m.add_class::<VantaPySearchHit>()?;
     m.add_class::<VantaPyMemoryRecord>()?;
     m.add_class::<VantaPyListResult>()?;
     m.add_function(wrap_pyfunction!(connect, m)?)?;
+    // Typed exception hierarchy (MOD-20).
+    m.add("Error", _py.get_type::<Error>())?;
+    m.add("NotFoundError", _py.get_type::<NotFoundError>())?;
+    m.add("ValidationError", _py.get_type::<ValidationError>())?;
+    m.add("CorruptError", _py.get_type::<CorruptError>())?;
+    m.add("StorageError", _py.get_type::<StorageError>())?;
+    m.add("ConflictError", _py.get_type::<ConflictError>())?;
+    m.add("UnsupportedError", _py.get_type::<UnsupportedError>())?;
+    m.add("ResourceLimitError", _py.get_type::<ResourceLimitError>())?;
+    m.add("BusyError", _py.get_type::<BusyError>())?;
+    m.add("NoVectorError", _py.get_type::<NoVectorError>())?;
+    m.add("TimeoutError", _py.get_type::<TimeoutError>())?;
     m.add("__version__", metadata::reported_version().into_owned())?;
     Ok(())
 }

@@ -3,7 +3,7 @@ title: "local-first"
 type: glossary-entry
 status: stable
 tags: [concept, filosofia, local-first, privacidad]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Local-First Software, Local-First Software]
 description: "Software design philosophy that prioritizes data and processing occurring on the user's device, with the cloud as an optional backup and not a requirement"

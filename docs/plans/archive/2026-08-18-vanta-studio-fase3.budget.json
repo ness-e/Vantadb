@@ -1,0 +1,36 @@
+{
+  "tasks": {
+    "1": {
+      "taskId": "1",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787153015084,
+      "lastActivity": 1787153015084
+    },
+    "WEB-00": {
+      "taskId": "WEB-00",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787159945802,
+      "lastActivity": 1787159945812
+    },
+    "WEB-01": {
+      "taskId": "WEB-01",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787159948393,
+      "lastActivity": 1787159948405
+    },
+    "WEB-02": {
+      "taskId": "WEB-02",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787164168663,
+      "lastActivity": 1787164168675
+    }
+  }
+}

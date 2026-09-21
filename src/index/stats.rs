@@ -30,7 +30,7 @@ impl CPIndex {
             .iter()
             .filter(|r| {
                 self.neighbor_index
-                    .get_neighbors(*r.key(), 0)
+                    .get_neighbors_ref(*r.key(), 0)
                     .map(|n| n.is_empty())
                     .unwrap_or(true)
             })
@@ -40,7 +40,7 @@ impl CPIndex {
             .iter()
             .map(|r| {
                 self.neighbor_index
-                    .get_neighbors(*r.key(), 0)
+                    .get_neighbors_ref(*r.key(), 0)
                     .map(|n| n.len())
                     .unwrap_or(0)
             })
@@ -96,11 +96,9 @@ impl CPIndex {
             }
 
             for layer_idx in 0..num_layers {
-                let layer = self
-                    .neighbor_index
-                    .get_neighbors(id, layer_idx)
-                    .unwrap_or_default();
-                for &neighbor_id in &layer {
+                let layer = self.neighbor_index.get_neighbors_ref(id, layer_idx);
+                let Some(layer) = layer else { continue };
+                for &neighbor_id in layer.iter() {
                     if neighbor_id == id {
                         violations.push(format!(
                             "Node {} has a self-loop at layer {}",

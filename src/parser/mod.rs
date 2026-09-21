@@ -1,506 +1,25 @@
-//! Historical parser surface.
+//! Query-language surface for HTTP, Python, CLI, MCP, and SDK `query()`.
 //!
-//! The stable embedded memory API lives in `src/sdk.rs`.
+//! The primary typed API lives in `src/sdk/` (Embedded) — keep both stable.
 
-use nom::{
-    branch::alt,
-    bytes::complete::{tag, take_while1},
-    character::complete::{alpha1, alphanumeric1, char, digit1, multispace0},
-    combinator::{map, map_res, opt, recognize},
-    multi::{many0, separated_list1},
-    number::complete::{double, float},
-    sequence::{delimited, tuple},
-    IResult, Parser,
-};
+pub mod grammar;
+pub mod lexer;
 
-use crate::node::FieldValue;
-use crate::query::*;
-
-/// Strip leading and trailing whitespace around a parser.
-pub fn ws<'a, F, O, E: nom::error::ParseError<&'a str>>(
-    inner: F,
-) -> impl FnMut(&'a str) -> IResult<&'a str, O, E>
-where
-    F: Parser<&'a str, O, E>,
-{
-    delimited(multispace0, inner, multispace0)
-}
-
-fn ident(i: &str) -> IResult<&str, String> {
-    let (i, id) = recognize(tuple((
-        alt((alpha1, tag("_"))),
-        many0(alt((alphanumeric1, tag("_"), tag("#"), tag(".")))),
-    )))(i)?;
-    Ok((i, id.to_string()))
-}
-
-fn parse_number(i: &str) -> IResult<&str, u32> {
-    map_res(digit1, str::parse)(i)
-}
-
-fn string_literal(input: &str) -> IResult<&str, String> {
-    let (input, _) = char('"')(input)?;
-    let mut s = String::new();
-    let mut chars = input.chars().peekable();
-    let mut consumed = 0;
-
-    while let Some(c) = chars.next() {
-        consumed += c.len_utf8();
-        if c == '"' {
-            let remaining = &input[consumed..];
-            return Ok((remaining, s));
-        } else if c == '\\' {
-            if let Some(escaped_char) = chars.next() {
-                consumed += escaped_char.len_utf8();
-                match escaped_char {
-                    'n' => s.push('\n'),
-                    'r' => s.push('\r'),
-                    't' => s.push('\t'),
-                    '\\' => s.push('\\'),
-                    '"' => s.push('"'),
-                    other => {
-                        s.push('\\');
-                        s.push(other);
-                    }
-                }
-            } else {
-                s.push('\\');
-            }
-        } else {
-            s.push(c);
-        }
-    }
-
-    Err(nom::Err::Error(nom::error::Error::new(
-        input,
-        nom::error::ErrorKind::Tag,
-    )))
-}
-
-fn parse_u128_id(i: &str) -> IResult<&str, u128> {
-    map_res(digit1, str::parse)(i)
-}
-
-fn parse_i64(i: &str) -> IResult<&str, i64> {
-    map_res(recognize(tuple((opt(char('-')), digit1))), str::parse)(i)
-}
-
-fn parse_literal_field_value(i: &str) -> IResult<&str, FieldValue> {
-    alt((
-        map(string_literal, FieldValue::String),
-        map(ws(tag("true")), |_| FieldValue::Bool(true)),
-        map(ws(tag("false")), |_| FieldValue::Bool(false)),
-        map(ws(tag("null")), |_| FieldValue::Null),
-        // double BEFORE parse_i64: "3.14" should be Float(3.14), not Int(3).
-        // double handles both integer and float literals; integer-only
-        // strings like "42" parse as Float(42.0) — semantically correct
-        // and no precision loss for values up to 2^53.
-        map(ws(double), FieldValue::Float),
-        map(ws(parse_i64), FieldValue::Int),
-    ))(i)
-}
-
-fn parse_traversal(i: &str) -> IResult<&str, Traversal> {
-    let (i, _) = ws(tag("SIGUE"))(i)?;
-    let (i, min_depth) = ws(parse_number)(i)?;
-    let (i, _) = ws(tag(".."))(i)?;
-    let (i, max_depth) = ws(parse_number)(i)?;
-    let (i, edge_label) = ws(string_literal)(i)?;
-    let (i, target_type) = opt(tuple((ws(tag("TYPE")), ws(ident))))(i)?;
-    let (i, alias) = opt(tuple((ws(tag("AS")), ws(ident))))(i)?;
-
-    Ok((
-        i,
-        Traversal {
-            min_depth,
-            max_depth,
-            edge_label,
-            target_type: target_type.map(|(_, t)| t),
-            alias: alias.map(|(_, a)| a),
-        },
-    ))
-}
-
-fn parse_rel_op(i: &str) -> IResult<&str, RelOp> {
-    alt((
-        map(tag("="), |_| RelOp::Eq),
-        map(tag("!="), |_| RelOp::Neq),
-        map(tag(">="), |_| RelOp::Gte),
-        map(tag(">"), |_| RelOp::Gt),
-        map(tag("<="), |_| RelOp::Lte),
-        map(tag("<"), |_| RelOp::Lt),
-    ))(i)
-}
-
-fn parse_condition(i: &str) -> IResult<&str, Condition> {
-    alt((
-        // Vector Query: p.bio ~ "rust expert", min = 0.88
-        map(
-            tuple((
-                ws(ident),
-                ws(tag("~")),
-                ws(string_literal),
-                ws(tag(",")),
-                ws(tag("min")),
-                ws(tag("=")),
-                ws(float),
-            )),
-            |(field, _, query, _, _, _, min_score)| Condition::VectorSim(field, query, min_score),
-        ),
-        // Relational Query: p.pais = "VZLA"
-        map(
-            tuple((ws(ident), ws(parse_rel_op), ws(string_literal))),
-            |(field, op, val)| Condition::Relational(field, op, FieldValue::String(val)),
-        ),
-    ))(i)
-}
-
-/// Parse a `FROM`/`MATCH` query statement.
-pub fn parse_query(i: &str) -> IResult<&str, Query> {
-    let (i, _) = ws(alt((tag("FROM"), tag("MATCH"))))(i)?;
-    let (i, from_entity) = ws(ident)(i)?;
-
-    let (i, traversal) = opt(parse_traversal)(i)?;
-
-    let (i, target_alias) = opt(ws(ident))(i)?;
-    let target_alias = target_alias.unwrap_or_else(|| "target".to_string());
-
-    let (i, where_clause) = opt(tuple((
-        ws(tag("WHERE")),
-        separated_list1(ws(tag("AND")), parse_condition),
-    )))(i)?;
-
-    let (i, fetch) = opt(tuple((
-        ws(tag("FETCH")),
-        separated_list1(ws(char(',')), ws(ident)),
-    )))(i)?;
-
-    let (i, rank_by) = opt(tuple((ws(tag("RANK BY")), ws(ident), opt(ws(tag("DESC"))))))(i)?;
-
-    let (i, temperature) = opt(tuple((ws(tag("WITH")), ws(tag("TEMPERATURE")), ws(float))))(i)?;
-
-    let (i, owner_role) = opt(tuple((ws(tag("ROLE")), ws(string_literal))))(i)?;
-
-    Ok((
-        i,
-        Query {
-            from_entity,
-            traversal,
-            target_alias,
-            where_clause: where_clause.map(|(_, conds)| conds),
-            fetch: fetch.map(|(_, f)| f),
-            rank_by: rank_by.map(|(_, f, d)| RankBy {
-                field: f,
-                desc: d.is_some(),
-            }),
-            temperature: temperature.map(|(_, _, t)| t),
-            owner_role: owner_role.map(|(_, r)| r),
-        },
-    ))
-}
-
-// ─── DML (Data Manipulation Language) ──────────────────────────
-
-fn parse_field_assign(i: &str) -> IResult<&str, (String, FieldValue)> {
-    let (i, key) = ws(ident)(i)?;
-    let (i, _) = ws(char(':'))(i)?;
-    let (i, val) = ws(parse_literal_field_value)(i)?;
-    Ok((i, (key, val)))
-}
-
-fn parse_vector_lit(i: &str) -> IResult<&str, Vec<f32>> {
-    delimited(
-        ws(char('[')),
-        separated_list1(ws(char(',')), ws(float)),
-        ws(char(']')),
-    )(i)
-}
-
-fn parse_insert(i: &str) -> IResult<&str, InsertStatement> {
-    let (i, _) = ws(tag("INSERT"))(i)?;
-    let (i, _) = ws(tag("NODE#"))(i)?;
-    let (i, node_id) = ws(parse_u128_id)(i)?;
-    let (i, _) = ws(tag("TYPE"))(i)?;
-    let (i, node_type) = ws(ident)(i)?;
-
-    let (i, fields) = delimited(
-        ws(char('{')),
-        opt(separated_list1(ws(char(',')), ws(parse_field_assign))),
-        ws(char('}')),
-    )(i)?;
-    let fields = fields.unwrap_or_default().into_iter().collect();
-
-    let (i, vector) = opt(tuple((ws(tag("VECTOR")), ws(parse_vector_lit))))(i)?;
-
-    Ok((
-        i,
-        InsertStatement {
-            node_id,
-            node_type,
-            fields,
-            vector: vector.map(|(_, v)| v),
-        },
-    ))
-}
-
-fn parse_update_field_expr(i: &str) -> IResult<&str, (String, FieldValue)> {
-    let (i, key) = ws(ident)(i)?;
-    let (i, _) = ws(char('='))(i)?;
-    let (i, val) = ws(parse_literal_field_value)(i)?;
-    Ok((i, (key, val)))
-}
-
-fn parse_update(i: &str) -> IResult<&str, UpdateStatement> {
-    let (i, _) = ws(tag("UPDATE"))(i)?;
-    let (i, _) = ws(tag("NODE#"))(i)?;
-    let (i, node_id) = ws(parse_u128_id)(i)?;
-    let (i, _) = ws(tag("SET"))(i)?;
-
-    let (i, vector_only) = opt(tuple((ws(tag("VECTOR")), ws(parse_vector_lit))))(i)?;
-
-    if let Some((_, vec)) = vector_only {
-        return Ok((
-            i,
-            UpdateStatement {
-                node_id,
-                fields: std::collections::BTreeMap::new(),
-                vector: Some(vec),
-            },
-        ));
-    }
-
-    let (i, parsed_fields) = separated_list1(ws(char(',')), ws(parse_update_field_expr))(i)?;
-    let fields = parsed_fields.into_iter().collect();
-
-    Ok((
-        i,
-        UpdateStatement {
-            node_id,
-            fields,
-            vector: None,
-        },
-    ))
-}
-
-fn parse_delete(i: &str) -> IResult<&str, DeleteStatement> {
-    let (i, _) = ws(tag("DELETE"))(i)?;
-    let (i, _) = ws(tag("NODE#"))(i)?;
-    let (i, node_id) = ws(parse_u128_id)(i)?;
-    Ok((i, DeleteStatement { node_id }))
-}
-
-fn parse_relate(i: &str) -> IResult<&str, RelateStatement> {
-    let (i, _) = ws(tag("RELATE"))(i)?;
-    let (i, _) = ws(tag("NODE#"))(i)?;
-    let (i, source_id) = ws(parse_u128_id)(i)?;
-    let (i, _) = ws(tag("--\""))(i)?;
-    let (i, label) = ws(take_while1(|c| c != '"'))(i)?;
-    let (i, _) = ws(tag("\"-->"))(i)?;
-    let (i, _) = ws(tag("NODE#"))(i)?;
-    let (i, target_id) = ws(parse_u128_id)(i)?;
-
-    let (i, weight) = opt(tuple((ws(tag("WEIGHT")), ws(float))))(i)?;
-
-    Ok((
-        i,
-        RelateStatement {
-            source_id,
-            target_id,
-            label: label.to_string(),
-            weight: weight.map(|(_, w)| w),
-        },
-    ))
-}
-
-fn parse_insert_message(i: &str) -> IResult<&str, InsertMessageStatement> {
-    let (i, _) = ws(tag("INSERT"))(i)?;
-    let (i, _) = ws(tag("MESSAGE"))(i)?;
-
-    let (i, msg_role) = alt((
-        map(ws(tag("SYSTEM")), |_| "system".to_string()),
-        map(ws(tag("USER")), |_| "user".to_string()),
-        map(ws(tag("ASSISTANT")), |_| "assistant".to_string()),
-    ))(i)?;
-
-    let (i, content) = ws(string_literal)(i)?;
-
-    let (i, _) = ws(tag("TO"))(i)?;
-    let (i, _) = ws(tag("THREAD#"))(i)?;
-    let (i, thread_id) = ws(parse_u128_id)(i)?;
-
-    Ok((
-        i,
-        InsertMessageStatement {
-            msg_role,
-            content,
-            thread_id,
-        },
-    ))
-}
-
-// ─── SELECT / JOIN / Subquery ──────────────────────────────────
-
-fn parse_join_on(i: &str) -> IResult<&str, (String, String)> {
-    let (i, _) = ws(tag("ON"))(i)?;
-    let (i, left_field) = ws(ident)(i)?;
-    let (i, _) = ws(tag("="))(i)?;
-    let (i, right_field) = ws(ident)(i)?;
-    Ok((i, (left_field, right_field)))
-}
-
-fn parse_join_clause(i: &str) -> IResult<&str, JoinClause> {
-    let (i, _) = ws(tag("JOIN"))(i)?;
-    let (i, entity) = ws(ident)(i)?;
-    let (i, alias) = ws(ident)(i)?;
-    let (i, (left_field, right_field)) = parse_join_on(i)?;
-    Ok((
-        i,
-        JoinClause {
-            entity,
-            alias,
-            left_field,
-            right_field,
-        },
-    ))
-}
-
-fn parse_subquery_condition_inner(i: &str) -> IResult<&str, SubqueryCondition> {
-    let (i, field) = ws(ident)(i)?;
-    let (i, op) = ws(parse_rel_op)(i)?;
-    let (i, _) = ws(tag("("))(i)?;
-    let (i, subquery) = parse_select(i)?;
-    let (i, _) = ws(tag(")"))(i)?;
-    Ok((
-        i,
-        SubqueryCondition {
-            field,
-            op,
-            subquery: Box::new(subquery),
-        },
-    ))
-}
-
-/// Parse a single WHERE item — either a regular condition or a subquery condition.
-fn parse_where_item(i: &str) -> IResult<&str, WhereItem> {
-    // Peek ahead: if after field + op we see '(', it's a subquery.
-    // We try subquery first; if it fails, fall back to regular condition.
-    if let Ok((rest, subq)) = parse_subquery_condition_inner(i) {
-        return Ok((rest, WhereItem::Subquery(subq)));
-    }
-    let (rest, cond) = parse_condition(i)?;
-    Ok((rest, WhereItem::Condition(cond)))
-}
-
-/// A single WHERE item — either a relational/vector condition or a subquery comparison.
-#[derive(Debug, Clone, PartialEq)]
-pub enum WhereItem {
-    /// Regular condition (relational or vector).
-    Condition(Condition),
-    /// Subquery comparison (e.g. `field op (SELECT ...)`).
-    Subquery(SubqueryCondition),
-}
-
-/// Parse a `SELECT` query with optional JOINs and subqueries.
-pub fn parse_select(i: &str) -> IResult<&str, SelectStatement> {
-    let (i, _) = ws(tag("SELECT"))(i)?;
-
-    // Projections: comma-separated identifiers, or "*" for all
-    let (i, projections) =
-        if let Ok((rest, _)) = ws(tag::<&str, &str, nom::error::Error<&str>>("*"))(i) {
-            (rest, Vec::new())
-        } else {
-            separated_list1(ws(char(',')), ws(ident))(i)?
-        };
-
-    let (i, _) = ws(tag("FROM"))(i)?;
-    let (i, from_entity) = ws(ident)(i)?;
-    let (i, from_alias) = opt(ws(ident))(i)?;
-    let from_alias = from_alias.unwrap_or_else(|| from_entity.clone());
-
-    // Parse zero or more JOIN clauses
-    let (i, join_clauses) = many0(parse_join_clause)(i)?;
-
-    // Build FromClause tree from JOINs
-    let from = if join_clauses.is_empty() {
-        FromClause::Single {
-            entity: from_entity,
-            alias: from_alias,
-        }
-    } else {
-        let mut current = FromClause::Single {
-            entity: from_entity,
-            alias: from_alias,
-        };
-        for jc in join_clauses {
-            current = FromClause::Join {
-                left: Box::new(current),
-                right: Box::new(FromClause::Single {
-                    entity: jc.entity,
-                    alias: jc.alias,
-                }),
-                left_field: jc.left_field,
-                right_field: jc.right_field,
-            };
-        }
-        current
-    };
-
-    // WHERE clause with mixed regular and subquery conditions
-    let (i, where_items) = opt(tuple((
-        ws(tag("WHERE")),
-        separated_list1(ws(tag("AND")), parse_where_item),
-    )))(i)?;
-
-    let (i, temperature) = opt(tuple((ws(tag("WITH")), ws(tag("TEMPERATURE")), ws(float))))(i)?;
-
-    // Split where_items into regular conditions and subquery conditions
-    let (where_conds, subq_conds) = match where_items {
-        Some((_, items)) => {
-            let mut conds = Vec::new();
-            let mut subqs = Vec::new();
-            for item in items {
-                match item {
-                    WhereItem::Condition(c) => conds.push(c),
-                    WhereItem::Subquery(s) => subqs.push(s),
-                }
-            }
-            (Some(conds), subqs)
-        }
-        None => (None, Vec::new()),
-    };
-
-    Ok((
-        i,
-        SelectStatement {
-            projections,
-            from,
-            where_clause: where_conds,
-            subquery_conditions: subq_conds,
-            temperature: temperature.map(|(_, _, t)| t),
-        },
-    ))
-}
-
-// ─── Entry Point ───────────────────────────────────────────────
-
-/// Parse any supported VantaQL statement (query, insert, update, delete, relate).
-pub fn parse_statement(i: &str) -> IResult<&str, Statement> {
-    alt((
-        map(parse_insert_message, Statement::InsertMessage), // Must be before parse_insert to prevent shadowing
-        map(parse_insert, Statement::Insert),
-        map(parse_update, Statement::Update),
-        map(parse_delete, Statement::Delete),
-        map(parse_relate, Statement::Relate),
-        map(parse_select, Statement::Select), // Must be before parse_query (SELECT would match as alias)
-        map(parse_query, Statement::Query),
-    ))(i)
-}
+pub use grammar::*;
+pub use lexer::*;
 
 #[cfg(test)]
 #[allow(unused_imports, dead_code)]
 mod tests {
+    use super::grammar::*;
+    use super::lexer::*;
     use super::*;
     use crate::node::FieldValue;
+    use crate::query::*;
+    use crate::sdk::SearchProfileMode;
+    use nom::bytes::complete::tag;
+    use nom::number::complete::double;
+    use nom::IResult;
 
     // ─── Helper ──────────────────────────────────────────────────
 
@@ -765,6 +284,77 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_condition_relational_numeric() {
+        // Bare number RHS parses as a typed numeric value (Float, matching the
+        // storage convention), so `edad > 18` compares numerically not
+        // lexicographically ("18" > "9" order).
+        let (_, cond) = parse_condition(r#"edad > 18"#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::Relational("edad".to_string(), RelOp::Gt, FieldValue::Float(18.0))
+        );
+        // Numeric ordering: 18 < 20, so a Float RHS of 18 compares correctly
+        // against a stored Float(20). Type is Float, not Int, matching INSERT.
+        let (_, cond2) = parse_condition(r#"edad < 20"#).unwrap();
+        match cond2 {
+            Condition::Relational(_, op, v) => {
+                assert_eq!(op, RelOp::Lt);
+                assert_eq!(v, FieldValue::Float(20.0));
+            }
+            _ => panic!("expected Relational"),
+        }
+    }
+
+    #[test]
+    #[allow(clippy::approx_constant)] // 3.14 is intentional here, not an approximation
+    fn test_parse_condition_relational_float() {
+        let (_, cond) = parse_condition(r#"price <= 3.14"#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::Relational("price".to_string(), RelOp::Lte, FieldValue::Float(3.14))
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_relational_quoted_string_backward_compat() {
+        // Quoted numeric strings stay String for backward compatibility — the
+        // previous parser produced FieldValue::String for the RHS.
+        let (_, cond) = parse_condition(r#"edad > "18""#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::Relational(
+                "edad".to_string(),
+                RelOp::Gt,
+                FieldValue::String("18".to_string())
+            )
+        );
+        // Quoted-string comparison against a numeric-text field still parses fine.
+        let (_, cond2) = parse_condition(r#"texto > "9""#).unwrap();
+        match cond2 {
+            Condition::Relational(_, op, v) => {
+                assert_eq!(op, RelOp::Gt);
+                assert_eq!(v, FieldValue::String("9".to_string()));
+            }
+            _ => panic!("expected Relational"),
+        }
+    }
+
+    #[test]
+    fn test_parse_condition_relational_bool_null() {
+        // parse_literal_field_value also accepts bool/null literals.
+        let (_, cond) = parse_condition(r#"activo = true"#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::Relational("activo".to_string(), RelOp::Eq, FieldValue::Bool(true))
+        );
+        let (_, cond2) = parse_condition(r#"campo = null"#).unwrap();
+        assert_eq!(
+            cond2,
+            Condition::Relational("campo".to_string(), RelOp::Eq, FieldValue::Null)
+        );
+    }
+
+    #[test]
     fn test_parse_condition_vector_sim() {
         let (_, cond) = parse_condition(r#"bio ~ "rust expert", min = 0.88"#).unwrap();
         assert_eq!(
@@ -780,6 +370,24 @@ mod tests {
         assert_eq!(
             cond,
             Condition::VectorSim("bio".to_string(), "data".to_string(), 0.5)
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_text_match_plain() {
+        let (_, cond) = parse_condition(r#"bio ~ "rust expert""#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::TextMatch("bio".to_string(), "rust expert".to_string())
+        );
+    }
+
+    #[test]
+    fn test_parse_condition_text_match_quoted_phrase() {
+        let (_, cond) = parse_condition(r#"bio ~ "neural network""#).unwrap();
+        assert_eq!(
+            cond,
+            Condition::TextMatch("bio".to_string(), "neural network".to_string())
         );
     }
 
@@ -944,7 +552,6 @@ mod tests {
 
     #[test]
     fn test_parse_query_with_where_single() {
-        // Must provide explicit alias before WHERE, otherwise opt(ident) consumes "WHERE" as alias
         let (_, q) = parse_query(r#"FROM Person p WHERE edad = "25""#).unwrap();
         let conds = q.where_clause.unwrap();
         assert_eq!(conds.len(), 1);
@@ -956,6 +563,32 @@ mod tests {
                 FieldValue::String("25".to_string())
             )
         );
+    }
+
+    #[test]
+    fn test_parse_query_where_without_alias() {
+        // Sin alias explícito, `WHERE` no debe consumirse como alias (ERR-016).
+        let (_, q) = parse_query(r#"FROM Person WHERE edad = "25""#).unwrap();
+        assert_eq!(q.target_alias, "target");
+        let conds = q.where_clause.unwrap();
+        assert_eq!(conds.len(), 1);
+        assert_eq!(
+            conds[0],
+            Condition::Relational(
+                "edad".to_string(),
+                RelOp::Eq,
+                FieldValue::String("25".to_string())
+            )
+        );
+    }
+
+    #[test]
+    fn test_parse_query_rank_without_alias() {
+        let (_, q) = parse_query("FROM Person RANK BY score").unwrap();
+        assert_eq!(q.target_alias, "target");
+        let rank = q.rank_by.unwrap();
+        assert_eq!(rank.field, "score");
+        assert!(!rank.desc);
     }
 
     #[test]
@@ -1015,6 +648,46 @@ mod tests {
     fn test_parse_query_with_role() {
         let (_, q) = parse_query(r#"FROM Person p ROLE "admin""#).unwrap();
         assert_eq!(q.owner_role, Some("admin".to_string()));
+    }
+
+    #[test]
+    fn test_parse_query_profile_full() {
+        // MEM-01: cláusula PROFILE con mode + rrf_k + candidate_k (sintaxis IQL).
+        let (_, q) = parse_query(
+            r#"FROM Person WHERE bio ~ "rust" PROFILE keyword rrf_k 20 candidate_k 64"#,
+        )
+        .unwrap();
+        let profile = q.search_profile.expect("profile parseado");
+        assert_eq!(profile.mode, SearchProfileMode::Keyword);
+        assert_eq!(profile.rrf_k, Some(20));
+        assert_eq!(profile.candidate_k, Some(64));
+    }
+
+    #[test]
+    fn test_parse_query_profile_vector_defaults() {
+        // Mode solo, sin rrf_k/candidate_k → None (constantes core).
+        let (_, q) = parse_query("FROM Node PROFILE vector").unwrap();
+        let profile = q.search_profile.expect("profile parseado");
+        assert_eq!(profile.mode, SearchProfileMode::Vector);
+        assert_eq!(profile.rrf_k, None);
+        assert_eq!(profile.candidate_k, None);
+    }
+
+    #[test]
+    fn test_parse_query_profile_absent() {
+        // Retrocompat: sin cláusula PROFILE → None.
+        let (_, q) = parse_query("FROM Node").unwrap();
+        assert!(q.search_profile.is_none());
+    }
+
+    #[test]
+    fn test_parse_query_profile_invalid_mode_unconsumed() {
+        // Un mode inválido no consume la cláusula: queda unconsumed (diseño
+        // tolerante del parser, igual que extra_tokens_remain) y search_profile
+        // queda None. El caller (executor) puede rechazar tokens sobrantes.
+        let (remaining, q) = parse_query("FROM Node PROFILE bogus").unwrap();
+        assert!(q.search_profile.is_none());
+        assert_eq!(remaining.trim(), "PROFILE bogus");
     }
 
     #[test]
@@ -1532,8 +1205,84 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_select_where_without_alias() {
+        // Guarda ERR-016 para SELECT: el alias opcional no debe comerse WHERE.
+        let input = r#"SELECT * FROM Person WHERE name = "Alice""#;
+        let (_, stmt) = parse_statement(input).unwrap();
+        match stmt {
+            Statement::Select(sel) => {
+                let conds = sel.where_clause.expect("expected WHERE conditions");
+                assert_eq!(conds.len(), 1);
+            }
+            _ => panic!("expected Select"),
+        }
+    }
+
+    #[test]
     fn test_parse_statement_select_is_dispatched() {
         let (_, stmt) = parse_statement("SELECT * FROM Node").unwrap();
         assert!(matches!(stmt, Statement::Select(_)));
+    }
+
+    // ─── Autocomplete (VS-CORE-06) ───────────────────────────────
+
+    #[test]
+    fn autocomplete_suggests_keywords_by_prefix() {
+        let out = autocomplete_prefix("F");
+        assert!(out.contains(&"FROM".to_string()));
+        assert!(out.contains(&"FETCH".to_string()));
+        assert!(!out.contains(&"WHERE".to_string()));
+    }
+
+    #[test]
+    fn autocomplete_is_case_insensitive() {
+        let out = autocomplete_prefix("from");
+        assert!(out.contains(&"FROM".to_string()));
+    }
+
+    #[test]
+    fn autocomplete_offers_multiword_keywords() {
+        // Two-word clause completes as one token while typing its first word.
+        let out = autocomplete_prefix("RAN");
+        assert!(out.contains(&"RANK BY".to_string()));
+        // Mid-phrase, the last word completes on its own ("TEMPERATURE" is
+        // itself a RESERVED_KEYWORDS entry, so it is suggested too).
+        let out = autocomplete_prefix("WITH TEM");
+        assert!(out.contains(&"TEMPERATURE".to_string()));
+    }
+
+    #[test]
+    fn autocomplete_empty_prefix_offers_all_keywords() {
+        let out = autocomplete_prefix("");
+        let expected: Vec<String> = RESERVED_KEYWORDS
+            .iter()
+            .chain(EXTRA_AUTOCOMPLETE_KEYWORDS)
+            .map(|s| s.to_string())
+            .collect();
+        for kw in expected {
+            assert!(out.contains(&kw), "missing {kw}");
+        }
+    }
+
+    #[test]
+    fn autocomplete_reuses_identifiers_from_statement() {
+        // `FROM Person WHERE p` — the typed `p` should suggest the entity.
+        let out = autocomplete_prefix("FROM Person WHERE p");
+        assert!(out.contains(&"Person".to_string()));
+    }
+
+    #[test]
+    fn autocomplete_does_not_suggest_self_or_keywords_as_identifiers() {
+        assert!(!autocomplete_prefix("FROM Per").contains(&"Per".to_string()));
+        assert!(!autocomplete_prefix("WHE").contains(&"WHE".to_string()));
+    }
+
+    #[test]
+    fn autocomplete_sorted_and_deduped() {
+        let out = autocomplete_prefix("F");
+        let mut sorted = out.clone();
+        sorted.sort();
+        sorted.dedup();
+        assert_eq!(out, sorted);
     }
 }

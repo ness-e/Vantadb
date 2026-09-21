@@ -1,3 +1,8 @@
+// ponytail: `StorageEngine::open_with_config(":memory:", ...)` succeeds by
+// construction (no path, no on-disk file to corrupt). Spreading the allow
+// per call site would just duplicate this rationale.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Local graph traversal helper.
 //!
 //! VantaDB stores local edges in its internal node model, but v0.1.x does not claim to be a
@@ -36,6 +41,15 @@ impl TraversalDirection {
             TraversalDirection::Reverse => edge.reverse,
             TraversalDirection::Both => true,
         }
+    }
+}
+
+/// Returns `true` if the edge's `created_at_ms` falls inside the inclusive
+/// `(from_ms, to_ms)` range. `None` disables temporal filtering.
+fn in_time_range(edge: &Edge, time_range: Option<(u64, u64)>) -> bool {
+    match time_range {
+        Some((from, to)) => edge.created_at_ms >= from && edge.created_at_ms <= to,
+        None => true,
     }
 }
 
@@ -100,12 +114,17 @@ impl<'a> GraphTraverser<'a> {
     /// BFS with label filtering. When `labels` is non-empty, only edges whose
     /// `label_id` is in the set are followed. Uses `UnifiedNode.label_index`
     /// for O(1) per-label lookups when available.
+    ///
+    /// `time_range: Option<(from_ms, to_ms)>` (inclusive) restricts traversal
+    /// to edges whose `created_at_ms` falls within the window. `None` disables
+    /// temporal filtering.
     pub fn bfs_traverse_filtered(
         &self,
         roots: &[u128],
         max_depth: usize,
         direction: TraversalDirection,
         labels: &[u32],
+        time_range: Option<(u64, u64)>,
     ) -> Result<Vec<u128>> {
         let mut visited = HashSet::new();
         let mut results = Vec::new();
@@ -144,7 +163,10 @@ impl<'a> GraphTraverser<'a> {
                                     .iter()
                                     .find(|e| e.target == target && e.label_id == lid);
                                 if let Some(e) = edge {
-                                    if direction.follows(e) && !visited.contains(&target) {
+                                    if direction.follows(e)
+                                        && in_time_range(e, time_range)
+                                        && !visited.contains(&target)
+                                    {
                                         next_level.push(target);
                                     }
                                 }
@@ -155,6 +177,7 @@ impl<'a> GraphTraverser<'a> {
                         for edge in &node.edges {
                             if labels.contains(&edge.label_id)
                                 && direction.follows(edge)
+                                && in_time_range(edge, time_range)
                                 && !visited.contains(&edge.target)
                             {
                                 next_level.push(edge.target);
@@ -164,7 +187,10 @@ impl<'a> GraphTraverser<'a> {
                 } else {
                     // No label filter: follow all edges (same as regular bfs)
                     for edge in &node.edges {
-                        if direction.follows(edge) && !visited.contains(&edge.target) {
+                        if direction.follows(edge)
+                            && in_time_range(edge, time_range)
+                            && !visited.contains(&edge.target)
+                        {
                             next_level.push(edge.target);
                         }
                     }
@@ -182,14 +208,20 @@ impl<'a> GraphTraverser<'a> {
 
     /// DFS with label filtering. Discovers edges using label-aware discovery,
     /// then traverses the cached subgraph to avoid N+1 storage lookups.
+    ///
+    /// `time_range: Option<(from_ms, to_ms)>` (inclusive) restricts traversal
+    /// to edges whose `created_at_ms` falls within the window. `None` disables
+    /// temporal filtering.
     pub fn dfs_traverse_filtered(
         &self,
         roots: &[u128],
         max_depth: usize,
         labels: &[u32],
         direction: TraversalDirection,
+        time_range: Option<(u64, u64)>,
     ) -> Result<Vec<u128>> {
-        let edges = self.discover_edges_filtered(roots, max_depth, labels, direction)?;
+        let edges =
+            self.discover_edges_filtered(roots, max_depth, labels, direction, time_range)?;
         let mut visited = HashSet::new();
         let mut results = Vec::new();
         for &root in roots {
@@ -381,6 +413,7 @@ impl<'a> GraphTraverser<'a> {
         max_depth: usize,
         labels: &[u32],
         direction: TraversalDirection,
+        time_range: Option<(u64, u64)>,
     ) -> Result<HashMap<u128, Vec<crate::node::Edge>>> {
         let mut edges: HashMap<u128, Vec<crate::node::Edge>> = HashMap::new();
         let mut current_level: Vec<u128> = roots.to_vec();
@@ -417,8 +450,8 @@ impl<'a> GraphTraverser<'a> {
                                     .iter()
                                     .find(|e| e.target == target && e.label_id == lid)
                                 {
-                                    // Also filter by direction
-                                    if direction.follows(edge) {
+                                    // Also filter by direction and time range
+                                    if direction.follows(edge) && in_time_range(edge, time_range) {
                                         matching.push(edge.clone());
                                     }
                                 }
@@ -430,26 +463,36 @@ impl<'a> GraphTraverser<'a> {
                         let matching: Vec<crate::node::Edge> = node
                             .edges
                             .iter()
-                            .filter(|e| labels.contains(&e.label_id) && direction.follows(e))
+                            .filter(|e| {
+                                labels.contains(&e.label_id)
+                                    && direction.follows(e)
+                                    && in_time_range(e, time_range)
+                            })
                             .cloned()
                             .collect();
                         edges.insert(node.id, matching);
                     }
                 } else {
-                    // No label filter: filter by direction only
+                    // No label filter: filter by direction and time range only
                     let matching: Vec<crate::node::Edge> = node
                         .edges
                         .iter()
-                        .filter(|e| direction.follows(e))
+                        .filter(|e| direction.follows(e) && in_time_range(e, time_range))
                         .cloned()
                         .collect();
                     edges.insert(node.id, matching);
                 }
 
                 // Queue unvisited targets
-                for edge in edges.get(&node.id).unwrap() {
-                    if !edges.contains_key(&edge.target) {
-                        next_level.push(edge.target);
+                // INVARIANT (B2b): `node.id` was inserted into `edges` in every
+                // branch above, so the entry always exists. `if let` keeps E1
+                // green and degrades gracefully (skip) on hypothetical
+                // inconsistency instead of panicking mid-traversal.
+                if let Some(neighbors) = edges.get(&node.id) {
+                    for edge in neighbors {
+                        if !edges.contains_key(&edge.target) {
+                            next_level.push(edge.target);
+                        }
                     }
                 }
             }
@@ -489,7 +532,7 @@ fn topo_from_cache(
     edges: &HashMap<u128, Vec<crate::node::Edge>>,
 ) -> Result<bool> {
     match state.get(&node_id) {
-        Some(1) => return Err(crate::error::VantaError::CycleDetected),
+        Some(1) => return Err(crate::error::Error::CycleDetected),
         Some(2) => return Ok(true),
         _ => {}
     }
@@ -512,7 +555,7 @@ fn topo_from_cache(
 #[allow(missing_docs)]
 mod tests {
     use super::*;
-    use crate::config::VantaConfig;
+    use crate::config::Config;
     use crate::node::UnifiedNode;
     use crate::storage::{BackendKind, StorageEngine};
     use crate::Edge;
@@ -520,7 +563,7 @@ mod tests {
 
     fn setup_storage() -> (StorageEngine, tempfile::TempDir) {
         let dir = tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };
@@ -538,6 +581,7 @@ mod tests {
                 weight,
                 label_id: 0,
                 reverse: false,
+                created_at_ms: 1,
             })
             .collect();
         storage.insert(&node).unwrap();
@@ -772,7 +816,7 @@ mod tests {
 
         // BFS with label=1 should only reach node 1
         let result = traverser
-            .bfs_traverse_filtered(&[0], 10, TraversalDirection::Forward, &[1])
+            .bfs_traverse_filtered(&[0], 10, TraversalDirection::Forward, &[1], None)
             .unwrap();
         assert!(result.contains(&0));
         assert!(result.contains(&1));
@@ -788,7 +832,7 @@ mod tests {
 
         // Filter by label that doesn't exist → stops at root
         let result = traverser
-            .bfs_traverse_filtered(&[0], 10, TraversalDirection::Forward, &[99])
+            .bfs_traverse_filtered(&[0], 10, TraversalDirection::Forward, &[99], None)
             .unwrap();
         assert_eq!(
             result,
@@ -807,7 +851,7 @@ mod tests {
 
         // Empty label filter = no filter, should follow all edges
         let result = traverser
-            .bfs_traverse_filtered(&[0], 10, TraversalDirection::Forward, &[])
+            .bfs_traverse_filtered(&[0], 10, TraversalDirection::Forward, &[], None)
             .unwrap();
         assert!(result.contains(&0));
         assert!(result.contains(&1));
@@ -826,11 +870,60 @@ mod tests {
 
         // DFS with label=1 should reach 0,1,3 but NOT 2
         let result = traverser
-            .dfs_traverse_filtered(&[0], 10, &[1], TraversalDirection::Forward)
+            .dfs_traverse_filtered(&[0], 10, &[1], TraversalDirection::Forward, None)
             .unwrap();
         assert!(result.contains(&0));
         assert!(result.contains(&1));
         assert!(result.contains(&3));
         assert!(!result.contains(&2), "label=1 filter should exclude node 2");
+    }
+
+    #[test]
+    fn test_bfs_temporal_window() {
+        let (storage, _dir) = setup_storage();
+        // 0 → 1 at t=100, 0 → 2 at t=200 (insert before moving storage into traverser)
+        let mut node0 = UnifiedNode::new(0);
+        node0.edges = vec![
+            Edge {
+                target: 1,
+                label_id: 0,
+                weight: 1.0,
+                reverse: false,
+                created_at_ms: 100,
+            },
+            Edge {
+                target: 2,
+                label_id: 0,
+                weight: 1.0,
+                reverse: false,
+                created_at_ms: 200,
+            },
+        ];
+        storage.insert(&node0).unwrap();
+        let traverser = GraphTraverser::new(Box::leak(Box::new(storage)));
+        insert_node(traverser.storage, 1, vec![]);
+        insert_node(traverser.storage, 2, vec![]);
+
+        // Window [150, 300]: only node 2 (t=200) is in range; node 1 (t=100) excluded
+        let result = traverser
+            .bfs_traverse_filtered(&[0], 10, TraversalDirection::Forward, &[], Some((150, 300)))
+            .unwrap();
+        assert!(result.contains(&0));
+        assert!(result.contains(&2));
+        assert!(!result.contains(&1), "t=100 edge outside window [150,300]");
+
+        // Window [50, 150]: only node 1 (t=100, inclusive lower bound)
+        let result = traverser
+            .bfs_traverse_filtered(&[0], 10, TraversalDirection::Forward, &[], Some((50, 150)))
+            .unwrap();
+        assert!(result.contains(&1));
+        assert!(!result.contains(&2), "t=200 edge outside window [50,150]");
+
+        // No window: both reachable
+        let result = traverser
+            .bfs_traverse_filtered(&[0], 10, TraversalDirection::Forward, &[], None)
+            .unwrap();
+        assert!(result.contains(&1));
+        assert!(result.contains(&2));
     }
 }

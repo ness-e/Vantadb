@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Regression certification suite.
 //!
 //! Each test targets a previously fixed bug and verifies the fix remains effective.
@@ -10,8 +11,8 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Barrier};
 use std::thread;
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
-use vantadb::error::VantaError;
+use vantadb::config::Config;
+use vantadb::error::Error;
 use vantadb::executor::Executor;
 use vantadb::node::{FieldValue, UnifiedNode};
 use vantadb::query::{DeleteStatement, InsertStatement, RelateStatement, Statement};
@@ -19,9 +20,9 @@ use vantadb::storage::{BackendKind, StorageEngine};
 
 // ── REGR-01: Stale mmap handle after HNSW compact_layout ──────────
 //
-// Fixed in 8a2ae8a: `VantaFile::replace_backing_file()` added.
+// Fixed in 8a2ae8a: `File::replace_backing_file()` added.
 // Bug: after `compact_layout_bfs`, the backing file was renamed but the
-// VantaFile held the old mmap handle, causing stale reads or SIGBUS.
+// File held the old mmap handle, causing stale reads or SIGBUS.
 // Fix: re-open the file and re-map via `replace_backing_file`.
 
 #[test]
@@ -29,7 +30,7 @@ fn compact_layout_does_not_stale_mmap() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -81,14 +82,14 @@ fn compact_layout_preserves_insert_search_afterwards() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
     let engine = StorageEngine::open_with_config(db_path, Some(config)).unwrap();
 
     for i in 0..20 {
-        let v = i as f32 * 0.05;
+        let v = (i as f32 + 1.0) * 0.05;
         let mut node = UnifiedNode::with_vector(i as u128, vec![v, v, v]);
         node.set_field("tag", FieldValue::String(format!("n-{}", i)));
         engine.insert(&node).unwrap();
@@ -126,7 +127,7 @@ fn compact_layout_preserves_insert_search_afterwards() {
 //
 // Fixed in 56dd065: error variant changed from `IqlError` to `NotFound`.
 // Bug: relating to a non-existent node returned IqlError with "Topological Axiom violated".
-// Fix: use `VantaError::NotFound { kind, id }` to match other not-found patterns.
+// Fix: use `Error::NotFound { kind, id }` to match other not-found patterns.
 
 #[test]
 fn ghost_node_relation_returns_not_found() {
@@ -156,7 +157,7 @@ fn ghost_node_relation_returns_not_found() {
     assert!(result.is_err(), "relation to ghost node must be rejected");
 
     match result.unwrap_err() {
-        VantaError::NotFound { kind, id } => {
+        Error::NotFound { kind, id } => {
             assert_eq!(kind, "target_node", "error kind should be target_node");
             assert_eq!(id, "999", "error should reference ghost id");
         }
@@ -206,7 +207,7 @@ fn tombstone_node_relation_returns_not_found() {
         "relation to tombstoned node must be rejected"
     );
     assert!(
-        matches!(result.unwrap_err(), VantaError::NotFound { .. }),
+        matches!(result.unwrap_err(), Error::NotFound { .. }),
         "tombstone relation should return NotFound"
     );
 }
@@ -222,7 +223,7 @@ fn concurrent_read_write_parity() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -271,14 +272,14 @@ fn concurrent_rebuild_rcu_no_crash() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
     let engine = Arc::new(StorageEngine::open_with_config(db_path, Some(config)).unwrap());
 
     for i in 0..10 {
-        let v = i as f32 * 0.1;
+        let v = (i as f32 + 1.0) * 0.1;
         let mut node = UnifiedNode::with_vector(i as u128, vec![v, v, v]);
         node.set_field("label", FieldValue::String(format!("n-{}", i)));
         engine.insert(&node).unwrap();
@@ -288,7 +289,7 @@ fn concurrent_rebuild_rcu_no_crash() {
     let engine_write = Arc::clone(&engine);
     let writer = thread::spawn(move || {
         for i in 10..15 {
-            let v = i as f32 * 0.1;
+            let v = (i as f32 + 1.0) * 0.1;
             let mut node = UnifiedNode::with_vector(i as u128, vec![v, v, v]);
             node.set_field("label", FieldValue::String(format!("n-{}", i)));
             engine_write.insert(&node).unwrap();
@@ -321,7 +322,7 @@ fn large_metadata_string_roundtrip() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -368,7 +369,7 @@ fn separate_tempdirs_do_not_interfere() {
     let dir_a = tempdir().unwrap();
     let dir_b = tempdir().unwrap();
 
-    let cfg = VantaConfig {
+    let cfg = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -410,7 +411,8 @@ fn thread_local_state_isolation() {
     let db_path = dir.path().to_str().unwrap();
 
     let engine = Arc::new(StorageEngine::open(db_path).unwrap());
-    let barrier = Arc::new(Barrier::new(3));
+    // Two worker threads synchronize their start; the main thread only joins.
+    let barrier = Arc::new(Barrier::new(2));
 
     let mut handles = Vec::new();
     for tid in 0..2 {
@@ -430,7 +432,6 @@ fn thread_local_state_isolation() {
     for h in handles {
         h.join().expect("thread panicked");
     }
-    barrier.wait();
 
     for tid in 0..2 {
         for i in 0..5 {
@@ -505,7 +506,10 @@ fn event_based_wait_instead_of_sleep() {
     });
 
     let mut waited = 0;
-    while !ready.load(Ordering::SeqCst) && waited < 100 {
+    // Generous window: 15 tests run concurrently in this binary and a cold
+    // spawned thread can take >100ms to schedule. Event-based semantics are
+    // unchanged; only the timeout budget grows.
+    while !ready.load(Ordering::SeqCst) && waited < 1000 {
         thread::sleep(std::time::Duration::from_millis(1));
         waited += 1;
     }
@@ -536,7 +540,7 @@ fn read_only_engine_rejects_write_operations() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let write_cfg = VantaConfig {
+    let write_cfg = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -545,7 +549,7 @@ fn read_only_engine_rejects_write_operations() {
     writable.flush().unwrap();
     drop(writable);
 
-    let ro_cfg = VantaConfig {
+    let ro_cfg = Config {
         backend_kind: BackendKind::Fjall,
         read_only: true,
         ..Default::default()
@@ -554,14 +558,14 @@ fn read_only_engine_rejects_write_operations() {
 
     let err = engine.insert(&UnifiedNode::new(2)).unwrap_err();
     assert!(
-        matches!(err, VantaError::ValidationError { .. }),
-        "read-only insert should return ValidationError, got: {err:?}"
+        matches!(err, Error::Validation { .. }),
+        "read-only insert should return Validation, got: {err:?}"
     );
 
     let err = engine.compact_layout_bfs().unwrap_err();
     assert!(
-        matches!(err, VantaError::ValidationError { .. }),
-        "read-only compact_layout should return ValidationError, got: {err:?}"
+        matches!(err, Error::Validation { .. }),
+        "read-only compact_layout should return Validation, got: {err:?}"
     );
 }
 

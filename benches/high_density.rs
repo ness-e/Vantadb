@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 use criterion::{criterion_group, criterion_main, BatchSize, Criterion};
 use rand::Rng;
 use std::env;

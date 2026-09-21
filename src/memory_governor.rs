@@ -1,5 +1,5 @@
 #![allow(dead_code)]
-use crate::config::VantaConfig;
+use crate::config::Config;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 
 /// Memory usage governor with watermarks and eviction control.
@@ -24,15 +24,28 @@ pub(crate) struct MemoryGovernor {
 
 impl MemoryGovernor {
     /// Create a new governor from config.
-    pub fn new(config: &VantaConfig) -> Self {
+    pub fn new(config: &Config) -> Self {
         let caps = crate::hardware::HardwareCapabilities::global();
         let memory_limit = config.memory_limit.unwrap_or(caps.total_memory);
         let target_ratio = 0.75;
+        // A zero/unknown limit means "not configured" (e.g. hardware detection
+        // unavailable, or under Miri where machine memory reports 0). Treat it as
+        // unlimited: pin watermarks to u64::MAX so no usage level triggers
+        // eviction — otherwise `limit == 0` makes every insert look like 100%
+        // pressure and rejects all writes (same policy as stats.rs AUDIT-03).
+        let (low_water_mark, high_water_mark) = if memory_limit == 0 {
+            (u64::MAX, u64::MAX)
+        } else {
+            (
+                (memory_limit as f64 * target_ratio * 0.9) as u64,
+                (memory_limit as f64 * target_ratio) as u64,
+            )
+        };
         Self {
             memory_limit,
             target_ratio,
-            low_water_mark: (memory_limit as f64 * target_ratio * 0.9) as u64,
-            high_water_mark: (memory_limit as f64 * target_ratio) as u64,
+            low_water_mark,
+            high_water_mark,
             used_bytes: AtomicU64::new(0),
             eviction_running: AtomicBool::new(false),
             last_eviction_ms: AtomicU64::new(0),
@@ -56,7 +69,7 @@ impl MemoryGovernor {
     }
 
     /// Maximum allowed memory in bytes.
-    pub fn memory_limit(&self) -> u64 {
+    pub fn limit(&self) -> u64 {
         self.memory_limit
     }
 
@@ -67,7 +80,7 @@ impl MemoryGovernor {
 
     /// Returns `true` if usage is above the memory limit (urgent).
     pub fn needs_urgent_eviction(&self) -> bool {
-        self.used_bytes.load(Ordering::Relaxed) > self.memory_limit
+        self.memory_limit != 0 && self.used_bytes.load(Ordering::Relaxed) > self.memory_limit
     }
 
     /// Returns `true` if usage is above the low watermark.
@@ -102,6 +115,10 @@ impl MemoryGovernor {
     /// Record an out-of-memory event.
     pub fn record_oom(&self) {
         self.oom_count.fetch_add(1, Ordering::Relaxed);
+        #[cfg(feature = "prometheus")]
+        if let Some(c) = crate::metrics::OOM_TRIPS.as_ref() {
+            c.inc();
+        }
     }
 
     /// Returns `true` if eviction is currently running.
@@ -119,10 +136,10 @@ impl MemoryGovernor {
 #[allow(missing_docs)]
 mod tests {
     use super::*;
-    use crate::config::VantaConfig;
+    use crate::config::Config;
 
     fn make_gov(memory_limit: u64) -> MemoryGovernor {
-        let config = VantaConfig {
+        let config = Config {
             memory_limit: Some(memory_limit),
             backend_kind: crate::backend::BackendKind::InMemory,
             ..Default::default()
@@ -145,7 +162,7 @@ mod tests {
     #[test]
     fn test_memory_governor_memory_limit() {
         let gov = make_gov(512_000);
-        assert_eq!(gov.memory_limit(), 512_000);
+        assert_eq!(gov.limit(), 512_000);
     }
 
     #[test]

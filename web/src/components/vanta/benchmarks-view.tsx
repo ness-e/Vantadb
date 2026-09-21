@@ -10,7 +10,7 @@ import {
   TrendingDown,
   Boxes,
 } from "lucide-react";
-import { BENCH01, SIFT1M, VANTA } from "./vanta-data";
+import { BENCH01, SIFT1M, JS_BENCH, COMPETITIVE_TABLE } from "./vanta-data";
 import type { View } from "./vanta-data";
 import { LatencyComparator } from "./latency-comparator";
 import { Reveal } from "./reveal";
@@ -35,7 +35,7 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
           <h1 className="glitch-hover mt-5 font-display text-6xl uppercase leading-[0.85] text-black  sm:text-8xl">
             Bench
             <br />
-            <span className="text-outline-neon glow-neon">marks</span>
+            <span className="text-outline-neon glow--neon">marks</span>
           </h1>
           <p className="mt-5 max-w-2xl border-l-4 border-[#FF5500] pl-4 font-tech text-sm leading-relaxed text-black/80  sm:text-base">
             A formal Python-native performance benchmark suite captures ingestion
@@ -47,8 +47,8 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
           <Reveal direction="up" delay={100}>
           <div className="mt-8 grid grid-cols-2 gap-3 sm:grid-cols-4">
             {[
-              { v: "5,400", l: "vectors/sec", s: "ingestion", icon: Boxes },
-              { v: "2.10ms", l: "hybrid p50", s: "BM25+HNSW·RRF", icon: Gauge },
+              { v: "95", l: "ingestion ops/sec", s: "SDK · 10K · 128d", icon: Boxes },
+              { v: "1.2ms", l: "HNSW p50 · 10K", s: "Rust Core · 128d", icon: Gauge },
               { v: "2.80x", l: "best speedup", s: "SIFT1M Balanced L2", icon: TrendingDown },
               { v: "3,636", l: "QPS peak", s: "Balanced Cos 100K", icon: Zap },
             ].map((s, i) => {
@@ -151,11 +151,10 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
             </div>
             <div className="space-y-4">
               {[
-                { label: "BM25 (Lexical)", p50: 0.85, p99: 2.1, color: "bg-black" },
-                { label: "HNSW (Vector)", p50: 1.2, p99: 3.5, color: "bg-[#1A1A1A]" },
-                { label: "Hybrid Fusion", p50: 2.1, p99: 4.8, color: "bg-[#FF5500]" },
+                { label: "HNSW (Vector)", p50: 2.024, p99: 4.403, color: "bg-[#1A1A1A]" },
+                { label: "Hybrid Fusion", p50: 3.114, p99: 5.507, color: "bg-[#FF5500]" },
               ].map((b) => {
-                const max = 5.0;
+                const max = 8.0;
                 return (
                   <div key={b.label}>
                     <div className="mb-1 flex items-center justify-between font-tech text-[11px]">
@@ -193,7 +192,7 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
               <span className="flex items-center gap-1.5">
                 <span className="h-2 w-4 bg-black opacity-50" /> p99
               </span>
-              <span className="ml-auto">scale 0–5ms</span>
+              <span className="ml-auto">scale 0–8ms</span>
             </div>
           </div>
 
@@ -204,6 +203,18 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
               <span className="font-bold uppercase tracking-wider">Hardware profile:</span>{" "}
               {BENCH01.hardware}
             </p>
+          </div>
+
+          {/* Source (Regla 11 — reproducible citation) */}
+          <div className="mt-2 flex items-start gap-3 px-4 py-2 font-tech text-[10px] text-black/50">
+            <span className="uppercase tracking-wider">Source:</span>
+            <span>
+              docs/operations/BENCHMARKS.md §2 · reproduce:{" "}
+              <code className="bg-[#FBF9F5] px-1">
+                python benchmarks/vantadb_local_bench.py --size 10000 --dim 128
+                --queries 1000
+              </code>
+            </span>
           </div>
         </div>
       </section>
@@ -340,6 +351,182 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
               {SIFT1M.hardware}
             </p>
           </div>
+
+          {/* Source (Regla 11 — reproducible citation; §5 carries no run date/command, so none is invented) */}
+          <div className="mt-2 flex items-start gap-3 px-4 py-2 font-tech text-[10px] text-black/50">
+            <span className="uppercase tracking-wider">Source:</span>
+            <span>
+              docs/operations/BENCHMARKS.md §5 · SIFT1M 100K · AMD Ryzen
+              12-Core @ 3.5GHz, -C target-cpu=native
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* JS/WASM bench (TS-09, BENCHMARKS.md §15) */}
+      <section className="relative border-b-4 border-black bg-[#FBF9F5]">
+        <div className="pointer-events-none absolute inset-0 grid-tech opacity-50" aria-hidden />
+        <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6">
+          <Reveal direction="up">
+          <SectionHeader
+            tag="§03"
+            title={JS_BENCH.title}
+            subtitle={JS_BENCH.subtitle}
+          />
+          </Reveal>
+
+          <div className="mt-6 overflow-x-auto border-4 border-black bg-[#FBF9F5] shadow-[8px_8px_0_0_#000]">
+            <table className="w-full min-w-[720px] border-collapse font-tech">
+              <thead>
+                <tr className="border-b-4 border-black bg-black text-[#FBF9F5]">
+                  <th className="border-r-2 border-[#FBF9F5]/20 px-4 py-3 text-left text-[11px] font-bold uppercase tracking-wider">
+                    Operation
+                  </th>
+                  <th className="border-r-2 border-[#FBF9F5]/20 px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider">
+                    p50
+                  </th>
+                  <th className="border-r-2 border-[#FBF9F5]/20 px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider">
+                    p95
+                  </th>
+                  <th className="px-4 py-3 text-right text-[11px] font-bold uppercase tracking-wider text-[#FF5500]">
+                    p99
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {JS_BENCH.rows.map((r, i) => (
+                  <tr
+                    key={r.metric}
+                    className={`border-b-2 border-black/15 transition-colors hover:bg-[#FF5500]/10 ${
+                      i % 2 ? "bg-[#F2EDE2]/40" : ""
+                    }`}
+                  >
+                    <td className="border-r-2 border-black/10 px-4 py-3 text-xs font-bold text-black">
+                      {r.metric}
+                    </td>
+                    <td className="border-r-2 border-black/10 px-4 py-3 text-right font-mono text-sm font-bold text-black">
+                      {r.p50}
+                    </td>
+                    <td className="border-r-2 border-black/10 px-4 py-3 text-right font-mono text-sm text-black/70">
+                      {r.p95}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-sm font-bold text-[#FF5500]">
+                      {r.p99}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Hardware note */}
+          <div className="mt-4 flex items-start gap-3 border-l-4 border-black bg-[#FBF9F5] px-4 py-3">
+            <Cpu className="mt-0.5 h-4 w-4 shrink-0 text-[#FF5500]" strokeWidth={2.5} />
+            <p className="font-tech text-[11px] text-black/70">
+              <span className="font-bold uppercase tracking-wider">Hardware profile:</span>{" "}
+              {JS_BENCH.hardware}
+            </p>
+          </div>
+
+          {/* Source (Regla 11 — reproducible citation) */}
+          <div className="mt-2 flex items-start gap-3 px-4 py-2 font-tech text-[10px] text-black/50">
+            <span className="uppercase tracking-wider">Source:</span>
+            <span>
+              {JS_BENCH.source} · reproduce:{" "}
+              <code className="bg-[#F2EDE2] px-1">{JS_BENCH.reproduce}</code>
+            </span>
+          </div>
+        </div>
+      </section>
+
+      {/* Competitive benchmark */}
+      <section className="relative border-b-4 border-black bg-[#FBF9F5]">
+        <div className="pointer-events-none absolute inset-0 grid-tech opacity-50" aria-hidden />
+        <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6">
+          <Reveal direction="up">
+          <SectionHeader
+            tag="§04"
+            title={COMPETITIVE_TABLE.title}
+            subtitle={COMPETITIVE_TABLE.subtitle}
+          />
+          </Reveal>
+
+          <div className="mt-6 overflow-x-auto border-4 border-black bg-[#FBF9F5] shadow-[8px_8px_0_0_#000]">
+            <table className="w-full min-w-[900px] border-collapse font-tech">
+              <thead>
+                <tr className="border-b-4 border-black bg-black text-[#FBF9F5]">
+                  <th className="border-r-2 border-[#FBF9F5]/20 px-4 py-3 text-left text-[10px] font-bold uppercase tracking-wider">
+                    Metric
+                  </th>
+                  {["VantaDB", "LanceDB", "ChromaDB", "Pinecone", "Weaviate"].map((h) => (
+                    <th
+                      key={h}
+                      className={`border-r-2 border-[#FBF9F5]/20 px-4 py-3 text-right text-[10px] font-bold uppercase tracking-wider ${
+                        h === "VantaDB" ? "text-[#FF5500]" : ""
+                      }`}
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {COMPETITIVE_TABLE.rows.map((r) => (
+                  <tr
+                    key={r.metric}
+                    className={`border-b-2 border-black/15 transition-colors hover:bg-[#FF5500]/10 ${
+                      r.highlight ? "bg-[#FF5500]/15" : ""
+                    }`}
+                  >
+                    <td className="border-r-2 border-black/10 px-4 py-3 text-xs font-bold text-black">
+                      <div className="flex items-center gap-2">
+                        {r.highlight && (
+                          <span className="h-2 w-2 shrink-0 animate-pulse-ring bg-[#FF5500]" />
+                        )}
+                        {r.metric}
+                      </div>
+                    </td>
+                    <td className="border-r-2 border-black/10 px-4 py-3 text-right font-mono text-sm font-bold text-[#FF5500]">
+                      {r.vanta}
+                    </td>
+                    <td className="border-r-2 border-black/10 px-4 py-3 text-right font-mono text-sm text-black/80">
+                      {r.lance}
+                    </td>
+                    <td className="border-r-2 border-black/10 px-4 py-3 text-right font-mono text-sm text-black/80">
+                      {r.chroma}
+                    </td>
+                    <td className="border-r-2 border-black/10 px-4 py-3 text-right font-mono text-[11px] uppercase tracking-wider text-black/50">
+                      {r.pinecone}
+                    </td>
+                    <td className="px-4 py-3 text-right font-mono text-[11px] uppercase tracking-wider text-black/50">
+                      {r.weaviate}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Honesty note */}
+          <div className="mt-4 flex items-start gap-3 border-l-4 border-black bg-[#FBF9F5] px-4 py-3">
+            <Cpu className="mt-0.5 h-4 w-4 shrink-0 text-[#FF5500]" strokeWidth={2.5} />
+            <p className="font-tech text-[10px] leading-relaxed text-black/60">
+              {COMPETITIVE_TABLE.note}
+            </p>
+          </div>
+
+          {/* Source */}
+          <div className="mt-2 flex items-start gap-3 px-4 py-2 font-tech text-[10px] text-black/50">
+            <span className="uppercase tracking-wider">Source:</span>
+            <a
+              href={COMPETITIVE_TABLE.sourceLink}
+              target="_blank"
+              rel="noreferrer"
+              className="underline decoration-[#FF5500]/60 underline-offset-2 hover:text-[#FF5500]"
+            >
+              docs/blog/benchmarks_vs_lancedb_chroma.md
+            </a>
+          </div>
         </div>
       </section>
 
@@ -349,7 +536,7 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
         <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6">
           <Reveal direction="up">
           <SectionHeader
-            tag="§03"
+            tag="§05"
             title="Run the benchmark locally"
             subtitle="Measure the baseline on your own hardware in three commands"
           />
@@ -374,7 +561,7 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
             ].map((c) => (
               <div
                 key={c.step}
-                className="press-lg flex flex-col border-4 border-black bg-[#FBF9F5] p-5"
+                className="press--lg flex flex-col border-4 border-black bg-[#FBF9F5] p-5"
               >
                 <div className="mb-3 flex items-center justify-between">
                   <span className="font-display text-2xl text-[#FF5500]">{c.step}</span>
@@ -402,7 +589,7 @@ export function BenchmarksView({ onNavigate }: { onNavigate: (v: View) => void }
             </div>
             <button
               onClick={() => onNavigate("docs")}
-              className="press-neon inline-flex shrink-0 items-center gap-2 border-4 border-black bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+              className="press--neon inline-flex shrink-0 items-center gap-2 border-4 border-black bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
             >
               Open Quickstart
               <ArrowRight className="h-4 w-4" strokeWidth={2.5} />

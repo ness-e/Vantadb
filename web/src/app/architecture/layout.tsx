@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Architecture · VantaDB — Retrieval Pipeline",
     description:
       "Pipeline híbrido VantaDB: BM25 + HNSW + RRF, WAL crash-safe, in-process. Diagrama y arquitectura.",
-    url: "https://vantadb.dev/architecture",
+    url: "https://vantadb.vercel.app/architecture",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/architecture",
+    canonical: "https://vantadb.vercel.app/architecture",
   },
 };
 

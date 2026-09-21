@@ -5,13 +5,15 @@
 //! TTL-based expiry via [`GcWorker`].
 
 use crate::backend::BackendPartition;
-use crate::error::{ChainedError, Result, VantaError};
+use crate::error::{ChainedError, Error, Result};
 use crate::gc::GcWorker;
 use crate::node::{FieldValue, UnifiedNode};
 use crate::storage::StorageEngine;
 use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::atomic::{AtomicU64, Ordering};
+use std::sync::Arc;
 use web_time::{SystemTime, UNIX_EPOCH};
 
 // ── Types ──
@@ -36,6 +38,19 @@ pub struct MessageThread {
     pub metadata: HashMap<String, String>,
 }
 
+/// Immutable command object for [`ThreadStore::create`] (D3: F2 command-object).
+///
+/// Groups the data params so the `create` signature stays thin. `gc` stays a
+/// separate param: it is a service handle (`&mut GcWorker`), not write data.
+/// Borrows `title` (`&str` at every caller) and moves `metadata` (already
+/// owned at every caller).
+#[derive(Debug, Clone)]
+pub struct CreateThread<'a> {
+    pub title: &'a str,
+    pub metadata: HashMap<String, String>,
+    pub ttl_secs: Option<u64>,
+}
+
 // ── Field keys stored on each thread node ──
 
 const FIELD_TITLE: &str = "_title";
@@ -48,6 +63,69 @@ const FIELD_TTL_SECS: &str = "_ttl_secs";
 
 /// InternalMetadata key for the sorted list of thread IDs.
 const THREAD_INDEX_KEY: &[u8] = b"_thread_ids";
+
+// ── Clock (FIRST-Repeatable, C2T2) ──
+
+/// Time source for [`ThreadStore`].
+///
+/// Production code uses [`SystemClock`] (wall time). Tests inject
+/// [`ManualClock`] and travel forward instead of `sleep`ing through a TTL,
+/// which is flaky under CI scheduling pressure.
+pub trait Clock: Send + Sync + std::fmt::Debug {
+    /// Current time in whole seconds since UNIX epoch.
+    fn now_secs(&self) -> u64;
+    /// Current time in milliseconds since UNIX epoch.
+    fn now_ms(&self) -> u64;
+}
+
+/// [`Clock`] backed by wall time (`web_time`, WASM-safe).
+#[derive(Debug, Default, Clone, Copy)]
+pub struct SystemClock;
+
+impl Clock for SystemClock {
+    fn now_secs(&self) -> u64 {
+        now_secs()
+    }
+    fn now_ms(&self) -> u64 {
+        now_ms()
+    }
+}
+
+/// [`Clock`] with manually advanced virtual time, for deterministic TTL tests.
+///
+/// Both channels move together: `advance_secs` also advances millis so
+/// `created_at` (secs) and message `timestamp` (ms) stay consistent.
+#[derive(Debug, Default)]
+pub struct ManualClock {
+    secs: AtomicU64,
+    ms: AtomicU64,
+}
+
+impl ManualClock {
+    /// Create a clock pinned at `start_secs` / `start_ms`.
+    pub fn new(start_secs: u64, start_ms: u64) -> Self {
+        Self {
+            secs: AtomicU64::new(start_secs),
+            ms: AtomicU64::new(start_ms),
+        }
+    }
+
+    /// Move virtual time forward by `delta` seconds (saturating).
+    pub fn advance_secs(&self, delta: u64) {
+        self.secs.fetch_add(delta, Ordering::SeqCst);
+        self.ms
+            .fetch_add(delta.saturating_mul(1_000), Ordering::SeqCst);
+    }
+}
+
+impl Clock for ManualClock {
+    fn now_secs(&self) -> u64 {
+        self.secs.load(Ordering::SeqCst)
+    }
+    fn now_ms(&self) -> u64 {
+        self.ms.load(Ordering::SeqCst)
+    }
+}
 
 // ── helpers ──
 
@@ -71,35 +149,46 @@ fn generate_id() -> u128 {
 /// TTL-based expiry pass a [`GcWorker`] reference into the relevant methods.
 pub struct ThreadStore<'a> {
     engine: &'a StorageEngine,
+    clock: Arc<dyn Clock>,
 }
 
 impl<'a> ThreadStore<'a> {
-    /// Wrap a storage engine reference.
+    /// Wrap a storage engine reference (wall-time clock).
     pub fn new(engine: &'a StorageEngine) -> Self {
-        Self { engine }
+        Self {
+            engine,
+            clock: Arc::new(SystemClock),
+        }
+    }
+
+    /// Wrap a storage engine reference with an explicit [`Clock`].
+    ///
+    /// Tests pass `Arc::new(ManualClock::new(..))` to expire TTLs by
+    /// advancing virtual time instead of sleeping.
+    pub fn with_clock(engine: &'a StorageEngine, clock: Arc<dyn Clock>) -> Self {
+        Self { engine, clock }
     }
 
     /// Create a new thread.
     ///
-    /// `ttl_secs` — if set, the thread auto-expires after this many seconds.
+    /// `input.ttl_secs` — if set, the thread auto-expires after this many seconds.
     /// The thread's messages are deleted on sweep.
     ///
     /// `gc` — if provided, the TTL expiry is registered with the garbage
     /// collector so it can be cleaned up automatically.
-    pub fn create_thread(
-        &self,
-        title: &str,
-        metadata: HashMap<String, String>,
-        ttl_secs: Option<u64>,
-        gc: Option<&mut GcWorker<'a>>,
-    ) -> Result<u128> {
+    pub fn create(&self, input: CreateThread<'_>, gc: Option<&mut GcWorker<'a>>) -> Result<u128> {
+        let CreateThread {
+            title,
+            metadata,
+            ttl_secs,
+        } = input;
         let thread_id = generate_id();
-        let now = now_secs();
+        let now = self.clock.now_secs();
 
         let empty_messages = serde_json::to_string(&Vec::<Message>::new())
-            .map_err(|e| VantaError::serialization(ChainedError::with_source("messages", e)))?;
+            .map_err(|e| Error::serialization(ChainedError::with_source("messages", e)))?;
         let metadata_json = serde_json::to_string(&metadata)
-            .map_err(|e| VantaError::serialization(ChainedError::with_source("metadata", e)))?;
+            .map_err(|e| Error::serialization(ChainedError::with_source("metadata", e)))?;
 
         let mut node = UnifiedNode::new(thread_id);
         node.set_field(FIELD_TITLE, FieldValue::String(title.to_string()));
@@ -135,22 +224,22 @@ impl<'a> ThreadStore<'a> {
         metadata: HashMap<String, String>,
         gc: Option<&mut GcWorker<'a>>,
     ) -> Result<()> {
-        let now = now_secs();
+        let now = self.clock.now_secs();
         let mut node = self
             .engine
             .get(thread_id)?
-            .ok_or(VantaError::NodeNotFound(thread_id))?;
+            .ok_or(Error::NodeNotFound(thread_id))?;
 
         let mut messages: Vec<Message> = self.load_messages(&node)?;
         messages.push(Message {
             role: role.to_string(),
             content: content.to_string(),
-            timestamp: now_ms(),
+            timestamp: self.clock.now_ms(),
             metadata,
         });
 
         let messages_json = serde_json::to_string(&messages)
-            .map_err(|e| VantaError::serialization(ChainedError::with_source("messages", e)))?;
+            .map_err(|e| Error::serialization(ChainedError::with_source("messages", e)))?;
         node.set_field(FIELD_MESSAGES, FieldValue::String(messages_json));
         node.set_field(FIELD_UPDATED_AT, FieldValue::Int(now as i64));
 
@@ -170,7 +259,7 @@ impl<'a> ThreadStore<'a> {
     }
 
     /// Retrieve a thread by its ID.
-    pub fn get_thread(&self, thread_id: u128) -> Result<Option<MessageThread>> {
+    pub fn get(&self, thread_id: u128) -> Result<Option<MessageThread>> {
         match self.engine.get(thread_id)? {
             Some(node) => Ok(Some(self.node_to_thread(node)?)),
             None => Ok(None),
@@ -178,13 +267,13 @@ impl<'a> ThreadStore<'a> {
     }
 
     /// List threads with pagination.
-    pub fn list_threads(&self, limit: usize, offset: usize) -> Result<Vec<MessageThread>> {
+    pub fn list(&self, limit: usize, offset: usize) -> Result<Vec<MessageThread>> {
         let ids = self.load_thread_ids()?;
         let chunk: Vec<u128> = ids.into_iter().skip(offset).take(limit).collect();
 
         let mut threads = Vec::with_capacity(chunk.len());
         for id in chunk {
-            if let Some(thread) = self.get_thread(id)? {
+            if let Some(thread) = self.get(id)? {
                 threads.push(thread);
             }
         }
@@ -192,8 +281,8 @@ impl<'a> ThreadStore<'a> {
     }
 
     /// Delete a thread by its ID.
-    pub fn delete_thread(&self, thread_id: u128) -> Result<()> {
-        self.engine.delete(thread_id, "delete_thread")?;
+    pub fn delete(&self, thread_id: u128) -> Result<()> {
+        self.engine.delete(thread_id, "delete")?;
         self.remove_thread_id(thread_id)
     }
 
@@ -201,7 +290,7 @@ impl<'a> ThreadStore<'a> {
     ///
     /// Returns the number of threads purged.
     pub fn purge_expired_threads(&self) -> Result<usize> {
-        let now = now_secs();
+        let now = self.clock.now_secs();
         let ids = self.load_thread_ids()?;
         let mut purged = 0;
 
@@ -224,7 +313,7 @@ impl<'a> ThreadStore<'a> {
                         .get(*id)
                         .ok()
                         .flatten()
-                        .is_some_and(|node| !self.is_expired(&node, now_secs()))
+                        .is_some_and(|node| !self.is_expired(&node, now))
                 })
                 .collect();
             self.save_thread_ids(&remaining)?;
@@ -245,7 +334,7 @@ impl<'a> ThreadStore<'a> {
     fn load_messages(&self, node: &UnifiedNode) -> Result<Vec<Message>> {
         match node.get_field(FIELD_MESSAGES) {
             Some(FieldValue::String(json)) => serde_json::from_str(json)
-                .map_err(|e| VantaError::serialization(ChainedError::with_source("messages", e))),
+                .map_err(|e| Error::serialization(ChainedError::with_source("messages", e))),
             _ => Ok(Vec::new()),
         }
     }
@@ -253,7 +342,7 @@ impl<'a> ThreadStore<'a> {
     fn load_metadata(&self, node: &UnifiedNode) -> Result<HashMap<String, String>> {
         match node.get_field(FIELD_METADATA) {
             Some(FieldValue::String(json)) => serde_json::from_str(json)
-                .map_err(|e| VantaError::serialization(ChainedError::with_source("metadata", e))),
+                .map_err(|e| Error::serialization(ChainedError::with_source("metadata", e))),
             _ => Ok(HashMap::new()),
         }
     }
@@ -289,16 +378,15 @@ impl<'a> ThreadStore<'a> {
             .engine
             .get_from_partition(BackendPartition::InternalMetadata, THREAD_INDEX_KEY)?
         {
-            Some(bytes) => serde_json::from_slice(&bytes).map_err(|e| {
-                VantaError::serialization(ChainedError::with_source("thread index", e))
-            }),
+            Some(bytes) => serde_json::from_slice(&bytes)
+                .map_err(|e| Error::serialization(ChainedError::with_source("thread index", e))),
             None => Ok(Vec::new()),
         }
     }
 
     fn save_thread_ids(&self, ids: &[u128]) -> Result<()> {
         let bytes = serde_json::to_vec(ids)
-            .map_err(|e| VantaError::serialization(ChainedError::with_source("thread index", e)))?;
+            .map_err(|e| Error::serialization(ChainedError::with_source("thread index", e)))?;
         self.engine
             .put_to_partition(BackendPartition::InternalMetadata, THREAD_INDEX_KEY, &bytes)
     }

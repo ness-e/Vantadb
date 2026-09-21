@@ -1,13 +1,13 @@
 //! Write-ahead log initialization and recovery for crash durability.
 
-use crate::config::VantaConfig;
+use crate::config::Config;
 use crate::error::Result;
 use std::path::Path;
 
 /// Open or skip WAL initialization based on the read-only configuration flag.
 pub(crate) fn init_wal(
     data_dir: &Path,
-    config: &VantaConfig,
+    config: &Config,
 ) -> Result<Option<crate::wal_sharded::ShardedWal>> {
     if config.read_only {
         return Ok(None);

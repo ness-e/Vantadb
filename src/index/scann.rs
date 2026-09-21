@@ -1,3 +1,6 @@
+// ponytail: SCANN quantization + partition slot invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! SCANN — Simplified ScaNN (Scalable Nearest Neighbors) with scalar
 //! quantization (SQ8) compression.
 //!
@@ -132,6 +135,8 @@ impl ScannIndex {
                 .zip(approx.iter())
                 .map(|(a, b)| (a - b) * (a - b))
                 .sum::<f32>(),
+            // SparseDot is not a quantized-dense codebook path (own brute-force).
+            DistanceMetric::SparseDot => 0.0,
         }
     }
 
@@ -169,26 +174,48 @@ impl ScannIndex {
                 .zip(approx.iter())
                 .map(|(a, b)| (a - b) * (a - b))
                 .sum::<f32>(),
+            // SparseDot is not a quantized-dense codebook path (own brute-force).
+            DistanceMetric::SparseDot => 0.0,
         }
     }
 
     /// Update min/max bounds from a new vector.
-    fn update_bounds(&self, vec: &[f32]) {
-        let mut min_bound = self.min_bound.lock().unwrap();
-        let mut max_bound = self.max_bound.lock().unwrap();
-        let mut dim = self.dim.lock().unwrap();
-        let mut initialized = self.bounds_initialized.lock().unwrap();
+    ///
+    /// B2b: returns `Result` so a poisoned bounds lock fails the insert with
+    /// `Runtime` instead of panicking (called once, from `add`, which
+    /// propagates with `?`).
+    fn update_bounds(&self, vec: &[f32]) -> crate::error::Result<()> {
+        let mut min_bound = self.min_bound.lock().map_err(|_| {
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
+                "ScannIndex min_bound lock poisoned",
+            ))
+        })?;
+        let mut max_bound = self.max_bound.lock().map_err(|_| {
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
+                "ScannIndex max_bound lock poisoned",
+            ))
+        })?;
+        let mut dim = self.dim.lock().map_err(|_| {
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
+                "ScannIndex dim lock poisoned",
+            ))
+        })?;
+        let mut initialized = self.bounds_initialized.lock().map_err(|_| {
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
+                "ScannIndex bounds_initialized lock poisoned",
+            ))
+        })?;
 
         if !*initialized {
             *min_bound = vec.to_vec();
             *max_bound = vec.to_vec();
             *dim = vec.len();
             *initialized = true;
-            return;
+            return Ok(());
         }
 
         if vec.len() != *dim {
-            return; // skip mismatched dims (ponytail)
+            return Ok(()); // skip mismatched dims (ponytail)
         }
 
         for (i, &v) in vec.iter().enumerate() {
@@ -199,6 +226,7 @@ impl ScannIndex {
                 max_bound[i] = v;
             }
         }
+        Ok(())
     }
 }
 
@@ -208,17 +236,22 @@ impl crate::index::VecIndex for ScannIndex {
         query_vec: &[f32],
         query_mask: &FilterBitset,
         top_k: usize,
-        _vector_store: Option<&crate::storage::vfile::VantaFile>,
+        _vector_store: Option<&dyn crate::index_port::VectorStoreRef>,
         _distance_metric: DistanceMetric,
     ) -> Vec<(u128, f32)> {
         if top_k == 0 {
             return Vec::new();
         }
 
-        let entries = self.entries.lock().unwrap();
-        let min_bound = self.min_bound.lock().unwrap();
-        let max_bound = self.max_bound.lock().unwrap();
-        let initialized = *self.bounds_initialized.lock().unwrap();
+        // INVARIANT (B2b): `search` returns `Vec` (trait `VecIndex`) — recover
+        // via `into_inner`, don't panic. Hot read path, zero-cost happy path.
+        let entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
+        let min_bound = self.min_bound.lock().unwrap_or_else(|e| e.into_inner());
+        let max_bound = self.max_bound.lock().unwrap_or_else(|e| e.into_inner());
+        let initialized = *self
+            .bounds_initialized
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
 
         if !initialized || min_bound.is_empty() || entries.is_empty() {
             return Vec::new();
@@ -265,29 +298,56 @@ impl crate::index::VecIndex for ScannIndex {
         bitset: FilterBitset,
         vec_data: VectorRepresentations,
         storage_offset: u64,
-    ) {
+    ) -> crate::error::Result<()> {
         let vec = match &vec_data {
             VectorRepresentations::Full(v) => v.clone(),
-            _ => return, // skip non-full vectors
+            _ => {
+                return Err(crate::error::Error::Validation {
+                    field: "vec_data".into(),
+                    reason: "ScannIndex::add only accepts full vectors (ERR-031)".into(),
+                })
+            }
         };
 
         // Update global bounds
-        self.update_bounds(&vec);
+        self.update_bounds(&vec)?;
 
-        let dim = *self.dim.lock().unwrap();
+        let dim = *self.dim.lock().map_err(|_| {
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
+                "ScannIndex dim lock poisoned",
+            ))
+        })?;
         if vec.len() != dim && !vec.is_empty() {
-            return;
+            return Err(crate::error::Error::Validation {
+                field: "vec_data".into(),
+                reason: format!(
+                    "ScannIndex::add vector dim {} != index dim {dim} (ERR-031)",
+                    vec.len()
+                ),
+            });
         }
 
         // Quantize
-        let min_bound = self.min_bound.lock().unwrap();
-        let max_bound = self.max_bound.lock().unwrap();
+        let min_bound = self.min_bound.lock().map_err(|_| {
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
+                "ScannIndex min_bound lock poisoned",
+            ))
+        })?;
+        let max_bound = self.max_bound.lock().map_err(|_| {
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
+                "ScannIndex max_bound lock poisoned",
+            ))
+        })?;
         let code = self.quantize(&vec, &min_bound, &max_bound);
         let norm_sq: f32 = vec.iter().map(|v| v * v).sum();
         drop(min_bound);
         drop(max_bound);
 
-        let mut entries = self.entries.lock().unwrap();
+        let mut entries = self.entries.lock().map_err(|_| {
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
+                "ScannIndex entries lock poisoned",
+            ))
+        })?;
         entries.push(ScannEntry {
             id,
             bitset,
@@ -295,18 +355,27 @@ impl crate::index::VecIndex for ScannIndex {
             norm_sq,
             storage_offset,
         });
+        Ok(())
     }
 
     fn estimate_memory_bytes(&self) -> usize {
-        let entries = self.entries.lock().unwrap();
+        // INVARIANT (B2b): non-`Result` introspection — recover, don't panic.
+        let entries = self.entries.lock().unwrap_or_else(|e| e.into_inner());
         let code_bytes: usize = entries.iter().map(|e| e.code.len()).sum();
         let overhead = entries.len() * (16 + std::mem::size_of::<FilterBitset>() + 8 + 4);
-        let bounds_bytes = self.min_bound.lock().unwrap().len() * 4 * 2;
+        let bounds_bytes = self
+            .min_bound
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .len()
+            * 4
+            * 2;
         code_bytes + overhead + bounds_bytes + std::mem::size_of::<ScannConfig>()
     }
 
     fn len(&self) -> usize {
-        self.entries.lock().unwrap().len()
+        // INVARIANT (B2b): non-`Result` introspection — recover, don't panic.
+        self.entries.lock().unwrap_or_else(|e| e.into_inner()).len()
     }
 }
 
@@ -327,13 +396,13 @@ mod tests {
     #[test]
     fn test_scann_sq8_roundtrip() {
         let idx = ScannIndex::new(DistanceMetric::Cosine);
-        idx.add(
+        let _ = idx.add(
             1,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![1.0, 0.0, 0.0]),
             0,
         );
-        idx.add(
+        let _ = idx.add(
             2,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![0.0, 1.0, 0.0]),
@@ -356,7 +425,7 @@ mod tests {
     fn test_scann_topk() {
         let idx = ScannIndex::new(DistanceMetric::Cosine);
         for i in 0u128..10 {
-            idx.add(
+            let _ = idx.add(
                 i,
                 FilterBitset::new(),
                 VectorRepresentations::Full(vec![i as f32, 0.0, 0.0]),
@@ -381,8 +450,8 @@ mod tests {
         let mut bs_b = FilterBitset::new();
         bs_b.set_bit(1);
 
-        idx.add(1, bs_a, VectorRepresentations::Full(vec![1.0, 0.0]), 0);
-        idx.add(2, bs_b, VectorRepresentations::Full(vec![0.0, 1.0]), 0);
+        let _ = idx.add(1, bs_a, VectorRepresentations::Full(vec![1.0, 0.0]), 0);
+        let _ = idx.add(2, bs_b, VectorRepresentations::Full(vec![0.0, 1.0]), 0);
 
         let mut mask = FilterBitset::new();
         mask.set_bit(0);
@@ -394,13 +463,13 @@ mod tests {
     #[test]
     fn test_scann_euclidean() {
         let idx = ScannIndex::new(DistanceMetric::Euclidean);
-        idx.add(
+        let _ = idx.add(
             0,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![0.0, 0.0]),
             0,
         );
-        idx.add(
+        let _ = idx.add(
             1,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![10.0, 10.0]),
@@ -419,13 +488,13 @@ mod tests {
     fn test_scann_quantize_identity() {
         // With vectors all in [0,1], quantization should round-trip closely
         let idx = ScannIndex::new(DistanceMetric::Euclidean);
-        idx.add(
+        let _ = idx.add(
             0,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![0.0, 0.5, 1.0]),
             0,
         );
-        idx.add(
+        let _ = idx.add(
             1,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![1.0, 0.5, 0.0]),
@@ -442,5 +511,44 @@ mod tests {
         );
         assert_eq!(results.len(), 2);
         assert_eq!(results[0].0, 0, "closest to itself after SQ8");
+    }
+
+    #[test]
+    fn test_scann_rejects_non_full_vector() {
+        // ERR-031: a rejected insert (non-full vector) must surface as Err,
+        // not be silently dropped.
+        let idx = ScannIndex::new(DistanceMetric::Cosine);
+        let result = idx.add(
+            1,
+            FilterBitset::new(),
+            VectorRepresentations::Binary(Box::new([0u64; 2])),
+            0,
+        );
+        assert!(result.is_err(), "non-full vector must be rejected");
+        assert_eq!(idx.len(), 0, "rejected insert must not be stored");
+    }
+
+    // B2b RED: a poisoned lock must surface as `Err` on the write path
+    // (`add` → `update_bounds`), not a panic.
+    #[test]
+    fn add_returns_error_on_poisoned_lock() {
+        let idx = ScannIndex::new(DistanceMetric::Cosine);
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = idx.min_bound.lock().unwrap();
+            panic!("poison the scann bounds lock");
+        }));
+        assert!(idx.min_bound.is_poisoned());
+        let err = idx
+            .add(
+                1,
+                FilterBitset::new(),
+                VectorRepresentations::Full(vec![1.0, 0.0]),
+                0,
+            )
+            .unwrap_err();
+        assert!(
+            matches!(err, crate::error::Error::Runtime(_)),
+            "expected Runtime, got {err:?}"
+        );
     }
 }

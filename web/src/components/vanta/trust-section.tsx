@@ -1,6 +1,6 @@
 "use client";
 
-import { Shield, GitBranch, Package, Cpu, Users, Star, Zap, Globe } from "lucide-react";
+import { Shield, GitBranch, Package, Cpu, Users, Zap, Globe } from "lucide-react";
 import { Reveal } from "./reveal";
 import { VANTA } from "./vanta-data";
 import { useLanguage } from "@/lib/language-provider";
@@ -9,7 +9,7 @@ import { CountUpStat } from "@/hooks/count-up";
 const TRUST_METRICS = [
   { value: "Apache 2.0", label: "Open Source", sub: "Permissive license", icon: Shield },
   { value: "Rust", label: "Memory Safe", sub: "No GC, no data races", icon: Cpu },
-  { value: "0 deps", label: "Runtime", sub: "Zero external deps", icon: Package },
+  { value: "Embedded", label: "No Server", sub: "Self-contained engine — no server, no cloud", icon: Package },
   { value: "PyO3", label: "Python Bindings", sub: "Native speed bridge", icon: Zap },
 ];
 
@@ -21,11 +21,7 @@ const STACK_ITEMS = [
 ];
 
 export function TrustSection() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { t, tt } = useLanguage();
   return (
     <section className="relative border-b-4 border-black bg-[#FBF9F5]  ">
       <div className="pointer-events-none absolute inset-0 halftone opacity-[0.04]" aria-hidden />
@@ -40,7 +36,7 @@ export function TrustSection() {
                 {t("trust.subtitle")}
               </p>
             </div>
-            <div className="flex items-center gap-2 font-tech text-[10px] uppercase tracking-wider text-black/50 ">
+            <div className="flex items-center gap-2 font-tech text-[10px] uppercase tracking-wider text-black/70 ">
               <Globe className="h-3.5 w-3.5" />
               {t("trust.localFirst")}
             </div>
@@ -104,7 +100,7 @@ export function TrustSection() {
         </Reveal>
 
         <Reveal direction="up" delay={150}>
-          <div className="mt-8 flex flex-wrap items-center justify-center gap-4 font-tech text-[10px] uppercase tracking-wider text-black/40 ">
+          <div className="mt-8 flex flex-wrap items-center justify-center gap-4 font-tech text-[10px] uppercase tracking-wider text-black/70 ">
             <span className="flex items-center gap-1">
               <Users className="h-3 w-3" />
               {t("trust.openSource")}

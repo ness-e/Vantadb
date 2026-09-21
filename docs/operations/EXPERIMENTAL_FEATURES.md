@@ -31,14 +31,14 @@ The v0.1.x product boundary is an embedded local-first persistent memory engine:
 | JSONL export/import | Production-facing |
 | Source-installed Python SDK | Production-facing |
 
-## Optional Wrapper
+## Optional
 
-| Area | Status |
-| --- | --- |
-| Local `vanta-server` binary | Optional wrapper around the embedded core |
+| Area | Status | Notes |
+| --- | --- | --- |
+| Local `vanta-server` binary | Optional wrapper around the embedded core | Local dev / network exposure |
+| Local ONNX embeddings (`embed-local` feature, `LocalOnnxProvider`) | **Optional local-first** | Offline, `ort`+`tokenizers`, 9 models (8 ≤3 GB + Qwen3 exception), default `multilingual-e5-small` 384d — see `docs/api/EMBEDDINGS.md`, `embeddings/manifest.json`, `docs/tutorials/05-embedding-integrations.md` |
 
-The server exists for local development and network exposure around the same embedded engine. It is
-not the primary product identity for this release.
+The server and `embed-local` are optional wrappers around the same embedded core. `embed-local` is **not Experimental** — it is a supported offline path (BYO-vector remains default).
 
 ## Experimental or Not MVP
 
@@ -48,7 +48,7 @@ These surfaces may exist in the repository, but they are not stable product clai
 | --- | --- |
 | IQL/LISP/DQL parser, evaluator, and executor paths | **Archived (2024-06-10)** - Runtime LISP evaluation abandoned due to borrow checker issues and GIL blocking. See `archive/experimental-quarantine-2024-06/`. Legacy fuzz target for LISP parser preserved in [`FUZZING.md`](FUZZING.md) |
 | MCP API | Experimental integration surface |
-| LLM/Ollama integration | External optional integration, not core dependency |
+| Remote LLM/Ollama integration (`remote-inference` feature, `OllamaProvider`/`OpenAIProvider`) | External optional integration, not core dependency — alternative to `embed-local` |
 | Governance and maintenance semantics | **Archived (2024-06-10)** - Runtime governance framework incompatible with compile-time governance via IQL AST Pass. Useful utilities extracted to `src/utils/` |
 | Graph traversal beyond stored local edges | Experimental, not a graph database claim |
 | Docker/Ollama examples | Experimental development examples |

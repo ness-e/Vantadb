@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Integration tests for multilingual tokenizer with advanced features.
 //!
 //! Tests the advanced tokenizer in real search scenarios across multiple languages.

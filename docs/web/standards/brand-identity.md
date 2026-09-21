@@ -1,3 +1,13 @@
+---
+title: "Identidad de Marca — VantaDB Web"
+type: web
+status: active
+tags: [vantadb, web, standards]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Identidad de Marca — VantaDB Web
 
 > **Estilo:** Manga / Linocut / Neo-Brutalist

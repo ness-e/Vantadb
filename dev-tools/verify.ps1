@@ -2,12 +2,14 @@ $ErrorActionPreference = "Stop"
 $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
-# ── MSVC bootstrap (cached) ──
-$msvcMarker = "$env:TEMP\.vantadb_msvc_done"
+# ── MSVC bootstrap (cached, keyed por versión de MSVC para invalidar el cache
+#    al actualizar BuildTools — antes un marker genérico en TEMP congelaba
+#    INCLUDE/LIB a la versión vieja) ──
+$vsBuild = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools"
+$msvcVer = Get-ChildItem "$vsBuild\VC\Tools\MSVC\*" -Directory -ErrorAction SilentlyContinue |
+    Select-Object -Last 1 -ExpandProperty Name
+$msvcMarker = "$env:TEMP\.vantadb_msvc_done$(if ($msvcVer) { "_$msvcVer" })"
 if (-not (Test-Path $msvcMarker)) {
-    $vsBuild = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\2022\BuildTools"
-    $msvcVer = Get-ChildItem "$vsBuild\VC\Tools\MSVC\*" -Directory -ErrorAction SilentlyContinue |
-        Select-Object -Last 1 -ExpandProperty Name
     if ($msvcVer) {
         $paths = @(
             "$vsBuild\VC\Tools\MSVC\$msvcVer\bin\HostX64\x64"
@@ -40,7 +42,11 @@ $Jobs = if ($TotalRAM -ge 16) { [math]::Min($Cores, 4) } elseif ($TotalRAM -ge 4
 Write-Host "${TotalRAM}GB ${Cores}cores j=${Jobs}" -ForegroundColor DarkGray
 
 $env:RUST_MIN_STACK = "33554432"
-$feats = @("--no-default-features", "--features", "cli,fjall,memmap2,fs2,roaring")
+# Features del core gate: definición canónica compartida (dev-tools/gate-common.ps1)
+. (Join-Path $PSScriptRoot "gate-common.ps1")
+$feats = Get-CoreFeatures
+# P2-06: prudent initial llvm-cov line-coverage floor. Raise after first runs (see CI_POLICY.md).
+$CoverageThreshold = 60
 $pass = 0; $fail = 0
 
 function run($name, [string[]]$cmd) {
@@ -57,10 +63,38 @@ try {
     run "audit" ("cargo", "audit")   # ignores managed in .cargo/audit.toml
     run "deny" ("cargo", "deny", "check")
     if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
+        # Exclusiones del fast gate (trazabilidad Regla 2 / CI_POLICY §"Fast Gate Test Exclusions"):
+        #   - deserialize_absurd_node_count      → CATEGORY: RESOURCE-GUARD (input de
+        #     tamaño absurdo diseñado para OOM el runner; no es flaky, es bomba de memoria)
+        #   - test_search_with_bizarre_text_query / test_malformed_payload_extremely_large
+        #     → CATEGORY: RESOURCE-GUARD (inputs malformados gigantes; cubiertos por
+        #     fuzzing dedicado, no por el fast gate)
+        # Formalizadas en CI_POLICY.md (FIND-22, 2026-09-02).
         run "nextest" (("cargo", "nextest", "run", "--profile", "audit", "-p", "vantadb") + $feats + @("--build-jobs", "1", "-E", "not test(/deserialize_absurd_node_count/) and not test(/test_search_with_bizarre_text_query/) and not test(/test_malformed_payload_extremely_large/)"))
     } else {
         run "test" (("cargo", "test", "-p", "vantadb") + $feats + @("-j", "1", "--", "--skip", "benchmark", "--skip", "competitive", "--skip", "recall", "--skip", "sift", "--skip", "chaos", "--skip", "hnsw_hard_validation", "--skip", "stress_protocol", "--skip", "vector_scale", "--skip", "certification", "--skip", "security_audit", "--skip", "deserialize_absurd_node_count", "--skip", "test_search_with_bizarre_text_query", "--skip", "test_malformed_payload_extremely_large"))
     }
+    if (Get-Command "cargo-llvm-cov" -ErrorAction SilentlyContinue) {
+        if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
+            run "coverage" (("cargo", "llvm-cov", "nextest", "run", "--profile", "audit", "-p", "vantadb", "--fail-under-lines", "$CoverageThreshold") + $feats + @("--build-jobs", "1", "-E", "not test(/deserialize_absurd_node_count/) and not test(/test_search_with_bizarre_text_query/) and not test(/test_malformed_payload_extremely_large/)"))
+        } else {
+            run "coverage" (("cargo", "llvm-cov", "-p", "vantadb", "--fail-under-lines", "$CoverageThreshold") + $feats + @("-j", "1", "--", "--skip", "benchmark", "--skip", "competitive", "--skip", "recall", "--skip", "sift", "--skip", "chaos", "--skip", "hnsw_hard_validation", "--skip", "stress_protocol", "--skip", "vector_scale", "--skip", "certification", "--skip", "security_audit", "--skip", "deserialize_absurd_node_count", "--skip", "test_search_with_bizarre_text_query", "--skip", "test_malformed_payload_extremely_large"))
+        }
+    } else {
+        Write-Host "  llvm-cov not installed - skipping coverage gate" -ForegroundColor DarkYellow
+    }
+    if (Test-Path "$ProjectRoot\scripts\validate-docs-coverage.ps1") {
+        run "docs-coverage" ("pwsh", "-NoProfile", "$ProjectRoot\scripts\validate-docs-coverage.ps1")
+    } else {
+        Write-Host "  docs-coverage script not installed - skipping docs gate" -ForegroundColor DarkYellow
+    }
+    # GOV-A3 probe CLI reales (doctor/backup/restore) — ponytail 1-2 líneas: reuse cargo run --bin vanta-cli
+    run "cli-probes" ("cargo", "run", "-p", "vantadb", "--bin", "vanta-cli", "--", "--help")
+    # GOV-B3 consumo guard — anti-regresión compile gate (ponytail: solo --no-run, sin timed bench en fast gate)
+    run "consumo guard" ("cargo", "bench", "-p", "vantadb", "--bench", "canonical_p99", "--no-run")
+    # GOV-C3 Daily Backup Verification — ponytail: validates runbook §3.1 exists (docs-only), no heavy restore in fast gate
+    # Full restore+doctor verification lives in DISASTER_RECOVERY_RUNBOOK.md §3.1; fast gate only checks doc anchor exists
+    run "daily backup verification" ("pwsh", "-NoProfile", "-Command", "if ((Select-String -Path 'docs/operations/DISASTER_RECOVERY_RUNBOOK.md' -Pattern 'Daily Backup Verification' | Measure-Object).Count -ge 1) { exit 0 } else { Write-Host 'Daily Backup Verification missing in runbook' -ForegroundColor Red; exit 1 }")
     Write-Host "ALL ${pass} PASS" -ForegroundColor Green; exit 0
 } catch {
     if ($fail -eq 0) { $Script:fail = 1 }

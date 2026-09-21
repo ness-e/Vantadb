@@ -6,7 +6,7 @@ use crate::executor::ExecutionResult;
 use crate::node::FieldValue;
 use crate::node::LabelIntern;
 
-impl From<crate::storage::IndexRebuildReport> for VantaIndexRebuildReport {
+impl From<crate::storage::IndexRebuildReport> for IndexRebuildReport {
     fn from(report: crate::storage::IndexRebuildReport) -> Self {
         Self {
             scanned_nodes: report.scanned_nodes,
@@ -20,7 +20,7 @@ impl From<crate::storage::IndexRebuildReport> for VantaIndexRebuildReport {
     }
 }
 
-impl From<crate::metrics::OperationalMetricsSnapshot> for VantaOperationalMetrics {
+impl From<crate::metrics::OperationalMetricsSnapshot> for OperationalMetrics {
     fn from(metrics: crate::metrics::OperationalMetricsSnapshot) -> Self {
         Self {
             startup_ms: metrics.startup_ms,
@@ -60,54 +60,67 @@ impl From<crate::metrics::OperationalMetricsSnapshot> for VantaOperationalMetric
             jemalloc_resident_bytes: metrics.memory.jemalloc_resident_bytes,
             jemalloc_mapped_bytes: metrics.memory.jemalloc_mapped_bytes,
             jemalloc_retained_bytes: metrics.memory.jemalloc_retained_bytes,
+            l1_extraction_latency_ms: metrics.l1_extraction_latency_ms,
+            l1_dedup_latency_ms: metrics.l1_dedup_latency_ms,
+            l2_extraction_latency_ms: metrics.l2_extraction_latency_ms,
+            l2_llm_duration_ms: metrics.l2_llm_duration_ms,
+            l3_generation_latency_ms: metrics.l3_generation_latency_ms,
+            persona_length_before: metrics.persona_length_before,
+            persona_length_after: metrics.persona_length_after,
+            persona_drift_ratio: metrics.persona_drift_ratio,
+            recall_hit_count: metrics.recall_hit_count,
+            recall_top_score: metrics.recall_top_score,
+            recall_latency_ms: metrics.recall_latency_ms,
+            recall_strategy: metrics.recall_strategy,
+            offload_latency_ms: metrics.offload_latency_ms,
         }
     }
 }
 
-impl From<VantaValue> for FieldValue {
-    fn from(value: VantaValue) -> Self {
+impl From<Value> for FieldValue {
+    fn from(value: Value) -> Self {
         match value {
-            VantaValue::String(value) => FieldValue::String(value),
-            VantaValue::Int(value) => FieldValue::Int(value),
-            VantaValue::Float(value) => FieldValue::Float(value),
-            VantaValue::Bool(value) => FieldValue::Bool(value),
-            VantaValue::DateTime(value) => FieldValue::DateTime(value),
-            VantaValue::ListString(value) => FieldValue::ListString(value),
-            VantaValue::ListInt(value) => FieldValue::ListInt(value),
-            VantaValue::ListFloat(value) => FieldValue::ListFloat(value),
-            VantaValue::ListBool(value) => FieldValue::ListBool(value),
-            VantaValue::ListDateTime(value) => FieldValue::ListDateTime(value),
-            VantaValue::Null => FieldValue::Null,
+            Value::String(value) => FieldValue::String(value),
+            Value::Int(value) => FieldValue::Int(value),
+            Value::Float(value) => FieldValue::Float(value),
+            Value::Bool(value) => FieldValue::Bool(value),
+            Value::DateTime(value) => FieldValue::DateTime(value),
+            Value::ListString(value) => FieldValue::ListString(value),
+            Value::ListInt(value) => FieldValue::ListInt(value),
+            Value::ListFloat(value) => FieldValue::ListFloat(value),
+            Value::ListBool(value) => FieldValue::ListBool(value),
+            Value::ListDateTime(value) => FieldValue::ListDateTime(value),
+            Value::Null => FieldValue::Null,
         }
     }
 }
 
-impl From<FieldValue> for VantaValue {
+impl From<FieldValue> for Value {
     fn from(value: FieldValue) -> Self {
         match value {
-            FieldValue::String(value) => VantaValue::String(value),
-            FieldValue::Int(value) => VantaValue::Int(value),
-            FieldValue::Float(value) => VantaValue::Float(value),
-            FieldValue::Bool(value) => VantaValue::Bool(value),
-            FieldValue::DateTime(value) => VantaValue::DateTime(value),
-            FieldValue::ListString(value) => VantaValue::ListString(value),
-            FieldValue::ListInt(value) => VantaValue::ListInt(value),
-            FieldValue::ListFloat(value) => VantaValue::ListFloat(value),
-            FieldValue::ListBool(value) => VantaValue::ListBool(value),
-            FieldValue::ListDateTime(value) => VantaValue::ListDateTime(value),
-            FieldValue::Null => VantaValue::Null,
+            FieldValue::String(value) => Value::String(value),
+            FieldValue::Int(value) => Value::Int(value),
+            FieldValue::Float(value) => Value::Float(value),
+            FieldValue::Bool(value) => Value::Bool(value),
+            FieldValue::DateTime(value) => Value::DateTime(value),
+            FieldValue::ListString(value) => Value::ListString(value),
+            FieldValue::ListInt(value) => Value::ListInt(value),
+            FieldValue::ListFloat(value) => Value::ListFloat(value),
+            FieldValue::ListBool(value) => Value::ListBool(value),
+            FieldValue::ListDateTime(value) => Value::ListDateTime(value),
+            FieldValue::Null => Value::Null,
         }
     }
 }
 
-impl From<ExecutionResult> for VantaQueryResult {
+impl From<ExecutionResult> for QueryResult {
     fn from(result: ExecutionResult) -> Self {
         // Use an empty interner — labels in edge records will show as "<unknown>"
-        // when no interner context is available. The main code path (VantaEmbedded::query)
+        // when no interner context is available. The main code path (Embedded::query)
         // converts with the engine's interner directly.
         let fallback_intern = LabelIntern::new();
         match result {
-            ExecutionResult::Read(nodes) => VantaQueryResult::Read(
+            ExecutionResult::Read(nodes) => QueryResult::Read(
                 nodes
                     .into_iter()
                     .map(|n| unified_to_record(n, &fallback_intern))
@@ -117,12 +130,12 @@ impl From<ExecutionResult> for VantaQueryResult {
                 affected_nodes,
                 message,
                 node_id,
-            } => VantaQueryResult::Write {
+            } => QueryResult::Write {
                 affected_nodes,
                 message,
                 node_id,
             },
-            ExecutionResult::StaleContext(node_id) => VantaQueryResult::StaleContext { node_id },
+            ExecutionResult::StaleContext(node_id) => QueryResult::StaleContext { node_id },
         }
     }
 }
@@ -137,7 +150,7 @@ mod tests {
     use crate::storage::IndexRebuildReport;
     use std::path::PathBuf;
 
-    // ─── IndexRebuildReport → VantaIndexRebuildReport ───────────
+    // ─── storage::IndexRebuildReport → sdk::IndexRebuildReport ───────────
 
     #[test]
     fn test_index_rebuild_report_conversion() {
@@ -149,7 +162,7 @@ mod tests {
             index_path: PathBuf::from("/tmp/index.hnsw"),
             success: true,
         };
-        let vanta: VantaIndexRebuildReport = report.into();
+        let vanta: crate::sdk::types::IndexRebuildReport = report.into();
         assert_eq!(vanta.scanned_nodes, 100);
         assert_eq!(vanta.indexed_vectors, 80);
         assert_eq!(vanta.skipped_tombstones, 20);
@@ -168,12 +181,12 @@ mod tests {
             index_path: PathBuf::from("/dev/null"),
             success: false,
         };
-        let vanta: VantaIndexRebuildReport = report.into();
+        let vanta: crate::sdk::types::IndexRebuildReport = report.into();
         assert_eq!(vanta.scanned_nodes, 0);
         assert!(!vanta.success);
     }
 
-    // ─── OperationalMetricsSnapshot → VantaOperationalMetrics ──
+    // ─── OperationalMetricsSnapshot → OperationalMetrics ──
 
     #[test]
     fn test_operational_metrics_conversion() {
@@ -212,6 +225,9 @@ mod tests {
             planner_hybrid_queries: 30,
             planner_text_only_queries: 20,
             planner_vector_only_queries: 10,
+            index_routing_flat: 1,
+            index_routing_ivf: 2,
+            index_routing_hnsw: 3,
             records_exported: 100,
             records_imported: 200,
             import_errors: 3,
@@ -224,9 +240,22 @@ mod tests {
             quantized_nodes_total: 100,
             promoted_nodes_total: 20,
             current_quantized_nodes: 80,
+            l1_extraction_latency_ms: 15,
+            l1_dedup_latency_ms: 5,
+            l2_extraction_latency_ms: 25,
+            l2_llm_duration_ms: 80,
+            l3_generation_latency_ms: 45,
+            persona_length_before: 120,
+            persona_length_after: 150,
+            persona_drift_ratio: 2_500,
+            recall_hit_count: 7,
+            recall_top_score: 9_500,
+            recall_latency_ms: 30,
+            recall_strategy: 3,
+            offload_latency_ms: 60,
             memory,
         };
-        let vanta: VantaOperationalMetrics = metrics.into();
+        let vanta: OperationalMetrics = metrics.into();
         assert_eq!(vanta.startup_ms, 100);
         assert_eq!(vanta.wal_replay_ms, 50);
         assert_eq!(vanta.process_rss_bytes, 1_000_000);
@@ -234,34 +263,44 @@ mod tests {
         assert_eq!(vanta.jemalloc_allocated_bytes, Some(10_000_000));
         assert_eq!(vanta.hnsw_nodes_count, 500);
         assert!(vanta.hnsw_logical_bytes > 0);
+        assert_eq!(vanta.l1_extraction_latency_ms, 15);
+        assert_eq!(vanta.l2_llm_duration_ms, 80);
+        assert_eq!(vanta.l3_generation_latency_ms, 45);
+        assert_eq!(vanta.persona_length_before, 120);
+        assert_eq!(vanta.persona_length_after, 150);
+        assert_eq!(vanta.persona_drift_ratio, 2_500);
+        assert_eq!(vanta.recall_hit_count, 7);
+        assert_eq!(vanta.recall_top_score, 9_500);
+        assert_eq!(vanta.recall_strategy, 3);
+        assert_eq!(vanta.offload_latency_ms, 60);
     }
 
-    // ─── VantaValue ↔ FieldValue ───────────────────────────────
+    // ─── Value ↔ FieldValue ───────────────────────────────
 
     #[test]
     fn test_vanta_value_to_field_value_string() {
-        let vv = VantaValue::String("hello".into());
+        let vv = Value::String("hello".into());
         let fv: FieldValue = vv.into();
         assert_eq!(fv, FieldValue::String("hello".into()));
     }
 
     #[test]
     fn test_vanta_value_to_field_value_int() {
-        let vv = VantaValue::Int(42);
+        let vv = Value::Int(42);
         let fv: FieldValue = vv.into();
         assert_eq!(fv, FieldValue::Int(42));
     }
 
     #[test]
     fn test_vanta_value_to_field_value_float() {
-        let vv = VantaValue::Float(1.5);
+        let vv = Value::Float(1.5);
         let fv: FieldValue = vv.into();
         assert_eq!(fv, FieldValue::Float(1.5));
     }
 
     #[test]
     fn test_vanta_value_to_field_value_bool() {
-        let vv = VantaValue::Bool(true);
+        let vv = Value::Bool(true);
         let fv: FieldValue = vv.into();
         assert_eq!(fv, FieldValue::Bool(true));
     }
@@ -269,35 +308,35 @@ mod tests {
     #[test]
     fn test_vanta_value_to_field_value_datetime() {
         let dt = chrono::Utc::now();
-        let vv = VantaValue::DateTime(dt);
+        let vv = Value::DateTime(dt);
         let fv: FieldValue = vv.into();
         assert_eq!(fv, FieldValue::DateTime(dt));
     }
 
     #[test]
     fn test_vanta_value_to_field_value_list_string() {
-        let vv = VantaValue::ListString(vec!["a".into(), "b".into()]);
+        let vv = Value::ListString(vec!["a".into(), "b".into()]);
         let fv: FieldValue = vv.into();
         assert_eq!(fv, FieldValue::ListString(vec!["a".into(), "b".into()]));
     }
 
     #[test]
     fn test_vanta_value_to_field_value_list_int() {
-        let vv = VantaValue::ListInt(vec![1, 2]);
+        let vv = Value::ListInt(vec![1, 2]);
         let fv: FieldValue = vv.into();
         assert_eq!(fv, FieldValue::ListInt(vec![1, 2]));
     }
 
     #[test]
     fn test_vanta_value_to_field_value_list_float() {
-        let vv = VantaValue::ListFloat(vec![1.0, 2.0]);
+        let vv = Value::ListFloat(vec![1.0, 2.0]);
         let fv: FieldValue = vv.into();
         assert_eq!(fv, FieldValue::ListFloat(vec![1.0, 2.0]));
     }
 
     #[test]
     fn test_vanta_value_to_field_value_list_bool() {
-        let vv = VantaValue::ListBool(vec![true, false]);
+        let vv = Value::ListBool(vec![true, false]);
         let fv: FieldValue = vv.into();
         assert_eq!(fv, FieldValue::ListBool(vec![true, false]));
     }
@@ -305,134 +344,134 @@ mod tests {
     #[test]
     fn test_vanta_value_to_field_value_list_datetime() {
         let dt = chrono::Utc::now();
-        let vv = VantaValue::ListDateTime(vec![dt]);
+        let vv = Value::ListDateTime(vec![dt]);
         let fv: FieldValue = vv.into();
         assert_eq!(fv, FieldValue::ListDateTime(vec![dt]));
     }
 
     #[test]
     fn test_vanta_value_to_field_value_null() {
-        let vv = VantaValue::Null;
+        let vv = Value::Null;
         let fv: FieldValue = vv.into();
         assert_eq!(fv, FieldValue::Null);
     }
 
-    // ─── FieldValue → VantaValue ───────────────────────────────
+    // ─── FieldValue → Value ───────────────────────────────
 
     #[test]
     fn test_field_value_to_vanta_value_string() {
         let fv = FieldValue::String("world".into());
-        let vv: VantaValue = fv.into();
-        assert_eq!(vv, VantaValue::String("world".into()));
+        let vv: Value = fv.into();
+        assert_eq!(vv, Value::String("world".into()));
     }
 
     #[test]
     fn test_field_value_to_vanta_value_int() {
         let fv = FieldValue::Int(-7);
-        let vv: VantaValue = fv.into();
-        assert_eq!(vv, VantaValue::Int(-7));
+        let vv: Value = fv.into();
+        assert_eq!(vv, Value::Int(-7));
     }
 
     #[test]
     fn test_field_value_to_vanta_value_float() {
         let fv = FieldValue::Float(1.5);
-        let vv: VantaValue = fv.into();
-        assert_eq!(vv, VantaValue::Float(1.5));
+        let vv: Value = fv.into();
+        assert_eq!(vv, Value::Float(1.5));
     }
 
     #[test]
     fn test_field_value_to_vanta_value_bool() {
         let fv = FieldValue::Bool(false);
-        let vv: VantaValue = fv.into();
-        assert_eq!(vv, VantaValue::Bool(false));
+        let vv: Value = fv.into();
+        assert_eq!(vv, Value::Bool(false));
     }
 
     #[test]
     fn test_field_value_to_vanta_value_datetime() {
         let dt = chrono::Utc::now();
         let fv = FieldValue::DateTime(dt);
-        let vv: VantaValue = fv.into();
-        assert_eq!(vv, VantaValue::DateTime(dt));
+        let vv: Value = fv.into();
+        assert_eq!(vv, Value::DateTime(dt));
     }
 
     #[test]
     fn test_field_value_to_vanta_value_list_string() {
         let fv = FieldValue::ListString(vec!["x".into()]);
-        let vv: VantaValue = fv.into();
-        assert_eq!(vv, VantaValue::ListString(vec!["x".into()]));
+        let vv: Value = fv.into();
+        assert_eq!(vv, Value::ListString(vec!["x".into()]));
     }
 
     #[test]
     fn test_field_value_to_vanta_value_list_int() {
         let fv = FieldValue::ListInt(vec![100]);
-        let vv: VantaValue = fv.into();
-        assert_eq!(vv, VantaValue::ListInt(vec![100]));
+        let vv: Value = fv.into();
+        assert_eq!(vv, Value::ListInt(vec![100]));
     }
 
     #[test]
     fn test_field_value_to_vanta_value_list_float() {
         let fv = FieldValue::ListFloat(vec![-1.0]);
-        let vv: VantaValue = fv.into();
-        assert_eq!(vv, VantaValue::ListFloat(vec![-1.0]));
+        let vv: Value = fv.into();
+        assert_eq!(vv, Value::ListFloat(vec![-1.0]));
     }
 
     #[test]
     fn test_field_value_to_vanta_value_list_bool() {
         let fv = FieldValue::ListBool(vec![false]);
-        let vv: VantaValue = fv.into();
-        assert_eq!(vv, VantaValue::ListBool(vec![false]));
+        let vv: Value = fv.into();
+        assert_eq!(vv, Value::ListBool(vec![false]));
     }
 
     #[test]
     fn test_field_value_to_vanta_value_list_datetime() {
         let dt = chrono::Utc::now();
         let fv = FieldValue::ListDateTime(vec![dt]);
-        let vv: VantaValue = fv.into();
-        assert_eq!(vv, VantaValue::ListDateTime(vec![dt]));
+        let vv: Value = fv.into();
+        assert_eq!(vv, Value::ListDateTime(vec![dt]));
     }
 
     #[test]
     fn test_field_value_to_vanta_value_null() {
         let fv = FieldValue::Null;
-        let vv: VantaValue = fv.into();
-        assert_eq!(vv, VantaValue::Null);
+        let vv: Value = fv.into();
+        assert_eq!(vv, Value::Null);
     }
 
-    // ─── VantaValue ↔ FieldValue roundtrip ─────────────────────
+    // ─── Value ↔ FieldValue roundtrip ─────────────────────
 
     #[test]
     fn test_value_roundtrip_string() {
-        let original = VantaValue::String("roundtrip".into());
+        let original = Value::String("roundtrip".into());
         let fv: FieldValue = original.clone().into();
-        let back: VantaValue = fv.into();
+        let back: Value = fv.into();
         assert_eq!(original, back);
     }
 
     #[test]
     fn test_value_roundtrip_int() {
-        let original = VantaValue::Int(-99);
+        let original = Value::Int(-99);
         let fv: FieldValue = original.clone().into();
-        let back: VantaValue = fv.into();
+        let back: Value = fv.into();
         assert_eq!(original, back);
     }
 
     #[test]
     fn test_value_roundtrip_null() {
-        let original = VantaValue::Null;
+        let original = Value::Null;
         let fv: FieldValue = original.clone().into();
-        let back: VantaValue = fv.into();
+        let back: Value = fv.into();
         assert_eq!(original, back);
     }
 
-    // ─── ExecutionResult → VantaQueryResult ────────────────────
+    // ─── ExecutionResult → QueryResult ────────────────────
 
     #[test]
     fn test_execution_result_read_conversion() {
         let nodes = vec![UnifiedNode::new(1), UnifiedNode::new(2)];
         let result = ExecutionResult::Read(nodes);
-        let vqr: VantaQueryResult = result.into();
+        let vqr: QueryResult = result.into();
         match vqr {
-            VantaQueryResult::Read(records) => {
+            QueryResult::Read(records) => {
                 assert_eq!(records.len(), 2);
                 assert!(records.iter().any(|r| r.id == 1));
                 assert!(records.iter().any(|r| r.id == 2));
@@ -444,9 +483,9 @@ mod tests {
     #[test]
     fn test_execution_result_read_empty() {
         let result = ExecutionResult::Read(vec![]);
-        let vqr: VantaQueryResult = result.into();
+        let vqr: QueryResult = result.into();
         match vqr {
-            VantaQueryResult::Read(records) => assert!(records.is_empty()),
+            QueryResult::Read(records) => assert!(records.is_empty()),
             _ => panic!("expected Read variant"),
         }
     }
@@ -458,9 +497,9 @@ mod tests {
             message: "inserted 3 records".into(),
             node_id: Some(42),
         };
-        let vqr: VantaQueryResult = result.into();
+        let vqr: QueryResult = result.into();
         match vqr {
-            VantaQueryResult::Write {
+            QueryResult::Write {
                 affected_nodes,
                 message,
                 node_id,
@@ -480,9 +519,9 @@ mod tests {
             message: "updated".into(),
             node_id: None,
         };
-        let vqr: VantaQueryResult = result.into();
+        let vqr: QueryResult = result.into();
         match vqr {
-            VantaQueryResult::Write { node_id, .. } => assert_eq!(node_id, None),
+            QueryResult::Write { node_id, .. } => assert_eq!(node_id, None),
             _ => panic!("expected Write variant"),
         }
     }
@@ -490,9 +529,9 @@ mod tests {
     #[test]
     fn test_execution_result_stale_context_conversion() {
         let result = ExecutionResult::StaleContext(999);
-        let vqr: VantaQueryResult = result.into();
+        let vqr: QueryResult = result.into();
         match vqr {
-            VantaQueryResult::StaleContext { node_id } => assert_eq!(node_id, 999),
+            QueryResult::StaleContext { node_id } => assert_eq!(node_id, 999),
             _ => panic!("expected StaleContext variant"),
         }
     }

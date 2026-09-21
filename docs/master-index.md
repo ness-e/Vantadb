@@ -2,16 +2,19 @@
 title: VantaDB Master Index
 type: master-index
 status: active
-last_reviewed: 2026-07-21
 tags: [vantadb, documentation, index, master-index]
+last_reviewed: 2026-09-15
+aliases: []
+related: [Backlog.md, backlog-futuro.md, Backlog-negocio.md, CHANGELOG.md, QUICKSTART.md, avance/README.md]
 ---
 
 # VantaDB Master Index
 
 > Global index of all documentation, architecture decisions, API references, and operational guides.
+> **Maintenance rule:** every new doc or first-level folder under `docs/` MUST be indexed here **in the same PR** that adds it. Deliberate exclusions are listed at the bottom of this file.
 
 - **Project:** VantaDB — cross-platform memory layer for AI agents
-- **Repository:** `https://github.com/vantadb/vantadb`
+- **Repository:** `https://github.com/ness-e/Vantadb`
 - **Owner:** Eros
 
 ---
@@ -28,10 +31,18 @@ tags: [vantadb, documentation, index, master-index]
 - [Glossary](#glossary)
 - [Articles & Blog](#articles--blog)
 - [GraphRAG](#graphrag)
-- [Audit Reports](#audit-reports)
+- [Audit Reports & Reviews](#audit-reports--reviews)
+- [Pipeline Reports](#pipeline-reports)
 - [Plans](#plans)
-- [Progress](#progress)
+- [Progress & Planning](#progress--planning)
+- [Research & Investigations](#research--investigations)
+- [CI Workflows](#ci-workflows)
+- [Web Frontend Docs](#web-frontend-docs)
+- [Benchmarks](#benchmarks)
+- [Book](#book)
+- [Community & Examples](#community--examples)
 - [Other Documents](#other-documents)
+- [Deliberately Not Indexed](#deliberately-not-indexed)
 
 ---
 
@@ -57,10 +68,23 @@ tags: [vantadb, documentation, index, master-index]
 |----------|-------------|
 | [Embedded SDK](api/EMBEDDED_SDK.md) | Core Rust SDK reference — `VantaEmbedded` (~45 public methods, all types) |
 | [Python SDK](api/PYTHON_SDK.md) | Python bindings — `vantadb-py` |
-| [HTTP API](api/HTTP_API.md) | REST / HTTP server specification |
-| [MCP API](api/MCP.md) | MCP (Model Context Protocol) server specification |
+| [HTTP API](api/HTTP_API.md) | REST / HTTP server specification (regenerated 2026-08-22, GOV-B5) |
+| [OpenAPI spec](api/openapi.yaml) | Machine-readable OpenAPI contract for the HTTP API (GOV-B4) |
+| [MCP API](api/MCP.md) | MCP server spec — **stub**; single source of truth: [`skills/vantadb-mcp/references/api-reference.md`](../skills/vantadb-mcp/references/api-reference.md) |
+| [Proxy](api/PROXY.md) | `vanta-proxy` reference — endpoints, 8 opt-in features, defaults, env |
 | [TypeScript SDK](api/TS_SDK.md) | TypeScript / WASM bindings — `vantadb-ts` |
 | [IQL](api/IQL.md) | Interactive Query Language reference |
+| [VANTA_MEMORY.md](api/VANTA_MEMORY.md) | Vanta memory subsystem API (LLM-free stores, personas, wiki) |
+| [GRAPH_RAG.md](api/GRAPH_RAG.md) | GraphRAG public API reference |
+| [BINDINGS_NAMESPACES.md](api/BINDINGS_NAMESPACES.md) | Namespace map across Python / TS / WASM bindings |
+| [WASM_PERSISTENCE.md](api/WASM_PERSISTENCE.md) | WASM persistence backends (OPFS / IndexedDB / memory) |
+| [WASM_STANDALONE.md](api/WASM_STANDALONE.md) | WASM standalone build and usage guide |
+| [EMBEDDINGS.md](api/EMBEDDINGS.md) | Embedding providers & local model config |
+| [ERROR_HANDLING.md](api/ERROR_HANDLING.md) | Error taxonomy & VantaError mapping |
+| [NODE_SDK.md](api/NODE_SDK.md) | Node.js bindings — `vantadb-node` |
+| [VERSIONING.md](api/VERSIONING.md) | API versioning & semver guarantees |
+| [WASM_API.md](api/WASM_API.md) | WASM high-level API surface |
+| [scores.md](api/scores.md) | Score semantics — RRF / cosine / BM25 / zero-norm (RES-04) |
 
 ---
 
@@ -106,6 +130,8 @@ Key documents:
 | [PYTHON_RELEASE_POLICY.md](operations/PYTHON_RELEASE_POLICY.md) | Python SDK release and publishing policy |
 | [SQLITE_MIGRATION_GUIDE.md](operations/SQLITE_MIGRATION_GUIDE.md) | SQLite migration guide |
 | [GC_TTL.md](operations/GC_TTL.md) | Garbage collection TTL configuration |
+| [chaos-testing.md](chaos-testing.md) | Chaos testing strategy and scenarios |
+| [TEST_MAP.md](TEST_MAP.md) | Map of test files to subsystems and coverage intent |
 
 ---
 
@@ -115,6 +141,8 @@ Key documents:
 |----------|-------------|
 | [ROADMAP.md](strategy/ROADMAP.md) | Engineering roadmap, phases, and execution plan |
 | [GO_TO_MARKET.md](strategy/GO_TO_MARKET.md) | Go-to-market and ecosystem strategy |
+| [VANTADB-PRO-FEATURES.md](strategy/VANTADB-PRO-FEATURES.md) | Open Core boundary — features Pro vs community |
+| [VANTADB-PRO-DELIVERY.md](strategy/VANTADB-PRO-DELIVERY.md) | Delivery and distribution of VantaDB Pro |
 | [VISION.md](vision/VISION.md) | Product vision and strategic positioning |
 | [SHOW_HN_PREP.md](strategy/SHOW_HN_PREP.md) | Hacker News launch preparation |
 
@@ -124,21 +152,21 @@ Key documents:
 
 | Document | Description |
 |----------|-------------|
+| [Tutorials index](tutorials/index.md) | Structured learning path (ordered by complexity) |
 | [01: AI Agent Memory](tutorials/01-ai-agent-memory.md) | Building AI agent memory with VantaDB |
 | [02: Local RAG Pipeline](tutorials/02-local-rag-pipeline.md) | Local RAG pipeline tutorial |
+| [04: Hybrid Search](tutorials/04-hybrid-search-basics.md) | Vector, BM25, and hybrid search modes |
+| [05: Embedding Providers](tutorials/05-embedding-integrations.md) | OpenAI, Ollama, LiteLLM embedding patterns |
 | [03: Migrating from ChromaDB](tutorials/03-migrating-from-chromadb.md) | Migration guide from ChromaDB to VantaDB |
 | [Migrating from LanceDB](tutorials/migration-from-lancedb.md) | Migration guide from LanceDB to VantaDB |
+
+Runnable code samples live in [`examples/`](examples/) (`fnd05_python_context_manager.py`, `fnd05_ts_async_dispose.ts`).
 
 ---
 
 ## Case Studies
 
-| Document | Description |
-|----------|-------------|
-| [RAG on Edge Devices](case_studies/rag_edge_device.md) | Running VantaDB on resource-constrained hardware |
-| [Agent Local Memory with Ollama](case_studies/agent_local_memory_ollama.md) | AI agent using VantaDB with local Ollama inference |
-
----
+Archivados a `docs/archive/case-studies-unverified/` (2026-08-22, GOV-B1): material interno no-público, escenarios ilustrativos SIN verificación. El case study real llega vía CLD-04.
 
 ## Glossary
 
@@ -153,14 +181,17 @@ The glossary lives in two complementary locations:
 
 ## Articles & Blog
 
-Published blog posts (in `web/content/blog/`):
+Published blog posts (in `docs/blog/`):
 
 | Article | Description |
 |---------|-------------|
-| [Why I Built a Local Memory Engine for AI Agents in Rust](../web/content/blog/why-i-built-vantadb-local-memory-engine.md) | Motivation and design philosophy |
-| [How Hybrid Search Works: BM25 + HNSW + RRF](../web/content/blog/how-hybrid-search-works.md) | Technical deep-dive on hybrid search |
-| [SQLite for AI Agents: Benchmarks and Architecture](../web/content/blog/sqlite-for-ai-agents.md) | Comparing embedded databases for agent memory |
-| [Introducing VantaDB](../web/content/blog/introducing-vantadb.md) | Product announcement |
+| [Why I Built a Local Memory Engine for AI Agents in Rust](blog/why_i_built.md) | Motivation and design philosophy |
+| [How Hybrid Search Works: BM25 + HNSW + RRF](blog/how_hybrid_search_works.md) | Technical deep-dive on hybrid search |
+| [SQLite for AI Agents: Benchmarks and Architecture](blog/sqlite_for_ai_agents.md) | Comparing embedded databases for agent memory |
+| [Introducing VantaDB](blog/introducing_vantadb.md) | Product announcement |
+| [Benchmarks vs LanceDB & Chroma](blog/benchmarks_vs_lancedb_chroma.md) | Competitive benchmark write-up |
+| [GraphRAG Benchmark](blog/graphrag-benchmark.md) | GraphRAG performance evaluation post |
+| [Campaign: AI Agent Memory](blog/campaign-ai-agent-memory.md) | Campaign narrative on agent memory |
 
 ---
 
@@ -169,35 +200,142 @@ Published blog posts (in `web/content/blog/`):
 | Document | Description |
 |----------|-------------|
 | [GraphRAG README](graphrag/README.md) | Graph-based RAG integration research |
+| [GraphRAG API](api/GRAPH_RAG.md) | Public GraphRAG API reference |
 
 ---
 
-## Audit Reports
+## Audit Reports & Reviews
+
+Audit and review reports generated by `/audit`, `/review`, and `unified-review` live in `docs/reviews/`.
 
 | Document | Description |
 |----------|-------------|
-| [Full Audit 2026-07-18](audit-reports/audit-full-2026-07-18.md) | Comprehensive codebase audit |
+| [auditoria-documentacion-2026-08-21.md](reviews/auditoria-documentacion-2026-08-21.md) | Documentation audit that motivated the GOV campaign |
+| [audit-full-20260812-231204.md](reviews/audit-full-20260812-231204.md) | Full audit run 2026-08-12 |
+| [review-certify-2026-08-05-2025.md](reviews/review-certify-2026-08-05-2025.md) | Certification review 2026-08-05 |
+| [stabilization-report.md](reviews/stabilization-report.md) | Stabilization phase report |
+| Historical runs (including `audit-full-2026-07-18`) are archived under [`reviews/archive/`](reviews/archive/) |
+
+---
+
+## Pipeline Reports
+
+Structured reports produced by pipelines and evals live in `docs/reports/`.
+
+| Document | Description |
+|----------|-------------|
+| [INDEX.md](reports/INDEX.md) | Index of all pipeline reports |
+| [dora.md](reports/dora.md) | DORA metrics report |
+| [northstar.md](reports/northstar.md) | Northstar tracking report |
+| [pipeline-evals.md](reports/pipeline-evals.md) | Pipeline evaluation report |
 
 ---
 
 ## Plans
 
+Active plans in `docs/plans/`; completed plans move to `plans/archive/`.
+
 | Document | Description |
 |----------|-------------|
-| [PROMPT-MAESTRO-FREEZE.md](plans/PROMPT-MAESTRO-FREEZE.md) | Prompt maestro freeze plan |
-| [ACTION_PLAN.md](strategy/ACTION_PLAN.md) | Archived — superseded by ROADMAP.md v2.0 |
+| [PROMPT-MAESTRO-FREEZE.md](plans/archive/PROMPT-MAESTRO-FREEZE.md) | Prompt maestro freeze plan (archived) |
+| [ACTION_PLAN → ROADMAP v2.0](strategy/ROADMAP.md) | Archived — superseded by ROADMAP.md v2.0 |
 
 ---
 
-## Progress
+## Progress & Planning
+
+Spanish-language planning material (allowed exception to the English docs rule).
 
 | Document | Description |
 |----------|-------------|
-| [progreso/README.md](progreso/README.md) | Unified progress log and development history |
+| [avance/README.md](avance/README.md) | Unified progress log and development history |
 | [Backlog.md](Backlog.md) | Full project backlog and feature tracking |
-| [backlog-guide.md](backlog-guide.md) | Backlog management guide |
+| [backlog-futuro.md](backlog-futuro.md) | Deferred / future backlog items |
 | [CHANGELOG.md](CHANGELOG.md) | Release history and version changelog |
-| [stabilization-report.md](stabilization-report.md) | Stability report |
+| [avance/](avance/README.md) | Progress tracking workspace (activo, auditoría, decisiones, historial) |
+
+---
+
+## Research & Investigations
+
+| Document | Description |
+|----------|-------------|
+| [Investigaciones → research/](research/) | Spanish-language research notes: FND-*, INV-*, TIR-*, competitive analyses (see folder README per series) |
+| [research/human-facing-db-ui/](research/human-facing-db-ui/) | Research on human-facing DB UI concepts |
+| [research/tdam/](research/tdam/) | TDAM (Tiered Document Attention Model) research |
+| [wasm/CRASH_MODEL.md](wasm/CRASH_MODEL.md) | WASM crash model research |
+
+---
+
+## CI Workflows
+
+Per-workflow documentation mirrors `.github/workflows/`.
+
+| Document | Description |
+|----------|-------------|
+| [ci-gate.md](workflow/ci-gate.md) | Fast Gate workflow |
+| [ci-rust-10.md](workflow/ci-rust-10.md) | Rust CI workflow |
+| [ci-web-11.md](workflow/ci-web-11.md) | Web CI workflow |
+| [gate-docs-21.md](workflow/gate-docs-21.md) | Docs gate workflow |
+| [fuzz-40.md](workflow/fuzz-40.md) | Fuzzing workflow |
+| [chaos-45.md](workflow/chaos-45.md) | Chaos testing workflow |
+| [perf-bench-40.md](workflow/perf-bench-40.md) | Performance benchmark workflow |
+| [heavy-bench-nightly-51.md](workflow/heavy-bench-nightly-51.md) | Nightly heavy benchmark workflow |
+| [heavy-certification-50.md](workflow/heavy-certification-50.md) | Heavy certification workflow |
+| [sec-codeql-30.md](workflow/sec-codeql-30.md) | CodeQL security workflow |
+| [release-wheels-60.md](workflow/release-wheels-60.md) | Wheels release workflow |
+| [release-npm-61.md](workflow/release-npm-61.md) | NPM release workflow |
+| [release-adapters-62.md](workflow/release-adapters-62.md) | Adapters release workflow |
+| [release-binaries-63.md](workflow/release-binaries-63.md) | Binaries release workflow |
+| [release-sbom-64.md](workflow/release-sbom-64.md) | SBOM release workflow |
+
+---
+
+## Web Frontend Docs
+
+Documentation for the Next.js web frontend lives in `docs/web/`.
+
+| Document | Description |
+|----------|-------------|
+| [web/README.md](web/README.md) | Web docs landing page |
+| [design-rules-es-tutorial.md](archive/design-rules-es-tutorial.md) | Tutorial ES de diseño (ARCHIVADO — ver banner) |
+| [QA.md](web/QA.md) | Web QA checklist |
+| Sub-folders: [`audit/`](web/audit/), [`guides/`](web/guides/), [`reference/`](web/reference/), [`standards/`](web/standards/) |
+
+---
+
+## Benchmarks
+
+Raw benchmark artifacts and analyses live in `docs/benchmarks/`. Canonical claims belong in [`operations/BENCHMARKS.md`](operations/BENCHMARKS.md).
+
+| Document | Description |
+|----------|-------------|
+| [COMPETITIVE_ANALYSIS.md](benchmarks/COMPETITIVE_ANALYSIS.md) | Competitive analysis narrative |
+| [COMPETITIVE_SDK_BENCH.md](benchmarks/COMPETITIVE_SDK_BENCH.md) | SDK benchmark vs competitors |
+| [ivf_bench.md](benchmarks/ivf_bench.md) | IVF index benchmark notes |
+
+---
+
+## Book
+
+| Document | Description |
+|----------|-------------|
+| [book/](book/book.toml) | mdBook project (`mdbook build` from `docs/book/`) — narrative book on VantaDB internals |
+
+---
+
+## Community & Examples
+
+| Document | Description |
+|----------|-------------|
+| [discord/README.md](discord/README.md) | Discord community workspace (server config, bilingual strategy) |
+| [examples/](examples/) | Runnable code samples referenced by tutorials |
+
+Assets (images used by docs): [`assets/`](assets/) — `demo_terminal.png`, `social-preview.png`.
+
+Agent-facing reference files (bug workflow, troubleshooting, nextest output): [`references/`](references/).
+
+Historical material moved out of the main tree: [`archive/`](archive/) (incl. archived case studies and legacy docs inventories).
 
 ---
 
@@ -207,14 +345,28 @@ Published blog posts (in `web/content/blog/`):
 |----------|-------------|
 | [QUICKSTART.md](QUICKSTART.md) | Quickstart guide for new users |
 | [FAQ.md](FAQ.md) | Frequently asked questions |
+| [COMPARISON.md](COMPARISON.md) | Honest comparison vs sqlite-vec / LanceDB / Qdrant / Chroma — qualitative table, benchmark provenance per Regla 11, practical limits |
 | [ci-cd-guide.md](ci-cd-guide.md) | CI/CD setup and operations guide |
-| [DESIGN_RULES.md](DESIGN_RULES.md) | Design rules and conventions |
 | [README.md](README.md) | Documentation landing page and reading guide |
+| [../desktop/DESIGN_DECISIONS.md](../desktop/DESIGN_DECISIONS.md) | Studio design decisions: token decoupling, light-only web, WCAG palette |
 
 ---
 
 ## See Also
 
 - [Operations Master Index](operations/master-index.md) — Detailed operations document listing
-- [GitHub Repository](https://github.com/vantadb/vantadb) — Source code and issues
+- [Pipeline Reports Index](reports/INDEX.md) — Detailed pipeline report listing
+- [GitHub Repository](https://github.com/ness-e/Vantadb) — Source code and issues
 - [CHANGELOG](CHANGELOG.md) — Version history
+
+---
+
+## Deliberately Not Indexed
+
+First-level entries excluded from this index, with reason:
+
+| Entry | Reason |
+|-------|--------|
+| `_templates/` | Internal doc templates (ADR, glossary term, note) — not reader-facing documentation |
+| `.obsidian/` | Personal Obsidian vault configuration — not project documentation |
+| `TDAM-VANTADB/` | Empty directory, pending deletion |

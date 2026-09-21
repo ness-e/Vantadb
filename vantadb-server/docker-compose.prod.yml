@@ -1,0 +1,42 @@
+# VantaDB Server — Production override (canonical root image + prod env/hardening)
+# Usage: docker compose -f vantadb-server/docker-compose.yml -f vantadb-server/docker-compose.prod.yml up -d --build
+# Release images are published as assets by the `docker-image` CI job (see
+# docs/operations/CI_POLICY.md §Docker image publishing); no VERSION needed.
+
+version: "3.9"
+
+services:
+  vantadb:
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - VANTADB_API_KEY=${VANTADB_API_KEY}
+      - VANTADB_REQUIRE_AUTH=true
+      - VANTADB_RATE_LIMIT_RPM=600
+      - VANTADB_AUDIT_LOG_PATH=/var/lib/vantadb/audit.jsonl
+      - VANTADB_AUDIT_MAX_BYTES=10MB
+      - VANTADB_AUDIT_MAX_FILES=5
+      - VANTADB_ALLOWED_ORIGINS=${VANTADB_ALLOWED_ORIGINS:-}
+    # Production hardening
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    tmpfs:
+      - /tmp
+      - /run
+    deploy:
+      resources:
+        limits:
+          cpus: "2.0"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "5"

@@ -48,7 +48,7 @@ last_reviewed: 2026-07-26
 | 2.2 | Install Rust nightly (if building from source) | `rustc --version` | ☐ |
 | 2.3 | Install VantaDB Python wheel | `pip install vantadb-py` | ☐ |
 | 2.4 | Verify wheel installs without compiler warnings | `pip show vantadb-py` | ☐ |
-| 2.5 | Clone or download example repo | `git clone https://github.com/vantadb/vantadb-examples` | ☐ |
+| 2.5 | Clone or download example repo | _[TODO humano: crear repo `vantadb-examples` — verified 2026-09-03, no such repo exists under the `vantadb` org nor under `ness-e` (both lookups 404); until the repo exists, ask the program lead for the examples]_ | ☐ |
 | 2.6 | Run `hello_vantadb.py` example | Script completes without error | ☐ |
 | 2.7 | Confirm database files created on disk | `ls -la ./vantadb_data/` (or equivalent) | ☐ |
 

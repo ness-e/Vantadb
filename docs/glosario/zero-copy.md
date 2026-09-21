@@ -3,8 +3,8 @@ title: "Zero-Copy"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, performance, memoria]
-last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+last_reviewed: 2026-09-15
+links: "[Glosario](./README.md)"
 ---
 
 # Zero-Copy

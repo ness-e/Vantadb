@@ -42,7 +42,7 @@ await db.put({
   namespace: "memories",
   key: "greeting",
   payload: "Hello, world!",
-  metadata: { lang: { type: "String", value: "en" } },
+  metadata: { lang: "en" },
   vector: [0.1, 0.2, 0.3],
 });
 
@@ -57,6 +57,163 @@ console.log(hits[0].record.payload); // "Hello, world!"
 
 db.close();
 ```
+
+## Module Formats (ESM / CommonJS)
+
+The package is **ESM-only** (the `vantadb-wasm` dependency is an ES module and the
+API is fully synchronous, so a CommonJS build would not be loadable without an
+async rewrite). `import` works everywhere — Node, Bun, Deno, bundlers.
+
+CommonJS consumers on **Node.js ≥ 22.12** can `require("vantadb")` directly:
+Node's `require(esm)` loads the module graph because it contains no top-level
+`await`. On older Node versions, migrate the consumer to `import`, or use the
+native backend ([`vantadb-node`](../vantadb-node)) whose API is async and
+CommonJS-friendly.
+
+```js
+// Node.js >= 22.12
+const { VantaDB } = require("vantadb");
+const db = VantaDB.create();
+// ...same synchronous API as the ESM build
+```
+
+## WASM bundle & lazy loading
+
+The package is backed by the `vantadb-wasm` wasm-bindgen build; the compiled
+engine binary is `vantadb-wasm/pkg/vantadb_wasm_bg.wasm` (~1.3 MB). How it is
+loaded depends on the runtime:
+
+- **Bundlers (Vite/Webpack/esbuild)** — the wasm-bindgen glue
+  (`vantadb_wasm.js`) imports the `.wasm` as an ES module, which bundlers
+  cannot handle natively. Add [`vite-plugin-wasm`](https://github.com/vitejs/vite-plugin-wasm)
+  (or the equivalent for your bundler) so the binary is fetched + instantiated
+  on demand. Without a plugin the build fails at bundle time.
+- **Node.js** — the wasm-bindgen Node loader reads the `.wasm` file from disk
+  at first use; no plugin required.
+- **Vanta Studio desktop/web builds** — the WASM backend is **code-split out**:
+  the glue module is externalized so the lazy `import()` never executes in
+  Tauri/HTTP modes (see `desktop/vite.config.ts`, WASM-02). It only loads in
+  `vite build --mode wasm` (WASM-03).
+
+### Zero-install CDN usage (verified 2026-08-26)
+
+| CDN entry | Works? | Why |
+|-----------|--------|-----|
+| `https://cdn.jsdelivr.net/npm/vantadb@latest/+esm` | ❌ **No** | The SDK bundle itself is fine, but it imports `/npm/vantadb-wasm@X.Y.Z/+esm`, and jsDelivr's Rollup/esbuild pipeline **fails to bundle the wasm-bindgen glue**: the generated `vantadb_wasm.js` contains `import * as wasm from "./vantadb_wasm_bg.wasm"` (wasm-pack `bundler` target — a binary imported as an ES module). Rollup cannot resolve it and jsDelivr serves a stub module that throws on import: *"Failed to bundle using Rollup: failed to resolve an internal import"*. |
+| `https://esm.sh/vantadb@latest` | ✅ **Yes** | esm.sh's build inlines the `.wasm` binary as a base64 byte array into the served `.mjs` (no sidecar fetch needed), so the bundler-target glue initializes directly in the browser. |
+
+```html
+<script type="module">
+  // Verified working (wasm is inlined by esm.sh's build):
+  import { VantaDB } from "https://esm.sh/vantadb";
+  const db = VantaDB.create();
+  await db.put({ namespace: "demo", key: "k", payload: "hello" });
+  console.log((await db.get("demo", "k"))?.payload); // "hello"
+  db.close();
+</script>
+```
+
+If you prefer self-hosting over third-party CDN transforms, rebuild the
+binding for browsers with `wasm-pack build --target web` (the `web` target uses
+`fetch()` + `WebAssembly.instantiateStreaming` instead of the ES-module import)
+and serve the output files yourself.
+
+**SSR / React hooks guidance:**
+
+- Do **not** instantiate the engine during server rendering — the wasm loader
+  needs browser APIs (`fetch`/`WebAssembly`) or the file system, neither of
+  which is guaranteed in a server context.
+- Create the client lazily in client-only code: `VantaDB.create()` inside a
+  `useEffect`/`useMemo` (or a framework's client boundary), never at module
+  top-level of an SSR-shared file.
+- On Node.js, prefer the native backend ([`NativeVantaDB`](./src/native.ts)) —
+  it is loaded lazily via dynamic `import()` and gives real filesystem
+  persistence (fjall/WAL) that the WASM build cannot.
+
+### Bundle size vs JavaScript-only competitors
+
+Measured 2026-08-30. Reproducible: see
+[`../vantadb-wasm/README.md` §1](../vantadb-wasm/README.md#1-bundle-sizes-measured-2026-08-30).
+
+| Library | Version | Gzipped | Vector | Hybrid | Persistence |
+|---------|---------|--------:|--------|--------|-------------|
+| **@orama/orama** | 3.1.18 | **23.8 KB** | ✅ | ✅ RRF | ❌ (in-mem + plugin) |
+| **MiniSearch**   | latest | **5.9 KB**  | ❌ | ❌ | ❌ |
+| **Lunr**         | 2.3.9  | **8.1 KB**  | ❌ | ❌ | ❌ |
+| **vantadb WASM** | 0.5.x  | **~599 KB transfer** (1.35 MB raw → 578 KB wasm + 21 KB glue gzipped) | ✅ HNSW | ✅ BM25 + RRF | ✅ OPFS / IDB / in-mem |
+
+VantaDB is **~25× larger** than Orama gzipped, but ships **OPFS persistence,
+HNSW (sub-ms at 100K), TTL auto-expiry, capability graph** — features none of
+the JS-only engines include. Honest tradeoff: choose Orama (23.8 KB) if you
+only need full-text + RAG in-memory with no persistence; choose VantaDB if
+any of those features matter. Full feature-gap analysis:
+[`../vantadb-wasm/README.md` §4](../vantadb-wasm/README.md#4-honest-comparison-vs-javascript-only-search-engines).
+
+## vantadb vs vantadb-node (npm)
+
+Two npm packages exist; they are **not** the same thing:
+
+| Package | What it is | Published | API |
+|---------|------------|-----------|-----|
+| **`vantadb`** | TypeScript SDK over the WASM build — works in browsers, Node, Bun, Deno | ✅ 0.5.0 | Synchronous, ESM-only |
+| **`vantadb-node`** | Native Node.js bindings (napi-rs) — real filesystem persistence (fjall/WAL/fsync), async API, platform-specific `.node` binaries | ❌ **not yet published** (registry 404) | Async, ESM + CommonJS |
+
+`vantadb-node` is the **native backend** you reach via
+`NativeVantaDB.connect()` (lazy-loaded); `vantadb` is the **WASM backend**
+(`VantaDB.create()`). See ADR-030 (`docs/architecture/adr/ADR-030-brand-identity-naming-convention.md`)
+for the full naming convention across registries.
+
+## Errors
+
+All operations throw [`VantaError`](./src/errors.ts), an `Error` subclass with a
+machine-readable `code`. The WASM binding attaches the code structurally (no
+message parsing required); older `vantadb-wasm` builds fall back to message
+classification.
+
+| `code` | Meaning |
+|--------|---------|
+| `NOT_FOUND` | Node / namespace / record not found |
+| `VALIDATION_ERROR` | Invalid input, dimension mismatch, duplicate node, zero-norm cosine query, empty namespace… |
+| `CORRUPT` | Incompatible binary format, WAL version mismatch, serialization/schema error |
+| `RESOURCE_LIMIT` | Memory or configured resource limit exceeded |
+| `TIMEOUT` | Operation exceeded its time budget |
+| `BUSY` | Database busy (lock held) |
+| `IO_ERROR` | WAL / IO / backend storage error |
+| `CLOSED` | Operation on a closed instance |
+| `WASM_ERROR` | Unclassified engine error (catch-all) |
+
+```ts
+try {
+  db.search({ namespace: "docs", query_vector: [0, 0, 0] });
+} catch (err) {
+  if (err instanceof VantaError) {
+    console.log(err.code); // "VALIDATION_ERROR"
+  }
+}
+```
+
+## Real Embeddings
+
+The examples above use toy vectors. Generate real ones with your own client —
+local [Ollama](https://ollama.com) or the OpenAI API — and pass them to
+`put()` / `search()`:
+
+```ts
+const res = await fetch("http://localhost:11434/api/embed", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ model: "nomic-embed-text", input: "Hello, world!" }),
+});
+const [vec] = (await res.json()).embeddings;
+
+await db.put({ namespace: "memories", key: "greeting", payload: "Hello, world!", vector: vec });
+const hits = await db.search({ namespace: "memories", query_vector: vec, top_k: 10 });
+console.log(hits[0].record.payload); // "Hello, world!"
+```
+
+Use one embedding model per namespace — stored and query vectors must share
+the same dimensionality. Full walkthrough:
+[QUICKSTART → Real Embeddings](../docs/QUICKSTART.md#4-real-embeddings-optional).
 
 ## API
 
@@ -76,6 +233,7 @@ db.close();
 | `.putBatch(inputs)` | Batch store |
 | `.get(namespace, key)` | Retrieve by key |
 | `.delete(namespace, key)` | Remove by key |
+| `.deleteByFilter(namespace, filter)` | Batch delete matching an AND-combined filter; returns count (rejects empty filter) |
 | `.list(namespace, options?)` | List with pagination |
 | `.listNamespaces()` | List all namespaces |
 
@@ -136,11 +294,70 @@ db.close();
 | `.query(iqlQuery)` | Execute IQL query |
 | `.generateSnippet(payload, query, withHighlighting?)` | Generate highlighted text snippet |
 
+## Cross-SDK Search Parity
+
+VantaDB exposes the same search capabilities across bindings, but **the `search()`
+name carries different semantics per SDK**. Read this before porting code between
+TypeScript and Python. The canonical method→domain map lives in
+[`docs/api/BINDINGS_NAMESPACES.md`](../docs/api/BINDINGS_NAMESPACES.md).
+
+| Capability | TypeScript SDK | Python SDK |
+|---|---|---|
+| `search()` meaning | **Hybrid** search (vector + text) → returns `SearchHit[]` | **Pure vector ANN** (K-NN) → returns `(node_id, distance)` |
+| Hybrid (vector + text) | `search({ namespace, query_vector, text_query })` | `search_memory(namespace, query_vector, text_query=...)` |
+| Pure vector ANN | `searchVector(vector, topK?)` | `search(vector, top_k=10)` |
+| Namespace scoping | `search({ namespace })` | `search_memory(namespace=...)` (`search()` is global over nodes) |
+| Filters | `search({ filters })` | `search_memory(filters=...)` |
+| `top_k` | `search({ top_k })` / `searchVector(v, topK)` | `search(top_k=)` / `search_memory(top_k=)` |
+| `distance_metric` | `search({ distance_metric: "Cosine"/"Euclidean" })` | `search_memory(distance_metric="cosine"/"euclidean")` |
+| `text_query` | `search({ text_query })` | `search_memory(text_query=...)` |
+| Explain | `search({ explain })` + `explainSearch()` | `search_memory(explain=True)` + `explain_memory_search()` |
+| Batch search | — | `search_batch(vectors)` / `search_batch_requests(requests)` — **Python-only** |
+| Hybrid method / profile override | — | `search_memory(method=...)` — **Python-only** |
+
+> **Porting hazard:** `search()` in TypeScript and `search()` in Python do **different
+> things**. To get pure vector ANN in TypeScript use `searchVector()`; to get hybrid
+> search in Python use `search_memory()`.
+
+## Domain Sub-clients
+
+Every flat method is also reachable through a **domain sub-client**: `db.memory.*`, `db.graph.*`, `db.wiki.*`, `db.system.*`. Sub-clients are pure organizational sugar over the flat API — each call forwards verbatim to the flat method of the same behavior.
+
+> **Backward-compat guarantee:** the flat API is unchanged. `db.memory.put(x)` and `db.put(x)` are the same call; existing code keeps working as-is. Canonical method→domain map: [`docs/api/BINDINGS_NAMESPACES.md`](../docs/api/BINDINGS_NAMESPACES.md).
+
+```ts
+// memory — namespace+key records, search, TTL
+await db.memory.put({ namespace: "docs", key: "intro", payload: "...", vector: [0.1, 0.2] });
+const hits = await db.memory.search({ namespace: "docs", query_vector: [0.15, 0.25], top_k: 5 });
+await db.memory.purgeExpired();
+
+// graph — node/edge CRUD + traversals (traversals use short names)
+const node = await db.graph.getNode(42);
+const reachable = await db.graph.bfs([42], 3);
+const order = await db.graph.topologicalSort([1, 2, 3]);
+if (await db.graph.isDag([1, 2])) { /* safe to topologically sort */ }
+
+// wiki — empty in v1: wiki features are core-only (not exposed via WASM yet)
+Object.keys(db.wiki); // []
+
+// system — lifecycle, metrics, IQL, maintenance, import/export
+console.log(await db.system.capabilities());
+const result = await db.system.query("(match (node :content \"rust\") (return node))");
+await db.system.flush();
+```
+
+Notes:
+
+- Sub-clients are lazy, frozen (`Readonly`) singletons — accessing `db.graph` twice returns the same object.
+- `conversation` / `skills` sub-clients do not exist yet; their capabilities live in the core crate only.
+- Python exposes the equivalent grouping via `db.memory`, `db.graph`, `db.system`, `db.wiki` — see [PYTHON_SDK.md → Domain Sub-clients](../docs/api/PYTHON_SDK.md).
+
 ## Runtimes
 
 | Runtime | Status |
 |---------|--------|
-| Node.js 18+ | ✅ |
+| Node.js 22.12+ | ✅ (ESM + `require()` via `require(esm)`) |
+| Node.js 18–22.11 | ⚠️ ESM only — use `import` |
 | Bun | ✅ |
 | Deno | ✅ |
 | Browser | ✅ (ESM) |

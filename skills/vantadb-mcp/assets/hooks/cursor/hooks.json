@@ -1,0 +1,39 @@
+{
+  "$schema": "https://cursor.com/docs/agent/hooks/schema.json",
+  "_template": "FIND-106 template_version 1.0.0, docs_verified 2026-09-17 (https://cursor.com/docs/agent/hooks). Copy to <project>/.cursor/hooks.json (runs from project root). Launcher: pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>. Secrets: session env only.",
+  "version": 1,
+  "hooks": {
+    "sessionStart": [
+      {
+        "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+        "timeout": 15
+      }
+    ],
+    "beforeSubmitPrompt": [
+      {
+        "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+        "timeout": 15
+      }
+    ],
+    "preCompact": [
+      {
+        "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+        "timeout": 15
+      }
+    ],
+    "stop": [
+      {
+        "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+        "timeout": 15,
+        "loop_limit": 5
+      }
+    ]
+  },
+  "_policy": {
+    "sessionStart": "memory_recall scope=agent top_k=5 -> additionalContext; empty injects NOTHING",
+    "beforeSubmitPrompt": "memory_recall query=<verbatim user text> scope=agent top_k=5",
+    "preCompact": "save-state via thread_send and/or scene_write",
+    "stop": "auto-capture via thread_send role+content; proxy-turns via inbox, never auto-promote"
+  },
+  "_scripts": "No wrapper scripts needed: every hook invokes the pwsh launcher directly (same pattern as claude/codex templates). The launcher starts the MCP server on stdio; the agent issues memory_recall/thread_send. Exit 0 = use JSON output; other non-zero = fail-open (Cursor default)."
+}

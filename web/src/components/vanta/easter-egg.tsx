@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import Image from "next/image";
 import { Sparkles, X } from "lucide-react";
+import { useLanguage } from "@/lib/language-provider";
 
 /**
  * EasterEgg — typing "vanta" in sequence triggers a special overlay
@@ -11,6 +13,7 @@ import { Sparkles, X } from "lucide-react";
 export function EasterEgg() {
   const [active, setActive] = useState(false);
   const [progress, setProgress] = useState(0);
+  const { tt } = useLanguage();
   const target = "vanta";
 
   const handleKey = useCallback(
@@ -72,9 +75,11 @@ export function EasterEgg() {
 
         <div className="relative border-4 border-[#FF5500] bg-[#FBF9F5] p-8 shadow-[12px_12px_0_0_#FF5500,12px_12px_0_4px_#000]">
           {/* Mascot */}
-          <img
+          <Image
             src="/assets/mascota_gato.png"
-            alt="VantaDB shadow cat"
+            alt={tt("easterEgg.alt", "VantaDB shadow cat")}
+            width={160}
+            height={160}
             className="mx-auto h-40 w-40 animate-flicker object-cover mix-blend-multiply "
           />
 
@@ -85,11 +90,11 @@ export function EasterEgg() {
             </p>
             <p className="mt-2 flex items-center justify-center gap-1.5 font-tech text-xs font-bold uppercase tracking-[0.2em] text-black">
               <Sparkles className="h-3.5 w-3.5 text-[#FF5500]" strokeWidth={2.5} />
-              you found the shadow cat
+              {tt(`easterEgg.found`, `you found the shadow cat`)}
               <Sparkles className="h-3.5 w-3.5 text-[#FF5500]" strokeWidth={2.5} />
             </p>
-            <p className="mt-1 font-tech text-[10px] uppercase tracking-wider text-black/50">
-              1.2ms · 100% recall · zero network
+            <p className="mt-1 font-tech text-[10px] uppercase tracking-wider text-black/70">
+              1.2ms p50 HNSW · 99.8% recall · zero network
             </p>
           </div>
 
@@ -97,7 +102,7 @@ export function EasterEgg() {
           <button
             onClick={() => setActive(false)}
             className="absolute -right-3 -top-3 inline-flex h-8 w-8 items-center justify-center border-4 border-black bg-[#FF5500] text-black shadow-[3px_3px_0_0_#000]  "
-            aria-label="Cerrar"
+            aria-label={tt("common.close", "Cerrar")}
           >
             <X className="h-4 w-4" strokeWidth={3} />
           </button>

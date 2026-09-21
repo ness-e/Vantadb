@@ -1,0 +1,108 @@
+{
+  "schema_version": 1,
+  "task": "AST-001",
+  "generated": "2026-09-11",
+  "plan": "docs/plans/2026-09-10-anti-stutter.md",
+  "rule": "Ninguna entidad repite su contenedor: vantadb::VantaConfig -> vantadb::Config. Nuevo nombre = viejo sin prefijo Vanta, salvo colision (ver open_decisions).",
+  "alias_strategy": {
+    "rust": "pub type Viejo = Nuevo + #[deprecated(since, note)] en re-export (lib.rs / sdk/mod.rs / types.rs); quitar alias en el major siguiente. Nunca romper callers internos en el mismo cambio.",
+    "python": "alias en vantadb_py/__init__.py + .pyi con warnings.warn(DeprecationWarning) (patron PY-03 ya existente en __init__.py:15)",
+    "typescript": "export type Viejo = Nuevo + @deprecated JSDoc; nunca exportar `Error` pelado (colisiona con global)",
+    "semver": "rename publico = major via release-plz (release-plz.toml: semver_check=true); lo verifica AST-007 con cargo semver-checks"
+  },
+  "rust": [
+    {"old": "VantaConfig", "new": "Config", "ref": "src/config.rs:248", "status": "proposed"},
+    {"old": "VantaError", "new": "Error", "ref": "src/error.rs:122", "status": "proposed"},
+    {"old": "VantaEmbedded", "new": "Embedded", "ref": "src/sdk/builder.rs:15", "status": "proposed"},
+    {"old": "VantaFile", "new": "File", "ref": "src/storage/vfile.rs:110", "status": "proposed"},
+    {"old": "VantaRuntimeProfile", "new": "RuntimeProfile", "ref": "src/sdk/types.rs:61", "status": "proposed"},
+    {"old": "VantaStorageTier", "new": "StorageTier", "ref": "src/sdk/types.rs:72", "status": "proposed"},
+    {"old": "VantaValue", "new": "Value", "ref": "src/sdk/types.rs:81", "status": "proposed"},
+    {"old": "VantaFields", "new": "Fields", "ref": "src/sdk/types.rs:126", "status": "proposed"},
+    {"old": "VantaMemoryMetadata", "new": "MemoryMetadata", "ref": "src/sdk/types.rs:129", "status": "proposed"},
+    {"old": "VantaOperationalMetrics", "new": "OperationalMetrics", "ref": "src/sdk/types.rs:133", "status": "proposed"},
+    {"old": "VantaCapabilities", "new": "Capabilities", "ref": "src/sdk/types.rs:238", "status": "proposed"},
+    {"old": "VantaQueryResult", "new": "QueryResult", "ref": "src/sdk/types/graph.rs:16", "status": "proposed"},
+    {"old": "VantaIndexRebuildReport", "new": "IndexRebuildReport", "ref": "src/sdk/types/search.rs:14", "status": "proposed"},
+    {"old": "VantaTextIndexRepairReport", "new": "TextIndexRepairReport", "ref": "src/sdk/types/search.rs:33", "status": "proposed"},
+    {"old": "VantaMemorySearchDebugReport", "new": "MemorySearchDebugReport", "ref": "src/sdk/types/search.rs:53", "status": "proposed"},
+    {"old": "VantaHybridFusionReport", "new": "HybridFusionReport", "ref": "src/sdk/types/search.rs:94", "status": "proposed"},
+    {"old": "VantaSearchExplanation", "new": "SearchExplanation", "ref": "src/sdk/types/search.rs:107", "status": "proposed"},
+    {"old": "VantaSearchExplanationHit", "new": "SearchExplanationHit", "ref": "src/sdk/types/search.rs:118", "status": "proposed"},
+    {"old": "VantaBm25TermContribution", "new": "Bm25TermContribution", "ref": "src/sdk/types/search.rs:139", "status": "proposed"},
+    {"old": "VantaTextIndexAuditReport", "new": "TextIndexAuditReport", "ref": "src/sdk/types/search.rs:246", "status": "proposed"},
+    {"old": "VantaFilterOp", "new": "FilterOp", "ref": "src/sdk/types/record.rs:13", "status": "proposed"},
+    {"old": "VantaMemoryFilterItem", "new": "MemoryFilterItem", "ref": "src/sdk/types/record.rs:24", "status": "proposed"},
+    {"old": "VantaMemoryFilter", "new": "MemoryFilter", "ref": "src/sdk/types/record.rs:31", "status": "proposed"},
+    {"old": "VantaMemoryInput", "new": "MemoryInput", "ref": "src/sdk/types/record.rs:35", "status": "proposed"},
+    {"old": "VantaMemoryRecord", "new": "MemoryRecord", "ref": "src/sdk/types/record.rs:79", "status": "proposed"},
+    {"old": "VantaMemoryListOptions", "new": "MemoryListOptions", "ref": "src/sdk/types/record.rs:118", "status": "proposed"},
+    {"old": "VantaMemoryListPage", "new": "MemoryListPage", "ref": "src/sdk/types/record.rs:153", "status": "proposed"},
+    {"old": "VantaNamespaceStats", "new": "NamespaceStats", "ref": "src/sdk/types/record.rs:165", "status": "proposed"},
+    {"old": "VantaNamespaceStatsMap", "new": "NamespaceStatsMap", "ref": "src/sdk/types/record.rs:175", "status": "proposed"},
+    {"old": "VantaExportReport", "new": "ExportReport", "ref": "src/sdk/types/record.rs:179", "status": "proposed"},
+    {"old": "VantaImportReport", "new": "ImportReport", "ref": "src/sdk/types/record.rs:192", "status": "proposed"},
+    {"old": "VantaMemoryExportLine", "new": "MemoryExportLine", "ref": "src/sdk/types/record.rs:207", "status": "proposed"},
+    {"old": "VantaEdgeRecord", "new": "EdgeRecord", "ref": "src/sdk/serialization/graph_types.rs:9", "status": "proposed"},
+    {"old": "VantaNodeInput", "new": "NodeInput", "ref": "src/sdk/serialization/graph_types.rs:30", "status": "proposed"},
+    {"old": "VantaNodeRecord", "new": "NodeRecord", "ref": "src/sdk/serialization/graph_types.rs:56", "status": "proposed"},
+    {"old": "VantaMemorySearchRequest", "new": "MemorySearchRequest", "ref": "src/sdk/serialization/vector_types.rs:12", "status": "proposed"},
+    {"old": "VantaSearchHit", "new": "SearchHit", "ref": "src/sdk/serialization/vector_types.rs:61", "status": "proposed", "note": "candidata a fusion con VantaMemorySearchHit solo si wire identico (OD-3, owner AST-002)"},
+    {"old": "VantaMemorySearchHit", "new": "MemorySearchHit", "ref": "src/sdk/serialization/vector_types.rs:71", "status": "proposed", "note": "ver OD-3"}
+  ],
+  "typescript": [
+    {"old": "VantaValue", "new": "Value", "ref": "vantadb-ts/src/types.ts:1", "status": "proposed"},
+    {"old": "VantaMetadata", "new": "Metadata", "ref": "vantadb-ts/src/types.ts:12", "status": "proposed"},
+    {"old": "VantaFlatValue", "new": "FlatValue", "ref": "vantadb-ts/src/types.ts:15", "status": "proposed"},
+    {"old": "VantaMetadataInput", "new": "MetadataInput", "ref": "vantadb-ts/src/types.ts:23", "status": "proposed"},
+    {"old": "VantaFilterOp", "new": "FilterOp", "ref": "vantadb-ts/src/types.ts:148", "status": "proposed"},
+    {"old": "VantaMemoryFilterItem", "new": "MemoryFilterItem", "ref": "vantadb-ts/src/types.ts:151", "status": "proposed"},
+    {"old": "VantaConfig", "new": "Config", "ref": "vantadb-ts/src/types.ts:214", "status": "proposed"},
+    {"old": "VantaErrorJSON", "new": "ErrorJSON", "ref": "vantadb-ts/src/errors.ts:1", "status": "proposed"},
+    {"old": "VantaError", "new": "DbError", "ref": "vantadb-ts/src/errors.ts:32", "status": "open", "note": "OD-1: DbError (recomendado) vs Error pelado — `Error` colisiona con global y rompe catch/codes. + alias deprecated `export type VantaError = DbError`. Owner AST-004 Gate P"},
+    {"old": "VantaDB", "new": "Client", "ref": "vantadb-ts/src/vantadb.ts:134", "status": "proposed", "note": "repite paquete `vantadb`; alias deprecated VantaDB (20+ usos VantaDB.create en tests)"}
+  ],
+  "wasm_dts": [
+    {"old": "VantaConfigInput", "new": "ConfigInput", "ref": "vantadb-wasm/src/vantadb_wasm.d.ts:123", "status": "proposed"},
+    {"old": "VantaCapabilities", "new": "Capabilities", "ref": "vantadb-wasm/src/vantadb_wasm.d.ts:299", "status": "proposed", "note": "espejo del core; renombrar solo el nombre, nunca el shape (u128->bigint wire intacto)"},
+    {"old": "VantaDB", "new": "Client", "ref": "vantadb-wasm/src/vantadb_wasm.d.ts:452", "status": "proposed", "note": "espejo de la decision TS (OD-1/AST-004); struct Rust vantadb-wasm/src/lib.rs:370 sigue el mismo mapa"}
+  ],
+  "python_classes": [
+    {"old": "VantaDB", "new": null, "ref": "vantadb-python/src/lib.rs:54 + vantadb_py/vantadb_py.pyi:160", "status": "deferred", "note": "fuera de scope AST-003 (solo metodos + aliases); decidir en AST-003 o follow-up"},
+    {"old": "VantaError", "new": null, "ref": "vantadb-python/src/lib.rs (create_exception!) + vantadb_py.pyi:30", "status": "deferred", "note": "idem; espejo de OD-1"},
+    {"old": "VantaVector", "new": null, "ref": "vantadb-python/src/vector.rs:12 + vantadb_py.pyi:91", "status": "deferred", "note": "idem"},
+    {"old": "VantaVectorIter", "new": null, "ref": "vantadb-python/src/vector.rs:97 + vantadb_py.pyi:100", "status": "deferred", "note": "idem"},
+    {"old": "VantaSearchHit", "new": null, "ref": "vantadb-python/src/types.rs:286 + vantadb_py.pyi:105", "status": "deferred", "note": "idem"},
+    {"old": "VantaMemoryRecord", "new": null, "ref": "vantadb-python/src/types.rs:46 + vantadb_py.pyi:124", "status": "deferred", "note": "idem"},
+    {"old": "VantaListResult", "new": null, "ref": "vantadb-python/src/types.rs:173 + vantadb_py.pyi:142", "status": "deferred", "note": "idem"},
+    {"old": "VantaListResultIter", "new": null, "ref": "vantadb-python/src/types.rs:259 + vantadb_py.pyi:155", "status": "deferred", "note": "idem"}
+  ],
+  "python_methods": [
+    {"old": "search_memory", "new": "search", "ref": "vantadb_py/__init__.py:177 + .pyi:113 (+ lib.rs plan AST-003)", "status": "open", "note": "OD-2: colision global-vs-namespace al fusionar; overload `namespace: str | None` con diseno explicito + spec SDD. Owner AST-003"},
+    {"old": "get_memory", "new": "get", "ref": "vantadb_py/__init__.py:203 + .pyi:126", "status": "proposed", "note": "verificar en AST-003 contra naming hazard BINDINGS_NAMESPACES (get/delete node-level en Python)"},
+    {"old": "list_memory", "new": "list", "ref": "vantadb_py/__init__.py:206 + .pyi:127", "status": "proposed", "note": "idem"},
+    {"old": "delete_memory", "new": "delete", "ref": "vantadb_py/__init__.py:240 + .pyi:146", "status": "proposed", "note": "idem"}
+  ],
+  "rust_methods": [
+    {"old": "MemoryGovernor::memory_limit", "new": "limit", "ref": "src/memory_governor.rs:72", "status": "proposed"},
+    {"old": "get_memory_stats", "new": "stats", "ref": "src/storage/engine/stats.rs:54", "status": "proposed"},
+    {"old": "check_memory_pressure", "new": "check_pressure", "ref": "src/storage/engine/stats.rs:98", "status": "proposed"},
+    {"old": "UnifiedNode::memory_size", "new": "size", "ref": "src/node/unified.rs:162", "status": "proposed", "note": "si `size` colisiona con trait existente, prefijar o mantener (owner AST-005)"},
+    {"old": "vector_data::memory_size", "new": "size", "ref": "src/node/vector_data.rs:266", "status": "proposed", "note": "idem"}
+  ],
+  "exclusions": [
+    {"symbol": "VantaHeader", "ref": "src/binary_header.rs:20", "reason": "formato on-disk — renombrar rompe compat binaria"},
+    {"symbol": "VANTADB_* codes", "ref": "src/error.rs code()", "reason": "wire entre bindings (ERROR_HANDLING.md + errors.ts ERROR_CODES) — no tocar"},
+    {"symbol": "memory_record_from_node", "ref": "src/sdk/serialization/mod.rs:309", "reason": "funcion libre, sin contenedor que repita — fuera de la regla"},
+    {"symbol": "memory_node_id / parse_memory_limit / memory_breakdown_snapshot", "ref": "src/ (fns libres)", "reason": "funciones libres — fuera de la regla (falsos positivos verificados)"},
+    {"symbol": "SearchRequest", "ref": "vantadb-python/vantadb_py/__init__.py:96", "reason": "ya limpio, sin stutter"},
+    {"symbol": "MemoryClient / GraphClient / WikiClient / SystemClient", "ref": "vantadb-ts/src/vantadb.ts:39+", "reason": "ya limpios — modelo a seguir (D43)"}
+  ],
+  "open_decisions": [
+    {"id": "OD-1", "tema": "Nombre final `Error` vs `DbError` en TS", "recomendado": "DbError + alias deprecated VantaError", "owner": "AST-004 Gate P", "status": "uphill"},
+    {"id": "OD-2", "tema": "Overload `search` Python global-vs-namespace", "recomendado": "overload `namespace: str | None` con diseno explicito + spec SDD", "owner": "AST-003", "status": "uphill"},
+    {"id": "OD-3", "tema": "Fusion `VantaSearchHit` duplicado de `VantaMemorySearchHit`", "recomendado": "fusionar solo si wire identico, sino alias doble", "owner": "AST-002", "status": "open"},
+    {"id": "OD-4", "tema": "Alcance renames de clases Python (VantaDB, VantaError, ...)", "recomendado": "defer: fuera de AST-003; decidir con evidencia de callers", "owner": "AST-003", "status": "open"}
+  ],
+  "counts": {"rust": 38, "typescript": 10, "wasm_dts": 3, "python_classes": 8, "python_methods": 4, "rust_methods": 5, "exclusions": 6, "open_decisions": 4}
+}

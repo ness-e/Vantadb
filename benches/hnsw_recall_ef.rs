@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! TSK-144: HNSW recall vs latency benchmark.
 //!
 //! Sweeps ef_search values and measures recall@10, p50/p99 latency, and build
@@ -135,7 +136,7 @@ fn bench_hnsw_recall_ef(c: &mut Criterion) {
         let index = CPIndex::new_with_config(cfg);
         let t0 = Instant::now();
         for (id, vec) in &dataset {
-            index.add(
+            let _ = index.add(
                 *id,
                 FilterBitset::all_set(),
                 VectorRepresentations::Full(vec.clone()),
@@ -153,7 +154,7 @@ fn bench_hnsw_recall_ef(c: &mut Criterion) {
         let index = CPIndex::new_with_config(base_config.clone());
         let t0 = Instant::now();
         for (id, vec) in &dataset {
-            index.add(
+            let _ = index.add(
                 *id,
                 FilterBitset::all_set(),
                 VectorRepresentations::Full(vec.clone()),
@@ -170,7 +171,7 @@ fn bench_hnsw_recall_ef(c: &mut Criterion) {
                 let idx = CPIndex::new_with_config(base_config.clone());
                 let t0 = Instant::now();
                 for (id, vec) in &dataset {
-                    idx.add(
+                    let _ = idx.add(
                         *id,
                         FilterBitset::all_set(),
                         VectorRepresentations::Full(vec.clone()),
@@ -196,7 +197,7 @@ fn bench_hnsw_recall_ef(c: &mut Criterion) {
             ..base_config.clone()
         });
         for (id, vec) in &dataset {
-            index.add(
+            let _ = index.add(
                 *id,
                 FilterBitset::all_set(),
                 VectorRepresentations::Full(vec.clone()),

@@ -4,11 +4,11 @@
 use pyo3::buffer::ReadOnlyCell;
 use pyo3::exceptions::{PyRuntimeError, PyStopIteration};
 use pyo3::prelude::*;
-use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyTuple};
-use vantadb::sdk::VantaMemoryRecord;
+use pyo3::types::{PyAnyMethods, PyBytes, PyDict, PyDictMethods, PyTuple};
+use vantadb::sdk::MemoryRecord;
 
 use crate::convert::{set_python_value, try_numpy_array};
-use crate::vector::VantaVector;
+use crate::vector::Vector;
 
 /// A zero-copy view over a 2D PyBuffer (NumPy ndarray) of f32 data.
 ///
@@ -41,17 +41,17 @@ impl<'a> FlatBufferView<'a> {
 
 /// A Python-accessible memory record with typed getter properties.
 ///
-/// Wraps a `VantaMemoryRecord` and exposes fields as individual properties
+/// Wraps a `MemoryRecord` and exposes fields as individual properties
 /// instead of allocating a PyDict per record.
-#[pyclass(name = "VantaMemoryRecord", skip_from_py_object)]
+#[pyclass(name = "Record", skip_from_py_object)]
 #[derive(Clone)]
 pub struct VantaPyMemoryRecord {
-    pub inner: VantaMemoryRecord,
+    pub inner: MemoryRecord,
 }
 
 impl VantaPyMemoryRecord {
     /// Create from an owned SDK record (Rust-only, not a Python constructor).
-    pub fn new(inner: VantaMemoryRecord) -> Self {
+    pub fn new(inner: MemoryRecord) -> Self {
         Self { inner }
     }
 }
@@ -84,13 +84,11 @@ impl VantaPyMemoryRecord {
 
     #[getter]
     fn vector(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
-        // PERF-31: try numpy array first; fall back to VantaVector (backward compat)
+        // PERF-31: try numpy array first; fall back to Vector (backward compat)
         match &self.inner.vector {
             Some(v) => match try_numpy_array(py, v)? {
                 Some(arr) => Ok(Some(arr)),
-                None => Ok(Some(
-                    py.get_type::<VantaVector>().call1((v.clone(),))?.unbind(),
-                )),
+                None => Ok(Some(py.get_type::<Vector>().call1((v.clone(),))?.unbind())),
             },
             None => Ok(None),
         }
@@ -121,6 +119,16 @@ impl VantaPyMemoryRecord {
         self.inner.expires_at_ms
     }
 
+    #[getter]
+    fn superseded_by(&self) -> Option<String> {
+        self.inner.superseded_by.clone()
+    }
+
+    #[getter]
+    fn superseded_at_ms(&self) -> Option<u64> {
+        self.inner.superseded_at_ms
+    }
+
     fn __getitem__<'py>(&self, py: Python<'py>, key: &str) -> PyResult<Bound<'py, PyAny>> {
         use pyo3::conversion::IntoPyObject;
         Ok(match key {
@@ -137,9 +145,11 @@ impl VantaPyMemoryRecord {
             "version" => self.version().into_pyobject(py)?.into_any(),
             "node_id" => self.node_id().into_pyobject(py)?.into_any(),
             "expires_at_ms" => self.expires_at_ms().into_pyobject(py)?.into_any(),
+            "superseded_by" => self.superseded_by().into_pyobject(py)?.into_any(),
+            "superseded_at_ms" => self.superseded_at_ms().into_pyobject(py)?.into_any(),
             _ => {
                 return Err(pyo3::exceptions::PyKeyError::new_err(format!(
-                    "VantaMemoryRecord has no field '{key}'"
+                    "Record has no field '{key}'"
                 )))
             }
         })
@@ -147,7 +157,7 @@ impl VantaPyMemoryRecord {
 
     fn __repr__(&self) -> String {
         format!(
-            "VantaMemoryRecord(namespace={}, key={}, dim={})",
+            "Record(namespace={}, key={}, dim={})",
             self.inner.namespace,
             self.inner.key,
             self.inner.vector.as_ref().map(|v| v.len()).unwrap_or(0),
@@ -158,7 +168,7 @@ impl VantaPyMemoryRecord {
 /// A Python-accessible list result page.
 ///
 /// Wraps a page of memory records with pagination info.
-#[pyclass(name = "VantaListResult", skip_from_py_object)]
+#[pyclass(name = "ListResult", skip_from_py_object)]
 #[derive(Clone)]
 pub struct VantaPyListResult {
     pub records: Vec<VantaPyMemoryRecord>,
@@ -217,12 +227,12 @@ impl VantaPyListResult {
                 "next_cursor" => Ok(self.next_cursor().into_pyobject(py)?.into_any()),
                 "total_count" => Ok(self.total_count().into_pyobject(py)?.into_any()),
                 _ => Err(pyo3::exceptions::PyKeyError::new_err(format!(
-                    "VantaListResult has no field '{s}'"
+                    "ListResult has no field '{s}'"
                 ))),
             }
         } else {
             Err(pyo3::exceptions::PyTypeError::new_err(
-                "VantaListResult indices must be integers or strings",
+                "ListResult indices must be integers or strings",
             ))
         }
     }
@@ -236,7 +246,7 @@ impl VantaPyListResult {
 
     fn __repr__(&self) -> String {
         format!(
-            "VantaListResult(count={}, next_cursor={:?})",
+            "ListResult(count={}, next_cursor={:?})",
             self.records.len(),
             self.next_cursor
         )
@@ -244,7 +254,7 @@ impl VantaPyListResult {
 }
 
 /// Iterator for `VantaListResult`.
-#[pyclass(name = "VantaListResultIter")]
+#[pyclass(name = "ListResultIter")]
 struct VantaListResultIter {
     inner: Vec<VantaPyMemoryRecord>,
     index: usize,
@@ -267,13 +277,13 @@ impl VantaListResultIter {
     }
 }
 
-/// A Python-accessible search hit returned by `search_memory`.
+/// A Python-accessible search hit returned by `search`.
 ///
-/// Wraps a `VantaMemoryRecord` plus the relevance score as typed getters,
+/// Wraps a `MemoryRecord` plus the relevance score as typed getters,
 /// avoiding per-hit PyDict allocation in the hot path.
-#[pyclass(name = "VantaSearchHit")]
+#[pyclass(name = "SearchHit")]
 pub(crate) struct VantaPySearchHit {
-    pub(crate) inner: VantaMemoryRecord,
+    pub(crate) inner: MemoryRecord,
     pub(crate) score: f32,
 }
 
@@ -305,13 +315,11 @@ impl VantaPySearchHit {
 
     #[getter]
     fn vector(&self, py: Python<'_>) -> PyResult<Option<Py<PyAny>>> {
-        // PERF-31: try numpy array first; fall back to VantaVector (backward compat)
+        // PERF-31: try numpy array first; fall back to Vector (backward compat)
         match &self.inner.vector {
             Some(v) => match try_numpy_array(py, v)? {
                 Some(arr) => Ok(Some(arr)),
-                None => Ok(Some(
-                    py.get_type::<VantaVector>().call1((v.clone(),))?.unbind(),
-                )),
+                None => Ok(Some(py.get_type::<Vector>().call1((v.clone(),))?.unbind())),
             },
             None => Ok(None),
         }
@@ -352,9 +360,19 @@ impl VantaPySearchHit {
         self.inner.expires_at_ms
     }
 
+    #[getter]
+    fn superseded_by(&self) -> Option<String> {
+        self.inner.superseded_by.clone()
+    }
+
+    #[getter]
+    fn superseded_at_ms(&self) -> Option<u64> {
+        self.inner.superseded_at_ms
+    }
+
     fn __repr__(&self) -> String {
         format!(
-            "VantaSearchHit(namespace={}, key={}, score={:.4}, dim={})",
+            "SearchHit(namespace={}, key={}, score={:.4}, dim={})",
             self.inner.namespace,
             self.inner.key,
             self.score,
@@ -362,6 +380,17 @@ impl VantaPySearchHit {
         )
     }
 
+    /// NumPy ``__array_interface__`` protocol — hands NumPy an *owned* copy of
+    /// the vector (as `bytes`) so the resulting ndarray never aliases this
+    /// pyclass's memory.
+    ///
+    /// SEC-01 (UAF): this previously exposed the raw `Vec<f32>` pointer as
+    /// `(ptr, True)`. NumPy built a zero-copy view over that memory, so when the
+    /// wrapper was dropped (or the vector was replaced) the ndarray was left
+    /// pointing at freed memory and read garbage. Passing a buffer-protocol
+    /// object (`bytes`) as `data` makes NumPy copy the buffer into the ndarray's
+    /// own allocation — the ndarray then survives any drop/mutation of this
+    /// pyclass. Same fix as AUDIT-01 in `vector.rs`.
     #[getter(__array_interface__)]
     fn get_search_hit_array_interface(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         match &self.inner.vector {
@@ -370,12 +399,15 @@ impl VantaPySearchHit {
                 let shape = PyTuple::new(py, [v.len()])?;
                 dict.set_item("shape", shape)?;
                 dict.set_item("typestr", "<f4")?;
-                let data = (v.as_ptr() as usize, true);
-                dict.set_item("data", data)?;
+                // Owned little-endian f32 bytes (host-order is irrelevant;
+                // to_le_bytes always emits "<f4" layout). NumPy copies this
+                // buffer, so the array never aliases self.inner.vector.
+                let le_bytes: Vec<u8> = v.iter().flat_map(|f| f.to_le_bytes()).collect();
+                dict.set_item("data", PyBytes::new(py, &le_bytes))?;
                 dict.set_item("version", 3)?;
                 Ok(dict.unbind().into())
             }
-            None => Err(PyRuntimeError::new_err("VantaSearchHit has no vector")),
+            None => Err(PyRuntimeError::new_err("SearchHit has no vector")),
         }
     }
 }

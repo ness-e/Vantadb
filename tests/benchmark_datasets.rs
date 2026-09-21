@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 /// Integration test that loads real benchmark datasets (GloVe-100)
 /// and runs basic HNSW insert + search to validate performance.
 ///
@@ -5,7 +7,7 @@
 /// Skips gracefully if dataset is not present.
 use std::path::Path;
 use tempfile::TempDir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::{NodeTier, UnifiedNode};
 use vantadb::storage::StorageEngine;
 
@@ -19,7 +21,7 @@ fn test_glove100_hnsw_basic() {
     }
 
     let dir = TempDir::new().unwrap();
-    let config = VantaConfig::default()
+    let config = Config::default()
         .with_storage_path(dir.path().to_str().unwrap().to_string())
         .with_mmap_hnsw(true);
     let engine =
@@ -35,7 +37,7 @@ fn test_glove100_hnsw_basic() {
         engine.insert(&node).unwrap();
     }
 
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     assert!(
         stats.node_count > 0,
         "node_count should be > 0 after inserts"

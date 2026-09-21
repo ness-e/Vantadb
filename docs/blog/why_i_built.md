@@ -1,14 +1,20 @@
 ---
-title: "Why I Built a Local Memory Engine for AI Agents in Rust"
-date: 2026-06-06
-author: "VantaDB Team"
+title: "Why I Built VantaDB: A Local Memory Engine"
+version: 0.5.0
+slug: why-i-built-vantadb-local-memory-engine
+date: 2026-06-05
+author: "ness-e"
 tags: ["ai-agents", "rust", "local-first", "memory-engine", "embedded-database", "llm"]
 description: "The motivation and architectural decisions behind VantaDB — an embedded, persistent, hybrid retrieval engine purpose-built for local-first AI agent memory."
+tag: Story
+readTime: "5 min"
+canonical: https://vantadb.vercel.app/blog/why-i-built-vantadb-local-memory-engine
+draft: true
 ---
 
-# Why I Built a Local Memory Engine for AI Agents in Rust
+# Why I Built VantaDB: A Local Memory Engine
 
-*By the VantaDB Team*
+*By ness-e*
 
 The landscape of Artificial Intelligence is shifting. While massive, cloud-hosted models like GPT-4 still dominate enterprise workflows, there is a rapidly growing movement toward **local-first, autonomous AI agents**. Running 8B or 14B parameter models (like Llama-3, Mistral, or Phi-3) locally on consumer hardware—powered by frameworks like Ollama and `llama.cpp`—is no longer a toy experiment; it is a viable, private, and highly cost-effective architecture.
 
@@ -65,7 +71,7 @@ Instead of keeping everything in memory, VantaDB uses a pure-Rust Log-Structured
 ### 2. Memory-Mapped HNSW with BFS Compaction
 Vector indexes can easily exceed RAM. VantaDB uses memory-mapped files (`memmap2`) to load vector graph pages under the OS's virtual memory management. 
 
-To overcome the performance penalty of random disk reads during HNSW graph traversal, VantaDB implements a **Topological BFS Layout Compaction**. When the index builds or rebuilds, VantaDB performs a breadth-first search of the graph starting from the entry node and writes the nodes sequentially to disk. This ensures that parent and child nodes reside on the same physical memory pages, reducing major page faults by up to 59% during queries.
+To overcome the performance penalty of random disk reads during HNSW graph traversal, VantaDB implements a **Topological BFS Layout Compaction**. When the index builds or rebuilds, VantaDB performs a breadth-first search of the graph starting from the entry node and writes the nodes sequentially to disk. This ensures that parent and child nodes reside on the same physical memory pages, so graph walks fault in fewer pages during queries.
 
 ### 3. Integrated Cost-Based Planner (CBO) & Volcano Engine
 In VantaDB, hybrid query execution is not an afterthought. Queries compile into physical operators (like `PhysicalScan`, `PhysicalFilter`, `PhysicalVectorSearch`) using a Volcano-style iterator model.
@@ -83,7 +89,7 @@ This approach is parameter-free, fast, and eliminates the need for developers to
 
 ## Conclusion: The "SQLite for AI" Vision
 
-VantaDB is currently at version `0.1.4`. It is not trying to be a database for massive cloud clusters. It is designed to do one thing exceptionally well: act as a durable, reliable, and extremely fast embedded memory engine for edge AI agents.
+VantaDB is the current release of an engine that is constantly improving. It is not trying to be a database for massive cloud clusters. It is designed to do one thing exceptionally well: act as a durable, reliable, and extremely fast embedded memory engine for edge AI agents.
 
 By combining the speed and type safety of Rust, the durability of transactional LSM storage, and the retrieval power of unified hybrid search, VantaDB provides the foundational memory layer that local-first AI needs.
 

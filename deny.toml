@@ -7,6 +7,26 @@ ignore = [
     # Tracked: postcard 2.0 migrates to heapless 0.9+ which uses portable-atomic.
     # VantaDB already has portable-atomic as a direct dependency.
     "RUSTSEC-2023-0089",
+
+    # RUSTSEC-2023-0071 (rsa 0.9.10, Marvin Attack timing sidechannel):
+    # AST-007 triage (2026-09-11): rsa is pulled transitively via jsonwebtoken
+    # 11.0.0, but VantaDB pins `Algorithm::HS256` in Validation (src/server/jwt.rs:9,64-67)
+    # and only uses `DecodingKey/EncodingKey::from_secret` (HMAC) — no RSA private-key
+    # op (sign/decrypt) is reachable in prod or tests (qm: no from_rsa_* in src/).
+    # Marvin key-recovery requires attacker-observable RSA private-key timing;
+    # unreachable here. Advisory states "No safe upgrade is available".
+    # Owner: vanta-lead
+    # Expiry: 2027-01-01
+    # Tracked: drop when jsonwebtoken offers HS-only features or rsa gets constant-time impl.
+    "RUSTSEC-2023-0071",
+
+# RUSTSEC-2024-0436 (paste unmaintained): removed — advisory-not-detected,
+    # tikv-jemalloc-ctl no longer pulls paste. Re-add only if it reappears.
+
+    # RUSTSEC-2026-0253 (lru 0.16.4): REMOVED 2026-09-11 (AST-007) — cargo-deny
+    # reported advisory-not-detected (stale ignore = warning). Direct lru is now
+    # 0.18.4 (>= patched 0.18.2); 0.16.4 remains only transitively via tantivy 0.26.1.
+    # Re-add only if deny fires it again (e.g. tantivy still pinning lru ^0.16).
 ]
 
 [licenses]
@@ -22,7 +42,23 @@ highlight = "all"
 workspace-default-features = "allow"
 external-default-features = "allow"
 allow-workspace = false
-skip = []
+# ERR-007 (2026-08-12): multiple-version "warn" clarificado a "warn codificado".
+# Las duplicaciones son splits de MAJOR version de deps transitivas — no unificables
+# con cargo update (cada caller exige su major). Bloat de binario solamente, sin
+# advisory de seguridad (verificado 2026-08-12). Se documentan abajo, no se silencian
+# a ciegas: si un crate aparece con una version NUEVA sin explicar, vuelve a alertar.
+skip = [
+    # hashbrown 0.14/0.15/0.16/0.17 — rustc-hash/parking_lot/ahash/edition2024 requieren majors distintos.
+    "hashbrown",
+    # windows-sys 0.52/0.59/0.60/0.61 — windows crates en cascada por major.
+    "windows-sys",
+    # syn 2.x/3.x — proc-macro2/serde_derive/tauri usan majors distintos.
+    "syn",
+    # thiserror 1.x/2.x — thiserror-core (2) vs deps legacy (1).
+    "thiserror",
+    # rand 0.8/0.9/0.10 — criterion/bolt/rand_core en majors distintos.
+    "rand",
+]
 skip-tree = []
 
 [sources]

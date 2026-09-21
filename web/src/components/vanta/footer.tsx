@@ -12,12 +12,8 @@ import { useLanguage } from "@/lib/language-provider";
  * CTA band removed (now only in CtaFinal section, not duplicated in footer).
  */
 export function Footer() {
-  const { t } = useLanguage();
+  const { tt } = useLanguage();
   const router = useRouter();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
 
   const nav = (path: string) => {
     router.push(path);
@@ -25,7 +21,7 @@ export function Footer() {
   };
 
   // Footer navigation groups — all 31 routes organized
-  const FOOTER_GROUPS = [
+  const GROUPS = [
     {
       title: tt("footer.colPlatform", "Platform"),
       links: [
@@ -144,11 +140,11 @@ export function Footer() {
         </div>
 
         {/* Navigation groups */}
-        {FOOTER_GROUPS.map((group) => (
+        {GROUPS.map((group) => (
           <div key={group.title}>
-            <h4 className="mb-3 font-display text-sm uppercase tracking-wider text-[#FF5500]">
+            <h3 className="mb-3 font-display text-sm uppercase tracking-wider text-[#FF5500]">
               {group.title}
-            </h4>
+            </h3>
             <ul className="space-y-1.5">
               {group.links.map((link) => (
                 <li key={link.path}>

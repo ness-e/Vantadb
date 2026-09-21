@@ -3,8 +3,9 @@
 //! Tracks in-flight memory allocation via [`ALLOCATED_BYTES`] and gates
 //! query admission based on budget limits derived from [`LogicalPlan`] cost.
 
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::query::LogicalPlan;
+use crate::storage::StorageEngine;
 use std::sync::atomic::{AtomicUsize, Ordering};
 
 /// Global counter of bytes currently allocated by queries in flight.
@@ -46,7 +47,7 @@ impl ResourceGovernor {
             let new_total = current + bytes;
 
             if new_total > self.max_memory_bytes {
-                return Err(VantaError::ResourceLimit(
+                return Err(Error::ResourceLimit(
                     "OOM Guard triggered: query exceeds soft memory limit.".to_string(),
                 ));
             }
@@ -83,6 +84,18 @@ impl ResourceGovernor {
                 }
             }
         }
+    }
+
+    /// Estimate the peak memory cost of a logical plan (COMP-028).
+    ///
+    /// Delegates to the unified semantic cost estimator. Consumed by
+    /// [`Executor::execute_plan`] to budget query admission (OLD-21).
+    pub(crate) fn estimate_plan_cost(
+        &self,
+        storage: &StorageEngine,
+        plan: &LogicalPlan,
+    ) -> crate::cost_estimator::PlanCost {
+        crate::cost_estimator::CostEstimator::new(storage).estimate_plan(plan)
     }
 }
 
@@ -133,6 +146,43 @@ mod tests {
         assert_eq!(ALLOCATED_BYTES.load(Ordering::SeqCst), 0);
     }
 
+    // OLD-21: estimate_plan_cost (COMP-028) is now the admission budget source.
+    #[test]
+    #[serial_test::serial]
+    fn test_estimate_plan_cost_feeds_allocation() {
+        use crate::backend::BackendKind;
+        use crate::config::Config;
+        use crate::query::LogicalOperator;
+
+        let dir = tempfile::tempdir().unwrap();
+        let config = Config {
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+            .expect("open engine");
+        let plan = LogicalPlan {
+            operators: vec![LogicalOperator::Scan {
+                entity: "people".to_string(),
+            }],
+            temperature: 0.0,
+            enforce_role: None,
+            search_profile: None,
+        };
+
+        let gov = ResourceGovernor::new(2 * 1024 * 1024 * 1024, 50);
+        let cost = gov.estimate_plan_cost(&storage, &plan).estimated_bytes;
+        assert!(cost > 0, "estimated plan cost must be non-zero");
+
+        // The exact budget is reserved for the query and returned afterwards.
+        ALLOCATED_BYTES.store(0, Ordering::SeqCst);
+        gov.request_allocation(cost).unwrap();
+        assert_eq!(ALLOCATED_BYTES.load(Ordering::SeqCst), cost);
+        gov.free_allocation(cost);
+        assert_eq!(ALLOCATED_BYTES.load(Ordering::SeqCst), 0);
+        ALLOCATED_BYTES.store(0, Ordering::SeqCst);
+    }
+
     #[test]
     fn test_apply_temperature_limits_low_temp() {
         let mut plan = LogicalPlan {
@@ -143,6 +193,7 @@ mod tests {
             }],
             temperature: 0.3,
             enforce_role: None,
+            search_profile: None,
         };
         let gov = ResourceGovernor::new(1000, 5000);
         gov.apply_temperature_limits(&mut plan);
@@ -163,6 +214,7 @@ mod tests {
             }],
             temperature: 0.9,
             enforce_role: None,
+            search_profile: None,
         };
         let gov = ResourceGovernor::new(1000, 5000);
         gov.apply_temperature_limits(&mut plan);

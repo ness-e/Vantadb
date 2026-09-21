@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Integration tests for JOIN and subquery execution.
 //!
 //! Tests end-to-end through the executor via `Statement::Select`,
@@ -6,7 +8,7 @@
 
 use std::collections::BTreeMap;
 
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::executor::Executor;
 use vantadb::node::{FieldValue, UnifiedNode};
 use vantadb::query::{Condition, FromClause, RelOp, SelectStatement, Statement, SubqueryCondition};
@@ -14,7 +16,7 @@ use vantadb::storage::{BackendKind, StorageEngine};
 
 fn setup() -> (StorageEngine, tempfile::TempDir) {
     let dir = tempfile::tempdir().unwrap();
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     };

@@ -3,316 +3,522 @@ title: VantaDB Model Context Protocol (MCP) Server
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-07-21
+last_reviewed: 2026-09-02
 aliases: []
 ---
 
 # VantaDB Model Context Protocol (MCP) Server
 
-## Overview
+Current MCP implementation version: 0.6.0
 
-VantaDB provides a complete [[mcp|Model Context Protocol (MCP)]] server implementation that enables AI agents to interact with VantaDB through a standardized interface. The MCP server exposes tools, resources, and prompts for seamless integration with AI assistants and agents.
+The VantaDB MCP server (`vantadb-mcp`) exposes the database to LLM agents over the Model Context Protocol. Tool definitions live in `vantadb-mcp/src/handlers/tools.rs` (`handle_tools_list`); per-IDE setup lives in the VantaDB MCP Skill.
 
-## Features
+## Getting Started
 
-### Tools
+VantaDB runs as a **stdio JSON-RPC 2.0 server**: your MCP client spawns the process, talks to it over stdin/stdout, and every memory operation (store, search, graph, wiki, skills) becomes a tool the agent can call. No daemon, no network port.
 
-The MCP server exposes the following tools for memory operations:
+### Requirements
 
-#### Memory CRUD Operations
+- The VantaDB CLI (`vanta-cli` ≥ **0.5.0**) installed and on PATH — see [Embedded CLI](../../README.md#embedded-cli) for one-line installers.
+- A writable directory for the database (e.g. `~/.vantadb`).
+- An MCP-capable client: Claude Desktop, Claude Code, Cursor, OpenCode, or any client speaking MCP over stdio.
 
-- **`memory_put`** - Insert or update a memory record in a namespace
-  - Parameters: `namespace`, `key`, `payload`, `vector` (optional), `metadata` (optional)
-  - Returns: The created/updated memory record
+### Starting the server
 
-- **`memory_get`** - Retrieve a memory record by namespace and key
-  - Parameters: `namespace`, `key`
-  - Returns: The memory record or error if not found
-
-- **`memory_delete`** - Delete a memory record
-  - Parameters: `namespace`, `key`
-  - Returns: Success status
-
-- **`memory_list`** - List memory records in a namespace with pagination
-  - Parameters: `namespace`, `limit` (default: 100), `cursor` (optional), `filters` (optional)
-  - Returns: Page of records with next cursor
-
-- **`memory_list_namespaces`** - List all available namespaces
-  - Parameters: None
-  - Returns: List of namespace names
-
-#### Search Operations
-
-- **`search_memory`** - [[hybrid-search|Hybrid]] vector and text search
-  - Parameters: `namespace`, `query_vector` (optional), `text_query` (optional), `top_k`, `distance_metric`, `explain`, `filters`
-  - Returns: Search hits with scores and optional explanations
-
-- **`search_semantic`** - Raw [[hnsw|HNSW]] vector search
-  - Parameters: `vector`, `k`
-  - Returns: Nearest neighbors with distances
-
-#### Graph Operations
-
-- **`query`** - Execute VantaLISP/IQL code
-  - Parameters: `query`
-  - Returns: Query results or execution status
-
-- **`get_node_neighbors`** - Inspect node neighbors
-  - Parameters: `node_id`
-  - Returns: Node and its neighbors
-
-- **`inject_context`** - Inject context into a thread
-  - Parameters: `content`, `thread_id`
-  - Returns: Context anchoring status
-
-- **`read_axioms`** - Read system axioms
-  - Parameters: None
-  - Returns: Active Devil's Advocate Axioms
-
-### Resources
-
-The MCP server exposes the following resources:
-
-- **`metrics://`** - Operational metrics
-  - Memory usage, [[hnsw|HNSW]] statistics, storage information
-
-- **`schema://`** - Database schema information
-  - [[hnsw|HNSW]] configuration, text index version
-
-- **`memory://{namespace}/{key}`** - Individual memory records
-  - Access specific memory records by URI
-
-- **`namespace://{namespace}`** - Namespace content
-  - List records in a namespace
-
-### Prompts
-
-The MCP server provides the following prompt templates:
-
-- **`search_memory`** - Optimized prompt for memory search
-- **`analyze_namespace`** - Analyze namespace content and structure
-- **`summarize_context`** - Generate context summaries
-- **`query_builder`** - Build IQL queries
-
-## Usage
-
-### Starting the MCP Server
-
-The MCP server runs as a stdio JSON-RPC server via the CLI:
+The canonical launcher is the CLI wrapper:
 
 ```bash
-# Using the VantaDB CLI with MCP mode
-vanta-cli server --mcp --db ./vanta_data
-
-# Or from source
-cargo run --bin vanta-cli -- server --mcp --db ./vanta_data
+vanta-cli server --mcp --db ~/.vantadb
 ```
 
-### Per-IDE Setup
+(Advanced: run `vantadb-server --mcp` directly with `VANTADB_STORAGE_PATH=~/.vantadb`.)
 
-Configure your MCP client to connect to VantaDB:
+### Client configuration
+
+All three clients use the same server command; only the config file differs. **Never use `~` in these JSON configs**: MCP clients spawn the server process directly, without a shell, so `~/.vantadb` arrives literally and the open fails (`Path::new` receives the verbatim string — verified `src/cli_handlers/server.rs`). Always use an **absolute path** for `--db` (shown as `C:/Users/<you>/.vantadb`; on macOS e.g. `/Users/<you>/.vantadb`).
+
+**Claude Desktop** — `%APPDATA%\Claude\claude_desktop_config.json` (Windows) / `~/Library/Application Support/Claude/claude_desktop_config.json` (macOS):
 
 ```json
 {
   "mcpServers": {
     "vantadb": {
       "command": "vanta-cli",
-      "args": ["server", "--mcp", "--db", "/path/to/vantadb"]
+      "args": ["server", "--mcp", "--db", "C:/Users/<you>/.vantadb"]
     }
   }
 }
 ```
 
-Below are IDE-specific instructions.
-
-### Cursor
-
-1. Open Cursor Settings → **Features** → **MCP Servers**
-2. Click **Add new MCP server**
-3. Fill in:
-   - **Name:** `vantadb`
-   - **Type:** `command`
-   - **Command:** `vanta-cli server --mcp --db ~/.vantadb`
-4. Click **Save**
-
-The MCP server will start automatically when Cursor needs it. If `vanta-cli` is not in PATH, use the full path (e.g., `~/.cargo/bin/vanta-cli`).
-
-### Claude Code
-
-Add to your project's `.claude/settings.json` (or `~/.claude/settings.json` for global):
+**Cursor** — `~/.cursor/mcp.json` (global) or `.cursor/mcp.json` (project):
 
 ```json
 {
   "mcpServers": {
     "vantadb": {
       "command": "vanta-cli",
-      "args": ["server", "--mcp", "--db", "/path/to/vantadb"]
+      "args": ["server", "--mcp", "--db", "C:/Users/<you>/.vantadb"]
     }
   }
 }
 ```
 
-The server starts automatically when Claude Code needs to use a VantaDB tool.
+**Claude Code** — project-level `.mcp.json`, or one-shot via CLI:
 
-### Windsurf
-
-1. Open Windsurf Settings → **AI** → **MCP Servers**
-2. Click **Add Server**
-3. Fill in:
-   - **Name:** `vantadb`
-   - **Command:** `vanta-cli`
-   - **Arguments:** `server --mcp --db ~/.vantadb`
-4. Click **Save**
-
-### OpenCode
-
-Add to your `opencode.json` (project root or `~/.config/opencode/opencode.json`):
-
-```json
-{
-  "mcp": {
-    "vantadb": {
-      "type": "local",
-      "command": ["vanta-cli", "server", "--mcp", "--db", "~/.vantadb"],
-      "enabled": true
-    }
-  }
-}
+```bash
+claude mcp add vantadb -- vanta-cli server --mcp --db C:/Users/<you>/.vantadb
 ```
 
-### Cline (VS Code)
-
-Configure in VS Code settings (`settings.json`):
-
 ```json
 {
-  "cline.mcpServers": {
+  "mcpServers": {
     "vantadb": {
       "command": "vanta-cli",
-      "args": ["server", "--mcp", "--db", "~/.vantadb"]
+      "args": ["server", "--mcp", "--db", "C:/Users/<you>/.vantadb"]
     }
   }
 }
 ```
 
-### Notes
+### First test
 
-- **First time?** Install the CLI: `cargo install vanta-cli` or download the binary from [releases](https://github.com/ness-e/Vantadb/releases).
-- **Cross-IDE:** VantaDB's MCP server can run simultaneously across multiple IDEs — each connects independently to the same database path.
-- **Custom binary path:** If `vanta-cli` is not in PATH, replace with the full path (e.g., `~/.cargo/bin/vanta-cli`).
-- **Windows:** Use forward slashes or escaped backslashes for paths (e.g., `C:/Users/me/.vantadb`).
+Verify the handshake (`initialize` → `tools/list`) works before touching your editor config:
 
-### Example Tool Calls
+```bash
+echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | vanta-cli server --mcp --db ~/.vantadb
+```
 
-#### Store a Memory
+You should see a JSON response listing the available tools. Namespaces are created implicitly on first write (`memory_put` with a new namespace); list existing ones with `collection_list`.
+
+### Troubleshooting
+
+| Symptom | Fix |
+|---------|-----|
+| Client shows no tools | Run the First test above; if it fails, check that `vanta-cli` is on PATH (`vanta-cli --version`). |
+| `Server closed stdout` / immediate exit | The database path must be writable and not locked by another VantaDB process. |
+| Tools error at call time | Check disk space and permissions on the `--db` directory; use `capabilities` to introspect the engine state. |
+| Text search fails with `text_index not found` | Restarting the server reconciles indexes automatically at startup (`ensure_indexes_current`). |
+
+For the full behavioral contract (error channels, response envelope, edge cases), see the VantaDB MCP Skill.
+
+## Error Handling & JSON-RPC Codes
+
+The VantaDB MCP server speaks [JSON-RPC 2.0](https://www.jsonrpc.org/specification)
+over stdio. Every error response carries both a **JSON-RPC transport code**
+(the `error.code` field) and a **Vanta canonical code** (in `error.data.code`)
+from the 10-element contract in [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md).
+
+> **Canonical reference:** [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md) §6
+> — full code table, LLM retry guidance, and the upcoming `From<VantaError>
+> for McpError` impl from `ERR-MCP-01`.
+
+### JSON-RPC standard factories (5)
+
+Defined in [`vantadb-mcp/src/error.rs`](../../vantadb-mcp/src/error.rs) as the
+`McpError` type. These cover transport-level concerns (malformed request,
+unknown method, invalid params, internal failure):
+
+| JSON-RPC code | `McpError` factory | Meaning |
+|---------------|--------------------|---------|
+| `-32700` | `parse_error` | Invalid JSON received by the server |
+| `-32600` | `invalid_request` | JSON sent is not a valid Request object |
+| `-32601` | `method_not_found` | Method does not exist or is unavailable |
+| `-32602` | `invalid_params` | Invalid method parameter(s) |
+| `-32603` | `internal_error` | Internal JSON-RPC error |
+
+### Vanta custom `-320xx` codes
+
+Implemented in `ERR-MCP-01` as `impl From<VantaError> for McpError`
+(`vantadb-mcp/src/error.rs`). The mapping is driven by the canonical
+`VantaError::code()` string — never by re-matching variants — so the table
+below is a projection of the core §1.1 codes onto the JSON-RPC range:
+
+| JSON-RPC code | `VantaError::code()` source | Canonical `data.code` | LLM retry? |
+|---------------|------------------------------|------------------------|:----------:|
+| `-32001` | `VANTADB_BUSY` (`DatabaseBusy`, `NotInitialized`) | `VANTADB_BUSY` | ✅/❌ per `data.retriable` |
+| `-32002` | `VANTADB_CORRUPT` (`WALVersionMismatch`, `IncompatibleFormat`, `SchemaError`, `SerializationError`, `RestoreError`, `BackupError`) | `VANTADB_CORRUPT` | ❌ |
+| `-32003` | *reserved* — see note below | - | - |
+| `-32004` | `VANTADB_NOT_FOUND` (`NodeNotFound`, `NotFound`) | `VANTADB_NOT_FOUND` | ❌ |
+| `-32005` | (auth layer — writer-proxy Bearer rejection in `server.rs`) | - | ❌ |
+| `-32006` | (rate limit layer — not yet emitted) | - | ⚠️ backoff |
+| `-32007` | `VANTADB_RESOURCE_LIMIT` (`ResourceLimit`, overflow variants) | `VANTADB_RESOURCE_LIMIT` | ⚠️ backoff |
+| `-32008` | `VANTADB_TIMEOUT` (`Timeout`) | `VANTADB_TIMEOUT` | ✅ |
+| `-32009` | `VANTADB_VALIDATION_ERROR` **and** `VANTADB_INVALID_ARGUMENT` | `VANTADB_VALIDATION_ERROR` / `VANTADB_INVALID_ARGUMENT` | ❌ |
+| `-32603` | unmapped codes (`VANTADB_IO_ERROR`, `VANTADB_WASM_ERROR`, `VANTADB_CLOSED`) | as emitted | ⚠️ retry once |
+
+> **Note on `-32003` and `retriable`:** the core `code()` folds the conflict
+> variants (`ExecutionConflict`, `NodeIdCollision`, `CycleDetected`) into
+> `VANTADB_VALIDATION_ERROR`, so they surface as `-32009`; `-32003` is held
+> in reserve for a future distinct conflict code. Because the mapping is
+> code-driven, per-variant nuance is carried by `data.retriable` (e.g.
+> `DatabaseBusy` retriable ✅, `NotInitialized` ❌) and `data.hint` — clients
+> should branch on `data`, not infer retry from the numeric code alone.
+
+On the tool-result (`isError`) channel the same envelope is serialized into
+`content[0].text` as a JSON string (`{"code":…,"message":…,"data":{…}}`), so
+domain failures expose the same fields as JSON-RPC errors. The legacy
+`"Put Error: …"`-style prefixes were removed in `ERR-MCP-01`.
+
+### Response envelope
+
+Every JSON-RPC error response from VantaDB MCP carries the canonical code in
+`data.code` (the prefixed `VANTADB_*` value returned by `VantaError::code()`;
+`data.hint` is omitted when the error has no recovery hint), plus `retriable`
+so LLM agents can branch on a stable identifier without parsing message text:
 
 ```json
 {
   "jsonrpc": "2.0",
   "id": 1,
-  "method": "tools/call",
-  "params": {
-    "name": "memory_put",
-    "arguments": {
-      "namespace": "agent/session-1",
-      "key": "ctx-001",
-      "payload": "User prefers concise technical answers",
-      "vector": [0.8, 0.1, 0.5],
-      "metadata": {
-        "type": "preference",
-        "priority": 2
-      }
+  "error": {
+    "code": -32602,
+    "message": "validation failed on 'namespace': must not be empty",
+    "data": {
+      "code": "VANTADB_VALIDATION_ERROR",
+      "retriable": false
     }
   }
 }
 ```
 
-#### Search Memory
+### Retry guidance for LLM clients
+
+| Situation | Vanta code | Recommended action |
+|-----------|-------------|-------------------|
+| Validation failed (bad input) | `VALIDATION_ERROR` | Fix the input, do not retry |
+| Database busy / locked | `BUSY` | Wait briefly, retry |
+| Operation timed out | `TIMEOUT` | Retry (or increase timeout) |
+| Resource limit exceeded | `RESOURCE_LIMIT` | Retry with backoff, monitor memory |
+| Corrupt / version mismatch | `CORRUPT` | Surface to user, do not retry |
+| Not found | `NOT_FOUND` | Adjust query, do not retry |
+| Internal JSON-RPC error | (none) | Retry once, then escalate |
+
+## Tool Families
+
+**87 tools in 8 families (spec 2025-06-18, every tool carries `annotations` with `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` per [MCP Tool Annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) / [blog 2026-03-16](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations)):**
+
+| Family | Count | Source module |
+|--------|-------|---------------|
+| Core | 49 | `handlers/tools.rs` — listed in `tools/list` |
+| `code_*` | 8 | `code.rs` |
+| `skill_*` | 7 | `skills.rs` |
+| `wiki_*` | 6 | `wiki.rs` |
+| `context_assemble` | 1 | `context.rs` |
+| `scene_*` | 5 | `scenes.rs` |
+| `thread_*` | 6 | `threads.rs` |
+| `dream_*` | 5 | `dreams.rs` |
+
+> Annotations are display hints (untrusted, not enforcement): `readOnlyHint` true = no persistent mutation, `destructiveHint` true = may delete/overwrite (11 tools), `idempotentHint` true = retry-safe, `openWorldHint` true = host filesystem (wiki_ingest, bulk_import_file only). Clients that ignore annotations assume pessimistic defaults.
+> Dependent ops (e.g. `put` then `search` over the new record) go in sequential invocations, not one multi-call batch: batches may reorder (smoke Fase 2 note).
+
+## Tool Surface Profiles (MCP-37)
+
+The VantaDB MCP server exposes a **tool surface profile** via the `VANTADB_MCP_PROFILE` environment variable. This allows clients with tool caps (e.g., Cursor ~40 tools) to select a subset that fits their limits while preserving full functionality for unrestricted clients.
+
+| Profile | Tool Count | Description | Recommended For |
+|---------|------------|-------------|-----------------|
+| `full` (default) | 87 | All tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence, wiki, skills, threads, scenes, dreams, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients |
+| `dev` | ~35 | Memory CRUD + search + IQL + graph traversal + collections + key maintenance (snapshots, export/import, flush, compact) + axioms. Excludes: code intelligence, wiki, skills, threads, scenes, context engine, bulk import, index audit/repair, vacuum, rebuild_index. | **Cursor** (cap ~40), VS Code extensions, clients with moderate tool caps |
+| `memory` | ~18 | Core memory CRUD (put/get/delete/list/versions/supersede) + search (semantic/memory/with_method/multi) + IQL + collections + capabilities + generate_snippet. | Memory-only agents, minimal clients, testing |
+
+**Usage:**
+
+```bash
+# Full profile (default)
+vanta-cli server --mcp --db ~/.vantadb
+
+# Dev profile (recommended for Cursor)
+VANTADB_MCP_PROFILE=dev vanta-cli server --mcp --db ~/.vantadb
+
+# Memory-only profile
+VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
+```
+
+**Client Configuration (Cursor):**
 
 ```json
 {
-  "jsonrpc": "2.0",
-  "id": 2,
-  "method": "tools/call",
-  "params": {
-    "name": "search_memory",
-    "arguments": {
-      "namespace": "agent/session-1",
-      "text_query": "technical answers",
-      "top_k": 5
+  "mcpServers": {
+    "vantadb": {
+      "command": "vanta-cli",
+      "args": ["server", "--mcp", "--db", "C:/Users/<you>/.vantadb"],
+      "env": { "VANTADB_MCP_PROFILE": "dev" }
     }
   }
 }
 ```
 
-#### Read a Resource
+**Behavior:**
+- The profile is read once at server startup from `VANTADB_MCP_PROFILE`.
+- `tools/list` returns only the tools allowed by the selected profile.
+- `tools/call` for a non-listed tool returns `method_not_found` with a clear error: `Tool not found: <name> (not in profile <profile>)`.
+- Profile `full` preserves backward compatibility — existing clients see all 87 tools by default.
+
+## Core Tools (49)
+
+### Memory CRUD (9)
+
+| Tool | Description |
+|------|-------------|
+| `memory_put` | Inserts or updates a memory record in a namespace with payload, vector, optional sparse vector, metadata, and TTL. |
+| `memory_put_batch` | Stores multiple records in a single all-or-nothing batch; duplicate keys are upserts, vector dimensions must match the live index. |
+| `memory_get` | Retrieves a memory record by namespace and key. |
+| `memory_delete` | Deletes a memory record by namespace and key. |
+| `memory_delete_by_filter` | Batch-deletes every record in a namespace whose metadata matches the given filters (AND semantics). |
+| `memory_list` | Lists memory records in a namespace with optional pagination and metadata filters. Response is bounded by `byte_budget` (default 40 KB); see [Output budgeting](#output-budgeting-byte_budget-mcp-39) for the truncation semantics. |
+| `memory_list_namespaces` | Lists all available namespaces in the database. |
+| `memory_versions` | Lists every retained version of a memory record, ascending (v1..vN); empty if the key does not exist or has no history. Expired versions are included as historical data until purged. |
+| `memory_supersede` | Marks an existing record as superseded by another existing record (durable, recoverable soft-delete). Errors if either key is missing, if old_key equals new_key, or if the old record is already superseded. |
+
+### Search & Query (8)
+
+| Tool | Description |
+|------|-------------|
+| `search_memory` | Hybrid memory search in a namespace: text/vector/hybrid modes, filters, distance metric, RRF tuning, and explain output. |
+| `search_semantic` | Raw semantic vector search directly in the HNSW index. |
+| `search_with_method` | Memory search with an explicit dense-index backend override (`method`: hnsw \| ivf \| flat \| diskann \| scann); omit to keep automatic routing. Same parameters as `search_memory`. |
+| `search_multi` | Run one search request across multiple namespaces and merge results (sorted by score, capped at `top_k` globally). Response is bounded by `byte_budget` (default 40 KB); see [Output budgeting](#output-budgeting-byte_budget-mcp-39). |
+| `query_iql` | Executes an IQL statement against typed graph nodes and memory namespaces (each namespace is queryable as a table named by its sanitized form: `/` and `-` → `_`, leading digit/`.` gets a `_` prefix). LISP not supported. |
+| `memory_search` | MEM-59: Semantic alias of `search_memory` with the canonical agent-friendly name (mem0/Letta parity). Same wire shape and engine path as `search_memory`; both tools share the same dispatch so behavior cannot diverge. |
+| `memory_recall` | MEM-59: High-level recall mirroring vanta-memory's auto-recall hook (MEM-18) over the public MCP surface. Runs keyword/embedding/hybrid search over L1 records visible under the given scope (session/agent/team), ranks with D38 dual-pool + RRF logic, and returns structured hits plus prepended context block. Read-only; idempotent; does not require a session_key. |
+| `embed_texts` | Embeds a batch of texts into dense float vectors with the active provider (local ONNX real; `ollama`/`openai` when configured) and an explicit deterministic fallback. Inputs: `texts` (required, 1–128 items of 1–8000 chars), optional `model` (manifest id override, EMB-17), `cursor` pagination offset. Response always carries `fallback: false` (real vectors) or `fallback: true` + `warning` (deterministic hash, no semantic signal — never silent, Q5). Supports `max_embed_tokens` (25k) / `max_embed_batch_size` (128) budgeting. Read-only; idempotent. Verified EMB-19 (`a5d549af`): `multilingual-e5-small` dim 384 `fallback:false`, `s(par)=0.9158` vs `0.8427/0.8423` gap `0.0732`. See [Embeddings](#embeddings-providers-model-selection-and-dim-gate) below. |
+
+## Embeddings — providers, model selection, and dim gate
+
+Model catalog source of truth: `embeddings/manifest.json` (9 ids, rev pinned). Full table
+(model → dim → langs → size → when to use) lives in `embeddings/README.md`
+(§ "Cuándo usar cada modelo"); this section is the MCP-surface contract.
+
+| Provider | Activation | Requirement | Verified state (EMB-19 `a5d549af`) |
+|----------|------------|-------------|-------------------------------------|
+| `local` (ONNX, recommended) | `VANTADB_EMBEDDING_PROVIDER=local` + `VANTADB_LOCAL_MODEL=<absolute>/embeddings/models/<id>/onnx` + `ORT_DYLIB_PATH=<onnxruntime>=1.27.dll`, or launcher `.\vanta-mcp-local.ps1 -DbPath <db>` | Model on disk (`python embeddings/download.py --only <id>`) + onnxruntime ≥ 1.27 (EMB-11 persistent `%LOCALAPPDATA%/VantaDB/onnxruntime/onnxruntime.dll`; System32 1.17.1 aborts — FIND-100) | REAL: `multilingual-e5-small` dim 384 `fallback:false`, `0.9158` vs `0.8427/0.8423` |
+| `ollama` (core default when no env is set, `src/config.rs:956`) | `VANTADB_EMBEDDING_PROVIDER=ollama` (server `localhost:11434`) | Live Ollama server + embedding model pulled (`ollama pull nomic-embed-text`) | DEGRADATION-ANNOUNCED: server v0.33.2 alive but `/api/tags` → `{"models":[]}` → `fallback:true` + `warning` with `404`, exit 0. Real embedding: documented-not-executed (FIND-69 precedent) |
+| `openai` | `VANTADB_EMBEDDING_PROVIDER=openai` + `VANTADB_OPENAI_API_KEY=<key>` (session env only, NEVER to disk) + optional `VANTADB_OPENAI_MODEL` | Valid key with credit | DEGRADATION-ANNOUNCED without key (`fallback:true` + `warning="VANTADB_OPENAI_API_KEY must be set"`). Real embedding: documented-not-executed without key (FIND-69 precedent) |
+
+- **Model override (EMB-17):** `embed_texts` accepts `model: "<manifest id>"` and uses THAT
+  model (per-model session cache, cap `MAX_CACHED_LOCAL_MODELS=2` with warned eviction).
+  Unknown id → `invalid_params` with the valid 9-id list. Known id without files on disk →
+  clear error with `python embeddings/download.py --only <id>` + size. `model: null` =
+  active provider from env (EMB-13 behavior intact). Only `embed_texts` has a `model`
+  slot; puts/search use the active provider (no per-call slot — by design).
+- **Auto-embed (EMB-14):** `memory_put`/`put_batch` without `vector` store WITH the active
+  provider's vector (`memory_get` shows it, len == dim). A supplied `vector` is respected
+  (no re-embed). Provider failure → stored without vector + explicit notice.
+- **Same-provider query (EMB-15):** `search_memory`/`memory_recall` with text embed the
+  query with the ACTIVE provider. Verified synonyms `keys=["d1","d0","d2"]` + recall
+  `hybrid` recovering D0 via felino↔gato (EMB-19 Step 1, same as EMB-15).
+- **e5 prefixes (EMB-16):** e5 family uses `query:` (queries) / `passage:` (documents);
+  MiniLM and others use none. Measured margin: asymmetric `0.1204` vs symmetric `0.0812`
+  (+48% relative; source `docs/tasks/EMB-16.md`).
+- **One-dim-per-database (Q4, EMB-18):** one database = one dimension. Writing a vector
+  whose dim differs from the stored vectors is REJECTED with expected + got dims and the
+  exact regen command. Never silent auto-reindex. Empty base has no gate (first vector
+  write defines the dim); text-only puts are never gated. Honest guide: re-embed with the
+  original dim OR re-ingest everything with the new model + `rebuild_index` (MCP tool) /
+  `reindex_hnsw_from_text(ns, page_size)` (SDK). `rebuild_index` alone does NOT change dims.
+- **On disk (EMB-19):** `all-MiniLM-L6-v2`, `multilingual-e5-small` (default, 384d),
+  `paraphrase-multilingual-MiniLM-L12-v2` (all 384d). Rest on demand (Q2: size/time warning
+  before large downloads).
+
+### Graph (7)
+
+| Tool | Description |
+|------|-------------|
+| `get_node_neighbors` | Inspects neighbors or lineage of a node. |
+| `graph_page_rank` | Computes PageRank over the subgraph reachable from the given root nodes. |
+| `graph_degree_centrality` | Incoming/outgoing edge counts for every node reachable from the given roots. |
+| `graph_traverse` | Multi-hop BFS/DFS traversal from start nodes with optional edge-label and temporal filters. |
+| `graph_topological_sort` | Topological sort of the subgraph reachable from the given roots; errors on cycles. |
+| `graph_is_dag` | Returns whether the subgraph reachable from the given roots is a directed acyclic graph. |
+| `remove_edge` | Removes all edges between two nodes with the given label (both directions). Node ids are u128 decimal strings (JSON numbers lose precision above 2^53). |
+
+### Context & Axioms (4)
+
+| Tool | Description |
+|------|-------------|
+| `inject_context` | Injects external state or context connected to a specific thread for subsequent consolidation. |
+| `read_axioms` | Returns the active Devil's Advocate Axioms (Iron Axioms) in the database. |
+| `write_axiom` | Registers or updates an agent axiom (invariant rule) in the reserved `_axioms` namespace; returns `{id, name, description}`. |
+| `delete_axiom` | Removes an agent axiom by name from the `_axioms` namespace; returns `{deleted}`. |
+
+### Collections (3)
+
+| Tool | Description |
+|------|-------------|
+| `collection_list` | Lists all collections with record count, vector index status, and creation time. |
+| `collection_stats` | Statistics for one namespace/collection: count, byte size, index info, creation time. |
+| `collection_delete` | Deletes an entire namespace/collection and all its records (requires `confirm: "yes"`). |
+
+### Maintenance, Indexes & Snapshots (12)
+
+| Tool | Description |
+|------|-------------|
+| `flush` | Flushes WAL and memory-mapped files to disk as a manual durability checkpoint. |
+| `compact_wal` | Archives the current WAL file and starts a fresh one to reclaim WAL space. |
+| `compact_layout` | Compacts the vector store file grouping nodes in BFS order from the HNSW entry point; returns bytes reclaimed. |
+| `rebuild_index` | Rebuilds the HNSW vector index, derived indexes, and text index from scratch (recovery primitive). |
+| `audit_text_index` | Read-only integrity audit of the derived persistent text index vs canonical records; `deep=true` verifies postings/tf/stats. |
+| `repair_text_index` | Repairs the text index by rebuilding it from canonical storage (use when `audit_text_index` reports drift). |
+| `snapshot_create` | Creates a filesystem snapshot of the storage directory under `<data_dir>/snapshots/<name>`; returns the snapshot path. |
+| `snapshot_restore` | DESTRUCTIVE: replaces the live database directory with the contents of snapshot `<name>` (requires `confirm: true`; `name` must be a plain identifier). Current data is staged aside with rollback-on-failure; snapshots survive the swap. The running engine must be restarted to serve restored state. |
+| `list_snapshots` | Lists physical snapshot names under `<data_dir>/snapshots`. |
+| `purge_expired` | Scans all records and physically deletes those whose TTL expiry has passed. |
+| `rehydrate` | Recovers shadow-archived nodes that belonged to a summary node from TombstoneStorage. |
+| `vacuum` | Purges tombstoned nodes from the HNSW index; returns a report with scanned_nodes, removed_nodes, reclaimed_bytes, duration_ms, and success. |
+
+### Introspection & Utility (2)
+
+| Tool | Description |
+|------|-------------|
+| `capabilities` | Introspects supported engine features: runtime profile, persistence, vector search, IQL queries, read-only mode. |
+| `generate_snippet` | Generates a text snippet from a payload, optionally highlighting matched query terms. |
+
+### Backup & Bulk Import (4)
+
+| Tool | Description |
+|------|-------------|
+| `export` | Exports memory records as JSONL (max 10 MB per call); pair with `import` for backup/restore. |
+| `import` | Imports records from JSONL produced by `export`; malformed lines are counted as errors, not fatal. |
+| `bulk_import_file` | Bulk-imports from a binary `.vdbdump` file on the host filesystem, bypassing per-record validation for throughput. |
+| `bulk_import_stream` | Bulk-imports inline NDJSON or raw `.vdbdump` content (max 10 MB); imported entries are raw engine nodes. |
+
+## Extended Tool Families (37)
+
+Dispatched via `tools/call`, defined outside `handlers/tools.rs` (8+6+6+5+6+1+5 = 37):
+
+### Code Intelligence — `code.rs` (8)
+
+| Tool | Description |
+|------|-------------|
+| `code_search` | Searches indexed code symbols. |
+| `code_explore` | Explores symbols with call paths and blast radius. |
+| `code_callers` | Lists callers of a symbol. |
+| `code_callees` | Lists callees of a symbol. |
+| `code_impact` | Impact analysis for a change target. |
+| `code_node` | Fetches a single code-graph node. |
+| `code_files` | Lists indexed files. |
+| `code_status` | Index health/status of the code graph. |
+
+### Skills Management — `skills.rs` (7)
+
+| Tool | Description |
+|------|-------------|
+| `skill_list` | Lists installed agent skills. |
+| `skill_view` | Views a skill's content. |
+| `skill_create` | Creates a new skill. |
+| `skill_update` | Updates an existing skill. |
+| `skill_patch` | Applies targeted patches to a skill. |
+| `skill_files_write` | Writes supporting files for a skill. |
+| `skill_extract` | Reviews a transcript and returns reusable-skill candidates WITHOUT writing anything (candidates-only, read-only). No LLM runner is configured in MCP, so non-empty transcripts honestly degrade to `{success:false, candidates:[], error}`; empty transcripts succeed trivially with `[]`. |
+
+### Wiki — `wiki.rs` (6)
+
+| Tool | Description |
+|------|-------------|
+| `wiki_ingest` | Ingests documents into the wiki knowledge base. |
+| `wiki_ingest_status` | Reports status of a wiki ingest run. |
+| `wiki_read` | Reads a wiki page/node. |
+| `wiki_search` | Searches the wiki corpus. |
+| `wiki_graph` | Queries the wiki knowledge graph. |
+| `wiki_list` | Lists wiki pages/nodes. |
+
+### Context Engine — `context.rs` (1)
+
+| Tool | Description |
+|------|-------------|
+| `context_assemble` | Assembles a context window under a token budget with the vanta-memory context engine (MCP-31): compacts the provided chat history and injects session recall (relevant L1 memories, persona, scene navigation). Returns `{messages, report, mmd_injected, recall_injected}`. Read-only. |
+
+### Scenes API - `scenes.rs` (5)
+
+Read wrappers over the vanta-memory gateway scene handlers (`vanta_memory::gateway`) plus the sandboxed write path (`vanta_memory::core::scene::scene_tools`) — structured scene navigation for external agents. Domain errors surface as error-content messages; `scene_query` ranks by keyword overlap only.
+
+| Tool | Description |
+|------|-------------|
+| `scene_read` | Reads one live scene block by name from a session's scene store. Returns `{scene:{scene_name, meta{created,updated,summary,heat}, content}}`. Missing or soft-deleted scenes answer "not found". Read-only. |
+| `scene_list` | Lists the scene index of a session (heat descending, soft-deleted excluded). Returns `{scenes:[{filename,summary,heat,created,updated}]}` where `filename` is the id for `scene_read`. Read-only. |
+| `scene_query` | Keyword search over live scene blocks: ranks scenes by term overlap between the keyword and summary+content, ties by heat. Returns `{hits:[{scene_name,summary,heat,updated,score}]}`; load hits via `scene_read`. Read-only. |
+| `scene_write` | Creates or fully replaces one scene block (upsert: heat bump, `created` preserved on update). Returns `{scene:{...}}`. Empty/whitespace-only content is rejected as an error-content message. Write path. |
+| `scene_edit` | Patches `summary` and/or `content` of an existing scene (at least one field; missing scene answers "not found"). Returns `{scene:{...}}`. Write path. |
+
+### Dreams API - `dreams.rs` (5)
+
+Read wrappers plus a scoped delete over the vanta-memory dream store (`vanta_memory::core::dream` over `dream/<session>/<run_id>`) — reviewable, discardable idle consolidation — plus the LLM-free consolidation pass and the promote preview. The L1 store is never touched. Domain errors surface as error-content messages.
+
+| Tool | Description |
+|------|-------------|
+| `dream_list` | Lists every dream run for a session (metadata only: `run_id`, `started_at_ms`, `ended_at_ms`, `inputs_scanned`, `runner_label`). Load a run via `dream_load`. Read-only. |
+| `dream_load` | Loads the full persisted dream run (consolidated view; originals never replaced). Missing runs answer "not found". Read-only. |
+| `dream_discard` | Discards one dream run (deletes `dream/<session>/<run_id>`) after review. L1 remains untouched. Idempotent. Scoped destructive (dream namespace only). |
+| `dream_consolidate` | Runs one LLM-free consolidation pass (`dedupe + contradictions + date normalization`) and persists the view to `dream/<session>/<run_id>`. Fails as error-content when not idle. Write path. |
+| `dream_promote` | PREVIEW ONLY: returns `{preview_count, mutated:false}` — the count a run would merge, without mutating anything. Read-only. |
+
+## Output budgeting (`byte_budget`, MCP-39)
+
+Large list / search responses can exceed the per-message cap of popular MCP clients
+(Claude Code 25k tokens ~ 100 KB, OpenCode 2000 lines / 50 KB). Without budgeting
+the JSON gets truncated silently — the client does not know that data is missing.
+MCP-39 wraps the affected tools in a byte-budget guard so truncation is explicit
+and clients can react.
+
+### Knob
+
+| Env var | Default | Floor | Ceiling | Description |
+|---------|---------|-------|---------|-------------|
+| `VANTADB_MCP_BYTE_BUDGET` | `40 * 1024` (40 KB) | `1 KB` | `1 MB` | Target response envelope size. Set lower for tight clients; do not exceed the chosen client's cap. |
+
+Read at server startup via `McpConfig::from_storage`; clamped to `[min_byte_budget, max_byte_budget]`. Changing the value requires a server restart.
+
+### Truncation semantics
+
+| Tool | Shape on the wire | Truncation policy |
+|------|-------------------|-------------------|
+| `memory_list` | `content[0].text` is a JSON object `{records, next_cursor, byte_count, truncated}` | Trailing `records` entries are popped until the envelope fits `byte_budget`. `next_cursor` is preserved; `truncated: true` advertises the trim. If the array is fully popped, the `records` key is dropped (consumers should treat absent `records` as "hard-truncated"). |
+| `search_multi` | `content[0].text` stays the raw hits array (back-compat); `structuredContent` carries `{hits, byte_count, truncated}` | Trailing `hits` are popped in both the text and the structuredContent copy. `truncated: true` flags the trim. `search_memory` / `search_semantic` / `search_with_method` are NOT budgeted in this release — their `top_k` cap is the documented upper bound; tracked as debt for a follow-up. |
+
+### When to react
+
+| `truncated` | Action |
+|------------|--------|
+| `false` | Full response delivered; `byte_count` reports the envelope size. |
+| `true` (object shape: `memory_list`) | Refine the filter / lower `limit` / narrow the `cursor` window. |
+| `true` (array shape: `search_multi`) | Narrow `namespaces` to fewer entries, or lower `top_k`. |
+
+### Example (`memory_list`, default budget)
 
 ```json
 {
-  "jsonrpc": "2.0",
-  "id": 3,
-  "method": "resources/read",
-  "params": {
-    "uri": "metrics://"
-  }
+  "records": [ { "key": "doc-1", "payload": "..." }, ... ],
+  "next_cursor": 200,
+  "byte_count": 38921,
+  "truncated": false
 }
 ```
 
-## Architecture
+After oversize trimming, `truncated` flips to `true` and the last items are dropped from `records`. `next_cursor` remains the next-page marker so the consumer can keep paging.
 
-The MCP server implementation:
+## Parity
 
-1. **JSON-RPC 2.0 Protocol** - Standard JSON-RPC over stdio
-2. **Async/Sync Bridge** - Tokio async runtime with blocking sync operations
-3. **Semaphore Concurrency Control** - Configurable thread limits
-4. **Error Handling** - Structured error codes and messages
-5. **Type Safety** - Rust type system ensures data integrity
+Tool coverage on this page is enforced mechanically by `scripts/validate-docs-coverage.ps1` against `handle_tools_list()` in `vantadb-mcp/src/handlers/tools.rs`. Last sync: **2026-09-17** (FIND-103 recount 79→86: +2 scenes S1, +5 dreams S2+S3).
 
-## Integration Examples
+## Registry manifest
 
-## Integration Examples
+VantaDB MCP is published to the [Official MCP Registry](https://registry.modelcontextprotocol.io/)
+under the namespace `io.github.ness-e/vantadb`. The canonical descriptor lives at
+the repo root: [`/server.json`](../../server.json) (schema version `2025-12-11`).
 
-- **Latency**: Sub-millisecond for in-process operations
-- **Throughput**: Configurable via semaphore limits
-- **Memory**: Embedded mode with configurable limits
-- **Persistence**: Zero-copy MMAP for vector operations
+| Field | Value |
+|-------|-------|
+| `name` | `io.github.ness-e/vantadb` |
+| `version` | tracks `[workspace.package].version` (`0.5.0` as of this doc) |
+| `transport` | stdio (no remote service; no published `packages[]` — install via `cargo install --git`) |
+| `repository` | [`ness-e/Vantadb`](https://github.com/ness-e/Vantadb) |
 
-## Security
+For submission state, glama/smithery aggregator status, and the
+`server.json` regeneration procedure (per release), see
+[`/docs/operations/MCP_REGISTRY.md`](../operations/MCP_REGISTRY.md).
 
-- **Namespace Isolation** - Separate memory spaces per agent
-- **Read-Only Mode** - Optional read-only operation mode
-- **Resource Governance** - Configurable memory and thread limits
-
-## Troubleshooting
-
-### Connection Issues
-
-Ensure the VantaDB server is running and the MCP client is configured with the correct path.
-
-### Permission Errors
-
-Check that the database path is writable and that the user has appropriate filesystem permissions.
-
-### Performance Issues
-
-Adjust the `max_blocking_threads` configuration in VantaConfig to optimize for your workload.
-
-## Future Enhancements
-
-- Streaming responses for large result sets
-- Batch operations for bulk inserts/deletes
-- Advanced metadata querying
-- Real-time change notifications
-- Resource watching capabilities
-
-## Version
-
-Current MCP implementation version: 0.1.5
-
-Protocol version: 2024-11-05
-
-## Support
-
-For issues and questions:
-- GitHub Issues: https://github.com/ness-e/Vantadb/issues
-- Documentation: https://vantadb.dev
+> Pre-mortem: the registry submission PR is a **manual** step (not a CI gate).
+> Until it's approved, the `server.json` lives in-repo as a discoverable descriptor;
+> the binary itself is the source of truth. See
+> [`MCP_REGISTRY.md#submission-state`](../operations/MCP_REGISTRY.md#submission-state)
+> for the current PR/approval state.

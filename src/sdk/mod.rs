@@ -6,24 +6,28 @@ pub(crate) mod builder;
 pub mod connect;
 mod gds;
 mod graph;
-mod search;
+pub(crate) mod search;
 pub(crate) mod serialization;
 pub(crate) mod types;
+pub(crate) mod version_history;
 
 pub use api::BulkImportReport;
-pub use builder::VantaEmbedded;
+pub use builder::Embedded;
 pub use connect::connect;
+#[allow(deprecated)]
+pub use serialization::memory_record_from_node;
 pub use serialization::{
-    export_line_from_record, memory_record_from_node, FIELD_CREATED_AT_MS, FIELD_EXPIRES_AT_MS,
-    FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS, FIELD_VERSION,
+    export_line_from_record, record_from_export_line, record_from_node, FIELD_CREATED_AT_MS,
+    FIELD_EXPIRES_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS,
+    FIELD_VERSION,
 };
 pub use types::{
-    VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord, VantaExportReport, VantaFields,
-    VantaFilterOp, VantaHybridFusionReport, VantaImportReport, VantaIndexRebuildReport,
-    VantaMemoryFilter, VantaMemoryFilterItem, VantaMemoryInput, VantaMemoryListOptions,
-    VantaMemoryListPage, VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit,
-    VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics,
-    VantaQueryResult, VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit,
-    VantaSearchHit, VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport,
-    VantaValue,
+    Bm25TermContribution, Capabilities, EdgeRecord, ExportReport, Fields, FilterOp,
+    HybridFusionReport, ImportReport, IndexRebuildReport, MemoryExportLine, MemoryFilter,
+    MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord,
+    MemorySearchHit, MemorySearchRequest, NamespaceStats, NamespaceStatsMap, NodeInput, NodeRecord,
+    OperationalMetrics, QueryResult, RuntimeProfile, SearchExplanation, SearchExplanationHit,
+    SearchHit, SearchProfileConfig, SearchProfileMode, SkillCreateInput, SkillListOptions,
+    SkillListPage, SkillPatchInput, SkillRecord, SkillUpdateInput, SkillWriteResult, StorageTier,
+    TextIndexAuditReport, TextIndexRepairReport, Value,
 };

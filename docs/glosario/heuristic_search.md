@@ -3,7 +3,7 @@ title: "Heuristic Search"
 type: glossary-entry
 status: stable
 tags: [glosario, hnsw, busqueda, heuristica, algoritmo]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-09-15
 aliases: [heuristic search, select_neighbors_heuristic, heuristic, búsqueda-heurística]
 description: "Algoritmo de selección de vecinos en HNSW que maximiza diversidad espacial (Algorithm 4, Malkov & Yashunin 2018)"
 ---

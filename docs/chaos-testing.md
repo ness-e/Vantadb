@@ -1,3 +1,13 @@
+---
+title: "Chaos Testing in VantaDB"
+type: operations
+status: active
+tags: [vantadb, docs, chaos-testing, resilience]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Chaos Testing in VantaDB
 
 ## Overview
@@ -64,7 +74,7 @@ silent data loss.
 #[cfg(feature = "failpoints")]
 {
     fail::fail_point!("my_new_failpoint", |_| {
-        Err(VantaError::IoError(std::io::Error::other(
+        Err(VantaError::Io(std::io::Error::other(
             "Simulated failure description",
         )))
     });

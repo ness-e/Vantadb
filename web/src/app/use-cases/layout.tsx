@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Use Cases · VantaDB — AI Agents, RAG, IDE",
     description:
       "3 casos de uso de VantaDB: AI agents con memoria, local RAG con Ollama, IDE semantic code search.",
-    url: "https://vantadb.dev/use-cases",
+    url: "https://vantadb.vercel.app/use-cases",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/use-cases",
+    canonical: "https://vantadb.vercel.app/use-cases",
   },
 };
 

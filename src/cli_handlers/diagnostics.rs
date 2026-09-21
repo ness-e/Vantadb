@@ -6,15 +6,158 @@ use web_time::{SystemTime, UNIX_EPOCH};
 
 use crate::cli_handlers::fmt::{header_style, info_style};
 use crate::cli_handlers::{
-    create_spinner, human_readable_size, memory_node_id, open_database, print_info, print_warning,
-    FIELD_EXPIRES_AT_MS, FIELD_NAMESPACE, FIELD_PAYLOAD,
+    create_spinner, human_readable_size, memory_node_id, open_database, print_info, print_success,
+    print_warning, FIELD_EXPIRES_AT_MS, FIELD_NAMESPACE, FIELD_PAYLOAD,
 };
-use crate::error::{ChainedError, Result};
+use crate::error::{ChainedError, Error, Result};
 use crate::node::{FieldValue, NodeFlags, VectorRepresentations};
+
+/// A safe, non-destructive repair that `doctor --fix` can apply.
+#[derive(Debug, PartialEq, Eq)]
+struct PendingRepair {
+    /// Human-readable description (printed as `Would fix:` / `Fixed:`).
+    description: String,
+    /// Filesystem path to create (always a directory).
+    path: std::path::PathBuf,
+}
+
+/// Compute the safe repairs pending for `db_path` without mutating anything.
+///
+/// Scope is deliberately minimal and additive only:
+///
+/// - missing database directory → create it
+/// - missing `data/` subdirectory → create it
+///
+/// Everything else (lock files, WAL, schema, permissions, user data) is
+/// report-only and never touched — see stop conditions in GOV-TK1.
+fn pending_safe_repairs(db_path: &str) -> Vec<PendingRepair> {
+    let base = std::path::Path::new(db_path);
+    if !base.exists() {
+        let data_dir = base.join("data");
+        return vec![
+            PendingRepair {
+                description: format!("create missing database directory at '{db_path}'"),
+                path: base.to_path_buf(),
+            },
+            PendingRepair {
+                description: format!(
+                    "create missing data subdirectory at '{}'",
+                    data_dir.display()
+                ),
+                path: data_dir,
+            },
+        ];
+    }
+    let data_dir = base.join("data");
+    if !data_dir.exists() {
+        return vec![PendingRepair {
+            description: format!(
+                "create missing data subdirectory at '{}'",
+                data_dir.display()
+            ),
+            path: data_dir,
+        }];
+    }
+    Vec::new()
+}
+
+/// True when the open error means "empty/uninitialised", not corruption.
+///
+/// Matches `NotFound` (missing path/lock/data dir) and the missing-schema
+/// message. Anything else (bad version, invalid header, busy, IO) is a real
+/// problem and must still surface as an error.
+fn is_empty_database_state(e: &Error) -> bool {
+    match e {
+        Error::NotFound { .. } => true,
+        Error::Schema(msg) => msg.contains("no schema file"),
+        _ => false,
+    }
+}
+
+/// What `doctor --fix` should do (D2: replaces `fix`/`force` bool flags).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum DoctorFix {
+    /// Check only, never propose repairs.
+    #[default]
+    Off,
+    /// List repairs without mutating (`--fix` without `--force`).
+    DryRun,
+    /// Apply additive-only repairs (`--fix --force`).
+    Apply,
+}
+
+/// Output verbosity for CLI diagnostics (D2: replaces `verbose: bool`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Verbosity {
+    #[default]
+    Normal,
+    Verbose,
+}
+
+impl Verbosity {
+    /// Map a CLI `--verbose` flag to [`Verbosity`].
+    pub fn from_flag(verbose: bool) -> Self {
+        if verbose {
+            Self::Verbose
+        } else {
+            Self::Normal
+        }
+    }
+
+    /// True for [`Verbosity::Verbose`].
+    pub fn is_verbose(self) -> bool {
+        matches!(self, Self::Verbose)
+    }
+}
+
+/// Options for [`cmd_doctor`] (D2: replaces `fix`/`force`/`verbose` bool flags).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct DoctorOptions {
+    pub fix: DoctorFix,
+    pub verbose: Verbosity,
+}
 
 #[tracing::instrument]
 /// Run comprehensive health diagnostics on the database
-pub fn cmd_doctor(db_path: &str, verbose: bool) -> Result<()> {
+pub fn cmd_doctor(db_path: &str, opts: DoctorOptions) -> Result<()> {
+    if !matches!(opts.fix, DoctorFix::Off) {
+        let pending = pending_safe_repairs(db_path);
+        if !matches!(opts.fix, DoctorFix::Apply) {
+            // Dry-run by default: list, never mutate.
+            if pending.is_empty() {
+                print_success("doctor --fix: nothing to fix");
+            } else {
+                for repair in &pending {
+                    print_warning(&format!("Would fix: {}", repair.description));
+                }
+                print_info("dry-run: re-run with `doctor --fix --force` to apply");
+            }
+        } else {
+            // --force: apply additive-only repairs (create missing dirs).
+            if pending.is_empty() {
+                print_success("doctor --fix: nothing to fix");
+            } else {
+                for repair in &pending {
+                    std::fs::create_dir_all(&repair.path).map_err(Error::Io)?;
+                    print_success(&format!("Fixed: {}", repair.description));
+                }
+            }
+            // A freshly created (empty) database has no schema/lock yet —
+            // opening it read-only would fail with NotFound/Schema.
+            // That is the expected empty state, not an error: exit 0.
+            if !pending.is_empty() {
+                return Ok(());
+            }
+        }
+        // ponytail: stale `.vanta.lock` / permissions / WAL / user data are
+        // intentionally left alone — deleting them risks data loss. Report
+        // only; manual review required (GOV-TK1 stop condition).
+        if opts.verbose.is_verbose() && pending.is_empty() {
+            print_info(
+                "Left alone (manual review if unhealthy): .vanta.lock, WAL segments, user data",
+            );
+        }
+    }
     let path = std::path::Path::new(db_path);
     if !path.exists() {
         print_warning(&format!(
@@ -25,7 +168,24 @@ pub fn cmd_doctor(db_path: &str, verbose: bool) -> Result<()> {
     }
 
     let spinner = create_spinner("Opening database for diagnostics...");
-    let engine = open_database(db_path, true)?;
+    // In --fix mode an empty/uninitialised database (fresh dirs, no
+    // schema/lock yet) is the expected state after repairs — exit 0 with a
+    // warning instead of propagating NotFound/Schema. Genuine corruption
+    // (incompatible version, invalid header) still errors for manual review.
+    let engine = match open_database(db_path, true) {
+        Ok(engine) => engine,
+        Err(e) if !matches!(opts.fix, DoctorFix::Off) && is_empty_database_state(&e) => {
+            spinner.finish_and_clear();
+            print_warning(&format!(
+                "Database is empty/uninitialised ({e}); nothing further to diagnose."
+            ));
+            return Ok(());
+        }
+        Err(e) => {
+            spinner.finish_and_clear();
+            return Err(e);
+        }
+    };
     spinner.set_message("Running diagnostics...");
 
     let nodes = engine.scan_nodes()?;
@@ -61,7 +221,7 @@ pub fn cmd_doctor(db_path: &str, verbose: bool) -> Result<()> {
         }
     }
 
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
 
     spinner.finish_and_clear();
 
@@ -111,7 +271,7 @@ pub fn cmd_doctor(db_path: &str, verbose: bool) -> Result<()> {
         header_style().apply_to("╚══════════════════════════════════════════════════════════════╝")
     ));
 
-    if verbose {
+    if opts.verbose.is_verbose() {
         let _ = term.write_line("");
         print_info("Namespaces:");
         for ns in &namespaces {
@@ -301,7 +461,7 @@ pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> 
     let engine = open_database(db_path, true)?;
     spinner.set_message("Collecting statistics...");
 
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     let nodes = engine.scan_nodes()?;
     let namespaces: HashSet<String> = nodes
         .iter()
@@ -347,7 +507,7 @@ pub fn cmd_stats(db_path: &str, json_output: bool, verbose: bool) -> Result<()> 
         println!(
             "{}",
             serde_json::to_string_pretty(&result).map_err(|e| {
-                crate::error::VantaError::CliError(ChainedError::msg(format!(
+                crate::error::Error::Cli(ChainedError::msg(format!(
                     "JSON serialization error: {e}"
                 )))
             })?

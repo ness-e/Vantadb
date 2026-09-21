@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Resource Governor & OOM Protection Modernized Test Suite
 //! Part of the Vanta Certification ecosystem.
 

@@ -125,8 +125,6 @@ impl Default for GraphAccumulator {
 unsafe impl Send for GraphAccumulator {}
 unsafe impl Sync for GraphAccumulator {}
 
-// ─── Tests ─────────────────────────────────────────────────
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -140,7 +138,6 @@ mod tests {
         // Initially None
         assert_eq!(acc.get(42), None);
 
-        // Set and get
         acc.set(42, 10.5);
         let val = acc.get(42).unwrap();
         assert!((val - 10.5).abs() < 1e-10, "got {val}");
@@ -236,13 +233,13 @@ mod tests {
     #[test]
     fn test_accumulator_integration() {
         // Build a tiny graph (chain 0→1→2→3), traverse and accumulate contributions.
-        use crate::config::VantaConfig;
+        use crate::config::Config;
         use crate::node::UnifiedNode;
         use crate::storage::{BackendKind, StorageEngine};
         use crate::Edge;
 
         let dir = tempfile::tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };
@@ -258,6 +255,7 @@ mod tests {
                     weight: 1.0,
                     label_id: 0,
                     reverse: false,
+                    created_at_ms: 1,
                 }];
             }
             storage.insert(&node).unwrap();

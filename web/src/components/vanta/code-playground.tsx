@@ -1,153 +1,173 @@
 "use client";
 
 import { useState, useMemo, useRef, useCallback } from "react";
+import { useLanguage } from "@/lib/language-provider";
 import { Play, RotateCcw, Terminal, Zap, ChevronDown } from "lucide-react";
 import { Reveal } from "./reveal";
+import { jsTokenizer, TOK_CLASS } from "@/lib/code-tokenizer";
 import { cn } from "@/lib/utils";
+import { PlaygroundExecutor, type PlaygroundExecutorHandle } from "./playground-executor";
+import { toastError } from "./toast";
 
-// Inline lightweight Python tokenizer for syntax highlighting overlay
-const HL_KEYWORDS = new Set(["import", "as", "def", "return", "from", "class", "if", "else", "elif", "for", "while", "in", "not", "and", "or", "None", "True", "False", "with", "try", "except", "lambda", "pass", "break", "continue", "self"]);
-const HL_BUILTINS = new Set(["print", "len", "range", "str", "int", "float", "list", "dict", "set", "tuple", "bool", "open", "enumerate", "zip", "map", "filter", "sorted", "sum", "min", "max", "abs", "round", "type", "format"]);
+// ── WEB-07 — Sandbox iframe ─────────────────────────────────────────────────
+// El código del usuario se ejecuta dentro de <iframe sandbox="allow-scripts
+// allow-same-origin" src="/playground-executor.html">. El iframe carga el
+// WASM (vantadb_wasm.js + .wasm), expone new Function aislado del DOM
+// principal, y devuelve output vía postMessage. Ver playground-executor.tsx
+// y public/playground-executor.html. Decisión: allow-same-origin requerido
+// para fetch /vanta-wasm/* sin CORS; sin allow-top-navigation/forms/popups
+// el snippet no puede navegar, enviar forms ni escapar del sandbox.
+// Si el playground algún día acepta código de terceros compartido vía URL,
+// mantener esta arquitectura; si se sirve WASM con CORS/blob, reducir a
+// allow-scripts solo (ponytail: techo documentado en playground-executor.tsx).
 
-const HL_CLASS: Record<string, string> = {
-  plain: "text-[#FBF9F5]",
-  comment: "text-[#8a8a8a] italic",
-  string: "text-[#FFB380]",
-  number: "text-[#a3d9a5]",
-  keyword: "text-[#FF5500] font-bold",
-  builtin: "text-[#7ec7ff]",
-  func: "text-[#ffd479]",
-  ident: "text-[#FBF9F5]",
-  op: "text-[#c9c9c9]",
-};
+const STARTER_CODE = `const rec = db.put({
+  namespace: "agent/main",
+  key: "mem-001",
+  payload: "hello vanta",
+  vector: [0.1, 0.9, 0.5],
+});
+console.log("stored", rec.key, "->", rec.payload);
 
-function hlTokenize(line: string) {
-  const tokens: { t: string; v: string }[] = [];
-  let i = 0;
-  while (i < line.length) {
-    const rest = line.slice(i);
-    if (rest.startsWith("#")) { tokens.push({ t: "comment", v: rest }); break; }
-    const strMatch = rest.match(/^("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/);
-    if (strMatch) { tokens.push({ t: "string", v: strMatch[0] }); i += strMatch[0].length; continue; }
-    const numMatch = rest.match(/^\d[\d_]*(\.\d+)?/);
-    if (numMatch) { tokens.push({ t: "number", v: numMatch[0] }); i += numMatch[0].length; continue; }
-    const idMatch = rest.match(/^[A-Za-z_][A-Za-z0-9_]*/);
-    if (idMatch) {
-      const word = idMatch[0];
-      const after = line[i + word.length];
-      let t = "ident";
-      if (HL_KEYWORDS.has(word)) t = "keyword";
-      else if (HL_BUILTINS.has(word)) t = "builtin";
-      else if (after === "(") t = "func";
-      tokens.push({ t, v: word });
-      i += word.length;
-      continue;
-    }
-    const opMatch = rest.match(/^(==|!=|<=|>=|->|\+=|-=|\*=|\/\/=|\/\/|\*\*|[=+\-*/%<>:,.(){}\[\]])/);
-    if (opMatch) { tokens.push({ t: "op", v: opMatch[0] }); i += opMatch[0].length; continue; }
-    const wsMatch = rest.match(/^\s+/);
-    if (wsMatch) { tokens.push({ t: "plain", v: wsMatch[0] }); i += wsMatch[0].length; continue; }
-    tokens.push({ t: "plain", v: rest[0] }); i += 1;
-  }
-  return tokens;
+const stored = db.get("agent/main", "mem-001");
+console.log("get", stored.key, "->", stored.payload);
+
+const hits = db.search({
+  namespace: "agent/main",
+  query_vector: [0.11, 0.89, 0.55],
+  top_k: 5,
+});
+for (const hit of hits) {
+  console.log(hit.record.key, "score=" + hit.score.toFixed(4));
 }
 
-// Simulated execution: pattern-matches the user's Python-ish input and produces
-// illustrative output. This is NOT a real Python interpreter — it's a demo.
-function simulateRun(code: string): string[] {
-  const lines: string[] = [];
-  const trimmed = code.trim();
-
-  // Detect key patterns
-  if (trimmed.includes("VantaDB(") || trimmed.includes("vantadb.")) {
-    lines.push("✓ VantaDB instance initialized (./vanta_data)");
-    lines.push("✓ WAL opened · CRC32C checksums active");
-  }
-  if (trimmed.includes("db.put(")) {
-    const putCount = (trimmed.match(/db\.put\(/g) || []).length;
-    lines.push(`✓ put() · ${putCount} record(s) stored`);
-    lines.push("  → payload + metadata + vector indexed");
-  }
-  if (trimmed.includes("db.get(")) {
-    lines.push("✓ get() · canonical record retrieved");
-    lines.push('  → key="memory-001" · version=1');
-  }
-  if (trimmed.includes("db.search(")) {
-    lines.push("✓ search() · hybrid query planned");
-    lines.push("  → BM25 path: 47 candidates");
-    lines.push("  → HNSW path: 52 candidates (cosine)");
-    lines.push("  → RRF fusion: top_k=5 ranked");
-    lines.push("  → 1.2ms · 100% Recall@10");
-  }
-  if (trimmed.includes("db.flush()")) {
-    lines.push("✓ flush() · WAL synced to disk");
-  }
-  if (trimmed.includes("db.close()")) {
-    lines.push("✓ close() · handles released safely");
-  }
-  if (trimmed.includes("print(")) {
-    // Extract print arguments
-    const printMatches = trimmed.matchAll(/print\(([^)]*)\)/g);
-    for (const m of printMatches) {
-      let arg = m[1].trim();
-      // Strip quotes
-      if ((arg.startsWith('"') && arg.endsWith('"')) || (arg.startsWith("'") && arg.endsWith("'"))) {
-        arg = arg.slice(1, -1);
-      }
-      lines.push(`> ${arg}`);
-    }
-  }
-  if (trimmed.includes("import")) {
-    lines.push("✓ modules loaded");
-  }
-
-  if (lines.length === 0) {
-    lines.push("→ (no recognizable VantaDB calls detected)");
-    lines.push("  try: db.put(...), db.search(...), db.get(...)");
-  }
-
-  lines.push("");
-  lines.push(`◆ executed in ${(0.8 + Math.random() * 1.5).toFixed(2)}ms · in-process`);
-  return lines;
-}
-
-const STARTER_CODE = `import vantadb_py as vantadb
-
-db = vantadb.VantaDB("./vanta_data")
-
-db.put("agent/main", "mem-001", "hello vanta", vector=[0.1, 0.9, 0.5])
-stored = db.get("agent/main", "mem-001")
-hits = db.search("agent/main", vector=[0.11, 0.89, 0.55], top_k=5)
-
-print(hits)
-db.flush()
-db.close()`;
+db.flush();`;
 
 const EXAMPLES = [
   {
-    name: "Full Quickstart",
-    code: STARTER_CODE,
-  },
-  {
-    name: "Put & Get",
-    code: `import vantadb_py as vantadb\n\ndb = vantadb.VantaDB("./vanta_data")\n\n# Store a record with vector\nrecord = db.put(\n    "agent/main",\n    "memory-001",\n    "In-process execution minimizes latency.",\n    metadata={"category": "architecture", "priority": 1},\n    vector=[0.12, 0.88, 0.54],\n)\n\n# Retrieve by exact key\nstored = db.get("agent/main", "memory-001")\nprint(stored)\n\ndb.flush()\ndb.close()`,
+    name: "RAG Mini",
+    code: `// RAG: ingest 3 docs, retrieve top-2, synthesize an answer with citations.
+db.put({ namespace: "kb", key: "doc-auth", payload: "VantaDB authenticates MCP clients over stdio with an API key header.", vector: [0.9, 0.1, 0.2] });
+db.put({ namespace: "kb", key: "doc-wasm", payload: "The browser playground runs the real engine compiled to WASM.", vector: [0.1, 0.9, 0.2] });
+db.put({ namespace: "kb", key: "doc-ttl", payload: "Records with ttl_ms expire automatically via purge_expired.", vector: [0.1, 0.2, 0.9] });
+
+const hits = db.search({ namespace: "kb", query_vector: [0.85, 0.15, 0.2], text_query: "authenticate", top_k: 2 });
+console.log("retrieved", hits.length, "chunks:");
+for (const hit of hits) {
+  console.log("  [" + hit.record.key + "] score=" + hit.score.toFixed(4));
+  console.log("  " + hit.record.payload);
+}
+console.log("answer (cited): auth runs over stdio — see " + hits.map((h) => h.record.key).join(", "));
+
+db.flush();`,
   },
   {
     name: "Hybrid Search",
-    code: `import vantadb_py as vantadb\n\ndb = vantadb.VantaDB("./vanta_data")\n\n# Insert documents with vectors\nfor i in range(5):\n    db.put("docs", f"doc-{i}", f"document content {i}",\n             vector=[0.1 * i, 0.9 - 0.1 * i, 0.5])\n\n# Hybrid search: BM25 + HNSW via RRF\nhits = db.search("docs", vector=[0.2, 0.8, 0.5], top_k=5)\n\nfor hit in hits:\n    print(f"{hit.key} score={hit.score}")\n\ndb.flush()\ndb.close()`,
+    code: `db.put({ namespace: "docs", key: "doc-0", payload: "in-process vector engine minimizes latency", vector: [0.9, 0.1, 0.5] });
+db.put({ namespace: "docs", key: "doc-1", payload: "persistent storage with write-ahead log", vector: [0.5, 0.5, 0.5] });
+db.put({ namespace: "docs", key: "doc-2", payload: "hybrid BM25 plus vector search ranking", vector: [0.2, 0.8, 0.5] });
+
+// Hybrid search: vector similarity + BM25 text query in one call
+const hits = db.search({
+  namespace: "docs",
+  query_vector: [0.2, 0.8, 0.5],
+  text_query: "hybrid search",
+  top_k: 5,
+});
+for (const hit of hits) {
+  console.log(hit.record.key, "score=" + hit.score.toFixed(4), "-", hit.record.payload);
+}
+
+db.flush();`,
+  },
+  {
+    name: "Graph BFS",
+    code: `// Graph: 3 nodes linked alice -> bob -> carol, then traverse.
+const alice = db.put({ namespace: "social", key: "alice", payload: "Alice", vector: [1.0, 0.0, 0.0] });
+const bob = db.put({ namespace: "social", key: "bob", payload: "Bob", vector: [0.0, 1.0, 0.0] });
+const carol = db.put({ namespace: "social", key: "carol", payload: "Carol", vector: [0.0, 0.0, 1.0] });
+const byId = {};
+byId[alice.node_id] = "alice";
+byId[bob.node_id] = "bob";
+byId[carol.node_id] = "carol";
+
+db.add_edge(alice.node_id, bob.node_id, "knows");
+db.add_edge(bob.node_id, carol.node_id, "knows");
+
+const visited = db.graph_bfs([alice.node_id], 2, "Forward");
+console.log("bfs from alice (depth 2):", visited.length, "nodes");
+for (const id of visited) {
+  console.log("  " + (byId[id] || id));
+}
+
+db.flush();`,
+  },
+  {
+    name: "TTL Expiry",
+    code: `// TTL: ttl_ms is relative — expires_at = now + ttl_ms (server-side).
+db.put({ namespace: "cache", key: "session", payload: "short-lived session", vector: [0.5, 0.5, 0.5], ttl_ms: 1 });
+db.put({ namespace: "cache", key: "pinned", payload: "never expires", vector: [0.5, 0.5, 0.5] });
+
+// Let the 1ms TTL lapse, then reap expired records
+await new Promise((r) => setTimeout(r, 10));
+const purged = db.purge_expired();
+console.log("purged", purged.toString(), "expired record(s)");
+
+console.log("session ->", db.get("cache", "session"));
+const pinned = db.get("cache", "pinned");
+console.log("pinned  ->", pinned.key, "-", pinned.payload);
+
+db.flush();`,
   },
   {
     name: "Batch Insert",
-    code: `import vantadb_py as vantadb\n\ndb = vantadb.VantaDB("./vanta_data", memory_limit_bytes=512_000_000)\n\n# Bulk insert 100 records\nfor i in range(100):\n    vec = [i / 100.0, 1.0 - i / 100.0, 0.5]\n    db.put("agent/main", f"mem-{i}", f"record {i}", vector=vec)\n\nprint(f"Inserted 100 records")\n\n# Search across all\nhits = db.search("agent/main", vector=[0.5, 0.5, 0.5], top_k=10)\nprint(f"Found {len(hits)} results")\n\ndb.flush()\ndb.close()`,
+    code: `const batch = [];
+for (let i = 0; i < 100; i++) {
+  batch.push({
+    namespace: "agent/main",
+    key: "mem-" + i,
+    payload: "record " + i,
+    vector: [i / 100.0, 1.0 - i / 100.0, 0.5],
+  });
+}
+db.put_batch(batch);
+console.log("inserted", batch.length, "records");
+
+const hits = db.search({
+  namespace: "agent/main",
+  query_vector: [0.5, 0.5, 0.5],
+  top_k: 10,
+});
+console.log("found", hits.length, "results");
+
+db.flush();`,
+  },
+  {
+    name: "Persistence",
+    code: `// Persistence: save() writes to OPFS (browser) under "playground_data".
+db.put({ namespace: "agent/main", key: "notita", payload: "survives save/load roundtrip", vector: [0.3, 0.6, 0.5] });
+await db.save();
+console.log("saved to OPFS");
+
+// Roundtrip proof: reload persisted state and read it back
+await db.load();
+const back = db.get("agent/main", "notita");
+console.log("after load ->", back.key, "-", back.payload);
+console.log("namespaces:", db.list_namespaces().join(", "));
+
+db.flush();`,
   },
 ];
 
 export function CodePlayground() {
+  const { tt } = useLanguage();
   const [activeExample, setActiveExample] = useState(0);
   const [examplesOpen, setExamplesOpen] = useState(false);
   const [code, setCode] = useState(STARTER_CODE);
   const [output, setOutput] = useState<string[] | null>(null);
   const [running, setRunning] = useState(false);
+  const executorRef = useRef<PlaygroundExecutorHandle>(null);
+  const [executorReady, setExecutorReady] = useState(false);
 
   const lineCount = useMemo(() => code.split("\n").length, [code]);
 
@@ -161,21 +181,72 @@ export function CodePlayground() {
     if (syncing.current) return;
     syncing.current = true;
     const src = source === "gutter" ? gutterRef.current : source === "pre" ? preRef.current : textareaRef.current;
-    if (!src) { syncing.current = false; return; }
+    if (!src) {
+      syncing.current = false;
+      return;
+    }
     const { scrollTop, scrollLeft } = src;
     if (gutterRef.current && source !== "gutter") gutterRef.current.scrollTop = scrollTop;
-    if (preRef.current && source !== "pre") { preRef.current.scrollTop = scrollTop; preRef.current.scrollLeft = scrollLeft; }
-    if (textareaRef.current && source !== "textarea") { textareaRef.current.scrollTop = scrollTop; textareaRef.current.scrollLeft = scrollLeft; }
-    requestAnimationFrame(() => { syncing.current = false; });
+    if (preRef.current && source !== "pre") {
+      preRef.current.scrollTop = scrollTop;
+      preRef.current.scrollLeft = scrollLeft;
+    }
+    if (textareaRef.current && source !== "textarea") {
+      textareaRef.current.scrollTop = scrollTop;
+      textareaRef.current.scrollLeft = scrollLeft;
+    }
+    requestAnimationFrame(() => {
+      syncing.current = false;
+    });
   }, []);
 
-  const run = () => {
+  const run = async () => {
     setRunning(true);
     setOutput(null);
-    setTimeout(() => {
-      setOutput(simulateRun(code));
+    const executor = executorRef.current;
+    if (!executor) {
+      setOutput(["✗ playground executor not ready", "  iframe ref missing"]);
       setRunning(false);
-    }, 600);
+      return;
+    }
+    // Wait up to 5s for iframe ready (covers cold load race)
+    if (!executor.isReady()) {
+      for (let i = 0; i < 10; i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        if (executor.isReady()) break;
+        // nudge iframe via ping (executor also polls, this is extra)
+        try {
+          const iframe = document.querySelector('iframe[title="VantaDB Playground Executor"]') as HTMLIFrameElement | null;
+          iframe?.contentWindow?.postMessage({ type: "ping" }, "*");
+        } catch (e) {
+          // Nudge de ready (loop 10×500ms): se loggea sin toast para no
+          // spamear 10 veces; el fallo real ya se reporta abajo en el
+          // output panel ("playground executor not ready").
+          console.error("playground: ping nudge failed", e);
+        }
+      }
+      if (!executor.isReady()) {
+        setOutput([
+          "✗ playground executor not ready",
+          "  iframe sandbox aún no cargó — reintentá en 1s",
+        ]);
+        setRunning(false);
+        return;
+      }
+    }
+    try {
+      const result = await executor.execute(code);
+      if (result.error) {
+        setOutput(["✗ " + result.error]);
+      } else {
+        setOutput(result.output);
+      }
+    } catch (err) {
+      toastError(err);
+      setOutput(["✗ unexpected error", `  ${err instanceof Error ? err.message : String(err)}`]);
+    } finally {
+      setRunning(false);
+    }
   };
 
   const reset = () => {
@@ -202,8 +273,9 @@ export function CodePlayground() {
                 Code Playground
               </h2>
               <p className="mt-2 max-w-lg font-tech text-xs text-black/80">
-                Edit the code and hit Run. The simulator pattern-matches VantaDB calls
-                and produces illustrative output — not a real interpreter.
+                Edit the code and hit Run. Each run opens a real VantaDB instance
+                compiled to WebAssembly (vantadb-wasm) and executes your snippet
+                against it — in your browser (sandboxed iframe).
               </p>
             </div>
             <div className="flex flex-wrap gap-2">
@@ -257,6 +329,12 @@ export function CodePlayground() {
           </div>
         </Reveal>
 
+        {/* Hidden sandboxed iframe executor — WEB-07 */}
+        <PlaygroundExecutor ref={executorRef} onReady={() => setExecutorReady(true)} />
+        {!executorReady && (
+          <p className="sr-only" aria-live="polite">Playground executor loading…</p>
+        )}
+
         <Reveal direction="up" delay={60}>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             {/* Editor */}
@@ -264,7 +342,7 @@ export function CodePlayground() {
               <div className="flex items-center justify-between border-b-2 border-[#FBF9F5]/20 bg-[#1A1A1A] px-3 py-2">
                 <span className="inline-flex items-center gap-1.5 font-tech text-[11px] uppercase tracking-wider text-[#FBF9F5]/70">
                   <Terminal className="h-3 w-3 text-[#FF5500]" />
-                  playground.py
+                  playground.js
                 </span>
                 <span className="font-tech text-[9px] uppercase tracking-wider text-[#FBF9F5]/30">
                   {lineCount} lines
@@ -296,8 +374,8 @@ export function CodePlayground() {
                         {line.length === 0 ? (
                           <span>&nbsp;</span>
                         ) : (
-                          hlTokenize(line).map((tok, j) => (
-                            <span key={j} className={HL_CLASS[tok.t]}>{tok.v}</span>
+                          jsTokenizer(line).map((tok, j) => (
+                            <span key={j} className={TOK_CLASS[tok.t]}>{tok.v}</span>
                           ))
                         )}
                       </div>
@@ -310,7 +388,7 @@ export function CodePlayground() {
                     value={code}
                     onChange={(e) => setCode(e.target.value)}
                     spellCheck={false}
-                    aria-label="Python code editor"
+                    aria-label="JavaScript code editor"
                     className="scroll-manga absolute inset-0 h-full w-full resize-none bg-transparent p-3 font-tech text-[12px] leading-relaxed text-transparent caret-[#FF5500] focus:outline-none"
                     style={{ tabSize: 4 }}
                   />
@@ -328,25 +406,28 @@ export function CodePlayground() {
                 {running && (
                   <span className="flex items-center gap-1 font-tech text-[9px] uppercase tracking-wider text-[#FF5500]">
                     <span className="animate-blink">▋</span>
-                    executing
+                    executing wasm
                   </span>
                 )}
               </div>
               <div className="scroll-manga h-80 overflow-auto p-3">
                 {output === null && !running && (
                   <p className="font-tech text-[11px] text-[#FBF9F5]/30">
-                    {"// press Run to execute"}
+                    {tt("playground.pressRun", "// press Run to execute")}
                   </p>
                 )}
                 {running && (
                   <div className="space-y-1">
                     <p className="font-tech text-[11px] text-[#FF5500]">
-                      <span className="animate-blink">▋</span> planning query...
+                      <span className="animate-blink">▋</span> executing in sandboxed iframe...
                     </p>
                   </div>
                 )}
                 {output && !running && (
                   <div className="space-y-0.5">
+                    {output.some((o) => o.startsWith("✓")) && (
+                      <div id="pia-wasm-result" aria-hidden className="hidden" />
+                    )}
                     {output.map((line, i) => (
                       <p
                         key={i}
@@ -358,9 +439,11 @@ export function CodePlayground() {
                               ? "text-[#7ec7ff]"
                               : line.startsWith(">")
                                 ? "text-[#ffd479]"
-                                : line.startsWith("◆")
-                                  ? "text-[#FF5500] font-bold"
-                                  : "text-[#FBF9F5]/60"
+                                : line.startsWith("✗")
+                                  ? "text-[#ff7a7a]"
+                                  : line.startsWith("◆")
+                                    ? "text-[#FF5500] font-bold"
+                                    : "text-[#FBF9F5]/60"
                         )}
                       >
                         {line || "\u00A0"}
@@ -376,9 +459,10 @@ export function CodePlayground() {
         <Reveal direction="up" delay={120}>
           <p className="mt-4 border-l-4 border-[#FF5500] bg-[#FBF9F5] px-4 py-2 font-tech text-[11px] italic text-black/70  ">
             <span className="font-bold not-italic uppercase tracking-wider">Note:</span>{" "}
-            This is a pattern-matching simulator for demo purposes. For real execution,
-            install VantaDB with{" "}
-            <code className="font-mono">pip install vantadb-py</code> and run locally.
+            Each Run opens a fresh in-memory VantaDB instance (wasm32 engine) inside a
+            sandboxed iframe (<code className="font-mono">allow-scripts</code>). Data is
+            not persisted between runs — for browser persistence use{" "}
+            <code className="font-mono">await VantaDB.connect_persistent(path)</code>.
           </p>
         </Reveal>
       </div>

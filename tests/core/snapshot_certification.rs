@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Snapshot certification suite for VantaDB.
 //!
 //! Tests three critical stability properties:
@@ -24,7 +25,7 @@ use vantadb::node::{
 use vantadb::sdk::*;
 use vantadb::storage::{BackendKind, StorageEngine};
 use vantadb::wal::{WalReader, WalRecord, WalWriter};
-use vantadb::VantaEmbedded;
+use vantadb::Embedded;
 use zerocopy::FromBytes;
 
 // ═══════════════════════════════════════════════════════════════════
@@ -63,12 +64,12 @@ fn brute_force_search(query: &[f32], all_vectors: &[(u128, Vec<f32>)], top_k: us
     distances.into_iter().map(|(id, _)| id).collect()
 }
 
-fn str_value(value: &str) -> VantaValue {
-    VantaValue::String(value.to_string())
+fn str_value(value: &str) -> Value {
+    Value::String(value.to_string())
 }
 
-fn record(namespace: &str, key: &str, payload: &str, category: &str) -> VantaMemoryInput {
-    let mut input = VantaMemoryInput::new(namespace, key, payload);
+fn record(namespace: &str, key: &str, payload: &str, category: &str) -> MemoryInput {
+    let mut input = MemoryInput::new(namespace, key, payload);
     input
         .metadata
         .insert("category".to_string(), str_value(category));
@@ -115,12 +116,14 @@ fn hnsw_recall_snapshot_baseline() {
         let index = CPIndex::new_with_config(config);
 
         for (id, vec) in &dataset {
-            index.add(
-                *id,
-                FilterBitset::all_set(),
-                VectorRepresentations::Full(vec.clone()),
-                0,
-            );
+            index
+                .add(
+                    *id,
+                    FilterBitset::all_set(),
+                    VectorRepresentations::Full(vec.clone()),
+                    0,
+                )
+                .expect("test insert");
         }
 
         // First run: compute baseline recall
@@ -199,15 +202,18 @@ fn hnsw_recall_snapshot_deterministic_across_scales() {
         let queries = generate_vectors_seeded(n_queries, dims, seed + 1000);
 
         let mut recalls = Vec::new();
+        let mut run_lines = Vec::new();
         for run in 0..3 {
             let index = CPIndex::new_with_config(HnswConfig::default());
             for (id, vec) in &dataset {
-                index.add(
-                    *id,
-                    FilterBitset::all_set(),
-                    VectorRepresentations::Full(vec.clone()),
-                    0,
-                );
+                index
+                    .add(
+                        *id,
+                        FilterBitset::all_set(),
+                        VectorRepresentations::Full(vec.clone()),
+                        0,
+                    )
+                    .expect("test insert");
             }
             let mut total = 0.0;
             for query in &queries {
@@ -221,10 +227,15 @@ fn hnsw_recall_snapshot_deterministic_across_scales() {
                 total += hits as f64 / k as f64;
             }
             let recall = total / n_queries as f64;
-            TerminalReporter::info(&format!("  Run {}: Recall@10 = {:.4}", run + 1, recall));
+            // Banners ordenados: el reporting se agrupa tras la medición,
+            // no interleado con el Act bulk.
+            run_lines.push(format!("  Run {}: Recall@10 = {:.4}", run + 1, recall));
             recalls.push(recall);
         }
 
+        for line in &run_lines {
+            TerminalReporter::info(line);
+        }
         for i in 1..recalls.len() {
             assert!(
                 (recalls[0] - recalls[i]).abs() < 1e-12,
@@ -251,14 +262,14 @@ fn export_format_schema_version_roundtrip() {
         let source_dir = tempdir().expect("source tempdir");
         let export_path = source_dir.path().join("export.jsonl");
 
-        let source = VantaEmbedded::open(source_dir.path()).expect("open source");
+        let source = Embedded::open(source_dir.path()).expect("open source");
         source
             .put(record("ns/snap", "a", "snapshot payload", "test"))
             .expect("put");
         source.flush().expect("flush");
 
         source
-            .export_namespace(&export_path, "ns/snap")
+            .export_namespace(&export_path, "ns/snap", None)
             .expect("export");
 
         // Read the raw JSONL and verify schema_version field
@@ -284,7 +295,7 @@ fn export_format_schema_version_roundtrip() {
             let export2 = target_dir.path().join("round2.jsonl");
 
             {
-                let source = VantaEmbedded::open(source_dir.path()).expect("open source");
+                let source = Embedded::open(source_dir.path()).expect("open source");
                 source
                     .put(record("ns/rnd", "k1", "round trip alpha", "cat-a"))
                     .expect("put k1");
@@ -296,7 +307,7 @@ fn export_format_schema_version_roundtrip() {
             }
 
             {
-                let target = VantaEmbedded::open(target_dir.path()).expect("open target");
+                let target = Embedded::open(target_dir.path()).expect("open target");
                 let import = target.import_file(&export1).expect("import");
                 assert_eq!(import.inserted, 2);
                 assert_eq!(import.errors, 0);
@@ -332,14 +343,14 @@ fn export_format_updates_existing_records_version_tracking() {
         let target_dir = tempdir().expect("target tempdir");
         let export_path = source_dir.path().join("update.jsonl");
 
-        let source = VantaEmbedded::open(source_dir.path()).expect("open source");
+        let source = Embedded::open(source_dir.path()).expect("open source");
         source
             .put(record("ns/upd", "a", "original payload", "test"))
             .expect("put original");
         source.flush().expect("flush");
         source.export_all(&export_path).expect("export");
 
-        let target = VantaEmbedded::open(target_dir.path()).expect("open target");
+        let target = Embedded::open(target_dir.path()).expect("open target");
         target
             .put(record("ns/upd", "a", "stale payload", "test"))
             .expect("seed stale");
@@ -365,53 +376,47 @@ fn export_format_preserves_all_record_fields() {
     TerminalReporter::suite_banner("EXPORT FORMAT FIELD FIDELITY", 1);
     let mut harness = VantaHarness::new("EXPORT FIELD FIDELITY");
 
-    harness.execute(
-        "All VantaMemoryExportLine fields survive round-trip",
-        || {
-            let dir = tempdir().expect("tempdir");
-            let export_path = dir.path().join("fidelity.jsonl");
+    harness.execute("All MemoryExportLine fields survive round-trip", || {
+        let dir = tempdir().expect("tempdir");
+        let export_path = dir.path().join("fidelity.jsonl");
 
-            let db = VantaEmbedded::open(dir.path()).expect("open");
-            let mut input = VantaMemoryInput::new("ns/fidelity", "key-f", "fidelity payload");
-            input
-                .metadata
-                .insert("int_field".to_string(), VantaValue::Int(42));
-            input
-                .metadata
-                .insert("float_field".to_string(), VantaValue::Float(2.72));
-            input
-                .metadata
-                .insert("bool_field".to_string(), VantaValue::Bool(true));
-            input.vector = Some(vec![0.5, 0.5, 0.5]);
-            input.ttl_ms = Some(86400000);
-            db.put(input).expect("put");
-            db.flush().expect("flush");
+        let db = Embedded::open(dir.path()).expect("open");
+        let mut input = MemoryInput::new("ns/fidelity", "key-f", "fidelity payload");
+        input
+            .metadata
+            .insert("int_field".to_string(), Value::Int(42));
+        input
+            .metadata
+            .insert("float_field".to_string(), Value::Float(2.72));
+        input
+            .metadata
+            .insert("bool_field".to_string(), Value::Bool(true));
+        input.vector = Some(vec![0.5, 0.5, 0.5]);
+        input.ttl_ms = Some(86400000);
+        db.put(input).expect("put");
+        db.flush().expect("flush");
 
-            db.export_all(&export_path).expect("export");
+        db.export_all(&export_path).expect("export");
 
-            let restore_dir = tempdir().expect("restore dir");
-            let restored = VantaEmbedded::open(restore_dir.path()).expect("open restored");
-            restored.import_file(&export_path).expect("import");
+        let restore_dir = tempdir().expect("restore dir");
+        let restored = Embedded::open(restore_dir.path()).expect("open restored");
+        restored.import_file(&export_path).expect("import");
 
-            let record = restored
-                .get("ns/fidelity", "key-f")
-                .expect("get")
-                .expect("record");
-            assert_eq!(record.payload, "fidelity payload");
-            assert_eq!(record.metadata.get("int_field"), Some(&VantaValue::Int(42)));
-            assert_eq!(
-                record.metadata.get("float_field"),
-                Some(&VantaValue::Float(2.72))
-            );
-            assert_eq!(
-                record.metadata.get("bool_field"),
-                Some(&VantaValue::Bool(true))
-            );
-            assert_eq!(record.vector, Some(vec![0.5, 0.5, 0.5]));
+        let record = restored
+            .get("ns/fidelity", "key-f")
+            .expect("get")
+            .expect("record");
+        assert_eq!(record.payload, "fidelity payload");
+        assert_eq!(record.metadata.get("int_field"), Some(&Value::Int(42)));
+        assert_eq!(
+            record.metadata.get("float_field"),
+            Some(&Value::Float(2.72))
+        );
+        assert_eq!(record.metadata.get("bool_field"), Some(&Value::Bool(true)));
+        assert_eq!(record.vector, Some(vec![0.5, 0.5, 0.5]));
 
-            TerminalReporter::success("All export line fields survive round-trip.");
-        },
-    );
+        TerminalReporter::success("All export line fields survive round-trip.");
+    });
 }
 
 #[test]
@@ -432,10 +437,12 @@ fn export_format_empty_lines_skipped() {
         let content = format!("{line_a}\n\n\n{line_b}\n\n{line_c}\n");
         fs::write(&export_path, &content).expect("write mixed jsonl");
 
-        let target = VantaEmbedded::open(target_dir.path()).expect("open target");
+        let target = Embedded::open(target_dir.path()).expect("open target");
         let import = target.import_file(&export_path).expect("import");
         assert_eq!(import.inserted, 3);
-        assert_eq!(import.skipped, 4);
+        // str::lines() yields 3 blank lines (two between a–b, one between
+        // b–c); the trailing newline after line_c is not a blank line.
+        assert_eq!(import.skipped, 3);
         assert_eq!(import.errors, 0);
 
         TerminalReporter::success("Empty lines correctly skipped in import.");
@@ -603,7 +610,7 @@ fn wal_replay_recovers_from_known_wal() {
             let dir = tempdir().expect("tempdir");
             let db_path = dir.path().to_str().unwrap();
 
-            let config = vantadb::config::VantaConfig {
+            let config = vantadb::config::Config {
                 backend_kind: vantadb::storage::BackendKind::Fjall,
                 ..Default::default()
             };
@@ -635,18 +642,9 @@ fn wal_replay_recovers_from_known_wal() {
                 )
                 .expect("open engine again");
                 let hnsw = storage.hnsw.load();
-                assert!(
-                    hnsw.nodes.contains_key(&101),
-                    "WAL replay must recover node 101"
-                );
-                assert!(
-                    hnsw.nodes.contains_key(&102),
-                    "WAL replay must recover node 102"
-                );
-                assert!(
-                    hnsw.nodes.contains_key(&103),
-                    "WAL replay must recover node 103"
-                );
+                assert!(hnsw.contains_node(101), "WAL replay must recover node 101");
+                assert!(hnsw.contains_node(102), "WAL replay must recover node 102");
+                assert!(hnsw.contains_node(103), "WAL replay must recover node 103");
             }
 
             TerminalReporter::success("WAL replay recovers all 3 seeded nodes.");
@@ -687,6 +685,8 @@ fn wal_replay_recovers_from_known_wal() {
                         WalRecord::Delete { id } => *id,
                         WalRecord::Checkpoint { node_count, .. } => *node_count as u128,
                         WalRecord::Begin(_) | WalRecord::Commit(_) | WalRecord::Abort(_) => 0,
+                        // WAL v2 (RES-01): Prepare is a phase-1 marker, no payload id.
+                        WalRecord::Prepare { .. } => 0,
                     };
                     recovered.push((rec, id));
                     Ok(())
@@ -778,7 +778,7 @@ fn wal_postcard_serialization_deterministic() {
 
 /// Helper: open a StorageEngine with Fjall backend in the given temporary directory.
 fn open_vf_engine(path: &std::path::Path) -> StorageEngine {
-    let config = vantadb::config::VantaConfig {
+    let config = vantadb::config::Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -786,9 +786,13 @@ fn open_vf_engine(path: &std::path::Path) -> StorageEngine {
         .expect("open StorageEngine")
 }
 
-/// Path to the VantaFile inside a storage engine's data directory.
+/// Path to the File inside a storage engine's data directory.
+///
+/// The LSM layout names the primary segment `vstore_L0.vanta` (the legacy
+/// `vector_store.vanta` is migrated on open); small engines write every node
+/// to L0, so this is the file that holds the raw node headers.
 fn vf_path(dir: &std::path::Path) -> std::path::PathBuf {
-    dir.join("data").join("vector_store.vanta")
+    dir.join("data").join("vstore_L0.vanta")
 }
 
 /// Deterministic 4-dimensional vector from a seed integer.
@@ -802,67 +806,64 @@ fn vantafile_serialization_determinism() {
     TerminalReporter::suite_banner("VANTAFILE SERIALIZATION DETERMINISM", 1);
     let mut harness = VantaHarness::new("VANTAFILE DETERMINISM");
 
-    harness.execute(
-        "VantaFile bytes are deterministic for identical input",
-        || {
-            let dir1 = tempdir().expect("tempdir1");
-            let dir2 = tempdir().expect("tempdir2");
+    harness.execute("File bytes are deterministic for identical input", || {
+        let dir1 = tempdir().expect("tempdir1");
+        let dir2 = tempdir().expect("tempdir2");
 
-            let nodes: Vec<UnifiedNode> = (0..8)
-                .map(|i| UnifiedNode::with_vector(i as u128, tiny_vec(i)))
-                .collect();
+        let nodes: Vec<UnifiedNode> = (0..8)
+            .map(|i| UnifiedNode::with_vector(i as u128, tiny_vec(i)))
+            .collect();
 
-            // Write to dir1
-            {
-                let engine = open_vf_engine(dir1.path());
-                for node in &nodes {
-                    engine.insert(node).expect("insert");
-                }
-                engine.flush().expect("flush");
+        // Write to dir1
+        {
+            let engine = open_vf_engine(dir1.path());
+            for node in &nodes {
+                engine.insert(node).expect("insert");
             }
+            engine.flush().expect("flush");
+        }
 
-            // Write to dir2
-            {
-                let engine = open_vf_engine(dir2.path());
-                for node in &nodes {
-                    engine.insert(node).expect("insert");
-                }
-                engine.flush().expect("flush");
+        // Write to dir2
+        {
+            let engine = open_vf_engine(dir2.path());
+            for node in &nodes {
+                engine.insert(node).expect("insert");
             }
+            engine.flush().expect("flush");
+        }
 
-            let bytes1 = std::fs::read(vf_path(dir1.path())).expect("read vfile1");
-            let bytes2 = std::fs::read(vf_path(dir2.path())).expect("read vfile2");
+        let bytes1 = std::fs::read(vf_path(dir1.path())).expect("read vfile1");
+        let bytes2 = std::fs::read(vf_path(dir2.path())).expect("read vfile2");
 
-            assert_eq!(
-                bytes1.len(),
-                bytes2.len(),
-                "VantaFile sizes must match for identical inputs"
-            );
+        assert_eq!(
+            bytes1.len(),
+            bytes2.len(),
+            "File sizes must match for identical inputs"
+        );
 
-            // Skip the first 16 bytes (VantaHeader: magic + version + timestamp).
-            // The write-cursor at bytes 16..24 and all subsequent node data
-            // must be byte-identical.
-            assert_eq!(
-                bytes1[16..],
-                bytes2[16..],
-                "VantaFile data after header must be deterministic"
-            );
+        // Skip the first 16 bytes (VantaHeader: magic + version + timestamp).
+        // The write-cursor at bytes 16..24 and all subsequent node data
+        // must be byte-identical.
+        assert_eq!(
+            bytes1[16..],
+            bytes2[16..],
+            "File data after header must be deterministic"
+        );
 
-            // Verify both engines can read back the same data
-            {
-                let engine = open_vf_engine(dir1.path());
-                for i in 0..8 {
-                    let got = engine
-                        .get(i as u128)
-                        .expect("get")
-                        .unwrap_or_else(|| panic!("node {i} must be readable"));
-                    assert_eq!(got.vector.to_f32().unwrap(), tiny_vec(i as u64));
-                }
+        // Verify both engines can read back the same data
+        {
+            let engine = open_vf_engine(dir1.path());
+            for i in 0..8 {
+                let got = engine
+                    .get(i as u128)
+                    .expect("get")
+                    .unwrap_or_else(|| panic!("node {i} must be readable"));
+                assert_eq!(got.vector.to_f32().unwrap(), tiny_vec(i as u64));
             }
+        }
 
-            TerminalReporter::success("VantaFile serialization is deterministic.");
-        },
-    );
+        TerminalReporter::success("File serialization is deterministic.");
+    });
 }
 
 #[test]
@@ -876,7 +877,7 @@ fn vantafile_mixed_representations_roundtrip() {
             let dir = tempdir().expect("tempdir");
             let engine = open_vf_engine(dir.path());
 
-            // Node 0: Full(f32) vector — persisted in VantaFile
+            // Node 0: Full(f32) vector — persisted in File
             let full_data = vec![0.25, 0.50, 0.75, 1.00];
             let mut node_full = UnifiedNode::with_vector(100, full_data.clone());
             node_full
@@ -884,7 +885,7 @@ fn vantafile_mixed_representations_roundtrip() {
                 .insert("type".into(), FieldValue::String("full".into()));
             engine.insert(&node_full).expect("insert full");
 
-            // Node 1: SQ8(i8[], scale) vector — NOT persisted in VantaFile (vec_len=0)
+            // Node 1: SQ8(i8[], scale) vector — NOT persisted in File (vec_len=0)
             let mut node_sq8 = UnifiedNode::new(200);
             node_sq8.vector = VectorRepresentations::SQ8(Box::new([10i8, -20i8, 30i8, -40i8]), 2.0);
             node_sq8
@@ -912,7 +913,7 @@ fn vantafile_mixed_representations_roundtrip() {
             );
 
             // Read back SQ8 node — metadata survives even though
-            // VantaFile stores vec_len=0 for non-Full vectors.
+            // File stores vec_len=0 for non-Full vectors.
             let got_sq8 = engine.get(200).expect("get sq8").expect("found sq8");
             assert_eq!(
                 got_sq8.get_field("type").and_then(|v| v.as_str()),
@@ -1012,7 +1013,10 @@ fn vantafile_tombstone_persistence() {
                 let engine = open_vf_engine(dir.path());
                 for i in 0..3 {
                     engine
-                        .insert(&UnifiedNode::with_vector(i as u128, vec![i as f32; 4]))
+                        .insert(&UnifiedNode::with_vector(
+                            i as u128,
+                            vec![i as f32 + 1.0; 4],
+                        ))
                         .expect("insert");
                 }
                 // All 3 visible
@@ -1027,7 +1031,7 @@ fn vantafile_tombstone_persistence() {
                 assert!(engine.get(1).expect("get 1 after").is_none());
                 assert!(engine.get(2).expect("get 2 after").is_some());
 
-                // Verify raw VantaFile has tombstone flag set for node 1
+                // Verify raw File has tombstone flag set for node 1
                 let bytes = std::fs::read(vf_path(dir.path())).expect("read vfile");
                 // Node layout: header(64) + pad-aligned vector per node
                 // Node 0: offset=64, vec_len=4f32=16B → cursor = (64+64+16+63)&!63 = 192
@@ -1050,7 +1054,7 @@ fn vantafile_tombstone_persistence() {
                 );
             }
 
-            // Phase 2: reopen — tombstone persisted in VantaFile
+            // Phase 2: reopen — tombstone persisted in File
             {
                 let engine = open_vf_engine(dir.path());
                 assert!(engine.get(0).expect("get 0 reopen").is_some());
@@ -1077,14 +1081,14 @@ fn vantafile_export_golden_file() {
             let dir = tempdir().expect("tempdir");
             let export_path = dir.path().join("golden.jsonl");
 
-            let db = VantaEmbedded::open(dir.path()).expect("open");
-            let mut input = VantaMemoryInput::new("ns/golden", "golden-key", "golden payload");
+            let db = Embedded::open(dir.path()).expect("open");
+            let mut input = MemoryInput::new("ns/golden", "golden-key", "golden payload");
             input
                 .metadata
-                .insert("score".to_string(), VantaValue::Float(99.5));
+                .insert("score".to_string(), Value::Float(99.5));
             input
                 .metadata
-                .insert("active".to_string(), VantaValue::Bool(true));
+                .insert("active".to_string(), Value::Bool(true));
             input.vector = Some(vec![0.1, 0.2, 0.3, 0.4]);
             db.put(input).expect("put");
             db.flush().expect("flush");
@@ -1106,7 +1110,8 @@ fn vantafile_export_golden_file() {
             assert_eq!(parsed["payload"].as_str(), Some("golden payload"));
             assert!(parsed["created_at_ms"].as_u64().unwrap_or(0) > 0);
             assert!(parsed["updated_at_ms"].as_u64().unwrap_or(0) > 0);
-            assert_eq!(parsed["version"].as_u64(), Some(0));
+            // putBatch versioning (c9188639) starts new records at version 1.
+            assert_eq!(parsed["version"].as_u64(), Some(1));
             assert!(parsed["expires_at_ms"].is_null());
             assert_eq!(
                 parsed["vector"].as_array().map(|v| v.len()),
@@ -1118,14 +1123,15 @@ fn vantafile_export_golden_file() {
                 "Vector[0] must be 0.1"
             );
 
-            // metadata sub-object
+            // metadata sub-object — Value serializes with its variant tag
+            // (serde enum), e.g. {"Float":99.5} / {"Bool":true}.
             let meta = &parsed["metadata"];
-            assert_eq!(meta["score"].as_f64(), Some(99.5));
-            assert_eq!(meta["active"].as_bool(), Some(true));
+            assert_eq!(meta["score"]["Float"].as_f64(), Some(99.5));
+            assert_eq!(meta["active"]["Bool"].as_bool(), Some(true));
 
             // Round-trip: import into fresh DB
             let restore_dir = tempdir().expect("restore dir");
-            let restored = VantaEmbedded::open(restore_dir.path()).expect("open restored");
+            let restored = Embedded::open(restore_dir.path()).expect("open restored");
             let import = restored.import_file(&export_path).expect("import");
             assert_eq!(import.inserted, 1);
             assert_eq!(import.errors, 0);
@@ -1135,11 +1141,11 @@ fn vantafile_export_golden_file() {
                 .expect("get")
                 .expect("record");
             assert_eq!(record.payload, "golden payload");
-            assert_eq!(record.metadata.get("score"), Some(&VantaValue::Float(99.5)));
-            assert_eq!(record.metadata.get("active"), Some(&VantaValue::Bool(true)));
+            assert_eq!(record.metadata.get("score"), Some(&Value::Float(99.5)));
+            assert_eq!(record.metadata.get("active"), Some(&Value::Bool(true)));
             assert_eq!(record.vector, Some(vec![0.1, 0.2, 0.3, 0.4]));
 
-            TerminalReporter::success("VantaFile export golden file structure certified.");
+            TerminalReporter::success("File export golden file structure certified.");
         },
     );
 }
@@ -1148,30 +1154,31 @@ fn vantafile_export_golden_file() {
 // SECTION 5: HARD-LINK FILESYSTEM SNAPSHOT TESTS
 // ═══════════════════════════════════════════════════════════════════
 
-/// Helper: seed a VantaEmbedded with some test records.
-fn seed_snapshot_data(db: &VantaEmbedded) {
+/// Helper: seed an Embedded with some test records.
+fn seed_snapshot_data(db: &Embedded) {
     for i in 0..5 {
-        let mut input =
-            VantaMemoryInput::new("ns/snap", format!("key-{i}"), format!("payload-{i}"));
+        let mut input = MemoryInput::new("ns/snap", format!("key-{i}"), format!("payload-{i}"));
         input.vector = Some(vec![i as f32, 0.0, 0.0]);
         db.put(input).expect("seed put");
     }
     db.flush().expect("seed flush");
 }
 
-/// Helper: count files in a directory (non-recursive).
+/// Helper: count files in a directory (recursive).
 fn count_files(path: &std::path::Path) -> usize {
     if !path.exists() {
         return 0;
     }
-    std::fs::read_dir(path)
-        .map(|entries| {
-            entries
-                .filter_map(|e| e.ok())
-                .filter(|e| e.file_type().map(|t| t.is_file()).unwrap_or(false))
-                .count()
-        })
-        .unwrap_or(0)
+    let mut total = 0;
+    for entry in std::fs::read_dir(path).map_or(vec![], |e| e.flatten().collect()) {
+        let Ok(ft) = entry.file_type() else { continue };
+        if ft.is_file() {
+            total += 1;
+        } else if ft.is_dir() {
+            total += count_files(&entry.path());
+        }
+    }
+    total
 }
 
 #[test]
@@ -1183,7 +1190,7 @@ fn test_hardlink_snapshot_instant() {
         "Snapshot creates all data files under snapshots/<name>",
         || {
             let dir = tempdir().expect("tempdir");
-            let db = VantaEmbedded::open(dir.path()).expect("open db");
+            let db = Embedded::open(dir.path()).expect("open db");
             seed_snapshot_data(&db);
 
             let start = Instant::now();
@@ -1222,10 +1229,10 @@ fn test_hardlink_snapshot_independence() {
         "Modifying original data after snapshot leaves snapshot unchanged",
         || {
             let dir = tempdir().expect("tempdir");
-            let db = VantaEmbedded::open(dir.path()).expect("open db");
+            let db = Embedded::open(dir.path()).expect("open db");
 
             // Seed original data
-            let mut input = VantaMemoryInput::new("ns/indep", "key-a", "original payload");
+            let mut input = MemoryInput::new("ns/indep", "key-a", "original payload");
             input.vector = Some(vec![1.0, 0.0, 0.0]);
             db.put(input).expect("put original");
             db.flush().expect("flush original");
@@ -1234,7 +1241,7 @@ fn test_hardlink_snapshot_independence() {
             let snap = db.create_snapshot("pre-modify").expect("create snapshot");
 
             // Modify the original data
-            let mut input2 = VantaMemoryInput::new("ns/indep", "key-a", "modified payload");
+            let mut input2 = MemoryInput::new("ns/indep", "key-a", "modified payload");
             input2.vector = Some(vec![99.0, 0.0, 0.0]);
             db.put(input2).expect("put modified");
             db.flush().expect("flush modified");
@@ -1247,7 +1254,7 @@ fn test_hardlink_snapshot_independence() {
 
             // Open a fresh DB pointing to the snapshot directory to verify
             // the snapshot contains the original state
-            let snap_db = VantaEmbedded::open(&snap.path).expect("open snapshot as db");
+            let snap_db = Embedded::open(&snap.path).expect("open snapshot as db");
             let got = snap_db.get("ns/indep", "key-a").expect("get from snapshot");
             assert_eq!(
                 got.map(|r| r.payload),
@@ -1267,7 +1274,7 @@ fn test_hardlink_snapshot_multiple() {
 
     harness.execute("Multiple snapshots are isolated from each other", || {
         let dir = tempdir().expect("tempdir");
-        let db = VantaEmbedded::open(dir.path()).expect("open db");
+        let db = Embedded::open(dir.path()).expect("open db");
 
         // Phase 1: seed data and snapshot
         seed_snapshot_data(&db);
@@ -1276,7 +1283,7 @@ fn test_hardlink_snapshot_multiple() {
 
         // Phase 2: add more data and snapshot again
         for i in 5..10 {
-            let mut input = VantaMemoryInput::new("ns/snap", format!("key-{i}"), format!("payload-{i}"));
+            let mut input = MemoryInput::new("ns/snap", format!("key-{i}"), format!("payload-{i}"));
             input.vector = Some(vec![i as f32, 0.0, 0.0]);
             db.put(input).expect("put phase 2");
         }
@@ -1305,4 +1312,252 @@ fn test_hardlink_snapshot_multiple() {
             "All 3 snapshots isolated: phase-1 ({count1} files), phase-2 ({count2} files), phase-3 ({count3} files)",
         ));
     });
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION: FIND-25 — SNAPSHOT CONSISTENCY UNDER CONCURRENT WRITES
+// ═══════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_snapshot_consistent_under_concurrent_writes() {
+    TerminalReporter::suite_banner("SNAPSHOT CONSISTENCY UNDER CONCURRENT WRITES (FIND-25)", 1);
+    let mut harness = VantaHarness::new("SNAPSHOT CONSISTENCY UNDER CONCURRENT WRITES");
+
+    harness.execute(
+        "Snapshot taken during active writes reopens with a consistent node set",
+        || {
+            let dir = tempdir().expect("tempdir");
+            let db = Embedded::open(dir.path()).expect("open db");
+
+            // Baseline: committed + flushed BEFORE the snapshot. Every one of
+            // these nodes MUST appear in the reopened snapshot.
+            const BASELINE: usize = 20;
+            for i in 0..BASELINE {
+                let mut input = MemoryInput::new("ns/conc", format!("base-{i}"), format!("payload-base-{i}"));
+                input.vector = Some(vec![i as f32, 0.0, 0.0]);
+                db.put(input).expect("put baseline");
+            }
+            db.flush().expect("flush baseline");
+
+            // Writers hammer puts while the main thread snapshots. Writers are
+            // NOT flushed, so whether their nodes land in the snapshot depends
+            // on the quiesce point — but whatever lands must be intact.
+            const WRITERS: usize = 4;
+            const PER_WRITER: usize = 25;
+            let stop = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+            let mut handles = Vec::new();
+            for t in 0..WRITERS {
+                let db_clone = db.clone();
+                let stop = stop.clone();
+                handles.push(std::thread::spawn(move || {
+                    for i in 0..PER_WRITER {
+                        if stop.load(std::sync::atomic::Ordering::Relaxed) {
+                            break;
+                        }
+                        let key = format!("w{t}-{i}");
+                        let mut input =
+                            MemoryInput::new("ns/conc", key.clone(), format!("payload-{key}"));
+                        input.vector = Some(vec![100.0 + i as f32, 0.0, 0.0]);
+                        // Writes may transiently fail under snapshot lock
+                        // contention — that's allowed; corruption is not.
+                        let _ = db_clone.put(input);
+                    }
+                }));
+            }
+
+            let snap = db.create_snapshot("concurrent").expect("create snapshot");
+            stop.store(true, std::sync::atomic::Ordering::Relaxed);
+            for h in handles {
+                h.join().expect("writer thread panicked");
+            }
+
+            // Reopen the snapshot as an independent DB and verify consistency:
+            // every retrieved payload is exact (no torn records) and the whole
+            // flushed baseline survived.
+            let snap_db = Embedded::open(&snap.path).expect("open snapshot as db");
+            let mut found_baseline = 0;
+            for i in 0..BASELINE {
+                let got = snap_db.get("ns/conc", &format!("base-{i}")).expect("get baseline from snapshot");
+                match got {
+                    Some(r) => {
+                        assert_eq!(
+                            r.payload,
+                            format!("payload-base-{i}"),
+                            "torn snapshot: baseline node base-{i} has wrong payload"
+                        );
+                        found_baseline += 1;
+                    }
+                    None => panic!("torn snapshot: flushed baseline node base-{i} missing"),
+                }
+            }
+
+            // Writer nodes present in the snapshot must have exact payloads.
+            let mut found_writer_nodes = 0;
+            for t in 0..WRITERS {
+                for i in 0..PER_WRITER {
+                    let key = format!("w{t}-{i}");
+                    if let Some(r) = snap_db.get("ns/conc", &key).expect("get writer node") {
+                        assert_eq!(
+                            r.payload,
+                            format!("payload-{key}"),
+                            "torn snapshot: writer node {key} has wrong payload"
+                        );
+                        found_writer_nodes += 1;
+                    }
+                }
+            }
+
+            // The snapshot dir must not recursively contain its own snapshots/
+            // subtree (recursion guard on the data_dir walk).
+            let nested = snap.path.join("data").join("snapshots");
+            assert!(
+                !nested.exists() || fs::read_dir(&nested).map(|d| d.count()).unwrap_or(0) == 0,
+                "snapshot must not nest its own snapshots/ directory"
+            );
+
+            TerminalReporter::success(&format!(
+                "Snapshot consistent: {found_baseline}/{BASELINE} baseline nodes, {found_writer_nodes} concurrent-writer nodes captured intact",
+            ));
+        },
+    );
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// SECTION 6: MCP-34b — PHYSICAL SNAPSHOT RESTORE
+// ═══════════════════════════════════════════════════════════════════
+
+#[test]
+fn test_snapshot_restore_roundtrip() {
+    TerminalReporter::suite_banner("SNAPSHOT RESTORE ROUNDTRIP (MCP-34b)", 1);
+    let mut harness = VantaHarness::new("SNAPSHOT RESTORE ROUNDTRIP");
+
+    harness.execute(
+        "snapshot → mutate → close → restore → reopen: pre-snapshot records back, post-snapshot gone",
+        || {
+            let dir = tempdir().expect("tempdir");
+            let db_path = dir.path();
+
+            // Phase 1: seed and snapshot the pre-mutation state.
+            // Phase 2: mutate AFTER the snapshot. The scoped drop releases the
+            // fs2 lock — the embedded exclusivity contract for restore.
+            {
+                let db = Embedded::open(db_path).expect("open db");
+                seed_snapshot_data(&db); // ns/snap key-0..key-4, payload-i
+
+                db.create_snapshot("restore-me").expect("create snapshot");
+
+                let mut post =
+                    MemoryInput::new("ns/snap", "post-snap", "added after snapshot");
+                post.vector = Some(vec![9.0, 0.0, 0.0]);
+                db.put(post).expect("put post-snapshot");
+                db.flush().expect("flush post-snapshot");
+                assert!(
+                    db.get("ns/snap", "post-snap")
+                        .expect("get live")
+                        .is_some(),
+                    "post-snapshot record must be live before restore"
+                );
+            }
+
+            // Phase 3: physical restore (no open handles).
+            vantadb::storage::StorageEngine::snapshot_restore(db_path, "restore-me")
+                .expect("snapshot_restore");
+
+            // Phase 4: reopen over the restored directory and assert.
+            let db2 = Embedded::open(db_path).expect("reopen restored db");
+            for i in 0..5 {
+                let got = db2
+                    .get("ns/snap", &format!("key-{i}"))
+                    .expect("get pre-snapshot key")
+                    .unwrap_or_else(|| panic!("pre-snapshot key-{i} must exist after restore"));
+                assert_eq!(
+                    got.payload,
+                    format!("payload-{i}"),
+                    "restored payload mismatch for key-{i}"
+                );
+            }
+            assert!(
+                db2.get("ns/snap", "post-snap")
+                    .expect("get post-snapshot key")
+                    .is_none(),
+                "record written after the snapshot must NOT survive restore"
+            );
+
+            // All snapshots survive the swap (they are moved back into the
+            // fresh data_dir before copy-back).
+            let names = db2.list_snapshots().expect("list snapshots");
+            assert!(
+                names.contains(&"restore-me".to_string()),
+                "snapshots must survive the restore swap: {names:?}"
+            );
+
+            TerminalReporter::success(
+                "Restore roundtrip certified: pre-snapshot state recovered, mutation reverted.",
+            );
+        },
+    );
+}
+
+#[test]
+fn test_snapshot_restore_rejects_unsafe_names() {
+    TerminalReporter::suite_banner("SNAPSHOT RESTORE NAME VALIDATION (MCP-34b)", 1);
+    let mut harness = VantaHarness::new("SNAPSHOT RESTORE NAME VALIDATION");
+
+    harness.execute(
+        "Path traversal / separators / empty names rejected; unknown name NotFound",
+        || {
+            let dir = tempdir().expect("tempdir");
+
+            for bad in ["", ".", "..", "../escape", "sub/dir", "back\\slash"] {
+                let res = vantadb::storage::StorageEngine::snapshot_restore(dir.path(), bad);
+                assert!(res.is_err(), "snapshot_restore must reject name {bad:?}");
+            }
+
+            // Valid identifier but nonexistent snapshot → NotFound, not a panic.
+            let res = vantadb::storage::StorageEngine::snapshot_restore(dir.path(), "no-such-snap");
+            let err = res.expect_err("nonexistent snapshot must fail");
+            assert!(
+                err.to_string().contains("no-such-snap"),
+                "error must identify the missing snapshot: {err}"
+            );
+
+            TerminalReporter::success("Snapshot name trust boundary enforced.");
+        },
+    );
+}
+
+#[cfg(feature = "failpoints")]
+#[test]
+fn test_snapshot_restore_failpoint_aborts_before_swap() {
+    TerminalReporter::suite_banner("SNAPSHOT RESTORE FAILPOINT (MCP-34b)", 1);
+    let mut harness = VantaHarness::new("SNAPSHOT RESTORE FAILPOINT");
+
+    harness.execute(
+        "snapshot_restore_fail makes restore error out without touching data_dir",
+        || {
+            let dir = tempdir().expect("tempdir");
+            let db_path = dir.path();
+
+            {
+                let db = Embedded::open(db_path).expect("open db");
+                seed_snapshot_data(&db);
+                db.create_snapshot("fp-snap").expect("create snapshot");
+            }
+
+            fail::cfg("snapshot_restore_fail", "return").expect("arm failpoint");
+            let res = StorageEngine::snapshot_restore(db_path, "fp-snap");
+            fail::cfg("snapshot_restore_fail", "off").expect("disarm failpoint");
+
+            assert!(res.is_err(), "armed failpoint must abort snapshot_restore");
+
+            // Nothing was displaced: original data_dir intact and usable.
+            let db2 = Embedded::open(db_path).expect("reopen after failed restore");
+            assert!(
+                db2.get("ns/snap", "key-0").expect("get").is_some(),
+                "original data must be untouched after failed restore"
+            );
+
+            TerminalReporter::success("Failpoint aborted restore cleanly; live data untouched.");
+        },
+    );
 }

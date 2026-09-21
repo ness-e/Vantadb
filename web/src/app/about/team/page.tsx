@@ -1,17 +1,14 @@
 "use client";
 
 import { ArrowRight, Github, User } from "lucide-react";
+import Image from "next/image";
 import { PageHeader, PageSection } from "@/components/vanta/page-header";
 import { Reveal } from "@/components/vanta/reveal";
 import { TEAM_MEMBERS, VANTA } from "@/components/vanta/vanta-data";
 import { useLanguage } from "@/lib/language-provider";
 
 export default function TeamPage() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader
@@ -40,7 +37,7 @@ export default function TeamPage() {
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
           {TEAM_MEMBERS.map((member, i) => (
             <Reveal key={i} direction="up" delay={i * 80} as="article">
-              <article className="press-lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5 shadow-[6px_6px_0_0_#000] transition-transform hover:shadow-[6px_6px_0_0_#FF5500]   ">
+              <article className="press--lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5 shadow-[6px_6px_0_0_#000] transition-transform hover:shadow-[6px_6px_0_0_#FF5500]   ">
                 <span className="absolute -left-2 -top-3 rotate-[-6deg] border-2 border-black bg-black px-2 py-0.5 font-display text-xs uppercase text-[#FF5500]   ">
                   0{i + 1}
                 </span>
@@ -50,9 +47,11 @@ export default function TeamPage() {
                   <div className="shrink-0">
                     {member.avatar ? (
                       <div className="relative h-20 w-20 overflow-hidden border-4 border-black bg-[#FF5500] shadow-[3px_3px_0_0_#000]  ">
-                        <img
+                        <Image
                           src={member.avatar}
                           alt={`Avatar of ${member.name}`}
+                          width={80}
+                          height={80}
                           className="h-full w-full object-cover"
                           loading="lazy"
                         />
@@ -75,7 +74,7 @@ export default function TeamPage() {
                     <h3 className="glitch-hover font-display text-xl uppercase leading-none text-black  sm:text-2xl">
                       {member.name}
                     </h3>
-                    <p className="mt-1 font-tech text-[10px] font-bold uppercase tracking-wider text-[#FF5500]">
+                    <p className="mt-1 font-tech text-[10px] font-bold uppercase tracking-wider text-black">
                       {tt(`aboutTeam.members.${i}.role`, member.role)}
                     </p>
                   </div>
@@ -100,7 +99,7 @@ export default function TeamPage() {
                       <ArrowRight className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
                     </a>
                   ) : (
-                    <div className="flex items-center justify-center gap-2 border-4 border-dashed border-black/30 px-3 py-2.5 font-tech text-[10px] font-bold uppercase tracking-wider text-black/40  ">
+                    <div className="flex items-center justify-center gap-2 border-4 border-dashed border-black/30 px-3 py-2.5 font-tech text-[10px] font-bold uppercase tracking-wider text-black/70  ">
                       <Github className="h-3.5 w-3.5" strokeWidth={2.5} aria-hidden />
                       {tt("aboutTeam.noGithub", "No GitHub — prefers nap time")}
                     </div>
@@ -128,7 +127,7 @@ export default function TeamPage() {
               href={VANTA.discord}
               target="_blank"
               rel="noopener noreferrer"
-              className="press-neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+              className="press--neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
             >
               {tt("aboutTeam.joinDiscord", "Join Discord")}
               <ArrowRight className="h-4 w-4" strokeWidth={2.5} aria-hidden />

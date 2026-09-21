@@ -5,8 +5,9 @@
 //!
 //! ## Usage
 //! ```rust
+//! use vantadb::config::LogFormat;
 //! use vantadb::console;
-//! console::init_logging();
+//! console::init_logging(LogFormat::Compact);
 //! console::print_banner();
 //! console::ok("RocksDB opened", Some("4 column families"));
 //! ```

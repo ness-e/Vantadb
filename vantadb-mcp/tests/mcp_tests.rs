@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 use serde_json::{json, Value};
 use std::sync::Arc;
 use std::thread;
@@ -19,10 +21,11 @@ fn setup_storage() -> (tempfile::TempDir, Arc<StorageEngine>) {
 
 #[test]
 fn test_mcp_initialize() {
-    let res = handle_initialize();
+    // Default (no params) → LATEST 2025-06-18
+    let res = handle_initialize(None);
     assert!(res.is_ok(), "handle_initialize should succeed");
     let val = res.unwrap();
-    assert_eq!(val["protocolVersion"], "2024-11-05");
+    assert_eq!(val["protocolVersion"], "2025-06-18");
     assert_eq!(
         val["serverInfo"]["name"],
         vantadb::metadata::MCP_SERVER_INFO_NAME
@@ -39,6 +42,41 @@ fn test_mcp_initialize() {
         val["capabilities"]["prompts"].is_object(),
         "capabilities.prompts should be an object"
     );
+    // FIND-103: recall-first instructions are part of the initialize contract.
+    let instructions = val["instructions"]
+        .as_str()
+        .expect("initialize must carry an `instructions` string (MCP 2025-06-18)");
+    assert!(
+        !instructions.is_empty(),
+        "initialize `instructions` must be non-empty"
+    );
+    assert!(
+        instructions.contains("memory_recall"),
+        "initialize `instructions` must state the recall-first policy: {instructions}"
+    );
+}
+
+#[test]
+fn test_mcp_initialize_negotiation() {
+    // Client asks 2024-11-05 → echo 2024-11-05 (backward compat)
+    let res_old = handle_initialize(Some(&json!({"protocolVersion": "2024-11-05"}))).unwrap();
+    assert_eq!(res_old["protocolVersion"], "2024-11-05");
+
+    // Client asks 2025-06-18 → echo 2025-06-18
+    let res_new = handle_initialize(Some(&json!({"protocolVersion": "2025-06-18"}))).unwrap();
+    assert_eq!(res_new["protocolVersion"], "2025-06-18");
+
+    // Unknown version → fall forward to latest
+    let res_unknown = handle_initialize(Some(&json!({"protocolVersion": "2099-01-01"}))).unwrap();
+    assert_eq!(res_unknown["protocolVersion"], "2025-06-18");
+
+    // Missing field → latest
+    let res_missing = handle_initialize(Some(&json!({}))).unwrap();
+    assert_eq!(res_missing["protocolVersion"], "2025-06-18");
+
+    // Non-string protocolVersion → latest (no panic)
+    let res_bad = handle_initialize(Some(&json!({"protocolVersion": 123}))).unwrap();
+    assert_eq!(res_bad["protocolVersion"], "2025-06-18");
 }
 
 #[test]
@@ -58,6 +96,10 @@ fn test_mcp_resources_list() {
     assert!(
         uris.contains(&"metrics://"),
         "resources should include metrics:// URI"
+    );
+    assert!(
+        uris.contains(&"schema://"),
+        "resources should include schema:// URI"
     );
 }
 
@@ -83,6 +125,61 @@ fn test_mcp_resources_read() {
     assert!(
         res_invalid.is_err(),
         "reading invalid URI should return an error"
+    );
+}
+
+#[test]
+fn test_mcp_resources_read_schema() {
+    let (_dir, storage) = setup_storage();
+    let cfg = vantadb_mcp::McpConfig::default();
+
+    let res = handle_resources_read(&Some(json!({"uri": "schema://"})), &storage, &cfg);
+    assert!(res.is_ok(), "reading schema:// should succeed");
+    let val = res.unwrap();
+    assert_eq!(val["contents"][0]["uri"], "schema://");
+    assert_eq!(val["contents"][0]["mimeType"], "application/json");
+    let text = val["contents"][0]["text"].as_str().unwrap();
+    let schema: Value = serde_json::from_str(text).expect("schema payload should be valid JSON");
+
+    // vector_index block: HNSW config + format version
+    let vector_index = &schema["vector_index"];
+    assert_eq!(vector_index["type"], "HNSW");
+    assert_eq!(
+        vector_index["format_version"],
+        vantadb::VECTOR_INDEX_VERSION,
+        "schema should report the compiled vector index format version"
+    );
+    let config = &vector_index["config"];
+    assert!(
+        config["m"].is_u64() && config["m"].as_u64().unwrap() > 0,
+        "HNSW config should expose m"
+    );
+    assert!(
+        config["ef_construction"].is_u64(),
+        "HNSW config should expose ef_construction"
+    );
+    assert!(
+        config["ef_search"].is_u64(),
+        "HNSW config should expose ef_search"
+    );
+    assert!(
+        config["distance_metric"].is_string(),
+        "HNSW config should expose distance_metric"
+    );
+
+    // text_index block: schema version + tokenizer
+    let text_index = &schema["text_index"];
+    assert!(
+        text_index["schema_version"].is_u64(),
+        "schema should expose text index schema version"
+    );
+    assert!(
+        text_index["tokenizer"]["name"].is_string(),
+        "schema should expose tokenizer name"
+    );
+    assert!(
+        text_index["tokenizer"]["version"].is_u64(),
+        "schema should expose tokenizer version"
     );
 }
 
@@ -141,6 +238,15 @@ fn test_mcp_prompts_get() {
     assert!(
         msg.contains("learning rust"),
         "search_memory prompt should include query 'learning rust'"
+    );
+    // FIND-103: recall-first workflow is part of the prompt contract.
+    assert!(
+        msg.contains("memory_recall"),
+        "search_memory prompt must state the recall-first workflow: {msg}"
+    );
+    assert!(
+        msg.contains("created_at_ms"),
+        "search_memory prompt must document the honest temporal path: {msg}"
     );
 
     // analyze_namespace prompt
@@ -217,7 +323,7 @@ fn test_mcp_prompts_get() {
 
 #[test]
 fn test_mcp_tools_list() {
-    let res = handle_tools_list();
+    let res = handle_tools_list(&McpConfig::default());
     assert!(res.is_ok(), "handle_tools_list should succeed");
     let val = res.unwrap();
     let tools = val["tools"].as_array().expect("Expected tools array");
@@ -245,8 +351,8 @@ fn test_mcp_tools_list() {
         "tools should include memory_list_namespaces"
     );
     assert!(
-        names.contains(&"query_lisp"),
-        "tools should include query_lisp"
+        names.contains(&"query_iql"),
+        "tools should include query_iql"
     );
     assert!(
         names.contains(&"search_semantic"),
@@ -255,6 +361,14 @@ fn test_mcp_tools_list() {
     assert!(
         names.contains(&"search_memory"),
         "tools should include search_memory"
+    );
+    assert!(
+        names.contains(&"memory_search"),
+        "tools should include memory_search (MEM-59)"
+    );
+    assert!(
+        names.contains(&"memory_recall"),
+        "tools should include memory_recall (MEM-59)"
     );
     assert!(
         names.contains(&"get_node_neighbors"),
@@ -267,6 +381,108 @@ fn test_mcp_tools_list() {
     assert!(
         names.contains(&"read_axioms"),
         "tools should include read_axioms"
+    );
+    assert!(
+        names.contains(&"write_axiom"),
+        "tools should include write_axiom"
+    );
+    assert!(
+        names.contains(&"delete_axiom"),
+        "tools should include delete_axiom"
+    );
+    for maintenance in ["purge_expired", "compact_wal", "flush", "compact_layout"] {
+        assert!(
+            names.contains(&maintenance),
+            "tools should include {maintenance}"
+        );
+    }
+}
+
+#[test]
+fn test_mcp_axiom_write_delete_round_trip_and_iron_intact() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    // Helper to parse the text content of a tool result as a JSON value.
+    fn text_of(res: Result<Value, Value>) -> Value {
+        let val = res.expect("tool call should succeed");
+        let text = val["content"][0]["text"].as_str().expect("text content");
+        serde_json::from_str(text).expect("parse JSON")
+    }
+
+    // Baseline: the 4 Iron Axioms, ids 1-4.
+    let read = Some(json!({"name": "read_axioms", "arguments": {}}));
+    let base = text_of(handle_tools_call(&read, &executor, &storage, &cfg));
+    let base_arr = base.as_array().unwrap();
+    assert_eq!(base_arr.len(), 4, "baseline has 4 Iron Axioms");
+    assert_eq!(base_arr[0]["id"], 1);
+    assert_eq!(base_arr[0]["name"], "Topological Axiom");
+
+    // write_axiom — upsert a new agent axiom.
+    let write = Some(json!({
+        "name": "write_axiom",
+        "arguments": {
+            "name": "NoMutation",
+            "description": "Memory records must not be mutated in place."
+        }
+    }));
+    let written = text_of(handle_tools_call(&write, &executor, &storage, &cfg));
+    assert_eq!(written["name"], "NoMutation");
+    assert_eq!(
+        written["description"],
+        "Memory records must not be mutated in place."
+    );
+    let new_id = written["id"].as_u64().expect("numeric id");
+    assert!(
+        new_id > 4,
+        "agent axiom id ({new_id}) is above the Iron Axioms (1-4)"
+    );
+
+    // read_axioms now includes the agent axiom AND the Iron Axioms intact.
+    let after = text_of(handle_tools_call(&read, &executor, &storage, &cfg));
+    let arr = after.as_array().unwrap();
+    assert_eq!(arr.len(), 5);
+    let ids: Vec<u64> = arr.iter().filter_map(|a| a["id"].as_u64()).collect();
+    for iron in 1..=4u64 {
+        assert!(ids.contains(&iron), "Iron Axiom id {iron} is intact");
+    }
+    assert!(arr.iter().any(|a| a["name"] == "NoMutation"));
+
+    // delete_axiom — removes only the agent axiom.
+    let del = Some(json!({"name": "delete_axiom", "arguments": {"name": "NoMutation"}}));
+    let deleted = text_of(handle_tools_call(&del, &executor, &storage, &cfg));
+    assert_eq!(deleted["deleted"], true);
+
+    // Back to baseline: only the 4 Iron Axioms remain.
+    let final_v = text_of(handle_tools_call(&read, &executor, &storage, &cfg));
+    assert_eq!(final_v.as_array().unwrap().len(), 4);
+
+    // Deleting an unknown axiom reports deleted:false without error.
+    let del_missing = Some(json!({"name": "delete_axiom", "arguments": {"name": "DoesNotExist"}}));
+    let missing = text_of(handle_tools_call(&del_missing, &executor, &storage, &cfg));
+    assert_eq!(missing["deleted"], false);
+}
+
+#[test]
+fn test_mcp_axiom_write_validation_errors() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    // Empty name → JSON-RPC Err (invalid_params).
+    let bad_name =
+        Some(json!({"name": "write_axiom", "arguments": {"name": "", "description": "x"}}));
+    let res = handle_tools_call(&bad_name, &executor, &storage, &cfg);
+    assert!(res.is_err(), "empty axiom name should be rejected");
+
+    // Empty/whitespace-only description → JSON-RPC Err.
+    let bad_desc =
+        Some(json!({"name": "write_axiom", "arguments": {"name": "A", "description": "   "}}));
+    let res = handle_tools_call(&bad_desc, &executor, &storage, &cfg);
+    assert!(
+        res.is_err(),
+        "whitespace-only description should be rejected"
     );
 }
 
@@ -406,7 +622,7 @@ fn test_mcp_tool_query_iql() {
 
     // Execute an INSERT via IQL syntax
     let iql_write = Some(json!({
-        "name": "query_lisp",
+        "name": "query_iql",
         "arguments": {
             "query": "INSERT NODE#999 TYPE TestNode { tier: \"Cold\" }"
         }
@@ -430,7 +646,7 @@ fn test_mcp_tool_query_iql() {
 
     // Execute a READ query via IQL syntax (FROM NODE#id)
     let iql_read = Some(json!({
-        "name": "query_lisp",
+        "name": "query_iql",
         "arguments": {
             "query": "FROM NODE#999"
         }
@@ -453,14 +669,119 @@ fn test_mcp_tool_query_iql() {
     );
 }
 
+/// MCP-27 + MCP-29: documents the chosen IQL semantics.
+///
+/// Memory records written via `memory_put` live as internal nodes with
+/// reserved `__vanta_*` fields and no `type` field. Since MCP-29 each
+/// namespace is exposed as an IQL table named by its sanitized form
+/// (`/` and `-` map to `_`, leading digit/dot gets a `_` prefix), so
+/// `SELECT * FROM <ns>` reaches the records — legacy records included,
+/// no migration. Graph nodes created via `INSERT NODE ... TYPE <Type>`
+/// keep working unchanged.
 #[test]
-fn test_mcp_query_lisp_sanitization() {
+fn test_query_iql_memory_namespaces_are_queryable_tables_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // 1) memory_put succeeds...
+    let put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "ProbeNs",
+            "key": "k1",
+            "payload": "hello world"
+        }
+    }));
+    let put_res = handle_tools_call(&put, &executor, &storage, &default_config());
+    assert!(put_res.is_ok(), "memory_put should succeed");
+    assert!(
+        put_res.unwrap()["isError"].is_null(),
+        "memory_put should not error"
+    );
+
+    // 2) ...and the namespace IS an IQL table now (MCP-29).
+    let scan_ns = Some(json!({
+        "name": "query_iql",
+        "arguments": { "query": "SELECT * FROM ProbeNs" }
+    }));
+    let res_ns = handle_tools_call(&scan_ns, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res_ns["isError"].is_null(),
+        "scanning a namespace should not error, got: {}",
+        res_ns["content"][0]["text"]
+    );
+    let ns_text = res_ns["content"][0]["text"].as_str().unwrap();
+    assert!(
+        ns_text.contains("k1") && ns_text.contains("hello world"),
+        "SELECT * FROM ProbeNs must return the memory record, got: {ns_text}"
+    );
+
+    // 2b) Namespace with `/` is reachable via its sanitized table name.
+    let put_slash = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "mmd/s1/history",
+            "key": "k2",
+            "payload": "slashed"
+        }
+    }));
+    let put_slash_res =
+        handle_tools_call(&put_slash, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        put_slash_res["isError"].is_null(),
+        "memory_put with slashed namespace should not error"
+    );
+    let scan_slash = Some(json!({
+        "name": "query_iql",
+        "arguments": { "query": "SELECT * FROM mmd_s1_history" }
+    }));
+    let res_slash = handle_tools_call(&scan_slash, &executor, &storage, &default_config()).unwrap();
+    assert!(res_slash["isError"].is_null());
+    let slash_text = res_slash["content"][0]["text"].as_str().unwrap();
+    assert!(
+        slash_text.contains("k2"),
+        "sanitized table must reach slashed namespace records, got: {slash_text}"
+    );
+
+    // 3) Graph-node round-trip keeps working end to end from the agent
+    //    channel: INSERT via query_iql → SELECT by TYPE returns the node.
+    let insert = Some(json!({
+        "name": "query_iql",
+        "arguments": {
+            "query": "INSERT NODE#777 TYPE ProbeType { label: \"graph node\" }"
+        }
+    }));
+    let ins_res = handle_tools_call(&insert, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        ins_res["isError"].is_null(),
+        "IQL INSERT should succeed, got: {}",
+        ins_res["content"][0]["text"]
+    );
+
+    let select = Some(json!({
+        "name": "query_iql",
+        "arguments": { "query": "SELECT * FROM ProbeType" }
+    }));
+    let sel_res = handle_tools_call(&select, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        sel_res["isError"].is_null(),
+        "typed SELECT should not error"
+    );
+    let text = sel_res["content"][0]["text"].as_str().unwrap();
+    assert!(
+        text.contains("777") && text.contains("ProbeType"),
+        "SELECT * FROM ProbeType should return the inserted node, got: {text}"
+    );
+}
+
+#[test]
+fn test_mcp_query_iql_sanitization() {
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
 
     // Test empty query rejection
     let empty_query = Some(json!({
-        "name": "query_lisp",
+        "name": "query_iql",
         "arguments": {
             "query": "   "
         }
@@ -473,7 +794,7 @@ fn test_mcp_query_lisp_sanitization() {
 
     // Test null byte injection rejection
     let null_byte_query = Some(json!({
-        "name": "query_lisp",
+        "name": "query_iql",
         "arguments": {
             "query": "FROM NODE#1\0; DROP TABLE"
         }
@@ -550,6 +871,522 @@ fn test_mcp_tool_search() {
     assert!(
         mem_val["isError"].is_null() || mem_val["content"][0]["text"].is_string(),
         "search_memory response should have no error or valid text content"
+    );
+}
+
+// ── MEM-02: search_profile passthrough + paridad IQL/API/MCP (D13/D19) ─────
+//
+// The MCP search_memory tool must behave EXACTLY like the native API for the
+// same SearchProfileConfig (same struct, same serde shape → passthrough) and
+// force the same retrieval channels the IQL PROFILE clause forces. Exact
+// score parity MCP↔IQL is NOT asserted: IQL text matching is a scan +
+// `text_contains_query` substring filter (src/physical_plan/filter.rs) while
+// the SDK uses BM25 postings (src/sdk/search/lexical.rs) — mechanically
+// different engines by design (planner.rs `ponytail:` note: IQL applies mode
+// only; rrf_k/candidate_k are SDK-side). Parity is asserted where the
+// channels are semantically comparable: exact passthrough MCP↔API, and
+// mode-driven channel selection identical in all three.
+
+fn hits_from_mcp_search(res: Value) -> Vec<(String, f32)> {
+    let text = res["content"][0]["text"]
+        .as_str()
+        .expect("search_memory text content");
+    let hits: Vec<Value> = serde_json::from_str(text).expect("hits JSON");
+    hits.iter()
+        .map(|h| {
+            let key = h["record"]["key"].as_str().unwrap_or_default().to_string();
+            let score = h["score"].as_f64().unwrap_or(0.0) as f32;
+            (key, score)
+        })
+        .collect()
+}
+
+fn error_text_from(res: Result<Value, Value>) -> String {
+    match res {
+        Ok(v) => v["content"][0]["text"]
+            .as_str()
+            .unwrap_or_default()
+            .to_string(),
+        Err(v) => v["message"].as_str().unwrap_or_default().to_string(),
+    }
+}
+
+#[test]
+fn test_search_profile_mcp_passthrough_parity_with_native() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Seed via the MCP memory_put path (same write pipeline as the SDK).
+    for (key, payload, vec) in [
+        ("a", "cat chases mouse", vec![1.0, 0.0, 0.0]),
+        ("b", "dog sleeps all day", vec![0.0, 1.0, 0.0]),
+        ("c", "cat food recipe", vec![0.5, 0.5, 0.0]),
+    ] {
+        let put_params = Some(json!({
+            "name": "memory_put",
+            "arguments": { "namespace": "parity_ns", "key": key, "payload": payload, "vector": vec }
+        }));
+        handle_tools_call(&put_params, &executor, &storage, &default_config()).unwrap();
+    }
+
+    // StorageEngine::open alone leaves the text_index state missing; rebuild
+    // so text queries work (AUD-044: "reopen writable or run rebuild_index").
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
+    embedded.rebuild_index().expect("text index build");
+
+    // Explicit profile → MCP and native API return IDENTICAL hits (keys + scores).
+    let search_params = Some(json!({
+        "name": "search_memory",
+        "arguments": {
+            "namespace": "parity_ns",
+            "text_query": "cat",
+            "query_vector": [0.9, 0.1, 0.0],
+            "top_k": 10,
+            "search_profile": { "mode": "hybrid", "rrf_k": 30, "candidate_k": 64 }
+        }
+    }));
+    let res = handle_tools_call(&search_params, &executor, &storage, &default_config()).unwrap();
+    let mcp_hits = hits_from_mcp_search(res);
+
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
+    embedded.rebuild_index().expect("text index build");
+
+    let native_req = vantadb::sdk::MemorySearchRequest {
+        namespace: "parity_ns".into(),
+        query_vector: vec![0.9, 0.1, 0.0],
+        text_query: Some("cat".into()),
+        top_k: 10,
+        search_profile: Some(vantadb::sdk::SearchProfileConfig {
+            mode: vantadb::sdk::SearchProfileMode::Hybrid,
+            rrf_k: Some(30),
+            candidate_k: Some(64),
+        }),
+        ..Default::default()
+    };
+    let native_hits = embedded.search(native_req).expect("native search");
+    let native: Vec<(String, f32)> = native_hits
+        .iter()
+        .map(|h| (h.record.key.clone(), h.score))
+        .collect();
+
+    assert_eq!(mcp_hits.len(), native.len(), "same hit count");
+    for (m, n) in mcp_hits.iter().zip(native.iter()) {
+        assert_eq!(m.0, n.0, "same key order");
+        assert!(
+            (m.1 - n.1).abs() < 1e-4,
+            "same score: MCP {} vs native {}",
+            m.1,
+            n.1
+        );
+    }
+
+    // No profile on both sides → identical defaults (MEM-01 constants).
+    let search_none = Some(json!({
+        "name": "search_memory",
+        "arguments": {
+            "namespace": "parity_ns",
+            "text_query": "cat",
+            "query_vector": [0.9, 0.1, 0.0],
+            "top_k": 10
+        }
+    }));
+    let res_none = handle_tools_call(&search_none, &executor, &storage, &default_config()).unwrap();
+    let mcp_none = hits_from_mcp_search(res_none);
+    let native_none_req = vantadb::sdk::MemorySearchRequest {
+        namespace: "parity_ns".into(),
+        query_vector: vec![0.9, 0.1, 0.0],
+        text_query: Some("cat".into()),
+        top_k: 10,
+        ..Default::default()
+    };
+    let native_none = embedded
+        .search(native_none_req)
+        .expect("native default search");
+    let native_none: Vec<(String, f32)> = native_none
+        .iter()
+        .map(|h| (h.record.key.clone(), h.score))
+        .collect();
+    assert_eq!(mcp_none, native_none, "no-profile parity");
+}
+
+#[test]
+fn test_search_profile_mode_force_channels() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Same dataset as the MEM-01 core test (src/sdk/search/tests.rs:968):
+    // the vector favors "b" but the text "cat" only matches "a".
+    for (key, payload, vec) in [
+        ("a", "cat chases mouse", vec![1.0, 0.0, 0.0]),
+        ("b", "dog sleeps all day", vec![0.0, 1.0, 0.0]),
+    ] {
+        let put_params = Some(json!({
+            "name": "memory_put",
+            "arguments": { "namespace": "mode_ns", "key": key, "payload": payload, "vector": vec }
+        }));
+        handle_tools_call(&put_params, &executor, &storage, &default_config()).unwrap();
+    }
+
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
+    embedded.rebuild_index().expect("text index build");
+
+    let search_with_mode = |mode: &str| {
+        handle_tools_call(
+            &Some(json!({
+                "name": "search_memory",
+                "arguments": {
+                    "namespace": "mode_ns",
+                    "text_query": "cat",
+                    "query_vector": [0.0, 1.0, 0.0],
+                    "top_k": 10,
+                    "search_profile": { "mode": mode }
+                }
+            })),
+            &executor,
+            &storage,
+            &default_config(),
+        )
+        .unwrap()
+    };
+
+    // keyword → lexical channel only: "a" (vector-only "b" excluded), matching
+    // the IQL PROFILE keyword channel selection (planner mode forcing).
+    let kw = hits_from_mcp_search(search_with_mode("keyword"));
+    let kw_keys: Vec<&str> = kw.iter().map(|(k, _)| k.as_str()).collect();
+    assert_eq!(
+        kw_keys,
+        vec!["a"],
+        "keyword mode must ignore the vector channel"
+    );
+
+    // vector → pure vector ordering ["b", "a"] — text ignored. Mirrors the
+    // MEM-01 core assertion (tests.rs:1041) and equals a vector-only search.
+    let vec_hits = hits_from_mcp_search(search_with_mode("vector"));
+    let vec_keys: Vec<&str> = vec_hits.iter().map(|(k, _)| k.as_str()).collect();
+    assert_eq!(
+        vec_keys,
+        vec!["b", "a"],
+        "vector mode: pure vector ordering"
+    );
+
+    // Control: same search without text_query must produce the same order.
+    let control = handle_tools_call(
+        &Some(json!({
+            "name": "search_memory",
+            "arguments": {
+                "namespace": "mode_ns",
+                "query_vector": [0.0, 1.0, 0.0],
+                "top_k": 10
+            }
+        })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap();
+    let control_hits = hits_from_mcp_search(control);
+    let control_keys: Vec<&str> = control_hits.iter().map(|(k, _)| k.as_str()).collect();
+    assert_eq!(
+        vec_keys, control_keys,
+        "mode Vector == vector-only puro (texto ignorado)"
+    );
+}
+
+#[test]
+fn test_search_profile_validation_errors() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let search_with = |profile: Value| {
+        handle_tools_call(
+            &Some(json!({
+                "name": "search_memory",
+                "arguments": { "namespace": "val_ns", "search_profile": profile }
+            })),
+            &executor,
+            &storage,
+            &default_config(),
+        )
+    };
+
+    // Unknown mode → serde enum error naming search_profile (no panic).
+    let text = error_text_from(search_with(json!({"mode": "bogus"})));
+    assert!(text.contains("search_profile"), "bad mode: {}", text);
+
+    // rrf_k = 0 → degenerate RRF fusion → rejected.
+    let text = error_text_from(search_with(json!({"rrf_k": 0})));
+    assert!(text.contains("rrf_k"), "rrf_k=0: {}", text);
+
+    // candidate_k over the budget → memory-inflation risk → rejected.
+    let text = error_text_from(search_with(json!({"candidate_k": 999_999})));
+    assert!(
+        text.contains("candidate_k"),
+        "candidate_k too big: {}",
+        text
+    );
+
+    // Wrong top-level type → clear error, not a panic.
+    let text = error_text_from(search_with(json!("hybrid")));
+    assert!(text.contains("object"), "non-object: {}", text);
+}
+
+// ── MCP-03: search_semantic.distance semantics ─────────────────────────────
+//
+// The `distance` field must be a real distance (lower = more similar), NOT the
+// raw cosine similarity the HNSW score carries. Identical vector → 0.0,
+// orthogonal vector → 1.0 (1 − cosine_sim). The conversion happens at the
+// handler serialization boundary (vantadb-mcp/src/handlers/tools.rs); the core
+// keeps its score semantics for other consumers (search_memory, WASM).
+
+#[test]
+fn test_mcp_search_semantic_distance_semantics() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Seed two records: one identical to the query, one orthogonal to it.
+    for (key, vec) in [
+        ("identical", vec![1.0, 0.0, 0.0]),
+        ("orthogonal", vec![0.0, 1.0, 0.0]),
+    ] {
+        let put_params = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "mcp03_ns",
+                "key": key,
+                "payload": format!("{} payload", key),
+                "vector": vec
+            }
+        }));
+        let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+        assert!(put_res.is_ok(), "seed {key} should succeed: {:?}", put_res);
+    }
+
+    let search_params = Some(json!({
+        "name": "search_semantic",
+        "arguments": { "vector": [1.0, 0.0, 0.0], "k": 2 }
+    }));
+    let res = handle_tools_call(&search_params, &executor, &storage, &default_config());
+    assert!(res.is_ok(), "search_semantic should succeed");
+    let val = res.unwrap();
+    assert!(
+        val["isError"].is_null(),
+        "search_semantic should not error: {:?}",
+        val
+    );
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let hits: Value = serde_json::from_str(text).expect("search_semantic response should be JSON");
+
+    let hits = hits
+        .as_array()
+        .expect("search_semantic should return an array");
+    assert_eq!(hits.len(), 2, "k=2 should return 2 hits");
+
+    // Every hit must expose id, distance, and node.
+    for hit in hits {
+        assert!(hit["id"].is_string(), "hit must expose id field: {hit}");
+        assert!(
+            hit["distance"].is_f64(),
+            "hit must expose distance field: {hit}"
+        );
+        assert!(hit["node"].is_object(), "hit must expose node field: {hit}");
+    }
+
+    // Identical vector → distance ≈ 0.0 under cosine (was 1.0 similarity).
+    let identical = &hits[0];
+    assert!(
+        (identical["distance"].as_f64().unwrap() - 0.0).abs() < 1e-4,
+        "identical vector must report distance≈0.0, got {:?}",
+        identical["distance"]
+    );
+
+    // Orthogonal vector → distance ≈ 1.0 (1 − 0 similarity).
+    let orthogonal = &hits[1];
+    assert!(
+        (orthogonal["distance"].as_f64().unwrap() - 1.0).abs() < 1e-4,
+        "orthogonal vector must report distance≈1.0, got {:?}",
+        orthogonal["distance"]
+    );
+
+    // Distances must be ascending: lower = more similar.
+    let dists: Vec<f64> = hits
+        .iter()
+        .map(|h| h["distance"].as_f64().unwrap())
+        .collect();
+    let mut sorted = dists.clone();
+    sorted.sort_by(|a, b| a.partial_cmp(b).expect("distances are finite"));
+    assert_eq!(dists, sorted, "distances must be ascending, got {dists:?}");
+}
+
+// ── MOD-11 (H4): search_semantic clamps k against config.max_top_k ─────────
+//
+// A giant k used to materialize the whole HNSW graph into memory. search_memory
+// already clamps (parse_search_request); search_semantic must behave the same.
+// With a config cap of 2, k=100 must return at most 2 hits.
+
+#[test]
+fn test_mcp_search_semantic_clamps_k() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Seed three vectors so an unclamped k=100 would return all three.
+    for (key, vec) in [
+        ("a", vec![1.0, 0.0, 0.0]),
+        ("b", vec![0.0, 1.0, 0.0]),
+        ("c", vec![0.0, 0.0, 1.0]),
+    ] {
+        let put_params = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "clamp_ns",
+                "key": key,
+                "payload": format!("{key} payload"),
+                "vector": vec
+            }
+        }));
+        let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+        assert!(put_res.is_ok(), "seed {key} should succeed: {:?}", put_res);
+    }
+
+    // Cap max_top_k at 2 via a custom config.
+    let mut cfg = default_config();
+    cfg.max_top_k = 2;
+
+    let search_params = Some(json!({
+        "name": "search_semantic",
+        "arguments": { "vector": [1.0, 0.0, 0.0], "k": 100 }
+    }));
+    let res = handle_tools_call(&search_params, &executor, &storage, &cfg);
+    assert!(res.is_ok(), "search_semantic should succeed");
+    let val = res.unwrap();
+    assert!(
+        val["isError"].is_null(),
+        "search_semantic should not error: {:?}",
+        val
+    );
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let hits: Value = serde_json::from_str(text).expect("search_semantic response should be JSON");
+    let hits = hits
+        .as_array()
+        .expect("search_semantic should return an array");
+    assert!(
+        hits.len() <= 2,
+        "k=100 must be clamped to max_top_k=2, got {} hits",
+        hits.len()
+    );
+}
+
+// ── AUD-046: memory_put validates vector dims against the live index ─────
+
+#[test]
+fn test_mcp_put_validates_vector_dimensions() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // 1. First 4-dim put on an empty index defines the dim (no index yet).
+    let first_put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "dims_ns",
+            "key": "seed",
+            "payload": "seed",
+            "vector": [1.0, 0.0, 0.0, 0.0]
+        }
+    }));
+    let first_res = handle_tools_call(&first_put, &executor, &storage, &default_config());
+    assert!(
+        first_res.is_ok(),
+        "first 4-dim put should succeed: {:?}",
+        first_res
+    );
+    let first_val = first_res.unwrap();
+    assert!(
+        first_val["isError"].is_null(),
+        "first put must not error: {:?}",
+        first_val
+    );
+
+    // 2. A put with matching dims still works.
+    let good_put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "dims_ns",
+            "key": "good",
+            "payload": "good",
+            "vector": [0.0, 1.0, 0.0, 0.0]
+        }
+    }));
+    let good_res = handle_tools_call(&good_put, &executor, &storage, &default_config());
+    assert!(
+        good_res.is_ok(),
+        "matching-dim put should succeed: {:?}",
+        good_res
+    );
+    assert!(
+        good_res.unwrap()["isError"].is_null(),
+        "matching-dim put must not error"
+    );
+
+    // 3. A put with wrong dims (2 vs 4) must fail BEFORE inserting, with an
+    // explicit DimensionMismatch error (AUD-046: no silent index corruption).
+    let bad_put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "dims_ns",
+            "key": "bad",
+            "payload": "bad",
+            "vector": [0.5, 0.5]
+        }
+    }));
+    let bad_res = handle_tools_call(&bad_put, &executor, &storage, &default_config());
+    assert!(
+        bad_res.is_ok(),
+        "handler must return Ok with isError content, got: {:?}",
+        bad_res
+    );
+    let bad_val = bad_res.unwrap();
+    assert_eq!(
+        bad_val["isError"], true,
+        "wrong-dim put must be flagged as error: {:?}",
+        bad_val
+    );
+    let bad_text = bad_val["content"][0]["text"].as_str().unwrap();
+    assert!(
+        bad_text.contains("Vector dimension mismatch: expected 4, got 2"),
+        "error must name expected and got dims, got: {}",
+        bad_text
+    );
+
+    // 4. The rejected node must NOT have been inserted.
+    let get_params = Some(json!({
+        "name": "memory_get",
+        "arguments": { "namespace": "dims_ns", "key": "bad" }
+    }));
+    let get_res = handle_tools_call(&get_params, &executor, &storage, &default_config());
+    let get_val = get_res.unwrap();
+    assert_eq!(
+        get_val["isError"], true,
+        "rejected node must not be retrievable: {:?}",
+        get_val
+    );
+
+    // 5. A put WITHOUT a vector (text-only) is unaffected by dim validation.
+    let novec_put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "dims_ns",
+            "key": "text_only",
+            "payload": "hello"
+        }
+    }));
+    let novec_res = handle_tools_call(&novec_put, &executor, &storage, &default_config());
+    assert!(
+        novec_res.is_ok(),
+        "text-only put should succeed: {:?}",
+        novec_res
+    );
+    assert!(
+        novec_res.unwrap()["isError"].is_null(),
+        "text-only put must not error"
     );
 }
 
@@ -663,6 +1500,74 @@ fn test_collection_list() {
 }
 
 #[test]
+fn test_collection_stats_large_namespace_bounded() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    // Force multi-page scans by capping page size well below the record count.
+    let cfg = vantadb_mcp::McpConfig {
+        max_list_limit: 5,
+        ..default_config()
+    };
+
+    // Namespace bigger than one page (12 records) so aggregation must cross pages
+    // without materializing the whole namespace (AUDREP-21 OOM regression test).
+    for i in 0..12u32 {
+        let params = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "big_ns",
+                "key": format!("k{}", i),
+                "payload": format!("record {}", i),
+                // +1.0 keeps every vector non-zero-norm: i==0 would otherwise
+                // produce [0.0,0.0,0.0], rejected by the zero-norm guard
+                // (AUDREP-27) under cosine distance.
+                "vector": [i as f32 + 1.0, 0.0, 0.0]
+            }
+        }));
+        handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+    }
+
+    let stats_params = Some(json!({
+        "name": "collection_stats",
+        "arguments": { "namespace": "big_ns" }
+    }));
+    let res = handle_tools_call(&stats_params, &executor, &storage, &cfg);
+    assert!(res.is_ok());
+    let val = res.unwrap();
+    assert!(
+        val["isError"].is_null(),
+        "collection_stats should not error"
+    );
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let stats: Value = serde_json::from_str(text).unwrap();
+    assert_eq!(
+        stats["total_records"], 12,
+        "stats must aggregate across multiple pages"
+    );
+    assert_eq!(
+        stats["vector_count"], 12,
+        "vector count must aggregate across multiple pages"
+    );
+
+    // collection_list must also report correct per-namespace counts across pages.
+    let list_params = Some(json!({ "name": "collection_list", "arguments": {} }));
+    let list_res = handle_tools_call(&list_params, &executor, &storage, &cfg);
+    assert!(list_res.is_ok());
+    let list_val = list_res.unwrap();
+    assert!(
+        list_val["isError"].is_null(),
+        "collection_list should not error"
+    );
+    let list_text = list_val["content"][0]["text"].as_str().unwrap();
+    let collections: Vec<Value> = serde_json::from_str(list_text).unwrap();
+    let big = collections
+        .iter()
+        .find(|c| c["name"] == "big_ns")
+        .expect("big_ns should be listed");
+    assert_eq!(big["record_count"], 12);
+}
+
+#[test]
 fn test_collection_delete() {
     let (_dir, storage) = setup_storage();
     let executor = Executor::new(&storage);
@@ -722,6 +1627,68 @@ fn test_collection_delete() {
     let page: Value = serde_json::from_str(after_text).unwrap();
     let records = page["records"].as_array().unwrap();
     assert!(records.is_empty(), "namespace should be empty after delete");
+}
+
+/// Deleting N records in one `collection_delete` call must be all-or-nothing:
+/// if any record fails, the transaction aborts and no records are removed.
+/// (Happy path — all N deleted atomically — is covered by `test_collection_delete`.)
+#[test]
+fn test_collection_delete_abort_leaves_no_partial_deletes() {
+    let (_dir, mut storage) = setup_storage();
+
+    // Seed 3 records (executor borrows, it does not own the Arc, so a
+    // scoped block lets go of the borrow before we mutate below).
+    {
+        let executor = Executor::new(&storage);
+        for i in 0..3 {
+            let params = Some(json!({
+                "name": "memory_put",
+                "arguments": {
+                    "namespace": "abort_ns",
+                    "key": format!("k{}", i),
+                    "payload": "to delete"
+                }
+            }));
+            handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+        }
+    }
+
+    // Make every per-record delete fail mid-loop so the handler aborts its
+    // transaction instead of committing. `collection_delete` clones its
+    // embedded handle from `storage.config` at call time, so flipping the
+    // flag now is enough to gate every delete.
+    Arc::get_mut(&mut storage)
+        .expect("no live clones")
+        .config
+        .read_only = true;
+
+    let executor = Executor::new(&storage);
+    let del_params = Some(json!({
+        "name": "collection_delete",
+        "arguments": { "namespace": "abort_ns", "confirm": "yes" }
+    }));
+    let res = handle_tools_call(&del_params, &executor, &storage, &default_config());
+    assert!(
+        res.is_ok(),
+        "handler should surface failure as error content"
+    );
+    let val = res.unwrap();
+    assert_eq!(val["isError"], true);
+
+    // No partial deletes: all 3 records must still be present.
+    let list_params = Some(json!({
+        "name": "memory_list",
+        "arguments": { "namespace": "abort_ns" }
+    }));
+    let list_res = handle_tools_call(&list_params, &executor, &storage, &default_config()).unwrap();
+    let list_text = list_res["content"][0]["text"].as_str().unwrap();
+    let page: Value = serde_json::from_str(list_text).unwrap();
+    let records = page["records"].as_array().unwrap();
+    assert_eq!(
+        records.len(),
+        3,
+        "aborted collection_delete must not remove any records"
+    );
 }
 
 // ── Error Handling Tests ───────────────────────────────────────────────
@@ -1004,6 +1971,59 @@ fn test_inject_context_lisp_injection() {
 }
 
 #[test]
+fn test_inject_context_thread_id_type_error() {
+    // AUD-050: a string thread_id used to surface as "Missing 'thread_id'"
+    // even though the field IS present. The error must name the real problem:
+    // wrong type, not absence.
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let string_params = Some(json!({
+        "name": "inject_context",
+        "arguments": {
+            "content": "hello",
+            "thread_id": "200"
+        }
+    }));
+    let res = handle_tools_call(&string_params, &executor, &storage, &default_config());
+    let err = res.unwrap_err();
+    assert_eq!(err["code"], -32602, "should be invalid params");
+    let msg = err["message"].as_str().unwrap();
+    assert!(
+        msg.contains("thread_id"),
+        "error should name the field, got: {}",
+        msg
+    );
+    assert!(
+        msg.contains("numeric") && msg.contains("string"),
+        "error should explain numeric requirement and got type, got: {}",
+        msg
+    );
+    assert!(
+        !msg.contains("Missing"),
+        "must not claim the field is missing, got: {}",
+        msg
+    );
+
+    // Numeric thread_id must keep working.
+    let numeric_params = Some(json!({
+        "name": "inject_context",
+        "arguments": {
+            "content": "hello",
+            "thread_id": 200
+        }
+    }));
+    let res = handle_tools_call(&numeric_params, &executor, &storage, &default_config());
+    assert!(res.is_ok(), "numeric thread_id should still succeed");
+    let val = res.unwrap();
+    assert!(
+        val["isError"].is_null() || val["isError"] == false,
+        "numeric inject_context should not indicate error: {:?}",
+        val
+    );
+}
+
+#[test]
 fn test_mcp_prompt_invalid_name() {
     let res = handle_prompts_get(Some(&json!({
         "name": "nonexistent_prompt_name"
@@ -1017,5 +2037,3065 @@ fn test_mcp_prompt_invalid_name() {
             .unwrap()
             .contains("nonexistent_prompt_name"),
         "error message should include prompt name"
+    );
+}
+
+#[test]
+fn test_mcp_get_node_neighbors_preserves_large_u128_ids() {
+    // ERR-025: node ids are u128; JSON numbers lose precision above 2^53 and
+    // cannot represent ids above 2^64, so IDs must round-trip as strings.
+    let big_id = 9007199254740993u128; // 2^53 + 1 — first id a f64 cannot represent exactly
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
+
+    embedded
+        .insert_node(vantadb::sdk::NodeInput::new(7))
+        .expect("insert source node");
+    embedded
+        .insert_node(vantadb::sdk::NodeInput::new(big_id))
+        .expect("insert big-id node");
+    embedded
+        .add_edge(7, big_id, "knows", None, None)
+        .expect("add edge");
+
+    // 1. Big id as the *neighbor*: assert it round-trips exactly as a string.
+    let neighbors_params = Some(json!({
+        "name": "get_node_neighbors",
+        "arguments": { "node_id": "7" }
+    }));
+    let res = handle_tools_call(&neighbors_params, &executor, &storage, &default_config());
+    assert!(res.is_ok(), "get_node_neighbors should succeed");
+    let val = res.unwrap();
+    assert!(
+        val["isError"].is_null(),
+        "get_node_neighbors should not indicate error: {:?}",
+        val
+    );
+    let text = val["content"][0]["text"].as_str().unwrap();
+    assert!(
+        text.contains(&format!("\"target_id\":\"{big_id}\"")),
+        "neighbor id must round-trip exactly as a string, got: {text}"
+    );
+
+    // 2. Big id as the *query input*: a string id > 2^53 must parse to u128
+    //    and find the node (was previously rejected by `as_u64`).
+    let big_params = Some(json!({
+        "name": "get_node_neighbors",
+        "arguments": { "node_id": big_id.to_string() }
+    }));
+    let big_res = handle_tools_call(&big_params, &executor, &storage, &default_config());
+    assert!(big_res.is_ok(), "big node_id call should succeed");
+    let big_val = big_res.unwrap();
+    assert!(
+        big_val["isError"].is_null(),
+        "big node_id should not be an error: {:?}",
+        big_val
+    );
+    let big_text = big_val["content"][0]["text"].as_str().unwrap();
+    assert!(
+        !big_text.contains("Node not found") && big_text.contains("\"target_id\":\"7\""),
+        "big node_id should resolve its reverse edge, got: {big_text}"
+    );
+}
+
+#[test]
+fn test_mcp_parse_metadata_delegates_lists_and_null() {
+    // ERR-026: parse_metadata used to silently drop non-scalar metadata
+    // values (arrays/objects/null), producing a super-set of results. The
+    // contract is: delegate what the core can filter (lists and null via
+    // Value::List* / Null with strict equality) and explicitly reject
+    // only what it cannot represent (objects, mixed-type arrays).
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // memory_put must accept delegable metadata: lists, null, and scalars.
+    let put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "meta_ns",
+            "key": "k1",
+            "payload": "p1",
+            "metadata": {
+                "tags": ["a", "b"],
+                "flag": null,
+                "priority": 1
+            }
+        }
+    }));
+    let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+    assert!(
+        put_res.is_ok(),
+        "memory_put must accept list/null metadata, got: {:?}",
+        put_res
+    );
+
+    // Second record without tags: it must NOT match a tags filter.
+    let put2_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "meta_ns",
+            "key": "k2",
+            "payload": "p2",
+            "metadata": { "priority": 2 }
+        }
+    }));
+    assert!(handle_tools_call(&put2_params, &executor, &storage, &default_config()).is_ok());
+
+    // memory_list with a list filter must return exactly the matching subset
+    // (not a superset and not an error): the core filters ListString by
+    // strict equality against the record's stored ListString.
+    let list_params = Some(json!({
+        "name": "memory_list",
+        "arguments": {
+            "namespace": "meta_ns",
+            "filters": { "tags": ["a", "b"] }
+        }
+    }));
+    let list_res = handle_tools_call(&list_params, &executor, &storage, &default_config());
+    assert!(
+        list_res.is_ok(),
+        "list filter must not error: {:?}",
+        list_res
+    );
+    let list_val = list_res.unwrap();
+    assert!(
+        list_val["isError"].is_null(),
+        "list filter must not indicate an error: {:?}",
+        list_val
+    );
+    let list_text = list_val["content"][0]["text"].as_str().unwrap();
+    let page: Value = serde_json::from_str(list_text).expect("list response should be JSON");
+    let records = page["records"]
+        .as_array()
+        .expect("list response should contain a records array");
+    assert_eq!(
+        records.len(),
+        1,
+        "list filter must return exactly the matching record, got {} records: {page}",
+        records.len()
+    );
+    assert_eq!(
+        records[0]["key"],
+        json!("k1"),
+        "the matching record must be k1, got: {page}"
+    );
+    // The stored metadata round-trips: ListString serializes as an
+    // externally-tagged serde enum.
+    assert_eq!(
+        records[0]["metadata"]["tags"],
+        json!({"ListString": ["a", "b"]}),
+        "stored list metadata must round-trip, got: {page}"
+    );
+    assert_eq!(
+        records[0]["metadata"]["flag"],
+        json!("Null"),
+        "stored null metadata must round-trip as Value::Null, got: {page}"
+    );
+
+    // An object cannot be represented by Value → explicit rejection on
+    // both memory_put and memory_list filters.
+    let object_put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "meta_ns",
+            "key": "bad",
+            "payload": "p",
+            "metadata": { "nested": {"a": 1} }
+        }
+    }));
+    let object_put_res =
+        handle_tools_call(&object_put_params, &executor, &storage, &default_config());
+    assert!(
+        object_put_res.is_err(),
+        "memory_put metadata with object value must be rejected, not silently ignored"
+    );
+
+    let object_list_params = Some(json!({
+        "name": "memory_list",
+        "arguments": {
+            "namespace": "meta_ns",
+            "filters": { "nested": {"a": 1} }
+        }
+    }));
+    let object_list_res =
+        handle_tools_call(&object_list_params, &executor, &storage, &default_config());
+    assert!(
+        object_list_res.is_err(),
+        "memory_list filters with object value must be rejected, not silently ignored"
+    );
+
+    // Mixed-type arrays are also not representable → explicit rejection.
+    let mixed_put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "meta_ns",
+            "key": "bad2",
+            "payload": "p",
+            "metadata": { "tags": ["a", 1] }
+        }
+    }));
+    let mixed_put_res =
+        handle_tools_call(&mixed_put_params, &executor, &storage, &default_config());
+    assert!(
+        mixed_put_res.is_err(),
+        "memory_put metadata with mixed array must be rejected, not silently ignored"
+    );
+
+    // Scalar metadata must still be accepted (regression guard).
+    let ok_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "meta_ns",
+            "key": "ok",
+            "payload": "p",
+            "metadata": {
+                "priority": 1,
+                "verified": true,
+                "label": "doc",
+                "score": 1.5
+            }
+        }
+    }));
+    let res = handle_tools_call(&ok_params, &executor, &storage, &default_config());
+    assert!(res.is_ok(), "scalar metadata must still be accepted");
+}
+
+#[test]
+fn test_mcp_memory_list_limit_zero_returns_empty() {
+    // ERR-033: memory_list(limit=0) used to return 1 record because the core
+    // clamps limit to >= 1. A requested limit of 0 must return 0 records.
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "limit_ns",
+            "key": "k",
+            "payload": "p"
+        }
+    }));
+    let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+    assert!(put_res.is_ok(), "seed memory_put should succeed");
+
+    let list_params = Some(json!({
+        "name": "memory_list",
+        "arguments": {
+            "namespace": "limit_ns",
+            "limit": 0
+        }
+    }));
+    let list_res = handle_tools_call(&list_params, &executor, &storage, &default_config());
+    assert!(list_res.is_ok(), "memory_list(limit=0) should succeed");
+    let list_val = list_res.unwrap();
+    assert!(
+        list_val["isError"].is_null(),
+        "memory_list(limit=0) should not indicate an error: {:?}",
+        list_val
+    );
+    let list_text = list_val["content"][0]["text"].as_str().unwrap();
+    let page: Value = serde_json::from_str(list_text).expect("list response should be JSON");
+    let records = page["records"]
+        .as_array()
+        .expect("list response should contain a records array");
+    assert!(
+        records.is_empty(),
+        "memory_list(limit=0) must return 0 records, got {}",
+        records.len()
+    );
+
+    // Control: the same namespace without a limit returns the seeded record.
+    let default_params = Some(json!({
+        "name": "memory_list",
+        "arguments": { "namespace": "limit_ns" }
+    }));
+    let default_res = handle_tools_call(&default_params, &executor, &storage, &default_config());
+    assert!(default_res.is_ok(), "memory_list default should succeed");
+    let default_val = default_res.unwrap();
+    let default_text = default_val["content"][0]["text"].as_str().unwrap();
+    assert!(
+        default_text.contains("limit_ns") && default_text.contains("\"key\":\"k\""),
+        "default memory_list should still return the seeded record, got: {default_text}"
+    );
+}
+
+// ── MCP-01: text index ready on fresh DB (regression) ─────────────────────
+//
+// The MCP server opens a raw `StorageEngine` (not `Embedded::open_with_config`),
+// so index state was never reconciled: text_query / hybrid / text-filter
+// searches failed on fresh DBs with "Search Error: text_index not found: bm25".
+// The server now calls `ensure_indexes_current()` at startup; this test
+// reproduces that contract: without the ensure the search must fail with the
+// documented error, and with it the same search must return hits.
+
+#[test]
+fn test_mcp_text_search_requires_index_ensure() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "mcp01_ns",
+            "key": "doc1",
+            "payload": "concise technical answer",
+            "vector": [1.0, 0.0, 0.0]
+        }
+    }));
+    let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+    assert!(put_res.is_ok(), "seed memory_put should succeed");
+
+    // Without startup index ensure, text search must fail with the documented error.
+    let search_params = Some(json!({
+        "name": "search_memory",
+        "arguments": { "namespace": "mcp01_ns", "text_query": "concise", "top_k": 5 }
+    }));
+    let raw_res = handle_tools_call(&search_params, &executor, &storage, &default_config());
+    let raw_val = raw_res.expect("search_memory call should return");
+    let raw_text = raw_val["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        raw_val["isError"].is_object() || raw_text.contains("text_index not found: bm25"),
+        "without ensure_indexes_current, text_query should fail with \
+         'text_index not found: bm25', got: {raw_text}"
+    );
+
+    // Simulate server startup (run_stdio_server does this before serving).
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
+    embedded
+        .ensure_indexes_current()
+        .expect("startup index ensure should succeed");
+
+    // Same search now succeeds and returns the seeded record.
+    let fixed_res = handle_tools_call(&search_params, &executor, &storage, &default_config());
+    let fixed_val = fixed_res.expect("search_memory call should return");
+    assert!(
+        fixed_val["isError"].is_null(),
+        "after ensure_indexes_current, text_query should not error: {fixed_val}"
+    );
+    let fixed_text = fixed_val["content"][0]["text"].as_str().unwrap();
+    assert!(
+        fixed_text.contains("doc1"),
+        "after ensure_indexes_current, text_query should return doc1, got: {fixed_text}"
+    );
+
+    // Hybrid (text + vector) also works after the ensure.
+    let hybrid_params = Some(json!({
+        "name": "search_memory",
+        "arguments": {
+            "namespace": "mcp01_ns",
+            "text_query": "concise",
+            "query_vector": [1.0, 0.0, 0.0],
+            "top_k": 5
+        }
+    }));
+    let hybrid_res = handle_tools_call(&hybrid_params, &executor, &storage, &default_config());
+    let hybrid_val = hybrid_res.expect("hybrid search_memory call should return");
+    assert!(
+        hybrid_val["isError"].is_null(),
+        "hybrid search should not error after ensure: {hybrid_val}"
+    );
+    assert!(
+        hybrid_val["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("doc1"),
+        "hybrid search should return doc1 after ensure"
+    );
+
+    // Text filters (BM25 + metadata filter) also work after the ensure.
+    let filter_params = Some(json!({
+        "name": "search_memory",
+        "arguments": {
+            "namespace": "mcp01_ns",
+            "text_query": "concise",
+            "filters": { "category": "dev" },
+            "top_k": 5
+        }
+    }));
+    let filter_res = handle_tools_call(&filter_params, &executor, &storage, &default_config());
+    let filter_val = filter_res.expect("filtered search_memory call should return");
+    assert!(
+        filter_val["isError"].is_null(),
+        "filtered text search should not error after ensure: {filter_val}"
+    );
+}
+
+// ── AUD-048: unified filter semantics (operators on MCP, flat on CLI) ────
+//
+// Both channels now accept BOTH filter formats, normalized at parse time:
+// - flat values `{"field": value}` → implicit `$eq`
+// - operator objects `{"field": {"$eq": v}}` / `{"field": {"$gt": v}}` etc.
+//
+// `memory_list` routes operators through the core's `filter_ops` slot (full
+// operator support). `search_memory`'s request has no filter_ops slot, so
+// `$eq` folds into the flat metadata (identical equality semantics) and
+// range operators return a clear, documented error.
+
+#[test]
+fn test_mcp_list_filters_accept_operators() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let put1 = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "aud048_list_ns",
+            "key": "low",
+            "payload": "p low",
+            "metadata": { "score": 10 }
+        }
+    }));
+    assert!(handle_tools_call(&put1, &executor, &storage, &default_config()).is_ok());
+
+    let put2 = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "aud048_list_ns",
+            "key": "high",
+            "payload": "p high",
+            "metadata": { "score": 50 }
+        }
+    }));
+    assert!(handle_tools_call(&put2, &executor, &storage, &default_config()).is_ok());
+
+    // `$gt` operator form must work on memory_list (core filter_ops).
+    let list_params = Some(json!({
+        "name": "memory_list",
+        "arguments": {
+            "namespace": "aud048_list_ns",
+            "filters": { "score": { "$gt": 20 } }
+        }
+    }));
+    let list_res = handle_tools_call(&list_params, &executor, &storage, &default_config());
+    assert!(
+        list_res.is_ok(),
+        "memory_list with $gt operator should succeed: {:?}",
+        list_res
+    );
+    let list_val = list_res.unwrap();
+    assert!(
+        list_val["isError"].is_null(),
+        "memory_list with $gt must not error: {list_val}"
+    );
+    let list_text = list_val["content"][0]["text"].as_str().unwrap();
+    let page: Value = serde_json::from_str(list_text).expect("list response should be JSON");
+    let records = page["records"].as_array().expect("records array");
+    assert_eq!(
+        records.len(),
+        1,
+        "$gt filter must match exactly the high record, got: {page}"
+    );
+    assert_eq!(
+        records[0]["key"],
+        json!("high"),
+        "must match key 'high', got: {page}"
+    );
+
+    // Flat form still works unchanged (published behavior).
+    let flat_params = Some(json!({
+        "name": "memory_list",
+        "arguments": {
+            "namespace": "aud048_list_ns",
+            "filters": { "score": 10 }
+        }
+    }));
+    let flat_res = handle_tools_call(&flat_params, &executor, &storage, &default_config());
+    assert!(
+        flat_res.is_ok(),
+        "flat list filter must still work: {flat_res:?}"
+    );
+    let flat_val = flat_res.unwrap();
+    assert!(
+        flat_val["isError"].is_null(),
+        "flat list filter must not error"
+    );
+    let flat_page: Value =
+        serde_json::from_str(flat_val["content"][0]["text"].as_str().unwrap()).unwrap();
+    let flat_records = flat_page["records"].as_array().unwrap();
+    assert_eq!(
+        flat_records.len(),
+        1,
+        "flat filter must match low only: {flat_page}"
+    );
+    assert_eq!(flat_records[0]["key"], json!("low"));
+}
+
+#[test]
+fn test_mcp_search_filters_accept_eq_and_reject_range() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
+    embedded
+        .ensure_indexes_current()
+        .expect("startup index ensure should succeed");
+
+    let put1 = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "aud048_search_ns",
+            "key": "doc1",
+            "payload": "concise technical answer about rust",
+            "metadata": { "category": "dev" }
+        }
+    }));
+    assert!(handle_tools_call(&put1, &executor, &storage, &default_config()).is_ok());
+
+    // `$eq` operator form folds into the flat metadata — equality semantics.
+    let eq_params = Some(json!({
+        "name": "search_memory",
+        "arguments": {
+            "namespace": "aud048_search_ns",
+            "text_query": "concise",
+            "filters": { "category": { "$eq": "dev" } },
+            "top_k": 5
+        }
+    }));
+    let eq_res = handle_tools_call(&eq_params, &executor, &storage, &default_config());
+    let eq_val = eq_res.expect("search_memory with $eq should return");
+    assert!(
+        eq_val["isError"].is_null(),
+        "search_memory with $eq must not error: {eq_val}"
+    );
+    let eq_text = eq_val["content"][0]["text"].as_str().unwrap();
+    assert!(
+        eq_text.contains("doc1"),
+        "search_memory with $eq must return doc1, got: {eq_text}"
+    );
+
+    // Range operators cannot be expressed in a search request (flat-only slot
+    // in `MemorySearchRequest`) → clear documented error, not silence.
+    let gt_params = Some(json!({
+        "name": "search_memory",
+        "arguments": {
+            "namespace": "aud048_search_ns",
+            "text_query": "concise",
+            "filters": { "category": { "$gt": "abc" } },
+            "top_k": 5
+        }
+    }));
+    let gt_res = handle_tools_call(&gt_params, &executor, &storage, &default_config());
+    let gt_val = gt_res.expect("search_memory with $gt should return a call result");
+    let gt_text = gt_val["content"][0]["text"].as_str().unwrap_or_default();
+    assert!(
+        gt_val["isError"].is_object() || gt_text.contains("equality only"),
+        "search_memory with $gt must error clearly, got: {gt_text}"
+    );
+    assert!(
+        gt_text.contains("memory_list"),
+        "range-operator error must point at memory_list, got: {gt_text}"
+    );
+}
+
+// ── T15: search_memory(explain=true) shape contract (regression) ──────────
+//
+// The MCP response for `search_memory(explain: true)` is a FLAT ARRAY of hits.
+// Each hit is `{record, score, explanation?}` where `explanation` is a
+// per-hit scoring breakdown: identity, score, snippet, matched_tokens,
+// matched_phrases, bm25_terms, rrf_text_rank, rrf_vector_rank.
+// There is NO top-level `route` / `fusion_report` on search_memory — those
+// belong to the dedicated `explain_memory_search` method. This test pins the
+// real shape so the docs (SKILL.md / api-reference.md) stay truthful.
+
+#[test]
+fn test_mcp_search_memory_explain_shape() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
+    embedded
+        .ensure_indexes_current()
+        .expect("startup index ensure should succeed");
+
+    let put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "t15_ns",
+            "key": "doc1",
+            "payload": "concise technical answer about rust",
+            "vector": [1.0, 0.0, 0.0]
+        }
+    }));
+    let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+    assert!(put_res.is_ok(), "seed memory_put should succeed");
+
+    let search_params = Some(json!({
+        "name": "search_memory",
+        "arguments": {
+            "namespace": "t15_ns",
+            "text_query": "concise",
+            "query_vector": [1.0, 0.0, 0.0],
+            "top_k": 5,
+            "explain": true
+        }
+    }));
+    let res = handle_tools_call(&search_params, &executor, &storage, &default_config());
+    let val = res.expect("search_memory(explain=true) should return");
+    assert!(
+        val["isError"].is_null(),
+        "search_memory(explain=true) should not error: {val}"
+    );
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let hits: Value = serde_json::from_str(text).expect("response should be JSON");
+
+    // Contract: flat ARRAY of hits — no top-level route/fusion_report envelope.
+    let arr = hits
+        .as_array()
+        .expect("response should be a flat hit array");
+    assert!(
+        !arr.is_empty(),
+        "seeded search should return at least one hit"
+    );
+    for hit in arr {
+        assert!(
+            hit.get("route").is_none() && hit.get("fusion_report").is_none(),
+            "hit must not carry top-level route/fusion_report, got: {hit}"
+        );
+        assert!(
+            hit.get("record").is_some() && hit.get("score").is_some(),
+            "hit must carry record and score, got: {hit}"
+        );
+        let explanation = hit
+            .get("explanation")
+            .expect("explain=true must attach explanation");
+        for field in [
+            "identity",
+            "score",
+            "snippet",
+            "matched_tokens",
+            "matched_phrases",
+            "bm25_terms",
+            "rrf_text_rank",
+            "rrf_vector_rank",
+        ] {
+            assert!(
+                explanation.get(field).is_some(),
+                "explanation must contain {field}, got: {explanation}"
+            );
+        }
+    }
+}
+
+// ── AUD-045: memory_put accepts expires_at_ms + sparse_vector ─────────────
+//
+// The MCP tool schema used to omit `expires_at_ms` and `sparse_vector`, so
+// clients that sent them had the fields silently dropped and the returned
+// record showed `expires_at_ms: null` / `sparse_vector: null`. Both fields
+// must now round-trip: expires_at_ms (absolute Unix-ms) is converted to the
+// SDK input's relative ttl_ms and comes back as a non-null absolute value;
+// sparse_vector (object dim id -> weight) persists and is returned.
+
+#[test]
+fn test_mcp_memory_put_accepts_expires_at_ms_and_sparse_vector() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let future_ms = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis() as u64)
+        .unwrap_or(0)
+        + 60_000;
+
+    let put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "aud045_ns",
+            "key": "k1",
+            "payload": "ttl + sparse payload",
+            "expires_at_ms": future_ms,
+            "sparse_vector": { "0": 0.5, "7": 1.25 }
+        }
+    }));
+    let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+    assert!(put_res.is_ok(), "memory_put with TTL+sparse should succeed");
+    let put_val = put_res.unwrap();
+    assert!(
+        put_val["isError"].is_null(),
+        "memory_put with TTL+sparse should not error: {put_val}"
+    );
+    let put_text = put_val["content"][0]["text"].as_str().unwrap();
+    let record: Value = serde_json::from_str(put_text).expect("put response should be JSON");
+    assert!(
+        record["expires_at_ms"].is_number(),
+        "record must carry a non-null expires_at_ms, got: {record}"
+    );
+    assert_eq!(
+        record["sparse_vector"]["0"], 0.5,
+        "sparse_vector dim 0 must round-trip, got: {record}"
+    );
+    assert_eq!(
+        record["sparse_vector"]["7"], 1.25,
+        "sparse_vector dim 7 must round-trip, got: {record}"
+    );
+
+    // Persistence: a get must return the same stored TTL and sparse vector.
+    let get_params = Some(json!({
+        "name": "memory_get",
+        "arguments": { "namespace": "aud045_ns", "key": "k1" }
+    }));
+    let get_res = handle_tools_call(&get_params, &executor, &storage, &default_config());
+    assert!(get_res.is_ok(), "memory_get should succeed");
+    let get_val = get_res.unwrap();
+    let get_text = get_val["content"][0]["text"].as_str().unwrap();
+    let fetched: Value = serde_json::from_str(get_text).expect("get response should be JSON");
+    assert!(
+        fetched["expires_at_ms"].is_number(),
+        "persisted record must keep expires_at_ms, got: {fetched}"
+    );
+    assert_eq!(
+        fetched["sparse_vector"]["0"], 0.5,
+        "persisted record must keep sparse_vector dim 0, got: {fetched}"
+    );
+    assert_eq!(
+        fetched["sparse_vector"]["7"], 1.25,
+        "persisted record must keep sparse_vector dim 7, got: {fetched}"
+    );
+}
+
+// AUD-045 backward compatibility: omitting both new fields must keep the
+// previous behaviour (record without TTL / sparse, no error).
+#[test]
+fn test_mcp_memory_put_without_ttl_or_sparse_stays_backward_compatible() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let put_params = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "aud045_plain_ns",
+            "key": "k",
+            "payload": "plain"
+        }
+    }));
+    let put_res = handle_tools_call(&put_params, &executor, &storage, &default_config());
+    assert!(put_res.is_ok(), "plain memory_put should succeed");
+    let put_val = put_res.unwrap();
+    assert!(
+        put_val["isError"].is_null(),
+        "plain memory_put should not error: {put_val}"
+    );
+    let put_text = put_val["content"][0]["text"].as_str().unwrap();
+    let record: Value = serde_json::from_str(put_text).expect("put response should be JSON");
+    assert!(
+        record["expires_at_ms"].is_null() || record.get("expires_at_ms").is_none(),
+        "record without TTL must have null/absent expires_at_ms, got: {record}"
+    );
+    assert!(
+        record["sparse_vector"].is_null() || record.get("sparse_vector").is_none(),
+        "record without sparse must have null/absent sparse_vector, got: {record}"
+    );
+}
+
+// AUD-045: invalid sparse_vector / expires_at_ms must fail explicitly — the
+// fix must never silently drop a field a client sent (the original bug).
+#[test]
+fn test_mcp_memory_put_rejects_invalid_sparse_and_ttl() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let bad_sparse = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "aud045_bad_ns",
+            "key": "k",
+            "payload": "p",
+            "sparse_vector": [0.5, 1.25]
+        }
+    }));
+    let sparse_res = handle_tools_call(&bad_sparse, &executor, &storage, &default_config());
+    let sparse_err = sparse_res.expect_err("array sparse_vector must be rejected");
+    assert!(
+        sparse_err["code"].is_number(),
+        "array sparse_vector must fail with a JSON-RPC error, got: {sparse_err}"
+    );
+
+    let bad_ttl = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "aud045_bad_ns",
+            "key": "k",
+            "payload": "p",
+            "expires_at_ms": "not-a-number"
+        }
+    }));
+    let ttl_res = handle_tools_call(&bad_ttl, &executor, &storage, &default_config());
+    let ttl_err = ttl_res.expect_err("non-numeric expires_at_ms must be rejected");
+    assert!(
+        ttl_err["code"].is_number(),
+        "non-numeric expires_at_ms must fail with a JSON-RPC error, got: {ttl_err}"
+    );
+}
+
+// ── MCP-16/MCP-23: maintenance tools (purge_expired/compact_wal/flush/compact_layout) ──
+
+fn maintenance_call(
+    executor: &Executor<'_>,
+    storage: &Arc<StorageEngine>,
+    name: &str,
+) -> Result<Value, Value> {
+    handle_tools_call(
+        &Some(json!({ "name": name, "arguments": {} })),
+        executor,
+        storage,
+        &default_config(),
+    )
+}
+
+#[test]
+fn test_maintenance_tools_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Expired record: expires_at_ms=1 is in the past → saturates ttl_ms to 0
+    // → expires immediately. A live record must survive the purge.
+    let put_expired = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "maint_ns",
+            "key": "ephemeral",
+            "payload": "short lived record",
+            "expires_at_ms": 1u64
+        }
+    }));
+    let put_val = handle_tools_call(&put_expired, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        put_val["isError"].is_null(),
+        "expired put failed: {}",
+        put_val["content"][0]["text"]
+    );
+
+    let put_durable = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "maint_ns",
+            "key": "durable",
+            "payload": "long lived record"
+        }
+    }));
+    let put_val2 = handle_tools_call(&put_durable, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        put_val2["isError"].is_null(),
+        "durable put failed: {}",
+        put_val2["content"][0]["text"]
+    );
+
+    // purge_expired compares now > expires_at_ms; give the clock room to move.
+    thread::sleep(std::time::Duration::from_millis(20));
+
+    // 1. purge_expired → purged >= 1
+    let purge_val = maintenance_call(&executor, &storage, "purge_expired").unwrap();
+    assert!(
+        purge_val["isError"].is_null(),
+        "purge_expired failed: {}",
+        purge_val["content"][0]["text"]
+    );
+    let purged: Value = serde_json::from_str(purge_val["content"][0]["text"].as_str().unwrap())
+        .expect("purge_expired payload must be JSON");
+    assert_eq!(
+        purged["purged"], 1,
+        "expected exactly the expired record purged"
+    );
+
+    // 2. The durable record survived.
+    let get_val = handle_tools_call(
+        &Some(json!({
+            "name": "memory_get",
+            "arguments": { "namespace": "maint_ns", "key": "durable" }
+        })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap();
+    assert!(
+        get_val["isError"].is_null(),
+        "durable record must survive purge: {}",
+        get_val["content"][0]["text"]
+    );
+
+    // 3. flush → flushed:true; compact_wal → compacted_wal:true;
+    //    compact_layout → bytes_reclaimed number.
+    for (tool, key) in [("flush", "flushed"), ("compact_wal", "compacted_wal")] {
+        let res = maintenance_call(&executor, &storage, tool).unwrap();
+        assert!(
+            res["isError"].is_null(),
+            "{tool} failed: {}",
+            res["content"][0]["text"]
+        );
+        let payload: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap())
+            .expect("payload must be JSON");
+        assert_eq!(payload[key], true, "{tool} must report success via {key}");
+    }
+
+    let layout_val = maintenance_call(&executor, &storage, "compact_layout").unwrap();
+    assert!(
+        layout_val["isError"].is_null(),
+        "compact_layout failed: {}",
+        layout_val["content"][0]["text"]
+    );
+    let layout: Value = serde_json::from_str(layout_val["content"][0]["text"].as_str().unwrap())
+        .expect("compact_layout payload must be JSON");
+    assert!(
+        layout["bytes_reclaimed"].is_u64(),
+        "compact_layout must return a byte count, got: {layout}"
+    );
+}
+
+#[test]
+fn test_mcp_tools_list_includes_backup_restore() {
+    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let tools = res["tools"].as_array().unwrap();
+    let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
+    for tool in ["export", "import", "bulk_import_file", "bulk_import_stream"] {
+        assert!(names.contains(&tool), "tools should include {tool}");
+    }
+}
+
+/// MCP-17: round-trip export → import into a FRESH database → get returns the
+/// same payload/metadata. Also covers multi-namespace export_all and malformed
+/// line handling.
+#[test]
+fn test_mcp_tool_flow_backup_restore_roundtrip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Seed two namespaces with metadata so fidelity is checkable.
+    for (ns, key, payload, prio) in [
+        ("backup_ns", "alpha", "Alpha payload", 1),
+        ("backup_ns", "beta", "Beta payload", 2),
+        ("other_ns", "gamma", "Gamma payload", 3),
+    ] {
+        let params = Some(json!({
+            "name": "memory_put",
+            "arguments": {"namespace": ns, "key": key, "payload": payload, "metadata": {"priority": prio}}
+        }));
+        handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+    }
+
+    // Single-namespace export → exactly 2 lines.
+    let export_ns = Some(json!({
+        "name": "export",
+        "arguments": {"namespace": "backup_ns"}
+    }));
+    let res = handle_tools_call(&export_ns, &executor, &storage, &default_config()).unwrap();
+    assert!(res["isError"].is_null(), "namespace export failed");
+    let ns_jsonl = res["content"][0]["text"].as_str().unwrap();
+    assert_eq!(
+        ns_jsonl.lines().count(),
+        2,
+        "expected 2 records: {ns_jsonl}"
+    );
+
+    // export (all namespaces) → includes both namespaces, 3 lines.
+    let export_all = Some(json!({ "name": "export", "arguments": {} }));
+    let res = handle_tools_call(&export_all, &executor, &storage, &default_config()).unwrap();
+    assert!(res["isError"].is_null(), "export all failed");
+    let all_jsonl = res["content"][0]["text"].as_str().unwrap().to_string();
+    assert_eq!(
+        all_jsonl.lines().count(),
+        3,
+        "expected 3 records: {all_jsonl}"
+    );
+    assert!(all_jsonl.contains("backup_ns") && all_jsonl.contains("other_ns"));
+
+    // Restore into a FRESH database and verify the report.
+    let (_dir2, storage2) = setup_storage();
+    let executor2 = Executor::new(&storage2);
+    let import = Some(json!({
+        "name": "import",
+        "arguments": {"content": all_jsonl}
+    }));
+    let res = handle_tools_call(&import, &executor2, &storage2, &default_config()).unwrap();
+    assert!(res["isError"].is_null(), "import failed");
+    let report: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(report["inserted"], 3);
+    assert_eq!(report["errors"], 0);
+
+    // Round-trip equality: same payload/metadata after restore.
+    let get = Some(json!({
+        "name": "memory_get",
+        "arguments": {"namespace": "backup_ns", "key": "alpha"}
+    }));
+    let res = handle_tools_call(&get, &executor2, &storage2, &default_config()).unwrap();
+    let rec: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(rec["payload"], "Alpha payload");
+    // Metadata round-trips as a tagged Value.
+    assert_eq!(rec["metadata"]["priority"], json!({"Int": 1}));
+
+    // Malformed line is counted as an error, not a crash; empty lines skipped.
+    let bad_import = Some(json!({
+        "name": "import",
+        "arguments": {"content": "{not json}\n\n"}
+    }));
+    let res = handle_tools_call(&bad_import, &executor2, &storage2, &default_config()).unwrap();
+    let report: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(report["errors"], 1);
+    assert_eq!(report["skipped"], 1);
+}
+
+/// MCP-25: NDJSON bulk import via stream (count correct + record landed), and
+/// a nonexistent host path returns clear error_content instead of an Err.
+#[test]
+fn test_mcp_bulk_import_stream_ndjson_and_missing_file() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // NDJSON of 100 records → count correct.
+    let mut ndjson = String::new();
+    for i in 0..100 {
+        ndjson.push_str(&format!(
+            "{{\"namespace\":\"bulk_ns\",\"key\":\"k{i}\",\"payload\":\"payload {i}\",\"metadata\":{{}}}}\n"
+        ));
+    }
+    let params = Some(json!({
+        "name": "bulk_import_stream",
+        "arguments": {"content": ndjson}
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "bulk_import_stream failed: {}",
+        res["content"][0]["text"]
+    );
+    let report: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(report["total_records"], 100);
+    assert_eq!(report["batches_committed"], 1);
+
+    // NOTE: bulk-imported records are intentionally NOT asserted via
+    // memory_get: the core's bulk_import_stream writes raw nodes without the
+    // internal __vanta_namespace/__vanta_key fields, so they are not
+    // addressable through the record API (pre-existing SDK limitation,
+    // tracked in docs/Backlog.md). The tool contract is the report counts.
+
+    // Malformed NDJSON line → error_content naming the line.
+    let bad = Some(json!({
+        "name": "bulk_import_stream",
+        "arguments": {"content": "{\"namespace\":\"x\"\n"}
+    }));
+    let res = handle_tools_call(&bad, &executor, &storage, &default_config()).unwrap();
+    assert_eq!(res["isError"], true);
+    assert!(
+        res["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("malformed NDJSON at line 1"),
+        "unexpected error text: {}",
+        res["content"][0]["text"]
+    );
+
+    // Nonexistent host file path → clear error_content (MEM-32), never Err.
+    let missing = Some(json!({
+        "name": "bulk_import_file",
+        "arguments": {"path": "./definitively/missing_dump.vdbdump"}
+    }));
+    let res = handle_tools_call(&missing, &executor, &storage, &default_config()).unwrap();
+    assert_eq!(res["isError"], true);
+    assert!(
+        res["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            // ERR-MCP-01: structured envelope replaced the old
+            // "Bulk Import File Error" prefix; canonical code + path.
+            .contains("VANTADB_IO_ERROR")
+            && res["content"][0]["text"]
+                .as_str()
+                .unwrap()
+                .contains("cannot import from"),
+        "unexpected error text: {}",
+        res["content"][0]["text"]
+    );
+}
+
+/// MCP-18: put 3 records with metadata → delete_by_filter matches a subset →
+/// list reflects the deletion and the returned count is correct.
+#[test]
+fn test_memory_delete_by_filter_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    for (key, env) in [("task_a", "dev"), ("task_b", "prod"), ("task_c", "prod")] {
+        let put = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "filter_ns",
+                "key": key,
+                "payload": format!("payload of {key}"),
+                "metadata": {"env": env}
+            }
+        }));
+        let res = handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+        assert!(
+            res["isError"].is_null(),
+            "memory_put {key} should succeed: {}",
+            res["content"][0]["text"]
+        );
+    }
+
+    // Delete the single dev record via filter.
+    let del = Some(json!({
+        "name": "memory_delete_by_filter",
+        "arguments": {
+            "namespace": "filter_ns",
+            "filters": {"env": "dev"}
+        }
+    }));
+    let res = handle_tools_call(&del, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "delete_by_filter should succeed: {}",
+        res["content"][0]["text"]
+    );
+    assert_eq!(
+        res["content"][0]["text"].as_str().unwrap(),
+        r#"{"deleted_count":1}"#,
+        "count returned must match the filtered subset"
+    );
+
+    // List reflects the deletion: only the two prod records remain.
+    let list = Some(json!({
+        "name": "memory_list",
+        "arguments": {"namespace": "filter_ns"}
+    }));
+    let res = handle_tools_call(&list, &executor, &storage, &default_config()).unwrap();
+    let text = res["content"][0]["text"].as_str().unwrap();
+    assert!(
+        !text.contains("task_a"),
+        "deleted record must not be listed"
+    );
+    assert!(text.contains("task_b") && text.contains("task_c"));
+}
+
+/// MCP-18: operator filter ($gt) and guard rails (empty filters rejected,
+/// MEM-32 error shape, missing params → invalid_params).
+#[test]
+fn test_memory_delete_by_filter_validation() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    for (i, prio) in [1u64, 5, 9].iter().enumerate() {
+        let put = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "filter_ns",
+                "key": format!("rec_{i}"),
+                "payload": "x",
+                "metadata": {"priority": prio}
+            }
+        }));
+        handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+    }
+
+    // $gt operator deletes the subset priority > 1.
+    let del = Some(json!({
+        "name": "memory_delete_by_filter",
+        "arguments": {
+            "namespace": "filter_ns",
+            "filters": {"priority": {"$gt": 1}}
+        }
+    }));
+    let res = handle_tools_call(&del, &executor, &storage, &default_config()).unwrap();
+    assert_eq!(
+        res["content"][0]["text"].as_str().unwrap(),
+        r#"{"deleted_count":2}"#
+    );
+
+    // Empty filters object → SDK guard rail surfaces as error_content (MEM-32).
+    let empty = Some(json!({
+        "name": "memory_delete_by_filter",
+        "arguments": {"namespace": "filter_ns", "filters": {}}
+    }));
+    let res = handle_tools_call(&empty, &executor, &storage, &default_config()).unwrap();
+    assert_eq!(res["isError"], true);
+    assert!(
+        res["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("at least one filter"),
+        "unexpected error text: {}",
+        res["content"][0]["text"]
+    );
+
+    // Missing 'filters' param → JSON-RPC invalid_params Err (param-shape error).
+    let no_filters = Some(json!({
+        "name": "memory_delete_by_filter",
+        "arguments": {"namespace": "filter_ns"}
+    }));
+    assert!(
+        handle_tools_call(&no_filters, &executor, &storage, &default_config()).is_err(),
+        "missing 'filters' must surface as an invalid_params error"
+    );
+
+    // Unknown operator → explicit invalid_params.
+    let bad_op = Some(json!({
+        "name": "memory_delete_by_filter",
+        "arguments": {"namespace": "filter_ns", "filters": {"p": {"$weird": 1}}}
+    }));
+    let err = handle_tools_call(&bad_op, &executor, &storage, &default_config())
+        .expect_err("unknown operator must fail");
+    assert!(
+        err.to_string().contains("$eq, $neq, $gt"),
+        "unexpected error: {}",
+        err
+    );
+}
+
+/// MCP-19: put_batch of 3 records → memory_list returns all 3. Duplicate keys
+/// inside a batch are UPSERTs with version bump (documented SDK semantics),
+/// and one malformed input fails the whole call before any write (all-or-nothing).
+#[test]
+fn test_memory_put_batch_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let batch = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {
+            "inputs": [
+                {"namespace": "batch_ns", "key": "k1", "payload": "one"},
+                {"namespace": "batch_ns", "key": "k2", "payload": "two",
+                 "metadata": {"env": "prod"}},
+                {"namespace": "batch_ns", "key": "k3", "payload": "three"}
+            ]
+        }
+    }));
+    let res = handle_tools_call(&batch, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "put_batch should succeed: {}",
+        res["content"][0]["text"]
+    );
+    let records: Vec<Value> =
+        serde_json::from_str::<Value>(res["content"][0]["text"].as_str().unwrap())
+            .expect("put_batch result should serialize as a JSON envelope")["records"]
+            .as_array()
+            .cloned()
+            .expect("put_batch envelope must carry a 'records' array (EMB-14)");
+    assert_eq!(records.len(), 3);
+
+    // memory_list returns the 3 batch-inserted records (derived indexes rebuilt
+    // by the SDK after each batch — list/count must not return 0).
+    let list = Some(json!({
+        "name": "memory_list",
+        "arguments": {"namespace": "batch_ns"}
+    }));
+    let res = handle_tools_call(&list, &executor, &storage, &default_config()).unwrap();
+    let text = res["content"][0]["text"].as_str().unwrap();
+    for key in ["k1", "k2", "k3"] {
+        assert!(text.contains(key), "list should contain {key}");
+    }
+
+    // Duplicate key in a second batch → upsert, not error; k2 version bumps.
+    let dup = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {
+            "inputs": [
+                {"namespace": "batch_ns", "key": "k2", "payload": "two v2"},
+                {"namespace": "batch_ns", "key": "k4", "payload": "four"}
+            ]
+        }
+    }));
+    let res = handle_tools_call(&dup, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "duplicate key is an upsert, not an error: {}",
+        res["content"][0]["text"]
+    );
+    let get = Some(json!({
+        "name": "memory_get",
+        "arguments": {"namespace": "batch_ns", "key": "k2"}
+    }));
+    let res = handle_tools_call(&get, &executor, &storage, &default_config()).unwrap();
+    let text = res["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("two v2"), "upserted payload wins");
+    assert!(
+        text.contains(r#""version":2"#),
+        "version must bump on upsert: {}",
+        text
+    );
+
+    // Malformed input (missing 'payload') → whole call fails as invalid_params,
+    // nothing from the batch is written (SDK validates every input upfront).
+    let bad = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {
+            "inputs": [
+                {"namespace": "batch_ns", "key": "good_key", "payload": "ok"},
+                {"namespace": "batch_ns", "key": "bad_key"}
+            ]
+        }
+    }));
+    assert!(
+        handle_tools_call(&bad, &executor, &storage, &default_config()).is_err(),
+        "malformed input must surface as invalid_params"
+    );
+    let get_bad = Some(json!({
+        "name": "memory_get",
+        "arguments": {"namespace": "batch_ns", "key": "good_key"}
+    }));
+    let res = handle_tools_call(&get_bad, &executor, &storage, &default_config()).unwrap();
+    assert_eq!(
+        res["isError"], true,
+        "all-or-nothing: good_key from the failed batch must NOT exist"
+    );
+}
+
+/// MCP-19: vector dim mismatch against the live HNSW index is rejected at this
+/// trust boundary (parity with memory_put AUD-046), and empty inputs array is
+/// a param error.
+#[test]
+fn test_memory_put_batch_vector_and_empty_validation() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    // Define index dim = 3 with a vectorized record.
+    let seed = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "vec_ns", "key": "seed", "payload": "s",
+            "vector": [1.0, 0.0, 0.0]
+        }
+    }));
+    handle_tools_call(&seed, &executor, &storage, &cfg).unwrap();
+
+    // Batch carrying a mismatched-dim vector → domain error as error_content.
+    let mismatch = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {
+            "inputs": [
+                {"namespace": "vec_ns", "key": "ok", "payload": "fine"},
+                {"namespace": "vec_ns", "key": "bad_vec", "payload": "v",
+                 "vector": [1.0, 2.0]}
+            ]
+        }
+    }));
+    let res = handle_tools_call(&mismatch, &executor, &storage, &cfg).unwrap();
+    assert_eq!(res["isError"], true);
+    assert!(
+        res["content"][0]["text"]
+            .as_str()
+            .unwrap()
+            .contains("dimension"),
+        "unexpected error text: {}",
+        res["content"][0]["text"]
+    );
+
+    // Empty inputs array → invalid_params.
+    let none = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {"inputs": []}
+    }));
+    assert!(handle_tools_call(&none, &executor, &storage, &cfg).is_err());
+}
+
+// ── MCP-21: GDS via MCP (graph_page_rank + graph_degree_centrality) ──────
+
+/// Builds a directed chain A(1) -> B(2) -> C(3) through the agent channel
+/// (query_iql INSERT + RELATE), the same round-trip proven by MCP-27.
+fn build_chain(storage: &Arc<StorageEngine>, executor: &Executor<'_>, ids: [u128; 3]) {
+    for id in ids {
+        let params = Some(json!({
+            "name": "query_iql",
+            "arguments": { "query": format!("INSERT NODE#{id} TYPE GdsNode {{ label: \"n{id}\" }}") }
+        }));
+        let res = handle_tools_call(&params, executor, storage, &default_config())
+            .expect("iql insert ok");
+        assert!(
+            res["isError"].is_null(),
+            "INSERT NODE#{id} failed: {}",
+            res["content"][0]["text"]
+        );
+    }
+    let (a, b, c) = (ids[0], ids[1], ids[2]);
+    for (src, dst) in [(a, b), (b, c)] {
+        let params = Some(json!({
+            "name": "query_iql",
+            "arguments": { "query": format!("RELATE NODE#{src} --\"next\"--> NODE#{dst}") }
+        }));
+        let res = handle_tools_call(&params, executor, storage, &default_config())
+            .expect("iql relate ok");
+        assert!(
+            res["isError"].is_null(),
+            "RELATE {src}->{dst} failed: {}",
+            res["content"][0]["text"]
+        );
+    }
+}
+
+#[test]
+fn test_mcp_graph_page_rank_converges_on_chain() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    build_chain(&storage, &executor, [1, 2, 3]);
+
+    let params = Some(json!({
+        "name": "graph_page_rank",
+        "arguments": { "roots": ["1"] }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config());
+    assert!(res.is_ok(), "graph_page_rank should succeed");
+    let val = res.unwrap();
+    assert!(
+        val["isError"].is_null(),
+        "page_rank failed: {}",
+        val["content"][0]["text"]
+    );
+
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let parsed: Value = serde_json::from_str(text).unwrap();
+    let scores = parsed["scores"].as_object().expect("scores object");
+
+    // All three nodes of the chain are discovered and ranked; u128 ids are
+    // serialized as decimal strings.
+    assert_eq!(scores.len(), 3, "all chain nodes ranked: {:?}", scores);
+    assert!(scores.contains_key("1") && scores.contains_key("2") && scores.contains_key("3"));
+
+    // Standard PageRank with dangling redistribution sums to ~1.0.
+    let sum: f64 = scores.values().map(|v| v.as_f64().unwrap()).sum();
+    assert!(
+        (sum - 1.0).abs() < 0.01,
+        "ranks should sum to ~1.0, got {sum}: {:?}",
+        scores
+    );
+
+    // Chain A->B->C: the dangling leaf C accumulates the most mass.
+    let r1 = scores["1"].as_f64().unwrap();
+    let r3 = scores["3"].as_f64().unwrap();
+    assert!(r3 > r1, "leaf C ({r3}) should outrank source A ({r1})");
+}
+
+#[test]
+fn test_mcp_graph_degree_centrality_chain_counts() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    build_chain(&storage, &executor, [11, 12, 13]);
+
+    let params = Some(json!({
+        "name": "graph_degree_centrality",
+        "arguments": { "roots": ["11"] }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config());
+    assert!(res.is_ok(), "graph_degree_centrality should succeed");
+    let val = res.unwrap();
+    assert!(
+        val["isError"].is_null(),
+        "degree_centrality failed: {}",
+        val["content"][0]["text"]
+    );
+
+    let text = val["content"][0]["text"].as_str().unwrap();
+    let parsed: Value = serde_json::from_str(text).unwrap();
+    let degrees = parsed["degrees"].as_object().expect("degrees object");
+
+    assert!(degrees.contains_key("11"), "A missing: {:?}", degrees);
+    assert!(degrees.contains_key("12"), "B missing: {:?}", degrees);
+    assert!(degrees.contains_key("13"), "C missing: {:?}", degrees);
+
+    let a = &degrees["11"];
+    let b = &degrees["12"];
+    let c = &degrees["13"];
+    assert_eq!(a["in"].as_u64(), Some(0), "A has no incoming edges");
+    assert_eq!(a["out"].as_u64(), Some(1), "A -> B");
+    assert_eq!(b["in"].as_u64(), Some(1));
+    assert_eq!(b["out"].as_u64(), Some(1));
+    assert_eq!(c["in"].as_u64(), Some(1));
+    assert_eq!(c["out"].as_u64(), Some(0), "C is the leaf");
+}
+
+// ── MCP-22: graph traversal via MCP ─────────────────────────────────────
+
+#[test]
+fn test_mcp_graph_traverse_bfs_order_and_dag_analysis() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    build_chain(&storage, &executor, [21, 22, 23]);
+
+    // BFS from A visits A,B,C in breadth order.
+    let bfs = Some(json!({
+        "name": "graph_traverse",
+        "arguments": { "start": ["21"], "mode": "bfs", "max_depth": 10 }
+    }));
+    let res = handle_tools_call(&bfs, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "bfs failed: {}",
+        res["content"][0]["text"]
+    );
+    let visited: Vec<String> =
+        serde_json::from_str::<Value>(res["content"][0]["text"].as_str().unwrap()).unwrap()
+            ["visited"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect();
+    assert_eq!(
+        visited,
+        vec!["21", "22", "23"],
+        "BFS order on chain A->B->C"
+    );
+
+    // DFS from A also covers all three nodes.
+    let dfs = Some(json!({
+        "name": "graph_traverse",
+        "arguments": { "start": ["21"], "mode": "dfs", "max_depth": 10 }
+    }));
+    let res = handle_tools_call(&dfs, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "dfs failed: {}",
+        res["content"][0]["text"]
+    );
+    let text = res["content"][0]["text"].as_str().unwrap();
+    assert!(
+        text.contains("21") && text.contains("22") && text.contains("23"),
+        "DFS should cover the whole chain: {text}"
+    );
+
+    // Unknown mode -> self-correctable error content (MEM-32), not Err.
+    let bad = Some(json!({
+        "name": "graph_traverse",
+        "arguments": { "start": ["21"], "mode": "spiral", "max_depth": 10 }
+    }));
+    let res = handle_tools_call(&bad, &executor, &storage, &default_config()).unwrap();
+    assert_eq!(res["isError"], json!(true), "unknown mode must set isError");
+}
+
+#[test]
+fn test_mcp_graph_topological_sort_and_is_dag() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    build_chain(&storage, &executor, [31, 32, 33]);
+
+    // Topo sort of the DAG returns a valid order (A before B before C).
+    let topo = Some(json!({
+        "name": "graph_topological_sort",
+        "arguments": { "roots": ["31"] }
+    }));
+    let res = handle_tools_call(&topo, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "topo sort failed: {}",
+        res["content"][0]["text"]
+    );
+    let parsed: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
+    let order: Vec<String> = parsed["order"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_str().unwrap().to_string())
+        .collect();
+    let pos = |id: &str| order.iter().position(|x| x == id).expect("node in order");
+    assert!(
+        pos("31") < pos("32") && pos("32") < pos("33"),
+        "valid topo order: {:?}",
+        order
+    );
+
+    // Chain without cycles IS a DAG...
+    let dag = Some(json!({
+        "name": "graph_is_dag",
+        "arguments": { "roots": ["31"] }
+    }));
+    let res = handle_tools_call(&dag, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "is_dag failed: {}",
+        res["content"][0]["text"]
+    );
+    let text = res["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("true"), "chain is a DAG: {text}");
+
+    // ...and closing the cycle C->A makes it not a DAG.
+    let cycle = Some(json!({
+        "name": "query_iql",
+        "arguments": { "query": "RELATE NODE#33 --\"back\"--> NODE#31" }
+    }));
+    let res = handle_tools_call(&cycle, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "cycle edge failed: {}",
+        res["content"][0]["text"]
+    );
+
+    let dag_after = Some(json!({
+        "name": "graph_is_dag",
+        "arguments": { "roots": ["31"] }
+    }));
+    let res = handle_tools_call(&dag_after, &executor, &storage, &default_config()).unwrap();
+    let text = res["content"][0]["text"].as_str().unwrap();
+    assert!(text.contains("false"), "cycled graph is not a DAG: {text}");
+}
+
+// ── MCP-20: index recovery tools (rebuild_index/audit_text_index/repair_text_index) ──
+
+fn recovery_call(
+    executor: &Executor<'_>,
+    storage: &Arc<StorageEngine>,
+    name: &str,
+    arguments: Value,
+) -> Result<Value, Value> {
+    handle_tools_call(
+        &Some(json!({ "name": name, "arguments": arguments })),
+        executor,
+        storage,
+        &default_config(),
+    )
+}
+
+#[test]
+fn test_mcp_tools_list_includes_recovery_and_introspection() {
+    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let tools = res["tools"].as_array().unwrap();
+    let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
+    for tool in [
+        "rebuild_index",
+        "audit_text_index",
+        "repair_text_index",
+        "capabilities",
+        "generate_snippet",
+        "list_snapshots",
+        "snapshot_create",
+        "snapshot_restore",
+    ] {
+        assert!(names.contains(&tool), "tools should include {tool}");
+    }
+}
+
+#[test]
+fn test_recovery_tools_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Two vector records so rebuild has something to index.
+    for (key, payload) in [
+        ("alpha", "the quick brown fox"),
+        ("beta", "jumps over the dog"),
+    ] {
+        let put = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "recover_ns",
+                "key": key,
+                "payload": payload,
+                "vector": [0.1, 0.2, 0.3, 0.4]
+            }
+        }));
+        let val = handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+        assert!(
+            val["isError"].is_null(),
+            "put {key} failed: {}",
+            val["content"][0]["text"]
+        );
+    }
+
+    // Tests open a raw StorageEngine (server calls ensure_indexes_current at
+    // startup); build the text index before auditing BM25-derived state.
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
+    embedded
+        .ensure_indexes_current()
+        .expect("ensure_indexes_current must succeed");
+
+    // 1. rebuild_index → report with counts > 0 and success.
+    let rb_val = recovery_call(&executor, &storage, "rebuild_index", json!({})).unwrap();
+    assert!(
+        rb_val["isError"].is_null(),
+        "rebuild_index failed: {}",
+        rb_val["content"][0]["text"]
+    );
+    let rb: Value = serde_json::from_str(rb_val["content"][0]["text"].as_str().unwrap())
+        .expect("rebuild_index payload must be JSON");
+    assert_eq!(rb["success"], true, "rebuild must succeed: {rb}");
+    assert!(
+        rb["scanned_nodes"].as_u64().unwrap_or(0) >= 2,
+        "scanned_nodes must count the two records: {rb}"
+    );
+    assert!(
+        rb["indexed_vectors"].as_u64().unwrap_or(0) >= 2,
+        "indexed_vectors must index both vectors: {rb}"
+    );
+
+    // 2. audit_text_index on a clean namespace → no inconsistencies.
+    let audit_val = recovery_call(
+        &executor,
+        &storage,
+        "audit_text_index",
+        json!({ "namespace": "recover_ns" }),
+    )
+    .unwrap();
+    assert!(
+        audit_val["isError"].is_null(),
+        "audit_text_index failed: {}",
+        audit_val["content"][0]["text"]
+    );
+    let audit: Value = serde_json::from_str(audit_val["content"][0]["text"].as_str().unwrap())
+        .expect("audit payload must be JSON");
+    assert_eq!(
+        audit["passed"], true,
+        "clean namespace must pass audit: {audit}"
+    );
+    assert_eq!(audit["status"], "ok", "clean namespace status: {audit}");
+    assert_eq!(
+        audit["mismatches"], 0,
+        "no mismatches expected after rebuild: {audit}"
+    );
+
+    // 3. repair_text_index → repair report with success.
+    let rep_val = recovery_call(&executor, &storage, "repair_text_index", json!({})).unwrap();
+    assert!(
+        rep_val["isError"].is_null(),
+        "repair_text_index failed: {}",
+        rep_val["content"][0]["text"]
+    );
+    let rep: Value = serde_json::from_str(rep_val["content"][0]["text"].as_str().unwrap())
+        .expect("repair payload must be JSON");
+    assert_eq!(rep["success"], true, "repair must succeed: {rep}");
+    assert!(
+        rep["record_count"].as_u64().unwrap_or(0) >= 2,
+        "repair must reindex both records: {rep}"
+    );
+}
+
+// ── MCP-26: capabilities / generate_snippet / list_snapshots ──
+
+#[test]
+fn test_capabilities_generate_snippet_list_snapshots_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // capabilities → object with the fields of Capabilities.
+    let caps_val = recovery_call(&executor, &storage, "capabilities", json!({})).unwrap();
+    assert!(
+        caps_val["isError"].is_null(),
+        "capabilities failed: {}",
+        caps_val["content"][0]["text"]
+    );
+    let caps: Value = serde_json::from_str(caps_val["content"][0]["text"].as_str().unwrap())
+        .expect("capabilities payload must be JSON");
+    assert!(
+        caps["runtime_profile"].is_string(),
+        "runtime_profile: {caps}"
+    );
+    assert_eq!(caps["persistence"], true, "embedded DB persists: {caps}");
+    assert_eq!(caps["vector_search"], true, "{caps}");
+    assert_eq!(caps["iql_queries"], true, "{caps}");
+    assert_eq!(caps["read_only"], false, "{caps}");
+
+    // generate_snippet → snippet present for a matching term query.
+    let snip_val = recovery_call(
+        &executor,
+        &storage,
+        "generate_snippet",
+        json!({
+            "payload": "the quick brown fox jumps over the lazy dog",
+            "text_query": "fox"
+        }),
+    )
+    .unwrap();
+    assert!(
+        snip_val["isError"].is_null(),
+        "generate_snippet failed: {}",
+        snip_val["content"][0]["text"]
+    );
+    let snip: Value = serde_json::from_str(snip_val["content"][0]["text"].as_str().unwrap())
+        .expect("snippet payload must be JSON");
+    assert!(
+        snip["snippet"].as_str().is_some(),
+        "matching query must yield a snippet: {snip}"
+    );
+
+    // generate_snippet with no query terms → null handled without error.
+    let none_val = recovery_call(
+        &executor,
+        &storage,
+        "generate_snippet",
+        json!({ "payload": "anything", "text_query": "   " }),
+    )
+    .unwrap();
+    assert!(
+        none_val["isError"].is_null(),
+        "empty-query generate_snippet must not error: {}",
+        none_val["content"][0]["text"]
+    );
+    let none: Value = serde_json::from_str(none_val["content"][0]["text"].as_str().unwrap())
+        .expect("payload must be JSON");
+    assert!(
+        none["snippet"].is_null(),
+        "empty query terms → null: {none}"
+    );
+
+    // list_snapshots → array (empty on a fresh DB).
+    let snaps_val = recovery_call(&executor, &storage, "list_snapshots", json!({})).unwrap();
+    assert!(
+        snaps_val["isError"].is_null(),
+        "list_snapshots failed: {}",
+        snaps_val["content"][0]["text"]
+    );
+    let snaps: Value = serde_json::from_str(snaps_val["content"][0]["text"].as_str().unwrap())
+        .expect("snapshots payload must be JSON");
+    assert!(
+        snaps["snapshots"].is_array(),
+        "list_snapshots must return an array: {snaps}"
+    );
+}
+
+// ── MCP-34a: snapshot_create ────────────────────────────────────────────
+
+#[test]
+fn test_snapshot_create_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // snapshot_create → {path, created_at} (FsSnapshot is not Serialize, so the
+    // MCP handler builds the JSON manually).
+    let create_val = recovery_call(
+        &executor,
+        &storage,
+        "snapshot_create",
+        json!({ "name": "s1" }),
+    )
+    .unwrap();
+    assert!(
+        create_val["isError"].is_null(),
+        "snapshot_create failed: {}",
+        create_val["content"][0]["text"]
+    );
+    let created: Value = serde_json::from_str(create_val["content"][0]["text"].as_str().unwrap())
+        .expect("snapshot payload must be JSON");
+    assert!(
+        created["path"].is_string(),
+        "snapshot must return a path: {created}"
+    );
+    assert!(
+        created["created_at"].is_string(),
+        "snapshot must return created_at: {created}"
+    );
+
+    // list_snapshots must contain the created snapshot.
+    let snaps_val = recovery_call(&executor, &storage, "list_snapshots", json!({})).unwrap();
+    let snaps: Value = serde_json::from_str(snaps_val["content"][0]["text"].as_str().unwrap())
+        .expect("snapshots payload must be JSON");
+    assert_eq!(
+        snaps["snapshots"],
+        json!(["s1"]),
+        "created snapshot must be listed: {snaps}"
+    );
+
+    // The snapshot directory physically exists on disk (use the path the tool
+    // returned — data_dir is owned by the engine, not the temp open path).
+    let snap_path = created["path"].as_str().expect("path must be a string");
+    assert!(
+        std::path::Path::new(snap_path).is_dir(),
+        "snapshot dir must exist: {snap_path}"
+    );
+
+    // Trust boundary: path traversal in the name is rejected.
+    let bad = recovery_call(
+        &executor,
+        &storage,
+        "snapshot_create",
+        json!({ "name": "../../escape" }),
+    )
+    .unwrap();
+    assert!(
+        bad["isError"].as_bool() == Some(true),
+        "path traversal must be rejected: {}",
+        bad
+    );
+}
+
+// ── MCP-34b: snapshot_restore ───────────────────────────────────────────
+
+#[test]
+fn test_snapshot_restore_requires_confirmation_and_identifier() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Seed one snapshot so the name itself would be valid.
+    let create = recovery_call(
+        &executor,
+        &storage,
+        "snapshot_create",
+        json!({ "name": "r1" }),
+    )
+    .unwrap();
+    assert!(
+        create["isError"].is_null(),
+        "snapshot_create failed: {}",
+        create["content"][0]["text"]
+    );
+
+    // Destructive-op confirmation: missing confirm → rejected with guidance.
+    let no_confirm = recovery_call(
+        &executor,
+        &storage,
+        "snapshot_restore",
+        json!({ "name": "r1" }),
+    )
+    .unwrap();
+    assert!(
+        no_confirm["isError"].as_bool() == Some(true),
+        "restore without confirm must be rejected: {no_confirm}"
+    );
+    assert!(
+        no_confirm["content"][0]["text"]
+            .as_str()
+            .unwrap_or("")
+            .contains("confirm"),
+        "rejection must ask for confirmation: {}",
+        no_confirm["content"][0]["text"]
+    );
+
+    // confirm=false / non-literal values are equally rejected.
+    for confirm in [json!(false), json!("yes"), json!(1)] {
+        let bad = recovery_call(
+            &executor,
+            &storage,
+            "snapshot_restore",
+            json!({ "name": "r1", "confirm": confirm }),
+        )
+        .unwrap();
+        assert!(
+            bad["isError"].as_bool() == Some(true),
+            "restore with confirm={confirm} must be rejected: {bad}"
+        );
+    }
+
+    // Trust boundary: path traversal rejected even WITH confirm.
+    let traversal = recovery_call(
+        &executor,
+        &storage,
+        "snapshot_restore",
+        json!({ "name": "../../escape", "confirm": true }),
+    )
+    .unwrap();
+    assert!(
+        traversal["isError"].as_bool() == Some(true),
+        "path traversal must be rejected: {traversal}"
+    );
+
+    // Unknown snapshot with valid identifier + confirm → domain error (not
+    // a JSON-RPC error), naming the missing snapshot.
+    let missing = recovery_call(
+        &executor,
+        &storage,
+        "snapshot_restore",
+        json!({ "name": "no-such-snap", "confirm": true }),
+    )
+    .unwrap();
+    assert!(
+        missing["isError"].as_bool() == Some(true),
+        "unknown snapshot must fail: {missing}"
+    );
+    assert!(
+        missing["content"][0]["text"]
+            .as_str()
+            .unwrap_or("")
+            .contains("no-such-snap"),
+        "error must identify the snapshot: {}",
+        missing["content"][0]["text"]
+    );
+}
+
+// ── MOD-10: versions / supersede / vacuum / remove_edge via MCP ────────────
+
+#[test]
+fn test_mcp_tools_list_includes_mod10_tools() {
+    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let tools = res["tools"].as_array().unwrap();
+    let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
+    for tool in [
+        "memory_versions",
+        "memory_supersede",
+        "vacuum",
+        "remove_edge",
+    ] {
+        assert!(names.contains(&tool), "tools should include {tool}");
+    }
+}
+
+#[test]
+fn test_mcp_memory_versions_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // Put the same key twice → version bumps to 2; versions must list v1..vN
+    // ascending with the live record as the last element.
+    for (i, payload) in ["first version", "second version"].iter().enumerate() {
+        let put = Some(json!({
+            "name": "memory_put",
+            "arguments": {
+                "namespace": "ver_ns",
+                "key": "doc",
+                "payload": payload,
+                "metadata": { "rev": i + 1 }
+            }
+        }));
+        let val = handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+        assert!(
+            val["isError"].is_null(),
+            "put {i} failed: {}",
+            val["content"][0]["text"]
+        );
+    }
+
+    let params = Some(json!({
+        "name": "memory_versions",
+        "arguments": { "namespace": "ver_ns", "key": "doc" }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "memory_versions failed: {}",
+        res["content"][0]["text"]
+    );
+    let parsed: Value =
+        serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).expect("JSON payload");
+    let versions = parsed.as_array().expect("versions must be an array");
+
+    assert_eq!(versions.len(), 2, "two puts → two versions: {versions:?}");
+    assert_eq!(versions[0]["version"].as_u64(), Some(1), "{versions:?}");
+    assert_eq!(versions[1]["version"].as_u64(), Some(2), "{versions:?}");
+    assert_eq!(
+        versions[1]["payload"].as_str(),
+        Some("second version"),
+        "last element matches the live record: {versions:?}"
+    );
+
+    // A missing key → empty array (not an error).
+    let missing = Some(json!({
+        "name": "memory_versions",
+        "arguments": { "namespace": "ver_ns", "key": "nope" }
+    }));
+    let miss_res = handle_tools_call(&missing, &executor, &storage, &default_config()).unwrap();
+    let miss_parsed: Value =
+        serde_json::from_str(miss_res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        miss_parsed.as_array().map(Vec::len),
+        Some(0),
+        "missing key → []"
+    );
+}
+
+#[test]
+fn test_mcp_memory_supersede_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    for (key, payload) in [("alpha", "old content"), ("beta", "new content")] {
+        let put = Some(json!({
+            "name": "memory_put",
+            "arguments": { "namespace": "sup_ns", "key": key, "payload": payload }
+        }));
+        let val = handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+        assert!(
+            val["isError"].is_null(),
+            "put {key} failed: {}",
+            val["content"][0]["text"]
+        );
+    }
+
+    // 1. supersede alpha → beta.
+    let params = Some(json!({
+        "name": "memory_supersede",
+        "arguments": { "namespace": "sup_ns", "old_key": "alpha", "new_key": "beta" }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "memory_supersede failed: {}",
+        res["content"][0]["text"]
+    );
+    let parsed: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(parsed["superseded"], true, "{parsed}");
+
+    // 2. The old record now carries superseded_by on its latest version.
+    // 2. The live record now carries superseded_by (version snapshots
+    //    deliberately drop the supersession fields — verify via memory_get).
+    let get = Some(json!({
+        "name": "memory_get",
+        "arguments": { "namespace": "sup_ns", "key": "alpha" }
+    }));
+    let get_res = handle_tools_call(&get, &executor, &storage, &default_config()).unwrap();
+    let record: Value =
+        serde_json::from_str(get_res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(
+        record["superseded_by"].as_str(),
+        Some("beta"),
+        "old record marked superseded: {record}"
+    );
+    assert_eq!(
+        record["version"].as_u64(),
+        Some(2),
+        "supersede bumps the version: {record}"
+    );
+
+    // 3. Idempotency guard: superseding an already-superseded record is a
+    //    domain error surfaced as error content (MEM-32), not a panic.
+    let again = Some(json!({
+        "name": "memory_supersede",
+        "arguments": { "namespace": "sup_ns", "old_key": "alpha", "new_key": "beta" }
+    }));
+    let again_res = handle_tools_call(&again, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        again_res["isError"] == json!(true),
+        "double supersede must be a domain error: {}",
+        again_res["content"][0]["text"]
+    );
+}
+
+#[test]
+fn test_mcp_vacuum_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let params = Some(json!({ "name": "vacuum", "arguments": {} }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "vacuum failed: {}",
+        res["content"][0]["text"]
+    );
+    let report: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap())
+        .expect("vacuum payload must be JSON");
+    for field in [
+        "scanned_nodes",
+        "removed_nodes",
+        "reclaimed_bytes",
+        "duration_ms",
+        "success",
+    ] {
+        assert!(
+            report[field].is_number() || field == "success",
+            "vacuum report must carry {field}: {report}"
+        );
+    }
+    assert_eq!(report["success"], true, "{report}");
+}
+
+#[test]
+fn test_mcp_remove_edge_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    build_chain(&storage, &executor, [201, 202, 203]);
+
+    // Before: 201 has an outgoing "next" edge to 202.
+    let before = Some(json!({
+        "name": "get_node_neighbors",
+        "arguments": { "node_id": "201" }
+    }));
+    let before_res = handle_tools_call(&before, &executor, &storage, &default_config()).unwrap();
+    let before_val: Value =
+        serde_json::from_str(before_res["content"][0]["text"].as_str().unwrap()).unwrap();
+    let targets_before: Vec<&str> = before_val["neighbors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|n| n["target_id"].as_str())
+        .collect();
+    assert!(
+        targets_before.contains(&"202"),
+        "edge 201->202 must exist before removal: {targets_before:?}"
+    );
+
+    // remove_edge with u128 ids as decimal strings.
+    let params = Some(json!({
+        "name": "remove_edge",
+        "arguments": { "source_id": "201", "target_id": "202", "label": "next" }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "remove_edge failed: {}",
+        res["content"][0]["text"]
+    );
+    let parsed: Value = serde_json::from_str(res["content"][0]["text"].as_str().unwrap()).unwrap();
+    assert_eq!(parsed["removed"], true, "{parsed}");
+
+    // After: both directions of the edge are gone.
+    let after = Some(json!({
+        "name": "get_node_neighbors",
+        "arguments": { "node_id": "201" }
+    }));
+    let after_res = handle_tools_call(&after, &executor, &storage, &default_config()).unwrap();
+    let after_val: Value =
+        serde_json::from_str(after_res["content"][0]["text"].as_str().unwrap()).unwrap();
+    let targets_after: Vec<&str> = after_val["neighbors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|n| n["target_id"].as_str())
+        .collect();
+    assert!(
+        !targets_after.contains(&"202"),
+        "edge 201->202 must be removed: {targets_after:?}"
+    );
+
+    let after_rev = Some(json!({
+        "name": "get_node_neighbors",
+        "arguments": { "node_id": "202" }
+    }));
+    let after_rev_res =
+        handle_tools_call(&after_rev, &executor, &storage, &default_config()).unwrap();
+    let after_rev_val: Value =
+        serde_json::from_str(after_rev_res["content"][0]["text"].as_str().unwrap()).unwrap();
+    let rev_targets: Vec<&str> = after_rev_val["neighbors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|n| n["target_id"].as_str())
+        .collect();
+    assert!(
+        !rev_targets.contains(&"201"),
+        "reverse edge 202->201 must be removed too: {rev_targets:?}"
+    );
+
+    // 203's edge to nowhere is untouched — chain integrity for 202->203.
+    let c = Some(json!({
+        "name": "get_node_neighbors",
+        "arguments": { "node_id": "202" }
+    }));
+    let c_res = handle_tools_call(&c, &executor, &storage, &default_config()).unwrap();
+    let c_val: Value = serde_json::from_str(c_res["content"][0]["text"].as_str().unwrap()).unwrap();
+    let c_targets: Vec<&str> = c_val["neighbors"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter_map(|n| n["target_id"].as_str())
+        .collect();
+    assert!(
+        c_targets.contains(&"203"),
+        "202->203 survives: {c_targets:?}"
+    );
+
+    // Invalid node id (not a u128 decimal string) → rejected at the boundary.
+    let bad = Some(json!({
+        "name": "remove_edge",
+        "arguments": { "source_id": "not-an-id", "target_id": "202", "label": "next" }
+    }));
+    assert!(
+        handle_tools_call(&bad, &executor, &storage, &default_config()).is_err(),
+        "non-u128 source_id must be rejected"
+    );
+}
+
+// ── MCP-24: advanced search (search_with_method / search_multi) ──────────
+
+#[test]
+fn test_mcp_tools_list_includes_advanced_search() {
+    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let tools = res["tools"].as_array().unwrap();
+    let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
+    for tool in ["search_with_method", "search_multi"] {
+        assert!(names.contains(&tool), "tools should include {tool}");
+    }
+}
+
+/// MCP-24: search_with_method overrides the dense-index backend and returns
+/// the same nearest hit as the default routing (HNSW) and an exact scan
+/// (Flat); an unknown method is rejected at the boundary.
+#[test]
+fn test_mcp_search_with_method_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    for (key, vec) in [("x", vec![1.0, 0.0, 0.0]), ("y", vec![0.0, 1.0, 0.0])] {
+        let put = Some(json!({
+            "name": "memory_put",
+            "arguments": { "namespace": "swm_ns", "key": key, "payload": format!("{key} payload"), "vector": vec }
+        }));
+        handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+    }
+
+    // method=hnsw (default routing) returns the nearest hit first.
+    let res = handle_tools_call(
+        &Some(json!({
+            "name": "search_with_method",
+            "arguments": { "namespace": "swm_ns", "query_vector": [0.99, 0.01, 0.0], "top_k": 1, "method": "hnsw" }
+        })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap();
+    assert!(res["isError"].is_null(), "hnsw search failed: {res}");
+    let hits = hits_from_mcp_search(res);
+    assert_eq!(hits.len(), 1, "hnsw should return 1 hit");
+    assert_eq!(hits[0].0, "x", "nearest to [0.99,0,0] under hnsw is x");
+
+    // method=flat (exact scan) finds the same nearest hit.
+    let res = handle_tools_call(
+        &Some(json!({
+            "name": "search_with_method",
+            "arguments": { "namespace": "swm_ns", "query_vector": [0.99, 0.01, 0.0], "top_k": 1, "method": "flat" }
+        })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap();
+    assert!(res["isError"].is_null(), "flat search failed: {res}");
+    let hits = hits_from_mcp_search(res);
+    assert_eq!(hits[0].0, "x", "exact flat scan nearest is also x");
+
+    // Unknown method → rejected at the boundary (invalid params), not a
+    // silent fallback to automatic routing.
+    let res = handle_tools_call(
+        &Some(json!({
+            "name": "search_with_method",
+            "arguments": { "namespace": "swm_ns", "query_vector": [0.99, 0.01, 0.0], "top_k": 1, "method": "bogus" }
+        })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap_err();
+    let msg = res["message"].as_str().unwrap_or_default();
+    assert!(
+        msg.contains("bogus"),
+        "unknown method must be rejected, got: {res}"
+    );
+}
+
+/// MCP-24: search_multi runs one request across several namespaces and merges
+/// the hits; top_k caps the merged list globally; empty namespaces are
+/// invalid params.
+#[test]
+fn test_mcp_search_multi_round_trip() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    for (ns, key, vec) in [
+        ("multi_a", "a1", vec![1.0, 0.0, 0.0]),
+        ("multi_a", "a2", vec![0.9, 0.1, 0.0]),
+        ("multi_b", "b1", vec![0.0, 1.0, 0.0]),
+    ] {
+        let put = Some(json!({
+            "name": "memory_put",
+            "arguments": { "namespace": ns, "key": key, "payload": format!("{key} payload"), "vector": vec }
+        }));
+        handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+    }
+
+    // Merge across both namespaces; nearest (a1) ranks first.
+    let res = handle_tools_call(
+        &Some(json!({
+            "name": "search_multi",
+            "arguments": { "namespaces": ["multi_a", "multi_b"], "query_vector": [1.0, 0.0, 0.0], "top_k": 10 }
+        })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap();
+    assert!(res["isError"].is_null(), "search_multi failed: {res}");
+    let hits = hits_from_mcp_search(res);
+    let keys: Vec<&str> = hits.iter().map(|(k, _)| k.as_str()).collect();
+    assert!(
+        keys.contains(&"a1") && keys.contains(&"a2") && keys.contains(&"b1"),
+        "search_multi must merge hits across namespaces, got: {keys:?}"
+    );
+    assert_eq!(hits[0].0, "a1", "most similar hit must rank first");
+
+    // top_k caps the merged result globally.
+    let res = handle_tools_call(
+        &Some(json!({
+            "name": "search_multi",
+            "arguments": { "namespaces": ["multi_a", "multi_b"], "query_vector": [1.0, 0.0, 0.0], "top_k": 2 }
+        })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap();
+    let hits = hits_from_mcp_search(res);
+    assert_eq!(hits.len(), 2, "top_k=2 must cap merged results");
+    assert_eq!(
+        hits[0].0, "a1",
+        "most similar hit must rank first under cap"
+    );
+
+    // Empty namespaces → invalid params error.
+    let res = handle_tools_call(
+        &Some(json!({ "name": "search_multi", "arguments": { "namespaces": [] } })),
+        &executor,
+        &storage,
+        &default_config(),
+    )
+    .unwrap_err();
+    assert_eq!(
+        res["code"], -32602,
+        "empty namespaces must be invalid params"
+    );
+}
+
+#[test]
+fn test_mcp_structured_output_and_output_schema() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    // memory_put should return both content and structuredContent (2025-06-18)
+    let put = Some(json!({
+        "name": "memory_put",
+        "arguments": { "namespace": "struct_ns", "key": "k1", "payload": "hello structured" }
+    }));
+    let res = handle_tools_call(&put, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        res.get("structuredContent").is_some(),
+        "memory_put must expose structuredContent"
+    );
+    assert_eq!(res["structuredContent"]["key"], "k1");
+    assert_eq!(res["structuredContent"]["payload"], "hello structured");
+    // text content must still be valid JSON
+    let text = res["content"][0]["text"].as_str().unwrap();
+    let parsed: Value = serde_json::from_str(text).unwrap();
+    assert_eq!(parsed["key"], "k1");
+
+    // search_memory hits should also carry structuredContent
+    let search = Some(json!({
+        "name": "search_memory",
+        "arguments": { "namespace": "struct_ns", "query_vector": [1.0, 0.0, 0.0], "top_k": 1 }
+    }));
+    let search_res = handle_tools_call(&search, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        search_res.get("structuredContent").is_some(),
+        "search_memory must expose structuredContent"
+    );
+    assert!(search_res["structuredContent"].is_array());
+
+    // tools/list must advertise outputSchema for key tools
+    let list = handle_tools_list(&McpConfig::default()).unwrap();
+    let tools = list["tools"].as_array().unwrap();
+    for name in [
+        "memory_put",
+        "memory_get",
+        "search_memory",
+        "search_semantic",
+    ] {
+        let tool = tools.iter().find(|t| t["name"] == name).expect(name);
+        assert!(
+            tool.get("outputSchema").is_some(),
+            "{name} should have outputSchema"
+        );
+    }
+}
+
+/// MCP-38: Tool annotations coverage — every tool must expose the 4 hints
+/// per spec 2025-06-18 (blog.modelcontextprotocol.io 2026-03-16).
+/// Verifies: total 87 tools (46 base + 38 extend + 2 MEM-59 + embed_texts), each has
+/// title + 4 bools, destructiveHint true only on mutating deletes,
+/// openWorldHint only on fs paths. MEM-59 added `memory_recall` and
+/// `memory_search` (both read-only/idempotent) — see the contract comment
+/// at the top of handlers/tools.rs for the canonical summary.
+#[test]
+fn test_mcp_tool_annotations_coverage() {
+    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let tools = res["tools"].as_array().expect("tools array");
+    assert_eq!(
+        tools.len(),
+        87,
+        "expected 87 tools (46 base + 38 extend + 2 MEM-59 + embed_texts), got {}",
+        tools.len()
+    );
+
+    let destructive_set: std::collections::HashSet<&str> = [
+        "memory_delete",
+        "memory_delete_by_filter",
+        "memory_supersede",
+        "remove_edge",
+        "delete_axiom",
+        "collection_delete",
+        "purge_expired",
+        "vacuum",
+        "snapshot_restore",
+        "thread_delete",
+        "thread_purge_expired",
+        "dream_discard",
+    ]
+    .into_iter()
+    .collect();
+    let open_world_set: std::collections::HashSet<&str> =
+        ["wiki_ingest", "bulk_import_file"].into_iter().collect();
+
+    for tool in tools {
+        let name = tool["name"].as_str().expect("tool name");
+        let ann = &tool["annotations"];
+        assert!(ann.is_object(), "{name} missing annotations object");
+        assert!(
+            ann["title"]
+                .as_str()
+                .map(|s| !s.is_empty())
+                .unwrap_or(false),
+            "{name} missing title"
+        );
+        for hint in [
+            "readOnlyHint",
+            "destructiveHint",
+            "idempotentHint",
+            "openWorldHint",
+        ] {
+            assert!(
+                ann[hint].is_boolean(),
+                "{name} annotations.{hint} must be bool, got: {}",
+                ann[hint]
+            );
+        }
+        let ro = ann["readOnlyHint"].as_bool().unwrap();
+        let dest = ann["destructiveHint"].as_bool().unwrap();
+        let open = ann["openWorldHint"].as_bool().unwrap();
+
+        // destructiveHint true ↔ known destructive set
+        if destructive_set.contains(name) {
+            assert!(dest, "{name} should have destructiveHint true");
+            assert!(!ro, "{name} destructive must not be readOnly");
+        } else {
+            assert!(!dest, "{name} should have destructiveHint false");
+        }
+        // openWorldHint true ↔ only fs path tools
+        if open_world_set.contains(name) {
+            assert!(open, "{name} should have openWorldHint true");
+        } else {
+            assert!(!open, "{name} should have openWorldHint false");
+        }
+        // readOnly ⇒ not destructive (spec convention)
+        if ro {
+            assert!(!dest, "{name} readOnly must not be destructive");
+        }
+
+        // grep destructive coverage sanity: name contains delete/purge/drop/reset ⇒ destructive true
+        let lower = name.to_ascii_lowercase();
+        if lower.contains("delete")
+            || lower.contains("purge")
+            || lower.contains("drop")
+            || lower.contains("reset")
+        {
+            // snapshot_restore contains "restore" not reset — still destructive via set above; check explicit
+            if lower.contains("delete") || lower.contains("purge") {
+                assert!(dest, "{name} delete/purge must be destructiveHint true");
+            }
+        }
+    }
+
+    // readOnlyHint hits across src must be ≥70 (contract)
+    // Cross-check: count readOnlyHint true tools per our matrix (45) and false (31)
+    let ro_true = tools
+        .iter()
+        .filter(|t| t["annotations"]["readOnlyHint"].as_bool() == Some(true))
+        .count();
+    assert!(
+        ro_true >= 40,
+        "expected ≥40 readOnlyHint true tools, got {ro_true}"
+    );
+}
+
+/// MCP-37: Profile filtering — verify tool counts per VANTADB_MCP_PROFILE.
+#[test]
+fn test_mcp_tool_profiles() {
+    use vantadb_mcp::{handle_tools_list, McpConfig, McpProfile};
+
+    // Full profile (default) — all 87 tools (76 + 2 MEM-59 + embed_texts + 2 FIND-107 S1 + 3 FIND-107 S2 + 2 FIND-107 S3 + 1 FIND-111 skill_extract)
+    let full_config = McpConfig {
+        profile: McpProfile::Full,
+        ..McpConfig::default()
+    };
+    let full_res = handle_tools_list(&full_config).unwrap();
+    let full_tools = full_res["tools"].as_array().unwrap();
+    assert_eq!(
+        full_tools.len(),
+        87,
+        "Full profile should have 87 tools (76 + 2 MEM-59 + embed_texts + 2 FIND-107 S1 + 3 FIND-107 S2 + 2 FIND-107 S3 + 1 FIND-111 skill_extract), got {}",
+        full_tools.len()
+    );
+
+    // Dev profile — ≤35 tools (memory + graph + collections + maintenance + introspection)
+    let dev_config = McpConfig {
+        profile: McpProfile::Dev,
+        ..McpConfig::default()
+    };
+    let dev_res = handle_tools_list(&dev_config).unwrap();
+    let dev_tools = dev_res["tools"].as_array().unwrap();
+    // MEM-59 added memory_recall + memory_search to the Memory profile; the
+    // Dev profile inherits both via `memory_tools` (≤37 tools). The original
+    // 35 cap was a Cursor budget heuristic, not a contract — the helpers
+    // here document the upper bound rather than enforce a hard ceiling.
+    assert!(
+        dev_tools.len() <= 38,
+        "Dev profile should have ≤38 tools (35 budget + 2 MEM-59 + embed_texts), got {}",
+        dev_tools.len()
+    );
+    assert!(
+        dev_tools.len() >= 30,
+        "Dev profile should have ≥30 tools, got {}",
+        dev_tools.len()
+    );
+
+    // Memory profile — ≤22 tools (core memory CRUD + search + list + 2 MEM-59 + embed_texts)
+    let memory_config = McpConfig {
+        profile: McpProfile::Memory,
+        ..McpConfig::default()
+    };
+    let memory_res = handle_tools_list(&memory_config).unwrap();
+    let memory_tools = memory_res["tools"].as_array().unwrap();
+    assert!(
+        memory_tools.len() <= 22,
+        "Memory profile should have ≤22 tools (20 budget + memory_recall + embed_texts), got {}",
+        memory_tools.len()
+    );
+    assert!(
+        memory_tools.len() >= 15,
+        "Memory profile should have ≥15 tools, got {}",
+        memory_tools.len()
+    );
+
+    // Verify specific tool presence/absence per profile
+    let full_names: std::collections::HashSet<&str> = full_tools
+        .iter()
+        .filter_map(|t| t["name"].as_str())
+        .collect();
+    let dev_names: std::collections::HashSet<&str> = dev_tools
+        .iter()
+        .filter_map(|t| t["name"].as_str())
+        .collect();
+    let memory_names: std::collections::HashSet<&str> = memory_tools
+        .iter()
+        .filter_map(|t| t["name"].as_str())
+        .collect();
+
+    // Memory tools should be in all profiles
+    for tool in [
+        "memory_put",
+        "memory_get",
+        "memory_list",
+        "search_memory",
+        "search_semantic",
+    ] {
+        assert!(full_names.contains(tool), "Full profile missing {tool}");
+        assert!(dev_names.contains(tool), "Dev profile missing {tool}");
+        assert!(memory_names.contains(tool), "Memory profile missing {tool}");
+    }
+
+    // Dev-only tools (subset of what's actually in Dev profile)
+    for tool in [
+        "graph_traverse",
+        "graph_topological_sort",
+        "snapshot_create",
+        "export",
+        "get_node_neighbors",
+        "remove_edge",
+    ] {
+        assert!(full_names.contains(tool), "Full profile missing {tool}");
+        assert!(dev_names.contains(tool), "Dev profile missing {tool}");
+        assert!(
+            !memory_names.contains(tool),
+            "Memory profile should not have {tool}"
+        );
+    }
+
+    // Full-only tools (extended modules)
+    for tool in [
+        "code_search",
+        "wiki_search",
+        "skill_list",
+        "thread_create",
+        "scene_read",
+        "context_assemble",
+    ] {
+        assert!(full_names.contains(tool), "Full profile missing {tool}");
+        assert!(
+            !dev_names.contains(tool),
+            "Dev profile should not have {tool}"
+        );
+        assert!(
+            !memory_names.contains(tool),
+            "Memory profile should not have {tool}"
+        );
+    }
+}
+
+// ── MEM-59: memory_recall / memory_search dispatch tests ────────────────────
+//
+// Pattern: open an in-process StorageEngine, call handle_tools_call with the
+// raw JSON-RPC params, and parse the first content block as JSON.
+
+/// Extract the first text content block of a tool result as a parsed JSON value.
+fn text_of_mcp_result(res: Result<Value, Value>) -> Value {
+    let val = res.expect("tool call should succeed");
+    let text = val["content"][0]["text"]
+        .as_str()
+        .expect("text content block");
+    serde_json::from_str(text).expect("parse JSON")
+}
+
+/// MEM-59: `memory_recall` rejects an empty query at the trust boundary and
+/// does NOT touch storage. The error envelope is the standard error_content
+/// shape (matches the pattern set by `search_empty_db_reports_no_memories_*`
+/// in vanta-proxy memory_tools).
+#[test]
+fn test_memory_recall_rejects_empty_query() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let params = Some(json!({
+        "name": "memory_recall",
+        "arguments": { "query": "   " }
+    }));
+    let res = handle_tools_call(&params, &executor, &storage, &cfg);
+    let val = res.expect("memory_recall should return Ok-shaped envelope");
+    let text = val["content"][0]["text"].as_str().expect("text block");
+    assert!(
+        text.contains("non-empty") || text.contains("rejected"),
+        "expected empty-query rejection, got: {text}"
+    );
+}
+
+/// MEM-59: `memory_recall` over an empty database returns the documented
+/// "no relevant memories" envelope with `effective_mode: keyword` (D38
+/// degradation: no embed hook → keyword). Pre-mortem: this is the test that
+/// protects against the L1 search silently crashing on a fresh DB.
+#[test]
+fn test_memory_recall_empty_db_returns_keyword_degraded_envelope() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let params = Some(json!({
+        "name": "memory_recall",
+        "arguments": { "query": "anything" }
+    }));
+    let envelope = text_of_mcp_result(handle_tools_call(&params, &executor, &storage, &cfg));
+    // Empty DB → no memories, no persona, no scenes → Ok(None) branch.
+    assert!(
+        envelope["recalled"].is_array(),
+        "recalled should be an array, got: {envelope}"
+    );
+    assert_eq!(envelope["recalled"].as_array().unwrap().len(), 0);
+    assert_eq!(envelope["effective_mode"], "keyword");
+    assert!(
+        envelope["message"]
+            .as_str()
+            .unwrap_or("")
+            .contains("No relevant memories"),
+        "expected no-memories message, got: {envelope}"
+    );
+}
+
+/// MEM-59: `memory_recall` rejects unknown scope values with a clear message
+/// instead of falling back silently.
+#[test]
+fn test_memory_recall_rejects_unknown_scope() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let params = Some(json!({
+        "name": "memory_recall",
+        "arguments": { "query": "x", "scope": "global" }
+    }));
+    let val = handle_tools_call(&params, &executor, &storage, &cfg)
+        .expect("memory_recall should return Ok-shaped envelope");
+    let text = val["content"][0]["text"].as_str().expect("text block");
+    assert!(
+        text.contains("unknown scope"),
+        "expected unknown-scope rejection, got: {text}"
+    );
+}
+
+/// MEM-59: `memory_search` is a thin alias over `search_memory`. With an empty
+/// DB the dispatch must not 500, and the response shape must match
+/// `search_memory`'s empty-hits behavior (empty array). Pre-mortem: this is
+/// the back-compat test that protects against future drift between the two
+/// dispatch arms.
+#[test]
+fn test_memory_search_alias_dispatches_to_search_memory() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+
+    let mem_params = Some(json!({
+        "name": "memory_search",
+        "arguments": { "namespace": "ns", "text_query": "anything", "top_k": 5 }
+    }));
+    let mem_raw = handle_tools_call(&mem_params, &executor, &storage, &cfg)
+        .expect("memory_search should return an Ok envelope");
+    let mem_shape: Value = json!({
+        "is_error": mem_raw.get("isError").cloned().unwrap_or(Value::Null),
+        "has_content_array": mem_raw["content"].is_array(),
+        "first_text_kind": mem_raw["content"][0]["text"]
+            .as_str()
+            .map(|t| if t.starts_with('{') || t.starts_with('[') { "json" } else { "plain" })
+            .unwrap_or("missing"),
+    });
+
+    // Same call shape routed through the legacy name must produce the same
+    // shape (the shared dispatch is the only place that runs).
+    let legacy_params = Some(json!({
+        "name": "search_memory",
+        "arguments": { "namespace": "ns", "text_query": "anything", "top_k": 5 }
+    }));
+    let legacy_raw = handle_tools_call(&legacy_params, &executor, &storage, &cfg)
+        .expect("search_memory should return an Ok envelope");
+    let legacy_shape: Value = json!({
+        "is_error": legacy_raw.get("isError").cloned().unwrap_or(Value::Null),
+        "has_content_array": legacy_raw["content"].is_array(),
+        "first_text_kind": legacy_raw["content"][0]["text"]
+            .as_str()
+            .map(|t| if t.starts_with('{') || t.starts_with('[') { "json" } else { "plain" })
+            .unwrap_or("missing"),
+    });
+
+    // Both shapes must match — guarantees the alias and the legacy name
+    // route through the same dispatch (Pre-mortem: drift would surface here).
+    assert_eq!(
+        mem_shape, legacy_shape,
+        "memory_search and search_memory must produce identical envelope shapes"
+    );
+    // Sanity: the first content block carries an MCP text entry.
+    assert!(
+        mem_shape["has_content_array"] == json!(true),
+        "memory_search must include a content[] array, got: {mem_raw}"
+    );
+}
+
+/// MEM-59: Memory profile exposes `memory_recall` and `memory_search` (the
+/// Memory profile is the ≤20-tool read-mostly set we recommend to MCP
+/// clients; adding them there is the whole point of the gap #4 fix).
+#[test]
+fn test_memory_recall_and_search_in_memory_profile() {
+    let (_dir, _storage) = setup_storage();
+    let mut cfg = default_config();
+    cfg.profile = vantadb_mcp::McpProfile::Memory;
+    let val = handle_tools_list(&cfg).expect("tools/list should succeed");
+    let names: Vec<&str> = val["tools"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|t| t["name"].as_str().unwrap())
+        .collect();
+    assert!(
+        names.contains(&"memory_recall"),
+        "Memory profile must include memory_recall"
+    );
+    assert!(
+        names.contains(&"memory_search"),
+        "Memory profile must include memory_search"
+    );
+}
+
+// ── ERR-MCP-01: From<Error> for McpError (ERROR_HANDLING.md §6.2) ─────
+
+#[test]
+fn err_mcp_01_from_maps_node_not_found_to_minus_32004() {
+    let m = McpError::from(vantadb::Error::NodeNotFound(1));
+    assert_eq!(m.code, -32004, "NodeNotFound must map to vanta_not_found");
+    assert!(
+        m.message.contains("not found") || m.message.contains("Node"),
+        "message must stay descriptive, got: {}",
+        m.message
+    );
+    let j = m.to_json();
+    assert_eq!(j["data"]["code"], "VANTADB_NOT_FOUND");
+    assert_eq!(j["data"]["retriable"], false);
+    assert!(j["data"]["hint"]
+        .as_str()
+        .unwrap()
+        .contains("may have been deleted"));
+}
+
+#[test]
+fn err_mcp_01_from_maps_not_found_struct_to_minus_32004() {
+    let m = McpError::from(vantadb::Error::NotFound {
+        kind: "wiki".into(),
+        id: "ns:s".into(),
+    });
+    assert_eq!(m.code, -32004);
+}
+
+#[test]
+fn err_mcp_01_from_busy_is_retriable_minus_32001() {
+    let m = McpError::from(vantadb::Error::DatabaseBusy("lock held".into()));
+    assert_eq!(m.code, -32001, "DatabaseBusy must map to vanta_busy");
+    assert_eq!(
+        m.to_json()["data"]["retriable"],
+        true,
+        "busy must be retriable"
+    );
+}
+
+#[test]
+fn err_mcp_01_from_timeout_is_retriable_minus_32008() {
+    let m = McpError::from(vantadb::Error::Timeout {
+        operation: "flush".into(),
+        duration_ms: 5,
+    });
+    assert_eq!(m.code, -32008);
+    assert_eq!(
+        m.to_json()["data"]["retriable"],
+        true,
+        "timeout must be retriable"
+    );
+    assert!(m.to_json()["data"]["hint"]
+        .as_str()
+        .unwrap()
+        .contains("timeout"));
+}
+
+#[test]
+fn err_mcp_01_from_validation_and_conflict_share_minus_32009() {
+    // Core code() folds conflict variants into VANTADB_VALIDATION_ERROR, so
+    // per the code()-driven contract both dimension mismatch and a collision
+    // surface as -32009 (docs/api/MCP.md updated to reflect this).
+    let m1 = McpError::from(vantadb::Error::DimensionMismatch {
+        expected: 4,
+        got: 2,
+    });
+    let m2 = McpError::from(vantadb::Error::ExecutionConflict {
+        resource: "node".into(),
+        detail: "stale version".into(),
+    });
+    assert_eq!(m1.code, -32009);
+    assert_eq!(m2.code, -32009);
+    assert!(m1.message.contains("Vector dimension mismatch"));
+}
+
+#[test]
+fn err_mcp_01_from_resource_limit_minus_32007() {
+    let m = McpError::from(vantadb::Error::ResourceLimit("disk".into()));
+    assert_eq!(m.code, -32007);
+}
+
+#[test]
+fn err_mcp_01_from_corrupt_minus_32002() {
+    let m = McpError::from(vantadb::Error::WALVersionMismatch {
+        expected: 2,
+        found: 1,
+        hint: "x".into(),
+    });
+    assert_eq!(m.code, -32002);
+}
+
+#[test]
+fn err_mcp_01_unmapped_codes_fall_back_to_internal() {
+    // VANTADB_IO_ERROR / VANTADB_WASM_ERROR have no §6.2 row → -32603.
+    let m = McpError::from(vantadb::Error::generic_error("odd"));
+    assert_eq!(m.code, -32603);
+    assert_eq!(m.to_json()["data"]["code"], "VANTADB_WASM_ERROR");
+}
+
+#[test]
+fn err_mcp_01_std_factories_keep_null_data() {
+    // Compat: -32602 and friends must not emit a data field unless set.
+    let j = McpError::invalid_params("bad").to_json();
+    assert!(
+        j["data"].is_null(),
+        "legacy factories must not carry data: {j}"
+    );
+}
+
+// ── EMB-18 (Q4 bloquear+guiar): dim mismatch lleva guía de regeneración ──
+
+/// Seed helper: put one 4d vector so the base defines dim=4.
+fn emb18_seed_4d(executor: &Executor, storage: &Arc<StorageEngine>, ns: &str) {
+    let seed = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": ns, "key": "seed", "payload": "seed",
+            "vector": [1.0, 0.0, 0.0, 0.0]
+        }
+    }));
+    let res = handle_tools_call(&seed, executor, storage, &default_config()).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "seed 4d put must succeed: {res:?}"
+    );
+}
+
+/// Mismatch text shared by all 4 gates: expected/got + regen command.
+fn emb18_assert_guidance(text: &str) {
+    assert!(
+        text.contains("Vector dimension mismatch: expected 4, got 2"),
+        "must name expected/got dims, got: {text}"
+    );
+    assert!(
+        text.contains("rebuild_index"),
+        "must name the MCP regen tool, got: {text}"
+    );
+    assert!(
+        text.contains("reindex_hnsw_from_text"),
+        "must name the SDK regen fn, got: {text}"
+    );
+}
+
+#[test]
+fn emb18_dim_mismatch_blocks_with_regen_guidance() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+    emb18_seed_4d(&executor, &storage, "emb18_ns");
+
+    // 1. memory_put with 2d vector → blocked with guidance.
+    let bad_put = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "emb18_ns", "key": "bad", "payload": "bad",
+            "vector": [0.5, 0.5]
+        }
+    }));
+    let put_res = handle_tools_call(&bad_put, &executor, &storage, &cfg).unwrap();
+    assert_eq!(put_res["isError"], true, "wrong-dim put must error");
+    emb18_assert_guidance(put_res["content"][0]["text"].as_str().unwrap());
+
+    // 2. memory_put_batch with 2d vector → blocked with guidance.
+    let bad_batch = Some(json!({
+        "name": "memory_put_batch",
+        "arguments": {"inputs": [
+            {"namespace": "emb18_ns", "key": "b1", "payload": "ok"},
+            {"namespace": "emb18_ns", "key": "b2", "payload": "v",
+             "vector": [1.0, 2.0]}
+        ]}
+    }));
+    let batch_res = handle_tools_call(&bad_batch, &executor, &storage, &cfg).unwrap();
+    assert_eq!(batch_res["isError"], true, "wrong-dim batch must error");
+    emb18_assert_guidance(batch_res["content"][0]["text"].as_str().unwrap());
+
+    // 3. search_semantic with 2d query vector → blocked with guidance.
+    let bad_search = Some(json!({
+        "name": "search_semantic",
+        "arguments": {"vector": [0.5, 0.5], "k": 5}
+    }));
+    let search_res = handle_tools_call(&bad_search, &executor, &storage, &cfg).unwrap();
+    assert_eq!(search_res["isError"], true, "wrong-dim query must error");
+    emb18_assert_guidance(search_res["content"][0]["text"].as_str().unwrap());
+
+    // 4. search_memory with 2d query_vector → blocked with guidance.
+    let bad_mem = Some(json!({
+        "name": "search_memory",
+        "arguments": {"namespace": "emb18_ns", "query_vector": [0.5, 0.5]}
+    }));
+    let mem_res = handle_tools_call(&bad_mem, &executor, &storage, &cfg).unwrap();
+    assert_eq!(
+        mem_res["isError"], true,
+        "wrong-dim search_memory must error"
+    );
+    emb18_assert_guidance(mem_res["content"][0]["text"].as_str().unwrap());
+}
+
+#[test]
+fn emb18_empty_base_defines_dim_no_gate() {
+    // Pre-mortem: base vacía/mixta-vacía NUNCA gatea — el primer put con
+    // vector define la dim (aquí 2d, distinta del default 384d).
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+    let cfg = default_config();
+    let first = Some(json!({
+        "name": "memory_put",
+        "arguments": {
+            "namespace": "emb18_empty", "key": "first", "payload": "hi",
+            "vector": [0.5, 0.5]
+        }
+    }));
+    let res = handle_tools_call(&first, &executor, &storage, &cfg).unwrap();
+    assert!(
+        res["isError"].is_null(),
+        "first vector put on empty base must succeed (no gate): {res:?}"
     );
 }

@@ -1,7 +1,9 @@
 param (
     [int]$Iterations = 100,
     [switch]$Release,
-    [string]$LogPath = "chaos_results.json"
+    [string]$LogPath = "chaos_results.json",
+    [string]$TestName = "chaos_integrity_failpoints_certification",
+    [string]$TestTarget = "chaos_integrity"
 )
 
 # Salida estética de consola (Premium ANSI Colors)
@@ -30,7 +32,7 @@ Write-Host "`n${Yellow}Compilando suite de caos una sola vez...${Reset}"
 $buildStart = Get-Date
 
 # Compilar una sola vez y extraer la ruta exacta del ejecutable usando json format
-$cargoCmd = "cargo test --test chaos_integrity --features failpoints $releaseFlag --no-run --message-format=json"
+$cargoCmd = "cargo test --test $TestTarget --features failpoints $releaseFlag --no-run --message-format=json"
 $cargoOutput = Invoke-Expression $cargoCmd -ErrorAction Stop
 
 $testExe = ""
@@ -38,7 +40,7 @@ foreach ($line in $cargoOutput) {
     if ($line -match '\{.*\}') {
         try {
             $json = $line | ConvertFrom-Json
-            if ($json.reason -eq "compiler-artifact" -and $json.target.name -eq "chaos_integrity") {
+            if ($json.reason -eq "compiler-artifact" -and $json.target.name -eq $TestTarget) {
                 $testExe = $json.executable
                 break
             }
@@ -72,7 +74,7 @@ for ($i = 1; $i -le $Iterations; $i++) {
     
     # Ejecutamos el ejecutable directamente
     # Para capturar la salida de consola de forma limpia, usamos Start-Process
-    $proc = Start-Process -FilePath $testExe -ArgumentList "chaos_integrity_failpoints_certification", "--nocapture" -NoNewWindow -PassThru -Wait
+    $proc = Start-Process -FilePath $testExe -ArgumentList $TestName, "--nocapture" -NoNewWindow -PassThru -Wait
     
     $iterEnd = Get-Date
     $duration = ($iterEnd - $iterStart).TotalMilliseconds

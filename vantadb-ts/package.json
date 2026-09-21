@@ -1,18 +1,28 @@
 {
   "name": "vantadb",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "VantaDB TypeScript SDK — WASM-powered embedded vector & graph memory for JS runtimes (Node, Bun, Deno, browser)",
   "type": "module",
+  "engines": {
+    "node": ">=22.19"
+  },
   "main": "dist/vantadb.js",
   "types": "dist/vantadb.d.ts",
   "exports": {
     ".": {
       "types": "./dist/vantadb.d.ts",
-      "import": "./dist/vantadb.js"
+      "import": "./dist/vantadb.js",
+      "require": "./dist/vantadb.js"
     },
     "./types": {
       "types": "./dist/types.d.ts",
-      "import": "./dist/types.js"
+      "import": "./dist/types.js",
+      "require": "./dist/types.js"
+    },
+    "./native": {
+      "types": "./dist/native.d.ts",
+      "import": "./dist/native.js",
+      "require": "./dist/native.js"
     }
   },
   "files": [
@@ -24,7 +34,10 @@
     "build": "tsc",
     "test": "vitest run",
     "lint": "eslint .",
-    "prepublishOnly": "npm run build"
+    "prepublishOnly": "npm run build",
+    "coverage": "npm run build && c8 --all --src ./src --reporter text --reporter json --reporter json-summary node test-runner.mjs",
+    "bench": "node bench/bench.mjs",
+    "bench:3x": "node bench/bench.mjs && node bench/bench.mjs && node bench/bench.mjs"
   },
   "repository": {
     "type": "git",
@@ -48,9 +61,12 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@vitest/coverage-v8": "^4.1.10",
+    "c8": "^12.0.0",
     "eslint": "^10.7.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.64.0",
+    "vantadb-node": "file:../vantadb-node",
     "vite-plugin-wasm": "^3.6.0",
     "vitest": "^4.1.10"
   }

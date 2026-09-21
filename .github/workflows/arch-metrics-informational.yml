@@ -1,0 +1,63 @@
+# Architecture metrics — INFORMATIONAL ONLY (C2M1 baseline).
+# Never blocks: every step has continue-on-error: true.
+# Ratchet policy: compare against docs/reviews/*-baseline.json; tighten
+# thresholds only after M3/S3 re-measurement (Fase 2 Cierre gate).
+# Pins: cargo-modules 0.27.0, cargo-coupling 0.4.0 (see docs/tasks/C2M1.md).
+# rust-dsm stays local-only (Node CLI, immature 0-star tool): run manually
+#   node <rust-dsm>/dist/cli/commands.js . -f json -o docs/reviews/dsm-baseline.json --no-tests
+# Scope per target (MUST document any change here):
+#   - cargo-modules: -p vantadb --lib, default features, no --cfg-test.
+#     KNOWN: exit 1 on item-level self-edge
+#     accumulator::GraphAccumulator <-> GraphAccumulator::new (struct-owns-ctor
+#     artifact, NOT an ADP package cycle). Full Tarjan list comes from rust-dsm.
+#   - cargo-coupling: ./src with git history (volatility needs it).
+
+name: Arch Metrics (informational)
+
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "Cargo.toml"
+      - "Cargo.lock"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  arch-metrics:
+    name: ADP + coupling thermometers
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install thermometers (pinned)
+        continue-on-error: true
+        run: |
+          cargo install cargo-modules --version 0.27.0
+          cargo install cargo-coupling --version 0.4.0
+
+      - name: ADP acyclic check (-p vantadb --lib, default features)
+        continue-on-error: true
+        run: |
+          cargo modules dependencies -p vantadb --lib --acyclic \
+            | tee acyclic-report.txt
+          echo "KNOWN-ARTIFACT: GraphAccumulator<->new self-edge, see workflow header"
+
+      - name: Khononov coupling gate (lax ratchet, informational)
+        continue-on-error: true
+        run: |
+          cargo coupling ./src --check --max-deps 60 --max-dependents 250 \
+            | tee coupling-report.txt
+          echo "Ratchet: error=221 in / engine hotspot=324 (2026-09-13 baseline)"
+
+      - name: Upload reports
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: arch-metrics
+          path: |
+            acyclic-report.txt
+            coupling-report.txt

@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Property-based testing para invariantes de durabilidad (TSK-07)
 //!
 //! Este módulo usa proptest para verificar invariantes críticos de durabilidad:
@@ -125,7 +127,7 @@ proptest! {
         {
             let engine = StorageEngine::open(db_path).unwrap();
 
-            let stats = engine.get_memory_stats();
+            let stats = engine.stats();
             let index_count = stats.node_count;
 
             // Contar nodos desde el almacenamiento

@@ -3,7 +3,7 @@
 //! [`GcWorker`] tracks node expiration timestamps via a [`BTreeMap`] and
 //! evicts expired entries from the [`StorageEngine`] on each sweep.
 
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::storage::StorageEngine;
 use std::collections::{BTreeMap, HashSet};
 use web_time::{SystemTime, UNIX_EPOCH};
@@ -34,7 +34,7 @@ impl<'a> GcWorker<'a> {
     pub fn sweep(&mut self) -> Result<usize> {
         let now = SystemTime::now()
             .duration_since(UNIX_EPOCH)
-            .map_err(|_| VantaError::ValidationError {
+            .map_err(|_| Error::Validation {
                 field: "system_time".into(),
                 reason: "System time before UNIX epoch".into(),
             })?
@@ -55,7 +55,7 @@ impl<'a> GcWorker<'a> {
                         expired_count += 1;
                         false
                     }
-                    Err(VantaError::NodeNotFound(_)) => false,
+                    Err(Error::NodeNotFound(_)) => false,
                     Err(e) => {
                         tracing::error!("GC failed to delete node {id}: {e}");
                         true
@@ -93,14 +93,14 @@ impl<'a> GcWorker<'a> {
 #[allow(missing_docs)]
 mod tests {
     use super::*;
-    use crate::config::VantaConfig;
+    use crate::config::Config;
     use crate::node::UnifiedNode;
     use crate::storage::{BackendKind, StorageEngine};
     use tempfile::tempdir;
 
     fn setup_storage() -> (StorageEngine, tempfile::TempDir) {
         let dir = tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };

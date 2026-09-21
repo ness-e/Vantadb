@@ -12,6 +12,7 @@ aliases: [performance-guide, rust-vs-python]
 This document explains the performance characteristics of VantaDB's architecture layers, quantifies the gap between the Rust core and the Python SDK, and sets realistic expectations for production use.
 
 > **Key takeaway:** The Rust core delivers ~441µs p99 latency at 100K scale. The Python SDK adds ~140x overhead (62ms) due to FFI crossing, GIL management, type conversion, and result serialization. This is **expected and by design** — not a bug.
+> ⚠️ **Outdated numbers (Rule 11):** The Python-SDK figures in this guide (62 ms vector p50, 95 ops/sec, ~140x gap) are based on the **superseded CI series** of `BENCHMARKS.md §2`. The current local baseline reports **2.0 ms** vector p50 / **74 ops/sec** (see [`BENCHMARKS.md §2`](BENCHMARKS.md), regenerate with the command documented there). The qualitative analysis (FFI/GIL/serialization dominate) remains valid.
 
 ---
 
@@ -136,7 +137,7 @@ Each `search_memory` hit produces a `PyDict` with ~10-15 key-value pairs:
 - `namespace`, `key`, `payload`, `created_at_ms`, `updated_at_ms`, `version`, `node_id`
 - `vector` (wrapped in `VantaVector` — zero-copy, but still a Python object allocation)
 - `metadata` (nested `PyDict`)
-- `score` + optional `explanation` + `fusion_report`
+- `score` (+ optional `explanation` per hit — MCP/Rust; the Python `search_memory` binding currently drops `explanation` and never emits `fusion_report`)
 
 For `top_k=10`, this means **10 PyDict allocations**, each calling `dict.set_item()` repeatedly. Each call crosses the PyO3 type boundary.
 

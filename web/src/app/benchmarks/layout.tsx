@@ -3,17 +3,17 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Benchmarks · VantaDB — BENCH-01 & SIFT1M Performance",
   description:
-    "Resultados BENCH-01 y SIFT1M de VantaDB: ingestión 5,400 vec/s, latencia p50 1.2ms HNSW, hybrid search 2.10ms. Benchmarks en Rust + PyO3 in-process.",
+    "Resultados BENCH-01 y SIFT1M de VantaDB: SDK 74 ops/s de ingestión, HNSW p50 1.2ms (10K), QPS peak 3,636 (SIFT1M 100K). Benchmarks reproducibles en Rust + PyO3 in-process.",
   openGraph: {
     title: "Benchmarks · VantaDB — BENCH-01 & SIFT1M Performance",
     description:
-      "Benchmarks BENCH-01 y SIFT1M: 5,400 vec/s ingestión, 1.2ms latencia HNSW, hybrid search 2.10ms p50.",
-    url: "https://vantadb.dev/benchmarks",
+      "Benchmarks BENCH-01 y SIFT1M: 74 ops/s ingestión, HNSW p50 1.2ms (10K), QPS peak 3,636.",
+    url: "https://vantadb.vercel.app/benchmarks",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/benchmarks",
+    canonical: "https://vantadb.vercel.app/benchmarks",
   },
 };
 

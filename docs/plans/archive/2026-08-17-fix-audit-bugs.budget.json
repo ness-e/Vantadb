@@ -1,0 +1,76 @@
+{
+  "tasks": {
+    "1": {
+      "taskId": "1",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787019918770,
+      "lastActivity": 1787025644463
+    },
+    "AUD-047": {
+      "taskId": "AUD-047",
+      "toolCalls": 3,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787020156606,
+      "lastActivity": 1787020200436
+    },
+    "AUD-049": {
+      "taskId": "AUD-049",
+      "toolCalls": 4,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787020479934,
+      "lastActivity": 1787021086338
+    },
+    "AUD-044": {
+      "taskId": "AUD-044",
+      "toolCalls": 3,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787020514510,
+      "lastActivity": 1787021462091
+    },
+    "AUD-051": {
+      "taskId": "AUD-051",
+      "toolCalls": 5,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787022288042,
+      "lastActivity": 1787023308301
+    },
+    "AUD-045": {
+      "taskId": "AUD-045",
+      "toolCalls": 9,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787023780785,
+      "lastActivity": 1787024052636
+    },
+    "AUD-046": {
+      "taskId": "AUD-046",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787024362911,
+      "lastActivity": 1787024362923
+    },
+    "AUD-048": {
+      "taskId": "AUD-048",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787026705251,
+      "lastActivity": 1787026705263
+    },
+    "AUD-050": {
+      "taskId": "AUD-050",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787028375511,
+      "lastActivity": 1787028375523
+    }
+  }
+}

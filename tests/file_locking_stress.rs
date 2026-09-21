@@ -1,28 +1,30 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 /// Stress test for file locking under concurrent access patterns.
 /// Simulates scenarios that could occur with antivirus scanning or
 /// backup software holding temporary file locks.
 use std::fs::OpenOptions;
 use std::time::Duration;
 use tempfile::TempDir;
-use vantadb::config::VantaConfig;
-use vantadb::error::VantaError;
-use vantadb::sdk::VantaMemoryInput;
-use vantadb::VantaEmbedded;
+use vantadb::config::Config;
+use vantadb::error::Error;
+use vantadb::sdk::MemoryInput;
+use vantadb::Embedded;
 
 #[test]
 fn test_file_lock_exclusive_prevents_second_open() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().to_str().unwrap().to_string();
 
-    let db1 = VantaEmbedded::open(&path).unwrap();
+    let db1 = Embedded::open(&path).unwrap();
 
-    let result = VantaEmbedded::open(&path);
+    let result = Embedded::open(&path);
     assert!(
         result.is_err(),
         "Second open should fail when first holds exclusive lock"
     );
     match result.err().unwrap() {
-        VantaError::DatabaseBusy(msg) => {
+        Error::DatabaseBusy(msg) => {
             assert!(
                 msg.contains("locked by another process"),
                 "Expected 'locked by another process' in error message, got: {}",
@@ -30,14 +32,14 @@ fn test_file_lock_exclusive_prevents_second_open() {
             );
         }
         other => panic!(
-            "Expected VantaError::DatabaseBusy for lock failure, got: {:?}",
+            "Expected Error::DatabaseBusy for lock failure, got: {:?}",
             other
         ),
     }
 
     drop(db1);
 
-    let db2 = VantaEmbedded::open(&path).unwrap();
+    let db2 = Embedded::open(&path).unwrap();
     drop(db2);
 }
 
@@ -47,20 +49,20 @@ fn test_read_only_shared_lock_prevents_exclusive_writer() {
     let path = dir.path().to_str().unwrap().to_string();
 
     // Initialize the database with a writer
-    let db_w = VantaEmbedded::open(&path).unwrap();
-    db_w.put(VantaMemoryInput::new("ns", "k1", "v1")).unwrap();
+    let db_w = Embedded::open(&path).unwrap();
+    db_w.put(MemoryInput::new("ns", "k1", "v1")).unwrap();
     db_w.close().unwrap();
 
     // Open read-only (acquires shared lock on .vanta.lock)
-    let config_ro = VantaConfig {
+    let config_ro = Config {
         storage_path: path.clone(),
         read_only: true,
         ..Default::default()
     };
-    let db_ro = VantaEmbedded::open_with_config(config_ro).unwrap();
+    let db_ro = Embedded::open_with_config(config_ro).unwrap();
 
     // While read-only holds a shared lock, a new writer should fail
-    let result = VantaEmbedded::open(&path);
+    let result = Embedded::open(&path);
     assert!(
         result.is_err(),
         "Writer open should fail when read-only holds the shared lock"
@@ -70,7 +72,7 @@ fn test_read_only_shared_lock_prevents_exclusive_writer() {
     drop(db_ro);
 
     // Now the writer should succeed
-    let db_w2 = VantaEmbedded::open(&path).unwrap();
+    let db_w2 = Embedded::open(&path).unwrap();
     db_w2.close().unwrap();
 }
 
@@ -80,8 +82,8 @@ fn test_file_lock_timeout_eventually_succeeds() {
     let path = dir.path().to_str().unwrap().to_string();
 
     for _ in 0..10 {
-        let db = VantaEmbedded::open(&path).unwrap();
-        db.put(VantaMemoryInput::new("ns", "k", "v")).unwrap();
+        let db = Embedded::open(&path).unwrap();
+        db.put(MemoryInput::new("ns", "k", "v")).unwrap();
         db.close().unwrap();
         std::thread::sleep(Duration::from_millis(50));
     }
@@ -166,7 +168,7 @@ fn test_antivirus_file_share_read_does_not_block() {
     let path = dir.path().to_str().unwrap().to_string();
 
     // VantaDB acquires exclusive lock on .vanta.lock
-    let db = VantaEmbedded::open(&path).unwrap();
+    let db = Embedded::open(&path).unwrap();
     let lock_path = dir.path().join(".vanta.lock");
 
     // Simulate antivirus: open the lock file with FILE_SHARE_READ (0x1)
@@ -177,7 +179,7 @@ fn test_antivirus_file_share_read_does_not_block() {
         .expect("Antivirus should be able to open lock file with FILE_SHARE_READ");
 
     // VantaDB should still be able to operate while antivirus has a handle open
-    db.put(VantaMemoryInput::new("ns", "k1", "v1")).unwrap();
+    db.put(MemoryInput::new("ns", "k1", "v1")).unwrap();
     let result = db.get("ns", "k1");
     assert!(
         result.is_ok(),
@@ -186,7 +188,7 @@ fn test_antivirus_file_share_read_does_not_block() {
 
     // Should still work after the antivirus handle is dropped
     drop(_antivirus_file);
-    db.put(VantaMemoryInput::new("ns", "k2", "v2")).unwrap();
+    db.put(MemoryInput::new("ns", "k2", "v2")).unwrap();
     let result = db.get("ns", "k2");
     assert!(
         result.is_ok(),
@@ -207,7 +209,7 @@ fn test_backup_file_share_delete_does_not_block() {
     let dir = TempDir::new().unwrap();
     let path = dir.path().to_str().unwrap().to_string();
 
-    let db = VantaEmbedded::open(&path).unwrap();
+    let db = Embedded::open(&path).unwrap();
     let lock_path = dir.path().join(".vanta.lock");
 
     // Simulate backup software: open with FILE_SHARE_READ | FILE_SHARE_DELETE
@@ -218,8 +220,7 @@ fn test_backup_file_share_delete_does_not_block() {
         .expect("Backup software should open lock file with FILE_SHARE_DELETE");
 
     // VantaDB should still operate
-    db.put(VantaMemoryInput::new("ns", "k1", "backup_test"))
-        .unwrap();
+    db.put(MemoryInput::new("ns", "k1", "backup_test")).unwrap();
     drop(backup_file);
     db.close().unwrap();
 }
@@ -235,9 +236,8 @@ fn test_stale_lock_recovery() {
 
     // VantaDB should clean it up and acquire a fresh lock
     let path = dir.path().to_str().unwrap().to_string();
-    let db = VantaEmbedded::open(&path).unwrap();
-    db.put(VantaMemoryInput::new("ns", "k1", "recovered"))
-        .unwrap();
+    let db = Embedded::open(&path).unwrap();
+    db.put(MemoryInput::new("ns", "k1", "recovered")).unwrap();
 
     // Verify the lock file is still there and we can operate
     // We do not assert the content of the lock file, as VantaDB does not

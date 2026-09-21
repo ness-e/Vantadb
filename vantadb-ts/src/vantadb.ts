@@ -1,14 +1,23 @@
-import { VantaDB as WasmVantaDB } from "vantadb-wasm";
+import { Client as WasmClient } from "vantadb-wasm";
 
-import { VantaError, wrapWasmError } from "./errors.js";
-import { isMemoryRecord } from "./guards.js";
+import type { SearchRequestInput } from "vantadb-wasm";
+
+import { DbError, ERROR_CODES, wrapWasmError } from "./errors.js";
+import { _mapRecord, buildSearchRequestBase } from "./guards.js";
+import { normalizeFilterItems, normalizeMetadata, normalizeValue } from "./metadata.js";
 
 import type {
+  BatchSearchRequest,
   Capabilities,
+  Config,
   ExportReport,
+  FilterItem,
+  FlatValue,
   GraphBfsResult,
+  GraphDegreeEntry,
   GraphDfsResult,
   GraphTopologicalSortResult,
+  GraphTraversalFilter,
   ImportReport,
   ListOptions,
   MemoryInput,
@@ -19,31 +28,116 @@ import type {
   QueryResult,
   SearchHit,
   SearchRequest,
-  VantaConfig,
-  VantaValue,
+  Value,
 } from "./types.js";
 
-function _mapRecord(r: unknown): MemoryRecord {
-  if (!r || typeof r !== "object") {
-    throw new VantaError(
-      "VALIDATION_ERROR",
-      "_mapRecord: expected an object, got " + typeof r,
-    );
-  }
-  if (!isMemoryRecord(r)) {
-    throw new VantaError(
-      "VALIDATION_ERROR",
-      "_mapRecord: invalid MemoryRecord structure or missing required fields",
-    );
-  }
-  return r;
+// ---------------------------------------------------------------------------
+// Sub-client interfaces (SDKB-02) — domain-grouped views over VantaDB's flat
+// methods. Pure delegation only (D43); signatures mirror the flat methods
+// exactly and reuse types.ts (no duplicates). Domain map:
+// docs/api/BINDINGS_NAMESPACES.md.
+// ---------------------------------------------------------------------------
+
+export interface MemoryClient {
+  put(input: MemoryInput): MemoryRecord;
+  putBatch(inputs: MemoryInput[]): MemoryRecord[];
+  get(namespace: string, key: string): MemoryRecord | null;
+  delete(namespace: string, key: string): boolean;
+  deleteByFilter(namespace: string, filter: FilterItem[]): bigint;
+  list(namespace: string, options?: ListOptions): MemoryListPage;
+  listNamespaces(): string[];
+  count(namespace: string, filters?: FilterItem[]): bigint;
+  supersede(namespace: string, oldKey: string, newKey: string): void;
+  search(request: SearchRequest): SearchHit[];
+  searchMulti(namespaces: string[], request: BatchSearchRequest): SearchHit[];
+  searchVector(
+    vector: number[],
+    topK?: number,
+  ): { node_id: string; distance: number }[];
+  similarToKey(
+    namespace: string,
+    key: string,
+    topK?: number,
+  ): SearchHit[];
+  explainSearch(request: SearchRequest): Record<string, unknown>;
+  generateSnippet(
+    payload: string,
+    query: string,
+    withHighlighting?: boolean,
+  ): string | undefined;
+  purgeExpired(): bigint;
 }
 
-export class VantaDB {
-  private inner: WasmVantaDB;
+export interface GraphClient {
+  insertNode(
+    id: number | bigint,
+    content?: string,
+    vector?: number[],
+    fields?: Record<string, FlatValue | Value>,
+  ): void;
+  getNode(id: number | bigint): NodeRecord | null;
+  deleteNode(id: number | bigint, reason?: string): void;
+  addEdge(
+    source: number | bigint,
+    target: number | bigint,
+    label?: string,
+    weight?: number,
+    createdAtMs?: number,
+  ): void;
+  removeEdge(source: number | bigint, target: number | bigint, label?: string): void;
+  bfs(
+    roots: number[],
+    maxDepth?: number,
+    direction?: "Forward" | "Reverse" | "Both",
+  ): GraphBfsResult;
+  dfs(
+    roots: number[],
+    maxDepth?: number,
+    direction?: "Forward" | "Reverse" | "Both",
+  ): GraphDfsResult;
+  topologicalSort(roots: number[]): GraphTopologicalSortResult;
+  isDag(roots: number[]): boolean;
+  filteredTraversal(
+    roots: number[],
+    maxDepth?: number,
+    direction?: "Forward" | "Reverse" | "Both",
+    filter?: GraphTraversalFilter | null,
+  ): GraphBfsResult;
+  degree(roots: number[]): GraphDegreeEntry[];
+}
+
+/** Empty in TS v1: wiki features are core-only per D43 (no WASM binding yet). */
+// eslint-disable-next-line @typescript-eslint/no-empty-object-type -- intentional placeholder surface for db.wiki (see getter below)
+export interface WikiClient {}
+
+export interface SystemClient {
+  close(): void;
+  capabilities(): Capabilities;
+  operationalMetrics(): OperationalMetrics;
+  query(query: string): QueryResult;
+  flush(): void;
+  compactWal(): void;
+  compactLayout(): bigint;
+  rebuildIndex(): unknown;
+  reindexHnswFromText(namespace: string, pageSize?: number): unknown;
+  repairTextIndex(): unknown;
+  auditTextIndex(namespace?: string): unknown;
+  auditTextIndexDeep(namespace?: string): unknown;
+  exportAll(path: string): ExportReport;
+  exportNamespace(
+    path: string,
+    namespace: string,
+    filter?: FilterItem[],
+  ): ExportReport;
+  importRecords(records: MemoryInput[]): ImportReport;
+  importFile(path: string): ImportReport;
+}
+
+export class Client {
+  private inner: WasmClient;
   private _closed: boolean = false;
 
-  private constructor(inner: WasmVantaDB) {
+  private constructor(inner: WasmClient) {
     this.inner = inner;
   }
 
@@ -60,23 +154,23 @@ export class VantaDB {
    * Connect to a VantaDB database with persistent storage.
    *
    * @param path - Filesystem path for persistent storage. Omit or pass `":memory:"` for in-memory.
-   * @returns A new VantaDB instance.
-   * @throws {VantaError} If the WASM engine fails to initialise.
+   * @returns A new Client instance.
+   * @throws {DbError} If the WASM engine fails to initialise.
    *
    * @example
    * ```ts
    * // In-memory
-   * const db = VantaDB.connect();
+   * const db = Client.connect();
    * // Persistent
-   * const db = VantaDB.connect("./my_brain");
+   * const db = Client.connect("./my_brain");
    * ```
    */
-  static connect(path?: string): VantaDB {
+  static connect(path?: string): Client {
     try {
       const inner = path && path !== ":memory:"
-        ? WasmVantaDB.open(path)
-        : new WasmVantaDB(null);
-      return new VantaDB(inner);
+        ? WasmClient.open(path)
+        : new WasmClient(null);
+      return new Client(inner);
     } catch (e) {
       throw wrapWasmError(e, "connect");
     }
@@ -88,27 +182,29 @@ export class VantaDB {
   /**
    * Create a new VantaDB instance with the given config.
    *
-   * Note: In WASM mode, `storage_path` is accepted but ignored — the
-   * WASM backend always uses an in-memory engine. For persistent storage, use `connect()`.
+   * Note: In WASM mode, `storage_path` is accepted but ignored (CODE-089) — the
+   * default `create()` opens an in-memory WASM engine. For persistent storage,
+   * use `connect()` / `open()` (Node on-disk), or in browsers use `connect_persistent()`
+   * (OPFS), `connect_idb()` (IndexedDB), or `connect_worker()`.
    *
    * @param config - Optional configuration.
-   * @returns A new VantaDB instance.
-   * @throws {VantaError} If the WASM engine fails to initialise.
+   * @returns A new Client instance.
+   * @throws {DbError} If the WASM engine fails to initialise.
    *
    * @example
    * ```ts
-   * const db = VantaDB.create({ memory_limit: 1073741824 });
+   * const db = Client.create({ memory_limit: 1073741824 });
    * ```
    */
-  static create(config?: VantaConfig): VantaDB {
+  static create(config?: Config): Client {
     if (config?.storage_path) {
       console.warn(
-        "VantaDB.create(): storage_path is ignored unless a persistent backend is connected via connect_persistent(), connect_idb(), or connect_worker().",
+        "Client.create(): storage_path is ignored unless a persistent backend is connected via connect_persistent(), connect_idb(), or connect_worker().",
       );
     }
     try {
-      const inner = new WasmVantaDB(config ?? null);
-      return new VantaDB(inner);
+      const inner = new WasmClient(config ?? null);
+      return new Client(inner);
     } catch (e) {
       throw wrapWasmError(e, "create");
     }
@@ -118,18 +214,18 @@ export class VantaDB {
    * Open a persistent VantaDB database at the given path.
    *
    * @param path - Filesystem path to the database.
-   * @returns A new VantaDB instance.
-   * @throws {VantaError} If the WASM engine fails to open the database.
+   * @returns A new Client instance.
+   * @throws {DbError} If the WASM engine fails to open the database.
    *
    * @example
    * ```ts
-   * const db = VantaDB.open("./my_brain");
+   * const db = Client.open("./my_brain");
    * ```
    */
-  static open(path: string): VantaDB {
+  static open(path: string): Client {
     try {
-      const inner = WasmVantaDB.open(path);
-      return new VantaDB(inner);
+      const inner = WasmClient.open(path);
+      return new Client(inner);
     } catch (e) {
       throw wrapWasmError(e, "open");
     }
@@ -137,17 +233,133 @@ export class VantaDB {
 
   private _assertOpen(): void {
     if (this._closed) {
-      throw new VantaError("CLOSED", "VantaDB instance is closed");
+      throw new DbError(ERROR_CODES.CLOSED, "Client instance is closed");
     }
   }
+
+  // ---------------------------------------------------------------------------
+  // Sub-clients (SDKB-02) — domain-grouped views over the flat methods.
+  //
+  // Pure delegation only (D43): every arrow forwards to the identical flat
+  // method on `this`, so results and signatures match exactly. Arrows capture
+  // `this` lexically — no bind drift. Getters are lazy and memoized; each
+  // client is frozen (read-only surface). Domain map:
+  // docs/api/BINDINGS_NAMESPACES.md.
+  // ---------------------------------------------------------------------------
+
+  /** Grouped memory-record operations (namespace+key records, search, TTL). */
+  get memory(): Readonly<MemoryClient> {
+    return (this._memory ??= Object.freeze({
+      put: (input: MemoryInput) => this.put(input),
+      putBatch: (inputs: MemoryInput[]) => this.putBatch(inputs),
+      get: (namespace: string, key: string) => this.get(namespace, key),
+      delete: (namespace: string, key: string) => this.delete(namespace, key),
+      deleteByFilter: (namespace: string, filter: FilterItem[]) =>
+        this.deleteByFilter(namespace, filter),
+      list: (namespace: string, options?: ListOptions) =>
+        this.list(namespace, options),
+      listNamespaces: () => this.listNamespaces(),
+      count: (namespace: string, filters?: FilterItem[]) =>
+        this.count(namespace, filters),
+      supersede: (namespace: string, oldKey: string, newKey: string) =>
+        this.supersede(namespace, oldKey, newKey),
+      search: (request: SearchRequest) => this.search(request),
+      searchMulti: (namespaces: string[], request: BatchSearchRequest) =>
+        this.searchMulti(namespaces, request),
+      searchVector: (vector: number[], topK?: number) =>
+        this.searchVector(vector, topK),
+      similarToKey: (namespace: string, key: string, topK?: number) =>
+        this.similarToKey(namespace, key, topK),
+      explainSearch: (request: SearchRequest) => this.explainSearch(request),
+      generateSnippet: (payload: string, query: string, withHighlighting?: boolean) =>
+        this.generateSnippet(payload, query, withHighlighting),
+      purgeExpired: () => this.purgeExpired(),
+    }));
+  }
+  private _memory?: Readonly<MemoryClient>;
+
+  /** Grouped graph operations (node/edge CRUD and traversals). */
+  get graph(): Readonly<GraphClient> {
+    return (this._graph ??= Object.freeze({
+      insertNode: (
+        id: number | bigint,
+        content?: string,
+        vector?: number[],
+        fields?: Record<string, Value>,
+      ) => this.insertNode(id, content, vector, fields),
+      getNode: (id: number | bigint) => this.getNode(id),
+      deleteNode: (id: number | bigint, reason?: string) =>
+        this.deleteNode(id, reason),
+      addEdge: (
+        source: number | bigint,
+        target: number | bigint,
+        label?: string,
+        weight?: number,
+        createdAtMs?: number,
+      ) => this.addEdge(source, target, label, weight, createdAtMs),
+      removeEdge: (source: number | bigint, target: number | bigint, label?: string) =>
+        this.removeEdge(source, target, label),
+      bfs: (roots: number[], maxDepth?: number, direction?: "Forward" | "Reverse" | "Both") =>
+        this.graphBfs(roots, maxDepth, direction),
+      dfs: (roots: number[], maxDepth?: number, direction?: "Forward" | "Reverse" | "Both") =>
+        this.graphDfs(roots, maxDepth, direction),
+      topologicalSort: (roots: number[]) =>
+        this.graphTopologicalSort(roots),
+      isDag: (roots: number[]) => this.graphIsDag(roots),
+      filteredTraversal: (
+        roots: number[],
+        maxDepth?: number,
+        direction?: "Forward" | "Reverse" | "Both",
+        filter?: GraphTraversalFilter | null,
+      ) => this.graphFilteredTraversal(roots, maxDepth, direction, filter),
+      degree: (roots: number[]) => this.graphDegree(roots),
+    }));
+  }
+  private _graph?: Readonly<GraphClient>;
+
+  /**
+   * Wiki domain — empty in TS v1: wiki operations (`recover_archived_nodes`,
+   * pages, TDAM) are core-only per D43 and not exposed via WASM bindings yet.
+   * The getter exists so `db.wiki.*` has an explicit, documented surface.
+   */
+  get wiki(): Readonly<WikiClient> {
+    return (this._wiki ??= Object.freeze({}));
+  }
+  private _wiki?: Readonly<WikiClient>;
+
+  /** Catch-all system domain (lifecycle, metrics, IQL, maintenance, portability). */
+  get system(): Readonly<SystemClient> {
+    return (this._system ??= Object.freeze({
+      close: () => this.close(),
+      capabilities: () => this.capabilities(),
+      operationalMetrics: () => this.operationalMetrics(),
+      query: (query: string) => this.query(query),
+      flush: () => this.flush(),
+      compactWal: () => this.compactWal(),
+      compactLayout: () => this.compactLayout(),
+      rebuildIndex: () => this.rebuildIndex(),
+      reindexHnswFromText: (namespace: string, pageSize?: number) =>
+        this.reindexHnswFromText(namespace, pageSize),
+      repairTextIndex: () => this.repairTextIndex(),
+      auditTextIndex: (namespace?: string) => this.auditTextIndex(namespace),
+      auditTextIndexDeep: (namespace?: string) =>
+        this.auditTextIndexDeep(namespace),
+      exportAll: (path: string) => this.exportAll(path),
+      exportNamespace: (path: string, namespace: string, filter?: FilterItem[]) =>
+        this.exportNamespace(path, namespace, filter),
+      importRecords: (records: MemoryInput[]) => this.importRecords(records),
+      importFile: (path: string) => this.importFile(path),
+    }));
+  }
+  private _system?: Readonly<SystemClient>;
 
   /**
    * Close the database and release underlying WASM engine resources.
    *
-   * After close(), all public methods throw VantaError with code "CLOSED".
+   * After close(), all public methods throw DbError with code "VANTADB_CLOSED".
    * Calling close() multiple times is safe (no-op on subsequent calls).
    *
-   * @throws {VantaError} If the WASM engine fails during close.
+   * @throws {DbError} If the WASM engine fails during close.
    *
    * @example
    * ```ts
@@ -169,7 +381,7 @@ export class VantaDB {
    * Get the capabilities of the underlying WASM engine.
    *
    * @returns The engine capabilities.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -180,7 +392,10 @@ export class VantaDB {
   capabilities(): Capabilities {
     this._assertOpen();
     return this._wasm("capabilities", () => {
-      const raw = this.inner.capabilities();
+      // FIND-125: the hand-written wasm `.d.ts` omits `runtime_profile`
+      // (present at runtime from the core `Capabilities` struct,
+      // `src/sdk/types.rs:234`). Erased cast: zero runtime change.
+      const raw = this.inner.capabilities() as unknown as Capabilities;
       return {
         runtime_profile: raw.runtime_profile,
         persistence: raw.persistence,
@@ -196,23 +411,32 @@ export class VantaDB {
    *
    * @param input - The memory record to store.
    * @returns The stored record with system-generated fields populated.
-   * @throws {VantaError} If the namespace or key is empty, or if the instance is closed.
+   * @throws {DbError} If the namespace or key is empty, or if the instance is closed.
    *
-   * @example
-   * ```ts
-   * const record = db.put({
-   *   namespace: "docs",
-   *   key: "welcome",
-   *   payload: "Hello, world!",
-   *   metadata: { source: { type: "String", value: "manual" } },
-   *   vector: [0.1, 0.2, 0.3],
-   * });
-   * console.log(record.version); // "1"
-   * ```
-   */
+    * @example
+    * ```ts
+    * // Plain JS values (preferred) — normalized internally to the wire form.
+    * const record = db.put({
+    *   namespace: "docs",
+    *   key: "welcome",
+    *   payload: "Hello, world!",
+    *   metadata: { source: "manual" },
+    *   vector: [0.1, 0.2, 0.3],
+    * });
+    * console.log(record.version); // "1"
+    * ```
+    */
   put(input: MemoryInput): MemoryRecord {
     this._assertOpen();
-    return this._wasm("put", () => _mapRecord(this.inner.put(input)));
+    return this._wasm("put", () => {
+      const wire = { ...input } as MemoryInput;
+      // Only set the key when present: an explicit `metadata: undefined`
+      // breaks the WASM deserializer (it is not the same as an absent field).
+      if (input.metadata !== undefined) {
+        wire.metadata = normalizeMetadata(input.metadata);
+      }
+      return _mapRecord(this.inner.put(wire));
+    });
   }
 
   /**
@@ -220,7 +444,7 @@ export class VantaDB {
    *
    * @param inputs - Array of memory records to store.
    * @returns Array of stored records in the same order as the input.
-   * @throws {VantaError} If any input is invalid, or if the instance is closed.
+   * @throws {DbError} If any input is invalid, or if the instance is closed.
    *
    * @example
    * ```ts
@@ -233,7 +457,14 @@ export class VantaDB {
   putBatch(inputs: MemoryInput[]): MemoryRecord[] {
     this._assertOpen();
     return this._wasm("putBatch", () => {
-      const records = this.inner.put_batch(inputs) as unknown[];
+      const normalized = inputs.map((i) => {
+        const wire = { ...i } as MemoryInput;
+        if (i.metadata !== undefined) {
+          wire.metadata = normalizeMetadata(i.metadata);
+        }
+        return wire;
+      });
+      const records = this.inner.put_batch(normalized) as unknown[];
       for (let i = 0; i < records.length; i++) {
         records[i] = _mapRecord(records[i]);
       }
@@ -247,7 +478,7 @@ export class VantaDB {
    * @param namespace - The namespace.
    * @param key - The record key.
    * @returns The record if found, or null if it does not exist.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -269,7 +500,7 @@ export class VantaDB {
    * @param namespace - The namespace.
    * @param key - The record key.
    * @returns true if the record was deleted, false if it did not exist.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -285,7 +516,7 @@ export class VantaDB {
    * List all namespaces in the database.
    *
    * @returns Array of namespace strings.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -303,7 +534,7 @@ export class VantaDB {
    * @param namespace - The namespace to list.
    * @param options - Pagination options (limit, cursor, filters).
    * @returns A page of records with an optional cursor for continuation.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -318,7 +549,13 @@ export class VantaDB {
   list(namespace: string, options: ListOptions = {}): MemoryListPage {
     this._assertOpen();
     return this._wasm("list", () => {
-      const raw = this.inner.list(namespace, options);
+      const wire = { ...options } as ListOptions;
+      if (options.filters !== undefined) {
+        // Only set the key when present: an explicit `filters: undefined`
+        // breaks the WASM deserializer (not the same as an absent field).
+        wire.filters = normalizeMetadata(options.filters);
+      }
+      const raw = this.inner.list(namespace, wire);
       const items: unknown[] = raw.records ?? [];
       for (let i = 0; i < items.length; i++) {
         items[i] = _mapRecord(items[i]);
@@ -330,16 +567,23 @@ export class VantaDB {
     });
   }
 
-  private _buildSearchRequest(request: SearchRequest, explain?: boolean): Record<string, unknown> {
+  private _buildSearchRequest(request: SearchRequest, explain?: boolean): SearchRequestInput {
+    // ERR-028 (AUDREP-55): a zero-norm cosine query vector is undefined
+    // (cosine = 0/0). The core rejects it with Error::InvalidInput
+    // (src/sdk/search/mod.rs) and that error surfaces here via the WASM
+    // binding — this layer is glue and must NOT make search decisions
+    // (api-contract.md R-8). Pass the request through untouched, like
+    // native.ts, so both backends behave identically.
+    // FIND-125: the emitted shape is what the engine deserializes
+    // (`SearchRequest` in `vantadb-wasm/src/lib.rs:152-168` — tagged
+    // filters, `text_query: null` = None); the hand-written `.d.ts` input
+    // type is narrower/drifted. Erased cast: zero runtime change.
     return {
-      namespace: request.namespace,
-      query_vector: request.query_vector,
-      filters: request.filters ?? {},
+      ...buildSearchRequestBase(request, explain),
+      filters: normalizeMetadata(request.filters) ?? {},
       text_query: request.text_query ?? null,
-      top_k: request.top_k ?? 10,
-      distance_metric: request.distance_metric ?? "Cosine",
-      explain: explain ?? (request.explain ?? false),
-    };
+      exclude_superseded: request.exclude_superseded ?? false,
+    } as unknown as SearchRequestInput;
   }
 
   /**
@@ -347,7 +591,8 @@ export class VantaDB {
    *
    * @param request - The search request parameters.
    * @returns Array of search hits ordered by relevance (closest first).
-   * @throws {VantaError} If the instance is closed or the search fails.
+   *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
+   * @throws {DbError} If the instance is closed or the search fails.
    *
    * @example
    * ```ts
@@ -377,12 +622,146 @@ export class VantaDB {
   }
 
   /**
+   * Search across multiple namespaces in a single call. Results from each
+   * namespace are merged by descending score and capped at `request.top_k`
+   * globally. The `namespace` field on `request` is ignored; pass
+   * `namespaces` instead.
+   *
+   * @param namespaces - Namespaces to search independently.
+   * @param request - Search parameters (omit `namespace`; use `namespaces`).
+   * @returns Array of search hits ordered by relevance (highest score first).
+   *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
+   * @throws {DbError} If the instance is closed or any namespace fails.
+   *
+   * @example
+   * ```ts
+   * const hits = db.searchMulti(["docs", "kb"], {
+   *   query_vector: [0.1, 0.2, 0.3],
+   *   top_k: 5,
+   * });
+   * for (const hit of hits) {
+   *   console.log(hit.record.namespace, hit.record.key);
+   * }
+   * ```
+   */
+  searchMulti(namespaces: string[], request: BatchSearchRequest): SearchHit[] {
+    this._assertOpen();
+    return this._wasm("searchMulti", () => {
+      // The wire shape mirrors `search()`; reuse the same builder but ignore
+      // any `namespace` field on the request (we route via `namespaces` arg).
+      // D5a: the base now rejects empty namespaces, so the synthetic field
+      // carries the first routed namespace (ignored downstream) instead of "".
+      // `namespaces` itself is validated here — an empty route list is a
+      // caller error, not an engine query.
+      if (!Array.isArray(namespaces) || namespaces.length === 0) {
+        throw new DbError(
+          ERROR_CODES.VALIDATION_ERROR,
+          "searchMulti: namespaces must be a non-empty array",
+        );
+      }
+      const wire = this._buildSearchRequest({
+        ...request,
+        namespace: namespaces[0],
+      });
+      const raw = this.inner.search_multi(namespaces, wire) as unknown[];
+      return raw.map((hit: unknown) => {
+        const h = hit as Record<string, unknown>;
+        return {
+          record: _mapRecord(h.record),
+          distance: h.score as number,
+          explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
+        };
+      });
+    });
+  }
+
+  /**
+   * Count records in a namespace, optionally matching an AND-combined
+   * metadata filter. Pass an empty array / `undefined` to count every
+   * record in the namespace.
+   *
+   * WASM wire method: `count()` (TS-04 parity with Python / core SDK).
+   *
+   * @param namespace - Namespace to count within.
+   * @param filters - Optional list of `{field, op, value}` items.
+   * @returns Number of matching records (bigint).
+   * @throws {DbError} If the instance is closed.
+   *
+   * @example
+   * ```ts
+   * const total = db.count("docs");
+   * const redHot = db.count("docs", [
+   *   { field: "tier", op: "Eq", value: "hot" },
+   * ]);
+   * ```
+   */
+  count(namespace: string, filters?: FilterItem[]): bigint {
+    this._assertOpen();
+    return this._wasm("count", () =>
+      this.inner.count(
+        namespace,
+        normalizeFilterItems(filters ?? []),
+      ),
+    );
+  }
+
+  /**
+   * Mark an existing record as superseded by another existing record
+   * (ADR-028). Supersession is durable: the old record keeps its data
+   * (soft-dead, recoverable) but gains `superseded_by`/`superseded_at_ms`,
+   * and can be hidden from search/list with `exclude_superseded: true`.
+   *
+   * @throws {DbError} If either key is missing, `oldKey == newKey`, or
+   *   the old record is already superseded.
+   *
+   * @example
+   * ```ts
+   * db.supersede("docs", "old-welcome", "welcome-v2");
+   * ```
+   */
+  supersede(namespace: string, oldKey: string, newKey: string): void {
+    this._assertOpen();
+    this._wasm("supersede", () => this.inner.supersede(namespace, oldKey, newKey));
+  }
+
+  /**
+   * Search for memory records similar to an existing record by key, without
+   * supplying a query vector. The source record is excluded from results.
+   *
+   * @param namespace - Namespace to search within.
+   * @param key - Key of the source record whose vector seeds the search.
+   * @param topK - Maximum number of hits (default: 10).
+   * @returns Array of search hits ordered by descending similarity.
+   *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
+   * @throws {DbError} If the source `key` does not exist or has no vector.
+   *
+   * @example
+   * ```ts
+   * const hits = db.similarToKey("docs", "welcome-v2", 5);
+   * ```
+   */
+  similarToKey(namespace: string, key: string, topK: number = 10): SearchHit[] {
+    this._assertOpen();
+    return this._wasm("similarToKey", () => {
+      const raw = this.inner.similar_to_key(namespace, key, topK) as unknown[];
+      return raw.map((hit: unknown) => {
+        const h = hit as Record<string, unknown>;
+        return {
+          record: _mapRecord(h.record),
+          distance: h.score as number,
+          explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
+        };
+      });
+    });
+  }
+
+  /**
    * Search for graph nodes by vector similarity (low-level API).
    *
    * @param vector - Query vector (number array or Float32Array).
    * @param topK - Maximum number of results (default: 10).
    * @returns Array of results with node IDs and distances.
-   * @throws {VantaError} If the instance is closed or the vector is invalid.
+   * @throws {DbError} If the instance is closed or the vector is invalid.
    *
    * @example
    * ```ts
@@ -403,7 +782,7 @@ export class VantaDB {
         const h = hit as Record<string, unknown>;
         return {
           node_id: h.node_id as string,
-          distance: h.score as number,
+          distance: h.distance as number,
         };
       });
     });
@@ -414,7 +793,7 @@ export class VantaDB {
    *
    * @param request - The search request parameters.
    * @returns Raw explanation object from the engine.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -429,7 +808,7 @@ export class VantaDB {
   explainSearch(request: SearchRequest): Record<string, unknown> {
     this._assertOpen();
     return this._wasm("explainSearch", () =>
-      this.inner.explain_memory_search(this._buildSearchRequest(request, true)),
+      this.inner.explain_memory_search(this._buildSearchRequest(request, true)) as unknown as Record<string, unknown>,
     );
   }
 
@@ -438,18 +817,54 @@ export class VantaDB {
    *
    * @param path - Output file path.
    * @param namespace - Namespace to export.
+   * @param filter - Optional AND-combined metadata filter; omitting it exports the full namespace.
    * @returns Export report with counts and timing.
-   * @throws {VantaError} If the instance is closed or the export fails.
+   * @throws {DbError} If the instance is closed or the export fails.
    *
    * @example
    * ```ts
    * const report = db.exportNamespace("./export.jsonl", "docs");
-   * console.log(report.records_exported);
+   * const filtered = db.exportNamespace("./red.jsonl", "docs", [
+   *   { field: "color", op: "Eq", value: "red" },
+   * ]);
    * ```
    */
-  exportNamespace(path: string, namespace: string): ExportReport {
+  exportNamespace(
+    path: string,
+    namespace: string,
+    filter?: FilterItem[],
+  ): ExportReport {
     this._assertOpen();
-    return this._wasm("exportNamespace", () => this.inner.export_namespace(path, namespace));
+    return this._wasm(
+      "exportNamespace",
+      () =>
+        // FIND-125: runtime is the core `ExportReport`
+        // (`src/sdk/types/record.rs:179-188`); the wasm `.d.ts` shape is
+        // drifted. Erased cast: zero runtime change.
+        (filter && filter.length > 0
+          ? this.inner.export_namespace_filtered(path, namespace, normalizeFilterItems(filter))
+          : this.inner.export_namespace(path, namespace)) as unknown as ExportReport,
+    );
+  }
+
+  /**
+   * Delete all records in a namespace matching an AND-combined metadata filter.
+   *
+   * Returns the number of deleted records. The core rejects an empty filter to
+   * prevent accidental full-namespace deletion — that error propagates.
+   *
+   * ```ts
+   * const deleted = db.deleteByFilter("docs", [
+   *   { field: "tier", op: "Eq", value: "hot" },
+   * ]);
+   * console.log(deleted); // 3n
+   * ```
+   */
+  deleteByFilter(namespace: string, filter: FilterItem[]): bigint {
+    this._assertOpen();
+    return this._wasm("deleteByFilter", () =>
+      this.inner.delete_by_filter(namespace, normalizeFilterItems(filter)),
+    );
   }
 
   /**
@@ -457,7 +872,7 @@ export class VantaDB {
    *
    * @param path - Output file path.
    * @returns Export report with counts and timing.
-   * @throws {VantaError} If the instance is closed or the export fails.
+   * @throws {DbError} If the instance is closed or the export fails.
    *
    * @example
    * ```ts
@@ -466,15 +881,23 @@ export class VantaDB {
    */
   exportAll(path: string): ExportReport {
     this._assertOpen();
-    return this._wasm("exportAll", () => this.inner.export_all(path));
+    return this._wasm("exportAll", () => this.inner.export_all(path) as unknown as ExportReport);
   }
 
   /**
    * Import records from an array.
    *
+   * Implemented over the `put` path — not the WASM `import_records`
+   * binding, which deserializes `Vec<MemoryRecord>` with numeric `u64`
+   * timestamps and rejects both `MemoryInput` (missing `created_at_ms`)
+   * and the stringified-`u64` shape returned by `get()` (FIND-79).
+   * Semantics mirror the core `import_records`: pre-existing keys count
+   * as `updated`, new keys as `inserted`, per-record failures as `errors`
+   * (counted, never thrown).
+   *
    * @param records - Array of memory record inputs to import.
    * @returns Import report with counts and timing.
-   * @throws {VantaError} If the instance is closed or the import fails.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -486,7 +909,30 @@ export class VantaDB {
    */
   importRecords(records: MemoryInput[]): ImportReport {
     this._assertOpen();
-    return this._wasm("importRecords", () => this.inner.import_records(records));
+    return this._wasm("importRecords", () => {
+      const started = Date.now();
+      let inserted = 0;
+      let updated = 0;
+      let errors = 0;
+      for (const r of records) {
+        try {
+          const existed = this.inner.get(r.namespace, r.key) != null;
+          const wire = { ...r } as MemoryInput;
+          if (r.metadata !== undefined) {
+            wire.metadata = normalizeMetadata(r.metadata);
+          }
+          this.inner.put(wire);
+          if (existed) {
+            updated += 1;
+          } else {
+            inserted += 1;
+          }
+        } catch {
+          errors += 1;
+        }
+      }
+      return { inserted, updated, skipped: 0, errors, duration_ms: Date.now() - started };
+    });
   }
 
   /**
@@ -494,7 +940,7 @@ export class VantaDB {
    *
    * @param path - Path to the JSONL file.
    * @returns Import report with counts and timing.
-   * @throws {VantaError} If the instance is closed or the file cannot be read.
+   * @throws {DbError} If the instance is closed or the file cannot be read.
    *
    * @example
    * ```ts
@@ -503,14 +949,14 @@ export class VantaDB {
    */
   importFile(path: string): ImportReport {
     this._assertOpen();
-    return this._wasm("importFile", () => this.inner.import_file(path));
+    return this._wasm("importFile", () => this.inner.import_file(path) as unknown as ImportReport);
   }
 
   /**
    * Rebuild the ANN index from scratch.
    *
    * @returns Engine-specific rebuild result.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -531,7 +977,7 @@ export class VantaDB {
    * @param namespace - The namespace to rebuild.
    * @param pageSize - Batch size (default 1000, max 1000).
    * @returns A rebuild report with scanned and indexed counts.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -541,17 +987,14 @@ export class VantaDB {
    */
   reindexHnswFromText(namespace: string, pageSize: number = 1000): unknown {
     this._assertOpen();
-    // NOTE: reindex_hnsw_from_text is not yet exported by the installed WASM build.
-    // This method will work once the WASM package is rebuilt and published.
-    void namespace; void pageSize;
-    throw new VantaError("WASM_ERROR", "reindexHnswFromText: not available in the current WASM build");
+    return this._wasm("reindexHnswFromText", () => this.inner.reindex_hnsw_from_text(namespace, pageSize));
   }
 
   /**
    * Compact the internal storage layout to reclaim space.
    *
    * @returns Number of bytes reclaimed (bigint).
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -568,7 +1011,7 @@ export class VantaDB {
    *
    * @param namespace - Optional namespace to scope the audit.
    * @returns Audit report.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    */
   auditTextIndex(namespace?: string): unknown {
     this._assertOpen();
@@ -580,7 +1023,7 @@ export class VantaDB {
    *
    * @param namespace - Optional namespace to scope the audit.
    * @returns Detailed audit report.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    */
   auditTextIndexDeep(namespace?: string): unknown {
     this._assertOpen();
@@ -591,7 +1034,7 @@ export class VantaDB {
    * Repair the text index if inconsistencies are detected.
    *
    * @returns Repair report.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    */
   repairTextIndex(): unknown {
     this._assertOpen();
@@ -601,7 +1044,7 @@ export class VantaDB {
   /**
    * Flush all pending writes to storage.
    *
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -616,7 +1059,7 @@ export class VantaDB {
   /**
    * Compact the write-ahead log (WAL) to reclaim space.
    *
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -632,7 +1075,7 @@ export class VantaDB {
    * Purge all expired records (those past their TTL).
    *
    * @returns Number of records purged (bigint).
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -648,7 +1091,7 @@ export class VantaDB {
    * Get operational metrics from the engine.
    *
    * @returns Current operational metrics.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -666,7 +1109,7 @@ export class VantaDB {
    *
    * @param query - IQL query string (LISP-like syntax).
    * @returns Query result containing nodes or write confirmation.
-   * @throws {VantaError} If the instance is closed or the query is invalid.
+   * @throws {DbError} If the instance is closed or the query is invalid.
    *
    * @example
    * ```ts
@@ -676,7 +1119,10 @@ export class VantaDB {
    */
   query(query: string): QueryResult {
     this._assertOpen();
-    return this._wasm("query", () => this.inner.query(query));
+    // FIND-125: runtime is the core `QueryResult` enum, externally tagged
+    // (`src/sdk/types/graph.rs:14-32`); the wasm `.d.ts` `IqlResult {kind…}`
+    // shape is drifted. Erased cast: zero runtime change.
+    return this._wasm("query", () => this.inner.query(query) as unknown as QueryResult);
   }
 
   /**
@@ -689,32 +1135,35 @@ export class VantaDB {
    * @param content - Optional content string.
    * @param vector - Optional embedding vector.
    * @param fields - Optional typed metadata fields.
-   * @throws {VantaError} If the ID is not a safe integer, or if the instance is closed.
+   * @throws {DbError} If the ID is not a safe integer, or if the instance is closed.
    *
    * @example
    * ```ts
-   * db.insertNode(1, "root", [0.1, 0.2], { tag: { type: "String", value: "important" } });
+   * db.insertNode(1, "root", [0.1, 0.2], { tag: "important" });
    * ```
    */
   insertNode(
     id: number | bigint,
     content?: string,
     vector?: number[],
-    fields: Record<string, VantaValue> = {},
+    fields: Record<string, FlatValue | Value> = {},
   ): void {
     this._assertOpen();
     if (typeof id === "number" && !Number.isSafeInteger(id)) {
-      throw new VantaError(
+      throw new DbError(
         "INVALID_ARGUMENT",
         `insertNode: id ${id} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
       );
     }
+    const normalizedFields = Object.fromEntries(
+      Object.entries(fields).map(([k, v]) => [k, normalizeValue(v)]),
+    );
     this._wasm("insertNode", () =>
       this.inner.insert_node(
-        BigInt(id),
+        String(id),
         content ?? null,
         vector ? new Float32Array(vector) : null,
-        fields,
+        normalizedFields,
       ),
     );
   }
@@ -722,9 +1171,12 @@ export class VantaDB {
   /**
    * Retrieve a graph node by ID.
    *
-   * @param id - Node ID.
+   * For IDs > 2^53, use bigint — JavaScript Numbers lose integer precision
+   * above 2^53.
+   *
+   * @param id - Node ID (number or bigint).
    * @returns The node record if found, or null if it does not exist.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the ID is not a safe integer, or if the instance is closed.
    *
    * @example
    * ```ts
@@ -732,40 +1184,69 @@ export class VantaDB {
    * if (node) console.log(node.edges.length, "edges");
    * ```
    */
-  getNode(id: number): NodeRecord | null {
+  getNode(id: number | bigint): NodeRecord | null {
     this._assertOpen();
+    if (typeof id === "number" && !Number.isSafeInteger(id)) {
+      throw new DbError(
+        "INVALID_ARGUMENT",
+        `getNode: id ${id} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+      );
+    }
     return this._wasm("getNode", () => {
-      const raw = this.inner.get_node(BigInt(id));
+      const raw = this.inner.get_node(String(id));
       if (raw == null) return null;
-      return raw as NodeRecord;
+      // FIND-125: runtime is `JsNodeRecord` (`vantadb-wasm/src/lib.rs:234-247`
+      // — tagged `Value` fields, `target` edges, `Hot|Cold` only); the wasm
+      // `.d.ts` (`target_id`, `Warm`) is drifted. Erased cast: zero runtime
+      // change — the `target→BigInt` mapping below is untouched.
+      const node = raw as unknown as NodeRecord;
+      // WASM serializes u128 edge targets as strings; expose them as bigint
+      // (the SDK contract — see integration.test.ts "graph operations").
+      node.edges = node.edges.map((e) => ({
+        ...e,
+        target: typeof e.target === "string" ? BigInt(e.target) : e.target,
+      }));
+      return node;
     });
   }
 
   /**
    * Delete a graph node.
    *
-   * @param id - Node ID.
+   * For IDs > 2^53, use bigint — JavaScript Numbers lose integer precision
+   * above 2^53.
+   *
+   * @param id - Node ID (number or bigint).
    * @param reason - Deletion reason (default: "deleted").
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the ID is not a safe integer, or if the instance is closed.
    *
    * @example
    * ```ts
    * db.deleteNode(1, "no longer needed");
    * ```
    */
-  deleteNode(id: number, reason: string = "deleted"): void {
+  deleteNode(id: number | bigint, reason: string = "deleted"): void {
     this._assertOpen();
-    this._wasm("deleteNode", () => this.inner.delete_node(BigInt(id), reason));
+    if (typeof id === "number" && !Number.isSafeInteger(id)) {
+      throw new DbError(
+        "INVALID_ARGUMENT",
+        `deleteNode: id ${id} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+      );
+    }
+    this._wasm("deleteNode", () => this.inner.delete_node(String(id), reason));
   }
 
   /**
    * Add a directed edge between two graph nodes.
    *
-   * @param source - Source node ID.
-   * @param target - Target node ID.
+   * For IDs > 2^53, use bigint — JavaScript Numbers lose integer precision
+   * above 2^53.
+   *
+   * @param source - Source node ID (number or bigint).
+   * @param target - Target node ID (number or bigint).
    * @param label - Edge label (default: "").
    * @param weight - Optional edge weight.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If an ID is not a safe integer, or if the instance is closed.
    *
    * @example
    * ```ts
@@ -773,14 +1254,69 @@ export class VantaDB {
    * ```
    */
   addEdge(
-    source: number,
-    target: number,
+    source: number | bigint,
+    target: number | bigint,
     label: string = "",
     weight?: number,
+    createdAtMs?: number,
   ): void {
     this._assertOpen();
+    if (typeof source === "number" && !Number.isSafeInteger(source)) {
+      throw new DbError(
+        "INVALID_ARGUMENT",
+        `addEdge: source id ${source} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+      );
+    }
+    if (typeof target === "number" && !Number.isSafeInteger(target)) {
+      throw new DbError(
+        "INVALID_ARGUMENT",
+        `addEdge: target id ${target} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+      );
+    }
     this._wasm("addEdge", () =>
-      this.inner.add_edge(BigInt(source), BigInt(target), label, weight ?? null),
+      this.inner.add_edge(
+        String(source),
+        String(target),
+        label,
+        weight ?? null,
+        createdAtMs != null ? BigInt(createdAtMs) : null,
+      ),
+    );
+  }
+
+  /**
+   * Remove all edges between two graph nodes with the given label
+   * (both forward and reverse directions).
+   *
+   * For IDs > 2^53, use bigint — JavaScript Numbers lose integer precision
+   * above 2^53.
+   *
+   * @param source - Source node ID (number or bigint).
+   * @param target - Target node ID (number or bigint).
+   * @param label - Edge label to remove (default: "").
+   * @throws {DbError} If an ID is not a safe integer, or if the instance is closed or a node is missing.
+   *
+   * @example
+   * ```ts
+   * db.removeEdge(1, 2, "knows");
+   * ```
+   */
+  removeEdge(source: number | bigint, target: number | bigint, label: string = ""): void {
+    this._assertOpen();
+    if (typeof source === "number" && !Number.isSafeInteger(source)) {
+      throw new DbError(
+        "INVALID_ARGUMENT",
+        `removeEdge: source id ${source} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+      );
+    }
+    if (typeof target === "number" && !Number.isSafeInteger(target)) {
+      throw new DbError(
+        "INVALID_ARGUMENT",
+        `removeEdge: target id ${target} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+      );
+    }
+    this._wasm("removeEdge", () =>
+      this.inner.remove_edge(String(source), String(target), label),
     );
   }
 
@@ -790,7 +1326,7 @@ export class VantaDB {
    * @param roots - Array of root node IDs to start from.
    * @param maxDepth - Maximum traversal depth (default: 10).
    * @returns BFS result with visited nodes and levels.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -805,7 +1341,7 @@ export class VantaDB {
   ): GraphBfsResult {
     this._assertOpen();
     return this._wasm("graphBfs", () =>
-      this.inner.graph_bfs(new BigUint64Array(roots.map(BigInt)), maxDepth, direction) as GraphBfsResult,
+      this.inner.graph_bfs(roots.map(String), maxDepth, direction) as unknown as GraphBfsResult,
     );
   }
 
@@ -815,7 +1351,7 @@ export class VantaDB {
    * @param roots - Array of root node IDs to start from.
    * @param maxDepth - Maximum traversal depth (default: 10).
    * @returns DFS result with visited nodes and order.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -829,7 +1365,7 @@ export class VantaDB {
   ): GraphDfsResult {
     this._assertOpen();
     return this._wasm("graphDfs", () =>
-      this.inner.graph_dfs(new BigUint64Array(roots.map(BigInt)), maxDepth, direction) as GraphDfsResult,
+      this.inner.graph_dfs(roots.map(String), maxDepth, direction) as unknown as GraphDfsResult,
     );
   }
 
@@ -838,7 +1374,7 @@ export class VantaDB {
    *
    * @param roots - Array of root node IDs.
    * @returns Topological sort result.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -849,9 +1385,7 @@ export class VantaDB {
   graphTopologicalSort(roots: number[]): GraphTopologicalSortResult {
     this._assertOpen();
     return this._wasm("graphTopologicalSort", () =>
-      this.inner.graph_topological_sort(
-        new BigUint64Array(roots.map(BigInt)),
-      ) as GraphTopologicalSortResult,
+      this.inner.graph_topological_sort(roots.map(String)) as unknown as GraphTopologicalSortResult,
     );
   }
 
@@ -860,7 +1394,7 @@ export class VantaDB {
    *
    * @param roots - Array of root node IDs.
    * @returns true if the graph is a DAG (no cycles detected).
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -870,7 +1404,67 @@ export class VantaDB {
   graphIsDag(roots: number[]): boolean {
     this._assertOpen();
     return this._wasm("graphIsDag", () =>
-      this.inner.graph_is_dag(new BigUint64Array(roots.map(BigInt))),
+      this.inner.graph_is_dag(roots.map(String)),
+    );
+  }
+
+  /**
+   * Breadth-first traversal with optional edge label/time filtering (GRAFO-01).
+   *
+   * @param roots - Array of root node IDs to start from.
+   * @param maxDepth - Maximum traversal depth (default: 10).
+   * @param direction - "Forward" | "Reverse" | "Both" (default: "Forward").
+   * @param filter - Optional `{labels?: number[], time_range?: [number, number]}`
+   *   to follow only matching edges. `null`/`undefined` disables filtering.
+   * @returns Visited node ids (same shape as `graphBfs`).
+   * @throws {DbError} If the instance is closed.
+   *
+   * @example
+   * ```ts
+   * const result = db.graphFilteredTraversal([1], 5, "Forward", { labels: [42] });
+   * ```
+   */
+  graphFilteredTraversal(
+    roots: number[],
+    maxDepth: number = 10,
+    direction: "Forward" | "Reverse" | "Both" = "Forward",
+    filter?: GraphTraversalFilter | null,
+  ): GraphBfsResult {
+    this._assertOpen();
+    return this._wasm("graphFilteredTraversal", () =>
+      // FIND-125 (graph ×4): the wire is `Vec<u128>` → `bigint[]`
+      // (`to_js`, proven by `tests/graph.test.ts` TS-01); the wasm `.d.ts`
+      // `string[]` is drifted. Erased casts: zero runtime change.
+      this.inner.graph_filtered_traversal(
+        roots.map(String),
+        maxDepth,
+        direction,
+        // Public input allows `time_range: null`; the wasm binding models
+        // absence as `undefined`. Normalize at the boundary.
+        filter === null || filter === undefined
+          ? null
+          : { ...filter, time_range: filter.time_range ?? undefined },
+      ) as unknown as GraphBfsResult,
+    );
+  }
+
+  /**
+   * Degree centrality (in/out counts) for the subgraph reachable from the
+   * given roots (GRAFO-01).
+   *
+   * @param roots - Array of root node IDs.
+   * @returns Array of `{id, in_degree, out_degree}` entries.
+   * @throws {DbError} If the instance is closed.
+   *
+   * @example
+   * ```ts
+   * const degrees = db.graphDegree([1]);
+   * ```
+   */
+  graphDegree(roots: number[]): GraphDegreeEntry[] {
+    this._assertOpen();
+    return this._wasm("graphDegree", () =>
+      this.inner.graph_degree(roots.map(String)) as GraphDegreeEntry[],
     );
   }
 
@@ -881,7 +1475,7 @@ export class VantaDB {
    * @param query - The query string to highlight.
    * @param withHighlighting - If true, wrap matching terms in highlighting markers.
    * @returns The generated snippet, or undefined if snippet generation is not available.
-   * @throws {VantaError} If the instance is closed.
+   * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
@@ -904,13 +1498,14 @@ export class VantaDB {
   }
 }
 
-export { VantaError } from "./errors.js";
+export { DbError, ERROR_CODES } from "./errors.js";
 export {
   isMemoryRecord,
   isSearchHit,
   isNodeRecord,
-  isValidVantaValue,
-  isVantaMetadata,
+  isValidValue,
+  isMetadata,
   isValidVector,
   validateVector,
 } from "./guards.js";
+export * from "./native.js";

@@ -3,17 +3,17 @@ import type { Metadata } from "next";
 export const metadata: Metadata = {
   title: "Core Engine · VantaDB — Rust + PyO3 Pipeline",
   description:
-    "Motor core de VantaDB escrito en Rust con bindings PyO3: pipeline BM25 + HNSW fusionado vía RRF, WAL con CRC32C, in-process, sin red, 1.2ms latencia.",
+    "Motor core de VantaDB escrito en Rust con bindings PyO3: pipeline BM25 + HNSW fusionado vía RRF, WAL con CRC32C, in-process, sin red.",
   openGraph: {
     title: "Core Engine · VantaDB — Rust + PyO3 Pipeline",
     description:
-      "Motor Rust + PyO3 de VantaDB: pipeline BM25+HNSW→RRF, WAL CRC32C, in-process, 1.2ms latencia.",
-    url: "https://vantadb.dev/engine",
+      "Motor Rust + PyO3 de VantaDB: pipeline BM25+HNSW→RRF, WAL CRC32C, in-process.",
+    url: "https://vantadb.vercel.app/engine",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/engine",
+    canonical: "https://vantadb.vercel.app/engine",
   },
 };
 

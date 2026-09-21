@@ -1,5 +1,8 @@
+// ponytail: distance invariants / sorted-candidate unwraps; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 use crate::index::distance::calculate_similarity;
-use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
+use crate::node::{DistanceMetric, FilterBitset, NodeFlags, VectorRepresentations};
 use std::sync::Mutex;
 
 /// ponytail: full DashMap O(n) scan is by design — only called when
@@ -12,8 +15,6 @@ pub(crate) fn flat_search(
     top_k: usize,
     metric: crate::node::DistanceMetric,
 ) -> Vec<(u128, f32)> {
-    use crate::storage::engine::FLAG_TOMBSTONE;
-
     let query_inv_norm = if metric == DistanceMetric::Cosine {
         let norm = crate::index::f32_l2_norm(query_vec);
         if norm > f32::EPSILON {
@@ -29,7 +30,7 @@ pub(crate) fn flat_search(
         .iter()
         .filter(|entry| {
             let node = entry.value();
-            (node.flags & FLAG_TOMBSTONE) == 0
+            (node.flags & NodeFlags::TOMBSTONE) == 0
                 && (query_mask.is_all_set() || node.bitset.matches_mask(query_mask))
                 && !node.vec_data.is_none()
         })
@@ -50,10 +51,6 @@ pub(crate) fn flat_search(
     results.truncate(top_k);
     results
 }
-
-// ---------------------------------------------------------------------------
-// FlatIndex — standalone brute-force index implementing VecIndex
-// ---------------------------------------------------------------------------
 
 /// A simple brute-force (flat) index that stores vectors in a `Vec` and
 /// linearly scans all entries on every search.
@@ -96,13 +93,17 @@ impl crate::index::VecIndex for FlatIndex {
         query_vec: &[f32],
         query_mask: &FilterBitset,
         top_k: usize,
-        _vector_store: Option<&crate::storage::vfile::VantaFile>,
+        _vector_store: Option<&dyn crate::index_port::VectorStoreRef>,
         _distance_metric: DistanceMetric,
     ) -> Vec<(u128, f32)> {
         if top_k == 0 {
             return Vec::new();
         }
-        let nodes = self.nodes.lock().unwrap();
+        // INVARIANT (B2b): `search` returns `Vec`, not `Result` (trait
+        // `VecIndex`), so a poisoned lock recovers via `into_inner` instead of
+        // panicking — same policy as `sync_ext`. Hot read path: zero-cost on
+        // the happy path, no signature change.
+        let nodes = self.nodes.lock().unwrap_or_else(|e| e.into_inner());
         let metric = self.config.distance_metric;
 
         let query_inv_norm = if metric == DistanceMetric::Cosine {
@@ -146,7 +147,7 @@ impl crate::index::VecIndex for FlatIndex {
         bitset: FilterBitset,
         vec_data: VectorRepresentations,
         storage_offset: u64,
-    ) {
+    ) -> crate::error::Result<()> {
         let inv_cached_norm = match &vec_data {
             VectorRepresentations::Full(v) => {
                 let norm = crate::index::f32_l2_norm(v);
@@ -158,7 +159,14 @@ impl crate::index::VecIndex for FlatIndex {
             }
             _ => 1.0,
         };
-        let mut nodes = self.nodes.lock().unwrap();
+        // B2b: poisoned lock is a real error on the write path — fail the
+        // insert with `Runtime` so callers propagate with `?` instead of
+        // persisting possibly-torn state under a panic.
+        let mut nodes = self.nodes.lock().map_err(|_| {
+            crate::error::Error::Runtime(crate::error::ChainedError::msg(
+                "FlatIndex nodes lock poisoned",
+            ))
+        })?;
         nodes.push(FlatEntry {
             id,
             bitset,
@@ -166,10 +174,12 @@ impl crate::index::VecIndex for FlatIndex {
             inv_cached_norm,
             storage_offset,
         });
+        Ok(())
     }
 
     fn estimate_memory_bytes(&self) -> usize {
-        let nodes = self.nodes.lock().unwrap();
+        // INVARIANT (B2b): non-`Result` introspection — recover, don't panic.
+        let nodes = self.nodes.lock().unwrap_or_else(|e| e.into_inner());
         let vec_bytes: usize = nodes
             .iter()
             .map(|e| match &e.vec {
@@ -188,11 +198,16 @@ impl crate::index::VecIndex for FlatIndex {
     }
 
     fn len(&self) -> usize {
-        self.nodes.lock().unwrap().len()
+        // INVARIANT (B2b): non-`Result` introspection — recover, don't panic.
+        self.nodes.lock().unwrap_or_else(|e| e.into_inner()).len()
     }
 
     fn is_empty(&self) -> bool {
-        self.nodes.lock().unwrap().is_empty()
+        // INVARIANT (B2b): non-`Result` introspection — recover, don't panic.
+        self.nodes
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .is_empty()
     }
 }
 
@@ -219,13 +234,13 @@ mod flat_tests {
     #[test]
     fn test_flat_index_basic_search() {
         let idx = FlatIndex::new(DistanceMetric::Cosine);
-        idx.add(
+        let _ = idx.add(
             1,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![1.0, 0.0, 0.0]),
             0,
         );
-        idx.add(
+        let _ = idx.add(
             2,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![0.0, 1.0, 0.0]),
@@ -248,7 +263,7 @@ mod flat_tests {
     fn test_flat_index_topk_limits() {
         let idx = FlatIndex::new(DistanceMetric::Cosine);
         for i in 0..10u128 {
-            idx.add(
+            let _ = idx.add(
                 i,
                 FilterBitset::new(),
                 VectorRepresentations::Full(vec![i as f32, 0.0, 0.0]),
@@ -273,8 +288,8 @@ mod flat_tests {
         let mut bs_b = FilterBitset::new();
         bs_b.set_bit(1);
 
-        idx.add(1, bs_a, VectorRepresentations::Full(vec![1.0, 0.0]), 0);
-        idx.add(2, bs_b, VectorRepresentations::Full(vec![0.0, 1.0]), 0);
+        let _ = idx.add(1, bs_a, VectorRepresentations::Full(vec![1.0, 0.0]), 0);
+        let _ = idx.add(2, bs_b, VectorRepresentations::Full(vec![0.0, 1.0]), 0);
 
         let mut mask = FilterBitset::new();
         mask.set_bit(0);
@@ -286,13 +301,13 @@ mod flat_tests {
     #[test]
     fn test_flat_index_euclidean() {
         let idx = FlatIndex::new(DistanceMetric::Euclidean);
-        idx.add(
+        let _ = idx.add(
             0,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![0.0, 0.0]),
             0,
         );
-        idx.add(
+        let _ = idx.add(
             1,
             FilterBitset::new(),
             VectorRepresentations::Full(vec![10.0, 10.0]),
@@ -311,5 +326,29 @@ mod flat_tests {
         for &(_, s) in &results {
             assert!(s <= 0.0, "Euclidean scores should be <= 0");
         }
+    }
+
+    // B2b RED: a poisoned `nodes` lock must surface as `Err` on the write
+    // path (not a panic), so callers can propagate with `?`.
+    #[test]
+    fn add_returns_error_on_poisoned_lock() {
+        let idx = FlatIndex::new(DistanceMetric::Cosine);
+        let _ = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            let _guard = idx.nodes.lock().unwrap();
+            panic!("poison the flat index lock");
+        }));
+        assert!(idx.nodes.is_poisoned());
+        let err = idx
+            .add(
+                1,
+                FilterBitset::new(),
+                VectorRepresentations::Full(vec![1.0, 0.0]),
+                0,
+            )
+            .unwrap_err();
+        assert!(
+            matches!(err, crate::error::Error::Runtime(_)),
+            "expected Runtime, got {err:?}"
+        );
     }
 }

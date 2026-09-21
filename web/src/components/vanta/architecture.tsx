@@ -15,11 +15,7 @@ import { Reveal } from "./reveal";
 import { useLanguage } from "@/lib/language-provider";
 
 export function Architecture({ onNavigate }: { onNavigate: (v: View) => void }) {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { tt } = useLanguage();
   return (
     <section
       aria-label={tt("architecture.ariaLabel", "Pipeline de retrieval")}
@@ -58,7 +54,7 @@ export function Architecture({ onNavigate }: { onNavigate: (v: View) => void }) 
             tone="ink"
           >
             <code className="font-tech text-[10px] text-[#FF5500]">
-              db.search(...)
+              db.search_memory(...)
             </code>
           </FlowNode>
 
@@ -157,13 +153,13 @@ export function Architecture({ onNavigate }: { onNavigate: (v: View) => void }) 
             className="lg:col-span-3"
             icon={<ArrowDown className="h-6 w-6" strokeWidth={2.5} />}
             title={tt("architecture.node.hits.title", "Ranked Hits")}
-            sub={tt("architecture.node.hits.sub", "top_k · 1.2ms")}
+            sub={tt("architecture.node.hits.sub", "top_k · HNSW p50 1.2ms")}
             tone="neon"
           >
             <p className="font-tech text-[11px] font-bold text-black">
               {tt(
                 "architecture.node.hits.body",
-                "100% Recall@10 on validated 10K–100K synthetic sets."
+                "99.8% Recall@10 on validated 10K–100K synthetic sets."
               )}
             </p>
           </FlowNode>
@@ -218,7 +214,7 @@ function FlowNode({
         : "bg-[#FBF9F5] text-black border-black   ";
   return (
     <div
-      className={`press-lg relative flex flex-col border-4 p-4 ${styles} ${className ?? ""}`}
+      className={`press--lg relative flex flex-col border-4 p-4 ${styles} ${className ?? ""}`}
     >
       <div className="mb-2 flex items-center gap-2">
         <span

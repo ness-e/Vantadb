@@ -1,8 +1,8 @@
 ---
 title: "Local RAG Pipeline with VantaDB + Ollama"
-status: draft
+status: active
 tags: [vantadb, tutorial, guide, rag, ollama]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-08-02
 aliases: []
 ---
 
@@ -19,7 +19,7 @@ By the end you'll have a script that ingests documents and answers questions abo
 ## Prerequisites
 
 ```bash
-pip install vantadb ollama pypdf
+pip install vantadb-py ollama pypdf
 ```
 
 Install [Ollama](https://ollama.ai) and pull a model:
@@ -29,32 +29,29 @@ ollama pull llama3.2:3b
 ollama pull nomic-embed-text
 ```
 
-## 1. Connect VantaDB and configure embeddings
+Skip the local installs entirely: [`docker-compose.yml`](../../docker-compose.yml) at the repo root runs VantaDB + Ollama in containers with `docker compose up -d --build`.
+
+## 1. Connect VantaDB and set up embeddings
 
 ```python
-import vantadb
+from vantadb import Client
 import ollama
-import time
-from pathlib import Path
 
-db = vantadb.connect("rag-knowledge.db")
-space = db.space("documents")
+db = Client("rag-knowledge.db")
 
-# VantaDB can use Ollama embeddings via a custom embedder.
-# Set the embedding model on the space.
-space.configure(
-    embedding_model="ollama/nomic-embed-text",
-    dimensions=768,
-)
+def embed(text: str) -> list[float]:
+    """Embed text locally with Ollama."""
+    return ollama.embeddings(model="nomic-embed-text", prompt=text)["embedding"]
 ```
 
-If you prefer to pass embeddings manually (e.g., when batching), you can skip `configure()` and supply `embedding` vectors directly in `put()`.
+VantaDB is **BYO-vector**: you compute the embedding (OpenAI, Ollama, LiteLLM, or any model) and pass it to `put()` / `search()`. Nothing leaves your machine.
 
 ## 2. Ingest a document (chunk + embed + store)
 
 Let's ingest a text file by splitting it into overlapping chunks:
 
 ```python
+# vanta-skip: requires Ollama running (embed()) and a knowledge-base.md fixture
 def chunk_text(text: str, chunk_size: int = 512, overlap: int = 64) -> list[str]:
     """Split text into overlapping chunks at word boundaries."""
     words = text.split()
@@ -75,19 +72,22 @@ def ingest_file(filepath: str, source: str = ""):
     print(f"Ingesting {len(chunks)} chunks from {path.name}...")
 
     for i, chunk in enumerate(chunks):
-        node = {
-            "type": "document_chunk",
-            "content": chunk,
-            "source": source or path.name,
-            "chunk_index": i,
-            "total_chunks": len(chunks),
-            "embedding_field": "content",
-        }
-        space.put(node)
+        db.put(
+            "documents",                     # namespace
+            f"{path.stem}-{i}",              # key
+            chunk,                           # payload (BM25-indexed text)
+            metadata={
+                "source": source or path.name,
+                "chunk_index": i,
+                "total_chunks": len(chunks),
+            },
+            vector=embed(chunk),
+        )
 
     print(f"  ✓ Stored {len(chunks)} chunks")
 
 # Example: ingest a markdown file
+from pathlib import Path
 ingest_file("knowledge-base.md", source="product-docs")
 ```
 
@@ -103,34 +103,46 @@ def ingest_pdf(filepath: str):
 
     print(f"Ingesting {len(chunks)} chunks from PDF: {Path(filepath).name}")
     for i, chunk in enumerate(chunks):
-        space.put({
-            "type": "document_chunk",
-            "content": chunk,
-            "source": Path(filepath).name,
-            "chunk_index": i,
-            "total_chunks": len(chunks),
-            "embedding_field": "content",
-        })
+        db.put(
+            "documents",
+            f"{Path(filepath).stem}-{i}",
+            chunk,
+            metadata={"source": Path(filepath).name, "chunk_index": i, "total_chunks": len(chunks)},
+            vector=embed(chunk),
+        )
     print(f"  ✓ Stored {len(chunks)} chunks")
 
 ingest_pdf("manual.pdf")
 ```
 
+> **Batch loading:** for thousands of chunks, use `put_batch()` with `keys=`, `vectors=`, `payloads=`, `metadatas=`, and `namespace=` — it is up to ~5x faster than sequential `put()` calls (Rayon parallelism):
+>
+> ```python
+> db.put_batch(
+>     keys=[f"{stem}-{i}" for i in range(len(chunks))],
+>     vectors=[embed(c) for c in chunks],
+>     payloads=chunks,
+>     metadatas=[{"source": name, "chunk_index": i, "total_chunks": len(chunks)} for i in range(len(chunks))],
+>     namespace="documents",
+> )
+> ```
+
 ## 3. Query the knowledge base
 
 ```python
-def query_knowledge_base(question: str, top_k: int = 4) -> list:
+# vanta-skip: requires Ollama running (embed() calls the local Ollama service)
+def query_knowledge_base(question: str, top_k: int = 4):
     """Search for the most relevant document chunks."""
-    results = space.similar_to(question, top_k=top_k)
-    return results
+    return db.search("documents", embed(question), top_k=top_k)
 
 question = "How do I configure the database connection?"
 results = query_knowledge_base(question)
 
 print(f"\nTop results for: \"{question}\"\n")
 for r in results:
-    print(f"  [{r.score:.3f}] (source: {r.source}, chunk {r.chunk_index+1}/{r.total_chunks})")
-    print(f"  {r.content[:200]}\n")
+    print(f"  [{r.score:.3f}] (source: {r.metadata['source']}, "
+          f"chunk {r.metadata['chunk_index']+1}/{r.metadata['total_chunks']})")
+    print(f"  {r.payload[:200]}\n")
 ```
 
 ## 4. Generate an answer with Ollama
@@ -138,16 +150,17 @@ for r in results:
 Now feed the retrieved chunks as context to a local LLM:
 
 ```python
+# vanta-skip: requires Ollama running (embed() calls the local Ollama service)
 def ask(question: str, top_k: int = 4) -> str:
     # 1. Retrieve
-    results = space.similar_to(question, top_k=top_k)
+    results = db.search("documents", embed(question), top_k=top_k)
 
     if not results:
         return "No relevant documents found."
 
     # 2. Build context
     context = "\n\n".join(
-        f"--- Document chunk (relevance: {r.score:.2f}) ---\n{r.content}"
+        f"--- Document chunk (relevance: {r.score:.2f}) ---\n{r.payload}"
         for r in results
     )
 
@@ -187,15 +200,16 @@ Usage:
 """
 
 import sys
-import vantadb
 import ollama
 from pathlib import Path
+from vantadb import Client
 
 # ── Setup ──────────────────────────────────────────────────────────────
 
-db = vantadb.connect("rag-knowledge.db")
-space = db.space("documents")
-space.configure(embedding_model="ollama/nomic-embed-text", dimensions=768)
+db = Client("rag-knowledge.db")
+
+def embed(text: str) -> list[float]:
+    return ollama.embeddings(model="nomic-embed-text", prompt=text)["embedding"]
 
 # ── Chunking ───────────────────────────────────────────────────────────
 
@@ -227,25 +241,24 @@ def ingest(path_str: str):
     print(f"Ingesting {len(chunks)} chunks from {path.name}...")
 
     for i, chunk in enumerate(chunks):
-        space.put({
-            "type": "document_chunk",
-            "content": chunk,
-            "source": path.name,
-            "chunk_index": i,
-            "total_chunks": len(chunks),
-            "embedding_field": "content",
-        })
+        db.put(
+            "documents",
+            f"{path.stem}-{i}",
+            chunk,
+            metadata={"source": path.name, "chunk_index": i, "total_chunks": len(chunks)},
+            vector=embed(chunk),
+        )
     print("Done.")
 
 # ── Query ──────────────────────────────────────────────────────────────
 
 def query(question: str, top_k: int = 4) -> str:
-    results = space.similar_to(question, top_k=top_k)
+    results = db.search("documents", embed(question), top_k=top_k)
     if not results:
         return "No relevant documents found."
 
     context = "\n\n".join(
-        f"--- Chunk (relevance: {r.score:.2f}) ---\n{r.content}"
+        f"--- Chunk (relevance: {r.score:.2f}) ---\n{r.payload}"
         for r in results
     )
 
@@ -301,8 +314,8 @@ python rag_pipeline.py query "How do I reset the admin password?"
                  ┌────────────────────────────┘
                  ▼
          ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
-         │  User query   │───▶│  Similarity  │───▶│  Context +   │
-         │              │    │  Search      │    │  LLM (local) │
+         │  User query   │───▶│  Embed +     │───▶│  Context +   │
+         │              │    │  Similarity  │    │  LLM (local) │
          └──────────────┘    └──────────────┘    └──────────────┘
                                                        │
                                                        ▼
@@ -313,8 +326,8 @@ python rag_pipeline.py query "How do I reset the admin password?"
 
 ## Going further
 
-- **Hybrid search:** Use `space.search(query, mode="hybrid", alpha=0.4)` for better keyword matching on code or product names
-- **Metadata filtering:** Tag chunks by chapter or section and filter with `filter={"source": "manual.pdf", "chunk_index": {"$gte": 10}}`
+- **Hybrid search:** Pass `text_query="..."` to `search()` for better keyword matching on code or product names
+- **Metadata filtering:** Tag chunks by chapter or section and filter with `filters={"source": "manual.pdf"}`
 - **Document streaming:** Ingest large documents incrementally without loading everything into memory
 - **WASM deployment:** This same pipeline runs in the browser — embed RAG directly in a static site
 

@@ -3,7 +3,7 @@ title: "Memory Efficiency"
 type: glossary-entry
 status: stable
 tags: [glosario, métricas, memoria, eficiencia, ram]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-09-15
 aliases: [memory usage, RAM efficiency, footprint]
 ---
 
@@ -250,5 +250,5 @@ Total estimado: ~2.5 GB RAM
 
 - [mmap](mmap.md) - Memory-mapped I/O
 - [Benchmarks](Benchmarks.md) - Suite de medición
-- [Latencia](Latencia.md) - Métrica complementaria
+- [Latencia](latency.md) - Métrica complementaria
 - [Recall](Recall.md) - Métrica de calidad

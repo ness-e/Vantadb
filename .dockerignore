@@ -41,9 +41,13 @@ docs/
 archive/
 
 # ── Tests, fuzz, benches ──
-tests/
+# NOTE (SRV-07): tests/ and benches/ are intentionally NOT ignored — Cargo.toml
+# declares explicit [[test]]/[[bench]] targets and cargo validates their paths
+# at manifest-load time, so excluding them breaks `cargo build` inside the image.
 fuzz/
-benches/
+
+#  Data (benchmark datasets, not needed to compile) 
+data/
 
 # ── Examples ──
 examples/

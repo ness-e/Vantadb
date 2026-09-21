@@ -1,0 +1,12 @@
+{
+  "metadata": {
+    "description": "Baseline de rendimiento del benchmark Python de VantaDB (perf-bench-40.yml). Mediana de 3 runs; regresion > 15% hace fallar el job.",
+    "workflow": ".github/workflows/perf-bench-40.yml",
+    "runs": 3,
+    "aggregate": "median",
+    "threshold_pct": 15.0,
+    "updated": "2026-08-12",
+    "note": "Baseline vacio (bootstrap). El gate es no-op (warning + pass) hasta correr workflow_dispatch con update_baseline=true y commitear el artifact generado."
+  },
+  "benchmarks": {}
+}

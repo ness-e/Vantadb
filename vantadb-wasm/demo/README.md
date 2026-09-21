@@ -32,3 +32,29 @@ Serve the entire `vantadb-wasm/` directory so the demo can import `../pkg/vantad
 - `index.html` — Chat interface with dark theme
 - `app.js` — Main application logic
 - `package.json` — `npm run dev` script
+
+## Bundle size & lazy loading
+
+The WASM engine binary (`../pkg/vantadb_wasm_bg.wasm`) is **~1.35 MB raw
+/ ~578 KB gzipped** (measured 2026-08-30). It is **not loaded on page
+load** — the wasm-bindgen glue lazy-imports it on the first method call
+(`VantaDB.create()`).
+
+For production self-hosting outside this demo:
+
+```bash
+# Rebuild for plain HTML/JS browsers (uses fetch() + WebAssembly.instantiateStreaming)
+wasm-pack build --release --target web --out-dir pkg
+
+# Or for bundlers (Vite/Webpack/esbuild) — needs vite-plugin-wasm
+wasm-pack build --release --target bundler --out-dir pkg
+```
+
+Full bundle strategy (feature flags, comparison with Orama / MiniSearch / Lunr,
+CDN vs self-host tradeoffs): see [`../README.md`](../README.md).
+
+| Asset this demo fetches | Size |
+|--------------------------|-----:|
+| `vantadb_wasm_bg.wasm` (engine) | ~1.35 MB raw / ~578 KB gzipped |
+| `vantadb_wasm.js` (glue)        | ~62 KB raw / ~12 KB gzipped |
+| Transformers.js model (Xenova/all-MiniLM-L6-v2) | ~23 MB (first load, cached after) |

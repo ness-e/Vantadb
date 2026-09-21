@@ -1,25 +1,26 @@
 ---
 title: Reddit Launch Posts — VantaDB
 type: marketing
-status: draft
+status: ready-to-publish
 tags: [vantadb, launch, reddit, marketing]
-last_reviewed: 2026-07-27
+last_reviewed: 2026-09-02
 ---
 
 # Reddit Launch Posts
 
-> **Task:** MKT-04 — Reddit posts for r/rust, r/MachineLearning, r/LocalLLaMA
+> **Task:** MKT-04 (`docs/Backlog-negocio.md` §P6 — fila de negocio: publicación requiere identidad humana) — Reddit posts for r/rust, r/MachineLearning, r/LocalLLaMA
 > **Effort:** 🟢 2-4h
+> **Estado 2026-09-02 (MKT-04):** 3 drafts corregidos y validados con datos medibles (abajo), **NO publicados** — `status: ready-to-publish`. Publicación pendiente (owner humano tiene identidad Reddit). **✅ Claims corregidos:** "zero deps"/"pure Rust" → Fjall default es pure-Rust; feature `roaring` (default) trae `croaring-sys`/`cc` que compila C/C++; `rocksdb` backend opcional también es C++. "recall>0.998 SIFT1M" → verificado: Stress Protocol recall@10 **0.9560 @ 10K**, **0.9980 @ 10K (scaling)**, **1.0000 @ 50K**, **0.9980 @ 100K** (`docs/operations/BENCHMARKS.md` §1); SIFT1M 100K p99 **441.2 µs** balanced / **1.23 ms** high-recall (`docs/operations/BENCHMARKS.md` §5). "sub-ms core search" → verificado: core Rust p50 **1.2 ms @ 10K**, **6.1 ms @ 50K** (`docs/operations/BENCHMARKS.md` §1); Python SDK vector search p50 **62 ms @ 10K** (incluye PyO3/GIL). "100% GloVe-100-angular 1.18M" → **sin medición**; competitive bench midió subset 10K con recall@10 **24.5%** (`docs/operations/BENCHMARKS.md` §7) — claim eliminado.
 
 ---
 
 ## 1. r/rust — Technical Deep Dive
 
-**Title:** VantaDB — Embedded hybrid (BM25 + HNSW) search engine in Rust, zero deps
+**Title:** VantaDB — Embedded hybrid (BM25 + HNSW) search engine in Rust
 
 **Post:**
 
-Over the past few months I've been building [VantaDB](https://github.com/ness-e/Vantadb), an embedded hybrid search engine in pure Rust. Think SQLite-for-vectors: a single library you link, no server, no external deps.
+Over the past few months I've been building [VantaDB](https://github.com/ness-e/Vantadb), an embedded hybrid search engine in Rust. Think SQLite-for-vectors: a single library you link, no server, no containers.
 
 **Why Rust?** Because every existing embedded vector store (Chroma, etc.) is Python-first with C++ under the hood, making cross-platform distribution a nightmare. Rust gives us:
 - Static linking via PyO3 → `pip install` that works on Windows/Mac/Linux with zero toolchain
@@ -33,7 +34,14 @@ Over the past few months I've been building [VantaDB](https://github.com/ness-e/
 - Volcano-style CBO planner that pushes down relational filters before graph traversal
 - RRF fusion for deterministic hybrid ranking
 
-**The numbers:** recall@10 >0.998 on SIFT1M, sub-ms core search, cross-platform Python wheels.
+**The numbers (verified, Stress Protocol + SIFT1M subset):**
+- Recall@10: **0.9560 @ 10K**, **0.9980 @ 10K (scaling)**, **1.0000 @ 50K**, **0.9980 @ 100K** vectors, 128d Cosine (`docs/operations/BENCHMARKS.md` §1)
+- Core Rust p50 latency: **1.2 ms @ 10K**, **6.1 ms @ 50K** (`docs/operations/BENCHMARKS.md` §1)
+- SIFT1M 100K p99: **441.2 µs** (balanced Cosine), **1.23 ms** (high-recall Cosine) (`docs/operations/BENCHMARKS.md` §5)
+- Python SDK vector search p50: **62 ms @ 10K** (includes PyO3/GIL boundary) (`docs/operations/BENCHMARKS.md` §2)
+- Cross-platform Python wheels (Linux x86_64/aarch64, macOS x86_64/arm64, Windows x86_64)
+
+**Dependencies note:** Default backend Fjall is pure-Rust. Feature `roaring` (enabled by default) pulls `croaring-sys`/`cc` which compiles C/C++; `rocksdb` feature (optional) also requires C++ toolchain.
 
 **Code:** https://github.com/ness-e/Vantadb (Apache 2.0)
 
@@ -52,7 +60,7 @@ I built [VantaDB](https://github.com/ness-e/Vantadb) because existing options fo
 2. **SQLite + extensions** → works but C++ distribution is painful cross-platform
 3. **In-memory** → not persistent
 
-VantaDB is an embedded hybrid search engine in Rust that does BM25 + HNSW + filters in one process, with Python bindings via PyO3 (no pip compile step).
+VantaDB is an embedded hybrid search engine in Rust that does BM25 + HNSW + filters in one process, with Python bindings via PyO3 (pre-built wheels, no local compile step).
 
 **Quick start:**
 ```python
@@ -64,11 +72,17 @@ results = db.search_memory(namespace="chat", query_vector=[...], text_query="hel
 
 **Key features:**
 - Apache 2.0, fully open source
-- Zero deps embedded — no server, no containers
+- Embedded — no server, no containers, single `pip install` (pre-built wheels)
 - Hybrid search (BM25 lexical + HNSW vector + metadata filters)
-- GIL-released batch search via Rayon
-- WAL with CRC32C + automated chaos testing
+- GIL-released batch search via Rayon (`search_batch` 4× speedup vs sequential)
+- WAL with CRC32C + automated chaos testing (failpoint injection)
 - Cross-platform wheels (Linux x86_64/aarch64, macOS x86_64/arm64, Windows x86_64)
+
+**Performance (verified):**
+- Ingestion: ~95 ops/sec @ 10K records (`docs/operations/BENCHMARKS.md` §2)
+- Vector search (Python SDK): p50 **62 ms**, p99 **72 ms** @ 10K, top_k=10
+- Hybrid search (RRF): p50 **180 ms**, p99 **211 ms** @ 10K
+- Batch search (`search_batch`): **4× faster** than sequential, avg **2.4 ms/query** @ 5K records (`docs/operations/BENCHMARKS.md` §6)
 
 Would love feedback from folks building local AI agent systems!
 
@@ -92,13 +106,19 @@ I built [VantaDB](https://github.com/ness-e/Vantadb) for exactly this use case.
 **VantaDB in one line:** `pip install vantadb-py`, import it, point it at a directory, done.
 
 **Local-first design:**
-- Fjall LSM storage (pure Rust, no C++ compilation needed)
+- Fjall LSM storage (pure-Rust default; feature `roaring` adds C/C++ build via `croaring-sys`, `rocksdb` feature optional)
 - HNSW via memmap2 (OS-managed paging, no manual cache tuning)
 - BM25 tokenizer optimized for short agent messages
 - GIL-released for multi-threaded batch search
 - Crash recovery tested with injected failpoints at WAL/storage/HNSW levels
 
-**Stack:** Pure Rust → PyO3 bindings → Python SDK (WASM/TS SDK also available)
+**Stack:** Rust core → PyO3 bindings → Python SDK (WASM/TS SDK also available)
+
+**Performance (verified):**
+- Core Rust vector search p50: **1.2 ms @ 10K**, **6.1 ms @ 50K** (`docs/operations/BENCHMARKS.md` §1)
+- Python SDK vector search p50: **62 ms @ 10K** (includes FFI/GIL) (`docs/operations/BENCHMARKS.md` §2)
+- SIFT1M 100K p99: **441 µs** balanced / **1.23 ms** high-recall (`docs/operations/BENCHMARKS.md` §5)
+- Batch search 4× speedup via Rayon GIL release (`docs/operations/BENCHMARKS.md` §6)
 
 **Repo:** https://github.com/ness-e/Vantadb (Apache 2.0)
 

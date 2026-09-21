@@ -3,7 +3,7 @@ title: "Embedded (Embedded Database)"
 type: glossary-entry
 status: stable
 tags: [concept, architecture, embedded, database]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Embedded Database, Embedded Database, In-Process]
 description: "Data management system that operates in-process within the same application that consumes it, without requiring a separate server, network daemon or independent process"

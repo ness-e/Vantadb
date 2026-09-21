@@ -1,9 +1,41 @@
 use js_sys::{Function, Promise, Reflect, Uint8Array};
 use wasm_bindgen::prelude::*;
 
+/// Error type for quota-exceeded conditions with actionable details.
+#[derive(Debug)]
+pub struct QuotaExceededError {
+    pub message: String,
+}
+
+impl QuotaExceededError {
+    fn new(message: String) -> Self {
+        Self { message }
+    }
+
+    /// Convert to a `JsValue` suitable for returning from WASM.
+    pub fn to_js_value(&self) -> JsValue {
+        let obj = js_sys::Object::new();
+        Reflect::set(&obj, &"name".into(), &"QuotaExceededError".into()).ok();
+        Reflect::set(&obj, &"message".into(), &self.message.clone().into()).ok();
+        obj.into()
+    }
+}
+
+/// Check if a `JsValue` represents a `QuotaExceededError` DOMException.
+fn is_quota_exceeded_error(e: &JsValue) -> bool {
+    Reflect::get(e, &"name".into())
+        .ok()
+        .and_then(|v| v.as_string())
+        .as_deref()
+        == Some("QuotaExceededError")
+}
+
 // Inline IndexedDB persistence bridge — no external JS import needed.
+// BND-01: the snippet MUST export a function — an `extern "C" {}` with no
+// imports makes wasm-bindgen drop the snippet from the bundle, so the
+// bridge would never register. `init()` is called lazily from `storage()`.
 #[wasm_bindgen(inline_js = r#"
-(function() {
+export function init() {
     if (typeof globalThis !== "undefined" && globalThis.vantaIdbStorage) return;
     const DB_NAME = "VantaDB";
     const STORE_NAME = "state";
@@ -20,6 +52,19 @@ use wasm_bindgen::prelude::*;
     }
     try { channel = new BroadcastChannel("vantadb-sync"); } catch (e) { }
     if (channel) { channel.onmessage = (ev) => { if (ev.data && ev.data.type === "data-changed") notify(ev.data.key || "db_state.json"); }; }
+    function runWriteTx(db, key, op, resolve, reject) {
+        const execute = (resolveTx, rejectTx) => {
+            const tx = db.transaction(STORE_NAME, "readwrite");
+            op(tx.objectStore(STORE_NAME));
+            tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); resolveTx(); };
+            tx.onerror = () => rejectTx(tx.error);
+        };
+        if (typeof navigator !== "undefined" && navigator.locks) {
+            navigator.locks.request("vantadb-write", () => new Promise(execute)).catch((err) => reject(err));
+        } else {
+            execute(resolve, reject);
+        }
+    }
     const storage = {
         read(key) {
             return openDB().then((db) => new Promise((resolve, reject) => {
@@ -31,42 +76,12 @@ use wasm_bindgen::prelude::*;
         },
         write(key, data) {
             return openDB().then((db) => new Promise((resolve, reject) => {
-                function doWrite() {
-                    const tx = db.transaction(STORE_NAME, "readwrite");
-                    tx.objectStore(STORE_NAME).put(data, key);
-                    tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); };
-                    tx.onerror = () => reject(tx.error);
-                }
-                if (typeof navigator !== "undefined" && navigator.locks) {
-                    navigator.locks.request("vantadb-write", () => new Promise((resolveTx, rejectTx) => {
-                        const tx = db.transaction(STORE_NAME, "readwrite");
-                        tx.objectStore(STORE_NAME).put(data, key);
-                        tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); resolveTx(); };
-                        tx.onerror = () => rejectTx(tx.error);
-                    })).catch((err) => reject(err));
-                } else {
-                    doWrite();
-                }
+                runWriteTx(db, key, (store) => store.put(data, key), resolve, reject);
             }));
         },
         del(key) {
             return openDB().then((db) => new Promise((resolve, reject) => {
-                function doDel() {
-                    const tx = db.transaction(STORE_NAME, "readwrite");
-                    tx.objectStore(STORE_NAME).delete(key);
-                    tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); };
-                    tx.onerror = () => reject(tx.error);
-                }
-                if (typeof navigator !== "undefined" && navigator.locks) {
-                    navigator.locks.request("vantadb-write", () => new Promise((resolveTx, rejectTx) => {
-                        const tx = db.transaction(STORE_NAME, "readwrite");
-                        tx.objectStore(STORE_NAME).delete(key);
-                        tx.oncomplete = () => { if (channel) channel.postMessage({ type: "data-changed", key }); resolve(); resolveTx(); };
-                        tx.onerror = () => rejectTx(tx.error);
-                    })).catch((err) => reject(err));
-                } else {
-                    doDel();
-                }
+                runWriteTx(db, key, (store) => store.delete(key), resolve, reject);
             }));
         },
         subscribe(fn) { listeners.push(fn); return () => { listeners.splice(listeners.indexOf(fn), 1); }; },
@@ -74,15 +89,28 @@ use wasm_bindgen::prelude::*;
     };
     const g = typeof globalThis !== "undefined" ? globalThis : window;
     g.vantaIdbStorage = storage;
-})();
+}
 "#)]
 extern "C" {
-    #[allow(dead_code)]
-    fn __vanta_ensure_idb_bridge();
+    /// Register `globalThis.vantaIdbStorage` (idempotent).
+    fn init();
 }
+// NOTA BND-01: la IIFE anterior se auto-ejecuta al cargar el módulo snippet y
+// registra globalThis.vantaIdbStorage antes de cualquier llamada. No se declara
+// ningún import extern del snippet (un import sin export correspondiente produce
+// LinkError: WebAssembly.Instance() — ver Backlog BND-01).
 
 fn storage() -> Result<JsValue, JsValue> {
-    let val = Reflect::get(&js_sys::global(), &"vantaIdbStorage".into())?;
+    // The bridge registers lazily on first use: `init()` is the exported
+    // snippet entry point (BND-01), idempotent via the guard inside.
+    let mut val = Reflect::get(&js_sys::global(), &"vantaIdbStorage".into())?;
+    if val.is_undefined() {
+        // `init` is the exported snippet entry point (pure JS that assigns
+        // `globalThis.vantaIdbStorage`); it is idempotent, so calling it
+        // twice is harmless.
+        init();
+        val = Reflect::get(&js_sys::global(), &"vantaIdbStorage".into())?;
+    }
     if val.is_undefined() {
         return Err(JsValue::from_str(
             "vantaIdbStorage not available — inline bridge failed to register",
@@ -156,6 +184,9 @@ impl IdbStorage {
     }
 
     /// Write a file to IndexedDB. Replaces any existing value for the same key.
+    ///
+    /// Catches `QuotaExceededError` DOMException from IndexedDB and enriches it
+    /// with a descriptive message for easier debugging.
     pub async fn write_file(key: &str, data: &[u8]) -> Result<(), JsValue> {
         let s = storage()?;
         let buf = Uint8Array::new_with_length(data.len() as u32);
@@ -163,8 +194,18 @@ impl IdbStorage {
         let args = js_sys::Array::new();
         args.push(&key.into());
         args.push(&buf.buffer());
-        js_call(&s, "write", &args).await?;
-        Ok(())
+
+        match js_call(&s, "write", &args).await {
+            Ok(_) => Ok(()),
+            Err(e) if is_quota_exceeded_error(&e) => Err(QuotaExceededError::new(
+                format!(
+                    "QuotaExceededError writing key '{}' to IndexedDB: {} — consider clearing browser data or reducing dataset size",
+                    key,
+                    js_sys::Error::from(e).message().as_string().unwrap_or_default()
+                )
+            ).to_js_value()),
+            Err(e) => Err(e),
+        }
     }
 
     /// Delete a persisted key-value entry from IndexedDB.

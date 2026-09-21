@@ -3,7 +3,7 @@ title: VantaDB Go-to-Market Strategy
 type: strategy
 status: stable
 tags: [vantadb, gtm, marketing, distribution, integrations, community, devrel, pricing]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-08-02
 aliases: [GTM, Ecosystem, Marketing, Distribution, Pricing]
 ---
 
@@ -11,6 +11,8 @@ aliases: [GTM, Ecosystem, Marketing, Distribution, Pricing]
 
 > **Domain:** Marketing & Product
 > **Purpose:** Define distribution channels, strategic integrations, licensing model, and community building
+>
+> **Nota de vigencia 2026-09-14:** los IDs de ejecución viejos citados abajo (INT-01/02, MKT-05/13/17, REL-01/02, TSK-*, DEVOPS-*, SEC-13/14, DRV-*, VFY-*, COMP-*, WEB-02/03, TEST-11/12, DOC-20, BIZ-02/03) se completaron y archivaron en `docs/avance/historial/backlog-history.md` — no buscarlos en `docs/Backlog.md`. El trabajo pendiente vive en: adapters PyPI → MKT-18f · wheels ARM64/Homebrew → MKT-18h · gate Fase A + Show HN → EXE-03 · Reddit → MKT-04 (negocio) · posts 6-7 → BLOG-CTA · demos → EXE-01 · benchmarks externos → EXE-02.
 
 ---
 
@@ -39,12 +41,12 @@ pip install vantadb-py
 
 #### 2. crates.io (Rust Package Registry)
 
-**Status:** ✅ Active (v0.1.4)
+**Status:** ✅ Active (v0.5.0)
 **URL:** https://crates.io/crates/vantadb
 
 ```toml
 [dependencies]
-vantadb = "0.1.4"
+vantadb = "0.5.0"
 ```
 
 **Features:**
@@ -259,6 +261,8 @@ Based on "Context Engineering" analysis (term coined by Shopify CEO Tobi Lutke, 
 | **Professional** | 6-20 | $50K/yr |
 | **Enterprise** | 21+ | Custom |
 
+> **Open Core boundary (2026-08-06):** los tiers pagos (Pro/Business/Enterprise) corresponden a la capa propietaria `vantadb-pro`. Qué feature es Pro vs Community y su fuente de verdad: [`VANTADB-PRO-FEATURES.md`](VANTADB-PRO-FEATURES.md). Entrega/artefactos por tier: [`VANTADB-PRO-DELIVERY.md`](VANTADB-PRO-DELIVERY.md). Precios base intactos (decisión D5: cobro aplazado, Enterprise manual).
+
 ---
 
 ## Community Building
@@ -357,24 +361,24 @@ docs/
 **Deliverables by Vertical:**
 
 **Local LLM Stack:**
-- [ ] Docker Compose: Ollama + VantaDB + AnythingLLM
-- [ ] LanceDB → VantaDB migration guide
+- [ ] Docker Compose: Ollama + VantaDB + AnythingLLM *(parcial 2026-08-17: `docker-compose.yml` existe pero solo servicio VantaDB — falta el compose multi-servicio → MKT-18i)*
+- [x] LanceDB → VantaDB migration guide *(✅ existe: `docs/tutorials/migration-from-lancedb.md` + `vantadb-python/vantadb_py/migrate/lancedb.py`)*
 - [ ] Blog: "Local agent memory with Ollama + VantaDB"
 
 **Agentic Frameworks:**
-- [ ] langchain-vantadb on PyPI
-- [ ] llama-index-vector-stores-vantadb on PyPI
-- [ ] Mem0 integration (VantaDB as VectorStoreBackend)
+- [ ] langchain-vantadb on PyPI *(código existe en `integrations/langchain/`, NO publicado → MKT-18f)*
+- [ ] llama-index-vector-stores-vantadb on PyPI *(código existe, NO publicado → MKT-18f)*
+- [ ] Mem0 integration (VantaDB as VectorStoreBackend) *(código existe en `integrations/mem0/`, NO publicado → MKT-18f)*
 - [ ] Blog: "[[graphrag|GraphRAG]] with VantaDB — Reducing tokens 40-60%"
 
 **AI-IDE Tooling:**
-- [ ] MCP server docs for Cursor, Claude Code, Windsurf
+- [x] MCP server docs for Cursor, Claude Code, Windsurf *(✅ existe: `docs/api/MCP.md:129-215` — Cursor/Claude Code/Windsurf/OpenCode/Cline)*
 - [ ] Blog: "VantaDB as persistent memory for Claude Code"
 
 **Launch:**
-- [ ] Show HN post
-- [ ] Blog: "Introducing VantaDB"
-- [ ] Reddit posts (r/rust, r/MachineLearning, r/LocalLLaMA)
+- [ ] Show HN post *(claims corregidos 2026-08-23 — fila MKT-18g histórica archivada; ver notas en SHOW_HN_PREP.md)*
+- [x] Blog: "Introducing VantaDB" *(✅ draft `docs/blog/introducing_vantadb.md`, commit `f51b2263`)*
+- [ ] Reddit posts (r/rust, r/MachineLearning, r/LocalLLaMA) *(drafts listos, NO publicados → MKT-04, fila en `docs/Backlog-negocio.md`)*
 
 ### Q4 2026: Post-Launch Growth
 
@@ -385,10 +389,10 @@ docs/
 - 20+ contributors
 
 **Deliverables:**
-- [ ] CrewAI adapter (TSK-90)
-- [ ] DSPy integration (TSK-91)
-- [ ] ARM64 Linux wheels (TSK-101)
-- [ ] Homebrew formula for macOS (TSK-100)
+- [ ] CrewAI adapter (TSK-90) *(código existe en `integrations/crewai/`, NO publicado → MKT-18f)*
+- [ ] DSPy integration (TSK-91) *(código existe en `integrations/dspy/`, NO publicado → MKT-18f)*
+- [ ] ARM64 Linux wheels (TSK-101) *(binarios aarch64 sí, wheels NO → MKT-18h)*
+- [ ] Homebrew formula for macOS (TSK-100) *(formula existe con SHA placeholders → MKT-18h)*
 - [ ] Community showcase (user projects)
 - [ ] 20+ good first issues
 
@@ -403,8 +407,8 @@ docs/
 - [ ] AES-256 at-rest encryption (TSK-72)
 - [ ] Audit logging (TSK-107b)
 - [ ] Async [[wal|WAL]] shipping (BIZ-02)
-- [ ] Pitch deck + one-pager (CLD-02)
-- [ ] Case study #1 (CLD-04)
+- [ ] Pitch deck + one-pager (CLD-02 → `docs/Backlog-negocio.md`)
+- [ ] Case study #1 (CLD-04 → `docs/Backlog-negocio.md`)
 - [ ] Enterprise pilot #1
 
 ### Q2 2027: Monetize
@@ -415,7 +419,7 @@ docs/
 - 🔄 $10K MRR
 
 **Deliverables:**
-- [ ] VantaDB Cloud beta on Fly.io (CLD-01)
+- [ ] VantaDB Cloud beta on Fly.io (CLD-01 → `docs/Backlog-negocio.md`)
 - [ ] Pricing page (BIZ-03)
 - [ ] Enterprise sales deck
 - [ ] Case study #2
@@ -455,7 +459,7 @@ docs/
 
 ## See Also
 
-- [Master Index](../VantaDB-MPTS/Master%20Index.md) — Parent document
+- [Master Index](../master-index.md) — Parent document
 - [VISION.md](../vision/VISION.md) — ICP and UVP
 - [ROADMAP.md](ROADMAP.md) — Technical timeline
 - [Backlog](../Backlog.md) — Detailed tasks (INT-01, INT-02, INT-03, TSK-90, etc.)

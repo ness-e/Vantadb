@@ -1,3 +1,13 @@
+---
+title: "`ci-web-11.yml` — CI: Web — Build & Lint (Next.js)"
+type: workflow
+status: active
+tags: [vantadb, ci, ci-web]
+last_reviewed: 2026-09-15
+aliases: []
+related: [".github/workflows/ci-web-11.yml"]
+---
+
 # `ci-web-11.yml` — CI: Web — Build & Lint (Next.js)
 
 ## ¿Qué hace?

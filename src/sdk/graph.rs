@@ -1,10 +1,10 @@
-use super::builder::VantaEmbedded;
+use super::builder::Embedded;
 use crate::accumulator::GraphAccumulator;
 use crate::error::Result;
 use std::collections::HashMap;
 use tracing;
 
-impl VantaEmbedded {
+impl Embedded {
     /// Create a new graph accumulator.
     ///
     /// The accumulator is thread-safe and can be shared across worker threads
@@ -53,6 +53,7 @@ impl VantaEmbedded {
         max_depth: usize,
         direction: crate::graph::TraversalDirection,
     ) -> Result<Vec<u128>> {
+        crate::metrics::record_graph_op("edge_query");
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
         traverser.bfs_traverse(roots, max_depth, direction)
@@ -69,6 +70,7 @@ impl VantaEmbedded {
         max_depth: usize,
         direction: crate::graph::TraversalDirection,
     ) -> Result<Vec<u128>> {
+        crate::metrics::record_graph_op("edge_query");
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
         traverser.dfs_traverse(roots, max_depth, direction)
@@ -79,6 +81,10 @@ impl VantaEmbedded {
     /// When `labels` is empty, acts like `graph_bfs` (no filter).
     ///
     /// `direction` controls whether edges are followed forward, reverse, or both.
+    ///
+    /// `time_range: Option<(from_ms, to_ms)>` (inclusive) restricts traversal to
+    /// edges whose `created_at_ms` falls within the window. `None` disables
+    /// temporal filtering.
     #[tracing::instrument(skip(self), err)]
     pub fn graph_bfs_filtered(
         &self,
@@ -86,10 +92,12 @@ impl VantaEmbedded {
         max_depth: usize,
         direction: crate::graph::TraversalDirection,
         labels: &[u32],
+        time_range: Option<(u64, u64)>,
     ) -> Result<Vec<u128>> {
+        crate::metrics::record_graph_op("edge_query");
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
-        traverser.bfs_traverse_filtered(roots, max_depth, direction, labels)
+        traverser.bfs_traverse_filtered(roots, max_depth, direction, labels, time_range)
     }
 
     /// Depth-first traversal with label filtering.
@@ -97,6 +105,10 @@ impl VantaEmbedded {
     /// When `labels` is empty, acts like `graph_dfs` (no filter).
     ///
     /// `direction` controls whether edges are followed forward, reverse, or both.
+    ///
+    /// `time_range: Option<(from_ms, to_ms)>` (inclusive) restricts traversal to
+    /// edges whose `created_at_ms` falls within the window. `None` disables
+    /// temporal filtering.
     #[tracing::instrument(skip(self), err)]
     pub fn graph_dfs_filtered(
         &self,
@@ -104,16 +116,19 @@ impl VantaEmbedded {
         max_depth: usize,
         direction: crate::graph::TraversalDirection,
         labels: &[u32],
+        time_range: Option<(u64, u64)>,
     ) -> Result<Vec<u128>> {
+        crate::metrics::record_graph_op("edge_query");
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
-        traverser.dfs_traverse_filtered(roots, max_depth, labels, direction)
+        traverser.dfs_traverse_filtered(roots, max_depth, labels, direction, time_range)
     }
 
     /// Topological sort starting from the given root nodes.
     /// Returns an error if the graph contains a cycle.
     #[tracing::instrument(skip(self), err)]
     pub fn graph_topological_sort(&self, roots: &[u128]) -> Result<Vec<u128>> {
+        crate::metrics::record_graph_op("edge_query");
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
         traverser.topological_sort(roots)
@@ -122,6 +137,7 @@ impl VantaEmbedded {
     /// Check whether the subgraph reachable from `roots` is a directed acyclic graph (DAG).
     #[tracing::instrument(skip(self), err)]
     pub fn graph_is_dag(&self, roots: &[u128]) -> Result<bool> {
+        crate::metrics::record_graph_op("edge_query");
         let engine = self.engine_handle()?;
         let traverser = crate::graph::GraphTraverser::new(&engine);
         traverser.is_dag(roots)
@@ -132,8 +148,8 @@ impl VantaEmbedded {
 mod tests {
     use super::*;
 
-    fn no_engine_embedded() -> VantaEmbedded {
-        VantaEmbedded::test_empty(crate::config::VantaConfig::default())
+    fn no_engine_embedded() -> Embedded {
+        Embedded::test_empty(crate::config::Config::default())
     }
 
     #[test]
@@ -190,7 +206,13 @@ mod tests {
     fn test_graph_bfs_filtered_no_engine() {
         let e = no_engine_embedded();
         let err = e
-            .graph_bfs_filtered(&[1], 5, crate::graph::TraversalDirection::Forward, &[1])
+            .graph_bfs_filtered(
+                &[1],
+                5,
+                crate::graph::TraversalDirection::Forward,
+                &[1],
+                None,
+            )
             .unwrap_err();
         assert!(err.to_string().contains("initialized"), "got: {:?}", err);
     }
@@ -199,7 +221,13 @@ mod tests {
     fn test_graph_dfs_filtered_no_engine() {
         let e = no_engine_embedded();
         let err = e
-            .graph_dfs_filtered(&[1], 5, crate::graph::TraversalDirection::Forward, &[1])
+            .graph_dfs_filtered(
+                &[1],
+                5,
+                crate::graph::TraversalDirection::Forward,
+                &[1],
+                None,
+            )
             .unwrap_err();
         assert!(err.to_string().contains("initialized"), "got: {:?}", err);
     }

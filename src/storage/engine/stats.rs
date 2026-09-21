@@ -3,8 +3,8 @@
 use std::collections::HashMap;
 
 use crate::backend::{BackendPartition, StorageBackend};
-use crate::config::VantaConfig;
-use crate::error::{Result, VantaError};
+use crate::config::Config;
+use crate::error::{Error, Result};
 use crate::node::FieldValue;
 use crate::query::RelOp;
 use crate::storage::engine::{EvictionReason, MemoryStats, StorageEngine};
@@ -13,9 +13,9 @@ use crate::storage::ops::NodeMetadata;
 impl StorageEngine {
     /// Check that the engine is not read-only.
     #[inline]
-    pub fn guard_write_allowed(config: &VantaConfig) -> Result<()> {
+    pub fn guard_write_allowed(config: &Config) -> Result<()> {
         if config.read_only {
-            return Err(VantaError::ValidationError {
+            return Err(Error::Validation {
                 field: "read_only".into(),
                 reason: "StorageEngine is read-only; write operation rejected".into(),
             });
@@ -51,15 +51,15 @@ impl StorageEngine {
     }
 
     /// Returns detailed memory usage statistics for this engine instance.
-    pub fn get_memory_stats(&self) -> MemoryStats {
+    pub fn stats(&self) -> MemoryStats {
         let hnsw = self.hnsw.load();
-        let cache = self.volatile_cache.read();
+        let guard = self.cache.volatile.read();
 
         // ponytail: sum across all LSM levels
         let total_vstore_size: u64 = self.vector_store.iter().map(|vs| vs.read().size).sum();
 
         let logical =
-            hnsw.estimate_memory_bytes() as u64 + total_vstore_size + (cache.len() as u64 * 1536);
+            hnsw.estimate_memory_bytes() as u64 + total_vstore_size + (guard.len() as u64 * 1536);
 
         let physical = {
             let mut total: Option<u64> = None;
@@ -69,7 +69,7 @@ impl StorageEngine {
                     total = Some(total.unwrap_or(0) + rb);
                 }
             }
-            if let Some(rb) = hnsw.backend.mmap_resident_bytes() {
+            if let Some(rb) = hnsw.mmap_resident_bytes() {
                 total = Some(total.unwrap_or(0) + rb);
             }
             total
@@ -85,8 +85,8 @@ impl StorageEngine {
         MemoryStats {
             logical_bytes: logical,
             physical_rss: physical,
-            node_count: hnsw.nodes.len() as u64,
-            cache_entries: cache.len(),
+            node_count: hnsw.node_count() as u64,
+            cache_entries: guard.len(),
             eviction_count: snap.evictions_total,
             eviction_bytes: snap.eviction_bytes_total,
             memory_limit,
@@ -94,14 +94,32 @@ impl StorageEngine {
         }
     }
 
+    /// Deprecated alias of [`StorageEngine::stats`] (anti-stutter AST-005).
+    #[deprecated(since = "0.5.0", note = "use `StorageEngine::stats` instead")]
+    pub fn get_memory_stats(&self) -> MemoryStats {
+        self.stats()
+    }
+
     /// Check current memory usage against the RSS threshold and trigger eviction if exceeded.
-    pub fn check_memory_pressure(&self) -> Result<()> {
+    pub fn check_pressure(&self) -> Result<()> {
         let threshold = self.config.rss_threshold;
         if threshold <= 0.0 {
             return Ok(());
         }
-        let stats = self.get_memory_stats();
-        let effective = stats.effective_bytes();
+        let stats = self.stats();
+        // FND-01-F1: usar el RSS real del proceso (Win32 GetProcessMemoryInfo /
+        // Mach task_info / /proc/self/statm con fallback sysinfo, `_get_rss_virt`
+        // en src/metrics/core/mod.rs:471). `physical_rss` (mmap) subestima ~6.5×
+        // (bench FND-01: 54 MiB vs 354 MiB a 20k nodos) y `logical_bytes`
+        // sobreestima en escalas chicas. Si la medición del host falla (0, p.ej.
+        // bajo Miri o plataforma sin soporte), fallback a la estimación actual —
+        // nunca panic.
+        let (rss, _virt) = crate::metrics::core::_get_rss_virt();
+        let effective = if rss > 0 {
+            rss
+        } else {
+            stats.effective_bytes()
+        };
         if effective == 0 {
             return Ok(());
         }
@@ -110,13 +128,21 @@ impl StorageEngine {
             .memory_limit
             .unwrap_or_else(|| crate::hardware::HardwareCapabilities::global().total_memory);
 
+        // A zero/unknown limit means "not configured" (e.g. hardware detection
+        // unavailable, or under Miri where machine memory reports 0). Treat it as
+        // unlimited for the RSS path — otherwise `limit == 0` makes every insert
+        // look like 100% memory pressure and rejects all writes (AUDIT-03). The
+        // MemoryGovernor check still runs: it uses its own independent watermarks
+        // and must not be disabled by a missing limit (H06-ARCH-002).
+        let above_rss_limit = limit != 0 && (effective as f64) > (limit as f64 * threshold);
+
         // PERF-10: Check MemoryGovernor watermarks
         let above_high_water = self
             .memory_governor
             .as_ref()
             .map(|g| g.should_evict())
             .unwrap_or(false);
-        if (effective as f64) > (limit as f64 * threshold) || above_high_water {
+        if above_rss_limit || above_high_water {
             let reason = if self
                 .memory_governor
                 .as_ref()
@@ -136,7 +162,7 @@ impl StorageEngine {
             if let Err(e) = self.evict_cold_nodes_with_reason(self.config.eviction_ratio, reason) {
                 tracing::warn!("eviction failed: {e}");
             }
-            return Err(VantaError::ResourceLimit(format!(
+            return Err(Error::ResourceLimit(format!(
                 "Memory pressure: {} bytes used ({}% of {} limit, threshold {}%)",
                 effective,
                 (effective as f64 / limit as f64 * 100.0) as u64,
@@ -166,6 +192,12 @@ impl StorageEngine {
         Ok(())
     }
 
+    /// Deprecated alias of [`StorageEngine::check_pressure`] (anti-stutter AST-005).
+    #[deprecated(since = "0.5.0", note = "use `StorageEngine::check_pressure` instead")]
+    pub fn check_memory_pressure(&self) -> Result<()> {
+        self.check_pressure()
+    }
+
     /// Perform an emergency shutdown: flush buffers and exit the process immediately.
     pub fn emergency_shutdown(&self, reason: &str, stmt: Option<&str>) -> ! {
         println!("\n=======================================================");
@@ -191,7 +223,10 @@ impl StorageEngine {
         let mut stats: HashMap<String, HashMap<String, usize>> = HashMap::new();
         if let Ok(records) = backend.scan(BackendPartition::Default) {
             for (_key, val) in records {
-                if let Ok(metadata) = postcard::from_bytes::<NodeMetadata>(&val) {
+                if let Ok(metadata) = crate::storage::ops::deserialize_node_payload::<NodeMetadata>(
+                    &val,
+                    "node metadata",
+                ) {
                     for (field, value) in metadata.relational {
                         let val_keys = value.to_cardinality_keys();
                         let val_map = stats.entry(field).or_default();
@@ -220,88 +255,28 @@ impl StorageEngine {
 
     /// Estimate the selectivity of a relational filter based on cached cardinality statistics.
     pub fn get_estimated_selectivity(&self, field: &str, op: &RelOp, value: &FieldValue) -> f32 {
-        let stats = self.cardinality_stats.read();
-        let total_nodes = self.hnsw.load().nodes.len();
-        if total_nodes == 0 {
-            let val_keys = value.to_cardinality_keys();
-            let val_key = val_keys
-                .first()
-                .cloned()
-                .unwrap_or_else(|| "null".to_string());
-            if let Some(val_map) = stats.get(field) {
-                let freq = *val_map.get(&val_key).unwrap_or(&0);
-                return match op {
-                    RelOp::Eq => {
-                        if freq > 0 {
-                            1.0
-                        } else {
-                            0.0
-                        }
-                    }
-                    RelOp::Neq => {
-                        if freq > 0 {
-                            0.0
-                        } else {
-                            1.0
-                        }
-                    }
-                    _ => 0.5,
-                };
-            }
-            return 1.0;
-        }
-
-        let val_keys = value.to_cardinality_keys();
-        let val_key = val_keys
-            .first()
-            .cloned()
-            .unwrap_or_else(|| "null".to_string());
-
-        if let Some(val_map) = stats.get(field) {
-            let freq = *val_map.get(&val_key).unwrap_or(&0) as f32;
-
-            match op {
-                RelOp::Eq => {
-                    if freq > 0.0 {
-                        freq / total_nodes as f32
-                    } else if val_map.len() >= 100 {
-                        1.0 / total_nodes.max(1) as f32
-                    } else {
-                        0.0
-                    }
-                }
-                RelOp::Neq => {
-                    let eq_sel = if freq > 0.0 {
-                        freq / total_nodes as f32
-                    } else if val_map.len() >= 100 {
-                        1.0 / total_nodes.max(1) as f32
-                    } else {
-                        0.0
-                    };
-                    1.0 - eq_sel
-                }
-                RelOp::Gt | RelOp::Gte | RelOp::Lt | RelOp::Lte => 0.33,
-            }
-        } else {
-            match op {
-                RelOp::Eq => 0.0,
-                RelOp::Neq => 1.0,
-                _ => 0.5,
-            }
-        }
+        // COMP-028: unified semantic cost estimator owns the selectivity heuristic.
+        crate::cost_estimator::CostEstimator::new(self).selectivity(field, op, value)
     }
 
     /// Request backend compaction.
+    ///
+    /// Only backends implementing the [`Compactable`](crate::backend::Compactable) role compact; the
+    /// rest skip with the same info log as before (same observable
+    /// behavior: only RocksDB compacts). A typed `Result<bool>` replaces
+    /// the old silent no-op, and failures warn instead of vanishing.
     pub fn request_compaction(&self) {
-        if !self.supports_manual_compaction() {
+        let Some(compactable) = self.backend.as_compactable() else {
             tracing::info!(
                 "Maintenance requested manual disk compaction, but it was skipped. \
                 The active backend ({:?}) manages compaction automatically. This is expected behavior.",
                 self.backend_kind()
             );
             return;
+        };
+        if let Err(e) = compactable.compact() {
+            tracing::warn!("Manual compaction failed: {e}");
         }
-        self.backend.compact();
     }
 
     /// Return the capabilities descriptor of the active KV backend.

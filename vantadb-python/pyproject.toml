@@ -4,8 +4,8 @@ build-backend = "maturin"
 
 [project]
 name = "vantadb-py"
-version = "0.5.0"
-description = "Source-installed Python bindings for the VantaDB embedded persistent memory engine."
+version = "0.6.0"
+description = "Python bindings for VantaDB — embedded persistent memory and hybrid vector search engine for AI agents."
 readme = "README.md"
 requires-python = ">=3.11"
 license = {text = "Apache-2.0"}
@@ -13,6 +13,10 @@ authors = [
     {name = "VantaDB Team"}
 ]
 keywords = ["database", "vector-search", "embedded", "ai", "persistent-memory"]
+# FIND-85: classifiers listan solo lo que CI verifica (build 3.11 +
+# install-verify 3.13 en release-wheels-60.yml). El wheel es abi3-py311
+# (vantadb-python/Cargo.toml:15) — un artefacto por plataforma válido en
+# >=3.11 — pero prometer 3.12/3.14 sin probarlos es la brecha que cierra este recorte.
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -21,7 +25,6 @@ classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Database",
@@ -36,8 +39,29 @@ Issues = "https://github.com/ness-e/Vantadb/issues"
 
 [tool.maturin]
 module-name = "vantadb_py"
-features = ["pyo3/extension-module"]
 include = [
     "vantadb_py/py.typed",
     "vantadb_py/*.pyi",
+    "vantadb/__init__.py",
 ]
+# H-05: keep local build/test artifacts out of wheels and sdists even if the
+# `include` globs above are ever widened (gitignore-style patterns).
+exclude = [
+    "**/*.pyd",
+    "**/*.pdb",
+    "**/*.so",
+    "dist/",
+    "probe_lock_db/",
+    ".coverage",
+    "**/__pycache__/",
+]
+
+# pytest — FX-3 (test_load.py hang): the bulk-load/sustained-throughput tests are
+# legitimate dozens-of-seconds stress tests (3k/5k inserts). They must NOT run in
+# the default unit gate (they made `pytest` appear hung for >300s with no output).
+# Default run excludes `slow`; run explicitly with `pytest -m slow`.
+[tool.pytest.ini_options]
+markers = [
+    "slow: long-running load/stress tests (bulk inserts, sustained throughput). Excluded from the default unit run; use `pytest -m slow`.",
+]
+addopts = "-m 'not slow'"

@@ -17,7 +17,7 @@ param(
     [Parameter(Mandatory)]
     [ValidateSet('quick', 'ci', 'full', 'lint', 'security', 'perf')]
     [string]$Mode,
-    [string]$ReportDir = "docs/audit-reports"
+    [string]$ReportDir = "docs/reviews"
 )
 
 $ErrorActionPreference = 'Continue'
@@ -78,24 +78,26 @@ Write-Host "└─────────────────────�
 
 $results = @{}
 $core = '-p vantadb'
-$lite = '--no-default-features -F cli,fjall,sysinfo,memmap2,fs2'
+# Features canónicas compartidas con verify.ps1/verify_changed.ps1 (gate-common.ps1)
+. (Join-Path $PSScriptRoot "gate-common.ps1")
+$lite = (Get-CoreFeatures) -join ' '
 
 switch ($Mode) {
     'quick' {
-        $results.fmt    = Run-Check 'cargo fmt --check'          { cargo fmt --check }
+        $results.fmt    = Run-Check 'cargo fmt --check'          { cargo fmt --all -- --check }
         $results.clippy = Run-Check "cargo clippy ($core)"       { cargo clippy $core $lite -- -D warnings }
         $results.test   = Run-Check "cargo nextest ($core)"      { cargo nextest run --profile audit $core $lite --build-jobs 2 }
         $results.deny   = Run-Check 'cargo deny check'           { cargo deny check }
     }
     'ci' {
-        $results.fmt    = Run-Check 'cargo fmt --check'          { cargo fmt --check }
+        $results.fmt    = Run-Check 'cargo fmt --check'          { cargo fmt --all -- --check }
         $results.clippy = Run-Check 'cargo clippy (workspace)'   { cargo clippy --workspace -- -D warnings }
         $results.test   = Run-Check 'cargo nextest (workspace)'  { cargo nextest run --profile audit --workspace --build-jobs 2 }
         $results.deny   = Run-Check 'cargo deny check'           { cargo deny check }
         $results.audit  = Run-Check 'cargo audit'                { cargo audit }
     }
     'full' {
-        $results.fmt    = Run-Check 'cargo fmt --check'          { cargo fmt --check }
+        $results.fmt    = Run-Check 'cargo fmt --check'          { cargo fmt --all -- --check }
         $results.clippy = Run-Check 'cargo clippy (workspace)'   { cargo clippy --workspace -- -D warnings }
         $results.test   = Run-Check 'cargo nextest (workspace)'  { cargo nextest run --profile audit --workspace --build-jobs 2 }
         $results.deny   = Run-Check 'cargo deny check'           { cargo deny check }

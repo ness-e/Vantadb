@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 /// Benchmark comparing search performance with and without prefetch
 /// on the current hardware. This helps determine if prefetch benefits
 /// modern SSDs or if it's only useful for HDDs/slow storage.
@@ -5,21 +7,21 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::time::Instant;
 use tempfile::TempDir;
-use vantadb::sdk::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
+use vantadb::sdk::{Embedded, MemoryInput, MemorySearchRequest};
 use vantadb::DistanceMetric;
 
-fn insert_vectors(db: &VantaEmbedded, count: usize, dim: usize) {
+fn insert_vectors(db: &Embedded, count: usize, dim: usize) {
     let mut rng = StdRng::seed_from_u64(42);
     for i in 0..count {
         let vec: Vec<f32> = (0..dim).map(|_| rng.random::<f32>()).collect();
-        let mut input = VantaMemoryInput::new("bench", i.to_string(), format!("doc {}", i));
+        let mut input = MemoryInput::new("bench", i.to_string(), format!("doc {}", i));
         input.vector = Some(vec);
         db.put(input).unwrap();
     }
 }
 
 fn measure_search_latency(
-    db: &VantaEmbedded,
+    db: &Embedded,
     query: Vec<f32>,
     _dim: usize,
     iterations: usize,
@@ -27,7 +29,7 @@ fn measure_search_latency(
 ) -> f64 {
     // Warmup
     for _ in 0..10 {
-        let request = VantaMemorySearchRequest {
+        let request = MemorySearchRequest {
             namespace: "bench".to_string(),
 
             query_vector: query.clone(),
@@ -37,6 +39,9 @@ fn measure_search_latency(
             top_k,
             distance_metric: DistanceMetric::Cosine,
             explain: false,
+            query_sparse: None,
+            exclude_superseded: false,
+            search_profile: None,
         };
         let _ = db.search(request);
     }
@@ -44,7 +49,7 @@ fn measure_search_latency(
     // Measure
     let start = Instant::now();
     for _ in 0..iterations {
-        let request = VantaMemorySearchRequest {
+        let request = MemorySearchRequest {
             namespace: "bench".to_string(),
 
             query_vector: query.clone(),
@@ -54,6 +59,9 @@ fn measure_search_latency(
             top_k,
             distance_metric: DistanceMetric::Cosine,
             explain: false,
+            query_sparse: None,
+            exclude_superseded: false,
+            search_profile: None,
         };
         let _ = db.search(request);
     }
@@ -70,19 +78,25 @@ fn test_prefetch_impact_on_search_latency() {
     let mut rng = StdRng::seed_from_u64(42);
     let query: Vec<f32> = (0..vector_dim).map(|_| rng.random::<f32>()).collect();
 
-    // --- Run with prefetch ENABLED (default) ---
+    // --- Run with prefetch ENABLED (explicit) ---
+    // PERF-04: default is now OFF, so enable explicitly via VANTADB_PREFETCH (F3C C7 breaking).
     let avg_prefetch_on = {
         let dir = TempDir::new().unwrap();
-        let db = VantaEmbedded::open(dir.path().to_str().unwrap()).unwrap();
+        let old_prefetch = std::env::var_os("VANTADB_PREFETCH");
+        let old_disable = std::env::var_os("VANTADB_DISABLE_PREFETCH");
+        std::env::set_var("VANTADB_PREFETCH", "enabled");
+        std::env::remove_var("VANTADB_DISABLE_PREFETCH");
+        let db = Embedded::open(dir.path().to_str().unwrap()).unwrap();
         insert_vectors(&db, vector_count, vector_dim);
-        let old = std::env::var_os("VANTA_DISABLE_PREFETCH");
-        std::env::remove_var("VANTA_DISABLE_PREFETCH");
         let result =
             measure_search_latency(&db, query.clone(), vector_dim, query_iterations, top_k);
-        if let Some(val) = old {
-            std::env::set_var("VANTA_DISABLE_PREFETCH", val);
-        } else {
-            std::env::remove_var("VANTA_DISABLE_PREFETCH");
+        match old_prefetch {
+            Some(val) => std::env::set_var("VANTADB_PREFETCH", val),
+            None => std::env::remove_var("VANTADB_PREFETCH"),
+        }
+        match old_disable {
+            Some(val) => std::env::set_var("VANTADB_DISABLE_PREFETCH", val),
+            None => std::env::remove_var("VANTADB_DISABLE_PREFETCH"),
         }
         result
     };
@@ -92,18 +106,21 @@ fn test_prefetch_impact_on_search_latency() {
     );
 
     // --- Run with prefetch DISABLED ---
+    // ponytail: PREFETCH_MODE is a one-shot OnceLock set by the first open in
+    // this process, so the OFF arm inherits the mode the ON arm set. True A/B
+    // needs separate processes; kept as-is (pre-existing benchmark limitation).
     let avg_prefetch_off = {
         let dir = TempDir::new().unwrap();
-        let db = VantaEmbedded::open(dir.path().to_str().unwrap()).unwrap();
+        let db = Embedded::open(dir.path().to_str().unwrap()).unwrap();
         insert_vectors(&db, vector_count, vector_dim);
-        let old = std::env::var_os("VANTA_DISABLE_PREFETCH");
-        std::env::set_var("VANTA_DISABLE_PREFETCH", "1");
+        let old = std::env::var_os("VANTADB_DISABLE_PREFETCH");
+        std::env::set_var("VANTADB_DISABLE_PREFETCH", "1");
         let result =
             measure_search_latency(&db, query.clone(), vector_dim, query_iterations, top_k);
         if let Some(val) = old {
-            std::env::set_var("VANTA_DISABLE_PREFETCH", val);
+            std::env::set_var("VANTADB_DISABLE_PREFETCH", val);
         } else {
-            std::env::remove_var("VANTA_DISABLE_PREFETCH");
+            std::env::remove_var("VANTADB_DISABLE_PREFETCH");
         }
         result
     };

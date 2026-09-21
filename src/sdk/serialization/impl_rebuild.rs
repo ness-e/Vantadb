@@ -1,15 +1,18 @@
-//! Rebuild operations and text index audit for `VantaEmbedded`.
+//! Rebuild operations and text index audit for `Embedded`.
 
-use super::super::builder::VantaEmbedded;
+use super::super::builder::Embedded;
 use super::super::types::*;
-use super::{memory_record_from_node, now_ms, TextIndexCounts, DERIVED_INDEX_SCHEMA_VERSION};
+use super::{
+    memory_record_from_node_include_expired, now_ms, record_from_node, TextIndexCounts,
+    DERIVED_INDEX_SCHEMA_VERSION,
+};
 use crate::backend::{BackendPartition, BackendWriteOp};
 use crate::error::Result;
 use crate::storage::StorageEngine;
 use std::collections::{BTreeMap, BTreeSet};
 use web_time::Instant;
 
-impl VantaEmbedded {
+impl Embedded {
     pub(crate) fn rebuild_derived_indexes_with_report(&self) -> Result<DerivedIndexRebuildReport> {
         let started = Instant::now();
         let engine = self.engine_handle()?;
@@ -31,7 +34,7 @@ impl VantaEmbedded {
             });
         }
         for node in engine.scan_nodes()? {
-            if let Some(record) = memory_record_from_node(&node) {
+            if let Some(record) = record_from_node(&node) {
                 record_count += 1;
                 namespace_entries += 1;
                 payload_entries += record.metadata.len() as u64;
@@ -73,12 +76,12 @@ impl VantaEmbedded {
         let engine = self.engine_handle()?;
 
         {
-            let mut cache = engine.text_stats_cache.write();
-            cache.clear();
+            let mut guard = engine.cache.text_stats.write();
+            guard.clear();
         }
         {
-            let mut cache = engine.text_ns_cache.write();
-            cache.clear();
+            let mut guard = engine.cache.text_ns.write();
+            guard.clear();
         }
 
         let mut ops = Vec::new();
@@ -94,26 +97,45 @@ impl VantaEmbedded {
             });
         }
 
+        // Build the advanced analyzer once for the whole batch; constructing
+        // the stemming/stopwords pipeline per record would pay N setups.
+        #[cfg(feature = "advanced-tokenizer")]
+        let mut analyzer = crate::tokenizer::build_advanced_analyzer(
+            &crate::tokenizer::AdvancedTokenizerConfig::default(),
+        );
+
         for node in engine.scan_nodes()? {
-            if let Some(record) = memory_record_from_node(&node) {
+            if let Some(record) = memory_record_from_node_include_expired(&node) {
                 counts.record_count += 1;
-                let posting_ops = crate::text_index::posting_put_ops(
+                let terms = {
+                    #[cfg(feature = "advanced-tokenizer")]
+                    {
+                        crate::text_index::record_terms_with_analyzer(
+                            &mut analyzer,
+                            &record.payload,
+                        )
+                    }
+                    #[cfg(not(feature = "advanced-tokenizer"))]
+                    {
+                        crate::text_index::record_terms(&record.payload)
+                    }
+                };
+                let posting_ops = crate::text_index::posting_ops_from_terms(
                     &record.namespace,
                     &record.key,
-                    &record.payload,
+                    &terms,
                     record.node_id,
                 )?;
                 counts.posting_entries += posting_ops.len() as u64;
                 ops.extend(posting_ops);
-                ops.push(crate::text_index::doc_stats_put_op(
+                ops.push(crate::text_index::doc_stats_op_from_terms(
                     &record.namespace,
                     &record.key,
-                    &record.payload,
+                    terms.doc_len,
                     record.node_id,
                 )?);
                 counts.doc_stats_entries += 1;
 
-                let terms = crate::text_index::record_terms(&record.payload);
                 for token in terms.token_counts.keys() {
                     *term_stats
                         .entry((record.namespace.clone(), token.clone()))
@@ -172,7 +194,7 @@ impl VantaEmbedded {
 
         for node in engine.scan_nodes()? {
             audit.records_scanned += 1;
-            if let Some(record) = memory_record_from_node(&node) {
+            if let Some(record) = memory_record_from_node_include_expired(&node) {
                 if matches!(namespace_filter, Some(namespace) if record.namespace != namespace) {
                     continue;
                 }
@@ -287,7 +309,7 @@ impl VantaEmbedded {
     pub(crate) fn build_text_index_audit_report_deep(
         engine: &StorageEngine,
         namespace_filter: Option<&str>,
-    ) -> Result<VantaTextIndexAuditReport> {
+    ) -> Result<TextIndexAuditReport> {
         let started = Instant::now();
         let spec = crate::text_index::TextIndexSpec::default();
         let expected = Self::expected_text_index_entries(engine, namespace_filter)?;
@@ -389,7 +411,7 @@ impl VantaEmbedded {
             }
         }
 
-        let report = VantaTextIndexAuditReport {
+        let report = TextIndexAuditReport {
             schema_version: spec.schema_version,
             tokenizer: spec.tokenizer.name.to_string(),
             tokenizer_version: spec.tokenizer.version,
@@ -427,7 +449,7 @@ impl VantaEmbedded {
     pub(crate) fn build_text_index_audit_report_shallow(
         engine: &StorageEngine,
         namespace_filter: Option<&str>,
-    ) -> Result<VantaTextIndexAuditReport> {
+    ) -> Result<TextIndexAuditReport> {
         let started = Instant::now();
         let spec = crate::text_index::TextIndexSpec::default();
         let expected = Self::expected_text_index_entries(engine, namespace_filter)?;
@@ -469,7 +491,7 @@ impl VantaEmbedded {
             }
         }
 
-        let report = VantaTextIndexAuditReport {
+        let report = TextIndexAuditReport {
             schema_version: spec.schema_version,
             tokenizer: spec.tokenizer.name.to_string(),
             tokenizer_version: spec.tokenizer.version,
@@ -510,7 +532,7 @@ impl VantaEmbedded {
 mod tests {
     use crate::backend::BackendPartition;
     use crate::sdk::types::{TextIndexCounts, TextIndexState};
-    use crate::sdk::VantaEmbedded;
+    use crate::sdk::Embedded;
 
     // ─── text_index_value_readable ─────────────────────────────
 
@@ -519,13 +541,13 @@ mod tests {
         // Non-internal key (posting) with valid value
         let key = b"ns\0token\0key";
         let value = crate::text_index::posting_value(42, 3, &[0, 5, 10]).unwrap();
-        assert!(VantaEmbedded::text_index_value_readable(key, &value));
+        assert!(Embedded::text_index_value_readable(key, &value));
     }
 
     #[test]
     fn test_text_index_value_readable_posting_corrupted() {
         let key = b"ns\0token\0key";
-        assert!(!VantaEmbedded::text_index_value_readable(
+        assert!(!Embedded::text_index_value_readable(
             key,
             b"not-valid-posting"
         ));
@@ -535,34 +557,34 @@ mod tests {
     fn test_text_index_value_readable_term_stats() {
         let key = crate::text_index::term_stats_key("myns", "hello");
         let value = crate::text_index::term_stats_value(5).unwrap();
-        assert!(VantaEmbedded::text_index_value_readable(&key, &value));
+        assert!(Embedded::text_index_value_readable(&key, &value));
     }
 
     #[test]
     fn test_text_index_value_readable_term_stats_corrupted() {
         let key = crate::text_index::term_stats_key("myns", "hello");
-        assert!(!VantaEmbedded::text_index_value_readable(&key, &[]));
+        assert!(!Embedded::text_index_value_readable(&key, &[]));
     }
 
     #[test]
     fn test_text_index_value_readable_doc_stats() {
         let key = crate::text_index::doc_stats_key("myns", "mykey");
         let value = crate::text_index::doc_stats_value(100, 20).unwrap();
-        assert!(VantaEmbedded::text_index_value_readable(&key, &value));
+        assert!(Embedded::text_index_value_readable(&key, &value));
     }
 
     #[test]
     fn test_text_index_value_readable_namespace_stats() {
         let key = crate::text_index::namespace_stats_key("myns");
         let value = crate::text_index::namespace_stats_value(10, 500).unwrap();
-        assert!(VantaEmbedded::text_index_value_readable(&key, &value));
+        assert!(Embedded::text_index_value_readable(&key, &value));
     }
 
     #[test]
     fn test_text_index_value_readable_unknown_internal_key() {
         let key = b"\xffvanta_text_v3\0unknown\0data";
         let value = b"whatever";
-        assert!(!VantaEmbedded::text_index_value_readable(key, value));
+        assert!(!Embedded::text_index_value_readable(key, value));
     }
 
     // ─── text_index_state_audit_status ─────────────────────────
@@ -570,7 +592,7 @@ mod tests {
     fn in_memory_engine() -> crate::storage::StorageEngine {
         crate::storage::StorageEngine::open_with_config(
             ":memory:",
-            Some(crate::config::VantaConfig {
+            Some(crate::config::Config {
                 backend_kind: crate::backend::BackendKind::InMemory,
                 ..Default::default()
             }),
@@ -582,7 +604,7 @@ mod tests {
     fn test_text_index_state_audit_status_missing() {
         let engine = in_memory_engine();
         let counts = TextIndexCounts::default();
-        let (valid, status) = VantaEmbedded::text_index_state_audit_status(&engine, counts, None);
+        let (valid, status) = Embedded::text_index_state_audit_status(&engine, counts, None);
         assert!(!valid);
         assert_eq!(status, "missing");
     }
@@ -592,10 +614,10 @@ mod tests {
         let engine = in_memory_engine();
         let counts = TextIndexCounts::default();
         // Write a valid matching state
-        let state = VantaEmbedded::fresh_text_index_state(counts);
-        VantaEmbedded::write_text_index_state(&engine, &state).unwrap();
+        let state = Embedded::fresh_text_index_state(counts);
+        Embedded::write_text_index_state(&engine, &state).unwrap();
 
-        let (valid, status) = VantaEmbedded::text_index_state_audit_status(&engine, counts, None);
+        let (valid, status) = Embedded::text_index_state_audit_status(&engine, counts, None);
         assert!(valid);
         assert_eq!(status, "current");
     }
@@ -607,8 +629,8 @@ mod tests {
             record_count: 5,
             ..Default::default()
         };
-        let state = VantaEmbedded::fresh_text_index_state(state_counts);
-        VantaEmbedded::write_text_index_state(&engine, &state).unwrap();
+        let state = Embedded::fresh_text_index_state(state_counts);
+        Embedded::write_text_index_state(&engine, &state).unwrap();
 
         // Pass different expected counts
         let expected_counts = TextIndexCounts {
@@ -616,7 +638,7 @@ mod tests {
             ..Default::default()
         };
         let (valid, status) =
-            VantaEmbedded::text_index_state_audit_status(&engine, expected_counts, None);
+            Embedded::text_index_state_audit_status(&engine, expected_counts, None);
         assert!(!valid);
         assert_eq!(status, "count_mismatch");
     }
@@ -633,7 +655,7 @@ mod tests {
             )
             .expect("put garbage state");
         let counts = TextIndexCounts::default();
-        let (valid, status) = VantaEmbedded::text_index_state_audit_status(&engine, counts, None);
+        let (valid, status) = Embedded::text_index_state_audit_status(&engine, counts, None);
         assert!(!valid);
         assert!(
             status.starts_with("decode_error"),
@@ -657,9 +679,9 @@ mod tests {
             term_stats_entries: 0,
             namespace_stats_entries: 0,
         };
-        VantaEmbedded::write_text_index_state(&engine, &bad_state).unwrap();
+        Embedded::write_text_index_state(&engine, &bad_state).unwrap();
         let counts = TextIndexCounts::default();
-        let (valid, status) = VantaEmbedded::text_index_state_audit_status(&engine, counts, None);
+        let (valid, status) = Embedded::text_index_state_audit_status(&engine, counts, None);
         assert!(!valid);
         assert_eq!(status, "incompatible");
     }
@@ -672,8 +694,8 @@ mod tests {
             record_count: 5,
             ..Default::default()
         };
-        let state = VantaEmbedded::fresh_text_index_state(state_counts);
-        VantaEmbedded::write_text_index_state(&engine, &state).unwrap();
+        let state = Embedded::fresh_text_index_state(state_counts);
+        Embedded::write_text_index_state(&engine, &state).unwrap();
         // Expected counts differ (10 vs 5), but namespace_filter is Some(...)
         // so the count_mismatch check is skipped → returns "current"
         let expected_counts = TextIndexCounts {
@@ -681,7 +703,7 @@ mod tests {
             ..Default::default()
         };
         let (valid, status) =
-            VantaEmbedded::text_index_state_audit_status(&engine, expected_counts, Some("myns"));
+            Embedded::text_index_state_audit_status(&engine, expected_counts, Some("myns"));
         assert!(
             valid,
             "expected valid when namespace_filter skips count check"
@@ -694,13 +716,13 @@ mod tests {
     #[test]
     fn test_text_index_value_readable_doc_stats_corrupted() {
         let key = crate::text_index::doc_stats_key("myns", "mykey");
-        assert!(!VantaEmbedded::text_index_value_readable(&key, b""));
+        assert!(!Embedded::text_index_value_readable(&key, b""));
     }
 
     #[test]
     fn test_text_index_value_readable_namespace_stats_corrupted() {
         let key = crate::text_index::namespace_stats_key("myns");
-        assert!(!VantaEmbedded::text_index_value_readable(&key, b""));
+        assert!(!Embedded::text_index_value_readable(&key, b""));
     }
 
     // ─── text_index_state_audit_status (individual count mismatches) ──
@@ -712,14 +734,14 @@ mod tests {
             posting_entries: 5,
             ..Default::default()
         };
-        let state = VantaEmbedded::fresh_text_index_state(state_counts);
-        VantaEmbedded::write_text_index_state(&engine, &state).unwrap();
+        let state = Embedded::fresh_text_index_state(state_counts);
+        Embedded::write_text_index_state(&engine, &state).unwrap();
         let expected_counts = TextIndexCounts {
             posting_entries: 10,
             ..Default::default()
         };
         let (valid, status) =
-            VantaEmbedded::text_index_state_audit_status(&engine, expected_counts, None);
+            Embedded::text_index_state_audit_status(&engine, expected_counts, None);
         assert!(!valid);
         assert_eq!(status, "count_mismatch");
     }
@@ -731,14 +753,14 @@ mod tests {
             doc_stats_entries: 3,
             ..Default::default()
         };
-        let state = VantaEmbedded::fresh_text_index_state(state_counts);
-        VantaEmbedded::write_text_index_state(&engine, &state).unwrap();
+        let state = Embedded::fresh_text_index_state(state_counts);
+        Embedded::write_text_index_state(&engine, &state).unwrap();
         let expected_counts = TextIndexCounts {
             doc_stats_entries: 7,
             ..Default::default()
         };
         let (valid, status) =
-            VantaEmbedded::text_index_state_audit_status(&engine, expected_counts, None);
+            Embedded::text_index_state_audit_status(&engine, expected_counts, None);
         assert!(!valid);
         assert_eq!(status, "count_mismatch");
     }
@@ -750,14 +772,14 @@ mod tests {
             term_stats_entries: 2,
             ..Default::default()
         };
-        let state = VantaEmbedded::fresh_text_index_state(state_counts);
-        VantaEmbedded::write_text_index_state(&engine, &state).unwrap();
+        let state = Embedded::fresh_text_index_state(state_counts);
+        Embedded::write_text_index_state(&engine, &state).unwrap();
         let expected_counts = TextIndexCounts {
             term_stats_entries: 5,
             ..Default::default()
         };
         let (valid, status) =
-            VantaEmbedded::text_index_state_audit_status(&engine, expected_counts, None);
+            Embedded::text_index_state_audit_status(&engine, expected_counts, None);
         assert!(!valid);
         assert_eq!(status, "count_mismatch");
     }
@@ -769,14 +791,14 @@ mod tests {
             namespace_stats_entries: 1,
             ..Default::default()
         };
-        let state = VantaEmbedded::fresh_text_index_state(state_counts);
-        VantaEmbedded::write_text_index_state(&engine, &state).unwrap();
+        let state = Embedded::fresh_text_index_state(state_counts);
+        Embedded::write_text_index_state(&engine, &state).unwrap();
         let expected_counts = TextIndexCounts {
             namespace_stats_entries: 3,
             ..Default::default()
         };
         let (valid, status) =
-            VantaEmbedded::text_index_state_audit_status(&engine, expected_counts, None);
+            Embedded::text_index_state_audit_status(&engine, expected_counts, None);
         assert!(!valid);
         assert_eq!(status, "count_mismatch");
     }
@@ -785,7 +807,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_text_index_with_report_empty() {
-        let db = crate::sdk::VantaEmbedded::open_with_config(crate::config::VantaConfig {
+        let db = crate::sdk::Embedded::open_with_config(crate::config::Config {
             backend_kind: crate::backend::BackendKind::InMemory,
             ..Default::default()
         })
@@ -800,23 +822,15 @@ mod tests {
 
     #[test]
     fn test_rebuild_text_index_with_report_with_data() {
-        let db = crate::sdk::VantaEmbedded::open_with_config(crate::config::VantaConfig {
+        let db = crate::sdk::Embedded::open_with_config(crate::config::Config {
             backend_kind: crate::backend::BackendKind::InMemory,
             ..Default::default()
         })
         .expect("in-memory db");
-        db.put(crate::sdk::VantaMemoryInput::new(
-            "ns1",
-            "k1",
-            "hello world",
-        ))
-        .unwrap();
-        db.put(crate::sdk::VantaMemoryInput::new(
-            "ns1",
-            "k2",
-            "foo bar baz",
-        ))
-        .unwrap();
+        db.put(crate::sdk::MemoryInput::new("ns1", "k1", "hello world"))
+            .unwrap();
+        db.put(crate::sdk::MemoryInput::new("ns1", "k2", "foo bar baz"))
+            .unwrap();
 
         let report = db.rebuild_text_index_with_report().unwrap();
         assert_eq!(report.record_count, 2);
@@ -828,18 +842,14 @@ mod tests {
 
     #[test]
     fn test_rebuild_text_index_with_report_checks_exact_counts() {
-        let db = crate::sdk::VantaEmbedded::open_with_config(crate::config::VantaConfig {
+        let db = crate::sdk::Embedded::open_with_config(crate::config::Config {
             backend_kind: crate::backend::BackendKind::InMemory,
             ..Default::default()
         })
         .expect("in-memory db");
         // "hello world" has 2 tokens → 2 postings, 2 term stats, 1 doc stats, 1 namespace
-        db.put(crate::sdk::VantaMemoryInput::new(
-            "ns1",
-            "k1",
-            "hello world",
-        ))
-        .unwrap();
+        db.put(crate::sdk::MemoryInput::new("ns1", "k1", "hello world"))
+            .unwrap();
 
         let report = db.rebuild_text_index_with_report().unwrap();
         assert_eq!(report.record_count, 1);
@@ -853,7 +863,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_derived_indexes_with_report_empty() {
-        let db = crate::sdk::VantaEmbedded::open_with_config(crate::config::VantaConfig {
+        let db = crate::sdk::Embedded::open_with_config(crate::config::Config {
             backend_kind: crate::backend::BackendKind::InMemory,
             ..Default::default()
         })
@@ -866,20 +876,20 @@ mod tests {
 
     #[test]
     fn test_rebuild_derived_indexes_with_report_with_data() {
-        let db = crate::sdk::VantaEmbedded::open_with_config(crate::config::VantaConfig {
+        let db = crate::sdk::Embedded::open_with_config(crate::config::Config {
             backend_kind: crate::backend::BackendKind::InMemory,
             ..Default::default()
         })
         .expect("in-memory db");
-        db.put(crate::sdk::VantaMemoryInput::new("ns1", "k1", "hello"))
+        db.put(crate::sdk::MemoryInput::new("ns1", "k1", "hello"))
             .unwrap();
-        db.put(crate::sdk::VantaMemoryInput::new("ns1", "k2", "world"))
+        db.put(crate::sdk::MemoryInput::new("ns1", "k2", "world"))
             .unwrap();
 
         let report = db.rebuild_derived_indexes_with_report().unwrap();
         assert_eq!(report.record_count, 2);
         assert_eq!(report.namespace_entries, 2);
-        // payload_entries is 0 because VantaMemoryInput::new has no custom metadata
+        // payload_entries is 0 because MemoryInput::new has no custom metadata
         assert_eq!(report.payload_entries, 0);
     }
 
@@ -889,9 +899,9 @@ mod tests {
     fn test_build_text_index_audit_report_deep_empty() {
         let engine = std::sync::Arc::new(in_memory_engine());
         // Pre-write a valid state so audit passes on an empty index
-        let state = VantaEmbedded::fresh_text_index_state(TextIndexCounts::default());
-        VantaEmbedded::write_text_index_state(&engine, &state).unwrap();
-        let report = VantaEmbedded::build_text_index_audit_report_deep(&engine, None).unwrap();
+        let state = Embedded::fresh_text_index_state(TextIndexCounts::default());
+        Embedded::write_text_index_state(&engine, &state).unwrap();
+        let report = Embedded::build_text_index_audit_report_deep(&engine, None).unwrap();
         assert!(
             report.passed,
             "expected passed, got status: {}",
@@ -904,29 +914,21 @@ mod tests {
 
     #[test]
     fn test_build_text_index_audit_report_deep_with_data() {
-        let db = crate::sdk::VantaEmbedded::open_with_config(crate::config::VantaConfig {
+        let db = crate::sdk::Embedded::open_with_config(crate::config::Config {
             backend_kind: crate::backend::BackendKind::InMemory,
             ..Default::default()
         })
         .expect("in-memory db");
-        db.put(crate::sdk::VantaMemoryInput::new(
-            "ns1",
-            "k1",
-            "hello world",
-        ))
-        .unwrap();
-        db.put(crate::sdk::VantaMemoryInput::new(
-            "ns1",
-            "k2",
-            "foo bar baz",
-        ))
-        .unwrap();
+        db.put(crate::sdk::MemoryInput::new("ns1", "k1", "hello world"))
+            .unwrap();
+        db.put(crate::sdk::MemoryInput::new("ns1", "k2", "foo bar baz"))
+            .unwrap();
 
         // Rebuild to ensure fresh, consistent state
         db.rebuild_text_index_with_report().unwrap();
 
         let engine = db.engine_handle().unwrap();
-        let report = VantaEmbedded::build_text_index_audit_report_deep(&engine, None).unwrap();
+        let report = Embedded::build_text_index_audit_report_deep(&engine, None).unwrap();
         assert!(
             report.passed,
             "expected passed, got status: {}",
@@ -938,20 +940,19 @@ mod tests {
 
     #[test]
     fn test_build_text_index_audit_report_deep_with_namespace_filter() {
-        let db = crate::sdk::VantaEmbedded::open_with_config(crate::config::VantaConfig {
+        let db = crate::sdk::Embedded::open_with_config(crate::config::Config {
             backend_kind: crate::backend::BackendKind::InMemory,
             ..Default::default()
         })
         .expect("in-memory db");
-        db.put(crate::sdk::VantaMemoryInput::new("ns1", "k1", "hello"))
+        db.put(crate::sdk::MemoryInput::new("ns1", "k1", "hello"))
             .unwrap();
-        db.put(crate::sdk::VantaMemoryInput::new("ns2", "k2", "world"))
+        db.put(crate::sdk::MemoryInput::new("ns2", "k2", "world"))
             .unwrap();
 
         db.rebuild_text_index_with_report().unwrap();
         let engine = db.engine_handle().unwrap();
-        let report =
-            VantaEmbedded::build_text_index_audit_report_deep(&engine, Some("ns1")).unwrap();
+        let report = Embedded::build_text_index_audit_report_deep(&engine, Some("ns1")).unwrap();
         // With namespace_filter count check is skipped → state stays valid
         assert!(
             report.passed,
@@ -966,9 +967,9 @@ mod tests {
     #[test]
     fn test_build_text_index_audit_report_shallow_empty() {
         let engine = std::sync::Arc::new(in_memory_engine());
-        let state = VantaEmbedded::fresh_text_index_state(TextIndexCounts::default());
-        VantaEmbedded::write_text_index_state(&engine, &state).unwrap();
-        let report = VantaEmbedded::build_text_index_audit_report_shallow(&engine, None).unwrap();
+        let state = Embedded::fresh_text_index_state(TextIndexCounts::default());
+        Embedded::write_text_index_state(&engine, &state).unwrap();
+        let report = Embedded::build_text_index_audit_report_shallow(&engine, None).unwrap();
         assert!(
             report.passed,
             "expected passed, got status: {}",
@@ -980,21 +981,17 @@ mod tests {
 
     #[test]
     fn test_build_text_index_audit_report_shallow_with_data() {
-        let db = crate::sdk::VantaEmbedded::open_with_config(crate::config::VantaConfig {
+        let db = crate::sdk::Embedded::open_with_config(crate::config::Config {
             backend_kind: crate::backend::BackendKind::InMemory,
             ..Default::default()
         })
         .expect("in-memory db");
-        db.put(crate::sdk::VantaMemoryInput::new(
-            "ns1",
-            "k1",
-            "hello world",
-        ))
-        .unwrap();
+        db.put(crate::sdk::MemoryInput::new("ns1", "k1", "hello world"))
+            .unwrap();
 
         db.rebuild_text_index_with_report().unwrap();
         let engine = db.engine_handle().unwrap();
-        let report = VantaEmbedded::build_text_index_audit_report_shallow(&engine, None).unwrap();
+        let report = Embedded::build_text_index_audit_report_shallow(&engine, None).unwrap();
         assert!(
             report.passed,
             "expected passed, got status: {}",

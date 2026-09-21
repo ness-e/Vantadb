@@ -1,8 +1,18 @@
+---
+title: "VantaDB CI/CD Guide"
+type: operations
+status: active
+tags: [vantadb, operations, ci-cd, github-actions]
+last_reviewed: 2026-09-15
+aliases: [CI-CD]
+related: []
+---
+
 # VantaDB CI/CD Guide
 
 ## Overview
 
-VantaDB uses GitHub Actions for continuous integration and delivery. The CI/CD pipeline is organized into 12 workflows, each with a clear category and purpose.
+VantaDB uses GitHub Actions for continuous integration and delivery. The CI/CD pipeline is organized into 15 workflows, each with a clear category and purpose.
 
 ### File Naming Convention
 
@@ -14,8 +24,10 @@ All workflow files follow: `<category>-<name>-<number>.yml`
 | 20-29 | **GATE** | Validation gates (docs) | Sí |
 | 30-39 | **SEC** | Security scanning | Sí |
 | 40-49 | **PERF** | Performance benchmarks | No |
-| 50-59 | **HEAVY** | Long-running certification | No (schedule) |
+| 50-59 | **HEAVY** | Long-running certification | No (schedule + gate) |
 | 60-69 | **RELEASE** | Publish to registries | No (tag-only) |
+
+> **NOTA**: Los workflows HEAVY (`heavy-certification-50`, `heavy-bench-nightly-51`) y `fuzz-40` arrancan con un job `ci-gate` (reutiliza `ci-gate.yml`) que aborta la ejecución si el CI de `main` está en rojo. El gate solo se aplica en ejecuciones por `schedule`; el dispatch manual lo salta.
 
 Numbering is sequential within each category (10, 11, 12...).
 
@@ -70,6 +82,18 @@ jobs:
 | `coverage` | `cargo llvm-cov nextest` | 30min | Code coverage |
 | `audit` | `cargo audit` | 5min | Security advisory check |
 | `deny` | `cargo deny check` | 5min | License & policy check |
+| `semver-checks` | `cargo semver-checks -p vantadb` | 30min | Public API semver gate (RELEASE-01) |
+
+**Semver-checks gate (public API):** bloques a breaking change en la API pública de `vantadb`. Compares the current tree contra la última versión publicada en crates.io (baseline 0.4.x vs 0.5.0+). Solo verifica el crate `vantadb`: `vantadb-wasm` se distribuye vía npm (`release = false`); `vantadb-python`, `vantadb-server`, `vantadb-mcp` no se publican en crates.io. El flag `semver_check = true` en `release-plz.toml:18` no ejecuta el check por sí solo — este job CI es el gate mecánico. Implementación: `.github/workflows/ci-rust-10.yml:88-118` (job `semver-checks`). Doc origin: RELEASE-01 (commit `feat(ci): add cargo-semver-checks gate`, ver `docs/CHANGELOG.md:648`).
+
+**Local run (pre-push manual):**
+
+```bash
+cargo install cargo-semver-checks --locked
+cargo semver-checks -p vantadb
+```
+
+Si falla localmente pero el CI está verde: regenerar el baseline con `cargo semver-checks -p vantadb --baseline-version 0.5.0` después de un release exitoso (TODO: automatizar baseline bump post-release, ver FIND-* relacionado si existe).
 
 #### `ci-web-11.yml` — CI: Web — Build & Test
 
@@ -105,15 +129,35 @@ jobs:
 
 #### `heavy-certification-50.yml` — HEAVY: Certification — All Tests
 
-**Trigger**: Weekly schedule (Sunday 3AM), manual dispatch
+**Trigger**: Weekly schedule (Sunday 3AM), manual dispatch (con gate de CI en schedule)
 
 **Jobs**: 10 parallel stress/certification test suites
 
 #### `heavy-bench-nightly-51.yml` — HEAVY: Benchmarks — Nightly Regression
 
-**Trigger**: Nightly schedule (3AM), manual dispatch
+**Trigger**: Nightly schedule (3AM), manual dispatch (con gate de CI en schedule)
 
 **Jobs**: Criterion benchmarks with regression detection + GitHub Issues
+
+#### `fuzz-40.yml` — FUZZ: LibFuzzer — Corpus + Regression
+
+**Trigger**: Weekly schedule (Monday 6AM), manual dispatch (con gate de CI en schedule)
+
+**Jobs**: Build + fuzz matrix (4 targets) with cargo-fuzz
+
+#### `chaos-45.yml` — Chaos: Failpoint Injection & Resilience Tests
+
+**Trigger**: Push/PR to main (Rust paths), manual dispatch
+
+**Jobs**: Failpoint/resilience tests (`cargo nextest --profile chaos`)
+
+### GATE/COMMON
+
+#### `ci-gate.yml` — CI Gate (reusable)
+
+**Trigger**: `workflow_call` (invocado por los workflows HEAVY y `fuzz-40`)
+
+**Jobs**: Verifica los 11 checks requeridos del ruleset de `main`; falla si el CI está en rojo
 
 ### RELEASE (60-)
 
@@ -125,7 +169,7 @@ jobs:
 
 #### `release-npm-61.yml` — RELEASE: NPM — Publish
 
-**Trigger**: Tag `wasm-v*`/`ts-v*`, manual dispatch
+**Trigger**: Tag `v*`, manual dispatch
 
 **Jobs**: Publish wasm + TypeScript packages to npm
 

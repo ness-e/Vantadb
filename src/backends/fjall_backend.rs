@@ -17,20 +17,21 @@
 //! ## Limitations vs RocksDB
 //!
 //! - **No checkpoint**: Fjall does not expose a point-in-time snapshot-to-disk
-//!   API. `checkpoint()` returns an explicit error.
+//!   API, so it does NOT implement the `Snapshotable` role
+//!   (`as_snapshotable() == None`, `supports_checkpoint == false`).
 //! - **No manual compaction**: Fjall manages compaction internally via its
-//!   LSM background threads. `compact()` is a no-op.
+//!   LSM background threads, so it does NOT implement the `Compactable`
+//!   role (`as_compactable() == None`).
 
-use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
-use crate::config::VantaConfig;
-use crate::error::{Result, VantaError};
+use crate::backend::{BackendPartition, BackendWriteOp, Scannable, StorageBackend};
+use crate::config::Config;
+use crate::error::{Error, Result};
 use fjall::{Database, Keyspace, KeyspaceCreateOptions, PersistMode};
-use std::path::Path;
 use tracing::info;
 
 /// Fjall-backed implementation of `StorageBackend`.
 ///
-/// Owns a `fjall::Database` and eight `Keyspace` handles corresponding to
+/// Owns a `fjall::Database` and nine `Keyspace` handles corresponding to
 /// the `BackendPartition` variants. Created through `FjallBackend::open`.
 pub(crate) struct FjallBackend {
     db: Database,
@@ -41,7 +42,9 @@ pub(crate) struct FjallBackend {
     namespace_index: Keyspace,
     payload_index: Keyspace,
     text_index: Keyspace,
+    sparse_index: Keyspace,
     internal_metadata: Keyspace,
+    versions: Keyspace,
 }
 
 impl FjallBackend {
@@ -50,42 +53,50 @@ impl FjallBackend {
     /// Creates the database directory if it does not exist.
     /// Opens (or creates) one keyspace per `BackendPartition` using the
     /// same names as the RocksDB column families for semantic continuity.
-    pub(crate) fn open(path: &str, _config: &VantaConfig) -> Result<Self> {
+    pub(crate) fn open(path: &str, _config: &Config) -> Result<Self> {
         let db = Database::builder(path)
             .open()
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let default = db
             .keyspace("default", KeyspaceCreateOptions::default)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let tombstone_storage = db
             .keyspace("tombstone_storage", KeyspaceCreateOptions::default)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let compressed_archive = db
             .keyspace("compressed_archive", KeyspaceCreateOptions::default)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let tombstones = db
             .keyspace("tombstones", KeyspaceCreateOptions::default)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let namespace_index = db
             .keyspace("namespace_index", KeyspaceCreateOptions::default)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let payload_index = db
             .keyspace("payload_index", KeyspaceCreateOptions::default)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let text_index = db
             .keyspace("text_index", KeyspaceCreateOptions::default)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
+
+        let sparse_index = db
+            .keyspace("sparse_index", KeyspaceCreateOptions::default)
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         let internal_metadata = db
             .keyspace("internal_metadata", KeyspaceCreateOptions::default)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
+
+        let versions = db
+            .keyspace("versions", KeyspaceCreateOptions::default)
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
 
         info!("Fjall database opened at '{}'", path);
 
@@ -98,7 +109,9 @@ impl FjallBackend {
             namespace_index,
             payload_index,
             text_index,
+            sparse_index,
             internal_metadata,
+            versions,
         })
     }
 
@@ -112,7 +125,9 @@ impl FjallBackend {
             BackendPartition::NamespaceIndex => &self.namespace_index,
             BackendPartition::PayloadIndex => &self.payload_index,
             BackendPartition::TextIndex => &self.text_index,
+            BackendPartition::SparseIndex => &self.sparse_index,
             BackendPartition::InternalMetadata => &self.internal_metadata,
+            BackendPartition::Versions => &self.versions,
         }
     }
 }
@@ -121,14 +136,14 @@ impl StorageBackend for FjallBackend {
     fn put(&self, partition: BackendPartition, key: &[u8], value: &[u8]) -> Result<()> {
         self.keyspace(partition)
             .insert(key, value)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
     }
 
     fn get(&self, partition: BackendPartition, key: &[u8]) -> Result<Option<Vec<u8>>> {
         self.keyspace(partition)
             .get(key)
             .map(|opt| opt.map(|slice| slice.to_vec()))
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
     }
 
     fn get_many(
@@ -141,9 +156,7 @@ impl StorageBackend for FjallBackend {
             .filter_map(|k| match ks.get(k) {
                 Ok(Some(val)) => Some(Ok((k.to_vec(), val.to_vec()))),
                 Ok(None) => None,
-                Err(e) => Some(Err(VantaError::IoError(std::io::Error::other(
-                    e.to_string(),
-                )))),
+                Err(e) => Some(Err(Error::Io(std::io::Error::other(e.to_string())))),
             })
             .collect()
     }
@@ -151,7 +164,7 @@ impl StorageBackend for FjallBackend {
     fn delete(&self, partition: BackendPartition, key: &[u8]) -> Result<()> {
         self.keyspace(partition)
             .remove(key)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
     }
 
     fn write_batch(&self, ops: Vec<BackendWriteOp>) -> Result<()> {
@@ -175,16 +188,44 @@ impl StorageBackend for FjallBackend {
         }
         batch
             .commit()
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
     }
 
+    /// Flush pending writes to durable storage.
+    ///
+    /// Uses `PersistMode::SyncAll` which calls `fsync` on both data and
+    /// metadata, providing the strongest durability guarantee Fjall offers.
+    ///
+    /// Per Fjall docs: "Persisting only affects durability, NOT consistency.
+    /// Even without flushing data is crash-safe." The journal architecture
+    /// provides crash consistency regardless; this call ensures data survives
+    /// power loss.
+    fn flush(&self) -> Result<()> {
+        self.db
+            .persist(PersistMode::SyncAll)
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
+    }
+
+    fn capabilities(&self) -> crate::backend::BackendCapabilities {
+        crate::backend::BackendCapabilities {
+            supports_checkpoint: false,
+            supports_manual_compaction: false,
+            kind: crate::backend::BackendKind::Fjall,
+        }
+    }
+}
+
+/// Fjall serves the scan role. Snapshot and compaction roles are NOT
+/// implemented (Fjall exposes no point-in-time snapshot or manual
+/// compaction API): callers see `as_*() == None` + `capabilities()`.
+impl Scannable for FjallBackend {
     fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         let ks = self.keyspace(partition);
         let mut result = Vec::new();
         for item in ks.iter() {
             let kv = item
                 .into_inner()
-                .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
             result.push((kv.0.to_vec(), kv.1.to_vec()));
         }
         Ok(result)
@@ -203,9 +244,7 @@ impl StorageBackend for FjallBackend {
             let (key, value) = match guard.into_inner() {
                 Ok(kv) => kv,
                 Err(e) => {
-                    return Some(Err(VantaError::IoError(std::io::Error::other(
-                        e.to_string(),
-                    ))));
+                    return Some(Err(Error::Io(std::io::Error::other(e.to_string()))));
                 }
             };
             if !key.starts_with(&prefix) {
@@ -214,49 +253,6 @@ impl StorageBackend for FjallBackend {
             Some(Ok((key.to_vec(), value.to_vec())))
         })))
     }
-
-    /// Flush pending writes to durable storage.
-    ///
-    /// Uses `PersistMode::SyncAll` which calls `fsync` on both data and
-    /// metadata, providing the strongest durability guarantee Fjall offers.
-    ///
-    /// Per Fjall docs: "Persisting only affects durability, NOT consistency.
-    /// Even without flushing data is crash-safe." The journal architecture
-    /// provides crash consistency regardless; this call ensures data survives
-    /// power loss.
-    fn flush(&self) -> Result<()> {
-        self.db
-            .persist(PersistMode::SyncAll)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
-    }
-
-    /// Checkpoint is not supported by Fjall.
-    ///
-    /// Fjall does not expose a point-in-time consistent snapshot-to-disk API
-    /// equivalent to RocksDB's `Checkpoint::create_checkpoint`. Returning an
-    /// honest error rather than simulating with unsafe file copies.
-    fn checkpoint(&self, _path: &Path) -> Result<()> {
-        Err(VantaError::backend_error(
-            "Checkpoint not supported by FjallBackend: Fjall does not expose a \
-             point-in-time snapshot-to-disk API equivalent to RocksDB checkpoints",
-        ))
-    }
-
-    /// No-op: Fjall manages LSM compaction automatically via internal
-    /// background threads. No manual compaction trigger is needed or
-    /// exposed for this use case.
-    fn compact(&self) {
-        // Fjall's LSM engine (lsm-tree crate) runs automatic background
-        // compaction. There is no public manual compaction API to call here.
-    }
-
-    fn capabilities(&self) -> crate::backend::BackendCapabilities {
-        crate::backend::BackendCapabilities {
-            supports_checkpoint: false,
-            supports_manual_compaction: false,
-            kind: crate::backend::BackendKind::Fjall,
-        }
-    }
 }
 
 #[cfg(test)]
@@ -264,12 +260,12 @@ impl StorageBackend for FjallBackend {
 mod tests {
     use super::*;
     use crate::backend::BackendWriteOp;
-    use crate::config::VantaConfig;
+    use crate::config::Config;
     use tempfile::tempdir;
 
     fn open_fjall() -> (FjallBackend, tempfile::TempDir) {
         let dir = tempdir().unwrap();
-        let config = VantaConfig::default();
+        let config = Config::default();
         let backend = FjallBackend::open(dir.path().to_str().unwrap(), &config).unwrap();
         (backend, dir)
     }
@@ -425,17 +421,20 @@ mod tests {
     }
 
     #[test]
-    fn test_fjall_checkpoint_not_supported() {
+    fn test_fjall_snapshot_role_absent() {
         let (b, _dir) = open_fjall();
-        let dir = tempdir().unwrap();
-        let err = b.checkpoint(dir.path()).unwrap_err();
-        assert!(err.to_string().contains("not supported"));
+        // Fjall does NOT implement Snapshotable (no native snapshot API):
+        // non-support is declared in the type, not discovered at runtime.
+        assert!(b.as_snapshotable().is_none());
+        assert!(!b.capabilities().supports_checkpoint);
     }
 
     #[test]
-    fn test_fjall_compact_noop() {
+    fn test_fjall_compact_role_absent() {
         let (b, _dir) = open_fjall();
-        b.compact(); // should not panic
+        // Fjall manages LSM compaction internally: no Compactable role.
+        assert!(b.as_compactable().is_none());
+        assert!(!b.capabilities().supports_manual_compaction);
     }
 
     #[test]

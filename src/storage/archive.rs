@@ -1,9 +1,9 @@
 //! HNSW index rebuild, layout compaction, and graph traversal utilities.
 
-use crate::error::{Result, VantaError};
-use crate::index::CPIndex;
+use crate::error::{Error, Result};
+use crate::index_port::IndexPort;
 use crate::node::DiskNodeHeader;
-use crate::storage::vfile::{MmapOptions, VantaFile};
+use crate::storage::vfile::{map_readwrite, File};
 use std::collections::{HashMap, HashSet, VecDeque};
 use std::fs::OpenOptions;
 use std::path::PathBuf;
@@ -13,34 +13,59 @@ use zerocopy::IntoBytes;
 use crate::storage::engine::{FLAG_TOMBSTONE, STORAGE_ALIGNMENT};
 const BFS_QUEUE_CAPACITY: usize = 1024;
 
-/// Rewrite the VantaFile with nodes in BFS order, returning the new offset map and file size.
+/// ADR-032: payload size (un-aligned) for a persisted header.
+fn payload_len_for_header(header: &DiskNodeHeader) -> u64 {
+    let kind = crate::node::NodeFlags::vector_kind(header.flags);
+    // kind==0 is legacy (pre-ADR-032) where FULL vs NONE is distinguished by len
+    if kind == 0 {
+        if header.vector_len == 0 {
+            return 0;
+        } else {
+            return (header.vector_len as u64).checked_mul(4).unwrap_or(0);
+        }
+    }
+    match kind {
+        crate::node::NodeFlags::VECTOR_KIND_NONE => 0,
+        crate::node::NodeFlags::VECTOR_KIND_FULL => {
+            (header.vector_len as u64).checked_mul(4).unwrap_or(0)
+        }
+        crate::node::NodeFlags::VECTOR_KIND_BINARY => {
+            (header.vector_len as u64).checked_mul(8).unwrap_or(0)
+        }
+        crate::node::NodeFlags::VECTOR_KIND_TURBO => header.vector_len as u64,
+        crate::node::NodeFlags::VECTOR_KIND_SQ8 => header.vector_len as u64 + 4,
+        _ => header.vector_len as u64, // unknown future kind: byte count
+    }
+}
+
+/// Rewrite the File with nodes in BFS order, returning the new offset map and file size.
 pub fn compact_layout(
-    vstore: &mut VantaFile,
-    hnsw: &CPIndex,
+    vstore: &mut File,
+    hnsw: &dyn IndexPort,
     bfs_order: &[u128],
     header_size: u64,
 ) -> Result<(HashMap<u128, u64>, u64)> {
-    // In-memory VantaFile has no disk backing to compact — return a trivial
+    // In-memory File has no disk backing to compact — return a trivial
     // offset map that preserves existing offsets (CODE-010).
     if vstore.file.is_none() {
         let offset_map: HashMap<u128, u64> = bfs_order
             .iter()
-            .filter_map(|&id| hnsw.nodes.get(&id).map(|n| (id, n.storage_offset)))
+            .filter_map(|&id| hnsw.storage_offset_of(id).map(|off| (id, off)))
             .collect();
         return Ok((offset_map, vstore.write_cursor));
     }
     if bfs_order.is_empty() {
-        return Err(VantaError::ValidationError {
+        return Err(Error::Validation {
             field: "bfs_order".into(),
             reason: "BFS order is empty — refusing to compact (would destroy the database)".into(),
         });
     }
     let mut new_file_size: u64 = 64;
     for &node_id in bfs_order {
-        if let Some(node_ref) = hnsw.nodes.get(&node_id) {
-            let offset = node_ref.storage_offset;
+        if let Some(offset) = hnsw.storage_offset_of(node_id) {
             if let Some(old_header) = vstore.read_header(offset) {
-                let vec_size = (old_header.vector_len as u64 * 4 + 63) & !63;
+                let payload = payload_len_for_header(&old_header);
+                let vec_size = (payload + 63) & !63;
                 new_file_size += header_size + vec_size;
             }
         }
@@ -63,26 +88,19 @@ pub fn compact_layout(
         .create(true)
         .truncate(true)
         .open(&tmp_path)
-        .map_err(VantaError::IoError)?;
-    tmp_file
-        .set_len(new_file_size)
-        .map_err(VantaError::IoError)?;
+        .map_err(Error::Io)?;
+    tmp_file.set_len(new_file_size).map_err(Error::Io)?;
 
-    // SAFETY: tmp_file is a valid, open file handle with set_len() called beforehand.
-    // MmapMut::map_mut() requires the underlying file to be writable and have a valid size;
-    // both hold here. The returned mmap is valid for the file's lifetime, which exceeds tmp_mmap.
-    let mut tmp_mmap = unsafe {
-        MmapOptions::new()
-            .map_mut(&tmp_file)
-            .map_err(VantaError::IoError)?
-    };
+    // `map_readwrite` carries the (memmap2-only) SAFETY contract: tmp_file is a
+    // valid, open handle with set_len() called beforehand (writable, valid
+    // size); the returned mmap is valid for the file's lifetime.
+    let mut tmp_mmap = map_readwrite(&tmp_file).map_err(Error::Io)?;
 
     let mut new_offset_map: HashMap<u128, u64> = HashMap::with_capacity(bfs_order.len());
     let mut write_cursor: u64 = STORAGE_ALIGNMENT;
 
     for &node_id in bfs_order {
-        if let Some(node_ref) = hnsw.nodes.get(&node_id) {
-            let old_offset = node_ref.storage_offset;
+        if let Some(old_offset) = hnsw.storage_offset_of(node_id) {
             let old_header = match vstore.read_header(old_offset) {
                 Some(h) => h,
                 None => continue,
@@ -90,30 +108,41 @@ pub fn compact_layout(
             if (old_header.flags & FLAG_TOMBSTONE) != 0 {
                 continue;
             }
-            let vec_len = old_header.vector_len as u64;
-            let vec_size_aligned = (vec_len * 4 + 63) & !63;
+            let payload = payload_len_for_header(&old_header);
+            let vec_size_aligned = (payload + 63) & !63;
             let new_node_offset = write_cursor;
             let new_vec_offset = new_node_offset + header_size;
             let end = new_vec_offset + vec_size_aligned;
             if end > new_file_size {
-                let _ = tmp_mmap.flush();
+                tmp_mmap.flush().map_err(Error::Io)?;
                 drop(tmp_mmap);
-                tmp_file.set_len(end + 4096).map_err(VantaError::IoError)?;
-                // SAFETY: tmp_file was extended via set_len() before this call, so the
-                // file's size covers the new mapping. The previous mmap was dropped, so
-                // there is no conflicting mapping on the same region.
-                tmp_mmap = unsafe {
-                    MmapOptions::new()
-                        .map_mut(&tmp_file)
-                        .map_err(VantaError::IoError)?
-                };
+                tmp_file.set_len(end + 4096).map_err(Error::Io)?;
+                // `map_readwrite` carries the (memmap2-only) SAFETY contract:
+                // tmp_file was extended via set_len() before this call and the
+                // previous mmap was dropped, so there is no conflicting mapping.
+                tmp_mmap = map_readwrite(&tmp_file).map_err(Error::Io)?;
             }
             let old_data = vstore.mmap_bytes();
             let src_start = old_offset as usize;
-            let src_end = src_start + header_size as usize + vec_size_aligned as usize;
             let copy_len = (header_size + vec_size_aligned) as usize;
+            let src_end = src_start + copy_len;
+            // AUDREP-01: a header whose vector_len claims more bytes than the
+            // file actually holds (crash mid-write) would make the destination
+            // slice longer than the source and panic copy_from_slice. Validate
+            // the source is long enough and abort the compact with an error.
+            if src_end > old_data.len() {
+                return Err(Error::Io(std::io::Error::new(
+                    std::io::ErrorKind::UnexpectedEof,
+                    format!(
+                        "vstore truncated: node at offset {old_offset} claims {copy_len} bytes \
+                         (header {header_size} + vec {vec_size_aligned}) but file has {} — \
+                         needed {src_end}",
+                        old_data.len(),
+                    ),
+                )));
+            }
             tmp_mmap[write_cursor as usize..(write_cursor as usize + copy_len)]
-                .copy_from_slice(&old_data[src_start..src_end.min(old_data.len())]);
+                .copy_from_slice(&old_data[src_start..src_end]);
             let mut new_header = old_header;
             new_header.vector_offset = new_vec_offset;
             tmp_mmap[write_cursor as usize..(write_cursor as usize + header_size as usize)]
@@ -123,7 +152,15 @@ pub fn compact_layout(
         }
     }
 
-    std::fs::rename(&tmp_path, &vstore_path).map_err(VantaError::IoError)?;
+    // AUDREP-04: flush final mmap writes to the OS, then sync + fsync the tmp
+    // file so no unwritten garbage is renamed in as if it were a valid store.
+    tmp_mmap.flush().map_err(Error::Io)?;
+    drop(tmp_mmap);
+    tmp_file.sync_all().map_err(Error::Io)?;
+    std::fs::rename(&tmp_path, &vstore_path).map_err(Error::Io)?;
+    // AUDREP-35: a rename is not durable until its parent dir is fsync'd —
+    // without this, a crash can revert the swap and resurrect the old file.
+    crate::utils::fs::sync_parent_dir(&vstore_path).map_err(Error::Io)?;
     vstore.replace_backing_file(new_file_size)?;
     vstore.write_cursor = write_cursor;
     vstore.save_cursor()?;
@@ -131,8 +168,8 @@ pub fn compact_layout(
 }
 
 /// BFS traversal of the HNSW graph starting from the entry point, returning node IDs in visit order.
-pub fn traverse_graph(hnsw: &CPIndex, entry_point_id: u128) -> Vec<u128> {
-    let total_nodes = hnsw.nodes.len();
+pub fn traverse_graph(hnsw: &dyn IndexPort, entry_point_id: u128) -> Vec<u128> {
+    let total_nodes = hnsw.node_count();
     let mut bfs_order: Vec<u128> = Vec::with_capacity(total_nodes);
     let mut visited: HashSet<u128> = HashSet::with_capacity(total_nodes);
     let mut queue: VecDeque<u128> = VecDeque::with_capacity(total_nodes.min(BFS_QUEUE_CAPACITY));
@@ -140,57 +177,60 @@ pub fn traverse_graph(hnsw: &CPIndex, entry_point_id: u128) -> Vec<u128> {
     visited.insert(entry_point_id);
     while let Some(node_id) = queue.pop_front() {
         bfs_order.push(node_id);
-        if let Some(layer0) = hnsw.neighbor_index.get_neighbors(node_id, 0) {
-            for &nid in &layer0 {
-                if visited.insert(nid) {
-                    queue.push_back(nid);
-                }
+        for nid in hnsw.layer_neighbors(node_id, 0) {
+            if visited.insert(nid) {
+                queue.push_back(nid);
             }
         }
     }
-    for entry in hnsw.nodes.iter() {
-        if visited.insert(*entry.key()) {
-            bfs_order.push(*entry.key());
+    for id in hnsw.all_node_ids() {
+        if visited.insert(id) {
+            bfs_order.push(id);
         }
     }
     bfs_order
 }
 
 /// Update each node's storage offset in the HNSW index after compaction.
-pub fn reindex_nodes(hnsw: &CPIndex, new_offsets: &HashMap<u128, u64>) {
+pub fn reindex_nodes(hnsw: &dyn IndexPort, new_offsets: &HashMap<u128, u64>) {
     for (&node_id, &new_offset) in new_offsets {
-        if let Some(mut node_ref) = hnsw.nodes.get_mut(&node_id) {
-            node_ref.storage_offset = new_offset;
-        }
+        hnsw.set_storage_offset(node_id, new_offset);
     }
 }
 
-/// Create a new CPIndex with the same backend configuration (mmap or in-memory) as the existing one.
-pub(crate) fn fresh_index_like(existing: &CPIndex, index_path: PathBuf) -> CPIndex {
+/// Test-only shim (F3X-X1b): production uses `IndexPort::fresh_box` via the
+/// `port_impl` factories. Kept concrete so the `fresh_index_like_*` tests keep
+/// covering the exact construction logic without a production `CPIndex` edge.
+#[cfg(test)]
+pub(crate) fn fresh_index_like(
+    existing: &crate::index::CPIndex,
+    index_path: PathBuf,
+) -> crate::index::CPIndex {
+    use crate::index::IndexBackend;
     let config = existing.config.clone();
     if existing.backend.is_mmap() {
-        let mut idx = CPIndex::with_backend(crate::index::IndexBackend::new_mmap(index_path));
+        let mut idx = crate::index::CPIndex::with_backend(IndexBackend::new_mmap(index_path));
         idx.config = config;
         idx
     } else {
-        CPIndex::new_with_config(config)
+        crate::index::CPIndex::new_with_config(config)
     }
 }
 
-/// Rebuild the entire HNSW index by scanning all nodes from the VantaFile.
+/// Rebuild the entire HNSW index by scanning all nodes from the File.
 /// If `segment_id` is Some(n), offsets are packed with the segment_id.
 pub(crate) fn rebuild_hnsw_from_vstore(
-    hnsw: &mut CPIndex,
-    vstore: &VantaFile,
+    hnsw: &mut dyn IndexPort,
+    vstore: &File,
     index_path: PathBuf,
 ) -> Result<crate::storage::IndexRebuildReport> {
     rebuild_hnsw_from_vstore_with_segment(hnsw, vstore, index_path, None)
 }
 
-/// Rebuild HNSW from a VantaFile, optionally packing offsets with a segment_id.
+/// Rebuild HNSW from a File, optionally packing offsets with a segment_id.
 pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
-    hnsw: &mut CPIndex,
-    vstore: &VantaFile,
+    hnsw: &mut dyn IndexPort,
+    vstore: &File,
     index_path: PathBuf,
     segment_id: Option<u8>,
 ) -> Result<crate::storage::IndexRebuildReport> {
@@ -219,20 +259,24 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                 if (header.flags & FLAG_TOMBSTONE) != 0 {
                     skipped_tombstones += 1;
                 } else {
-                    let vec_data = if header.vector_len > 0 {
-                        let start = header.vector_offset as usize;
-                        let end = start + (header.vector_len as usize * 4);
-                        if end <= vstore.size as usize {
-                            indexed_vectors += 1;
-                            let slice = &vstore.mmap_bytes()[start..end];
+                    let kind = crate::node::NodeFlags::vector_kind(header.flags);
+                    let vec_data = if kind == 0 {
+                        // legacy pre-ADR-032: kind 0 with len>0 is FULL, with len==0 is NONE
+                        if header.vector_len == 0 {
+                            crate::node::VectorRepresentations::None
+                        } else if let Some(end) = (header.vector_len as u64)
+                            .checked_mul(4)
+                            .and_then(|b| header.vector_offset.checked_add(b))
+                            .filter(|&end| end <= vstore.size as u64)
+                        {
+                            let start = header.vector_offset as usize;
+                            let slice = &vstore.mmap_bytes()[start..end as usize];
                             debug_assert_eq!(
                                 slice.as_ptr().align_offset(4),
                                 0,
-                                "f32 vector must be 4-byte aligned"
+                                "legacy f32 must be 4-aligned"
                             );
-                            // SAFETY: slice is page-aligned via mmap, confirming
-                            // f32 alignment. The debug_assert_eq above verifies
-                            // the invariant. .to_vec() eliminates aliasing.
+                            indexed_vectors += 1;
                             crate::node::VectorRepresentations::Full(
                                 unsafe {
                                     std::slice::from_raw_parts(
@@ -246,7 +290,117 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                             crate::node::VectorRepresentations::None
                         }
                     } else {
-                        crate::node::VectorRepresentations::None
+                        match kind {
+                            crate::node::NodeFlags::VECTOR_KIND_FULL => {
+                                if header.vector_len == 0 {
+                                    crate::node::VectorRepresentations::None
+                                } else if let Some(end) = (header.vector_len as u64)
+                                    .checked_mul(4)
+                                    .and_then(|b| header.vector_offset.checked_add(b))
+                                    .filter(|&end| end <= vstore.size as u64)
+                                {
+                                    let start = header.vector_offset as usize;
+                                    let slice = &vstore.mmap_bytes()[start..end as usize];
+                                    debug_assert_eq!(
+                                        slice.as_ptr().align_offset(4),
+                                        0,
+                                        "f32 vector must be 4-byte aligned"
+                                    );
+                                    indexed_vectors += 1;
+                                    crate::node::VectorRepresentations::Full(
+                                        unsafe {
+                                            std::slice::from_raw_parts(
+                                                slice.as_ptr() as *const f32,
+                                                header.vector_len as usize,
+                                            )
+                                        }
+                                        .to_vec(),
+                                    )
+                                } else {
+                                    crate::node::VectorRepresentations::None
+                                }
+                            }
+                            crate::node::NodeFlags::VECTOR_KIND_BINARY => {
+                                if header.vector_len == 0 {
+                                    crate::node::VectorRepresentations::None
+                                } else if let Some(end) = (header.vector_len as u64)
+                                    .checked_mul(8)
+                                    .and_then(|b| header.vector_offset.checked_add(b))
+                                    .filter(|&end| end <= vstore.size as u64)
+                                {
+                                    let start = header.vector_offset as usize;
+                                    let slice = &vstore.mmap_bytes()[start..end as usize];
+                                    debug_assert_eq!(
+                                        slice.as_ptr().align_offset(8),
+                                        0,
+                                        "u64 vector must be 8-byte aligned"
+                                    );
+                                    let (_, u64_slice, _) = unsafe { slice.align_to::<u64>() };
+                                    if u64_slice.len() != header.vector_len as usize {
+                                        crate::node::VectorRepresentations::None
+                                    } else {
+                                        indexed_vectors += 1;
+                                        crate::node::VectorRepresentations::Binary(
+                                            u64_slice.to_vec().into_boxed_slice(),
+                                        )
+                                    }
+                                } else {
+                                    crate::node::VectorRepresentations::None
+                                }
+                            }
+                            crate::node::NodeFlags::VECTOR_KIND_TURBO => {
+                                if header.vector_len == 0 {
+                                    crate::node::VectorRepresentations::None
+                                } else if let Some(end) = header
+                                    .vector_offset
+                                    .checked_add(header.vector_len as u64)
+                                    .filter(|&end| end <= vstore.size as u64)
+                                {
+                                    let start = header.vector_offset as usize;
+                                    let slice = &vstore.mmap_bytes()[start..end as usize];
+                                    indexed_vectors += 1;
+                                    crate::node::VectorRepresentations::Turbo(
+                                        slice.to_vec().into_boxed_slice(),
+                                    )
+                                } else {
+                                    crate::node::VectorRepresentations::None
+                                }
+                            }
+                            crate::node::NodeFlags::VECTOR_KIND_SQ8 => {
+                                if header.vector_len == 0 {
+                                    crate::node::VectorRepresentations::None
+                                } else if let Some(payload_end) = (header.vector_len as u64)
+                                    .checked_add(4)
+                                    .and_then(|b| header.vector_offset.checked_add(b))
+                                    .filter(|&end| end <= vstore.size as u64)
+                                {
+                                    let start = header.vector_offset as usize;
+                                    let payload = &vstore.mmap_bytes()[start..payload_end as usize];
+                                    let n = header.vector_len as usize;
+                                    let d_slice = &payload[..n];
+                                    let scale_bytes: [u8; 4] =
+                                        payload[n..n + 4].try_into().unwrap_or([0; 4]);
+                                    let scale = f32::from_le_bytes(scale_bytes);
+                                    if !scale.is_finite() {
+                                        crate::node::VectorRepresentations::None
+                                    } else {
+                                        indexed_vectors += 1;
+                                        let data: Vec<i8> =
+                                            d_slice.iter().map(|&b| b as i8).collect();
+                                        crate::node::VectorRepresentations::SQ8(
+                                            data.into_boxed_slice(),
+                                            scale,
+                                        )
+                                    }
+                                } else {
+                                    crate::node::VectorRepresentations::None
+                                }
+                            }
+                            crate::node::NodeFlags::VECTOR_KIND_NONE => {
+                                crate::node::VectorRepresentations::None
+                            }
+                            _ => crate::node::VectorRepresentations::None,
+                        }
                     };
                     let storage_offset = match segment_id {
                         Some(sid) => crate::lsm::pack_offset(sid, cursor),
@@ -260,7 +414,8 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
                     });
                 }
             }
-            cursor += header_size + ((header.vector_len as u64 * 4 + 63) & !63);
+            let payload = payload_len_for_header(&header);
+            cursor += header_size + ((payload + 63) & !63);
         } else {
             cursor += STORAGE_ALIGNMENT;
         }
@@ -273,24 +428,24 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
     {
         use rayon::prelude::*;
 
-        entries.into_par_iter().for_each(|entry| {
+        entries.into_par_iter().try_for_each(|entry| {
             let bitset = crate::node::FilterBitset::from_u128(entry.bitset);
-            let level = crate::index::random_layer_from_config(&hnsw.config, &mut rand::rng());
-            hnsw.add_with_level(
+            let level = hnsw.random_level();
+            hnsw.add_node_with_level(
                 entry.id,
                 bitset,
                 entry.vec_data,
                 entry.storage_offset,
                 level,
-            );
-        });
+            )
+        })?;
     }
 
     #[cfg(not(feature = "rayon"))]
     {
         for entry in entries {
             let bitset = crate::node::FilterBitset::from_u128(entry.bitset);
-            hnsw.add(entry.id, bitset, entry.vec_data, entry.storage_offset);
+            hnsw.add_node(entry.id, bitset, entry.vec_data, entry.storage_offset)?;
         }
     }
 
@@ -305,8 +460,12 @@ pub(crate) fn rebuild_hnsw_from_vstore_with_segment(
 }
 
 #[cfg(test)]
-#[allow(missing_docs, clippy::module_inception)]
+#[allow(missing_docs, clippy::module_inception, unused_must_use)]
 mod tests {
+    // CPIndex::add now returns Result (AUDREP-27); these are hand-built
+    // test fixtures whose vectors are known non-zero-norm, so the Result is
+    // intentionally ignored. Kept as a module-scope allow to avoid N identical
+    // `.expect(...)` suffixes on fixture inserts.
     use super::*;
     use crate::index::CPIndex;
     use crate::node::DiskNodeHeader;
@@ -323,13 +482,7 @@ mod tests {
         (len as u64 * 4 + 63) & !63
     }
 
-    fn write_node_to_vstore(
-        vstore: &mut VantaFile,
-        id: u128,
-        offset: u64,
-        data: &[f32],
-        flags: u32,
-    ) {
+    fn write_node_to_vstore(vstore: &mut File, id: u128, offset: u64, data: &[f32], flags: u32) {
         let vec_offset = offset + hdr_size();
         let mut header = DiskNodeHeader::new(id);
         header.vector_len = data.len() as u32;
@@ -470,7 +623,7 @@ mod tests {
 
     #[test]
     fn test_compact_layout_in_memory_trivial() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let hnsw = CPIndex::new();
         hnsw.add(
             1,
@@ -486,7 +639,7 @@ mod tests {
     fn test_compact_layout_empty_bfs_order_errors() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("test.vanta");
-        let mut vstore = VantaFile::open(path, 4096).unwrap();
+        let mut vstore = File::open(path, 4096).unwrap();
         let hnsw = CPIndex::new();
         let order: Vec<u128> = vec![];
         // Empty bfs_order is rejected — would destroy the database.
@@ -495,7 +648,7 @@ mod tests {
 
     #[test]
     fn test_compact_layout_in_memory_with_two_nodes() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let hnsw = CPIndex::new();
         hnsw.add(
             1,
@@ -517,7 +670,7 @@ mod tests {
 
     #[test]
     fn test_compact_layout_in_memory_node_not_in_hnsw() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let hnsw = CPIndex::new();
         // bfs_order mentions id 99 which is not in hnsw
         let (map, _size) = compact_layout(&mut vstore, &hnsw, &[99], hdr_size()).unwrap();
@@ -528,7 +681,7 @@ mod tests {
     fn test_compact_layout_disk_backed() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("test.vanta");
-        let mut vstore = VantaFile::open(path.clone(), 4096).unwrap();
+        let mut vstore = File::open(path.clone(), 4096).unwrap();
 
         // Write two headers at aligned offsets
         let hs = hdr_size();
@@ -563,13 +716,93 @@ mod tests {
         for &off in map.values() {
             assert!(off.is_multiple_of(STORAGE_ALIGNMENT));
         }
+
+        // AUD-044 regression: after compaction the rewritten file must
+        // actually contain the node data. A no-op tmp flush used to rename a
+        // zero-filled file in non-memmap2 builds — silent data loss.
+        drop(vstore);
+        let reopened = File::open(path, 4096).unwrap();
+        for (node_id, expected) in [(1u128, [0.1f32, 0.2]), (2, [0.3, 0.4])] {
+            let offset = map.get(&node_id).copied().unwrap();
+            let header = reopened.read_header(offset).unwrap();
+            assert_eq!(header.id, node_id);
+            assert_eq!(header.vector_len as usize, expected.len());
+            let start = header.vector_offset as usize;
+            let end = start + expected.len() * 4;
+            let got: Vec<f32> = reopened.mmap_bytes()[start..end]
+                .chunks_exact(4)
+                .map(|c| f32::from_le_bytes(c.try_into().unwrap()))
+                .collect();
+            assert_eq!(
+                got, expected,
+                "node {node_id} vector must survive compaction + reopen"
+            );
+        }
+    }
+
+    #[test]
+    fn test_compact_layout_reorder_reopen_preserves_data() {
+        // AUD-044: compaction that CHANGES the layout (reversed BFS order moves
+        // nodes to new offsets) must still survive reopen — the rewritten file
+        // is what replace_backing_file remaps. Guards the write-back path in
+        // both memmap2 and shim builds (the earlier no-op flush renamed a
+        // zero-filled tmp file; a bad replace would clobber the compacted one).
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test_reorder.vanta");
+        let mut vstore = File::open(path.clone(), 4096).unwrap();
+
+        let hs = hdr_size();
+        write_node_to_vstore(&mut vstore, 1, 64, &[0.1, 0.2], 0);
+        write_node_to_vstore(
+            &mut vstore,
+            2,
+            64 + hs + aligned_vec_size(2),
+            &[0.3, 0.4],
+            0,
+        );
+
+        let hnsw = CPIndex::new();
+        hnsw.add(
+            1,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.1, 0.2]),
+            64,
+        );
+        hnsw.add(
+            2,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.3, 0.4]),
+            64 + hs + aligned_vec_size(2),
+        );
+
+        // Reversed order: node 2 lands at the front offset, node 1 moves.
+        let (map, _size) = compact_layout(&mut vstore, &hnsw, &[2, 1], hs).unwrap();
+        assert_eq!(map.len(), 2);
+        drop(vstore);
+
+        let reopened = File::open(path, 4096).unwrap();
+        for (node_id, expected) in [(2u128, [0.3f32, 0.4]), (1, [0.1, 0.2])] {
+            let offset = map.get(&node_id).copied().unwrap();
+            let header = reopened.read_header(offset).unwrap();
+            assert_eq!(header.id, node_id);
+            let start = header.vector_offset as usize;
+            let end = start + expected.len() * 4;
+            let got: Vec<f32> = reopened.mmap_bytes()[start..end]
+                .chunks_exact(4)
+                .map(|c| f32::from_le_bytes(c.try_into().unwrap()))
+                .collect();
+            assert_eq!(
+                got, expected,
+                "node {node_id} must survive reorder + reopen"
+            );
+        }
     }
 
     #[test]
     fn test_compact_layout_disk_backed_tombstone_skipped() {
         let dir = tempfile::tempdir().unwrap();
         let path = dir.path().join("test.vanta");
-        let mut vstore = VantaFile::open(path.clone(), 4096).unwrap();
+        let mut vstore = File::open(path.clone(), 4096).unwrap();
 
         let hs = hdr_size();
         let avs = aligned_vec_size(2);
@@ -596,11 +829,41 @@ mod tests {
         assert!(map.contains_key(&1));
     }
 
-    // ── rebuild_hnsw_from_vstore ─────────────────────────────────
+    #[test]
+    fn test_compact_layout_truncated_vstore_errors_not_panic() {
+        // AUDREP-01: a header whose vector_len claims more bytes than the file
+        // actually holds (crash mid-write) used to panic copy_from_slice and
+        // tear down the whole process. It must return Err(Error) instead.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("test.vanta");
+        let mut vstore = File::open(path, 4096).unwrap();
+
+        let hs = hdr_size();
+        // Write a header at offset 64 that claims a huge vector
+        // length (e.g. 100k floats = 400KB) but the file is only 4096 bytes.
+        let mut header = DiskNodeHeader::new(1);
+        header.vector_len = 100_000;
+        header.vector_offset = 64 + hs;
+        vstore.write_header(64, &header).unwrap();
+
+        let hnsw = CPIndex::new();
+        hnsw.add(
+            1,
+            FilterBitset::from_u128(0),
+            VectorRepresentations::Full(vec![0.1]),
+            64,
+        );
+
+        let err = compact_layout(&mut vstore, &hnsw, &[1], hs).unwrap_err();
+        assert!(
+            err.to_string().contains("truncated"),
+            "expected truncated vstore error, got: {err}"
+        );
+    }
 
     #[test]
     fn test_rebuild_empty_vstore() {
-        let vstore = VantaFile::create_in_memory(4096);
+        let vstore = File::create_in_memory(4096);
         let mut hnsw = CPIndex::new();
         let report =
             rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
@@ -613,7 +876,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_with_two_nodes() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let hs = hdr_size();
         let avs = aligned_vec_size(3);
 
@@ -636,7 +899,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_skips_tombstoned_node() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let hs = hdr_size();
         let avs = aligned_vec_size(2);
 
@@ -659,7 +922,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_zero_id_not_scanned() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
         let hs = hdr_size();
         let avs = aligned_vec_size(2);
 
@@ -679,7 +942,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_without_vector_data() {
-        let mut vstore = VantaFile::create_in_memory(4096);
+        let mut vstore = File::create_in_memory(4096);
 
         let mut header = DiskNodeHeader::new(42);
         header.vector_len = 0;
@@ -699,7 +962,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_vector_data_beyond_mmap() {
-        let mut vstore = VantaFile::create_in_memory(64); // only header region
+        let mut vstore = File::create_in_memory(64); // only header region
 
         let mut header = DiskNodeHeader::new(7);
         header.vector_len = 100; // 400 bytes — way past the 64-byte buffer
@@ -718,7 +981,7 @@ mod tests {
 
     #[test]
     fn test_rebuild_report_path() {
-        let vstore = VantaFile::create_in_memory(4096);
+        let vstore = File::create_in_memory(4096);
         let mut hnsw = CPIndex::new();
         let report =
             rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("custom/path.idx")).unwrap();
@@ -727,12 +990,124 @@ mod tests {
 
     #[test]
     fn test_rebuild_duration_set() {
-        let vstore = VantaFile::create_in_memory(4096);
+        let vstore = File::create_in_memory(4096);
         let mut hnsw = CPIndex::new();
         let report =
             rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
         // Duration should be Some non-zero (we can't guarantee non-zero wall time
         // but we can assert the field is populated meaningfully)
         assert!(report.success);
+    }
+
+    // ── ADR-032: rebuild must recover quantized vectors ──────────────────
+
+    #[test]
+    fn test_rebuild_binary_vector() {
+        let mut vstore = File::create_in_memory(4096);
+        let mut node = crate::node::UnifiedNode::new(101);
+        let data: Box<[u64]> = vec![0xDEADBEEFCAFEu64, 0x0123456789ABCDEFu64].into_boxed_slice();
+        node.vector = crate::node::VectorRepresentations::Binary(data.clone());
+        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+        let off = crate::storage::ops::write_node_to_vstore(&mut vstore, &node).unwrap();
+        vstore.write_cursor = off + hdr_size() + ((data.len() as u64 * 8 + 63) & !63);
+
+        let mut hnsw = CPIndex::new();
+        let report =
+            rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
+        assert_eq!(report.scanned_nodes, 1);
+        assert_eq!(report.indexed_vectors, 1);
+        let stored = hnsw.nodes.get(&101).unwrap();
+        match &stored.vec_data {
+            VectorRepresentations::Binary(b) => assert_eq!(b.as_ref(), data.as_ref()),
+            other => panic!("expected Binary, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_rebuild_turbo_vector() {
+        let mut vstore = File::create_in_memory(4096);
+        let mut node = crate::node::UnifiedNode::new(102);
+        let data: Box<[u8]> = vec![0xAB, 0xCD, 0xEF, 0x12].into_boxed_slice();
+        node.vector = crate::node::VectorRepresentations::Turbo(data.clone());
+        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+        let off = crate::storage::ops::write_node_to_vstore(&mut vstore, &node).unwrap();
+        vstore.write_cursor = off + hdr_size() + ((data.len() as u64 + 63) & !63);
+
+        let mut hnsw = CPIndex::new();
+        let report =
+            rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
+        assert_eq!(report.scanned_nodes, 1);
+        assert_eq!(report.indexed_vectors, 1);
+        let stored = hnsw.nodes.get(&102).unwrap();
+        match &stored.vec_data {
+            VectorRepresentations::Turbo(t) => assert_eq!(t.as_ref(), data.as_ref()),
+            other => panic!("expected Turbo, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_rebuild_sq8_vector() {
+        let mut vstore = File::create_in_memory(4096);
+        let mut node = crate::node::UnifiedNode::new(103);
+        let data: Box<[i8]> = vec![10, -20, 30, -40].into_boxed_slice();
+        let scale: f32 = 1.5;
+        node.vector = crate::node::VectorRepresentations::SQ8(data.clone(), scale);
+        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+        let off = crate::storage::ops::write_node_to_vstore(&mut vstore, &node).unwrap();
+        vstore.write_cursor = off + hdr_size() + ((data.len() as u64 + 4 + 63) & !63);
+
+        let mut hnsw = CPIndex::new();
+        let report =
+            rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
+        assert_eq!(report.scanned_nodes, 1);
+        assert_eq!(report.indexed_vectors, 1);
+        let stored = hnsw.nodes.get(&103).unwrap();
+        match &stored.vec_data {
+            VectorRepresentations::SQ8(d, s) => {
+                assert_eq!(d.as_ref(), data.as_ref());
+                assert!((*s - scale).abs() < f32::EPSILON);
+            }
+            other => panic!("expected SQ8, got {:?}", other),
+        }
+    }
+
+    #[test]
+    fn test_rebuild_mixed_vectors_including_binary() {
+        let mut vstore = File::create_in_memory(8192);
+        let hs = hdr_size();
+        // node 1: Full
+        let mut n1 = crate::node::UnifiedNode::new(201);
+        n1.vector = VectorRepresentations::Full(vec![0.1, 0.2]);
+        n1.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+        let off1 = crate::storage::ops::write_node_to_vstore(&mut vstore, &n1).unwrap();
+        // node 2: Binary
+        let mut n2 = crate::node::UnifiedNode::new(202);
+        let bdata: Box<[u64]> = vec![0xAAAAAAAAAAAAAAAAu64].into_boxed_slice();
+        n2.vector = VectorRepresentations::Binary(bdata.clone());
+        n2.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+        // compute next offset aligned after n1
+        let n1_payload = 2 * 4;
+        let n1_next = off1 + hs + ((n1_payload + 63) & !63);
+        // ensure vstore cursor is at n1_next before second write — our write_node_to_vstore
+        // already advanced it via its own cursor logic, but for this mixed test we rely on
+        // its internal cursor handling; just write n2 sequentially
+        let _off2 = crate::storage::ops::write_node_to_vstore(&mut vstore, &n2).unwrap();
+
+        let mut hnsw = CPIndex::new();
+        let report =
+            rebuild_hnsw_from_vstore(&mut hnsw, &vstore, PathBuf::from("test.idx")).unwrap();
+        assert_eq!(report.scanned_nodes, 2);
+        assert_eq!(report.indexed_vectors, 2);
+        assert_eq!(hnsw.nodes.len(), 2);
+        match &hnsw.nodes.get(&201).unwrap().vec_data {
+            VectorRepresentations::Full(v) => assert_eq!(v, &vec![0.1, 0.2]),
+            other => panic!("n1 expected Full, got {:?}", other),
+        }
+        match &hnsw.nodes.get(&202).unwrap().vec_data {
+            VectorRepresentations::Binary(b) => assert_eq!(b.as_ref(), bdata.as_ref()),
+            other => panic!("n2 expected Binary, got {:?}", other),
+        }
+        // silence unused warning
+        assert_eq!(n1_next, n1_next);
     }
 }

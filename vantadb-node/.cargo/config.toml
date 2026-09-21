@@ -1,0 +1,5 @@
+# Share the workspace root `target/` so the standalone crate reuses already-built
+# artifacts of `vantadb` (fjall, memmap2, rayon) instead of recompiling them
+# into a second target dir (~1-2 GB on a disk with ~3 GB free).
+[build]
+target-dir = "../target"

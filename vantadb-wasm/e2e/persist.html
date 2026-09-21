@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>VantaDB WASM E2E persistence harness</title>
+</head>
+<body>
+  <pre id="log"></pre>
+  <!-- no-modules wasm-pack build: loads the wasm via classic script + fetch,
+       avoiding the ES module wasm import that stable Chrome/Edge reject.
+       Rebuild with: wasm-pack build vantadb-wasm --target no-modules --out-dir e2e/pkg-nomodules -->
+  <script>
+    // no-modules target does NOT support inline_js JS snippets (documented
+    // wasm-bindgen limitation): the generated glue emits
+    //   const import1 = require("./snippets/.../inline0.js");
+    // which is undefined in a browser. This shim serves the actual snippet
+    // file (same bytes shipped by idb.rs) via sync XHR + indirect eval, then
+    // exposes the generated import name as a no-op — the IIFE already
+    // registered globalThis.vantaIdbStorage as a side effect.
+    window.require = (path) => {
+      if (path.includes("inline0.js")) {
+        // require() paths are relative to the glue's own URL, not the page.
+        const glueSrc = document.querySelector('script[src*="pkg-nomodules/vantadb_wasm.js"]').getAttribute("src");
+        const base = glueSrc.substring(0, glueSrc.lastIndexOf("/") + 1);
+        const xhr = new XMLHttpRequest();
+        xhr.open("GET", base + path.replace(/^\.\//, ""), false); // synchronous: require() is sync
+        xhr.send();
+        if (xhr.status !== 200) throw new Error("require shim: failed to load " + path + " (" + xhr.status + ")");
+        (0, eval)(xhr.responseText); // indirect eval: runs in global scope
+        return { __vanta_ensure_idb_bridge: function () {} };
+      }
+      throw new Error("require shim: unsupported " + path);
+    };
+  </script>
+  <script src="../e2e/pkg-nomodules/vantadb_wasm.js"></script>
+  <script>
+    // E2E persistence harness. Two phases, driven by sessionStorage so the
+    // phase survives a real page reload:
+    //   ?storage=opfs  -> seed: connect_persistent(dir), put 10, save()
+    //                     reload -> verify: connect_persistent(dir), get 10
+    //   ?storage=idb   -> same with connect_idb / save_idb / load_idb (the
+    //                     fallback path used when OPFS is unavailable)
+    // A unique OPFS directory name per run avoids cross-run pollution.
+    // IDB state is cleaned up via delete_idb() after the verify phase.
+    (async () => {
+      const logEl = document.getElementById("log");
+      const log = (msg) => { logEl.textContent += msg + "\n"; };
+      const storage = new URLSearchParams(location.search).get("storage") === "idb" ? "idb" : "opfs";
+      const N = 10;
+
+      function assert(cond, msg) {
+        if (!cond) throw new Error(msg);
+        log("  ok: " + msg);
+      }
+
+      try {
+        await wasm_bindgen();
+        const { VantaDB } = wasm_bindgen;
+
+        if (storage === "opfs") {
+          assert(typeof navigator.storage?.getDirectory === "function", "OPFS API present (navigator.storage.getDirectory)");
+        } else {
+          assert(typeof indexedDB !== "undefined", "IndexedDB present");
+        }
+
+        const phase = sessionStorage.getItem("vanta_e2e_phase") || "seed";
+        const dir = sessionStorage.getItem("vanta_e2e_dir") || `vanta-e2e-${Date.now()}`;
+        sessionStorage.setItem("vanta_e2e_dir", dir);
+
+        if (phase === "seed") {
+          log(`[seed] storage=${storage} dir=${dir}`);
+          log("  connecting...");
+          const db = storage === "opfs" ? await VantaDB.connect_persistent(dir) : await VantaDB.connect_idb(dir);
+          log("  connected");
+          for (let i = 0; i < N; i++) {
+            db.put({ namespace: "e2e", key: `e2e-${i}`, payload: `payload-${i}-${dir}`, metadata: { e2e: { String: "1" }, i: { Int: i } } });
+          }
+          log(`  put ${N} done`);
+          if (storage === "opfs") { log("  save()..."); await db.save(); } else { await db.save_idb(); }
+          log("  saved");
+          sessionStorage.setItem("vanta_e2e_phase", "verify");
+          document.body.dataset.result = "SEEDED";
+          log(`[seed] put ${N} records + saved. phase -> verify`);
+        } else {
+          log(`[verify] storage=${storage} dir=${dir}`);
+          const db = storage === "opfs" ? await VantaDB.connect_persistent(dir) : await VantaDB.connect_idb(dir);
+          if (storage === "opfs") await db.load(); else await db.load_idb();
+          let found = 0;
+          for (let i = 0; i < N; i++) {
+            const r = db.get("e2e", `e2e-${i}`);
+            if (r && r.payload === `payload-${i}-${dir}`) found++;
+          }
+          if (storage === "idb") await db.delete_idb(); // cleanup -> repeatable runs
+          const pass = found === N;
+          document.body.dataset.result = pass ? `PASS:${N}` : `FAIL:${found}/${N}`;
+          log(`[verify] found ${found}/${N} records after reload -> ${pass ? "PASS" : "FAIL"}`);
+        }
+        document.body.dataset.done = "1";
+      } catch (e) {
+        document.body.dataset.result = `ERROR:${e.message}`;
+        document.body.dataset.done = "1";
+        log("ERROR: " + e.message);
+      }
+    })();
+  </script>
+</body>
+</html>

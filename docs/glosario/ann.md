@@ -3,7 +3,7 @@ title: "ANN (Approximate Nearest Neighbor)"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, indexes, vector]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 ---
 # ANN (Approximate Nearest Neighbor)
@@ -95,47 +95,29 @@ $$
 |-----------|---------|--------|
 | `M` | 16 | Conexiones por nodo |
 | `ef_construction` | 200 | Calidad de construcción |
-| `ef_search` | 100 | Calidad de búsqueda |
+| `ef` | 100 | Calidad de búsqueda |
 
 ### Recall vs Latency Trade-off
 
 ```python
-# Alta calidad (más lento)
-db = VantaEmbedded("./data", config={
-    "hnsw": {
-        "ef_search": 500,  # Más candidatos
-        "M": 32            # Más conexiones
-    }
-})
-# Recall: 0.998, Latencia: 15ms
+import vantadb_py as vantadb
 
-# Balanced
-db = VantaEmbedded("./data", config={
-    "hnsw": {
-        "ef_search": 100,
-        "M": 16
-    }
-})
-# Recall: 0.956, Latency: 6ms
-
-# High speed (less accurate)
-db = VantaEmbedded("./data", config={
-    "hnsw": {
-        "ef_search": 50,
-        "M": 8
-    }
-})
-# Recall: 0.890, Latency: 3ms
+# HNSW params (M, ef_construction, ef) live in the Rust engine config,
+# not the constructor. ef is auto-tuned at runtime.
+db = vantadb.VantaDB("./data")
+# Alta calidad (más lento) — Recall: 0.998, Latencia: 15ms
+# Balanced — Recall: 0.956, Latency: 6ms
+# High speed (less accurate) — Recall: 0.890, Latency: 3ms
 ```
 
 ## VantaDB Benchmarks (SIFT1M)
 
 | Configuración | Recall@10 | p50 Latency | QPS |
 |---------------|-----------|-------------|-----|
-| ef_search=50 | 0.912 | 4.2ms | 238 |
-| ef_search=100 | 0.956 | 6.1ms | 164 |
-| ef_search=200 | 0.981 | 9.8ms | 102 |
-| ef_search=500 | 0.998 | 15.4ms | 65 |
+| ef=50 | 0.912 | 4.2ms | 238 |
+| ef=100 | 0.956 | 6.1ms | 164 |
+| ef=200 | 0.981 | 9.8ms | 102 |
+| ef=500 | 0.998 | 15.4ms | 65 |
 
 ## See Also
 

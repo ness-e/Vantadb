@@ -3,105 +3,73 @@ title: "Active Backlog — VantaDB"
 type: backlog-tracking
 status: active
 tags: [vantadb, backlog, engineering, phases, priorities]
-last_reviewed: 2026-07-29
-verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 5 sub-agentes explore validaron 69 items contra código real — ver docs/audit-reports/backlog-validation-2026-07-28.md. 2026-07-29: 19 items INVESTIGACION agregados (INV-001 a INV-017) tras verificación de consolidación de 4 sub-agentes vs código real."
+last_reviewed: 2026-09-02
+verified_by: "Historial de verificación: docs/avance/historial/backlog-history.md"
 ---
 
 # Active Backlog — VantaDB
 
 > **Purpose:** Single source of truth for all project tasks — organized by execution order.
-> **Completed tasks moved to:** `docs/progreso/README.md`
-> **Verification method:** All items cross-checked against actual codebase (Jul 27, 2026). 8 tareas ejecutadas en sesión: TSK-106, MKT-03, NUEVO-21, MKT-04, TSK-107, COM-03, COM-04, Good first issues (18 creadas).
-> **Total open items:** ~85 (59 anteriores + 19 investigaciones INV-001..INV-017 + INV-024, -3 items migrados a completado REC-001/REC-010/INV-002)
-> **Origen docs-audit:** `docs/strategy/ROADMAP.md`, `docs/progreso/bitacora.md`, `docs/reviews/FULL_CODEBASE_AUDIT_2026-07-11.md`, `docs/reviews/analisis_proyecto.md`, `docs/operations/PERFORMANCE_TUNING.md`, `docs/operations/REPO_CHECKLIST.md`, `docs/architecture/STORAGE_VERSIONING.md`, `docs/plans/2026-07-13-workflow-repair-campaign.md`, `docs/Investigaciones/cargo-check-optimizacion.md`, `docs/discord/todo.md`
-
+> **Execution state lives in:** `docs/plans/YYYY-MM-DD-<campaign>.md` (plan file) + task files — per campaign-executor RULES.md §2. This file is the task catalog; the plan file is the execution state.
+> **Completed tasks moved to:** `docs/avance/` (dominio) + `docs/avance/historial/backlog-history.md`
+> **Backlog de negocio:** [`docs/Backlog-negocio.md`](Backlog-negocio.md) — filas que requieren abogado/pago/decisión humana/publicación (criterio Gate P, split RES-15-C 2026-09-03). Este archivo es solo técnico: lo ejecutable por agentes.
+> **Historial de syncs y migraciones:** `docs/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
+> **Total open items:** 70 abiertas de 73 filas (medido 2026-09-16; campaña FIND 2026-09-15/16: −31 completadas a `docs/avance/`, −1 SKIP FIND-76 a historial) (previo 2026-09-15: 102 abiertas de 105 filas; −2 ICEBOX DISC-03/DEC-02, −1 resuelta DEC-01; +3 STU STUDIO-F5; +2 FIND-90/91 fallout F3X; limpieza: 7 a historial — AUD-042, REVIEW-10, TBH-01, FIND-26, FIND-89, ISSUE-TS-001, EXE-08)
 ---
 
 ## Exec Summary
 
 | Phase | Items | Est. Effort | Priority |
 |-------|-------|-------------|----------|
-| **P0** 🚀 Release Blockers | 1 (+6 ✅ completados, +7 removidos, 1 WONTFIX) | ~2-3d | 🔴 Bloqueante |
-| **P1** 🛡️ Security & Critical | 0 (+2 INV investigación ✅) | ~3-5d | 🟡 Media |
-| **P2** ⚡ Quick Wins Técnicos | 0 (7 ✅ + 24 stale removidos) | — | ✅ Cerrado |
-| **P3** 🧪 Test Coverage (adapters) | 0 (7 ✅ + 7 stale removidos) | — | ✅ Cerrado |
-| **P4** 🔧 Engineering Health | 4 (+4 INV investigación) | ~1-2 semanas | 🟡 Media |
-| **P5** 📖 Docs & Community | 9 (+1 INV investigación) | ~1-2 semanas | 🟡 Media |
-| **P6** 🚀 Launch Campaign | 9 (+1 INV investigación) | ~1-2 semanas | 🟡 Media |
-| **P7** 🌐 WASM & Performance | 0 (todos completados) | — | ✅ Cerrado |
-| **P8** 🔮 Post-Launch & Enterprise | 28 (+10 INV investigación) | ~3-5 semanas | 🔵 Futuro |
-| **P9** 📚 Old Docs Rescue (reference) | 13 (7 ✅ progreso) | — | 📖 Referencia |
-| **P10** 🏗️ Competitive Features (catalog) | 20 (11 ✅ progreso) | — | 🗺️ Roadmap |
+| **P0** 🚀 Release Blockers | 0 — ✅ 3/3 ejecutadas (plan 2026-08-09: RELEASE-01 semver-checks, RELEASE-02 publish 0.5.0 verificado live, RELEASE-03 artefactos) | — | ✅ Cerrada |
+| **P1** 🛡️ Security & Critical | 0 — ✅ 1/1 ejecutada (SEC-01 UAF `__array_interface__` fix) | — | ✅ Cerrada |
+| **P2** ⚡ Quick Wins Técnicos | 0 | — | ✅ Cerrado |
+| **P3** 🧪 Test Coverage (core SDKs) | 0 — ✅ 4/4 ejecutadas (COV-001..004 completadas 2026-08-12) | — | ✅ Cerrada |
+| **P4** 🔧 Engineering Health | 0 — PERF-01..09 migradas a progreso 2026-08-12 | — | ✅ Cerrado |
+| **P5** 📖 Docs & Community | 1 (ICEBOX) — 2 filas community-ops (UI manual Discord) movidas a `docs/Backlog-negocio.md` | ~1-2 semanas | 🟡 Media |
+| **P6** 🚀 Launch Campaign | 3 (MKT-18f/g/h/i, BLOG-CTA) — 5 filas humanas (legal/marketing/cloud) movidas a `docs/Backlog-negocio.md` | ~2-3 semanas | 🟡 Media |
+| **P7** 🌐 WASM & Performance | 0 | — | ✅ Cerrado |
+| **P8** 🔮 Post-Launch & Enterprise | 0 — 1 fila enterprise movida a `docs/Backlog-negocio.md` | ~3-5 semanas | 🔵 Futuro |
+| **P9** 📚 Old Docs Rescue (reference) | 1 (OLD-01) | — | 📖 Referencia |
+| **P10** 🏗️ Competitive Features (catalog) | 0 | — | 🗺️ Roadmap |
+| **P11** 🐛 GitHub Issues | 0 | — | ✅ Cerrado |
+| **P12** 🖥️ DESKTOP App (Tauri) + Consola Admin | 0 — ✅ **Cerrada 2026-08-24** (campaña DESKTOP-23..39: 17/17 ejecutadas, ver `docs/avance/activo/desktop.md`; ADMIN-01..09 + DESKTOP-20 ✅; resto archivadas por P26). Deuda menor: smoke-test instalador en VM limpia + validación manual dashboard proxy con upstream LLM | — | ✅ Cerrada |
+| **P13** 🔎 AUDREP — Audit Report 2025 | 0 | — | ✅ Cerrado |
+| **P14** 🔍 REVIEW items | 0 | — | ✅ Cerrada |
+| **P15** 🔍 ERR items (revisión multi-agente 2026-08-08) | 0 — ✅ todos resueltos (36 por plan 2026-08-09 + 10 migradas 2026-08-12 + ERR-007 ban-skip 2026-08-12) | — | ✅ Cerrada |
+| **P16** 🧩 Completitud de Features (investigación 2026-08-09) | 1 residual (CI-01) | 📆 Backlog | 🟢 Baja (19 ejecutadas 2026-08-09 + PERF-07/08/09 2026-08-12) |
+| **P23** 🔒 VantaDB Pro (Open Core) | 0 — 6 filas Pro movidas a `docs/Backlog-negocio.md` (trigger de inicio = decisión de negocio; vuelven aquí al arrancar Pro) | ~8-12 semanas | 🔵 Futuro |
+| **P24** 🧪 I+D futura (v3.0+) | 14 (FUT-02..15; FUT-15 = Utopia 3 direcciones, 2026-09-14) | 📆 Futuro | 🗺️ Roadmap |
+| **P25** 🔌 Exposición MCP/HTTP | 11 (MCP-16..26) | ~2-3 semanas | 🟡 Media |
+| **P26** 🖥️ Vanta Studio (consola human-facing desktop) | Fase 0 ✅ (14/19) + Fase 1 ✅ (9/9) + Fase 2 ✅ (10/10: VS-CORE-04/05/06 + GRAFO-01..03 + ESPACIO-01..02 + OP-01..02) + Fase 3 ✅ (7/7: WEB-00..06) + **Fase 4 ✅ (18/18: DOC-01..04 + REST-01..06 + WASM-01..04 + FEAT-01..03 + VER-01)** | Planes archivados `docs/plans/archive/2026-08-18-vanta-studio-fase{1,2,3}.md` + `docs/plans/archive/2026-08-19-vanta-studio-fase4.md` | 🟢 Completada 2026-08-20 (ADR-027; E2E server + standalone WASM/OPFS PASS) |
+| **P27** 🧠 Vanta Memory Engine (TDAM, orden F1–F7) | 38 (MEM-01..38) | ~8-12 semanas | 🔴 Alta (decisión de producto) |
+| **GOV** 📋 Gobernanza Documental (post-auditoría 2026-08-21, plan `docs/plans/2026-08-22-doc-governance-plan.md`) | 30 tareas (T0: TIR ×3 · A: medición ×5 · B: Show-HN ×6 · C: maestros ×7 · D: taxonomía ×6 · E: limpieza ×1 · F: auditoría intocadas ×2) | ~6 días | 🔴 Alta (Wave B bloqueante Show HN; decisiones D1-D14 del owner en `docs/reviews/auditoria-documentacion-2026-08-21.md`) |
+| **P36** 🔧 Auditoría AGENTS.md & sistema de agentes (2026-08-24) | 6 (AGT-01..06; 3 fixes ya aplicados en sesión) | ~1 día | 🟠 Media |
+| **P37** 🎨 Auditoría diseño desktop post-fix (2026-08-24, orquestador + 5 sub-agentes) | 0 — ✅ 9/9 ejecutadas (DAUD-01..09 — commits `3c53d8b2`,`480935a7`,`b865c625`; DAUD-02 via DESKTOP-QW4 `ad0f34b1`) | — | ✅ Cerrada 2026-08-26 |
+| **P38** 🔬 Research huérfanas → tarea (auditoría docs/research, 2026-08-25) | 15 (RES-01..14 + DEC-01/02; cada fila validada contra código con evidencia. RES-09 → FUT-12/13/14 en P24, 2026-09-03; RES-15 completada 2026-09-03) | ~2-3 semanas (RES-01 es la más grande) | 🟡 Media (RES-01/RES-02 🔴 calidad/durabilidad) |
+| **P48** 🧪 Testing & Benchmarking Hardening (auditoría multi-agente 2026-08-30, plan `docs/plans/archive/2026-08-30-testing-bench-harden.md`) | 0 (cerrada 2026-08-31: 22 ✅ + 1 🟡 INCOMPLETO `TBH-06`; resumen en sección "P48 — CIERRE") | ~2-3 semanas | 🔴 **Cerrada 2026-08-31** |
+| **P49** 🧠 Memory Governance Research Program (Propuesta Notion → implementación, 2026-09-14) | 25 (MGR-01..25: análisis/investigación/planeación/validación, cero implementación; cada una cierra con research-doc + preguntas owner + plan de implementación; MGR-22..24 = track PI proyecto/ingeniería, MGR-25 = ingestores de formatos) | ~5-7 semanas | 🔴 Alta (puerta a v0.7/v1.0) |
+| **P50** 🎬 Cierre Propuesta (ejecución + docs pendientes, 2026-09-14) | 10 (EXE-01..10: demos CI, head-to-head memoria, gate Fase A, docs subpáginas, guía benchmarks, VISION.md, test cascada, Utopia-futuro, QoS Bandwidth rescatado de archive, re-verificación citas 403) | ~3-4 semanas | 🟠 Media-Alta |
+| **P51** 🔧 Implementación gobernanza v0.7 (IMPL-MGR, consume P49) | Slices por área a crear cuando cada MGR cierre su research-doc (primero MGR-12+MGR-10 en migración única, exigen diseno conjunto dims 5-6; IMPL-112 ya ejecutado como primer slice) | ~8-12 semanas | 🔴 Alta (es el v0.7 real; trigger por slice: research-doc MGR cerrada + P2-01) |
 
-> **Items removidos (71+):** ~25 originales + 6 P0 stale + 9 P1 resueltos + 24 P2 stale + 7 P3 stale + 10 P4 completados + 7 P9 completados + 11 P10 completados + 1 P7 completado + 24 crates de integración nunca implementados
-
----
-
-## ✅ Definition of Ready (DoR)
-
-- [ ] ID único asignado
-- [ ] Prioridad definida (🔴🟠🟡🟢🔵⬜)
-- [ ] Archivos involucrados conocidos
-- [ ] Esfuerzo estimado
-- [ ] Verificado contra código real (no asumido)
-
-## ✅ Definition of Done (DoD)
-
-- [ ] Código compila (`cargo check` / `tsc --noEmit`)
-- [ ] Tests pasan (`cargo nextest run` / `pytest`)
-- [ ] Linters pasan (`cargo clippy` / `eslint`)
-- [ ] Docs actualizados si aplica
-- [ ] Tarea movida a `progreso/README.md`
-- [ ] Changelog actualizado si es cambio visible al usuario
-
----
-
-## Phase 0: 🚀 Release Blockers
-
-> Items que bloquean un release público seguro. Resolver antes de cualquier publicación.
-
-| ID | Descripción | Archivos | Esfuerzo | Prio |
-| ~~`DEVOPS-15`~~ | ~~**Reducir default features de 7 a 3** — ❌ **WONTFIX**. Analizado: remover `cli, memmap2, fs2, sysinfo` rompe UX "it just works". Las 7 features mantienen experiencia completa. | `Cargo.toml:89` | 🟡 — | ✅ Cerrado |~~
-| ~~`META-001`~~ | ~~**🔍 Root Cause Analysis: Inconsistencias del Backlog** — Auditoría profunda. **Entregable:** Reporte de hallazgos.~~ | ~~`docs/audit-reports/meta-001-root-cause-analysis.md`~~ | ~~🟠 2-3d~~ | ✅ |
-
-> **Items removidos (7):** DEVOPS-10 (deferido), DEVOPS-12 (PyPI signing), DEVOPS-14 ✅, NUEVO-09 ✅, NUEVO-10 ✅, ~~DEVOPS-15 re-opened~~ → ❌ **WONTFIX** (7 features necesarias para UX completo), META-001 queda como único P0 activo.
-
----
-
-## Phase 1: 🛡️ Security & Critical
-
-> Investigaciones de seguridad y dependencias críticas.
-
-| ID | Descripción | Archivos | Esfuerzo | Prio |
-|----|-------------|----------|----------|------|
-| ~~`INV-001`~~ | ~~**🔍 Investigar dependencias con RUSTSEC activas** — Auditar `Cargo.lock` contra advisories conocidos. 3 crates reportadas: `atomic-polyfill` (RUSTSEC-2023-0089), `paste` (RUSTSEC-2024-0436), `rustls-pemfile` (RUSTSEC-2025-0134). **✅ COMPLETADA 2026-07-29 — Las 3 están gestionadas o son stale. Reporte: `docs/audit-reports/inv-001-rustsec-2026-07-29.md`. Cargo deny pasa limpio.**~~ | ~~`Cargo.lock`, `deny.toml`~~ | ~~🟢 2-4h~~ | ✅ |
-| ~~`INV-024`~~ | ~~**🔍 Auditar bloqueos `unsafe` sin SAFETY docs** — Revisar todos los bloques `unsafe` en el código Rust (`src/node.rs`, `src/index/graph.rs`, `src/storage/vfile.rs`) que carecen de invariantes documentados. Verificar si hay UB potencial o si son seguros pero sin docs. Proponer: (a) agregar SAFETY comments documentando invariantes, o (b) reemplazar con alternativas seguras. **Sin implementación — solo auditoría + propuesta.** **✅ COMPLETADA 2026-07-30 — 39 bloques auditados (28 SAFE, 4 SAFE_BUT_UNDOCUMENTED, 7 UB_POTENTIAL). 1 High (panic-DoS sq8_similarity) + 1 Medium (UB alineación). Reporte: `docs/audit-reports/inv-024-unsafe-audit-2026-07-30.md`. cargo deny PASSED, cargo audit 0 vulns.**~~ | ~~`src/node.rs`, `src/index/graph.rs`, `src/storage/vfile.rs`, `src/index/search.rs`~~ | ~~🟡 3-5d~~ | ✅ |
-
-> **Items previos resueltos (9):** Todos los items P1 originales resueltos/deferidos en campañas anteriores.
+> **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
+> **Nuevo 2026-08-04:** Fase 12 DESKTOP (26 tareas, app Tauri multi-connection sobre las 6 integraciones) + `DEBT-01` (gate docs-coverage roto, Fase 4) + `TECH-01..08` (hallazgos de investigación DESKTOP-01b: 2 bugs reales, 1 batch stale-docs, 1 ADR env-naming, 4 features/decisiones, todos en Phase 4).
+> **Nuevo 2026-08-07:** Fase 7 ADMIN (ADMIN-01..09, consola administrativa centralizada: datos/métricas/KPIs/SOPs/telemetría/procesos/conexiones) sobre la infra DESKTOP-02..11 ya completada. Fuente de KPIs/SOPs: investigación de mercado (Grafana VectorDB Observability, Milvus, Qdrant, Weaviate, Zilliz/VectorDBBench) + snapshot de métricas ya existente en core (`src/metrics/core/snapshot.rs`, 112 líneas). Tareas DESKTOP-12..27 (drivers/MCP/empaquetado) se ejecutan después del core del dashboard.
+> **Nuevo 2026-08-08:** P15 ERR — 50 hallazgos de la revisión multi-agente por capas (6 sub-agentes: vanta-audit/arch/engine/worker/tuner/docs + verificación manual). Origen completo en `docs/reviews/errors-found.md`. Top 3 a atacar primero: ERR-010 (raza checkpoint/persistencia), ERR-021 (OOM MCP), ERR-022 (top_k sin clamp → alloc gigante).
+> **Nuevo 2026-08-09:** Fase 3 reabierta con COV-001..004 — medición de coverage multi-agente (3 sub-agentes 2026-08-09): Rust root 81.40% ✅ gate / TS 0% medible (bloqueado import-time por `vite-plugin-wasm`↔`vitest`) / Python wrapper 69% (core PyO3 invisible). Detalle en `docs/reviews/coverage-2026-08-09.md` (pendiente de generar). COV-004 es decisión de política ADR, no código.
+> **Nuevo 2026-08-09:** P16 Completitud de Features + P0/P1 reabiertos — investigación multi-agente (5 sub-agentes: audit/worker/docs×2/tuner) que barrió features declaradas → parciales/huérfanas (PITR/WAL-shipping standalone-vacío, DiskANN "in-memory", Arrow 1-comp, IVF/SCANN sin SDK, integrations stubs), releases (semver-checks, publish 0.5.0, artifactos de ejecución), seguridad (UAF `__array_interface__`), rendimiento (benchmarks publicados no confiables) y docs (CHANGELOG muerto / llms.txt inventado / mojibake). Origen completo: `docs/research/investigacion-equipo-2026-08-09.md`. **Top 3 a atacar primero:** RELEASE-01 (semver-checks), SEC-01 (UAF), PERF-01 (sellar benchmarks).
+> **Nuevo 2026-08-09 (audit-reports archive):** 4 reportes `audit-full-2026-07-*`/`08-04` archivados tras verificación contra código. Resueltos desde entonces: archive.rs fsync (AUDREP-04/35) ✅, deny.toml RUSTSEC-2024-0436 ✅, tests.rs god file dividido ✅, `.playwright-cli` → .gitignore ✅, JSON-LD en web ✅, prefers-reduced-motion ✅, metrics registry test ✅, pyi stubs ✅. Hallazgos pendientes incorporados como tareas nuevas: `PERF-07` (sparse JSON hot path), `PERF-08` (WASM serialización completa), `REVIEW-05` (god files restantes), `CI-01` (pre-commit-config). C1 UAF en `types.rs:365-380` (VantaSearchHit) sigue vigente → cubierto por `SEC-01`.
+> **Nuevo 2026-08-09 (batch 2 audit-reports archive):** 4 reportes más archivados (audit-full-20260808, deps-01, inv-001, inv-024). Resueltos/verificados: AUD-012..015 (clippy 5 errores, tests INV-024, prune canonical, cap over-capacity) ✅ commit `9d3c05a2`; INV-024 H-1 (panic sq8 dims) ✅ NV-01 clamp; INV-024 M-1 (alineación `vector_offset`) ✅ `vfile.rs:739` central guard; inv-001 RUSTSEC sin acción ✅; deps-01 duplicación legítima trackeada en `ERR-007` ✅. Pendientes ya en backlog: AUD-016..021 (sección Hallazgos pendientes), `ERR-009` (Miri), `SEC-01`/`AUD-019` (__array_interface__). Único gap → `PERF-09` creado (cold-start "zero-copy" engañoso, `_force_copy` muerto).
+> **Nuevo 2026-08-09 (batch 3 audit-reports archive):** `audit-full-2025-07-27.md` (vantadb-audit-report, auditoría multi-agente sobre `develop@63b0101d`) archivado → `docs/audit-reports/archive/`. Reporte íntegramente procesado: fue la fuente de **P13 AUDREP-01..62 + DEPS-01 + NV-01..05** (verificado 2026-08-05, todos resueltos 2026-08-05..08, commits en `docs/avance/historial/snapshot-2026-08-07.md`). 6 hallazgos fueron corregidos antes del ticketeo (CRIT-01, CRIT-06, CRIT-09, ALTO-01, CRIT-10-prometheus, MED-15) y los residuales vivos ya están recapturados como tareas activas (SEC-01, ERR-021, PERF-07/08/09, CI-01, REVIEW-05). **No se crean tareas nuevas — archivo cerrado.**
+> **Nuevo 2026-08-24 (auditoría agentes):** **P36** creada (6 tareas AGT-01..06) desde revisión integral de AGENTS.md raíz + .opencode/AGENTS.md + global: fixes ya aplicados (root pointer-only, metadata stale, conteos skills), pendientes commit de diffs, verificación stats CodeGraph, refs file:line de deuda P2, limpieza opencode-loop corrupt/tmp, convención checkpoints paralelos, script anti-drift de refs.
+> **Nuevo 2026-08-30 (auditoría testing & benchmarking):** **P48** creada (23 tareas TBH-01..23) desde auditoría multi-agente (5 sub-agentes: research externas + tests Rust + benchmarks + datasets + CI/CD) ejecutada 2026-08-30, sesión `ses_fabf69692ffeP5c7mycKcsGSV0`. Plan completo en `docs/plans/2026-08-30-testing-bench-harden.md`. Decisiones del owner (D1-D7): estrategia conservadora (no VIBE/PQ/head-to-head/divan), scope = TODOS los 23 fixes, ci-gate universal (eliminar `if: schedule`), TS SDK diferido a `ISSUE-TS-001`. Distribución: **5 ALTA** (rompen 'replicable y funcional' — `verify_datasets.{sh,ps1}`, init bench baseline, fix ci-gate.yml:24, branches develop×6+release, gitignore data_*_bench/) + **10 MEDIA** (insta snapshots, cargo-mutants, wal_throughput.rs, crash_recovery.rs, convert bench_concurrent, bench-nightly cobertura 8 benches, data/README.md + datasets/README.md, SHA-pins faltantes, cliff.toml conventional_commits, audit-tokens consolidación) + **8 BAJA** (divan/loom/dhat eval, markdownlint pre-commit, ci-examples matrix, coverage threshold policy, release-binaries-tags trigger, fmt scope unify). Top 3 a atacar primero: **TBH-01** (verify_datasets — unmask silent skips), **TBH-02** (bench baseline — activar regresión nocturna), **TBH-03** (ci-gate — main rojo corta PRs).
+> **Nuevo 2026-09-14 (programa gobernanza de memoria):** **P49** creada (25 tareas MGR-01..25) desde la Propuesta unificada de Notion (VantaDB Docs) + investigación de 24 subpáginas (8 dimensiones, 6 áreas, 10 ámbitos) + auditoría de código 2026-09-14. Son análisis/investigación/planeación/validación — cero implementación. Cada fila define cómo va a funcionar, cómo interactúa, qué features lleva y dónde vive en el código, y cierra con research-doc + preguntas al owner + plan de implementación del mismo detalle. Ampliación mismo día: track PI (MGR-22 repo-map+watcher, MGR-23 ADRs+convenciones, MGR-24 trazabilidad+patrones) + MGR-25 ingestores de formatos (txt/json/csv→html→pdf→docx).
 
 ---
 
-> **Phase 2: ⚡ Quick Wins Técnicos** — **31 items removidos:** DRV-014 ✅, DRV-028 ✅, DRV-041 ✅, VFY-006 ✅, VFY-007 ✅, REV-012 ✅, DRV-136 ✅ + 24 stale items de la auditoría original. No quedan items activos en P2.
-> ⚠️ **Nota DRV-014 (2026-07-31):** El fix fue **REVERTIDO** por `cae92db3` "perf(engine): Phase 1 optimizations — WAL batch". El clon de WalRecords (`Vec<Vec<WalRecord>>` + `record.clone()`) se reintrodujo deliberadamente para agrupar por shard y usar `WalWriter::batch_append()` (1 lock + 1 write_all + 1 maybe_sync por shard, 3-5× speedup en WAL writes). La tarea quedó cerrada ✅ como completada en su momento (`3bdfc93e`), pero el código actual NO refleja ese fix — es un tradeoff de performance posterior, no deuda pendiente.
+## ✅ Definition of Ready / Done
 
----
-
-> **Phase 3: 🧪 Test Coverage (Adapters & Engine)** — **14 items removidos:** DRV-013 ✅, DRV-017 ✅, DRV-061 ✅, DRV-067 ✅, DRV-073 ✅, TEST-11 ✅, TEST-12 ✅ + 7 stale de auditoría original. No quedan items activos en P3.
-
----
-
-## Phase 4: 🔧 Engineering Health & Architecture
-
-> Investigaciones de salud de ingeniería — rendimiento, concurrencia, arquitectura.
-
-| ID | Descripción | Archivos | Esfuerzo | Prio |
-|----|-------------|----------|----------|------|
-| ~~`INV-002`~~ | ~~**🔍 Memory Telemetry Correction — investigación** — El reporte de RAM actual es inconsistente (mezcla core RAM, index RAM, page cache, mmap, ingest buffers). Audit dice "hasta que arregles la telemetría, no hables de eficiencia de memoria". **Alcance:** (1) Mapear qué mide cada métrica actual vs qué debería medir, (2) Diseñar esquema de telemetría con categorías separadas (core, index, page cache, mmap, ingest), (3) Identificar qué estructuras contribuyen a cada categoría, (4) Proponer implementación con `tracing::metrics` + labels. **Sin implementación — solo diseño + propuesta.** **✅ COMPLETADA 2026-07-30 — Esquema 5 categorías diseñado (core/index/page_cache/mmap/ingest) en `docs/operations/MEMORY_TELEMETRY.md`; IntGaugeVec con label `category` validado contra API oficial prometheus; contrato `OperationalMetrics` preservado.**~~ | ~~`src/metrics/`, `docs/operations/MEMORY_TELEMETRY.md`, `docs/operations/PERFORMANCE_TUNING.md`~~ | ~~🟡 3-5d~~ | ✅ |
-| ~~`INV-003`~~ | ~~**🔍 Sync Blocking en Tokio — auditoría** — Auditoría de `std::fs::*` y `std::sync::Mutex::lock()` en contextos `async`. **✅ COMPLETADA 2026-07-31 — Reporte: `docs/Investigaciones/INV-003-sync-blocking-tokio.md`. Se verificó que llamadas bloqueantes usan `spawn_blocking` correctamente.**~~ | ~~`src/`, `vantadb-server/`, `vantadb-mcp/`~~ | ~~🟡 2-3d~~ | ✅ |
-| ~~`INV-004`~~ | ~~**🔍 mimalloc como Global Allocator — investigación** — Evaluación de `mimalloc` y allocators globales por plataforma. **✅ COMPLETADA 2026-07-31 — Reporte: `docs/Investigaciones/INV-004-mimalloc-global-allocator.md`. Feature `custom-allocator` y `mimalloc` validados y configurados.**~~ | ~~`Cargo.toml`, `src/bin/vanta-cli.rs`~~ | ~~🟢 4-6h~~ | ✅ |
-| ~~`INV-005`~~ | ~~**🔍 ErrorBoundary en web frontend — investigación** — Auditoría de `react-error-boundary` y manejo de errores Next.js. **✅ COMPLETADA 2026-07-31 — Reporte: `docs/Investigaciones/INV-005-error-boundary-web.md`. Se propone adoptar `error.tsx` nativo de App Router.**~~ | ~~`web/src/app/layout.tsx`, `web/package.json`~~ | ~~🟢 2-4h~~ | ✅ |
-
-> **Items previos completados (10):** WEB-03 ✅, WEB-04 ✅, VFY-004 ✅, VFY-011 ✅, DRV-121 ✅, DRV-122 ✅, DRV-123 ✅, DRV-130 ✅, DRV-131 ✅, DOC-20 ✅ — movidos a `docs/progreso/README.md`.
+> **DoR + DoD del proyecto (VantaDB-specific) viven en:** `.opencode/references/definition-of-done.md` — secciones "VantaDB — Definition of Ready" y "VantaDB — Project-specific DoD commands". Referencia única; no duplicar aquí.
 
 ---
 
@@ -111,18 +79,7 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
 |----|-------------|----------|----------|------|-------------|
-| `MKT-14` | **Publicar 3 case studies** + ruta `/case-studies/` + `/case-studies/[slug]` | `web/src/components/vanta/vanta-data.ts` (CASE_STUDIES, 3 items), `web/src/app/case-studies/` | 🟡 1-2d | 🔴 | ⚠️ 3 CS reales en `vanta-data.ts`, página completa. Falta pulir copy y métricas |
-| ~~`TSK-106`~~ | ~~**Habilitar GitHub Discussions**~~ | — | ~~🟢 1h~~ | ~~🟠~~ | ✅ Ya estaba habilitado (`has_discussions: true`). 0 discussions creadas. |
-| `NUEVO-01` | **README hero** con readme-aura + benchmark gráfico + GIF demo WASM | `README.md` (PNG estática actual) | 🟡 2-3d | 🟠 | ❌ Desde cero |
-| `NUEVO-07` | **Migration tools: Chroma→Vanta, LanceDB→Vanta** | `docs/tutorials/` (guías existen), `src/migration.rs` (formatos internos) | 🟡 3-5d | 🟠 | ⚠️ Tutoriales OK, scripts ejecutables faltan |
-| `NUEVO-08` | **Learning path estructurado** en tutorials/ (5-7 ejemplos) | 4 tutoriales (2 draft, 1 active, 1 migration) | 🟡 2-3d | 🟠 | ⚠️ 4/7, algunos draft |
-| `NUEVO-10` | **Benchmark suite pública reproducible** | Benchmarks internos existen, sin script público standalone | 🟡 3-5d | 🟠 | ⚠️ Benchmarks OK, reproducibilidad no |
-| ~~`TSK-107`~~ | ~~Community showcase page (`/showcase`, `/about/community`)~~ | ~~`web/src/app/showcase/page.tsx` (6 items mock)~~ | ~~🟢 4-6h~~ | ~~🟡~~ | ✅ 6 items actualizados a ejemplos reales (LangGraph, AutoGen, Haystack, CrewAI, Rust hybrid, GraphRAG) |
-| `—` | Good first issues (18 open en GitHub) | GitHub Issues (#118-#145) | 🟢 2-4h | 🟠 | ✅ 18 issues creados (22 en total, 3 duplicados cerrados) |
-| `INV-006` | **🔍 Blog series completion — plan de finalización** — MKT-05 reporta 4/5 artículos escritos para el blog técnico. **Alcance:** (1) Identificar cuál de los 3 artículos planeados (`Why I Built a Local Memory Engine in Rust`, `How Hybrid Search Works`, `SQLite for AI Agents`) falta vs cuáles están completos, (2) Revisar drafts existentes en `docs/blog/`, (3) Plan de finalización con audiencia objetivo y keyword research, (4) Propuesta de calendario de publicación (Show HN + blog cadencia). **Sin implementación — solo plan + propuesta editorial.** | `docs/blog/`, `docs/strategy/SHOW_HN_PREP.md` | 🟢 2-4h | 🟡 |
-| `COM-02` | **Configurar Discord: reaction roles, autorole, logging, welcome DM, onboarding** | `docs/discord/todo.md` + assets SVG + server activo | 🟡 2-3d | 🟢 | ⚠️ Docs + assets OK. Config pendiente |
-| `COM-03` | **Discord: AutoMod, stickers/emojis, forums seed** | — | 🟢 4-6h | 🟢 | ⚠️ Forums seedeado (9 threads: FAQ/Showcase/Ideas/Bug). AutoMod/stickers/emojis requieren Discord UI manual — no API-accessible |
-| `COM-04` | **Discord: ticketing system, stage channel, Server Discovery, Canny.io** | — | 🟢 4-6h | 🟢 | ⚠️ Stage channel creado. Ticketing requiere bot auth (Ticket Tool/Helper.gg), Server Discovery necesita 1000+ miembros, Canny.io requiere cuenta externa — documentado en `docs/discord/todo.md` |
+| `DISC-03` | **Discord: ticketing system, stage channel, Server Discovery, Canny.io** | — | 🟢 4-6h | 🟢 | ⏸️ **ICEBOX 2026-08-05** — Server Discovery exige 1000+ miembros; Canny.io SaaS externo; ticketing requiere bot externo (Ticket Tool/Helper.gg). Nada accionable hoy. Dependencias documentadas en `docs/discord/todo.md`. No cuenta como activa. |
 
 ---
 
@@ -130,63 +87,23 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 
 > Todo lo necesario para el Show HN y marketing de lanzamiento.
 
+### 👤 Tareas Humanas (no-delegables a agentes)
+
+> Requieren identidad legal, pago, o acceso manual a dashboards externos. `owner: human`. No ingresan al flujo de agentes. (Sección creada 2026-08-05.) **Split RES-15-C 2026-09-03:** las filas puramente humanas (legal/trademark, publicación Reddit, cloud/pitch/case-study) viven ahora en [`docs/Backlog-negocio.md`](Backlog-negocio.md); aquí quedan las que tienen lado código verificado (MKT-18f/i).
+
 | ID | Descripción | Esfuerzo | Prio | Estado Real |
 |----|-------------|----------|------|-------------|
-| `LEG-01` | **Registrar trademark "VantaDB" (USPTO + EUIPO)** | 🟡 2-4h | 🔴 | ❌ Desde cero |
-| ~~`MKT-03`~~ | ~~**Show HN post**~~ | ~~🟢 2h~~ | ~~🔴~~ | ✅ Draft actualizado a v0.4.0 en `docs/strategy/SHOW_HN_PREP.md` |
-| ~~`MKT-04`~~ | ~~Reddit posts (r/rust, r/MachineLearning, r/LocalLLaMA)~~ | ~~🟢 2-4h~~ | ~~🟠~~ | ✅ 3 drafts en `docs/strategy/REDDIT_POSTS.md` |
-| `MKT-05` | Technical blog posts (5+ pre-launch) — 4/5 posts escritos | 🟡 2-3d | 🟠 | ⚠️ 4/5 completados |
-| `MKT-10` | "AI Agent Memory" campaign | 🟡 2-3d | 🟠 | ❌ Desde cero |
-| `MKT-15` | **Página de benchmarks competitivos** (`/benchmarks`) — Ruta existe (BenchmarksView + BenchmarkRace, 444L), sin tabla competitiva VantaDB vs Pinecone/Weaviate/Chroma | 🟡 2-3d | 🔴 | ⚠️ BenchmarksView OK (BENCH01, SIFT1M, LatencyComparator). Falta tabla competitiva |
-| `MKT-16` | **Publicar metodología de benchmark GraphRAG** — Sin doc específico | 🟡 1-2d | 🟡 | ❌ Desde cero |
-| `MKT-17` | Página de comparación competitiva interactiva — Sin ruta `/compare` ni archivos | 🟡 2-3d | 🟢 | ❌ Desde cero |
-| `TSK-103` | Public benchmark site (`/benchmarks`) — BenchmarksView + BenchmarkRace existen (BENCH01, SIFT1M). Falta script público reproducible | 🟡 2-3d | 🟠 | ⚠️ `/benchmarks` existe con datos benchmark reales. Sin script standalone público |
-| `TSK-104` | Demo agent: LangChain + Ollama + VantaDB — Ejemplo experimental existe | 🟡 1-2d | 🟠 | ⚠️ Ejemplo OK, no demo pulido |
-| `INV-007` | **🔍 Competitive benchmark vs LanceDB/Chroma — investigación y diseño** — El asset marketing #1 para audiencia técnica. **Alcance:** (1) Investigar `ann-benchmarks` y su conector para VantaDB, (2) Definir datasets: glove-100-angular + sift-128-euclidean, (3) Diseñar metodología: throughput, latencia p50/p95/p99, Recall@10, RAM, (4) Evaluar si benchmarks internos existentes (`/benchmarks`) pueden extenderse o si se necesita script standalone, (5) Proponer implementación mínima para página pública. **Sin implementación — solo diseño + propuesta.** | 🟡 2-3d | 🟠 |
-
----
-
-## Phase 7: 🌐 WASM & Performance
-
-| ID | Descripción | Archivos | Esfuerzo | Prio |
-|----|-------------|----------|----------|------|
-> **Items removidos (5):** NUEVO-11/12 (WASM IndexedDB + multi-tab coordinación — ✅ implementados), NUEVO-14 (bundle 394KB gzip < 500KB — ✅ en WASM-04), NUEVO-19 (SourceDesign/ no existe), BENCH-01 (solo mención en backlog, sin script ni dataset)
+| `MKT-18f` | **Publicar 5 adapters en PyPI (re-escalado 2026-09-03)** — lado código CERRADO: 5/5 `python -m build` + `twine check` exit 0, nombres verificados LIBRES (404 live ×5), `vantadb-py>=0.5.0,<0.6.0` pin válido (existe 0.5.0), workflow `release-adapters-62.yml` presente+actionlint 0 (creado por QW-7), READMEs honestos, borradores upstream en `docs/plans/artifacts/mkt-18f-prs/`. Restante = ACCIÓN HUMANA: checklist 3 pasos en `.opencode/skills/campaign-executor/tasks/MKT-18f.md` (environment `pypi` → dry-run TestPyPI → tag `adapters-v0.5.0` + limpieza post-release). Desbloquea GTM checkboxes al publicar. | 🟢 1-2h humano | 🔴 | 🟠 Pendiente (humano) |
+| `MKT-18i` | **AnythingLLM ↔ VantaDB (re-escalado 2026-09-03)** — compose demo Ollama+VantaDB shipped (`abb6594c`, ver `docs/avance/activo/operaciones.md`). Restante: AnythingLLM no soporta VantaDB como vector backend (evidencia: `server/.env.example` master de Mintplex-Labs/anything-llm — `VECTOR_DB` acepta lancedb/chroma/pgvector/qdrant/pinecone/astra/weaviate/milvus/zilliz/chromacloud). Requiere feature-request upstream (acción humana), no glue local. | ⚪ upstream | 🟡 | 🔴 BLOQUEADO |
 
 ---
 
 ## Phase 8: 🔮 Post-Launch & Enterprise
 
 > Features para después del lanzamiento público.
+>
+> **RES-15-C 2026-09-03:** la única fila de esta fase (enterprise features → negocio) se movió a `docs/Backlog-negocio.md` §P8. El lado código que aparezca al planificarla se ticketea acá.
 
-| ID | Descripción | Esfuerzo | Prio |
-|----|-------------|----------|------|
-| ~~`CLI-01`~~ | ~~**CLI polish: handlers backup/restore/doctor/stats/inspect existen pero no conectados al binary. REPL/TUI no existen**~~ — **✅ COMPLETADA** (5 handlers conectados: backup, restore, doctor, inspect, stats. 46 tests CLI pasan) | ~~🟡 2-3d~~ | ✅ |
-| ~~`DEVOPS-HOMEBREW`~~ | ~~**Homebrew formula**~~ — **✅ COMPLETADA** (`Formula/vantadb.rb` existe con livecheck, 4 plataformas, install + test. Placeholder SHA256 — actualizar antes de publish.) | ~~🟢 4h~~ | ✅ |
-| ~~`DEVOPS-PY313`~~ | ~~**Python 3.13 wheels en CI matrix**~~ — **✅ COMPLETADA** (`pyproject.toml` ya incluye `>=3.11` + classifier 3.13. CI verify jobs actualizados a Python 3.13 + build mantiene 3.11 con abi3) | ~~🟢 2h~~ | ✅ |
-| ~~`DEVEX-DEMO`~~ | ~~**Demo app (Rust + Python)** — Phase 4.G~~ — **✅ COMPLETADA** (`examples/demo/demo.py` 239L con create → insert → search → delete, README, requirements.txt) | ~~🟡 2-3d~~ | ✅ |
-| ~~`DEVEX-EXAMPLES`~~ | ~~**Rust examples en `examples/rust/`** (no `docs/examples/`)~~ — **✅ COMPLETADA** (4 ejemplos: basic, hybrid, graphrag, concurrent. Compilan clean.) | ~~🟢 4-6h~~ | ✅ |
-| `NUEVO-16` | **Product Quantization (PQ) 96x** — compresión para datasets >RAM. RabitQ + TurboQuant + SQ8 existen, PQ real no | Alto | 🔵 |
-| `NUEVO-17` | **Segment LSM-style** — hot/warm/cold tiers. Fjall tiene LSM interno, tiers no | Muy alto | 🔵 |
-| `NUEVO-18` | **Sparse vectors nativos** — hybrid search real. Solo mención en test | Alto | 🔵 |
-| ~~`NUEVO-21`~~ | ~~**Vectara competitive research**~~ | ~~🟢 2-4h~~ | ✅ Hallazgo clave: Vectara cerró self-service tier → gap de mercado para soluciones local-first. Reporte en `docs/audit-reports/vectara-competitive-research-2026-07-27.md` |
-| `TSK-107b` | Audit logging enterprise (JSONL, timestamp + op) | 🟡 2-3d | 🟡 |
-| `ENT-04` | Connection pooling + circuit breaker (métrica existe, implementación no) | 🟡 2-3d | 🟡 |
-| `BIZ-01` | **Enterprise features: encryption + RBAC ya en crate principal. Audit/replication/enterprise crate separado no existen** | 🟡 3-5d | 🟡 ⏳ |
-| `WEB-001` | **Implementar WASM demo en `/playground`** — El CodePlayground actual es un simulador, no corre WASM real. La demo WASM anterior estaba en `web_old/` (eliminada). Reconstruir requiere integrar `@vantadb/wasm` en el componente. | 🟡 1-2d | 🟡 | ❌ Desde cero — CodePlayground existe pero sin WASM real |
-| `WEB-18` | **⚠️ Definir pricing y estrategia de monetización** — El archivo `docs/web/standards/product-positioning.md` y `vanta-data.ts` tienen un plan "Team $49/mes por seat" que NO existe en `docs/strategy/GO_TO_MARKET.md`. Decidir: (a) agregar Team $49 a la estrategia GTM, (b) alinear vanta-data.ts con los planes reales de GO_TO_MARKET.md, o (c) eliminar pricing del sitio hasta definir. | 🟡 2-4h | 🔴 |
-
-| `DESKTOP-01` | **🔍 Investigar Tauri como plataforma desktop para VantaDB** — Análisis de propuesta: integración nativa Rust (`vantadb` como dependency directa en Cargo.toml de Tauri), casos de uso (desktop AI app privada con memoria local), comparativa vs Electron (requiere TS SDK), effort estimate para MVP desktop, y recomendación de arquitectura. **Origen:** investigación previa en `docs_backup_2026-06-30/Investigaciones/VantaDB_Investigacion_Contexto_GTM.md` (líneas 966-976, prioridad 🔴). | 🟡 3-5d | 🔵 |
-| ~~`SDK-01`~~ | ~~**`delete_by_filter()` — Implementar desde cero**~~ — **✅ COMPLETADA 2026-07-31** (Implementado `VantaEmbedded::delete_by_filter` en SDK + PyO3/WASM + CLI `delete-by-filter`) | ~~🟡 3-5d~~ | ✅ |
-| ~~`SDK-02`~~ | ~~**`similar_to_key()` — Implementar desde cero**~~ — **✅ COMPLETADA 2026-07-31** (Implementado `VantaEmbedded::similar_to_key` en SDK + CLI `similar-to-key`) | ~~🟡 3-5d~~ | ✅ |
-| ~~`SDK-03`~~ | ~~**`count()` con filtros — Implementar desde cero**~~ — **✅ COMPLETADA 2026-07-31** (Implementado `VantaEmbedded::count` con soporte de metadatos en SDK + CLI `count`) | ~~🟡 1-2d~~ | ✅ |
-| ~~`SDK-04`~~ | ~~**Multi-namespace search — Implementar desde cero**~~ — **✅ COMPLETADA 2026-07-31** (Implementado `search_multi` y `search_all` en SDK + CLI `search-multi`/`search-all`) | ~~🟡 4-7d~~ | ✅ |
-| ~~`SDK-05`~~ | ~~**Expanded metadata filters en SDK — Exponer 6 operadores**~~ — **✅ COMPLETADA 2026-07-31** (Implementado `matches_advanced_filters` con operadores Eq, Neq, Gt, Lt, Gte, Lte en listados y paginación) | ~~🟡 5-10d~~ | ✅ |
-| ~~`REC-001`~~ | ~~**[Foundation] Definir `VantaFilterOp` + `VantaMemoryFilter` types** — `VantaFilterOp` enum con 6 variantes (Eq, Neq, Gt, Lt, Gte, Lte), `VantaMemoryFilterItem` struct, `VantaMemoryFilter = Vec<...>`. Creado en `src/sdk/types.rs:106-126`, re-exportado desde `src/sdk/mod.rs`. `cargo check + clippy` ✅. **✅ COMPLETADA 2026-07-29.**~~ | ~~🟢 2-3h~~ | ✅ |
-| ~~`REC-007`~~ | ~~**WAL compaction + vacuum CLI** — Binding directo de funciones existentes (`VantaEmbedded::compact_wal()`, `VantaEmbedded::vacuum()`) a CLI. `vanta-cli wal compact` + `vanta-cli wal vacuum`. Sin lógica nueva. **Nuevo — identificado en auditoría 2026-07-28.** **✅ COMPLETADA 2026-07-29.**~~ | ~~🟢 1-2h~~ | ✅ |
-| ~~`REC-008`~~ | ~~**[Diseño] Incremental backup + PITR CLI**~~ — **✅ COMPLETADA 2026-07-31** (Diseño documentado, Fase A implementada agregando `MANIFEST.json` con integridad CRC32C a backups) | ~~🟡 1d~~ | ✅ |
-| ~~`REC-009`~~ | ~~**[Investigación] Analizar viabilidad PQ (Product Quantization)**~~ — **✅ COMPLETADA 2026-07-31** (Análisis completo documentado, viabilidad deferida) | ~~🟢 2-4h~~ | ✅ |
-| ~~`REC-010`~~ | ~~**py.typed marker + config maturin** — 2 `.pyi` stubs existían pero `py.typed` no. PEP 561 non-compliant. Creado `py.typed` + configurado `[tool.maturin] include` en `pyproject.toml`. **✅ COMPLETADA 2026-07-29.**~~ | ~~🟢 30min~~ | ✅ |
-| ~~`REC-999`~~ | ~~**Corregir `docs/progreso/README.md`**~~ — **✅ COMPLETADA 2026-07-31** (README de progreso actualizado y corregido con los hitos reales) | ~~🟢 30min~~ | ✅ |
 
 ### 🔍 Investigaciones Post-Consolidación
 
@@ -194,125 +111,725 @@ verified_by: "2026-07-27: vanta-lead ejecutó 8 tareas de P5/P6/P8. 2026-07-28: 
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
-| `INV-008` | **🔍 Batch Queries Python SDK — diseño** — `VantaDB.search_batch()` para ejecutar múltiples queries en paralelo vía Rayon. **Alcance:** (1) Definir API: `search_batch(queries: List[SearchRequest]) -> List[SearchResult]`, (2) Diseñar conversión eager a Rust types + `py.allow_threads` + Rayon parallel map, (3) Evaluar target: batch 10 queries < 3× single query latency, (4) Identificar si `VantaEmbedded` necesita método nuevo o wrapper. **Sin implementación — solo diseño.** | `vantadb-python/src/lib.rs`, `src/sdk/api.rs` | 🟡 1-2d | 🟡 |
-| `INV-009` | **🔍 Phrase Queries + Term Positions — diseño** — Implementar phrase query operator con almacenamiento de term positions para snippets destacados. **Alcance:** (1) Diseñar extensión del text index para almacenar term positions por documento, (2) Evaluar `tantivy` como backend vs storage custom en VantaFile, (3) Definir sintaxis de phrase query (comillas dobles en IQL), (4) Evaluar integración con `generate_snippet_with_highlighting` existente. **Sin implementación — solo diseño.** | `src/text_index.rs`, `src/sdk/search/snippet.rs`, `src/parser/` | 🟡 1-2d | 🟡 |
-| `INV-010` | **🔍 ACID rollback multi-capa completo — diseño** — VFY-010 y TASK-30 implementaron ACID Phase 1-2 (buffered writes + BEGIN/COMMIT/ABORT). Falta rollback coordinado entre WAL, VantaFile, HNSW y KV store. **Alcance:** (1) Mapear estado actual (qué capas tienen rollback y cuáles no), (2) Diseñar protocolo de two-phase rollback entre capas, (3) Evaluar Approach B del research `ACID_TRANSACTIONS.md` vs implementación actual, (4) Proponer plan de implementación por fases. **Sin implementación — solo diseño.** | `src/storage/engine/ops.rs`, `src/index/graph.rs`, `src/wal.rs` | 🟡 2-3d | 🟠 |
-| `INV-011` | **🔍 Core-Server Separation — auditoría** — Verificar si el core embebido (`VantaEmbedded`) tiene dependencias no deseadas del modo servidor (axum, tower, MCP). **Alcance:** (1) Escanear features de `Cargo.toml` que mezclan core vs server, (2) Identificar imports de server-only en `src/` (no en `vantadb-server/`), (3) Verificar si `default` features incluyen server deps, (4) Proponer separación limpia con feature gates. **Sin implementación — solo auditoría.** | `Cargo.toml`, `src/lib.rs`, `vantadb-server/Cargo.toml` | 🟡 1-2d | 🟡 |
-| `INV-012` | **🔍 Anti-Locality Disk Layout — re-evaluación** — DRV-130 T3 concluyó WONTFIX (~9% mejora, <20% threshold). Revisar si con los cambios recientes (LSM compaction, multi-level storage) el BFS relabeling tiene más impacto. **Alcance:** (1) Re-ejecutar benchmark con dataset SIFT 1M en la arquitectura actual (LSM + multi-level), (2) Comparar resultados con benchmark original de DRV-130 (2,440ms vs 2,221ms, ~9%), (3) Si mejora >15%, recomendar re-apertura. **Sin implementación — solo benchmark + recomendación.** | `src/index/graph.rs`, `tests/certification/`, `benches/` | 🟡 1-2d | 🟢 |
-| `INV-019` | **🔍 Advanced Tokenizer (Unicode + Stopwords) — investigación** — El tokenizer actual (`lowercase-ascii-alnum`) no soporta Unicode NFC, case folding no-ASCII, stopwords per-language, ni Snowball stemming. **Alcance:** (1) Evaluar integración de `tantivy-tokenizer` como backend opcional, (2) Investigar implementación custom lightweight con `unicode-segmentation` + stopword lists precompiladas, (3) Diseñar feature gate (`advanced-tokenizer`), (4) Estimar impacto en calidad de búsqueda (NDCG@10 con queries multilingües), (5) Comparar esfuerzo vs beneficio contra `unicode-normalization` + regex simple. **Sin implementación — solo investigación + propuesta.** | `src/text_index.rs`, `Cargo.toml`, `docs/api/ADVANCED_TOKENIZER.md` | 🟡 1-2d | 🟡 |
 
 ### 🌐 Web Frontend — Auditorías
 
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
-| `INV-013` | **🔍 JSON-LD structured data — auditoría** — Verificar si el sitio web tiene JSON-LD structured data para SEO. **Alcance:** (1) Revisar `layout.tsx` y `page.tsx` para `<script type="application/ld+json">`, (2) Verificar si Next.js Metadata API genera JSON-LD automáticamente, (3) Si falta: proponer schema.org/SoftwareApplication con keywords, description, author, (4) Evaluar herramientas de validación (Google Rich Results Test). **Sin implementación — solo auditoría + propuesta.** | `web/src/app/layout.tsx`, `web/src/app/page.tsx` | 🟢 2-4h | 🟡 |
-| `INV-014` | **🔍 Light mode (CSS muerto) — auditoría** — Verificar si el tema oscuro-only tiene CSS de light mode que no se usa. **Alcance:** (1) Revisar `globals.css` para variantes `light:` o `@media (prefers-color-scheme: light)`, (2) Verificar si `next-themes` está configurado con `attribute="class"` y si hay toggle funcional, (3) Si el CSS light mode existe pero es inaccesible: proponer eliminación o reactivación con theme toggle. **Sin implementación — solo auditoría + propuesta.** | `web/src/app/globals.css`, `web/src/components/vanta/theme-toggle.tsx`, `web/src/components/vanta/theme-provider.tsx` | 🟢 1-2h | 🟢 |
-| `INV-015` | **🔍 Touch targets < 44px — auditoría** — Verificar accesibilidad mobile: botones y enlaces deben tener mínimo 44×44px de área táctil. **Alcance:** (1) Inspeccionar componentes interactivos del sitio (botones, enlaces, icon buttons), (2) Medir tamaños actuales vs estándar WCAG 2.5.8 (44px), (3) Identificar componentes que no cumplen, (4) Proponer fixes con Tailwind `min-h-[44px] min-w-[44px]`. **Sin implementación — solo auditoría + propuesta.** | `web/src/components/vanta/*.tsx` | 🟢 2-4h | 🟡 |
-| `INV-016` | **🔍 Motion-duration tokens — auditoría** — Verificar si existe un sistema de tokens de animación consistente. **Alcance:** (1) Revisar `globals.css` para variables CSS de duración (`--duration-fast`, `--duration-normal`, etc.), (2) Revisar componentes que usan framer-motion para ver si las duraciones están hardcodeadas o usan tokens, (3) Si no hay sistema: proponer esquema de tokens (fast: 150ms, normal: 300ms, slow: 500ms) con CSS custom properties. **Sin implementación — solo auditoría + propuesta.** | `web/src/app/globals.css`, `web/src/components/vanta/page-transition.tsx`, `web/src/components/vanta/reveal.tsx` | 🟢 1-2h | 🟢 |
 
 ### ⚙️ CI & Tooling — Auditorías
 
+> **Origen 2026-08-12:** batch CI-01 de `docs/archive/EXTRACCION-DOC-OLD-2026-08-05.md` §4, verificado contra código real (Paso 0). ROOT1-007 (release catch-22) **resuelto** — `release-plz.toml` tiene `git_release_enable=true` (fa4c6849) y GitHub Release v0.5.0 publicado 2026-08-01. WF1-001 (RUSTSEC) **resuelto** — audit.toml removió 0176/0177. PLAN2-038 **resuelto** — publish-ts ya declara `needs: [publish-wasm]`. WF1-002/003/004 **categorizados** — sanitizers con `# CATEGORY: BEST-EFFORT` (conforme Regla 2).
+
 | ID | Descripción | Archivos | Esfuerzo | Prio |
 |----|-------------|----------|----------|------|
-| `INV-017` | **🔍 sccache en CI — investigación** — Los builds Rust en CI compilan desde cero cada vez (~8-10 min). sccache podría cachear compilaciones entre runs. **Alcance:** (1) Investigar compatibilidad de `sccache` con GitHub Actions + `Swatinem/rust-cache`, (2) Evaluar si son complementarios o redundantes, (3) Diseñar integración mínima (instalar sccache + configurar `RUSTC_WRAPPER`), (4) Medir impacto estimado en tiempo de CI. **Sin implementación — solo investigación + propuesta.** | `.github/workflows/ci-rust-10.yml`, `.github/actions/rust-setup/` | 🟢 2-4h | 🟡 |
+> **Sync 2026-08-12:** batch CI-02..07 ejecutado y migrado a `docs/progreso/README.md` (plan `docs/plans/archive/2026-08-12-ci-deuda.md`).
 
-> **Items removidos (1):** NUEVO-20 (Dockerfile ya existe en raíz del repo — multi-stage, Rust 1.94)
+### 🚀 Implementaciones derivadas de Investigaciones (agregadas 2026-08-04)
+
+> Items creados tras la verificación de 13 INV contra código real (sub-agentes, 2026-08-04). Cada fila referencia su doc de investigación.
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+
+### 🚨 Hallazgos de Auditoría Doc↔Código (agregados 2026-08-04)
+
+> Items creados tras la auditoría multi-agente completa (7 sub-agentes + verificación dirigida del padre) que comparó docs vs código real. Cada tarea sigue el proceso **Investigación → Análisis → Implementación**. El backlog indica qué cada fase debe entregar.
+
+| ID | Descripción (Investigación → Análisis → Implementación) | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+
+> **Items removidos (1):** ver `docs/progreso/BACKLOG_HISTORY.md` (P8).
 
 ---
 
 ## Phase 9: 📚 Old Docs Rescue — Reference Catalog
 
 > Recuperado de `VANTADB DOC OLD` (~280 archivos .md analizados vía 21 sub-agentes).
-> **Total:** 21 items, **13 activos** (8 ✅ removidos a progreso). **Estado:** 1 ⚠️ parcial, 1 ❌ pendiente, 2 ❌ justificado.
+> **Total:** 21 items, **1 activo** (OLD-01; 8 ✅ removidos a progreso, 12 migrados/cerrados). **Estado:** OLD-01 ❌ No implementado.
 > **Referencia completa:** `docs/REPORTE_EVALUACION_COMPLETO.md` secciones 6 y 7.
-> **Batch file map:** ver `docs/Backlog.md` sección Tier 5 original para archivos por batch.
+> **Items removidos a progreso (8):** ver `docs/progreso/BACKLOG_HISTORY.md` (P9).
 
 ### 🔴 Alta — Features perdidas con alto valor de mercado
 
+> **8 items ✅ removidos a progreso:** ver `docs/progreso/BACKLOG_HISTORY.md` (P9).
+
 | ID | Feature | Esfuerzo | Estado | Dependencias | Prioridad |
 |----|---------|----------|--------|--------------|-----------|
-> **8 items ✅ removidos a progreso:** OLD-04 (OpenTelemetry), OLD-07 (AutoHot/Cold tiering), OLD-13 (Explainable ranking), OLD-15 (Euclidean SIMD), OLD-16 (WAL rotation 256MB), OLD-17 (Migration guides), OLD-18 (TEMPERATURE param), OLD-22 (Arrow columnar export).
-
-| ID | Feature | Esfuerzo | Estado | Dependencias |
-|----|---------|----------|--------|--------------|
 | `OLD-01` | **PGWire (PostgreSQL wire protocol)** — Compatibilidad con psql, pgAdmin, ecosistema PG | 🟠 2-3 sem | ❌ No implementado | Ninguna | 🗺️ Roadmap |
-| ~~`OLD-02`~~ | ~~**GraphRAG pipeline formal** — seed → expand → retrieve → generate context. Ejemplo en `examples/rust/graphrag.rs`, no pipeline formal~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | DRV-123 (auto-embedding) recomendado | 🗺️ Roadmap |
-| ~~`OLD-03`~~ | ~~**Chaos testing (Jepsen/Maelstrom)** — `ChaosTestHarness` reutilizable, 6 failpoints (wal_append, storage_insert, mmap_flush, hnsw_serialize, edge_write, snapshot_serialize), docs `docs/chaos-testing.md`.~~ | ~~🟡 2-3 sem~~ | ~~✅ COMPLETADA~~ | Docker. WAL shipping existente | 🗺️ Roadmap |
-| ~~`OLD-08`~~ | ~~Life Insurance / snapshots hard-link — `SnapshotManager` + `FsSnapshot` con hard-link POSIX, `StorageEngine::create_snapshot()`/`list_snapshots()`, CLI, VantaEmbedded API. +failpoint `snapshot_create_fail`. Tests: instant, multiple, independence.~~ | ~~🟡 3-4d~~ | ~~✅ COMPLETADA~~ | Ninguna. Solo syscalls POSIX |
-| ~~`OLD-09`~~ | ~~Olvido Bayesiano (hit decay) — `EvictionPolicy` ahora soporta `BayesianDecay`: score Beta-Binomial α/(α+β), threshold configurable, 31 tests. Feature-gated `bayesian_decay`.~~ | ~~🟡 3-4d~~ | ~~✅ COMPLETADA~~ | Ninguna. `EvictionPolicy` existe |
-| ~~`OLD-10`~~ | ~~Sinapsis eléctrica (index-free adjacency) — `edge_index.rs` usa DashSet, no index-free adjacency nativa~~ | ~~🟡 1 sem~~ | ~~❌ Ya existe: `UnifiedNode.edges: Vec<Edge>` es index-free adjacency nativa. EdgeIndex es auxiliar para cascade delete~~ | Post-HNSW multi-capa |
-| ~~`OLD-11`~~ | ~~**CLI/TUI interactivo** — `vantadb tui` con ratatui + crossterm. 3 modos: Dashboard (stats engine), Monitor (queries live), REPL (queries interactivas con historial). Feature-gated `tui`.~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | Ninguna. Proyecto aparte |
-| ~~`OLD-12`~~ | ~~**Pilot program formal** — `docs/operations/PILOT_PROGRAM.md` actualizado (9 secciones), +3 templates: agreement, feedback, onboarding checklist.~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | PyPI publicado |
-| ~~`OLD-14`~~ | ~~MessageThread / GcWorker para agentic chat — `GcWorker` en `src/gc.rs` existe, MessageThread no~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | Ninguna. `GcWorker` existe |
-| ~~`OLD-16`~~ | ~~**WAL rotation a 256MB** — `WalWriter::try_auto_rotate()` en `append()`/`batch_append()`. 3 tests (trigger, no-trigger, data preservation). 52/52 WAL tests pass.~~ | ~~🟢 1d~~ | ~~✅ COMPLETADA~~ |
-| ~~`OLD-19`~~ | ~~**Rehidratación desde shadow archive** — `VantaEmbedded::recover_archived_nodes()`, MCP tool `rehydrate`, Python binding. Conecta `StorageEngine::recover_archived_nodes()` (6 tests existentes) a SDK público.~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | OLD-07 (AutoHot/Cold tiering) |
-| ~~`OLD-20`~~ | ~~Contextual Priming (cache warming predictivo) — ✅ COMPLETADA. Auto-decay cada 1000 eventos, métricas exportables, co-access tracking ya conectado en hot path.~~ | ~~🟢 2-3d~~ | ~~✅ COMPLETADA~~ | ~~Ninguna~~ |
-| `OLD-21` | CP-Index formal (query routing inteligente) — `CPIndex` existe como struct HNSW, no query routing formal | 🟡 1 sem | ⏳ Deferido — Routing texto/vector/híbrido ya existe en `planner.rs` (classify + CBO). Routing multi-índice (HNSW/IVF/Flat) depende de COMP-028 (Semantic Cost Estimator) | COMP-028 |
 
 ---
 
-## Phase 10: 🏗️ Competitive Features — Catalog
+## P14 — REVIEW items (hallazgos de `docs/reviews/review-full-2026-07-27-0309.md`, validado 2026-08-05)
 
-> **Fuente:** Análisis de 27 archivos de `VANTADB DOC OLD/` (9 vector DBs + 8 graph DBs + 10 arquitectura).
-> **Total:** 30 items, **18 activos.** 12 ✅ implementados removidos a progreso: COMP-001 (SQ8/PQ), COMP-002 (HNSW persist), COMP-003 (in-filter), COMP-004 (bitset), COMP-005 (params), COMP-006 (Edge Label Interning), COMP-007 (inline u128), COMP-010 (auto-embedding), COMP-011 (CRUD tombstones), COMP-015 (hybrid pipeline), COMP-018 (Double-linked chains), COMP-020 (RRF fusion), COMP-030 (survival mode).
-> **Reportes completos:** `docs/audit-reports/competitive-features-consolidated-report.md`, `docs/audit-reports/deep-analysis-{vector,graph,arch}.md`
+> **Origen:** findings de la unified-review full 2026-07-27, re-validados contra el código el 2026-08-05 (sub-agentes vanta-worker/vanta-docs). Los items marcados como corregidos en el report y confirmados se excluyen. `DEPS-01` ya cubre la duplicación de crates/lru; `AUDREP-41` cubre next-auth dead dep — no duplicados aquí.
 
-### 🔴 Alta — Features competitivas críticas para adopción
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
 
-| ID | Feature | Esfuerzo | Estado | Dependencias |
-|----|---------|----------|--------|--------------|
-| ~~`COMP-006`~~ | ~~**Edge Label Interning (u32 label_id)** — `edge_label` es `String`, no u32 internado~~ | ~~🟢 ~2d~~ | ~~✅ COMPLETADA~~ | ~~Ninguna~~ |
+---
 
-### 🟠 Media-Alta — Features competitivas importantes
+## Phase 16: 🧩 Completitud de Features & Docs (de investigación multi-agente 2026-08-09)
 
-| ID | Feature | Esfuerzo | Estado | Dependencias |
-|----|---------|----------|--------|--------------|
-| ~~`COMP-008`~~ | ~~**Pluggable index engine (VecIndex trait)** — `VecIndex` trait definido con `search`/`add`/`len`/`estimate_memory_bytes`. Implementado para CPIndex (HNSW) e IvfIndex. `vector_memory_search` usa `engine.vec_index()`. 1679 tests ✅. 🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | ~~Pre-COMP-027~~ |
-| ~~`COMP-009`~~ | ~~**Binary bulk import (5-10x faster than INSERT)** — `bulk_import_stream()` + `bulk_import_file()` + `bulk_import_bytes()` en core Rust, Python, WASM. Formato `VDBJSON\n` header + serde_json body. Bypass per-record validation, batch commit, 3 tests. ✅ COMPLETADA~~ | ~~🟢 3-4d~~ | ✅ | Ninguna |
-| ~~`COMP-010`~~ | ~~**Auto-embedding (embedding function abstraction)** — Trait `EmbeddingProvider` + `OllamaProvider` + `OpenAIProvider`. Factory `get_embedding_provider()` vía `VANTA_EMBEDDING_PROVIDER`. ✅ COMPLETADA | 🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | ~~DRV-123~~ |
-| ~~`COMP-012`~~ | ~~**RoaringBitmaps for metadata indexing** — `FilterBitset` migrado a `croaring::Bitmap`. 19/19 tests ✅, serializado ~10× más pequeño. `DiskNodeHeader` intacto (u128).~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | Pre-COMP-003 ✅ |
-| ~~`COMP-013`~~ | ~~**Segment optimizer pipeline (Vacuum/Merge/Index)** — `PipelineMode`, `VacuumReport`, `MergeReport`, `PipelineReport`, `SegmentOptimizerConfig`, `vacuum()`, `merge_segments()`, `run_pipeline()` + SDK API + 77 tests. ✅ COMPLETADA~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | ~~COMP-004, COMP-011~~ |
-| ~~`COMP-014`~~ | ~~**FreshHNSW (background repair de enlaces huérfanos)** — `repair_orphan_links()` en CPIndex (three-phase: snapshot → scan → repair). `FreshHnswReport`, `PipelineMode::FreshHnswOnly`, pipeline phase, 4 tests. Fix: deadlock DashMap. ✅ COMPLETADA~~ | ~~🟡 1 sem~~ | ~~✅ COMPLETADA~~ | ~~COMP-004, COMP-011~~ |
-| ~~`COMP-016`~~ | ~~**Supernode mitigation (indexed relationships)** — `label_index: HashMap<u32, Vec<u128>>` en `UnifiedNode`. `bfs_traverse_filtered`/`dfs_traverse_filtered` en `GraphTraverser`. `graph_bfs_filtered`/`graph_dfs_filtered` en SDK, WASM, Python. 6 tests. ✅ COMPLETADA~~ | ~~🟢 3-5d~~ | ~~✅ COMPLETADA~~ | ~~COMP-006~~ |
-| ~~`COMP-017`~~ | ~~**Accumulators for parallel graph algorithms** — `GraphAccumulator` con `AtomicU64` lock-free, `traverse_with_accumulator` en `GraphTraverser`, SDK API, 6 tests. ✅ COMPLETADA~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | Ninguna |
-| ~~`COMP-018`~~ | ~~Double-linked relationship chains — Relaciones dirigidas simples, sin doble enlace — **✅ COMPLETADA** — Rust SDK (4 métodos con direction param), bindings WASM + Python, 33 graph tests pasan~~ | ~~🟡 1-2 sem~~ | ~~✅~~ | COMP-006 |
-| `COMP-019` | Binary protocol (rkyv/FlatBuffers over gRPC) — Solo HTTP JSON. rkyv usado internamente en serialización | 🟡 1-2 sem | ⚠️ Parcial (rkyv interno sí) | Ninguna |
-| `COMP-021` | Temporal edges (timestamp-aware relationships) — Sin timestamp-aware edges | 🟡 1 sem | ❌ No implementado | Ninguna |
-| ~~`COMP-022`~~ | ~~**Graph Data Science library (PageRank, centrality)** — `GraphDataScience` con `page_rank()` + `degree_centrality()`, SDK API, Python bindings, 7 tests. ✅ COMPLETADA~~ | ~~🟡 2-3 sem~~ | ~~✅ COMPLETADA~~ | ~~COMP-017~~ ✅ |
-| ~~`COMP-023`~~ | ~~**3 filtering strategies (pre/post/in-index)** — `FilterStrategy::PreFilter/InFilter/PostFilter` con selector por joint selectivity. PreFilter (< 1%): scan+brute-force. InFilter (1-10%): query_mask via HNSW. PostFilter (≥ 10%): vector→filter. 1589 tests ✅.~~ | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | COMP-003 ✅, COMP-012 ✅, COMP-028 (diferida) |
-| ~~`COMP-024`~~ | ~~**ACORN algorithm (second-hop filtered search)** — `acorn_expansion` param en + `search_layer()` con 2-hop expansion. 3 tests: exp | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | COMP-003 ✅, COMP-023 ✅, COMP-012 ✅ |
+> Origen completo: `docs/research/investigacion-equipo-2026-08-09.md`. **Ejecutada 2026-08-09 por plan `docs/plans/archive/2026-08-09-backlog-pipeline.md` — 19/19 tareas ✅** (FEAT-01..07, REVISAR-01, COV-001/003/004, PERF-01/04/06, DOC-02..08; RELEASE-01/02/03 + SEC-01 en Wave 0). Commit por feature en `docs/progreso/README.md`. Residuales viven en sus secciones: `CI-01` (hallazgos pendientes/CI), `REVIEW-05` (P14).
 
-### 🟡 Medio — Features de madurez y ecosistema
+---
 
-| ID | Feature | Esfuerzo | Estado | Dependencias |
-|----|---------|----------|--------|--------------|
-| ~~`COMP-025`~~ | ~~**JSON shredding (dynamic schema to columns)** — Phase 1: schema inference + columnar storage + filter integration. Phase 2: typed comparison filters (Gt/Lt/Gte/Lte/Neq). `matches_shredded` con 6 operadores, 13 tests.~~ | ~~🟡 2-3 sem~~ | ~~✅ COMPLETADA~~ | Ninguna |
-| ~~`COMP-026`~~ | ~~**Multi-level LSM compaction (L0→L1→L2→L3)** — SegmentRegistry, compact_level(), PipelineMode::CompactOnly/L0Only in run_pipeline. 13+ archivos modificados. `cargo check -p vantadb` ✅~~  | ~~🟡 1-2 sem~~ | ~~✅ COMPLETADA~~ | COMP-013 |
-| ~~`COMP-027`~~ | ~~**Multiple index types (IVF, DiskANN, SCANN)** — FlatIndex (brute-force), DiskAnnIndex (Vamana graph + robust pruning), ScannIndex (SQ8 scalar quantization). IndexType enum extendido: `Flat`, `DiskAnn`, `Scann`. `create_index()` factory. 15 tests pasan.~~ | ~~🟠 5-10d~~ | ~~✅ COMPLETADA~~ | ~~COMP-008~~ |
-| `COMP-028` | Semantic Cost Estimator (SCE) — `governor.rs` tiene rate limiting, sin cost estimator | 🟡 2 sem | ❌ No implementado | DRV-121/122 |
-| `COMP-029` | **Node.js/TS bindings via napi-rs** — `vantadb-ts` usa WASM, no napi-rs nativo. **Investigación Jul 29:** ✅ Recomendado como backend ADICIONAL a WASM (no reemplazo). 80% reutilizable de `vantadb-python` (mismo patrón `VantaEmbedded.clone()`). Persistencia real (fjall/WAL/fsync) en Node.js — WASM no puede. Sin breaking changes en API pública. ~1500 líneas nuevas, ~2-3 sem. Browser se queda con WASM. | 🟡 2-3 sem | ⚠️ Investigado, listo para implementar | Ninguna |
+## Phase 11: 🧠 Embeddings Local-First — 0 — ✅ 9/9 COMPLETADA 2026-08-28
+
+> **Cerrada 2026-08-28 — 9/9 EMB-01..09** (commits `2c185021`→`d24eeb1c`, plan `docs/plans/2026-08-28-embeddings-local.md`): `embeddings/` + `embed-local` (ort+tokenizers) + `vanta-memory` L1 + MCP `embed_texts` + SQL auto-embed + bench + docs + Qwen3 excepción. Registro en `docs/avance/activo/core-engine.md` §Phase11 + `backlog-history.md`. Plan archivado `docs/plans/archive/2026-08-28-embeddings-local.md`.
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+| — | — | *Sin tareas activas — 9/9 EMB archivadas (ver historial)* | — | ✅ |
 
 ---
 
 ## Referencias Cruzadas
 
-- **RC items:** `docs/reviews/PROJECT_FULL_REVIEW_2026-07-13.md` (generado por `vantadb-full-review` skill)
+- **RC items:** PROJECT_FULL_REVIEW_2026-07-13 (ARCHIVADO - generado por vantadb-full-review; ver docs/reviews/)
+> **Nota GOV-C3 2026-08-22:** los reportes citados en esta seccion (audit-reports/*, REPORTE_EVALUACION_COMPLETO.md, FULL_CODEBASE_AUDIT_2026-07-11, PROJECT_FULL_REVIEW_2026-07-13) fueron disueltos/archivados; contenido procesado en docs/reviews/ y BACKLOG_HISTORY.md. Rutas = referencia historica.
 - **REV items:** `docs/reviews/2026-07-13-full-review.md`
 - **DRV findings:** `docs/plans/2026-07-15-cross-ref-docs-vs-code.md` + `docs/audit-reports/cross-ref-wave3-final-report.md`
 - **OLD items:** `docs/REPORTE_EVALUACION_COMPLETO.md` secciones 6 y 7 — ~280 archivos VANTADB DOC OLD analizados
 - **COMP items:** `docs/audit-reports/competitive-features-consolidated-report.md` + `docs/audit-reports/deep-analysis-{vector,graph,arch}.md` — 27 archivos, 172 features, top 30 priorizados
 
-=== RECITATION ===
-Session: 2026-07-28 — SDK Gap Audit + Recovery Plan
-Campaign: auditoría-sdk-2026-07-28
-Objetivo: Investigar 12 puntos sobre SDK/CLI missing features contra código real y git history.
-Estado: ✅ COMPLETED
-Hallazgo clave: delete_by_filter(), count(), similar_to_key() NUNCA existieron como SDK — solo CLI handlers eliminados en AUD-09 (e9371ea8). Multi-namespace solo en tipos de output report.
-Outputs:
-- `docs/plans/2026-07-28-recovery-plan.md` — plan detallado (37KB, 11 tasks, 4 fases)
-- `docs/Backlog.md` Phase 8 — SDK-01 a SDK-05 existentes + REC-001, REC-007–010, REC-999 agregados (líneas 152-162)
-Corrección al plan: SDK-01/02/03/04/05 YA estaban en backlog (no REC-002/003/004/005/006).
-IDs finales: REC-001 (foundation types), REC-007 (WAL CLI), REC-008 (backup design), REC-009 (PQ analysis), REC-010 (py.typed), REC-999 (progreso fix)
-Próxima acción sugerida: Ejecutar REC-010 primero (🟢 30min), después REC-001 (foundation types)
-Contrato: Plan recuperación + backlog actualizados. Plan referencias REC IDs internas, backlog usa SDK-XX + REC-XX.
-=== END RECITATION ===
+---
+
+
+
+## Hallazgos pendientes de reportes
+
+Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/audit-full-20260812-231204.md` (2026-08-12).
+
+| ID | Severidad | Hallazgo | Archivo:línea | Esfuerzo | Prioridad | Estado |
+|----|-----------|----------|---------------|----------|-----------|--------|
+| `FIND-96` | Media | cargo audit: rustls 0.23.43 acepta mensajes handshake TLS 1.3 en niveles de cifrado incorrectos (RUSTSEC-2026-0285, CVSS 5.3) — bump a >=0.23.45 vía `cargo update -p rustls` + re-run audit. Origen: docs/reviews/audit-quick-20260916-061609.md (H01-CODE-002) | `Cargo.lock:4798`, `Cargo.toml` (cadena reqwest/hyper-rustls/tokio-rustls) | 🟢 | 🟡 Media | ✅ Completada 2026-09-16 (`cargo update -p rustls` 0.23.43→0.23.45 + webpki/aws-lc; audit ya no reporta RUSTSEC-2026-0285; `check --workspace --tests` 2m12s ✅) |
+| `FIND-97` | Media | cargo audit: rsa 0.9.10 vía jsonwebtoken 11.0.0 — Marvin Attack sidechannel (RUSTSEC-2023-0071, CVSS 5.9), sin fix upstream. Exposición acotada (JWT HS256-only, `src/server/jwt.rs:9,64-67`, path RSA no ejercido; `rsa` entra solo vía feature `rust_crypto` de jsonwebtoken — cadena única verificada con `cargo tree`) — evaluar cambiar feature `rust_crypto` → `aws_lc_rs` para dropear el crate `rsa` (contrapartida: compila C, build más pesado) o aceptar riesgo con justificación. Origen: docs/reviews/audit-quick-20260916-061609.md (H01-CODE-001) | `src/server/jwt.rs`, `Cargo.lock:4740` | 🟢 | 🟡 Media | ✅ Completada 2026-09-16 (opción A: espejado triage AST-007 de deny.toml a `.cargo/audit.toml` + `cargo audit` exit 0; swap a `aws_lc_rs` descartado: mete compilación C para un riesgo inalcanzable) |
+| `FIND-98` | Media | Binario `vanta-cli` instalado (2026-08-23) stale: sirve 79 tools vs 87 del fuente (re-chequeado 2026-09-18: instalado 79, fuente 87 tras FIND-107 S1-S3 + FIND-111) — faltan `memory_search/recall/versions/supersede`, `search_with_method/multi`, `thread_*` (6, memoria episódica ausente vía agente), `scene_*` (3), `context_assemble`, `snapshot_create/restore`, `vacuum`, `embed_texts`, `remove_edge`, axiomas write/delete. Fix: reinstalar desde fuente (`cargo install --path` o copiar `target/debug/vanta-cli.exe` 2026-09-16) re-chequear lock en runtime (el PID 3864 de 2026-09-16 puede haber muerto); si sigue bloqueado -> STOP con motivo, no forzar. Origen: verificación MVP 2026-09-16 (diff tools/list 79 vs 56 + Copy-Item bloqueado) | `C:/Users/Eros/.cargo/bin/vanta-cli.exe`, `target/debug/vanta-cli.exe` | 🟢 | 🟡 Media | re-DEFER 2026-09-19 (STOP contractual retry: rebuild par con embed-local verificado — fuente 87 + `fallback:false` + test-mcp 5/5 — pero reinstall bloqueado lock 2/2, PIDs vivos 23396/17036; copiar el par `target/debug` cuando liberen; task `docs/tasks/FIND-98.md`, commits `4187eabf`+`8d7d1bbf`) |
+| `EMB-10` | Alta | Build con `embed-local` (+`remote-inference`) + runtime-switchable por config + cat test semántico (plan embeddings-auto Wave0; desbloquea EMB-11..20; NO instalar global: PID 3864) | `Cargo.toml:105-116`, `src/llm.rs`, `docs/tasks/EMB-10.md` | 🟡 | 🔴 Alta | ✅ Completada 2026-09-16 (build 13m36s + fix `token_type_ids` en `run_onnx` + cat pares ≥0.91 vs impares ≤0.78 + matriz switch 3 casos; commit `a0f65d29`; review P2-01 approve) |
+| `FIND-118` | Media | Remover alias legacy `vantadb_py` en 0.6.0 (cierra migracion temporizada H-09/PY-03): hoy `vantadb/__init__.py:1-16` es canonico silencioso y `vantadb_py/__init__.py:1-21` emite DeprecationWarning con timeline 0.6.0 (contrato `tests/test_import_alias.py`). Alcance: (1) borrar o reducir `vantadb_py/__init__.py` a error claro, (2) migrar consumidores internos restantes (`benchmarks/*.py`, `integrations/*/vectorstore.py` + `store.py`/`checkpointer.py`/`memory.py`, CI `release-wheels-60.yml:111-128` + `perf-bench-40.yml:69-70` + `ci-examples-12.yml:80-115`, `dev-tools/setup_venv.*` + `validate_python_sdk.*`, `docs/tutorials/*`, `examples/colab/*.ipynb`, `evals/memory_bench.py`, `docs/vision/VISION.md:69`), (3) reescribir `test_import_alias.py` (legacy pasa de warn a error/ausencia), (4) docs + notas release. Trigger: al abrir ventana 0.6.0 (release triage semver 0.6.x). Dep: FIND-114/116 (ejemplos ya en `Client`), FIND-119 (mirrors). Origen: H-09 (`decisions.md:92`) + PY-03 + verificacion 2026-09-18 (0 filas en Backlog: timeline declarada en codigo sin tarea) | `vantadb-python/vantadb_py/__init__.py`, `vantadb-python/tests/test_import_alias.py`, `benchmarks/`, `integrations/*`, `.github/workflows/release-wheels-60.yml` | 🟡 | 🟡 Media | ⬜ Pendiente (trigger 0.6.0) |
+| `FIND-120` | Alta | Onboarding auto-index al instalar (producto de MGR-22): el wizard ofrece "indexar este repo" -> scan gitignore-aware (codigo+docs+ADRs, sin dist/node_modules/locks) -> chunking por simbolo (Tree-sitter, no por lineas) -> `wiki_ingest` + escena repo-map (estructura/stack/comandos/owners) + hook que re-indexa lo cambiado. Fases: (R1 web) Cursor Merkle+content-hash+reuso indices, Continue (SQLite catalog+tree-sitter+gitignore, tablas por branch), Aider repo-map (tags+PageRank+budget 1k+cache), Graphiti/Zep KG temporal, Cognee ETL, graphify-alternatives (URL aportada por owner, verificar contenido en DISCOVERY); (R2 codigo) `src/wiki/sources.rs:82` (hoy solo .md), `vantadb-mcp/src/code.rs` (8 tools code_*, BFS-1, `code_files` NO soportado), `skills/vantadb-mcp/assets/hooks/` (4 clientes + tests 50/50), `setup-embeddings.ps1` (wizard a extender); (analisis) matriz coverage-vs-costo por superficie (wiki/grafo/scenes/threads); (propuesta) flujo 5 pasos + metrica recall@k + tiempo-a-primer-recall-util; (plan) slices scan->chunk->ingest->scene->watcher; (impl) con tests + secretos fuera del indice (denylist+scan previo, patron G0 IMPL-112). Riesgos honestos: primera indexacion lenta en repos grandes, ruido (curaduria/inbox existente), secretos. Dep: MGR-22 (repo-map research), FIND-104 (wizard), FIND-106 (hooks), MGR-25 (formatos). Origen: analisis integral 2026-09-18 (puntos 8/13) | `setup-embeddings.ps1`, `src/wiki/sources.rs`, `vantadb-mcp/src/code.rs`, `skills/vantadb-mcp/assets/hooks/` | 🟠 | 🔴 Alta | ⬜ Pendiente |
+| `FIND-121` | Media | Cache de embeddings/resultados con TTL (analogo legitimo de KV-cache; el KV-cache clasico NO aplica: VantaDB no hace decoding autoregresivo, ORT local es forward-only). (R1 web) vLLM APC/prefix-caching, PagedAttention, GQA/MQA/CLA, eviccion H2O/SnapKV; (R2 codigo) `src/storage/engine/cache.rs:21-34` (`CacheLayer`: volatile LRU + text_stats + cardinality + warmer, `pub(crate)` sellado) + `src/metrics/core/mod.rs` (`volatile_cache_entries`) — verificar en DISCOVERY que no exista ya cache texto->vector ni query->hits; (analisis) que cachear (embeddings, recall por query+top-k+filters, contexto proxy) vs que no (KV por token: humo); (propuesta) LRU+TTL + invalidacion por namespace; (plan) slices embed-cache -> recall-cache -> proxy-context; (impl) medir hit-rate en trafico hooks + p99 sin regresion. Origen: analisis integral 2026-09-18 (punto 7) | `src/storage/engine/cache.rs`, `src/metrics/core/mod.rs` | 🟢 | 🟡 Media | ⬜ Pendiente |
+| `FIND-122` | Media | Router determinista de retrieval por tipo de query (version honesta de 'MoE para VantaDB'; MoE neuronal NO aplica: sin entrenamiento ni serving LLM local). (R1 web) DeepSeek-V3 (671B/37B activos, auxiliary-loss-free), Mixtral 8x7B (top-2), Expert-Choice routing; (R2 codigo) paths hibridos BM25+HNSW+RRF (`src/index/search/layer.rs`, `src/api/scores.rs`), recall-policy FIND-103 + traductor temporal; (analisis) routing keyword/vector/grafo/temporal + seleccion provider/runner por idioma/fuente; (propuesta) reglas + search_profile primero, gating aprendido SOLO con harness; (plan) diseno + tests; (impl) CONDICIONAL con Gate V: solo tras EXE-02 (harness LoCoMo) con recall@k/latencia sin regresion — hacer 'MoE' sin metricas seria arquitectura sin termometro. Dep: EXE-02 (OBLIGATORIA pre-impl), MGR-19. Origen: analisis integral 2026-09-18 (puntos 6/11) | `src/index/search/`, `src/api/scores.rs`, `skills/vantadb-mcp/references/recall-policy.md` | 🟡 | 🟡 Media | ⬜ Pendiente (research+diseno ya; impl tras EXE-02) |
+| `EMB-11` | Alta | Asistente de instalación con defaults (Q1/Q2: 3 verificados + resto avisado; secrets nunca a disco) | `setup-embeddings.ps1` (nuevo), `embeddings/`, `docs/tasks/EMB-11.md` | 🟡 | 🟠 Media-Alta | ✅ Completada 2026-09-16 (`-NonInteractive` exit 0 + `download.py --check` verde + ORT 1.30 store persistente; commit `a3c4d903`; review P2-01 approve) |
+| `EMB-12` | Alta | Script lanzador (env + arranque MCP, `--db` explícito) | `vanta-mcp-local.ps1` (nuevo), `opencode.jsonc`, `docs/tasks/EMB-12.md` | 🟢 | 🟠 Media-Alta | ✅ Completada 2026-09-16 (params `-DbPath` mandatory + env sesión + ORT autodetect + smoke vivo `initialize` OK/`tools/list` 79/`embed_texts` dim==384; commit `f80b9886`; review P2-01 approve) |
+| `EMB-13` | Alta | `embed_texts` al proveedor real + fallback avisado `"fallback": true` (núcleo FIND-99, Q5) | `vantadb-mcp/src/handlers/tools.rs:2607`, `docs/tasks/EMB-13.md` | 🟡 | 🔴 Alta | ✅ Completada 2026-09-16 (vía provider real par 0.9282 vs impares 0.8427/0.8366 + `fallback:true`+warning sin modelo + budgeting intacto + 7/7 ambas cfgs + full MCP 181/181; commit `ad8af1d1`; review P2-01 approve) |
+| `EMB-14` | Alta | Auto-embed en `memory_put`/`put_batch` (respeta vector provisto; fallo → guarda + aviso) (cierra FIND-99 con EMB-13) | `vantadb-mcp/src/handlers/tools.rs`, `docs/tasks/EMB-14.md` | 🟡 | 🔴 Alta | ✅ Completada 2026-09-16 (auto-embed vía 1 `embed_batch` + provisto byte-exacto + `fallback:true`+warning + señal real par 0.9282; commit `11de0d42`; review P2-01 approve) |
+| `EMB-15` | Media | Embed de query con el mismo proveedor + prueba sinónimos (FIND-99) | `vantadb-mcp/src/handlers/tools.rs`, `docs/tasks/EMB-15.md` | 🟡 | 🟠 Media-Alta | ✅ Completada 2026-09-16 (query vía `embed_query` activo + sinónimos felino↔gato + keyword avisado sin proveedor; commit `9f4fd725`; review P2-01 approve) |
+| `EMB-16` | Media | Prefijos e5 (`query:`/`passage:`) por familia + margen medido | `src/llm.rs`, `docs/tasks/EMB-16.md` | 🟢 | 🟡 Media | ✅ Completada 2026-09-16 (`embed_query` default + familia por substring + margen asimétrico 0.1204 (+48%) + llm 14/14 + clippy 0; commit `be6a3c27`; review P2-01 approve) |
+| `EMB-17` | Media | Parámetro `model` honrado (caché por modelo + error claro; Q2) | `vantadb-mcp/src/handlers/tools.rs`, `src/llm.rs`, `docs/tasks/EMB-17.md` | 🟡 | 🟡 Media | ✅ Completada 2026-09-16 (switch por id manifest + caché tope 2 avisado + error lista válida + download hint; commit `34b6ca63`; review P2-01 approve) |
+| `EMB-18` | Media | Regla una-dim-por-base: error claro + comando reindex (Q4, nunca auto silencioso) | `vantadb-mcp/src/server.rs`, `docs/tasks/EMB-18.md` | 🟢 | 🟡 Media | ✅ Completada 2026-09-16 (4 gates put/put_batch/search_semantic/parse_search + helper `dim_mismatch_guidance` + 2 tests + base vacía sin gate; commit `43405be3`; review P2-01 approve) |
+| `EMB-19` | Alta | Verificación e2e + reinstalación coordinada (matriz local/ollama/openai condicional) | `~/.cargo/bin/vanta-cli.exe`, `docs/tasks/EMB-19.md` | 🟡 | 🔴 Alta | ✅ Completada 2026-09-16 (rebuild final + cat 0.9158 vs 0.8427/0.8423 + suites mcp/memory verdes + test-mcp 4/4×3 + reinstall 79 vía PATH; commit `a5d549af`; review P2-01 approve) |
+| `EMB-20` | Baja | Docs: README tabla + MCP doc + SKILL (Regla 11) | `embeddings/README.md`, `docs/api/MCP.md`, `docs/tasks/EMB-20.md` | 🟢 | 🟢 Baja | ✅ Completada 2026-09-16 (tabla 9 modelos + 3 proveedores + dim-gate + `embed_texts` real + coverage 0 gaps; commit `46992d8c`; review P2-01 approve) |
+| `FIND-99` | Media | `embed_texts` dummy + sin auto-embed MCP (épica padre: la cierran EMB-13+EMB-14) | `vantadb-mcp/src/handlers/tools.rs:2607`, `src/llm.rs`, `embeddings/models/` | 🟡 | 🟡 Media | ✅ Completada 2026-09-16 (EMB-13 `ad8af1d1` proveedor real + EMB-14 `11de0d42` auto-embed; ver avance bindings) |
+
+*Campaña FIND 2026-09-15/16: 31 filas completadas migradas a `docs/avance/` (ver `meta.md`); FIND-76 SKIP → `historial/backlog-history.md`.*
+
+---
+
+## P17 - Mejoras del task-system (de REPORTE-FINAL 2026-08-10 §3.3/§3.5)
+
+> Items §3.3 (FALTA, cobertura 0-30%) y §3.5 (MAL/CONTRADICTORIO) de `docs/research/2026-08-10-agent-engineering/REPORTE-FINAL.md` no asignados a los planes P0-P3 (Task 14 de `docs/plans/archive/2026-08-10-docs-task-system-consolidation.md`). **TSYS-01..05, 07..11, 13..16 implementados 2026-08-11 → migrados a progreso** (plan `docs/plans/archive/2026-08-11-residuo-consolidado.md`). Pendientes: TSYS-06 (runner DEFER) y TSYS-12 (runtime opcional, NO gate-CI). Los de runtime con datos dependen de Task 2 (poblar `verify-log.jsonl`).
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+
+---
+
+## P18 - Gaps residuales del task-system (re-verificados 2026-08-12, para investigación y decisión)
+
+> Re-verificación post-auditoría de `docs/research/2026-08-10-agent-engineering/` (10 sub-agentes, reporte consolidado en `docs/reviews/audit-agent-engineering-2026-08-11.md`). Los 48 ❌ brutos se redujeron a **8 gaps reales** tras descartar falsos negativos (ADR gate, DMAIC, 2-sombreros, merge-a-main-DoD), DEFER con fecha (P3-2 calibración, P3-3/P3-9 mutation) y cosméticos. Los 7 gaps TIR (investigados 2026-08-17, docs en `docs/research/TIR-*.md`) tienen decisión registrada en la columna Estado; NO son tareas de implementación directa. **Follow-ups pendientes de las decisiones:** (a) TIR-02 — implementar recovery time en `evals/dora.mjs` (~30 líneas); (b) TIR-04 — formalizar contenedor de tareas fallidas (`tasks/closed/` + regla re-procesamiento `pending` + índice `rg "❌ FAILED"`); (c) TIR-08 — criterios 1-2 en `research-agent.md` (~6 líneas).
+
+| ID | Descripción | Origen (doc:línea) | Afecta | Esfuerzo | Prio | Estado |
+|----|-------------|--------------------|--------|----------|------|--------|
+
+---
+
+## P19 - Mejoras del sistema de agentes (recomendaciones multi-agente 2026-08-14)
+
+> Revisión de los 9 agentes en `.opencode/agents/` (2026-08-14): Output Templates, skills §6, bloques `permission:`, bloque §7 duplicado y delegación DISCOVERY. Evidencia con `file:línea` en cada fila. R1-R3/R7/R9 son los de mayor impacto; R4 es decisión registrada (NO hacer).
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+
+
+
+
+
+
+
+
+---
+
+## P21 - Skills de VantaDB (`skills/`) — ✅ Cerrada (2026-08-17)
+
+> **CERRADA 2026-08-17:** 4/4 tareas ejecutadas. SKL-01/02/03 implementadas (docs + scripts), SKL-04 gate P2-01 emitido (CHANGES-REQUIRED con 1 falla de docs — "4 resources" vs 2 reales — fix aplicado por SKL-02 y re-verificado 4/4 exit 0). Verificado por el lead: `test-mcp.py` 4/4 exit 0 contra `vanta-cli.exe` v0.5.0 (15 tools, 2 resources, 4 prompts). Plan archivado: `docs/plans/archive/2026-08-17-skills-vantadb.md`. Task files: `.opencode/skills/campaign-executor/tasks/SKL-0{1,2,3,4}.md` (✅). Detalle en `docs/progreso/README.md`.
+
+## P22 - Certificación del MCP server vs skill `vantadb-mcp` (2026-08-17)
+
+> **Origen:** batería de pruebas exhaustiva (4 sub-agentes vanta-worker en paralelo, JSON-RPC 2.0 stdio contra `vanta-cli server --mcp --db <temp>`, binario 0.5.0 en PATH, DBs temporales aisladas, asserts por afirmación documentada de la skill). Resultados por área: **Memoria CRUD 17/17 ✅ · Collections 12/12 ✅ · Grafo/IQL 25/25 ✅ · Búsqueda 12/20 ❌ (8 FAIL = 4 bugs reales + discrepancias)**. Las skills son copia exacta (hash SAME) de las versionadas en `skills/vantadb-mcp/` (wave SKL). Los 4 bugs del server están trazados al código fuente (root causes abajo). Scripts de prueba (re-ejecutables, autocontenidos): `C:\Users\Eros\AppData\Local\Temp\opencode\test-{memoria,busqueda,grafo,collections}.py`. **Orden de ejecución:** Bloque 1 (server) primero → Bloque 2 (doc ya sincronizada a la realidad) → Bloques 3-5 en paralelo (vanta-docs).
+> **⚠️ Regla de edición de skills (aplica a Bloques 2-5):** la fuente de verdad **versionada** es `skills/vantadb-mcp/` (commit `61381d29`, wave SKL) — editar SIEMPRE ahí. `.opencode/skills/vantadb-mcp/` es la **copia runtime sin versionar** que OpenCode usa para resolver `skill <nombre>` (lookup: `.opencode/skills/` primero) y las rutas relativas de SKILL.md (`../../docs/api/MCP.md` etc.) solo resuelven desde `skills/`. Después de editar, **copiar los archivos tocados a `.opencode/skills/vantadb-mcp/`** para que ambos lados queden idénticos (hash SAME) antes de cerrar la tarea.
+
+### Bloque 1 — Bugs del server MCP (código, vanta-arch/vanta-worker) — BLOQUEANTES
+
+> Problema actual: la skill declara disponibles features de búsqueda lexical/híbrida que **fallan siempre** vía MCP en DB fresca, y 3 discrepancias de comportamiento más. El MCP server (`vanta-cli server --mcp`) es la vía canónica para agentes (OpenCode/Claude/Cursor) — estos bugs rompen el contrato documentado. Delegar diseño del fix S1 a vanta-arch (dónde llamar `ensure_indexes_current`) y S2-S4 a vanta-worker.
+
+| ID | Descripción (Problema actual → Acciones → Resultado a obtener) | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+
+### Bloque 2 — Discrepancias skill ↔ realidad (docs, vanta-docs — DESPUÉS del Bloque 1)
+
+> Problema actual: la skill `skills/vantadb-mcp/SKILL.md` documenta features como disponibles que el server no cumple (o al revés). Dependencia: ejecutar DESPUÉS de los fixes del Bloque 1 para documentar la realidad ya corregida; si un fix del Bloque 1 se difiere, marcar la feature como limitada en la skill (nunca dejar el claim falso).
+
+| ID | Descripción (Problema actual → Acciones → Resultado a obtener) | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+
+### Bloque 3 — Deficiencias de la skill (cosas que no explica — vanta-docs)
+
+> Problema actual: un usuario que integre contra el MCP server no puede descubrir la sintaxis IQL real, el envelope de respuestas, ni los comportamientos de borde — la skill documenta nombres/params/shapes pero no cómo usar el protocolo en la práctica. Estos fueron los mayores fricciones en las 4 baterías de prueba.
+
+| ID | Descripción (Problema actual → Acciones → Resultado a obtener) | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+
+### Bloque 4 — Referencias muertas / rotas en la skill (vanta-docs)
+
+> Problema actual: la wave SKL eliminó `config-template.json` y `create-namespace.py` (tool inexistente) pero SKILL.md aún los referencia; `test-mcp.py` cambió su interfaz (binario por argv/`VANTADB_MCP_BIN`) sin documentarlo. Un lector sigue instrucciones que fallan.
+
+| ID | Descripción (Problema actual → Acciones → Resultado a obtener) | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+
+### Bloque 5 — Inconsistencias internas de la skill (vanta-docs)
+
+> Problema actual: la skill se contradice a sí misma (SKILL.md vs `references/configuration.md`) y usa un ejemplo de config OpenCode que no funciona en la práctica (OpenCode no expande `~` en spawn directo — verificado en sesión 2026-08-17: `opencode.jsonc` usa ruta absoluta `C:/Users/Eros/.vantadb`).
+
+| ID | Descripción (Problema actual → Acciones → Resultado a obtener) | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+
+---
+
+## P23 - VantaDB Pro — Backlog de features (Open Core, 2026-08-17)
+
+> **Origen:** `docs/strategy/VANTADB-PRO-FEATURES.md` § "Backlog Pro" + verificación multi-agente 2026-08-17. **Meta-modelo implementado** (repo privado `vantadb-pro` existe con `license.rs::verify_string` + `generate-license.ps1` + 4 tests; workspace aislado `Cargo.toml:620-626`; core sin refs Pro — D4 respetado). **Las 6 features NO tienen código** (solo `lib.rs`+`license.rs`) **ni tracking** — esta sección las trackea. Nacen en `vantadb-pro` (repo privado, fuera del workspace). Proceso: D5 entrega manual Enterprise hasta entidad.
+>
+> **RES-15-C 2026-09-03:** las 6 filas Pro se movieron a `docs/Backlog-negocio.md` §P23 — el trigger de inicio (pricing/licensing/entidad) es decisión de negocio; las features son implementables por agentes cuando Pro arranque, y vuelven a esta sección al activarse.
+
+---
+
+## P24 - I+D futura (v3.0+, re-verificada 2026-08-17)
+
+> **Origen:** `docs/backlog-futuro.md` — catálogo de I+D diferido (freeze R5). Re-verificación multi-agente 2026-08-17: **FUT-01 ✅ IMPLEMENTADO (sacado)** — RaBitQ 1-bit + Hamming ya existe (`quantization.rs:16,33-46`, `Binary(Box<[u64]>)`); **FUT-07/FUT-09 redefinidos** (bloques base existen, falta cableado); **FUT-02/03/04/05/06/08/10/11 siguen sin implementar**. Documento fuente es la versión canónica de cada fila. **Actualización 2026-09-03 (RES-09):** +FUT-12/13/14 del roadmap huérfano → `docs/research/archive/investigacion-equipo-2026-08-09.md` §roadmap.
+
+| ID | Descripción | Esfuerzo | Prio | Estado |
+|----|-------------|----------|------|--------|
+| `FUT-02` | **Embeddings Matryoshka** — truncamiento dinámico de dimensionalidad (1536→256) | 🔴 | 🗺️ | ❌ Sin implementar |
+| `FUT-03` | **Community detection Leiden/Louvain nativa** — `docs/graphrag/README.md:302` sigue vigente | 🔴 | 🗺️ | ❌ Sin implementar |
+| `FUT-04` | **Índices aprendidos (RMI)** para metadatos escalares | 🔴 | 🗺️ | ❌ Sin implementar |
+| `FUT-05` | **Corrección de residuos QJL (Fase 3 TurboQuant/RaBitQ)** — `turbo_quant_*` es PolarQuant 4-bit puro | 🟠 | 🗺️ | ❌ Sin implementar |
+| `FUT-06` | **Aceleración LUT / Bit-Slicing** para distancias cuantizadas | 🟠 | 🗺️ | ❌ Sin implementar |
+| `FUT-07` | **Selector adaptativo de precisión por tier** — bloques existen (`VectorRepresentations` + tiers), falta selector automático; `consolidate_node_inner` no cambia representación | 🟠 | 🗺️ | 🟡 Redefinido (cableado) |
+| `FUT-08` | **Go SDK vía C-ABI + cbindgen + cgo** — no existe capa C-ABI pública (solo `sigbus_handler` en `vfile_mmap.rs:206`) | 🔴 | 🗺️ | ❌ Sin implementar |
+| `FUT-09` | **Curación AUDN en ingesta** — `DuplicatePreventionFilter` (Bloom) existe SIN callers en write path; bucle semántico AUDN ausente | 🟠 | 🗺️ | 🟡 Redefinido (cablear primitiva) |
+| `FUT-10` | **Fuerza de retención Ebbinghaus / repetición espaciada** — solo `BayesianDecay` de eviction | 🟠 | 🗺️ | ❌ Sin implementar |
+| `FUT-11` | **Export bidireccional a Markdown legible** — hoy JSONL machine-readable; bajo valor | 🟢 | 🗺️ | ❌ Sin implementar |
+| `FUT-12` | **WAL fsync-batching / flush asíncrono** — hoy `src/wal.rs`: Periodic con threshold default 1 = sync por escritura (`wal.rs:372`; default Periodic `config.rs:180`, plumbing `SyncMode` existe sin group-commit). NO es «async ingest» genérico: `src/ingestion.rs` ya da pipeline async de nodos. Ganancia esperada 10-100× en ingesta batch (§roadmap:184). Riesgo: durabilidad — requiere decisión explícita de política de sync (ventana de pérdida vs throughput) antes de implementar. Trackeado desde RES-09 (investigación 2026-08-09 §roadmap) | 🔴 | 🗺️ | ❌ Sin implementar |
+| `FUT-13` | **Query planner con optimizaciones reales** — hoy router + heurística: clasifica la query Hybrid/TextOnly/VectorOnly (`src/planner.rs`; §roadmap:186 «hoy router + heurística»). Gap: optimizaciones más allá de la clasificación por tipo (estimación/costo para elegir camino de índices). Requiere ADR + benchmark Regla 9 antes de tocar. Trackeado desde RES-09 (investigación 2026-08-09 §roadmap) | 🔴 | 🗺️ | ❌ Sin implementar |
+| `FUT-14` | **DiskANN con disk-I/O real** — nombre engañoso: `src/index/diskann.rs:7,13` explícito «purely in-memory, **not disk-backed**» (Vamana en RAM; inv. l.93). Gap: page layout SSD (beam/sector reads) para datasets > RAM; mientras tanto exponerlo por SDK como in-memory (inv. l.72: IVF/SCANN/DiskANN sin exposición SDK). Trackeado desde RES-09 (investigación 2026-08-09 §roadmap) | 🟠 | 🗺️ | ❌ Sin implementar |
+| `FUT-15` | **Utopia: ontología + multimodal + memoria ejecutable (registro futuro, 2026-09-14)** — 🎯 OP: registrar las 3 direcciones fuera de alcance v1.0 con scope y triggers de activación: (1) ontología (schema/entidades declarativas), trigger = MGR-05 + MGR-17 verdes; (2) multimodal (audio/imagen como payload con embeddings), trigger = MGR-25 completo + caso de uso; (3) memoria ejecutable (skills que corren código), trigger = MGR-07 + sandbox. OS: no-acción hoy, solo registro. Tipo: research-registro. Cobertura: Problema § direcciones futuras; Notion Propuesta §6 (nota Utopia). Dep: ninguna (se activa por triggers). DoD: registro con triggers + revisión anual. Decisión owner 2026-09-14: las 3 direcciones. | `docs/research/` | 🔵 1d | 🔵 | 🆕 Pendiente (P24 2026-09-14, desde EXE-08) |
+
+---
+
+## P25 - Exposición MCP/HTTP — Gaps del SDK no expuestos (2026-08-18)
+
+> **Origen:** gap analysis del lead (2026-08-18): comparación API pública core SDK (`src/sdk/api.rs`, `VantaEmbedded` — put:206, get:406, list:545) vs 15 tools MCP (`vantadb-mcp/src/handlers/tools.rs`) vs 3 endpoints HTTP (`src/cli_server.rs`: `/health`, `/api/v2/query`, `/metrics`). Conclusión: el SDK tiene ~35 métodos públicos; las herramientas MCP cubren CRUD+búsqueda+grafos-IQL, pero **faltan capacidades de ciclo de vida de datos** que el MCP no puede invocar: purge TTL (crítico: AUD-045 habilitó TTL pero no hay forma de limpiar expirados), backup/restore, mantenimiento WAL/layout, delete batch por filtro, batch put, rebuild/recovery de índices. El HTTP server es deliberadamente mínimo (producto embedded-first; "server as primary boundary" diferido en skill) — no es bug, es decisión; solo se trackea aquí el MCP.
+> **Nota:** NINGUNA tool MCP de la lista requiere cambio de API pública del SDK — son wrappers `handle_tools_call` sobre métodos ya públicos. Riesgo bajo, sin semver implications.
+> **Actualización 2026-08-19 (Fase 3, D11):** la decisión "server as primary boundary diferido" fue **re-considerada por el usuario (D11)** — el REST completo del SDK ya está implementado (`/api/v2/*` en `src/cli_server.rs`, ADR-026). El HTTP server ya NO es mínimo: ~27 endpoints v2 (health, records CRUD+batch+versions+delete_by_filter, list con cursor, search, autocomplete, query, audit, export/import, graph bfs/dfs/degree/pagerank/centrality, maintenance purge/compact/flush/rebuild-index, threads, snapshots) + dashboard embebido `/dashboard`. Los gaps MCP-16..26 de esta sección siguen válidos SOLO para el canal MCP (el REST no sustituye las tools del agente).
+
+| ID | Descripción (Gap → Acciones → Resultado) | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+
+---
+
+## P25b - Exposición capa cognitiva `vanta-memory` + agentic restante vía MCP (2026-08-23, ex-P26 renombrado 2026-09-14: colisionaba con P26 Vanta Studio)
+
+> **Origen:** auditoría de integración total OpenCode↔VantaDB (2026-08-23): el motor core quedó ~100% expuesto tras cerrar P25 (MCP-16..29), pero la capa cognitiva (`vanta-memory`: scenes, context engine, compresión MMD) y las APIs agénticas restantes (threads CRUD, axiom-write, snapshots create/restore) no tienen tool MCP. **Fuera de alcance por diseño (NO trackear aquí):** `vanta-proxy` (infraestructura proxy LLM), módulo LLM interno (`llm.rs`, feature-gated para ingesta), HTTP REST completo (embedded-first), desktop/web (UIs).
+> **Nota:** los handlers del gateway ya existen como funciones puras sobre `&VantaEmbedded` (`vanta-memory/src/gateway/knowledge_handlers.rs`) — las filas MCP-30/31 son wrappers; MCP-32..34 exponen APIs SDK/core ya públicas.
+
+| ID | Descripción (Gap → Acciones → Resultado) | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+> Sin filas pendientes (MCP-41 completada plan 2026-09-10-code, 6bf42a89 + ADR-040).
+>
+> **No trackeado aquí** (deliberadamente): (a) threads CRUD directos (`get/list/delete_thread`, `purge_expired_threads` — `builder.rs:168-195`, `src/agentic/thread.rs`) — `inject_context` cubre el caso agente; (b) HTTP REST completo — diferido por diseño (embedded-first, `cli_server.rs` solo `/health` + `/api/v2/query` + `/metrics`); (c) `add_edge`/`get_node`/`delete_node` directos — alcanzables vía IQL (`RELATE`/`FROM`/`DELETE`).
+
+---
+
+## P26 - Vanta Studio — Consola human-facing desktop (Fase 0, 2026-08-18)
+
+> **Origen:** investigación `docs/research/human-facing-db-ui/` (01-05) + corrección cognitiva (07) + síntesis `06-synthesis/SYNTHESIS.md` (concepto "Vanta Studio": workspace de memoria para ver/crear/editar/eliminar cualquier registro sin código). **Decisiones del usuario 2026-08-18** (ver plan `docs/plans/2026-08-18-vanta-studio-fase0.md`): Fase 0 completa; solo desktop; dirección visual Manga Tradicional & Grabado Linocut (tokens de `web/`: cream `#FBF9F5`, ink `#000`, neon `#FF5500`, paper `#F2EDE2`); Tailwind v4 + tokens web; tema ambos con default claro; grafo = renderer three.js propio (R3F) en Fase 2; prototipo Fase 0 core en HTML; mascota = **MARK** (variante desktop del personaje SVG del hero). **D2:** Historial+Diff en espera hasta que `VantaMemoryRecord` retenga versiones (VS-CORE-07). **Auditoría multi-agente 2026-08-18** (4 sub-agentes: vanta-research/review/arch/docs) → correcciones aplicadas: **VS-10 + VS-11 nuevos (críticos: bridge put + DTO enriquecido)**, dark palette diseñada propia (la web no tiene tokens dark), VS-06 + payload/CodeMirror, VS-04 actividad = updated recientes, VS-09 sin IQL, VS-CORE-01/03/06 re-scopeados (ya existen en core/bindings), `ink-corner` eliminado, DEFERs ampliados (favoritos, Copy-as, a11y chips, import CSV/JSON). **Se ejecuta por plan** `docs/plans/2026-08-18-vanta-studio-fase0.md`. **Relación con P27:** integración por contratos (no ejecución) — tabla "Relación con P27" en el plan; no bloqueante. **Fases 0-3 completadas 2026-08-18/19:** F0 14/19 (VS-00..11 + VS-CORE-01/02; 5 VS-CORE diferidas a F1/F2) · F1 9/9 (VS-CORE-03/07 + VS-12..18) · F2 10/10 (VS-CORE-04/05/06 + GRAFO-01..03 + ESPACIO-01..02 + OP-01..02) · F3 7/7 (WEB-00..06 — transporte pluggable, REST completo `/api/v2/*` + dashboard `/dashboard` servido por `vanta-cli server --dashboard-dir`; ADR-026). Planes en `docs/plans/archive/2026-08-18-vanta-studio-fase{1,2,3}.md`; registro en `docs/progreso/README.md` §Vanta Studio. **Fase 4 en ejecución 2026-08-19** (plan `docs/plans/2026-08-19-vanta-studio-fase4.md`): reconciliación documental + cierre deuda REST + WASM/OPFS + diferenciadores research.
+
+| ID | Descripción (→ Resultado) | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+
+
+---
+
+## STUDIO-F5 — Gaps vigentes human-facing-db-ui (2026-09-14, decisión D10)
+
+> Origen: auditoría `docs/research/human-facing-db-ui/` (03-gaps, 04-gaps, 05-vigente, 06-§8, 07-vigente). Lo consumido (F0–F4) no se re-trabaja.
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
+|----|-------------|----------|----------|------|-------------|
+| `STU-01` | **Decay/consolidación asistida + provenance episodio→hecho en UI + communities Leiden** — barras de scores existen; falta hopeful decay, lineage visible y reportes por comunidad (03-gaps). | `desktop/src/components/`, `vanta-memory/` | 🟡 3-5d | 🟢 | 🆕 Pendiente (STUDIO-F5 2026-09-14) |
+| `STU-02` | **Querybuilder anidado full + ARIA-grid completo + diff+restore de historial** (05-vigente). | `desktop/src/components/` | 🟡 2-3d | 🟢 | 🆕 Pendiente (STUDIO-F5 2026-09-14) |
+| `STU-03` | **Contadores/TTL stats + versiones históricas para diff + explain tipado en SDKs** (06-§8). | `desktop/src/components/`, `src/` | 🟢 2d | 🟢 | 🆕 Pendiente (STUDIO-F5 2026-09-14) |
+
+---
+
+## P27 - Vanta Memory Engine — port de TDAM (orden F1–F7, 2026-08-18)
+
+> **Origen:** investigación completa `docs/research/tdam/` (PLAN + 01..09 verificados + SYNTHESIS) — TencentDB-Agent-Memory (clon completo `97f9465`, v2.0.0-beta.1). **Decisión arquitectónica:** core VantaDB puro (sin LLM, WASM-compatible); features LLM-driven en crate nuevo `vanta-memory`; se extiende `vantadb-mcp`/`vantadb-server`; binario opcional `vanta-proxy`. **NO copiar** split 4 servicios, Redis, SQLite/dual-write, store Mongo, `@colbymchenry/codegraph`, agent-adapters, 3 imágenes Docker, prompts chinos Kenty. Análisis multi-agente (3× vanta-research 2026-08-18) → 38 tareas consolidadas (2 propuestas duplicadas fusionadas: telemetría). **Se ejecuta por plan** `docs/plans/2026-08-18-vanta-memory.md`. **Decisiones resueltas 2026-08-18 (D1-D12):** LLMRunner ambos sync+async · nodo escena entra · tiktoken o200k_base (validar WASM) · entity_* en InternalMetadata · vanta-proxy crate aparte · checker 7 eslabones · skills síncrona · MMD Mermaid literal · callback hook local + estado en store · **F6/F7 segunda iteración** · vanta-memory interno del workspace. **Relación con P26:** integración por contratos (no ejecución) — tabla "Relación con P26" en el plan; no bloqueante.
+
+| ID | Descripción (→ Resultado) | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+
+
+## P28 - Deuda técnica core — follow-ups (2026-08-18)
+
+### Wave 2 — Memoria agéntica competitiva (investigación 3 frentes, 2026-08-25)
+
+> **Origen:** investigación profunda vanta-memory vs estado del arte (Mem0/Letta/Zep/Cognee/Memobase/OpenAI Dreaming/Anthropic Auto Dream) vs necesidades de usuarios de coding agents (Claude Code/OpenCode/Codex/Cursor/Antigravity/Windsurf). Diferenciadores ya propios: context engine integrado + wiki-ingest + proxy interceptor + skills. Decisiones del owner: gaps estratégicos todos agendados; lifecycle = heat+decay L1; quick-wins todos; optimizables todos; gate de captura opcional por config; benchmarks agendados.
+> Sin filas pendientes (MEM-66/68/69/70 completadas planes 2026-09-08/09-10).
+
+---
+
+> **Origen:** follow-up del fix `8c8eef23` (vectores Binary insertables/recuperables por `get()`). El fix resolvió el contrato insert→get en memoria; la persistencia on-disk de vectores no-F32 queda pendiente (formato).
+
+| ID | Descripción (→ Resultado) | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+
+
+
+
+---
+
+## GOV - Gobernanza Documental — corrección integral post-auditoría (2026-08-22)
+
+> **Origen:** auditoría documental completa docs/reviews/auditoria-documentacion-2026-08-21.md (Volumen I+II+Addendum, salud 6.5/10) + **decisiones del owner D1-D14** registradas en su sección final. **Plan de ejecución:** docs/plans/2026-08-22-doc-governance-plan.md (formato campaign, triage 30 DO / 2 DEFER). Task files se crean bajo demanda vía /pipeline task GOV-XX. Wave B es bloqueante del Show HN.
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+> **CAMPAÑA COMPLETADA 2026-08-22: 29 ✅ · 1 ⬛ (A1 stop condition, fallback aplicado) · 0 failed.** Registro completo: docs/progreso/campanas/doc-gobernanza-gov.md + plan file §Estado de ejecución. Tickets derivados vivos abajo.
+
+
+## GOV-TK — Tickets derivados de la campaña GOV (2026-08-22)
+
+| ID | Descripción | Prio | Fuente |
+|----|-------------|------|--------|
+| GOV-TK5 | Split Manual Estratégico según recomendación F2 (negocio→docs/business/ con banner snapshot; estado técnico fuera; archivar monolito) | 🟠 | F2/D-decisión |
+
+> Ticketeados aparte con decisión previa: ACID 4a-4d (post-launch Fase A, D14) · release triage semver 0.6.0 (D5, diferido) · MKT-18h wheels ARM64 + MKT-18f adapters (confirmados live por GOV-A5). La fila de acción externa (DNS/invite) se movió a `docs/Backlog-negocio.md` §GOV (RES-15-C).
+
+---
+
+## P32 — Reviews de Módulos (campaña 14 reportes, 2026-08-23)
+
+> **Origen:** campaña de deep-review con 14 sub-agentes sobre los 12 módulos del repo + análisis transversal. Reportes completos en `docs/reviews/modulos/*.md` (core.md, vantadb-mcp.md, vantadb-server.md, vantadb-python.md, vantadb-ts.md, vantadb-wasm.md, vantadb-node.md, vanta-memory.md, vanta-proxy.md, providers.md, integrations.md, benches.md, benchmarks.md, cross-modulos.md). Scores: memory 8.5 · core 8.3 · mcp 8.3 · proxy 8.0 · server 7.5 · ts/wasm/benches 7.0 · integrations/benchmarks/cross 6.5 · python 6.5 · providers 5.0 · node 4.5.
+> **Regla:** cada fila referencia su reporte fuente; los reportes llevan sección "Trazabilidad Backlog" con el MOD-ID por hallazgo. Duplicados ya trackeados NO recreados (CORE-01/02, REVIEW-06..20, MKT-18f, MCP-24/28/29, DESKTOP-28..39).
+
+| ID | Módulo | Sev | Hallazgo → Acción | Referencia | Estado |
+|----|--------|-----|-------------------|------------|--------|
+
+---
+
+## P33 — Developer Experience de SDKs (evaluación usuario-facing, 2026-08-23)
+
+> **Origen:** evaluación DX solicitada por owner sobre superficies que tocan usuarios (instalación, quickstart, SDKs Python/TS/WASM, docs/api). Hallazgos verificados contra disco hoy. Formato `prompts/findings.md`: fila FIND-* con ref de origen.
+> **Regla:** duplicados parciales referencian su fila MOD existente; no se recrean.
+> Sin hallazgos pendientes (FIND-20/21 completadas plan 2026-09-10-fixes).
+
+## P34 - Revisión diseño/UX Vanta Studio (auditoría 3 sub-agentes, 2026-08-24)
+
+> Contexto: revisión diseño/estructura/UX con Playwright visible + 3 sub-agentes (shell/resumen, MEMORIAS/inspector, lenses). 38 hallazgos; los P1 estructurales ya fixeados en commits `abc4ec10`/`c9ccfce3`/`5977a71b` (list/search multi-namespace, TitleBar web crash, dark mode grid, shadow-ink token, errores destructive, hints F1/F2 falsos). Quedan los siguientes.
+> Nota 2026-09-14 (auditoría backlog fila por fila): componentes bajo `desktop/src/components/<sub>/` (home/, memory/, graph/, space/, …) — las rutas de las filas son relativas a ese dir; archivos verificados existentes (HomeOverview, DataExplorer, MetricsGrid, GraphLens, SpaceLens).
+>
+> **Adenda 2026-08-24 (smoke E2E):**
+> - **Smoke test E2E PASS** (Playwright visible, server real :8090, 7+1 registros): ingest con labels → grid → Inspector por TECLADO (Enter) → borrado 2 pasos → papelera → RESTORE → paleta Ctrl+K → AJUSTES. 0 errores de consola tras reload. Evidencia: screenshots `smoke-0*.png` en temp de sesión.
+
+| ID | Effort | Descripción | Archivos | Estado |
+|----|--------|-------------|----------|--------|
+| `UX-06` | 🟡 | **Contraste neón como texto**: labels 10-11px en `text-neon` (#FF5500) sobre crema ≈3.0:1 fallan AA 4.5:1. Definir `--color-accent-text` más oscuro (~#C24000) solo para texto pequeño o migrar a foreground | `HomeOverview.tsx:248,347`, `WorkspaceShell.tsx:767,814`, `MetricsGrid.tsx:126` | ⬜ Pendiente |
+| `UX-08` | 🟡 | **Canvas 3D/scatter sin fallback accesible**: GraphLens/SpaceLens sin `role="img"` + aria-label descriptivo ni lista alternativa de nodos para teclado/SR | `GraphLens.tsx:111`, `SpaceLens.tsx:274` | ⬜ Pendiente |
+| `UX-09` | 🟡 | **3 lenguajes de confirmación destructiva**: SpaceLens usa `window.confirm` nativo, ConsolidateLens `ConfirmDiscard`, TrashLens confirm inline de dos pasos — unificar | `SpaceLens.tsx:192-196` | ⬜ Pendiente |
+| `UX-10` | 🟢 | **Densidad del grid MEMORIAS**: Payload max-w fijo + TTL w-24 + acciones ~90px → desborde horizontal a 1440px con Inspector abierto; sin toggle de visibilidad de columnas | `DataExplorer.tsx:265,169,620-641` | ⬜ Pendiente |
+| `UX-11` | 🟢 | **Estados vacíos sin salida**: "Sin registros."/"No matches." sin acción siguiente (botón contextual "Ir a Ingestar" / "Limpiar búsqueda") | `DataExplorer.tsx:797-798`, `ResultsList.tsx:13-17` | ⬜ Pendiente |
+| `UX-12` | 🟢 | **RESUMEN sin énfasis primario**: 7 cards + Métricas + KPIs + SOP + Export compiten con el mismo peso (border 3-4 + sombra); título "VISTA GENERAL" se renderiza 2 veces con layouts distintos (card de carga vs h1) → salto visual | `HomeOverview.tsx:228-249`, `WorkspaceShell.tsx:835-873` | ⬜ Pendiente |
+| `UX-15` | 🟢 | **Misc menor**: badge `err` = `warn` en MetricsGrid (usar `text-destructive`); 2 formateadores de bytes (decimal vs binario) — extraer `fmtBytes` compartido; splash no saltable por teclado; notice bar sin botón ✕ enfocable; microcopy ES/EN mezclado ("waiting…"/"check"); botones sin clase `press` en ActivityPanel; skeleton en IndicesLens mientras llega el snapshot; párrafo de jerga en header Retrieval + magic number `h-[calc(100dvh-112px)]` duplicado | `MetricsGrid.tsx:120-136,7-12`, `KpiCards.tsx:16-18`, `SplashScreen.tsx:38-44`, `WorkspaceShell.tsx:752-760`, `ActivityPanel.tsx:111-134`, `IndicesLens.tsx:171-200`, `RetrievalLens.tsx:234-238` | ⬜ Pendiente |
+
+## P36 - Auditoría AGENTS.md & sistema de agentes (2026-08-24)
+
+> Contexto: revisión integral de `AGENTS.md` (raíz) + `.opencode/AGENTS.md` + global `~/.config/opencode/AGENTS.md`. Verificadas las 17 rutas referenciadas (todas existen ✅), conteo de skills (193 = 162+31 ✅ contra audit del manifest), tablas de reglas/comandos/agents (1:1 con disco ✅). **Ya resuelto en sesión** (no requiere tarea): root `AGENTS.md` reescrito pointer-only (eliminaba duplicado de Regla 7 que divergía; commit via checkpoint paralelo `89ab5e2c`); metadata stale del manual corregida en `.opencode/AGENTS.md:9`; conteos globales actualizados (154→162). Queda lo siguiente.
+
+| ID | Effort | Descripción | Archivos | Estado |
+|----|--------|-------------|----------|--------|
+
+## P37 - Auditoría diseño desktop post-fix (auditoría orquestador + 5 sub-agentes, 2026-08-24)
+
+> **✅ Cerrada 2026-08-26 — DESKTOP-QW5 (H-13):** 9/9 DAUD verificadas y archivadas. Fixes D1-D11 ya commitados: E2E-VISUAL `480935a7` (DAUD-01), DAUD-LIMPI `3c53d8b2` (DAUD-03/04/05/07) + `b865c625` (DAUD-06/11), filterActive `ad0f34b1` (DAUD-02/QW4). Stash `06aa1a86` consumido por `b865c625` (DAUD-08). Registro en `docs/avance/activo/desktop.md` §P37 + `backlog-history.md` §Limpieza DAUD 2026-08-26. Plan: `docs/plans/2026-08-25-research-desktop-quickwins.md` Wave1 Task5.
+>
+> Contexto histórico: segunda auditoría de diseño de `desktop/` (misma jornada que P34, sesión paralela independiente). Detectó D1-D11; D1-D11 fueron corregidos el mismo día por 5 sub-agentes en paralelo (archivos disjuntos, cero colisiones con P34). Verificación integrada original: tsc ✅ · vitest 68/68 ✅ · vite build exit 0 ✅ · grep emoji 0 ✅. Resumen fixes: D1 App.css tokens theme-flipping (marco crema en dark eliminado) · D2 fuente base única (Geist gobierna) · D3 glifos emoji-prone → Lucide sw2.5 (~20 archivos, geométricos monocromos conservados como identidad linocut) · D4 FILTROS activo = active-state del sistema (INGEST único neón) · D5 hit targets ≥32px · D6 Mark.tsx hex → var(--color-neon) · D7 splash duplicado eliminado · D8 stagger extendido a 12 hijos · D9 ~14 utilidades CSS muertas borradas · D10 grid-tech/speed-lines overrides dark · D11 ventana Tauri 1280×800 min 1024×640 center. Dep nueva: `lucide-react`.
+
+| ID | Effort | Descripción | Archivos | Estado |
+|----|--------|-------------|----------|--------|
+| — | — | *Sin tareas activas — 9/9 DAUD archivadas (ver historial)* | — | ✅ |
+---
+
+---
+
+## P38 - Investigaciones huérfanas convertidas en tarea (auditoría docs/research, 2026-08-25)
+
+> Contexto: auditoría completa de `docs/research/` (~80 docs, 3 sub-agentes vanta-research + verificación lead vía codegraph/grep). Detectó investigaciones con acciones recomendadas que **nunca se convirtieron en tarea** ni se ejecutaron. Cada fila fue validada contra el código actual el 2026-08-25 (evidencia citada). IDs nuevos: `RES-*` (research→tarea) y `DEC-*` (decisión de producto).
+
+### Candidatos DESCARTADOS en validación (no re-proponer)
+
+- **CRIT-01..09** del informe externo `VantaDB-28-07-2026.md` → **todos resueltos**: `archive.rs` valida longitudes + `sync_all` + flush con map_err (:95/:109/:135/:137), `wal_sharded.rs recover()` usa checkpoint_seq global con tests (:243-274, :641/:663), `wal.rs:338` default Periodic = sync cada write, Dockerfile `RUST_VERSION=1.94.1`, providers excluidos del workspace con NOTE documentada (`Cargo.toml:638`). El informe queda archivado como referencia histórica.
+- **Guías Vectara/Chroma** (`vectara-competitive-research`) → ya existen `docs/migrate-from-vectara.md` y `03-migrating-from-chromadb.md` + `benchmarks_vs_lancedb_chroma.md`.
+- **Purga PERFORMANCE_TUNING.md** (residual FND-13) → el archivo ya no existe en `docs/` (solo snapshots históricos).
+- **INV-008 search_batch_requests** → YA implementado (`vantadb-python/src/lib.rs:1688`, wrapper async `__init__.py:342`). Archivar INV-008.
+
+### 🔴 Alta
+
+| ID | Effort | Descripción | Archivos / Origen | Estado |
+|----|--------|-------------|-------------------|--------|
+
+### 🟡 Media
+
+| ID | Effort | Descripción | Archivos / Origen | Estado |
+|----|--------|-------------|-------------------|--------|
+
+### 🟢 Baja / proceso
+
+| ID | Effort | Descripción | Archivos / Origen | Estado |
+|----|--------|-------------|-------------------|--------|
+
+### Decisiones de producto (antes de código)
+
+| ID | Effort | Descripción | Origen | Estado |
+|----|--------|-------------|--------|--------|
+| `DEC-01` | 🟠 | **Session layer VantaDB MCP: go/no-go y alcance.** Roadmap de 4 fases propuesto (session cache, Claude Code plugin, sync/improve, lesson extraction) pero las 5 open questions siguen abiertas. Decidir vía ADR antes de escribir código | `COGNEE_EVALUATION.md`; research `docs/research/res03-session-layer-gonogo.md` | ✅ Resuelta por research (2026-08-25): **defer-as-scoped** — F1 no-go (threads/scenes/genlog ya lo cubren), F2 defer docs-only (guía conexión Claude Code), F3/F4 no-go (sync auto requiere benches Regla 9). Owner escribe ADR citando el doc |
+| `DEC-02` | 🟠 | **Billing/quota CreditCalculator en server mode** (TDAM #9). Decisión previa requerida: UNA calculadora (÷1000 vs ÷10000). Habilita multi-usuario/VantaDB Pro | `tdam/SYNTHESIS.md` §9, `tdam/09-deploy-usage.md` | ⏸️ **ICEBOX 2026-09-03** — verificado: 0 implementaciones cost/credit en vanta-proxy, PRX-03 (virtual keys) también pendiente; gate de decisión de producto, no deuda activa. Reabrir cuando Pro/billing entre al horizonte |
+
+---
+
+## P39 - vanta-proxy — Gateway agéntico completo (investigación 3 frentes, 2026-08-25)
+
+> **Origen:** investigación profunda vanta-proxy vs estado del arte (LiteLLM/OpenRouter/Portkey/Helicone/Cloudflare AIG/claude-code-router/Bifrost/TensorZero) vs necesidades de usuarios de coding agents. **Identidad decidida por el owner: gateway completo** (no especialista). Diferenciador a preservar: memoria en tránsito + interceptor de tools server-side (único en el mercado). Deudas internas: state machine `advance()` sin wiring, clasificador Claude Code huérfano, mem-commands stub, fail-open sin trigger (`server.rs:177`, `claude_code.rs:57`, `mem_command.rs:102`).
+>
+> Sin filas pendientes (P39 completado: PRX-02/03/06/07/09/10/11/13 + slices — ver avance/operaciones).
+>
+> Sin filas pendientes (PRX-13 completada plan 2026-09-10-code, 462488e9).
+
+---
+
+## P40 - Investigación INV-vantadb-server (2026-08-25)
+
+> **Origen:** `/research vantadb-server` → `docs/reviews/research-vantadb-server-20260825.md` (score 8.0/10, apéndice H-01..H-14). Decisiones HITL 2026-08-25: 8 filas nuevas SRV, 2 wontfix (H-12 gRPC, H-13 SSE). Duplicados ya trackeados NO recreados: H-01=`AUD-043`, H-02=`MOD-15`, H-03=`REVIEW-10`, H-10=`FIND-24` (confirmada prioridad 🔴 Alta por decisión del owner).
+
+| ID | Descripción | Archivos clave | Esfuerzo | Prioridad | Estado |
+|---|---|---|---|---|---|
+> Sin filas pendientes (SRV-06 completada plan 2026-09-10-code, a0a3087f + ADR-039).
+
+---
+
+## P41 - Investigación INV-vantadb-ts (2026-08-25)
+
+> **Origen:** `/research vantadb-ts` → `docs/reviews/research-vantadb-ts-20260825.md` (score 7.2/10, apéndice H-01..H-14). Decisiones HITL 2026-08-25: 13 filas nuevas TS, 0 wontfix. Duplicados ya trackeados NO recreados: H-01=`MOD-22`, H-02=`MOD-23` (filas restauradas en P32 el mismo día — la ausencia era el hallazgo H-05, aplicado inline), H-03 solapa=`RES-06`. Quick wins (TS-02/05/06/07/08) → plan `docs/plans/2026-08-25-research-vantadb-ts-quickwins.md`.
+
+| ID | Descripción | Archivos clave | Esfuerzo | Prioridad | Estado |
+|---|---|---|---|---|---|
+| `TS-10` | **Plan de distribución/adopción** (estratégica): playground browser interactivo + docs-site + comparativa honesta vs Orama/vectra/wa-sqlite/DuckDB-WASM usando la matriz del informe §3 — adopción actual 12 dl/semana vs 35K-465K competidores (H-06) | web/, docs/, estrategia SHOW_HN; research §3 | 🔴 | 🟠 Media-Alta | ⬜ Pendiente (requiere DISCOVERY) |
+| `TS-11` | **Roadmap paridad sub-clientes**: planificar exposición vía WASM de wiki/conversation/skills cuando core lo permita — hoy `db.wiki` es `{}` documentado (H-12) | `vantadb-wasm/src/lib.rs`, `vantadb-ts/src/vantadb.ts:311-319` | 🔴 | 🟢 Baja | ⬜ Pendiente |
+| `TS-13` | **Posicionamiento vs Orama en web/** (decisión HITL: mover a módulo web): sección "Why VantaDB" honesta con matriz diferenciadores (durable WAL browser, híbrido RRF nativo, grafo+IQL, errores tipados) vs FTS-first de Orama (H-13) | `web/` (landing/docs); fuente: research-vantadb-ts §3 | 🟢 | 🟡 Media | ⬜ Pendiente |
+
+## P42 - Investigación INV-vantadb-wasm (2026-08-25)
+
+> **Origen:** `/research vantadb-wasm` → `docs/reviews/research-vantadb-wasm-20260825.md` (score 6.8/10, apéndice H-01..H-23). Decisiones HITL 2026-08-25: 14 filas nuevas WSM + plan quick wins (`docs/plans/2026-08-25-wasm-quickwins.md` con H-01/H-05/H-07/H-08/H-16) + 2 estrategias aprobadas (H-21 adopción npm, H-22 ADR browser-first) + 1 wontfix (H-23 static-hosting read-only). Duplicados ya trackeados NO recreados: H-19=`P2-8`. MOD-25..28 derivados del review 2026-08-22 nunca materializados (H-02): absorbidos por este batch (fallback→WSM-01, cuotas→WSM-02, nits→plan quick wins).
+
+| ID | Descripción | Archivos clave | Esfuerzo | Prioridad | Estado |
+|---|---|---|---|---|---|
+| `WSM-14` | **Plan adopción npm** (estrategia H-21 aprobada): README npm con posicionamiento del nicho "browser AI agent memory", demo Transformers.js enlazada, keywords/comparativa honesta vs Orama (5.44M desc/mes vs 187). Sin claims de performance sin benchmark (Regla 11) | `vantadb-wasm/pkg/README.md` template, landing docs | 🟡 | 🟠 Alta | ⬜ Pendiente |
+
+## P43 — Research web 2026-08-25 (INV-web-01, docs/reviews/research-web-prod-20260825.md)
+
+| `WEB-09` | **Densidad efectos decorativos home**: 73 usos (trust-bar ×11, hero 5 capas) — requiere criterio visual del owner; puede quedar diferida como decisión de diseño fino. Origen: INV-web-01 H-07 | `web/src/app/page.tsx` + componentes mark/trust-bar | 🟡 | 🟡 Media-Baja | ⬜ Pendiente (requiere input visual owner) |
+
+## P44 — Research integrations 2026-08-25 (INV-integrations-01, docs/reviews/research-integrations-20260825.md)
+
+> **Origen:** `/research integrations` → `docs/reviews/research-integrations-20260825.md` (score 6.3/10, apéndice H-01..H-11). Decisiones HITL 2026-08-25: 9 quick wins APLICAR → plan `docs/plans/2026-08-25-integrations-research-wins.md` (QW-1..9; absorbe MOD-46..50 huérfanas: 46→QW-1, 47→QW-2, 48→QW-3, 49→QW-4, 50→QW-5; H-01=QW-7 cubre MKT-18f ampliada a 9 paquetes) + 2 estrategias aprobadas acá. Ningún wontfix.
+
+| ID | Descripción | Archivos clave | Esfuerzo | Prioridad | Estado |
+|---|---|---|---|---|---|
+> Sin filas pendientes (INTG-01/02 completadas planes 2026-09-10-code, d7281744/876df446).
+
+## P46 - Research desktop 2026-08-25 (INV-desktop-prod, docs/reviews/research-desktop-prod-20260825.md)
+
+> Score 7.4/10. Quick wins aprobados (H-01..H-05, H-07, H-11, H-13, H-14, H-15) -> plan `docs/plans/2026-08-25-research-desktop-quickwins.md` (listo para `/pipeline run`). Estrategia -> filas abajo. Firma de instaladores diferida -> wontfix (ver DEVOPS-10).
+
+| ID | Effort | Descripción | Archivos | Estado |
+|----|--------|-------------|----------|--------|
+| `DESKTOP-41` | 🟢 | **Smoke-test instalador en VM Windows limpia** (Step 3 DESKTOP-24 pendiente): instalar NSIS+MSI, verificar arranque, sidecar server, deep link vanta://, WebView2 bootstrapper | instaladores `desktop/src-tauri/target/release/bundle/*`, VM limpia | ⬜ Pendiente |
+| `DESKTOP-43` | 🟡 | **Auto-update vía tauri-plugin-updater**, bloqueado por firma (wontfix DEVOPS-10) y endpoint de manifests; desbloquear tras decisión de distribución pública. Origen: INV-desktop H-10 | `tauri.conf.json` plugins, CI release | ⬜ Pendiente |
+| `DESKTOP-44` | 🟡 | **Validación manual Proxy Dashboard con upstream LLM vivo** (TurnReports/sesiones/write-back/rate-limit end-to-end, deuda DESKTOP-38) — sesión guiada owner+agente, no tarea autónoma. Origen: INV-desktop H-12 | `desktop/src/components/proxy/ProxyDashboard.tsx`, vanta-proxy | ⬜ Pendiente |
+> Sin filas pendientes (DESKTOP-45 completada plan 2026-09-10-code, d2993c4f; H-15 DEFER con evidencia).
+
+## P45 - Research providers 2026-08-25 (INV-providers-01, docs/reviews/research-providers-20260825.md)
+
+> Score 4.0/10 (regresion vs review 2026-08-23 que dio 5.0: openai ya no compila). Quick wins aprobados (PROV-01/03/06/07/08) -> plan `docs/plans/2026-08-25-research-providers-quickwins.md` listo para `/pipeline run`. Trazabilidad MOD-41..45 archivada como superada (ver historial). Estrategia H-14 -> ADR pendiente (decision en memory).
+
+| ID | Descripcion | Archivos clave | Esfuerzo | Prioridad | Estado |
+|---|---|---|---|---|---|
+| `PROV-12` | **Publicar wheels PyPI** (estrategia H-04 aprobada): pyproject.toml + maturin, CI release multiplataforma (macos/windows/linux x86_64+aarch64), secrets PyPI. Desbloquea el diferenciador real (storage embebido local acoplado al embed). Pre-requisitos: PROV-01/02/04. Origen: INV-providers-01 H-04 | providers/*/, nuevo workflow release, CI_POLICY | 🟡 | 🟠 Alta | ⬜ Pendiente |
+
+## P47 — Promoción a `default-members`: criterios 100% estables (server/mcp/memory/proxy + ts/node)
+
+> **Origen:** discusión 2026-08-27 sobre `Cargo.toml:636-642` — `default-members = [".","vantadb-python"]` deja `server/mcp/wasm/memory/proxy` fuera del Fast Gate a propósito (`CATEGORY: EXPERIMENTAL`). `ts`/`node` son paquetes npm (no crates) y nunca pueden entrar en `default-members`, pero necesitan gate npm equivalente. Esta fase define **qué validar antes de decir “100% estable y puede pasar a default”** y deja la promoción como cambio reversible en 1 línea. **No promocionar sin que los 10 checks pasen.** Ver `docs/operations/CI_POLICY.md` y `.opencode/references/definition-of-done.md`.
+>
+> **Contrato de promoción (Definition of Done para default):** cada crate/paquete a promover debe pasar **todos** los gates siguientes en 3 corridas consecutivas sin flaky, en runner limpio (`cargo clean` / `npm ci`):
+> 1. `cargo check -p <crate> --all-targets --all-features` + `cargo fmt --check` + `cargo clippy -p <crate> --all-targets --all-features -- -D warnings` = 0 warnings
+> 2. `cargo nextest run -p <crate> --profile audit -j 2` (o `npm test` para ts/node) = 0 failed, 0 ignored flaky, sin `#[ignore]`
+> 3. `cargo deny check` (licenses MIT/Apache-2.0, advisories, bans) = 0
+> 4. `scripts/validate-docs-coverage.ps1` = 0 gaps para APIs públicas del crate
+> 5. Workflow CI con `paths:` filter, sin `continue-on-error: true`, bloqueante en PR, `timeout-minutes` real <5 min medido en CI (Fast Gate) o documentado como Heavy
+> 6. `publish = false` ok — pero `cargo package --dry-run` no debe fallar por metadata
+> 7. Para `wasm`: `wasm-pack build --target bundler` + `wasm32-unknown-unknown` instalado en CI, `cargo test --target wasm32-unknown-unknown` si aplica
+> 8. Para `node`: `napi build --platform` matrix 7 targets via `release-npm-node.yml` con artifact, `npm pack` incluye `*.node`
+> 9. **Medición Fast Gate con todos incluidos:** `just verify` / `dev-tools/verify.ps1` con `default-members` ampliado debe seguir `<5 min` en `ubuntu-latest` (o se re-etiqueta como Heavy y se justifica)
+> 10. ADR breve en `docs/architecture/adr/` registrando la promoción y el coste (tiempo CI + toolchain extra) — reversible
+
+| ID | Descripción (→ Resultado) | Archivos clave | Esfuerzo | Prioridad | Estado |
+|---|---|---|---|---|---|
+| — | P47 cerrada 2026-09-09: STABLE-09 subset `[., python, memory, server, mcp]` (546dabd1, Owner A); proxy/wasm quedan experimental (Heavy/toolchain) | — | — | ✅ |
+---
+
+## SHOWCASE - Ejemplos y prototipos (investigación 2026-09-10, ex-P49 renombrado 2026-09-14 para evitar colisión con Phase 49 MGR)
+
+> **Origen:** investigación ejemplos-para-repo-y-producto 2026-09-10 (inventario: 14 ejemplos + notebook + 3 TS vigentes, CI `ci-examples-12.yml`; referentes: AgentDB 36 demos browser, RAG-chatbots, agent-memory, recetas copiables). Los ejemplos existen y funcionan; falta curaduría, recetas clicables y 2 prototipos estrella.
+
+| ID | Descripción (→ Resultado) | Archivos clave | Esfuerzo | Prioridad | Estado |
+|---|---|---|---|---|---|
+| `SHOW-02` | **Recetas clicables del playground** (5-6: RAG, híbrido, grafo, TTL, batch, persistencia) reutilizando `CodePlayground` + iframe WASM existente | `web/src/app/playground/`, `web/src/components/vanta/code-playground*` | 🟡 2-3d | 🟠 Media-Alta | ⬜ Pendiente |
+| `SHOW-03` | **Prototipo estrella RAG-sobre-PDFs** (subir PDF → chunk → embed → chat con citas, 100% local): reusa `haystack_documentstore.py` + `embed-local`; corre con 1 comando, sin credenciales obligatorias; spec de ingesta PDF en MGR-25 (esta fila = demo, MGR-25 = diseño) | `examples/` (nuevo `rag_pdf_chat/`) | 🟠 3-5d | 🔴 Alta | ⬜ Pendiente |
+
+## Phase 48: 🧪 Testing & Benchmarking Hardening (auditoría multi-agente 2026-08-30)
+
+> **Origen:** Auditoría multi-agente ejecutada 2026-08-30 (sesión `ses_fabf69692ffeP5c7mycKcsGSV0`) — 5 sub-agentes investigaron en paralelo: (1) prácticas externas, (2) tests Rust actuales, (3) benchmarks, (4) datasets/data, (5) CI/CD + scripts. Plan completo: `docs/plans/2026-08-30-testing-bench-harden.md`. Decisiones D1-D7 registradas en el plan.
+>
+> **Estado del proyecto al inicio:** 2034 tests pasando / 1 skipped (TEST_MAP.md canónico), 19 benches criterion 0.8, 4 fuzz targets, Miri+ASan+TSan, llvm-cov 81.40% root (ADR-018 gate ≥80%), 17 GH Actions workflows con SHA-pins generalizados, release-plz con OIDC.
+>
+> **Top 3 a atacar primero:** **TBH-01 ✅** (verify_datasets — completado 2026-08-31, commit `0e67f354`), **TBH-02** (init bench baseline — `benchmarks/criterion_baseline.json` está vacío, primera ejecución nightly lo poblará), **TBH-03** (ci-gate — main rojo actualmente NO corta PRs por `if: schedule`).
+
+### 🔴 Prioridad ALTA — Rompen la promesa "replicable y funcional siempre que se pruebe"
+
+| ID | Descripción | Archivos clave | Esfuerzo | Prio | Estado |
+|----|-------------|----------|----------|------|--------|
+
+### 🟡 Prioridad MEDIA — Mejoras de cobertura y calidad
+
+| ID | Descripción | Archivos clave | Esfuerzo | Prio | Estado |
+|----|-------------|----------------|----------|------|--------|
+
+### 🟢 Prioridad BAJA — Nice to have (no bloquea)
+
+| ID | Descripción | Archivos clave | Esfuerzo | Prio | Estado |
+|----|-------------|----------------|----------|------|--------|
+
+### 📋 Tarea Diferida (out of scope de P48)
+
+| ID | Descripción | Por qué fuera |
+|----|-------------|---------------|
+> ISSUE-TS-001 movido a historial 2026-09-14 (resuelto-stale).
+
+### 📌 Notas & Referencias
+
+- **Investigación origen:** sesión `ses_fabf69692ffeP5c7mycKcsGSV0` (5 sub-agentes en paralelo)
+- **Plan completo:** `docs/plans/2026-08-30-testing-bench-harden.md` (7 decisiones, 3 fases, riesgos, verificación)
+- **DoR / DoD:** `.opencode/references/definition-of-done.md` — aplicar a cada TASK-01..23
+- **Conventional Commits:** cada cierre usa `fix:`, `feat:`, `chore:`, `ci:` o `refactor:`
+- **Política `#[ignore]`:** según `.opencode/AGENTS.md:466` — no agregar ignores sin Issue `flaky`
+- **Estrategia datasets/benchmarks:** conservadora (no migrar a VIBE, no añadir PQ/i8, no comparativas head-to-head vs sqlite-vss/duckdb-vss) — ver D1 en plan
+- **Ejecución sugerida:** Phase 1 (ALTA) primero como PR único (gate `just verify` verde), luego Phase 2 (MED) en PRs paralelos por grupo (CI / benches / tests), finalmente Phase 3 (BAJA) en lote único
+
+---
+
+## FIND-* — Hallazgos recientes que requieren triage (2026-08-30)
+
+| ID | Effort | Descripción | Archivos clave | Estado |
+|----|--------|-------------|----------------|--------|
+
+---
+
+## P48 — Testing & Benchmarking Hardening (CIERRE) — 2026-08-31
+
+**Plan file:** `docs/plans/2026-08-30-testing-bench-harden.md` (archivado a `docs/plans/archive/` 2026-08-31)
+
+### Resumen
+- **23 tareas TBH-01..23** ejecutadas en modo `/pipeline run` paralelo (waves de 3)
+- **22 ✅ + 1 🟡 INCOMPLETO** (TBH-06 parcial — 3/5 tests migrados; los 2 query_result no existían como archivos)
+- **27 commits** en `develop` desde `72b98dc6` (TBH-03) hasta `fa87bbe2` (TBH-18)
+- **Hallazgo pre-existente** `FIND-MCP-001` (test roto en `vantadb-mcp/tests/context_tests.rs:70`) detectado durante TBH-01 y registrado para triage fuera de P48
+
+### Tareas completadas (dominios)
+
+**CI/CD (`docs/avance/activo/ci-cd.md`):**
+- `TBH-01` — `scripts/verify_datasets.{sh,ps1}` + pre-test step en `heavy-certification-50.yml` — commits `0e67f354`+`1c392eff`
+- `TBH-02` — `benchmarks/criterion_baseline.json` inicializado con 9 entries placeholder — commit `450910ec`
+- `TBH-03` — `ci-gate.yml` universal gate (removed `if: schedule`) — commit `72b98dc6`
+- `TBH-04` — `develop` agregado a 6 workflows + `release.yml` (D6 Dependabot alignment) — commit `abcce28f`
+- `TBH-05` — `benchmarks/data_comp_bench/`, `benchmarks/data_bench_db/` gitignored + untracked — commit `b4eada51`
+- `TBH-13` — SHA-pins 6 third-party actions en `desktop.yml` + `opencode.yml` — commits `42141706`+`8944b6e5`
+- `TBH-14` — `cliff.toml:15 conventional_commits = true` — commit `95b2394b`
+- `TBH-19` — `markdownlint-cli2` pre-commit hook — commit `7f78efb3`
+- `TBH-22` — `release-binaries-63.yml` `push.tags: ['v*']` trigger — commit `c727380d`
+- `TBH-23` — `cargo fmt --all` unificado (Justfile + audit-all.ps1) — commit `c83aa43d`
+
+**Benchmarks (`docs/avance/activo/ci-cd.md` o `core-engine.md`):**
+- `TBH-08` — `benches/wal_throughput.rs` (12 samples, 3 SyncMode × 4 batch sizes) — commit `84dcea9f`
+- `TBH-09` — `benches/crash_recovery.rs` (3 corpus sizes, open + WAL replay) — commit `74c15fb6`
+- `TBH-10` — `bench_concurrent.rs` convertido a `criterion_main!` (genera `estimates.json`) — commit `e1b64580`
+- `TBH-11` — `heavy-bench-nightly-51.yml` extendido de 5 → 8 benches — commit `1ad3dad8`
+
+**Tests (`docs/avance/activo/ci-cd.md`):**
+- `TBH-06` — `insta 1.48` snapshot testing (3 parser tests migrados; 2 query_result 🟡 INCOMPLETO) — commit `2aab9288`
+- `TBH-07` — `cargo-mutants` weekly job en `heavy-certification-50.yml` — commit `adc4f931`
+
+**Datasets/docs (`docs/avance/activo/ci-cd.md` o `operaciones.md`):**
+- `TBH-12` — `data/README.md` + `datasets/README.md` consolidados — commit `3c477f2e`
+- `TBH-15` — `audit-tokens.sh` deleted (consolidado a `.ps1` only) — commit `b5a57b0b`
+- `TBH-20` — `ci-examples-12.yml` matrix 3-OS — commit `00a78dce`
+- `TBH-21` — `CoverageThreshold=60` review cadence en `CI_POLICY.md` — commit `e6e73e2b`
+
+**Decisiones (NO implementación, doc-only):**
+- `TBH-16` — `divan` NO introducido (D1+D5) — `docs/research/bench-framework-evaluation-2026-08-30.md` — commit `42cce02c`
+- `TBH-17` — `loom` NO introducido — `docs/research/concurrency-testing-2026-08-30.md` — commit `ef4652bf`
+- `TBH-18` — `dhat` NO introducido (YAGNI) — `docs/research/dhat-evaluation-2026-08-30.md` — commit `fa87bbe2`
+
+### Retrospectiva (Start / Stop / Continue + 1 acción medible)
+
+**Start (continuar haciendo):**
+- Modo FAIL_MODE=parallel con waves de 3: 3-4x speedup vs secuencial, sin conflicto de archivos
+- Sub-agentes con `Ruta` explícita en el plan (vanta-lead, vanta-worker, vanta-docs) — routing determinístico
+- `Ponytail option (b)` (placeholders + primer nightly refresca) para evitar `cargo bench --workspace` 30+ min
+- `git stash` selectivo cuando hay unstaged de otras waves (preserva blast-radius mínimo)
+- TBH-XX todos los sub-agentes respetaron `cargo check -p vantadb` (NO `--workspace` por FIND-MCP-001)
+
+**Stop (dejar de hacer):**
+- Delegar tareas que tocan `Cargo.toml` (TBH-06, TBH-08, TBH-09) **en paralelo** — riesgo de merge conflict; hacerlo secuencial (Wave 5)
+- `cargo check --workspace` cuando FIND-MCP-001 está abierto — `-p vantadb` es el scope correcto
+
+**Continue (seguir haciendo igual):**
+- Single-file / single-config cambios como default
+- Conventional Commits con `task ID` en el mensaje
+- Verificación mecánica pre-commit (actionlint, cargo fmt, cargo clippy)
+- Memory persistence via `campaign_memory_write`
+
+**Acción medible propuesta:**
+> **Reducir ratio `insta` snapshot churn** — la primera corrida de cada nuevo `insta::assert_snapshot!` genera un `.snap.new` que requiere review manual. Tracking: contar PRs que tocan `tests/**/snapshots/*.snap` sin cambio de test asociado. Baseline actual: N/A (TBH-06 fue el primer snapshot). Métrica: si >30% de PRs que tocan `.snap` no cambian el test source, ajustar a `--require-pristine` en CI.
+
+### Hallazgo pre-existente (resuelto 2026-09-10)
+- `FIND-MCP-001` — ✅ resuelto: bug ya fixeado en `43e0779e`; verificado `cargo check -p vantadb-mcp --tests` 0 + nextest 14/14 (plan 2026-09-10-fixes, serie hasta 402d88ce).
+
+---
+
+## Phase 49: 🧠 Memory Governance Research Program (Propuesta → implementación)
+
+> Origen: Propuesta unificada de Notion (VantaDB Docs → Propuesta + Anexos A/B/C) y programa de investigación 2026-09-14 (hubs + 24 subpáginas: 8 dimensiones, 6 áreas, 10 ámbitos; validación Fase 1: se mantienen las 8). Auditoría de código 2026-09-14: 9 crates, RRF_K=60 (`fuse_rrf`, path SDK), `GraphTraverser`, `supersede` con guardia, 0 hits bitemporal, solo serde-aliases.
+> Naturaleza: **análisis / investigación / planeación / validación — cero implementación**. Cada fila debe definir: cómo va a funcionar, cómo interactúa con lo demás, qué features/funciones lleva y dónde vive en el código.
+> **Cierre MGR (obligatorio en las 25 filas):** (1) escribir `docs/research/mgr-XX-<tema>.md` con TODA la información conseguida; (2) hacer las preguntas necesarias con question-opencode al owner; (3) crear el plan de implementación o grupo de tareas de implementación con el mismo nivel de detalle.
+> Cobertura: dimensiones D1-D8 (trabajo, episódica, semántica, procedimental, temporal, confianza, identidad, meta), ciclo C1-C6 (persistencia, recuperación, selección, evolución, gobernanza, seguridad), ámbitos AM1-AM10 (hechos, relaciones, tiempo, sistema-vs-realidad, vigencia, identidad, contexto, consistencia, aprendizaje, seguridad).
+
+### Fase 0 — Fundamentos transversales
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
+|----|-------------|----------|----------|------|-------------|
+| `MGR-01` | **Arquitectura de la gobernanza: dónde vive cada cosa** — 🎯 OP: decidir qué vive en core (`vantadb`), qué en `vanta-memory`, qué en server/MCP (regla core/server). OS: mapear skills/threads/scenes/wiki/dream actuales; fijar dependencias permitidas. Tipo: análisis + ADR. Cobertura: Notion Propuesta §1/§7 + Anexo C; D1-D8/C1-C6/AM1-AM10 (marco). Refs código: `src/lib.rs`, `src/server/router.rs`, `vanta-memory/src/`, `vantadb-mcp/src/`. Dep: ninguna. DoD: ADR `docs/architecture/adr/NNN_governance-placement.md` + Cierre MGR. | `src/lib.rs`, `vanta-memory/src/`, `vantadb-mcp/src/` | 🟡 2-3d | 🔴 | 🆕 Pendiente (P49 2026-09-14) |
+| `MGR-02` | **Contrato de marcas REAL/PARCIAL/PROPUESTA** — 🎯 OP: formalizar las marcas como gate de docs y releases (qué exige cada marca para publicarse). OS: criterios de evidencia por marca; checklist de release. Tipo: planeación. Cobertura: Propuesta Anexo A; transversal. Refs: Propuesta Anexo A, `CONTRIBUTING.md`. Dep: ninguna. DoD: sección en CONTRIBUTING + checklist + Cierre MGR. | `CONTRIBUTING.md` | 🟢 1d | 🔴 | 🆕 Pendiente (P49 2026-09-14) |
+| `MGR-03` | **Interacción entre las 8 dimensiones en una operación** — 🎯 OP: definir orden, precedencia y fallo parcial (qué pasa si una dimensión falla dentro de un put/search). OS: tabla de precedencia; modos degradados. Tipo: análisis + diseño. Cobertura: hub Dimensiones ("Cómo cooperan"); D1-D8. Refs Notion: hub + 8 hijas. Dep: MGR-01. DoD: diagrama + tabla + Cierre MGR. | `docs/` (nuevo research-doc) | 🟡 2-3d | 🔴 | 🆕 Pendiente (P49 2026-09-14) |
+| `MGR-04` | **Modelo de namespaces trusted/tainted + RBAC por acción** — 🎯 OP: diseñar aislamiento, clases de confianza, control en retrieval por documento. OS: evaluar ABAC/TTL por namespace; JWT efímero. Tipo: investigación + spec. Cobertura: Propuesta §2.2/§2.4; C6/AM10/D6. Refs código: `src/server/middleware.rs`, `src/server/jwt.rs`, tests `rbac_namespace.rs`; Notion: Seguridad. Dep: MGR-01. DoD: spec + Cierre MGR. | `src/server/`, `tests/rbac_namespace.rs` | 🟡 3d | 🔴 | 🆕 Pendiente (P49 2026-09-14) |
+
+### Track A — Gobernanza automática (v0.7 manual → v1.0 auto)
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
+|----|-------------|----------|----------|------|-------------|
+| `MGR-05` | **Entity resolution (dims D7, ámbitos AM6)** — 🎯 OP: diseñar matching multi-señal (Fellegi-Sunter + embeddings + LLM-juez), fusión reversible con proveniencia, `mark_duplicate` manual como paso 1 y `auto_resolve_entities` como paso 2. OS: evaluar cascada vector-first top-K + LLM solo sobre candidatos; canonicalización de menciones. Tipo: investigación + spec de API. Cobertura: Propuesta §4 + Gobernanza; D7/AM6. Refs código: `src/entity/` (checker, scenes), `src/graph.rs`; Notion: dim 7 + ámbito 6. Dep: MGR-01, MGR-04 (namespaces). DoD: spec + Cierre MGR. Spec inicial fusionado D4 (2026-09-14): `docs/research/archive/Investigacion-plan.md` §Governance — `mark_duplicate` manual (v0.7) → automática (v1.0). | `src/entity/`, `src/graph.rs` | 🟡 3-4d | 🔴 | 🆕 Pendiente (P49 2026-09-14) |
+| `MGR-06` | **Conflict detection/resolution (AM8)** — 🎯 OP: diseñar detección, clasificación y resolución guiada (AGM/TMS: justificaciones IN/OUT, nogoods, invalidación por retirada). OS: evaluar `detect_conflicts`/`resolve_conflict`, conflict-aware retrieval (CARE). Tipo: investigación + spec. Cobertura: Propuesta §4 + §2.4; AM8/D6. Refs código: `superseded_by`, `vantadb-mcp/src/axioms.rs`, dream contradiction provenance; Notion: ámbito 8. Dep: MGR-01. DoD: spec + Cierre MGR. Spec inicial fusionado D4 (2026-09-14): `docs/research/archive/Investigacion-plan.md` §Governance — `detect_conflicts` + loop de ejemplo. | `src/sdk/types/record.rs`, `vantadb-mcp/src/axioms.rs` | 🟡 3d | 🔴 | 🆕 Pendiente (P49 2026-09-14) |
+| `MGR-07` | **Skills extract/use (D4)** — 🎯 OP: diseñar generalización del runner dreamer, curaduría anti-library-drift, competición entre skills. OS: evaluar `extract_skills`/`use_skill`, `SkillVersion`, sink. Tipo: investigación + spec. Cobertura: Propuesta §4; D4. Refs código: `src/skills.rs`, `vanta-memory/src/core/skill/` (extractor, sink, versions); Notion: dim 4. Dep: MGR-01. DoD: spec + Cierre MGR. Spec inicial fusionado D4 (2026-09-14): `docs/research/archive/Investigacion-plan.md` §Governance — `extract_skills` + tests de integración propuestos. | `src/skills.rs`, `vanta-memory/src/core/skill/` | 🟡 3d | 🟠 | 🆕 Pendiente (P49 2026-09-14) |
+| `MGR-08` | **Consolidación automática L2→L3 + grafo de reemplazo (C4)** — 🎯 OP: diseñar `consolidate(ns)` automático con puerta de calidad y grafo de reemplazo de obsoletos. OS: evaluar SCD Tipo 2, invalidación row-level, dream/promote como base. Tipo: investigación + spec. Cobertura: Propuesta §4; C4/D3/AM5. Refs código: `vanta-memory/src/core/dream/`, `supersede`; Notion: Evolución + Vigencia. Dep: MGR-01, MGR-14 (política resúmenes). DoD: spec + Cierre MGR. | `vanta-memory/src/core/dream/`, `src/sdk/api/memory.rs` | 🟡 3d | 🟠 | 🆕 Pendiente (P49 2026-09-14) |
+| `MGR-09` | **Auditoría de vigencia + retention policies (AM5)** — 🎯 OP: diseñar `audit_vigency`, TTL semántico, decaimiento por tipo, freshness en selección. OS: evaluar predicción de duración, auditoría programada. Tipo: investigación + spec. Cobertura: Propuesta §4; AM5/D5/C4. Refs código: `expires_at_ms`, `purge_expired`; Notion: ámbito 5. Dep: MGR-01. DoD: spec + Cierre MGR. | `src/sdk/types/record.rs` | 🟢 2d | 🟠 | 🆕 Pendiente (P49 2026-09-14) |
+
+### Track B — Temporal (D5, AM3/AM4/AM5)
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
+|----|-------------|----------|----------|------|-------------|
+| `MGR-10` | **Bitemporalidad: valid/transaction time + time-travel (D5/AM4)** — 🎯 OP: diseñar distinción valid vs transaction, storage del historial, queries time-travel auditables, evidence-before-belief. OS: evaluar append-only + `valid_at`, commit transaccional. Tipo: investigación + ADR. Cobertura: Propuesta Anexo A (0 hits hoy); D5/AM4. Refs: Snodgrass, Zep/Graphiti; Notion: dim 5 + ámbito 4. Dep: MGR-01. DoD: ADR + Cierre MGR. **Decisión owner 2026-09-14: migración única junto con MGR-12/13 (un solo cambio breaking de schema).** | `src/sdk/types/record.rs` (campos base) | 🔴 4-5d | 🔴 | 🆕 Pendiente (P49 2026-09-14) |
+| `MGR-11` | **Ranking y decaimiento temporal (AM3/AM5)** — 🎯 OP: diseñar ranking temporal (no solo filtro `valid_at`), decaimiento por tipo con beta, ventanas/conteos/frecuencia. OS: evaluar REMem/Zep (vector recall + grafo bitemporal). Tipo: investigación + spec. Cobertura: Propuesta §2.4; AM3/AM5/C3. Refs código: `sdk/search/fusion.rs`; Notion: ámbitos 3 y 5. Dep: MGR-10. DoD: spec + Cierre MGR. | `src/sdk/search/fusion.rs` | 🟡 2-3d | 🟠 | 🆕 Pendiente (P49 2026-09-14) |
+
+### Track C — Confianza (D6, AM1/AM7)
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
+|----|-------------|----------|----------|------|-------------|
+| `MGR-12` | **Jerarquía asserted/derived + scores + derivación (D6/AM1/AM7)** — 🎯 OP: diseñar scores por registro, jerarquía asserted/derived, cadenas de derivación, last-validated, grounding con jueces (FACTS/FaithJudge). OS: evaluar calibración (temperatura), P(IK), citas auditables. Tipo: investigación + esquema + ADR. Cobertura: Propuesta Anexo A; D6/AM1/AM7. Refs código: metadata + `axioms.rs` (4 axiomas); Notion: dim 6 + ámbitos 1 y 7. Dep: MGR-01. DoD: esquema + ADR + Cierre MGR. **Decisión owner 2026-09-14: migración única junto con MGR-10/13.** | `vantadb-mcp/src/axioms.rs` | 🔴 4d | 🔴 | 🆕 Pendiente (P49 2026-09-14) |
+| `MGR-13` | **Cuarentena semántica + abstención (AM10/D6)** — 🎯 OP: diseñar quarantine para contenido dudoso, trust-aware retrieval, abstención selectiva. OS: evaluar threat model write-time (AgentPoison/MINJA), hash-chain de auditoría (PROV-O + SHA-256). Tipo: investigación + spec. Cobertura: Propuesta §2.4; AM10/D6. Refs: OWASP ASI06; Notion: Seguridad + ámbito 10. Dep: MGR-04, MGR-12. DoD: spec + Cierre MGR. **Decisión owner 2026-09-14: migra junto con MGR-10/12 (una sola migración).** | `src/server/middleware.rs`, `vanta-memory/src/core/dream/` | 🟡 3d | 🟠 | 🆕 Pendiente (P49 2026-09-14) |
+
+### Track D — Compresión y aprendizaje (D3/D8, AM9, C4)
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
+|----|-------------|----------|----------|------|-------------|
+| `MGR-14` | **Política de resúmenes y consolidación semántica (D3)** — 🎯 OP: diseñar versionado de resúmenes, guards generalizados (`summary>original`), puerta de consolidación. OS: evaluar deriva por resúmenes, Ebbinghaus, SCD. Tipo: investigación + spec. Cobertura: Propuesta §4; D3. Refs código: `vanta-memory/src/context_engine/compressor.rs`, dream L1 inmutables; Notion: dim 3. Dep: MGR-01. DoD: spec + Cierre MGR. | `vanta-memory/src/context_engine/`, `vanta-memory/src/core/dream/` | 🟡 2-3d | 🟠 | 🆕 Pendiente (P49 2026-09-14) |
+| `MGR-15` | **Minería de patrones y post-mortems (AM9/D8)** — 🎯 OP: diseñar Reflexion sobre memoria, skills composables, integración de lecciones a memoria operativa, doble bucle. OS: evaluar SECI/ba, feedback loops. Tipo: investigación + spec. Cobertura: Propuesta Anexo A; AM9/D8. Refs código: snapshots, export, `SkillRecord`, `DreamRun`; Notion: ámbito 9. Dep: MGR-07, MGR-08. DoD: spec + Cierre MGR. | `src/skills.rs`, `vanta-memory/src/core/dream/` | 🟢 2d | 🟢 | 🆕 Pendiente (P49 2026-09-14) |
+
+### Track E — Retrieval avanzado (D3, C2/C3, AM2)
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
+|----|-------------|----------|----------|------|-------------|
+| `MGR-16` | **RRF en CBO + rewriting + MMR (C2/C3)** — 🎯 OP: diseñar fusión RRF en el planner (hoy solo SDK), query rewriting, diversidad MMR con `fetch_k` 5–10x. OS: evaluar retrieval gobernado como operador físico. Tipo: investigación + spec. Cobertura: Propuesta Anexo A (nota RRF-CBO); C2/C3. Refs código: `src/planner.rs:181`, `sdk/search/fusion.rs`, `search_profile.rs` (RRF_K=60). Dep: MGR-01. DoD: spec + Cierre MGR. | `src/planner.rs`, `src/sdk/search/fusion.rs` | 🟡 2-3d | 🟠 | 🆕 Pendiente (P49 2026-09-14) |
+| `MGR-17` | **GraphRAG query (AM2/D3)** — 🎯 OP: diseñar el query sobre el pipeline existente (tests + `wiki_graph`), multi-hop evaluado, capa causal-LLM. OS: evaluar ActMem/MAGMA, DRIFT. Tipo: investigación + spec. Cobertura: Propuesta Anexo A (query PENDING); AM2/D3. Refs código: `src/graphrag/pipeline.rs`, `tests/graphrag_test.rs`; Notion: ámbito 2. Dep: MGR-01, MGR-05 (entidades). DoD: spec + Cierre MGR. | `src/graphrag/`, `tests/graphrag_test.rs` | 🔴 4d | 🟠 | 🆕 Pendiente (P49 2026-09-14) |
+
+### Track F — Meta-memoria (D8)
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
+|----|-------------|----------|----------|------|-------------|
+| `MGR-18` | **Auto-evaluación: reliability, lagunas, revalidación (D8)** — 🎯 OP: diseñar reliability scores, detección de lagunas, revalidación proactiva, P(IK). OS: evaluar monitoring-control (Nelson-Narens), verbalized confidence + abstención. Tipo: investigación + spec. Cobertura: Propuesta Anexo A; D8. Refs código: `operational_metrics`, `SceneMeta.heat`, `audit_text_index`; Notion: dim 8. Dep: MGR-12 (scores). DoD: spec + Cierre MGR. | `src/`, `vanta-memory/src/` | 🟡 2-3d | 🟢 | 🆕 Pendiente (P49 2026-09-14) |
+
+### Track G — Validación
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
+|----|-------------|----------|----------|------|-------------|
+| `MGR-19` | **Benchmarks propios y externos (Anexo B)** — 🎯 OP: correr `canonical_p99`, definir suite LoCoMo/LongMemEval/BEAM, adueñar los números. OS: fijar baseline en BENCHMARKS.md. Tipo: validación. Cobertura: Propuesta Anexo B; transversal. Refs: `benches/*` (23), `benchmarks/*.py`, `docs/operations/BENCHMARKS.md`. Dep: ninguna (puede correr en paralelo). DoD: números publicados + Cierre MGR. **Decisión owner 2026-09-14: alcance completo (canonical_p99 + LoCoMo/LongMemEval/BEAM).** | `benches/`, `benchmarks/`, `docs/operations/BENCHMARKS.md` | 🟡 3-5d | 🔴 | 🆕 Pendiente (P49 2026-09-14) |
+| `MGR-20` | **Adopción: 3–5 usuarios en producción (casos §3)** — 🎯 OP: planificar criterios, tracking y testimonios. OS: definir DoD de "caso en producción". Tipo: planeación. Cobertura: Propuesta §5; SDKs §3. Refs Notion: SDKs, Roadmap. Dep: MGR-19 (números para contar la historia). DoD: plan + Cierre MGR. | `docs/` (plan) | 🟢 1-2d | 🟢 | 🆕 Pendiente (P49 2026-09-14) |
+
+### Track H — Docs
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
+|----|-------------|----------|----------|------|-------------|
+| `MGR-21` | **Publicación docs: tutorials/FAQ/migration/user-guide (SDKs)** — 🎯 OP: llevar el contenido ya extraído en SDKs a `vantadb.vercel.app` con verificación de código. OS: deployment y checklist. Tipo: planeación + validación. Cobertura: SDKs §§2.x–3.x; transversal. Refs Notion: SDKs, Roadmap §4.1–4.2. Dep: ninguna. DoD: docs desplegadas + Cierre MGR. | `web/`, `vantadb-docs` | 🟢 2d | 🟢 | 🆕 Pendiente (P49 2026-09-14) |
+| `MGR-22` | **PI-1 Repo-map + indexación incremental del repo (memoria de proyecto/ingeniería)** — 🎯 OP: diseñar mapa vivo del repo (estructura, stack, comandos build/test,Owner por área) + indexación incremental (AST tree-sitter por definiciones, resumen NL por chunk, híbrido BM25+vector RRF, expansión por grafo de dependencias, git hooks que re-indexan solo lo cambiado). OS: evaluar sustrato actual (`code_search/explore/callers/callees/impact` BFS-1 en `vantadb-mcp/src/code.rs`, `code_files` NO soportado D28, `graphrag/pipeline.rs`, `wiki/sources.rs` solo `.md`) y elevarlo a file-per-node + watcher. Tipo: investigación + spec. Cobertura: transversal PI (compone D3/D2/D4/D7/D5/D6); hub Notion PI. Refs código: `vantadb-mcp/src/code.rs:42-165,192-328`, `src/graphrag/pipeline.rs`, `src/wiki/sources.rs:82`; literatura: CodeRAG (AST+resumen NL ~10x, RRF, expansión, token budget), RepoFuse (contexto-analogía + rationale, +3.97 EM), repo-rag (índice compartido + hooks + `repo_rag_remember`), PROJECTMEM (log append-only + `PROJECT_MAP.md` proyectado), OpenHands `repo.md`. Dep: MGR-01, MGR-17 (GraphRAG query). DoD: spec (chunker, watcher, repo-map, API `code_index`/`code_watch`) + research-doc + Cierre MGR. **Decisión owner 2026-09-14: watcher para Rust + Python + TypeScript desde el inicio.** | `vantadb-mcp/src/code.rs`, `src/graphrag/`, `src/wiki/` | 🔴 4-5d | 🔴 | 🆕 Pendiente (P49 2026-09-14, track PI) |
+| `MGR-23` | **PI-2 ADRs automáticas + memoria de convenciones (decisiones y reglas del proyecto)** — 🎯 OP: diseñar detección de cambios arquitectónicamente significativos (git diff → LLM-juez) + generación de ADRs en formato MADR + memoria de convenciones (estilo, lints, AGENTS.md, runbooks) con detector de deriva. OS: evaluar ventana de contexto 3–5 ADRs previos (temporal+conceptual locality), aprobación humana antes de archivar (patrón dream/approve), supersession de ADRs reemplazados. Tipo: investigación + spec. Cobertura: PI (compone D4/D6/D8); hub Notion PI. Refs código: `docs/architecture/adr/`, `vanta-memory/src/core/dream/` (approve/reject como patrón), `SkillRecord`; literatura: ICSA-2024 (GPT-4 0-shot relevante pero sub-humano; GPT-3.5 few-shot ≈), DRAFT-2025 (RAG few-shot tuning), Context-Matters-2026 (Last_K 3–5 ≈ All_N), cADR (detección + MADR + git workflow + skill de agente). Dep: MGR-01, MGR-07 (skills). DoD: spec (`adr_propose`/`adr_approve`, convenciones versionadas) + research-doc + Cierre MGR. | `docs/architecture/adr/`, `vanta-memory/src/core/dream/`, `src/skills.rs` | 🟡 3-4d | 🟠 | 🆕 Pendiente (P49 2026-09-14, track PI) |
+| `MGR-24` | **PI-3 Trazabilidad bug→fix + minería de patrones de ingeniería** — 🎯 OP: diseñar links issue↔commit↔test (recuperación automática de links faltantes), grafo decisión→código→test, post-mortems que alimentan memoria operativa. OS: evaluar LinkFormer (Transformer, split temporal obligatorio), LinkAnchor (agente LLM + búsqueda en grafo de commits, +41-714% Hit@1 vs baselines), KGCompass (KG multi-hop: 58.3% repair, 89.7% de localizados sin hint explícito vía grafo), EALink/BTLink. Tipo: investigación + spec. Cobertura: PI (compone D2/D8/AM9); hub Notion PI. Refs código: `tests/` (chaos, graphrag_test), `src/graph.rs`, `src/entity/`; literatura: LinkFormer, LinkAnchor (FSE-2026), KGCompass, EALink (ASE-2023). Dep: MGR-05 (entidades), MGR-22 (repo-map). DoD: spec (linker + grafo + post-mortem loop) + research-doc + Cierre MGR. | `src/graph.rs`, `src/entity/`, `tests/` | 🟡 3-4d | 🟠 | 🆕 Pendiente (P49 2026-09-14, track PI) |
+| `MGR-25` | **Ingestores de formatos: txt/json/csv → html → pdf → docx (extensión de ingesta)** — 🎯 OP: diseñar trait `Ingestor` (formato → chunks `MemoryInput` con `metadata.source={file,page,chunk}` para proveniencia) y orden de implementación: txt/json/csv (trivial, chunker directo) → html (`html2text` + URL/título) → pdf (`pdf-extract`, páginas como chunks) → docx (último, parser pesado). OS: evaluar presupuesto `SOURCE_CHAR_BUDGET` (28k, `wiki/sources.rs:18`), chunking con overlap, preservación de tablas; el código (`rs/py/ts`) NO entra aquí (va por MGR-22 grafo de código). Tipo: investigación + spec. Cobertura: transversal ingesta; Notion SDKs/Gobernanza (procedencia AM7). Refs código: `src/wiki/sources.rs:82` (hoy solo `.md`), `vanta-memory/src/seed/md_import.rs` (round-trip `.md` con frontmatter v1), `src/sdk/types/record.rs:35` (`MemoryInput`). Dep: MGR-01, MGR-12 (procedencia). DoD: spec (trait + 5 formatos + tests) + research-doc + Cierre MGR. | `src/wiki/sources.rs`, `vanta-memory/src/seed/md_import.rs` | 🟡 3d | 🟠 | 🆕 Pendiente (P49 2026-09-14, formatos) |
+
+---
+
+## Phase 50: 🎬 Cierre Propuesta (ejecución + docs pendientes)
+
+> Huecos detectados 2026-09-14 auditando Propuesta + Problema contra el backlog (P49 cubre investigación/planeación; aquí va la ejecución y docs que nadie tenía asignadas). Origen: Propuesta §5/§6/§7, Síntesis del hub, guía de Benchmarks (13 PENDIENTE), Utopia (Problema § direcciones futuras), cascada multiagente (Problema § emergentes).
+
+| ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
+|----|-------------|----------|----------|------|-------------|
+| `EXE-01` | **Demos ejecutables de los 3 casos (§5) en CI** — 🎯 OP: construir agente-personal, RAG-docs y grafos como ejemplos que corren en CI (put/search/TTL/graph reales). OS: reutilizar SDKs §2.3; criterios pass/fail. Tipo: implementación + test. Cobertura: Propuesta §5; D1/D3/D7. Refs Notion: SDKs, Propuesta. Dep: MGR-19 (números para asserts). DoD: 3 demos verdes en CI + docs linkeadas. | `vantadb-python/tests/`, `docs/tutorials/` | 🟡 1sem | 🟠 | 🆕 Pendiente (P50 2026-09-14) |
+| `EXE-02` | **Head-to-head vs sistemas de memoria (Mem0/Zep/Letta)** — 🎯 OP: evaluar VantaDB contra Mem0/Zep/Letta con LoCoMo/LongMemEval (no solo vector DBs). OS: harness común, métricas honestas win/lose. Tipo: validación. Cobertura: Propuesta §6; transversal. Refs: `benchmarks/competitive_bench`, docs Panorama. Dep: MGR-19. DoD: reporte en BENCHMARKS.md + Cierre MGR. | `benchmarks/`, `docs/operations/BENCHMARKS.md` | 🔴 1-2sem | 🟠 | 🆕 Pendiente (P50 2026-09-14) |
+| `EXE-03` | **Ejecutar el gate Fase A** — 🎯 OP: correr el gate (5 installs limpias documentadas, stranger-test 2-3 personas, 0 críticos). OS: registrar resultados; veredicto GO/NO-GO de anuncio. Tipo: ejecución + validación. Cobertura: Roadmap Fase A; transversal. Refs Notion: Roadmap. Dep: MGR-19, EXE-01. DoD: reporte de gate firmado. Spec operativo fusionado D1 (2026-09-14): `docs/research/archive/Investigacion-plan.md` Fase A — A.1 stranger-test 2-3 personas con plantilla usuario-01, A.2 checklist Producto/Calidad/Docs/Comunidad/Comunicación (todo SÍ o no se anuncia), A.3 objetivo 5 personas con flujo real. | `docs/` (reporte) | 🟡 1sem | 🔴 | 🆕 Pendiente (P50 2026-09-14) |
+| `EXE-04` | **Rellenar subpáginas vacías de VantaDB Docs** — 🎯 OP: escribir Alcance, Límites, Usuario principal, Casos de uso, CDA, Core V1, Aceptación, Cuándo-no, Posicionamiento, Propuesta de Valor desde el material existente (sin inventar). OS: cada una con fuentes citadas. Tipo: docs. Cobertura: hub VantaDB Docs; transversal. Refs Notion: hub + Definición oficial + Propuesta. Dep: ninguna. DoD: 10 subpáginas con contenido + revisión. | `docs/` (espejo local si aplica) | 🟡 1sem | 🟢 | 🆕 Pendiente (P50 2026-09-14) |
+| `EXE-05` | **Completar la guía de Benchmarks (13 PENDIENTE)** — 🎯 OP: redactar las secciones marcadas PENDIENTE con contenido real (datasets, pasos, reporte). OS: alinear con MGR-19. Tipo: docs. Cobertura: Propuesta Anexo B; Observabilidad. Refs Notion: Benchmarks + Observabilidad. Dep: MGR-19. DoD: 0 marcadores PENDIENTE. | `docs/operations/` | 🟢 2-3d | 🟢 | 🆕 Pendiente (P50 2026-09-14) |
+| `EXE-06` | **VISION.md semilla (Síntesis del hub)** — 🎯 OP: condensar fundamentos en un párrafo fluido estilo café + visión. OS: validar contra Definición oficial. Tipo: docs. Cobertura: hub Síntesis; transversal. Refs Notion: hub VantaDB Docs. Dep: ninguna. DoD: `docs/vision/VISION.md` expandido con el párrafo semilla (el archivo ya existe — NO crear `docs/VISION.md` nuevo; corrección 2026-09-14). | `docs/vision/VISION.md` | 🟢 1d | 🟢 | 🆕 Pendiente (P50 2026-09-14) |
+| `EXE-07` | **Test de cascada multiagente** — 🎯 OP: inyectar error de un agente en memoria compartida y verificar contención (cuarentena/dream isolation). OS: ASM de propagación, criterios de contención. Tipo: test/chaos. Cobertura: Problema § emergentes; AM8/C5. Refs código: `tests/storage/chaos_integrity.rs`, `vanta-memory/src/core/dream/`. Dep: ninguna. DoD: test verde + documentado. | `tests/` | 🟡 3-4d | 🟠 | 🆕 Pendiente (P50 2026-09-14) |
+| `EXE-09` | **QoS: Axiomatic Bandwidth Reservation (rescate de archive 2026-09-14)** — 🎯 OP: evaluar reserva de I/O (~15%) para garantías STRICT/BALANCED (SmartGraphs explícitamente NO hasta cluster v1.0). OS: revisar `backlog-futuro.md` FUT-03 si existe; medir contención WAL vs queries. Tipo: investigación. Cobertura: C1/C5 (persistencia/latencia predecible); futura. Refs código: `src/wal*.rs`, `src/backends/`; Origen: `docs/archive/` (inventario 2026-09-14: único rescate válido; resto rechazado: Gridstore/Arrow-WAL/IRI/HFresh/plugins/GSQL/SmartGraphs/VelocyPack/Ollama-proxy/case-studies-ficticios). Dep: ninguna. DoD: spec o descarte fundado. | `src/wal*.rs`, `docs/research/` | 🟢 2d | 🔵 | 🆕 Pendiente (P50 2026-09-14) |
+| `EXE-10` | **Re-verificar ~19 citas con 403 anti-bot (auditoría URLs 2026-09-14)** — 🎯 OP: re-verificar con navegador las citas marcadas INCIERTAS (ACM, Science, PsycNet, Tandfonline, SagePub, JNeurosci…) en las 24 páginas de investigación; sustituir las muertas y confirmar las vivas. OS: lista en el reporte de auditoría (dims 163 URLs, áreas 110, ámbitos 107). Tipo: validación docs. Cobertura: Propuesta + 24 subpáginas (Referencias). Dep: ninguna. DoD: 0 citas inciertas (todas OK o sustituidas) + decisión owner 2026-09-14. | `docs/` (reporte) | 🟢 1-2d | 🟢 | 🆕 Pendiente (P50 2026-09-14) |

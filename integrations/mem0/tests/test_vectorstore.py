@@ -1,6 +1,6 @@
 """Tests for the mem0 VectorStoreBase-compliant VantaDBVectorStore."""
 import pytest
-import tempfile
+pytest.importorskip("mem0.vector_stores", reason="mem0 SDK not installed; adapter suite skipped")
 import os
 import sys
 
@@ -13,8 +13,8 @@ VEC_128_B = [0.2] * 128
 
 
 @pytest.fixture
-def store():
-    path = os.path.join(tempfile.mkdtemp(), "test_mem0")
+def store(tmp_path):
+    path = str(tmp_path / "test_mem0")
     s = VantaDBVectorStore(db_path=path, namespace="test_mem0")
     yield s
 
@@ -149,3 +149,19 @@ class TestOutputData:
     def test_repr(self):
         d = OutputData(id="x", score=0.5)
         assert "OutputData" in repr(d)
+
+
+# ── QW-5: semántica exacta de _normalize_score ──
+
+def test_normalize_score_exact_semantics():
+    """Pin de semántica: None→0; [0,1] pasa tal cual; fuera se trata como distancia d→clamp(1-d,0,1)."""
+    from vantadb_mem0.vectorstore import _normalize_score
+    assert _normalize_score(None) == 0.0
+    assert _normalize_score(0.0) == 0.0
+    assert _normalize_score(0.5) == 0.5      # pre-normalizado pasa sin cambios
+    assert _normalize_score(0.3) == 0.3      # [0,1] pasa tal cual (rama passthrough)
+    assert _normalize_score(1.0) == 1.0
+    assert _normalize_score(1.2) == 0.0      # fuera de [0,1]: distancia d→clamp(1-d)
+    assert _normalize_score(1.7) == 0.0      # distancia >1 satura a 0
+    assert _normalize_score(2.0) == 0.0      # peor distancia coseno
+    assert _normalize_score(-0.3) == 0.0     # negativo inválido → clamp, nunca >1

@@ -330,11 +330,11 @@ for r in results:
 ## Related Documentation
 
 - [Architecture Overview](../architecture/ARCHITECTURE.md) — Core design principles
-- [How Hybrid Search Works](../../web/content/blog/how-hybrid-search-works.md) — BM25 + HNSW deep dive
+- [How Hybrid Search Works](../blog/how_hybrid_search_works.md) — BM25 + HNSW deep dive
 - [Python SDK Guide](../api/PYTHON_SDK.md) — Complete SDK reference
 - [Model Context Protocol (MCP)](../api/MCP.md) — AI agent integration
-- [Agent Local Memory with Ollama](../case_studies/agent_local_memory_ollama.md) — GraphRAG case study
-- [RAG on Edge Devices](../case_studies/rag_edge_device.md) — Edge deployment patterns
+- Agent Local Memory with Ollama — archivado (interno no verificado): docs/archive/case-studies-unverified/
+- RAG on Edge Devices — archivado (interno no verificado): docs/archive/case-studies-unverified/
 - [IQL Reference](../api/IQL.md) — Graph-constrained query language
 - [Benchmarks & Performance](../operations/BENCHMARKS.md) — Performance comparisons
 - [Configuration Schema](../operations/CONFIGURATION.md) — Full config reference

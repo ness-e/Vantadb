@@ -1,3 +1,6 @@
+// ponytail: chaos harness expects intentional panics; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Reusable harness for failpoint-based chaos testing.
 //!
 //! # Usage

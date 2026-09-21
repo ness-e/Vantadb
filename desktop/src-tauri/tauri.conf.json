@@ -1,0 +1,69 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "vantadb-desktop",
+  "version": "0.1.0",
+  "identifier": "com.vantadb.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "title": "VantaDB Studio",
+        "width": 1280,
+        "height": 800,
+        "minWidth": 1024,
+        "minHeight": 640,
+        "center": true,
+        "decorations": false
+      }
+    ],
+    "security": {
+      "csp": {
+        "default-src": "'self'",
+        "connect-src": "ipc: http://ipc.localhost http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:* https://*",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data: blob:"
+      },
+      "devCsp": {
+        "default-src": "'self'",
+        "connect-src": "ipc: http://ipc.localhost http://127.0.0.1:* ws://127.0.0.1:* http://localhost:* ws://localhost:* https://*",
+        "style-src": "'self' 'unsafe-inline'",
+        "img-src": "'self' data: blob:"
+      }
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": ["vanta"]
+      }
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["nsis", "msi", "dmg", "app", "appimage", "deb"],
+    "category": "DeveloperTool",
+    "shortDescription": "VantaDB Studio — local-first vector memory workbench",
+    "longDescription": "VantaDB Studio is the desktop shell over the VantaDB engine: local-first vector + full-text memory with MCP sidecar support. macOS/Linux bundles are unsigned build-only artifacts (no notarization — no Apple certificate in CI).",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "windows": {
+      "webviewInstallMode": {
+        "type": "embedBootstrapper"
+      }
+    },
+    "resources": {
+      "binaries/vanta-cli*": ".",
+      "binaries/vantadb-server*": "."
+    }
+  }
+}

@@ -30,14 +30,17 @@ pub fn cmd_search(
     }
 
     let spinner = create_spinner("Opening database...");
-    let db = open_embedded(db_path, true)?;
+    // AUD-044: open read-write so `Embedded::open_with_config` runs
+    // `ensure_indexes_current` (skipped when read_only) — text_query fails on
+    // fresh DBs with "text_index not found: bm25" otherwise. Same fix as MCP-01.
+    let db = open_embedded(db_path, false)?;
     spinner.set_message("Searching...");
 
     let query_vector = if let Some(qv) = query_vector_str {
         qv.split(',')
             .map(|s| {
                 s.trim().parse::<f32>().map_err(|e| {
-                    crate::error::VantaError::InvalidInput(format!(
+                    crate::error::Error::InvalidInput(format!(
                         "Invalid vector component '{s}': {e}"
                     ))
                 })
@@ -47,14 +50,17 @@ pub fn cmd_search(
         vec![]
     };
 
-    let request = crate::sdk::VantaMemorySearchRequest {
+    let request = crate::sdk::MemorySearchRequest {
         namespace: namespace.to_string(),
         query_vector,
-        filters: crate::sdk::VantaMemoryMetadata::new(),
+        query_sparse: None,
+        filters: crate::sdk::MemoryMetadata::new(),
         text_query: Some(query.to_string()),
         top_k: limit,
         distance_metric: crate::node::DistanceMetric::Cosine,
         explain: false,
+        exclude_superseded: false,
+        search_profile: None,
     };
 
     let hits = db.search(request)?;
@@ -75,7 +81,7 @@ pub fn cmd_search(
         println!(
             "{}",
             serde_json::to_string_pretty(&results).map_err(|e| {
-                crate::error::VantaError::CliError(ChainedError::msg(format!(
+                crate::error::Error::Cli(ChainedError::msg(format!(
                     "JSON serialization error: {e}"
                 )))
             })?
@@ -175,7 +181,8 @@ pub fn cmd_similar_to_key(
     }
 
     let spinner = crate::cli_handlers::create_spinner("Opening database...");
-    let db = crate::cli_handlers::open_embedded(db_path, true)?;
+    // AUD-044: read-write open so index reconciliation runs on open (see cmd_search).
+    let db = crate::cli_handlers::open_embedded(db_path, false)?;
     spinner.set_message("Searching similar records...");
 
     let hits = db.similar_to_key(namespace, key, top_k)?;
@@ -196,7 +203,7 @@ pub fn cmd_similar_to_key(
         println!(
             "{}",
             serde_json::to_string_pretty(&results).map_err(|e| {
-                crate::error::VantaError::CliError(ChainedError::msg(format!(
+                crate::error::Error::Cli(ChainedError::msg(format!(
                     "JSON serialization error: {e}"
                 )))
             })?
@@ -271,7 +278,7 @@ fn parse_query_vector(s: Option<&str>) -> crate::error::Result<Vec<f32>> {
             .split(',')
             .map(|tok| {
                 tok.trim().parse::<f32>().map_err(|e| {
-                    crate::error::VantaError::InvalidInput(format!(
+                    crate::error::Error::InvalidInput(format!(
                         "Invalid vector component '{tok}': {e}"
                     ))
                 })
@@ -282,7 +289,7 @@ fn parse_query_vector(s: Option<&str>) -> crate::error::Result<Vec<f32>> {
 
 /// Render search hits to stdout (shared by search_multi and search_all).
 fn print_hits(
-    hits: &[crate::sdk::VantaMemorySearchHit],
+    hits: &[crate::sdk::MemorySearchHit],
     json_output: bool,
     header: &str,
 ) -> crate::error::Result<()> {
@@ -301,7 +308,7 @@ fn print_hits(
         println!(
             "{}",
             serde_json::to_string_pretty(&results).map_err(|e| {
-                crate::error::VantaError::CliError(crate::error::ChainedError::msg(format!(
+                crate::error::Error::Cli(crate::error::ChainedError::msg(format!(
                     "JSON serialization error: {e}"
                 )))
             })?
@@ -383,20 +390,24 @@ pub fn cmd_search_multi(
     }
 
     let spinner = create_spinner("Opening database...");
-    let db = open_embedded(db_path, true)?;
+    // AUD-044: read-write open so index reconciliation runs on open (see cmd_search).
+    let db = open_embedded(db_path, false)?;
     spinner.set_message("Searching across namespaces...");
 
     let query_vector = parse_query_vector(query_vector_str)?;
 
-    let request = crate::sdk::VantaMemorySearchRequest {
+    let request = crate::sdk::MemorySearchRequest {
         // namespace is overridden per-namespace inside search_multi
         namespace: String::new(),
         query_vector,
-        filters: crate::sdk::VantaMemoryMetadata::new(),
+        query_sparse: None,
+        filters: crate::sdk::MemoryMetadata::new(),
         text_query: query.map(str::to_string),
         top_k,
         distance_metric: crate::node::DistanceMetric::Cosine,
         explain: false,
+        exclude_superseded: false,
+        search_profile: None,
     };
 
     let hits = db.search_multi(&namespaces, request)?;
@@ -437,23 +448,60 @@ pub fn cmd_search_all(
     }
 
     let spinner = create_spinner("Opening database...");
-    let db = open_embedded(db_path, true)?;
+    // AUD-044: read-write open so index reconciliation runs on open (see cmd_search).
+    let db = open_embedded(db_path, false)?;
     spinner.set_message("Discovering namespaces and searching...");
 
     let query_vector = parse_query_vector(query_vector_str)?;
 
-    let request = crate::sdk::VantaMemorySearchRequest {
+    let request = crate::sdk::MemorySearchRequest {
         namespace: String::new(),
         query_vector,
-        filters: crate::sdk::VantaMemoryMetadata::new(),
+        query_sparse: None,
+        filters: crate::sdk::MemoryMetadata::new(),
         text_query: query.map(str::to_string),
         top_k,
         distance_metric: crate::node::DistanceMetric::Cosine,
         explain: false,
+        exclude_superseded: false,
+        search_profile: None,
     };
 
     let hits = db.search_all(request)?;
     spinner.finish_and_clear();
 
     print_hits(&hits, json_output, "Search results across all namespaces:")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// AUD-044 regression: `search` on a fresh DB after `put` must work without
+    /// a manual `rebuild-index` step. Before the fix, `open_embedded` was called
+    /// with `read_only=true`, which skips `ensure_indexes_current` in
+    /// `Embedded::open_with_config` → text_query failed with
+    /// `NotFound { kind: "text_index", id: "bm25" }`.
+    #[test]
+    fn search_on_fresh_db_after_put_works_without_manual_rebuild() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db = dir.path().to_str().unwrap();
+
+        crate::cli_handlers::cmd_put(
+            db,
+            "test",
+            "k1",
+            "hello world",
+            Some("0.1,0.2,0.3"),
+            None,
+            false,
+        )
+        .expect("put should succeed");
+
+        // search with a text query on the same fresh DB, JSON output (no tty)
+        cmd_search(db, "test", "hello", None, 10, true).expect("search should not error");
+
+        // same for similar-to-key (vector path, also read-write open now)
+        cmd_similar_to_key(db, "test", "k1", 10, true).expect("similar_to_key should not error");
+    }
 }

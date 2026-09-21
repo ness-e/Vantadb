@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Maintenance · VantaDB — Zero Ops",
     description:
       "Zero maintenance con VantaDB: self-healing WAL, single-file, sin clusters. Apache 2.0, pip install.",
-    url: "https://vantadb.dev/maint",
+    url: "https://vantadb.vercel.app/maint",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/maint",
+    canonical: "https://vantadb.vercel.app/maint",
   },
 };
 

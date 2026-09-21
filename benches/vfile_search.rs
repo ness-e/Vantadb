@@ -1,8 +1,10 @@
-//! DRV-130 T3: VantaFile-backed search benchmark.
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+//! DRV-130 T3: File-backed search benchmark.
 //!
-//! Measures search_nearest with a populated VantaFile (SSD-I/O emulation)
+//! Measures search_nearest with a populated File (SSD-I/O emulation)
 //! vs in-memory search (no I/O). Includes a compacted variant that rewrites
-//! the VantaFile in BFS order to test locality improvement.
+//! the File in BFS order to test locality improvement.
 //!
 //! Run with:
 //!   RUST_LOG=debug cargo bench --bench vfile_search 2>&1 | grep PROFILE
@@ -20,7 +22,7 @@ use vantadb::index::VectorRepresentations;
 use vantadb::index::{CPIndex, HnswConfig, IndexType};
 use vantadb::node::{DiskNodeHeader, DistanceMetric, FilterBitset};
 use vantadb::storage::archive::{compact_layout, reindex_nodes, traverse_graph};
-use vantadb::storage::vfile::VantaFile;
+use vantadb::storage::vfile::File;
 
 const DIMS: usize = 128;
 const N_VECTORS: usize = 10_000;
@@ -44,7 +46,7 @@ fn generate_vectors(count: usize, dims: usize, seed: u64) -> Vec<Vec<f32>> {
     vectors
 }
 
-fn populate_vfile(vstore: &mut VantaFile, vectors: &[Vec<f32>]) {
+fn populate_vfile(vstore: &mut File, vectors: &[Vec<f32>]) {
     let hdr_size = std::mem::size_of::<DiskNodeHeader>() as u64;
     let align: u64 = 64;
     let mut offset = vstore.write_cursor;
@@ -81,7 +83,7 @@ fn build_index(vectors: &[Vec<f32>]) -> CPIndex {
     let mut offset = align;
     for (id, vec) in vectors.iter().enumerate() {
         let rep = VectorRepresentations::Full(vec.clone());
-        index.add(id as u128, FilterBitset::all_set(), rep, offset);
+        let _ = index.add(id as u128, FilterBitset::all_set(), rep, offset);
         let node_size = hdr_size + (vec.len() as u64 * 4);
         offset = ((offset + node_size + align - 1) / align) * align;
     }
@@ -94,7 +96,7 @@ fn search_in_memory(index: &CPIndex, queries: &[Vec<f32>]) {
     }
 }
 
-fn search_with_vfile(index: &CPIndex, queries: &[Vec<f32>], vfile: &VantaFile) {
+fn search_with_vfile(index: &CPIndex, queries: &[Vec<f32>], vfile: &File) {
     for q in queries {
         black_box(index.search_nearest(
             q,
@@ -107,7 +109,7 @@ fn search_with_vfile(index: &CPIndex, queries: &[Vec<f32>], vfile: &VantaFile) {
     }
 }
 
-fn build_compacted(vectors: &[Vec<f32>]) -> (CPIndex, VantaFile) {
+fn build_compacted(vectors: &[Vec<f32>]) -> (CPIndex, File) {
     let dir = tempdir().expect("tempdir");
     let vfile_path: PathBuf = [dir.path().to_str().unwrap(), "vstore.vanta"]
         .iter()
@@ -116,7 +118,7 @@ fn build_compacted(vectors: &[Vec<f32>]) -> (CPIndex, VantaFile) {
 
     let hdr_size = std::mem::size_of::<DiskNodeHeader>() as u64;
     let total_size = 64 + vectors.len() as u64 * (hdr_size + 128 * 4 + 64);
-    let mut vfile = VantaFile::open(vfile_path, total_size).expect("VantaFile::open");
+    let mut vfile = File::open(vfile_path, total_size).expect("File::open");
     populate_vfile(&mut vfile, vectors);
 
     let ep = index.get_entry_point().expect("entry point");
@@ -133,7 +135,7 @@ fn bench_vfile_search(c: &mut Criterion) {
     let queries = generate_vectors(N_QUERIES, DIMS, SEED + 1);
 
     let index = build_index(&vectors);
-    let mut vfile = VantaFile::create_in_memory(16 * 1024 * 1024);
+    let mut vfile = File::create_in_memory(16 * 1024 * 1024);
     populate_vfile(&mut vfile, &vectors);
 
     let (compacted_index, compacted_vfile) = build_compacted(&vectors);
@@ -163,7 +165,7 @@ fn bench_setup_overhead(c: &mut Criterion) {
     let vectors = generate_vectors(N_VECTORS, DIMS, SEED);
     c.bench_function("populate_vfile", |b| {
         b.iter(|| {
-            let mut vf = VantaFile::create_in_memory(16 * 1024 * 1024);
+            let mut vf = File::create_in_memory(16 * 1024 * 1024);
             populate_vfile(&mut vf, black_box(&vectors));
         });
     });

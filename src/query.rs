@@ -4,6 +4,7 @@
 //! related types that represent parsed queries before execution.
 
 use crate::node::FieldValue;
+use crate::search_profile::SearchProfileConfig;
 use std::collections::BTreeMap;
 
 /// Top-level statement type after parsing.
@@ -99,6 +100,9 @@ pub struct Query {
     pub temperature: Option<f32>,
     /// RBAC owner role filter.
     pub owner_role: Option<String>,
+    /// Optional search profile (mode, RRF k, candidate budget) — cláusula IQL
+    /// PROFILE (MEM-01).
+    pub search_profile: Option<SearchProfileConfig>,
 }
 
 /// Graph traversal specification.
@@ -123,6 +127,10 @@ pub enum Condition {
     Relational(String, RelOp, FieldValue),
     /// Vector similarity condition (field, text_query, min_score).
     VectorSim(String, String, f32),
+    /// Lexical text-match condition (field, query). The query is passed raw
+    /// (quoted phrases preserved) and tokenized at execution via
+    /// `text_index::query_plan` — enabling contiguous phrase matching.
+    TextMatch(String, String),
 }
 
 /// Relational comparison operator.
@@ -255,6 +263,9 @@ impl SelectStatement {
                             min_score: min,
                         });
                     }
+                    Condition::TextMatch(f, query) => {
+                        ops.push(LogicalOperator::TextFilter { field: f, query });
+                    }
                 }
             }
         }
@@ -278,6 +289,7 @@ impl SelectStatement {
             operators: ops,
             temperature: self.temperature.unwrap_or(0.0),
             enforce_role: None,
+            search_profile: None,
         }
     }
 
@@ -306,6 +318,7 @@ impl SelectStatement {
             operators: ops,
             temperature: 0.0,
             enforce_role: None,
+            search_profile: None,
         }
     }
 
@@ -351,6 +364,13 @@ pub enum LogicalOperator {
         /// Minimum similarity score.
         min_score: f32,
     },
+    /// Lexical text filter on a field (phrase-aware).
+    TextFilter {
+        /// Field name.
+        field: String,
+        /// Text query (quoted phrases preserved).
+        query: String,
+    },
     /// Field projection (narrowing).
     Project {
         /// Fields to retain.
@@ -367,6 +387,14 @@ pub enum LogicalOperator {
     Limit {
         /// Maximum rows.
         top_k: usize,
+    },
+    /// Deduplicate consecutive rows by a relational field (C2S6 extension
+    /// exemplar: compiles/costs through `OperatorRegistry` without touching
+    /// the proven `planner` / `executor` matches; test-constructed, H2
+    /// solo-physical authorized — no IQL producer yet).
+    Dedup {
+        /// Field whose first-seen value wins; rows missing it share one key.
+        field: String,
     },
     /// A JOIN between two sub-plans.
     Join {
@@ -399,6 +427,8 @@ pub struct LogicalPlan {
     pub temperature: f32,
     /// RBAC role to enforce during execution.
     pub enforce_role: Option<String>,
+    /// Optional search profile (MEM-01): mode/RRF k/candidate budget.
+    pub search_profile: Option<SearchProfileConfig>,
 }
 
 impl Query {
@@ -427,6 +457,9 @@ impl Query {
                             min_score: min,
                         });
                     }
+                    Condition::TextMatch(f, query) => {
+                        ops.push(LogicalOperator::TextFilter { field: f, query });
+                    }
                 }
             }
         }
@@ -454,6 +487,7 @@ impl Query {
             operators: ops,
             temperature: self.temperature.unwrap_or(0.0), // 0.0 default (Exhaustive)
             enforce_role: self.owner_role,
+            search_profile: self.search_profile,
         }
     }
 }
@@ -578,6 +612,7 @@ mod tests {
             rank_by: None,
             temperature: None,
             owner_role: None,
+            search_profile: None,
         };
         assert_eq!(q.from_entity, "Node");
         assert!(q.traversal.is_none());
@@ -601,6 +636,7 @@ mod tests {
             rank_by: None,
             temperature: None,
             owner_role: None,
+            search_profile: None,
         };
         assert_eq!(q.traversal.as_ref().unwrap().min_depth, 1);
         assert_eq!(q.traversal.as_ref().unwrap().max_depth, 3);
@@ -620,6 +656,7 @@ mod tests {
             rank_by: None,
             temperature: None,
             owner_role: None,
+            search_profile: None,
         };
         let plan = q.into_logical_plan();
         assert_eq!(plan.operators.len(), 1);
@@ -648,6 +685,7 @@ mod tests {
             rank_by: None,
             temperature: None,
             owner_role: None,
+            search_profile: None,
         };
         let plan = q.into_logical_plan();
         assert_eq!(plan.operators.len(), 2);
@@ -671,6 +709,7 @@ mod tests {
             }),
             temperature: None,
             owner_role: None,
+            search_profile: None,
         };
         let plan = q.into_logical_plan();
         let ops: Vec<&str> = plan

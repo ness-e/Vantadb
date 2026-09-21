@@ -2,7 +2,7 @@
 VantaDB - Persistent Memory for Local AI Agents
 Demonstrates namespace-scoped storage, hybrid retrieval, and telemetry.
 """
-import vantadb_py as vantadb
+from vantadb import Client
 import os
 
 DB_PATH = "./agent_memory_db"
@@ -10,7 +10,7 @@ DB_PATH = "./agent_memory_db"
 def main():
     # Initialize embedded memory engine
     # Allocates a 256MB isolation limit for the embedded Rust engine database
-    db = vantadb.VantaDB(DB_PATH, memory_limit_bytes=256_000_000)
+    db = Client(DB_PATH, memory_limit_bytes=256_000_000)
 
     # Store agent memories with semantic vectors and structured metadata
     memories = [
@@ -26,7 +26,7 @@ def main():
     # Hybrid retrieval: semantic + lexical fusion
     query_vec = [0.75, 0.2, 0.6]
     print("\n🔍 Searching memories using Hybrid Search (Cosine Vector Similarity + BM25 Lexical text)...")
-    hits = db.search_memory("agent/session-1", query_vector=query_vec, text_query="Rust Python SDK", top_k=3)
+    hits = db.search("agent/session-1", query_vector=query_vec, text_query="Rust Python SDK", top_k=3)
     
     print("\n🔍 Retrieved Context:")
     for hit in hits:

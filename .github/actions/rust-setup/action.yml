@@ -59,15 +59,26 @@ runs:
         free -h
 
     - name: Set up Rust
-      uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
+      uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
       with:
         toolchain: ${{ inputs.toolchain }}
         components: ${{ inputs.components }}
 
     - name: Rust cache
-      uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef
+      uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
       with:
         cache-bin: ${{ inputs.cache-bin }}
+
+    - name: Set up sccache
+      uses: mozilla-actions/sccache-action@fd02668681acd5f960e1372061bee5e3e987195c # v0.0.11
+      with:
+        version: v0.16.0
+
+    - name: Enable sccache for cargo
+      shell: bash
+      run: |
+        echo "SCCACHE_GHA_ENABLED=true" >> "$GITHUB_ENV"
+        echo "RUSTC_WRAPPER=sccache" >> "$GITHUB_ENV"
 
     - name: Install system dependencies
       if: ${{ inputs.install-system-deps == 'true' && runner.os == 'Linux' }}
@@ -78,12 +89,12 @@ runs:
 
     - name: Install cargo-nextest
       if: ${{ inputs.install-nextest == 'true' }}
-      uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853
+      uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
       with:
         tool: nextest
 
     - name: Install cargo-llvm-cov
       if: ${{ inputs.install-llvm-cov == 'true' }}
-      uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853
+      uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
       with:
         tool: cargo-llvm-cov

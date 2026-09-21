@@ -1,0 +1,12 @@
+{
+  "tasks": {
+    "COV-001": {
+      "taskId": "COV-001",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1786557687724,
+      "lastActivity": 1786557687724
+    }
+  }
+}

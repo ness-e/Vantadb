@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Crash-injection verification test suite (AUD-02, AUD-03)
 //! Runs a helper subprocess writing to a database, terminates it via SIGKILL/TerminateProcess,
 //! and verifies cold-start recovery integrity.

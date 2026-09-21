@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Cost · VantaDB — TCO vs Cloud Vector DBs",
     description:
       "TCO VantaDB vs Pinecone/Weaviate: $0/mo vs $1,800/mo. Sin servidores ni facturación por query.",
-    url: "https://vantadb.dev/cost",
+    url: "https://vantadb.vercel.app/cost",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/cost",
+    canonical: "https://vantadb.vercel.app/cost",
   },
 };
 

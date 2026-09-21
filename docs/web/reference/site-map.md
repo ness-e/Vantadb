@@ -1,3 +1,13 @@
+---
+title: "Site Map — Frontend Web VantaDB"
+type: web
+status: active
+tags: [vantadb, web, reference]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Site Map — Frontend Web VantaDB
 
 > **Propósito:** Mapeo completo ruta → componente → datos del frontend web.

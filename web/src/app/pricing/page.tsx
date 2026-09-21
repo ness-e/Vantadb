@@ -16,11 +16,7 @@ const TAG_STYLES: Record<string, string> = {
 };
 
 export default function PricingPage() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader
@@ -31,12 +27,12 @@ export default function PricingPage() {
       />
 
       <PageSection variant="cream">
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {PRICING_PLANS.map((plan, i) => (
             <Reveal key={plan.name} direction="up" delay={i * 80} as="article">
               <article
                 className={cn(
-                  "press-lg group relative flex h-full flex-col border-4 bg-[#FBF9F5] p-6 ",
+                  "press--lg group relative flex h-full flex-col border-4 bg-[#FBF9F5] p-6 ",
                   plan.highlight
                     ? "border-[#FF5500] shadow-[8px_8px_0_0_#FF5500]  lg:-mt-3 lg:mb-3"
                     : "border-black shadow-[6px_6px_0_0_#000]  "

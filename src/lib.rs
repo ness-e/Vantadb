@@ -1,6 +1,10 @@
 #![doc(html_root_url = "https://docs.rs/vantadb/0.3.0/vantadb/")]
 #![deny(unsafe_op_in_unsafe_fn)]
-#![allow(unused_unsafe)]
+// Tests use `unwrap`/`expect` freely for invariants that would panic anyway in
+// production. Keep deny on prod code, allow inside `#[cfg(test)]` only.
+// `#[cfg_attr(test, allow(...))]` is evaluated by rustc — the deny remains for
+// every other build profile (release, benches, doc).
+#![cfg_attr(test, allow(clippy::unwrap_used, clippy::expect_used))]
 
 //! # VantaDB — Embedded Persistent Memory Engine
 //!
@@ -12,11 +16,11 @@
 //!
 //! | Type | Role |
 //! |------|------|
-//! | [`VantaEmbedded`](sdk/struct.VantaEmbedded.html) | Top-level engine handle. Open/close, CRUD, search, graph ops. |
+//! | [`Embedded`](sdk/struct.Embedded.html) | Top-level engine handle. Open/close, CRUD, search, graph ops. |
 //! | [`InMemoryEngine`](engine/struct.InMemoryEngine.html) | In-memory engine with WAL persistence. |
 //! | [`UnifiedNode`](node/struct.UnifiedNode.html) | Single node representation (fields, vector, edges, metadata). |
-//! | [`VantaMemoryRecord`](sdk/struct.VantaMemoryRecord.html) | A stored memory record with namespace, key, payload, vector, metadata. |
-//! | [`VantaError`](error/enum.VantaError.html) | Typed error enum covering validation, I/O, serialization, and engine errors. |
+//! | [`MemoryRecord`](sdk/struct.MemoryRecord.html) | A stored memory record with namespace, key, payload, vector, metadata. |
+//! | [`Error`](error/enum.Error.html) | Typed error enum covering validation, I/O, serialization, and engine errors. |
 //!
 //! ## Feature Flags
 //!
@@ -28,25 +32,20 @@
 //! | `arrow` | Apache Arrow columnar export |
 //! | `python_sdk` | Python bindings (via PyO3) |
 //! | `wal-shipping` | Async WAL shipping to replicas |
-//! | `pitr` | Point-in-time recovery from WAL archives |
 //! | `async-ingestion` | Background ingestion worker pool |
 //! | `remote-inference` | Remote LLM inference integration |
 //!
 //! ## Quick Example
 //!
 //! ```rust,no_run
-//! use vantadb::sdk::{VantaEmbedded, VantaMemoryInput};
-//! use vantadb::config::VantaConfig;
+//! use vantadb::sdk::{Embedded, MemoryInput};
+//! use vantadb::config::Config;
 //!
-//! let config = VantaConfig::default();
-//! let engine = VantaEmbedded::open_with_config(config).unwrap();
+//! let config = Config::default();
+//! let engine = Embedded::open_with_config(config).unwrap();
 //!
-//! engine.put(VantaMemoryInput {
-//!     namespace: "docs".into(),
-//!     key: "example".into(),
-//!     payload: "Hello, VantaDB!".into(),
-//!     ..Default::default()
-//! }).unwrap();
+//! engine.put(MemoryInput::new("docs", "example", "Hello, VantaDB!"))
+//!     .unwrap();
 //!
 //! let record = engine.get("docs", "example").unwrap();
 //! assert_eq!(record.unwrap().payload, "Hello, VantaDB!");
@@ -59,11 +58,17 @@ pub mod crypto;
 
 pub mod accumulator;
 pub mod agentic;
+pub mod api;
+/// Append-only JSONL audit log of business operations (opt-in).
+pub mod audit;
 pub(crate) mod backend;
 pub(crate) mod backends;
 /// Binary header format for all persisted VantaDB files.
 pub mod binary_header;
 pub(crate) mod cache_warmer;
+/// Circuit breaker state machine for fast-failing HTTP requests (feature `server`).
+#[cfg(feature = "server")]
+pub mod circuit_breaker;
 #[cfg(feature = "cli")]
 pub mod cli;
 #[cfg(feature = "cli")]
@@ -73,10 +78,16 @@ pub mod cli_server;
 #[cfg(feature = "arrow")]
 pub mod columnar;
 pub mod config;
+/// Explicit connection pool for HTTP query execution (feature `server`).
+#[cfg(feature = "server")]
+pub mod connection_pool;
 #[cfg(feature = "cli")]
 pub mod console;
+pub(crate) mod cost_estimator;
 pub(crate) mod edge_index;
 pub mod engine;
+/// Scoped entity metadata store (teams, users, agents, tasks, assets).
+pub mod entity;
 /// Core error types for all VantaDB operations.
 pub mod error;
 /// Eviction policies: weighted scoring and Bayesian Beta-Binomial decay.
@@ -89,8 +100,9 @@ pub mod graph;
 pub mod graphrag;
 pub mod hardware;
 pub mod index;
+pub mod index_port;
 pub mod integrations;
-#[cfg(feature = "remote-inference")]
+#[cfg(any(feature = "remote-inference", feature = "embed-local"))]
 pub mod llm;
 /// LSM-tree segment types and offset packing.
 pub(crate) mod lsm;
@@ -101,6 +113,8 @@ pub mod metrics;
 pub mod migration;
 /// Core node, edge, and field value types.
 pub mod node;
+/// Dispatch-by-name extension registry for logical operators (C2S6).
+pub mod operator_registry;
 pub mod parser;
 pub mod physical_plan;
 pub mod planner;
@@ -109,9 +123,15 @@ pub mod python;
 pub mod query;
 pub(crate) mod rbac;
 pub mod sdk;
+/// Neutral search-profile leaf (C2M3): profile types + RRF/budget consts.
+pub mod search_profile;
 pub mod serialization;
+#[cfg(feature = "server")]
+pub mod server;
 /// Typed columnar storage for metadata fields (JSON Shredding).
 pub mod shred;
+/// Versioned skill store (agent skills / memory skills).
+pub mod skills;
 pub mod sync_ext;
 
 pub(crate) mod scalar_index;
@@ -129,13 +149,12 @@ pub mod vector;
 pub mod wal;
 pub(crate) mod wal_sharded;
 
+/// Wiki knowledge store with pending→ready lifecycle (F7, MEM-28).
+pub mod wiki;
+
 /// Async WAL shipping to remote replica (behind feature "wal-shipping").
 #[cfg(feature = "wal-shipping")]
 pub mod wal_shipping;
-
-/// WAL archival and point-in-time recovery (behind feature "pitr").
-#[cfg(feature = "pitr")]
-pub mod wal_archiver;
 
 /// Async ingestion pipeline for offloading node insertion to a worker pool.
 #[cfg(feature = "async-ingestion")]
@@ -146,23 +165,32 @@ pub mod transcript;
 
 // Re-exports for ergonomic API
 pub use binary_header::VantaHeader;
-pub use engine::{EngineStats, InMemoryEngine, QueryResult, SourceType};
-pub use error::{Result, VantaError};
+pub use config::{Config, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K, MAX_VEC_DIM};
+pub use engine::{EngineStats, InMemoryEngine, SourceType};
+// NOTE (AST-002): `engine::QueryResult` stays namespaced (`engine::QueryResult`)
+// — crate-root `QueryResult` is the SDK graph result.
+pub use error::{Error, Result};
 pub use index::graph::VECTOR_INDEX_VERSION;
 pub use node::{
-    DistanceMetric, Edge, FieldValue, NodeFlags, RelFields, UnifiedNode, VectorRepresentations,
+    DistanceMetric, Edge, FieldValue, NodeFlags, RelFields, SparseVector, UnifiedNode,
+    VectorRepresentations,
 };
 pub use sdk::{
-    connect, BulkImportReport, VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord,
-    VantaEmbedded, VantaExportReport, VantaFields, VantaHybridFusionReport, VantaImportReport,
-    VantaIndexRebuildReport, VantaMemoryInput, VantaMemoryListOptions, VantaMemoryListPage,
-    VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit, VantaMemorySearchRequest,
-    VantaNodeInput, VantaNodeRecord, VantaOperationalMetrics, VantaQueryResult,
-    VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit, VantaSearchHit,
-    VantaStorageTier, VantaTextIndexAuditReport, VantaTextIndexRepairReport, VantaValue,
+    connect, Bm25TermContribution, BulkImportReport, Capabilities, EdgeRecord, Embedded,
+    ExportReport, Fields, FilterOp, HybridFusionReport, ImportReport, IndexRebuildReport,
+    MemoryFilter, MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata,
+    MemoryRecord, MemorySearchHit, MemorySearchRequest, NamespaceStats, NamespaceStatsMap,
+    NodeInput, NodeRecord, OperationalMetrics, QueryResult, RuntimeProfile, SearchExplanation,
+    SearchExplanationHit, SearchHit, StorageTier, TextIndexAuditReport, TextIndexRepairReport,
+    Value,
+};
+pub use sdk::{
+    SkillCreateInput, SkillListOptions, SkillListPage, SkillPatchInput, SkillRecord,
+    SkillUpdateInput, SkillWriteResult,
 };
 pub use storage::vfile::VFILE_VERSION;
 pub use storage::BackendKind;
+pub use text_index::{TextIndexSpec, TextTokenizerSpec};
 pub use utils::compute_confidence_friction;
 pub use wal::{WalReader, WalRecord, WalWriter};
 pub use wal::{WAL_FORMAT_VERSION, WAL_POSTCARD_VERSION};

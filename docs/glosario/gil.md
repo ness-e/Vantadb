@@ -3,7 +3,7 @@ title: "Single-thread: 1 second"
 type: glossary-entry
 status: stable
 tags: [python, concurrencia, lock, threading]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Global Interpreter Lock, Python GIL]
 description: "Global mutex in the CPython interpreter that protects access to Python objects, ensuring that only one thread can execute Python bytecode at a time within a process"
@@ -51,10 +51,10 @@ for t in threads:
 ### Problematic Scenario
 
 ```python
-from vantadb import VantaEmbedded
+import vantadb_py as vantadb
 import threading
 
-db = VantaEmbedded("./data")
+db = vantadb.VantaDB("./data")
 
 def search_task(query_vector):
     # If PyO3 does NOT release the GIL:

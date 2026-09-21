@@ -23,12 +23,19 @@ fn generate_completions() {
 
     // Tell Cargo to re-run this build script if src/cli.rs changes
     println!("cargo:rerun-if-changed=src/cli.rs");
+    println!("cargo:rerun-if-env-changed=VANTA_OUT_DIR");
 
-    // We write completions to a subdirectory in the workspace.
-    // To accommodate read-only production builders, we handle errors gracefully.
+    // Publish-safe: default to OUT_DIR (outside the source tree) so
+    // `cargo publish --verify` never sees the source dir modified
+    // (cargo fails the publish when build.rs touches packaged files).
+    // To refresh the checked-in snapshot under `completions/`, run once:
+    //   VANTA_OUT_DIR=completions cargo build -p vantadb
     let out_dir = match std::env::var_os("VANTA_OUT_DIR") {
         Some(out) => PathBuf::from(out),
-        None => PathBuf::from("completions"),
+        None => match std::env::var_os("OUT_DIR") {
+            Some(out) => PathBuf::from(out),
+            None => return,
+        },
     };
 
     if let Err(e) = create_dir_all(&out_dir) {

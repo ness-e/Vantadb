@@ -4,7 +4,8 @@ mod tests {
     use crate::index::distance::{cosine_sim_f32, cosine_sim_with_query_norm, f32_l2_norm};
     use crate::index::*;
     use crate::node::DistanceMetric;
-    use rand::Rng;
+    use rand::rngs::StdRng;
+    use rand::{Rng, SeedableRng};
 
     #[test]
     fn cosine_with_precomputed_query_norm_matches_full_path() {
@@ -40,12 +41,14 @@ mod tests {
             ];
             let norm = f32_l2_norm(&raw);
             let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
-            index.add(
-                i + 1,
-                FilterBitset::new(),
-                VectorRepresentations::Full(normalized),
-                0,
-            );
+            index
+                .add(
+                    i + 1,
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(normalized),
+                    0,
+                )
+                .expect("test vectors are non-zero-norm");
         }
 
         let query = vec![0.1, 0.9, 0.2, 0.4];
@@ -60,6 +63,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // FIRST-Fast (C2T1): barrera stress 1000ms — completa: nextest --run-ignored all
     fn concurrent_search_during_insert() {
         use std::sync::atomic::{AtomicBool, Ordering};
         use std::sync::Arc;
@@ -86,7 +90,8 @@ mod tests {
             let stop = stop.clone();
             let insert_mutex = insert_mutex.clone();
             handles.push(thread::spawn(move || {
-                let mut rng = rand::rng();
+                // FIRST-Repeatable (C2T2): seeded stream — same vectors every run.
+                let mut rng = StdRng::seed_from_u64(42 + t as u64);
                 let start_id = t * 1000;
                 for i in 0..1000 {
                     if stop.load(Ordering::Relaxed) {
@@ -102,7 +107,7 @@ mod tests {
                     };
 
                     let _guard = insert_mutex.lock().unwrap();
-                    index.add(
+                    let _ = index.add(
                         id,
                         FilterBitset::all_set(),
                         VectorRepresentations::Full(vec),
@@ -112,11 +117,12 @@ mod tests {
             }));
         }
 
-        for _ in 0..4 {
+        for q in 0..4 {
             let index = index.clone();
             let stop = stop.clone();
             handles.push(thread::spawn(move || {
-                let mut rng = rand::rng();
+                // FIRST-Repeatable (C2T2): seeded stream, disjoint from insert threads.
+                let mut rng = StdRng::seed_from_u64(0xC10C + q as u64);
                 while !stop.load(Ordering::Relaxed) {
                     let query: Vec<f32> = (0..32).map(|_| rng.random::<f32>()).collect();
                     let norm = f32_l2_norm(&query);
@@ -145,15 +151,15 @@ mod tests {
     #[test]
     fn concurrent_insert_preserves_hnsw_invariants() {
         use crate::backend::BackendKind;
-        use crate::config::VantaConfig;
+        use crate::config::Config;
         use crate::node::UnifiedNode;
         use crate::storage::engine::StorageEngine;
         use std::sync::Arc;
         use std::thread;
 
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
-            ..VantaConfig::default()
+            ..Config::default()
         };
         let storage = Arc::new(StorageEngine::open_with_config(":memory:", Some(config)).unwrap());
 
@@ -161,7 +167,8 @@ mod tests {
         for t in 0..4 {
             let storage = storage.clone();
             handles.push(thread::spawn(move || {
-                let mut rng = rand::rng();
+                // FIRST-Repeatable (C2T2): seeded stream — same vectors every run.
+                let mut rng = StdRng::seed_from_u64(42 + t as u64);
                 let start_id = t * 500 + 1;
                 for i in 0..500 {
                     let id = (start_id + i) as u128;
@@ -184,23 +191,25 @@ mod tests {
             let _ = handle.join();
         }
 
+        // Drain any HNSW mutations still buffered in the pending batch before
+        // validating. Under load a `try_push_pending_hnsw` may have left ops
+        // queued (not yet applied); flushing here makes reachability check
+        // deterministic instead of timing-sensitive.
+        storage.flush_pending_hnsw().unwrap();
+
         let hnsw = storage.hnsw.load();
         assert!(hnsw.validate_index().is_ok());
 
-        let ep = hnsw.get_entry_point().expect("Should have entry point");
+        let ep = hnsw.entry_point().expect("Should have entry point");
         let mut visited = std::collections::HashSet::new();
         let mut queue = std::collections::VecDeque::new();
         queue.push_back(ep);
         visited.insert(ep);
 
         while let Some(node_id) = queue.pop_front() {
-            let nl = hnsw.neighbor_index.num_layers(node_id).unwrap_or(0);
+            let nl = hnsw.node_layers(node_id);
             for layer in 0..nl {
-                let neighbors = hnsw
-                    .neighbor_index
-                    .get_neighbors(node_id, layer)
-                    .unwrap_or_default();
-                for &neighbor in &neighbors {
+                for neighbor in hnsw.layer_neighbors(node_id, layer) {
                     if visited.insert(neighbor) {
                         queue.push_back(neighbor);
                     }
@@ -210,7 +219,7 @@ mod tests {
 
         assert_eq!(
             visited.len(),
-            hnsw.nodes.len(),
+            hnsw.node_count(),
             "Not all nodes are reachable from the entry point!"
         );
     }
@@ -234,12 +243,14 @@ mod tests {
             ];
             let norm = f32_l2_norm(&raw);
             let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
-            index.add(
-                i + 1,
-                FilterBitset::from_u128(0),
-                VectorRepresentations::Full(normalized),
-                0,
-            );
+            index
+                .add(
+                    i + 1,
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(normalized),
+                    0,
+                )
+                .expect("test vectors are non-zero-norm");
         }
         index
     }
@@ -296,12 +307,14 @@ mod tests {
         let raw = [99f32.sin(), 99f32.cos(), 99f32.sin(), 99f32.cos()];
         let norm = f32_l2_norm(&raw);
         let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
-        loaded.add(
-            999,
-            FilterBitset::new(),
-            VectorRepresentations::Full(normalized),
-            0,
-        );
+        loaded
+            .add(
+                999,
+                FilterBitset::new(),
+                VectorRepresentations::Full(normalized),
+                0,
+            )
+            .expect("test vectors are non-zero-norm");
 
         loaded.sync_to_mmap().expect("sync_to_mmap");
 
@@ -432,12 +445,14 @@ mod tests {
             ];
             let norm = f32_l2_norm(&raw);
             let normalized: Vec<f32> = raw.iter().map(|v| v / norm).collect();
-            index.add(
-                i + 1,
-                FilterBitset::new(),
-                VectorRepresentations::Full(normalized),
-                0,
-            );
+            index
+                .add(
+                    i + 1,
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(normalized),
+                    0,
+                )
+                .expect("test vectors are non-zero-norm");
         }
 
         let query = vec![0.1, 0.9, 0.2, 0.4];
@@ -465,15 +480,18 @@ mod tests {
         });
 
         for i in 0..10u128 {
-            index.add(
-                i + 1,
-                FilterBitset::new(),
-                VectorRepresentations::Full(vec![i as f32; 4]),
-                0,
-            );
+            index
+                .add(
+                    i + 1,
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(vec![i as f32 + 1.0; 4]),
+                    0,
+                )
+                .expect("test vectors are non-zero-norm");
         }
 
-        let query = vec![0.0; 4];
+        // Zero-norm cosine queries return empty (AUDREP-55 guard in search.rs); use non-zero to test flat threshold path.
+        let query = vec![0.9, 0.8, 0.7, 0.6];
         let results = index.search_nearest(&query, None, None, &crate::node::ALL_BITSET, 3, None);
         assert_eq!(results.len(), 3);
     }

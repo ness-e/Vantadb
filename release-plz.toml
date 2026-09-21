@@ -30,3 +30,9 @@ name = "vantadb-wasm"
 # release = false: skip update/changelog/publish entirely. The version is
 # inherited automatically via version.workspace = true in the workspace.
 release = false
+
+# NOTE: the desktop Tauri app (desktop/src-tauri, isolated workspace, versions
+# in desktop/package.json + tauri.conf.json + src-tauri/Cargo.toml) is
+# intentionally NOT listed here: [[package]] overrides must reference root
+# workspace members, and release-plz never touches non-members anyway
+# (engine publishes via release.yml; desktop bundles via desktop.yml).

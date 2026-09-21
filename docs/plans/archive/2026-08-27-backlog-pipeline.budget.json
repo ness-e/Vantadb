@@ -1,0 +1,13 @@
+{
+  "tasks": {
+    "1": {
+      "taskId": "1",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787852223196,
+      "lastActivity": 1787852231513,
+      "traceId": "437e10d0-1d11-4a12-b315-616f90223a95"
+    }
+  }
+}

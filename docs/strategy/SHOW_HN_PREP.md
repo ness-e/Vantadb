@@ -3,7 +3,7 @@ title: Show HN — VantaDB — Embedded, Persistent Memory & Hybrid Search Engin
 type: operations
 status: active
 tags: [vantadb, operations, launch, hn]
-last_reviewed: 2026-07-27
+last_reviewed: 2026-08-23
 aliases: []
 ---
 
@@ -24,7 +24,7 @@ Hi HN,
 
 I'm the creator of VantaDB (https://github.com/ness-e/Vantadb). 
 
-VantaDB is an embedded, zero-dependency, local-first hybrid database engine designed specifically to act as long-term memory for autonomous AI agents. Think of it as a specialized SQLite tailored for agent payloads, integrating BM25 lexical retrieval and HNSW vector indexing in a single engine.
+VantaDB is an embedded, local-first hybrid database engine designed specifically to act as long-term memory for autonomous AI agents. Think of it as a specialized SQLite tailored for agent payloads, integrating BM25 lexical retrieval and HNSW vector indexing in a single engine. *(Nota 2026-08-17, revisada 2026-08-23: el claim "zero-dependency" se corrigió — `croaring` (via `croaring-sys`/`cc`) compila C/C++ en build (feature `roaring`, en default), y el backend opcional `rocksdb` también es C++; el resto del stack default es pure-Rust.)*
 
 ### Why built this?
 AI agents running locally (e.g., using Ollama or local LLMs) need persistent memory. Developers usually default to:
@@ -32,13 +32,13 @@ AI agents running locally (e.g., using Ollama or local LLMs) need persistent mem
 2. **Cloud Vector Databases:** Introduce network overhead, serialization costs, and dependency on external API availability, which goes against the local-first, offline-capable agent philosophy.
 3. **In-memory stores:** Fast, but they lack persistence and fail on crash or restart.
 
-VantaDB was built from the ground up to solve this: a pure Rust library that exposes synchronous core APIs, wraps them cleanly in PyO3 for Python developers (with zero compiling requirements), and guarantees durable persistence.
+VantaDB was built from the ground up to solve this: a Rust library that exposes synchronous core APIs, wraps them cleanly in PyO3 for Python developers (with zero compiling requirements), and guarantees durable persistence.
 
 ### Key Architectural Highlights
 * **Durable Storage Engine:** Powering VantaDB is a hybrid engine designed for persistence. By default, it uses Fjall (a lightweight pure-Rust LSM-tree), with RocksDB supported as a feature flag. All insertions write to a Write-Ahead Log (WAL) protected by CRC32C checksums to prevent corruption. We validate durability under hard crash simulations with injected failpoints in CI.
 * **Topological HNSW with BFS Layout:** In-memory vector graphs often suffer from massive page-fault overhead when scaled beyond RAM. VantaDB uses `memmap2` to memory-map its vector indexes. To maximize cache locality during graph traversal, we execute a post-build Breadth-First Search (BFS) layout compaction, reordering nodes topologically-sequentially to minimize random read amplification.
-* **Hardware-Accelerated Distances:** Graph distance calculations utilize SIMD intrinsics (AVX2/NEON) via `wide::f32x8` registers, maintaining high-recall (balanced recall@10 is >0.998 on SIFT) and sub-millisecond core search times.
-* **Cost-Based Query Planner (Volcano-style):** Hybrid queries (Text + Vector) are compiled into logical operators and optimized using a Cost-Based Optimizer (CBO) based on predicate selectivity estimates. Relational/attribute filters are pushed down before vector search traversal if their selectivity is $<10\%$.
+* **Hardware-Accelerated Distances:** Graph distance calculations utilize SIMD intrinsics (AVX2/NEON) via `wide::f32x8` registers. *(Nota 2026-08-23 (corrección completada 2026-08-23; fila MKT-18g archivada): el claim de recall se corrigió — lo medido es recall@10 **0.9975 @ ef_400 en dataset sintético 10K×128d** (`cargo bench --bench hnsw_recall_ef`; `docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md`) y **0.9980–1.0000 @ escala 10K–50K** (stress protocol, `docs/operations/BENCHMARKS.md` §1), no ">0.998 en SIFT1M". El subclaim previo de esta nota "100% GloVe-100-angular 1.18M" NO tiene medición que lo respalde — el competitive bench midió el subset 10K con recall@10 24.5% (`docs/operations/BENCHMARKS.md` §7) — eliminado. Y "sub-millisecond core search" es ~1.2 ms mean/p50 @ ef_200 en 10K (`docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md`, `docs/operations/BENCHMARKS.md` §1), no sub-ms a escala mayor. Correr benchmark SIFT1M completo antes de publicar si se quiere ese claim. [TO VERIFY: recall a escala SIFT1M — sin medición actual])*
+* **Cost-Based Query Planner (Volcano-style):** Hybrid queries (Text + Vector) are compiled into logical operators and optimized using a Cost-Based Optimizer (CBO) based on predicate selectivity estimates. Filters are pushed down **before** vector search traversal when their estimated selectivity is <1% (`PREFILTER_THRESHOLD = 0.01`, `src/cost_estimator.rs:22`); above that, the planner chooses between mid-strategies or post-filtering.
 * **Reciprocal Rank Fusion (RRF):** Merges independent lexical (BM25) and dense (HNSW) rankings deterministically without requiring parameter tuning or heuristic weights.
 * **FFI Boundary & GIL Safety:** The Python SDK (`vantadb-py`) releases the Python GIL (`allow_threads`) during query execution, allowing multi-threaded batch queries (`search_batch`) to parallelize searches across all available CPU cores using Rayon.
 
@@ -72,7 +72,7 @@ for res in results:
 ```
 
 ### Limitations & Current Status
-VantaDB is currently at version `0.4.0` (beta). It is not designed to be a distributed database, a generic relational system of record, or a massive web-scale vector search engine. It is strictly optimized as an embedded, durable memory engine for edge AI agents.
+VantaDB is currently at version `0.5.0` (beta). It is not designed to be a distributed database, a generic relational system of record, or a massive web-scale vector search engine. It is strictly optimized as an embedded, durable memory engine for edge AI agents.
 
 The project is Apache-2.0. We have fully automated Python wheel builds for Linux (x86_64/aarch64), macOS (x86_64/arm64), and Windows (x86_64). I'd love to hear your feedback on the architecture, optimization choices, and how you manage local memory in your agent pipelines.
 
@@ -90,7 +90,7 @@ Below are the 10 most likely technical criticisms from the HackerNews community 
 **Response:**
 `sqlite-vec` is an excellent project. VantaDB does not seek to replace SQLite as a general-purpose relational database, but rather to offer a specialized engine for **hybrid long-term memory for agents**.
 * **Native hybrid fusion:** In SQLite, combining FTS5 (text) and a vector index requires writing complex queries joining virtual tables or doing application-side processing. VantaDB executes BM25 and HNSW fusion at the physical planner level with RRF, optimizing relational filters with a Volcano CBO planner before traversing the graph.
-* **Distribution ease (Zero-Toolchain):** Being written 100% in Rust (including PyO3 bindings statically compiled into cross-platform wheels), `pip install vantadb-py` works directly on Windows, macOS, and Linux without requiring local C++ compilers or complex dynamic links to SQLite libraries.
+* **Distribution ease (Zero-Toolchain):** Written in Rust (PyO3 bindings statically compiled into cross-platform wheels), `pip install vantadb-py` works directly on Windows, macOS, and Linux without requiring local C++ compilers or complex dynamic links to SQLite libraries. *(Nota de corrección — fila MKT-18g archivada, trabajo completado: "100% en Rust" corregido — la capa de bitmaps `roaring` (default) compila C/C++ vía croaring-sys, y el backend opcional `rocksdb` también es C++.)*
 
 ---
 
@@ -140,7 +140,7 @@ Tantivy is excellent for indexing large collections of structured text documents
 **Response:**
 Consistency under failure is a priority in VantaDB.
 * **WAL Integrity:** All transaction writes go to the WAL with records protected by CRC32C.
-* **Automated Chaos Testing:** We implement a chaos suite (`tests/storage/chaos_integrity.rs`) using fault injection (`failpoints`). We simulate sudden outages at 4 critical points: WAL enqueue, storage flush, HNSW mmap overflow, and format metadata synchronization.
+* **Automated Chaos Testing:** We implement a chaos suite (`tests/storage/chaos_integrity.rs`) using fault injection (`failpoints`). We simulate sudden outages at the injected failpoints: `wal_append_fail`, `storage_insert_fail`, `mmap_flush_fail`, and `hnsw_serialize_fail`.
 * **Automatic Reconstruction:** If the engine detects at startup that the on-disk HNSW index was not cleanly closed (or that the uniform v1 binary headers have an invalid state), it safely invalidates the corrupt mmap and rebuilds the HNSW from valid WAL records and LSM storage transparently to the user.
 
 ---
@@ -171,15 +171,15 @@ VantaDB implements a lazy deletion model using **Tombstones**:
 > **Criticism:** If you use AVX2 instructions natively in Rust, the code will panic with an illegal instruction fault on older x86 machines that don't support it.
 
 **Response:**
-To avoid panics from missing hardware support, we use the `cpufeatures` crate and wrappers based on the `wide` crate.
+To avoid panics from missing hardware support, we use `std::is_x86_feature_detected!` (Rust std) and wrappers based on the `wide` crate. *(Nota 2026-08-17: el claim original citaba `cpufeatures` — corregido; `cpufeatures` NO es dependencia del crate. Evidencia: `src/hardware/mod.rs:236-245`.)*
 * **Dynamic Dispatch:** At runtime, the engine detects CPU capabilities. If AVX2 is available, it uses the optimized implementation with `wide::f32x8` registers. If not, it safely falls back to a highly optimized scalar implementation with loop unrolling that compiles cleanly on any Rust-compatible hardware.
 
 ---
 
 ### 10. Is VantaDB production-ready?
-> **Criticism:** The version is v0.1.4. This looks like another experimental vector database project that will be abandoned in six months.
+> **Criticism:** The version is v0.5.0. This looks like another experimental vector database project that will be abandoned in six months.
 
 **Response:**
-We are honest about this: VantaDB is in **active beta** (v0.4.0).
+We are honest about this: VantaDB is in **active beta** (v0.5.0).
 We have completed all local correctness and durability certifications (100% of unit and integration tests passing on Windows/Linux/macOS, GIL leak tests, deterministic precision benchmarks, chaos-tested crash recovery with injected failpoints).
 The core is stabilized and documented. We are now launching the **controlled pilot program** to validate the engine in real autonomous agent applications. The goal is to maintain a stable API and resolve issues with priority on our issue tracker.
