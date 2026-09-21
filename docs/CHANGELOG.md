@@ -1853,6 +1853,14 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.6.1](https://github.com/ness-e/Vantadb/compare/v0.6.0...v0.6.1) - 2026-09-21
+
+### Other
+
+- R-01 completado (merge #182 + incidente develop documentado)\
+- R-01 merge #182 + recrear develop desde main\
+- Publicación MVP: memoria automática + showcase + distribución (planes 2026-09-17/18/19) ([#182](https://github.com/ness-e/Vantadb/pull/182))
+
 ### ✨ Features
 
 - **Fase 4 Vanta Studio (2026-08-20, 18/18):** consola standalone 100% browser (WASM/OPFS con persistencia y reload), import drag&drop `.vdbdump`/JSONL/CSV, slider de pesos híbridos BM25/vector (RRF weighted client-side), superficie Índices/salud real, consolidación asistida con diff visible, y supersession durable en core (ADR-028): `VantaMemoryRecord.superseded_by`/`superseded_at_ms`, `supersede()`, filtro `exclude_superseded` en search/list (core + Python sync/async + export/import JSONL).
