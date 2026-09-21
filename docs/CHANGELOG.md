@@ -1853,6 +1853,25 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.6.1](https://github.com/ness-e/Vantadb/compare/v0.6.0...v0.6.1) - 2026-09-21
+
+### Other
+
+- plan workflows-repair (13 FIND-134..146, 6 waves) + filas Backlog\
+- README.md a la par de README_ES (integraciones, MCP, benchmarks medidos, header shields)\
+- re-aplicar cambios post-merge #182 sobre historia completa (plan R-01/R-02 + pyproject dinamico)\
+- C-02 — discovery micro-move docs sin dependencias (NO-MOVE justificado)
+- R-03 — bump vantadb-ts 0.5.0→0.6.0 (verify, sin publish)
+- R-02 — diagnostico tag v0.6.0 sin publish PyPI (causa + via exacta)
+- plan estabilizacion-total (Fase 0/1/2 + 5 decisiones owner)\
+- C-01 .opencode fuera del git (local-only, disco intacto)\
+- recitations FIND-129 y WIN-FLAKY en plan archivado\
+- llms.txt URLs absolutas + mirrors skills 87 tools\
+- dependabot modo solo-alertas + lock desktop\
+- salud comunitaria (CITATION, FUNDING, Code of Conduct actualizado)\
+- lint CHANGELOG (frontmatter huerfano + __vanta_* code) + pins adapters <0.7.0 (0.6.0 compatible)\
+- coherencia version 0.6.0 (pyproject + openapi + MCP; version_coherence verde)\
+
 ### ✨ Features
 
 - **Fase 4 Vanta Studio (2026-08-20, 18/18):** consola standalone 100% browser (WASM/OPFS con persistencia y reload), import drag&drop `.vdbdump`/JSONL/CSV, slider de pesos híbridos BM25/vector (RRF weighted client-side), superficie Índices/salud real, consolidación asistida con diff visible, y supersession durable en core (ADR-028): `VantaMemoryRecord.superseded_by`/`superseded_at_ms`, `supersede()`, filtro `exclude_superseded` en search/list (core + Python sync/async + export/import JSONL).
