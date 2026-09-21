@@ -28,7 +28,7 @@
   "devDependencies": {
     "@napi-rs/cli": "^3.8.2",
     "typescript": "^5.7.0",
-    "vitest": "^4.1.10"
+    "vitest": "^4.1.11"
   },
   "napi": {
     "binaryName": "vantadb_native",
