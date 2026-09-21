@@ -3,7 +3,7 @@ title: "Benchmarks"
 type: glossary-entry
 status: stable
 tags: [performance, testing, metricas]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Performance Testing, Benchmarking]
 ---
@@ -50,7 +50,7 @@ $$
 ```python
 # benchmarks/vantadb_local_bench.py
 import time
-from vantadb import VantaEmbedded
+import vantadb_py as vantadb
 
 def benchmark_search(db, vectors, top_k=10, iterations=1000):
     latencies = []

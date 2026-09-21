@@ -3,7 +3,7 @@ title: "RAG — Retrieval-Augmented Generation"
 type: glossary-entry
 status: stable
 tags: [concept, producto, rag, ia, retrieval]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Retrieval-Augmented Generation]
 description: "Patrón arquitectónico que combina un sistema de recuperación de información con un modelo de lenguaje generativo (LLM) para producir respuestas fundamentadas en datos específicos del dominio"

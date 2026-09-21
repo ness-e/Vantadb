@@ -8,7 +8,6 @@ import {
   X,
   ChevronDown,
   Search,
-  type LucideIcon,
 } from "lucide-react";
 import type { View } from "./vanta-data";
 import { VANTA } from "./vanta-data";
@@ -24,7 +23,7 @@ const MARQUEE_ITEMS = [
   "pip install vantadb-py",
   "BM25 + HNSW via RRF",
   "WAL · CRC32C checksums",
-  "1.2ms in-process latency",
+  "1.2ms HNSW p50 · 10K",
   "Apache 2.0",
   "Rust 1.94.1+",
   "Zero network",
@@ -187,7 +186,7 @@ function DesktopDropdown({
                     "font-tech text-[10px] normal-case tracking-normal",
                     isActiveItem(item)
                       ? "text-black/70"
-                      : "text-black/50 "
+                      : "text-black/70 "
                   )}
                 >
                   {t(item.descKey)}
@@ -211,7 +210,7 @@ export function SiteNavbar({
   onNavigate: (v: View) => void;
   extraActions?: React.ReactNode;
 }) {
-  const { t } = useLanguage();
+  const { t, tt } = useLanguage();
   const router = useRouter();
   const pathname = usePathname();
 
@@ -244,12 +243,12 @@ export function SiteNavbar({
           window.scrollTo({ top: 0, behavior: "auto" });
         }
       } else {
-        toast.info(`${t(item.labelKey)} — coming soon`);
+        toast.info(`${t(item.labelKey)} · ${tt("common.comingSoon", "coming soon")}`);
       }
       setMobileOpen(false);
       setOpenGroup(null);
     },
-    [onNavigate, router, t]
+    [onNavigate, router, t, tt]
   );
 
   const handleNav = useCallback(
@@ -293,11 +292,12 @@ export function SiteNavbar({
       </div>
       {/* Main bar — single row, no marquee strip */}
       <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-2.5 sm:px-6">
-        {/* Logo — SVG mark (clean circle, no box) + wordmark + subtitle */}
+        {/* Logo — SVG mark (clean circle, no box) + wordmark + subtitle.
+            Sin aria-label: el nombre accesible es el texto visible "VantaDB…"
+            (axe label-content-name-mismatch). */}
         <button
           onClick={() => handleNav("home")}
           className="group flex shrink-0 items-center gap-2.5"
-          aria-label={t("nav.home")}
         >
           <span className="relative inline-flex items-center justify-center transition-transform group-hover:rotate-[8deg]">
             <VantaLogoMark size={40} />
@@ -308,7 +308,7 @@ export function SiteNavbar({
               Vanta<span className="text-[#FF5500]">DB</span>
             </span>
             <span className="font-tech text-[9px] uppercase tracking-[0.3em] text-black/60 ">
-              v0.1 · embedded rust
+              v0.5.0 · embedded rust
             </span>
           </span>
         </button>
@@ -316,7 +316,7 @@ export function SiteNavbar({
         {/* Desktop nav — centered dropdowns */}
         <nav
           className="hidden items-center gap-1 lg:flex"
-          aria-label="Main navigation"
+          aria-label={tt("a11y.mainNav", "Main navigation")}
         >
           {NAV_GROUPS.map((group) => (
             <DesktopDropdown
@@ -351,14 +351,9 @@ export function SiteNavbar({
           ))}
         </nav>
 
-        {/* Right actions — search, lang, theme, github, hamburger */}
-        <div className="flex items-center gap-1.5 sm:gap-2">
-          <button
-            onClick={openCommandPalette}
-            className="inline-flex h-9 w-9 items-center justify-center border-2 border-black bg-[#FBF9F5] text-black transition-all hover:translate-x-[1px] hover:translate-y-[1px]    sm:inline-flex"
-            aria-label={`${t("nav.search")} (⌘K)`}
-            title={`${t("nav.search")} (⌘K)`}
-          >
+        {/* Right actions — search, lang, github, hamburger */}
+        <div className="flex items-center gap-2.5 sm:gap-2.5">
+          <button className="relative inline-flex h-9 w-9 items-center justify-center border-2 border-black bg-[#FBF9F5] text-black transition-all after:absolute after:-inset-1 after:content-[''] hover:translate-x-[1px] hover:translate-y-[1px] sm:inline-flex" onClick={openCommandPalette} aria-label={`${t("nav.search")} (⌘K)`} title={`${t("nav.search")} (⌘K)`}>
             <Search className="h-4 w-4" strokeWidth={2.5} />
           </button>
 
@@ -370,17 +365,13 @@ export function SiteNavbar({
             target="_blank"
             rel="noopener noreferrer"
             className="hidden items-center gap-1.5 border-2 border-black bg-[#FF5500] px-3 py-1.5 font-tech text-[11px] font-bold uppercase tracking-wider text-black transition-all hover:translate-x-[1px] hover:translate-y-[1px] sm:inline-flex"
+            aria-label="GitHub"
           >
             <Github className="h-4 w-4" strokeWidth={2.5} />
             <span className="hidden md:inline">GitHub</span>
           </a>
 
-          <button
-            onClick={() => setMobileOpen((o) => !o)}
-            className="inline-flex h-9 w-9 items-center justify-center border-2 border-black bg-[#FBF9F5] text-black    lg:hidden"
-            aria-label="Toggle menu"
-            aria-expanded={mobileOpen}
-          >
+          <button className="relative inline-flex h-9 w-9 items-center justify-center border-2 border-black bg-[#FBF9F5] text-black lg:hidden after:absolute after:-inset-1 after:content-['']" onClick={() => setMobileOpen((o) => !o)} aria-label={tt("a11y.toggleMenu", "Toggle menu")} aria-expanded={mobileOpen}>
             {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
           </button>
         </div>
@@ -391,7 +382,7 @@ export function SiteNavbar({
         <div className="border-t-4 border-black bg-[#FBF9F5]   lg:hidden">
           <nav
             className="mx-auto flex max-w-7xl flex-col px-4 py-4"
-            aria-label="Mobile navigation"
+            aria-label={tt("a11y.mobileNav", "Mobile navigation")}
           >
             {NAV_GROUPS.map((group) => (
               <div key={group.labelKey} className="mb-2">

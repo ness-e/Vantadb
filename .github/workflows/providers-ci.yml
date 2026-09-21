@@ -1,0 +1,78 @@
+name: Providers CI
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'providers/**'
+      - '.github/workflows/providers-ci.yml'
+  pull_request:
+    paths:
+      - 'providers/**'
+      - '.github/workflows/providers-ci.yml'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Check provider (${{ matrix.provider }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [openai, litellm, ollama]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
+        with:
+          toolchain: stable
+
+      - name: Install maturin
+        run: python -m pip install --upgrade pip maturin
+
+      # maturin develop refuses to run outside a virtualenv/conda env
+      # (was failing all 3 matrix jobs with "Couldn't find a virtualenv").
+      - name: Create virtualenv
+        run: |
+          python -m venv .venv
+          echo "VIRTUAL_ENV=$PWD/.venv" >> $GITHUB_ENV
+          echo "$PWD/.venv/bin" >> $GITHUB_PATH
+
+      - name: Build provider
+        working-directory: providers/${{ matrix.provider }}
+        run: maturin develop --release
+
+      - name: Run provider tests
+        working-directory: providers/${{ matrix.provider }}
+        run: |
+          pip install pytest pytest-asyncio
+          # Tests gate on importorskip(client lib): matrix name == PyPI
+          # package (openai/litellm/ollama). vantadb-py is published (0.5.0),
+          # matching the local core version under test.
+          pip install ${{ matrix.provider }} vantadb-py
+          python -m pytest tests/ -v --tb=short
+
+      - name: Verify .pyi matches signatures
+        working-directory: providers/${{ matrix.provider }}
+        # NOTE: the step CWD is providers/<name>, so the script path must be
+        # anchored at $GITHUB_WORKSPACE (a bare relative path 404s here).
+        # NOTE 2: '\${PROVIDER}' keeps the $ literal: unescaped, bash would
+        # expand ${PROVIDER} to empty and .replace('', ...) would interleave
+        # the provider name between every character of the script.
+        run: python -c "import os,sys; sys.path.insert(0, '.').__class__; exec(open(os.path.join(os.environ['GITHUB_WORKSPACE'], '.github/scripts/verify_pyi.py')).read().replace('\${PROVIDER}', '${{ matrix.provider }}'))"

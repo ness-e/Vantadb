@@ -4,6 +4,17 @@ LlamaIndex `BasePydanticVectorStore` adapter for [VantaDB](https://github.com/ne
 
 ## Install
 
+> **Not on PyPI yet.** The `vantadb-llamaindex` package builds and passes
+> `twine check` locally; it will go live with the first `adapters-v*` tag
+> release. Until then, install from source.
+
+```bash
+# Today, from a repo checkout
+cd integrations/llamaindex && pip install .
+```
+
+### Install from PyPI (after first release)
+
 ```bash
 pip install vantadb-llamaindex
 ```
@@ -44,6 +55,18 @@ print(response)
 - `query(query)` — vector + hybrid search
 - `get_nodes(node_ids)` — retrieve nodes by ID
 - `clear()` — remove all records
+
+## Why VantaDB?
+
+- **Embedded & local-first:** the storage engine is a Rust library embedded
+  in your process — no server to deploy, no network hop; data lives in your
+  filesystem.
+- **Persistent hybrid search:** vectors + BM25 text search out of the box,
+  where LlamaIndex's `SimpleVectorStore` covers only small single-process
+  sessions.
+- **Zero-setup alternative to hosted stacks:** unlike Zep (requires a server)
+  or Cognee (spins up its own knowledge-graph runtime), VantaDB is a plain
+  library you import.
 
 ## Development
 

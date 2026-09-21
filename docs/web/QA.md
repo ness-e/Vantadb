@@ -1,3 +1,13 @@
+---
+title: "Quality Audit — VantaDB Web Frontend"
+type: web
+status: active
+tags: [vantadb, web, root]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Quality Audit — VantaDB Web Frontend
 
 Source: `web/AUDIT.md` (auto-generated, 24 items). Full report at `web/AUDIT.md`.

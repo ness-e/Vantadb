@@ -1,3 +1,13 @@
+---
+title: "Test Map — 2026-07-22"
+type: operations
+status: active
+tags: [vantadb, operations, test-map, testing]
+last_reviewed: 2026-09-15
+aliases: []
+related: [CI_POLICY.md]
+---
+
 # Test Map — 2026-07-22
 
 > If you change X, which test suite do you run? Quick reference for contributors.
@@ -125,9 +135,9 @@ Tests are organized in `tests/` (core crate) by category:
 
 ---
 
-## Adapter Tier Classification (ADR-001)
+## Adapter Tier Classification (ADR-016)
 
-See `docs/archived-decisions/ADR-001-ADAPTER-TIERS.md` for full rationale.
+See `docs/architecture/adr/ADR-016-adapter-tiers.md` for full rationale.
 
 | Tier | Label | Adapters | Score range | CI gate |
 |---|---|---|---|---|

@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 #[path = "../common/mod.rs"]
 mod common;
 
@@ -5,7 +8,7 @@ use std::sync::Arc;
 
 use common::{TerminalReporter, VantaSession};
 use tempfile::tempdir;
-use vantadb::error::VantaError;
+use vantadb::error::Error;
 use vantadb::executor::Executor;
 use vantadb::query::{InsertStatement, RelateStatement, Statement};
 use vantadb::storage::StorageEngine;
@@ -56,7 +59,7 @@ fn chaos_integrity_certification() {
         result_ghost.is_err(),
         "Axiom Failure: Relation to ghost node was not blocked"
     );
-    if let Err(VantaError::NotFound { kind, id }) = result_ghost {
+    if let Err(Error::NotFound { kind, id }) = result_ghost {
         assert_eq!(kind, "target_node", "Wrong error kind for ghost node");
         assert_eq!(id, "999", "Wrong node id in error");
     } else {

@@ -3,7 +3,7 @@ title: Glosario VantaDB
 type: glossary
 status: stable
 tags: [vantadb, glossary, reference, concepts, technical]
-last_reviewed: 2026-07-01
+last_reviewed: 2026-09-15
 links: "master-index.md"
 description: "Complete index of technical concepts: WAL, HNSW, BM25, FFI, mmap, GIL, RRF, Fjall, RocksDB and more"
 aliases: [Glossary, Concepts, Technical Reference, Dictionary]

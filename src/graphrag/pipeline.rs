@@ -1,6 +1,6 @@
 use crate::error::Result;
 use crate::graphrag::{context, expand, retrieve, seed};
-use crate::sdk::VantaEmbedded;
+use crate::sdk::Embedded;
 
 pub struct GraphRagPipeline {
     pub seed_k: usize,
@@ -54,7 +54,7 @@ impl GraphRagPipeline {
 
     pub fn search(
         &self,
-        embedded: &VantaEmbedded,
+        embedded: &Embedded,
         namespace: &str,
         query: Option<&str>,
         query_vector: Option<&[f32]>,

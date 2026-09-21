@@ -1,9 +1,9 @@
 //! MAINTENANCE module tests: eviction, compaction, quantization, rebuild, consolidate, flush.
 
 use super::super::*;
-use super::{in_memory_engine, in_memory_read_only, sample_node};
+use super::{in_memory_engine, in_memory_read_only, in_memory_tiered_engine, sample_node};
 use crate::backend::BackendPartition;
-use crate::config::VantaConfig;
+use crate::config::Config;
 use crate::node::{NodeTier, UnifiedNode};
 
 // ─── Eviction ─────────────────────────────────────────────────
@@ -84,7 +84,7 @@ fn test_evict_cold_nodes_successful_eviction() {
     node.tier = NodeTier::Hot;
     engine.insert(&node).expect("insert");
     assert!(
-        engine.volatile_cache.read().contains_key(&42),
+        engine.cache.volatile.read().contains_key(&42),
         "hot node should be in cache before eviction"
     );
     let report = engine
@@ -93,7 +93,7 @@ fn test_evict_cold_nodes_successful_eviction() {
     assert!(report.evicted > 0, "should evict at least one hot node");
     assert_eq!(report.reason, EvictionReason::Periodic);
     assert!(
-        !engine.volatile_cache.read().contains_key(&42),
+        !engine.cache.volatile.read().contains_key(&42),
         "evicted node should be removed from cache"
     );
     let retrieved = engine.get(42).expect("get").unwrap();
@@ -196,14 +196,14 @@ fn test_consolidate_node_removes_from_cache() {
     node.tier = crate::node::NodeTier::Hot;
     engine.insert(&node).expect("insert");
     assert!(
-        engine.volatile_cache.read().contains_key(&42),
+        engine.cache.volatile.read().contains_key(&42),
         "hot node should be in cache"
     );
     engine
         .consolidate_node(&sample_node(42))
         .expect("consolidate");
     assert!(
-        !engine.volatile_cache.read().contains_key(&42),
+        !engine.cache.volatile.read().contains_key(&42),
         "consolidated node should be removed from cache"
     );
     let retrieved = engine.get(42).expect("get").unwrap();
@@ -271,6 +271,10 @@ fn test_consolidate_node_with_binary_vector() {
         .expect("consolidate with Binary vector");
     let retrieved = engine.get(42).expect("get").unwrap();
     assert_eq!(retrieved.id, 42);
+    assert_eq!(
+        retrieved.vector, node.vector,
+        "get() must return the original Binary payload, not an empty Full"
+    );
 }
 
 #[test]
@@ -304,7 +308,7 @@ fn test_refresh_index_with_vector() {
     engine.insert(&node).expect("insert");
     let offset = {
         let hnsw = engine.hnsw.load();
-        hnsw.nodes.get(&42).map(|n| n.storage_offset).unwrap()
+        hnsw.storage_offset_of(42).unwrap()
     };
     engine.refresh_index(&node, offset).expect("refresh index");
     let retrieved = engine.get(42).expect("get").unwrap();
@@ -384,7 +388,7 @@ fn test_trigger_compaction_high_tombstone_fraction() {
     engine.insert(&node).expect("insert");
     let offset = {
         let hnsw = engine.hnsw.load();
-        hnsw.nodes.get(&42).map(|n| n.storage_offset).unwrap()
+        hnsw.storage_offset_of(42).unwrap()
     };
     {
         let mut vstore = engine.vector_store[0].write();
@@ -398,11 +402,60 @@ fn test_trigger_compaction_high_tombstone_fraction() {
         .expect("trigger with >20% tombstones");
 }
 
+/// RED test for MOD-03: `trigger_compaction` must actually compact, not just log.
+/// Mirrors `test_trigger_compaction_high_tombstone_fraction` (tombstoned header,
+/// node still indexed — the fragmentation state the maintenance API models):
+/// with 90% tombstone fragmentation (>15% default threshold) the disk-backed
+/// File must shrink after the call.
+#[test]
+fn test_trigger_compaction_reclaims_disk_space_on_high_fragmentation() {
+    let dir = tempfile::tempdir().expect("tempdir");
+    let db_path = dir.path().to_str().expect("db path");
+    let config = Config {
+        backend_kind: crate::backend::BackendKind::Fjall,
+        ..Config::default()
+    };
+    let engine =
+        StorageEngine::open_with_config(db_path, Some(config)).expect("open disk-backed engine");
+
+    // Insert 100 nodes. Node 1 becomes the entry point — keep it clean.
+    for id in 1..=100u128 {
+        let node = UnifiedNode::with_vector(id, vec![0.1; 64]);
+        engine.insert(&node).expect("insert");
+    }
+    // Stamp 90 of 100 headers as tombstones (ids 11..=100) → 90% fragmentation,
+    // far above the 15% default `vacuum_threshold_pct`.
+    {
+        let mut vstore = engine.vector_store[0].write();
+        let hnsw = engine.hnsw.load();
+        for id in 11..=100u128 {
+            let offset = hnsw.storage_offset_of(id).expect("offset");
+            if let Some(mut header) = vstore.read_header(offset) {
+                header.flags |= FLAG_TOMBSTONE;
+                vstore.write_header(offset, &header).expect("write header");
+            }
+        }
+    }
+    engine.flush().expect("flush");
+
+    let size_before = engine.vector_store[0].read().mmap_bytes().len();
+
+    engine.trigger_compaction().expect("trigger compaction");
+
+    let size_after = engine.vector_store[0].read().mmap_bytes().len();
+    assert!(
+        size_after < size_before,
+        "compaction must reclaim bytes: before={size_before}, after={size_after}"
+    );
+    // Survivors remain readable after the rewrite.
+    assert!(engine.get(5).expect("get survivor").is_some());
+}
+
 #[test]
 fn test_compact_wal() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).expect("open");
     engine.insert(&sample_node(1)).expect("insert");
@@ -498,12 +551,9 @@ fn test_run_quantization_maintenance_quantize() {
     assert_eq!(report.quantized, 1, "should quantize 1 node");
     assert_eq!(report.promoted, 0);
     let hnsw = engine.hnsw.load();
-    let entry = hnsw.nodes.get(&42).expect("node should exist");
+    let entry = hnsw.stored_vector(42).expect("node should exist");
     assert!(
-        matches!(
-            entry.value().vec_data,
-            crate::node::VectorRepresentations::SQ8(..)
-        ),
+        matches!(entry, crate::node::VectorRepresentations::SQ8(..)),
         "node should be quantized to SQ8 after maintenance"
     );
 }
@@ -516,12 +566,11 @@ fn test_run_quantization_maintenance_promote() {
     engine.insert(&node).expect("insert");
     {
         let hnsw = engine.hnsw.load();
-        let entry = hnsw.nodes.get(&7).expect("node should exist after insert");
+        let vec_data = hnsw
+            .stored_vector(7)
+            .expect("node should exist after insert");
         assert!(
-            matches!(
-                entry.value().vec_data,
-                crate::node::VectorRepresentations::SQ8(..)
-            ),
+            matches!(vec_data, crate::node::VectorRepresentations::SQ8(..)),
             "node should be SQ8 after insert"
         );
     }
@@ -543,12 +592,9 @@ fn test_run_quantization_maintenance_promote() {
     );
     assert_eq!(report.quantized, 0);
     let hnsw = engine.hnsw.load();
-    let entry = hnsw.nodes.get(&7).expect("node should exist");
+    let vec_data = hnsw.stored_vector(7).expect("node should exist");
     assert!(
-        matches!(
-            entry.value().vec_data,
-            crate::node::VectorRepresentations::Full(..)
-        ),
+        matches!(vec_data, crate::node::VectorRepresentations::Full(..)),
         "node should be Full after promotion"
     );
 }
@@ -592,6 +638,63 @@ fn test_rebuild_vector_index_twice_idempotent() {
     assert!(engine.get(1).expect("get").is_some());
 }
 
+// ─── save_vector_index (mmap round-trip persistence) ─────────
+//
+// AUDREP-18: `save_vector_index` must survive a cold-start round trip. It
+// writes the serialized index to a `.bin.tmp` file under a live `MmapMut`,
+// then calls `std::fs::rename` into `vector_index.bin`. On Windows, rename
+// fails while ANY handle (including the memory map) is still open on the
+// source file, so the temp mapping must be dropped before the rename — the
+// same ordering `CPIndex::sync_to_mmap` already uses. This test runs the full
+// mmap flavor of `flush() -> save_vector_index` and then reopens the engine
+// to prove the index round-trips. Linux/macOS tolerates the open-handle
+// rename, so CI-Linux passes even vs the buggy ordering; on Windows the test
+// is the regression gate for the mapping-before-rename strictness.
+#[cfg(any(feature = "fjall", feature = "rocksdb"))]
+#[test]
+fn test_save_vector_index_mmap_roundtrip() {
+    use tempfile::tempdir;
+
+    let dir = tempdir().expect("tempdir");
+    let path = dir.path().to_str().unwrap().to_string();
+
+    let config = Config {
+        force_mmap: true,
+        mmap_hnsw: true,
+        memory_limit: Some(2 * 1024 * 1024 * 1024),
+        ..Config::default()
+    };
+
+    // First pass: build an mmap-backed engine, insert, then flush so
+    // `save_vector_index` exercises its MMapFile rewrite path.
+    let engine =
+        StorageEngine::open_with_config(&path, Some(config.clone())).expect("open mmap engine");
+    engine.insert(&sample_node(1)).expect("insert 1");
+    engine.insert(&sample_node(2)).expect("insert 2");
+    engine.flush().expect("flush triggers save_vector_index");
+
+    // Second flush: the previous save left `self.hnsw` holding a live MMapMut on
+    // `index_path` (the rename DESTINATION). Windows also requires the destination
+    // to be replaceable while no stale mapping pins it, so save again after a new
+    // insert to exercise the repeat-rename path.
+    engine.insert(&sample_node(3)).expect("insert 3");
+    engine.flush().expect("second flush re-saves vector index");
+
+    let index_path = dir.path().join("data").join("vector_index.bin");
+    assert!(
+        index_path.exists(),
+        "vector_index.bin should exist after flush: {}",
+        index_path.display()
+    );
+    drop(engine);
+
+    // Second pass: reopen cold and confirm the persisted index loads back.
+    let engine2 = StorageEngine::open_with_config(&path, Some(config)).expect("reopen mmap engine");
+    assert_eq!(engine2.get(1).expect("get 1").unwrap().id, 1);
+    assert_eq!(engine2.get(2).expect("get 2").unwrap().id, 2);
+    assert_eq!(engine2.get(3).expect("get 3").unwrap().id, 3);
+}
+
 // ─── Recover archived nodes ───────────────────────────────────
 
 #[test]
@@ -612,6 +715,7 @@ fn test_recover_archived_nodes_with_data() {
         label_id: belonged_to_id,
         weight: 1.0,
         reverse: false,
+        created_at_ms: 1,
     });
     let data = postcard::to_allocvec(&archived)
         .map_err(|e| format!("serialization: {e}"))
@@ -644,6 +748,7 @@ fn test_recover_archived_nodes_wrong_summary() {
         label_id: belonged_to_id,
         weight: 1.0,
         reverse: false,
+        created_at_ms: 1,
     });
     let data = postcard::to_allocvec(&archived)
         .map_err(|e| format!("serialization: {e}"))
@@ -671,6 +776,7 @@ fn test_recover_archived_nodes_filter_by_label() {
         label_id: belonged_to_id,
         weight: 1.0,
         reverse: false,
+        created_at_ms: 1,
     });
     let data = postcard::to_allocvec(&matching)
         .map_err(|e| format!("serialization: {e}"))
@@ -688,6 +794,7 @@ fn test_recover_archived_nodes_filter_by_label() {
         label_id: referenced_by_id,
         weight: 1.0,
         reverse: false,
+        created_at_ms: 1,
     });
     let data2 = postcard::to_allocvec(&other)
         .map_err(|e| format!("serialization: {e}"))
@@ -738,9 +845,9 @@ fn test_create_life_insurance_not_supported() {
 
 #[test]
 fn test_flush_empty_engine() {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).expect("open");
     engine.flush().expect("flush on empty engine");
@@ -880,7 +987,7 @@ fn test_vacuum_with_tombstone() {
     // Manually flag the node as tombstoned
     let offset = {
         let hnsw = engine.hnsw.load();
-        hnsw.nodes.get(&42).map(|n| n.storage_offset).unwrap()
+        hnsw.storage_offset_of(42).unwrap()
     };
     {
         let mut vstore = engine.vector_store[0].write();
@@ -899,7 +1006,7 @@ fn test_vacuum_with_tombstone() {
 
     // Verify the node is no longer in the HNSW index
     let hnsw = engine.hnsw.load();
-    assert!(!hnsw.nodes.contains_key(&42), "node should be removed");
+    assert!(!hnsw.contains_node(42), "node should be removed");
 }
 
 #[test]
@@ -984,6 +1091,113 @@ fn test_run_pipeline_read_only() {
 }
 
 #[test]
+fn test_pipeline_vacuum_step_mode_gate() {
+    let engine = in_memory_engine();
+    let mut ok = true;
+    assert!(engine
+        .pipeline_vacuum_step(PipelineMode::MergeOnly, &mut ok)
+        .is_none());
+    assert!(ok, "skipped phase must not poison all_ok");
+    let mut ok2 = true;
+    assert!(engine
+        .pipeline_vacuum_step(PipelineMode::VacuumOnly, &mut ok2)
+        .is_some());
+    assert!(ok2);
+}
+
+#[test]
+fn test_pipeline_fresh_hnsw_step_mode_gate() {
+    let engine = in_memory_engine();
+    let mut ok = true;
+    assert!(engine
+        .pipeline_fresh_hnsw_step(PipelineMode::VacuumOnly, &mut ok)
+        .is_none());
+    assert!(ok);
+    let mut ok2 = true;
+    assert!(engine
+        .pipeline_fresh_hnsw_step(PipelineMode::FreshHnswOnly, &mut ok2)
+        .is_some());
+    assert!(ok2);
+}
+
+#[test]
+fn test_pipeline_merge_step_mode_gate() {
+    let engine = in_memory_engine();
+    let mut ok = true;
+    assert!(engine
+        .pipeline_merge_step(PipelineMode::VacuumOnly, &mut ok)
+        .is_none());
+    assert!(ok);
+    let mut ok2 = true;
+    assert!(engine
+        .pipeline_merge_step(PipelineMode::MergeOnly, &mut ok2)
+        .is_some());
+    assert!(ok2);
+}
+
+#[test]
+fn test_pipeline_index_step_mode_gate() {
+    let engine = in_memory_engine();
+    let mut ok = true;
+    assert!(engine
+        .pipeline_index_step(PipelineMode::MergeOnly, &mut ok)
+        .is_none());
+    assert!(ok);
+    let mut ok2 = true;
+    assert!(engine
+        .pipeline_index_step(PipelineMode::IndexOnly, &mut ok2)
+        .is_some());
+    assert!(ok2);
+}
+
+#[test]
+fn test_pipeline_lsm_steps_empty_unless_compact_mode() {
+    let engine = in_memory_engine();
+    let mut ok = true;
+    assert!(engine
+        .pipeline_lsm_steps(PipelineMode::MergeOnly, &mut ok)
+        .is_empty());
+    assert!(ok);
+}
+
+#[test]
+fn test_finish_pipeline_report_maps_empty_lsm_to_none() {
+    let r = StorageEngine::finish_pipeline_report(
+        PipelineMode::Full,
+        web_time::Instant::now(),
+        None,
+        None,
+        None,
+        None,
+        Vec::new(),
+        true,
+    );
+    assert!(r.lsm.is_none());
+    assert!(r.success);
+}
+
+#[test]
+fn test_finish_pipeline_report_keeps_nonempty_lsm() {
+    let r = StorageEngine::finish_pipeline_report(
+        PipelineMode::Full,
+        web_time::Instant::now(),
+        None,
+        None,
+        None,
+        None,
+        vec![LsmReport {
+            level: 0,
+            nodes_promoted: 0,
+            reclaimed_bytes: 0,
+            duration_ms: 0,
+            success: true,
+        }],
+        true,
+    );
+    assert_eq!(r.lsm.map(|v| v.len()), Some(1));
+}
+
+#[test]
 fn test_flush_pending_hnsw_with_mixed_ops() {
     let engine = in_memory_engine();
     engine.insert(&sample_node(77)).expect("insert");
@@ -999,4 +1213,139 @@ fn test_flush_pending_hnsw_with_mixed_ops() {
     }
     let result = engine.flush_pending_hnsw().expect("flush mixed ops");
     let _ = result;
+}
+
+// ─── Tier promotion (hot/warm/cold/archive) ───────────────────
+
+/// Current LSM segment (0=L0 hot, 1=L1 warm, 2=L2 cold, 3=L3 archive) for a node.
+fn node_segment(engine: &StorageEngine, id: u128) -> u8 {
+    let hnsw = engine.hnsw.load();
+    let off = hnsw.storage_offset_of(id).unwrap();
+    crate::lsm::unpack_offset(off).0
+}
+
+#[test]
+fn test_tier_promotion_hot_to_cold() {
+    let engine = in_memory_tiered_engine();
+    engine.insert(&sample_node(42)).expect("insert");
+    // Starts in L0 (hot).
+    assert_eq!(node_segment(&engine, 42), 0);
+
+    // hot -> warm (L0 -> L1)
+    let r0 = engine.compact_level(0).expect("compact L0");
+    assert!(r0.success);
+    assert_eq!(r0.level, 0);
+    assert!(r0.nodes_promoted >= 1, "L0 should promote nodes");
+    assert!(r0.reclaimed_bytes > 0);
+    assert_eq!(
+        node_segment(&engine, 42),
+        1,
+        "node should now live in L1 (warm)"
+    );
+
+    // warm -> cold (L1 -> L2)
+    let r1 = engine.compact_level(1).expect("compact L1");
+    assert!(r1.success);
+    assert_eq!(r1.level, 1);
+    assert!(r1.nodes_promoted >= 1);
+    assert!(r1.reclaimed_bytes > 0);
+    assert_eq!(
+        node_segment(&engine, 42),
+        2,
+        "node should now live in L2 (cold)"
+    );
+
+    // The promoted node must remain queryable.
+    let n = engine.get(42).expect("get").expect("node exists");
+    assert_eq!(n.id, 42);
+}
+
+#[test]
+fn test_tier_promotion_cold_to_archive() {
+    let engine = in_memory_tiered_engine();
+    engine.insert(&sample_node(7)).expect("insert");
+    // Push the node through the whole chain to reach the archive tier (L3).
+    for level in 0..=2 {
+        let r = engine.compact_level(level).expect("compact chain");
+        assert!(r.success);
+    }
+    assert_eq!(
+        node_segment(&engine, 7),
+        3,
+        "node should now live in L3 (archive)"
+    );
+    let n = engine.get(7).expect("get").expect("node exists");
+    assert_eq!(n.id, 7);
+}
+
+#[test]
+fn test_tier_archive_disabled_stops_at_cold() {
+    let mut engine = in_memory_tiered_engine();
+    engine.insert(&sample_node(45)).expect("insert");
+    // Promote the node to L2 (cold) first, then disable the archive tier.
+    engine.compact_level(0).expect("compact L0");
+    engine.compact_level(1).expect("compact L1");
+    assert_eq!(node_segment(&engine, 45), 2, "node should sit in L2 (cold)");
+    engine.config.segment_optimizer.lsm.tier.archive = false;
+
+    // Force L2 (cold) over its threshold. With the archive tier disabled the
+    // pipeline must NOT compact L2 into L3, so no LSM report is produced.
+    engine.config.segment_optimizer.lsm.l2_max_size = 8;
+    let mut vs = engine.vector_store[2].write();
+    vs.write_cursor = 16;
+    drop(vs);
+
+    let pipe = engine
+        .run_pipeline(PipelineMode::CompactOnly)
+        .expect("compact-only pipeline");
+    assert!(
+        pipe.lsm.is_none() || pipe.lsm.unwrap().is_empty(),
+        "archive-tier disabled must not compact L2 into L3"
+    );
+    // The node stays in L2 (cold), never promoted to the archive tier.
+    assert_eq!(
+        node_segment(&engine, 45),
+        2,
+        "node should stay in L2 (cold)"
+    );
+}
+
+// ─── LsmReport coverage ───────────────────────────────────────
+
+#[test]
+fn test_lsm_report_shapes() {
+    let engine = in_memory_tiered_engine();
+    let report = engine.compact_level(0).expect("compact empty level");
+    // Empty level -> no promotion, but the report still carries its shape.
+    assert_eq!(report.level, 0);
+    assert_eq!(report.nodes_promoted, 0);
+    assert!(report.success);
+    assert!(report.duration_ms == 0 || report.reclaimed_bytes == 0);
+
+    engine.insert(&sample_node(50)).expect("insert");
+    let report = engine.compact_level(0).expect("compact with data");
+    assert_eq!(report.level, 0);
+    assert!(report.nodes_promoted >= 1);
+    assert!(report.reclaimed_bytes > 0);
+    assert!(report.success);
+
+    // PipelineReport surfaces the LSM report vec once compaction runs.
+    let mut engine = in_memory_tiered_engine();
+    engine.insert(&sample_node(51)).expect("insert");
+    // Force L0 past its threshold so the pipeline actually compacts it.
+    engine.config.segment_optimizer.lsm.l0_max_size = 8; // tiny
+    let mut vs = engine.vector_store[0].write();
+    vs.write_cursor = 16;
+    drop(vs);
+    let pipe = engine
+        .run_pipeline(PipelineMode::CompactOnly)
+        .expect("compact-only pipeline");
+    let reports = pipe.lsm.expect("pipeline should report LSM compactions");
+    assert!(
+        !reports.is_empty(),
+        "at least one LSM compaction report expected"
+    );
+    for r in &reports {
+        assert!(r.success);
+    }
 }

@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MMap Vector Index & Resource Governance Modernized Test Suite
 //! Part of the Vanta Certification ecosystem.
 
@@ -16,12 +18,14 @@ fn build_test_index(node_count: u64) -> CPIndex {
         let raw = [i as f32, (i + 1) as f32, (i + 2) as f32, (i + 3) as f32];
         let norm: f32 = raw.iter().map(|x| x * x).sum::<f32>().sqrt();
         let normalized: Vec<f32> = raw.iter().map(|x| x / norm).collect();
-        index.add(
-            i.into(),
-            FilterBitset::new(),
-            VectorRepresentations::Full(normalized),
-            0,
-        );
+        index
+            .add(
+                i.into(),
+                FilterBitset::new(),
+                VectorRepresentations::Full(normalized),
+                0,
+            )
+            .expect("test insert");
     }
     index
 }
@@ -89,12 +93,14 @@ fn mmap_vector_index_certification() {
             let raw = [i as f32, (i + 1) as f32, (i + 2) as f32, (i + 3) as f32];
             let norm: f32 = raw.iter().map(|x| x * x).sum::<f32>().sqrt();
             let normalized: Vec<f32> = raw.iter().map(|x| x / norm).collect();
-            index.add(
-                i.into(),
-                FilterBitset::new(),
-                VectorRepresentations::Full(normalized),
-                0,
-            );
+            index
+                .add(
+                    i.into(),
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(normalized),
+                    0,
+                )
+                .expect("test insert");
         }
 
         index.sync_to_mmap().expect("MMap sync failed");
@@ -131,18 +137,22 @@ fn mmap_vector_index_certification() {
             .collect();
 
         for (id, v) in &vectors {
-            inmem_index.add(
-                (*id).into(),
-                FilterBitset::new(),
-                VectorRepresentations::Full(v.clone()),
-                0,
-            );
-            mmap_index.add(
-                (*id).into(),
-                FilterBitset::new(),
-                VectorRepresentations::Full(v.clone()),
-                0,
-            );
+            inmem_index
+                .add(
+                    (*id).into(),
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(v.clone()),
+                    0,
+                )
+                .expect("test insert");
+            mmap_index
+                .add(
+                    (*id).into(),
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(v.clone()),
+                    0,
+                )
+                .expect("test insert");
         }
 
         let q = vec![0.5f32, 0.5, 0.5, 0.5];

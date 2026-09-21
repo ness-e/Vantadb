@@ -10,11 +10,7 @@ import { useLanguage } from "@/lib/language-provider";
 export default function CaseStudyPage() {
   const params = useParams();
   const router = useRouter();
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { tt } = useLanguage();
   const slug = params.slug as string;
   const csIndex = CASE_STUDIES.findIndex((c) => c.slug === slug);
   const cs = csIndex >= 0 ? CASE_STUDIES[csIndex] : undefined;
@@ -63,6 +59,16 @@ export default function CaseStudyPage() {
         </div>
       </PageHeader>
 
+      {/* Composite disclaimer — these scenarios are illustrative, not real customers */}
+      <div className="border-b-4 border-black bg-[#F2EDE2] px-4 py-2.5 text-center sm:px-6">
+        <p className="font-tech text-[10px] uppercase tracking-[0.2em] text-black/70">
+          {tt(
+            "caseStudy.compositeDisclaimer",
+            "Composite scenario based on typical usage patterns — not a specific customer"
+          )}
+        </p>
+      </div>
+
       {/* Metrics grid */}
       <PageSection variant="ink">
         <Reveal direction="up">
@@ -76,7 +82,7 @@ export default function CaseStudyPage() {
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
           {cs.metrics.map((m, i) => (
             <Reveal key={i} direction="scale" delay={i * 80} as="article">
-              <article className="press-lg h-full border-4 border-[#FBF9F5] bg-[#1A1A1A] p-6 shadow-[6px_6px_0_0_#FF5500]">
+              <article className="press--lg h-full border-4 border-[#FBF9F5] bg-[#1A1A1A] p-6 shadow-[6px_6px_0_0_#FF5500]">
                 <span className="font-display text-4xl uppercase leading-none text-[#FF5500] sm:text-5xl">
                   {m.value}
                 </span>
@@ -93,7 +99,7 @@ export default function CaseStudyPage() {
       <PageSection variant="cream">
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Reveal direction="right" as="article">
-            <article className="press-lg h-full border-4 border-black bg-[#F2EDE2] p-6 shadow-[6px_6px_0_0_#000]   ">
+            <article className="press--lg h-full border-4 border-black bg-[#F2EDE2] p-6 shadow-[6px_6px_0_0_#000]   ">
               <div className="mb-3 flex items-center gap-2">
                 <AlertTriangle className="h-5 w-5 text-black " strokeWidth={2.5} />
                 <span className="font-tech text-[10px] font-bold uppercase tracking-[0.25em] text-black/70 ">
@@ -110,7 +116,7 @@ export default function CaseStudyPage() {
           </Reveal>
 
           <Reveal direction="left" as="article">
-            <article className="press-lg h-full border-4 border-[#FF5500] bg-[#FBF9F5] p-6 shadow-[6px_6px_0_0_#FF5500] ">
+            <article className="press--lg h-full border-4 border-[#FF5500] bg-[#FBF9F5] p-6 shadow-[6px_6px_0_0_#FF5500] ">
               <div className="mb-3 flex items-center gap-2">
                 <Check className="h-5 w-5 text-[#FF5500]" strokeWidth={2.5} />
                 <span className="font-tech text-[10px] font-bold uppercase tracking-[0.25em] text-[#FF5500]">
@@ -175,7 +181,7 @@ export default function CaseStudyPage() {
             </div>
             <button
               onClick={() => router.push("/case-studies")}
-              className="press-neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+              className="press--neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
             >
               <ArrowLeft className="h-4 w-4" strokeWidth={2.5} aria-hidden />
               {tt("caseStudy.backToList", "Back to Case Studies")}

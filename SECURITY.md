@@ -4,9 +4,9 @@
 
 | Version | Supported          |
 |---------|--------------------|
-| 0.4.x   | ✅ Active development |
-| 0.3.x   | ⚠️ Security patches only |
-| < 0.3   | ❌ Not maintained   |
+| 0.5.x   | ✅ Active development |
+| 0.4.x   | ⚠️ Security patches only |
+| < 0.4   | ❌ Not maintained   |
 
 Patch releases are published for the latest minor version. Upgrade to the newest release to receive security fixes.
 
@@ -23,7 +23,7 @@ We aim to acknowledge receipt within 48 hours and provide an initial assessment 
 
 ## Security Practices
 
-- **AES-256-GCM at-rest encryption** behind the `encryption` feature flag (`src/crypto/`).
+- **AES-256-GCM at-rest encryption** behind the `encryption` feature flag (`src/crypto.rs`).
 - **Constant-time token comparison** (`subtle::ConstantTimeEq`) for API key auth — no timing side channels.
 - **Path traversal prevention** — all filesystem paths validated via `prevent_path_traversal()`.
 - **Read-only mode** — write operations fail before touching storage when `read_only: true`.

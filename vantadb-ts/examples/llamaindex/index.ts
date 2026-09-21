@@ -9,14 +9,14 @@ async function main() {
       namespace: "documents",
       key: "paper_001",
       payload: "Graph neural networks excel at node classification tasks.",
-      metadata: { category: { type: "String", value: "AI" } },
+      metadata: { category: "AI" },
       vector: [0.9, 0.1, 0.7, 0.3],
     },
     {
       namespace: "documents",
       key: "paper_002",
       payload: "Vector databases enable efficient similarity search at scale.",
-      metadata: { category: { type: "String", value: "databases" } },
+      metadata: { category: "databases" },
       vector: [0.2, 0.8, 0.4, 0.6],
     },
   ]);

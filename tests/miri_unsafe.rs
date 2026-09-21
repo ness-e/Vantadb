@@ -1,5 +1,5 @@
 #![cfg(miri)]
-
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 use std::ptr;
 
 struct SendPtr(*const f32);
@@ -125,4 +125,49 @@ fn miri_raw_ptr_subslice() {
     let slice: &[f32] = unsafe { std::slice::from_raw_parts(ptr_3, 4) };
     assert_eq!(slice[0], 3.0);
     assert_eq!(slice[3], 6.0);
+}
+
+/// AUDIT-03: drive the *real* engine vector paths under Miri, not just
+/// standalone `from_raw_parts`. An in-memory `Embedded` (BackendKind::InMemory
+/// short-circuits file/WAL I/O — see `init_storage`) uses a `File` whose
+/// backing buffer is 4-aligned by construction (`AlignedBytes`, vfile.rs), so the
+/// HNSW search (`src/index/search.rs` `from_raw_parts`, INV-024 #22/#23) and
+/// engine get/insert (`src/storage/engine/ops.rs`, #28-#31) run fully under the
+/// interpretter and any aliasing/alignment/UB in those sites trips the checker.
+/// The mmap-backed file variants are not Miri-runnable (mmap syscall unsupported);
+/// their alignment invariant is enforced centrally by `read_header` rejecting
+/// non-4-multiple `vector_offset` plus the unit test
+/// `test_vfile_read_header_rejects_misaligned_vector_offset`.
+#[test]
+fn miri_engine_in_memory_hnsw_vector_paths() {
+    use vantadb::config::Config;
+    use vantadb::{BackendKind, Embedded, NodeInput};
+
+    let config = Config {
+        storage_path: ":memory:".into(),
+        backend_kind: BackendKind::InMemory,
+        ..Default::default()
+    };
+    let db = Embedded::open_with_config(config).expect("open in-memory db");
+
+    let vectors = [
+        vec![1.0f32, 0.0, 0.0],
+        vec![0.0, 1.0, 0.0],
+        vec![0.0, 0.0, 1.0],
+    ];
+    for (i, v) in vectors.iter().enumerate() {
+        let mut input = NodeInput::new(i as u128 + 1);
+        input.content = Some(format!("node{i}"));
+        input.vector = Some(v.clone());
+        db.insert_node(input).expect("insert");
+    }
+
+    // search_vector → HNSW search reads vectors from the vstore mmap_bytes, i.e.
+    // the `from_raw_parts` sites in `src/index/search.rs`.
+    let hits = db.search_vector(&[1.0f32, 0.1, 0.1], 3).expect("search");
+    assert!(!hits.is_empty(), "in-memory search should return hits");
+
+    // get_node → engine.get reads the vector back from the vstore (`ops.rs`).
+    let got = db.get_node(2).expect("get").expect("node 2 present");
+    assert_eq!(got.vector.as_deref(), Some(&[0.0f32, 1.0, 0.0][..]));
 }

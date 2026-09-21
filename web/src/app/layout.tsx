@@ -1,10 +1,12 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono, Anton, Space_Mono } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
+import { Sonner } from "@/components/ui/sonner";
 import { LanguageProvider } from "@/lib/language-provider";
+import { DEFAULT_LANG } from "@/lib/dictionaries";
 import { SiteShell } from "@/components/vanta/site-shell";
+import { SkipLink } from "@/components/vanta/skip-link";
+import { SITE_URL } from "@/lib/site-config";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -31,9 +33,10 @@ const spaceMono = Space_Mono({
 });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(SITE_URL),
   title: "VantaDB — Embedded Rust Engine for Local-First Hybrid Retrieval",
   description:
-    "VantaDB is a local-first, embedded Rust database engine for AI agents and local RAG. Persistent memory, crash-safe WAL recovery (CRC32C), and native hybrid search (BM25 + HNSW via RRF) — zero network, in-process, 1.2ms latency.",
+    "VantaDB is a local-first, embedded Rust database engine for AI agents and local RAG. Persistent memory, crash-safe WAL recovery (CRC32C), and native hybrid search (BM25 + HNSW via RRF) — zero network, in-process.",
   keywords: [
     "VantaDB",
     "vector database",
@@ -50,15 +53,15 @@ export const metadata: Metadata = {
   ],
   authors: [{ name: "ness-e" }],
   icons: {
-    icon: "/assets/avatar_gato.png",
-    apple: "/assets/avatar_gato.png",
+    icon: "/favicon.png",
+    apple: "/favicon.png",
   },
   manifest: "/manifest.json",
   openGraph: {
     title: "VantaDB — Embedded Rust Engine for Local-First Hybrid Retrieval",
     description:
-      "Persistent memory + crash-safe WAL + BM25/HNSW hybrid retrieval via RRF. Zero network. In-process. 1.2ms latency.",
-    url: "https://github.com/ness-e/Vantadb",
+      "Persistent memory + crash-safe WAL + BM25/HNSW hybrid retrieval via RRF. Zero network. In-process.",
+    url: SITE_URL,
     siteName: "VantaDB",
     type: "website",
   },
@@ -66,7 +69,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "VantaDB — Embedded Rust Hybrid Retrieval Engine",
     description:
-      "Local-first embedded Rust engine. BM25 + HNSW via RRF. WAL with CRC32C. 1.2ms in-process latency.",
+      "Local-first embedded Rust engine. BM25 + HNSW via RRF. WAL with CRC32C. In-process.",
   },
 };
 
@@ -76,22 +79,59 @@ export const viewport = {
   initialScale: 1,
 };
 
+// Schema.org/SoftwareApplication structured data (JSON-LD). Next.js Metadata API
+// mirrors HTML tags only and does not emit JSON-LD — rendered here as a native
+// <script> in the root layout's <head>, per the official Next.js JSON-LD guide.
+const jsonLd = {
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  name: "VantaDB",
+  applicationCategory: "DatabaseApplication",
+  applicationSubCategory: "Vector Database",
+  operatingSystem: "Windows, macOS, Linux, WebAssembly",
+  description:
+    "VantaDB: An embedded persistent memory and vector retrieval engine for local-first AI applications.",
+  version: "0.5.0",
+  url: "https://github.com/ness-e/Vantadb",
+  logo: `${SITE_URL}/favicon.png`,
+  offers: {
+    "@type": "Offer",
+    price: "0",
+    priceCurrency: "USD",
+  },
+  softwareRequirements: "Python >= 3.11 bindings; Rust core MSRV 1.94.1; 64-bit OS",
+  license: "https://www.apache.org/licenses/LICENSE-2.0",
+  featureList: [
+    "Embedded in-process database",
+    "Crash-safe WAL recovery (CRC32C)",
+    "Native hybrid search (BM25 + HNSW via RRF)",
+    "PyO3 Python bindings",
+    "WASM build",
+    "MCP server",
+  ],
+};
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="es" suppressHydrationWarning>
+    <html lang={DEFAULT_LANG}>
+      <head>
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
+            __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),
+          }}
+        />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} ${anton.variable} ${spaceMono.variable} antialiased bg-background text-foreground`}
       >
           <LanguageProvider>
-            <a href="#main-content" className="skip-link">
-              Saltar al contenido
-            </a>
+            <SkipLink />
             <SiteShell>{children}</SiteShell>
-            <Toaster />
             <Sonner
               position="bottom-right"
               toastOptions={{

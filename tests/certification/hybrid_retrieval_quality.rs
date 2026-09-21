@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Deterministic internal certification corpus for memory retrieval modes.
 //!
 //! This is intentionally small and local. It validates planner/ranking behavior
@@ -7,16 +9,14 @@
 //! across text-only, vector-only, hybrid, phrase, multi-namespace, and edge cases.
 
 use tempfile::tempdir;
-use vantadb::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryMetadata, VantaMemorySearchRequest, VantaValue,
-};
+use vantadb::{Embedded, MemoryInput, MemoryMetadata, MemorySearchRequest, Value};
 
-fn field_string(value: &str) -> VantaValue {
-    VantaValue::String(value.to_string())
+fn field_string(value: &str) -> Value {
+    Value::String(value.to_string())
 }
 
-fn put_memory(db: &VantaEmbedded, key: &str, payload: &str, vector: Vec<f32>, category: &str) {
-    let mut input = VantaMemoryInput::new("cert/main", key, payload);
+fn put_memory(db: &Embedded, key: &str, payload: &str, vector: Vec<f32>, category: &str) {
+    let mut input = MemoryInput::new("cert/main", key, payload);
     input.vector = Some(vector);
     input
         .metadata
@@ -24,14 +24,14 @@ fn put_memory(db: &VantaEmbedded, key: &str, payload: &str, vector: Vec<f32>, ca
     db.put(input).expect("put cert memory");
 }
 
-fn keep_filter() -> VantaMemoryMetadata {
-    let mut filters = VantaMemoryMetadata::new();
+fn keep_filter() -> MemoryMetadata {
+    let mut filters = MemoryMetadata::new();
     filters.insert("category".to_string(), field_string("keep"));
     filters
 }
 
 fn search_keys(
-    db: &VantaEmbedded,
+    db: &Embedded,
     text_query: Option<&str>,
     query_vector: Vec<f32>,
     top_k: usize,
@@ -47,7 +47,7 @@ fn search_keys(
 }
 
 fn search_keys_with_namespace(
-    db: &VantaEmbedded,
+    db: &Embedded,
     namespace: &str,
     text_query: Option<&str>,
     query_vector: Vec<f32>,
@@ -57,14 +57,14 @@ fn search_keys_with_namespace(
 }
 
 fn search_keys_with_filters(
-    db: &VantaEmbedded,
+    db: &Embedded,
     namespace: &str,
     text_query: Option<&str>,
     query_vector: Vec<f32>,
     top_k: usize,
-    filters: Option<VantaMemoryMetadata>,
+    filters: Option<MemoryMetadata>,
 ) -> Vec<String> {
-    db.search(VantaMemorySearchRequest {
+    db.search(MemorySearchRequest {
         namespace: namespace.to_string(),
         query_vector,
         filters: filters.unwrap_or_default(),
@@ -81,7 +81,7 @@ fn search_keys_with_filters(
 #[test]
 fn deterministic_corpus_certifies_text_vector_hybrid_and_phrase_paths() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     put_memory(&db, "both", "alpha fused phrase", vec![1.0, 0.0], "keep");
     put_memory(
@@ -124,7 +124,7 @@ fn deterministic_corpus_certifies_text_vector_hybrid_and_phrase_paths() {
 #[test]
 fn extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     // ── Namespace A: varied term frequencies ──
     for i in 0..10 {
@@ -141,7 +141,7 @@ fn extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace() {
             9 => "irrelevant topic here",                     // no match
             _ => unreachable!(),
         };
-        let mut input = VantaMemoryInput::new("bm25/a", format!("doc_{}", i), payload);
+        let mut input = MemoryInput::new("bm25/a", format!("doc_{}", i), payload);
         input.vector = Some(vec![1.0 - (i as f32) * 0.1, (i as f32) * 0.1]);
         input.metadata.insert(
             "group".to_string(),
@@ -163,7 +163,7 @@ fn extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace() {
             3 => "rust systems programming",
             _ => unreachable!(),
         };
-        let mut input = VantaMemoryInput::new("bm25/b", format!("b_doc_{}", i), payload);
+        let mut input = MemoryInput::new("bm25/b", format!("b_doc_{}", i), payload);
         input.vector = Some(vec![0.5, 0.5]);
         db.put(input).expect("put ns_b doc");
     }
@@ -243,7 +243,7 @@ fn extended_corpus_certifies_bm25_ranking_edge_cases_and_multi_namespace() {
     }
 
     // ── Test 5: Filter + text query intersection ──
-    let mut filter = VantaMemoryMetadata::new();
+    let mut filter = MemoryMetadata::new();
     filter.insert("group".to_string(), field_string("first_half"));
     let first_half: Vec<String> =
         search_keys_with_filters(&db, "bm25/a", Some("machine"), Vec::new(), 10, Some(filter));

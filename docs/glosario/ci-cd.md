@@ -3,7 +3,7 @@ title: "CI/CD — Continuous Integration / Continuous Deployment"
 type: glossary-entry
 status: stable
 tags: [devops, automation, ci, cd]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Continuous Integration, Continuous Deployment]
 ---

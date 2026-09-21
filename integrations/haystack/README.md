@@ -4,6 +4,17 @@ Haystack DocumentStore adapter for [VantaDB](https://github.com/ness-e/Vantadb).
 
 ## Install
 
+> **Not on PyPI yet.** The `vantadb-haystack` package declares Alpha
+> status and will go live with the first `adapters-v*` tag release
+> (no local `dist/` built yet). Until then, install from source.
+
+```bash
+# Today, from a repo checkout
+cd integrations/haystack && pip install .
+```
+
+### Install from PyPI (after first release)
+
 ```bash
 pip install vantadb-haystack
 ```
@@ -33,6 +44,18 @@ for doc in results:
 - `filter_documents(filters)` — retrieve by filter
 - `delete_documents(filters)` — remove documents
 - `count_documents(filters)` — count documents
+
+## Why VantaDB?
+
+- **Embedded & local-first:** the storage engine is a Rust library embedded
+  in your process — no server to deploy, no network hop; data lives in your
+  filesystem.
+- **Persistent hybrid search:** vectors + BM25 text search out of the box,
+  where Haystack's `InMemoryDocumentStore` covers only small single-process
+  cases.
+- **Zero-setup alternative to hosted stacks:** unlike Zep (requires a server)
+  or Cognee (spins up its own knowledge-graph runtime), VantaDB is a plain
+  library you import.
 
 ## Development
 

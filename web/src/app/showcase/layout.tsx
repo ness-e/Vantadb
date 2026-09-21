@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Community Showcase · VantaDB",
     description:
       "Reference examples que usan VantaDB como motor local-first. Agent memory, RAG pipelines, integraciones con frameworks.",
-    url: "https://vantadb.dev/showcase",
+    url: "https://vantadb.vercel.app/showcase",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/showcase",
+    canonical: "https://vantadb.vercel.app/showcase",
   },
 };
 

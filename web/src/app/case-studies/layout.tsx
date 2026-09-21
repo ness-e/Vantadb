@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Case Studies · VantaDB",
     description:
       "Casos de estudio VantaDB: agentes con memoria local, RAG air-gapped en edge, semantic code search en VS Code.",
-    url: "https://vantadb.dev/case-studies",
+    url: "https://vantadb.vercel.app/case-studies",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/case-studies",
+    canonical: "https://vantadb.vercel.app/case-studies",
   },
 };
 

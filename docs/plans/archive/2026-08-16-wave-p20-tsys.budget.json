@@ -1,0 +1,20 @@
+{
+  "tasks": {
+    "FND-16": {
+      "taskId": "FND-16",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1786927576748,
+      "lastActivity": 1786927576748
+    },
+    "FND-03": {
+      "taskId": "FND-03",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1786930547154,
+      "lastActivity": 1786930547154
+    }
+  }
+}

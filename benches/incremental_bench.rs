@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Benchmark: Incremental vs Rebuild Insert Performance
 //!
 //! Measures the performance difference between the old rebuild behavior and the
@@ -13,7 +15,7 @@ use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::hint::black_box;
 use std::time::{Duration, Instant};
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::{FilterBitset, UnifiedNode};
 use vantadb::storage::{BackendKind, BatchInsertOptions, InsertMode, StorageEngine};
 
@@ -28,7 +30,7 @@ const SAMPLE_SIZE: usize = 10;
 fn make_engine() -> StorageEngine {
     StorageEngine::open_with_config(
         ":memory:",
-        Some(VantaConfig {
+        Some(Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         }),

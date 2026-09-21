@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Blog · VantaDB",
     description:
       "Artículos VantaDB sobre hybrid search, local-first, motor Rust, WAL crash-safe y casos de uso reales.",
-    url: "https://vantadb.dev/blog",
+    url: "https://vantadb.vercel.app/blog",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/blog",
+    canonical: "https://vantadb.vercel.app/blog",
   },
 };
 

@@ -2,8 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import { motion } from "framer-motion";
-import { SlidersHorizontal, RotateCcw, Zap, Activity, Play, Square, Cpu, Timer, Copy } from "lucide-react";
-import { BENCH01 } from "./vanta-data";
+import { RotateCcw, Zap, Activity, Play, Square, Cpu, Timer, Copy } from "lucide-react";
 import { copyToClipboard } from "./copy-utils";
 import { toast } from "./toast";
 import { cn } from "@/lib/utils";
@@ -17,30 +16,23 @@ type Engine = {
   barColor: string;
 };
 
-// Baseline engines for comparison (illustrative competitive context)
+// Baseline engines — sourced from docs/operations/BENCHMARKS.md §2 (SDK, 10K records, 128d, Cosine)
+// BM25 excluded: p50 0.0035 ms is a degenerate outlier from a single-document query and not representative.
 const ENGINES: Engine[] = [
   {
     name: "VantaDB · Hybrid",
-    p50: 2.1,
-    p99: 4.8,
-    throughput: 450,
+    p50: 3.114,
+    p99: 5.507,
+    throughput: 321,
     color: "bg-[#FF5500]",
     barColor: "#FF5500",
   },
   {
     name: "VantaDB · HNSW",
-    p50: 1.2,
-    p99: 3.5,
-    throughput: 830,
+    p50: 2.024,
+    p99: 4.403,
+    throughput: 494,
     color: "bg-black ",
-    barColor: "#000000",
-  },
-  {
-    name: "VantaDB · BM25",
-    p50: 0.85,
-    p99: 2.1,
-    throughput: 1100,
-    color: "bg-black/70 ",
     barColor: "#000000",
   },
   {
@@ -70,6 +62,13 @@ export function LatencyComparator() {
   const [benchProgress, setBenchProgress] = useState(0);
   const [benchResult, setBenchResult] = useState<{ ops: number; latency: number; duration: number } | null>(null);
   const benchTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Clear benchmark interval on unmount
+  useEffect(() => {
+    return () => {
+      if (benchTimerRef.current) clearInterval(benchTimerRef.current);
+    };
+  }, []);
 
   // Scale factors based on slider inputs (illustrative model)
   const factors = useMemo(() => {
@@ -175,7 +174,7 @@ export function LatencyComparator() {
         p99_ms: e.sP99,
         throughput_qps: e.sThroughput,
       })),
-      baseline: "BENCH-01 (10K vectors, 128d, cosine)",
+      baseline: "BENCH-01 §2 (10K records, 128d, cosine, Python SDK)",
       note: "Illustrative model with ±4% jitter. Not a real benchmark.",
       timestamp: new Date().toISOString(),
     }, null, 2);
@@ -209,7 +208,7 @@ export function LatencyComparator() {
 
         {/* Preset workload buttons */}
         <div className="mt-4 flex flex-wrap items-center gap-2">
-          <span className="font-tech text-[10px] font-bold uppercase tracking-[0.2em] text-black/50 ">
+          <span className="font-tech text-[10px] font-bold uppercase tracking-[0.2em] text-black/70 ">
             Presets:
           </span>
           {PRESETS.map((p) => (
@@ -226,7 +225,7 @@ export function LatencyComparator() {
               title={p.desc}
             >
               <span className="font-tech text-xs font-bold uppercase tracking-wider">{p.label}</span>
-              <span className={cn("font-tech text-[9px] uppercase tracking-wider", activePreset === p.id ? "text-black/70" : "text-black/40 ")}>
+              <span className={cn("font-tech text-[9px] uppercase tracking-wider", activePreset === p.id ? "text-black/70" : "text-black/70 ")}>
                 {p.desc}
               </span>
             </button>
@@ -255,7 +254,7 @@ export function LatencyComparator() {
             onChange={onDimChange}
             desc="Embedding vector width"
           />
-          <div className="press-lg border-4 border-black bg-[#FBF9F5] p-4  ">
+          <div className="press--lg border-4 border-black bg-[#FBF9F5] p-4  ">
             <div className="mb-2 flex items-center justify-between">
               <label className="font-tech text-[10px] font-bold uppercase tracking-[0.2em] text-black ">
                 dataset
@@ -278,7 +277,7 @@ export function LatencyComparator() {
                 </button>
               ))}
             </div>
-            <p className="mt-2 font-tech text-[10px] text-black/50 ">
+            <p className="mt-2 font-tech text-[10px] text-black/70 ">
               Indexed vector count
             </p>
           </div>
@@ -291,7 +290,7 @@ export function LatencyComparator() {
               <Activity className="h-5 w-5 text-[#FF5500]" strokeWidth={2.5} />
               p99 latency · lower is faster
             </h3>
-            <span className="font-tech text-[10px] uppercase tracking-wider text-black/50 ">
+            <span className="font-tech text-[10px] uppercase tracking-wider text-black/70 ">
               scale 0–{maxLatency.toFixed(1)}ms
             </span>
           </div>
@@ -510,7 +509,7 @@ function SliderCard({
 }) {
   const pct = ((value - min) / (max - min)) * 100;
   return (
-    <div className="press-lg border-4 border-black bg-[#FBF9F5] p-4  ">
+    <div className="press--lg border-4 border-black bg-[#FBF9F5] p-4  ">
       <div className="mb-2 flex items-center justify-between">
         <label className="font-tech text-[10px] font-bold uppercase tracking-[0.2em] text-black ">
           {label}
@@ -533,7 +532,7 @@ function SliderCard({
         }}
         aria-label={label}
       />
-      <p className="mt-2 font-tech text-[10px] text-black/50 ">{desc}</p>
+      <p className="mt-2 font-tech text-[10px] text-black/70 ">{desc}</p>
     </div>
   );
 }

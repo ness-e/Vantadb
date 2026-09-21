@@ -1,14 +1,14 @@
-use super::super::builder::VantaEmbedded;
-use super::{memory_record_from_node, now_ms};
+use super::super::builder::Embedded;
+use super::{memory_record_from_node_include_expired, now_ms, record_from_node};
 use crate::backend::{BackendPartition, BackendWriteOp};
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::node::UnifiedNode;
 use crate::storage::StorageEngine;
 use std::collections::{BTreeMap, BTreeSet};
 use std::sync::Arc;
 use tracing;
 
-impl VantaEmbedded {
+impl Embedded {
     pub(crate) fn ensure_text_index_current_with(
         &self,
         engine: &Arc<StorageEngine>,
@@ -77,14 +77,14 @@ impl VantaEmbedded {
         };
         postcard::from_bytes(&bytes)
             .map(Some)
-            .map_err(VantaError::serialization)
+            .map_err(Error::serialization)
     }
 
     pub(crate) fn write_text_index_state(
         engine: &StorageEngine,
         state: &super::TextIndexState,
     ) -> Result<()> {
-        let bytes = postcard::to_allocvec(state).map_err(VantaError::serialization)?;
+        let bytes = postcard::to_allocvec(state).map_err(Error::serialization)?;
         engine.put_to_partition(
             BackendPartition::InternalMetadata,
             super::TEXT_INDEX_STATE_KEY,
@@ -122,7 +122,7 @@ impl VantaEmbedded {
         let mut namespaces = BTreeSet::new();
 
         for node in nodes {
-            if let Some(record) = memory_record_from_node(node) {
+            if let Some(record) = memory_record_from_node_include_expired(node) {
                 counts.record_count += 1;
                 counts.posting_entries += crate::text_index::posting_count(&record.payload);
                 counts.doc_stats_entries += 1;
@@ -166,7 +166,8 @@ impl VantaEmbedded {
     ) -> Result<Option<crate::text_index::TextTermStats>> {
         // Cache-aside: check in-memory cache first
         if let Some(stats) = engine
-            .text_stats_cache
+            .cache
+            .text_stats
             .read()
             .get(&(namespace.to_string(), token.to_string()))
         {
@@ -176,11 +177,11 @@ impl VantaEmbedded {
         let Some(bytes) = engine.get_from_partition(BackendPartition::TextIndex, &key)? else {
             return Ok(None);
         };
-        let stats =
-            crate::text_index::decode_term_stats(&bytes).map_err(VantaError::serialization)?;
+        let stats = crate::text_index::decode_term_stats(&bytes).map_err(Error::serialization)?;
         // Populate cache on miss
         engine
-            .text_stats_cache
+            .cache
+            .text_stats
             .write()
             .insert((namespace.to_string(), token.to_string()), stats.clone());
         Ok(Some(stats))
@@ -191,7 +192,7 @@ impl VantaEmbedded {
         namespace: &str,
     ) -> Result<Option<crate::text_index::TextNamespaceStats>> {
         // Cache-aside: check in-memory cache first
-        if let Some(stats) = engine.text_ns_cache.read().get(namespace) {
+        if let Some(stats) = engine.cache.text_ns.read().get(namespace) {
             return Ok(Some(stats.clone()));
         }
         let key = crate::text_index::namespace_stats_key(namespace);
@@ -199,10 +200,11 @@ impl VantaEmbedded {
             return Ok(None);
         };
         let stats =
-            crate::text_index::decode_namespace_stats(&bytes).map_err(VantaError::serialization)?;
+            crate::text_index::decode_namespace_stats(&bytes).map_err(Error::serialization)?;
         // Populate cache on miss
         engine
-            .text_ns_cache
+            .cache
+            .text_ns
             .write()
             .insert(namespace.to_string(), stats.clone());
         Ok(Some(stats))
@@ -219,7 +221,7 @@ impl VantaEmbedded {
         };
         crate::text_index::decode_doc_stats(&bytes)
             .map(Some)
-            .map_err(VantaError::serialization)
+            .map_err(Error::serialization)
     }
 
     pub(crate) fn apply_u64_delta(value: u64, delta: i64) -> u64 {
@@ -232,12 +234,12 @@ impl VantaEmbedded {
 
     pub(crate) fn checked_stats_value(value: i128, label: &str) -> Result<u64> {
         if value < 0 {
-            return Err(VantaError::ValidationError {
+            return Err(Error::Validation {
                 field: "stats".into(),
                 reason: format!("text index {label} would go negative"),
             });
         }
-        u64::try_from(value).map_err(|_| VantaError::ValidationError {
+        u64::try_from(value).map_err(|_| Error::Validation {
             field: "stats".into(),
             reason: format!("text index {label} exceeds supported range"),
         })
@@ -245,8 +247,8 @@ impl VantaEmbedded {
 
     pub(crate) fn text_index_ops_for_replace(
         engine: &StorageEngine,
-        previous: Option<&super::VantaMemoryRecord>,
-        current: Option<&super::VantaMemoryRecord>,
+        previous: Option<&super::MemoryRecord>,
+        current: Option<&super::MemoryRecord>,
     ) -> Result<(Vec<BackendWriteOp>, super::TextIndexMutationReport)> {
         let mut ops = Vec::new();
         let mut report = super::TextIndexMutationReport::default();
@@ -414,8 +416,8 @@ impl VantaEmbedded {
 
     pub(crate) fn adjust_text_index_state_after_replace(
         engine: &StorageEngine,
-        previous: Option<&super::VantaMemoryRecord>,
-        current: Option<&super::VantaMemoryRecord>,
+        previous: Option<&super::MemoryRecord>,
+        current: Option<&super::MemoryRecord>,
         report: super::TextIndexMutationReport,
     ) -> Result<()> {
         let Some(mut state) = Self::load_text_index_state(engine)? else {
@@ -463,7 +465,7 @@ impl VantaEmbedded {
     pub(crate) fn count_memory_records_from(nodes: &[UnifiedNode]) -> u64 {
         let mut count = 0u64;
         for node in nodes {
-            if memory_record_from_node(node).is_some() {
+            if record_from_node(node).is_some() {
                 count += 1;
             }
         }
@@ -474,7 +476,7 @@ impl VantaEmbedded {
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
-    use super::super::super::builder::VantaEmbedded;
+    use super::super::super::builder::Embedded;
     use crate::node::UnifiedNode;
     use crate::sdk::serialization::{
         FIELD_CREATED_AT_MS, FIELD_KEY, FIELD_NAMESPACE, FIELD_PAYLOAD, FIELD_UPDATED_AT_MS,
@@ -486,44 +488,44 @@ mod tests {
 
     #[test]
     fn test_apply_u64_delta_positive() {
-        assert_eq!(VantaEmbedded::apply_u64_delta(10, 5), 15);
+        assert_eq!(Embedded::apply_u64_delta(10, 5), 15);
     }
 
     #[test]
     fn test_apply_u64_delta_negative() {
-        assert_eq!(VantaEmbedded::apply_u64_delta(10, -3), 7);
+        assert_eq!(Embedded::apply_u64_delta(10, -3), 7);
     }
 
     #[test]
     fn test_apply_u64_delta_saturating_positive() {
-        assert_eq!(VantaEmbedded::apply_u64_delta(u64::MAX, 100), u64::MAX);
+        assert_eq!(Embedded::apply_u64_delta(u64::MAX, 100), u64::MAX);
     }
 
     #[test]
     fn test_apply_u64_delta_saturating_negative() {
-        assert_eq!(VantaEmbedded::apply_u64_delta(2, -5), 0);
+        assert_eq!(Embedded::apply_u64_delta(2, -5), 0);
     }
 
     #[test]
     fn test_apply_u64_delta_zero() {
-        assert_eq!(VantaEmbedded::apply_u64_delta(42, 0), 42);
+        assert_eq!(Embedded::apply_u64_delta(42, 0), 42);
     }
 
     // ─── checked_stats_value ───────────────────────────────────
 
     #[test]
     fn test_checked_stats_value_positive() {
-        assert_eq!(VantaEmbedded::checked_stats_value(42, "test").unwrap(), 42);
+        assert_eq!(Embedded::checked_stats_value(42, "test").unwrap(), 42);
     }
 
     #[test]
     fn test_checked_stats_value_zero() {
-        assert_eq!(VantaEmbedded::checked_stats_value(0, "test").unwrap(), 0);
+        assert_eq!(Embedded::checked_stats_value(0, "test").unwrap(), 0);
     }
 
     #[test]
     fn test_checked_stats_value_negative() {
-        let err = VantaEmbedded::checked_stats_value(-1, "df").unwrap_err();
+        let err = Embedded::checked_stats_value(-1, "df").unwrap_err();
         assert!(err.to_string().contains("would go negative"));
     }
 
@@ -531,7 +533,7 @@ mod tests {
     fn test_checked_stats_value_i128_max_as_u64() {
         let val = i128::from(u64::MAX);
         assert_eq!(
-            VantaEmbedded::checked_stats_value(val, "test").unwrap(),
+            Embedded::checked_stats_value(val, "test").unwrap(),
             u64::MAX
         );
     }
@@ -542,7 +544,7 @@ mod tests {
     fn test_parse_term_stats_key_valid() {
         let key = b"\xffvanta_text_v3\0term\0myns\0mytoken";
         assert_eq!(
-            VantaEmbedded::parse_term_stats_key(key),
+            Embedded::parse_term_stats_key(key),
             Some(("myns".into(), "mytoken".into()))
         );
     }
@@ -550,20 +552,20 @@ mod tests {
     #[test]
     fn test_parse_term_stats_key_invalid_utf8() {
         let key = b"\xffvanta_text_v3\0term\0myns\0\xff\xfe";
-        assert_eq!(VantaEmbedded::parse_term_stats_key(key), None);
+        assert_eq!(Embedded::parse_term_stats_key(key), None);
     }
 
     #[test]
     fn test_parse_term_stats_key_truncated() {
         assert_eq!(
-            VantaEmbedded::parse_term_stats_key(b"\xffvanta_text_v3\0term"),
+            Embedded::parse_term_stats_key(b"\xffvanta_text_v3\0term"),
             None
         );
     }
 
     #[test]
     fn test_parse_term_stats_key_no_match() {
-        assert_eq!(VantaEmbedded::parse_term_stats_key(b"not_a_text_key"), None);
+        assert_eq!(Embedded::parse_term_stats_key(b"not_a_text_key"), None);
     }
 
     // ─── parse_namespace_stats_key ─────────────────────────────
@@ -571,7 +573,7 @@ mod tests {
     #[test]
     fn test_parse_namespace_stats_key_valid() {
         assert_eq!(
-            VantaEmbedded::parse_namespace_stats_key(b"\xffvanta_text_v3\0ns\0myns"),
+            Embedded::parse_namespace_stats_key(b"\xffvanta_text_v3\0ns\0myns"),
             Some("myns".into())
         );
     }
@@ -579,7 +581,7 @@ mod tests {
     #[test]
     fn test_parse_namespace_stats_key_invalid_utf8() {
         assert_eq!(
-            VantaEmbedded::parse_namespace_stats_key(b"\xffvanta_text_v3\0ns\0\xff\xfe"),
+            Embedded::parse_namespace_stats_key(b"\xffvanta_text_v3\0ns\0\xff\xfe"),
             None
         );
     }
@@ -587,7 +589,7 @@ mod tests {
     #[test]
     fn test_parse_namespace_stats_key_truncated() {
         assert_eq!(
-            VantaEmbedded::parse_namespace_stats_key(b"\xffvanta_text_v3\0ns"),
+            Embedded::parse_namespace_stats_key(b"\xffvanta_text_v3\0ns"),
             None
         );
     }
@@ -596,7 +598,7 @@ mod tests {
 
     #[test]
     fn test_count_memory_records_from_empty() {
-        assert_eq!(VantaEmbedded::count_memory_records_from(&[]), 0);
+        assert_eq!(Embedded::count_memory_records_from(&[]), 0);
     }
 
     fn make_memory_node(id: u128, namespace: &str, key: &str) -> UnifiedNode {
@@ -617,7 +619,7 @@ mod tests {
             make_memory_node(1, "ns1", "k1"),
             make_memory_node(2, "ns1", "k2"),
         ];
-        assert_eq!(VantaEmbedded::count_memory_records_from(&nodes), 2);
+        assert_eq!(Embedded::count_memory_records_from(&nodes), 2);
     }
 
     #[test]
@@ -629,7 +631,7 @@ mod tests {
             dead,
             make_memory_node(3, "ns2", "k3"),
         ];
-        assert_eq!(VantaEmbedded::count_memory_records_from(&nodes), 2);
+        assert_eq!(Embedded::count_memory_records_from(&nodes), 2);
     }
 
     // ─── fresh_text_index_state ────────────────────────────────
@@ -644,7 +646,7 @@ mod tests {
             namespace_stats_entries: 2,
             ..Default::default()
         };
-        let state = VantaEmbedded::fresh_text_index_state(counts);
+        let state = Embedded::fresh_text_index_state(counts);
         assert_eq!(state.record_count, 5);
         assert_eq!(state.posting_entries, 20);
         assert_eq!(state.doc_stats_entries, 5);
@@ -658,15 +660,15 @@ mod tests {
     #[test]
     fn test_text_index_state_matches_spec_true() {
         let counts = TextIndexCounts::default();
-        let state = VantaEmbedded::fresh_text_index_state(counts);
-        assert!(VantaEmbedded::text_index_state_matches_spec(&state));
+        let state = Embedded::fresh_text_index_state(counts);
+        assert!(Embedded::text_index_state_matches_spec(&state));
     }
 
     #[test]
     fn test_text_index_state_matches_spec_bad_schema() {
         let counts = TextIndexCounts::default();
-        let mut state = VantaEmbedded::fresh_text_index_state(counts);
+        let mut state = Embedded::fresh_text_index_state(counts);
         state.schema_version = 999;
-        assert!(!VantaEmbedded::text_index_state_matches_spec(&state));
+        assert!(!Embedded::text_index_state_matches_spec(&state));
     }
 }

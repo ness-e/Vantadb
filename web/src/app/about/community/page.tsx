@@ -42,11 +42,7 @@ const CONTRIBUTE_STEPS = [
 ];
 
 export default function CommunityPage() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader
@@ -76,7 +72,7 @@ export default function CommunityPage() {
               href={VANTA.discord}
               target="_blank"
               rel="noopener noreferrer"
-              className="press-lg group flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-6 shadow-[6px_6px_0_0_#000] transition-transform hover:translate-x-[-3px] hover:translate-y-[-3px] hover:shadow-[9px_9px_0_0_#FF5500]   "
+              className="press--lg group flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-6 shadow-[6px_6px_0_0_#000] transition-transform hover:translate-x-[-3px] hover:translate-y-[-3px] hover:shadow-[9px_9px_0_0_#FF5500]   "
             >
               <div className="flex items-center gap-3">
                 <span className="inline-flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FF5500] text-black shadow-[3px_3px_0_0_#000] transition-transform group-hover:rotate-[-6deg]  ">
@@ -109,7 +105,7 @@ export default function CommunityPage() {
               href={VANTA.repo}
               target="_blank"
               rel="noopener noreferrer"
-              className="press-lg group flex h-full flex-col border-4 border-[#FF5500] bg-[#FBF9F5] p-6 shadow-[6px_6px_0_0_#FF5500] transition-transform hover:translate-x-[-3px] hover:translate-y-[-3px] hover:shadow-[9px_9px_0_0_#000] "
+              className="press--lg group flex h-full flex-col border-4 border-[#FF5500] bg-[#FBF9F5] p-6 shadow-[6px_6px_0_0_#FF5500] transition-transform hover:translate-x-[-3px] hover:translate-y-[-3px] hover:shadow-[9px_9px_0_0_#000] "
             >
               <div className="flex items-center gap-3">
                 <span className="inline-flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FF5500] text-black shadow-[3px_3px_0_0_#000] transition-transform group-hover:rotate-[-6deg]  ">

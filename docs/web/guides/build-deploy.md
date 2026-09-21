@@ -1,3 +1,13 @@
+---
+title: "Build & Deploy — Frontend Web"
+type: web
+status: active
+tags: [vantadb, web, guides]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Build & Deploy — Frontend Web
 
 Guía de compilación y despliegue del frontend web de VantaDB.

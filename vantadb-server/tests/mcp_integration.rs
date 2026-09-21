@@ -1,6 +1,11 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MCP Protocol Integration Modernized Test Suite
 //! Part of the Vanta Certification ecosystem.
 
+// The shared core harness (tests/common/mod.rs) references `cfg(feature = "sysinfo")`
+// which is a core-crate feature, not declared in vantadb-server — silence the lint.
+#[allow(unexpected_cfgs)]
 #[path = "../../tests/common/mod.rs"]
 mod common;
 
@@ -15,18 +20,18 @@ use vantadb_mcp::{handle_initialize, handle_tools_call, handle_tools_list, McpCo
 async fn mcp_protocol_certification() {
     let mut harness = VantaHarness::new("API LAYER (MCP PROTOCOL)");
 
-    harness.execute("Protocol: Handshake & Identity (2024-11-05)", || {
-        let init_res = handle_initialize().expect("Initialization failed");
-        assert_eq!(init_res["protocolVersion"], "2024-11-05");
+    harness.execute("Protocol: Handshake & Identity (2025-06-18)", || {
+        let init_res = handle_initialize(None).expect("Initialization failed");
+        assert_eq!(init_res["protocolVersion"], "2025-06-18");
         assert_eq!(init_res["serverInfo"]["name"], "vantadb");
 
-        let list_res = handle_tools_list().expect("Tools listing failed");
+        let list_res = handle_tools_list(&McpConfig::default()).expect("Tools listing failed");
         let tools = list_res["tools"]
             .as_array()
             .expect("Tools must be an array");
         assert!(
-            tools.iter().any(|t| t["name"] == "query_lisp"),
-            "tools list should include query_lisp"
+            tools.iter().any(|t| t["name"] == "query_iql"),
+            "tools list should include query_iql"
         );
 
         TerminalReporter::success("MCP handshake and tools definition verified.");
@@ -58,9 +63,9 @@ async fn mcp_protocol_certification() {
 
         // Note: 'query_lisp' tool now routes through execute_hybrid (IQL), since LISP
         // was extracted to the experimental-lisp crate during CUARENTENA-01.
-        TerminalReporter::sub_step("Testing query_lisp tool (IQL Insertion via MCP dispatcher)...");
+        TerminalReporter::sub_step("Testing query_iql tool (IQL Insertion via MCP dispatcher)...");
         let lisp_params = Some(json!({
-            "name": "query_lisp",
+            "name": "query_iql",
             "arguments": { "query": "INSERT NODE#999 TYPE node { label: \"MCP_TEST\" }" }
         }));
         let lisp_res = handle_tools_call(&lisp_params, &executor, &storage, &McpConfig::default())

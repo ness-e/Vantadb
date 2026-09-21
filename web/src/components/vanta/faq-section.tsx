@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { HelpCircle, Plus, Minus, MessagesSquare } from "lucide-react";
+import { Plus, Minus, MessagesSquare } from "lucide-react";
 import { FAQ, VANTA } from "./vanta-data";
 import { Reveal } from "./reveal";
 import { cn } from "@/lib/utils";
@@ -25,7 +25,7 @@ export function FaqSection() {
                 {t("faq.subtitle")}
               </p>
             </div>
-            <div className="flex items-center gap-2 font-tech text-[10px] uppercase tracking-wider text-black/50 ">
+            <div className="flex items-center gap-2 font-tech text-[10px] uppercase tracking-wider text-black/70 ">
               <MessagesSquare className="h-3.5 w-3.5" />
               {FAQ.length} {t("faq.questionsCount").replace("{{count}}", "").trim()}
             </div>
@@ -76,7 +76,7 @@ export function FaqSection() {
                   <div
                     id={`faq-panel-${i}`}
                     className={cn(
-                      "grid transition-all duration-300 ease-[cubic-bezier(0.2,0.8,0.2,1)]",
+                      "grid transition-all duration-300 ease-default",
                       isOpen ? "grid-rows-[1fr] opacity-100" : "grid-rows-[0fr] opacity-0"
                     )}
                   >
@@ -110,7 +110,7 @@ export function FaqSection() {
                 href={VANTA.discord}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="press-neon inline-flex items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-4 py-2.5 font-tech text-xs font-bold uppercase tracking-wider text-black"
+                className="press--neon inline-flex items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-4 py-2.5 font-tech text-xs font-bold uppercase tracking-wider text-black"
               >
                 {t("faq.discord")}
               </a>

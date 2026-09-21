@@ -9,10 +9,9 @@
 use super::super::*;
 use super::in_memory_engine;
 use crate::backend::BackendKind;
-use crate::config::VantaConfig;
-use crate::index::VecIndex;
+use crate::config::Config;
 use crate::node::{DistanceMetric, UnifiedNode, ALL_BITSET};
-use crate::sdk::{VantaEmbedded, VantaMemoryInput};
+use crate::sdk::{Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest};
 use crate::storage::engine::{BatchInsertOptions, InsertMode};
 
 const DIMS: usize = 8;
@@ -75,7 +74,7 @@ fn test_incremental_small_batch_auto() {
         .expect("batch_insert_with_opts");
 
     assert!(
-        engine.vec_index().len() > 0,
+        engine.vec_index().node_count() > 0,
         "HNSW should have nodes after incremental insert (Auto, batch < threshold)"
     );
     assert_search_finds_any(&engine, &nodes);
@@ -94,7 +93,7 @@ fn test_incremental_large_batch_auto() {
         .expect("batch_insert_with_opts");
 
     assert_eq!(
-        engine.vec_index().len(),
+        engine.vec_index().node_count(),
         0,
         "HNSW should be empty after large batch with Auto mode (no rebuild called)"
     );
@@ -109,7 +108,7 @@ fn test_incremental_large_batch_auto() {
 
     // Now HNSW should have nodes and search should find them
     assert!(
-        engine.vec_index().len() > 0,
+        engine.vec_index().node_count() > 0,
         "HNSW should have nodes after rebuild"
     );
     assert_search_finds_any(&engine, &nodes);
@@ -134,7 +133,7 @@ fn test_incremental_explicit_incremental() {
 
     // Nodes should be searchable immediately (no rebuild needed)
     assert!(
-        engine.vec_index().len() > 0,
+        engine.vec_index().node_count() > 0,
         "HNSW should have nodes after incremental insert"
     );
     assert_search_finds_any(&engine, &nodes);
@@ -159,7 +158,7 @@ fn test_incremental_explicit_rebuild() {
 
     // Before rebuild, HNSW should be empty
     assert_eq!(
-        engine.vec_index().len(),
+        engine.vec_index().node_count(),
         0,
         "HNSW should be empty before rebuild_vector_index"
     );
@@ -175,7 +174,7 @@ fn test_incremental_explicit_rebuild() {
 
     // After rebuild, HNSW should have nodes and search should find them
     assert!(
-        engine.vec_index().len() > 0,
+        engine.vec_index().node_count() > 0,
         "HNSW should have nodes after rebuild"
     );
     assert_search_finds_any(&engine, &nodes);
@@ -185,17 +184,17 @@ fn test_incremental_explicit_rebuild() {
 
 #[test]
 fn test_incremental_put_batch_small() {
-    let db = VantaEmbedded::open_with_config(VantaConfig {
+    let db = Embedded::open_with_config(Config {
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     })
-    .expect("open VantaEmbedded");
+    .expect("open Embedded");
 
     let n = 50;
-    let inputs: Vec<VantaMemoryInput> = (0..n)
+    let inputs: Vec<MemoryInput> = (0..n)
         .map(|i| {
             let mut input =
-                VantaMemoryInput::new("inc_test", format!("key_{}", i), format!("payload_{}", i));
+                MemoryInput::new("inc_test", format!("key_{}", i), format!("payload_{}", i));
             input.vector = Some(make_vector(i as u128, DIMS));
             input
         })
@@ -224,17 +223,17 @@ fn test_incremental_put_batch_small() {
 
 #[test]
 fn test_incremental_put_batch_large() {
-    let db = VantaEmbedded::open_with_config(VantaConfig {
+    let db = Embedded::open_with_config(Config {
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     })
-    .expect("open VantaEmbedded");
+    .expect("open Embedded");
 
     let n = 1500;
-    let inputs: Vec<VantaMemoryInput> = (0..n)
+    let inputs: Vec<MemoryInput> = (0..n)
         .map(|i| {
             let mut input =
-                VantaMemoryInput::new("inc_test", format!("key_{}", i), format!("payload_{}", i));
+                MemoryInput::new("inc_test", format!("key_{}", i), format!("payload_{}", i));
             input.vector = Some(make_vector(i as u128, DIMS));
             input
         })
@@ -278,7 +277,7 @@ fn test_incremental_recall_parity() {
         )
         .expect("incremental insert");
     assert!(
-        engine_inc.vec_index().len() > 0,
+        engine_inc.vec_index().node_count() > 0,
         "Incremental HNSW should have nodes"
     );
 
@@ -295,7 +294,7 @@ fn test_incremental_recall_parity() {
         )
         .expect("rebuild insert");
     assert_eq!(
-        engine_rebuild.vec_index().len(),
+        engine_rebuild.vec_index().node_count(),
         0,
         "Rebuild HNSW should be empty before rebuild_vector_index"
     );
@@ -303,7 +302,7 @@ fn test_incremental_recall_parity() {
         .rebuild_vector_index()
         .expect("rebuild_vector_index");
     assert!(
-        engine_rebuild.vec_index().len() > 0,
+        engine_rebuild.vec_index().node_count() > 0,
         "Rebuild HNSW should have nodes after rebuild_vector_index"
     );
 
@@ -320,5 +319,66 @@ fn test_incremental_recall_parity() {
         recall_rebuild > 0.95,
         "Rebuild recall@10: {:.3} (expected > 0.95)",
         recall_rebuild
+    );
+}
+
+// ─── Test 8: put_batch keeps list/count/text-search indexes consistent ─────
+
+#[test]
+fn test_put_batch_list_count_text_consistent() {
+    let db = Embedded::open_with_config(Config {
+        backend_kind: BackendKind::InMemory,
+        ..Default::default()
+    })
+    .expect("open Embedded");
+
+    let n = 1200;
+    let inputs: Vec<MemoryInput> = (0..n)
+        .map(|i| {
+            let mut input = MemoryInput::new(
+                "inc_test",
+                format!("key_{}", i),
+                format!("alpha payload {}", i),
+            );
+            input.vector = Some(make_vector(i as u128, DIMS));
+            input
+        })
+        .collect();
+
+    let records = db.put_batch(inputs).expect("put_batch");
+    assert_eq!(records.len(), n);
+
+    let page = db
+        .list(
+            "inc_test",
+            MemoryListOptions {
+                limit: 2000,
+                ..Default::default()
+            },
+        )
+        .expect("list");
+    assert_eq!(
+        page.records.len(),
+        n,
+        "list must return all records after put_batch"
+    );
+
+    assert_eq!(
+        db.count("inc_test", None).expect("count"),
+        n as u64,
+        "count must reflect put_batch"
+    );
+
+    let hits = db
+        .search(MemorySearchRequest {
+            namespace: "inc_test".into(),
+            text_query: Some("payload".into()),
+            top_k: 5,
+            ..Default::default()
+        })
+        .expect("search");
+    assert!(
+        !hits.is_empty(),
+        "text search must find batch-inserted records"
     );
 }

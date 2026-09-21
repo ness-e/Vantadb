@@ -6,7 +6,7 @@ import { PageHeader, PageSection } from "@/components/vanta/page-header";
 import { Reveal } from "@/components/vanta/reveal";
 import { useLanguage } from "@/lib/language-provider";
 
-const ICONS: Record<string, LucideIcon> = {
+const _ICONS: Record<string, LucideIcon> = {
   Sparkles,
   ArrowUpRight,
 };
@@ -21,11 +21,7 @@ interface ShowcaseItem {
 }
 
 export default function ShowcasePage() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { tt } = useLanguage();
 
   const items: ShowcaseItem[] = [
     {
@@ -34,7 +30,7 @@ export default function ShowcasePage() {
         "showcasePage.items.0.desc",
         "Persistent checkpoint storage for LangGraph agents. Namespace-scoped memory with hybrid search, GIL-released batch queries, and sub-ms recall on conversation history."
       ),
-      author: "@ness-e",
+      author: "Official example",
       tags: ["agents", "langgraph", "memory"],
       url: "https://github.com/ness-e/Vantadb/blob/main/examples/python/langgraph_checkpoint.py",
       emoji: "🧠",
@@ -45,7 +41,7 @@ export default function ShowcasePage() {
         "showcasePage.items.1.desc",
         "Persistent memory backend for AutoGen conversational agents. Six agents, shared knowledge base, topic-scoped isolation via namespaces."
       ),
-      author: "@ness-e",
+      author: "Official example",
       tags: ["agents", "autogen", "multi-agent"],
       url: "https://github.com/ness-e/Vantadb/blob/main/examples/python/autogen_memory.py",
       emoji: "🤖",
@@ -56,7 +52,7 @@ export default function ShowcasePage() {
         "showcasePage.items.2.desc",
         "VantaDB as a DocumentStore for Haystack pipelines. Hybrid vector + text search backend for RAG pipelines with metadata filtering."
       ),
-      author: "@ness-e",
+      author: "Official example",
       tags: ["rag", "haystack", "pipeline"],
       url: "https://github.com/ness-e/Vantadb/blob/main/examples/python/haystack_documentstore.py",
       emoji: "📚",
@@ -67,7 +63,7 @@ export default function ShowcasePage() {
         "showcasePage.items.3.desc",
         "Persistent memory for CrewAI agent crews. Shared context across tasks, role-scoped namespaces, automatic vector indexing of agent outputs."
       ),
-      author: "@ness-e",
+      author: "Official example",
       tags: ["agents", "crewai", "memory"],
       url: "https://github.com/ness-e/Vantadb/blob/main/examples/python/crewai_memory.py",
       emoji: "👥",
@@ -78,7 +74,7 @@ export default function ShowcasePage() {
         "showcasePage.items.4.desc",
         "Core hybrid search engine: BM25 + HNSW + RRF fusion in native Rust. Full CBO planner pushing filters before graph traversal. Sub-ms search on 10k+ nodes."
       ),
-      author: "@ness-e",
+      author: "Official example",
       tags: ["rust", "hybrid", "engine"],
       url: "https://github.com/ness-e/Vantadb/blob/main/examples/rust/hybrid.rs",
       emoji: "⚙️",
@@ -89,7 +85,7 @@ export default function ShowcasePage() {
         "showcasePage.items.5.desc",
         "End-to-end GraphRAG in Rust: seed entities, expand relationships, retrieve subgraphs, generate context. KB construction with incremental indexing."
       ),
-      author: "@ness-e",
+      author: "Official example",
       tags: ["graphrag", "rust", "pipeline"],
       url: "https://github.com/ness-e/Vantadb/blob/main/examples/rust/graphrag.rs",
       emoji: "🔬",
@@ -100,12 +96,12 @@ export default function ShowcasePage() {
     <div className="animate-rise">
       <PageHeader
         badge="§SHOWCASE"
-        title={tt("showcasePage.title", "Community Showcase")}
+        title={tt("showcasePage.title", "Official Examples")}
           subtitle={tt(
           "showcasePage.subtitle",
-          "Proyectos construidos con VantaDB por la comunidad. Agentes, RAG, devtools — todos local-first, todos sin cloud tax."
+          "First-party official examples from the VantaDB repo. Agents, RAG, devtools — all local-first, all without cloud tax."
         )}
-        tag={tt("showcasePage.tag", "Community · local-first")}
+        tag={tt("showcasePage.tag", "First-party · local-first")}
       />
 
       <PageSection variant="cream">
@@ -122,7 +118,7 @@ export default function ShowcasePage() {
               <p className="mt-2 max-w-2xl font-tech text-xs text-black/70 ">
                 {tt(
                   "showcasePage.gridSubtitle",
-                  "Cada proyecto es código abierto y corre en tu máquina. Click para ver el repo, cloná, ejecutá."
+                  "Cada ejemplo es first-party, open source y corre en tu máquina. Click para ver el archivo en el repo, cloná, ejecutá."
                 )}
               </p>
             </div>
@@ -132,7 +128,7 @@ export default function ShowcasePage() {
         <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {items.map((it, i) => (
             <Reveal key={it.title} direction="up" delay={i * 60} as="article">
-              <article className="press-lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5  ">
+              <article className="press--lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5  ">
                 <div className="mb-4 flex items-start justify-between gap-3">
                   <span className="inline-flex h-12 w-12 shrink-0 items-center justify-center border-4 border-black bg-[#FBF9F5] text-2xl shadow-[3px_3px_0_0_#000]   ">
                     {it.emoji}
@@ -198,7 +194,7 @@ export default function ShowcasePage() {
                 href="https://github.com/ness-e/Vantadb"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="press-neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+                className="press--neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
               >
                 {tt("showcasePage.ctaBtn", "Submit your project")}
                 <ArrowUpRight className="h-4 w-4" strokeWidth={2.5} />

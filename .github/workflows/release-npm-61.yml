@@ -15,6 +15,17 @@ on:
         default: "false"
   push:
     tags: ["v*.*.*"]
+    branches: [main]
+    paths:
+      - "vantadb-wasm/**"
+      - "vantadb-ts/**"
+      - ".github/workflows/release-npm-61.yml"
+      # FND-16: gate wasm32/TS por PR (paths filter) — publish jobs ya excluyen PRs via `if`
+  pull_request:
+    paths:
+      - "vantadb-wasm/**"
+      - "vantadb-ts/**"
+      - ".github/workflows/release-npm-61.yml"
 
 permissions:
   contents: read
@@ -28,31 +39,32 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  publish-wasm:
-    name: Publish vantadb-wasm to npm
-    if: >
-      startsWith(github.ref, 'refs/tags/v') ||
-      (github.event_name == 'workflow_dispatch' && inputs.package != 'ts')
+  tests:
+    name: Tests (npm/TS)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    environment: npm
+    # STABLE-06: measured 2026-09-05 on clean `npm ci` (node v26.8.1):
+    # install ~11s + build ~2s + vitest 278/278 ~16s (Duration) + eslint 0
+    # ~24s → TS portion ~58s wall, Fast Gate tier (well under the 5min
+    # Heavy threshold); runs on every PR and main push touching the SDK.
+    # NOTE: clean-CI wall adds `wasm-pack build --release` (Rust compile,
+    # unmeasured locally) — the TS gate itself stays <2min.
+    timeout-minutes: 10
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
-          registry-url: https://registry.npmjs.org
 
       - name: Install wasm-pack
-        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa
+        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa # v0.4.0
         with:
           version: latest
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88
+        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
         with:
           toolchain: stable
 
@@ -63,8 +75,83 @@ jobs:
         run: wasm-pack build --release
         working-directory: vantadb-wasm
 
+      # WSM-05: replace the auto-generated .d.ts (mostly `any`) with the
+      # hand-written source. The wasm-bindgen macro cannot infer JsValue
+      # shapes, so this override is required for the npm package to be
+      # usable from TypeScript without a wrapper layer. Source of truth for
+      # the hand-written .d.ts: `vantadb-wasm/src/vantadb_wasm.d.ts`.
+      - name: Override .d.ts with hand-written source (WSM-05)
+        run: node dev-tools/build-wasm-types.mjs
+
+      - name: Install dependencies
+        working-directory: vantadb-ts
+        run: npm ci
+
+      - name: Build TypeScript
+        working-directory: vantadb-ts
+        run: npm run build
+
+      - name: Run tests
+        working-directory: vantadb-ts
+        run: npm test
+
+      - name: Lint TypeScript (STABLE-06)
+        working-directory: vantadb-ts
+        run: npm run lint
+
+      # STABLE-06: fail the Fast Gate here (not only at publish) if the
+      # tarball would ship without engines.node (TS-05 guard, mirrors the
+      # publish-ts integrity check) or if packing itself breaks.
+      - name: Verify packed manifest keeps engines (STABLE-06)
+        working-directory: vantadb-ts
+        run: |
+          node -e "const p=require('./package.json'); if(!p.engines||!p.engines.node){console.error('ERROR: engines.node missing from vantadb-ts/package.json — tarball would ship without it (STABLE-06)');process.exit(1);} console.log('engines ok:', JSON.stringify(p.engines));"
+          npm pack --dry-run > /dev/null
+
+  publish-wasm:
+    name: Publish vantadb-wasm to npm
+    needs: [tests]
+    if: >
+      startsWith(github.ref, 'refs/tags/v') ||
+      (github.event_name == 'workflow_dispatch' && inputs.package != 'ts')
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: npm
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Setup Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Install wasm-pack
+        uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa # v0.4.0
+        with:
+          version: latest
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
+        with:
+          toolchain: stable
+
+      - name: Add wasm target
+        run: rustup target add wasm32-unknown-unknown
+
+      - name: Build WASM package
+        run: wasm-pack build --release
+        working-directory: vantadb-wasm
+
+      # WSM-05: see `tests` job. Runs in `publish-wasm` too so the artifact
+      # uploaded to npm is the hand-written one (not the mostly-`any`
+      # wasm-pack output).
+      - name: Override .d.ts with hand-written source (WSM-05)
+        run: node dev-tools/build-wasm-types.mjs
+
       - name: Upload WASM build artifact
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: wasm-pkg
           path: vantadb-wasm/pkg
@@ -103,16 +190,16 @@ jobs:
     environment: npm
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
       - name: Download WASM build artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: wasm-pkg
           path: vantadb-wasm/pkg
@@ -135,6 +222,20 @@ jobs:
             exit 1
           fi
           npm pkg set "dependencies.vantadb-wasm=^${WASM_VER}"
+
+      # TS-05 guard: a tarball without engines.node fails confusingly on
+      # Node < 22.12 (`require(esm)` syntax error). Fail the release here
+      # instead of shipping it.
+      - name: Verify package.json integrity (TS-05)
+        working-directory: vantadb-ts
+        run: |
+          node -e "const p=require('./package.json'); if(!p.engines||!p.engines.node){console.error('ERROR: engines.node missing from vantadb-ts/package.json — tarball would ship without it (TS-05)');process.exit(1);} console.log('engines ok:', JSON.stringify(p.engines));"
+
+      # TS-07: install the packed tarball in a clean temp dir and run a
+      # minimal quickstart against it before anything reaches npm.
+      - name: Smoke-test packed tarball (TS-07)
+        working-directory: vantadb-ts
+        run: node scripts/smoke-pack.mjs
 
       - name: Check if version already published
         id: check-ts

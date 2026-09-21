@@ -77,12 +77,14 @@ impl ReplState {
                     .push("  .exit / .q   — return to dashboard".into());
                 self.output_lines
                     .push("  <any IQL query> — execute query".into());
+                self.output_lines
+                    .push("  IQL writes — read-only session: use `vanta-cli query`".into());
             }
             ".clear" | ".cl" => {
                 self.output_lines.clear();
             }
             ".stats" | ".st" => {
-                let stats = self.engine.get_memory_stats();
+                let stats = self.engine.stats();
                 self.output_lines.push(format!(
                     " Nodes: {} | Cache: {} | Evictions: {} | Memory: {} logical",
                     stats.node_count,
@@ -96,48 +98,15 @@ impl ReplState {
                     .push("Press Esc to return to dashboard.".into());
             }
             _ => {
-                // Try to execute as a query via the executor
-                let executor = crate::executor::Executor::new(&self.engine);
-                let start = std::time::Instant::now();
-                match executor.execute_hybrid(&input) {
-                    Ok(crate::executor::ExecutionResult::Read(nodes)) => {
-                        let elapsed = start.elapsed();
-                        let count = nodes.len();
-                        self.output_lines
-                            .push(format!("→ {} result(s) in {:?}", count, elapsed));
-                        for node in nodes.iter().take(MAX_RESULTS_DISPLAY) {
-                            let fields: Vec<String> = node
-                                .relational
-                                .iter()
-                                .map(|(k, v)| format!("{}={:?}", k, v))
-                                .collect();
-                            self.output_lines.push(format!(
-                                "  id={} {}",
-                                node.id,
-                                if fields.is_empty() {
-                                    "(no fields)".into()
-                                } else {
-                                    fields.join(", ")
-                                }
-                            ));
-                        }
-                        if count > MAX_RESULTS_DISPLAY {
-                            self.output_lines
-                                .push(format!("  ... and {} more", count - MAX_RESULTS_DISPLAY));
-                        }
-                    }
-                    Ok(crate::executor::ExecutionResult::Write { message, .. }) => {
-                        let elapsed = start.elapsed();
-                        self.output_lines
-                            .push(format!("✓ {} ({:?})", message, elapsed));
-                    }
-                    Ok(crate::executor::ExecutionResult::StaleContext(id)) => {
-                        self.output_lines
-                            .push(format!("⚠ Stale context: id={}", id));
-                    }
-                    Err(e) => {
-                        self.output_lines.push(format!("✗ Error: {}", e));
-                    }
+                // FIND-117: the TUI engine is long-lived read-only (shared
+                // lock), so a mutating statement cannot run on it — and a
+                // second read-write handle would hit the file lock. Report the
+                // documented limit instead of the raw error. On a writable
+                // engine the statement runs and flushes (FIND-101 spirit).
+                if self.engine.read_only && crate::cli_handlers::data::query_is_mutating(&input) {
+                    self.push_readonly_write_limit();
+                } else {
+                    self.run_iql(&input);
                 }
             }
         }
@@ -145,6 +114,70 @@ impl ReplState {
         // Trim output to prevent runaway memory
         while self.output_lines.len() > 1000 {
             self.output_lines.remove(0);
+        }
+    }
+
+    /// FIND-117: documented limit for IQL writes on a read-only TUI session.
+    fn push_readonly_write_limit(&mut self) {
+        self.output_lines.push(
+            "⦸ Read-only TUI session (shared lock): IQL writes are disabled here — \
+             run them with `vanta-cli query`."
+                .into(),
+        );
+    }
+
+    /// Execute an IQL string that is allowed on this engine (reads always;
+    /// writes only when the engine is writable), flushing after writes.
+    fn run_iql(&mut self, input: &str) {
+        // Try to execute as a query via the executor
+        let executor = crate::executor::Executor::new(&self.engine);
+        let start = std::time::Instant::now();
+        match executor.execute_hybrid(input) {
+            Ok(crate::executor::ExecutionResult::Read(nodes)) => {
+                let elapsed = start.elapsed();
+                let count = nodes.len();
+                self.output_lines
+                    .push(format!("→ {} result(s) in {:?}", count, elapsed));
+                for node in nodes.iter().take(MAX_RESULTS_DISPLAY) {
+                    let fields: Vec<String> = node
+                        .relational
+                        .iter()
+                        .map(|(k, v)| format!("{}={:?}", k, v))
+                        .collect();
+                    self.output_lines.push(format!(
+                        "  id={} {}",
+                        node.id,
+                        if fields.is_empty() {
+                            "(no fields)".into()
+                        } else {
+                            fields.join(", ")
+                        }
+                    ));
+                }
+                if count > MAX_RESULTS_DISPLAY {
+                    self.output_lines
+                        .push(format!("  ... and {} more", count - MAX_RESULTS_DISPLAY));
+                }
+            }
+            Ok(crate::executor::ExecutionResult::Write { message, .. }) => {
+                let elapsed = start.elapsed();
+                // FIND-117: same-session durability as FIND-101 — the write is
+                // WAL-buffered, so flush before reporting success. A Write
+                // only happens on a writable engine, so the guard holds.
+                match self.engine.flush() {
+                    Ok(()) => self
+                        .output_lines
+                        .push(format!("✓ {} ({:?})", message, elapsed)),
+                    Err(e) => self.output_lines.push(format!("✗ Error: {}", e)),
+                }
+            }
+            Ok(crate::executor::ExecutionResult::StaleContext(id)) => {
+                self.output_lines
+                    .push(format!("⚠ Stale context: id={}", id));
+            }
+            Err(e) => {
+                self.output_lines.push(format!("✗ Error: {}", e));
+            }
         }
     }
 }
@@ -324,4 +357,123 @@ pub fn render_repl(frame: &mut Frame, state: &mut ReplState) {
         // y: last line of input area
         chunks[2].y + 1,
     ));
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::ReplState;
+    use crate::backend::BackendKind;
+    use crate::config::Config;
+    use crate::storage::StorageEngine;
+
+    fn inmemory_engine(read_only: bool) -> Arc<StorageEngine> {
+        let config = Config {
+            backend_kind: BackendKind::InMemory,
+            read_only,
+            ..Config::default()
+        };
+        Arc::new(StorageEngine::open_with_config(":memory:", Some(config)).unwrap())
+    }
+
+    fn run_input(engine: &Arc<StorageEngine>, input: &str) -> Vec<String> {
+        let mut state = ReplState::new(engine.clone());
+        state.input_line = input.to_string();
+        state.execute();
+        state.output_lines.clone()
+    }
+
+    // FIND-117 (RED): a mutating IQL statement on the long-lived read-only TUI
+    // engine must report the documented limit (pointer to `vanta-cli query`),
+    // not the raw read-only validation error.
+    #[test]
+    fn repl_mutating_on_readonly_reports_documented_limit() {
+        let engine = inmemory_engine(true);
+        let out = run_input(
+            &engine,
+            r#"INSERT NODE#117 TYPE Usuario { nombre: "Eros" }"#,
+        );
+        let last = out.last().unwrap();
+        assert!(
+            last.contains("vanta-cli query"),
+            "must point to the CLI write path, got: {last}"
+        );
+        assert!(
+            last.to_lowercase().contains("read-only"),
+            "must name the read-only session limit, got: {last}"
+        );
+    }
+
+    // FIND-117 (RED): `.help` documents the read-only writes limit with motive.
+    #[test]
+    fn repl_help_documents_readonly_limit() {
+        let engine = inmemory_engine(true);
+        let out = run_input(&engine, ".help");
+        assert!(
+            out.iter().any(|l| l.contains("vanta-cli query")),
+            "help must document where writes go, got: {out:?}"
+        );
+    }
+
+    // FIND-117 (rama primaria del contrato en handle writable): INSERT→SELECT
+    // visible en la misma sesión TUI — el mutante corre y flushea (FIND-101).
+    #[test]
+    fn repl_insert_select_visible_on_writable_engine() {
+        let engine = inmemory_engine(false);
+        let out = run_input(
+            &engine,
+            r#"INSERT NODE#117 TYPE Usuario { nombre: "Eros" }"#,
+        );
+        assert!(
+            out.iter().any(|l| l.starts_with("✓")),
+            "INSERT must succeed on a writable engine, got: {out:?}"
+        );
+        let out = run_input(&engine, "FROM Usuario");
+        assert!(
+            out.iter().any(|l| l.contains("1 result")),
+            "INSERT must be visible to SELECT in the same session, got: {out:?}"
+        );
+    }
+
+    // FIND-117 (caracterización, pasa antes/después): reads y stats siguen
+    // funcionando — guardia de no-regresión del contrato.
+    #[test]
+    fn repl_select_and_stats_keep_working() {
+        let engine = inmemory_engine(false);
+        crate::executor::Executor::new(&engine)
+            .execute_hybrid(r#"INSERT NODE#117 TYPE Usuario { nombre: "Eros" }"#)
+            .unwrap();
+        let out = run_input(&engine, "FROM Usuario");
+        assert!(
+            out.iter().any(|l| l.contains("1 result")),
+            "SELECT must stay visible, got: {out:?}"
+        );
+        let out = run_input(&engine, ".stats");
+        assert!(
+            out.iter().any(|l| l.contains("Nodes:")),
+            "stats must keep working, got: {out:?}"
+        );
+    }
+
+    // FIND-117 (motivo ejecutable E2, pasa antes/después): con el handle
+    // read-only vivo, un segundo handle read-write choca en el lock fs2
+    // (`DatabaseBusy`) — por eso el fix no es "abrir rw por query".
+    #[test]
+    fn tui_write_handle_blocked_while_readonly_open() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().to_string_lossy().to_string();
+        drop(crate::cli_handlers::open_database(&path, false).unwrap());
+        let _ro = crate::cli_handlers::open_database(&path, true).unwrap();
+        let result = crate::cli_handlers::open_database(&path, false);
+        assert!(
+            result.is_err(),
+            "second rw handle must hit the file lock while readonly is open"
+        );
+        let err = result.err().unwrap();
+        assert!(
+            matches!(err, crate::error::Error::DatabaseBusy(_)),
+            "second rw handle must hit the file lock, got: {err}"
+        );
+    }
 }

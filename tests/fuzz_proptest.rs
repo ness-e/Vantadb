@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! 🔍 Fuzzing basado en propiedades (Property-Based Testing) para validación cross-platform.
 //!
 //! Ejecuta: `cargo test fuzz_proptest`
@@ -7,13 +8,11 @@
 
 use proptest::prelude::*;
 use std::collections::HashSet;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::UnifiedNode;
 use vantadb::wal::WalRecord;
 use vantadb::BackendKind;
-use vantadb::{
-    FieldValue, InMemoryEngine, VantaEmbedded, VantaError, VantaMemoryInput, VantaMemoryMetadata,
-};
+use vantadb::{Embedded, Error, FieldValue, InMemoryEngine, MemoryInput, MemoryMetadata};
 
 proptest! {
     /// Test 1: WalRecord debe manejar bytes aleatorios sin panic
@@ -91,7 +90,7 @@ proptest! {
         let result = engine.delete(id.into());
         prop_assert!(result.is_err(), "Second delete should return an error");
         match result {
-            Err(VantaError::NodeNotFound(returned_id)) => prop_assert_eq!(returned_id, u128::from(id)),
+            Err(Error::NodeNotFound(returned_id)) => prop_assert_eq!(returned_id, u128::from(id)),
             _ => panic!("Expected NodeNotFound, got {:?}", result),
         }
     }
@@ -102,19 +101,20 @@ proptest! {
 #[test]
 fn test_ttl_boundary_purge_expired() {
     let dir = tempfile::tempdir().unwrap();
-    let config = VantaConfig {
+    let config = Config {
         storage_path: dir.path().to_string_lossy().to_string(),
         backend_kind: BackendKind::InMemory,
         ..Default::default()
     };
-    let db = VantaEmbedded::open_with_config(config).unwrap();
+    let db = Embedded::open_with_config(config).unwrap();
 
-    let input = VantaMemoryInput {
+    let input = MemoryInput {
         namespace: "test_ns".into(),
         key: "ttl_key".into(),
         payload: "ephemeral data".into(),
-        metadata: VantaMemoryMetadata::new(),
+        metadata: MemoryMetadata::new(),
         vector: None,
+        sparse_vector: None,
         ttl_ms: Some(1),
     };
 

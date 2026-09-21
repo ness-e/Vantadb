@@ -9,8 +9,9 @@ description = "Optional local server wrapper and MCP interface for VantaDB"
 [dependencies]
 vantadb = { path = "..", features = ["cli", "server"] }
 vantadb-mcp = { path = "../vantadb-mcp" }
-tokio = { version = "1", features = ["rt-multi-thread", "macros", "sync", "signal"] }
-tracing = "0.1"
+# ERR-CORE-02: bin-only human error chain (.context() en main).
+anyhow = "1"
+tokio = { version = "1", features = ["rt", "rt-multi-thread", "macros", "sync", "signal", "net", "time"] }
 
 [dev-dependencies]
 axum = "0.8"
@@ -21,14 +22,12 @@ clap = { version = "4", features = ["derive"] }
 fs2 = "0.4"
 futures = "0.3"
 tempfile = "3"
-sysinfo = "0.38"
 chrono = "0.4"
 console = "0.16"
 indicatif = "0.18"
 rcgen = "0.13"
 reqwest = { version = "0.12", default-features = false, features = ["rustls-tls", "json"] }
 rustls = { version = "0.23", features = ["ring"] }
-tokio = { version = "1", features = ["rt", "rt-multi-thread", "net", "sync", "time", "macros"] }
 axum-server = { version = "0.8", features = ["tls-rustls"] }
 
 [features]
@@ -37,7 +36,7 @@ jemalloc = ["vantadb/jemalloc", "dep:tikv-jemallocator"]
 cli = ["vantadb/cli"]
 tls = ["vantadb/tls"]
 opentelemetry = ["vantadb/opentelemetry"]
-sysinfo = []
+prometheus = ["vantadb/prometheus"]
 
 
 [dependencies.mimalloc]

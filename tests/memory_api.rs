@@ -1,10 +1,9 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Persistent memory API certification.
 
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
-use vantadb::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest, VantaValue,
-};
+use vantadb::config::Config;
+use vantadb::{Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, Value};
 
 fn db_snapshot(path: &std::path::Path) -> std::collections::BTreeMap<std::path::PathBuf, u64> {
     fn visit(
@@ -40,16 +39,16 @@ fn assert_read_only_error<T: std::fmt::Debug>(result: vantadb::Result<T>) {
     );
 }
 
-fn field_string(value: &str) -> VantaValue {
-    VantaValue::String(value.to_string())
+fn field_string(value: &str) -> Value {
+    Value::String(value.to_string())
 }
 
 #[test]
 fn canonical_memory_model() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    let mut input = VantaMemoryInput::new("agent/main", "memory-1", "remember the contract");
+    let mut input = MemoryInput::new("agent/main", "memory-1", "remember the contract");
     input
         .metadata
         .insert("category".to_string(), field_string("contract"));
@@ -74,7 +73,7 @@ fn canonical_memory_model() {
     assert_eq!(fetched.node_id, record.node_id);
     assert_eq!(fetched.payload, record.payload);
 
-    let mut update = VantaMemoryInput::new("agent/main", "memory-1", "updated payload");
+    let mut update = MemoryInput::new("agent/main", "memory-1", "updated payload");
     update
         .metadata
         .insert("category".to_string(), field_string("contract"));
@@ -88,11 +87,11 @@ fn canonical_memory_model() {
 #[test]
 fn namespace_isolation() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    db.put(VantaMemoryInput::new("agent/a", "shared", "alpha"))
+    db.put(MemoryInput::new("agent/a", "shared", "alpha"))
         .expect("put a");
-    db.put(VantaMemoryInput::new("agent/b", "shared", "beta"))
+    db.put(MemoryInput::new("agent/b", "shared", "beta"))
         .expect("put b");
 
     let a = db
@@ -109,7 +108,7 @@ fn namespace_isolation() {
     assert_eq!(b.payload, "beta");
 
     let page_a = db
-        .list("agent/a", VantaMemoryListOptions::default())
+        .list("agent/a", MemoryListOptions::default())
         .expect("list a");
     assert_eq!(page_a.records.len(), 1);
     assert_eq!(page_a.records[0].namespace, "agent/a");
@@ -124,16 +123,16 @@ fn namespace_isolation() {
 #[test]
 fn memory_api_filters() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    let mut first = VantaMemoryInput::new("agent/main", "first", "first payload");
+    let mut first = MemoryInput::new("agent/main", "first", "first payload");
     first
         .metadata
         .insert("category".to_string(), field_string("task"));
     first.vector = Some(vec![1.0, 0.0, 0.0]);
     db.put(first).expect("put first");
 
-    let mut second = VantaMemoryInput::new("agent/main", "second", "second payload");
+    let mut second = MemoryInput::new("agent/main", "second", "second payload");
     second
         .metadata
         .insert("category".to_string(), field_string("note"));
@@ -146,12 +145,13 @@ fn memory_api_filters() {
     let page = db
         .list(
             "agent/main",
-            VantaMemoryListOptions {
+            MemoryListOptions {
                 #[allow(deprecated)]
                 filters: filters.clone(),
                 filter_ops: None,
                 limit: 10,
                 cursor: None,
+                exclude_superseded: false,
             },
         )
         .expect("filtered list");
@@ -159,7 +159,7 @@ fn memory_api_filters() {
     assert_eq!(page.records[0].key, "first");
 
     let hits = db
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0, 0.0],
             filters,
@@ -172,7 +172,7 @@ fn memory_api_filters() {
     assert_eq!(hits[0].record.key, "first");
 
     let text_hits = db
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: Vec::new(),
             filters: Default::default(),
@@ -184,14 +184,14 @@ fn memory_api_filters() {
     assert_eq!(text_hits.len(), 1);
     assert_eq!(text_hits[0].record.key, "second");
 
-    db.put(VantaMemoryInput::new(
+    db.put(MemoryInput::new(
         "agent/main",
         "phrase",
         "first second exact phrase",
     ))
     .expect("put phrase");
     let phrase_hits = db
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: Vec::new(),
             filters: Default::default(),
@@ -204,7 +204,7 @@ fn memory_api_filters() {
     assert_eq!(phrase_hits[0].record.key, "phrase");
 
     let explain = db
-        .explain_memory_search(VantaMemorySearchRequest {
+        .explain_memory_search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: Vec::new(),
             filters: Default::default(),
@@ -221,7 +221,7 @@ fn memory_api_filters() {
     assert!(explain.hits[0].snippet.is_some());
 
     let hybrid_hits = db
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0, 0.0],
             filters: Default::default(),
@@ -235,7 +235,7 @@ fn memory_api_filters() {
     assert!(hybrid_hits.iter().any(|hit| hit.record.key == "second"));
 
     let empty = db
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0, 0.0],
             filters: Default::default(),
@@ -247,7 +247,7 @@ fn memory_api_filters() {
     assert!(empty.is_empty());
 
     let whitespace_text_query = db
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0, 0.0],
             filters: Default::default(),
@@ -265,13 +265,13 @@ fn memory_api_recovery() {
     let path = dir.path().to_path_buf();
 
     {
-        let db = VantaEmbedded::open(&path).expect("open");
-        let mut input = VantaMemoryInput::new("agent/main", "recover", "wal backed");
+        let db = Embedded::open(&path).expect("open");
+        let mut input = MemoryInput::new("agent/main", "recover", "wal backed");
         input.vector = Some(vec![0.5, 0.5, 0.0]);
         db.put(input).expect("put");
     }
 
-    let reopened = VantaEmbedded::open(&path).expect("reopen");
+    let reopened = Embedded::open(&path).expect("reopen");
     let record = reopened
         .get("agent/main", "recover")
         .expect("get")
@@ -294,8 +294,8 @@ fn read_only_rejects_mutations_without_changing_db_files() {
     let import_path = dir.path().join("readonly-import.jsonl");
 
     {
-        let db = VantaEmbedded::open(&path).expect("open writable");
-        let mut input = VantaMemoryInput::new("agent/main", "readonly", "read only payload");
+        let db = Embedded::open(&path).expect("open writable");
+        let mut input = MemoryInput::new("agent/main", "readonly", "read only payload");
         input.vector = Some(vec![1.0, 0.0, 0.0]);
         db.put(input).expect("put");
         db.flush().expect("flush writable");
@@ -304,7 +304,7 @@ fn read_only_rejects_mutations_without_changing_db_files() {
 
     std::fs::write(&import_path, "{}\n").expect("write import fixture");
 
-    let read_only = VantaEmbedded::open_with_config(VantaConfig {
+    let read_only = Embedded::open_with_config(Config {
         storage_path: path.to_string_lossy().into_owned(),
         read_only: true,
         ..Default::default()
@@ -313,11 +313,7 @@ fn read_only_rejects_mutations_without_changing_db_files() {
 
     let before = db_snapshot(&path);
 
-    assert_read_only_error(read_only.put(VantaMemoryInput::new(
-        "agent/main",
-        "blocked-put",
-        "blocked",
-    )));
+    assert_read_only_error(read_only.put(MemoryInput::new("agent/main", "blocked-put", "blocked")));
     assert_read_only_error(read_only.delete("agent/main", "readonly"));
     assert_read_only_error(read_only.import_file(&import_path));
     assert_read_only_error(read_only.rebuild_index());
@@ -336,7 +332,7 @@ fn read_only_rejects_mutations_without_changing_db_files() {
     assert!(audit.passed);
 
     let hits = read_only
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: Vec::new(),
             filters: Default::default(),
@@ -357,16 +353,16 @@ fn read_only_rejects_mutations_without_changing_db_files() {
 #[test]
 fn memory_euclidean_and_explainable_ranking() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
-    let mut input1 = VantaMemoryInput::new("agent/main", "vec-1", "payload 1");
+    let mut input1 = MemoryInput::new("agent/main", "vec-1", "payload 1");
     input1.vector = Some(vec![1.0, 0.0, 0.0]);
     input1
         .metadata
         .insert("category".to_string(), field_string("test"));
     db.put(input1).expect("put vec-1");
 
-    let mut input2 = VantaMemoryInput::new("agent/main", "vec-2", "payload 2");
+    let mut input2 = MemoryInput::new("agent/main", "vec-2", "payload 2");
     input2.vector = Some(vec![0.0, 1.0, 0.0]);
     input2
         .metadata
@@ -374,7 +370,7 @@ fn memory_euclidean_and_explainable_ranking() {
     db.put(input2).expect("put vec-2");
 
     // Buscar con distancia Euclidiana y explain = true
-    let request_explain = VantaMemorySearchRequest {
+    let request_explain = MemorySearchRequest {
         namespace: "agent/main".to_string(),
         query_vector: vec![0.9, 0.1, 0.0],
         filters: Default::default(),
@@ -382,6 +378,9 @@ fn memory_euclidean_and_explainable_ranking() {
         top_k: 2,
         distance_metric: vantadb::DistanceMetric::Euclidean,
         explain: true,
+        query_sparse: None,
+        exclude_superseded: false,
+        search_profile: None,
     };
 
     let hits_explain = db.search(request_explain).expect("search with explain");
@@ -395,7 +394,7 @@ fn memory_euclidean_and_explainable_ranking() {
     assert_eq!(explanation.identity, "agent/main\0vec-1");
 
     // Buscar con explain = false para validar que no se devuelvan explicaciones innecesarias
-    let request_no_explain = VantaMemorySearchRequest {
+    let request_no_explain = MemorySearchRequest {
         namespace: "agent/main".to_string(),
         query_vector: vec![0.9, 0.1, 0.0],
         filters: Default::default(),
@@ -403,6 +402,9 @@ fn memory_euclidean_and_explainable_ranking() {
         top_k: 2,
         distance_metric: vantadb::DistanceMetric::Euclidean,
         explain: false,
+        query_sparse: None,
+        exclude_superseded: false,
+        search_profile: None,
     };
 
     let hits_no_explain = db
@@ -414,23 +416,59 @@ fn memory_euclidean_and_explainable_ranking() {
 }
 
 #[test]
+fn namespace_stats_end_to_end() {
+    let dir = tempdir().expect("tempdir");
+    let db = Embedded::open(dir.path()).expect("open");
+
+    // ns1: 1 normal + 1 expiring soon (1h TTL, inside the default 24h window).
+    db.put(MemoryInput::new("ns1", "normal", "p"))
+        .expect("put ns1 normal");
+    let mut soon = MemoryInput::new("ns1", "soon", "p");
+    soon.ttl_ms = Some(60 * 60 * 1000);
+    db.put(soon).expect("put ns1 expiring soon");
+
+    // ns2: 1 normal + 1 expired (1ms TTL, then wait past the deadline).
+    db.put(MemoryInput::new("ns2", "normal", "p"))
+        .expect("put ns2 normal");
+    let mut expired = MemoryInput::new("ns2", "gone", "p");
+    expired.ttl_ms = Some(1);
+    db.put(expired).expect("put ns2 expiring");
+    std::thread::sleep(std::time::Duration::from_millis(5));
+
+    let stats = db.namespace_stats(None).expect("namespace stats");
+    let ns1 = &stats["ns1"];
+    assert_eq!(ns1.count, 2);
+    assert_eq!(ns1.expiring_soon, 1);
+    assert_eq!(ns1.expired, 0);
+    let ns2 = &stats["ns2"];
+    assert_eq!(ns2.count, 2);
+    assert_eq!(ns2.expiring_soon, 0);
+    assert_eq!(ns2.expired, 1);
+
+    // Stats map keys (BTreeMap → sorted) stay consistent with list_namespaces.
+    let expected: Vec<String> = stats.keys().cloned().collect();
+    assert_eq!(expected, db.list_namespaces().expect("list namespaces"));
+}
+
+#[test]
 fn snippet_with_highlighting() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     // Insertar un registro con texto
-    let input = VantaMemoryInput {
+    let input = MemoryInput {
         key: "snippet-test".to_string(),
         namespace: "test".to_string(),
         payload: "The quick brown fox jumps over the lazy dog".to_string(),
         vector: Some(vec![0.1, 0.2, 0.3]),
+        sparse_vector: None,
         metadata: Default::default(),
         ttl_ms: None,
     };
     db.put(input).expect("put");
 
     // Buscar con explicación para obtener snippet
-    let request = VantaMemorySearchRequest {
+    let request = MemorySearchRequest {
         namespace: "test".to_string(),
         query_vector: vec![0.1, 0.2, 0.3],
         filters: Default::default(),
@@ -438,6 +476,9 @@ fn snippet_with_highlighting() {
         top_k: 1,
         distance_metric: vantadb::DistanceMetric::Euclidean,
         explain: true,
+        query_sparse: None,
+        exclude_superseded: false,
+        search_profile: None,
     };
 
     let hits = db.search(request).expect("search");

@@ -1,3 +1,13 @@
+---
+title: "Reporte de Validación Cruzada — docs/web/ vs docs/ (fuente de verdad)"
+type: web
+status: active
+tags: [vantadb, web, audit]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Reporte de Validación Cruzada — docs/web/ vs docs/ (fuente de verdad)
 
 > **Fecha:** 2026-07-27

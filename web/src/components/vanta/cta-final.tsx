@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Github, BookOpen, Copy, Check, Zap, ArrowUpRight, Terminal } from "lucide-react";
+import { Github, BookOpen, Copy, Check, ArrowUpRight, Terminal } from "lucide-react";
 import { VANTA, PRODUCT } from "./vanta-data";
 import { Reveal } from "./reveal";
 import { MarkCta, type CtaButton } from "./mark/mark-cta";
@@ -17,7 +17,7 @@ import { cn } from "@/lib/utils";
  * Style: black bg, scanlines, grid-tech, neon accents. Matches home aesthetic.
  */
 export function CtaFinal() {
-  const { t } = useLanguage();
+  const { tt } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [activeButton, setActiveButton] = useState<CtaButton | null>(null);
   const [clickButton, setClickButton] = useState<{ button: CtaButton; timestamp: number } | null>(null);
@@ -33,10 +33,6 @@ export function CtaFinal() {
     }, 1800);
   };
 
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
 
   const copyInstall = async () => {
     const ok = await copyToClipboard(PRODUCT.distribution[0].cmd);
@@ -89,7 +85,7 @@ export function CtaFinal() {
               {tt("ctaFinal.titleLine1", "Start building")}
             </span>
             <span className="block text-[12vw] sm:text-[8vw] lg:text-[6vw]">
-              <span className="text-outline-neon glow-neon">{tt("ctaFinal.titleLine2", "today")}</span>
+              <span className="text-outline-neon glow--neon">{tt("ctaFinal.titleLine2", "today")}</span>
             </span>
           </h2>
         </Reveal>

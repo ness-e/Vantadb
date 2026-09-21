@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import type { MemoryRecord, SearchHit, NodeRecord, EdgeRecord, VantaValue } from "../types.js";
+import type { MemoryRecord, SearchHit, NodeRecord, EdgeRecord, Value } from "../types.js";
 
 describe("TypeScript types are correctly defined", () => {
   it("MemoryRecord type has all required fields", () => {
@@ -67,12 +67,12 @@ describe("TypeScript types are correctly defined", () => {
     expect(node.edges[0].target).toBe("2");
   });
 
-  it("VantaValue variants work as discriminated union", () => {
-    const stringVal: VantaValue = { String: "hello" };
-    const intVal: VantaValue = { Int: 42 };
-    const floatVal: VantaValue = { Float: 3.14 };
-    const boolVal: VantaValue = { Bool: true };
-    const nullVal: VantaValue = { Null: null };
+  it("Value variants work as discriminated union", () => {
+    const stringVal: Value = { String: "hello" };
+    const intVal: Value = { Int: 42 };
+    const floatVal: Value = { Float: 3.14 };
+    const boolVal: Value = { Bool: true };
+    const nullVal: Value = { Null: null };
 
     expect(stringVal.String).toBe("hello");
     expect(intVal.Int).toBe(42);
@@ -82,7 +82,7 @@ describe("TypeScript types are correctly defined", () => {
   });
 });
 
-describe("VantaConfig defaults", () => {
+describe("Config defaults", () => {
   it("config interface accepts partial options", () => {
     const config = { storage_path: "./data" };
     expect(config.storage_path).toBe("./data");

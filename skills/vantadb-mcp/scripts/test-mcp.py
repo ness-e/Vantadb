@@ -1,151 +1,289 @@
 #!/usr/bin/env python3
-"""
-Test script for VantaDB MCP server
-Tests basic MCP functionality to ensure the server is working correctly
+"""Functional test for the VantaDB MCP server over stdio JSON-RPC.
+
+Spawns ONE server process and drives the MCP handshake sequentially:
+initialize -> tools/list -> resources/list -> prompts/list -> recall smoke
+(tools/call memory_recall on the fresh temp DB).
+
+Exit 0 if every request returns a valid JSON-RPC result AND the surface
+counts match the expected profile counts; exit 1 otherwise (drift gate).
+
+BUILD FROM SOURCE (required — a stale installed binary masks drift):
+  cargo build -p vantadb-server -j 2
+  # `vanta-cli server --mcp` is a wrapper: it spawns `vantadb-server --mcp`
+  # (src/cli_handlers/server.rs), so rebuild BOTH when the wrapper is used:
+  cargo build --bin vanta-cli --bin vantadb-server -j 2
+  # Then point the script at the fresh binary (no PATH dependency):
+  python skills/vantadb-mcp/scripts/test-mcp.py target/debug/vantadb-server.exe
+  # Or via env var:
+  VANTADB_MCP_BIN=target/debug/vantadb-server.exe python skills/vantadb-mcp/scripts/test-mcp.py
+
+TOOL PROFILES (VANTADB_MCP_PROFILE env var, default "full"):
+  full   (default): 87 tools exacto
+  dev:              30..38 tools (Cursor ~40 budget + MEM-59)
+  memory:           15..22 tools (read-mostly + MEM-59)
+  Source of truth: vantadb-mcp/tests/mcp_tests.rs::test_mcp_tool_profiles
+  (+ handle_tools_list/profile_allowed_tools in handlers/tools.rs).
+
+The server binary is resolved from (in order):
+  1. argv[1] or the VANTADB_MCP_BIN env var (explicit path)
+  2. `vanta-cli` on PATH (must support `server --mcp`)
+  3. `target/debug/vanta-cli.exe` (Windows dev builds)
+  4. `vantadb-server` on PATH (supports `--mcp` directly)
+  5. `target/debug/vantadb-server.exe`
 """
 
-import subprocess
 import json
-import sys
 import os
+import shutil
+import subprocess
+import sys
+import tempfile
+import threading
 
-def send_rpc_request(request):
-    """Send a JSON-RPC request to the MCP server"""
-    process = subprocess.Popen(
-        ["vantadb-server", "--mcp", "--path", os.path.expanduser("~/.vantadb")],
-        stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True
+# Windows consoles default to cp1252, which cannot encode emoji output.
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+    sys.stderr.reconfigure(encoding="utf-8")
+
+
+# Drift gate (FIND-82): expected surface per tool profile.
+# Source of truth: vantadb-mcp/tests/mcp_tests.rs::test_mcp_tool_profiles
+# (Full == 87 exacto; Dev/Memory usan los rangos del Rust test para no
+# romperse con cada tool añadida dentro del budget).
+# Full = 22 memory + 16 dev + 49 extended (code 8 + wiki 6 + skill 7 +
+# thread 6 + scene 5 + dreams 5 + context 1 + base-full 11). Profile via
+# VANTADB_MCP_PROFILE (default "full", see vantadb-mcp/src/config.rs).
+EXPECTED_TOOLS = {
+    "full": (87, 87),
+    "dev": (30, 38),
+    "memory": (15, 22),
+}
+EXPECTED_RESOURCES = 2  # metrics://, schema:// (handlers/resources.rs)
+EXPECTED_PROMPTS = 4  # search_memory, analyze_namespace, summarize_context,
+# query_builder (handlers/prompts.rs)
+
+
+def _candidate_paths(explicit):
+    yield explicit
+    yield shutil.which("vanta-cli")
+    yield os.path.join("target", "debug", "vanta-cli.exe")
+    yield os.path.join("target", "release", "vanta-cli.exe")
+    yield shutil.which("vantadb-server")
+    yield os.path.join("target", "debug", "vantadb-server.exe")
+    yield os.path.join("target", "release", "vantadb-server.exe")
+
+
+def _is_vanta_cli(bin_path):
+    return subprocess.run(
+        [bin_path, "server", "--help"], capture_output=True, timeout=10
+    ).returncode == 0
+
+
+def resolve_server(explicit):
+    """Return (binary, kind) where kind is 'vanta-cli' or 'vantadb-server'."""
+    for cand in _candidate_paths(explicit):
+        if not cand or not os.path.isfile(cand):
+            continue
+        name = os.path.basename(cand).lower()
+        if "vanta-cli" in name:
+            # Old vanta-cli builds lack the `server` subcommand — skip them
+            # so a stale PATH install does not shadow a working binary.
+            if _is_vanta_cli(cand):
+                return cand, "vanta-cli"
+            continue
+        if "vantadb-server" in name:
+            return cand, "vantadb-server"
+        # Unknown binary: accept only if it answers --help (best effort).
+        if subprocess.run([cand, "--help"], capture_output=True, timeout=10).returncode == 0:
+            return cand, "vantadb-server"
+    raise RuntimeError(
+        "No usable VantaDB MCP server binary found. "
+        "Pass one via argv or the VANTADB_MCP_BIN env var."
     )
-    
-    stdout, stderr = process.communicate(input=json.dumps(request) + "\n")
-    
-    if process.returncode != 0:
-        print(f"❌ Server error: {stderr}")
-        return None
-    
-    try:
-        return json.loads(stdout)
-    except json.JSONDecodeError:
-        print(f"❌ Invalid JSON response: {stdout}")
-        return None
 
-def test_initialize():
-    """Test initialize method"""
-    print("🔍 Testing initialize...")
-    request = {
-        "jsonrpc": "2.0",
-        "id": 1,
-        "method": "initialize",
-        "params": {
-            "protocolVersion": "2024-11-05",
-            "capabilities": {},
-            "clientInfo": {
-                "name": "test-client",
-                "version": "1.0.0"
-            }
-        }
-    }
-    
-    response = send_rpc_request(request)
-    if response and "result" in response:
-        print("✅ Initialize successful")
-        print(f"   Server: {response['result']['serverInfo']['name']}")
-        print(f"   Version: {response['result']['serverInfo']['version']}")
-        return True
-    return False
 
-def test_tools_list():
-    """Test tools/list method"""
-    print("\n🔍 Testing tools/list...")
-    request = {
-        "jsonrpc": "2.0",
-        "id": 2,
-        "method": "tools/list"
-    }
-    
-    response = send_rpc_request(request)
-    if response and "result" in response:
-        tools = response["result"].get("tools", [])
-        print(f"✅ Found {len(tools)} tools")
-        for tool in tools[:5]:  # Show first 5
-            print(f"   - {tool['name']}")
-        if len(tools) > 5:
-            print(f"   ... and {len(tools) - 5} more")
-        return True
-    return False
+class McpSession:
+    """One stdio MCP server process; all requests share it."""
 
-def test_resources_list():
-    """Test resources/list method"""
-    print("\n🔍 Testing resources/list...")
-    request = {
-        "jsonrpc": "2.0",
-        "id": 3,
-        "method": "resources/list"
-    }
-    
-    response = send_rpc_request(request)
-    if response and "result" in response:
-        resources = response["result"].get("resources", [])
-        print(f"✅ Found {len(resources)} resources")
-        for resource in resources:
-            print(f"   - {resource['uri']}")
-        return True
-    return False
+    def __init__(self, binary, kind):
+        self._db = tempfile.mkdtemp(prefix="vantadb-test-")
+        if kind == "vanta-cli":
+            cmd = [binary, "server", "--mcp", "--db", self._db]
+            env = None
+        else:
+            cmd = [binary, "--mcp"]
+            env = dict(os.environ, VANTADB_STORAGE_PATH=self._db)
+        self._proc = subprocess.Popen(
+            cmd,
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True,
+            bufsize=1,
+            env=env,
+        )
+        # The server logs to stderr; drain it on a daemon thread so a full
+        # pipe never blocks its shutdown write (STABLE-04: unread stderr
+        # made close() hang past wait(timeout=15) deterministically).
+        # Keep a tail for the early-close diagnostic below.
+        self._stderr_tail = []
+        threading.Thread(target=self._pump_stderr, daemon=True).start()
 
-def test_prompts_list():
-    """Test prompts/list method"""
-    print("\n🔍 Testing prompts/list...")
-    request = {
-        "jsonrpc": "2.0",
-        "id": 4,
-        "method": "prompts/list"
-    }
-    
-    response = send_rpc_request(request)
-    if response and "result" in response:
-        prompts = response["result"].get("prompts", [])
-        print(f"✅ Found {len(prompts)} prompts")
-        for prompt in prompts:
-            print(f"   - {prompt['name']}")
-        return True
-    return False
+    def _pump_stderr(self):
+        try:
+            for line in self._proc.stderr:
+                tail = self._stderr_tail
+                tail.append(line)
+                del tail[:-50]
+        except ValueError:
+            pass  # stderr closed during teardown
+
+    def request(self, method, _id, params=None):
+        req = {"jsonrpc": "2.0", "id": _id, "method": method}
+        if params is not None:
+            req["params"] = params
+        self._proc.stdin.write(json.dumps(req) + "\n")
+        self._proc.stdin.flush()
+        line = self._proc.stdout.readline()
+        if not line:
+            stderr = "".join(self._stderr_tail)
+            raise RuntimeError(
+                f"Server closed stdout before responding to {method}. stderr: {stderr}"
+            )
+        return json.loads(line)
+
+    def close(self):
+        self._proc.stdin.close()
+        self._proc.wait(timeout=15)
+
 
 def main():
-    """Run all tests"""
-    print("🧪 Testing VantaDB MCP Server")
+    explicit = sys.argv[1] if len(sys.argv) > 1 else os.environ.get("VANTADB_MCP_BIN")
+    binary, kind = resolve_server(explicit)
+    profile = os.environ.get("VANTADB_MCP_PROFILE", "full").lower()
+    if profile not in EXPECTED_TOOLS:
+        print(
+            f"❌ unknown VANTADB_MCP_PROFILE={profile!r} "
+            f"(valid: {sorted(EXPECTED_TOOLS)})"
+        )
+        return 1
+    print(f"🧪 Testing VantaDB MCP server: {binary} ({kind}, profile {profile!r})")
     print("=" * 50)
-    
-    tests = [
-        test_initialize,
-        test_tools_list,
-        test_resources_list,
-        test_prompts_list
-    ]
-    
+
+    session = McpSession(binary, kind)
     passed = 0
-    failed = 0
-    
-    for test in tests:
-        try:
-            if test():
-                passed += 1
-            else:
-                failed += 1
-        except Exception as e:
-            print(f"❌ Test failed with exception: {e}")
-            failed += 1
-    
+    try:
+        tests = [
+            (
+                "initialize",
+                "initialize",
+                {
+                    "protocolVersion": "2025-06-18",
+                    "capabilities": {},
+                    "clientInfo": {"name": "test-client", "version": "1.0.0"},
+                },
+            ),
+            ("tools/list", "tools/list", None),
+            ("resources/list", "resources/list", None),
+            ("prompts/list", "prompts/list", None),
+            (
+                "recall",
+                "tools/call",
+                {
+                    "name": "memory_recall",
+                    "arguments": {
+                        "query": "recall policy smoke probe",
+                        "scope": "agent",
+                        "top_k": 5,
+                    },
+                },
+            ),
+        ]
+        for label, method, params in tests:
+            print(f"🔍 Testing {label}...")
+            resp = session.request(method, passed + 1, params)
+            if "error" in resp:
+                print(f"   ❌ {label} failed: server error: {resp['error']}")
+                continue
+            if "result" not in resp:
+                print(f"   ❌ {label} failed: no result in response: {resp}")
+                continue
+            result = resp["result"]
+            if label == "initialize":
+                info = result.get("serverInfo", {})
+                print(
+                    f"   ✅ Server: {info.get('name', '?')} "
+                    f"{info.get('version', '?')} (protocol {result.get('protocolVersion', '?')})"
+                )
+            elif label == "tools/list":
+                tools = result.get("tools", [])
+                lo, hi = EXPECTED_TOOLS[profile]
+                if not (lo <= len(tools) <= hi):
+                    print(
+                        f"   ❌ tools/list drift: got {len(tools)} tools "
+                        f"(profile {profile!r} expects {lo}..{hi}). "
+                        f"Stale binary? Rebuild from source: "
+                        f"cargo build -p vantadb-server -j 2, then rerun "
+                        f"with argv[1]/VANTADB_MCP_BIN pointing at it."
+                    )
+                    continue
+                print(f"   ✅ Found {len(tools)} tools (profile {profile!r}: {lo}..{hi} OK)")
+                for tool in tools[:5]:
+                    print(f"      - {tool['name']}")
+                if len(tools) > 5:
+                    print(f"      ... and {len(tools) - 5} more")
+            elif label == "resources/list":
+                resources = result.get("resources", [])
+                if len(resources) != EXPECTED_RESOURCES:
+                    print(
+                        f"   ❌ resources/list drift: got {len(resources)} "
+                        f"(expects {EXPECTED_RESOURCES}). Stale binary? "
+                        f"Rebuild: cargo build -p vantadb-server -j 2."
+                    )
+                    continue
+                print(f"   ✅ Found {len(resources)} resources")
+            elif label == "prompts/list":
+                prompts = result.get("prompts", [])
+                if len(prompts) != EXPECTED_PROMPTS:
+                    print(
+                        f"   ❌ prompts/list drift: got {len(prompts)} "
+                        f"(expects {EXPECTED_PROMPTS}). Stale binary? "
+                        f"Rebuild: cargo build -p vantadb-server -j 2."
+                    )
+                    continue
+                print(f"   ✅ Found {len(prompts)} prompts")
+            elif label == "recall":
+                # FIND-103: recall smoke beyond the handshake. On a fresh temp
+                # DB the recall path must answer the honest-empty shape
+                # (recalled [], prepend_context null) — never an error.
+                if result.get("isError"):
+                    print(f"   ❌ recall failed: {result['content'][0]['text']}")
+                    continue
+                try:
+                    payload = json.loads(result["content"][0]["text"])
+                except (KeyError, IndexError, ValueError) as e:
+                    print(f"   ❌ recall failed: bad envelope: {e}")
+                    continue
+                missing = {"recalled", "prepend_context", "effective_mode"} - set(payload)
+                if missing:
+                    print(f"   ❌ recall failed: missing keys {sorted(missing)}")
+                    continue
+                if payload["recalled"] != [] or payload["prepend_context"] is not None:
+                    print("   ❌ recall failed: fresh DB must recall nothing")
+                    continue
+                print(
+                    f"   ✅ recall honest-empty "
+                    f"(mode {payload['effective_mode']})"
+                )
+            passed += 1
+    finally:
+        session.close()
+
     print("\n" + "=" * 50)
-    print(f"📊 Results: {passed} passed, {failed} failed")
-    
-    if failed == 0:
-        print("✅ All tests passed!")
-        sys.exit(0)
-    else:
-        print("❌ Some tests failed")
-        sys.exit(1)
+    print(f"📊 Results: {passed}/5 passed")
+    return 0 if passed == 5 else 1
+
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())

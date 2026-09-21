@@ -8,15 +8,14 @@
 //! ## Important clarification
 //!
 //! "InMemoryBackend" means **in-memory KV backend only**. When used with
-//! `StorageEngine`, VantaFile (vector store) and WAL are still initialized
+//! `StorageEngine`, File (vector store) and WAL are still initialized
 //! on disk at the provided path. This backend replaces only the RocksDB
 //! key-value layer, not the entire storage stack.
 
-use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
-use crate::error::{Result, VantaError};
+use crate::backend::{BackendPartition, BackendWriteOp, Scannable, StorageBackend};
+use crate::error::Result;
 use parking_lot::RwLock;
 use std::collections::{BTreeMap, HashMap};
-use std::path::Path;
 
 /// In-memory `StorageBackend` implementation backed by a `BTreeMap` per partition.
 ///
@@ -37,7 +36,9 @@ impl InMemoryBackend {
         map.insert(BackendPartition::NamespaceIndex, BTreeMap::new());
         map.insert(BackendPartition::PayloadIndex, BTreeMap::new());
         map.insert(BackendPartition::TextIndex, BTreeMap::new());
+        map.insert(BackendPartition::SparseIndex, BTreeMap::new());
         map.insert(BackendPartition::InternalMetadata, BTreeMap::new());
+        map.insert(BackendPartition::Versions, BTreeMap::new());
         Self {
             partitions: RwLock::new(map),
         }
@@ -104,6 +105,19 @@ impl StorageBackend for InMemoryBackend {
         Ok(())
     }
 
+    fn capabilities(&self) -> crate::backend::BackendCapabilities {
+        crate::backend::BackendCapabilities {
+            supports_checkpoint: false,
+            supports_manual_compaction: false,
+            kind: crate::backend::BackendKind::InMemory,
+        }
+    }
+}
+
+/// InMemory serves the scan role (every backend does). Snapshot and
+/// compaction roles are NOT implemented: non-support is declared via
+/// `as_*() == None` + `capabilities()`, not via runtime-only discovery.
+impl Scannable for InMemoryBackend {
     fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         let parts = self.partitions.read();
         Ok(parts
@@ -132,25 +146,8 @@ impl StorageBackend for InMemoryBackend {
             .collect();
         Ok(Box::new(collected.into_iter().map(Ok)))
     }
-
-    fn checkpoint(&self, _path: &Path) -> Result<()> {
-        Err(VantaError::backend_error(
-            "Checkpoint not supported by InMemoryBackend",
-        ))
-    }
-
-    // compact() inherits the default no-op from the trait.
-
-    fn capabilities(&self) -> crate::backend::BackendCapabilities {
-        crate::backend::BackendCapabilities {
-            supports_checkpoint: false,
-            supports_manual_compaction: false,
-            kind: crate::backend::BackendKind::InMemory,
-        }
-    }
 }
 
-// ─── Unit Tests ─────────────────────────────────────────────
 //
 // These tests validate InMemoryBackend directly through the trait.
 // They live here (inside the crate) because StorageBackend is pub(crate).
@@ -165,12 +162,10 @@ mod tests {
     fn test_backend_in_memory_basic_crud() {
         let backend = InMemoryBackend::new();
 
-        // Put
         backend
             .put(BackendPartition::Default, b"key1", b"value1")
             .unwrap();
 
-        // Get
         let val = backend
             .get(BackendPartition::Default, b"key1")
             .unwrap()
@@ -183,7 +178,6 @@ mod tests {
             .unwrap()
             .is_none());
 
-        // Delete
         backend.delete(BackendPartition::Default, b"key1").unwrap();
         assert!(backend
             .get(BackendPartition::Default, b"key1")

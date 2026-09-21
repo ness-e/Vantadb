@@ -1,6 +1,11 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! API Server & Health Modernized Test Suite
 //! Part of the Vanta Certification ecosystem.
 
+// The shared core harness (tests/common/mod.rs) references `cfg(feature = "sysinfo")`
+// which is a core-crate feature, not declared in vantadb-server — silence the lint.
+#[allow(unexpected_cfgs)]
 #[path = "../../tests/common/mod.rs"]
 mod common;
 
@@ -13,12 +18,15 @@ use axum::{
     http::{Request, StatusCode},
 };
 use common::{TerminalReporter, VantaHarness};
+use std::collections::HashMap;
 use std::net::SocketAddr;
 use std::path::Path;
 use std::sync::Arc;
-#[cfg(feature = "tls")]
 use std::time::Duration;
 use tower::ServiceExt;
+use vantadb::circuit_breaker::CircuitBreaker;
+use vantadb::config::RbacConfig;
+use vantadb::connection_pool::ConnectionPool;
 use vantadb::storage::StorageEngine;
 use vantadb_server::server::{app, ServerState};
 
@@ -63,7 +71,8 @@ async fn post_query(app: &mut axum::Router, auth_token: Option<&str>) -> StatusC
         req = req.header("Authorization", &format!("Bearer {}", token));
     }
     app.oneshot(add_addr(
-        req.body(Body::from(r#"{"query":"test"}"#)).unwrap(),
+        req.body(Body::from(r#"{"query":"SELECT * FROM Node"}"#))
+            .unwrap(),
     ))
     .await
     .unwrap()
@@ -135,6 +144,75 @@ async fn test_auth_health_exempt() {
     assert_eq!(status, StatusCode::OK);
 }
 
+// ─── RBAC: token→role enforcement (AuthState.token_role_map + Rbac) ───────
+
+/// Builds a state whose `api_key` doubles as the RBAC token for the given role.
+/// The middleware (cli_server.rs `auth_middleware`) resolves the role from
+/// `token_role_map` after the constant-time key check and denies with 403 when
+/// the role lacks the permission required by the HTTP method.
+fn build_rbac_context(api_key: &str, role: &str) -> TestContext {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
+    let db = vantadb::Embedded::from_engine(storage.clone());
+    let state = Arc::new(ServerState {
+        storage,
+        db,
+        circuit_breaker: Arc::new(CircuitBreaker::new(5, Duration::from_secs(30))),
+        pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
+        api_key: Some(Arc::from(api_key)),
+        alt_api_key: None,
+        jwt_secret: None,
+        rbac_config: RbacConfig {
+            token_role_map: HashMap::from([(api_key.to_string(), role.to_string())]),
+        },
+        trusted_proxies: vec![],
+        conversation_trigger: None,
+    });
+    TestContext {
+        _temp_dir: dir,
+        state,
+    }
+}
+
+#[tokio::test]
+async fn test_rbac_reader_forbidden_on_write() {
+    let ctx = build_rbac_context("reader-key", "reader");
+    let mut router = app(ctx.state, 0);
+
+    // POST is a write; reader role holds only Read → 403 before execution.
+    let status = post_query(&mut router, Some("reader-key")).await;
+    assert_eq!(status, StatusCode::FORBIDDEN);
+}
+
+#[tokio::test]
+async fn test_rbac_writer_allowed_on_write() {
+    let ctx = build_rbac_context("writer-key", "writer");
+    let mut router = app(ctx.state, 0);
+
+    let status = post_query(&mut router, Some("writer-key")).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_rbac_admin_allowed_on_write() {
+    let ctx = build_rbac_context("admin-key", "admin");
+    let mut router = app(ctx.state, 0);
+
+    // Admin role bypasses the per-permission check (has_permission short-circuits).
+    let status = post_query(&mut router, Some("admin-key")).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
+#[tokio::test]
+async fn test_rbac_reader_allowed_on_read_route() {
+    let ctx = build_rbac_context("reader-key", "reader");
+    let mut router = app(ctx.state, 0);
+
+    // GET is a read; reader role holds Read → allowed.
+    let status = get(&mut router, "/metrics", Some("reader-key")).await;
+    assert_eq!(status, StatusCode::OK);
+}
+
 // ─── TSK-15: Rate Limiting ────────────────────────────────────────────────
 
 #[tokio::test]
@@ -153,9 +231,20 @@ async fn test_rate_limit_enforces_after_burst() {
     let ctx = build_context(None, 10);
     let mut router = app(ctx.state, 5);
 
-    let status = post_query(&mut router, None).await;
-    assert_eq!(status, StatusCode::OK);
-
+    // REST-01: without an API key the governor allows the full rpm as burst
+    // (burst = 5 here) and replenishes every 12s. Fire BURST+1 requests
+    // rapidly so no token is refunded mid-burst: the first `BURST` pass (200)
+    // and the next one is rejected (429).
+    const BURST: usize = 5;
+    for i in 0..BURST {
+        let status = post_query(&mut router, None).await;
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "request {} should pass within the burst window",
+            i
+        );
+    }
     let status = post_query(&mut router, None).await;
     assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
 }
@@ -165,12 +254,24 @@ async fn test_rate_limit_health_unaffected() {
     let ctx = build_context(None, 10);
     let mut router = app(ctx.state, 5);
 
+    // /health is a public route (not behind the governor), so it stays 200
+    // even while the protected query route is rate-limited. Exhaust the
+    // no-auth burst (rpm = 5) and assert the next query trips the limiter,
+    // while /health remains untouched before and after.
+    const BURST: usize = 5;
+
     let status = get(&mut router, "/health", None).await;
     assert_eq!(status, StatusCode::OK);
 
-    let status = post_query(&mut router, None).await;
-    assert_eq!(status, StatusCode::OK);
-
+    for i in 0..BURST {
+        let status = post_query(&mut router, None).await;
+        assert_eq!(
+            status,
+            StatusCode::OK,
+            "request {} should pass within the burst window",
+            i
+        );
+    }
     let status = post_query(&mut router, None).await;
     assert_eq!(status, StatusCode::TOO_MANY_REQUESTS);
 
@@ -186,7 +287,7 @@ async fn post_query_owned(router: axum::Router) -> StatusCode {
         .uri("/api/v2/query")
         .method("POST")
         .header("content-type", "application/json")
-        .body(Body::from(r#"{"query":"test"}"#))
+        .body(Body::from(r#"{"query":"SELECT * FROM Node"}"#))
         .unwrap()
         .into_parts();
     parts
@@ -244,7 +345,7 @@ async fn test_concurrency_with_auth() {
                 .method("POST")
                 .header("content-type", "application/json")
                 .header("Authorization", "Bearer shared-key")
-                .body(Body::from(r#"{"query":"test"}"#))
+                .body(Body::from(r#"{"query":"SELECT * FROM Node"}"#))
                 .unwrap()
                 .into_parts();
             parts
@@ -264,8 +365,97 @@ async fn test_concurrency_with_auth() {
     }
 }
 
-// ─── TSK-16: TLS/HTTPS (requires --features tls) ─────────────────────────
+// ─── ENT-04: Circuit Breaker + Connection Pool ───────────────────────────
 
+/// Forces the breaker open (threshold 1 → one failure trips it), then verifies
+/// `/api/v2/query` fast-fails with 503 + `Retry-After` while open.
+#[tokio::test]
+async fn test_circuit_breaker_open_returns_503_with_retry_after() {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
+    let breaker = Arc::new(CircuitBreaker::new(1, Duration::from_secs(30)));
+    let db = vantadb::Embedded::from_engine(storage.clone());
+    let state = Arc::new(ServerState {
+        storage,
+        db,
+        circuit_breaker: breaker.clone(),
+        pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
+        api_key: None,
+        alt_api_key: None,
+        jwt_secret: None,
+        rbac_config: Default::default(),
+        trusted_proxies: vec![],
+        conversation_trigger: None,
+    });
+    breaker.record_failure(); // opens (threshold == 1)
+    assert_eq!(
+        breaker.state(),
+        vantadb::circuit_breaker::CircuitState::Open
+    );
+    let router = app(state, 0);
+
+    let req = add_addr(
+        Request::builder()
+            .uri("/api/v2/query")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"query":"test"}"#))
+            .unwrap(),
+    );
+    let res = router.oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::SERVICE_UNAVAILABLE);
+    let retry_after = res
+        .headers()
+        .get(axum::http::header::RETRY_AFTER)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default();
+    assert_eq!(
+        retry_after, "30",
+        "Retry-After must mirror the open timeout"
+    );
+}
+
+/// A half-open breaker admits exactly one probe; a successful probe closes it.
+#[tokio::test]
+async fn test_circuit_breaker_half_open_probe_success_closes() {
+    let dir = tempfile::tempdir().unwrap();
+    let storage = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
+    let breaker = Arc::new(CircuitBreaker::new(1, Duration::from_secs(0)));
+    let db = vantadb::Embedded::from_engine(storage.clone());
+    let state = Arc::new(ServerState {
+        storage,
+        db,
+        circuit_breaker: breaker.clone(),
+        pool: Arc::new(ConnectionPool::new(10, Duration::from_millis(5000))),
+        api_key: None,
+        alt_api_key: None,
+        jwt_secret: None,
+        rbac_config: Default::default(),
+        trusted_proxies: vec![],
+        conversation_trigger: None,
+    });
+    breaker.record_failure(); // open (0s timeout → immediately eligible for probe)
+    let router = app(state, 0);
+
+    // First request claims the half-open probe slot and executes successfully.
+    let req = add_addr(
+        Request::builder()
+            .uri("/api/v2/query")
+            .method("POST")
+            .header("content-type", "application/json")
+            .body(Body::from(r#"{"query":"SELECT * FROM Node"}"#))
+            .unwrap(),
+    );
+    let res = router.oneshot(req).await.unwrap();
+    assert_eq!(res.status(), StatusCode::OK, "probe request should pass");
+    assert_eq!(
+        breaker.state(),
+        vantadb::circuit_breaker::CircuitState::Closed,
+        "successful probe must close the breaker"
+    );
+}
+
+// ─── TSK-16: TLS/HTTPS (requires --features tls) ─────────────────────────
 #[cfg(feature = "tls")]
 fn setup_tls() {
     let _ = rustls::crypto::ring::default_provider().install_default();
@@ -328,20 +518,13 @@ async fn test_build_tls13_config_loading() {
 #[tokio::test]
 async fn test_tls_server_health_and_query() {
     setup_tls();
-    let dir = tempfile::tempdir().unwrap();
+    let (dir, state) = helpers::build_server_state(Path::new("db"), Some("tls-key"), 10);
     let (cert_path, key_path) = generate_test_cert(dir.path());
 
     let tls_config = axum_server::tls_rustls::RustlsConfig::from_pem_file(&cert_path, &key_path)
         .await
         .unwrap();
 
-    let storage = Arc::new(StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap());
-    let state = Arc::new(ServerState {
-        storage,
-        semaphore: Arc::new(tokio::sync::Semaphore::new(10)),
-        api_key: Some(Arc::from("tls-key")),
-        rbac_config: Default::default(),
-    });
     let router = app(state, 0);
 
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -387,7 +570,7 @@ async fn test_tls_server_health_and_query() {
         .post(format!("https://{}/api/v2/query", addr))
         .header("Authorization", "Bearer tls-key")
         .header("content-type", "application/json")
-        .body(r#"{"query":"test"}"#)
+        .body(r#"{"query":"SELECT * FROM Node"}"#)
         .send()
         .await
         .unwrap();
@@ -423,14 +606,7 @@ async fn api_server_certification() {
 
     harness.execute("Health: Endpoint Availability & Router State", || {
         futures::executor::block_on(async {
-            let temp_dir = tempfile::tempdir().unwrap();
-            let storage = Arc::new(StorageEngine::open(temp_dir.path().to_str().unwrap()).unwrap());
-            let state = Arc::new(ServerState {
-                storage,
-                semaphore: Arc::new(tokio::sync::Semaphore::new(10)),
-                api_key: None,
-                rbac_config: Default::default(),
-            });
+            let (_dir, state) = helpers::build_server_state(Path::new(""), None, 10);
             let app = app(state, 100);
 
             TerminalReporter::sub_step("Dispatching oneshot request to /health...");

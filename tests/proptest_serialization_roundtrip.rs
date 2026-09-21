@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! 🔁 Property-based round-trip tests for SDK serialization types.
 //!
 //! Binary (postcard) round-trips use full arbitrary floats with exact equality.
@@ -13,12 +14,10 @@ use serde::de::DeserializeOwned;
 use serde::Serialize;
 use vantadb::node::DistanceMetric;
 use vantadb::{
-    VantaBm25TermContribution, VantaCapabilities, VantaEdgeRecord, VantaExportReport, VantaFields,
-    VantaHybridFusionReport, VantaImportReport, VantaIndexRebuildReport, VantaMemoryInput,
-    VantaMemoryListOptions, VantaMemoryMetadata, VantaMemoryRecord, VantaMemorySearchHit,
-    VantaMemorySearchRequest, VantaNodeInput, VantaNodeRecord, VantaQueryResult,
-    VantaRuntimeProfile, VantaSearchExplanation, VantaSearchExplanationHit, VantaSearchHit,
-    VantaStorageTier, VantaTextIndexRepairReport, VantaValue,
+    Bm25TermContribution, Capabilities, EdgeRecord, ExportReport, Fields, HybridFusionReport,
+    ImportReport, IndexRebuildReport, MemoryInput, MemoryListOptions, MemoryMetadata, MemoryRecord,
+    MemorySearchHit, MemorySearchRequest, NodeInput, NodeRecord, QueryResult, RuntimeProfile,
+    SearchExplanation, SearchExplanationHit, SearchHit, StorageTier, TextIndexRepairReport, Value,
 };
 
 // ── Helpers ─────────────────────────────────────────────────────────────
@@ -46,47 +45,47 @@ fn arb_datetime() -> impl Strategy<Value = chrono::DateTime<chrono::Utc>> {
     })
 }
 
-/// Float-free VantaValue for JSON round-trip tests (avoid f64 precision loss).
-fn arb_vanta_value_json() -> impl Strategy<Value = VantaValue> {
+/// Float-free Value for JSON round-trip tests (avoid f64 precision loss).
+fn arb_vanta_value_json() -> impl Strategy<Value = Value> {
     prop_oneof![
-        10 => any::<String>().prop_map(VantaValue::String),
-        4 => any::<i64>().prop_map(VantaValue::Int),
-        4 => any::<bool>().prop_map(VantaValue::Bool),
-        4 => arb_datetime().prop_map(VantaValue::DateTime),
-        2 => prop::collection::vec(any::<String>(), 0..5).prop_map(VantaValue::ListString),
-        1 => prop::collection::vec(any::<i64>(), 0..5).prop_map(VantaValue::ListInt),
-        1 => prop::collection::vec(any::<bool>(), 0..5).prop_map(VantaValue::ListBool),
-        1 => prop::collection::vec(arb_datetime(), 0..5).prop_map(VantaValue::ListDateTime),
-        2 => Just(VantaValue::Null),
+        10 => any::<String>().prop_map(Value::String),
+        4 => any::<i64>().prop_map(Value::Int),
+        4 => any::<bool>().prop_map(Value::Bool),
+        4 => arb_datetime().prop_map(Value::DateTime),
+        2 => prop::collection::vec(any::<String>(), 0..5).prop_map(Value::ListString),
+        1 => prop::collection::vec(any::<i64>(), 0..5).prop_map(Value::ListInt),
+        1 => prop::collection::vec(any::<bool>(), 0..5).prop_map(Value::ListBool),
+        1 => prop::collection::vec(arb_datetime(), 0..5).prop_map(Value::ListDateTime),
+        2 => Just(Value::Null),
     ]
 }
 
-fn arb_metadata_json() -> impl Strategy<Value = VantaMemoryMetadata> {
+fn arb_metadata_json() -> impl Strategy<Value = MemoryMetadata> {
     prop::collection::btree_map("[a-zA-Z_][a-zA-Z0-9_]{0,15}", arb_vanta_value_json(), 0..8)
 }
 
-/// Full-range VantaValue for postcard tests (all float values).
-fn arb_vanta_value_full() -> impl Strategy<Value = VantaValue> {
+/// Full-range Value for postcard tests (all float values).
+fn arb_vanta_value_full() -> impl Strategy<Value = Value> {
     prop_oneof![
-        10 => any::<String>().prop_map(VantaValue::String),
-        4 => any::<i64>().prop_map(VantaValue::Int),
-        4 => any::<f64>().prop_map(VantaValue::Float),
-        4 => any::<bool>().prop_map(VantaValue::Bool),
-        4 => arb_datetime().prop_map(VantaValue::DateTime),
-        2 => prop::collection::vec(any::<String>(), 0..5).prop_map(VantaValue::ListString),
-        1 => prop::collection::vec(any::<i64>(), 0..5).prop_map(VantaValue::ListInt),
-        1 => prop::collection::vec(any::<f64>(), 0..5).prop_map(VantaValue::ListFloat),
-        1 => prop::collection::vec(any::<bool>(), 0..5).prop_map(VantaValue::ListBool),
-        1 => prop::collection::vec(arb_datetime(), 0..5).prop_map(VantaValue::ListDateTime),
-        2 => Just(VantaValue::Null),
+        10 => any::<String>().prop_map(Value::String),
+        4 => any::<i64>().prop_map(Value::Int),
+        4 => any::<f64>().prop_map(Value::Float),
+        4 => any::<bool>().prop_map(Value::Bool),
+        4 => arb_datetime().prop_map(Value::DateTime),
+        2 => prop::collection::vec(any::<String>(), 0..5).prop_map(Value::ListString),
+        1 => prop::collection::vec(any::<i64>(), 0..5).prop_map(Value::ListInt),
+        1 => prop::collection::vec(any::<f64>(), 0..5).prop_map(Value::ListFloat),
+        1 => prop::collection::vec(any::<bool>(), 0..5).prop_map(Value::ListBool),
+        1 => prop::collection::vec(arb_datetime(), 0..5).prop_map(Value::ListDateTime),
+        2 => Just(Value::Null),
     ]
 }
 
-fn arb_vanta_fields_full() -> impl Strategy<Value = VantaFields> {
+fn arb_vanta_fields_full() -> impl Strategy<Value = Fields> {
     prop::collection::btree_map("[a-zA-Z_][a-zA-Z0-9_]{0,15}", arb_vanta_value_full(), 0..8)
 }
 
-fn arb_metadata_full() -> impl Strategy<Value = VantaMemoryMetadata> {
+fn arb_metadata_full() -> impl Strategy<Value = MemoryMetadata> {
     arb_vanta_fields_full()
 }
 
@@ -97,16 +96,16 @@ fn arb_distance_metric() -> impl Strategy<Value = DistanceMetric> {
     ]
 }
 
-fn arb_runtime_profile() -> impl Strategy<Value = VantaRuntimeProfile> {
+fn arb_runtime_profile() -> impl Strategy<Value = RuntimeProfile> {
     prop_oneof![
-        Just(VantaRuntimeProfile::Enterprise),
-        Just(VantaRuntimeProfile::Performance),
-        Just(VantaRuntimeProfile::LowResource),
+        Just(RuntimeProfile::Enterprise),
+        Just(RuntimeProfile::Performance),
+        Just(RuntimeProfile::LowResource),
     ]
 }
 
-fn arb_storage_tier() -> impl Strategy<Value = VantaStorageTier> {
-    prop_oneof![Just(VantaStorageTier::Hot), Just(VantaStorageTier::Cold),]
+fn arb_storage_tier() -> impl Strategy<Value = StorageTier> {
+    prop_oneof![Just(StorageTier::Hot), Just(StorageTier::Cold),]
 }
 
 fn arb_u128() -> impl Strategy<Value = u128> {
@@ -121,7 +120,7 @@ fn arb_option_vector() -> impl Strategy<Value = Option<Vec<f32>>> {
     prop::option::weighted(0.8, arb_vector())
 }
 
-// ── VantaValue (postcard, full range) ───────────────────────────────────
+// ── Value (postcard, full range) ───────────────────────────────────
 
 proptest! {
     #[test]
@@ -133,13 +132,19 @@ proptest! {
     fn test_edge_record_json_roundtrip(
         target: u128, label: String, weight: f32,
     ) {
-        assert_json(&VantaEdgeRecord { target, label, weight });
+        assert_json(&EdgeRecord {
+            target,
+            label,
+            weight,
+            reverse: false,
+            created_at_ms: 0,
+        });
     }
 }
 
-// ── VantaMemoryInput (postcard) ─────────────────────────────────────────
+// ── MemoryInput (postcard) ─────────────────────────────────────────
 
-fn arb_memory_input_full() -> impl Strategy<Value = VantaMemoryInput> {
+fn arb_memory_input_full() -> impl Strategy<Value = MemoryInput> {
     (
         any::<String>(),
         any::<String>(),
@@ -149,12 +154,13 @@ fn arb_memory_input_full() -> impl Strategy<Value = VantaMemoryInput> {
         prop::option::of(any::<u64>()),
     )
         .prop_map(
-            |(namespace, key, payload, metadata, vector, ttl_ms)| VantaMemoryInput {
+            |(namespace, key, payload, metadata, vector, ttl_ms)| MemoryInput {
                 namespace,
                 key,
                 payload,
                 metadata,
                 vector,
+                sparse_vector: None,
                 ttl_ms,
             },
         )
@@ -167,11 +173,11 @@ proptest! {
     }
 }
 
-// ── VantaMemoryRecord (JSON) ────────────────────────────────────────
+// ── MemoryRecord (JSON) ────────────────────────────────────────
 // Uses `#[serde(with = "u128_serde")]` (string-based u128), which is
 // incompatible with postcard's binary format but works with JSON.
 
-fn arb_memory_record_json() -> impl Strategy<Value = VantaMemoryRecord> {
+fn arb_memory_record_json() -> impl Strategy<Value = MemoryRecord> {
     (
         any::<String>(),
         any::<String>(),
@@ -197,7 +203,7 @@ fn arb_memory_record_json() -> impl Strategy<Value = VantaMemoryRecord> {
                 vector,
                 expires_at_ms,
             )| {
-                VantaMemoryRecord {
+                MemoryRecord {
                     namespace,
                     key,
                     payload,
@@ -207,7 +213,10 @@ fn arb_memory_record_json() -> impl Strategy<Value = VantaMemoryRecord> {
                     version,
                     node_id: node_id_small as u128,
                     vector,
+                    sparse_vector: None,
                     expires_at_ms,
+                    superseded_by: None,
+                    superseded_at_ms: None,
                 }
             },
         )
@@ -220,20 +229,20 @@ proptest! {
     }
 }
 
-// ── VantaMemorySearchHit (JSON) ─────────────────────────────────────────
-// Contains VantaMemoryRecord (u128_serde), so postcard is not supported.
+// ── MemorySearchHit (JSON) ─────────────────────────────────────────
+// Contains MemoryRecord (u128_serde), so postcard is not supported.
 
 proptest! {
     #[test]
     fn test_search_hit_json_roundtrip(rec in arb_memory_record_json(), score in -1e8f32..1e8f32) {
-        let hit = VantaMemorySearchHit { record: rec, score, explanation: None };
+        let hit = MemorySearchHit { record: rec, score, explanation: None };
         assert_json(&hit);
     }
 }
 
-// ── VantaMemoryListOptions (postcard) ───────────────────────────────────
+// ── MemoryListOptions (postcard) ───────────────────────────────────
 
-fn arb_list_options_full() -> impl Strategy<Value = VantaMemoryListOptions> {
+fn arb_list_options_full() -> impl Strategy<Value = MemoryListOptions> {
     (
         arb_metadata_full(),
         any::<usize>(),
@@ -241,11 +250,12 @@ fn arb_list_options_full() -> impl Strategy<Value = VantaMemoryListOptions> {
     )
         .prop_map(|(filters, limit, cursor)| {
             #[allow(deprecated)]
-            VantaMemoryListOptions {
+            MemoryListOptions {
                 filters,
                 filter_ops: None,
                 limit,
                 cursor,
+                exclude_superseded: false,
             }
         })
 }
@@ -257,9 +267,9 @@ proptest! {
     }
 }
 
-// ── VantaMemorySearchRequest (postcard) ─────────────────────────────────
+// ── MemorySearchRequest (postcard) ─────────────────────────────────
 
-fn arb_search_request_full() -> impl Strategy<Value = VantaMemorySearchRequest> {
+fn arb_search_request_full() -> impl Strategy<Value = MemorySearchRequest> {
     (
         any::<String>(),
         arb_vector(),
@@ -271,7 +281,7 @@ fn arb_search_request_full() -> impl Strategy<Value = VantaMemorySearchRequest> 
     )
         .prop_map(
             |(namespace, query_vector, filters, text_query, top_k, distance_metric, explain)| {
-                VantaMemorySearchRequest {
+                MemorySearchRequest {
                     namespace,
                     query_vector,
                     filters,
@@ -279,6 +289,9 @@ fn arb_search_request_full() -> impl Strategy<Value = VantaMemorySearchRequest> 
                     top_k,
                     distance_metric,
                     explain,
+                    query_sparse: None,
+                    exclude_superseded: false,
+                    search_profile: None,
                 }
             },
         )
@@ -291,9 +304,9 @@ proptest! {
     }
 }
 
-// ── VantaSearchExplanationHit (postcard) ────────────────────────────────
+// ── SearchExplanationHit (postcard) ────────────────────────────────
 
-fn arb_search_explanation_hit() -> impl Strategy<Value = VantaSearchExplanationHit> {
+fn arb_search_explanation_hit() -> impl Strategy<Value = SearchExplanationHit> {
     (
         any::<String>(),
         any::<f32>(),
@@ -309,7 +322,7 @@ fn arb_search_explanation_hit() -> impl Strategy<Value = VantaSearchExplanationH
                 any::<f32>(),
             )
                 .prop_map(|(token, tf, df, doc_len, contribution)| {
-                    VantaBm25TermContribution {
+                    Bm25TermContribution {
                         token,
                         tf,
                         df,
@@ -333,7 +346,7 @@ fn arb_search_explanation_hit() -> impl Strategy<Value = VantaSearchExplanationH
                 rrf_text_rank,
                 rrf_vector_rank,
             )| {
-                VantaSearchExplanationHit {
+                SearchExplanationHit {
                     identity,
                     score,
                     snippet,
@@ -347,7 +360,7 @@ fn arb_search_explanation_hit() -> impl Strategy<Value = VantaSearchExplanationH
         )
 }
 
-// ── VantaExportReport (JSON + postcard) ─────────────────────────────────
+// ── ExportReport (JSON + postcard) ─────────────────────────────────
 
 proptest! {
     #[test]
@@ -357,26 +370,26 @@ proptest! {
         path: String,
         duration_ms: u64,
     ) {
-        let report = VantaExportReport { records_exported, namespaces, path, duration_ms };
+        let report = ExportReport { records_exported, namespaces, path, duration_ms };
         assert_json(&report);
         assert_postcard(&report);
     }
 }
 
-// ── VantaImportReport (JSON + postcard) ─────────────────────────────────
+// ── ImportReport (JSON + postcard) ─────────────────────────────────
 
 proptest! {
     #[test]
     fn test_import_report_json_roundtrip(
         inserted: u64, updated: u64, skipped: u64, errors: u64, duration_ms: u64,
     ) {
-        let report = VantaImportReport { inserted, updated, skipped, errors, duration_ms };
+        let report = ImportReport { inserted, updated, skipped, errors, duration_ms };
         assert_json(&report);
         assert_postcard(&report);
     }
 }
 
-// ── VantaIndexRebuildReport (JSON + postcard) ───────────────────────────
+// ── IndexRebuildReport (JSON + postcard) ───────────────────────────
 
 proptest! {
     #[test]
@@ -384,7 +397,7 @@ proptest! {
         scanned_nodes: u64, indexed_vectors: u64, skipped_tombstones: u64,
         duration_ms: u64, derived_rebuild_ms: u64, index_path: String, success: bool,
     ) {
-        let report = VantaIndexRebuildReport {
+        let report = IndexRebuildReport {
             scanned_nodes, indexed_vectors, skipped_tombstones,
             duration_ms, derived_rebuild_ms, index_path, success,
         };
@@ -393,7 +406,7 @@ proptest! {
     }
 }
 
-// ── VantaTextIndexRepairReport (JSON + postcard) ────────────────────────
+// ── TextIndexRepairReport (JSON + postcard) ────────────────────────
 
 proptest! {
     #[test]
@@ -402,7 +415,7 @@ proptest! {
         term_stats_entries: u64, namespace_stats_entries: u64,
         duration_ms: u64, success: bool,
     ) {
-        let report = VantaTextIndexRepairReport {
+        let report = TextIndexRepairReport {
             record_count, posting_entries, doc_stats_entries,
             term_stats_entries, namespace_stats_entries, duration_ms, success,
         };
@@ -411,16 +424,16 @@ proptest! {
     }
 }
 
-// ── VantaNodeInput (postcard) ───────────────────────────────────────────
+// ── NodeInput (postcard) ───────────────────────────────────────────
 
-fn arb_node_input_full() -> impl Strategy<Value = VantaNodeInput> {
+fn arb_node_input_full() -> impl Strategy<Value = NodeInput> {
     (
         arb_u128(),
         prop::option::of(any::<String>()),
         arb_option_vector(),
         arb_vanta_fields_full(),
     )
-        .prop_map(|(id, content, vector, fields)| VantaNodeInput {
+        .prop_map(|(id, content, vector, fields)| NodeInput {
             id,
             content,
             vector,
@@ -435,15 +448,15 @@ proptest! {
     }
 }
 
-// ── VantaNodeRecord (JSON) ──────────────────────────────────────────────
-// Uses float-free VantaFields (arb_vanta_value_json) to avoid f64 precision
-// loss through serde_json. Also tests u128_serde on VantaNodeRecord.id.
+// ── NodeRecord (JSON) ──────────────────────────────────────────────
+// Uses float-free Fields (arb_vanta_value_json) to avoid f64 precision
+// loss through serde_json. Also tests u128_serde on NodeRecord.id.
 
-fn arb_vanta_fields_json() -> impl Strategy<Value = VantaFields> {
+fn arb_vanta_fields_json() -> impl Strategy<Value = Fields> {
     prop::collection::btree_map("[a-zA-Z_][a-zA-Z0-9_]{0,15}", arb_vanta_value_json(), 0..8)
 }
 
-fn arb_node_record_json() -> impl Strategy<Value = VantaNodeRecord> {
+fn arb_node_record_json() -> impl Strategy<Value = NodeRecord> {
     (
         arb_u128(),
         arb_vanta_fields_json(),
@@ -473,7 +486,7 @@ fn arb_node_record_json() -> impl Strategy<Value = VantaNodeRecord> {
                 tier,
                 is_alive,
             )| {
-                VantaNodeRecord {
+                NodeRecord {
                     id,
                     fields,
                     vector,
@@ -491,36 +504,43 @@ fn arb_node_record_json() -> impl Strategy<Value = VantaNodeRecord> {
         )
 }
 
-fn arb_query_result_json() -> impl Strategy<Value = VantaQueryResult> {
+fn arb_query_result_json() -> impl Strategy<Value = QueryResult> {
     prop_oneof![
-        prop::collection::vec(arb_node_record_json(), 0..3).prop_map(VantaQueryResult::Read),
+        prop::collection::vec(arb_node_record_json(), 0..3).prop_map(QueryResult::Read),
         (
             any::<usize>(),
             any::<String>(),
             prop::option::of(arb_u128())
         )
-            .prop_map(
-                |(affected_nodes, message, node_id)| VantaQueryResult::Write {
-                    affected_nodes,
-                    message,
-                    node_id,
-                }
-            ),
-        arb_u128().prop_map(|node_id| VantaQueryResult::StaleContext { node_id }),
+            .prop_map(|(affected_nodes, message, node_id)| QueryResult::Write {
+                affected_nodes,
+                message,
+                node_id,
+            }),
+        arb_u128().prop_map(|node_id| QueryResult::StaleContext { node_id }),
     ]
 }
 
-fn arb_edge_record() -> impl Strategy<Value = VantaEdgeRecord> {
-    (arb_u128(), any::<String>(), any::<f32>()).prop_map(|(target, label, weight)| {
-        VantaEdgeRecord {
-            target,
-            label,
-            weight,
-        }
-    })
+fn arb_edge_record() -> impl Strategy<Value = EdgeRecord> {
+    (
+        arb_u128(),
+        any::<String>(),
+        any::<f32>(),
+        any::<bool>(),
+        any::<u64>(),
+    )
+        .prop_map(
+            |(target, label, weight, reverse, created_at_ms)| EdgeRecord {
+                target,
+                label,
+                weight,
+                reverse,
+                created_at_ms,
+            },
+        )
 }
 
-fn arb_node_record_full() -> impl Strategy<Value = VantaNodeRecord> {
+fn arb_node_record_full() -> impl Strategy<Value = NodeRecord> {
     (
         arb_u128(),
         arb_vanta_fields_full(),
@@ -550,7 +570,7 @@ fn arb_node_record_full() -> impl Strategy<Value = VantaNodeRecord> {
                 tier,
                 is_alive,
             )| {
-                VantaNodeRecord {
+                NodeRecord {
                     id,
                     fields,
                     vector,
@@ -575,25 +595,23 @@ proptest! {
     }
 }
 
-// ── VantaQueryResult (postcard) ─────────────────────────────────────────
+// ── QueryResult (postcard) ─────────────────────────────────────────
 
 #[expect(dead_code)]
-fn arb_query_result_full() -> impl Strategy<Value = VantaQueryResult> {
+fn arb_query_result_full() -> impl Strategy<Value = QueryResult> {
     prop_oneof![
-        prop::collection::vec(arb_node_record_full(), 0..5).prop_map(VantaQueryResult::Read),
+        prop::collection::vec(arb_node_record_full(), 0..5).prop_map(QueryResult::Read),
         (
             any::<usize>(),
             any::<String>(),
             prop::option::of(arb_u128())
         )
-            .prop_map(
-                |(affected_nodes, message, node_id)| VantaQueryResult::Write {
-                    affected_nodes,
-                    message,
-                    node_id,
-                }
-            ),
-        arb_u128().prop_map(|node_id| VantaQueryResult::StaleContext { node_id }),
+            .prop_map(|(affected_nodes, message, node_id)| QueryResult::Write {
+                affected_nodes,
+                message,
+                node_id,
+            }),
+        arb_u128().prop_map(|node_id| QueryResult::StaleContext { node_id }),
     ]
 }
 
@@ -604,7 +622,7 @@ proptest! {
     }
 }
 
-// ── VantaCapabilities (JSON + postcard) ─────────────────────────────────
+// ── Capabilities (JSON + postcard) ─────────────────────────────────
 
 proptest! {
     #[test]
@@ -612,15 +630,15 @@ proptest! {
         runtime_profile in arb_runtime_profile(),
         persistence: bool, vector_search: bool, iql_queries: bool, read_only: bool,
     ) {
-        let caps = VantaCapabilities { runtime_profile, persistence, vector_search, iql_queries, read_only };
+        let caps = Capabilities { runtime_profile, persistence, vector_search, iql_queries, read_only };
         assert_json(&caps);
         assert_postcard(&caps);
     }
 }
 
-// ── VantaSearchExplanation (postcard) ───────────────────────────────────
+// ── SearchExplanation (postcard) ───────────────────────────────────
 
-fn arb_hybrid_fusion_report() -> impl Strategy<Value = VantaHybridFusionReport> {
+fn arb_hybrid_fusion_report() -> impl Strategy<Value = HybridFusionReport> {
     (
         any::<usize>(),
         any::<usize>(),
@@ -628,24 +646,22 @@ fn arb_hybrid_fusion_report() -> impl Strategy<Value = VantaHybridFusionReport> 
         any::<usize>(),
     )
         .prop_map(
-            |(text_candidates, vector_candidates, fused_candidates, rrf_k)| {
-                VantaHybridFusionReport {
-                    text_candidates,
-                    vector_candidates,
-                    fused_candidates,
-                    rrf_k,
-                }
+            |(text_candidates, vector_candidates, fused_candidates, rrf_k)| HybridFusionReport {
+                text_candidates,
+                vector_candidates,
+                fused_candidates,
+                rrf_k,
             },
         )
 }
 
-fn arb_search_explanation() -> impl Strategy<Value = VantaSearchExplanation> {
+fn arb_search_explanation() -> impl Strategy<Value = SearchExplanation> {
     (
         any::<String>(),
         prop::collection::vec(arb_search_explanation_hit(), 0..5),
         prop::option::of(arb_hybrid_fusion_report()),
     )
-        .prop_map(|(route, hits, fusion_report)| VantaSearchExplanation {
+        .prop_map(|(route, hits, fusion_report)| SearchExplanation {
             route,
             hits,
             fusion_report,
@@ -659,23 +675,29 @@ proptest! {
     }
 }
 
-// ── VantaSearchHit (postcard) ───────────────────────────────────────────
+// ── SearchHit (postcard) ───────────────────────────────────────────
 
 proptest! {
     #[test]
     fn test_search_hit_simple_json_roundtrip(node_id: u128, distance: f32) {
-        assert_json(&VantaSearchHit { node_id, distance });
+        assert_json(&SearchHit { node_id, distance });
     }
 }
 
-// ── VantaEdgeRecord (postcard) ──────────────────────────────────────────
+// ── EdgeRecord (postcard) ──────────────────────────────────────────
 
 proptest! {
     #[test]
     fn test_edge_record_json_roundtrip_int(label: String) {
-        let edge = VantaEdgeRecord { target: 0, label, weight: 0.0 };
+        let edge = EdgeRecord {
+        target: 0,
+        label,
+        weight: 0.0,
+        reverse: false,
+        created_at_ms: 0,
+    };
         let json = serde_json::to_string(&edge).unwrap();
-        let recovered: VantaEdgeRecord = serde_json::from_str(&json).unwrap();
+        let recovered: EdgeRecord = serde_json::from_str(&json).unwrap();
         // f64 fields may differ by 1 ULP through JSON — verify structure instead
         assert_eq!(edge.target, recovered.target);
         assert_eq!(edge.label, recovered.label);

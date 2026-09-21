@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! TSK-143: Fjall vs RocksDB backend benchmark.
 //!
 //! Compares insert throughput, get latency, and memory usage between Fjall
@@ -12,7 +13,7 @@ use rand::{Rng, SeedableRng};
 use std::hint::black_box;
 use std::time::Instant;
 use tempfile::TempDir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::StorageEngine;
 use vantadb::BackendKind;
@@ -22,7 +23,7 @@ const QUERY_SAMPLE: usize = 500;
 
 fn setup_engine(backend: BackendKind) -> (StorageEngine, TempDir) {
     let dir = TempDir::new().expect("temp dir");
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: backend,
         storage_path: dir.path().to_string_lossy().to_string(),
         wal_shards: 0,
@@ -106,7 +107,7 @@ fn bench_bulk_insert_throughput() {
             elapsed.as_secs_f64(),
             throughput
         );
-        let stats = engine.get_memory_stats();
+        let stats = engine.stats();
         let rss_mb = stats
             .physical_rss
             .map(|b| b as f64 / (1024.0 * 1024.0))

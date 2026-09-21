@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! A4+A3: Parametric HNSW sweep over real datasets.
 //!
 //! Loads pre-downloaded datasets from `data/benchmark/{name}/`, sweeps
@@ -102,6 +105,9 @@ fn compute_brute_force_gt(
                 let d = match metric {
                     DistanceMetric::Euclidean => -euclidean_sq(q, v),
                     DistanceMetric::Cosine => cosine_sim(q, v),
+                    DistanceMetric::SparseDot => {
+                        unreachable!("SparseDot is not a dense recall metric")
+                    }
                 };
                 (d, i as u128)
             })
@@ -184,7 +190,7 @@ fn build_index(ds: &Dataset, m: usize, ef_c: usize) -> (CPIndex, f64) {
     let t0 = Instant::now();
     for i in 0..ds.n_train {
         let vec = &ds.train[i * ds.dims..(i + 1) * ds.dims];
-        idx.add(
+        let _ = idx.add(
             i as u128,
             FilterBitset::all_set(),
             VectorRepresentations::Full(vec.to_vec()),

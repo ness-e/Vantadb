@@ -3,49 +3,74 @@
 > VantaDB is an embedded vector database written in Rust, focused on long-term memory for AI agents.
 
 ## Docs
-- docs/architecture/ARCHITECTURE.md
-- docs/operations/CONFIGURATION.md
-- docs/operations/DURABILITY_GUARANTEES.md
-- docs/Backlog.md
+
+- https://github.com/ness-e/Vantadb/blob/main/docs/QUICKSTART.md
+- https://github.com/ness-e/Vantadb/blob/main/docs/architecture/ARCHITECTURE.md
+- https://github.com/ness-e/Vantadb/blob/main/docs/operations/CONFIGURATION.md
+- https://github.com/ness-e/Vantadb/blob/main/docs/operations/DURABILITY_GUARANTEES.md
 
 ## API
-- docs/api/EMBEDDED_SDK.md
-- docs/api/HTTP_API.md
-- docs/api/MCP.md
-- docs/api/PYTHON_SDK.md
-- docs/api/TS_SDK.md
+
+- https://github.com/ness-e/Vantadb/blob/main/docs/api/EMBEDDED_SDK.md
+- https://github.com/ness-e/Vantadb/blob/main/docs/api/HTTP_API.md
+- https://github.com/ness-e/Vantadb/blob/main/docs/api/MCP.md
+- https://github.com/ness-e/Vantadb/blob/main/docs/api/PYTHON_SDK.md
+- https://github.com/ness-e/Vantadb/blob/main/docs/api/TS_SDK.md
 
 ## Quick Start
-### Python
-```python
-from vantadb import VantaEmbedded
 
-db = VantaEmbedded(path="./memory")
-db.put("key1", [0.1, 0.2, 0.3], {"source": "chat"})
-results = db.search([0.1, 0.2, 0.3], top_k=5)
+### Python
+
+```python
+import vantadb
+
+db = vantadb.Client("./memory")
+db.put(
+    namespace="default",
+    key="key1",
+    payload="hello world",
+    metadata={"source": "chat"},
+    vector=[0.1, 0.2, 0.3],
+)
+results = db.search_memory(
+    namespace="default",
+    query_vector=[0.1, 0.2, 0.3],
+    top_k=5,
+)
 ```
 
 ### Rust
-```rust
-use vantadb::VantaEmbedded;
 
-let db = VantaEmbedded::new("./memory");
-db.put("key1", &[0.1, 0.2, 0.3], None).await;
-let results = db.search(&[0.1, 0.2, 0.3], 5).await;
+```rust
+use vantadb::{Embedded, MemoryInput};
+
+let db = Embedded::open("./memory")?;
+db.put(MemoryInput {
+    namespace: "default".into(),
+    key: "key1".into(),
+    payload: "hello world".into(),
+    metadata: Default::default(),
+    vector: Some(vec![0.1, 0.2, 0.3]),
+    ttl_ms: None,
+})?;
+let hits = db.search_vector(&[0.1, 0.2, 0.3], 5)?;
 ```
 
 ### CLI
+
 ```bash
-vanta-cli put --namespace default --key hello --vector "[0.1, 0.2, 0.3]"
-vanta-cli search --namespace default --query "[0.1, 0.2, 0.3]"
+vanta-cli put --namespace default --key hello --payload "hello world" --vector "[0.1, 0.2, 0.3]"
+vanta-cli search --namespace default --query-vector "[0.1, 0.2, 0.3]"
 ```
 
 ### MCP Server
+
 ```bash
-vanta-cli mcp  # Starts MCP server for AI agent integration
+vanta-cli server --mcp  # Starts the stdio MCP server for AI agent integration
 ```
 
 ## Features
+
 - HNSW vector index with CPIndex (DashMap + xxHash + parking_lot)
 - Flat (brute-force) index for exact search
 - HNSW auto-tune: PID loop for dynamic ef_search
@@ -55,21 +80,22 @@ vanta-cli mcp  # Starts MCP server for AI agent integration
 - SIMD distance kernels: AVX-512 + portable f32x8
 - MemoryGovernor: watermark-based memory eviction
 - 3 backends: Fjall (default), RocksDB (optional), InMemory
-- 9 SDKs: Python, TypeScript, Rust, WASM, MCP, REST, LangChain, LlamaIndex, DSPy
+- SDKs: Python (PyO3), TypeScript (Node via napi-rs + WASM for browsers), Rust core SDK, MCP server (stdio), REST HTTP API
+- Adapters in progress (integrations/, not yet on PyPI): LangChain, LlamaIndex, CrewAI, DSPy, Haystack, Mem0, Letta, OpenAI, Ollama, LiteLLM
 - CLI with 33+ commands and shell completions
 - OpenTelemetry integration (OTLP + Prometheus)
 - FilterBitset multi-tenant filtering
-- RBAC (enterprise crate)
+- RBAC auth middleware on the HTTP server
 - WASM/OPFS persistence with IndexedDB fallback
 
 ## Integration Ecosystem
+
 - Python SDK: pip install vantadb-py
-- TypeScript SDK: npm install vantadb
+- TypeScript SDK: npm install vantadb (Node) / @vantadb/wasm (browsers)
 - Rust SDK: cargo add vantadb
-- LangChain adapter: langchain-vantadb (coming to PyPI)
-- LlamaIndex adapter: llama-index-vector-stores-vantadb (coming to PyPI)
 
 ## Performance
+
 - HNSW M=32, ef_construct=400, ef_search=100
 - Batch insert with single lock acquisition
 - Zero-copy mmap vector store with BFS layout
@@ -77,7 +103,8 @@ vanta-cli mcp  # Starts MCP server for AI agent integration
 - Release profile: thin LTO, opt-level=3
 
 ## Project Status
+
 - Version: 0.5.0
-- Pre-release, Phase 3 pre-launch (~95%)
+- Status: MVP published, active development
 - License: Apache 2.0
 - Repository: https://github.com/ness-e/Vantadb

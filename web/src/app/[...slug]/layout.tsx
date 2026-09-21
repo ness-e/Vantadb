@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Not Found · VantaDB",
     description:
       "La página que buscas no existe. Vuelve al inicio de VantaDB para explorar hybrid search local-first.",
-    url: "https://vantadb.dev/404",
+    url: "https://vantadb.vercel.app/404",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/404",
+    canonical: "https://vantadb.vercel.app/404",
   },
   robots: { index: false, follow: false },
 };

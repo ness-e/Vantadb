@@ -3,10 +3,30 @@
 //! This adapter encapsulates all direct interaction with the `rocksdb` crate.
 //! No RocksDB types (DB, ColumnFamily handles, iterators, options) should leak
 //! outside this module.
+//!
+//! ## Crate frontier (FIND-36)
+//!
+//! `RocksDbBackend` is `pub(crate)` and only reachable via
+//! `crate::backend::StorageBackend` (trait, `pub(crate)`) through
+//! `StorageEngine` — it never imports `desktop`, `tauri` or
+//! `NativeConnection`. The only caller is `StorageEngine`'s backend factory
+//! (`src/storage/engine/init.rs` `match BackendKind`). The call chain is a
+//! one-way DAG `NativeConnection (desktop) → Embedded → StorageEngine
+//! → StorageBackend → RocksDbBackend`; there is no back-edge, so the
+//! "3 cycles get/put/delete" reported by CodeGraph (Leiden clustering of the
+//! shared method names) is a false positive — verified by `rg` zero
+//! cross-imports + isolated workspaces (`desktop/src-tauri` has
+//! `[workspace] members = ["."]`, `cargo check -p vantadb` stays invariant)
+//! and `cargo check --all-targets --all-features` 0 cycles.
+//! See `desktop/src-tauri/src/connections/native.rs` header for the desktop side.
+//!
+//! `// ponytail: doc justifies Leiden false positive without trait refactor; extract trait if real SCC emerges`
 
-use crate::backend::{BackendPartition, BackendWriteOp, StorageBackend};
-use crate::config::VantaConfig;
-use crate::error::{Result, VantaError};
+use crate::backend::{
+    BackendPartition, BackendWriteOp, Compactable, Scannable, Snapshotable, StorageBackend,
+};
+use crate::config::Config;
+use crate::error::{Error, Result};
 use rocksdb::checkpoint::Checkpoint;
 use rocksdb::{Direction, FlushOptions, IteratorMode, Options, WriteBatch, DB};
 use std::path::Path;
@@ -29,7 +49,7 @@ impl RocksDbBackend {
     /// Preserves the original tuning: bloom filters, LRU cache sizing,
     /// memtable budgets, LZ4 compression, mmap access for low-RAM profiles,
     /// and per-CF block-based table options.
-    pub(crate) fn open(path: &str, config: &VantaConfig) -> Result<Self> {
+    pub(crate) fn open(path: &str, config: &Config) -> Result<Self> {
         let caps = crate::hardware::HardwareCapabilities::global();
 
         // Memory limit resolution priority:
@@ -117,6 +137,11 @@ impl RocksDbBackend {
         let mut internal_metadata_opts = default_opts.clone();
         internal_metadata_opts.set_block_based_table_factory(&cold_bopts);
 
+        // Version-history snapshots (VS-CORE-07): bounded per key (default cap
+        // 32), LZ4 like the rest; hot reads are point-get / prefix scans.
+        let mut versions_opts = default_opts.clone();
+        versions_opts.set_block_based_table_factory(&bopts);
+
         let cf_descriptors = vec![
             rocksdb::ColumnFamilyDescriptor::new("default", default_opts),
             rocksdb::ColumnFamilyDescriptor::new("tombstone_storage", shadow_opts),
@@ -126,16 +151,15 @@ impl RocksDbBackend {
             rocksdb::ColumnFamilyDescriptor::new("payload_index", payload_index_opts),
             rocksdb::ColumnFamilyDescriptor::new("text_index", text_index_opts),
             rocksdb::ColumnFamilyDescriptor::new("internal_metadata", internal_metadata_opts),
+            rocksdb::ColumnFamilyDescriptor::new("versions", versions_opts),
         ];
 
         let db = if config.read_only {
-            DB::open_cf_descriptors_read_only(&opts, path, cf_descriptors, false).map_err(
-                |e: rocksdb::Error| VantaError::IoError(std::io::Error::other(e.to_string())),
-            )?
+            DB::open_cf_descriptors_read_only(&opts, path, cf_descriptors, false)
+                .map_err(|e: rocksdb::Error| Error::Io(std::io::Error::other(e.to_string())))?
         } else {
-            DB::open_cf_descriptors(&opts, path, cf_descriptors).map_err(|e: rocksdb::Error| {
-                VantaError::IoError(std::io::Error::other(e.to_string()))
-            })?
+            DB::open_cf_descriptors(&opts, path, cf_descriptors)
+                .map_err(|e: rocksdb::Error| Error::Io(std::io::Error::other(e.to_string())))?
         };
 
         Ok(Self { db })
@@ -145,7 +169,7 @@ impl RocksDbBackend {
     fn cf_handle(&self, partition: BackendPartition) -> Result<&rocksdb::ColumnFamily> {
         self.db
             .cf_handle(partition.cf_name())
-            .ok_or_else(|| VantaError::NotFound {
+            .ok_or_else(|| Error::NotFound {
                 kind: "column_family".into(),
                 id: partition.cf_name().into(),
             })
@@ -157,12 +181,12 @@ impl StorageBackend for RocksDbBackend {
         if partition == BackendPartition::Default {
             self.db
                 .put(key, value)
-                .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
         } else {
             let cf = self.cf_handle(partition)?;
             self.db
                 .put_cf(&cf, key, value)
-                .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
         }
     }
 
@@ -170,12 +194,12 @@ impl StorageBackend for RocksDbBackend {
         if partition == BackendPartition::Default {
             self.db
                 .get(key)
-                .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
         } else {
             let cf = self.cf_handle(partition)?;
             self.db
                 .get_cf(&cf, key)
-                .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
         }
     }
 
@@ -193,9 +217,7 @@ impl StorageBackend for RocksDbBackend {
                 .filter_map(|(res, k)| match res {
                     Ok(Some(val)) => Some(Ok((k.to_vec(), val))),
                     Ok(None) => None,
-                    Err(e) => Some(Err(VantaError::IoError(std::io::Error::other(
-                        e.to_string(),
-                    )))),
+                    Err(e) => Some(Err(Error::Io(std::io::Error::other(e.to_string())))),
                 })
                 .collect::<Result<Vec<_>>>()?;
             Ok(results)
@@ -211,9 +233,7 @@ impl StorageBackend for RocksDbBackend {
                 .filter_map(|(res, k)| match res {
                     Ok(Some(val)) => Some(Ok((k.to_vec(), val))),
                     Ok(None) => None,
-                    Err(e) => Some(Err(VantaError::IoError(std::io::Error::other(
-                        e.to_string(),
-                    )))),
+                    Err(e) => Some(Err(Error::Io(std::io::Error::other(e.to_string())))),
                 })
                 .collect::<Result<Vec<_>>>()?;
             Ok(results)
@@ -224,12 +244,12 @@ impl StorageBackend for RocksDbBackend {
         if partition == BackendPartition::Default {
             self.db
                 .delete(key)
-                .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
         } else {
             let cf = self.cf_handle(partition)?;
             self.db
                 .delete_cf(&cf, key)
-                .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+                .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
         }
     }
 
@@ -261,15 +281,41 @@ impl StorageBackend for RocksDbBackend {
         }
         self.db
             .write(batch)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
     }
 
+    fn flush(&self) -> Result<()> {
+        let mut flush_opt = FlushOptions::default();
+        flush_opt.set_wait(true);
+        self.db
+            .flush_opt(&flush_opt)
+            .map_err(|e| Error::Io(std::io::Error::other(e.to_string())))
+    }
+
+    fn capabilities(&self) -> crate::backend::BackendCapabilities {
+        crate::backend::BackendCapabilities {
+            supports_checkpoint: true,
+            supports_manual_compaction: true,
+            kind: crate::backend::BackendKind::RocksDb,
+        }
+    }
+
+    fn as_snapshotable(&self) -> Option<&dyn Snapshotable> {
+        Some(self)
+    }
+
+    fn as_compactable(&self) -> Option<&dyn Compactable> {
+        Some(self)
+    }
+}
+
+/// RocksDB serves the scan role like every backend.
+impl Scannable for RocksDbBackend {
     fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
         let cf = self.cf_handle(partition)?;
         let mut result = Vec::new();
         for item in self.db.iterator_cf(&cf, rocksdb::IteratorMode::Start) {
-            let (k, v) =
-                item.map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))?;
+            let (k, v) = item.map_err(|e| Error::Io(std::io::Error::other(e.to_string())))?;
             result.push((k.to_vec(), v.to_vec()));
         }
         Ok(result)
@@ -290,9 +336,7 @@ impl StorageBackend for RocksDbBackend {
             let (k, v) = match item {
                 Ok(kv) => kv,
                 Err(e) => {
-                    return Some(Err(VantaError::IoError(std::io::Error::other(
-                        e.to_string(),
-                    ))));
+                    return Some(Err(Error::Io(std::io::Error::other(e.to_string()))));
                 }
             };
             if !k.starts_with(&prefix) {
@@ -301,18 +345,13 @@ impl StorageBackend for RocksDbBackend {
             Some(Ok((k.to_vec(), v.to_vec())))
         })))
     }
+}
 
-    fn flush(&self) -> Result<()> {
-        let mut flush_opt = FlushOptions::default();
-        flush_opt.set_wait(true);
-        self.db
-            .flush_opt(&flush_opt)
-            .map_err(|e| VantaError::IoError(std::io::Error::other(e.to_string())))
-    }
-
+/// RocksDB is the only backend with a native point-in-time snapshot API.
+impl Snapshotable for RocksDbBackend {
     fn checkpoint(&self, path: &Path) -> Result<()> {
         let cp = Checkpoint::new(&self.db).map_err(|e| {
-            VantaError::IoError(std::io::Error::other(format!(
+            Error::Io(std::io::Error::other(format!(
                 "Error creating Checkpoint initializer: {}",
                 e
             )))
@@ -323,26 +362,23 @@ impl StorageBackend for RocksDbBackend {
         }
 
         cp.create_checkpoint(path).map_err(|e| {
-            VantaError::IoError(std::io::Error::other(format!(
+            Error::Io(std::io::Error::other(format!(
                 "Error writing checkpoint: {}",
                 e
             )))
         })
     }
+}
 
-    fn compact(&self) {
+/// RocksDB is the only backend with real manual compaction.
+/// Returns `Ok(true)`: compaction was requested and ran.
+impl Compactable for RocksDbBackend {
+    fn compact(&self) -> Result<bool> {
         let mut c_opts = rocksdb::CompactOptions::default();
         c_opts.set_exclusive_manual_compaction(false);
         self.db
             .compact_range_opt(None::<&[u8]>, None::<&[u8]>, &c_opts);
-    }
-
-    fn capabilities(&self) -> crate::backend::BackendCapabilities {
-        crate::backend::BackendCapabilities {
-            supports_checkpoint: true,
-            supports_manual_compaction: true,
-            kind: crate::backend::BackendKind::RocksDb,
-        }
+        Ok(true)
     }
 }
 
@@ -352,12 +388,12 @@ impl StorageBackend for RocksDbBackend {
 mod tests {
     use super::*;
     use crate::backend::BackendWriteOp;
-    use crate::config::VantaConfig;
+    use crate::config::Config;
     use tempfile::tempdir;
 
     fn open_rocksdb() -> (RocksDbBackend, tempfile::TempDir) {
         let dir = tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             memory_limit: Some((256 * MIB) as u64), // 256 MB to keep test lightweight
             ..Default::default()
         };
@@ -481,7 +517,10 @@ mod tests {
         let cp_path = base.path().join("checkpoint");
         b.put(BackendPartition::Default, b"ck", b"cv").unwrap();
         b.flush().unwrap();
-        b.checkpoint(&cp_path).unwrap();
+        b.as_snapshotable()
+            .expect("RocksDB implements Snapshotable")
+            .checkpoint(&cp_path)
+            .unwrap();
 
         assert!(cp_path.join("CURRENT").exists());
     }
@@ -489,7 +528,12 @@ mod tests {
     #[test]
     fn test_rocksdb_compact() {
         let (b, _dir) = open_rocksdb();
-        b.compact(); // should not panic
+        // Typed outcome: Ok(true) = compaction ran (was silent no-op before).
+        assert!(b
+            .as_compactable()
+            .expect("RocksDB implements Compactable")
+            .compact()
+            .unwrap());
     }
 
     #[test]

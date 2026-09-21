@@ -2,8 +2,33 @@
 //! All types in this module are serializable and designed for third-party bindings.
 
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
+mod graph;
+mod record;
+mod search;
+
+pub use graph::{EdgeRecord, NodeInput, NodeRecord, QueryResult};
+pub use record::{
+    ExportReport, FilterOp, ImportReport, MemoryExportLine, MemoryFilter, MemoryFilterItem,
+    MemoryInput, MemoryListOptions, MemoryListPage, MemoryRecord, NamespaceStats,
+    NamespaceStatsMap, DEFAULT_EXPIRING_SOON_WINDOW_MS,
+};
+#[cfg(debug_assertions)]
+pub use search::MemorySearchDebugReport;
+// NOTE (AST-002): no `VantaMemorySearchDebugReport` re-export here — debug-only
+// `doc(hidden)` diagnostic that never crossed the `sdk` boundary; the def-site
+// alias in `search.rs` covers the migration path. Zero users post-rename.
+pub use search::{
+    Bm25TermContribution, HybridFusionReport, IndexRebuildReport, MemorySearchHit,
+    MemorySearchRequest, SearchExplanation, SearchExplanationHit, SearchHit, SearchProfileConfig,
+    SearchProfileMode, TextIndexAuditReport, TextIndexRepairReport,
+};
+pub(crate) use search::{
+    DerivedIndexRebuildReport, DerivedIndexState, ExpectedTextIndexEntries, SparseIndexCounts,
+    SparseIndexRebuildReport, SparseIndexState, TextIndexCounts, TextIndexMutationReport,
+    TextIndexRebuildReport, TextIndexState,
+};
 pub(crate) mod u128_serde {
     use serde::{Deserialize, Deserializer, Serializer};
 
@@ -33,7 +58,7 @@ pub(crate) mod u128_serde {
 
 /// Stable runtime profile exposed to SDKs without leaking hardware internals.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum VantaRuntimeProfile {
+pub enum RuntimeProfile {
     /// High-resource profile for enterprise-class hardware (AVX-512, 16+ GB RAM).
     Enterprise,
     /// Standard server profile (AVX2/NEON, 4+ GB RAM).
@@ -44,7 +69,7 @@ pub enum VantaRuntimeProfile {
 
 /// Stable storage tier view for external SDKs.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum VantaStorageTier {
+pub enum StorageTier {
     /// Hot tier for frequently accessed nodes.
     Hot,
     /// Cold tier for infrequently accessed nodes.
@@ -53,7 +78,7 @@ pub enum VantaStorageTier {
 
 /// Stable field value representation for external SDKs.
 #[derive(Debug, Clone, PartialEq, PartialOrd, Serialize, Deserialize)]
-pub enum VantaValue {
+pub enum Value {
     /// UTF-8 string value.
     String(String),
     /// Signed 64-bit integer.
@@ -78,231 +103,30 @@ pub enum VantaValue {
     Null,
 }
 
-impl VantaValue {
+impl Value {
     /// Flatten list variants into individual scalar values for index storage.
     /// Non-list variants return a single-element vector containing a clone of self.
-    pub fn to_index_values(&self) -> Vec<VantaValue> {
+    pub fn to_index_values(&self) -> Vec<Value> {
         match self {
-            VantaValue::ListString(vec) => {
-                vec.iter().map(|s| VantaValue::String(s.clone())).collect()
-            }
-            VantaValue::ListInt(vec) => vec.iter().map(|&i| VantaValue::Int(i)).collect(),
-            VantaValue::ListFloat(vec) => vec.iter().map(|&f| VantaValue::Float(f)).collect(),
-            VantaValue::ListBool(vec) => vec.iter().map(|&b| VantaValue::Bool(b)).collect(),
-            VantaValue::ListDateTime(vec) => {
-                vec.iter().map(|&dt| VantaValue::DateTime(dt)).collect()
-            }
+            Value::ListString(vec) => vec.iter().map(|s| Value::String(s.clone())).collect(),
+            Value::ListInt(vec) => vec.iter().map(|&i| Value::Int(i)).collect(),
+            Value::ListFloat(vec) => vec.iter().map(|&f| Value::Float(f)).collect(),
+            Value::ListBool(vec) => vec.iter().map(|&b| Value::Bool(b)).collect(),
+            Value::ListDateTime(vec) => vec.iter().map(|&dt| Value::DateTime(dt)).collect(),
             other => vec![other.clone()],
         }
     }
 }
 
 /// Stable relational fields map for external SDKs.
-pub type VantaFields = BTreeMap<String, VantaValue>;
+pub type Fields = BTreeMap<String, Value>;
 
 /// Stable metadata map for persistent memory records.
-pub type VantaMemoryMetadata = VantaFields;
-
-/// Operadores de comparación para filtros de metadata.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum VantaFilterOp {
-    Eq,
-    Neq,
-    Gt,
-    Lt,
-    Gte,
-    Lte,
-}
-
-/// Un filtro individual: campo + operador + valor.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaMemoryFilterItem {
-    pub field: String,
-    pub op: VantaFilterOp,
-    pub value: VantaValue,
-}
-
-/// Lista de filtros combinados con AND lógico.
-pub type VantaMemoryFilter = Vec<VantaMemoryFilterItem>;
-
-/// Stable persistent memory payload accepted by external SDKs.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaMemoryInput {
-    /// Namespace to scope the record under.
-    pub namespace: String,
-    /// Unique key within the namespace.
-    pub key: String,
-    /// Payload text content.
-    pub payload: String,
-    /// Arbitrary metadata key-value pairs.
-    pub metadata: VantaMemoryMetadata,
-    /// Optional embedding vector.
-    pub vector: Option<Vec<f32>>,
-    /// Time-to-live in milliseconds from now.  The system computes
-    /// ``expires_at_ms = now_ms() + ttl_ms`` server-side during ``put()``.
-    /// ``None`` means the record never expires.
-    pub ttl_ms: Option<u64>,
-}
-
-impl VantaMemoryInput {
-    /// Create a new memory input with the given namespace, key, and payload.
-    ///
-    /// Metadata defaults to empty, vector is `None`, and TTL is `None` (no expiry).
-    pub fn new(
-        namespace: impl Into<String>,
-        key: impl Into<String>,
-        payload: impl Into<String>,
-    ) -> Self {
-        Self {
-            namespace: namespace.into(),
-            key: key.into(),
-            payload: payload.into(),
-            metadata: VantaMemoryMetadata::new(),
-            vector: None,
-            ttl_ms: None,
-        }
-    }
-}
-
-/// Stable persistent memory view returned to external SDKs.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaMemoryRecord {
-    /// Namespace the record belongs to.
-    pub namespace: String,
-    /// Unique key within the namespace.
-    pub key: String,
-    /// Payload text content.
-    pub payload: String,
-    /// Arbitrary metadata key-value pairs.
-    pub metadata: VantaMemoryMetadata,
-    /// Unix-ms creation timestamp.
-    pub created_at_ms: u64,
-    /// Unix-ms last-update timestamp.
-    pub updated_at_ms: u64,
-    /// Monotonic version counter.
-    pub version: u64,
-    /// Deterministic node id derived from namespace and key.
-    #[serde(with = "u128_serde")]
-    pub node_id: u128,
-    /// Optional embedding vector.
-    pub vector: Option<Vec<f32>>,
-    /// Absolute Unix-ms timestamp after which the record is considered
-    /// expired.  ``None`` means the record never expires.
-    pub expires_at_ms: Option<u64>,
-}
-
-/// Stable list options for namespace-scoped memory records.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaMemoryListOptions {
-    /// Metadata key-value filters to narrow results (legacy).
-    #[deprecated(note = "Use filter_ops instead")]
-    #[serde(default)]
-    pub filters: VantaMemoryMetadata,
-
-    /// Advanced metadata filters with operators.
-    #[serde(default)]
-    pub filter_ops: Option<VantaMemoryFilter>,
-
-    /// Maximum number of records to return.
-    pub limit: usize,
-    /// Zero-based cursor for pagination. `None` starts from the beginning.
-    pub cursor: Option<usize>,
-}
-
-impl Default for VantaMemoryListOptions {
-    fn default() -> Self {
-        Self {
-            #[allow(deprecated)]
-            filters: VantaMemoryMetadata::new(),
-            filter_ops: None,
-            limit: 100,
-            cursor: None,
-        }
-    }
-}
-
-/// Stable list page returned by namespace-scoped scans.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaMemoryListPage {
-    /// Records in the current page.
-    pub records: Vec<VantaMemoryRecord>,
-    /// Cursor for the next page, or `None` if this was the last page.
-    pub next_cursor: Option<usize>,
-}
-
-pub use super::serialization::vector_types::{
-    VantaMemorySearchHit, VantaMemorySearchRequest, VantaSearchHit,
-};
-
-/// Stable report returned by manual ANN rebuild through the SDK boundary.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VantaIndexRebuildReport {
-    /// Number of nodes scanned during the rebuild.
-    pub scanned_nodes: u64,
-    /// Number of vectors indexed into HNSW.
-    pub indexed_vectors: u64,
-    /// Number of tombstoned (deleted) nodes skipped.
-    pub skipped_tombstones: u64,
-    /// Duration of the rebuild in milliseconds.
-    pub duration_ms: u64,
-    /// Duration of the derived index rebuild in milliseconds.
-    pub derived_rebuild_ms: u64,
-    /// Filesystem path to the rebuilt index file.
-    pub index_path: String,
-    /// Whether the rebuild completed successfully.
-    pub success: bool,
-}
-
-/// Stable report returned by JSONL memory export operations.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VantaExportReport {
-    /// Number of records written to the export file.
-    pub records_exported: u64,
-    /// Namespaces that were included in the export.
-    pub namespaces: Vec<String>,
-    /// Filesystem path to the export file.
-    pub path: String,
-    /// Duration of the export in milliseconds.
-    pub duration_ms: u64,
-}
-
-/// Stable report returned by JSONL memory import operations.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VantaImportReport {
-    /// Number of new records inserted.
-    pub inserted: u64,
-    /// Number of existing records updated.
-    pub updated: u64,
-    /// Number of lines skipped (empty lines during file import).
-    pub skipped: u64,
-    /// Number of records that failed to import.
-    pub errors: u64,
-    /// Duration of the import in milliseconds.
-    pub duration_ms: u64,
-}
-
-/// Stable report returned by text index repair operations.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VantaTextIndexRepairReport {
-    /// Number of memory records indexed.
-    pub record_count: u64,
-    /// Number of posting list entries written.
-    pub posting_entries: u64,
-    /// Number of document stats entries written.
-    pub doc_stats_entries: u64,
-    /// Number of term stats entries written.
-    pub term_stats_entries: u64,
-    /// Number of namespace stats entries written.
-    pub namespace_stats_entries: u64,
-    /// Duration of the repair in milliseconds.
-    pub duration_ms: u64,
-    /// Whether the repair completed successfully.
-    pub success: bool,
-}
+pub type MemoryMetadata = Fields;
 
 /// Stable snapshot of operational metrics used for validation and diagnostics.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VantaOperationalMetrics {
+pub struct OperationalMetrics {
     /// Engine startup duration in milliseconds.
     pub startup_ms: u64,
     /// WAL replay duration in milliseconds.
@@ -377,259 +201,39 @@ pub struct VantaOperationalMetrics {
     pub jemalloc_mapped_bytes: Option<u64>,
     /// Bytes in retained pages by jemalloc, if available.
     pub jemalloc_retained_bytes: Option<u64>,
-}
-
-#[cfg(debug_assertions)]
-#[derive(Debug, Clone, PartialEq, Eq)]
-#[doc(hidden)]
-pub struct VantaMemorySearchDebugReport {
-    pub route: String,
-    pub budget: usize,
-    pub text_candidates: usize,
-    pub vector_candidates: usize,
-    pub fused_candidates: usize,
-    pub top_identities: Vec<String>,
-}
-
-/// Counts and configuration for a hybrid (text+vector) fusion pass.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaHybridFusionReport {
-    /// Number of candidates from the BM25 text search.
-    pub text_candidates: usize,
-    /// Number of candidates from the HNSW vector search.
-    pub vector_candidates: usize,
-    /// Number of unique candidates after RRF fusion.
-    pub fused_candidates: usize,
-    /// The k parameter used for reciprocal rank fusion.
-    pub rrf_k: usize,
-}
-
-/// Explanation of a memory search result, including route, hits, and fusion report.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaSearchExplanation {
-    /// Route used for the search (hybrid, text-only, vector-only, empty).
-    pub route: String,
-    /// Explained search hits.
-    pub hits: Vec<VantaSearchExplanationHit>,
-    /// Fusion report present when the route was hybrid.
-    pub fusion_report: Option<VantaHybridFusionReport>,
-}
-
-/// Per-hit explanation with score, snippet, matched tokens, and BM25 breakdown.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaSearchExplanationHit {
-    /// Unique identity string (`namespace\0key`) of the matched record.
-    pub identity: String,
-    /// Combined relevance score for this hit.
-    pub score: f32,
-    /// Text snippet surrounding the matched query terms, if available.
-    pub snippet: Option<String>,
-    /// Query tokens that matched in this record.
-    pub matched_tokens: Vec<String>,
-    /// Query phrases that matched in this record.
-    pub matched_phrases: Vec<String>,
-    /// Per-term BM25 scoring breakdown.
-    pub bm25_terms: Vec<VantaBm25TermContribution>,
-    /// Rank of this hit in the text-only result set, if applicable.
-    pub rrf_text_rank: Option<usize>,
-    /// Rank of this hit in the vector-only result set, if applicable.
-    pub rrf_vector_rank: Option<usize>,
-}
-
-/// Per-term BM25 scoring decomposition for a single search hit.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaBm25TermContribution {
-    /// The query term token.
-    pub token: String,
-    /// Term frequency in the matched document.
-    pub tf: u32,
-    /// Document frequency across the namespace.
-    pub df: u64,
-    /// Total length (in tokens) of the matched document.
-    pub doc_len: u32,
-    /// BM25 score contribution for this term.
-    pub contribution: f32,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct DerivedIndexState {
-    pub(crate) schema_version: u32,
-    pub(crate) rebuilt_at_ms: u64,
-    pub(crate) record_count: u64,
-    pub(crate) namespace_entries: u64,
-    pub(crate) payload_entries: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct DerivedIndexRebuildReport {
-    pub(crate) record_count: u64,
-    pub(crate) namespace_entries: u64,
-    pub(crate) payload_entries: u64,
-    pub(crate) duration_ms: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub(crate) struct TextIndexState {
-    pub(crate) schema_version: u32,
-    pub(crate) tokenizer: String,
-    pub(crate) tokenizer_version: u32,
-    pub(crate) key_format: String,
-    pub(crate) rebuilt_at_ms: u64,
-    pub(crate) record_count: u64,
-    pub(crate) posting_entries: u64,
-    pub(crate) doc_stats_entries: u64,
-    pub(crate) term_stats_entries: u64,
-    pub(crate) namespace_stats_entries: u64,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct TextIndexRebuildReport {
-    pub(crate) record_count: u64,
-    pub(crate) posting_entries: u64,
-    pub(crate) doc_stats_entries: u64,
-    pub(crate) term_stats_entries: u64,
-    pub(crate) namespace_stats_entries: u64,
-    pub(crate) duration_ms: u64,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub(crate) struct TextIndexCounts {
-    pub(crate) record_count: u64,
-    pub(crate) posting_entries: u64,
-    pub(crate) doc_stats_entries: u64,
-    pub(crate) term_stats_entries: u64,
-    pub(crate) namespace_stats_entries: u64,
-    pub(crate) unknown_entries: u64,
-}
-
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
-pub(crate) struct TextIndexMutationReport {
-    pub(crate) postings_written: u64,
-    pub(crate) doc_stats_delta: i64,
-    pub(crate) term_stats_delta: i64,
-    pub(crate) namespace_stats_delta: i64,
-}
-
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub(crate) struct ExpectedTextIndexEntries {
-    pub(crate) entries: BTreeMap<Vec<u8>, Vec<u8>>,
-    pub(crate) counts: TextIndexCounts,
-    pub(crate) records_scanned: u64,
-    pub(crate) namespaces: BTreeSet<String>,
-}
-
-/// Stable structural audit report for the derived persistent text index.
-///
-/// The audit is read-only. It compares text-index postings and BM25/phrase
-/// stats against canonical memory records and reports drift without repairing.
-#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VantaTextIndexAuditReport {
-    /// Schema version of the text index spec.
-    pub schema_version: u32,
-    /// Tokenizer name used by the index.
-    pub tokenizer: String,
-    /// Tokenizer version used by the index.
-    pub tokenizer_version: u32,
-    /// Key format identifier used by the index.
-    pub key_format: String,
-    /// Optional namespace filter applied during the audit.
-    pub namespace_filter: Option<String>,
-    /// Namespaces that were audited.
-    pub namespaces_audited: Vec<String>,
-    /// Number of memory records scanned.
-    pub records_scanned: u64,
-    /// Number of entries expected from canonical records.
-    pub expected_entries: u64,
-    /// Number of entries actually present in the text index.
-    pub actual_entries: u64,
-    /// Entries that exist in canonical records but are missing from the index.
-    pub missing_entries: u64,
-    /// Entries present in the index but not expected from canonical records.
-    pub unexpected_entries: u64,
-    /// Entries whose value differs (deep audit only).
-    pub value_mismatches: u64,
-    /// Entries that could not be decoded.
-    pub unreadable_entries: u64,
-    /// Total mismatch count (sum of missing, unexpected, value, state).
-    pub mismatches: u64,
-    /// Whether a deep (value-level) audit was performed.
-    pub deep_audit: bool,
-    /// Posting position errors detected (deep audit only).
-    pub position_errors: u64,
-    /// Posting term-frequency errors detected (deep audit only).
-    pub tf_errors: u64,
-    /// Term-statistics document-frequency errors (deep audit only).
-    pub df_errors: u64,
-    /// Document-stats length errors (deep audit only).
-    pub doc_len_errors: u64,
-    /// Logical corruptions where values matched but key category mismatched.
-    pub logical_corruptions: u64,
-    /// Whether the persisted index state is valid and current.
-    pub state_valid: bool,
-    /// Human-readable status of the index state check.
-    pub state_status: String,
-    /// Duration of the audit in milliseconds.
-    pub duration_ms: u64,
-    /// Whether the audit passed (no mismatches found).
-    pub passed: bool,
-    /// Machine-readable status string ("ok" or "repair_recommended").
-    pub status: String,
-}
-
-/// A single JSONL export line representing one memory record at a point in time.
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VantaMemoryExportLine {
-    /// Export format schema version for forward compatibility.
-    pub schema_version: u32,
-    /// Namespace the record belongs to.
-    pub namespace: String,
-    /// Unique key within the namespace.
-    pub key: String,
-    /// Payload text content.
-    pub payload: String,
-    /// Arbitrary metadata key-value pairs.
-    pub metadata: VantaMemoryMetadata,
-    /// Optional embedding vector.
-    pub vector: Option<Vec<f32>>,
-    /// Unix-ms creation timestamp.
-    pub created_at_ms: u64,
-    /// Unix-ms last-update timestamp.
-    pub updated_at_ms: u64,
-    /// Monotonic version counter.
-    pub version: u64,
-    /// Optional Unix-ms expiry deadline.
-    pub expires_at_ms: Option<u64>,
-}
-
-pub use super::serialization::graph_types::{VantaEdgeRecord, VantaNodeInput, VantaNodeRecord};
-
-/// Stable query result enum for external SDKs.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub enum VantaQueryResult {
-    /// Query returned a set of matching nodes.
-    Read(Vec<VantaNodeRecord>),
-    /// Query performed a write operation.
-    Write {
-        /// Number of nodes affected by the write.
-        affected_nodes: usize,
-        /// Human-readable result message.
-        message: String,
-        /// Node id returned by the write, if applicable.
-        node_id: Option<u128>,
-    },
-    /// Query detected stale context for the given node.
-    StaleContext {
-        /// Node id with stale context.
-        #[serde(with = "u128_serde")]
-        node_id: u128,
-    },
+    /// L1 extraction latency in milliseconds (last observed; TDAM metric-tracking-l1).
+    pub l1_extraction_latency_ms: u64,
+    /// L1 dedup latency in milliseconds (last observed).
+    pub l1_dedup_latency_ms: u64,
+    /// L2 extraction latency in milliseconds (last observed; TDAM metric-tracking-l2).
+    pub l2_extraction_latency_ms: u64,
+    /// L2 LLM call duration in milliseconds (last observed).
+    pub l2_llm_duration_ms: u64,
+    /// L3 generation latency in milliseconds (last observed; TDAM metric-tracking-l3).
+    pub l3_generation_latency_ms: u64,
+    /// Persona context length before L3 update.
+    pub persona_length_before: u64,
+    /// Persona context length after L3 update.
+    pub persona_length_after: u64,
+    /// Persona drift ratio scaled by 10_000 (basis points; 10_000 == 1.0).
+    pub persona_drift_ratio: u64,
+    /// Total recall queries that produced at least one hit.
+    pub recall_hit_count: u64,
+    /// Best recall hit score scaled by 10_000 (basis points; 10_000 == 1.0).
+    pub recall_top_score: u64,
+    /// Recall query latency in milliseconds (last observed; TDAM metric-tracking-recall).
+    pub recall_latency_ms: u64,
+    /// Recall strategy code used by the last query: 0=skipped, 1=keyword, 2=embedding, 3=hybrid.
+    pub recall_strategy: u64,
+    /// Offload (memory compaction) latency in milliseconds (last observed).
+    pub offload_latency_ms: u64,
 }
 
 /// Stable capabilities summary exposed to external SDKs.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub struct VantaCapabilities {
+pub struct Capabilities {
     /// Current runtime performance profile.
-    pub runtime_profile: VantaRuntimeProfile,
+    pub runtime_profile: RuntimeProfile,
     /// Whether the database persists data to disk.
     pub persistence: bool,
     /// Whether vector search via HNSW is available.
@@ -640,122 +244,246 @@ pub struct VantaCapabilities {
     pub read_only: bool,
 }
 
+/// A single immutable version of a skill (agent skill / memory skill).
+///
+/// Skills are versioned: every successful `update`/`patch` appends a new
+/// version and flips `is_head` on the previous head. `content_hash` enables
+/// idempotent writes (same content → no-op), `expires_at` drives TTL cleanup
+/// that keeps the most recent non-head versions (KEEP_RECENT = 3).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillRecord {
+    /// Stable skill identifier (e.g. `skl-...`), immutable across versions.
+    pub skill_id: String,
+    /// Monotonic version number, starting at 1.
+    pub version: u64,
+    /// Whether this version is the current head of the skill.
+    pub is_head: bool,
+    /// Owning agent identifier — part of the unique `(owner_agent, name)` key.
+    pub owner_agent: String,
+    /// Skill name — part of the unique `(owner_agent, name)` key. Immutable.
+    pub name: String,
+    /// Human-readable skill description.
+    pub description: String,
+    /// Skill body content (e.g. the SKILL.md text).
+    pub content: String,
+    /// Non-cryptographic content hash (FNV-1a 64-bit, hex) for idempotency.
+    pub content_hash: String,
+    /// Arbitrary skill metadata.
+    pub metadata: BTreeMap<String, String>,
+    /// Unix seconds when this version was created.
+    pub created_at: u64,
+    /// Unix seconds when this version was last written.
+    pub updated_at: u64,
+    /// Unix seconds after which this version is eligible for TTL cleanup
+    /// (`None` = never expires).
+    pub expires_at: Option<u64>,
+}
+
+/// Input for creating a new skill (version 1).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillCreateInput {
+    /// Skill name — unique per `owner_agent`. Immutable after creation.
+    pub name: String,
+    /// Human-readable skill description.
+    #[serde(default)]
+    pub description: String,
+    /// Skill body content.
+    pub content: String,
+    /// Owning agent identifier.
+    pub owner_agent: String,
+    /// Arbitrary skill metadata.
+    #[serde(default)]
+    pub metadata: BTreeMap<String, String>,
+    /// Optional TTL: when set, this and future versions expire after `ttl_secs`.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub ttl_secs: Option<u64>,
+}
+
+/// Input for updating a skill: replaces description and content, appends a
+/// new version. `metadata: None` keeps the previous metadata.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillUpdateInput {
+    /// New description (replaces the previous one).
+    pub description: String,
+    /// New content (replaces the previous one).
+    pub content: String,
+    /// New metadata, or `None` to keep the previous metadata.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<BTreeMap<String, String>>,
+}
+
+/// Input for patching a skill: only the provided fields change.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillPatchInput {
+    /// New description, or `None` to keep the previous one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub description: Option<String>,
+    /// New content, or `None` to keep the previous one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub content: Option<String>,
+    /// New metadata, or `None` to keep the previous one.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub metadata: Option<BTreeMap<String, String>>,
+}
+
+/// Options for listing skills (heads only).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillListOptions {
+    /// Only list skills owned by this agent.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub owner_agent: Option<String>,
+    /// Only list skills whose name starts with this prefix.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub name_prefix: Option<String>,
+    /// Maximum number of items to return (default 50).
+    #[serde(default = "default_skill_list_limit")]
+    pub limit: usize,
+    /// Number of items to skip.
+    #[serde(default)]
+    pub offset: usize,
+}
+
+fn default_skill_list_limit() -> usize {
+    50
+}
+
+impl Default for SkillListOptions {
+    fn default() -> Self {
+        Self {
+            owner_agent: None,
+            name_prefix: None,
+            limit: default_skill_list_limit(),
+            offset: 0,
+        }
+    }
+}
+
+/// A page of skills returned by [`SkillListOptions`]-based listing.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillListPage {
+    /// The listed skill heads.
+    pub items: Vec<SkillRecord>,
+    /// Total number of matching skills (before pagination).
+    pub total: usize,
+}
+
+/// Result of a skill write. `idempotent = true` means the write was a no-op
+/// because the content hash already matched the head (no new version appended).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SkillWriteResult {
+    /// The head version after the write.
+    pub record: SkillRecord,
+    /// Whether the write was skipped as idempotent (no version appended).
+    pub idempotent: bool,
+}
+
 #[cfg(test)]
 #[allow(missing_docs)]
 mod tests {
     use super::*;
 
-    // ── VantaRuntimeProfile ──
+    // ΓöÇΓöÇ RuntimeProfile ΓöÇΓöÇ
 
     #[test]
     fn test_runtime_profile_variants() {
-        assert_ne!(
-            VantaRuntimeProfile::Enterprise,
-            VantaRuntimeProfile::Performance
-        );
-        assert_ne!(
-            VantaRuntimeProfile::LowResource,
-            VantaRuntimeProfile::Enterprise
-        );
+        assert_ne!(RuntimeProfile::Enterprise, RuntimeProfile::Performance);
+        assert_ne!(RuntimeProfile::LowResource, RuntimeProfile::Enterprise);
     }
 
     #[test]
     fn test_runtime_profile_clone_copy() {
-        let p = VantaRuntimeProfile::Performance;
+        let p = RuntimeProfile::Performance;
         let copied = p;
         assert_eq!(p, copied);
     }
 
     #[test]
     fn test_runtime_profile_debug() {
-        let d = format!("{:?}", VantaRuntimeProfile::LowResource);
+        let d = format!("{:?}", RuntimeProfile::LowResource);
         assert_eq!(d, "LowResource");
     }
 
-    // ── VantaStorageTier ──
+    // ΓöÇΓöÇ StorageTier ΓöÇΓöÇ
 
     #[test]
     fn test_storage_tier_variants() {
-        assert_ne!(VantaStorageTier::Hot, VantaStorageTier::Cold);
+        assert_ne!(StorageTier::Hot, StorageTier::Cold);
     }
 
     #[test]
     fn test_storage_tier_debug() {
-        let h = format!("{:?}", VantaStorageTier::Hot);
+        let h = format!("{:?}", StorageTier::Hot);
         assert_eq!(h, "Hot");
     }
 
-    // ── VantaValue ──
+    // ΓöÇΓöÇ Value ΓöÇΓöÇ
 
     #[test]
     fn test_vanta_value_string() {
-        let v = VantaValue::String("hello".into());
-        assert_eq!(
-            v.to_index_values(),
-            vec![VantaValue::String("hello".into())]
-        );
+        let v = Value::String("hello".into());
+        assert_eq!(v.to_index_values(), vec![Value::String("hello".into())]);
     }
 
     #[test]
     fn test_vanta_value_int() {
-        let v = VantaValue::Int(42);
-        assert_eq!(v.to_index_values(), vec![VantaValue::Int(42)]);
+        let v = Value::Int(42);
+        assert_eq!(v.to_index_values(), vec![Value::Int(42)]);
     }
 
     #[test]
     fn test_vanta_value_float() {
-        let v = VantaValue::Float(42.5);
-        assert_eq!(v.to_index_values(), vec![VantaValue::Float(42.5)]);
+        let v = Value::Float(42.5);
+        assert_eq!(v.to_index_values(), vec![Value::Float(42.5)]);
     }
 
     #[test]
     fn test_vanta_value_bool() {
-        let v = VantaValue::Bool(true);
-        assert_eq!(v.to_index_values(), vec![VantaValue::Bool(true)]);
+        let v = Value::Bool(true);
+        assert_eq!(v.to_index_values(), vec![Value::Bool(true)]);
     }
 
     #[test]
     fn test_vanta_value_null() {
-        let v = VantaValue::Null;
-        assert_eq!(v.to_index_values(), vec![VantaValue::Null]);
+        let v = Value::Null;
+        assert_eq!(v.to_index_values(), vec![Value::Null]);
     }
 
     #[test]
     fn test_vanta_value_datetime() {
         let dt: chrono::DateTime<chrono::Utc> = "2025-01-01T00:00:00Z".parse().unwrap();
-        let v = VantaValue::DateTime(dt);
+        let v = Value::DateTime(dt);
         let values = v.to_index_values();
         assert_eq!(values.len(), 1);
-        assert_eq!(values[0], VantaValue::DateTime(dt));
+        assert_eq!(values[0], Value::DateTime(dt));
     }
 
     #[test]
     fn test_vanta_value_to_index_list_string() {
-        let v = VantaValue::ListString(vec!["a".into(), "b".into(), "c".into()]);
+        let v = Value::ListString(vec!["a".into(), "b".into(), "c".into()]);
         let values = v.to_index_values();
         assert_eq!(values.len(), 3);
-        assert_eq!(values[0], VantaValue::String("a".into()));
-        assert_eq!(values[2], VantaValue::String("c".into()));
+        assert_eq!(values[0], Value::String("a".into()));
+        assert_eq!(values[2], Value::String("c".into()));
     }
 
     #[test]
     fn test_vanta_value_to_index_list_int() {
-        let v = VantaValue::ListInt(vec![1, 2, 3]);
+        let v = Value::ListInt(vec![1, 2, 3]);
         let values = v.to_index_values();
         assert_eq!(values.len(), 3);
-        assert_eq!(values[1], VantaValue::Int(2));
+        assert_eq!(values[1], Value::Int(2));
     }
 
     #[test]
     fn test_vanta_value_to_index_list_float() {
-        let v = VantaValue::ListFloat(vec![1.0, 2.0]);
+        let v = Value::ListFloat(vec![1.0, 2.0]);
         let values = v.to_index_values();
         assert_eq!(values.len(), 2);
     }
 
     #[test]
     fn test_vanta_value_to_index_list_bool() {
-        let v = VantaValue::ListBool(vec![true, false, true]);
+        let v = Value::ListBool(vec![true, false, true]);
         let values = v.to_index_values();
         assert_eq!(values.len(), 3);
     }
@@ -763,338 +491,55 @@ mod tests {
     #[test]
     fn test_vanta_value_to_index_list_datetime() {
         let dt: chrono::DateTime<chrono::Utc> = "2025-06-15T12:00:00Z".parse().unwrap();
-        let v = VantaValue::ListDateTime(vec![dt]);
+        let v = Value::ListDateTime(vec![dt]);
         let values = v.to_index_values();
         assert_eq!(values.len(), 1);
-        assert_eq!(values[0], VantaValue::DateTime(dt));
+        assert_eq!(values[0], Value::DateTime(dt));
     }
 
     #[test]
     fn test_vanta_value_to_index_empty_list() {
-        let v = VantaValue::ListString(vec![]);
+        let v = Value::ListString(vec![]);
         let values = v.to_index_values();
         assert!(values.is_empty());
     }
 
     #[test]
     fn test_vanta_value_clone() {
-        let v = VantaValue::String("test".into());
+        let v = Value::String("test".into());
         let cloned = v.clone();
         assert_eq!(v, cloned);
     }
 
     #[test]
     fn test_vanta_value_debug() {
-        let d = format!("{:?}", VantaValue::Bool(false));
+        let d = format!("{:?}", Value::Bool(false));
         assert!(d.contains("Bool") || d.contains("false"));
     }
 
-    // ── VantaMemoryInput ──
-
-    #[test]
-    fn test_memory_input_new() {
-        let input = VantaMemoryInput::new("ns1", "key1", "payload text");
-        assert_eq!(input.namespace, "ns1");
-        assert_eq!(input.key, "key1");
-        assert_eq!(input.payload, "payload text");
-        assert!(input.metadata.is_empty());
-        assert!(input.vector.is_none());
-        assert!(input.ttl_ms.is_none());
-    }
-
-    #[test]
-    fn test_memory_input_clone() {
-        let input = VantaMemoryInput::new("ns", "k", "p");
-        let cloned = input.clone();
-        assert_eq!(input, cloned);
-    }
-
-    // ── VantaMemoryListOptions ──
-
-    #[test]
-    fn test_memory_list_options_default() {
-        let opts = VantaMemoryListOptions::default();
-        #[allow(deprecated)]
-        let _ = opts.filters.is_empty();
-        assert!(opts.filter_ops.is_none());
-        assert_eq!(opts.limit, 100);
-        assert!(opts.cursor.is_none());
-    }
-
-    // ── VantaMemoryListPage ──
-
-    #[test]
-    fn test_memory_list_page_empty() {
-        let page = VantaMemoryListPage {
-            records: vec![],
-            next_cursor: None,
-        };
-        assert!(page.records.is_empty());
-        assert!(page.next_cursor.is_none());
-    }
-
-    // ── VantaCapabilities ──
+    // ΓöÇΓöÇ Capabilities ΓöÇΓöÇ
 
     #[test]
     fn test_capabilities_default() {
-        let caps = VantaCapabilities {
-            runtime_profile: VantaRuntimeProfile::Performance,
+        let caps = Capabilities {
+            runtime_profile: RuntimeProfile::Performance,
             persistence: true,
             vector_search: true,
             iql_queries: false,
             read_only: false,
         };
-        assert_eq!(caps.runtime_profile, VantaRuntimeProfile::Performance);
+        assert_eq!(caps.runtime_profile, RuntimeProfile::Performance);
         assert!(caps.persistence);
         assert!(caps.vector_search);
         assert!(!caps.iql_queries);
         assert!(!caps.read_only);
     }
 
-    // ── Reports ──
-
-    #[test]
-    fn test_index_rebuild_report() {
-        let r = VantaIndexRebuildReport {
-            scanned_nodes: 1000,
-            indexed_vectors: 900,
-            skipped_tombstones: 50,
-            duration_ms: 500,
-            derived_rebuild_ms: 100,
-            index_path: "/tmp/index".into(),
-            success: true,
-        };
-        assert_eq!(r.scanned_nodes, 1000);
-        assert_eq!(r.indexed_vectors, 900);
-        assert!(r.success);
-    }
-
-    #[test]
-    fn test_export_report() {
-        let r = VantaExportReport {
-            records_exported: 500,
-            namespaces: vec!["ns1".into()],
-            path: "/tmp/export.jsonl".into(),
-            duration_ms: 250,
-        };
-        assert_eq!(r.records_exported, 500);
-        assert_eq!(r.namespaces, vec!["ns1"]);
-    }
-
-    #[test]
-    fn test_import_report() {
-        let r = VantaImportReport {
-            inserted: 100,
-            updated: 10,
-            skipped: 2,
-            errors: 1,
-            duration_ms: 300,
-        };
-        assert_eq!(r.inserted, 100);
-        assert_eq!(r.updated, 10);
-        assert_eq!(r.errors, 1);
-    }
-
-    #[test]
-    fn test_text_index_repair_report() {
-        let r = VantaTextIndexRepairReport {
-            record_count: 200,
-            posting_entries: 1500,
-            doc_stats_entries: 200,
-            term_stats_entries: 400,
-            namespace_stats_entries: 5,
-            duration_ms: 600,
-            success: true,
-        };
-        assert_eq!(r.record_count, 200);
-        assert!(r.success);
-    }
-
-    // ── VantaQueryResult ──
-
-    #[test]
-    fn test_query_result_read() {
-        let result = VantaQueryResult::Read(vec![]);
-        match result {
-            VantaQueryResult::Read(nodes) => assert!(nodes.is_empty()),
-            _ => panic!("expected Read"),
-        }
-    }
-
-    #[test]
-    fn test_query_result_write() {
-        let result = VantaQueryResult::Write {
-            affected_nodes: 1,
-            message: "created".into(),
-            node_id: Some(42),
-        };
-        match result {
-            VantaQueryResult::Write {
-                affected_nodes,
-                message,
-                node_id,
-            } => {
-                assert_eq!(affected_nodes, 1);
-                assert_eq!(message, "created");
-                assert_eq!(node_id, Some(42));
-            }
-            _ => panic!("expected Write"),
-        }
-    }
-
-    #[test]
-    fn test_query_result_stale_context() {
-        let result = VantaQueryResult::StaleContext { node_id: 99 };
-        match result {
-            VantaQueryResult::StaleContext { node_id } => {
-                assert_eq!(node_id, 99);
-            }
-            _ => panic!("expected StaleContext"),
-        }
-    }
-
-    // ── VantaMemoryRecord ──
-
-    #[test]
-    fn test_memory_record_fields() {
-        let rec = VantaMemoryRecord {
-            namespace: "ns".into(),
-            key: "k".into(),
-            payload: "text".into(),
-            metadata: VantaMemoryMetadata::new(),
-            created_at_ms: 1000,
-            updated_at_ms: 2000,
-            version: 1,
-            node_id: 42,
-            vector: None,
-            expires_at_ms: None,
-        };
-        assert_eq!(rec.namespace, "ns");
-        assert_eq!(rec.node_id, 42);
-        assert_eq!(rec.version, 1);
-    }
-
-    // ── VantaMemoryExportLine ──
-
-    #[test]
-    fn test_export_line() {
-        let line = VantaMemoryExportLine {
-            schema_version: 1,
-            namespace: "ns".into(),
-            key: "k".into(),
-            payload: "text".into(),
-            metadata: VantaMemoryMetadata::new(),
-            vector: None,
-            created_at_ms: 1000,
-            updated_at_ms: 1000,
-            version: 1,
-            expires_at_ms: None,
-        };
-        assert_eq!(line.schema_version, 1);
-        assert_eq!(line.namespace, "ns");
-    }
-
-    // ── VantaHybridFusionReport ──
-
-    #[test]
-    fn test_hybrid_fusion_report() {
-        let r = VantaHybridFusionReport {
-            text_candidates: 50,
-            vector_candidates: 30,
-            fused_candidates: 70,
-            rrf_k: 60,
-        };
-        assert_eq!(r.rrf_k, 60);
-        assert_eq!(r.fused_candidates, 70);
-    }
-
-    // ── VantaBm25TermContribution ──
-
-    #[test]
-    fn test_bm25_term_contribution() {
-        let c = VantaBm25TermContribution {
-            token: "rust".into(),
-            tf: 3,
-            df: 10,
-            doc_len: 100,
-            contribution: 2.5,
-        };
-        assert_eq!(c.token, "rust");
-        assert_eq!(c.tf, 3);
-    }
-
-    // ── VantaSearchExplanation ──
-
-    #[test]
-    fn test_search_explanation_empty() {
-        let expl = VantaSearchExplanation {
-            route: "empty".into(),
-            hits: vec![],
-            fusion_report: None,
-        };
-        assert!(expl.hits.is_empty());
-        assert!(expl.fusion_report.is_none());
-    }
-
-    // ── VantaSearchExplanationHit ──
-
-    #[test]
-    fn test_search_explanation_hit() {
-        let hit = VantaSearchExplanationHit {
-            identity: "ns\0k".into(),
-            score: 0.95,
-            snippet: Some("...hello world...".into()),
-            matched_tokens: vec!["hello".into()],
-            matched_phrases: vec![],
-            bm25_terms: vec![],
-            rrf_text_rank: Some(1),
-            rrf_vector_rank: Some(3),
-        };
-        assert_eq!(hit.identity, "ns\0k");
-        assert_eq!(hit.score, 0.95);
-        assert!(hit.rrf_text_rank.is_some());
-    }
-
-    // ── VantaTextIndexAuditReport ──
-
-    #[test]
-    fn test_text_index_audit_report_ok() {
-        let r = VantaTextIndexAuditReport {
-            schema_version: 1,
-            tokenizer: "default".into(),
-            tokenizer_version: 1,
-            key_format: "v1".into(),
-            namespace_filter: None,
-            namespaces_audited: vec!["ns".into()],
-            records_scanned: 100,
-            expected_entries: 500,
-            actual_entries: 500,
-            missing_entries: 0,
-            unexpected_entries: 0,
-            value_mismatches: 0,
-            unreadable_entries: 0,
-            mismatches: 0,
-            deep_audit: true,
-            position_errors: 0,
-            tf_errors: 0,
-            df_errors: 0,
-            doc_len_errors: 0,
-            logical_corruptions: 0,
-            state_valid: true,
-            state_status: "healthy".into(),
-            duration_ms: 100,
-            passed: true,
-            status: "ok".into(),
-        };
-        assert!(r.passed);
-        assert_eq!(r.status, "ok");
-    }
-
-    // ── VantaOperationalMetrics ──
+    // ΓöÇΓöÇ OperationalMetrics ΓöÇΓöÇ
 
     #[test]
     fn test_operational_metrics_defaults() {
-        let m = VantaOperationalMetrics {
+        let m = OperationalMetrics {
             startup_ms: 100,
             wal_replay_ms: 50,
             wal_records_replayed: 200,
@@ -1132,6 +577,19 @@ mod tests {
             jemalloc_resident_bytes: Some(1_800_000),
             jemalloc_mapped_bytes: Some(3_000_000),
             jemalloc_retained_bytes: Some(500_000),
+            l1_extraction_latency_ms: 15,
+            l1_dedup_latency_ms: 5,
+            l2_extraction_latency_ms: 25,
+            l2_llm_duration_ms: 80,
+            l3_generation_latency_ms: 45,
+            persona_length_before: 120,
+            persona_length_after: 150,
+            persona_drift_ratio: 2_500,
+            recall_hit_count: 7,
+            recall_top_score: 9_500,
+            recall_latency_ms: 30,
+            recall_strategy: 3,
+            offload_latency_ms: 60,
         };
         assert_eq!(m.startup_ms, 100);
         assert_eq!(m.hnsw_nodes_count, 500);
@@ -1140,7 +598,7 @@ mod tests {
 
     #[test]
     fn test_operational_metrics_clone_debug() {
-        let m = VantaOperationalMetrics {
+        let m = OperationalMetrics {
             startup_ms: 1,
             wal_replay_ms: 2,
             wal_records_replayed: 3,
@@ -1178,6 +636,19 @@ mod tests {
             jemalloc_resident_bytes: None,
             jemalloc_mapped_bytes: None,
             jemalloc_retained_bytes: None,
+            l1_extraction_latency_ms: 31,
+            l1_dedup_latency_ms: 32,
+            l2_extraction_latency_ms: 33,
+            l2_llm_duration_ms: 34,
+            l3_generation_latency_ms: 35,
+            persona_length_before: 36,
+            persona_length_after: 37,
+            persona_drift_ratio: 38,
+            recall_hit_count: 39,
+            recall_top_score: 40,
+            recall_latency_ms: 41,
+            recall_strategy: 42,
+            offload_latency_ms: 43,
         };
         let cloned = m.clone();
         assert_eq!(m, cloned);
@@ -1185,73 +656,12 @@ mod tests {
         assert!(dbg.contains("startup_ms"));
     }
 
-    // ── VantaMemoryInput with vector and ttl ──
-
-    #[test]
-    fn test_memory_input_with_vector_ttl() {
-        let input = VantaMemoryInput {
-            namespace: "ns".into(),
-            key: "k".into(),
-            payload: "text".into(),
-            metadata: [("lang".into(), VantaValue::String("en".into()))].into(),
-            vector: Some(vec![0.1, 0.2, 0.3]),
-            ttl_ms: Some(60000),
-        };
-        assert_eq!(input.namespace, "ns");
-        assert!(input.vector.is_some());
-        assert_eq!(input.vector.as_ref().unwrap().len(), 3);
-        assert_eq!(input.ttl_ms, Some(60000));
-        assert_eq!(
-            input.metadata.get("lang").unwrap(),
-            &VantaValue::String("en".into())
-        );
-    }
-
-    // ── VantaMemoryRecord with expiry ──
-
-    #[test]
-    fn test_memory_record_with_expiry() {
-        let rec = VantaMemoryRecord {
-            namespace: "ns".into(),
-            key: "k".into(),
-            payload: "text".into(),
-            metadata: VantaMemoryMetadata::new(),
-            created_at_ms: 1000,
-            updated_at_ms: 2000,
-            version: 5,
-            node_id: 42,
-            vector: Some(vec![0.5, 0.6]),
-            expires_at_ms: Some(99999),
-        };
-        assert_eq!(rec.version, 5);
-        assert_eq!(rec.expires_at_ms, Some(99999));
-        assert_eq!(rec.vector.as_ref().unwrap().len(), 2);
-    }
-
-    #[test]
-    fn test_memory_record_clone() {
-        let rec = VantaMemoryRecord {
-            namespace: "ns".into(),
-            key: "k".into(),
-            payload: "text".into(),
-            metadata: VantaMemoryMetadata::new(),
-            created_at_ms: 1000,
-            updated_at_ms: 2000,
-            version: 1,
-            node_id: 42,
-            vector: None,
-            expires_at_ms: None,
-        };
-        let cloned = rec.clone();
-        assert_eq!(rec, cloned);
-    }
-
-    // ── VantaCapabilities clone/debug ──
+    // ΓöÇΓöÇ Capabilities clone/debug ΓöÇΓöÇ
 
     #[test]
     fn test_capabilities_clone() {
-        let caps = VantaCapabilities {
-            runtime_profile: VantaRuntimeProfile::Enterprise,
+        let caps = Capabilities {
+            runtime_profile: RuntimeProfile::Enterprise,
             persistence: true,
             vector_search: false,
             iql_queries: true,
@@ -1263,8 +673,8 @@ mod tests {
 
     #[test]
     fn test_capabilities_debug() {
-        let caps = VantaCapabilities {
-            runtime_profile: VantaRuntimeProfile::Performance,
+        let caps = Capabilities {
+            runtime_profile: RuntimeProfile::Performance,
             persistence: false,
             vector_search: true,
             iql_queries: false,
@@ -1275,276 +685,14 @@ mod tests {
         assert!(dbg.contains("read_only"));
     }
 
-    // ── VantaMemoryListOptions custom ──
-
-    #[test]
-    fn test_memory_list_options_custom() {
-        let opts = VantaMemoryListOptions {
-            #[allow(deprecated)]
-            filters: [("type".into(), VantaValue::String("doc".into()))].into(),
-            filter_ops: None,
-            limit: 50,
-            cursor: Some(10),
-        };
-        assert_eq!(opts.limit, 50);
-        assert_eq!(opts.cursor, Some(10));
-        #[allow(deprecated)]
-        let _ = opts.filters.get("type").unwrap() == &VantaValue::String("doc".into());
-    }
-
-    // ── VantaQueryResult clone/debug ──
-
-    #[test]
-    fn test_query_result_clone_read() {
-        let r = VantaQueryResult::Read(vec![]);
-        let cloned = r.clone();
-        assert_eq!(r, cloned);
-    }
-
-    #[test]
-    fn test_query_result_clone_write() {
-        let r = VantaQueryResult::Write {
-            affected_nodes: 3,
-            message: "done".into(),
-            node_id: None,
-        };
-        let cloned = r.clone();
-        assert_eq!(r, cloned);
-    }
-
-    #[test]
-    fn test_query_result_debug() {
-        let r = VantaQueryResult::Write {
-            affected_nodes: 1,
-            message: "ok".into(),
-            node_id: Some(7),
-        };
-        let dbg = format!("{:?}", r);
-        assert!(dbg.contains("Write") || dbg.contains("affected_nodes"));
-    }
-
-    // ── VantaHybridFusionReport clone/debug ──
-
-    #[test]
-    fn test_hybrid_fusion_report_clone_debug() {
-        let r = VantaHybridFusionReport {
-            text_candidates: 10,
-            vector_candidates: 20,
-            fused_candidates: 25,
-            rrf_k: 60,
-        };
-        let cloned = r.clone();
-        assert_eq!(r, cloned);
-        let dbg = format!("{:?}", r);
-        assert!(dbg.contains("rrf_k"));
-    }
-
-    // ── VantaBm25TermContribution clone ──
-
-    #[test]
-    fn test_bm25_term_contribution_clone() {
-        let c = VantaBm25TermContribution {
-            token: "test".into(),
-            tf: 2,
-            df: 5,
-            doc_len: 50,
-            contribution: 1.5,
-        };
-        let cloned = c.clone();
-        assert_eq!(c, cloned);
-    }
-
-    // ── VantaSearchExplanationHit clone ──
-
-    #[test]
-    fn test_search_explanation_hit_clone() {
-        let hit = VantaSearchExplanationHit {
-            identity: "ns\0k".into(),
-            score: 0.9,
-            snippet: None,
-            matched_tokens: vec!["hi".into()],
-            matched_phrases: vec![],
-            bm25_terms: vec![],
-            rrf_text_rank: None,
-            rrf_vector_rank: None,
-        };
-        let cloned = hit.clone();
-        assert_eq!(hit, cloned);
-    }
-
-    // ── VantaSearchExplanation with fusion ──
-
-    #[test]
-    fn test_search_explanation_with_fusion() {
-        let expl = VantaSearchExplanation {
-            route: "hybrid".into(),
-            hits: vec![],
-            fusion_report: Some(VantaHybridFusionReport {
-                text_candidates: 10,
-                vector_candidates: 5,
-                fused_candidates: 12,
-                rrf_k: 60,
-            }),
-        };
-        assert_eq!(expl.route, "hybrid");
-        assert!(expl.fusion_report.is_some());
-        assert_eq!(expl.fusion_report.unwrap().fused_candidates, 12);
-    }
-
-    // ── VantaExportReport clone ──
-
-    #[test]
-    fn test_export_report_clone() {
-        let r = VantaExportReport {
-            records_exported: 100,
-            namespaces: vec!["ns1".into()],
-            path: "/tmp/x.jsonl".into(),
-            duration_ms: 50,
-        };
-        let cloned = r.clone();
-        assert_eq!(r, cloned);
-    }
-
-    // ── VantaImportReport clone ──
-
-    #[test]
-    fn test_import_report_clone() {
-        let r = VantaImportReport {
-            inserted: 10,
-            updated: 5,
-            skipped: 1,
-            errors: 0,
-            duration_ms: 100,
-        };
-        let cloned = r.clone();
-        assert_eq!(r, cloned);
-    }
-
-    // ── VantaIndexRebuildReport clone ──
-
-    #[test]
-    fn test_index_rebuild_report_clone() {
-        let r = VantaIndexRebuildReport {
-            scanned_nodes: 100,
-            indexed_vectors: 90,
-            skipped_tombstones: 5,
-            duration_ms: 200,
-            derived_rebuild_ms: 50,
-            index_path: "/tmp/idx".into(),
-            success: true,
-        };
-        let cloned = r.clone();
-        assert_eq!(r, cloned);
-    }
-
-    // ── VantaTextIndexRepairReport clone ──
-
-    #[test]
-    fn test_text_index_repair_report_clone() {
-        let r = VantaTextIndexRepairReport {
-            record_count: 50,
-            posting_entries: 200,
-            doc_stats_entries: 50,
-            term_stats_entries: 100,
-            namespace_stats_entries: 3,
-            duration_ms: 150,
-            success: true,
-        };
-        let cloned = r.clone();
-        assert_eq!(r, cloned);
-    }
-
-    // ── VantaMemoryExportLine all fields ──
-
-    #[test]
-    fn test_export_line_full() {
-        let line = VantaMemoryExportLine {
-            schema_version: 2,
-            namespace: "ns".into(),
-            key: "k".into(),
-            payload: "text".into(),
-            metadata: [("score".into(), VantaValue::Float(9.5))].into(),
-            vector: Some(vec![0.1, 0.2]),
-            created_at_ms: 1000,
-            updated_at_ms: 2000,
-            version: 3,
-            expires_at_ms: Some(99999),
-        };
-        assert_eq!(line.schema_version, 2);
-        assert_eq!(line.version, 3);
-        assert!(line.vector.is_some());
-        assert!(line.expires_at_ms.is_some());
-    }
-
-    // ── VantaValue Debug variant coverage ──
+    // ΓöÇΓöÇ Value Debug variant coverage ΓöÇΓöÇ
 
     #[test]
     fn test_vanta_value_debug_variants() {
-        assert!(format!("{:?}", VantaValue::String("a".into())).contains("String"));
-        assert!(format!("{:?}", VantaValue::Int(1)).contains("Int"));
-        assert!(format!("{:?}", VantaValue::Float(1.0)).contains("Float"));
-        assert!(format!("{:?}", VantaValue::Null).contains("Null"));
-        assert!(format!("{:?}", VantaValue::ListString(vec!["a".into()])).contains("List"));
-    }
-
-    // ── VantaTextIndexAuditReport failure ──
-
-    #[test]
-    fn test_text_index_audit_report_failure() {
-        let r = VantaTextIndexAuditReport {
-            schema_version: 1,
-            tokenizer: "default".into(),
-            tokenizer_version: 1,
-            key_format: "v1".into(),
-            namespace_filter: Some("ns".into()),
-            namespaces_audited: vec!["ns".into()],
-            records_scanned: 50,
-            expected_entries: 300,
-            actual_entries: 280,
-            missing_entries: 20,
-            unexpected_entries: 5,
-            value_mismatches: 3,
-            unreadable_entries: 1,
-            mismatches: 29,
-            deep_audit: true,
-            position_errors: 2,
-            tf_errors: 1,
-            df_errors: 0,
-            doc_len_errors: 0,
-            logical_corruptions: 0,
-            state_valid: true,
-            state_status: "healthy".into(),
-            duration_ms: 80,
-            passed: false,
-            status: "repair_recommended".into(),
-        };
-        assert!(!r.passed);
-        assert_eq!(r.missing_entries, 20);
-        assert_eq!(r.position_errors, 2);
-        assert_eq!(r.status, "repair_recommended");
-    }
-
-    // ── VantaMemoryListPage with data ──
-
-    #[test]
-    fn test_memory_list_page_with_data() {
-        let rec = VantaMemoryRecord {
-            namespace: "ns".into(),
-            key: "k".into(),
-            payload: "p".into(),
-            metadata: VantaMemoryMetadata::new(),
-            created_at_ms: 1,
-            updated_at_ms: 2,
-            version: 1,
-            node_id: 1,
-            vector: None,
-            expires_at_ms: None,
-        };
-        let page = VantaMemoryListPage {
-            records: vec![rec],
-            next_cursor: Some(1),
-        };
-        assert_eq!(page.records.len(), 1);
-        assert_eq!(page.next_cursor, Some(1));
+        assert!(format!("{:?}", Value::String("a".into())).contains("String"));
+        assert!(format!("{:?}", Value::Int(1)).contains("Int"));
+        assert!(format!("{:?}", Value::Float(1.0)).contains("Float"));
+        assert!(format!("{:?}", Value::Null).contains("Null"));
+        assert!(format!("{:?}", Value::ListString(vec!["a".into()])).contains("List"));
     }
 }

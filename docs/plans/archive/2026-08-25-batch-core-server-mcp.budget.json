@@ -1,0 +1,72 @@
+{
+  "tasks": {
+    "1": {
+      "taskId": "1",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787631764782,
+      "lastActivity": 1787631764782
+    },
+    "3": {
+      "taskId": "3",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787645416976,
+      "lastActivity": 1787645427325
+    },
+    "REVIEW-17": {
+      "taskId": "REVIEW-17",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787633534197,
+      "lastActivity": 1787633534197,
+      "traceId": "1104a02e-fe48-4a27-b63a-bb296a5acc78"
+    },
+    "MOD-04": {
+      "taskId": "MOD-04",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787634032399,
+      "lastActivity": 1787634032399,
+      "traceId": "49caf7e6-9ded-44c2-9d71-5e7e108a1e80"
+    },
+    "MOD-13": {
+      "taskId": "MOD-13",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787645589589,
+      "lastActivity": 1787645589589,
+      "traceId": "9a31f14b-b011-41ee-9859-d7d354b595e4"
+    },
+    "MCP-24": {
+      "taskId": "MCP-24",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787645705159,
+      "lastActivity": 1787645705173
+    },
+    "FIND-10": {
+      "taskId": "FIND-10",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787647166841,
+      "lastActivity": 1787647166841,
+      "traceId": "ab5c99a1-4987-4461-b814-1903a65f41e2"
+    },
+    "FIND-06": {
+      "taskId": "FIND-06",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787648356073,
+      "lastActivity": 1787648356087
+    }
+  }
+}

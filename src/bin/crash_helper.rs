@@ -1,6 +1,10 @@
+// ponytail: crash_helper is a deliberately panicking test harness — every
+// `expect` here is the intended failure mode the test watches for.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 use std::env;
 use std::io::Write;
-use vantadb::config::{SyncMode, VantaConfig};
+use vantadb::config::{Config, SyncMode};
 use vantadb::node::UnifiedNode;
 use vantadb::storage::StorageEngine;
 
@@ -16,7 +20,7 @@ fn main() {
     let count = args[2].parse::<u32>().expect("Invalid count");
     let tight = args.get(3).map(|s| s.as_str()) == Some("tight");
 
-    let config = VantaConfig {
+    let config = Config {
         sync_mode: SyncMode::Always,
         ..Default::default()
     };

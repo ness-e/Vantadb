@@ -1,10 +1,10 @@
-use super::builder::VantaEmbedded;
+use super::builder::Embedded;
 use crate::error::Result;
 use crate::gds::GraphDataScience;
 use std::collections::HashMap;
 use tracing;
 
-impl VantaEmbedded {
+impl Embedded {
     /// Compute PageRank for the subgraph reachable from the given roots.
     ///
     /// - `roots`: starting node IDs for edge discovery

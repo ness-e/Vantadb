@@ -1,0 +1,24 @@
+VantaDB
+Copyright 2026 VantaDB contributors
+
+This product includes software developed as part of the VantaDB project.
+
+The VantaDB core is licensed under the Apache License, Version 2.0
+(see LICENSE). Portions of this product include third-party software;
+their respective copyright and license notices are reproduced in
+accordance with their licenses. This file lists attributions required
+by Apache-2.0 redistribution for upstream projects that ship NOTICE
+files or mandate attribution.
+
+== Third-party NOTICE files reproduced ==
+
+Where an upstream dependency distributes its own NOTICE file, that file
+is reproduced verbatim in this section and governs the respective
+component. Third-party licenses permitted by the project (see deny.toml
+[licenses]) include, but are not limited to: MIT, Apache-2.0,
+Apache-2.0 WITH LLVM-exception, BSD-2-Clause, BSD-3-Clause, ISC, Zlib,
+Unicode-3.0, CC0-1.0, BSL-1.0, and 0BSD.
+
+A complete machine-readable inventory of the third-party dependencies
+and their licenses is available via `cargo deny list` (see deny.toml),
+or the consolidated lockfile Cargo.lock.

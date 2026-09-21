@@ -10,8 +10,12 @@
 //!   because `scan` is only used in `recover_archived_nodes`, which collects
 //!   all entries anyway. It is not intended as a hot-path abstraction.
 //!
-//! - `compact()` has a default no-op implementation. Backends that lack native
-//!   compaction (e.g. `InMemoryBackend`) simply inherit the no-op.
+//! - Snapshot (`Snapshotable`) and manual compaction (`Compactable`) are
+//!   optional roles: only backends with native support implement them.
+//!   The rest surface `None` via `as_snapshotable`/`as_compactable` plus
+//!   `supports_* == false` in `capabilities()` — non-support is declared
+//!   in the type, and `compact()` returns `Result<bool>` instead of a
+//!   silent no-op.
 //!
 //! - This trait is **crate-internal** (`pub(crate)`). It is not part of the
 //!   public API surface and should not be implemented outside this crate.
@@ -42,8 +46,13 @@ pub enum BackendPartition {
     PayloadIndex,
     /// Derived inverted index for persistent memory payload tokens.
     TextIndex,
+    /// Derived inverted index for sparse vector term weights.
+    SparseIndex,
     /// Internal metadata used for derived-state health markers.
     InternalMetadata,
+    /// Version-history snapshots for persistent memory records (VS-CORE-07).
+    /// Key: `ns_len(u32 LE) ‖ ns ‖ key_len(u32 LE) ‖ key ‖ version(u64 BE)`.
+    Versions,
 }
 
 impl BackendPartition {
@@ -59,7 +68,9 @@ impl BackendPartition {
             BackendPartition::NamespaceIndex => "namespace_index",
             BackendPartition::PayloadIndex => "payload_index",
             BackendPartition::TextIndex => "text_index",
+            BackendPartition::SparseIndex => "sparse_index",
             BackendPartition::InternalMetadata => "internal_metadata",
+            BackendPartition::Versions => "versions",
         }
     }
 }
@@ -90,7 +101,7 @@ pub(crate) enum BackendWriteOp {
 // ─── Backend Capabilities ───────────────────────────────────
 
 /// Indicates which KV backend is being used.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Hash)]
 pub enum BackendKind {
     /// RocksDB storage backend.
     RocksDb,
@@ -99,6 +110,29 @@ pub enum BackendKind {
     Fjall,
     /// In-memory storage backend (no persistence).
     InMemory,
+}
+
+impl BackendKind {
+    /// Canonical display name (matches `backend_label` in server handlers).
+    pub(crate) fn as_str(&self) -> &'static str {
+        match self {
+            BackendKind::Fjall => "fjall",
+            BackendKind::RocksDb => "rocksdb",
+            BackendKind::InMemory => "in-memory",
+        }
+    }
+
+    /// Parse a backend name from config/env. Accepts `"memory"` (legacy
+    /// `VANTADB_BACKEND` value) as an alias of `"in-memory"`.
+    /// Returns `None` for unrecognized names (caller falls back + warns).
+    pub(crate) fn from_name(name: &str) -> Option<Self> {
+        match name {
+            "rocksdb" => Some(BackendKind::RocksDb),
+            "fjall" => Some(BackendKind::Fjall),
+            "memory" | "in-memory" => Some(BackendKind::InMemory),
+            _ => None,
+        }
+    }
 }
 
 /// Introspection of a backend's supported features.
@@ -112,16 +146,85 @@ pub struct BackendCapabilities {
     pub kind: BackendKind,
 }
 
+// ─── Backend Role Traits (ISP) ──────────────────────────────────
+//
+// BND-02 (`docs/architecture/BOUNDARIES.md`): clients depend on these
+// narrow roles, never on the full `StorageBackend` for new code.
+// All roles are `pub(crate)` — sealed by visibility (C-SEALED needs no
+// extra machinery inside the crate): no ADR, semver MENOR.
+
+/// Scan/read role: full and prefix iteration over a partition.
+///
+/// Implemented by every backend. `StorageBackend` extends it, so existing
+/// `&dyn StorageBackend` callers keep compiling unchanged.
+pub(crate) trait Scannable: Send + Sync {
+    /// Return all key-value pairs in the given partition.
+    ///
+    /// Returns a materialized `Vec` to avoid iterator lifetime issues
+    /// behind `dyn Trait`. Not intended for hot-path use.
+    fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>>;
+
+    /// Return key-value pairs whose keys start with `prefix`.
+    ///
+    /// This is intended for derived indexes and should avoid materializing
+    /// unrelated entries from the same partition.
+    fn scan_prefix_iter<'a>(
+        &'a self,
+        partition: BackendPartition,
+        prefix: &'a [u8],
+    ) -> Result<Box<dyn Iterator<Item = Result<(Vec<u8>, Vec<u8>)>> + 'a>>;
+
+    /// Materialized version of [`scan_prefix_iter`](Scannable::scan_prefix_iter).
+    ///
+    /// The default implementation collects from the streaming iterator.
+    /// Backends may override if a more efficient materialization exists.
+    #[allow(dead_code)]
+    fn scan_prefix(
+        &self,
+        partition: BackendPartition,
+        prefix: &[u8],
+    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+        self.scan_prefix_iter(partition, prefix)?
+            .collect::<Result<Vec<_>>>()
+    }
+}
+
+/// Point-in-time snapshot role: consistent checkpoint to a filesystem path.
+///
+/// Implemented ONLY by backends with a native snapshot API (RocksDB).
+/// Backends without one do NOT implement this role (ISP/LSP): they report
+/// `None` from [`StorageBackend::as_snapshotable`] and
+/// `supports_checkpoint == false` from `capabilities()`. The engine
+/// boundary converts that into the same honest `backend_error` as before —
+/// non-support is declared in the type, not discovered at runtime.
+pub(crate) trait Snapshotable: Send + Sync {
+    /// Create a consistent snapshot at the given filesystem path.
+    fn checkpoint(&self, path: &Path) -> Result<()>;
+}
+
+/// Manual-compaction role with a typed outcome.
+///
+/// Returns `Ok(true)` when compaction actually ran. Implemented ONLY where
+/// compaction is real (RocksDB); elsewhere `None` from
+/// [`StorageBackend::as_compactable`]. Replaces the old silent no-op
+/// `fn compact(&self)` (LSP lie: indistinguishable from success).
+pub(crate) trait Compactable: Send + Sync {
+    /// Request manual compaction. Returns whether compaction ran.
+    fn compact(&self) -> Result<bool>;
+}
+
 // ─── Backend Trait ──────────────────────────────────────────
 
 /// Abstraction over the persistent KV store used by `StorageEngine`.
 ///
-/// Covers only the operations that `StorageEngine` actually needs.
-/// Does **not** include HNSW, VantaFile, WAL, or any higher-level
-/// engine logic — those remain in `StorageEngine` directly.
+/// Core KV operations (put/get/delete/batch/flush) plus the [`Scannable`]
+/// role live here directly. Snapshot and compaction live behind the
+/// optional [`Snapshotable`]/[`Compactable`] roles (see above): callers go
+/// through `as_snapshotable`/`as_compactable` and handle `None` with the
+/// same honest error/skip as before. No semantic change.
 ///
 /// This trait is crate-internal and should not be exposed publicly.
-pub(crate) trait StorageBackend: Send + Sync {
+pub(crate) trait StorageBackend: Scannable + Send + Sync {
     /// Write a key-value pair to the given partition.
     fn put(&self, partition: BackendPartition, key: &[u8], value: &[u8]) -> Result<()>;
 
@@ -156,56 +259,30 @@ pub(crate) trait StorageBackend: Send + Sync {
     /// Execute a batch of write operations atomically (where supported).
     fn write_batch(&self, ops: Vec<BackendWriteOp>) -> Result<()>;
 
-    /// Return all key-value pairs in the given partition.
-    ///
-    /// Returns a materialized `Vec` to avoid iterator lifetime issues
-    /// behind `dyn Trait`. Not intended for hot-path use.
-    fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>>;
-
-    /// Return key-value pairs whose keys start with `prefix`.
-    ///
-    /// This is intended for derived indexes and should avoid materializing
-    /// unrelated entries from the same partition.
-    fn scan_prefix_iter<'a>(
-        &'a self,
-        partition: BackendPartition,
-        prefix: &'a [u8],
-    ) -> Result<Box<dyn Iterator<Item = Result<(Vec<u8>, Vec<u8>)>> + 'a>>;
-
-    /// Materialized version of [`scan_prefix_iter`].
-    ///
-    /// The default implementation collects from the streaming iterator.
-    /// Backends may override if a more efficient materialization exists.
-    #[allow(dead_code)]
-    fn scan_prefix(
-        &self,
-        partition: BackendPartition,
-        prefix: &[u8],
-    ) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
-        self.scan_prefix_iter(partition, prefix)?
-            .collect::<Result<Vec<_>>>()
-    }
-
     /// Flush all pending writes to durable storage.
     /// Default implementation is a no-op for backends without persistence.
     fn flush(&self) -> Result<()> {
         Ok(())
     }
 
-    /// Create a consistent snapshot at the given filesystem path.
-    ///
-    /// Backends that do not support checkpointing should return an
-    /// explicit error.
-    fn checkpoint(&self, path: &Path) -> Result<()>;
-
-    /// Request background compaction. Default implementation is a no-op
-    /// for backends that do not support or need compaction.
-    fn compact(&self) {
-        // no-op by default
-    }
-
     /// Introspect the capabilities of this backend instance.
     fn capabilities(&self) -> BackendCapabilities;
+
+    /// Access the snapshot role, if supported by this backend.
+    ///
+    /// Default is `None` (role not implemented). Only backends with a
+    /// native snapshot API override this.
+    fn as_snapshotable(&self) -> Option<&dyn Snapshotable> {
+        None
+    }
+
+    /// Access the manual-compaction role, if supported by this backend.
+    ///
+    /// Default is `None` (role not implemented). Only backends with real
+    /// compaction override this.
+    fn as_compactable(&self) -> Option<&dyn Compactable> {
+        None
+    }
 }
 
 #[cfg(test)]
@@ -341,6 +418,42 @@ mod tests {
         assert!(f.contains("Fjall"));
         let m = format!("{:?}", BackendKind::InMemory);
         assert!(m.contains("InMemory"));
+    }
+
+    // ── BackendKind names (C2S2 registry) ──
+
+    #[test]
+    fn test_backend_kind_as_str_matches_handler_labels() {
+        // Same labels as `backend_label` in src/server/handlers.rs:212-216.
+        assert_eq!(BackendKind::Fjall.as_str(), "fjall");
+        assert_eq!(BackendKind::RocksDb.as_str(), "rocksdb");
+        assert_eq!(BackendKind::InMemory.as_str(), "in-memory");
+    }
+
+    #[test]
+    fn test_backend_kind_from_name_roundtrip() {
+        assert_eq!(
+            BackendKind::from_name("rocksdb"),
+            Some(BackendKind::RocksDb)
+        );
+        assert_eq!(BackendKind::from_name("fjall"), Some(BackendKind::Fjall));
+        assert_eq!(
+            BackendKind::from_name("memory"),
+            Some(BackendKind::InMemory)
+        );
+        assert_eq!(
+            BackendKind::from_name("in-memory"),
+            Some(BackendKind::InMemory)
+        );
+        assert_eq!(BackendKind::from_name("bogus"), None);
+        // as_str output always parses back (registry key stability).
+        for kind in [
+            BackendKind::RocksDb,
+            BackendKind::Fjall,
+            BackendKind::InMemory,
+        ] {
+            assert_eq!(BackendKind::from_name(kind.as_str()), Some(kind));
+        }
     }
 
     // ── BackendCapabilities ──
@@ -533,24 +646,37 @@ mod tests {
     }
 
     #[test]
-    fn test_backend_trait_default_compact() {
+    fn test_role_compactable_absent_on_in_memory() {
         use crate::backends::in_memory::InMemoryBackend;
         let backend = InMemoryBackend::new();
-        // compact() is a no-op by default — must not panic
-        backend.compact();
+        // InMemory does NOT implement the Compactable role (ISP/LSP):
+        // non-support is declared in the type (None + capabilities),
+        // not via a silent no-op.
+        assert!(backend.as_compactable().is_none());
+        assert!(!backend.capabilities().supports_manual_compaction);
     }
 
     #[test]
-    fn test_backend_trait_checkpoint_unsupported() {
+    fn test_role_snapshotable_absent_on_in_memory() {
         use crate::backends::in_memory::InMemoryBackend;
         let backend = InMemoryBackend::new();
-        let tmp = std::env::temp_dir().join("vantadb_test_checkpoint");
-        let err = backend.checkpoint(&tmp).unwrap_err();
-        assert!(
-            err.to_string().contains("not supported"),
-            "checkpoint should be unsupported: {}",
-            err
-        );
+        // InMemory does NOT implement the Snapshotable role: non-support
+        // is declared in the type instead of a runtime-only discovery.
+        assert!(backend.as_snapshotable().is_none());
+        assert!(!backend.capabilities().supports_checkpoint);
+    }
+
+    #[test]
+    fn test_role_scannable_served_through_narrow_trait() {
+        use crate::backends::in_memory::InMemoryBackend;
+        // BND-02: clients can depend on the narrow role instead of the
+        // full trait. Unsized coercion proves `InMemoryBackend: Scannable`.
+        fn read_via_role(backend: &dyn Scannable) -> usize {
+            backend.scan(BackendPartition::Default).unwrap().len()
+        }
+        let backend = InMemoryBackend::new();
+        backend.put(BackendPartition::Default, b"k", b"v").unwrap();
+        assert_eq!(read_via_role(&backend), 1);
     }
 
     #[test]
@@ -777,6 +903,19 @@ mod tests {
         }
     }
 
+    impl Scannable for DefaultGetManyWrapper {
+        fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
+            self.inner.scan(partition)
+        }
+        fn scan_prefix_iter<'a>(
+            &'a self,
+            partition: BackendPartition,
+            prefix: &'a [u8],
+        ) -> Result<Box<dyn Iterator<Item = Result<(Vec<u8>, Vec<u8>)>> + 'a>> {
+            self.inner.scan_prefix_iter(partition, prefix)
+        }
+    }
+
     impl StorageBackend for DefaultGetManyWrapper {
         fn put(&self, partition: BackendPartition, key: &[u8], value: &[u8]) -> Result<()> {
             self.inner.put(partition, key, value)
@@ -790,24 +929,11 @@ mod tests {
         fn write_batch(&self, ops: Vec<BackendWriteOp>) -> Result<()> {
             self.inner.write_batch(ops)
         }
-        fn scan(&self, partition: BackendPartition) -> Result<Vec<(Vec<u8>, Vec<u8>)>> {
-            self.inner.scan(partition)
-        }
-        fn scan_prefix_iter<'a>(
-            &'a self,
-            partition: BackendPartition,
-            prefix: &'a [u8],
-        ) -> Result<Box<dyn Iterator<Item = Result<(Vec<u8>, Vec<u8>)>> + 'a>> {
-            self.inner.scan_prefix_iter(partition, prefix)
-        }
-        fn checkpoint(&self, path: &Path) -> Result<()> {
-            self.inner.checkpoint(path)
-        }
         fn capabilities(&self) -> BackendCapabilities {
             self.inner.capabilities()
         }
         // Intentionally NOT overriding get_many() — testing the trait default
-        // Intentionally NOT overriding scan_prefix() — testing the trait default
+        // Intentionally NOT overriding scan_prefix() — testing the role default
     }
 
     #[test]

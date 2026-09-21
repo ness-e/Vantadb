@@ -1,24 +1,24 @@
-//! Python bindings for VantaVector and VantaVectorIter.
+//! Python bindings for Vector and VectorIter.
 #![warn(missing_docs)]
 #![allow(deprecated)]
 
 use pyo3::exceptions::PyIndexError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyTuple};
+use pyo3::types::{PyBytes, PyDict, PyTuple};
 
-/// A zero-copy vector wrapper that exposes f32 data to NumPy via
-/// `__array_interface__` without copying, while remaining sequence-iterable
-/// for pure-Python consumers.
-#[pyclass(name = "VantaVector")]
-pub(crate) struct VantaVector {
+/// A vector wrapper that exposes f32 data to NumPy via `__array_interface__`
+/// with an *owned* buffer copy (safe under drop/mutation), while remaining
+/// sequence-iterable for pure-Python consumers.
+#[pyclass(name = "Vector")]
+pub(crate) struct Vector {
     data: Box<[f32]>,
 }
 
 #[pymethods]
-impl VantaVector {
+impl Vector {
     #[new]
     pub(crate) fn new(data: Vec<f32>) -> Self {
-        VantaVector {
+        Vector {
             data: data.into_boxed_slice(),
         }
     }
@@ -36,8 +36,8 @@ impl VantaVector {
         Ok(self.data[idx as usize])
     }
 
-    fn __iter__(slf: PyRef<'_, Self>) -> VantaVectorIter {
-        VantaVectorIter {
+    fn __iter__(slf: PyRef<'_, Self>) -> VectorIter {
+        VectorIter {
             data: slf.data.to_vec(),
             index: 0,
         }
@@ -45,10 +45,10 @@ impl VantaVector {
 
     fn __repr__(&self) -> String {
         if self.data.len() <= 6 {
-            format!("VantaVector({:?})", &self.data[..])
+            format!("Vector({:?})", &self.data[..])
         } else {
             format!(
-                "VantaVector([{:.4}, ..., {:.4}], dim={})",
+                "Vector([{:.4}, ..., {:.4}], dim={})",
                 self.data[0],
                 self.data[self.data.len() - 1],
                 self.data.len()
@@ -56,18 +56,28 @@ impl VantaVector {
         }
     }
 
-    /// NumPy ``__array_interface__`` protocol — exposes the internal f32 buffer
-    /// directly so ``np.asarray(vector_obj)`` creates a zero-copy view.
-    /// The backing `Box<[f32]>` is never reallocated (unlike `Vec`),
-    /// preventing UB from a Rust realloc while NumPy references the buffer.
+    /// NumPy ``__array_interface__`` protocol — hands NumPy an *owned* copy of
+    /// the buffer (as `bytes`) so the resulting ndarray never aliases this
+    /// pyclass's memory.
+    ///
+    /// AUDIT-01 (UAF): this previously exposed the raw `Box<[f32]>` pointer as
+    /// `(ptr, True)`. NumPy built a zero-copy view over that memory, so when
+    /// `__setstate__` swapped `self.data` (or the pyclass was dropped and the
+    /// buffer freed) the ndarray was left pointing at freed memory and read
+    /// garbage. Passing a buffer-protocol object (`bytes`) as `data` makes
+    /// NumPy copy the buffer into the ndarray's own allocation — the ndarray
+    /// then survives any drop/mutation of this pyclass.
     #[getter(__array_interface__)]
     fn get_array_interface(&self, py: Python<'_>) -> PyResult<Py<PyAny>> {
         let dict = PyDict::new(py);
         let shape = PyTuple::new(py, [self.data.len()])?;
         dict.set_item("shape", shape)?;
         dict.set_item("typestr", "<f4")?;
-        let data = (self.data.as_ptr() as usize, true);
-        dict.set_item("data", data)?;
+        // Owned little-endian f32 bytes (host-order is irrelevant; to_le_bytes
+        // always emits "<f4" layout). NumPy copies this buffer, so the array
+        // never aliases self.data.
+        let le_bytes: Vec<u8> = self.data.iter().flat_map(|f| f.to_le_bytes()).collect();
+        dict.set_item("data", PyBytes::new(py, &le_bytes))?;
         dict.set_item("version", 3)?;
         Ok(dict.unbind().into())
     }
@@ -82,16 +92,16 @@ impl VantaVector {
     }
 }
 
-/// Iterator for ``VantaVector`` that lets Python iterate over the elements
+/// Iterator for ``Vector`` that lets Python iterate over the elements
 /// without first converting the whole vector to a list.
-#[pyclass(name = "VantaVectorIter")]
-pub(crate) struct VantaVectorIter {
+#[pyclass(name = "VectorIter")]
+pub(crate) struct VectorIter {
     data: Vec<f32>,
     index: usize,
 }
 
 #[pymethods]
-impl VantaVectorIter {
+impl VectorIter {
     fn __iter__(slf: PyRef<'_, Self>) -> PyRef<'_, Self> {
         slf
     }

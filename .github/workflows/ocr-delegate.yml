@@ -1,0 +1,71 @@
+# OCR Delegation Spec — INFORMATIONAL ONLY.
+# Never blocks: every step has continue-on-error: true.
+# Publishes `ocr delegate preview + rule` JSON as a PR artifact so reviewers
+# (human or agent) can run the cognitive review without local setup.
+# No LLM endpoint needed — delegation mode never calls a model.
+# Pins: @alibaba-group/open-code-review latest (npm).
+
+name: OCR Delegate (informational)
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ocr-delegate:
+    name: OCR preview + rules spec
+    runs-on: ubuntu-latest
+    # CATEGORY: INFORMATIONAL — advisory spec only, never gates merge (Regla 2)
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node
+        # CATEGORY: INFORMATIONAL
+        continue-on-error: true
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install OCR CLI
+        # CATEGORY: INFORMATIONAL
+        continue-on-error: true
+        run: npm install -g @alibaba-group/open-code-review
+
+      - name: Delegation preview (base..head)
+        # CATEGORY: INFORMATIONAL
+        continue-on-error: true
+        run: |
+          ocr delegate preview -f json \
+            --from "${{ github.event.pull_request.base.sha || github.event.before }}" \
+            --to "${{ github.sha }}" \
+            > ocr-preview.json || ocr delegate preview -f json > ocr-preview.json
+          cat ocr-preview.json
+
+      - name: Delegation rules
+        # CATEGORY: INFORMATIONAL
+        continue-on-error: true
+        run: |
+          FILES=$(jq -r '.reviewable_files[]?.path | select(. != ".opencode")' ocr-preview.json | tr '\n' ' ')
+          if [ -z "$FILES" ]; then echo "nothing reviewable"; exit 0; fi
+          # shellcheck disable=SC2086
+          ocr delegate rule $FILES -f json \
+            --from "${{ github.event.pull_request.base.sha || github.event.before }}" \
+            --to "${{ github.sha }}" \
+            > ocr-rules.json || echo '{"groups":[]}' > ocr-rules.json
+          cat ocr-rules.json
+
+      - name: Upload OCR spec
+        # CATEGORY: INFORMATIONAL
+        continue-on-error: true
+        uses: actions/upload-artifact@v4
+        with:
+          name: ocr-delegate-spec
+          path: |
+            ocr-preview.json
+            ocr-rules.json

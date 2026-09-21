@@ -26,14 +26,22 @@ Supports glove-100-angular, sift-128-euclidean, and synthetic datasets.
    (`np.linalg.norm`), no JIT ground-truth (compute_ground_truth), no warmup,
    and no median-of-3 iterations. Any comparison against those numbers is
    approximate only.
+
+3. WINDOWS TEARDOWN (FIND-72) — every local DB teardown path uses
+   shutil.rmtree(..., ignore_errors=True). Windows keeps file locks
+   (WinError 32) on recently-closed DB handles (VantaDB, LanceDB, ChromaDB,
+   Qdrant embedded, Milvus lite); without ignore_errors a stale lock crashes
+   teardown. Cleanup dirs are regenerable scratch.
 """
 
 import argparse
 import gc
 import json
 import os
+import platform
 import shutil
 import statistics
+import tempfile
 import time
 import urllib.request
 import sys
@@ -63,11 +71,32 @@ import chromadb
 import psutil
 from tabulate import tabulate
 
+# Optional engines (PERF-03 competitive extension): no-docker embedded modes.
+# Each guarded so a missing client never breaks the whole suite; missing engines
+# are skipped at runtime and reported as "not measured" in the honest table.
+try:
+    from qdrant_client import QdrantClient
+    from qdrant_client.models import Distance, VectorParams, PointStruct
+    HAS_QDRANT = True
+except ImportError:
+    HAS_QDRANT = False
+
+try:
+    from pymilvus import MilvusClient
+    from pymilvus.milvus_client import IndexParams
+    HAS_MILVUS = True
+except ImportError:
+    HAS_MILVUS = False
+
 try:
     import vantadb_py as vantadb
 except ImportError:
     print("ERROR: 'vantadb_py' is not installed.")
-    print("Please compile and install it first in your current python environment.")
+    print("Install it from PyPI (standalone, no Rust build required):")
+    print("  pip install vantadb-py")
+    print("Full benchmark dependencies: pip install -r benchmarks/requirements.txt")
+    print("Or for local development against the source tree:")
+    print("  maturin develop --manifest-path vantadb-python/Cargo.toml --release")
     sys.exit(1)
 
 
@@ -213,7 +242,7 @@ def compute_ground_truth(train_vectors, test_vectors, metric, top_k=100):
 def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, top_k, batch_size=0):
     print("\nBenchmarking VantaDB...")
     if os.path.exists(db_path):
-        shutil.rmtree(db_path)
+        shutil.rmtree(db_path, ignore_errors=True)
 
     rss_start = get_current_rss()
     
@@ -335,7 +364,7 @@ def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, to
 def bench_lancedb(db_path, train_vectors, test_vectors, ground_truth, metric, top_k):
     print("\nBenchmarking LanceDB...")
     if os.path.exists(db_path):
-        shutil.rmtree(db_path)
+        shutil.rmtree(db_path, ignore_errors=True)
 
     rss_start = get_current_rss()
     
@@ -426,7 +455,7 @@ def bench_lancedb(db_path, train_vectors, test_vectors, ground_truth, metric, to
 def bench_chromadb(db_path, train_vectors, test_vectors, ground_truth, metric, top_k):
     print("\nBenchmarking ChromaDB...")
     if os.path.exists(db_path):
-        shutil.rmtree(db_path)
+        shutil.rmtree(db_path, ignore_errors=True)
 
     rss_start = get_current_rss()
     
@@ -521,6 +550,194 @@ def bench_chromadb(db_path, train_vectors, test_vectors, ground_truth, metric, t
     }
 
 
+def bench_qdrant(db_path, train_vectors, test_vectors, ground_truth, metric, top_k):
+    """Qdrant in embedded local mode (QdrantClient(path=...)) — NO docker, same HW.
+
+    This is the honest replacement for the old "we don't benchmark Qdrant" gap:
+    Qdrant's local/persistent mode runs in-process, so it is directly comparable
+    to VantaDB/LanceDB/ChromaDB without a server or container.
+    """
+    if not HAS_QDRANT:
+        print("\n[SKIP] Qdrant not measured: qdrant_client not installed.")
+        return None
+    print("\nBenchmarking Qdrant (embedded local mode, no docker)...")
+    if os.path.exists(db_path):
+        shutil.rmtree(db_path, ignore_errors=True)
+
+    rss_start = get_current_rss()
+    dim = train_vectors.shape[1]
+    distance = Distance.COSINE if metric == "cosine" else Distance.EUCLID
+
+    client = QdrantClient(path=db_path)
+    client.recreate_collection(
+        collection_name="vectors",
+        vectors_config=VectorParams(size=dim, distance=distance),
+    )
+
+    # 1. Ingestion (HNSW is built incrementally during upload — no separate rebuild timer)
+    start_time = time.perf_counter()
+    points = [
+        PointStruct(id=int(i), vector=train_vectors[i].tolist(), payload={"index": i})
+        for i in range(len(train_vectors))
+    ]
+    client.upload_points(collection_name="vectors", points=points, wait=True)
+    ingest_time = time.perf_counter() - start_time
+    rss_after_ingest = get_current_rss()
+
+    # Qdrant indexes during upload; separate index time not measured (incremental == 0).
+    index_time = 0.0
+    rss_after_index = get_current_rss()
+
+    # 3. Warm-up: 10 queries (not measured)
+    warmup_count = min(10, len(test_vectors))
+    for q in test_vectors[:warmup_count]:
+        client.query_points("vectors", query=q.tolist(), limit=top_k)
+
+    # 4. Queries
+    query_times = []
+    predictions = []
+    for q in test_vectors:
+        t_start = time.perf_counter()
+        hits = client.query_points("vectors", query=q.tolist(), limit=top_k)
+        duration = (time.perf_counter() - t_start) * 1000.0
+        query_times.append(duration)
+        predictions.append([int(p.id) for p in hits.points])
+
+    client.close()
+    del client
+    gc.collect()
+
+    recalls = []
+    for pred, gt in zip(predictions, ground_truth):
+        gt_set = set(int(x) for x in gt[:top_k])
+        matches = len(set(pred).intersection(gt_set))
+        recalls.append(matches / top_k)
+
+    avg_recall = np.mean(recalls)
+    p50 = np.percentile(query_times, 50)
+    p95 = np.percentile(query_times, 95)
+    p99 = np.percentile(query_times, 99)
+    qps = len(test_vectors) / (sum(query_times) / 1000.0)
+
+    shutil.rmtree(db_path, ignore_errors=True)
+
+    return {
+        "engine": "Qdrant",
+        "ingest_throughput": len(train_vectors) / ingest_time,
+        "index_time_ms": index_time * 1000.0,
+        "query_p50_ms": p50,
+        "query_p99_ms": p99,
+        "qps": qps,
+        "recall_at_k": avg_recall,
+        "mem_peak_rss_mb": max(rss_after_ingest, rss_after_index),
+        "mem_leak_rss_mb": rss_after_index - rss_start,
+    }
+
+
+def bench_milvus(db_path, train_vectors, test_vectors, ground_truth, metric, top_k):
+    """Milvus-frugal via milvus-lite (embedded, no docker). Reproducible harness.
+
+    Guardado por import: si `pymilvus`/`milvus-lite` no está instalado, la función
+    devuelve None y el motor se marca "no medido" en la tabla honesta (PERF-03).
+    """
+    if not HAS_MILVUS:
+        print("\n[SKIP] Milvus not measured: pymilvus (milvus-lite) not installed.")
+        return None
+    print("\nBenchmarking Milvus (milvus-lite embedded, no docker)...")
+    # Unique temp dir per run: the embedded lite server keeps a Windows file lock
+    # (WinError 32) that would block the next iteration if paths collided.
+    work_dir = tempfile.mkdtemp(prefix="vanta_milvus_")
+    db_uri = os.path.join(work_dir, "milvus.db")
+
+    rss_start = get_current_rss()
+    dim = train_vectors.shape[1]
+    metric_type = "COSINE" if metric == "cosine" else "L2"
+
+    client = MilvusClient(uri=db_uri)
+    if client.has_collection("vectors"):
+        client.drop_collection("vectors")
+    client.create_collection(
+        collection_name="vectors",
+        dimension=dim,
+        metric_type=metric_type,
+    )
+
+    # 1. Ingestion
+    start_time = time.perf_counter()
+    data = [
+        {"id": int(i), "vector": train_vectors[i].tolist(), "index_meta": i}
+        for i in range(len(train_vectors))
+    ]
+    client.insert(collection_name="vectors", data=data)
+    client.flush(collection_name="vectors")
+    ingest_time = time.perf_counter() - start_time
+    rss_after_ingest = get_current_rss()
+
+    # 2. Index creation (HNSW, comparable to the other engines).
+    # pymilvus >=2.5 auto-creates a default index on create_collection and loads
+    # the collection, so release + drop it first, then build an explicit HNSW
+    # index (M=16, efConstruction=100).
+    start_index = time.perf_counter()
+    client.release_collection(collection_name="vectors")
+    client.drop_index(collection_name="vectors", index_name="vector")
+    index_params = IndexParams()
+    index_params.add_index(
+        field_name="vector",
+        index_type="HNSW",
+        metric_type=metric_type,
+        params={"M": 16, "efConstruction": 100},
+    )
+    client.create_index(collection_name="vectors", index_params=index_params)
+    index_time = time.perf_counter() - start_index
+    rss_after_index = get_current_rss()
+
+    # 3. Warm-up
+    warmup_count = min(10, len(test_vectors))
+    for q in test_vectors[:warmup_count]:
+        client.search(collection_name="vectors", data=[q.tolist()], limit=top_k)
+
+    # 4. Queries
+    query_times = []
+    predictions = []
+    for q in test_vectors:
+        t_start = time.perf_counter()
+        res = client.search(collection_name="vectors", data=[q.tolist()], limit=top_k)
+        duration = (time.perf_counter() - t_start) * 1000.0
+        query_times.append(duration)
+        pred_ids = [int(r["id"]) for r in res[0]]
+        predictions.append(pred_ids)
+
+    client.close()
+    del client
+    gc.collect()
+
+    recalls = []
+    for pred, gt in zip(predictions, ground_truth):
+        gt_set = set(int(x) for x in gt[:top_k])
+        matches = len(set(pred).intersection(gt_set))
+        recalls.append(matches / top_k)
+
+    avg_recall = np.mean(recalls)
+    p50 = np.percentile(query_times, 50)
+    p95 = np.percentile(query_times, 95)
+    p99 = np.percentile(query_times, 99)
+    qps = len(test_vectors) / (sum(query_times) / 1000.0)
+
+    shutil.rmtree(work_dir, ignore_errors=True)
+
+    return {
+        "engine": "Milvus",
+        "ingest_throughput": len(train_vectors) / ingest_time,
+        "index_time_ms": index_time * 1000.0,
+        "query_p50_ms": p50,
+        "query_p99_ms": p99,
+        "qps": qps,
+        "recall_at_k": avg_recall,
+        "mem_peak_rss_mb": max(rss_after_ingest, rss_after_index),
+        "mem_leak_rss_mb": rss_after_index - rss_start,
+    }
+
+
 # 5. System Health Check (D1)
 def health_check(skip_prompt=False):
     """Run system health checks before benchmark, optionally prompt user."""
@@ -582,6 +799,87 @@ def health_check(skip_prompt=False):
         sys.exit(0)
 
 
+# 5.5 JSON contract output (INV-007-B)
+def _pkg_version(name):
+    """Best-effort installed package version; None when not importable."""
+    try:
+        from importlib.metadata import version
+        return version(name)
+    except Exception:
+        return None
+
+
+def detect_hardware():
+    """Hardware metadata recorded with every run (published in the JSON)."""
+    return {
+        "os": platform.platform(),
+        "cpu_count": os.cpu_count(),
+        "cpu_model": platform.processor() or None,
+        "python": sys.version.split()[0],
+    }
+
+
+def detect_versions():
+    """Engine/library versions at run time (published in the JSON)."""
+    return {
+        "vantadb": _pkg_version("vantadb-py") or _pkg_version("vantadb_py"),
+        "lancedb": _pkg_version("lancedb"),
+        "chromadb": _pkg_version("chromadb"),
+        "numpy": _pkg_version("numpy"),
+    }
+
+
+def write_json_report(json_path, args, results, n_dim, metric, hardware, versions):
+    """
+    Write the versioned JSON contract consumed by web/ (INV-007-B).
+    Schema lives in web/src/lib/vanta-data.ts; the web imports this file directly.
+    """
+    doc = {
+        "schema_version": 1,
+        "generated_by": "benchmarks/competitive_bench.py",
+        "generated_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+        "source": f"run real del harness ({args.dataset}) — valores generados por esta ejecucion",
+        "hardware": hardware,
+        "versions": versions,
+        "dataset": {
+            "name": args.dataset,
+            "metric": metric,
+            "vectors": args.size,
+            "queries": args.queries,
+            "top_k": args.top_k,
+            "ingest_mode": (
+                f"chunked (--batch-size {args.batch_size})"
+                if args.batch_size and args.batch_size > 0
+                else "single put_batch_raw (--batch-size 0, doble rebuild — no comparable)"
+            ),
+        },
+        "methodology": {
+            "iterations_per_engine": 3,
+            "aggregation": "median",
+            "ground_truth": "exact brute-force numpy over the loaded subset",
+            "warmup_queries": 10,
+        },
+        "results": [],
+    }
+    for r in results:
+        doc["results"].append({
+            "engine": r["engine"],
+            "ingest_qps": round(r["ingest_throughput"], 1),
+            # index_time_ms <= 0 => incremental index (no separate rebuild measured)
+            "index_time_ms": round(r["index_time_ms"], 1) if r["index_time_ms"] > 0 else None,
+            "query_qps": round(r["qps"], 1),
+            "query_p50_ms": round(r["query_p50_ms"], 3),
+            "query_p99_ms": round(r["query_p99_ms"], 3),
+            "recall_at_k": round(r["recall_at_k"], 4),
+            "mem_peak_rss_mb": round(r["mem_peak_rss_mb"], 1),
+            "mem_delta_rss_mb": round(r["mem_leak_rss_mb"], 1),
+        })
+    os.makedirs(os.path.dirname(json_path), exist_ok=True)
+    with open(json_path, "w", encoding="utf-8") as f:
+        json.dump(doc, f, indent=2, ensure_ascii=False)
+    print(f"\nWrote versioned JSON contract: {json_path}")
+
+
 # 6. Main Execution Loop
 def main():
     parser = argparse.ArgumentParser(description="VantaDB Competitive Benchmark Suite")
@@ -598,7 +896,13 @@ def main():
     parser.add_argument("--dataset-dir", type=str, default="./datasets", help="Path to HDF5 dataset folder")
     parser.add_argument("--db-dir", type=str, default="./benchmarks/competitive_data", help="Temporal folder for databases")
     parser.add_argument("--output", type=str, default="docs/BENCHMARKS.md", help="Path to docs/BENCHMARKS.md to append results")
+    parser.add_argument("--json-output", type=str, default="web/src/lib/data/competitive-benchmark.json",
+                        help="Path to write the versioned JSON contract (INV-007-B). The web imports this file directly.")
     parser.add_argument("--yes", action="store_true", help="Skip health check prompt")
+    parser.add_argument("--engines", type=str, default="vanta,lance,chroma,qdrant",
+                        help="Comma-separated engines to benchmark on the SAME HW, no docker. "
+                             "Available: vanta,lance,chroma,qdrant,milvus. Missing clients are skipped "
+                             "and reported as 'not measured' in the honest table (PERF-03).")
     args = parser.parse_args()
 
     print("=" * 60)
@@ -624,12 +928,33 @@ def main():
 
     os.makedirs(args.db_dir, exist_ok=True)
 
-    # D4: 3 iterations per engine, report median
-    engines = [
-        ("vanta", bench_vantadb, os.path.join(args.db_dir, "vanta_db"), {"batch_size": args.batch_size}),
-        ("lance", bench_lancedb, os.path.join(args.db_dir, "lance_db"), {}),
-        ("chroma", bench_chromadb, os.path.join(args.db_dir, "chroma_db"), {}),
-    ]
+    # D4: 3 iterations per engine, report median.
+    # Engine registry (PERF-03): every engine runs on the SAME HW, no docker.
+    # Embedded local modes (Qdrant path=, Milvus milvus-lite uri=) are directly
+    # comparable to VantaDB/LanceDB/ChromaDB without a server or container.
+    # Missing clients are skipped gracefully and reported as "not measured".
+    engine_registry = {
+        "vanta": (bench_vantadb, os.path.join(args.db_dir, "vanta_db"), {"batch_size": args.batch_size}),
+        "lance": (bench_lancedb, os.path.join(args.db_dir, "lance_db"), {}),
+        "chroma": (bench_chromadb, os.path.join(args.db_dir, "chroma_db"), {}),
+        "qdrant": (bench_qdrant, os.path.join(args.db_dir, "qdrant_db"), {}) if HAS_QDRANT else None,
+        "milvus": (bench_milvus, os.path.join(args.db_dir, "milvus_db.db"), {}) if HAS_MILVUS else None,
+    }
+    requested = [e.strip().lower() for e in args.engines.split(",") if e.strip()]
+    engines = []
+    for name in requested:
+        if name not in engine_registry:
+            print(f"[WARN] Unknown engine '{name}' — skipping.")
+            continue
+        entry = engine_registry[name]
+        if entry is None:
+            print(f"[SKIP] Engine '{name}' not measured: client library not installed.")
+            continue
+        engines.append((name, entry[0], entry[1], entry[2]))
+
+    if not engines:
+        print("ERROR: No benchmarkable engines available for the requested set.")
+        sys.exit(1)
 
     all_engine_results = []  # (name, [run1_dict, run2_dict, run3_dict])
 
@@ -668,6 +993,13 @@ def main():
 
     # Clear temp database folder
     shutil.rmtree(args.db_dir, ignore_errors=True)
+
+    # Emit the versioned JSON contract (INV-007-B) with hardware/versions/date.
+    write_json_report(
+        args.json_output, args, results,
+        train_vectors.shape[1], metric,
+        detect_hardware(), detect_versions(),
+    )
 
     # 7. Format and Print Results
     headers = ["Engine", "Ingest QPS", "Index Time (ms)", "Query QPS", "Latency p50 (ms)", "Latency p99 (ms)", "Recall@10", "Peak RSS (MB)", "Delta RSS (MB)"]

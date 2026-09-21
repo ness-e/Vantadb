@@ -5,7 +5,7 @@ This example demonstrates how to use VantaDB as a memory backend for CrewAI agen
 VantaDB provides persistent, namespace-scoped memory with hybrid vector and text search.
 """
 
-import vantadb_py as vantadb
+import vantadb
 from typing import List, Dict, Any, Optional
 import os
 
@@ -30,7 +30,7 @@ class VantaDBMemory:
             db_path: Path to VantaDB database
             namespace: Namespace for this agent's memories
         """
-        self.db = vantadb.VantaDB(db_path, memory_limit_bytes=256_000_000)
+        self.db = vantadb.Client(db_path, memory_limit_bytes=256_000_000)
         self.namespace = namespace
         
     def add(
@@ -77,7 +77,7 @@ class VantaDBMemory:
         Returns:
             Memory record or None if not found
         """
-        record = self.db.get(self.namespace, key)
+        record = self.db.memory.get(self.namespace, key)
         if record:
             return {
                 "key": record["key"],
@@ -107,9 +107,9 @@ class VantaDBMemory:
         Returns:
             List of matching memory records with scores
         """
-        hits = self.db.search_memory(
+        hits = self.db.search(
             self.namespace,
-            query_vector=query_vector,
+            query_vector=query_vector or [],
             text_query=query,
             top_k=top_k,
             filters=filters or {}
@@ -137,7 +137,7 @@ class VantaDBMemory:
         Returns:
             True if deleted, False otherwise
         """
-        return self.db.delete(self.namespace, key)
+        return self.db.memory.delete(self.namespace, key)
     
     def list(self, limit: int = 100, filters: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
         """
@@ -150,11 +150,7 @@ class VantaDBMemory:
         Returns:
             List of memory records
         """
-        options = {
-            "limit": limit,
-            "filters": filters or {}
-        }
-        records = self.db.list(self.namespace, options)
+        records = self.db.memory.list(self.namespace, filters=filters or {}, limit=limit)
         
         return [
             {

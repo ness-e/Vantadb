@@ -2,10 +2,15 @@
 
 import { type ReactNode, useCallback } from "react";
 import { usePathname } from "next/navigation";
+import dynamic from "next/dynamic";
 import { SiteNavbar } from "./site-navbar";
 import { Footer } from "./footer";
 import { ScrollProgress } from "./scroll-progress";
-import { CommandPalette } from "./command-palette";
+// ponytail: lazy — command-palette arrastra vanta-data (1.1k líneas) al bundle global; carga diferida
+const CommandPalette = dynamic(
+  () => import("./command-palette").then((m) => m.CommandPalette),
+  { ssr: false }
+);
 import { BackToTop } from "./back-to-top";
 import { ShortcutOverlay, ShortcutHintButton } from "./shortcut-overlay";
 import { PageTransition } from "./page-transition";

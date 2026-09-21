@@ -41,7 +41,7 @@ export function ChangelogSection() {
         <Reveal direction="up">
           <div className="mb-8 flex flex-col gap-3 border-4 border-black bg-[#FBF9F5] p-6 shadow-[6px_6px_0_0_#000]    sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <span className="inline-flex items-center gap-2 glow-box-neon border-2 border-black bg-[#FF5500] px-2 py-0.5 font-tech text-[10px] font-bold uppercase tracking-[0.25em] text-black ">
+              <span className="inline-flex items-center gap-2 glow-box--neon border-2 border-black bg-[#FF5500] px-2 py-0.5 font-tech text-[10px] font-bold uppercase tracking-[0.25em] text-black ">
                 <GitBranch className="h-3 w-3" strokeWidth={3} />
                 §09
               </span>
@@ -80,10 +80,10 @@ export function ChangelogSection() {
               {query && (
                 <button
                   onClick={() => setQuery("")}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-black/50 hover:text-[#FF5500] "
+                  className="absolute right-2 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-black/50 hover:text-[#FF5500] "
                   aria-label={t("changelog.clearSearch")}
                 >
-                  <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  <X className="h-5 w-5" strokeWidth={2.5} />
                 </button>
               )}
             </div>
@@ -190,7 +190,7 @@ export function ChangelogSection() {
               href={VANTA.repo}
               target="_blank"
               rel="noopener noreferrer"
-              className="press-neon inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+              className="press--neon inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
             >
               {t("changelog.viewOnGithub")}
               <ArrowRight className="h-4 w-4" strokeWidth={2.5} />

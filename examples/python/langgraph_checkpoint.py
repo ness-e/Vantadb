@@ -6,7 +6,7 @@ VantaDB provides persistent checkpoint storage with namespace isolation and
 efficient retrieval for state management in LangGraph workflows.
 """
 
-import vantadb_py as vantadb
+import vantadb
 from typing import Dict, Any, Optional, List
 import json
 import os
@@ -32,7 +32,7 @@ class VantaDBCheckpointStore:
             db_path: Path to VantaDB database
             thread_id: Thread identifier for this workflow
         """
-        self.db = vantadb.VantaDB(db_path, memory_limit_bytes=512_000_000)
+        self.db = vantadb.Client(db_path, memory_limit_bytes=512_000_000)
         self.thread_id = thread_id
         self.namespace = f"langgraph/checkpoints-{thread_id}"
         
@@ -94,7 +94,7 @@ class VantaDBCheckpointStore:
         if not checkpoint_id:
             return None
         
-        record = self.db.get(self.namespace, checkpoint_id)
+        record = self.db.memory.get(self.namespace, checkpoint_id)
         if record:
             try:
                 checkpoint = json.loads(record["payload"])
@@ -128,7 +128,7 @@ class VantaDBCheckpointStore:
         if config and config.get("checkpoint_id"):
             filters["checkpoint_id"] = config["checkpoint_id"]
         
-        records = self.db.list(self.namespace, {"limit": limit, "filters": filters})
+        records = self.db.memory.list(self.namespace, filters=filters, limit=limit)
         
         checkpoints = []
         for record in records:
@@ -158,7 +158,7 @@ class VantaDBCheckpointStore:
         """
         checkpoint_id = config.get("checkpoint_id")
         if checkpoint_id:
-            return self.db.delete(self.namespace, checkpoint_id)
+            return self.db.memory.delete(self.namespace, checkpoint_id)
         return False
     
     def search(
@@ -176,8 +176,9 @@ class VantaDBCheckpointStore:
         Returns:
             List of matching checkpoints
         """
-        hits = self.db.search_memory(
+        hits = self.db.search(
             self.namespace,
+            query_vector=[],
             text_query=query,
             top_k=limit
         )

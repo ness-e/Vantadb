@@ -4,7 +4,8 @@
  * VantaLogoMark — shared SVG mark used in navbar, footer, and CTA.
  * Outer ring: black border, NO fill (transparent).
  * Inner: neon orange sphere.
- * Eyes: two vertical bars (cat eyes).
+ * Eyes: two vertical capsule bars — same geometry as the hero mark
+ * (hero-mark-interactive.tsx / mark-classic.tsx), scaled 100→64.
  * Inverts colors in dark mode.
  */
 export function VantaLogoMark({ size = 36 }: { size?: number }) {
@@ -28,8 +29,8 @@ export function VantaLogoMark({ size = 36 }: { size?: number }) {
         className="text-black "
       />
       <circle cx="32" cy="32" r="14" fill="#FF5500" />
-      <rect x="27" y="27" width="2.5" height="10" fill="#000" rx="0.5" />
-      <rect x="34.5" y="27" width="2.5" height="10" fill="#000" rx="0.5" />
+      <rect x="26.24" y="28.8" width="2.56" height="6.4" fill="#000" rx="1.28" />
+      <rect x="35.2" y="28.8" width="2.56" height="6.4" fill="#000" rx="1.28" />
     </svg>
   );
 }

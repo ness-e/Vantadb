@@ -1,3 +1,13 @@
+---
+title: "Design System Reference"
+type: web
+status: active
+tags: [vantadb, web, reference]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Design System Reference
 
 ## Palette (5 colors)

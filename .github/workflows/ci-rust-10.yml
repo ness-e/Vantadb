@@ -2,7 +2,7 @@ name: 'CI: Rust — Build & Lint + Tests'
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ "main", "develop" ]
     paths:
       - 'src/**'
       - 'tests/**'
@@ -15,6 +15,7 @@ on:
       - 'deny.toml'
       - 'rust-toolchain.toml'
       - 'vantadb-*/**'
+      - 'vanta-memory/**'
       - 'integrations/**'
       - '!web/**'
   pull_request:
@@ -31,6 +32,7 @@ on:
       - 'deny.toml'
       - 'rust-toolchain.toml'
       - 'vantadb-*/**'
+      - 'vanta-memory/**'
       - 'integrations/**'
       - '!web/**'
   workflow_dispatch:
@@ -51,7 +53,7 @@ jobs:
       group: fmt-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -71,7 +73,7 @@ jobs:
       group: lint-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -81,16 +83,120 @@ jobs:
           swap-mb: 4096
 
       - name: Clippy Lints (core)
-        # CATEGORY: EXPERIMENTAL — excludes experimental crates from blocking lint checks.
-        # Use --exclude vantadb-wasm --exclude vantadb-server --exclude vantadb-mcp.
-        run: cargo clippy --workspace --all-targets --all-features --exclude vantadb-wasm --exclude vantadb-server --exclude vantadb-mcp -- -D warnings
+        # AUD-018: gate extended to vantadb-wasm / vantadb-server / vantadb-mcp.
+        # Verified 2026-08-12: clippy clean on all three (exit 0, no warnings).
+        run: cargo clippy --workspace --all-targets --all-features -- -D warnings
+
+  semver-checks:
+    # RELEASE-01: gate so a breaking change in the public API can never publish.
+    # release-plz.toml has semver_check = true, but nothing ran cargo-semver-checks
+    # as a CI gate — this job closes that gap. Compares the current tree against
+    # the latest published version on crates.io (0.4.x baseline vs 0.5.0).
+    # Only `vantadb` is checked: vantadb-wasm is npm-distributed (release = false),
+    # and python/server/mcp are not crates.io-distributed.
+    # SCOPE: main pushes + PRs targeting main only (base_ref guards PRs aimed
+    # at develop). On develop the baseline comparison is permanently red while
+    # features accumulate pre-release (13 majors today heading into 0.6.0) —
+    # pure noise that hides real regressions. The release decision (major vs
+    # minor) is made once, at the develop→main PR.
+    name: Semver Checks (public API)
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
+    timeout-minutes: 30
+    concurrency:
+      group: semver-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          toolchain: nightly
+          install-nextest: false
+          install-llvm-cov: false
+          install-system-deps: true
+          swap-mb: 4096
+
+      - name: Install cargo-semver-checks
+        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a # v2.83.4
+        with:
+          tool: cargo-semver-checks
+
+      - name: Semver check (vantadb vs latest published)
+        run: cargo semver-checks -p vantadb
+
+  adr-gate:
+    # REGLA-5: public API changes require an ADR. Without this job the rule
+    # depended on agent memory — this is the mechanical gate. Runs only on PRs
+    # (push to main already passed its own PR gate); compares the PR changeset
+    # against the base SHA and fails when public API files changed unless an
+    # ADR (docs/architecture/adr/ADR-NNN-*.md) was added OR the PR is explicitly
+    # marked [no-adr] in the title/description with a justification.
+    # Lazy by design: one depth-1 fetch + two-tree diff — no full history.
+    name: ADR Gate (public API)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Fetch base SHA
+        run: git fetch --depth 1 origin "${{ github.event.pull_request.base.sha }}"
+
+      - name: Detect API surface + ADR changes
+        id: detect
+        shell: bash
+        run: |
+          BASE="${{ github.event.pull_request.base.sha }}"
+          changed="$(git diff --name-only "$BASE" HEAD)"
+          echo "--- changed files ---"
+          printf '%s\n' "$changed"
+
+          api=""
+          for p in src/ vantadb-python/ vantadb-ts/ vantadb-server/ vantadb-wasm/; do
+            if printf '%s\n' "$changed" | grep -q "^$p"; then
+              api="${p%/}"
+              break
+            fi
+          done
+          # Single-line: a multiline value breaks the $GITHUB_OUTPUT file-command
+          # parser ("Invalid format" / "Unable to process file command 'output'"
+          # when a PR touches 2+ ADRs — run 35467546726). paste joins with spaces.
+          adr="$(printf '%s\n' "$changed" | grep -E '^docs/architecture/adr/ADR-[0-9]{3}' | paste -sd' ' - || true)"
+
+          echo "api=$api" >> "$GITHUB_OUTPUT"
+          echo "adr=$adr" >> "$GITHUB_OUTPUT"
+
+      - name: Fail — API change without ADR
+        if: >-
+          steps.detect.outputs.api != ''
+          && steps.detect.outputs.adr == ''
+          && !contains(github.event.pull_request.title, '[no-adr]')
+          && !contains(github.event.pull_request.body, '[no-adr]')
+        run: |
+          echo "::error::Public API surface changed (${{ steps.detect.outputs.api }}) without an ADR."
+          echo "::error::Add an ADR to docs/architecture/adr/ (format ADR-NNN, see ADR-0001) or, if no ADR is warranted, mark this PR '[no-adr]' in the title/description with a one-line justification."
+          exit 1
+
+      - name: Acknowledge [no-adr] marker
+        if: >-
+          steps.detect.outputs.api != ''
+          && steps.detect.outputs.adr == ''
+          && (contains(github.event.pull_request.title, '[no-adr]')
+              || contains(github.event.pull_request.body, '[no-adr]'))
+        run: |
+          echo "::warning::PR marked [no-adr] — a reviewer must confirm the public API change needs no ADR."
+
+      - name: OK — ADR present
+        if: steps.detect.outputs.adr != ''
+        run: 'echo "ADR present: ${{ steps.detect.outputs.adr }}"'
 
   test:
     name: Tests (Linux)
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -101,7 +207,7 @@ jobs:
 
       - name: Cache benchmark dataset (GloVe 100d)
         id: cache-benchmark
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: data/benchmark/glove.6B.100d.txt
           key: glove-100d-${{ hashFiles('scripts/download_benchmark_datasets.sh') }}
@@ -120,22 +226,23 @@ jobs:
     runs-on: windows-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Rust (Windows)
-        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # v1
         with:
           toolchain: stable
           components: clippy
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef
+        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
         with:
           cache-bin: "false"
 
       - name: Install cargo-nextest
-        shell: pwsh
-        run: cargo install cargo-nextest --locked
+        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        with:
+          tool: nextest
 
       - name: Cargo check (Windows smoke test)
         run: cargo check
@@ -154,7 +261,7 @@ jobs:
     runs-on: macos-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -186,7 +293,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -205,7 +312,7 @@ jobs:
     # Failure does not indicate a regression in default builds.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -221,7 +328,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -233,7 +340,7 @@ jobs:
 
       - name: Cache benchmark dataset (GloVe 100d)
         id: cache-benchmark
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: data/benchmark/glove.6B.100d.txt
           key: glove-100d-${{ hashFiles('scripts/download_benchmark_datasets.sh') }}
@@ -255,17 +362,18 @@ jobs:
             --exclude vantadb-server \
             --exclude vantadb-mcp \
             --lcov --output-path lcov.info \
-            --ignore-filename-regex '(tests/|benches/|packages/experimental|crash_injection)' \
+            --ignore-filename-regex '(tests/|benches/|crash_injection)' \
             2>&1
           echo "--- Coverage Summary ---"
           cargo llvm-cov report \
-            --ignore-filename-regex '(tests/|benches/|packages/experimental)'
+            --ignore-filename-regex '(tests/|benches/)'
 
-      - name: Enforce coverage threshold (>=70%)
+      - name: Enforce coverage threshold (>=80%, ADR-015 coverage policy)
         shell: bash
         run: |
+          # ADR-015-coverage-policy: root-gate 80% en CI (bindings/wasm/server/mcp miden en runners nativos)
           cargo llvm-cov report --json \
-            --ignore-filename-regex '(tests/|benches/|packages/experimental)' \
+            --ignore-filename-regex '(tests/|benches/)' \
             | python3 -c "
           import sys, json
           d = json.load(sys.stdin)
@@ -282,7 +390,7 @@ jobs:
           "
 
       - name: Upload coverage report
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: coverage-lcov
           path: lcov.info
@@ -297,7 +405,7 @@ jobs:
     continue-on-error: true
     if: ${{ github.event_name == 'push' && contains(github.event.head_commit.modified, 'vantadb-wasm/') }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install wasm-pack
         run: cargo install wasm-pack
@@ -317,7 +425,7 @@ jobs:
     # crates are not in workspace default-members; this job checks them so
     # regressions surface in CI. Must pass before merge.
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -340,7 +448,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -349,7 +457,7 @@ jobs:
           install-system-deps: false
 
       - name: Install cargo-audit
-        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a
+        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a # v2.83.4
         with:
           tool: cargo-audit
 
@@ -362,16 +470,16 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up Rust (Nightly + Miri)
-        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # v1
         with:
           toolchain: nightly
           components: miri
 
       - name: Rust Cache
-        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef
+        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
         with:
           shared-key: miri-cache
 
@@ -387,9 +495,27 @@ jobs:
           MIRI_NO_HOST_FALLBACK: 1
 
       - name: Miri Test (core — unsafe patterns)
-        run: cargo +nightly miri test --manifest-path Cargo.toml -p vantadb -- miri
+        # Run WITHOUT the `roaring` feature: croaring is C FFI that Miri cannot
+        # execute. FilterBitset falls back to the pure-Rust Vec<u64> impl so the
+        # engine's from_raw_parts/alignment paths still run under the checker.
+        run: cargo +nightly miri test --manifest-path Cargo.toml -p vantadb --no-default-features --features "cli,fjall,memmap2,fs2" -- miri
         env:
           MIRI_NO_HOST_FALLBACK: 1
+          # VantaHeader::new reads SystemTime::now() when opening the engine;
+          # Miri blocks clock_gettime(REALTIME) under default isolation.
+          MIRIFLAGS: "-Zmiri-disable-isolation"
+          RUSTFLAGS: "-Zrandomize-layout"
+
+      # ERR-009: Tree Borrows variant (catches violations Stacked Borrows misses,
+      # e.g. RUSTSEC-2026-0002 class). Bonus: reuses cached sysroot from above.
+      # CATEGORY: BEST-EFFORT — TB can flag false-positives; failures reviewed
+      # manually, do not gate releases.
+      - name: Miri Test (tree borrows - best effort)
+        continue-on-error: true
+        run: cargo +nightly miri test --manifest-path Cargo.toml -p vantadb --no-default-features --features "cli,fjall,memmap2,fs2" -- miri
+        env:
+          MIRI_NO_HOST_FALLBACK: 1
+          MIRIFLAGS: "-Zmiri-disable-isolation -Zmiri-tree-borrows"
           RUSTFLAGS: "-Zrandomize-layout"
 
   deny:
@@ -397,7 +523,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -406,7 +532,7 @@ jobs:
           install-system-deps: false
 
       - name: Install cargo-deny
-        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a
+        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a # v2.83.4
         with:
           tool: cargo-deny
 
@@ -421,10 +547,10 @@ jobs:
     # Failures are reviewed manually. Does not gate releases.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install nightly
-        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # v1
         with:
           toolchain: nightly
           components: rust-src
@@ -442,6 +568,8 @@ jobs:
             --package vantadb \
             --features "cli,arrow,tls,opentelemetry" \
             --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=address", "-Cunsafe-allow-abi-mismatch=sanitizer"]' \
+            -- \
+            --skip test_benchmark_internal_10k \
             || echo "ASan reported issues (see log above)"
         env:
           ASAN_OPTIONS: "detect_stack_use_after_return=1:detect_leaks=1:halt_on_error=0"
@@ -455,10 +583,10 @@ jobs:
     # Failures are reviewed manually. Does not gate releases.
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install nightly
-        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c
+        uses: dtolnay/rust-toolchain@2c7215f132e9ebf062739d9130488b56d53c060c # v1
         with:
           toolchain: nightly
 

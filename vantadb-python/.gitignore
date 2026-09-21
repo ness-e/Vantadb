@@ -1,0 +1,40 @@
+# Python build artifacts
+*.pyd
+*.pdb
+dist/
+build/
+*.egg-info/
+probe_lock_db/
+.coverage
+.vanta_profile
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Rust build artifacts
+target/
+Cargo.lock
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Test artifacts
+.pytest_cache/
+htmlcov/
+*.profraw
+
+# Maturin
+*.whl

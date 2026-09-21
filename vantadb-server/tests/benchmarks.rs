@@ -1,3 +1,5 @@
+// ponytail: blanket allow - unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Performance benchmarks for vantadb-server.
 //!
 //! These are NOT pass/fail tests — they measure latency and throughput
@@ -12,8 +14,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tokio::net::TcpListener;
-use vantadb::storage::StorageEngine;
-use vantadb_server::server::{app, ServerState};
+use vantadb_server::server::app;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────
 
@@ -273,14 +274,7 @@ async fn bench_latency_health_serial() {
 
 #[tokio::test]
 async fn bench_latency_with_auth() {
-    let dir = tempfile::tempdir().unwrap();
-    let storage = Arc::new(StorageEngine::open(dir.path().join("db").to_str().unwrap()).unwrap());
-    let state = Arc::new(ServerState {
-        storage,
-        semaphore: Arc::new(tokio::sync::Semaphore::new(100)),
-        api_key: Some(Arc::from("bench-key")),
-        rbac_config: Default::default(),
-    });
+    let (_dir, state) = helpers::build_server_state(Path::new("db"), Some("bench-key"), 100);
     let router = app(state, 0);
 
     let listener = TcpListener::bind("127.0.0.1:0").await.unwrap();

@@ -1,0 +1,220 @@
+{
+  "models": {
+    "all-MiniLM-L6-v2": {
+      "self": {
+        "pairs": [
+          {
+            "a": "hola mundo",
+            "b": "hola mundo",
+            "cos": 1.0
+          }
+        ],
+        "avg": 1.0
+      },
+      "cross_lang": {
+        "pairs": [
+          {
+            "a": "hola mundo",
+            "b": "hello world",
+            "cos": 0.9452
+          }
+        ],
+        "avg": 0.9452
+      },
+      "paraphrase_en": {
+        "pairs": [
+          {
+            "a": "the quick brown fox",
+            "b": "a fast auburn fox",
+            "cos": 0.9049
+          }
+        ],
+        "avg": 0.9049
+      },
+      "paraphrase_es": {
+        "pairs": [
+          {
+            "a": "el rápido zorro marrón",
+            "b": "una veloz zorra castaña",
+            "cos": 0.9109
+          }
+        ],
+        "avg": 0.9109
+      },
+      "doc_query_en": {
+        "pairs": [
+          {
+            "a": "machine learning model for retrieval and search",
+            "b": "machine learning retrieval",
+            "cos": 0.9779
+          },
+          {
+            "a": "vector database benchmark case english",
+            "b": "vector database search",
+            "cos": 0.8984
+          }
+        ],
+        "avg": 0.9382
+      },
+      "doc_query_es": {
+        "pairs": [
+          {
+            "a": "modelo de aprendizaje automático para búsqueda y recuperación",
+            "b": "aprendizaje automático recuperación",
+            "cos": 0.94
+          },
+          {
+            "a": "caso de referencia base de datos vectorial español",
+            "b": "base de datos vectorial búsqueda",
+            "cos": 0.934
+          }
+        ],
+        "avg": 0.937
+      }
+    },
+    "paraphrase-multilingual-MiniLM-L12-v2": {
+      "self": {
+        "pairs": [
+          {
+            "a": "hola mundo",
+            "b": "hola mundo",
+            "cos": 1.0
+          }
+        ],
+        "avg": 1.0
+      },
+      "cross_lang": {
+        "pairs": [
+          {
+            "a": "hola mundo",
+            "b": "hello world",
+            "cos": 0.9241
+          }
+        ],
+        "avg": 0.9241
+      },
+      "paraphrase_en": {
+        "pairs": [
+          {
+            "a": "the quick brown fox",
+            "b": "a fast auburn fox",
+            "cos": 0.8571
+          }
+        ],
+        "avg": 0.8571
+      },
+      "paraphrase_es": {
+        "pairs": [
+          {
+            "a": "el rápido zorro marrón",
+            "b": "una veloz zorra castaña",
+            "cos": 0.8784
+          }
+        ],
+        "avg": 0.8784
+      },
+      "doc_query_en": {
+        "pairs": [
+          {
+            "a": "machine learning model for retrieval and search",
+            "b": "machine learning retrieval",
+            "cos": 0.9221
+          },
+          {
+            "a": "vector database benchmark case english",
+            "b": "vector database search",
+            "cos": 0.6935
+          }
+        ],
+        "avg": 0.8078
+      },
+      "doc_query_es": {
+        "pairs": [
+          {
+            "a": "modelo de aprendizaje automático para búsqueda y recuperación",
+            "b": "aprendizaje automático recuperación",
+            "cos": 0.8467
+          },
+          {
+            "a": "caso de referencia base de datos vectorial español",
+            "b": "base de datos vectorial búsqueda",
+            "cos": 0.5966
+          }
+        ],
+        "avg": 0.7217
+      }
+    },
+    "multilingual-e5-small": {
+      "self": {
+        "pairs": [
+          {
+            "a": "hola mundo",
+            "b": "hola mundo",
+            "cos": 1.0
+          }
+        ],
+        "avg": 1.0
+      },
+      "cross_lang": {
+        "pairs": [
+          {
+            "a": "hola mundo",
+            "b": "hello world",
+            "cos": 0.9378
+          }
+        ],
+        "avg": 0.9378
+      },
+      "paraphrase_en": {
+        "pairs": [
+          {
+            "a": "the quick brown fox",
+            "b": "a fast auburn fox",
+            "cos": 0.9118
+          }
+        ],
+        "avg": 0.9118
+      },
+      "paraphrase_es": {
+        "pairs": [
+          {
+            "a": "el rápido zorro marrón",
+            "b": "una veloz zorra castaña",
+            "cos": 0.8977
+          }
+        ],
+        "avg": 0.8977
+      },
+      "doc_query_en": {
+        "pairs": [
+          {
+            "a": "machine learning model for retrieval and search",
+            "b": "machine learning retrieval",
+            "cos": 0.9458
+          },
+          {
+            "a": "vector database benchmark case english",
+            "b": "vector database search",
+            "cos": 0.9064
+          }
+        ],
+        "avg": 0.9261
+      },
+      "doc_query_es": {
+        "pairs": [
+          {
+            "a": "modelo de aprendizaje automático para búsqueda y recuperación",
+            "b": "aprendizaje automático recuperación",
+            "cos": 0.9367
+          },
+          {
+            "a": "caso de referencia base de datos vectorial español",
+            "b": "base de datos vectorial búsqueda",
+            "cos": 0.9297
+          }
+        ],
+        "avg": 0.9332
+      }
+    }
+  }
+}

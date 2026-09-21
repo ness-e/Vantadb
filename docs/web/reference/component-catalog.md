@@ -1,3 +1,13 @@
+---
+title: "Component Catalog — `src/components/vanta/`"
+type: web
+status: active
+tags: [vantadb, web, reference]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Component Catalog — `src/components/vanta/`
 
 ## Overview

@@ -1,3 +1,13 @@
+---
+title: "SEO y Metadata — Guía de Referencia"
+type: web
+status: active
+tags: [vantadb, web, guides]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # SEO y Metadata — Guía de Referencia
 
 > **Applies to:** `web/` (Next.js 16 App Router)

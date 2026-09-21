@@ -2,15 +2,15 @@
 
 ## Community Support
 
-- **Discord**: [Join our Discord](https://discord.gg/vantadb)
+- **Discord**: [Join our Discord](https://discord.gg/g8nqB3NtXt)
 - **GitHub Discussions**: [Ask questions](https://github.com/ness-e/Vantadb/discussions)
 - **Stack Overflow**: Tag questions with `vantadb`
 
 ## Documentation
 
-- [Quickstart Guide](https://vantadb.dev/docs/quickstart)
-- [API Reference](https://vantadb.dev/docs/api)
-- [FAQ](https://vantadb.dev/docs/faq)
+- [Quickstart Guide](docs/QUICKSTART.md)
+- [API Reference](docs/api/)
+- [FAQ](docs/FAQ.md)
 
 ## Bug Reports
 

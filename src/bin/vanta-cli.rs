@@ -1,13 +1,13 @@
 //! VantaDB CLI binary — thin entry point.
 //! Handlers live in `vantadb::cli_handlers` for testability.
 
+use anyhow::Context as _;
 use clap::Parser;
 
-use vantadb::cli::{Cli, Commands};
+use vantadb::cli::{Cli, Commands, ExportFormat};
 use vantadb::cli_handlers;
 use vantadb::config::LogFormat;
 use vantadb::console;
-use vantadb::error::Result;
 
 #[cfg(all(feature = "jemalloc", not(target_os = "windows")))]
 #[global_allocator]
@@ -20,7 +20,14 @@ static GLOBAL: tikv_jemallocator::Jemalloc = tikv_jemallocator::Jemalloc;
 #[global_allocator]
 static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 
-fn main() -> Result<()> {
+// ERR-CORE-02: bin → anyhow con `.context()` (cadena humana en stderr).
+// La lib nunca usa anyhow; solo este bin. `?` sobre los handlers convierte
+// `Error` (Error + Send + Sync + 'static) vía el `From` genérico de anyhow.
+fn main() -> anyhow::Result<()> {
+    run().context("vanta-cli: command failed")
+}
+
+fn run() -> anyhow::Result<()> {
     let args = Cli::parse();
 
     if args.verbose {
@@ -33,12 +40,14 @@ fn main() -> Result<()> {
             key,
             payload,
             vector,
+            metadata,
         } => cli_handlers::cmd_put(
             &args.db,
             &namespace,
             &key,
             &payload,
             vector.as_deref(),
+            metadata.as_deref(),
             args.verbose,
         )?,
 
@@ -60,9 +69,14 @@ fn main() -> Result<()> {
 
         Commands::RepairTextIndex => cli_handlers::cmd_repair_text_index(&args.db)?,
 
-        Commands::Export { namespace, out } => {
-            cli_handlers::cmd_export(&args.db, namespace.as_deref(), &out)?
-        }
+        Commands::Export {
+            namespace,
+            out,
+            format,
+        } => match format {
+            ExportFormat::Jsonl => cli_handlers::cmd_export(&args.db, namespace.as_deref(), &out)?,
+            ExportFormat::Md => cli_handlers::cmd_export_md(&args.db, namespace.as_deref(), &out)?,
+        },
 
         Commands::Import { input } => cli_handlers::cmd_import(&args.db, &input, args.verbose)?,
 
@@ -166,9 +180,46 @@ fn main() -> Result<()> {
             input,
             force,
             rebuild,
-        } => cli_handlers::cmd_restore(&args.db, &input, force, rebuild, args.verbose)?,
+            dry_run,
+        } => cli_handlers::cmd_restore(
+            &args.db,
+            &input,
+            cli_handlers::RestoreOptions {
+                overwrite: if force {
+                    cli_handlers::OverwritePolicy::Overwrite
+                } else {
+                    cli_handlers::OverwritePolicy::FailIfExists
+                },
+                rebuild: if rebuild {
+                    cli_handlers::IndexRebuild::Yes
+                } else {
+                    cli_handlers::IndexRebuild::No
+                },
+                mode: if dry_run {
+                    cli_handlers::RestoreMode::DryRun
+                } else {
+                    cli_handlers::RestoreMode::Apply
+                },
+                verbose: cli_handlers::Verbosity::from_flag(args.verbose),
+            },
+        )?,
 
-        Commands::Doctor => cli_handlers::cmd_doctor(&args.db, args.verbose)?,
+        Commands::Doctor { fix, force } => {
+            let mode = if force {
+                cli_handlers::DoctorFix::Apply
+            } else if fix {
+                cli_handlers::DoctorFix::DryRun
+            } else {
+                cli_handlers::DoctorFix::Off
+            };
+            cli_handlers::cmd_doctor(
+                &args.db,
+                cli_handlers::DoctorOptions {
+                    fix: mode,
+                    verbose: cli_handlers::Verbosity::from_flag(args.verbose),
+                },
+            )?
+        }
 
         Commands::Inspect { namespace, key } => {
             cli_handlers::cmd_inspect(&args.db, &namespace, &key, args.verbose)?
@@ -186,6 +237,9 @@ fn main() -> Result<()> {
         Commands::Wal(cmd) => match cmd {
             vantadb::cli::WalCommand::Compact => cli_handlers::cmd_wal_compact(&args.db)?,
             vantadb::cli::WalCommand::Vacuum => cli_handlers::cmd_wal_vacuum(&args.db)?,
+            vantadb::cli::WalCommand::Salvage { dry_run } => {
+                cli_handlers::cmd_wal_salvage(&args.db, dry_run)?
+            }
         },
 
         Commands::Completions { shell } => cli_handlers::cmd_completions(shell),
@@ -196,7 +250,20 @@ fn main() -> Result<()> {
             port,
             host,
             require_auth,
-        } => cli_handlers::cmd_server(&args.db, http, mcp, port, host, require_auth, args.verbose)?,
+            allow_insecure,
+            dashboard_dir,
+        } => cli_handlers::cmd_server(
+            &args.db,
+            http,
+            mcp,
+            port,
+            host,
+            require_auth,
+            allow_insecure,
+            dashboard_dir,
+            args.memory_limit.as_deref(),
+            args.verbose,
+        )?,
 
         #[cfg(feature = "tui")]
         Commands::Tui => {

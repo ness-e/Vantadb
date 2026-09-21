@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Quickstart · VantaDB — Install & 5-Minute Guide",
     description:
       "Instala VantaDB con pip, corre put/search en Python, prueba la CLI vanta-cli y el playground. Quickstart en 5 minutos.",
-    url: "https://vantadb.dev/docs",
+    url: "https://vantadb.vercel.app/docs",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/docs",
+    canonical: "https://vantadb.vercel.app/docs",
   },
 };
 

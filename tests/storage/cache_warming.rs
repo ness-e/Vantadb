@@ -1,3 +1,4 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Cache warming integration tests (OLD-20).
 //!
 //! Validates that cache warming doesn't break functional correctness
@@ -7,7 +8,7 @@
 //! These tests exercise the feature through the public StorageEngine API.
 
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::{NodeTier, UnifiedNode, VectorRepresentations};
 use vantadb::storage::StorageEngine;
 
@@ -15,9 +16,9 @@ use vantadb::storage::StorageEngine;
 
 /// Create an in-memory engine for testing.
 fn in_memory_engine() -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: vantadb::BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     StorageEngine::open_with_config(":memory:", Some(config))
         .expect("Failed to open in-memory engine")
@@ -33,7 +34,7 @@ fn insert_node(engine: &StorageEngine, id: u128) {
 
 /// Return how many entries are currently in the volatile cache.
 fn cache_size(engine: &StorageEngine) -> usize {
-    engine.get_memory_stats().cache_entries
+    engine.stats().cache_entries
 }
 
 // ─── Tests ─────────────────────────────────────────────────────
@@ -85,13 +86,13 @@ fn test_cache_warming_hnsw_top_layer() {
     }
 
     // Verify the HNSW graph is non-empty.
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     assert!(stats.node_count > 0, "HNSW should have nodes");
 
     // HNSW top-layer warming is called at engine startup.
     // Since the cache is populated on insert (Hot tier), the entry point
     // should already be in cache after startup warming.
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     assert!(
         stats.cache_entries > 0,
         "cache should contain HNSW top-layer nodes after warmup, found {}",
@@ -184,9 +185,9 @@ fn test_cache_warming_persistent_engine() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: vantadb::BackendKind::InMemory,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(db_path, Some(config))
         .expect("Failed to open engine");
@@ -218,7 +219,7 @@ fn test_cache_warming_large_cache_eviction() {
     }
 
     // Cache should have entries but not exceed hardware-based limits
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     assert!(
         stats.cache_entries > 0,
         "cache should have entries after inserts"

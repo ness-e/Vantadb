@@ -3,7 +3,7 @@ title: "wal"
 type: glossary-entry
 status: stable
 tags: [persistence, wal, durability, recovery]
-last_refined: 2026-07
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Write-Ahead Log, Journal, Transaction Log]
 description: "Journaling mechanism where mutations are first written to a sequential log before being applied to the main storage, guaranteeing ACID durability"

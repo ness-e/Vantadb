@@ -61,7 +61,7 @@ export function Reveal({
     <Tag
       ref={ref as never}
       className={cn(
-        "transition-[transform,opacity] ease-[cubic-bezier(0.2,0.8,0.2,1)] will-change-transform",
+        "transition-[transform,opacity] ease-default will-change-transform",
         visible ? dirs.shown : dirs.hidden,
         className
       )}

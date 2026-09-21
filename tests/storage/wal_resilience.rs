@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! WAL Physical Hardening & Recovery Certification Test
 //! Validates:
 //! 1. WAL replay skips transactions <= checkpoint_seq.
@@ -10,7 +13,7 @@ mod common;
 use common::{TerminalReporter, VantaSession};
 use std::fs::{File, OpenOptions};
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::{BackendKind, StorageEngine};
 
@@ -23,7 +26,7 @@ fn test_wal_durability_and_checkpoint_coherence() {
     let db_path = dir.path().to_str().unwrap();
 
     // 1. Inicializar con configuración explícita
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         wal_shards: 1,
         ..Default::default()
@@ -68,7 +71,7 @@ fn test_wal_durability_and_checkpoint_coherence() {
     // Validamos que el nodo 104 está presente en el índice reconstruido
     let hnsw = storage2.hnsw.load();
     assert!(
-        hnsw.nodes.contains_key(&104),
+        hnsw.contains_node(104),
         "WAL replay should recover un-flushed node 104"
     );
 
@@ -84,7 +87,7 @@ fn test_wal_middle_corruption_auto_healing() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         wal_shards: 1,
         ..Default::default()
@@ -147,11 +150,19 @@ fn test_wal_middle_corruption_auto_healing() {
             file.write_all(&file_content).unwrap();
         }
 
-        // Forzar recuperación exclusiva desde el WAL eliminando el vector store y el índice HNSW
-        let vector_store_path = dir.path().join("data").join("vector_store.vanta");
-        let index_path = dir.path().join("data").join("vector_index.bin");
-        let _ = std::fs::remove_file(vector_store_path);
-        let _ = std::fs::remove_file(index_path);
+        // Forzar recuperación exclusiva desde el WAL eliminando el vector store
+        // (legacy + LSM levels) y el índice HNSW
+        let data_dir = dir.path().join("data");
+        for name in [
+            "vector_store.vanta",
+            "vstore_L0.vanta",
+            "vstore_L1.vanta",
+            "vstore_L2.vanta",
+            "vstore_L3.vanta",
+        ] {
+            let _ = std::fs::remove_file(data_dir.join(name));
+        }
+        let _ = std::fs::remove_file(data_dir.join("vector_index.bin"));
     }
 
     // Escribir un nuevo nodo válido DESPUÉS del agujero corrupto
@@ -173,19 +184,19 @@ fn test_wal_middle_corruption_auto_healing() {
 
     let hnsw = storage2.hnsw.load();
     assert!(
-        hnsw.nodes.contains_key(&201),
+        hnsw.contains_node(201),
         "WAL recovery should retrieve node 201 before corruption"
     );
     assert!(
-        hnsw.nodes.contains_key(&203),
+        hnsw.contains_node(203),
         "WAL recovery should retrieve node 203 which was written before corruption but lies after the corrupt record"
     );
     assert!(
-        hnsw.nodes.contains_key(&204),
+        hnsw.contains_node(204),
         "WAL recovery should retrieve node 204 written after corruption"
     );
     assert!(
-        !hnsw.nodes.contains_key(&202),
+        !hnsw.contains_node(202),
         "Corrupted node 202 should be skipped gracefully"
     );
 
@@ -204,7 +215,7 @@ fn test_wal_selective_crc_corruption_recovery() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         wal_shards: 1,
         ..Default::default()
@@ -271,10 +282,17 @@ fn test_wal_selective_crc_corruption_recovery() {
     }
 
     // Borrar el vector store y el índice en disco para forzar recuperación a través de WAL
-    let vector_store_path = dir.path().join("data").join("vector_store.vanta");
-    let index_path = dir.path().join("data").join("vector_index.bin");
-    let _ = std::fs::remove_file(vector_store_path);
-    let _ = std::fs::remove_file(index_path);
+    let data_dir = dir.path().join("data");
+    for name in [
+        "vector_store.vanta",
+        "vstore_L0.vanta",
+        "vstore_L1.vanta",
+        "vstore_L2.vanta",
+        "vstore_L3.vanta",
+    ] {
+        let _ = std::fs::remove_file(data_dir.join(name));
+    }
+    let _ = std::fs::remove_file(data_dir.join("vector_index.bin"));
 
     // Abrir la base de datos de nuevo.
     // Durante la recuperación, el replay del WAL debe detectar el fallo de CRC32C en el registro del nodo 302,
@@ -285,19 +303,84 @@ fn test_wal_selective_crc_corruption_recovery() {
     let hnsw = storage2.hnsw.load();
 
     assert!(
-        hnsw.nodes.contains_key(&301),
+        hnsw.contains_node(301),
         "WAL recovery should retrieve node 301 before the corrupted record"
     );
     assert!(
-        !hnsw.nodes.contains_key(&302),
+        !hnsw.contains_node(302),
         "Node 302 MUST be skipped because its record-level CRC is corrupt"
     );
     assert!(
-        hnsw.nodes.contains_key(&303),
+        hnsw.contains_node(303),
         "WAL recovery MUST scan forward and recover node 303 after the corrupted record"
     );
 
     session.success("Selective CRC32C corruption detection and recovery certified.");
+    session.finish(true);
+}
+
+#[test]
+fn test_sharded_wal_truncated_shard_recovery_fails_closed() {
+    TerminalReporter::suite_banner("SHARDED WAL TRUNCATED TAIL — RECOVERY SURFACES GAP", 1);
+    let mut session = VantaSession::begin("ERR-011 Truncated Shard Closed-Replay");
+
+    let dir = tempdir().unwrap();
+    let db_path = dir.path().to_str().unwrap();
+
+    let config = Config {
+        backend_kind: BackendKind::Fjall,
+        wal_shards: 4,
+        ..Default::default()
+    };
+
+    session.step("Seeding multi-shard WAL with 8 nodes (2 per shard)");
+    let storage = StorageEngine::open_with_config(db_path, Some(config.clone())).unwrap();
+    for id in 401..=408 {
+        storage.insert(&UnifiedNode::new(id)).unwrap();
+    }
+    drop(storage);
+
+    // Shard files live as <data>/vanta.shard{i}.wal; shard 1 has records 402, 406.
+    session.step("Truncating the tail of shard 1 mid-record (simulating torn write)");
+    let data_dir = dir.path().join("data");
+    let shard1 = data_dir.join("vanta.shard1.wal");
+    let mut content = Vec::new();
+    {
+        use std::io::Read;
+        let mut f = File::open(&shard1).unwrap();
+        f.read_to_end(&mut content).unwrap();
+    }
+    assert!(content.len() > 20, "shard1 should contain records");
+    // Walk records past the 20-byte header to find the end of the LAST record.
+    let mut offset = 20usize;
+    let mut last_rec_start = 20usize;
+    while offset + 8 <= content.len() {
+        let len = u32::from_le_bytes(content[offset..offset + 4].try_into().unwrap()) as usize;
+        let rec_end = offset + 4 + len + 4;
+        if rec_end > content.len() {
+            break;
+        }
+        last_rec_start = offset;
+        offset = rec_end;
+    }
+    // Cut INTO the last record's payload → torn/truncated tail.
+    let torn_len = (offset - last_rec_start) / 2;
+    let cut = offset - torn_len;
+    let f = OpenOptions::new().write(true).open(&shard1).unwrap();
+    f.set_len(cut as u64).unwrap();
+    drop(f);
+
+    // Reopen must FAIL CLOSED: replaying a truncated shard short and reporting
+    // success would silently drop records that round-robin says must be present.
+    session.step("Reopening: recovery must surface the shard gap as an error");
+    let result = StorageEngine::open_with_config(db_path, Some(config));
+    assert!(
+        result.is_err(),
+        "Reopening a WAL whose shard tail was truncated must fail, not silently succeed"
+    );
+    eprintln!("Expected failure surfaced: {:?}", result.err());
+
+    session.success("Truncated shard tail now fails closed during recovery.");
     session.finish(true);
 }
 
@@ -309,7 +392,7 @@ fn test_wal_write_failure_simulated() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         wal_shards: 1,
         ..Default::default()

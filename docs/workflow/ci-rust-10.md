@@ -1,3 +1,13 @@
+---
+title: "`ci-rust-10.yml` — CI: Rust — Build & Lint + Tests"
+type: workflow
+status: active
+tags: [vantadb, ci, ci-rust]
+last_reviewed: 2026-09-15
+aliases: []
+related: [".github/workflows/ci-rust-10.yml"]
+---
+
 # `ci-rust-10.yml` — CI: Rust — Build & Lint + Tests
 
 ## ¿Qué hace?
@@ -18,7 +28,7 @@ Pipeline completo de integración continua para el núcleo Rust del proyecto. Ej
 | `msrv` | `cargo check` con toolchain 1.94.1 | ubuntu | 15m |
 | `minimal-versions` | `cargo +nightly check -Zminimal-versions` (continue-on-error) | ubuntu | 15m |
 | `coverage` | `cargo llvm-cov nextest` + enforce threshold >=59% + subida de `lcov.info` | ubuntu | 30m |
-| `audit` | `cargo audit` (seguridad en dependencias, ignora RUSTSEC-2026-0176/0177) | ubuntu | 5m |
+| `audit` | `cargo audit` (seguridad en dependencias) | ubuntu | 5m |
 | `miri` | `cargo miri test` para detección de undefined behavior (continue-on-error) | ubuntu | 60m |
 | `deny` | `cargo deny check` (licencias, advisories, bans) | ubuntu | 5m |
 | `sanitizer-asan` | `cargo +nightly test --target x86_64-unknown-linux-gnu --config target.xxx.rustflags = ["-Zsanitizer=address", "-Cunsafe-allow-abi-mismatch=sanitizer"]` (continue-on-error, `--target` separa host de target, proc-macros sin flag, ABI mismatch suprimido, hallazgos reportados sin abortar) | ubuntu | 45m |

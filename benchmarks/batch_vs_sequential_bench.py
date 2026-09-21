@@ -2,8 +2,14 @@
 """
 VantaDB FFI Batch vs Sequential Performance Benchmark
 Compares db.search_batch() with sequential db.search() to demonstrate FFI amortization and multi-core Rayon speedup.
+
+NOTE (Windows, FIND-72): every local DB teardown path uses
+shutil.rmtree(..., ignore_errors=True). Windows keeps file locks (WinError 32)
+on recently-closed DB handles; without ignore_errors a stale lock crashes
+teardown. Cleanup dirs are regenerable scratch, so a best-effort removal is correct.
 """
 
+import argparse
 import time
 import random
 import os
@@ -13,7 +19,12 @@ import math
 try:
     import vantadb_py as vantadb
 except ImportError:
-    print("ERROR: 'vantadb_py' is not installed. Run 'maturin develop' in 'vantadb-python' first.")
+    print("ERROR: 'vantadb_py' is not installed.")
+    print("Install it from PyPI (standalone, no Rust build required):")
+    print("  pip install vantadb-py")
+    print("Full benchmark dependencies: pip install -r benchmarks/requirements.txt")
+    print("Or for local development against the source tree:")
+    print("  maturin develop --manifest-path vantadb-python/Cargo.toml --release")
     exit(1)
 
 def generate_unit_vector(dim):
@@ -25,7 +36,7 @@ def generate_unit_vector(dim):
 
 def run_bench(db_path="./benchmarks/batch_bench_db", num_vectors=5000, dim=128, batch_size=100, top_k=10):
     if os.path.exists(db_path):
-        shutil.rmtree(db_path)
+        shutil.rmtree(db_path, ignore_errors=True)
 
     print("Initializing Database...")
     db = vantadb.VantaDB(db_path)
@@ -80,7 +91,159 @@ def run_bench(db_path="./benchmarks/batch_bench_db", num_vectors=5000, dim=128, 
 
     db.close()
     if os.path.exists(db_path):
-        shutil.rmtree(db_path)
+        shutil.rmtree(db_path, ignore_errors=True)
+
+
+BATCH_REQUESTS_TARGET = 3.0
+"""INV-008-B target: a batch of 10 full SearchRequest queries must run in
+less than 3x the time of a single sequential search_memory query."""
+
+
+def run_batch_requests_bench(
+    db_path="./benchmarks/batch_requests_bench_db",
+    num_records=2000,
+    dim=128,
+    batch_size=10,
+    top_k=10,
+):
+    """Benchmark search_batch_requests (full SearchRequest: text + vector +
+    filters) vs sequential search_memory, and verify the INV-008-B target:
+    batch of 10 < 3x single-query time."""
+    if os.path.exists(db_path):
+        shutil.rmtree(db_path, ignore_errors=True)
+
+    print("\n=== INV-008-B: search_batch_requests (full SearchRequest) ===")
+    print("Initializing Database...")
+    db = vantadb.VantaDB(db_path)
+
+    print(f"Inserting {num_records} memory records (vector + payload)...")
+    for i in range(num_records):
+        vec = generate_unit_vector(dim)
+        db.put(
+            "bench",
+            f"rec-{i}",
+            f"the quick brown fox jumps over the lazy dog {i}",
+            metadata={"group": f"g{i % 5}", "size": i % 100},
+            vector=vec,
+        )
+    db.flush()
+
+    queries = [generate_unit_vector(dim) for _ in range(batch_size)]
+    requests = [
+        vantadb.SearchRequest(
+            namespace="bench",
+            query_vector=q,
+            text_query="quick brown fox",
+            filters={"group": f"g{i % 5}"},
+            top_k=top_k,
+        )
+        for i, q in enumerate(queries)
+    ]
+
+    # Warmup (also exercises the dict path once)
+    db.search_memory("bench", queries[0], text_query="quick brown fox", top_k=top_k)
+    db.search_batch_requests(requests[: min(3, batch_size)], top_k=top_k)
+    db.search_batch_requests([r.asdict() for r in requests[: min(3, batch_size)]], top_k=top_k)
+
+    print(f"\n--- Sequential search_memory ({batch_size} queries) ---")
+    start_seq = time.perf_counter()
+    for i, q in enumerate(queries):
+        db.search_memory(
+            "bench",
+            q,
+            text_query="quick brown fox",
+            filters={"group": f"g{i % 5}"},
+            top_k=top_k,
+        )
+    duration_seq = (time.perf_counter() - start_seq) * 1000.0
+    single_ms = duration_seq / batch_size
+
+    print(f"--- Batch search_batch_requests ({batch_size} queries, Rayon + GIL release) ---")
+    start_batch = time.perf_counter()
+    batch_results = db.search_batch_requests(requests, top_k=top_k)
+    duration_batch = (time.perf_counter() - start_batch) * 1000.0
+
+    # Validate output parity with sequential results
+    seq_results = []
+    for i, q in enumerate(queries):
+        seq_results.append(
+            db.search_memory(
+                "bench",
+                q,
+                text_query="quick brown fox",
+                filters={"group": f"g{i % 5}"},
+                top_k=top_k,
+            )
+        )
+    assert len(batch_results) == len(seq_results)
+    for i in range(batch_size):
+        assert len(batch_results[i]) == len(seq_results[i])
+        if len(batch_results[i]) > 0:
+            assert batch_results[i][0].key == seq_results[i][0].key
+
+    target_ok = duration_batch < BATCH_REQUESTS_TARGET * single_ms
+    speedup = duration_seq / duration_batch
+
+    print("\n==================================================")
+    print("        Batch Requests vs Sequential Results     ")
+    print("==================================================")
+    print(f"Batch Size (Queries): {batch_size}")
+    print(f"Sequential Total:     {duration_seq:.2f} ms (avg {single_ms:.4f} ms/query)")
+    print(f"Batch Total:          {duration_batch:.2f} ms")
+    print(f"Speedup vs Sequential:{speedup:.2f}x")
+    print(f"Target (batch < {BATCH_REQUESTS_TARGET}x single): "
+          f"{duration_batch:.2f} < {BATCH_REQUESTS_TARGET * single_ms:.2f} ms -> "
+          f"{'PASS' if target_ok else 'FAIL'}")
+    print("==================================================")
+
+    db.close()
+    if os.path.exists(db_path):
+        shutil.rmtree(db_path, ignore_errors=True)
+    return target_ok
+
 
 if __name__ == "__main__":
-    run_bench()
+    parser = argparse.ArgumentParser(
+        description="VantaDB FFI Batch vs Sequential Performance Benchmark"
+    )
+    parser.add_argument("--db-path", type=str, default="./benchmarks/batch_bench_db",
+                        help="Database storage path for the search_batch vs sequential bench")
+    parser.add_argument("--num-vectors", type=int, default=5000,
+                        help="Number of vectors to ingest for the search_batch bench")
+    parser.add_argument("--dim", type=int, default=128, help="Dimension of vectors")
+    parser.add_argument("--batch-size", type=int, default=100,
+                        help="Number of queries in the search_batch bench")
+    parser.add_argument("--top-k", type=int, default=10, help="Top K neighbors to retrieve")
+    parser.add_argument("--requests-db-path", type=str, default="./benchmarks/batch_requests_bench_db",
+                        help="Database storage path for the INV-008-B batch-requests bench")
+    parser.add_argument("--num-records", type=int, default=2000,
+                        help="Number of memory records for the INV-008-B bench")
+    parser.add_argument("--requests-batch-size", type=int, default=10,
+                        help="Number of queries in the INV-008-B bench")
+    parser.add_argument("--skip-batch-requests", action="store_true",
+                        help="Run only the search_batch vs sequential bench (skip INV-008-B)")
+
+    args = parser.parse_args()
+    run_bench(
+        db_path=args.db_path,
+        num_vectors=args.num_vectors,
+        dim=args.dim,
+        batch_size=args.batch_size,
+        top_k=args.top_k,
+    )
+    if not args.skip_batch_requests:
+        ok = run_batch_requests_bench(
+            db_path=args.requests_db_path,
+            num_records=args.num_records,
+            dim=args.dim,
+            batch_size=args.requests_batch_size,
+            top_k=args.top_k,
+        )
+    else:
+        ok = True
+    # Exit non-zero when the documented performance target is violated, so
+    # CI and scheduled runs surface regressions.
+    sys_exit = 0 if ok else 1
+    if sys_exit:
+        print(f"FAIL: batch of 10 exceeded {BATCH_REQUESTS_TARGET}x single-query time")
+    raise SystemExit(sys_exit)

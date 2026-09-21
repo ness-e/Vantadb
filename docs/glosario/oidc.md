@@ -3,8 +3,8 @@ title: "OIDC (OpenID Connect)"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, seguridad, ci-cd]
-last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+last_reviewed: 2026-09-15
+links: "[Glosario](./README.md)"
 ---
 
 # OIDC (OpenID Connect)
@@ -74,7 +74,7 @@ gh attestation verify \
 
 ## Véase También
 
-- [CI/CD](CI_CD.md) — Pipeline de publicación
+- [CI/CD](ci-cd.md) — Pipeline de publicación
 - [Sigstore](Sigstore.md) — Firma de artefactos
 - [SLSA](SLSA.md) — Framework de seguridad
 

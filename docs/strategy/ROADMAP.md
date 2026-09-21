@@ -6,13 +6,17 @@ tags: [vantadb, roadmap, execution, timeline, priorities]
 version: 2.0
 created: 2026-07-16
 supersedes: 2026-07-01
+last_reviewed: 2026-09-15
 aliases: [Roadmap, Milestones, Engineering Plan, Timeline, Plan de Acción]
+related: [GO_TO_MARKET.md, SHOW_HN_PREP.md, VANTADB-PRO-FEATURES.md]
 ---
 
 # VantaDB — Roadmap de Ejecución
 
-> **Backlog fuente:** [`docs/Backlog.md`](../Backlog.md) — 165 items abiertos
+> **Backlog fuente:** [`docs/Backlog.md`](../Backlog.md) — ver `docs/Backlog.md` para conteo actual (regla de sync en Backlog header; el "165" original, "~24" intermedio y "~45" 2026-08-22 quedaron obsoletos)
+> **Backlog de negocio:** [`docs/Backlog-negocio.md`](../Backlog-negocio.md) — filas humano-dependientes (legal/ventas/publicación) separadas del técnico el 2026-09-03 (RES-15-C); los conteos viven solo en las cabeceras de cada backlog (regla GOV-C7, no duplicar aquí)
 > **Última revisión del proyecto:** 2026-07-16 (537 commits desde el roadmap anterior)
+> **⚠️ REVISIÓN 2026-08-17 (verificación multi-agente):** Este roadmap es **histórico** — las fases Sem 1-16 ya se ejecutaron (versión real **0.5.0** publicada 2026-08-01, no 0.2.0; ver `docs/Backlog.md` P0). Los riesgos R2/R5/R8 están **resueltos**; R4 (MSVC linker) y R6/R7 (SQ8, HNSW rebuild) **siguen vigentes** (ver tabla de riesgos). El estado actual de ejecución vive en `docs/Backlog.md` + `docs/progreso/README.md`; este documento se conserva como registro del plan original y de decisiones arquitectónicas (§6).
 > **Estas fuentes fueron analizadas para este roadmap:**
 > - Auditorías: 10 reports en `docs/audit-reports/`
 > - Deep analysis: Vector DB (372L), Graph DB (392L), Arquitectura (306L)
@@ -55,6 +59,8 @@ aliases: [Roadmap, Milestones, Engineering Plan, Timeline, Plan de Acción]
 
 ### Backlog
 
+> **Estado real 2026-08-17:** el desglose original por TIER quedó obsoleto tras el triage R5 (2026-08-07: 165 → 24 items, ver `docs/Backlog.md` Exec Summary). COMP-001..030: COMP-020 (RRF) ✅, COMP-022 (PageRank) ✅, COMP-027 (IVF/SCANN) ✅, COMP-029 (napi-rs) ✅, COMP-019 ❌ WONTFIX; el resto catalogado en P10 (Roadmap) sin implementación evidenciada. Tabla original preservada abajo como registro histórico.
+
 | Categoría | Items | Estado |
 |-----------|-------|--------|
 | TIER 0 🔴 Bloqueantes de Release | ~5 | Mayoría ⏳ |
@@ -87,14 +93,16 @@ Estos riesgos **no tienen item dedicado en el backlog** o están subestimados. S
 
 | # | Riesgo | Impacto | Mitigación | Tracking |
 |---|--------|---------|------------|----------|
-| **R1** | **CI certification inestable** — 20+ commits de fix (ASan, TSan, coverage thresholds) en 2 días. Pipeline certifica falso-negativos | 🔴 Bloquea todo release | Dedicar semana 1 a CI hardening con métricas de estabilidad | ❌ No hay item. Agregar como bloqueante |
-| **R2** | **WASM demo placeholder** — 80/219 tests fallan en Node.js. `/demo` sin build funcional | 🔴 Bloquea Show HN | Fijar demo WASM antes de cualquier marketing | MKT-13 (parcial) |
-| **R3** | **bincode deprecated** — Crate no mantenido desde 2021. Toda serialización del engine depende de él | 🟠 Migración forzosa eventual | Evaluar rkyv (ya existe para archive) como reemplazo | SEC-14 |
-| **R4** | **DRV-115: MSVC linker overflow** — No se puede build workspace completo en Windows con MSVC | 🟠 Bloquea Windows build en CI | Excluir adaptadores PyO3 de workspace build o usar rust-lld | DRV-115 |
-| **R5** | **165 items abiertos, persona-equipo 1-2** — Sin priorización estricta, el backlog es months | 🔴 Parálisis por analysis-paralysis | Congelar nuevos items hasta reducir a ≤100. No agregar COMP-031+ | ❌ No hay item |
-| **R6** | **SQ8 no expuesto en query path** — Existe como `VectorRepresentations::SQ8` pero el hot path de búsqueda solo usa f32 full precision. SIFT 1M tarda 127s | 🔴 Benchmarks no competitivos vs Qdrant/Milvus | Exponer SQ8 en `distance.rs` hot path (sem 3) | COMP-001 |
-| **R7** | **HNSW rebuild en cada startup** — 30-60s para 1M vectores. Impide uso en serverless/edge | 🟠 Cold start inaceptable para AI agents | Serializar neighbor lists con bincode + load condicional (sem 4) | COMP-002 |
-| **R8** | **Claims falsos en landing** — "50x" vs 40x real, "SQL support" sin implementar, "auto-embeddings" sin feature, "cloud tiers" sin infra | 🟠 Riesgo reputacional en Show HN | Corregir WEB-02 antes de cualquier campaign | WEB-02 |
+| **R1** | **CI certification inestable** — 20+ commits de fix (ASan, TSan, coverage thresholds) en 2 días. Pipeline certifica falso-negativos | 🔴 Bloquea todo release | Dedicar semana 1 a CI hardening con métricas de estabilidad | 🟡 Mitigado de facto — batches CI-02..07 + P1-7 ejecutados (ver `Backlog.md`); sin item formal |
+| **R2** | **WASM demo placeholder** — 80/219 tests fallan en Node.js. `/demo` sin build funcional | 🔴 Bloquea Show HN | Fijar demo WASM antes de cualquier marketing | ✅ **RESUELTO** — MKT-13 ✅, `/demo` existe (`web/src/app/demo`) |
+| **R3** | **bincode deprecated** — Crate no mantenido desde 2021. Toda serialización del engine depende de él | 🟠 Migración forzosa eventual | Evaluar rkyv (ya existe para archive) como reemplazo | 🟡 Parcial — SEC-14 ✅ como cargo-deny; migración bincode→rkyv NO evidenciada |
+| **R4** | **DRV-115: MSVC linker overflow** — No se puede build workspace completo en Windows con MSVC | 🟠 Bloquea Windows build en CI | Excluir adaptadores PyO3 de workspace build o usar rust-lld | ❌ **VIGENTE** (2026-08-17) — sin task file ni fix commit |
+| **R5** | **165 items abiertos, persona-equipo 1-2** — Sin priorización estricta, el backlog es months | 🔴 Parálisis por analysis-paralysis | Congelar nuevos items hasta reducir a ≤100. No agregar COMP-031+ | ✅ **RESUELTO** — 165 → 24 (limpieza 2026-08-07); `docs/backlog-futuro.md` creado |
+| **R6** | **SQ8 no expuesto en query path** — Existe como `VectorRepresentations::SQ8` pero el hot path de búsqueda solo usa f32 full precision. SIFT 1M tarda 127s | 🔴 Benchmarks no competitivos vs Qdrant/Milvus | Exponer SQ8 en `distance.rs` hot path (sem 3) | ❌ **VIGENTE** (movido a catálogo P10) — COMP-001 sin implementación evidenciada |
+>
+> **Causa raíz documentada (histórica, 2026-05-31):** los 127s se atribuyen a *Disk Thrashing* (fallos de página masivos en el Mmap del índice) + desajuste de métricas: se transforma Distancia Coseno a Euclidiana L₂ al vuelo en el hot path.
+| **R7** | **HNSW rebuild en cada startup** — 30-60s para 1M vectores. Impide uso en serverless/edge | 🟠 Cold start inaceptable para AI agents | Serializar neighbor lists con bincode + load condicional (sem 4) | ❌ **VIGENTE** (movido a catálogo P10) — COMP-002 sin implementación evidenciada |
+| **R8** | **Claims falsos en landing** — "50x" vs 40x real, "SQL support" sin implementar, "auto-embeddings" sin feature, "cloud tiers" sin infra | 🟠 Riesgo reputacional en Show HN | Corregir WEB-02 antes de cualquier campaign | ✅ **RESUELTO** — WEB-02 ✅ (commit `e84e3c40`); claims 2.80x/2.18x/2.14x verificados |
 
 ### Resolución de riesgos por fase
 
@@ -123,7 +131,7 @@ R8 (claims) ─── Fase 0 (WEB-02)
 | Orden | Item | Descripción | Esfuerzo | Dependencias |
 |-------|------|-------------|----------|-------------|
 | 1 | **R1 (nuevo)** | CI certification: estabilizar ASan/TSan/coverage thresholds. Agregar métrica de "builds verdes consecutivos" como gate | 🟡 2-3d | — |
-| 2 | **R5 (nuevo)** | Freeze backlog: congelar nuevos items. Hacer triage de 165 → ≤100 items. Mover diferidos a `docs/archive/backlog-futuro.md` | 🟢 1d | — |
+| 2 | **R5 (nuevo)** | Freeze backlog: congelar nuevos items. Hacer triage de 165 → ≤100 items. Mover diferidos a `docs/backlog-futuro.md` | 🟢 1d | — |
 | 3 | **DRV-115** | Fix MSVC linker overflow: excluir adapters PyO3 de workspace build o usar rust-lld | 🟡 4h | — |
 | 4 | **DRV-116** | 10 warnings: `unnecessary unsafe` (9) + dead code (4) en vfile.rs, graph.rs, serialize.rs, archive.rs, maintenance.rs | 🟢 30min | — |
 | 5 | **DRV-117** | Stale advisory ignores: limpiar RUSTSEC-2024-0436 y RUSTSEC-2025-0134 de deny.toml | 🟢 5min | — |
@@ -250,7 +258,7 @@ R8 (claims) ─── Fase 0 (WEB-02)
 | Orden | Item | Descripción | Esfuerzo | Dependencias |
 |-------|------|-------------|----------|-------------|
 | 48 | **COMP-030** | Survival Mode: backpressure + Docker OOM prevention. Integrar memory_governor con cgroups | 🟡 1-2 sem | — |
-| 49 | **COMP-019** | Binary protocol (rkyv/FlatBuffers): reemplazar JSON por binario zero-copy | 🟡 1-2 sem | 20 (rkyv) |
+| 49 | ~~**COMP-019**~~ | ~~Binary protocol (rkyv/FlatBuffers): reemplazar JSON por binario zero-copy~~ — ❌ **WONTFIX** (ADR `COMP-019-binary-protocol-wontfix.md`) | ~~🟡 1-2 sem~~ | — |
 | 50 | **COMP-013** | Segment optimizer: Vacuum/Merge/Index optimizadores background | 🟡 1-2 sem | 35 (tombstones) |
 | 51 | **COMP-026** | Multi-level LSM compaction: L0→L1→L2→L3, spread compaction cost | 🟡 1-2 sem | 50 |
 
@@ -259,7 +267,7 @@ R8 (claims) ─── Fase 0 (WEB-02)
 | Orden | Item | Descripción | Esfuerzo | Dependencias |
 |-------|------|-------------|----------|-------------|
 | 52 | **COMP-008** | VecIndex trait: abstraer index operations para múltiples backends | 🟡 1-2 sem | — |
-| 53 | **COMP-027** | Multiple index types: IVF, DiskANN, SCANN además de HNSW | 🟠 5-10d | 52 |
+| 53 | **COMP-027** | Multiple index types: IVF, SCANN además de HNSW + DiskANN-style Vamana graph (**in-memory, no disk I/O** — no es DiskANN real) | 🟠 5-10d | 52 |
 | 54 | **COMP-021** | Temporal edges: timestamp en edges para time-travel queries | 🟡 1 sem | — |
 | 55 | **COMP-023** | 3 filtering strategies (pre/post/in-index) con optimizador por selectividad | 🟡 1-2 sem | 19 (COMP-003), 17 (COMP-012), 45 (SCE) |
 | 56 | **DRV-119→122** | ACID Phase 0-3: WAL/VantaFile/HNSW/KV coordination, HNSW multi-layer, Planner AST, IQL JOINs | 🟠 3-10d c/u | — |
@@ -316,7 +324,7 @@ Sem 9-12: FASE 3 — GRAPH+VECTOR
 Sem 13-16: FASE 4 — MADUREZ
 ┌──────────────────────┴──────────────────────────────┐
 │ COMP-030 (Survival Mode)                             │
-│ COMP-019 (binary protocol) ─── SEC-14 (rkyv)        │
+│ COMP-019 (binary protocol) ~~WONTFIX~~ — ADR 2026-08-02   │
 │ COMP-013 (segment optimizer) ─── COMP-004/011       │
 │ COMP-026 (LSM compaction) ─── COMP-013              │
 │ COMP-008 (VecIndex trait)                            │
@@ -403,7 +411,7 @@ Sem 13-16: FASE 4 — MADUREZ
 | Item | Descripción | Prioridad |
 |------|-------------|-----------|
 | COMP-030 | Survival Mode (OOM prevention) | 🟡 |
-| COMP-019 | Binary protocol (rkyv) | 🟡 |
+| ~~COMP-019~~ | ~~Binary protocol (rkyv)~~ — ❌ WONTFIX | ~~🟡~~ |
 | COMP-013 | Segment optimizer pipeline | 🟡 |
 | COMP-026 | Multi-level LSM compaction | 🟡 |
 | COMP-008 | VecIndex trait | 🟡 |
@@ -421,7 +429,7 @@ Sem 13-16: FASE 4 — MADUREZ
 | TEST-12 | 🟡 | Security testing fuzzing — postergar post-Show HN |
 | DOC-20 | 🟡 | mdBook adoption — postergar |
 | MKT-17 | 🟢 | Comparación competitiva — post-Show HN |
-| LEG-01 | 🔴 | Trademark — iniciar ahora (proceso legal lento) |
+| LEG-01 | 🔴 | Trademark — iniciar ahora (proceso legal lento) — fila en `docs/Backlog-negocio.md` |
 | MKT-03→05 | 🔴🟠 | Show HN + Reddit + Blog posts — Fase 0/1 |
 
 ---
@@ -473,5 +481,5 @@ Sem 13-16: FASE 4 — MADUREZ
 
 ---
 
-> **Próxima revisión:** 2026-07-23 o al completar Fase 0, lo que ocurra primero.
-> **Ver también:** [`docs/Backlog.md`](../Backlog.md) para detalle de cada item, [`docs/strategy/ACTION_PLAN.md`](ACTION_PLAN.md) (plan de acción v1.0, Jul 3 — supercedido por este documento), [`docs/master-index.md`](../master-index.md) (índice global de documentación).
+> **Próxima revisión:** ninguna — documento histórico (ver banner superior, revisión 2026-08-17). Actualizado 2026-09-14: enlaces verificados.
+> **Ver también:** [`docs/Backlog.md`](../Backlog.md) para detalle de cada item, `docs/strategy/ACTION_PLAN.md` (plan de acción v1.0, Jul 3 — supercedido por este documento y eliminado del repo), [`docs/master-index.md`](../master-index.md) (índice global de documentación).

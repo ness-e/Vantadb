@@ -1,3 +1,6 @@
+// ponytail: ditto fmt.rs — spinner template literal invariant.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Data command handlers — export, import, query.
 
 use console::Term;
@@ -42,12 +45,13 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
         embedded
             .list(
                 ns,
-                crate::sdk::VantaMemoryListOptions {
+                crate::sdk::MemoryListOptions {
                     #[allow(deprecated)]
-                    filters: crate::sdk::VantaMemoryMetadata::new(),
+                    filters: crate::sdk::MemoryMetadata::new(),
                     filter_ops: None,
                     limit: 1,
                     cursor: None,
+                    exclude_superseded: false,
                 },
             )
             .map(|p| !p.records.is_empty())
@@ -62,6 +66,8 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
     bar.set_style(
         ProgressStyle::default_spinner()
             .template("{spinner:.cyan} Exporting... {pos} records written")
+            // INVARIANT (B2b, cat. (b)): hardcoded template, valid by
+            // construction — verified by the crate's CLI smoke tests.
             .expect("valid spinner template"),
     );
     bar.enable_steady_tick(Duration::from_millis(100));
@@ -69,12 +75,13 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
     for ns in &namespaces {
         let mut cursor: Option<usize> = None;
         loop {
-            let opts = crate::sdk::VantaMemoryListOptions {
+            let opts = crate::sdk::MemoryListOptions {
                 #[allow(deprecated)]
-                filters: crate::sdk::VantaMemoryMetadata::new(),
+                filters: crate::sdk::MemoryMetadata::new(),
                 filter_ops: None,
                 limit: BATCH_SIZE,
                 cursor,
+                exclude_superseded: false,
             };
             let page = embedded.list(ns, opts)?;
             if page.records.is_empty() {
@@ -83,7 +90,7 @@ pub fn cmd_export(db_path: &str, namespace: Option<&str>, output_path: &str) -> 
             for record in &page.records {
                 let line = crate::sdk::export_line_from_record(record.clone());
                 serde_json::to_writer(&mut writer, &line)
-                    .map_err(crate::error::VantaError::serialization)?;
+                    .map_err(crate::error::Error::serialization)?;
                 writer.write_all(b"\n")?;
             }
             let n = page.records.len() as u64;
@@ -143,9 +150,10 @@ pub fn cmd_import(db_path: &str, input_path: &str, _verbose: bool) -> Result<()>
 
     if !std::path::Path::new(input_path).exists() {
         print_error(&format!("Input file not found: {}", input_path));
-        return Err(crate::error::VantaError::CliError(ChainedError::msg(
-            format!("Input file not found: {}", input_path),
-        )));
+        return Err(crate::error::Error::Cli(ChainedError::msg(format!(
+            "Input file not found: {}",
+            input_path
+        ))));
     }
 
     let spinner = create_spinner("Opening database...");
@@ -201,7 +209,10 @@ pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Res
 
     let spinner = create_spinner("Opening database...");
 
-    let engine = open_database(db_path, true)?;
+    // FIND-101: the open mode follows the statement kind. Reads stay
+    // read-only (shared lock, no WAL replay); mutating IQL opens read-write.
+    let read_only = !query_is_mutating(query);
+    let engine = open_database(db_path, read_only)?;
     spinner.set_message("Executing query...");
 
     let start = Instant::now();
@@ -209,6 +220,17 @@ pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Res
     // Parse and execute query using the executor
     let executor = crate::executor::Executor::new(&engine);
     let result = executor.execute_hybrid(query)?;
+
+    // FIND-101: flush after mutating statements. The write is WAL-buffered
+    // and read-only reopens skip WAL replay (ERR-050b), so without this a
+    // later read-only open would not see the mutation. (A Write result only
+    // happens on a read-write open, so the flush guard holds.)
+    // NOTE (P2-01 follow-up): `StaleContext` is intentionally NOT flushed —
+    // it has no post-mutation producer today, and flushing a read-only open
+    // could error. Revisit if a writer ever returns it after mutating.
+    if matches!(result, crate::executor::ExecutionResult::Write { .. }) {
+        engine.flush()?;
+    }
 
     let duration = start.elapsed();
     spinner.finish_and_clear();
@@ -293,4 +315,25 @@ pub fn cmd_query(db_path: &str, query: &str, limit: usize, verbose: bool) -> Res
     }
 
     Ok(())
+}
+
+/// FIND-101: true when the IQL string is a mutating statement (`INSERT`,
+/// `UPDATE`, `DELETE`, `RELATE`, `INSERT MESSAGE`). Reads (`SELECT`,
+/// `FROM`/`MATCH`) return false. Uses the same parser as the executor on the
+/// same `trim_start`ed input, so the classification matches what
+/// `execute_hybrid` will run. Unparseable input and LISP `(` return false —
+/// the executor reports those errors without needing write access.
+/// Shared with the TUI REPL (FIND-117) so both paths classify identically.
+pub(crate) fn query_is_mutating(query: &str) -> bool {
+    let trimmed = query.trim_start();
+    if trimmed.starts_with('(') {
+        return false;
+    }
+    match crate::parser::parse_statement(trimmed) {
+        Ok((_, stmt)) => !matches!(
+            stmt,
+            crate::query::Statement::Select(_) | crate::query::Statement::Query(_)
+        ),
+        Err(_) => false,
+    }
 }

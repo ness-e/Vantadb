@@ -35,7 +35,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 180
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/rust-setup
         with:
           swap-mb: 8192
@@ -43,13 +43,24 @@ jobs:
       - name: Run stress protocol
         run: cargo test --release --test stress_protocol -- --nocapture --test-threads=1
 
+  multi-namespace-stress:
+    name: "Certification: multi_namespace_stress"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+      - name: Run multi-namespace stress test
+        run: cargo test --release --test multi_namespace_stress -- --nocapture --test-threads=1
+
   hnsw-validation:
     name: "Certification: hnsw_validation"
     needs: ci-gate
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/rust-setup
         with:
           swap-mb: 8192
@@ -63,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/rust-setup
         with:
           free-disk: true
@@ -78,7 +89,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/rust-setup
       - name: Run SIFT validation
         timeout-minutes: 30
@@ -91,7 +102,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 45
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/rust-setup
       - name: Run competitive benchmark
         timeout-minutes: 30
@@ -106,7 +117,7 @@ jobs:
       group: failpoints-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/rust-setup
       - name: Run failpoint tests
         env:
@@ -125,7 +136,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/rust-setup
         with:
           swap-mb: 4096
@@ -160,7 +171,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/rust-setup
         with:
           swap-mb: 4096
@@ -174,7 +185,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/rust-setup
         with:
           swap-mb: 4096
@@ -213,17 +224,25 @@ jobs:
     name: "Certification: other_heavy"
     needs: ci-gate
     runs-on: ubuntu-latest
-    timeout-minutes: 60
+    timeout-minutes: 90
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: ./.github/actions/rust-setup
         with:
           swap-mb: 4096
           free-disk: true
+      # TBH-01: pre-test gate — fail fast if expected datasets are missing.
+      # Without this, certification tests silently skip and Recall@10 can
+      # regress without CI noticing. Runs before the download step so a
+      # missing dataset surfaces the diagnostic table immediately.
+      - name: Verify required benchmark datasets (TBH-01)
+        run: bash scripts/verify_datasets.sh
       - name: Download benchmark datasets
         run: bash scripts/download_benchmark_datasets.sh
       - name: Run remaining heavy tests
-        timeout-minutes: 45
+        # ponytail: 45 min fit cached runs; bump to 60 so a cold release
+        # compile (~40 min) + tests (~18 min) fits within the job window.
+        timeout-minutes: 60
         run: |
           cargo test --release --features cli,arrow \
             --test benchmark_internal \
@@ -243,6 +262,7 @@ jobs:
             --test-threads=1
           cargo test --release \
             --package vantadb-server \
+            --features prometheus \
             --test mcp_integration \
             --test e2e \
             --test benchmarks \
@@ -259,3 +279,35 @@ jobs:
             --lib index::tests::concurrent_insert_preserves_hnsw_invariants \
             -- \
             --nocapture
+
+  mutation-test:
+    name: "Certification: mutation_test (cargo-mutants)"
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    # Mutation testing is slow per design (one mutant = full cargo test cycle).
+    # Scope to root crate only (-p vantadb) per plan file D5/risk table.
+    # --check: only run mutants; --timeout 120: per-mutant cap (contract).
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: ./.github/actions/rust-setup
+      - name: Install cargo-mutants
+        uses: taiki-e/install-action@43aecc8d72668fbcfe75c31400bc4f890f1c5853 # v2.83.2
+        with:
+          tool: cargo-mutants
+      - name: Run cargo mutants (TBH-07)
+        timeout-minutes: 100
+        run: |
+          mkdir -p benchmarks
+          cargo mutants --check -p vantadb --timeout 120 \
+            --output-json benchmarks/mutation_score.json || true
+          # NB: cargo-mutants exits non-zero when mutants SURVIVE (which is
+          # expected and useful — we want a score, not a binary pass/fail).
+          # The artifact is the signal; gate enforcement lives in code review.
+      - name: Upload mutation score report
+        if: always()
+        uses: actions/upload-artifact@4e7e4d1bb8e5ae8b5b8e6dad68a47e8afbd4d76a # v4.5.0
+        with:
+          name: mutation-score
+          path: benchmarks/mutation_score.json
+          if-no-files-found: warn

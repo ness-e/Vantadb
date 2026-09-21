@@ -4,6 +4,8 @@
 
 The Model Context Protocol (MCP) is a standardized protocol for AI agents to interact with external systems through a JSON-RPC interface over stdio.
 
+This document describes the standard MCP wire protocol as implemented by the VantaDB MCP server (`vantadb-mcp`). The server dispatches exactly these methods: `initialize`, `tools/list`, `tools/call`, `resources/list`, `resources/read`, `prompts/list`, `prompts/get`. The concrete tool list (87 tools: 49 core + 6 skill_* + 8 code_* + 6 wiki_* + 1 context_assemble + 5 scene_* + 6 thread_* + 5 dream_*) is documented in `references/api-reference.md` § "MCP Tools" — the single source of truth.
+
 ## Protocol Version
 
 Current version: `2024-11-05`
@@ -59,7 +61,8 @@ Initialize the MCP connection.
       "tools": {},
       "resources": {},
       "prompts": {}
-    }
+    },
+    "instructions": "Recall-first policy for the agent (VantaDB serves a non-empty string here; read it before any tool call)"
   }
 }
 ```
@@ -288,6 +291,31 @@ Common error codes:
 - `-32601`: Method not found
 - `-32602`: Invalid params
 - `-32603`: Internal error
+
+### Tool-level errors (isError content)
+
+Most **tool** failures do not use the JSON-RPC `error` object. `tools/call`
+returns a `result` with `isError: true` and the human-readable message inside
+`content[0].text`:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 3,
+  "result": {
+    "isError": true,
+    "content": [
+      { "type": "text", "text": "Record not found" }
+    ]
+  }
+}
+```
+
+Rule of thumb: JSON-RPC `error` is reserved for protocol/param failures
+(invalid request, unknown method, unparseable arguments — e.g. a non-numeric
+`summary_id` in `rehydrate` yields `-32602`); domain failures (record not
+found, node missing, vector dimension mismatch) arrive as `isError` content.
+Clients must check **both** channels.
 
 ## Capabilities
 

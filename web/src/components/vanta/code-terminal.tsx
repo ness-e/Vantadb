@@ -7,98 +7,14 @@ import { copyToClipboard } from "./copy-utils";
 import { toast } from "./toast";
 import { Reveal } from "./reveal";
 import { useTypingLines } from "@/hooks/use-typing-lines";
+import { useLanguage } from "@/lib/language-provider";
+import { pythonTokenizer, TOK_CLASS } from "@/lib/code-tokenizer";
 import { cn } from "@/lib/utils";
 
-type Tok = {
-  t: "plain" | "comment" | "string" | "number" | "keyword" | "builtin" | "func" | "ident" | "op";
-  v: string;
-};
-
-const KEYWORDS = new Set([
-  "import", "as", "def", "return", "from", "class", "if", "else", "elif",
-  "for", "while", "in", "not", "and", "or", "None", "True", "False",
-  "with", "try", "except", "lambda", "pass", "break", "continue", "self",
-]);
-
-const BUILTINS = new Set([
-  "print", "len", "range", "str", "int", "float", "list", "dict", "set",
-  "tuple", "bool", "open", "isinstance", "enumerate", "zip", "map", "filter",
-  "sorted", "reversed", "sum", "min", "max", "abs", "round", "type", "format",
-]);
-
-function tokenizeLine(line: string): Tok[] {
-  const tokens: Tok[] = [];
-  let i = 0;
-  while (i < line.length) {
-    const rest = line.slice(i);
-    // comment
-    if (rest.startsWith("#")) {
-      tokens.push({ t: "comment", v: rest });
-      break;
-    }
-    // string (double or single quoted, with escapes)
-    const strMatch = rest.match(/^("(?:[^"\\]|\\.)*"|'(?:[^'\\]|\\.)*')/);
-    if (strMatch) {
-      tokens.push({ t: "string", v: strMatch[0] });
-      i += strMatch[0].length;
-      continue;
-    }
-    // number
-    const numMatch = rest.match(/^\d[\d_]*(\.\d+)?/);
-    if (numMatch) {
-      tokens.push({ t: "number", v: numMatch[0] });
-      i += numMatch[0].length;
-      continue;
-    }
-    // identifier / keyword / builtin / function call
-    const idMatch = rest.match(/^[A-Za-z_][A-Za-z0-9_]*/);
-    if (idMatch) {
-      const word = idMatch[0];
-      // Look ahead: if followed by "(" it's a function call
-      const afterIdx = i + word.length;
-      const after = line[afterIdx];
-      let t: Tok["t"] = "ident";
-      if (KEYWORDS.has(word)) t = "keyword";
-      else if (BUILTINS.has(word)) t = "builtin";
-      else if (after === "(") t = "func";
-      tokens.push({ t, v: word });
-      i += word.length;
-      continue;
-    }
-    // operators / punctuation
-    const opMatch = rest.match(/^(==|!=|<=|>=|->|\+=|-=|\*=|\/\/=|\/\/|\*\*|[=+\-*/%<>:,.(){}\[\]])/);
-    if (opMatch) {
-      tokens.push({ t: "op", v: opMatch[0] });
-      i += opMatch[0].length;
-      continue;
-    }
-    // whitespace run
-    const wsMatch = rest.match(/^\s+/);
-    if (wsMatch) {
-      tokens.push({ t: "plain", v: wsMatch[0] });
-      i += wsMatch[0].length;
-      continue;
-    }
-    // single char
-    tokens.push({ t: "plain", v: rest[0] });
-    i += 1;
-  }
-  return tokens;
-}
-
-const TOK_CLASS: Record<Tok["t"], string> = {
-  plain: "text-[#FBF9F5]",
-  comment: "text-[#8a8a8a] italic",
-  string: "text-[#FFB380]",
-  number: "text-[#a3d9a5]",
-  keyword: "text-[#FF5500] font-bold",
-  builtin: "text-[#7ec7ff]",
-  func: "text-[#ffd479]",
-  ident: "text-[#FBF9F5]",
-  op: "text-[#c9c9c9]",
-};
+const tokenizeLine = pythonTokenizer;
 
 export function CodeTerminal() {
+  const { t } = useLanguage();
   const [copied, setCopied] = useState(false);
   const [running, setRunning] = useState(false);
 
@@ -114,7 +30,7 @@ export function CodeTerminal() {
     const ok = await copyToClipboard(QUICKSTART_PYTHON);
     if (ok) {
       setCopied(true);
-      toast.copy("quickstart.py copiado");
+      toast.copy(t("terminal.codeCopied"));
       setTimeout(() => setCopied(false), 1600);
     }
   };
@@ -168,9 +84,9 @@ export function CodeTerminal() {
               </p>
               <p className="mt-1 font-tech text-xs text-[#FBF9F5]">
                 The package name is <span className="text-[#FF5500]">vantadb-py</span>, but
-                the import uses an underscore:{" "}
+                the canonical import is plain:{" "}
                 <code className="bg-[#FBF9F5]/10 px-1 text-[#FF5500]">
-                  import vantadb_py
+                  import vantadb
                 </code>
               </p>
             </div>
@@ -189,7 +105,7 @@ export function CodeTerminal() {
                   <span className="h-3 w-3 border-2 border-[#FBF9F5]/40 bg-[#FBF9F5]/30" />
                   <span className="ml-3 inline-flex items-center gap-1.5 font-tech text-[11px] uppercase tracking-wider text-[#FBF9F5]/70">
                     <Terminal className="h-3 w-3 text-[#FF5500]" />
-                    quickstart.py · vantadb_py
+                    quickstart.py · vantadb
                   </span>
                 </div>
                 <div className="flex items-center gap-2">
@@ -254,7 +170,7 @@ export function CodeTerminal() {
               {running && (
                 <div className="border-t-4 border-[#FF5500] bg-[#0a0a0a] px-4 py-3 font-tech text-[11px] text-[#FF5500]">
                   <span className="animate-blink">▋</span> executing hybrid search ·
-                  BM25 + HNSW via RRF · 1.2ms · 100% Recall@10
+                  BM25 + HNSW via RRF · HNSW p50 1.2ms · 99.8% Recall@10
                 </div>
               )}
               {!running && !typingDone && (

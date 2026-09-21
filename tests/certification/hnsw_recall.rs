@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Vanta Recall & Latency Certification
 //!
 //! Measures search precision and timing distribution to ensure production readiness.
@@ -83,12 +85,14 @@ fn recall_certification_runner() {
 
         let pb = TerminalReporter::create_progress(node_count as u64, "Building Index");
         for (id, vec) in &dataset {
-            index.add(
-                (*id).into(),
-                FilterBitset::all_set(),
-                VectorRepresentations::Full(vec.clone()),
-                0,
-            );
+            index
+                .add(
+                    (*id).into(),
+                    FilterBitset::all_set(),
+                    VectorRepresentations::Full(vec.clone()),
+                    0,
+                )
+                .expect("test insert");
             pb.inc(1);
         }
         pb.finish_and_clear();

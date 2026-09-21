@@ -11,13 +11,25 @@ use clap::{Parser, Subcommand, ValueEnum};
 #[command(version = env!("CARGO_PKG_VERSION"))]
 #[command(about = "CLI for interacting with VantaDB", long_about = None)]
 pub struct Cli {
-    /// Path to the database directory. Defaults to the value of the VANTA_DB environment variable, or './db' if neither is set.
-    #[arg(short, long, env = "VANTA_DB", default_value = "./db", global = true)]
+    /// Path to the database directory. Defaults to the value of the VANTADB_STORAGE_PATH environment variable, or './db' if neither is set.
+    #[arg(
+        short,
+        long,
+        env = "VANTADB_STORAGE_PATH",
+        default_value = "./db",
+        global = true
+    )]
     pub db: String,
 
     /// Enable verbose output
     #[arg(short, long, global = true)]
     pub verbose: bool,
+
+    /// Optional memory limit for the database engine, in bytes.
+    /// Accepts suffixes: KB, MB, GB (also KiB, MiB, GiB), e.g. `500MB` or `2GB`.
+    /// Defaults to the value of the VANTADB_MEMORY_LIMIT environment variable.
+    #[arg(long, env = "VANTADB_MEMORY_LIMIT", global = true)]
+    pub memory_limit: Option<String>,
 
     #[command(subcommand)]
     /// The subcommand to execute
@@ -41,6 +53,9 @@ pub enum Commands {
         /// Optional vector embedding (comma-separated f32 values)
         #[arg(long)]
         vector: Option<String>,
+        /// Optional metadata as a JSON object, e.g. '{"k":"v","n":1}'
+        #[arg(long)]
+        metadata: Option<String>,
     },
 
     /// Retrieve a value from persistent memory
@@ -82,14 +97,24 @@ pub enum Commands {
     /// Repair text index if inconsistencies are detected
     RepairTextIndex,
 
-    /// Export records to a JSON file
+    /// Export records to a file (jsonl) or to a directory of Markdown files
+    /// with JSON frontmatter (--format md, git-friendly, round-trips with
+    /// `vanta-seed import-md`).
     Export {
         /// Optional namespace to export (exports all if not specified)
         #[arg(long)]
         namespace: Option<String>,
-        /// Output file path
+        /// Output path: file for `--format jsonl` (default), directory for
+        /// `--format md`.
         #[arg(long)]
         out: String,
+        /// Export format. `jsonl` writes one record per line to a file
+        /// (default, backwards-compatible). `md` writes one file per record
+        /// under `<out>/<namespace>/<key>.md` with JSON frontmatter; the
+        /// directory is git-friendly and round-trips with
+        /// `vanta-seed import-md`.
+        #[arg(long, value_enum, default_value_t = ExportFormat::Jsonl)]
+        format: ExportFormat,
     },
 
     /// Import records from a JSON file
@@ -100,6 +125,10 @@ pub enum Commands {
     },
 
     /// Execute a structured query (IQL/hybrid)
+    ///
+    /// Read statements (`SELECT`, `FROM`/`MATCH`) open the database
+    /// read-only; mutating statements (`INSERT`/`INSERT MESSAGE`, `UPDATE`,
+    /// `DELETE`, `RELATE`) open it read-write.
     Query {
         /// Query string
         query: String,
@@ -113,7 +142,7 @@ pub enum Commands {
 
     /// Create a filesystem-level backup of the database directory
     Backup {
-        /// Output directory for the backup (default: vantadb_backups/backup_<timestamp>)
+        /// Output directory for the backup (default: `vantadb_backups/backup_<timestamp>`)
         #[arg(long)]
         out: Option<String>,
     },
@@ -129,10 +158,22 @@ pub enum Commands {
         /// Rebuild indexes after restore
         #[arg(long)]
         rebuild: bool,
+        /// Validate the backup without restoring (dry-run).
+        /// Lists what would be restored and exits 0 without touching the target.
+        #[arg(long)]
+        dry_run: bool,
     },
 
     /// Run comprehensive health diagnostics on the database
-    Doctor,
+    Doctor {
+        /// Apply safe repairs (create missing data directories).
+        /// Without --force this only lists what would be fixed (dry-run).
+        #[arg(long)]
+        fix: bool,
+        /// Actually apply the repairs listed by --fix (without it --fix is a dry-run).
+        #[arg(long)]
+        force: bool,
+    },
 
     /// Inspect a single record showing all fields, vectors, and metadata
     Inspect {
@@ -304,6 +345,16 @@ pub enum Commands {
         /// Force authentication: refuse to start without an API key
         #[arg(long, env = "VANTADB_REQUIRE_AUTH")]
         require_auth: bool,
+
+        /// Allow binding a non-loopback host without an API key (dev only).
+        /// The server logs a prominent security warning and starts unauthenticated.
+        #[arg(long)]
+        allow_insecure: bool,
+
+        /// Directory of static files to serve at /dashboard (Vanta Studio web
+        /// console). When unset, /dashboard responds 404 with a hint.
+        #[arg(long, env = "VANTADB_DASHBOARD_DIR")]
+        dashboard_dir: Option<String>,
     },
 }
 
@@ -367,6 +418,14 @@ pub enum WalCommand {
     Compact,
     /// Remove tombstoned nodes from HNSW and reclaim space
     Vacuum,
+    /// Salvage a truncated sharded WAL (FIND-109, opt-in): replay the coherent
+    /// prefix and report explicit discards. The ERR-011 guard still aborts
+    /// normal opens; this command is the explicit repair path.
+    Salvage {
+        /// Preview only: report what would be kept/discarded without mutating.
+        #[arg(long, default_value_t = false)]
+        dry_run: bool,
+    },
 }
 
 /// Shell type for shell completion scripts
@@ -382,6 +441,17 @@ pub enum Shell {
     /// PowerShell shell completions
     #[value(name = "powershell", alias = "power-shell")]
     PowerShell,
+}
+
+/// Output format for the `export` subcommand.
+#[derive(ValueEnum, Clone, Copy, Debug, PartialEq, Eq, Default)]
+pub enum ExportFormat {
+    /// JSONL on stdout/file (default; backwards compatible).
+    #[default]
+    Jsonl,
+    /// One Markdown file per record under `<out>/<namespace>/<key>.md` with
+    /// JSON frontmatter metadata; round-trips with `vanta-seed import-md`.
+    Md,
 }
 
 impl From<Shell> for clap_complete::Shell {

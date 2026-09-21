@@ -3,11 +3,11 @@
 //! VantaDB fuses results via Reciprocal Rank Fusion (RRF).
 
 use std::error::Error;
-use vantadb::config::VantaConfig;
-use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest, VantaValue};
+use vantadb::config::Config;
+use vantadb::{Embedded, MemoryInput, MemorySearchRequest, Value};
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let db = VantaEmbedded::open_with_config(VantaConfig {
+    let db = Embedded::open_with_config(Config {
         storage_path: "./examples_hybrid_data".into(),
         ..Default::default()
     })?;
@@ -36,14 +36,15 @@ fn main() -> Result<(), Box<dyn Error>> {
     ];
 
     for (key, payload) in &docs {
-        db.put(VantaMemoryInput {
+        db.put(MemoryInput {
             namespace: "hybrid_demo".into(),
             key: (*key).into(),
             payload: (*payload).into(),
-            metadata: vec![("source".into(), VantaValue::String("hybrid_example".into()))]
+            metadata: vec![("source".into(), Value::String("hybrid_example".into()))]
                 .into_iter()
                 .collect(),
             vector: Some(vec![0.1, 0.2, 0.3, 0.4]),
+            sparse_vector: None,
             ttl_ms: None,
         })?;
     }
@@ -51,7 +52,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     println!("Inserted {} records", docs.len());
 
     // Hybrid search: both text_query and query_vector are set.
-    let results = db.search(VantaMemorySearchRequest {
+    let results = db.search(MemorySearchRequest {
         namespace: "hybrid_demo".into(),
         query_vector: vec![0.1, 0.2, 0.3, 0.4],
         text_query: Some("vector search ranking".into()),
@@ -68,7 +69,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     }
 
     // Text-only search: leave query_vector empty.
-    let text_results = db.search(VantaMemorySearchRequest {
+    let text_results = db.search(MemorySearchRequest {
         namespace: "hybrid_demo".into(),
         query_vector: vec![],
         text_query: Some("full-text ranking".into()),

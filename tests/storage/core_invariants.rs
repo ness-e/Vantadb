@@ -1,7 +1,10 @@
+// ponytail: invariant test unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Core invariants regression tests for StorageEngine.
 
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::{FieldValue, UnifiedNode};
 use vantadb::storage::{BackendKind, StorageEngine};
 
@@ -10,7 +13,7 @@ fn read_only_rejects_mutations() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let writable_config = VantaConfig {
+    let writable_config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -18,7 +21,7 @@ fn read_only_rejects_mutations() {
     writable.flush().unwrap();
     drop(writable);
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         read_only: true,
         ..Default::default()
@@ -38,7 +41,7 @@ fn consolidate_node_keeps_metadata_readable() {
     let dir = tempdir().unwrap();
     let db_path = dir.path().to_str().unwrap();
 
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };

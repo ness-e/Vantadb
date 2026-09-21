@@ -3,8 +3,8 @@ title: "Payload Indexes"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, índices, filtros]
-last_refined: 2026-06
-links: "[Glosario](../Glosario.md)"
+last_reviewed: 2026-09-15
+links: "[Glosario](./README.md)"
 ---
 
 # Payload Indexes
@@ -81,17 +81,10 @@ pub struct BooleanIndex {
 ### Python
 
 ```python
-db = VantaEmbedded(
-    "./data",
-    config={
-        "payload_indexes": [
-            {"field": "department", "type": "keyword"},
-            {"field": "year", "type": "integer"},
-            {"field": "score", "type": "float"},
-            {"field": "published", "type": "boolean"}
-        ]
-    }
-)
+import vantadb_py as vantadb
+
+# Payload index configuration lives in the Rust engine config, not the constructor
+db = vantadb.VantaDB("./data")
 ```
 
 ### Rust

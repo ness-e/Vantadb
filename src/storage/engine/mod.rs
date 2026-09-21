@@ -4,37 +4,57 @@
 //! (in-memory, Fjall, or RocksDB), manages column-family partitions, and
 //! drives node archival / recovery.
 
+mod cache;
+mod delete;
+mod get;
 mod init;
+mod insert;
 mod maintenance;
 mod ops;
 mod partition;
 mod stats;
+mod txn;
 
 #[cfg(test)]
 mod tests;
 
-use std::fs::File;
+use std::fs::File as StdFile;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicBool, AtomicU64};
 use std::sync::Arc;
 
 use arc_swap::ArcSwap;
-use parking_lot::{FairMutex, RwLock};
+use parking_lot::{FairMutex, FairMutexGuard, RwLock};
+use web_time::{Instant, SystemTime, UNIX_EPOCH};
 
 pub use crate::backend::BackendPartition;
 use crate::backend::StorageBackend;
-use crate::config::VantaConfig;
+use crate::config::Config;
 use crate::error::Result;
-use crate::index::CPIndex;
-pub use crate::index::FreshHnswReport;
+pub use crate::index_port::FreshHnswReport;
+use crate::index_port::IndexPort;
 use crate::lsm::pack_offset;
 pub(crate) use crate::lsm::SegmentRegistry;
 use crate::node::{FilterBitset, LabelIntern, UnifiedNode, VectorRepresentations};
-use crate::storage::vfile::VantaFile;
+use crate::storage::vfile::File;
 
 // ─── Constants ──────────────────────────────────────────────────
 
-pub(crate) const FLAG_TOMBSTONE: u32 = 0x8;
+/// Whether the caller already holds `insert_lock` (D2: replaces `lock_held` /
+/// `acquire: bool` flags in `consolidate_node_inner`, `evict_cold_nodes_inner`,
+/// `apply_delete_inner`). The lock is non-reentrant: re-acquiring it times out
+/// after `insert_lock_timeout_ms`, so lock-holding callers use `AssumeHeld`.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub(crate) enum LockPolicy {
+    /// Acquire `insert_lock` for the critical section.
+    Acquire,
+    /// Caller already holds `insert_lock`; do not re-acquire.
+    AssumeHeld,
+}
+
+/// Tombstone flag — single source of truth is `crate::node::NodeFlags::TOMBSTONE`
+/// (F3X-H2: identical value `0x8`; index-side uses migrate straight to the kernel).
+pub(crate) const FLAG_TOMBSTONE: u32 = crate::node::NodeFlags::TOMBSTONE;
 pub(crate) const STORAGE_ALIGNMENT: u64 = 64;
 pub(crate) const MIB: u64 = 1024 * 1024;
 pub(crate) const GIB: u64 = 1024 * 1024 * 1024;
@@ -44,7 +64,7 @@ pub(crate) const GIB: u64 = 1024 * 1024 * 1024;
 /// Selects which KV backend `StorageEngine` uses.
 pub use crate::backend::BackendKind;
 
-/// Options passed to [`StorageEngine::batch_insert_with_opts`](crate::storage::engine::ops::StorageEngine::batch_insert_with_opts).
+/// Options passed to [`StorageEngine::batch_insert_with_opts`](crate::storage::StorageEngine::batch_insert_with_opts).
 pub use self::ops::{BatchInsertOptions, InsertMode};
 
 /// Memory usage statistics for a `StorageEngine` instance.
@@ -124,12 +144,9 @@ pub struct QuantizationMaintenanceReport {
 
 /// An operation buffered inside an uncommitted transaction.
 /// Written to WAL + stores atomically at commit time.
-#[derive(Clone)]
-#[allow(clippy::large_enum_variant)] // UnifiedNode is hot-path; boxing adds indirection per insert
-pub(crate) enum BufferedWrite {
-    Insert(UnifiedNode),
-    Delete(u128),
-}
+/// Defined in [`txn::TxnManager`]'s module (C2S3, SRP); re-exported here so
+/// existing `crate::storage::engine::BufferedWrite` paths keep resolving.
+pub(crate) use self::txn::{BufferProbe, BufferedWrite, TxnManager};
 
 /// A read snapshot capturing a consistent view of committed data.
 ///
@@ -143,7 +160,7 @@ pub struct Snapshot {
 
 /// A filesystem-level snapshot created via POSIX hard links (or copy on Windows).
 ///
-/// Unlike the MVCC [`Snapshot`], this is a point-in-time copy of all data files
+/// Unlike the MVCC `Snapshot`, this is a point-in-time copy of all data files
 /// in the storage directory — instant O(1) on Unix via hard links, O(n) on Windows
 /// via fallback copy.
 #[derive(Debug, Clone)]
@@ -151,7 +168,7 @@ pub struct FsSnapshot {
     /// Path to the snapshot directory.
     pub path: PathBuf,
     /// When the snapshot was created.
-    pub created_at: std::time::Instant,
+    pub created_at: Instant,
 }
 
 /// A pending HNSW mutation awaiting batch flush.
@@ -206,9 +223,9 @@ pub struct VacuumReport {
 /// Report from a single merge (compaction) pass.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct MergeReport {
-    /// Number of segments before compaction (always 1 for single VantaFile).
+    /// Number of segments before compaction (always 1 for single File).
     pub segments_before: u64,
-    /// Number of segments after compaction (always 1 for single VantaFile).
+    /// Number of segments after compaction (always 1 for single File).
     pub segments_after: u64,
     /// Estimated bytes saved by compaction.
     pub saved_bytes: u64,
@@ -221,7 +238,7 @@ pub struct MergeReport {
 /// Report from a single LSM level compaction pass.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct LsmReport {
-    /// Which level was compacted (0 = L0, 1 = L1, 2 = L2).
+    /// Which level was compacted (0 = L0 hot, 1 = L1 warm, 2 = L2 cold, 3 = L3 archive).
     pub level: u8,
     /// Number of nodes promoted to the next level.
     pub nodes_promoted: u64,
@@ -303,30 +320,29 @@ pub struct StorageEngine {
     /// Abstract KV backend. No RocksDB types leak through this field.
     pub(crate) backend: Arc<dyn StorageBackend>,
     /// Engine configuration including backend kind, memory limits, and sync mode.
-    pub config: VantaConfig,
+    pub config: Config,
     /// If true, all mutating operations must be rejected.
     pub read_only: bool,
-    /// Thread-safe HNSW index (swappable via RCU).
-    pub hnsw: ArcSwap<CPIndex>,
+    /// Thread-safe HNSW index behind the cycle-breaking handle (F3X: ADR-042).
+    /// Boxed because `Arc` requires `Sized` for arc-swap's `RefCnt`.
+    pub hnsw: ArcSwap<Box<dyn IndexPort>>,
     /// Serializes insert/refresh operations to avoid bidirectional
     /// neighbor update races. Searches acquire hnsw.read() freely.
     pub(crate) insert_lock: FairMutex<()>,
     /// Pending HNSW mutations awaiting batch flush under a single
     /// `insert_lock` acquisition (Rayon micro-batching, P1).
     pub(crate) pending_hnsw_batch: parking_lot::Mutex<Vec<PendingHnswOp>>,
-    /// Volatile LRU cache for hot (frequently accessed) nodes.
-    pub volatile_cache: RwLock<std::collections::HashMap<u128, UnifiedNode>>,
+    /// Cache layer: volatile hot-node map, BM25 text caches,
+    /// cardinality stats and predictive warmer (C2S3b, SRP).
+    /// Pure state lives in [`cache::CacheLayer`]; the engine only
+    /// orchestrates around it. Call sites use `self.cache.*`.
+    pub(crate) cache: cache::CacheLayer,
     /// Monotonic timestamp (ms since epoch) of the last query activity.
     pub last_query_timestamp: AtomicU64,
-    /// Monotonic transaction ID counter (P3 Phase 1).
-    pub(crate) next_txn_id: AtomicU64,
-    /// Active transaction IDs (concurrent: multiple active txns allowed).
-    /// Empty = no active transaction → insert/delete go direct.
-    /// Used for: snapshot visibility, write-write conflict detection.
-    pub(crate) active_txns: parking_lot::Mutex<std::collections::HashSet<u64>>,
-    /// Per-transaction write buffer. Keyed by txn_id.
-    /// Only the active txn's buffer is meaningful.
-    pub(crate) txn_buffers: parking_lot::Mutex<std::collections::HashMap<u64, Vec<BufferedWrite>>>,
+    /// Transaction bookkeeping: id counter, active set, write buffers.
+    /// Pure state lives in [`TxnManager`]; the engine only orchestrates
+    /// WAL + store application around it (C2S3, SRP).
+    pub(crate) txn: TxnManager,
     /// Flag signalling emergency maintenance (e.g. cache pressure).
     pub emergency_maintenance_trigger: AtomicBool,
     /// Path to the data directory.
@@ -334,7 +350,7 @@ pub struct StorageEngine {
     /// Vector store files for persistent node vector data — one per LSM level.
     /// Index 0 = L0 (hot), 1 = L1 (warm), 2 = L2 (cold).
     /// All new writes go to index 0. Reads use unpack_offset() to select the correct file.
-    pub vector_store: Vec<RwLock<VantaFile>>,
+    pub vector_store: Vec<RwLock<File>>,
     /// Multi-level LSM segment registry tracking level metadata.
     #[allow(dead_code)]
     pub(crate) segment_registry: SegmentRegistry,
@@ -356,18 +372,7 @@ pub struct StorageEngine {
     /// into an O(1) lookup (PERF-08).
     pub(crate) scalar_index: Option<std::sync::Arc<crate::scalar_index::ScalarIndex>>,
     /// File handle for multi-process isolation lock
-    pub(crate) _lock_file: Option<File>,
-    /// In-memory cache for BM25 term stats to avoid redundant I/O during ingestion.
-    pub(crate) text_stats_cache:
-        RwLock<std::collections::HashMap<(String, String), crate::text_index::TextTermStats>>,
-    /// In-memory cache for BM25 namespace stats.
-    pub(crate) text_ns_cache:
-        RwLock<std::collections::HashMap<String, crate::text_index::TextNamespaceStats>>,
-    /// Lightweight cardinality statistics for query optimization.
-    pub(crate) cardinality_stats:
-        RwLock<std::collections::HashMap<String, std::collections::HashMap<String, usize>>>,
-    /// Predictive cache warmer for co-access tracking and prefetch (OLD-20).
-    pub(crate) cache_warmer: crate::cache_warmer::CacheWarmer,
+    pub(crate) _lock_file: Option<StdFile>,
     /// Bidirectional edge label interner: String ↔ u32.
     /// Reduces per-edge label overhead from ~24-32 bytes to 4 bytes.
     pub(crate) label_intern: parking_lot::Mutex<LabelIntern>,
@@ -379,8 +384,8 @@ impl StorageEngine {
     /// Replay a single write operation during WAL recovery.
     /// Writes to L0 (always) and packs the segment_id into the offset.
     fn replay_write_node(
-        vector_store: &[RwLock<VantaFile>],
-        hnsw: &CPIndex,
+        vector_store: &[RwLock<File>],
+        hnsw: &dyn IndexPort,
         backend: &dyn StorageBackend,
         node_id: u128,
         node: &UnifiedNode,
@@ -391,7 +396,7 @@ impl StorageEngine {
         let mut l0 = vector_store[0].write();
         let local_off = crate::storage::ops::write_node_to_vstore(&mut l0, node)?;
         let packed = pack_offset(0, local_off);
-        hnsw.add(node_id, node.bitset.clone(), node.vector.clone(), packed);
+        hnsw.add_node(node_id, node.bitset.clone(), node.vector.clone(), packed)?;
         let key = node.id.to_le_bytes();
         let metadata = NodeMetadata {
             relational: node.relational.clone(),
@@ -400,7 +405,7 @@ impl StorageEngine {
             deleted_by_txn: None,
         };
         let metadata_val =
-            postcard::to_allocvec(&metadata).map_err(crate::error::VantaError::serialization)?;
+            postcard::to_allocvec(&metadata).map_err(crate::error::Error::serialization)?;
         backend.put(BackendPartition::Default, &key, &metadata_val)?;
         Ok(())
     }
@@ -420,8 +425,8 @@ impl StorageEngine {
         self.label_intern.lock().resolve(id).map(|s| s.to_string())
     }
 
-    /// Convert a `UnifiedNode` to an SDK `VantaNodeRecord`, resolving edge labels.
-    pub fn node_to_record(&self, node: crate::node::UnifiedNode) -> crate::sdk::VantaNodeRecord {
+    /// Convert a `UnifiedNode` to an SDK `NodeRecord`, resolving edge labels.
+    pub fn node_to_record(&self, node: crate::node::UnifiedNode) -> crate::sdk::NodeRecord {
         crate::sdk::serialization::graph_types::unified_to_record(node, &self.label_intern.lock())
     }
 }
@@ -429,81 +434,275 @@ impl StorageEngine {
 // ─── VecIndex accessor ─────────────────────────────────────
 
 impl StorageEngine {
-    /// Return a handle to the vector index (HNSW / IVF / flat) as a
-    /// [`VecIndex`](crate::index::VecIndex) trait object.
+    /// Return a handle to the vector index behind the cycle-breaking port.
     ///
-    /// The returned [`arc_swap::Guard`] auto-derefs to [`CPIndex`], which
-    /// implements [`VecIndex`](crate::index::VecIndex).  Callers invoke
-    /// trait methods (`.search()`, `.len()`, …) without binding to the
-    /// concrete index type.
-    pub fn vec_index(&self) -> arc_swap::Guard<Arc<CPIndex>> {
+    /// The returned [`arc_swap::Guard`] auto-derefs to `dyn IndexPort`, which
+    /// exposes the search/maintenance surface. Callers invoke trait methods
+    /// without binding to the concrete index type (F3X: ADR-042).
+    pub fn vec_index(&self) -> arc_swap::Guard<Arc<Box<dyn IndexPort>>> {
         self.hnsw.load()
+    }
+}
+
+// ─── Scalar index (MOD-04: TTL purge candidates) ───────────
+
+impl StorageEngine {
+    /// Look up node IDs whose integer value for `field` is `<= max`.
+    ///
+    /// Selects TTL-expired candidates (`expires_at_ms <= now`) from the
+    /// maintained scalar index so `purge_expired` avoids a full O(N) scan.
+    /// Falls back to an empty set if the index is not present.
+    pub(crate) fn scalar_lookup_int_le(&self, field: &str, max: i64) -> Vec<u128> {
+        match &self.scalar_index {
+            Some(si) => si.lookup_int_le(field, max),
+            None => Vec::new(),
+        }
+    }
+
+    /// Rebuild the scalar index from backend metadata (relational fields).
+    ///
+    /// Called at open/reopen and by `rebuild_index` — the index is otherwise
+    /// only maintained incrementally on writes (insert/delete/vacuum), so a
+    /// reopen would start with an empty index and TTL purge would miss every
+    /// pre-existing expired record.
+    pub(crate) fn rebuild_scalar_index(&self) -> Result<()> {
+        use crate::backend::BackendPartition;
+        use crate::storage::ops::{deserialize_node_payload, NodeMetadata};
+
+        let Some(si) = &self.scalar_index else {
+            return Ok(());
+        };
+        let entries = self.backend.scan(BackendPartition::Default)?;
+        for (key, value) in entries {
+            let Ok(key_arr) = <[u8; 16]>::try_from(key.as_slice()) else {
+                continue;
+            };
+            let id = u128::from_le_bytes(key_arr);
+            let Ok(metadata) = deserialize_node_payload::<NodeMetadata>(&value, "node metadata")
+            else {
+                continue;
+            };
+            for (field, fv) in &metadata.relational {
+                si.insert(field, fv, id);
+            }
+        }
+        Ok(())
     }
 }
 
 // ─── Filesystem Snapshots ──────────────────────────────────
 
+/// Unix: hard-link (O(1) per file). Windows/WASM wrapper unifies
+/// [`std::fs::copy`]'s `u64` return with the walker's `()` contract.
+#[cfg(unix)]
+fn mirror_file(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    std::fs::hard_link(src, dst)
+}
+
+#[cfg(any(windows, target_arch = "wasm32"))]
+fn mirror_file(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    std::fs::copy(src, dst).map(|_| ())
+}
+
+/// Recursively mirror `src` into `dst`, hard-linking (Unix) or copying
+/// (Windows/WASM) regular files.
+///
+/// Skips the `snapshots` subdirectory: it lives INSIDE `data_dir` (created by
+/// [`StorageEngine::create_snapshot`] itself), so recursing into it would nest
+/// `snapshots/snapshots/...` forever (FIND-25).
+fn mirror_data_dir(src: &std::path::Path, dst: &std::path::Path) -> std::io::Result<()> {
+    for entry in std::fs::read_dir(src)? {
+        let entry = entry?;
+        let path = entry.path();
+        let name = entry.file_name();
+        if path.is_dir() {
+            if name == "snapshots" {
+                continue;
+            }
+            let sub = dst.join(&name);
+            std::fs::create_dir_all(&sub)?;
+            mirror_data_dir(&path, &sub)?;
+        } else if path.is_file() {
+            mirror_file(&path, &dst.join(name))?;
+        }
+    }
+    Ok(())
+}
+
+/// Mirror the KV backend files into the snapshot (FIND-33).
+///
+/// The backend opens under the storage root (`<storage_path>/`, sibling of
+/// `data_dir` — see `init_storage`), so on a fresh layout the backend LSM
+/// files live directly under `storage_root`. We copy each top-level regular
+/// file into `<snap_root>/backend/`, preserving the sibling layout. The
+/// `.vanta.lock` file is intentionally NOT mirrored — the lock is process-
+/// local and must be acquired afresh by the next opener. Returns Ok(()) if the
+/// storage root is missing or has no backend files (InMemory engines store
+/// nothing on disk — see `init_storage`'s early return for `BackendKind::InMemory`).
+fn mirror_backend_to(
+    storage_root: &std::path::Path,
+    snap_root: &std::path::Path,
+) -> std::io::Result<()> {
+    if !storage_root.exists() {
+        return Ok(());
+    }
+    let dst = snap_root.join("backend");
+    std::fs::create_dir_all(&dst)?;
+    for entry in std::fs::read_dir(storage_root)? {
+        let entry = entry?;
+        let path = entry.path();
+        let name = entry.file_name();
+        // Skip `data/` (mirrored separately via mirror_data_dir) and the
+        // process-local lock file (must be acquired by the next opener).
+        if name == "data" || name == ".vanta.lock" {
+            continue;
+        }
+        if path.is_file() {
+            mirror_file(&path, &dst.join(&name))?;
+        }
+    }
+    Ok(())
+}
+
 impl StorageEngine {
-    /// Create an instant filesystem snapshot by hard-linking all data files.
+    /// Acquire `insert_lock` with the configured timeout (ERR-010 pattern).
     ///
-    /// On Unix, this is O(1) per file — the kernel creates directory entries
-    /// pointing at the same inode, so no data is copied. On Windows, falls
-    /// back to [`std::fs::copy`] (O(n) per file) since `CreateHardLinkA`
-    /// requires NTFS and may need admin rights.
+    /// Native: `try_lock_for` so a contended lock fails with `Timeout` after
+    /// `insert_lock_timeout_ms`. wasm32-unknown-unknown: `try_lock_for` panics
+    /// (parking_lot's `to_deadline` internally computes a
+    /// `std::time::Instant::now()`, unsupported on that target) — and on this
+    /// single-threaded platform a timed wait could never make progress anyway:
+    /// only this thread could release the lock, so a held lock means
+    /// re-entrance. A plain `try_lock` is therefore both panic-free and
+    /// strictly more correct there, mapping failure to the same `Timeout`.
+    #[inline]
+    pub(crate) fn acquire_insert_lock(&self, operation: &str) -> Result<FairMutexGuard<'_, ()>> {
+        #[cfg(not(target_arch = "wasm32"))]
+        let guard = self
+            .insert_lock
+            .try_lock_for(std::time::Duration::from_millis(
+                self.config.insert_lock_timeout_ms,
+            ));
+        #[cfg(target_arch = "wasm32")]
+        let guard = self.insert_lock.try_lock();
+        guard.ok_or_else(|| crate::error::Error::Timeout {
+            operation: operation.into(),
+            duration_ms: self.config.insert_lock_timeout_ms,
+        })
+    }
+
+    /// Create an instant filesystem snapshot of the live data directory.
+    ///
+    /// # Consistency (FIND-25)
+    ///
+    /// Before imaging, the engine is quiesced via [`Self::flush`]
+    /// (insert_lock, HNSW drain, backend flush, vector-index save, ERR-010
+    /// pattern), so the imaged file set is mutually consistent at a single
+    /// point in time.
+    /// Without this, a snapshot taken during active writes could capture a
+    /// torn set — each individual file operation is atomic, but the *set* of
+    /// files is not (e.g. a newer `vector_index.bin` referencing offsets past
+    /// the end of an older-copied File segment).
+    ///
+    /// # Performance trade-off
+    ///
+    /// The quiesce adds one full flush per snapshot: this snapshot is no
+    /// longer O(1)-instant. Correctness beats speed here — a torn backup is
+    /// worse than a slower one. Callers needing high-frequency snapshots
+    /// should rate-limit instead of bypassing the flush.
+    ///
+    /// On Unix, files are hard-linked (O(1) per file — kernel directory
+    /// entries pointing at the same inode). On Windows/WASM, falls back to
+    /// [`std::fs::copy`] (O(n) per file). Subdirectories under `data_dir`
+    /// (if any appear in future layouts) are mirrored recursively; the
+    /// engine-owned `snapshots/` directory is excluded.
+    ///
+    /// Note: before FIND-33 this captured `data_dir` only — the KV backend
+    /// directory lives beside `data_dir` under the storage root, and a
+    /// snapshot taken after `compact_wal()` (which archives WAL segments) lost
+    /// any state that lived only in the backend KV (namespace_index,
+    /// internal_metadata, checkpoint_seq). The snapshot now also mirrors
+    /// the backend files into `<snap_dir>/backend/` (FIND-33) so the
+    /// captured set is mutually consistent: `data/` + `backend/` siblings
+    /// mirror the live layout under `storage_path/`. The `.vanta.lock` file
+    /// is intentionally excluded — the lock is process-local and must be
+    /// acquired by the next opener.
+    ///
+    /// The snapshot mirrors the live layout (`<snap_dir>/data/...` and
+    /// `<snap_dir>/backend/...`) so it can be reopened directly as a database
+    /// via `Embedded::open`.
     #[cfg(unix)]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
+        // Read-only engines have nothing in flight to quiesce, and flush()
+        // would fail its ensure_writable() guard.
+        if !self.read_only {
+            self.flush()?;
+        }
+
         let snap_dir = self.data_dir.join("snapshots").join(name);
-        std::fs::create_dir_all(&snap_dir)?;
+        let snap_data = snap_dir.join("data");
+        std::fs::create_dir_all(&snap_data)?;
 
         #[cfg(feature = "failpoints")]
         {
             fail::fail_point!("snapshot_create_fail", |_| {
-                Err(crate::error::VantaError::IoError(std::io::Error::other(
+                Err(crate::error::Error::Io(std::io::Error::other(
                     "Simulated snapshot create I/O failure",
                 )))
             });
         }
 
-        for entry in std::fs::read_dir(&self.data_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_file() {
-                let dest = snap_dir.join(entry.file_name());
-                std::fs::hard_link(&path, &dest)?;
-            }
-        }
+        // FIND-33: mirror data_dir first (preserves the existing FIND-25
+        // contract — recursive, skips the engine-owned `snapshots/` subtree),
+        // then mirror the backend KV files (siblings of data_dir under the
+        // storage root) into `<snap_dir>/backend/`. flush() above guarantees
+        // the backend has been persisted via `db.persist(SyncAll)` before we
+        // touch any file, so no writes are in-flight during the mirror and
+        // the captured set is mutually consistent.
+        let storage_root = self.data_dir.parent().unwrap_or(&self.data_dir);
+        mirror_data_dir(&self.data_dir, &snap_data)?;
+        mirror_backend_to(storage_root, &snap_dir)?;
         Ok(FsSnapshot {
             path: snap_dir,
-            created_at: std::time::Instant::now(),
+            created_at: Instant::now(),
         })
     }
 
     /// Create a filesystem snapshot (Windows/WASM fallback using copy).
+    ///
+    /// Same quiesce-then-image semantics as the Unix variant — see its
+    /// documentation for the consistency and performance trade-offs. In
+    /// particular (FIND-33), the snapshot also captures the backend KV files
+    /// under `<snap_dir>/backend/` so it survives a subsequent `compact_wal()`.
+    ///
+    /// The snapshot mirrors the live layout (`<snap_dir>/data/...` and
+    /// `<snap_dir>/backend/...`) so it can be reopened directly as a database
+    /// via `Embedded::open`.
     #[cfg(any(windows, target_arch = "wasm32"))]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
+        if !self.read_only {
+            self.flush()?;
+        }
+
         let snap_dir = self.data_dir.join("snapshots").join(name);
-        std::fs::create_dir_all(&snap_dir)?;
+        let snap_data = snap_dir.join("data");
+        std::fs::create_dir_all(&snap_data)?;
 
         #[cfg(feature = "failpoints")]
         {
             fail::fail_point!("snapshot_create_fail", |_| {
-                Err(crate::error::VantaError::IoError(std::io::Error::other(
+                Err(crate::error::Error::Io(std::io::Error::other(
                     "Simulated snapshot create I/O failure",
                 )))
             });
         }
 
-        for entry in std::fs::read_dir(&self.data_dir)? {
-            let entry = entry?;
-            let path = entry.path();
-            if path.is_file() {
-                let dest = snap_dir.join(entry.file_name());
-                std::fs::copy(&path, &dest)?;
-            }
-        }
+        let storage_root = self.data_dir.parent().unwrap_or(&self.data_dir);
+        mirror_data_dir(&self.data_dir, &snap_data)?;
+        mirror_backend_to(storage_root, &snap_dir)?;
         Ok(FsSnapshot {
             path: snap_dir,
-            created_at: std::time::Instant::now(),
+            created_at: Instant::now(),
         })
     }
 
@@ -522,6 +721,124 @@ impl StorageEngine {
         }
         names.sort();
         Ok(names)
+    }
+
+    /// Validate a snapshot name as a plain filesystem identifier.
+    ///
+    /// Trust boundary: the name becomes a path segment under
+    /// `<data_dir>/snapshots/`, so path separators, `.`/`..`, or control
+    /// characters would allow traversal out of the snapshots directory.
+    /// Mirrors the MCP-34a guard in `vantadb-mcp` (defense in depth — the MCP
+    /// layer also validates before dispatching).
+    fn validate_snapshot_name(name: &str) -> crate::error::Result<()> {
+        if name.is_empty()
+            || name == "."
+            || name == ".."
+            || name.contains('/')
+            || name.contains('\\')
+            || name.chars().any(char::is_control)
+        {
+            return Err(crate::error::Error::InvalidInput(format!(
+                "snapshot name must be a plain identifier (no path separators, '.', '..', or control characters): {name:?}"
+            )));
+        }
+        Ok(())
+    }
+
+    /// Restore the database directory from a physical snapshot (MCP-34b).
+    ///
+    /// # Exclusivity (embedded API contract)
+    ///
+    /// This is a static associated function taking the storage *root* path —
+    /// deliberately NOT `&self`. The directory swap requires that no engine
+    /// holds the database open: on Windows the fs2 lock makes the swap fail
+    /// loudly; on Unix an open handle would keep writing into the renamed-aside
+    /// directory, silently forking state. Callers must close/drop every handle
+    /// first (see [`crate::sdk::Embedded::restore_from`] for the full
+    /// close → restore → reopen flow).
+    ///
+    /// # Safety / rollback
+    ///
+    /// The live `<root>/data` directory is renamed aside to a staging sibling
+    /// (`<root>/data.pre_restore_<nanos>`, atomic same-volume rename) instead
+    /// of deleted. All snapshots are moved back into the fresh `data_dir`
+    /// before the copy-back so they survive the restore. If any step fails
+    /// after the rename, the partial data_dir is removed and the staged
+    /// original is renamed back (best-effort rollback); the staging copy is
+    /// only deleted after a fully successful copy-back.
+    ///
+    /// Note: unlike RES-02 §2a step 3 (`<snap>/pre_restore_<ts>`), the staging
+    /// sibling lives beside `data_dir` — `snapshots/` is INSIDE `data_dir`, so
+    /// renaming data_dir under its own snapshot would nest them within
+    /// themselves.
+    ///
+    /// Returns the restored `<root>/data` path; reopen with
+    /// [`crate::sdk::Embedded::open_with_config`] — HNSW/text indexes are
+    /// rebuilt from storage on open (proven by tests/index_reconstruction.rs).
+    pub fn snapshot_restore(
+        storage_root: &std::path::Path,
+        name: &str,
+    ) -> crate::error::Result<std::path::PathBuf> {
+        Self::validate_snapshot_name(name)?;
+        let data_dir = storage_root.join("data");
+        let snap_data = data_dir.join("snapshots").join(name).join("data");
+        if !snap_data.is_dir() {
+            return Err(crate::error::Error::NotFound {
+                kind: "snapshot".to_string(),
+                id: name.to_string(),
+            });
+        }
+
+        #[cfg(feature = "failpoints")]
+        {
+            fail::fail_point!("snapshot_restore_fail", |_| {
+                Err(crate::error::Error::Io(std::io::Error::other(
+                    "Simulated snapshot restore I/O failure",
+                )))
+            });
+        }
+
+        // No live data to displace: plain fresh copy-back.
+        if !data_dir.exists() {
+            std::fs::create_dir_all(&data_dir)?;
+            mirror_data_dir(&snap_data, &data_dir)?;
+            return Ok(data_dir);
+        }
+
+        // Stage the live directory aside (atomic same-volume rename). A
+        // nanosecond stamp avoids collisions between consecutive restores.
+        let nanos = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .map_err(|e| crate::error::Error::Io(std::io::Error::other(e)))?
+            .as_nanos();
+        let staging = storage_root.join(format!("data.pre_restore_{nanos}"));
+        std::fs::rename(&data_dir, &staging)?;
+
+        let swapped = (|| -> std::io::Result<()> {
+            std::fs::create_dir_all(&data_dir)?;
+            // Keep every snapshot alive across the swap: move them from the
+            // staged tree back into the fresh data_dir before copying the
+            // snapshot contents over it.
+            let staged_snaps = staging.join("snapshots");
+            if staged_snaps.exists() {
+                std::fs::rename(staged_snaps, data_dir.join("snapshots"))?;
+            }
+            mirror_data_dir(&snap_data, &data_dir)
+        })();
+
+        match swapped {
+            Ok(()) => {
+                let _ = std::fs::remove_dir_all(&staging);
+                Ok(data_dir)
+            }
+            Err(e) => {
+                // Best-effort rollback: never leave the DB empty while the
+                // staged original is still available.
+                let _ = std::fs::remove_dir_all(&data_dir);
+                let _ = std::fs::rename(&staging, &data_dir);
+                Err(crate::error::Error::Io(e))
+            }
+        }
     }
 }
 

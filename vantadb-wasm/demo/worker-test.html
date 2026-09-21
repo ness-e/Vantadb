@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>TECH-07 worker test</title>
+</head>
+<body>
+<pre id="out">running…</pre>
+<script type="module">
+import { spawnOpfsWorker } from "../src/opfs_bridge.js";
+import init, { VantaDB } from "../pkg/vantadb_wasm.js";
+
+const out = document.getElementById("out");
+const log = (line) => { out.textContent += "\n" + line; console.log(line); };
+const fail = (line) => { log("FAIL: " + line); out.dataset.result = "FAIL"; };
+const pass = (line) => { log("PASS: " + line); out.dataset.result = "PASS"; };
+
+globalThis.spawnOpfsWorker = spawnOpfsWorker;
+await init();
+log("0. wasm init ok");
+
+try {
+  log("1. connect_worker…");
+  const db = await VantaDB.connect_worker("vanta-worker-test");
+  log("2. connect_worker ok");
+
+  const payload = new TextEncoder().encode("hello worker " + Date.now());
+  log("3. worker_write…");
+  await db.worker_write("probe.txt", payload);
+  log("4. worker_write ok");
+
+  log("5. worker_read…");
+  const back = await db.worker_read("probe.txt");
+  if (back && new TextDecoder().decode(back) === new TextDecoder().decode(payload)) {
+    log("6. worker_read roundtrip ok");
+  } else {
+    fail("worker_read mismatch: " + (back ? new TextDecoder().decode(back) : String(back)));
+  }
+
+  log("7. engine op through worker-backed db…");
+  const v = new Array(384).fill(0).map((_, i) => (i % 2 ? 1 : -1) / Math.sqrt(384));
+  db.put({ namespace: "test", key: "k1", payload: "first", vector: v });
+  const hits = db.search({ namespace: "test", query_vector: v, top_k: 1, distance_metric: "Cosine" });
+  if (hits && hits.length === 1 && hits[0].record.key === "k1") {
+    log("8. put+search ok");
+  } else {
+    fail("put+search: " + JSON.stringify(hits));
+  }
+
+  log("9. worker_delete…");
+  await db.worker_delete("probe.txt");
+  const gone = await db.worker_read("probe.txt");
+  if (gone === undefined) {
+    log("10. worker_delete ok");
+  } else {
+    fail("worker_delete left data behind");
+  }
+
+  db.close();
+  pass("worker lifecycle ok");
+} catch (err) {
+  fail((err && err.message) || String(err));
+}
+</script>
+</body>
+</html>

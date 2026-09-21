@@ -7,17 +7,13 @@ import { CASE_STUDIES } from "@/components/vanta/vanta-data";
 import { useLanguage } from "@/lib/language-provider";
 
 export default function CaseStudiesPage() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader
         badge="§CASE-STUDIES"
         title={tt("caseStudiesPage.title", "Case Studies")}
-        subtitle={tt("caseStudiesPage.subtitle", "Three real-world deployments of VantaDB — agents with durable memory, air-gapped edge RAG, and in-process semantic code search. No servers, no clouds, no caveats.")}
+        subtitle={tt("caseStudiesPage.subtitle", "Three illustrative composite scenarios of VantaDB — agents with durable memory, air-gapped edge RAG, and in-process semantic code search. No servers, no clouds, no caveats.")}
         tag={tt("caseStudiesPage.tag", "3 deployments · Apache 2.0")}
       />
 
@@ -41,7 +37,7 @@ export default function CaseStudiesPage() {
             <Reveal key={cs.slug} direction="up" delay={i * 80} as="article">
               <a
                 href={`/case-studies/${cs.slug}`}
-                className="press-lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5 shadow-[6px_6px_0_0_#000] transition-transform hover:translate-x-[-3px] hover:translate-y-[-3px] hover:shadow-[9px_9px_0_0_#FF5500]   "
+                className="press--lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5 shadow-[6px_6px_0_0_#000] transition-transform hover:translate-x-[-3px] hover:translate-y-[-3px] hover:shadow-[9px_9px_0_0_#FF5500]   "
               >
                 <span className="absolute -left-2 -top-3 rotate-[-6deg] border-2 border-black bg-black px-2 py-0.5 font-display text-xs uppercase text-[#FF5500]   ">
                   0{i + 1}
@@ -102,7 +98,7 @@ export default function CaseStudiesPage() {
         <Reveal direction="up" delay={120}>
           <div className="mt-10 border-4 border-dashed border-black/30 p-5 text-center ">
             <p className="font-tech text-xs leading-relaxed text-black/60 ">
-              {tt("caseStudiesPage.note", "These case studies are composites based on real deployments and community feedback. Names of individuals and some identifying details have been changed. Want to share your VantaDB story? Join the Discord.")}
+              {tt("caseStudiesPage.note", "Composite scenarios based on typical usage patterns — not specific customers. Companies, quotes, and metrics are illustrative. Want to share your real VantaDB story? Join the Discord.")}
             </p>
           </div>
         </Reveal>

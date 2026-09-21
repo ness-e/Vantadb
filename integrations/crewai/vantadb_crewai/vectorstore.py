@@ -25,6 +25,7 @@ class VantaDBTool(CrewAIBaseTool):
     namespace: str = DEFAULT_NAMESPACE
     embedding: Optional[Any] = None
     db_path: str = "./vantadb_data"
+    top_k: int = DEFAULT_TOP_K
     if PrivateAttr is not None:
         _db: Any = PrivateAttr()
 
@@ -36,6 +37,7 @@ class VantaDBTool(CrewAIBaseTool):
         *,
         db_path: str = "./vantadb_data",
         namespace: str = DEFAULT_NAMESPACE,
+        top_k: int = DEFAULT_TOP_K,
         memory_limit_bytes: Optional[int] = None,
         read_only: bool = False,
         backend: Optional[str] = None,
@@ -52,16 +54,24 @@ class VantaDBTool(CrewAIBaseTool):
                 Defaults to "./vantadb_data".
             namespace: VantaDB namespace to operate on.
                 Defaults to "crewai".
+            top_k: Default number of results to return. Defaults to 4.
             memory_limit_bytes: Optional maximum memory usage in bytes.
             read_only: If True, open the database in read-only mode.
                 Defaults to False.
             backend: Optional backend identifier for VantaDB.
         """
-        super().__init__(name=name, description=description)
+        # Fallback path (crewai no instalado): la base es `object` y
+        # `object.__init__` no acepta kwargs → tolerar sin romper el path CON framework.
+        # Mismo patrón que dspy/vectorstore.py (FIND-69 f3d6c634).
+        try:
+            super().__init__(name=name, description=description)
+        except TypeError:
+            pass
         self.namespace = namespace
         self.embedding = embedding
         self.db_path = db_path
-        self._db = vanta.VantaDB(
+        self.top_k = top_k
+        self._db = vanta.Client(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
             read_only=read_only,
@@ -95,7 +105,7 @@ class VantaDBTool(CrewAIBaseTool):
 
         if self.embedding:
             embedding = self.embedding(query)
-            results = self._db.search_memory(
+            results = self._db.memory.search(
                 self.namespace,
                 embedding,
                 top_k=k,
@@ -108,7 +118,7 @@ class VantaDBTool(CrewAIBaseTool):
             )
         else:
             # Fallback: list all
-            results = self._db.list_memory(namespace=self.namespace, limit=k)
+            results = self._db.memory.list(namespace=self.namespace, limit=k)
             records = (
                 results.records
                 if hasattr(results, "records")
@@ -158,7 +168,7 @@ class VantaDBTool(CrewAIBaseTool):
         Returns:
             True if the deletion succeeded.
         """
-        self._db.delete_memory(self.namespace, key)
+        self._db.memory.delete(self.namespace, key)
         return True
 
     def list(self, limit: int = 100, cursor: Optional[str] = None) -> dict:
@@ -171,17 +181,30 @@ class VantaDBTool(CrewAIBaseTool):
         Returns:
             A dict with ``records`` and, if more are available, a ``cursor``.
         """
-        results = self._db.list_memory(
-            namespace=self.namespace, limit=limit, cursor=cursor,
+        # dspy pattern: cursor arrives as str from serialized pages; memory.list expects int.
+        if cursor is None or (isinstance(cursor, str) and cursor == ""):
+            cursor_int: Optional[int] = None
+        else:
+            try:
+                cursor_int = int(cursor)  # type: ignore[arg-type]
+            except (ValueError, TypeError) as exc:
+                raise ValueError(
+                    f"Invalid cursor value {cursor!r}: must be int or int-like string"
+                ) from exc
+        results = self._db.memory.list(
+            namespace=self.namespace, limit=limit, cursor=cursor_int,
         )
         records = (
             results.records
             if hasattr(results, "records")
             else list(results)
         )
-        next_cursor = getattr(results, "cursor", None)
+        # VantaListResult uses `next_cursor`; keep `cursor` fallback for compat
+        next_cursor = getattr(results, "next_cursor", None)
+        if next_cursor is None:
+            next_cursor = getattr(results, "cursor", None)
         out: dict[str, Any] = {"records": records}
-        if next_cursor:
+        if next_cursor is not None:
             out["cursor"] = next_cursor
         return out
 
@@ -195,7 +218,7 @@ class VantaDBTool(CrewAIBaseTool):
         return {
             "db_path": self.db_path,
             "namespace": self.namespace,
-            "k": getattr(self, "top_k", DEFAULT_TOP_K),
+            "k": self.top_k,
             "embedding_model": (
                 str(type(self.embedding).__name__)
                 if self.embedding is not None
@@ -213,81 +236,28 @@ class VantaDBTool(CrewAIBaseTool):
 
         Returns:
             A new ``VantaDBTool`` instance.
+
+        Note:
+            ``embedding_model`` is only a type-name string and cannot be
+            reconstructed; it is intentionally ignored. Pass the embedding
+            callable explicitly via ``embedding`` when you need semantic
+            search after a roundtrip — otherwise the tool falls back to
+            listing records.
         """
+        # ponytail: minimal reconstruct — if caller supplies callable via `embedding`, use it; else fallback
+        embedding = data.get("embedding")
+        if not callable(embedding):
+            maybe = data.get("embedding_model")
+            if callable(maybe):
+                embedding = maybe
+            else:
+                embedding = None
         return cls(
-            embedding=data.get("embedding_model"),
+            embedding=embedding,
             db_path=data.get("db_path", "./vantadb_data"),
             namespace=data.get("namespace", DEFAULT_NAMESPACE),
+            top_k=data.get("k", data.get("top_k", DEFAULT_TOP_K)),
         )
 
     def __call__(self, *args: Any, **kwargs: Any) -> str:
         return self._run(*args, **kwargs)
-
-
-# DEPRECATED: categorize() was domain logic, not adapter responsibility.
-# Will be removed in next major version.
-def categorize(text: str) -> str:
-    """Classify text into a predefined category based on keywords.
-
-    Uses simple keyword matching to categorise the input as one of:
-    ``"question"``, ``"technical"``, ``"greeting"``, or
-    ``"informational"``.
-
-    Args:
-        text: The text to categorise.
-
-    Returns:
-        One of ``"empty"`` (if text is blank), ``"question"``,
-        ``"technical"``, ``"greeting"``, or ``"informational"``.
-    """
-    if not text or not text.strip():
-        return "empty"
-
-    # Keyword-based categorization
-    text_lower = text.lower()
-
-    question_words = {
-        "what",
-        "how",
-        "why",
-        "when",
-        "where",
-        "who",
-        "which",
-        "can",
-        "could",
-        "would",
-        "should",
-    }
-    if (
-        any(text_lower.startswith(w) for w in question_words)
-        or text_lower.endswith("?")
-    ):
-        return "question"
-
-    technical_indicators = {
-        "code",
-        "error",
-        "bug",
-        "function",
-        "api",
-        "syntax",
-        "compile",
-        "debug",
-        "exception",
-    }
-    if any(w in text_lower for w in technical_indicators):
-        return "technical"
-
-    greeting_indicators = {
-        "hello",
-        "hi",
-        "hey",
-        "greetings",
-        "good morning",
-        "good afternoon",
-    }
-    if any(text_lower.startswith(w) for w in greeting_indicators):
-        return "greeting"
-
-    return "informational"

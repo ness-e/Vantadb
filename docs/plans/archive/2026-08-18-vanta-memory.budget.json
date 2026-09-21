@@ -1,0 +1,197 @@
+{
+  "tasks": {
+    "1": {
+      "taskId": "1",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787212336642,
+      "lastActivity": 1787215214657,
+      "traceId": "b01879f7-af75-4243-9ad0-7a48155d6afd"
+    },
+    "2": {
+      "taskId": "2",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787215328188,
+      "lastActivity": 1787216521854,
+      "traceId": "e6e0ea5d-e6f1-444a-95be-b2aab8ed1d7d"
+    },
+    "3": {
+      "taskId": "3",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787216556279,
+      "lastActivity": 1787216556279,
+      "traceId": "b0a16dd7-4951-4c32-9c51-cf0697715df8"
+    },
+    "4": {
+      "taskId": "4",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787218163614,
+      "lastActivity": 1787218163614,
+      "traceId": "bd54d373-072a-4ec2-bd63-cd0d4d39f809"
+    },
+    "5": {
+      "taskId": "5",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787239409558,
+      "lastActivity": 1787239409558,
+      "traceId": "b6c219a7-a034-4407-9625-43d9a45a91dc"
+    },
+    "6": {
+      "taskId": "6",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787241173796,
+      "lastActivity": 1787241173796,
+      "traceId": "c4aeb114-05a3-4dff-9846-f2a8a16a33bd"
+    },
+    "7": {
+      "taskId": "7",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787244880817,
+      "lastActivity": 1787244880817,
+      "traceId": "b4c0edef-7d1f-4e94-b001-7e20b4359530"
+    },
+    "8": {
+      "taskId": "8",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787247717769,
+      "lastActivity": 1787247717769,
+      "traceId": "ae94c1b9-58ab-4620-8aa7-ccdbc600e001"
+    },
+    "9": {
+      "taskId": "9",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787249804578,
+      "lastActivity": 1787249804578,
+      "traceId": "2a53ce6a-409b-47a7-a0cc-64989d8db736"
+    },
+    "10": {
+      "taskId": "10",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787253829021,
+      "lastActivity": 1787253829021
+    },
+    "13": {
+      "taskId": "13",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787262558794,
+      "lastActivity": 1787262558794
+    },
+    "14": {
+      "taskId": "14",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787264402371,
+      "lastActivity": 1787264402371
+    },
+    "15": {
+      "taskId": "15",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787265502068,
+      "lastActivity": 1787265502068
+    },
+    "16": {
+      "taskId": "16",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787266230885,
+      "lastActivity": 1787266230885
+    },
+    "17": {
+      "taskId": "17",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787266623526,
+      "lastActivity": 1787266623526
+    },
+    "18": {
+      "taskId": "18",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787273699583,
+      "lastActivity": 1787273699583
+    },
+    "19": {
+      "taskId": "19",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787275126892,
+      "lastActivity": 1787275126892
+    },
+    "20": {
+      "taskId": "20",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787277035023,
+      "lastActivity": 1787277035023
+    },
+    "21": {
+      "taskId": "21",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787278442158,
+      "lastActivity": 1787278442158
+    },
+    "22": {
+      "taskId": "22",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787280175537,
+      "lastActivity": 1787280175537
+    },
+    "23": {
+      "taskId": "23",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787281450606,
+      "lastActivity": 1787281450606
+    },
+    "24": {
+      "taskId": "24",
+      "toolCalls": 7,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787282110764,
+      "lastActivity": 1787282793799
+    },
+    "MEM-03": {
+      "taskId": "MEM-03",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787218579292,
+      "lastActivity": 1787218579302
+    }
+  }
+}

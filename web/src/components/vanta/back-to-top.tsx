@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { ArrowUp } from "lucide-react";
+import { useLanguage } from "@/lib/language-provider";
 import { cn } from "@/lib/utils";
 
 /**
@@ -10,6 +11,7 @@ import { cn } from "@/lib/utils";
  */
 export function BackToTop() {
   const [visible, setVisible] = useState(false);
+  const { t } = useLanguage();
 
   useEffect(() => {
     let ticking = false;
@@ -40,8 +42,8 @@ export function BackToTop() {
   return (
     <button
       onClick={scrollToTop}
-      aria-label="Volver arriba"
-      title="Volver arriba"
+      aria-label={t("backToTop")}
+      title={t("backToTop")}
       className={cn(
         "fixed bottom-6 right-6 z-50 inline-flex h-12 w-12 items-center justify-center border-4 border-black bg-[#FF5500] text-black shadow-[6px_6px_0_0_#000] transition-all duration-200  ",
         "hover:translate-x-[2px] hover:translate-y-[2px] hover:shadow-[4px_4px_0_0_#000] ",

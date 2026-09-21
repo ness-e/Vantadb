@@ -3,7 +3,7 @@ title: "rrf"
 type: glossary-entry
 status: stable
 tags: [busqueda, fusion, ranking, hybrid-search]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Reciprocal Rank Fusion, Rank Fusion]
 description: "Algorithm to merge multiple ranking lists into a unified ranking, based solely on the ordinal position (rank) of each document, without the need to normalize heterogeneous scores"
@@ -110,13 +110,12 @@ pub fn reciprocal_rank_fusion(
 ### hybrid-search in VantaDB
 
 ```python
-results = db.search(
-    vector=embed("query"),
-    text="query",
+results = db.search_memory(
+    namespace="default",
+    query_vector=embed("query"),
+    text_query="query",
     top_k=10,
-    mode="hybrid",  # Usa RRF internamente
-    rrf_k=60        # Parámetro de suavizado
-)
+)  # Usa RRF internamente (k=60 default del motor)
 ```
 
 ## Effect of Parameter k

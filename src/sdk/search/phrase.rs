@@ -10,10 +10,13 @@ use std::collections::BTreeMap;
 ///
 /// Returns `true` if every phrase (or the empty list) has at least one
 /// occurrence where its tokens appear in order at consecutive positions.
-pub fn text_positions_match_phrases(
-    term_positions: &BTreeMap<String, Vec<u32>>,
+pub fn text_positions_match_phrases<K>(
+    term_positions: &BTreeMap<K, Vec<u32>>,
     phrases: &[Vec<String>],
-) -> bool {
+) -> bool
+where
+    K: AsRef<str> + Ord,
+{
     phrases
         .iter()
         .all(|phrase| text_positions_match_phrase(term_positions, phrase))
@@ -25,14 +28,17 @@ pub fn text_positions_match_phrases(
 /// subsequent token appears at that position + offset (i.e. consecutively).
 /// A single-token phrase matches if the token has at least one position.
 /// An empty phrase trivially matches.
-pub fn text_positions_match_phrase(
-    term_positions: &BTreeMap<String, Vec<u32>>,
+pub fn text_positions_match_phrase<K>(
+    term_positions: &BTreeMap<K, Vec<u32>>,
     phrase: &[String],
-) -> bool {
+) -> bool
+where
+    K: AsRef<str> + Ord,
+{
     let Some(first_token) = phrase.first() else {
         return true;
     };
-    let Some(first_positions) = term_positions.get(first_token) else {
+    let Some(first_positions) = find_positions(term_positions, first_token) else {
         return false;
     };
     if phrase.len() == 1 {
@@ -41,12 +47,30 @@ pub fn text_positions_match_phrase(
 
     first_positions.iter().any(|start| {
         phrase.iter().enumerate().skip(1).all(|(offset, token)| {
-            let Some(positions) = term_positions.get(token) else {
+            let Some(positions) = find_positions(term_positions, token) else {
                 return false;
             };
             positions.contains(&start.saturating_add(offset as u32))
         })
     })
+}
+
+/// Find the positions of a token in a per-document term position map.
+///
+/// Maps are tiny (a handful of query terms per document), so a linear scan
+/// is fine. ponytail: O(n) lookup per token; switch to a HashMap keyed by
+/// `&str` if phrase matching ever becomes a measurable hot path.
+fn find_positions<'a, K>(
+    term_positions: &'a BTreeMap<K, Vec<u32>>,
+    token: &str,
+) -> Option<&'a Vec<u32>>
+where
+    K: AsRef<str>,
+{
+    term_positions
+        .iter()
+        .find(|(key, _)| key.as_ref() == token)
+        .map(|(_, positions)| positions)
 }
 
 #[cfg(test)]
@@ -57,14 +81,14 @@ mod tests {
 
     #[test]
     fn empty_phrase_trivially_matches() {
-        let positions = BTreeMap::new();
+        let positions = BTreeMap::<String, Vec<u32>>::new();
         let phrase: Vec<String> = vec![];
         assert!(text_positions_match_phrase(&positions, &phrase));
     }
 
     #[test]
     fn single_token_with_position_matches() {
-        let mut positions = BTreeMap::new();
+        let mut positions = BTreeMap::<String, Vec<u32>>::new();
         positions.insert("hello".into(), vec![0, 5, 10]);
         let phrase = vec!["hello".to_string()];
         assert!(text_positions_match_phrase(&positions, &phrase));
@@ -72,7 +96,7 @@ mod tests {
 
     #[test]
     fn single_token_with_no_positions_does_not_match() {
-        let mut positions = BTreeMap::new();
+        let mut positions = BTreeMap::<String, Vec<u32>>::new();
         positions.insert("hello".into(), vec![]);
         let phrase = vec!["hello".to_string()];
         assert!(!text_positions_match_phrase(&positions, &phrase));
@@ -80,14 +104,14 @@ mod tests {
 
     #[test]
     fn token_not_in_document_does_not_match() {
-        let positions = BTreeMap::new();
+        let positions = BTreeMap::<String, Vec<u32>>::new();
         let phrase = vec!["missing".to_string()];
         assert!(!text_positions_match_phrase(&positions, &phrase));
     }
 
     #[test]
     fn consecutive_tokens_at_correct_position_match() {
-        let mut positions = BTreeMap::new();
+        let mut positions = BTreeMap::<String, Vec<u32>>::new();
         positions.insert("hello".into(), vec![0, 5, 10]);
         positions.insert("world".into(), vec![1, 6, 11]);
         let phrase = vec!["hello".to_string(), "world".to_string()];
@@ -96,7 +120,7 @@ mod tests {
 
     #[test]
     fn consecutive_tokens_at_wrong_position_do_not_match() {
-        let mut positions = BTreeMap::new();
+        let mut positions = BTreeMap::<String, Vec<u32>>::new();
         positions.insert("hello".into(), vec![0, 5, 10]);
         positions.insert("world".into(), vec![3, 8, 13]); // offset != 1
         let phrase = vec!["hello".to_string(), "world".to_string()];
@@ -105,7 +129,7 @@ mod tests {
 
     #[test]
     fn three_token_phrase_at_correct_positions_matches() {
-        let mut positions = BTreeMap::new();
+        let mut positions = BTreeMap::<String, Vec<u32>>::new();
         positions.insert("the".into(), vec![0, 10, 20]);
         positions.insert("quick".into(), vec![1, 11, 21]);
         positions.insert("fox".into(), vec![2, 12, 22]);
@@ -115,7 +139,7 @@ mod tests {
 
     #[test]
     fn second_token_of_phrase_not_in_document_does_not_match() {
-        let mut positions = BTreeMap::new();
+        let mut positions = BTreeMap::<String, Vec<u32>>::new();
         positions.insert("hello".into(), vec![0]);
         // "world" missing
         let phrase = vec!["hello".to_string(), "world".to_string()];
@@ -124,7 +148,7 @@ mod tests {
 
     #[test]
     fn overlapping_tokens_different_positions_still_match_at_one_path() {
-        let mut positions = BTreeMap::new();
+        let mut positions = BTreeMap::<String, Vec<u32>>::new();
         positions.insert("a".into(), vec![0, 2]);
         positions.insert("b".into(), vec![1, 3]);
         positions.insert("c".into(), vec![2, 4]);
@@ -137,14 +161,14 @@ mod tests {
 
     #[test]
     fn empty_phrase_list_trivially_matches() {
-        let positions = BTreeMap::new();
+        let positions = BTreeMap::<String, Vec<u32>>::new();
         let phrases: Vec<Vec<String>> = vec![];
         assert!(text_positions_match_phrases(&positions, &phrases));
     }
 
     #[test]
     fn all_phrases_must_match() {
-        let mut positions = BTreeMap::new();
+        let mut positions = BTreeMap::<String, Vec<u32>>::new();
         positions.insert("hello".into(), vec![0, 10]);
         positions.insert("world".into(), vec![1, 11]);
         positions.insert("foo".into(), vec![5, 15]);
@@ -158,7 +182,7 @@ mod tests {
 
     #[test]
     fn one_failing_phrase_causes_entire_check_to_fail() {
-        let mut positions = BTreeMap::new();
+        let mut positions = BTreeMap::<String, Vec<u32>>::new();
         positions.insert("hello".into(), vec![0]);
         positions.insert("world".into(), vec![1]);
         positions.insert("missing_from_doc".into(), vec![]);
@@ -171,7 +195,7 @@ mod tests {
 
     #[test]
     fn phrase_list_with_mixed_results_returns_false() {
-        let mut positions = BTreeMap::new();
+        let mut positions = BTreeMap::<String, Vec<u32>>::new();
         positions.insert("good".into(), vec![0]);
         positions.insert("day".into(), vec![1]);
         positions.insert("bad".into(), vec![]);

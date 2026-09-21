@@ -1,3 +1,13 @@
+---
+title: "`heavy-bench-nightly-51.yml` — HEAVY: Benchmarks — Nightly Regression"
+type: workflow
+status: active
+tags: [vantadb, ci, heavy-bench-nightly]
+last_reviewed: 2026-09-15
+aliases: []
+related: [".github/workflows/heavy-bench-nightly-51.yml"]
+---
+
 # `heavy-bench-nightly-51.yml` — HEAVY: Benchmarks — Nightly Regression
 
 ## ¿Qué hace?
@@ -37,3 +47,12 @@ Detección automatizada de regresiones de rendimiento. Si un cambio introduce un
 
 - **Cada noche** (03:00 UTC) vía `schedule`
 - **Workflow dispatch** manual
+
+## CI Gate (`ci-gate`)
+
+Antes de `light-benchmarks` y `high-density` corre el job `ci-gate` (reutiliza `.github/workflows/ci-gate.yml`). Verifica que los 11 checks requeridos del ruleset de `main` estén en verde en el commit objetivo; si alguno está en rojo, el gate falla y los benchmarks se saltan (evita ~6h de cómputo en un baseline que no es válido). `analyze` depende de `ci-gate`, `light-benchmarks` y `high-density`.
+
+- En **schedule**: el gate se aplica.
+- En **workflow_dispatch**: el gate se salta (fuerza la ejecución).
+
+Requiere `checks: read` en el calling job.

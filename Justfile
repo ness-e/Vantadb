@@ -1,8 +1,13 @@
 # VantaDB — Justfile (cross-platform task runner)
 # Install: `cargo install just`
 # Usage:   `just check` `just test` `just watch` `just verify`
+# Shell:   PowerShell on Windows (`just` auto-detects and uses pwsh via
+#          `set windows-shell`), POSIX `sh` on macOS/Linux.
 
-set shell := ["pwsh", "-NoProfile", "-Command"]
+# Default shell on non-Windows platforms. Windows uses `windows-shell` below.
+set shell := ["sh", "-c"]
+# Windows-only override (just picks this over `set shell` on Windows).
+set windows-shell := ["pwsh", "-NoProfile", "-Command"]
 
 cargo := "cargo"
 nextest_args := "--workspace"
@@ -19,9 +24,9 @@ check:
 clippy:
     {{cargo}} clippy --workspace --all-targets --all-features -- -D warnings
 
-# Format code (check only)
+# Format code (check only) — --all keeps scope aligned with verify.ps1/verify_changed.ps1
 fmt:
-    {{cargo}} fmt --check
+    {{cargo}} fmt --all -- --check
 
 # Format code (apply fixes)
 fmt-fix:
@@ -92,11 +97,12 @@ run-cli:
 
 # Run vanta server
 run-server:
-    {{cargo}} run --features server --bin vantadb-server
+    {{cargo}} run -p vantadb-server --features server
 
-# Run MCP server
+# Run MCP stdio server (the MCP binary is served by vantadb-server; the
+# vantadb-mcp crate is lib-only)
 run-mcp:
-    {{cargo}} run -p vantadb-mcp
+    {{cargo}} run -p vantadb-server --features server -- --mcp
 
 # Setup Python venv + build SDK
 python-setup:
@@ -139,3 +145,11 @@ docs:
 # Collect code snapshot for AI context
 code-snapshot:
     pwsh -NoProfile -File dev-tools/scripts/collect_code.ps1
+
+# OCR delegation review (advisory, sin API key — Alibaba open-code-review)
+ocr:
+    pwsh -NoProfile -File dev-tools/ocr-review.ps1
+
+# OCR delegation spec en JSON (para agentes: preview + rules)
+ocr-json:
+    pwsh -NoProfile -File dev-tools/ocr-review.ps1 -Format json

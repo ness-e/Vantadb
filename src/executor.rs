@@ -3,15 +3,17 @@
 //! Evaluates [`LogicalOperator`] trees against the [`StorageEngine`],
 //! returning materialized [`ExecutionResult`] variants.
 
-use crate::error::{ChainedError, Result, VantaError};
+use crate::error::{ChainedError, Error, Result};
 use crate::node::{UnifiedNode, VectorRepresentations};
 use crate::parser::parse_statement;
-use crate::query::{LogicalOperator, LogicalPlan, Statement};
+use crate::query::{
+    DeleteStatement, InsertMessageStatement, InsertStatement, LogicalOperator, LogicalPlan, Query,
+    RelateStatement, SelectStatement, Statement, UpdateStatement,
+};
 use crate::storage::StorageEngine;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 const GIB: usize = 1024 * 1024 * 1024;
-const MIB: usize = 1024 * 1024;
 
 /// Result of executing a statement against the storage engine.
 #[derive(Debug)]
@@ -153,15 +155,15 @@ impl<'a> Executor<'a> {
     pub fn execute_hybrid(&self, query_string: &str) -> Result<ExecutionResult> {
         let trimmed = query_string.trim_start();
         if trimmed.starts_with('(') {
-            Err(VantaError::IqlError(ChainedError::msg(
-                "LISP queries require the experimental-lisp extension/crate.",
+            Err(Error::Iql(ChainedError::msg(
+                "LISP query execution is not supported (archived 2024-06). Use IQL syntax instead - see docs/api/IQL.md.",
             )))
         } else {
             match parse_statement(trimmed) {
                 Ok((_, stmt)) => self.execute_statement(stmt),
                 Err(e) => {
                     let (line, col) = iql_error_position(trimmed, &e);
-                    Err(VantaError::IqlParseError {
+                    Err(Error::IqlParse {
                         msg: e.to_string(),
                         line,
                         col,
@@ -174,230 +176,287 @@ impl<'a> Executor<'a> {
     /// Execute a pre-parsed statement against the storage engine.
     #[tracing::instrument(skip(self), err)]
     pub fn execute_statement(&self, statement: Statement) -> Result<ExecutionResult> {
-        // ── Memory Pressure Check ──
-        {
-            use crate::governor::ResourceGovernor;
-            let governor = ResourceGovernor::new(2 * GIB, 50);
-            let probe_cost = 0;
-            governor.request_allocation(probe_cost)?;
-        }
+        Self::check_memory_pressure()?;
 
         match statement {
-            Statement::Select(select) => {
-                let plan = select.into_logical_plan();
-                let nodes = self.execute_plan(plan)?;
-                Ok(ExecutionResult::Read(nodes))
-            }
-            Statement::Query(query) => {
-                let plan = query.into_logical_plan();
-                let nodes = self.execute_plan(plan)?;
+            Statement::Select(select) => self.execute_select(select),
+            Statement::Query(query) => self.execute_query(query),
+            Statement::Insert(insert) => self.execute_insert(insert),
+            Statement::Update(update) => self.execute_update(update),
+            Statement::Delete(delete) => self.execute_delete(delete),
+            Statement::Relate(relate) => self.execute_relate(relate),
+            Statement::InsertMessage(msg) => self.execute_insert_message(msg),
+        }
+    }
 
-                use crate::node::AccessTracker;
-                // Phase 30: Archaeological Interception (Non-blocking)
-                let mut filtered_nodes = Vec::with_capacity(nodes.len());
-                for node in nodes {
-                    let is_low_confidence_summary =
-                        if let Some(crate::node::FieldValue::String(node_type)) =
-                            node.relational.get("type")
-                        {
-                            node_type == "SemanticSummary" && node.confidence_score() < 0.4
-                        } else {
-                            false
-                        };
+    /// Admission probe: rejects the statement when the process is under memory pressure.
+    fn check_memory_pressure() -> Result<()> {
+        use crate::governor::ResourceGovernor;
+        let governor = ResourceGovernor::new(2 * GIB, 50);
+        let probe_cost = 0;
+        governor.request_allocation(probe_cost)?;
+        Ok(())
+    }
 
-                    if is_low_confidence_summary {
-                        tracing::warn!(
-                            "[Executor] Supervised mode: Low-confidence summary detected (ID {}). Skipping.",
-                            node.id
-                        );
-                    } else {
-                        filtered_nodes.push(node);
-                    }
-                }
+    /// SELECT path: logical plan → Volcano execution → read results.
+    fn execute_select(&self, select: SelectStatement) -> Result<ExecutionResult> {
+        let plan = select.into_logical_plan();
+        let nodes = self.execute_plan(plan)?;
+        Ok(ExecutionResult::Read(nodes))
+    }
 
-                Ok(ExecutionResult::Read(filtered_nodes))
-            }
-            Statement::Insert(insert) => {
-                let mut node = UnifiedNode::new(insert.node_id);
-                // Newly inserted nodes are immediately Hot: they just arrived and are
-                // the highest-priority candidates for volatile_cache residence.
-                node.tier = crate::node::NodeTier::Hot;
-                node.set_field("type", crate::node::FieldValue::String(insert.node_type));
+    /// QUERY path: logical plan → execution → archaeological interception filter.
+    fn execute_query(&self, query: Query) -> Result<ExecutionResult> {
+        let plan = query.into_logical_plan();
+        let nodes = self.execute_plan(plan)?;
+        Ok(ExecutionResult::Read(
+            Self::filter_low_confidence_summaries(nodes),
+        ))
+    }
 
-                // Copy all provided fields
-                for (k, v) in insert.fields.clone() {
-                    node.set_field(&k, v);
-                }
-
-                // Auto-Embedding Logic: If VECTOR is not provided in IQL, but "text" field exists!
-                #[cfg(feature = "remote-inference")]
-                if insert.vector.is_none() {
-                    if let Some(crate::node::FieldValue::String(text)) = insert.fields.get("text") {
-                        if !text.trim().is_empty() {
-                            let provider = crate::llm::get_embedding_provider();
-                            match provider.embed(text) {
-                                Ok(vec) => {
-                                    node.vector = VectorRepresentations::Full(vec);
-                                    node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
-                                }
-                                Err(e) => tracing::warn!(
-                                    "Auto-embedding failed for INSERT node {}: {}",
-                                    insert.node_id,
-                                    e
-                                ),
-                            }
-                        }
-                    }
-                }
-                #[cfg(not(feature = "remote-inference"))]
-                if insert.vector.is_none() && insert.fields.contains_key("text") {
-                    tracing::warn!("LLM feature disabled: skipping automatic embedding generation");
-                }
-                if insert.vector.is_some() {
-                    if let Some(vec) = insert.vector {
-                        node.vector = VectorRepresentations::Full(vec);
-                        node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
-                    }
-                }
-
-                self.storage.insert(&node)?;
-                Ok(ExecutionResult::Write {
-                    affected_nodes: 1,
-                    message: format!("Node {} inserted.", insert.node_id),
-                    node_id: Some(insert.node_id),
-                })
-            }
-            Statement::Update(update) => {
-                let mut node = match self.storage.get(update.node_id)? {
-                    Some(n) => n,
-                    None => {
-                        return Err(VantaError::NotFound {
-                            kind: "node".into(),
-                            id: update.node_id.to_string(),
-                        })
-                    }
-                };
-                for (k, v) in update.fields {
-                    node.set_field(k, v);
-                }
-                if let Some(vec) = update.vector {
-                    node.vector = VectorRepresentations::Full(vec);
-                    node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
-                }
-
-                self.storage.insert(&node)?;
-                Ok(ExecutionResult::Write {
-                    affected_nodes: 1,
-                    message: format!("Node {} updated.", node.id),
-                    node_id: Some(node.id),
-                })
-            }
-            Statement::Delete(delete) => {
-                self.storage.delete(delete.node_id, "IQL Manual Deletion")?;
-                Ok(ExecutionResult::Write {
-                    affected_nodes: 1,
-                    message: format!("Node {} deleted.", delete.node_id),
-                    node_id: Some(delete.node_id),
-                })
-            }
-            Statement::Relate(relate) => {
-                let mut node = match self.storage.get(relate.source_id)? {
-                    Some(n) => n,
-                    None => {
-                        return Err(VantaError::NotFound {
-                            kind: "source_node".into(),
-                            id: relate.source_id.to_string(),
-                        })
-                    }
-                };
-
-                // Axiom: Topological Consistency
-                if self.storage.get(relate.target_id)?.is_none() {
-                    if self.storage.is_deleted(relate.target_id).unwrap_or(false) {
-                        return Err(VantaError::NotFound {
-                            kind: "tombstone_node".into(),
-                            id: relate.target_id.to_string(),
-                        });
-                    } else {
-                        return Err(VantaError::NotFound {
-                            kind: "target_node".into(),
-                            id: relate.target_id.to_string(),
-                        });
-                    }
-                }
-
-                let label_id = self.storage.intern_label(&relate.label);
-                if let Some(w) = relate.weight {
-                    node.add_weighted_edge(relate.target_id, label_id, w);
+    /// Phase 30: Archaeological Interception (non-blocking).
+    /// Drops low-confidence `SemanticSummary` nodes from read results.
+    fn filter_low_confidence_summaries(nodes: Vec<UnifiedNode>) -> Vec<UnifiedNode> {
+        use crate::node::AccessStats;
+        let mut filtered_nodes = Vec::with_capacity(nodes.len());
+        for node in nodes {
+            let is_low_confidence_summary =
+                if let Some(crate::node::FieldValue::String(node_type)) =
+                    node.relational.get("type")
+                {
+                    node_type == "SemanticSummary" && node.confidence_score() < 0.4
                 } else {
-                    node.add_edge(relate.target_id, label_id);
-                }
-                self.storage.insert(&node)?;
-                Ok(ExecutionResult::Write {
-                    affected_nodes: 1,
-                    message: format!(
-                        "Edge related from {} to {}.",
-                        relate.source_id, relate.target_id
-                    ),
-                    node_id: Some(relate.source_id),
-                })
-            }
-            Statement::InsertMessage(msg) => {
-                // Syntactic Sugar for Chat Threads: Creates a node and relates it.
-                // Normally we'd use a UUID generator, but for MVP we use a timestamp-based ID or random
-                let msg_id = web_time::SystemTime::now()
-                    .duration_since(web_time::UNIX_EPOCH)
-                    .unwrap_or_default()
-                    .as_micros();
-                let mut node = UnifiedNode::new(msg_id);
-                node.set_field(
-                    "type",
-                    crate::node::FieldValue::String("Message".to_string()),
-                );
-                node.set_field(
-                    "role",
-                    crate::node::FieldValue::String(msg.msg_role.clone()),
-                );
-                node.set_field(
-                    "content",
-                    crate::node::FieldValue::String(msg.content.clone()),
-                );
+                    false
+                };
 
-                // Embed directly via LLM since it's a message
-                #[cfg(feature = "remote-inference")]
-                if !msg.content.trim().is_empty() {
+            if is_low_confidence_summary {
+                tracing::warn!(
+                    "[Executor] Supervised mode: Low-confidence summary detected (ID {}). Skipping.",
+                    node.id
+                );
+            } else {
+                filtered_nodes.push(node);
+            }
+        }
+        filtered_nodes
+    }
+
+    /// INSERT path: builds a Hot node from fields + vector/embed logic, then stores it.
+    fn execute_insert(&self, insert: InsertStatement) -> Result<ExecutionResult> {
+        let InsertStatement {
+            node_id,
+            node_type,
+            fields,
+            vector,
+        } = insert;
+        let mut node = UnifiedNode::new(node_id);
+        // Newly inserted nodes are immediately Hot: they just arrived and are
+        // the highest-priority candidates for volatile_cache residence.
+        node.tier = crate::node::NodeTier::Hot;
+        node.set_field("type", crate::node::FieldValue::String(node_type));
+
+        // Copy all provided fields
+        for (k, v) in fields.clone() {
+            node.set_field(&k, v);
+        }
+
+        self.auto_embed_insert(&mut node, &vector, &fields, node_id);
+        Self::apply_explicit_vector(&mut node, vector);
+
+        self.storage.insert(&node)?;
+        Ok(ExecutionResult::Write {
+            affected_nodes: 1,
+            message: format!("Node {node_id} inserted."),
+            node_id: Some(node_id),
+        })
+    }
+
+    /// Auto-Embedding Logic: if VECTOR is not provided in IQL but a "text" field exists,
+    /// embed it via the remote provider (graceful degradation on failure).
+    #[cfg(feature = "remote-inference")]
+    fn auto_embed_insert(
+        &self,
+        node: &mut UnifiedNode,
+        vector: &Option<Vec<f32>>,
+        fields: &std::collections::BTreeMap<String, crate::node::FieldValue>,
+        node_id: u128,
+    ) {
+        if vector.is_none() {
+            if let Some(crate::node::FieldValue::String(text)) = fields.get("text") {
+                if !text.trim().is_empty() {
                     let provider = crate::llm::get_embedding_provider();
-                    match provider.embed(&msg.content) {
+                    match provider.embed(text) {
                         Ok(vec) => {
                             node.vector = VectorRepresentations::Full(vec);
                             node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
                         }
-                        Err(e) => tracing::warn!(
-                            "Auto-embedding failed for InsertMessage {}: {}",
-                            msg_id,
-                            e
-                        ),
+                        Err(e) => {
+                            tracing::warn!("Auto-embedding failed for INSERT node {node_id}: {e}")
+                        }
                     }
                 }
-
-                // Now create relationship: MESSAGE -> belongs_to -> THREAD
-                let belongs_to_id = self.storage.intern_label("belongs_to_thread");
-                node.add_edge(msg.thread_id, belongs_to_id);
-
-                // Node is saved (Atomic write for State + Edge)
-                self.storage.insert(&node)?;
-
-                Ok(ExecutionResult::Write {
-                    affected_nodes: 2,
-                    message: format!(
-                        "Message {} inserted and linked to Thread {}.",
-                        msg_id, msg.thread_id
-                    ),
-                    node_id: Some(msg_id),
-                })
             }
         }
     }
+
+    /// Without `remote-inference` there is no provider: warn once, insert without a vector.
+    #[cfg(not(feature = "remote-inference"))]
+    fn auto_embed_insert(
+        &self,
+        _node: &mut UnifiedNode,
+        vector: &Option<Vec<f32>>,
+        fields: &std::collections::BTreeMap<String, crate::node::FieldValue>,
+        _node_id: u128,
+    ) {
+        if vector.is_none() && fields.contains_key("text") {
+            tracing::warn!("LLM feature disabled: skipping automatic embedding generation");
+        }
+    }
+
+    /// Applies an explicit VECTOR when present (shared by INSERT/UPDATE paths).
+    fn apply_explicit_vector(node: &mut UnifiedNode, vector: Option<Vec<f32>>) {
+        if let Some(vec) = vector {
+            node.vector = VectorRepresentations::Full(vec);
+            node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+        }
+    }
+
+    /// UPDATE path: merges fields (+ optional vector) into the stored node.
+    fn execute_update(&self, update: UpdateStatement) -> Result<ExecutionResult> {
+        let mut node = match self.storage.get(update.node_id)? {
+            Some(n) => n,
+            None => {
+                return Err(Error::NotFound {
+                    kind: "node".into(),
+                    id: update.node_id.to_string(),
+                })
+            }
+        };
+        for (k, v) in update.fields {
+            node.set_field(k, v);
+        }
+        Self::apply_explicit_vector(&mut node, update.vector);
+
+        self.storage.insert(&node)?;
+        Ok(ExecutionResult::Write {
+            affected_nodes: 1,
+            message: format!("Node {} updated.", node.id),
+            node_id: Some(node.id),
+        })
+    }
+
+    /// DELETE path: tombstones the node with an audit reason.
+    fn execute_delete(&self, delete: DeleteStatement) -> Result<ExecutionResult> {
+        self.storage.delete(delete.node_id, "IQL Manual Deletion")?;
+        Ok(ExecutionResult::Write {
+            affected_nodes: 1,
+            message: format!("Node {} deleted.", delete.node_id),
+            node_id: Some(delete.node_id),
+        })
+    }
+
+    /// RELATE path: attaches a (weighted) edge after topological-consistency checks.
+    fn execute_relate(&self, relate: RelateStatement) -> Result<ExecutionResult> {
+        let mut node = match self.storage.get(relate.source_id)? {
+            Some(n) => n,
+            None => {
+                return Err(Error::NotFound {
+                    kind: "source_node".into(),
+                    id: relate.source_id.to_string(),
+                })
+            }
+        };
+
+        // Axiom: Topological Consistency
+        if self.storage.get(relate.target_id)?.is_none() {
+            if self.storage.is_deleted(relate.target_id).unwrap_or(false) {
+                return Err(Error::NotFound {
+                    kind: "tombstone_node".into(),
+                    id: relate.target_id.to_string(),
+                });
+            } else {
+                return Err(Error::NotFound {
+                    kind: "target_node".into(),
+                    id: relate.target_id.to_string(),
+                });
+            }
+        }
+
+        let label_id = self.storage.intern_label(&relate.label);
+        if let Some(w) = relate.weight {
+            node.add_weighted_edge(relate.target_id, label_id, w);
+        } else {
+            node.add_edge(relate.target_id, label_id);
+        }
+        self.storage.insert(&node)?;
+        Ok(ExecutionResult::Write {
+            affected_nodes: 1,
+            message: format!(
+                "Edge related from {} to {}.",
+                relate.source_id, relate.target_id
+            ),
+            node_id: Some(relate.source_id),
+        })
+    }
+
+    /// INSERT-MESSAGE path: syntactic sugar for chat threads (message node + belongs_to edge).
+    fn execute_insert_message(&self, msg: InsertMessageStatement) -> Result<ExecutionResult> {
+        // Normally we'd use a UUID generator, but for MVP we use a timestamp-based ID or random
+        let msg_id = web_time::SystemTime::now()
+            .duration_since(web_time::UNIX_EPOCH)
+            .unwrap_or_default()
+            .as_micros();
+        let mut node = UnifiedNode::new(msg_id);
+        node.set_field(
+            "type",
+            crate::node::FieldValue::String("Message".to_string()),
+        );
+        node.set_field(
+            "role",
+            crate::node::FieldValue::String(msg.msg_role.clone()),
+        );
+        node.set_field(
+            "content",
+            crate::node::FieldValue::String(msg.content.clone()),
+        );
+
+        self.auto_embed_message(&mut node, &msg.content, msg_id);
+
+        // Now create relationship: MESSAGE -> belongs_to -> THREAD
+        let belongs_to_id = self.storage.intern_label("belongs_to_thread");
+        node.add_edge(msg.thread_id, belongs_to_id);
+
+        // Node is saved (Atomic write for State + Edge)
+        self.storage.insert(&node)?;
+
+        Ok(ExecutionResult::Write {
+            affected_nodes: 2,
+            message: format!(
+                "Message {msg_id} inserted and linked to Thread {}.",
+                msg.thread_id
+            ),
+            node_id: Some(msg_id),
+        })
+    }
+
+    /// Embeds a chat message directly via the LLM (graceful degradation on failure).
+    #[cfg(feature = "remote-inference")]
+    fn auto_embed_message(&self, node: &mut UnifiedNode, content: &str, node_id: u128) {
+        if !content.trim().is_empty() {
+            let provider = crate::llm::get_embedding_provider();
+            match provider.embed(content) {
+                Ok(vec) => {
+                    node.vector = VectorRepresentations::Full(vec);
+                    node.flags.set(crate::node::NodeFlags::HAS_VECTOR);
+                }
+                Err(e) => tracing::warn!("Auto-embedding failed for InsertMessage {node_id}: {e}"),
+            }
+        }
+    }
+
+    /// Without `remote-inference` there is no provider: insert the message without a vector.
+    #[cfg(not(feature = "remote-inference"))]
+    fn auto_embed_message(&self, _node: &mut UnifiedNode, _content: &str, _node_id: u128) {}
 
     /// Evaluates the Logical Plan over the underlying storage engine
     #[tracing::instrument(skip(self), err)]
@@ -407,16 +466,21 @@ impl<'a> Executor<'a> {
         let governor = ResourceGovernor::new(2 * GIB, 50); // 2GB Soft Limit, 50ms timeout
         governor.apply_temperature_limits(&mut plan);
 
-        let estimated_mem_cost = MIB; // 1MB estimated buffer footprint per query
+        // OLD-21: derive the admission budget from the semantic cost estimator
+        // instead of a fixed 1MB heuristic. The plan is estimated AFTER
+        // temperature limits are applied so hot systems are accounted correctly.
+        let estimated_mem_cost = governor
+            .estimate_plan_cost(self.storage, &plan)
+            .estimated_bytes;
         governor.request_allocation(estimated_mem_cost)?;
 
-        // Intercept Conflict entity scan for experimental governance immediately
+        // Intercept Conflict# entity scans (governance framework was archived 2024-06)
         for op in &plan.operators {
             if let LogicalOperator::Scan { entity } = op {
                 if entity.starts_with("Conflict#") {
                     governor.free_allocation(estimated_mem_cost);
-                    return Err(VantaError::IqlError(ChainedError::msg(
-                        "Conflict entity scan requires the experimental-governance extension/crate.",
+                    return Err(Error::Iql(ChainedError::msg(
+                        "Conflict# entity scans are not supported (governance framework archived 2024-06).",
                     )));
                 }
             }
@@ -460,7 +524,7 @@ impl<'a> Executor<'a> {
 mod tests {
     use super::*;
     use crate::backend::BackendKind;
-    use crate::config::VantaConfig;
+    use crate::config::Config;
     use crate::node::FieldValue;
     #[cfg(feature = "remote-inference")]
     use crate::query::InsertMessageStatement;
@@ -470,7 +534,7 @@ mod tests {
 
     fn setup_storage() -> (StorageEngine, tempfile::TempDir) {
         let dir = tempdir().unwrap();
-        let config = VantaConfig {
+        let config = Config {
             backend_kind: BackendKind::InMemory,
             ..Default::default()
         };
@@ -574,7 +638,7 @@ mod tests {
         let (storage, _dir) = setup_storage();
         let ex = Executor::new(&storage);
         let err = ex.execute_hybrid("(match ...)").unwrap_err();
-        assert!(matches!(err, VantaError::IqlError(_)));
+        assert!(matches!(err, Error::Iql(_)));
         assert!(err.to_string().contains("LISP"));
     }
 
@@ -583,7 +647,7 @@ mod tests {
         let (storage, _dir) = setup_storage();
         let ex = Executor::new(&storage);
         let err = ex.execute_hybrid("NOT_VALID_IQL").unwrap_err();
-        assert!(matches!(err, VantaError::IqlParseError { .. }));
+        assert!(matches!(err, Error::IqlParse { .. }));
     }
 
     // ── execute_statement: Insert ──
@@ -1006,5 +1070,143 @@ mod tests {
             }
             _ => panic!("expected Write result"),
         }
+    }
+
+    // ── execute_statement: dispatcher por variante (C2S5, sin cambio semántico) ──
+
+    #[test]
+    fn test_execute_select_statement_reads() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        ex.execute_statement(Statement::Insert(InsertStatement {
+            node_id: 70,
+            node_type: "Person".into(),
+            fields: BTreeMap::new(),
+            vector: None,
+        }))
+        .unwrap();
+
+        let select = Statement::Select(crate::query::SelectStatement {
+            projections: vec![],
+            from: crate::query::FromClause::Single {
+                entity: "*".into(),
+                alias: "n".into(),
+            },
+            where_clause: None,
+            subquery_conditions: vec![],
+            temperature: None,
+        });
+        let result = ex.execute_statement(select).unwrap();
+        match result {
+            ExecutionResult::Read(nodes) => {
+                assert!(nodes.iter().any(|n| n.id == 70));
+            }
+            _ => panic!("expected Read result"),
+        }
+    }
+
+    #[test]
+    fn test_execute_query_statement_reads() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        ex.execute_statement(Statement::Insert(InsertStatement {
+            node_id: 71,
+            node_type: "Person".into(),
+            fields: BTreeMap::new(),
+            vector: None,
+        }))
+        .unwrap();
+
+        let query = Statement::Query(crate::query::Query {
+            from_entity: "*".into(),
+            traversal: None,
+            target_alias: "n".into(),
+            where_clause: None,
+            fetch: None,
+            rank_by: None,
+            temperature: None,
+            owner_role: None,
+            search_profile: None,
+        });
+        let result = ex.execute_statement(query).unwrap();
+        match result {
+            ExecutionResult::Read(nodes) => {
+                assert!(nodes.iter().any(|n| n.id == 71));
+            }
+            _ => panic!("expected Read result"),
+        }
+    }
+
+    #[test]
+    fn test_execute_insert_message_links_thread() {
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        let stmt = Statement::InsertMessage(crate::query::InsertMessageStatement {
+            thread_id: 400,
+            msg_role: "user".into(),
+            content: "hola".into(),
+        });
+        let result = ex.execute_statement(stmt).unwrap();
+        let msg_id = match result {
+            ExecutionResult::Write {
+                affected_nodes,
+                message,
+                node_id,
+            } => {
+                assert_eq!(affected_nodes, 2);
+                assert!(message.contains("inserted"));
+                node_id.expect("message node id")
+            }
+            _ => panic!("expected Write result"),
+        };
+
+        let node = storage.get(msg_id).unwrap().unwrap();
+        assert_eq!(
+            node.get_field("type"),
+            Some(&FieldValue::String("Message".into()))
+        );
+        assert_eq!(node.edges.len(), 1);
+        assert_eq!(node.edges[0].target, 400);
+        assert_eq!(
+            node.edges[0].label_id,
+            storage.intern_label("belongs_to_thread")
+        );
+    }
+
+    // ── Admission guard (OLD-21): cost-aware budget must be returned on error ──
+
+    #[test]
+    #[serial_test::serial]
+    fn test_execute_plan_frees_admission_on_error() {
+        use crate::governor::ALLOCATED_BYTES;
+        use std::sync::atomic::Ordering;
+
+        let (storage, _dir) = setup_storage();
+        let ex = Executor::new(&storage);
+
+        // The Conflict# scan hits the experimental-governance early-return AFTER
+        // `request_allocation`; the guard MUST `free_allocation` the same bytes
+        // or the in-flight counter leaks and eventually OOMs real queries.
+        let plan = LogicalPlan {
+            operators: vec![LogicalOperator::Scan {
+                entity: "Conflict#missing-extension".to_string(),
+            }],
+            temperature: 0.0,
+            enforce_role: None,
+            search_profile: None,
+        };
+
+        ALLOCATED_BYTES.store(0, Ordering::SeqCst);
+        let result = ex.execute_plan(plan);
+        assert!(result.is_err(), "Conflict scan must be rejected");
+        assert_eq!(
+            ALLOCATED_BYTES.load(Ordering::SeqCst),
+            0,
+            "admission budget must be freed on the error path"
+        );
+        ALLOCATED_BYTES.store(0, Ordering::SeqCst);
     }
 }

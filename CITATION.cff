@@ -1,0 +1,24 @@
+# Citation metadata — https://citation-file-format.github.io/
+# GitHub muestra el botón "Cite this repository" con este archivo.
+# Al publicar una release nueva, actualizar `version` + `date-released`.
+cff-version: 1.2.0
+title: VantaDB
+message: "If you use VantaDB in your research, please cite it as below."
+type: software
+license: Apache-2.0
+version: 0.5.0
+date-released: 2026-08-01
+repository-code: "https://github.com/ness-e/Vantadb"
+url: "https://vantadb.vercel.app"
+authors:
+  - family-names: Nessy
+    given-names: Eros
+    alias: ness-e
+keywords:
+  - vector-database
+  - vector-search
+  - hybrid-search
+  - embedded-database
+  - rust
+  - ai-agents
+  - local-first

@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Concurrency & Backend Parity Certification Suite
 //!
 //! This suite ensures that all storage backends (RocksDB, Fjall, InMemory)
@@ -11,14 +13,14 @@ use std::sync::Arc;
 use std::thread;
 use std::time::Instant;
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::{BackendKind, StorageEngine};
 
 // ─── HELPER: Open Engine with Specific Backend ────────────────
 
 fn open_engine(path: &str, kind: BackendKind) -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: kind,
         ..Default::default()
     };
@@ -220,7 +222,8 @@ fn test_concurrency_rebuild_rcu() {
     session.step("Seeding initial nodes with vectors");
     for i in 0..100 {
         let mut node = UnifiedNode::new(i);
-        node.vector = vantadb::node::VectorRepresentations::Full(vec![i as f32 * 0.01; 128]);
+        node.vector =
+            vantadb::node::VectorRepresentations::Full(vec![(i as f32 + 1.0) * 0.01; 128]);
         node.flags.set(vantadb::node::NodeFlags::HAS_VECTOR);
         engine.insert(&node).unwrap();
     }
@@ -241,7 +244,7 @@ fn test_concurrency_rebuild_rcu() {
                 None,
                 &vantadb::node::ALL_BITSET,
                 5,
-                Some(&vs),
+                Some(&*vs),
             );
             if !results.is_empty() {
                 query_success += 1;
@@ -275,7 +278,7 @@ fn test_concurrency_rebuild_rcu() {
     // Validar que el nodo insertado post-rebuild es alcanzable y no se perdió
     let hnsw = engine.hnsw.load();
     assert!(
-        hnsw.nodes.contains_key(&999),
+        hnsw.contains_node(999),
         "Mitigación A-01: El nodo 999 se perdió tras el rebuild!"
     );
 

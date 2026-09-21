@@ -1,5 +1,5 @@
 //! HNSW index construction, serialization, and search operations.
-//! Defines [`VecIndex`] — the pluggable trait over all index backends.
+//! Defines `VecIndex` — the pluggable trait over all index backends.
 
 pub mod auto_tune;
 pub(crate) mod core; // tests only
@@ -8,35 +8,21 @@ pub(crate) mod distance;
 pub(crate) mod flat;
 pub(crate) mod graph;
 
-pub(crate) mod ivf;
+pub mod ivf;
 pub(crate) mod neighbor_index;
-
+pub(crate) mod port_impl;
 pub(crate) mod refresh;
 pub(crate) mod scann;
 pub(crate) mod search;
 pub(crate) mod serialize;
 pub(crate) mod stats;
 
-use crate::storage::vfile::VantaFile;
-
 pub use distance::*;
 pub use graph::*;
 
-/// Supported vector index types.
-#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
-pub enum IndexType {
-    /// Hierarchical Navigable Small World graph index (default).
-    #[default]
-    Hnsw,
-    /// Inverted File index with flat (brute-force) encoding.
-    Ivf,
-    /// Brute-force flat scan — O(n) on every search.
-    Flat,
-    /// DiskANN-style Vamana graph (in-memory, no disk I/O).
-    DiskAnn,
-    /// SCANN-style scalar quantization (SQ8) with re-ranking.
-    Scann,
-}
+/// Re-exported from the neutral leaf (`crate::index_port`): routing discriminant
+/// shared by both sides of the storage↔index boundary (F3X; BND-04 compat).
+pub use crate::index_port::IndexType;
 
 /// Pluggable trait for vector index backends.
 ///
@@ -56,11 +42,15 @@ pub(crate) trait VecIndex: Send + Sync {
         query_vec: &[f32],
         query_mask: &crate::node::FilterBitset,
         top_k: usize,
-        vector_store: Option<&VantaFile>,
+        vector_store: Option<&dyn crate::index_port::VectorStoreRef>,
         distance_metric: crate::node::DistanceMetric,
     ) -> Vec<(u128, f32)>;
 
     /// Add a single node to the index.
+    ///
+    /// Returns an error when the insert is rejected (e.g. non-full vector
+    /// under Scann/DiskAnn, read-only IVF after build) so callers can
+    /// propagate instead of silently dropping the add (ERR-031).
     #[allow(dead_code)]
     fn add(
         &self,
@@ -68,7 +58,7 @@ pub(crate) trait VecIndex: Send + Sync {
         bitset: crate::node::FilterBitset,
         vec_data: crate::node::VectorRepresentations,
         storage_offset: u64,
-    );
+    ) -> crate::error::Result<()>;
 
     /// Estimated heap memory usage in bytes.
     #[allow(dead_code)]

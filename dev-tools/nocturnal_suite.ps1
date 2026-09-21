@@ -7,6 +7,8 @@ $ProjectRoot = Split-Path -Parent $PSScriptRoot
 Set-Location $ProjectRoot
 
 $LogFile = "heavy_nocturnal_tests.log"
+$script:PassCount = 0
+$script:FailCount = 0
 Set-Content -Path $LogFile -Value "=================================================="
 Add-Content -Path $LogFile -Value "   VantaDB Heavy Nocturnal Certification Log      "
 Add-Content -Path $LogFile -Value "=================================================="
@@ -30,9 +32,11 @@ function Run-Command($Name, [string[]]$ArgList) {
     if ($LASTEXITCODE -ne 0) {
         Write-Host "`n[FAILED] $Name (exit code $LASTEXITCODE)" -ForegroundColor Red
         Add-Content -Path $LogFile -Value "`n[FAILED] $Name (exit code $LASTEXITCODE)"
+        $script:FailCount++
     } else {
         Write-Host "[PASSED] $Name" -ForegroundColor Green
         Add-Content -Path $LogFile -Value "[PASSED] $Name"
+        $script:PassCount++
     }
     Add-Content -Path $LogFile -Value "--------------------------------------------------"
 }
@@ -85,10 +89,25 @@ try {
     Write-Header "7. Chaos Integrity (Injections & Corruptions)"
     Run-Command "Chaos Integrity (Failpoints)" @("cargo", "test", "--release", "--test", "chaos_integrity", "--features", "failpoints", "--", "--nocapture", "--test-threads=1")
 
-    # Finalización
+    # Finalización — resumen agregado + exit code real (fix 2026-08-25: antes
+    # imprimía "Completed Successfully" incondicional y salía 0 con fallos)
+    $total = $script:PassCount + $script:FailCount
+    Write-Host "`n=== RESUMEN: $($script:PassCount)/$total PASSED, $($script:FailCount) FAILED ===" -ForegroundColor $(if ($script:FailCount -eq 0) { 'Green' } else { 'Red' })
+    Add-Content -Path $LogFile -Value "RESUMEN: $($script:PassCount)/$total PASSED, $($script:FailCount) FAILED"
+
+    if ($script:FailCount -gt 0) {
+        Write-Header "Certification FAILED ($($script:FailCount) step(s) failed)"
+        Add-Content -Path $LogFile -Value "`nFecha de Finalización: $(Get-Date)"
+        Write-Host "`n=============================================" -ForegroundColor Red
+        Write-Host "  NOCTURNAL CERTIFICATION FAILED              " -ForegroundColor Red
+        Write-Host "  Review results in: $LogFile                 " -ForegroundColor Red
+        Write-Host "=============================================" -ForegroundColor Red
+        exit 1
+    }
+
     Write-Header "Certification Completed Successfully"
     Add-Content -Path $LogFile -Value "`nFecha de Finalización: $(Get-Date)"
-    
+
     Write-Host "`n=============================================" -ForegroundColor Green
     Write-Host "  NOCTURNAL CERTIFICATION PIPELINE FINISHED   " -ForegroundColor Green
     Write-Host "  Review results in: $LogFile                 " -ForegroundColor Green

@@ -1,14 +1,16 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Derived namespace/payload index certification for persistent memory APIs.
 
 use tempfile::tempdir;
-use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaValue};
+use vantadb::{Embedded, MemoryInput, MemoryListOptions, Value};
 
-fn str_value(value: &str) -> VantaValue {
-    VantaValue::String(value.to_string())
+fn str_value(value: &str) -> Value {
+    Value::String(value.to_string())
 }
 
-fn input(namespace: &str, key: &str, category: &str) -> VantaMemoryInput {
-    let mut input = VantaMemoryInput::new(namespace, key, format!("{category} payload"));
+fn input(namespace: &str, key: &str, category: &str) -> MemoryInput {
+    let mut input = MemoryInput::new(namespace, key, format!("{category} payload"));
     input
         .metadata
         .insert("category".to_string(), str_value(category));
@@ -18,14 +20,14 @@ fn input(namespace: &str, key: &str, category: &str) -> VantaMemoryInput {
 #[test]
 fn derived_indexes_isolate_namespaces_and_filters() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     db.put(input("agent/a", "shared", "task")).expect("put a");
     db.put(input("agent/b", "shared", "task")).expect("put b");
     db.put(input("agent/a", "note", "note")).expect("put note");
 
     let page_a = db
-        .list("agent/a", VantaMemoryListOptions::default())
+        .list("agent/a", MemoryListOptions::default())
         .expect("list a");
     assert_eq!(page_a.records.len(), 2);
     assert!(page_a
@@ -38,12 +40,13 @@ fn derived_indexes_isolate_namespaces_and_filters() {
     let filtered = db
         .list(
             "agent/a",
-            VantaMemoryListOptions {
+            MemoryListOptions {
                 #[allow(deprecated)]
                 filters,
                 filter_ops: None,
                 limit: 10,
                 cursor: None,
+                exclude_superseded: false,
             },
         )
         .expect("filtered list");
@@ -55,11 +58,11 @@ fn derived_indexes_isolate_namespaces_and_filters() {
 #[test]
 fn upsert_and_delete_keep_payload_indexes_current() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     db.put(input("agent/main", "item", "old")).expect("put old");
 
-    let mut updated = VantaMemoryInput::new("agent/main", "item", "new payload");
+    let mut updated = MemoryInput::new("agent/main", "item", "new payload");
     updated
         .metadata
         .insert("category".to_string(), str_value("new"));
@@ -70,12 +73,13 @@ fn upsert_and_delete_keep_payload_indexes_current() {
     let old_page = db
         .list(
             "agent/main",
-            VantaMemoryListOptions {
+            MemoryListOptions {
                 #[allow(deprecated)]
                 filters: old_filter,
                 filter_ops: None,
                 limit: 10,
                 cursor: None,
+                exclude_superseded: false,
             },
         )
         .expect("old filter");
@@ -86,12 +90,13 @@ fn upsert_and_delete_keep_payload_indexes_current() {
     let new_page = db
         .list(
             "agent/main",
-            VantaMemoryListOptions {
+            MemoryListOptions {
                 #[allow(deprecated)]
                 filters: new_filter,
                 filter_ops: None,
                 limit: 10,
                 cursor: None,
+                exclude_superseded: false,
             },
         )
         .expect("new filter");
@@ -100,7 +105,7 @@ fn upsert_and_delete_keep_payload_indexes_current() {
 
     assert!(db.delete("agent/main", "item").expect("delete"));
     let empty = db
-        .list("agent/main", VantaMemoryListOptions::default())
+        .list("agent/main", MemoryListOptions::default())
         .expect("list after delete");
     assert!(empty.records.is_empty());
 }
@@ -108,7 +113,7 @@ fn upsert_and_delete_keep_payload_indexes_current() {
 #[test]
 fn rebuild_index_reconstructs_derived_indexes_from_canonical_records() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     db.put(input("agent/main", "a", "task")).expect("put a");
     db.put(input("agent/main", "b", "note")).expect("put b");
@@ -122,7 +127,7 @@ fn rebuild_index_reconstructs_derived_indexes_from_canonical_records() {
     assert_eq!(namespaces, vec!["agent/main".to_string()]);
 
     let page = db
-        .list("agent/main", VantaMemoryListOptions::default())
+        .list("agent/main", MemoryListOptions::default())
         .expect("list");
     assert_eq!(page.records.len(), 2);
 }

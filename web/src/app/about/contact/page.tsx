@@ -73,10 +73,10 @@ const CHANNELS: Channel[] = [
   {
     icon: Mail,
     labelKey: "aboutContact.channel.3.label",
-    labelFallback: "Email",
-    label: "Email",
-    value: "maintainers@vantadb.dev",
-    href: "mailto:maintainers@vantadb.dev",
+    labelFallback: "Security",
+    label: "Security",
+    value: "github.com/ness-e/Vantadb/security/advisories",
+    href: "https://github.com/ness-e/Vantadb/security/advisories",
     descriptionKey: "aboutContact.channel.3.description",
     descriptionFallback:
       "Security disclosures, enterprise inquiries, or anything you'd rather not put in a public issue. PGP key on request.",
@@ -87,11 +87,7 @@ const CHANNELS: Channel[] = [
 ];
 
 export default function ContactPage() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { tt } = useLanguage();
   return (
     <div className="animate-rise">
       <PageHeader
@@ -126,7 +122,7 @@ export default function ContactPage() {
                   href={channel.href}
                   target={channel.external ? "_blank" : undefined}
                   rel={channel.external ? "noopener noreferrer" : undefined}
-                  className="press-lg group flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-6 shadow-[6px_6px_0_0_#000] transition-transform hover:translate-x-[-3px] hover:translate-y-[-3px] hover:shadow-[9px_9px_0_0_#FF5500]   "
+                  className="press--lg group flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-6 shadow-[6px_6px_0_0_#000] transition-transform hover:translate-x-[-3px] hover:translate-y-[-3px] hover:shadow-[9px_9px_0_0_#FF5500]   "
                 >
                   <div className="flex items-center justify-between">
                     <span className="inline-flex h-14 w-14 items-center justify-center border-4 border-black bg-[#FF5500] text-black shadow-[3px_3px_0_0_#000] transition-transform group-hover:rotate-[-6deg]  ">
@@ -188,7 +184,7 @@ export default function ContactPage() {
               href={VANTA.repo}
               target="_blank"
               rel="noopener noreferrer"
-              className="press-neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+              className="press--neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
             >
               {tt("aboutContact.viewOnGithub", "View on GitHub")}
               <ArrowRight className="h-4 w-4" strokeWidth={2.5} aria-hidden />

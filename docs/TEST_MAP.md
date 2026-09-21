@@ -1,3 +1,13 @@
+---
+title: "Test Map — 2026-07-22"
+type: operations
+status: active
+tags: [vantadb, docs, test-map, testing]
+last_reviewed: 2026-09-15
+aliases: []
+related: [CI_POLICY.md]
+---
+
 # Test Map — 2026-07-22
 
 > If you change X, which test suite do you run? Quick reference for contributors.
@@ -9,7 +19,7 @@
 | **Core engine** (`src/`) | `cargo nextest run --profile audit -p vantadb` | `just verify` | ci-rust-10 |
 | **Core + heavy tests** | `just test` (audit profile) | `just certify` for weekly-level coverage | heavy-certification-50 |
 | **Storage layer** (`tests/storage/`) | `cargo nextest run --profile audit --test <name>` | `cargo test --release --test storage --test wal_resilience --test …` | heavy-certification-50 (storage-persistence) |
-| **HNSW / vector index** (`src/index/hnsw/`) | `cargo nextest run --profile audit --test hnsw` | `cargo test --release --test hnsw_validation --test hnsw_recall_certification` | heavy-certification-50 (hnsw-*) |
+| **HNSW / vector index** (`src/index/hnsw/`) | `cargo nextest run --profile audit --test hnsw` | `cargo test --release --test hnsw_validation --test hnsw_recall` | heavy-certification-50 (hnsw-*) |
 | **Query logic / parser** (`src/query/`, `src/lang/`) | `cargo nextest run --profile experimental` | `cargo test --release --test integration --test executor --test governor` | heavy-certification-50 (other-heavy) |
 | **Python bindings** (`vantadb-python/`) | `cd vantadb-python && cargo test` | `maturin develop && pytest tests/` | ci-rust-10 (via workspace) |
 | **Python integrations** (`integrations/*/`) | `pytest integrations/<name>/tests/` | — | — (no CI gate) |
@@ -51,7 +61,7 @@
 
 | Gate workflow | What it covers | Frequency | Required for merge |
 |---|---|---|---|
-| **ci-rust-10** | Build, clippy, nextest audit (Linux/Win/macOS), coverage ≥59%, cargo-deny, cargo-audit, miri (UB), MSRV, ASan/TSan | Every push/PR to main | **Yes** (fmt+clippy+test+deny+audit) |
+| **ci-rust-10** | Build, clippy, nextest audit (Linux/Win/macOS), coverage gate root crate ≥80% (ADR-018), cargo-deny, cargo-audit, miri (UB), MSRV, ASan/TSan | Every push/PR to main | **Yes** (fmt+clippy+test+deny+audit) |
 | **ci-web-11** | Web build, lint, tsc | Every push/PR touching `web/` | **Yes** for web changes |
 | **heavy-certification-50** | Full test suite: stress, HNSW validation, storage persistence, failpoints, text index, memory concurrency, benchmarks | Weekly (Sun) + manual trigger | No (weekly quality signal) |
 | **heavy-bench-nightly-51** | Performance benchmarks | Nightly | No (regression signal) |
@@ -80,15 +90,16 @@ Tests are organized in `tests/` (core crate) by category:
 | `tests/core/` | `basic_node`, `graph`, `hnsw`, `regression_certification`, `snapshot_certification`, `vector_scale_check` | Core data structures, graph operations, HNSW index integrity, snapshot stability |
 | `tests/storage/` | `storage`, `mutations`, `core_invariants`, `gc`, `mmap_index`, `antilocality_layout`, `backend_tests`, `wal_resilience`, `tombstone_ann_vstore`, `crash_injection`, `multi_process_lock`, `chaos_integrity` | Storage backend (fjall/rocksdb), WAL, tombstone GC, mmap, crash recovery, failpoints |
 | `tests/logic/` | `integration`, `parser`, `executor`, `governor`, `columnar` | Query parsing, execution, governance, columnar (arrow) |
-| `tests/certification/` | `stress_protocol`, `hnsw_validation`, `hnsw_recall_certification`, `sift_validation`, `competitive_bench`, `hybrid_retrieval_quality`, `hybrid_ranking_metrics`, `hardware_profiles` | Heavy recall/quality validation, cross-backend parity |
+| `tests/certification/` | `stress_protocol`, `hnsw_validation`, `hnsw_recall`, `sift_validation`, `competitive_bench`, `hybrid_retrieval_quality`, `hybrid_ranking_metrics`, `hardware_profiles` | Heavy recall/quality validation, cross-backend parity |
 | `tests/memory/` | `backpressure`, `eviction`, `mmap_hnsw` | Memory management, LRU eviction, mmap index |
 | `tests/security/` | `security_audit` | Security boundary audit |
-| `tests/api/` | `structured_api_v2`, `python_sdk_boundary` | Public API contract, Python FFI boundary |
+| `tests/api/` | `structured_api_v2`, `python` | Public API contract, Python FFI boundary |
 | `tests/` (root) | `durability_recovery`, `index_reconstruction`, `schema_evolution`, `concurrency_parity`, `memory_*`, `derived_*`, `text_index_recovery`, `version_coherence`, `edge_cases`, `fuzz_proptest`, `cli_tests`, `file_locking_stress`, `benchmark_*`, `prefetch_benchmark`, `property_durability`, `fjall_cold_copy_restore`, `multilingual_tokenizer_integration`, `miri_unsafe` | Root-level integration, durability, concurrency, fuzz, benchmarks |
 
 ## Coverage
 
-- **CI threshold**: ≥59% line coverage (enforced in `ci-rust-10.yml` via `cargo-llvm-cov`)
+- **CI threshold**: root crate `vantadb` ≥80% line (gate canónico ADR-018/COV-004, baseline 81.40%; workspace aggregate solo reportado). Cifra medida local: PENDIENTE re-medición — llvm-cov ICE Windows 2026-08-22 (ticket GOV-A1).
+- **Cifra canónica de tests**: 2034 tests / 2034 passed / 1 skipped — cargo nextest run (perfil default, excluye heavy), Windows local, 2026-08-22. Cifras históricas (1492/1902/2568+) son snapshots anteriores con perfiles distintos.
 - **Coverage exclusions**: `tests/`, `benches/`, `packages/experimental`, `crash_injection` source
 - **Report**: Generated to `lcov.info` artifact in CI
 
@@ -125,9 +136,9 @@ Tests are organized in `tests/` (core crate) by category:
 
 ---
 
-## Adapter Tier Classification (ADR-001)
+## Adapter Tier Classification (ADR-016)
 
-See `docs/archived-decisions/ADR-001-ADAPTER-TIERS.md` for full rationale.
+See `docs/architecture/adr/ADR-016-adapter-tiers.md` for full rationale.
 
 | Tier | Label | Adapters | Score range | CI gate |
 |---|---|---|---|---|

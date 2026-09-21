@@ -3,7 +3,7 @@ title: Security Guide
 type: operations
 status: active
 tags: [security, operations]
-last_reviewed: 2026-07-04
+last_reviewed: 2026-08-29
 aliases: []
 ---
 
@@ -18,7 +18,7 @@ pub(crate) fn prevent_path_traversal(path: &str) -> Result<()> {
     let p = std::path::Path::new(path);
     for component in p.components() {
         if component == Component::ParentDir {
-            return Err(VantaError::ValidationError { ... });
+            return Err(VantaError::Validation { ... });
         }
     }
     Ok(())
@@ -28,7 +28,7 @@ pub(crate) fn prevent_path_traversal(path: &str) -> Result<()> {
 **How it works:**
 - Iterates over every path component using `std::path::Component`
 - Rejects any component equal to `Component::ParentDir` (`..`)
-- Returns a `VantaError::ValidationError` with the offending path
+- Returns a `VantaError::Validation` with the offending path
 
 **Paths validated:**
 - Export/import file paths (`export_namespace`, `export_all`, `import_file`)
@@ -104,6 +104,26 @@ Three built-in roles:
 
 Roles are mapped to tokens via the `token_role_map` in `RbacConfig`. When a token matches, the mapped role's permissions are enforced per HTTP method — `POST`/`PUT`/`PATCH`/`DELETE` require `Write`, others require `Read`.
 
+#### Configuring `token_role_map`
+
+`token_role_map` is a `HashMap<String, String>` mapping a literal API key value to a role name. Both `VANTADB_API_KEY` and `VANTADB_ALT_API_KEY` are eligible for mapping — the auth middleware checks the `token_role_map` against the Bearer presented by the client, regardless of which configured key it is.
+
+Programmatic configuration (e.g. from a custom config file loader):
+
+```rust
+use vantadb::config::RbacConfig;
+use std::collections::HashMap;
+
+let mut token_role_map = HashMap::new();
+token_role_map.insert("sk-primary-admin".into(),   "admin".into());
+token_role_map.insert("sk-alt-readonly".into(),    "reader".into());
+let rbac_config = RbacConfig { token_role_map };
+```
+
+A token not present in the map authenticates as a bare `Transport` identity (L1) without any role — write/read authorization then falls through to the per-handler `PermissionChecker` defaults.
+
+> **Note:** the role map is a `pub(crate)` field of `RbacConfig` and is wired into the `AuthState` by `AuthState::new`. It is not directly settable via environment variable in the current version; configure it programmatically or extend the env loader (see FIND-49 in `docs/Backlog.md` for a proposed `VANTADB_TOKEN_ROLE_<KEY>=<role>` env-var loader).
+
 ### Auth Rate Limiting
 
 Authentication failures are rate-limited per IP address:
@@ -114,6 +134,52 @@ Authentication failures are rate-limited per IP address:
 | Time window | 60 seconds |
 
 After exceeding the limit, the IP receives `429 Too Many Requests` and must wait for the window to elapse. Successful authentication resets the failure count.
+
+### API Key Rotation (Zero-Downtime)
+
+VantaDB supports zero-downtime API key rotation using the `VANTADB_ALT_API_KEY` environment variable (SRV-04). This enables rolling key rotation without service interruption.
+
+#### How It Works
+
+When both `VANTADB_API_KEY` (primary) and `VANTADB_ALT_API_KEY` (alternative) are configured, **both keys are accepted simultaneously** for authentication. This allows you to:
+
+1. **Deploy the new key as `alt_api_key`** — both old and new keys work
+2. **Migrate clients** — gradually switch clients to the new key
+3. **Promote the new key** — set `VANTADB_API_KEY` to the new value, remove `VANTADB_ALT_API_KEY`
+4. **Complete rotation** — old key is rejected, only new key works
+
+#### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `VANTADB_API_KEY` | Primary Bearer token (required for auth) |
+| `VANTADB_ALT_API_KEY` | Alternative Bearer token for rotation (optional) |
+| `VANTADB_REQUIRE_AUTH` | If `true`, server fails to start without `VANTADB_API_KEY` |
+
+#### Rotation Workflow Example
+
+```bash
+# Step 1: Current state - only primary key
+VANTADB_API_KEY=sk-old-primary
+VANTADB_REQUIRE_AUTH=true
+
+# Step 2: Add alternative key (rotation window - both work)
+VANTADB_API_KEY=sk-old-primary
+VANTADB_ALT_API_KEY=sk-new-primary
+VANTADB_REQUIRE_AUTH=true
+
+# Step 3: Migrate clients to sk-new-primary, then promote
+VANTADB_API_KEY=sk-new-primary
+# VANTADB_ALT_API_KEY is removed
+VANTADB_REQUIRE_AUTH=true
+```
+
+#### Security Notes
+
+- Both keys use constant-time comparison (`subtle::ConstantTimeEq`) to prevent timing attacks
+- The `alt_api_key` requires `api_key` to be set (rotation needs a primary)
+- RBAC `token_role_map` applies to both keys independently — see [Configuring `token_role_map`](#configuring-token_role_map) for how to wire it
+- Audit logs record auth outcomes as `auth_l1` events; the recorded `key` field is `"N/A"` (the raw Bearer is **never** persisted to the audit JSONL — only the outcome and reason are). To correlate a request with the configured key used, join `auth_l1` events with the access window of the rotation.
 
 ## Input Validation
 
@@ -135,8 +201,66 @@ General HTTP rate limiting is configured via `VANTADB_RATE_LIMIT_RPM`:
 
 | Setting | Behavior |
 |---------|----------|
-| `100` (default) | Burst-aware token bucket limiter at N requests/minute |
+| `600` (default) | Burst-aware token bucket limiter at N requests/minute |
 | `0` | Rate limiting disabled |
+
+## Security Guards (Refuse-to-Start + Fail-Closed)
+
+Two startup invariants keep the server from accidentally serving traffic in an
+unsafe configuration. Both are documented in source under `src/cli_server.rs`
+and exercised by integration tests.
+
+### Refuse-to-start on exposed unauthenticated binds (FIND-07)
+
+The server **refuses to start** when all of the following hold:
+
+- The bind host is non-loopback (anything other than `127.0.0.1`, `localhost`, `::1` — e.g. `0.0.0.0`)
+- No API key is configured (`VANTADB_API_KEY` unset)
+- No explicit dev override is given (`--allow-insecure`)
+
+```text
+Refusing to start: non-loopback host without an API key
+Fix either way: (1) set VANTADB_API_KEY to enable Bearer auth, or
+(2) bind a loopback host (127.0.0.1/localhost/::1), or (3) pass
+--allow-insecure to override this check in dev.
+```
+
+This pattern is uncommon among vector databases in this space — Qdrant,
+Weaviate, and Milvus all default to "open to all interfaces unless you
+configure an API key", with the user responsible for closing the bind host
+themselves. VantaDB flips this: the unsafe default is not a valid
+configuration. See the [competitive positioning table in
+`docs/api/HTTP_API.md`](../../api/HTTP_API.md#positioning-vs-other-vector-databases).
+
+### Rate-limit fail-closed (AUD-021)
+
+The HTTP rate limiter is wired through `tower::GovernorLayer` and built at
+startup. If the `GovernorConfig` fails to build (e.g. malformed RPM, clock
+issues during init), the server **refuses to start** rather than serving
+traffic without a limiter:
+
+```rust
+// pseudo-code from src/cli_server.rs (simplified)
+let cfg = build_rate_limit_config(rpm)?; // returns Err on failure
+let governor = GovernorLayer { config: cfg.into() };
+```
+
+Fail-closed here means a misconfigured limiter becomes a *hard error*, not a
+silent unthrottled listener. This is the safer default for any production
+deployment where unbounded request rates can amplify cost or DoS impact.
+
+### How the other vector databases compare (honest)
+
+| Engine | Auth default | Refuse-to-start guard | Fail-closed rate limit | Source |
+|---|---|---|---|---|
+| **VantaDB** | Bearer if key set; loopback no-key in dev | ✅ Non-loopback without key (FIND-07) | ✅ Server refuses to start on limiter build failure (AUD-021) | this document |
+| **Qdrant** | Open by default unless `api_key` is set | ❌ User must configure bind host + key separately | ⚠️ `Governor` middleware is pluggable; no documented fail-closed startup | [Qdrant security doc](https://qdrant.tech/documentation/security/) (verified 2026-08-29) |
+| **Weaviate** | Anonymous access is supported; can be disabled | ❌ No documented refuse-to-start guard | ⚠️ No documented fail-closed startup | [Weaviate authorization doc](https://weaviate.io/developers/weaviate/configuration/authorization) (verified 2026-08-29) |
+| **Milvus** | User/password required by default; opt-in via `authorizationEnabled: true` | ❌ No documented refuse-to-start guard | ⚠️ No documented fail-closed startup | [Milvus authenticate doc](https://milvus.io/docs/authenticate.md) (verified 2026-08-29) |
+| **Marqo (OSS)** | n/a — project is deprecated | n/a | n/a | [Marqo mainline README: "Open Source project is deprecated"](https://github.com/marqo-ai/marqo/blob/mainline/README.md) (verified 2026-08-29) |
+
+Full hardening playbook (Docker, TLS, key rotation, RBAC, audit,
+monitoring): see [`docs/operations/hardening.md`](hardening.md).
 
 ## Deployment Security Best Practices
 

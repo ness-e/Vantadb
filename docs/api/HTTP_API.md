@@ -3,13 +3,20 @@ title: VantaDB HTTP API
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-07-21
+last_reviewed: 2026-09-01
 aliases: []
 ---
 
 # VantaDB HTTP API
 
 > REST interface for the VantaDB HTTP server (optional, enabled via `vanta-cli server --http` or the `server` Cargo feature).
+>
+> **Specification rule:** [`openapi.yaml`](./openapi.yaml) is the formal, machine-readable
+> specification (OpenAPI 3.1) and the single source of truth for request/response schemas.
+> This document is the **narrative guide** — it explains how to use the API and shows
+> worked examples. When this page and `openapi.yaml` disagree, fix one of them in the same
+> PR that changes a route: do not let them drift (parity is enforced by
+> `scripts/check_openapi_parity.mjs`).
 
 ## Base URL
 
@@ -27,59 +34,154 @@ Endpoints under `/api/` require a Bearer token if `api_key` is configured:
 Authorization: Bearer <VANTADB_API_KEY>
 ```
 
-## Endpoints
+Without an API key (dev mode), requests pass through unauthenticated.
+
+## Response conventions
+
+- **Success envelope:** write endpoints return `{ "success": true, ... }`; errors return
+  `{ "success": false, "error": "<message>" }` with an optional `"hint"`.
+- **Metadata values are typed.** Record metadata values are tagged enums:
+  `{"topic": {"String": "intro"}}`. Plain JSON scalars (`{"topic": "intro"}`) are rejected
+  with a deserialization error listing the valid variants: `String`, `Int`, `Float`,
+  `Bool`, `DateTime`, `ListString`, `ListInt`, `ListFloat`, `ListBool`, `ListDateTime`,
+  `Null`.
+- **Namespaces may contain `/`** (e.g. `agent/main`) — URL-encode path segments as
+  `agent%2Fmain`.
+- **Rate limiting:** configurable via `rate_limit_rpm` (default 600 req/min). Exceeding it
+  returns HTTP 429 with a `Retry-After` header.
+- **CORS:** off by default; enable via `VANTADB_ALLOWED_ORIGINS`.
+
+## Quickstart (verified transcript)
+
+The following session was executed against a real server (`vanta-cli server --http --port
+18099 --db <tmp-dir>`); outputs below are verbatim:
+
+```bash
+# Liveness
+curl http://127.0.0.1:18099/health
+# → {"success":true,"data":"OK"}
+
+# Put a record
+curl -X POST http://127.0.0.1:18099/api/v2/records \
+  -H "Content-Type: application/json" \
+  -d '{"namespace":"agent/main","key":"note-1","payload":"VantaDB is a vector-native knowledge graph","metadata":{"topic":{"String":"intro"}},"vector":[0.1,0.2,0.3,0.4],"ttl_ms":null}'
+# → {"namespace":"agent/main","key":"note-1",...,"version":1,"node_id":"258969631918792983342456585065684593810","vector":[0.1,0.2,0.3,0.4],...}
+
+# Get it back
+curl http://127.0.0.1:18099/api/v2/records/agent%2Fmain/note-1
+
+# List records in a namespace
+curl "http://127.0.0.1:18099/api/v2/list?namespace=agent/main"
+# → {"records":[...],"next_cursor":null}
+
+# Hybrid search (text/BM25) — `ensure_indexes_current()` runs once at server
+# startup only. Records written afterwards via the record API still need one
+# `POST /api/v2/maintenance/rebuild-index` before `text_query` works on a
+# fresh DB (else `text_index not found: bm25`); single memory PUTs are indexed
+# incrementally. Verified live-fire (campaign task GOV-B5).
+curl -X POST http://127.0.0.1:18099/api/v2/search \
+  -H "Content-Type: application/json" \
+  -d '{"namespace":"agent/main","query_vector":[],"filters":{},"text_query":"vector-native","top_k":10,"distance_metric":"Cosine","explain":false}'
+# → {"records":[{"record":{...},"score":0.57536423,"explanation":null}],"next_cursor":null}
+
+# IQL query (keywords are UPPERCASE)
+curl -X POST http://127.0.0.1:18099/api/v2/query \
+  -H "Content-Type: application/json" \
+  -d '{"query":"INSERT NODE#7 TYPE note {title: \"hello\"} VECTOR [0.5, 0.5]"}'
+# → {"success":true,"data":"Mutated 1 nodes: Node 7 inserted.","node_id":7}
+curl -X POST http://127.0.0.1:18099/api/v2/query \
+  -H "Content-Type: application/json" \
+  -d '{"query":"FROM note"}'
+# → {"success":true,"data":"Read 1 nodes.","nodes":[{"id":7,...}]}
+```
+
+## System
 
 ### `GET /health`
 
-Liveness check. Returns `{"success": true, "data": "OK"}` when the server is running.
+Liveness check. Unauthenticated.
 
-**Auth:** None
-
-**Example:**
 ```bash
 curl http://127.0.0.1:8080/health
 ```
 
-**Response:**
 ```json
-{"success": true, "data": "OK"}
+{ "success": true, "data": "OK" }
 ```
 
 ### `GET /metrics`
 
-Prometheus-formatted metrics text. Exposes operational metrics at `/metrics` for scraping by Prometheus or any OpenMetrics-compatible collector.
+Prometheus/OpenMetrics text format (`text/plain; version=0.0.4`), for scraping by
+Prometheus or any OpenMetrics-compatible collector.
 
-**Auth:** Bearer token (if `api_key` configured; passes through in dev mode)
-
-**Content-Type:** `text/plain; version=0.0.4`
-
-**Example:**
-```bash
-curl http://127.0.0.1:8080/metrics
+```text
+# HELP vantadb_http_requests_total Total HTTP requests
+# TYPE vantadb_http_requests_total counter
+vantadb_http_requests_total{method="GET",route="/health",status="200"} 42
 ```
 
-### `POST /api/v2/query`
+### `GET /api/v2/health`
 
-Execute an IQL (Interactive Query Language) or hybrid query against the database.
+Same liveness probe as `/health`, served behind auth middleware.
 
-**Auth:** Bearer token (if `api_key` configured)
+### `GET /api/v2/metrics`
 
-**Request body:**
+Engine metrics as JSON for the web console: operational snapshot
+(`VantaOperationalMetrics` — HNSW node count, WAL replay stats, memory breakdown,
+query/import counters) plus per-namespace collection counts.
+
 ```json
 {
-  "query": "<query string>"
+  "metrics": {
+    "startup_ms": 772,
+    "wal_replay_ms": 0,
+    "wal_records_replayed": 0,
+    "hnsw_nodes_count": 3,
+    "hnsw_logical_bytes": 268439356,
+    "process_rss_bytes": 24449024,
+    "records_imported": 0
+  },
+  "namespaces": {
+    "agent/main": { "count": 1, "expiring_soon": 0, "expired": 0 }
+  }
 }
 ```
 
-**Example:**
-```bash
-curl -X POST http://127.0.0.1:8080/api/v2/query \
-  -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <api-key>" \
-  -d '{"query": "(memory:get \"agent/main\" \"memory-1\")"}'
-```
+### `GET /api/v2/audit`
 
-**Response (read):**
+Query the audit event log written when auditing is enabled. Query parameter: `limit`.
+Returns an array of audit event objects; HTTP 409 if the audit log is not configured.
+
+Audit events carry an optional `request_id` field: when the caller sends
+`x-request-id`, `x-tracing-id` or `traceparent` (first match wins, truncated to
+256 chars), the id is echoed on the audit events that request produces (auth
+and server-side events), correlating log lines with HTTP requests.
+
+The audit JSONL rotates by size: once the active file reaches
+`audit_max_bytes` (default 10 MiB, env `VANTADB_AUDIT_MAX_BYTES`) it is renamed
+to `<path>.1`, older archives shift to `.2`..`.N`, and files beyond
+`audit_max_files` (default 5, env `VANTADB_AUDIT_MAX_FILES`) are deleted.
+
+## Query
+
+### `POST /api/v2/query`
+
+Execute an IQL (Interactive Query Language) statement against the database.
+
+**Request body:** `{ "query": "<IQL statement>" }`
+
+**IQL keywords are case-sensitive uppercase.** Verified grammar summary:
+
+| Operation | Syntax |
+|-----------|--------|
+| Read | `FROM <entity> [WHERE <field> ~ "<text>" \| <field> = <value> \| <field> ~ "<text>", min = <score>] [RANK BY <field> [DESC]] [FETCH <field>,...] [PROFILE keyword\|vector\|hybrid]` |
+| Insert | `INSERT NODE#<id> TYPE <type> {<key>: <value>,...} [VECTOR [<f32>,...]]` |
+| Update | `UPDATE NODE#<id> SET <key>=<value>,...` or `UPDATE NODE#<id> VECTOR [...]` |
+| Delete | `DELETE NODE#<id>` |
+| Relate | `RELATE <source> -> <target> AS <label> [WEIGHT <f32>]` |
+
+**Read response:**
+
 ```json
 {
   "success": true,
@@ -87,33 +189,474 @@ curl -X POST http://127.0.0.1:8080/api/v2/query \
   "node_id": null,
   "nodes": [
     {
-      "id": 1,
+      "id": 7,
       "semantic_cluster": 0,
-      "relational": { "key": "memory-1", "namespace": "agent/main" },
-      "hits": 3,
-      "confidence_score": 0.95
+      "relational": {
+        "title": { "String": "hello" },
+        "type": { "String": "note" }
+      },
+      "hits": 1,
+      "confidence_score": 0.5
     }
   ]
 }
 ```
 
-**Response (write):**
+**Write response:**
+
 ```json
 {
   "success": true,
-  "data": "Mutated 1 nodes: inserted",
-  "node_id": 42,
+  "data": "Mutated 1 nodes: Node 7 inserted.",
+  "node_id": 7,
   "nodes": null
 }
 ```
 
-## Rate Limiting
+Parse failures return `{"success": false, "data": "Execution Error: IQL parse error ..."}`.
 
-Configurable via `rate_limit_rpm` in `VantaConfig` (default: 100 requests per minute). When the limit is exceeded, the server returns HTTP 429.
+## Records
 
-## TLS
+### `POST /api/v2/records`
 
-When `tls_cert_path` and `tls_key_path` are configured, the server binds with HTTPS. Requires the `tls` feature.
+Create or overwrite a record (upsert by namespace+key). Body mirrors the SDK
+`VantaMemoryInput`: `namespace`, `key`, `payload`, `metadata`, `vector` (nullable),
+`sparse_vector` (nullable term-weight map), `ttl_ms` (nullable; null = never expires).
+
+```json
+{
+  "namespace": "agent/main",
+  "key": "note-1",
+  "payload": "VantaDB is a vector-native knowledge graph",
+  "metadata": { "topic": { "String": "intro" } },
+  "vector": [0.1, 0.2, 0.3, 0.4],
+  "ttl_ms": null
+}
+```
+
+Response is the stored record wire shape:
+
+```json
+{
+  "namespace": "agent/main",
+  "key": "note-1",
+  "payload": "VantaDB is a vector-native knowledge graph",
+  "metadata": { "topic": { "String": "intro" } },
+  "created_at_ms": 1787432535128,
+  "updated_at_ms": 1787432535128,
+  "version": 1,
+  "node_id": "258969631918792983342456585065684593810",
+  "vector": [0.1, 0.2, 0.3, 0.4],
+  "sparse_vector": null,
+  "expires_at_ms": null,
+  "superseded_by": null,
+  "superseded_at_ms": null
+}
+```
+
+### `DELETE /api/v2/records?namespace=<ns>&filter=<json>`
+
+Delete all records in a namespace whose metadata matches the JSON-encoded filter passed
+as query parameter.
+
+```bash
+curl -X DELETE "http://127.0.0.1:8080/api/v2/records?namespace=agent/main&filter=%7B%22op%22%3A%22Eq%22%7D"
+```
+
+### `POST /api/v2/records/batch`
+
+Upsert multiple records in one call. Body is an array of the same record objects used by
+`POST /api/v2/records`; the response is an array of stored records.
+
+### `GET /api/v2/records/{ns}/{key}`
+
+Fetch a single record by namespace and key (URL-encode `/` inside the namespace as
+`%2F`). Returns the same wire shape as the PUT response; missing records return
+`{"error":"record not found: <key>","success":false}` with HTTP 404 semantics.
+
+### `DELETE /api/v2/records/{ns}/{key}`
+
+Soft-delete (tombstone) a record.
+
+```json
+{ "deleted": true }
+```
+
+A subsequent GET returns `record not found`.
+
+### `GET /api/v2/records/{ns}/{key}/versions?limit=<n>`
+
+Version history of a record. Returns an array of version entries.
+
+### `GET /api/v2/list?namespace=<ns>&limit=100&cursor=<cursor>&filter_ops=<json>`
+
+Paginated listing of records in a namespace.
+
+```json
+{
+  "records": [ { "...record wire shape..." : "" } ],
+  "next_cursor": null
+}
+```
+
+When called **without `namespace`** (all-namespaces fan-out), each namespace is
+listed with an internal per-namespace window (`NS_CAP = 10_000`) and the
+response carries one additional additive field:
+
+```json
+{
+  "records": [ ... ],
+  "next_cursor": null,
+  "truncated_namespaces": ["big-ns"]
+}
+```
+
+`truncated_namespaces` lists the namespaces whose listing hit the per-namespace
+window and may hold more records than this response contains. It is empty when
+no namespace was truncated. Clients should treat a non-empty value as "request
+these namespaces individually for complete results".
+
+### `POST /api/v2/export`
+
+Export records to a JSONL file on the server. Body: `path` (required), optional
+`namespace` and `filter` (array of AND-combined metadata filter objects).
+
+### `POST /api/v2/import`
+
+Import records inline (`records`) or from a server-side file (`path`). With a file, set
+`format` to `jsonl` (default) or `bulk` for `.vdbdump` bulk files. `records` and `path`
+are mutually exclusive.
+
+## Search
+
+### `POST /api/v2/search`
+
+Vector / sparse / BM25 hybrid similarity search over a namespace. Wire format mirrors the
+SDK's `VantaMemorySearchRequest` plus offset pagination (`cursor` = zero-based offset,
+`limit` = page size, defaults to `top_k`). An empty `query_vector` skips dense search;
+`text_query` drives BM25 lexical scoring. `distance_metric` is one of `Cosine`,
+`Euclidean`, `Dot`; `explain: true` adds a `VantaSearchExplanation` per result.
+
+> Text search works on fresh databases out of the box: the server ensures index state
+> at startup (MOD-12). `POST /api/v2/maintenance/rebuild-index` remains available for
+> explicit rebuilds of existing data.
+
+**Request:**
+
+```json
+{
+  "namespace": "agent/main",
+  "query_vector": [],
+  "filters": {},
+  "text_query": "vector-native",
+  "top_k": 10,
+  "distance_metric": "Cosine",
+  "explain": false
+}
+```
+
+**Response:**
+
+```json
+{
+  "records": [
+    {
+      "record": { "...record wire shape..." : "" },
+      "score": 0.57536423,
+      "explanation": null
+    }
+  ],
+  "next_cursor": null
+}
+```
+
+### `GET /api/v2/autocomplete?prefix=<prefix>`
+
+IQL completion suggestions for a prefix.
+
+```bash
+curl "http://127.0.0.1:8080/api/v2/autocomplete?prefix=FR"
+```
+
+```json
+["FROM"]
+```
+
+## Graph
+
+All graph endpoints share a generic traversal request body rooted at numeric node ids:
+
+| Method | Path | Description |
+|--------|------|-------------|
+| `POST` | `/api/v2/graph/bfs` | Breadth-first traversal |
+| `POST` | `/api/v2/graph/dfs` | Depth-first traversal |
+| `POST` | `/api/v2/graph/degree` | In/out degree map per node |
+| `POST` | `/api/v2/graph/centrality` | Centrality scores per node |
+| `POST` | `/api/v2/graph/pagerank` | PageRank scores per node |
+| `POST` | `/api/v2/graph/v2/bfs` | BFS (v2 engine, WEB-02 extended SDK surface) |
+| `POST` | `/api/v2/graph/v2/dfs` | DFS (v2 engine) |
+| `POST` | `/api/v2/graph/v2/degree` | Degree (v2 engine) |
+
+**Request (verified):**
+
+```json
+{ "roots": [7], "max_depth": 2 }
+```
+
+> `roots` are numeric node IDs and `max_depth` is required in practice; string roots or a
+> missing `max_depth` return a 400 deserialization error.
+
+**Traversal response (bfs/dfs):** array of visited nodes in visit order.
+
+```json
+[7]
+```
+
+**Degree response:** map of node id to `[in_degree, out_degree]`.
+
+```json
+{ "7": [0, 0] }
+```
+
+Centrality/PageRank return a score object keyed by node id.
+
+## Maintenance
+
+### `POST /api/v2/maintenance/purge`
+
+Removes all expired (TTL elapsed) records.
+
+```json
+{ "purged": 0 }
+```
+
+### `POST /api/v2/maintenance/compact`
+
+Compacts underlying storage layers. Returns a result acknowledgement object.
+
+### `POST /api/v2/maintenance/flush`
+
+Forces pending WAL/memory writes down to durable storage. Returns a result object.
+
+### `POST /api/v2/maintenance/rebuild-index`
+
+Rebuilds secondary indexes (text/HNSW) for the database.
+
+```json
+{
+  "scanned_nodes": 1,
+  "indexed_vectors": 1,
+  "skipped_tombstones": 0,
+  "duration_ms": 0,
+  "derived_rebuild_ms": 0,
+  "index_path": "<db>/data/vector_index.bin",
+  "success": true
+}
+```
+
+### `GET /api/v2/snapshots`
+
+Lists snapshot names available on this database.
+
+```json
+["demo-snap"]
+```
+
+### `POST /api/v2/snapshots/{name}`
+
+Creates a named snapshot of the current database state.
+
+```json
+{
+  "name": "demo-snap",
+  "path": "<db>/data/snapshots/demo-snap"
+}
+```
+
+## Threads
+
+Conversation threads store role-tagged messages as auto-embedded nodes.
+
+### `GET /api/v2/threads?limit=<n>`
+
+Lists threads.
+
+```json
+[
+  {
+    "thread_id": "310279622029206533993990662647183162021",
+    "title": "demo thread",
+    "messages": [],
+    "created_at": 1787432771,
+    "updated_at": 1787432771,
+    "metadata": {}
+  }
+]
+```
+
+### `POST /api/v2/threads`
+
+Creates a thread. Body: `{ "title": "<human-readable title>" }`.
+
+```json
+{ "thread_id": "310279622029206533993990662647183162021" }
+```
+
+### `GET /api/v2/threads/{id}`
+
+Fetches a thread with its messages.
+
+```json
+{
+  "thread_id": "310279622029206533993990662647183162021",
+  "title": "demo thread",
+  "messages": [
+    {
+      "role": "user",
+      "content": "hello thread",
+      "timestamp": 1787432790463,
+      "metadata": {}
+    }
+  ],
+  "created_at": 1787432771,
+  "updated_at": 1787432790,
+  "metadata": {}
+}
+```
+
+### `POST /api/v2/threads/{id}`
+
+Appends a role-tagged message (auto-embedded). Body requires `role` and `content`.
+
+```json
+{ "sent": true }
+```
+
+### `DELETE /api/v2/threads/{id}`
+
+Deletes the thread and its messages.
+
+## Web Console (stable)
+
+### `GET /dashboard` and `GET /dashboard/{path}`
+
+Web console entry point and static asset fallback for Vanta Studio. Requires starting the
+server with `--dashboard-dir <dir>`; otherwise `/dashboard` responds 404 with a hint.
+
+> Promoted from experimental to stable 2026-08-25: covered by e2e tests and served as the
+> Vanta Studio admin surface (ADR-026/ADR-027).
+
+## Experimental endpoints
+
+> ⚠️ **Experimental** - these routes are marked `x-experimental: true` in
+> `openapi.yaml`. They are unstable and may change without notice.
+
+### `POST /conversation/add`
+
+Legacy conversational ingestion endpoint: auto-selects or creates a thread and appends a
+turn. Body includes optional `thread_id` (omitted creates/reuses the default thread).
+
+### `GET /skill/listing?limit=<n>`
+
+Lists skill-like records (capped at 200 items, default limit 50).
+
+### `POST /api/v2/skills`
+
+Creates a versioned skill (version 1). Body: `owner_agent`, `name`, `content`,
+optional `description`, `metadata`, `ttl_secs`. Idempotent when the same
+`(owner_agent, name)` + content already exists (`idempotent: true` in the
+response). Duplicate name with different content → 409.
+
+### `PUT /api/v2/skills/{skill_id}?owner_agent=<a>&expected_version=<n>`
+
+Replaces description and content, appending a new immutable version. A stale
+`expected_version` returns 409 (optimistic lock). A foreign `owner_agent`
+returns the same 404 as a missing skill (anti-enumeration).
+
+### `PATCH /api/v2/skills/{skill_id}?owner_agent=<a>&expected_version=<n>`
+
+Partial update — only provided fields (`description`, `content`, `metadata`)
+change. Same optimistic-lock and ownership semantics as PUT.
+
+### `DELETE /api/v2/skills/{skill_id}?owner_agent=<a>&expected_version=<n>`
+
+Removes every version plus the head index row.
+
+## Distribution
+
+The HTTP server is bundled in the `vanta-cli` binary. The standalone
+`vantadb-server` crate is **not** published to `crates.io` (`publish = false`),
+so installation always goes through one of the following paths:
+
+| Path | What you get | Use when |
+|------|--------------|----------|
+| [`vanta-cli`](https://github.com/ness-e/Vantadb/releases) binary from **GitHub Releases** (precompiled tarballs: `vantadb-x86_64-unknown-linux-gnu.tar.gz`, `vantadb-windows-x86_64.zip`, etc.) | `vanta-cli` with `server` feature enabled | You want zero toolchain friction — download the asset for your platform from the latest [GitHub Release](https://github.com/ness-e/Vantadb/releases) |
+| `pip install vantadb-py` + Python launcher | Same engine, embedded | You already use the Python SDK and only need the server occasionally |
+| `cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli --features server` | `vanta-cli` built from source with the `server` feature | Rust developers / CI builders |
+
+> **Why no `cargo install vantadb-server`?** The server crate ships with
+> `publish = false`; it is only ever built as part of the GitHub Release
+> pipeline or from a local `cargo` checkout. See the [research modules
+> registry](../../../.opencode/references/research-modules.md)
+> (`vantadb-server`, last updated 2026-08-25) for the canonical distribution
+> note.
+
+Once the binary is on your `PATH`, see [Starting the Server](#starting-the-server) below.
+
+---
+
+## Positioning vs other vector databases
+
+> **Honest comparison (verified 2026-08-29).** This table summarizes where
+> VantaDB differs from popular alternative vector databases. Every cell is
+> backed by an official source linked below — no claims without a
+> reproducible reference.
+
+| Capability | VantaDB | Qdrant | Weaviate | Milvus | Marqo (OSS) |
+|---|---|---|---|---|---|
+| **Local-first / embedded default** | ✅ Library-first (`vantadb` crate), HTTP server optional | ❌ Service only | ❌ Service only | ❌ Service only | ❌ Service only |
+| **Default auth posture** | ✅ Refuse-to-start on non-loopback without `VANTADB_API_KEY` ([FIND-07](#security-guard-refuse-to-start-on-exposed-unauthenticated-binds-find-07)) | ⚠️ Open by default; user must set `api_key` and bind host ([source](https://qdrant.tech/documentation/security/#secure-your-instance)) | ⚠️ Anonymous access supported; opt-out via env vars ([source](https://weaviate.io/developers/weaviate/configuration/authorization#anonymous-users)) | ⚠️ Opt-in via `common.security.authorizationEnabled: true` ([source](https://milvus.io/docs/authenticate.md)) | n/a (deprecated, [README](https://github.com/marqo-ai/marqo/blob/mainline/README.md)) |
+| **Rate limiting with fail-closed startup** | ✅ `GovernorLayer` build failure refuses to start (AUD-021) | ⚠️ Pluggable; no documented fail-closed invariant | ⚠️ Pluggable; no documented fail-closed invariant | ⚠️ Pluggable; no documented fail-closed invariant | n/a |
+| **RBAC per namespace / collection** | ✅ `token_role_map` with `NamespaceRead` / `NamespaceWrite` (SRV-05) | ✅ JWT-based, per-collection, v1.9+ ([source](https://qdrant.tech/documentation/security/#granular-access-api-keys)) | ✅ RBAC GA from v1.29 ([source](https://weaviate.io/developers/weaviate/configuration/authorization#role-based-access-control-rbac)) | ✅ RBAC / users + roles ([source](https://milvus.io/docs/authenticate.md)) | ❌ |
+| **Audit log + tracing IDs** | ✅ JSONL rotation + `x-request-id` / `traceparent` correlation (SRV-01, SRV-02) | ✅ Audit v1.17+, tracing v1.18+ ([source](https://qdrant.tech/documentation/security/#audit-logging)) | ✅ Authorization audit logging ([source](https://weaviate.io/developers/weaviate/configuration/authorization#role-based-access-control-rbac)) | ✅ External tools (Attu, Milvus Backup) | ❌ |
+| **Zero-downtime key rotation** | ✅ `VANTADB_ALT_API_KEY` (SRV-04, mirrors Qdrant v1.17 `alt_api_key`) | ✅ `alt_api_key` v1.17+ ([source](https://qdrant.tech/documentation/security/#rotate-an-admin-api-key)) | ⚠️ Manual process | ⚠️ Manual process | ❌ |
+| **TLS** | ✅ rustls, 1.2 + 1.3, optional cert reload | ✅ ([source](https://qdrant.tech/documentation/security/#tls)) | ✅ | ✅ | ✅ |
+| **Unprivileged Docker image** | ✅ `--target unprivileged`, multi-stage | ✅ `-unprivileged` tag ([source](https://qdrant.tech/documentation/security/#hardening)) | ❌ | ❌ | ❌ |
+| **Runtime dependencies** | Minimal Rust stdlib + `tokio` / `axum`; no JVM/Go | C++ / Rust | Go | Go + C++ + etcd | Python + OpenSearch |
+
+**Where VantaDB is honestly behind** (no marketing spin):
+
+- **No distributed cluster today.** Milvus, Qdrant (distributed mode),
+  Weaviate all scale horizontally; VantaDB is currently single-node. See
+  `docs/research/2026-08-25-vantadb-server/` for the distributed-mode
+  roadmap and explicit non-goals.
+- **No OIDC / SSO yet.** SRV-06 MVP ships offline HS256 JWT Bearer
+  (`VANTADB_JWT_SECRET`, ADR-039); OIDC discovery stays delegated. Until
+  OIDC lands, API keys, JWT, and bearer tokens are the auth surface.
+- **No mTLS for inter-node.** SRV-09 is on the roadmap. Today the HTTP
+  server is single-node, so the gap is not user-visible.
+- **No encryption at rest.** SRV-10 is on the roadmap. WAL and data files
+  live on disk in plain form, so deployment to encrypted volumes or
+  block-storage encryption is the operator's responsibility.
+
+**Sources** (all verified 2026-08-29 via `webfetch`):
+
+- VantaDB internal: this document, [`docs/operations/SECURITY.md`](../operations/SECURITY.md),
+  [`docs/operations/hardening.md`](../operations/hardening.md).
+- [Qdrant — Security & Access Control](https://qdrant.tech/documentation/security/) (authentication,
+  alt_api_key rotation v1.17+, RBAC v1.9+, audit v1.17+, tracing v1.18+, TLS v1.2+).
+- [Weaviate — Authorization](https://weaviate.io/developers/weaviate/configuration/authorization) (Admin list,
+  RBAC v1.29 GA, anonymous access opt-in).
+- [Milvus — Authenticate User Access](https://milvus.io/docs/authenticate.md) (`authorizationEnabled`
+  config, `root:Milvus` default user).
+- [Marqo — mainline README](https://github.com/marqo-ai/marqo/blob/mainline/README.md) — explicitly
+  states the OSS project is deprecated and points to `marqo.ai` for the
+  commercial product.
+
+> **Last reviewed**: 2026-08-29. Re-verify in 90 days or before any
+> marketing claim citing this table.
+
+---
 
 ## Starting the Server
 
@@ -121,30 +664,125 @@ When `tls_cert_path` and `tls_key_path` are configured, the server binds with HT
 # HTTP server only
 vanta-cli server --http --port 8080 --host 127.0.0.1 --db ./vanta_data
 
-# Full MCP + HTTP
-vanta-cli server --http --mcp --port 8080 --db ./vanta_data
+# MCP and HTTP are mutually exclusive modes. Passing --http --mcp together
+# starts MCP only (mcp_mode = mcp && !http); HTTP is not served.
+vanta-cli server --mcp --port 8080 --db ./vanta_data
 
 # With TLS
 vanta-cli server --http --port 443 --db ./vanta_data
 # Requires VANTADB_TLS_CERT and VANTADB_TLS_KEY env vars
+# TLS requires the `tls` Cargo feature.
 ```
+
+Note: the `server` Cargo feature gates the HTTP/MCP wrapper. If your build lacks it,
+rebuild with `cargo build --features server`.
+
+### Security guard: refuse-to-start on exposed unauthenticated binds (FIND-07)
+
+The server **refuses to start** when all of the following hold:
+
+- The bind host is non-loopback (anything other than `127.0.0.1`, `localhost`, `::1` — e.g. `0.0.0.0`)
+- No API key is configured (`VANTADB_API_KEY` unset)
+- No explicit dev override is given
+
+The startup error explains every remediation path:
+
+```text
+Refusing to start: non-loopback host without an API key
+Fix either way: (1) set VANTADB_API_KEY to enable Bearer auth, or
+(2) bind a loopback host (127.0.0.1/localhost/::1), or (3) pass
+--allow-insecure to override this check in dev.
+```
+
+**Dev override** — `--allow-insecure` bypasses the check for local development.
+The server then logs a prominent warning and starts unauthenticated:
+
+```bash
+# Explicitly opt in to an exposed, unauthenticated server (dev only)
+vanta-cli server --http --host 0.0.0.0 --port 8080 --db ./vanta_data --allow-insecure
+```
+
+Loopback binds without a key keep working as before (dev mode). Setting
+`VANTADB_API_KEY` makes any host acceptable; `--require-auth` additionally
+refuses to start without a key regardless of host.
+
+> **Hardening Guide**: For production deployment security (Docker, TLS, key rotation, RBAC, audit, monitoring), see [`docs/operations/hardening.md`](../operations/hardening.md).
 
 ## Route Summary
 
-| Method | Path | Auth | Description |
-|--------|------|------|-------------|
-| `GET` | `/health` | No | Liveness check |
-| `GET` | `/metrics` | Bearer (if configured) | Prometheus metrics (OpenMetrics format) |
-| `POST` | `/api/v2/query` | Bearer | Execute IQL query |
+| Method | Path | Auth | Domain | Description |
+|--------|------|------|--------|-------------|
+| `GET` | `/health` | No | System | Liveness check |
+| `GET` | `/metrics` | Bearer (if configured) | System | Prometheus metrics (OpenMetrics format) |
+| `GET` | `/api/v2/health` | Bearer (if configured) | System | Authenticated health check |
+| `GET` | `/api/v2/metrics` | Bearer (if configured) | System | Engine metrics as JSON |
+| `GET` | `/api/v2/audit` | Bearer (if configured) | System | Audit event log |
+| `POST` | `/api/v2/query` | Bearer (if configured) | Query | Execute IQL query |
+| `POST` | `/api/v2/records` | Bearer (if configured) | Records | Put record (upsert) |
+| `DELETE` | `/api/v2/records` | Bearer (if configured) | Records | Delete records by metadata filter |
+| `POST` | `/api/v2/records/batch` | Bearer (if configured) | Records | Put records batch |
+| `GET` | `/api/v2/records/{ns}/{key}` | Bearer (if configured) | Records | Get record |
+| `DELETE` | `/api/v2/records/{ns}/{key}` | Bearer (if configured) | Records | Delete record (tombstone) |
+| `GET` | `/api/v2/records/{ns}/{key}/versions` | Bearer (if configured) | Records | List record versions |
+| `GET` | `/api/v2/list` | Bearer (if configured) | Records | Paginated record list |
+| `POST` | `/api/v2/export` | Bearer (if configured) | Records | Export records to JSONL file |
+| `POST` | `/api/v2/import` | Bearer (if configured) | Records | Import records (inline/file) |
+| `POST` | `/api/v2/search` | Bearer (if configured) | Search | Hybrid search |
+| `GET` | `/api/v2/autocomplete` | Bearer (if configured) | Search | IQL autocomplete |
+| `POST` | `/api/v2/graph/bfs` | Bearer (if configured) | Graph | Breadth-first traversal |
+| `POST` | `/api/v2/graph/dfs` | Bearer (if configured) | Graph | Depth-first traversal |
+| `POST` | `/api/v2/graph/degree` | Bearer (if configured) | Graph | Node degree |
+| `POST` | `/api/v2/graph/centrality` | Bearer (if configured) | Graph | Centrality scores |
+| `POST` | `/api/v2/graph/pagerank` | Bearer (if configured) | Graph | PageRank scores |
+| `POST` | `/api/v2/graph/v2/bfs` | Bearer (if configured) | Graph | BFS (v2 engine) |
+| `POST` | `/api/v2/graph/v2/dfs` | Bearer (if configured) | Graph | DFS (v2 engine) |
+| `POST` | `/api/v2/graph/v2/degree` | Bearer (if configured) | Graph | Degree (v2 engine) |
+| `POST` | `/api/v2/maintenance/purge` | Bearer (if configured) | Maintenance | Purge expired records |
+| `POST` | `/api/v2/maintenance/compact` | Bearer (if configured) | Maintenance | Compact storage |
+| `POST` | `/api/v2/maintenance/flush` | Bearer (if configured) | Maintenance | Flush pending writes |
+| `POST` | `/api/v2/maintenance/rebuild-index` | Bearer (if configured) | Maintenance | Rebuild indexes |
+| `GET` | `/api/v2/snapshots` | Bearer (if configured) | Maintenance | List snapshots |
+| `POST` | `/api/v2/snapshots/{name}` | Bearer (if configured) | Maintenance | Create snapshot |
+| `GET` | `/api/v2/threads` | Bearer (if configured) | Threads | List threads |
+| `POST` | `/api/v2/threads` | Bearer (if configured) | Threads | Create thread |
+| `GET` | `/api/v2/threads/{id}` | Bearer (if configured) | Threads | Get thread |
+| `POST` | `/api/v2/threads/{id}` | Bearer (if configured) | Threads | Send message to thread |
+| `DELETE` | `/api/v2/threads/{id}` | Bearer (if configured) | Threads | Delete thread |
+| `POST` | `/api/v2/skills` | Bearer (if configured) | Skills | Create skill (idempotent by content hash) |
+| `PUT` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Update skill (optimistic lock) |
+| `PATCH` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Patch skill fields |
+| `DELETE` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Delete skill and all versions |
+| `GET` | `/dashboard` | Bearer (if configured) | Stable | Web console entry point |
+| `GET` | `/dashboard/{path}` | Bearer (if configured) | Stable | Web console static assets |
+| `POST` | `/conversation/add` ⚠️ experimental | Bearer (if configured) | Experimental | Legacy conversation turn ingestion |
+| `GET` | `/skill/listing` ⚠️ experimental | Bearer (if configured) | Experimental | Skill-like record listing |
 
-## Rate Limiting
+## Error responses
 
-Configurable via `rate_limit_rpm` in `VantaConfig` (default: 100 req/min). When exceeded, returns `HTTP 429 Too Many Requests` with a `Retry-After` header.
+All error bodies share the shape `{ "success": false, "error": "<message>",
+"hint"?: "<guidance>" }`:
 
-## TLS
-
-When `VANTADB_TLS_CERT` and `VANTADB_TLS_KEY` are configured, the server binds with HTTPS on the specified port. Requires the `tls` Cargo feature. Self-signed certificates are not recommended for production.
+| Status | Meaning |
+|--------|---------|
+| `400` | Invalid request (parse error, malformed query/body) |
+| `401` | Missing or invalid Bearer token |
+| `403` | Authenticated but insufficient RBAC permissions |
+| `404` | Referenced resource (node, record, namespace, thread) not found |
+| `409` | Operation not available (e.g. audit log not configured) |
+| `429` | Rate limit exceeded (`Retry-After` header included) |
+| `500` | Internal server error |
 
 ## CORS
 
-The server currently does not set CORS headers. For browser-based clients, a reverse proxy (nginx, Caddy) is recommended to add CORS support.
+CORS is **off by default**: the server sends no CORS headers unless origins are explicitly
+configured. To allow specific origins to call the HTTP API from a browser, set:
+
+- Env var: `VANTADB_ALLOWED_ORIGINS=https://app.example.com,https://admin.example.com`
+- Config API: `Config::with_allowed_origins(vec![...])`
+
+When configured, the server mounts a `tower_http::cors::CorsLayer` as the outermost layer
+(so CORS preflight `OPTIONS` are answered before authentication), echoing
+`Access-Control-Allow-Origin` for the configured origins only — never `AllowOrigin::any()`.
+
+Decision history: recorded 2026-08-05 (TECH-06); feature implemented 2026-08-06
+(AUDREP-14) via `VANTADB_ALLOWED_ORIGINS`.

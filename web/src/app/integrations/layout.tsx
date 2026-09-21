@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     title: "Ecosystem & Integrations · VantaDB",
     description:
       "Grid de integraciones: OpenAI, Ollama, CrewAI, Haystack, DSPy, LiteLLM, Mem0, Letta, MCP.",
-    url: "https://vantadb.dev/integrations",
+    url: "https://vantadb.vercel.app/integrations",
     siteName: "VantaDB",
     type: "website",
   },
   alternates: {
-    canonical: "https://vantadb.dev/integrations",
+    canonical: "https://vantadb.vercel.app/integrations",
   },
 };
 

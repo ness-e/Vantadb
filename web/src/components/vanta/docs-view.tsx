@@ -28,10 +28,11 @@ import { copyToClipboard } from "./copy-utils";
 import { toast } from "./toast";
 import { CodePlayground } from "./code-playground";
 import { Reveal } from "./reveal";
+import { QuickInstall } from "./quick-install";
 
 const SECTIONS = [
   { id: "install", label: "Installation", keywords: "pip install vantadb-py cargo rust binary wheel python" },
-  { id: "quickstart", label: "5-Minute Quickstart", keywords: "python quickstart put get search hybrid rrf vantadb_py" },
+  { id: "quickstart", label: "5-Minute Quickstart", keywords: "python quickstart put get search hybrid rrf vantadb" },
   { id: "cli", label: "Embedded CLI", keywords: "vanta-cli put list export rebuild-index audit-index repair-text-index command" },
   { id: "server", label: "Server Mode", keywords: "vanta-server binary localhost 8080 network host smartscreen" },
   { id: "docs", label: "Full Docs", keywords: "architecture wal recovery telemetry configuration reliability" },
@@ -105,7 +106,7 @@ export function DocsView({ onNavigate }: { onNavigate: (v: View) => void }) {
               Manual
             </span>
             <span className="font-tech text-[10px] uppercase tracking-[0.3em] text-black/50">
-              For developers · v0.1 MVP
+              For developers · v0.5.0 MVP
             </span>
           </div>
           <h1 className="mt-5 font-display text-6xl uppercase leading-[0.85] text-black sm:text-8xl">
@@ -118,6 +119,16 @@ export function DocsView({ onNavigate }: { onNavigate: (v: View) => void }) {
             to your first hybrid search in under five minutes. Zero configuration, zero
             servers, zero network — just durable local memory and RRF-fused retrieval.
           </p>
+          {/* WEB-06: bloque instalación copiable prominente en /docs header — visible sin scroll + ancla #quickstart */}
+          <div className="mt-6 max-w-xl">
+            <QuickInstall id="quickstart-header" variant="bar" />
+            <a
+              href="#quickstart"
+              className="mt-3 inline-flex items-center gap-1 font-tech text-xs font-bold uppercase tracking-wider text-black underline decoration-[#FF5500] decoration-2 underline-offset-4 hover:text-[#FF5500]"
+            >
+              Ir a 5-Minute Quickstart <ChevronRight className="h-3 w-3" />
+            </a>
+          </div>
         </div>
       </section>
 
@@ -147,10 +158,10 @@ export function DocsView({ onNavigate }: { onNavigate: (v: View) => void }) {
                 {query && (
                   <button
                     onClick={() => setQuery("")}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-black/50 hover:text-[#FF5500] "
+                    className="absolute right-2 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center text-black/50 hover:text-[#FF5500] "
                     aria-label="Limpiar búsqueda"
                   >
-                    <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+                    <X className="h-5 w-5" strokeWidth={2.5} />
                   </button>
                 )}
               </div>
@@ -231,7 +242,7 @@ export function DocsView({ onNavigate }: { onNavigate: (v: View) => void }) {
               >
                 <CodeBlock
                   lines={["pip install vantadb-py"]}
-                  note="Distribution name is vantadb-py · import as vantadb_py (underscore)"
+                  note="Distribution name is vantadb-py · canonical import is import vantadb"
                 />
               </InstallCard>
 
@@ -265,6 +276,17 @@ export function DocsView({ onNavigate }: { onNavigate: (v: View) => void }) {
                   <code className="border border-black/30 bg-[#F2EDE2] px-1 font-mono text-[10px]">
                     cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli
                   </code>
+                </p>
+                <p className="mt-3 font-tech text-[11px] text-black/60">
+                  Trust: both one-liners use TLS against the official{" "}
+                  <code className="border border-black/30 bg-[#F2EDE2] px-1 font-mono text-[10px]">
+                    ness-e/Vantadb
+                  </code>{" "}
+                  repo, and the script verifies the payload `.sha256` before
+                  installing. The installer chains to the setup wizard unless
+                  skipped with `--no-wizard` / `-NoWizard`; preview with{" "}
+                  `--dry-run` / `-DryRun`. Source: README § One-Line
+                  Installation + QUICKSTART §0.
                 </p>
               </InstallCard>
 
@@ -465,7 +487,7 @@ export function DocsView({ onNavigate }: { onNavigate: (v: View) => void }) {
                 </div>
                 <button
                   onClick={() => onNavigate("benchmarks")}
-                  className="press-neon inline-flex shrink-0 items-center gap-2 border-4 border-black bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+                  className="press--neon inline-flex shrink-0 items-center gap-2 border-4 border-black bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
                 >
                   View Benchmarks
                   <ArrowRight className="h-4 w-4" strokeWidth={2.5} />
@@ -560,12 +582,7 @@ function CodeBlock({ lines, note }: { lines: string[]; note?: string }) {
 
   return (
     <div className="group/code relative">
-      <button
-        onClick={copy}
-        className="absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center border-2 border-[#FBF9F5]/30 bg-[#FBF9F5]/10 text-[#FBF9F5] opacity-0 transition-all hover:bg-[#FF5500] hover:text-black group-hover/code:opacity-100"
-        aria-label="Copiar código"
-        title="Copiar"
-      >
+      <button className="group-hover/code:opacity-100 absolute right-2 top-2 z-10 inline-flex h-7 w-7 items-center justify-center border-2 border-[#FBF9F5]/30 bg-[#FBF9F5]/10 text-[#FBF9F5] opacity-0 transition-all after:absolute after:-inset-2 after:content-[''] hover:bg-[#FF5500] hover:text-black" onClick={copy} aria-label="Copiar código" title="Copiar">
         {copied ? (
           <Check className="h-3.5 w-3.5 text-[#FF5500]" strokeWidth={3} />
         ) : (
@@ -645,12 +662,7 @@ function CliCard({
           <code className="block flex-1 break-all border-l-2 border-black/20 bg-[#F2EDE2] px-2 py-1 font-mono text-[11px] text-black/70   ">
             {args}
           </code>
-          <button
-            onClick={copy}
-            className="inline-flex h-7 w-7 shrink-0 items-center justify-center border-2 border-black bg-[#FBF9F5] text-black transition-all hover:bg-[#FF5500] active:translate-y-[1px]   "
-            aria-label={`Copiar comando vanta-cli ${cmd}`}
-            title="Copiar comando"
-          >
+          <button className="inline-flex h-7 w-7 shrink-0 items-center justify-center border-2 border-black bg-[#FBF9F5] text-black transition-all after:absolute after:-inset-2 after:content-[''] hover:bg-[#FF5500] active:translate-y-[1px] relative" onClick={copy} aria-label={`Copiar comando vanta-cli ${cmd}`} title="Copiar comando">
             {copied ? (
               <Check className="h-3.5 w-3.5 text-[#FF5500]" strokeWidth={3} />
             ) : (

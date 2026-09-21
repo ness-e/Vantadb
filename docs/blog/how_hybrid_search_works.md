@@ -1,12 +1,18 @@
 ---
-title: "How Hybrid Search Works: BM25 + HNSW + RRF in Practice"
-date: 2026-06-06
+title: "How Hybrid Search Actually Works"
+version: 0.5.0
+slug: how-hybrid-search-works
+date: 2026-04-24
 author: "VantaDB Team"
 tags: ["hybrid-search", "bm25", "hnsw", "rrf", "architecture", "vector-search"]
 description: "A deep dive into VantaDB's hybrid search architecture combining BM25 lexical search, HNSW vector search, and Reciprocal Rank Fusion — all inside a zero-dependency embedded engine."
+tag: Engineering
+readTime: "9 min"
+canonical: https://vantadb.vercel.app/blog/how-hybrid-search-works
+draft: true
 ---
 
-# How Hybrid Search Works: BM25 + HNSW + RRF in Practice
+# How Hybrid Search Actually Works
 
 *By the VantaDB Team*
 
@@ -70,7 +76,7 @@ Layer 0:                                 [Node B] ───► [Result (K=1)]
 ```
 
 ### SIMD Acceleration
-To make graph traversal fast on local CPUs, VantaDB utilizes SIMD (Single Instruction, Multiple Data) intrinsics for distance calculations. Using the `wide::f32x8` crate, we compute Euclidean ($L_2$) and Cosine distances by processing 8 floating-point coordinates in a single CPU clock cycle:
+To make graph traversal fast on local CPUs, VantaDB utilizes SIMD (Single Instruction, Multiple Data) intrinsics for distance calculations. Using the `wide::f32x8` crate, we compute Euclidean ($L_2$) and Cosine distances by processing 8 floating-point coordinates in a single instruction:
 
 ```rust
 // A snippet of VantaDB's SIMD L2 distance calculations
@@ -141,4 +147,10 @@ RRF is deterministic, computationally trivial, and guarantees that documents app
 
 By executing lexical and semantic searches natively, coordinating them with a Volcano-style physical execution engine, and fusing results with Reciprocal Rank Fusion, VantaDB achieves a level of query performance and relevance typically reserved for complex, enterprise cloud setups—all inside a lightweight, zero-dependency embedded database.
 
-To explore the query planner and run your own hybrid benchmarks, visit [GitHub: VantaDB](https://github.com/ness-e/Vantadb).
+Want to see the query planner and RRF in action? Get the engine in one line:
+
+```bash
+pip install vantadb-py
+```
+
+Join the community on Discord and star the [VantaDB repository](https://github.com/ness-e/Vantadb). For a deeper look at why we chose LSM-trees and BFS compaction over a B-tree, read [SQLite for AI Agents: Benchmarks and Architecture Decisions](/blog/sqlite-for-ai-agents).

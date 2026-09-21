@@ -3,7 +3,7 @@ title: "SDK Python"
 type: glossary-entry
 status: stable
 tags: [glosario, sdk, python, pyo3, ffi]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-09-15
 aliases: [Python SDK, SDK Python, vantadb-py]
 ---
 
@@ -164,7 +164,7 @@ for hit in results:
     print(f"  {hit['record']['payload'][:100]}...")
 ```
 
-**Ejemplo - [busqueda-hibrida](busqueda-hibrida.md):**
+**Ejemplo - [busqueda-hibrida](hybrid-search.md):**
 ```python
 results = db.search_memory(
     namespace="knowledge_base",
@@ -289,18 +289,13 @@ impl VantaDB {
 ## Manejo de Errores
 
 ```python
-from vantadb_py import VantaDB, VantaError
+from vantadb_py import VantaDB
 
 try:
     db = VantaDB("./data")
     db.put("ns", "key", "payload", vector=[0.1, 0.2, 0.3])
-except VantaError.DatabaseLocked:
-    print("Error: Base de datos bloqueada por otro proceso")
-except VantaError.InvalidVector as e:
-    print(f"Error: Vector inválido: {e}")
-except VantaError.WalCorruption:
-    print("Error: WAL corrupto, ejecutando rebuild")
-    db.rebuild_index()
+except RuntimeError as e:
+    print(f"Error de motor: {e}")
 ```
 
 ## Performance
@@ -393,4 +388,4 @@ db.close()
 - [PyO3](PyO3.md) - Framework de bindings Rust-Python
 - [GIL](GIL.md) - Global Interpreter Lock
 - [FFI](FFI.md) - Foreign Function Interface
-- [SDK](SDK Python.md) - Concepto general
+- [SDK](python-sdk.md) - Concepto general

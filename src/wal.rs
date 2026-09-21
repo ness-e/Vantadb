@@ -5,11 +5,17 @@ use tracing::warn;
 
 use serde::{Deserialize, Serialize};
 
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::node::UnifiedNode;
 
 /// Current WAL format version.
-pub const WAL_FORMAT_VERSION: u16 = 1;
+///
+/// v1: original `Insert/Update/Delete/Checkpoint/Begin/Commit/Abort` (single-phase commit).
+/// v2: adds `Prepare { txn_id, op_count }` for two-phase commit (RES-01, ACID Phase 4a).
+///     - v2 binary reads v1 WAL fine (no `Prepare` present in old records, range-based compat).
+///     - v1 binary reading v2 WAL: unknown postcard tag fails deserialization; scan-forward
+///       skips affected records. Downgrade still requires dump/restore (same hint as today).
+pub const WAL_FORMAT_VERSION: u16 = 2;
 
 /// Tracks the postcard wire format version used for WAL record serialization.
 /// Increment this when upgrading postcard to a potentially incompatible version.
@@ -23,6 +29,14 @@ use crc32c::crc32c; // ← Import specific function to avoid namespace conflict
 /// Falls back to pure Rust implementation if hardware acceleration unavailable
 #[inline]
 pub fn compute_crc32c(data: &[u8]) -> u32 {
+    if data.is_empty() {
+        // crc32c-0.5.0's `split` does from_raw_parts::<u64> with UB-check
+        // preconditions; an empty slice (dangling, unaligned ptr) panics with
+        // STATUS_STACK_BUFFER_OVERRUN instead of returning the CRC of empty
+        // input (0x00000000). Guard here so backup manifest collection never
+        // crashes on zero-length WAL shard files.
+        return 0x0000_0000;
+    }
     crc32c::crc32c(data)
 }
 
@@ -58,6 +72,17 @@ pub enum WalRecord {
     },
     /// Begin a transaction with the given ID.
     Begin(u64),
+    /// Phase-1 marker for two-phase commit (WAL v2, RES-01 / ACID Phase 4a):
+    /// all ops between `Begin` and this `Prepare` are durable on disk, but the
+    /// transaction is not yet committed — apply to stores may still fail and emit
+    /// a follow-up `Abort`. `op_count` is the number of ops between `Begin` and
+    /// `Prepare` (integrity cross-check during replay).
+    Prepare {
+        /// Transaction being prepared.
+        txn_id: u64,
+        /// Number of ops buffered between Begin and Prepare.
+        op_count: u32,
+    },
     /// Commit a transaction with the given ID.
     Commit(u64),
     /// Abort a transaction with the given ID.
@@ -120,7 +145,7 @@ impl WalHeader {
     /// Deserialize a header from bytes, validating magic, CRC, and version.
     pub fn deserialize(bytes: &[u8]) -> Result<Self> {
         if bytes.len() != Self::SIZE {
-            return Err(VantaError::wal_error(format!(
+            return Err(Error::wal_error(format!(
                 "Invalid WAL header size: expected {}, got {}",
                 Self::SIZE,
                 bytes.len()
@@ -136,7 +161,7 @@ impl WalHeader {
 
         // Version 0 WAL was never a valid format — reject explicitly
         if base.format_version < 1 {
-            return Err(VantaError::WALVersionMismatch {
+            return Err(Error::WALVersionMismatch {
                 expected: WAL_FORMAT_VERSION as u32,
                 found: base.format_version as u32,
                 hint: "Delete WAL dir or run dump/restore before upgrading.".to_string(),
@@ -148,7 +173,7 @@ impl WalHeader {
 
         let computed_crc = header.compute_crc();
         if computed_crc != crc {
-            return Err(VantaError::wal_error(format!(
+            return Err(Error::wal_error(format!(
                 "WAL header CRC mismatch: stored={:#x}, computed={:#x}",
                 crc, computed_crc
             )));
@@ -168,6 +193,23 @@ impl WalHeader {
 }
 
 // ─── WAL Writer ────────────────────────────────────────────
+//
+// DURABILITY DAG — FIND-34 (2026-08-27): This module is a DAG, not a cycle.
+// ```text
+//   open ──► open_with_buffer ──► recover_valid_records ──┐
+//                              └─► quarantine_corrupt_tail ─► quarantine_backup_path
+//   helpers (leaves): check_record_at, scan_forward_valid, try_scan_forward
+// ```
+// No back-edge: `recover_valid_records` / `quarantine_corrupt_tail` never call
+// `open` or `open_with_buffer`. CodeGraph reported a 4-node "cycle"
+// (`open↔open_with_buffer↔recover↔quarantine`) via Leiden co-localisation
+// (all 4 fns in `wal.rs:202-575`), not an SCC via CALLS edges. Verified via
+// `rg -n "recover_valid_records|quarantine_corrupt_tail" src/wal.rs` (1 def each,
+// callers only in `open_with_buffer`). Recovery is crash-safe: `quarantine`
+// fails soft (warn + truncate anyway) so `open_with_buffer` never depends on
+// backup success.
+//
+// ponytail: doc justifica falso positivo sin refactor; extraer helper si SCC real emerge.
 
 /// Append-only WAL writer with CRC32C integrity checks and structured header.
 ///
@@ -184,6 +226,7 @@ pub struct WalWriter {
     /// Number of records written since the last sync.
     records_since_sync: u64,
     /// If `Some(N)`, auto-sync after N records when sync_mode is Periodic.
+    /// Ignored when sync_mode is Never (no auto-sync; use `sync()` explicitly).
     flush_threshold: Option<usize>,
     /// Maximum segment size in bytes before auto-rotation (default: 256MB).
     max_segment_size: u64,
@@ -235,6 +278,9 @@ impl WalWriter {
                     valid_len = valid_end,
                     "Truncating corrupt or incomplete records at the end of WAL"
                 );
+                // Quarantine the corrupt tail BEFORE truncating it away
+                // permanently, so the bytes stay recoverable for forensics.
+                quarantine_corrupt_tail(&path, valid_end, file_len);
                 file.set_len(valid_end)?;
             }
 
@@ -260,12 +306,12 @@ impl WalWriter {
     pub fn append(&mut self, record: &WalRecord) -> Result<()> {
         #[cfg(feature = "failpoints")]
         fail::fail_point!("wal_append_fail", |_| {
-            Err(VantaError::IoError(std::io::Error::other(
+            Err(Error::Io(std::io::Error::other(
                 "Simulated WAL append catastrophic I/O failure",
             )))
         });
 
-        let payload = postcard::to_allocvec(record).map_err(VantaError::serialization)?;
+        let payload = postcard::to_allocvec(record).map_err(Error::serialization)?;
         let len = payload.len() as u32;
         let crc = crc32c(&payload);
 
@@ -290,16 +336,22 @@ impl WalWriter {
 
         #[cfg(feature = "failpoints")]
         fail::fail_point!("wal_append_fail", |_| {
-            Err(VantaError::IoError(std::io::Error::other(
+            Err(Error::Io(std::io::Error::other(
                 "Simulated WAL append catastrophic I/O failure",
             )))
         });
 
         let estimated = records.len() * 128;
         let mut buf = Vec::with_capacity(estimated);
+        // Reusable serialization buffer: one allocation for the whole batch
+        // instead of one `to_allocvec` per record. `clear()` keeps the capacity,
+        // so the payload Vec never reallocates across records of similar size.
+        // On-disk framing is unchanged ([len u32 LE][payload][crc u32 LE]).
+        let mut payload = Vec::with_capacity(128);
 
         for record in records {
-            let payload = postcard::to_allocvec(record).map_err(VantaError::serialization)?;
+            payload.clear();
+            postcard::to_io(record, &mut payload).map_err(Error::serialization)?;
             let len = payload.len() as u32;
             let crc = crc32c(&payload);
             buf.extend_from_slice(&len.to_le_bytes());
@@ -323,15 +375,19 @@ impl WalWriter {
     const DEFAULT_PERIODIC_THRESHOLD: u64 = 1;
 
     fn maybe_sync(&mut self) -> Result<()> {
-        if self.sync_mode == crate::config::SyncMode::Always {
-            self.sync()?;
-        } else {
-            let threshold = self
-                .flush_threshold
-                .map(|t| t as u64)
-                .unwrap_or(Self::DEFAULT_PERIODIC_THRESHOLD);
-            if self.records_since_sync >= threshold {
-                self.sync()?;
+        match self.sync_mode {
+            crate::config::SyncMode::Always => self.sync()?,
+            // `Never` disables automatic syncing entirely: durability is left
+            // to the OS page cache. Callers can still force it via `sync()`.
+            crate::config::SyncMode::Never => {}
+            crate::config::SyncMode::Periodic => {
+                let threshold = self
+                    .flush_threshold
+                    .map(|t| t as u64)
+                    .unwrap_or(Self::DEFAULT_PERIODIC_THRESHOLD);
+                if self.records_since_sync >= threshold {
+                    self.sync()?;
+                }
             }
         }
         Ok(())
@@ -382,6 +438,7 @@ impl WalWriter {
             std::fs::remove_file(&archive_path)?;
         }
         std::fs::rename(&old_path, &archive_path)?;
+        crate::utils::fs::sync_parent_dir(&archive_path)?;
 
         Self::open(&old_path, sync_mode)
     }
@@ -416,6 +473,7 @@ impl WalWriter {
             std::fs::remove_file(&archive_path)?;
         }
         std::fs::rename(&old_path, &archive_path)?;
+        crate::utils::fs::sync_parent_dir(&archive_path)?;
 
         // Open fresh WAL file at original path and write a new header
         let mut file = OpenOptions::new()
@@ -549,6 +607,51 @@ fn recover_valid_records(path: &Path, file_len: u64) -> Result<(u64, usize)> {
     Ok((valid_bytes_limit, record_count))
 }
 
+/// Copy the corrupt trailing bytes `[valid_end, file_len)` of the WAL at
+/// `path` to a quarantine backup file before they are truncated away, so the
+/// bytes stay recoverable. Fails soft: recovery must never depend on backup
+/// succeeding, so a failure is logged and ignored.
+fn quarantine_corrupt_tail(path: &Path, valid_end: u64, file_len: u64) {
+    if valid_end >= file_len {
+        return;
+    }
+    let backup = quarantine_backup_path(path);
+    let result = (|| -> std::io::Result<()> {
+        let mut src = File::open(path)?;
+        src.seek(SeekFrom::Start(valid_end))?;
+        let mut tail = vec![0u8; (file_len - valid_end) as usize];
+        src.read_exact(&mut tail)?;
+        std::fs::write(&backup, tail)
+    })();
+    match result {
+        Ok(()) => warn!(
+            backup = %backup.display(),
+            bytes = file_len - valid_end,
+            "Quarantined corrupt WAL tail before truncation"
+        ),
+        Err(e) => warn!(
+            error = %e,
+            backup = %backup.display(),
+            "Failed to quarantine corrupt WAL tail; truncating anyway"
+        ),
+    }
+}
+
+/// Prefer `<path>.corrupt`; if it already exists, fall back to
+/// `<path>.corrupt.<N>` so earlier corruption evidence is never overwritten.
+fn quarantine_backup_path(path: &Path) -> PathBuf {
+    let plain = PathBuf::from(format!("{}.corrupt", path.display()));
+    if plain.exists() {
+        for n in 1..1000u32 {
+            let candidate = PathBuf::from(format!("{}.corrupt.{}", path.display(), n));
+            if !candidate.exists() {
+                return candidate;
+            }
+        }
+    }
+    plain
+}
+
 // ─── WAL Reader ────────────────────────────────────────────
 
 /// Sequential WAL reader for crash recovery.
@@ -564,7 +667,7 @@ impl WalReader {
         let file_len = file.metadata()?.len();
 
         if file_len < WalHeader::SIZE as u64 {
-            return Err(VantaError::wal_error(
+            return Err(Error::wal_error(
                 "WAL file is truncated or too small for header",
             ));
         }
@@ -642,7 +745,7 @@ impl WalReader {
 
             if is_valid {
                 let record: WalRecord =
-                    postcard::from_bytes(&payload).map_err(VantaError::serialization)?;
+                    postcard::from_bytes(&payload).map_err(Error::serialization)?;
                 self.records_read += 1;
                 return Ok(Some(record));
             } else {
@@ -672,6 +775,14 @@ impl WalReader {
             count += 1;
         }
         Ok(count)
+    }
+
+    /// Byte offset of the next unread byte (end of the last record returned
+    /// by `next_record`). FIND-109: lets salvage truncate exactly after the
+    /// K-th *validated* record, even with scan-forward gaps in the file.
+    pub fn pos(&mut self) -> Result<u64> {
+        use std::io::Seek;
+        Ok(self.reader.stream_position()?)
     }
 }
 
@@ -704,7 +815,7 @@ impl WalRecord {
         {
             let computed = compute_crc32c(index_state);
             if computed != *expected {
-                return Err(VantaError::wal_error(format!(
+                return Err(Error::wal_error(format!(
                     "Checkpoint index checksum mismatch: expected={:#x}, computed={:#x}",
                     expected, computed
                 )));
@@ -762,6 +873,153 @@ mod tests {
         assert_ne!(compute_crc32c(data), compute_crc32c(b"vanta wal tesx"));
     }
 
+    /// FIND-63: `SyncMode::Never` must never auto-sync (OS page cache only).
+    /// `records_since_sync` is only reset by an explicit `sync()` call.
+    #[test]
+    fn test_sync_mode_never_skips_auto_sync() {
+        use crate::config::SyncMode;
+
+        let dir_never =
+            std::env::temp_dir().join(format!("vanta_test_wal_never_{}", rand::random::<u32>()));
+        let dir_periodic = std::env::temp_dir().join(format!(
+            "vanta_test_wal_never_ctrl_{}",
+            rand::random::<u32>()
+        ));
+        let _ = std::fs::remove_file(&dir_never);
+        let _ = std::fs::remove_file(&dir_periodic);
+
+        // Control: Periodic with threshold 1 auto-syncs (counter reset to 0).
+        {
+            let mut w =
+                WalWriter::open_with_buffer(&dir_periodic, SyncMode::Periodic, 4096, Some(1))
+                    .unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+            assert_eq!(
+                w.records_since_sync, 0,
+                "Periodic must auto-sync at threshold"
+            );
+        }
+
+        // Never: no auto-sync even at threshold 1; explicit sync() still works.
+        {
+            let mut w =
+                WalWriter::open_with_buffer(&dir_never, SyncMode::Never, 4096, Some(1)).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(2))).unwrap();
+            assert_eq!(
+                w.records_since_sync, 2,
+                "Never must never auto-sync (relies on OS page cache)"
+            );
+            w.sync().unwrap();
+            assert_eq!(
+                w.records_since_sync, 0,
+                "explicit sync() still resets the counter"
+            );
+        }
+
+        let _ = std::fs::remove_file(&dir_never);
+        let _ = std::fs::remove_file(&dir_periodic);
+    }
+
+    /// WAL v2 (RES-01 / ACID Phase 4a): `Prepare { txn_id, op_count }` round-trips
+    /// through `WalWriter` → reopen → `WalReader::replay_all`.
+    #[test]
+    fn test_wal_v2_prepare_roundtrip_unit() {
+        let dir =
+            std::env::temp_dir().join(format!("vanta_test_wal_prepare_{}", rand::random::<u32>()));
+        let _ = std::fs::remove_file(&dir);
+
+        {
+            let mut w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
+            w.append(&WalRecord::Begin(7)).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(10))).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(11))).unwrap();
+            w.append(&WalRecord::Prepare {
+                txn_id: 7,
+                op_count: 2,
+            })
+            .unwrap();
+            w.sync().unwrap();
+            assert_eq!(w.record_count(), 4);
+        }
+
+        let mut r = WalReader::open(&dir).unwrap();
+        let mut records = Vec::new();
+        r.replay_all(|rec| {
+            records.push(rec);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(
+            records.len(),
+            4,
+            "Begin + 2x Insert + Prepare survived close+reopen"
+        );
+        match &records[3] {
+            WalRecord::Prepare { txn_id, op_count } => {
+                assert_eq!(*txn_id, 7);
+                assert_eq!(*op_count, 2);
+            }
+            other => panic!("expected Prepare, got {other:?}"),
+        }
+
+        let _ = std::fs::remove_file(&dir);
+    }
+
+    #[test]
+    fn test_batch_append_byte_format_matches_append() {
+        let dir = std::env::temp_dir().join(format!(
+            "vanta_test_wal_batch_fmt_{}",
+            rand::random::<u32>()
+        ));
+        let _ = std::fs::remove_file(&dir);
+
+        let records = vec![
+            WalRecord::Insert(UnifiedNode::new(1)),
+            WalRecord::Insert(UnifiedNode::with_vector(2, vec![1.5; 32])),
+            WalRecord::Delete { id: 3 },
+            WalRecord::create_checkpoint(3, None),
+        ];
+
+        // Reference: N sequential `append` calls (existing single-record path)
+        {
+            let mut w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
+            for rec in &records {
+                w.append(rec).unwrap();
+            }
+            w.sync().unwrap();
+        }
+        let sequential = std::fs::read(&dir).unwrap();
+        let _ = std::fs::remove_file(&dir);
+
+        // batch_append must produce byte-identical record bytes (the header
+        // carries a wall-clock timestamp, so only the record region is compared)
+        {
+            let mut w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
+            w.batch_append(&records).unwrap();
+            w.sync().unwrap();
+        }
+        let batched = std::fs::read(&dir).unwrap();
+
+        assert_eq!(
+            &sequential[WalHeader::SIZE..],
+            &batched[WalHeader::SIZE..],
+            "batch_append must emit byte-identical WAL framing"
+        );
+
+        // And the batched file must replay cleanly
+        let mut r = WalReader::open(&dir).unwrap();
+        let mut replayed = Vec::new();
+        r.replay_all(|rec| {
+            replayed.push(rec);
+            Ok(())
+        })
+        .unwrap();
+        assert_eq!(replayed.len(), records.len());
+
+        let _ = std::fs::remove_file(&dir);
+    }
+
     #[test]
     fn test_checkpoint_validation() {
         let index_state = b"serialized_index_bytes";
@@ -800,13 +1058,17 @@ mod tests {
             let r = WalReader::open(&dir);
             assert!(r.is_err());
             match r.err().unwrap() {
-                VantaError::IncompatibleFormat {
+                Error::IncompatibleFormat {
                     expected_magic,
                     expected_version,
                     ..
                 } => {
                     assert_eq!(expected_magic, *b"VWAL");
-                    assert_eq!(expected_version, 1);
+                    // WAL v2 (RES-01): expected_version tracks the current format
+                    // version. The test file in this fixture uses v0, so the
+                    // reader should report its CURRENT version (v2) as the
+                    // expected version when rejecting.
+                    assert_eq!(expected_version, WAL_FORMAT_VERSION);
                 }
                 other => panic!("Expected IncompatibleFormat, got {:?}", other),
             }
@@ -870,6 +1132,62 @@ mod tests {
         }
 
         let _ = std::fs::remove_file(&dir);
+    }
+
+    #[test]
+    fn test_corrupt_wal_tail_is_quarantined() {
+        let dir = std::env::temp_dir().join(format!(
+            "vanta_test_wal_quarantine_{}",
+            rand::random::<u32>()
+        ));
+        let backup = PathBuf::from(format!("{}.corrupt", dir.display()));
+        let _ = std::fs::remove_file(&dir);
+        let _ = std::fs::remove_file(&backup);
+
+        // 1. Write a valid WAL
+        {
+            let mut w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(2))).unwrap();
+            w.sync().unwrap();
+            assert_eq!(w.record_count(), 2);
+        }
+
+        // 2. Corrupt the tail: append a torn record so there are bytes past EOF
+        {
+            let mut file = OpenOptions::new().append(true).open(&dir).unwrap();
+            file.write_all(b"\x00\xff\xff\xffcorrupt-tail-garbage")
+                .unwrap();
+        }
+
+        // 3. Run recovery — must truncate AND quarantine the corrupt tail
+        {
+            let w = WalWriter::open(&dir, crate::config::SyncMode::Periodic).unwrap();
+            assert_eq!(w.record_count(), 2);
+        }
+
+        // 4. Assert the corrupt tail was backed up, not silently lost
+        assert!(backup.exists(), "quarantine backup {:?} must exist", backup);
+        let backup_bytes = std::fs::read(&backup).unwrap();
+        assert!(
+            backup_bytes.len() >= b"\x00\xff\xff\xffcorrupt-tail-garbage".len(),
+            "backup should contain the corrupt tail bytes"
+        );
+
+        // 5. Recovered WAL parses cleanly
+        {
+            let mut r = WalReader::open(&dir).unwrap();
+            let mut records = Vec::new();
+            r.replay_all(|rec| {
+                records.push(rec);
+                Ok(())
+            })
+            .unwrap();
+            assert_eq!(records.len(), 2);
+        }
+
+        let _ = std::fs::remove_file(&dir);
+        let _ = std::fs::remove_file(&backup);
     }
 
     #[test]
@@ -981,5 +1299,136 @@ mod tests {
         assert!(matches!(&recovered[0], WalRecord::Insert(n) if n.id == 1));
         assert!(matches!(&recovered[1], WalRecord::Insert(n) if n.id == 2));
         assert!(matches!(&recovered[2], WalRecord::Insert(n) if n.id == 3));
+    }
+
+    #[test]
+    fn test_recover_mid_file_corruption_scan_forward_recovers_tail() {
+        // FIND-34: mid-file corrupt bytes must be skipped via Scan-Forward,
+        // tail records after the corruption must still be recovered.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+
+        // 1. Write 2 valid records normally
+        {
+            let mut w =
+                WalWriter::open_with_buffer(&path, crate::config::SyncMode::Periodic, 4096, None)
+                    .unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(10))).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(20))).unwrap();
+            w.sync().unwrap();
+        }
+
+        // 2. Inject 16 bytes of garbage mid-tail, then a valid 3rd record
+        //    after the garbage using raw framing (len+payload+crc).
+        let third = WalRecord::Insert(UnifiedNode::new(30));
+        let payload = postcard::to_allocvec(&third).unwrap();
+        let crc = crate::wal::compute_crc32c(&payload);
+        {
+            let mut file = OpenOptions::new().append(true).open(&path).unwrap();
+            // 16 bytes that will never be a valid record (len=0xffffffff > 10M)
+            file.write_all(&[0xFFu8; 16]).unwrap();
+            file.write_all(&(payload.len() as u32).to_le_bytes())
+                .unwrap();
+            file.write_all(&payload).unwrap();
+            file.write_all(&crc.to_le_bytes()).unwrap();
+            file.sync_data().unwrap();
+        }
+
+        // 3. Reopen — recover_valid_records must scan-forward past the 16
+        //    corrupt bytes and count the 3rd record.
+        {
+            let w =
+                WalWriter::open_with_buffer(&path, crate::config::SyncMode::Periodic, 4096, None)
+                    .unwrap();
+            assert_eq!(
+                w.record_count(),
+                3,
+                "scan-forward should recover tail after mid-file corruption"
+            );
+        }
+
+        // 4. WalReader must also yield 3 records in order
+        {
+            let mut r = WalReader::open(&path).unwrap();
+            let mut records = Vec::new();
+            r.replay_all(|rec| {
+                records.push(rec);
+                Ok(())
+            })
+            .unwrap();
+            assert_eq!(records.len(), 3);
+            assert!(matches!(&records[0], WalRecord::Insert(n) if n.id == 10));
+            assert!(matches!(&records[1], WalRecord::Insert(n) if n.id == 20));
+            assert!(matches!(&records[2], WalRecord::Insert(n) if n.id == 30));
+        }
+    }
+
+    #[test]
+    fn test_quarantine_rotates_when_corrupt_exists() {
+        // FIND-34: second corruption must not overwrite first .corrupt backup —
+        // quarantine_backup_path rotates to .corrupt.1
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("vanta.wal");
+        let backup0 = PathBuf::from(format!("{}.corrupt", path.display()));
+        let backup1 = PathBuf::from(format!("{}.corrupt.1", path.display()));
+        let _ = std::fs::remove_file(&backup0);
+        let _ = std::fs::remove_file(&backup1);
+
+        // First cycle: 2 valid → corrupt tail → recover creates .corrupt
+        {
+            let mut w =
+                WalWriter::open_with_buffer(&path, crate::config::SyncMode::Periodic, 4096, None)
+                    .unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(1))).unwrap();
+            w.append(&WalRecord::Insert(UnifiedNode::new(2))).unwrap();
+            w.sync().unwrap();
+        }
+        {
+            let mut file = OpenOptions::new().append(true).open(&path).unwrap();
+            file.write_all(b"\x00\xff\xff\xfffirst-corrupt-tail")
+                .unwrap();
+            file.sync_data().unwrap();
+        }
+        {
+            let w =
+                WalWriter::open_with_buffer(&path, crate::config::SyncMode::Periodic, 4096, None)
+                    .unwrap();
+            assert_eq!(w.record_count(), 2);
+        }
+        assert!(backup0.exists(), "first quarantine backup must exist");
+        let first_backup = std::fs::read(&backup0).unwrap();
+
+        // Second cycle: corrupt again → must create .corrupt.1, keep .corrupt
+        {
+            let mut file = OpenOptions::new().append(true).open(&path).unwrap();
+            file.write_all(b"\x11\x22\x33\x44second-corrupt-tail")
+                .unwrap();
+            file.sync_data().unwrap();
+        }
+        {
+            let w =
+                WalWriter::open_with_buffer(&path, crate::config::SyncMode::Periodic, 4096, None)
+                    .unwrap();
+            assert_eq!(w.record_count(), 2);
+        }
+        assert!(
+            backup0.exists(),
+            ".corrupt must still exist after second quarantine"
+        );
+        assert!(
+            backup1.exists(),
+            ".corrupt.1 must be created on second quarantine"
+        );
+        let second_backup = std::fs::read(&backup1).unwrap();
+        assert_ne!(
+            first_backup, second_backup,
+            "rotated backups must be distinct"
+        );
+        assert!(
+            second_backup
+                .windows(b"second-corrupt-tail".len())
+                .any(|w| w == b"second-corrupt-tail"),
+            "second backup should contain second tail"
+        );
     }
 }

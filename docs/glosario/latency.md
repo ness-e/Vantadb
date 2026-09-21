@@ -3,7 +3,7 @@ title: "Latencia"
 type: glossary-entry
 status: stable
 tags: [glosario, métricas, latencia, performance, percentiles]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-09-15
 aliases: [latency, response time, p50, p95, p99]
 ---
 
@@ -208,5 +208,5 @@ $$\text{Throughput} = \frac{1}{\text{Latencia promedio}}$$
 
 - [Recall](Recall.md) - Métrica complementaria
 - [Benchmarks](Benchmarks.md) - Suite de medición
-- [Memory Efficiency](Memory Efficiency.md) - Uso de recursos
-- [busqueda-vectorial](busqueda-vectorial.md) - Contexto de uso
+- [Memory Efficiency](memory-efficiency.md) - Uso de recursos
+- [busqueda-vectorial](vector-search.md) - Contexto de uso

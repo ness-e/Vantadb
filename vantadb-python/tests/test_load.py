@@ -39,7 +39,7 @@ class TestConcurrentOperations:
 
     def test_concurrent_inserts_4_threads(self):
         """Insert 200 vectors from 4 threads concurrently."""
-        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
+        db = vanta.Client(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
 
         errors = []
         lock = threading.Lock()
@@ -62,12 +62,13 @@ class TestConcurrentOperations:
             t.join()
 
         assert not errors, f"Thread errors: {errors}"
-        results = db.search(vector=[0.0] * 128, top_k=10)
+        # Non-zero query vector: core rejects zero-norm cosine queries since ERR-028.
+        results = db.search_vector(vector=[0.5] * 128, top_k=10)
         assert len(results) > 0
 
     def test_concurrent_search_after_inserts(self):
         """Inserts from multiple threads, then search."""
-        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
+        db = vanta.Client(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
 
         errors = []
         lock = threading.Lock()
@@ -90,42 +91,44 @@ class TestConcurrentOperations:
 
         searchers = []
         for _ in range(4):
-            searchers.append(threading.Thread(target=lambda: db.search(vector=[0.5] * 64, top_k=5)))
+            searchers.append(threading.Thread(target=lambda: db.search_vector(vector=[0.5] * 64, top_k=5)))
         for t in searchers:
             t.start()
         for t in searchers:
             t.join()
 
-        results = db.search(vector=[0.5] * 64, top_k=10)
+        results = db.search_vector(vector=[0.5] * 64, top_k=10)
         assert len(results) > 0
 
 
 class TestLargeBatchOperations:
     """Large dataset insert and search stress tests."""
 
+    @pytest.mark.slow
     def test_large_batch_insert_3k(self):
         """Insert 3000 vectors and verify search still works."""
-        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=512 * 1024 * 1024)
+        db = vanta.Client(_unique_path(), memory_limit_bytes=512 * 1024 * 1024)
 
         for i in range(3000):
             db.insert(i, content=f"batch_{i}", vector=[float(i % 256) / 256.0] * 64)
 
-        results = db.search(vector=[0.5] * 64, top_k=10)
+        results = db.search_vector(vector=[0.5] * 64, top_k=10)
         assert len(results) == 10
 
+    @pytest.mark.slow
     def test_large_batch_insert_5k(self):
         """Insert 5000 vectors (larger scale)."""
-        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=1024 * 1024 * 1024)
+        db = vanta.Client(_unique_path(), memory_limit_bytes=1024 * 1024 * 1024)
 
         for i in range(5000):
             db.insert(i, content=f"batch_{i}", vector=[float(i % 256) / 256.0] * 32)
 
-        results = db.search(vector=[0.5] * 32, top_k=10)
+        results = db.search_vector(vector=[0.5] * 32, top_k=10)
         assert len(results) == 10
 
     def test_repeated_insert_and_delete_cycle(self):
         """Insert then delete in a cycle to stress WAL."""
-        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
+        db = vanta.Client(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
 
         for cycle in range(3):
             for i in range(200):
@@ -134,7 +137,7 @@ class TestLargeBatchOperations:
                 db.delete(cycle * 200 + i)
             gc.collect()
 
-        results = db.search(vector=[0.5] * 64, top_k=5)
+        results = db.search_vector(vector=[0.5] * 64, top_k=5)
         assert len(results) == 0
 
 
@@ -143,29 +146,31 @@ class TestMemoryPressure:
 
     def test_large_vectors_repeated(self):
         """Insert large vectors (512 dims) repeatedly to test memory."""
-        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
+        db = vanta.Client(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
         for i in range(500):
             db.insert(i, content=f"large_{i}", vector=[float(i)] * 512)
         gc.collect()
-        results = db.search(vector=[0.0] * 512, top_k=5)
+        # Non-zero query vector: core rejects zero-norm cosine queries since ERR-028.
+        results = db.search_vector(vector=[0.5] * 512, top_k=5)
         assert len(results) > 0
 
     def test_high_dimensional_vectors(self):
         """Insert vectors with 1536 dimensions (OpenAI ada-002 scale)."""
-        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
+        db = vanta.Client(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
         for i in range(200):
             db.insert(i, content=f"highdim_{i}", vector=[float(i % 100) / 100.0] * 1536)
         gc.collect()
-        results = db.search(vector=[0.5] * 1536, top_k=5)
+        results = db.search_vector(vector=[0.5] * 1536, top_k=5)
         assert len(results) > 0
 
 
 class TestSustainedThroughput:
     """Throughput and endurance tests."""
 
+    @pytest.mark.slow
     def test_sustained_inserts(self):
         """Sustained inserts over many iterations."""
-        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
+        db = vanta.Client(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
 
         start = time.time()
         count = 2000
@@ -176,12 +181,13 @@ class TestSustainedThroughput:
         ops_per_sec = count / elapsed
 
         assert ops_per_sec > 10, f"Insert throughput too low: {ops_per_sec:.0f} ops/s"
-        results = db.search(vector=[0.5] * 64, top_k=10)
+        results = db.search_vector(vector=[0.5] * 64, top_k=10)
         assert len(results) == 10
 
+    @pytest.mark.slow
     def test_sustained_search(self):
         """Sustained search throughput."""
-        db = vanta.VantaDB(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
+        db = vanta.Client(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
 
         for i in range(500):
             db.insert(i, content=f"search_{i}", vector=[float(i % 10)] * 64)
@@ -189,7 +195,7 @@ class TestSustainedThroughput:
         start = time.time()
         iterations = 200
         for _ in range(iterations):
-            db.search(vector=[0.5] * 64, top_k=10)
+            db.search_vector(vector=[0.5] * 64, top_k=10)
 
         elapsed = time.time() - start
         ops_per_sec = iterations / elapsed

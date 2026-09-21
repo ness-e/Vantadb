@@ -1,0 +1,40 @@
+{
+  "tasks": {
+    "1": {
+      "taskId": "1",
+      "toolCalls": 2,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787386488991,
+      "lastActivity": 1787390168871,
+      "traceId": "5d4d4319-dd37-4bd4-b64e-723d21883f0c"
+    },
+    "2": {
+      "taskId": "2",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787387728874,
+      "lastActivity": 1787387982664,
+      "traceId": "6f52d196-7221-41fd-96d9-85a1ab7d0d1a"
+    },
+    "4": {
+      "taskId": "4",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787425529452,
+      "lastActivity": 1787425600715,
+      "traceId": "1c482e3f-234e-4614-80cd-c1ebdd3c1537"
+    },
+    "GOV-T01": {
+      "taskId": "GOV-T01",
+      "toolCalls": 2,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1787389456988,
+      "lastActivity": 1787389611649,
+      "traceId": "d70c2978-a64f-4013-a0c5-3733951acb25"
+    }
+  }
+}

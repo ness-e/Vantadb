@@ -62,6 +62,7 @@ VantaDB is a local-first, embedded database engine designed for AI agents, local
 | Use the embedded CLI | [CLI Reference](#embedded-cli) |
 | Run as a local server | [Server Mode](#optional-server-mode) |
 | Follow a tutorial | [Tutorials](docs/tutorials/) |
+| Run runnable examples | [Demo + Colab](examples/README.md) · [TypeScript](vantadb-ts/examples/) |
 | Read the FAQ | [FAQ](docs/FAQ.md) |
 | Read the blog | [Blog Posts](docs/blog/) |
 | Read architecture docs | [Documentation](#documentation) |
@@ -79,7 +80,12 @@ VantaDB is distributed as a native Python package with pre-compiled wheels for W
 pip install vantadb-py
 ```
 
-> **Note:** The distribution name is `vantadb-py`, but the importable module uses an underscore due to Python naming conventions: `import vantadb_py`.
+> **Note:** The distribution name is `vantadb-py`, and the canonical import is `import vantadb` (same as the Rust crate and the npm package). `import vantadb_py` still works but emits a `DeprecationWarning`.
+>
+> **Naming (ADR-041 anti-stutter):** canonical names are `Client` (legacy
+> `VantaDB` alias removed in 0.6.0, AST-010), `Record`, `SearchHit`, `Config`. Memory methods
+> `get_memory` / `search_memory` stay canonical in Python (the short
+> `get` / `search` names are node-level ops there).
 
 For development from source:
 
@@ -101,10 +107,10 @@ vantadb = { git = "https://github.com/ness-e/Vantadb" }
 Initialize a persistent memory store, save structured records with vectors, and execute hybrid retrieval in pure Python:
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 # 1. Open or create a local database (zero configuration)
-db = vantadb.VantaDB("./vanta_data", memory_limit_bytes=512_000_000)
+db = vantadb.Client("./vanta_data", memory_limit_bytes=512_000_000)
 
 # 2. Store a memory record with payload, metadata, and embedding
 record = db.put(
@@ -138,7 +144,7 @@ print(caps)
 
 | Engine | Mechanism | Details |
 | :--- | :--- | :--- |
-| **Persistent Core** | `StorageBackend` + VantaFile + WAL | Fjall (default) or RocksDB fallback. Automatic crash recovery via Write-Ahead Log with CRC32C checksums. |
+| **Persistent Core** | `StorageBackend` + File + WAL | Fjall (default) or RocksDB fallback. Automatic crash recovery via Write-Ahead Log with CRC32C checksums. |
 | **Hybrid Search** | BM25 + HNSW via RRF | Fuses lexical scoring and vector similarity using Reciprocal Rank Fusion. Automatically routed via query planner. |
 | **Vector Retrieval** | Native HNSW | Cosine similarity with configurable `M`, `ef_construction`, and `ef_search`. Validated on 10K–100K synthetic datasets. |
 | **Memory API** | `namespace + key` records | `put/get/delete/list/search` store UTF-8 payloads, scalar metadata, optional vectors, timestamps, versions, and deterministic node IDs. |
@@ -169,8 +175,8 @@ VantaDB should be understood as: embedded-first, local-first, durable memory wit
 | Classification | Surface |
 | :--- | :--- |
 | **Production-facing** | Embedded SDK/CLI, memory CRUD/search, WAL/recovery, namespaces, metadata indexes, HNSW vector retrieval, BM25, Hybrid Retrieval v1, phrase filtering, rebuild/audit/repair, JSONL export/import |
-| **Optional wrapper** | Local `vantadb-server` binary around the embedded core |
-| **Experimental / not MVP** | IQL/LISP/DQL, MCP, LLM/Ollama integration, governance and maintenance semantics, graph traversal beyond stored local edges |
+| **Optional** | Local `vantadb-server` binary + Local ONNX embeddings (`embed-local` feature, `LocalOnnxProvider` — 9 models, default `multilingual-e5-small` 384d, offline, `embeddings/manifest.json`) |
+| **Experimental / not MVP** | IQL/LISP/DQL, MCP, remote LLM/Ollama integration (`remote-inference`, alternative to `embed-local`), governance and maintenance semantics, graph traversal beyond stored local edges |
 | **Deferred** | Cloud/enterprise platform, HA/replication, distributed clustering, SQL/OLTP/warehouse/time-series, advanced ranking/snippets/tokenization, RBAC, multi-tenancy |
 
 *VantaDB is an embedded memory engine, not a universal multimodel database or cloud platform.*
@@ -202,6 +208,18 @@ Download and install the CLI binary instantly in a single command without compil
   ```powershell
   irm https://raw.githubusercontent.com/ness-e/Vantadb/main/scripts/install.ps1 | iex
   ```
+
+> **Trust:** both one-liners use TLS against the official `ness-e/Vantadb`
+> repo, and the script verifies the payload `.sha256` before installing
+> (warn-and-continue if the `.sha256` asset is missing — see the `Trust:`
+> header in `scripts/install.sh` / `scripts/install.ps1`).
+> To verify manually, download the script and compare its hash against the
+> published `.sha256` release asset before piping it to a shell.
+>
+> **What happens next:** the installer chains to the interactive setup wizard
+> (`setup-embeddings.ps1` — model, MCP block per client, proxy default-on)
+> unless skipped with `--no-wizard` (sh) / `-NoWizard` (PowerShell).
+> Preview the chain without effects via `--dry-run` / `-DryRun`.
 
 #### 2. Via Cargo (Rust Developers)
 

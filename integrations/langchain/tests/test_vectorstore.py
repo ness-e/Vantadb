@@ -1,6 +1,6 @@
 """Tests for VantaDB LangChain vector store adapter."""
 import pytest
-import tempfile
+pytest.importorskip("langchain_core", reason="langchain_core SDK not installed; adapter suite skipped")
 import os
 import sys
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
@@ -18,9 +18,9 @@ class FakeEmbeddings:
 
 
 @pytest.fixture
-def store():
+def store(tmp_path):
     embeddings = FakeEmbeddings()
-    path = os.path.join(tempfile.mkdtemp(), "test_lc")
+    path = str(tmp_path / "test_lc")
     store = VantaDBVectorStore(embeddings, db_path=path, namespace="test_lc")
     yield store
 
@@ -80,7 +80,7 @@ def test_add_texts_with_metadata(store):
     assert len(ids) == 3
 
     for key in ids:
-        record = store._db.get_memory(store.namespace, key)
+        record = store._db.memory.get(store.namespace, key)
         assert record is not None
 
 
@@ -190,25 +190,25 @@ def test_similarity_search_with_k_zero(store):
     assert len(results) == 0
 
 
-def test_from_texts_classmethod(store):
+def test_from_texts_classmethod(store, tmp_path):
     texts = ["from", "classmethod"]
     embeddings = FakeEmbeddings()
     vs = VantaDBVectorStore.from_texts(
         texts,
         embedding=embeddings,
-        db_path=os.path.join(tempfile.mkdtemp(), "test_ft"),
+        db_path=str(tmp_path / "test_ft"),
         namespace="test_ft",
     )
     results = vs.similarity_search("from", k=5)
     assert len(results) >= 1
 
 
-def test_from_texts_with_metadata():
+def test_from_texts_with_metadata(tmp_path):
     """from_texts classmethod should preserve metadata."""
     embeddings = FakeEmbeddings()
     texts = ["doc1", "doc2", "doc3"]
     metadatas = [{"type": "a"}, {"type": "b"}, {"type": "c"}]
-    path = os.path.join(tempfile.mkdtemp(), "test_ft")
+    path = str(tmp_path / "test_ft")
     store = VantaDBVectorStore.from_texts(
         texts, embeddings, metadatas=metadatas, db_path=path, namespace="test_ft"
     )
@@ -250,7 +250,30 @@ def test_embeddings_property(store):
 # ── New tests: relevance score ─────────────────────────────────
 
 def test_cosine_relevance_score(store):
-    # 1.0 - distance / 2.0
-    assert store._cosine_relevance_score_fn(0.0) == 1.0
-    assert store._cosine_relevance_score_fn(1.0) == 0.5
-    assert store._cosine_relevance_score_fn(2.0) == 0.0
+    # FIND-94: backend emits similarity (higher=better) -> clamp to [0,1].
+    assert store._cosine_relevance_score_fn(0.0) == 0.0
+    assert store._cosine_relevance_score_fn(0.5) == 0.5
+    assert store._cosine_relevance_score_fn(1.0) == 1.0
+
+
+# ── QW-2: add_documents con ids parciales ──
+
+def test_add_documents_partial_ids(store):
+    """Mezcla de docs con/sin id: los faltantes obtienen UUID, no ValueError engañoso."""
+    import uuid
+    from langchain_core.documents import Document
+    docs = [
+        Document(page_content="with id", id="custom-id-1"),
+        Document(page_content="without id"),
+    ]
+    ids = store.add_documents(docs)
+    assert len(ids) == 2
+    assert ids[0] == "custom-id-1"
+    uuid.UUID(ids[1])  # el doc sin id recibe un UUID válido
+
+
+def test_add_documents_all_with_ids_preserved(store):
+    """Si todos tienen id, se preservan tal cual (sin regenerar)."""
+    from langchain_core.documents import Document
+    docs = [Document(page_content="a", id="id-a"), Document(page_content="b", id="id-b")]
+    assert store.add_documents(docs) == ["id-a", "id-b"]

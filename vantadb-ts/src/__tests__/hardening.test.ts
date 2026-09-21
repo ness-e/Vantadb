@@ -1,19 +1,19 @@
 import { describe, it, expect, vi, beforeAll, afterAll } from "vitest";
-import { VantaDB, VantaError } from "../vantadb.js";
-import { wrapWasmError } from "../errors.js";
+import { Client, DbError } from "../vantadb.js";
+import { wrapWasmError, classifyWasmError, ERROR_CODES } from "../errors.js";
 import {
   isMemoryRecord,
   isSearchHit,
   isNodeRecord,
-  isValidVantaValue,
-  isVantaMetadata,
+  isValidValue,
+  isMetadata,
   isValidVector,
 } from "../guards.js";
 import type { MemoryRecord, SearchHit, NodeRecord, SearchRequest, ImportReport } from "../types.js";
 
-describe("VantaError serialization", () => {
+describe("DbError serialization", () => {
   it("toJSON includes all fields", () => {
-    const err = new VantaError("TEST", "msg", { key: "val" });
+    const err = new DbError("TEST", "msg", { key: "val" });
     const json = err.toJSON();
     expect(json.name).toBe("VantaError");
     expect(json.code).toBe("TEST");
@@ -23,30 +23,36 @@ describe("VantaError serialization", () => {
   });
 
   it("toJSON omits details when undefined", () => {
-    const json = new VantaError("NO_DETAILS", "msg").toJSON();
+    const json = new DbError("NO_DETAILS", "msg").toJSON();
     expect(json.details).toBeUndefined();
   });
 
-  it("VantaError is instanceof Error", () => {
-    expect(new VantaError("C", "m") instanceof Error).toBe(true);
+  it("DbError is instanceof Error", () => {
+    expect(new DbError("C", "m") instanceof Error).toBe(true);
   });
 
-  it("VantaError has stack trace", () => {
-    const err = new VantaError("STACK", "trace");
+  it("DbError has stack trace", () => {
+    const err = new DbError("STACK", "trace");
     expect(typeof err.stack).toBe("string");
   });
 });
 
 describe("wrapWasmError", () => {
-  it("passes through VantaError", () => {
-    const original = new VantaError("EXISTING", "already wrapped");
+  it("passes through DbError", () => {
+    const original = new DbError("EXISTING", "already wrapped");
     expect(wrapWasmError(original, "context")).toBe(original);
+  });
+
+  it("preserves the original error as cause (ERR-TS-01 §4.3)", () => {
+    const original = new Error("root boom");
+    const wrapped = wrapWasmError(original, "op");
+    expect(wrapped.cause).toBe(original);
   });
 
   it("wraps Error with context prefix", () => {
     const wrapped = wrapWasmError(new Error("boom"), "myFunc");
-    expect(wrapped).toBeInstanceOf(VantaError);
-    expect(wrapped.code).toBe("WASM_ERROR");
+    expect(wrapped).toBeInstanceOf(DbError);
+    expect(wrapped.code).toBe(ERROR_CODES.WASM_ERROR);
     expect(wrapped.message).toBe("myFunc: boom");
   });
 
@@ -58,6 +64,77 @@ describe("wrapWasmError", () => {
   it("wraps null/undefined", () => {
     const wrapped = wrapWasmError(null, "nullCase");
     expect(wrapped.message).toBe("nullCase: null");
+  });
+});
+
+describe("WASM error classification (FIND-10)", () => {
+  it("uses the structured code attached by the wasm binding", () => {
+    const err = new Error("Node not found: 1") as Error & { code?: string };
+    err.code = "VANTADB_NOT_FOUND";
+    const wrapped = wrapWasmError(err, "addEdge");
+    expect(wrapped.code).toBe(ERROR_CODES.NOT_FOUND);
+    expect(wrapped.message).toBe("addEdge: Node not found: 1");
+  });
+
+  it("ignores unknown codes (e.g. Node ERR_*) and falls back to message classification", () => {
+    const err = new Error("completely unexpected") as Error & { code?: string };
+    err.code = "ERR_MODULE_NOT_FOUND";
+    const wrapped = wrapWasmError(err, "open");
+    expect(wrapped.code).toBe(ERROR_CODES.WASM_ERROR);
+  });
+
+  it("classifies not-found by message prefix (older pkg fallback)", () => {
+    const wrapped = wrapWasmError(new Error("Node not found: 42"), "getNode");
+    expect(wrapped.code).toBe(ERROR_CODES.NOT_FOUND);
+  });
+
+  it("classifies validation errors by message prefix", () => {
+    const wrapped = wrapWasmError(
+      new Error("Validation error on namespace: namespace must not be empty"),
+      "get",
+    );
+    expect(wrapped.code).toBe(ERROR_CODES.VALIDATION_ERROR);
+  });
+
+  it("classifies corrupt-format errors by message prefix", () => {
+    const wrapped = wrapWasmError(
+      new Error("Incompatible binary format: expected magic [1,2,3,4], version 1"),
+      "open",
+    );
+    expect(wrapped.code).toBe(ERROR_CODES.CORRUPT);
+  });
+
+  it("classifyWasmError returns WASM_ERROR for unrecognized messages", () => {
+    expect(classifyWasmError("completely unexpected")).toBe(ERROR_CODES.WASM_ERROR);
+  });
+});
+
+describe("Client error codes from the real WASM engine (FIND-10)", () => {
+  let db: Client;
+
+  beforeAll(() => { db = Client.create(); });
+  afterAll(() => { db.close(); });
+
+  it("zero-norm cosine search surfaces VANTADB_VALIDATION_ERROR", () => {
+    let caught: unknown;
+    try {
+      db.search({ namespace: "err", query_vector: [0, 0, 0], top_k: 5 });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(DbError);
+    expect((caught as DbError).code).toBe(ERROR_CODES.VALIDATION_ERROR);
+  });
+
+  it("addEdge with missing nodes surfaces VANTADB_NOT_FOUND", () => {
+    let caught: unknown;
+    try {
+      db.addEdge(888, 999, "test");
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(DbError);
+    expect((caught as DbError).code).toBe(ERROR_CODES.NOT_FOUND);
   });
 });
 
@@ -88,21 +165,21 @@ describe("Type guards edge cases", () => {
     })).toBe(false);
   });
 
-  it("isValidVantaValue rejects Null with extra value", () => {
-    expect(isValidVantaValue({ Null: 1 })).toBe(false);
+  it("isValidValue rejects Null with extra value", () => {
+    expect(isValidValue({ Null: 1 })).toBe(false);
   });
 
-  it("isValidVantaValue rejects empty object", () => {
-    expect(isValidVantaValue({})).toBe(false);
+  it("isValidValue rejects empty object", () => {
+    expect(isValidValue({})).toBe(false);
   });
 
-  it("isValidVantaValue rejects multi-key object", () => {
-    expect(isValidVantaValue({ String: "a", Int: 1 })).toBe(false);
+  it("isValidValue rejects multi-key object", () => {
+    expect(isValidValue({ String: "a", Int: 1 })).toBe(false);
   });
 
-  it("isVantaMetadata rejects non-object values", () => {
-    expect(isVantaMetadata("string")).toBe(false);
-    expect(isVantaMetadata(null)).toBe(false);
+  it("isMetadata rejects non-object values", () => {
+    expect(isMetadata("string")).toBe(false);
+    expect(isMetadata(null)).toBe(false);
   });
 
   it("isValidVector rejects arrays with non-finite values", () => {
@@ -112,10 +189,10 @@ describe("Type guards edge cases", () => {
   });
 });
 
-describe("VantaDB input validation", () => {
-  let db: VantaDB;
+describe("Client input validation", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("put with null namespace throws", () => {
@@ -150,16 +227,27 @@ describe("VantaDB input validation", () => {
     expect(() => db.search({ namespace: "", query_vector: [0.1, 0.2] })).toThrow();
   });
 
-  it("search with empty vector does not crash", () => {
-    expect(() => db.search({ namespace: "ns", query_vector: [] })).not.toThrow();
+  it("search with empty vector throws typed validation error (D5a)", () => {
+    // D5a: the TS frontier validates query_vector (non-empty, finite) like
+    // `validateVector` does — an empty vector is a caller error surfaced as
+    // DbError/VALIDATION_ERROR, not an engine round-trip. Previously asserted
+    // `.not.toThrow()` when the frontier passed everything through unchecked.
+    let caught: unknown;
+    try {
+      db.search({ namespace: "ns", query_vector: [] });
+    } catch (err) {
+      caught = err;
+    }
+    expect(caught).toBeInstanceOf(DbError);
+    expect((caught as DbError).code).toBe(ERROR_CODES.VALIDATION_ERROR);
   });
 });
 
-describe("VantaDB search edge cases", () => {
-  let db: VantaDB;
+describe("Client search edge cases", () => {
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
     db.put({ namespace: "search_edge", key: "a", payload: "alpha", vector: [1, 0, 0] });
     db.put({ namespace: "search_edge", key: "b", payload: "beta", vector: [0, 1, 0] });
   });
@@ -201,50 +289,63 @@ describe("VantaDB search edge cases", () => {
   });
 
   it("hybrid search with only text_query", () => {
-    const hits = db.search({ namespace: "search_edge", query_vector: [0, 0, 0], text_query: "beta", top_k: 5 });
+    const hits = db.search({ namespace: "search_edge", query_vector: [1, 0, 0], text_query: "beta", top_k: 5 });
+    expect(hits.length).toBeGreaterThanOrEqual(0);
+  });
+
+  it("zero-norm cosine query throws instead of falling back to Euclidean (ERR-028)", () => {
+    // The core rejects zero-norm cosine queries (src/sdk/search/mod.rs) —
+    // the binding must propagate that error, not silently switch metrics.
+    expect(() => db.search({ namespace: "search_edge", query_vector: [0, 0, 0], top_k: 5 })).toThrow(
+      /zero-norm|undefined|InvalidInput/i,
+    );
+  });
+
+  it("zero-norm euclidean query is accepted", () => {
+    const hits = db.search({ namespace: "search_edge", query_vector: [0, 0, 0], distance_metric: "Euclidean", top_k: 5 });
     expect(hits.length).toBeGreaterThanOrEqual(0);
   });
 });
 
-describe("VantaDB export/import roundtrip", () => {
-  let db: VantaDB;
+describe("Client export/import roundtrip", () => {
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
     db.put({ namespace: "export", key: "k1", payload: "v1", metadata: { tag: { String: "test" } } });
     db.put({ namespace: "export", key: "k2", payload: "v2" });
   });
 
   afterAll(() => { db.close(); });
 
-  it("importRecords round-trip (may require full record fields)", () => {
-    const records = [
+  it("importRecords round-trip with strict counts (FIND-79)", () => {
+    const report = db.importRecords([
       { namespace: "import_test", key: "a", payload: "pa", metadata: {} },
       { namespace: "import_test", key: "b", payload: "pb", metadata: {} },
-    ];
-    try {
-      const report = db.importRecords(records);
-      expect(report).toBeDefined();
-    } catch (err) {
-      console.error("WASM import_records error (expected type mismatch):", err);
-    }
+    ]);
+    expect(report.inserted).toBe(2);
+    expect(report.updated).toBe(0);
+    expect(report.errors).toBe(0);
+    expect(db.get("import_test", "a")!.payload).toBe("pa");
+    expect(db.get("import_test", "b")!.payload).toBe("pb");
   });
 
-  it("importRecords with empty array", () => {
-    try {
-      const report = db.importRecords([]);
-      expect(report).toBeDefined();
-    } catch (err) {
-      console.error("WASM import_records error (expected type mismatch):", err);
-    }
+  it("importRecords with empty array reports zeros (FIND-79)", () => {
+    expect(db.importRecords([])).toEqual({
+      inserted: 0,
+      updated: 0,
+      skipped: 0,
+      errors: 0,
+      duration_ms: expect.any(Number),
+    });
   });
 });
 
-describe("VantaDB list edge cases", () => {
-  let db: VantaDB;
+describe("Client list edge cases", () => {
+  let db: Client;
 
   beforeAll(() => {
-    db = VantaDB.create();
+    db = Client.create();
     for (let i = 0; i < 25; i++) {
       db.put({ namespace: "list_edge", key: `k${i}`, payload: `v${i}` });
     }
@@ -276,47 +377,51 @@ describe("VantaDB list edge cases", () => {
   });
 });
 
-describe("VantaDB lifecycle harden", () => {
+describe("Client lifecycle harden", () => {
   it("double close is safe", () => {
-    const db = VantaDB.create();
+    const db = Client.create();
     db.close();
     expect(() => db.close()).not.toThrow();
   });
 
   it("operations after close throw typed error", () => {
-    const db = VantaDB.create();
+    const db = Client.create();
     db.close();
-    expect(() => db.capabilities()).toThrow(VantaError);
-    expect(() => db.listNamespaces()).toThrow(VantaError);
-    expect(() => db.flush()).toThrow(VantaError);
-    expect(() => db.compactWal()).toThrow(VantaError);
+    expect(() => db.capabilities()).toThrow(DbError);
+    expect(() => db.listNamespaces()).toThrow(DbError);
+    expect(() => db.flush()).toThrow(DbError);
+    expect(() => db.compactWal()).toThrow(DbError);
   });
 
-  it("VantaDB.create with storage_path warns but does not throw", () => {
+  it("Client.create with storage_path warns but does not throw", () => {
     const spy = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const db = VantaDB.create({ storage_path: "./ignored" });
+    const db = Client.create({ storage_path: "./ignored" });
     expect(spy).toHaveBeenCalled();
     spy.mockRestore();
     db.close();
   });
 
-  it("VantaDB.connect(':memory:') is equivalent to connect()", () => {
-    const db = VantaDB.connect(":memory:");
+  it("Client.connect(':memory:') is equivalent to connect()", () => {
+    const db = Client.connect(":memory:");
     expect(db.capabilities().vector_search).toBe(true);
     db.close();
   });
 
-  it("open with non-existent path creates new DB", () => {
-    const db = VantaDB.open("/nonexistent/test_" + Date.now());
-    expect(db.capabilities().persistence).toBe(true);
+  it("open() returns a non-durable handle (persistence:false per WSM-01)", () => {
+    // WSM-01: `Client.open` no longer fakes `persistence:true` — only
+    // `connect_persistent` (browser OPFS) claims durable persistence. In the
+    // Node/wrapper build `open` attaches no durable backend, so capabilities
+    // honestly reports false. The DB still opens and is usable.
+    const db = Client.open("/nonexistent/test_" + Date.now());
+    expect(db.capabilities().persistence).toBe(false);
     db.close();
   });
 });
 
-describe("VantaDB graph edge cases", () => {
-  let db: VantaDB;
+describe("Client graph edge cases", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("getNode on non-existent returns null", () => {
@@ -328,7 +433,7 @@ describe("VantaDB graph edge cases", () => {
   });
 
   it("addEdge with non-existent nodes throws", () => {
-    expect(() => db.addEdge(888, 999, "test")).toThrow(VantaError);
+    expect(() => db.addEdge(888, 999, "test")).toThrow(DbError);
   });
 
   it("graphIsDag on empty graph returns true", () => {
@@ -346,10 +451,10 @@ describe("VantaDB graph edge cases", () => {
   });
 });
 
-describe("VantaDB batch edge cases", () => {
-  let db: VantaDB;
+describe("Client batch edge cases", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("putBatch with single element", () => {
@@ -374,14 +479,14 @@ describe("VantaDB batch edge cases", () => {
   });
 });
 
-describe("VantaDB maintenance edge cases", () => {
-  let db: VantaDB;
+describe("Client maintenance edge cases", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("rebuildIndex on empty DB throws IO error on non-persistent", () => {
-    expect(() => db.rebuildIndex()).toThrow(VantaError);
+    expect(() => db.rebuildIndex()).toThrow(DbError);
   });
 
   it("compactLayout on empty DB returns >= 0", () => {
@@ -396,10 +501,10 @@ describe("VantaDB maintenance edge cases", () => {
   });
 });
 
-describe("VantaDB TTL edge cases", () => {
-  let db: VantaDB;
+describe("Client TTL edge cases", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("put with TTL = null is same as no TTL", () => {
@@ -413,10 +518,10 @@ describe("VantaDB TTL edge cases", () => {
   });
 });
 
-describe("VantaDB metadata edge cases", () => {
-  let db: VantaDB;
+describe("Client metadata edge cases", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("put with all metadata types round-trips", () => {
@@ -439,10 +544,10 @@ describe("VantaDB metadata edge cases", () => {
   });
 });
 
-describe("VantaDB generate snippet edge cases", () => {
-  let db: VantaDB;
+describe("Client generate snippet edge cases", () => {
+  let db: Client;
 
-  beforeAll(() => { db = VantaDB.create(); });
+  beforeAll(() => { db = Client.create(); });
   afterAll(() => { db.close(); });
 
   it("generateSnippet with empty query", () => {

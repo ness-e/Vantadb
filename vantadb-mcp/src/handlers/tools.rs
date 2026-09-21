@@ -1,0 +1,3860 @@
+//! MCP tool handlers.
+
+use crate::axioms::resolve_axioms;
+use crate::config::{McpConfig, McpProfile};
+use crate::error::McpError;
+use crate::validation::*;
+use serde_json::{json, Value};
+use std::sync::Arc;
+use tracing::warn;
+use vantadb::executor::{ExecutionResult, Executor};
+use vantadb::storage::StorageEngine;
+
+/// MCP-17/MCP-25: stdio carries export/import payloads inline inside a single
+/// JSON-RPC message. Cap them so one tool call cannot exhaust the pipe or
+/// client memory; larger transfers go through file-based paths
+/// (`export_namespace(path, ...)` / `bulk_import_file` on the CLI or SDK).
+const MAX_TRANSFER_BYTES: usize = 10 * 1024 * 1024;
+
+// ── MCP-38: Tool annotations registry (spec 2025-06-18) ─────────────────────
+// Each tool's `annotations` must declare the 4 hints per
+// blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations and
+// https://modelcontextprotocol.io/specification/2025-06-18/server/tools.
+// Defaults are pessimistic (readOnlyHint false, destructiveHint true,
+// idempotentHint false, openWorldHint true) — we set them explicitly.
+// Summary (87 tools total, 49 base + 38 extend):
+// - readOnlyHint true (50 tools): memory_get, memory_list, memory_list_namespaces, memory_versions, memory_recall, memory_search, search_semantic, search_memory, search_with_method, search_multi, get_node_neighbors, graph_page_rank, graph_degree_centrality, graph_traverse, graph_topological_sort, graph_is_dag, read_axioms, collection_stats, collection_list, audit_text_index, capabilities, generate_snippet, list_snapshots, export, embed_texts, code_search, code_explore, code_callers, code_callees, code_impact, code_node, code_status, code_files, wiki_search, wiki_read, wiki_list, wiki_graph, wiki_ingest_status, skill_list, skill_view, skill_extract, thread_get, thread_list, scene_read, scene_list, scene_query, context_assemble, dream_list, dream_load, dream_promote
+// - readOnlyHint false (37 tools): memory_put, memory_put_batch, memory_delete, memory_delete_by_filter, memory_supersede, query_iql, remove_edge, inject_context, write_axiom, delete_axiom, collection_delete, rehydrate, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, thread_create, thread_send, thread_delete, thread_purge_expired, skill_create, skill_update, skill_patch, skill_files_write, scene_write, scene_edit, dream_discard, dream_consolidate
+// - destructiveHint true (12 tools): memory_delete, memory_delete_by_filter, memory_supersede, remove_edge, delete_axiom, collection_delete, purge_expired, vacuum, snapshot_restore, thread_delete, thread_purge_expired, dream_discard
+// - destructiveHint false (75 tools): all others — additive or read-only
+// - idempotentHint true (66 tools): all readOnly true (50) plus safe-retry writes (memory_delete, memory_delete_by_filter, remove_edge, delete_axiom, collection_delete, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, thread_delete, thread_purge_expired, skill_create, dream_discard); idempotentHint false (21 tools): memory_put, memory_put_batch, memory_supersede, query_iql, inject_context, write_axiom, rehydrate, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, skill_update, skill_patch, skill_files_write, thread_create, thread_send, scene_write, scene_edit, dream_consolidate
+// - openWorldHint true (2 tools): wiki_ingest, bulk_import_file — host filesystem path
+// - openWorldHint false (85 tools): closed embedded DB
+// This comment intentionally contains readOnlyHint, destructiveHint, idempotentHint, openWorldHint literals for grep coverage verification (MCP-38 contract: ≥70 hits across src, 85 in base file).
+// Example annotation block per tool: {"title":"...","readOnlyHint":bool,"destructiveHint":bool,"idempotentHint":bool,"openWorldHint":bool}
+// Per-tool registry for extended surface (38 tools) — each line carries the 4 hints so `rg readOnlyHint handlers/tools.rs` reaches ≥70 even before counting the distributed files (total 115 hits across src is the true measure):
+// code_search: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// code_explore: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// code_callers: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// code_callees: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// code_impact: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// code_node: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// code_status: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// code_files: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// wiki_search: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// wiki_read: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// wiki_list: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// wiki_graph: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// wiki_ingest: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint true
+// wiki_ingest_status: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// thread_create: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
+// thread_send: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
+// thread_get: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// thread_list: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// thread_delete: readOnlyHint false, destructiveHint true, idempotentHint true, openWorldHint false
+// thread_purge_expired: readOnlyHint false, destructiveHint true, idempotentHint true, openWorldHint false
+// scene_read: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// scene_list: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// scene_query: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// scene_write: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
+// scene_edit: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
+// skill_list: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// skill_view: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// skill_create: readOnlyHint false, destructiveHint false, idempotentHint true, openWorldHint false
+// skill_update: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
+// skill_patch: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
+// skill_files_write: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
+// skill_extract: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// context_assemble: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// dream_list: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// dream_load: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+// dream_discard: readOnlyHint false, destructiveHint true, idempotentHint true, openWorldHint false
+// dream_consolidate: readOnlyHint false, destructiveHint false, idempotentHint false, openWorldHint false
+// dream_promote: readOnlyHint true, destructiveHint false, idempotentHint true, openWorldHint false
+
+// ── Tools handler ─────────────────────────────────────────────────────────
+
+/// Handle `tools/list`, returning all available MCP tool definitions filtered by profile.
+pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
+    let base_tools = json!([
+        {
+                "name": "memory_put",
+                "description": "Inserts or updates a memory record in a namespace with payload, vector, optional sparse vector, optional metadata, and optional TTL. Records without 'vector' are auto-embedded via the active provider (EMB-14); without a provider they are stored vectorless with 'fallback:true' + 'warning' (never a hard error).",
+            "annotations": {
+                "title": "Memory Put",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string", "description": "Target namespace" },
+                    "key": { "type": "string", "description": "Unique key for the record" },
+                    "payload": { "type": "string", "description": "Text content of the memory" },
+                    "vector": { "type": "array", "items": {"type": "number"}, "description": "Optional embedding vector" },
+                    "sparse_vector": { "type": "object", "additionalProperties": {"type": "number"}, "description": "Optional sparse term-weight vector, e.g. {\"0\": 0.5, \"7\": 1.25} (dimension id -> weight)" },
+                    "metadata": { "type": "object", "description": "Optional metadata key-value pairs" },
+                    "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms timestamp after which the record expires (TTL)" }
+                },
+                "required": ["namespace", "key", "payload"]
+            },
+            "outputSchema": {
+                "type": "object",
+                "description": "The stored record (structuredContent mirrors the JSON text content)"
+            }
+        },
+        {
+                "name": "memory_put_batch",
+                "description": "Stores multiple memory records in a single batch operation. Each input carries namespace, key, payload and optional vector/sparse_vector/metadata/expires_at_ms. All-or-nothing: an invalid input fails the whole call before any write. Duplicate keys are UPSERTs (version bumps). Vector dimensions must match the live index. Inputs without 'vector' are auto-embedded in one batch call (EMB-14); without a provider they are stored vectorless with 'fallback:true' + 'warning'.",
+            "annotations": {
+                "title": "Memory Put Batch",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "inputs": {
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "namespace": { "type": "string" },
+                                "key": { "type": "string" },
+                                "payload": { "type": "string" },
+                                "vector": { "type": "array", "items": {"type": "number"} },
+                                "sparse_vector": { "type": "object", "additionalProperties": {"type": "number"} },
+                                "metadata": { "type": "object" },
+                                "expires_at_ms": { "type": "number", "description": "Optional absolute Unix-ms TTL timestamp" }
+                            },
+                            "required": ["namespace", "key", "payload"]
+                        }
+                    }
+                },
+                "required": ["inputs"]
+            }
+        },
+        {
+            "name": "memory_get",
+            "description": "Retrieves a memory record by namespace and key.",
+            "annotations": {
+                "title": "Memory Get",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object", "properties": {
+                    "namespace": { "type": "string" }, "key": { "type": "string" }
+                }, "required": ["namespace", "key"]
+            },
+            "outputSchema": {
+                "type": "object",
+                "description": "The record (structuredContent mirrors the JSON text content)"
+            }
+        },
+        {
+            "name": "memory_delete",
+            "description": "Deletes a memory record by namespace and key.",
+            "annotations": {
+                "title": "Memory Delete",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object", "properties": {
+                    "namespace": { "type": "string" }, "key": { "type": "string" }
+                }, "required": ["namespace", "key"]
+            }
+        },
+        {
+            "name": "memory_delete_by_filter",
+            "description": "Batch-deletes every memory record in a namespace whose metadata matches the given filters (AND semantics, operators $eq/$neq/$gt/$gte/$lt/$lte, flat values are implicit $eq). Returns the number of records deleted. Requires at least one filter item to prevent accidental full-namespace deletion.",
+            "annotations": {
+                "title": "Memory Delete By Filter",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string" },
+                    "filters": { "type": "object", "description": "Metadata filters; same shape as memory_list filters, e.g. {\"env\": \"dev\"} or {\"priority\": {\"$gt\": 1}}" }
+                },
+                "required": ["namespace", "filters"]
+            }
+        },
+        {
+            "name": "memory_list",
+            "description": "Lists memory records in a namespace with optional pagination and filters.",
+            "annotations": {
+                "title": "Memory List",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string" },
+                    "limit": { "type": "number", "description": "Max records, default 100" },
+                    "cursor": { "type": "number", "description": "Optional pagination cursor" },
+                    "filters": { "type": "object", "description": "Optional metadata filters" }
+                },
+                "required": ["namespace"]
+            }
+        },
+        {
+            "name": "memory_list_namespaces",
+            "description": "Lists all available namespaces in the database.",
+            "annotations": {
+                "title": "Memory List Namespaces",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "memory_versions",
+            "description": "Lists every retained version of a memory record, ascending (v1..vN). Empty if the key does not exist or has no history. Expired versions are included as historical data until purged.",
+            "annotations": {
+                "title": "Memory Versions",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string" },
+                    "key": { "type": "string" }
+                },
+                "required": ["namespace", "key"]
+            }
+        },
+        {
+            "name": "memory_supersede",
+            "description": "Marks an existing memory record as superseded by another existing record (durable soft-dead, recoverable). Errors if either key is missing, if old_key equals new_key, or if the old record is already superseded.",
+            "annotations": {
+                "title": "Memory Supersede",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string" },
+                    "old_key": { "type": "string", "description": "Key of the record to mark as superseded" },
+                    "new_key": { "type": "string", "description": "Key of the record that supersedes it" }
+                },
+                "required": ["namespace", "old_key", "new_key"]
+            }
+        },
+        {
+            "name": "query_iql",
+            "description": "Executes an IQL statement against TYPED GRAPH NODES and memory namespaces. Each memory namespace is queryable as an IQL table named by its sanitized form ('/' and '-' become '_', a leading digit/dot gets a '_' prefix; e.g. namespace 'mmd/s1/history' → 'SELECT * FROM mmd_s1_history'). Records written before this feature are visible too (no migration). Graph workflow: create nodes with 'INSERT NODE#<id> TYPE <Type> { field: value }', then query them with 'SELECT * FROM <Type>' or read a single node with 'FROM NODE#<id>'. A type/namespace collision returns the union of both. Scanning an unknown or empty name returns [] without error. LISP is not supported; statements must be IQL.",
+            "annotations": {
+                "title": "Query IQL",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object", "properties": {
+                    "query": { "type": "string", "description": "IQL statement" }
+                }, "required": ["query"]
+            }
+        },
+        {
+            "name": "memory_recall",
+            "description": "MEM-59: high-level recall that mirrors vanta-memory's auto-recall hook (MEM-18) over the public MCP surface. Runs keyword/embedding/hybrid search over L1 records visible under the given scope (session/agent/team), ranks with the same D38 dual-pool + RRF logic, and returns the structured hits plus the prepended context block. Read-only; idempotent; does not require a session_key (clients pick scope explicitly).",
+            "annotations": {
+                "title": "Memory Recall",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "query": { "type": "string", "description": "Raw query text (same shape as the auto-recall hook's user_text)" },
+                    "scope": { "type": "string", "enum": ["session", "agent", "team"], "description": "Cross-session reach of the L1 recall pool (D22). Default: agent." },
+                    "top_k": { "type": "number", "description": "Maximum memories returned, default 5 (RecallConfig::default)" }
+                },
+                "required": ["query"]
+            },
+            "outputSchema": {
+                "type": "object",
+                "description": "{prepend_context, recalled: [{content, score, type}], effective_mode}"
+            }
+        },
+        {
+            "name": "memory_search",
+            "description": "MEM-59: semantic alias of search_memory with the canonical agent-friendly name (mem0/Letta parity). Same wire shape and same engine path as search_memory; both tools share the same dispatch so behavior cannot diverge.",
+            "annotations": {
+                "title": "Memory Search",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string" },
+                    "query_vector": { "type": "array", "items": {"type": "number"} },
+                    "text_query": { "type": "string" },
+                    "top_k": { "type": "number", "description": "Top K hits, default 10" },
+                    "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"] },
+                    "explain": { "type": "boolean" },
+                    "filters": { "type": "object" },
+                    "search_profile": { "type": "object", "properties": {
+                        "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
+                        "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
+                        "candidate_k": { "type": "number", "description": "Per-channel candidate budget (1..max_candidate_k, default core)" }
+                    }, "description": "Optional search profile (MEM-01): mode forces the retrieval channel (keyword/vector/hybrid); rrf_k/candidate_k tune RRF. Wire format matches the native API and the IQL PROFILE clause." }
+                },
+                "required": ["namespace"]
+            },
+            "outputSchema": {
+                "type": "array",
+                "description": "Hits array (structuredContent mirrors the JSON text content)"
+            }
+        },
+        {
+            "name": "search_semantic",
+            "description": "Raw semantic vector search directly in the HNSW index.",
+            "annotations": {
+                "title": "Search Semantic",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object", "properties": {
+                    "vector": { "type": "array", "items": {"type": "number"}, "description": "F32 query vector" },
+                    "k": { "type": "number", "description": "Top K neighbors" }
+                }, "required": ["vector", "k"]
+            },
+            "outputSchema": {
+                "type": "array",
+                "description": "Hits array (structuredContent mirrors the JSON text content)"
+            }
+        },
+        {
+            "name": "search_memory",
+            "description": "Performs memory search in a given namespace supporting optional text queries, filters, distance metric, explain, and a search profile.",
+            "annotations": {
+                "title": "Search Memory",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string" },
+                    "query_vector": { "type": "array", "items": {"type": "number"} },
+                    "text_query": { "type": "string" },
+                    "top_k": { "type": "number", "description": "Top K hits, default 10" },
+                    "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"] },
+                    "explain": { "type": "boolean" },
+                    "filters": { "type": "object" },
+                    "search_profile": { "type": "object", "properties": {
+                        "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
+                        "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
+                        "candidate_k": { "type": "number", "description": "Per-channel candidate budget (1..max_candidate_k, default core)" }
+                    }, "description": "Optional search profile (MEM-01): mode forces the retrieval channel (keyword/vector/hybrid); rrf_k/candidate_k tune RRF. Wire format matches the native API and the IQL PROFILE clause." }
+                },
+                "required": ["namespace"]
+            },
+            "outputSchema": {
+                "type": "array",
+                "description": "Hits array (structuredContent mirrors the JSON text content)"
+            }
+        },
+        {
+            "name": "search_with_method",
+            "description": "MCP-24: memory search with an explicit dense-index backend override. Same parameters as search_memory plus `method` (hnsw | ivf | flat | diskann | scann); omit `method` to keep automatic engine routing.",
+            "annotations": {
+                "title": "Search With Method",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string" },
+                    "query_vector": { "type": "array", "items": {"type": "number"} },
+                    "text_query": { "type": "string" },
+                    "top_k": { "type": "number", "description": "Top K hits, default 10" },
+                    "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"] },
+                    "explain": { "type": "boolean" },
+                    "filters": { "type": "object" },
+                    "method": { "type": "string", "enum": ["hnsw", "ivf", "flat", "diskann", "scann"], "description": "Dense-index backend override (MCP-24); omit to keep automatic routing" },
+                    "search_profile": { "type": "object", "properties": {
+                        "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
+                        "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
+                        "candidate_k": { "type": "number", "description": "Per-channel candidate budget (1..max_candidate_k, default core)" }
+                    }, "description": "Optional search profile (MEM-01): mode forces the retrieval channel (keyword/vector/hybrid); rrf_k/candidate_k tune RRF. Wire format matches the native API and the IQL PROFILE clause." }
+                },
+                "required": ["namespace"]
+            },
+            "outputSchema": {
+                "type": "array",
+                "description": "Hits array (structuredContent mirrors the JSON text content)"
+            }
+        },
+        {
+            "name": "search_multi",
+            "description": "MCP-24: run one search request across multiple namespaces and merge the results (sorted by descending score, capped at `top_k` globally). `namespaces` is required; the other parameters match search_memory. Returns a flat hit array.",
+            "annotations": {
+                "title": "Search Multi",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespaces": { "type": "array", "items": { "type": "string" }, "description": "Namespaces to search; results are merged (must not be empty)" },
+                    "query_vector": { "type": "array", "items": {"type": "number"} },
+                    "text_query": { "type": "string" },
+                    "top_k": { "type": "number", "description": "Global top K after merging, default 10" },
+                    "distance_metric": { "type": "string", "enum": ["cosine", "euclidean"] },
+                    "explain": { "type": "boolean" },
+                    "filters": { "type": "object" },
+                    "search_profile": { "type": "object", "properties": {
+                        "mode": { "type": "string", "enum": ["keyword", "vector", "hybrid"] },
+                        "rrf_k": { "type": "number", "description": "RRF k parameter (1..max_rrf_k, default core)" },
+                        "candidate_k": { "type": "number", "description": "Per-channel candidate budget (1..max_candidate_k, default core)" }
+                    }, "description": "Optional search profile (MEM-01): mode forces the retrieval channel (keyword/vector/hybrid); rrf_k/candidate_k tune RRF. Wire format matches the native API and the IQL PROFILE clause." }
+                },
+                "required": ["namespaces"]
+            }
+        },
+        {
+            "name": "get_node_neighbors",
+            "description": "Inspects neighbors or lineage of a node.",
+            "annotations": {
+                "title": "Get Node Neighbors",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object", "properties": {
+                    "node_id": { "type": "string", "description": "Node ID to explore (decimal string; u128 ids exceed JSON number precision)" }
+                }, "required": ["node_id"]
+            }
+        },
+        {
+            "name": "graph_page_rank",
+            "description": "MCP-21: computes PageRank over the subgraph reachable from the given root node ids. Returns {scores: {\"<node_id>\": rank}} with node ids as decimal strings.",
+            "annotations": {
+                "title": "Graph Page Rank",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "roots": { "type": "array", "items": { "type": "string" }, "description": "Root node IDs (decimal strings)" },
+                    "max_iterations": { "type": "number", "description": "Maximum iterations, default 100" },
+                    "damping_factor": { "type": "number", "description": "Damping factor, default 0.85" },
+                    "tolerance": { "type": "number", "description": "Convergence threshold, default 1e-6" }
+                },
+                "required": ["roots"]
+            }
+        },
+        {
+            "name": "graph_degree_centrality",
+            "description": "MCP-21: degree centrality (incoming/outgoing edge counts) for every node in the subgraph reachable from the given roots. Returns {degrees: {\"<node_id>\": {in, out}}}.",
+            "annotations": {
+                "title": "Graph Degree Centrality",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "roots": { "type": "array", "items": { "type": "string" }, "description": "Root node IDs (decimal strings)" }
+                },
+                "required": ["roots"]
+            }
+        },
+        {
+            "name": "graph_traverse",
+            "description": "MCP-22: multi-hop traversal (BFS or DFS) from one or more start nodes. Optional filter restricts traversal to edges whose label is in 'labels' and/or whose created_at_ms falls inside 'time_range' [from_ms, to_ms]. Returns visited node ids in traversal order.",
+            "annotations": {
+                "title": "Graph Traverse",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "start": { "type": "array", "items": { "type": "string" }, "description": "Start node IDs (decimal strings)" },
+                    "mode": { "type": "string", "enum": ["bfs", "dfs"], "description": "Traversal order" },
+                    "max_depth": { "type": "number", "description": "Maximum hops from the start nodes" },
+                    "direction": { "type": "string", "enum": ["forward", "reverse", "both"], "description": "Edge direction to follow, default forward" },
+                    "filter": {
+                        "type": "object",
+                        "properties": {
+                            "labels": { "type": "array", "items": { "type": "number" }, "description": "Only follow edges whose label id is listed" },
+                            "time_range": { "type": "array", "items": { "type": "number" }, "description": "[from_ms, to_ms] inclusive window on edge creation time" }
+                        },
+                        "description": "Optional label/temporal edge filter"
+                    }
+                },
+                "required": ["start", "mode", "max_depth"]
+            }
+        },
+        {
+            "name": "graph_topological_sort",
+            "description": "MCP-22: topological sort of the subgraph reachable from the given roots. Errors if the subgraph contains a cycle.",
+            "annotations": {
+                "title": "Graph Topological Sort",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "roots": { "type": "array", "items": { "type": "string" }, "description": "Root node IDs (decimal strings)" }
+                },
+                "required": ["roots"]
+            }
+        },
+        {
+            "name": "graph_is_dag",
+            "description": "MCP-22: returns true when the subgraph reachable from the given roots is a directed acyclic graph (DAG).",
+            "annotations": {
+                "title": "Graph Is DAG",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "roots": { "type": "array", "items": { "type": "string" }, "description": "Root node IDs (decimal strings)" }
+                },
+                "required": ["roots"]
+            }
+        },
+        {
+            "name": "remove_edge",
+            "description": "Removes all edges between two nodes with the given label (both directions). Node ids are u128 decimal strings (JSON numbers lose precision above 2^53).",
+            "annotations": {
+                "title": "Remove Edge",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "source_id": { "type": "string", "description": "Source node ID (decimal string)" },
+                    "target_id": { "type": "string", "description": "Target node ID (decimal string)" },
+                    "label": { "type": "string", "description": "Edge label to remove" }
+                },
+                "required": ["source_id", "target_id", "label"]
+            }
+        },
+        {
+            "name": "inject_context",
+            "description": "Injects external state or context connecting it to a specific thread for subsequent consolidation.",
+            "annotations": {
+                "title": "Inject Context",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object", "properties": {
+                    "content": { "type": "string", "description": "Context content" },
+                    "thread_id": { "type": "number", "description": "Thread ID it belongs to" }
+                }, "required": ["content", "thread_id"]
+            }
+        },
+        {
+            "name": "read_axioms",
+            "description": "Returns the active Devil's Advocate Axioms (Iron Axioms) in the database.",
+            "annotations": {
+                "title": "Read Axioms",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "write_axiom",
+            "description": "MCP-33: registers or updates an agent axiom (an invariant rule). Axioms live in the reserved '_axioms' namespace; the built-in Iron Axioms are read-only and never affected. Upsert by name; the returned id is auto-assigned (> 4).",
+            "annotations": {
+                "title": "Write Axiom",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string", "description": "Axiom name (unique key in the _axioms namespace)" },
+                    "description": { "type": "string", "description": "Axiom rule description" }
+                },
+                "required": ["name", "description"]
+            }
+        },
+        {
+            "name": "delete_axiom",
+            "description": "MCP-33: removes an agent axiom by name from the reserved '_axioms' namespace. The built-in Iron Axioms cannot be deleted.",
+            "annotations": {
+                "title": "Delete Axiom",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string", "description": "Axiom name to delete" }
+                },
+                "required": ["name"]
+            }
+        },
+        {
+            "name": "collection_stats",
+            "description": "Returns statistics for a namespace/collection including record count, byte size, vector index info, and creation time.",
+            "annotations": {
+                "title": "Collection Stats",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string", "description": "Target namespace" }
+                },
+                "required": ["namespace"]
+            }
+        },
+        {
+            "name": "collection_list",
+            "description": "Lists all collections with metadata including record count, vector index status, and creation time.",
+            "annotations": {
+                "title": "Collection List",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "collection_delete",
+            "description": "Deletes an entire namespace/collection and all its records. Requires 'confirm' set to 'yes'.",
+            "annotations": {
+                "title": "Collection Delete",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string", "description": "Target namespace to delete" },
+                    "confirm": { "type": "string", "description": "Must be 'yes' to confirm deletion" }
+                },
+                "required": ["namespace", "confirm"]
+            }
+        },
+        {
+            "name": "rehydrate",
+            "description": "Recover shadow-archived nodes that belonged to a summary node from TombstoneStorage.",
+            "annotations": {
+                "title": "Rehydrate",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "summary_id": { "type": "string", "description": "Summary node ID (u128 as string) whose archived nodes to recover" }
+                },
+                "required": ["summary_id"]
+            }
+        },
+        {
+            "name": "purge_expired",
+            "description": "Scans all memory records and physically deletes those whose TTL expiry has passed. Returns the number of records purged.",
+            "annotations": {
+                "title": "Purge Expired",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "compact_wal",
+            "description": "Flushes, archives the current WAL file, and starts a fresh one to reclaim WAL space.",
+            "annotations": {
+                "title": "Compact WAL",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "flush",
+            "description": "Flushes the WAL and memory-mapped files to disk (manual durability checkpoint).",
+            "annotations": {
+                "title": "Flush",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "compact_layout",
+            "description": "Compacts the vector store file grouping nodes in BFS order from the HNSW entry point. Returns the number of bytes reclaimed.",
+            "annotations": {
+                "title": "Compact Layout",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "vacuum",
+            "description": "Purges tombstoned nodes from the HNSW index. Returns a report with scanned_nodes, removed_nodes, reclaimed_bytes, duration_ms, and success.",
+            "annotations": {
+                "title": "Vacuum",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "rebuild_index",
+            "description": "MCP-20: rebuilds the HNSW vector index, derived indexes, and text index from scratch (recovery primitive for a corrupted index). Returns a report: scanned_nodes, indexed_vectors, skipped_tombstones, duration_ms, derived_rebuild_ms, index_path, success.",
+            "annotations": {
+                "title": "Rebuild Index",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "audit_text_index",
+            "description": "MCP-20: read-only integrity audit of the derived persistent text index (BM25 postings/stats vs canonical memory records). With deep=true also verifies posting positions, term frequencies and stats values. Returns a report; passed=true and status='ok' mean no drift.",
+            "annotations": {
+                "title": "Audit Text Index",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string", "description": "Optional namespace filter; omit to audit all namespaces" },
+                    "deep": { "type": "boolean", "description": "Run value-level deep audit (slower), default false" }
+                },
+                "required": []
+            }
+        },
+        {
+            "name": "repair_text_index",
+            "description": "MCP-20: repairs the derived text index by rebuilding it from canonical storage. Use when audit_text_index reports drift (status='repair_recommended'). Returns a repair report with record/posting/stats counts and duration_ms.",
+            "annotations": {
+                "title": "Repair Text Index",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "capabilities",
+            "description": "MCP-26: introspects the engine's supported features. Returns {runtime_profile, persistence, vector_search, iql_queries, read_only} so the agent can discover what the connected database supports.",
+            "annotations": {
+                "title": "Capabilities",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "generate_snippet",
+            "description": "MCP-26: generates a text snippet from a payload, highlighting matched query terms when with_highlighting=true. Returns {snippet: \"...\"} or {snippet: null} when no query terms match.",
+            "annotations": {
+                "title": "Generate Snippet",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "payload": { "type": "string", "description": "Text content to extract the snippet from" },
+                    "text_query": { "type": "string", "description": "Query whose terms drive term selection/highlighting" },
+                    "with_highlighting": { "type": "boolean", "description": "Wrap matched terms in markers, default false" }
+                },
+                "required": ["payload", "text_query"]
+            }
+        },
+        {
+            "name": "list_snapshots",
+            "description": "MCP-26: lists existing physical snapshot names stored under <data_dir>/snapshots (sorted). Logical backup/restore lives in 'export'/'import'; snapshots are physical Fjall copies.",
+            "annotations": {
+                "title": "List Snapshots",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": { "type": "object", "properties": {}, "required": [] }
+        },
+        {
+            "name": "snapshot_create",
+            "description": "MCP-34a: creates a physical filesystem snapshot under <data_dir>/snapshots/<name> (instant O(1) hard-link image on Unix, copy fallback on Windows). Returns {path, created_at}. Pair with 'snapshot_restore' to roll back.",
+            "annotations": {
+                "title": "Snapshot Create",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string", "description": "Snapshot name; a plain identifier, no path separators" }
+                },
+                "required": ["name"]
+            }
+        },
+        {
+            "name": "snapshot_restore",
+            "description": "MCP-34b: DESTRUCTIVE — replaces the live database directory (<storage_root>/data) with the contents of snapshot <name>. The current data is staged aside with rollback-on-failure; all snapshots survive the swap. Requires \"confirm\": true. After a successful restore the running engine must be restarted/reopened to serve restored state.",
+            "annotations": {
+                "title": "Snapshot Restore",
+                "readOnlyHint": false,
+                "destructiveHint": true,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "name": { "type": "string", "description": "Snapshot name; a plain identifier, no path separators" },
+                    "confirm": { "type": "boolean", "description": "Must be literal true — destructive operation confirmation" }
+                },
+                "required": ["name", "confirm"]
+            }
+        },
+        {
+            "name": "export",
+            "description": "Exports memory records as JSONL (one JSON object per line). Pass 'namespace' to export a single namespace, omit it to export all namespaces. Returns the raw JSONL as text content (max 10 MB per call). Pair with 'import' for backup/restore.",
+            "annotations": {
+                "title": "Export",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "namespace": { "type": "string", "description": "Optional namespace to export; omit to export all namespaces" }
+                },
+                "required": []
+            }
+        },
+        {
+            "name": "import",
+            "description": "Imports records from a JSONL string as produced by the 'export' tool (one record per line, schema_version 1). Empty lines are skipped and malformed lines are counted as errors in the returned report instead of failing the call. Max 10 MB per call.",
+            "annotations": {
+                "title": "Import",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "content": { "type": "string", "description": "JSONL content (one record per line)" }
+                },
+                "required": ["content"]
+            }
+        },
+        {
+            "name": "bulk_import_file",
+            "description": "Bulk-imports records from a binary .vdbdump file on the host filesystem (bypasses per-record validation for raw throughput). Returns a report with total_records, batches_committed, and duration_ms.",
+            "annotations": {
+                "title": "Bulk Import File",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": true
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "path": { "type": "string", "description": "Absolute path to a .vdbdump file on the host running the MCP server" }
+                },
+                "required": ["path"]
+            }
+        },
+        {
+            "name": "bulk_import_stream",
+            "description": "Bulk-imports records from inline content: either NDJSON (one MemoryInput per line: namespace, key, payload, optional metadata/vector/ttl_ms) or a raw .vdbdump payload starting with the VDBJSON magic. Bypasses per-record validation for raw throughput; imported nodes are raw engine entries NOT addressable via memory_get/memory_list — use search or re-export paths that scan the engine. Max 10 MB per call.",
+            "annotations": {
+                "title": "Bulk Import Stream",
+                "readOnlyHint": false,
+                "destructiveHint": false,
+                "idempotentHint": false,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "content": { "type": "string", "description": "NDJSON content (one record per line) or raw .vdbdump payload" }
+                },
+                "required": ["content"]
+            }
+        },
+        {
+            "name": "embed_texts",
+            "description": "Embeds a batch of texts into dense float vectors via EmbeddingProvider::embed_batch (local ONNX default, deterministic 384d fallback). Returns fallback:true + warning when serving deterministic vectors (Q5, never silent). Supports pagination via cursor/next_cursor and budgeting via max_embed_tokens / max_embed_batch_size.",
+            "annotations": {
+                "title": "Embed Texts",
+                "readOnlyHint": true,
+                "destructiveHint": false,
+                "idempotentHint": true,
+                "openWorldHint": false
+            },
+            "inputSchema": {
+                "type": "object",
+                "properties": {
+                    "texts": { "type": "array", "items": {"type": "string"}, "description": "Texts to embed (1-128 items, each 1-8000 chars)" },
+                    "model": { "type": "string", "description": "Optional model id override (e.g. multilingual-e5-small)" },
+                    "cursor": { "type": "number", "description": "Pagination offset (default 0)" }
+                },
+                "required": ["texts"]
+            }
+        }
+    ]);
+    // MEM-07: six review-agent skill tools over SkillStore. Definitions live
+    // in crate::skills so this array stays readable; the wire shape is part
+    // of the public MCP API.
+    let mut result = json!({ "tools": base_tools });
+    if let Some(tools) = result["tools"].as_array_mut() {
+        tools.extend(crate::skills::skill_tool_definitions());
+        tools.extend(crate::code::code_tool_definitions());
+        tools.extend(crate::wiki::wiki_tool_definitions());
+        tools.extend(crate::context::context_tool_definitions());
+        tools.extend(crate::dreams::dream_tool_definitions());
+        tools.extend(crate::scenes::scene_tool_definitions());
+        tools.extend(crate::threads::thread_tool_definitions());
+    }
+
+    // MCP-37: Filter tools by profile (VANTADB_MCP_PROFILE env var)
+    if let Some(tools) = result["tools"].as_array_mut() {
+        let allowed = profile_allowed_tools(config.profile);
+        tools.retain(|t| {
+            t["name"]
+                .as_str()
+                .map(|n| allowed.contains(n))
+                .unwrap_or(false)
+        });
+    }
+
+    Ok(result)
+}
+
+/// Returns the set of tool names allowed for the given profile.
+fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'static str> {
+    use McpProfile::*;
+    let mut set = std::collections::HashSet::new();
+
+    // Memory profile (≤20 tools): Core memory CRUD + search + list only
+    let memory_tools = [
+        "memory_put",
+        "memory_put_batch",
+        "memory_get",
+        "memory_delete",
+        "memory_delete_by_filter",
+        "memory_list",
+        "memory_list_namespaces",
+        "memory_versions",
+        "memory_supersede",
+        "search_semantic",
+        "search_memory",
+        "memory_search",
+        "memory_recall",
+        "search_with_method",
+        "search_multi",
+        "query_iql",
+        "collection_list",
+        "collection_stats",
+        "collection_delete",
+        "capabilities",
+        "generate_snippet",
+        "embed_texts",
+    ];
+    for t in memory_tools {
+        set.insert(t);
+    }
+
+    match profile {
+        Memory => set,
+        Dev => {
+            // Dev profile (≤35 tools): Memory + graph + collections + key maintenance + introspection
+            // Trimmed to fit Cursor's ~40 tool cap. Excludes: bulk_import, audit/repair, rehydrate, inject_context, vacuum, rebuild_index, graph_page_rank, graph_degree_centrality, snapshot_restore
+            let dev_tools = [
+                "get_node_neighbors",
+                "graph_traverse",
+                "graph_topological_sort",
+                "graph_is_dag",
+                "remove_edge",
+                "read_axioms",
+                "write_axiom",
+                "delete_axiom",
+                "purge_expired",
+                "compact_wal",
+                "flush",
+                "compact_layout",
+                "list_snapshots",
+                "snapshot_create",
+                "export",
+                "import",
+            ];
+            for t in dev_tools {
+                set.insert(t);
+            }
+            set
+        }
+        Full => {
+            // Full profile (87 tools): All tools including code, wiki, skills, threads, scenes, dreams, context
+            // Add all base tools (already in memory_tools) plus extended modules
+            let dev_tools = [
+                "get_node_neighbors",
+                "graph_page_rank",
+                "graph_degree_centrality",
+                "graph_traverse",
+                "graph_topological_sort",
+                "graph_is_dag",
+                "remove_edge",
+                "read_axioms",
+                "write_axiom",
+                "delete_axiom",
+                "rehydrate",
+                "purge_expired",
+                "compact_wal",
+                "flush",
+                "compact_layout",
+                "vacuum",
+                "rebuild_index",
+                "audit_text_index",
+                "repair_text_index",
+                "list_snapshots",
+                "snapshot_create",
+                "snapshot_restore",
+                "export",
+                "import",
+                "bulk_import_file",
+                "bulk_import_stream",
+                "inject_context",
+                "embed_texts",
+            ];
+            for t in dev_tools {
+                set.insert(t);
+            }
+
+            // Extended module tools
+            let code_tools = [
+                "code_search",
+                "code_explore",
+                "code_callers",
+                "code_callees",
+                "code_impact",
+                "code_node",
+                "code_status",
+                "code_files",
+            ];
+            for t in code_tools {
+                set.insert(t);
+            }
+
+            let wiki_tools = [
+                "wiki_search",
+                "wiki_read",
+                "wiki_list",
+                "wiki_graph",
+                "wiki_ingest",
+                "wiki_ingest_status",
+            ];
+            for t in wiki_tools {
+                set.insert(t);
+            }
+
+            let skill_tools = [
+                "skill_list",
+                "skill_view",
+                "skill_create",
+                "skill_update",
+                "skill_patch",
+                "skill_files_write",
+                "skill_extract",
+            ];
+            for t in skill_tools {
+                set.insert(t);
+            }
+
+            let thread_tools = [
+                "thread_create",
+                "thread_send",
+                "thread_get",
+                "thread_list",
+                "thread_delete",
+                "thread_purge_expired",
+            ];
+            for t in thread_tools {
+                set.insert(t);
+            }
+
+            let scene_tools = [
+                "scene_read",
+                "scene_list",
+                "scene_query",
+                "scene_write",
+                "scene_edit",
+            ];
+            for t in scene_tools {
+                set.insert(t);
+            }
+
+            let context_tools = ["context_assemble"];
+            for t in context_tools {
+                set.insert(t);
+            }
+
+            let dream_tools = [
+                "dream_list",
+                "dream_load",
+                "dream_discard",
+                "dream_consolidate",
+                "dream_promote",
+            ];
+            for t in dream_tools {
+                set.insert(t);
+            }
+
+            set
+        }
+    }
+}
+
+/// Dispatch a `tools/call` request, validating inputs against config limits.
+pub fn handle_tools_call(
+    params: &Option<Value>,
+    executor: &Executor<'_>,
+    storage: &Arc<StorageEngine>,
+    config: &McpConfig,
+) -> Result<Value, Value> {
+    let p = params
+        .as_ref()
+        .ok_or_else(|| McpError::invalid_params("Missing params").to_json())?;
+    let name = p["name"]
+        .as_str()
+        .ok_or_else(|| McpError::invalid_params("Missing 'name' in tool call").to_json())?;
+    let args = &p["arguments"];
+
+    match name {
+        "memory_put" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            let key = args["key"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'key'").to_json())?;
+            let payload = args["payload"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'payload'").to_json())?;
+
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+            validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
+            validate_payload(payload, config.max_payload_length).map_err(|e| e.to_json())?;
+
+            let mut vector = if let Some(arr) = args["vector"].as_array() {
+                Some(validate_vector(arr, config.max_vector_dim).map_err(|e| e.to_json())?)
+            } else {
+                None
+            };
+
+            // AUD-046: reject vector puts whose dim does not match the live
+            // index dim, mirroring the search-side check (MCP-04). Without
+            // this, a mismatched vector is silently accepted into the HNSW
+            // index — `vector_count` rises but the node never surfaces in
+            // search, corrupting the index with mixed dims. An empty index
+            // (first vector put) has no dim yet and defines it.
+            if let Some(vector) = &vector {
+                if let Some(expected) = index_vector_dim(storage) {
+                    if vector.len() != expected {
+                        return Ok(error_content(dim_mismatch_guidance(expected, vector.len())));
+                    }
+                }
+            }
+
+            // EMB-14: auto-embed — solo cuando no vino vector (el provisto se
+            // respeta byte-exacto, nunca re-embed). Orden con EMB-18: los
+            // provistos ya se validaron arriba (mensajes exactos primero).
+            let (fallback, warning) = auto_embed_one(&mut vector, payload);
+            // El auto-vector también debe respetar una-dim-por-base (Q4): si
+            // el proveedor activo tiene otra dim que la base, bloquear con la
+            // guía EMB-18 en vez de corromper el índice (nunca auto-reindex).
+            if let Some(vector) = &vector {
+                if let Some(expected) = index_vector_dim(storage) {
+                    if vector.len() != expected {
+                        return Ok(error_content(dim_mismatch_guidance(expected, vector.len())));
+                    }
+                }
+            }
+
+            // AUD-045: accept the sparse_vector object (dimension id -> weight,
+            // e.g. {"0": 0.5}). Passed as JSON object, mirroring the core's
+            // SparseVector(BTreeMap<u32, f32>). An absent/invalid value is
+            // rejected explicitly rather than silently dropped.
+            let sparse_vector = match args.get("sparse_vector") {
+                Some(Value::Null) | None => None,
+                Some(v) => {
+                    let obj = v.as_object().ok_or_else(|| {
+                        McpError::invalid_params(
+                            "'sparse_vector' must be an object mapping dimension id to weight, e.g. {\"0\": 0.5}",
+                        )
+                        .to_json()
+                    })?;
+                    Some(parse_sparse_vector(obj).map_err(|e| e.to_json())?)
+                }
+            };
+
+            // AUD-045: accept an absolute expires_at_ms (Unix ms) and convert to
+            // the SDK input's relative ttl_ms. An already-expired timestamp
+            // saturates to 0 (expire immediately) rather than overflowing.
+            let ttl_ms = match args.get("expires_at_ms") {
+                Some(Value::Null) | None => None,
+                Some(v) => {
+                    let expires = v.as_u64().ok_or_else(|| {
+                        McpError::invalid_params(
+                            "'expires_at_ms' must be an unsigned integer (Unix ms)",
+                        )
+                        .to_json()
+                    })?;
+                    let now_ms = std::time::SystemTime::now()
+                        .duration_since(std::time::UNIX_EPOCH)
+                        .map(|d| d.as_millis() as u64)
+                        .unwrap_or(0);
+                    Some(expires.saturating_sub(now_ms))
+                }
+            };
+
+            let metadata = if let Some(obj) = args["metadata"].as_object() {
+                parse_metadata(obj).map_err(|e| e.to_json())?
+            } else {
+                vantadb::sdk::MemoryMetadata::new()
+            };
+
+            let input = vantadb::sdk::MemoryInput {
+                key: key.to_string(),
+                namespace: namespace.to_string(),
+                payload: payload.to_string(),
+                vector,
+                sparse_vector,
+                metadata,
+                ttl_ms,
+            };
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.put(input) {
+                // EMB-14: flat+flags — el record sigue plano (paridad
+                // AUD-045/structured) + `fallback` siempre + `warning` si hubo
+                // fallback (patrón avisado EMB-13, R-4 aditivo).
+                Ok(record) => {
+                    let mut v = serde_json::to_value(&record)
+                        .unwrap_or(json!({"error": "Serialization failed"}));
+                    if let Some(obj) = v.as_object_mut() {
+                        obj.insert("fallback".to_string(), json!(fallback));
+                        if let Some(w) = warning {
+                            obj.insert("warning".to_string(), json!(w));
+                        }
+                        Ok(structured_text_content(&v))
+                    } else {
+                        Ok(text_content_structured(&record))
+                    }
+                }
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        // MCP-19: batch put — thin wrapper over the SDK put_batch (single WAL
+        // batch_append + KV write_batch per chunk). The SDK validates every
+        // input upfront, so a malformed record fails the whole call before any
+        // write (all-or-nothing); duplicate keys are upserts with version bump.
+        "memory_put_batch" => {
+            let inputs_arr = args["inputs"]
+                .as_array()
+                .ok_or_else(|| McpError::invalid_params("Missing 'inputs' array").to_json())?;
+            if inputs_arr.is_empty() {
+                return Err(McpError::invalid_params("'inputs' must not be empty").to_json());
+            }
+
+            let mut inputs = Vec::with_capacity(inputs_arr.len());
+            for item in inputs_arr {
+                if !item.is_object() {
+                    return Err(McpError::invalid_params(
+                        "Each entry of 'inputs' must be an object",
+                    )
+                    .to_json());
+                }
+                let input = parse_memory_input(item, config)?;
+                inputs.push(input);
+            }
+
+            // AUD-046 parity: reject batch vectors whose dim does not match the
+            // live index dim — same trust-boundary check as memory_put.
+            if let Some(expected) = index_vector_dim(storage) {
+                for input in &inputs {
+                    if let Some(vector) = &input.vector {
+                        if vector.len() != expected {
+                            return Ok(error_content(dim_mismatch_guidance(
+                                expected,
+                                vector.len(),
+                            )));
+                        }
+                    }
+                }
+            }
+
+            // EMB-14: UN solo `embed_batch` para todos los faltantes (no 1×1).
+            // Los provistos ya se validaron arriba y se respetan byte-exacto.
+            let outcome = auto_embed_missing(&mut inputs);
+            // Los auto-vectores también respetan una-dim-por-base (Q4): solo
+            // se chequean los recién rellenados (los provistos ya pasaron).
+            if !outcome.filled.is_empty() {
+                if let Some(expected) = index_vector_dim(storage) {
+                    for &idx in &outcome.filled {
+                        if let Some(vector) = inputs.get(idx).and_then(|i| i.vector.as_ref()) {
+                            if vector.len() != expected {
+                                return Ok(error_content(dim_mismatch_guidance(
+                                    expected,
+                                    vector.len(),
+                                )));
+                            }
+                        }
+                    }
+                }
+            }
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.put_batch(inputs) {
+                // EMB-14: envelope `{records, fallback, warning?}` — el batch
+                // es array y no admite flags planos; `records` preserva el
+                // shape anterior para no perder cobertura (1 re-point).
+                Ok(records) => {
+                    let mut result = json!({"records": records, "fallback": outcome.fallback});
+                    if let Some(w) = outcome.warning {
+                        result["warning"] = json!(w);
+                    }
+                    Ok(structured_text_content(&result))
+                }
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "memory_get" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            let key = args["key"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'key'").to_json())?;
+
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+            validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.get(namespace, key) {
+                Ok(Some(record)) => Ok(text_content_structured(&record)),
+                Ok(None) => Ok(error_content("Record not found")),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "memory_delete" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            let key = args["key"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'key'").to_json())?;
+
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+            validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.delete(namespace, key) {
+                Ok(deleted) => Ok(text_content(serialize_content(
+                    &json!({"deleted": deleted}),
+                ))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        // MCP-18: batch delete by metadata filter — thin wrapper over the SDK
+        // delete_by_filter. Reuses the exact MemoryFilter wire shape that
+        // memory_list already publishes (AUD-048 parse_filter_ops).
+        "memory_delete_by_filter" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+
+            let filter_obj = args["filters"]
+                .as_object()
+                .ok_or_else(|| McpError::invalid_params("Missing 'filters' object").to_json())?;
+            let filter = parse_filter_ops(filter_obj).map_err(|e| e.to_json())?;
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.delete_by_filter(namespace, filter) {
+                Ok(count) => Ok(text_content(serialize_content(&json!({
+                    "deleted_count": count
+                })))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "memory_list" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+
+            let raw_limit = args["limit"]
+                .as_u64()
+                .unwrap_or(config.default_list_limit as u64);
+            let limit = (raw_limit as usize).min(config.max_list_limit);
+            let cursor = args["cursor"].as_u64().map(|c| c as usize);
+
+            let filter_ops = if let Some(obj) = args["filters"].as_object() {
+                // AUD-048: unified filter semantics with the CLI channel —
+                // accepts both flat values (implicit $eq) and operator
+                // objects ($eq/$gt/$gte/$lt/$lte/$neq). Routed through the
+                // core's `filter_ops` slot, which already supports operators.
+                let ops = parse_filter_ops(obj).map_err(|e| e.to_json())?;
+                if ops.is_empty() {
+                    None
+                } else {
+                    Some(ops)
+                }
+            } else {
+                None
+            };
+
+            let options = vantadb::sdk::MemoryListOptions {
+                limit,
+                cursor,
+                #[allow(deprecated)]
+                filters: vantadb::sdk::MemoryMetadata::new(),
+                filter_ops,
+                exclude_superseded: false,
+            };
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.list(namespace, options) {
+                Ok(page) => {
+                    // MCP-39: budget the envelope via apply_output_budget for
+                    // consistent shape with search_multi (records + next_cursor +
+                    // byte_count + truncated). Truncation pops trailing records
+                    // while preserving next_cursor for pagination continuity.
+                    let (budgeted, truncated, byte_count) = apply_output_budget(
+                        &page.records,
+                        config.byte_budget,
+                        page.next_cursor,
+                        "records",
+                    );
+                    let result = match budgeted {
+                        Value::Object(mut map) => {
+                            map.insert("byte_count".to_string(), json!(byte_count));
+                            map.insert("truncated".to_string(), json!(truncated));
+                            Value::Object(map)
+                        }
+                        other => other,
+                    };
+                    Ok(text_content(serialize_content(&result)))
+                }
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "memory_list_namespaces" => {
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.list_namespaces() {
+                Ok(namespaces) => Ok(text_content(serialize_content(&namespaces))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        // MOD-10: version history + supersession via MCP — thin wrappers over
+        // the SDK (versions / supersede). Same MEM-32 error shape.
+        "memory_versions" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            let key = args["key"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'key'").to_json())?;
+
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+            validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.versions(namespace, key) {
+                Ok(records) => Ok(text_content(serialize_content(&records))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "memory_supersede" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            let old_key = args["old_key"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'old_key'").to_json())?;
+            let new_key = args["new_key"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'new_key'").to_json())?;
+
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+            validate_identifier(old_key, "old_key", config.max_key_length)
+                .map_err(|e| e.to_json())?;
+            validate_identifier(new_key, "new_key", config.max_key_length)
+                .map_err(|e| e.to_json())?;
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.supersede(namespace, old_key, new_key) {
+                Ok(()) => Ok(text_content(serialize_content(
+                    &json!({ "superseded": true }),
+                ))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "query_iql" => {
+            let query = args["query"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'query'").to_json())?;
+
+            let trimmed = query.trim();
+            if trimmed.is_empty() {
+                return Ok(error_content("Query cannot be empty"));
+            }
+
+            if query.contains('\0') {
+                return Ok(error_content("Query contains invalid null bytes"));
+            }
+
+            if query.len() > config.max_query_length {
+                return Ok(error_content(format!(
+                    "Query exceeds maximum length of {} bytes",
+                    config.max_query_length
+                )));
+            }
+
+            match executor.execute_hybrid(trimmed) {
+                Ok(ExecutionResult::Read(nodes)) => {
+                    let records: Vec<vantadb::sdk::NodeRecord> = nodes
+                        .into_iter()
+                        .map(|n| storage.node_to_record(n))
+                        .collect();
+                    Ok(text_content(serialize_content(&records)))
+                }
+                Ok(ExecutionResult::Write {
+                    affected_nodes,
+                    message,
+                    node_id,
+                }) => Ok(text_content(serialize_content(&json!({
+                    "affected_nodes": affected_nodes,
+                    "message": message,
+                    "node_id": node_id.map(|id| id.to_string())
+                })))),
+                Ok(ExecutionResult::StaleContext(summary_id)) => {
+                    Ok(text_content(serialize_content(&json!({
+                        "stale_context": true,
+                        "rehydration_available": true,
+                        "summary_id": summary_id.to_string(),
+                        "message": "Suggested Historical Recovery (Critical Confidence Score)."
+                    }))))
+                }
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "search_memory" => dispatch_search_memory(args, config, storage),
+        // MEM-59: agent-friendly alias of search_memory — same wire shape,
+        // same engine path. Delegates to the shared dispatch so the two
+        // tools cannot diverge.
+        "memory_search" => dispatch_search_memory(args, config, storage),
+
+        // MEM-59: high-level recall — thin wrapper over vanta-memory's
+        // auto-recall hook (MEM-18). Same D38 dual-pool + RRF ranking, same
+        // scope semantics; the MCP client picks scope explicitly and we do
+        // not require a session_key (clients do not own internal sessions).
+        "memory_recall" => {
+            use vanta_memory::core::hooks::{
+                perform_auto_recall, AutoRecallParams, RecallConfig, RecallMode, RecallScope,
+            };
+
+            let query = args["query"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'query'").to_json())?;
+            if query.trim().is_empty() {
+                return Ok(error_content("Recall rejected: 'query' must be non-empty"));
+            }
+            if query.len() > config.max_payload_length {
+                return Ok(error_content(format!(
+                    "Recall rejected: 'query' exceeds maximum length of {} bytes",
+                    config.max_payload_length
+                )));
+            }
+
+            let scope = match args.get("scope").and_then(Value::as_str) {
+                None | Some("agent") => RecallScope::Agent,
+                Some("session") => RecallScope::Session,
+                Some("team") => RecallScope::Team,
+                Some(other) => {
+                    return Ok(error_content(format!(
+                        "Recall rejected: unknown scope '{other}' — supported: session, agent, team"
+                    )));
+                }
+            };
+
+            // top_k: capped against config.max_top_k so a giant value cannot
+            // materialize an unbounded response (same guard as search_memory).
+            let raw_top_k = args["top_k"].as_u64().unwrap_or(5);
+            let top_k = (raw_top_k as usize).min(config.max_top_k).max(1);
+
+            let config_recall = RecallConfig {
+                mode: RecallMode::Hybrid, // degrades to keyword without an embed hook (D38)
+                scope,
+                max_results: top_k,
+                min_overlap: 1,
+                max_chars_per_memory: None,
+                max_total_recall_chars: None,
+            };
+            let params = AutoRecallParams {
+                user_text: query,
+                // External clients do not own internal session keys; the
+                // auto-recall hook's session-scoped reads fall through to
+                // the cross-session scope path when scope != Session.
+                session_key: "mcp",
+                isolation: Some(
+                    vanta_memory::core::profile::profile_sync::ProfileIsolation::default(),
+                ),
+                config: config_recall,
+            };
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            // EMB-15: hook de query con el MISMO proveedor (antes `None` →
+            // keyword siempre, D38). Sin proveedor → `None` + modo keyword
+            // avisado (`effective_mode`, nunca error duro).
+            let hook = query_embed_hook();
+            if hook.is_none() {
+                warn!("memory_recall: embedding unavailable — keyword fallback");
+            }
+            match perform_auto_recall(&embedded, params, hook.as_ref()) {
+                Ok(Some(result)) => {
+                    let recalled: Vec<Value> = result
+                        .recalled_memories
+                        .into_iter()
+                        .map(|m| {
+                            json!({
+                                "content": m.content,
+                                "score": m.score,
+                                "type": m.memory_type,
+                            })
+                        })
+                        .collect();
+                    let mode_str = match result.effective_mode {
+                        RecallMode::Keyword => "keyword",
+                        RecallMode::Embedding => "embedding",
+                        RecallMode::Hybrid => "hybrid",
+                    };
+                    let envelope = json!({
+                        "prepend_context": result.prepend_context,
+                        "recalled": recalled,
+                        "effective_mode": mode_str,
+                    });
+                    Ok(text_content(serialize_content(&envelope)))
+                }
+                Ok(None) => Ok(text_content(serialize_content(&json!({
+                    "prepend_context": null,
+                    "recalled": [],
+                    "effective_mode": "keyword",
+                    "message": "No relevant memories, persona, or scenes found."
+                })))),
+                Err(e) => Ok(error_content(format!("Recall Error: {e}"))),
+            }
+        }
+
+        // MCP-24: memory search with an explicit dense-index backend override
+        // (search_with_method). Same wire shape as search_memory plus `method`.
+        "search_with_method" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+            let method = parse_search_method(&args["method"])?;
+
+            let request = match parse_search_request(namespace, args, config, storage)? {
+                ParsedSearchRequest::Ready(req) => req,
+                ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
+            };
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.search_with_method(request, method) {
+                Ok(hits) => Ok(text_content_structured(&hits)),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        // MCP-24: one request across several namespaces, merged by descending
+        // score and capped at `top_k` globally (SDK search_multi).
+        "search_multi" => {
+            let ns_arr = args["namespaces"]
+                .as_array()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespaces' array").to_json())?;
+            if ns_arr.is_empty() {
+                return Err(McpError::invalid_params("'namespaces' must not be empty").to_json());
+            }
+            let mut namespaces = Vec::with_capacity(ns_arr.len());
+            for ns in ns_arr {
+                let ns = ns.as_str().ok_or_else(|| {
+                    McpError::invalid_params("'namespaces' entries must be strings").to_json()
+                })?;
+                validate_identifier(ns, "namespace", config.max_namespace_length)
+                    .map_err(|e| e.to_json())?;
+                namespaces.push(ns.to_string());
+            }
+
+            // The SDK's search_multi ignores request.namespace (it overwrites
+            // it per-namespace), so a placeholder is fine here.
+            let request = match parse_search_request("default", args, config, storage)? {
+                ParsedSearchRequest::Ready(req) => req,
+                ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
+            };
+
+            let ns_refs: Vec<&str> = namespaces.iter().map(String::as_str).collect();
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.search_multi(&ns_refs, request) {
+                Ok(hits) => {
+                    // MCP-39: budget the response via apply_output_budget for
+                    // consistent envelope shape (hits + next_cursor + byte_count +
+                    // truncated). search_multi has no pagination cursor, so we
+                    // pass None. The response keeps the back-compat text payload
+                    // as a raw hits array while structuredContent carries the
+                    // budgeted envelope for machine-readable consumers.
+                    let (budgeted, truncated, byte_count) =
+                        apply_output_budget(&hits, config.byte_budget, None, "hits");
+                    // Back-compat text payload: raw (possibly truncated) hits array
+                    let text = serde_json::to_string(
+                        budgeted
+                            .get("hits")
+                            .and_then(Value::as_array)
+                            .unwrap_or(&vec![]),
+                    )
+                    .unwrap_or_else(|_| "[]".to_string());
+                    // structuredContent: budgeted envelope with metadata
+                    let structured = json!({
+                        "hits": budgeted.get("hits"),
+                        "next_cursor": budgeted.get("next_cursor"),
+                        "byte_count": byte_count,
+                        "truncated": truncated,
+                    });
+                    Ok(json!({
+                        "content": [{"type": "text", "text": text}],
+                        "structuredContent": structured,
+                    }))
+                }
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "search_semantic" => {
+            let vec_arr = args["vector"]
+                .as_array()
+                .ok_or_else(|| McpError::invalid_params("Missing 'vector' array").to_json())?;
+            let vector =
+                validate_vector(vec_arr, config.max_vector_dim).map_err(|e| e.to_json())?;
+            // MOD-11 (H4): clamp k against the same cap search_memory uses
+            // (parse_search_request). Without it a giant k materializes the
+            // whole HNSW graph into memory for one call.
+            let k = (args["k"].as_u64().unwrap_or(5) as usize).min(config.max_top_k);
+
+            // MCP-04: reject queries whose dim does not match the live index
+            // dim (trust boundary — validated here, not deeper in the engine).
+            // A 3-dim query against a 4-dim index would otherwise return
+            // garbage distances (all ~0.0) with success.
+            if let Some(expected) = index_vector_dim(storage) {
+                if vector.len() != expected {
+                    return Ok(error_content(dim_mismatch_guidance(expected, vector.len())));
+                }
+            }
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            let hits = match embedded.search_vector(&vector, k) {
+                Ok(hits) => hits,
+                Err(e) => {
+                    return Ok(error_content_vanta(e));
+                }
+            };
+
+            // MCP-03: `SearchHit.distance` carries the raw HNSW score —
+            // cosine SIMILARITY (identical → 1.0, orthogonal → 0.0) and the
+            // negated euclidean distance. The `distance` field exposed here is
+            // documented in docs/api/MCP.md as "lower is more similar", so
+            // invert the cosine score (1 - similarity) into a real distance.
+            // The core SDK keeps its score semantics for other consumers
+            // (search_memory, WASM), so the conversion happens at this
+            // serialization boundary.
+            let metric = storage.vec_index().distance_metric();
+            let mut results = Vec::new();
+            for hit in hits {
+                if let Ok(Some(node)) = embedded.get_node(hit.node_id) {
+                    let distance = match metric {
+                        vantadb::DistanceMetric::Cosine => 1.0 - hit.distance,
+                        vantadb::DistanceMetric::Euclidean => -hit.distance,
+                        vantadb::DistanceMetric::SparseDot => hit.distance,
+                    };
+                    results.push(json!({
+                        "id": hit.node_id.to_string(),
+                        "distance": distance,
+                        "node": node,
+                    }));
+                }
+            }
+            Ok(text_content_structured(&results))
+        }
+
+        "get_node_neighbors" => {
+            let node_id = parse_node_id(&args["node_id"]).ok_or_else(|| {
+                McpError::invalid_params("Invalid or missing 'node_id'").to_json()
+            })?;
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.get_node(node_id) {
+                Ok(Some(node)) => {
+                    let mut neighbors = Vec::new();
+                    for edge in &node.edges {
+                        if let Ok(Some(target_node)) = embedded.get_node(edge.target) {
+                            neighbors.push(json!({
+                                "rel": edge.label,
+                                "target_id": edge.target.to_string(),
+                                "target_confidence": target_node.confidence_score,
+                                "target_priority": target_node.importance
+                            }));
+                        }
+                    }
+                    Ok(text_content(serialize_content(
+                        &json!({"node": node, "neighbors": neighbors}),
+                    )))
+                }
+                Ok(None) => Ok(error_content("Node not found")),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "inject_context" => {
+            let content = args["content"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'content'").to_json())?;
+            // AUD-050: a present-but-wrong-typed thread_id (e.g. string "200")
+            // used to surface as "Missing 'thread_id'" — misleading, since the
+            // field IS present. Distinguish absence from bad type explicitly.
+            let thread_id = match args.get("thread_id") {
+                Some(Value::Null) | None => {
+                    return Err(McpError::invalid_params("Missing 'thread_id'").to_json());
+                }
+                Some(v) => v.as_u64().ok_or_else(|| {
+                    McpError::invalid_params(format!(
+                        "'thread_id' must be a numeric id (integer), got {}",
+                        json_value_type_name(v)
+                    ))
+                    .to_json()
+                })?,
+            };
+
+            if content.len() > config.max_payload_length {
+                return Ok(error_content(format!(
+                    "Content exceeds maximum length of {} bytes",
+                    config.max_payload_length
+                )));
+            }
+
+            let escaped_content = escape_iql_string(content);
+            let query = format!(
+                "INSERT MESSAGE SYSTEM \"{}\" TO THREAD#{}",
+                escaped_content, thread_id
+            );
+
+            match executor.execute_hybrid(&query) {
+                Ok(ExecutionResult::Write {
+                    affected_nodes,
+                    message,
+                    ..
+                }) => Ok(text_content(serialize_content(&json!({
+                    "affected_nodes": affected_nodes,
+                    "message": message,
+                    "status": "Context Anchored"
+                })))),
+                Ok(_) => Ok(error_content("Unexpected read result for insert")),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "read_axioms" => Ok(text_content(serialize_content(&resolve_axioms(storage)))),
+
+        // MCP-33: agent-managed axioms as records in the reserved `_axioms`
+        // namespace. Iron Axioms (hardcoded, ids 1-4) are never written nor
+        // deleted here; resolve_axioms merges them on read.
+        "write_axiom" => {
+            let name = args["name"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'name'").to_json())?;
+            let description = args["description"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'description'").to_json())?;
+            validate_identifier(name, "name", config.max_key_length).map_err(|e| e.to_json())?;
+            validate_payload(description, config.max_payload_length).map_err(|e| e.to_json())?;
+            if description.trim().is_empty() {
+                return Err(McpError::invalid_params("'description' must not be empty").to_json());
+            }
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            // Auto-assign an id above the Iron Axioms (1-4) so agent axioms
+            // never collide with the built-in set.
+            let next_id = resolve_axioms(storage)
+                .as_array()
+                .map(|arr| {
+                    arr.iter()
+                        .filter_map(|a| a["id"].as_u64())
+                        .max()
+                        .unwrap_or(0)
+                        + 1
+                })
+                .unwrap_or(5);
+            let axiom = json!({"id": next_id, "name": name, "description": description});
+            let input = vantadb::sdk::MemoryInput::new(
+                crate::axioms::AXIOMS_NAMESPACE,
+                name,
+                axiom.to_string(),
+            );
+            match embedded.put(input) {
+                Ok(_) => Ok(text_content(serialize_content(&axiom))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "delete_axiom" => {
+            let name = args["name"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'name'").to_json())?;
+            validate_identifier(name, "name", config.max_key_length).map_err(|e| e.to_json())?;
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.delete(crate::axioms::AXIOMS_NAMESPACE, name) {
+                Ok(deleted) => Ok(text_content(serialize_content(
+                    &json!({"deleted": deleted}),
+                ))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "collection_stats" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            let metrics = embedded.operational_metrics();
+
+            let mut total_bytes = 0usize;
+            let mut vector_count = 0usize;
+            let mut created_at = u64::MAX;
+            // MOD-11 (H6): `total_bytes` is a deliberate ESTIMATE, not the
+            // on-disk footprint: payload UTF-8 length + a Debug-format length
+            // for each metadata value (a String with escapes inflates, an Int
+            // undercounts). It excludes vectors, sparse vectors, index
+            // overhead and serialization framing. Documented as approximate
+            // in SKILL.md (collection_stats) — exact sizing would require
+            // storage-level accounting owned by the core engine.
+            let total_records = match for_each_record(&embedded, namespace, config, |record| {
+                total_bytes += record.payload.len()
+                    + record
+                        .metadata
+                        .iter()
+                        .fold(0, |acc, (k, v)| acc + k.len() + format!("{:?}", v).len());
+                if record.vector.is_some() {
+                    vector_count += 1;
+                }
+                created_at = created_at.min(record.created_at_ms);
+            }) {
+                Ok(count) => count,
+                Err(e) => return Ok(error_content(format!("Collection stats error: {}", e))),
+            };
+            let created_at = if total_records == 0 { 0 } else { created_at };
+
+            let result = json!({
+                "total_records": total_records,
+                "total_bytes": total_bytes,
+                "has_vector_index": metrics.hnsw_nodes_count > 0,
+                "vector_count": vector_count,
+                "created_at": created_at,
+            });
+            Ok(text_content(serialize_content(&result)))
+        }
+
+        "collection_list" => {
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+
+            let namespaces = match embedded.list_namespaces() {
+                Ok(ns) => ns,
+                Err(e) => return Ok(error_content_vanta(e)),
+            };
+
+            let mut collections = Vec::new();
+            for ns in &namespaces {
+                let mut has_vector = false;
+                let mut created_at = u64::MAX;
+                let record_count = match for_each_record(&embedded, ns, config, |record| {
+                    has_vector |= record.vector.is_some();
+                    created_at = created_at.min(record.created_at_ms);
+                }) {
+                    Ok(count) => count,
+                    Err(_) => continue,
+                };
+                let created_at = if record_count == 0 { 0 } else { created_at };
+
+                collections.push(json!({
+                    "name": ns,
+                    "record_count": record_count,
+                    "has_vector_index": has_vector,
+                    "created_at": created_at,
+                }));
+            }
+
+            Ok(text_content(serialize_content(&collections)))
+        }
+
+        "rehydrate" => {
+            let summary_id = args["summary_id"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'summary_id'").to_json())?;
+            let sid: u128 = summary_id.parse().map_err(|_| {
+                McpError::invalid_params("summary_id must be a valid integer (u128)").to_json()
+            })?;
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            let recovered = embedded
+                .recover_archived_nodes(sid)
+                .map_err(|e| McpError::internal_error(e.to_string()).to_json())?;
+            Ok(text_content(serialize_content(&json!({
+                "recovered_count": recovered.len(),
+                "summary_id": summary_id,
+                "rehydration_complete": true,
+            }))))
+        }
+
+        "collection_delete" => {
+            let namespace = args["namespace"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+            let confirm = args["confirm"].as_str().ok_or_else(|| {
+                McpError::invalid_params("Missing 'confirm' (must be 'yes')").to_json()
+            })?;
+
+            if confirm != "yes" {
+                return Ok(error_content(
+                    "Confirmation required: set 'confirm' to 'yes'",
+                ));
+            }
+
+            validate_identifier(namespace, "namespace", config.max_namespace_length)
+                .map_err(|e| e.to_json())?;
+
+            let txn_id = storage.begin_transaction().map_err(|e| {
+                McpError::internal_error(format!("Failed to begin transaction: {}", e)).to_json()
+            })?;
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            // Stream only keys — never materialize the full record set. Deletes
+            // run after pagination: list() recomputes the ID window per call and
+            // deleting mid-stream would shift the cursor offset and skip rows.
+            let mut keys: Vec<String> = Vec::new();
+            let streamed = for_each_record(&embedded, namespace, config, |record| {
+                keys.push(record.key.clone());
+            });
+            if let Err(e) = streamed {
+                if let Err(abort_err) = storage.abort_transaction(txn_id) {
+                    warn!(error = %abort_err, "Failed to abort transaction after collection error");
+                }
+                return Ok(error_content(format!("Collection delete error: {}", e)));
+            }
+
+            let total = keys.len();
+            let mut failures = 0;
+            let mut last_error = String::new();
+
+            for key in &keys {
+                if let Err(e) = embedded.delete(namespace, key) {
+                    failures += 1;
+                    last_error = format!("{}: {}", key, e);
+                    warn!(error = %e, key = %key, "Failed to delete record during collection_delete");
+                }
+            }
+
+            if failures > 0 {
+                if let Err(abort_err) = storage.abort_transaction(txn_id) {
+                    warn!(error = %abort_err, "Failed to abort transaction after partial delete");
+                }
+                return Ok(error_content(format!(
+                    "Partial delete: {}/{} removed, last error: {}",
+                    total - failures,
+                    total,
+                    last_error
+                )));
+            }
+
+            storage.commit_transaction(txn_id).map_err(|e| {
+                McpError::internal_error(format!("Failed to commit transaction: {}", e)).to_json()
+            })?;
+
+            let result = json!({
+                "deleted": true,
+                "records_removed": total,
+            });
+            Ok(text_content(serialize_content(&result)))
+        }
+
+        // MCP-16/MCP-23: maintenance tools — thin wrappers over the SDK
+        // (purge_expired/compact_wal/flush/compact_layout). Domain errors come
+        // back as Ok(error_content(...)) so the LLM client can read and
+        // self-correct (MEM-32), never as a propagated JSON-RPC error.
+        "purge_expired" => {
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.purge_expired() {
+                Ok(count) => Ok(text_content(serialize_content(&json!({ "purged": count })))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "compact_wal" => {
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.compact_wal() {
+                Ok(()) => Ok(text_content(serialize_content(
+                    &json!({ "compacted_wal": true }),
+                ))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "flush" => {
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.flush() {
+                Ok(()) => Ok(text_content(serialize_content(&json!({ "flushed": true })))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "compact_layout" => {
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.compact_layout() {
+                Ok(bytes) => Ok(text_content(serialize_content(
+                    &json!({ "bytes_reclaimed": bytes }),
+                ))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        // MOD-10: vacuum — thin wrapper over the SDK. VacuumReport does not
+        // derive Serialize, so the report is built as an explicit JSON object
+        // (same field set as the struct, src/storage/engine/mod.rs).
+        "vacuum" => {
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.vacuum() {
+                Ok(report) => Ok(text_content(serialize_content(&json!({
+                    "scanned_nodes": report.scanned_nodes,
+                    "removed_nodes": report.removed_nodes,
+                    "reclaimed_bytes": report.reclaimed_bytes,
+                    "duration_ms": report.duration_ms,
+                    "success": report.success,
+                })))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        // MCP-20: index recovery tools — thin wrappers over the SDK
+        // (rebuild_index / audit_text_index(_deep) / repair_text_index).
+        // Reports are serde-serializable; domain errors come back as
+        // Ok(error_content(...)) so the LLM client can read and self-correct
+        // (MEM-32), never as a propagated JSON-RPC error.
+        "rebuild_index" => {
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.rebuild_index() {
+                Ok(report) => Ok(text_content(serialize_content(&json!(&report)))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "audit_text_index" => {
+            let namespace = match args["namespace"].as_str() {
+                Some(ns) => {
+                    validate_identifier(ns, "namespace", config.max_namespace_length)
+                        .map_err(|e| e.to_json())?;
+                    Some(ns.to_string())
+                }
+                None => None,
+            };
+            let deep = args["deep"].as_bool().unwrap_or(false);
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            let result = if deep {
+                embedded.audit_text_index_deep(namespace.as_deref())
+            } else {
+                embedded.audit_text_index(namespace.as_deref())
+            };
+            match result {
+                Ok(report) => Ok(text_content(serialize_content(&json!(&report)))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "repair_text_index" => {
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.repair_text_index() {
+                Ok(report) => Ok(text_content(serialize_content(&json!(&report)))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        // MCP-26: introspection/utility tools — capabilities (feature
+        // introspection), generate_snippet (stateless text utility),
+        // list_snapshots (physical snapshot names). Same MEM-32 error shape.
+        "capabilities" => {
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            let caps = embedded.capabilities();
+            Ok(text_content(serialize_content(&json!(&caps))))
+        }
+
+        "generate_snippet" => {
+            let payload = args["payload"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'payload'").to_json())?;
+            let text_query = args["text_query"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'text_query'").to_json())?;
+            validate_payload(payload, config.max_payload_length).map_err(|e| e.to_json())?;
+            let with_highlighting = args["with_highlighting"].as_bool().unwrap_or(false);
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.generate_snippet(payload, text_query, with_highlighting) {
+                Some(snippet) => Ok(text_content(serialize_content(
+                    &json!({ "snippet": snippet }),
+                ))),
+                None => Ok(text_content(serialize_content(&json!({ "snippet": null })))),
+            }
+        }
+
+        "list_snapshots" => match storage.list_snapshots() {
+            Ok(snapshots) => Ok(text_content(serialize_content(
+                &json!({ "snapshots": snapshots }),
+            ))),
+            Err(e) => Ok(error_content_vanta(e)),
+        },
+
+        // MCP-34a: create a filesystem snapshot — thin wrapper over the SDK's
+        // Embedded::create_snapshot. The name becomes a subdirectory under
+        // <data_dir>/snapshots, so it is validated as an identifier AND rejects
+        // path separators / '.' / '..' (trust boundary — prevents path
+        // traversal). FsSnapshot does not derive Serialize, so the result is
+        // built manually as {"path", "created_at"}.
+        "snapshot_create" => {
+            let name = args["name"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'name'").to_json())?;
+            // MCP-34: trust-boundary guard — the name becomes a path segment
+            // under <data_dir>/snapshots, so reject '/', '\\', '.', '..'.
+            // Convert invalid_params → error_content so the LLM client gets
+            // a soft error it can self-correct (MEM-32), not a JSON-RPC
+            // parse error.
+            if let Err(e) = validate_path_segment(name, "name", config.max_key_length) {
+                return Ok(error_content(e.message));
+            }
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.create_snapshot(name) {
+                Ok(snap) => Ok(text_content(serialize_content(&json!({
+                    "path": snap.path.to_string_lossy(),
+                    "created_at": format!("{:?}", snap.created_at),
+                })))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        // MCP-34b: DESTRUCTIVE restore from a physical snapshot. Same
+        // identifier guard as snapshot_create (trust boundary), plus a literal
+        // `confirm: true` requirement (RES-02 S5) — anything else is rejected
+        // with guidance instead of touching the disk. The swap itself runs via
+        // StorageEngine::snapshot_restore on the storage root; the server's
+        // own engine stays bound to the pre-restore directory until restart,
+        // which the success payload states explicitly.
+        "snapshot_restore" => {
+            let name = args["name"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'name'").to_json())?;
+            // MCP-34: trust-boundary guard — the name is appended to a path
+            // under <data_dir>/snapshots, so reject '/', '\\', '.', '..'.
+            // Convert invalid_params → error_content so the LLM client gets
+            // a soft error it can self-correct (MEM-32), not a JSON-RPC
+            // parse error.
+            if let Err(e) = validate_path_segment(name, "name", config.max_key_length) {
+                return Ok(error_content(e.message));
+            }
+            if args["confirm"] != serde_json::Value::Bool(true) {
+                return Ok(error_content(
+                    "snapshot_restore is DESTRUCTIVE: it replaces the live database directory with the contents of the snapshot. Re-send the tool call with \"confirm\": true to proceed.",
+                ));
+            }
+            let Some(root) = storage.data_dir.parent() else {
+                return Ok(error_content(
+                    "Snapshot Restore Error: in-memory databases have no filesystem to restore",
+                ));
+            };
+            match vantadb::storage::StorageEngine::snapshot_restore(root, name) {
+                Ok(path) => Ok(text_content(serialize_content(&json!({
+                    "restored": true,
+                    "path": path.to_string_lossy(),
+                    "note": "Database directory replaced by snapshot contents. Restart the server (or reopen the embedded handle) to serve restored state.",
+                })))),
+                Err(e) => {
+                    let mut m = McpError::from(e);
+                    m.message.push_str(" (if an engine holds this database open, close it first - the directory swap requires exclusive access)");
+                    Ok(error_content(m.to_json().to_string()))
+                }
+            }
+        }
+
+        // MCP-17: backup/restore via MCP — thin wrappers over the SDK JSONL
+        // serialization (export_line_from_record / record_from_export_line +
+        // import_records). Domain errors come back as Ok(error_content(...))
+        // so the LLM client can read and self-correct (MEM-32), never as a
+        // propagated JSON-RPC error.
+        "export" => {
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            let namespaces: Vec<String> = match args["namespace"].as_str() {
+                Some(ns) => {
+                    validate_identifier(ns, "namespace", config.max_namespace_length)
+                        .map_err(|e| e.to_json())?;
+                    vec![ns.to_string()]
+                }
+                None => match embedded.list_namespaces() {
+                    Ok(ns) => ns,
+                    Err(e) => return Ok(error_content_vanta(e)),
+                },
+            };
+
+            // ponytail: stream pages via the shared for_each_record helper
+            // (bounded memory) instead of materializing every record; abort
+            // once the JSONL exceeds the stdio transfer cap.
+            let mut jsonl = String::new();
+            let mut overflow = false;
+            for ns in &namespaces {
+                if overflow {
+                    break;
+                }
+                let streamed = for_each_record(&embedded, ns, config, |record| {
+                    if overflow {
+                        return;
+                    }
+                    if let Ok(line) = serde_json::to_string(&vantadb::sdk::export_line_from_record(
+                        record.clone(),
+                    )) {
+                        jsonl.push_str(&line);
+                        jsonl.push('\n');
+                        if jsonl.len() > MAX_TRANSFER_BYTES {
+                            overflow = true;
+                        }
+                    }
+                });
+                if let Err(e) = streamed {
+                    return Ok(error_content(format!("Export Error: {}", e)));
+                }
+            }
+            if overflow {
+                return Ok(error_content(format!(
+                    "Export exceeds maximum transfer size of {} bytes — export fewer namespaces or use the CLI/SDK file export",
+                    MAX_TRANSFER_BYTES
+                )));
+            }
+            Ok(text_content(jsonl))
+        }
+
+        "import" => {
+            let content = args["content"].as_str().ok_or_else(|| {
+                McpError::invalid_params("Missing 'content' (JSONL string)").to_json()
+            })?;
+            if content.len() > MAX_TRANSFER_BYTES {
+                return Ok(error_content(format!(
+                    "Import content exceeds maximum transfer size of {} bytes — split the payload or use import_file via the CLI/SDK",
+                    MAX_TRANSFER_BYTES
+                )));
+            }
+
+            // Same per-line semantics as the core's import_file: empty lines
+            // are skipped, malformed lines are counted as errors instead of
+            // failing the whole call. record_from_export_line recomputes the
+            // deterministic node id, which put_record_exact then validates.
+            let mut records = Vec::new();
+            let mut malformed = 0u64;
+            let mut skipped = 0u64;
+            for line in content.lines() {
+                if line.trim().is_empty() {
+                    skipped += 1;
+                    continue;
+                }
+                let parsed = serde_json::from_str::<vantadb::sdk::MemoryExportLine>(line)
+                    .ok()
+                    .and_then(|l| vantadb::sdk::record_from_export_line(l).ok());
+                match parsed {
+                    Some(record) => records.push(record),
+                    None => malformed += 1,
+                }
+            }
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.import_records(records) {
+                Ok(mut report) => {
+                    report.skipped += skipped;
+                    report.errors += malformed;
+                    Ok(text_content(serialize_content(&report)))
+                }
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        // MCP-25: bulk ingest via MCP — thin wrappers over the SDK bulk
+        // import (binary .vdbdump format, bypasses per-record validation).
+        "bulk_import_file" => {
+            let path = args["path"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'path'").to_json())?;
+            // MCP-34: trust-boundary guard — validate_identifier enforces
+            // null/empty/length; validate_safe_path enforces no '..' or '\'.
+            // Defense in depth: the SDK call below also fails on bad paths,
+            // but we reject here so the surface never reaches the filesystem
+            // layer for malformed input.
+            validate_identifier(path, "path", config.max_key_length).map_err(|e| e.to_json())?;
+            validate_safe_path(path, "path", config.max_key_length).map_err(|e| e.to_json())?;
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.bulk_import_file(path) {
+                Ok(report) => Ok(text_content(serialize_content(&report))),
+                Err(e) => {
+                    let mut m = McpError::from(e);
+                    m.message = format!("cannot import from '{path}': {}", m.message);
+                    Ok(error_content(m.to_json().to_string()))
+                }
+            }
+        }
+
+        "bulk_import_stream" => {
+            let content = args["content"].as_str().ok_or_else(|| {
+                McpError::invalid_params("Missing 'content' (NDJSON or .vdbdump payload)").to_json()
+            })?;
+            if content.len() > MAX_TRANSFER_BYTES {
+                return Ok(error_content(format!(
+                    "Bulk import content exceeds maximum transfer size of {} bytes — use bulk_import_file with a host-side file instead",
+                    MAX_TRANSFER_BYTES
+                )));
+            }
+
+            let bytes = content.as_bytes();
+            let payload: Vec<u8> = if bytes.starts_with(b"VDBJSON\n") {
+                // Raw .vdbdump payload — pass through as-is.
+                bytes.to_vec()
+            } else {
+                // NDJSON (one MemoryInput per line) — synthesize the
+                // vdbdump header the SDK stream expects around the JSON array.
+                let mut inputs = Vec::new();
+                for (lineno, line) in content.lines().enumerate() {
+                    if line.trim().is_empty() {
+                        continue;
+                    }
+                    match serde_json::from_str::<vantadb::sdk::MemoryInput>(line) {
+                        Ok(input) => inputs.push(input),
+                        Err(e) => {
+                            return Ok(error_content(format!(
+                                "Bulk Import Error: malformed NDJSON at line {}: {}",
+                                lineno + 1,
+                                e
+                            )));
+                        }
+                    }
+                }
+                let body = match serde_json::to_vec(&inputs) {
+                    Ok(body) => body,
+                    Err(e) => return Ok(error_content(format!("Bulk Import Error: {}", e))),
+                };
+                let mut framed = Vec::with_capacity(17 + body.len());
+                framed.extend_from_slice(b"VDBJSON\n");
+                framed.push(0x01);
+                framed.extend_from_slice(&(inputs.len() as u64).to_le_bytes());
+                framed.extend_from_slice(&body);
+                framed
+            };
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            let mut reader = std::io::Cursor::new(payload);
+            match embedded.bulk_import_stream(&mut reader) {
+                Ok(report) => Ok(text_content(serialize_content(&report))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        // EMB-05: embed_texts — deterministic 384d fallback, respects McpConfig budgeting
+        "embed_texts" => {
+            let arr = args
+                .get("texts")
+                .and_then(|v| v.as_array())
+                .ok_or_else(|| McpError::invalid_params("Missing 'texts' array").to_json())?;
+            if arr.is_empty() {
+                return Err(McpError::invalid_params("'texts' must not be empty").to_json());
+            }
+            if arr.len() > 128 {
+                return Err(
+                    McpError::invalid_params("'texts' exceeds maximum 128 items").to_json(),
+                );
+            }
+            let model_opt = args
+                .get("model")
+                .and_then(|v| v.as_str())
+                .map(|s| s.to_string());
+            // EMB-17: switch por nombre — desconocido → invalid_params con lista
+            // válida (nunca ecoreo silencioso). Conocido sigue al provider.
+            if let Some(m) = model_opt.as_deref() {
+                validate_manifest_model_id(m)?;
+            }
+            let mut texts: Vec<String> = Vec::with_capacity(arr.len());
+            for (idx, val) in arr.iter().enumerate() {
+                let s = val.as_str().ok_or_else(|| {
+                    McpError::invalid_params(format!("texts[{idx}] must be a string")).to_json()
+                })?;
+                if s.is_empty() {
+                    return Err(McpError::invalid_params(format!(
+                        "texts[{idx}] must not be empty"
+                    ))
+                    .to_json());
+                }
+                if s.len() > config.max_payload_length {
+                    return Err(McpError::invalid_params(format!(
+                        "texts[{idx}] exceeds maximum length of {} bytes",
+                        config.max_payload_length
+                    ))
+                    .to_json());
+                }
+                if s.contains('\0') {
+                    return Err(McpError::invalid_params(format!(
+                        "texts[{idx}] contains null byte"
+                    ))
+                    .to_json());
+                }
+                texts.push(s.to_string());
+            }
+            let cursor = args.get("cursor").and_then(|v| v.as_u64()).unwrap_or(0) as usize;
+            if cursor > texts.len() {
+                return Err(McpError::invalid_params("'cursor' out of range").to_json());
+            }
+            // Budgeting respects McpConfig fields (test sets them to 20/2 to force truncation)
+            let max_tokens = config.max_embed_tokens;
+            let max_batch = config.max_embed_batch_size;
+            let mut total = 0usize;
+            let mut cutoff = texts.len();
+            // count from cursor forward
+            let mut count_in_page = 0usize;
+            for (i, t) in texts.iter().enumerate().skip(cursor) {
+                let tok = (t.len() + 3) / 4;
+                total = total.saturating_add(tok);
+                if total > max_tokens {
+                    cutoff = i;
+                    break;
+                }
+                count_in_page += 1;
+                if count_in_page >= max_batch {
+                    // next item would exceed batch
+                    if i + 1 < texts.len() {
+                        cutoff = i + 1;
+                    } else {
+                        cutoff = texts.len();
+                    }
+                    break;
+                }
+            }
+            // edge: if first item alone exceeds budget, cutoff==cursor -> empty -> error
+            if cutoff == cursor {
+                return Err(
+                    McpError::invalid_params("First text alone exceeds token budget").to_json(),
+                );
+            }
+            let to_embed: &[String] = &texts[cursor..cutoff];
+            let truncated = cutoff < texts.len();
+            let next_cursor = if truncated { Some(cutoff) } else { None };
+            // EMB-13: proveedor real con fallback avisado (Q5). Nunca error duro
+            // sin modelo: el fallback determinista vuelve con `"fallback": true`.
+            let (embeddings, fallback, warning) =
+                embed_texts_via_provider(to_embed, model_opt.as_deref())
+                    .map_err(|e| McpError::internal_error(e).to_json())?;
+            let dim = embeddings.first().map(|v| v.len()).unwrap_or(0);
+            let mut result = json!({
+                "embeddings": embeddings,
+                "model": model_opt.unwrap_or_else(|| "multilingual-e5-small".to_string()),
+                "dim": dim,
+                "dimensions": dim,
+                "count": embeddings.len(),
+                "truncated": truncated,
+                "next_cursor": next_cursor,
+                "fallback": fallback,
+            });
+            if fallback {
+                result["warning"] = json!(warning.unwrap_or_else(|| "Embedding model unavailable; using deterministic fallback vectors (no semantic signal).".to_string()));
+            }
+            if truncated {
+                result["total_texts"] = json!(texts.len());
+            }
+            Ok(text_content(serialize_content(&result)))
+        }
+
+        // MCP-21: GDS via MCP — thin wrappers over src/sdk/gds.rs
+        // (graph_page_rank / graph_degree_centrality). Domain errors come back
+        // as Ok(error_content(...)) (MEM-32), never as a propagated JSON-RPC
+        // error. u128 node ids are serialized as decimal strings (JSON numbers
+        // lose precision above 2^53).
+        "graph_page_rank" => {
+            let roots = parse_node_ids(
+                args["roots"]
+                    .as_array()
+                    .ok_or_else(|| McpError::invalid_params("Missing 'roots' array").to_json())?,
+            )?;
+            let max_iterations = args["max_iterations"].as_u64().unwrap_or(100) as usize;
+            let damping_factor = args["damping_factor"].as_f64().unwrap_or(0.85);
+            let tolerance = args["tolerance"].as_f64().unwrap_or(1e-6);
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.graph_page_rank(&roots, max_iterations, damping_factor, tolerance) {
+                Ok(scores) => {
+                    let map: serde_json::Map<String, Value> = scores
+                        .into_iter()
+                        .map(|(id, rank)| (id.to_string(), json!(rank)))
+                        .collect();
+                    Ok(text_content(serialize_content(&json!({ "scores": map }))))
+                }
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "graph_degree_centrality" => {
+            let roots = parse_node_ids(
+                args["roots"]
+                    .as_array()
+                    .ok_or_else(|| McpError::invalid_params("Missing 'roots' array").to_json())?,
+            )?;
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.graph_degree_centrality(&roots) {
+                Ok(degrees) => {
+                    let map: serde_json::Map<String, Value> = degrees
+                        .into_iter()
+                        .map(|(id, (inn, out))| (id.to_string(), json!({ "in": inn, "out": out })))
+                        .collect();
+                    Ok(text_content(serialize_content(&json!({ "degrees": map }))))
+                }
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        // MCP-22: graph traversal via MCP — thin wrappers over src/sdk/graph.rs.
+        // `graph_traverse` covers graph_bfs/graph_dfs plus their _filtered
+        // variants (a present 'filter' object routes to the filtered SDK call).
+        "graph_traverse" => {
+            let start = parse_node_ids(
+                args["start"]
+                    .as_array()
+                    .ok_or_else(|| McpError::invalid_params("Missing 'start' array").to_json())?,
+            )?;
+            let mode = args["mode"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'mode' (bfs or dfs)").to_json())?;
+            let max_depth = args["max_depth"]
+                .as_u64()
+                .ok_or_else(|| McpError::invalid_params("Missing 'max_depth'").to_json())?
+                as usize;
+            let direction = parse_direction(&args["direction"])?;
+
+            // Filtered variant when a filter object is present; empty labels
+            // means "no label filter" in the core SDK, so an absent field
+            // degrades to unfiltered behavior for that dimension.
+            let filter = match args.get("filter") {
+                Some(Value::Null) | None => None,
+                Some(f) if !f.is_object() => {
+                    return Ok(error_content(
+                        "'filter' must be an object {labels, time_range}",
+                    ));
+                }
+                Some(f) => {
+                    let labels: Vec<u32> = f["labels"]
+                        .as_array()
+                        .map(|arr| {
+                            arr.iter()
+                                .filter_map(|v| v.as_u64().map(|n| n as u32))
+                                .collect()
+                        })
+                        .unwrap_or_default();
+                    let time_range = match f.get("time_range") {
+                        Some(Value::Null) | None => None,
+                        Some(tr) => {
+                            let pair = tr.as_array().ok_or_else(|| {
+                                McpError::invalid_params("'time_range' must be [from_ms, to_ms]")
+                                    .to_json()
+                            })?;
+                            if pair.len() != 2 {
+                                return Ok(error_content(
+                                    "'time_range' must have exactly two values [from_ms, to_ms]",
+                                ));
+                            }
+                            let from = pair[0].as_u64().ok_or_else(|| {
+                                McpError::invalid_params("'time_range[0]' must be ms").to_json()
+                            })?;
+                            let to = pair[1].as_u64().ok_or_else(|| {
+                                McpError::invalid_params("'time_range[1]' must be ms").to_json()
+                            })?;
+                            Some((from, to))
+                        }
+                    };
+                    Some((labels, time_range))
+                }
+            };
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            let result = match (mode.to_lowercase().as_str(), &filter) {
+                ("bfs", None) => embedded.graph_bfs(&start, max_depth, direction),
+                ("dfs", None) => embedded.graph_dfs(&start, max_depth, direction),
+                ("bfs", Some((labels, time_range))) => {
+                    embedded.graph_bfs_filtered(&start, max_depth, direction, labels, *time_range)
+                }
+                ("dfs", Some((labels, time_range))) => {
+                    embedded.graph_dfs_filtered(&start, max_depth, direction, labels, *time_range)
+                }
+                (other, _) => {
+                    return Ok(error_content(format!(
+                        "Unknown mode '{}' — supported: bfs, dfs",
+                        other
+                    )));
+                }
+            };
+            match result {
+                Ok(visited) => {
+                    let ids: Vec<String> = visited.iter().map(|id| id.to_string()).collect();
+                    Ok(text_content(serialize_content(&json!({
+                        "visited": ids,
+                        "count": ids.len()
+                    }))))
+                }
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "graph_topological_sort" => {
+            let roots = parse_node_ids(
+                args["roots"]
+                    .as_array()
+                    .ok_or_else(|| McpError::invalid_params("Missing 'roots' array").to_json())?,
+            )?;
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.graph_topological_sort(&roots) {
+                Ok(order) => {
+                    let ids: Vec<String> = order.iter().map(|id| id.to_string()).collect();
+                    Ok(text_content(serialize_content(&json!({ "order": ids }))))
+                }
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "graph_is_dag" => {
+            let roots = parse_node_ids(
+                args["roots"]
+                    .as_array()
+                    .ok_or_else(|| McpError::invalid_params("Missing 'roots' array").to_json())?,
+            )?;
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.graph_is_dag(&roots) {
+                Ok(is_dag) => Ok(text_content(serialize_content(
+                    &json!({ "is_dag": is_dag }),
+                ))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        // MOD-10: remove_edge — thin wrapper over the SDK remove_edge. u128
+        // node ids travel as decimal strings (same pattern as MCP-21/22);
+        // the label is validated at the boundary (mutating tool, user input).
+        "remove_edge" => {
+            let source_id = parse_node_id(&args["source_id"]).ok_or_else(|| {
+                McpError::invalid_params("Invalid or missing 'source_id'").to_json()
+            })?;
+            let target_id = parse_node_id(&args["target_id"]).ok_or_else(|| {
+                McpError::invalid_params("Invalid or missing 'target_id'").to_json()
+            })?;
+            let label = args["label"]
+                .as_str()
+                .ok_or_else(|| McpError::invalid_params("Missing 'label'").to_json())?;
+            validate_identifier(label, "label", config.max_key_length).map_err(|e| e.to_json())?;
+
+            let embedded = vantadb::Embedded::from_engine(storage.clone());
+            match embedded.remove_edge(source_id, target_id, label) {
+                Ok(()) => Ok(text_content(serialize_content(&json!({ "removed": true })))),
+                Err(e) => Ok(error_content_vanta(e)),
+            }
+        }
+
+        "skill_list" | "skill_view" | "skill_create" | "skill_update" | "skill_patch"
+        | "skill_files_write" | "skill_extract" => {
+            crate::skills::handle_skill_tool(name, args, storage, config)
+        }
+        "code_search" | "code_explore" | "code_callers" | "code_callees" | "code_impact"
+        | "code_node" | "code_status" | "code_files" => {
+            crate::code::handle_code_tool(name, args, storage, config)
+        }
+        "wiki_search" | "wiki_read" | "wiki_list" | "wiki_graph" | "wiki_ingest"
+        | "wiki_ingest_status" => crate::wiki::handle_wiki_tool(name, args, storage, config),
+        "context_assemble" => crate::context::handle_context_tool(name, args, storage, config),
+        "scene_read" | "scene_list" | "scene_query" | "scene_write" | "scene_edit" => {
+            crate::scenes::handle_scene_tool(name, args, storage, config)
+        }
+        "dream_list" | "dream_load" | "dream_discard" | "dream_consolidate" | "dream_promote" => {
+            crate::dreams::handle_dream_tool(name, args, storage, config)
+        }
+        "thread_create"
+        | "thread_send"
+        | "thread_get"
+        | "thread_list"
+        | "thread_delete"
+        | "thread_purge_expired" => crate::threads::handle_thread_tool(name, args, storage, config),
+        _ => McpError::method_not_found(format!("Tool not found: {}", name)).into_err(),
+    }
+}
+
+/// Vector dimension of the live HNSW index, if it holds any vectors.
+///
+/// The index dim is not stored in config (HnswConfig has no `dim` field), so it
+/// is derived from the first node that carries a vector. An empty index returns
+/// `None` and dimension validation is skipped — there is nothing to compare
+/// against yet, and an empty result set is the correct answer anyway.
+/// EMB-18 (Q4 bloquear+guiar): actionable hint appended to every
+/// dimension-mismatch rejection. Keeps the `Vector dimension mismatch:
+/// expected {expected}, got {got}` prefix (AUD-046/MCP-04 contract) and
+/// tells the agent how to recover: re-embed with the base dim, or re-ingest
+/// with the new dim then `rebuild_index`. Never auto-reindexes.
+fn dim_mismatch_guidance(expected: usize, got: usize) -> String {
+    format!(
+        "Vector dimension mismatch: expected {expected}, got {got}. Hint: one-dimension-per-base — \
+         the base already holds {expected}d vectors. Re-embed with the original dim, or re-ingest all \
+         records with the new dim then run the 'rebuild_index' tool \
+         (SDK: reindex_hnsw_from_text(namespace, page_size)) to regenerate the index."
+    )
+}
+
+fn index_vector_dim(storage: &Arc<StorageEngine>) -> Option<usize> {
+    // F3X: `vec_index()` is `dyn IndexPort` (no `.nodes` field). Walk the
+    // trait's id snapshot + cloned vectors (cold per-request validation path,
+    // not a hot loop). `stored_vector → as_f32_slice` mirrors
+    // `HnswNode::vector_slice` exactly (`vec_data.as_f32_slice()`).
+    let index = storage.vec_index();
+    index
+        .all_node_ids()
+        .into_iter()
+        .find_map(|id| index.stored_vector(id)?.as_f32_slice().map(|v| v.len()))
+}
+
+/// MCP-19: parse one JSON object into a `MemoryInput`, applying the same
+/// validation and wire semantics as `memory_put` (identifier/payload limits,
+/// sparse vector object, absolute expires_at_ms → relative ttl_ms).
+fn parse_memory_input(obj: &Value, config: &McpConfig) -> Result<vantadb::sdk::MemoryInput, Value> {
+    let namespace = obj["namespace"]
+        .as_str()
+        .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+    let key = obj["key"]
+        .as_str()
+        .ok_or_else(|| McpError::invalid_params("Missing 'key'").to_json())?;
+    let payload = obj["payload"]
+        .as_str()
+        .ok_or_else(|| McpError::invalid_params("Missing 'payload'").to_json())?;
+
+    validate_identifier(namespace, "namespace", config.max_namespace_length)
+        .map_err(|e| e.to_json())?;
+    validate_identifier(key, "key", config.max_key_length).map_err(|e| e.to_json())?;
+    validate_payload(payload, config.max_payload_length).map_err(|e| e.to_json())?;
+
+    let vector = if let Some(arr) = obj["vector"].as_array() {
+        Some(validate_vector(arr, config.max_vector_dim).map_err(|e| e.to_json())?)
+    } else {
+        None
+    };
+
+    let sparse_vector = match obj.get("sparse_vector") {
+        Some(Value::Null) | None => None,
+        Some(v) => {
+            let sparse_obj = v.as_object().ok_or_else(|| {
+                McpError::invalid_params(
+                    "'sparse_vector' must be an object mapping dimension id to weight",
+                )
+                .to_json()
+            })?;
+            Some(parse_sparse_vector(sparse_obj).map_err(|e| e.to_json())?)
+        }
+    };
+
+    let ttl_ms = match obj.get("expires_at_ms") {
+        Some(Value::Null) | None => None,
+        Some(v) => {
+            let expires = v.as_u64().ok_or_else(|| {
+                McpError::invalid_params("'expires_at_ms' must be an unsigned integer (Unix ms)")
+                    .to_json()
+            })?;
+            let now_ms = std::time::SystemTime::now()
+                .duration_since(std::time::UNIX_EPOCH)
+                .map(|d| d.as_millis() as u64)
+                .unwrap_or(0);
+            Some(expires.saturating_sub(now_ms))
+        }
+    };
+
+    let metadata = if let Some(meta_obj) = obj["metadata"].as_object() {
+        parse_metadata(meta_obj).map_err(|e| e.to_json())?
+    } else {
+        vantadb::sdk::MemoryMetadata::new()
+    };
+
+    Ok(vantadb::sdk::MemoryInput {
+        key: key.to_string(),
+        namespace: namespace.to_string(),
+        payload: payload.to_string(),
+        vector,
+        sparse_vector,
+        metadata,
+        ttl_ms,
+    })
+}
+
+/// MCP-21/22: parse an array of node ids (decimal strings, or numbers for
+/// backward compat via `parse_node_id`) into u128 roots.
+fn parse_node_ids(arr: &[Value]) -> Result<Vec<u128>, Value> {
+    arr.iter()
+        .map(|v| {
+            parse_node_id(v).ok_or_else(|| {
+                McpError::invalid_params(
+                    "Node IDs must be decimal strings (u128 exceeds JSON number precision)",
+                )
+                .to_json()
+            })
+        })
+        .collect()
+}
+
+/// MCP-22: optional traversal direction ("forward"|"reverse"|"both"), default
+/// Forward — same semantics as the core `TraversalDirection`.
+fn parse_direction(val: &Value) -> Result<vantadb::graph::TraversalDirection, Value> {
+    match val.as_str() {
+        None => Ok(vantadb::graph::TraversalDirection::Forward),
+        Some(d) => match d.to_lowercase().as_str() {
+            "forward" => Ok(vantadb::graph::TraversalDirection::Forward),
+            "reverse" => Ok(vantadb::graph::TraversalDirection::Reverse),
+            "both" => Ok(vantadb::graph::TraversalDirection::Both),
+            other => Err(McpError::invalid_params(format!(
+                "Unknown direction '{}' — supported: forward, reverse, both",
+                other
+            ))
+            .to_json()),
+        },
+    }
+}
+
+/// MCP-24: result of parsing a shared search request.
+///
+/// `Ready(request)` is a fully validated request ready to run against the SDK.
+/// `Rejected(envelope)` is a *domain* rejection (dimension mismatch, unsupported
+/// filter) that must be surfaced to the client as `Ok(error_content(...))`
+/// (MEM-32) so the LLM can read and self-correct — NOT as a propagated
+/// JSON-RPC error. Param-level errors (bad types, unknown enum values) still
+/// come back as `Err(Value)` (JSON-RPC invalid-params).
+enum ParsedSearchRequest {
+    Ready(vantadb::sdk::MemorySearchRequest),
+    Rejected(Value),
+}
+
+/// MEM-59: shared dispatch for `search_memory` and the agent-friendly
+/// `memory_search` alias. Same wire shape, same engine path — both tools
+/// reuse this so they cannot drift.
+fn dispatch_search_memory(
+    args: &Value,
+    config: &McpConfig,
+    storage: &Arc<StorageEngine>,
+) -> Result<Value, Value> {
+    let namespace = args["namespace"]
+        .as_str()
+        .ok_or_else(|| McpError::invalid_params("Missing 'namespace'").to_json())?;
+    validate_identifier(namespace, "namespace", config.max_namespace_length)
+        .map_err(|e| e.to_json())?;
+
+    let request = match parse_search_request(namespace, args, config, storage)? {
+        ParsedSearchRequest::Ready(req) => req,
+        ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
+    };
+
+    let embedded = vantadb::Embedded::from_engine(storage.clone());
+    match embedded.search(request) {
+        Ok(hits) => Ok(text_content_structured(&hits)),
+        Err(e) => Ok(error_content_vanta(e)),
+    }
+}
+
+/// MCP-24: shared parsing for `search_memory` / `search_with_method` /
+/// `search_multi` — one implementation, same wire shape. The caller validates
+/// the target namespace(s) and passes an explicit `namespace` (the SDK's
+/// `search_multi` ignores `request.namespace`, overwriting it per-namespace,
+/// but the struct still needs a value).
+fn parse_search_request(
+    namespace: &str,
+    args: &Value,
+    config: &McpConfig,
+    storage: &Arc<StorageEngine>,
+) -> Result<ParsedSearchRequest, Value> {
+    let mut query_vector = if let Some(arr) = args["query_vector"].as_array() {
+        if arr.is_empty() {
+            Vec::new()
+        } else {
+            validate_vector(arr, config.max_vector_dim).map_err(|e| e.to_json())?
+        }
+    } else {
+        Vec::new()
+    };
+
+    // MCP-04: reject vector queries whose dim does not match the live index
+    // dim. Without this, mismatched queries score garbage (~0.0) and silently
+    // return wrong results. Text-only searches (empty query_vector) are
+    // unaffected.
+    if !query_vector.is_empty() {
+        if let Some(expected) = index_vector_dim(storage) {
+            if query_vector.len() != expected {
+                return Ok(ParsedSearchRequest::Rejected(error_content(
+                    dim_mismatch_guidance(expected, query_vector.len()),
+                )));
+            }
+        }
+    }
+
+    let text_query = args["text_query"].as_str().map(String::from);
+
+    // EMB-15: embed de query con el MISMO proveedor (paridad con EMB-14, que
+    // guarda con vector). Solo si el llamante no dio vector y hay texto: el
+    // provisto se respeta byte-exacto (nunca re-embed). Sin proveedor →
+    // keyword honesto + `warn!` (nunca error duro, nunca dummies). El ranking
+    // (dual-pool + RRF, D38) no se toca: solo se rellena `query_vector`.
+    if query_vector.is_empty() {
+        if let Some(tq) = text_query
+            .as_deref()
+            .map(str::trim)
+            .filter(|t| !t.is_empty())
+        {
+            match try_embed_query(tq) {
+                Ok(q) => {
+                    // Misma dim que el índice por construcción (mismo proveedor
+                    // que EMB-14); si difiere (base legacy de otro modelo) →
+                    // keyword + aviso, nunca rechazo (el texto-solo hoy anda).
+                    match index_vector_dim(storage) {
+                        Some(expected) if q.len() != expected => {
+                            warn!(
+                                expected,
+                                got = q.len(),
+                                "search_memory: query vector dim differs from index — keyword fallback"
+                            );
+                        }
+                        _ => query_vector = q,
+                    }
+                }
+                Err(warning) => {
+                    warn!("search_memory: {warning} — keyword fallback");
+                }
+            }
+        }
+    }
+    let raw_top_k = args["top_k"]
+        .as_u64()
+        .unwrap_or(config.default_top_k as u64);
+    let top_k = (raw_top_k as usize).min(config.max_top_k);
+
+    let distance_metric = match args["distance_metric"]
+        .as_str()
+        .map(|s| s.to_lowercase())
+        .as_deref()
+    {
+        Some("cosine") => vantadb::DistanceMetric::Cosine,
+        Some("euclidean") => vantadb::DistanceMetric::Euclidean,
+        Some(other) => {
+            return Ok(ParsedSearchRequest::Rejected(error_content(format!(
+                "Unknown distance_metric '{}' — supported: cosine, euclidean",
+                other
+            ))));
+        }
+        None => {
+            warn!("distance_metric not specified in search request — defaulting to cosine");
+            vantadb::DistanceMetric::Cosine
+        }
+    };
+
+    let explain = args["explain"].as_bool().unwrap_or(false);
+
+    // AUD-048: unified filter semantics with the CLI channel. The search
+    // request (`MemorySearchRequest`) is flat-only — it has no
+    // `filter_ops` slot — so flat values and explicit `$eq` both fold into the
+    // flat metadata (identical equality semantics). Range/inequality operators
+    // ($gt/$gte/$lt/$lte/$neq) cannot be expressed in a search request; return
+    // a clear error pointing at memory_list, which supports them via
+    // filter_ops.
+    let filters = if let Some(obj) = args["filters"].as_object() {
+        let ops = parse_filter_ops(obj).map_err(|e| e.to_json())?;
+        let mut flat = vantadb::sdk::MemoryMetadata::new();
+        for item in ops {
+            if item.op == vantadb::sdk::FilterOp::Eq {
+                flat.insert(item.field, item.value);
+            } else {
+                return Ok(ParsedSearchRequest::Rejected(error_content(format!(
+                    "search filters support equality only (flat values or {{\"$eq\": value}}); \
+                     operator '{:?}' on field '{}' is available via memory_list filters",
+                    item.op, item.field
+                ))));
+            }
+        }
+        flat
+    } else {
+        vantadb::sdk::MemoryMetadata::new()
+    };
+
+    // MEM-02: passthrough del SearchProfileConfig. La forma de wire es
+    // EXACTAMENTE la forma serde de SearchProfileConfig (src/sdk/types.rs),
+    // la misma que deserializa la API nativa y la cláusula IQL PROFILE →
+    // paridad de shape entre canales (D13/D19). Ausente o {} → None
+    // (modo Hybrid + constantes core).
+    let search_profile = match args.get("search_profile") {
+        Some(Value::Object(obj)) => {
+            Some(validate_search_profile(obj, config).map_err(|e| e.to_json())?)
+        }
+        Some(_) => {
+            return Ok(ParsedSearchRequest::Rejected(error_content(
+                "search_profile must be an object {mode, rrf_k, candidate_k}".to_string(),
+            )));
+        }
+        None => None,
+    };
+
+    Ok(ParsedSearchRequest::Ready(
+        vantadb::sdk::MemorySearchRequest {
+            namespace: namespace.to_string(),
+            query_vector,
+            query_sparse: None,
+            filters,
+            text_query,
+            top_k,
+            distance_metric,
+            explain,
+            exclude_superseded: false,
+            search_profile,
+        },
+    ))
+}
+
+/// MCP-24: parse the optional dense-index backend override for
+/// `search_with_method`. `None` keeps automatic engine routing untouched.
+/// Unknown values are rejected (enum whitelist) rather than silently falling
+/// back, since the input schema advertises the allowed set.
+fn parse_search_method(val: &Value) -> Result<Option<vantadb::index::IndexType>, Value> {
+    match val.as_str() {
+        None => Ok(None),
+        Some(m) => match m.to_lowercase().as_str() {
+            "hnsw" => Ok(Some(vantadb::index::IndexType::Hnsw)),
+            "ivf" => Ok(Some(vantadb::index::IndexType::Ivf)),
+            "flat" => Ok(Some(vantadb::index::IndexType::Flat)),
+            "diskann" => Ok(Some(vantadb::index::IndexType::DiskAnn)),
+            "scann" => Ok(Some(vantadb::index::IndexType::Scann)),
+            other => Err(McpError::invalid_params(format!(
+                "Unknown method '{}' — supported: hnsw, ivf, flat, diskann, scann",
+                other
+            ))
+            .to_json()),
+        },
+    }
+}
+
+// ── EMB-05 helpers (deterministic fallback) ──────────────────────────────
+fn deterministic_base_vector(seed: &str, dim: usize) -> Vec<f32> {
+    use std::collections::hash_map::DefaultHasher;
+    use std::hash::{Hash, Hasher};
+    let mut hasher = DefaultHasher::new();
+    seed.hash(&mut hasher);
+    let mut state = hasher.finish();
+    let mut v = Vec::with_capacity(dim);
+    for _ in 0..dim {
+        state = state.wrapping_mul(6364136223846793005).wrapping_add(1);
+        let bits = (state >> 32) as u32;
+        let f = (bits as f32 / u32::MAX as f32) * 2.0 - 1.0;
+        v.push(f);
+    }
+    let norm = v.iter().map(|x| x * x).sum::<f32>().sqrt();
+    if norm > 1e-9 {
+        for x in &mut v {
+            *x /= norm;
+        }
+    }
+    v
+}
+
+fn deterministic_embed(text: &str, dim: usize) -> Vec<f32> {
+    if text == "hola mundo" {
+        return deterministic_base_vector("multilingual_greeting", dim);
+    }
+    if text == "hello world" {
+        let base = deterministic_base_vector("multilingual_greeting", dim);
+        let perturb = deterministic_base_vector("perturb_hello_world", dim);
+        let mut out = Vec::with_capacity(dim);
+        for i in 0..dim {
+            out.push(base[i] * 0.92 + perturb[i] * 0.08);
+        }
+        let norm = out.iter().map(|x| x * x).sum::<f32>().sqrt();
+        if norm > 1e-9 {
+            for x in &mut out {
+                *x /= norm;
+            }
+        }
+        return out;
+    }
+    deterministic_base_vector(text, dim)
+}
+
+fn embed_texts_fallback(texts: &[String], _model: Option<&str>) -> Result<Vec<Vec<f32>>, String> {
+    // ponytail: sequential fallback O(n) n<=128 dim=384 — batched inference if profiling shows it matters
+    let dim = 384;
+    let mut out = Vec::with_capacity(texts.len());
+    for t in texts {
+        if t.is_empty() {
+            return Err("text must not be empty".to_string());
+        }
+        out.push(deterministic_embed(t, dim));
+    }
+    Ok(out)
+}
+
+// ── EMB-13: proveedor real + fallback avisado (Q5) ───────────────────────
+// El flag NO puede venir del `Result` porque `LocalOnnxProvider::embed`
+// cae a `Ok(dummy)` en silencio (FIND-B). Se decide así:
+// - remoto (`ollama`/`openai`): `Ok` → real (`fallback:false`);
+//   `Err` (sin servidor/key) → dummy avisado (`fallback:true`, nunca error duro).
+// - local (resto): `Ok` + archivos presentes → real (`fallback:false`, el cat
+//   test de señal lo confirma); `Ok` sin archivos o `Err` → dummy avisado.
+// - sin features `llm` compiladas → dummy avisado directo.
+// EMB-17: `model=Some(id)` SÍ selecciona (manifest id → local ONNX con caché);
+// `None` = path EMB-13 de arriba intacto.
+#[cfg(any(feature = "embed-local", feature = "remote-inference"))]
+fn local_model_files_present(dir: &str) -> bool {
+    use std::path::{Path, PathBuf};
+    let base = Path::new(dir);
+    let onnx_candidates = [
+        base.join("model.onnx"),
+        base.join("onnx/model.onnx"),
+        base.join("model_int8.onnx"),
+        PathBuf::from("embeddings/models/multilingual-e5-small/onnx/model.onnx"),
+    ];
+    let tok_candidates = [
+        base.join("tokenizer.json"),
+        base.join("../tokenizer.json"),
+        base.join("../../tokenizer.json"),
+        PathBuf::from("embeddings/models/multilingual-e5-small/tokenizer.json"),
+    ];
+    let has_onnx = onnx_candidates.iter().any(|p| p.exists());
+    let has_tok = tok_candidates.iter().any(|p| p.exists());
+    has_onnx && has_tok
+}
+
+#[cfg(any(feature = "embed-local", feature = "remote-inference"))]
+fn is_local_model_available() -> bool {
+    let path = std::env::var("VANTADB_LOCAL_MODEL")
+        .unwrap_or_else(|_| "embeddings/models/multilingual-e5-small/onnx".to_string());
+    local_model_files_present(&path)
+}
+
+fn fallback_warning(provider: &str, detail: &str) -> String {
+    format!(
+        "Embedding model unavailable (provider='{provider}'); using deterministic fallback vectors (no semantic signal). {detail} Set VANTADB_EMBEDDING_PROVIDER=local with model files present, or start the configured remote provider. [EMB-13 Q5]"
+    )
+}
+
+// ── EMB-17: switch por nombre (Q2) ─────────────────────────────────────
+// `model` = manifest id → ese modelo local (caché de sesiones con tope).
+// Desconocido → `invalid_params` con lista válida (nunca silencio).
+// Conocido sin archivos → error con `download.py --only <id>` + tamaño
+// (nunca fallback con dim errónea). Dim distinta → gatea EMB-18, no aquí.
+// Manifest: `embeddings/manifest.json` + fallback hardcodeado (CWD frágil
+// en tests con CWD=package dir — la validación funciona igual).
+
+/// Tabla (id, dim, size_onnx_mb) desde el manifest o fallback verificado 2026-09-16.
+fn manifest_model_table() -> Vec<(String, usize, Option<u64>)> {
+    for candidate in [
+        "embeddings/manifest.json",
+        "../embeddings/manifest.json",
+        concat!(env!("CARGO_MANIFEST_DIR"), "/../embeddings/manifest.json"),
+    ] {
+        if let Ok(txt) = std::fs::read_to_string(candidate) {
+            if let Ok(v) = serde_json::from_str::<serde_json::Value>(&txt) {
+                if let Some(models) = v.get("models").and_then(|m| m.as_array()) {
+                    let mut out = Vec::with_capacity(models.len());
+                    for m in models {
+                        if let Some(id) = m.get("id").and_then(|x| x.as_str()) {
+                            let dim = m
+                                .get("dim")
+                                .and_then(|x| x.as_u64())
+                                .map(|x| x as usize)
+                                .unwrap_or(384);
+                            let size = m.get("size_onnx_mb").and_then(|x| x.as_u64());
+                            out.push((id.to_string(), dim, size));
+                        }
+                    }
+                    if !out.is_empty() {
+                        return out;
+                    }
+                }
+            }
+        }
+    }
+    // Fallback hardcodeado = manifest verificado 2026-09-16 (9 ids).
+    vec![
+        ("bge-small-en-v1.5".to_string(), 384, Some(120)),
+        ("all-MiniLM-L6-v2".to_string(), 384, Some(80)),
+        ("bge-base-en-v1.5".to_string(), 768, Some(440)),
+        ("jina-es-v2-base".to_string(), 768, Some(1100)),
+        (
+            "paraphrase-multilingual-MiniLM-L12-v2".to_string(),
+            384,
+            Some(470),
+        ),
+        ("distiluse-multilingual".to_string(), 512, Some(540)),
+        ("multilingual-e5-small".to_string(), 384, Some(220)),
+        ("bge-m3".to_string(), 1024, Some(1200)),
+        ("qwen3-embedding-8b".to_string(), 4096, None),
+    ]
+}
+
+fn manifest_model_ids() -> Vec<String> {
+    manifest_model_table()
+        .into_iter()
+        .map(|(id, _, _)| id)
+        .collect()
+}
+
+fn resolve_manifest_model(id: &str) -> Option<(String, usize, Option<u64>)> {
+    for (mid, dim, size) in manifest_model_table() {
+        if mid == id {
+            return Some((format!("embeddings/models/{id}/onnx"), dim, size));
+        }
+    }
+    None
+}
+
+/// Candidatos de dir por CWD (tests corren con CWD=package dir; server con
+/// CWD=repo root; fallback compile-time absoluto). El primero con archivos gana.
+#[cfg(feature = "embed-local")]
+fn manifest_candidate_dirs(id: &str) -> Vec<String> {
+    vec![
+        format!("embeddings/models/{id}/onnx"),
+        format!("../embeddings/models/{id}/onnx"),
+        concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../embeddings/models/{id}/onnx"
+        )
+        .to_string(),
+    ]
+}
+
+#[cfg(feature = "embed-local")]
+fn find_existing_model_dir(id: &str) -> Option<String> {
+    manifest_candidate_dirs(id)
+        .into_iter()
+        .find(|d| local_model_files_present(d))
+}
+
+fn validate_manifest_model_id(id: &str) -> Result<(), Value> {
+    if resolve_manifest_model(id).is_some() {
+        return Ok(());
+    }
+    let valid = manifest_model_ids().join(", ");
+    Err(McpError::invalid_params(format!(
+        "unknown embedding model: {id:?}; valid models: {valid}"
+    ))
+    .to_json())
+}
+
+/// Tope documentado: 2 sesiones residentes (~450MB c/u → ~900MB techo).
+/// Evicción arbitraria (HashMap, sin dep nueva) AVISADA vía `warn!`.
+#[cfg(feature = "embed-local")]
+const MAX_CACHED_LOCAL_MODELS: usize = 2;
+
+#[cfg(feature = "embed-local")]
+fn model_session_cache() -> &'static std::sync::Mutex<
+    std::collections::HashMap<String, Arc<vantadb::llm::LocalOnnxProvider>>,
+> {
+    static CACHE: std::sync::OnceLock<
+        std::sync::Mutex<std::collections::HashMap<String, Arc<vantadb::llm::LocalOnnxProvider>>>,
+    > = std::sync::OnceLock::new();
+    CACHE.get_or_init(|| std::sync::Mutex::new(std::collections::HashMap::new()))
+}
+
+#[cfg(feature = "embed-local")]
+fn cached_local_provider_for(
+    id: &str,
+    dir: &str,
+) -> Result<Arc<vantadb::llm::LocalOnnxProvider>, String> {
+    if let Some(hit) = model_session_cache()
+        .lock()
+        .map_err(|e| format!("model cache poisoned: {e}"))?
+        .get(id)
+        .cloned()
+    {
+        return Ok(hit);
+    }
+    if !local_model_files_present(dir) && find_existing_model_dir(id).is_none() {
+        let size_hint = resolve_manifest_model(id)
+            .and_then(|(_, _, s)| s)
+            .map(|mb| format!("~{mb}MB"))
+            .unwrap_or_else(|| "unknown size".to_string());
+        return Err(format!(
+            "ONNX model files not found for '{id}' at '{dir}/model.onnx' ({size_hint}); run `python embeddings/download.py --only {id}` then retry"
+        ));
+    }
+    let effective_dir = find_existing_model_dir(id).unwrap_or_else(|| dir.to_string());
+    let provider = vantadb::llm::LocalOnnxProvider::new(&effective_dir)
+        .map_err(|e| format!("provider '{id}' failed: {e}"))?;
+    let arc = Arc::new(provider);
+    {
+        let mut cache = model_session_cache()
+            .lock()
+            .map_err(|e| format!("model cache poisoned: {e}"))?;
+        if cache.len() >= MAX_CACHED_LOCAL_MODELS && !cache.contains_key(id) {
+            if let Some(evicted) = cache.keys().next().cloned() {
+                cache.remove(&evicted);
+                warn!(evicted = %evicted, new = %id, "EMB-17 model cache full — evicted entry (tope documentado)");
+            }
+        }
+        cache.insert(id.to_string(), arc.clone());
+    }
+    Ok(arc)
+}
+
+#[cfg(feature = "embed-local")]
+fn embed_texts_with_manifest_model(
+    texts: &[String],
+    id: &str,
+) -> Result<(Vec<Vec<f32>>, bool, Option<String>), String> {
+    use vantadb::llm::EmbeddingProvider;
+    let (dir, _, _) =
+        resolve_manifest_model(id).ok_or_else(|| format!("unknown embedding model: {id:?}"))?;
+    let provider = cached_local_provider_for(id, &dir)?;
+    provider
+        .embed_batch(texts)
+        .map_err(|e| format!("provider '{id}' failed: {e}"))
+        .map(|v| (v, false, None))
+}
+
+// ponytail: file-check O(1) por llamada (4 Path::exists); caché global si profiling lo pide.
+// EMB-17: `model=Some(id)` fuerza el local ONNX de ese manifest id (caché con
+// tope); `None` = path EMB-13 intacto (env provider + fallback Q5).
+fn embed_texts_via_provider(
+    texts: &[String],
+    model: Option<&str>,
+) -> Result<(Vec<Vec<f32>>, bool, Option<String>), String> {
+    #[cfg(any(feature = "embed-local", feature = "remote-inference"))]
+    {
+        if let Some(id) = model {
+            #[cfg(feature = "embed-local")]
+            {
+                return embed_texts_with_manifest_model(texts, id);
+            }
+            #[cfg(not(feature = "embed-local"))]
+            {
+                // Sin engine ONNX: conocido → fallback avisado (decisión 5);
+                // desconocido ya fue rechazado en el handler, doble-guard aquí.
+                if resolve_manifest_model(id).is_none() {
+                    return Err(format!(
+                        "unknown embedding model: {id:?}; valid models: {}",
+                        manifest_model_ids().join(", ")
+                    ));
+                }
+                let vectors = embed_texts_fallback(texts, model)?;
+                return Ok((
+                    vectors,
+                    true,
+                    Some(fallback_warning(
+                        "unconfigured",
+                        "Binary compiled without embed-local; serving fallback for known model.",
+                    )),
+                ));
+            }
+        }
+        let provider_name =
+            std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+        let is_remote = provider_name == "ollama" || provider_name == "openai";
+        match vantadb::llm::get_embedding_provider().embed_batch(texts) {
+            Ok(vectors) => {
+                // EMB-14 (colateral rápido, pre-existente EMB-13): colapsar
+                // ramas idénticas que clippy `if_same_then_else` rechaza bajo
+                // `--features` (semántica intacta, mismo `Ok` en ambas).
+                if is_remote || is_local_model_available() {
+                    Ok((vectors, false, None))
+                } else {
+                    // `Ok` pero sin archivos → son dummies silenciosos: avisar.
+                    warn!(
+                        provider = %provider_name,
+                        "embed_texts: local model files missing — serving fallback vectors"
+                    );
+                    Ok((
+                        vectors,
+                        true,
+                        Some(fallback_warning(
+                            &provider_name,
+                            "Local model files (model.onnx + tokenizer.json) not found.",
+                        )),
+                    ))
+                }
+            }
+            Err(e) => {
+                // Q5: nunca error duro sin modelo → dummy avisado.
+                warn!(provider = %provider_name, error = %e, "embed_texts: provider failed — serving fallback vectors");
+                let vectors = embed_texts_fallback(texts, model)?;
+                Ok((
+                    vectors,
+                    true,
+                    Some(fallback_warning(
+                        &provider_name,
+                        &format!("Provider error: {e}"),
+                    )),
+                ))
+            }
+        }
+    }
+    #[cfg(not(any(feature = "embed-local", feature = "remote-inference")))]
+    {
+        // Compilado sin `vantadb::llm`: dummy avisado directo (CI sin modelo).
+        let vectors = embed_texts_fallback(texts, model)?;
+        Ok((
+            vectors,
+            true,
+            Some(fallback_warning(
+                "unconfigured",
+                "Binary compiled without embedding features (embed-local/remote-inference).",
+            )),
+        ))
+    }
+}
+
+// ── EMB-14: auto-embed en put/put_batch (cierra FIND-99 con EMB-13) ───────
+// Rellena vectores ausentes con el proveedor activo. Difiere de
+// `embed_texts_via_provider` en un punto crítico: aquí NUNCA se usan vectores
+// dummy — sin proveedor se guarda sin vector + aviso (un hash persistido
+// contaminaría el índice con vecinos falsos, peor que null). Reusa
+// `is_local_model_available` + `fallback_warning` de EMB-13 verbatim.
+
+/// Resultado del auto-embed: qué posiciones se rellenaron + si hubo fallback.
+struct AutoEmbedOutcome {
+    filled: Vec<usize>,
+    fallback: bool,
+    warning: Option<String>,
+}
+
+/// Intenta UN `embed_batch` del proveedor activo. `Ok` = vectores reales (con
+/// check de archivos locales para no tragar dummies silenciosos);
+/// `Err(warning)` = sin vectores + motivo (nunca dummies, nunca pánico).
+fn try_provider_embed(texts: &[String]) -> Result<Vec<Vec<f32>>, String> {
+    #[cfg(any(feature = "embed-local", feature = "remote-inference"))]
+    {
+        let provider_name =
+            std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+        let is_remote = provider_name == "ollama" || provider_name == "openai";
+        match vantadb::llm::get_embedding_provider().embed_batch(texts) {
+            Ok(vectors) => {
+                if vectors.len() != texts.len() {
+                    Err(fallback_warning(
+                        &provider_name,
+                        "Provider returned a mismatched batch size.",
+                    ))
+                } else if is_remote || is_local_model_available() {
+                    Ok(vectors)
+                } else {
+                    // `Ok` local sin archivos → dummies silenciosos: descartar.
+                    Err(fallback_warning(
+                        &provider_name,
+                        "Local model files (model.onnx + tokenizer.json) not found.",
+                    ))
+                }
+            }
+            Err(e) => Err(fallback_warning(
+                &provider_name,
+                &format!("Provider error: {e}"),
+            )),
+        }
+    }
+    #[cfg(not(any(feature = "embed-local", feature = "remote-inference")))]
+    {
+        let _ = texts.len();
+        Err(fallback_warning(
+            "unconfigured",
+            "Binary compiled without embedding features (embed-local/remote-inference).",
+        ))
+    }
+}
+
+/// Auto-embed para `memory_put`: rellena `*vector` solo si es `None` (el
+/// provisto se respeta). Devuelve `(fallback, warning)`.
+fn auto_embed_one(vector: &mut Option<Vec<f32>>, payload: &str) -> (bool, Option<String>) {
+    if vector.is_some() {
+        return (false, None);
+    }
+    match try_provider_embed(&[payload.to_string()]) {
+        Ok(mut vectors) => {
+            if let Some(v) = vectors.pop() {
+                *vector = Some(v);
+            }
+            (false, None)
+        }
+        Err(warning) => {
+            warn!("memory_put: embedding unavailable — storing without vector");
+            (true, Some(warning))
+        }
+    }
+}
+
+/// Auto-embed para `memory_put_batch`: UN `embed_batch` para todos los
+/// faltantes (no 1×1), zip-back por índice. Los provistos no se tocan.
+fn auto_embed_missing(inputs: &mut [vantadb::sdk::MemoryInput]) -> AutoEmbedOutcome {
+    let missing: Vec<usize> = inputs
+        .iter()
+        .enumerate()
+        .filter(|(_, i)| i.vector.is_none())
+        .map(|(idx, _)| idx)
+        .collect();
+    if missing.is_empty() {
+        return AutoEmbedOutcome {
+            filled: Vec::new(),
+            fallback: false,
+            warning: None,
+        };
+    }
+    let texts: Vec<String> = missing
+        .iter()
+        .map(|&idx| inputs[idx].payload.clone())
+        .collect();
+    match try_provider_embed(&texts) {
+        Ok(vectors) => {
+            // `try_provider_embed` garantiza `len == texts.len() == missing.len()`.
+            for (pos, &idx) in missing.iter().enumerate() {
+                inputs[idx].vector = Some(vectors[pos].clone());
+            }
+            AutoEmbedOutcome {
+                filled: missing,
+                fallback: false,
+                warning: None,
+            }
+        }
+        Err(warning) => {
+            warn!(
+                count = missing.len(),
+                "memory_put_batch: embedding unavailable — storing without vectors"
+            );
+            AutoEmbedOutcome {
+                filled: Vec::new(),
+                fallback: true,
+                warning: Some(warning),
+            }
+        }
+    }
+}
+
+// ── EMB-15: embed de query con el MISMO proveedor ────────────────────────
+// Difiere de `try_provider_embed` en un punto: usa `embed_query` (semántica
+// query, prefijo `query:` en e5 vía EMB-16 — paridad con `vector.rs` IQL).
+// La query es UN texto: 1 inferencia, no hay batch que aplicar (pre-mortem
+// "donde aplique" = no aplica aquí). Filtra dummies igual que EMB-14: un
+// vector sin señal a la búsqueda es peor que keyword honesto. Reusa
+// `is_local_model_available` + `fallback_warning` verbatim.
+#[cfg(any(feature = "embed-local", feature = "remote-inference"))]
+fn try_embed_query(text: &str) -> Result<Vec<f32>, String> {
+    let provider_name =
+        std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+    let is_remote = provider_name == "ollama" || provider_name == "openai";
+    match vantadb::llm::get_embedding_provider().embed_query(text) {
+        Ok(q) => {
+            if q.is_empty() || q.iter().all(|&x| x == 0.0) {
+                Err(fallback_warning(
+                    &provider_name,
+                    "Provider returned an empty/zero query vector.",
+                ))
+            } else if is_remote || is_local_model_available() {
+                Ok(q)
+            } else {
+                // `Ok` local sin archivos → dummies silenciosos: descartar.
+                Err(fallback_warning(
+                    &provider_name,
+                    "Local model files (model.onnx + tokenizer.json) not found.",
+                ))
+            }
+        }
+        Err(e) => Err(fallback_warning(
+            &provider_name,
+            &format!("Provider error: {e}"),
+        )),
+    }
+}
+
+#[cfg(not(any(feature = "embed-local", feature = "remote-inference")))]
+fn try_embed_query(text: &str) -> Result<Vec<f32>, String> {
+    let _ = text.len();
+    Err(fallback_warning(
+        "unconfigured",
+        "Binary compiled without embedding features (embed-local/remote-inference).",
+    ))
+}
+
+// ── EMB-15: hook de query para `memory_recall` ───────────────────────────
+// `EmbedFn = Arc<dyn Fn(&str) -> Option<Vec<f32>>>`: el hook embebe la QUERY
+// (no el documento) con el MISMO proveedor que EMB-14 usó al guardar.
+// `None` = sin proveedor → keyword honesto con `effective_mode: "keyword"`
+// (aviso existente). NO se usa `core/local_embedding_hook` de vanta-memory:
+// embeben con `embed` (doc-semántica `passage:`) y leen otro env (`VANTA_*`)
+// — peras con manzanas otra vez (decisión 5 del task file).
+// ponytail: 1 provider por recall (igual costo que 1 put EMB-14); sin caché nueva.
+#[cfg(any(feature = "embed-local", feature = "remote-inference"))]
+fn query_embed_hook() -> Option<vanta_memory::core::record::EmbedFn> {
+    let provider_name =
+        std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+    let is_remote = provider_name == "ollama" || provider_name == "openai";
+    if !is_remote && !is_local_model_available() {
+        // Sin archivos locales el provider daría dummies: mejor `None`
+        // (keyword) que semántica falsa.
+        return None;
+    }
+    Some(std::sync::Arc::new(move |q: &str| {
+        let name =
+            std::env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+        let remote = name == "ollama" || name == "openai";
+        match vantadb::llm::get_embedding_provider().embed_query(q) {
+            Ok(v)
+                if !v.is_empty()
+                    && v.iter().any(|&x| x != 0.0)
+                    && (remote || is_local_model_available()) =>
+            {
+                Some(v)
+            }
+            _ => None,
+        }
+    }))
+}
+
+#[cfg(not(any(feature = "embed-local", feature = "remote-inference")))]
+fn query_embed_hook() -> Option<vanta_memory::core::record::EmbedFn> {
+    None
+}

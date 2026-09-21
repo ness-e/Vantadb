@@ -1,3 +1,5 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Index Reconstruction Certification Suite
 //!
 //! This suite validates that VantaDB can rebuild its entire HNSW index
@@ -9,14 +11,14 @@ mod common;
 use common::{TerminalReporter, VantaSession};
 use std::fs;
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::{BackendKind, StorageEngine};
 
 // ─── HELPER: Open Engine ──────────────────────────────────────
 
 fn open_engine(path: &str) -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -63,7 +65,7 @@ fn test_index_persistence_roundtrip() {
             None,
             &vantadb::node::ALL_BITSET,
             5,
-            Some(&engine.vector_store[0].read()),
+            Some(&*engine.vector_store[0].read()),
         );
 
         assert!(!results.is_empty(), "Search failed after reload!");
@@ -119,7 +121,7 @@ fn test_index_reconstruction_from_storage() {
     }
 
     // PHASE 3: Reopen and Rebuild
-    session.step("Phase 3: Restarting engine (should trigger rebuild from KV/VantaFile)");
+    session.step("Phase 3: Restarting engine (should trigger rebuild from KV/File)");
     {
         let engine = open_engine(db_path);
 
@@ -133,7 +135,7 @@ fn test_index_reconstruction_from_storage() {
             None,
             &vantadb::node::ALL_BITSET,
             5,
-            Some(&engine.vector_store[0].read()),
+            Some(&*engine.vector_store[0].read()),
         );
 
         if results.is_empty() {

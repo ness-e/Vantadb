@@ -5,7 +5,7 @@
 //! posting/stat values, and write-op construction.
 
 use crate::backend::{BackendPartition, BackendWriteOp};
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 #[cfg(feature = "advanced-tokenizer")]
 use crate::tokenizer::{tokenize_advanced, AdvancedTokenizerConfig};
 use serde::{Deserialize, Serialize};
@@ -41,7 +41,7 @@ const NAMESPACE_STATS_TAG: &[u8] = b"ns\0";
 
 /// Specification for a text tokenizer implementation.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct TextTokenizerSpec {
+pub struct TextTokenizerSpec {
     /// Tokenizer name identifier.
     pub name: &'static str,
     /// Tokenizer version.
@@ -69,7 +69,7 @@ impl TextTokenizerSpec {
 
 /// Specification for the text index schema and tokenizer.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub(crate) struct TextIndexSpec {
+pub struct TextIndexSpec {
     /// Schema version of the text index.
     pub schema_version: u32,
     /// Tokenizer specification.
@@ -266,7 +266,37 @@ pub(crate) fn record_terms_with_config(
     }
 }
 
-/// Extract record terms (simple path, no advanced tokenizer).
+/// Extract record terms reusing a prebuilt advanced analyzer.
+///
+/// Batch callers build the analyzer once with
+/// [`crate::tokenizer::build_advanced_analyzer`] and reuse it here per record,
+/// avoiding one stemming/stopwords pipeline build per tokenized payload.
+/// Results are identical to [`record_terms_with_config`] with the same config.
+#[cfg(feature = "advanced-tokenizer")]
+pub(crate) fn record_terms_with_analyzer(
+    analyzer: &mut crate::tokenizer::TextAnalyzer,
+    payload: &str,
+) -> TextRecordTerms {
+    let tokens = crate::tokenizer::tokenize_with_analyzer(analyzer, payload);
+    let doc_len = tokens.len().min(u32::MAX as usize) as u32;
+    let mut token_counts = BTreeMap::new();
+    let mut token_positions: BTreeMap<String, Vec<u32>> = BTreeMap::new();
+    for (position, token) in tokens.into_iter().enumerate() {
+        token_counts
+            .entry(token.clone())
+            .and_modify(|count: &mut u32| *count = count.saturating_add(1))
+            .or_insert(1);
+        token_positions
+            .entry(token)
+            .or_default()
+            .push(position.min(u32::MAX as usize) as u32);
+    }
+    TextRecordTerms {
+        token_counts,
+        token_positions,
+        doc_len,
+    }
+}
 #[cfg(not(feature = "advanced-tokenizer"))]
 pub(crate) fn record_terms_with_config(payload: &str, _config: Option<&()>) -> TextRecordTerms {
     // Simple record terms without advanced tokenizer support
@@ -309,6 +339,11 @@ pub(crate) fn query_plan_with_config(
     for ch in query.chars() {
         if ch == '"' {
             if in_quote {
+                // Phrase tokens MUST be index-aligned: postings are built with
+                // the advanced tokenizer (stemming + stopword removal), so
+                // lexical_search can only find candidates when phrase tokens
+                // match posting keys. INV-009-B raw-text exactness is served by
+                // `literal_query_plan` (see `text_contains_query`/snippets).
                 let phrase = if let Some(cfg) = config {
                     tokenize_advanced(&quoted, cfg)
                 } else {
@@ -406,6 +441,97 @@ pub(crate) fn unique_tokens(text: &str) -> BTreeSet<String> {
     token_counts(text).into_keys().collect()
 }
 
+/// Build a query plan whose terms and phrases are tokenized LITERALLY
+/// (whitespace split + lowercase, no stopword removal, no stemming).
+///
+/// This is the raw-text view of a query: phrase adjacency is exact on the raw
+/// string, independent of how the index postings are keyed. Used by
+/// `text_contains_query` and snippet phrase-highlighting (INV-009-B). Index
+/// lookups must use `query_plan` instead, so tokens align with postings.
+pub(crate) fn literal_query_plan(query: &str) -> TextQueryPlan {
+    let mut terms = BTreeSet::new();
+    let mut phrases = Vec::new();
+    let mut outside = String::new();
+    let mut quoted = String::new();
+    let mut in_quote = false;
+
+    for ch in query.chars() {
+        if ch == '"' {
+            if in_quote {
+                let phrase: Vec<String> = quoted
+                    .split_whitespace()
+                    .map(|s| s.to_lowercase())
+                    .collect();
+                if !phrase.is_empty() {
+                    terms.extend(phrase.iter().cloned());
+                    phrases.push(phrase);
+                }
+                quoted.clear();
+                in_quote = false;
+            } else {
+                let outside_tokens: Vec<String> = outside
+                    .split_whitespace()
+                    .map(|s| s.to_lowercase())
+                    .collect();
+                terms.extend(outside_tokens);
+                outside.clear();
+                in_quote = true;
+            }
+        } else if in_quote {
+            quoted.push(ch);
+        } else {
+            outside.push(ch);
+        }
+    }
+
+    if in_quote {
+        outside.push_str(&quoted);
+    }
+    let outside_tokens: Vec<String> = outside
+        .split_whitespace()
+        .map(|s| s.to_lowercase())
+        .collect();
+    terms.extend(outside_tokens);
+
+    TextQueryPlan { terms, phrases }
+}
+
+/// Return whether a raw `text` string contains every phrase of `query`.
+///
+/// Operates on the raw string: splits `text` into literal whitespace tokens
+/// (no stopword removal, no stemming) and checks phrase adjacency against
+/// those token positions via `sdk::search::phrase::text_positions_match_phrases`.
+/// Used by the graph IQL `Condition::TextMatch` physical filter and by
+/// snippet phrase-highlighting. An empty `query` yields `true`.
+pub(crate) fn text_contains_query(text: &str, query: &str) -> bool {
+    let plan = literal_query_plan(query);
+    if plan.phrases.is_empty() {
+        if plan.terms.is_empty() {
+            return true;
+        }
+        let tokens = literal_token_positions(text);
+        plan.terms.iter().all(|t| tokens.contains_key(t))
+    } else {
+        let tokens = literal_token_positions(text);
+        crate::sdk::search::phrase::text_positions_match_phrases(&tokens, &plan.phrases)
+    }
+}
+
+/// Literal whitespace tokenization of `text` into token -> positions map.
+/// Lowercases (matching index tokenization) but does NOT remove stopwords or
+/// stem — phrase adjacency must be exact per INV-009-B (non-goal D-4: no
+/// tokenizer rewrite).
+fn literal_token_positions(text: &str) -> BTreeMap<String, Vec<u32>> {
+    let mut positions: BTreeMap<String, Vec<u32>> = BTreeMap::new();
+    for (pos, token) in text.split_whitespace().enumerate() {
+        positions
+            .entry(token.to_lowercase())
+            .or_default()
+            .push(pos.min(u32::MAX as usize) as u32);
+    }
+    positions
+}
+
 /// Build a posting index key from namespace, token, and record key.
 pub(crate) fn posting_key(namespace: &str, token: &str, key: &str) -> Vec<u8> {
     let mut index_key = Vec::with_capacity(namespace.len() + token.len() + key.len() + 2);
@@ -435,11 +561,11 @@ pub(crate) fn posting_namespace_prefix(namespace: &str) -> Vec<u8> {
     prefix
 }
 
-/// Extract the record key from a posting key for a given namespace and token.
-pub(crate) fn posting_record_key(namespace: &str, token: &str, index_key: &[u8]) -> Option<String> {
-    let prefix = posting_prefix(namespace, token);
-    let key_bytes = index_key.strip_prefix(prefix.as_slice())?;
-    String::from_utf8(key_bytes.to_vec()).ok()
+/// Extract the record key from a posting key, given the already-built
+/// namespace+token prefix. Zero-allocation: borrows from the index key.
+pub(crate) fn posting_record_key<'a>(prefix: &[u8], index_key: &'a [u8]) -> Option<&'a str> {
+    let key_bytes = index_key.strip_prefix(prefix)?;
+    std::str::from_utf8(key_bytes).ok()
 }
 
 /// Check whether a key belongs to an internal (stats) prefix.
@@ -538,12 +664,12 @@ pub(crate) fn posting_count(payload: &str) -> u64 {
 }
 
 fn serialize<T: Serialize>(value: &T) -> Result<Vec<u8>> {
-    postcard::to_allocvec(value).map_err(VantaError::serialization)
+    postcard::to_allocvec(value).map_err(Error::serialization)
 }
 
 fn deserialize<T: for<'de> Deserialize<'de>>(bytes: &[u8], label: &str) -> Result<T> {
     let val: T = postcard::from_bytes(bytes).map_err(|err| {
-        VantaError::SerializationError(Box::new(crate::error::SerdeMsgError::new(
+        Error::Serialization(Box::new(crate::error::SerdeMsgError::new(
             format!("{label} decode error: {err}"),
             err,
         )))
@@ -606,19 +732,29 @@ pub(crate) fn posting_put_ops(
     node_id: u128,
 ) -> Result<Vec<BackendWriteOp>> {
     let terms = record_terms(payload);
-    let token_positions = terms.token_positions;
+    posting_ops_from_terms(namespace, key, &terms, node_id)
+}
+
+/// Build posting write operations from precomputed record terms.
+///
+/// Batch callers that already tokenized via a reused analyzer avoid
+/// re-tokenizing the payload here.
+pub(crate) fn posting_ops_from_terms(
+    namespace: &str,
+    key: &str,
+    terms: &TextRecordTerms,
+    node_id: u128,
+) -> Result<Vec<BackendWriteOp>> {
+    let token_positions = &terms.token_positions;
     terms
         .token_counts
-        .into_iter()
+        .iter()
         .map(|(token, tf)| {
-            let positions = token_positions
-                .get(&token)
-                .map(Vec::as_slice)
-                .unwrap_or(&[]);
+            let positions = token_positions.get(token).map(Vec::as_slice).unwrap_or(&[]);
             Ok(BackendWriteOp::Put {
                 partition: BackendPartition::TextIndex,
-                key: posting_key(namespace, &token, key),
-                value: posting_value(node_id, tf, positions)?,
+                key: posting_key(namespace, token, key),
+                value: posting_value(node_id, *tf, positions)?,
             })
         })
         .collect()
@@ -642,10 +778,24 @@ pub(crate) fn doc_stats_put_op(
     payload: &str,
     node_id: u128,
 ) -> Result<BackendWriteOp> {
+    let terms = record_terms(payload);
+    doc_stats_op_from_terms(namespace, key, terms.doc_len, node_id)
+}
+
+/// Build a write operation to upsert doc stats from a precomputed doc length.
+///
+/// Batch callers that already tokenized via a reused analyzer avoid
+/// re-tokenizing the payload here.
+pub(crate) fn doc_stats_op_from_terms(
+    namespace: &str,
+    key: &str,
+    doc_len: u32,
+    node_id: u128,
+) -> Result<BackendWriteOp> {
     Ok(BackendWriteOp::Put {
         partition: BackendPartition::TextIndex,
         key: doc_stats_key(namespace, key),
-        value: doc_stats_value(node_id, record_terms(payload).doc_len)?,
+        value: doc_stats_value(node_id, doc_len)?,
     })
 }
 
@@ -747,6 +897,25 @@ mod tests {
         assert!(!terms.token_counts.is_empty());
         // With stopwords removal, should have fewer tokens than the full text
         assert!(terms.token_counts.len() < 9); // "The quick brown fox jumps over the lazy dog" has 9 words
+    }
+
+    #[cfg(feature = "advanced-tokenizer")]
+    #[test]
+    fn test_record_terms_with_analyzer_matches_record_terms() {
+        // Reusing one analyzer across a batch must equal fresh builds.
+        let mut analyzer = crate::tokenizer::build_advanced_analyzer(
+            &crate::tokenizer::AdvancedTokenizerConfig::default(),
+        );
+        let payloads = [
+            "The quick brown fox jumps over the lazy dog",
+            "Café naïve résumé",
+            "",
+        ];
+        for payload in payloads {
+            let reused = record_terms_with_analyzer(&mut analyzer, payload);
+            let fresh = record_terms(payload);
+            assert_eq!(reused, fresh);
+        }
     }
 
     #[cfg(feature = "advanced-tokenizer")]

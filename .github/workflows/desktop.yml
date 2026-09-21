@@ -1,0 +1,245 @@
+# Desktop CI — Windows + macOS + Linux builds with installer artifacts.
+# Heavy by nature (Tauri bundling): NOT part of the Fast Gate (<5min) tier.
+# See docs/operations/CI_POLICY.md and DESKTOP-24/25 task files.
+#
+# Sidecar contract (DESKTOP-24, extended DESKTOP-42): `binaries/` is gitignored;
+# each runner builds both sidecars from the root workspace and copies them into
+# place before tauri-action bundles them via `bundle.resources` (NOT
+# externalBin — see DESKTOP-24 Context Save Point). Resource globs in
+# tauri.conf.json (`binaries/vanta-cli*`, `binaries/vantadb-server*`) match the
+# per-OS names (`*.exe` on Windows, extension-less on macOS/Linux), so one
+# config serves all three runners and the bundler never sees a missing file.
+# Allocators per .opencode/rules/release-ci.md rule 1: `custom-allocator`
+# (mimalloc) on Windows, `jemalloc` on Linux/macOS.
+#
+# macOS is unsigned build-only: no Apple certificate in CI → no signing, no
+# notarization (pre-mortem DESKTOP-42). Linux needs WebKit system deps
+# (source: tauri-action README).
+
+name: Desktop CI
+
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - 'desktop/**'
+      - 'src/**'
+      - 'vantadb-server/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/desktop.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'desktop/**'
+      - 'src/**'
+      - 'vantadb-server/**'
+      - 'Cargo.toml'
+      - 'Cargo.lock'
+      - '.github/workflows/desktop.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    name: Build & Test (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Rust toolchain + Swatinem/rust-cache + sccache (single integration
+      # point per .opencode/rules/release-ci.md rule 2 — do not duplicate).
+      - uses: ./.github/actions/rust-setup
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      # Sidecars for the installer bundle AND for the src-tauri sidecar tests.
+      # custom-allocator (mimalloc on Windows) per release-ci.md rule 1:
+      # these exes ship inside the installer, same as release-binaries-63.
+      # BOTH binaries are required: tauri.conf.json resources embeds
+      # binaries/vanta-cli.exe (the app spawns canonical vanta-cli per
+      # c684a83d), while src-tauri spawn tests exercise vantadb-server.exe
+      # via VANTADB_SERVER_BIN.
+      - name: Build sidecars (vanta-cli + vantadb-server)
+        shell: pwsh
+        run: |
+          cargo build --release --package vantadb-server --features custom-allocator
+          cargo build --release --features "server,custom-allocator" --package vantadb --bin vanta-cli
+          New-Item -ItemType Directory -Force -Path desktop/src-tauri/binaries | Out-Null
+          Copy-Item target/release/vantadb-server.exe desktop/src-tauri/binaries/vantadb-server.exe
+          Copy-Item target/release/vanta-cli.exe desktop/src-tauri/binaries/vanta-cli.exe
+          "VANTADB_SERVER_BIN=$PWD/desktop/src-tauri/binaries/vantadb-server.exe" >> $env:GITHUB_ENV
+          # Canonical override (priority 1 in locate_binary): the MCP sidecar
+          # tests spawn `<bin> server --mcp`, which only vanta-cli accepts.
+          # Leaving only VANTADB_SERVER_BIN set resolves to vantadb-server.exe
+          # and fails with "unrecognized argument 'server'".
+          "VANTADB_CLI_BIN=$PWD/desktop/src-tauri/binaries/vanta-cli.exe" >> $env:GITHUB_ENV
+
+      - name: Install frontend dependencies
+        working-directory: desktop
+        run: npm ci
+
+      # Detached workspace (own lockfile/target): must be tested in-place.
+      # Sidecar spawn tests are exercised for real thanks to VANTADB_SERVER_BIN.
+      - name: Run src-tauri tests
+        working-directory: desktop/src-tauri
+        run: cargo test
+
+      # Frontend build runs inside tauri build via beforeBuildCommand
+      # (tauri.conf.json: "npm run build") — no separate step needed.
+      #
+      # No tagName/releaseId/releaseName → build-only, no GitHub Release.
+      - name: Build Tauri bundles (NSIS + MSI)
+        id: tauri
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1 (action-v1.0.0)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop
+          args: --target x86_64-pc-windows-msvc
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vantadb-desktop-windows-installers
+          # Recursive glob: `tauri bundle` (v1, no --target flag) emits to
+          # target/release/bundle while tauri-action looks under
+          # target/<triple>/release/bundle — cover both layouts instead of
+          # hardcoding one (which failed with "No files were found").
+          path: |
+            desktop/src-tauri/target/**/bundle/msi/*.msi
+            desktop/src-tauri/target/**/bundle/nsis/*.exe
+          if-no-files-found: error
+
+  macos:
+    name: Build & Test (macOS)
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Single rust-setup integration point (release-ci.md rule 2).
+      - uses: ./.github/actions/rust-setup
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      # jemalloc on macOS per release-ci.md rule 1 (tikv-jemallocator does
+      # not compile on Windows; mimalloc is Windows-only here). Extension-less
+      # names match child_process.rs CANONICAL_EXE/LEGACY_EXE on Unix and the
+      # tauri.conf.json resource globs.
+      - name: Build sidecars (vanta-cli + vantadb-server)
+        shell: bash
+        run: |
+          cargo build --release --package vantadb-server --features jemalloc
+          cargo build --release --features "server,jemalloc" --package vantadb --bin vanta-cli
+          mkdir -p desktop/src-tauri/binaries
+          cp target/release/vantadb-server desktop/src-tauri/binaries/vantadb-server
+          cp target/release/vanta-cli desktop/src-tauri/binaries/vanta-cli
+          echo "VANTADB_SERVER_BIN=$PWD/desktop/src-tauri/binaries/vantadb-server" >> "$GITHUB_ENV"
+          echo "VANTADB_CLI_BIN=$PWD/desktop/src-tauri/binaries/vanta-cli" >> "$GITHUB_ENV"
+
+      - name: Install frontend dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Run src-tauri tests
+        working-directory: desktop/src-tauri
+        run: cargo test
+
+      # No tagName/releaseId → build-only, unsigned (no Apple certificate in
+      # CI → no signing, no notarization). Default arch only (arm64 on
+      # macos-latest); x86_64-apple-darwin matrix is a follow-up, not this task.
+      - name: Build Tauri bundles (app + DMG)
+        id: tauri
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1 (action-v1.0.0)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vantadb-desktop-macos-bundles
+          path: |
+            desktop/src-tauri/target/**/bundle/dmg/*.dmg
+            desktop/src-tauri/target/**/bundle/macos/*.app
+          if-no-files-found: error
+
+  linux:
+    name: Build & Test (Linux)
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Single rust-setup integration point (release-ci.md rule 2).
+      - uses: ./.github/actions/rust-setup
+
+      # System deps for Tauri WebKit bundling (source: tauri-action README).
+      - name: Install Tauri system dependencies
+        shell: bash
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Set up Node
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: lts/*
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+
+      # jemalloc on Linux per release-ci.md rule 1. Extension-less names
+      # match child_process.rs CANONICAL_EXE/LEGACY_EXE on Unix and the
+      # tauri.conf.json resource globs.
+      - name: Build sidecars (vanta-cli + vantadb-server)
+        shell: bash
+        run: |
+          cargo build --release --package vantadb-server --features jemalloc
+          cargo build --release --features "server,jemalloc" --package vantadb --bin vanta-cli
+          mkdir -p desktop/src-tauri/binaries
+          cp target/release/vantadb-server desktop/src-tauri/binaries/vantadb-server
+          cp target/release/vanta-cli desktop/src-tauri/binaries/vanta-cli
+          echo "VANTADB_SERVER_BIN=$PWD/desktop/src-tauri/binaries/vantadb-server" >> "$GITHUB_ENV"
+          echo "VANTADB_CLI_BIN=$PWD/desktop/src-tauri/binaries/vanta-cli" >> "$GITHUB_ENV"
+
+      - name: Install frontend dependencies
+        working-directory: desktop
+        run: npm ci
+
+      - name: Run src-tauri tests
+        working-directory: desktop/src-tauri
+        run: cargo test
+
+      # No tagName/releaseId → build-only AppImage + deb, no GitHub Release.
+      - name: Build Tauri bundles (AppImage + deb)
+        id: tauri
+        uses: tauri-apps/tauri-action@1deb371b0cd8bd54025b384f1cd735e725c4060f # v1 (action-v1.0.0)
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          projectPath: desktop
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: vantadb-desktop-linux-bundles
+          path: |
+            desktop/src-tauri/target/**/bundle/appimage/*.AppImage
+            desktop/src-tauri/target/**/bundle/deb/*.deb
+          if-no-files-found: error

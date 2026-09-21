@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Banner — Original vs V2</title>
+<style>
+  body { margin: 0; background: #0d0d0d; color: #eee; font-family: ui-monospace, monospace; }
+  .wrap { max-width: 1020px; margin: 0 auto; padding: 40px 20px; }
+  h1 { font-size: 18px; letter-spacing: 1px; }
+  .sub { color: #888; font-size: 12px; margin: 6px 0 28px; line-height: 1.6; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 28px; }
+  .card { background: #161616; border: 1px solid #333; border-radius: 10px; overflow: hidden; }
+  .card .label { font-size: 11px; color: #999; text-transform: uppercase; letter-spacing: 2px; padding: 10px 14px; border-bottom: 1px solid #2a2a2a; }
+  .card .label b { color: #FF5500; }
+  img { width: 100%; height: auto; display: block; background: repeating-conic-gradient(#1a1a1a 0 25%, #222 0 50%) 0 0/24px 24px; }
+  ul { font-size: 13px; line-height: 1.9; color: #bbb; padding-left: 20px; }
+  li b { color: #FF5500; }
+  .toggle { text-align: center; margin: 20px 0; font-size: 12px; color: #888; }
+  .toggle button { background: #FF5500; color: #000; border: 0; padding: 8px 18px; border-radius: 6px; font-weight: 700; cursor: pointer; margin: 0 6px; }
+  .dark { background: #0d0d0d; }
+  .light { background: #f5f5f5; }
+  .light .toggle { color: #555; }
+</style>
+</head>
+<body id="page" class="dark">
+<div class="wrap">
+  <h1>Banner README — Original vs V2</h1>
+  <div class="sub">
+    V2 = copia de Banner.tsx mejorada (el original NO se tocó). Preview sobre
+    checkerboard para ver transparencia. Alterná fondo dark/light con el botón.
+  </div>
+
+  <div class="toggle">
+    Fondo: <button onclick="document.getElementById('page').className='dark'">Dark</button>
+    <button onclick="document.getElementById('page').className='light'">Light</button>
+  </div>
+
+  <div class="row">
+    <div class="card">
+      <div class="label">ORIGINAL — <b>assets/banner.gif</b> (829 KB, 120f)</div>
+      <img src="../remotion/out/banner.gif" alt="Original" />
+    </div>
+    <div class="card">
+      <div class="label">V2 — <b>out/banner-v2.gif</b> (1.2 MB, 120f)</div>
+      <img src="../remotion/out/banner-v2.gif" alt="V2" />
+    </div>
+  </div>
+
+  <ul>
+    <li><b>Kerning:</b> "DB" ya no es una span de 2 chars — cada letra con tracking idéntico.</li>
+    <li><b>Glow neón real:</b> textShadow multicapa + pulse de intensidad en DB (antes solo stroke).</li>
+    <li><b>Spring:</b> entrada con Easing.back + micro-squash al aterrizar (peso).</li>
+    <li><b>Shine sweep:</b> barrido diagonal sutil sobre el wordmark en idle.</li>
+    <li><b>Mark:</b> pop con overshoot más marcado + squash horizontal de entrada.</li>
+    <li><b>Halo:</b> glow naranja tenue detrás del wordmark para README dark.</li>
+  </ul>
+</div>
+</body>
+</html>

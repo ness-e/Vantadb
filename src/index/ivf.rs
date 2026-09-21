@@ -8,7 +8,7 @@
 //! No external k-means dependency — simple manual Lloyd iteration with
 //! Forgy initialization. No PQ/quantization — IVFFlat only.
 
-use crate::index::distance::calculate_similarity;
+use crate::index::distance::f32_slice_similarity;
 use crate::node::{DistanceMetric, FilterBitset, VectorRepresentations};
 use rand::seq::SliceRandom;
 use rand::SeedableRng;
@@ -58,19 +58,10 @@ pub struct IvfIndex {
 
 /// Internal helper: extract a `Vec<f32>` from a node for k-means.
 fn node_to_f32_slice(vector: &VectorRepresentations) -> Option<Vec<f32>> {
-    match vector {
-        VectorRepresentations::Full(v) => Some(v.clone()),
-        VectorRepresentations::MmapFull(Some(mmap)) => {
-            let len = mmap.len() / 4;
-            if len == 0 || len > crate::index::graph::MAX_VEC_F32_LEN {
-                return None;
-            }
-            // SAFETY: len bounded by MAX_VEC_F32_LEN; mmap kept alive by Arc.
-            let slice = unsafe { std::slice::from_raw_parts(mmap.as_ptr() as *const f32, len) };
-            Some(slice.to_vec())
-        }
-        _ => None,
-    }
+    // `as_f32_slice` reinterprets `u8*` → `&[f32]` safely via `align_to`
+    // (REVIEW-15), returning `None` when the mmap base is not 4-aligned or the
+    // length is invalid — instead of a raw `from_raw_parts` cast (UB).
+    vector.as_f32_slice().map(|s| s.to_vec())
 }
 
 impl IvfIndex {
@@ -130,14 +121,7 @@ impl IvfIndex {
                 let mut best = 0usize;
                 let mut best_sim = f32::NEG_INFINITY;
                 for (c, centroid) in centroids.iter().enumerate() {
-                    let sim = calculate_similarity(
-                        vec,
-                        None,
-                        None,
-                        None,
-                        &VectorRepresentations::Full(centroid.clone()),
-                        distance_metric,
-                    );
+                    let sim = f32_slice_similarity(vec, None, centroid, distance_metric);
                     if sim > best_sim {
                         best_sim = sim;
                         best = c;
@@ -177,12 +161,11 @@ impl IvfIndex {
                 // For Euclidean, similarity is -distance; we track change
                 let diff = match distance_metric {
                     DistanceMetric::Euclidean => {
-                        let dist = calculate_similarity(
+                        // For Euclidean, similarity is -distance; we track change
+                        let dist = f32_slice_similarity(
                             &centroids[c],
                             None,
-                            None,
-                            None,
-                            &VectorRepresentations::Full(new_centroids[c].clone()),
+                            &new_centroids[c],
                             DistanceMetric::Euclidean,
                         );
                         (-dist).sqrt() // Euclidean distance
@@ -198,6 +181,7 @@ impl IvfIndex {
                             .sum();
                         sq_sum.sqrt()
                     }
+                    DistanceMetric::SparseDot => 0.0, // k-means is dense-only
                 };
                 max_movement = max_movement.max(diff);
             }
@@ -250,14 +234,7 @@ impl IvfIndex {
             .iter()
             .enumerate()
             .map(|(i, centroid)| {
-                let sim = calculate_similarity(
-                    query,
-                    None,
-                    None,
-                    None,
-                    &VectorRepresentations::Full(centroid.clone()),
-                    metric,
-                );
+                let sim = f32_slice_similarity(query, None, centroid, metric);
                 (i, sim)
             })
             .collect();
@@ -275,14 +252,7 @@ impl IvfIndex {
                 if !query_mask.is_all_set() && !entry.bitset.matches_mask(query_mask) {
                     continue;
                 }
-                let sim = calculate_similarity(
-                    query,
-                    None,
-                    None,
-                    None,
-                    &VectorRepresentations::Full(entry.vector.clone()),
-                    metric,
-                );
+                let sim = f32_slice_similarity(query, None, &entry.vector, metric);
                 results.push((entry.id, sim));
             }
         }
@@ -313,6 +283,7 @@ impl IvfIndex {
         let metric_byte: u8 = match self.config.distance_metric {
             DistanceMetric::Cosine => 0,
             DistanceMetric::Euclidean => 1,
+            DistanceMetric::SparseDot => 2,
         };
         buf.push(metric_byte);
 
@@ -370,6 +341,21 @@ impl IvfIndex {
             Some(f32::from_le_bytes(buf))
         };
 
+        // Read a length field that will drive an allocation, bounding it against
+        // the remaining input so a corrupt count can't cause `Vec::with_capacity`
+        // capacity overflow / OOM (see fuzz_archive crash).
+        let read_count = |cursor: &mut Cursor<&[u8]>, min_bytes: usize| -> Option<usize> {
+            let count = read_u64(cursor)? as usize;
+            let remaining = cursor
+                .get_ref()
+                .len()
+                .saturating_sub(cursor.position() as usize);
+            if count > remaining / min_bytes.max(1) {
+                return None;
+            }
+            Some(count)
+        };
+
         // Config
         let nlist = read_u64(&mut cursor)? as usize;
         let nprobe = read_u64(&mut cursor)? as usize;
@@ -380,10 +366,10 @@ impl IvfIndex {
         };
 
         // Centroids
-        let centroid_count = read_u64(&mut cursor)? as usize;
+        let centroid_count = read_count(&mut cursor, 8)?;
         let mut centroids = Vec::with_capacity(centroid_count);
         for _ in 0..centroid_count {
-            let dim = read_u64(&mut cursor)? as usize;
+            let dim = read_count(&mut cursor, 4)?;
             let mut centroid = Vec::with_capacity(dim);
             for _ in 0..dim {
                 centroid.push(read_f32(&mut cursor)?);
@@ -392,10 +378,10 @@ impl IvfIndex {
         }
 
         // Inverted lists
-        let list_count = read_u64(&mut cursor)? as usize;
+        let list_count = read_count(&mut cursor, 8)?;
         let mut inverted_lists = Vec::with_capacity(list_count);
         for _ in 0..list_count {
-            let entry_count = read_u64(&mut cursor)? as usize;
+            let entry_count = read_count(&mut cursor, 32)?;
             let mut list = Vec::with_capacity(entry_count);
             for _ in 0..entry_count {
                 let id = {
@@ -403,11 +389,11 @@ impl IvfIndex {
                     cursor.read_exact(&mut buf).ok()?;
                     u128::from_le_bytes(buf)
                 };
-                let bs_len = read_u64(&mut cursor)? as usize;
+                let bs_len = read_count(&mut cursor, 1)?;
                 let mut bs_buf = vec![0u8; bs_len];
                 cursor.read_exact(&mut bs_buf).ok()?;
                 let (bitset, _consumed) = FilterBitset::from_bytes(&bs_buf).ok()?;
-                let dim = read_u64(&mut cursor)? as usize;
+                let dim = read_count(&mut cursor, 4)?;
                 let mut vector = Vec::with_capacity(dim);
                 for _ in 0..dim {
                     vector.push(read_f32(&mut cursor)?);
@@ -435,7 +421,7 @@ impl crate::index::VecIndex for IvfIndex {
         query_vec: &[f32],
         query_mask: &crate::node::FilterBitset,
         top_k: usize,
-        _vector_store: Option<&crate::storage::vfile::VantaFile>,
+        _vector_store: Option<&dyn crate::index_port::VectorStoreRef>,
         _distance_metric: crate::node::DistanceMetric,
     ) -> Vec<(u128, f32)> {
         // IvfIndex does its own distance computation from stored vectors;
@@ -449,11 +435,14 @@ impl crate::index::VecIndex for IvfIndex {
         _bitset: crate::node::FilterBitset,
         _vec_data: crate::node::VectorRepresentations,
         _storage_offset: u64,
-    ) {
+    ) -> crate::error::Result<()> {
         // ponytail: IvfIndex is read-only after build; use IvfIndex::build().
-        // Panicking here is intentional — it signals a programming error at
-        // the integration level rather than silently dropping the add.
-        panic!("IvfIndex is read-only after build; rebuild via IvfIndex::build()");
+        // ERR-031: return an error instead of panicking so callers can
+        // propagate the rejection rather than crash.
+        Err(crate::error::Error::Validation {
+            field: "index".into(),
+            reason: "IvfIndex is read-only after build; rebuild via IvfIndex::build()".into(),
+        })
     }
 
     fn estimate_memory_bytes(&self) -> usize {
@@ -484,7 +473,9 @@ impl crate::index::VecIndex for IvfIndex {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::index::distance::calculate_similarity;
     use crate::index::graph::{HnswConfig, HnswNode};
+    use crate::index::VecIndex;
     use dashmap::DashMap;
 
     /// Helper: build a CPIndex with `n` distinct 2D vectors placed at
@@ -532,7 +523,9 @@ mod tests {
         for i in 0u128..(n as u128) {
             let angle = (i as f32) * std::f32::consts::TAU / (n as f32);
             let v = vec![angle.cos(), angle.sin()];
-            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+            index
+                .add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
         }
         index
     }
@@ -723,6 +716,38 @@ mod tests {
         assert!(deser.inverted_lists.is_empty());
     }
 
+    // ── corrupt-count resilience (fuzz_archive crash) ─────────────────
+
+    #[test]
+    fn test_ivf_deserialize_rejects_corrupt_counts() {
+        // centroid_count = u64::MAX with nothing left -> must return None, not panic
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&0u64.to_le_bytes()); // nlist
+        buf.extend_from_slice(&0u64.to_le_bytes()); // nprobe
+        buf.push(0); // metric
+        buf.extend_from_slice(&u64::MAX.to_le_bytes()); // centroid_count
+        assert!(IvfIndex::deserialize_from_bytes(&buf).is_none());
+
+        // centroid dim = u64::MAX with no room for a single f32 -> None
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&0u64.to_le_bytes()); // nlist
+        buf.extend_from_slice(&0u64.to_le_bytes()); // nprobe
+        buf.push(0); // metric
+        buf.extend_from_slice(&1u64.to_le_bytes()); // centroid_count
+        buf.extend_from_slice(&u64::MAX.to_le_bytes()); // dim
+        assert!(IvfIndex::deserialize_from_bytes(&buf).is_none());
+
+        // entry_count huge with no room for one entry (16 id + 8 bs_len + 8 dim) -> None
+        let mut buf = Vec::new();
+        buf.extend_from_slice(&0u64.to_le_bytes()); // nlist
+        buf.extend_from_slice(&0u64.to_le_bytes()); // nprobe
+        buf.push(0); // metric
+        buf.extend_from_slice(&0u64.to_le_bytes()); // centroid_count
+        buf.extend_from_slice(&1u64.to_le_bytes()); // list_count
+        buf.extend_from_slice(&u64::MAX.to_le_bytes()); // entry_count
+        assert!(IvfIndex::deserialize_from_bytes(&buf).is_none());
+    }
+
     #[test]
     fn test_ivf_serialize_euclidean() {
         let nodes = make_nodes(10);
@@ -826,7 +851,9 @@ mod tests {
 
         for i in 0u128..20 {
             let v = vec![(i as f32 * 0.1).sin(), (i as f32 * 0.1).cos()];
-            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+            index
+                .add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
         }
 
         let query = vec![0.0, 1.0];
@@ -870,13 +897,17 @@ mod tests {
         for i in 0u128..20 {
             let angle = (i as f32) * std::f32::consts::TAU / 20.0;
             let v = vec![angle.cos(), angle.sin()];
-            hnsw_idx.add(
-                i,
-                FilterBitset::new(),
-                VectorRepresentations::Full(v.clone()),
-                0,
-            );
-            ivf_idx.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+            hnsw_idx
+                .add(
+                    i,
+                    FilterBitset::new(),
+                    VectorRepresentations::Full(v.clone()),
+                    0,
+                )
+                .expect("test vectors are non-zero-norm");
+            ivf_idx
+                .add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
         }
 
         let query = vec![1.0, 0.0];
@@ -910,7 +941,9 @@ mod tests {
 
         for i in 0u128..10 {
             let v = vec![(i as f32) * 2.0, (i as f32) * 2.0];
-            index.add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0);
+            index
+                .add(i, FilterBitset::new(), VectorRepresentations::Full(v), 0)
+                .expect("test vectors are non-zero-norm");
         }
 
         let query = vec![0.0, 0.0];
@@ -958,5 +991,28 @@ mod tests {
         assert_eq!(results.len(), 10);
         // Top-1 should be near (1,0) which is id=0
         assert_eq!(results[0].0, 0, "closest node to (1,0) should be id=0");
+    }
+
+    #[test]
+    fn test_ivf_add_after_build_rejected() {
+        // ERR-031: IVF is read-only after build; add must surface as Err
+        // (replaced the old panic) so callers can propagate the rejection.
+        let nodes = make_nodes(10);
+        let ivf = IvfIndex::build(
+            &nodes,
+            &IvfConfig {
+                nlist: 3,
+                nprobe: 1,
+                distance_metric: DistanceMetric::Cosine,
+            },
+        );
+        let result = ivf.add(
+            999,
+            FilterBitset::new(),
+            VectorRepresentations::Full(vec![1.0, 0.0]),
+            0,
+        );
+        assert!(result.is_err(), "read-only IVF add must be rejected");
+        assert_eq!(ivf.len(), 10, "rejected insert must not be stored");
     }
 }

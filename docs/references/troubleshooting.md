@@ -212,3 +212,11 @@ git commit --no-verify -m "wip: ..."
 3. Escribe la solución como un comando ejecutable
 4. Agrega al inicio o junto al síntoma más cercano
 5. Si el error tiene código de salida único, ponlo como título del bloque
+
+### Vanta Studio (vite dev) llena la consola de errores 500 en `/api/v2/*`
+
+| Campo | Contenido |
+|---|---|
+| Síntoma | Consola del navegador llena de `Failed to load resource: 500` en `/api/v2/metrics`, `/api/v2/health`, `/api/v2/list` al abrir `localhost:1420` con `npm run dev` (desktop). El 500 tiene body vacío. |
+| Causa raíz | `desktop/vite.config.ts:82` hace proxy de `/api` → `http://127.0.0.1:8090`. Sin un `vanta-cli server` escuchando en 8090, el http-proxy de Vite devuelve 500 vacío por cada poll del dashboard. No es bug del frontend. |
+| Solución | Levantar el backend antes de abrir la consola: `cargo run -p vantadb --features server --bin vanta-cli -- server --port 8090` (~60s primera compilación). Verificar: `GET localhost:1420/api/v2/health` → 200. Alternativa: correr dentro de Tauri (`npm run tauri dev`), que arranca ambos procesos. |

@@ -3,7 +3,7 @@ title: "busqueda-lexica"
 type: glossary-entry
 status: stable
 tags: [glosario, búsqueda, léxica, bm25, text]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-09-15
 aliases: [lexical search, text search, keyword search, BM25]
 ---
 
@@ -83,29 +83,29 @@ pub struct Posting {
 ### Configuración
 
 ```python
-db = VantaEmbedded("./data", config={
-    "bm25": {
-        "k1": 1.2,    # Saturación de TF
-        "b": 0.75     # Normalización de longitud
-    }
-})
+import vantadb_py as vantadb
+
+# BM25 tuning lives in the Rust engine config, not the constructor
+db = vantadb.VantaDB("./data")
 ```
 
 ### Uso
 
 ```python
-# busqueda-lexica pura
-results = db.search(
-    text="base de datos embebida",
+# busqueda-lexica pura (solo BM25, sin vector)
+results = db.search_memory(
+    namespace="default",
+    query_vector=[],
+    text_query="base de datos embebida",
     top_k=10,
-    mode="text"  # Solo BM25
 )
 
 # Phrase query (comillas)
-results = db.search(
-    text='"base de datos"',
+results = db.search_memory(
+    namespace="default",
+    query_vector=[],
+    text_query='"base de datos"',
     top_k=10,
-    mode="text"
 )
 ```
 
@@ -130,18 +130,23 @@ results = db.search(
 # Query: "¿Cómo funciona la persistencia WAL?"
 
 # Solo léxica (BM25)
-results_lexical = db.search(text="persistencia WAL", mode="text")
+results_lexical = db.search_memory(
+    namespace="default", query_vector=[], text_query="persistencia WAL", top_k=10,
+)
 # Encuentra documentos con esas palabras exactas
 
 # Solo vectorial
-results_vector = db.search(vector=embed(query), mode="vector")
+results_vector = db.search_memory(
+    namespace="default", query_vector=embed(query), text_query=None, top_k=10,
+)
 # Encuentra documentos semánticamente similares
 
 # Híbrida ([RRF](RRF.md))
-results_hybrid = db.search(
-    vector=embed(query),
-    text="persistencia WAL",
-    mode="hybrid"
+results_hybrid = db.search_memory(
+    namespace="default",
+    query_vector=embed(query),
+    text_query="persistencia WAL",
+    top_k=10,
 )
 # Combina ambos: mejor recall
 ```
@@ -157,6 +162,6 @@ results_hybrid = db.search(
 ## Véase También
 
 - [BM25](BM25.md) - Algoritmo de scoring
-- [busqueda-hibrida](busqueda-hibrida.md) - Combinación con vectorial
+- [busqueda-hibrida](hybrid-search.md) - Combinación con vectorial
 - [RRF](RRF.md) - Fusión de rankings
 - [HNSW](HNSW.md) - Índice vectorial

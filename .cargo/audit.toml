@@ -1,0 +1,36 @@
+# Cargo Audit Configuration
+# See also: deny.toml [advisories] for cargo-deny equivalents
+# Keep in sync when adding/removing ignores
+
+[advisories]
+ignore = [
+    # RUSTSEC-2023-0089: atomic-polyfill is unmaintained.
+    # Transitive via postcard -> heapless (0.7.x) -> atomic-polyfill.
+    # Owner: vanta-lead
+    # Expiry: 2027-01-01 (next major release)
+    # Tracked: postcard 2.0 uses heapless 0.9+ with portable-atomic
+    # Issue: https://github.com/jonas-schievink/postcard/issues/120
+    "RUSTSEC-2023-0089",
+
+    # RUSTSEC-2024-0436: paste is unmaintained.
+    # Transitive via tikv-jemalloc-ctl -> paste (build-time proc macro).
+    # Owner: vanta-lead
+    # Expiry: 2027-01-01
+    # No runtime impact: build-time only proc macro.
+    # Issue: https://github.com/tikv/jemalloc-ctl/issues/60
+    "RUSTSEC-2024-0436",
+
+    # RUSTSEC-2023-0071 (rsa 0.9.10, Marvin Attack timing sidechannel).
+    # Mirror of deny.toml [advisories] triage (AST-007, 2026-09-11) — keep in sync.
+    # rsa is pulled transitively via jsonwebtoken 11.0.0 (feature rust_crypto),
+    # but VantaDB pins Algorithm::HS256 (src/server/jwt.rs:9,64-67) and only uses
+    # DecodingKey/EncodingKey::from_secret (HMAC) — no RSA private-key op reachable
+    # (qm: no from_rsa_* in src/). Advisory states "No safe upgrade is available".
+    # Owner: vanta-lead
+    # Expiry: 2027-01-01
+    # Tracked: drop when jsonwebtoken offers HS-only features or rsa gets constant-time impl.
+    # Decided: FIND-97 (audit-quick 2026-09-16), option A mirrored-triage.
+    "RUSTSEC-2023-0071",
+
+    # (removed RUSTSEC-2026-0176/0177 — pyo3 0.29.0 is past the vulnerable range)
+]

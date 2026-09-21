@@ -1,42 +1,238 @@
-"""VantaDB — The vector-graph database that thinks.
+"""VantaDB — legacy import name.
 
-Sync and async bindings for the embedded persistent memory engine.
+DEPRECATED (PY-03): the canonical import is ``import vantadb``. This package
+keeps working as an alias but warns on import.
+Timeline: removal one minor release after the warning ships (0.5.0 -> 0.6.0).
 """
 
 from __future__ import annotations
 
+import warnings
+
+# PY-03: warn every direct user of the legacy name; `vantadb/__init__.py`
+# suppresses this warning for its internal re-export, so only genuine
+# `import vantadb_py` / `from vantadb_py import ...` calls see it.
+warnings.warn(
+    "The 'vantadb_py' import name is deprecated and will be removed in the "
+    "next minor release (0.6.0). Use 'import vantadb' instead "
+    "(same API, same distribution 'vantadb-py').",
+    DeprecationWarning,
+    stacklevel=2,
+)
+
 import asyncio
+from dataclasses import asdict, dataclass
 from functools import partial
 
-from .vantadb_py import VantaDB, VantaListResult, VantaMemoryRecord, VantaSearchHit, VantaVector, __version__
+from .vantadb_py import (
+    BusyError,
+    ConflictError,
+    CorruptError,
+    NotFoundError,
+    NoVectorError,
+    ResourceLimitError,
+    StorageError,
+    TimeoutError,
+    UnsupportedError,
+    Client,
+    Error,
+    ValidationError,
+    ListResult,
+    Record,
+    SearchHit,
+    Vector,
+    __version__,
+    connect,
+)
+
+# AST-010: rename nativo completo (vector.rs `Vector`, convert.rs `Error`).
+# Sin puentes legacy: `Vector`/`Error` son los nombres expuestos por el módulo
+# nativo; los aliases `VantaVector`/`VantaError` se eliminaron con el rename.
 
 __all__ = [
-    "VantaDB",
-    "AsyncVantaDB",
-    "VantaListResult",
-    "VantaMemoryRecord",
-    "VantaSearchHit",
-    "VantaVector",
+    "Client",
+    "AsyncClient",
+    "ListResult",
+    "Record",
+    "SearchHit",
+    "Vector",
+    "SearchRequest",
+    "Error",
+    "NotFoundError",
+    "ValidationError",
+    "CorruptError",
+    "StorageError",
+    "ConflictError",
+    "UnsupportedError",
+    "ResourceLimitError",
+    "BusyError",
+    "NoVectorError",
+    "TimeoutError",
     "__version__",
+    "connect",
+    "error_to_dict",
 ]
 
 
-class AsyncVantaDB:
-    """Async wrapper around VantaDB.
+def error_to_dict(exc: BaseException) -> dict:
+    """Serialize a VantaDB error to a plain dict.
 
-    Query methods (search_memory, get_memory, list_memory) run
-    in a thread pool via ``asyncio.to_thread()``, releasing the GIL
-    to the Rust engine which already uses ``py.allow_threads()``.
+    Mirrors the TS ``VantaError.toJSON()`` shape from
+    ``docs/api/ERROR_HANDLING.md`` §5.2 for cross-binding log correlation:
+    ``{"name", "code", "message", "retriable", "hint"}``.
+
+    The Python exception classes are built with PyO3 ``create_exception!``,
+    which cannot carry ``#[pymethods]`` — so the spec's ``exc.to_dict()`` is
+    exposed as this module-level helper instead (ERR-PY-01). Works with any
+    exception: missing attributes degrade to ``None``.
+
+    Parameters
+    ----------
+    exc:
+        Any exception (VantaDB or otherwise) to serialize.
+
+    Returns
+    -------
+    dict
+        Plain dict with ``name``/``code``/``message``/``retriable``/``hint``.
+
+    Examples
+    --------
+    >>> error_to_dict(NotFoundError("no such node"))
+    {'name': 'NotFoundError', 'code': ..., 'message': ..., ...}
+    """
+    return {
+        "name": type(exc).__name__,
+        "code": getattr(exc, "code", None),
+        "message": str(exc),
+        "retriable": getattr(exc, "retriable", None),
+        "hint": getattr(exc, "hint", None),
+    }
+
+
+@dataclass
+class SearchRequest:
+    """Full search request for batch searches.
+
+    Mirrors the keyword arguments of ``Client.search``. Pass instances
+    (or equivalent dicts) to ``Client.search_batch_requests``, which runs them
+    in parallel in the Rust engine with GIL released.
+
+    Args:
+        namespace: Namespace to search within.
+        query_vector: Query embedding vector (list of floats or NumPy array).
+            Empty skips dense vector search.
+        filters: Optional dict of metadata field values to filter on.
+        text_query: Optional full-text query for BM25 lexical search.
+        top_k: Maximum number of hits to return (default 10).
+        distance_metric: ``"cosine"`` (default) or ``"euclidean"``.
+        method: Optional index backend override: ``"ivf"``, ``"scann"``,
+            ``"hnsw"`` or ``"flat"``. Defaults to the engine's configured
+            routing.
+        explain: Whether to include search explanations (default False).
+
+    Example::
+
+        from vantadb_py import Client, SearchRequest
+
+        db = Client(":memory:")
+        requests = [
+            SearchRequest("ns", [1.0, 0.0, 0.0], text_query="memory", top_k=5),
+            SearchRequest("ns", [0.0, 1.0, 0.0], filters={"kind": "task"}, top_k=5),
+        ]
+        results = db.search_batch_requests(requests)
+
+    A plain dict with the same keys is also accepted (e.g. ``asdict(request)``).
+    """
+
+    namespace: str
+    query_vector: list[float]
+    filters: dict | None = None
+    text_query: str | None = None
+    top_k: int = 10
+    distance_metric: str | None = None
+    method: str | None = None
+    explain: bool = False
+
+    def asdict(self):
+        """Return this request as a plain dict (for non-dataclass callers).
+
+        Returns
+        -------
+        dict
+            Mapping with the same keys as the dataclass fields.
+        """
+        return asdict(self)
+
+
+class AsyncMemoryClient:
+    """Async view over ``db.memory`` (namespace+key records).
+
+    AST-012 (paridad TS ``MemoryClient``): short names ``get``/``list``/
+    ``delete`` — no ``*_memory`` surname anywhere. The flat ``get``/``delete``
+    names stay node-level (``id: u128``) on ``AsyncClient``
+    (BINDINGS_NAMESPACES hazard), so the memory ops live here; every call
+    runs in a thread pool via the parent's ``_run`` (same GIL-release as
+    the rest of ``AsyncClient``).
 
     Usage::
 
-        async with AsyncVantaDB("./my_brain") as db:
-            record = await db.get_memory("ns", "key")
-            results = await db.search_memory("ns", [1.0, 0.0, 0.0], top_k=5)
+        async with AsyncClient("./my_brain") as db:
+            record = await db.memory.get("ns", "key")
+            page = await db.memory.list("ns", limit=10)
+            await db.memory.delete("ns", "key")
+    """
+
+    def __init__(self, sync_db, run):
+        self._sync = sync_db
+        self._run = run
+
+    async def get(self, namespace: str, key: str):
+        return await self._run(self._sync.memory.get, namespace, key)
+
+    async def list(
+        self,
+        namespace: str,
+        *,
+        filters: dict | None = None,
+        limit: int = 100,
+        cursor: int | None = None,
+        exclude_superseded: bool = False,
+    ):
+        return await self._run(
+            self._sync.memory.list,
+            namespace,
+            filters,
+            limit,
+            cursor,
+            exclude_superseded,
+        )
+
+    async def delete(self, namespace: str, key: str) -> bool:
+        return await self._run(self._sync.memory.delete, namespace, key)
+
+    def __repr__(self):
+        return f"AsyncMemoryClient(sync={self._sync!r})"
+
+
+class AsyncClient:
+    """Async wrapper around Client.
+
+    Query methods (search, ``memory.get``, ``memory.list``) run
+    in a thread pool via ``asyncio.to_thread()``, releasing the GIL
+    to the Rust engine which already uses ``py.allow_threads()``.
+
+    Memory-record ops live on ``db.memory`` (``get``/``list``/``delete``,
+    no surname — AST-012, paridad TS); flat ``get``/``delete`` stay
+    node-level (``id: u128``). Usage::
+
+        async with AsyncClient("./my_brain") as db:
+            record = await db.memory.get("ns", "key")
+            results = await db.search("ns", [1.0, 0.0, 0.0], top_k=5)
     """
 
     def __init__(self, *args, max_concurrency: int = 4, **kwargs):
-        self._sync = VantaDB(*args, **kwargs)
+        self._sync = Client(*args, **kwargs)
         self._sem = asyncio.Semaphore(max_concurrency)
 
     async def _run(self, fn, *args, **kwargs):
@@ -54,7 +250,7 @@ class AsyncVantaDB:
 
     # ── Query methods (async via to_thread) ──
 
-    async def search_memory(
+    async def search(
         self,
         namespace: str,
         query_vector: list[float],
@@ -63,37 +259,30 @@ class AsyncVantaDB:
         text_query: str | None = None,
         top_k: int = 10,
         distance_metric: str | None = None,
+        method: str | None = None,
         explain: bool = False,
+        exclude_superseded: bool = False,
     ):
         return await self._run(
-            self._sync.search_memory,
+            self._sync.search,
             namespace,
             query_vector,
             filters,
             text_query,
             top_k,
             distance_metric,
+            method,
             explain,
+            exclude_superseded,
         )
 
-    async def get_memory(self, namespace: str, key: str):
-        return await self._run(self._sync.get_memory, namespace, key)
+    @property
+    def memory(self) -> AsyncMemoryClient:
+        """Grouped async memory-record operations (``await db.memory.get(...)``).
 
-    async def list_memory(
-        self,
-        namespace: str,
-        *,
-        filters: dict | None = None,
-        limit: int = 100,
-        cursor: int | None = None,
-    ):
-        return await self._run(
-            self._sync.list_memory,
-            namespace,
-            filters,
-            limit,
-            cursor,
-        )
+        AST-012: short names, no surname (paridad TS ``MemoryClient``).
+        """
+        return AsyncMemoryClient(self._sync, self._run)
 
     # ── Mutations (sync wrappers for completeness) ──
 
@@ -111,11 +300,22 @@ class AsyncVantaDB:
             self._sync.put, namespace, key, payload, metadata, vector, ttl_ms
         )
 
-    async def delete_memory(self, namespace: str, key: str) -> bool:
-        return await self._run(self._sync.delete_memory, namespace, key)
+    async def delete_by_filter(self, namespace: str, filters: dict) -> int:
+        return await self._run(self._sync.delete_by_filter, namespace, filters)
+
+    async def count(self, namespace: str, filters: dict | None = None) -> int:
+        return await self._run(self._sync.count, namespace, filters)
+
+    async def similar_to_key(
+        self, namespace: str, key: str, top_k: int = 10
+    ) -> list:
+        return await self._run(self._sync.similar_to_key, namespace, key, top_k)
 
     async def compact_wal(self):
         return await self._run(self._sync.compact_wal)
+
+    async def supersede(self, namespace: str, old_key: str, new_key: str):
+        return await self._run(self._sync.supersede, namespace, old_key, new_key)
 
     async def purge_expired(self) -> int:
         return await self._run(self._sync.purge_expired)
@@ -131,8 +331,32 @@ class AsyncVantaDB:
             self._sync.insert, id, content, vector, fields
         )
 
-    async def put_batch(self, entries):
-        return await self._run(self._sync.put_batch, entries)
+    async def insert_node(self, id, content, vector, fields=None):
+        return await self._run(
+            self._sync.insert, id, content, vector, fields
+        )
+
+    async def put_batch(
+        self,
+        *,
+        keys,
+        vectors,
+        payloads=None,
+        metadatas=None,
+        namespace=None,
+        namespaces=None,
+        ttls=None,
+    ):
+        return await self._run(
+            self._sync.put_batch,
+            keys,
+            vectors,
+            payloads,
+            metadatas,
+            namespace,
+            namespaces,
+            ttls,
+        )
 
     async def put_batch_raw(
         self,
@@ -154,7 +378,7 @@ class AsyncVantaDB:
             namespaces: Optional list of N namespace strings (default "default").
             ttls: Optional list of N optional TTL values in ms.
 
-        Returns a list of ``VantaMemoryRecord`` dicts in input order.
+        Returns a list of ``Record`` dicts in input order.
         """
         return await self._run(
             self._sync.put_batch_raw,
@@ -208,33 +432,55 @@ class AsyncVantaDB:
     async def delete(self, id, reason="manual deletion"):
         return await self._run(self._sync.delete, id, reason)
 
-    async def search(self, vector, top_k=10):
-        return await self._run(self._sync.search, vector, top_k)
+    # AST-003 node parity aliases (WASM get_node/delete_node/insert_node).
+    async def get_node(self, id):
+        return await self._run(self._sync.get, id)
+
+    async def delete_node(self, id, reason="manual deletion"):
+        return await self._run(self._sync.delete, id, reason)
+
+    async def search_vector(self, vector, top_k=10):
+        return await self._run(self._sync.search_vector, vector, top_k)
 
     async def search_batch(self, vectors, top_k=10):
         return await self._run(
             self._sync.search_batch, vectors, top_k
         )
 
+    async def search_batch_requests(self, requests, top_k=10):
+        return await self._run(
+            self._sync.search_batch_requests, requests, top_k
+        )
+
     async def query(self, iql_query):
         return await self._run(self._sync.query, iql_query)
+
+    async def query_structured(self, iql_query):
+        return await self._run(self._sync.query_structured, iql_query)
 
     async def capabilities(self):
         return await self._run(self._sync.capabilities)
 
-    async def add_edge(self, source_id, target_id, label, weight=None):
+    async def add_edge(
+        self, source_id, target_id, label, weight=None, created_at_ms=None
+    ):
         return await self._run(
-            self._sync.add_edge, source_id, target_id, label, weight
+            self._sync.add_edge,
+            source_id,
+            target_id,
+            label,
+            weight,
+            created_at_ms,
         )
 
-    async def graph_bfs(self, roots, max_depth=999999):
+    async def graph_bfs(self, roots, max_depth=999999, direction="Forward"):
         return await self._run(
-            self._sync.graph_bfs, roots, max_depth
+            self._sync.graph_bfs, roots, max_depth, direction
         )
 
-    async def graph_dfs(self, roots, max_depth=999999):
+    async def graph_dfs(self, roots, max_depth=999999, direction="Forward"):
         return await self._run(
-            self._sync.graph_dfs, roots, max_depth
+            self._sync.graph_dfs, roots, max_depth, direction
         )
 
     async def graph_topological_sort(self, roots):
@@ -301,4 +547,6 @@ class AsyncVantaDB:
         return await self._run(self._sync.hardware_profile)
 
     def __repr__(self):
-        return f"AsyncVantaDB(sync={self._sync!r})"
+        return f"AsyncClient(sync={self._sync!r})"
+
+

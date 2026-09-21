@@ -23,11 +23,7 @@ const ICONS: Record<string, LucideIcon> = {
 };
 
 export function Features() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { t, tt } = useLanguage();
   return (
     <section className="relative border-b-4 border-black bg-[#F2EDE2]  ">
       <div className="pointer-events-none absolute inset-0 grid-tech opacity-50" aria-hidden />
@@ -43,7 +39,7 @@ export function Features() {
                 {t("features.subtitle")}
               </p>
             </div>
-            <div className="flex items-center gap-2 font-tech text-[10px] uppercase tracking-wider text-black/50 ">
+            <div className="flex items-center gap-2 font-tech text-[10px] uppercase tracking-wider text-black/70 ">
               <span className="h-2 w-2 animate-flicker bg-[#FF5500]" />
               {t("features.surfacesInfo")}
             </div>
@@ -59,7 +55,7 @@ export function Features() {
             return (
               <Reveal key={cap.title} direction="up" delay={i * 60} as="article">
                 <article
-                  className="press-lg group relative flex h-full flex-col border-4 border-black bg-[#FBF9F5] p-5  "
+                  className="press--lg group relative flex h-full flex-col border-4 border-black bg-[#FBF9F5] p-5  "
                 >
                 {/* Panel number */}
                 <span className="absolute -left-2 -top-3 rotate-[-6deg] border-2 border-black bg-black px-2 py-0.5 font-display text-xs uppercase text-[#FF5500]   ">

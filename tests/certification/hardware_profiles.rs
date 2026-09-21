@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Hardware Profiles Certification — Vanta Certification Edition
 //!
 //! Validates hardware detection and emergency threshold logic.
@@ -113,7 +116,7 @@ async fn hardware_certification_full() {
         }
         storage.flush().unwrap();
 
-        let stats_warm = storage.get_memory_stats();
+        let stats_warm = storage.stats();
         vantadb::metrics::record_memory_breakdown(
             stats_warm.node_count,
             stats_warm.logical_bytes,
@@ -135,7 +138,7 @@ async fn hardware_certification_full() {
         }
         storage.flush().unwrap();
 
-        let stats_final = storage.get_memory_stats();
+        let stats_final = storage.stats();
         vantadb::metrics::record_memory_breakdown(
             stats_final.node_count,
             stats_final.logical_bytes,

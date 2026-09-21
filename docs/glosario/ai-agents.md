@@ -3,7 +3,7 @@ title: "Antes de cada interacción"
 type: glossary-entry
 status: stable
 tags: [vantadb, glosario, ia, agentes, caso-de-uso]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 ---
 #AI Agents
@@ -54,8 +54,9 @@ Memories of specific interactions:
 
 ```python
 db.put(
+    namespace="agent/main",
     key=f"conversation_{timestamp}",
-    text="Usuario pidió resumen del proyecto",
+    payload="Usuario pidió resumen del proyecto",
     vector=embed("resumen proyecto"),
     metadata={"type": "episodic", "session": "abc123"}
 )
@@ -67,8 +68,9 @@ General knowledge and facts:
 
 ```python
 db.put(
+    namespace="agent/main",
     key="fact_python_version",
-    text="Python 3.12 fue lanzado en octubre 2023",
+    payload="Python 3.12 fue lanzado en octubre 2023",
     vector=embed("python versión lanzamiento"),
     metadata={"type": "semantic", "category": "programming"}
 )
@@ -80,8 +82,9 @@ How to do things:
 
 ```python
 db.put(
+    namespace="agent/main",
     key="procedure_deploy",
-    text="1. Run tests 2. Build image 3. Push to registry 4. Deploy",
+    payload="1. Run tests 2. Build image 3. Push to registry 4. Deploy",
     vector=embed("deploy procedure steps"),
     metadata={"type": "procedural", "domain": "devops"}
 )
@@ -108,9 +111,9 @@ agent = initialize_agent(
 
 ```python
 from crewai import Agent
-from vantadb import VantaEmbedded
+import vantadb_py as vantadb
 
-db = VantaEmbedded("./crew_memory")
+db = vantadb.VantaDB("./crew_memory")
 
 researcher = Agent(
     role="Researcher",
@@ -159,14 +162,15 @@ Current message: {user_message}
 # Detectar preferencia del usuario
 if "prefiero respuestas cortas" in user_message:
     db.put(
+        namespace="agent/main",
         key="user_preference_brevity",
-        text="Usuario prefiere respuestas concisas",
+        payload="Usuario prefiere respuestas concisas",
         vector=embed("preferencia brevedad"),
         metadata={"type": "preference", "confidence": 0.95}
     )
 
 # Apply preference in future responses
-prefs = db.search(vector=embed("user preferences"), top_k=3)
+prefs = db.search_memory(namespace="agent/main", query_vector=embed("user preferences"), top_k=3)
 response_style = "concise" if has_brevity_pref(prefs) else "detailed"
 ```
 

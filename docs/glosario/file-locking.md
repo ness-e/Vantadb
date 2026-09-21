@@ -3,7 +3,7 @@ title: "file-locking"
 type: glossary-entry
 status: stable
 tags: [concurrencia, lock, sincronizacion]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [File Lock, Advisory Lock]
 ---

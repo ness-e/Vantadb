@@ -1,3 +1,6 @@
+// ponytail: integration test unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 //! Memory Telemetry Contract Harness
 //!
 //! Validates that VantaDB reports process-scoped memory with explicit units
@@ -11,12 +14,12 @@ use common::{TerminalReporter, VantaHarness};
 use std::fs;
 use std::path::Path;
 use tempfile::tempdir;
-use vantadb::config::VantaConfig;
+use vantadb::config::Config;
 use vantadb::node::{NodeFlags, UnifiedNode, VectorRepresentations};
 use vantadb::storage::{BackendKind, StorageEngine};
 
 fn open_fjall(path: &str) -> StorageEngine {
-    let config = VantaConfig {
+    let config = Config {
         backend_kind: BackendKind::Fjall,
         ..Default::default()
     };
@@ -104,7 +107,7 @@ fn memory_telemetry_contract() {
 
         assert!(
             l0_path.exists(),
-            "vstore_L0.vanta must exist after flush (L0 VantaFile)"
+            "vstore_L0.vanta must exist after flush (L0 File)"
         );
         assert!(
             ann_index.exists(),
@@ -151,7 +154,7 @@ fn memory_telemetry_contract() {
             None,
             &vantadb::node::ALL_BITSET,
             5,
-            Some(&reopened.vector_store[0].read()),
+            Some(&*reopened.vector_store[0].read()),
         );
 
         assert!(!results.is_empty(), "Reopened index must remain queryable");

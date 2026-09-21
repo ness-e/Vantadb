@@ -1,20 +1,15 @@
 //! StorageEngine initialization: opening, backend setup, index loading, WAL recovery.
 
-use std::fs::{File, OpenOptions};
+use std::fs::{File as StdFile, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 use tracing::info;
 use web_time::Instant;
 
 use crate::backend::{BackendPartition, StorageBackend};
-#[cfg(feature = "fjall")]
-use crate::backends::fjall_backend::FjallBackend;
-use crate::backends::in_memory::InMemoryBackend;
-#[cfg(feature = "rocksdb")]
-use crate::backends::rocksdb_backend::RocksDbBackend;
-use crate::config::VantaConfig;
-use crate::error::{Result, VantaError};
-use crate::index::{CPIndex, IndexBackend};
+use crate::config::Config;
+use crate::error::{Error, Result};
+use crate::index_port::IndexPort;
 use crate::lsm::SegmentLevel;
 use crate::node::LabelIntern;
 use crate::storage::engine::StorageEngine;
@@ -22,7 +17,7 @@ use crate::storage::engine::{BackendKind, FLAG_TOMBSTONE, GIB, MIB};
 use crate::storage::ops;
 #[cfg(unix)]
 use crate::storage::vfile::install_sigbus_handler;
-use crate::storage::vfile::VantaFile;
+use crate::storage::vfile::File;
 
 impl StorageEngine {
     /// Open with default configuration (backward-compatible).
@@ -31,7 +26,7 @@ impl StorageEngine {
     }
 
     /// Open with explicit configuration for memory budgets and mode overrides.
-    pub fn open_with_config(path: &str, config: Option<VantaConfig>) -> Result<Self> {
+    pub fn open_with_config(path: &str, config: Option<Config>) -> Result<Self> {
         let startup_started = Instant::now();
         let config = config.unwrap_or_default();
         let caps = crate::hardware::HardwareCapabilities::global();
@@ -41,8 +36,8 @@ impl StorageEngine {
 
         let (hnsw, vector_store, segment_registry, wal_writer, wal_replay_ms, wal_records_replayed) =
             if matches!(config.backend_kind, BackendKind::InMemory) {
-                let hnsw = CPIndex::new();
-                let vs = VantaFile::create_in_memory(64 * MIB);
+                let hnsw = crate::index::port_impl::new_in_memory_port();
+                let vs = File::create_in_memory(64 * MIB);
                 let vstore = vec![parking_lot::RwLock::new(vs)];
                 let reg = crate::lsm::SegmentRegistry::new();
                 let wal_writer = None;
@@ -54,7 +49,7 @@ impl StorageEngine {
                     &data_dir,
                     &config,
                     backend.as_ref(),
-                    &mut hnsw,
+                    &mut *hnsw,
                     &vector_store,
                 )?;
                 let wal_writer = crate::storage::wal::init_wal(&data_dir, &config)?;
@@ -83,22 +78,22 @@ impl StorageEngine {
                     total = Some(total.unwrap_or(0) + rb);
                 }
             }
-            if let Some(rb) = hnsw.backend.mmap_resident_bytes() {
+            if let Some(rb) = hnsw.mmap_resident_bytes() {
                 total = Some(total.unwrap_or(0) + rb);
             }
             total
         };
         crate::metrics::record_memory_breakdown(
-            hnsw.nodes.len() as u64,
+            hnsw.node_count() as u64,
             estimated_hnsw_bytes,
             resident_bytes,
             0,
             0,
         );
 
-        if hnsw.nodes.len() > 10_000 && estimated_hnsw_bytes > effective_memory / 2 {
+        if hnsw.node_count() > 10_000 && estimated_hnsw_bytes > effective_memory / 2 {
             tracing::warn!(
-                hnsw_nodes = hnsw.nodes.len(),
+                hnsw_nodes = hnsw.node_count(),
                 estimated_mb = estimated_hnsw_bytes / MIB,
                 effective_mb = effective_memory / MIB,
                 "HNSW index exceeds 50% of memory budget",
@@ -110,23 +105,18 @@ impl StorageEngine {
         let engine = Self {
             config: config.clone(),
             read_only: config.read_only,
-            hnsw: arc_swap::ArcSwap::from_pointee(hnsw),
+            hnsw: arc_swap::ArcSwap::new(Arc::new(hnsw)),
             insert_lock: parking_lot::FairMutex::new(()),
             pending_hnsw_batch: parking_lot::Mutex::new(Vec::new()),
-            volatile_cache: parking_lot::RwLock::new(std::collections::HashMap::new()),
+            cache: super::cache::CacheLayer::new(cardinality_stats),
             last_query_timestamp: std::sync::atomic::AtomicU64::new(0),
-            next_txn_id: std::sync::atomic::AtomicU64::new(1),
-            active_txns: parking_lot::Mutex::new(std::collections::HashSet::new()),
-            txn_buffers: parking_lot::Mutex::new(std::collections::HashMap::new()),
+            txn: super::txn::TxnManager::new(),
             emergency_maintenance_trigger: std::sync::atomic::AtomicBool::new(false),
             data_dir,
             vector_store,
             segment_registry,
             wal: wal_writer.map(std::sync::Arc::new),
             _lock_file: lock_file,
-            text_stats_cache: parking_lot::RwLock::new(std::collections::HashMap::new()),
-            text_ns_cache: parking_lot::RwLock::new(std::collections::HashMap::new()),
-            cardinality_stats: parking_lot::RwLock::new(cardinality_stats),
             backend,
             memory_governor: Some(std::sync::Arc::new(
                 crate::memory_governor::MemoryGovernor::new(&config),
@@ -136,7 +126,6 @@ impl StorageEngine {
                     crate::vector::governor::QuantizationConfig::default(),
                 ),
             ),
-            cache_warmer: crate::cache_warmer::CacheWarmer::new(),
             edge_index: Some(std::sync::Arc::new(crate::edge_index::EdgeIndex::new())),
             scalar_index: Some(std::sync::Arc::new(crate::scalar_index::ScalarIndex::new())),
             label_intern: parking_lot::Mutex::new(LabelIntern::new()),
@@ -146,23 +135,31 @@ impl StorageEngine {
         // doesn't pay a cold-start penalty reading entry-point nodes from disk.
         engine.warm_hnsw_top_layer();
 
+        // MOD-04: rebuild the scalar index from backend metadata on open —
+        // `recover_state` writes directly (replay_write_node) and never
+        // maintains the index, so a reopen would otherwise start with an
+        // empty index and TTL purge would miss every pre-existing expired
+        // record. `edge_index` shares the same one-time rebuild pattern.
+        engine.rebuild_scalar_index()?;
+
         Ok(engine)
     }
 
     fn init_storage(
         path: &str,
-        config: &VantaConfig,
-    ) -> Result<(Option<File>, Arc<dyn StorageBackend>, PathBuf)> {
+        config: &Config,
+    ) -> Result<(Option<StdFile>, Arc<dyn StorageBackend>, PathBuf)> {
         ops::prevent_path_traversal(path)?;
         let base_path = PathBuf::from(path);
 
         if matches!(config.backend_kind, BackendKind::InMemory) {
-            let backend: Arc<dyn StorageBackend> = Arc::new(InMemoryBackend::new());
+            let backend: Arc<dyn StorageBackend> =
+                Arc::new(crate::backends::in_memory::InMemoryBackend::new());
             return Ok((None, backend, PathBuf::new()));
         }
 
         if config.read_only && !base_path.exists() {
-            return Err(VantaError::NotFound {
+            return Err(Error::NotFound {
                 kind: "database_path".into(),
                 id: base_path.display().to_string(),
             });
@@ -170,7 +167,7 @@ impl StorageEngine {
         let lock_file = {
             let lock_path = base_path.join(".vanta.lock");
             if !config.read_only {
-                std::fs::create_dir_all(&base_path).map_err(VantaError::IoError)?;
+                std::fs::create_dir_all(&base_path).map_err(Error::Io)?;
             }
 
             let file_result = OpenOptions::new()
@@ -183,19 +180,19 @@ impl StorageEngine {
                 Ok(f) => f,
                 Err(e) => {
                     if config.read_only {
-                        return Err(VantaError::NotFound {
+                        return Err(Error::NotFound {
                             kind: "lock_file".into(),
                             id: base_path.join(".vanta.lock").display().to_string(),
                         });
                     } else {
-                        return Err(VantaError::IoError(e));
+                        return Err(Error::Io(e));
                     }
                 }
             };
 
             let mut delay = std::time::Duration::from_millis(5);
             let total_limit = std::time::Duration::from_millis(config.file_lock_timeout_ms);
-            let start_time = std::time::Instant::now();
+            let start_time = Instant::now();
             let mut acquired = false;
 
             while start_time.elapsed() < total_limit {
@@ -224,6 +221,11 @@ impl StorageEngine {
                     break;
                 }
 
+                // wasm32: single-threaded, no other process can release the
+                // lock between retries and std::thread::sleep panics there
+                // (condvar::no_threads) — one pass suffices; a miss surfaces
+                // as DatabaseBusy after the loop, no hot spin.
+                #[cfg(not(target_arch = "wasm32"))]
                 std::thread::sleep(delay);
                 delay = std::cmp::min(delay * 2, std::time::Duration::from_millis(100));
             }
@@ -242,7 +244,7 @@ impl StorageEngine {
                         base_path.display()
                     )
                 };
-                return Err(VantaError::DatabaseBusy(msg));
+                return Err(Error::DatabaseBusy(msg));
             }
 
             Some(file)
@@ -266,37 +268,25 @@ impl StorageEngine {
             crate::schema::check_schema_compatibility(&base_path)?;
         }
 
-        let backend: Arc<dyn StorageBackend> = match config.backend_kind {
-            #[cfg(feature = "rocksdb")]
-            BackendKind::RocksDb => Arc::new(RocksDbBackend::open(path, config)?),
-            #[cfg(not(feature = "rocksdb"))]
-            BackendKind::RocksDb => {
-                return Err(VantaError::ValidationError {
-                    field: "backend_feature".into(),
-                    reason: "RocksDB backend requires the 'rocksdb' feature".into(),
-                })
-            }
-            #[cfg(feature = "fjall")]
-            BackendKind::Fjall => Arc::new(FjallBackend::open(path, config)?),
-            #[cfg(not(feature = "fjall"))]
-            BackendKind::Fjall => {
-                return Err(VantaError::ValidationError {
-                    field: "backend_feature".into(),
-                    reason: "Fjall backend requires the 'fjall' feature".into(),
-                })
-            }
-            BackendKind::InMemory => Arc::new(InMemoryBackend::new()),
-        };
+        // C2S2 (OCP): construction goes through `BackendRegistry` — a new
+        // backend registers its factory there; this function never grows
+        // another `match` arm.
+        let backend: Arc<dyn StorageBackend> =
+            crate::backends::registry::BackendRegistry::default_registry().create(
+                config.backend_kind,
+                path,
+                config,
+            )?;
 
         let data_dir = base_path.join("data");
         if config.read_only && !data_dir.exists() {
-            return Err(VantaError::NotFound {
+            return Err(Error::NotFound {
                 kind: "data_directory".into(),
                 id: data_dir.display().to_string(),
             });
         }
         if !config.read_only {
-            std::fs::create_dir_all(&data_dir).map_err(VantaError::IoError)?;
+            std::fs::create_dir_all(&data_dir).map_err(Error::Io)?;
         }
 
         Ok((lock_file, backend, data_dir))
@@ -304,12 +294,12 @@ impl StorageEngine {
 
     fn init_indexes(
         data_dir: &Path,
-        config: &VantaConfig,
+        config: &Config,
         caps: &crate::hardware::HardwareCapabilities,
         effective_memory: u64,
     ) -> Result<(
-        CPIndex,
-        Vec<parking_lot::RwLock<VantaFile>>,
+        Box<dyn IndexPort>,
+        Vec<parking_lot::RwLock<File>>,
         crate::lsm::SegmentRegistry,
     )> {
         let index_path = data_dir.join("vector_index.bin");
@@ -319,32 +309,36 @@ impl StorageEngine {
                 || caps.profile == crate::hardware::HardwareProfile::LowResource
                 || effective_memory < 16 * GIB);
 
-        let mut hnsw = if let Some(loaded) = CPIndex::load_from_file(&index_path, use_mmap) {
-            if use_mmap {
-                info!(
-                    backend = "mmap",
-                    "HNSW Resource Governance: MMap backend activated (cold-start)"
-                );
-            }
-            loaded
-        } else {
-            if use_mmap {
-                info!(
-                    backend = "mmap",
-                    "HNSW Resource Governance: MMap backend activated (fresh)"
-                );
-                CPIndex::with_backend(IndexBackend::new_mmap(index_path.clone()))
-            } else {
-                info!(
-                    backend = "in-memory",
-                    "HNSW Performance Mode: InMemory backend"
-                );
-                CPIndex::new()
-            }
-        };
+        let mut hnsw: Box<dyn IndexPort> =
+            match crate::index::port_impl::open_index_port(&index_path, use_mmap) {
+                Ok(loaded) => {
+                    if use_mmap {
+                        info!(
+                            backend = "mmap",
+                            "HNSW Resource Governance: MMap backend activated (cold-start)"
+                        );
+                    }
+                    loaded
+                }
+                Err(_) => {
+                    if use_mmap {
+                        info!(
+                            backend = "mmap",
+                            "HNSW Resource Governance: MMap backend activated (fresh)"
+                        );
+                        crate::index::port_impl::new_mmap_port(index_path.clone())
+                    } else {
+                        info!(
+                            backend = "in-memory",
+                            "HNSW Performance Mode: InMemory backend"
+                        );
+                        crate::index::port_impl::new_in_memory_port()
+                    }
+                }
+            };
 
         if let Some(threshold) = config.flat_threshold {
-            hnsw.config.flat_threshold = Some(threshold);
+            hnsw.set_flat_threshold(Some(threshold));
         }
 
         // Multi-level: open or create L0..L3 VantaFiles via SegmentRegistry
@@ -360,7 +354,7 @@ impl StorageEngine {
             ] {
                 let path = data_dir.join(level.file_name());
                 if path.exists() {
-                    let vf = VantaFile::open_read_only(path.clone())?;
+                    let vf = File::open_read_only(path.clone())?;
                     reg.register(level.as_u8(), level.as_u8(), path);
                     vfs.push(parking_lot::RwLock::new(vf));
                 }
@@ -368,7 +362,7 @@ impl StorageEngine {
             // Fallback: if no levels exist, open legacy path (may fail)
             if vfs.is_empty() {
                 let legacy = data_dir.join("vector_store.vanta");
-                let vf = VantaFile::open_read_only(legacy)?;
+                let vf = File::open_read_only(legacy)?;
                 let path = data_dir.join(SegmentLevel::L0.file_name());
                 reg.register(0, 0, path);
                 vfs.push(parking_lot::RwLock::new(vf));
@@ -383,14 +377,14 @@ impl StorageEngine {
 
     fn recover_state(
         data_dir: &Path,
-        config: &VantaConfig,
+        config: &Config,
         backend: &dyn StorageBackend,
-        hnsw: &mut CPIndex,
-        vector_store: &[parking_lot::RwLock<VantaFile>],
+        hnsw: &mut dyn IndexPort,
+        vector_store: &[parking_lot::RwLock<File>],
     ) -> Result<(u64, u64)> {
         let index_path = data_dir.join("vector_index.bin");
 
-        if hnsw.nodes.is_empty() {
+        if hnsw.is_empty() {
             // Rebuild from L0 (and eventually all levels) — for now L0 is primary
             let report = {
                 let l0_vf = vector_store[0].write();
@@ -403,7 +397,7 @@ impl StorageEngine {
                     indexed_vectors = report.indexed_vectors,
                     skipped_tombstones = report.skipped_tombstones,
                     duration_ms = report.duration_ms,
-                    "Index reconstructed from VantaFile"
+                    "Index reconstructed from File"
                 );
             }
         }
@@ -417,7 +411,12 @@ impl StorageEngine {
             .unwrap_or(0);
 
         if !config.read_only && config.wal_shards > 0 {
-            let num_shards = config.wal_shards.max(1);
+            // AUDREP-16: reconcile to the on-disk layout instead of trusting the
+            // config. A WAL written with a different shard count would otherwise
+            // be replayed with mismatched shard files and lose data silently.
+            let num_shards = crate::wal_sharded::detect_shard_count(&wal_path)
+                .or_else(|| crate::wal_sharded::read_shard_meta(&wal_path))
+                .unwrap_or(config.wal_shards.max(1));
 
             // Build shard path for a given index
             let shard_path_for = |idx: usize| -> std::path::PathBuf {
@@ -455,15 +454,20 @@ impl StorageEngine {
                     record: crate::wal::WalRecord,
                 }
                 let mut pending: Vec<TimedRecord> = Vec::new();
-                for shard_idx in 0..num_shards {
+                // ERR-011: track per-shard record counts so a shard whose tail was
+                // truncated (or that failed to open) is detected instead of replaying
+                // short and reporting a checkpoint that silently skipped records.
+                let mut shard_counts = vec![0u64; num_shards];
+                for (shard_idx, shard_count) in shard_counts.iter_mut().enumerate() {
                     let shard_path = shard_path_for(shard_idx);
                     if !shard_path.exists() {
                         continue;
                     }
-                    let mut reader = match crate::wal::WalReader::open(&shard_path) {
-                        Ok(r) => r,
-                        Err(_) => continue,
-                    };
+                    let mut reader = crate::wal::WalReader::open(&shard_path).map_err(|e| {
+                        Error::wal_error(format!(
+                            "Failed to open WAL shard {shard_idx} during recovery: {e}"
+                        ))
+                    })?;
                     let skip = full_rounds + if (shard_idx as u64) < remainder { 1 } else { 0 };
                     let mut local_pos = 0u64;
                     while let Some(record) = reader.next_record()? {
@@ -473,28 +477,63 @@ impl StorageEngine {
                         }
                         local_pos += 1;
                     }
+                    *shard_count = local_pos;
+                }
+                // ERR-011: round-robin only produces a coherent dataset when every
+                // shard matches the sibling local positions; surface the gap instead
+                // of silently replaying a truncated shard short. Single-shard legacy
+                // WALs are exempt (there is no round-robin layout to corrupt).
+                if num_shards > 1 {
+                    if let Some(msg) = crate::wal_sharded::verify_shard_counts(&shard_counts) {
+                        return Err(Error::wal_error(msg));
+                    }
                 }
                 pending.sort_by_key(|tr| tr.global_seq);
                 let mut skip_mask = vec![false; pending.len()];
-                let mut txn_start: Option<usize> = None;
+                // MOD-02: track the currently-open txn batch by (txn_id, start
+                // position). A txn's batch is [Begin, ops…, Commit] written by a
+                // single `batch_append`, so its records occupy contiguous
+                // global-seq slots. A crash mid-append leaves a durable prefix of
+                // the batch with the Commit lost; recovery must discard that
+                // prefix (no Commit → ops never applied) WITHOUT dropping records
+                // of later, complete batches — a new `Begin` marks that boundary.
+                let mut open_txn: Option<(u64, usize)> = None;
                 for (i, tr) in pending.iter().enumerate() {
                     match &tr.record {
-                        crate::wal::WalRecord::Begin(_) => {
-                            txn_start = Some(i);
-                        }
-                        crate::wal::WalRecord::Commit(_) => {
-                            txn_start = None;
-                        }
-                        crate::wal::WalRecord::Abort(_) => {
-                            if let Some(start) = txn_start {
-                                skip_mask[start..=i].fill(true);
+                        crate::wal::WalRecord::Begin(txn_id) => {
+                            // A new batch starts at `i`; any batch still open here
+                            // never got its Commit (contiguous slots mean its
+                            // Commit would have appeared before this Begin).
+                            // Discard the incomplete batch's own extent.
+                            if let Some((_, start)) = open_txn {
+                                skip_mask[start..i].fill(true);
                             }
-                            txn_start = None;
+                            open_txn = Some((*txn_id, i));
+                        }
+                        crate::wal::WalRecord::Commit(txn_id) => {
+                            // Only the matching txn's Commit closes its batch; a
+                            // bare Commit from another txn must not resurrect
+                            // ops that never committed.
+                            if let Some((open_id, _)) = open_txn {
+                                if open_id == *txn_id {
+                                    open_txn = None;
+                                }
+                            }
+                        }
+                        crate::wal::WalRecord::Abort(txn_id) => {
+                            if let Some((open_id, start)) = open_txn {
+                                if open_id == *txn_id {
+                                    skip_mask[start..=i].fill(true);
+                                    open_txn = None;
+                                }
+                            }
                         }
                         _ => {}
                     }
                 }
-                if let Some(start) = txn_start {
+                if let Some((_, start)) = open_txn {
+                    // Trailing incomplete batch at EOF: nothing after it can be
+                    // attributed to a different writer, so discard it fail-safe.
                     skip_mask[start..].fill(true);
                 }
 
@@ -523,8 +562,7 @@ impl StorageEngine {
                             )?;
                         }
                         crate::wal::WalRecord::Delete { id } => {
-                            if let Some(index_node) = hnsw.nodes.get(&id) {
-                                let packed_offset = index_node.storage_offset;
+                            if let Some(packed_offset) = hnsw.storage_offset_of(id) {
                                 let (seg_id, local_off) = crate::lsm::unpack_offset(packed_offset);
                                 if let Some(vs) = vector_store.get(seg_id as usize) {
                                     let mut vstore = vs.write();
@@ -536,19 +574,22 @@ impl StorageEngine {
                                 }
                             }
                             // PERF-23/28: Remove from HNSW graph to prevent zombie nodes
-                            hnsw.nodes.remove(&id);
+                            hnsw.remove_node(id);
                             // If this was the entry point, promote a replacement
-                            if hnsw.entry_point.load(std::sync::atomic::Ordering::Relaxed) == id {
+                            if hnsw.entry_point() == Some(id) {
                                 let new_ep = hnsw.find_new_entry_point().unwrap_or(u128::MAX);
-                                hnsw.entry_point
-                                    .store(new_ep, std::sync::atomic::Ordering::Relaxed);
+                                hnsw.set_entry_point(new_ep);
                             }
                             let _ = backend.delete(BackendPartition::Default, &id.to_le_bytes());
                         }
                         crate::wal::WalRecord::Checkpoint { .. } => {}
                         crate::wal::WalRecord::Begin(_)
                         | crate::wal::WalRecord::Commit(_)
-                        | crate::wal::WalRecord::Abort(_) => {}
+                        | crate::wal::WalRecord::Abort(_)
+                        // WAL v2 (RES-01): Prepare is a two-phase marker. Replay
+                        // semantics are unchanged (slice-mask still drops ops whose
+                        // Commit never became durable).
+                        | crate::wal::WalRecord::Prepare { .. } => {}
                     }
                 }
                 wal_replay_ms = wal_replay_started.elapsed().as_millis() as u64;

@@ -3,7 +3,7 @@ title: "fsync — File Synchronization"
 type: glossary-entry
 status: stable
 tags: [persistence, durabilidad, io, syscall]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [File Sync, Disk Synchronization]
 description: "Syscall from the operating system that forces the writing of all buffers in memory to the physical disk, ensuring that data survives power outages"
@@ -73,7 +73,8 @@ db.put("doc1", vector, text)
 # [POWER OUTAGE 1 second later]
 
 # Reboot
-db = VantaEmbedded("./data")
+import vantadb_py as vantadb
+db = vantadb.VantaDB("./data")
 result = db.get("doc1")
 # result = None ❌ The data was lost!
 ```
@@ -89,8 +90,9 @@ db.put("doc1", vector, text)
 # [POWER OUTAGE 1 second later]
 
 # Reboot
-db = VantaEmbedded("./data")
-result = db.get("doc1")
+import vantadb_py as vantadb
+db = vantadb.VantaDB("./data")
+result = db.get_memory("default", "doc1")
 # result = {...} ✅ Data recovered
 ```
 
@@ -304,9 +306,10 @@ PRAGMA synchronous = OFF;     -- Sin fsync (rápido pero riesgoso)
 
 **VantaDB should implement something similar:**
 ```python
-db = VantaEmbedded("./data", sync_mode="always") # Maximum durability
-db = VantaEmbedded("./data", sync_mode="periodic") # Balance
-db = VantaEmbedded("./data", sync_mode="never") # Maximum performance
+import vantadb_py as vantadb
+
+# fsync policy is controlled by the Rust engine config, not the constructor
+db = vantadb.VantaDB("./data")  # fsync siempre (máxima durabilidad)
 ```
 
 ## Durability Testing

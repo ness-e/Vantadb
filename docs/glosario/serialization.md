@@ -3,7 +3,7 @@ title: "Serialization"
 type: glossary-entry
 status: stable
 tags: [glosario, serializacion, formato, binario, rust]
-last_reviewed: 2026-07-03
+last_reviewed: 2026-09-15
 aliases: [serialization, deserialization, serialize, deserialize, serialización]
 description: "Conversión de estructuras de datos en memoria a un formato binario o textual para almacenamiento o transmisión"
 ---

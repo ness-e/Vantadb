@@ -43,16 +43,33 @@ class OutputData:
 
 
 def _normalize_score(raw: Optional[float]) -> float:
-    """Return a score in [0, 1] where 1 = most similar.
+    """Map a raw VantaDB score to a similarity in [0, 1].
 
-    If the value is already in [0,1] it passes through unchanged.
-    Otherwise it is treated as a distance and inverted.
+    FIND-94: backend emits cosine similarity (higher = better,
+    identical -> 1.0), so values in ``[0, 1]`` pass through unchanged.
+    The ``1 - d`` branch below only handles legacy distance inputs
+    (>1); it never triggers with the current backend and is kept
+    for backward-compatible callers (pinned by
+    ``test_normalize_score_exact_semantics``).
+
+    Exact semantics (pinned by ``test_normalize_score_exact_semantics``):
+
+    - ``None`` -> ``0.0``.
+    - Value already in ``[0, 1]`` -> returned unchanged (treated as a
+      pre-normalized similarity; VantaDB cosine never emits these, but
+      callers may pass scores from other sources).
+    - Any other value is treated as a distance ``d`` and inverted:
+      ``score = clamp(1 - d, 0, 1)``. Cosine distance lives in ``[0, 2]``
+      where 0 = identical, so ``d = 0`` -> ``1.0`` and ``d >= 1`` -> ``0.0``.
+      Invalid negatives are clamped to ``0.0``, never above ``1.0``.
     """
     if raw is None:
         return 0.0
     if 0.0 <= raw <= 1.0:
-        return raw
-    return max(0.0, 1.0 - raw)
+        return float(raw)
+    if raw < 0.0:
+        return 0.0
+    return min(1.0, max(0.0, 1.0 - raw))
 
 
 def _build_payload(metadata, payload_text: str = "") -> Dict[str, Any]:
@@ -109,7 +126,7 @@ class VantaDBVectorStore(VectorStoreBase):
         """
         self.embedding = embedding
         self.namespace = namespace
-        self._db = vanta.VantaDB(
+        self._db = vanta.Client(
             db_path,
             memory_limit_bytes=memory_limit_bytes,
             read_only=read_only,
@@ -164,7 +181,7 @@ class VantaDBVectorStore(VectorStoreBase):
         ``vectors`` is a single dense vector (list of floats).  Mem0 handles
         embeddings externally and passes the result here.
         """
-        results = self._db.search_memory(
+        results = self._db.memory.search(
             self.namespace, vectors, top_k=top_k, distance_metric="cosine"
         )
         return [
@@ -178,7 +195,7 @@ class VantaDBVectorStore(VectorStoreBase):
 
     def delete(self, vector_id: str) -> None:
         """Delete a single record by its id."""
-        self._db.delete_memory(self.namespace, vector_id)
+        self._db.memory.delete(self.namespace, vector_id)
 
     def update(
         self,
@@ -188,9 +205,8 @@ class VantaDBVectorStore(VectorStoreBase):
     ) -> None:
         """Replace the vector and/or payload of an existing record.
 
-        First verifies the record exists, then attempts an atomic
-        ``update_memory`` call.  Falls back to delete + insert if the
-        underlying VantaDB version does not provide ``update_memory``.
+        ``put()`` is native upsert: fetch the stored vector so a call
+        without ``vector`` preserves it (FIND-94: no ``update_memory``).
         """
         existing = self.get(vector_id)
         if existing is None:
@@ -199,19 +215,22 @@ class VantaDBVectorStore(VectorStoreBase):
         if payload:
             cur.update(payload)
         text = cur.get("data") or cur.get("text") or cur.get("content") or ""
-        try:
-            self._db.update_memory(self.namespace, vector_id, text)
-        except AttributeError:
-            # Fallback: delete + insert
-            self._db.delete_memory(self.namespace, vector_id)
-            self._db.put(
-                self.namespace, vector_id, text, metadata=cur, vector=vector,
-            )
+        old_vector: Optional[List[float]] = None
+        rec = self._db.memory.get(self.namespace, vector_id)
+        if rec is not None and getattr(rec, "vector", None) is not None:
+            try:
+                old_vector = list(rec.vector)
+            except (ValueError, TypeError, RuntimeError):
+                old_vector = None
+        self._db.put(
+            self.namespace, vector_id, text, metadata=cur,
+            vector=vector if vector is not None else old_vector,
+        )
 
     def get(self, vector_id: str) -> Optional[OutputData]:
         """Retrieve a single record by its id."""
         try:
-            record = self._db.get_memory(self.namespace, vector_id)
+            record = self._db.memory.get(self.namespace, vector_id)
         except Exception:
             return None
         if record is None:
@@ -230,17 +249,23 @@ class VantaDBVectorStore(VectorStoreBase):
             return [self.namespace]
 
     def delete_col(self) -> None:
-        """Remove the current collection (namespace)."""
-        try:
-            self._db.delete_namespace(self.namespace)
-        except Exception as e:
-            # Fallback: delete individual records
+        """Remove the current collection (namespace).
+
+        FIND-94: no ``delete_namespace`` in SDK 0.5.0 — loop
+        ``memory.list`` + ``memory.delete``. Re-list from the start
+        until empty (no advancing cursor while deleting: offsets
+        shift under mutation and would skip records past page 1).
+        """
+        while True:
             try:
-                records = self._db.list_memory(self.namespace, limit=10000)
-                for r in records.records if hasattr(records, 'records') else records:
-                    self._db.delete_memory(self.namespace, r.key)
-            except Exception as e2:
-                raise RuntimeError(f"Failed to delete collection {self.namespace}: {e2}") from e
+                records = self._db.memory.list(self.namespace, limit=1000)
+            except Exception as e:
+                raise RuntimeError(f"Failed to delete collection {self.namespace}: {e}") from e
+            page = records.records if hasattr(records, 'records') else records
+            if not page:
+                break
+            for r in page:
+                self._db.memory.delete(self.namespace, r.key)
 
     def col_info(self) -> Dict[str, Any]:
         """Return basic metadata about the collection."""
@@ -256,7 +281,7 @@ class VantaDBVectorStore(VectorStoreBase):
         top_k: int = 100,
     ) -> List[OutputData]:
         """List records in the collection, optionally filtered."""
-        raw = self._db.list_memory(self.namespace, filters=filters, limit=top_k)
+        raw = self._db.memory.list(self.namespace, filters=filters, limit=top_k)
         return [
             OutputData(
                 id=r.key,

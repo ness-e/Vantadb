@@ -22,11 +22,7 @@ import { useLanguage } from "@/lib/language-provider";
 // Manga/linocut boxes with rigid black shadows and neon accents.
 
 export function CoreEngine() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { tt } = useLanguage();
 
   return (
     <section
@@ -70,12 +66,12 @@ export function CoreEngine() {
             <PipelineStage
               index="01"
               title={tt("coreEngine.stage1.title", "Input Query")}
-              tag="db.search(...)"
+              tag="db.search_memory(...)"
               tone="cream"
               icon={<TerminalSquare className="h-5 w-5" strokeWidth={2.5} />}
               body={
                 <code className="font-tech text-[11px] text-black/80 ">
-                  db.search("agent/main", vector=[...], top_k=5)
+                  db.search_memory("agent/main", query_vector=[...], top_k=5)
                 </code>
               }
             />
@@ -205,7 +201,7 @@ export function CoreEngine() {
             <PipelineStage
               index="05"
               title={tt("coreEngine.stage5.title", "Ranked Hits")}
-              tag="top_k · 1.2ms · 100% Recall@10"
+              tag="top_k · HNSW p50 1.2ms · 99.8% Recall@10"
               tone="cream"
               icon={<Crosshair className="h-5 w-5" strokeWidth={2.5} />}
               body={
@@ -289,7 +285,7 @@ function PipelineStage({
       : "bg-black text-[#FF5500] border-black   ";
 
   return (
-    <div className={`press-lg relative flex flex-col border-4 p-4 ${styles}`}>
+    <div className={`press--lg relative flex flex-col border-4 p-4 ${styles}`}>
       {/* Stage index stamp */}
       <span className="absolute -left-2 -top-3 rotate-[-6deg] border-2 border-black bg-black px-2 py-0.5 font-display text-xs uppercase text-[#FF5500]   ">
         {index}
@@ -318,7 +314,7 @@ function Connector({ label }: { label: string }) {
   return (
     <div className="flex items-center justify-center py-2" aria-hidden>
       <div className="flex flex-col items-center gap-1">
-        <span className="font-tech text-[9px] uppercase tracking-[0.3em] text-black/50 ">
+        <span className="font-tech text-[9px] uppercase tracking-[0.3em] text-black/70 ">
           {label}
         </span>
         <span className="flex flex-col items-center text-black ">

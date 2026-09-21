@@ -1,0 +1,55 @@
+{
+  "tasks": {
+    "FIND-109": {
+      "taskId": "FIND-109",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789687526352,
+      "lastActivity": 1789687526361
+    },
+    "FIND-110": {
+      "taskId": "FIND-110",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789687922958,
+      "lastActivity": 1789687922967
+    },
+    "FIND-111": {
+      "taskId": "FIND-111",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789688227839,
+      "lastActivity": 1789688227839,
+      "traceId": "667e6228-4e87-4ec5-ab88-720b3d22a73e"
+    },
+    "FIND-101": {
+      "taskId": "FIND-101",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789690522486,
+      "lastActivity": 1789690522486,
+      "traceId": "36906813-8f7e-47ee-84bf-a63f0cca8daf"
+    },
+    "FIND-114": {
+      "taskId": "FIND-114",
+      "toolCalls": 1,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789692331542,
+      "lastActivity": 1789692331551
+    },
+    "FIND-115": {
+      "taskId": "FIND-115",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789692655311,
+      "lastActivity": 1789692655311,
+      "traceId": "10ae2de0-3115-494c-9528-fb17944c1c45"
+    }
+  }
+}

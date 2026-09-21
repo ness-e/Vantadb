@@ -1,0 +1,716 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ============================================================
+   Vanta Studio (desktop) — local fonts, Tauri offline.
+   Same families as web (next/font): Geist (sans), Geist Mono,
+   Anton (display), Space Mono (tech).
+   Source: @fontsource woff2 files in public/fonts/
+   ============================================================ */
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/geist-sans-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/geist-sans-latin-500-normal.woff2") format("woff2");
+  font-weight: 500;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/geist-sans-latin-600-normal.woff2") format("woff2");
+  font-weight: 600;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist";
+  src: url("/fonts/geist-sans-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Geist Mono";
+  src: url("/fonts/geist-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Anton";
+  src: url("/fonts/anton-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Space Mono";
+  src: url("/fonts/space-mono-latin-400-normal.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+}
+@font-face {
+  font-family: "Space Mono";
+  src: url("/fonts/space-mono-latin-700-normal.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+}
+
+/* ============================================================
+   Tokens — replicated VERBATIM from web/src/app/globals.css
+   (VS-01 contract: do not drift).
+   @theme inline keeps var() references so .dark overrides flip.
+   ============================================================ */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-anton);
+  --font-tech: var(--font-space-mono);
+  --color-sidebar-ring: var(--sidebar-ring);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
+  --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
+  --color-sidebar-primary: var(--sidebar-primary);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar: var(--sidebar);
+  --color-chart-5: var(--chart-5);
+  --color-chart-4: var(--chart-4);
+  --color-chart-3: var(--chart-3);
+  --color-chart-2: var(--chart-2);
+  --color-chart-1: var(--chart-1);
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  /* VantaDB manga/linocut palette — via var() para que .dark los voltee
+     (@theme inline inlinea literales; sin indirección el grid quedaba crema
+     en dark mode, auditoría MEMORIAS P1). */
+  --color-cream: var(--cream);
+  --color-ink: var(--ink);
+  --color-neon: #FF5500;
+  /* UX-A11Y (UX-06): texto pequeño NO usa neón (#FF5500 = 3.07:1 sobre crema
+     falla AA 4.5:1) — usa accent-text (light #C24000 = 4.99:1 ✅, dark = neón
+     que pasa 6.09:1 ✅). Neón intacto como bg/borde/fill (identidad linocut). */
+  --color-accent-text: var(--accent-text);
+  --color-paper: var(--paper);
+  --color-smoke: #1A1A1A;
+  /* Sombra dura linocut: negra en claro, crema en oscuro (ver .dark). */
+  --ink-shadow: var(--ink-shadow-raw);
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  /* Motion tokens */
+  --duration-fast: 90ms;
+  --duration-normal: 200ms;
+  --duration-slow: 300ms;
+  --ease-default: cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+
+/* Font stacks — desktop has no next/font to inject these vars */
+:root {
+  --font-geist-sans: "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-geist-mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-anton: "Anton", "Impact", sans-serif;
+  --font-space-mono: "Space Mono", ui-monospace, monospace;
+}
+
+:root {
+  --radius: 0.125rem;
+  /* Manga / Linocut palette override */
+  /* Paleta raw del grid (bg-paper/border-ink/bg-cream) — .dark las voltea. */
+  --cream: #FBF9F5;
+  --ink: #000000;
+  --paper: #F2EDE2;
+  --ink-shadow-raw: #000000;
+  --background: #FBF9F5;
+  --foreground: #000000;
+  --card: #FBF9F5;
+  --card-foreground: #000000;
+  --popover: #FBF9F5;
+  --popover-foreground: #000000;
+  --primary: #000000;
+  --primary-foreground: #FBF9F5;
+  --secondary: #F2EDE2;
+  --secondary-foreground: #000000;
+  --muted: #ECE6D8;
+  --muted-foreground: #3A3A3A;
+  /* FIND-24 WCAG AA: black on #FF5500 = 6.55:1 ✅ (cream was 3.05:1 ❌).
+     Brand accent #FF5500 unchanged as bg/border color. */
+  --accent: #FF5500;
+  --accent-foreground: #000000;
+  /* UX-A11Y (UX-06): accent-text para texto pequeño (AA ≥4.5:1 sobre crema/
+     paper; el neón #FF5500 como texto solo pasa en dark). */
+  --accent-text: #C24000;
+  /* FIND-24: destructive separated from accent — red #C41E25 reads 5.61:1 as text
+     on cream and 5.90:1 with white fg (pair destructive bg with white/cream text,
+     NOT black: 3.56 ❌). Errors no longer share orange with highlights. */
+  --destructive: #C41E25;
+  --border: #000000;
+  --input: #000000;
+  --ring: #000000;
+  --chart-1: #000000;
+  --chart-2: #FF5500;
+  --chart-3: #4A4A4A;
+  --chart-4: #1A1A1A;
+  --chart-5: #C9C0AC;
+  --sidebar: #FBF9F5;
+  --sidebar-foreground: #000000;
+  --sidebar-primary: #000000;
+  --sidebar-primary-foreground: #FBF9F5;
+  --sidebar-accent: #FF5500;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #000000;
+  --sidebar-ring: #000000;
+}
+
+/* ============================================================
+   DARK MODE (D7) — Vanta Studio dark palette, designed own.
+   Web has NO dark tokens; this is desktop-only.
+   bg Vanta Black #0a0a0a · fg cream #FBF9F5 · neon preserved ·
+   surface #1A1A1A · ink borders invert to warm gray (FIND-24:
+   cream borders = 18.8:1 harsh glare; #645F57 = 3.13:1, passes
+   WCAG 1.4.11 non-text while keeping the linocut feel).
+   muted-foreground dark = #C9C0AC (AA ~11:1 on #0a0a0a; #3A3A3A fails).
+   ============================================================ */
+.dark {
+  --background: #0a0a0a;
+  --foreground: #FBF9F5;
+  --card: #0a0a0a;
+  --card-foreground: #FBF9F5;
+  --popover: #0a0a0a;
+  --popover-foreground: #FBF9F5;
+  --primary: #FBF9F5;
+  --primary-foreground: #0a0a0a;
+  --secondary: #1A1A1A;
+  --secondary-foreground: #FBF9F5;
+  --muted: #1A1A1A;
+  --muted-foreground: #C9C0AC;
+  /* FIND-24: same AA fix as light — black on #FF5500 = 6.55:1. */
+  --accent: #FF5500;
+  --accent-foreground: #000000;
+  /* UX-A11Y (UX-06): dark accent-text = neón (6.09:1 sobre #0a0a0a ✅). */
+  --accent-text: #FF5500;
+  /* FIND-24: dark destructive is a lighter warm red (#F26D6D) so it passes BOTH
+     directions — 6.77:1 as text on #0a0a0a and 7.18:1 with black fg as bg
+     (light's #C41E25 would be 3.56:1 as text on dark). ≠ accent, no glare. */
+  --destructive: #F26D6D;
+  /* FIND-24: borders softened from cream (18.8:1 glare) to warm gray, ≥3:1
+     non-text vs #0a0a0a per WCAG 1.4.11. Ring/accent keep high contrast. */
+  --border: #645F57;
+  --input: #645F57;
+  --ring: #FF5500;
+  --chart-1: #FBF9F5;
+  --chart-2: #FF5500;
+  --chart-3: #C9C0AC;
+  --chart-4: #4A4A4A;
+  --chart-5: #1A1A1A;
+  --sidebar: #0a0a0a;
+  --sidebar-foreground: #FBF9F5;
+  --sidebar-primary: #FBF9F5;
+  --sidebar-primary-foreground: #0a0a0a;
+  --sidebar-accent: #FF5500;
+  --sidebar-accent-foreground: #000000;
+  --sidebar-border: #645F57;
+  --sidebar-ring: #FF5500;
+  /* Tokens raw del grid (DataExplorer usa bg-paper/border-ink/bg-cream).
+     Sin estos overrides la tabla entera quedaba CREMA sobre #0a0a0a (auditoría
+     MEMORIAS P1). paper = superficie elevada, ink = el warm gray de bordes,
+     cream = surface. */
+  --cream: #1A1A1A;
+  --ink: #645F57;
+  --paper: #141412;
+  --ink-shadow-raw: #FBF9F5;
+}
+
+/* Token de sombra dura — reemplaza shadow-[6px_6px_0_0_#000]
+   dark:shadow-[…#FBF9F5] copiado a mano en 7+ componentes (2 sin override
+   dark: la sombra desaparecía en dark mode). */
+@utility shadow-ink {
+  box-shadow: 6px 6px 0 0 var(--ink-shadow);
+}
+@utility shadow-ink-sm {
+  box-shadow: 3px 3px 0 0 var(--ink-shadow);
+}
+/* Label técnico de sección — reemplaza font-tech text-[10px] uppercase
+   tracking-widest repetido 15+ veces (auditoría shell P2). 11px mínimo
+   legible en Space Mono. */
+@utility label-tech {
+  font-family: var(--font-space-mono);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+/* Altura de las lentes full-height (WebGL Graph/Space) — antes el magic
+   number h-[calc(100dvh-112px)] min-h-[480px] estaba duplicado en
+   SpaceLens y GraphLens (UX-15). */
+@utility lens-height {
+  height: calc(100dvh - 112px);
+  min-height: 480px;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  /* DAUD-04: body bg/color vive SOLO en App.css (unlayered, gana siempre)
+     con tokens que voltean en .dark — las reglas :root body/.dark body de
+     acá eran doble fuente de verdad. Se conserva lo que App.css no cubre:
+     stacks de fuente (FIX-D2) y ligaduras. */
+  :root body {
+    font-family: var(--font-geist-sans);
+    font-feature-settings: "ss01", "cv01";
+  }
+  ::selection {
+    background: #FF5500;
+    /* FIND-24: selected text sits on accent → black (6.55:1), cream failed 3.05:1 */
+    color: #000000;
+  }
+}
+
+/* ============================================================
+   VantaDB — Manga / Linocut / Neo-Brutalist Design System
+   Utilities replicated from web/src/app/globals.css
+   ============================================================ */
+
+@layer utilities {
+  /* Press effect: simulates physical pressure on paper */
+  .press {
+    transition: transform var(--duration-fast) var(--ease-default),
+      box-shadow var(--duration-fast) var(--ease-default);
+    box-shadow: 6px 6px 0 0 #000;
+  }
+  .press:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 4px 4px 0 0 #000;
+  }
+  .press:active {
+    transform: translate(6px, 6px);
+    box-shadow: 0 0 0 0 #000;
+  }
+
+  .press-lg {
+    transition: transform 100ms var(--ease-default),
+      box-shadow 100ms var(--ease-default);
+    box-shadow: 8px 8px 0 0 #000;
+  }
+  .press-lg:hover {
+    transform: translate(3px, 3px);
+    box-shadow: 5px 5px 0 0 #000;
+  }
+  .press-lg:active {
+    transform: translate(8px, 8px);
+    box-shadow: 0 0 0 0 #000;
+  }
+
+  .press-neon {
+    transition: transform var(--duration-fast) var(--ease-default),
+      box-shadow var(--duration-fast) var(--ease-default),
+      background-color 120ms ease;
+    box-shadow: 6px 6px 0 0 #000;
+  }
+  .press-neon:hover {
+    transform: translate(2px, 2px);
+    box-shadow: 4px 4px 0 0 #000;
+  }
+  .press-neon:active {
+    transform: translate(6px, 6px);
+    box-shadow: 0 0 0 0 #000;
+  }
+
+  /* TTL bar "expiring" fill — diagonal neon stripes (P15: pattern ≠ color,
+     redundant with the icon+text label; no motion, reduced-motion safe). */
+  .stripes-neon {
+    background-image: repeating-linear-gradient(
+      135deg,
+      var(--color-neon, #FF5500) 0 3px,
+      transparent 3px 6px
+    );
+  }
+
+  /* Stencil / ink title styling */
+  .text-stencil {
+    letter-spacing: -0.02em;
+    line-height: 0.9;
+  }
+
+  /* Custom scrollbar (manga style) */
+  .scroll-manga {
+    scrollbar-width: thin;
+    scrollbar-color: #000 #FBF9F5;
+  }
+  .scroll-manga::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  .scroll-manga::-webkit-scrollbar-track {
+    background: #FBF9F5;
+    border-left: 2px solid #000;
+  }
+  .scroll-manga::-webkit-scrollbar-thumb {
+    background: #000;
+    border: 2px solid #FBF9F5;
+  }
+  .scroll-manga::-webkit-scrollbar-thumb:hover {
+    background: #FF5500;
+  }
+
+  /* D7: invert hardcoded #000 utilities in dark mode */
+  .dark .press {
+    box-shadow: 6px 6px 0 0 #FBF9F5;
+  }
+  .dark .press:hover {
+    box-shadow: 4px 4px 0 0 #FBF9F5;
+  }
+  .dark .press:active {
+    box-shadow: 0 0 0 0 #FBF9F5;
+  }
+  .dark .press-lg {
+    box-shadow: 8px 8px 0 0 #FBF9F5;
+  }
+  .dark .press-lg:hover {
+    box-shadow: 5px 5px 0 0 #FBF9F5;
+  }
+  .dark .press-lg:active {
+    box-shadow: 0 0 0 0 #FBF9F5;
+  }
+  .dark .press-neon {
+    box-shadow: 6px 6px 0 0 #FBF9F5;
+  }
+  .dark .press-neon:hover {
+    box-shadow: 4px 4px 0 0 #FBF9F5;
+  }
+  .dark .press-neon:active {
+    box-shadow: 0 0 0 0 #FBF9F5;
+  }
+  .dark .scroll-manga {
+    scrollbar-color: #FBF9F5 #0a0a0a;
+  }
+  .dark .scroll-manga::-webkit-scrollbar-track {
+    background: #0a0a0a;
+    border-left: 2px solid #FBF9F5;
+  }
+  .dark .scroll-manga::-webkit-scrollbar-thumb {
+    background: #FBF9F5;
+    border: 2px solid #0a0a0a;
+  }
+  .dark .ink-divider::before {
+    background: #FBF9F5;
+  }
+  .dark .ink-divider::after {
+    background: #0a0a0a;
+  }
+  .dark .vanta-slider::-webkit-slider-thumb {
+    background: #FBF9F5;
+    box-shadow: 2px 2px 0 0 #FBF9F5;
+  }
+  .dark .vanta-slider::-webkit-slider-thumb:active {
+    box-shadow: 1px 1px 0 0 #FBF9F5;
+  }
+  .dark .vanta-slider::-moz-range-thumb {
+    background: #FBF9F5;
+    box-shadow: 2px 2px 0 0 #FBF9F5;
+  }
+}
+
+/* ============================================================
+   Animations
+   ============================================================ */
+@keyframes vanta-rise {
+  from { opacity: 0; transform: translateY(14px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+/* DAUD-05: clase .animate-rise eliminada (0 usos TSX); los keyframes
+   vanta-rise se conservan — .stagger-children > * los usa directo. */
+
+@keyframes vanta-stamp {
+  0% { opacity: 0; transform: scale(1.6) rotate(-12deg); }
+  60% { opacity: 1; transform: scale(0.92) rotate(-12deg); }
+  100% { opacity: 1; transform: scale(1) rotate(-12deg); }
+}
+.animate-stamp {
+  animation: vanta-stamp 0.5s var(--ease-default) both;
+}
+
+@keyframes vanta-pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(255, 85, 0, 0.55); }
+  70% { box-shadow: 0 0 0 14px rgba(255, 85, 0, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 85, 0, 0); }
+}
+.animate-pulse-ring {
+  animation: vanta-pulse-ring 2s ease-out infinite;
+}
+
+/* ============================================================
+   ACCESSIBILITY — focus states, reduced motion, skip link
+   ============================================================ */
+:focus-visible {
+  outline: 3px solid #FF5500;
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Skip-to-content link */
+.skip-link {
+  position: absolute;
+  left: -9999px;
+  top: 0;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  background: #FF5500;
+  color: #000;
+  font-family: var(--font-space-mono), monospace;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  font-size: 0.75rem;
+  border: 4px solid #000;
+}
+.skip-link:focus {
+  left: 1rem;
+  top: 1rem;
+}
+
+/* ============================================================
+   Custom range slider — manga brutalist style
+   ============================================================ */
+.vanta-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  height: 8px;
+  border: 2px solid #000;
+  outline: none;
+  cursor: pointer;
+}
+
+.vanta-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 18px;
+  height: 22px;
+  background: #000;
+  border: 3px solid #FF5500;
+  cursor: grab;
+  box-shadow: 2px 2px 0 0 #000;
+}
+.vanta-slider::-webkit-slider-thumb:active {
+  cursor: grabbing;
+  transform: translate(1px, 1px);
+  box-shadow: 1px 1px 0 0 #000;
+}
+.vanta-slider::-moz-range-thumb {
+  width: 18px;
+  height: 22px;
+  background: #000;
+  border: 3px solid #FF5500;
+  cursor: grab;
+  box-shadow: 2px 2px 0 0 #000;
+}
+
+/* ============================================================
+   ENHANCED STYLING — neon pulse button hover
+   (FIX-D9: glow-neon/glow-box-neon/glitch-hover/neon-underline/
+   scanlines/text-outline-neon/animated-gradient-border eliminados,
+   0 usos verificados en *.tsx.)
+   ============================================================ */
+.btn-neon-glow {
+  position: relative;
+  overflow: hidden;
+  transition: transform var(--duration-fast) var(--ease-default),
+    box-shadow var(--duration-fast) var(--ease-default);
+}
+.btn-neon-glow::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, transparent 40%, rgba(255, 85, 0, 0.3) 50%, transparent 60%);
+  transform: translateX(-100%);
+  transition: transform 500ms ease;
+}
+.btn-neon-glow:hover::before {
+  transform: translateX(100%);
+}
+.btn-neon-glow:hover {
+  box-shadow: 4px 4px 0 0 #000, 0 0 20px rgba(255, 85, 0, 0.4), 0 0 40px rgba(255, 85, 0, 0.15);
+}
+.btn-neon-glow:active {
+  transform: translate(6px, 6px);
+  box-shadow: 0 0 0 0 transparent;
+}
+
+/* Section divider: ink splash with speed lines */
+.ink-divider {
+  position: relative;
+  height: 32px;
+  overflow: hidden;
+}
+.ink-divider::before {
+  content: "";
+  position: absolute;
+  top: 50%;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: #000;
+}
+.ink-divider::after {
+  content: "◆";
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 14px;
+  color: #FF5500;
+  background: #FBF9F5;
+  padding: 0 12px;
+  z-index: 1;
+}
+
+/* Stagger children entrance — ceiling: explicit nth-child(1..12) @ 80ms.
+   ponytail: >12 children get no delay (they all animate at 880ms+);
+   switch to a stagger library or CSS `animation-delay: calc()` with
+   --i custom property if a container ever needs more. */
+.stagger-children > * {
+  opacity: 0;
+  animation: vanta-rise 0.4s var(--ease-default) forwards;
+}
+.stagger-children > *:nth-child(1) { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2) { animation-delay: 80ms; }
+.stagger-children > *:nth-child(3) { animation-delay: 160ms; }
+.stagger-children > *:nth-child(4) { animation-delay: 240ms; }
+.stagger-children > *:nth-child(5) { animation-delay: 320ms; }
+.stagger-children > *:nth-child(6) { animation-delay: 400ms; }
+.stagger-children > *:nth-child(7) { animation-delay: 480ms; }
+.stagger-children > *:nth-child(8) { animation-delay: 560ms; }
+.stagger-children > *:nth-child(9) { animation-delay: 640ms; }
+.stagger-children > *:nth-child(10) { animation-delay: 720ms; }
+.stagger-children > *:nth-child(11) { animation-delay: 800ms; }
+.stagger-children > *:nth-child(12) { animation-delay: 880ms; }
+
+/* ============================================================
+   FIND-24 — WCAG AA CONTRAST AUDIT (measured 2026-08-23)
+   Formula: (L1+0.05)/(L2+0.05), WCAG relative luminance.
+   Text pairs ≥ 4.5:1 (AA) · non-text (borders) ≥ 3:1 (1.4.11).
+
+   LIGHT (:root, bg #FBF9F5 family)
+   pair                                  ratio   verdict
+   foreground #000 / background #FBF9F5   19.97  ✅
+   card-foreground / card                 19.97  ✅
+   popover-foreground / popover           19.97  ✅
+   primary-fg cream / primary #000        19.97  ✅
+   secondary-fg #000 / secondary #F2EDE2  17.99  ✅
+   muted-fg #3A3A3A / muted #ECE6D8        9.14  ✅
+   accent-fg #000 / accent #FF5500         6.55  ✅  (was cream 3.05 ❌)
+   accent-text #C24000 as text on bg       4.99  ✅  (UX-06; neon 3.07 ❌)
+   destructive #C41E25 as text on bg       5.61  ✅
+   white fg on destructive #C41E25         5.90  ✅  (black fg 3.56 ❌ → use white/cream)
+   sidebar-accent-fg #000 / accent         6.55  ✅
+   sidebar-primary-fg / sidebar-primary   19.97  ✅
+
+   DARK (.dark, bg #0a0a0a family)
+   foreground cream / background          18.83  ✅
+   card/popover fg                        18.83  ✅
+   primary-fg #0a0a0a / primary cream     18.83  ✅
+   secondary-fg cream / secondary #1A1A1A 16.55  ✅
+   muted-fg #C9C0AC / muted #1A1A1A        9.63  ✅
+   accent-fg #000 / accent #FF5500         6.55  ✅
+   destructive #F26D6D as text on bg       6.77  ✅
+   accent-text #FF5500 as text on bg       6.09  ✅  (UX-06 dark)
+   black fg on destructive #F26D6D         7.18  ✅
+   sidebar-accent-fg #000 / accent         6.55  ✅
+
+   NON-TEXT (WCAG 1.4.11 ≥ 3:1)
+   border/input/sidebar-border dark #645F57 vs #0a0a0a   3.13 ✅
+     (was cream 18.83 = harsh full-contrast glare)
+   ring dark #FF5500 vs #0a0a0a                          6.55 ✅ (kept high)
+
+   IDENTITY PRESERVED: background #FBF9F5/#0a0a0a · accent brand
+   color #FF5500 unchanged everywhere as bg/border/stroke.
+   Decorative-only colors (charts, halftone, glow, speed-lines,
+   press shadows) are exempt from text contrast rules.
+   ============================================================ */
+/* ============================================================
+   SplashScreen (FIND-23) — cold-start intro, pure CSS.
+   One motion language: transform/opacity only. Staggered entrance
+   with overshoot on the mark; exit is a fade+scale transition
+   driven by .splash-closing (400ms, set from SplashScreen.tsx).
+   prefers-reduced-motion: entrance animations disabled; timer and
+   click dismissal still apply.
+   ============================================================ */
+@media (prefers-reduced-motion: no-preference) {
+  .splash-root {
+    animation: splash-fade 0.4s ease-out;
+  }
+  .splash-mark {
+    opacity: 0;
+    animation: splash-pop 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.05s forwards;
+  }
+  .splash-title {
+    opacity: 0;
+    animation: splash-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.25s forwards;
+  }
+  .splash-sub {
+    opacity: 0;
+    animation: splash-rise 0.6s cubic-bezier(0.22, 1, 0.36, 1) 0.5s forwards;
+  }
+  .splash-hint {
+    opacity: 0;
+    animation: splash-hint-in 0.8s ease-out 1.2s forwards;
+  }
+}
+.splash-root {
+  transition-property: opacity, transform;
+  transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
+}
+.splash-closing {
+  opacity: 0 !important;
+  transform: scale(1.02);
+}
+@keyframes splash-fade {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes splash-pop {
+  from { opacity: 0; transform: scale(0.82); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes splash-rise {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes splash-hint-in {
+  to { opacity: 0.6; }
+}

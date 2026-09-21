@@ -1,12 +1,12 @@
 //! Graph-related SDK types: nodes, edges, and input/record views.
 
-use super::super::types::{u128_serde, VantaFields, VantaStorageTier};
+use super::super::types::{u128_serde, Fields, StorageTier};
 use crate::node::{LabelIntern, UnifiedNode, VectorRepresentations};
 use serde::{Deserialize, Serialize};
 
 /// Stable graph edge representation for external SDKs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaEdgeRecord {
+pub struct EdgeRecord {
     /// Target node id this edge points to.
     #[serde(with = "u128_serde")]
     pub target: u128,
@@ -14,11 +14,20 @@ pub struct VantaEdgeRecord {
     pub label: String,
     /// Edge weight for weighted graph algorithms.
     pub weight: f32,
+    /// Whether this entry is the auto-created reverse half of a bidirectional
+    /// edge (`add_edge`). Load-bearing for directional traversal
+    /// (`TraversalDirection::Reverse`, src/graph.rs) and preserved so a
+    /// serialize→restore cycle keeps topology identical. CORE-02.
+    #[serde(default)]
+    pub reverse: bool,
+    /// Logical creation timestamp (Unix-ms). `0` when unknown (legacy data).
+    #[serde(default)]
+    pub created_at_ms: u64,
 }
 
 /// Stable node payload accepted by external SDKs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaNodeInput {
+pub struct NodeInput {
     /// Numeric node identifier.
     pub id: u128,
     /// Optional text content stored in the `content` field.
@@ -26,10 +35,10 @@ pub struct VantaNodeInput {
     /// Optional embedding vector.
     pub vector: Option<Vec<f32>>,
     /// Relational fields key-value pairs.
-    pub fields: VantaFields,
+    pub fields: Fields,
 }
 
-impl VantaNodeInput {
+impl NodeInput {
     /// Create a new node input with the given id.
     /// Content, vector, and fields default to empty/None.
     pub fn new(id: u128) -> Self {
@@ -37,25 +46,25 @@ impl VantaNodeInput {
             id,
             content: None,
             vector: None,
-            fields: VantaFields::new(),
+            fields: Fields::new(),
         }
     }
 }
 
 /// Stable node view returned to external SDKs.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
-pub struct VantaNodeRecord {
+pub struct NodeRecord {
     /// Numeric node identifier.
     #[serde(with = "u128_serde")]
     pub id: u128,
     /// Relational fields key-value pairs.
-    pub fields: VantaFields,
+    pub fields: Fields,
     /// Optional embedding vector.
     pub vector: Option<Vec<f32>>,
     /// Dimension count of the vector (0 if no vector).
     pub vector_dimensions: usize,
     /// Outgoing graph edges.
-    pub edges: Vec<VantaEdgeRecord>,
+    pub edges: Vec<EdgeRecord>,
     /// Telemetry confidence score (0.0–1.0).
     pub confidence_score: f32,
     /// Telemetry importance score.
@@ -67,14 +76,14 @@ pub struct VantaNodeRecord {
     /// Telemetry epoch counter.
     pub epoch: u32,
     /// Storage tier (hot or cold).
-    pub tier: VantaStorageTier,
+    pub tier: StorageTier,
     /// Whether the node is alive (not tombstoned).
     pub is_alive: bool,
 }
 
-/// Convert a `UnifiedNode` to an SDK `VantaNodeRecord`, resolving edge labels
+/// Convert a `UnifiedNode` to an SDK `NodeRecord`, resolving edge labels
 /// via the provided interner.
-pub(crate) fn unified_to_record(node: UnifiedNode, label_intern: &LabelIntern) -> VantaNodeRecord {
+pub(crate) fn unified_to_record(node: UnifiedNode, label_intern: &LabelIntern) -> NodeRecord {
     let is_alive = node.is_alive();
     let (vector, vector_dimensions) = match node.vector {
         VectorRepresentations::Full(vector) => {
@@ -86,8 +95,8 @@ pub(crate) fn unified_to_record(node: UnifiedNode, label_intern: &LabelIntern) -
     };
 
     let tier = match node.tier {
-        crate::node::NodeTier::Hot => VantaStorageTier::Hot,
-        crate::node::NodeTier::Cold => VantaStorageTier::Cold,
+        crate::node::NodeTier::Hot => StorageTier::Hot,
+        crate::node::NodeTier::Cold => StorageTier::Cold,
     };
 
     let fields = node
@@ -99,17 +108,19 @@ pub(crate) fn unified_to_record(node: UnifiedNode, label_intern: &LabelIntern) -
     let edges = node
         .edges
         .into_iter()
-        .map(|edge| VantaEdgeRecord {
+        .map(|edge| EdgeRecord {
             target: edge.target,
             label: label_intern
                 .resolve(edge.label_id)
                 .unwrap_or("<unknown>")
                 .to_string(),
             weight: edge.weight,
+            reverse: edge.reverse,
+            created_at_ms: edge.created_at_ms,
         })
         .collect();
 
-    VantaNodeRecord {
+    NodeRecord {
         id: node.id,
         fields,
         vector,
@@ -130,7 +141,7 @@ pub(crate) fn unified_to_record(node: UnifiedNode, label_intern: &LabelIntern) -
 mod tests {
     use super::*;
     use crate::node::{LabelIntern, UnifiedNode};
-    use crate::sdk::types::VantaValue;
+    use crate::sdk::types::Value;
 
     #[allow(dead_code)]
     fn empty_intern() -> LabelIntern {
@@ -139,7 +150,7 @@ mod tests {
 
     #[test]
     fn test_node_input_new() {
-        let input = VantaNodeInput::new(42);
+        let input = NodeInput::new(42);
         assert_eq!(input.id, 42);
         assert!(input.content.is_none());
         assert!(input.vector.is_none());
@@ -165,11 +176,11 @@ mod tests {
         assert_eq!(record.edges[0].weight, 0.9);
         assert_eq!(
             record.fields.get("name"),
-            Some(&VantaValue::String("test".into()))
+            Some(&Value::String("test".into()))
         );
-        assert_eq!(record.fields.get("count"), Some(&VantaValue::Int(10)));
+        assert_eq!(record.fields.get("count"), Some(&Value::Int(10)));
         assert!(record.is_alive);
-        assert_eq!(record.tier, VantaStorageTier::Cold);
+        assert_eq!(record.tier, StorageTier::Cold);
         assert_eq!(record.confidence_score, 0.5);
         assert_eq!(record.importance, 0.1);
     }
@@ -211,61 +222,77 @@ mod tests {
 
     #[test]
     fn test_edge_record_serialization_roundtrip() {
-        let edge = VantaEdgeRecord {
+        let edge = EdgeRecord {
             target: 100,
             label: "connected_to".into(),
             weight: 0.75,
+            reverse: false,
+            created_at_ms: 1234,
         };
         let json = serde_json::to_string(&edge).unwrap();
-        let deserialized: VantaEdgeRecord = serde_json::from_str(&json).unwrap();
+        let deserialized: EdgeRecord = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized, edge);
         // verify u128 is serialized as string
         assert!(json.contains("\"100\""));
     }
 
+    /// CORE-02: legacy JSON written before `reverse`/`created_at_ms` existed
+    /// must keep deserializing (serde defaults) — old snapshots stay readable.
+    #[test]
+    fn test_edge_record_deserializes_legacy_json_without_new_fields() {
+        let legacy = r#"{"target":"7","label":"knows","weight":1.0}"#;
+        let edge: EdgeRecord = serde_json::from_str(legacy).expect("legacy json parses");
+        assert_eq!(edge.target, 7);
+        assert_eq!(edge.label, "knows");
+        assert!(!edge.reverse);
+        assert_eq!(edge.created_at_ms, 0);
+    }
+
     #[test]
     fn test_node_record_serialization_roundtrip() {
-        let record = VantaNodeRecord {
+        let record = NodeRecord {
             id: 42,
             fields: {
-                let mut f = VantaFields::new();
-                f.insert("key".into(), VantaValue::String("val".into()));
+                let mut f = Fields::new();
+                f.insert("key".into(), Value::String("val".into()));
                 f
             },
             vector: Some(vec![0.5, 0.5]),
             vector_dimensions: 2,
-            edges: vec![VantaEdgeRecord {
+            edges: vec![EdgeRecord {
                 target: 1,
                 label: "edge".into(),
                 weight: 1.0,
+                reverse: false,
+                created_at_ms: 0,
             }],
             confidence_score: 0.8,
             importance: 0.3,
             hits: 5,
             last_accessed: 1000,
             epoch: 1,
-            tier: VantaStorageTier::Hot,
+            tier: StorageTier::Hot,
             is_alive: true,
         };
         let json = serde_json::to_string(&record).unwrap();
-        let deserialized: VantaNodeRecord = serde_json::from_str(&json).unwrap();
+        let deserialized: NodeRecord = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized, record);
     }
 
     #[test]
     fn test_node_input_serialization_roundtrip() {
-        let input = VantaNodeInput {
+        let input = NodeInput {
             id: 100,
             content: Some("hello".into()),
             vector: Some(vec![0.1, 0.2]),
             fields: {
-                let mut f = VantaFields::new();
-                f.insert("tag".into(), VantaValue::String("important".into()));
+                let mut f = Fields::new();
+                f.insert("tag".into(), Value::String("important".into()));
                 f
             },
         };
         let json = serde_json::to_string(&input).unwrap();
-        let deserialized: VantaNodeInput = serde_json::from_str(&json).unwrap();
+        let deserialized: NodeInput = serde_json::from_str(&json).unwrap();
         assert_eq!(deserialized, input);
     }
 }

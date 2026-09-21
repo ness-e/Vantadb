@@ -6,7 +6,7 @@ export const metadata: Metadata = {
   description: "Redirigiendo a la documentación de VantaDB.",
   robots: { index: false, follow: true },
   alternates: {
-    canonical: "https://vantadb.dev/docs",
+    canonical: "https://vantadb.vercel.app/docs",
   },
 };
 

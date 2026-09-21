@@ -174,7 +174,7 @@ services:
     environment:
       - VANTADB_RATE_LIMIT_RPM=1000
       - VANTADB_LOG_FORMAT=json
-      - VANTA_BACKEND=fjall
+      - VANTADB_BACKEND=fjall
       - RUST_LOG=info
       - VANTADB_API_KEY=${VANTADB_API_KEY}
     restart: unless-stopped
@@ -188,6 +188,8 @@ volumes:
   vantadb-data:
 ```
 
+For a full local-first demo stack (VantaDB + Ollama, CPU-only, no API keys), use the multi-service [`docker-compose.yml`](../../docker-compose.yml) at the repo root — quickstart and RAM/GPU notes are in its header.
+
 ### Quick Start
 
 ```bash
@@ -200,6 +202,34 @@ curl http://localhost:8080/health
 # With API key
 curl -H "Authorization: Bearer $(cat .apikey)" http://localhost:8080/health
 ```
+
+### Run unprivileged (arbitrary UID)
+
+The root `Dockerfile` image runs as non-root by default (`vantadb`, uid 1001; override at
+build time with `--build-arg VANTA_RUNAS_UID=<uid>`). Any uid can be used at runtime without
+rebuilding — the data dir `/var/lib/vantadb` is mode 0777 (qdrant pattern), so named volumes
+inherit world-writable perms and arbitrary `--user` values work out of the box:
+
+```bash
+# Sanity check as an arbitrary uid (what CI runs on every release):
+docker run --rm --user 10001:10001 --entrypoint /bin/sh vantadb-server:latest \
+  -c 'touch /var/lib/vantadb/.write-test'
+docker run --rm --user 10001:10001 vantadb-server:latest --help
+
+# Named volume (perms inherited from the image):
+docker run -d --user 10001:10001 -v vantadb-data:/var/lib/vantadb \
+  -e VANTADB_HOST=0.0.0.0 -e VANTADB_STORAGE_PATH=/var/lib/vantadb \
+  -p 8080:8080 vantadb-server:latest
+
+# Host bind-mount: the host dir must be writable by the running uid:
+mkdir -p ./data && chmod 777 ./data
+docker run -d --user 10001:10001 -v "$PWD/data:/var/lib/vantadb" \
+  -e VANTADB_HOST=0.0.0.0 -e VANTADB_STORAGE_PATH=/var/lib/vantadb \
+  -p 8080:8080 vantadb-server:latest
+```
+
+Further hardening (read-only rootfs, `--cap-drop=ALL`) at runtime:
+see `hardening.md` §5. Registry publishing policy: `CI_POLICY.md` §Docker image publishing.
 
 ---
 
@@ -261,7 +291,7 @@ spec:
               value: "1000"
             - name: VANTADB_LOG_FORMAT
               value: json
-            - name: VANTA_BACKEND
+            - name: VANTADB_BACKEND
               value: fjall
             - name: RUST_LOG
               value: info
@@ -414,7 +444,7 @@ All configuration is via environment variables. See [CONFIGURATION.md](CONFIGURA
 | `VANTADB_LOG_FORMAT` | `compact` | `compact`, `json`, `full` |
 | `VANTADB_TLS_CERT` | `""` | TLS certificate PEM path |
 | `VANTADB_TLS_KEY` | `""` | TLS private key PEM path |
-| `VANTA_BACKEND` | `fjall` | `fjall`, `rocksdb`, `memory` |
+| `VANTADB_BACKEND` | `fjall` | `fjall`, `rocksdb`, `memory` |
 | `VANTADB_MAX_BLOCKING_THREADS` | `16` | Thread pool size |
 | `RUST_LOG` | `info` | Log severity filter |
 
@@ -495,11 +525,11 @@ See [BACKUP_POLICY.md](BACKUP_POLICY.md) for the full backup operational policy.
 # Online backup (Fjall backend)
 vanta-cli backup --out /backups/vantadb-$(date +%F)
 
-# Restore
-vanta-cli restore --from /backups/vantadb-2026-07-10
+# Restore (target DB dir must be empty; add --force to overwrite)
+vanta-cli restore --input /backups/vantadb-2026-07-10 --db /var/lib/vantadb/data
 
 # Restore with index rebuild
-vanta-cli restore --from /backups/vantadb-2026-07-10 --rebuild
+vanta-cli restore --input /backups/vantadb-2026-07-10 --rebuild --force --db /var/lib/vantadb/data
 ```
 
 ---

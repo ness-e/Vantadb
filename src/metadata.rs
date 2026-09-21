@@ -19,6 +19,8 @@ pub const DISPLAY_NAME: &str = "VantaDB";
 pub const MCP_SERVER_INFO_NAME: &str = "vantadb";
 
 /// Override reported version when set to a non-empty string (banner, MCP, diagnostics).
+/// This is an internal mechanism for version reporting, not a user-facing configuration
+/// that affects runtime behavior — excepted from Config consolidation per FIND-89.
 pub const ENV_REPORTED_VERSION: &str = "VANTADB_REPORTED_VERSION";
 
 /// Version string exposed to banners and MCP. Uses [`ENV_REPORTED_VERSION`] when valid.

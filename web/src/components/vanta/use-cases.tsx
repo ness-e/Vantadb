@@ -7,7 +7,6 @@ import {
   ArrowRight,
   MemoryStick,
   Cpu,
-  Sparkles,
   type LucideIcon,
 } from "lucide-react";
 import { Reveal } from "./reveal";
@@ -52,7 +51,7 @@ const USE_CASES: UseCase[] = [
     icon: Code2,
     title: "IDE Tooling",
     tag: "code",
-    desc: "Memoria para asistentes de código. Indexa repos, símbolos y snippets como embeddings. Búsqueda semántica sub-millisecond sobre tu codebase, in-process junto al LSP.",
+    desc: "Memoria para asistentes de código. Indexa repos, símbolos y snippets como embeddings. Búsqueda semántica in-process sobre tu codebase, junto al LSP.",
     capabilities: ["CLI", "SDK", "embeddings", "export"],
     metric: "0",
     metricLabel: "network hops",
@@ -60,11 +59,7 @@ const USE_CASES: UseCase[] = [
 ];
 
 export function UseCases() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { tt } = useLanguage();
 
   return (
     <section
@@ -106,7 +101,7 @@ export function UseCases() {
             const Icon = uc.icon;
             return (
               <Reveal key={uc.title} direction="up" delay={i * 80} as="article">
-                <article className="press-lg group relative flex h-full flex-col border-4 border-black bg-[#FBF9F5] p-5  ">
+                <article className="press--lg group relative flex h-full flex-col border-4 border-black bg-[#FBF9F5] p-5  ">
                   {/* Panel number */}
                   <span className="absolute -left-2 -top-3 rotate-[-6deg] border-2 border-black bg-black px-2 py-0.5 font-display text-xs uppercase text-[#FF5500]   ">
                     0{i + 1}

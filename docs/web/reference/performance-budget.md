@@ -1,3 +1,13 @@
+---
+title: "Presupuesto de Performance — Frontend Web"
+type: web
+status: active
+tags: [vantadb, web, reference]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # Presupuesto de Performance — Frontend Web
 
 > Estado actual: **Sin optimizar** — sin bundle analyzer, sin code splitting, sin lazy loading.

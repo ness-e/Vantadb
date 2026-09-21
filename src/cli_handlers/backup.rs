@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 use web_time::{SystemTime, UNIX_EPOCH};
 
+use crate::cli_handlers::diagnostics::Verbosity;
 use crate::cli_handlers::{
     create_spinner, dir_size, human_readable_size, open_database, open_embedded, print_info,
     print_success, print_warning,
@@ -98,11 +99,11 @@ fn walkdir_flat(dir: &Path) -> std::io::Result<Vec<PathBuf>> {
 /// Write `MANIFEST.json` to `dir`.
 fn write_manifest(dir: &Path, manifest: &BackupManifest) -> Result<()> {
     let json = serde_json::to_string_pretty(manifest).map_err(|e| {
-        crate::error::VantaError::backup_error(format!("Failed to serialize MANIFEST: {e}"))
+        crate::error::Error::backup_error(format!("Failed to serialize MANIFEST: {e}"))
     })?;
     let path = dir.join("MANIFEST.json");
     std::fs::write(&path, json).map_err(|e| {
-        crate::error::VantaError::backup_error(format!("Failed to write MANIFEST.json: {e}"))
+        crate::error::Error::backup_error(format!("Failed to write MANIFEST.json: {e}"))
     })
 }
 
@@ -150,7 +151,7 @@ pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()>
     };
 
     if backup_dir.join("vantadb.dat").exists() || backup_dir.join("vantadb.wal").exists() {
-        return Err(crate::error::VantaError::CliError(ChainedError::msg(format!(
+        return Err(crate::error::Error::Cli(ChainedError::msg(format!(
             "Backup destination '{}' already contains database files. Choose a different location or remove existing files.",
             backup_dir.display()
         ))));
@@ -165,7 +166,7 @@ pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()>
     }
 
     copy_dir(src, &backup_dir, Some(&backup_dir)).map_err(|e| {
-        crate::error::VantaError::backup_error(format!("Failed to copy database to backup: {e}"))
+        crate::error::Error::backup_error(format!("Failed to copy database to backup: {e}"))
     })?;
 
     // Generate MANIFEST.json alongside the backup files.
@@ -222,58 +223,179 @@ pub fn cmd_backup(db_path: &str, out: Option<&str>, verbose: bool) -> Result<()>
     Ok(())
 }
 
+/// Overwrite policy for the restore target (D2: replaces `force: bool`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum OverwritePolicy {
+    /// Fail when the target exists (default, safe).
+    #[default]
+    FailIfExists,
+    /// Remove and recreate the target (`--force`).
+    Overwrite,
+}
+
+/// Index rebuild after restore (D2: replaces `rebuild: bool`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum IndexRebuild {
+    #[default]
+    No,
+    Yes,
+}
+
+/// Execution mode for restore (D2: replaces `dry_run: bool`).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum RestoreMode {
+    #[default]
+    Apply,
+    DryRun,
+}
+
+/// Options for [`cmd_restore`] (D2: replaces `force`/`rebuild`/`dry_run`/`verbose` bool flags).
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub struct RestoreOptions {
+    pub overwrite: OverwritePolicy,
+    pub rebuild: IndexRebuild,
+    pub mode: RestoreMode,
+    pub verbose: Verbosity,
+}
+
+#[tracing::instrument]
+/// Validate a backup without restoring it (dry-run).
+///
+/// Read-only: checks the backup input (exists, is a directory, non-empty,
+/// `MANIFEST.json` parses when present), reports total size, lists the files
+/// that would be restored, and reports target conflicts — without touching
+/// the target (no `create_dir_all`, no `remove_dir_all`, no copy, no open).
+fn cmd_restore_dry_run(db_path: &str, input: &str, opts: RestoreOptions) -> Result<()> {
+    let src = std::path::Path::new(input);
+    if !src.is_dir() {
+        return Err(crate::error::Error::restore_error(format!(
+            "Backup path is not a directory: '{input}'"
+        )));
+    }
+    let mut files = walkdir_flat(src).map_err(|e| {
+        crate::error::Error::restore_error(format!("Failed to list backup files: {e}"))
+    })?;
+    if files.is_empty() {
+        return Err(crate::error::Error::restore_error(format!(
+            "Backup directory is empty or invalid: '{input}'"
+        )));
+    }
+    files.sort();
+    let total = dir_size(src).unwrap_or(0) as u64;
+
+    // Format check: MANIFEST.json must parse when present (light variant of
+    // the runbook §3 check). Absence is a warning (legacy backup), not an error.
+    let manifest_path = src.join("MANIFEST.json");
+    if manifest_path.exists() {
+        let raw = std::fs::read_to_string(&manifest_path).map_err(|e| {
+            crate::error::Error::restore_error(format!("Failed to read backup MANIFEST.json: {e}"))
+        })?;
+        let manifest: BackupManifest = serde_json::from_str(&raw).map_err(|e| {
+            crate::error::Error::restore_error(format!("Invalid backup MANIFEST.json: {e}"))
+        })?;
+        let kind = match manifest.backup_type {
+            BackupType::Base => "base",
+            BackupType::Incremental => "incremental",
+        };
+        print_info(&format!(
+            "Backup MANIFEST: type={kind} version={} files={}",
+            manifest.vantadb_version,
+            manifest.files.len()
+        ));
+    } else {
+        print_warning("No MANIFEST.json found (legacy backup?) — proceeding with file listing");
+    }
+
+    let dst = std::path::Path::new(db_path);
+    if dst.exists() {
+        if matches!(opts.overwrite, OverwritePolicy::Overwrite) {
+            print_warning(&format!(
+                "Destination '{db_path}' exists — would remove and recreate (--force) (dry-run: no changes made)"
+            ));
+        } else {
+            print_warning(&format!(
+                "Destination '{db_path}' already exists — would require --force to overwrite (dry-run: no changes made)"
+            ));
+        }
+    } else {
+        print_info(&format!(
+            "Destination '{db_path}' does not exist — would create it (dry-run: no changes made)"
+        ));
+    }
+
+    for path in &files {
+        let rel = path
+            .strip_prefix(src)
+            .unwrap_or(path)
+            .to_string_lossy()
+            .replace('\\', "/");
+        let size = std::fs::metadata(path).map(|m| m.len()).unwrap_or(0);
+        print_info(&format!(
+            "Would restore: {rel} ({})",
+            human_readable_size(size)
+        ));
+    }
+    print_success(&format!(
+        "Dry-run: would restore {} files ({}) from '{}' to '{db_path}'",
+        files.len(),
+        human_readable_size(total),
+        src.display()
+    ));
+    if matches!(opts.rebuild, IndexRebuild::Yes) {
+        print_info("Would rebuild indexes after restore (--rebuild)");
+    }
+    print_info("dry-run: re-run without `--dry-run` to apply");
+    Ok(())
+}
+
 #[tracing::instrument]
 /// Restore the database from a previously created backup directory
-pub fn cmd_restore(
-    db_path: &str,
-    input: &str,
-    force: bool,
-    rebuild: bool,
-    verbose: bool,
-) -> Result<()> {
+pub fn cmd_restore(db_path: &str, input: &str, opts: RestoreOptions) -> Result<()> {
     let src = std::path::Path::new(input);
     if !src.exists() {
-        return Err(crate::error::VantaError::restore_error(format!(
+        return Err(crate::error::Error::restore_error(format!(
             "Backup directory does not exist at '{}'",
             input
         )));
     }
 
+    if matches!(opts.mode, RestoreMode::DryRun) {
+        return cmd_restore_dry_run(db_path, input, opts);
+    }
+
     let dst = std::path::Path::new(db_path);
 
-    if dst.exists() && !force {
-        return Err(crate::error::VantaError::restore_error(
+    if dst.exists() && !matches!(opts.overwrite, OverwritePolicy::Overwrite) {
+        return Err(crate::error::Error::restore_error(
             "Destination database directory already exists. Use --force to overwrite.",
         ));
     }
 
     let spinner = create_spinner("Restoring from backup...");
 
-    if dst.exists() && force {
+    if dst.exists() && matches!(opts.overwrite, OverwritePolicy::Overwrite) {
         std::fs::remove_dir_all(dst).map_err(|e| {
-            crate::error::VantaError::restore_error(format!(
+            crate::error::Error::restore_error(format!(
                 "Failed to remove existing database directory: {e}"
             ))
         })?;
     }
 
     std::fs::create_dir_all(dst).map_err(|e| {
-        crate::error::VantaError::restore_error(format!("Failed to create database directory: {e}"))
+        crate::error::Error::restore_error(format!("Failed to create database directory: {e}"))
     })?;
 
     copy_dir(src, dst, None).map_err(|e| {
-        crate::error::VantaError::restore_error(format!("Failed to restore from backup: {e}"))
+        crate::error::Error::restore_error(format!("Failed to restore from backup: {e}"))
     })?;
 
     spinner.set_message("Verifying restored database...");
 
-    if rebuild {
+    if matches!(opts.rebuild, IndexRebuild::Yes) {
         spinner.set_message("Rebuilding indexes...");
         let db = open_embedded(db_path, false)?;
         db.rebuild_index().map_err(|e| {
-            crate::error::VantaError::restore_error(format!(
-                "Index rebuild after restore failed: {e}"
-            ))
+            crate::error::Error::restore_error(format!("Index rebuild after restore failed: {e}"))
         })?;
     }
 
@@ -286,7 +408,7 @@ pub fn cmd_restore(
             .display()
     ));
 
-    if verbose {
+    if opts.verbose.is_verbose() {
         let src_size = dir_size(src).unwrap_or(0) as u64;
         let dst_size = dir_size(dst).unwrap_or(0) as u64;
         print_info(&format!("Backup size: {}", human_readable_size(src_size)));

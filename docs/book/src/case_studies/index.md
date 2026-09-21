@@ -1,6 +1,5 @@
 # Case Studies
 
-Real-world deployments of VantaDB.
+> ARCHIVADOS 2026-08-22 (GOV-B1): material interno no-publico, escenarios ilustrativos SIN verificacion.
+> Ubicacion: `docs/archive/case-studies-unverified/`. El case study real llega via CLD-04.
 
-- [RAG on Edge Devices](rag_edge_device.md) — Deploying VantaDB on resource-constrained edge hardware
-- [Agent with Local Memory + Ollama](agent_local_memory_ollama.md) — AI agent with persistent local memory

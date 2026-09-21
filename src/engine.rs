@@ -12,7 +12,7 @@ use parking_lot::RwLock;
 const DEFAULT_INITIAL_CAPACITY: usize = 1024;
 
 use crate::edge_index::EdgeIndex;
-use crate::error::{Result, VantaError};
+use crate::error::{Error, Result};
 use crate::node::{FieldValue, FilterBitset, LabelIntern, UnifiedNode, VectorRepresentations};
 use crate::scalar_index::ScalarIndex;
 use crate::wal::WalRecord;
@@ -123,6 +123,23 @@ fn collect_scores<'a>(
         .collect()
 }
 
+/// D1b: prefilter de un solo nivel para `vector_search` (viva + vector + mask).
+fn passes_vector_prefilter(n: &UnifiedNode, bitset_filter: Option<&FilterBitset>) -> bool {
+    if !n.is_alive() || n.vector.is_none() {
+        return false;
+    }
+    bitset_filter.is_none_or(|m| n.matches_mask(m))
+}
+
+/// D1b: clasifica la fuente del resultado según haya filtro bitset o no.
+fn vector_search_source(bitset_filter: Option<&FilterBitset>) -> SourceType {
+    if bitset_filter.is_some() {
+        SourceType::Hybrid
+    } else {
+        SourceType::VectorSearch
+    }
+}
+
 impl InMemoryEngine {
     /// Create engine (in-memory only, no persistence)
     pub fn new() -> Self {
@@ -143,7 +160,8 @@ impl InMemoryEngine {
         let mut nodes_map = HashMap::with_capacity(DEFAULT_INITIAL_CAPACITY);
         let mut max_id: u128 = 0;
 
-        // Use 4 shards for reduced mutex contention on WAL writes
+        // ShardedWal reconciles to a pre-existing WAL's on-disk shard layout
+        // when present (AUDREP-16); 4 is only the default for a brand-new WAL.
         let sharded = ShardedWal::new(&path, 4, crate::config::SyncMode::Periodic)?;
         sharded.recover(0, |record| {
             match record {
@@ -161,7 +179,12 @@ impl InMemoryEngine {
                 WalRecord::Checkpoint { .. }
                 | WalRecord::Begin(_)
                 | WalRecord::Commit(_)
-                | WalRecord::Abort(_) => {}
+                | WalRecord::Abort(_)
+                // WAL v2 (RES-01): two-phase marker. Replay semantics unchanged:
+                // if the matching Commit is durable, ops are applied via the normal
+                // path; if not, the txn is uncommitted and the slice-mask discards
+                // its ops just as it would for a missing Commit in v1.
+                | WalRecord::Prepare { .. } => {}
             }
             Ok(())
         })?;
@@ -223,13 +246,19 @@ impl InMemoryEngine {
         }
         let id = node.id;
 
-        // WAL first (durability before visibility)
-        self.append_to_wal(&WalRecord::Insert(node.clone()))?;
-
+        // MOD-01: validate BEFORE WAL. A rejected op must never reach the WAL —
+        // replay applies records unconditionally, so a logged-but-rejected
+        // insert would resurrect data after restart. Single write-lock critical
+        // section gives strict validate → WAL → apply with no TOCTOU window (a
+        // double-checked pattern would still log a racing duplicate it cannot
+        // retract from an append-only WAL).
         let mut nodes = self.nodes.write();
         if nodes.contains_key(&id) {
-            return Err(VantaError::DuplicateNode(id));
+            return Err(Error::DuplicateNode(id));
         }
+
+        // WAL first (durability before visibility), now that the op is valid.
+        self.append_to_wal(&WalRecord::Insert(node.clone()))?;
 
         // PERF-07: index edges before inserting
         for edge in &node.edges {
@@ -257,19 +286,20 @@ impl InMemoryEngine {
 
     /// Update existing node
     pub fn update(&self, id: u128, node: UnifiedNode) -> Result<()> {
-        let old_node = {
-            let nodes = self.nodes.read();
-            nodes.get(&id).cloned()
-        };
+        // MOD-01: validate BEFORE WAL — an update rejected because the node is
+        // absent must never reach the WAL (replay applies Update as an
+        // unconditional upsert and would resurrect it). Single critical section,
+        // same rationale as insert().
+        let mut nodes = self.nodes.write();
+        let old_node = nodes.get(&id).cloned();
+        if old_node.is_none() {
+            return Err(Error::NodeNotFound(id));
+        }
 
         self.append_to_wal(&WalRecord::Update {
             id,
             node: node.clone(),
         })?;
-        let mut nodes = self.nodes.write();
-        if !nodes.contains_key(&id) {
-            return Err(VantaError::NodeNotFound(id));
-        }
 
         // PERF-07/08: remove old edges/fields, add new ones
         if let Some(old) = old_node {
@@ -293,11 +323,16 @@ impl InMemoryEngine {
 
     /// Delete a node, cascading to remove all referencing edges (PERF-07).
     pub fn delete(&self, id: u128) -> Result<()> {
-        self.append_to_wal(&WalRecord::Delete { id })?;
+        // MOD-01: validate BEFORE WAL — same invariant as insert()/update().
+        // (Replay of a spurious Delete is idempotent, but the invariant is
+        // uniform: nothing enters the WAL unvalidated.)
         let mut nodes = self.nodes.write();
-        if nodes.remove(&id).is_none() {
-            return Err(VantaError::NodeNotFound(id));
+        if !nodes.contains_key(&id) {
+            return Err(Error::NodeNotFound(id));
         }
+
+        self.append_to_wal(&WalRecord::Delete { id })?;
+        nodes.remove(&id);
         self.node_count.fetch_sub(1, Ordering::Release);
         self.edge_index.remove_all_for_node(id);
         self.scalar_index.remove_node(id);
@@ -326,23 +361,15 @@ impl InMemoryEngine {
     ) -> QueryResult {
         let query_vec = VectorRepresentations::Full(query.to_vec());
         let nodes = self.nodes.read();
-
         let mut scored = collect_scores(
-            nodes.values().filter(|n| {
-                n.is_alive()
-                    && !n.vector.is_none()
-                    && bitset_filter.is_none_or(|m| n.matches_mask(m))
-            }),
+            nodes
+                .values()
+                .filter(|n| passes_vector_prefilter(n, bitset_filter)),
             &query_vec,
             min_score,
         );
-
-        let source_type = if bitset_filter.is_some() {
-            SourceType::Hybrid
-        } else {
-            SourceType::VectorSearch
-        };
-        build_query_result_from_scored(&mut scored, &nodes, top_k, source_type)
+        let source = vector_search_source(bitset_filter);
+        build_query_result_from_scored(&mut scored, &nodes, top_k, source)
     }
 
     /// BFS graph traversal from start, following edges with matching label.
@@ -354,9 +381,10 @@ impl InMemoryEngine {
         min_depth: u32,
         max_depth: u32,
     ) -> Result<Vec<(u128, u32)>> {
+        crate::metrics::record_graph_op("traverse");
         let nodes = self.nodes.read();
         if !nodes.contains_key(&start) {
-            return Err(VantaError::NodeNotFound(start));
+            return Err(Error::NodeNotFound(start));
         }
 
         let mut visited = HashMap::new();
@@ -366,12 +394,16 @@ impl InMemoryEngine {
 
         let mut results = Vec::new();
 
+        // MOD-06: hoisted out of the loop — `label` is invariant across the
+        // BFS, so locking the interner and looking it up per visited node was
+        // pure redundant work.
+        let label_id = self.label_intern.lock().lookup(label);
+
         while let Some((current_id, depth)) = queue.pop_front() {
             if depth >= max_depth {
                 continue;
             }
             if let Some(node) = nodes.get(&current_id) {
-                let label_id = self.label_intern.lock().lookup(label);
                 if let Some(lid) = label_id {
                     for edge in &node.edges {
                         if edge.label_id == lid {
@@ -465,7 +497,7 @@ impl InMemoryEngine {
                 stats.vector_count += 1;
                 stats.total_dimensions += node.vector.dimensions() as u64;
             }
-            stats.memory_estimate_bytes += node.memory_size() as u64;
+            stats.memory_estimate_bytes += node.size() as u64;
         }
         stats
     }
@@ -549,7 +581,7 @@ mod tests {
         let engine = InMemoryEngine::new();
         engine.insert(create_node(1)).unwrap();
         let err = engine.insert(create_node(1)).unwrap_err();
-        assert!(matches!(err, VantaError::DuplicateNode(1)));
+        assert!(matches!(err, Error::DuplicateNode(1)));
     }
 
     #[test]
@@ -597,7 +629,7 @@ mod tests {
     fn test_update_nonexistent_errors() {
         let engine = InMemoryEngine::new();
         let err = engine.update(999, create_node(999)).unwrap_err();
-        assert!(matches!(err, VantaError::NodeNotFound(999)));
+        assert!(matches!(err, Error::NodeNotFound(999)));
     }
 
     // ── Delete ──
@@ -614,7 +646,7 @@ mod tests {
     fn test_delete_nonexistent_errors() {
         let engine = InMemoryEngine::new();
         let err = engine.delete(999).unwrap_err();
-        assert!(matches!(err, VantaError::NodeNotFound(999)));
+        assert!(matches!(err, Error::NodeNotFound(999)));
     }
 
     // ── scan_bitset ──
@@ -731,6 +763,30 @@ mod tests {
         assert_eq!(result.exhaustivity, 1.0);
     }
 
+    #[test]
+    fn test_vector_search_source_classifies_hybrid_vs_plain() {
+        assert_eq!(vector_search_source(None), SourceType::VectorSearch);
+        let mask = FilterBitset::from_u128(1 << 0);
+        assert_eq!(vector_search_source(Some(&mask)), SourceType::Hybrid);
+    }
+
+    #[test]
+    fn test_passes_vector_prefilter_respects_liveness_vector_and_mask() {
+        let mask = FilterBitset::from_u128(1 << 0);
+        let mut ok = create_vector_node(1, vec![1.0, 0.0]);
+        ok.set_bit(0);
+        assert!(passes_vector_prefilter(&ok, None));
+        assert!(passes_vector_prefilter(&ok, Some(&mask)));
+        assert!(!passes_vector_prefilter(&create_node(2), None));
+        let mut masked_out = create_vector_node(3, vec![1.0, 0.0]);
+        masked_out.set_bit(1);
+        assert!(!passes_vector_prefilter(&masked_out, Some(&mask)));
+        let mut dead = create_vector_node(4, vec![1.0, 0.0]);
+        dead.set_bit(0);
+        dead.flags.clear(crate::node::NodeFlags::ACTIVE);
+        assert!(!passes_vector_prefilter(&dead, None));
+    }
+
     // ── traverse (BFS) ──
 
     #[test]
@@ -791,7 +847,7 @@ mod tests {
     fn test_traverse_nonexistent_start_errors() {
         let engine = InMemoryEngine::new();
         let err = engine.traverse(999, "x", 1, 3).unwrap_err();
-        assert!(matches!(err, VantaError::NodeNotFound(999)));
+        assert!(matches!(err, Error::NodeNotFound(999)));
     }
 
     #[test]
@@ -963,5 +1019,97 @@ mod tests {
         engine.insert(create_node(2)).unwrap();
         let stats = engine.stats();
         assert_eq!(stats.edge_count, 2);
+    }
+
+    // ── Durabilidad: ops RECHAZADAS no deben sobrevivir en el WAL (MOD-01) ──
+
+    fn assert_full_vector(node: &UnifiedNode, expected: &[f32]) {
+        match &node.vector {
+            VectorRepresentations::Full(v) => assert_eq!(v.as_slice(), expected),
+            other => panic!("expected Full vector, got {other:?}"),
+        }
+    }
+
+    #[test]
+    fn test_mod01_rejected_duplicate_insert_not_resurrected_after_reopen() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("wal");
+        {
+            let engine = InMemoryEngine::with_wal(&path).unwrap();
+            engine
+                .insert(create_vector_node(1, vec![1.0, 2.0]))
+                .unwrap();
+
+            // Insert duplicado → rechazado. Su registro NO debe entrar al WAL:
+            // si entra, el replay lo aplica y el impostor pisa el original.
+            let impostor = create_vector_node(1, vec![9.9, 9.9]);
+            assert!(matches!(
+                engine.insert(impostor),
+                Err(Error::DuplicateNode(1))
+            ));
+            engine.flush_wal().unwrap();
+        }
+        let reopened = InMemoryEngine::with_wal(&path).unwrap();
+        let got = reopened.get(1).expect("node 1 must survive restart");
+        assert_full_vector(&got, &[1.0, 2.0]);
+    }
+
+    #[test]
+    fn test_mod01_failed_update_on_deleted_node_not_resurrected_after_reopen() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("wal");
+        {
+            let engine = InMemoryEngine::with_wal(&path).unwrap();
+            engine.insert(create_vector_node(3, vec![4.0])).unwrap();
+            engine.delete(3).unwrap();
+
+            // Update sobre nodo eliminado → rechazado. El replay NO debe
+            // re-crearlo (aplica Update como upsert incondicional).
+            assert!(matches!(
+                engine.update(3, create_node(3)),
+                Err(Error::NodeNotFound(3))
+            ));
+            engine.flush_wal().unwrap();
+        }
+        let reopened = InMemoryEngine::with_wal(&path).unwrap();
+        assert!(
+            reopened.get(3).is_none(),
+            "rejected update resurrected the deleted node via WAL replay"
+        );
+    }
+
+    #[test]
+    fn test_mod01_legitimate_insert_update_survives_reopen() {
+        // Pre-mortem guard: el fix no puede romper el flujo legítimo.
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("wal");
+        {
+            let engine = InMemoryEngine::with_wal(&path).unwrap();
+            engine.insert(create_vector_node(10, vec![1.0])).unwrap();
+            engine
+                .update(10, create_vector_node(10, vec![2.0]))
+                .unwrap();
+            engine.flush_wal().unwrap();
+        }
+        let reopened = InMemoryEngine::with_wal(&path).unwrap();
+        let got = reopened.get(10).expect("legitimate node lost after reopen");
+        assert_full_vector(&got, &[2.0]);
+        assert_eq!(reopened.node_count(), 1);
+    }
+
+    #[test]
+    fn test_mod01_delete_persists_and_rejected_delete_is_inert_after_reopen() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().join("wal");
+        {
+            let engine = InMemoryEngine::with_wal(&path).unwrap();
+            engine.insert(create_node(5)).unwrap();
+            engine.delete(5).unwrap();
+            assert!(matches!(engine.delete(5), Err(Error::NodeNotFound(5))));
+            engine.flush_wal().unwrap();
+        }
+        let reopened = InMemoryEngine::with_wal(&path).unwrap();
+        assert!(reopened.get(5).is_none());
+        assert_eq!(reopened.node_count(), 0);
     }
 }

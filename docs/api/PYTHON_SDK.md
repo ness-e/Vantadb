@@ -3,11 +3,25 @@ title: Python SDK Documentation
 type: api
 status: active
 tags: [vantadb, api]
-last_reviewed: 2026-07-21
+last_reviewed: 2026-09-15
 aliases: []
+related: [TS_SDK.md, NODE_SDK.md, EMBEDDED_SDK.md, BINDINGS_NAMESPACES.md]
 ---
 
 # Python SDK Documentation
+
+> **Stability:** the documented Python SDK API is covered by the [Versioning & Stability Policy](VERSIONING.md).
+>
+> **Naming (ADR-041 anti-stutter):** canonical names are `Client`, `Record`,
+> `SearchHit` (`Hit` alias), `ListResult`, `Vector`, `SearchRequest`.
+> Legacy `VantaDB`, `VantaMemoryRecord`, `VantaSearchHit`, `VantaListResult`,
+> `VantaVector`, `VantaError` aliases were removed in 0.6.0 (AST-010).
+> Memory-record ops live on the `db.memory` sub-client with short names
+> (`get` / `list` / `delete` / `search` — TS `MemoryClient` parity, AST-012).
+> Flat `get` / `delete` are node-level (graph-domain) ops in Python, unlike
+> TS/WASM, so the memory path is always `db.memory.*` (see
+> [BINDINGS_NAMESPACES.md](BINDINGS_NAMESPACES.md#naming-hazard-reminder)).
+> The flat `*_memory` surnames were removed (direct rename, no aliases).
 
 ## Installation
 
@@ -15,24 +29,24 @@ aliases: []
 pip install vantadb-py
 ```
 
-> **Note:** Requires Python 3.11+ and Rust toolchain (maturin) for building from source. Pre-built wheels are available for linux/amd64, linux/arm64 (aarch64), and macOS (arm64/x86_64).
+> **Note:** Requires Python 3.11+ and Rust toolchain (maturin) for building from source. Pre-built wheels are available for linux/amd64, linux/arm64 (aarch64), macOS (arm64/x86_64), and Windows (amd64).
 
 ## Quick Start
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
-db = vantadb.VantaDB("./vanta_data")
+db = vantadb.Client("./vanta_data")
 
 db.put(
     namespace="agent/main",
     key="memory-1",
     payload="The user prefers dark mode in all applications.",
-    vector=[0.1] * 384,  # VectorInput: List[float], VantaVector, or np.ndarray
+    vector=[0.1] * 384,  # VectorInput: List[float], Vector, or np.ndarray
 )
 
 # Hybrid search (memory API)
-results = db.search_memory(
+results = db.search(
     namespace="agent/main",
     text_query="What display mode does the user prefer?",
     query_vector=[0.1] * 384,
@@ -51,17 +65,77 @@ if results and results.get("records"):
 ```
 *Note: For more details on search execution, see [[hybrid-search|Hybrid Search]].*
 
+## Import name
+
+Use the canonical import:
+
+```python
+import vantadb
+```
+
+`import vantadb_py` still works (it points at the same compiled module) but
+emits a `DeprecationWarning`. The legacy name will be removed in the next minor
+release (0.6.0). The distribution on PyPI is `vantadb-py`; the importable
+module is `vantadb`. See [ADR-030](../architecture/adr/ADR-030-brand-identity-naming-convention.md)
+for the full brand-identity decision.
+
+## Domain Sub-clients
+
+Every namespaced memory method is reachable through the **`db.memory`**
+domain sub-client with short names (`get`/`list`/`delete`/`search`,
+TS `MemoryClient` parity); `db.graph`, `db.system`, `db.wiki` group the
+remaining domains. Sub-clients are pure organizational sugar — shared-name
+calls forward verbatim to the same-named flat method with identical
+signatures and results.
+
+> **Canonical paths (AST-012, no aliases):** `db.memory.get(...)`,
+> `db.memory.list(...)`, `db.memory.delete(...)`, `db.memory.search(...)`.
+> The flat `get_memory` / `list_memory` / `delete_memory` methods were
+> removed; flat `get` / `delete` stay node-level (`id: u128`). Canonical
+> method→domain map: [BINDINGS_NAMESPACES.md](BINDINGS_NAMESPACES.md).
+
+```python
+# memory — namespace+key records, search, supersede, TTL
+record = db.memory.put(namespace="ns", key="k", payload="...", vector=[0.1] * 384)
+record = db.memory.get(namespace="ns", key="k")
+hits = db.memory.search(namespace="ns", query_vector=[0.1] * 384)
+db.memory.supersede(namespace="ns", old_key="draft-v1", new_key="draft-v2")
+
+# graph — node/edge CRUD + traversals
+# NOTE: insert/get/delete are NODE-level ops here (id: u128), unlike the
+# memory-record semantics those names carry in the TS/WASM bindings.
+db.graph.insert(id=42, content="...", vector=[0.1] * 384)
+node = db.graph.get(id=42)
+reachable = db.graph.graph_bfs(roots=[42], max_depth=3)
+ranks = db.graph.graph_page_rank(roots=[42])
+
+# wiki — summary-node archive recovery
+nodes = db.wiki.recover_archived_nodes(summary_id="42")
+
+# system — lifecycle, metrics, IQL, maintenance, import/export
+print(db.system.capabilities())
+result = db.system.query("(match (node :content \"rust\") (return node))")
+db.system.flush()
+```
+
+Notes:
+
+- Each attribute returns a lightweight delegate that holds a reference to the parent `Client`; calls are forwarded with identical signatures and results.
+- The full member lists per sub-client are fixed by [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md) (Python section): memory 15 · graph 10 · system 17 · wiki 1.
+- `AsyncVantaDB` exposes `db.memory` (`get`/`list`/`delete`); all other
+  async methods stay flat.
+
 ## API Reference
 
 ### Constructor
 
 ```python
-vantadb.VantaDB(
+vantadb.Client(
     db_path: str,
     memory_limit_bytes: Optional[int] = None,
     read_only: bool = False,
     backend: Optional[str] = None,
-) -> VantaDB
+) -> Client
 ```
 
 ### Module-Level Functions
@@ -72,16 +146,18 @@ vantadb.VantaDB(
 vantadb.connect(
     path: str,
     memory_limit: Optional[int] = None,
-) -> VantaDB
+    read_only: bool = False,
+    backend: Optional[str] = None,
+) -> Client
 ```
 
-Alternative constructor. Accepts a filesystem path, empty string `""`, or `":memory:"` for an in-memory database. This is equivalent to `VantaDB(db_path=path, memory_limit_bytes=memory_limit)`.
+Alternative constructor. Accepts a filesystem path, empty string `""`, or `":memory:"` for an in-memory database. This is equivalent to `Client(db_path=path, memory_limit_bytes=memory_limit, read_only=read_only, backend=backend)`.
 
 ```python
-import vantadb_py as vanta
+import vantadb
 
 # In-memory database
-db = vanta.connect(":memory:")
+db = vantadb.connect(":memory:")
 
 # Persistent database with memory limit
 db = vanta.connect("./my_brain", memory_limit=256 * 1024 * 1024)
@@ -98,26 +174,25 @@ db.put(
     metadata: Optional[dict] = None,
     vector: Optional[VectorInput] = None,
     ttl_ms: Optional[int] = None,
-) -> VantaMemoryRecord
+) -> Record
 ```
 Insert or update a memory record. The `metadata` is a dict of scalar fields.
-
 #### `put_batch()`
+
 ```python
 db.put_batch(
-    entries: Optional[List[Tuple[str, str, str, Optional[dict], Optional[VectorInput], Optional[int]]]] = None,
-    *,
-    keys: Optional[List[str]] = None,
-    vectors: Optional[List[VectorInput]] = None,
+    keys: List[str],
+    vectors: List[VectorInput],
     payloads: Optional[List[str]] = None,
     metadatas: Optional[List[Optional[dict]]] = None,
     namespace: Optional[str] = None,
+    namespaces: Optional[List[str]] = None,
     ttls: Optional[List[Optional[int]]] = None,
-) -> List[VantaMemoryRecord]
+) -> List[Record]
 ```
-Insert or update multiple records in parallel.
-
-> **Deprecated:** The positional `entries` (tuple list) API is deprecated. Use keyword arguments instead.
+Insert or update multiple records in parallel. Each entry of `metadatas`
+accepts the same scalar values as `put()` (`str`, `int`, `float`, `bool`,
+`datetime`, homogeneous lists).
 
 **Keyword API** (preferred):
 ```python
@@ -131,44 +206,46 @@ db.put_batch(
 )
 ```
 
-**Positional API** (deprecated):
+To route records of one batch into different namespaces, pass the parallel per-record column `namespaces` (length must equal `keys`); it overrides `namespace` for each record:
 ```python
-db.put_batch([
-    ("ns", "k1", "payload1", {"f": "v"}, [0.1]*384, None),
-    ("ns", "k2", "payload2", None, [0.2]*384, 1000),
-])
+db.put_batch(
+    keys=["k1", "k2"],
+    vectors=[[0.1]*384, [0.2]*384],
+    namespaces=["ns1", "ns2"],
+)
 ```
-Each entry is `(namespace, key, payload, metadata, vector, ttl_ms)`.
 
-#### `get_memory()`
+Returns a list of `Record` objects, up to ~5x faster than sequential `put()` for large batches.
+
+#### `memory.get()`
 ```python
-db.get_memory(
+db.memory.get(
     namespace: str,
     key: str,
-) -> Optional[VantaMemoryRecord]
+) -> Optional[Record]
 ```
 
-#### `delete_memory()`
+#### `memory.delete()`
 ```python
-db.delete_memory(
+db.memory.delete(
     namespace: str,
     key: str,
 ) -> bool
 ```
 
-#### `list_memory()`
+#### `memory.list()`
 ```python
-db.list_memory(
+db.memory.list(
     namespace: str,
     filters: Optional[dict] = None,
     limit: int = 100,
     cursor: Optional[int] = None,
-) -> VantaListResult
+) -> ListResult
 ```
-Returns a `VantaListResult` object with `.records`, `.total_count`, and `.next_cursor`. Supports `__getitem__` for dict-style access (`result["records"]`, `result["next_cursor"]`) and `__iter__` for record iteration.
+Returns a `ListResult` object with `.records`, `.total_count`, and `.next_cursor`. Supports `__getitem__` for dict-style access (`result["records"]`, `result["next_cursor"]`) and `__iter__` for record iteration.
 
 ```python
-page = db.list_memory("ns", limit=10)
+page = db.memory.list("ns", limit=10)
 for record in page:
     print(record.key, record.payload)
 
@@ -176,22 +253,38 @@ for record in page:
 records = page["records"]
 next_cursor = page["next_cursor"]
 ```
+#### `memory.search()`
 
-#### `search_memory()`
 ```python
-db.search_memory(
+db.memory.search(
     namespace: str,
     query_vector: VectorInput,
     filters: Optional[dict] = None,
     text_query: Optional[str] = None,
     top_k: int = 10,
     distance_metric: Optional[str] = None,
+    method: Optional[str] = None,
     explain: bool = False,
-) -> List[VantaSearchHit]
+    exclude_superseded: bool = False,
+) -> List[SearchHit]
 ```
 Search namespace-scoped persistent memory records by vector + filters + text_query.
 
+The `method` parameter accepts `"ivf"`, `"scann"`, `"flat"`, or `"hnsw"` to explicitly override the dense-vector index backend. `None` (default) keeps automatic engine routing.
+
+The `exclude_superseded` parameter (default `False`) controls whether superseded records are filtered from results (ADR-028).
+#### `search_vector()`
+```python
+db.search_vector(
+    vector: VectorInput,
+    top_k: int = 10,
+) -> List[Tuple[int, float]]
+```
+Pure-ANN vector search over nodes (no namespace, no filters, no text).
+Returns `(node_id, distance)` tuples with lower-is-better distance
+(AST-008: ex-`search`; the namespaced hybrid is `memory.search()`).
 #### `explain_memory_search()`
+
 ```python
 db.explain_memory_search(
     namespace: str,
@@ -200,9 +293,76 @@ db.explain_memory_search(
     text_query: Optional[str] = None,
     top_k: int = 10,
     distance_metric: Optional[str] = None,
+    method: Optional[str] = None,
 ) -> dict
 ```
 Returns a detailed breakdown of how a memory search arrives at its results.
+
+The `method` parameter accepts `"ivf"`, `"scann"`, `"flat"`, or `"hnsw"` to explicitly override the dense-vector index backend. `None` (default) keeps automatic engine routing.
+
+#### `count()`
+```python
+db.count(
+    namespace: str,
+    filters: Optional[dict] = None,
+) -> int
+```
+Count memory records in a namespace, optionally filtered by metadata. The
+`filters` dict follows the canonical cross-SDK operator format: a flat value is
+an implicit `$eq` (`{"category": "task"}`), and a nested dict selects an
+operator per key (`{"score": {"$gte": 50}}`). Supported operators: `$eq`,
+`$neq`, `$gt`, `$gte`, `$lt`, `$lte`. Omit `filters` (or pass `None`) to count
+all records in the namespace. GIL-released.
+
+```python
+db.put("ns", "a", "alpha", metadata={"category": "task", "score": 10})
+db.put("ns", "b", "beta", metadata={"category": "task", "score": 50})
+db.put("ns", "c", "gamma", metadata={"category": "note", "score": 5})
+
+db.count("ns")                          # 3
+db.count("ns", {"category": "task"})    # 2
+db.count("ns", {"score": {"$gte": 20}}) # 1
+```
+
+#### `delete_by_filter()`
+```python
+db.delete_by_filter(
+    namespace: str,
+    filters: dict,
+) -> int
+```
+Delete all memory records in a namespace matching a metadata filter. The
+`filters` dict uses the same operator format as `count()` (flat value →
+implicit `$eq`, or `{"$op": value}` per key). Returns the number of records
+deleted. **The filter must not be empty** — the core rejects an empty filter
+with a `RuntimeError` to prevent accidental full-namespace deletion. Use
+`memory.delete()` to remove individual records. GIL-released.
+
+```python
+deleted = db.delete_by_filter("ns", {"category": "draft"})
+print(f"Removed {deleted} draft records")
+```
+
+#### `similar_to_key()`
+```python
+db.similar_to_key(
+    namespace: str,
+    key: str,
+    top_k: int = 10,
+) -> List[SearchHit]
+```
+Search namespace-scoped memory records by vector similarity to an existing
+key, without supplying a query vector. Resolves the record at `key`, reads its
+embedding, and runs a vector search. The source record itself is excluded from
+the results. GIL-released.
+
+```python
+hits = db.similar_to_key("agent/main", "task-1", top_k=5)
+for hit in hits:
+    print(hit.key, hit.score)
+```
+
+Raises `RuntimeError` if the source `key` does not exist or has no vector.
 
 ### Node / Graph API (Low-Level)
 
@@ -253,6 +413,20 @@ Delete a graph node by ID with an auditable reason (recorded as a tombstone). GI
 db.delete(id=42, reason="stale training data cleaned up")
 ```
 
+#### `supersede()`
+```python
+db.supersede(
+    namespace: str,
+    old_key: str,
+    new_key: str,
+) -> None
+```
+Mark an existing memory record as superseded by another existing record (ADR-028). The old record keeps its data but gains `superseded_by`/`superseded_at_ms` and can be hidden from search/list with `exclude_superseded=True`. Raises `RuntimeError` if either key is missing, if `old_key == new_key`, or if the old record is already superseded. GIL-released.
+
+```python
+db.supersede(namespace="agents/summary", old_key="draft-v1", new_key="draft-v2")
+```
+
 #### `search()`
 ```python
 db.search(
@@ -284,6 +458,28 @@ for i, hits in enumerate(results):
     print(f"Query {i}: {len(hits)} hits")
 ```
 
+#### `search_batch_requests()`
+```python
+db.search_batch_requests(
+    requests: List[Union[Dict[str, Any], "SearchRequest"]],
+    top_k: int = 10,
+) -> List[List[SearchHit]]
+```
+Batch hybrid search over multiple request objects. Each element may be a
+`dict` or a typed `SearchRequest` dataclass, and supports the fields
+`namespace`, `query_vector`, `text_query`, `filters`, `distance_metric`, and
+`top_k`. Requests are validated eagerly (raises `ValueError` on the first
+invalid element), then executed in parallel via Rayon with the GIL released.
+Returns one `[SearchHit]` list per request, in input order.
+
+```python
+requests = [
+    {"namespace": "ns", "query_vector": [0.1] * 384},
+    {"namespace": "ns", "text_query": "rust", "top_k": 5},
+]
+all_hits = db.search_batch_requests(requests)
+```
+
 #### `add_edge()`
 ```python
 db.add_edge(
@@ -291,20 +487,26 @@ db.add_edge(
     target_id: int,
     label: str,
     weight: Optional[float] = None,
+    created_at_ms: Optional[int] = None,
 ) -> None
 ```
 Add a labeled, optionally weighted edge between two graph nodes. Useful for building knowledge graphs, relationships between entities, or graph-based RAG pipelines. GIL-released.
 
+`created_at_ms` sets the edge's creation timestamp as Unix epoch milliseconds (forward and reverse edges share the same logical creation time). If omitted, the current wall-clock time is used. The timestamp is persisted with the edge and available to time-aware graph queries in the core engine.
+
 ```python
 # Connect two nodes with a relationship edge
 db.add_edge(source_id=42, target_id=17, label="references", weight=0.95)
+
+# Record an edge as of a historical point in time
+db.add_edge(source_id=42, target_id=17, label="references", created_at_ms=1700000000000)
 ```
 
 #### `graph_bfs()`
 ```python
-db.graph_bfs(roots: List[int], max_depth: int = 999999) -> List[int]
+db.graph_bfs(roots: List[int], max_depth: int = 999999, direction: str = "Forward") -> List[int]
 ```
-Breadth-First Search from root node IDs, up to `max_depth`. Returns discovered distinct node IDs. GIL-released.
+Breadth-First Search from root node IDs, up to `max_depth`. `direction` is one of `"Forward"`, `"Reverse"`, or `"Both"`. Returns discovered distinct node IDs. GIL-released.
 
 ```python
 reachable = db.graph_bfs(roots=[42, 17], max_depth=3)
@@ -313,9 +515,9 @@ print(f"Reachable nodes: {reachable}")
 
 #### `graph_dfs()`
 ```python
-db.graph_dfs(roots: List[int], max_depth: int = 999999) -> List[int]
+db.graph_dfs(roots: List[int], max_depth: int = 999999, direction: str = "Forward") -> List[int]
 ```
-Depth-First Search from root node IDs, up to `max_depth`. Returns discovered distinct node IDs. GIL-released.
+Depth-First Search from root node IDs, up to `max_depth`. `direction` is one of `"Forward"`, `"Reverse"`, or `"Both"`. Returns discovered distinct node IDs. GIL-released.
 
 ```python
 reachable = db.graph_dfs(roots=[42], max_depth=5)
@@ -344,6 +546,64 @@ if db.graph_is_dag(roots=[1, 2]):
     print("Subgraph is a DAG — safe for topological sort")
 ```
 
+#### `graph_page_rank()`
+```python
+db.graph_page_rank(
+    roots: List[int],
+    max_iterations: int = 100,
+    damping: float = 0.85,
+    tolerance: float = 1e-6,
+) -> Dict[int, float]
+```
+Compute PageRank for the subgraph reachable from the given roots. Returns a dict mapping `node_id -> rank`. GIL-released - allows Python threads to run during PageRank computation.
+
+```python
+ranks = db.graph_page_rank(roots=[1, 2], max_iterations=100, damping=0.85)
+for node_id, rank in sorted(ranks.items(), key=lambda kv: -kv[1]):
+    print(node_id, rank)
+```
+
+#### `graph_degree_centrality()`
+```python
+db.graph_degree_centrality(
+    roots: List[int],
+) -> Dict[int, Tuple[int, int]]
+```
+Compute degree centrality (in/out degree counts) for the subgraph reachable from the given roots. Returns a dict mapping `node_id -> (in_degree, out_degree)`. GIL-released.
+
+```python
+centrality = db.graph_degree_centrality(roots=[1, 2])
+for node_id, (in_deg, out_deg) in centrality.items():
+    print(node_id, in_deg, out_deg)
+```
+
+#### `graph_bfs_filtered()`
+```python
+db.graph_bfs_filtered(
+    roots: List[int],
+    max_depth: int = 999999,
+    direction: str = "Forward",
+    labels: Optional[List[int]] = None,
+    time_range: Optional[Tuple[int, int]] = None,
+) -> List[int]
+```
+Breadth-First Search with optional edge label and time filtering from root node IDs, up to `max_depth`. `direction` is one of `"Forward"`, `"Reverse"`, or `"Both"`. `labels` is a list of edge label IDs to follow (empty list disables label filtering). `time_range` is an optional inclusive `(from_ms, to_ms)` window for edge creation time. Returns discovered distinct node IDs in BFS order. GIL-released.
+
+```python
+# BFS with no filtering (equivalent to graph_bfs)
+reachable = db.graph_bfs_filtered(roots=[42, 17], max_depth=3)
+
+# BFS following only edges with label IDs 1 and 2
+reachable = db.graph_bfs_filtered(roots=[42], max_depth=5, labels=[1, 2])
+
+# BFS within a time window (edges created between timestamps)
+reachable = db.graph_bfs_filtered(
+    roots=[42],
+    max_depth=3,
+    time_range=(1700000000000, 1800000000000)
+)
+```
+
 ### Advanced Operations
 
 #### `query()`
@@ -360,14 +620,58 @@ result = db.query("(match (node :content \"rust\") (return node))")
 print(result)
 ```
 
-#### `delete_by_filter()` (not yet exposed)
-Delete all records matching metadata filters in a namespace. *Not yet available in the Python SDK — tracked for future release.*
+#### `query_structured()`
+```python
+db.query_structured(
+    iql_query: str,
+) -> Dict[str, Any]
+```
+Execute an IQL or LISP-style query string and return a **structured dict** instead of a formatted string, so callers can consume the result as data. The dict carries a `kind` discriminator:
 
-#### `similar_to_key()` (not yet exposed)
-Search by vector similarity from an existing key. *Not yet available in the Python SDK — tracked for future release.*
+- `{"kind": "read", "nodes": [{"id": str, "tier": str, "confidence": float, "hits": int}, ...]}` for `SELECT`-style reads.
+- `{"kind": "write", "affected_nodes": int, "message": str, "node_id": str | None}` for writes.
+- `{"kind": "stale_context", "node_id": str}` when rehydration is required.
 
-#### `count()` (not yet exposed)
-Count records, optionally filtered by namespace and metadata. *Not yet available in the Python SDK — tracked for future release.*
+`u128` node ids are returned as strings to avoid precision loss.
+
+```python
+# IQL query example — structured
+result = db.query_structured("(match (node :content \"rust\") (return node))")
+print(result["kind"])   # "read"
+print(result["nodes"])  # [{"id": "...", "tier": "...", "confidence": 0.5, "hits": 1}, ...]
+```
+
+> **Note:** `query_structured()` is additive — the legacy `query()` (which returns a formatted `str`) is unchanged.
+
+#### `bulk_import()`
+```python
+db.bulk_import(
+    path: str,
+) -> Dict[str, Any]
+```
+Bulk-import records from a binary `.vdbdump` file. Returns a dict with `total_records`, `batches_committed`, `duration_ms`. GIL-released.
+
+#### `bulk_import_bytes()`
+```python
+db.bulk_import_bytes(
+    data: bytes,
+) -> Dict[str, Any]
+```
+Bulk-import records from binary bytes (`.vdbdump` format). Returns a dict with `total_records`, `batches_committed`, `duration_ms`. GIL-released.
+
+#### `recover_archived_nodes()`
+```python
+db.recover_archived_nodes(
+    summary_id: str,
+) -> List[dict]
+```
+Recover shadow-archived nodes that belonged to a summary node. Scans TombstoneStorage for nodes with a `belonged_to` edge targeting `summary_id`, re-activates them, and inserts them back into the active store. Returns a list of recovered node dictionaries. `summary_id` is the summary node ID as a decimal string (u128). GIL-released.
+
+```python
+nodes = db.recover_archived_nodes(summary_id="42")
+for node in nodes:
+    print(node["id"], node["fields"])
+```
 
 ### Maintenance & Diagnostics
 
@@ -562,10 +866,23 @@ print(snippet)  # e.g. "...**VantaDB** is a high-performance **vector database**
 ```python
 db.close() -> None
 ```
-Flush and close the embedded engine handle, releasing all resources. The database can be re-opened by creating a new `VantaDB` instance. GIL-released.
+Flush and close the embedded engine handle, releasing all resources. The database can be re-opened by creating a new `Client` instance. GIL-released.
 
 ```python
 db.close()
+```
+
+#### `__enter__()` / `__exit__()` — Synchronous Context Manager
+```python
+db.__enter__() -> Client
+db.__exit__(exc_type, exc_val, exc_tb) -> None
+```
+Support for the synchronous context manager protocol (`with Client(...) as db:`). `__enter__` returns the database handle; `__exit__` calls `close()` to flush and release resources. This ensures WAL is flushed even if an exception occurs within the `with` block. Available since 0.5.0 (RES-05).
+
+```python
+with Client("./my_brain") as db:
+    db.put("ns", "key", "payload", vector=[0.1]*384)
+# db.close() is called automatically on exit
 ```
 
 #### `put_batch_raw()`
@@ -577,7 +894,7 @@ db.put_batch_raw(
     metadatas: Optional[List[Optional[dict]]] = None,
     namespaces: Optional[List[str]] = None,
     ttls: Optional[List[Optional[int]]] = None,
-) -> List[VantaMemoryRecord]
+) -> List[Record]
 ```
 Batch insert with raw arrays (no tuple wrapping). Accepts `vectors` as a 2D NumPy array (shape `[N, D]`) for zero-copy buffer protocol input. Optimized for large batches with homogeneous vector dimensions. GIL-released.
 
@@ -594,9 +911,9 @@ records = db.put_batch_raw(
 
 #### `new()`
 ```python
-VantaDB.__new__(cls, *args, **kwargs) -> VantaDB
+Client.__new__(cls, *args, **kwargs) -> Client
 ```
-Internal constructor — prefer the class constructor `VantaDB(db_path, ...)`.
+Internal constructor — prefer the class constructor `Client(db_path, ...)`.
 
 ### NumPy / Buffer Protocol
 
@@ -609,7 +926,7 @@ Return `__array_interface__`-compatible descriptors for zero-copy NumPy interop.
 ### Iteration Protocol
 
 ```python
-db.__iter__() -> VantaDB    # iterator over search results / record lists
+db.__iter__() -> Client    # iterator over search results / record lists
 db.__next__() -> dict        # next record
 db.__len__() -> int          # length of current result set
 db.__getitem__(key) -> Any   # index into current result set
@@ -620,30 +937,30 @@ db.__setstate__(state) -> None  # pickle deserialization
 ## Type Aliases
 
 ```python
-VectorInput = Union[List[float], VantaVector, numpy.ndarray, memoryview]
+VectorInput = Union[List[float], Vector, numpy.ndarray, memoryview]
 ```
-Accepts plain Python lists, `VantaVector`, NumPy arrays, or any buffer-protocol object (zero-copy when possible).
+Accepts plain Python lists, `Vector`, NumPy arrays, or any buffer-protocol object (zero-copy when possible).
 
 ## Data Types
 
-### `VantaVector`
+### `Vector`
 
 ```python
-vantadb_py.VantaVector(data: List[float]) -> VantaVector
+vantadb.Vector(data: List[float]) -> Vector
 ```
 Zero-copy vector wrapper backed by a `Box<[f32]>`. Exposes NumPy's `__array_interface__` for zero-copy `np.asarray()` conversion, and supports Python sequence iteration, indexing, and pickle serialization.
 
 ```python
-vec = VantaVector([0.1, 0.2, 0.3])
+vec = Vector([0.1, 0.2, 0.3])
 arr = np.asarray(vec)  # zero-copy view
 len(vec)               # 3
 vec[0]                 # 0.1
 ```
 
-### `VantaMemoryRecord`
+### `Record`
 
 ```python
-vantadb.VantaMemoryRecord
+vantadb.Record
 ```
 
 Each memory record is a typed object with property access and `__getitem__` support:
@@ -654,7 +971,7 @@ Each memory record is a typed object with property access and `__getitem__` supp
 | `key` | `str` | Unique record key |
 | `payload` | `str` | Record payload text |
 | `metadata` | `dict` | Metadata key-value dict |
-| `vector` | `Optional[numpy.ndarray \| VantaVector]` | Embedding vector |
+| `vector` | `Optional[numpy.ndarray \| Vector]` | Embedding vector |
 | `created_at_ms` | `int` | Creation timestamp (ms) |
 | `updated_at_ms` | `int` | Last update timestamp (ms) |
 | `version` | `int` | Monotonic version counter |
@@ -672,34 +989,34 @@ print(record["namespace"], record["key"], record["version"])
 ```
 
 ### Search Result
-Each result is a `VantaSearchHit` object with properties:
+Each result is a `SearchHit` object with properties:
 - `namespace` — namespace of the matched record
 - `key` — key of the matched record
 - `payload` — payload text
 - `metadata` — metadata dict
-- `vector` — `VantaVector` or NumPy array
+- `vector` — `Vector` or NumPy array
 - `score` — relevance score (BM25, cosine similarity, or RRF fused)
 - `id` / `node_id` — numeric node identifier
 - `created_at_ms`, `updated_at_ms`, `version`, `expires_at_ms`
 
-### `VantaListResult`
+### `ListResult`
 
 ```python
-vantadb.VantaListResult
+vantadb.ListResult
 ```
 
-Returned by `list_memory()`. Typed page of memory records with pagination.
+Returned by `memory.list()`. Typed page of memory records with pagination.
 
 | Property | Type | Description |
 |---|---|---|
-| `records` | `List[VantaMemoryRecord]` | Records in this page |
+| `records` | `List[Record]` | Records in this page |
 | `total_count` | `int` | Number of records in this page |
 | `next_cursor` | `Optional[int]` | Cursor for the next page, or `None` |
 
 Supports iteration, indexing, and dict-style access:
 
 ```python
-page = db.list_memory("ns")
+page = db.memory.list("ns")
 len(page)                  # total_count
 for r in page:             # iterate records
     print(r.key)
@@ -710,25 +1027,216 @@ page["next_cursor"]        # same as page.next_cursor
 
 ## Async Support
 
-`vantadb_py` provides an `AsyncVantaDB` class that exposes the same API using `asyncio.to_thread` to release the GIL.
+`vantadb` provides an `AsyncVantaDB` class that exposes the same API using `asyncio.to_thread` to release the GIL.
 
 ```python
-from vantadb_py import AsyncVantaDB
+from vantadb import AsyncVantaDB
 
 async with AsyncVantaDB("./my_brain") as db:
-    record = await db.get_memory("ns", "key")
-    results = await db.search_memory("ns", [1.0, 0.0, 0.0], top_k=5)
+    record = await db.memory.get("ns", "key")
+    results = await db.search("ns", [1.0, 0.0, 0.0], top_k=5)
     # Query, diagnostics, and mutations are also async
     query_result = await db.query("(match (node :content \"rust\") (return node))")
     metrics = await db.operational_metrics()
     count = await db.purge_expired()
 ```
 
-All VantaDB methods are available on `AsyncVantaDB` with `async/await`, including `put()`, `put_batch()`, `insert()`, `delete_memory()`, `get_memory()`, `list_memory()`, `search_memory()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get()`, `delete()`, `search()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, and `explain_memory_search()`.
+### Async Context Manager
+
+`AsyncVantaDB` implements the async context manager protocol (`async with`):
+
+```python
+async def __aenter__(self) -> AsyncVantaDB
+async def __aexit__(self, exc_type, exc_val, exc_tb) -> None
+```
+
+Returns the database handle on enter; calls `close()` on exit (which flushes WAL and releases resources). This ensures proper cleanup even if an exception occurs.
+
+```python
+async with AsyncVantaDB("./my_brain") as db:
+    await db.put("ns", "key", "payload", vector=[0.1]*384)
+# db.close() awaited automatically
+```
+
+All Client methods are available on `AsyncVantaDB` with `async/await`, including `put()`, `put_batch()`, `insert()`, `memory.get()`, `memory.list()`, `memory.delete()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get()`, `delete()`, `search()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, `explain_memory_search()`, `count()`, `delete_by_filter()`, and `similar_to_key()`.
+
+## ID limits
+
+Node IDs are **u128** end-to-end: the core engine, WAL, and the Python binding
+all use 128-bit unsigned integers.
+
+- **Range:** `0 <= id <= 2^128 - 1` (`340282366920938463463374607431768211455`).
+- **Passing IDs:** use a plain Python `int`. Python integers are arbitrary
+  precision, so IDs larger than `u64::MAX` (`18446744073709551615`) work
+  directly — there is **no u64 truncation**. (ERR-023: IDs beyond u64 were
+  previously truncated or rejected by the binding; that limit no longer
+  exists.)
+- **Strings:** not required for the regular APIs. The only string-based path is
+  `recover_archived_nodes()`, whose `summary_id` is a decimal string parsed to
+  `u128`.
+- **Out of range:** negative IDs or IDs greater than `u128::MAX` raise
+  `OverflowError`; `recover_archived_nodes()` raises `ValueError` for a string
+  it cannot parse.
+
+> **JSON caution:** if IDs are transported through JSON (JSONL export/import,
+> HTTP API), numbers beyond `2^53` lose precision in tools that decode them as
+> IEEE-754 doubles. Keep large IDs as strings in JSON payloads.
 
 ## Error Handling
 
-All methods raise `RuntimeError` with a descriptive message on failure.
+Every VantaDB error raised by this binding is an instance of `VantaError`,
+which inherits from `RuntimeError`. This keeps existing `except RuntimeError` /
+`except Exception` callers working while letting you catch the specific family:
+
+```python
+from vantadb_py import (
+    VantaError,
+    NotFoundError,
+    ValidationError,
+    CorruptError,
+    StorageError,
+    ConflictError,
+    UnsupportedError,
+    ResourceLimitError,
+    BusyError,
+    NoVectorError,
+    TimeoutError,
+)
+
+try:
+    db.supersede("ns", "missing", "k")
+except NotFoundError as exc:
+    print("record not found:", exc)
+    if exc.retriable:
+        schedule_retry()
+```
+
+### Hierarchy
+
+```
+VantaError (base, inherits RuntimeError)
+├── NotFoundError          # VantaError::NodeNotFound, VantaError::NotFound
+├── ValidationError        # VantaError::DimensionMismatch, DuplicateNode, Validation, InvalidInput, IqlParse, NoVectorForKey, UnsupportedOperation, CycleDetected, NodeIdCollision
+├── CorruptError           # VantaError::IncompatibleFormat, WALVersionMismatch, Serialization, Schema, Restore, Backup
+├── StorageError           # VantaError::Io, Wal, Backend, Cli, Search, Runtime
+├── ConflictError          # VantaError::ExecutionConflict
+├── UnsupportedError       # VantaError::UnsupportedOperation (typed alias)
+├── ResourceLimitError     # VantaError::ResourceLimit
+├── BusyError              # VantaError::DatabaseBusy, VantaError::NotInitialized
+├── NoVectorError          # VantaError::NoVectorForKey
+└── TimeoutError           # VantaError::Timeout
+```
+
+Catch the base class to handle any VantaDB error uniformly:
+`except VantaError:`.
+
+### Canonical codes (10)
+
+Every error raised through the typed hierarchy carries a `.code` attribute -
+the exact `VANTADB_*` wire value produced by Rust `VantaError::code()`
+(ERR-PY-01; identical strings as on the TS/MCP wire). **Branch on `.code` for
+cross-binding logic; the variant class is for human-readable dispatch only.**
+
+| Code | Python subclass(es) |
+|------|---------------------|
+| `VANTADB_NOT_FOUND` | `NotFoundError` |
+| `VANTADB_VALIDATION_ERROR` | `ValidationError`, `ConflictError`, `UnsupportedError`, `NoVectorError` |
+| `VANTADB_INVALID_ARGUMENT` | `ValidationError` (runtime IQL path) |
+| `VANTADB_CORRUPT` | `CorruptError` |
+| `VANTADB_IO_ERROR` | `StorageError`, `VantaError` base (`Cli`/`Search`/`Runtime`) |
+| `VANTADB_RESOURCE_LIMIT` | `ResourceLimitError` |
+| `VANTADB_BUSY` | `BusyError` |
+| `VANTADB_TIMEOUT` | `TimeoutError` |
+| `VANTADB_WASM_ERROR` | `VantaError` base (WASM `Generic` fallback) |
+| `VANTADB_CLOSED` | (handle lifecycle, not raised via `code()`) |
+
+> **Implemented (ERR-CORE-01 + ERR-PY-01):** `.code` carries the prefixed
+> `VANTADB_*` form. The unprefixed strings in earlier drafts of this document
+> are obsolete. See
+> [`docs/api/ERROR_HANDLING.md`](ERROR_HANDLING.md) for the authoritative table.
+
+### Attributes (0.5.0+)
+
+```python
+exc.code       # str - one of the 10 canonical VANTADB_* codes above
+exc.retriable  # bool - equivalent to Rust `is_retriable()`
+exc.hint       # str | None - recovery hint (mirrors Rust `recovery_hint()`)
+str(exc)       # human-readable message (Display) - NOT for matching
+```
+
+> `.details` (structured variant fields) is **not** attached yet: PyO3
+> `create_exception!` types carry no methods and variant-field extraction was
+> out of ERR-PY-01 scope. Use `str(exc)` for the message; `.details` is
+> tracked for a follow-up task.
+
+Example — retry policy with `.retriable`:
+
+```python
+import time
+from vantadb_py import VantaError, BusyError
+
+def put_with_retry(db, **kwargs):
+    for attempt in range(5):
+        try:
+            return db.put(**kwargs)
+        except VantaError as exc:
+            if exc.retriable and attempt < 4:
+                time.sleep(0.1 * (2 ** attempt))
+                continue
+            raise
+```
+
+### `error_to_dict()` — cross-binding log correlation
+
+The Python exception classes are built with PyO3 `create_exception!`, which
+cannot carry methods - so the spec's `exc.to_dict()` is exposed as a
+module-level helper instead (ERR-PY-01 decision). It returns the same plain
+dict shape as the TypeScript `VantaError.toJSON()` so logs and traces line up
+across Rust/Python/TS/MCP:
+
+```python
+import vantadb
+
+try:
+    db.get(...)
+except vantadb.VantaError as exc:
+    log.error("vanta_error", extra=vantadb.error_to_dict(exc))
+    # {
+    #   "name": "NotFoundError",
+    #   "code": "VANTADB_NOT_FOUND",
+    #   "message": "...",
+    #   "retriable": false,
+    #   "hint": "..."
+    # }
+```
+
+Providers (`vantadb_openai`/`vantadb_litellm`/`vantadb_ollama`) raise the same
+MOD-20 class names with `.code`/`.retriable`/`.hint` attached (ERR-PY-01):
+`except vantadb_openai.TimeoutError` now works instead of the old
+`KeyError`/`RuntimeError` bucket collapse. The provider classes are distinct
+type objects from `vantadb_py`'s - catch them per module.
+
+### Migration (0.5.0+)
+
+The binding previously mapped core errors to standard-library exceptions
+(`KeyError`, `ValueError`, `FileNotFoundError`, …). These now raise the typed
+`VantaError` subclasses above. The one behavior change to be aware of:
+
+| Before | After |
+|--------|-------|
+| missing key/node → `KeyError` | `NotFoundError` |
+| validation / duplicate / dimension → `ValueError` | `ValidationError` |
+| file not found / permission / OSError | `StorageError` |
+| other engine errors → `RuntimeError` | `VantaError` (still a `RuntimeError`) |
+
+`except RuntimeError` and `except Exception` remain fully compatible because
+`VantaError` is a `RuntimeError`.
+
+## Roadmap (not yet available)
+
+The following methods are planned but **not yet available in the Python SDK** — tracked for future release:
+
+*(none currently — `delete_by_filter()`, `similar_to_key()`, and `count()` shipped in 0.5.0.)*
 
 ## Development
 

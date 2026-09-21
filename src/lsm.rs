@@ -2,9 +2,10 @@
 //!
 //! Provides packed offsets (segment_id in low 6 bits, 64-aligned offset in upper bits),
 //! LSM level identifiers, per-level configuration, segment metadata, and the
-//! [`SegmentRegistry`] which manages multi-level VantaFile lifecycle.
+//! [`SegmentRegistry`] which manages multi-level File lifecycle.
 //!
-//! ponytail: L0 + L1 compaction only — L3 archive tier skipped.
+//! ponytail: tier promotion hot→warm→cold→archive (L0→L3) driven by
+//! size/tombstone thresholds; Frequency/Age heuristics are config-only for now.
 
 use std::path::PathBuf;
 use std::time::Instant;
@@ -55,7 +56,7 @@ impl SegmentLevel {
         }
     }
 
-    /// File name for this level's VantaFile (e.g. "vstore_L0.vanta").
+    /// File name for this level's File (e.g. "vstore_L0.vanta").
     pub fn file_name(self) -> &'static str {
         match self {
             Self::L0 => "vstore_L0.vanta",
@@ -78,7 +79,7 @@ pub(crate) struct SegmentInfo {
     pub tombstone_ratio: f32,
 }
 
-/// Multi-level segment registry that manages the lifecycle of level VantaFiles.
+/// Multi-level segment registry that manages the lifecycle of level Files.
 ///
 /// Tracks which segments exist, their levels, and provides a compact
 /// `by_id` lookup (64 entries — 6-bit segment_id, more than enough for 4 levels).
@@ -119,27 +120,24 @@ impl SegmentRegistry {
         Some(idx)
     }
 
-    /// Open or create multi-level VantaFiles for levels L0..=L3.
+    /// Open or create multi-level Files for levels L0..=L3.
     ///
     /// Detects legacy `vector_store.vanta` and renames to `vstore_L0.vanta`.
     /// Pre-allocates all 4 LSM levels so `compact_level()` never needs to
     /// grow `vector_store` dynamically (no `unsafe` needed).
-    /// Returns `(Self, Vec<RwLock<VantaFile>>)` with a VantaFile per level.
+    /// Returns `(Self, Vec<RwLock<File>>)` with a File per level.
     pub fn open_or_create(
         data_dir: &std::path::Path,
         _config: &crate::storage::engine::SegmentOptimizerConfig,
-    ) -> crate::error::Result<(
-        Self,
-        Vec<parking_lot::RwLock<crate::storage::vfile::VantaFile>>,
-    )> {
+    ) -> crate::error::Result<(Self, Vec<parking_lot::RwLock<crate::storage::vfile::File>>)> {
         let mut registry = Self::new();
-        let mut vfiles: Vec<parking_lot::RwLock<crate::storage::vfile::VantaFile>> = Vec::new();
+        let mut vfiles: Vec<parking_lot::RwLock<crate::storage::vfile::File>> = Vec::new();
 
         // Legacy migration: detect vector_store.vanta → rename to vstore_L0.vanta
         let legacy_path = data_dir.join("vector_store.vanta");
         let l0_path = data_dir.join(SegmentLevel::L0.file_name());
         if legacy_path.exists() && !l0_path.exists() {
-            std::fs::rename(&legacy_path, &l0_path).map_err(crate::error::VantaError::IoError)?;
+            std::fs::rename(&legacy_path, &l0_path).map_err(crate::error::Error::Io)?;
             tracing::info!(
                 "Migrated legacy vector_store.vanta → {}",
                 SegmentLevel::L0.file_name()
@@ -147,7 +145,7 @@ impl SegmentRegistry {
         }
 
         // Pre-allocate all 4 levels: L0 (hot), L1 (warm), L2 (cold), L3 (archive).
-        // Each VantaFile starts empty; unused levels cost only a file handle + mmap header.
+        // Each File starts empty; unused levels cost only a file handle + mmap header.
         for level in &[
             SegmentLevel::L0,
             SegmentLevel::L1,
@@ -155,7 +153,7 @@ impl SegmentRegistry {
             SegmentLevel::L3,
         ] {
             let path = data_dir.join(level.file_name());
-            let vf = crate::storage::vfile::VantaFile::open(path.clone(), 64 * 1024 * 1024)?;
+            let vf = crate::storage::vfile::File::open(path.clone(), 64 * 1024 * 1024)?;
             registry.register(level.as_u8(), level.as_u8(), path);
             vfiles.push(parking_lot::RwLock::new(vf));
         }
@@ -201,28 +199,77 @@ impl Default for SegmentRegistry {
     }
 }
 
+/// Tier promotion heuristic. `compact_level`/`should_compact_level` currently
+/// execute `SizeBased`; the frequency/age variants are exposed as a nominated
+/// policy for a future per-node access tracker and do not change behavior yet.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[allow(clippy::enum_variant_names)] // *Based* suffixes are intentional, they mirror STORAGE-TIERS.md
+pub enum TierPolicy {
+    /// Promote when `write_cursor` reaches the level's max size or the tombstone
+    /// ratio crosses the level's threshold.
+    SizeBased,
+    /// Promote when a level's resident nodes fall below `cold_min_frequency`
+    /// accesses per window. Config-only until an access tracker exists.
+    FrequencyBased,
+    /// Promote when a level's resident nodes idle longer than `cold_age_days`.
+    /// Config-only until an access tracker exists.
+    AgeBased,
+}
+
+/// Tunable knobs for the tier policy.
+#[derive(Debug, Clone, Copy)]
+pub struct TierPolicyConfig {
+    /// Which heuristic drives promotion.
+    pub kind: TierPolicy,
+    /// Whether the L3 archive level participates in compaction. When `false`,
+    /// `should_compact_level` never selects L3 and L2 is the deepest tier.
+    pub archive: bool,
+    /// Accesses per window under which a node is considered cold (`FrequencyBased`).
+    pub cold_min_access: u32,
+    /// Days idled before a node is considered cold (`AgeBased`).
+    pub cold_age_days: u64,
+}
+
+impl Default for TierPolicyConfig {
+    fn default() -> Self {
+        Self {
+            kind: TierPolicy::SizeBased,
+            archive: true,
+            cold_min_access: 3,
+            cold_age_days: 30,
+        }
+    }
+}
+
 /// Per-level LSM configuration.
 #[derive(Debug, Clone, Copy)]
 pub struct LsmConfig {
     pub l0_max_size: u64,
     pub l1_max_size: u64,
     pub l2_max_size: u64,
+    pub l3_max_size: u64,
     pub l0_tombstone_threshold: f32,
     pub l1_tombstone_threshold: f32,
     pub l2_tombstone_threshold: f32,
+    pub l3_tombstone_threshold: f32,
     pub min_segment_size: u64,
+    /// Tier promotion policy (hot/warm/cold/archive).
+    pub tier: TierPolicyConfig,
 }
 
 impl Default for LsmConfig {
     fn default() -> Self {
         Self {
-            l0_max_size: 64 * 1024 * 1024,       // 64 MB
-            l1_max_size: 512 * 1024 * 1024,      // 512 MB
-            l2_max_size: 4 * 1024 * 1024 * 1024, // 4 GB
+            l0_max_size: 64 * 1024 * 1024,        // 64 MB
+            l1_max_size: 512 * 1024 * 1024,       // 512 MB
+            l2_max_size: 4 * 1024 * 1024 * 1024,  // 4 GB
+            l3_max_size: 32 * 1024 * 1024 * 1024, // 32 GB
             l0_tombstone_threshold: 0.20,
             l1_tombstone_threshold: 0.15,
             l2_tombstone_threshold: 0.10,
+            l3_tombstone_threshold: 0.05,
             min_segment_size: 64 * 1024, // 64 KB
+            tier: TierPolicyConfig::default(),
         }
     }
 }

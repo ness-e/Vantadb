@@ -1,1 +1,1 @@
-{{#include ../../../case_studies/rag_edge_device.md}}
+ARCHIVED - see docs/archive/case-studies-unverified/ (internal only, unverified).

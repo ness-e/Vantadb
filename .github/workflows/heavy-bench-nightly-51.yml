@@ -3,7 +3,18 @@ name: 'HEAVY: Benchmarks — Nightly Regression'
 on:
   schedule:
     - cron: '0 3 * * *'
+  pull_request:
+    paths:
+      - 'benches/**'
+      - 'benchmarks/**'
+      - 'scripts/bench_regression.py'
+      - 'Cargo.toml'
   workflow_dispatch:
+    inputs:
+      enable_critcmp:
+        description: 'Run critcmp regression comparison (requires a previous critcmp-baseline artifact from an earlier enabled run)'
+        type: boolean
+        default: false
 
 env:
   CARGO_TERM_COLOR: always
@@ -13,7 +24,7 @@ concurrency:
   cancel-in-progress: false
 
 permissions:
-  contents: read
+  contents: write
   issues: write
 
 jobs:
@@ -30,7 +41,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -49,8 +60,27 @@ jobs:
       - name: Run concurrent benchmarks
         run: cargo bench --bench bench_concurrent -- --nocapture 2>&1 | tee nightly_concurrent_results.txt
 
+      # FIND-70: `ingestion_concurrent` requires `--features async-ingestion`
+      # (Cargo.toml `required-features`) — without the flag cargo silently
+      # SKIPS it, so the nightly gate cited in docs/operations/BENCHMARKS.md
+      # §13 never ran. Run it explicitly with the feature.
+      - name: Run ingestion_concurrent benchmarks
+        run: cargo bench --bench ingestion_concurrent --features async-ingestion -- --nocapture 2>&1 | tee nightly_ingestion_results.txt
+
+      - name: Run canonical_p99 benchmarks
+        run: cargo bench --bench canonical_p99 -- --nocapture 2>&1 | tee nightly_canonical_p99_results.txt
+
+      - name: Run memory_budget benchmarks
+        run: cargo bench --bench memory_budget -- --nocapture 2>&1 | tee nightly_memory_budget_results.txt
+
+      - name: Run incremental_bench benchmarks
+        run: cargo bench --bench incremental_bench -- --nocapture 2>&1 | tee nightly_incremental_bench_results.txt
+
+      - name: Run ivf_bench benchmarks
+        run: cargo bench --bench ivf_bench -- --nocapture 2>&1 | tee nightly_ivf_bench_results.txt
+
       - name: Upload light results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: light-bench-results
           path: |
@@ -63,7 +93,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 360
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - uses: ./.github/actions/rust-setup
         with:
@@ -74,7 +104,7 @@ jobs:
         run: cargo bench --bench high_density -- --nocapture 2>&1 | tee nightly_density_results.txt
 
       - name: Upload density results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: density-bench-results
           path: |
@@ -87,7 +117,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Install system dependencies
         run: |
@@ -95,18 +125,18 @@ jobs:
           sudo apt-get install -y libclang-dev clang librocksdb-dev
 
       - name: Set up Python
-        uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: '3.12'
 
       - name: Download light results
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: light-bench-results
           path: light/
 
       - name: Download density results
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
         with:
           name: density-bench-results
           path: density/
@@ -157,7 +187,7 @@ jobs:
 
       - name: Create regression issue
         if: steps.check_regression.outputs.has_regression == 'True'
-        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b
+        uses: actions/github-script@f28e40c7f34bde8b3046d885e986cb6290c5673b # v7.1.0
         with:
           script: |
             const fs = require('fs');
@@ -213,11 +243,92 @@ jobs:
             }
 
       - name: Store benchmark results
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: nightly-benchmark-results
           path: |
             nightly_*_results.txt
             benchmark_report_criterion.json
             bench_comparison_result.json
+          retention-days: 30
+
+      # AUD-030: promote tonight's clean run to the new baseline so the
+      # regression gate never compares against a stale baseline. Nightly
+      # (schedule) only — PR runs must NOT mutate the repo baseline. Skipped
+      # when a regression was detected so a bad run is never baked in.
+      - name: Update and commit baseline (nightly only)
+        if: github.event_name == 'schedule' && steps.check_regression.outputs.has_regression != 'True'
+        run: |
+          python scripts/bench_regression.py update-baseline benchmark_report_criterion.json
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add benchmarks/criterion_baseline.json
+          git commit -m "chore(ci): update criterion bench baseline (nightly)" || echo "No baseline change"
+          git push
+
+  # critcmp regression candidate — OFF by default.
+  # Enabled via `workflow_dispatch` input `enable_critcmp=true`. On the first
+  # enabled run there is no prior baseline, so it only seeds the
+  # `critcmp-baseline` artifact; on subsequent enabled runs it downloads that
+  # artifact and compares base vs candidate. Gated by `if:` (NOT
+  # continue-on-error) so it never breaks the default nightly run. The main
+  # bench runs above stay on criterion's default `new/` output so
+  # scripts/bench_regression.py keeps working.
+  critcmp-regression:
+    name: critcmp regression (candidate)
+    if: ${{ github.event.inputs.enable_critcmp == 'true' }}
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          swap-mb: 6144
+          free-disk: true
+
+      - name: Install critcmp
+        run: cargo install critcmp
+
+      - name: Run hnsw_pure bench with candidate baseline
+        run: cargo bench --bench hnsw_pure -- --save-baseline candidate
+
+      - name: Fetch previous critcmp baseline (if any)
+        id: getbase
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          AID=$(gh api "repos/${{ github.repository }}/actions/artifacts?per_page=100" \
+                --jq '.artifacts[] | select(.name=="critcmp-baseline" and .expired==false) | .id' \
+                | head -n1 || true)
+          if [ -n "$AID" ]; then
+            gh api "repos/${{ github.repository }}/actions/artifacts/$AID/zip" \
+              -H "Accept: application/vnd.github+zip" > /tmp/critcmp_base.zip
+            mkdir -p /tmp/critcmp_prev
+            unzip -o /tmp/critcmp_base.zip -d /tmp/critcmp_prev
+            if [ -d /tmp/critcmp_prev/hnsw_pure/candidate ]; then
+              echo "found=true" >> "$GITHUB_OUTPUT"
+            else
+              echo "found=false" >> "$GITHUB_OUTPUT"
+            fi
+          else
+            echo "found=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Compare with critcmp
+        if: steps.getbase.outputs.found == 'true'
+        run: |
+          set -euo pipefail
+          mkdir -p target/criterion/hnsw_pure
+          cp -r /tmp/critcmp_prev/hnsw_pure/candidate target/criterion/hnsw_pure/base
+          critcmp base candidate
+
+      - name: Upload candidate as new baseline
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: critcmp-baseline
+          path: target/criterion/
           retention-days: 30

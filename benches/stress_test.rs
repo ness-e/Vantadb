@@ -1,3 +1,6 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
 use criterion::{criterion_group, criterion_main, Criterion};
 use std::env;
 use std::hint::black_box;
@@ -6,6 +9,8 @@ use tempfile::tempdir;
 use tokio::runtime::Runtime;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::StorageEngine;
+
+mod common;
 
 fn run_stress_test(c: &mut Criterion) {
     let dir = tempdir().unwrap();
@@ -32,6 +37,7 @@ fn run_stress_test(c: &mut Criterion) {
     println!("✅ Inyección finalizada.");
 
     let mut group = c.benchmark_group("The Memory Abyss");
+    common::apply_fixed_profile(&mut group);
     group.sample_size(10);
 
     group.bench_function("Point Lookup Valido", |b: &mut criterion::Bencher| {

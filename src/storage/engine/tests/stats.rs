@@ -1,10 +1,10 @@
-//! STATS module tests: MemoryStats, selectivity, cardinality, check_memory_pressure,
+//! STATS module tests: MemoryStats, selectivity, cardinality, check_pressure,
 //! guard_write_allowed, touch_activity, initialize_cardinality_stats.
 
 use super::super::*;
 use super::{in_memory_engine, in_memory_read_only, sample_node};
 use crate::backend::BackendKind;
-use crate::config::VantaConfig;
+use crate::config::Config;
 use crate::node::{NodeTier, UnifiedNode};
 
 // ─── Memory stats ─────────────────────────────────────────────
@@ -12,13 +12,31 @@ use crate::node::{NodeTier, UnifiedNode};
 #[test]
 fn test_memory_stats_after_insert() {
     let engine = in_memory_engine();
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     assert_eq!(stats.node_count, 0);
     assert_eq!(stats.cache_entries, 0);
     engine.insert(&sample_node(1)).expect("insert");
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     assert!(stats.node_count >= 1);
     assert!(stats.logical_bytes > 0);
+}
+
+#[test]
+#[allow(deprecated)]
+fn test_stats_deprecated_aliases_delegate() {
+    let engine = in_memory_engine();
+    engine.insert(&sample_node(1)).expect("insert");
+    let via_new = engine.stats();
+    let via_old = engine.get_memory_stats();
+    assert_eq!(via_new.node_count, via_old.node_count);
+    assert_eq!(via_new.logical_bytes, via_old.logical_bytes);
+    let config = Config {
+        backend_kind: BackendKind::InMemory,
+        rss_threshold: 0.0,
+        ..Config::default()
+    };
+    let engine2 = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
+    assert!(engine2.check_memory_pressure().is_ok());
 }
 
 #[test]
@@ -69,21 +87,21 @@ fn test_memory_stats_pressure_ratio() {
 }
 
 #[test]
-fn test_get_memory_stats_quantized_nodes() {
+fn test_stats_quantized_nodes() {
     let engine = in_memory_engine();
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     assert!(stats.logical_bytes > 0, "logical bytes should be > 0");
     assert_eq!(stats.node_count, 0);
     assert!(stats.cache_entries == 0);
 }
 
 #[test]
-fn test_get_memory_stats_all_fields_populated() {
+fn test_stats_all_fields_populated() {
     let engine = in_memory_engine();
     let mut hot = sample_node(1);
     hot.tier = NodeTier::Hot;
     engine.insert(&hot).expect("insert");
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     assert!(
         stats.logical_bytes > 0,
         "logical_bytes should be > 0 after insert"
@@ -98,7 +116,7 @@ fn test_get_memory_stats_all_fields_populated() {
 }
 
 #[test]
-fn test_get_memory_stats_pressure_ratio_with_rss() {
+fn test_stats_pressure_ratio_with_rss() {
     let stats = MemoryStats {
         logical_bytes: 2000,
         physical_rss: Some(1500),
@@ -121,7 +139,7 @@ fn test_get_memory_stats_pressure_ratio_with_rss() {
 }
 
 #[test]
-fn test_get_memory_stats_eviction_reflects_in_metrics() {
+fn test_stats_eviction_reflects_in_metrics() {
     let engine = in_memory_engine();
     let mut node = sample_node(42);
     node.tier = NodeTier::Hot;
@@ -132,7 +150,7 @@ fn test_get_memory_stats_eviction_reflects_in_metrics() {
         .expect("evict");
     assert!(report.evicted > 0, "should evict at least one node");
 
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     assert_eq!(
         stats.cache_entries, 0,
         "cache should be empty after eviction"
@@ -142,7 +160,7 @@ fn test_get_memory_stats_eviction_reflects_in_metrics() {
 }
 
 #[test]
-fn test_get_memory_stats_eviction_reflected() {
+fn test_stats_eviction_reflected() {
     let engine = in_memory_engine();
     let mut node = sample_node(42);
     node.tier = NodeTier::Hot;
@@ -153,7 +171,7 @@ fn test_get_memory_stats_eviction_reflected() {
         .expect("evict");
     assert!(report.evicted > 0, "should evict at least one node");
 
-    let stats = engine.get_memory_stats();
+    let stats = engine.stats();
     assert!(stats.logical_bytes > 0, "logical bytes should be > 0");
     assert!(
         stats.node_count > 0 || stats.eviction_count > 0,
@@ -213,23 +231,23 @@ fn test_memory_stats_pressure_ratio_exceeds_one() {
 // ─── Check memory pressure ────────────────────────────────────
 
 #[test]
-fn test_check_memory_pressure_disabled() {
-    let config = VantaConfig {
+fn test_check_pressure_disabled() {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         rss_threshold: 0.0,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
-    assert!(engine.check_memory_pressure().is_ok());
+    assert!(engine.check_pressure().is_ok());
 }
 
 #[test]
-fn test_check_memory_pressure_triggers_on_low_threshold() {
-    let config = VantaConfig {
+fn test_check_pressure_triggers_on_low_threshold() {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         rss_threshold: 1.0,
         memory_limit: Some(1),
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
     let result = engine.insert(&sample_node(1));
@@ -245,12 +263,12 @@ fn test_check_memory_pressure_triggers_on_low_threshold() {
 }
 
 #[test]
-fn test_check_memory_pressure_governor_watermark() {
-    let config = VantaConfig {
+fn test_check_pressure_governor_watermark() {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         rss_threshold: 0.9,
         memory_limit: Some(100_000_000),
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
     engine
@@ -258,7 +276,7 @@ fn test_check_memory_pressure_governor_watermark() {
         .as_ref()
         .unwrap()
         .set_used_bytes(80_000_000);
-    let result = engine.check_memory_pressure();
+    let result = engine.check_pressure();
     assert!(
         result.is_err(),
         "governor watermark should trigger pressure"
@@ -274,47 +292,50 @@ fn test_check_memory_pressure_governor_watermark() {
 }
 
 #[test]
-fn test_check_memory_pressure_governor_sync_eviction() {
-    let config = VantaConfig {
+fn test_check_pressure_governor_sync_eviction() {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         rss_threshold: 0.9,
-        memory_limit: Some(80_000_000),
-        ..VantaConfig::default()
+        // 8 GiB ceiling: with real process RSS as the guard's signal (FND-01-F1)
+        // the RSS path must not trip on the test binary's own footprint; this
+        // test exercises the MemoryGovernor sync path, not the RSS threshold.
+        memory_limit: Some(8 * 1024 * 1024 * 1024),
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
-    let result = engine.check_memory_pressure();
+    let result = engine.check_pressure();
     assert!(result.is_ok(), "governor sync eviction should be Ok(())");
 }
 
 #[test]
-fn test_check_memory_pressure_no_threshold_returns_ok() {
-    let config = VantaConfig {
+fn test_check_pressure_no_threshold_returns_ok() {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         rss_threshold: 0.0,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
-    assert!(engine.check_memory_pressure().is_ok());
+    assert!(engine.check_pressure().is_ok());
 }
 
 #[test]
-fn test_check_memory_pressure_negative_threshold_returns_ok() {
-    let config = VantaConfig {
+fn test_check_pressure_negative_threshold_returns_ok() {
+    let config = Config {
         backend_kind: BackendKind::InMemory,
         rss_threshold: -0.1,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let engine = StorageEngine::open_with_config(":memory:", Some(config)).unwrap();
-    assert!(engine.check_memory_pressure().is_ok());
+    assert!(engine.check_pressure().is_ok());
 }
 
 // ─── Guard write allowed ──────────────────────────────────────
 
 #[test]
 fn test_guard_write_allowed_read_only_message() {
-    let config = VantaConfig {
+    let config = Config {
         read_only: true,
-        ..VantaConfig::default()
+        ..Config::default()
     };
     let result = StorageEngine::guard_write_allowed(&config);
     let err = result.expect_err("should error");

@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowUpRight, type LucideIcon } from "lucide-react";
+import { ArrowUpRight } from "lucide-react";
 import Link from "next/link";
 import { PageHeader, PageSection } from "@/components/vanta/page-header";
 import { Reveal } from "@/components/vanta/reveal";
@@ -8,7 +8,7 @@ import { useLanguage } from "@/lib/language-provider";
 
 type Status = "native" | "experimental" | "coming";
 
-const ICONS: Record<string, LucideIcon> = {};
+
 
 interface Integration {
   name: string;
@@ -18,11 +18,7 @@ interface Integration {
 }
 
 export default function IntegrationsPage() {
-  const { t } = useLanguage();
-  const tt = (key: string, fallback: string) => {
-    const v = t(key);
-    return v === key ? fallback : v;
-  };
+  const { tt } = useLanguage();
 
   const integrations: Integration[] = [
     {
@@ -152,7 +148,7 @@ export default function IntegrationsPage() {
             const meta = statusMeta[it.status];
             return (
               <Reveal key={it.name} direction="up" delay={i * 60} as="article">
-                <article className="press-lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5  ">
+                <article className="press--lg group relative flex h-full flex-col border-4 border-black bg-[#F2EDE2] p-5  ">
                   <div className="mb-4 flex items-start justify-between gap-3">
                     <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center border-4 border-black bg-[#FBF9F5] font-display text-lg uppercase text-black shadow-[3px_3px_0_0_#000]    ">
                       {it.name.charAt(0)}
@@ -208,7 +204,7 @@ export default function IntegrationsPage() {
                 href="https://github.com/ness-e/Vantadb/issues/new"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="press-neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
+                className="press--neon btn-neon-glow inline-flex shrink-0 items-center gap-2 border-4 border-[#FBF9F5] bg-[#FF5500] px-5 py-3 font-tech text-sm font-bold uppercase tracking-wider text-black"
               >
                 {tt("integrationsPage.ctaBtn", "Open an issue")}
                 <ArrowUpRight className="h-4 w-4" strokeWidth={2.5} />

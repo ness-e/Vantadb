@@ -1,22 +1,25 @@
-use vantadb::config::VantaConfig;
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
+use vantadb::config::Config;
 use vantadb::node::{NodeTier, UnifiedNode};
 use vantadb::storage::StorageEngine;
 
 #[test]
 fn test_backpressure_disabled_with_zero_threshold() {
     let dir = tempfile::TempDir::new().unwrap();
-    let config = VantaConfig::default()
+    let config = Config::default()
         .with_storage_path(dir.path().to_str().unwrap().to_string())
         .with_rss_threshold(0.0);
     let engine =
         StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config)).unwrap();
-    assert!(engine.check_memory_pressure().is_ok());
+    assert!(engine.check_pressure().is_ok());
 }
 
 #[test]
 fn test_backpressure_allows_normal_operation() {
     let dir = tempfile::TempDir::new().unwrap();
-    let config = VantaConfig::default()
+    let config = Config::default()
         .with_storage_path(dir.path().to_str().unwrap().to_string())
         .with_rss_threshold(0.95);
     let engine =

@@ -1,4 +1,11 @@
-use crate::error::{Result, VantaError};
+// ponytail: `bytes[8..16].try_into()` cannot fail (compile-time-known 8-byte
+// slice into `u64`) and `SystemTime::duration_since(UNIX_EPOCH)` only fails
+// for clocks set before 1970. Both `expect` calls are documented invariants
+// in the function bodies; the blanket allow keeps the file lint-clean
+// without obscuring the call-site comments.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
+
+use crate::error::{Error, Result};
 use web_time::SystemTime;
 
 /// Unified 16-byte binary header for all VantaDB persisted files.
@@ -52,7 +59,7 @@ impl VantaHeader {
     /// Deserialize from a slice of bytes.
     pub fn deserialize(bytes: &[u8]) -> Result<Self> {
         if bytes.len() < Self::SIZE {
-            return Err(VantaError::IoError(std::io::Error::new(
+            return Err(Error::Io(std::io::Error::new(
                 std::io::ErrorKind::UnexpectedEof,
                 "Binary header slice is too short (less than 16 bytes)",
             )));
@@ -62,6 +69,8 @@ impl VantaHeader {
         let format_version = u16::from_le_bytes([bytes[4], bytes[5]]);
         let schema_version = u16::from_le_bytes([bytes[6], bytes[7]]);
         let timestamp = u64::from_le_bytes(
+            // INVARIANT (B2b, cat. (b)): `bytes.len() >= 16` was checked 6
+            // lines above, so `[8..16]` is exactly 8 bytes — infallible.
             bytes[8..16]
                 .try_into()
                 .expect("header bytes slice fits u64"),
@@ -75,7 +84,7 @@ impl VantaHeader {
     }
 
     /// Validates the magic bytes and format version against expected values.
-    /// Returns VantaError::IncompatibleFormat on mismatch.
+    /// Returns Error::IncompatibleFormat on mismatch.
     pub fn validate(
         &self,
         expected_magic: [u8; 4],
@@ -83,7 +92,7 @@ impl VantaHeader {
         hint: &str,
     ) -> Result<()> {
         if self.magic != expected_magic || self.format_version != expected_version {
-            return Err(VantaError::IncompatibleFormat {
+            return Err(Error::IncompatibleFormat {
                 expected_magic,
                 expected_version,
                 found_magic: self.magic,
@@ -102,7 +111,7 @@ impl VantaHeader {
     /// by newer software. Future-format files (version > expected) are rejected.
     ///
     /// Use this instead of [`validate`](Self::validate) for hot paths where
-    /// backward compatibility is required (VantaFile, HNSW index, WAL).
+    /// backward compatibility is required (File, HNSW index, WAL).
     pub fn validate_compat(
         &self,
         expected_magic: [u8; 4],
@@ -110,7 +119,7 @@ impl VantaHeader {
         hint: &str,
     ) -> Result<()> {
         if self.magic != expected_magic {
-            return Err(VantaError::IncompatibleFormat {
+            return Err(Error::IncompatibleFormat {
                 expected_magic,
                 expected_version: max_version,
                 found_magic: self.magic,
@@ -122,7 +131,7 @@ impl VantaHeader {
             });
         }
         if self.format_version > max_version {
-            return Err(VantaError::IncompatibleFormat {
+            return Err(Error::IncompatibleFormat {
                 expected_magic,
                 expected_version: max_version,
                 found_magic: self.magic,

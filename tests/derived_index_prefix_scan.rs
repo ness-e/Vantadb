@@ -1,20 +1,22 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Prefix-scan certification for derived memory indexes.
 
 use tempfile::tempdir;
-use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaValue};
+use vantadb::{Embedded, MemoryInput, MemoryListOptions, Value};
 
-fn str_value(value: &str) -> VantaValue {
-    VantaValue::String(value.to_string())
+fn str_value(value: &str) -> Value {
+    Value::String(value.to_string())
 }
 
 #[test]
 fn namespace_and_filter_paths_use_prefix_scans() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
 
     for i in 0..30usize {
         let namespace = if i % 2 == 0 { "agent/a" } else { "agent/b" };
-        let mut input = VantaMemoryInput::new(namespace, format!("key-{i:02}"), "payload");
+        let mut input = MemoryInput::new(namespace, format!("key-{i:02}"), "payload");
         input.metadata.insert(
             "kind".to_string(),
             str_value(if i % 3 == 0 { "task" } else { "note" }),
@@ -25,7 +27,7 @@ fn namespace_and_filter_paths_use_prefix_scans() {
     let before = db.operational_metrics();
 
     let page = db
-        .list("agent/a", VantaMemoryListOptions::default())
+        .list("agent/a", MemoryListOptions::default())
         .expect("list");
     assert_eq!(page.records.len(), 15);
     assert!(page.records.iter().all(|r| r.namespace == "agent/a"));
@@ -35,12 +37,13 @@ fn namespace_and_filter_paths_use_prefix_scans() {
     let filtered = db
         .list(
             "agent/a",
-            VantaMemoryListOptions {
+            MemoryListOptions {
                 #[allow(deprecated)]
                 filters,
                 filter_ops: None,
                 limit: 100,
                 cursor: None,
+                exclude_superseded: false,
             },
         )
         .expect("filtered list");

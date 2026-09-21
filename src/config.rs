@@ -1,6 +1,6 @@
 //! Configuration system for VantaDB engine.
 //!
-//! Defines [`VantaConfig`] with typed fields, environment variable parsing,
+//! Defines [`Config`] with typed fields, environment variable parsing,
 //! and per-backend configuration options with fallback defaults.
 //!
 //! ponytail: 1287L but cohesive — enums, structs, Default (env parsing), builder
@@ -27,6 +27,33 @@ pub(crate) const MAX_TEXT_STATS_CACHE: usize = 100_000;
 pub(crate) const MAX_TEXT_NS_CACHE: usize = 1_000;
 /// Maximum field→value pairs in cardinality_stats before eviction.
 pub(crate) const MAX_CARDINALITY_PAIRS: usize = 10_000;
+
+// FFI guard constants — single source of truth for transport-specific limits
+// (WSM-09, research-vantadb-wasm-20260825 H-12). Values are `max()` across all
+// transports so unifying them is a no-op for callers using the per-transport
+// limit; only callers asking for the larger value benefit. Bump only when the
+// underlying engine (HNSW `ef_search`, allocation budget) can safely accept it.
+
+// Maximum length of an f32 vector at the FFI trust boundary.
+// Pre-existing: WASM 10_000_000 (`vantadb-wasm/src/lib.rs` legacy), Node
+// `MAX_VEC_DIM * 4 = 40_000` (10k * sizeof(f32)). Take the larger.
+pub const MAX_F32_VEC_LEN: usize = 10_000_000;
+
+// Maximum number of elements per batch ingestion call (trust boundary, FFI).
+pub const MAX_BATCH_SIZE: usize = 100_000;
+
+// Maximum value accepted for `top_k` / `k` across all search entry points
+// (ERR-022). Pre-existing: WASM/Python 1_000, Node 10_000. Take the larger so
+// node callers can ask for larger result sets and existing WASM/Python callers
+// requesting k > 1_000 (silently clamped before) now receive what they asked
+// for, with a `clamp_top_k`-style warning.
+pub const MAX_K: usize = 10_000;
+
+// Maximum vector dimension accepted at the FFI trust boundary.
+// Pre-existing: Node `MAX_VEC_DIM = 10_000`. Aligned with the max reasonable
+// embedding dimension for current transformer models (~3k for open weights;
+// 10k leaves headroom for future growth without breaking existing callers).
+pub const MAX_VEC_DIM: usize = 10_000;
 
 /// Log output format for the VantaDB server.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
@@ -78,13 +105,15 @@ pub enum SyncMode {
 /// Controls whether mmap vector prefetching is active.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
 pub enum PrefetchMode {
-    /// Default — prefetch enabled (backward compatible).
-    /// In the future, may auto-detect NVMe vs HDD.
-    #[default]
+    /// Auto — currently behaves like `Enabled`. Only selected explicitly
+    /// (e.g. `VANTADB_PREFETCH=auto`); not the default anymore.
     Auto,
     /// Force prefetch on regardless of storage type.
     Enabled,
-    /// Disable prefetch entirely (avoids syscall overhead on fast NVMe).
+    /// Default — prefetch off. Avoids `madvise`/`PrefetchVirtualMemory`
+    /// syscall overhead and duplicate neighbor lookups in the hot search loop
+    /// (PERF-04). Set `Enabled` to get the old behaviour.
+    #[default]
     Disabled,
 }
 
@@ -99,7 +128,7 @@ impl PrefetchMode {
     }
 
     /// Returns `true` if prefetch is active for this mode.
-    pub fn is_prefetch_enabled(self) -> bool {
+    pub fn is_enabled(self) -> bool {
         match self {
             PrefetchMode::Disabled => false,
             PrefetchMode::Auto | PrefetchMode::Enabled => true,
@@ -107,14 +136,338 @@ impl PrefetchMode {
     }
 }
 
-/// RBAC configuration mapping API tokens to roles.
+/// RBAC domain configuration mapping API tokens to roles (Q1=B: propio, 6to dominio).
 #[derive(Debug, Clone, Default)]
-pub struct RbacConfig {
+pub struct RbacCfg {
     /// Map of token values to role names.
     pub token_role_map: HashMap<String, String>,
 }
 
-/// Subset of [`VantaConfig`] fields that are safe to modify at runtime.
+/// Compat alias: `RbacConfig` es el nombre historico; `RbacCfg` es el canonico F3C.
+// Sin shims de env aqui — solo alias de tipo (cero costo, cero divergencia).
+pub type RbacConfig = RbacCfg;
+
+/// Storage domain view (F3C C2): organizacion interna; fuente unica sigue en [`Config`] plano.
+#[derive(Debug, Clone)]
+pub struct StorageCfg {
+    pub storage_path: String,
+    pub read_only: bool,
+    pub force_mmap: bool,
+    pub mmap_hnsw: bool,
+    pub backend_kind: BackendKind,
+    pub sync_mode: SyncMode,
+    pub version_history_limit: Option<usize>,
+    pub bulk_commit_interval: Option<usize>,
+    pub wal_buffer_size: Option<usize>,
+    pub flush_threshold: Option<usize>,
+    pub encryption_key: Option<String>,
+    pub wal_shards: usize,
+    pub flat_threshold: Option<usize>,
+    pub export_base_dir: Option<std::path::PathBuf>,
+    /// Backup directory for live snapshots (checkpoints).
+    /// Configured via `VANTADB_BACKUP_DIR` (legacy `VANTA_BACKUP_DIR` is deprecated).
+    pub backup_dir: Option<std::path::PathBuf>,
+    pub segment_optimizer: SegmentOptimizerConfig,
+}
+
+/// Server domain view (F3C C1, polo dominante 9/14 churn).
+#[derive(Debug, Clone)]
+pub struct ServerCfg {
+    pub host: String,
+    pub port: u16,
+    pub api_key: Option<String>,
+    pub alt_api_key: Option<String>,
+    pub jwt_secret: Option<String>,
+    pub require_auth: bool,
+    pub allow_insecure: bool,
+    pub rate_limit_rpm: u32,
+    pub trusted_proxies: Vec<std::net::IpAddr>,
+    pub allowed_origins: Vec<String>,
+    pub dashboard_dir: Option<std::path::PathBuf>,
+    pub tls_cert_path: Option<String>,
+    pub tls_key_path: Option<String>,
+    pub log_format: LogFormat,
+    pub audit_log_path: Option<std::path::PathBuf>,
+    pub audit_max_bytes: u64,
+    pub audit_max_files: u32,
+}
+
+/// LLM domain view (F3C C3).
+#[derive(Debug, Clone)]
+pub struct LlmCfg {
+    pub llm_url: String,
+    pub llm_model: String,
+    pub llm_summarize_model: String,
+    pub local_model_path: String,
+    /// OpenAI API key for remote embeddings (optional — missing key defers error to embed call, B2b).
+    /// Configured via `VANTADB_OPENAI_API_KEY` (legacy `VANTA_OPENAI_API_KEY` is deprecated).
+    pub openai_api_key: Option<String>,
+    /// OpenAI embedding model name (default: `text-embedding-3-small`).
+    /// Configured via `VANTADB_OPENAI_MODEL` (legacy `VANTA_OPENAI_MODEL` is deprecated).
+    pub openai_model: String,
+    /// Embedding provider selector (default: `ollama`).
+    /// Values: `ollama`, `openai`, `local` (ONNX). Configured via `VANTADB_EMBEDDING_PROVIDER`
+    /// (legacy `VANTA_EMBEDDING_PROVIDER` is deprecated).
+    pub embedding_provider: String,
+    #[cfg(feature = "advanced-tokenizer")]
+    pub advanced_tokenizer_config: Option<AdvancedTokenizerConfig>,
+}
+
+/// Eviction/memory domain view (F3C C4).
+#[derive(Debug, Clone)]
+pub struct EvictionCfg {
+    pub memory_limit: Option<u64>,
+    pub prefetch_mode: PrefetchMode,
+    pub rss_threshold: f64,
+    pub eviction_weight_hits: f64,
+    pub eviction_weight_confidence: f64,
+    pub eviction_weight_importance: f64,
+    pub eviction_weight_recency: f64,
+    pub eviction_ratio: f64,
+}
+
+/// Pool/runtime domain view (F3C C5).
+#[derive(Debug, Clone)]
+pub struct PoolCfg {
+    pub max_blocking_threads: usize,
+    pub max_connections: usize,
+    pub pool_acquire_timeout_ms: u64,
+    pub circuit_breaker_failure_threshold: u32,
+    pub circuit_breaker_open_timeout_secs: u64,
+    pub batch_size: Option<usize>,
+    pub insert_lock_timeout_ms: u64,
+    pub file_lock_timeout_ms: u64,
+}
+
+fn default_max_blocking_threads() -> usize {
+    std::thread::available_parallelism()
+        .map(|n| n.get() * 2)
+        .unwrap_or(16)
+}
+
+impl Default for StorageCfg {
+    fn default() -> Self {
+        Self {
+            storage_path: "vantadb_data".to_string(),
+            read_only: false,
+            force_mmap: false,
+            mmap_hnsw: true,
+            backend_kind: BackendKind::Fjall,
+            sync_mode: SyncMode::Periodic,
+            version_history_limit: Some(32),
+            bulk_commit_interval: None,
+            wal_buffer_size: None,
+            flush_threshold: None,
+            encryption_key: None,
+            wal_shards: 4,
+            flat_threshold: Some(10000),
+            export_base_dir: None,
+            backup_dir: None,
+            segment_optimizer: SegmentOptimizerConfig::default(),
+        }
+    }
+}
+
+impl Default for ServerCfg {
+    fn default() -> Self {
+        Self {
+            host: "127.0.0.1".to_string(),
+            port: 8080,
+            api_key: None,
+            alt_api_key: None,
+            jwt_secret: None,
+            require_auth: false,
+            allow_insecure: false,
+            rate_limit_rpm: 600,
+            trusted_proxies: Vec::new(),
+            allowed_origins: Vec::new(),
+            dashboard_dir: None,
+            tls_cert_path: None,
+            tls_key_path: None,
+            log_format: LogFormat::Compact,
+            audit_log_path: None,
+            audit_max_bytes: 10 * 1024 * 1024,
+            audit_max_files: 5,
+        }
+    }
+}
+
+impl Default for LlmCfg {
+    fn default() -> Self {
+        Self {
+            llm_url: "http://localhost:11434".to_string(),
+            llm_model: "all-minilm".to_string(),
+            llm_summarize_model: "llama3".to_string(),
+            local_model_path: "embeddings/models/multilingual-e5-small/onnx".to_string(),
+            openai_api_key: None,
+            openai_model: "text-embedding-3-small".to_string(),
+            embedding_provider: "ollama".to_string(),
+            #[cfg(feature = "advanced-tokenizer")]
+            advanced_tokenizer_config: None,
+        }
+    }
+}
+
+impl Default for EvictionCfg {
+    fn default() -> Self {
+        Self {
+            memory_limit: None,
+            prefetch_mode: PrefetchMode::Disabled,
+            rss_threshold: DEFAULT_RSS_THRESHOLD,
+            eviction_weight_hits: 1.0,
+            eviction_weight_confidence: 2.0,
+            eviction_weight_importance: 3.0,
+            eviction_weight_recency: 1.0,
+            eviction_ratio: 0.20,
+        }
+    }
+}
+
+impl Default for PoolCfg {
+    fn default() -> Self {
+        let max_blocking = default_max_blocking_threads();
+        Self {
+            max_blocking_threads: max_blocking,
+            max_connections: max_blocking * 2,
+            pool_acquire_timeout_ms: 5000,
+            circuit_breaker_failure_threshold: 5,
+            circuit_breaker_open_timeout_secs: 30,
+            batch_size: None,
+            insert_lock_timeout_ms: 5000,
+            file_lock_timeout_ms: 1000,
+        }
+    }
+}
+
+impl From<&Config> for StorageCfg {
+    fn from(cfg: &Config) -> Self {
+        Self {
+            storage_path: cfg.storage_path.clone(),
+            read_only: cfg.read_only,
+            force_mmap: cfg.force_mmap,
+            mmap_hnsw: cfg.mmap_hnsw,
+            backend_kind: cfg.backend_kind,
+            sync_mode: cfg.sync_mode,
+            version_history_limit: cfg.version_history_limit,
+            bulk_commit_interval: cfg.bulk_commit_interval,
+            wal_buffer_size: cfg.wal_buffer_size,
+            flush_threshold: cfg.flush_threshold,
+            encryption_key: cfg.encryption_key.clone(),
+            wal_shards: cfg.wal_shards,
+            flat_threshold: cfg.flat_threshold,
+            export_base_dir: cfg.export_base_dir.clone(),
+            backup_dir: cfg.backup_dir.clone(),
+            segment_optimizer: cfg.segment_optimizer,
+        }
+    }
+}
+
+impl From<&Config> for ServerCfg {
+    fn from(cfg: &Config) -> Self {
+        Self {
+            host: cfg.host.clone(),
+            port: cfg.port,
+            api_key: cfg.api_key.clone(),
+            alt_api_key: cfg.alt_api_key.clone(),
+            jwt_secret: cfg.jwt_secret.clone(),
+            require_auth: cfg.require_auth,
+            allow_insecure: cfg.allow_insecure,
+            rate_limit_rpm: cfg.rate_limit_rpm,
+            trusted_proxies: cfg.trusted_proxies.clone(),
+            allowed_origins: cfg.allowed_origins.clone(),
+            dashboard_dir: cfg.dashboard_dir.clone(),
+            tls_cert_path: cfg.tls_cert_path.clone(),
+            tls_key_path: cfg.tls_key_path.clone(),
+            log_format: cfg.log_format,
+            audit_log_path: cfg.audit_log_path.clone(),
+            audit_max_bytes: cfg.audit_max_bytes,
+            audit_max_files: cfg.audit_max_files,
+        }
+    }
+}
+
+impl From<&Config> for LlmCfg {
+    fn from(cfg: &Config) -> Self {
+        Self {
+            llm_url: cfg.llm_url.clone(),
+            llm_model: cfg.llm_model.clone(),
+            llm_summarize_model: cfg.llm_summarize_model.clone(),
+            local_model_path: cfg.local_model_path.clone(),
+            openai_api_key: cfg.openai_api_key.clone(),
+            openai_model: cfg.openai_model.clone(),
+            embedding_provider: cfg.embedding_provider.clone(),
+            #[cfg(feature = "advanced-tokenizer")]
+            advanced_tokenizer_config: cfg.advanced_tokenizer_config.clone(),
+        }
+    }
+}
+
+impl From<&Config> for EvictionCfg {
+    fn from(cfg: &Config) -> Self {
+        Self {
+            memory_limit: cfg.memory_limit,
+            prefetch_mode: cfg.prefetch_mode,
+            rss_threshold: cfg.rss_threshold,
+            eviction_weight_hits: cfg.eviction_weight_hits,
+            eviction_weight_confidence: cfg.eviction_weight_confidence,
+            eviction_weight_importance: cfg.eviction_weight_importance,
+            eviction_weight_recency: cfg.eviction_weight_recency,
+            eviction_ratio: cfg.eviction_ratio,
+        }
+    }
+}
+
+impl From<&Config> for PoolCfg {
+    fn from(cfg: &Config) -> Self {
+        Self {
+            max_blocking_threads: cfg.max_blocking_threads,
+            max_connections: cfg.max_connections,
+            pool_acquire_timeout_ms: cfg.pool_acquire_timeout_ms,
+            circuit_breaker_failure_threshold: cfg.circuit_breaker_failure_threshold,
+            circuit_breaker_open_timeout_secs: cfg.circuit_breaker_open_timeout_secs,
+            batch_size: cfg.batch_size,
+            insert_lock_timeout_ms: cfg.insert_lock_timeout_ms,
+            file_lock_timeout_ms: cfg.file_lock_timeout_ms,
+        }
+    }
+}
+
+impl From<&Config> for RbacCfg {
+    fn from(cfg: &Config) -> Self {
+        Self {
+            token_role_map: cfg.rbac_config.token_role_map.clone(),
+        }
+    }
+}
+
+impl Config {
+    /// Vista de dominio storage (F3C fachada A: sin duplicar estado, construida al vuelo).
+    pub fn storage_cfg(&self) -> StorageCfg {
+        StorageCfg::from(self)
+    }
+    /// Vista de dominio server.
+    pub fn server_cfg(&self) -> ServerCfg {
+        ServerCfg::from(self)
+    }
+    /// Vista de dominio llm.
+    pub fn llm_cfg(&self) -> LlmCfg {
+        LlmCfg::from(self)
+    }
+    /// Vista de dominio eviction.
+    pub fn eviction_cfg(&self) -> EvictionCfg {
+        EvictionCfg::from(self)
+    }
+    /// Vista de dominio pool.
+    pub fn pool_cfg(&self) -> PoolCfg {
+        PoolCfg::from(self)
+    }
+    /// Vista de dominio rbac (Q1=B propio).
+    pub fn rbac_cfg(&self) -> RbacCfg {
+        RbacCfg::from(self)
+    }
+}
+
+/// Subset of [`Config`] fields that are safe to modify at runtime.
 ///
 /// Fields that change storage layout, backend, or security posture are excluded.
 /// Only tuning knobs and log-level controls are reloaded.
@@ -141,9 +494,9 @@ pub struct HotReloadConfig {
 impl Default for HotReloadConfig {
     fn default() -> Self {
         Self {
-            prefetch_mode: PrefetchMode::Auto,
+            prefetch_mode: PrefetchMode::Disabled,
             log_format: LogFormat::Compact,
-            rate_limit_rpm: 100,
+            rate_limit_rpm: 600,
             batch_size: None,
             wal_buffer_size: None,
             flush_threshold: None,
@@ -154,8 +507,8 @@ impl Default for HotReloadConfig {
 }
 
 impl HotReloadConfig {
-    /// Load hot-reloadable subset from a [`VantaConfig`].
-    pub fn from_config(cfg: &VantaConfig) -> Self {
+    /// Load hot-reloadable subset from a [`Config`].
+    pub fn from_config(cfg: &Config) -> Self {
         Self {
             prefetch_mode: cfg.prefetch_mode,
             log_format: cfg.log_format,
@@ -168,10 +521,10 @@ impl HotReloadConfig {
         }
     }
 
-    /// Refresh `VantaConfig` fields from this hot-reload snapshot.
+    /// Refresh `Config` fields from this hot-reload snapshot.
     ///
     /// Returns `true` if at least one field changed.
-    pub fn apply_to(&self, target: &mut VantaConfig) -> bool {
+    pub fn apply_to(&self, target: &mut Config) -> bool {
         let mut changed = false;
         macro_rules! update {
             ($field:ident) => {
@@ -197,8 +550,26 @@ impl HotReloadConfig {
 ///
 /// Consolidates engine, LLM, and server settings. Loads from environment
 /// variables with sensible defaults and allows programmatic overrides.
+///
+/// # Examples
+///
+/// Override just the storage path and pass the rest of the defaults through:
+///
+/// ```rust
+/// use vantadb::config::Config;
+/// use vantadb::{BackendKind, Embedded};
+///
+/// let config = Config {
+///     storage_path: ":memory:".into(),
+///     backend_kind: BackendKind::InMemory,
+///     ..Default::default()
+/// };
+///
+/// let db = Embedded::open_with_config(config).expect("open database");
+/// db.close().expect("close database");
+/// ```
 #[derive(Debug, Clone)]
-pub struct VantaConfig {
+pub struct Config {
     /// Directory path for persistent storage.
     pub storage_path: String,
     /// Host address to bind the HTTP server.
@@ -211,6 +582,19 @@ pub struct VantaConfig {
     pub llm_model: String,
     /// Model name for LLM summarisation.
     pub llm_summarize_model: String,
+    /// Local ONNX model directory for `embed-local` (e.g. `embeddings/models/multilingual-e5-small/onnx`).
+    /// Configured via `VANTADB_LOCAL_MODEL`.
+    pub local_model_path: String,
+    /// OpenAI API key for remote embeddings (optional — missing key defers error to embed call, B2b).
+    /// Configured via `VANTADB_OPENAI_API_KEY` (legacy `VANTA_OPENAI_API_KEY` is deprecated).
+    pub openai_api_key: Option<String>,
+    /// OpenAI embedding model name (default: `text-embedding-3-small`).
+    /// Configured via `VANTADB_OPENAI_MODEL` (legacy `VANTA_OPENAI_MODEL` is deprecated).
+    pub openai_model: String,
+    /// Embedding provider selector (default: `ollama`).
+    /// Values: `ollama`, `openai`, `local` (ONNX). Configured via `VANTADB_EMBEDDING_PROVIDER`
+    /// (legacy `VANTA_EMBEDDING_PROVIDER` is deprecated).
+    pub embedding_provider: String,
     /// Optional memory limit in bytes.
     pub memory_limit: Option<u64>,
     /// If true, the engine operates in read-only mode.
@@ -225,11 +609,12 @@ pub struct VantaConfig {
     /// Prefetch mode for mmap vector pages during HNSW search.
     /// Controls whether `madvise(MADV_WILLNEED)` / `PrefetchVirtualMemory`
     /// is issued for unvisited neighbor pages in the hot search loop.
-    /// Default: `Auto` (prefetch enabled, backward compatible).
+    /// Default: `Disabled` (prefetch off, PERF-04). Set `Enabled` or
+    /// `VANTADB_PREFETCH=auto|enabled` to turn it on.
     pub prefetch_mode: PrefetchMode,
     /// RSS threshold (0.0–1.0) that triggers backpressure rejection.
     /// When the effective memory usage exceeds this fraction of the memory limit,
-    /// write operations return `VantaError::ResourceLimit`.
+    /// write operations return `Error::ResourceLimit`.
     /// Set to 0.0 to disable backpressure entirely.
     pub rss_threshold: f64,
     /// Weight for hit count in eviction scoring (default: 1.0).
@@ -246,14 +631,42 @@ pub struct VantaConfig {
     pub backend_kind: BackendKind,
     /// Maximum number of blocking threads for the async runtime.
     pub max_blocking_threads: usize,
+    /// Maximum concurrent connections for the HTTP query pool (default: max_blocking_threads * 2).
+    /// Configured via `VANTADB_MAX_CONNECTIONS`.
+    pub max_connections: usize,
+    /// Timeout in ms when acquiring a pool permit (default: 5000).
+    /// Configured via `VANTADB_POOL_ACQUIRE_TIMEOUT_MS`.
+    pub pool_acquire_timeout_ms: u64,
+    /// Consecutive failures before the circuit breaker opens (default: 5).
+    /// Configured via `VANTADB_CIRCUIT_BREAKER_FAILURE_THRESHOLD`.
+    pub circuit_breaker_failure_threshold: u32,
+    /// Seconds the circuit breaker stays open before probing half-open (default: 30).
+    /// Configured via `VANTADB_CIRCUIT_BREAKER_OPEN_TIMEOUT_SECS`.
+    pub circuit_breaker_open_timeout_secs: u64,
     /// Write synchronisation mode for durability vs. throughput.
     pub sync_mode: SyncMode,
-    /// Optional Bearer token for HTTP API authentication.
+    /// Optional Bearer token for HTTP API authentication (primary key).
     ///
     /// When set via `VANTADB_API_KEY`, the server requires
     /// `Authorization: Bearer <token>` on all protected endpoints.
     /// If `None`, the server runs without authentication (development mode).
     pub api_key: Option<String>,
+    /// Alternative API key for zero-downtime rotation (SRV-04).
+    ///
+    /// When set via `VANTADB_ALT_API_KEY`, both the primary `api_key` and
+    /// this `alt_api_key` are accepted simultaneously. This enables rolling
+    /// key rotation: deploy new key as `alt_api_key`, switch clients, then
+    /// promote to `api_key` and remove `alt_api_key`. Pattern from Qdrant
+    /// v1.17 `alt_api_key`. If `None`, only `api_key` is validated.
+    pub alt_api_key: Option<String>,
+    /// HS256 secret for JWT Bearer authentication (SRV-06, ADR-039).
+    ///
+    /// When set via `VANTADB_JWT_SECRET`, the server additionally accepts
+    /// `Authorization: Bearer <jwt>` where `<jwt>` is an HS256-signed token
+    /// with a present `sub` and a non-expired `exp`. Offline verification
+    /// (no network, CI-safe). If `None` (default), JWT auth is disabled and
+    /// only `api_key`/`alt_api_key` are accepted.
+    pub jwt_secret: Option<String>,
     /// If true, the server refuses to start unless an API key is configured.
     ///
     /// When set via `VANTADB_REQUIRE_AUTH` (or `--require-auth`), the server
@@ -261,14 +674,50 @@ pub struct VantaConfig {
     /// it is not. This prevents accidentally running in unauthenticated mode
     /// in production-like environments.
     pub require_auth: bool,
+    /// Dev override for the refuse-to-start guard (FIND-07): when the server
+    /// binds a non-loopback host without an API key it refuses to start unless
+    /// this is set (via `--allow-insecure`). When set, the server logs a
+    /// prominent WARNING and starts in unauthenticated mode.
+    pub allow_insecure: bool,
     /// Maximum HTTP requests per minute per remote IP for the rate limiter.
     ///
-    /// Configured via `VANTADB_RATE_LIMIT_RPM`. Set to `0` to disable rate
-    /// limiting entirely (useful for tests and embedded-local usage).
+    /// Configured via `VANTADB_RATE_LIMIT_RPM` (default: 600). Set to `0` to
+    /// disable rate limiting entirely (useful for tests and embedded-local
+    /// usage). When no API key is configured (dev mode) the burst size equals
+    /// the full rpm so local web-console bursts are not throttled (REST-01).
     pub rate_limit_rpm: u32,
+    /// IP addresses of trusted reverse proxies whose `X-Forwarded-For` header
+    /// is honored when resolving the client IP for rate limiting and logging.
+    ///
+    /// When empty (default), the header is **ignored** and the direct TCP
+    /// socket address (`ConnectInfo`) is authoritative — a client cannot
+    /// spoof its recorded IP by setting `X-Forwarded-For` itself. Configured
+    /// via `VANTADB_TRUSTED_PROXIES` (comma-separated, e.g.
+    /// `127.0.0.1,::1,10.0.0.5`). Only set this when VantaDB is served behind
+    /// a reverse proxy that overwrites the header.
+    pub trusted_proxies: Vec<std::net::IpAddr>,
+    /// Origins allowed to make cross-origin (CORS) requests to the HTTP server.
+    ///
+    /// Configured via `VANTADB_ALLOWED_ORIGINS` (comma-separated origins, e.g.
+    /// `https://app.example.com,https://admin.example.com`). When empty (default),
+    /// no CORS middleware is attached and the server sends **no**
+    /// `Access-Control-Allow-Origin` header — browsers block cross-origin web
+    /// calls unless a reverse proxy handles CORS. Defaults off.
+    pub allowed_origins: Vec<String>,
+    /// Directory whose static files are served at `/dashboard` (Vanta Studio
+    /// web console, WEB-03). When `None` (default), `/dashboard` responds
+    /// 404 with a hint. Configured via `VANTADB_DASHBOARD_DIR` or the
+    /// `vanta serve --dashboard-dir` flag.
+    pub dashboard_dir: Option<std::path::PathBuf>,
     /// Batch size for batch ingestion operations (default: 1000).
     /// Configured via `VANTADB_BATCH_SIZE`.
     pub batch_size: Option<usize>,
+    /// Maximum number of historical versions retained per memory key (VS-CORE-07).
+    ///
+    /// Each `put` snapshots the new record under its version; when a key reaches
+    /// this cap the oldest version is evicted (FIFO). `None` disables the cap
+    /// (unbounded history per key). Default: `Some(32)`.
+    pub version_history_limit: Option<usize>,
     /// Bulk import commit interval — number of records per batch commit (default: 10000).
     /// Configured via `VANTADB_BULK_COMMIT_INTERVAL`.
     pub bulk_commit_interval: Option<usize>,
@@ -323,6 +772,23 @@ pub struct VantaConfig {
     /// (including symlink protection). When `None`, only `..` traversal is checked.
     /// Configured via `VANTADB_EXPORT_BASE_DIR`.
     pub export_base_dir: Option<std::path::PathBuf>,
+    /// Backup directory for live snapshots (checkpoints).
+    /// Configured via `VANTADB_BACKUP_DIR` (legacy `VANTA_BACKUP_DIR` is deprecated).
+    pub backup_dir: Option<std::path::PathBuf>,
+    /// Optional path for the append-only JSONL audit log of business operations.
+    ///
+    /// When set, `Embedded` records every put/delete/export/import with an
+    /// ISO 8601 timestamp, namespace, key, and outcome. Configured via
+    /// `VANTADB_AUDIT_LOG_PATH`. Not hot-reloadable.
+    pub audit_log_path: Option<std::path::PathBuf>,
+    /// Maximum size of the audit JSONL before it rotates to `<path>.1`
+    /// (SRV-01). Default 10 MiB. Configured via `VANTADB_AUDIT_MAX_BYTES`
+    /// (accepts `KB`/`MB`/`GB` suffixes; a bare number is bytes).
+    pub audit_max_bytes: u64,
+    /// How many rotated audit files to keep (`.1`..`.N`); older files are
+    /// deleted on rotation (SRV-01). Default 5. Configured via
+    /// `VANTADB_AUDIT_MAX_FILES`.
+    pub audit_max_files: u32,
     /// Configuration for the segment optimizer pipeline (vacuum / merge / reindex).
     ///
     /// Controls automatic tombstone reclamation, segment compaction, and
@@ -332,9 +798,73 @@ pub struct VantaConfig {
     ///
     /// When `cfg(feature = "hot-reload")` is enabled, a background watcher
     /// thread monitors the config file and atomically swaps this value.
-    /// Read via [`VantaConfig::hot_reload()`].
+    /// Read via [`Config::hot_reload()`].
     #[cfg(feature = "hot-reload")]
     pub hot_reload_config: Arc<RwLock<HotReloadConfig>>,
+}
+
+/// Parse a memory limit string into bytes.
+///
+/// Accepts an optional decimal suffix: `KB`, `MB`, `GB`, `TB` (case-insensitive),
+/// plus their binary variants `KiB`, `MiB`, `GiB`, `TiB`. A bare number is
+/// treated as bytes. Multipliers are 1024-based to match the codebase `MIB`
+/// convention (1 MB = 1024 * 1024 bytes).
+pub fn parse_memory_limit(s: &str) -> Result<u64, String> {
+    let s = s.trim();
+    if s.is_empty() {
+        return Err("empty memory limit".to_string());
+    }
+
+    // Split off a 2-char suffix (KB/MB/GB/TB) if present, else a 3-char
+    // binary suffix (KiB/MiB/GiB/TiB), else treat the whole string as bytes.
+    let (num_part, suffix) = {
+        let two = s.len().saturating_sub(2);
+        let char_at = |i: usize| s.as_bytes().get(i).map(|b| *b as char);
+        if matches!(
+            char_at(two),
+            Some('k')
+                | Some('K')
+                | Some('m')
+                | Some('M')
+                | Some('g')
+                | Some('G')
+                | Some('t')
+                | Some('T')
+        ) {
+            (&s[..two], &s[two..])
+        } else {
+            let three = s.len().saturating_sub(3);
+            if matches!(
+                s[three..].to_ascii_lowercase().as_str(),
+                "kib" | "mib" | "gib" | "tib"
+            ) {
+                (&s[..three], &s[three..])
+            } else {
+                (s, "")
+            }
+        }
+    };
+
+    let value: u64 = num_part.trim().parse().map_err(|_| {
+        format!("invalid memory limit {s:?}: expected a number with optional KB/MB/GB suffix")
+    })?;
+
+    let multiplier: u64 = match suffix.to_ascii_lowercase().as_str() {
+        "" | "b" => 1,
+        "k" | "kb" | "kib" => 1024,
+        "m" | "mb" | "mib" => 1024 * 1024,
+        "g" | "gb" | "gib" => 1024 * 1024 * 1024,
+        "t" | "tb" | "tib" => 1024u64.pow(4),
+        _ => {
+            return Err(format!(
+                "invalid memory limit {s:?}: unknown suffix {suffix:?} — expected KB, MB, GB (or KiB, MiB, GiB)"
+            ))
+        }
+    };
+
+    value
+        .checked_mul(multiplier)
+        .ok_or_else(|| format!("memory limit {s:?} overflows u64"))
 }
 
 /// Parse an environment variable with a fallback default.
@@ -361,8 +891,11 @@ where
     }
 }
 
-impl Default for VantaConfig {
+impl Default for Config {
     fn default() -> Self {
+        let default_max_blocking = std::thread::available_parallelism()
+            .map(|n| n.get() * 2)
+            .unwrap_or(16);
         Self {
             storage_path: {
                 let v =
@@ -383,30 +916,72 @@ impl Default for VantaConfig {
                 v
             },
             llm_url: {
-                let v = env::var("VANTA_LLM_URL")
+                let v = env::var("VANTADB_LLM_URL")
                     .unwrap_or_else(|_| "http://localhost:11434".to_string());
-                debug!(val = %v, "VANTA_LLM_URL");
+                debug!(val = %v, "VANTADB_LLM_URL");
                 v
             },
             llm_model: {
-                let v = env::var("VANTA_LLM_MODEL").unwrap_or_else(|_| "all-minilm".to_string());
-                debug!(val = %v, "VANTA_LLM_MODEL");
+                let v = env::var("VANTADB_LLM_MODEL").unwrap_or_else(|_| "all-minilm".to_string());
+                debug!(val = %v, "VANTADB_LLM_MODEL");
                 v
             },
             llm_summarize_model: {
-                let v =
-                    env::var("VANTA_LLM_SUMMARIZE_MODEL").unwrap_or_else(|_| "llama3".to_string());
-                debug!(val = %v, "VANTA_LLM_SUMMARIZE_MODEL");
+                let v = env::var("VANTADB_LLM_SUMMARIZE_MODEL")
+                    .unwrap_or_else(|_| "llama3".to_string());
+                debug!(val = %v, "VANTADB_LLM_SUMMARIZE_MODEL");
                 v
             },
-            memory_limit: None,
+            local_model_path: {
+                let v = env::var("VANTADB_LOCAL_MODEL")
+                    .unwrap_or_else(|_| "embeddings/models/multilingual-e5-small/onnx".to_string());
+                debug!(val = %v, "VANTADB_LOCAL_MODEL");
+                v
+            },
+            openai_api_key: {
+                let v = env::var("VANTADB_OPENAI_API_KEY").ok();
+                if v.is_some() {
+                    debug!("VANTADB_OPENAI_API_KEY is set (value not logged)");
+                }
+                v
+            },
+            openai_model: {
+                let v = env::var("VANTADB_OPENAI_MODEL")
+                    .unwrap_or_else(|_| "text-embedding-3-small".to_string());
+                debug!(val = %v, "VANTADB_OPENAI_MODEL");
+                v
+            },
+            embedding_provider: {
+                let v =
+                    env::var("VANTADB_EMBEDDING_PROVIDER").unwrap_or_else(|_| "ollama".to_string());
+                debug!(val = %v, "VANTADB_EMBEDDING_PROVIDER");
+                v
+            },
+            memory_limit: {
+                let v = match env::var("VANTADB_MEMORY_LIMIT") {
+                    Ok(raw) => match parse_memory_limit(&raw) {
+                        Ok(bytes) => Some(bytes),
+                        Err(e) => {
+                            warn!("Invalid VANTADB_MEMORY_LIMIT={:?} ({}) - ignoring", raw, e);
+                            None
+                        }
+                    },
+                    Err(env::VarError::NotPresent) => None,
+                    Err(env::VarError::NotUnicode(_)) => {
+                        warn!("Non-Unicode value for VANTADB_MEMORY_LIMIT - ignoring");
+                        None
+                    }
+                };
+                debug!(?v, "VANTADB_MEMORY_LIMIT");
+                v
+            },
             read_only: false,
             force_mmap: false,
             mmap_hnsw: true,
             prefetch_mode: {
-                let raw = env::var("VANTA_PREFETCH").ok();
+                let raw = env::var("VANTADB_PREFETCH").ok();
                 let mode = raw.as_deref().map(PrefetchMode::from_env_value);
-                let disable = env::var("VANTA_DISABLE_PREFETCH")
+                let disable = env::var("VANTADB_DISABLE_PREFETCH")
                     .ok()
                     .map(|v| v == "1" || v == "true");
                 let v = match (mode, disable) {
@@ -419,7 +994,7 @@ impl Default for VantaConfig {
                             ];
                             if m == PrefetchMode::Auto && !known.contains(&trimmed.as_str()) {
                                 warn!(
-                                    "Unrecognized VANTA_PREFETCH=\"{}\" — expected \"enabled\", \"disabled\", or \"auto\". Using default: Auto",
+                                    "Unrecognized VANTADB_PREFETCH=\"{}\" — expected \"enabled\", \"disabled\", or \"auto\". Using default: Disabled",
                                     val
                                 );
                             }
@@ -427,9 +1002,9 @@ impl Default for VantaConfig {
                         m
                     }
                     (_, Some(true)) => PrefetchMode::Disabled,
-                    _ => PrefetchMode::Auto,
+                    _ => PrefetchMode::Disabled,
                 };
-                debug!(?v, "VANTA_PREFETCH");
+                debug!(?v, "VANTADB_PREFETCH");
                 v
             },
             rss_threshold: DEFAULT_RSS_THRESHOLD,
@@ -439,28 +1014,48 @@ impl Default for VantaConfig {
             eviction_weight_recency: 1.0,
             eviction_ratio: 0.20,
             backend_kind: {
-                let v = match env::var("VANTA_BACKEND").ok().as_deref() {
-                    Some("rocksdb") => BackendKind::RocksDb,
-                    Some("memory") => BackendKind::InMemory,
-                    Some("fjall") => BackendKind::Fjall,
-                    Some(other) => {
-                        warn!(
-                            "Unrecognized VANTA_BACKEND=\"{}\" — expected \"rocksdb\" or \"memory\". Using default: Fjall",
-                            other
-                        );
-                        BackendKind::Fjall
-                    }
+                // C2S2 (OCP): name mapping lives on `BackendKind::from_name`
+                // (shared with the registry); same warn + default as before.
+                // F3C C7 (breaking): legacy backend var -> VANTADB_BACKEND, sin shims (Q3=A).
+                let v = match env::var("VANTADB_BACKEND").ok().as_deref() {
                     None => BackendKind::Fjall,
+                    Some(name) => match BackendKind::from_name(name) {
+                        Some(kind) => kind,
+                        None => {
+                            warn!(
+                                "Unrecognized VANTADB_BACKEND=\"{}\" — expected \"rocksdb\" or \"memory\". Using default: Fjall",
+                                name
+                            );
+                            BackendKind::Fjall
+                        }
+                    },
                 };
-                debug!(?v, "VANTA_BACKEND");
+                debug!(?v, "VANTADB_BACKEND");
                 v
             },
             max_blocking_threads: {
-                let default = std::thread::available_parallelism()
-                    .map(|n| n.get() * 2)
-                    .unwrap_or(16);
-                let v = parse_env_or("VANTADB_MAX_BLOCKING_THREADS", default);
+                let v = parse_env_or("VANTADB_MAX_BLOCKING_THREADS", default_max_blocking);
                 debug!(val = v, "VANTADB_MAX_BLOCKING_THREADS");
+                v
+            },
+            max_connections: {
+                let v = parse_env_or("VANTADB_MAX_CONNECTIONS", default_max_blocking * 2);
+                debug!(val = v, "VANTADB_MAX_CONNECTIONS");
+                v
+            },
+            pool_acquire_timeout_ms: {
+                let v = parse_env_or("VANTADB_POOL_ACQUIRE_TIMEOUT_MS", 5000u64);
+                debug!(val = v, "VANTADB_POOL_ACQUIRE_TIMEOUT_MS");
+                v
+            },
+            circuit_breaker_failure_threshold: {
+                let v = parse_env_or("VANTADB_CIRCUIT_BREAKER_FAILURE_THRESHOLD", 5u32);
+                debug!(val = v, "VANTADB_CIRCUIT_BREAKER_FAILURE_THRESHOLD");
+                v
+            },
+            circuit_breaker_open_timeout_secs: {
+                let v = parse_env_or("VANTADB_CIRCUIT_BREAKER_OPEN_TIMEOUT_SECS", 30u64);
+                debug!(val = v, "VANTADB_CIRCUIT_BREAKER_OPEN_TIMEOUT_SECS");
                 v
             },
             sync_mode: SyncMode::default(),
@@ -479,15 +1074,56 @@ impl Default for VantaConfig {
                 debug!(present = v.is_some(), "VANTADB_API_KEY");
                 v
             },
+            alt_api_key: {
+                let v = env::var("VANTADB_ALT_API_KEY").ok();
+                debug!(present = v.is_some(), "VANTADB_ALT_API_KEY");
+                v
+            },
+            jwt_secret: {
+                let v = env::var("VANTADB_JWT_SECRET").ok();
+                debug!(present = v.is_some(), "VANTADB_JWT_SECRET");
+                v
+            },
             require_auth: {
                 let v = parse_env_or("VANTADB_REQUIRE_AUTH", false);
                 debug!(val = v, "VANTADB_REQUIRE_AUTH");
                 v
             },
+            allow_insecure: false,
             rate_limit_rpm: {
-                let v = parse_env_or("VANTADB_RATE_LIMIT_RPM", 100u32);
+                let v = parse_env_or("VANTADB_RATE_LIMIT_RPM", 600u32);
                 debug!(val = v, "VANTADB_RATE_LIMIT_RPM");
                 v
+            },
+            trusted_proxies: {
+                let raw = env::var("VANTADB_TRUSTED_PROXIES").unwrap_or_default();
+                let mut proxies = Vec::new();
+                for part in raw.split(',').map(str::trim).filter(|s| !s.is_empty()) {
+                    match part.parse::<std::net::IpAddr>() {
+                        Ok(ip) => proxies.push(ip),
+                        Err(e) => warn!(
+                            "Invalid VANTADB_TRUSTED_PROXIES entry {:?} — ignoring: {e}",
+                            part
+                        ),
+                    }
+                }
+                if !raw.trim().is_empty() {
+                    debug!(count = proxies.len(), "VANTADB_TRUSTED_PROXIES");
+                }
+                proxies
+            },
+            allowed_origins: {
+                let raw = env::var("VANTADB_ALLOWED_ORIGINS").unwrap_or_default();
+                let origins: Vec<String> = raw
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|s| !s.is_empty())
+                    .map(str::to_string)
+                    .collect();
+                if !raw.trim().is_empty() {
+                    debug!(count = origins.len(), "VANTADB_ALLOWED_ORIGINS");
+                }
+                origins
             },
             batch_size: {
                 let v = parse_env_or::<u32>("VANTADB_BATCH_SIZE", 0)
@@ -495,6 +1131,15 @@ impl Default for VantaConfig {
                     .ok()
                     .filter(|&n: &usize| n > 0);
                 debug!(val = ?v, "VANTADB_BATCH_SIZE");
+                v
+            },
+            version_history_limit: {
+                // `VANTADB_VERSION_HISTORY_LIMIT=0` disables the cap entirely.
+                let v = parse_env_or::<u32>("VANTADB_VERSION_HISTORY_LIMIT", 32)
+                    .try_into()
+                    .ok()
+                    .filter(|&n: &usize| n > 0);
+                debug!(val = ?v, "VANTADB_VERSION_HISTORY_LIMIT");
                 v
             },
             bulk_commit_interval: {
@@ -581,6 +1226,38 @@ impl Default for VantaConfig {
                     .ok()
                     .map(std::path::PathBuf::from)
             },
+            backup_dir: {
+                env::var("VANTADB_BACKUP_DIR")
+                    .ok()
+                    .map(std::path::PathBuf::from)
+            },
+            audit_log_path: {
+                let v = env::var("VANTADB_AUDIT_LOG_PATH")
+                    .ok()
+                    .map(std::path::PathBuf::from);
+                debug!(?v, "VANTADB_AUDIT_LOG_PATH");
+                v
+            },
+            audit_max_bytes: {
+                let v = env::var("VANTADB_AUDIT_MAX_BYTES")
+                    .ok()
+                    .and_then(|s| parse_memory_limit(&s).ok())
+                    .unwrap_or(10 * 1024 * 1024);
+                debug!(?v, "VANTADB_AUDIT_MAX_BYTES");
+                v
+            },
+            audit_max_files: {
+                let v = parse_env_or("VANTADB_AUDIT_MAX_FILES", 5u32);
+                debug!(?v, "VANTADB_AUDIT_MAX_FILES");
+                v
+            },
+            dashboard_dir: {
+                let v = env::var("VANTADB_DASHBOARD_DIR")
+                    .ok()
+                    .map(std::path::PathBuf::from);
+                debug!(?v, "VANTADB_DASHBOARD_DIR");
+                v
+            },
             rbac_config: RbacConfig::default(),
             segment_optimizer: SegmentOptimizerConfig::default(),
             #[cfg(feature = "hot-reload")]
@@ -589,7 +1266,7 @@ impl Default for VantaConfig {
     }
 }
 
-impl VantaConfig {
+impl Config {
     /// Creates a configuration from environment variables.
     pub fn from_env() -> Self {
         Self::default()
@@ -689,6 +1366,24 @@ impl VantaConfig {
         self
     }
 
+    /// Sets the alternative API key for zero-downtime rotation (SRV-04).
+    ///
+    /// Both `api_key` and `alt_api_key` are accepted simultaneously when set.
+    /// Use for rolling key rotation without downtime.
+    pub fn with_alt_api_key(mut self, key: Option<String>) -> Self {
+        self.alt_api_key = key;
+        self
+    }
+
+    /// Sets the HS256 secret for JWT Bearer authentication (SRV-06).
+    ///
+    /// When `Some`, the server accepts HS256 JWTs verified offline against
+    /// this secret. When `None` (default), JWT auth is disabled.
+    pub fn with_jwt_secret(mut self, secret: Option<String>) -> Self {
+        self.jwt_secret = secret;
+        self
+    }
+
     /// Enable forced authentication mode.
     ///
     /// When `true`, the server refuses to start unless `api_key` is configured.
@@ -702,6 +1397,23 @@ impl VantaConfig {
     /// Use `0` to disable rate limiting.
     pub fn with_rate_limit_rpm(mut self, rpm: u32) -> Self {
         self.rate_limit_rpm = rpm;
+        self
+    }
+
+    /// Sets the reverse-proxy IPs whose `X-Forwarded-For` header is trusted.
+    ///
+    /// Only requests arriving from one of these peers will have their client IP
+    /// (used for rate limiting and logging) resolved from `X-Forwarded-For`.
+    /// Leave empty to ignore the header entirely.
+    pub fn with_trusted_proxies(mut self, proxies: Vec<std::net::IpAddr>) -> Self {
+        self.trusted_proxies = proxies;
+        self
+    }
+
+    /// Sets the origins allowed to make cross-origin (CORS) requests to the
+    /// HTTP server. Empty = no CORS middleware (server sends no CORS headers).
+    pub fn with_allowed_origins(mut self, origins: Vec<String>) -> Self {
+        self.allowed_origins = origins;
         self
     }
 
@@ -735,6 +1447,12 @@ impl VantaConfig {
     pub fn with_tls(mut self, cert_path: String, key_path: String) -> Self {
         self.tls_cert_path = Some(cert_path);
         self.tls_key_path = Some(key_path);
+        self
+    }
+
+    /// Sets the local ONNX model path for `embed-local`.
+    pub fn with_local_model_path(mut self, path: String) -> Self {
+        self.local_model_path = path;
         self
     }
 
@@ -787,6 +1505,24 @@ impl VantaConfig {
     /// Set to `None` or `Some(0)` to always use HNSW.
     pub fn with_flat_threshold(mut self, threshold: Option<usize>) -> Self {
         self.flat_threshold = threshold.filter(|&v| v > 0);
+        self
+    }
+
+    /// Enables the append-only JSONL audit log of business operations.
+    pub fn with_audit_log_path(mut self, path: impl Into<std::path::PathBuf>) -> Self {
+        self.audit_log_path = Some(path.into());
+        self
+    }
+
+    /// Sets the maximum audit log size (bytes) before it rotates to `.1`.
+    pub fn with_audit_max_bytes(mut self, bytes: u64) -> Self {
+        self.audit_max_bytes = bytes;
+        self
+    }
+
+    /// Sets how many rotated audit files to keep (older files are deleted).
+    pub fn with_audit_max_files(mut self, files: u32) -> Self {
+        self.audit_max_files = files;
         self
     }
 
@@ -885,7 +1621,7 @@ impl VantaConfig {
 /// Parse a `serde_json::Value` / `toml::Value` and apply hot-reloadable fields.
 #[cfg(feature = "hot-reload")]
 fn apply_hot_reload_from_value(
-    config: &Arc<RwLock<VantaConfig>>,
+    config: &Arc<RwLock<Config>>,
     value: &serde_json::Value,
 ) -> Result<bool, String> {
     use serde_json::Value;
@@ -1008,7 +1744,7 @@ mod tests {
 
     #[test]
     fn test_prefetch_mode_default() {
-        assert_eq!(PrefetchMode::default(), PrefetchMode::Auto);
+        assert_eq!(PrefetchMode::default(), PrefetchMode::Disabled);
     }
 
     #[test]
@@ -1039,16 +1775,16 @@ mod tests {
 
     #[test]
     fn test_prefetch_mode_is_enabled() {
-        assert!(PrefetchMode::Auto.is_prefetch_enabled());
-        assert!(PrefetchMode::Enabled.is_prefetch_enabled());
-        assert!(!PrefetchMode::Disabled.is_prefetch_enabled());
+        assert!(PrefetchMode::Auto.is_enabled());
+        assert!(PrefetchMode::Enabled.is_enabled());
+        assert!(!PrefetchMode::Disabled.is_enabled());
     }
 
-    // ── VantaConfig defaults ───────────────────────────────────
+    // ── Config defaults ───────────────────────────────────
 
     #[test]
     fn test_vanta_config_default_values() {
-        let cfg = VantaConfig::default();
+        let cfg = Config::default();
         assert_eq!(cfg.storage_path, "vantadb_data");
         assert_eq!(cfg.host, "127.0.0.1".to_string());
         assert_eq!(cfg.port, 8080);
@@ -1059,7 +1795,7 @@ mod tests {
         assert!(!cfg.read_only);
         assert!(!cfg.force_mmap);
         assert!(cfg.mmap_hnsw);
-        assert_eq!(cfg.prefetch_mode, PrefetchMode::Auto);
+        assert_eq!(cfg.prefetch_mode, PrefetchMode::Disabled);
         assert!((cfg.rss_threshold - DEFAULT_RSS_THRESHOLD).abs() < 1e-9);
         assert!((cfg.eviction_weight_hits - 1.0).abs() < 1e-9);
         assert!((cfg.eviction_weight_confidence - 2.0).abs() < 1e-9);
@@ -1073,7 +1809,7 @@ mod tests {
         assert_eq!(cfg.max_blocking_threads, expected_threads);
         assert_eq!(cfg.sync_mode, SyncMode::Periodic);
         assert_eq!(cfg.api_key, None);
-        assert_eq!(cfg.rate_limit_rpm, 100);
+        assert_eq!(cfg.rate_limit_rpm, 600);
         assert_eq!(cfg.batch_size, None);
         assert_eq!(cfg.bulk_commit_interval, None);
         assert_eq!(cfg.wal_buffer_size, None);
@@ -1084,63 +1820,101 @@ mod tests {
         assert_eq!(cfg.insert_lock_timeout_ms, 5000);
         assert_eq!(cfg.file_lock_timeout_ms, 1000);
         assert_eq!(cfg.flat_threshold, Some(10000));
+        assert_eq!(cfg.audit_log_path, None);
+        assert_eq!(cfg.audit_max_bytes, 10 * 1024 * 1024);
+        assert_eq!(cfg.audit_max_files, 5);
+        assert!(cfg.allowed_origins.is_empty());
     }
 
     // ── Builder methods ───────────────────────────────────────
 
     #[test]
     fn test_with_storage_path() {
-        let cfg = VantaConfig::default().with_storage_path("/tmp/vanta".into());
+        let cfg = Config::default().with_storage_path("/tmp/vanta".into());
         assert_eq!(cfg.storage_path, "/tmp/vanta");
     }
 
     #[test]
     fn test_with_memory_limit() {
-        let cfg = VantaConfig::default().with_memory_limit(4_096_000_000);
+        let cfg = Config::default().with_memory_limit(4_096_000_000);
         assert_eq!(cfg.memory_limit, Some(4_096_000_000));
     }
 
     #[test]
+    fn test_with_audit_rotation() {
+        let cfg = Config::default()
+            .with_audit_max_bytes(1_024)
+            .with_audit_max_files(2);
+        assert_eq!(cfg.audit_max_bytes, 1_024);
+        assert_eq!(cfg.audit_max_files, 2);
+    }
+
+    // ── Memory limit suffix parsing ────────────────────────────
+
+    #[test]
+    fn test_parse_memory_limit() {
+        // Bare numbers are bytes.
+        assert_eq!(parse_memory_limit("500").unwrap(), 500);
+        assert_eq!(parse_memory_limit("500 ").unwrap(), 500);
+        // KB/MB/GB (case-insensitive) are 1024-based, matching the codebase MIB convention.
+        assert_eq!(parse_memory_limit("128KB").unwrap(), 128 * 1024);
+        assert_eq!(parse_memory_limit("500MB").unwrap(), 500 * 1024 * 1024);
+        assert_eq!(parse_memory_limit("500mb").unwrap(), 500 * 1024 * 1024);
+        assert_eq!(parse_memory_limit("2GB").unwrap(), 2 * 1024 * 1024 * 1024);
+        assert_eq!(parse_memory_limit("1TB").unwrap(), 1024u64.pow(4));
+        // Binary variants are accepted too.
+        assert_eq!(parse_memory_limit("64KiB").unwrap(), 64 * 1024);
+        assert_eq!(parse_memory_limit("1MiB").unwrap(), 1024 * 1024);
+        assert_eq!(parse_memory_limit("1GiB").unwrap(), 1024 * 1024 * 1024);
+        // Bad input errors clearly.
+        assert!(parse_memory_limit("").is_err());
+        assert!(parse_memory_limit("hello").is_err());
+        assert!(parse_memory_limit("500XB").is_err());
+        assert!(parse_memory_limit("MB").is_err());
+        assert!(parse_memory_limit("18446744073709551616GB").is_err()); // overflow
+    }
+
+    #[test]
     fn test_with_read_only() {
-        let cfg = VantaConfig::default().with_read_only(true);
+        let cfg = Config::default().with_read_only(true);
         assert!(cfg.read_only);
     }
 
     #[test]
     fn test_with_force_mmap() {
-        let cfg = VantaConfig::default().with_force_mmap(true);
+        let cfg = Config::default().with_force_mmap(true);
         assert!(cfg.force_mmap);
     }
 
     #[test]
     fn test_with_mmap_hnsw() {
-        let cfg = VantaConfig::default().with_mmap_hnsw(false);
+        let cfg = Config::default().with_mmap_hnsw(false);
         assert!(!cfg.mmap_hnsw);
     }
 
     #[test]
     fn test_with_rss_threshold() {
-        let cfg = VantaConfig::default().with_rss_threshold(0.5);
+        let cfg = Config::default().with_rss_threshold(0.5);
         assert!((cfg.rss_threshold - 0.5).abs() < 1e-9);
     }
 
     #[test]
     fn test_with_rss_threshold_clamps() {
-        let cfg = VantaConfig::default().with_rss_threshold(1.5);
+        let cfg = Config::default().with_rss_threshold(1.5);
         assert!((cfg.rss_threshold - 1.0).abs() < 1e-9);
-        let cfg = VantaConfig::default().with_rss_threshold(-0.5);
+        let cfg = Config::default().with_rss_threshold(-0.5);
         assert!((cfg.rss_threshold - 0.0).abs() < 1e-9);
     }
 
     #[test]
     fn test_with_rss_threshold_zero_disables() {
-        let cfg = VantaConfig::default().with_rss_threshold(0.0);
+        let cfg = Config::default().with_rss_threshold(0.0);
         assert!((cfg.rss_threshold - 0.0).abs() < 1e-9);
     }
 
     #[test]
     fn test_with_eviction_weights() {
-        let cfg = VantaConfig::default().with_eviction_weights(0.5, 1.5, 2.5, 3.5);
+        let cfg = Config::default().with_eviction_weights(0.5, 1.5, 2.5, 3.5);
         assert!((cfg.eviction_weight_hits - 0.5).abs() < 1e-9);
         assert!((cfg.eviction_weight_confidence - 1.5).abs() < 1e-9);
         assert!((cfg.eviction_weight_importance - 2.5).abs() < 1e-9);
@@ -1149,21 +1923,21 @@ mod tests {
 
     #[test]
     fn test_with_eviction_ratio() {
-        let cfg = VantaConfig::default().with_eviction_ratio(0.5);
+        let cfg = Config::default().with_eviction_ratio(0.5);
         assert!((cfg.eviction_ratio - 0.5).abs() < 1e-9);
     }
 
     #[test]
     fn test_with_eviction_ratio_clamps() {
-        let cfg = VantaConfig::default().with_eviction_ratio(1.5);
+        let cfg = Config::default().with_eviction_ratio(1.5);
         assert!((cfg.eviction_ratio - 1.0).abs() < 1e-9);
-        let cfg = VantaConfig::default().with_eviction_ratio(-0.5);
+        let cfg = Config::default().with_eviction_ratio(-0.5);
         assert!((cfg.eviction_ratio - 0.0).abs() < 1e-9);
     }
 
     #[test]
     fn test_eviction_weights_struct() {
-        let cfg = VantaConfig::default().with_eviction_weights(0.1, 0.2, 0.3, 0.4);
+        let cfg = Config::default().with_eviction_weights(0.1, 0.2, 0.3, 0.4);
         let w = cfg.eviction_weights();
         assert!((w.hits - 0.1).abs() < 1e-9);
         assert!((w.confidence - 0.2).abs() < 1e-9);
@@ -1173,91 +1947,110 @@ mod tests {
 
     #[test]
     fn test_with_backend() {
-        let cfg = VantaConfig::default().with_backend(BackendKind::RocksDb);
+        let cfg = Config::default().with_backend(BackendKind::RocksDb);
         assert_eq!(cfg.backend_kind, BackendKind::RocksDb);
-        let cfg = VantaConfig::default().with_backend(BackendKind::InMemory);
+        let cfg = Config::default().with_backend(BackendKind::InMemory);
         assert_eq!(cfg.backend_kind, BackendKind::InMemory);
     }
 
     #[test]
     fn test_with_max_blocking_threads() {
-        let cfg = VantaConfig::default().with_max_blocking_threads(32);
+        let cfg = Config::default().with_max_blocking_threads(32);
         assert_eq!(cfg.max_blocking_threads, 32);
     }
 
     #[test]
     fn test_with_sync_mode() {
-        let cfg = VantaConfig::default().with_sync_mode(SyncMode::Always);
+        let cfg = Config::default().with_sync_mode(SyncMode::Always);
         assert_eq!(cfg.sync_mode, SyncMode::Always);
     }
 
     #[test]
     fn test_with_api_key() {
-        let cfg = VantaConfig::default().with_api_key(Some("sk-test".into()));
+        let cfg = Config::default().with_api_key(Some("sk-test".into()));
         assert_eq!(cfg.api_key, Some("sk-test".into()));
-        let cfg = VantaConfig::default().with_api_key(None);
+        let cfg = Config::default().with_api_key(None);
         assert_eq!(cfg.api_key, None);
     }
 
     #[test]
+    fn test_with_alt_api_key() {
+        let cfg = Config::default().with_alt_api_key(Some("sk-alt".into()));
+        assert_eq!(cfg.alt_api_key, Some("sk-alt".into()));
+        let cfg = Config::default().with_alt_api_key(None);
+        assert_eq!(cfg.alt_api_key, None);
+    }
+
+    #[test]
     fn test_with_require_auth() {
-        let cfg = VantaConfig::default().with_require_auth(true);
+        let cfg = Config::default().with_require_auth(true);
         assert!(cfg.require_auth);
-        let cfg = VantaConfig::default().with_require_auth(false);
+        let cfg = Config::default().with_require_auth(false);
         assert!(!cfg.require_auth);
     }
 
     #[test]
     fn test_with_rate_limit_rpm() {
-        let cfg = VantaConfig::default().with_rate_limit_rpm(0);
+        let cfg = Config::default().with_rate_limit_rpm(0);
         assert_eq!(cfg.rate_limit_rpm, 0);
     }
 
     #[test]
     fn test_with_batch_size() {
-        let cfg = VantaConfig::default().with_batch_size(500);
+        let cfg = Config::default().with_batch_size(500);
         assert_eq!(cfg.batch_size, Some(500));
     }
 
     #[test]
     fn test_with_wal_buffer_size() {
-        let cfg = VantaConfig::default().with_wal_buffer_size(131072);
+        let cfg = Config::default().with_wal_buffer_size(131072);
         assert_eq!(cfg.wal_buffer_size, Some(131072));
     }
 
     #[test]
     fn test_with_flush_threshold() {
-        let cfg = VantaConfig::default().with_flush_threshold(5000);
+        let cfg = Config::default().with_flush_threshold(5000);
         assert_eq!(cfg.flush_threshold, Some(5000));
     }
 
     #[test]
     fn test_with_tls() {
-        let cfg = VantaConfig::default().with_tls("cert.pem".into(), "key.pem".into());
+        let cfg = Config::default().with_tls("cert.pem".into(), "key.pem".into());
         assert_eq!(cfg.tls_cert_path, Some("cert.pem".into()));
         assert_eq!(cfg.tls_key_path, Some("key.pem".into()));
     }
 
     #[test]
     fn test_with_log_format() {
-        let cfg = VantaConfig::default().with_log_format(LogFormat::Json);
+        let cfg = Config::default().with_log_format(LogFormat::Json);
         assert_eq!(cfg.log_format, LogFormat::Json);
     }
 
     #[test]
     fn test_with_prefetch_mode() {
-        let cfg = VantaConfig::default().with_prefetch_mode(PrefetchMode::Disabled);
+        let cfg = Config::default().with_prefetch_mode(PrefetchMode::Disabled);
         assert_eq!(cfg.prefetch_mode, PrefetchMode::Disabled);
     }
 
     #[test]
     fn test_with_flat_threshold() {
-        let cfg = VantaConfig::default().with_flat_threshold(Some(5000));
+        let cfg = Config::default().with_flat_threshold(Some(5000));
         assert_eq!(cfg.flat_threshold, Some(5000));
-        let cfg = VantaConfig::default().with_flat_threshold(None);
+        let cfg = Config::default().with_flat_threshold(None);
         assert_eq!(cfg.flat_threshold, None);
-        let cfg = VantaConfig::default().with_flat_threshold(Some(0));
+        let cfg = Config::default().with_flat_threshold(Some(0));
         assert_eq!(cfg.flat_threshold, None);
+    }
+
+    #[test]
+    fn test_with_audit_log_path() {
+        let cfg = Config::default().with_audit_log_path("logs/audit.jsonl");
+        assert_eq!(
+            cfg.audit_log_path,
+            Some(std::path::PathBuf::from("logs/audit.jsonl"))
+        );
+        let cfg = Config::default();
+        assert_eq!(cfg.audit_log_path, None);
     }
 
     #[test]
@@ -1266,8 +2059,8 @@ mod tests {
         // In an isolated test environment with no preset vars, both yield
         // the same values. To verify the delegation itself:
         // `from_env()` calls `Self::default()` — structural equality check.
-        let cfg_default = VantaConfig::default();
-        let cfg_from_env = VantaConfig::from_env();
+        let cfg_default = Config::default();
+        let cfg_from_env = Config::from_env();
         // Basic structural fields (env-independent) match
         assert_eq!(cfg_default.memory_limit, cfg_from_env.memory_limit);
         assert_eq!(cfg_default.read_only, cfg_from_env.read_only);
@@ -1291,7 +2084,7 @@ mod tests {
 
     #[test]
     fn test_builder_chaining() {
-        let cfg = VantaConfig::default()
+        let cfg = Config::default()
             .with_storage_path("/data/vanta".into())
             .with_memory_limit(8_000_000_000)
             .with_read_only(true)
@@ -1335,5 +2128,86 @@ mod tests {
         assert_eq!(cfg.log_format, LogFormat::Json);
         assert_eq!(cfg.prefetch_mode, PrefetchMode::Disabled);
         assert_eq!(cfg.flat_threshold, Some(2000));
+    }
+
+    // ── FFI guard constants (WSM-09) ──────────────────────────────
+    //
+    // Pin the unified FFI limit values so accidental bumps surface as test
+    // failures (consumers across wasm/node/python depend on these not changing
+    // silently). Bumps require an explicit decision + ADR.
+
+    #[test]
+    fn test_ffi_guards_values_are_pinned() {
+        assert_eq!(MAX_F32_VEC_LEN, 10_000_000);
+        assert_eq!(MAX_BATCH_SIZE, 100_000);
+        assert_eq!(MAX_K, 10_000);
+        assert_eq!(MAX_VEC_DIM, 10_000);
+    }
+
+    #[test]
+    fn test_ffi_guards_max_k_is_at_least_old_wasm_limit() {
+        // Regression guard: if MAX_K is ever lowered below the legacy wasm
+        // clamp (1_000) without an explicit decision, callers asking for
+        // k in the 1k..10k range would silently get fewer results than
+        // before this refactor.
+        const {
+            assert!(
+                MAX_K >= 1_000,
+                "MAX_K regressed below legacy wasm limit 1000"
+            )
+        };
+    }
+
+    // ── F3C domain views (fachada A: vistas sin duplicar estado) ──
+
+    #[test]
+    fn test_f3c_domain_views_match_flat_facade() {
+        let cfg = Config::default()
+            .with_storage_path("/data/x".into())
+            .with_api_key(Some("sk-test".into()))
+            .with_eviction_weights(0.5, 1.5, 2.5, 3.5)
+            .with_max_blocking_threads(8);
+        let storage = cfg.storage_cfg();
+        let server = cfg.server_cfg();
+        let eviction = cfg.eviction_cfg();
+        let pool = cfg.pool_cfg();
+        let llm = cfg.llm_cfg();
+        let rbac = cfg.rbac_cfg();
+        assert_eq!(storage.storage_path, "/data/x");
+        assert_eq!(server.api_key, Some("sk-test".into()));
+        assert!((eviction.eviction_weight_hits - 0.5).abs() < 1e-9);
+        assert_eq!(pool.max_blocking_threads, 8);
+        assert_eq!(llm.llm_model, cfg.llm_model);
+        assert_eq!(
+            rbac.token_role_map.len(),
+            cfg.rbac_config.token_role_map.len()
+        );
+    }
+
+    #[test]
+    fn test_f3c_rbac_cfg_propio_con_alias_compat() {
+        // Q1=B: RbacCfg propio; RbacConfig sigue como alias (108 sitios intactos).
+        let cfg = RbacCfg {
+            token_role_map: [("tok".to_string(), "admin".to_string())]
+                .into_iter()
+                .collect(),
+        };
+        let legacy: RbacConfig = cfg.clone();
+        assert_eq!(legacy.token_role_map.get("tok").unwrap(), "admin");
+        let with = Config::default().with_rbac_config(cfg);
+        assert_eq!(with.rbac_config.token_role_map.get("tok").unwrap(), "admin");
+        assert_eq!(with.rbac_cfg().token_role_map.get("tok").unwrap(), "admin");
+    }
+
+    #[test]
+    fn test_f3c_hot_reload_subset_intacto() {
+        // Constraint inviolable C2D0: apply_to cubre los 8 campos, warn+default intactos.
+        let mut target = Config::default();
+        let hot = HotReloadConfig::from_config(&target);
+        assert!(!hot.apply_to(&mut target));
+        let mut changed_hot = hot.clone();
+        changed_hot.rate_limit_rpm = hot.rate_limit_rpm + 1;
+        assert!(changed_hot.apply_to(&mut target));
+        assert_eq!(target.rate_limit_rpm, changed_hot.rate_limit_rpm);
     }
 }

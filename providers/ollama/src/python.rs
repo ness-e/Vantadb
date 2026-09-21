@@ -1,46 +1,58 @@
 use pyo3::exceptions::PyRuntimeError;
 use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyDictMethods, PyList, PyModuleMethods};
+use pyo3::types::{PyDict, PyDictMethods, PyModuleMethods};
 use std::collections::HashMap;
 use std::time::{SystemTime, UNIX_EPOCH};
-use vantadb::config::VantaConfig;
-use vantadb::error::VantaError;
-use vantadb::sdk::{
-    VantaEmbedded, VantaMemoryInput, VantaMemoryListOptions, VantaMemorySearchRequest, VantaValue,
-};
+use vantadb::config::Config;
+use vantadb::sdk::{Embedded, MemoryInput, MemoryListOptions};
 
-fn err_to_py(e: VantaError) -> PyErr {
-    match e {
-        VantaError::NotFound { .. } => pyo3::exceptions::PyKeyError::new_err(e.to_string()),
-        VantaError::BackendError(_) => PyRuntimeError::new_err(e.to_string()),
-        VantaError::InvalidInput(_)
-        | VantaError::SchemaError(_)
-        | VantaError::SerializationError(_) => {
-            pyo3::exceptions::PyValueError::new_err(e.to_string())
-        }
-        _ => PyRuntimeError::new_err(format!("{:?}", e)),
-    }
-}
+#[path = "../../shared_py.rs"]
+mod common;
 
 /// Ollama local embedding wrapper with VantaDB storage.
 ///
 /// Generates embeddings via Ollama's local API and stores/searches them in VantaDB.
 ///
-/// Usage::
+/// Usage:
 ///
-///     from vantadb_ollama import VantaDBOllama
-///     store = VantaDBOllama("/tmp/vantadb-ollama")
-///     emb = store.embed(["hello world"])
-///     store.store("hello world", emb[0])
-///     results = store.search(emb[0], top_k=5)
+/// ```text
+/// from vantadb_ollama import VantaDBOllama
+/// store = VantaDBOllama("/tmp/vantadb-ollama")
+/// emb = store.embed(["hello world"])
+/// store.store("hello world", emb[0])
+/// results = store.search(emb[0], top_k=5)
+/// ```
 #[pyclass(name = "VantaDBOllama")]
 pub struct VantaDBOllama {
-    engine: VantaEmbedded,
+    engine: Embedded,
     client: Py<PyAny>,
     model: String,
     namespace: String,
     #[allow(dead_code)] // ponytail: passed to ollama.Client constructor, verified at client level
     timeout: Option<f64>,
+}
+
+/// Single embedding request for one chunk — shared by `embed`/`embed_batch`
+/// (free fn rather than a method: `&[String]` is not a valid `#[pymethods]`
+/// argument type, and the helper must not become Python-visible surface).
+fn ollama_embed_chunk(
+    store: &VantaDBOllama,
+    py: Python,
+    texts: &[String],
+) -> PyResult<Vec<Vec<f32>>> {
+    let client = store.client.bind(py);
+    let kwargs = PyDict::new(py);
+    kwargs.set_item("model", &store.model)?;
+    kwargs.set_item("input", texts.to_vec())?;
+    let response = client
+        .getattr("embed")
+        .and_then(|func| func.call((), Some(&kwargs)))
+        .map_err(|e| PyRuntimeError::new_err(format!("Ollama embed error: {}", e)))?;
+
+    response
+        .get_item("embeddings")
+        .and_then(|v| v.extract::<Vec<Vec<f32>>>())
+        .map_err(|e| PyRuntimeError::new_err(format!("missing embeddings: {}", e)))
 }
 
 #[pymethods]
@@ -65,13 +77,13 @@ impl VantaDBOllama {
         namespace: &str,
         timeout: Option<f64>,
     ) -> PyResult<Self> {
-        let config = VantaConfig {
+        let config = Config {
             storage_path: db_path.to_string(),
             ..Default::default()
         };
-        let engine = VantaEmbedded::open_with_config(config).map_err(err_to_py)?;
+        let engine = Embedded::open_with_config(config).map_err(common::err_to_py)?;
         let ollama_mod = pyo3::types::PyModule::import(py, "ollama")
-            .map_err(|e| PyRuntimeError::new_err(format!("ollama import error: {:?}", e)))?;
+            .map_err(|e| PyRuntimeError::new_err(format!("ollama import error: {}", e)))?;
         let client_kwargs = PyDict::new(py);
         client_kwargs.set_item("host", base_url)?;
         if let Some(t) = timeout {
@@ -80,7 +92,7 @@ impl VantaDBOllama {
         let client = ollama_mod
             .getattr("Client")
             .and_then(|cls| cls.call((), Some(&client_kwargs)))
-            .map_err(|e| PyRuntimeError::new_err(format!("Ollama client error: {:?}", e)))?;
+            .map_err(|e| PyRuntimeError::new_err(format!("Ollama client error: {}", e)))?;
         Ok(Self {
             engine,
             client: client.unbind(),
@@ -98,19 +110,41 @@ impl VantaDBOllama {
     /// Returns:
     ///     A list of embedding vectors, one per input text.
     fn embed(&self, py: Python, texts: Vec<String>) -> PyResult<Vec<Vec<f32>>> {
-        let client = self.client.bind(py);
-        let kwargs = PyDict::new(py);
-        kwargs.set_item("model", &self.model)?;
-        kwargs.set_item("input", texts)?;
-        let response = client
-            .getattr("embed")
-            .and_then(|func| func.call((), Some(&kwargs)))
-            .map_err(|e| PyRuntimeError::new_err(format!("Ollama embed error: {:?}", e)))?;
+        ollama_embed_chunk(self, py, &texts)
+    }
 
-        response
-            .get_item("embeddings")
-            .and_then(|v| v.extract::<Vec<Vec<f32>>>())
-            .map_err(|e| PyRuntimeError::new_err(format!("missing embeddings: {:?}", e)))
+    /// Generate embeddings in batches of at most `batch_size` texts (PROV-11).
+    ///
+    /// Additive chunked variant of [`Self::embed`]: large volumes are split
+    /// into one API request per chunk and concatenated preserving order, so a
+    /// single oversized request never hits provider limits. Inputs of
+    /// `batch_size` or fewer behave exactly like [`Self::embed`] (1 request).
+    /// Async callers: `await asyncio.to_thread(store.embed_batch, texts)`
+    /// (the method holds no Rust locks across chunks).
+    ///
+    /// Args:
+    ///     texts: List of strings to embed (empty → empty, no request).
+    ///     batch_size: Max texts per request (default: 100, must be >= 1).
+    ///
+    /// Returns:
+    ///     A list of embedding vectors, one per input text, in input order.
+    #[pyo3(signature = (texts, batch_size = 100))]
+    fn embed_batch(
+        &self,
+        py: Python,
+        texts: Vec<String>,
+        batch_size: usize,
+    ) -> PyResult<Vec<Vec<f32>>> {
+        let batch_size = common::validate_batch_size(batch_size)
+            .map_err(pyo3::exceptions::PyValueError::new_err)?;
+        if texts.is_empty() {
+            return Ok(Vec::new());
+        }
+        let mut out = Vec::with_capacity(texts.len());
+        for chunk in common::batch_slices(&texts, batch_size) {
+            out.extend(ollama_embed_chunk(self, py, &chunk)?);
+        }
+        Ok(out)
     }
 
     /// Search for similar records by vector similarity with optional filters.
@@ -123,8 +157,9 @@ impl VantaDBOllama {
     ///     distance_metric: Distance metric ("cosine" or "euclidean"/"l2").
     ///
     /// Returns:
-    ///     A list of dicts with ``id``, ``text``, and ``score`` keys.
+    ///     A list of dicts with full record fields plus ``score``.
     #[pyo3(signature = (namespace, query_embedding, text_query = None, filters = None, distance_metric = None, top_k = 10))]
+    #[allow(clippy::too_many_arguments)]
     fn search(
         &self,
         py: Python,
@@ -135,34 +170,27 @@ impl VantaDBOllama {
         distance_metric: Option<String>,
         top_k: usize,
     ) -> PyResult<Vec<Py<PyAny>>> {
-        let request = VantaMemorySearchRequest {
-            namespace: namespace.to_string(),
-            query_vector: query_embedding,
-            filters: filters
-                .unwrap_or_default()
-                .into_iter()
-                .map(|(k, v)| (k, VantaValue::String(v)))
-                .collect(),
+        let metric = common::parse_distance_metric(distance_metric.as_deref())
+            .map_err(pyo3::exceptions::PyValueError::new_err)?;
+        let request = common::build_search_request(
+            namespace,
+            query_embedding,
             text_query,
+            filters,
+            metric,
             top_k,
-            distance_metric: match distance_metric.as_deref() {
-                Some("euclidean" | "l2") => vantadb::DistanceMetric::Euclidean,
-                _ => vantadb::DistanceMetric::Cosine,
-            },
-            explain: false,
-        };
+        );
 
         let engine = self.engine.clone();
         // GIL RELEASED — pure Rust search
-        let hits = py.detach(move || engine.search(request).map_err(err_to_py))?;
+        let hits = py.detach(move || engine.search(request).map_err(common::err_to_py))?;
 
         let mut results = Vec::with_capacity(hits.len());
         for hit in hits {
-            let d = PyDict::new(py);
-            d.set_item("id", format!("{}:{}", hit.record.namespace, hit.record.key))?;
-            d.set_item("text", &hit.record.payload)?;
-            d.set_item("score", hit.score)?;
-            results.push(d.unbind().into());
+            let d = common::record_to_pydict(py, hit.record)?;
+            let bound: &Bound<'_, PyDict> = d.bind(py).cast()?;
+            bound.set_item("score", hit.score)?;
+            results.push(d);
         }
         Ok(results)
     }
@@ -173,45 +201,47 @@ impl VantaDBOllama {
     ///     text: The text content to store.
     ///     embedding: The embedding vector for this text.
     ///     metadata: Optional metadata dict (string keys, string/bool/int/float values).
+    ///     key: Optional custom record key. If provided, the record is upserted at
+    ///         that key (deterministic across runs — same key → same record).
+    ///         If omitted, a nanosecond-based key is generated automatically.
     ///
     /// Returns:
     ///     The record ID as ``namespace:key``.
+    #[pyo3(signature = (text, embedding, metadata = None, key = None))]
     fn store(
         &self,
         py: Python,
         text: &str,
         embedding: Vec<f32>,
         metadata: Option<&Bound<'_, PyDict>>,
+        key: Option<String>, // store() upsert deterministic key (chroma add(ids=) compat)
     ) -> PyResult<String> {
         let namespace = self.namespace.clone();
-        let ts = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap_or_default()
-            .as_nanos();
-        let key = format!("ollama_{ts}");
-        let mut input = VantaMemoryInput::new(&namespace, &key, text);
+        let key = key.unwrap_or_else(|| {
+            let ts = SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_nanos();
+            format!("ollama_{ts}")
+        });
+        let mut input = MemoryInput::new(&namespace, &key, text);
         input.vector = Some(embedding);
 
-        if let Some(meta) = metadata {
-            for (k, v) in meta.iter() {
-                if let Ok(key) = k.extract::<String>() {
-                    let val = v
-                        .extract::<String>()
-                        .ok()
-                        .map(vantadb::sdk::VantaValue::String)
-                        .or_else(|| v.extract::<bool>().ok().map(vantadb::sdk::VantaValue::Bool))
-                        .or_else(|| v.extract::<i64>().ok().map(vantadb::sdk::VantaValue::Int))
-                        .or_else(|| v.extract::<f64>().ok().map(vantadb::sdk::VantaValue::Float));
-                    if let Some(val) = val {
-                        input.metadata.insert(key, val);
-                    }
-                }
-            }
+        let (parsed_meta, dropped_keys) = common::extract_metadata(metadata)?;
+        for (k, v) in parsed_meta {
+            input.metadata.insert(k, v);
+        }
+        if !dropped_keys.is_empty() {
+            py.import("warnings")?
+                .call_method1("warn", (format!(
+                    "dropping metadata keys with unsupported value types (expected str/bool/int/float): {}",
+                    dropped_keys.join(", ")
+                ),))?;
         }
 
         let engine = self.engine.clone();
         // GIL RELEASED — pure Rust insert
-        let record = py.detach(move || engine.put(input).map_err(err_to_py))?;
+        let record = py.detach(move || engine.put(input).map_err(common::err_to_py))?;
         Ok(format!("{}:{}", record.namespace, record.key))
     }
 
@@ -227,7 +257,7 @@ impl VantaDBOllama {
     fn delete(&self, py: Python, key: &str, namespace: Option<String>) -> PyResult<bool> {
         let ns = namespace.unwrap_or(self.namespace.clone());
         let engine = self.engine.clone();
-        py.detach(move || engine.delete(&ns, key).map_err(err_to_py))
+        py.detach(move || engine.delete(&ns, key).map_err(common::err_to_py))
     }
 
     /// Retrieve a memory record by namespace and key.
@@ -237,33 +267,14 @@ impl VantaDBOllama {
     ///     key: The record key to retrieve.
     ///
     /// Returns:
-    ///     A dict with ``namespace``, ``key``, ``text``, and timestamps, or None if not found.
+    ///     A dict with full record fields, or None if not found.
     #[pyo3(signature = (namespace, key))]
     fn get(&self, py: Python, namespace: &str, key: &str) -> PyResult<Option<Py<PyAny>>> {
         let engine = self.engine.clone();
         let ns = namespace.to_string();
         let k = key.to_string();
-        let result = py.detach(move || engine.get(&ns, &k).map_err(err_to_py))?;
-
-        match result {
-            Some(record) => {
-                let d = PyDict::new(py);
-                d.set_item("namespace", &record.namespace)?;
-                d.set_item("key", &record.key)?;
-                d.set_item("text", &record.payload)?;
-                d.set_item("created_at_ms", record.created_at_ms)?;
-                d.set_item("updated_at_ms", record.updated_at_ms)?;
-                d.set_item("version", record.version)?;
-                if let Some(ref vector) = record.vector {
-                    d.set_item("vector", vector)?;
-                }
-                if let Some(expires) = record.expires_at_ms {
-                    d.set_item("expires_at_ms", expires)?;
-                }
-                Ok(Some(d.unbind().into()))
-            }
-            None => Ok(None),
-        }
+        let result = py.detach(move || engine.get(&ns, &k).map_err(common::err_to_py))?;
+        result.map(|r| common::record_to_pydict(py, r)).transpose()
     }
 
     /// List memory records in a namespace with cursor-based pagination.
@@ -271,10 +282,10 @@ impl VantaDBOllama {
     /// Args:
     ///     namespace: The namespace to list.
     ///     limit: Maximum number of results (default: 100).
-    ///     cursor: Optional cursor string for pagination.
+    ///     cursor: Optional cursor for pagination.
     ///
     /// Returns:
-    ///     A dict with ``records`` (list of dicts) and optional ``cursor`` for next page.
+    ///     A dict with ``records`` (list of dicts with full record fields) and ``next_cursor``.
     #[pyo3(signature = (namespace, limit = 100, cursor = None))]
     fn list(
         &self,
@@ -283,55 +294,104 @@ impl VantaDBOllama {
         limit: usize,
         cursor: Option<usize>,
     ) -> PyResult<Py<PyAny>> {
-        let options = VantaMemoryListOptions {
+        let options = MemoryListOptions {
             #[allow(deprecated)]
-            filters: vantadb::sdk::VantaMemoryMetadata::new(),
+            filters: vantadb::sdk::MemoryMetadata::new(),
             filter_ops: None,
             limit,
             cursor,
+            exclude_superseded: false,
         };
 
         let engine = self.engine.clone();
         let ns = namespace.to_string();
-        let page = py.detach(move || engine.list(&ns, options).map_err(err_to_py))?;
+        let page = py.detach(move || engine.list(&ns, options).map_err(common::err_to_py))?;
 
         let d = PyDict::new(py);
-        let records_list = PyList::empty(py);
-        for record in page.records {
-            let rd = PyDict::new(py);
-            rd.set_item("namespace", &record.namespace)?;
-            rd.set_item("key", &record.key)?;
-            rd.set_item("text", &record.payload)?;
-            let meta = PyDict::new(py);
-            for (mk, mv) in &record.metadata {
-                match mv {
-                    vantadb::sdk::VantaValue::String(s) => meta.set_item(mk, s)?,
-                    vantadb::sdk::VantaValue::Int(i) => meta.set_item(mk, i)?,
-                    vantadb::sdk::VantaValue::Float(f) => meta.set_item(mk, f)?,
-                    vantadb::sdk::VantaValue::Bool(b) => meta.set_item(mk, b)?,
-                    other => meta.set_item(mk, format!("{:?}", other))?,
-                };
-            }
-            rd.set_item("metadata", meta)?;
-            records_list.append(rd)?;
-        }
-        d.set_item("records", records_list)?;
-        if let Some(next_cursor) = page.next_cursor {
-            d.set_item("cursor", next_cursor.to_string())?;
-        }
+        let records: Vec<Py<PyAny>> = page
+            .records
+            .into_iter()
+            .map(|r| common::record_to_pydict(py, r))
+            .collect::<PyResult<_>>()?;
+        d.set_item("records", records)?;
+        d.set_item("next_cursor", page.next_cursor)?;
         Ok(d.unbind().into())
     }
 
     /// List all namespaces that contain at least one memory record.
     fn list_namespaces(&self, py: Python) -> PyResult<Vec<String>> {
         let engine = self.engine.clone();
-        py.detach(move || engine.list_namespaces().map_err(err_to_py))
+        py.detach(move || engine.list_namespaces().map_err(common::err_to_py))
     }
 }
 
 #[pymodule]
 fn vantadb_ollama(_py: Python, m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<VantaDBOllama>()?;
+    common::register_errors(m)?;
     m.add("__version__", env!("CARGO_PKG_VERSION"))?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    /// PROV-07: invalid distance_metric raises ValueError with explicit message.
+    /// Sanity check: source must contain both the match arm and the PyValueError path.
+    #[test]
+    fn invalid_distance_metric_raises_value_error() {
+        let src = include_str!("python.rs");
+        assert!(
+            src.contains("PyValueError"),
+            "search() must raise PyValueError on invalid distance_metric"
+        );
+        assert!(
+            src.contains("invalid distance_metric"),
+            "search() must include the literal 'invalid distance_metric' message"
+        );
+        assert!(
+            src.contains("cosine") && src.contains("euclidean") && src.contains("l2"),
+            "ValueError message must reference the allowed metrics"
+        );
+    }
+
+    /// PROV-11: embed_batch() is an additive chunked API over embed().
+    /// Sanity check: the signature default, the shared helpers and the
+    /// intact sync `embed()` must all be present (aditivo, no breaking).
+    #[test]
+    fn embed_batch_is_additive_chunked_api() {
+        let src = include_str!("python.rs");
+        assert!(
+            src.contains("#[pyo3(signature = (texts, batch_size = 100))]"),
+            "embed_batch() signature must declare `batch_size = 100` default"
+        );
+        assert!(
+            src.contains("validate_batch_size") && src.contains("batch_slices"),
+            "embed_batch() must reuse the shared chunking helpers"
+        );
+        assert!(
+            src.contains("fn embed(&self, py: Python, texts: Vec<String>)"),
+            "sync embed() signature must stay intact (no regression)"
+        );
+    }
+
+    /// PROV-10: store() accepts an optional custom key for deterministic upserts.
+    /// Sanity check: the `#[pyo3(signature)]` attribute and the body parameter
+    /// must both expose the optional `key` field, and the autogen branch must
+    /// still produce a `prefix_ts` key when key=None.
+    #[test]
+    fn store_signature_exposes_optional_key() {
+        let src = include_str!("python.rs");
+        assert!(
+            src.contains("#[pyo3(signature = (text, embedding, metadata = None, key = None))]"),
+            "store() signature must declare `key = None` for backward compat"
+        );
+        assert!(
+            src.contains("key: Option<String>"),
+            "store() body must accept key: Option<String>"
+        );
+        assert!(
+            src.contains("format!(\"ollama_{ts}\")"),
+            "autogen branch must still produce ollama_{{ts}} key when key=None"
+        );
+    }
 }

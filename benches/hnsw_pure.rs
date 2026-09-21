@@ -1,8 +1,11 @@
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 use criterion::{criterion_group, criterion_main, Criterion};
 use rand::rngs::StdRng;
 use rand::{Rng, SeedableRng};
 use std::time::Instant;
 use vantadb::index::{CPIndex, FilterBitset, HnswConfig, VectorRepresentations};
+
+mod common;
 
 fn generate_vectors(count: usize, dim: usize) -> Vec<Vec<f32>> {
     let mut rng = StdRng::seed_from_u64(42);
@@ -16,6 +19,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
     let count = 10_000;
 
     let mut group = c.benchmark_group("hnsw_pure");
+    common::apply_fixed_profile(&mut group);
     group.sample_size(10);
 
     group.bench_function("insert_10k", |b| {
@@ -30,7 +34,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
                     ef_search: 50,
                     ml: 1.0 / (16_f64).ln(),
                     distance_metric: vantadb::node::DistanceMetric::Cosine,
-                    flat_threshold: Some(10000),
+                    flat_threshold: None,
                     index_type: vantadb::index::IndexType::Hnsw,
                     auto_tune: false,
                 };
@@ -38,7 +42,7 @@ fn bench_hnsw_pure(c: &mut Criterion) {
 
                 let start = Instant::now();
                 for (id, vec) in vectors.into_iter().enumerate() {
-                    index.add(
+                    let _ = index.add(
                         id as u128,
                         FilterBitset::all_set(),
                         VectorRepresentations::Full(vec),
@@ -60,14 +64,14 @@ fn bench_hnsw_pure(c: &mut Criterion) {
             ef_search: 50,
             ml: 1.0 / (16_f64).ln(),
             distance_metric: vantadb::node::DistanceMetric::Cosine,
-            flat_threshold: Some(10000),
+            flat_threshold: None,
             index_type: vantadb::index::IndexType::Hnsw,
             auto_tune: false,
         };
         let index = CPIndex::new_with_config(config);
 
         for (id, vec) in vectors.iter().enumerate() {
-            index.add(
+            let _ = index.add(
                 id as u128,
                 FilterBitset::all_set(),
                 VectorRepresentations::Full(vec.clone()),

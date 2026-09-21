@@ -1,0 +1,11 @@
+---
+source: tests/query_result_advanced.rs
+expression: result
+---
+Write {
+    affected_nodes: 5,
+    message: "batch insert completed",
+    node_id: Some(
+        1005,
+    ),
+}

@@ -34,10 +34,15 @@ pub struct AsyncIngestionPipeline {
 impl AsyncIngestionPipeline {
     /// Create a new pipeline with the given number of workers.
     ///
-    /// `worker_count` defaults to 4 when `None` is passed. At least one worker
-    /// is always created.
+    /// `worker_count` defaults to 1 when `None` is passed. At least one worker
+    /// is always created. Default is 1 (not 4): RES-03 measured -31% (w=2) /
+    /// -43% (w=4) vs w=1 on the serial insert path — see
+    /// `docs/operations/BENCHMARKS.md` §13.
     pub fn new(engine: Arc<StorageEngine>, worker_count: Option<usize>) -> Self {
-        let count = worker_count.unwrap_or(4).max(1);
+        // ponytail: single worker — engine insert path is serial (global insert_lock
+        // + WAL fsync per write); more workers only add convoy. Scale up when
+        // FIND-59/FUT-12 lift the serial ceiling (see BENCHMARKS §13).
+        let count = worker_count.unwrap_or(1).max(1);
         let (tx, rx) = mpsc::channel::<(IngestionTask, oneshot::Sender<Result<u128>>)>(1024);
         let rx = Arc::new(Mutex::new(rx));
 
@@ -57,12 +62,10 @@ impl AsyncIngestionPipeline {
     pub async fn submit(&self, task: IngestionTask) -> Result<u128> {
         let (tx, rx) = oneshot::channel();
         self.sender.send((task, tx)).await.map_err(|_| {
-            crate::error::VantaError::IoError(std::io::Error::other(
-                "async ingestion pipeline closed",
-            ))
+            crate::error::Error::Io(std::io::Error::other("async ingestion pipeline closed"))
         })?;
         rx.await.map_err(|_| {
-            crate::error::VantaError::IoError(std::io::Error::other(
+            crate::error::Error::Io(std::io::Error::other(
                 "worker task terminated before responding",
             ))
         })?
@@ -87,7 +90,7 @@ impl AsyncIngestionPipeline {
 
                     let result = match run_res {
                         Ok(res) => res,
-                        Err(e) => Err(crate::error::VantaError::generic_error(format!(
+                        Err(e) => Err(crate::error::Error::generic_error(format!(
                             "Ingestion worker task panicked: {}",
                             e
                         ))),
@@ -108,5 +111,35 @@ impl AsyncIngestionPipeline {
             node.set_field(key.as_str(), FieldValue::String(value.clone()));
         }
         engine.insert(&node)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[allow(clippy::unwrap_used, clippy::expect_used)]
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn pipeline_delivers_every_submitted_task() {
+        let dir = tempdir().unwrap();
+        let engine = Arc::new(StorageEngine::open(dir.path().to_str().unwrap()).unwrap());
+        let pipeline = AsyncIngestionPipeline::new(Arc::clone(&engine), Some(2));
+
+        for i in 0..16u128 {
+            let task = IngestionTask {
+                id: i,
+                vector: vec![0.25; 4],
+                text: format!("node {i}"),
+                metadata: HashMap::new(),
+            };
+            let micros = pipeline.submit(task).await.unwrap();
+            assert!(micros > 0, "insert duration must be measured");
+        }
+
+        for i in 0..16u128 {
+            let node = engine.get(i).unwrap();
+            assert!(node.is_some(), "task {i} must be persisted");
+        }
     }
 }

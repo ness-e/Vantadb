@@ -85,9 +85,9 @@ def main():
     # ── 1. Create / open database ──────────────────────────────────────
     section("1. Create / open database")
 
-    import vantadb_py
+    import vantadb
 
-    db = vantadb_py.VantaDB(db_path, memory_limit_bytes=128 * 1024 * 1024)
+    db = vantadb.Client(db_path, memory_limit_bytes=128 * 1024 * 1024)
     caps = db.capabilities()
     print(f"  Storage  : {db_path}")
     print(f"  Profile  : {caps.get('runtime_profile', '?')}")
@@ -147,7 +147,7 @@ def main():
 
     query = "machine learning and natural language processing"
     query_vec = embed_fn([query])[0]
-    hits = db.search_memory(
+    hits = db.search(
         namespace="demo",
         query_vector=query_vec,
         top_k=3,
@@ -162,7 +162,7 @@ def main():
 
     query2 = "who writes code"
     query_vec2 = embed_fn([query2])[0]
-    hits2 = db.search_memory(
+    hits2 = db.search(
         namespace="demo",
         query_vector=query_vec2,
         text_query="Rust engineer developer",
@@ -179,7 +179,7 @@ def main():
     # ── 5. Persistence ─────────────────────────────────────────────────
     section("5. Persistence (close + reopen)")
 
-    key_count_before = len(db.list_memory(namespace="demo", limit=9999).records)
+    key_count_before = len(db.memory.list(namespace="demo", limit=9999).records)
     print(f"  Records before close : {key_count_before}")
 
     db.flush()
@@ -187,12 +187,12 @@ def main():
     print("  Database closed.")
 
     # Reopen
-    db2 = vantadb_py.VantaDB(db_path, memory_limit_bytes=128 * 1024 * 1024)
-    key_count_after = len(db2.list_memory(namespace="demo", limit=9999).records)
+    db2 = vantadb.Client(db_path, memory_limit_bytes=128 * 1024 * 1024)
+    key_count_after = len(db2.memory.list(namespace="demo", limit=9999).records)
     print(f"  Records after reopen : {key_count_after}")
 
     # Verify a specific record survived
-    alice_record = db2.get_memory("demo", "alice")
+    alice_record = db2.memory.get("demo", "alice")
     if alice_record:
         print(f"  Retrieved alice     : \"{alice_record.payload}\"")
     else:

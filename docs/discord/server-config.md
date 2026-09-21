@@ -97,6 +97,40 @@ All categories grant ViewChannel + SendMessages to @everyone. **Single-channel b
 
 ## Integrations
 
-| Integration | Events | Channel |
+## Integrations
+
+### GitHub → Discord webhook
+
+A **repository webhook** (GitHub events → Discord channel webhook URL) forwards
+GitHub activity to Discord. It is a standard GitHub repo webhook whose **Payload
+URL** is a Discord channel webhook URL; GitHub delivers native event payloads to
+Discord, which renders them as messages in `#📢announcements`.
+
+| Event type | GitHub trigger (Settings → Webhooks → events) | Destination |
 |---|---|---|
-| GitHub Webhook | push, pull_request, issues, release | #📢announcements |
+| `push` | Pushes to any branch (default: all branches) | #📢announcements |
+| `pull_request` | PR opened, closed, merged, reopened | #📢announcements |
+| `issues` | Issue opened, closed, reopened, labeled | #📢announcements |
+| `release` | Release published | #📢announcements |
+
+#### Adding a new event type
+
+Events are selected in the GitHub webhook configuration, not in Discord:
+
+1. Go to the repository → **Settings → Webhooks**.
+2. Click **Edit** on the active GitHub→Discord webhook (or **Add webhook** to create one).
+3. Under **Let me select individual events**, check the desired event (e.g.
+   `Pushes`, `Pull requests`, `Issues`, `Releases`, `Fork`, `Star`).
+4. **Update webhook** to save. No Discord-side change is required — the payload
+   is forwarded to the same channel webhook URL.
+
+#### Where it is configured
+
+- **GitHub:** repository → **Settings → Webhooks**. The webhook's **Payload URL**
+  is the Discord channel webhook endpoint
+  (`https://discord.com/api/webhooks/<id>/<token>`).
+- **Discord:** channel → **Edit Channel → Integrations → Webhooks**. The webhook
+  URL used by the GitHub webhook must exist here and have **Send Messages**
+  permission for the target channel. Channel per event is fixed by which Discord
+  webhook URL the GitHub webhook points at; a separate event → channel mapping
+  would require a second webhook, not Discord-side routing.

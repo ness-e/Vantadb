@@ -1,0 +1,57 @@
+[
+  {
+    "name": "home",
+    "url": "https://vantadb.vercel.app",
+    "error": "Page.evaluate: SyntaxError: Unexpected token ')'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:303:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+  },
+  {
+    "name": "docs",
+    "url": "https://vantadb.vercel.app/docs",
+    "error": "Page.evaluate: SyntaxError: Unexpected token ')'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:303:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+  },
+  {
+    "name": "playground",
+    "url": "https://vantadb.vercel.app/playground",
+    "error": "Page.evaluate: SyntaxError: Unexpected token ')'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:303:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+  },
+  {
+    "name": "about-company",
+    "url": "https://vantadb.vercel.app/about/company",
+    "error": "Page.evaluate: SyntaxError: Unexpected token ')'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:303:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+  },
+  {
+    "name": "about-team",
+    "url": "https://vantadb.vercel.app/about/team",
+    "error": "Page.evaluate: SyntaxError: Unexpected token ')'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:303:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+  },
+  {
+    "name": "about-community",
+    "url": "https://vantadb.vercel.app/about/community",
+    "error": "Page.evaluate: SyntaxError: Unexpected token ')'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:303:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+  },
+  {
+    "name": "about-contact",
+    "url": "https://vantadb.vercel.app/about/contact",
+    "error": "Page.evaluate: SyntaxError: Unexpected token ')'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:303:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+  },
+  {
+    "name": "playground-page",
+    "url": "https://vantadb.vercel.app/playground",
+    "error": "Page.evaluate: SyntaxError: Unexpected token ')'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:303:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+  },
+  {
+    "name": "docs-page",
+    "url": "https://vantadb.vercel.app/docs",
+    "error": "Page.evaluate: SyntaxError: Unexpected token ')'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:303:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+  },
+  {
+    "name": "architecture",
+    "url": "https://vantadb.vercel.app/architecture",
+    "error": "Page.evaluate: SyntaxError: Unexpected token ')'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:303:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+  },
+  {
+    "name": "benchmarks",
+    "url": "https://vantadb.vercel.app/benchmarks",
+    "error": "Page.evaluate: SyntaxError: Unexpected token ')'\n    at eval (<anonymous>)\n    at UtilityScript.evaluate (<anonymous>:303:30)\n    at UtilityScript.<anonymous> (<anonymous>:1:44)"
+  }
+]

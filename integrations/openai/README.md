@@ -4,6 +4,17 @@ OpenAI embedding + storage adapter for [VantaDB](https://github.com/ness-e/Vanta
 
 ## Install
 
+> **Not on PyPI yet.** The `vantadb-openai` package builds and passes
+> `twine check` locally; it will go live with the first `adapters-v*` tag
+> release. Until then, install from source.
+
+```bash
+# Today, from a repo checkout
+cd integrations/openai && pip install .
+```
+
+### Install from PyPI (after first release)
+
 ```bash
 pip install vantadb-openai
 ```
@@ -30,6 +41,17 @@ for doc in results:
 - `add_texts(texts, metadatas=None, ids=None)` — embed and store texts
 - `similarity_search(query, k=4)` — search by query text
 - `delete(ids)` — delete by IDs
+
+## Why VantaDB?
+
+- **Embedded & local-first:** the storage engine is a Rust library embedded
+  in your process — no server to deploy, no network hop; data lives in your
+  filesystem.
+- **Persistent hybrid search:** vectors + BM25 text search out of the box,
+  even when the embedding API is unavailable (keyword search keeps working).
+- **Zero-setup alternative to hosted stacks:** unlike Zep (requires a server)
+  or Cognee (spins up its own knowledge-graph runtime), VantaDB is a plain
+  library you import.
 
 ## Development
 

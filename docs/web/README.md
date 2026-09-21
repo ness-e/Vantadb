@@ -1,3 +1,13 @@
+---
+title: "VantaDB Web Frontend"
+type: web
+status: active
+tags: [vantadb, web, root]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
 # VantaDB Web Frontend
 
 **Stack:** Next.js 16 (App Router) · React 19 · TypeScript · Tailwind CSS v4 · shadcn/ui (New York) · Framer Motion 12 · Anime.js 4

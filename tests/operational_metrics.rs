@@ -1,7 +1,9 @@
+// ponytail: blanket allow — unwraps with documented invariants; documented per-call.
+#![allow(clippy::expect_used, clippy::unwrap_used)]
 //! Operational metrics certification for replay, rebuild, export, and import.
 
 use tempfile::tempdir;
-use vantadb::{VantaEmbedded, VantaMemoryInput, VantaMemorySearchRequest};
+use vantadb::{Embedded, MemoryInput, MemorySearchRequest};
 
 #[test]
 fn metrics_track_rebuild_export_import_and_replay() {
@@ -10,13 +12,13 @@ fn metrics_track_rebuild_export_import_and_replay() {
     let export_path = dir.path().join("metrics.jsonl");
 
     {
-        let db = VantaEmbedded::open(&path).expect("open");
-        let mut input = VantaMemoryInput::new("agent/main", "metric", "payload");
+        let db = Embedded::open(&path).expect("open");
+        let mut input = MemoryInput::new("agent/main", "metric", "payload");
         input.vector = Some(vec![1.0, 0.0, 0.0]);
         db.put(input).expect("put");
     }
 
-    let reopened = VantaEmbedded::open(&path).expect("reopen");
+    let reopened = Embedded::open(&path).expect("reopen");
     let replay_metrics = reopened.operational_metrics();
     assert!(replay_metrics.wal_records_replayed >= 1);
 
@@ -48,7 +50,7 @@ fn metrics_track_rebuild_export_import_and_replay() {
 
     let before_text = reopened.operational_metrics();
     let text_hits = reopened
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: Vec::new(),
             filters: Default::default(),
@@ -65,7 +67,7 @@ fn metrics_track_rebuild_export_import_and_replay() {
 
     let before_vector = reopened.operational_metrics();
     let vector_hits = reopened
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0, 0.0],
             filters: Default::default(),
@@ -80,7 +82,7 @@ fn metrics_track_rebuild_export_import_and_replay() {
 
     let before_hybrid = reopened.operational_metrics();
     let hybrid_hits = reopened
-        .search(VantaMemorySearchRequest {
+        .search(MemorySearchRequest {
             namespace: "agent/main".to_string(),
             query_vector: vec![1.0, 0.0, 0.0],
             filters: Default::default(),
@@ -101,7 +103,7 @@ fn metrics_track_rebuild_export_import_and_replay() {
     assert!(after_export.records_exported > before_export.records_exported);
 
     let import_dir = tempdir().expect("import tempdir");
-    let imported = VantaEmbedded::open(import_dir.path()).expect("open imported");
+    let imported = Embedded::open(import_dir.path()).expect("open imported");
     let before_import = imported.operational_metrics();
     let import = imported.import_file(&export_path).expect("import");
     assert_eq!(import.inserted, 1);
@@ -112,7 +114,7 @@ fn metrics_track_rebuild_export_import_and_replay() {
 #[test]
 fn metrics_track_import_errors() {
     let dir = tempdir().expect("tempdir");
-    let db = VantaEmbedded::open(dir.path()).expect("open");
+    let db = Embedded::open(dir.path()).expect("open");
     let import_path = dir.path().join("invalid.jsonl");
     std::fs::write(&import_path, "{not valid json}\n").expect("write invalid import");
 

@@ -3,7 +3,7 @@ title: "crc32c"
 type: glossary-entry
 status: stable
 tags: [integridad, checksum, hash, crc]
-last_refined: 2026-06
+last_reviewed: 2026-09-15
 links: "[[README.md]]"
 aliases: [Cyclic Redundancy Check, CRC32 Castagnoli]
 description: "Checksum algorithm that produces a 32-bit hash using the Castagnoli polynomial, used to detect hardware-supported data corruption on modern CPUs"
