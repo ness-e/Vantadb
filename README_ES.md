@@ -96,7 +96,7 @@ Inicializa un almacén de memoria persistente, guarda registros estructurados co
 import vantadb
 
 # 1. Abre o crea una base de datos local (cero configuración)
-db = vantadb.VantaDB("./vanta_data", memory_limit_bytes=512_000_000)
+db = vantadb.Client("./vanta_data", memory_limit_bytes=512_000_000)
 
 # 2. Guarda un registro de memoria con payload, metadatos y embedding
 record = db.put(

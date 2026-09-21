@@ -4,7 +4,10 @@ build-backend = "maturin"
 
 [project]
 name = "vantadb-py"
-version = "0.6.0"
+# Single source of truth: workspace Cargo.toml (release-plz bumps it;
+# maturin resolves the crate version from Cargo at build time). NEVER pin a
+# static version here — it drifts from tags (PyPI 0.6.0 incident 2026-09-21).
+dynamic = ["version"]
 description = "Python bindings for VantaDB — embedded persistent memory and hybrid vector search engine for AI agents."
 readme = "README.md"
 requires-python = ">=3.11"
