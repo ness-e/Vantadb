@@ -68,11 +68,33 @@ fn public_surfaces_report_same_version() {
     let cargo_toml = read(root.join("Cargo.toml"));
     let version = extract_cargo_version(&cargo_toml, &cargo_toml);
 
+    // Single source of truth: the wheel version is resolved by maturin from
+    // the workspace Cargo.toml at build time (dynamic = ["version"]).
+    // A static `version = "x.y.z"` here drifts from tags (PyPI 0.6.0
+    // incident 2026-09-21: tag content predates manual bumps).
     let pyproject = read(root.join("vantadb-python").join("pyproject.toml"));
+    let in_project = pyproject
+        .lines()
+        .skip_while(|l| l.trim() != "[project]")
+        .take_while(|l| {
+            let t = l.trim();
+            !(t.starts_with('[') && t != "[project]")
+        });
+    let mut has_static = false;
+    let mut has_dynamic = false;
+    for line in in_project {
+        let t = line.trim();
+        if t.starts_with("version") && t.contains('=') {
+            has_static = true;
+        }
+        if t.starts_with("dynamic") && t.contains("version") {
+            has_dynamic = true;
+        }
+    }
     assert!(
-        pyproject.contains(&format!("version = \"{}\"", version)),
-        "pyproject.toml must match Cargo.toml version {}",
-        version
+        !has_static && has_dynamic,
+        "pyproject.toml [project] must use dynamic = [\"version\"] (maturin resolves \
+         workspace Cargo.toml); static pins drift from tags"
     );
 
     let python_cargo = read(root.join("vantadb-python").join("Cargo.toml"));
