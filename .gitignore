@@ -276,3 +276,7 @@ docs/reviews/dsm-baseline.json
 
 # Local-only agent tooling (C-01: untracked from git, stays on disk)
 .opencode/
+
+# Next.js / build outputs (W-05: web/.next/*.sst rompio push por limite 100MB)
+**/.next/
+**/out/
