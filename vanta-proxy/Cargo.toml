@@ -13,7 +13,7 @@ reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 bytes = "1"
-toml = "0.9"
+toml = "1.1"
 # PRX-07: operator-configured custom patterns only (built-in detectors are
 # hand-rolled linear scans). Pinned to a semver-compatible 1.x.
 regex = "1"
