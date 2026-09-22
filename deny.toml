@@ -20,6 +20,14 @@ ignore = [
     # Tracked: drop when jsonwebtoken offers HS-only features or rsa gets constant-time impl.
     "RUSTSEC-2023-0071",
 
+    # RUSTSEC-2024-0429 (glib <0.20.0, VariantStrIter unsoundness):
+    # mirror of .cargo/audit.toml triage (VULN-C1, owner accept-risk 2026-09-22).
+    # Transitive via Tauri2 (desktop lock only); no own-code use; bump blocked by Tauri2.
+    # Owner: vanta-lead
+    # Expiry: 2027-03-22
+    # Tracked: https://github.com/gtk-rs/gtk-rs-core/pull/1343
+    "RUSTSEC-2024-0429",
+
 # RUSTSEC-2024-0436 (paste unmaintained): removed — advisory-not-detected,
     # tikv-jemalloc-ctl no longer pulls paste. Re-add only if it reappears.
 
