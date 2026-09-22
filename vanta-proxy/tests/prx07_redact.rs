@@ -62,7 +62,12 @@ fn generic_tokens_masked() {
     let s = String::from_utf8(bytes).unwrap();
     assert!(s.contains("[REDACTED_TOKEN]"));
     for secret in secrets {
-        assert!(!s.contains(secret), "token must never echo: {secret}");
+        // Hygiene (CSCAN-C3): never echo the secret even on failure — length only.
+        assert!(
+            !s.contains(secret),
+            "token of len {} must never echo",
+            secret.len()
+        );
     }
 }
 
