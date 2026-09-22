@@ -215,7 +215,7 @@ windows-sys = { version = "0.61", features = [
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 [target.'cfg(target_os = "macos")'.dependencies]
-mach2 = "0.6"
+mach2 = "0.7"
 
 # FIND-58: the wasm32 raw gate (`-p vantadb --target wasm32-unknown-unknown
 # --no-default-features --features wasm`) builds this crate WITHOUT
