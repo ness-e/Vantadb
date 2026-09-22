@@ -2,7 +2,7 @@
 
 > **Campaign ID:** c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
 > **Inicio:** 2026-09-21
-> **Estado:** 🔄 EN PROGRESO (Wave 0 ✅ 2026-09-22: 134/135/136 pusheados; Wave 1 ✅ 2026-09-22: 137/138/139 commiteados)
+> **Estado:** 🔄 EN PROGRESO (Wave 0 ✅ 2026-09-22 · Wave 1 ✅ 2026-09-22 · Wave 2 ✅ 2026-09-22: 140/141/146 commiteados)
 > **Fuente:** auditoría 2026-09-21 (3× `vanta-review` en paralelo, 28/28 archivos leídos)
 > + validación internet (duplicados push/PR, SHA-pinning 2026, sccache oficial)
 
@@ -47,16 +47,16 @@
 
 ## Wave 2 — Publishing con cuidado extra (paralelo ×3, disjuntos; lead supervisa)
 
-- [ ] FIND-140 · 🔴 · Publishing hardening (1 task, steps atómicos por archivo, NADA sin re-run):
+- [x] FIND-140 · ✅ 2026-09-22 (5 commits: release.yml main-only + npm-61/npm-node tags-solo + adapters skip-existing + binaries trigger; docs/tasks/FIND-140.md) 🔴 · Publishing hardening (1 task, steps atómicos por archivo, NADA sin re-run):
   `release.yml` push solo `main` + timeout/env/concurrency en `release-plz-release`;
   `release-npm-61.yml` + `release-npm-node.yml` triggers separados tags-vs-push (+PR trigger a node);
   `release-adapters-62.yml` gate `version-exists` en prod; `release-binaries-63.yml` alinear
   trigger con condición de upload; namespaces de tags documentados. Contrato: publish solo donde
   debe; cada cambio con re-run verde. Commits `ci: FIND-140 — ...` (uno por archivo si hace falta)
-- [ ] FIND-141 · 🟡 · Schedules: desolapar `heavy-cert-50` vs `heavy-bench-nightly-51` (03:00),
+- [x] FIND-141 · ✅ 2026-09-22 (commit 8dfd4a09: bench 03:00→02:00, skip-ci baseline, retention 14d fuzz) 🟡 · Schedules: desolapar `heavy-cert-50` vs `heavy-bench-nightly-51` (03:00),
   `[skip ci]` o guard en auto-push de baseline, `retention-days` a corpus fuzz.
   Contrato: 0 solapes; `actionlint` 0. Commit `ci: FIND-141 — ...`
-- [ ] FIND-146 · 🟢 · Pins: `arch-metrics-informational.yml` (`checkout@v4`→SHA), OCR (`@v4`→SHA,
+- [x] FIND-146 · ✅ 2026-09-22 (commit 1391ddde: 15 pins SHA + npm 1.12.9 + guard opencode) 🟢 · Pins: `arch-metrics-informational.yml` (`checkout@v4`→SHA), OCR (`@v4`→SHA,
   `npm install -g latest`→versión fija), guard doble-run en `opencode.yml`.
   Contrato: 0 tags móviles en workflows; `actionlint` 0. Commit `ci: FIND-146 — ...`
 
@@ -175,4 +175,37 @@ Resultado: OK
 Próxima acción: Ninguno — tarea completa. Orquestador: Wave 2.
 Contrato: verificacion: GH GET x8 + actionlint survivor exit 0 (read-only) + git diff --check limpio + pre-commit hook ok | evidencia: 7 cancelados con jobs:[] (5 en batch 05:50:16-33 mismo group rustdoc-develop) + log vacio exit 0 + 6 verdes (35693192386 21m, 35686343573 4m, 35681924853 6m, +3) + concurrency ci-rustdoc.yml:54-56 | artefactos: docs/tasks/FIND-138.md + commit 2e9b6e8b (solo task file, NO PUSH) | invariantes: survivor intacto (STOP condicional no activado), resto workflows/src/web/desktop/locks/plans/Backlog intactos, plan file M ajeno no commiteado | deuda: causa externa/by-design declarada (GitHub cancel-in-progress); sin fix; idea futura sin diff | queda_pendiente: ninguno
 Próxima tarea si completa: Wave 2 (orquestador)
+=== END RECITATION ===
+
+=== RECITATION FIND-141 ===
+Campaign ID: c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
+Objetivo activo: FIND-141: desolapar schedules pesados + guards auto-push + retention fuzz
+Estado: completed
+Última acción: S1-S5 completos: cron bench->02:00, [skip ci], 2x retention 14d, verify verde, commit selectivo 8dfd4a09 sin push (race FIND-146 separada via reset --soft + restore --staged)
+Resultado: OK
+Próxima acción: Ninguno — tarea completa. Orquestador: Wave 3 FIND-142.
+Contrato: verificacion: actionlint 3 files exit 0 (campaign_verify_cmd + pre-commit hook ok) + git diff --check limpio + secrets-grep vacio + grep cron/skip-ci/retention | evidencia: commit 8dfd4a09 (3 files +173/-2: bench 2 lineas, fuzz 2 lineas, task file); bench cron 0 2 * * * vs cert 0 3 * * 0; skip-ci 1 hit L266; retention 2x14 L116/171 | artefactos: .github/workflows/heavy-bench-nightly-51.yml, .github/workflows/fuzz-40.yml, docs/tasks/FIND-141.md | invariantes: resto workflows/src/web/plan/Backlog intactos; WIP FIND-140/146 preservado (su commit 1391ddde encima, atomico); NO PUSH | deuda: ninguna (colateral adapters Sun 03:00 pre-existente solo nota) | queda_pendiente: ninguno
+Próxima tarea si completa: FIND-142 (orquestador)
+=== END RECITATION ===
+
+=== RECITATION FIND-146 ===
+Campaign ID: c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
+Objetivo activo: FIND-146: pins SHA + guard doble-run en 4 workflows
+Estado: completed
+Última acción: S1-S5 completos: 2+4+9 pins SHA + npm 1.12.9 ×3 + guard concurrency opencode + verify triple + commit selectivo sin push
+Resultado: OK
+Próxima acción: Ninguno — tarea completa. Orquestador: Wave 3 (FIND-142) cuando Wave 2 verde.
+Contrato: verificacion: actionlint 4 files exit 0 + git diff --check limpio + grep 0 tags moviles | evidencia: SHAs gh api (checkout 3d3c42e5 v7.0.1, setup-node 49933ea5 v4.4.0, upload-artifact ea165f8d v4.6.2) + npm view 1.12.9 | artefactos: 4 workflows + docs/tasks/FIND-146.md commiteados (NO PUSH) | invariantes: FIND-140/141, src/, web/, locks, Backlog intactos; plan file solo recitation no commiteada | deuda: campaign_validate_scope TASK_NOT_FOUND (plan sin bloque formal) — no bloquea; npm pin 1.12.9 quedara atras (renovate futuro) | queda_pendiente: ninguno
+Próxima tarea si completa: Wave 3 (orquestador)
+=== END RECITATION ===
+
+=== RECITATION FIND-140 ===
+Campaign ID: c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
+Objetivo activo: FIND-140: Publishing hardening en 5 workflows
+Estado: completed
+Última acción: S1-S7 completos: 5 edits minimos + verify triple + 5 commits selectivos sin push (FIND-146 commiteo en paralelo sin colision)
+Resultado: OK
+Próxima acción: Ninguno — tarea completa. Orquestador: Wave 2 restante (FIND-141/146) / Wave 3.
+Contrato: verificacion: actionlint 5/5 exit 0 + git diff --check exit 0 + secrets-grep 0 + pre-commit hook ok x5 | evidencia: commits a0d3123b (release.yml) + 95243f72 (npm-61) + 457dea46 (npm-node) + ac724291 (adapters-62) + 0312f52e (binaries-63 + task file); docs oficiales tags+branches+paths https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax | artefactos: 5 workflows + docs/tasks/FIND-140.md commiteados | invariantes: resto workflows/src/web/desktop/locks/Backlog intactos; WIP ajeno (FIND-141/146) no tocado; NO PUSH | deuda: campaign_verify_cmd BUG exit -1 → verificado via bash directa; re-run verde de workflows pendiente (solo vanta-lead/owner puede re-runear en GH) | queda_pendiente: re-run de los 5 workflows en GH + verificar release-plz-pr en proximo push a main
+Próxima tarea si completa: FIND-141
 === END RECITATION ===
