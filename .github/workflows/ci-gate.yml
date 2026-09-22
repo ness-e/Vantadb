@@ -41,6 +41,8 @@ jobs:
             "Dependency Policy Check"
             "Analyze"
           )
+          # Semver Checks excluded: guard ref==main/base_ref==main skips it on develop (no check-run → false red).
+          # ADR Gate excluded: guard event==pull_request skips it on push/schedule (no check-run → false red).
           FAILED=0
           for c in "${REQUIRED[@]}"; do
             CONCLUSION=$(gh api "repos/${REPO}/commits/${SHA}/check-runs?per_page=100&filter=latest" \
@@ -49,7 +51,7 @@ jobs:
             case "${CONCLUSION}" in
               success) ;;
               failure|timed_out|cancelled|action_required) FAILED=1 ;;
-              *) ;;
+              *) FAILED=1 ;; # fail-closed: missing/pending check fails the gate
             esac
           done
           if [ "${FAILED}" = "1" ]; then
