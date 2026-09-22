@@ -2,8 +2,10 @@ name: 'RELEASE: Binaries — Build & Upload'
 
 on:
   workflow_dispatch:
-  push:
-    tags: ['v*']
+  # FIND-140: solo release:published + manual. El upload gatea con
+  # `if: github.event_name == 'release'` — con push.tags ['v*'] se
+  # construían 5 targets + docker para desechar. release-plz
+  # (git_release_enable = true) crea el Release que dispara este workflow.
   release:
     types: [published]
 
