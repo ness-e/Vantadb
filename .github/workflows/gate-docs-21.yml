@@ -5,7 +5,7 @@ on:
     branches: [main, develop]
     paths: ["docs/**", "src/server/router.rs", "src/server/routing.rs", "scripts/**"]
   pull_request:
-    branches: [main]
+    branches: [main, develop]
     paths: ["docs/**", "src/server/router.rs", "src/server/routing.rs", "scripts/**"]
   workflow_dispatch:
 
