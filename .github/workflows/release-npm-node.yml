@@ -8,8 +8,11 @@ on:
         required: false
         default: "false"
   push:
+    # Tags solo: publish. CI de ramas va por pull_request (paths).
+    # (paths no se evalúa en tags; tags+branches+paths en un bloque es
+    # ambiguo — FIND-140)
     tags: ["node-v*.*.*"]
-    branches: [main]
+  pull_request:
     paths:
       - "vantadb-node/**"
       - ".github/workflows/release-npm-node.yml"
