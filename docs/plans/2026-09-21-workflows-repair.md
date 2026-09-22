@@ -2,7 +2,7 @@
 
 > **Campaign ID:** c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
 > **Inicio:** 2026-09-21
-> **Estado:** 🔄 EN PROGRESO (Wave 0 ✅ 2026-09-22: 134/135/136 pusheados; Wave 1 en curso: 137/138/139)
+> **Estado:** 🔄 EN PROGRESO (Wave 0 ✅ 2026-09-22: 134/135/136 pusheados; Wave 1 ✅ 2026-09-22: 137/138/139 commiteados)
 > **Fuente:** auditoría 2026-09-21 (3× `vanta-review` en paralelo, 28/28 archivos leídos)
 > + validación internet (duplicados push/PR, SHA-pinning 2026, sccache oficial)
 
@@ -35,13 +35,13 @@
 
 ## Wave 1 — Docs builds y gates (paralelo ×3, disjuntos; tras Wave 0)
 
-- [ ] FIND-137 · 🟢 · Unificar rustdocs: `ci-rustdoc.yml` vs `rustdoc-70.yml` → uno solo
+- [x] FIND-137 · ✅ 2026-09-22 (commit 4b0686b0: survivor ci-rustdoc + rm rustdoc-70) 🟢 · Unificar rustdocs: `ci-rustdoc.yml` vs `rustdoc-70.yml` → uno solo
   (mismo toolchain/flags/artifact/trigger); actualizar badges del README si citan el eliminado.
   Contrato: 1 workflow rustdoc, 0 refs rotas. Commit `ci: FIND-137 — ...`
-- [ ] FIND-138 · 🟢 · Diagnosticar flake "Generate API reference 0s" (2 muertes sin log) y fix
+- [x] FIND-138 · ✅ 2026-09-22 (commit 2e9b6e8b: flake = cancel-in-progress by-design, sin fix) 🟢 · Diagnosticar flake "Generate API reference 0s" (2 muertes sin log) y fix
   (retention/cancel-concurrency o causa real). Contrato: 3 runs verdes seguidos o causa declarada.
   Commit `ci: FIND-138 — ...` (o solo task file si es infra externa + deuda escrita)
-- [ ] FIND-139 · 🟢 · `ci-gate.yml` (timeout, concurrency, `*)` ya no traga pending/not-found,
+- [x] FIND-139 · ✅ 2026-09-22 (commit 81263fb1: fail-closed + PR-develop) 🟢 · `ci-gate.yml` (timeout, concurrency, `*)` ya no traga pending/not-found,
   REQUIRED incluye semver/ADR) + `gate-docs-21.yml` (PR→develop también). Contrato: gate rojo
   cuando un check falta; `actionlint` 0. Commit `ci: FIND-139 — ...`
 
@@ -142,4 +142,37 @@ Resultado: ✅
 Próxima acción: Ninguno — tarea completa. Orquestador: Wave 1 (FIND-137/138/139).
 Contrato: verificacion: git diff --check exit 0 + actionlint 4 files exit 0 + pre-commit hook actionlint ok + secrets-grep 0 | evidencia: commit 6cf0e2cf (5 files, +83/-1); SHAs 02cb101e/7e35be21 vigentes verificados por grep; toolchain no-op documentado | artefactos: 4 workflows + docs/tasks/FIND-136.md commiteados | invariantes: ci-rust-10/resto intactos; plan file (recitations server) no commiteado; NO PUSH | deuda: ninguna (riesgo S5 documentado en task file) | queda_pendiente: ninguno
 Próxima tarea si completa: Wave 1 (orquestador)
+=== END RECITATION ===
+
+=== RECITATION FIND-137 ===
+Campaign ID: c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
+Objetivo activo: # FIND-137 — Unificar rustdocs caníbales en uno solo
+Estado: completed
+Última acción: S4 commit ci FIND-137 (survivor-edit + git rm + task file, 3 files +296/-92) + verify mecánico verde; NO PUSH
+Resultado: ✅
+Próxima acción: Wave 2 (orquestador)
+Contrato: 1 solo workflow rustdoc (ci-rustdoc.yml survivor), 0 referencias rotas (grep), actionlint exit 0, survivor con lo mejor de ambos — evidencia §8 + commit 4b0686b0
+Próxima tarea si completa: Wave 2 (orquestador)
+=== END RECITATION ===
+
+=== RECITATION FIND-139 ===
+Campaign ID: c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
+Objetivo activo: FIND-139: endurecer ci-gate.yml + gate-docs-21.yml
+Estado: in-progress
+Última acción: DISCOVERY: ambos workflows leidos + ruleset develop (11 checks) + semver/ADR if-guards mapeados
+Resultado: PARTIAL
+Próxima acción: Crear docs/tasks/FIND-139.md + edits S2/S3
+Contrato: verificacion: actionlint exit 0 + git diff --check limpio (pendiente) | evidencia: plan docs/plans/2026-09-21-workflows-repair.md:45-46; ci-gate.yml 59L + gate-docs-21.yml 87L leidos completos; ruleset develop 23692587 = 11 checks | artefactos: docs/tasks/FIND-139.md (a crear) | invariantes: no tocar resto workflows (FIND-137/138 paralelo), timeout ci-gate intacto (FIND-135), NO PUSH | deuda: ninguna aun | queda_pendiente: crear task file + S2-S4
+Próxima tarea si completa: Wave 2 (orquestador)
+=== END RECITATION ===
+
+=== RECITATION FIND-138 ===
+Campaign ID: c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
+Objetivo activo: FIND-138 — Diagnosticar flake Generate API reference (rustdoc) 0-1s sin log
+Estado: completed
+Última acción: S1-S4 completos: discovery + observacion GH solo-GET + veredicto cancel-by-design + commit selectivo 2e9b6e8b sin push
+Resultado: OK
+Próxima acción: Ninguno — tarea completa. Orquestador: Wave 2.
+Contrato: verificacion: GH GET x8 + actionlint survivor exit 0 (read-only) + git diff --check limpio + pre-commit hook ok | evidencia: 7 cancelados con jobs:[] (5 en batch 05:50:16-33 mismo group rustdoc-develop) + log vacio exit 0 + 6 verdes (35693192386 21m, 35686343573 4m, 35681924853 6m, +3) + concurrency ci-rustdoc.yml:54-56 | artefactos: docs/tasks/FIND-138.md + commit 2e9b6e8b (solo task file, NO PUSH) | invariantes: survivor intacto (STOP condicional no activado), resto workflows/src/web/desktop/locks/plans/Backlog intactos, plan file M ajeno no commiteado | deuda: causa externa/by-design declarada (GitHub cancel-in-progress); sin fix; idea futura sin diff | queda_pendiente: ninguno
+Próxima tarea si completa: Wave 2 (orquestador)
 === END RECITATION ===
