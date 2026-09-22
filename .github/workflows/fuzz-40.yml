@@ -113,6 +113,7 @@ jobs:
             fuzz/artifacts/${{ matrix.target }}/
             fuzz/corpus/${{ matrix.target }}/
           if-no-files-found: warn
+          retention-days: 14  # FIND-141: corpus por run_id efimero (weekly Mon 06:00)
 
   fuzz-pr:
     # Gate acotado para PRs: 75s por target (4 targets en paralelo ≈ 5-8 min).
@@ -167,3 +168,4 @@ jobs:
             fuzz/artifacts/${{ matrix.target }}/
             fuzz/corpus/${{ matrix.target }}/
           if-no-files-found: warn
+          retention-days: 14  # FIND-141: mismo criterio que job fuzz (artefactos PR efimeros)
