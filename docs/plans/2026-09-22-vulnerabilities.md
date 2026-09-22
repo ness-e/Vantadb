@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 67262f34-0fe8-4046-9f0c-9023f081e2eb
 > **Inicio:** 2026-09-22
-> **Estado:** 🔄 EN PROGRESO (Waves A+B ✅ ejecución 2026-09-22: PRs #206/#207 abiertos + glib accept-risk con allow+expiry; pendiente merge #206/#207 + rescan final; Wave C n/a — glib era la única)
+> **Estado:** 🔄 EN PROGRESO (Waves A+B ✅ ejecución 2026-09-22: PRs #206/#207 mergeados + glib accept-risk; 14→5 abiertas — resto es lag de re-scan + port a main; pendiente rescan final)
 > **Fuente:** triage READ-ONLY 2026-09-22 (`vanta-audit`: 14/14 alertas ubicadas en
 > lockfiles con archivo:línea + GHSA/CVE verificados). #35/#34 críticas Next.js ya FIXED.
 
