@@ -3,7 +3,8 @@
 # Publishes `ocr delegate preview + rule` JSON as a PR artifact so reviewers
 # (human or agent) can run the cognitive review without local setup.
 # No LLM endpoint needed — delegation mode never calls a model.
-# Pins: @alibaba-group/open-code-review latest (npm).
+# Pins: checkout v7.0.1 (3d3c42e5), setup-node v4.4.0 (49933ea5),
+# upload-artifact v4.6.2 (ea165f8d), @alibaba-group/open-code-review 1.12.9 (npm).
 
 name: OCR Delegate (informational)
 
@@ -22,21 +23,21 @@ jobs:
     # CATEGORY: INFORMATIONAL — advisory spec only, never gates merge (Regla 2)
     continue-on-error: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Setup Node
         # CATEGORY: INFORMATIONAL
         continue-on-error: true
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
 
       - name: Install OCR CLI
         # CATEGORY: INFORMATIONAL
         continue-on-error: true
-        run: npm install -g @alibaba-group/open-code-review
+        run: npm install -g @alibaba-group/open-code-review@1.12.9
 
       - name: Delegation preview (base..head)
         # CATEGORY: INFORMATIONAL
@@ -64,7 +65,7 @@ jobs:
       - name: Upload OCR spec
         # CATEGORY: INFORMATIONAL
         continue-on-error: true
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ocr-delegate-spec
           path: |
