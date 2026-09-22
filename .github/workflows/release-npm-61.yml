@@ -155,6 +155,12 @@ jobs:
       - name: Override .d.ts with hand-written source (WSM-05)
         run: node dev-tools/build-wasm-types.mjs
 
+      # WSM-06: wasm-pack omits `snippets/` from pkg `files`, but the glue
+      # imports `snippets/<hash>/inline0.js` — without this the tarball ships
+      # broken (ERR_MODULE_NOT_FOUND, caught by TS-07 on vantadb-wasm@0.6.0).
+      - name: Include wasm-pack snippets in pkg files (WSM-06)
+        run: node dev-tools/fix-wasm-pkg-files.mjs
+
       - name: Upload WASM build artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
