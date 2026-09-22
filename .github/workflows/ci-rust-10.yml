@@ -2,7 +2,7 @@ name: 'CI: Rust — Build & Lint + Tests'
 
 on:
   push:
-    branches: [ "main", "develop" ]
+    branches: [ "main" ]
     paths:
       - 'src/**'
       - 'tests/**'
@@ -17,6 +17,7 @@ on:
       - 'vantadb-*/**'
       - 'vanta-memory/**'
       - 'integrations/**'
+      - 'providers/**'
       - '!web/**'
   pull_request:
     branches: [ "main" ]
@@ -34,6 +35,7 @@ on:
       - 'vantadb-*/**'
       - 'vanta-memory/**'
       - 'integrations/**'
+      - 'providers/**'
       - '!web/**'
   workflow_dispatch:
 
@@ -195,6 +197,7 @@ jobs:
     name: Tests (Linux)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: [fmt, clippy]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -225,6 +228,7 @@ jobs:
     name: Tests (Windows)
     runs-on: windows-latest
     timeout-minutes: 60
+    needs: [fmt, clippy]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -260,6 +264,7 @@ jobs:
     name: Tests (macOS)
     runs-on: macos-latest
     timeout-minutes: 30
+    needs: [fmt, clippy]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -327,6 +332,7 @@ jobs:
     name: Code Coverage (cargo-llvm-cov)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: [fmt, clippy]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -403,7 +409,7 @@ jobs:
     # CATEGORY: BEST-EFFORT — WASM is Tier 3 Experimental.
     # Browser tests require wasm-pack + Chrome. Failures are non-blocking.
     continue-on-error: true
-    if: ${{ github.event_name == 'push' && contains(github.event.head_commit.modified, 'vantadb-wasm/') }}
+    if: ${{ github.event_name == 'pull_request' || (github.event_name == 'push' && contains(github.event.head_commit.modified, 'vantadb-wasm/')) }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -469,6 +475,7 @@ jobs:
     name: Miri (UB Detection)
     runs-on: ubuntu-latest
     timeout-minutes: 60
+    needs: [fmt, clippy]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -543,6 +550,7 @@ jobs:
     name: ASan (AddressSanitizer)
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    needs: [fmt, clippy]
     # CATEGORY: BEST-EFFORT — nightly ASan can produce false positives.
     # Failures are reviewed manually. Does not gate releases.
     continue-on-error: true
@@ -569,8 +577,7 @@ jobs:
             --features "cli,arrow,tls,opentelemetry" \
             --config 'target.x86_64-unknown-linux-gnu.rustflags = ["-Zsanitizer=address", "-Cunsafe-allow-abi-mismatch=sanitizer"]' \
             -- \
-            --skip test_benchmark_internal_10k \
-            || echo "ASan reported issues (see log above)"
+            --skip test_benchmark_internal_10k
         env:
           ASAN_OPTIONS: "detect_stack_use_after_return=1:detect_leaks=1:halt_on_error=0"
           LSAN_OPTIONS: "suppressions=.lsan_suppressions"
@@ -579,6 +586,7 @@ jobs:
     name: TSan (ThreadSanitizer)
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    needs: [fmt, clippy]
     # CATEGORY: BEST-EFFORT — nightly TSan is unstable.
     # Failures are reviewed manually. Does not gate releases.
     continue-on-error: true
@@ -607,7 +615,6 @@ jobs:
             --skip sift1m_competitive_benchmark \
             --skip test_glove100_hnsw_basic \
             --skip test_triple_backend_parity_validation \
-            --skip zero_dim_vector_search_empty \
-            || echo "TSan reported issues (see log above)"
+            --skip zero_dim_vector_search_empty
         env:
           TSAN_OPTIONS: "halt_on_error=0"
