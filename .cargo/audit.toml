@@ -32,5 +32,15 @@ ignore = [
     # Decided: FIND-97 (audit-quick 2026-09-16), option A mirrored-triage.
     "RUSTSEC-2023-0071",
 
+    # RUSTSEC-2024-0429 (glib <0.20.0, Unsoundness in VariantStrIter).
+    # Transitive via Tauri2 Linux stack (gio/gdk/javascriptcore -> glib 0.18.5,
+    # desktop/src-tauri/Cargo.lock:1862); root Cargo.lock has 0 hits (core/server/wasm clean).
+    # No PoC in VantaDB: VariantStrIter is never used in own code (transitive webview only).
+    # Bump to >=0.20.0 blocked by Tauri2 (pins gtk/glib 0.18).
+    # Owner: vanta-lead · Decided: VULN-C1 (plan 2026-09-22-vulnerabilities, owner accept-risk 2026-09-22)
+    # Expiry: 2027-03-22 (re-evaluate on Tauri upgrade)
+    # Tracked: https://github.com/gtk-rs/gtk-rs-core/pull/1343
+    "RUSTSEC-2024-0429",
+
     # (removed RUSTSEC-2026-0176/0177 — pyo3 0.29.0 is past the vulnerable range)
 ]

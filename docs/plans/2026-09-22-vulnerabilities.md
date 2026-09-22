@@ -1,8 +1,8 @@
 # Plan de Ejecución: Cierre de 14 vulnerabilidades Dependabot abiertas — 2026-09-22
 
-> **Campaign ID:** (asigna `campaign_get_next_task` al arrancar)
+> **Campaign ID:** 67262f34-0fe8-4046-9f0c-9023f081e2eb
 > **Inicio:** 2026-09-22
-> **Estado:** 🔄 EN PROGRESO (Wave A ✅ 2026-09-22: 14→6 abiertas; Wave B/C pendientes)
+> **Estado:** 🔄 EN PROGRESO (Waves A+B ✅ ejecución 2026-09-22: PRs #206/#207 abiertos + glib accept-risk con allow+expiry; pendiente merge #206/#207 + rescan final; Wave C n/a — glib era la única)
 > **Fuente:** triage READ-ONLY 2026-09-22 (`vanta-audit`: 14/14 alertas ubicadas en
 > lockfiles con archivo:línea + GHSA/CVE verificados). #35/#34 críticas Next.js ya FIXED.
 
@@ -34,11 +34,11 @@ documentado. Seguridad-primero: SSRF/DoS primero, dev-only después, UB no-alcan
 
 ## Wave B — PRs nuevos para gaps sin cobertura (crear, CI verde, mergear)
 
-- [ ] VULN-B1 · Bump `postcss` 8.5.15→≥8.5.23 SOLO en `vantadb-ts/package-lock.json`
+- [x] VULN-B1 · Bump `postcss` 8.5.15→≥8.5.23 SOLO en `vantadb-ts/package-lock.json`
   (único lock aún vulnerable; node/web/remotion/desktop ya ≥8.5.23). Cierra #26.
-- [ ] VULN-B2 · Clonar bump vitest/mocker →4.1.11 para `vantadb-ts` (gaps #40/#41;
+- [x] VULN-B2 · Clonar bump vitest/mocker →4.1.11 para `vantadb-ts` (gaps #40/#41;
   #196 solo cubre `vantadb-node`). Riesgo temporal aceptable (localhost default).
-- [ ] VULN-B3 · js-yaml node (`vantadb-node/package-lock.json:2392`, #42) + web nested
+- [x] VULN-B3 · js-yaml node (`vantadb-node/package-lock.json:2392`, #42) + web nested
   (`web/package-lock.json:480`, #48, vía bump eslintrc u `overrides`) + nanoid desktop
   (`desktop/package-lock.json:5409`, dev). Contrato: alertas → `fixed` o motivo escrito.
 - Verificación Wave B: `gh api dependabot/alerts` muestra cada alerta en `fixed`;
@@ -46,7 +46,7 @@ documentado. Seguridad-primero: SSRF/DoS primero, dev-only después, UB no-alcan
 
 ## Wave C — Accept-risk documentado (no bump)
 
-- [ ] VULN-C1 · glib #38 (UB VariantStrIter, MEDIUM): bump a 0.20.0 bloqueado por Tauri2
+- [x] VULN-C1 · glib #38 (UB VariantStrIter, MEDIUM): bump a 0.20.0 bloqueado por Tauri2
   (pinea gtk/glib 0.18); sin PoC en VantaDB (no se usa `VariantStrIter` en código propio,
   solo transitivo webview). Acción: `cargo audit` allow con expiry + track upstream
   (gtk-rs-core#1343), NO bump manual. Contrato: justificación escrita + allow con fecha.
@@ -87,4 +87,26 @@ Próxima acción: `/pipeline run docs/plans/2026-09-22-vulnerabilities.md` (Wave
 Contrato: plan file existe con waves, contratos alerta→fixed y gates; task files bajo demanda
 Próxima tarea: VULN-A1 (merge #195)
 last-synced: 2026-09-22
+=== END RECITATION ===
+
+=== RECITATION VULN-B1-B2 ===
+Campaign ID: 67262f34-0fe8-4046-9f0c-9023f081e2eb
+Objetivo activo: VULN-B1-B2: bumps postcss+vitest en vantadb-ts (gaps #26/#40/#41)
+Estado: completed
+Última acción: S1+S2 completos + commit acb6fcb3 en fix/vuln-ts-060 + rescate worktree compartido (rama B3 cf6560f0 separada, disjunta)
+Resultado: ✅
+Próxima acción: Lead: git push fix/vuln-ts-060 + abrir PR; verificar alertas #26/#40/#41 en fixed
+Contrato: verificacion: npm ls postcss@8.5.28 + vitest/mocker@4.1.11 OK; tsc exit 0; npm test 311/311 OK; commit acb6fcb3 (3 files) en fix/vuln-ts-060, SIN PUSH | evidencia: npm ls + tsc/test exits (tool results); git show --stat acb6fcb3 (3 files, 135+/60-) | artefactos: commit acb6fcb3; docs/tasks/VULN-B1-B2.md | invariantes: cero codigo; rama no pusheada; rama B3 separada cf6560f0 | deuda: campaign_verify_cmd no corrido (BUG exit -1 conocido, bash directa usada); skill progreso omitida (scope prohibe docs/ salvo task file); plan file sin commitear (recitations compartidas B1-B2+B3, reconcilia lead) | queda_pendiente: lead pushea fix/vuln-ts-060 + abre PR (cierra #26/#40/#41 via alerta fixed)
+Próxima tarea si completa: lead-push-PR-VULN-B1-B2
+=== END RECITATION ===
+
+=== RECITATION VULN-B3 ===
+Campaign ID: 67262f34-0fe8-4046-9f0c-9023f081e2eb
+Objetivo activo: VULN-B3 — js-yaml node/web + nanoid desktop (bumps mínimos, solo lockfiles)
+Estado: completed
+Última acción: 3/3 slices ✅ + commit cf6560f0 en fix/vuln-node-web-desktop (base develop, 4 files, mensaje exacto), SIN PUSH. Colisión de worktree compartido con agente VULN-B1/B2: mi commit cayó en su rama y el peer lo re-ubicó limpio sobre develop; verificado contenido idéntico + WIP ajeno intacto y excluido.
+Resultado: ✅
+Próxima acción: Lead: git push fix/vuln-node-web-desktop + abrir PR + review P2-01 + skill progreso (omitida aquí por scope docs/ prohibido)
+Contrato: Contrato cumplido. Verificacion: npm ls js-yaml vantadb-node→4.3.2 ✅ + web nested (@eslint/eslintrc)→4.3.2 ✅ + npm ls nanoid desktop→3.3.19 (≥3.3.18) ✅; npx tsc --noEmit web exit 0 ✅; npm run lint web exit 0 ✅; campaign_verify_cmd exit 0 ✅; git diff HEAD limpio en mis 4 paths ✅. Evidencia: npm ls outputs por slice + lock windows 2401/480/5409 + tsc/lint exits + commit cf6560f0 (4 files, hooks pre-commit verdes). Artefactos: vantadb-node/package-lock.json, web/package-lock.json, desktop/package-lock.json, docs/tasks/VULN-B3.md. Invariantes: vantadb-ts/src Rust/workflows/docs (salvo task file) intactos; nada publicado; SIN PUSH. Deuda: ninguna (review P2-01 diferido al PR). Queda_pendiente: lead pushea rama + abre PR + review + skill progreso.
+Próxima tarea si completa: lead-push-PR-VULN-B3
 === END RECITATION ===
