@@ -1,8 +1,8 @@
 # Plan de Ejecución: Reparación integral de workflows (28 archivos) — 2026-09-21
 
-> **Campaign ID:** (asigna `campaign_get_next_task` al arrancar)
+> **Campaign ID:** c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
 > **Inicio:** 2026-09-21
-> **Estado:** ⬜ PENDIENTE (plan listo, sin iniciar)
+> **Estado:** 🔄 EN PROGRESO (Wave 0 ✅ 2026-09-22: 134/135/136 pusheados; Wave 1 en curso: 137/138/139)
 > **Fuente:** auditoría 2026-09-21 (3× `vanta-review` en paralelo, 28/28 archivos leídos)
 > + validación internet (duplicados push/PR, SHA-pinning 2026, sccache oficial)
 
@@ -21,14 +21,14 @@
 
 ## Wave 0 — Seguridad y costo directo (paralelo ×3, archivos disjuntos)
 
-- [ ] FIND-134 · 🟡 · `ci-rust-10.yml` hardening: quitar `develop` de `push.branches` (dedup),
+- [x] FIND-134 · ✅ 2026-09-22 (commit 37eee390: dedup triggers, needs fast-fail, wasm-if, sin || echo; race worktree resuelta) 🟡 · `ci-rust-10.yml` hardening: quitar `develop` de `push.branches` (dedup),
   `needs: [fmt, clippy]` como fast-fail antes de jobs 30-60min, política por cada
   `continue-on-error` (quitar o tag CATEGORY justificado), condición `wasm-test` válida en PR.
   Contrato: 1 push → 1 run; fmt rojo frena lo pesado; `actionlint` 0. Commit `ci: FIND-134 — ...`
-- [ ] FIND-135 · 🟢 · `timeout-minutes` a jobs sin límite: `desktop.yml` ×3, `ci-gate.yml`,
+- [x] FIND-135 · ✅ 2026-09-22 (commit 217d583a: 9 timeouts calibrados) 🟢 · `timeout-minutes` a jobs sin límite: `desktop.yml` ×3, `ci-gate.yml`,
   `ocr-delegate.yml`, `ocr-nightly.yml` (3 jobs), `opencode.yml` (valores = duración real + margen).
   Contrato: ningún job sin timeout; `actionlint` 0. Commit `ci: FIND-135 — ...`
-- [ ] FIND-136 · 🟡 · Cobertura + caché: `providers-ci.yml` (`branches: [main, develop]`,
+- [x] FIND-136 · ✅ 2026-09-22 (commit 6cf0e2cf: branches+SHA, paths+concurrency, caches, sin || true) 🟡 · Cobertura + caché: `providers-ci.yml` (`branches: [main, develop]`,
   toolchain SHA = resto), `chaos-45.yml` (+paths `vantadb-*/**`, `vanta-memory/**`, +concurrency),
   `ci-examples-12.yml` (`cache: pip`), `adapters-compat.yml` (caché Rust/pip, quitar `|| true`).
   Contrato: cambio en providers dispara clippy/tests; sin `|| true`; `actionlint` 0. Commit `ci: FIND-136 — ...`
@@ -120,4 +120,26 @@ Próxima acción: `/pipeline run docs/plans/2026-09-21-workflows-repair.md` (Wav
 Contrato: plan file existe con waves disjuntas + contratos + gates; task files bajo demanda
 Próxima tarea: FIND-134 + FIND-135 + FIND-136 (paralelo ×3)
 last-synced: 2026-09-21
+=== END RECITATION ===
+
+=== RECITATION FIND-135 ===
+Campaign ID: c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
+Objetivo activo: FIND-135: timeout-minutes a 9 jobs sin límite en 5 workflows
+Estado: completed
+Última acción: S1-S6 completos: 9 timeouts aplicados, whitespace accidental revertido, commit selectivo 217d583a sin push
+Resultado: OK
+Próxima acción: Ninguno — tarea completa. Orquestador: Wave 1 (FIND-137/138/139).
+Contrato: Verificación: actionlint full exit 0 + git diff --check limpio + pre-commit hook ok. Evidencia: commit 217d583a (6 files, +79); gh run view 35693124393 (win 41.5/macOS 24/linux 11 min); ocr-delegate max ~10min en 5 runs; ocr-nightly ~23s; opencode sin runs (estimación 30). Artefactos: 5 workflows + docs/tasks/FIND-135.md commiteados. Invariantes: cero lógica (9 líneas añadidas); gate `*)` intacto (FIND-139); WIP ajeno (FIND-134/136, plan file) intacto; NO PUSH. Deuda: campaign_verify_cmd BUG exit -1 → verificado vía bash directa. Queda_pendiente: ninguno; NextTask Wave 1 (orquestador).
+Próxima tarea si completa: Wave 1 (orquestador)
+=== END RECITATION ===
+
+=== RECITATION FIND-136 ===
+Campaign ID: c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
+Objetivo activo: FIND-136 cerrar huecos cobertura y caché en 4 workflows
+Estado: completed
+Última acción: S2-S6: 4 edits + verify triple + commit selectivo 6cf0e2cf sin push; carrera de index con FIND-134 resuelta (restore --staged, verificado HEAD ajeno limpio)
+Resultado: ✅
+Próxima acción: Ninguno — tarea completa. Orquestador: Wave 1 (FIND-137/138/139).
+Contrato: verificacion: git diff --check exit 0 + actionlint 4 files exit 0 + pre-commit hook actionlint ok + secrets-grep 0 | evidencia: commit 6cf0e2cf (5 files, +83/-1); SHAs 02cb101e/7e35be21 vigentes verificados por grep; toolchain no-op documentado | artefactos: 4 workflows + docs/tasks/FIND-136.md commiteados | invariantes: ci-rust-10/resto intactos; plan file (recitations server) no commiteado; NO PUSH | deuda: ninguna (riesgo S5 documentado en task file) | queda_pendiente: ninguno
+Próxima tarea si completa: Wave 1 (orquestador)
 === END RECITATION ===
