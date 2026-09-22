@@ -6,6 +6,12 @@ on:
   pull_request_review_comment:
     types: [created]
 
+# Guard doble-run (FIND-146): el mismo comentario nunca corre dos veces;
+# comentarios distintos no se cancelan entre sí. Trigger + if: del bot intactos.
+concurrency:
+  group: opencode-${{ github.event.comment.id }}
+  cancel-in-progress: false
+
 jobs:
   opencode:
     if: |

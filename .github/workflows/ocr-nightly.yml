@@ -11,7 +11,9 @@
 # by design (documented skip, never a red nightly). No secrets ever hit disk:
 # tokens travel via env only and GitHub masks secret values in logs.
 # Rule source: .opencodereview/rule.json (auto-loaded by the ocr resolver at
-# high priority — no --rule flag needed). Pins mirror ocr-delegate.yml.
+# high priority — no --rule flag needed). Pins: checkout v7.0.1 (3d3c42e5),
+# setup-node v4.4.0 (49933ea5), upload-artifact v4.6.2 (ea165f8d),
+# @alibaba-group/open-code-review 1.12.9 (npm) — mirror ocr-delegate.yml.
 
 name: OCR Nightly (delegation + full con key)
 
@@ -34,17 +36,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
 
       - name: Install OCR CLI
-        run: npm install -g @alibaba-group/open-code-review
+        run: npm install -g @alibaba-group/open-code-review@1.12.9
 
       - name: Resolve 24h window
         id: window
@@ -79,7 +81,7 @@ jobs:
           cat ocr-rules.json
 
       - name: Upload delegation evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ocr-nightly-delegate
           path: |
@@ -113,17 +115,17 @@ jobs:
     needs: [check-key]
     if: ${{ needs.check-key.outputs.has_key == 'true' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
 
       - name: Install OCR CLI
-        run: npm install -g @alibaba-group/open-code-review
+        run: npm install -g @alibaba-group/open-code-review@1.12.9
 
       - name: Configure LLM from secrets (never logged)
         env:
@@ -150,7 +152,7 @@ jobs:
         run: ocr session list --json > ocr-sessions.json || echo '[]' > ocr-sessions.json
 
       - name: Upload full-review evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ocr-nightly-full
           path: |
