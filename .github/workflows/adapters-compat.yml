@@ -108,6 +108,9 @@ jobs:
         with:
           toolchain: stable
 
+      - name: Rust cache
+        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+
       - name: Install adapter + test deps
         run: |
           python -m pip install --upgrade pip hatchling
@@ -117,7 +120,7 @@ jobs:
           if [ "${{ matrix.framework_version }}" != "latest" ]; then
             pip install "${{ matrix.adapter }}-core==${{ matrix.framework_version }}" 2>/dev/null || \
             pip install "${{ matrix.adapter }}==${{ matrix.framework_version }}" 2>/dev/null || \
-            pip install "${{ matrix.framework_version }}" 2>/dev/null || true
+            pip install "${{ matrix.framework_version }}" 2>/dev/null
           fi
           pip install pytest pytest-asyncio
 

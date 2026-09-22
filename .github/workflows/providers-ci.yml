@@ -3,10 +3,12 @@ name: Providers CI
 on:
   workflow_dispatch:
   push:
+    branches: [ "main", "develop" ]
     paths:
       - 'providers/**'
       - '.github/workflows/providers-ci.yml'
   pull_request:
+    branches: [ "main" ]
     paths:
       - 'providers/**'
       - '.github/workflows/providers-ci.yml'
@@ -42,6 +44,18 @@ jobs:
         uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
         with:
           toolchain: stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+
+      - name: Clippy provider crates
+        # providers/* are intentionally NOT workspace members — lint them
+        # individually via --manifest-path (mirrors ci-rust-10.yml cargo check).
+        # A providers/ change now gates on clippy, not just rustdoc + pytest.
+        run: |
+          cargo clippy --manifest-path providers/openai/Cargo.toml -- -D warnings
+          cargo clippy --manifest-path providers/ollama/Cargo.toml -- -D warnings
+          cargo clippy --manifest-path providers/litellm/Cargo.toml -- -D warnings
 
       - name: Install maturin
         run: python -m pip install --upgrade pip maturin
