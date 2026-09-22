@@ -1,14 +1,14 @@
 ---
-title: "`heavy-certification-50.yml` — HEAVY: Certification — All Tests"
+title: "`heavy-certification.yml` — HEAVY: Certification — All Tests"
 type: workflow
 status: active
 tags: [vantadb, ci, heavy-certification]
 last_reviewed: 2026-09-15
 aliases: []
-related: [".github/workflows/heavy-certification-50.yml"]
+related: [".github/workflows/heavy-certification.yml"]
 ---
 
-# `heavy-certification-50.yml` — HEAVY: Certification — All Tests
+# `heavy-certification.yml` — HEAVY: Certification — All Tests
 
 ## ¿Qué hace?
 

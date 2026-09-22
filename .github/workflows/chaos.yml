@@ -11,7 +11,7 @@ on:
       - '.config/nextest.toml'
       - 'vantadb-*/**'
       - 'vanta-memory/**'
-      - '.github/workflows/chaos-45.yml'
+      - '.github/workflows/chaos.yml'
   pull_request:
     branches: [ "main" ]
     paths:
@@ -22,7 +22,7 @@ on:
       - '.config/nextest.toml'
       - 'vantadb-*/**'
       - 'vanta-memory/**'
-      - '.github/workflows/chaos-45.yml'
+      - '.github/workflows/chaos.yml'
   workflow_dispatch:
 
 env:

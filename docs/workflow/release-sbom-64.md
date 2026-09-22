@@ -1,14 +1,14 @@
 ---
-title: "`release-sbom-64.yml` — RELEASE: SBOM — Generate"
+title: "`release-sbom.yml` — RELEASE: SBOM — Generate"
 type: workflow
 status: active
 tags: [vantadb, ci, release-sbom]
 last_reviewed: 2026-09-15
 aliases: []
-related: [".github/workflows/release-sbom-64.yml"]
+related: [".github/workflows/release-sbom.yml"]
 ---
 
-# `release-sbom-64.yml` — RELEASE: SBOM — Generate
+# `release-sbom.yml` — RELEASE: SBOM — Generate
 
 ## ¿Qué hace?
 

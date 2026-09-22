@@ -14,7 +14,7 @@ on:
       - "vantadb-python/**"
       - "Cargo.toml"
       - "Cargo.lock"
-      - ".github/workflows/release-wheels-60.yml"
+      - ".github/workflows/release-wheels.yml"
   push:
     tags: ["v*.*.*"]
 

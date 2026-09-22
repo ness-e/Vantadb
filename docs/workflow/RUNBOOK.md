@@ -47,7 +47,7 @@ gh api repos/{owner}/{repo}/environments --jq ".environments[].name"
 
 ## `[no-adr]` marker
 
-- The ADR gate (`ci-rust-10.yml` job `adr-gate`) fails PRs that change the
+- The ADR gate (`ci-rust.yml` job `adr-gate`) fails PRs that change the
   public API surface without a new `docs/architecture/adr/ADR-*.md`.
 - If the PR intentionally needs no ADR, put `[no-adr]` in the PR body:
   the gate downgrades to a warning instead of failing.
@@ -55,7 +55,7 @@ gh api repos/{owner}/{repo}/environments --jq ".environments[].name"
 
 ## `ci-gate` (heavy jobs skipped?)
 
-- `heavy-certification-50.yml`, `heavy-bench-nightly-51.yml`, `fuzz-40.yml`
+- `heavy-certification.yml`, `heavy-bench-nightly.yml`, `fuzz.yml`
   call the reusable `ci-gate.yml` with `event_name`.
 - On `schedule`, the gate checks the 11 required checks on `main` and
   fails the run if any is red (fail-closed, FIND-139).
