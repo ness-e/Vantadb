@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 67262f34-0fe8-4046-9f0c-9023f081e2eb
 > **Inicio:** 2026-09-22
-> **Estado:** 🔄 EN PROGRESO (Waves A+B ✅ ejecución 2026-09-22: PRs #206/#207 mergeados + glib accept-risk; 14→5 abiertas — resto es lag de re-scan + port a main; pendiente rescan final)
+> **Estado:** 🔄 EN PROGRESO (Waves A+B+C ✅ ejecución: #206/#207 mergeados, glib dismissed; 14→5 abiertas pendientes de re-scan/port a main; VULN-D1 verificación final pendiente)
 > **Fuente:** triage READ-ONLY 2026-09-22 (`vanta-audit`: 14/14 alertas ubicadas en
 > lockfiles con archivo:línea + GHSA/CVE verificados). #35/#34 críticas Next.js ya FIXED.
 
@@ -57,6 +57,13 @@ documentado. Seguridad-primero: SSRF/DoS primero, dev-only después, UB no-alcan
   no llegan a wasm/server/prod — pero HIGH+SSRF/DoS van primero igual.
 - postcss/vitest: dev-only (requieren CSS atacante o dev-server expuesto) — después.
 - glib: prod desktop pero UB no alcanzable sin uso propio — accept-risk al final.
+
+## Wave D — Verificación final (orquestador, tras merges + rescans)
+
+- [ ] VULN-D1 · Re-verificar `gh api dependabot/alerts` (abiertas esperadas: 0; si alguna de
+  #26/#30/#32/#36/#42 sigue abierta tras 24h del merge, diagnosticar: lag de re-scan vs gap
+  real). Contrato: 0 abiertas o motivo escrito por restante. (Glib #38 ya dismissed como
+  accept-risk; no cuenta.)
 
 ## Gates
 
