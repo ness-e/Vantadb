@@ -75,16 +75,16 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
 
 ## Fase 2 — Extracción `web/` (solo tras Fase 0+1 verdes)
 
-- [ ] W-01 · Preparar destino `C:\Users\Eros\VantaDB Proyect\web` como repo git nuevo
+- [x] W-01 · ✅ 2026-09-22 repo público ness-e/Vantadb-web creado. Preparar destino `C:\Users\Eros\VantaDB Proyect\web` como repo git nuevo
   (init + remote nuevo; nombre a confirmar por owner).
-- [ ] W-02 · `git mv` de `web/` al repo nuevo **con historia** (`git subtree split -P web`
+- [x] W-02 · ✅ 2026-09-22 `git subtree split -P web` (238 commits) → main + `.opencode` copiado (local-only, gitignored) + README + dependabot solo-alertas. `git mv` de `web/` al repo nuevo **con historia** (`git subtree split -P web`
   o `filter-branch` SOLO sobre la copia, nunca sobre VantaDB) + copiar `.opencode`
   (tooling local, no versionado) + docs/guías marcadas para la web.
-- [ ] W-03 · Reconectar Vercel al repo nuevo (Root Directory pasa a `/`; verificar deploy verde).
-- [ ] W-04 · CI propia mínima en repo web (build+lint+tsc+e2e) + badges propios.
-- [ ] W-05 · En VantaDB: borrar `web/` (`git rm`), limpiar `ci-web-11.yml`/badges,
+- [x] W-03 · ✅ 2026-09-22 proyecto Vercel `vantadb-web` creado por API + `vercel link` + deploy `--prod` verde (`https://vantadb-web.vercel.app`). Reconectar Vercel al repo nuevo (Root Directory pasa a `/`; verificar deploy verde).
+- [x] W-04 · ✅ 2026-09-22 `.github/workflows/web-ci.yml` (build+lint+tsc+e2e) + badges propios (README). CI propia mínima en repo web (build+lint+tsc+e2e) + badges propios.
+- [x] W-05 · ✅ 2026-09-22 `git rm web/ + ci-web.yml` (commit 82317140) + dependabot sin /web + sbom/ocr sin refs web + `.gitignore **/.next/` (incidente: `.sst` 112MB rompió push, resuelto). En VantaDB: borrar `web/` (`git rm`), limpiar `ci-web-11.yml`/badges,
   política de versiones: web con ritmo propio (cierra contradicción "misma versión").
-- [ ] W-06 · Sync de contenido Regla 11: checklist manual por release (cifras web ← BENCHMARKS.md).
+- [x] W-06 · ✅ 2026-09-22 checklist Regla 11 en README del repo web (cifras ← BENCHMARKS.md). Sync de contenido Regla 11: checklist manual por release (cifras web ← BENCHMARKS.md).
   Contrato: Vercel verde en repo nuevo + VantaDB sin referencias rotas a `web/`.
 
 ## Gates
