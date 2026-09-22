@@ -60,7 +60,7 @@ documentado. Seguridad-primero: SSRF/DoS primero, dev-only después, UB no-alcan
 
 ## Wave D — Verificación final (orquestador, tras merges + rescans)
 
-- [ ] VULN-D1 · Re-verificar `gh api dependabot/alerts` (abiertas esperadas: 0; si alguna de
+- [ ] VULN-D1 · Re-verificar `gh api dependabot/alerts` (NOTA 2026-09-22: Dependabot escanea `main`; #26/#30/#32 se cerrarán solas al subir develop→main — no es lag, es rama. Contrato: 0 abiertas tras ese merge).
   #26/#30/#32/#36/#42 sigue abierta tras 24h del merge, diagnosticar: lag de re-scan vs gap
   real). Contrato: 0 abiertas o motivo escrito por restante. (Glib #38 ya dismissed como
   accept-risk; no cuenta.)

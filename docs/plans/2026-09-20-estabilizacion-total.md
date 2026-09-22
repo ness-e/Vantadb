@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 550f7331-35bf-469f-ba10-1959407cbaf9
 > **Inicio:** 2026-09-20
-> **Estado:** 🔄 EN PROGRESO (Wave0: C-01 ✅ · R-03 ✅ · R-02 ✅ diag · C-02 ✅ ∅ · C-07 ramas ✅; R-01 ⏳ CI; TestPyPI staging en curso)
+> **Estado:** 🔄 EN PROGRESO (Fase 0: R-01✅ R-02✅ R-03🔄publish-real-en-curso R-04✅superseded R-05⬜; Fase 1: C-01✅ C-02✅ C-03🔄lint-ok-falta-confirmar-parse C-07🔄25→3prs; resto ⬜; Fase 2 ⬜)
 > **Fuente:** análisis profundo 2026-09-20 (inspección repo + docs oficiales Vercel/GitHub) + decisiones owner (5/5)
 
 ## Decisiones del owner (vinculantes)
@@ -33,10 +33,10 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
   ✅ TestPyPI 0.6.0 verificado (venv limpio, `Client` OK). PyPI prod 0.6.0: NO viable desde tag
   (contenido stale) → se salta a 0.6.1 con #187. Fix durable: pyproject dinámico desde Cargo
   (commit `4af85b54`, wheel local probado `vantadb_py-0.6.0`).
-- [ ] R-03 · npm `0.6.0`: bump `vantadb-ts/package.json` 0.5.0→0.6.0 + publish vía release-npm
+- [ ] R-03 · npm `0.6.0` (bump en repo ✅ c128e2a2; trusted publisher configurado por owner ✅; dry-run verde ✅) — falta publish REAL vía release-npm. Contrato: `npm view` 0.6.0 en ambos.
   (verificar trusted publishing; `npm view` confirma). `vantadb-wasm` igual si aplica.
   Contrato: registros Rust+Python+npm en 0.6.0 el mismo día.
-- [ ] R-04 · Mergear PR #187 (release v0.6.1, generada por los fixes) o absorberla:
+- [x] R-04 · ✅ SUPERSEDED 2026-09-22: #187/#201/#205/#209 cerrados por release-plz sin mergear; sin v0.6.1. El ciclo release es automático; v0.6.1 saldrá cuando corresponda. Sin acción.
   decidir con CI verde (si sus cambios ya viven en `develop` vía #182, cerrarla como superseded con motivo).
 - [ ] R-05 · Test de usuario real (post-publish): instalar desde registros en entorno limpio
   y correr QUICKSTART + tutorial 01 paso a paso; registrar fricciones como FIND.
@@ -54,7 +54,7 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
   Contrato: lint+frontmatter+coverage verdes; 0 links rotos (`grep` + spot-check render);
   `docs/CHANGELOG.md`, `docs/api/openapi.yaml`, `docs/api/MCP.md` NO se mueven
   (los consumen release-plz y el chequeo de versiones).
-- [ ] C-03 · CHANGELOG: eliminar bloque frontmatter huérfano duplicado (líneas ~1835-1843,
+- [ ] C-03 · CHANGELOG (lint MD049/MD003 + frontmatter huérfano ✅ 14ce37ce; WARN "can't parse" desaparecido en runs release-plz — falta confirmación final de parse).
   verificado duplicado) manteniendo entradas; verificar `markdownlint` 0 + release-plz
   vuelve a parsear (desaparece el WARN "can't parse changelog").
 - [ ] C-04 · CI sin duplicados: quitar `develop` de `push.branches` en los 7 workflows
@@ -65,13 +65,13 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
   Actualizar badges del README en el mismo commit. Contrato: `actionlint` 0 + badges resuelven.
 - [ ] C-06 · Fast vs Heavy: sacar bench/fuzz pesados del critical path de PR
   (schedule + `workflow_dispatch`), dejando Fast Gate <10 min. Contrato: PR corre solo fast.
-- [ ] C-07 · Curar PRs/ramas: cerrar con motivo los superseded, mergear pins útiles,
+- [ ] C-07 · Curar PRs/ramas (25→3 abiertos 2026-09-22; los 3 diferidos a Fase 2; ramas merged borradas; dependabot en solo-alertas). Contrato: PRs abiertos = solo vivos ✅ salvo diferidos.
   borrar ramas mergeadas/stale (orben `gh pr close`, `git push --delete`).
   Dependabot ya está en modo solo-alertas: no vuelve el ruido. Contrato: PRs abiertos = solo vivos.
 - [ ] C-08 · CodeQL post-release: activar default setup correcto (el check actual apunta
   a `codeql.yml` inexistente) + triage de alertas. Contrato: check verde o declarado.
 - [ ] C-09 · Greptile fuera (owner, 2 min, `github.com/settings/installations`).
-- [ ] C-10 · README: verificar badges verdes + links relativos vivos tras C-02.
+- [ ] C-10 · README (paridad ES/EN ✅ 7ae4168e; falta verificar badges verdes + links tras C-02∅).
 
 ## Fase 2 — Extracción `web/` (solo tras Fase 0+1 verdes)
 
