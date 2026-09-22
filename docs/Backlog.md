@@ -236,6 +236,7 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/reviews/a
 | `FIND-144` | Media | `docs/workflow/RULES.md` + refresh `CI_POLICY.md` (26 -> 28) + 1 fila puntero en `AGENTS.md` raiz (NO duplicar; `.opencode` es local-only). Tras FIND-143. Origen: auditoria workflows 2026-09-21 | `docs/workflow/RULES.md`, `docs/operations/CI_POLICY.md`, `AGENTS.md` | ?? | ?? Media | ? Pendiente |
 | `FIND-145` | Media | Verificar CodeQL verde post-#202 en `main`; si sigue rojo, fix o deuda con dueno. Origen: PR #202 CI 2026-09-21 | (verificacion; `.github/workflows/sec-codeql-30.yml` solo lectura) | ?? | ?? Media | ? Pendiente |
 | `FIND-146` | Baja | Pins: `arch-metrics` (`checkout@v4` -> SHA), OCR (`@v4` -> SHA, npm latest fijo), guard doble-run `opencode.yml`. Origen: auditoria workflows 2026-09-21 (release + gates) | `.github/workflows/arch-metrics-informational.yml`, `.github/workflows/ocr-delegate.yml`, `.github/workflows/ocr-nightly.yml`, `.github/workflows/opencode.yml` | ?? | ?? Baja | ? Pendiente |
+| `FIND-147` | Baja | 5 warnings `unused_imports` en `src/sdk/search/debug_ops.rs` (perfil bench/release): imports sin gatear vs cuerpo `#[cfg(debug_assertions)]`. Fix: gatear los 5 `use` (:2,:5,:6,:7,:10). Contrato: clippy `-D warnings` verde + check --benches limpio. Origen: reporte owner 2026-09-22 | `src/sdk/search/debug_ops.rs` | ?? | ?? Baja | ? Pendiente |
 
 *Campaña FIND 2026-09-15/16: 31 filas completadas migradas a `docs/avance/` (ver `meta.md`); FIND-76 SKIP → `historial/backlog-history.md`.*
 
