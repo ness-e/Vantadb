@@ -155,3 +155,7 @@ jobs:
         with:
           packages-dir: dist/
           verbose: true
+          # FIND-140: gate version-exists en prod (como publish-testpypi
+          # ya tiene) — re-run del mismo tag hace skip graceful en vez de
+          # fallar con HTTP 400 por versión duplicada.
+          skip-existing: true
