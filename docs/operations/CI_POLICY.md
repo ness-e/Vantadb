@@ -14,8 +14,7 @@ engine, VantaDB enforces a split Continuous Integration architecture.
 
 ## CI Workflow Inventory
 
-VantaDB has **26 active workflow files** in `.github/workflows/` (verificado 2026-09-15; numbered by layer for dependency
-ordering). Each workflow is documented below.
+VantaDB has **27 active workflow files** in `.github/workflows/` (verificado 2026-09-22; 28 in FIND-128 minus one rustdoc workflow merged into `ci-rustdoc.yml` in FIND-137, renames in FIND-142). Each workflow is documented below. See `docs/workflow/README.md` (inventory) and `docs/workflow/TRIGGERS.md` (trigger matrix — source of truth is each file's `on:` block).
 
 ### Local Verification Scripts — Rutas Canónicas
 
@@ -393,14 +392,14 @@ aggregate vs per-runner binding measurement — is decided in
 ### 3. Web CI (`ci-web.yml`)
 
 Builds and lints the web frontend (`web/` directory — Next.js 16). Runs `npm ci`, `npm run lint`,
-`npx tsc --noEmit`, and `npm run build` on push/PR to `main` that touches `web/**`. No test infra
+`npx tsc --noEmit`, and `npm run build` on push to `main`+`develop` and PR to `main` that touch `web/**`. No test infra
 — the Next.js SPA is client-only (`"use client"` everywhere). Triggered by `workflow_dispatch` as
 well.
 
 ### 4. Docs Gate (`gate-docs.yml`)
 
-Lints Markdown files in `docs/**` with `markdownlint-cli2`. Triggered on push/PR to `main`
-touching docs.
+Lints Markdown files in `docs/**` with `markdownlint-cli2`. Triggered on push/PR to `main`+`develop`
+touching `docs/**` (plus router/scripts paths).
 
 ### 5. Security Scan (`sec-codeql.yml`)
 
@@ -408,17 +407,17 @@ CodeQL analysis for Rust. Runs on push/PR to `main` and weekly. Triggers via `wo
 
 ### 6. Fuzzing (`fuzz.yml`)
 
-LibFuzzer corpus + regression via `cargo fuzz`. Scheduled weekly (Monday 06:00 UTC) or
-`workflow_dispatch`.
+LibFuzzer corpus + regression via `cargo fuzz`. Scheduled weekly (Monday 06:00 UTC), PRs touching
+`src/**`/fuzz paths, or `workflow_dispatch`.
 
 ### 7. Performance Benchmarks (`perf-bench.yml`)
 
-Python integration performance benchmarks. Triggered on push to `main` touching core or
+Python integration performance benchmarks. Triggered on push to `main`+`develop` touching core or
 Python paths, or via `workflow_dispatch` with configurable vector/queries/dim inputs.
 
 ### 8. Nightly Benchmarks (`heavy-bench-nightly.yml`)
 
-Nightly benchmark regression suite (daily CRON plus `workflow_dispatch`). Runs light benchmarks
+Nightly benchmark regression suite (daily CRON 02:00 plus `workflow_dispatch`, PRs touching bench paths). Runs light benchmarks
 and heavy benchmarks across multiple package scopes.
 
 ### 9. Python Wheel Build & Publish (`release-wheels.yml`)
@@ -435,7 +434,9 @@ publication and signing remain deferred.
 | Workflow | File | Trigger |
 |----------|------|---------|
 | Release Automation | `release.yml` | Push to `main` — `release-plz` auto-version, changelog, tag, publish |
-| NPM Publish | `release-npm-61.yml` | Tag `v*.*.*`, push to `main` with `vantadb-ts/**`/`vantadb-wasm/**` paths, `pull_request` with same paths, or `workflow_dispatch` — includes Fast Gate job `tests` (`npm ci && npm run build && npx vitest run`, measured 27s <5min, no `continue-on-error`, PR+push gate per TS-06) |
+| Python Wheels | `release-wheels.yml` | Tag `v*.*.*`, `pull_request` to `main` (paths src/python), or `workflow_dispatch` |
+| NPM Publish (WASM+TS) | `release-npm-61.yml` | Tag `v*.*.*`, `pull_request` (paths wasm/ts), or `workflow_dispatch` — includes Fast Gate job `tests` (`npm ci && npm run build && npx vitest run`, measured 27s <5min, no `continue-on-error`, PR+tags gate per TS-06) |
+| NPM Publish (Node) | `release-npm-node.yml` | Tag `node-v*.*.*`, `pull_request` (paths node), or `workflow_dispatch` |
 | PyPI Adapters | `release-adapters.yml` | Tag `adapters-v*.*.*` or `workflow_dispatch` (TestPyPI) |
 | Binary Builds | `release-binaries.yml` | Release published or `workflow_dispatch` |
 | SBOM Generation | `release-sbom.yml` | Tag `v*` or `workflow_dispatch` |
