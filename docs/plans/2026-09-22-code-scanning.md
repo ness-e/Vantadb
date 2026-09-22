@@ -2,7 +2,7 @@
 
 > **Campaign ID:** (asigna `campaign_get_next_task` al arrancar)
 > **Inicio:** 2026-09-22
-> **Estado:** 🔄 EN PROGRESO (Wave A ✅ 2026-09-22: #138 dismissed; 30→29 abiertas; Waves B-D pendientes)
+> **Estado:** ✅ COMPLETADO (2026-09-22: 30/30 dismissed con motivo individual — 1 FP error, 2 FP crypto, 1 won't-fix con sunset, 26 test-only; residual 0; +higiene prx07 con tests 12/12)
 > **Fuente:** triage READ-ONLY 2026-09-22 (`vanta-audit`: 30/30 ubicaciones leídas con
 > contexto + reglas CodeQL/CWE verificadas). Secret-scanning 7/7 resolved: nada que hacer.
 
@@ -29,29 +29,29 @@ en batch, 1 micro-higiene. Ningún UB real, ningún secreto en prod.
 
 ## Wave B — Crypto prod: documentar, no "arreglar" (FP confirmados + 1 accept-risk)
 
-- [ ] CSCAN-B1 · #141 (`hard-coded-crypto`, `src/crypto.rs:301`) = FP: es PBKDF2-HMAC-SHA256
+- [x] CSCAN-B1 · #141 (`hard-coded-crypto`, `src/crypto.rs:301`) = FP: es PBKDF2-HMAC-SHA256
   recomendado con 210k iteraciones (OWASP 2023, cfr. `crypto.rs:118-119`), no una key
   hard-coded. Dismiss con motivo. NO migrar a Argon2 (costo formato+compat, cero ganancia).
-- [ ] CSCAN-B2 · #119 (`src/crypto.rs:236`, `salt=[0u8;16]`) = FP: zero-init sobrescrito
+- [x] CSCAN-B2 · #119 (`src/crypto.rs:236`, `salt=[0u8;16]`) = FP: zero-init sobrescrito
   por CSPRNG (`rand::rng().fill_bytes`, línea 237) + nonce CSPRNG. Dismiss con motivo.
-- [ ] CSCAN-B3 · #137 (`weak-hashing`, `src/crypto.rs:285`, `Sha256::digest` fallback) =
+- [x] CSCAN-B3 · #137 (`weak-hashing`, `src/crypto.rs:285`, `Sha256::digest` fallback) =
   accept-risk con plan: fallback SOLO-lectura para mensajes pre-PBKDF2 (AUDREP-10); el path
   de escritura usa PBKDF2+salt aleatoria. NO eliminar (rompería ficheros viejos). Follow-up
   real: telemetría de hits del fallback legacy + fecha de retirada (sunset).
-- [ ] CSCAN-B4 · #136 (igual, pero en test `test_legacy_sha256_message_still_decrypts`) =
+- [x] CSCAN-B4 · #136 (igual, pero en test `test_legacy_sha256_message_still_decrypts`) =
   suppress-test-only: construye a propósito un vector legacy (documentado líneas 517-521).
 
 ## Wave C — Supresión batch test-only + micro-higiene (un solo batch)
 
-- [ ] CSCAN-C1 · cleartext-logging en tests (16): `mcp_tests.rs` (5099, 5008, 3263),
+- [x] CSCAN-C1 · cleartext-logging en tests (16): `mcp_tests.rs` (5099, 5008, 3263),
   `test_query_embed.rs` (84,108,119 + eprintln skips 96,166,235,176,246,262),
   `test_auto_embed.rs` (49,137). Todos asserts/`eprintln` de CI con corpus sintético
   (gato/felino, batch_ns/k1..k3) — supresión `test-only` en batch.
-- [ ] CSCAN-C2 · hard-coded `salt` de determinismo (10): `dream_tests.rs` (162,301),
+- [x] CSCAN-C2 · hard-coded `salt` de determinismo (10): `dream_tests.rs` (162,301),
   `dreaming.rs` (99,152,188,231,284), `dream/mod.rs` (953,960,961, bajo `#[cfg(test)]`).
   Son etiquetas para run-id determinista (SipHash no-criptográfico, doc 723-726), no
   passwords/keys — FP + supresión test-only.
-- [ ] CSCAN-C3 · Micro-higiene `prx07_redact.rs:65`: el assert ecoa el secreto SOLO si el
+- [x] CSCAN-C3 · Micro-higiene `prx07_redact.rs:65`: el assert ecoa el secreto SOLO si el
   test falla — cambiar mensaje a hash/longitud (no `sk-ant-/ghp_` ni en fallo).
   Los 4 de `mem_command.rs` (345,349,361,402) son tests en `src/` con payloads
   sintéticos; verificar que el allow de CodeQL sea por-path `%/tests/**`+`#[cfg(test)]`.
@@ -60,7 +60,7 @@ en batch, 1 micro-higiene. Ningún UB real, ningún secreto en prod.
 
 ## Wave D — Verificación
 
-- [ ] CSCAN-D1 · `gh api code-scanning/alerts` → residual esperado: solo #137
+- [x] CSCAN-D1 · `gh api code-scanning/alerts` → residual esperado: solo #137
   (accept-risk con sunset) + supresiones justificadas; 0 ERROR abiertos.
   Contrato: CodeQL verde o 1 aceptado documentado.
 
