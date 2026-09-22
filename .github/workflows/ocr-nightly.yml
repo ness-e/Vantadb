@@ -57,7 +57,7 @@ jobs:
 
       - name: Self-test rule mapping (deterministic, must pass)
         run: |
-          for p in src/wal.rs src/index/core.rs src/parser/mod.rs src/memory_governor.rs src/ingestion.rs src/engine.rs src/sdk/mod.rs vantadb-server/src/main.rs vantadb-python/src/lib.rs vantadb-wasm/src/lib.rs web/src/app/page.tsx Cargo.toml Dockerfile; do
+          for p in src/wal.rs src/index/core.rs src/parser/mod.rs src/memory_governor.rs src/ingestion.rs src/engine.rs src/sdk/mod.rs vantadb-server/src/main.rs vantadb-python/src/lib.rs vantadb-wasm/src/lib.rs Cargo.toml Dockerfile; do
             SRC=$(ocr rules check --rule .opencodereview/rule.json "$p" | sed -n '2p')
             echo "$p -> $SRC"
             echo "$SRC" | grep -q "Custom" || { echo "::error::no custom rule for $p"; exit 1; }

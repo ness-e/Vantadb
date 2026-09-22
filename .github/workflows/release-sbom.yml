@@ -28,8 +28,6 @@ jobs:
         with:
           tool: cargo-cyclonedx
       - run: cargo cyclonedx --format json --override-filename sbom
-      - name: Generate npm SBOM
-        run: npx --yes @cyclonedx/cyclonedx-npm --package-lock-only --output-file sbom-web.json web/package.json
       - name: Generate Python SBOM
         run: |
           python3 -m pip install --user --quiet cyclonedx-bom
