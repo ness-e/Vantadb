@@ -14,13 +14,10 @@ on:
         required: false
         default: "false"
   push:
+    # Tags solo: publish. CI de ramas va por pull_request (paths, FND-16).
+    # (paths no se evalúa en tags; tags+branches+paths en un bloque es
+    # ambiguo — FIND-140)
     tags: ["v*.*.*"]
-    branches: [main]
-    paths:
-      - "vantadb-wasm/**"
-      - "vantadb-ts/**"
-      - ".github/workflows/release-npm-61.yml"
-      # FND-16: gate wasm32/TS por PR (paths filter) — publish jobs ya excluyen PRs via `if`
   pull_request:
     paths:
       - "vantadb-wasm/**"
