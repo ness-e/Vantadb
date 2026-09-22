@@ -2,7 +2,7 @@
 
 > **Campaign ID:** c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
 > **Inicio:** 2026-09-21
-> **Estado:** 🔄 EN PROGRESO (Wave 0 ✅ 2026-09-22 · Wave 1 ✅ 2026-09-22 · Wave 2 ✅ 2026-09-22 · Wave 4 ✅ 2026-09-22: 143/145 commiteados)
+> **Estado:** ✅ COMPLETADO (2026-09-22: Waves 0/1/2/3/4/5 — 13/13. Cierre administrativo pendiente)
 > **Fuente:** auditoría 2026-09-21 (3× `vanta-review` en paralelo, 28/28 archivos leídos)
 > + validación internet (duplicados push/PR, SHA-pinning 2026, sccache oficial)
 
@@ -62,7 +62,7 @@
 
 ## Wave 3 — Renombres (SOLO tras Waves 0-2 verdes; 1 task, último edit de archivos)
 
-- [ ] FIND-142 · 🟡 · Quitar numeración (`ci-rust-10.yml`→`ci-rust.yml`, etc.) vía `git mv`
+- [x] FIND-142 · ✅ 2026-09-22 (commit 97a3a03c: 14 renames vía git mv + badges + docs/workflow refs; release.yml/npm-61/npm-node NO renombrados — pineados por trusted publishers) 🟡 · Quitar numeración
   + badges del README en el mismo commit. Contrato: `actionlint` 0 + checks requeridos resuelven
   con nuevos nombres + badges 200. Commit `ci: FIND-142 — ...`
 
@@ -76,7 +76,7 @@
 
 ## Wave 5 — Reglas durables (tras FIND-143)
 
-- [ ] FIND-144 · 🟢 · `docs/workflow/RULES.md` (triggers, timeouts, pins, permissions, publish,
+- [x] FIND-144 · ✅ 2026-09-22 (commit 7021480f: RULES.md 180L + CI_POLICY 26→27 + AGENTS pointer) 🟢 · `docs/workflow/RULES.md` (triggers, timeouts, pins, permissions, publish,
   anti-patrones con ejemplo bueno/malo) + refresh `CI_POLICY.md` (26→28, triggers reales) +
   1 fila puntero en tabla de `AGENTS.md` raíz. Contrato: lint verdes; regla verificable por cada
   hallazgo Alta. Commit `docs: FIND-144 — ...`
@@ -219,4 +219,26 @@ Resultado: OK
 Próxima acción: Ninguno. Orquestador: FIND-145.
 Contrato: verificacion: markdownlint-cli2 20 files 0 issues + grep ](docs/workflow 0 + git status selectivo | evidencia: commit fd792fcf (6 files +497) | artefactos: docs/workflow/README,TRIGGERS,PUBLISH,RUNBOOK,FAQ + docs/tasks/FIND-143.md | invariantes: cero YAML/src/web/desktop/locks/plans/Backlog; NO PUSH | deuda: coverage N/A, actionlint N/A, FIND-142 renombres pendientes | queda_pendiente: ninguno
 Próxima tarea si completa: FIND-145
+=== END RECITATION ===
+
+=== RECITATION FIND-142 ===
+Campaign ID: c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
+Objetivo activo: FIND-142: quitar numeración de filenames de workflows vía git mv + actualizar referencias
+Estado: completed
+Última acción: S1-S6 completos: 14 git mv + 9 refs yml + READMEs + 19 docs/workflow + CI_POLICY + commit selectivo 97a3a03c sin push
+Resultado: OK
+Próxima acción: Ninguno — tarea completa. Orquestador: FIND-144.
+Contrato: verificacion: actionlint exit 0 + git diff --check limpio + grep 0 old-names en alcance + pre-commit hook ok | evidencia: commit 97a3a03c (42 files, 14 renames R); greps de refs §Impacto | artefactos: 14 yml + 2 READMEs + 19 docs/workflow + CI_POLICY + docs/tasks/FIND-142.md | invariantes: 3 pins intactos; cero triggers/jobs; prohibidos intactos; stash GOV-C4 intacto; plan file M ajeno no commiteado; NO PUSH | deuda: badges-200 sin red; prosa stale fuera de alcance (TEST_MAP, ci-cd-guide, BENCHMARKS, QUICKSTART, CONTRIBUTING, Formula, pyproject, web/guides, glosario); campaign_verify_cmd BUG (dir) → bash directa | queda_pendiente: ninguno
+Próxima tarea si completa: FIND-144
+=== END RECITATION ===
+
+=== RECITATION FIND-144 ===
+Campaign ID: c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
+Objetivo activo: FIND-144: RULES.md + CI_POLICY refresh + AGENTS pointer
+Estado: completed
+Última acción: S1-S6 completos: task file + RULES.md 7 reglas + CI_POLICY 26->27 + AGENTS fila + verify verde + commit selectivo 7021480f sin push
+Resultado: OK
+Próxima acción: Ninguno — tarea completa. Orquestador: cierre Wave 5 / plan.
+Contrato: verificacion: markdownlint-cli2 22 files 0 issues + git diff --check limpio + grep 0 old-names + links resuelven + pre-commit hook ok | evidencia: commit 7021480f (4 files +262/-10: RULES.md nuevo 180L, CI_POLICY 7 edits, AGENTS.md 1 fila, task file); campaign_verify_cmd exit 0 (sin BUG esta vez) | artefactos: docs/workflow/RULES.md + docs/operations/CI_POLICY.md + AGENTS.md + docs/tasks/FIND-144.md commiteados | invariantes: cero YAML/src/web/desktop/locks/Backlog; plan file M ajeno no commiteado; NO PUSH | deuda: ninguna (progreso batch lo hace orquestador al cierre Wave 5) | queda_pendiente: ninguno
+Próxima tarea si completa: cierre Wave 5 (orquestador)
 === END RECITATION ===
