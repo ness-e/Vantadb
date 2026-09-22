@@ -18,6 +18,7 @@ jobs:
   ocr-delegate:
     name: OCR preview + rules spec
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     # CATEGORY: INFORMATIONAL — advisory spec only, never gates merge (Regla 2)
     continue-on-error: true
     steps:

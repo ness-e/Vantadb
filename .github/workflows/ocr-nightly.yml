@@ -32,6 +32,7 @@ jobs:
   delegate:
     name: Delegation spec, last 24h (no key required)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
         with:
@@ -89,6 +90,7 @@ jobs:
   check-key:
     name: Check for LLM key (no secret exposure)
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       has_key: ${{ steps.check.outputs.has_key }}
     steps:
@@ -105,6 +107,7 @@ jobs:
   full:
     name: Full LLM review, last 24h (requires secrets)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # Delegation is the default: without a key this job is skipped (green) —
     # `secrets` is not allowed in job `if:`, so the check lives in `check-key`.
     needs: [check-key]
