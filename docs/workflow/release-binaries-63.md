@@ -1,14 +1,14 @@
 ---
-title: "`release-binaries-63.yml` — RELEASE: Binaries — Build & Upload"
+title: "`release-binaries.yml` — RELEASE: Binaries — Build & Upload"
 type: workflow
 status: active
 tags: [vantadb, ci, release-binaries]
 last_reviewed: 2026-09-15
 aliases: []
-related: [".github/workflows/release-binaries-63.yml"]
+related: [".github/workflows/release-binaries.yml"]
 ---
 
-# `release-binaries-63.yml` — RELEASE: Binaries — Build & Upload
+# `release-binaries.yml` — RELEASE: Binaries — Build & Upload
 
 ## ¿Qué hace?
 

@@ -1,14 +1,14 @@
 ---
-title: "`fuzz-40.yml` — FUZZ: LibFuzzer — Corpus + Regression"
+title: "`fuzz.yml` — FUZZ: LibFuzzer — Corpus + Regression"
 type: workflow
 status: active
 tags: [vantadb, ci, fuzz]
 last_reviewed: 2026-09-15
 aliases: []
-related: [".github/workflows/fuzz-40.yml"]
+related: [".github/workflows/fuzz.yml"]
 ---
 
-# `fuzz-40.yml` — FUZZ: LibFuzzer — Corpus + Regression
+# `fuzz.yml` — FUZZ: LibFuzzer — Corpus + Regression
 
 ## ¿Qué hace?
 

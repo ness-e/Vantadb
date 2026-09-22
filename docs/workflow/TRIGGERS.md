@@ -20,25 +20,25 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 
 | Workflow | push | pull_request | schedule | dispatch | Other |
 |----------|------|--------------|----------|----------|-------|
-| `ci-rust-10.yml` | Y (`main`) | Y (`main`) | — | Y | — |
+| `ci-rust.yml` | Y (`main`) | Y (`main`) | — | Y | — |
 | `ci-rustdoc.yml` | Y (`main`,`develop`) | Y (`main`,`develop`) | — | Y | — |
-| `ci-web-11.yml` | Y (`main`,`develop`) | Y (`main`) | — | Y | — |
-| `ci-examples-12.yml` | Y (`main`,`develop`) | Y (`main`) | — | Y | — |
-| `chaos-45.yml` | Y (`main`,`develop`) | Y (`main`) | — | Y | — |
-| `gate-docs-21.yml` | Y (`main`,`develop`) | Y (`main`,`develop`) | — | Y | — |
-| `sec-codeql-30.yml` | Y (`main`) | Y (`main`) | Y (Sun) | Y | — |
+| `ci-web.yml` | Y (`main`,`develop`) | Y (`main`) | — | Y | — |
+| `ci-examples.yml` | Y (`main`,`develop`) | Y (`main`) | — | Y | — |
+| `chaos.yml` | Y (`main`,`develop`) | Y (`main`) | — | Y | — |
+| `gate-docs.yml` | Y (`main`,`develop`) | Y (`main`,`develop`) | — | Y | — |
+| `sec-codeql.yml` | Y (`main`) | Y (`main`) | Y (Sun) | Y | — |
 | `providers-ci.yml` | Y (`main`,`develop`) | Y (`main`) | — | Y | — |
 | `desktop.yml` | Y (`main`,`develop`) | Y (`main`) | — | Y | — |
-| `perf-bench-40.yml` | Y (`main`,`develop`) | — | — | Y | — |
+| `perf-bench.yml` | Y (`main`,`develop`) | — | — | Y | — |
 | `ci-gate.yml` | — | — | — | — | `workflow_call` |
 
 ## Heavy / fuzz / informational / bots
 
 | Workflow | push | pull_request | schedule | dispatch | Other |
 |----------|------|--------------|----------|----------|-------|
-| `fuzz-40.yml` | — | Y (paths src/fuzz) | Y (Mon 06:00) | Y | — |
-| `heavy-bench-nightly-51.yml` | — | Y (paths benches) | Y (daily 02:00) | Y | — |
-| `heavy-certification-50.yml` | — | — | Y (Sun 03:00) | Y | — |
+| `fuzz.yml` | — | Y (paths src/fuzz) | Y (Mon 06:00) | Y | — |
+| `heavy-bench-nightly.yml` | — | Y (paths benches) | Y (daily 02:00) | Y | — |
+| `heavy-certification.yml` | — | — | Y (Sun 03:00) | Y | — |
 | `adapters-compat.yml` | — | — | Y (Sun 03:00) | Y | — |
 | `arch-metrics-informational.yml` | — | Y (paths src/Cargo) | — | Y | — |
 | `bench-canonical-p99-informational.yml` | — | Y (paths index/storage) | — | Y | — |
@@ -51,12 +51,12 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 | Workflow | push tags | pull_request | dispatch | Other |
 |----------|-----------|--------------|----------|-------|
 | `release.yml` | — (branches `main` only) | — | — | — |
-| `release-wheels-60.yml` | `v*.*.*` | Y (paths src/python) | Y | — |
+| `release-wheels.yml` | `v*.*.*` | Y (paths src/python) | Y | — |
 | `release-npm-61.yml` | `v*.*.*` | Y (paths wasm/ts) | Y | — |
 | `release-npm-node.yml` | `node-v*.*.*` | Y (paths node) | Y | — |
-| `release-adapters-62.yml` | `adapters-v*.*.*` | — | Y | — |
-| `release-binaries-63.yml` | — | — | Y | `release` published |
-| `release-sbom-64.yml` | `v*` | — | Y | — |
+| `release-adapters.yml` | `adapters-v*.*.*` | — | Y | — |
+| `release-binaries.yml` | — | — | Y | `release` published |
+| `release-sbom.yml` | `v*` | — | Y | — |
 
 ## Notes
 

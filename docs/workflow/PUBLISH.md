@@ -31,7 +31,7 @@ merge develop -> main
   via OIDC (`id-token: write`). Timeout 30 min, no cancel (`cancel-in-progress: false`).
 - `release-plz-pr` job: opens the Release PR on subsequent pushes.
 
-## PyPI wheels — `release-wheels-60.yml`
+## PyPI wheels — `release-wheels.yml`
 
 - Tags `v*.*.*` publish to prod PyPI (`environment: pypi`, OIDC + provenance
   attestation); `workflow_dispatch` with `publish_testpypi=true` publishes to
@@ -54,7 +54,7 @@ merge develop -> main
 - PRs touching `vantadb-node/**` run CI only.
 - Own namespace so core `v*` releases never publish the Node package by accident.
 
-## Adapters — `release-adapters-62.yml`
+## Adapters — `release-adapters.yml`
 
 - Tags `adapters-v*.*.*` publish 9 adapters
   (langchain, llamaindex, mem0, crewai, dspy, haystack, letta, openai, ollama)
@@ -62,7 +62,7 @@ merge develop -> main
 - `workflow_dispatch` with `publish_testpypi=true` goes to TestPyPI.
 - Own namespace so adapter-only releases never trigger core wheels/npm.
 
-## Binaries — `release-binaries-63.yml`
+## Binaries — `release-binaries.yml`
 
 - Trigger: `release: types: [published]` + manual dispatch only (FIND-140:
   the old `push.tags: [v*]` built 5 targets + docker just to discard).
@@ -71,7 +71,7 @@ merge develop -> main
   `tar.gz`/`zip` + sha256 to the GitHub Release, plus a build-no-push
   docker image smoke test.
 
-## SBOM — `release-sbom-64.yml`
+## SBOM — `release-sbom.yml`
 
 - Tags `v*` (broad: matches any `v` tag, including `v*.*.*`) generate
   CycloneDX SBOMs (Rust + web + Python) as workflow artifacts.

@@ -1,14 +1,14 @@
 ---
-title: "`release-adapters-62.yml` — RELEASE: Adapters — PyPI Publish"
+title: "`release-adapters.yml` — RELEASE: Adapters — PyPI Publish"
 type: workflow
 status: active
 tags: [vantadb, ci, release-adapters]
 last_reviewed: 2026-09-15
 aliases: []
-related: [".github/workflows/release-adapters-62.yml"]
+related: [".github/workflows/release-adapters.yml"]
 ---
 
-# `release-adapters-62.yml` — RELEASE: Adapters — PyPI Publish
+# `release-adapters.yml` — RELEASE: Adapters — PyPI Publish
 
 ## ¿Qué hace?
 

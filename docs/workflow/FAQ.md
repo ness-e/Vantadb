@@ -19,10 +19,10 @@ produced a `push` run and a `pull_request` run 6 s apart).
   `push` (ref `refs/heads/develop`) and `pull_request` (ref `refs/pull/N/merge`).
 - `concurrency.group` includes `${{ github.ref }}`, so the two refs never
   cancel each other — you see a green/red pair for the same code.
-- Mitigation (FIND-134): `ci-rust-10.yml` dropped `develop` from
+- Mitigation (FIND-134): `ci-rust.yml` dropped `develop` from
   `push.branches`; PR validation covers pre-merge, `push: [main]` covers
-  post-merge. Other dual-trigger workflows (`chaos-45`, `ci-examples-12`,
-  `desktop`, `gate-docs-21`, …) still double-fire when paths match.
+  post-merge. Other dual-trigger workflows (`chaos`, `ci-examples`,
+  `desktop`, `gate-docs`, …) still double-fire when paths match.
 
 ## What does `cancel-in-progress` mean here?
 
@@ -38,8 +38,8 @@ produced a `push` run and a `pull_request` run 6 s apart).
 
 ## Skipped vs required checks — which is which?
 
-- **Required** (branch protection on `main`/`develop`): the `ci-rust-10.yml`
-  jobs (fmt, clippy, nextest matrix, ADR gate), `gate-docs-21.yml`,
+- **Required** (branch protection on `main`/`develop`): the `ci-rust.yml`
+  jobs (fmt, clippy, nextest matrix, ADR gate), `gate-docs.yml`,
   `providers-ci.yml`, CodeQL `Analyze`. A red required check blocks merge.
 - **Fail-closed gate** (FIND-139): `ci-gate.yml` treats a missing or pending
   required check as failure (`*) FAILED=1`). Heavy nightly runs abort

@@ -19,7 +19,7 @@ name: OCR Nightly (delegation + full con key)
 
 on:
   schedule:
-    # 04:00 UTC daily — off-peak vs heavy-bench-nightly-51 (03:00 UTC).
+    # 04:00 UTC daily — off-peak vs heavy-bench-nightly (03:00 UTC).
     - cron: '0 4 * * *'
   workflow_dispatch:
 

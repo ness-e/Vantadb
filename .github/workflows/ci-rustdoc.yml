@@ -49,7 +49,7 @@ permissions:
   contents: read
 
 # Cancel-in-progress coincide con la convención del repo (fmt/clippy/semver-checks
-# usan el mismo patrón en ci-rust-10.yml). Evita acumulación de runs obsoletos
+# usan el mismo patrón en ci-rust.yml). Evita acumulación de runs obsoletos
 # cuando se pushea una cadena de commits sobre la misma rama.
 concurrency:
   group: rustdoc-${{ github.ref }}
