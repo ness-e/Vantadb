@@ -80,7 +80,7 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
 - [x] W-02 · ✅ 2026-09-22 `git subtree split -P web` (238 commits) → main + `.opencode` copiado (local-only, gitignored) + README + dependabot solo-alertas. `git mv` de `web/` al repo nuevo **con historia** (`git subtree split -P web`
   o `filter-branch` SOLO sobre la copia, nunca sobre VantaDB) + copiar `.opencode`
   (tooling local, no versionado) + docs/guías marcadas para la web.
-- [x] W-03 · ✅ 2026-09-22 proyecto Vercel `vantadb-web` creado por API + `vercel link` + deploy `--prod` verde (`https://vantadb-web.vercel.app`). Reconectar Vercel al repo nuevo (Root Directory pasa a `/`; verificar deploy verde).
+- [x] W-03 · ✅ 2026-09-22 proyecto Vercel `vantadb-web` creado por API + `vercel link` + deploy `--prod` verde (`https://vantadb-web.vercel.app`). Dominio canónico MIGRADO 2026-09-22 (decisión owner): `vantadb.vercel.app` verificado en proyecto nuevo (HTTP 200), proyecto viejo eliminado, SITE_URL intacto. Reconectar Vercel al repo nuevo (Root Directory pasa a `/`; verificar deploy verde).
 - [x] W-04 · ✅ 2026-09-22 `.github/workflows/web-ci.yml` (build+lint+tsc+e2e) + badges propios (README). CI propia mínima en repo web (build+lint+tsc+e2e) + badges propios.
 - [x] W-05 · ✅ 2026-09-22 `git rm web/ + ci-web.yml` (commit 82317140) + dependabot sin /web + sbom/ocr sin refs web + `.gitignore **/.next/` (incidente: `.sst` 112MB rompió push, resuelto). En VantaDB: borrar `web/` (`git rm`), limpiar `ci-web-11.yml`/badges,
   política de versiones: web con ritmo propio (cierra contradicción "misma versión").
