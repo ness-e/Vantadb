@@ -2,7 +2,7 @@
 
 > **Campaign ID:** c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
 > **Inicio:** 2026-09-21
-> **Estado:** 🔄 EN PROGRESO (Wave 0 ✅ 2026-09-22 · Wave 1 ✅ 2026-09-22 · Wave 2 ✅ 2026-09-22: 140/141/146 commiteados)
+> **Estado:** 🔄 EN PROGRESO (Wave 0 ✅ 2026-09-22 · Wave 1 ✅ 2026-09-22 · Wave 2 ✅ 2026-09-22 · Wave 4 ✅ 2026-09-22: 143/145 commiteados)
 > **Fuente:** auditoría 2026-09-21 (3× `vanta-review` en paralelo, 28/28 archivos leídos)
 > + validación internet (duplicados push/PR, SHA-pinning 2026, sccache oficial)
 
@@ -68,10 +68,10 @@
 
 ## Wave 4 — Documentación (tras código estable; paralelo ×2)
 
-- [ ] FIND-143 · 🟢 · `docs/workflow/` (vanta-docs): inventario 28 + matriz triggers + flujo de
+- [x] FIND-143 · ✅ 2026-09-22 (commit fd792fcf: README+TRIGGERS+PUBLISH+RUNBOOK+FAQ, lint 0/20) 🟢 · `docs/workflow/` (vanta-docs): inventario 28 + matriz triggers + flujo de
   publish por registro + runbook (re-run, approve environments, [no-adr]) + FAQ duplicados.
   Contrato: lint/frontmatter/coverage verdes; 0 links rotos. Commit `docs: FIND-143 — ...`
-- [ ] FIND-145 · 🟢 · Verificar CodeQL verde post-#202 en `main`; si sigue rojo, fix o deuda escrita.
+- [x] FIND-145 · ✅ 2026-09-22 (commit 63f77152: Analyze success en main, sin fix) 🟢 · Verificar CodeQL verde post-#202 en `main`; si sigue rojo, fix o deuda escrita.
   Contrato: check verde o causa declarada con dueño. Commit `ci: FIND-145 — ...` (o task file)
 
 ## Wave 5 — Reglas durables (tras FIND-143)
@@ -208,4 +208,15 @@ Resultado: OK
 Próxima acción: Ninguno — tarea completa. Orquestador: Wave 2 restante (FIND-141/146) / Wave 3.
 Contrato: verificacion: actionlint 5/5 exit 0 + git diff --check exit 0 + secrets-grep 0 + pre-commit hook ok x5 | evidencia: commits a0d3123b (release.yml) + 95243f72 (npm-61) + 457dea46 (npm-node) + ac724291 (adapters-62) + 0312f52e (binaries-63 + task file); docs oficiales tags+branches+paths https://docs.github.com/en/actions/reference/workflows-and-actions/workflow-syntax | artefactos: 5 workflows + docs/tasks/FIND-140.md commiteados | invariantes: resto workflows/src/web/desktop/locks/Backlog intactos; WIP ajeno (FIND-141/146) no tocado; NO PUSH | deuda: campaign_verify_cmd BUG exit -1 → verificado via bash directa; re-run verde de workflows pendiente (solo vanta-lead/owner puede re-runear en GH) | queda_pendiente: re-run de los 5 workflows en GH + verificar release-plz-pr en proximo push a main
 Próxima tarea si completa: FIND-141
+=== END RECITATION ===
+
+=== RECITATION FIND-143 ===
+Campaign ID: c56e3f17-2f32-4c20-b5e9-f7d1d3f00b36
+Objetivo activo: FIND-143 docs/workflow inventario+triggers+publish+runbook+FAQ
+Estado: completed
+Última acción: S1-S6: task file + 5 docs + lint 0 + commit fd792fcf sin push
+Resultado: OK
+Próxima acción: Ninguno. Orquestador: FIND-145.
+Contrato: verificacion: markdownlint-cli2 20 files 0 issues + grep ](docs/workflow 0 + git status selectivo | evidencia: commit fd792fcf (6 files +497) | artefactos: docs/workflow/README,TRIGGERS,PUBLISH,RUNBOOK,FAQ + docs/tasks/FIND-143.md | invariantes: cero YAML/src/web/desktop/locks/plans/Backlog; NO PUSH | deuda: coverage N/A, actionlint N/A, FIND-142 renombres pendientes | queda_pendiente: ninguno
+Próxima tarea si completa: FIND-145
 === END RECITATION ===
