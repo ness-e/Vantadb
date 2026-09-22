@@ -2,7 +2,7 @@ name: 'HEAVY: Benchmarks — Nightly Regression'
 
 on:
   schedule:
-    - cron: '0 3 * * *'
+    - cron: '0 2 * * *'  # FIND-141: daily 02:00 UTC — desolapado de heavy-cert Sun 03:00 (slot 04:00 ocupado por ocr-nightly)
   pull_request:
     paths:
       - 'benches/**'
@@ -263,7 +263,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add benchmarks/criterion_baseline.json
-          git commit -m "chore(ci): update criterion bench baseline (nightly)" || echo "No baseline change"
+          git commit -m "chore(ci): update criterion bench baseline (nightly) [skip ci]" || echo "No baseline change"
           git push
 
   # critcmp regression candidate — OFF by default.
