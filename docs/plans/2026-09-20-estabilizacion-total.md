@@ -44,9 +44,7 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
 
 ## Fase 1 — Limpieza e imagen (main estable, sin mover carpetas)
 
-- [ ] C-01 · `.opencode` fuera del git: `git rm --cached .opencode` + línea en `.gitignore`
-  + retocar referencia en `AGENTS.md`. Local intacto, task-system sigue funcionando.
-  Contrato: `git status` limpio de submodule; `git clone` fresco no lo trae; skills raíz intactas.
+- [x] C-01 · ✅ 2026-09-23 verificado: `git ls-files .opencode` = 0 + `.gitignore` lo excluye (local intacto).
 - [ ] C-02 · Docs por audiencia: `docs/user/` (QUICKSTART, tutorials, FAQ, blog, api/, operations user-facing)
   + `docs/dev/` (plans, tasks, avance, research, reviews, backlog). Mover con `git mv`
   (conserva historia). Actualizar: README links relativos, `llms.txt`, gate-docs paths,
@@ -54,18 +52,12 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
   Contrato: lint+frontmatter+coverage verdes; 0 links rotos (`grep` + spot-check render);
   `docs/CHANGELOG.md`, `docs/api/openapi.yaml`, `docs/api/MCP.md` NO se mueven
   (los consumen release-plz y el chequeo de versiones).
-- [ ] C-03 · CHANGELOG (lint MD049/MD003 + frontmatter huérfano ✅ 14ce37ce; WARN "can't parse" desaparecido en runs release-plz — falta confirmación final de parse).
-  verificado duplicado) manteniendo entradas; verificar `markdownlint` 0 + release-plz
-  vuelve a parsear (desaparece el WARN "can't parse changelog").
-- [ ] C-04 · CI sin duplicados: quitar `develop` de `push.branches` en los 7 workflows
-  con par push[main,develop]+PR[main] (propuesta FIND-128 §188); verificar con 1 push
-  que cada workflow corre 1 vez. Contrato: 0 runs duplicados mismo SHA.
-- [ ] C-05 · Renombres reconocibles: `ci-rust-10.yml`→`ci-rust.yml`, `gate-docs-21.yml`→`gate-docs.yml`,
-  etc. (los gates usan nombres de check, no de archivo: no se rompen rulesets).
-  Actualizar badges del README en el mismo commit. Contrato: `actionlint` 0 + badges resuelven.
+- [x] C-03 · ✅ 2026-09-23: `markdownlint docs/**/*.md` 0 issues (MD049 fixeado) + release-plz publicó 0.6.0/0.6.1 parseando el changelog sin WARN.
+- [x] C-04 · SUPERSEDED 2026-09-23: la propuesta (quitar `develop` de push) quedó obsoleta — workflows-repair (FIND-140) racionalizó triggers MANTENIENDO `develop` (todo el CI actual corre sobre develop). Ver `docs/workflow/TRIGGERS.md`.
+- [x] C-05 · ✅ 2026-09-23: renombres aplicados en FIND-142 (14 renames, ej `ci-rust-10.yml`→`ci-rust.yml`); `actionlint` 0.
 - [ ] C-06 · Fast vs Heavy: sacar bench/fuzz pesados del critical path de PR
   (schedule + `workflow_dispatch`), dejando Fast Gate <10 min. Contrato: PR corre solo fast.
-- [ ] C-07 · Curar PRs/ramas (25→3 abiertos 2026-09-22; los 3 diferidos a Fase 2; ramas merged borradas; dependabot en solo-alertas). Contrato: PRs abiertos = solo vivos ✅ salvo diferidos.
+- [ ] C-07 · Curar PRs/ramas (25→0 el 2026-09-22; oleada nueva 211–219 en curso 2026-09-23: otel trio cerrado vía commit atómico 5e6a3071, #211–216 con branches actualizados y CI en curso). Contrato: PRs abiertos = solo vivos.
   borrar ramas mergeadas/stale (orben `gh pr close`, `git push --delete`).
   Dependabot ya está en modo solo-alertas: no vuelve el ruido. Contrato: PRs abiertos = solo vivos.
 - [ ] C-08 · CodeQL post-release: activar default setup correcto (el check actual apunta
