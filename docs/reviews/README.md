@@ -48,11 +48,11 @@ Su contenido fue leído, verificado contra el código actual y consolidado en el
 | research-vantadb-server-20260825.md | 2026-08-25 | Server HTTP |
 | research-vantadb-ts-20260825.md | 2026-08-25 | SDK TypeScript/WASM |
 | research-vantadb-wasm-20260825.md | 2026-08-25 | Bindings WASM |
-| research-web-prod-20260825.md | 2026-08-25 | Producto web |
+| research-web-prod-20260825.md | 2026-08-25 | Producto web — 📦 migrado 2026-09-22 a Vantadb-web `docs/history/` |
 | review-certify-2026-08-05-2025.md | 2026-08-05 | Unified review certify 9.4/10 |
 | review-full-2026-07-27-0309.md | 2026-07-27 | Unified review full 7.7/10 |
 | review-full-2026-08-05-t1545.md | 2026-08-05 | Unified review full 7.1/10 FAIL |
 | review-full-20260822-200850.md | 2026-08-22 | Unified review full 7.9/10 FAIL (L1) |
 | stabilization-report.md | 2026-07-18 | Reporte de estabilización v0.3.0 |
 | task-files-verification-20260825.md | 2026-08-25 | Verificación de 30 task files |
-| web-design-audit-2026-08-24.md | 2026-08-24 | Auditoría de diseño web (WDA-00..07) |
+| web-design-audit-2026-08-24.md | 2026-08-24 | Auditoría de diseño web (WDA-00..07) — 📦 migrado 2026-09-22 a Vantadb-web `docs/history/` |

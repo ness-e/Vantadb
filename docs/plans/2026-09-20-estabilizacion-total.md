@@ -122,3 +122,14 @@ Próxima acción: orquestador: C-10 con docs/tasks/C-02.md como input
 Contrato: verificacion: markdownlint 1433 files 0 issues + ](docs/ 49 links 0 rotos + parent-links 0 rotos + spot-check 4/4 + frontmatter 0 faltantes + commit ccc8ee4e (solo C-02.md, hooks verdes) | evidencia: claim subset=∅ → docs/tasks/C-02.md (tabla 7 filas) | confianza: alta; artefactos: docs/tasks/C-02.md; invariantes: PROHIBIDOS intactos (api, operations, workflows, scripts, src, web, desktop, Backlog, avance, plans, tasks, CHANGELOG), NO PUSH; deuda: CI re-run delegado (requiere push); queda_pendiente: orquestador C-10 + decision re-scope C-02 (cerrar NO-APPLICA o wave ampliada)
 Próxima tarea si completa: C-10
 === END RECITATION ===
+
+=== RECITATION WEB-DOCS-MOVE ===
+Campaign ID: 550f7331-35bf-469f-ba10-1959407cbaf9
+Objetivo activo: WEB-DOCS-MOVE: mover 13 docs historicas web a Vantadb-web docs/history + reescribir refs vivas
+Estado: in-progress
+Última acción: DISCOVERY completo + task file creado
+Resultado: PARTIAL
+Próxima acción: STEP 2: copiar 13 archivos a web/docs/history + README indice + verify hashes
+Contrato: verificacion: DISCOVERY (Test-Path 13/13, git grep por archivo, markdownlint set 0 issues, avance-coverage baseline 1038/1038) OK | evidencia: claim 0-links-vivos: git grep links absolutos+relativos (solo 3 en historial congelado) | confianza: alta; artefactos: docs/tasks/WEB-DOCS-MOVE.md; invariantes: PROHIBIDOS intactos, NO PUSH, WIP ajeno web (.gitignore) intacto; deuda: ninguna aun; queda_pendiente: STEPs 2-5
+Próxima tarea si completa: WEB-DOCS-MOVE
+=== END RECITATION ===
