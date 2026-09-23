@@ -1928,7 +1928,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 - llms.txt URLs absolutas + mirrors skills 87 tools\
 - dependabot modo solo-alertas + lock desktop\
 - salud comunitaria (CITATION, FUNDING, Code of Conduct actualizado)\
-- lint CHANGELOG (frontmatter huerfano + __vanta_* code) + pins adapters <0.7.0 (0.6.0 compatible)\
+- lint CHANGELOG (frontmatter huerfano + `vanta_*` code) + pins adapters <0.7.0 (0.6.0 compatible)\
 - coherencia version 0.6.0 (pyproject + openapi + MCP; version_coherence verde)\
 
 ### ✨ Features
