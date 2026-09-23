@@ -50,6 +50,7 @@ jobs:
   windows:
     name: Build & Test (Windows)
     runs-on: windows-latest
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -66,7 +67,7 @@ jobs:
 
       # Sidecars for the installer bundle AND for the src-tauri sidecar tests.
       # custom-allocator (mimalloc on Windows) per release-ci.md rule 1:
-      # these exes ship inside the installer, same as release-binaries-63.
+      # these exes ship inside the installer, same as release-binaries.
       # BOTH binaries are required: tauri.conf.json resources embeds
       # binaries/vanta-cli.exe (the app spawns canonical vanta-cli per
       # c684a83d), while src-tauri spawn tests exercise vantadb-server.exe
@@ -125,6 +126,7 @@ jobs:
   macos:
     name: Build & Test (macOS)
     runs-on: macos-latest
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -184,6 +186,7 @@ jobs:
   linux:
     name: Build & Test (Linux)
     runs-on: ubuntu-22.04
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 

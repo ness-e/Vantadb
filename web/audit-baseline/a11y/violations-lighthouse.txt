@@ -1,0 +1,7 @@
+== home ==
+[FAIL] Background and foreground colors do not have a sufficient contrast ratio. (color-contrast) - items: 19
+[FAIL] Heading elements are not in a sequentially-descending order (heading-order) - items: 1
+[FAIL] Elements with visible text labels do not have matching accessible names. (label-content-name-mismatch) - items: 1
+== about-team ==
+[FAIL] Background and foreground colors do not have a sufficient contrast ratio. (color-contrast) - items: 5
+[FAIL] Elements with visible text labels do not have matching accessible names. (label-content-name-mismatch) - items: 1

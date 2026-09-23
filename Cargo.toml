@@ -88,14 +88,14 @@ rand = "0.9"
 nom = "7"
 subtle = "2.6"
 arrow = { version = "59", features = ["ipc"], optional = true }
-rocksdb = { version = "0.24.0", default-features = false, features = ["lz4"], optional = true }
+rocksdb = { version = "0.25.0", default-features = false, features = ["lz4"], optional = true }
 fjall = { version = "3.1", optional = true }
 
 # ── Async + Integrations + Server ──
 crc32c = "0.5"
 reqwest = { version = "0.12", features = ["json", "blocking"], optional = true }
 ort = { version = "2.0.0-rc.13", optional = true, features = ["load-dynamic"] }
-tokenizers = { version = "0.22", optional = true }
+tokenizers = { version = "0.23", optional = true }
 serde_json = "1.0"
 prometheus = { version = "0.14", optional = true }
 pyo3 = { version = "0.29", features = ["extension-module", "chrono"], optional = true }
@@ -109,7 +109,7 @@ tokio = { version = "1", features = ["rt", "rt-multi-thread", "net", "sync", "si
 axum = { version = "0.8", optional = true }
 tower = { version = "0.5", optional = true }
 tower_governor = { version = "0.8", optional = true }
-tower-http = { version = "0.6.11", features = ["trace", "cors", "fs", "timeout"], optional = true }
+tower-http = { version = "0.7.1", features = ["trace", "cors", "fs", "timeout"], optional = true }
 axum-server = { version = "0.8", optional = true, features = ["tls-rustls"] }
 rustls = { version = "0.23", optional = true }
 # SRV-06: JWT HS256 offline (ADR-039) — rust_crypto = pure-Rust HMAC, no C toolchain.
@@ -215,7 +215,7 @@ windows-sys = { version = "0.61", features = [
 [target.'cfg(unix)'.dependencies]
 libc = "0.2"
 [target.'cfg(target_os = "macos")'.dependencies]
-mach2 = "0.6"
+mach2 = "0.7"
 
 # FIND-58: the wasm32 raw gate (`-p vantadb --target wasm32-unknown-unknown
 # --no-default-features --features wasm`) builds this crate WITHOUT

@@ -1,14 +1,14 @@
 ---
-title: "`ci-rust-10.yml` — CI: Rust — Build & Lint + Tests"
+title: "`ci-rust.yml` — CI: Rust — Build & Lint + Tests"
 type: workflow
 status: active
 tags: [vantadb, ci, ci-rust]
 last_reviewed: 2026-09-15
 aliases: []
-related: [".github/workflows/ci-rust-10.yml"]
+related: [".github/workflows/ci-rust.yml"]
 ---
 
-# `ci-rust-10.yml` — CI: Rust — Build & Lint + Tests
+# `ci-rust.yml` — CI: Rust — Build & Lint + Tests
 
 ## ¿Qué hace?
 
@@ -61,6 +61,6 @@ Garantizar que cualquier cambio en el código Rust (`src/`, `tests/`, `benches/`
 
 ## ¿Cuándo se ejecuta?
 
-- **Push** a `main` con cambios en: `src/`, `tests/`, `benches/`, `Cargo.toml`, `Cargo.lock`, `build.rs`, `.config/nextest.toml`, `.github/workflows/ci-rust-10.yml`, `deny.toml`, `rust-toolchain.toml`, `vantadb-*/**`, `integrations/**` (excluye `web/**`)
+- **Push** a `main` con cambios en: `src/`, `tests/`, `benches/`, `Cargo.toml`, `Cargo.lock`, `build.rs`, `.config/nextest.toml`, `.github/workflows/ci-rust.yml`, `deny.toml`, `rust-toolchain.toml`, `vantadb-*/**`, `integrations/**` (excluye `web/**`)
 - **Pull Request** a `main` con los mismos paths
 - **Workflow dispatch** manual

@@ -5,9 +5,9 @@
 <br>
 
 <div align="left">
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust-10.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/ci-rust-10.yml?label=Rust+CI" alt="Rust CI"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/gate-docs-21.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/gate-docs-21.yml?label=Docs" alt="Docs"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/sec-codeql-30.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/sec-codeql-30.yml?label=Security+Audit" alt="Security Audit"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/ci-rust.yml?label=Rust+CI" alt="Rust CI"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/gate-docs.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/gate-docs.yml?label=Docs" alt="Docs"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/sec-codeql.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/sec-codeql.yml?label=Security+Audit" alt="Security Audit"></a>
 
   <br>
 
@@ -134,7 +134,7 @@ print(caps)
 
 ## Integrations
 
-VantaDB ships runnable Python examples that connect the embedded engine to popular AI memory / RAG frameworks. Each example defines a thin wrapper class over the stable Python SDK (`vantadb_py`) and is exercised end-to-end by the CI example smoke suite (`ci-examples-12.yml`).
+VantaDB ships runnable Python examples that connect the embedded engine to popular AI memory / RAG frameworks. Each example defines a thin wrapper class over the stable Python SDK (`vantadb_py`) and is exercised end-to-end by the CI example smoke suite (`ci-examples.yml`).
 
 ### Mem0 — persistence backend
 
@@ -214,7 +214,7 @@ No separate cluster, daemon, or external service is required. VantaDB runs in-pr
 - The shipped ANN path uses **cosine similarity**.
 - Namespace-scoped `list/search` use derived namespace and scalar metadata indexes, with canonical records remaining the source of truth.
 - **Hybrid Search** is supported natively. The engine plans and executes lexical (BM25) and vector (Cosine) queries, fusing them using Reciprocal Rank Fusion (RRF).
-- SIFT-1M remains useful as a stress/recovery scenario via the [Heavy Certification](https://github.com/ness-e/Vantadb/actions/workflows/heavy-certification-50.yml) workflow.
+- SIFT-1M remains useful as a stress/recovery scenario via the [Heavy Certification](https://github.com/ness-e/Vantadb/actions/workflows/heavy-certification.yml) workflow.
 
 ---
 

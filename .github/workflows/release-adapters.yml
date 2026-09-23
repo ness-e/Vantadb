@@ -1,0 +1,161 @@
+name: 'RELEASE: Adapters — PyPI Publish'
+
+on:
+  workflow_dispatch:
+    inputs:
+      publish_testpypi:
+        description: "Upload to TestPyPI"
+        required: false
+        default: "false"
+  push:
+    tags: ["adapters-v*.*.*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ !startsWith(github.ref, 'refs/tags/') }}
+
+jobs:
+  test-adapters:
+    name: Test adapters (${{ matrix.adapter }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    strategy:
+      fail-fast: false
+      matrix:
+        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta, openai, ollama]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        with:
+          toolchain: stable
+
+      - name: Install adapter + test deps
+        run: |
+          python -m pip install --upgrade pip hatchling
+          pip install -e vantadb-python
+          cd integrations/${{ matrix.adapter }}
+          pip install -e .
+          pip install pytest pytest-asyncio
+
+      - name: Run adapter tests
+        run: |
+          cd integrations/${{ matrix.adapter }}
+          python -m pytest tests/ -v
+
+  publish-adapter:
+    name: Publish adapter wheel
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: test-adapters
+
+    strategy:
+      fail-fast: false
+      matrix:
+        adapter: [langchain, llamaindex, mem0, crewai, dspy, haystack, letta, openai, ollama]
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: integrations/${{ matrix.adapter }}/pyproject.toml
+
+      - name: Install build tools
+        run: python -m pip install --upgrade pip build hatchling
+
+      - name: Build adapter
+        working-directory: integrations/${{ matrix.adapter }}
+        run: python -m build
+
+      - name: Store built packages
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: dist-${{ matrix.adapter }}
+          path: integrations/${{ matrix.adapter }}/dist/
+          if-no-files-found: error
+
+  publish-testpypi:
+    name: Publish to TestPyPI
+    runs-on: ubuntu-latest
+    needs: publish-adapter
+    timeout-minutes: 10
+    if: github.event_name == 'workflow_dispatch' && inputs.publish_testpypi == 'true'
+    environment: testpypi
+    permissions:
+      id-token: write
+
+    steps:
+      - name: Download all dists
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: dist-*
+          path: ./dist
+          merge-multiple: true
+
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          verbose: true
+          skip-existing: true
+
+  publish-pypi:
+    name: Publish to PyPI (Production)
+    runs-on: ubuntu-latest
+    needs: publish-adapter
+    timeout-minutes: 10
+    if: startsWith(github.ref, 'refs/tags/adapters-v')
+    environment: pypi
+    permissions:
+      id-token: write
+      contents: write
+      attestations: write
+
+    steps:
+      - name: Download all dists
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: dist-*
+          path: ./dist
+          merge-multiple: true
+
+      # CATEGORY: NON-CRITICAL — attest-build-provenance may fail if OIDC
+      # tokens are unavailable (e.g., fork PRs). Does not block adapter publishing.
+      - name: Attest build provenance
+        continue-on-error: true
+        uses: actions/attest-build-provenance@78e6cbd37d0ac1a40113c04f2037dacf1ea3f12e # v4.1.1
+        with:
+          subject-path: './dist/*'
+
+      - name: Attach to Release
+        if: github.event_name == 'release'
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
+        with:
+          files: ./dist/*
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+        with:
+          packages-dir: dist/
+          verbose: true
+          # FIND-140: gate version-exists en prod (como publish-testpypi
+          # ya tiene) — re-run del mismo tag hace skip graceful en vez de
+          # fallar con HTTP 400 por versión duplicada.
+          skip-existing: true

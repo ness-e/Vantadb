@@ -14,8 +14,7 @@ engine, VantaDB enforces a split Continuous Integration architecture.
 
 ## CI Workflow Inventory
 
-VantaDB has **26 active workflow files** in `.github/workflows/` (verificado 2026-09-15; numbered by layer for dependency
-ordering). Each workflow is documented below.
+VantaDB has **27 active workflow files** in `.github/workflows/` (verificado 2026-09-22; 28 in FIND-128 minus one rustdoc workflow merged into `ci-rustdoc.yml` in FIND-137, renames in FIND-142). Each workflow is documented below. See `docs/workflow/README.md` (inventory) and `docs/workflow/TRIGGERS.md` (trigger matrix — source of truth is each file's `on:` block).
 
 ### Local Verification Scripts — Rutas Canónicas
 
@@ -34,7 +33,7 @@ hierarchy (quick → full), not alternative locations for the same gate — this
 map so the AGENTS.md CI/Hooks table and this policy reconcile at the next docs sync:
 Regla 3 ("docs al día") is enforced mechanically by the docs-coverage gate, not by convention.
 
-### 1. Fast Gate (`ci-rust-10.yml`)
+### 1. Fast Gate (`ci-rust.yml`)
 
 The fast gate is triggered automatically on every pull request and push to the `main` branch.
 **Goal:** Deliver PR feedback in under 5 minutes.
@@ -98,14 +97,14 @@ table column below.
 | Excluded test | Lives in source | Why excluded | Category | Where the exclusion is enforced |
 |---------------|-----------------|--------------|----------|--------------------------------|
 | `deserialize_absurd_node_count` | `src/index/core.rs:414` | Deserializes a crafted buffer with `u64::MAX` node count — designed as a memory bomb for the deserializer path; allocating it on a shared runner risks OOM-killing unrelated jobs | RESOURCE-GUARD | `dev-tools/verify.ps1` `-E` filter (`nextest` + `coverage` steps) and the non-nextest fallback `--skip` list |
-| `test_search_with_bizarre_text_query` | `tests/security.rs:639` | Feeds giant malformed text queries (100KB strings, NUL bytes, astral-plane chars) into search; robust behavior against such inputs belongs to the dedicated fuzzing lane (`fuzz-40.yml`), not the fast gate | RESOURCE-GUARD | Same |
+| `test_search_with_bizarre_text_query` | `tests/security.rs:639` | Feeds giant malformed text queries (100KB strings, NUL bytes, astral-plane chars) into search; robust behavior against such inputs belongs to the dedicated fuzzing lane (`fuzz.yml`), not the fast gate | RESOURCE-GUARD | Same |
 | `test_malformed_payload_extremely_large` | `tests/security.rs:324` | Ingests a 1MB payload plus 10KB of metadata; same rationale — hostile-input coverage is delegated to fuzzing | RESOURCE-GUARD | Same |
 
 **Structural exclusions in `.config/nextest.toml`:** the `default-filter` of the `audit` profile
 additionally excludes ~55 heavy test binaries (stress_protocol, chaos_integrity, wal_resilience,
 sift_validation, competitive_bench, etc.) via package-qualified `not (package(X) and binary(Y))`
 clauses (BND-06 scope-safe form). That list implements the two-tier split documented in this file
-(Fast Gate vs Heavy Certification) and changes only together with `heavy-certification-50.yml`.
+(Fast Gate vs Heavy Certification) and changes only together with `heavy-certification.yml`.
 
 **Rules for any new exclusion:**
 
@@ -142,7 +141,7 @@ The workspace includes several **experimental crates** that are not part of the 
    blocking the fast lane.
 
 **To promote an experimental crate to stable**, remove it from the exclusion list in
-`ci-rust-10.yml` and re-add it to `default-members` in `Cargo.toml`. The full
+`ci-rust.yml` and re-add it to `default-members` in `Cargo.toml`. The full
 promotion DoD (10 checks, per-crate cost table, wall-time budget and
 reversibility) is defined in **[ADR-031: Promotion to default-members](../architecture/adr/ADR-031-default-members-promotion.md)** — no crate may be promoted without passing ADR-031 in 3 consecutive clean runs; see ADR-031 §Question to Owner for the Fast Gate `<5 min` vs Heavy threshold gate (STABLE-00).
 
@@ -196,7 +195,7 @@ Rust compile, Heavy wall time documented STABLE-02 + ADR-031 §2 cost table;
 
 Subset measurement 2026-09-09, Windows MSVC box (same host class as STABLE-08):
 `cargo check` (default-members) cold 132s ✅; `cargo nextest run --profile audit`
-(default-members, as `ci-rust-10.yml:test`) warm 296s / 2831 passed ✅ (<5min,
+(default-members, as `ci-rust.yml:test`) warm 296s / 2831 passed ✅ (<5min,
 steady-state second run; first warm 368s with link churn); `cargo package -p
 <memory,server,mcp> --list --allow-dirty` exit 0 ×3 ✅. Cold test-target compile
 on Windows MSVC is Heavy (core alone ~785s first build) — pre-existing for the
@@ -228,7 +227,7 @@ default-members = [
 
 **`just verify` (Justfile `verify: fmt clippy test deny` — uses `--workspace` directly, so `default-members` expansion does NOT change its `--workspace` check; measured with expanded `Cargo.toml` to confirm Heavy is clippy/nextest compile, not default-members filtering):**
 
-| Job | Command (gate) | Warm (target present) | Cold (cargo clean) | Timeout (ci-rust-10.yml) | Verdict |
+| Job | Command (gate) | Warm (target present) | Cold (cargo clean) | Timeout (ci-rust.yml) | Verdict |
 |-----|----------------|----------------------|--------------------|--------------------------|---------|
 | `fmt` | `cargo fmt --check` | 2.54s | 2.11s (cold fmt unaffected) | 10m | Fast |
 | `clippy` | `cargo clippy --workspace --all-targets --all-features -- -D warnings` | 10.73s (incremental) | **>600s timeout (10 min)** — cold full rebuild with `all-features` across 7 crates (tantivy + roaring + server/mcp/wasm) timed out at 600s; warm after cold is 10.7s. Estimated cold ~650-900s on Windows without sccache. | 15m | **Heavy** (cold >5 min, even warm clippy 10s <5 but full pipeline cold dominates) |
@@ -269,7 +268,7 @@ default-members = [
 
 **3 corridas `cargo clean` + `npm ci` sin flaky (STABLE-01/03 gates 1-6 already 0 failed):** Runs 1-3 above (verify_changed cold/warm/warm + just verify warm 2.5s/10.7s/234.9s + web 103s) all 0 failed, 0 flaky (nextest 473/473 vanta-memory, 42/42 server, deny ok, fmt ok, clippy -D warnings 0). Heavy gate is **not** flaky — deterministic cold compile time, not test instability.
 
-**Verdict gate 9 (ADR-031 §9):** `just verify` / `cargo clippy --workspace --all-targets --all-features` + `nextest --workspace` **exceeds `<5 min` on cold cache** (495.5s first run, clippy cold >600s timeout) on Windows 32GB/12c host without sccache. Warm incremental (<5: 249s 4.15m) passes, but **cold fails** — per ADR-031 §Question to Owner, this requires **Heavy label with justification** (or scoped promotion). Measurement on `ubuntu-latest` with sccache warm will be faster but cold without sccache will still be >5 (7 Rust crates + `all-features` + tantivy WASM). Until Owner answers STABLE-00 question **A (<5 hard — do not promote slow crate)** vs **B (<5 soft — re-label Fast Gate to ~8 min)**, promotion in STABLE-09 stays **blocked**; this crate set must stay `CATEGORY: EXPERIMENTAL` / `experimental-check` non-blocking. If Owner chooses A, promote only subset that keeps `<5` cold (e.g., `[ ".", "vantadb-python", "vantadb-server", "vantadb-mcp"]` without `vanta-memory`/`vanta-proxy`/`vantadb-wasm`) and re-measure; if B, update `CI_POLICY.md` Fast Gate invariant to `~8 min`, bump `ci-rust-10.yml:clippy`/`test` `timeout-minutes` and `dev-tools/verify.ps1` comments.
+**Verdict gate 9 (ADR-031 §9):** `just verify` / `cargo clippy --workspace --all-targets --all-features` + `nextest --workspace` **exceeds `<5 min` on cold cache** (495.5s first run, clippy cold >600s timeout) on Windows 32GB/12c host without sccache. Warm incremental (<5: 249s 4.15m) passes, but **cold fails** — per ADR-031 §Question to Owner, this requires **Heavy label with justification** (or scoped promotion). Measurement on `ubuntu-latest` with sccache warm will be faster but cold without sccache will still be >5 (7 Rust crates + `all-features` + tantivy WASM). Until Owner answers STABLE-00 question **A (<5 hard — do not promote slow crate)** vs **B (<5 soft — re-label Fast Gate to ~8 min)**, promotion in STABLE-09 stays **blocked**; this crate set must stay `CATEGORY: EXPERIMENTAL` / `experimental-check` non-blocking. If Owner chooses A, promote only subset that keeps `<5` cold (e.g., `[ ".", "vantadb-python", "vantadb-server", "vantadb-mcp"]` without `vanta-memory`/`vanta-proxy`/`vantadb-wasm`) and re-measure; if B, update `CI_POLICY.md` Fast Gate invariant to `~8 min`, bump `ci-rust.yml:clippy`/`test` `timeout-minutes` and `dev-tools/verify.ps1` comments.
 
 *STABLE-08 measurement recorded 2026-08-27, branch `test/default-all` (local simulation, not pushed). `Cargo.toml` revert before STABLE-09; `Cargo.lock` delta 0 (already members).*
 
@@ -285,7 +284,7 @@ cargo nextest run --profile experimental --workspace --features experimental
 Failures in this suite should be triaged, but they do not block the Fast Gate unless the failure is
 caused by a change to production-facing MVP behavior.
 
-### 2. Heavy Certification (`heavy-certification-50.yml`)
+### 2. Heavy Certification (`heavy-certification.yml`)
 
 The heavy certification suite validates the engine's capability to run under production stress,
 ensuring recall guarantees and scaling limits. **Goal:** Validate engine stability, recall, and
@@ -390,38 +389,38 @@ aggregate vs per-runner binding measurement — is decided in
 - No new `--fail-under` gate is added for the aggregate. Revisit on release or when a binding
   graduates from experimental.
 
-### 3. Web CI (`ci-web-11.yml`)
+### 3. Web CI (`ci-web.yml`)
 
 Builds and lints the web frontend (`web/` directory — Next.js 16). Runs `npm ci`, `npm run lint`,
-`npx tsc --noEmit`, and `npm run build` on push/PR to `main` that touches `web/**`. No test infra
+`npx tsc --noEmit`, and `npm run build` on push to `main`+`develop` and PR to `main` that touch `web/**`. No test infra
 — the Next.js SPA is client-only (`"use client"` everywhere). Triggered by `workflow_dispatch` as
 well.
 
-### 4. Docs Gate (`gate-docs-21.yml`)
+### 4. Docs Gate (`gate-docs.yml`)
 
-Lints Markdown files in `docs/**` with `markdownlint-cli2`. Triggered on push/PR to `main`
-touching docs.
+Lints Markdown files in `docs/**` with `markdownlint-cli2`. Triggered on push/PR to `main`+`develop`
+touching `docs/**` (plus router/scripts paths).
 
-### 5. Security Scan (`sec-codeql-30.yml`)
+### 5. Security Scan (`sec-codeql.yml`)
 
 CodeQL analysis for Rust. Runs on push/PR to `main` and weekly. Triggers via `workflow_dispatch`.
 
-### 6. Fuzzing (`fuzz-40.yml`)
+### 6. Fuzzing (`fuzz.yml`)
 
-LibFuzzer corpus + regression via `cargo fuzz`. Scheduled weekly (Monday 06:00 UTC) or
-`workflow_dispatch`.
+LibFuzzer corpus + regression via `cargo fuzz`. Scheduled weekly (Monday 06:00 UTC), PRs touching
+`src/**`/fuzz paths, or `workflow_dispatch`.
 
-### 7. Performance Benchmarks (`perf-bench-40.yml`)
+### 7. Performance Benchmarks (`perf-bench.yml`)
 
-Python integration performance benchmarks. Triggered on push to `main` touching core or
+Python integration performance benchmarks. Triggered on push to `main`+`develop` touching core or
 Python paths, or via `workflow_dispatch` with configurable vector/queries/dim inputs.
 
-### 8. Nightly Benchmarks (`heavy-bench-nightly-51.yml`)
+### 8. Nightly Benchmarks (`heavy-bench-nightly.yml`)
 
-Nightly benchmark regression suite (daily CRON plus `workflow_dispatch`). Runs light benchmarks
+Nightly benchmark regression suite (daily CRON 02:00 plus `workflow_dispatch`, PRs touching bench paths). Runs light benchmarks
 and heavy benchmarks across multiple package scopes.
 
-### 9. Python Wheel Build & Publish (`release-wheels-60.yml`)
+### 9. Python Wheel Build & Publish (`release-wheels.yml`)
 
 Builds the Python SDK on Linux (x86_64 and aarch64 cross via maturin-action's manylinux_2_28
 cross container), macOS, and Windows with `maturin`, installs the generated wheel
@@ -435,10 +434,12 @@ publication and signing remain deferred.
 | Workflow | File | Trigger |
 |----------|------|---------|
 | Release Automation | `release.yml` | Push to `main` — `release-plz` auto-version, changelog, tag, publish |
-| NPM Publish | `release-npm-61.yml` | Tag `v*.*.*`, push to `main` with `vantadb-ts/**`/`vantadb-wasm/**` paths, `pull_request` with same paths, or `workflow_dispatch` — includes Fast Gate job `tests` (`npm ci && npm run build && npx vitest run`, measured 27s <5min, no `continue-on-error`, PR+push gate per TS-06) |
-| PyPI Adapters | `release-adapters-62.yml` | Tag `adapters-v*.*.*` or `workflow_dispatch` (TestPyPI) |
-| Binary Builds | `release-binaries-63.yml` | Release published or `workflow_dispatch` |
-| SBOM Generation | `release-sbom-64.yml` | Tag `v*` or `workflow_dispatch` |
+| Python Wheels | `release-wheels.yml` | Tag `v*.*.*`, `pull_request` to `main` (paths src/python), or `workflow_dispatch` |
+| NPM Publish (WASM+TS) | `release-npm-61.yml` | Tag `v*.*.*`, `pull_request` (paths wasm/ts), or `workflow_dispatch` — includes Fast Gate job `tests` (`npm ci && npm run build && npx vitest run`, measured 27s <5min, no `continue-on-error`, PR+tags gate per TS-06) |
+| NPM Publish (Node) | `release-npm-node.yml` | Tag `node-v*.*.*`, `pull_request` (paths node), or `workflow_dispatch` |
+| PyPI Adapters | `release-adapters.yml` | Tag `adapters-v*.*.*` or `workflow_dispatch` (TestPyPI) |
+| Binary Builds | `release-binaries.yml` | Release published or `workflow_dispatch` |
+| SBOM Generation | `release-sbom.yml` | Tag `v*` or `workflow_dispatch` |
 
 ## External Dependencies (Ollama/LLMs)
 
@@ -449,7 +450,7 @@ They are either marked with `#[ignore]` or gated behind environment variables (e
 
 ## Running Heavy Certification Manually
 
-The `heavy-certification-50.yml` workflow runs automatically via a CRON schedule (weekly on
+The `heavy-certification.yml` workflow runs automatically via a CRON schedule (weekly on
 Sundays at 03:00 UTC). The scheduled lane runs the local deterministic core certification jobs.
 SIFT-1M validation and competitive benchmarks are manual opt-ins because they require external
 datasets. You can also trigger it manually from the GitHub Actions UI:
@@ -464,7 +465,7 @@ datasets. You can also trigger it manually from the GitHub Actions UI:
 The release pipeline **builds** the Docker image but deliberately **does not push** it to any
 registry:
 
-- The `docker-image` job in `.github/workflows/release-binaries-63.yml` runs `docker build`
+- The `docker-image` job in `.github/workflows/release-binaries.yml` runs `docker build`
   against the root `Dockerfile` on every release / tag / manual dispatch, then executes two
   unprivileged smoke checks under an arbitrary uid (`--user 10001:10001`): data-dir
   write-through and `vantadb-server --help` via the default entrypoint.
@@ -477,4 +478,3 @@ registry:
   login/push step to this same job — the build and smoke halves already exist.
 - Machines without a Docker daemon cannot verify the image locally; this CI job is the
   verification gate (build failure turns the release lane red — no silent breakage).
-

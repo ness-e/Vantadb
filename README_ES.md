@@ -5,9 +5,9 @@
 <br>
 
 <div align="left">
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust-10.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/ci-rust-10.yml?label=Rust+CI" alt="Rust CI"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/gate-docs-21.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/gate-docs-21.yml?label=Docs" alt="Docs"></a>
-  <a href="https://github.com/ness-e/Vantadb/actions/workflows/sec-codeql-30.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/sec-codeql-30.yml?label=Security+Audit" alt="Security Audit"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/ci-rust.yml?label=Rust+CI" alt="Rust CI"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/gate-docs.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/gate-docs.yml?label=Docs" alt="Docs"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/sec-codeql.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/sec-codeql.yml?label=Security+Audit" alt="Security Audit"></a>
 
   <br>
 
@@ -128,7 +128,7 @@ print(caps)
 
 ## Integraciones
 
-VantaDB incluye ejemplos Python ejecutables que conectan el motor embebido con frameworks populares de memoria / RAG para IA. Cada ejemplo define una clase envolvente ligera sobre el SDK Python estable (`vantadb_py`) y se ejercita de extremo a extremo por la suite de ejemplo de humo del CI (`ci-examples-12.yml`).
+VantaDB incluye ejemplos Python ejecutables que conectan el motor embebido con frameworks populares de memoria / RAG para IA. Cada ejemplo define una clase envolvente ligera sobre el SDK Python estable (`vantadb_py`) y se ejercita de extremo a extremo por la suite de ejemplo de humo del CI (`ci-examples.yml`).
 
 ### Mem0 — backend de persistencia
 
@@ -208,7 +208,7 @@ No se requiere clúster, daemon ni servicio externo. VantaDB se ejecuta en-proce
 - El camino de ANN incluido usa **similitud de coseno**.
 - `list/search` con ámbito de namespace usan índices derivados de namespace y metadatos escalares, y los registros canónicos siguen siendo la fuente de verdad.
 - La **búsqueda híbrida** se soporta de forma nativa. El motor planifica y ejecuta consultas léxicas (BM25) y vectoriales (Coseno), fusionándolas con Reciprocal Rank Fusion (RRF).
-- SIFT-1M sigue siendo útil como un escenario de estrés/recuperación mediante el workflow de [Certificación Pesada](https://github.com/ness-e/Vantadb/actions/workflows/heavy-certification-50.yml).
+- SIFT-1M sigue siendo útil como un escenario de estrés/recuperación mediante el workflow de [Certificación Pesada](https://github.com/ness-e/Vantadb/actions/workflows/heavy-certification.yml).
 
 ---
 

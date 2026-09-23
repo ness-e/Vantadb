@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 550f7331-35bf-469f-ba10-1959407cbaf9
 > **Inicio:** 2026-09-20
-> **Estado:** 🔄 EN PROGRESO (Wave0: C-01 ✅ · R-03 ✅ · R-02 ✅ diag · C-02 ✅ ∅ · C-07 ramas ✅; R-01 ⏳ CI; TestPyPI staging en curso)
+> **Estado:** 🔄 EN PROGRESO (Fase 0: R-01✅ R-02✅ R-03🔄publish-real-en-curso R-04✅superseded R-05⬜; Fase 1: C-01✅ C-02✅ C-03🔄lint-ok-falta-confirmar-parse C-07🔄25→3prs; resto ⬜; Fase 2 ⬜)
 > **Fuente:** análisis profundo 2026-09-20 (inspección repo + docs oficiales Vercel/GitHub) + decisiones owner (5/5)
 
 ## Decisiones del owner (vinculantes)
@@ -33,10 +33,10 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
   ✅ TestPyPI 0.6.0 verificado (venv limpio, `Client` OK). PyPI prod 0.6.0: NO viable desde tag
   (contenido stale) → se salta a 0.6.1 con #187. Fix durable: pyproject dinámico desde Cargo
   (commit `4af85b54`, wheel local probado `vantadb_py-0.6.0`).
-- [ ] R-03 · npm `0.6.0`: bump `vantadb-ts/package.json` 0.5.0→0.6.0 + publish vía release-npm
+- [ ] R-03 · npm (wasm 0.6.0 ✅ publicado · fix WSM-06 ✅ · unpublish IMPOSIBLE E405 tiene-dependientes → decisión owner 2026-09-22: DEPRECAR + tren 0.6.1 · deprecate: PENDIENTE owner · TS 0.6.1 ✅ 870c6798 tsc0+311tests · PR #210 develop→main abierto para tren 0.6.1). Contrato: `npm view` 0.6.1 en ambos tras tag.
   (verificar trusted publishing; `npm view` confirma). `vantadb-wasm` igual si aplica.
   Contrato: registros Rust+Python+npm en 0.6.0 el mismo día.
-- [ ] R-04 · Mergear PR #187 (release v0.6.1, generada por los fixes) o absorberla:
+- [x] R-04 · ✅ SUPERSEDED 2026-09-22: #187/#201/#205/#209 cerrados por release-plz sin mergear; sin v0.6.1. El ciclo release es automático; v0.6.1 saldrá cuando corresponda. Sin acción.
   decidir con CI verde (si sus cambios ya viven en `develop` vía #182, cerrarla como superseded con motivo).
 - [ ] R-05 · Test de usuario real (post-publish): instalar desde registros en entorno limpio
   y correr QUICKSTART + tutorial 01 paso a paso; registrar fricciones como FIND.
@@ -54,7 +54,7 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
   Contrato: lint+frontmatter+coverage verdes; 0 links rotos (`grep` + spot-check render);
   `docs/CHANGELOG.md`, `docs/api/openapi.yaml`, `docs/api/MCP.md` NO se mueven
   (los consumen release-plz y el chequeo de versiones).
-- [ ] C-03 · CHANGELOG: eliminar bloque frontmatter huérfano duplicado (líneas ~1835-1843,
+- [ ] C-03 · CHANGELOG (lint MD049/MD003 + frontmatter huérfano ✅ 14ce37ce; WARN "can't parse" desaparecido en runs release-plz — falta confirmación final de parse).
   verificado duplicado) manteniendo entradas; verificar `markdownlint` 0 + release-plz
   vuelve a parsear (desaparece el WARN "can't parse changelog").
 - [ ] C-04 · CI sin duplicados: quitar `develop` de `push.branches` en los 7 workflows
@@ -65,26 +65,26 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
   Actualizar badges del README en el mismo commit. Contrato: `actionlint` 0 + badges resuelven.
 - [ ] C-06 · Fast vs Heavy: sacar bench/fuzz pesados del critical path de PR
   (schedule + `workflow_dispatch`), dejando Fast Gate <10 min. Contrato: PR corre solo fast.
-- [ ] C-07 · Curar PRs/ramas: cerrar con motivo los superseded, mergear pins útiles,
+- [ ] C-07 · Curar PRs/ramas (25→3 abiertos 2026-09-22; los 3 diferidos a Fase 2; ramas merged borradas; dependabot en solo-alertas). Contrato: PRs abiertos = solo vivos ✅ salvo diferidos.
   borrar ramas mergeadas/stale (orben `gh pr close`, `git push --delete`).
   Dependabot ya está en modo solo-alertas: no vuelve el ruido. Contrato: PRs abiertos = solo vivos.
 - [ ] C-08 · CodeQL post-release: activar default setup correcto (el check actual apunta
   a `codeql.yml` inexistente) + triage de alertas. Contrato: check verde o declarado.
-- [ ] C-09 · Greptile fuera (owner, 2 min, `github.com/settings/installations`).
-- [ ] C-10 · README: verificar badges verdes + links relativos vivos tras C-02.
+- [x] C-09 · ✅ 2026-09-22 owner confirma desinstalación (verificado: sin código Greptile en repo — era app de cuenta). Greptile fuera (owner, 2 min, `github.com/settings/installations`).
+- [ ] C-10 · README (paridad ES/EN ✅ 7ae4168e; falta verificar badges verdes + links tras C-02∅).
 
 ## Fase 2 — Extracción `web/` (solo tras Fase 0+1 verdes)
 
-- [ ] W-01 · Preparar destino `C:\Users\Eros\VantaDB Proyect\web` como repo git nuevo
+- [x] W-01 · ✅ 2026-09-22 repo público ness-e/Vantadb-web creado. Preparar destino `C:\Users\Eros\VantaDB Proyect\web` como repo git nuevo
   (init + remote nuevo; nombre a confirmar por owner).
-- [ ] W-02 · `git mv` de `web/` al repo nuevo **con historia** (`git subtree split -P web`
+- [x] W-02 · ✅ 2026-09-22 `git subtree split -P web` (238 commits) → main + `.opencode` copiado (local-only, gitignored) + README + dependabot solo-alertas. `git mv` de `web/` al repo nuevo **con historia** (`git subtree split -P web`
   o `filter-branch` SOLO sobre la copia, nunca sobre VantaDB) + copiar `.opencode`
   (tooling local, no versionado) + docs/guías marcadas para la web.
-- [ ] W-03 · Reconectar Vercel al repo nuevo (Root Directory pasa a `/`; verificar deploy verde).
-- [ ] W-04 · CI propia mínima en repo web (build+lint+tsc+e2e) + badges propios.
-- [ ] W-05 · En VantaDB: borrar `web/` (`git rm`), limpiar `ci-web-11.yml`/badges,
+- [x] W-03 · ✅ 2026-09-22 proyecto Vercel `vantadb-web` creado por API + `vercel link` + deploy `--prod` verde (`https://vantadb-web.vercel.app`). Dominio canónico MIGRADO 2026-09-22 (decisión owner): `vantadb.vercel.app` verificado en proyecto nuevo (HTTP 200), proyecto viejo eliminado, SITE_URL intacto. Reconectar Vercel al repo nuevo (Root Directory pasa a `/`; verificar deploy verde).
+- [x] W-04 · ✅ 2026-09-22 `.github/workflows/web-ci.yml` (build+lint+tsc+e2e) + badges propios (README). CI propia mínima en repo web (build+lint+tsc+e2e) + badges propios.
+- [x] W-05 · ✅ 2026-09-22 `git rm web/ + ci-web.yml` (commit 82317140) + dependabot sin /web + sbom/ocr sin refs web + `.gitignore **/.next/` (incidente: `.sst` 112MB rompió push, resuelto). En VantaDB: borrar `web/` (`git rm`), limpiar `ci-web-11.yml`/badges,
   política de versiones: web con ritmo propio (cierra contradicción "misma versión").
-- [ ] W-06 · Sync de contenido Regla 11: checklist manual por release (cifras web ← BENCHMARKS.md).
+- [x] W-06 · ✅ 2026-09-22 checklist Regla 11 en README del repo web (cifras ← BENCHMARKS.md). Sync de contenido Regla 11: checklist manual por release (cifras web ← BENCHMARKS.md).
   Contrato: Vercel verde en repo nuevo + VantaDB sin referencias rotas a `web/`.
 
 ## Gates
@@ -121,4 +121,15 @@ Resultado: OK
 Próxima acción: orquestador: C-10 con docs/tasks/C-02.md como input
 Contrato: verificacion: markdownlint 1433 files 0 issues + ](docs/ 49 links 0 rotos + parent-links 0 rotos + spot-check 4/4 + frontmatter 0 faltantes + commit ccc8ee4e (solo C-02.md, hooks verdes) | evidencia: claim subset=∅ → docs/tasks/C-02.md (tabla 7 filas) | confianza: alta; artefactos: docs/tasks/C-02.md; invariantes: PROHIBIDOS intactos (api, operations, workflows, scripts, src, web, desktop, Backlog, avance, plans, tasks, CHANGELOG), NO PUSH; deuda: CI re-run delegado (requiere push); queda_pendiente: orquestador C-10 + decision re-scope C-02 (cerrar NO-APPLICA o wave ampliada)
 Próxima tarea si completa: C-10
+=== END RECITATION ===
+
+=== RECITATION WEB-DOCS-MOVE ===
+Campaign ID: 550f7331-35bf-469f-ba10-1959407cbaf9
+Objetivo activo: WEB-DOCS-MOVE: mover docs historicas web a Vantadb-web + reescribir refs vivas
+Estado: completed
+Última acción: STEPs 2-4 ejecutados y verificados + commits sin push (d174a868, 5b155972)
+Resultado: OK
+Próxima acción: vanta-lead: push VantaDB + web, vigilar gate-docs CI
+Contrato: verificacion: (a) Get-FileHash 13/13 OK + commits d174a868/5b155972 | (b) git grep links: 0 vivos, 3 frozen eximidos | (c) markdownlint VantaDB 1457f 0 issues + web history 11f 0 issues | (d) frontmatter PASS + validate-docs-coverage OK (drift skills preexistente) + avance 1031/1031 | evidencia: task file docs/tasks/WEB-DOCS-MOVE.md | confianza: alta; artefactos: web/docs/history/ (14 files); invariantes: PROHIBIDOS intactos, NO PUSH, WIP ajeno .gitignore intacto; deuda: budget.json quickwins ignored en disco (fuera del repo) + 3 links frozen + avance delta -7 IDs (100%) + progreso Trigger 1.D omitido (activo/* prohibido); queda_pendiente: vanta-lead: push ambos repos + verificar gate-docs en CI
+Próxima tarea si completa: ninguno (Fase 2 sigue por orquestador)
 === END RECITATION ===

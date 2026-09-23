@@ -2,7 +2,7 @@
 # Never blocks merge: every job/step has continue-on-error: true.
 # Q5 humano (informativo primero) + deuda Fase 2 (bench-en-CI al mergear S3/S5).
 #
-# Complements (does NOT duplicate) heavy-bench-nightly-51.yml:
+# Complements (does NOT duplicate) heavy-bench-nightly.yml:
 #   - heavy-51 triggers on benches/** + benchmarks/** + scripts/bench_regression.py
 #     + Cargo.toml, and runs the FULL bench matrix (8 benches + density).
 #   - THIS workflow triggers on perf-source paths (src/index, src/storage) that

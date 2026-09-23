@@ -1,14 +1,14 @@
 ---
-title: "`chaos-45.yml` — Chaos: Failpoint Injection & Resilience Tests"
+title: "`chaos.yml` — Chaos: Failpoint Injection & Resilience Tests"
 type: workflow
 status: active
 tags: [vantadb, ci, chaos]
 last_reviewed: 2026-09-15
 aliases: []
-related: [".github/workflows/chaos-45.yml"]
+related: [".github/workflows/chaos.yml"]
 ---
 
-# `chaos-45.yml` — Chaos: Failpoint Injection & Resilience Tests
+# `chaos.yml` — Chaos: Failpoint Injection & Resilience Tests
 
 ## ¿Qué hace?
 

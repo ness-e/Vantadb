@@ -104,9 +104,12 @@ jobs:
           cache: pip
 
       - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
         with:
           toolchain: stable
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
 
       - name: Install adapter + test deps
         run: |
@@ -117,7 +120,7 @@ jobs:
           if [ "${{ matrix.framework_version }}" != "latest" ]; then
             pip install "${{ matrix.adapter }}-core==${{ matrix.framework_version }}" 2>/dev/null || \
             pip install "${{ matrix.adapter }}==${{ matrix.framework_version }}" 2>/dev/null || \
-            pip install "${{ matrix.framework_version }}" 2>/dev/null || true
+            pip install "${{ matrix.framework_version }}" 2>/dev/null
           fi
           pip install pytest pytest-asyncio
 

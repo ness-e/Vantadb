@@ -8,8 +8,11 @@ on:
         required: false
         default: "false"
   push:
+    # Tags solo: publish. CI de ramas va por pull_request (paths).
+    # (paths no se evalúa en tags; tags+branches+paths en un bloque es
+    # ambiguo — FIND-140)
     tags: ["node-v*.*.*"]
-    branches: [main]
+  pull_request:
     paths:
       - "vantadb-node/**"
       - ".github/workflows/release-npm-node.yml"
@@ -67,7 +70,7 @@ jobs:
           registry-url: https://registry.npmjs.org
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
         with:
           toolchain: stable
           target: ${{ matrix.rust-target }}
@@ -112,12 +115,12 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Download Linux build
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: vantadb-node-x86_64-unknown-linux-gnu
           path: vantadb-node
       - name: Download JS/TS artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: vantadb-node-js
           path: vantadb-node
@@ -125,6 +128,9 @@ jobs:
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 22
+      - name: Install dependencies (vitest binary; artifacts above carry no node_modules)
+        run: npm ci
+        working-directory: vantadb-node
       - name: Run tests
         run: npm test
         working-directory: vantadb-node
@@ -147,7 +153,7 @@ jobs:
 
       # Download all native binaries
       - name: Download all native binaries
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           pattern: vantadb-node-*
           path: vantadb-node
@@ -155,7 +161,7 @@ jobs:
 
       # Download JS/TS artifacts
       - name: Download JS/TS artifacts
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: vantadb-node-js
           path: vantadb-node
@@ -213,7 +219,7 @@ jobs:
 
       - name: Attach to Release
         if: github.event_name == 'release'
-        uses: softprops/action-gh-release@3d0d9888cb7fd7b750713d6e236d1fcb99157228 # v3.0.2
+        uses: softprops/action-gh-release@efb35369e0ad2afab669f228072c1b0d510eae64 # v3.0.3
         with:
           files: vantadb-node/*.tgz
 

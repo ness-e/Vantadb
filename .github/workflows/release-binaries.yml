@@ -1,0 +1,190 @@
+name: 'RELEASE: Binaries — Build & Upload'
+
+on:
+  workflow_dispatch:
+  # FIND-140: solo release:published + manual. El upload gatea con
+  # `if: github.event_name == 'release'` — con push.tags ['v*'] se
+  # construían 5 targets + docker para desechar. release-plz
+  # (git_release_enable = true) crea el Release que dispara este workflow.
+  release:
+    types: [published]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  tests:
+    name: Tests (cargo nextest)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          components: clippy
+          install-nextest: true
+          install-system-deps: true
+          swap-mb: 8192
+
+      - name: Cache benchmark dataset (GloVe 100d)
+        id: cache-benchmark
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: data/benchmark/glove.6B.100d.txt
+          key: glove-100d-${{ hashFiles('scripts/download_benchmark_datasets.sh') }}
+
+      - name: Download benchmark datasets
+        if: steps.cache-benchmark.outputs.cache-hit != 'true'
+        run: bash scripts/download_benchmark_datasets.sh
+        shell: bash
+
+      - name: Run tests (Audit profile, core)
+        timeout-minutes: 25
+        run: cargo nextest run --profile audit --features "cli,arrow,tls,opentelemetry"
+
+  build:
+    name: Build ${{ matrix.target }}
+    needs: [tests]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: x86_64-unknown-linux-gnu
+            os: ubuntu-latest
+          - target: x86_64-apple-darwin
+            os: macos-latest
+          - target: aarch64-apple-darwin
+            os: macos-latest
+          - target: x86_64-pc-windows-msvc
+            os: windows-latest
+          - target: aarch64-unknown-linux-gnu
+            os: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Rust
+        uses: actions-rust-lang/setup-rust-toolchain@166cdcfd11aee3cb47222f9ddb555ce30ddb9659 # v1
+        with:
+          target: ${{ matrix.target }}
+
+      - name: Rust cache
+        uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+        with:
+          shared-key: release-${{ matrix.target }}
+
+      - name: Install system deps (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libclang-dev llvm-dev
+
+      - name: Install system deps (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install llvm
+          echo "LIBCLANG_PATH=$(brew --prefix llvm)/lib" >> $GITHUB_ENV
+          echo "DYLD_LIBRARY_PATH=$(brew --prefix llvm)/lib" >> $GITHUB_ENV
+
+      - name: Install cross-compilation deps (aarch64-linux)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu
+          echo "CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER=aarch64-linux-gnu-gcc" >> $GITHUB_ENV
+
+      - name: Build release
+        shell: bash
+        run: |
+          # INV-004: production binaries use a custom allocator.
+          # Windows -> mimalloc (custom-allocator); Linux/macOS -> jemalloc.
+          if [ "${{ runner.os }}" = "Windows" ]; then
+            ALLOC_FEATURES="custom-allocator"
+          else
+            ALLOC_FEATURES="jemalloc"
+          fi
+          # AUD-047: published vanta-cli must include the HTTP server (server feature).
+          # default features stay lean; release binary is the one place users get server.
+          cargo build --release --target ${{ matrix.target }} --features "server,$ALLOC_FEATURES" --package vantadb --bin vanta-cli
+          cargo build --release --target ${{ matrix.target }} --features "$ALLOC_FEATURES" --package vantadb-server
+
+      - name: Package binaries (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p release
+          cp target/${{ matrix.target }}/release/vanta-cli release/
+          cp target/${{ matrix.target }}/release/vantadb-server release/
+          tar czf vantadb-${{ matrix.target }}.tar.gz -C release vanta-cli vantadb-server
+          sha256sum vantadb-${{ matrix.target }}.tar.gz > vantadb-${{ matrix.target }}.tar.gz.sha256
+
+      - name: Package binaries (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          mkdir -p release
+          cp target/${{ matrix.target }}/release/vanta-cli.exe release/
+          cp target/${{ matrix.target }}/release/vantadb-server.exe release/
+          7z a vantadb-${{ matrix.target }}.zip .\release\*
+          if ($LASTEXITCODE -gt 1) { throw "7z failed with exit $LASTEXITCODE" }
+          $hash = (Get-FileHash "vantadb-${{ matrix.target }}.zip" -Algorithm SHA256).Hash.ToLower()
+          "$hash  vantadb-${{ matrix.target }}.zip" | Out-File -Encoding ASCII "vantadb-${{ matrix.target }}.zip.sha256"
+
+      - name: Upload release asset
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          ext=".tar.gz"; [[ "${{ matrix.target }}" == *windows* ]] && ext=".zip"
+          gh release upload "${{ github.ref_name }}" \
+            "vantadb-${{ matrix.target }}${ext}" \
+            "vantadb-${{ matrix.target }}${ext}.sha256" \
+            --repo "${{ github.repository }}" \
+            --clobber
+
+  # SRV-07: build the Docker image on every release and smoke-test unprivileged
+  # execution under an arbitrary uid. Deliberately build-no-push: choosing a
+  # registry (ghcr vs Docker Hub) is a brand decision, not a CI default — see
+  # docs/operations/CI_POLICY.md "Docker image publishing (SRV-07)".
+  docker-image:
+    name: Docker image (build + unprivileged smoke, no push)
+    needs: [tests]
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Build image
+        run: docker build -t "vantadb-server:${GITHUB_REF_NAME}" .
+
+      - name: Unprivileged smoke — arbitrary uid can write data dir (no EACCES)
+        run: |
+          docker run --rm --user 10001:10001 --entrypoint /bin/sh \
+            "vantadb-server:${GITHUB_REF_NAME}" -c 'touch /var/lib/vantadb/.write-test'
+
+      - name: Entrypoint smoke — vantadb-server --help as arbitrary uid
+        run: |
+          docker run --rm --user 10001:10001 \
+            "vantadb-server:${GITHUB_REF_NAME}" --help
+
+      - name: Export image to release assets
+        if: github.event_name == 'release'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          img="vantadb-server-${GITHUB_REF_NAME}-linux-amd64-image.tar.gz"
+          docker save "vantadb-server:${GITHUB_REF_NAME}" | gzip > "$img"
+          sha256sum "$img" > "$img.sha256"
+          gh release upload "${{ github.ref_name }}" "$img" "$img.sha256" \
+            --repo "${{ github.repository }}" \
+            --clobber
