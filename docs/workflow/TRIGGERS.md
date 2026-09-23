@@ -37,7 +37,7 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 | Workflow | push | pull_request | schedule | dispatch | Other |
 |----------|------|--------------|----------|----------|-------|
 | `fuzz.yml` | — | Y (paths src/fuzz) | Y (Mon 06:00) | Y | — |
-| `heavy-bench-nightly.yml` | — | Y (paths benches) | Y (daily 02:00) | Y | — |
+| `heavy-bench-nightly.yml` | — | — (C-06: fuera del Fast Gate) | Y (daily 02:00) | Y | — |
 | `heavy-certification.yml` | — | — | Y (Sun 03:00) | Y | — |
 | `adapters-compat.yml` | — | — | Y (Sun 03:00) | Y | — |
 | `arch-metrics-informational.yml` | — | Y (paths src/Cargo) | — | Y | — |
