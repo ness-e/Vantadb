@@ -33,7 +33,7 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
   ✅ TestPyPI 0.6.0 verificado (venv limpio, `Client` OK). PyPI prod 0.6.0: NO viable desde tag
   (contenido stale) → se salta a 0.6.1 con #187. Fix durable: pyproject dinámico desde Cargo
   (commit `4af85b54`, wheel local probado `vantadb_py-0.6.0`).
-- [ ] R-03 · npm (wasm 0.6.0 ✅ publicado · fix WSM-06 ✅ · unpublish IMPOSIBLE E405 tiene-dependientes → decisión owner 2026-09-22: DEPRECAR + tren 0.6.1 · deprecate: PENDIENTE owner · TS 0.6.1 ✅ 870c6798 tsc0+311tests · PR #210 develop→main abierto para tren 0.6.1). Contrato: `npm view` 0.6.1 en ambos tras tag.
+- [x] R-03 · npm ✅ + PyPI ✅ 2026-09-23 (vantadb-py 0.6.1 en prod tras fix owner trusted publisher `release-wheels.yml` + rerun failed + approve environment; wasm@0.6.1 + vantadb@0.6.1 en npm latest=0.6.1; wasm@0.6.0 deprecado). Contrato cumplido: 3 registros en 0.6.1.
   (verificar trusted publishing; `npm view` confirma). `vantadb-wasm` igual si aplica.
   Contrato: registros Rust+Python+npm en 0.6.0 el mismo día.
 - [x] R-04 · ✅ SUPERSEDED 2026-09-22: #187/#201/#205/#209 cerrados por release-plz sin mergear; sin v0.6.1. El ciclo release es automático; v0.6.1 saldrá cuando corresponda. Sin acción.
