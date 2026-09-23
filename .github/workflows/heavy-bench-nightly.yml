@@ -3,12 +3,9 @@ name: 'HEAVY: Benchmarks — Nightly Regression'
 on:
   schedule:
     - cron: '0 2 * * *'  # FIND-141: daily 02:00 UTC — desolapado de heavy-cert Sun 03:00 (slot 04:00 ocupado por ocr-nightly)
-  pull_request:
-    paths:
-      - 'benches/**'
-      - 'benchmarks/**'
-      - 'scripts/bench_regression.py'
-      - 'Cargo.toml'
+  # C-06: sin trigger pull_request — la matriz FULL (8 benches + density, ~90min)
+  # no pertenece al Fast Gate. PRs que tocan benches usan workflow_dispatch;
+  # el resto queda cubierto por el nightly + canonical_p99 en paths perf.
   workflow_dispatch:
     inputs:
       enable_critcmp:

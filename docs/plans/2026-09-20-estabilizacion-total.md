@@ -55,8 +55,7 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
 - [x] C-03 · ✅ 2026-09-23: `markdownlint docs/**/*.md` 0 issues (MD049 fixeado) + release-plz publicó 0.6.0/0.6.1 parseando el changelog sin WARN.
 - [x] C-04 · SUPERSEDED 2026-09-23: la propuesta (quitar `develop` de push) quedó obsoleta — workflows-repair (FIND-140) racionalizó triggers MANTENIENDO `develop` (todo el CI actual corre sobre develop). Ver `docs/workflow/TRIGGERS.md`.
 - [x] C-05 · ✅ 2026-09-23: renombres aplicados en FIND-142 (14 renames, ej `ci-rust-10.yml`→`ci-rust.yml`); `actionlint` 0.
-- [ ] C-06 · Fast vs Heavy: sacar bench/fuzz pesados del critical path de PR
-  (schedule + `workflow_dispatch`), dejando Fast Gate <10 min. Contrato: PR corre solo fast.
+- [x] C-06 · ✅ 2026-09-23: PR path sin jobs >10min — `heavy-bench-nightly` fuera de PR (matriz FULL ~90min → solo nightly 02:00 + dispatch); `fuzz` ya estaba partido (PR=fuzz-pr acotado); `chaos` 3min + `canonical_p99` ~5min + `arch`/`ocr` ~1min quedan (scoping por paths, compatibles con Fast Gate).
 - [ ] C-07 · Curar PRs/ramas (25→0 el 2026-09-22; oleada nueva 211–219 en curso 2026-09-23: otel trio cerrado vía commit atómico 5e6a3071, #211–216 con branches actualizados y CI en curso). Contrato: PRs abiertos = solo vivos.
   borrar ramas mergeadas/stale (orben `gh pr close`, `git push --delete`).
   Dependabot ya está en modo solo-alertas: no vuelve el ruido. Contrato: PRs abiertos = solo vivos.
