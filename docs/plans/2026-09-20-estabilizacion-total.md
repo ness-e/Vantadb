@@ -63,7 +63,7 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
 - [ ] C-08 · CodeQL post-release: activar default setup correcto (el check actual apunta
   a `codeql.yml` inexistente) + triage de alertas. Contrato: check verde o declarado.
 - [x] C-09 · ✅ 2026-09-22 owner confirma desinstalación (verificado: sin código Greptile en repo — era app de cuenta). Greptile fuera (owner, 2 min, `github.com/settings/installations`).
-- [ ] C-10 · README (paridad ES/EN ✅ 7ae4168e; falta verificar badges verdes + links tras C-02∅).
+- [ ] C-10 · README (paridad ES/EN ✅ 7ae4168e; verificado 2026-09-23: workflows de badges existen, links relativos resuelven, colab→develop, Rust→stable; cierre total tras C-02).
 
 ## Fase 2 — Extracción `web/` (solo tras Fase 0+1 verdes)
 
