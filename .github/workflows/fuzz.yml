@@ -47,7 +47,7 @@ jobs:
         with:
           toolchain: nightly
 
-      - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2.9.1
         with:
           shared-key: fuzz-build
 
@@ -81,7 +81,7 @@ jobs:
         with:
           toolchain: nightly
 
-      - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2.9.1
         with:
           shared-key: fuzz-build
 
@@ -139,7 +139,7 @@ jobs:
         with:
           toolchain: nightly
 
-      - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+      - uses: Swatinem/rust-cache@f0d9c3887740aee45f6153b24b3a6b815192ec16 # v2.9.1
         with:
           shared-key: fuzz-build
 
