@@ -81,7 +81,7 @@ jobs:
           cat ocr-rules.json
 
       - name: Upload delegation evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ocr-nightly-delegate
           path: |
@@ -152,7 +152,7 @@ jobs:
         run: ocr session list --json > ocr-sessions.json || echo '[]' > ocr-sessions.json
 
       - name: Upload full-review evidence
-        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           name: ocr-nightly-full
           path: |
