@@ -33,7 +33,7 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
   ✅ TestPyPI 0.6.0 verificado (venv limpio, `Client` OK). PyPI prod 0.6.0: NO viable desde tag
   (contenido stale) → se salta a 0.6.1 con #187. Fix durable: pyproject dinámico desde Cargo
   (commit `4af85b54`, wheel local probado `vantadb_py-0.6.0`).
-- [x] R-03 · npm ✅ + PyPI ✅ 2026-09-23 (vantadb-py 0.6.1 en prod tras fix owner trusted publisher `release-wheels.yml` + rerun failed + approve environment; wasm@0.6.1 + vantadb@0.6.1 en npm latest=0.6.1; wasm@0.6.0 deprecado). Contrato cumplido: 3 registros en 0.6.1.
+- [x] R-03 · npm ✅ + PyPI ✅ + TestPyPI ✅ 0.6.1 en los 4 (verify install TestPyPI pasó). Hallazgo: builds manylinux fallaban por reuso cross-glibc de target/ (coherence host → container) → fix `CARGO_TARGET_DIR=/tmp/maturin-target` en release-wheels.yml + sync main→develop. Contrato cumplido.
   (verificar trusted publishing; `npm view` confirma). `vantadb-wasm` igual si aplica.
   Contrato: registros Rust+Python+npm en 0.6.0 el mismo día.
 - [x] R-04 · ✅ SUPERSEDED 2026-09-22: #187/#201/#205/#209 cerrados por release-plz sin mergear; sin v0.6.1. El ciclo release es automático; v0.6.1 saldrá cuando corresponda. Sin acción.
