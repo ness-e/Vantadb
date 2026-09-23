@@ -79,12 +79,12 @@ try {
     writeFileSync(
       join(app, "quickstart.mjs"),
       [
-        'import { VantaDB } from "vantadb";',
+        'import { Client } from "vantadb";',
         "",
-        "const db = VantaDB.create();",
-        'const rec = await db.put({ namespace: "smoke", key: "k", payload: "hello" });',
+        "const db = Client.create();",
+        'const rec = db.put({ namespace: "smoke", key: "k", payload: "hello" });',
         'if (rec.payload !== "hello") throw new Error("put returned wrong payload");',
-        'const got = await db.get("smoke", "k");',
+        'const got = db.get("smoke", "k");',
         'if (!got || got.payload !== "hello") throw new Error("get did not return the record");',
         "db.close();",
         'console.log("SMOKE OK");',
