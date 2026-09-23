@@ -125,11 +125,11 @@ Próxima tarea si completa: C-10
 
 === RECITATION WEB-DOCS-MOVE ===
 Campaign ID: 550f7331-35bf-469f-ba10-1959407cbaf9
-Objetivo activo: WEB-DOCS-MOVE: mover 13 docs historicas web a Vantadb-web docs/history + reescribir refs vivas
-Estado: in-progress
-Última acción: DISCOVERY completo + task file creado
-Resultado: PARTIAL
-Próxima acción: STEP 2: copiar 13 archivos a web/docs/history + README indice + verify hashes
-Contrato: verificacion: DISCOVERY (Test-Path 13/13, git grep por archivo, markdownlint set 0 issues, avance-coverage baseline 1038/1038) OK | evidencia: claim 0-links-vivos: git grep links absolutos+relativos (solo 3 en historial congelado) | confianza: alta; artefactos: docs/tasks/WEB-DOCS-MOVE.md; invariantes: PROHIBIDOS intactos, NO PUSH, WIP ajeno web (.gitignore) intacto; deuda: ninguna aun; queda_pendiente: STEPs 2-5
-Próxima tarea si completa: WEB-DOCS-MOVE
+Objetivo activo: WEB-DOCS-MOVE: mover docs historicas web a Vantadb-web + reescribir refs vivas
+Estado: completed
+Última acción: STEPs 2-4 ejecutados y verificados + commits sin push (d174a868, 5b155972)
+Resultado: OK
+Próxima acción: vanta-lead: push VantaDB + web, vigilar gate-docs CI
+Contrato: verificacion: (a) Get-FileHash 13/13 OK + commits d174a868/5b155972 | (b) git grep links: 0 vivos, 3 frozen eximidos | (c) markdownlint VantaDB 1457f 0 issues + web history 11f 0 issues | (d) frontmatter PASS + validate-docs-coverage OK (drift skills preexistente) + avance 1031/1031 | evidencia: task file docs/tasks/WEB-DOCS-MOVE.md | confianza: alta; artefactos: web/docs/history/ (14 files); invariantes: PROHIBIDOS intactos, NO PUSH, WIP ajeno .gitignore intacto; deuda: budget.json quickwins ignored en disco (fuera del repo) + 3 links frozen + avance delta -7 IDs (100%) + progreso Trigger 1.D omitido (activo/* prohibido); queda_pendiente: vanta-lead: push ambos repos + verificar gate-docs en CI
+Próxima tarea si completa: ninguno (Fase 2 sigue por orquestador)
 === END RECITATION ===

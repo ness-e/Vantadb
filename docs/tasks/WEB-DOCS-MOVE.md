@@ -51,14 +51,22 @@
   `git grep -l` por archivo, links `](...)` = 0 vivos / 3 congelados, lint set = 0 issues
   (4 in-situ + 6 vía temp con misma config), avance-coverage baseline 1038/1038,
   gate-docs + validate-docs-coverage leídos (no listan paths del set). Verify: evidencia arriba.
-- [ ] **STEP 2 — COPIAR a web:** crear `docs/history/`, copiar 13 archivos byte-idénticos,
-  crear `README.md` (tabla origen→destino + nota congelada 2026-09-22). Verify: `Get-FileHash` origen=destino 13/13.
-- [ ] **STEP 3 — GIT RM + refs:** `git rm` 13 en VantaDB, editar 4 filas en 3 índices.
-  Verify: `git status` solo paths esperados; grep 0 links vivos nuevos; markdownlint VantaDB 0 issues.
-- [ ] **STEP 4 — VERIFY contrato + commits:** (a) hashes, (b) links, (c) lint ambos repos,
-  (d) frontmatter loop + validate-docs-coverage + avance-coverage delta. Commits sin push:
-  VantaDB `docs: WEB-DOCS-MOVE — ...`, web `docs: history web migrada + índice`.
-- [ ] **STEP 5 — CIERRE:** recitation en plan file, `skill progreso`, RESULTADO §7.
+- [x] **STEP 2 — COPIAR a web:** crear `docs/history/`, copiar 13 archivos byte-idénticos,
+  crear `README.md` (tabla origen→destino + nota congelada 2026-09-22). Verify: `Get-FileHash` 13/13 OK ✅.
+- [x] **STEP 3 — GIT RM + refs:** `git rm` 12 trackeados + 4 filas en 3 índices
+  (reviews/README:51,58 · reports/INDEX:27 · fuentes-vivas:22).
+  Verify: staging solo paths esperados; links vivos nuevos = 0; markdownlint VantaDB 1457 files 0 issues ✅.
+  Desviación: `docs/plans/2026-08-25-research-web-quickwins.budget.json` es gitignored+untracked
+  (`.gitignore:273`) → `git rm` imposible; copiado a destino con hash OK, original conservado
+  en disco fuera del repo (git no lo ve). No viola contrato (a).
+- [x] **STEP 4 — VERIFY contrato + commits:** (a) 13/13 hashes ✅ · (b) 0 links vivos (3 frozen
+  eximidos) ✅ · (c) lint VantaDB 1457 files 0 issues + web history 11 files 0 issues ✅ ·
+  (d) frontmatter PASS + validate-docs-coverage OK salvo skills-mirror drift 2/10 PREEXISTENTE
+  (no tocado por este cambio) + avance-coverage 1031/1031 (delta -7 IDs, sigue 100%) ✅.
+  Commits sin push: VantaDB `d174a868` + web `5b155972` ✅.
+- [x] **STEP 5 — CIERRE:** recitation + RESULTADO §7. Progreso parcial: doc-impact ✅, coverage ✅,
+  memoria ✅; Trigger 1.D (avance/activo) OMITIDO por prohibido explícito; Backlog sin fila (nada
+  que eliminar); CHANGELOG prohibido (sin entrada).
 
 ## Deuda conocida (no bloquea)
 
