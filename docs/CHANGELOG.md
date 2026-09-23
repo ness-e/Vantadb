@@ -1853,6 +1853,84 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.6.1](https://github.com/ness-e/Vantadb/compare/v0.6.0...v0.6.1) - 2026-09-23
+
+### Fixed
+
+- lock vantadb-node regenerado con npm@10 (faltaba @emnapi/runtime peer-optional; npm ci fallaba x7)
+- VULN-B3 — js-yaml node/web + nanoid desktop ([#207](https://github.com/ness-e/Vantadb/pull/207))
+- VULN-B1/B2 — postcss+vitest en vantadb-ts (cierra #26/#40/#41) ([#206](https://github.com/ness-e/Vantadb/pull/206))
+
+### Other
+
+- release.yml usa rust-setup composite (libclang; semver-checks interno fallaba sin llvm-config)
+- release-npm-node test job instala deps (vitest not found exit 127; bug latente expuesto por PR trigger FIND-140)
+- sec-codeql analyze v4.38.0->v4.38.1 (mismo SHA que init; skew rompia post-action)
+- WEB-DOCS-MOVE — cierre task file + recitation
+- WEB-DOCS-MOVE — migrar 13 docs web a Vantadb-web docs/history + refs
+- R-03 via 0.6.1 (E405) + PR #210
+- vantadb-ts 0.6.0->0.6.1 (npm 0.6.0 nunca publicado; tren 0.6.1 tras deprecate wasm roto)
+- Fase 2 completa (dominio migrado, proyecto viejo eliminado)
+- Fase 2 W-01..W-06 completada (web en ness-e/Vantadb-web)
+- W-05 extraer web/ a ness-e/Vantadb-web (rm web + ci-web + dependabot + sbom/ocr refs + ignore .next)
+- C-09 Greptile fuera + R-03 unpublish sin efecto verificado
+- workflows-repair 13/13 + R-03 bloqueo wasm-unpublish documentado
+- FIND-144 — durable workflow RULES.md + CI_POLICY refresh 26-27 + AGENTS pointer
+- FIND-142 — quitar numeracion de workflows via git mv + refs
+- Wave 4 workflows-repair completada (143/145)
+- FIND-145 — CodeQL verde post-#202 verificado (Analyze success, sin fix)
+- FIND-143 — docs/workflow inventory, triggers, publish, runbook, FAQ
+- release.yml toolchain stable explicito (v1 del action lo exige; era exit 1)
+- Wave 2 workflows-repair completada (140/141/146)
+- FIND-140 — release-binaries-63.yml trigger solo release:published + task file
+- FIND-140 — release-adapters-62.yml gate version-exists (skip-existing) en prod
+- FIND-140 — release-npm-node.yml trigger push tags-solo + PR trigger
+- FIND-140 — release-npm-61.yml trigger push tags-solo (separa tags-vs-ramas)
+- FIND-140 — release.yml push solo main + timeout/env/concurrency en release-plz-release
+- FIND-146 — pins SHA supply-chain (checkout v7.0.1, setup-node v4.4.0, upload-artifact v4.6.2, OCR 1.12.9) + guard doble-run opencode
+- FIND-141 — desolapar heavy schedules (bench 03:00->02:00), guard skip-ci baseline, retention 14d fuzz
+- Wave 1 workflows-repair completada (137/138/139)
+- FIND-138 — diagnostico flake rustdoc (cancel-in-progress by-design, sin fix)
+- FIND-139 — ci-gate fail-closed + gate-docs PR-develop
+- FIND-137 — unificar rustdocs (survivor ci-rustdoc + rm rustdoc-70)
+- Wave 0 workflows-repair completada (134/135/136)\
+- FIND-136 — cobertura y caché en 4 workflows
+- FIND-134 — hardening ci-rust-10 (dedup triggers, needs fast-fail, wasm-if, sin || echo)
+- FIND-135 — timeout-minutes a 9 jobs sin límite (medido + margen)
+- WSM-06 snippets/ en pkg files (tarball wasm roto sin inline0.js; lo atrapo TS-07)\
+- npm@11 en publish jobs (OIDC trusted publishing exige >=11.5.1; era 404)\
+- estado real 3 planes (R-04/C7 superseded, R-03 en curso, VULN-D1 nota rama)\
+- PRT-C4 migrado (#162 cerrado)\
+- bump download-artifact v4.3.0->v8.0.1 (12 usos por name/pattern, sin artifact-ids; supersede #162)\
+- Merge branch 'develop' of https://github.com/ness-e/Vantadb into develop
+- Wave B/C merges (13 PRs) + FIND-147 + FREEZE levantado\
+- vulnerabilidades 14->4 (merge #204)\
+- merges #204/#170/#166 + 14->4 vulnerabilidades\
+- *(deps)* bump sonner from 2.0.7 to 2.0.8 in /web ([#166](https://github.com/ness-e/Vantadb/pull/166))
+- *(deps)* bump react-hook-form from 7.83.0 to 7.88.0 in /web ([#170](https://github.com/ness-e/Vantadb/pull/170))
+- estado real 3 planes (Wave B en curso, VULN-D1 verificacion final)\
+- Wave B merges #206/#207 + decisiones #174/#179\
+- Wave B/C vuln+cscan (glib allow+expiry, prx07 higiene, 30 dismissals) + planes\
+- Wave A ejecutada en 3 planes (4 merges + cierre + dismiss)\
+- main a develop (forward-port Wave A: fast-uri, js-yaml, nanoid, vitest)
+- *(deps)* bump nanoid from 3.3.17 to 3.3.19 in /web/remotion ([#199](https://github.com/ness-e/Vantadb/pull/199))
+- *(deps)* bump js-yaml from 4.3.1 to 4.3.2 in /web/remotion ([#198](https://github.com/ness-e/Vantadb/pull/198))
+- *(deps)* bump fast-uri from 3.1.5 to 3.1.8 in /web/remotion ([#195](https://github.com/ness-e/Vantadb/pull/195))
+- *(deps)* bump @vitest/mocker and vitest in /vantadb-node ([#196](https://github.com/ness-e/Vantadb/pull/196))
+- README.md a la par de README_ES (integraciones, MCP, benchmarks medidos, header shields)\
+- re-aplicar cambios post-merge #182 sobre historia completa (plan R-01/R-02 + pyproject dinamico)\
+- C-02 — discovery micro-move docs sin dependencias (NO-MOVE justificado)
+- R-03 — bump vantadb-ts 0.5.0→0.6.0 (verify, sin publish)
+- R-02 — diagnostico tag v0.6.0 sin publish PyPI (causa + via exacta)
+- plan estabilizacion-total (Fase 0/1/2 + 5 decisiones owner)\
+- C-01 .opencode fuera del git (local-only, disco intacto)\
+- recitations FIND-129 y WIN-FLAKY en plan archivado\
+- llms.txt URLs absolutas + mirrors skills 87 tools\
+- dependabot modo solo-alertas + lock desktop\
+- salud comunitaria (CITATION, FUNDING, Code of Conduct actualizado)\
+- lint CHANGELOG (frontmatter huerfano + __vanta_* code) + pins adapters <0.7.0 (0.6.0 compatible)\
+- coherencia version 0.6.0 (pyproject + openapi + MCP; version_coherence verde)\
+
 ### ✨ Features
 
 - **Fase 4 Vanta Studio (2026-08-20, 18/18):** consola standalone 100% browser (WASM/OPFS con persistencia y reload), import drag&drop `.vdbdump`/JSONL/CSV, slider de pesos híbridos BM25/vector (RRF weighted client-side), superficie Índices/salud real, consolidación asistida con diff visible, y supersession durable en core (ADR-028): `VantaMemoryRecord.superseded_by`/`superseded_at_ms`, `supersede()`, filtro `exclude_superseded` en search/list (core + Python sync/async + export/import JSONL).
