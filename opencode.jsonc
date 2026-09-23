@@ -10,6 +10,7 @@
     "disable_paste_summary": true
   },
   "mcp": {
+    "servers": {
     "codegraph": {
       "type": "local",
       "command": [
@@ -17,14 +18,14 @@
         "serve",
         "--mcp"
       ],
-      "enabled": true
+      "disabled": false
     },
       "codebase-memory-mcp": {
         "type": "local",
         "command": [
           "C:\\Users\\Eros\\AppData\\Local\\Programs\\codebase-memory-mcp\\codebase-memory-mcp.exe"
         ],
-        "enabled": true,
+        "disabled": false,
         "description": "Codebase knowledge graph (tree-sitter, 158 langs, semantic + BM25 search, Cypher, architecture, change impact, dead-code, ADR). Complementa a CodeGraph. Skill: codebase-memory. Absolute path used because OpenCode's process PATH doesn't include the user PATH entry the installer added."
       },
     "discord": {
@@ -35,13 +36,13 @@
         "-Command",
         "$t = (Get-Content '.env.tokens' | Where-Object {$_ -match '^DISCORD_BOT_TOKEN=\"(.+)\"$'} | ForEach-Object {$Matches[1]}); $env:DISCORD_TOKEN = $t; bunx @rayenking/discord-mcp"
       ],
-      "enabled": true
+      "disabled": false
     },
     "metasearchmcp": {
       "command": [
         "metasearchmcp-mcp"
       ],
-      "enabled": true,
+      "disabled": false,
       "type": "local",
       "description": "Búsqueda multi-provider: web, GitHub, académico, código. DuckDuckGo gratis sin key."
     },
@@ -51,7 +52,7 @@
         "mcp",
         "serve"
       ],
-      "enabled": true,
+      "disabled": false,
       "type": "local",
       "description": "14 providers, extracci�n 12-step, dead URL recovery, RRF fusion."
     },
@@ -61,7 +62,7 @@
         "-y",
         "agent-search-mcp"
       ],
-      "enabled": true,
+      "disabled": false,
       "type": "local",
       "description": "Capa keyless permanente: busqueda multi-engine gratis sin API keys (respaldo de metasearchmcp/argus)."
     },
@@ -70,7 +71,7 @@
         "bun",
         ".opencode/task-system/mcp/campaign-server.mjs"
       ],
-      "enabled": true,
+      "disabled": false,
       "type": "local",
       "description": "Plan de campaña: get_next_task, update_task_state, verify_cmd."
     },
@@ -82,7 +83,7 @@
         "--db",
         "C:/Users/Eros/.vantadb"
       ],
-      "enabled": true,
+      "disabled": false,
       "type": "local",
       "description": "VantaDB MCP — memoria persistente y vector retrieval (87 tools en perfil full: memory, threads, scenes, dreams, graph, wiki, skills, code...)."
     },
@@ -91,7 +92,7 @@
         "bunx",
         "@lottiefiles/creator-mcp@latest"
       ],
-      "enabled": false,
+      "disabled": true,
       "type": "local",
       "description": "LottieFiles Creator MCP — crear y editar animaciones Lottie via IA."
     },
@@ -102,10 +103,11 @@
         "--viewport-size",
         "1440x900"
       ],
-      "enabled": true,
+      "disabled": false,
       "type": "local",
       "timeout": 120000,
       "description": "Playwright MCP — automatización de browser via accessibility tree (browser_navigate/snapshot/click/type/evaluate). Para testing web/, E2E desktop/ y visual review."
+    }
     }
   }
 }
