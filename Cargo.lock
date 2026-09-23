@@ -1186,9 +1186,9 @@ checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 
 [[package]]
 name = "croaring"
-version = "2.7.0"
+version = "2.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1923cfaba49fda0b2e27f16f3772e677b499621bdf016b9e40ffcb1ca0981d7e"
+checksum = "47162d8e387839a2d780b0341e9726a1152c351ad1402650abc57a92199de85d"
 dependencies = [
  "allocator-api2 0.4.0",
  "croaring-sys",
@@ -1196,9 +1196,9 @@ dependencies = [
 
 [[package]]
 name = "croaring-sys"
-version = "4.7.1"
+version = "5.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62bdd6feb27873ce157167bd66e14893a4c1c6b46256b1434c0e4754649b99f5"
+checksum = "c8af2b4ce0b99e344b198e3b6a920cbf932beffb3f6253fb52fc4418df885b5f"
 dependencies = [
  "cc",
 ]
