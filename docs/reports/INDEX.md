@@ -24,7 +24,7 @@ related: []
 
 | Fecha (YYYYMMDD-HHMMSS) | Modo | Archivo | QG | C/H/M/L/I | Estado | Resumen |
 |---|---|---|---|---|---|---|
-| 20260825-223924 | research | `docs/reviews/research-web-prod-20260825.md` | - | - | vigente | INV-web-01: producto web 7.2/10 vs 5 competidores (extraídos en vivo). 11 hallazgos → 7 APLICAR (plan WEB-03..09) + WEB-01/02 backlog + registro corregido (H-01) + H-09 diferido |
+| 20260825-223924 | research | `docs/reviews/research-web-prod-20260825.md` | - | - | migrado 2026-09-22 a Vantadb-web `docs/history/research-web-prod-20260825.md` | INV-web-01: producto web 7.2/10 vs 5 competidores (extraídos en vivo). 11 hallazgos → 7 APLICAR (plan WEB-03..09) + WEB-01/02 backlog + registro corregido (H-01) + H-09 diferido |
 
 | 2026-08-10-1740 | eval | `docs/reports/dora.md` | — | — | vigente | P3-07 (P3): DORA flow metrics — cycle/lead time, CFR, throughput, flow table desde plan files + task files + `verify-log.jsonl` (fechas derivadas best-effort, fallback mtime) |
 | 2026-08-10-2007 | eval | `docs/reports/pipeline-evals.md` | — | — | vigente | EVAL-01 (P0): harness de evals del pipeline — North Star metrics (primer intento, falsos positivos, regresión) desde `verify-log.jsonl` |
