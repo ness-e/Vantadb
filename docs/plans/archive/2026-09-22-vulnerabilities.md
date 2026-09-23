@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 67262f34-0fe8-4046-9f0c-9023f081e2eb
 > **Inicio:** 2026-09-22
-> **Estado:** 🔄 EN PROGRESO (Waves A+B+C ✅ ejecución: #206/#207/#204 mergeados, glib dismissed; 14→4 abiertas — resto lag de re-scan + port a main; VULN-D1 verificación final pendiente)
+> **Estado:** ✅ COMPLETADO (2026-09-23: 0 abiertas — 28 fixed + 1 dismissed + 1 auto_dismissed. Cierre administrativo pendiente: archive + progreso)
 > **Fuente:** triage READ-ONLY 2026-09-22 (`vanta-audit`: 14/14 alertas ubicadas en
 > lockfiles con archivo:línea + GHSA/CVE verificados). #35/#34 críticas Next.js ya FIXED.
 
@@ -60,7 +60,7 @@ documentado. Seguridad-primero: SSRF/DoS primero, dev-only después, UB no-alcan
 
 ## Wave D — Verificación final (orquestador, tras merges + rescans)
 
-- [ ] VULN-D1 · Re-verificar `gh api dependabot/alerts` (NOTA 2026-09-22: Dependabot escanea `main`; #26/#30/#32 se cerrarán solas al subir develop→main — no es lag, es rama. Contrato: 0 abiertas tras ese merge).
+- [x] VULN-D1 · ✅ 2026-09-23 verificado: `gh api dependabot/alerts` → 0 abiertas (28 fixed + 1 dismissed + 1 auto_dismissed; #26/#30/#32 cerradas por re-scan tras merges). Contrato: 0 abiertas cumplido.
   #26/#30/#32/#36/#42 sigue abierta tras 24h del merge, diagnosticar: lag de re-scan vs gap
   real). Contrato: 0 abiertas o motivo escrito por restante. (Glib #38 ya dismissed como
   accept-risk; no cuenta.)
