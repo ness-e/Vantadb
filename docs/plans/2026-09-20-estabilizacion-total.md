@@ -38,7 +38,7 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
   Contrato: registros Rust+Python+npm en 0.6.0 el mismo día.
 - [x] R-04 · ✅ SUPERSEDED 2026-09-22: #187/#201/#205/#209 cerrados por release-plz sin mergear; sin v0.6.1. El ciclo release es automático; v0.6.1 saldrá cuando corresponda. Sin acción.
   decidir con CI verde (si sus cambios ya viven en `develop` vía #182, cerrarla como superseded con motivo).
-- [ ] R-05 · Test de usuario real (post-publish): instalar desde registros en entorno limpio
+- [x] R-05 · ✅ 2026-09-23 test usuario real: venv limpio + `pip install vantadb-py==0.6.1` (PyPI) → vector/text/hybrid OK; `npm i vantadb@0.6.1` + `Client` put/search/get OK; CLI+Python interop (get/list/export/audit `passed:true` tras rebuild, según doc). QUICKSTART actualizado a 0.6.1.
   y correr QUICKSTART + tutorial 01 paso a paso; registrar fricciones como FIND.
   Contrato: flujo extraño completo sin errores; `tsc`/`lint`/`build` web verdes con deps 16.3.5/0.35.4.
 
