@@ -27,10 +27,13 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+      - name: Install Rust toolchain + system deps (libclang for release-plz semver-checks)
+        uses: ./.github/actions/rust-setup
         with:
           toolchain: stable
+          install-nextest: false
+          install-llvm-cov: false
+          install-system-deps: true
       - name: Run release-plz
         uses: release-plz/action@b8d6b54b02889ff2ae2bb82e8b57c3a8fc1683a5 # v0.5.139
         with:
@@ -53,10 +56,13 @@ jobs:
         with:
           fetch-depth: 0
           persist-credentials: false
-      - name: Install Rust toolchain
-        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+      - name: Install Rust toolchain + system deps (libclang for release-plz semver-checks)
+        uses: ./.github/actions/rust-setup
         with:
           toolchain: stable
+          install-nextest: false
+          install-llvm-cov: false
+          install-system-deps: true
       - name: Run release-plz
         uses: release-plz/action@b8d6b54b02889ff2ae2bb82e8b57c3a8fc1683a5 # v0.5.139
         with:
