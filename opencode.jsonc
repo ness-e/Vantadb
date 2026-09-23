@@ -3,9 +3,7 @@
   "model": "deepseek-v4-flash-free",
   "small_model": "deepseek-v4-flash-free",
   "subagent_depth": 2,
-  "plugins": [
-    "C:/Users/Eros/.agents/ponytail/.opencode/plugins/ponytail.mjs"
-  ],
+  "plugins": [],
   "experimental": {
     "disable_paste_summary": true
   },
