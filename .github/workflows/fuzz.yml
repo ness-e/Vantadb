@@ -1,0 +1,171 @@
+name: 'FUZZ: LibFuzzer — Corpus + Regression'
+
+on:
+  schedule:
+    - cron: '0 6 * * 1'  # Every Monday 06:00 UTC
+  pull_request:
+    # Fuzz gate acotado: solo se dispara en PRs que tocan código core/persistencia
+    # (paths-filter nativo — no alarga el Fast Gate con PRs docs-only)
+    paths:
+      - 'src/**'
+      - 'fuzz/**'
+  workflow_dispatch:
+    inputs:
+      max_seconds:
+        description: 'Seconds per fuzz target'
+        required: true
+        default: '60'
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  ci-gate:
+    uses: ./.github/workflows/ci-gate.yml
+    permissions:
+      checks: read
+    with:
+      event_name: ${{ github.event_name }}
+
+  build:
+    name: Build fuzz targets
+    needs: ci-gate
+    if: github.event_name != 'pull_request'  # el fuzz completo queda para schedule/dispatch; PRs usan fuzz-pr
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        with:
+          toolchain: nightly
+
+      - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+        with:
+          shared-key: fuzz-build
+
+      - name: Install cargo-fuzz
+        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a # v2.83.4
+        with:
+          tool: cargo-fuzz
+
+      - name: Build all fuzz targets
+        run: cargo +nightly fuzz build --target x86_64-unknown-linux-gnu
+
+  fuzz:
+    name: Fuzz ${{ matrix.target }}
+    needs: [ci-gate, build]
+    if: github.event_name != 'pull_request'  # el fuzz completo queda para schedule/dispatch; PRs usan fuzz-pr
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - fuzz_parser
+          - fuzz_node_deserialize
+          - fuzz_wal
+          - fuzz_archive
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        with:
+          toolchain: nightly
+
+      - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+        with:
+          shared-key: fuzz-build
+
+      - name: Restore fuzz corpus cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.ref_name }}
+          restore-keys: |
+            fuzz-corpus-${{ matrix.target }}-
+
+      - name: Clean stale crash artifacts
+        run: rm -rf fuzz/artifacts/${{ matrix.target }}/
+
+      - name: Install cargo-fuzz
+        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a # v2.83.4
+        with:
+          tool: cargo-fuzz
+
+      - name: Run ${{ matrix.target }}
+        run: cargo +nightly fuzz run --target x86_64-unknown-linux-gnu ${{ matrix.target }} -- -max_total_time=${{ inputs.max_seconds || '60' }} -max_len=8192
+
+      - name: Upload fuzz corpus + crashes
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fuzz-${{ matrix.target }}-${{ github.run_id }}
+          path: |
+            fuzz/artifacts/${{ matrix.target }}/
+            fuzz/corpus/${{ matrix.target }}/
+          if-no-files-found: warn
+          retention-days: 14  # FIND-141: corpus por run_id efimero (weekly Mon 06:00)
+
+  fuzz-pr:
+    # Gate acotado para PRs: 75s por target (4 targets en paralelo ≈ 5-8 min).
+    # Ubuntu-only (Windows da flaky en fuzz); timeout <= 15 min; sin continue-on-error (Regla 2).
+    name: Fuzz PR gate ${{ matrix.target }}
+    if: github.event_name == 'pull_request'
+    needs: ci-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        target:
+          - fuzz_parser
+          - fuzz_node_deserialize
+          - fuzz_wal
+          - fuzz_archive
+
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
+        with:
+          toolchain: nightly
+
+      - uses: Swatinem/rust-cache@7e35be21c2b94d972b1143087fabc27d7dc881ef # v2.9.1
+        with:
+          shared-key: fuzz-build
+
+      - name: Restore fuzz corpus cache
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: fuzz/corpus/${{ matrix.target }}
+          key: fuzz-corpus-${{ matrix.target }}-${{ github.ref_name }}
+          restore-keys: |
+            fuzz-corpus-${{ matrix.target }}-
+
+      - name: Install cargo-fuzz
+        uses: taiki-e/install-action@25f25a6eff908c77b40880d0b1f5d2a032b6e75a # v2.83.4
+        with:
+          tool: cargo-fuzz
+
+      - name: Run bounded fuzz on ${{ matrix.target }}
+        run: cargo +nightly fuzz run --target x86_64-unknown-linux-gnu ${{ matrix.target }} -- -max_total_time=75 -max_len=8192
+
+      - name: Upload fuzz corpus + crashes
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: fuzz-pr-${{ matrix.target }}-${{ github.run_id }}
+          path: |
+            fuzz/artifacts/${{ matrix.target }}/
+            fuzz/corpus/${{ matrix.target }}/
+          if-no-files-found: warn
+          retention-days: 14  # FIND-141: mismo criterio que job fuzz (artefactos PR efimeros)

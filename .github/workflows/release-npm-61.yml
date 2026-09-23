@@ -14,13 +14,10 @@ on:
         required: false
         default: "false"
   push:
+    # Tags solo: publish. CI de ramas va por pull_request (paths, FND-16).
+    # (paths no se evalúa en tags; tags+branches+paths en un bloque es
+    # ambiguo — FIND-140)
     tags: ["v*.*.*"]
-    branches: [main]
-    paths:
-      - "vantadb-wasm/**"
-      - "vantadb-ts/**"
-      - ".github/workflows/release-npm-61.yml"
-      # FND-16: gate wasm32/TS por PR (paths filter) — publish jobs ya excluyen PRs via `if`
   pull_request:
     paths:
       - "vantadb-wasm/**"
@@ -64,7 +61,7 @@ jobs:
           version: latest
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
         with:
           toolchain: stable
 
@@ -127,13 +124,18 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
+      # OIDC trusted publishing requires npm >= 11.5.1 (Node 22 ships npm 10).
+        # Without it, `npm publish` goes out unauthenticated → 404 PUT (2026-09-22).
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install -g npm@11
+
       - name: Install wasm-pack
         uses: jetli/wasm-pack-action@0d096b08b4e5a7de8c28de67e11e945404e9eefa # v0.4.0
         with:
           version: latest
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@fa04a1451ff1842e2626ccb99004d0195b455a88 # v1
+        uses: dtolnay/rust-toolchain@02cb101ec7c40f2c49e1d9714d64511d8e1b74de # v1
         with:
           toolchain: stable
 
@@ -149,6 +151,12 @@ jobs:
       # wasm-pack output).
       - name: Override .d.ts with hand-written source (WSM-05)
         run: node dev-tools/build-wasm-types.mjs
+
+      # WSM-06: wasm-pack omits `snippets/` from pkg `files`, but the glue
+      # imports `snippets/<hash>/inline0.js` — without this the tarball ships
+      # broken (ERR_MODULE_NOT_FOUND, caught by TS-07 on vantadb-wasm@0.6.0).
+      - name: Include wasm-pack snippets in pkg files (WSM-06)
+        run: node dev-tools/fix-wasm-pkg-files.mjs
 
       - name: Upload WASM build artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
@@ -198,8 +206,12 @@ jobs:
           node-version: 22
           registry-url: https://registry.npmjs.org
 
+      # OIDC trusted publishing requires npm >= 11.5.1 (Node 22 ships npm 10).
+      - name: Upgrade npm for OIDC trusted publishing
+        run: npm install -g npm@11
+
       - name: Download WASM build artifact
-        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
           name: wasm-pkg
           path: vantadb-wasm/pkg

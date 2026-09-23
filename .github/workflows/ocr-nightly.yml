@@ -11,13 +11,15 @@
 # by design (documented skip, never a red nightly). No secrets ever hit disk:
 # tokens travel via env only and GitHub masks secret values in logs.
 # Rule source: .opencodereview/rule.json (auto-loaded by the ocr resolver at
-# high priority — no --rule flag needed). Pins mirror ocr-delegate.yml.
+# high priority — no --rule flag needed). Pins: checkout v7.0.1 (3d3c42e5),
+# setup-node v4.4.0 (49933ea5), upload-artifact v4.6.2 (ea165f8d),
+# @alibaba-group/open-code-review 1.12.9 (npm) — mirror ocr-delegate.yml.
 
 name: OCR Nightly (delegation + full con key)
 
 on:
   schedule:
-    # 04:00 UTC daily — off-peak vs heavy-bench-nightly-51 (03:00 UTC).
+    # 04:00 UTC daily — off-peak vs heavy-bench-nightly (03:00 UTC).
     - cron: '0 4 * * *'
   workflow_dispatch:
 
@@ -32,18 +34,19 @@ jobs:
   delegate:
     name: Delegation spec, last 24h (no key required)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
 
       - name: Install OCR CLI
-        run: npm install -g @alibaba-group/open-code-review
+        run: npm install -g @alibaba-group/open-code-review@1.12.9
 
       - name: Resolve 24h window
         id: window
@@ -54,7 +57,7 @@ jobs:
 
       - name: Self-test rule mapping (deterministic, must pass)
         run: |
-          for p in src/wal.rs src/index/core.rs src/parser/mod.rs src/memory_governor.rs src/ingestion.rs src/engine.rs src/sdk/mod.rs vantadb-server/src/main.rs vantadb-python/src/lib.rs vantadb-wasm/src/lib.rs web/src/app/page.tsx Cargo.toml Dockerfile; do
+          for p in src/wal.rs src/index/core.rs src/parser/mod.rs src/memory_governor.rs src/ingestion.rs src/engine.rs src/sdk/mod.rs vantadb-server/src/main.rs vantadb-python/src/lib.rs vantadb-wasm/src/lib.rs Cargo.toml Dockerfile; do
             SRC=$(ocr rules check --rule .opencodereview/rule.json "$p" | sed -n '2p')
             echo "$p -> $SRC"
             echo "$SRC" | grep -q "Custom" || { echo "::error::no custom rule for $p"; exit 1; }
@@ -78,7 +81,7 @@ jobs:
           cat ocr-rules.json
 
       - name: Upload delegation evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ocr-nightly-delegate
           path: |
@@ -89,6 +92,7 @@ jobs:
   check-key:
     name: Check for LLM key (no secret exposure)
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     outputs:
       has_key: ${{ steps.check.outputs.has_key }}
     steps:
@@ -105,22 +109,23 @@ jobs:
   full:
     name: Full LLM review, last 24h (requires secrets)
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     # Delegation is the default: without a key this job is skipped (green) —
     # `secrets` is not allowed in job `if:`, so the check lives in `check-key`.
     needs: [check-key]
     if: ${{ needs.check-key.outputs.has_key == 'true' }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
 
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
         with:
           node-version: 20
 
       - name: Install OCR CLI
-        run: npm install -g @alibaba-group/open-code-review
+        run: npm install -g @alibaba-group/open-code-review@1.12.9
 
       - name: Configure LLM from secrets (never logged)
         env:
@@ -147,7 +152,7 @@ jobs:
         run: ocr session list --json > ocr-sessions.json || echo '[]' > ocr-sessions.json
 
       - name: Upload full-review evidence
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
           name: ocr-nightly-full
           path: |

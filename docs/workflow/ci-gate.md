@@ -34,7 +34,7 @@ El job `ci-gate`:
 
 ## ¿Cómo se usa?
 
-Los callers (ej. `heavy-certification-50.yml`, `heavy-bench-nightly-51.yml`, `fuzz-40.yml`) lo invocan como job:
+Los callers (ej. `heavy-certification.yml`, `heavy-bench-nightly.yml`, `fuzz.yml`) lo invocan como job:
 
 ```yaml
 ci-gate:

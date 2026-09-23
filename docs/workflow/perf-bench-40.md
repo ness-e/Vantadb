@@ -1,14 +1,14 @@
 ---
-title: "`perf-bench-40.yml` — PERF: Benchmarks — Python Integration"
+title: "`perf-bench.yml` — PERF: Benchmarks — Python Integration"
 type: workflow
 status: active
 tags: [vantadb, ci, perf-bench]
 last_reviewed: 2026-09-15
 aliases: []
-related: [".github/workflows/perf-bench-40.yml"]
+related: [".github/workflows/perf-bench.yml"]
 ---
 
-# `perf-bench-40.yml` — PERF: Benchmarks — Python Integration
+# `perf-bench.yml` — PERF: Benchmarks — Python Integration
 
 ## ¿Qué hace?
 

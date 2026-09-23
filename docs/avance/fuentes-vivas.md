@@ -19,7 +19,7 @@ aliases: [docs/avance/fuentes-vivas]
 |---|---|---|
 | `2026-07-28-recovery-plan.md` | 622 | ⚠️ Superado (post-recovery) |
 | `2026-07-29-index-rebuild-execution.md` | 146 | ✅ Completado |
-| `2026-08-04-launch-web-campaign.md` | 120 | ⚠️ Paralelo a web-release |
+| `2026-08-04-launch-web-campaign.md` | 120 | 📦 Migrado 2026-09-22 a Vantadb-web `docs/history/` (WEB-DOCS-MOVE) |
 | `2026-08-05-backlog-validation-actions.md` | 427 | ✅ Completado (sync Backlog 2026-08-06) |
 | `2026-08-06-desktop-mvp.md` | 268 | 🟡 Activo (Fase 12 Tauri) |
 | `2026-08-06-oc-vantadb-pro.md` | 224 | 🟡 Activo |

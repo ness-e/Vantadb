@@ -1,14 +1,14 @@
 ---
-title: "`heavy-bench-nightly-51.yml` — HEAVY: Benchmarks — Nightly Regression"
+title: "`heavy-bench-nightly.yml` — HEAVY: Benchmarks — Nightly Regression"
 type: workflow
 status: active
 tags: [vantadb, ci, heavy-bench-nightly]
 last_reviewed: 2026-09-15
 aliases: []
-related: [".github/workflows/heavy-bench-nightly-51.yml"]
+related: [".github/workflows/heavy-bench-nightly.yml"]
 ---
 
-# `heavy-bench-nightly-51.yml` — HEAVY: Benchmarks — Nightly Regression
+# `heavy-bench-nightly.yml` — HEAVY: Benchmarks — Nightly Regression
 
 ## ¿Qué hace?
 
