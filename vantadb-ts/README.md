@@ -3,9 +3,9 @@
 > WASM-powered embedded vector & graph memory for JavaScript runtimes.
 
 ```ts
-import { VantaDB } from "vantadb";
+import { Client } from "vantadb";
 
-const db = VantaDB.create();
+const db = Client.create();
 
 await db.put({ namespace: "docs", key: "intro", payload: "VantaDB is a vector database", vector: [0.1, 0.2, ...] });
 const results = await db.search({ namespace: "docs", query_vector: [0.15, 0.25, ...], top_k: 5 });
@@ -29,13 +29,13 @@ npm install vantadb
 ## Quick Start
 
 ```ts
-import { VantaDB } from "vantadb";
+import { Client } from "vantadb";
 
 // In-memory (default)
-const db = VantaDB.create();
+const db = Client.create();
 
 // Or persistent:
-// const db = VantaDB.open("./vanta_data");
+// const db = Client.open("./vanta_data");
 
 // Store
 await db.put({
@@ -72,8 +72,8 @@ CommonJS-friendly.
 
 ```js
 // Node.js >= 22.12
-const { VantaDB } = require("vantadb");
-const db = VantaDB.create();
+const { Client } = require("vantadb");
+const db = Client.create();
 // ...same synchronous API as the ESM build
 ```
 
@@ -105,8 +105,8 @@ loaded depends on the runtime:
 ```html
 <script type="module">
   // Verified working (wasm is inlined by esm.sh's build):
-  import { VantaDB } from "https://esm.sh/vantadb";
-  const db = VantaDB.create();
+  import { Client } from "https://esm.sh/vantadb";
+  const db = Client.create();
   await db.put({ namespace: "demo", key: "k", payload: "hello" });
   console.log((await db.get("demo", "k"))?.payload); // "hello"
   db.close();
@@ -123,7 +123,7 @@ and serve the output files yourself.
 - Do **not** instantiate the engine during server rendering — the wasm loader
   needs browser APIs (`fetch`/`WebAssembly`) or the file system, neither of
   which is guaranteed in a server context.
-- Create the client lazily in client-only code: `VantaDB.create()` inside a
+- Create the client lazily in client-only code: `Client.create()` inside a
   `useEffect`/`useMemo` (or a framework's client boundary), never at module
   top-level of an SSR-shared file.
 - On Node.js, prefer the native backend ([`NativeVantaDB`](./src/native.ts)) —
@@ -140,7 +140,7 @@ Measured 2026-08-30. Reproducible: see
 | **@orama/orama** | 3.1.18 | **23.8 KB** | ✅ | ✅ RRF | ❌ (in-mem + plugin) |
 | **MiniSearch**   | latest | **5.9 KB**  | ❌ | ❌ | ❌ |
 | **Lunr**         | 2.3.9  | **8.1 KB**  | ❌ | ❌ | ❌ |
-| **vantadb WASM** | 0.5.x  | **~599 KB transfer** (1.35 MB raw → 578 KB wasm + 21 KB glue gzipped) | ✅ HNSW | ✅ BM25 + RRF | ✅ OPFS / IDB / in-mem |
+| **vantadb WASM** | 0.6.x  | **~670 KB transfer** (1.65 MB raw wasm gzipped — medido en `vantadb-wasm@0.6.1`) | ✅ HNSW | ✅ BM25 + RRF | ✅ OPFS / IDB / in-mem |
 
 VantaDB is **~25× larger** than Orama gzipped, but ships **OPFS persistence,
 HNSW (sub-ms at 100K), TTL auto-expiry, capability graph** — features none of
@@ -155,12 +155,12 @@ Two npm packages exist; they are **not** the same thing:
 
 | Package | What it is | Published | API |
 |---------|------------|-----------|-----|
-| **`vantadb`** | TypeScript SDK over the WASM build — works in browsers, Node, Bun, Deno | ✅ 0.5.0 | Synchronous, ESM-only |
+| **`vantadb`** | TypeScript SDK over the WASM build — works in browsers, Node, Bun, Deno | ✅ 0.6.1 | Synchronous, ESM-only |
 | **`vantadb-node`** | Native Node.js bindings (napi-rs) — real filesystem persistence (fjall/WAL/fsync), async API, platform-specific `.node` binaries | ❌ **not yet published** (registry 404) | Async, ESM + CommonJS |
 
 `vantadb-node` is the **native backend** you reach via
 `NativeVantaDB.connect()` (lazy-loaded); `vantadb` is the **WASM backend**
-(`VantaDB.create()`). See ADR-030 (`docs/architecture/adr/ADR-030-brand-identity-naming-convention.md`)
+(`Client.create()`). See ADR-030 (`docs/architecture/adr/ADR-030-brand-identity-naming-convention.md`)
 for the full naming convention across registries.
 
 ## Errors
@@ -222,7 +222,7 @@ the same dimensionality. Full walkthrough:
 | Method | Description |
 |--------|-------------|
 | `VantaDB.create(config?)` | Create in-memory or configured instance |
-| `VantaDB.open(path)` | Open persistent store from disk |
+| `Client.open(path)` | Open persistent store from disk |
 | `.close()` | Free WASM resources |
 
 ### CRUD
