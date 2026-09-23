@@ -4460,7 +4460,8 @@ fn test_mcp_structured_output_and_output_schema() {
         search_res.get("structuredContent").is_some(),
         "search_memory must expose structuredContent"
     );
-    assert!(search_res["structuredContent"].is_array());
+    assert!(search_res["structuredContent"].is_object());
+    assert!(search_res["structuredContent"]["hits"].is_array());
 
     // tools/list must advertise outputSchema for key tools
     let list = handle_tools_list(&McpConfig::default()).unwrap();
