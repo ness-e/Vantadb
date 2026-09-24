@@ -21,11 +21,11 @@ audit_source: "docs/dev/reviews/auditoria-documentacion-2026-08-21.md (V1+II)"
 
 | # | Candidato | Tracked | Acción propuesta | Riesgo |
 |---|-----------|---------|------------------|--------|
-| 1 | `docs/book/book/` (~83 archivos build) | ❌ no | Borrado local opcional (ya ignorado) | 🟢 nulo |
-| 2 | `docs/examples/__pycache__/` (1 .pyc) | ❌ no | Borrado local opcional (ya ignorado) | 🟢 nulo |
+| 1 | `docs/user/book/book/` (~83 archivos build) | ❌ no | Borrado local opcional (ya ignorado) | 🟢 nulo |
+| 2 | `docs/user/examples/__pycache__/` (1 .pyc) | ❌ no | Borrado local opcional (ya ignorado) | 🟢 nulo |
 | 3 | `docs/TDAM-VANTADB/` (vacía) | ❌ no | `rmdir` local opcional | 🟢 nulo |
-| 4 | `docs/benchmarks/_run_stdout.md` (8 KB) | ✅ sí | `git rm` tras aprobación | 🟢 bajo |
-| 5 | `docs/web/DESIGN_RULES.md` (16.5 KB) | ✅ sí | Extraer único → standards/, luego archivar + fix link en master-index | 🟡 medio |
+| 4 | `docs/user/benchmarks/_run_stdout.md` (8 KB) | ✅ sí | `git rm` tras aprobación | 🟢 bajo |
+| 5 | `docs/user/web/DESIGN_RULES.md` (16.5 KB) | ✅ sí | Extraer único → standards/, luego archivar + fix link en master-index | 🟡 medio |
 | 6 | `docs/.obsidian/` (18 items) | ❌ no | Mantener local (ya ignorado); decisión owner solo si quiere compartir config | 🟢 nulo |
 | 7 | Stubs `book/src/blog` + `case_studies` | ✅ sí | **RESUELTO** por GOV-B1 (commit 8b21733) — sin acción | — |
 
@@ -35,7 +35,7 @@ por `.gitignore` y nunca fueron commiteados: son ruido exclusivamente local.
 
 ---
 
-## Ítem 1 — `docs/book/book/` (output compilado mdBook)
+## Ítem 1 — `docs/user/book/book/` (output compilado mdBook)
 
 ### Contenido
 97 entradas totales, 83 archivos: 51 `.html`, 8 `.css`, 8 `.js`, 11 `.woff2`, 1 `.nojekyll`,
@@ -43,8 +43,8 @@ por `.gitignore` y nunca fueron commiteados: son ruido exclusivamente local.
 
 ### Corrección a la auditoría
 La auditoría V1+II lo describe como "~90 archivos html/css/fonts **commiteado**". Verificación
-mecánica: `git ls-files docs/book/book` → **0 archivos trackeados**. El `.gitignore` ya lo cubre
-(línea 15: `docs/book/book/`). No hay nada que des-commitear.
+mecánica: `git ls-files docs/user/book/book` → **0 archivos trackeados**. El `.gitignore` ya lo cubre
+(línea 15: `docs/user/book/book/`). No hay nada que des-commitear.
 
 ### Referencias entrantes (rg global)
 Solo menciones textuales/históricas, ninguna dependencia funcional:
@@ -64,11 +64,11 @@ Ninguna (es output generado).
 ### Riesgo
 🟢 Nulo — contenido regenerable, ignorado por git.
 
-- [ ] ☐ Aprobación owner — borrado local de `docs/book/book/`
+- [ ] ☐ Aprobación owner — borrado local de `docs/user/book/book/`
 
 ---
 
-## Ítem 2 — `docs/examples/__pycache__/`
+## Ítem 2 — `docs/user/examples/__pycache__/`
 
 ### Contenido
 1 archivo: `fnd05_python_context_manager.cpython-311.pyc` — bytecode compilado residual de haber
@@ -92,7 +92,7 @@ el ejemplo desde ese directorio.
 ### Riesgo
 🟢 Nulo.
 
-- [ ] ☐ Aprobación owner — borrado local de `docs/examples/__pycache__/`
+- [ ] ☐ Aprobación owner — borrado local de `docs/user/examples/__pycache__/`
 
 ---
 
@@ -120,7 +120,7 @@ acción git. Si master-index lo lista, remover la fila en la próxima pasada de 
 
 ---
 
-## Ítem 4 — `docs/benchmarks/_run_stdout.md`
+## Ítem 4 — `docs/user/benchmarks/_run_stdout.md`
 
 ### Contenido
 8,172 bytes. Log crudo de stdout de una corrida de benchmark, incluye un traceback. Único
@@ -133,7 +133,7 @@ candidato que **sí está trackeado en git**.
 Ninguna funcional (es un volcado de log).
 
 ### Veredicto recomendado
-✅ **`git rm docs/benchmarks/_run_stdout.md`** tras aprobación. Es un artefacto efímero commiteado
+✅ **`git rm docs/user/benchmarks/_run_stdout.md`** tras aprobación. Es un artefacto efímero commiteado
 por accidente; los resultados canónicos de benchmarks viven en `docs/user/operations/BENCHMARKS.md`
 (Regla 9/11). Antes de borrar: confirmar que el traceback no documenta un bug pendiente — si lo
 hace, extraerlo a un ticket primero.
@@ -141,11 +141,11 @@ hace, extraerlo a un ticket primero.
 ### Riesgo
 🟢 Bajo — sin inbound refs fuera de la auditoría; historial preservado en git de todos modos.
 
-- [ ] ☐ Aprobación owner — `git rm docs/benchmarks/_run_stdout.md`
+- [ ] ☐ Aprobación owner — `git rm docs/user/benchmarks/_run_stdout.md`
 
 ---
 
-## Ítem 5 — `docs/web/DESIGN_RULES.md` vs `docs/web/standards/design-rules.md`
+## Ítem 5 — `docs/user/web/DESIGN_RULES.md` vs `docs/user/web/standards/design-rules.md`
 
 ### Contenido
 Los dos archivos **NO son duplicados literales** (corrección a la auditoría, que dice "raíz duplica
@@ -153,8 +153,8 @@ standards/design-rules.md"):
 
 | Archivo | Tamaño | Contenido real |
 |---|---|---|
-| `docs/web/DESIGN_RULES.md` | 16.5 KB | Tutorial conceptual en español: terminología correcta de visualización de información, guía de rediseño, checklist. Frontmatter `language: es` (viola Doc Language Split) |
-| `docs/web/standards/design-rules.md` | 10.5 KB | Reglas técnicas de frontend: arquitectura CSS Tailwind v4, utility classes, animaciones, anti-patrones |
+| `docs/user/web/DESIGN_RULES.md` | 16.5 KB | Tutorial conceptual en español: terminología correcta de visualización de información, guía de rediseño, checklist. Frontmatter `language: es` (viola Doc Language Split) |
+| `docs/user/web/standards/design-rules.md` | 10.5 KB | Reglas técnicas de frontend: arquitectura CSS Tailwind v4, utility classes, animaciones, anti-patrones |
 
 Solapan en tema general (diseño web VantaDB) pero no en contenido: ninguno sustituye al otro.
 
@@ -170,8 +170,8 @@ Solapan en tema general (diseño web VantaDB) pero no en contenido: ninguno sust
 ### Veredicto recomendado
 ⚠️ **Fusionar selectivamente y archivar**, no borrar directo:
 1. Revisar si `DESIGN_RULES.md` tiene material único aprovechable → moverlo a un doc apropiado
-   en inglés bajo `docs/web/guides/` (o descartarlo si es redundante con brand-identity.md).
-2. `git mv docs/web/DESIGN_RULES.md docs/archive/` (preserva historial).
+   en inglés bajo `docs/user/web/guides/` (o descartarlo si es redundante con brand-identity.md).
+2. `git mv docs/user/web/DESIGN_RULES.md docs/dev/archive/` (preserva historial).
 3. Actualizar `docs/master-index.md:293`: apuntar a `web/standards/design-rules.md` o quitar la fila.
 4. Sweep AUD-007 post-movimiento = 0 links rotos.
 
@@ -182,7 +182,7 @@ Nota adicional: el archivo tiene mojibake detectado desde 2026-08-09
 🟡 Medio — único ítem con link entrante vivo (master-index) y decisión editorial de qué conservar.
 Mitigación: pasos ordenados arriba + verificación mecánica de links.
 
-- [ ] ☐ Aprobación owner — fusionar/archivar `docs/web/DESIGN_RULES.md`
+- [ ] ☐ Aprobación owner — fusionar/archivar `docs/user/web/DESIGN_RULES.md`
 
 ---
 
@@ -221,7 +221,7 @@ commitear solo los settings estables (`app.json`, `core-plugins.json`) excluyend
 
 ### Estado
 **RESUELTO — NO es candidato.** Aplicado hoy por GOV-B1 (commit `8b21733`):
-- `case_studies/*.md` → stubs `ARCHIVED - see docs/archive/case-studies-unverified/` (los case
+- `case_studies/*.md` → stubs `ARCHIVED - see docs/dev/archive/case-studies-unverified/` (los case
   studies ficticios fueron movidos a archive interno con README disclaimer).
 - `blog/*.md` → stubs `{{#include ../../../blog/...}}` a las fuentes reales en `docs/user/blog/`.
 
@@ -238,7 +238,7 @@ Ninguna. Se documenta aquí únicamente para cerrar la lista de 7 de la auditor�
 ## Plan de ejecución (post-aprobación)
 
 1. Ítems 1-3: `Remove-Item` local (sin git).
-2. Ítem 4: ticket → `git rm docs/benchmarks/_run_stdout.md` (lead ejecuta).
+2. Ítem 4: ticket → `git rm docs/user/benchmarks/_run_stdout.md` (lead ejecuta).
 3. Ítem 5: tarea dedicada (extraer → `git mv` a archive → fix master-index:293 → sweep AUD-007).
 4. Ítem 6: sin acción (o ticket menor si owner elige commitear settings).
 

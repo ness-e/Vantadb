@@ -15,7 +15,7 @@
 
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | `Cargo.toml` workspace `[workspace].members` lista `vanta-proxy`; `docs/user/operations/CI_POLICY.md` experimental-check; ADR-031 coste per crate |
+| Callers | `Cargo.toml` workspace `[workspace].members` lista `vanta-proxy`; `docs/dev/operations/CI_POLICY.md` experimental-check; ADR-031 coste per crate |
 | Callees | `vanta-proxy/src/*` 16 archivos (auth, capture, config, error, forward, inject, langfuse, lib, main, mem_command, memory_tools, rate_limit, report, server, session, sse_intercept, writeback) + handlers/{anthropic, openai, responses, mod} + session/claude_code + `vantadb` core (path dep sin default-features), `vanta-memory` |
 | Implicaciones | Solo validación + fix metadata `Cargo.toml` si gate 6 falla (reversible 1 línea). No publica crate (`publish=false` intacto). Tests ya existen: `tests/proxy_wire.rs`, `tests/pipeline.rs`, `tests/tool_loop.rs`. NO añade deps nuevas. NO toca `src/wal.rs`/`src/vector/`/`src/storage/` (propiedad Arch/Engine — out of scope). |
 
@@ -37,7 +37,7 @@
   - `vanta-proxy/src/server.rs` → axum router + state mgmt; requiere tokio runtime
 - **Referencias entrantes (quién depende de lo que cambia):**
   - `Cargo.toml:workspace.members` → `vanta-proxy` ya es member (verificado)
-  - `docs/user/operations/CI_POLICY.md` → tier EXPERIMENTAL excluye vanta-proxy por ahora (pre-mortem: si gates pasan, documentar ADR-031 promotion candidacy)
+  - `docs/dev/operations/CI_POLICY.md` → tier EXPERIMENTAL excluye vanta-proxy por ahora (pre-mortem: si gates pasan, documentar ADR-031 promotion candidacy)
   - Ningún path dep desde vantadb core → vanta-proxy; dependencias son salientes (vanta-proxy depende de vantadb, no al revés)
 - **Veredicto impacto:** validación pura + posible fix metadata `Cargo.toml` (gate 6). Reversible. `publish=false` intacto. No toca core. Pre-mortem dead-lock en rate-limit/session/memory_tools requiere tests específicos (ya existen pipeline.rs + tool_loop.rs con Tokio). NO se modifica código fuente — solo se ejecuta.
 

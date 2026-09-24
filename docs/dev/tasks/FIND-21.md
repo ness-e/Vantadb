@@ -23,7 +23,7 @@
 
 - **Archivos leídos completos:** `desktop/src/components/layout/WorkspaceShell.tsx` (1147L),
   `HelpPanel.tsx` (147L), `App.tsx` (63L), `main.tsx`, `package.json`, `vitest.config.ts`,
-  `src-tauri/Cargo.toml`, `tauri.conf.json`, `docs/desktop/GUIDE.md` (92L).
+  `src-tauri/Cargo.toml`, `tauri.conf.json`, `docs/user/desktop/GUIDE.md` (92L).
 - **Referencias hacia dentro (lo que toco usa):** `WorkspaceShell` usa `setPaletteOpen`,
   `setHelpOpen/setHelpTab`, `setSurface`, `onToggleTheme`, `onNotice`; `HelpPanel` exporta
   `HelpTab` + `SHORTCUTS`; stores `searchHistory`, `workspacePrefs` (no se tocan).

@@ -16,7 +16,7 @@
 | Dirección | Módulos |
 |-----------|---------|
 | Callers | observabilidad del pipeline (reportes DORA) |
-| Callees | `docs/reports/dora.md:183-197`, telemetría `verify-log.jsonl` (Task 2 histórico) |
+| Callees | `docs/dev/reports/dora.md:183-197`, telemetría `verify-log.jsonl` (Task 2 histórico) |
 | Implicaciones | Decisión de métricas del pipeline — sin cambios de código del producto |
 
 ## Contrato
@@ -27,7 +27,7 @@
 
 ## Steps
 ### Step 1: Leer fuentes + verificar telemetría
-- **Archivos:** `docs/reports/dora.md:183-197`, `eng-03-project.md §8.3` (en `docs/Investigaciones/2026-08-10-agent-engineering/`)
+- **Archivos:** `docs/dev/reports/dora.md:183-197`, `eng-03-project.md §8.3` (en `docs/Investigaciones/2026-08-10-agent-engineering/`)
 - **Acción:** leer las métricas DORA actuales; verificar si `verify-log.jsonl` existe y qué registra (grep/glob). ¿Permite calcular recovery time y rework rate?
 - **Verify:** estado real de verify-log.jsonl documentado (existe/no-existe, campos)
 - **Estado:** ⬜ PENDING

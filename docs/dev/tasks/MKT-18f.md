@@ -14,7 +14,7 @@
 
 1. **Habilitar publicación:** en el repo, crear el GitHub environment `pypi` (y opcionalmente `testpypi`) requerido por `release-adapters-62.yml`; en PyPI el primer publish desde Actions funciona vía *pending publisher* (OIDC) — o pre-crear los 5 proyectos con token si se prefiere `PYPI_API_TOKEN`.
 2. **Dry-run TestPyPI:** `gh workflow run release-adapters-62.yml -f publish_testpypi=true` → verificar 5 dists en test.pypi.org/project/vantadb-langchain (×5).
-3. **Tag release:** `git tag adapters-v0.5.0 && git push --tags` → job publish-pypi sube los 9; tras 200 OK, commit post-release: quitar el aviso "Not on PyPI yet" de los 5 READMEs y corregir claims de adapters en `docs/strategy/REDDIT_POSTS.md`.
+3. **Tag release:** `git tag adapters-v0.5.0 && git push --tags` → job publish-pypi sube los 9; tras 200 OK, commit post-release: quitar el aviso "Not on PyPI yet" de los 5 READMEs y corregir claims de adapters en `docs/dev/strategy/REDDIT_POSTS.md`.
 
 ## Verificación (contrato)
 

@@ -8,7 +8,7 @@
 //   - .opencode/skills/campaign-executor/tasks/**/*.md  (flat + complete/ + closed/)
 //     metadata: "**Estado:**", "**Fecha:**", "**Creado:**", "**Inicio:**", "**last-synced:**"
 //   - .opencode/task-system/enforcement/verify-log.jsonl  (CFR; empty → 0 attempts)
-// Emits docs/reports/dora.md. Never crashes on missing data — degrades to 0/empty with notes.
+// Emits docs/dev/reports/dora.md. Never crashes on missing data — degrades to 0/empty with notes.
 import { readFileSync, readdirSync, existsSync, statSync, mkdirSync, writeFileSync } from "node:fs"
 import { resolve, join, dirname } from "node:path"
 import { fileURLToPath } from "node:url"

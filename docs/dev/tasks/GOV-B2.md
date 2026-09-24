@@ -15,12 +15,12 @@
 ## Blast Radius
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` §GOV-B2, `docs/dev/Backlog.md` filas GOV, `docs/reports/dora.md` §Recovery |
-| Callees | `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md` (473L), `src/cli.rs:130-154` (Restore/Doctor real), `docs/reports/dora.md` (402L), `SKILLS-MANIFEST.md` (grep SDP) |
+| Callers | `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` §GOV-B2, `docs/dev/Backlog.md` filas GOV, `docs/dev/reports/dora.md` §Recovery |
+| Callees | `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md` (473L), `src/cli.rs:130-154` (Restore/Doctor real), `docs/dev/reports/dora.md` (402L), `SKILLS-MANIFEST.md` (grep SDP) |
 | Implicaciones | Docs-only. Riesgo: Select-String "restore --dry-run|doctor --fix" !=0 si notas contienen literal. Mitigación: rephrase notas sin literal ghost-flag. Disjoint 100% con MEM-01 (src/planner.rs) y RES-02 (src/wal.rs). |
 
 ## Impacto mapeado (Regla 0) — BLAST RADIUS DOCS
-- **Archivos leídos (completos):** `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md` (473L, last_reviewed 2026-08-22, Overview SEV-1..4, §2 Recovery, §3 Health Checks Daily Backup Verification con restore temp+doctor+conteo, §3.1 full procedure), `src/cli.rs` (436L, Restore {input,force,rebuild}, Doctor sin --fix, Backup {out}, Migrate dry_run separado), `docs/reports/dora.md` (402L), `SKILLS-MANIFEST.md` (601L)
+- **Archivos leídos (completos):** `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md` (473L, last_reviewed 2026-08-22, Overview SEV-1..4, §2 Recovery, §3 Health Checks Daily Backup Verification con restore temp+doctor+conteo, §3.1 full procedure), `src/cli.rs` (436L, Restore {input,force,rebuild}, Doctor sin --fix, Backup {out}, Migrate dry_run separado), `docs/dev/reports/dora.md` (402L), `SKILLS-MANIFEST.md` (601L)
 - **Grep SKILLS-MANIFEST.md keywords "disaster|recovery|runbook|dora" (SDP obligatorio):**
   - `disaster` → 0 hits
   - `recovery` → 1 hit (`incl-cognitive-accessibility-error-prevention-recovery` — diseño de recuperación, KEEP — mapeo manual a documentation-and-adrs + systematic-debugging)
@@ -104,7 +104,7 @@ Sin deuda nueva (docs-only 2 líneas rephrase, 0 Rust). Saldo neto 0. Ponytail: 
 ## Steps
 
 ### Step 1: DISCOVERY — Read runbook + cli.rs + dora + grep SKILLS-MANIFEST (SHIP lifecycle)
-- **Archivos:** `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md`, `src/cli.rs:130-154`, `docs/reports/dora.md`, `SKILLS-MANIFEST.md`, `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` §GOV-B2
+- **Archivos:** `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md`, `src/cli.rs:130-154`, `docs/dev/reports/dora.md`, `SKILLS-MANIFEST.md`, `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` §GOV-B2
 - **Acción:** Leer runbook 473L completo + cli.rs Restore/Doctor + dora.md 402L + plan GOV-B2. Grep SKILLS-MANIFEST.md por keywords "disaster|recovery|runbook|dora" → discovery skills SHIP. Mapear blast radius callers/callees. Confirmar no overlap MEM-01 (planner) ni RES-02 (wal). Detectar ghost Count=2 falso positivo.
 - **Verify:** `Test-Path docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md` == true AND `Test-Path src/cli.rs` == true AND `Select-String SKILLS-MANIFEST.md "recovery" Count>=1`
 - **Estado:** ✅ COMPLETED — 2026-09-02 discovery: runbook 473L + cli.rs 436L + dora.md + grep 3 hits → skills 8, disjoint confirmado, ghost 2 detectado
@@ -143,7 +143,7 @@ Sin deuda nueva (docs-only 2 líneas rephrase, 0 Rust). Saldo neto 0. Ponytail: 
 - `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` — Wave2 GOV-B2 fila
 - `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md` — 473L runbook DR
 - `src/cli.rs:130-154` — fuente verdad CLI Restore/Doctor
-- `docs/reports/dora.md` — DORA flow 402L §Recovery
+- `docs/dev/reports/dora.md` — DORA flow 402L §Recovery
 - `SKILLS-MANIFEST.md` — 601L grep SDP
 - `.opencode/references/skills-engineering.md` — SDP canónico
 - `docs/user/operations/BACKUP_POLICY.md` — referenciado por runbook §4

@@ -274,7 +274,7 @@ _(no duplicar)_
 
 - **Esfuerzo:** 🟡 · **Prig:** 🟡 · **Archivos:** `benches/`, `src/index/ivf.rs` | **DO** (bench dedicado) | **Contrato:** `cargo bench --bench ivf_*` existe + reporte
 - **Estado:** ✅ DONE
-- **Ejecutado:** b9249654 — `benches/ivf_bench.rs` (criterion, nlist×nprobe sweep: build k-means, Recall@10 vs brute-force, p50/p99/mean, QPS, cand/q); expuesto `pub mod ivf` (1-palabra, src/index/mod.rs); `[[bench]] ivf_bench` en Cargo.toml; reporte `docs/benchmarks/ivf_bench.md`
+- **Ejecutado:** b9249654 — `benches/ivf_bench.rs` (criterion, nlist×nprobe sweep: build k-means, Recall@10 vs brute-force, p50/p99/mean, QPS, cand/q); expuesto `pub mod ivf` (1-palabra, src/index/mod.rs); `[[bench]] ivf_bench` en Cargo.toml; reporte `docs/user/benchmarks/ivf_bench.md`
 
 ### COV
 
@@ -301,7 +301,7 @@ _(no duplicar)_
 
 ### Task 39: PERF-01 — Sellar benchmark claims README
 
-- **Esfuerzo:** 🟡 · **Prig:** 🟉 · **Archivos:** `benchmales/`, `README.md`, `docs/user/QUICKSTART.md`, `docs/benchmarks/` | **DO** (honestidad de marketing) | **Contrato:** README/QUICKSTART claims re-validados o retirados; siRE != código actual
+- **Esfuerzo:** 🟡 · **Prig:** 🟉 · **Archivos:** `benchmales/`, `README.md`, `docs/user/QUICKSTART.md`, `docs/user/benchmarks/` | **DO** (honestidad de marketing) | **Contrato:** README/QUICKSTART claims re-validados o retirados; siRE != código actual
 - **Estado:** ✅ COMPLETED
 - **Ejecutado:** `30e90cd9` — README.md y README_ES.md: retirados los claims sin respaldo del "Target Baseline" (~5,400 vec/s, ~1,100/830/450 qps) reemplazados por el baseline real commiteado de `benchmarks/vanta_benchmark_report.json` (61.5 rec/s, HNSW p50 3.3ms, hybrid p50 12.1ms) con fuente citada; tabla SIFT-1M Fase 2 referenciada a BENCHMARKS.md §5 (verificado idéntico) + fuente de BENCHMARK_OPTIMIZATION_2026.md. QUICKSTART.md sin claims de perf (verificado por grep, sin cambios).
 

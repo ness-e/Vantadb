@@ -959,10 +959,10 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
 
 ## 18. Competitive synthetic 2K — run 2026-08-12 (GOV-TK8)
 
-> **Source of truth (triple evidencia):** raw `docs/benchmarks/_run_stdout.md`
+> **Source of truth (triple evidencia):** raw `docs/user/benchmarks/_run_stdout.md`
 > (121L, log íntegro del harness) + machine-readable
-> `docs/benchmarks/competitive_sdk_bench.json` (schema_version 1, 5 motores)
-> + curado `docs/benchmarks/COMPETITIVE_SDK_BENCH.md` (tabla + lectura honesta).
+> `docs/user/benchmarks/competitive_sdk_bench.json` (schema_version 1, 5 motores)
+> + curado `docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md` (tabla + lectura honesta).
 > Harness: `benchmarks/competitive_bench.py`. Esta sección es el puntero
 > operativo al run; el análisis narrativo vive en el doc curado (no duplicado acá).
 > >
@@ -971,7 +971,7 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
 > > python benchmarks/competitive_bench.py --dataset synthetic --size 2000 --queries 50 --engines vanta,lance,chroma,qdrant --batch-size 999
 > > # fila Milvus (harness adaptado a IndexParams, ver caveats):
 > > pip install "pymilvus==2.5.18" "milvus-lite==3.2.0"
-> > python benchmarks/competitive_bench.py --engines milvus --dataset synthetic --size 2000 --queries 50 --json-output docs/benchmarks/competitive_sdk_bench_milvus.json --output benchmarks/_n.md --yes
+> > python benchmarks/competitive_bench.py --engines milvus --dataset synthetic --size 2000 --queries 50 --json-output docs/user/benchmarks/competitive_sdk_bench_milvus.json --output benchmarks/_n.md --yes
 > > # cifras representativas (no sintéticas, ~1 GB ann-benchmarks):
 > > python benchmarks/competitive_bench.py --dataset glove-100-angular --size 10000 --queries 100
 > > ```

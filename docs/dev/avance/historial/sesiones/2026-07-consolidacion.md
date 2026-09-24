@@ -471,7 +471,7 @@ Todos los items extraídos de `docs/dev/research/` (9 archivos) y `docs/dev/revi
 - **Esfuerzo:** 1 día
 
 #### D7: Spanish docs cleanup
-- **Qué:** `docs/user/glosario/wal.md` mixed language, `docs/web/investigacion.md` español, `docs/DESIGN_RULES.md` español, `docs/archive/REPORTE_INVESTIGACION_Y_DECISIONES.md` español.
+- **Qué:** `docs/user/glosario/wal.md` mixed language, `docs/user/web/investigacion.md` español, `docs/DESIGN_RULES.md` español, `docs/dev/archive/REPORTE_INVESTIGACION_Y_DECISIONES.md` español.
 - **Investigar:** Decidir policy (all English o bilingüe aceptado); Unificar.
 - **Fuente:** AUD-04/05
 - **Esfuerzo:** 1 día
@@ -489,7 +489,7 @@ Todos los items extraídos de `docs/dev/research/` (9 archivos) y `docs/dev/revi
 - **Esfuerzo:** 2-3 días
 
 #### D10: Broken links y assets
-- **Qué:** README referencia `docs/assets/demo_terminal.png` — verificar si existe. `docs/web/README.md` referencia `brand/BRAND_PLATFORM.md` (no existe). `master-index.md` referencia `web/brand/` (no existe). SECURITY.md, SUPPORT.md, CODE_OF_CONDUCT.md referenciados en README son 404 (`.github/` directory no existe).
+- **Qué:** README referencia `docs/assets/demo_terminal.png` — verificar si existe. `docs/user/web/README.md` referencia `brand/BRAND_PLATFORM.md` (no existe). `master-index.md` referencia `web/brand/` (no existe). SECURITY.md, SUPPORT.md, CODE_OF_CONDUCT.md referenciados en README son 404 (`.github/` directory no existe).
 - **Investigar:** (1) Verificar assets; (2) Corregir o remover broken refs; (3) Crear `.github/` directory con community files.
 - **Fuente:** AP-33, AUD-15/18, AUD-02
 - **Esfuerzo:** 1 día

@@ -50,7 +50,7 @@ Posición competitiva resumida: capacidad técnica ≥7.0 en 5 de 9 superficies 
 | Q6 | Política de paridad | Paridad con excepciones documentadas |
 | Q7 | PY H-09 identidad import | **Consolidar en `import vantadb`**; deprecar alias interno `vantadb_py` (nueva fila PY-03) |
 | Q8 | Contramedida trazabilidad | **Derivación atómica**: derivar = crear la fila en el mismo commit del registro; chequeo mecánico periódico en Trigger 4 de `progreso` (regla en `docs/dev/avance/meta.md`) |
-| Q9 | Síntesis formal | Generada (este documento) + fila en `docs/reports/INDEX.md` |
+| Q9 | Síntesis formal | Generada (este documento) + fila en `docs/dev/reports/INDEX.md` |
 
 ## 4. Plan de ejecución aprobado
 

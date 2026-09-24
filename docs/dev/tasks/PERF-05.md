@@ -28,7 +28,7 @@
 > (ADR + este task file + actualización de una sección del plan file).
 > Por ende el impacto sobre código es nulo; se documenta para cumplir Regla 0.
 
-- **Archivos leídos (completos):** `src/wal.rs` (vía codegraph_explore), `src/wal_sharded.rs` (vía codegraph_explore), `docs/dev/architecture/adr/DRV-014-wal-batch-tradeoff.md`, `docs/dev/architecture/adr/ADR-017-pipeline-sla.md`, `docs/_templates/adr.md`, `docs/dev/plans/2026-08-12-perf-bench-wasm.md`.
+- **Archivos leídos (completos):** `src/wal.rs` (vía codegraph_explore), `src/wal_sharded.rs` (vía codegraph_explore), `docs/dev/architecture/adr/DRV-014-wal-batch-tradeoff.md`, `docs/dev/architecture/adr/ADR-017-pipeline-sla.md`, `docs/dev/_templates/adr.md`, `docs/dev/plans/2026-08-12-perf-bench-wasm.md`.
 - **Archivos referenciados hacia dentro (imports/includes):** N/A (docs).
 - **Archivos que referencian a los editados (referencias entrantes):** `src/wal.rs` es referenciado POR el ADR (lectura, no edición).
 - **Veredicto impacto:** BAJO — solo archivos nuevos. `src/` queda intacto; git status confirma 0 cambios en `src/`.
@@ -104,7 +104,7 @@
 - **Estado:** ✅ COMPLETED
 
 ### Step 2: leer DRV-014 y plantilla ADR
-- **Archivos:** `docs/dev/architecture/adr/DRV-014-wal-batch-tradeoff.md`, `docs/_templates/adr.md`, `docs/dev/architecture/adr/ADR-017-pipeline-sla.md`
+- **Archivos:** `docs/dev/architecture/adr/DRV-014-wal-batch-tradeoff.md`, `docs/dev/_templates/adr.md`, `docs/dev/architecture/adr/ADR-017-pipeline-sla.md`
 - **Acción:** capturar formato y el baseline 3-5× a extender.
 - **Verify:** DRV-014 confirmado status accepted, batch-append 3-5×.
 - **Estado:** ✅ COMPLETED

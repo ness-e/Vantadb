@@ -197,7 +197,7 @@ date: 2026-08-03
 - **Fecha:** 2026-08-02
 - **Objetivo:** Plan de finalización del blog series (sin implementación). MKT-05 reportaba 4/5; audit 2026-07-28 corrigió que el backlog inflaba el conteo (3 posts en docs/blog, 4 en web).
 - **Checklist:**
-  - [x] `docs/strategy/BLOG_SERIES_PLAN.md` — inventario 4 web vs 3 docs/blog con 6 mismatches (M1-M6), incluyendo `introducing-vantadb` sin fuente `.md` y drift de versión (M6)
+  - [x] `docs/dev/strategy/BLOG_SERIES_PLAN.md` — inventario 4 web vs 3 docs/blog con 6 mismatches (M1-M6), incluyendo `introducing-vantadb` sin fuente `.md` y drift de versión (M6)
   - [x] Revisión drafts — 3 posts sólidos, listos tras fixes (CTA débil en 2/3, frontmatter incompleto)
   - [x] Audiencia + keyword research — 5 segmentos, 6 clusters validados por búsqueda web 2026
   - [x] Calendario — Show HN (referencia SHOW_HN_PREP.md) + cadencia 2 posts/mes alineada a GTM (6/12/24)

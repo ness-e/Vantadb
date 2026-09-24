@@ -8,7 +8,7 @@
 ## Fase DISCOVERY ✅
 
 - `git grep "dhat" Cargo.toml` → **0 hits** ✅ (no instalado)
-- `git grep -liE "dhat" -- '*.rs' '*.toml'` → 0 hits ✅ (solo aparece en `.opencode/agents/vanta-tuner.md` como mención futura y en `docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md` como herramienta de referencia)
+- `git grep -liE "dhat" -- '*.rs' '*.toml'` → 0 hits ✅ (solo aparece en `.opencode/agents/vanta-tuner.md` como mención futura y en `docs/user/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md` como herramienta de referencia)
 - `git grep -iE "alloc_regression|heap_regression|memory_leak" -- '*.rs' '*.md'` → **0 hits** ✅
   - **Conclusión clave:** NO existe deuda documentada de regresiones de alloc en el workspace
 - `tests/memory_*.rs` existen (4 archivos: `memory_telemetry.rs`, `memory_api.rs`, `memory_export_import.rs`, `memory_brutality.rs`) y cubren comportamiento de memoria vía APIs públicas (jemalloc-ctl gauges, RSS via sysinfo/PSAPI, mmap resident, HNSW logical bytes). NO son heap-usage asserts al estilo `dhat::assert_eq!`.

@@ -108,7 +108,7 @@ Status: ⬆️ uphill = 3 (RES-01/02/03 research requieren DISCOVERY) · ⬇️ 
 - **Appetite:** max 1h
 - **Esfuerzo:** 🟢
 - **Prioridad:** 🟢
-- **Archivos clave:** `docs/user/operations/CI_POLICY.md`, `dev-tools/verify.ps1`
+- **Archivos clave:** `docs/dev/operations/CI_POLICY.md`, `dev-tools/verify.ps1`
 - **Verificación real:** 🟡 VERIFICAR — backlog: formalizar las 3 exclusiones de tests del fast gate (deserialize_absurd_node_count, etc.). Confirmar en DISCOVERY.
 - **Gate Justificación:** docs CI; effort 🟢.
 - **Gate Result:** ✅ DO
@@ -249,12 +249,12 @@ Próxima tarea si completa: AUD-046
 
 === RECITATION FIND-22 ===
 Campaign ID: aa2cde2b-e52f-4dae-910a-b274373a5bda
-Objetivo activo: FIND-22: formalizar exclusiones del fast gate en docs/user/operations/CI_POLICY.md
+Objetivo activo: FIND-22: formalizar exclusiones del fast gate en docs/dev/operations/CI_POLICY.md
 Estado: completed
 Última acción: ACT+VERIFY: sección 'Fast Gate Test Exclusions' añadida a CI_POLICY.md (tabla 3 exclusiones RESOURCE-GUARD + nota nextest.toml default-filter ~55 bins + reglas de governance); last_reviewed→2026-08-25. Cross-check grep 3/3 + docs coverage 0 gaps.
 Resultado: OK
-Próxima acción: Lead: git add docs/user/operations/CI_POLICY.md + task file, commit 'docs: FIND-22 — formalizar exclusiones fast gate', skill progreso
-Contrato: verificacion: rg cross-check 3/3 exclusiones (deserialize_absurd_node_count, test_search_with_bizarre_text_query, test_malformed_payload_extremely_large) doc↔verify.ps1 ✅ + pwsh scripts/validate-docs-coverage.ps1 → 0 gaps ✅ | evidencia: claim=3 exclusiones RESOURCE-GUARD documentadas con fuente/por qué/dónde/quién revierte evidencia='docs/user/operations/CI_POLICY.md:80-100 §Fast Gate Test Exclusions' confianza=alta; claim=no se cambió verify.ps1 ni nextest.toml evidencia='git diff solo CI_POLICY.md' confianza=alta; claim=tests viven en src/index/core.rs:414 y tests/security.rs:324/639 evidencia='grep en fuente' confianza=alta | artefactos: docs/user/operations/CI_POLICY.md, .opencode/skills/campaign-executor/tasks/FIND-22.md | invariantes: cero cambios de código; taxonomía EXPERIMENTAL/BEST-EFFORT/NON-CRITICAL/INFORMATIONAL intacta; mdBook include hereda automáticamente (docs/book/src/operations/CI_POLICY.md) | deuda: ninguna | queda_pendiente: lead commitea (docs: FIND-22) y ejecuta skill progreso
+Próxima acción: Lead: git add docs/dev/operations/CI_POLICY.md + task file, commit 'docs: FIND-22 — formalizar exclusiones fast gate', skill progreso
+Contrato: verificacion: rg cross-check 3/3 exclusiones (deserialize_absurd_node_count, test_search_with_bizarre_text_query, test_malformed_payload_extremely_large) doc↔verify.ps1 ✅ + pwsh scripts/validate-docs-coverage.ps1 → 0 gaps ✅ | evidencia: claim=3 exclusiones RESOURCE-GUARD documentadas con fuente/por qué/dónde/quién revierte evidencia='docs/dev/operations/CI_POLICY.md:80-100 §Fast Gate Test Exclusions' confianza=alta; claim=no se cambió verify.ps1 ni nextest.toml evidencia='git diff solo CI_POLICY.md' confianza=alta; claim=tests viven en src/index/core.rs:414 y tests/security.rs:324/639 evidencia='grep en fuente' confianza=alta | artefactos: docs/dev/operations/CI_POLICY.md, .opencode/skills/campaign-executor/tasks/FIND-22.md | invariantes: cero cambios de código; taxonomía EXPERIMENTAL/BEST-EFFORT/NON-CRITICAL/INFORMATIONAL intacta; mdBook include hereda automáticamente (docs/user/book/src/operations/CI_POLICY.md) | deuda: ninguna | queda_pendiente: lead commitea (docs: FIND-22) y ejecuta skill progreso
 Próxima tarea si completa: AUD-045
 === END RECITATION ===
 

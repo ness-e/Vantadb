@@ -96,5 +96,5 @@ This task is DOC-ONLY: the CI YAML is not modified here. Implementing the gate
 
 - `.github/workflows/ci-rust-10.yml` (`coverage` job, lines 315–386)
 - `ADR-015-coverage-policy.md` (superseded §Decision #1; binding expectations preserved)
-- `docs/user/operations/CI_POLICY.md` (experimental crate policy)
+- `docs/dev/operations/CI_POLICY.md` (experimental crate policy)
 - Plan `docs/dev/plans/2026-08-12-cov-coverage.md` (COV-002 TS c8, COV-003 cli_tests)

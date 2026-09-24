@@ -58,7 +58,7 @@ User-specified gates 1-6 + contract verified under PowerShell 7 + cargo 1.95 + W
 
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | `Cargo.toml` workspace `[workspace].members` lista `vantadb-server`; `docs/user/operations/CI_POLICY.md` experimental-check; `docs/dev/architecture/adr/ADR-031` coste per crate (~21s check/~25s clippy/~15-25s nextest) |
+| Callers | `Cargo.toml` workspace `[workspace].members` lista `vantadb-server`; `docs/dev/operations/CI_POLICY.md` experimental-check; `docs/dev/architecture/adr/ADR-031` coste per crate (~21s check/~25s clippy/~15-25s nextest) |
 | Callees | `vantadb-server/src/*` 3 files (lib.rs 7L, server.rs 4L re-export, main.rs ~180L) + `src/cli_server.rs` (5327L) + `src/audit.rs` (~200L) + `vantadb-mcp` path dep |
 | Implicaciones | Solo validación + fix metadata `Cargo.toml` si gate 6 falla (reversible 1 línea). No toca `src/wal.rs`, `src/vector/`, `src/storage/` (propiedad Arch/Engine). Si fix necesario, solo `vantadb-server/Cargo.toml` metadata. No publica crate (`publish=false` intacto). |
 
@@ -86,7 +86,7 @@ User-specified gates 1-6 + contract verified under PowerShell 7 + cargo 1.95 + W
   - `src/audit.rs` → `VantaConfig::audit_log_path`, `Mutex`, `OpenOptions`, rotation
 - **Referencias entrantes (quién depende de lo que cambia):**
   - `Cargo.toml` workspace resolver → `default-members` excluye vantadb-server (no impacta `cargo check -p`)
-  - `docs/user/operations/CI_POLICY.md` experimental-check job → `cargo check -p vantadb-server` aparte de default
+  - `docs/dev/operations/CI_POLICY.md` experimental-check job → `cargo check -p vantadb-server` aparte de default
   - `vantadb-server` es leaf binary, nadie depende de él como lib (solo `cargo test -p vantadb-server`)
   - Tests `cargo test -p vantadb-server` 42 tests (o `cargo nextest --profile audit` 5 filtered + 37 heavy excluded)
 - **Veredicto impacto:** mínimo y reversible. Gates 1-5 ya verdes (check 11.9s ✅, clippy --all-features -D warnings 96s ✅, nextest audit 5/5 ✅ pero cargo test 42/42 ✅, deny 0 ✅, docs 0 gaps ✅). Gate 6 PRE-fail por `dependency vantadb does not specify a version` + warn metadata (publish=false intacto). Fix previsto: `version="0.5.0"` en 2 deps path (vantadb + vantadb-mcp) — 2 líneas, `cargo package --no-verify --allow-dirty` → Packaged ✅. No cambia runtime, no rompe API, no añade deps nuevas, reversible con `git revert` 1 línea. No toca `src/`, no publica.

@@ -6,7 +6,7 @@ import { connectionPrefs } from "../../store/connections";
  * AppContextMenu (FIND-21) — menú contextual propio in-app: reemplaza el menú
  * nativo del WebView en right-click. Posición fija + clamp a viewport; Esc o
  * click-fuera lo cierra. Sin deps nativas (el shortcut global Tauri queda
- * DEFER — ver docs/desktop/GUIDE.md).
+ * DEFER — ver docs/user/desktop/GUIDE.md).
  */
 
 export interface ContextMenuItem {

@@ -5,7 +5,7 @@
 
 ## Archivos clave
 - `docs/dev/architecture/adr/` (ya contiene 30+ ADRs)
-- `docs/_templates/adr.md` (template base)
+- `docs/dev/_templates/adr.md` (template base)
 - `codegraph-20260827-143245 Fase 12` (reporte "Sin ADRs registrados" — stale)
 
 ## Estado actual
@@ -49,7 +49,7 @@ Crear ADR-001..006 mínimos: PURPOSE, STACK, ARCHITECTURE, PATTERNS, TRADEOFFS, 
 ## Context Save Point
 - **Última verificación:** 2026-08-28
 - **ADRs encontrados:** 30+ archivos en `docs/dev/architecture/adr/`
-- **Template:** `docs/_templates/adr.md` válido
+- **Template:** `docs/dev/_templates/adr.md` válido
 - **Contrato:** SATISFECHO (count >= 1, headers correctos)
 - **Próximo step:** Cerrar tarea como completada idempotente
 

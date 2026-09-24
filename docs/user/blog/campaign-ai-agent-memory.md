@@ -62,6 +62,6 @@ High-level status: **2 of 3 deliverables covered. 1 deliverable (D2) is an open 
 
 ## See Also
 
-- `docs/strategy/BLOG_SERIES_PLAN.md` — series plan; tracks the planned GraphRAG token-reduction post (not drafted)
+- `docs/dev/strategy/BLOG_SERIES_PLAN.md` — series plan; tracks the planned GraphRAG token-reduction post (not drafted)
 - `docs/user/blog/` — drafts
 - `docs/dev/Backlog.md` → `MKT-10`

@@ -39,7 +39,7 @@ P3-9 (cargo-mutants CI Heavy, 8-16h). Se desbloquean cuando existan datos/tiempo
 - **Archivos clave:** `.opencode/task-system/mcp/campaign-server.mjs`, `evals/eval-metrics.mjs`, `evals/northstar.mjs`
 - **Gate Justificación:** No hay correlación skill/tool → tarea pasó verify al primer intento; el input que calibra P0-1 no se recolecta (§3.6-f8).
 - **Gate Result:** ✅ DO
-- **Contrato:** el verify-log.jsonl (append en campaign-server) agrega campos `skills` y `toolUsed` (derivados del task file / command) cuando están disponibles (sin romper el try/catch existente); eval-metrics reporta columna/estadística "skills → primer intento" en `docs/reports/pipeline-evals.md`; northstar.mjs lo suma a su scorecard. `node evals/eval-metrics.mjs` exit 0 con log vacío (degrade).
+- **Contrato:** el verify-log.jsonl (append en campaign-server) agrega campos `skills` y `toolUsed` (derivados del task file / command) cuando están disponibles (sin romper el try/catch existente); eval-metrics reporta columna/estadística "skills → primer intento" en `docs/dev/reports/pipeline-evals.md`; northstar.mjs lo suma a su scorecard. `node evals/eval-metrics.mjs` exit 0 con log vacío (degrade).
 - **Estado:** ✅ COMPLETED — `b1a117de` (skill/tool telemetry)
 
 ### Task 3: P3-rem — Trazabilidad de impacto (Regla 0 auditable)
@@ -52,7 +52,7 @@ P3-9 (cargo-mutants CI Heavy, 8-16h). Se desbloquean cuando existan datos/tiempo
 
 ### Task 4: P3-rem — Gate de docs (Regla 3) + reconciliar rutas de script
 - **Esfuerzo:** 🟡 | **Prioridad:** 🟠 | **Ruta:** vanta-lead
-- **Archivos clave:** `dev-tools/verify.ps1`, `dev-tools/verify_changed.ps1`, `scripts/validate-docs-coverage.ps1`, `docs/user/operations/CI_POLICY.md`
+- **Archivos clave:** `dev-tools/verify.ps1`, `dev-tools/verify_changed.ps1`, `scripts/validate-docs-coverage.ps1`, `docs/dev/operations/CI_POLICY.md`
 - **Gate Justificación:** verify puede pasar rompiendo docs/api (Regla 3 no es gate mecánico, §3.6-f10); `verify_changed.ps1` (dev-tools/) vs `scripts/validate-docs-coverage` contradicen rutas (gap-02 §6.5).
 - **Gate Result:** ✅ DO
 - **Contrato:** `verify_changed.ps1` y/o `verify.ps1` corren `scripts/validate-docs-coverage.ps1` cuando el diff toca `src/`, bindings o `docs/api/` (guard si el script o ps1 no existe — no bloquear si es quick check); CI_POLICY.md documenta la ruta canónica (`dev-tools/verify_changed.ps1` quick; `scripts/validate-docs-coverage.ps1` gate docs). Verificar: `pwsh scripts/validate-docs-coverage.ps1 -ReportOnly` exit 0; `rg -c "validate-docs-coverage" verify_changed.ps1 verify.ps1` ≥1.

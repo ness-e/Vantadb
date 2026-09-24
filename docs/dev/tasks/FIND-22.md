@@ -8,7 +8,7 @@
 ## Steps
 
 - [x] Step 1 — DISCOVERY: leer verify.ps1 completo + nextest.toml + CI_POLICY.md; localizar tests excluidos en fuente
-- [x] Step 2 — ACT: añadir sección "Fast Gate Test Exclusions" a docs/user/operations/CI_POLICY.md (inglés)
+- [x] Step 2 — ACT: añadir sección "Fast Gate Test Exclusions" a docs/dev/operations/CI_POLICY.md (inglés)
 - [x] Step 3 — VERIFY: grep cross-check exclusiones ↔ doc + pwsh scripts/validate-docs-coverage.ps1 (0 gaps)
 
 ## Discovery
@@ -29,9 +29,9 @@ Nota: los 3 tests SÍ corren fuera del fast gate (suite completa local, heavy ce
 
 ### Impacto mapeado (Regla 0)
 
-- **Archivos leídos completos:** `dev-tools/verify.ps1` (95L), `.config/nextest.toml` (107L), `docs/user/operations/CI_POLICY.md` (268L), snippets de `src/index/core.rs`, `tests/security.rs`
+- **Archivos leídos completos:** `dev-tools/verify.ps1` (95L), `.config/nextest.toml` (107L), `docs/dev/operations/CI_POLICY.md` (268L), snippets de `src/index/core.rs`, `tests/security.rs`
 - **Referencias hacia dentro (lo que CI_POLICY referencia):** ci-rust-10.yml, scripts/validate-docs-coverage.ps1, ADR-015/ADR-018, dev-tools/verify*.ps1
-- **Referencias entrantes (quién referencia CI_POLICY.md):** Cargo.toml:647, CONTRIBUTING.md:136, dev-tools/verify.ps1:48,66,72, .github/workflows/desktop.yml:3, .opencode/AGENTS.md:356,444, .opencode/rules/release-ci.md:38, README.md:428, README_ES.md:394, docs/book/src/operations/CI_POLICY.md (`{{#include}}` — hereda cambios automáticamente), master-index ×2
+- **Referencias entrantes (quién referencia CI_POLICY.md):** Cargo.toml:647, CONTRIBUTING.md:136, dev-tools/verify.ps1:48,66,72, .github/workflows/desktop.yml:3, .opencode/AGENTS.md:356,444, .opencode/rules/release-ci.md:38, README.md:428, README_ES.md:394, docs/user/book/src/operations/CI_POLICY.md (`{{#include}}` — hereda cambios automáticamente), master-index ×2
 - **Veredicto:** cambio additivo de solo-documentación (una sección nueva en CI_POLICY.md). El include de mdBook propaga el contenido sin acción extra. Ningún archivo de código se toca. Sin riesgo.
 
 ## Context Save Point

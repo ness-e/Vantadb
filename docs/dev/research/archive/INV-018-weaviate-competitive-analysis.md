@@ -8,7 +8,7 @@ fecha_extraccion: 2026-08-04
 fuente: "VANTADB DOC OLD/weaviate.md (eliminado)"
 estado: extracted/archived
 referencias_citadas: 34
-gap_cubierto: "B1 — latencias Weaviate (~20-80ms) pasan de 'sin validar' a respaldadas (ver docs/web/standards/product-positioning.md §4)"
+gap_cubierto: "B1 — latencias Weaviate (~20-80ms) pasan de 'sin validar' a respaldadas (ver docs/user/web/standards/product-positioning.md §4)"
 relacionada: INV-007 (competitive-benchmark-lancedb-chroma)
 tags: [weaviate, competitive-analysis, hnsw, lsm, quantization, gc, benchmarks]
 ---

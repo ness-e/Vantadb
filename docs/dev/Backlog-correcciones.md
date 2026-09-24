@@ -43,7 +43,7 @@ related: []
 | `FIND-77` | Comentarios stale conteo tools MCP (76→79) | `vantadb-mcp/src/handlers/tools.rs` | 🟢 |
 | `FIND-78` | `vantadb-node/README.md` link roto + nota engines node>=18 vs ts>=22.19 | `vantadb-node/README.md` | 🟢 |
 | `FIND-79` | TS SDK: tests export/import/reindex + endurecer `importRecords` | `vantadb-ts/src/` | 🟡 |
-| `FIND-80` | Fuzz: commitear seed corpus + upload crashes + actualizar `docs/workflow/fuzz-40.md` | `fuzz/`, `docs/workflow/fuzz-40.md` | 🟡 |
+| `FIND-80` | Fuzz: commitear seed corpus + upload crashes + actualizar `docs/dev/workflow/fuzz-40.md` | `fuzz/`, `docs/dev/workflow/fuzz-40.md` | 🟡 |
 | `FIND-81` | Server higiene: `vanta_certification.json` legacy + `vantadb_data/` 335MB + mini README | `vantadb-server/` | 🟢 |
 | `FIND-84` | Integrations: pineos superiores + fixtures robustas + decidir `dist/` y PyPI | `integrations/` | 🟡 |
 | `FIND-85` | Python: matriz CI 3.12/3.14 + limpiar `probe_lock_db/` + unificar `put_batch_raw` | `vantadb-python/`, `release-wheels-60.yml` | 🟡 |

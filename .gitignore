@@ -12,7 +12,7 @@ release/
 *.rs.bk
 **/test_sdk*/
 **/docs/snapshots/
-docs/book/book/
+docs/user/book/book/
 /snapshots/
 test_smoke/
 # Local database instances and logs

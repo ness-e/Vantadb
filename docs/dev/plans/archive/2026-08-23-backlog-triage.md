@@ -352,12 +352,12 @@ Próxima tarea si completa:
 
 === RECITATION MKT-18g ===
 Campaign ID: 82c5ed20-2086-4619-b471-dbafeb63aead
-Objetivo activo: MKT-18g — Corregir claims técnicos falsos en docs/strategy/SHOW_HN_PREP.md y REDDIT_POSTS.md
+Objetivo activo: MKT-18g — Corregir claims técnicos falsos en docs/dev/strategy/SHOW_HN_PREP.md y REDDIT_POSTS.md
 Estado: completed
 Última acción: Verifiqué cada claim técnico contra código real y corregí los falsos en ambos archivos manteniendo el tono del copy
 Resultado: OK
-Próxima acción: ninguna — tarea completa; commit pendiente para el orquestador (solo los 2 archivos de docs/strategy/)
-Contrato: artefactos: docs/strategy/SHOW_HN_PREP.md, docs/strategy/REDDIT_POSTS.md | evidencia: verificación mecánica rg contra Cargo.toml (croaring/wide/fjall/rocksdb/rayon/failpoints, sin cpufeatures), src/hardware/mod.rs:236-246 (is_x86_feature_detected + NEON), src/cost_estimator.rs:22 (PREFILTER_THRESHOLD=0.01), benches/hnsw_recall_ef.rs:21-23 (dataset SINTÉTICO 10K×128d — no SIFT), tests/storage/chaos_integrity.rs (failpoints wal_append/storage_insert/mmap_flush/hnsw_serialize), vantadb-python/src/lib.rs:1473-1495 (search_batch GIL-released + rayon par_iter), docs/user/operations/BENCHMARKS.md §1/§7 | invariantes: tono/estrategia del copy intacto; Regla 11 (todo número con fuente reproducible) | deuda: benchmark SIFT1M sin correr [TO VERIFY marcado en ambos archivos]; fila MKT-18g de docs/dev/Backlog.md sin tocar (worktree compartido con otra tarea activa)
+Próxima acción: ninguna — tarea completa; commit pendiente para el orquestador (solo los 2 archivos de docs/dev/strategy/)
+Contrato: artefactos: docs/dev/strategy/SHOW_HN_PREP.md, docs/dev/strategy/REDDIT_POSTS.md | evidencia: verificación mecánica rg contra Cargo.toml (croaring/wide/fjall/rocksdb/rayon/failpoints, sin cpufeatures), src/hardware/mod.rs:236-246 (is_x86_feature_detected + NEON), src/cost_estimator.rs:22 (PREFILTER_THRESHOLD=0.01), benches/hnsw_recall_ef.rs:21-23 (dataset SINTÉTICO 10K×128d — no SIFT), tests/storage/chaos_integrity.rs (failpoints wal_append/storage_insert/mmap_flush/hnsw_serialize), vantadb-python/src/lib.rs:1473-1495 (search_batch GIL-released + rayon par_iter), docs/user/operations/BENCHMARKS.md §1/§7 | invariantes: tono/estrategia del copy intacto; Regla 11 (todo número con fuente reproducible) | deuda: benchmark SIFT1M sin correr [TO VERIFY marcado en ambos archivos]; fila MKT-18g de docs/dev/Backlog.md sin tocar (worktree compartido con otra tarea activa)
 Próxima tarea si completa: 
 === END RECITATION ===
 

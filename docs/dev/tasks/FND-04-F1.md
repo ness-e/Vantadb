@@ -7,10 +7,10 @@
 - **Prioridad:** 🟢
 
 ## Objetivo
-Extraer `docs/dev/architecture/adr/ADR-025-*.md` formal desde `docs/Investigaciones/FND-04-arrow-zero-copy.md` (decisión DIFERIR + razón + señal de re-apertura medible), siguiendo la plantilla `docs/_templates/adr.md`. El contenido ya fue articulado y aprobado en la campaña — esta tarea consolida en formato ADR (disciplina Regla 5).
+Extraer `docs/dev/architecture/adr/ADR-025-*.md` formal desde `docs/Investigaciones/FND-04-arrow-zero-copy.md` (decisión DIFERIR + razón + señal de re-apertura medible), siguiendo la plantilla `docs/dev/_templates/adr.md`. El contenido ya fue articulado y aprobado en la campaña — esta tarea consolida en formato ADR (disciplina Regla 5).
 
 ## Archivos clave
-- `docs/Investigaciones/FND-04-arrow-zero-copy.md` (fuente de la decisión), `docs/_templates/adr.md` (plantilla), `docs/dev/architecture/adr/` (numeración: último es ADR-024), `docs/dev/architecture/adr/ADR-023-backend-compaction.md` (modelo con señal de reapertura)
+- `docs/Investigaciones/FND-04-arrow-zero-copy.md` (fuente de la decisión), `docs/dev/_templates/adr.md` (plantilla), `docs/dev/architecture/adr/` (numeración: último es ADR-024), `docs/dev/architecture/adr/ADR-023-backend-compaction.md` (modelo con señal de reapertura)
 
 ## Steps
 1. DISCOVERY: leer el reporte FND-04 (decisión, alternativas, señal), la plantilla ADR, verificar numeración (ADR-025 tras ADR-024)

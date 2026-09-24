@@ -356,7 +356,7 @@ Los resultados de rendimiento certificados en el dataset estándar de SIFT en mo
 
 *Hardware de certificación: AMD Ryzen 12-Core @ 3,5 GHz, compilado con `-C target-cpu=native`.*
 
-*Fuente: [docs/user/operations/BENCHMARKS.md §5](docs/user/operations/BENCHMARKS.md) — "Impact of Loop and HNSW Distance Optimization (Phase 2)" (2026-07-21). Historial completo de optimización en [docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md](docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md).*
+*Fuente: [docs/user/operations/BENCHMARKS.md §5](docs/user/operations/BENCHMARKS.md) — "Impact of Loop and HNSW Distance Optimization (Phase 2)" (2026-07-21). Historial completo de optimización en [docs/user/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md](docs/user/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md).*
 
 <p align="center">
   <img src="assets/benchmark-sift1m.svg" alt="Aceleración de construcción HNSW SIFT1M — Fase 1 vs Fase 2 (2,14×–2,80×)" width="760">
@@ -396,7 +396,7 @@ Los resultados se imprimen directamente en la consola y se escriben en `vanta_be
 | [Política de release de Python](docs/user/operations/PYTHON_RELEASE_POLICY.md) | TestPyPI, publicación en producción, firmado, activos de release y rollback. |
 | [Puerta de fiabilidad](docs/user/operations/RELIABILITY_GATE.md) | Políticas de estabilidad de memoria RSS, inyección de caos y durabilidad del WAL. |
 | [Funcionalidades experimentales](docs/user/operations/EXPERIMENTAL_FEATURES.md) | Clasificación de superficie de producción, opcional, experimental y diferida. |
-| [Política de CI](docs/user/operations/CI_POLICY.md) | Estrategia de integración continua, perfiles y puertas de certificación. |
+| [Política de CI](docs/dev/operations/CI_POLICY.md) | Estrategia de integración continua, perfiles y puertas de certificación. |
 | [Benchmarks](docs/user/operations/BENCHMARKS.md) | Metodología y resultados del benchmark de rendimiento. |
 | [Changelog](docs/CHANGELOG.md) | Historial de versiones y notas de lanzamiento. |
 | [Blog: Cómo funciona la búsqueda híbrida](docs/user/blog/how_hybrid_search_works.md) | Cómo funcionan juntos BM25 + HNSW + RRF en el motor de consultas de VantaDB. |

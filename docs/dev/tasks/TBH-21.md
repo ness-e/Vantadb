@@ -14,7 +14,7 @@
 ### Archivos leídos completos
 | Archivo | Líneas | Notas |
 |---------|--------|-------|
-| `docs/user/operations/CI_POLICY.md` | 392 | Single source of truth para gates CI; contiene §"Coverage Gate" (P2-06) línea 272-324 |
+| `docs/dev/operations/CI_POLICY.md` | 392 | Single source of truth para gates CI; contiene §"Coverage Gate" (P2-06) línea 272-324 |
 | `dev-tools/verify.ps1` | 95 | Línea 49: `$CoverageThreshold = 60`; línea 48: comment `P2-06: prudent initial llvm-cov line-coverage floor. Raise after first runs (see CI_POLICY.md).` |
 | `dev-tools/gate-common.ps1` | 27 | NO contiene threshold (líneas 13-19: `Get-CoreFeatures`; 21-27: `Get-AdaptiveJobs`). No tocar. |
 
@@ -23,7 +23,7 @@
 
 ### Referencias hacia afuera (inbound — quién lee estos archivos)
 - `dev-tools/verify.ps1` → ejecutada por hooks `pre-push` (`.githooks/pre-push` per AGENTS.md Regla 1) y por el step `coverage` del Fast Gate en `ci-rust-10.yml`.
-- `docs/user/operations/CI_POLICY.md` → referenciado desde `.opencode/AGENTS.md` (CI Architecture section), desde `dev-tools/verify.ps1:48`, desde CI workflows, desde docs/dev/architecture/adr/ADR-015-coverage-policy.md (P2-06 source).
+- `docs/dev/operations/CI_POLICY.md` → referenciado desde `.opencode/AGENTS.md` (CI Architecture section), desde `dev-tools/verify.ps1:48`, desde CI workflows, desde docs/dev/architecture/adr/ADR-015-coverage-policy.md (P2-06 source).
 
 ### Veredicto de impacto
 **Mínimo.** Cambios son:
@@ -71,7 +71,7 @@ Ningún caller downstream cambia. La nota de fecha agrega trazabilidad sin alter
 - **Estado:** ✅ COMPLETED
 
 ### Step 2: Insertar sub-sección "Coverage Threshold Review Cadence" en CI_POLICY.md
-- **Archivos:** `docs/user/operations/CI_POLICY.md`
+- **Archivos:** `docs/dev/operations/CI_POLICY.md`
 - **Acción:** Edit tool para insertar nueva sub-sección entre `**Merge / union:**` (línea 304) y `### 3. Web CI (`ci-web-11.yml`)` (línea 326). Contenido: threshold + cadence + last reviewed + next due.
 - **Verify:** `Select-String -Path CI_POLICY.md -Pattern "Coverage Threshold Review Cadence"` → 1 match.
 - **Estado:** ⬜ PENDING

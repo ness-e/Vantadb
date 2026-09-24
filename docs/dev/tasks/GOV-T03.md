@@ -25,7 +25,7 @@
 ## Impacto mapeado (Regla 0) — OBLIGATORIO antes de cualquier edición
 
 - **Archivos leídos (completos):** `.opencode/task-system/prompts/research-agent.md` (33 líneas, 2026-09-02, criterios TIR-08 existentes 3 bullets), `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` (§GOV-T03 contrato), `docs/dev/reviews/archive/auditoria-documentacion-2026-08-21.md` (465L, TIR-08c §Brechas Volumen II:350 + D13:442), `.opencode/skills/campaign-executor/tasks/GOV-T01.md` y `GOV-T02.md` (templates referencia Wave0)
-- **Archivos referenciados hacia dentro:** research-agent.md no tiene imports; es prompt standalone para research agents. Referenciado por `docs/references/research-modules.md` y prompts/research-module*.md indirectamente.
+- **Archivos referenciados hacia dentro:** research-agent.md no tiene imports; es prompt standalone para research agents. Referenciado por `docs/dev/references/research-modules.md` y prompts/research-module*.md indirectamente.
 - **Archivos que referencian a los editados:** `grep -r "research-agent"` → solo `.opencode/task-system/prompts/research-agent.md` mismo + plan file mención GOV-T03 (docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md:120) + auditoria doc; sin callers en src/
 - **Veredicto impacto:** bajo — docs-only, 1 archivo markdown, ~6 líneas aditivas, sin código, sin tests, sin build. Riesgo: contrato Select-String exige >=3 hits (saturación|broadening|WONTFIT) — ya pasa con 3 hits actuales; ampliación a 6 líneas mantiene/eleva hits a >=4. Disjoint 100% Wave0.
 

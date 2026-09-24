@@ -21,7 +21,7 @@
 "`cargo build --example basic` compila. `cargo build --example hybrid` compila. Al menos 3 examples funcionales."
 
 ## Pasos
-1. Identificar qué examples ya existen en `docs/examples/` vs target `examples/rust/`
+1. Identificar qué examples ya existen en `docs/user/examples/` vs target `examples/rust/`
 2. Crear `examples/rust/` directory
 3. Implementar basic example (insert + search)
 4. Implementar hybrid example (dense + sparse)

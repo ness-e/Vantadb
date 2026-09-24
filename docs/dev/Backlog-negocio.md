@@ -27,18 +27,18 @@ verified_by: "Split ejecutado 2026-09-03 por RES-15-C desde docs/dev/Backlog.md 
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
 |----|-------------|----------|----------|------|-------------|
-| `DISC-01` | **Configurar Discord: reaction roles, autorole, logging, welcome DM, onboarding** | `docs/discord/todo.md` + assets SVG + server activo | 🟡 2-3d | 🟢 | ⚠️ Docs + assets OK. Config pendiente — requiere Discord UI manual |
+| `DISC-01` | **Configurar Discord: reaction roles, autorole, logging, welcome DM, onboarding** | `docs/user/discord/todo.md` + assets SVG + server activo | 🟡 2-3d | 🟢 | ⚠️ Docs + assets OK. Config pendiente — requiere Discord UI manual |
 | `DISC-02` | **Discord: AutoMod, stickers/emojis, forums seed** | — | 🟢 4-6h | 🟢 | ⚠️ Forums seedeado (9 threads: FAQ/Showcase/Ideas/Bug). AutoMod/stickers/emojis requieren Discord UI manual — no API-accessible |
 
 ## P6 — Launch Campaign (humanas)
 
 | ID | Descripción | Estimación real | Prioridad | Estado Real |
 |----|-------------|-----------------|-----------|-------------|
-| `LEG-01` | **Registrar trademark "VantaDB" (USPTO + EUIPO)** — Requiere abogado, pago (~$250-350/clase USPTO, ~€850 EUIPO), identidad legal. Estimación original "2-4h" irreal. | semanas, $2-5K | 🔴 | ❌ No iniciado — mover a `docs/strategy/GO_TO_MARKET.md` cuando exista |
+| `LEG-01` | **Registrar trademark "VantaDB" (USPTO + EUIPO)** — Requiere abogado, pago (~$250-350/clase USPTO, ~€850 EUIPO), identidad legal. Estimación original "2-4h" irreal. | semanas, $2-5K | 🔴 | ❌ No iniciado — mover a `docs/dev/strategy/GO_TO_MARKET.md` cuando exista |
 
 | ID | Descripción | Esfuerzo | Prio | Estado Real |
 |----|-------------|----------|------|-------------|
-| `MKT-04` | **Publicar 3 drafts de Reddit (r/rust, r/MachineLearning, r/LocalLLaMA)** — drafts listos en `docs/strategy/REDDIT_POSTS.md` (status: ready-to-publish), NUNCA publicados — requieren identidad Reddit del owner. Claims corregidos 2026-09-02 (ver REDDIT_POSTS.md). | 🟢 2-4h | 🟠 | ❌ Pendiente (humano) |
+| `MKT-04` | **Publicar 3 drafts de Reddit (r/rust, r/MachineLearning, r/LocalLLaMA)** — drafts listos en `docs/dev/strategy/REDDIT_POSTS.md` (status: ready-to-publish), NUNCA publicados — requieren identidad Reddit del owner. Claims corregidos 2026-09-02 (ver REDDIT_POSTS.md). | 🟢 2-4h | 🟠 | ❌ Pendiente (humano) |
 | `CLD-01` | **VantaDB Cloud beta on Fly.io** — checkbox vacío en `GO_TO_MARKET.md:420`; cero archivos de infra. Verificado 2026-08-17: no existe nada. Requiere cuenta/pago Fly.io + decisión de producto. | 🟠 1-2 sem | 🔵 | ❌ Pendiente |
 | `CLD-02` | **Pitch deck + one-pager** — checkbox vacío en `GO_TO_MARKET.md:408`; cero archivos `*pitch*`/`*deck*`. | 🟡 3-5d | 🔵 | ❌ Pendiente |
 | `CLD-04` | **Case study #1 (enterprise pilot)** — checkbox vacío en `GO_TO_MARKET.md:409`; cero archivos. Depende de pilot real. | 🟠 1 sem | 🔵 | ❌ Pendiente |
@@ -51,7 +51,7 @@ verified_by: "Split ejecutado 2026-09-03 por RES-15-C desde docs/dev/Backlog.md 
 
 ## P23 — VantaDB Pro (Open Core)
 
-> Origen: `docs/strategy/VANTADB-PRO-FEATURES.md` § "Backlog Pro" (detalle técnico en `docs/dev/Backlog.md` §P23). **Implementables por agentes cuando arranque Pro** — el inicio es decisión de negocio (repo privado `vantadb-pro`, pricing, licensing, D5 entrega manual).
+> Origen: `docs/dev/strategy/VANTADB-PRO-FEATURES.md` § "Backlog Pro" (detalle técnico en `docs/dev/Backlog.md` §P23). **Implementables por agentes cuando arranque Pro** — el inicio es decisión de negocio (repo privado `vantadb-pro`, pricing, licensing, D5 entrega manual).
 
 | ID | Descripción (Feature Pro sugerida → qué clava) | Código actual | Esfuerzo | Prio | Estado |
 |----|-------------|----------|------|--------|--------|
@@ -70,7 +70,7 @@ verified_by: "Split ejecutado 2026-09-03 por RES-15-C desde docs/dev/Backlog.md 
 
 ## BIZ — Facturación y negocio (manual estratégico, 2026-09-14)
 
-> Origen: `docs/strategy/VantaDB_Manual_Estrategico_Unificado.md` bloques C1/C2/C5/C6/C8/C10/C14/C15 + research `docs/dev/research/manual-estrategico-validacion-2026-09-14.md` (§1-7). Todas son humanas (cuentas, decisiones, firmas). BIZ-02/03 reservados: en investigación de alcance, NO crear filas hasta definirlo con el owner.
+> Origen: `docs/dev/strategy/VantaDB_Manual_Estrategico_Unificado.md` bloques C1/C2/C5/C6/C8/C10/C14/C15 + research `docs/dev/research/manual-estrategico-validacion-2026-09-14.md` (§1-7). Todas son humanas (cuentas, decisiones, firmas). BIZ-02/03 reservados: en investigación de alcance, NO crear filas hasta definirlo con el owner.
 
 | ID | Descripción | Esfuerzo | Prio | Estado Real |
 |----|-------------|----------|------|-------------|

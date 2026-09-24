@@ -95,16 +95,16 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 
 ---
 
-### Task 3: FIND-22 — Formalizar 3 exclusiones fast gate en docs/user/operations/CI_POLICY.md
+### Task 3: FIND-22 — Formalizar 3 exclusiones fast gate en docs/dev/operations/CI_POLICY.md
 
 - **Appetite:** max 1h
 - **Esfuerzo:** 🟢 1h
 - **Prioridad:** 🟡 Media
-- **Archivos clave:** `dev-tools/verify.ps1:67-79`, `docs/user/operations/CI_POLICY.md` (taxonomía RESOURCE-GUARD)
+- **Archivos clave:** `dev-tools/verify.ps1:67-79`, `docs/dev/operations/CI_POLICY.md` (taxonomía RESOURCE-GUARD)
 - **Verificación real:** **YA COMPLETADO en campaña anterior** `2026-08-25-batch-core-fixes-research.md` (Task 6). `CI_POLICY.md` ya tiene sección "Fast Gate Test Exclusions" (líneas ~76-100) con las 3 exclusiones RESOURCE-GUARD documentadas + referencia a 55 exclusiones estructurales de nextest.toml. Task file `.opencode/skills/campaign-executor/tasks/FIND-22.md` existe con estado ✅ COMPLETED (ver Context Save Point: `last_reviewed` → 2026-08-25, `validate-docs-coverage.ps1` → 0 gaps). Backlog triage actual marcó incorrectamente como pendiente.
 - **Gate Justificación:** Ya resuelto — mover a SKIP para no duplicar trabajo.
 - **Gate Result:** ❌ SKIP
-- **Contrato:** `Select-String -Path "docs/user/operations/CI_POLICY.md" -Pattern "Fast Gate Test Exclusions" | Measure-Object | Select-Object Count` >= 1
+- **Contrato:** `Select-String -Path "docs/dev/operations/CI_POLICY.md" -Pattern "Fast Gate Test Exclusions" | Measure-Object | Select-Object Count` >= 1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/FIND-22.md` (existe, ✅ COMPLETED)
 - **Estado:** ❌ SKIP — ya completado 2026-08-25
 - **Pre-mortem:** Ninguno — trabajo hecho, solo actualizar plan
@@ -124,7 +124,7 @@ Ver plan.md § Reglas del gate + Paso 0 Verificación de Realidad (codegraph_exp
 - **Appetite:** max 1d
 - **Esfuerzo:** 🟢 0.5h (verificación + cierre idempotente)
 - **Prioridad:** 🔴 Alta
-- **Archivos clave:** `docs/dev/architecture/adr/` (39 ADRs existentes), `docs/_templates/adr.md`, `codegraph-20260827-143245 Fase 12` (stale)
+- **Archivos clave:** `docs/dev/architecture/adr/` (39 ADRs existentes), `docs/dev/_templates/adr.md`, `codegraph-20260827-143245 Fase 12` (stale)
 - **Verificación real:** `Get-ChildItem docs/dev/architecture/adr/*.md | Measure-Object | Select-Object Count` → **39 ADRs**. ADR-001 (`001_unified_config_readonly.md`) tiene headers Context/Decision/Consequences ✅. CodeGraph reporte Fase 12 ("Sin ADRs registrados") es stale — ADRs existen desde 2026-08-23.
 - **Gate Justificación:** ADRs son memoria arquitectónica (Regla 5) — YA EXISTEN 39 ADRs con formato Nygard completo escritos por humanos. Contrato SATISFECHO sin trabajo adicional.
 - **Gate Result:** ✅ DO → **CERRADO IDEMPOTENTE**

@@ -53,7 +53,7 @@
 |-------------|-----------|-----------|
 | Fallback `HOST` en fila host | REAL — se conserva | src/config.rs:512 `.or_else(env::var("HOST"))` |
 | Fallback `PORT` en fila port | No existe en estado actual del doc (línea 22 no lo cita) — nada que eliminar |
-| `flush_interval_ms` | No está en CONFIGURATION.md; solo en mdBook generado (`docs/book/book/operations/DURABILITY_GUARANTEES.html`) — artefacto generado, fuera de scope |
+| `flush_interval_ms` | No está en CONFIGURATION.md; solo en mdBook generado (`docs/user/book/book/operations/DURABILITY_GUARANTEES.html`) — artefacto generado, fuera de scope |
 
 **Spot-check de defaults (14 vars, config.rs):**
 | Var | Doc | Código | Veredicto |

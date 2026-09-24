@@ -10,7 +10,7 @@
 
 1. Alcance: reparar/optimizar, **cero refactors** de CI (sin migrar a merge-queue ni reescribir pipelines).
 2. Publishing: cambios con cuidado extra (rollback `git revert` por commit + re-run del workflow).
-3. Reglas durables van a `docs/workflow/RULES.md` (trackeado). NO a `.opencode/` (local-only desde C-01)
+3. Reglas durables van a `docs/dev/workflow/RULES.md` (trackeado). NO a `.opencode/` (local-only desde C-01)
    ni duplicadas en `AGENTS.md` raíz (su cabecera lo prohíbe; solo 1 fila puntero en su tabla).
 4. Renombres de archivos al FINAL (tras todos los edits) para no colisionar.
 
@@ -68,7 +68,7 @@
 
 ## Wave 4 — Documentación (tras código estable; paralelo ×2)
 
-- [x] FIND-143 · ✅ 2026-09-22 (commit fd792fcf: README+TRIGGERS+PUBLISH+RUNBOOK+FAQ, lint 0/20) 🟢 · `docs/workflow/` (vanta-docs): inventario 28 + matriz triggers + flujo de
+- [x] FIND-143 · ✅ 2026-09-22 (commit fd792fcf: README+TRIGGERS+PUBLISH+RUNBOOK+FAQ, lint 0/20) 🟢 · `docs/dev/workflow/` (vanta-docs): inventario 28 + matriz triggers + flujo de
   publish por registro + runbook (re-run, approve environments, [no-adr]) + FAQ duplicados.
   Contrato: lint/frontmatter/coverage verdes; 0 links rotos. Commit `docs: FIND-143 — ...`
 - [x] FIND-145 · ✅ 2026-09-22 (commit 63f77152: Analyze success en main, sin fix) 🟢 · Verificar CodeQL verde post-#202 en `main`; si sigue rojo, fix o deuda escrita.
@@ -76,7 +76,7 @@
 
 ## Wave 5 — Reglas durables (tras FIND-143)
 
-- [x] FIND-144 · ✅ 2026-09-22 (commit 7021480f: RULES.md 180L + CI_POLICY 26→27 + AGENTS pointer) 🟢 · `docs/workflow/RULES.md` (triggers, timeouts, pins, permissions, publish,
+- [x] FIND-144 · ✅ 2026-09-22 (commit 7021480f: RULES.md 180L + CI_POLICY 26→27 + AGENTS pointer) 🟢 · `docs/dev/workflow/RULES.md` (triggers, timeouts, pins, permissions, publish,
   anti-patrones con ejemplo bueno/malo) + refresh `CI_POLICY.md` (26→28, triggers reales) +
   1 fila puntero en tabla de `AGENTS.md` raíz. Contrato: lint verdes; regla verificable por cada
   hallazgo Alta. Commit `docs: FIND-144 — ...`
@@ -217,7 +217,7 @@ Estado: completed
 Última acción: S1-S6: task file + 5 docs + lint 0 + commit fd792fcf sin push
 Resultado: OK
 Próxima acción: Ninguno. Orquestador: FIND-145.
-Contrato: verificacion: markdownlint-cli2 20 files 0 issues + grep ](docs/workflow 0 + git status selectivo | evidencia: commit fd792fcf (6 files +497) | artefactos: docs/workflow/README,TRIGGERS,PUBLISH,RUNBOOK,FAQ + docs/dev/tasks/FIND-143.md | invariantes: cero YAML/src/web/desktop/locks/plans/Backlog; NO PUSH | deuda: coverage N/A, actionlint N/A, FIND-142 renombres pendientes | queda_pendiente: ninguno
+Contrato: verificacion: markdownlint-cli2 20 files 0 issues + grep ](docs/workflow 0 + git status selectivo | evidencia: commit fd792fcf (6 files +497) | artefactos: docs/dev/workflow/README,TRIGGERS,PUBLISH,RUNBOOK,FAQ + docs/dev/tasks/FIND-143.md | invariantes: cero YAML/src/web/desktop/locks/plans/Backlog; NO PUSH | deuda: coverage N/A, actionlint N/A, FIND-142 renombres pendientes | queda_pendiente: ninguno
 Próxima tarea si completa: FIND-145
 === END RECITATION ===
 
@@ -239,6 +239,6 @@ Estado: completed
 Última acción: S1-S6 completos: task file + RULES.md 7 reglas + CI_POLICY 26->27 + AGENTS fila + verify verde + commit selectivo 7021480f sin push
 Resultado: OK
 Próxima acción: Ninguno — tarea completa. Orquestador: cierre Wave 5 / plan.
-Contrato: verificacion: markdownlint-cli2 22 files 0 issues + git diff --check limpio + grep 0 old-names + links resuelven + pre-commit hook ok | evidencia: commit 7021480f (4 files +262/-10: RULES.md nuevo 180L, CI_POLICY 7 edits, AGENTS.md 1 fila, task file); campaign_verify_cmd exit 0 (sin BUG esta vez) | artefactos: docs/workflow/RULES.md + docs/user/operations/CI_POLICY.md + AGENTS.md + docs/dev/tasks/FIND-144.md commiteados | invariantes: cero YAML/src/web/desktop/locks/Backlog; plan file M ajeno no commiteado; NO PUSH | deuda: ninguna (progreso batch lo hace orquestador al cierre Wave 5) | queda_pendiente: ninguno
+Contrato: verificacion: markdownlint-cli2 22 files 0 issues + git diff --check limpio + grep 0 old-names + links resuelven + pre-commit hook ok | evidencia: commit 7021480f (4 files +262/-10: RULES.md nuevo 180L, CI_POLICY 7 edits, AGENTS.md 1 fila, task file); campaign_verify_cmd exit 0 (sin BUG esta vez) | artefactos: docs/dev/workflow/RULES.md + docs/dev/operations/CI_POLICY.md + AGENTS.md + docs/dev/tasks/FIND-144.md commiteados | invariantes: cero YAML/src/web/desktop/locks/Backlog; plan file M ajeno no commiteado; NO PUSH | deuda: ninguna (progreso batch lo hace orquestador al cierre Wave 5) | queda_pendiente: ninguno
 Próxima tarea si completa: cierre Wave 5 (orquestador)
 === END RECITATION ===

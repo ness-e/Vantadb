@@ -25,11 +25,11 @@
 
 ### Task 2: PERF-03 — Bench competitivo de SDKs
 - **Esfuerzo:** 🟠 | **Prioridad:** 🟡 | **Ruta:** vanta-tuner
-- **Archivos clave:** `benchmarks/data_comp_bench/`, `docs/benchmarks/`
+- **Archivos clave:** `benchmarks/data_comp_bench/`, `docs/user/benchmarks/`
 - **Verificación real:** existe `benchmarks/competitive_bench.py`, `benchmarks/data_comp_bench/`.
 - **Gate Justificación:** Sustituye afirmaciones de superioridad sin números por tabla honesta.
 - **Gate Result:** ✅ DO
-- **Contrato:** `benchmarks/competitive_bench.py` corre y produce tabla honesta publicada en `docs/benchmarks/`; marcar claims del README sin soporte.
+- **Contrato:** `benchmarks/competitive_bench.py` corre y produce tabla honesta publicada en `docs/user/benchmarks/`; marcar claims del README sin soporte.
 - **Task file:** `.opencode/skills/campaign-executor/tasks/PERF-03.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING
 

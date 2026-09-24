@@ -63,7 +63,7 @@
   - **A) Repo GitHub privado `vantadb-pro`** (privado, no público) — control total. Entrega vía `.crate`/`.whl`/binario compilado (nunca el source). (EJECUTADA — repo `ness-e/vantadb-pro` creado y pusheado)
   - **B) Solo artefactos/sin el source**: entregas `.tar.gz`/`.whl` firmado, sin repo. Menos control.
   - **C) Registry privado `cargo`/`pip`** con token por cliente — para la SDK pro (futuro, no MVP).
-- **Contrato:** repo/artefacto + método de entrega en `docs/strategy/VANTADB-PRO-DELIVERY.md`.
+- **Contrato:** repo/artefacto + método de entrega en `docs/dev/strategy/VANTADB-PRO-DELIVERY.md`.
 - **Estado:** ✅ COMPLETED
 
 ### TASK 4: Decision — ¿Qué features del core pasan a Pro?
@@ -73,13 +73,13 @@
 - **Pregunta además:** ¿el core debe **reducir su default** quitando de Pro? ¿O Pro = nuevas features que aún no existen (no tocar el core)?
   - **A) NO tocar el core actual**: Pro son features NUEVAS que construirás (recomendado, cero riesgo, cero relicenciado, cumple C3 "features enterprise nacen en repo separado desde el día 1").
   - **B) Mover gates existentes** (encryption/wal-shipping/pitr/prometheus) de core→pro: requiere refactor + break a usuarios, más riesgo.
-- **Contrato:** en F1 se genera `docs/strategy/VANTADB-PRO-FEATURES.md` con cierre in/out por feature (CUMPLIDO — archivo real en disco).
+- **Contrato:** en F1 se genera `docs/dev/strategy/VANTADB-PRO-FEATURES.md` con cierre in/out por feature (CUMPLIDO — archivo real en disco).
 - **Estado:** ✅ RESPONDIDA (opción A: features nuevas, no tocar core)
 
 ### Task 5: Estado de pago/jurisdicción (comercial MVP)
 - **Pregunta:** ¿qué plataforma para aceptar pagos internacionales?
 - **Decisión (2026-08-06):** **D) Aplazar** — sin merchant entidad aún; entrega Enterprise manual (CLI genera `vantadb.license` firmado por cliente) hasta tener entidad constituida (C2).
-- **Acción:** documentado en `docs/strategy/VANTADB-PRO-DELIVERY.md` (§ pagos = manual).
+- **Acción:** documentado en `docs/dev/strategy/VANTADB-PRO-DELIVERY.md` (§ pagos = manual).
 - **Estado:** ✅ COMPLETED
 
 ### Task 6: Marca y legal (humano, fuera del pipeline)
@@ -98,7 +98,7 @@
 - **Archivos clave:** `Cargo.toml:93-131` (features), `src/` (módulos faecores), `docs/user/operations/CONFIGURATION.md`, `deny.toml`
 - **Gate:** decidir `in/out` por feature con path:línea real de cada gate: `encryption`, `wal-shipping`, `pitr`, `server`, `tls`, `prometheus`. Tabla `| Feature | Código | In core | Pro sí/no |`.
 - **Herramientas:** `codegraph_explore`, `rg`, `cargo check`.
-- **Deliverable:** `docs/strategy/VANTADB-PRO-FEATURES.md` ✅ en disco.
+- **Deliverable:** `docs/dev/strategy/VANTADB-PRO-FEATURES.md` ✅ en disco.
 - **VERIFY (ejecutado 2026-08-06):** `cargo check -p vantadb --no-default-features -F "encryption,pitr,wal-shipping,prometheus,tls,server"` → EXIT 0 (core compila con todos los gates Pro; verificación completada).
 - **Nota:** no hace commit de código — solo doc.
 - **Estado:** ✅ COMPLETED
@@ -131,15 +131,15 @@
 
 ## FASE 3 — Entrega / Go-to-market
 
-### Task 11: DELIVERY-DOC — `docs/strategy/VANTADB-PRO-DELIVERY.md`
-- **Archivo:** `docs/strategy/VANTADB-PRO-DELIVERY.md` (nuevo, PENDIENTE de crear)
+### Task 11: DELIVERY-DOC — `docs/dev/strategy/VANTADB-PRO-DELIVERY.md`
+- **Archivo:** `docs/dev/strategy/VANTADB-PRO-DELIVERY.md` (nuevo, PENDIENTE de crear)
 - **Acción:** describe entrega por tier: Pro (registro privado / binario), Enterprise (artefacto + licencia `vantadb.license`, on-prem). Incluye matriz pagos según D5.
 - **VERIFICACIÓN:** tabla de entrega por tier; lint markdown.
 - **Dependencias:** D3, D5.
 - **Estado:** ✅ COMPLETED
 
 ### Task 12: GTM-PRICING — Actualizar tier plan con features Pro reales
-- **Files:** `docs/strategy/VANTADB-PRO-FEATURES.md` (fuente de features)
+- **Files:** `docs/dev/strategy/VANTADB-PRO-FEATURES.md` (fuente de features)
 - **Acción:** alinear Community/Pro/Business/Enterprise (C7) con las features de la tabla; no inventar cifras (reusar valores de C7).
 - **VERIFICACIÓN:** consistente con `VANTADB-PRO-FEATURES.md`; nada inventado.
 - **Estado:** ✅ COMPLETED
@@ -161,7 +161,7 @@
 - **Estado:** ✅ COMPLETED
 
 ### Task 15: DOCS-NEW — Actualizar índice de `docs/strategy`
-- **Acción:** enlazar `docs/strategy/VANTADB-PRO-DELIVERY.md` + `VANTADB-PRO-FEATURES.md` en el índice/docs README de strategy si existe. Docs en inglés (Regla 3).
+- **Acción:** enlazar `docs/dev/strategy/VANTADB-PRO-DELIVERY.md` + `VANTADB-PRO-FEATURES.md` en el índice/docs README de strategy si existe. Docs en inglés (Regla 3).
 - **Estado:** ✅ COMPLETED
 
 ---
@@ -170,7 +170,7 @@
 
 ### Task 16: ADR — Registro Licencia Open Core VantDB Pro
 - **Archivo:** `docs/dev/architecture/adr/<NNN>-open-core-vantadb-pro.md` (nuevo, número sgte.)
-- **Acción:** ADR con la decisión (correlación, licencia core, dónde pro, entrega) según template `docs/_templates/adr.md`. Cierra el ciclo "decidí".
+- **Acción:** ADR con la decisión (correlación, licencia core, dónde pro, entrega) según template `docs/dev/_templates/adr.md`. Cierra el ciclo "decidí".
 - **Estado:** ✅ COMPLETED
 
 ---

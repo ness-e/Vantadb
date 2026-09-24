@@ -3,7 +3,7 @@
 // Reads .opencode/task-system/enforcement/verify-log.jsonl (written by campaign_verify_cmd,
 // line format: {ts, taskId, command, passed, exitCode, expectedExitCode, elapsed, summary, plan, skills, toolUsed})
 // plus docs/dev/plans/*.md task blocks and docs/dev/plans/*.budget.json task maps, and produces
-// docs/reports/northstar.md against the RULES.md North Star:
+// docs/dev/reports/northstar.md against the RULES.md North Star:
 //   - tasa completado primer intento >90%
 //   - falsos positivos = 0
 //   - regresión silenciosa = 0

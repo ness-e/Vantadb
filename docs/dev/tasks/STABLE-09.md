@@ -16,7 +16,7 @@
 ## Impacto mapeado (Regla 0)
 - **Archivos leídos completos (antes de editar):**
   - `Cargo.toml:710-713` (`default-members = [".", "vantadb-python"]`; nota: plan decía `:636` — línea stale, real 710-713; `members` 7 crates ya) — NO EDITADO (bloqueado)
-  - `docs/user/operations/CI_POLICY.md` (446L — §Promotion 149-240 con medición STABLE-08: `just verify` cold 495.5s/8.26m Heavy, warm 249s/4.15m; `verify_changed` cold 115s Fast; veredicto Heavy + Owner A/B bloqueado) — NO EDITADO (medición ya registrada)
+  - `docs/dev/operations/CI_POLICY.md` (446L — §Promotion 149-240 con medición STABLE-08: `just verify` cold 495.5s/8.26m Heavy, warm 249s/4.15m; `verify_changed` cold 115s Fast; veredicto Heavy + Owner A/B bloqueado) — NO EDITADO (medición ya registrada)
   - `dev-tools/verify.ps1` (102L — `fmt → check -p vantadb → clippy -p vantadb → audit → deny → nextest -p vantadb -E RESOURCE-GUARD ×3 → coverage → docs-coverage → cli-probes → consumo guard → backup runbook`; `-p vantadb` = independiente de `default-members`) — SOLO LECTURA
   - `docs/dev/architecture/adr/ADR-031-default-members-promotion.md` (`status: proposed`, `owner: TBD`; §4 Question to Owner A `<5 hard` vs B `<8 soft`; "STABLE-09 must not merge" hasta respuesta) — SOLO LECTURA
   - `docs/dev/tasks/STABLE-00..08.md` (estados: 00 ✅, 01 ✅, 02 ✅, 03 ✅, 04 ✅-inner/⏳-header, 05 ✅, 06 ✅ re-validado hoy ceb81d90 280/280, 07 steps 5/5 PASS pero header ⏳ IN PROGRESS sin sync, 08 ✅ 3 corridas 0 flaky + Heavy verdict) — SOLO LECTURA
@@ -65,7 +65,7 @@ Medición local 2026-09-09 (Windows MSVC, target/ limpio con `cargo clean`):
 Edición (2 archivos, reversible 1 línea):
 - `Cargo.toml:710-719` (`default-members` + comment EXPERIMENTAL actualizado:
   proxy+wasm quedan fuera; `members`/`Cargo.lock`/`publish=false` intactos).
-- `docs/user/operations/CI_POLICY.md` §default-members: nota STABLE-09 subset +
+- `docs/dev/operations/CI_POLICY.md` §default-members: nota STABLE-09 subset +
   Heavy excluidos con justificación + rollback 1-línea.
 
 ## Contrato — evaluación subset 2026-09-09 (COMPLETO en modo Owner A)

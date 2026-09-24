@@ -61,10 +61,10 @@ Estas tareas son independientes entre sí → se distribuyen en sub-agentes para
 
 ### Task 6: P1-06 — Instrumentar métricas North Star
 - **Esfuerzo:** 🟡 | **Prioridad:** 🔴 | **Ruta:** vanta-worker
-- **Archivos clave:** `evals/` (script nuevo), `docs/reports/`
+- **Archivos clave:** `evals/` (script nuevo), `docs/dev/reports/`
 - **Gate Justificación:** Solo se mide qué se colecta; sin primer-intento/falsos positivos normalizados el North Star no es verificable (REPORTE-FINAL §5.3 punto 3).
 - **Gate Result:** ✅ DO
-- **Contrato:** script `evals/northstar.mjs` lee plan files + `verify-log.jsonl` y emite `docs/reports/northstar.md` con tasa de completado primer intento, falsos positivos, regresión; `node evals/northstar.mjs` exit 0.
+- **Contrato:** script `evals/northstar.mjs` lee plan files + `verify-log.jsonl` y emite `docs/dev/reports/northstar.md` con tasa de completado primer intento, falsos positivos, regresión; `node evals/northstar.mjs` exit 0.
 - **Task file:** `skills/campaign-executor/tasks/P1-06.md`
 - **Estado:** ✅ COMPLETED
 

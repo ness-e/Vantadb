@@ -23,8 +23,8 @@
 
 | # | Task ID | Título | Ruta | Contrato verificable | Esfuerzo | Prio |
 |---|---------|--------|------|---------------------|----------|------|
-| 1 | DISC-01 | Configurar Discord (reaction roles, autorole, logging, welcome DM) | `vanta-docs` | Discord server con roles/autorole funcionando + docs/discord/todo.md actualizado | 🟡 2-3d | 🟢 |
-| 2 | MKT-04 | Publicar 3 drafts Reddit (r/rust, r/ML, r/LocalLLaMA) | `vanta-docs` | 3 posts publicados con claims verificados (ver `docs/strategy/REDDIT_POSTS.md`) | 🟢 2-4h | 🟠 |
+| 1 | DISC-01 | Configurar Discord (reaction roles, autorole, logging, welcome DM) | `vanta-docs` | Discord server con roles/autorole funcionando + docs/user/discord/todo.md actualizado | 🟡 2-3d | 🟢 |
+| 2 | MKT-04 | Publicar 3 drafts Reddit (r/rust, r/ML, r/LocalLLaMA) | `vanta-docs` | 3 posts publicados con claims verificados (ver `docs/dev/strategy/REDDIT_POSTS.md`) | 🟢 2-4h | 🟠 |
 | 3 | AGT-01 | Fixes AGENTS.md pendientes (commits + verificación stats CodeGraph) | `vanta-lead` | Diffs commiteados + `codegraph_status` verde + refs file:line de deuda P2 actualizadas | 🟢 4h | 🟠 |
 | 4 | AGT-02 | Limpieza opencode-loop corrupt/tmp | `vanta-lead` | `.opencode/task-system/` limpio + convención checkpoints paralelos documentada | 🟢 2h | 🟠 |
 | 5 | AGT-03 | Script anti-drift de refs AGENTS.md | `vanta-lead` | Script ejecutable + test de regresión pasando | 🟢 2h | 🟠 |

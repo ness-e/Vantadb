@@ -51,7 +51,7 @@ Confirmed by `git grep "dhat" Cargo.toml` → **0 hits** and `git grep -liE "dha
 The only occurrences of "dhat" in the tree are:
 
 - `.opencode/agents/vanta-tuner.md:41` — agent roster mention ("`dhat-rs`" listed alongside `allocative`, `heapsize`).
-- `docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md:567,585-586,593,894,920` — future-option reference in the optimization playbook (NOT a current dependency).
+- `docs/user/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md:567,585-586,593,894,920` — future-option reference in the optimization playbook (NOT a current dependency).
 
 No test currently uses `#[global_allocator] = dhat::Alloc`. The closest related capability
 is `benches/memory_budget.rs` (criterion-based memory-budget benchmark — measures whole-program

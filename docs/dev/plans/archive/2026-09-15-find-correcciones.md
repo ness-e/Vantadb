@@ -46,7 +46,7 @@ Triage + Paso 0 + `question` → owner aprobó "SKIP verificado (Recomendado)" p
 - FIND-77: comentario `tools.rs:1090` dice "Full profile (76 tools)"; GOV-B6 registró 79 (base 49 + ext 30, 2026-09-02) → stale por 3. Recontar en ejecución.
 - FIND-78: `README.md:16` enlaza `docs/dev/reviews/research-vantadb-node-20260825.md` INEXISTENTE (Test-Path False); `:27` dice Node ≥ 18 pero `vantadb-ts/package.json:7` exige `node>=22.19` → nota de compat real.
 - FIND-79: `exportAll/exportNamespace/importFile/reindexHnswFromText` EXISTEN (`vantadb.ts:868,823,915,953`); `importRecords` SÍ tiene tests (`dx04`, `hardening`) pero aserción débil → scope = endurecer + añadir los faltantes (no partir de cero).
-- FIND-80: `fuzz/corpus/` VACÍO; `fuzz-40.yml` existe (corpus cache `:88-94`, crash cleanup `:96-97`) pero sin upload de crashes; `docs/workflow/fuzz-40.md` SÍ documenta ci-gate (`:44-46`) → esa parte del reporte está stale; `fuzz-pr` sin mención. Re-scope: seed + upload + fuzz-pr.
+- FIND-80: `fuzz/corpus/` VACÍO; `fuzz-40.yml` existe (corpus cache `:88-94`, crash cleanup `:96-97`) pero sin upload de crashes; `docs/dev/workflow/fuzz-40.md` SÍ documenta ci-gate (`:44-46`) → esa parte del reporte está stale; `fuzz-pr` sin mención. Re-scope: seed + upload + fuzz-pr.
 - FIND-81: `vanta_certification.json` + `vantadb_data/` EXISTEN junto al crate (Test-Path True) → higiene real.
 - FIND-82: `test-mcp.py:148-160` imprime conteos pero NUNCA aserta (4/4 handshake sin gate de drift) → real.
 - FIND-83: MCP-27 documentado (`skills/.../SKILL.md:200`, IQL solo nodos tipados); MCP-29 (namespaces como tablas, completada) vive en la otra skill; api-reference evolucionó 33→79 según GOV-B6; copias `skills/` ↔ `.opencode/skills/` por verificar con hash. Uphill: alcance exacto de la contradicción se fija en DISCOVERY (puede colapsar a sync mecánico).
@@ -353,7 +353,7 @@ Triage + Paso 0 + `question` → owner aprobó "SKIP verificado (Recomendado)" p
 - Nota: `probe_lock_db/` solo limpieza local documentada (no es parte del contrato CI).
 
 **Task 24: FIND-80 — seed corpus + crash upload + fuzz-pr**
-- Appetite 1d · 🟡 · 🟢 · `fuzz/corpus/` (vacío), `.github/workflows/fuzz-40.yml:88-97`, `docs/workflow/fuzz-40.md`
+- Appetite 1d · 🟡 · 🟢 · `fuzz/corpus/` (vacío), `.github/workflows/fuzz-40.yml:88-97`, `docs/dev/workflow/fuzz-40.md`
 - Verificación real: corpus vacío; yml con cache+cleanup pero sin upload; doc SÍ cubre ci-gate (parte stale del reporte).
 - Gate Justificación: fuzz sin seeds ni artefactos de crash = fuzz decorativo.
 - Contrato: seed mínimo commiteado + upload corpus/crashes + doc fuzz-pr + `cargo check --manifest-path fuzz/Cargo.toml --bins` 0.
@@ -744,7 +744,7 @@ Estado: completed
 Última acción: 3/3 steps DONE + nit review fixeado + commit 5f0d54b6 (hooks verdes) + lesson registrada
 Resultado: ✅
 Próxima acción: Ninguno en FIND-80. Siguiente: Wave8 (orquestador decide).
-Contrato: verificacion: cargo check --manifest-path fuzz/Cargo.toml --bins -j 2 exit 0 + actionlint exit 0 + git diff --check limpio + pre-commit hooks OK + review vanta-review approve; evidencia: claim 4 seeds 59B commiteados / evidencia fuzz/corpus/*/seed + check-ignore exit 1 + commit 5f0d54b6 / alta; claim upload ambos jobs / evidencia fuzz-40.yml:107-115,161-169 always()+warn, actionlint 0 / alta; claim doc fuzz-pr aditiva / evidencia docs/workflow/fuzz-40.md:63-70, ci-gate intacto / alta; claim bins 0 / evidencia cargo check 0.47s / alta; artefactos: commit 5f0d54b6 (7 files, 93+); invariantes: prohibidos intactos (solo 4 paths propios en commit); deuda: ninguna (internet no requerida — precedente repo heavy-bench-nightly-51.yml:82-88); queda_pendiente: orquestador: Backlog→avance via progreso (no tocado por race) + push via vanta-lead
+Contrato: verificacion: cargo check --manifest-path fuzz/Cargo.toml --bins -j 2 exit 0 + actionlint exit 0 + git diff --check limpio + pre-commit hooks OK + review vanta-review approve; evidencia: claim 4 seeds 59B commiteados / evidencia fuzz/corpus/*/seed + check-ignore exit 1 + commit 5f0d54b6 / alta; claim upload ambos jobs / evidencia fuzz-40.yml:107-115,161-169 always()+warn, actionlint 0 / alta; claim doc fuzz-pr aditiva / evidencia docs/dev/workflow/fuzz-40.md:63-70, ci-gate intacto / alta; claim bins 0 / evidencia cargo check 0.47s / alta; artefactos: commit 5f0d54b6 (7 files, 93+); invariantes: prohibidos intactos (solo 4 paths propios en commit); deuda: ninguna (internet no requerida — precedente repo heavy-bench-nightly-51.yml:82-88); queda_pendiente: orquestador: Backlog→avance via progreso (no tocado por race) + push via vanta-lead
 Próxima tarea si completa: FIND-74
 === END RECITATION ===
 

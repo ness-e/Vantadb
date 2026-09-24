@@ -31,7 +31,7 @@
 | `vantadb-python/src/` | ✅ (grep) | trampoline PyO3 cubre panics → evidencia §6 |
 | `vantadb-wasm/src/lib.rs` | ✅ (grep) | panic hook + trap JS → evidencia §6 |
 | `docs/user/operations/OBSERVABILITY.md` | ✅ NUEVO | — |
-| `docs/user/operations/CI_POLICY.md` | ✅ | nota post-jobs |
+| `docs/dev/operations/CI_POLICY.md` | ✅ | nota post-jobs |
 | `docs/api/ERROR_HANDLING.md` | ✅ | principio #6 |
 
 NO tocados (ajenos a esta tarea / otros agentes en paralelo): `desktop/`, `web/`, `vantadb-mcp/`, `src/server/bootstrap.rs` (fuera de mi lista de archivos; panic hook de subscriber queda como candidate si se quiere ERROR-level en panics de tasks fuera de tokio).
@@ -58,5 +58,5 @@ NO tocados (ajenos a esta tarea / otros agentes en paralelo): `desktop/`, `web/`
 
 ## Cierre
 - **Commit:** `feat(observability): Backtrace + tracing estructurado + docs OBSERVABILITY (ERR-OBS-01)`
-- **Files del commit:** `src/error.rs`, `src/server/errors.rs`, `docs/user/operations/OBSERVABILITY.md`, `docs/user/operations/CI_POLICY.md`, `docs/api/ERROR_HANDLING.md`, `docs/dev/Backlog.md` (FIND-53/54)
+- **Files del commit:** `src/error.rs`, `src/server/errors.rs`, `docs/user/operations/OBSERVABILITY.md`, `docs/dev/operations/CI_POLICY.md`, `docs/api/ERROR_HANDLING.md`, `docs/dev/Backlog.md` (FIND-53/54)
 - **Colateral NO stageado deliberadamente:** `completions/*`, `.opencode` (regla de tarea), `desktop/*` (ERR-DESK-01 en paralelo).

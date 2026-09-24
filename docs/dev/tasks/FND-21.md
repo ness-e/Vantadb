@@ -13,7 +13,7 @@ Escribir ADRs retroactivos para: (a) Fjall vs RocksDB como backend por defecto,
 
 ## Archivos clave
 
-- `docs/_templates/adr.md` (plantilla)
+- `docs/dev/_templates/adr.md` (plantilla)
 - `docs/dev/architecture/adr/` — ADRs existentes: `004_storage_backend.md`,
   `DRV-014-wal-batch-tradeoff.md`, `DRV-015-wal-async-roadmap.md`,
   `019_sparse_vector_persisted_format.md` (ADR-019 tomado)

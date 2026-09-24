@@ -29,7 +29,7 @@ CI enforces a code-coverage gate in `.github/workflows/ci-rust-10.yml`
   threshold is **workspace-wide line coverage ≥ 80%**; the step name is stale.
 - **Bindings:** `vantadb-wasm`, `vantadb-server`, `vantadb-mcp` are excluded
   from the coverage run entirely (experimental crates; see
-  `docs/user/operations/CI_POLICY.md`). Python bindings are independently gated by
+  `docs/dev/operations/CI_POLICY.md`). Python bindings are independently gated by
   their own suite: wrapper coverage ≥ 85% on `vantadb_py/__init__.py`
   (contract in plan 2026-08-09 Task 36; measured 96% at last run).
 
@@ -97,7 +97,7 @@ thresholds; the only hard threshold in CI is the workspace-wide 80% gate.
 ## Related
 
 - `.github/workflows/ci-rust-10.yml` (`coverage` job, lines 252–322)
-- `docs/user/operations/CI_POLICY.md` (experimental crate policy + COV-004 reference)
+- `docs/dev/operations/CI_POLICY.md` (experimental crate policy + COV-004 reference)
 - `Cargo.toml` (`[workspace].members`, `default-members`)
 - Plan 2026-08-09 Task 36 (COV-001, python wrapper coverage ≥ 85%)
 

@@ -33,13 +33,13 @@
 - **Estado:** ✅
 
 ### Step 3: Actualizar BLOG_SERIES_PLAN.md
-- **Archivos:** `docs/strategy/BLOG_SERIES_PLAN.md`
+- **Archivos:** `docs/dev/strategy/BLOG_SERIES_PLAN.md`
 - **Acción:** Status Summary 3/4 → 4/5; §1.2 agrega filas 4 y 5 + nota M1 resuelto; §1.3 nota benchmarks drafted; §4.3 fila 9 → Drafted (MKT-05).
 - **Verify:** diff 9 insertions / 5 deletions, solo los 2 archivos en el commit.
 - **Estado:** ✅
 
 ### Step 4: Commit
-- **Acción:** `git add docs/user/blog/benchmarks_vs_lancedb_chroma.md docs/strategy/BLOG_SERIES_PLAN.md && git commit -m "docs(MKT-05): add 5th pre-launch blog post on benchmarks"`
+- **Acción:** `git add docs/user/blog/benchmarks_vs_lancedb_chroma.md docs/dev/strategy/BLOG_SERIES_PLAN.md && git commit -m "docs(MKT-05): add 5th pre-launch blog post on benchmarks"`
 - **Verify:** commit bf5e6c1e (2 files, +133/-5). Pre-commit hooks pasaron.
 - **Estado:** ✅
 
@@ -49,7 +49,7 @@
 ## Notas
 - El run real del bench arrojó cifras MUY distintas a las publicadas en docs/user/operations/BENCHMARKS.md §7 (jun-2026): 241.4 QPS vs 24.3 QPS. Razón: metodología corregida (--batch-size 999 elimina el doble rebuild de HNSW) + estado del engine. El post documenta ambas cosas con transparencia.
 - Caveats del run reportados en el post: health check marcó CPU ~85% (números absolutos contaminados, comparación direccional válida) y Chroma completó 1/3 runs en Windows (file lock en cleanup). No se tocó competitive_bench.py (out of scope).
-- Se siguieron las reglas: solo docs/user/blog/ y docs/strategy/BLOG_SERIES_PLAN.md, sin push, sin tocar plan file, sin inventar cifras.
+- Se siguieron las reglas: solo docs/user/blog/ y docs/dev/strategy/BLOG_SERIES_PLAN.md, sin push, sin tocar plan file, sin inventar cifras.
 
 ## Context Save Point
 - **Fecha:** 2026-08-04T07:15

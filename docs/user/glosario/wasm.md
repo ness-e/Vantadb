@@ -17,4 +17,4 @@ Portable binary format executing at near-native speed in browsers and edge runti
 
 ## VantaDB context
 
-`vantadb-wasm` binding target; crash model in `docs/wasm/CRASH_MODEL.md`, API in `docs/api/WASM_API.md`.
+`vantadb-wasm` binding target; crash model in `docs/dev/wasm/CRASH_MODEL.md`, API in `docs/api/WASM_API.md`.

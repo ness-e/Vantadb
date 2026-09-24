@@ -36,7 +36,7 @@
 - `vantadb-python/pyproject.toml:7` (version 0.5.0), `:40-57` ([tool.maturin], module-name `vantadb_py`, include/exclude H-05), `:63-67` (pytest slow-marks FX-3)
 - `vantadb-python/Cargo.toml:3` (version.workspace), `:8` (publish=false), `:11` (lib name `vantadb_native`), `:15` (abi3-py311), `:24` (core dep path)
 - `.github/workflows/release-wheels-60.yml:3-19` (triggers: dispatch+PR+tag), `:41-57` (matriz 4 targets), `:94-95` (version_coherence gate), `:97-106` (maturin build), `:107-129` (smoke unix/windows), `:139-163` (publish-testpypi dispatch+`TEST_PYPI_API_TOKEN`/OIDC env testpypi), `:164-202` (publish-pypi en tag + attestations + attach release), `:204-310` (verify TestPyPI/PyPI install + provenance)
-- `docs/user/operations/CI_POLICY.md:424-431` (§9 workflow wheels: build+smoke, TestPyPI manual, PyPI diferido)
+- `docs/dev/operations/CI_POLICY.md:424-431` (§9 workflow wheels: build+smoke, TestPyPI manual, PyPI diferido)
 - `vantadb-python/verify_published_wheel.py:1-80` (smoke post-publish: version+put/get/list/search/caps/durabilidad)
 - `Cargo.toml:727-730` ([workspace.package] version 0.5.0, edition 2021, rust 1.94.1)
 
@@ -58,7 +58,7 @@
 ## REFERENCIAS
 
 - **Rules (lectura completa antes de actuar — HECHA):** `.opencode/rules/release-ci.md` (42L: allocators prod, sccache único, Dockerfile MSRV, version sync §4, continue-on-error+CATEGORY §5).
-- **Refs:** `.opencode/references/definition-of-done.md` (DoD standing + DoD VantaDB comandos + shippable trunk-based), `docs/user/operations/CI_POLICY.md` §9, `dev-tools.md` (vía AGENTS).
+- **Refs:** `.opencode/references/definition-of-done.md` (DoD standing + DoD VantaDB comandos + shippable trunk-based), `docs/dev/operations/CI_POLICY.md` §9, `dev-tools.md` (vía AGENTS).
 - **Commands:** `pipeline.md`, `audit.md`. **SPEC:** `SPEC.md` raíz. **Tabla Spec:** N/A (release/packaging, 0 greenfield).
 
 ## SKILLS (SDP Paso 0b — ejecutado, scores en tool result)

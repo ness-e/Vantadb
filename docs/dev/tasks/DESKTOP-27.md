@@ -7,7 +7,7 @@
 - **Estado:** ✅ COMPLETED
 
 ## Blast Radius
-Callers: docs/desktop/ (nuevo), docs/dev/architecture/adr/
+Callers: docs/user/desktop/ (nuevo), docs/dev/architecture/adr/
 Callees: ADR-026, ADR-027, ADR-028 (ya existen)
 Implicaciones: Documentación completa del modelo Studio para usuarios y desarrolladores
 
@@ -15,24 +15,24 @@ Implicaciones: Documentación completa del modelo Studio para usuarios y desarro
 N/A — documentación con contrato mecánico
 
 ## Contrato
-`ls docs/desktop/README.md docs/desktop/ARCHITECTURE.md` existen; ADR del modelo Studio revisado por vanta-arch; guía cubre nativo + server + wasm
+`ls docs/user/desktop/README.md docs/dev/desktop/ARCHITECTURE.md` existen; ADR del modelo Studio revisado por vanta-arch; guía cubre nativo + server + wasm
 
 ## Herramientas
 - cargo-mcp, rust-analyzer-mcp, codegraph
 
 ## Steps
 ### Step 1: Crear README desktop ✅
-- **Archivos:** `docs/desktop/README.md` (nuevo)
+- **Archivos:** `docs/user/desktop/README.md` (nuevo)
 - **Acción:** Documentar: instalación, modo transporte pluggable (nativo embebida / HTTP `/api/v2/*` / WASM-OPFS), comandos Tauri expuestos, desarrollo local, troubleshooting
 - **Verify:** Archivo existe y es legible
 
 ### Step 2: Crear ARCHITECTURE.md del modelo real ✅
-- **Archivos:** `docs/desktop/ARCHITECTURE.md` (nuevo)
+- **Archivos:** `docs/dev/desktop/ARCHITECTURE.md` (nuevo)
 - **Acción:** Documentar arquitectura: `ConnectionManager` (registry + active_id), transportes (NativeConnection, ServerConnection, WasmConnection), `ConnectionSelector` eliminado (ADMIN-03), path lock via NativeConnection, shutdown_all lifecycle. Referenciar ADR-026/027/028 — NO duplicar
 - **Verify:** Archivo existe y es consistente con código
 
 ### Step 3: Guía de usuario por modo de transporte ✅
-- **Archivos:** `docs/desktop/GUIDE.md` (nuevo)
+- **Archivos:** `docs/user/desktop/GUIDE.md` (nuevo)
 - **Acción:** Guías separadas: (1) Nativo embebido (default, máximo rendimiento), (2) Server HTTP (remoto, multi-usuario, auth Bearer), (3) WASM-OPFS (standalone, offline, demo). Capturas de pantalla opcionales
 - **Verify:** Guía cubre nativo + server + wasm
 

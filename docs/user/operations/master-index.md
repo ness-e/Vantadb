@@ -87,7 +87,7 @@ related: [CONFIGURATION.md, BENCHMARKS.md, CI_POLICY.md, TEST_MAP.md, DEPLOYMENT
 |------|-------------|
 | [master-index.md](master-index.md) | This index — canonical listing of all operations docs (self-indexed) |
 
-## docs/archive/ (referenced, not counted in 35)
+## docs/dev/archive/ (referenced, not counted in 35)
 
 | File | Description |
 |------|-------------|

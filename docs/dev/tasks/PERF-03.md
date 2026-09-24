@@ -23,23 +23,23 @@
 
 ## Impacto mapeado (Regla 0)
 
-- **Archivos leídos (completos):** `benchmarks/competitive_bench.py` (842 líneas), `benchmarks/README.md`, `benchmarks/vanta_benchmark_report.json`, `docs/benchmarks/COMPETITIVE_ANALYSIS.md`
+- **Archivos leídos (completos):** `benchmarks/competitive_bench.py` (842 líneas), `benchmarks/README.md`, `benchmarks/vanta_benchmark_report.json`, `docs/user/benchmarks/COMPETITIVE_ANALYSIS.md`
 - **Archivos referenciados hacia dentro (imports):** numpy, h5py, lancedb, chromadb, psutil, tabulate, vantadb_py (top-level); web consume `competitive-benchmark.json`
 - **Archivos que referencian a los editados (referencias entrantes):** `web/src/lib/vanta-data.ts` (JSON contract), `docs/user/operations/BENCHMARKS.md`, `benchmarks/README.md`
 - **Veredicto impacto:** MEDIO. Se extiende `competitive_bench.py` (reuso, no rewrite) y se marcan claims en `benchmarks/README.md`. El esquema JSON de salida se preserva. No se toca el árbol dirty de sesión previa.
 
 ## Contrato
-"`benchmarks/competitive_bench.py` corre en este HW (Python 3.11.9, vantadb_py+lancedb+chromadb+qdrant_client+pymilvus 2.5.18+milvus-lite 3.2.0 disponibles) produciendo tabla honesta publicada en `docs/benchmarks/COMPETITIVE_SDK_BENCH.md` con Vanta/Lance/Chroma/Qdrant/**Milvus** medidos; claims del README sin soporte local señalados."
+"`benchmarks/competitive_bench.py` corre en este HW (Python 3.11.9, vantadb_py+lancedb+chromadb+qdrant_client+pymilvus 2.5.18+milvus-lite 3.2.0 disponibles) produciendo tabla honesta publicada en `docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md` con Vanta/Lance/Chroma/Qdrant/**Milvus** medidos; claims del README sin soporte local señalados."
 
 ## Invariantes de dominio (handoff — MUST)
 
 - **Invariantes a preservar:** El esquema JSON `competitive-benchmark.json` (INV-007-B en `web/src/lib/vanta-data.ts`) no cambia. El harness sigue siendo reproducible sin docker (modos embedded local de Qdrant/milvus-lite). `docs/user/operations/BENCHMARKS.md` no se modifica por esta tarea.
-- **Comandos de verificación:** `python benchmarks/competitive_bench.py --dataset synthetic --size 2000 --queries 50 --engines vanta,lance,chroma,qdrant --json-output docs/benchmarks/competitive_sdk_bench.json --output benchmarks/_nonexistent.md --yes` produce tabla en stdout + JSON.
+- **Comandos de verificación:** `python benchmarks/competitive_bench.py --dataset synthetic --size 2000 --queries 50 --engines vanta,lance,chroma,qdrant --json-output docs/user/benchmarks/competitive_sdk_bench.json --output benchmarks/_nonexistent.md --yes` produce tabla en stdout + JSON.
 - **Deuda pendiente:** Milvus-frugal (milvus-lite) NO instalado en este HW → su función `bench_milvus` queda implementada y guardada por import, pero marcada "no medida" en la tabla honesta. Requiere `pip install milvus-lite` para medir.
 
 ## Recitation (canónico — estructura única)
 
-- activeGoal: PERF-03 — Bench competitivo de SDKs (VantaDB vs Qdrant/Chroma/Milvus-frugal), tabla honesta en docs/benchmarks/
+- activeGoal: PERF-03 — Bench competitivo de SDKs (VantaDB vs Qdrant/Chroma/Milvus-frugal), tabla honesta en docs/user/benchmarks/
 - lastAction: Discovery + lectura de harness existente y análisis competitivo previo
 - result: COMPLETE (Vanta/Lance/Chroma/Qdrant/Milvus medidos en mismo HW; tabla honesta publicada y JSON agregado actualizado)
 - nextAction: ninguna (fila Milvus cerrada); orquestador commitea y cierra la tarea
@@ -51,7 +51,7 @@ Saldo neto: 0. Se reusa competitive_bench.py (sin deuda nueva). bench_milvus añ
 
 ## Definition of Done
 - [x] Harness corrido y produce tabla (Vanta/Lance/Chroma/Qdrant medidos en mismo HW)
-- [x] Tabla honesta publicada en docs/benchmarks/COMPETITIVE_SDK_BENCH.md
+- [x] Tabla honesta publicada en docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md
 - [x] Milvus **medido** en este HW (synthetic 2K/50q/top-10 euclidean): Ingest 4644.8 QPS, Index 617.1 ms, Query 206.8 QPS, p50 4.718 ms, p99 6.654 ms, Recall@10 63.60%, Peak RSS 302.4 MB — ver `competitive_sdk_bench_milvus.json` y tabla agregada `competitive_sdk_bench.json`
 - [x] Harness `bench_milvus` adaptado a pymilvus>=2.5 (`IndexParams` + `release_collection` + `drop_index(index_name="vector")`) — requerido porque PyPI actual solo tiene milvus-lite 3.x (empareja con pymilvus 3.x, cuyo API dict de `create_index` ya no existe). No cambia qué se mide (HNSW M=16 / efConstruction=100).
 - [x] Claims del README sin soporte local señalados
@@ -62,7 +62,7 @@ Saldo neto: 0. Se reusa competitive_bench.py (sin deuda nueva). bench_milvus añ
 
 ## Investigation Notes
 - HW: Windows 11, Python 3.11.9. Importables: numpy, h5py, psutil, tabulate, vantadb_py, lancedb, chromadb, qdrant_client. NO importable: milvus_lite (ni pymilvus verificado).
-- `docs/benchmarks/COMPETITIVE_ANALYSIS.md` ya tiene números medidos (Jul 31 2026, 10K vectores, glove/sift) para Vanta/Lance/Chroma. El gap de la tarea es Qdrant y Milvus.
+- `docs/user/benchmarks/COMPETITIVE_ANALYSIS.md` ya tiene números medidos (Jul 31 2026, 10K vectores, glove/sift) para Vanta/Lance/Chroma. El gap de la tarea es Qdrant y Milvus.
 - Qdrant soporta modo embedded local (`QdrantClient(path=...)`) sin docker → reproducible. Milvus-frugal = `milvus-lite` (embedded) vía `MilvusClient(uri=path)`; ausente aquí.
 
 ## Incógnitas (uphill) vs Pendientes (downhill)
@@ -80,13 +80,13 @@ Saldo neto: 0. Se reusa competitive_bench.py (sin deuda nueva). bench_milvus añ
 - **Estado:** ⬜ PENDING
 
 ### Step 2: Correr harness en mismo HW (synthetic, small N) y capturar tabla
-- **Archivos:** `benchmarks/competitive_bench.py`, `docs/benchmarks/competitive_sdk_bench.json`
+- **Archivos:** `benchmarks/competitive_bench.py`, `docs/user/benchmarks/competitive_sdk_bench.json`
 - **Acción:** ejecutar con `--engines vanta,lance,chroma,qdrant --dataset synthetic --size 2000 --queries 50`; capturar stdout (tabla) + JSON.
 - **Verify:** proceso retorna 0 y emite tabla github; JSON escrito.
 - **Estado:** ⬜ PENDING
 
-### Step 3: Publicar tabla honesta en docs/benchmarks/COMPETITIVE_SDK_BENCH.md
-- **Archivos:** `docs/benchmarks/COMPETITIVE_SDK_BENCH.md` (nuevo)
+### Step 3: Publicar tabla honesta en docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md
+- **Archivos:** `docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md` (nuevo)
 - **Acción:** tabla medida (Vanta/Lance/Chroma/Qdrant) + fila Milvus marcada "no medida (milvus-lite ausente)"; metodología; nota de honestidad (no afirmar superioridad sin números); mapeo a claims del website.
 - **Verify:** archivo existe y contiene la tabla.
 - **Estado:** ⬜ PENDING

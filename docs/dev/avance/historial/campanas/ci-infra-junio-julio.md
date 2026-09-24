@@ -28,7 +28,7 @@ related: []
 - [x] Añadir `required-features = ["failpoints"]` a `chaos_integrity` (`Cargo.toml:201`)
   - [x] Actualizar Workflows y Políticas
     - [x] Modificar `heavy_certification.yml` para incluir `--features cli,arrow` y clasificar `mcp_tests`, `multilingual_tokenizer_integration`, `columnar`, `memory_telemetry` y `concurrent_insert_preserves_hnsw_invariants`
-- [x] Modificar `docs/user/operations/CI_POLICY.md`
+- [x] Modificar `docs/dev/operations/CI_POLICY.md`
 - [x] Dividir quick CI (<30min) de la heavy certification semanal (`aaf0428`)
 - [x] Reforzar la expresión de filtro de nextest (`a3c2c04`)
 - [x] Restaurar filtro estricto binary_id de nextest con features cli (`25dc38b`)

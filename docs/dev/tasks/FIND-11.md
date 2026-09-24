@@ -11,7 +11,7 @@
 ## Blast Radius
 | Callers | Callees | Implicaciones |
 |---|---|---|
-| `desktop/README.md` (nuevo) — sin callers | refs a `docs/desktop/*`, ADR-026/027/028, package.json scripts, src-tauri | File nuevo, cero riesgo |
+| `desktop/README.md` (nuevo) — sin callers | refs a `docs/user/desktop/*`, ADR-026/027/028, package.json scripts, src-tauri | File nuevo, cero riesgo |
 | `vantadb-ts/README.md` — referenciado por `docs/api/BINDINGS_NAMESPACES.md:7` (anchor `#domain-sub-clients`), `vantadb-ts/package.json` files (npm), progreso skill (tabla Trigger 1.A) | refs a `docs/user/QUICKSTART.md`, `docs/api/*`, `../vantadb-node` | Adición de secciones — anchors existentes intactos |
 
 ## Contrato
@@ -32,14 +32,14 @@
 ## Steps
 
 ### Step 1: DISCOVERY — verificar estado real desktop + wasm + npm
-- **Archivos:** `desktop/package.json`, `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml`, `desktop/src-tauri/src/lib.rs`, `desktop/src-tauri/src/connections/mod.rs`, `desktop/vite.config.ts`, `desktop/DESIGN_DECISIONS.md`, `vantadb-ts/README.md`, `vantadb-ts/src/native.ts`, `vantadb-ts/src/vantadb.ts`, `docs/desktop/README.md`, `docs/dev/architecture/adr/ADR-030-brand-identity-naming-convention.md`, `scripts/validate-docs-coverage.ps1`
+- **Archivos:** `desktop/package.json`, `desktop/src-tauri/tauri.conf.json`, `desktop/src-tauri/Cargo.toml`, `desktop/src-tauri/src/lib.rs`, `desktop/src-tauri/src/connections/mod.rs`, `desktop/vite.config.ts`, `desktop/DESIGN_DECISIONS.md`, `vantadb-ts/README.md`, `vantadb-ts/src/native.ts`, `vantadb-ts/src/vantadb.ts`, `docs/user/desktop/README.md`, `docs/dev/architecture/adr/ADR-030-brand-identity-naming-convention.md`, `scripts/validate-docs-coverage.ps1`
 - **Acción:** leídos completos (arriba). Hechos verificados: scripts reales (dev/build/build:wasm/preview/test/tauri), Tauri v2 (devUrl :1420, beforeDevCommand npm run dev, bundles nsis/msi), transporte triple (native embedded fjall / HTTP server / WASM-OPFS), lazy-load real (vite.config externaliza glue wasm en modos no-wasm → import nunca ejecuta; `--mode wasm` usa vite-plugin-wasm fetch+instantiate; `vantadb-node` se carga lazy vía `import("vantadb-node")` native.ts:113), bundle .wasm = 1,364,555 bytes (1.30 MB) en `vantadb-wasm/pkg/vantadb_wasm_bg.wasm`, npm `vantadb` publicado 0.5.0 / `vantadb-node` 404 nunca publicado (ADR-030:10, verificado FIND-17).
 - **Verify:** `Test-Path desktop/README.md` = False (no existe aún); `Test-Path vantadb-ts/README.md` = True
 - **Estado:** ✅ COMPLETED
 
 ### Step 2: Crear `desktop/README.md`
 - **Archivos:** `desktop/README.md` (nuevo)
-- **Acción:** Vanta Studio — consola human-facing desktop. Qué es, requisitos (Node ≥20, Rust ≥1.94.1, prereqs Tauri v2), instalación dev (`cd desktop && npm install`), ejecución (`npm run tauri dev` nativo / `npm run dev` HTTP / `npm run build:wasm` standalone), tabla transporte (native embebida / HTTP / WASM-OPFS), scripts package.json, advertencia instalador público pendiente (bundles nsis/msi configurados, sin canal público), links a `docs/desktop/README.md`/ARCHITECTURE/GUIDE + ADRs. Inglés.
+- **Acción:** Vanta Studio — consola human-facing desktop. Qué es, requisitos (Node ≥20, Rust ≥1.94.1, prereqs Tauri v2), instalación dev (`cd desktop && npm install`), ejecución (`npm run tauri dev` nativo / `npm run dev` HTTP / `npm run build:wasm` standalone), tabla transporte (native embebida / HTTP / WASM-OPFS), scripts package.json, advertencia instalador público pendiente (bundles nsis/msi configurados, sin canal público), links a `docs/user/desktop/README.md`/ARCHITECTURE/GUIDE + ADRs. Inglés.
 - **Verify:** `Test-Path desktop/README.md` = True; grep "tauri dev" y "public installer" y "install" presentes
 - **Estado:** ✅ COMPLETED
 
@@ -61,13 +61,13 @@
 ## Notas
 - NO COMMIT — el lead verifica mecánico y commitea por tarea (regla del plan).
 - CodeGraph auto-sync deshabilitado → todo por lectura directa (plan file nota).
-- `docs/desktop/README.md` YA existe y cubre instalación/transportes a nivel docs/ — el entregable `desktop/README.md` es la raíz de la app (nuevo), con el detalle dev/scripts/instalador; no duplicar el contenido de docs/ sino enlazarlo.
+- `docs/user/desktop/README.md` YA existe y cubre instalación/transportes a nivel docs/ — el entregable `desktop/README.md` es la raíz de la app (nuevo), con el detalle dev/scripts/instalador; no duplicar el contenido de docs/ sino enlazarlo.
 - Regla 11 (AI Guardian): el tamaño del bundle es un número medido (1,364,555 bytes verificado con Get-ChildItem) — citar el path, no adjetivos.
 
 ## Context Save Point
 - **Fecha:** 2026-08-25T12:30
 - **Branch:** develop
 - **CI pendiente:** sí (lead: verify + commit)
-- **Decisiones:** lazy-load nota en vantadb-ts/README.md (no docs/) porque es el README npm-facing; npm clarification misma ubicación (ADR-030 como fuente); desktop/README.md enlaza docs/desktop/ sin duplicar
+- **Decisiones:** lazy-load nota en vantadb-ts/README.md (no docs/) porque es el README npm-facing; npm clarification misma ubicación (ADR-030 como fuente); desktop/README.md enlaza docs/user/desktop/ sin duplicar
 - **Problemas conocidos:** WIP guard del server bloqueó el claim in-progress (TIR-08 corría en paralelo) — trabajo registrado en task file igual; resuelto al cierre vía update completed exitoso
 - **Próxima tarea:** Lead: verify + commit FIND-11 (solo desktop/README.md + vantadb-ts/README.md + FIND-11.md); luego Wave 2 (DAUD-limpi / E2E+visual)

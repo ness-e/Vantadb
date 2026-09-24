@@ -10,13 +10,13 @@
 - **Gate D (question-gates):** NO disparado — blast radius 3 archivos, sin hot path, sin símbolos `pub` nuevos, sin API pública, contrato no ambiguo (seed mínimo + upload + doc + bins). Tipo devops → gate mecánico spec-first no aplica (sin lógica nueva).
 
 ## Impacto mapeado (Regla 0)
-- **Archivos leídos completos:** `.github/workflows/fuzz-40.yml` (149L), `docs/workflow/fuzz-40.md` (61L), `fuzz/Cargo.toml` (48L), `fuzz/fuzz_targets/fuzz_parser.rs` (23L), `fuzz/fuzz_targets/fuzz_node_deserialize.rs` (21L), `fuzz/fuzz_targets/fuzz_wal.rs` (25L), `fuzz/fuzz_targets/fuzz_archive.rs` (20L)
+- **Archivos leídos completos:** `.github/workflows/fuzz-40.yml` (149L), `docs/dev/workflow/fuzz-40.md` (61L), `fuzz/Cargo.toml` (48L), `fuzz/fuzz_targets/fuzz_parser.rs` (23L), `fuzz/fuzz_targets/fuzz_node_deserialize.rs` (21L), `fuzz/fuzz_targets/fuzz_wal.rs` (25L), `fuzz/fuzz_targets/fuzz_archive.rs` (20L)
 - **Referencias hacia dentro:** yml `fuzz` job usa `fuzz/corpus/<target>` como cache path (`:91`); `fuzz-pr` job idem (`:138`); doc describe jobs `build`+`fuzz` y ci-gate; `fuzz/Cargo.toml` declara 4 bins con harness `fuzz_target!` (los 4 verificados con harness real)
-- **Referencias entrantes:** ningún workflow depende de `fuzz/corpus/` en disco (cache-only hoy); `docs/workflow/fuzz-40.md` referenciado por índice de workflows; `fuzz-40.yml` referenciado por plan FIND-80 únicamente
+- **Referencias entrantes:** ningún workflow depende de `fuzz/corpus/` en disco (cache-only hoy); `docs/dev/workflow/fuzz-40.md` referenciado por índice de workflows; `fuzz-40.yml` referenciado por plan FIND-80 únicamente
 - **Veredicto de impacto:** BAJO — aditivo (seeds nuevos + steps yml aditivos con `if-no-files-found: warn` + sección doc aditiva). Sin cambios de lógica Rust, sin features, sin permisos nuevos (upload-artifact no requiere scopes extra). Rollback = revert commit.
 
 ## Contrato
-Seed mínimo commiteado en `fuzz/corpus/` + upload corpus/crashes en `fuzz-40.yml` + doc fuzz-pr en `docs/workflow/fuzz-40.md` + `cargo check --manifest-path fuzz/Cargo.toml --bins` exit 0.
+Seed mínimo commiteado en `fuzz/corpus/` + upload corpus/crashes en `fuzz-40.yml` + doc fuzz-pr en `docs/dev/workflow/fuzz-40.md` + `cargo check --manifest-path fuzz/Cargo.toml --bins` exit 0.
 
 ## Herramientas
 - `cargo check --manifest-path fuzz/Cargo.toml --bins -j 2`
@@ -37,8 +37,8 @@ Seed mínimo commiteado en `fuzz/corpus/` + upload corpus/crashes en `fuzz-40.ym
 - **Verify:** `actionlint` (o parse YAML) + `git diff --check`
 - **Estado:** ✅ DONE (actionlint exit 0; YAML parse OK jobs build/ci-gate/fuzz/fuzz-pr; diff-check limpio)
 
-### Step 3: Doc `fuzz-pr` en `docs/workflow/fuzz-40.md`
-- **Archivos:** `docs/workflow/fuzz-40.md` (solo añadir sección, NO reescribir; ci-gate `:54-61` intacto)
+### Step 3: Doc `fuzz-pr` en `docs/dev/workflow/fuzz-40.md`
+- **Archivos:** `docs/dev/workflow/fuzz-40.md` (solo añadir sección, NO reescribir; ci-gate `:54-61` intacto)
 - **Acción:** añadir sección `fuzz-pr` (gate PR: 75s/target, Ubuntu-only, paths `src/**`+`fuzz/**`) + sección artefactos (qué se sube, dónde verlo). Sin tocar lo existente.
 - **Verify:** `git diff --check` + links/paths citados existen
 - **Estado:** ✅ DONE (aditiva, ci-gate intacto; diff-check limpio)

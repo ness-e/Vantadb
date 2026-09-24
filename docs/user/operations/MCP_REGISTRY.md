@@ -123,6 +123,6 @@ For every release:
 
 - [`docs/api/MCP.md`](../../api/MCP.md) — VantaDB MCP server reference (tools, config, profiles).
 - [`docs/user/operations/EDITOR_INTEGRATIONS.md`](EDITOR_INTEGRATIONS.md) — How to wire VantaDB MCP into Cursor, VS Code, OpenCode, etc.
-- [`docs/user/operations/CI_POLICY.md`](CI_POLICY.md) — CI/certification policy (note: `server.json` is **not** a CI gate today).
+- [`docs/dev/operations/CI_POLICY.md`](CI_POLICY.md) — CI/certification policy (note: `server.json` is **not** a CI gate today).
 - [Official MCP registry](https://registry.modelcontextprotocol.io/) — Public listing.
 - [MCP spec](https://modelcontextprotocol.io/) — Protocol definition.

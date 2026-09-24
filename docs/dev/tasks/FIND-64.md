@@ -12,7 +12,7 @@
 > Sugeridas del plan: `ci-cd-and-automation` ✅ cargada, `git-workflow-and-versioning` ✅ cargada (commit `ci:`).
 > **SKILLS_CARGADAS:** ci-cd-and-automation, git-workflow-and-versioning (+ base campaign-executor, progreso, ponytail full)
 > **Referencias:** `.opencode/rules/release-ci.md` (leída — reglas 2/5 aplican: sin sccache duplicado, sin `continue-on-error` nuevo),
-> `docs/user/operations/CI_POLICY.md` (contexto two-tier Fast Gate; paths citados en `:157,438`). Sin símbolos → sin Spec.
+> `docs/dev/operations/CI_POLICY.md` (contexto two-tier Fast Gate; paths citados en `:157,438`). Sin símbolos → sin Spec.
 > **Deuda previa (fuera de scope, no tocar):** `DeprecationWarning` `vantadb_py` en adapters (viene del scope 2026-09-07).
 
 ## HALLAZGO — divergencia task file STALE (reportada, no silenciada)

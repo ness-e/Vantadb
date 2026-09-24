@@ -62,7 +62,7 @@ Nota de citado: todas las referencias son `archivo:línea`. Donde una sección d
 | 28 | **ADR para decisiones significativas** | `decisions.md` ADR-light en memoria del agente | No integrado con `docs/dev/architecture/adr/` del repo | Duplicar decisión relevante a ADR del repo cuando es arquitectónica (`AGENTS.md` Regla 5) |
 | 29 | **DoD por nivel (task/PR/release)** | RULES.md invariantes + `verify*.ps1` | DoD no es una checklist visible por nivel de cambio | Plantilla DoD por nivel al crear PR de tarea (`eng-03-project.md:151-159`) |
 | 30 | **Reporte de progreso honesto** | Recitation binario (in-progress/completed/failed) | Sin hill chart; "no sabe lo que no sabe" invisible | Contador de incógnitas en estado de tarea (P2-3) |
-| 31 | **Postmortem blameless (errores)** | `docs/references/troubleshooting.md` captura síntomas; `decisions.md` captura decisiones | Sin timeline/impacto/owner en incidentes del pipeline | Plantilla de postmortem en `progreso` (P2-2) |
+| 31 | **Postmortem blameless (errores)** | `docs/dev/references/troubleshooting.md` captura síntomas; `decisions.md` captura decisiones | Sin timeline/impacto/owner en incidentes del pipeline | Plantilla de postmortem en `progreso` (P2-2) |
 | 32 | **Small batches / merging diario** | pipeline canónico una tarea por ciclo; `git up` + PR a main por feature | La tarea se "cierra" sin merge; el PR/CI a main queda fuera del loop | DoD de tarea incluye "PR en main con CI verde" (P3) |
 | 33 | **Contexto / memoria externa** | `lessons.md` + `decisions.md` son la memoria externa del agente | Sin enlace entre el aprendizaje y la tarea que lo produjo | Guardar `taskID` en cada escritura de memoria |
 | 34 | **Estimación con tiers** | `campaign_detect_task_type` con effort 🟢🟡🔴 | El esfuerzo no se compara contra el gasto real (planning fallacy) | Log de effort estimado vs real por tipo (P3-2) |
@@ -96,7 +96,7 @@ Nota de citado: todas las referencias son `archivo:línea`. Donde una sección d
 13. **Blast-radius y call paths disponibles vía CodeGraph.** `codegraph_explore` con call paths y blast radius en una llamada (`AGENTS.md` CodeGraph) → implementa el "issue tree / MECE" y el mapeo de dependencias de `eng-02-systems.md:111-117` sin re-lectura masiva.
 14. **Análisis de causa raíz multi-técnica documentado.** El sistema hereda las skills `systematic-debugging` y `debugging-and-error-recovery` con fases (repro → patrones → fix & verify → root cause), alineadas con el protocolo de 28 pasos de `eng-02-systems.md:393-439`. La "regla de tres" ya figura como principio (cuestionar arquitectura tras 3 fixes, `eng-02-systems.md:427`).
 15. **Gate CI real de dos niveles.** Fast gate (<5 min, determinístico) + Heavy certification (hasta 2 h, manual/scheduled) (`AGENTS.md` CI Architecture) → shift-left + quality gates de `eng-01-software.md:223-244` con separación correcta de tiempos.
-16. **Postmortem de código en la cultura.** `docs/references/troubleshooting.md` y los ADR del repo capturan incidentes y decisiones con formato de secciones → base ya construida para el postmortem blameless de `eng-03-project.md:257-265`.
+16. **Postmortem de código en la cultura.** `docs/dev/references/troubleshooting.md` y los ADR del repo capturan incidentes y decisiones con formato de secciones → base ya construida para el postmortem blameless de `eng-03-project.md:257-265`.
 17. **Verificación determinista con `campaign_verify_cmd`.** El pipeline expone una tool que ejecuta comandos de verificación y registra exit code esperado (`campaign_verify_cmd` en `state-tools.mjs:21`, `verify` en `RULES.md`) → test automatizable "a voluntad" como pide `eng-02-systems.md:411` para el repro.
 18. **Cierre explícito (CLOSE) con commit.** El estado `CLOSE` (`state-tools.mjs:50-54`) permite `bash` para commit y cierre, lo que concreta "cada tarea se cierra con su commit y su documentación" (`eng-01-software.md:155`).
 19. **Enforcement de `skill` como tool de estado.** `skill` está en `allowed` de PLAN/ACT/REVIEW/ACCEPT/CLOSE (`state-tools.mjs:11,16,41,46,51`) → la carga de skills obligatoria de `AGENTS.md` tiene acompañamiento de tooling, no solo cultura.
@@ -198,7 +198,7 @@ Nota de citado: todas las referencias son `archivo:línea`. Donde una sección d
 
 | # | Mejora | Impacto | Esfuerzo | Archivo objetivo |
 |---|---|---|---|---|
-| P0-1 | **Harness de evals del pipeline**: log por tarea (tipo, intentos, veredicto de verify, resultado) → comparación contra North Star de `RULES.md`; salida a `docs/reports/`. | Hace medible la promesa central; habilitador de todas las métricas posteriores | 🟡 2-4 h | nuevo `evals/` + `campaign-server.mjs` + `pipeline-run.md` |
+| P0-1 | **Harness de evals del pipeline**: log por tarea (tipo, intentos, veredicto de verify, resultado) → comparación contra North Star de `RULES.md`; salida a `docs/dev/reports/`. | Hace medible la promesa central; habilitador de todas las métricas posteriores | 🟡 2-4 h | nuevo `evals/` + `campaign-server.mjs` + `pipeline-run.md` |
 | P0-2 | **Fuente única de estados**: generar prose (`iter-loop-tools.md`) y diagram (`SKILL.md`) desde `state-tools.mjs`, o test de paridad que falle si divergen. Mata la divergencia real ya existente (STALL). | Elimina el riesgo de drift en el enforcement | 🟡 2-4 h | `config/state-tools.mjs` + test unitario |
 
 ### P1 — pronto (impacto alto, esfuerzo medio)
@@ -224,7 +224,7 @@ Nota de citado: todas las referencias son `archivo:línea`. Donde una sección d
 
 | # | Mejora | Impacto | Esfuerzo | Archivo objetivo |
 |---|---|---|---|---|
-| P3-1 | **Métricas DORA por entrega de agente**: lead time del slice, rework (reabiertos), recovery | Baseline honesto de eficiencia | 🟡 2-4 h | `progreso` + `docs/reports/INDEX.md` |
+| P3-1 | **Métricas DORA por entrega de agente**: lead time del slice, rework (reabiertos), recovery | Baseline honesto de eficiencia | 🟡 2-4 h | `progreso` + `docs/dev/reports/INDEX.md` |
 | P3-2 | **Estimación relativa calibrada con histórico** en la autodetección 🟢🟡🔴 (guardar esfuerzo real por tipo) | Reduce la planning fallacy (`eng-03-project.md:87-90`) | 🟡 2-4 h | `campaign_detect_task_type` + memoria |
 | P3-3 | **Gate de calidad de tests (mutation / pirámide)** en tareas de lógica (mutation score ≥70%, cobertura ≥80%, `eng-01-software.md:132-144`) | Tests que verifican algo, no tests muertos | 🔴 4-8 h | `verify.ps1` / check experimental |
 | P3-4 | **Contraste de decisión con validation web**: antes de `campaign_memory_write(decisions)`, validar con websearch/webfetch la base fáctica (`AGENTS.md` Validation Rule) | Menos decisiones mal fundadas persistidas | 🟢 1 h | `campaign-server.mjs` / `AGENTS.md` |

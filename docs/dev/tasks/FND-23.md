@@ -24,7 +24,7 @@
 ## Impacto mapeado (Regla 0)
 
 - **Archivos leídos (completos):**
-  - `docs/_templates/adr.md` (plantilla ADR)
+  - `docs/dev/_templates/adr.md` (plantilla ADR)
   - `docs/dev/architecture/adr/ADR-023-backend-compaction.md` (modelo de ADR con señal de reapertura)
   - `docs/dev/architecture/adr/ADR-020-storage-backend-default.md` (modelo de ADR con evidencia file:line)
   - `src/metrics/core/registry.rs` (1168 líneas — inventario completo de métricas)
@@ -121,7 +121,7 @@ contract:
 
 ### Step 4: Escribir ADR-024
 - **Archivos:** `docs/dev/architecture/adr/ADR-024-graph-engine-default-telemetry.md` (NUEVO)
-- **Acción:** escribir ADR con plantilla `docs/_templates/adr.md`: decisión explícita (default-on hasta evidencia), métrica pendiente `vanta_graph_ops_total` + proxies existentes, umbral + acción, señal de reapertura, estado de instrumentación honesto.
+- **Acción:** escribir ADR con plantilla `docs/dev/_templates/adr.md`: decisión explícita (default-on hasta evidencia), métrica pendiente `vanta_graph_ops_total` + proxies existentes, umbral + acción, señal de reapertura, estado de instrumentación honesto.
 - **Verify:** numeración tras ADR-023 (ADR-024); grep de métricas citadas
 - **Estado:** ✅
 

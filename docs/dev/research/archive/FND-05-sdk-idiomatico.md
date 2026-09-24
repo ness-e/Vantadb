@@ -123,11 +123,11 @@ tiene `guards.ts` que ya valida el shape — el trabajo de normalización (`"en"
 
 ## 4. Prototipos idiomáticos
 
-Dos archivos de ejemplo en `docs/examples/` (NO modifican el SDK):
+Dos archivos de ejemplo en `docs/user/examples/` (NO modifican el SDK):
 
 ### 4.1 Python — `with VantaDB(path) as db:` (FND-05 gap PY-4)
 
-`docs/examples/fnd05_python_context_manager.py`
+`docs/user/examples/fnd05_python_context_manager.py`
 
 Subclase de `VantaDB` que añade `__enter__`/`__exit__` llamando `close()` — el patrón
 `open()`/`socket` (CM que libera el recurso), que es el correcto para VantaDB porque
@@ -138,7 +138,7 @@ se demuestra). Comentario del cambio que haría falta en `src/lib.rs` (agregar
 
 ### 4.2 TypeScript — `await using db` (FND-05 gap TS-2)
 
-`docs/examples/fnd05-ts-async-dispose.ts`
+`docs/user/examples/fnd05-ts-async-dispose.ts`
 
 Wrapper `DisposableVantaDB` sobre `NativeVantaDB` que implementa
 `[Symbol.asyncDispose]` → permite `await using db = await connectVantaDB(path)` con

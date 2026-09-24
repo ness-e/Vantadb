@@ -31,9 +31,9 @@ related: []
 
 | ID | Tarea | Archivos | Resultado |
 |----|-------|----------|-----------|
-| `DOC-20` | mdBook adoption for docs site | `docs/book/book.toml`, `docs/book/src/SUMMARY.md`, 73 `{{#include}}` stubs | ✅ `1f9f681d` — mdBook con 9 secciones (User Guides, API, Architecture, Operations, Strategy, Reference, Blog, Case Studies, Project). Cero duplicación de contenido existente. 83 páginas HTML generadas. |
+| `DOC-20` | mdBook adoption for docs site | `docs/user/book/book.toml`, `docs/user/book/src/SUMMARY.md`, 73 `{{#include}}` stubs | ✅ `1f9f681d` — mdBook con 9 secciones (User Guides, API, Architecture, Operations, Strategy, Reference, Blog, Case Studies, Project). Cero duplicación de contenido existente. 83 páginas HTML generadas. |
 
-**Verificación:** `mdbook build docs/book/` ✅ — 83 archivos en `docs/book/book/`, `index.html` funcional.
+**Verificación:** `mdbook build docs/user/book/` ✅ — 83 archivos en `docs/user/book/book/`, `index.html` funcional.
 
 ### 2026-07-25 — P4 Engineering Health Wave 0: WEB-03 (batching async de fsyncs WAL)
 
@@ -148,7 +148,7 @@ related: []
 | `TSK-106` | Habilitar GitHub Discussions | ✅ Ya estaba habilitado (`has_discussions: true`). Sin cambios. |
 | `MKT-03` | Show HN draft → v0.4.0 | ✅ Draft actualizado con APIs correctas (`put`, `search_memory`) y links a PyPI/docs |
 | `NUEVO-21` | Vectara competitive research | ✅ Reporte en `docs/dev/research/vectara-competitive-research-2026-07-27.md`. Hallazgo: Vectara cerró self-service → gap para local-first |
-| `MKT-04` | Reddit posts (3 subreddits) | ✅ 3 drafts en `docs/strategy/REDDIT_POSTS.md` (r/rust, r/MachineLearning, r/LocalLLaMA) |
+| `MKT-04` | Reddit posts (3 subreddits) | ✅ 3 drafts en `docs/dev/strategy/REDDIT_POSTS.md` (r/rust, r/MachineLearning, r/LocalLLaMA) |
 | `TSK-107` | Community showcase page | ✅ 6 items actualizados: apuntan a ejemplos reales (LangGraph, AutoGen, Haystack, CrewAI, Rust hybrid, GraphRAG) |
 | `COM-03` | Discord forums + AutoMod | ⚠️ Parcial: 9 threads seedeados (FAQ/Showcase/Ideas/Bug). AutoMod/stickers/emojis requieren Discord UI manual |
 | `COM-04` | Discord stage + ticketing | ⚠️ Parcial: Stage channel creado. Ticketing, Server Discovery (1000+ miembros), Canny.io requieren pasos externos |
@@ -156,11 +156,11 @@ related: []
 
 **Archivos creados/modificados:**
 - `docs/dev/research/vectara-competitive-research-2026-07-27.md` (nuevo)
-- `docs/strategy/SHOW_HN_PREP.md` (actualizado)
-- `docs/strategy/REDDIT_POSTS.md` (nuevo)
+- `docs/dev/strategy/SHOW_HN_PREP.md` (actualizado)
+- `docs/dev/strategy/REDDIT_POSTS.md` (nuevo)
 - `web/src/app/showcase/page.tsx` (actualizado)
-- `docs/discord/todo.md` (actualizado)
-- `docs/discord/server-config.md` (actualizado)
+- `docs/user/discord/todo.md` (actualizado)
+- `docs/user/discord/server-config.md` (actualizado)
 
 **Ids:** `TSK-106`, `MKT-03`, `NUEVO-21`, `MKT-04`, `TSK-107`, `COM-03`, `COM-04`
 

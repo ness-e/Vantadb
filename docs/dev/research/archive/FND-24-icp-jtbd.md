@@ -22,7 +22,7 @@ La pregunta de FND-24 es doble:
 | GitHub forks | 0 | `investigacion-equipo-2026-08-09.md:119` |
 | crates.io descargas | 32 | `investigacion-equipo-2026-08-09.md:120` |
 | crates.io dependents | **0** | `investigacion-equipo-2026-08-09.md:120` |
-| Show HN | No ocurrió aún (planificado sept 2026) | `docs/strategy/SHOW_HN_PREP.md`, `VantaDB_Manual_Estrategico_Unificado.md:612` |
+| Show HN | No ocurrió aún (planificado sept 2026) | `docs/dev/strategy/SHOW_HN_PREP.md`, `VantaDB_Manual_Estrategico_Unificado.md:612` |
 
 > **Implicación operativa:** todo lo que sigue son **hipótesis** que el Show HN + pilot program deben confirmar o descartar. No hay entrevistas, testimonios, ni issues de usuarios que citar. No se inventa evidencia donde no existe (regla explícita de FND-24).
 
@@ -50,7 +50,7 @@ Derivado de los documentos de posicionamiento. Cada perfil se etiqueta con su fu
 
 | Atributo | Valor | Fuente |
 |---|---|---|
-| **Rol** | ML/AI engineer construyendo agentes autónomos | `docs/vision/VISION.md:54` |
+| **Rol** | ML/AI engineer construyendo agentes autónomos | `docs/dev/vision/VISION.md:54` |
 | **Stack** | Python + LangChain/LlamaIndex/CrewAI/LangGraph + Ollama (LLM local) | `VISION.md:56`, `GO_TO_MARKET.md:166` |
 | **Dolor** | "Mi agente olvida todo entre sesiones"; ChromaDB pierde datos en crash; PostgresSaver caro en prod | `VISION.md:61-64`, `GO_TO_MARKET.md:167` |
 | **Alternativa actual** | ChromaDB (memoria) + SQLite (metadata); InMemorySaver dev / PostgresSaver prod | `GO_TO_MARKET.md:167-172` |
@@ -83,7 +83,7 @@ El único documento que describe criterios *seleccionables* de perfil es el PILO
 
 | Criterio | Valor | Fuente |
 |---|---|---|
-| Equipos construyendo **local-first AI agents** con ≥1 de: memoria durable, fricción de compilación C++, latencia <50ms, requisito local-first | `docs/user/operations/PILOT_PROGRAM.md:38-43` | hipótesis |
+| Equipos construyendo **local-first AI agents** con ≥1 de: memoria durable, fricción de compilación C++, latencia <50ms, requisito local-first | `docs/dev/operations/PILOT_PROGRAM.md:38-43` | hipótesis |
 | Must-have: proyecto activo con embeddings/RAG + disponibilidad para feedback | `PILOT_PROGRAM.md:47-48` | hipótesis |
 | Nice-to-have: ya probó Chroma/FAISS/LanceDB/Qdrant; Windows/ARM macOS; multi-usuario | `PILOT_PROGRAM.md:53-55` | hipótesis |
 
@@ -141,11 +141,11 @@ Jobs funcionales, emocionales y sociales. Todos son hipótesis del autor (etique
 | Claim | Fuente (local, verificada por lectura) | Etiqueta |
 |---|---|---|
 | VantaDB es para AI agents, RAG local y edge apps | `README.md:34` | `hipótesis: claim de posicionamiento del creador` |
-| ICP primario = AI Agent Developer (LangChain/LlamaIndex/CrewAI) | `docs/vision/VISION.md:52-58` | `hipótesis: claim del creador` |
+| ICP primario = AI Agent Developer (LangChain/LlamaIndex/CrewAI) | `docs/dev/vision/VISION.md:52-58` | `hipótesis: claim del creador` |
 | Pains citados ("olvida entre sesiones", "ChromaDB perdió datos") | `VISION.md:61-64` | `hipótesis: sin evidencia de usuario — pains presumidos` |
-| 3 verticales de mercado (Local LLM, Agentic, IDE) | `docs/strategy/GO_TO_MARKET.md:140-191` | `hipótesis: análisis del creador, sin datos de usuario` |
-| Audiencia objetivo del Show HN = devs de agentes locales | `docs/strategy/SHOW_HN_PREP.md:23-34` | `hipótesis: audiencia asumida, HN no ocurrió` |
-| Early adopter profile seleccionable | `docs/user/operations/PILOT_PROGRAM.md:34-61` | `hipótesis: criterios del creador, programa sin participantes confirmados` |
+| 3 verticales de mercado (Local LLM, Agentic, IDE) | `docs/dev/strategy/GO_TO_MARKET.md:140-191` | `hipótesis: análisis del creador, sin datos de usuario` |
+| Audiencia objetivo del Show HN = devs de agentes locales | `docs/dev/strategy/SHOW_HN_PREP.md:23-34` | `hipótesis: audiencia asumida, HN no ocurrió` |
+| Early adopter profile seleccionable | `docs/dev/operations/PILOT_PROGRAM.md:34-61` | `hipótesis: criterios del creador, programa sin participantes confirmados` |
 | Perfil de reportador de issues (Python/CLI/server + OS) | `.github/ISSUE_TEMPLATE/bug_report.yml` | `hipótesis: estructura, no datos` |
 | **No hay usuarios reales: 2 stars / 0 forks / 32 descargas / 0 dependents** | `docs/dev/research/investigacion-equipo-2026-08-09.md:119-124` | `evidencia: dato verificado del repo (2026-08-09)` |
 | "NADIE ha encontrado el proyecto orgánicamente" | `VantaDB_Manual_Estrategico_Unificado.md:1043` | `evidencia: diagnóstico externo documentado` |
@@ -187,8 +187,8 @@ Jobs funcionales, emocionales y sociales. Todos son hipótesis del autor (etique
 
 - `docs/dev/Backlog.md:518` — FND-24 (fuente de la tarea)
 - `docs/dev/research/investigacion-equipo-2026-08-09.md` — estado de adopción real
-- `docs/strategy/SHOW_HN_PREP.md` — draft Show HN + Q&A defensiva
-- `docs/strategy/GO_TO_MARKET.md` — 3 verticales GTM
-- `docs/vision/VISION.md` — ICP/UVP/claims
-- `docs/user/operations/PILOT_PROGRAM.md` — programa de pilot (instrumento de validación)
+- `docs/dev/strategy/SHOW_HN_PREP.md` — draft Show HN + Q&A defensiva
+- `docs/dev/strategy/GO_TO_MARKET.md` — 3 verticales GTM
+- `docs/dev/vision/VISION.md` — ICP/UVP/claims
+- `docs/dev/operations/PILOT_PROGRAM.md` — programa de pilot (instrumento de validación)
 - `VantaDB_Manual_Estrategico_Unificado.md` — plan C11 (design partners), diagnóstico de adopción

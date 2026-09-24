@@ -20,7 +20,7 @@ members = [".", "vantadb-python", "vantadb-server", "vantadb-mcp", "vantadb-wasm
 default-members = [".", "vantadb-python"]
 # CATEGORY: EXPERIMENTAL — vantadb-server, vantadb-mcp, vantadb-wasm were removed from
 # default-members. A failure in an experimental crate must not block core CI.
-# See docs/user/operations/CI_POLICY.md for the experimental crate policy.
+# See docs/dev/operations/CI_POLICY.md for the experimental crate policy.
 ```
 
 `server / mcp / wasm / memory / proxy` are full workspace members but **outside** `default-members`
@@ -55,7 +55,7 @@ clean runs (`cargo clean` / `npm ci`) with **zero flaky**, on a clean runner, wi
 | 6 | **package metadata** | `cargo package -p <crate> --dry-run` (`publish = false` is allowed — gate checks metadata, not publishability) | exit `0`, no missing `description`/`license`/`readme` |
 | 7 | **wasm toolchain** | For `vantadb-wasm` only: `rustup target add wasm32-unknown-unknown` present in CI image **and** `wasm-pack build --target bundler` **and** `cargo test --target wasm32-unknown-unknown` (or `wasm-pack test --node` / `--chrome --headless` where applicable) | `wasm-pack build` succeeds, `wasm32` target installed, no missing `wasm-bindgen` |
 | 8 | **node matrix** | For `vantadb-node` only: `napi build --platform` 7-target matrix via `.github/workflows/release-npm-node.yml` (x86_64-pc-windows-msvc + x86_64-unknown-linux-gnu + x86_64-unknown-linux-musl + aarch64-unknown-linux-gnu + aarch64-unknown-linux-musl + x86_64-apple-darwin + aarch64-apple-darwin) with artifact upload, `npm pack` includes `*.node` | 7 artifacts present, `npm pack` tarball contains `.node` binary |
-| 9 | **Fast Gate wall time** | `just verify` / `dev-tools/verify.ps1` (and `dev-tools/verify_changed.ps1`) with `default-members` **expanded** to `[ ".", "vantadb-python", "vanta-memory", "vanta-proxy", "vantadb-server", "vantadb-mcp", "vantadb-wasm" ]` on a cold cache, branch `test/default-all`, measured on `ubuntu-latest` | Wall time `<5 min` → stays in Fast Gate; else re-label as **Heavy** and add justification in `docs/user/operations/CI_POLICY.md` (requires Owner approval — see §Question to Owner) |
+| 9 | **Fast Gate wall time** | `just verify` / `dev-tools/verify.ps1` (and `dev-tools/verify_changed.ps1`) with `default-members` **expanded** to `[ ".", "vantadb-python", "vanta-memory", "vanta-proxy", "vantadb-server", "vantadb-mcp", "vantadb-wasm" ]` on a cold cache, branch `test/default-all`, measured on `ubuntu-latest` | Wall time `<5 min` → stays in Fast Gate; else re-label as **Heavy** and add justification in `docs/dev/operations/CI_POLICY.md` (requires Owner approval — see §Question to Owner) |
 | 10 | **ADR + reversibility** | This ADR (or a per-crate addendum) records the promotion, the measured CI time and the toolchain delta, and states the 1-line rollback (`default-members` revert) | ADR merged, promotion is `git revert` of 1 line in `Cargo.toml:636`, `publish = false` unchanged, `cargo publish` unaffected |
 
 > **Definition of Done for default:** a crate/package is promotable **only if** gates 1-10 pass together
@@ -102,7 +102,7 @@ here before promotion.
 - **Rollback:** `git revert <promotion-commit>` or manually revert that one line to
   `default-members = [".", "vantadb-python"]` and revert the `CI_POLICY.md` promotion note.
   Zero data migration, zero `cargo publish`, zero tag — `publish = false` crates never publish.
-- **Sidecar docs:** `docs/user/operations/CI_POLICY.md` §default-members and
+- **Sidecar docs:** `docs/dev/operations/CI_POLICY.md` §default-members and
   `.opencode/rules/release-ci.md` (STABLE-09) are reverted alongside.
 
 ### 4 — Question to Owner (Gate — must be answered before STABLE-09)
@@ -193,7 +193,7 @@ appended to this section with the Owner's name and date; the ADR status then mov
 ## References
 
 - `Cargo.toml:620-642` (`[workspace].members` + `default-members` + `CATEGORY: EXPERIMENTAL`)
-- `docs/user/operations/CI_POLICY.md` §Experimental Crate Circuit Breaker (lines 109-143; promotion rule
+- `docs/dev/operations/CI_POLICY.md` §Experimental Crate Circuit Breaker (lines 109-143; promotion rule
   at 134-135) + §1 Fast Gate (`<5 min`, deterministic, offline) + `.config/nextest.toml` audit profile
 - `dev-tools/verify.ps1` (local Fast Gate: fmt → check → clippy → audit → deny → nextest → coverage → docs-coverage)
 - `dev-tools/gate-common.ps1:Get-CoreFeatures` (`cli,fjall,memmap2,fs2,roaring`)
@@ -202,4 +202,4 @@ appended to this section with the Owner's name and date; the ADR status then mov
 - `.github/workflows/release-npm-61.yml:42-82` (`tests` job, `vitest run` 264 tests, timeout 10, ~26s measured) and `release-npm-node.yml` (7-target matrix, `npm pack` with `*.node`)
 - `docs/dev/Backlog.md:721-736` (P47 10-check contract) + `docs/dev/Backlog.md:738-749` (STABLE-00..09)
 - `.opencode/references/definition-of-done.md` (VantaDB-specific DoR/DoD)
-- `docs/_templates/adr.md` (template) and ADR-027/ADR-030 (reference style)
+- `docs/dev/_templates/adr.md` (template) and ADR-027/ADR-030 (reference style)

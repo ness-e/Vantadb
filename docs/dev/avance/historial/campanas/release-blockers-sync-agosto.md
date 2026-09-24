@@ -56,7 +56,7 @@ related: []
 - **AUD-006:** 5 tools MCP reales faltantes documentadas (`query_lisp`→`query_iql`, `collection_stats`, `collection_list`, `collection_delete`, `rehydrate`) — 15/15 con nombre real + gate de paridad tool↔doc. *(plan Task 30 ✅)*
 - **AUD-008:** STORAGE_VERSIONING.md corregido a constantes reales (VECTOR_INDEX_VERSION=8, VFILE_VERSION=2, WAL postcard), importadas del código; contradicción interna bincode/postcard resuelta. *(plan Task 32 ✅)*
 - **GH-123:** claim "167+ archivos" desmentido (341 .md en docs/); ~4 links rotos reales corregidos + método de auditoría documentado (wiki-links `[[..]]` = falsos positivos). Issue #123 cerrado con evidencia del inventario. *(plan Task 34 ✅)*
-- **GH-141:** webhook GitHub→Discord documentado en `docs/discord/server-config.md` (4 tipos de evento: push, pull_request, issues, release → #announcements) + procedimiento para añadir eventos. Issue #141 cerrado. *(plan Task 51 ✅)*
+- **GH-141:** webhook GitHub→Discord documentado en `docs/user/discord/server-config.md` (4 tipos de evento: push, pull_request, issues, release → #announcements) + procedimiento para añadir eventos. Issue #141 cerrado. *(plan Task 51 ✅)*
 - **MKT-16:** metodología benchmark GraphRAG publicada con números reales de un run reproducible (prohibido inventar cifras; ejemplo `examples/rust/graphrag.rs` citado). *(plan Task 52 ✅)*
 - **MKT-10:** "AI Agent Memory" campaign rescatada con DoD de deliverables medibles (landing "agent memory" + 1 blog benchmark vs full-context + demo); contenido base tutorial 01-ai-agent-memory + 3 blogs; cubierta por INV-006/BLOG_SERIES_PLAN. *(plan Task 53 ✅)*
 

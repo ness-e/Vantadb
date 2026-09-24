@@ -39,7 +39,7 @@
   - `desktop/src-tauri/Cargo.toml version` → cargo metadata, `cargo test` icon, pero no publicado (no crates.io). Version workspace aislada, nunca bump por release-plz root.
 - **Referencias entrantes (qué depende de lo que cambio):**
   - `release.yml` → depende de release-plz.toml semver_check true + changelog_update. Si añadimos `[[package]] vantadb-desktop release=false`, release-pr dejará de intentar bump/changelog para ese nombre (si alguna vez entra en workspace). Hoy no afecta pero declara intención (defensa futura).
-  - `desktop/README.md` + `docs/desktop/*.md` → Documentación de instalación/versionado: traza decisión de versionado separado (como Compass vs MongoDB Server). No bloquear si no se edita, pero release-plz.toml comment es fuente primaria.
+  - `desktop/README.md` + `docs/user/desktop/*.md` → Documentación de instalación/versionado: traza decisión de versionado separado (como Compass vs MongoDB Server). No bloquear si no se edita, pero release-plz.toml comment es fuente primaria.
   - `desktop.yml` → No depende de version, solo build tauri. No se toca.
   - Version coherence test `tests/version_coherence.rs` (cargo test --test version_coherence) — verifica que bindings no diverjan? Debe revisar si incluye desktop versión (grep): likely no, solo engine vs python. Verificaremos que no regresa.
   - Plan file Wave3 Task8 → es gating final quickwins (QW8→ QW9 BENCHMARKS → QW10 E2E). Si H-11 se excluye documentadamente, desbloquea QW9. Si se sincronizara, requeriría script de bump + CI workflow extra (no lazy).

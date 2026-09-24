@@ -101,7 +101,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pen
 #### Task 4: GOV-A1 — Coverage canónico: medir y fijar
 - **Appetite:** max 2h (incluye build)
 - **Esfuerzo:** 🟡 | **Prioridad:** 🟠
-- **Archivos clave:** `docs/dev/architecture/adr/ADR-018*`, `docs/TEST_MAP.md`, `docs/user/operations/CI_POLICY.md`, `docs/dev/avance/COBERTURA.md`, comando `cargo llvm-cov --workspace --summary-only`
+- **Archivos clave:** `docs/dev/architecture/adr/ADR-018*`, `docs/TEST_MAP.md`, `docs/dev/operations/CI_POLICY.md`, `docs/dev/avance/COBERTURA.md`, comando `cargo llvm-cov --workspace --summary-only`
 - **Verificación real:** ✅ AUDITORÍA — 4 valores contradictorios coexistiendo: ≥59% (TEST_MAP:91, CI_POLICY), ≥80% (ADR-015/018), 80.55% CII Silver (progreso README:32), 81.40% root (coverage review 08-09).
 - **Gate Justificación:** D7 decidió "medir y fijar"; sin cifra única, todo claim de coverage queda inválido (Regla 11 aplicada a docs internas).
 - **Gate Result:** ✅ DO
@@ -188,7 +188,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pen
 #### Task 9: GOV-B1 — case_studies ficticios → archive interno
 - **Appetite:** max 1h
 - **Esfuerzo:** 🟢 | **Prioridad:** 🔴
-- **Archivos clave:** `docs/case_studies/{rag_edge_device,agent_local_memory_ollama}.md` → `docs/archive/case-studies-unverified/`; `docs/master-index.md`, `docs/README.md`
+- **Archivos clave:** `docs/case_studies/{rag_edge_device,agent_local_memory_ollama}.md` → `docs/dev/archive/case-studies-unverified/`; `docs/master-index.md`, `docs/README.md`
 - **Verificación real:** ✅ AUDITORÍA — clientes ficticios presentados como deployments reales sin disclaimer (EdgeSense/CodexAgent); riesgo reputacional directo pre-lanzamiento.
 - **Gate Justificación:** D6 decidió eliminar del público; T0.1 precisó archivar internamente.
 - **Gate Result:** ✅ DO
@@ -491,7 +491,7 @@ Status: ⬆️ uphill = 4 incógnitas abiertas · ⬇️ downhill = 96 steps pen
 #### Task 27: GOV-D6 — wasm/CRASH_MODEL.md actualizar vs PERF-08
 - **Appetite:** max 1h
 - **Esfuerzo:** 🟢 | **Prioridad:** 🟡
-- **Archivos clave:** `docs/wasm/CRASH_MODEL.md`, `vantadb-wasm/src/lib.rs:261-268,749` (read)
+- **Archivos clave:** `docs/dev/wasm/CRASH_MODEL.md`, `vantadb-wasm/src/lib.rs:261-268,749` (read)
 - **Verificación real:** ✅ AUDITORÍA — doc afirma "serialize ALL records / no incremental persistence"; PERF-08 introdujo persistencia diferencial (solo records cambiados); APIs connect_idb/save_idb/db_state.json sí existen ✅
 - **Gate Justificación:** claim técnico falso sobre modelo de crash/persistencia WASM
 - **Gate Result:** ✅ DO

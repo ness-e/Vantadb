@@ -29,25 +29,25 @@ El gate existe en `.github/workflows/ci-rust-10.yml:88-118` (job `semver-checks`
 ### Archivos a tocar (lista cerrada)
 | Path | Acción | Razón |
 |------|--------|-------|
-| `docs/user/operations/ci-cd-guide.md` | ADD § "Semver-checks gate (public API)" (~30 líneas) | Drift codegraph-20260827 Fase 11: doc drift entre CI y operations docs |
-| `docs/user/operations/CI_POLICY.md` | ADD semver-checks row a job table §1 (~3 líneas) | Consistencia con ci-cd-guide.md y evitar doc drift duplicado |
+| `docs/dev/operations/ci-cd-guide.md` | ADD § "Semver-checks gate (public API)" (~30 líneas) | Drift codegraph-20260827 Fase 11: doc drift entre CI y operations docs |
+| `docs/dev/operations/CI_POLICY.md` | ADD semver-checks row a job table §1 (~3 líneas) | Consistencia con ci-cd-guide.md y evitar doc drift duplicado |
 | `docs/user/operations/master-index.md` | UPDATE last_reviewed + sin agregar nueva fila (ci-cd-guide.md ya está) | Higiene |
 
 ### Referencias entrantes (¿quién cita estos archivos?)
-- `docs/user/operations/ci-cd-guide.md`:
-  - `docs/user/operations/CI_POLICY.md:21-22` ("documented below" + "Local Verification Scripts")
+- `docs/dev/operations/ci-cd-guide.md`:
+  - `docs/dev/operations/CI_POLICY.md:21-22` ("documented below" + "Local Verification Scripts")
   - `docs/user/operations/master-index.md:50` (catalogado)
   - `docs/user/operations/AGENT_INSTRUCTIONS.md` (general)
-- `docs/user/operations/CI_POLICY.md`:
+- `docs/dev/operations/CI_POLICY.md`:
   - `.opencode/AGENTS.md` (CI/Hooks integration table — referencia)
-  - `docs/user/operations/ci-cd-guide.md` (workflow inventory)
+  - `docs/dev/operations/ci-cd-guide.md` (workflow inventory)
   - `docs/user/operations/master-index.md:6` (catalogado)
 - `docs/user/operations/master-index.md`:
   - `docs/user/operations/*` (todas las filas lo referencian)
 
 ### Referencias salientes (¿a qué nuevos archivos se referenciará?)
-- `docs/user/operations/ci-cd-guide.md` → `.github/workflows/ci-rust-10.yml:88-118` (job a documentar)
-- `docs/user/operations/CI_POLICY.md` → idem + ci-cd-guide.md (cross-ref)
+- `docs/dev/operations/ci-cd-guide.md` → `.github/workflows/ci-rust-10.yml:88-118` (job a documentar)
+- `docs/dev/operations/CI_POLICY.md` → idem + ci-cd-guide.md (cross-ref)
 
 ### Veredicto de impacto (Regla 0)
 **Bajo.** 3 archivos de docs (no código, no API pública, no tests, no schema). No rompe compiladores, no rompe contratos, no afecta runtime. Solo resuelve drift de documentación. Sin gates de seguridad/concurrencia/performance aplicables.
@@ -66,21 +66,21 @@ El gate existe en `.github/workflows/ci-rust-10.yml:88-118` (job `semver-checks`
 ## Steps
 
 ### Step 1: Verificar contrato + mapear docs pre-existentes
-- **Archivos:** `docs/user/operations/ci-cd-guide.md`, `docs/user/operations/CI_POLICY.md`, `docs/user/operations/master-index.md`, `.github/workflows/ci-rust-10.yml`
+- **Archivos:** `docs/dev/operations/ci-cd-guide.md`, `docs/dev/operations/CI_POLICY.md`, `docs/user/operations/master-index.md`, `.github/workflows/ci-rust-10.yml`
 - **Acción:** Ya hecho en discovery (ver líneas 80-129 de ci-rust-10.yml + grep en docs/operations).
 - **Verify:** `cargo semver-checks --help 2>&1 | Measure-Object | Select-Object Count` ≥ 1 ✅ (92)
 - **Estado:** ✅ DONE
 
 ### Step 2: Documentar gate semver-checks en ci-cd-guide.md
-- **Archivos:** `docs/user/operations/ci-cd-guide.md`
+- **Archivos:** `docs/dev/operations/ci-cd-guide.md`
 - **Acción:** Agregada fila en job table de ci-rust-10.yml + subsección "Semver-checks gate (public API)" con: scope (solo `vantadb`), baseline (crates.io latest), qué bloquea (breaking change public API), install local, referencia al job CI.
-- **Verify:** `Select-String -Path "docs/user/operations/ci-cd-guide.md" -Pattern "semver-checks" | Measure-Object Count` → 5 ✅
+- **Verify:** `Select-String -Path "docs/dev/operations/ci-cd-guide.md" -Pattern "semver-checks" | Measure-Object Count` → 5 ✅
 - **Estado:** ✅ DONE
 
 ### Step 3: Cross-reference en CI_POLICY.md job table §1
-- **Archivos:** `docs/user/operations/CI_POLICY.md`
+- **Archivos:** `docs/dev/operations/CI_POLICY.md`
 - **Acción:** Agregada fila `| semver-checks | Public API Semver (RELEASE-01) — ... |` en la tabla de jobs Fast Gate (§1) con cross-ref a ci-cd-guide.md.
-- **Verify:** `Select-String -Path "docs/user/operations/CI_POLICY.md" -Pattern "semver-checks" | Measure-Object Count` → 1 ✅
+- **Verify:** `Select-String -Path "docs/dev/operations/CI_POLICY.md" -Pattern "semver-checks" | Measure-Object Count` → 1 ✅
 - **Estado:** ✅ DONE
 
 ### Step 4: Update last_reviewed en master-index.md (higiene)
@@ -99,7 +99,7 @@ El gate existe en `.github/workflows/ci-rust-10.yml:88-118` (job `semver-checks`
 
 ### Step 6: Stage cambios + handoff a vanta-lead
 - **Archivos:** 3 archivos modificados
-- **Acción:** `git add docs/user/operations/CI_POLICY.md docs/user/operations/ci-cd-guide.md docs/user/operations/master-index.md` ejecutado. NO commit — vanta-docs no hace commit (regla leaf).
+- **Acción:** `git add docs/dev/operations/CI_POLICY.md docs/dev/operations/ci-cd-guide.md docs/user/operations/master-index.md` ejecutado. NO commit — vanta-docs no hace commit (regla leaf).
 - **Verify:** `git diff --cached --stat` → 3 files, +15/-1 ✅
 - **Estado:** ✅ DONE
 

@@ -89,4 +89,4 @@ Solo hechos. Sin propuestas especulativas (LISP compilado/LLVM JIT, mmap cogniti
 
 ## Referencia cruzada
 
-Ver `docs/web/standards/product-positioning.md` §4 para el mapa competitivo en el que se inscribe este deep-dive.
+Ver `docs/user/web/standards/product-positioning.md` §4 para el mapa competitivo en el que se inscribe este deep-dive.

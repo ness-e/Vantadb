@@ -7,7 +7,7 @@
 - **Estado:** ⏳ IN PROGRESS → ✅ COMPLETED 2026-09-03 (commit `bd22f387`, campaign state `completed`)
 - **Tipo auto-detectado:** `docs` (Documentation) — sin `## Spec` requerida (no es feature-add)
 - **SDP:** campaign-executor, progreso, ponytail, coordinated-web-search, documentation-and-adrs, writing-guidelines, writing-plans (keywords: checklist, onboarding, docs, url; manifest grep sin candidatos extra → base + lifecycle)
-- **Research Digest:** ruta correcta del checklist es `docs/user/operations/pilot-onboarding-checklist.md:51` (el Backlog fila 436 cita ruta vieja `pilot-onboarding-checklist.md` — corregir al cerrar). Organización verificada: `ness-e` (FIND-17).
+- **Research Digest:** ruta correcta del checklist es `docs/dev/operations/pilot-onboarding-checklist.md:51` (el Backlog fila 436 cita ruta vieja `pilot-onboarding-checklist.md` — corregir al cerrar). Organización verificada: `ness-e` (FIND-17).
 
 ## Gate D (question-gates.md) — evaluado, NO disparado
 - Blast radius: 1 archivo docs, 1 línea. Sin hot path, sin API pública, sin símbolos `pub` nuevos, sin spec faltante (docs-fix, no feature-add).
@@ -15,7 +15,7 @@
 
 ## Impacto mapeado (Regla 0)
 - **Archivos leídos completos:**
-  - `docs/user/operations/pilot-onboarding-checklist.md` (124 líneas — la línea 51 es `| 2.5 | Clone or download example repo | \`git clone https://github.com/vantadb/vantadb-examples\` | ☐ |`)
+  - `docs/dev/operations/pilot-onboarding-checklist.md` (124 líneas — la línea 51 es `| 2.5 | Clone or download example repo | \`git clone https://github.com/vantadb/vantadb-examples\` | ☐ |`)
   - `docs/dev/plans/2026-09-03-quality-gtm-wave.md` Task 3 (líneas 76-88)
   - `docs/dev/Backlog.md:436` (fila GOV-TK9 — cita ruta vieja sin `docs/user/operations/`)
 - **Referencias hacia fuera (qué referencia el checklist):** ninguna — es hoja (doc enterprise, no importado por código).
@@ -36,7 +36,7 @@
 
 ## Steps
 ### Step 1: Corregir checklist:51 con TODO humano explícito
-- **Archivos:** `docs/user/operations/pilot-onboarding-checklist.md:51`
+- **Archivos:** `docs/dev/operations/pilot-onboarding-checklist.md:51`
 - **Acción:** reemplazar el paso clone muerto por comentario honesto que no da error al piloto + TODO etiquetado para el humano (crear repo o apuntar al real cuando exista). Inglés (doc técnica = fuente de verdad en inglés).
 - **Verify:** `rg -n "vantadb/vantadb-examples" docs/user/operations/` == 0
 - **Estado:** ✅ COMPLETED (2026-09-03 — `rg` en `docs/user/operations/` + `docs/api/` = 0 hits; TODO-humano explícito en línea 51)

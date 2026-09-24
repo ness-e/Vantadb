@@ -129,7 +129,7 @@ recall significativamente** en algunos casos (fuente [20] lo marca como riesgo r
 ## 6. Nota estratégica — scope competitivo
 
 VantaDB **NO compite con Milvus** en el espacio distribuido
-(`docs/vision/VISION.md:162`: *"NOT a distributed database — No native replication,
+(`docs/dev/vision/VISION.md:162`: *"NOT a distributed database — No native replication,
 no auto-sharding; does not compete with Milvus/Qdrant in distributed vector DB
 space"*). Por lo tanto, la arquitectura distribuida de Milvus (etcd para metadatos,
 Pulsar/Kafka para WAL, MinIO/S3 para storage, K8s/Helm/Operators para deployment)

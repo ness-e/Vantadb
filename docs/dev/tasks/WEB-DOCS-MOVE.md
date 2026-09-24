@@ -17,7 +17,7 @@
 - **Archivos leídos completos:** plan Fase 2 (§W-01..W-06), `.opencode/rules/README.md`,
   `definition-of-done.md`, `SPEC.md` (contexto), `gate-docs.yml`, `check-avance-coverage.ps1`,
   `validate-docs-coverage.ps1`, `.markdownlint-cli2.yaml`,
-  `docs/dev/reviews/README.md:40-58`, `docs/reports/INDEX.md:23-37`, `docs/dev/avance/fuentes-vivas.md:12-31`
+  `docs/dev/reviews/README.md:40-58`, `docs/dev/reports/INDEX.md:23-37`, `docs/dev/avance/fuentes-vivas.md:12-31`
 - **Set a mover (13 archivos, existencia verificada):**
   1. `docs/dev/reviews/archive/web-design-audit-2026-08-24.md`
   2. `docs/dev/reviews/archive/research-web-prod-20260825.md`
@@ -34,7 +34,7 @@
   Resto de menciones = citas históricas en backticks/texto dentro de archivos PROHIBIDOS
   (tasks/*, Backlog, CHANGELOG, avance/activo) o frozen (archive/, historial/, dora.md) — no se tocan.
 - **Referencias salientes a reescribir (índices vivos editables, 4 filas en 3 archivos):**
-  `docs/dev/reviews/README.md:51,58` · `docs/reports/INDEX.md:27` · `docs/dev/avance/fuentes-vivas.md:22`
+  `docs/dev/reviews/README.md:51,58` · `docs/dev/reports/INDEX.md:27` · `docs/dev/avance/fuentes-vivas.md:22`
 - **Veredicto:** blast radius = 13 `git rm` + 4 líneas en 3 índices + 14 archivos nuevos en web.
   Sin código, sin API, sin hot path. Gate D: NO dispara. Ningún archivo se excluye:
   avance-coverage itera directorios dinámicamente (no exige paths nominales) → no aplica exclusión A8.

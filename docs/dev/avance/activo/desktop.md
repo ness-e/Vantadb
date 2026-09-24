@@ -234,7 +234,7 @@ aliases: [DESKTOP]
 
 ### DESKTOP-27: Docs + ADR Vanta Studio
 - **Fecha:** 2026-08-24
-- **Resultado:** ? `docs/desktop/README.md` (instalaci�n, tabla 3 transportes, comandos IPC, troubleshooting) + `ARCHITECTURE.md` (ConnectionManager registry+active_id, trait VantaConnection, NativeConnection spawn_blocking+path lock, ServerClient Bearer, WASM como backend frontend-only OPFSIDB - no WasmConnection Rust, shutdown_all orden, ConnectionSelector eliminado ADMIN-03) + `GUIDE.md` ES por modo. ADR-026/027/028 referenciados sin duplicar. Review vanta-arch fresh-context: APPROVE (7/7 claims con evidencia file:line).
+- **Resultado:** ? `docs/user/desktop/README.md` (instalaci�n, tabla 3 transportes, comandos IPC, troubleshooting) + `ARCHITECTURE.md` (ConnectionManager registry+active_id, trait VantaConnection, NativeConnection spawn_blocking+path lock, ServerClient Bearer, WASM como backend frontend-only OPFSIDB - no WasmConnection Rust, shutdown_all orden, ConnectionSelector eliminado ADMIN-03) + `GUIDE.md` ES por modo. ADR-026/027/028 referenciados sin duplicar. Review vanta-arch fresh-context: APPROVE (7/7 claims con evidencia file:line).
 - **Ids:** `DESKTOP-27`
 
 ### DESKTOP-28: Unificar paneles legacy al design system Studio

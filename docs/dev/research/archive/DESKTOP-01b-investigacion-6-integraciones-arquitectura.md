@@ -160,7 +160,7 @@ Handlers: `handle_tools_call` (`lib.rs:967-1482`). Límites: namespace ≤256B, 
 - Estado compartido: cada proceso embebido es dueño del lock file (`src/storage/engine/init.rs:40`).
 
 ### 3.8 Docs
-`docs/api/MCP.md` (canónica, versiones impl 0.1.5 / protocolo 2024-11-05), `docs/book/src/api/MCP.md`, `docs/user/operations/CI_POLICY.md:65` (experimental), `docs/user/operations/DEPLOYMENT_GUIDE.md`, ADR `003_sync_async_decoupling.md`. Tests: `vantadb-mcp/tests/mcp_tests.rs` (1021 líneas), `vantadb-server/tests/mcp_integration.rs`.
+`docs/api/MCP.md` (canónica, versiones impl 0.1.5 / protocolo 2024-11-05), `docs/user/book/src/api/MCP.md`, `docs/dev/operations/CI_POLICY.md:65` (experimental), `docs/user/operations/DEPLOYMENT_GUIDE.md`, ADR `003_sync_async_decoupling.md`. Tests: `vantadb-mcp/tests/mcp_tests.rs` (1021 líneas), `vantadb-server/tests/mcp_integration.rs`.
 
 **Staleness:** doc menciona tool `query` pero el código expone `query_lisp`; resource `schema://` no existe; `serverInfo.name = "vantadb"` (`src/metadata.rs:19`).
 
@@ -556,9 +556,9 @@ Crates MCP client en Rust para Tauri (2026):
 | Doc | Contenido |
 |---|---|
 | docs/api/MCP.md | La doc canónica: tools, resources, prompts, arranque (`vanta-cli server --mcp --db`), config per-IDE (Cursor/Claude/Windsurf/OpenCode/Cline), ejemplos JSON-RPC, versiones (impl 0.1.5, protocolo 2024-11-05 — MCP.md:310-312) |
-| docs/book/src/api/MCP.md | Incluye la anterior en el mdbook |
+| docs/user/book/src/api/MCP.md | Incluye la anterior en el mdbook |
 | docs/api/HTTP_API.md:124-125 | Claim "Full MCP + HTTP" — **no implementado** (ver §6) |
-| docs/user/operations/CI_POLICY.md:65 | vantadb-mcp = Experimental |
+| docs/dev/operations/CI_POLICY.md:65 | vantadb-mcp = Experimental |
 | docs/user/operations/DEPLOYMENT_GUIDE.md:14,56 | Un solo binario, modos embedded/HTTP/MCP |
 | docs/dev/architecture/adr/003_sync_async_decoupling.md:31,48 | MCP sobre tokio, pool bloqueante |
 | docs/dev/research/INV-003-tokio-blocking-audit.md:37 | Patrón semaphore+spawn_blocking+timeout |
@@ -1160,7 +1160,7 @@ Regla de oro: 1 tarea = 1 concepto; ninguna mezcla dos integraciones. Las fases 
 | DESKTOP-24 | Empaquetado | Bundle NSIS/MSI (Windows primero), externalBin (node + vantadb-server.exe + runtime python si procede), identifier, icons, auto-update opcional. | tauri.conf.json, src-tauri/build.rs | 🔴 | 16, 18, 23 | Instalador produce una app que conecta nativo + server + node sin entorno de dev. |
 | DESKTOP-25 | CI GitHub Actions | Build Windows (tauri-action), cargo test en src-tauri (workspace desacoplado), npm build frontend, artefacto instalador; matrix por features de vías (con/sin server/mcp). | .github/workflows/desktop.yml | 🟡 | 24 | Pipeline verde; artefacto instalador subido. |
 | DESKTOP-26 | Tests | Unit: tipos, mapping de errores, framing jsonrpc; integración por adaptador (mock HTTP, MCP real, nativa temp); contrato de errores: misma op en N vías → mismo shape VantaError. | src/**/*_tests.rs | 🟡 | 19 | cargo test + integraciones en CI. |
-| DESKTOP-27 | Docs + ADR | README desktop, ARCHITECTURE.md (modelo conexión), ADR (multi-connection + regla 1-escritor; siguiente número libre en docs/dev/architecture/adr/), guía de usuario por vía, actualizar DESKTOP-01 con decisiones. | docs/desktop/*, docs/dev/architecture/adr/ADR-0XX.md | 🟢 | 19..26 | ADR revisado por vanta-arch; guía cubre las 6 vías. |
+| DESKTOP-27 | Docs + ADR | README desktop, ARCHITECTURE.md (modelo conexión), ADR (multi-connection + regla 1-escritor; siguiente número libre en docs/dev/architecture/adr/), guía de usuario por vía, actualizar DESKTOP-01 con decisiones. | docs/user/desktop/*, docs/dev/architecture/adr/ADR-0XX.md | 🟢 | 19..26 | ADR revisado por vanta-arch; guía cubre las 6 vías. |
 
 **Total: 26 tareas (DESKTOP-02..DESKTOP-27) — 13 🟢, 10 🟡, 1 🔴, 2 condicionales (16/18).**
 

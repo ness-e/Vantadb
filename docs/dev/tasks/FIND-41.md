@@ -15,7 +15,7 @@ AND ADR de clusters documentada (status accepted-pending-owner-review per Regla 
 
 ## Herramientas
 - codebase-memory-mcp (clustering Leiden, get_architecture, query_graph)
-- ADR template docs/_templates/adr.md
+- ADR template docs/dev/_templates/adr.md
 
 ## Steps
 ### Step 1: Verificar evidencia

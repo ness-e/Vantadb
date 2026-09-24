@@ -373,7 +373,7 @@ The certified performance results on the standard SIFT dataset in optimized mode
 
 *Certification hardware: AMD Ryzen 12-Core @ 3.5GHz, compiled with `-C target-cpu=native`.*
 
-*Source: [docs/user/operations/BENCHMARKS.md §5](docs/user/operations/BENCHMARKS.md) — "Impact of Loop and HNSW Distance Optimization (Phase 2)" (2026-07-21). Full optimization history in [docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md](docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md).*
+*Source: [docs/user/operations/BENCHMARKS.md §5](docs/user/operations/BENCHMARKS.md) — "Impact of Loop and HNSW Distance Optimization (Phase 2)" (2026-07-21). Full optimization history in [docs/user/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md](docs/user/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md).*
 
 <p align="center">
   <img src="assets/benchmark-sift1m.svg" alt="SIFT1M HNSW build acceleration — Phase 1 vs Phase 2 (2.14x–2.80x)" width="760">
@@ -413,7 +413,7 @@ Results will be printed directly to the console and written to `vanta_benchmark_
 | [Python Release Policy](docs/user/operations/PYTHON_RELEASE_POLICY.md) | TestPyPI, production publishing, signing, release assets, and rollback. |
 | [Reliability Gate](docs/user/operations/RELIABILITY_GATE.md) | Policies for RSS memory stability, chaos injection, and WAL durability. |
 | [Experimental Features](docs/user/operations/EXPERIMENTAL_FEATURES.md) | Production, optional, experimental, and deferred surface classification. |
-| [CI Policy](docs/user/operations/CI_POLICY.md) | Continuous integration strategy, profiles, and certification gates. |
+| [CI Policy](docs/dev/operations/CI_POLICY.md) | Continuous integration strategy, profiles, and certification gates. |
 | [Benchmarks](docs/user/operations/BENCHMARKS.md) | Performance benchmark methodology and results. |
 | [Changelog](docs/CHANGELOG.md) | Version history and release notes. |
 | [Blog: Hybrid Search](docs/user/blog/how_hybrid_search_works.md) | How BM25 + HNSW + RRF work together in VantaDB's query engine. |

@@ -16,22 +16,22 @@
   - `02-local-rag-pipeline.md` — **status: draft**, 323 líneas, last_reviewed 2026-07-03
   - `03-migrating-from-chromadb.md` — **status: draft**, 256 líneas, last_reviewed 2026-08-02 (actualizado por NUEVO-07 con API real)
   - `migration-from-lancedb.md` — **status: active**, 375 líneas, last_reviewed 2026-08-02
-- `docs/book/src/tutorials/` tiene copias del mdBook (`index.md` + los 4). **Las copias del book NO son idénticas** a `docs/user/tutorials/` (hash diff) — verificar cuál es la fuente canónica y si el book requiere sync.
-- NO existe `docs/user/tutorials/index.md` (la book tiene `docs/book/src/tutorials/index.md`).
-- `docs/book/src/SUMMARY.md` líneas 8-12 listan los 4 tutoriales bajo "Tutorials".
+- `docs/user/book/src/tutorials/` tiene copias del mdBook (`index.md` + los 4). **Las copias del book NO son idénticas** a `docs/user/tutorials/` (hash diff) — verificar cuál es la fuente canónica y si el book requiere sync.
+- NO existe `docs/user/tutorials/index.md` (la book tiene `docs/user/book/src/tutorials/index.md`).
+- `docs/user/book/src/SUMMARY.md` líneas 8-12 listan los 4 tutoriales bajo "Tutorials".
 
 ## Blast Radius
 
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | `docs/book/src/SUMMARY.md`, `docs/book/src/tutorials/index.md`, `docs/README.md`, web (si hay links), `docs/master-index.md` |
+| Callers | `docs/user/book/src/SUMMARY.md`, `docs/user/book/src/tutorials/index.md`, `docs/README.md`, web (si hay links), `docs/master-index.md` |
 | Callees | API real de `vantadb_py` (NUEVO-07 ya corrigió migraciones); ejemplos de código en los tutorials |
 | Implicaciones | Tutoriales con API inventada = documentación incorrecta. Los draft DEBEN usar la API real (`vantadb_py.VantaDB`, `space`, `put`, `hybrid_search`) |
 
 **RIESGO:** medio — docs, pero el contenido debe reflejar API real (no inventada).
 
 ## Contrato
-"`docs/user/tutorials/` tiene 5-7 tutoriales, todos con status: active (o al menos sin 'draft'), cada uno con código verificable contra la API real de `vantadb_py` (sin `vantadb.connect`/`db.space` inventados), y un índice/learning path estructurado que los ordena por complejidad creciente; las copias del mdBook (`docs/book/src/tutorials/`) están sincronizadas con la fuente canónica."
+"`docs/user/tutorials/` tiene 5-7 tutoriales, todos con status: active (o al menos sin 'draft'), cada uno con código verificable contra la API real de `vantadb_py` (sin `vantadb.connect`/`db.space` inventados), y un índice/learning path estructurado que los ordena por complejidad creciente; las copias del mdBook (`docs/user/book/src/tutorials/`) están sincronizadas con la fuente canónica."
 
 ## Herramientas necesarias
 - Read/Grep (docs)
@@ -52,8 +52,8 @@
 - **Estado:** ✅ COMPLETADO
 
 ### Step 2: Definir learning path estructurado + índice
-- **Archivos:** `docs/user/tutorials/index.md` (crear) + `docs/book/src/tutorials/index.md` (sync)
-- **Acción:** índice con progresión (DB basics → agent memory → RAG → migraciones → avanzado). Actualizar `docs/book/src/SUMMARY.md` si cambia la lista.
+- **Archivos:** `docs/user/tutorials/index.md` (crear) + `docs/user/book/src/tutorials/index.md` (sync)
+- **Acción:** índice con progresión (DB basics → agent memory → RAG → migraciones → avanzado). Actualizar `docs/user/book/src/SUMMARY.md` si cambia la lista.
 - **Verify:** índice existe y lista todos los tutoriales en orden
 - **Estado:** ✅ COMPLETADO
 
@@ -64,7 +64,7 @@
 - **Estado:** ✅ COMPLETADO
 
 ### Step 4: Promover drafts a active + sync mdBook
-- **Archivos:** `docs/user/tutorials/*.md` (frontmatter) + `docs/book/src/tutorials/`
+- **Archivos:** `docs/user/tutorials/*.md` (frontmatter) + `docs/user/book/src/tutorials/`
 - **Acción:** cambiar `status: draft` → `active` en 01/02/03 tras validar. Sincronizar copias del book con la fuente canónica.
 - **Verify:** grep — 0 tutoriales con status: draft; hashes book == fuente (o sync documentado)
 - **Estado:** ✅ COMPLETADO
@@ -81,7 +81,7 @@
 ## Notas
 - Los tutoriales son contenido público de docs — Español NO (docs técnicas en inglés por Regla Doc Language Split).
 - No tocar web/ salvo que haya links explícitos a tutorials (verificar primero).
-- La fuente canónica probable es `docs/user/tutorials/` con `docs/book/src/tutorials/` como build del mdBook — confirmar antes de editar el book.
+- La fuente canónica probable es `docs/user/tutorials/` con `docs/user/book/src/tutorials/` como build del mdBook — confirmar antes de editar el book.
 
 ## Context Save Point
 - **Fecha:** 2026-08-02
@@ -91,12 +91,12 @@
 
 ## Verification Log
 - **2026-08-02 (sub-agente vanta-docs):**
-  - `rg -l "vantadb\.connect|db\.space|\.similar_to|space\.configure" docs/tutorials docs/book/src/tutorials` → **0 resultados** ✅
+  - `rg -l "vantadb\.connect|db\.space|\.similar_to|space\.configure" docs/tutorials docs/user/book/src/tutorials` → **0 resultados** ✅
   - `rg -c "status: draft" docs/tutorials` → **0** (exit 1) ✅
   - Tutoriales en `docs/user/tutorials/` (excl. index.md): **6** (01, 02, 03, 04, 05, migration-from-lancedb) — dentro de meta 5-7 ✅
   - Todos con `status: active` ✅
   - Snippets validados contra root `.venv` (`vantadb_py 0.5.0`): `put` (metadata+vector), `search_memory` (vector-only / hybrid `text_query` / keyword-only `[]` / `filters`), `get_memory`, `delete_memory`, `list_memory`, `put_batch(None, keys=..., vectors=...)`, `add_edge(node_id)` + `graph_bfs`, `explain_memory_search`, `export_namespace`, `rebuild_index`, `list_namespaces` → **ALL OK** ✅
   - **Hallazgo:** `put_batch()` keyword API requiere `entries=None` como primer arg posicional en 0.5.0 (el docstring omite el `None` y falla en runtime) — documentado en 02/05 con la forma correcta.
-  - Fuente canónica confirmada: `docs/user/tutorials/` — el book (`docs/book/src/tutorials/`) usa `{{#include}}` stubs → sincronización automática por diseño.
+  - Fuente canónica confirmada: `docs/user/tutorials/` — el book (`docs/user/book/src/tutorials/`) usa `{{#include}}` stubs → sincronización automática por diseño.
   - Links internos: todos los targets existen (tutorials + `../api/PYTHON_SDK.md`) ✅
   - `scripts/validate-docs-coverage.ps1` → falla por gaps PREEXISTENTES no relacionados: script referencia `src/sdk/search.rs` inexistente + gaps en CONFIGURATION.md/EMBEDDED_SDK.md/PYTHON_SDK.md (bulk_import, graph_*, etc.) ajenos a tutorials. No corregidos (fuera de scope).

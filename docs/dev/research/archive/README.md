@@ -15,4 +15,4 @@ ARCHIVO_HISTORICO — y `pinecone-architecture-competitor`). El segundo pasa a l
 ## Referencia histórica
 
 Citas antiguas a `docs/Investigaciones/...` fueron reescritas en sweep GOV-D4; en
-`docs/archive/` se preservan como evidencia congelada.
+`docs/dev/archive/` se preservan como evidencia congelada.

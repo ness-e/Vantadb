@@ -1,7 +1,7 @@
 # TIR-02: DORA recovery time + rework rate — viabilidad con telemetría actual
 
 > **Tipo:** Investigación/Decisión (read-only). **Estado:** cerrado 2026-08-17.
-> **Fuentes:** `docs/reports/dora.md:183-197`, `eng-03-project.md §8.3`, evidencia directa de telemetría (verificado, no asumido).
+> **Fuentes:** `docs/dev/reports/dora.md:183-197`, `eng-03-project.md §8.3`, evidencia directa de telemetría (verificado, no asumido).
 
 ## 1. Estado real de la telemetría (verificado)
 

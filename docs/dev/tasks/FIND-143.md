@@ -1,4 +1,4 @@
-# FIND-143: docs/workflow/ — inventario, triggers, publish, runbook, FAQ
+# FIND-143: docs/dev/workflow/ — inventario, triggers, publish, runbook, FAQ
 
 ## Metadata
 
@@ -18,21 +18,21 @@
 
 | Direccion | Modulos |
 |-----------|---------|
-| Callers | Humano/CI que lea `docs/workflow/`; FIND-144 (`RULES.md`) consume este inventario |
-| Callees | `.github/workflows/*.yml` solo LECTURA (`on:`, concurrency, environments); `docs/dev/tasks/FIND-128.md` matriz; `docs/workflow/*.md` vecinos (formato frontmatter) |
+| Callers | Humano/CI que lea `docs/dev/workflow/`; FIND-144 (`RULES.md`) consume este inventario |
+| Callees | `.github/workflows/*.yml` solo LECTURA (`on:`, concurrency, environments); `docs/dev/tasks/FIND-128.md` matriz; `docs/dev/workflow/*.md` vecinos (formato frontmatter) |
 | Implicaciones | Cero cambio comportamiento CI; solo docs nuevas; links relativos internos |
 | Riesgo | minimo (docs-only; prohibido YAML/src/web/desktop/locks/plans/Backlog) |
 
 ## Impacto mapeado (Regla 0)
 
-- **Archivos leidos (completos):** `docs/dev/plans/2026-09-21-workflows-repair.md` (plan Wave 4), `docs/dev/tasks/FIND-128.md` (matriz 28 + propuesta dedup), `.opencode/rules/README.md` (formato reglas), `.opencode/rules/release-ci.md` (completo), `docs/workflow/ci-gate.md` + `release-wheels-60.md` + `release-npm-61.md` (formato vecino/frontmatter), `.markdownlint-cli2.yaml` (reglas), `scripts/validate-docs-coverage.ps1` (alcance)
+- **Archivos leidos (completos):** `docs/dev/plans/2026-09-21-workflows-repair.md` (plan Wave 4), `docs/dev/tasks/FIND-128.md` (matriz 28 + propuesta dedup), `.opencode/rules/README.md` (formato reglas), `.opencode/rules/release-ci.md` (completo), `docs/dev/workflow/ci-gate.md` + `release-wheels-60.md` + `release-npm-61.md` (formato vecino/frontmatter), `.markdownlint-cli2.yaml` (reglas), `scripts/validate-docs-coverage.ps1` (alcance)
 - **Triggers `on:` de 27 workflows:** extraidos via script python (read-only, sin edits YAML)
 - **Archivos que referencian a los creados:** ninguno aun (nuevos); FIND-144 referenciara despues
-- **Veredicto impacto:** nulo en runtime — 5 markdown nuevos + este task file; `docs/workflow/*.md` vecinos intactos
+- **Veredicto impacto:** nulo en runtime — 5 markdown nuevos + este task file; `docs/dev/workflow/*.md` vecinos intactos
 
 ## Contrato
 
-"Crear `docs/workflow/README.md` (inventario 27 + nota 28→27), `TRIGGERS.md` (matriz push/PR/schedule/dispatch/tags), `PUBLISH.md` (flujo por registro + namespaces tags), `RUNBOOK.md` (re-run, approve environments, [no-adr]), `FAQ.md` (duplicados, cancel-in-progress, skipped-vs-required); `npx markdownlint-cli2 docs/workflow/**/*.md` 0 issues + 0 links rotos + commit `docs: FIND-143 — ...` selectivo sin push"
+"Crear `docs/dev/workflow/README.md` (inventario 27 + nota 28→27), `TRIGGERS.md` (matriz push/PR/schedule/dispatch/tags), `PUBLISH.md` (flujo por registro + namespaces tags), `RUNBOOK.md` (re-run, approve environments, [no-adr]), `FAQ.md` (duplicados, cancel-in-progress, skipped-vs-required); `npx markdownlint-cli2 docs/dev/workflow/**/*.md` 0 issues + 0 links rotos + commit `docs: FIND-143 — ...` selectivo sin push"
 
 ## Spec
 
@@ -41,7 +41,7 @@ N/A — docs-only, Phase 1b negativa: no agrega `pub fn`, tools, endpoints ni bi
 ## Invariantes de dominio (handoff — MUST)
 
 - **Invariantes:** (1) cero edits `.github/workflows/`; (2) no tocar `src/`, `web/src/`, `desktop/`, `reparacion.bat`, `.opencode`, `completions/*`, `*.lock`, `docs/dev/Backlog.md`, plan file (solo recitation via MCP), versionados (`docs/CHANGELOG.md`, `docs/api/openapi.yaml`, `docs/api/MCP.md`); (3) ingles tecnico en docs, espanol solo aqui; (4) citas GitHub con URL o `[NO VERIFICADA]`; (5) NO PUSH
-- **Verificacion:** `npx markdownlint-cli2 "docs/workflow/**/*.md"` exit 0 + grep links rotos 0 + `git status --short` selectivo
+- **Verificacion:** `npx markdownlint-cli2 "docs/dev/workflow/**/*.md"` exit 0 + grep links rotos 0 + `git status --short` selectivo
 - **Deuda:** `validate-docs-coverage.ps1` N/A (no toca producto); `actionlint` N/A (solo docs)
 
 ## Deuda tecnica (Regla 6 — MUST)
@@ -74,29 +74,29 @@ Sin deuda nueva (docs-only, elimina deuda doc Wave 4). No aplica moneda P2.
 
 ### Step 2: README + TRIGGERS
 
-- **Archivos:** `docs/workflow/README.md`, `docs/workflow/TRIGGERS.md`
+- **Archivos:** `docs/dev/workflow/README.md`, `docs/dev/workflow/TRIGGERS.md`
 - **Accion:** inventario 27 (nombre, proposito 1 linea, triggers corto) + matriz completa push/PR/schedule/dispatch/tags/release/call/comment
 - **Verify:** existen + frontmatter espejo vecino
 - **Estado:** ⬜ PENDING
 
 ### Step 3: PUBLISH + RUNBOOK
 
-- **Archivos:** `docs/workflow/PUBLISH.md`, `docs/workflow/RUNBOOK.md`
+- **Archivos:** `docs/dev/workflow/PUBLISH.md`, `docs/dev/workflow/RUNBOOK.md`
 - **Accion:** flujo por registro (crates.io release-plz, wheels PyPI, npm wasm+ts, node, adapters, binaries, sbom) + namespaces tags + runbook (gh rerun, approve environments API, [no-adr])
 - **Verify:** comandos `gh` con sintaxis exacta de workflows leidos
 - **Estado:** ⬜ PENDING
 
 ### Step 4: FAQ
 
-- **Archivos:** `docs/workflow/FAQ.md`
+- **Archivos:** `docs/dev/workflow/FAQ.md`
 - **Accion:** duplicados push+PR, cancel-in-progress, skipped vs required (fail-closed FIND-139, informational continue-on-error)
 - **Verify:** cada respuesta cita workflow/fuente concreta
 - **Estado:** ⬜ PENDING
 
 ### Step 5: Verify contrato
 
-- **Archivos:** `docs/workflow/*.md` (5 nuevos)
-- **Accion:** `npx markdownlint-cli2 "docs/workflow/**/*.md"` + grep links `](docs/workflow` 0 + grep links relativos rotos
+- **Archivos:** `docs/dev/workflow/*.md` (5 nuevos)
+- **Accion:** `npx markdownlint-cli2 "docs/dev/workflow/**/*.md"` + grep links `](docs/workflow` 0 + grep links relativos rotos
 - **Verify:** exit 0 + 0 hits
 - **Estado:** ⬜ PENDING
 

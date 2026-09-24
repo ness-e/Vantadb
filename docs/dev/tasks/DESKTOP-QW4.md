@@ -25,7 +25,7 @@
   - `docs/dev/plans/2026-08-25-research-desktop-quickwins.md` (68 líneas + 3 recitations QW1-3, H-14 tabla Wave1)
   - `docs/dev/reviews/archive/research-desktop-prod-20260825.md` (118 líneas, H-14 línea 109 + DAUD-02 refs)
   - `docs/dev/Backlog.md:524` (DAUD-02 fila completa, status Cerrada owner 2026-08-25)
-  - `docs/user/operations/CI_POLICY.md` (verify changed)
+  - `docs/dev/operations/CI_POLICY.md` (verify changed)
   - `desktop/package.json` (56 líneas, vite/vitest)
   - git history: `d51fb8b4` (introduce filterActive), `89ab5e2c` (pre), `a7ed0d22` (quickwins batch), `3c53d8b2` (DAUD-LIMPI)
 - **Referencias hacia dentro (qué importa este archivo):**

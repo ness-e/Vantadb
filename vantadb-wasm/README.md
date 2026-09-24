@@ -277,7 +277,7 @@ demonstrates a measured reduction without regressions.
 - `vantadb-ts/README.md` §"WASM bundle & lazy loading" — runtime-specific recipes
 - `docs/user/QUICKSTART.md` §"4. Real Embeddings" — full walkthrough
 - `docs/dev/research/research-vantadb-wasm-20260825.md` §H-17 — origin ticket
-- `docs/_templates/adr.md` — format reference for any future ADR on lazy-loading strategy
+- `docs/dev/_templates/adr.md` — format reference for any future ADR on lazy-loading strategy
 
 ---
 

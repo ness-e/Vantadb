@@ -68,7 +68,7 @@ related: []
 24. **[TSK-32]** DOTC (DataDog Observability) — ✅
 - 8 módulos, `MetricsCollector`, health check, puente OTel, ResourceDetector
 25. **[TSK-33]** Razonamiento GraphRAG (Layout) — ✅
-- `docs/graphrag/README.md` design spec
+- `docs/dev/graphrag/README.md` design spec
 26. **[TSK-51]** Integración de sparse embedding — ✅
 - `src/sparse_embed.rs`: `SparseEmbedding`, `SparseVector`, dim fija 1000, `cosine_similarity()`
 27. **[TSK-52]** Implementar host header + connection pooling en el servidor — ✅
@@ -101,7 +101,7 @@ related: []
 39. **[TSK-66]** Pipeline de CI de release — ✅
 - `cargo publish` dry-run, GitHub Release, auto-tag, maturin publish
 40. **[TSK-67]** Docs de GraphRAG — ✅
-- archivo completo `docs/graphrag/README.md`: comparison, getting started, Python examples
+- archivo completo `docs/dev/graphrag/README.md`: comparison, getting started, Python examples
 41. **[TSK-46]** HNSW con MMap — ✅
 - `mmap_hnsw: bool` config, memory budget gate, 2 tests
 42. **[TSK-50]** Backpressure RSS — ✅
@@ -127,7 +127,7 @@ related: []
 52. **[TSK-97]** Eliminación de panics en runtime — ✅
 - Remover `unwrap()` de APIs públicas, `std::panic::catch_unwind` en C FFI, commit `62cfd6bb`
 53. **[WEB-01]** Centralización de documentación (Monorepo) — ✅
-- Unificación total de `web/docs/` → `docs/web/`, integración del backlog web en el raíz, eliminación de artefactos de migración (`plan/`).
+- Unificación total de `web/docs/` → `docs/user/web/`, integración del backlog web en el raíz, eliminación de artefactos de migración (`plan/`).
 54. **[WEB-14a]** Rediseño del Hero (Swiss Typographic Grid) — ✅
 - Rediseñado SwissHero.tsx y swiss-hero.css siguiendo el manifiesto de diseño suizo.
 - Implementado dibujo del grid de 1px usando SVG con stroke-dashoffset y stagger animado en GSAP.
