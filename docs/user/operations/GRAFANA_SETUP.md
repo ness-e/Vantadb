@@ -44,10 +44,13 @@ scrape_configs:
 
 ## 4. Enabling on existing instances
 
-VantaDB serves metrics on the same HTTP port as the API (`/metrics`). Use `--port` (or `VANTADB_PORT`) to control the bind address:
+VantaDB serves metrics on the same HTTP port as the API (`/metrics`). The server
+binary takes no port flags — configure via environment (or `VANTADB_PORT`):
 
 ```bash
-vantadb-server --port 9090 --host 0.0.0.0
+export VANTADB_PORT=9090
+export VANTADB_HOST=0.0.0.0
+vantadb-server
 ```
 
 For embedded use, set `port` and `host` on `VantaConfig`:

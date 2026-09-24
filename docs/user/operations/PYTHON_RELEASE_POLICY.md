@@ -102,14 +102,14 @@ Python SDK smoke suite before staging.
 
 ### 2. TestPyPI staging
 
-Run the `Python Wheels` workflow manually with `publish_testpypi=true`.
+Run the `RELEASE: Wheels — Build & Publish` workflow manually with `publish_testpypi=true`.
 
 The workflow:
 1. Builds wheels on Linux, macOS, and Windows
 2. Runs wheel smoke tests on all three platforms
 3. Uploads the merged wheel set to TestPyPI
-4. **[Automated]** The `verify-testpypi-install` job downloads the wheel from TestPyPI
-   and validates import + version match — this is the gate before production.
+4. **[Automated]** The `Verify TestPyPI install` job downloads the wheel from TestPyPI
+   and validates import + version match - this is the gate before production.
 
 Validate manually in a clean environment:
 
@@ -126,8 +126,8 @@ python -m pytest vantadb-python/tests/test_sdk.py -v
 Create and push a release tag only after TestPyPI validation:
 
 ```bash
-git tag -s v0.1.4 -m "VantaDB Python 0.1.4"
-git push origin v0.1.4
+git tag -s vX.Y.Z -m "VantaDB Python X.Y.Z"
+git push origin vX.Y.Z
 ```
 
 Tag pushes trigger the production pipeline which:
