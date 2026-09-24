@@ -91,7 +91,7 @@ Check-Methods -Label "src/sdk.rs (debug_*)" -Methods $sdkDebug -DocRelPath "docs
 $configFields = Select-String -Path "$root\src\config.rs" -Pattern '^\s+pub (\w+):' |
   ForEach-Object { $_.Matches[0].Groups[1].Value } | Sort-Object -Unique
 
-Check-Methods -Label "src/config.rs" -Methods $configFields -DocRelPath "docs\operations\CONFIGURATION.md" -DocLabel "CONFIGURATION.md" -Exclude @(
+Check-Methods -Label "src/config.rs" -Methods $configFields -DocRelPath "docs\user\operations\CONFIGURATION.md" -DocLabel "CONFIGURATION.md" -Exclude @(
   'llm_model','llm_url','llm_summarize_model'
 )
 
@@ -130,7 +130,7 @@ $cliKebab = $allCli | ForEach-Object {
   $_ -creplace '(?<=[a-z])(?=[A-Z])', '-' -creplace '(?<=[A-Z])(?=[A-Z][a-z])', '-' | ForEach-Object { $_.ToLower() }
 }
 
-Check-Methods -Label "src/cli.rs (comandos)" -Methods $cliKebab -DocRelPath "docs\operations\CONFIGURATION.md" -DocLabel "CONFIGURATION.md (sección CLI)" -Exclude @(
+Check-Methods -Label "src/cli.rs (comandos)" -Methods $cliKebab -DocRelPath "docs\user\operations\CONFIGURATION.md" -DocLabel "CONFIGURATION.md (sección CLI)" -Exclude @(
   'info','list','bash','zsh','fish','power-shell'
 )
 

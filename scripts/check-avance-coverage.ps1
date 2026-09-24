@@ -12,9 +12,9 @@ $dstDir = Join-Path $root "docs/avance"
 # --- 0. Fuentes vivas externas (no se mueven; se catalogan por referencia) ---
 # Carpeta -> catálogo en docs/avance que la integra sin moverla
 $live = @{
-    "docs/plans"            = "docs/dev/avance/fuentes-vivas.md"
-    "docs/reviews"          = "docs/dev/avance/fuentes-vivas.md"
-    "docs/research"  = "docs/dev/avance/investigaciones.md"
+    "docs/dev/plans"            = "docs/dev/avance/fuentes-vivas.md"
+    "docs/dev/reviews"          = "docs/dev/avance/fuentes-vivas.md"
+    "docs/dev/research"  = "docs/dev/avance/investigaciones.md"
 }
 
 # --- 1. Mapa estático fuente → destino (copia directa o procesado) ---
