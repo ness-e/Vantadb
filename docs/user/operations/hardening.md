@@ -261,6 +261,13 @@ docker run -d \
 
 ### 5.3 Release Image (No Local Build)
 
+> **Availability note (2026-09-23):** CI builds the image (`docker-image` job in
+> `release-binaries.yml`), but recent releases (v0.6.x) do not attach the
+> `.tar.gz` asset — use the commands below with a locally built image
+> (`docker build`, §5.4) or any registry you publish to. Docker-based
+> deployment is currently deprioritized; the runtime flags in §5.2 apply
+> to any OCI image.
+
 There is no download-a-binary stage: every release publishes the CI-built image
 itself as an asset (`vantadb-server-<tag>-linux-amd64-image.tar.gz`, produced by
 the `docker-image` job). To run a released image without building:

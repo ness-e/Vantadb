@@ -36,7 +36,7 @@ the validator happy.
 | `name` | `io.github.ness-e/vantadb` | GitHub namespace — verifiable automatically (`ness-e` owns the GitHub org). |
 | `title` | `VantaDB MCP` | Human-readable display name for clients. |
 | `description` | "MCP server for VantaDB: durable local memory and hybrid vector retrieval (BM25 + HNSW) for AI agents." | Required (max 100 chars per schema). |
-| `version` | `0.5.0` | Synced with `[workspace.package].version` in `Cargo.toml`. Update on every release. |
+| `version` | `0.6.1` | Synced with `[workspace.package].version` in `Cargo.toml`. Update on every release. |
 | `repository` | `https://github.com/ness-e/Vantadb` (source: `github`) | Required for GitHub namespace verification. |
 | `websiteUrl` | docs/api/MCP.md on develop branch | Directs users to the canonical MCP documentation. |
 | `packages` | **absent** | `vantadb-mcp` is `publish = false` and not on crates.io yet. See [Submission state](#submission-state). |

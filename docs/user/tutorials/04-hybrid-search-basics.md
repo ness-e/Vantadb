@@ -182,7 +182,7 @@ It returns a dict describing the search route, the fusion parameters, and each h
 | Query type | Mode | Example |
 |------------|------|---------|
 | Paraphrased, natural language | Vector-only | "what should I use instead of SQLite" |
-| Exact names, codes, product terms | Keyword (`text_query`) | "vantadb-py 0.5.0 put signature" |
+| Exact names, codes, product terms | Keyword (`text_query`) | "vantadb-py 0.6.1 put signature" |
 | General retrieval | Hybrid (both) | production default |
 | Narrow scope | Any + `filters` | "only docs about wasm" |
 

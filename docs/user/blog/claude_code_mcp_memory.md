@@ -24,13 +24,13 @@ VantaDB's MCP server (`vantadb-mcp`) is that memory. It runs as a stdio process 
 
 ## 1. Starting the server
 
-The canonical launcher is the CLI wrapper (see `docs/api/MCP.md` for the full reference, currently at MCP implementation version 0.5.0):
+The canonical launcher is the CLI wrapper (see `docs/api/MCP.md` for the full reference, currently at MCP implementation version 0.6.1):
 
 ```bash
 vanta-cli server --mcp --db ~/.vantadb
 ```
 
-Requirements: the `vanta-cli` binary (0.5.0) on PATH and a writable directory for the database. The server speaks JSON-RPC 2.0 over stdin/stdout; tool definitions live in `vantadb-mcp/src/handlers/tools.rs`.
+Requirements: the `vanta-cli` binary (0.6.1) on PATH and a writable directory for the database. The server speaks JSON-RPC 2.0 over stdin/stdout; tool definitions live in `vantadb-mcp/src/handlers/tools.rs`.
 
 ---
 
