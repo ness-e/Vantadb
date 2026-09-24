@@ -18,7 +18,7 @@
 
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | `integrations/llamaindex/vantadb_llamaindex/__init__.py` (re-export VantaDBVectorStore), `integrations/llamaindex/tests/test_vectorstore.py` (23 tests usan store), docs/plans reference, ningún módulo Rust core depende del adapter (aislado) |
+| Callers | `integrations/llamaindex/vantadb_llamaindex/__init__.py` (re-export VantaDBVectorStore), `integrations/llamaindex/tests/test_vectorstore.py` (23 tests usan store), docs/dev/plans reference, ningún módulo Rust core depende del adapter (aislado) |
 | Callees | `vantadb_py` (VantaDB client), `llama_index.core.bridge.pydantic.PrivateAttr`, `llama_index.core.vector_stores.types.BasePydanticVectorStore`, `llama_index.core.vector_stores.types.MetadataFilter/MetadataFilters/FilterOperator/VectorStoreQuery`, `pydantic.BaseModel` via bridge |
 | Implicaciones | contrato no cambia API pública (thin wrapper), fix mantiene seriálización pydantic limpia (model_dump sin _client/_namespace), get_type_hints resuelve MetadataFilter; no afecta performance/memoria/serialización más allá de PrivateAttr; no requiere migración de datos ni re-indexación; tests existentes deben pasar (23) |
 

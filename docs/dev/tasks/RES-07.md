@@ -13,7 +13,7 @@
 - **Campaign ID:** 20260902-alta-prioridad-paralelo
 - **Incógnitas (uphill):** 0 — DEFAULT_RSS_THRESHOLD 0.80 ya en src/config.rs:22 + benches/memory_budget.rs 161L full-scale 10k..100k + Cargo.toml [[bench]] memory_budget + docs/user/operations/CONFIGURATION.md | rss_threshold 0.80
 - **Pendientes (downhill):** 0 — verify cargo check + Select-String rss_threshold + cargo bench --no-run + plan sync
-- **Branch:** develop (disjoint MEM-14 vanta-memory/scene_extractor + GOV-C7 docs/Backlog — no tocar vanta-memory)
+- **Branch:** develop (disjoint MEM-14 vanta-memory/scene_extractor + GOV-C7 docs/dev/Backlog — no tocar vanta-memory)
 
 ## Blast Radius
 | Dirección | Módulos | Implicación |
@@ -170,7 +170,7 @@ Sin deuda nueva (0 líneas Rust nuevas en este slice — ponytail reuse DEFAULT_
 - RES-06 ✅ (Wave3 scores semántica — bench pattern reuse canonical_p99)
 - GOV-C6 ✅ (Wave3 CONFIGURATION.md 44 env vars — disjoint, misma doc pero fila distinta rss_threshold ya 0.80)
 - No depende de MEM-14 (vanta-memory scene_extractor — disjoint 100%) — MAX 3 paralelo seguro
-- No depende de GOV-C7 (docs/Backlog — disjoint docs)
+- No depende de GOV-C7 (docs/dev/Backlog — disjoint docs)
 
 ## Review (GATE — agente distinto si aplica, config correctness)
 - **Revisor:** vanta-review (self-review ponytail, config correctness — DEFAULT_RSS_THRESHOLD 0.80 + clamp + bench full-scale) — contratos mecánicos verificados 2026-09-02, 0 líneas nuevas, disjoint respetado, cargo check verde. Veredicto: ✅ approve — listo para commit atómico `feat(config): RES-07`.
@@ -203,7 +203,7 @@ Sin deuda nueva (0 líneas Rust nuevas en este slice — ponytail reuse DEFAULT_
 
 ## Context Save Point (2026-09-02 — cierre original, preservado)
 - **Fecha:** 2026-09-02
-- **Branch:** develop (git status M .opencode, M docs/plans — disjoint MEM-14/GOV-C7)
+- **Branch:** develop (git status M .opencode, M docs/dev/plans — disjoint MEM-14/GOV-C7)
 - **CI pendiente:** no (config core, verify cargo check + Select-String ya verde, bench compile verde)
 - **Decisiones:** Reuse DEFAULT_RSS_THRESHOLD 0.80 + bench 10k..100k existente (ponytail 0 líneas) — no nuevo código, F2/F3 calibrar threshold queda heavy bench medición real (no heurística)
 - **Problemas conocidos:** Ninguno — rss_threshold 0.80 landed + bench full-scale 161L + CONFIGURATION.md row + Cargo bench + cargo check verde; bench timed no corre en fast gate (heavy only)

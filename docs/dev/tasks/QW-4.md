@@ -18,7 +18,7 @@
 
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | `integrations/ollama/vantadb_ollama/__init__.py` (re-export VantaDBOllama), `integrations/openai/vantadb_openai/__init__.py` (re-export VantaDBOpenAI), `integrations/ollama/tests/test_vectorstore.py` (9 tests), `integrations/openai/tests/test_vectorstore.py` (9 tests), docs/plans reference, ningún módulo Rust core depende del adapter (aislado) |
+| Callers | `integrations/ollama/vantadb_ollama/__init__.py` (re-export VantaDBOllama), `integrations/openai/vantadb_openai/__init__.py` (re-export VantaDBOpenAI), `integrations/ollama/tests/test_vectorstore.py` (9 tests), `integrations/openai/tests/test_vectorstore.py` (9 tests), docs/dev/plans reference, ningún módulo Rust core depende del adapter (aislado) |
 | Callees | `vantadb_py` (VantaDB client), `integrations/vantadb_shared/__init__.py` (Document, EmbeddingVectorStore), `ollama` SDK (`ollama.embeddings`, `ollama.embed`), `openai` SDK (`openai.OpenAI.embeddings.create`), `hatchling` force-include (packaging), `asyncio` + `functools.partial` (async helpers via thread executor) |
 | Implicaciones | contrato NO cambia API pública (thin subclasses mantienen VantaDBOllama/VantaDBOpenAI, Document, DEFAULT_NAMESPACE/MODEL, add_texts/delete/similarity_search/aadd_texts/asimilarity_search/adelete); reducción ~243 líneas combinadas (179+64 → 58+64+219 shared); asimilarity_search consistente (mismo executor); packaging hatch force-include `../vantadb_shared` = `vantadb_shared` vendored por wheel (no PyPI separado); no requiere migración de datos ni re-indexación; tests existentes deben pasar (9+9) |
 

@@ -1,5 +1,5 @@
 ---
-title: "Mapa de Cobertura — Migration docs/progreso → docs/avance"
+title: "Mapa de Cobertura — Migration docs/progreso → docs/dev/avance"
 type: verification
 status: active
 date: 2026-08-07

@@ -11,7 +11,7 @@
 - **Editado:** `vanta-memory/src/ingest/mod.rs` (1 línea: `pub mod auto_sync;`).
 - **Depende de:** MEM-16 `utils/managed_timer.rs` (`Clock`/`FakeClock`/`ManagedTimer`), MEM-30 `ingest::worker::run_with_progress`, MEM-28 `vantadb::wiki::WikiStore` busy guard (`WikiState::is_busy`, 409→`ExecutionConflict`), MEM-31 `ProgressTracker`/`run_id`.
 - **Callers entrantes:** ninguno (scheduler pull-based; el owner llama `tick()`). No rompe nada existente.
-- **NO toca:** core `vantadb` (wal/vector/storage/wiki), plan file, docs/reviews.
+- **NO toca:** core `vantadb` (wal/vector/storage/wiki), plan file, docs/dev/reviews.
 
 ## Impacto mapeado (Regla 0)
 - Archivos leídos completos: `utils/managed_timer.rs` (267L), `utils/timer_scanner.rs`, `ingest/mod.rs` (235L), `ingest/worker.rs` (run/run_with_progress/ingest_body), `ingest/callback.rs` (ProgressTracker), core `src/wiki/store.rs` (transiciones) + `src/wiki/state.rs` (is_busy/busy_error), TDAM `auto-sync-scheduler.ts` (328L), tests `tests/ingest.rs` (fixtures).

@@ -10,7 +10,7 @@
 - **Tipo:** docs / operations / SHIP
 - **Prioridad:** Alta (🔴 Addendum 3.4.2 — falla cuando se necesita)
 - **Campaign ID:** 20260902-alta-prioridad-paralelo
-- **No tocar:** `src/wal.rs`, `src/storage/engine/*`, `src/vector/*` (RES-02 disjoint) — dominio docs/operations + verify
+- **No tocar:** `src/wal.rs`, `src/storage/engine/*`, `src/vector/*` (RES-02 disjoint) — dominio docs/user/operations + verify
 
 ## Blast Radius
 | Dirección | Módulos |

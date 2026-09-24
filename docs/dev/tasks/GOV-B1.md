@@ -10,24 +10,24 @@
 - **Tipo:** docs / governance / Show HN bloqueante (D6 eliminar, D3 Show HN Sept)
 - **Prioridad:** Alta (bloqueante reputación — T0.1 archive interno, D6 owner decision)
 - **Campaign ID:** 20260902-alta-prioridad-paralelo
-- **No tocar:** `src/planner.rs`, `src/entity/**`, `src/skills.rs`, `src/wal.rs`, `src/storage/**` (MEM-01 engine disjoint) — dominio `docs/case_studies/*`, `docs/dev/archive/case-studies-unverified/*`, `docs/user/book/src/case_studies/*`, `docs/master-index.md`
+- **No tocar:** `src/planner.rs`, `src/entity/**`, `src/skills.rs`, `src/wal.rs`, `src/storage/**` (MEM-01 engine disjoint) — dominio `docs/case_studies/*`, `docs/dev/archive/case-studies-unverified/*`, `docs/user/book/src/case_studies/*`, `docs/dev/master-index.md`
 
 ## Blast Radius
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | `docs/dev/Backlog.md` filas GOV-B1/D6, `docs/master-index.md` §Case Studies, `docs/user/book/src/SUMMARY.md:61` Case Studies, `docs/user/book/src/case_studies/index.md` stub, `web/src/components/vanta/vanta-data.ts:1005` CASE_STUDIES (3 composite anonymized), `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` §GOV-B1 |
+| Callers | `docs/dev/Backlog.md` filas GOV-B1/D6, `docs/dev/master-index.md` §Case Studies, `docs/user/book/src/SUMMARY.md:61` Case Studies, `docs/user/book/src/case_studies/index.md` stub, `web/src/components/vanta/vanta-data.ts:1005` CASE_STUDIES (3 composite anonymized), `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` §GOV-B1 |
 | Callees | `docs/dev/archive/case-studies-unverified/README.md` (disclaimer D6, 17L), `docs/dev/archive/case-studies-unverified/rag_edge_device.md` (5942L, EdgeSense), `docs/dev/archive/case-studies-unverified/agent_local_memory_ollama.md` (6398L, CodexAgent), `docs/case_studies/` (eliminado — no existe en HEAD), `DISASTER_RECOVERY_RUNBOOK.md` (no tocar — GOV-B2) |
 | Implicaciones | Docs-only move + archive. No cambia Rust, no toca nextest, no toca .codegraph. Riesgo: refs públicas residuales a `docs/case_studies/` (web/docs/user/book/master-index). Mitigación: stubs + archive README + grep global verificado 2026-08-22 (commit 98612db8 sweep 6 archivos). Disjoint 100% con MEM-01 (src/planner.rs) — MAX 3 respetado. |
 
 ## Impacto mapeado (Regla 0) — BLAST RADIUS DOCS (codegraph no necesario, docs-only)
-- **Archivos leídos (completos):** `docs/dev/archive/case-studies-unverified/README.md` (800L, disclaimer 2026-08-22 D6), `docs/dev/archive/case-studies-unverified/rag_edge_device.md` (5942L frontmatter active, EdgeSense industrial), `docs/dev/archive/case-studies-unverified/agent_local_memory_ollama.md` (6398L CodexAgent), `docs/user/book/src/case_studies/index.md` (stub 3L archivado), `docs/user/book/src/SUMMARY.md:61` (link Case Studies → case_studies/index.md), `docs/master-index.md:159` (sección Case Studies archivados), `web/src/components/vanta/vanta-data.ts:1005-1080` (CASE_STUDIES 3 items anonymized Indie AI Studio/Field Robotics/DevTools Startup — sin disclaimer composite, deuda audit 2026-08-19), `DISASTER_RECOVERY_RUNBOOK.md` / `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md` (verificado no tocar — GOV-B2), `SKILLS-MANIFEST.md` (601L, grep keywords abajo), `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` §GOV-B1 (contrato), `git log --oneline --grep=GOV-B1` (2 commits: a8a21733 retire + 98612db8 residuales)
+- **Archivos leídos (completos):** `docs/dev/archive/case-studies-unverified/README.md` (800L, disclaimer 2026-08-22 D6), `docs/dev/archive/case-studies-unverified/rag_edge_device.md` (5942L frontmatter active, EdgeSense industrial), `docs/dev/archive/case-studies-unverified/agent_local_memory_ollama.md` (6398L CodexAgent), `docs/user/book/src/case_studies/index.md` (stub 3L archivado), `docs/user/book/src/SUMMARY.md:61` (link Case Studies → case_studies/index.md), `docs/dev/master-index.md:159` (sección Case Studies archivados), `web/src/components/vanta/vanta-data.ts:1005-1080` (CASE_STUDIES 3 items anonymized Indie AI Studio/Field Robotics/DevTools Startup — sin disclaimer composite, deuda audit 2026-08-19), `DISASTER_RECOVERY_RUNBOOK.md` / `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md` (verificado no tocar — GOV-B2), `SKILLS-MANIFEST.md` (601L, grep keywords abajo), `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` §GOV-B1 (contrato), `git log --oneline --grep=GOV-B1` (2 commits: a8a21733 retire + 98612db8 residuales)
 - **Grep SKILLS-MANIFEST.md keywords "case_studies", "show hn", "runbook", "disaster" (SDP obligatorio — Lifecycle BUILD docs):**
   - `case_studies` → 0 hits (manifest en inglés, expected — no hay skill case_studies; mapea a docs domain)
   - `show hn` → 0 hits (expected — Show HN es contexto GOV reputación, no skill; mapea a documentation-and-adrs + writing-guidelines)
   - `runbook` → 0 hits (expected — runbook es GOV-B2 DISASTER_RECOVERY, no skill dedicada; mapea a documentation-and-adrs)
   - `disaster` → 0 hits (expected — disaster recovery es GOV-B2, no skill; mapea a documentation-and-adrs + observability)
   - **Conclusión SDP mapa:** 0 hits directos confirman que keywords son dominio docs/governance puro — fallback por dominio a skills docs lifecycle BUILD: `documentation-and-adrs` (ADRs, archiving, disclaimer), `writing-guidelines` (voz Show HN), `spec-driven-development` (doc-first archive), `incremental-implementation` (thin slice mv+stub). Keywords no bloquean selección — justifican ≤8 docs-centric.
-- **Archivos referenciados hacia dentro:** docs/user/book/src/SUMMARY.md indexa case_studies/index.md stub; docs/master-index.md referencia archive/; web/vanta-data.ts CASE_STUDIES es composite independiente (no linka docs/case_studies/); docs/archive README es fuente única disclaimer
+- **Archivos referenciados hacia dentro:** docs/user/book/src/SUMMARY.md indexa case_studies/index.md stub; docs/dev/master-index.md referencia archive/; web/vanta-data.ts CASE_STUDIES es composite independiente (no linka docs/case_studies/); docs/archive README es fuente única disclaimer
 - **Archivos que referencian a los editados:** grep "case_studies" → 8 hits (archive README, historial, book SUMMARY, plans GOV-B1, audit archive, plan governance) — 0 hits en docs/case_studies/ (eliminado); grep "rag_edge" → solo archive; verificación pre-move 2026-08-22 hizo sweep global (commit 98612db8: docs/README.md, book/*, graphrag/README.md, skills/vantadb/SKILL.md)
 - **Veredicto impacto:** bajo — docs-only, 0 líneas Rust, 2 git mv + 1 README + 2 stubs book ya landed (commits a8a21733 + 98612db8). Disjoint 100% con MEM-01 (src/planner.rs engine) y GOV-B2 (DISASTER_RECOVERY_RUNBOOK.md) — sin contención MAX 3. Ponytail: reuse archive existente, no re-mover, solo verify + task file.
 
@@ -40,7 +40,7 @@
   - `Select-String -Path "docs/dev/archive/case-studies-unverified/README.md" -Pattern "ARCHIVADOS|no-público|CLD-04" | Measure-Object Count` >=2 (disclaimer completo D6)
   - `Test-Path docs/case_studies` == False (no existe — archivado, contract negativo)
   - `Test-Path docs/user/book/src/case_studies/index.md` == True (stub 3L: "ARCHIVADOS 2026-08-22")
-  - `Select-String -Path "docs/master-index.md" -Pattern "archive/case-studies-unverified" | Measure-Object Count` >=1 (master-index actualizado)
+  - `Select-String -Path "docs/dev/master-index.md" -Pattern "archive/case-studies-unverified" | Measure-Object Count` >=1 (master-index actualizado)
   - `cargo check -p vantadb` → Finished dev (docs-only no Rust — verifica que move no rompió workspace)
 - **Cifra canónica archivada:** 2 case studies ficticios (rag_edge_device EdgeSense + agent_local_memory_ollama CodexAgent) retirados 2026-08-22 D6, reubicados `docs/dev/archive/case-studies-unverified/` con README disclaimer + stubs book. Case study real vía CLD-04 (enterprise pilot).
 
@@ -49,7 +49,7 @@ N/A — docs-only archiving, sin símbolos públicos nuevos. Decisión ya tomada
 
 ## Invariantes de dominio (handoff - MUST)
 - **Invariantes a preservar:** No tocar `src/planner.rs` / `src/entity/**` / `src/skills.rs` (MEM-01 disjoint F1 search profile); No tocar `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md` (GOV-B2 runbook fantasma — task paralela); No tocar `src/wal.rs` / `src/storage/**` (RES-01/02 durabilidad SOLO); No re-crear `docs/case_studies/` público; No editar `Cargo.toml` versión (release-plz); No modificar `web/src/components/vanta/vanta-data.ts` CASE_STUDIES en esta task (deuda composite disclaimer es follow-up GOV-F1/F2, no bloquea archive)
-- **Comandos de verificación:** `Test-Path docs/dev/archive/case-studies-unverified/rag_edge_device.md` ; `Select-String -Path "docs/dev/archive/case-studies-unverified/README.md" -Pattern "ilustrativos"` ; `Test-Path docs/case_studies` (False) ; `Test-Path docs/user/book/src/case_studies/index.md` ; `cargo check -p vantadb` ; `Select-String -Path "docs/master-index.md" -Pattern "archive/case-studies-unverified"`
+- **Comandos de verificación:** `Test-Path docs/dev/archive/case-studies-unverified/rag_edge_device.md` ; `Select-String -Path "docs/dev/archive/case-studies-unverified/README.md" -Pattern "ilustrativos"` ; `Test-Path docs/case_studies` (False) ; `Test-Path docs/user/book/src/case_studies/index.md` ; `cargo check -p vantadb` ; `Select-String -Path "docs/dev/master-index.md" -Pattern "archive/case-studies-unverified"`
 - **Deuda pendiente:** `web/src/components/vanta/vanta-data.ts:1005` CASE_STUDIES 3 historias anonymized sin disclaimer composite (audit 2026-08-19) — no es parte de GOV-B1 archive, trackeado para GOV-F1 (auditoría raíz) como mejora voz/tono writing-guidelines. No bloquear GOV-B1.
 
 ## Recitation (canónico - estructura única)
@@ -91,7 +91,7 @@ Sin deuda nueva (docs-only archiving, 0 líneas Rust, 0 líneas docs nuevas neta
 ## Steps
 
 ### Step 1: DISCOVERY — Read case_studies + grep manifest (SDP obligatorio)
-- **Archivos:** `docs/dev/archive/case-studies-unverified/*`, `docs/user/book/src/case_studies/index.md`, `docs/master-index.md`, `SKILLS-MANIFEST.md`
+- **Archivos:** `docs/dev/archive/case-studies-unverified/*`, `docs/user/book/src/case_studies/index.md`, `docs/dev/master-index.md`, `SKILLS-MANIFEST.md`
 - **Acción:** Read 3 files archive (README 800L + 2 md 5942/6398L) + book stub 3L + master-index §Case Studies + web CASE_STUDIES 3 items + DISASTER_RECOVERY_RUNBOOK.md (no tocar — GOV-B2) + grep SKILLS-MANIFEST 4 keywords (0 hits cada una, documentado) + git log GOV-B1 2 commits
 - **Verify:** Select-String README "ilustrativos" >=1 ; Test-Path rag_edge_device True ; grep manifest 0 hits documentado
 - **Estado:** ✅ COMPLETED

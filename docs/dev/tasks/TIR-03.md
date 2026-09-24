@@ -35,7 +35,7 @@
 
 - **Invariantes a preservar:**
   1. NO tocar el Iron Law de `RULES.md` §10b (root-cause antes de fix) — la contención es UN PASO ANTES, no lo reemplaza
-  2. NO inventar un nuevo estado C0 ni cambiar la state machine — la contención (si implementa) es un gate de docs/workflow, no tooling
+  2. NO inventar un nuevo estado C0 ni cambiar la state machine — la contención (si implementa) es un gate de docs/dev/workflow, no tooling
   3. El bug-workflow.md solo se edita si la decisión es "implementar"; un WONTFIX no toca código ni docs normativos
   4. El documento de decisión vive en `docs/Investigaciones/2026-08-10-agent-engineering/` (carpeta de investigación existente)
 - **Comandos de verificación:** `rg "Contención|contenc" docs/dev/references/bug-workflow.md` (si implementar) · validación markdown del doc de decisión · `git status` limpio al cierre

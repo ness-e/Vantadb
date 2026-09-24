@@ -206,7 +206,7 @@ esta sesión; irrelevante porque no se usa `expect`].
   (`Cargo.toml:85,106,144`); caller chain cfg-gated (insert.rs :546,562,783,784).
 - **Referencias entrantes (quién depende del método):** solo `existing_for_batch_many`
   + tests cfg-gateados; ningún otro caller en `src/` (`rg` 0 hits fuera de txn.rs +
-  insert.rs:792 + docs/Backlog/tasks menciones).
+  insert.rs:792 + docs/dev/Backlog.md + docs/dev/tasks menciones).
 - **Veredicto:** impacto mínimo y reversible (1 atributo cfg); compilable en ambas
   configs; sin cambios de comportamiento, firma, visibilidad ni docs públicas.
 

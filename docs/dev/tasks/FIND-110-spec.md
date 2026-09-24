@@ -302,7 +302,7 @@ SDP: 7 cargadas-útiles + 1 base; `doubt-driven-development` añadida por sugere
 ## Dependencias
 
 - FIND-110 ✅ (re-DEFER fundado — base evidencial; esta spec la convierte en slices mecánicos, no la reedita)
-- FIND-98 ✅ (re-DEFER con evidencia; Wave0 primera; archivos disjuntos — fuera-del-repo vs docs/tasks)
+- FIND-98 ✅ (re-DEFER con evidencia; Wave0 primera; archivos disjuntos — fuera-del-repo vs docs/dev/tasks)
 - Nota tipo: auto-detect dijo `docs`/`Documentation`; el contenido es spec de diseño lifecycle Rust-core/MCP (skills SDD+DDD aplicadas por contrato del plan, no por el label). Sin conflicto: el entregable es docs-only.
 - NextTask: FIND-113-spec (orquestador; Wave0 tercera; comparte FIND-112 §(c) como referencia de coherencia sin editarla; archivos disjuntos `docs/dev/tasks/113` vs `docs/dev/tasks/110`)
 - Stop del plan evaluado: dueño defendible SÍ existe en diseño (writer-side `Arc` + restart efímero) → la spec cierra; el Stop queda documentado para la EJECUCIÓN futura (si Slice A/B revelan que el productor no puede vivir en el writer → re-DEFER honesto con esta spec como diseño parcial, no forzar)

@@ -24,7 +24,7 @@
 
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | `docs/user/book/src/SUMMARY.md`, `docs/user/book/src/tutorials/index.md`, `docs/README.md`, web (si hay links), `docs/master-index.md` |
+| Callers | `docs/user/book/src/SUMMARY.md`, `docs/user/book/src/tutorials/index.md`, `docs/README.md`, web (si hay links), `docs/dev/master-index.md` |
 | Callees | API real de `vantadb_py` (NUEVO-07 ya corrigió migraciones); ejemplos de código en los tutorials |
 | Implicaciones | Tutoriales con API inventada = documentación incorrecta. Los draft DEBEN usar la API real (`vantadb_py.VantaDB`, `space`, `put`, `hybrid_search`) |
 
@@ -70,7 +70,7 @@
 - **Estado:** ✅ COMPLETADO
 
 ### Step 5: Verificación final de coverage + links
-- **Archivos:** `docs/master-index.md`, `docs/README.md` (si referencian tutorials)
+- **Archivos:** `docs/dev/master-index.md`, `docs/README.md` (si referencian tutorials)
 - **Acción:** verificar que el índice de docs lista el learning path; links internos sin 404.
 - **Verify:** `scripts/validate-docs-coverage.ps1` (nota: falla por gaps preexistentes no relacionados — documentar); grep links rotos
 - **Estado:** ✅ COMPLETADO

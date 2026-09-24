@@ -98,7 +98,7 @@ Base type: LLM proxy (axum + tokio + reqwest + handlers). Lifecycle BUILD keywor
 | Skill | Carga | Razón |
 |-------|-------|-------|
 | campaign-executor | ✅ base | Pipeline task system (core) |
-| progreso | ✅ base | Migración Backlog → docs/avance al cierre |
+| progreso | ✅ base | Migración Backlog → docs/dev/avance al cierre |
 | ponytail | ✅ base | Lazy senior dev (default full) |
 | source-driven-development | ✅ discovery | Validar docs cargo package/publish antes de fix metadata |
 | incremental-implementation | ✅ lifecycle | Gates como slices verticales delgados |

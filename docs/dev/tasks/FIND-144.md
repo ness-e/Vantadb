@@ -15,7 +15,7 @@ Crear `docs/dev/workflow/RULES.md` (nuevo) + refresh `docs/dev/operations/CI_POL
 
 - `npx markdownlint-cli2 "docs/dev/workflow/**/*.md" "docs/dev/operations/CI_POLICY.md"` → 0 issues.
 - Una regla verificable por cada hallazgo Alta (triggers, timeouts, pins, permissions, publish, anti-patrones).
-- 0 links rotos (grep `](docs/workflow` + `](docs/operations` resuelven; sin URLs externas nuevas).
+- 0 links rotos (grep `](docs/dev/workflow` + `](docs/dev/operations` resuelven; sin URLs externas nuevas).
 - `git diff --check` limpio. Commit `docs: FIND-144 — ...` selectivo. NO PUSH.
 - PROHIBIDOS intactos: `.github/workflows/` (cero edits YAML), `src/`, `web/src/`, `desktop/`, `reparacion.bat`, `.opencode`, `completions/*`, `*.lock`, stash GOV-C4, `docs/dev/Backlog.md`, plan file (solo recitation vía MCP), `docs/CHANGELOG.md`, `docs/api/openapi.yaml`, `docs/api/MCP.md`, `C:/Users/Eros/.vantadb*`, secretos.
 

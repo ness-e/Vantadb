@@ -4,7 +4,7 @@ type: index
 status: active
 tags: [vantadb, avance, index, progreso]
 last_reviewed: 2026-08-07
-aliases: [docs/avance]
+aliases: [docs/dev/avance]
 ---
 
 # Avance — Índice Maestro
@@ -62,11 +62,11 @@ aliases: [docs/avance]
 | `historial/sesiones/2026-07.md` | `bitacora.md` | ✅ creado |
 | `historial/autopsias-2026-06-19.md` | `ARCHIVO_HISTORICO.md` + `historial/snapshot-2026-08-03.md` | ✅ creado |
 
-## Fuentes vivas referenciadas (fuera de `docs/avance`)
+## Fuentes vivas referenciadas (fuera de `docs/dev/avance`)
 
 Estas 4 carpetas **no se mueven físicamente**: son escritas por pipelines activos (task system MCP, `audit-all.ps1`, `unified-review`) que las buscan por ruta fija. Se integran por catálogo — ver `fuentes-vivas.md` (índice + estado de cada archivo, con rutas directas):
 
-| Carpeta externa | Propietario del pipeline | Catálogo en `docs/avance` |
+| Carpeta externa | Propietario del pipeline | Catálogo en `docs/dev/avance` |
 |---|---|---|
 | `docs/dev/plans/` | Sistema de tareas (campaign-server.mjs / pipeline-run.md) | `fuentes-vivas.md` §Planes |
 | `docs/dev/reviews/` | `audit-all.ps1`, `/audit` + `unified-review` / `/review` (escritura de reportes) | `fuentes-vivas.md` §Auditorías |

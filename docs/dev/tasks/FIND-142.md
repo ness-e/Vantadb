@@ -30,7 +30,7 @@ NO renombrar estos 3 archivos — filenames pineados por configs externas de tru
 - [x] **S1 — git mv ×14:** renombrar los 14 yml. Verify: `git status --short` muestra 14 R + pins intactos. ✅
 - [x] **S2 — self-paths ×4 + comentarios ×2:** `chaos.yml`, `ci-rust.yml`, `ci-examples.yml`, `release-wheels.yml`: `.github/workflows/<old>` → `<new>` en `paths:` (2 ocurrencias c/u); + `ci-rustdoc.yml:52`, `providers-ci.yml:53` (comentarios). Verify: grep 0 old-name en `.github/workflows/`. ✅ (más 3 citas cruzadas halladas en re-grep: bench-canonical:5, desktop:70, ocr-nightly:22 — también fijas)
 - [x] **S3 — READMEs:** badges (3×2) + heavy-cert link + ci-examples mención en README.md + README_ES.md. Verify: grep 0 old-name en ambos. ✅
-- [x] **S4 — docs/workflow ×19:** reemplazo mecánico de strings `<old>` → `<new>` (NO renombrar .md — master-index.md:277-290 cita los .md). Verify: grep 0 old-names en `docs/dev/workflow/`. ✅
+- [x] **S4 — docs/dev/workflow ×19:** reemplazo mecánico de strings `<old>` → `<new>` (NO renombrar .md — master-index.md:277-290 cita los .md). Verify: grep 0 old-names en `docs/dev/workflow/`. ✅
 - [x] **S5 — CI_POLICY mínimo:** solo strings de filename viejo → nuevo (21/20 líneas). Verify: grep 0 old-names en el archivo. ✅
 - [x] **S6 — verify + commit:** actionlint full exit 0 + `git diff --check` limpio + grep alcance 0 + commit `ci: FIND-142 — ...` selectivo, NO PUSH. ✅
 

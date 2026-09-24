@@ -102,7 +102,7 @@ Verificación mecánica:
 
 ### Step 3: Cierre — verify full + plan file + commit + progreso
 - **Archivos:** `docs/dev/plans/2026-08-27-backlog-v2.md`, `docs/dev/avance/`, `.opencode/skills/campaign-executor/tasks/FIND-36.md`
-- **Acción:** `cargo fmt --check` + `cargo clippy --workspace --all-targets --all-features -- -D warnings` + `cargo check -p vantadb --all-targets` + `rg` contracts + `cargo check --all-targets --all-features`. Actualizar plan file Task 3 → ✅ COMPLETED + recitation. Commit `fix: FIND-36 — Cross-crate NativeConnection↔RocksDbBackend frontier doc (false-positive Leiden, DAG justified)`. Ejecutar skill progreso (Backlog FIND-36 → docs/avance si existe).
+- **Acción:** `cargo fmt --check` + `cargo clippy --workspace --all-targets --all-features -- -D warnings` + `cargo check -p vantadb --all-targets` + `rg` contracts + `cargo check --all-targets --all-features`. Actualizar plan file Task 3 → ✅ COMPLETED + recitation. Commit `fix: FIND-36 — Cross-crate NativeConnection↔RocksDbBackend frontier doc (false-positive Leiden, DAG justified)`. Ejecutar skill progreso (Backlog FIND-36 → docs/dev/avance si existe).
 - **Verify:** `cargo fmt --check` ✅ + `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` 0 ✅ + `cargo check -p vantadb --all-targets` ✅ + `rg` 0 cross-imports ✅ + doc headers justifican codegraph 3 ciclos (falso positivo)
 - **Estado:** ✅ COMPLETED (2026-08-27 — fmt 0 ✅, clippy 0 ✅, check 0.65s ✅ + --all-features 37.55s ✅, rg 0 use-imports ✅, headers 1-22 + 1-20 justifican, plan file ✅ COMPLETED, recitation FIND-36 añadida)
 

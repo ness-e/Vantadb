@@ -32,7 +32,7 @@ principal VantaDB para eliminar doble-commit y mezcla config/datos.
 ## Contrato
 "docs/dev/tasks/ contiene 635+92+2=729 .md (copia fiel del origen), .opencode/skills/campaign-executor/tasks/
 queda como redirect/compat con README, rg tasks/campaign-executor en AGENTS/SKILL/pipeline
-apunta a docs/tasks como canónico. Verify: conteos + rg + git status. Sin commit."
+apunta a docs/dev/tasks como canónico. Verify: conteos + rg + git status. Sin commit."
 
 ## Herramientas
 - bash (PowerShell: Copy-Item, Get-FileHash, Measure-Object)
@@ -43,7 +43,7 @@ apunta a docs/tasks como canónico. Verify: conteos + rg + git status. Sin commi
 ### Step 1: Crear docs/dev/tasks/ + complete/ + closed/
 - **Archivos:** `docs/dev/tasks/`, `docs/dev/tasks/complete/`, `docs/dev/tasks/closed/`
 - **Acción:** New-Item -ItemType Directory -Force
-- **Verify:** Get-ChildItem docs/tasks → complete + closed presentes
+- **Verify:** Get-ChildItem docs/dev/tasks → complete + closed presentes
 - **Estado:** ✅ COMPLETED
 
 ### Step 2: Copiar 635 + 92 + 2 preservando nombres, verificar conteos + sample hash
@@ -56,7 +56,7 @@ apunta a docs/tasks como canónico. Verify: conteos + rg + git status. Sin commi
 - **Archivos:** `.opencode/AGENTS.md` (tabla + nota), `.opencode/skills/campaign-executor/SKILL.md`
   (tabla Componentes ×2 + Fase 1 + System Integration), `.opencode/commands/pipeline.md` (header + 3 refs)
 - **Acción:** `tasks/<ID>.md` → `docs/dev/tasks/<ID>.md` + fallback legacy nota D1
-- **Verify:** rg en los 3 archivos apunta a docs/tasks como canónico
+- **Verify:** rg en los 3 archivos apunta a docs/dev/tasks como canónico
 - **Estado:** ✅ COMPLETED
 
 ### Step 4: README redirect en origen (sin borrar origen, sin commit)

@@ -35,7 +35,7 @@
   - `backlog-history.md` → referenciado desde Backlog header `Historial de verificación: docs/dev/avance/historial/backlog-history.md` y desde limpieza 2026-08-07. Es historial de items removidos.
 - **Referencias entrantes (qué depende de lo que cambio):**
   - `P37` → Exec Summary línea 47 cuenta 9 activas; tabla P37 9 filas. Si se borran sin actualizar Exec Summary → conteo inconsistente (9 vs 0). Ambos deben alinearse a 0.
-  - `DAUD-01..09` → ningún código depende de estas filas (son backlog docs). Solo docs/avance y plan file las referenciarán tras cierre. `grep -r "DAUD-"` en `src/`/`desktop/src/` debe ser 0 hits post-cierre excepto historial/plan/task files (histórico permitido).
+  - `DAUD-01..09` → ningún código depende de estas filas (son backlog docs). Solo docs/dev/avance y plan file las referenciarán tras cierre. `grep -r "DAUD-"` en `src/`/`desktop/src/` debe ser 0 hits post-cierre excepto historial/plan/task files (histórico permitido).
   - `check-avance-coverage.ps1` → escanea `docs/dev/avance/historial/fuentes/*` + `docs/dev/avance/historial/campanas/*` para IDs. DAUD no está en fuentes → no afecta cobertura. Verificado: `grep DAUD` en `docs/dev/avance/historial/fuentes/` 0 hits pre-edit → coverage ya 1038/1038 sin DAUD.
   - `validate-docs-coverage.ps1` → no escanea Backlog ni DAUD → 0 impacto.
   - E2E `desktop/e2e/daud01-temas.spec.ts` y `flujo-critico.spec.ts` → tests que guardan DAUD-01 (E2E-VISUAL). No dependen de Backlog.md. Intactos.

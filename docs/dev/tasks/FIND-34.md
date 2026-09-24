@@ -88,7 +88,7 @@ Verificación mecánica:
 
 ### Step 3: Cierre — verify full + plan file + commit + progreso
 - **Archivos:** `docs/dev/plans/2026-08-27-backlog-v2.md`, `docs/dev/avance/`, `.opencode/skills/campaign-executor/tasks/FIND-34.md`
-- **Acción:** `cargo fmt --check` + `cargo clippy --workspace --all-targets --all-features -- -D warnings` + `cargo nextest run --profile audit --workspace --build-jobs 2` (full) + `cargo check -p vantadb` + `rg` contract + `cargo nextest -E test(wal)` final. Actualizar plan file Task 1 → ✅ COMPLETED + recitation. Commit `fix: FIND-34 — WAL writer DAG justification + recovery/quarantine edge tests`. Ejecutar skill progreso (Backlog FIND-34 → docs/avance).
+- **Acción:** `cargo fmt --check` + `cargo clippy --workspace --all-targets --all-features -- -D warnings` + `cargo nextest run --profile audit --workspace --build-jobs 2` (full) + `cargo check -p vantadb` + `rg` contract + `cargo nextest -E test(wal)` final. Actualizar plan file Task 1 → ✅ COMPLETED + recitation. Commit `fix: FIND-34 — WAL writer DAG justification + recovery/quarantine edge tests`. Ejecutar skill progreso (Backlog FIND-34 → docs/dev/avance).
 - **Verify:** `cargo fmt --check` ✅ (0) + `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` ✅ (0) + `cargo nextest -p vantadb --profile audit -E test(wal)` 62/62 ✅ + `rg` 1 def c/u ✅ + `validate-docs-coverage` 0 gaps ✅ + doc DAG `src/wal.rs:178-193` justifica `codegraph_explore` (no SCC)
 - **Estado:** ✅ COMPLETED (2026-08-27 — verify full scoped (wal), plan file ✅ COMPLETED, Backlog FIND-34 eliminado → docs/dev/avance/activo/core-engine.md §FIND-34 + docs/dev/avance/historial/backlog-history.md)
 

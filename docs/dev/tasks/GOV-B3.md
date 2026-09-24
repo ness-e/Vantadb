@@ -3,18 +3,18 @@
 ## Metadata
 - **Plan file:** `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` (Wave2 batch2 paralelo con MEM-02/MEM-03)
 - **Creado:** 2026-09-02
-- **Tipo:** docs/operations — guard anti-regresión
+- **Tipo:** docs/user/operations — guard anti-regresión
 - **Estado:** ⬜ PENDING → ✅ COMPLETED
 - **Branch:** `develop`
 - **Archivos clave:** `docs/user/operations/BENCHMARKS.md`, `benches/canonical_p99.rs`, `dev-tools/verify.ps1`
-- **Disjoint:** MEM-02/MEM-03 (engine/IQL) — no toca `src/*` (docs/operations + benches + dev-tools only)
+- **Disjoint:** MEM-02/MEM-03 (engine/IQL) — no toca `src/*` (docs/user/operations + benches + dev-tools only)
 - **Lifecycle:** VERIFY
 
 ## Objetivo
 Implementar guard anti-regresión de consumo (memoria, p99, heap) sobre el bench canónico `canonical_p99` (100k×1536d, seed 42). Cualquier PR que rompa `cargo bench --bench canonical_p99 --no-run` o degrade p99 >10% debe fallar antes de merge (Regla 9).
 
 ## Contexto
-- Wave2 batch2 corre paralelo con MEM-02 (search profile MCP) y MEM-03 (entity_* CRUD) — disjoint 100% (ellos tocan `src/entity/*`, `vantadb-mcp/*`; GOV-B3 toca docs/operations + benches + dev-tools).
+- Wave2 batch2 corre paralelo con MEM-02 (search profile MCP) y MEM-03 (entity_* CRUD) — disjoint 100% (ellos tocan `src/entity/*`, `vantadb-mcp/*`; GOV-B3 toca docs/user/operations + benches + dev-tools).
 - Predecesores: GOV-A4 harness snippets ✅, GOV-A5 registros live ✅, RES-05 scores_semantics bench ✅ — patrón `apply_fixed_profile` reuse.
 - Baseline: `docs/user/operations/BENCHMARKS.md` §1 Stress Protocol (p99 57ms @10k, ~1172 bytes/vec) + `benches/canonical_p99.rs` (FND-10 Regla 9).
 

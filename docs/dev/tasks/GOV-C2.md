@@ -1,4 +1,4 @@
-# GOV-C2 — master-index taxonomía (docs/master-index.md)
+# GOV-C2 — master-index taxonomía (docs/dev/master-index.md)
 
 ## Metadata
 - **Plan file:** docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md
@@ -6,7 +6,7 @@
 - **last-synced:** 2026-09-02T00:00
 - **Estado:** ⬜ PENDING → ✅ COMPLETED
 - **Wave:** Wave2 paralelo con GOV-B6 + GOV-C1 (11/15 ✅)
-- **Archivos clave:** docs/master-index.md, docs/README.md, SKILLS-MANIFEST.md
+- **Archivos clave:** docs/dev/master-index.md, docs/README.md, SKILLS-MANIFEST.md
 - **Disjoint:** No toca GOV-B6 (skills/vantadb-mcp/references/api-reference.md, docs/api/MCP.md) ni GOV-C1 (.config/nextest.toml, docs/TEST_MAP.md)
 
 ## SDP — Skill Discovery Protocol (BUILD lifecycle — docs taxonomía)
@@ -28,12 +28,12 @@ BUILD (docs taxonomía) — taxonomía de documentación, no código Rust.
 3. `writing-plans` — plan multi-paso taxonomía (extra requerido prompt)
 4. `documentation-and-adrs` — ADRs, API docs, taxonomía, frontmatter (extra requerido prompt)
 5. `ponytail(full)` — lazy mode, 1 línea > 50, deuda cero (siempre activo)
-6. `progreso` — sync docs/avance si aplica (base)
+6. `progreso` — sync docs/dev/avance si aplica (base)
 Justificación: BUILD docs taxonomía → documentation-and-adrs es skill primaria (docs/api, ADRs, master-index). writing-plans para orquestar discovery→ejecución→verify. Resto base pipeline. No se carga `ai-seo`, `release-notes-one-pager`, `spec-driven-development` (no aplica — no feature nueva). Total 6 ≤8.
 
 ## Contrato (verificable)
-- `Select-String -Path "docs/master-index.md" -Pattern "audit-reports" | Measure-Object Count ==0` → debe ser 0 para paths filesystem (anchor #audit-reports--reviews es falso positivo; fix: ningún path `docs/audit-reports/` indexado)
-- `Select-String -Path "docs/master-index.md" -Pattern "last_reviewed: 2026-09-02" | Measure-Object Count >=1` → frontmatter actualizado
+- `Select-String -Path "docs/dev/master-index.md" -Pattern "audit-reports" | Measure-Object Count ==0` → debe ser 0 para paths filesystem (anchor #audit-reports--reviews es falso positivo; fix: ningún path `docs/audit-reports/` indexado)
+- `Select-String -Path "docs/dev/master-index.md" -Pattern "last_reviewed: 2026-09-02" | Measure-Object Count >=1` → frontmatter actualizado
 - `cargo check -p vantadb` → Finished (docs-only no rompe build)
 - Disjoint: no modifica GOV-B6 ni GOV-C1 archivos
 
@@ -45,7 +45,7 @@ Justificación: BUILD docs taxonomía → documentation-and-adrs es skill primar
 ## Steps
 
 ### Step 1 — DISCOVERY
-- **Read:** docs/master-index.md 364L (frontmatter 2026-08-22, 23 secciones, 26 dirs filesystem, 649 md)
+- **Read:** docs/dev/master-index.md 364L (frontmatter 2026-08-22, 23 secciones, 26 dirs filesystem, 649 md)
 - **Grep:** `Select-String master-index "audit-reports"` → Count 1 (solo anchor #audit-reports--reviews, no path filesystem — falso positivo pero contrato exige 0 paths `audit-reports/`)
 - **Grep SKILLS-MANIFEST:** 0 hits master-index/taxonomia directos, 2 hits documentation (documentation-and-adrs, doc-coauthoring)
 - **Tree diff:** filesystem dirs vs master-index secciones
@@ -57,7 +57,7 @@ Justificación: BUILD docs taxonomía → documentation-and-adrs es skill primar
 - **Frontmatter:** last_reviewed 2026-08-22 → debe ser 2026-09-02
 
 ### Step 2 — EJECUCIÓN (ponytail minimal)
-- **Archivo único primario:** docs/master-index.md (taxonomía)
+- **Archivo único primario:** docs/dev/master-index.md (taxonomía)
 - **Fix 1 — frontmatter:** `last_reviewed: 2026-08-22` → `2026-09-02` (1 línea)
 - **Fix 2 — API Reference:** expandir tabla 12→18 files (añadir EMBEDDINGS.md, ERROR_HANDLING.md, NODE_SDK.md, VERSIONING.md, WASM_API.md, scores.md con descripción) — reuse docs/api existentes, no crear files nuevos
 - **Fix 3 — Otros:** verificar Deliberately Not Indexed incluye `learning/` si aplica; no tocar GOV-B6/C1
@@ -65,9 +65,9 @@ Justificación: BUILD docs taxonomía → documentation-and-adrs es skill primar
 - **Ponytail:** 1 guard fix, no rewrite completo, reuse árbol real
 
 ### Step 3 — VERIFY
-- `Select-String -Path "docs/master-index.md" -Pattern "audit-reports" | Measure-Object Count` ==0 (o solo anchor si contrato estricto → rename anchor a #audit-reviews para pasar)
-- `Select-String -Path "docs/master-index.md" -Pattern "last_reviewed: 2026-09-02"` >=1
-- `Select-String -Path "docs/master-index.md" -Pattern "scores.md|EMBEDDINGS|ERROR_HANDLING"` >=1 (taxonomía completa)
+- `Select-String -Path "docs/dev/master-index.md" -Pattern "audit-reports" | Measure-Object Count` ==0 (o solo anchor si contrato estricto → rename anchor a #audit-reviews para pasar)
+- `Select-String -Path "docs/dev/master-index.md" -Pattern "last_reviewed: 2026-09-02"` >=1
+- `Select-String -Path "docs/dev/master-index.md" -Pattern "scores.md|EMBEDDINGS|ERROR_HANDLING"` >=1 (taxonomía completa)
 - `cargo check -p vantadb` Finished
 
 ### Step 4 — CIERRE

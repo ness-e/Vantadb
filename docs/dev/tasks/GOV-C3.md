@@ -12,7 +12,7 @@
 - `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md` §3.1 Daily Backup Verification — ya existe (4 hits), 5 pasos full restore+doctor+count verificados GOV-B2/GOV-A3, no se toca contenido durabilidad
 - `dev-tools/verify.ps1` — se AÑADE guard `daily backup verification` (ponytail 2 líneas, valida anchor existe, no heavy restore en fast gate)
 - `docs/dev/reports/dora.md` — read-only referencia, no se edita (fuente métricas)
-- **No toca:** `.config/nextest.toml` (GOV-C1 disjoint), `docs/master-index.md` (GOV-C4 disjoint), `docs/dev/Backlog.md` (GOV-C2/C3 purga refs ya resuelta como mención textual, no se re-purga aquí), `src/wal.rs`, `src/storage/engine/*`, `src/planner.rs`, `vantadb-mcp/*`
+- **No toca:** `.config/nextest.toml` (GOV-C1 disjoint), `docs/dev/master-index.md` (GOV-C4 disjoint), `docs/dev/Backlog.md` (GOV-C2/C3 purga refs ya resuelta como mención textual, no se re-purga aquí), `src/wal.rs`, `src/storage/engine/*`, `src/planner.rs`, `vantadb-mcp/*`
 
 ## Contrato (verificable)
 ```powershell
@@ -59,7 +59,7 @@ cargo check -p vantadb # exit 0
 - MAX 3 paralelo Wave2 batch preserved
 
 ## Notas
-- Purga refs muertas audit-reports ya cerrada como mención textual `Nota GOV-C3 2026-08-22` docs/dev/Backlog.md:200 (no `audit-reports/` link roto), método AUD-007 `Select-String audit-reports 2 hits históricos` → 2 hits residuales son históricos intencionales con disclaimer, no links rotos; no re-purga en este task (scope docs/operations only)
+- Purga refs muertas audit-reports ya cerrada como mención textual `Nota GOV-C3 2026-08-22` docs/dev/Backlog.md:200 (no `audit-reports/` link roto), método AUD-007 `Select-String audit-reports 2 hits históricos` → 2 hits residuales son históricos intencionales con disclaimer, no links rotos; no re-purga en este task (scope docs/user/operations only)
 - Full backup verification procedure permanece en runbook §3.1 (5 pasos), light variant MANIFEST.json, no `--dry-run` fantasma (GOV-B2 fixed)
 - Ponytail ceiling: `ponytail: fast gate docs-only, full restore+doctor if heavy gate` — documentado en verify.ps1
 

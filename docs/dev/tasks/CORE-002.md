@@ -91,7 +91,7 @@ Saldo 0 — verificación idempotente, 0 deuda nueva. Si en futuro faltara enfor
 | Skill | Justificación |
 |-------|---------------|
 | campaign-executor | base — orquestación pipeline-full.md |
-| progreso | base — avance/docs/avance |
+| progreso | base — avance/docs/dev/avance |
 | ponytail | base — ladder idempotencia |
 | incremental-implementation | lifecycle BUILD: slice delgado verify→commit |
 | test-driven-development | lifecycle BUILD: lógica verify mecánica |

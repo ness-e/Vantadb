@@ -78,7 +78,7 @@ No es feature-add (no agrega símbolo público nuevo): `search(distance_metric: 
 - `doubt-driven-development` — stakes producción (input validación → ValueError contract) — Lifecycle BUILD
 - `code-review-and-quality` — gate pre-commit 5 ejes (correctitud, simplicidad, consistencia) — Lifecycle REVIEW
 - `campaign-executor` — núcleo task system PLAN/ACT/VERIFY
-- `progreso` — migración Backlog → docs/avance al cierre
+- `progreso` — migración Backlog → docs/dev/avance al cierre
 - SDP: keywords grep `distance_metric|metadata|warning|ValueError|pyo3` en `SKILLS-MANIFEST.md` → sin candidatos adicionales más allá de los 8 listados (Essential 37 + Engineering Lifecycle 12 cubiertos) — `SDP: sin candidatos adicionales (keywords: distance_metric/metadata/warning/ValueError/pyo3)`
 
 ## Investigation Notes

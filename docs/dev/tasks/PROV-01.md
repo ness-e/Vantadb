@@ -80,7 +80,7 @@ No aplica — fix mecánico sin símbolos públicos nuevos. No agrega `pub fn`/e
 - `incremental-implementation` — slice vertical delgado (≤100 líneas, verify tras cada edición) — Lifecycle BUILD
 - `doubt-driven-development` — stakes producción (compile break) requiere verificación adversarial en contexto fresco — Lifecycle BUILD
 - `campaign-executor` — núcleo task system PLAN/ACT/VERIFY
-- `progreso` — migración Backlog → docs/avance al cierre
+- `progreso` — migración Backlog → docs/dev/avance al cierre
 - `code-review-and-quality` — gate pre-commit 5 ejes (no aplica edición nueva, pero verifica diff existente)
 - SDP: keywords grep `cargo|compile|rust|provider` → sin candidatos adicionales más allá de los 8 listados
 

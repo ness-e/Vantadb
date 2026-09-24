@@ -15,7 +15,7 @@
   - `scripts/check-avance-coverage.ps1`: solo lista archivos del dir `docs/progreso` (no parsea README) ✅
   - `.opencode/skills/campaign-executor/tasks/*`: referencias históricas de registro, no consumidores estructurales ✅
   - `docs/user/book/**`: build artifact regenerable, no fuente ✅
-  - `docs/master-index.md` + otros docs: link genérico a `progreso/README.md` (el archivo sigue existiendo como índice) ✅
+  - `docs/dev/master-index.md` + otros docs: link genérico a `progreso/README.md` (el archivo sigue existiendo como índice) ✅
   - **Veredicto: ningún consumidor automático asume la estructura interna del README.** Split seguro.
 - **Zonas ambiguas:** bloque legacy julio-agosto (L427-1484 y L1844-3984) mezcla temas por fecha → cortes contiguos temáticos gruesos documentados en el índice; permitido por step 5 ("misc agrupado documentado").
 - **Duplicación conocida:** evento "archivado residuo-consolidado" ×3 (:399 Task5-ref, :411 cierre, :415 cierre detallado) → merge :411+:415 en una sección única conservando hechos únicos.
