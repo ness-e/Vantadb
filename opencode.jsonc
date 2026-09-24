@@ -106,6 +106,15 @@
       "type": "local",
       "timeout": 120000,
       "description": "Playwright MCP — automatización de browser via accessibility tree (browser_navigate/snapshot/click/type/evaluate). Para testing web/, E2E desktop/ y visual review."
+    },
+    "semgrep": {
+      "type": "local",
+      "command": [
+        "C:\\Users\\Eros\\AppData\\Roaming\\Python\\Python314\\Scripts\\semgrep.exe",
+        "mcp"
+      ],
+      "disabled": true,
+      "description": "Semgrep MCP — SAST directo para vanta-audit (L7, FIND-149). Deshabilitado por default; activar por perfil. Reglas versionadas: .opencode/configs/semgrep-vanta.yml."
     }
     }
   }
