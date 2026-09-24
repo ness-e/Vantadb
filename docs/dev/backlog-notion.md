@@ -8,18 +8,12 @@
 
 | ID | Página(s) | Alcance | Verificación | Estado |
 |----|-----------|---------|--------------|--------|
-| `N-01` | Plan 00 (quickstart, api-reference, tutorial) | Migrar snippets `vantadb.VantaDB(...)` → `from vantadb import Client` + `Client(...)`, `search_memory` → `search` (kwargs por firma PyO3). No tocar lógica de los docs, solo llamadas | Cada snippet coincide con firma real (`Client`, `search`) | ⬜ Pendiente |
-| `N-02` | Plan 03 (tutorial agente personal, API reference, FAQ, migration guide) | Idem N-01 en: caso de uso agente personal, `search_memory`/`auto_resolve_entities`/`detect_conflicts`/`extract_skills` (estos 3 últimos son FUTURO marcado — verificar que sigan marcados, no "arreglarlos" como si existieran) | Snippets reales vs PROPUESTA marcados correctamente | ⬜ Pendiente |
 | `N-03` | Plan 00/03 (posts HN/Reddit/Twitter/video/guion) | Reescribir claims contra API actual cuando se vayan a usar. Regla vigente: solo features de la release anunciada. Siguen pausados hasta gate Fase A | Cero funciones no existentes por post | ⬜ Pendiente (bloqueado por gate Fase A) |
 
 ## Roadmap y Propuesta (sincronización con código)
 
 | ID | Página(s) | Alcance | Verificación | Estado |
 |----|-----------|---------|--------------|--------|
-| `N-04` | Roadmap (changelogs v0.6.0/v0.7.0/v1.0.0) | Vaciar ✅ pre-rellenados y fechas `2026-09-XX` a roadmap real (hitos + criterios, sin features como hechas) | Ningún ✅ sin release que lo respalde | ⬜ Pendiente |
-| `N-05` | Propuesta §3 + Anexo C + SDKs | Counts MCP 87 tools (hoy "~80"/"~60-70"); matiz `skill_extract` (solo-candidatos REAL, extracción LLM PROPUESTA); rename `Client` en counts del SDK Python | Números = código actual | ⬜ Pendiente |
-| `N-06` | Benchmarks guide | Rellenar ~10 secciones "Contenido pendiente de redactar" + links placeholder (coordinar EXE-05 del Backlog; no citarla como fuente hasta entonces; la tabla de datasets por etapa sí es aprovechable) | 0 "pendiente de redactar", links reales | ⬜ Pendiente |
-
 ## Research (brechas del análisis, sin tarea en ningún backlog)
 
 | ID | Tema | Alcance | Origen | Estado |

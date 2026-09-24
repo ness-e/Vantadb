@@ -1,5 +1,6 @@
 # Plan: gaps pendientes del harness `.opencode/` (handoff entre chats)
 
+> **Campaign ID:** 7d276566-4a14-4761-bd19-048c1cc5a4fb
 > **Inicio:** 2026-09-24
 > **Estado:** ⬜ PENDING (4 tareas, independientes — ejecutables en cualquier orden o en paralelo)
 > **Fuente:** auditoría harness 2026-09-24 (`dda76a4` + `ceca4d7` en repo `configOpencode`)

@@ -26,6 +26,11 @@ vantadb = { path = "..", default-features = false, features = ["fjall", "memmap2
 [build-dependencies]
 napi-build = "2"
 
+# FIND-150: used in build.rs:2 (`napi_build::setup()`). cargo-machete's
+# heuristic misses build-script usage — justified, not removed.
+[package.metadata.cargo-machete]
+ignored = ["napi-build"]
+
 [profile.release]
 lto = true
 strip = "symbols"
