@@ -1,3 +1,12 @@
+---
+title: FEAT-03b Core Decay Implementation Contract
+type: architecture
+status: active
+tags: [vantadb, architecture]
+last_reviewed: 2026-09-23
+aliases: []
+---
+
 # FEAT-03b — Core Decay Implementation Contract
 
 Status: **ready for vanta-worker** · Decision: **ADR-028**

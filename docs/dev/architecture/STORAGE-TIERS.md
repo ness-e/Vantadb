@@ -1,3 +1,12 @@
+---
+title: Storage Tiers
+type: architecture
+status: active
+tags: [vantadb, architecture]
+last_reviewed: 2026-09-23
+aliases: []
+---
+
 # Storage Tiers (hot / warm / cold / archive)
 
 ## Purpose

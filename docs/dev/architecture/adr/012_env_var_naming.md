@@ -1,3 +1,12 @@
+---
+title: ADR 012 Env Var Naming
+type: architecture
+status: active
+tags: [vantadb, adr]
+last_reviewed: 2026-09-23
+aliases: []
+---
+
 # ADR 012: Naming de env vars — `VANTA_DB` vs `VANTADB_STORAGE_PATH`
 
 - **Status:** Accepted

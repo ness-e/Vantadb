@@ -1,3 +1,12 @@
+---
+title: VantaDB Module Boundaries
+type: architecture
+status: active
+tags: [vantadb, architecture]
+last_reviewed: 2026-09-23
+aliases: []
+---
+
 # VantaDB Module Boundaries
 
 > **Status:** Accepted · **Date:** 2026-09-13 · **Task:** C2A1

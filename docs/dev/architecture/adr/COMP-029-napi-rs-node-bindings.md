@@ -1,3 +1,12 @@
+---
+title: Node.js Bindings via napi-rs
+type: architecture
+status: active
+tags: [vantadb, adr]
+last_reviewed: 2026-09-23
+aliases: []
+---
+
 # ADR: Node.js/TS bindings nativos vía napi-rs (backend adicional a WASM)
 
 ## Context

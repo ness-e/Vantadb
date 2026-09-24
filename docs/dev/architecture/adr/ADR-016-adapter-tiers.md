@@ -1,3 +1,12 @@
+---
+title: ADR-016 Adapter Tier Classification
+type: architecture
+status: active
+tags: [vantadb, adr]
+last_reviewed: 2026-09-23
+aliases: []
+---
+
 # ADR-016: Adapter Tier Classification & Surface-Area Governance
 
 ## Status

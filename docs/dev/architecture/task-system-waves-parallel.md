@@ -1,3 +1,12 @@
+---
+title: Task-System Parallel Waves
+type: architecture
+status: active
+tags: [vantadb, architecture]
+last_reviewed: 2026-09-23
+aliases: []
+---
+
 # Task-System: Parallel Waves + Lead Merge (TSYS-12)
 
 > **Status:** Proposed — **not implemented**.
