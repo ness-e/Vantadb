@@ -108,7 +108,7 @@ loaded depends on the runtime:
   import { Client } from "https://esm.sh/vantadb";
   const db = Client.create();
   await db.put({ namespace: "demo", key: "k", payload: "hello" });
-  console.log((await db.get("demo", "k"))?.payload); // "hello"
+  console.log((await db.get({ namespace: "demo", key: "k" }))?.payload); // "hello"
   db.close();
 </script>
 ```
@@ -231,10 +231,10 @@ the same dimensionality. Full walkthrough:
 |--------|-------------|
 | `.put(input)` | Store a memory record |
 | `.putBatch(inputs)` | Batch store |
-| `.get(namespace, key)` | Retrieve by key |
-| `.delete(namespace, key)` | Remove by key |
-| `.deleteByFilter(namespace, filter)` | Batch delete matching an AND-combined filter; returns count (rejects empty filter) |
-| `.list(namespace, options?)` | List with pagination |
+| `.get({namespace, key})` | Retrieve by key |
+| `.delete({namespace, key})` | Remove by key |
+| `.deleteByFilter({namespace, filter})` | Batch delete matching an AND-combined filter; returns count (rejects empty filter) |
+| `.list({namespace, ...options})` | List with pagination |
 | `.listNamespaces()` | List all namespaces |
 
 ### Search
@@ -242,7 +242,7 @@ the same dimensionality. Full walkthrough:
 | Method | Description |
 |--------|-------------|
 | `.search(request)` | Hybrid vector + text search |
-| `.searchVector(vector, topK)` | Pure vector search |
+| `.searchVector({vector, topK})` | Pure vector search |
 | `.explainSearch(request)` | Search with score breakdown |
 
 ### Graph

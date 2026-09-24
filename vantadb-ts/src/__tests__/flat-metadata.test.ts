@@ -34,7 +34,7 @@ describe("FIND-01: flat metadata input", () => {
       payload: "hello",
       metadata: { lang: "en" },
     });
-    const got = await db.get("flat", "k1");
+    const got = await db.get({ namespace: "flat", key: "k1" });
     expect(got).not.toBeNull();
     expect(got!.payload).toBe("hello");
     // Engine stores/returns the tagged wire form.
@@ -48,7 +48,7 @@ describe("FIND-01: flat metadata input", () => {
       payload: "typed",
       metadata: { ok: true, count: 3, ratio: 0.5, nothing: null },
     });
-    const got = await db.get("flat", "types");
+    const got = await db.get({ namespace: "flat", key: "types" });
     expect(metaOf(got!.metadata)).toEqual({
       ok: { Bool: true },
       count: { Int: 3 },
@@ -65,7 +65,7 @@ describe("FIND-01: flat metadata input", () => {
       payload: "legacy",
       metadata: { source: { String: "manual" }, priority: { Int: 1 } },
     });
-    const got = await db.get("flat", "tagged");
+    const got = await db.get({ namespace: "flat", key: "tagged" });
     expect(got!.payload).toBe("legacy");
     expect(metaOf(got!.metadata)).toEqual({
       source: { String: "manual" },
@@ -80,7 +80,7 @@ describe("FIND-01: flat metadata input", () => {
     ]);
     expect(records.length).toBe(2);
     expect(metaOf(records[0].metadata)).toEqual({ tier: { String: "hot" } });
-    const got = await db.get("flat_batch", "a");
+    const got = await db.get({ namespace: "flat_batch", key: "a" });
     expect(got!.payload).toBe("a");
   });
 
@@ -97,7 +97,7 @@ describe("FIND-01: flat metadata input", () => {
       payload: "not prod",
       metadata: { env: "dev" },
     });
-    const page = db.list("flat_filter", { filters: { env: "prod" } });
+    const page = db.list({ namespace: "flat_filter", filters: { env: "prod" } });
     expect(page.records.length).toBe(1);
     expect(page.records[0].key).toBe("x");
   });
@@ -128,10 +128,10 @@ describe("FIND-01: flat metadata input", () => {
   });
 
   it("deleteByFilter accepts plain values", async () => {
-    const deleted = db.deleteByFilter("flat_filter", [
+    const deleted = db.deleteByFilter({ namespace: "flat_filter", filter: [
       { field: "env", op: "Eq", value: "prod" },
-    ]);
+    ] });
     expect(deleted).toBeGreaterThanOrEqual(1n);
-    expect(await db.get("flat_filter", "x")).toBeNull();
+    expect(await db.get({ namespace: "flat_filter", key: "x" })).toBeNull();
   });
 });

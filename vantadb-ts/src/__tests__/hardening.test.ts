@@ -212,15 +212,15 @@ describe("Client input validation", () => {
   });
 
   it("get with empty string namespace returns null or throws", () => {
-    expect(() => db.get("", "k")).toThrow();
+    expect(() => db.get({ namespace: "", key: "k" })).toThrow();
   });
 
   it("delete with empty string key throws", () => {
-    expect(() => db.delete("ns", "")).toThrow();
+    expect(() => db.delete({ namespace: "ns", key: "" })).toThrow();
   });
 
   it("list with empty namespace throws", () => {
-    expect(() => db.list("")).toThrow();
+    expect(() => db.list({ namespace: "" })).toThrow();
   });
 
   it("search with empty namespace throws", () => {
@@ -271,7 +271,7 @@ describe("Client search edge cases", () => {
   });
 
   it("searchVector returns results sorted by distance", () => {
-    const hits = db.searchVector([0.5, 0.5, 0], 5);
+    const hits = db.searchVector({ vector: [0.5, 0.5, 0], topK: 5 });
     expect(hits.length).toBeGreaterThan(0);
     for (let i = 1; i < hits.length; i++) {
       expect(hits[i - 1].distance).toBeLessThanOrEqual(hits[i].distance);
@@ -279,7 +279,7 @@ describe("Client search edge cases", () => {
   });
 
   it("searchVector with top_k = 0 returns empty", () => {
-    const hits = db.searchVector([1, 0, 0], 0);
+    const hits = db.searchVector({ vector: [1, 0, 0], topK: 0 });
     expect(hits).toEqual([]);
   });
 
@@ -326,8 +326,8 @@ describe("Client export/import roundtrip", () => {
     expect(report.inserted).toBe(2);
     expect(report.updated).toBe(0);
     expect(report.errors).toBe(0);
-    expect(db.get("import_test", "a")!.payload).toBe("pa");
-    expect(db.get("import_test", "b")!.payload).toBe("pb");
+    expect(db.get({ namespace: "import_test", key: "a" })!.payload).toBe("pa");
+    expect(db.get({ namespace: "import_test", key: "b" })!.payload).toBe("pb");
   });
 
   it("importRecords with empty array reports zeros (FIND-79)", () => {
@@ -354,20 +354,20 @@ describe("Client list edge cases", () => {
   afterAll(() => { db.close(); });
 
   it("list with small limit paginates", () => {
-    const page1 = db.list("list_edge", { limit: 10 });
+    const page1 = db.list({ namespace: "list_edge", limit: 10 });
     expect(page1.records.length).toBe(10);
     expect(page1.next_cursor).toBeDefined();
-    const page2 = db.list("list_edge", { limit: 10, cursor: page1.next_cursor });
+    const page2 = db.list({ namespace: "list_edge", limit: 10, cursor: page1.next_cursor });
     expect(page2.records.length).toBe(10);
   });
 
   it("list with limit larger than dataset returns all", () => {
-    const page = db.list("list_edge", { limit: 100 });
+    const page = db.list({ namespace: "list_edge", limit: 100 });
     expect(page.records.length).toBe(25);
   });
 
   it("list with filters (empty filters does not error)", () => {
-    expect(() => db.list("list_edge", { filters: {} })).not.toThrow();
+    expect(() => db.list({ namespace: "list_edge", filters: {} })).not.toThrow();
   });
 
   it("listNamespaces returns strings", () => {
@@ -509,7 +509,7 @@ describe("Client TTL edge cases", () => {
 
   it("put with TTL = null is same as no TTL", () => {
     db.put({ namespace: "ttl_null", key: "k", payload: "v", ttl_ms: null as unknown as number });
-    const got = db.get("ttl_null", "k");
+    const got = db.get({ namespace: "ttl_null", key: "k" });
     expect(got).not.toBeNull();
   });
 
@@ -533,13 +533,13 @@ describe("Client metadata edge cases", () => {
       n: { Null: null },
     };
     db.put({ namespace: "meta_all", key: "k", payload: "v", metadata: meta });
-    const got = db.get("meta_all", "k");
+    const got = db.get({ namespace: "meta_all", key: "k" });
     expect(got).not.toBeNull();
   });
 
   it("put with empty metadata object", () => {
     db.put({ namespace: "meta_empty", key: "k", payload: "v", metadata: {} });
-    const got = db.get("meta_empty", "k");
+    const got = db.get({ namespace: "meta_empty", key: "k" });
     expect(got).not.toBeNull();
   });
 });
