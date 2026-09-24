@@ -1,3 +1,12 @@
+---
+title: ADR-041 Error Variant Renames
+type: architecture
+status: active
+tags: [vantadb, adr]
+last_reviewed: 2026-09-23
+aliases: []
+---
+
 # ADR-041: Renames del enum `Error` sin stutter (major directo)
 
 > **Estado:** Aceptado (decisión humana vía `/pipeline run` cleanCA, 2026-09-12) · **Tarea:** D4b (diseño en `docs/dev/tasks/D4b.md`)

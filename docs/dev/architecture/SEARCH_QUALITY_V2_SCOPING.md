@@ -1,3 +1,12 @@
+---
+title: Search Quality v2 Scoping
+type: architecture
+status: active
+tags: [vantadb, architecture]
+last_reviewed: 2026-09-23
+aliases: []
+---
+
 # Search Quality v2 — Scoping (INV-025)
 
 > **Status:** Scoping approved — implementation deferred to INV-009-B and follow-ups.

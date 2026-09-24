@@ -1,3 +1,12 @@
+---
+title: Task-System Chaos and Resilience Suite
+type: architecture
+status: active
+tags: [vantadb, architecture]
+last_reviewed: 2026-09-23
+aliases: []
+---
+
 # Task-System: Chaos & Resilience Suite (TSYS-06)
 
 > **Status:** Proposed — **not implemented**.

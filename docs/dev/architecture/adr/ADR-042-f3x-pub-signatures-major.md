@@ -1,3 +1,12 @@
+---
+title: ADR-042 F3x Pub Signatures Major
+type: architecture
+status: active
+tags: [vantadb, adr]
+last_reviewed: 2026-09-23
+aliases: []
+---
+
 # ADR-042: Migrar 6 firmas `pub` a traits del trait-split storage↔index (major)
 
 > **Estado:** Aceptado (decisión humana vía Gate V Q-F3X-impl, opción A, 2026-09-13) ·

@@ -1,3 +1,12 @@
+---
+title: PQ Feasibility - Product Quantization
+type: architecture
+status: active
+tags: [vantadb, architecture]
+last_reviewed: 2026-09-23
+aliases: []
+---
+
 # PQ Feasibility — Product Quantization for > RAM Datasets
 
 > **Status:** DECISION DOCUMENTED — **@defer**

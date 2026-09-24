@@ -3,13 +3,13 @@ title: VantaDB Internal Architecture
 type: architecture
 status: active
 tags: [vantadb, architecture]
-last_reviewed: 2026-07-07
+last_reviewed: 2026-09-23
 aliases: []
 ---
 
 # VantaDB Internal Architecture
 
-This document reflects the current repo truth for `v0.5.0`. It describes the embedded core, the durability path, the current retrieval model, and the limits that still matter for product claims.
+This document reflects the current repo truth for `v0.6.1` (verified 2026-09-23: WAL layout, record variants, HTTP ownership). It describes the embedded core, the durability path, the current retrieval model, and the limits that still matter for product claims.
 
 ---
 

@@ -1,3 +1,12 @@
+---
+title: ADR-035 Src Cluster Fragmentation
+type: architecture
+status: active
+tags: [vantadb, adr]
+last_reviewed: 2026-09-23
+aliases: []
+---
+
 # ADR-035: src cluster fragmentation (cohesion 0.59-0.71)
 
 ## Status

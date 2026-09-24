@@ -1,3 +1,12 @@
+---
+title: MCP-35 HTTP Fallback Discovery
+type: architecture
+status: active
+tags: [vantadb, architecture]
+last_reviewed: 2026-09-23
+aliases: []
+---
+
 # Spec: MCP-35 HTTP Fallback Discovery for Multi-Instance MCP
 
 ## Objective
