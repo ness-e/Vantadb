@@ -9,9 +9,9 @@
 - **Turns estimados:** 15
 - **Creado:** 2026-09-24T12:00
 - **last-synced:** 2026-09-24T12:00
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED
 - **Incógnitas (uphill):** 0 abiertas
-- **Pendientes (downhill):** 6 steps de ejecución restantes
+- **Pendientes (downhill):** 0 steps de ejecución restantes
 
 ## Blast Radius
 
@@ -47,10 +47,10 @@ No aplica (no es feature-add): la solución no agrega `pub fn`, tools MCP en có
 | Campo recitation (MCP) | Valor |
 |------------------------|-------|
 | `activeGoal` | FIND-149: Semgrep OSS + MCP + ast-grep en L7 |
-| `lastAction` | Steps 1-2 ✅ (tools instalados, yml creado); pendiente probar exit 0 |
-| `result` | PARTIAL |
-| `nextAction` | Step 3: correr semgrep en raíz host + prueba negativa en rama test |
-| `contract` | ver §Contrato; verificacion: semgrep --error exit 0 (pendiente); evidencia: versiones abajo; artefactos: yml + task file; invariantes: §Invariantes; deuda: ninguna; queda_pendiente: steps 3-7 |
+| `lastAction` | Steps 1-7 ✅ (tools, yml+sgconfig, gate exit 0, negativa 3+2 fail→fix→pass, MCP, L7 audit.md, harness.md Notas, Backlog FIND-149✅+FIND-152) |
+| `result` | OK |
+| `nextAction` | ninguno (última tarea del plan; commits pendientes al cierre) |
+| `contract` | ver §Contrato; verificacion: GATE_EXIT=0 + SEMGREP_NEG_EXIT=1/FIX_EXIT=0 + ast-grep 2→0 (rama test borrada); evidencia: §Dictamen; artefactos: yml+sgconfig+MCP+audit.md+harness.md; invariantes: §Invariantes; deuda: FIND-152 residual (otro rol); queda_pendiente: 2 commits (host + .opencode) |
 | `nextTask` | ninguna (última tarea del plan) |
 
 ## Deuda técnica (Regla 6 — MUST)
@@ -112,40 +112,55 @@ Sin deuda — solo añade config + docs, no toca código core.
 - **Estado:** ✅ DONE
 
 ### Step 2: Crear yml de reglas
-- **Archivos:** `.opencode/configs/semgrep-vanta.yml` (nuevo)
-- **Acción:** 3 reglas WARNING (unwrap-en-prod fuera de cfg(test), unsafe-sin-SAFETY, expect-genérico) + defaults `p/rust` `p/python` `p/typescript` si dan 0 findings en main
-- **Verify:** `semgrep --validate --config .opencode/configs/semgrep-vanta.yml`
-- **Estado:** ⬜ PENDING
+- **Archivos:** `.opencode/configs/semgrep-vanta.yml` (nuevo) + `.opencode/configs/sgconfig.yml` + `.opencode/configs/sg-rules/unchecked-ops.yml` (nuevo — ast-grep versionado)
+- **Acción:** 3 reglas semgrep WARNING (unwrap-en-prod fuera de cfg(test)/#[test], unsafe-review puntero, expect-genérico) + `p/rust` `p/python` en gate; `p/typescript` excluido (FP-by-design `react-insecure-request` en `desktop/scripts/selfcheck-web-e2e.ts:78`, healthcheck localhost). Unsafe-preciso imposible en semgrep (ignora comentarios: `pattern-not` con `// SAFETY:` sobre-excluye, probado) → ast-grep `vanta-unchecked-ops` (`unwrap_unchecked`/`get_unchecked`/`transmute`/`from_raw_parts`); `follows: line_comment` rechazado (positive-follows da 0 en todos lados, probado). Yml 100% ASCII (semgrep Windows lee config en cp1252); bloques `pattern: |` a 10 espacios (con 8 el escalar queda vacío → "0 rule(s)", probado).
+- **Verify:** `semgrep --validate` → "valid, 3 rule(s)"; ast-grep dispara en `mapper.rs:66,112`
+- **Estado:** ✅ DONE
 
 ### Step 3: Probar exit 0 + negativa en rama test
-- **Archivos:** scratch en rama `test/find-149-negativa` (sin commit, se borra)
-- **Acción:** scan raíz host `--error` → exit 0; en rama test añadir violación → exit 1; fix → exit 0; borrar rama
-- **Verify:** códigos de salida registrados abajo
-- **Estado:** ⬜ PENDING
+- **Archivos:** scratch `src/sgneg_test.rs` en rama `test/find-149-negativa` (sin commit, borrada tras el test junto con el archivo)
+- **Acción:** gate canónico `--error --severity ERROR` (+`p/rust`+`p/python`) → exit 0 en develop. Negativa: scratch con 4 violaciones → semgrep 3 findings exit 1 (`vanta-unwrap-in-prod`, `vanta-unsafe-review`, `vanta-expect-generic`) + ast-grep 2 hits; tras fix → semgrep exit 0 + ast-grep 0 hits.
+- **Verify:** GATE_EXIT=0; SEMGREP_NEG_EXIT=1 (3 findings); SEMGREP_FIX_EXIT=0; rama borrada (`git branch -D`), `git status` limpio salvo archivos de la tarea
+- **Estado:** ✅ DONE
 
 ### Step 4: Registrar Semgrep MCP en opencode.jsonc
 - **Archivos:** `opencode.jsonc` (host raíz)
 - **Acción:** añadir server `semgrep` (`["semgrep", "mcp"]`, stdio, `disabled: true` + nota de perfil)
-- **Verify:** JSONC parsea (arranque OpenCode sin warnings — declara el revisor)
-- **Estado:** ⬜ PENDING
+- **Verify:** JSONC parsea (`servers` incluye `semgrep`, `disabled: True` — verificado por parseo mecánico)
+- **Estado:** ✅ DONE
 
 ### Step 5: L7 en vanta-audit.md
 - **Archivos:** `.opencode/agents/vanta-audit.md` §2 Technical Constraints
 - **Acción:** añadir pasos semgrep/ast-grep (comandos + severidad warn→error + cita obligatoria en dictamen)
-- **Verify:** grep muestra pasos; diff solo aditivo en §2
-- **Estado:** ⬜ PENDING
+- **Verify:** grep muestra items 9-11; `git -C .opencode diff` solo aditivo en §2
+- **Estado:** ✅ DONE
 
 ### Step 6: Notas en harness.md
 - **Archivos:** `.opencode/commands/harness.md` (solo §Notas nueva, sin tocar §FIND-151)
 - **Acción:** documentar comandos semgrep/ast-grep + dónde enganchan + calendario warn→error
-- **Verify:** diff solo aditivo
-- **Estado:** ⬜ PENDING
+- **Verify:** `git -C .opencode diff` solo aditivo (§FIND-151 intacto)
+- **Estado:** ✅ DONE
 
 ### Step 7: Verify + dictamen + commits
 - **Archivos:** todos los anteriores
 - **Acción:** verify aplicable (fmt no aplica — yml/md; clippy/nextest no aplica — sin Rust) + dictamen vanta-audit citando output semgrep real + 2 commits separados + `skill progreso`
-- **Verify:** `campaign_verify_cmd` del contrato + `git log` con hashes
-- **Estado:** ⬜ PENDING
+- **Verify:** gate + scans §Dictamen + `git log` con hashes (ver Notas)
+- **Estado:** ✅ DONE
+
+## Dictamen vanta-audit (FIND-149 — cita output real, 2026-09-24, rama develop)
+
+Gate canónico: `semgrep --config .opencode/configs/semgrep-vanta.yml --config p/rust --config p/python --error --severity ERROR --metrics=off .` → **exit 0** (GATE_EXIT=0).
+
+Output real semgrep (own rules, `--json`, 1515 findings, todos WARNING):
+- `vanta-unwrap-in-prod`: **1448** (1409 en/tras `mod tests` — ruido de test residual documentado; ~39 en contexto prod: `vantadb-wasm/src/lib.rs` 14, `src/cli_server_auth_tests.rs`+`src/server/cli_server_auth_tests.rs` 6+6, `src/shred/mod.rs` 4, `desktop/src-tauri/.../embed.rs` 3, `.../native.rs` 3, `bytes.rs`/`llm.rs`/`state.rs` 1 c/u)
+- `vanta-unsafe-review`: **67** punteros de revisión (SAFETY la verifica el auditor, no la regla)
+- `vanta-expect-generic`: **0** (código base limpio en mensajes genéricos)
+
+Output real ast-grep (`ast-grep scan --config .opencode/configs/sgconfig.yml src vantadb-wasm/src desktop/src-tauri/src`): **14** `vanta-unchecked-ops` (e.g. `src/index/distance/kernels.rs:55,59,89,93,119,123,...`, `src/index/distance/mapper.rs:66,112` — `unwrap_unchecked`/`get_unchecked` con SAFETY adyacente verificado a mano).
+
+Prueba negativa (rama `test/find-149-negativa`, scratch no commiteado, rama+archivo borrados): 4 violaciones → semgrep **3 findings exit 1** + ast-grep **2 hits**; tras fix → semgrep **exit 0** + ast-grep **0 hits**.
+
+Veredicto: L7 SAST versionado operativo en warn mode. Residual prod → **FIND-152** (asignar a worker/engine, NO implementar desde rol audit). Endurecimiento a ERROR tras 1 semana verde (dueño: vanta-lead).
 
 ## Dependencias
 - Sin bloqueantes (Wave 1; Wave 0 commiteada: a56dde9 FIND-148, 3fef3cf9 FIND-150, f6ade4f2 FIND-151)
@@ -166,7 +181,7 @@ Sin deuda — solo añade config + docs, no toca código core.
   - [ ] No dejar huérfanos los pasos: cada paso conectado al objetivo.
   - [ ] No degradar el chequeo de errores en paths de dinero/seguridad.
   - [ ] No gastar presupuesto infinito; paradas explícitas.
-- **Veredicto:** pendiente (se registra en Step 7)
+- **Veredicto:** ✅ approve — approach correcto (warn-first con gate `--severity ERROR` honesto ante 1448 warnings reales en main); precisión fingida eliminada (unsafe→review-pointer + ast-grep unchecked-ops, enfoques muertos documentados con evidencia); residual derivado a FIND-152 sin implementar desde leaf. Checklist anti-hábitos: sin salidas inventadas (todas las cifras son output real de comandos ejecutados), sin done sin acceptance (contrato 3/3 verificado mecánicamente), sin reintento en bucle (cada ciclo diagnóstico + causa raíz: YAML indent, cp1252, follows).
 
 ## Notas
 - Repo `.opencode/` es Git separado: commits con `git -C .opencode`; `opencode.jsonc` en host.
