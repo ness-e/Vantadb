@@ -14,7 +14,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 > **Completed tasks moved to:** `docs/dev/avance/` (dominio) + `docs/dev/avance/historial/backlog-history.md`
 > **Backlog de negocio:** [`docs/dev/Backlog-negocio.md`](Backlog-negocio.md) — filas que requieren abogado/pago/decisión humana/publicación (criterio Gate P, split RES-15-C 2026-09-03). Este archivo es solo técnico: lo ejecutable por agentes.
 > **Historial de syncs y migraciones:** `docs/dev/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 70 abiertas de 73 filas (medido 2026-09-16; campaña FIND 2026-09-15/16: −31 completadas a `docs/dev/avance/`, −1 SKIP FIND-76 a historial) (previo 2026-09-15: 102 abiertas de 105 filas; −2 ICEBOX DISC-03/DEC-02, −1 resuelta DEC-01; +3 STU STUDIO-F5; +2 FIND-90/91 fallout F3X; limpieza: 7 a historial — AUD-042, REVIEW-10, TBH-01, FIND-26, FIND-89, ISSUE-TS-001, EXE-08)
+> **Total open items:** 79 abiertas de 109 filas (medido 2026-09-24; delta desde 2026-09-16: +26 FIND-63..88 ingeridos, −cerradas a `docs/dev/avance/` vía progreso) (previo 2026-09-16: 70 abiertas de 73 filas)
 ---
 
 ## Exec Summary
