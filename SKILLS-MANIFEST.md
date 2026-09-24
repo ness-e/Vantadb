@@ -1,12 +1,12 @@
 # VantaDB Skills Manifest
 
-**Location:** **196 skills en `.opencode/skills/`** (git submodule → `configOpencode` private repo); total **196** (project-local; curated essential list below)
-**Updated:** 2026-09-15 (FIND-83: conteo re-medido + nota mirror `skills/`↔`.opencode/skills/`)
+**Location:** **196 skills en `.opencode/skills/` (197 dirs)** (repo Git separado → `configOpencode` privado); total **196** con SKILL.md (195 + shim `ponytail`; `a11y-shared/` es recursos) — project-local; curated essential list below)
+**Updated:** 2026-09-24 (harness: +shim `ponytail`, +`skills/INDEX.md`; conteo re-medido en disco)
 
 > **AUDIT 2026-09-01 — Reestructuración completada + sync agent-skills:**
-> - `.opencode/skills/` = **196** skills (submodule `configOpencode` — todas las skills del proyecto viven aquí)
+> - `.opencode/skills/` = **196** con SKILL.md en **197 dirs** (repo separado `configOpencode` — todas las skills del proyecto viven aquí; `a11y-shared/` sin SKILL.md es recursos)
 > - `.agents/skills/` = **ELIMINADO** (2026-09-01) — contenido migrado a submodule
-> - **Total proyecto = 196** (todas en `.opencode/skills/`; desglose 2026-09-01 era 25 base + 169 VantaDB)
+> - **Total proyecto = 196** (todas en `.opencode/skills/`; 2026-09-24: 195 + shim `ponytail`; desglose 2026-09-01 era 25 base + 169 VantaDB)
 > - Global `~/.agents/skills/` = 160 dirs (139 con SKILL.md, 14 sin); `~/.claude/skills/` = 33 dirs
 > - **87 skills nuevas documentadas 2026-08-19**: 63 de accesibilidad (5 `a11y-*` + 58 `incl-*`), 17 de diseño/UX/utilidad, 7 de pipeline/VantaDB core
 > - **Sync 2026-09-01 desde addyosmani/agent-skills**: 24/25 skills actualizadas (1 nueva: `constraint-driven-development`), preservando customizaciones VantaDB
