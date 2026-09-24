@@ -491,7 +491,7 @@ jobs:
           go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.6.0
           echo "${{ runner.temp }}/bin" >> "$GITHUB_PATH"
         env:
-          GOTOOLCHAIN: go1.26.2
+          GOTOOLCHAIN: go1.27.0
           GOBIN: ${{ runner.temp }}/bin
 
       - name: OSV scan (root lockfile)
