@@ -23,15 +23,17 @@ This guide covers three deployment models:
 
 ## 1. Getting the Binary
 
-### Option A: GitHub Releases (recommended)
+### Option A: GitHub Releases (when binary assets are attached)
 
-Download the latest release from [GitHub Releases](https://github.com/ness-e/Vantadb/releases):
+> **Availability (2026-09-24):** v0.6.x releases currently attach Python wheels
+> only — no `vanta-cli` tarballs yet (see `release-binaries.yml`). When
+> present, download from [GitHub Releases](https://github.com/ness-e/Vantadb/releases):
 
 ```bash
-# Linux x86_64
-curl -LO https://github.com/ness-e/Vantadb/releases/latest/download/vantadb-linux-x86_64.tar.gz
-tar xzf vantadb-linux-x86_64.tar.gz
-sudo install vantadb /usr/local/bin/
+# Linux x86_64 (asset name carries the Rust target triple)
+curl -LO https://github.com/ness-e/Vantadb/releases/latest/download/vantadb-x86_64-unknown-linux-gnu.tar.gz
+tar xzf vantadb-x86_64-unknown-linux-gnu.tar.gz
+sudo install vanta-cli vantadb-server /usr/local/bin/
 ```
 
 ### Option B: Build from source

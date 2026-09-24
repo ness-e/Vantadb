@@ -382,7 +382,7 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 | `plan` | Preview migration steps without executing |
 | `run` | Execute a pre-planned migration |
 | `export [--namespace <ns>] --out <path>` | Export records to a JSONL file |
-| `import --in <path>` | Import records from a JSONL file |
+| `import --input <path>` | Import records from a JSONL file |
 | `namespace list` | List all namespaces |
 | `namespace info --namespace <ns>` | Show record count and details for a namespace |
 | `snapshot create --name <name>` | Create an instant filesystem snapshot by hard-linking all data files (copy on Windows) |
@@ -403,7 +403,7 @@ vanta-cli put --db ./vanta_data --namespace agent/main --key memory-2 --payload 
 vanta-cli get --db ./vanta_data --namespace agent/main --key memory-1
 vanta-cli list --db ./vanta_data --namespace agent/main
 vanta-cli search --db ./vanta_data --namespace agent/main --query "hello world" --query-vector "0.1,0.2,0.3" --limit 10
-vanta-cli search-similar --db ./vanta_data --namespace agent/main --key memory-1 --limit 5
+vanta-cli similar-to-key --db ./vanta_data --namespace agent/main --key memory-1 --top-k 5
 vanta-cli count --db ./vanta_data --namespace agent/main
 vanta-cli status --db ./vanta_data
 vanta-cli stats --db ./vanta_data --json
@@ -412,12 +412,11 @@ vanta-cli audit-index --db ./vanta_data --deep
 vanta-cli rebuild-index --db ./vanta_data
 vanta-cli backup --db ./vanta_data --out ./vanta_data.bak
 vanta-cli export --db ./vanta_data --namespace agent/main --out ./agent-main.jsonl
-vanta-cli import --db ./vanta_data --in ./agent-main.jsonl
+vanta-cli import --db ./vanta_data --input ./agent-main.jsonl
 vanta-cli namespace list --db ./vanta_data
 vanta-cli namespace info --db ./vanta_data --namespace agent/main
 vanta-cli server --http --port 8080 --db ./vanta_data
-vanta-cli repl --db ./vanta_data
-vanta-cli tui --db ./vanta_data
+vanta-cli tui --db ./vanta_data  # requires `--features tui` build; not in default binaries
 vanta-cli completions --shell powershell
 ```
 

@@ -134,7 +134,7 @@ print(f"Exported {len(records)} records to memories.jsonl")
 
 ```bash
 # Ensure data directory exists
-vanta-cli import --in memories.jsonl -d ./vanta_data
+vanta-cli import --input memories.jsonl -d ./vanta_data
 ```
 
 The JSONL format expected by `vanta-cli import`:

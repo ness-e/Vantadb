@@ -242,7 +242,7 @@ and re-imported:
 vanta-cli export --namespace default --out ./backup.jsonl --db ./fjall_data
 
 # 2. Re-open with new backend
-vanta-cli import --in ./backup.jsonl --db ./rocksdb_data
+vanta-cli import --input ./backup.jsonl --db ./rocksdb_data
 ```
 
 ---
