@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """GOV-A4 — Doc snippet harness.
 
-Extracts ```python blocks from docs/tutorials/*.md + docs/QUICKSTART.md and
+Extracts ```python blocks from docs/user/tutorials/*.md + docs/user/QUICKSTART.md and
 executes each against a temp VantaDB (vantadb-py). Reports PASS/FAIL/SKIP per
 snippet; exit code 1 if any FAIL.
 

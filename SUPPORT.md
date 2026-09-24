@@ -8,9 +8,9 @@
 
 ## Documentation
 
-- [Quickstart Guide](docs/QUICKSTART.md)
+- [Quickstart Guide](docs/user/QUICKSTART.md)
 - [API Reference](docs/api/)
-- [FAQ](docs/FAQ.md)
+- [FAQ](docs/user/FAQ.md)
 
 ## Bug Reports
 

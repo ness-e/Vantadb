@@ -4,7 +4,7 @@
 
   <!-- panel title -->
   <text x="30" y="40" fill="#000000" font-family="Inter,'SF Pro','Segoe UI',Arial,sans-serif" font-size="20" font-weight="700">SIFT1M HNSW construction — Phase 2 speedup</text>
-  <text x="30" y="60" fill="#000000" font-family="'SF Mono','Cascadia Mono','Roboto Mono',Menlo,monospace" font-size="12" opacity="0.65">real data · docs/operations/BENCHMARKS.md · 100K vectors, 128d</text>
+  <text x="30" y="60" fill="#000000" font-family="'SF Mono','Cascadia Mono','Roboto Mono',Menlo,monospace" font-size="12" opacity="0.65">real data · docs/user/operations/BENCHMARKS.md · 100K vectors, 128d</text>
 
   <!-- axes -->
   <line x1="70" y1="330" x2="700" y2="330" stroke="#000000" stroke-width="1.5"/>

@@ -132,7 +132,7 @@ jobs:
     # depended on agent memory — this is the mechanical gate. Runs only on PRs
     # (push to main already passed its own PR gate); compares the PR changeset
     # against the base SHA and fails when public API files changed unless an
-    # ADR (docs/architecture/adr/ADR-NNN-*.md) was added OR the PR is explicitly
+    # ADR (docs/dev/architecture/adr/ADR-NNN-*.md) was added OR the PR is explicitly
     # marked [no-adr] in the title/description with a justification.
     # Lazy by design: one depth-1 fetch + two-tree diff — no full history.
     name: ADR Gate (public API)
@@ -164,7 +164,7 @@ jobs:
           # Single-line: a multiline value breaks the $GITHUB_OUTPUT file-command
           # parser ("Invalid format" / "Unable to process file command 'output'"
           # when a PR touches 2+ ADRs — run 35467546726). paste joins with spaces.
-          adr="$(printf '%s\n' "$changed" | grep -E '^docs/architecture/adr/ADR-[0-9]{3}' | paste -sd' ' - || true)"
+          adr="$(printf '%s\n' "$changed" | grep -E '^docs/dev/architecture/adr/ADR-[0-9]{3}' | paste -sd' ' - || true)"
 
           echo "api=$api" >> "$GITHUB_OUTPUT"
           echo "adr=$adr" >> "$GITHUB_OUTPUT"
@@ -177,7 +177,7 @@ jobs:
           && !contains(github.event.pull_request.body, '[no-adr]')
         run: |
           echo "::error::Public API surface changed (${{ steps.detect.outputs.api }}) without an ADR."
-          echo "::error::Add an ADR to docs/architecture/adr/ (format ADR-NNN, see ADR-0001) or, if no ADR is warranted, mark this PR '[no-adr]' in the title/description with a one-line justification."
+          echo "::error::Add an ADR to docs/dev/architecture/adr/ (format ADR-NNN, see ADR-0001) or, if no ADR is warranted, mark this PR '[no-adr]' in the title/description with a one-line justification."
           exit 1
 
       - name: Acknowledge [no-adr] marker

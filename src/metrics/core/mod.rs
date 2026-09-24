@@ -256,7 +256,7 @@ pub fn record_graph_op(_op: &str) {}
 /// the single error choke point `src/server/errors.rs::log_vanta_error`.
 /// No-op when the `prometheus` feature is off (same cfg-guard as the other
 /// counters; error rates stay derivable from the structured logs in
-/// `docs/operations/OBSERVABILITY.md` §3).
+/// `docs/user/operations/OBSERVABILITY.md` §3).
 #[cfg(feature = "prometheus")]
 pub fn record_vanta_error(code: &str) {
     if let Some(counter) = ERRORS_TOTAL.as_ref() {

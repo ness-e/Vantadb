@@ -176,9 +176,9 @@ results = db.search_memory(
 
 **Performance Notes:**
 - Hybrid search uses RRF (Reciprocal Rank Fusion) for deterministic ranking
-- Vector search uses HNSW — p50 1.2ms at 10K vectors (128d, Cosine, AVX2), certified in `docs/operations/BENCHMARKS.md` (§1)
+- Vector search uses HNSW — p50 1.2ms at 10K vectors (128d, Cosine, AVX2), certified in `docs/user/operations/BENCHMARKS.md` (§1)
 - Text search uses BM25 with persisted inverted index
-- Use `search_batch()` for bulk queries to amortize FFI overhead (4.01x speedup over sequential, `docs/operations/BENCHMARKS.md` §6)
+- Use `search_batch()` for bulk queries to amortize FFI overhead (4.01x speedup over sequential, `docs/user/operations/BENCHMARKS.md` §6)
 
 ### list_memory()
 
@@ -236,7 +236,7 @@ queries = [
 results = db.search_batch(queries, top_k=5)
 ```
 
-**Performance:** 4.01x speedup over sequential queries, ~2.43ms per query average at 5K records/128d (sourced: `docs/operations/BENCHMARKS.md` §6).
+**Performance:** 4.01x speedup over sequential queries, ~2.43ms per query average at 5K records/128d (sourced: `docs/user/operations/BENCHMARKS.md` §6).
 
 ### Operational Metrics
 
@@ -454,7 +454,7 @@ All mutations are written to WAL before being applied to storage:
 - Topological BFS layout for cache locality
 - SIMD-accelerated distance calculations (AVX2/NEON)
 - Memory-mapped for zero-copy access
-- Search latency p50 1.2ms at 10K vectors (sourced: `docs/operations/BENCHMARKS.md` §1)
+- Search latency p50 1.2ms at 10K vectors (sourced: `docs/user/operations/BENCHMARKS.md` §1)
 
 ### BM25 Text Index
 
@@ -478,7 +478,7 @@ score = sum(1 / (k + rank_i) for each ranking)
 
 ### Benchmarks (10K vectors, 128d)
 
-Source: `docs/operations/BENCHMARKS.md` — SDK operations (§2, `benchmarks/vantadb_local_bench.py`), engine certification (§1, `tests/certification/stress_protocol.rs`), batch search (§6).
+Source: `docs/user/operations/BENCHMARKS.md` — SDK operations (§2, `benchmarks/vantadb_local_bench.py`), engine certification (§1, `tests/certification/stress_protocol.rs`), batch search (§6).
 
 | Operation | Latency p50 | Latency p99 | Throughput |
 |-----------|-------------|-------------|------------|
@@ -490,12 +490,12 @@ Source: `docs/operations/BENCHMARKS.md` — SDK operations (§2, `benchmarks/van
 
 ### Scalability
 
-Source: `docs/operations/BENCHMARKS.md` §1 (Stress Protocol, AVX2 environment).
+Source: `docs/user/operations/BENCHMARKS.md` §1 (Stress Protocol, AVX2 environment).
 
 - **Recall@10:** 0.9980 at 10K, 1.0000 at 50K, 0.9980 at 100K
 - **Scaling Factor:** 4.88x sub-linear (10K → 50K)
 - **Memory:** ~1172 bytes per vector (HNSW overhead)
-- **Construction:** 68.4s for 100K vectors (Balanced L2, SIFT1M — `docs/operations/BENCHMARKS.md` §5)
+- **Construction:** 68.4s for 100K vectors (Balanced L2, SIFT1M — `docs/user/operations/BENCHMARKS.md` §5)
 
 ## Best Practices
 
@@ -631,10 +631,10 @@ db.flush()
 
 ### Documentation
 
-- **Quickstart:** `docs/QUICKSTART.md`
-- **Benchmarks:** `docs/operations/BENCHMARKS.md`
-- **Architecture:** `docs/architecture/ARCHITECTURE.md`
-- **ADRs:** `docs/architecture/adr/` (Architecture Decision Records)
+- **Quickstart:** `docs/user/QUICKSTART.md`
+- **Benchmarks:** `docs/user/operations/BENCHMARKS.md`
+- **Architecture:** `docs/dev/architecture/ARCHITECTURE.md`
+- **ADRs:** `docs/dev/architecture/adr/` (Architecture Decision Records)
 
 ### Examples
 
@@ -753,7 +753,7 @@ def cache_with_vantadb(db, key, compute_fn, ttl_seconds=3600):
 - Phrase queries are basic (no proximity search)
 - Index rebuild is manual (not automatic)
 - No native backup/restore beyond JSONL (use backend snapshots for physical backup)
-- Ingestion is single-threaded in the SDK API (`docs/operations/BENCHMARKS.md` §2)
+- Ingestion is single-threaded in the SDK API (`docs/user/operations/BENCHMARKS.md` §2)
 
 ## Future Roadmap
 
@@ -788,4 +788,4 @@ def cache_with_vantadb(db, key, compute_fn, ttl_seconds=3600):
 - **Issues:** GitHub Issues
 - **Discussions:** GitHub Discussions
 - **Documentation:** `docs/`
-- **Quickstart:** `docs/QUICKSTART.md`
+- **Quickstart:** `docs/user/QUICKSTART.md`

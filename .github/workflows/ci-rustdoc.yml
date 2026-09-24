@@ -11,14 +11,14 @@ name: 'CI: Rust API Reference (cargo doc artifact)'
 # rotos en error de CI sin costo adicional.
 #
 # Fase 2 (defer): deploy del artifact a GitHub Pages cuando exista decisión de
-# docs site. Ver `docs/research/archive/FND-17-api-reference-docs-as-code.md`.
+# docs site. Ver `docs/dev/research/archive/FND-17-api-reference-docs-as-code.md`.
 #
 # FIND-137 (2026-09-22): unificado con `rustdoc-70.yml` (eliminado vía `git rm`:
 # mismo `cargo doc`, mismo concurrency group `rustdoc-${{ github.ref }}` que se
 # canibalizaban). El survivor conserva: toolchain stable + push [main,develop]
 # de este archivo; PR [main,develop], `--document-private-items`, artifact
 # tar.gz 30d, env determinista y summary de `rustdoc-70.yml`. Decisión por
-# evidencia en `docs/tasks/FIND-137.md` §8.
+# evidencia en `docs/dev/tasks/FIND-137.md` §8.
 
 on:
   push:

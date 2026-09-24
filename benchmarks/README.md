@@ -63,7 +63,7 @@ The scripts accept either install path (PyPI wheel or `maturin develop`).
 
 ## Published results
 
-- Latest CI results: [`docs/operations/BENCHMARKS.md`](../docs/operations/BENCHMARKS.md)
+- Latest CI results: [`docs/user/operations/BENCHMARKS.md`](../docs/user/operations/BENCHMARKS.md)
 - CI badge: `perf-bench-40` workflow (see GitHub Actions)
 
 ## Scripts

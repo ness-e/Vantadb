@@ -237,7 +237,7 @@ mod tests {
     }
 
     /// ERR-OBS-01: 5xx (server-side) logs at ERROR, 4xx (client mistakes) at
-    /// WARN — mirrors the level semantics in docs/operations/OBSERVABILITY.md.
+    /// WARN — mirrors the level semantics in docs/user/operations/OBSERVABILITY.md.
     #[test]
     fn error_log_level_maps_status_class() {
         assert_eq!(

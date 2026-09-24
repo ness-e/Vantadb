@@ -25,7 +25,7 @@ pub fn clamp_max_tokens(v: Option<u64>) -> u64 {
 /// Opt-in switch for the pipeline hook (contract-first: the type and gate
 /// land in slice 2 so the hook consumes them; the `ProxyConfig` field +
 /// `server.rs` insertion are DEFERRED until `config.rs` ownership clears —
-/// see `docs/tasks/PRX-11.md` slice 2). Default off → verbatim wire.
+/// see `docs/dev/tasks/PRX-11.md` slice 2). Default off → verbatim wire.
 #[derive(Debug, Clone, Default, serde::Deserialize)]
 #[serde(default)]
 pub struct TranslateConfig {

@@ -59,7 +59,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 #  * arbitrary --user: /var/lib/vantadb (data dir + WORKDIR) is mode 0777 so any
 #    uid can write it; named volumes inherit these perms at creation. Host
 #    bind-mounts need the host dir writable by the running uid (chown or chmod
-#    777). See docs/operations/DEPLOYMENT_GUIDE.md §3 "Run unprivileged".
+#    777). See docs/user/operations/DEPLOYMENT_GUIDE.md §3 "Run unprivileged".
 RUN groupadd --gid 1001 vantadb && \
     useradd --uid "${VANTA_RUNAS_UID}" --gid vantadb --create-home vantadb && \
     mkdir -p /var/lib/vantadb && \

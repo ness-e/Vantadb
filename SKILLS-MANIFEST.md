@@ -282,7 +282,7 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 | observability-and-instrumentation | 7 | KEEP | Logging, metrics, tracing. |
 | using-agent-skills | 8 | KEEP | Meta-skill for skill discovery. |
 | design-audit-orchestrator | 7 | KEEP | Audit-first design review pipeline. |
-| vantadb-full-review | 10 | REMOVED | Eliminado (2026-08-10) — reemplazado por `unified-review --profile vantadb`. Directorio físico eliminado 2026-08-23 (campaña avance-canónico). Referencias históricas en `docs/plans/archive/`, `docs/reviews/archive/`. |
+| vantadb-full-review | 10 | REMOVED | Eliminado (2026-08-10) — reemplazado por `unified-review --profile vantadb`. Directorio físico eliminado 2026-08-23 (campaña avance-canónico). Referencias históricas en `docs/dev/plans/archive/`, `docs/dev/reviews/archive/`. |
 | backlog-executor | — | SUPERSEDED | Reemplazada por `campaign-executor` (unificado backlog-executor + task-executor). NO cargar. |
 
 ### Content / Writing
@@ -475,7 +475,7 @@ Batch 2026-08-19 (5 `a11y-*` pipeline WCAG 2.2 + 58 `incl-*` inclusive design). 
 | `vantadb` | 8 | KEEP | Guía experta del producto: put/get/search/list, hybrid search (BM25 + HNSW + RRF), Python SDK, integraciones LangChain/LlamaIndex, benchmarks. |
 | `vantadb-mcp` | 8 | KEEP | Referencia del MCP server propio (87 tools, 2 resources, 4 prompts); uso de VantaDB como memoria desde agentes OpenCode/Claude/Cursor. |
 | `review-deep` | 7 | KEEP | Loop de revisión profunda módulo por módulo (análisis → web research → competidores → triage → Backlog). Complementa unified-review (one-shot). |
-| `progreso` | 7 | KEEP | Migración Backlog → docs/progreso + reconciliación de memorias + sync de reportes. MUST al inicio y cierre de sesión (AGENTS.md). |
+| `progreso` | 7 | KEEP | Migración Backlog → docs/dev/avance + reconciliación de memorias + sync de reportes. MUST al inicio y cierre de sesión (AGENTS.md). |
 | `playwright-cli` | 7 | KEEP | Automatización de browser por CLI (snapshots, forms, screenshots, sessions, DevTools). Canónico para testing de web/; reemplaza a agent-browser/browser-use (removidas). |
 
 ---

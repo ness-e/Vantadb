@@ -43,14 +43,14 @@ VantaDB is a local-first, embedded database engine designed for AI agents, local
 | Need | Start here |
 | :--- | :--- |
 | Understand the product boundary | [Product Boundary](#product-boundary) |
-| Try the MVP in five minutes | [5-Minute Quickstart](docs/QUICKSTART.md) |
+| Try the MVP in five minutes | [5-Minute Quickstart](docs/user/QUICKSTART.md) |
 | Install via pip | [Installation](#installation) |
 | Use the embedded CLI | [CLI Reference](#embedded-cli) |
 | Run as a local server | [Server Mode](#optional-server-mode) |
-| Follow a tutorial | [Tutorials](docs/tutorials/) |
+| Follow a tutorial | [Tutorials](docs/user/tutorials/) |
 | Run runnable examples | [Demo + Colab](examples/README.md) · [TypeScript](vantadb-ts/examples/) |
-| Read the FAQ | [FAQ](docs/FAQ.md) |
-| Read the blog | [Blog Posts](docs/blog/) |
+| Read the FAQ | [FAQ](docs/user/FAQ.md) |
+| Read the blog | [Blog Posts](docs/user/blog/) |
 | Read architecture docs | [Documentation](#documentation) |
 | Contribute safely | [CONTRIBUTING.md](CONTRIBUTING.md) |
 | Report a vulnerability | [SECURITY.md](SECURITY.md) |
@@ -76,7 +76,7 @@ pip install vantadb-py
 > **Naming convention:** the product is **VantaDB**; the Rust crate is `vantadb`,
 > the PyPI package is `vantadb-py`, the npm packages are `vantadb` (TypeScript/WASM)
 > and `vantadb-node` (native), and the GitHub repository is `ness-e/Vantadb`.
-> See [ADR-030](docs/architecture/adr/ADR-030-brand-identity-naming-convention.md)
+> See [ADR-030](docs/dev/architecture/adr/ADR-030-brand-identity-naming-convention.md)
 > for the full audit and rationale.
 
 For development from source:
@@ -234,7 +234,7 @@ VantaDB should be understood as: embedded-first, local-first, durable memory wit
 
 *VantaDB is an embedded memory engine, not a universal multimodel database or cloud platform.*
 
-See [Experimental Features and Product Boundary](docs/operations/EXPERIMENTAL_FEATURES.md) for the operational classification of all repository surfaces.
+See [Experimental Features and Product Boundary](docs/user/operations/EXPERIMENTAL_FEATURES.md) for the operational classification of all repository surfaces.
 
 ---
 
@@ -283,7 +283,7 @@ cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli
 ```
 
 > [!NOTE]
-> Source of truth: `README.md` § One-Line Installation and `docs/QUICKSTART.md` §0
+> Source of truth: `README.md` § One-Line Installation and `docs/user/QUICKSTART.md` §0
 > (one-liner FIND-105 + `.sha256` verification + `--no-wizard`/`-NoWizard` wizard
 > + `--dry-run`/`-DryRun`). If this block drifts, the source wins.
 >
@@ -347,7 +347,7 @@ VantaDB includes a formal Python-native performance benchmark suite (**BENCH-01*
 
 ### In-Process Performance Baseline (10K Vectors, 128d, Cosine)
 
-Measured single-threaded SDK baselines (including the PyO3/GIL boundary) are published in [docs/operations/BENCHMARKS.md](docs/operations/BENCHMARKS.md): SDK operation latencies (`put`, BM25, HNSW, hybrid) and the certified Rust stress-protocol results (10K–100K, recall, memory, scaling). Numbers depend on hardware and build — regenerate locally with the suite below to reproduce them on your machine.
+Measured single-threaded SDK baselines (including the PyO3/GIL boundary) are published in [docs/user/operations/BENCHMARKS.md](docs/user/operations/BENCHMARKS.md): SDK operation latencies (`put`, BM25, HNSW, hybrid) and the certified Rust stress-protocol results (10K–100K, recall, memory, scaling). Numbers depend on hardware and build — regenerate locally with the suite below to reproduce them on your machine.
 
 | Metric | Latest local baseline (`vanta_benchmark_report.json`, 10K×128d, regenerate locally) |
 | :--- | :--- |
@@ -355,7 +355,7 @@ Measured single-threaded SDK baselines (including the PyO3/GIL boundary) are pub
 | **Search (Vector HNSW)** | p50 2.0 ms (~500 queries/sec) |
 | **Search (Hybrid fusion)** | p50 3.1 ms (~320 queries/sec) |
 
-*Source: [`benchmarks/vanta_benchmark_report.json`](benchmarks/vanta_benchmark_report.json) — regenerable with `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000` (gitignored; not a committed artifact).* BM25 text-search latency is excluded above because the local artifact reports a degenerate outlier (p50 0.0035 ms for a single-document text query); see the full CI series table in [BENCHMARKS.md §2](docs/operations/BENCHMARKS.md).
+*Source: [`benchmarks/vanta_benchmark_report.json`](benchmarks/vanta_benchmark_report.json) — regenerable with `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000` (gitignored; not a committed artifact).* BM25 text-search latency is excluded above because the local artifact reports a degenerate outlier (p50 0.0035 ms for a single-document text query); see the full CI series table in [BENCHMARKS.md §2](docs/user/operations/BENCHMARKS.md).
 
 ### SIFT-1M Competitive Benchmarks (100K scale) — Phase 2
 
@@ -373,7 +373,7 @@ The certified performance results on the standard SIFT dataset in optimized mode
 
 *Certification hardware: AMD Ryzen 12-Core @ 3.5GHz, compiled with `-C target-cpu=native`.*
 
-*Source: [docs/operations/BENCHMARKS.md §5](docs/operations/BENCHMARKS.md) — "Impact of Loop and HNSW Distance Optimization (Phase 2)" (2026-07-21). Full optimization history in [docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md](docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md).*
+*Source: [docs/user/operations/BENCHMARKS.md §5](docs/user/operations/BENCHMARKS.md) — "Impact of Loop and HNSW Distance Optimization (Phase 2)" (2026-07-21). Full optimization history in [docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md](docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md).*
 
 <p align="center">
   <img src="assets/benchmark-sift1m.svg" alt="SIFT1M HNSW build acceleration — Phase 1 vs Phase 2 (2.14x–2.80x)" width="760">
@@ -404,21 +404,21 @@ Results will be printed directly to the console and written to `vanta_benchmark_
 
 | Resource | Description |
 | :--- | :--- |
-| [Architecture](docs/architecture/ARCHITECTURE.md) | Core engine, durability model, retrieval mechanisms, and SDK boundary. |
-| [Mutation & Recovery Protocol](docs/architecture/MUTATION_RECOVERY_PROTOCOL.md) | Canonical mutation order and WAL recovery behavior. |
-| [Text Index Design](docs/architecture/TEXT_INDEX_DESIGN.md) | BM25, phrase positions, derived index repair, and Hybrid Retrieval v1 boundaries. |
-| [Operations & Configuration](docs/operations/CONFIGURATION.md) | Runtime parameters and server wrapper configuration. |
-| [Memory Telemetry](docs/operations/MEMORY_TELEMETRY.md) | Process-memory metrics contract and interpretation guidelines. |
+| [Architecture](docs/dev/architecture/ARCHITECTURE.md) | Core engine, durability model, retrieval mechanisms, and SDK boundary. |
+| [Mutation & Recovery Protocol](docs/dev/architecture/MUTATION_RECOVERY_PROTOCOL.md) | Canonical mutation order and WAL recovery behavior. |
+| [Text Index Design](docs/dev/architecture/TEXT_INDEX_DESIGN.md) | BM25, phrase positions, derived index repair, and Hybrid Retrieval v1 boundaries. |
+| [Operations & Configuration](docs/user/operations/CONFIGURATION.md) | Runtime parameters and server wrapper configuration. |
+| [Memory Telemetry](docs/user/operations/MEMORY_TELEMETRY.md) | Process-memory metrics contract and interpretation guidelines. |
 | [Python SDK Status](docs/api/PYTHON_SDK.md) | Stable boundary, current binding surface, and distribution policy. |
-| [Python Release Policy](docs/operations/PYTHON_RELEASE_POLICY.md) | TestPyPI, production publishing, signing, release assets, and rollback. |
-| [Reliability Gate](docs/operations/RELIABILITY_GATE.md) | Policies for RSS memory stability, chaos injection, and WAL durability. |
-| [Experimental Features](docs/operations/EXPERIMENTAL_FEATURES.md) | Production, optional, experimental, and deferred surface classification. |
-| [CI Policy](docs/operations/CI_POLICY.md) | Continuous integration strategy, profiles, and certification gates. |
-| [Benchmarks](docs/operations/BENCHMARKS.md) | Performance benchmark methodology and results. |
+| [Python Release Policy](docs/user/operations/PYTHON_RELEASE_POLICY.md) | TestPyPI, production publishing, signing, release assets, and rollback. |
+| [Reliability Gate](docs/user/operations/RELIABILITY_GATE.md) | Policies for RSS memory stability, chaos injection, and WAL durability. |
+| [Experimental Features](docs/user/operations/EXPERIMENTAL_FEATURES.md) | Production, optional, experimental, and deferred surface classification. |
+| [CI Policy](docs/user/operations/CI_POLICY.md) | Continuous integration strategy, profiles, and certification gates. |
+| [Benchmarks](docs/user/operations/BENCHMARKS.md) | Performance benchmark methodology and results. |
 | [Changelog](docs/CHANGELOG.md) | Version history and release notes. |
-| [Blog: Hybrid Search](docs/blog/how_hybrid_search_works.md) | How BM25 + HNSW + RRF work together in VantaDB's query engine. |
-| [Blog: SQLite for AI Agents](docs/blog/sqlite_for_ai_agents.md) | Benchmarks and architecture decisions behind VantaDB's LSM storage. |
-| [Blog: Why I Built VantaDB](docs/blog/why_i_built.md) | The motivation for a local memory engine for AI agents in Rust. |
+| [Blog: Hybrid Search](docs/user/blog/how_hybrid_search_works.md) | How BM25 + HNSW + RRF work together in VantaDB's query engine. |
+| [Blog: SQLite for AI Agents](docs/user/blog/sqlite_for_ai_agents.md) | Benchmarks and architecture decisions behind VantaDB's LSM storage. |
+| [Blog: Why I Built VantaDB](docs/user/blog/why_i_built.md) | The motivation for a local memory engine for AI agents in Rust. |
 
 ---
 

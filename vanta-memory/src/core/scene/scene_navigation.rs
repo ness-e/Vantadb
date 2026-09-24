@@ -10,7 +10,7 @@
 //! [`strip_scene_navigation`] removes exactly what [`generate_scene_navigation`]
 //! appends (and anything an LLM copied from it).
 //!
-//! Source: `docs/research/tdam/02-scene-persona.md` §52-53.
+//! Source: `docs/dev/research/tdam/02-scene-persona.md` §52-53.
 
 use crate::core::abstractions::SceneIndexEntry;
 

@@ -7,7 +7,7 @@
 #   docker compose exec ollama ollama pull nomic-embed-text
 #   curl http://localhost:8080/health        # VantaDB server
 #   curl http://localhost:11434/api/version  # Ollama
-# Then wire a client (e.g. docs/tutorials/02-local-rag-pipeline.md) to
+# Then wire a client (e.g. docs/user/tutorials/02-local-rag-pipeline.md) to
 # http://localhost:11434 for embeddings/chat and http://localhost:8080
 # for VantaDB storage + hybrid search.
 #

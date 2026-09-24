@@ -35,8 +35,8 @@ ignores:
   # Frozen research archive: same rationale (FIND-126: Investigacion-plan.md
   # has parser-state-dependent MD003 inside fenced templates — fixing would
   # change rendered content, so it is scoped out like docs/archive)
-  - "docs/research/archive/**"
-  - "docs/plans/archive/**"
-  - "docs/reviews/archive/**"
+  - "docs/dev/research/archive/**"
+  - "docs/dev/plans/archive/**"
+  - "docs/dev/reviews/archive/**"
   # Generated benchmark output, not hand-written docs
   - "docs/benchmarks/_run_stdout.md"
