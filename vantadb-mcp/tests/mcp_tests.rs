@@ -4476,7 +4476,9 @@ fn test_mcp_structured_output_and_output_schema() {
     );
     assert!(recall_res["structuredContent"].is_object());
     assert!(recall_res["structuredContent"]["recalled"].is_array());
-    assert!(recall_res["structuredContent"].get("effective_mode").is_some());
+    assert!(recall_res["structuredContent"]
+        .get("effective_mode")
+        .is_some());
 
     // tools/list must advertise outputSchema for key tools
     let list = handle_tools_list(&McpConfig::default()).unwrap();
