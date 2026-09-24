@@ -771,7 +771,7 @@ default-members = [
 # See docs/dev/operations/CI_POLICY.md for the experimental crate policy.
 
 [workspace.package]
-version = "0.6.1"
+version = "0.7.0"
 edition = "2021"
 rust-version = "1.94.1"
 
