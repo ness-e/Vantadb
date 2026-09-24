@@ -45,7 +45,7 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
 ## Fase 1 — Limpieza e imagen (main estable, sin mover carpetas)
 
 - [x] C-01 · ✅ 2026-09-23 verificado: `git ls-files .opencode` = 0 + `.gitignore` lo excluye (local intacto).
-- [x] C-02 · ✅ 2026-09-23: `docs/user/` (QUICKSTART, tutorials, FAQ, blog, operations, glosario) + `docs/dev/` (plans, tasks, avance, research, reviews, backlog×5, architecture) vía `git mv`; `api/` y `CHANGELOG.md` intactos por constraint; links reescritos (absolutos + relativos recomputados), SUMMARY.md curado, markdownlint 0/1453, auditoría solo deja legacy archivado. Verificado por 2 subagentes en paralelo.
+- [x] C-02 · ✅ 2026-09-23 completo (2 oleadas): TODOS los directorios bajo `docs/user/` (benchmarks, blog, book, desktop, discord, glosario, learning, operations, tutorials, web, FAQ, QUICKSTART) o `docs/dev/` (archive, architecture, avance, graphrag, plans, references, reports, research, reviews, strategy, tasks, vision, wasm, workflow, _templates, backlogs) + file-level (12 ops→dev, desktop/ARCHITECTURE→dev); `api/`, `CHANGELOG.md`, `.obsidian` y `*.md` raíz intactos por convención; links reescritos y auditados, markdownlint 0, actionlint 0.
 - [x] C-03 · ✅ 2026-09-23: `markdownlint docs/**/*.md` 0 issues (MD049 fixeado) + release-plz publicó 0.6.0/0.6.1 parseando el changelog sin WARN.
 - [x] C-04 · SUPERSEDED 2026-09-23: la propuesta (quitar `develop` de push) quedó obsoleta — workflows-repair (FIND-140) racionalizó triggers MANTENIENDO `develop` (todo el CI actual corre sobre develop). Ver `docs/dev/workflow/TRIGGERS.md`.
 - [x] C-05 · ✅ 2026-09-23: renombres aplicados en FIND-142 (14 renames, ej `ci-rust-10.yml`→`ci-rust.yml`); `actionlint` 0.
