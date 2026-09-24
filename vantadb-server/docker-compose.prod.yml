@@ -1,7 +1,7 @@
 # VantaDB Server — Production override (canonical root image + prod env/hardening)
 # Usage: docker compose -f vantadb-server/docker-compose.yml -f vantadb-server/docker-compose.prod.yml up -d --build
 # Release images are published as assets by the `docker-image` CI job (see
-# docs/operations/CI_POLICY.md §Docker image publishing); no VERSION needed.
+# docs/user/operations/CI_POLICY.md §Docker image publishing); no VERSION needed.
 
 version: "3.9"
 

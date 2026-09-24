@@ -37,7 +37,7 @@ python embeddings/verify.py --check
 - **Formato:** ONNX (`onnx/model.onnx` o `model_int8.onnx` para bge-m3) + HF pytorch (`*.safetensors`). Comparar Rust `ort` vs Python `sentence-transformers`.
 - **Descarga recortada (FIND-71):** `download.py` usa `ALLOW_PATTERNS = ["*.json", "*.txt", "tokenizer*", "onnx/*", "*.safetensors"]` — sin `*.bin` global (duplicaba pesos cuando el repo trae ambos formatos → 3-4× lo declarado). Si un modelo resulta bin-only, añadir entrada explícita en `MODEL_PATTERNS` por id (`get_allow_patterns()`), nunca re-ampliar el global.
 - **Sizes re-medidos 2026-09-15 desde `manifest.json` (`size_onnx_mb + size_hf_mb`):** 253 / 170 / 878 / 2200 / 941 / 1079 / 691 / 3470 / 16000 MB — la tabla coincide con el manifest (fuente, Regla 11).
-- **Regla de oro:** un modelo por namespace (misma dim para writes y query; cross-model rompe HNSW). Ver `docs/tutorials/05-embedding-integrations.md:126`.
+- **Regla de oro:** un modelo por namespace (misma dim para writes y query; cross-model rompe HNSW). Ver `docs/user/tutorials/05-embedding-integrations.md:126`.
 - **bge-m3 int8:** fp32 ONNX 2.3 GB + HF 2.27 GB = 4.57 GB >3 GB; por eso se pinnea `model_int8.onnx` (1.20 GB).
 - **Qwen3:** sin ONNX oficial; solo HF (`trust_remote_code=True`), `onnx=null`, GPU-only, Matryoshka 4096→1024.
 
@@ -93,9 +93,9 @@ Tres proveedores, selección solo por env (sin recompilar):
 
 | Proveedor | Activación | Requisito | Estado verificado (EMB-19 `a5d549af`) |
 |-----------|------------|-----------|----------------------------------------|
-| `local` (ONNX, default recomendado) | `VANTADB_EMBEDDING_PROVIDER=local` + `VANTADB_LOCAL_MODEL=<absoluta>/embeddings/models/<id>/onnx` + `ORT_DYLIB_PATH=<onnxruntime>=1.27.dll` — o lanzador `.\vanta-mcp-local.ps1 -DbPath <db>` (setea ambas + autodetecta ORT) | Modelo en disco (`python embeddings/download.py --only <id>`) + onnxruntime ≥1.27 (`%LOCALAPPDATA%/VantaDB/onnxruntime/onnxruntime.dll`, EMB-11; System32 1.17.1 aborta — FIND-100) | REAL ejecutado: `multilingual-e5-small` dim 384 `fallback:false`, `s(par)=0.9158` vs `0.8427/0.8423` gap `0.0732` (fuente: `docs/tasks/EMB-19.md` Step 1) |
-| `ollama` (default del core si no se setea nada) | `VANTADB_EMBEDDING_PROVIDER=ollama` (lee servidor `localhost:11434`) | Servidor Ollama vivo + modelo con embeddings descargado (`ollama pull nomic-embed-text`) | DEGRADACIÓN AVISADA ejecutada: servidor v0.33.2 vivo pero `/api/tags` → `{"models":[]}` → `fallback:true` + `warning` con `404`, exit 0 sin crash (fuente: `docs/tasks/EMB-19.md` Step 2). Embedding real: documentado-no-ejecutado (precedente FIND-69) |
-| `openai` | `VANTADB_EMBEDDING_PROVIDER=openai` + `VANTADB_OPENAI_API_KEY=<key>` (solo env de sesión, NUNCA a disco ni al script) + opcional `VANTADB_OPENAI_MODEL` | Key válida con crédito | DEGRADACIÓN AVISADA ejecutada (sin key: `fallback:true` + `warning="VANTADB_OPENAI_API_KEY must be set"`, fuente: `docs/tasks/EMB-19.md` Step 2). Embedding real: documentado-no-ejecutado sin key (precedente FIND-69) |
+| `local` (ONNX, default recomendado) | `VANTADB_EMBEDDING_PROVIDER=local` + `VANTADB_LOCAL_MODEL=<absoluta>/embeddings/models/<id>/onnx` + `ORT_DYLIB_PATH=<onnxruntime>=1.27.dll` — o lanzador `.\vanta-mcp-local.ps1 -DbPath <db>` (setea ambas + autodetecta ORT) | Modelo en disco (`python embeddings/download.py --only <id>`) + onnxruntime ≥1.27 (`%LOCALAPPDATA%/VantaDB/onnxruntime/onnxruntime.dll`, EMB-11; System32 1.17.1 aborta — FIND-100) | REAL ejecutado: `multilingual-e5-small` dim 384 `fallback:false`, `s(par)=0.9158` vs `0.8427/0.8423` gap `0.0732` (fuente: `docs/dev/tasks/EMB-19.md` Step 1) |
+| `ollama` (default del core si no se setea nada) | `VANTADB_EMBEDDING_PROVIDER=ollama` (lee servidor `localhost:11434`) | Servidor Ollama vivo + modelo con embeddings descargado (`ollama pull nomic-embed-text`) | DEGRADACIÓN AVISADA ejecutada: servidor v0.33.2 vivo pero `/api/tags` → `{"models":[]}` → `fallback:true` + `warning` con `404`, exit 0 sin crash (fuente: `docs/dev/tasks/EMB-19.md` Step 2). Embedding real: documentado-no-ejecutado (precedente FIND-69) |
+| `openai` | `VANTADB_EMBEDDING_PROVIDER=openai` + `VANTADB_OPENAI_API_KEY=<key>` (solo env de sesión, NUNCA a disco ni al script) + opcional `VANTADB_OPENAI_MODEL` | Key válida con crédito | DEGRADACIÓN AVISADA ejecutada (sin key: `fallback:true` + `warning="VANTADB_OPENAI_API_KEY must be set"`, fuente: `docs/dev/tasks/EMB-19.md` Step 2). Embedding real: documentado-no-ejecutado sin key (precedente FIND-69) |
 
 - Default del core sin env: `ollama` (fuente: `src/config.rs:956`). El lanzador fija `local` explícito para no depender del default.
 - Path del modelo: usar ABSOLUTA (el default relativo es frágil por CWD; fuente: plan §Verificación + EMB-13 nota CWD).
@@ -111,22 +111,22 @@ Tres proveedores, selección solo por env (sin recompilar):
 | 4 | `jina-es-v2-base` (768d, 1.10+1.10=2.20 GB) | Español optimizado 768d; solo si la base nace 768d y hay disco/RAM para 2.2 GB. |
 | 5 | `paraphrase-multilingual-MiniLM-L12-v2` (384d, 470+471=941 MB) | Multilingüe ligero 384d compatible en dim con el default (cambio sin re-ingerir si la base ya es 384d). En disco (verificado EMB-19). |
 | 6 | `distiluse-multilingual` (512d, 540+539=1.08 GB) | Multilingüe base 512d; base nueva 512d o nada (no mezclar con 384d). |
-| 7 | **`multilingual-e5-small` (384d, 220+471=691 MB) DEFAULT** | Default: ES+EN 16+ idiomas, dim 384, e5 con prefijos `query:/passage:` (EMB-16, margen asimétrico 0.1204 vs simétrico 0.0812, fuente: `docs/tasks/EMB-16.md`). En disco. Primera opción salvo razón explícita. |
+| 7 | **`multilingual-e5-small` (384d, 220+471=691 MB) DEFAULT** | Default: ES+EN 16+ idiomas, dim 384, e5 con prefijos `query:/passage:` (EMB-16, margen asimétrico 0.1204 vs simétrico 0.0812, fuente: `docs/dev/tasks/EMB-16.md`). En disco. Primera opción salvo razón explícita. |
 | 8 | `bge-m3` (1024d, int8 1.20+2.27=3.47 GB) | SOTA local ≤3 GB (int8 `model_int8.onnx`); base nueva 1024d, disco ≥4 GB. Multilingüe 100+. |
 | 9 | `qwen3-embedding-8b` (4096d, 16.0 GB HF-only, `onnx:null`) | EXCEPCIÓN GPU-only (≥16 GB VRAM, `trust_remote_code=True`, Matryoshka 4096→1024). Fuera de `ort` CPU. Solo `--include-exception`. |
 
 - En disco verificado (EMB-19): `all-MiniLM-L6-v2`, `multilingual-e5-small`, `paraphrase-multilingual-MiniLM-L12-v2` (los 3 × 384d). Resto: bajo demanda con `python embeddings/download.py --only <id>` (aviso Q2: tamaño/tiempo antes de descargar).
 - Cambiar de modelo con distinta dim exige base nueva o re-ingerir (ver regla abajo). Misma dim (384d: 1/2/5/7) = switch sin re-ingerir.
 
-## Regla una-dim-por-base (Q4: bloquear+guiar — fuente: `docs/tasks/EMB-18.md`, verificado EMB-19)
+## Regla una-dim-por-base (Q4: bloquear+guiar — fuente: `docs/dev/tasks/EMB-18.md`, verificado EMB-19)
 
 Una base = una dimensión. Si la base contiene vectores de dim distinta al vector entrante (modelo cambiado), el put/search es RECHAZADO con error que dice dim esperada + obtenida + comando exacto de regeneración. Nunca auto-reindex silencioso.
 
 - Base vacía: sin gate (la primera escritura con vector define la dim). Puts solo-texto (sin vector): nunca gateados.
 - Guía honesta del error: re-embeder con la dim original O re-ingerir todo con el modelo nuevo + `rebuild_index` (tool MCP) / `reindex_hnsw_from_text(ns, page_size)` (SDK). `rebuild_index` solo NO cambia dims (reconstruye desde vectores almacenados).
-- Ver `docs/tutorials/05-embedding-integrations.md:126` (regla de oro citada) y `docs/tasks/EMB-18.md` (spec de decisiones).
+- Ver `docs/user/tutorials/05-embedding-integrations.md:126` (regla de oro citada) y `docs/dev/tasks/EMB-18.md` (spec de decisiones).
 
-## Nota `embed_texts` real (verificado EMB-19 `a5d549af`, fuentes: `docs/tasks/EMB-19.md` Steps 1-2 + `docs/tasks/EMB-13.md`)
+## Nota `embed_texts` real (verificado EMB-19 `a5d549af`, fuentes: `docs/dev/tasks/EMB-19.md` Steps 1-2 + `docs/dev/tasks/EMB-13.md`)
 
 `embed_texts` ya no es dummy: con modelo real devuelve vectores con señal semántica; sin modelo devuelve fallback determinista AVISADO (nunca silencioso, nunca error duro — Q5).
 
@@ -136,5 +136,5 @@ Una base = una dimensión. Si la base contiene vectores de dim distinta al vecto
 - Budgeting intacto: 128 items / 25k tokens + paginación `cursor`/`next_cursor` (fuente: `vantadb-mcp/src/config.rs:75-78,111-112`).
 - Auto-embed (EMB-14): `memory_put`/`put_batch` sin vector guarda CON vector del proveedor activo (`memory_get` lo muestra, len == dim); vector provisto se respeta; fallo de proveedor → guarda sin vector + aviso.
 - Query mismo-proveedor (EMB-15): `search_memory`/`memory_recall` con texto embebe la query con el proveedor activo; sinónimos verificados `keys=["d1","d0","d2"]` + recall `hybrid` con D0 (fuente: EMB-19 Step 1, idéntico a EMB-15).
-- Prefijos e5 (EMB-16): familia e5 usa `query:` (queries) / `passage:` (documentos); MiniLM y resto ninguno. Margen medido: asimétrico `0.1204` vs simétrico `0.0812` (+48% relativo; fuente: `docs/tasks/EMB-16.md`).
+- Prefijos e5 (EMB-16): familia e5 usa `query:` (queries) / `passage:` (documentos); MiniLM y resto ninguno. Margen medido: asimétrico `0.1204` vs simétrico `0.0812` (+48% relativo; fuente: `docs/dev/tasks/EMB-16.md`).
 - e2e puesto en EMB-19: `memory_put` (d0,d1,d2 sin vector) → `memory_get d0` con `vector` len 384; `search_memory {text_query:"felino descansando"}` (0 palabras comunes con D0) → `keys=["d1","d0","d2"]`; focado recall `mode="hybrid" recalled=[felino…, gato…, cuántica…]` 4/4.

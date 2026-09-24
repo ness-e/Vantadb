@@ -6,7 +6,7 @@
   Walks the repo, excludes non-essential dirs/files, sorts by last-modified (newest first),
   and writes a structured .md file with metadata, file tree, and full contents.
 .PARAMETER OutDir
-  Output directory (default: docs/operations/snapshots).
+  Output directory (default: docs/user/operations/snapshots).
 .PARAMETER MaxFileSizeMB
   Skip files larger than this (default: 1 MB).
 .PARAMETER DryRun
@@ -20,7 +20,7 @@
 #>
 
 param(
-  [string]$OutDir = "docs/operations/snapshots",
+  [string]$OutDir = "docs/user/operations/snapshots",
   [int]$MaxFileSizeMB = 1,
   [switch]$DryRun,
   [switch]$NoStats
@@ -130,7 +130,7 @@ $AllFiles = Get-ChildItem -File -Recurse -LiteralPath $ProjectRoot | Where-Objec
   $Name = $_.Name.ToLower()
 
   foreach ($P in $ExcludedPatterns) { if ($RelPath -match $P) { return $false } }
-  if ($RelPath -eq $ScriptName -or $RelPath -eq "docs/operations/snapshots/snapshot_$Date.md") { return $false }
+  if ($RelPath -eq $ScriptName -or $RelPath -eq "docs/user/operations/snapshots/snapshot_$Date.md") { return $false }
   if ($_.Length -gt $MaxBytes) { return $false }
   if (Test-Binary $_.FullName) { return $false }
   if ($IncludedExtensions -contains $Ext) { return $true }

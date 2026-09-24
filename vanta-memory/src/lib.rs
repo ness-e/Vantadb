@@ -7,7 +7,7 @@
 //! assert_eq!(vanta_memory::name(), "vanta-memory");
 //! ```
 //!
-//! Port of the TDAM memory architecture (`docs/research/tdam/`) reimplemented
+//! Port of the TDAM memory architecture (`docs/dev/research/tdam/`) reimplemented
 //! in Rust over the existing VantaDB stack. All persistence lives in the
 //! VantaDB store (nodes, `InternalMetadata` partitions, text index, HNSW,
 //! core graph) — never external storage.
@@ -19,7 +19,7 @@
 //!
 //! F4 task order: MEM-08a (this scaffold) → MEM-08b (contracts + trait) →
 //! MEM-09..21 (L0→L1→L2→L3, triggers, skill extract, recall, cursor, MCP
-//! scenes). See `docs/plans/2026-08-18-vanta-memory.md`.
+//! scenes). See `docs/dev/plans/2026-08-18-vanta-memory.md`.
 //!
 //! [`LlmRunner`]: core::abstractions::LlmRunner
 

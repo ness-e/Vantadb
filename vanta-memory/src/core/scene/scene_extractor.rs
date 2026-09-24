@@ -21,7 +21,7 @@
 //! `emptyExtraction` (TDAM `scene-extractor.ts:509-516`): an empty batch — or
 //! a failed LLM run (Principio 4) — never overwrites the store.
 //!
-//! Source: `docs/research/tdam/02-scene-persona.md` + TDAM
+//! Source: `docs/dev/research/tdam/02-scene-persona.md` + TDAM
 //! `scene-extractor.ts` (604) + `scene-extraction.ts` (572).
 
 use serde::{Deserialize, Serialize};

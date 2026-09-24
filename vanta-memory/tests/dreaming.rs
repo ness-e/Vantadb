@@ -2,7 +2,7 @@
 #![allow(clippy::expect_used, clippy::unwrap_used)]
 //! MEM-61 — Dreaming consolidation idle (integration test).
 //!
-//! Verifies the contract from `docs/plans/2026-08-29-full-backlog-parallel.md`:
+//! Verifies the contract from `docs/dev/plans/2026-08-29-full-backlog-parallel.md`:
 //!   - `cargo test -p vanta-memory --test dreaming 2>&1 | Select-String
 //!     "ok|PASS" | Measure-Object | Select-Object Count` >= 1
 //!

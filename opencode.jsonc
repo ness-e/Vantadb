@@ -75,15 +75,16 @@
     },
     "vantadb": {
       "command": [
-        "vanta-cli",
-        "server",
-        "--mcp",
-        "--db",
+        "pwsh",
+        "-NoProfile",
+        "-File",
+        "C:/Users/Eros/VantaDB Proyect/VantaDB/vanta-mcp-local.ps1",
+        "-DbPath",
         "C:/Users/Eros/.vantadb"
       ],
       "disabled": false,
       "type": "local",
-      "description": "VantaDB MCP — memoria persistente y vector retrieval (87 tools en perfil full: memory, threads, scenes, dreams, graph, wiki, skills, code...)."
+      "description": "VantaDB MCP vía launcher (EMB-12: VANTADB_EMBEDDING_PROVIDER=local + VANTADB_LOCAL_MODEL + ORT autodetect; binario repo target/debug preferido sobre global stale FIND-98). Memoria persistente + vector retrieval (87 tools perfil full)."
     },
     "lottiefiles-creator": {
       "command": [

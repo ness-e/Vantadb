@@ -160,7 +160,7 @@ Two npm packages exist; they are **not** the same thing:
 
 `vantadb-node` is the **native backend** you reach via
 `NativeVantaDB.connect()` (lazy-loaded); `vantadb` is the **WASM backend**
-(`Client.create()`). See ADR-030 (`docs/architecture/adr/ADR-030-brand-identity-naming-convention.md`)
+(`Client.create()`). See ADR-030 (`docs/dev/architecture/adr/ADR-030-brand-identity-naming-convention.md`)
 for the full naming convention across registries.
 
 ## Errors
@@ -213,7 +213,7 @@ console.log(hits[0].record.payload); // "Hello, world!"
 
 Use one embedding model per namespace — stored and query vectors must share
 the same dimensionality. Full walkthrough:
-[QUICKSTART → Real Embeddings](../docs/QUICKSTART.md#4-real-embeddings-optional).
+[QUICKSTART → Real Embeddings](../docs/user/QUICKSTART.md#4-real-embeddings-optional).
 
 ## API
 

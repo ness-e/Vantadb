@@ -148,7 +148,7 @@ pub struct BackendCapabilities {
 
 // ─── Backend Role Traits (ISP) ──────────────────────────────────
 //
-// BND-02 (`docs/architecture/BOUNDARIES.md`): clients depend on these
+// BND-02 (`docs/dev/architecture/BOUNDARIES.md`): clients depend on these
 // narrow roles, never on the full `StorageBackend` for new code.
 // All roles are `pub(crate)` — sealed by visibility (C-SEALED needs no
 // extra machinery inside the crate): no ADR, semver MENOR.

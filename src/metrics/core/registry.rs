@@ -552,7 +552,7 @@ pub static GRAPH_OPS_TOTAL: LazyLock<Option<IntCounterVec>> = LazyLock::new(|| {
 /// `src/server/errors.rs::log_vanta_error`, so both error envelopes
 /// (`query_error_response`, `vanta_error_response`) feed the same series.
 /// PromQL: `rate(vantadb_errors_total[5m])` per code — see
-/// `docs/operations/OBSERVABILITY.md` §4–§5.
+/// `docs/user/operations/OBSERVABILITY.md` §4–§5.
 #[cfg(feature = "prometheus")]
 pub static ERRORS_TOTAL: LazyLock<Option<IntCounterVec>> = LazyLock::new(|| {
     let counter = match IntCounterVec::new(

@@ -14,7 +14,7 @@
 //! to `_`, so `a/b` and `a_b` used to collide as keys. The normalizer strips
 //! `/` (TDAM drop list), so `a/b` → `ab` ≠ `a_b` — no collision.
 //!
-//! Source: `docs/research/tdam/02-scene-persona.md` + TDAM
+//! Source: `docs/dev/research/tdam/02-scene-persona.md` + TDAM
 //! `filename-normalizer.ts` (195).
 
 /// Characters dropped from scene names (TDAM drop list: quotes, brackets,

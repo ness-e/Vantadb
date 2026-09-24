@@ -768,7 +768,7 @@ default-members = [
 # <5min are promoted; proxy = Heavy compile documented STABLE-02, wasm = wasm32 /
 # wasm-pack toolchain extra Tier 3). A failure in an experimental crate must not
 # block core CI.
-# See docs/operations/CI_POLICY.md for the experimental crate policy.
+# See docs/user/operations/CI_POLICY.md for the experimental crate policy.
 
 [workspace.package]
 version = "0.6.1"

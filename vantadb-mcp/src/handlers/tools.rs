@@ -1783,9 +1783,9 @@ pub fn handle_tools_call(
                         "recalled": recalled,
                         "effective_mode": mode_str,
                     });
-                    Ok(text_content(serialize_content(&envelope)))
+                    Ok(text_content_structured(&envelope)))
                 }
-                Ok(None) => Ok(text_content(serialize_content(&json!({
+                Ok(None) => Ok(text_content_structured(&json!({
                     "prepend_context": null,
                     "recalled": [],
                     "effective_mode": "keyword",

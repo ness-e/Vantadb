@@ -97,7 +97,7 @@ const skillsReported = tasks.filter(t => taskSkills.has(t.id)).length
 let md = `# Pipeline Evaluation Report
 
 > Generado por \`evals/eval-metrics.mjs\` (EVAL-01) — ${new Date().toISOString()}
-> Datos: \`.opencode/task-system/enforcement/verify-log.jsonl\` (${entries.length} invocaciones de verify) + \`docs/plans/*.md\`
+> Datos: \`.opencode/task-system/enforcement/verify-log.jsonl\` (${entries.length} invocaciones de verify) + \`docs/dev/plans/*.md\`
 
 ## North Star (RULES.md)
 

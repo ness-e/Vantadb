@@ -37,7 +37,7 @@ impl AsyncIngestionPipeline {
     /// `worker_count` defaults to 1 when `None` is passed. At least one worker
     /// is always created. Default is 1 (not 4): RES-03 measured -31% (w=2) /
     /// -43% (w=4) vs w=1 on the serial insert path — see
-    /// `docs/operations/BENCHMARKS.md` §13.
+    /// `docs/user/operations/BENCHMARKS.md` §13.
     pub fn new(engine: Arc<StorageEngine>, worker_count: Option<usize>) -> Self {
         // ponytail: single worker — engine insert path is serial (global insert_lock
         // + WAL fsync per write); more workers only add convoy. Scale up when

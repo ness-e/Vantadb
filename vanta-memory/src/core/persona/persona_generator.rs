@@ -23,7 +23,7 @@
 //! output returns `success: false` and writes NOTHING — a stored persona is
 //! never lost or corrupted by a bad LLM run.
 //!
-//! Source: `docs/research/tdam/02-scene-persona.md` §26 + TDAM
+//! Source: `docs/dev/research/tdam/02-scene-persona.md` §26 + TDAM
 //! `persona-generator.ts` + `utils/sanitize.ts:288-294`.
 
 use serde::{Deserialize, Serialize};
