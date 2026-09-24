@@ -1111,3 +1111,21 @@ aliases: []
 - **Objetivo:** 16 errores `tsc` por drift `.d.ts` hand-written vs runtime Rust.
 - **Resultado:** resync solo-tipos + 12 casts frontera (+1 narrow); `tsc` 0 + 311/311 tests; cero runtime; P2-01 approve.
 - **Commit:** 121f98d4 + d755aeec (conteo corregido 12+1)
+
+### MCP outputSchema object + envelope (opencode v2 compat)
+- **Fecha:** 2026-09-23
+- **Objetivo:** tools/list rechazado por validacion zod (4 outputSchema array).
+- **Resultado:** ✅ 4 schemas a object + structuredContent envelope + reinstall vanta-cli/server 0.6.1; opencode mcp list connected, 87 tools.
+- **Commit:** 74ad0de4
+
+### TS-break 0.7.0: API a objetos
+- **Fecha:** 2026-09-24
+- **Objetivo:** unificar get/delete/list/count/supersede/searchMulti/searchVector/similarToKey a input-objeto (breaking).
+- **Resultado:** ✅ tsc 0 + eslint 0 + 311/311 tests; package.json 0.7.0 sin publicar (owner difiere publish).
+- **Commit:** aae39059
+
+### R-05 test usuario real 0.6.1
+- **Fecha:** 2026-09-23
+- **Objetivo:** instalar desde registros en limpio + QUICKSTART.
+- **Resultado:** ✅ pip 0.6.1 (vector/text/hybrid OK) + npm 0.6.1 (Client put/search/get OK) + CLI↔Python interop + audit passed; README-TS y QUICKSTART actualizados.
+- **Commit:** 2b8d3fda
