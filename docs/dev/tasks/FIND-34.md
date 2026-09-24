@@ -36,7 +36,7 @@
 - **Archivos leídos completos (antes de editar):**
   - `src/wal.rs` (1159 líneas completas) — `open` (202), `open_with_buffer` (210-268), `recover_valid_records` (528-569), `quarantine_corrupt_tail` (575-599), `quarantine_backup_path` (603-614), `check_record_at/scan_forward_valid/try_scan_forward` (465-524), tests (781-1159: 9 tests wal)
   - `src/wal_sharded.rs` (855 líneas completas) — `ShardedWal::new_with_buffer` (133-195) usa `open_with_buffer` ×2, `recover` (243-286) separado
-  - `docs/dev/reviews/codegraph-20260827-143245.md` (Fase 1 tabla ciclos) — ciclo WAL 4 nodos High vs grep verifica falso positivo
+  - `docs/dev/reviews/archive/codegraph-20260827-143245.md` (Fase 1 tabla ciclos) — ciclo WAL 4 nodos High vs grep verifica falso positivo
   - `docs/dev/plans/2026-08-27-backlog-v2.md` Task 1 (contrato + gate justification)
   - `Cargo.toml` workspace (default-members, features) — no tocado
   - `.config/nextest.toml` profile audit — no tocado
@@ -75,7 +75,7 @@ Verificación mecánica:
 ## Steps
 
 ### Step 1: Discovery — verificar DAG vs ciclo + coverage existente
-- **Archivos:** `src/wal.rs`, `src/wal_sharded.rs`, `docs/dev/reviews/codegraph-20260827-143245.md`
+- **Archivos:** `src/wal.rs`, `src/wal_sharded.rs`, `docs/dev/reviews/archive/codegraph-20260827-143245.md`
 - **Acción:** Confirmar via grep que no hay back-edge (recover/quarantine no llaman a open). Listar tests existentes que dan cobertura. Marcar ciclo como falso positivo documentado. No edita código.
 - **Verify:** `Select-String -Pattern "open_with_buffer|recover_valid_records|quarantine" src/wal.rs` → DAG verificado manual + `cargo nextest list -E test(wal)` → 60 tests listados
 - **Estado:** ✅ COMPLETED (2026-08-27 discovery pre-execution, este task file lo registra)

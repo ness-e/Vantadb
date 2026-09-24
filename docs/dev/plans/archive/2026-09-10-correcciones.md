@@ -32,7 +32,7 @@ Triage + Paso 0 + `question` → owner aprobó "Aprobar plan 26 (Recomendado)". 
 - FIND-65: `cache.rs:760-763` resta `Instant - 10_000s` — código leído, overflow real en hosts jóvenes.
 - FIND-66: `Formula/README.md:23,40,52` — las 3 afirmaciones falsas leídas.
 - FIND-67: `QUICKSTART.md:12,90` — v0.4.x + wheel 0.1.1 leídos vs tag v0.5.0.
-- Resto (68-88): evidencia file:línea + comando en `docs/dev/reviews/review-full-20260910-modulos.md` + apéndice (no re-verificado hoy por economía; cada ejecutor re-verifica en DISCOVERY y reporta divergencia como HALLAZGO).
+- Resto (68-88): evidencia file:línea + comando en `docs/dev/reviews/archive/review-full-20260910-modulos.md` + apéndice (no re-verificado hoy por economía; cada ejecutor re-verifica en DISCOVERY y reporta divergencia como HALLAZGO).
 
 ## Tasks
 

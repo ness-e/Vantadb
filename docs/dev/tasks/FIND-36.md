@@ -42,7 +42,7 @@
   - `src/backends/mod.rs` — `pub(crate) mod fjall_backend/in_memory` + `#[cfg(feature="rocksdb")] mod rocksdb_backend`
   - `Cargo.toml` workspace (líneas 615-650: members, default-members, workspace.package v0.5.0, exclude fuzz)
   - `desktop/src-tauri/Cargo.toml` (70 líneas completas: package vantadb-desktop, isolated `[workspace] members ["."]`, deps tauri 2 + vantadb path `../..` default-features false `[fjall,fs2,memmap2,roaring,advanced-tokenizer]`, vanta-memory path `../../vanta-memory`)
-  - `docs/dev/reviews/codegraph-20260827-143245.md` (184 líneas) — Tabla ciclos Fase 1: `NativeConnection ↔ RocksDbBackend | 3 (get/put/delete) | desktop/... ↔ src/backends/...`, recomendación "Invertir dependencia: backend no debe llamar a frontend Tauri"
+  - `docs/dev/reviews/archive/codegraph-20260827-143245.md` (184 líneas) — Tabla ciclos Fase 1: `NativeConnection ↔ RocksDbBackend | 3 (get/put/delete) | desktop/... ↔ src/backends/...`, recomendación "Invertir dependencia: backend no debe llamar a frontend Tauri"
   - `docs/dev/plans/2026-08-27-backlog-v2.md` Task 3 (contrato + gate justification + risk/pre-mortem/stop/cynefin)
   - `Cargo.toml` + `desktop/src-tauri/Cargo.toml` workspace isolation comment
 - **Referencias hacia dentro (qué importa este archivo):**
@@ -89,7 +89,7 @@ Verificación mecánica:
 ## Steps
 
 ### Step 1: Discovery — verificar DAG vs ciclo + 0 cross-imports + workspace isolation
-- **Archivos:** `desktop/src-tauri/src/connections/native.rs`, `src/backends/rocksdb_backend.rs`, `src/backend.rs`, `Cargo.toml`, `desktop/src-tauri/Cargo.toml`, `docs/dev/reviews/codegraph-20260827-143245.md`
+- **Archivos:** `desktop/src-tauri/src/connections/native.rs`, `src/backends/rocksdb_backend.rs`, `src/backend.rs`, `Cargo.toml`, `desktop/src-tauri/Cargo.toml`, `docs/dev/reviews/archive/codegraph-20260827-143245.md`
 - **Acción:** Confirmar via rg que no hay back-edge (RocksDbBackend no importa desktop/native/tauri; NativeConnection no importa RocksDbBackend). Verificar workspace isolation (`cargo tree` no contiene ciclo). Documentar cadena DAG `NativeConnection → VantaEmbedded → StorageEngine → StorageBackend → RocksDbBackend`. Marcar ciclo CodeGraph como falso positivo por colisión de nombres + Leiden clustering. No edita código.
 - **Verify:** `Select-String -Pattern "NativeConnection|RocksDbBackend|tauri" -Path src/backends/rocksdb_backend.rs` → 0 hits + `Select-String -Pattern "RocksDbBackend|rocksdb_backend" -Path desktop/.../native.rs` → 0 hits + `cargo check -p vantadb --all-targets` ✅ + plan Task 3 contrato + pre-mortem 1 verificado
 - **Estado:** ✅ COMPLETED (2026-08-27 — rg 0+0 hits, cargo check 0.98s ✅, DAG `NativeConnection→VantaEmbedded→StorageEngine→StorageBackend→RocksDbBackend` verificado, pre-mortem 1 confirmado: falso positivo)
