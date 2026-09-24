@@ -1,0 +1,96 @@
+{
+  "_meta": {
+    "suite": "FIND-151 agent-eval",
+    "cases": 10,
+    "policy": "digest research <=500 palabras + URLs verificadas; veredicto review siempre con evidencia",
+    "judge": "determinista offline (0 tokens). Giskard LLM-judge (`giskard.agents`) reservado a /audit full futuro.",
+    "refs": ["https://github.com/Giskard-AI/giskard", "https://www.giskard.ai"]
+  },
+  "cases": [
+    {
+      "id": "DIGEST-01", "agent": "vanta-research", "kind": "digest",
+      "input": {
+        "text": "Lurkr es un scanner estatico local-only de capability risk para agentes de IA. Se instala con pip install lurkr y se usa como lurkr scan --path . --output report.json. En CI se integra con agentveil-protocol/lurkr@v0.4.0 con inputs path, output, fail-on y baseline. No existe paquete npm llamado lurkr. El modo baseline permite adoptar sin bloquear builds existentes.",
+        "urls": ["https://github.com/agentveil-protocol/lurkr"]
+      },
+      "expect_pass": true
+    },
+    {
+      "id": "DIGEST-02", "agent": "vanta-research", "kind": "digest",
+      "input": {
+        "text": "Giskard OSS es una plataforma Apache-2.0 de evaluacion y red-teaming para agentes LLM. El paquete giskard expone giskard.agents con Chat, ChatWorkflow, Generator y Tool. Giskard Hub 3.0 agrega custom LLM judge y 21 checks. La comparacion Hub vs OSS esta en su documentacion oficial.",
+        "urls": ["https://github.com/Giskard-AI/giskard", "https://www.giskard.ai"]
+      },
+      "expect_pass": true
+    },
+    {
+      "id": "DIGEST-03", "agent": "vanta-research", "kind": "digest",
+      "input": {
+        "text": "Semgrep OSS Community Edition aporta SAST con reglas como codigo y expone un MCP server para que agentes corran scans directos. ast-grep aporta busqueda estructural versionable superior a regex para patrones como unwrap en produccion o unsafe sin SAFETY.",
+        "urls": ["https://github.com/semgrep/semgrep"]
+      },
+      "expect_pass": true
+    },
+    {
+      "id": "DIGEST-04", "agent": "vanta-research", "kind": "digest",
+      "input": {
+        "text": "OSV-Scanner de Google es Apache-2.0 y detecta vulnerabilidades en dependencias. Se ejecuta como osv-scanner ./... junto a cargo audit. Las licencias se siguen controlando con cargo-deny y deny.toml restringido a MIT y Apache-2.0.",
+        "urls": ["https://google.github.io/osv-scanner"]
+      },
+      "expect_pass": true
+    },
+    {
+      "id": "DIGEST-05", "agent": "vanta-research", "kind": "digest",
+      "input": {
+        "text": "cargo-llvm-cov mide cobertura LLVM y cargo-machete detecta dependencias no usadas. El DoD v2 exige 70 por ciento de cobertura en modulos nuevos. cargo-udeps requiere nightly por lo que se mantiene informativo hasta estabilizar.",
+        "urls": ["https://github.com/taiki-e/cargo-llvm-cov"]
+      },
+      "expect_pass": true
+    },
+    {
+      "id": "REVIEW-01", "agent": "vanta-review", "kind": "verdict",
+      "input": {
+        "verdict": "PASS",
+        "claim": "El workflow usa SHAs pineados en todas las actions de checkout y upload-artifact.",
+        "evidence": [".github/workflows/arch-metrics-informational.yml:34", ".github/workflows/arch-metrics-informational.yml:58"]
+      },
+      "expect_pass": true
+    },
+    {
+      "id": "REVIEW-02", "agent": "vanta-review", "kind": "verdict",
+      "input": {
+        "verdict": "CHANGES-REQUIRED",
+        "claim": "Rule 17 indica npx lurkr scan pero el paquete no existe en npm.",
+        "evidence": ["https://github.com/agentveil-protocol/lurkr", ".opencode/task-system/RULES.md:398"]
+      },
+      "expect_pass": true
+    },
+    {
+      "id": "REVIEW-03", "agent": "vanta-review", "kind": "verdict",
+      "input": {
+        "verdict": "PASS",
+        "claim": "El hallazgo de Lurkr en design_system.py es falso positivo: interpola query de buscador, no prompt LLM.",
+        "evidence": [".opencode/skills/ui-ux-pro-max/scripts/design_system.py:58"]
+      },
+      "expect_pass": true
+    },
+    {
+      "id": "REVIEW-04", "agent": "vanta-review", "kind": "verdict",
+      "input": {
+        "verdict": "PASS",
+        "claim": "giskard.agents expone Chat, ChatWorkflow, Generator y Tool en la version instalada.",
+        "evidence": ["evals/agent/README.md:12"]
+      },
+      "expect_pass": true
+    },
+    {
+      "id": "REVIEW-05", "agent": "vanta-review", "kind": "verdict",
+      "input": {
+        "verdict": "CHANGES-REQUIRED",
+        "claim": "El hook L9 de unified-review aun no ejecuta la eval; el binding vive solo en docs hasta Wave 1.",
+        "evidence": [".opencode/commands/harness.md:39", "docs/dev/tasks/FIND-151.md:22"]
+      },
+      "expect_pass": true
+    }
+  ]
+}
