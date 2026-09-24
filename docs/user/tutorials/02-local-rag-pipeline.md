@@ -29,7 +29,7 @@ ollama pull llama3.2:3b
 ollama pull nomic-embed-text
 ```
 
-Skip the local installs entirely: [`docker-compose.yml`](../../../docker-compose.yml) at the repo root runs VantaDB + Ollama in containers with `docker compose up -d --build`.
+Local installs first (below). The historical Docker path (`docker compose up`, archivado en `docs/dev/archive/docker/` junto al `Dockerfile`) está descartado por ahora: no hay imágenes publicadas y el tutorial mantiene solo la vía local verificada.
 
 ## 1. Connect VantaDB and set up embeddings
 
