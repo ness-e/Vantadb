@@ -24,12 +24,12 @@ describe("NativeVantaDB error wrapping (TS-02)", () => {
     const db = makeDbWith({
       get: () => Promise.reject(new Error("VANTADB_NOT_FOUND: Node not found: 7")),
     });
-    await expect(db.get("ns", "k")).rejects.toMatchObject({
+    await expect(db.get({ namespace: "ns", key: "k" })).rejects.toMatchObject({
       code: "VANTADB_NOT_FOUND",
       message: expect.stringContaining("Node not found: 7"),
     });
     // The prefix must not leak into the human message twice.
-    await expect(db.get("ns", "k")).rejects.toMatchObject({
+    await expect(db.get({ namespace: "ns", key: "k" })).rejects.toMatchObject({
       message: expect.not.stringMatching(/^get: VANTADB_/),
     });
   });
@@ -38,8 +38,8 @@ describe("NativeVantaDB error wrapping (TS-02)", () => {
     const db = makeDbWith({
       get: () => Promise.reject(new Error("engine panicked on background thread")),
     });
-    await expect(db.get("ns", "k")).rejects.toBeInstanceOf(DbError);
-    await expect(db.get("ns", "k")).rejects.toMatchObject({
+    await expect(db.get({ namespace: "ns", key: "k" })).rejects.toBeInstanceOf(DbError);
+    await expect(db.get({ namespace: "ns", key: "k" })).rejects.toMatchObject({
       code: "VANTADB_WASM_ERROR",
       message: expect.stringContaining(
         "get: engine panicked on background thread",
@@ -51,8 +51,8 @@ describe("NativeVantaDB error wrapping (TS-02)", () => {
     const db = makeDbWith({
       get: () => Promise.reject(new Error("engine panicked on background thread")),
     });
-    await expect(db.get("ns", "k")).rejects.toBeInstanceOf(DbError);
-    await expect(db.get("ns", "k")).rejects.toMatchObject({
+    await expect(db.get({ namespace: "ns", key: "k" })).rejects.toBeInstanceOf(DbError);
+    await expect(db.get({ namespace: "ns", key: "k" })).rejects.toMatchObject({
       code: "VANTADB_WASM_ERROR",
       message: expect.stringContaining(
         "get: engine panicked on background thread",
@@ -75,7 +75,7 @@ describe("NativeVantaDB error wrapping (TS-02)", () => {
     const db = makeDbWith({ delete: () => Promise.reject(original) });
     let caught: unknown;
     try {
-      await db.delete("ns", "k");
+      await db.delete({ namespace: "ns", key: "k" });
     } catch (e) {
       caught = e;
     }

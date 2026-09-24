@@ -38,8 +38,8 @@ describe("FIND-79: importRecords strict (no soft try/catch)", () => {
     expect(report.updated).toBe(0);
     expect(report.errors).toBe(0);
     expect(report.skipped).toBe(0);
-    expect(db.get("f79_rt", "k1")!.payload).toBe("v1");
-    expect(db.get("f79_rt", "k2")!.payload).toBe("v2");
+    expect(db.get({ namespace: "f79_rt", key: "k1" })!.payload).toBe("v1");
+    expect(db.get({ namespace: "f79_rt", key: "k2" })!.payload).toBe("v2");
   });
 
   it("re-import of existing keys reports updated (core parity)", () => {
@@ -49,7 +49,7 @@ describe("FIND-79: importRecords strict (no soft try/catch)", () => {
     expect(report.inserted).toBe(0);
     expect(report.updated).toBe(1);
     expect(report.errors).toBe(0);
-    expect(db.get("f79_rt", "k1")!.payload).toBe("v1b");
+    expect(db.get({ namespace: "f79_rt", key: "k1" })!.payload).toBe("v1b");
   });
 
   it("empty array reports all-zero without throwing", () => {
@@ -69,16 +69,16 @@ describe("FIND-79: importRecords strict (no soft try/catch)", () => {
     ]);
     expect(report.inserted).toBe(1);
     expect(report.errors).toBe(1);
-    expect(db.get("f79_mix", "ok")!.payload).toBe("v");
+    expect(db.get({ namespace: "f79_mix", key: "ok" })!.payload).toBe("v");
   });
 
   it("accepts full MemoryRecord shape (get() output round-trips)", () => {
     db.put({ namespace: "f79_full", key: "a", payload: "pa", metadata: { lang: "en" } });
-    const got = db.get("f79_full", "a")!;
+    const got = db.get({ namespace: "f79_full", key: "a" })!;
     const report = db.importRecords([got]);
     expect(report.errors).toBe(0);
     expect(report.inserted + report.updated).toBe(1);
-    expect(db.get("f79_full", "a")!.payload).toBe("pa");
+    expect(db.get({ namespace: "f79_full", key: "a" })!.payload).toBe("pa");
   });
 
   it("round-trips metadata and vector through import", () => {
@@ -93,7 +93,7 @@ describe("FIND-79: importRecords strict (no soft try/catch)", () => {
     ]);
     expect(report.inserted).toBe(1);
     expect(report.errors).toBe(0);
-    const got = db.get("f79_meta", "m")!;
+    const got = db.get({ namespace: "f79_meta", key: "m" })!;
     expect(got.payload).toBe("p");
     expect(got.vector).toBeDefined();
   });
@@ -104,7 +104,7 @@ describe("FIND-79: importRecords strict (no soft try/catch)", () => {
     ]);
     expect(report.inserted).toBe(1);
     expect(report.errors).toBe(0);
-    expect(db.get("f79_sys", "s")!.payload).toBe("v");
+    expect(db.get({ namespace: "f79_sys", key: "s" })!.payload).toBe("v");
   });
 
   it("throws DbError when closed", () => {
