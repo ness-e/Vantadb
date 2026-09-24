@@ -62,7 +62,7 @@ cd fuzz/
 # Deserialization fuzzing (WAL + Nodes)
 cargo +nightly fuzz run fuzz_node_deserialize -- -max_total_time=300
 
-# LISP/query parser fuzzing (legacy — LISP parser archived per [`EXPERIMENTAL_FEATURES.md`](EXPERIMENTAL_FEATURES.md))
+# LISP/query parser fuzzing (legacy — LISP parser archived per [`EXPERIMENTAL_FEATURES.md`](../user/operations/EXPERIMENTAL_FEATURES.md))
 cargo +nightly fuzz run fuzz_parser -- -max_total_time=300
 ```
 
