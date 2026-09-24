@@ -1,0 +1,60 @@
+# Lurkr agent-capability scan — INFORMATIONAL ONLY (FIND-151, Rule 17 ratchet).
+# Never blocks: continue-on-error + NO --fail-on (review-only mode).
+# Ratchet policy: informativo 2 semanas desde 2026-09-24. Promoción a gate
+# obligatorio (`--fail-on high`, sin continue-on-error) el 2026-10-08
+# SI 0 falsos positivos nuevos. Baseline: `.lurkr-baseline.json` (1 FP
+# grandfathered: agent.dynamic_prompt_from_user_input en
+# skills/ui-ux-pro-max/scripts/design_system.py:58 — interpola query de
+# buscador web, no prompt LLM; triaje en docs/dev/tasks/FIND-151.md).
+# Pins: lurkr 0.4.0 (PyPI), actions/checkout v7.0.1, setup-python v5.
+# NOTA: Rule 17 cita `npx lurkr` — el paquete NO existe en npm (404);
+# el CLI real es `pip install lurkr` + Action agentveil-protocol/lurkr.
+# Se usa pip (verificado local) hasta que la Action publique release estable.
+# CATEGORY: INFORMATIONAL (AGENTS.md Regla 2 — exención con tag explícito).
+
+name: Lurkr scan (informational)
+
+on:
+  pull_request:
+    paths:
+      - ".opencode/**"
+      - "evals/agent/**"
+      - ".lurkr-baseline.json"
+      - ".github/workflows/lurkr-informational.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lurkr:
+    name: Lurkr capability scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    continue-on-error: true # INFORMATIONAL hasta 2026-10-08 (ver header)
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: actions/setup-python@e797f83bcb0c7755b38d450d68b9174fb49f1173 # v5
+        with:
+          python-version: "3.12"
+
+      - name: Install lurkr (pinned)
+        run: pip install "lurkr==0.4.0"
+
+      - name: Scan .opencode (review-only, baseline)
+        run: |
+          cp .lurkr-baseline.json .opencode/.lurkr-baseline.json
+          lurkr scan --path .opencode \
+            --baseline .lurkr-baseline.json \
+            --output lurkr-report.json
+          python3 -c "import json;d=json.load(open('lurkr-report.json'));print('new findings:',d['summary']['total'])"
+
+      - name: Agent eval (10 golden cases, offline)
+        run: python3 evals/agent/run_eval.py --offline
+
+      - name: Upload reports
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: lurkr-eval
+          path: lurkr-report.json
