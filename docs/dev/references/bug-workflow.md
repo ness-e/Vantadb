@@ -23,7 +23,7 @@ related: []
 1. Leer el mensaje de error COMPLETO — incluye stack trace, exit code, output capturado
 2. Reproducir: `cargo nextest run --profile audit -p <crate> --test <test_name>` — ¿falla siempre?
 3. Si no es reproducible, buscar patrón: ¿cuándo falla? (CI sí, local no; Windows sí, Linux no)
-4. Buscar en `docs/dev/references/troubleshooting.md` si el error ya está documentado
+4. Buscar en `docs/user/troubleshooting.md` si el error ya está documentado
 
 ### Fase 0.5: Contención/Estabilización (solo si el bug rompe el entorno)
 
