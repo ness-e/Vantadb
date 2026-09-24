@@ -24,8 +24,13 @@ jobs:
       - name: Check main CI status
         env:
           GH_TOKEN: ${{ github.token }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           SHA="${GITHUB_SHA}"
+          # En PRs GITHUB_SHA es el merge efímero (sin check-runs) → usar el head SHA (EST-03).
+          if [ -n "${HEAD_SHA}" ]; then
+            SHA="${HEAD_SHA}"
+          fi
           REPO="${{ github.repository }}"
           echo "Checking CI status for ${REPO} @ ${SHA}"
           REQUIRED=(
