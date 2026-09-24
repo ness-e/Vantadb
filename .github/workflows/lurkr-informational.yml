@@ -44,6 +44,10 @@ jobs:
 
       - name: Scan .opencode (review-only, baseline)
         run: |
+          if [ ! -d .opencode ]; then
+            echo ".opencode ausente en este checkout (repo separado configOpencode, ignorado en VantaDB) - scan omitido"
+            exit 0
+          fi
           cp .lurkr-baseline.json .opencode/.lurkr-baseline.json
           lurkr scan --path .opencode \
             --baseline .lurkr-baseline.json \
