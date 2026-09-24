@@ -126,7 +126,7 @@ Verificación mecánica:
   - Añadir tests: `test_write_node_to_vstore_binary_roundtrip`, `test_write_node_to_vstore_turbo_roundtrip`, `test_write_node_to_vstore_sq8_roundtrip`, `test_rebuild_binary_vector` (archive), `test_persistence_binary_flush_reopen_get_search` (engine/tests/init.rs con fjall tempdir, Binary via UnifiedNode direct, flush, reopen, get + assert Binary, rebuild + assert).
   - `cargo nextest run -p vantadb --profile audit -E 'test(persistence|vstore|rebuild)'`  + `cargo nextest run -p vantadb -E 'test(persistence|vstore)'` ambos ✅.
   - `cargo fmt --check` + `cargo clippy --workspace --all-targets --all-features -- -D warnings` 0.
-  - Actualizar plan file Task 4 → ✅ COMPLETED + recitation. Commit `feat: CORE-01 — persistencia Binary en vstore, requiere ADR de formato`. Ejecutar skill progreso (Backlog → docs/avance).
+  - Actualizar plan file Task 4 → ✅ COMPLETED + recitation. Commit `feat: CORE-01 — persistencia Binary en vstore, requiere ADR de formato`. Ejecutar skill progreso (Backlog → docs/dev/avance).
 - **Verify:** `cargo fmt --check` 0 ✅ + `cargo clippy -p vantadb --all-targets -- -D warnings` 0 ✅ (full --all-features gateway = verify.ps1) + `cargo nextest --profile audit -E 'test(persistence|vstore|rebuild)'` 76/76 y `-E 'test(persistence|vstore)'` 15/15 ✅ + `rg vector_len.*0` 0 ✅ + ADR existe ✅
 - **Estado:** ✅ COMPLETED (2026-08-28 — 4 persistence roundtrip tests Binary/Turbo/SQ8/Full + 5 ops tests + 4 archive rebuild tests + 76-wide persistence|vstore|rebuild 76/76 ✅; fmt/clippy 0; commit feat CORE-01)
 

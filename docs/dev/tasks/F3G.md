@@ -73,7 +73,7 @@
 - codegraph_explore GraphAccumulator: struct src/accumulator.rs:31 posee values: DashMap; new() :41 retorna Self. Par owns + ->Self a granularidad item = el self-edge que reporta cargo-modules. 7 callers en sdk/graph.rs + graph.rs (uso legitimo, fuera de scope).
 - check_index_coverage: BOUNDARIES.md + dsm-baseline-slim.json + accumulator.rs sin issues registrados.
 - Arquitectura overview: contexto general adquirido (79k nodos); sin impacto en el gate.
-- Veredicto: blast radius = docs/reviews (2 artefactos nuevos) + BOUNDARIES.md (1 parrafo + 1 firma). Cero src/ modificado. Reversible por borrado/edicion docs.
+- Veredicto: blast radius = docs/dev/reviews (2 artefactos nuevos) + BOUNDARIES.md (1 parrafo + 1 firma). Cero src/ modificado. Reversible por borrado/edicion docs.
 
 ## 8. INVESTIGACION PROBLEMA
 - acyclic reporta el PRIMER ciclo, no el SCC completo: el self-edge GraphAccumulator-new es artefacto de granularidad item (todo ctor que retorna Self lo produce: owns campo + edge -> Self). Pre-existente en beedebc4 y en baseline C2M1 (acyclic-baseline.txt identico).

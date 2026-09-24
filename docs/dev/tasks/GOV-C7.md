@@ -8,7 +8,7 @@
 - **Branch:** develop
 - **Lifecycle:** BUILD (docs-only)
 - **SDP:** documentation-and-adrs, writing-guidelines, spec-driven-development, campaign-executor, writing-plans, ponytail(full) — keywords operations/master-index/taxonomia 0 hits SKILLS-MANIFEST (base-only ponytail docs)
-- **Archivos clave:** docs/dev/Backlog.md header, docs/dev/strategy/ROADMAP.md, docs/user/operations/master-index.md, docs/master-index.md
+- **Archivos clave:** docs/dev/Backlog.md header, docs/dev/strategy/ROADMAP.md, docs/user/operations/master-index.md, docs/dev/master-index.md
 - **Disjoint:** MEM-12 (vanta-memory/scene) + RES-07 (config/benches) — no tocar src/ (0 líneas Rust)
 
 ## Contrato
@@ -16,7 +16,7 @@
 - `Select-String -Path "docs/user/operations/master-index.md" -Pattern "hardening|UPGRADE" | Measure-Object Count` >=2
 - `Select-String -Path "docs/user/operations/master-index.md" -Pattern "last_reviewed.*2026-09-02" | Measure-Object Count` >=1
 - `Get-ChildItem docs/user/operations/*.md | Measure-Object Count` == md-leaves indexados (35==35)
-- `Select-String -Path "docs/master-index.md" -Pattern "audit-reports/" | Measure-Object Count` ==0
+- `Select-String -Path "docs/dev/master-index.md" -Pattern "audit-reports/" | Measure-Object Count` ==0
 - `cargo check -p vantadb` Finished
 
 ## Spec (doc-driven)
@@ -25,7 +25,7 @@
 - Ops taxonomía ya 35/35 vía GOV-C4/C5 — solo re-verificar, no re-escribir.
 
 ## Impacto mapeado (Regla 0)
-- **Archivos leídos completos:** docs/dev/Backlog.md 798L header 16L, docs/dev/strategy/ROADMAP.md 482L header 14L, docs/user/operations/master-index.md 36 entries, docs/master-index.md 370L, docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md §GOV-C7, SKILLS-MANIFEST.md grep 0 hits
+- **Archivos leídos completos:** docs/dev/Backlog.md 798L header 16L, docs/dev/strategy/ROADMAP.md 482L header 14L, docs/user/operations/master-index.md 36 entries, docs/dev/master-index.md 370L, docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md §GOV-C7, SKILLS-MANIFEST.md grep 0 hits
 - **Referencias hacia dentro:** docs/dev/Backlog.md inbound desde ROADMAP.md Backlog fuente link + docs/dev/plans/* + docs/dev/avance/*; ROADMAP.md inbound desde AGENTS.md strategy/ROADMAP
 - **Referencias salientes:** Backlog header — no links; ROADMAP header — link a docs/dev/Backlog.md; master-index — 35 links relativos verificados
 - **Veredicto:** cambio seguro docs-only 2 líneas, taxonomía 35/35 ya cerrada, drift Backlog 130→121 histórico preservado (previo 130 activas 2026-09-01 explícito), ROADMAP sin cifra evita drift futuro, disjoint src/* preservado, ponytail minimal

@@ -134,7 +134,7 @@ Verificación mecánica:
 | Skill | Justificación |
 |-------|---------------|
 | campaign-executor | base type: unknown — orquestación pipeline-full.md (obligatoria) |
-| progreso | base — migración a docs/avance al cierre (obligatoria) |
+| progreso | base — migración a docs/dev/avance al cierre (obligatoria) |
 | ponytail | base — ladder YAGNI→stdlib→dep→mínimo (persiste) |
 | incremental-implementation | lifecycle BUILD: slices verticales delgados (plan→act→verify) |
 | api-and-interface-design | lifecycle BUILD: nuevo tool MCP `campaign_validate_scope` = interfaz pública estable |

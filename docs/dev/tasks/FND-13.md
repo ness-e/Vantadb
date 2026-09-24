@@ -38,7 +38,7 @@ Los claims de performance en READMEs/docs DEBEN citar benchmark reproducible (ar
 - Plan `docs/dev/plans/2026-08-16-wave-p20-tsys.md` — FND-13 en Wave 4
 
 **Referencias hacia dentro (entrantes):**
-- `.opencode/AGENTS.md` — archivo fuente de reglas; referenciado por docs/plans, VANTADB-OPERATING-MANUAL.md, skills. Agregar una regla no rompe referencias existentes.
+- `.opencode/AGENTS.md` — archivo fuente de reglas; referenciado por docs/dev/plans, VANTADB-OPERATING-MANUAL.md, skills. Agregar una regla no rompe referencias existentes.
 - `README.md` — archivo raíz; link L346 a `docs/user/benchmarks/BENCHMARK_OPTIMIZATION_2026.md` está ROTO (archivo vive en `docs/user/benchmarks/docs/`)
 - `docs/user/operations/BENCHMARKS.md` — referenciado por README.md; no se modifica en esta tarea (solo análisis)
 

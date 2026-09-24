@@ -136,7 +136,7 @@ Gate 9/10 (Fast Gate wall time, ADR reversible) → defer a STABLE-08/09, no par
 ## Skills
 
 - **campaign-executor** (base, pipeline-full) — orquestación task system, estados PLAN/ACT/VERIFY
-- **progreso** (base, cierre) — migración Backlog → docs/avance si completa
+- **progreso** (base, cierre) — migración Backlog → docs/dev/avance si completa
 - **ponytail** (base, lazy full) — ladder YAGNI → stdlib → native → dependency → 1 línea → mínimo; `// ponytail:` ceiling si aplica
 - **source-driven-development** (requerida por prompt, BUILD) — verificar APIs cargo package/publish oficiales antes de fix metadata
 - **systematic-debugging** (SDP VERIFY) — si gate falla, root-cause-first antes de patch (Iron Law)

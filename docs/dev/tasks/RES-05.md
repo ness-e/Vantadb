@@ -56,7 +56,7 @@ cargo check -p vantadb 2>&1 | Select-String "Finished" | Measure-Object Count # 
 ## Notas
 - Helpers son pure f32 inline — bench mide ~5-15 ns/op (branch + clamp). Si futura vectorización pasa a batch SIMD, bench detecta regresión.
 - Disjoint con GOV-B1/B2: no toca docs/case_studies ni DISASTER_RECOVERY_RUNBOOK.
-- MAX 3 paralelo respetado — dominio bench (benches/*, docs/operations).
+- MAX 3 paralelo respetado — dominio bench (benches/*, docs/user/operations).
 - `ponytail: pure f32 O(1) helpers, batch SIMD if hot path shows in profiling`
 
 ## Verification Log

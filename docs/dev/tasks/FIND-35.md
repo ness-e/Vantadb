@@ -92,7 +92,7 @@ Verificación mecánica:
 
 ### Step 3: Cierre — verify full + plan file + commit + progreso
 - **Archivos:** `docs/dev/plans/2026-08-27-backlog-v2.md`, `docs/dev/avance/`, `.opencode/skills/campaign-executor/tasks/FIND-35.md`
-- **Acción:** `cargo fmt --check` + `cargo clippy --workspace --all-targets --all-features -- -D warnings` + `cargo nextest run -p vantadb -E 'test(prefetch) or test(get_cache)'` + `rg` contract + `cargo check`. Actualizar plan file Task 2 → ✅ COMPLETED + recitation. Commit `fix: FIND-35 — StorageEngine get/prefetch intentional SCC justification + PrefetchGuard doc`. Ejecutar skill progreso (Backlog FIND-35 → docs/avance si existe, o registrar completed en plan).
+- **Acción:** `cargo fmt --check` + `cargo clippy --workspace --all-targets --all-features -- -D warnings` + `cargo nextest run -p vantadb -E 'test(prefetch) or test(get_cache)'` + `rg` contract + `cargo check`. Actualizar plan file Task 2 → ✅ COMPLETED + recitation. Commit `fix: FIND-35 — StorageEngine get/prefetch intentional SCC justification + PrefetchGuard doc`. Ejecutar skill progreso (Backlog FIND-35 → docs/dev/avance si existe, o registrar completed en plan).
 - **Verify:** `cargo fmt --check` ✅ + `cargo clippy -p vantadb --all-targets --all-features -- -D warnings` 0 ✅ + `cargo nextest -p vantadb -E 'test(prefetch) or test(get_cache)'` 8/8 ✅ + `rg -n "PrefetchGuard"` 5 hits ✅ + doc header `src/storage/engine/get.rs:1-21` justifica codegraph SCC
 - **Estado:** ✅ COMPLETED (2026-08-27 — fmt/clippy/nextest/rg ✅, plan file ✅ COMPLETED, recitation añadida)
 

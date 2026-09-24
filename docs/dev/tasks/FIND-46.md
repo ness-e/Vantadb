@@ -59,7 +59,7 @@ El gate existe en `.github/workflows/ci-rust-10.yml:88-118` (job `semver-checks`
 
 ## Tools
 - bash (Measure-Object, Select-String para contrato)
-- read / grep (contexto docs/operations existentes)
+- read / grep (contexto docs/dev/operations + docs/user/operations existentes)
 - edit (3 archivos docs)
 - git (commit al cierre — staged para vanta-lead)
 
@@ -67,7 +67,7 @@ El gate existe en `.github/workflows/ci-rust-10.yml:88-118` (job `semver-checks`
 
 ### Step 1: Verificar contrato + mapear docs pre-existentes
 - **Archivos:** `docs/dev/operations/ci-cd-guide.md`, `docs/dev/operations/CI_POLICY.md`, `docs/user/operations/master-index.md`, `.github/workflows/ci-rust-10.yml`
-- **Acción:** Ya hecho en discovery (ver líneas 80-129 de ci-rust-10.yml + grep en docs/operations).
+- **Acción:** Ya hecho en discovery (ver líneas 80-129 de ci-rust-10.yml + grep en docs/dev/operations + docs/user/operations).
 - **Verify:** `cargo semver-checks --help 2>&1 | Measure-Object | Select-Object Count` ≥ 1 ✅ (92)
 - **Estado:** ✅ DONE
 

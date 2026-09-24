@@ -89,7 +89,7 @@ Gate 9/10 (ADR reversible, STABLE-09) → defer, no parte de este contrato.
 ## Skills
 
 - **campaign-executor** (base, pipeline-full) — orquestación task system, estados PLAN/ACT/VERIFY
-- **progreso** (base, cierre) — migración Backlog → docs/avance si completa
+- **progreso** (base, cierre) — migración Backlog → docs/dev/avance si completa
 - **ponytail** (base, lazy full) — ladder YAGNI → stdlib → native → dependency → 1 línea → mínimo; `// ponytail:` ceiling si aplica
 - **ci-cd-and-automation** (explicit, BUILD/SHIP) — CI pipelines, quality gates, Fast Gate <5 vs Heavy, `paths:` + `continue-on-error` CATEGORY, optimization strategies (cache, parallel, path filters, matrix)
 - **git-workflow-and-versioning** (SDP SHIP) — rama `test/default-all`, commit atómico `docs: STABLE-08`, ~100 líneas por step, reversible 1 línea

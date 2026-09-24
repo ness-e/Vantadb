@@ -13,16 +13,16 @@
 - **Campaign ID:** 20260902-alta-prioridad-paralelo
 - **Incógnitas (uphill):** 0 — RES-04 ya documentó RRF/cosine/BM25/zero-norm (docs/api/scores.md 81L, 32 hits), RES-05 ya benchó helpers pure f32 (benches/scores_semantics.rs 115L, 6 benches, Cargo.toml [[bench]])
 - **Pendientes (downhill):** 0 — verify cargo test/check + vantadb-ts pass-through + plan sync ✅
-- **Branch:** develop (disjoint GOV-C6 docs/user/operations/CONFIGURATION.md, MEM-11 vanta-memory — no tocar docs/operations)
+- **Branch:** develop (disjoint GOV-C6 docs/user/operations/CONFIGURATION.md, MEM-11 vanta-memory — no tocar docs/user/operations)
 
 ## Blast Radius
 | Dirección | Módulos | Implicación |
 |-----------|---------|-------------|
 | **Blast radius RES-06** | `vantadb-ts/src/vantadb.ts` (_buildSearchRequest ERR-028 pass-through), `docs/api/scores.md` (contrato canónico RRF/BM25/cosine/zero-norm), `benches/scores_semantics.rs` (6 micro-benches batch 10k), `src/api/scores.rs` (helpers rrf_contribution/cosine_distance), `src/planner.rs` RRF_K=60, `src/index/distance/metrics.rs` cosine | Scores es contrato público; bench valida que migración adapters a helper no infla. TS es thin glue R-8 — no duplica lógica core. |
-| **Disjoint Wave3** | GOV-C6 toca `docs/user/operations/CONFIGURATION.md` (44 env vars, rate_limit_rpm), MEM-11 toca `vanta-memory/src/core/record/l1_dedup.rs` | 0 archivos en común — parallel seguro MAX 3 (RES-06 docs/api+benches+TS, GOV-C6 docs/operations, MEM-11 vanta-memory). |
+| **Disjoint Wave3** | GOV-C6 toca `docs/user/operations/CONFIGURATION.md` (44 env vars, rate_limit_rpm), MEM-11 toca `vanta-memory/src/core/record/l1_dedup.rs` | 0 archivos en común — parallel seguro MAX 3 (RES-06 docs/api+benches+TS, GOV-C6 docs/user/operations, MEM-11 vanta-memory). |
 | **No tocar** | `src/wal.rs`, `src/storage/`, `src/vector/`, `docs/user/operations/**` | Guard disjoint GOV-C6 — RES-06 solo verifica benches/scores + TS pass-through. |
 
-**Disjoint garantizado:** no tocar `docs/user/operations/**` (GOV-C6) — verificado `git diff --name-only` no lista docs/operations.
+**Disjoint garantizado:** no tocar `docs/user/operations/**` (GOV-C6) — verificado `git diff --name-only` no lista docs/user/operations.
 
 ## Contrato (verificable — mecánico)
 > Fuente plan 2026-09-02 §RES-06 + prompt Wave3:
@@ -70,7 +70,7 @@ N/A — RES-04 ya definió semántica (RRF_K=60, 1/(k+rank), cosine similarity �
 - **Leídos completos:** `docs/api/scores.md` (81L), `vantadb-ts/src/vantadb.ts` (1417L, _buildSearchRequest 580-596 + search 618-630 score→distance), `benches/scores_semantics.rs` (115L), `src/api/scores.rs` (109L), `Cargo.toml` [[bench]] scores_semantics, `docs/user/operations/BENCHMARKS.md` §9, `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` §RES-06
 - **Referencias entrantes:** `vantadb-ts/src/vantadb.ts` → `WasmVantaDB` (vantadb-wasm), `vantadb-ts/src/types.ts` ScoreHit.distance, `docs/api/scores.md` citado en `docs/api/SCORING.md` y `docs/dev/research/archive/FND-06*`, `benches/scores_semantics.rs` → `src/api/scores::*` (6 helpers)
 - **Referencias salientes:** `vantadb-ts` → `vantadb-wasm` (thin glue R-8), `benches/scores_semantics.rs` → `criterion` + `common::apply_fixed_profile` (canonical_p99), `docs/api/scores.md` → `src/planner.rs` RRF_K, `src/index/distance/metrics.rs` cosine, `src/sdk/search/mod.rs` ERR-028
-- **Veredicto:** cambio seguro ponytail 0 líneas — RES-04/05 ya landed (verified 2026-09-02T23:30/23:50). RES-06 solo verifica + documenta reuse + cierra plan. Disjoint 100% con GOV-C6 (docs/operations) y MEM-11 (vanta-memory) — 0 archivos solapados. No tocar docs/operations.
+- **Veredicto:** cambio seguro ponytail 0 líneas — RES-04/05 ya landed (verified 2026-09-02T23:30/23:50). RES-06 solo verifica + documenta reuse + cierra plan. Disjoint 100% con GOV-C6 (docs/user/operations) y MEM-11 (vanta-memory) — 0 archivos solapados. No tocar docs/user/operations.
 
 ## Invariantes de dominio (handoff — MUST)
 - **RRF:** k=60 default (§RES-04), `contribution = 1/(RRF_K+rank+1)` 0-based planner ↔ `1/(RRF_K+r_wire)` 1-based wire (debug.rs rank_map, desktop/retrieval-core.ts). Hybrid `fuse_rrf_many` suma canales.
@@ -100,8 +100,8 @@ N/A — RES-04 ya definió semántica (RRF_K=60, 1/(k+rank), cosine similarity �
 
 ### Step 3: VERIFY + CIERRE — cargo test + cargo check + plan sync + commit atómico
 - **Archivos:** `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` RES-06, este task file, git
-- **Acción:** `cargo test -p vantadb --lib -- scores` (11 passed, 4 helpers) + `cargo check -p vantadb` Finished + `cargo check -p vantadb --all-targets` si aplica; si verde → actualizar plan RES-06 ⬜→✅ + recitation + git commit `feat(search): RES-06 docs/api/scores follow-up bench (ponytail reuse RES-04/05, vantadb-ts pass-through ERR-028)` en develop. No tocar docs/operations (disjoint GOV-C6).
-- **Verify:** `cargo test -p vantadb --lib api::scores` 4/4 ok ✅ + `cargo test --lib scores` 11 passed ✅ + `Select-String plan RES-06.*✅` 1 ≥1 ✅ + `git diff --name-only` no lista docs/operations ✅ + `git log --oneline -1` muestra feat(search): RES-06
+- **Acción:** `cargo test -p vantadb --lib -- scores` (11 passed, 4 helpers) + `cargo check -p vantadb` Finished + `cargo check -p vantadb --all-targets` si aplica; si verde → actualizar plan RES-06 ⬜→✅ + recitation + git commit `feat(search): RES-06 docs/api/scores follow-up bench (ponytail reuse RES-04/05, vantadb-ts pass-through ERR-028)` en develop. No tocar docs/user/operations (disjoint GOV-C6).
+- **Verify:** `cargo test -p vantadb --lib api::scores` 4/4 ok ✅ + `cargo test --lib scores` 11 passed ✅ + `Select-String plan RES-06.*✅` 1 ≥1 ✅ + `git diff --name-only` no lista docs/user/operations ✅ + `git log --oneline -1` muestra feat(search): RES-06
 - **Estado:** ✅ COMPLETED (verify done, plan sync done, commit atómico en develop)
 
 ## Dependencias
@@ -120,7 +120,7 @@ N/A — RES-04 ya definió semántica (RRF_K=60, 1/(k+rank), cosine similarity �
 
 ## Notas
 - **Ponytail:** reuse RES-04/05 vs crear bench TS dedicado — TS es glue sin lógica scoring propia (R-8), core bench ya mide conversión. Skipped: nuevo bench TS `vitest bench` — add when profiling TS muestra hot path real.
-- **Disjoint:** RES-06 solo toca `docs/api/scores*` + `benches/scores_semantics*` + `vantadb-ts/src/vantadb.ts` comentario R-8 — verificado 0 overlap con GOV-C6 docs/operations.
+- **Disjoint:** RES-06 solo toca `docs/api/scores*` + `benches/scores_semantics*` + `vantadb-ts/src/vantadb.ts` comentario R-8 — verificado 0 overlap con GOV-C6 docs/user/operations.
 - **Commit:** `feat(search): RES-06 docs/api/scores follow-up bench (ponytail reuse RES-04/05, vantadb-ts pass-through ERR-028)` en develop, no main (release-plz).
 
 ## Context Save Point

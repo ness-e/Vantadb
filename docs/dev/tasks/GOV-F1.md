@@ -3,7 +3,7 @@
 ## Impacto mapeado (Regla 0)
 
 - **Archivos leídos completos:** README.md, README_ES.md, CONTRIBUTING.md, SECURITY.md, SUPPORT.md, CLA_INDIVIDUAL.md, CLA_CORPORATE.md + plan file GOV-F1 entry.
-- **Referencias hacia dentro:** 7 archivos raíz públicos enlazados desde docs/master-index, docs/QUICKSTART y entre sí.
+- **Referencias hacia dentro:** 7 archivos raíz públicos enlazados desde docs/dev/master-index, docs/user/QUICKSTART y entre sí.
 - **Referencias hacia afuera:** workflows (.github/workflows/*), assets/, examples/, scripts/install.*, fuzz/, dev-tools/, docs/user/operations/*, registries (PyPI/npm/crates), Discord API, vantadb.dev.
 - **Veredicto:** auditoría read-mostly; fixes triviales inline permitidos por contrato. Sin impacto en código. PROHIBIDO git.
 

@@ -96,7 +96,7 @@ Sin deuda nueva (docs-only, elimina deuda doc Wave 4). No aplica moneda P2.
 ### Step 5: Verify contrato
 
 - **Archivos:** `docs/dev/workflow/*.md` (5 nuevos)
-- **Accion:** `npx markdownlint-cli2 "docs/dev/workflow/**/*.md"` + grep links `](docs/workflow` 0 + grep links relativos rotos
+- **Accion:** `npx markdownlint-cli2 "docs/dev/workflow/**/*.md"` + grep links `](docs/dev/workflow` 0 + grep links relativos rotos
 - **Verify:** exit 0 + 0 hits
 - **Estado:** ⬜ PENDING
 

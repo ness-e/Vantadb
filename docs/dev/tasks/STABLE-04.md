@@ -7,7 +7,7 @@
 - **Estado:** ⏳ IN PROGRESS (DISCOVERY ✅, gates en ejecución)
 - **Ruta:** vanta-worker
 - **Branch:** develop
-- **Commit:** `ci(mcp): validación gates 1-6 (STABLE-04)` — solo si hay edits; si es solo-validación sin cambios, cierre = docs/avance + plan sync, sin commit vacío
+- **Commit:** `ci(mcp): validación gates 1-6 (STABLE-04)` — solo si hay edits; si es solo-validación sin cambios, cierre = docs/dev/avance + plan sync, sin commit vacío
 - **Tipo:** validate / promotion-gate — verification-only, no nueva pub API
 - **Appetite:** max 1d
 

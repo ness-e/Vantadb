@@ -19,7 +19,7 @@
 | 2 | `docs/user/examples/__pycache__/` | sí (1 .pyc) | **NO** | sí (:43) | collect_code.ps1 (exclusión genérica), auditoría |
 | 3 | `docs/TDAM-VANTADB/` | sí (vacía) | **NO** | n/a | auditoría, master-index |
 | 4 | `docs/user/benchmarks/_run_stdout.md` | sí (8KB) | **SÍ** | no | solo auditoría-documentación |
-| 5 | `docs/user/web/DESIGN_RULES.md` (16.5KB) vs `docs/user/web/standards/design-rules.md` (10.5KB) | ambos tracked | SÍ | no | `docs/master-index.md:293`; menciones históricas bitácora/sesiones |
+| 5 | `docs/user/web/DESIGN_RULES.md` (16.5KB) vs `docs/user/web/standards/design-rules.md` (10.5KB) | ambos tracked | SÍ | no | `docs/dev/master-index.md:293`; menciones históricas bitácora/sesiones |
 | 6 | `docs/.obsidian/` (18 items) | sí | **NO** | sí (:161) | master-index (exclusión deliberada), research RESEARCH.md |
 | 7 | stubs `book/src/blog` + `case_studies` | sí (7 files) | SÍ | no | book TOC (SUMMARY.md) |
 

@@ -8,7 +8,7 @@
 ## Contrato
 
 - `docs/api/PROXY.md` nuevo: 8 endpoints lógicos + 8 features opt-in + defaults + env documentados.
-- Índice de docs (`docs/master-index.md`, tabla API Reference) enlaza PROXY.md.
+- Índice de docs (`docs/dev/master-index.md`, tabla API Reference) enlaza PROXY.md.
 - Regla 11: cada número/claim con fuente (ruta:línea).
 - Scope: endpoints + features + config. NO tutorial, NO código Rust (0 líneas), NO ejemplo (config.toml ya existe).
 
@@ -20,11 +20,11 @@
 - `vanta-proxy/config.toml` (19 líneas, entero) — solo `[server]` + `[upstream]` reales (D31).
 - `vanta-proxy/src/routing.rs:56-95`, `redact.rs:1-63`, `context.rs:1-84`, `guardrails.rs:1-21`, `translate.rs:15-50` — defaults de las 5 features con config propia.
 - `vanta-proxy/src/cache.rs:592-599` (env embed), `cost.rs:27-84` (PriceTable), `main.rs:18-22` (VANTA_PROXY_CONFIG).
-- `docs/api/MCP.md:1-120` (modelo de formato: frontmatter + Getting Started + tablas) y `docs/master-index.md:65-86` (tabla API Reference donde enlazar).
+- `docs/api/MCP.md:1-120` (modelo de formato: frontmatter + Getting Started + tablas) y `docs/dev/master-index.md:65-86` (tabla API Reference donde enlazar).
 
 **Referencias hacia dentro (qué cita el doc):** solo lectura como evidencia — server.rs, config.rs, config.toml, routing/redact/context/guardrails/translate/cache/cost/main.rs.
 
-**Referencias entrantes:** `docs/master-index.md` (nuevo enlace en tabla API Reference). Ningún código referencia PROXY.md (doc nueva, sin blast radius de código).
+**Referencias entrantes:** `docs/dev/master-index.md` (nuevo enlace en tabla API Reference). Ningún código referencia PROXY.md (doc nueva, sin blast radius de código).
 
 **Veredicto:** docs-only puro. 2 archivos escritos (PROXY.md nuevo + 1 línea en master-index) + este task file. 0 líneas de Rust. Prohibidos intactos: `.opencode/`, `completions/`, tauri lock, FIND-67 (QUICKSTART), FIND-81 (vantadb-server/).
 

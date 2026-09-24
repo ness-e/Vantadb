@@ -17,7 +17,7 @@
 El reporte CodeGraph Fase 12 ("Sin ADRs registrados") es stale — los ADRs existen desde 2026-08-23.
 
 ## Plan original (plan 2026-08-28-backlog-triage.md)
-Crear ADR-001..006 mínimos: PURPOSE, STACK, ARCHITECTURE, PATTERNS, TRADEOFFS, PHILOSOPHY (cada uno 15-20 líneas, basado en decisiones ya tomadas en docs/research).
+Crear ADR-001..006 mínimos: PURPOSE, STACK, ARCHITECTURE, PATTERNS, TRADEOFFS, PHILOSOPHY (cada uno 15-20 líneas, basado en decisiones ya tomadas en docs/dev/research).
 
 **Conflicto:** ADR-001 a ADR-006 YA EXISTEN con contenido distinto (Config, WAL, Sync/Async, Storage, HNSW, RRF). La numeración no puede reusarse.
 

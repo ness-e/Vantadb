@@ -72,7 +72,7 @@ Gate D evaluación: blast radius 3 archivos <10, sin hot path/WAL/API pública, 
 - **Invariantes a preservar:**
   - `pipeline-run.md` paso 6.h es fuente única validación BLOQUEO→question→RESUME — `question-gates.md` y `subagent-recovery.md` no duplican lógica orquestador, solo referencian este paso (pipeline-run.md:4-5 "Question Gates HITL: los gates D/V/C aplican dentro de cada sub-agente vía question-gates.md; El orquestador no re-pregunta lo ya decidido")
   - `GATES_EVALUADOS` + `BLOQUEO` campos obligatorios en RESULTADO (pipeline-full.md §7, subagent-recovery.md §4) — sin ellos = SIN-FORMATO → SARL RESUME (question-gates.md:125-129)
-  - Routing `question` permissions: solo vanta-lead / vanta-review pueden `question` directo; worker/arch/engine/audit/chaos/tuner/docs/research DEBEN devolver BLOQUEO nunca GO (question-gates.md:26) — validación h.3 escala si viola
+  - Routing `question` permissions: solo vanta-lead / vanta-review pueden `question` directo; worker/arch/engine/audit/chaos/tuner/docs/dev/research DEBEN devolver BLOQUEO nunca GO (question-gates.md:26) — validación h.3 escala si viola
   - Plan file `docs/dev/plans/2026-08-28-master-pipeline-optimization.md` permanece parseable por `parseTasks` (no romper markdown table Task 3)
 - **Comandos de verificación:**
   - `Select-String "VALIDACION QUESTION GATES" .opencode/task-system/prompts/pipeline-run.md` → 1
@@ -115,7 +115,7 @@ Saldo 0 — verificación idempotente, 0 deuda nueva. Si en futuro enforcement f
 | Skill | Justificación |
 |-------|---------------|
 | campaign-executor | base type: unknown — orquestación pipeline-full.md (obligatoria) |
-| progreso | base — migración a docs/avance al cierre (obligatoria) |
+| progreso | base — migración a docs/dev/avance al cierre (obligatoria) |
 | ponytail | base — ladder YAGNI→stdlib→dep→mínimo (persiste) — rung 1 idempotencia |
 | incremental-implementation | lifecycle BUILD: slice delgado verify→commit |
 | test-driven-development | lifecycle BUILD: lógica verify mecánica (grep counts) |
@@ -169,7 +169,7 @@ SDP: archivosClave="pipeline-run.md, subagent-recovery.md, question-gates.md" ph
   - Actualizar plan file `docs/dev/plans/2026-08-28-master-pipeline-optimization.md` Task 3 Estado `⬜ PENDING (re-ejecución)` → `✅ COMPLETED`
   - `campaign_update_task_state taskId=CORE-003 newState=completed` + recitation (activeGoal,lastAction,result:OK,nextAction,contract,nextTask:CORE-004)
   - Verify cierre: `campaign_verify_cmd` equivalente grep counts + `cargo check -p vantadb` sanity (0 si no toca Rust) — sin verify no cuenta como completado
-  - `skill progreso` — migra fila si existe en Backlog o actualiza docs/avance (pipeline plan tracking)
+  - `skill progreso` — migra fila si existe en Backlog o actualiza docs/dev/avance (pipeline plan tracking)
 - **Verify:** `Select-String` 1/4/4/3/1/2 hits + `Get-Content 131-139` 8 líneas + routing table 3 rows + RESULTADO spec 3 campos + plan Estado COMPLETED + `node --check` 0 si aplica ✅
 - **Estado:** ✅ COMPLETED (2026-08-28 — verificación idempotente, 0 edits a pipeline-run.md/question-gates.md/subagent-recovery.md, plan PENDING→COMPLETED, task file nuevo)
 

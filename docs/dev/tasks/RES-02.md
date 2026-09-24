@@ -69,7 +69,7 @@ Sin deuda nueva (S1 ya landed, 0 líneas Rust nuevas en este slice — ponytail 
 **Skills cargadas (SDP §2 — BUILD, ≤8 justificadas, grep SKILLS-MANIFEST.md keywords wal/quiesce/durability/snapshot/restore/storage):**
 - campaign-executor (orquestación pipeline-full DISCOVERY→EJECUCIÓN→CIERRE)
 - planning-and-task-breakdown (slicing S1 quiesce+flush vertical)
-- writing-plans (plan docs/research S1-S5)
+- writing-plans (plan docs/dev/research S1-S5)
 - ponytail(full) (diff mínimo — reuse flush existente, 1 guard si falta)
 - incremental-implementation (thin slice S1, compilable siempre)
 - test-driven-development (verify wal_rollback RED→GREEN, prove S1 no torn)
@@ -102,7 +102,7 @@ Sin deuda nueva (S1 ya landed, 0 líneas Rust nuevas en este slice — ponytail 
 
 ### Step 1: DISCOVERY — codegraph_explore + Read S1 stack
 - **Archivos:** `src/wal.rs`, `src/storage/engine/mod.rs`, `src/storage/engine/maintenance.rs`, `src/storage/vfile.rs`, `src/storage/vfile_mmap.rs`, `docs/dev/research/archive/res02-backup-restore.md`, `SKILLS-MANIFEST.md`
-- **Acción:** codegraph_explore "wal quiesce snapshot_restore" → blast radius 91 símbolos; Read wal.rs WAL v2 Prepare + maintenance flush ERR-010 + engine/mod.rs create_snapshot ×2 + mirror_data_dir recursive + docs/research S1-S5 plan; grep SKILLS-MANIFEST.md keywords wal/quiesce/durability/snapshot/restore/storage → discovery skills ≤8.
+- **Acción:** codegraph_explore "wal quiesce snapshot_restore" → blast radius 91 símbolos; Read wal.rs WAL v2 Prepare + maintenance flush ERR-010 + engine/mod.rs create_snapshot ×2 + mirror_data_dir recursive + docs/dev/research S1-S5 plan; grep SKILLS-MANIFEST.md keywords wal/quiesce/durability/snapshot/restore/storage → discovery skills ≤8.
 - **Verify:** `Test-Path src/wal.rs` + `Select-String wal.rs WalRecord::Prepare` >=1 + `Select-String engine/mod.rs mirror_data_dir` >=1 + codegraph_explore result 91 symbols
 - **Estado:** ✅ COMPLETED — 2026-09-02 discovery: wal.rs v2 Prepare + flush ERR-010 + create_snapshot quiesce + mirror_data_dir recursive + res02 S1 plan + skills identified, disjoint GOV-A3/A4 confirmado
 
@@ -151,7 +151,7 @@ Sin deuda nueva (S1 ya landed, 0 líneas Rust nuevas en este slice — ponytail 
 
 ## Context Save Point
 - **Fecha:** 2026-09-02T22:00
-- **Branch:** main (git status m .opencode, M docs/plans, M docs/api)
+- **Branch:** main (git status m .opencode, M docs/dev/plans, M docs/api)
 - **CI pendiente:** no (storage core, verify wal_rollback + check fjall ya verde)
 - **Decisiones:** Reuse flush+mirror_data_dir existente (ponytail) — no nuevo código S1; S2-S5 deferred Wave1c
 - **Problemas conocidos:** Ninguno S1 — snapshot torn gap cerrado; S2 snapshot_restore ya existe pero S4-S5 tests/CLI/MCP wrappers quedan Wave1c

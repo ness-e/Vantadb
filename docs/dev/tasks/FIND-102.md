@@ -22,7 +22,7 @@
 
 ## Referencias
 
-- **Refs:** `test-suite.md` (runner `cargo nextest run --profile audit --workspace --build-jobs 2`; single-test `cargo nextest run --profile audit -p vantadb --test <name>`), `definition-of-done.md` (standing checklist + DoD VantaDB: check/tests/clippy/fmt/OCR/docs/avance + v1 baseline + progreso Trigger 1 A-G). `clean-code-clean-architecture.md` leído completo incl. Apéndice V (mapa capas→repo, severidades; sin deuda nueva 🟡/🔴 en este slice — cero código tocado).
+- **Refs:** `test-suite.md` (runner `cargo nextest run --profile audit --workspace --build-jobs 2`; single-test `cargo nextest run --profile audit -p vantadb --test <name>`), `definition-of-done.md` (standing checklist + DoD VantaDB: check/tests/clippy/fmt/OCR/docs/dev/avance + v1 baseline + progreso Trigger 1 A-G). `clean-code-clean-architecture.md` leído completo incl. Apéndice V (mapa capas→repo, severidades; sin deuda nueva 🟡/🔴 en este slice — cero código tocado).
 - **Rules:** N/A con motivo — el slice no toca `src/` (cero ediciones de código; veredicto DISCOVERY: ya verde, fix innecesario). Si hubiera tocado `src/sdk/` habría aplicado `.opencode/rules/api-contract.md` + `core-engine.md`; al ser solo tests, no dispara regla de área.
 - **Commands:** `pipeline.md` (vía `pipeline-full.md` exacto).
 - **SPEC.md raíz:** leído (MVP memoria automática; F1-F8). Tabla Spec: N/A (tests, sin símbolos públicos nuevos — 0 `pub fn`/tool/endpoint/binding; Gate D spec-first no aplica a bug-fix/test-only).

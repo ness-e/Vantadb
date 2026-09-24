@@ -52,7 +52,7 @@
 
 ## Notas
 - No tocar `src/` ni `docs/user/operations/BENCHMARKS.md` (otros waves).
-- Idioma: la línea fijada va en inglés (Doc Language Split: docs/operations = English source of truth).
+- Idioma: la línea fijada va en inglés (Doc Language Split: docs/user/operations + docs/dev/operations = English source of truth).
 
 ## Context Save Point
 - **Fecha:** 2026-09-03

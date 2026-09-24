@@ -56,7 +56,7 @@
 | Gate reversible | Sección §Reversibilidad: `git revert` de 1 línea en `Cargo.toml:636` + revert CI_POLICY §default-members; `publish=false` intacto, no afecta `cargo publish` | P47 origen: "deja la promoción como cambio reversible en 1 línea" + STABLE-09 contrato |
 | CI_POLICY update | Añadir §Promoción a default-members (o sub-sección bajo Circuit Breaker) que enlaza a ADR-031 y lista los 10 checks como DoD | Contrato: "docs/dev/operations/CI_POLICY.md §default-members menciona ADR" — el § actual es 109-143 sin referencia a ADR futuro, debe citar ADR-031 |
 | Question gate | Sección §Pregunta al owner en ADR con 2 opciones: <5 min Fast Gate (requisito duro) vs re-etiquetar como Heavy con justificación (STABLE-08) + registro de respuesta pendiente | STABLE-00 contrato: "Gate: `question` al owner para aprobar el umbral Fast Gate (<5 min vs Heavy) antes de tocar Cargo.toml" — ADR debe dejar DRAFT hasta respuesta |
-| Idioma | Inglés (source of truth para docs/architecture y docs/operations) | Doc Language Split: English para architecture/ops, Spanish solo Backlog/avance |
+| Idioma | Inglés (source of truth para docs/dev/architecture y docs/user/operations) | Doc Language Split: English para architecture/ops, Spanish solo Backlog/avance |
 | No tocar Cargo.toml | En este STABLE-00 no se edita `Cargo.toml:636` — promoción diferida a STABLE-09 | Contrato STABLE-00: "antes de tocar Cargo.toml" — este task solo escribe criterios |
 
 ## Contrato

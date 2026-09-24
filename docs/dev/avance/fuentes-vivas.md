@@ -9,7 +9,7 @@ aliases: [docs/dev/avance/fuentes-vivas]
 
 # Fuentes Vivas — Carpetas Externas Referenciadas
 
-> Estas carpetas **NO viven dentro de `docs/avance`**: son escritas por pipelines activos que las buscan por ruta fija (task system MCP, scripts de audit, skills de review). Moverlas físicamente rompería esos flujos. Aquí se catalogan por referencia: índice de archivos + estado + ruta directa.
+> Estas carpetas **NO viven dentro de `docs/dev/avance`**: son escritas por pipelines activos que las buscan por ruta fija (task system MCP, scripts de audit, skills de review). Moverlas físicamente rompería esos flujos. Aquí se catalogan por referencia: índice de archivos + estado + ruta directa.
 
 ## 1. `docs/dev/plans/` — Plan files (sistema de tareas)
 
