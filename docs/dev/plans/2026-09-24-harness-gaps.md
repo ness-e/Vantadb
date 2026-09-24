@@ -2,7 +2,7 @@
 
 > **Campaign ID:** 7d276566-4a14-4761-bd19-048c1cc5a4fb
 > **Inicio:** 2026-09-24
-> **Estado:** ⬜ PENDING (4 tareas, independientes — ejecutables en cualquier orden o en paralelo)
+> **Estado:** ✅ COMPLETED 2026-09-24 (4/4: FIND-148 a56dde9, FIND-150 3fef3cf9, FIND-151 f6ade4f2, FIND-149 53186ca5+36f6e1b; residual FIND-152 creado por FIND-149)
 > **Fuente:** auditoría harness 2026-09-24 (`dda76a4` + `ceca4d7` en repo `configOpencode`)
 > **Backlog:** FIND-148..151 (`docs/dev/Backlog.md` § Hallazgos pendientes de reportes)
 > **Cómo usar en otro chat:** `/pipeline task FIND-14X` por tarea, o leer la tarea y ejecutar sus Acciones.
@@ -16,6 +16,13 @@
 | FIND-149 | Semgrep OSS + MCP + ast-grep en L7 (static analysis) | 🟡 | ambos repos |
 | FIND-150 | Higiene dependencias: OSV-Scanner + machete/udeps + llvm-cov (DoD v2) | 🟢 | repo VantaDB (CI host) |
 | FIND-151 | Eval de agentes (Giskard) + Lurkr obligatorio en CI host | 🟡 | repo VantaDB (CI host) |
+
+## Retrospectiva de cierre (Start/Stop/Continue + 1 acción medible)
+
+- **Start:** waves paralelas con prompts de profundidad completa (10 bloques) — 3/3 Wave 0 ✅ al primer intento, sin SARL salvo rate-limit transient en FIND-149 que se resolvió con RESUME misma sesión.
+- **Stop:** asumir que `campaign_get_next_task` parsea cualquier plan — este plan custom (headers FIND-*) devolvió 0 tasks; el orquestador trabajó manual. Formato plan estándar o parser tolerante.
+- **Continue:** verificación mecánica del orquestador vía `git log` en ambos repos antes de cerrar waves (detectó estado real vs claims).
+- **Acción medible:** 0 INCOMPLETE-no-recuperados en 4 tareas (SARL usado 1/1 con éxito). Baseline: tasa primer-intento 4/4; mantener >90% (North Star RULES.md).
 
 ## FIND-148 — Frontmatter v2 + descriptions trigger
 

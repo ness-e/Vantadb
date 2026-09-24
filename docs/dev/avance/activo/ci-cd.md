@@ -453,3 +453,9 @@ aliases: []
 - **Objetivo:** sacar bench FULL del path de PR; resolver skew otel 0.33.
 - **Resultado:** ✅ heavy-bench-nightly sin trigger PR; otel trio + tracing-opentelemetry 0.34 atomicos (rustdoc verde).
 - **Commit:** e0f79a85 + 18b7352b
+
+### FIND-150: Higiene dependencias + DoD v2 (llvm-cov/machete/OSV)
+- **Fecha:** 2026-09-24
+- **Objetivo:** Dar herramienta medible al DoD v2 (70% cobertura) + 0 deps sin justificar (Regla 6) + OSV-Scanner en CI junto a cargo audit.
+- **Resultado:** ✅ machete 9 paths exit 0 (1 dev-dep `clap` removida + 7 ignored justificados); OSV 2.6.0 exit 0 (2 vulns reales lru/paste triageadas en osv-scanner.toml — audit.toml las silencia); jobs `osv`+`machete` en ci-rust.yml + REQUIRED en ci-gate; DoD v2 nombra las 3 herramientas reales.
+- **Commit:** 3fef3cf9 (+9b75978 en configOpencode: DoD v2)

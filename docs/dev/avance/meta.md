@@ -334,3 +334,15 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
 - **Retrospectiva:** Start: verificacion mecanica tras cada bulk (auditor Test-Path + lint). Stop: scripts bulk sin prueba en vacio (doble-prefijo, norm-path [0..-1], oldDir heuristic). Continue: bulk idempotente + diff-review antes de commit + scripts en TEMP con nombre unico.
 - **Accion medible:** todo bulk de rewrite lleva auditoria de resolucion + conteo antes/después; prohibido commitear con conteo sin explicar.
 
+
+### FIND-148: Frontmatter agents a vocab OpenCode v2 + descriptions trigger
+- **Fecha:** 2026-09-24
+- **Objetivo:** Migrar 11 `agents/vanta-*.md` de permisos v1 (bash/task) a v2 (shell/subagent) + descriptions "Use me when…" (≤1024 chars); piloto vanta-review primero.
+- **Resultado:** ✅ grep `bash:|task:` vacío + `opencode debug agents` 11/11 shell/subagent + descriptions 251–482 chars. Hallazgo: runtime v2.0.16 ya mapeaba legacy — rename higiénico, sin rollback. Deuda: reinicio interactivo + sesión prueba → usuario.
+- **Commit:** a56dde9 (configOpencode)
+
+### FIND-151: Eval de agentes (Giskard, 10 casos) + Lurkr CI informativo
+- **Fecha:** 2026-09-24
+- **Objetivo:** Primera eval de agentes propios (digest ≤500 palabras + veredicto con evidencia) + Lurkr de Rule 17 informativa a obligatorio (2 semanas informativo → falla build).
+- **Resultado:** ✅ evals/agent/ (golden_cases.json + run_eval.py determinista 0-token) 10/10 online+offline; lurkr-informational.yml + baseline (1 FP triageado design_system.py:58); Gate H documentado. Hallazgo doubt-driven: `npx lurkr scan` no existe (npm 404) — correcto es `pip install lurkr` + Action agentveil-protocol/lurkr@v0.4.0. Deuda: judge LLM + hook L9 en unified-review + promoción `--fail-on high` 2026-10-08.
+- **Commit:** f6ade4f2 (+f425d88 en configOpencode: harness.md + Gate H)
