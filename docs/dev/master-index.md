@@ -160,7 +160,7 @@ Key documents:
 | [03: Migrating from ChromaDB](../user/tutorials/03-migrating-from-chromadb.md) | Migration guide from ChromaDB to VantaDB |
 | [Migrating from LanceDB](../user/tutorials/migration-from-lancedb.md) | Migration guide from LanceDB to VantaDB |
 
-Runnable code samples live in [`examples/`](../../examples/) (`fnd05_python_context_manager.py`, `fnd05_ts_async_dispose.ts`).
+Runnable code samples live in [`examples/`](../../examples/) (see `examples/python/` and `examples/rust/`).
 
 ---
 
