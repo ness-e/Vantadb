@@ -26,7 +26,7 @@ cargo check -p vantadb --features embed-local
 cargo test --features embed-local -- llm::tests::local_embed_multilingual
 ```
 
-> `embed-local` is **Optional** (offline, local-first), not Experimental. See `docs/operations/EXPERIMENTAL_FEATURES.md`.
+> `embed-local` is **Optional** (offline, local-first), not Experimental. See `docs/user/operations/EXPERIMENTAL_FEATURES.md`.
 
 ## Trait `EmbeddingProvider`
 
@@ -151,7 +151,7 @@ VANTA_LOCAL_MODEL=embeddings/models/multilingual-e5-small/onnx
 
 ## One-model-per-namespace (regla de oro)
 
-`docs/tutorials/05-embedding-integrations.md:126` — **un modelo por namespace**: misma `dim` para writes y query. Cross-model search rompe HNSW (dim mismatch → error). Usar `namespace="bench-{model}"` en benchmarks.
+`docs/user/tutorials/05-embedding-integrations.md:126` — **un modelo por namespace**: misma `dim` para writes y query. Cross-model search rompe HNSW (dim mismatch → error). Usar `namespace="bench-{model}"` en benchmarks.
 
 ## Integrations
 
@@ -176,4 +176,4 @@ python benchmarks/embed_bench.py --models multilingual-e5-small,bge-m3 --dataset
 grep -r "embed-local" docs/   # ≥3 hits (this file + QUICKSTART + tutorial + EXPERIMENTAL_FEATURES)
 ```
 
-See also `embeddings/README.md`, `docs/tutorials/05-embedding-integrations.md`, `docs/operations/BENCHMARKS.md` §8, `benchmarks/embed_bench.py`.
+See also `embeddings/README.md`, `docs/user/tutorials/05-embedding-integrations.md`, `docs/user/operations/BENCHMARKS.md` §8, `benchmarks/embed_bench.py`.

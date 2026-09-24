@@ -51,7 +51,7 @@ related: []
 
 - **Archivo:** `docs/web/standards/product-positioning.md` §4
 - **Claim:** "1.2ms per dimension" y "1.2ms" como latencia genérica del producto.
-- **Realidad:** `docs/operations/BENCHMARKS.md` L33: 1.2ms es **p50 para 10K vectores en Rust core**. A 50K: 6.1ms. **Python SDK: ~62ms p99** (~50× gap). La métrica real es "por query", no "por dimensión".
+- **Realidad:** `docs/user/operations/BENCHMARKS.md` L33: 1.2ms es **p50 para 10K vectores en Rust core**. A 50K: 6.1ms. **Python SDK: ~62ms p99** (~50× gap). La métrica real es "por query", no "por dimensión".
 - **Impacto:** Usuarios de Python esperarán 1.2ms y obtendrán ~62ms = decepción.
 - **Acción:** Cambiar a "1.2ms per query (Rust core, 10K vectors)" y documentar el gap Python.
 
@@ -71,7 +71,7 @@ related: []
 
 - **Archivo:** `docs/web/standards/product-positioning.md` §3
 - **Claims:** Tutorial 04, caso de estudio "Field Robotics"
-- **Realidad:** No existe Tutorial 04 en `docs/tutorials/`. No existe case study "Field Robotics" en `docs/case_studies/`. Solo existen 01, 02, 03, y migration-from-lancedb.
+- **Realidad:** No existe Tutorial 04 en `docs/user/tutorials/`. No existe case study "Field Robotics" en `docs/case_studies/`. Solo existen 01, 02, 03, y migration-from-lancedb.
 - **Impacto:** Links rotos en documentación.
 - **Acción:** Corregir referencias o crear el contenido faltante.
 
@@ -256,7 +256,7 @@ Hallazgo H07-DESIGN-001 del audit 2026-07-24. Medium severity.
 → 45 archivos leídos. 17 discrepancias potenciales identificadas. CI/CD madurez 9/10.
 
 ### Agent 4 — Glossary + Tutorials + Plans (docs/ → retorno parcial)
-→ Reporte estructurado con Web-to-VantaDB mapping. Gap entre docs/web/ y docs/glosario/.
+→ Reporte estructurado con Web-to-VantaDB mapping. Gap entre docs/web/ y docs/user/glosario/.
 
 ### Agent 5 — Discord + Archive + Audit
 → Reporte completo. Hallazgos de audit afectan claims de "production-ready" (3 audits FAIL), WASM (0 tests, sin persist real), y comunidad (3 miembros Discord).

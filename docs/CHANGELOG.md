@@ -1246,10 +1246,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(backlog)* P33 Studio desktop-native findings (FIND-19..25) + sync impeccable 4.1.1
 - *(chore)* REVIEW-19 stub CHANGELOG.md en raíz apuntando a docs/CHANGELOG.md
 - *(task-system)* MOD-01 cierra task file con evidencia de verificacion y learnings WAL
-- *(backlog)* MOD-01 migrada a docs/avance/core-engine al completarse
-- *(backlog)* MOD-17 migrada a docs/avance/bindings + learnings GIL/pyd del cierre
+- *(backlog)* MOD-01 migrada a docs/dev/avance/core-engine al completarse
+- *(backlog)* MOD-17 migrada a docs/dev/avance/bindings + learnings GIL/pyd del cierre
 - *(backlog)* P33 pre-launch readiness findings (FIND-12..18)
-- *(backlog)* REVIEW-09 migrada a docs/avance/core-engine al completarse
+- *(backlog)* REVIEW-09 migrada a docs/dev/avance/core-engine al completarse
 - *(task-system)* REVIEW-09 cierra task file con gate P2-01 y evidencia de verificacion
 - CORE-02 close-out — graph persistence API documentada + registro avance
 - *(python)* MOD-16 fixture autouse cierra DBs — suite default pytest verde
@@ -1566,7 +1566,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - *(task)* ERR-036 cierre — evidencia verify full y medicion perf
 - fix clippy -D warnings en tests de index (colateral ERR-031)
 - *(reviews)* validar investigaciones agent-engineering + sincronizar estado Backlog §P17
-- *(plans)* archivar los 3 planes activos completados a docs/plans/archive/
+- *(plans)* archivar los 3 planes activos completados a docs/dev/plans/archive/
 - *(progreso)* registrar cierre del plan residuo-consolidado (Trigger 1)
 - *(plans)* cierre residuo-consolidado — 24/24 DO ejecutados (T6 cosmético), estados por commit
 - *(task)* task files COV-002/COV-003/AUD-020 y budget del plan residuo

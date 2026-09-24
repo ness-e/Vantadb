@@ -11,7 +11,7 @@ related: []
 # DORA Flow Metrics Report
 
 > Generado por `evals/dora.mjs` (P3-07) — 2026-08-22T09:16:24.251Z
-> Fuentes: `docs/plans/*.md` (23 tareas en 9 planes) + task files en `.opencode/skills/campaign-executor/tasks/` (412) + `*.budget.json` (33 con timestamps) + `verify-log.jsonl` (124 intentos de verify)
+> Fuentes: `docs/dev/plans/*.md` (23 tareas en 9 planes) + task files en `.opencode/skills/campaign-executor/tasks/` (412) + `*.budget.json` (33 con timestamps) + `verify-log.jsonl` (124 intentos de verify)
 > ⚠️ **Fechas derivadas best-effort, NO normalizadas**. Prioridad: markers escritos (`**Inicio:**`, `**Estado:** COMPLETADO (fecha)`, `**Fecha:**`, `**Creado:**`, fechas en bloque de tarea) -> budget epoch ms (`startTime`/`lastActivity`) -> **file mtime**. Donde se usó mtime se marca `(mtime)`. Esto es exactamente lo que P2-05 (traceId por tarea) va a resolver: con traceId real, cada task tendrá timestamps estructurados.
 
 

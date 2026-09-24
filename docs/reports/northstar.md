@@ -11,7 +11,7 @@ related: []
 # North Star Report
 
 > Generado por `evals/northstar.mjs` (P1-06) — 2026-08-11T20:24:42.570Z
-> Datos: `.opencode/task-system/enforcement/verify-log.jsonl` (2 invocaciones de verify) + `docs/plans/*.md` (51 tareas) + `docs/plans/*.budget.json` (6 tareas trackeadas)
+> Datos: `.opencode/task-system/enforcement/verify-log.jsonl` (2 invocaciones de verify) + `docs/dev/plans/*.md` (51 tareas) + `docs/dev/plans/*.budget.json` (6 tareas trackeadas)
 
 
 ## Definiciones (documentadas en este header)
@@ -133,4 +133,4 @@ related: []
 - "Primer intento" se infiere de plan + budget + verify-log; sin telemetría de verify la tasa es best-effort (asume primer intento cuando no hay evidencia de fallo).
 - Falsos positivos y regresión se solapan por diseño: una tarea COMPLETED con patrón passed→failed cuenta en ambas — el headline de FP es unión de tareas, la regresión es el patrón de verify.
 - El log se alimenta automáticamente desde `campaign_verify_cmd` (campaign-server.mjs); los budget.json se alimentan desde `consumeBudget`. Este reporte es la referencia del threshold de RULES.md.
-- Fuente de planes: `docs/plans/*.md` raíz (el subdirectorio `archive/` no se incluye).
+- Fuente de planes: `docs/dev/plans/*.md` raíz (el subdirectorio `archive/` no se incluye).

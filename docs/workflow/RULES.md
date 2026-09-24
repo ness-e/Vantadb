@@ -10,7 +10,7 @@ related: ["docs/workflow/README.md", "docs/workflow/TRIGGERS.md", "docs/workflow
 
 # Workflows — Durable rules
 
-> **Scope:** `.github/workflows/` (27 files, names as on disk 2026-09-22) + `docs/workflow/*` + `docs/operations/CI_POLICY.md`
+> **Scope:** `.github/workflows/` (27 files, names as on disk 2026-09-22) + `docs/workflow/*` + `docs/user/operations/CI_POLICY.md`
 > **No tocar aquí:** engine code, bindings, release versioning (see release-ci rules); procedure lives in `RUNBOOK.md`, trigger matrix in `TRIGGERS.md`, publish chain in `PUBLISH.md`
 > **Status:** 🟢 Vigente
 > **Fuentes:** FIND-134/135/136/139/140/141/146 + renames FIND-142 (commit `97a3a03c`); matrix `TRIGGERS.md` (2026-09-22)
@@ -177,4 +177,4 @@ on:
 - [PUBLISH.md](./PUBLISH.md) — publish flow per registry + tag namespaces
 - [RUNBOOK.md](./RUNBOOK.md) — re-run and approvals
 - [FAQ.md](./FAQ.md) — duplicates, cancel-in-progress, skipped vs required
-- `docs/operations/CI_POLICY.md` — Fast Gate vs Heavy split, coverage policy
+- `docs/user/operations/CI_POLICY.md` — Fast Gate vs Heavy split, coverage policy

@@ -91,9 +91,9 @@ dispatched to the **active** connection by the `ConnectionManager`.
 ## Design Docs
 
 - [ARCHITECTURE.md](ARCHITECTURE.md) — multi-connection model, transports, lifecycle.
-- ADRs: [ADR-026](../architecture/adr/ADR-026-vanta-studio-fase3-rest-dashboard.md)
+- ADRs: [ADR-026](../dev/architecture/adr/ADR-026-vanta-studio-fase3-rest-dashboard.md)
   (REST `/api/v2/*` + embedded dashboard),
-  [ADR-027](../architecture/adr/ADR-027-fase4-cierre-deuda-rest-wasm-opfs.md)
+  [ADR-027](../dev/architecture/adr/ADR-027-fase4-cierre-deuda-rest-wasm-opfs.md)
   (WASM/OPFS backbone),
-  [ADR-028](../architecture/adr/ADR-028-core-decay-supersession.md)
+  [ADR-028](../dev/architecture/adr/ADR-028-core-decay-supersession.md)
   (core decay supersession).

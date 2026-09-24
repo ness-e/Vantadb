@@ -11,7 +11,7 @@ related: []
 # Pipeline Evaluation Report
 
 > Generado por `evals/eval-metrics.mjs` (EVAL-01) — 2026-08-11T20:24:42.680Z
-> Datos: `.opencode/task-system/enforcement/verify-log.jsonl` (2 invocaciones de verify) + `docs/plans/*.md`
+> Datos: `.opencode/task-system/enforcement/verify-log.jsonl` (2 invocaciones de verify) + `docs/dev/plans/*.md`
 
 ## North Star (RULES.md)
 

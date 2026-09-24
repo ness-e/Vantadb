@@ -12,7 +12,7 @@ aliases: [GTM, Ecosystem, Marketing, Distribution, Pricing]
 > **Domain:** Marketing & Product
 > **Purpose:** Define distribution channels, strategic integrations, licensing model, and community building
 >
-> **Nota de vigencia 2026-09-14:** los IDs de ejecución viejos citados abajo (INT-01/02, MKT-05/13/17, REL-01/02, TSK-*, DEVOPS-*, SEC-13/14, DRV-*, VFY-*, COMP-*, WEB-02/03, TEST-11/12, DOC-20, BIZ-02/03) se completaron y archivaron en `docs/avance/historial/backlog-history.md` — no buscarlos en `docs/Backlog.md`. El trabajo pendiente vive en: adapters PyPI → MKT-18f · wheels ARM64/Homebrew → MKT-18h · gate Fase A + Show HN → EXE-03 · Reddit → MKT-04 (negocio) · posts 6-7 → BLOG-CTA · demos → EXE-01 · benchmarks externos → EXE-02.
+> **Nota de vigencia 2026-09-14:** los IDs de ejecución viejos citados abajo (INT-01/02, MKT-05/13/17, REL-01/02, TSK-*, DEVOPS-*, SEC-13/14, DRV-*, VFY-*, COMP-*, WEB-02/03, TEST-11/12, DOC-20, BIZ-02/03) se completaron y archivaron en `docs/dev/avance/historial/backlog-history.md` — no buscarlos en `docs/dev/Backlog.md`. El trabajo pendiente vive en: adapters PyPI → MKT-18f · wheels ARM64/Homebrew → MKT-18h · gate Fase A + Show HN → EXE-03 · Reddit → MKT-04 (negocio) · posts 6-7 → BLOG-CTA · demos → EXE-01 · benchmarks externos → EXE-02.
 
 ---
 
@@ -362,7 +362,7 @@ docs/
 
 **Local LLM Stack:**
 - [ ] Docker Compose: Ollama + VantaDB + AnythingLLM *(parcial 2026-08-17: `docker-compose.yml` existe pero solo servicio VantaDB — falta el compose multi-servicio → MKT-18i)*
-- [x] LanceDB → VantaDB migration guide *(✅ existe: `docs/tutorials/migration-from-lancedb.md` + `vantadb-python/vantadb_py/migrate/lancedb.py`)*
+- [x] LanceDB → VantaDB migration guide *(✅ existe: `docs/user/tutorials/migration-from-lancedb.md` + `vantadb-python/vantadb_py/migrate/lancedb.py`)*
 - [ ] Blog: "Local agent memory with Ollama + VantaDB"
 
 **Agentic Frameworks:**
@@ -377,8 +377,8 @@ docs/
 
 **Launch:**
 - [ ] Show HN post *(claims corregidos 2026-08-23 — fila MKT-18g histórica archivada; ver notas en SHOW_HN_PREP.md)*
-- [x] Blog: "Introducing VantaDB" *(✅ draft `docs/blog/introducing_vantadb.md`, commit `f51b2263`)*
-- [ ] Reddit posts (r/rust, r/MachineLearning, r/LocalLLaMA) *(drafts listos, NO publicados → MKT-04, fila en `docs/Backlog-negocio.md`)*
+- [x] Blog: "Introducing VantaDB" *(✅ draft `docs/user/blog/introducing_vantadb.md`, commit `f51b2263`)*
+- [ ] Reddit posts (r/rust, r/MachineLearning, r/LocalLLaMA) *(drafts listos, NO publicados → MKT-04, fila en `docs/dev/Backlog-negocio.md`)*
 
 ### Q4 2026: Post-Launch Growth
 
@@ -407,8 +407,8 @@ docs/
 - [ ] AES-256 at-rest encryption (TSK-72)
 - [ ] Audit logging (TSK-107b)
 - [ ] Async [[wal|WAL]] shipping (BIZ-02)
-- [ ] Pitch deck + one-pager (CLD-02 → `docs/Backlog-negocio.md`)
-- [ ] Case study #1 (CLD-04 → `docs/Backlog-negocio.md`)
+- [ ] Pitch deck + one-pager (CLD-02 → `docs/dev/Backlog-negocio.md`)
+- [ ] Case study #1 (CLD-04 → `docs/dev/Backlog-negocio.md`)
 - [ ] Enterprise pilot #1
 
 ### Q2 2027: Monetize
@@ -419,7 +419,7 @@ docs/
 - 🔄 $10K MRR
 
 **Deliverables:**
-- [ ] VantaDB Cloud beta on Fly.io (CLD-01 → `docs/Backlog-negocio.md`)
+- [ ] VantaDB Cloud beta on Fly.io (CLD-01 → `docs/dev/Backlog-negocio.md`)
 - [ ] Pricing page (BIZ-03)
 - [ ] Enterprise sales deck
 - [ ] Case study #2
@@ -462,4 +462,4 @@ docs/
 - [Master Index](../master-index.md) — Parent document
 - [VISION.md](../vision/VISION.md) — ICP and UVP
 - [ROADMAP.md](ROADMAP.md) — Technical timeline
-- [Backlog](../Backlog.md) — Detailed tasks (INT-01, INT-02, INT-03, TSK-90, etc.)
+- [Backlog](../dev/Backlog.md) — Detailed tasks (INT-01, INT-02, INT-03, TSK-90, etc.)

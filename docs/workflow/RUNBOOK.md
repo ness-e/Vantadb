@@ -48,7 +48,7 @@ gh api repos/{owner}/{repo}/environments --jq ".environments[].name"
 ## `[no-adr]` marker
 
 - The ADR gate (`ci-rust.yml` job `adr-gate`) fails PRs that change the
-  public API surface without a new `docs/architecture/adr/ADR-*.md`.
+  public API surface without a new `docs/dev/architecture/adr/ADR-*.md`.
 - If the PR intentionally needs no ADR, put `[no-adr]` in the PR body:
   the gate downgrades to a warning instead of failing.
 - Abuse (`[no-adr]` on real API changes) is caught in review, not by CI.

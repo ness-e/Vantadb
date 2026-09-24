@@ -11,7 +11,7 @@ related: []
 # VantaDB IVF Benchmark — REVISAR-01
 
 > **Superseded (2026-09-15):** el baseline canónico post-`b4ff157d` vive en
-> `docs/operations/BENCHMARKS.md` §14 (medido 2026-09-03, N=10 000/D=128/k=10).
+> `docs/user/operations/BENCHMARKS.md` §14 (medido 2026-09-03, N=10 000/D=128/k=10).
 > Las tablas de este archivo son pre-fix (2026-08-09) y se conservan como
 > historia — no citar sus números como actuales.
 >

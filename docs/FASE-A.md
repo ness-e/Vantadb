@@ -12,8 +12,8 @@ aliases: []
 > Kit fuente-única del gate que desbloquea el anuncio. La **ejecución con
 > humanos es owner-side** (conseguir 5 personas, correr los tests, veredicto
 > GO/NO-GO). Este doc deja todo listo para que el owner solo tenga que
-> conseguir las personas. Spec fuente: `docs/research/archive/Investigacion-plan.md`
-> Fase A (A.1/A.2/A.3) + fila `EXE-03` en `docs/Backlog.md`. Anuncios pausados
+> conseguir las personas. Spec fuente: `docs/dev/research/archive/Investigacion-plan.md`
+> Fase A (A.1/A.2/A.3) + fila `EXE-03` en `docs/dev/Backlog.md`. Anuncios pausados
 > hasta Fase A en verde (decisión 2026-09-08, vigente).
 
 ## 0. Objetivo medible (A.3)
@@ -66,8 +66,8 @@ literal (no se resume); tiempo se mide con reloj (no se estima).
 
 - [ ] README con estado Early Access + instalación + quickstart PROBADO + limitaciones + cómo reportar + cómo contribuir.
   - ⚠️ Gap honesto 2026-09-19 (ver §4): falta banner explícito "Early Access" y sección "cómo reportar" → acción owner antes del GO.
-- [ ] `docs/QUICKSTART.md` probado (§3-§5 corren en limpio).
-- [ ] Límites declarados (`Product Boundary` + `docs/operations/EXPERIMENTAL_FEATURES.md`).
+- [ ] `docs/user/QUICKSTART.md` probado (§3-§5 corren en limpio).
+- [ ] Límites declarados (`Product Boundary` + `docs/user/operations/EXPERIMENTAL_FEATURES.md`).
 
 ### Comunidad
 
@@ -82,8 +82,8 @@ literal (no se resume); tiempo se mide con reloj (no se estima).
 
 ## 3. Instrucciones para el tester (15 min)
 
-1. **Instalar** (elige 1, sin clonar): `pip install vantadb-py` · o one-liner `scripts/install.sh` / `install.ps1` (ver `README.md` §Installation + `docs/QUICKSTART.md` §0).
-2. **Quickstart** (`docs/QUICKSTART.md` §3 + §5): `put/get/list` por CLI y `quickstart_memory.py` (vector/texto/híbrida). Éxito = `get` imprime el payload + las 3 líneas de hits.
+1. **Instalar** (elige 1, sin clonar): `pip install vantadb-py` · o one-liner `scripts/install.sh` / `install.ps1` (ver `README.md` §Installation + `docs/user/QUICKSTART.md` §0).
+2. **Quickstart** (`docs/user/QUICKSTART.md` §3 + §5): `put/get/list` por CLI y `quickstart_memory.py` (vector/texto/híbrida). Éxito = `get` imprime el payload + las 3 líneas de hits.
 3. **Reportar**: 1 ficha §1 por persona + issues en GitHub (título `[fase-a] <bloqueo>`, con OS, comando exacto y output literal). Sin cuenta: manda la ficha al owner por el canal soporte.
 
 ## 4. README — veredicto de honestidad (auditado 2026-09-19, `tools/list` real 87)

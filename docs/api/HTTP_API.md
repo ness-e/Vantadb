@@ -628,7 +628,7 @@ Once the binary is on your `PATH`, see [Starting the Server](#starting-the-serve
 
 - **No distributed cluster today.** Milvus, Qdrant (distributed mode),
   Weaviate all scale horizontally; VantaDB is currently single-node. See
-  `docs/research/2026-08-25-vantadb-server/` for the distributed-mode
+  `docs/dev/research/2026-08-25-vantadb-server/` for the distributed-mode
   roadmap and explicit non-goals.
 - **No OIDC / SSO yet.** SRV-06 MVP ships offline HS256 JWT Bearer
   (`VANTADB_JWT_SECRET`, ADR-039); OIDC discovery stays delegated. Until
@@ -641,8 +641,8 @@ Once the binary is on your `PATH`, see [Starting the Server](#starting-the-serve
 
 **Sources** (all verified 2026-08-29 via `webfetch`):
 
-- VantaDB internal: this document, [`docs/operations/SECURITY.md`](../operations/SECURITY.md),
-  [`docs/operations/hardening.md`](../operations/hardening.md).
+- VantaDB internal: this document, [`docs/user/operations/SECURITY.md`](../user/operations/SECURITY.md),
+  [`docs/user/operations/hardening.md`](../user/operations/hardening.md).
 - [Qdrant — Security & Access Control](https://qdrant.tech/documentation/security/) (authentication,
   alt_api_key rotation v1.17+, RBAC v1.9+, audit v1.17+, tracing v1.18+, TLS v1.2+).
 - [Weaviate — Authorization](https://weaviate.io/developers/weaviate/configuration/authorization) (Admin list,
@@ -706,7 +706,7 @@ Loopback binds without a key keep working as before (dev mode). Setting
 `VANTADB_API_KEY` makes any host acceptable; `--require-auth` additionally
 refuses to start without a key regardless of host.
 
-> **Hardening Guide**: For production deployment security (Docker, TLS, key rotation, RBAC, audit, monitoring), see [`docs/operations/hardening.md`](../operations/hardening.md).
+> **Hardening Guide**: For production deployment security (Docker, TLS, key rotation, RBAC, audit, monitoring), see [`docs/user/operations/hardening.md`](../user/operations/hardening.md).
 
 ## Route Summary
 

@@ -50,15 +50,15 @@ related: [Backlog.md, backlog-futuro.md, Backlog-negocio.md, CHANGELOG.md, QUICK
 
 | Document | Description |
 |----------|-------------|
-| [ARCHITECTURE.md](architecture/ARCHITECTURE.md) | High-level system architecture overview |
-| [TEXT_INDEX_DESIGN.md](architecture/TEXT_INDEX_DESIGN.md) | Tantivy-based text index implementation |
-| [MUTATION_RECOVERY_PROTOCOL.md](architecture/MUTATION_RECOVERY_PROTOCOL.md) | Mutation recovery and derived index rebuild protocol |
-| [ADVANCED_TOKENIZER.md](architecture/ADVANCED_TOKENIZER.md) | Multilingual text tokenizer with stemming and stopwords |
-| [STORAGE_VERSIONING.md](architecture/STORAGE_VERSIONING.md) | Storage versioning strategy |
-| [EXPERIMENTAL_GOVERNANCE_DESIGN.md](architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md) | Experimental governance design |
-| [LISP_ANALYSIS.md](architecture/LISP_ANALYSIS.md) | LISP query language analysis |
-| [WASM_STORAGE_REVIEW.md](architecture/WASM_STORAGE_REVIEW.md) | WASM storage backends review and audit |
-| [COMP-026: LSM Compaction](architecture/adr/COMP-026-lsm-compaction-design.md) | Multi-level LSM compaction design (proposed ADR) |
+| [ARCHITECTURE.md](dev/architecture/ARCHITECTURE.md) | High-level system architecture overview |
+| [TEXT_INDEX_DESIGN.md](dev/architecture/TEXT_INDEX_DESIGN.md) | Tantivy-based text index implementation |
+| [MUTATION_RECOVERY_PROTOCOL.md](dev/architecture/MUTATION_RECOVERY_PROTOCOL.md) | Mutation recovery and derived index rebuild protocol |
+| [ADVANCED_TOKENIZER.md](dev/architecture/ADVANCED_TOKENIZER.md) | Multilingual text tokenizer with stemming and stopwords |
+| [STORAGE_VERSIONING.md](dev/architecture/STORAGE_VERSIONING.md) | Storage versioning strategy |
+| [EXPERIMENTAL_GOVERNANCE_DESIGN.md](dev/architecture/EXPERIMENTAL_GOVERNANCE_DESIGN.md) | Experimental governance design |
+| [LISP_ANALYSIS.md](dev/architecture/LISP_ANALYSIS.md) | LISP query language analysis |
+| [WASM_STORAGE_REVIEW.md](dev/architecture/WASM_STORAGE_REVIEW.md) | WASM storage backends review and audit |
+| [COMP-026: LSM Compaction](dev/architecture/adr/COMP-026-lsm-compaction-design.md) | Multi-level LSM compaction design (proposed ADR) |
 
 ---
 
@@ -92,44 +92,44 @@ related: [Backlog.md, backlog-futuro.md, Backlog-negocio.md, CHANGELOG.md, QUICK
 
 | Document | Description |
 |----------|-------------|
-| [ADR-001: Configuración Unificada](architecture/adr/001_unified_config_readonly.md) | Unified config + read-only barrier architecture |
-| [ADR-002: WAL CRC32C + Auto-Healing](architecture/adr/002_wal_crc32c_autohealing.md) | WAL physical resilience, CRC32C validation, self-healing |
-| [ADR-003: Sync/Async Decoupling](architecture/adr/003_sync_async_decoupling.md) | Concurrent execution isolation architecture |
-| [ADR-004: Storage Backend](architecture/adr/004_storage_backend.md) | Storage backend abstraction |
-| [ADR-005: HNSW Parameters](architecture/adr/005_hnsw_parameters.md) | HNSW parameter configuration |
-| [ADR-006: RRF Constant](architecture/adr/006_rrf_constant.md) | Reciprocal Rank Fusion constant decision |
-| [ADR-007: PyO3 Binding Architecture](architecture/adr/007_pyo3_binding_architecture.md) | Python binding architecture |
-| [ADR-008: WASM Support Strategy](architecture/adr/008_wasm_support_strategy.md) | WASM build and support strategy |
-| [ADR-009: Community Governance Model](architecture/adr/009_community_governance_model.md) | Community governance model |
-| [ADR-0001: Adoptamos ADRs](architecture/adr/ADR-0001-ADOPTAMOS-ADRS.md) | Decision to adopt ADR process |
+| [ADR-001: Configuración Unificada](dev/architecture/adr/001_unified_config_readonly.md) | Unified config + read-only barrier architecture |
+| [ADR-002: WAL CRC32C + Auto-Healing](dev/architecture/adr/002_wal_crc32c_autohealing.md) | WAL physical resilience, CRC32C validation, self-healing |
+| [ADR-003: Sync/Async Decoupling](dev/architecture/adr/003_sync_async_decoupling.md) | Concurrent execution isolation architecture |
+| [ADR-004: Storage Backend](dev/architecture/adr/004_storage_backend.md) | Storage backend abstraction |
+| [ADR-005: HNSW Parameters](dev/architecture/adr/005_hnsw_parameters.md) | HNSW parameter configuration |
+| [ADR-006: RRF Constant](dev/architecture/adr/006_rrf_constant.md) | Reciprocal Rank Fusion constant decision |
+| [ADR-007: PyO3 Binding Architecture](dev/architecture/adr/007_pyo3_binding_architecture.md) | Python binding architecture |
+| [ADR-008: WASM Support Strategy](dev/architecture/adr/008_wasm_support_strategy.md) | WASM build and support strategy |
+| [ADR-009: Community Governance Model](dev/architecture/adr/009_community_governance_model.md) | Community governance model |
+| [ADR-0001: Adoptamos ADRs](dev/architecture/adr/ADR-0001-ADOPTAMOS-ADRS.md) | Decision to adopt ADR process |
 
 ---
 
 ## Operations & Configuration
 
-Full listing in [Operations Master Index](operations/master-index.md).
+Full listing in [Operations Master Index](user/operations/master-index.md).
 
 Key documents:
 
 | Document | Description |
 |----------|-------------|
-| [CONFIGURATION.md](operations/CONFIGURATION.md) | All runtime configuration knobs, env vars, CLI commands |
-| [BENCHMARKS.md](operations/BENCHMARKS.md) | Benchmark results and methodology |
-| [DURABILITY_GUARANTEES.md](operations/DURABILITY_GUARANTEES.md) | WAL durability and crash guarantees |
-| [PERFORMANCE_GUIDE.md](operations/PERFORMANCE_GUIDE.md) | Performance optimization guide |
-| [PERFORMANCE_TUNING.md](operations/PERFORMANCE_TUNING.md) | Performance tuning parameters |
-| [SECURITY.md](operations/SECURITY.md) | Security policies and procedures |
-| [RELIABILITY_GATE.md](operations/RELIABILITY_GATE.md) | Reliability gate criteria and sign-off |
-| [CI_POLICY.md](operations/CI_POLICY.md) | CI pipeline configuration and policy |
-| [FUZZING.md](operations/FUZZING.md) | Fuzzing strategy and results |
-| [BACKUP_POLICY.md](operations/BACKUP_POLICY.md) | Backup and restore procedures |
-| [DEPLOYMENT_GUIDE.md](operations/DEPLOYMENT_GUIDE.md) | Deployment procedures and checklist |
-| [DISASTER_RECOVERY_RUNBOOK.md](operations/DISASTER_RECOVERY_RUNBOOK.md) | Disaster recovery runbook |
-| [GRAFANA_SETUP.md](operations/GRAFANA_SETUP.md) | Grafana dashboard setup for metrics |
-| [MEMORY_TELEMETRY.md](operations/MEMORY_TELEMETRY.md) | Memory footprint telemetry design |
-| [PYTHON_RELEASE_POLICY.md](operations/PYTHON_RELEASE_POLICY.md) | Python SDK release and publishing policy |
-| [SQLITE_MIGRATION_GUIDE.md](operations/SQLITE_MIGRATION_GUIDE.md) | SQLite migration guide |
-| [GC_TTL.md](operations/GC_TTL.md) | Garbage collection TTL configuration |
+| [CONFIGURATION.md](user/operations/CONFIGURATION.md) | All runtime configuration knobs, env vars, CLI commands |
+| [BENCHMARKS.md](user/operations/BENCHMARKS.md) | Benchmark results and methodology |
+| [DURABILITY_GUARANTEES.md](user/operations/DURABILITY_GUARANTEES.md) | WAL durability and crash guarantees |
+| [PERFORMANCE_GUIDE.md](user/operations/PERFORMANCE_GUIDE.md) | Performance optimization guide |
+| [PERFORMANCE_TUNING.md](user/operations/PERFORMANCE_TUNING.md) | Performance tuning parameters |
+| [SECURITY.md](user/operations/SECURITY.md) | Security policies and procedures |
+| [RELIABILITY_GATE.md](user/operations/RELIABILITY_GATE.md) | Reliability gate criteria and sign-off |
+| [CI_POLICY.md](user/operations/CI_POLICY.md) | CI pipeline configuration and policy |
+| [FUZZING.md](user/operations/FUZZING.md) | Fuzzing strategy and results |
+| [BACKUP_POLICY.md](user/operations/BACKUP_POLICY.md) | Backup and restore procedures |
+| [DEPLOYMENT_GUIDE.md](user/operations/DEPLOYMENT_GUIDE.md) | Deployment procedures and checklist |
+| [DISASTER_RECOVERY_RUNBOOK.md](user/operations/DISASTER_RECOVERY_RUNBOOK.md) | Disaster recovery runbook |
+| [GRAFANA_SETUP.md](user/operations/GRAFANA_SETUP.md) | Grafana dashboard setup for metrics |
+| [MEMORY_TELEMETRY.md](user/operations/MEMORY_TELEMETRY.md) | Memory footprint telemetry design |
+| [PYTHON_RELEASE_POLICY.md](user/operations/PYTHON_RELEASE_POLICY.md) | Python SDK release and publishing policy |
+| [SQLITE_MIGRATION_GUIDE.md](user/operations/SQLITE_MIGRATION_GUIDE.md) | SQLite migration guide |
+| [GC_TTL.md](user/operations/GC_TTL.md) | Garbage collection TTL configuration |
 | [chaos-testing.md](chaos-testing.md) | Chaos testing strategy and scenarios |
 | [TEST_MAP.md](TEST_MAP.md) | Map of test files to subsystems and coverage intent |
 
@@ -152,13 +152,13 @@ Key documents:
 
 | Document | Description |
 |----------|-------------|
-| [Tutorials index](tutorials/index.md) | Structured learning path (ordered by complexity) |
-| [01: AI Agent Memory](tutorials/01-ai-agent-memory.md) | Building AI agent memory with VantaDB |
-| [02: Local RAG Pipeline](tutorials/02-local-rag-pipeline.md) | Local RAG pipeline tutorial |
-| [04: Hybrid Search](tutorials/04-hybrid-search-basics.md) | Vector, BM25, and hybrid search modes |
-| [05: Embedding Providers](tutorials/05-embedding-integrations.md) | OpenAI, Ollama, LiteLLM embedding patterns |
-| [03: Migrating from ChromaDB](tutorials/03-migrating-from-chromadb.md) | Migration guide from ChromaDB to VantaDB |
-| [Migrating from LanceDB](tutorials/migration-from-lancedb.md) | Migration guide from LanceDB to VantaDB |
+| [Tutorials index](user/tutorials/index.md) | Structured learning path (ordered by complexity) |
+| [01: AI Agent Memory](user/tutorials/01-ai-agent-memory.md) | Building AI agent memory with VantaDB |
+| [02: Local RAG Pipeline](user/tutorials/02-local-rag-pipeline.md) | Local RAG pipeline tutorial |
+| [04: Hybrid Search](user/tutorials/04-hybrid-search-basics.md) | Vector, BM25, and hybrid search modes |
+| [05: Embedding Providers](user/tutorials/05-embedding-integrations.md) | OpenAI, Ollama, LiteLLM embedding patterns |
+| [03: Migrating from ChromaDB](user/tutorials/03-migrating-from-chromadb.md) | Migration guide from ChromaDB to VantaDB |
+| [Migrating from LanceDB](user/tutorials/migration-from-lancedb.md) | Migration guide from LanceDB to VantaDB |
 
 Runnable code samples live in [`examples/`](examples/) (`fnd05_python_context_manager.py`, `fnd05_ts_async_dispose.ts`).
 
@@ -174,24 +174,24 @@ The glossary lives in two complementary locations:
 
 | Location | Description |
 |----------|-------------|
-| [glosario/](glosario/) | 57 individual term files with detailed definitions (English) |
-| [glosario/README.md](glosario/README.md) | Categorized index with quick descriptions |
+| [glosario/](user/glosario/) | 57 individual term files with detailed definitions (English) |
+| [glosario/README.md](user/glosario/README.md) | Categorized index with quick descriptions |
 
 ---
 
 ## Articles & Blog
 
-Published blog posts (in `docs/blog/`):
+Published blog posts (in `docs/user/blog/`):
 
 | Article | Description |
 |---------|-------------|
-| [Why I Built a Local Memory Engine for AI Agents in Rust](blog/why_i_built.md) | Motivation and design philosophy |
-| [How Hybrid Search Works: BM25 + HNSW + RRF](blog/how_hybrid_search_works.md) | Technical deep-dive on hybrid search |
-| [SQLite for AI Agents: Benchmarks and Architecture](blog/sqlite_for_ai_agents.md) | Comparing embedded databases for agent memory |
-| [Introducing VantaDB](blog/introducing_vantadb.md) | Product announcement |
-| [Benchmarks vs LanceDB & Chroma](blog/benchmarks_vs_lancedb_chroma.md) | Competitive benchmark write-up |
-| [GraphRAG Benchmark](blog/graphrag-benchmark.md) | GraphRAG performance evaluation post |
-| [Campaign: AI Agent Memory](blog/campaign-ai-agent-memory.md) | Campaign narrative on agent memory |
+| [Why I Built a Local Memory Engine for AI Agents in Rust](user/blog/why_i_built.md) | Motivation and design philosophy |
+| [How Hybrid Search Works: BM25 + HNSW + RRF](user/blog/how_hybrid_search_works.md) | Technical deep-dive on hybrid search |
+| [SQLite for AI Agents: Benchmarks and Architecture](user/blog/sqlite_for_ai_agents.md) | Comparing embedded databases for agent memory |
+| [Introducing VantaDB](user/blog/introducing_vantadb.md) | Product announcement |
+| [Benchmarks vs LanceDB & Chroma](user/blog/benchmarks_vs_lancedb_chroma.md) | Competitive benchmark write-up |
+| [GraphRAG Benchmark](user/blog/graphrag-benchmark.md) | GraphRAG performance evaluation post |
+| [Campaign: AI Agent Memory](user/blog/campaign-ai-agent-memory.md) | Campaign narrative on agent memory |
 
 ---
 
@@ -206,15 +206,15 @@ Published blog posts (in `docs/blog/`):
 
 ## Audit Reports & Reviews
 
-Audit and review reports generated by `/audit`, `/review`, and `unified-review` live in `docs/reviews/`.
+Audit and review reports generated by `/audit`, `/review`, and `unified-review` live in `docs/dev/reviews/`.
 
 | Document | Description |
 |----------|-------------|
-| [auditoria-documentacion-2026-08-21.md](reviews/auditoria-documentacion-2026-08-21.md) | Documentation audit that motivated the GOV campaign |
-| [audit-full-20260812-231204.md](reviews/audit-full-20260812-231204.md) | Full audit run 2026-08-12 |
-| [review-certify-2026-08-05-2025.md](reviews/review-certify-2026-08-05-2025.md) | Certification review 2026-08-05 |
-| [stabilization-report.md](reviews/stabilization-report.md) | Stabilization phase report |
-| Historical runs (including `audit-full-2026-07-18`) are archived under [`reviews/archive/`](reviews/archive/) |
+| [auditoria-documentacion-2026-08-21.md](dev/reviews/archive/auditoria-documentacion-2026-08-21.md) | Documentation audit that motivated the GOV campaign |
+| [audit-full-20260812-231204.md](dev/reviews/archive/audit-full-20260812-231204.md) | Full audit run 2026-08-12 |
+| [review-certify-2026-08-05-2025.md](dev/reviews/archive/review-certify-2026-08-05-2025.md) | Certification review 2026-08-05 |
+| [stabilization-report.md](dev/reviews/archive/stabilization-report.md) | Stabilization phase report |
+| Historical runs (including `audit-full-2026-07-18`) are archived under [`reviews/archive/`](dev/reviews/archive/) |
 
 ---
 
@@ -233,11 +233,11 @@ Structured reports produced by pipelines and evals live in `docs/reports/`.
 
 ## Plans
 
-Active plans in `docs/plans/`; completed plans move to `plans/archive/`.
+Active plans in `docs/dev/plans/`; completed plans move to `plans/archive/`.
 
 | Document | Description |
 |----------|-------------|
-| [PROMPT-MAESTRO-FREEZE.md](plans/archive/PROMPT-MAESTRO-FREEZE.md) | Prompt maestro freeze plan (archived) |
+| [PROMPT-MAESTRO-FREEZE.md](dev/plans/archive/PROMPT-MAESTRO-FREEZE.md) | Prompt maestro freeze plan (archived) |
 | [ACTION_PLAN → ROADMAP v2.0](strategy/ROADMAP.md) | Archived — superseded by ROADMAP.md v2.0 |
 
 ---
@@ -248,11 +248,11 @@ Spanish-language planning material (allowed exception to the English docs rule).
 
 | Document | Description |
 |----------|-------------|
-| [avance/README.md](avance/README.md) | Unified progress log and development history |
-| [Backlog.md](Backlog.md) | Full project backlog and feature tracking |
-| [backlog-futuro.md](backlog-futuro.md) | Deferred / future backlog items |
+| [avance/README.md](dev/avance/README.md) | Unified progress log and development history |
+| [Backlog.md](dev/Backlog.md) | Full project backlog and feature tracking |
+| [backlog-futuro.md](dev/backlog-futuro.md) | Deferred / future backlog items |
 | [CHANGELOG.md](CHANGELOG.md) | Release history and version changelog |
-| [avance/](avance/README.md) | Progress tracking workspace (activo, auditoría, decisiones, historial) |
+| [avance/](dev/avance/README.md) | Progress tracking workspace (activo, auditoría, decisiones, historial) |
 
 ---
 
@@ -260,9 +260,9 @@ Spanish-language planning material (allowed exception to the English docs rule).
 
 | Document | Description |
 |----------|-------------|
-| [Investigaciones → research/](research/) | Spanish-language research notes: FND-*, INV-*, TIR-*, competitive analyses (see folder README per series) |
-| [research/human-facing-db-ui/](research/human-facing-db-ui/) | Research on human-facing DB UI concepts |
-| [research/tdam/](research/tdam/) | TDAM (Tiered Document Attention Model) research |
+| [Investigaciones → research/](dev/research/) | Spanish-language research notes: FND-*, INV-*, TIR-*, competitive analyses (see folder README per series) |
+| [research/human-facing-db-ui/](dev/research/human-facing-db-ui/) | Research on human-facing DB UI concepts |
+| [research/tdam/](dev/research/tdam/) | TDAM (Tiered Document Attention Model) research |
 | [wasm/CRASH_MODEL.md](wasm/CRASH_MODEL.md) | WASM crash model research |
 
 ---
@@ -306,7 +306,7 @@ Documentation for the Next.js web frontend lives in `docs/web/`.
 
 ## Benchmarks
 
-Raw benchmark artifacts and analyses live in `docs/benchmarks/`. Canonical claims belong in [`operations/BENCHMARKS.md`](operations/BENCHMARKS.md).
+Raw benchmark artifacts and analyses live in `docs/benchmarks/`. Canonical claims belong in [`operations/BENCHMARKS.md`](user/operations/BENCHMARKS.md).
 
 | Document | Description |
 |----------|-------------|
@@ -331,7 +331,7 @@ Raw benchmark artifacts and analyses live in `docs/benchmarks/`. Canonical claim
 | [discord/README.md](discord/README.md) | Discord community workspace (server config, bilingual strategy) |
 | [examples/](examples/) | Runnable code samples referenced by tutorials |
 
-Assets (images used by docs): [`assets/`](assets/) — `demo_terminal.png`, `social-preview.png`.
+Assets (images used by docs): [`assets/`](../assets/)
 
 Agent-facing reference files (bug workflow, troubleshooting, nextest output): [`references/`](references/).
 
@@ -343,8 +343,8 @@ Historical material moved out of the main tree: [`archive/`](archive/) (incl. ar
 
 | Document | Description |
 |----------|-------------|
-| [QUICKSTART.md](QUICKSTART.md) | Quickstart guide for new users |
-| [FAQ.md](FAQ.md) | Frequently asked questions |
+| [QUICKSTART.md](user/QUICKSTART.md) | Quickstart guide for new users |
+| [FAQ.md](user/FAQ.md) | Frequently asked questions |
 | [COMPARISON.md](COMPARISON.md) | Honest comparison vs sqlite-vec / LanceDB / Qdrant / Chroma — qualitative table, benchmark provenance per Regla 11, practical limits |
 | [ci-cd-guide.md](ci-cd-guide.md) | CI/CD setup and operations guide |
 | [README.md](README.md) | Documentation landing page and reading guide |
@@ -354,7 +354,7 @@ Historical material moved out of the main tree: [`archive/`](archive/) (incl. ar
 
 ## See Also
 
-- [Operations Master Index](operations/master-index.md) — Detailed operations document listing
+- [Operations Master Index](user/operations/master-index.md) — Detailed operations document listing
 - [Pipeline Reports Index](reports/INDEX.md) — Detailed pipeline report listing
 - [GitHub Repository](https://github.com/ness-e/Vantadb) — Source code and issues
 - [CHANGELOG](CHANGELOG.md) — Version history

@@ -3,7 +3,7 @@ title: "VantaDB — De Código a Empresa"
 subtitle: "Manual Estratégico Unificado"
 author: "Eros · Founder de VantaDB"
 date: "31 de julio de 2026"
-version: "Unificado v1.0 (Gemini + GPT + Sonnet + GLM) + validación externa 2026-09-14 (ver docs/research/manual-estrategico-validacion-2026-09-14.md: fe de erratas, números corregidos, plan D vencido)"
+version: "Unificado v1.0 (Gemini + GPT + Sonnet + GLM) + validación externa 2026-09-14 (ver docs/dev/research/manual-estrategico-validacion-2026-09-14.md: fe de erratas, números corregidos, plan D vencido)"
 context: "Solo-founder · Venezuela · Sin presupuesto"
 horizon: "4 meses (Sep 2026 → Ene 2027)"
 meta: "Meta: USD 5.000 en ganancias antes del 01/01/2027"
@@ -35,7 +35,7 @@ meta: "Meta: USD 5.000 en ganancias antes del 01/01/2027"
 # Resumen Ejecutivo y Verdad Incómoda
 
 VERDAD INCÓMODA #1
-Tienes 1.371 commits, ~42.500 líneas de código Rust, 9 adaptadores en código, NO publicados en PyPI (corrección 2026-09-14, ver MKT-18f), benchmarks competitivos reales (Recall 24.5% en subset GloVe-100-angular 10K — corrección 2026-09-02, ver docs/operations/BENCHMARKS.md §7; 622 QPS en query, ACORN filtered search con 100% recall a 1% de selectividad)… y 2 estrellas en GitHub. Cero clientes pagadores. Cero comunidad orgánica. Cero estructura legal. Cero vía confirmada para recibir un pago en USD desde Venezuela. La excelencia técnica sin distribución y sin estructura comercial es un pasatiempo caro, no una empresa.
+Tienes 1.371 commits, ~42.500 líneas de código Rust, 9 adaptadores en código, NO publicados en PyPI (corrección 2026-09-14, ver MKT-18f), benchmarks competitivos reales (Recall 24.5% en subset GloVe-100-angular 10K — corrección 2026-09-02, ver docs/user/operations/BENCHMARKS.md §7; 622 QPS en query, ACORN filtered search con 100% recall a 1% de selectividad)… y 2 estrellas en GitHub. Cero clientes pagadores. Cero comunidad orgánica. Cero estructura legal. Cero vía confirmada para recibir un pago en USD desde Venezuela. La excelencia técnica sin distribución y sin estructura comercial es un pasatiempo caro, no una empresa.
 
 Este documento unifica las respuestas de cuatro modelos de IA (Gemini, GPT, Sonnet y GLM) a tu prompt original, adaptadas a una realidad que ninguno de los cuatro conocía del todo: eres un solo fundador, resides en Venezuela, no tienes presupuesto, y tu objetivo no es levantar una ronda pre-seed en 2027 sino facturar USD 5.000 antes del 1 de enero de 2027. Esa meta cambia radicalmente las prioridades: lo que en los análisis originales se marcaba como urgente para buscar inversión (cap table, vesting, SAFE, pitch deck) deja de serlo; lo que los análisis trataban como secundario (cómo cobrar desde Venezuela, qué ToS mínimo necesitas, qué ICP elegir para facturar rápido) pasa a ser crítico.
 La tesis central de este manual es brutal pero honesta: en cuatro meses no se construye una empresa tecnológica seria. Lo que sí se puede construir en cuatro meses es un producto facturable con tres a quince clientes pagadores que generen USD 5.000 en ingresos. Esa cifra no te hace empresa; te hace un negocio individual facturable. Y eso es exactamente lo que necesitas antes de pensar en entidad legal, cap table, vesting, o fundraising. Sin un solo dólar entrando, todo lo demás es teatro.
@@ -111,7 +111,7 @@ La columna 'Prioridad' usa tres niveles: URG significa urgente para facturar los
 | P3 | Propuesta de valor no-técnica | Frase que traduce 'HNSW + BM25 + RRF en Rust embebido' a un beneficio entendible en 3 segundos | Para copy de lanzamiento, web, conversaciones con no-técnicos | Antes del Show HN | URG |
 | P4 | Documentación de usuario orientada al 'por qué' | Reescribir docs técnicas para que respondan primero 'por qué usar esto' antes de 'cómo' | Reduce fricción de adopción; mejora conversión try→use | Antes del Show HN | 6M |
 | P5 | README comercial (separado del README técnico) | README orientado a conversión: qué resuelves, quién lo usa, cómo empezar, pricing | Primer contacto de un visitante de GitHub; debe vender, no solo informar | Esta semana | URG |
-| P6 | ADRs públicos (Architecture Decision Records) | Documentos cortos que explican decisiones técnicas clave y sus trade-offs | Señal de madurez para adoptantes serios; ya tienes 10 ADRs en docs/architecture/adr/ | Continuo | 6M |
+| P6 | ADRs públicos (Architecture Decision Records) | Documentos cortos que explican decisiones técnicas clave y sus trade-offs | Señal de madurez para adoptantes serios; ya tienes 10 ADRs en docs/dev/architecture/adr/ | Continuo | 6M |
 | P7 | Política de soporte y mantenimiento | Documento: canales, SLA de respuesta, ciclo de releases, breaking changes | Define expectativas con usuarios pagadores | Antes del primer pago | URG |
 | P8 | Política de versionado y breaking changes | SemVer estricto + política de deprecación (N meses) | Confianza para adoptantes en producción | Antes del Show HN | 6M |
 | P9 | Estrategia de SDK multi-lenguaje | Decisión: Python first (ya), Rust crate (ya), TypeScript/WASM (parcial), Node nativo (napi-rs), Go (cuándo) | Define superficie de adopción y esfuerzo de mantenimiento | Esta semana (decisión) | 6M |

@@ -28,19 +28,19 @@ The primary entry point to all documentation is the [master-index](master-index.
 
 | Path | Description |
 |------|-------------|
-| [glosario/](glosario/README.md) | Glossary of technical terms (concepts, engines, metrics) |
+| [glosario/](user/glosario/README.md) | Glossary of technical terms (concepts, engines, metrics) |
 | [api/](api/EMBEDDED_SDK.md) | Python and Rust SDK reference |
-| [architecture/](architecture/ARCHITECTURE.md) | Core engine architecture, ADRs, audits |
-| [operations/](operations/CONFIGURATION.md) | CI/CD, benchmarks, configuration, monitoring |
-| [tutorials/](tutorials/index.md) | Learning path: agent memory, RAG, hybrid search, migrations |
+| [architecture/](dev/architecture/ARCHITECTURE.md) | Core engine architecture, ADRs, audits |
+| [operations/](user/operations/CONFIGURATION.md) | CI/CD, benchmarks, configuration, monitoring |
+| [tutorials/](user/tutorials/index.md) | Learning path: agent memory, RAG, hybrid search, migrations |
 <!-- | [articles/](../web/content/blog/why-i-built-vantadb-local-memory-engine.md) | Published technical articles (planned) | -->
 | [graphrag/](graphrag/README.md) | GraphRAG architecture and design |
 | [iql/](api/IQL.md) | Interactive Query Language reference |
-| [avance/](avance/README.md) | Project progress dashboard |
-| [Backlog.md](Backlog.md) | Active task backlog |
+| [avance/](dev/avance/README.md) | Project progress dashboard |
+| [Backlog.md](dev/Backlog.md) | Active task backlog |
 | [CHANGELOG.md](CHANGELOG.md) | Project changelog |
-| [QUICKSTART.md](QUICKSTART.md) | 5-minute quickstart guide |
-| [avance/historial/backlog-history.md](avance/historial/backlog-history.md) | Development log and daily notes |
+| [QUICKSTART.md](user/QUICKSTART.md) | 5-minute quickstart guide |
+| [avance/historial/backlog-history.md](dev/avance/historial/backlog-history.md) | Development log and daily notes |
 | [README.md](README.md) | This overview file |
 
 ## Conventions

@@ -176,7 +176,7 @@ ALL PASS
   IndexedDB when OPFS is unavailable — the caller must detect and call
   `connect_idb` explicitly. The "fallback IndexedDB in Safari" scenario in
   the WASM-01 contract is verified manually, not automatic.
-- `docs/architecture/WASM_STORAGE_REVIEW.md` predates the atomic-rename +
+- `docs/dev/architecture/WASM_STORAGE_REVIEW.md` predates the atomic-rename +
   CRC-32 write path and the IndexedDB bridge: its claims that there is no
   atomic rename / no checksum / no IDB tests are stale (see `opfs.rs` and
   `tests/wasm_tests.rs`).

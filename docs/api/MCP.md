@@ -309,7 +309,7 @@ Model catalog source of truth: `embeddings/manifest.json` (9 ids, rev pinned). F
   `hybrid` recovering D0 via felino↔gato (EMB-19 Step 1, same as EMB-15).
 - **e5 prefixes (EMB-16):** e5 family uses `query:` (queries) / `passage:` (documents);
   MiniLM and others use none. Measured margin: asymmetric `0.1204` vs symmetric `0.0812`
-  (+48% relative; source `docs/tasks/EMB-16.md`).
+  (+48% relative; source `docs/dev/tasks/EMB-16.md`).
 - **One-dim-per-database (Q4, EMB-18):** one database = one dimension. Writing a vector
   whose dim differs from the stored vectors is REJECTED with expected + got dims and the
   exact regen command. Never silent auto-reindex. Empty base has no gate (first vector
@@ -515,10 +515,10 @@ the repo root: [`/server.json`](../../server.json) (schema version `2025-12-11`)
 
 For submission state, glama/smithery aggregator status, and the
 `server.json` regeneration procedure (per release), see
-[`/docs/operations/MCP_REGISTRY.md`](../operations/MCP_REGISTRY.md).
+[`/docs/user/operations/MCP_REGISTRY.md`](../user/operations/MCP_REGISTRY.md).
 
 > Pre-mortem: the registry submission PR is a **manual** step (not a CI gate).
 > Until it's approved, the `server.json` lives in-repo as a discoverable descriptor;
 > the binary itself is the source of truth. See
-> [`MCP_REGISTRY.md#submission-state`](../operations/MCP_REGISTRY.md#submission-state)
+> [`MCP_REGISTRY.md#submission-state`](../user/operations/MCP_REGISTRY.md#submission-state)
 > for the current PR/approval state.

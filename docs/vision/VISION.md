@@ -238,6 +238,6 @@ response = llm.generate(prompt + "\n\nContext:\n" + format_results(context))
 ## See Also
 
 - [Master Index](../master-index.md) — Parent document
-- [ARCHITECTURE.md](../architecture/ARCHITECTURE.md) — How the vision is implemented
+- [ARCHITECTURE.md](../dev/architecture/ARCHITECTURE.md) — How the vision is implemented
 - [GO_TO_MARKET.md](../strategy/GO_TO_MARKET.md) — How it's commercialized
 - [ROADMAP.md](../strategy/ROADMAP.md) — When capabilities ship
