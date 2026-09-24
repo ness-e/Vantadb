@@ -65,7 +65,7 @@ def run_benchmark(db_path, num_vectors, dim, top_k, num_queries, output_file):
     # 1. Inicialización
     print("Initializing VantaDB...")
     start_init = time.perf_counter()
-    db = vantadb.VantaDB(db_path)
+    db = vantadb.Client(db_path)
     init_duration = time.perf_counter() - start_init
     print(f"VantaDB initialized in {init_duration:.4f} seconds.")
 
@@ -132,7 +132,7 @@ def run_benchmark(db_path, num_vectors, dim, top_k, num_queries, output_file):
         start_query = time.perf_counter()
         
         # Búsqueda lexical pura (vector vacío, pasamos text_query)
-        db.search_memory(
+        db.search(
             namespace=namespace,
             query_vector=[],
             text_query=text_q,
@@ -149,7 +149,7 @@ def run_benchmark(db_path, num_vectors, dim, top_k, num_queries, output_file):
         start_query = time.perf_counter()
         
         # Búsqueda vectorial pura (query_vector, sin text_query)
-        db.search_memory(
+        db.search(
             namespace=namespace,
             query_vector=q_vec,
             top_k=top_k
@@ -166,7 +166,7 @@ def run_benchmark(db_path, num_vectors, dim, top_k, num_queries, output_file):
         start_query = time.perf_counter()
         
         # Búsqueda híbrida completa
-        db.search_memory(
+        db.search(
             namespace=namespace,
             query_vector=q_vec,
             text_query=text_q,
