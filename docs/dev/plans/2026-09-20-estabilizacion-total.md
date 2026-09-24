@@ -45,13 +45,7 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
 ## Fase 1 — Limpieza e imagen (main estable, sin mover carpetas)
 
 - [x] C-01 · ✅ 2026-09-23 verificado: `git ls-files .opencode` = 0 + `.gitignore` lo excluye (local intacto).
-- [ ] C-02 · Docs por audiencia: `docs/user/` (QUICKSTART, tutorials, FAQ, blog, api/, operations user-facing)
-  + `docs/dev/` (plans, tasks, avance, research, reviews, backlog). Mover con `git mv`
-  (conserva historia). Actualizar: README links relativos, `llms.txt`, gate-docs paths,
-  markdownlint scope, `validate-docs-coverage.ps1`, frontmatter check.
-  Contrato: lint+frontmatter+coverage verdes; 0 links rotos (`grep` + spot-check render);
-  `docs/CHANGELOG.md`, `docs/api/openapi.yaml`, `docs/api/MCP.md` NO se mueven
-  (los consumen release-plz y el chequeo de versiones).
+- [x] C-02 · ✅ 2026-09-23: `docs/user/` (QUICKSTART, tutorials, FAQ, blog, operations, glosario) + `docs/dev/` (plans, tasks, avance, research, reviews, backlog×5, architecture) vía `git mv`; `api/` y `CHANGELOG.md` intactos por constraint; links reescritos (absolutos + relativos recomputados), SUMMARY.md curado, markdownlint 0/1453, auditoría solo deja legacy archivado. Verificado por 2 subagentes en paralelo.
 - [x] C-03 · ✅ 2026-09-23: `markdownlint docs/**/*.md` 0 issues (MD049 fixeado) + release-plz publicó 0.6.0/0.6.1 parseando el changelog sin WARN.
 - [x] C-04 · SUPERSEDED 2026-09-23: la propuesta (quitar `develop` de push) quedó obsoleta — workflows-repair (FIND-140) racionalizó triggers MANTENIENDO `develop` (todo el CI actual corre sobre develop). Ver `docs/workflow/TRIGGERS.md`.
 - [x] C-05 · ✅ 2026-09-23: renombres aplicados en FIND-142 (14 renames, ej `ci-rust-10.yml`→`ci-rust.yml`); `actionlint` 0.
