@@ -356,3 +356,10 @@ aliases: []
 - **Objetivo:** backlog-notion N-01/02/04/05/06 aprobados por owner (N-03 sigue bloqueado por gate Fase A; N-07..N-11 diferidos).
 - **Resultado:** ✅ SDKs-Plan00 (0 refs vieja API; nota migración corregida contra test_subclients AST-012) + api-reference (título v0.6.1) + Plan03 (tweets intactos, PROPUESTA intacto) + Roadmap (changelogs a hitos/criterios, v0.6.1 real, v0.5.1 no-publicada, sin ✅ sin release) + Propuesta (MCP 87, Python 48 en Client, skill_extract REAL vs extract_skills PROPUESTA) + Benchmarks (13/13 secciones redactadas, 0 pendientes, links verificados labelstud/Awesome-GraphMemory).
 - **Filas removidas de backlog-notion.md:** N-01, N-02, N-04, N-05, N-06.
+
+### Pipeline RUN plan estabilizacion-pendiente (FASE 1+2, 2026-09-24)
+- **Plan:** docs/dev/plans/2026-09-24-estabilizacion-pendiente.md (EST-01..12).
+- **Ejecutado:** EST-01 pin setup-python v7.0.0 + EST-02 ollama tests a Client/memory.* + EST-04 GOTOOLCHAIN go1.27.0 + lurkr skip sin .opencode + EST-03 ci-gate head-SHA (aprobado owner) + EST-06 dismiss #110 + EST-07 dismiss 82 test-log + EST-08 SARIF 404/time-box + EST-11 veredicto (release-npm-node.yml tags node-v*, OIDC).
+- **Resultado:** code-scanning 83 OPEN -> 0; commits bcd62115 + 5128c2bc + 9705b434.
+- **Pendiente:** EST-05 (verde en proximo run PR), EST-09 post-merge, EST-10 barrido, EST-12 puertas owner.
+- **Nota:** commit bcd62115 arrastro plan ajeno api-estandarizacion.md (paralelo, se deja intacto); su task API-STD-01.md queda untracked ajeno.
