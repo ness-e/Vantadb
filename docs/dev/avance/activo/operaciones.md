@@ -350,3 +350,9 @@ aliases: []
 - **Objetivo:** checklist + plantilla usuario-01 + README honesto (desbloqueador del anuncio, ejecución humana owner-side).
 - **Resultado:** `docs/FASE-A.md` (checklist 5 familias + usuario-01 + auditoría README + handoff); coverage 0 gaps; P2-01 lead-docs approve (verificación abajo).
 - **Commit:** 0a33a73e
+
+### Notion N-01/N-02/N-04/N-05/N-06 (sincronización con código 0.6.1)
+- **Fecha:** 2026-09-24
+- **Objetivo:** backlog-notion N-01/02/04/05/06 aprobados por owner (N-03 sigue bloqueado por gate Fase A; N-07..N-11 diferidos).
+- **Resultado:** ✅ SDKs-Plan00 (0 refs vieja API; nota migración corregida contra test_subclients AST-012) + api-reference (título v0.6.1) + Plan03 (tweets intactos, PROPUESTA intacto) + Roadmap (changelogs a hitos/criterios, v0.6.1 real, v0.5.1 no-publicada, sin ✅ sin release) + Propuesta (MCP 87, Python 48 en Client, skill_extract REAL vs extract_skills PROPUESTA) + Benchmarks (13/13 secciones redactadas, 0 pendientes, links verificados labelstud/Awesome-GraphMemory).
+- **Filas removidas de backlog-notion.md:** N-01, N-02, N-04, N-05, N-06.

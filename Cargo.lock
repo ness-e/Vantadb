@@ -6675,7 +6675,6 @@ dependencies = [
  "axum",
  "axum-server",
  "chrono",
- "clap",
  "console",
  "fs2",
  "futures",

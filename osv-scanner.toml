@@ -1,0 +1,39 @@
+# OSV-Scanner config (FIND-150) — suppls `cargo audit` in CI (ci-rust.yml job `osv`).
+# Licenses stay in `deny.toml`; this file only triages vulnerability IDs.
+# Mirror of deny.toml [advisories] + .cargo/audit.toml triage: every ignore
+# here MUST have owner + expiry + tracked-reference, same as deny.toml.
+# Config applies to the colocated ./Cargo.lock (does not propagate to
+# desktop/src-tauri, fuzz/, providers/*, vantadb-node/ — separate lockfiles).
+
+# RUSTSEC-2023-0089: atomic-polyfill unmaintained (transitive postcard->heapless).
+# Owner: vanta-lead | Tracked: postcard 2.0 -> heapless 0.9 + portable-atomic.
+[[IgnoredVulns]]
+id = "RUSTSEC-2023-0089"
+ignoreUntil = "2027-01-01T00:00:00Z"
+reason = "Mirror of deny.toml triage: transitive only, no own-code use; tracked postcard 2.0 migration. Owner: vanta-lead."
+
+# RUSTSEC-2023-0071: rsa Marvin Attack (transitive via jsonwebtoken 11).
+# AST-007: VantaDB pins Algorithm::HS256 (src/server/jwt.rs) + HMAC keys only.
+[[IgnoredVulns]]
+id = "RUSTSEC-2023-0071"
+ignoreUntil = "2027-01-01T00:00:00Z"
+reason = "Mirror of deny.toml triage (AST-007): no RSA private-key op reachable; advisory states no safe upgrade. Owner: vanta-lead."
+
+# RUSTSEC-2024-0436: paste unmaintained (transitive tikv-jemalloc-ctl, build-time
+# proc macro only). Mirror of .cargo/audit.toml triage. Owner: vanta-lead.
+[[IgnoredVulns]]
+id = "RUSTSEC-2024-0436"
+ignoreUntil = "2027-01-01T00:00:00Z"
+reason = "Mirror of audit.toml triage: build-time only, no runtime impact. Tracked: tikv/jemalloc-ctl#60. Owner: vanta-lead."
+
+# RUSTSEC-2026-0253: lru 0.16.4 (transitive via tantivy 0.26.x; direct dep is
+# already 0.18.4 >= patched 0.18.2). Bump blocked by tantivy upstream pin.
+# Mirror of deny.toml comment triage. Owner: vanta-lead.
+[[IgnoredVulns]]
+id = "RUSTSEC-2026-0253"
+ignoreUntil = "2027-01-01T00:00:00Z"
+reason = "Mirror of deny.toml triage: transitive via tantivy only; direct lru 0.18.4 patched. Revisit on tantivy bump. Owner: vanta-lead."
+
+# NOTE: RUSTSEC-2024-0429 (glib, desktop-lock only) is intentionally NOT listed:
+# this config applies to ./Cargo.lock only (no propagation) and the root lock
+# has 0 glib hits (see audit.toml VULN-C1). An unused ignore would be noise.

@@ -37,6 +37,8 @@ jobs:
             "MSRV Check (1.94.1)"
             "Experimental Crates Check"
             "Security Audit"
+            "OSV-Scanner"
+            "Unused Deps (cargo-machete)"
             "Miri (UB Detection)"
             "Dependency Policy Check"
             "Analyze"
