@@ -180,3 +180,8 @@ aliases: []
 - **Objetivo:** 4 seeds mínimos (59B, resto por cache) + upload corpus/crashes en `fuzz-40.yml` + doc fuzz-pr aditiva; ci-gate existente intacto.
 - **Resultado:** ✅ `cargo check --bins` 0 + actionlint 0 + diff-check + review approve.
 - **Commit:** e3260652
+### FIND-149: Harness L7 SAST versionado (semgrep + MCP + ast-grep)
+- **Fecha:** 2026-09-24
+- **Objetivo:** checks SAST versionados en L7 (unwrap/unsafe/expect) + MCP semgrep, warn-first
+- **Resultado:** ✅ gate exit 0 + negativa 3+2 (falla->fix->pasa) + dictamen con output real (1515 warnings semgrep + 14 ast-grep; residual -> FIND-152)
+- **Commit:** 53186ca5 (host) + 36f6e1b (configOpencode)
