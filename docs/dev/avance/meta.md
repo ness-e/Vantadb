@@ -328,3 +328,9 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
 
 ## Archivo plan 2026-09-19-publicacion (2026-09-19)
 - **Plan:** docs/dev/plans/archive/2026-09-19-publicacion.md - EXE-03-prep kit Fase A + P2-01 lead-docs approve. Deuda: ejecución humana del gate (owner-side).
+
+## Arco docs/user-dev + tooling (2026-09-23/24)
+- **Plan:** estabilizacion-total Fase 1 C-02/C-06/C-10/R-05 + #1-#16 docs/tooling (16 frentes, subagentes caidos por gate provider, ejecucion directa lead).
+- **Retrospectiva:** Start: verificacion mecanica tras cada bulk (auditor Test-Path + lint). Stop: scripts bulk sin prueba en vacio (doble-prefijo, norm-path [0..-1], oldDir heuristic). Continue: bulk idempotente + diff-review antes de commit + scripts en TEMP con nombre unico.
+- **Accion medible:** todo bulk de rewrite lleva auditoria de resolucion + conteo antes/después; prohibido commitear con conteo sin explicar.
+

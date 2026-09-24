@@ -447,3 +447,9 @@ aliases: []
 - **Objetivo:** Semver Checks rojo (develop vs crates.io 0.5.0) — HACERLO PASAR con triage, no con revert ciego.
 - **Resultado:** 21 cats/~100 ítems, 0 accidentales; ADR-044 sin-revert; verde real solo con bump 0.6.0 vía release-plz en main (rojo-en-develop bendecido por scope main-only); P2-01 approve.
 - **Commit:** 30b6a1f2/ab3eb373 (rebase de 3c4f146c/6afbe06e)
+
+### C-06 fast/heavy + otel quartet
+- **Fecha:** 2026-09-23
+- **Objetivo:** sacar bench FULL del path de PR; resolver skew otel 0.33.
+- **Resultado:** ✅ heavy-bench-nightly sin trigger PR; otel trio + tracing-opentelemetry 0.34 atomicos (rustdoc verde).
+- **Commit:** e0f79a85 + 18b7352b
