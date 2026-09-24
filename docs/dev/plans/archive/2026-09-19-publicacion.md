@@ -121,7 +121,7 @@ Todo sub-agente, antes de codificar, carga y cita en su task file:
 ### Wave2 — release + humanos (disjuntos: packaging · kit-docs)
 
 **Task 5: PROV-12 — publicar wheels PyPI (con Gate V del owner)**
-- **Appetite:** 2d · **Esfuerzo:** 🟡 · **Prioridad:** 🔴 Alta · **Archivos clave:** `vantadb-python/pyproject.toml`, maturin, workflow release nuevo, `docs/user/operations/CI_POLICY.md` (lectura)
+- **Appetite:** 2d · **Esfuerzo:** 🟡 · **Prioridad:** 🔴 Alta · **Archivos clave:** `vantadb-python/pyproject.toml`, maturin, workflow release nuevo, `docs/dev/operations/CI_POLICY.md` (lectura)
 - **Verificación real:** 🟡 VERIFICAR en DISCOVERY — pyproject + maturin existen; falta CI multiplataforma + secrets; prereqs PROV-01/02/04 (verificar estado: si faltan → esta task se re-triagea, no se ejecuta a ciegas).
 - **Gate Justificación:** sin `pip install` el claim de instalación es falso; es el desbloqueador técnico del anuncio.
 - **Contrato:** `TestPyPI` primero (recomendado) → `pip install` en entorno limpio + smoke `Client` verde; luego PyPI con la misma evidencia; docs con versión instalada == código.

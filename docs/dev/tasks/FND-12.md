@@ -27,7 +27,7 @@
 ## Impacto mapeado (Regla 0)
 
 - **Archivos leídos (completos):** `.opencode/AGENTS.md` (554L — Regla 5 completa en L435-446 con tabla Acción/Formato + nota "Validación web")
-- **Archivos referenciados hacia dentro:** `docs/dev/architecture/adr/` (formato `NNN_titulo_breve.md`, plantilla `docs/_templates/adr.md`) — se mencionan, no se tocan
+- **Archivos referenciados hacia dentro:** `docs/dev/architecture/adr/` (formato `NNN_titulo_breve.md`, plantilla `docs/dev/_templates/adr.md`) — se mencionan, no se tocan
 - **Archivos que referencian a los editados (referencias entrantes):** misma lista que FND-11 (99 matches, ninguno depende del texto exacto de Regla 5)
 - **Veredicto impacto:** bajo — adición de párrafo de refuerzo + ejemplo dentro de Regla 5; no modifica texto existente.
 
@@ -77,4 +77,4 @@ Sin deuda — cambio docs aditivo.
 
 ## Notas
 - El refuerzo se agrega DENTRO de Regla 5 (no nueva regla) — evita colisión con FND-10 (Regla 9) y FND-11 (Regla 10).
-- Ejemplo de formato = tabla Contexto/Decisión/Consecuencias con columna de quién articula, consistente con la plantilla `docs/_templates/adr.md`.
+- Ejemplo de formato = tabla Contexto/Decisión/Consecuencias con columna de quién articula, consistente con la plantilla `docs/dev/_templates/adr.md`.

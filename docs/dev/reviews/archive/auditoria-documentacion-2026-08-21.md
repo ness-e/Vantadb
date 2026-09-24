@@ -61,8 +61,8 @@ El problema está en la capa de **gobernanza documental**: los índices maestros
 | **Vacía** | **TDAM-VANTADB/** | **0 archivos — carpeta muerta** |
 
 Observaciones de inventario:
-- `docs/book/book/` es el **output compilado de mdBook commiteado al repo** (html, css, fonts — ~90 archivos binarios/de build).
-- `docs/archive/` tiene solo 2 archivos, pero múltiples documentos citan contenido "archivado" en rutas inexistentes (ver §3).
+- `docs/user/book/book/` es el **output compilado de mdBook commiteado al repo** (html, css, fonts — ~90 archivos binarios/de build).
+- `docs/dev/archive/` tiene solo 2 archivos, pero múltiples documentos citan contenido "archivado" en rutas inexistentes (ver §3).
 - `.obsidian/` (config de vault personal) commiteado dentro de docs/.
 
 ---
@@ -126,7 +126,7 @@ Sub-agente de verificación independiente; veredicto con evidencia archivo:líne
 | **Investigaciones/ (48+)** vs **research/ (13)** | `research/` nació 2026-08-18 como formato nuevo estructurado (PLAN/NN-RESEARCH/SYNTHESIS) para TDAM y human-facing-db-ui; `Investigaciones/` sigue recibiendo archivos sueltos (ej. `cargo-check-optimizacion.md`, `DESKTOP-01*.md`, `TIR-*.md`). Dos convenciones conviviendo | Declarar `research/` formato canónico para campañas multi-doc y `Investigaciones/` para investigaciones puntuales — **documentar la regla en docs/README.md**, o migrar los 48 a research/ con subcarpetas. Opción lazy: regla escrita > migración masiva |
 | **reviews/ (22)** vs **reports/ (4)** | Funciones realmente distintas (auditorías puntuales vs métricas de pipeline dora/northstar/pipeline-evals) pero nombres indistinguibles. Además, el ex-directorio `audit-reports/` fue disuelto sin actualizar sus 12+ referencias (Backlog ×10, master-index ×1, ROADMAP ×2) | Renombrar conceptualmente en README: reviews/ = auditorías, reports/ = telemetría del pipeline. Crear `docs/audit-reports/REDIRECT.md` de 3 líneas que diga dónde quedó cada reporte archivado, para matar las referencias muertas sin tocar 12 archivos |
 | **strategy/ROADMAP.md vs Backlog** | ROADMAP es histórico con banner honesto, pero repite el contador "~24 abiertos" ya falso | Dejar el banner, borrar el número puntual (apuntar al Backlog sin cifra) |
-| **book/src vs book/book** | `book/book/` (~90 archivos html/css/fonts) es artefacto de build commiteado | Agregar `docs/book/book/` a .gitignore + build en CI; git rm --cached |
+| **book/src vs book/book** | `book/book/` (~90 archivos html/css/fonts) es artefacto de build commiteado | Agregar `docs/user/book/book/` a .gitignore + build en CI; git rm --cached |
 | **TDAM-VANTADB/** | Carpeta vacía | `rmdir` |
 | **blog triplicado** | Posts reales en `docs/user/blog/` (7), stubs redirect en `book/src/blog/`, y master-index afirma que viven en `web/content/blog/` que **no existe** | Corregir la frase de master-index:161; mantener stubs del book como redirects |
 | glosario/ (57) | Correcto y bien indexado | Sin acción |
@@ -174,7 +174,7 @@ Tareas que deberían existir en el Backlog según el estado real y no existen:
 | 🟠 Alta | **IDX-02: Purgar referencias muertas del Backlog** — 10 refs a `docs/audit-reports/*`, `REPORTE_EVALUACION_COMPLETO.md` ×2, 2 reviews inexistentes (líneas 213, 230, 341, 427-431) | Rompen la trazabilidad que el propio Backlog promete |
 | 🟡 Media | **GOV-01: Decisión de taxonomía** — regla escrita avance↔progreso e Investigaciones↔research en docs/README.md; split del monolito progreso/README.md (372 KB) | Costo de mantenimiento creciente |
 | 🟡 Media | **GOV-02: Mover `ADR-026-*` a `adr/`** y actualizar DESKTOP-27 | Convención rota de ADRs |
-| 🟢 Baja | **GOV-03:** gitignore `docs/book/book/` + `rmdir TDAM-VANTADB` + decidir destino de `.obsidian/` | Higiene de repo |
+| 🟢 Baja | **GOV-03:** gitignore `docs/user/book/book/` + `rmdir TDAM-VANTADB` + decidir destino de `.obsidian/` | Higiene de repo |
 | 🟢 Baja | **GOV-04:** corregir fila VS-08 (zustand) y RELEASE-01 (ubicación del gate) | Precisión del registro |
 
 ---
@@ -205,7 +205,7 @@ Tareas que deberían existir en el Backlog según el estado real y no existen:
 
 - Verificación de código realizada por 2 sub-agentes independientes (ses_fd879a81fffeIKTnhazHMz7FW7 enlaces, ses_fd871f506ffeWVlnrKfAtef85m claims) + análisis directo del lead.
 - Muestras no cubiertas: los ~210 items ✅ históricos del Backlog migrados a progreso/BACKLOG_HISTORY.md no fueron re-verificados uno a uno (se verificó una muestra estratificada de 16 claims recientes/pivotes, todos con commit citado). Marcar cualquier conclusión extendida al resto como **no verificado**.
-- `docs/book/`, `tutorials/` y `web/guides|reference|standards` se inventariaron pero su contenido técnico no fue verificado contra API en esta pasada (contexto secundario de gobernanza).
+- `docs/user/book/`, `tutorials/` y `web/guides|reference|standards` se inventariaron pero su contenido técnico no fue verificado contra API en esta pasada (contexto secundario de gobernanza).
 
 ---
 ---

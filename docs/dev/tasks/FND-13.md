@@ -39,11 +39,11 @@ Los claims de performance en READMEs/docs DEBEN citar benchmark reproducible (ar
 
 **Referencias hacia dentro (entrantes):**
 - `.opencode/AGENTS.md` — archivo fuente de reglas; referenciado por docs/plans, VANTADB-OPERATING-MANUAL.md, skills. Agregar una regla no rompe referencias existentes.
-- `README.md` — archivo raíz; link L346 a `docs/benchmarks/BENCHMARK_OPTIMIZATION_2026.md` está ROTO (archivo vive en `docs/benchmarks/docs/`)
+- `README.md` — archivo raíz; link L346 a `docs/user/benchmarks/BENCHMARK_OPTIMIZATION_2026.md` está ROTO (archivo vive en `docs/user/benchmarks/docs/`)
 - `docs/user/operations/BENCHMARKS.md` — referenciado por README.md; no se modifica en esta tarea (solo análisis)
 
 **Referencias hacia afuera (salientes):**
-- README.md L346 → `docs/benchmarks/BENCHMARK_OPTIMIZATION_2026.md` (ROTO, fix 1 línea → `docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md`)
+- README.md L346 → `docs/user/benchmarks/BENCHMARK_OPTIMIZATION_2026.md` (ROTO, fix 1 línea → `docs/user/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md`)
 - README.md L322-328 → `benchmarks/vanta_benchmark_report.json` (en .gitignore, números NO coinciden con el JSON actual)
 
 **Veredicto de impacto:**

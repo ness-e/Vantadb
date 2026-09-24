@@ -93,7 +93,7 @@ Status: ⬆️ uphill = 2 · ⬇️ downhill = 18 steps (resuelto) — WSM-01 de
 
 ### Task 7: STABLE-00 — Checklist y ADR de promoción a `default-members`
 - **Appetite:** max 1d | **Esfuerzo:** 🟢 4h | **Prioridad:** 🔴 Alta
-- **Archivos clave:** `Cargo.toml:636` · `docs/user/operations/CI_POLICY.md` · `docs/dev/architecture/adr/` · `dev-tools/verify.ps1`
+- **Archivos clave:** `Cargo.toml:636` · `docs/dev/operations/CI_POLICY.md` · `docs/dev/architecture/adr/` · `dev-tools/verify.ps1`
 - **Verificación real:** ✅ CÓDIGO-REAL — `default-members = [".","vantadb-python"]` deja server/mcp/wasm fuera, P47 sin ADR
 - **Gate Result:** ✅ DO
 - **Contrato:** `Test-Path ADR-031` True + `Select-String \| [0-9]` 10 rows + `Question to Owner` hit + `grep ADR-031 CI_POLICY` 4 hits + `fmt`/`clippy`/`docs` 0 gaps

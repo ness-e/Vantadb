@@ -327,9 +327,9 @@ Este reporte integra, sin omitir hallazgos, las **tres ramas**: (1) qué debe ha
 11. **Plan file como artefacto vivo.** `docs/dev/plans/<FECHA>-<nombre>.md` (`plan.md`) → "el documento, no la memoria, es la fuente de verdad".
 12. **Clasificación previa del tipo de tarea.** Auto-detección (bug-fix/feature-add/refactor/research) + workflows JSON por tipo → "gates por tipo de trabajo".
 13. **Blast-radius y call paths vía CodeGraph.** `codegraph_explore` con call paths y blast radius en una llamada → MECE/issue trees sin re-lectura masiva.
-14. **RCA multi-técnica documentado.** Skills `systematic-debugging` (296 líneas; Iron Law "NO FIXES WITHOUT ROOT CAUSE"; 4 fases Root Cause→Pattern→Hypothesis→Implementation; Phase 4.5 "3+ fixes fallidos → cuestionar la arquitectura"; tabla de racionalizaciones) y `debugging-and-error-recovery` (bucle STOP→PRESERVE→DIAGNOSE→FIX→GUARD→RESUME + Triage Checklist "Step 1: Reproduce") + `docs/references/bug-workflow.md`. Wireing: RULES.md §10 mapea Bug→systematic-debugging; plan.md Paso 0 exige repro root-cause.
+14. **RCA multi-técnica documentado.** Skills `systematic-debugging` (296 líneas; Iron Law "NO FIXES WITHOUT ROOT CAUSE"; 4 fases Root Cause→Pattern→Hypothesis→Implementation; Phase 4.5 "3+ fixes fallidos → cuestionar la arquitectura"; tabla de racionalizaciones) y `debugging-and-error-recovery` (bucle STOP→PRESERVE→DIAGNOSE→FIX→GUARD→RESUME + Triage Checklist "Step 1: Reproduce") + `docs/dev/references/bug-workflow.md`. Wireing: RULES.md §10 mapea Bug→systematic-debugging; plan.md Paso 0 exige repro root-cause.
 15. **Gate CI real de dos niveles.** Fast gate (<5 min, determinista, offline: fmt, clippy, unit+integration rápido) + Heavy certification (hasta 2 h, manual/scheduled: stress_protocol, SIFT, competitive_bench, chaos_integrity, wal_resilience).
-16. **Postmortem de código en la cultura.** `docs/references/troubleshooting.md` + ADRs del repo.
+16. **Postmortem de código en la cultura.** `docs/dev/references/troubleshooting.md` + ADRs del repo.
 17. **Verificación determinista con `campaign_verify_cmd`.** test automatizable "a voluntad" como pide el repro.
 18. **Cierre explícito (CLOSE) con commit.** `CLOSE` (`state-tools.mjs:50-54`) permite `bash` para commit → "cada tarea se cierra con su commit y su documentación".
 19. **Enforcement de `skill` como tool de estado.** `skill` en `allowed` de PLAN/ACT/REVIEW/ACCEPT/CLOSE → la carga de skills obligatoria tiene acompañamiento de tooling.
@@ -337,7 +337,7 @@ Este reporte integra, sin omitir hallazgos, las **tres ramas**: (1) qué debe ha
 21. (gap-02) **Acceptance Criteria + Criterios de NO + Verification** — DRV-131.md incluye checklist de aceptación invocable, bloques de comandos de verificación (`cargo check`, `cargo test -p vantadb -- ivf`, `cargo clippy -D warnings`) y criterios de NO (no tocar `flat.rs`, no deps externas de clustering, no PQ, no bindings Python/TS/WASM).
 22. (gap-02) **Checks mecánicos por tipo de tarea** — task.md mapea tipo→skill→comando (Rust: `cargo check`, `nextest`, `fmt`, `clippy -D warnings`; Frontend: `npx tsc --noEmit`, `npm run lint`; Python SDK: `pytest -v`; TS SDK: `npx tsc`, `npm test`; Docs: `scripts/validate-docs-coverage`).
 23. (gap-02) **Investigación técnica con formato fijo** — research-agent.md (28 líneas): digest ≤500 palabras + formato obligatorio (Hallazgos clave / Estructura / Riesgos / Referencias con line numbers).
-24. (gap-02) **Documentación de decisiones** — Regla 5: ADR en `docs/dev/architecture/adr/` (plantilla `docs/_templates/adr.md`) o memoria; Doc-Driven Development.
+24. (gap-02) **Documentación de decisiones** — Regla 5: ADR en `docs/dev/architecture/adr/` (plantilla `docs/dev/_templates/adr.md`) o memoria; Doc-Driven Development.
 25. (gap-02) **Convenciones de commits y release** — Conventional Commits, release-plz, main solo releases, 0 commits directos a main, Regla 6 (límite de deuda por PR con monedas P2).
 26. (gap-02) **Skills de ingeniería instaladas** — 32 skills en `.opencode/skills/` cubren todo el lifecycle con factory mapping (DEFINE/PLAN/BUILD/VERIFY/REVIEW/SHIP/META).
 27. (gap-02) **Ritual de inicio/fin de sesión** — cargar `progreso`, `git status`, `git log`; al finalizar migra completadas a `docs/progreso/` y elimina la fila de Backlog.md.
@@ -448,7 +448,7 @@ Este reporte integra, sin omitir hallazgos, las **tres ramas**: (1) qué debe ha
 **P0 — URGENTE (hacer ya):**
 | ID | Mejora | Fuente | Esfuerzo | Dónde |
 |----|--------|--------|----------|-------|
-| **P0-1** | **Harness de evals del pipeline**: log por tarea (tipo, intentos, veredicto de verify, resultado) → comparación contra North Star de `RULES.md`; salida a `docs/reports/` (habilita todas las métricas posteriores) | gap-01 | 🟡 2-4 h | nuevo `evals/` + `campaign-server.mjs` + `pipeline-run.md` |
+| **P0-1** | **Harness de evals del pipeline**: log por tarea (tipo, intentos, veredicto de verify, resultado) → comparación contra North Star de `RULES.md`; salida a `docs/dev/reports/` (habilita todas las métricas posteriores) | gap-01 | 🟡 2-4 h | nuevo `evals/` + `campaign-server.mjs` + `pipeline-run.md` |
 | **P0-2** | **Fuente única de estados**: generar prose (`iter-loop-tools.md`) y diagram (`SKILL.md`) desde `state-tools.mjs`, o test de paridad que falle si divergen. Mata la divergencia real (STALL) | gap-01 | 🟡 2-4 h | `config/state-tools.mjs` + test |
 | **P0-3** | **Unificar el skill de debugging** (elegir canónico, recomendado `systematic-debugging`, o fusionar) y que el otro delegue/se deprecie; actualizar las **21 referencias** a UN nombre | gap-02 | 🟢 ~1-2 h | AGENTS.md, RULES.md, prompts/, manual |
 | **P0-4** | **Documentar casos no cubiertos de Path Resolution**: `tasks/ID.md` puede estar en `tasks/complete/` o `tasks/closed/`; `skills/X` busca en `.opencode/skills/` Y `.agents/skills/` Y `~/.agents/skills/` | gap-02 | 🟢 15 min | AGENTS.md tabla Path Resolution |
@@ -479,7 +479,7 @@ Este reporte integra, sin omitir hallazgos, las **tres ramas**: (1) qué debe ha
 **P3 — NICE-TO-HAVE (impacto bajo-medio):**
 | ID | Mejora | Fuente | Esfuerzo | Dónde |
 |----|--------|--------|----------|-------|
-| P3-1 | Métricas DORA por entrega de agente: lead time del slice, rework (reabiertos), recovery | gap-01 | 🟡 2-4 h | `progreso` + `docs/reports/INDEX.md` |
+| P3-1 | Métricas DORA por entrega de agente: lead time del slice, rework (reabiertos), recovery | gap-01 | 🟡 2-4 h | `progreso` + `docs/dev/reports/INDEX.md` |
 | P3-2 | Estimación relativa calibrada con histórico: guardar esfuerzo real por tipo; effort vs real | gap-01/gap-02 | 🟡 2-4 h | `campaign_detect_task_type` + memoria |
 | P3-3 | Gate de calidad de tests (mutation score ≥70%, cobertura ≥80%) en tareas de lógica | gap-01 | 🔴 4-8 h | `verify.ps1` |
 | P3-4 | Contraste de decisión con validation web antes de `campaign_memory_write(decisions)` | gap-01 | 🟢 1 h | `campaign-server.mjs` / `AGENTS.md` |

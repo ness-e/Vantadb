@@ -7,14 +7,14 @@
 Investigar si la API expuesta de `vantadb-python` y `vantadb-ts` es idiomática de cada
 lenguaje (context managers, type hints modernos, async nativo, tipos discriminados) o
 un reflejo 1:1 del core Rust. Entregable: lista de gaps (archivo:línea) + prototipo de
-1 método idiomático por SDK en `docs/examples/`. NO rewrite.
+1 método idiomático por SDK en `docs/user/examples/`. NO rewrite.
 
 ## Archivos clave
 
 - `vantadb-python/src/lib.rs`, `vantadb-python/src/types.rs` (PyO3)
 - `vantadb-python/vantadb_py/vantadb_py.pyi`, `vantadb-python/vantadb_py/__init__.pyi`, `vantadb-python/vantadb_py/__init__.py`
 - `vantadb-ts/src/vantadb.ts`, `vantadb-ts/src/native.ts`, `vantadb-ts/src/types.ts`, `vantadb-ts/src/errors.ts`
-- Entregables: `docs/Investigaciones/FND-05-sdk-idiomatico.md` + prototipos en `docs/examples/`
+- Entregables: `docs/Investigaciones/FND-05-sdk-idiomatico.md` + prototipos en `docs/user/examples/`
 
 ## Impacto mapeado (Regla 0)
 
@@ -32,7 +32,7 @@ dependencias de código.
 **Veredicto:** NO se modifica el SDK real (`vantadb-python/src`, `vantadb-ts/src`)
 ni ningún archivo existente. Solo se crean 4 archivos nuevos (task file, análisis,
 2 prototipos). Impacto nulo sobre runtime/build/tests. Contrato de la tarea:
-análisis con gaps citados + ≥1 prototipo idiomático en `docs/examples/`.
+análisis con gaps citados + ≥1 prototipo idiomático en `docs/user/examples/`.
 
 ## Steps
 
@@ -55,19 +55,19 @@ análisis con gaps citados + ≥1 prototipo idiomático en `docs/examples/`.
 - [x] Escribir `docs/Investigaciones/FND-05-sdk-idiomatico.md`
 
 ### STEP 3 — PROTOTIPOS — ✅
-- [x] `docs/examples/fnd05_python_context_manager.py` — `with VantaDB(path) as db:` (wrapper que agrega `__enter__/__exit__` → close)
-- [x] `docs/examples/fnd05_ts_async_dispose.ts` — `await using db = await connectDisposable()` (wrapper `AsyncDisposable`)
+- [x] `docs/user/examples/fnd05_python_context_manager.py` — `with VantaDB(path) as db:` (wrapper que agrega `__enter__/__exit__` → close)
+- [x] `docs/user/examples/fnd05_ts_async_dispose.ts` — `await using db = await connectDisposable()` (wrapper `AsyncDisposable`)
 
 ### STEP 4 — VERIFY + CIERRE — ✅
 - [x] Verificar contrato mecánico: análisis existe + gaps citados + ≥1 prototipo
 - [x] `python -m py_compile` del prototipo Python → `PY_SYNTAX_OK`
-- [x] `npx tsc --noEmit` NO aplica (prototipo en docs/examples/ no compilado por tsconfig include src/**) — sintaxis TS verificada manualmente (archivo de referencia, no se compila con el SDK)
+- [x] `npx tsc --noEmit` NO aplica (prototipo en docs/user/examples/ no compilado por tsconfig include src/**) — sintaxis TS verificada manualmente (archivo de referencia, no se compila con el SDK)
 - [x] Devolver bloque RESULTADO (✅ COMPLETO, 4/4 steps)
 
 ## Contract (verify mecánico)
 
 - [ ] `docs/Investigaciones/FND-05-sdk-idiomatico.md` existe con gaps citados archivo:línea
-- [ ] ≥1 prototipo idiomático en `docs/examples/` (python o ts)
+- [ ] ≥1 prototipo idiomático en `docs/user/examples/` (python o ts)
 - [ ] SDK real NO modificado (git status: solo archivos nuevos)
 - [ ] NO git add/commit (lead commitea)
 - [ ] Task file FND-05.md creado

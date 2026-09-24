@@ -52,4 +52,4 @@ Adopt **Open Core**, decision D1/D2/D3/D4 (2026-08-06):
     from the core) — slower to land.
   - Need discipline to keep Pro OUT of the workspace and deny.toml.
 - Gatekeeping rules captured in `.opencode/rules/open-core-licensing.md`; plan:
-  `docs/dev/plans/2026-08-06-oc-vantadb-pro.md`; feature map: `docs/strategy/VANTADB-PRO-FEATURES.md`.
+  `docs/dev/plans/2026-08-06-oc-vantadb-pro.md`; feature map: `docs/dev/strategy/VANTADB-PRO-FEATURES.md`.

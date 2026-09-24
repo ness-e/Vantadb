@@ -18,7 +18,7 @@ related: []
 |--------|----------|
 | `eng-02-systems.md:209-214` (§4.2 Incident response SRE) | "Mitigation — restaurar servicio PRIMERO (rollback, feature-flag off, scale-out). El debugging en caliente daña la experiencia: debuggear *después* de mitigar." Principio: **mitigar primero, root-cause después**. |
 | `eng-02-systems.md:397-400` (§10 Fase 0 — Contención) | "Solo si hay impacto en producción: mitigar primero (rollback, feature flag off, restart, scale-out). No debuggear en caliente. Registrar el incidente. Entrar al protocolo solo cuando el sistema esté estable." |
-| `docs/references/bug-workflow.md` (76L, completo) | **NO tiene fase de contención.** Fase 0 = Diagnosticar; Fase 1 = Aislar Causa Raíz; Fase 2 = Fix; Fase 3 = Commit. Un agente ante un build roto empieza debuggeando. |
+| `docs/dev/references/bug-workflow.md` (76L, completo) | **NO tiene fase de contención.** Fase 0 = Diagnosticar; Fase 1 = Aislar Causa Raíz; Fase 2 = Fix; Fase 3 = Commit. Un agente ante un build roto empieza debuggeando. |
 | `RULES.md:204-219` (§10b Iron Law) | No fixes sin investigación de causa raíz primero. Exigible, pero **no prescribe estabilizar antes**. |
 | `plan.md` (triage + risk register) | Ya tiene 🔴 BLOQUEADO y stop-conditions/triggers por riesgo — cubre "cuándo parar el plan". |
 | `subagent-recovery.md` (SARL) | Escalera RESUME→RETRY→STRATEGY→ESCALATE para sub-agentes fallidos — cubre recuperación de ejecución. |
@@ -33,13 +33,13 @@ related: []
 
 | Opción | Costo | Riesgo | Veredicto parcial |
 |--------|-------|--------|-------------------|
-| **A. Implementar** — añadir "Fase 0.5 Contención" a `docs/references/bug-workflow.md` (docs, ~10 líneas) | 🟢 mínimo | Bajo: no toca tooling ni state machine; no contradice Iron Law (es un paso ANTES, no lo reemplaza) | ✅ elegida |
+| **A. Implementar** — añadir "Fase 0.5 Contención" a `docs/dev/references/bug-workflow.md` (docs, ~10 líneas) | 🟢 mínimo | Bajo: no toca tooling ni state machine; no contradice Iron Law (es un paso ANTES, no lo reemplaza) | ✅ elegida |
 | **B. WONTFIX (YAGNI)** — "no hay producción, el Iron Law + stop-conditions bastan" | 0 | Medio: un agente con build roto sigue debuggeando en caliente; el reporte ya lo marcó como gap; la fricción para el humano es real | descartada: el caso de uso (build roto en CI/develop) es frecuente y el fix es trivial |
 | **C. Deferir** — esperar a que un incidente real lo demuestre | 0 | Medio: gap conocido no cerrado; el costo de implementar es menor que el de esperar | descartada por mismo motivo que B |
 
 ## 4. Veredicto: **IMPLEMENTAR (docs mínimos)**
 
-Añadir a `docs/references/bug-workflow.md` una **Fase 0.5 — Contención/Estabilización** entre la Fase 0 (Diagnosticar) y la Fase 1 (Aislar Causa Raíz):
+Añadir a `docs/dev/references/bug-workflow.md` una **Fase 0.5 — Contención/Estabilización** entre la Fase 0 (Diagnosticar) y la Fase 1 (Aislar Causa Raíz):
 
 - **Disparador:** el bug rompe el build (`cargo check`/`clippy`/`nextest` falla en masa), rompe CI, o afecta un flujo activo del pipeline (backoff del server, test suite en rojo).
 - **Acción:** estabilizar ANTES de debuggear — revert del último commit sospechoso (`git revert`) o pausar el plan actual y aislar el cambio. Registrar el incidente (qué se rompió, timeline) aunque no haya causa.
@@ -50,7 +50,7 @@ Añadir a `docs/references/bug-workflow.md` una **Fase 0.5 — Contención/Estab
 
 ## 5. Cambio aplicado
 
-- `docs/references/bug-workflow.md`: nueva **Fase 0.5 — Contención/Estabilización** (sección corta antes de Fase 1), documentada con disparador, acción y relación con el Iron Law.
+- `docs/dev/references/bug-workflow.md`: nueva **Fase 0.5 — Contención/Estabilización** (sección corta antes de Fase 1), documentada con disparador, acción y relación con el Iron Law.
 
 ## 6. Revisión P2-01
 

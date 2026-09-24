@@ -95,7 +95,7 @@ Estos hallazgos de los reportes ya fueron implementados por commits posteriores 
 | MCP-34b snapshot_restore ausente | ✅ RESUELTO — tool con confirmación destructiva | `29d21cba`; `tools.rs:477` |
 | vantadb-node engines/os/cpu + README (H-02/H-03) | ✅ RESUELTO | `8056dd5e` |
 | vantadb-ts vitest gate + smoke-pack + async `_native` (TS-02/05/06/07/08) | ✅ RESUELTO | `c141c1ce` |
-| case_studies ficticios (V2.1) | ✅ RESUELTO — archivados con disclaimer | `docs/archive/case-studies-unverified/` |
+| case_studies ficticios (V2.1) | ✅ RESUELTO — archivados con disclaimer | `docs/dev/archive/case-studies-unverified/` |
 | TDAM-VANTADB vacía (GOV-03) | ✅ RESUELTO — eliminada | dir no existe |
 | ADR-026 fuera de adr/ (GOV-02) | ✅ RESUELTO — movido | `docs/dev/architecture/adr/ADR-026-*` |
 | master-index congelado (IDX-01) | ✅ RESUELTO — regenerado 24/08, indexa VANTA_MEMORY/avance/research | `docs/master-index.md` |

@@ -32,7 +32,7 @@
 | `docs/dev/Backlog.md:223` (FIND-26) y `:422` (CORE-02) | filas backlog | FIND-26 → resuelta remove; CORE-02 → nota de que requiere restore desde history |
 | `.opencode/rules/durability.md:3` | scope list incluye `wal_archiver.rs (pitr)` | quitar de la lista |
 | `.opencode/rules/concurrency-async.md:41` | menciona `wal_archiver.rs` en regla std::fs | quitar de la lista |
-| `docs/strategy/VANTADB-PRO-FEATURES.md:19` | pitr candidata Pro `src/lib.rs:142` | marcar removed |
+| `docs/dev/strategy/VANTADB-PRO-FEATURES.md:19` | pitr candidata Pro `src/lib.rs:142` | marcar removed |
 | `docs/user/operations/security/UNSAFE_INVENTORY.md:165` | inventario unwraps de wal_archiver.rs | quitar entrada |
 
 ### Referencias HISTÓRICAS (NO tocar — registros fechados):
@@ -50,5 +50,5 @@
 Tarea COMPLETA pendiente de commit del lead. Archivos tocados:
 - Borrado: `src/wal_archiver.rs`
 - Código: `src/lib.rs`, `Cargo.toml`
-- Docs: `docs/dev/architecture/FEATURES.md`, `docs/user/operations/EXPERIMENTAL_FEATURES.md`, `docs/dev/architecture/adr/ADR-014-pitr.md` (status superseded), `docs/strategy/VANTADB-PRO-FEATURES.md`, `docs/user/operations/security/UNSAFE_INVENTORY.md`, `.opencode/rules/durability.md`, `.opencode/rules/concurrency-async.md`, `docs/dev/Backlog.md` (FIND-26 + CORE-02)
+- Docs: `docs/dev/architecture/FEATURES.md`, `docs/user/operations/EXPERIMENTAL_FEATURES.md`, `docs/dev/architecture/adr/ADR-014-pitr.md` (status superseded), `docs/dev/strategy/VANTADB-PRO-FEATURES.md`, `docs/user/operations/security/UNSAFE_INVENTORY.md`, `.opencode/rules/durability.md`, `.opencode/rules/concurrency-async.md`, `docs/dev/Backlog.md` (FIND-26 + CORE-02)
 

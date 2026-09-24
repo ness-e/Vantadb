@@ -59,7 +59,7 @@ Archivo único de definición formal de tarea en el proyecto.
 | WEB-04 | Storage format versioning | `src/migration.rs` — MigrationEngine, plan_all, migrate_format, check_integrity | ✅ |
 | DRV-121 | CBO optimize_and_compile | `src/planner.rs:195` — 5 tests: scan-only, scan+filter, filter-no-match, identity elimination, sort+limit+project | ✅ |
 | DRV-123 | Auto-embedding on INSERT | `src/llm.rs` EmbeddingProvider, `executor.rs` + `physical_plan.rs` call sites | ✅ |
-| DOC-20 | mdBook docs site | `docs/book/book.toml`, `SUMMARY.md` (8 secciones vs claimed 9 — discrepancia menor) | ✅ |
+| DOC-20 | mdBook docs site | `docs/user/book/book.toml`, `SUMMARY.md` (8 secciones vs claimed 9 — discrepancia menor) | ✅ |
 | VFY-011 | MVCC implementation | `src/storage/engine/ops.rs` — snapshot isolation, concurrent txns, write-write conflict, MVCC GC | ✅ |
 | DRV-122 | IQL JOINs/subqueries | Parser → LogicalPlan → Planner → PhysicalPlan — `FromClause::Join`, `SubqueryCondition`, `PhysicalNestedLoopJoin` | ✅ |
 | DRV-131 | IVF Flat index | `src/index/ivf.rs` (872L), 16 tests, k-means, VecIndex impl, serialization v8 | ✅ |
@@ -152,7 +152,7 @@ Archivo único de definición formal de tarea en el proyecto.
 | **OLD-09** | Bayesian Decay (olvido bayesiano) | ✅ | `src/eviction.rs` — BayesianDecay, Beta-Binomial score, 10 tests |
 | **OLD-10** | Index-free adjacency (sinapsis eléctrica) | ✅ | `UnifiedNode.edges: Vec<Edge>` es index-free adjacency nativa |
 | **OLD-11** | CLI/TUI interactivo | ✅ | `src/tui/` — dashboard, monitor, repl, 3 modos, ratatui + crossterm |
-| **OLD-12** | Pilot Program formal | ✅ | `docs/user/operations/PILOT_PROGRAM.md` — 275L, 9+ secciones |
+| **OLD-12** | Pilot Program formal | ✅ | `docs/dev/operations/PILOT_PROGRAM.md` — 275L, 9+ secciones |
 | **OLD-13** | Explainable ranking | ✅ | `src/sdk/search/debug.rs` — BM25 terms, snippet, phrases, RRF |
 | **OLD-14** | MessageThread / GcWorker | ✅ | `src/agentic/thread.rs`, `src/gc.rs` — CRUD + TTL |
 | **OLD-15** | Euclidean SIMD | ✅ | `src/index/distance.rs` — 3 kernels f32x8 (dot, euclidean, SQ8) |

@@ -78,7 +78,7 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 ### Task 3: GOV-TK9 — Verificar URL `vantadb-examples` del checklist
 
 - **Appetite:** max 1h | **Esfuerzo:** 🟢 15m | **Prioridad:** 🟢 Baja
-- **Archivos clave (TODOS):** `docs/user/operations/pilot-onboarding-checklist.md:51` (`git clone https://github.com/vantadb/vantadb-examples`), `docs/README*`/otros puntos que referencien el repo
+- **Archivos clave (TODOS):** `docs/dev/operations/pilot-onboarding-checklist.md:51` (`git clone https://github.com/vantadb/vantadb-examples`), `docs/README*`/otros puntos que referencien el repo
 - **Verificación real:** ✅ 2026-09-03 — el checklist apunta a `github.com/vantadb/...`; según FIND-17/ADR-030 el owner real es `ness-e/*`; organización `vantadb` inexistente → URL muerta para el piloto
 - **Gate Justificación:** el checklist es documento de venta (pilot enterprise) con un paso que da error
 - **Contrato:** webfetch del actual → si 404: `rg -n "vantadb/vantadb-examples" docs/` == 0 tras fijar (a `ness-e/vantadb-examples` si existe, o marcar `[TODO humano: crear repo]`); si 200: fila se cierra con evidencia
@@ -151,7 +151,7 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 ### Task 8: MKT-18f — Publicar 5 adapters PyPI + PRs upstream
 
 - **Appetite:** max 3d | **Esfuerzo:** 🟡 ~1-2d | **Prioridad:** 🔴 Alta (GTM: checkboxes langchain/llama-index/Mem0/TSK-90/91 rotos con 404)
-- **Archivos clave (TODOS):** `integrations/langchain/`, `integrations/llama-index/`, `integrations/mem0/`, `integrations/crewai/`, `integrations/dspy/` (cada uno: pyproject, README, test import), workflow nuevo `.github/workflows/release-adapters.yml` (o job extra en el de wheels), `docs/api/*` (enlazar), `docs/strategy/REDDIT_POSTS.md` (los claims de adapters hoy dicen 404 implícito — al publicar, corregir)
+- **Archivos clave (TODOS):** `integrations/langchain/`, `integrations/llama-index/`, `integrations/mem0/`, `integrations/crewai/`, `integrations/dspy/` (cada uno: pyproject, README, test import), workflow nuevo `.github/workflows/release-adapters.yml` (o job extra en el de wheels), `docs/api/*` (enlazar), `docs/dev/strategy/REDDIT_POSTS.md` (los claims de adapters hoy dicen 404 implícito — al publicar, corregir)
 - **Verificación real:** ✅ sesión GOV-A5 — código existe en `integrations/` pero 404 en PyPI (verificado live); MKT-18f sigue vigente
 - **Gate Justificación:** "zero-config integrations" es el diferenciador declarado; sin paquetes, el claim es marketing roto (Regla 11)
 - **Contrato:** por cada adapter: `python -m build` exit 0 (wheel+sdist) AND `twine check dist/*` OK AND workflow de release presente con `publish=false` hasta el tag (mismo patrón release-plz); PRs upstream = 5 borradores de PR generados como artefacto local (`docs/dev/plans/artifacts/mkt-18f-prs/`) porque el push es humano
@@ -197,7 +197,7 @@ Justificación de órdenes compartidos: BENCHMARKS.md (RES-07 → … → RES-03
 ### Task 11: RES-15-C — Separar backlog negocio vs técnico
 
 - **Appetite:** max 1d | **Esfuerzo:** 🟢 ~1h | **Prioridad:** 🟢 Baja
-- **Archivos clave (TODOS):** `docs/dev/Backlog.md` (filas negocio identificadas hoy: DISC-* NO — es community ops: decidir en discovery con criterio explícito; firmes: `LEG-01`, `MKT-04`, `CLD-01/02/04`, `BLOG-CTA`, `BIZ-01b`, `PRO-01..06`), `docs/dev/Backlog-negocio.md` (NUEVO), `docs/dev/avance/meta.md` (regla de dos backlogs), cross-ref desde `docs/strategy/ROADMAP.md`
+- **Archivos clave (TODOS):** `docs/dev/Backlog.md` (filas negocio identificadas hoy: DISC-* NO — es community ops: decidir en discovery con criterio explícito; firmes: `LEG-01`, `MKT-04`, `CLD-01/02/04`, `BLOG-CTA`, `BIZ-01b`, `PRO-01..06`), `docs/dev/Backlog-negocio.md` (NUEVO), `docs/dev/avance/meta.md` (regla de dos backlogs), cross-ref desde `docs/dev/strategy/ROADMAP.md`
 - **Verificación real:** ✅ 2026-09-03 — B ya institucionalizada (`research-decide.md:81`→wontfix.md); C no hecha (archivo único, filas humanas-mixtas con técnicas); GOV-TK5 es split del Manual (no duplicar, enlazar)
 - **Gate Justificación:** el backlog único mezcla "abogado/pago/PyPI" con "clippy/wal" y distorsiona cualquier métrica de prioridad (la recomendación de esta sesión quedó contaminada por eso)
 - **Contrato:** `Test-Path docs/dev/Backlog-negocio.md` AND `rg -c "^\| \`?(LEG-01|CLD-0[124]|BIZ-01b|PRO-0[1-6]|MKT-04|BLOG-CTA)" docs/dev/Backlog-negocio.md` ≥11 AND esas filas NO quedan en Backlog.md (`rg "PRO-01" docs/dev/Backlog.md` ==0) AND header de ambos archivos con cross-link + contador coherente con `rg` (regla anti-drift)

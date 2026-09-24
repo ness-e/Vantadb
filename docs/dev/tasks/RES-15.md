@@ -22,7 +22,7 @@
 
 **Decisión documental — BLOG-CTA:** queda TÉCNICO. La fila = fix CTA + metadata + redactar posts 6-7 (markdown escribible por agente en `web/`); sólo la publicación final es humana, lo que aplica a todo contenido y no justifica fila de negocio. (Instrucción de la tarea: "decidir en discovery y documentar".)
 **Quedan en técnico P6:** MKT-18f, MKT-18i, BLOG-CTA. **DISC-03** queda (ICEBOX, no se mueve).
-**Referencias entrantes (pre-mortem #2):** `docs/strategy/ROADMAP.md:14,429` · `docs/strategy/REDDIT_POSTS.md:11` · `docs/strategy/GO_TO_MARKET.md:379,408,409,420` → se actualizan con redirect "→ docs/dev/Backlog-negocio.md". Prosa histórica (`docs/master-index.md:167`, `docs/book/src/case_studies/index.md:4`, archive/snapshots/changelog/memory) se deja intacta: cita el ID, que sigue resolviendo en Backlog-negocio.md.
+**Referencias entrantes (pre-mortem #2):** `docs/dev/strategy/ROADMAP.md:14,429` · `docs/dev/strategy/REDDIT_POSTS.md:11` · `docs/dev/strategy/GO_TO_MARKET.md:379,408,409,420` → se actualizan con redirect "→ docs/dev/Backlog-negocio.md". Prosa histórica (`docs/master-index.md:167`, `docs/user/book/src/case_studies/index.md:4`, archive/snapshots/changelog/memory) se deja intacta: cita el ID, que sigue resolviendo en Backlog-negocio.md.
 **Parser /pipeline (pre-mortem #3):** lee solo `docs/dev/Backlog.md` → documentar en `meta.md` que el triage técnico no ve filas de negocio (deseado: no contaminan métricas de prioridad).
 **GOV-TK5:** split del Manual Estratégico (otro split) — se enlaza desde meta.md, fila intacta.
 **Veredicto:** blast radius = 6 archivos docs, cero código, cero BENCHMARKS. Race Backlog.md: re-leer disco + commitear ya (regla demostrada hoy).

@@ -33,7 +33,7 @@ related: []
 | Archivo | Qué es | Veredicto |
 |---|---|---|
 | `vantadb_local_bench.py` (BENCH-01) | Bench local vía SDK Python PyPI: ingesta PUT + rebuild + BM25/HNSW/híbrido con p50/p95/p99; exporta JSON | ✅ **Bueno.** Zero-dep, progreso con ETA, valida `rebuild_report`. ⚠️ `random.uniform` **sin seed** → dataset distinto por run; reportes no comparables run-a-run. Percentiles `int(n*0.95)` no nearest-rank (tolerable). |
-| `competitive_bench.py` (PERF-03) | VantaDB vs LanceDB vs ChromaDB vs Qdrant vs Milvus (embedded, sin docker): ingest, QPS, p50/p99, recall@10, RSS | ✅ **El mejor asset del directorio.** Header documenta la metodología Y sus trampas (hidden rebuild por InsertMode::Auto dentro del timer de ingesta; baseline pre-regresión no comparable). Warm-up (D3), median-of-3 (D4), seed fija (D2), ground truth exacto recalculado en subsets, normalización cosine correcta. Motores sin cliente se marcan "not measured" en vez de inventar números. Sostiene la tabla honesta de `docs/benchmarks/COMPETITIVE_SDK_BENCH.md` — VantaDB pierde en recall (59% vs Qdrant 100%/Chroma 98%) y se publica tal cual. Reproducible dados deps + red. |
+| `competitive_bench.py` (PERF-03) | VantaDB vs LanceDB vs ChromaDB vs Qdrant vs Milvus (embedded, sin docker): ingest, QPS, p50/p99, recall@10, RSS | ✅ **El mejor asset del directorio.** Header documenta la metodología Y sus trampas (hidden rebuild por InsertMode::Auto dentro del timer de ingesta; baseline pre-regresión no comparable). Warm-up (D3), median-of-3 (D4), seed fija (D2), ground truth exacto recalculado en subsets, normalización cosine correcta. Motores sin cliente se marcan "not measured" en vez de inventar números. Sostiene la tabla honesta de `docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md` — VantaDB pierde en recall (59% vs Qdrant 100%/Chroma 98%) y se publica tal cual. Reproducible dados deps + red. |
 | `batch_vs_sequential_bench.py` | `search_batch()` vs secuencial (amortización FFI + Rayon) + gate INV-008-B (batch de 10 < 3× single) con exit code CI | ✅ **Bueno.** Valida paridad de resultados con asserts antes de cronometrar. Gate CI real. ⚠️ Sin seed tampoco. |
 | `prefetch_comparison.py` (SCALE-01c) | A/B de latencia con/sin prefetch predictivo; actualiza `docs/user/operations/BENCHMARKS.md` | ✅ OK. Mismo patrón que los anteriores. Sin seed. |
 | `wasm_bench.mjs` (MCP-03) | Bench WASM multi-motor (ingesta, latencia, recall vs ground truth JS) | ⚠️ Funcional, pero su output (`wasm_benchmark_results.json`) **no está commiteado** → el reporte MD no es trazable a datos crudos. |
@@ -55,7 +55,7 @@ related: []
 | Archivo | Veredicto |
 |---|---|
 | `WASM_BENCHMARK_REPORT.md` | ⚠️ Matriz de features y bundle sizes útiles, pero **sin números crudos vinculados** (el JSON del bench no está versionado). Claims ("SIMD128 8.75x", "fastest pure vector search") sin trazabilidad desde este repo. Conclusión honesta (reconoce que altor-vec gana en tamaño/velocidad pura). Dato verificable: bundle 1,101 KB raw / ~404 KB gzipped. |
-| Ref. cruzada `docs/benchmarks/COMPETITIVE_SDK_BENCH.md` | ✅ Existe y es coherente: contrato de honestidad explícito, Chroma con solo 1 iteración válida anotada (WinError 32), Milvus medido. Ejemplar post-MKT-18g. |
+| Ref. cruzada `docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md` | ✅ Existe y es coherente: contrato de honestidad explícito, Chroma con solo 1 iteración válida anotada (WinError 32), Milvus medido. Ejemplar post-MKT-18g. |
 
 ---
 

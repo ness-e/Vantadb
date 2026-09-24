@@ -1,7 +1,7 @@
 # COMP-008: Pluggable Index Engine (VecIndex trait)
 
 ## Metadata
-- **Plan file:** `docs/strategy/ROADMAP.md` (Sem 15-16, item 52)
+- **Plan file:** `docs/dev/strategy/ROADMAP.md` (Sem 15-16, item 52)
 - **Fuente:** `docs/dev/Backlog.md` línea 202
 - **Esfuerzo:** 🟡 1-2 sem
 - **Prioridad:** 🟡 Media-Alta

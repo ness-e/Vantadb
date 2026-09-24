@@ -22,12 +22,12 @@ recalibration rule.
 The metrics the SLA needs are already computable by the existing evaluators
 (no new code required):
 
-- `evals/northstar.mjs` (P1-06) → `docs/reports/northstar.md` — first-try
+- `evals/northstar.mjs` (P1-06) → `docs/dev/reports/northstar.md` — first-try
   completion rate, false positives (union of COMPLETED-with-failed-verify,
   verified-then-rerun, budget fails), silent regression (passed→failed).
-- `evals/eval-metrics.mjs` (EVAL-01) → `docs/reports/pipeline-evals.md` —
+- `evals/eval-metrics.mjs` (EVAL-01) → `docs/dev/reports/pipeline-evals.md` —
   same North Star set, plus per-type and skill→first-try correlation.
-- `evals/dora.mjs` (P3-07) → `docs/reports/dora.md` — CFR (failed verify
+- `evals/dora.mjs` (P3-07) → `docs/dev/reports/dora.md` — CFR (failed verify
   invocations / total invocations), lead/cycle time, throughput.
 
 Real telemetry as of 2026-08-11
@@ -117,7 +117,7 @@ systematic-debugging first — matches RULES.md stagnation rules).
 ## Related
 
 - `evals/northstar.mjs`, `evals/eval-metrics.mjs`, `evals/dora.mjs`
-- `docs/reports/northstar.md`, `docs/reports/pipeline-evals.md`, `docs/reports/dora.md`
+- `docs/dev/reports/northstar.md`, `docs/dev/reports/pipeline-evals.md`, `docs/dev/reports/dora.md`
 - `.opencode/task-system/enforcement/verify-log.jsonl`
 - `.opencode/skills/campaign-executor/RULES.md` (North Star: >90% / 0 / 0)
 - `docs/dev/research/2026-08-10-agent-engineering/REPORTE-FINAL.md` gap-01 §3.3-23

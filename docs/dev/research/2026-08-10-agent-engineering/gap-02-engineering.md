@@ -35,7 +35,7 @@ related: []
 
 ## 2. Prácticas que YA captura el sistema (fortalezas)
 
-1. **Debug sistemático en bugs reportados** — `systematic-debugging` es un skill completo (`.agents/skills/systematic-debugging/SKILL.md`, 296 líneas): Iron Law ("NO FIXES WITHOUT ROOT CAUSE"), 4 fases (Root Cause → Pattern → Hypothesis → Implementation), redis de red flags, tabla de racionalizaciones y la regla de "3+ fixes fallidos → cuestionar la arquitectura" (Phase 4.5). Se referencia en RULES.md §10, plan.md (Paso 0, tareas bug), iter-loop-tools.md, pipeline-full.md, audit.md, unified-review. Es la práctica de debug más fuerte disponible. Complementa a `debugging-and-error-recovery` (`.opencode/skills/`) con bucle STOP→PRESERVE→DIAGNOSE→FIX→GUARD→RESUME y `docs/references/bug-workflow.md` para el flujo de reporte.
+1. **Debug sistemático en bugs reportados** — `systematic-debugging` es un skill completo (`.agents/skills/systematic-debugging/SKILL.md`, 296 líneas): Iron Law ("NO FIXES WITHOUT ROOT CAUSE"), 4 fases (Root Cause → Pattern → Hypothesis → Implementation), redis de red flags, tabla de racionalizaciones y la regla de "3+ fixes fallidos → cuestionar la arquitectura" (Phase 4.5). Se referencia en RULES.md §10, plan.md (Paso 0, tareas bug), iter-loop-tools.md, pipeline-full.md, audit.md, unified-review. Es la práctica de debug más fuerte disponible. Complementa a `debugging-and-error-recovery` (`.opencode/skills/`) con bucle STOP→PRESERVE→DIAGNOSE→FIX→GUARD→RESUME y `docs/dev/references/bug-workflow.md` para el flujo de reporte.
 
 2. **Contrato booleano verificable** — invariante central de RULES.md: cada tarea tiene un contrato que se valida con comando mecánico (MCP `campaign_verify_cmd` con expected exit code y timeout) en vez de auto-reporte. Es la práctica más robusta del system: separa la palabra del agente de la evidencia del shell.
 
@@ -50,7 +50,7 @@ related: []
 
 7. **Investigación técnica con formato fijo** — research-agent.md (28 líneas) define el rol de investigación, digest ≤500 palabras, y formato obligatorio (Hallazgos clave / Estructura / Riesgos / Referencias con line numbers). Determina exactamente qué es "investigar bien" sin ambigüedad.
 
-8. **Documentación de decisiones** — Regla 5: ADR en `docs/dev/architecture/adr/` (plantilla `docs/_templates/adr.md`) o memoria del agente (`campaign_memory_write(file="decisions")`). Doc-Driven Development ("docs primero, nunca docs detrás del código"). Esto captura la práctica de eng-03 de memoria de decisiones.
+8. **Documentación de decisiones** — Regla 5: ADR en `docs/dev/architecture/adr/` (plantilla `docs/dev/_templates/adr.md`) o memoria del agente (`campaign_memory_write(file="decisions")`). Doc-Driven Development ("docs primero, nunca docs detrás del código"). Esto captura la práctica de eng-03 de memoria de decisiones.
 
 9. **Convenciones de commits y release** — Conventional Commits obligatorios, release-plz automatiza bump/changelog/tag/publish, main solo releases (PR desde develop), 0 commits directos a main, "nunca tocar versión/changelog/tag manualmente". Regla 6: límite de deuda técnica por PR (saldo neto cero o negativo con monedas P2 conocidas).
 
@@ -239,7 +239,7 @@ Evidencia recopilada en esta sesión (order de acción):
 | Conteo de skills (agreement drifts) (§5.3) | SKILLS-MANIFEST.md vs `Get-ChildItem .opencode/skills` (29 dirs) | SKILLS-MANIFEST.md, AGENTS.md |
 | North Star no medible (§5.4) | RULES.md (rule de tasa completado) | `/status`, plan files |
 | Hooks git sin instalar (§4, §6.3) | `.opencode/skills/unified-review/templates/pre-push.ps1` | git hooks locales |
-| Coverage sin umbral (§3.3) | `docs/user/operations/CI_POLICY.md`, `dev-tools/verify.ps1` | CI Heavy |
+| Coverage sin umbral (§3.3) | `docs/dev/operations/CI_POLICY.md`, `dev-tools/verify.ps1` | CI Heavy |
 
 ## Apéndice D — Veredicto cuantitativo por práctica
 

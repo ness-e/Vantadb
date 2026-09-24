@@ -90,10 +90,10 @@ related: []
 
 **Fuente:** Backlog Phase 9 (Old Docs Rescue) `OLD-12`
 
-**Problema original:** `docs/user/operations/PILOT_PROGRAM.md` existía como spec de 3 secciones, no como programa ejecutable.
+**Problema original:** `docs/dev/operations/PILOT_PROGRAM.md` existía como spec de 3 secciones, no como programa ejecutable.
 
 **Resuelto por (vanta-docs):**
-- `docs/user/operations/PILOT_PROGRAM.md` actualizado de 3→9 secciones: overview, early adopter profile, mutual commitments, timeline 8 semanas con milestones, KPI table (retention/NPS/benchmarks)
+- `docs/dev/operations/PILOT_PROGRAM.md` actualizado de 3→9 secciones: overview, early adopter profile, mutual commitments, timeline 8 semanas con milestones, KPI table (retention/NPS/benchmarks)
 - +3 templates: `pilot-agreement-template.md` (10 secciones, NDA 2 años), `pilot-feedback-template.md` (7 secciones, severity P0-P2, NPS), `pilot-onboarding-checklist.md` (6 fases con verification commands)
 
 **Verificación:** 4/4 archivos OK

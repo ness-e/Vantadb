@@ -34,9 +34,9 @@ Repro local `npx markdownlint-cli2 "docs/**/*.md"`: **70 issues en 12 archivos**
 |---|---|---|---|
 | `docs/api/BINDINGS_NAMESPACES.md` | 2 (:36,:245) | MD028 | línea en blanco entre quotes → `>` |
 | `docs/dev/Backlog.md` | 5 (:239 MD049 ×2, :373,:538,:540 MD028) | MD049/MD028 | `_x_` → `*x*`; blancos → `>` |
-| `docs/benchmarks/ivf_bench.md` | 1 (:17) | MD028 | blanco → `>` |
+| `docs/user/benchmarks/ivf_bench.md` | 1 (:17) | MD028 | blanco → `>` |
 | `docs/dev/research/archive/Investigacion-plan.md` | 4 (:562,:609,:636 MD003 + :4423 MD028) | MD003/MD028 | ⚠️ NO TOCAR (ver decisión) |
-| `docs/strategy/VantaDB_Manual_Estrategico_Unificado.md` | 27 | MD010 tabs | `\t` → espacios |
+| `docs/dev/strategy/VantaDB_Manual_Estrategico_Unificado.md` | 27 | MD010 tabs | `\t` → espacios |
 | `docs/dev/tasks/complete/DRV-122.md` | 3 (:9-11) | MD007 | indent 2 → 0 |
 | `docs/dev/tasks/complete/OLD-20.md` | 4 (:39-42) | MD007 | indent 2 → 0 |
 | `docs/dev/tasks/CORE-01.md` | 9 (:119-120,:130-131 MD005+MD007, :122 MD023) | MD005/MD007/MD023 | indent 1 → 0; ` ###` → `###` |
@@ -48,7 +48,7 @@ Repro local `npx markdownlint-cli2 "docs/**/*.md"`: **70 issues en 12 archivos**
 
 **Hallazgo vs plan:** el plan decía "Frontmatter exige `title:` en los 1473 `docs/**/*.md` (falla estructural)". El workflow (`gate-docs-21.yml:44-53`) solo exige `title:` en archivos **que ya tienen frontmatter** (empiezan con `---`). Conteo real sobre 1626 md: **1 solo archivo** con frontmatter sin `title:` (`AUD-033.md`). No hay falla estructural masiva.
 
-**Evidencia MD003 Investigacion-plan.md (archive, 5115 líneas):** slice aislado líneas 536-650 → 0 issues; prefix 1-559 → 0 issues; archivo completo → MD003 en :562/:609/:636. El flag depende de parser-state global (las 3 líneas son `name: ...` dentro de fences ```` ``` ```` de templates que GitHub renderiza como código). "Arreglarlo" como setext→atx cambiaría contenido renderizado. Pre-mortem del plan lo anticipó (churn/contenido). **Decisión: NO tocar el archivo; acotar scope del workflow** añadiendo `docs/dev/research/archive/**` a `ignores` de `.markdownlint-cli2.yaml`, con el mismo precedente ya escrito en ese archivo (`docs/archive/**` "Frozen history is never linted"). Formato-cero-riesgo, 1 línea config.
+**Evidencia MD003 Investigacion-plan.md (archive, 5115 líneas):** slice aislado líneas 536-650 → 0 issues; prefix 1-559 → 0 issues; archivo completo → MD003 en :562/:609/:636. El flag depende de parser-state global (las 3 líneas son `name: ...` dentro de fences ```` ``` ```` de templates que GitHub renderiza como código). "Arreglarlo" como setext→atx cambiaría contenido renderizado. Pre-mortem del plan lo anticipó (churn/contenido). **Decisión: NO tocar el archivo; acotar scope del workflow** añadiendo `docs/dev/research/archive/**` a `ignores` de `.markdownlint-cli2.yaml`, con el mismo precedente ya escrito en ese archivo (`docs/dev/archive/**` "Frozen history is never linted"). Formato-cero-riesgo, 1 línea config.
 
 **Decisión scope (conteo):** limpieza directa 11 archivos (66 issues formato-only seguros) + 1 frontmatter + acote mínimo 1 línea config para el archivo archive. Sin necesidad de decisión del owner más allá de la ya dada (Gate P aprueba arreglar; el acote sigue el precedente existente del repo).
 

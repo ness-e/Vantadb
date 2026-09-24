@@ -23,17 +23,17 @@ VantaDB es una base de datos vectorial Rust embebida (WAL + HNSW + BM25 + RRF) c
 | Fuente | Qué aporta | Tipo |
 |---|---|---|
 | `README.md:34` | Claim de posicionamiento: "AI agents, local RAG pipelines, and edge applications" | Hipótesis (creator) |
-| `docs/vision/VISION.md:50-108` | ICP primario/secundario/terciario + pains citados | Hipótesis (creator) |
-| `docs/strategy/GO_TO_MARKET.md:140-191` | 3 verticales GTM (Local LLM Stack, Agentic Frameworks, AI-IDE) | Hipótesis (creator) |
-| `docs/strategy/SHOW_HN_PREP.md:23-34` | Audiencia objetivo + pains de alternativas (SQLite+vec, cloud VDB, in-memory) | Hipótesis (creator) |
-| `docs/user/operations/PILOT_PROGRAM.md:34-61` | Early adopter profile (durability, compilation, latency, local-first) | Hipótesis (creator) |
+| `docs/dev/vision/VISION.md:50-108` | ICP primario/secundario/terciario + pains citados | Hipótesis (creator) |
+| `docs/dev/strategy/GO_TO_MARKET.md:140-191` | 3 verticales GTM (Local LLM Stack, Agentic Frameworks, AI-IDE) | Hipótesis (creator) |
+| `docs/dev/strategy/SHOW_HN_PREP.md:23-34` | Audiencia objetivo + pains de alternativas (SQLite+vec, cloud VDB, in-memory) | Hipótesis (creator) |
+| `docs/dev/operations/PILOT_PROGRAM.md:34-61` | Early adopter profile (durability, compilation, latency, local-first) | Hipótesis (creator) |
 | `docs/Investigaciones/investigacion-equipo-2026-08-09.md:119-124` | 2 stars, 0 forks, 32 descargas, 0 dependents | **Evidencia dura de NO adopción** |
 | `VantaDB_Manual_Estrategico_Unificado.md:1043` | "NADIE ha encontrado tu proyecto orgánicamente" | Evidencia dura de NO adopción |
 | `.github/ISSUE_TEMPLATE/*.yml` | Perfil implícito del reportador (Python/CLI/server, OS) | Hipótesis (estructura) |
 
 ## Impacto mapeado (Regla 0)
 
-- **Archivos leídos completos:** README.md (403L), docs/vision/VISION.md (242L), docs/strategy/GO_TO_MARKET.md (463L), docs/strategy/SHOW_HN_PREP.md (185L), docs/strategy/REDDIT_POSTS.md (105L), docs/user/operations/PILOT_PROGRAM.md (275L), docs/Investigaciones/investigacion-equipo-2026-08-09.md, VantaDB_Manual_Estrategico_Unificado.md (grep), CONTRIBUTING.md (286L), .github/ISSUE_TEMPLATE/*.yml, docs/dev/plans/2026-08-16-wave-p20-tsys.md, docs/dev/Backlog.md:500-518.
+- **Archivos leídos completos:** README.md (403L), docs/dev/vision/VISION.md (242L), docs/dev/strategy/GO_TO_MARKET.md (463L), docs/dev/strategy/SHOW_HN_PREP.md (185L), docs/dev/strategy/REDDIT_POSTS.md (105L), docs/dev/operations/PILOT_PROGRAM.md (275L), docs/Investigaciones/investigacion-equipo-2026-08-09.md, VantaDB_Manual_Estrategico_Unificado.md (grep), CONTRIBUTING.md (286L), .github/ISSUE_TEMPLATE/*.yml, docs/dev/plans/2026-08-16-wave-p20-tsys.md, docs/dev/Backlog.md:500-518.
 - **Referencias hacia dentro (del nuevo doc):** ninguno — `docs/Investigaciones/FND-24-icp-jtbd.md` es hoja de investigación (patrón FND-02/13/16 existentes).
 - **Referencias entrantes:** solo `docs/dev/Backlog.md:518` (NO se toca, lo actualiza el lead) y este task file.
 - **Veredicto:** crear 1 doc nuevo en `docs/Investigaciones/` + task file. Sin riesgo de impacto en código.

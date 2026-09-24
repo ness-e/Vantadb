@@ -47,7 +47,7 @@ vantadb::config::VantaConfig` ×3 providers). El fix real es migrar imports (pas
   `verify_pyi.py` chequea firmas `.pyi` — los renombres son solo Rust-interno, firmas Python intactas.
 - PRs dependabot abiertos #162-180 + #183 (ver `gh pr list`); #180 `sharp+next` (MERGEABLE/BLOCKED)
   cubre alertas 35/34/33/31/18; #183 `rust-patch group` (7 updates, incluye lru low #1).
-- `docs/user/operations/CI_POLICY.md` (26 workflows; wheels §9 ya documenta skip smoke aarch64;
+- `docs/dev/operations/CI_POLICY.md` (26 workflows; wheels §9 ya documenta skip smoke aarch64;
   releases solo tag).
 - 20 alertas Dependabot abiertas (ver `gh api .../dependabot/alerts`): 19 npm/web+ts, 1 Rust low (lru).
 

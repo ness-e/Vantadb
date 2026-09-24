@@ -173,7 +173,7 @@ last-synced: 2026-09-02T20:30
 #### GOV-A2 — Reconciliar cifras tests
 - **Descripción:** registrar run audit canónico (2034/2034/1 skip @2026-08-22, fecha+perfil) y contextualizar citas 2568+/1902/1492
 - **Archivos clave:** `docs/TEST_MAP.md`, `docs/dev/reviews/*`
-- **Archivos clave (expandido):** `docs/reports/dora.md`, `evals/dora.mjs`, `Cargo.toml`, `.codegraph/codegraph.db`, `scripts/validate-docs-coverage.ps1`, `.config/nextest.toml`
+- **Archivos clave (expandido):** `docs/dev/reports/dora.md`, `evals/dora.mjs`, `Cargo.toml`, `.codegraph/codegraph.db`, `scripts/validate-docs-coverage.ps1`, `.config/nextest.toml`
 - **Gate Justificación:** 3 cifras sin fuente única; auditoría intake
 - **Contrato:** `Select-String -Path "docs/TEST_MAP.md" -Pattern "2034.*2026-08" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-A2.md`
@@ -183,7 +183,7 @@ last-synced: 2026-09-02T20:30
 === RECITATION ===
 Objetivo activo: GOV-A2 — Reconciliar cifras tests (docs/reports, coverage, nextest)
 Estado: completed (desde: pending)
-Última acción: DISCOVERY docs/reports/dora.md+evals/dora.mjs+Cargo.toml+.codegraph+validate-scripts+nextest.toml+TEST_MAP+manifest grep → EJECUCIÓN verify Select-String 2034*2026-08 + coverage + nextest list 2074 + validate-docs 6/6 → CIERRE task file GOV-A2.md + plan sync
+Última acción: DISCOVERY docs/dev/reports/dora.md+evals/dora.mjs+Cargo.toml+.codegraph+validate-scripts+nextest.toml+TEST_MAP+manifest grep → EJECUCIÓN verify Select-String 2034*2026-08 + coverage + nextest list 2074 + validate-docs 6/6 → CIERRE task file GOV-A2.md + plan sync
 Resultado: ✅
 State: COMPLETED (desde: PENDING)
 Próxima acción: GOV-A3 Wave1 paralelo (no bloquear A4/A5, MAX 3, disjoint)
@@ -230,9 +230,9 @@ last-synced: 2026-09-02T21:30
 
 #### GOV-A5 — Registros live crates.io/npm/PyPI
 - **Descripción:** captura JSON/HTML respuestas registries; actualizar filas RELEASE-02/MKT-18h con estado verificado 0.5.0 live 2026-08-01 + wheels ARM64 ausentes
-- **Archivos clave:** `docs/reports/GOV-A5-registros-live.md`, `docs/reports/dora.md`, `.opencode/task-system/enforcement/verify-log.jsonl`, `evals/dora.mjs`, `Cargo.toml` 0.5.0
+- **Archivos clave:** `docs/dev/reports/GOV-A5-registros-live.md`, `docs/dev/reports/dora.md`, `.opencode/task-system/enforcement/verify-log.jsonl`, `evals/dora.mjs`, `Cargo.toml` 0.5.0
 - **Gate Justificación:** MKT-18h/18f gaps sin verificación live — registries 0.5.0 live 2026-08-01 ya verificado plan:10, wheels ARM64 gap documentado ponytail sin inflar
-- **Contrato:** `Select-String -Path "docs/reports/*" -Pattern "registros live" | Measure-Object Count` >=1 AND `cargo check -p vantadb` exit 0 — extendido: 3 captures timestamped crates.io/PyPI/npm en `docs/reports/GOV-A5-registros-live.md`
+- **Contrato:** `Select-String -Path "docs/dev/reports/*" -Pattern "registros live" | Measure-Object Count` >=1 AND `cargo check -p vantadb` exit 0 — extendido: 3 captures timestamped crates.io/PyPI/npm en `docs/dev/reports/GOV-A5-registros-live.md`
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-A5.md`
 - **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T22:30
@@ -244,9 +244,9 @@ Estado: completed (desde: pending)
 Resultado: ✅
 State: COMPLETED (desde: PENDING)
 Próxima acción: RES-03/04/05 Wave1c parallel (phrase/semántica) — MAX 3, disjoint iql/docs/api
-Contrato: `Select-String docs/reports/* "registros live"` >=1 ✅ (Count 3) + `Select-String GOV-A5-registros-live.md crates.io|PyPI|npm` >=3 ✅ (16) + `Select-String verify-log GOV-A5` >=1 ✅ + `cargo check -p vantadb` Finished ✅
+Contrato: `Select-String docs/dev/reports/* "registros live"` >=1 ✅ (Count 3) + `Select-String GOV-A5-registros-live.md crates.io|PyPI|npm` >=3 ✅ (16) + `Select-String verify-log GOV-A5` >=1 ✅ + `cargo check -p vantadb` Finished ✅
 Invariantes: No tocar src/wal ni src/iql (disjoint RES-03/04 preservado) — dominio docs-only + verify-log; ponytail 1 file reuse dora.mjs/Cargo.toml
-Comandos de verificación: `Select-String -Path "docs/reports/*" -Pattern "registros live" | Measure-Object Count` (3) + `cargo check -p vantadb` (Finished) + `Test-Path GOV-A5.md` (True)
+Comandos de verificación: `Select-String -Path "docs/dev/reports/*" -Pattern "registros live" | Measure-Object Count` (3) + `cargo check -p vantadb` (Finished) + `Test-Path GOV-A5.md` (True)
 Deuda: ninguna — registros live cerrados, wheels ARM64 gap documentado sin inflar, 0 líneas Rust
 Próxima tarea si completa: RES-03 — Phrase queries gap TextMatch literal (Wave1c disjoint)
 last-synced: 2026-09-02T22:30
@@ -437,10 +437,10 @@ last-synced: 2026-09-02T01:35
 - **last-synced:** 2026-09-02T00:00
 
 #### GOV-B1 — case_studies ficticios → archive interno
-- **Descripción:** git mv docs/case_studies/{rag_edge_device,agent_local_memory_ollama}.md → docs/archive/case-studies-unverified/ + README disclaimer + stubs book refs
+- **Descripción:** git mv docs/case_studies/{rag_edge_device,agent_local_memory_ollama}.md → docs/dev/archive/case-studies-unverified/ + README disclaimer + stubs book refs
 - **Archivos clave:** `docs/case_studies/*`, `docs/master-index.md`
 - **Gate Justificación:** D6 eliminar, D3 Show HN bloqueante reputación; T0.1 archive interno
-- **Contrato:** `Test-Path docs/archive/case-studies-unverified/rag_edge_device.md` == true AND `Select-String -Path "docs/archive/case-studies-unverified/README.md" -Pattern "no-público|ilustrativos" | Measure-Object Count` >=1
+- **Contrato:** `Test-Path docs/dev/archive/case-studies-unverified/rag_edge_device.md` == true AND `Select-String -Path "docs/dev/archive/case-studies-unverified/README.md" -Pattern "no-público|ilustrativos" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-B1.md`
 - **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T23:55
@@ -452,9 +452,9 @@ Estado: completed (desde: pending)
 Resultado: ✅
 State: COMPLETED (desde: PENDING)
 Próxima acción: GOV-B2 (DISASTER_RECOVERY_RUNBOOK ghost) + MEM-01 (F1 search profile) parallel MAX 3 disjoint — Wave2 continúa
-Contrato: `Test-Path docs/archive/case-studies-unverified/rag_edge_device.md` True ✅ + `Select-String README.md "no-público|ilustrativos"` Count 1 ✅ + `Test-Path docs/case_studies` False ✅ + `Test-Path docs/book/src/case_studies/index.md` True ✅ + `cargo check -p vantadb` Finished ✅
+Contrato: `Test-Path docs/dev/archive/case-studies-unverified/rag_edge_device.md` True ✅ + `Select-String README.md "no-público|ilustrativos"` Count 1 ✅ + `Test-Path docs/case_studies` False ✅ + `Test-Path docs/user/book/src/case_studies/index.md` True ✅ + `cargo check -p vantadb` Finished ✅
 Invariantes: No tocar src/planner.rs (MEM-01 disjoint), src/wal.rs, DISASTER_RECOVERY_RUNBOOK.md (GOV-B2) — dominio docs/case_studies archive only; ponytail 0 files nuevos, reuse archive
-Comandos de verificación: `Test-Path docs/archive/case-studies-unverified/rag_edge_device.md` (True) + `Select-String README.md "ilustrativos"` (1) + `Test-Path docs/case_studies` (False) + `cargo check -p vantadb` (Finished)
+Comandos de verificación: `Test-Path docs/dev/archive/case-studies-unverified/rag_edge_device.md` (True) + `Select-String README.md "ilustrativos"` (1) + `Test-Path docs/case_studies` (False) + `cargo check -p vantadb` (Finished)
 Deuda: ninguna — web CASE_STUDIES 3 composite sin disclaimer documentada como follow-up GOV-F1, no bloquea GOV-B1
 Próxima tarea si completa: GOV-B2 — Runbook DR sin comandos fantasma
 last-synced: 2026-09-02T23:55
@@ -570,7 +570,7 @@ last-synced: 2026-09-02T02:45
 
 #### GOV-C3 — Verify Daily Backup Verification (§3.1 + verify.ps1 daily guard)
 - **Descripción:** verificar Daily Backup Verification existe en `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md` §3.1 (5 pasos backup→restore temp→doctor→count) + guard `daily backup verification` en `dev-tools/verify.ps1` (ponytail docs-only, no heavy restore en fast gate); insumo GOV-A3 transcription + dora.md referencia
-- **Archivos clave:** `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md:278`, `dev-tools/verify.ps1:95`, `docs/reports/dora.md` (ref)
+- **Archivos clave:** `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md:278`, `dev-tools/verify.ps1:95`, `docs/dev/reports/dora.md` (ref)
 - **Gate Justificación:** Addendum §3 health checks daily backup verification debe ser verificable mecánicamente; sin guard, regresión silenciosa (runbook cubre pero verify.ps1 no lo valida); disjoint GOV-C1(nextest)/C2(Backlog) — 0 archivos en común
 - **Contrato:** `Select-String -Path "docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md" -Pattern "Daily Backup Verification" | Measure-Object Count` >=1 AND `Select-String -Path "dev-tools/verify.ps1" -Pattern "Daily Backup Verification" | Measure-Object Count` >=1 AND `cargo check -p vantadb` exit 0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-C3.md`
@@ -916,7 +916,7 @@ last-synced: 2026-09-02T19:30
 
 #### GOV-C7 — Contador Backlog corrección+regla
 - **Descripción:** corregir ~24→45 (2026-08-22) → ~130 (2026-09-01) con fecha + regla sync rg ❌ + ROADMAP banner sin cifra
-- **Archivos clave:** `docs/dev/Backlog.md` header, `docs/strategy/ROADMAP.md`
+- **Archivos clave:** `docs/dev/Backlog.md` header, `docs/dev/strategy/ROADMAP.md`
 - **Gate Justificación:** depende GOV-C2 sincronizado; evita deriva futura; appetite 30min
 - **Contrato:** `Select-String -Path "docs/dev/Backlog.md" -Pattern "130 activas.*2026-09" | Measure-Object Count` >=1
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-C7.md`
@@ -931,7 +931,7 @@ Resultado: ✅
 State: COMPLETED (desde: IN_PROGRESS)
 Próxima acción: Wave3 continúa — MEM-12 + RES-07 paralelos MAX 3 (disjoint src/* preservado), siguiente GOV-D1 Wave4
 Contrato: `Select-String docs/dev/Backlog.md "130 activas.*2026-09" 1≥1 ✅` + `Select-String ops/master-index hardening|UPGRADE 3≥2 ✅` + `Select-String last_reviewed 2026-09-02 1≥1 ✅` + `Get-ChildItem 35==35 ✅` + `Select-String audit-reports/ 0 ✅` + `cargo check -p vantadb Finished ✅`
-Invariantes: No tocar src/* (MEM-12 vanta-memory/scene, RES-07 benches/config) — dominio docs/Backlog + docs/strategy/ROADMAP + docs/user/operations/master-index only; ponytail 2 líneas docs-only, ROADMAP sin cifra evita drift futuro, historial 121/130 preservado sin recontar manual
+Invariantes: No tocar src/* (MEM-12 vanta-memory/scene, RES-07 benches/config) — dominio docs/Backlog + docs/dev/strategy/ROADMAP + docs/user/operations/master-index only; ponytail 2 líneas docs-only, ROADMAP sin cifra evita drift futuro, historial 121/130 preservado sin recontar manual
 Comandos de verificación: `Select-String -Path "docs/dev/Backlog.md" -Pattern "130 activas.*2026-09" | Measure-Object Count` (1) + `Select-String -Path "docs/user/operations/master-index.md" -Pattern "hardening|UPGRADE" | Measure-Object Count` (3) + `Select-String -Path "docs/user/operations/master-index.md" -Pattern "last_reviewed.*2026-09-02" | Measure-Object Count` (1) + `Get-ChildItem docs/user/operations/*.md | Measure Count` (35) + `cargo check -p vantadb` (Finished)
 Deuda: ninguna — ROADMAP ahora fuente única Backlog header (rg ❌ implícito), taxonomía ops 35/35 ya cerrada GOV-C4/C5, no duplicación cifras
 Próxima tarea si completa: RES-08 — Benchmark delete-masivo DashMap sweep
@@ -1160,9 +1160,9 @@ last-synced: 2026-09-02T23:59
 
 #### GOV-D6 — wasm/CRASH_MODEL.md modelo diferencial
 - **Descripción:** actualizar §persistencia a modelo diferencial vs PERF-08 (solo records cambiados), file:línea evidencia, grep "ALL records"==0
-- **Archivos clave:** `docs/wasm/CRASH_MODEL.md`, `vantadb-wasm/src/lib.rs:261-268,749`
+- **Archivos clave:** `docs/dev/wasm/CRASH_MODEL.md`, `vantadb-wasm/src/lib.rs:261-268,749`
 - **Gate Justificación:** claim falso "serialize ALL records"
-- **Contrato:** `Select-String -Path "docs/wasm/CRASH_MODEL.md" -Pattern "ALL records" | Measure-Object Count` ==0
+- **Contrato:** `Select-String -Path "docs/dev/wasm/CRASH_MODEL.md" -Pattern "ALL records" | Measure-Object Count` ==0
 - **Task file:** `.opencode/skills/campaign-executor/tasks/GOV-D6.md`
 - **Estado:** ✅ COMPLETED
 - **last-synced:** 2026-09-02T00:00

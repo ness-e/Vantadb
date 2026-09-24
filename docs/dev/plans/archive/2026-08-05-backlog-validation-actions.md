@@ -87,15 +87,15 @@
 
 ### Task 6: MOVE-LEG01 — Mover LEG-01 a lista humana
 - **Veredicto:** ❌ no-delegable — registro USPTO/EUIPO requiere abogado, pago (~$250-350/clase USPTO, ~€850 EUIPO), identidad legal; estimación "2-4h" irreal.
-- **Acción:** mover fila a sección "Tareas Humanas" del backlog (o docs/strategy/GO_TO_MARKET.md) con `owner: human` + estimación realista (semanas, $2-5K).
+- **Acción:** mover fila a sección "Tareas Humanas" del backlog (o docs/dev/strategy/GO_TO_MARKET.md) con `owner: human` + estimación realista (semanas, $2-5K).
 - **Contrato:** fila fuera del flujo de agentes; nota de decisión en campaign_memory (decisions).
 - **Estado:** ✅ COMPLETED 2026-08-05 — LEG-01 movida a sección Tareas Humanas (owner: human, estimación semanas, $2-5K).
 
 ### Task 7: MOVE-COM04 — Mover COM-04 a nota de roadmap
 - **Veredicto:** ❌ bloqueada — Server Discovery exige 1000+ miembros, Canny.io SaaS externo, ticketing requiere bot externo (Ticket Tool/Helper.gg). Nada accionable hoy.
-- **Acción:** tachar o marcar `⏸ Icebox` con nota de dependencias en `docs/discord/todo.md`.
+- **Acción:** tachar o marcar `⏸ Icebox` con nota de dependencias en `docs/user/discord/todo.md`.
 - **Contrato:** fila no contada como activa; dependencias documentadas.
-- **Estado:** ✅ COMPLETED 2026-08-05 — COM-04 marcada ⏸ Icebox con dependencias en docs/discord/todo.md.
+- **Estado:** ✅ COMPLETED 2026-08-05 — COM-04 marcada ⏸ Icebox con dependencias en docs/user/discord/todo.md.
 
 ### Task 8: MERGE-TECH04-AUD010 — Unificar naming de env vars (una sola tarea)
 - **Veredicto:** 🔁 duplicados reales — mismas 3 lecturas: `cli.rs:15` env `VANTA_DB`, `server.rs:244` `cmd.env("VANTA_DB")`, `config.rs:408` `VANTADB_STORAGE_PATH`; ~25 vars `VANTADB_*`.
@@ -220,7 +220,7 @@
 - **Estado:** ✅ COMPLETED (`566e9369`) — pkg rebuild con `wasm-pack build --features opfs` (wasm-pack 0.15.0): d.ts incluye connect_worker/worker_read/worker_write/worker_delete. Documentación "Optional capability" en los 4 métodos (lib.rs) + ejemplo spawnOpfsWorker. Demo `vantadb-wasm/demo/worker-test.html` creado. ⚠️ pkg/ no trackeado en git (build local); browser test con worker pendiente de entorno.
 
 ### Task 23: TECH-08 — Decidir promoción a default-members (sin re-investigar)
-- **Archivos clave:** `Cargo.toml:583-599`, `docs/user/operations/CI_POLICY.md:73-84`
+- **Archivos clave:** `Cargo.toml:583-599`, `docs/dev/operations/CI_POLICY.md:73-84`
 - **Gate Justificación:** análisis YA existe (CI_POLICY.md + DESKTOP-01b:140,273,419,515). No es tarea de worker — es de lead/arch.
 - **Acción:** tomar la decisión (promover vs mantener experimental) + nota en CI_POLICY o ADR ligero. `cargo check --workspace` con los 3 habilitados como prueba.
 - **Contrato:** decisión documentada; workspace compila con los 3.
@@ -431,11 +431,11 @@
 ### Task 50: COM-02/03 — Discord config (lista humana, claims corregidos)
 - **Veredicto:** ⚠️ reales pero no-delegables por agente (login a dashboards Carl-bot/Server Settings).
 - **Acción:** mantener como checklist humano con owner; CORREGIR claim técnico: Discord API SÍ expone AutoMod rules (POST /guilds/{id}/auto-moderation/rules) y emojis (POST /guilds/{id}/emojis) — el bloqueo es organizacional (sin bot con permisos), no técnico.
-- **Contrato:** docs/discord/todo.md actualizado con claims correctos; checkboxes humanos marcados cuando se ejecuten.
+- **Contrato:** docs/user/discord/todo.md actualizado con claims correctos; checkboxes humanos marcados cuando se ejecuten.
 - **Estado:** ⬜ PENDING (humano)
 
 ### Task 51: GH-141 — Documentar webhook GitHub→Discord
-- **Archivos clave:** `docs/discord/server-config.md:98-102` (sección Integrations, 1 fila existente)
+- **Archivos clave:** `docs/user/discord/server-config.md:98-102` (sección Integrations, 1 fila existente)
 - **Gate Justificación:** doc existe pero sin tipos de evento detallados ni cómo agregar.
 - **Acción:** documentar 4 tipos de evento (push, pull_request, issues, release → #announcements), procedimiento para añadir eventos, dónde se configura. Cerrar issue #141.
 - **Contrato:** `gh issue close 141`; sección Integrations completa.

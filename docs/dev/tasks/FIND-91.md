@@ -25,7 +25,7 @@
 
 - **Archivos leídos (completos):** `tests/durability_recovery.rs:383-442` (gate `failpoints`, fases 1-2), `src/index_port.rs:157-160` (`contains_node`, `node_count`)
 - **Archivos referenciados hacia dentro:** `vantadb::node::*`, `fail::cfg` (failpoints), `StorageEngine::{insert, flush, get}`, `engine.hnsw.load()`
-- **Archivos que referencian a los editados:** job heavy `storage-persistence` (`docs/workflow/heavy-certification-50.md`), perfil nextest `chaos`, `docs/user/operations/DURABILITY_GUARANTEES.md`, `TEST_MAP.md`
+- **Archivos que referencian a los editados:** job heavy `storage-persistence` (`docs/dev/workflow/heavy-certification-50.md`), perfil nextest `chaos`, `docs/user/operations/DURABILITY_GUARANTEES.md`, `TEST_MAP.md`
 - **Veredicto impacto:** BAJO — un assert en un test; el resto del test (incluido `node_count()` en `:437`) ya compila contra el trait.
 
 ## Contrato

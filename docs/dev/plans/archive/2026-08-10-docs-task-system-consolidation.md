@@ -22,7 +22,7 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 
 - Planes P0-P3: implementados y comiteados (commits 0592695f, f85c8b0d, 350e9725, 0e298f3d, e44b26a5, 44154c0f, b1a117de, c14050eb, fe21a890, 724b355c, 887d0f14).
 - `docs/dev/plans/` raíz (6 archivos) + `docs/dev/plans/archive/`: núcleo vivo del pipeline, sin cambios estructurales.
-- `docs/reports/` (INDEX + northstar/dora/pipeline-evals): generados por script, correctos.
+- `docs/dev/reports/` (INDEX + northstar/dora/pipeline-evals): generados por script, correctos.
 - `docs/progreso/README.md`: registro canónico, correcto.
 - WONTFIT: enforcement absoluto del MCP server, rainbow deploys (dependencias externas, solo registrar).
 
@@ -39,9 +39,9 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 ### Task 2: Poblar verify-log.jsonl (desbloquea North Star/DORA/P3-2/SLA)
 - **Esfuerzo:** 🟡 | **Prioridad:** P0 | **Ruta:** vanta-lead
 - **Archivos clave:** `.opencode/task-system/enforcement/verify-log.jsonl` (0 bytes), `evals/northstar.mjs`, `evals/eval-metrics.mjs`
-- **Verificación real:** Los 3 evaluadores ya funcionan y escriben `docs/reports/`; falla el **dato**: 0 invocaciones de `campaign_verify_cmd`.
+- **Verificación real:** Los 3 evaluadores ya funcionan y escriben `docs/dev/reports/`; falla el **dato**: 0 invocaciones de `campaign_verify_cmd`.
 - **Gate Result:** 🔵 DO
-- **Contrato:** al menos 1 tarea real ejecutada por el pipeline con `campaign_verify_cmd` → `verify-log.jsonl` > 0 líneas; `docs/reports/` regenerado con datos reales.
+- **Contrato:** al menos 1 tarea real ejecutada por el pipeline con `campaign_verify_cmd` → `verify-log.jsonl` > 0 líneas; `docs/dev/reports/` regenerado con datos reales.
 - **Estado:** ✅ COMPLETED (2026-08-11) — verify-log.jsonl poblado (1378 bytes), 3 invocaciones reales; northstar.md regenerado (126 líneas, datos reales). Commit `d22733ab` + telemetry `b1a117de`.
 - **Notas:** Es el habilitador transversal; cualquiera de las Tasks 3-13 ejecutadas vía pipeline lo alimenta.
 
@@ -73,12 +73,12 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 - **Contrato:** archivo restaurado en `docs/dev/research/`; referencias del ACID_ROLLBACK_DESIGN válidas.
 - **Estado:** ✅ COMPLETED (2026-08-10) — restaurado a `docs/dev/research/ACID_TRANSACTIONS.md` (453 líneas) vía `git show 8b1c52cd^` (commit `0cb7de6e`).
 
-### Task 6: Arreglar docs/reports/INDEX.md (4 rutas rotas + 1 estado falso)
+### Task 6: Arreglar docs/dev/reports/INDEX.md (4 rutas rotas + 1 estado falso)
 - **Esfuerzo:** 🟡 | **Prioridad:** P0 | **Ruta:** vanta-docs
-- **Archivos clave:** `docs/reports/INDEX.md` L19 (ruta `docs/audit-reports/audit-full-20260808-002617.md` no existe — el archivo está en `archive/` pero marcado "vigente"), L23/28/29 (sin prefijo `archive/`)
+- **Archivos clave:** `docs/dev/reports/INDEX.md` L19 (ruta `docs/audit-reports/audit-full-20260808-002617.md` no existe — el archivo está en `archive/` pero marcado "vigente"), L23/28/29 (sin prefijo `archive/`)
 - **Verificación real:** watchdog: 4 rutas rotas verificadas una a una; violación de la regla "cuando `progreso` mueve a `archive/`, INDEX registra con `archive/`".
 - **Gate Result:** 🔵 DO
-- **Contrato:** `docs/reports/INDEX.md` con rutas reales verificadas (`Test-Path` por cada fila); estado del audit 20260808 = "vigente (en archive)" o resuelto.
+- **Contrato:** `docs/dev/reports/INDEX.md` con rutas reales verificadas (`Test-Path` por cada fila); estado del audit 20260808 = "vigente (en archive)" o resuelto.
 - **Estado:** ✅ COMPLETED (2026-08-10) — INDEX.md corregido (23/23 rutas Test-Path True); fila 2026-08-08-0026 → `docs/dev/reviews/audit-full-20260808-002617.md` verificada (commit `b78b9278`).
 
 ### Task 7: Unificar `docs/audit-reports/` → `docs/dev/reviews/` (decisión de arquitectura de docs)
@@ -99,7 +99,7 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 - **Archivos clave:** `docs/archived-decisions/ADR-001-ADAPTER-TIERS.md`, `docs/archived-decisions/stabilization-report.md`
 - **Verificación real:** ADR-001 (2026-07-22) duplica tema de `docs/dev/architecture/adr/010_adapter_language_classification.md` y el nombre colisiona con `ADR-0001`; `stabilization-report.md` es un reporte, no una decisión. Solo leído por `TEST_MAP.md` (x2).
 - **Gate Result:** 🔵 DO
-- **Contrato:** ADR-001 → mover/renombrar a `docs/dev/architecture/adr/` (nueva numeración) y actualizar `docs/user/operations/TEST_MAP.md:130` + `docs/TEST_MAP.md:130`; stabilization-report → `docs/dev/reviews/`; carpeta vaciada y eliminada.
+- **Contrato:** ADR-001 → mover/renombrar a `docs/dev/architecture/adr/` (nueva numeración) y actualizar `docs/dev/operations/TEST_MAP.md:130` + `docs/TEST_MAP.md:130`; stabilization-report → `docs/dev/reviews/`; carpeta vaciada y eliminada.
 - **Estado:** ✅ COMPLETED (2026-08-10) — `docs/archived-decisions/` resuelto (commit `15437d39`).
 
 ### Task 9: Eliminar huérfanos del task-system (o marcarlos legacy)
@@ -142,12 +142,12 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
   - `cliff.toml:59` → `docs/snapshots/` (no existe)
   - `skills/documentation-and-adrs/SKILL.md:38` → `docs/decisions/` (el estándar real es `docs/dev/architecture/adr/`) — divergencia de skill
   - `docs/progreso/bitacora.md:100,213,497,606,612,618,631,634` + `755-759` → refs muertas a `docs/dev/research/*` inexistentes
-  - `docs/archive/REPORTE_INVESTIGACION_Y_DECISIONES.md` → link muerto (bitacora L521/532, consolidacion L474)
+  - `docs/dev/archive/REPORTE_INVESTIGACION_Y_DECISIONES.md` → link muerto (bitacora L521/532, consolidacion L474)
   - `docs/user/operations/master-index.md:35` → dice "No archived files currently" pero hay 3 (STALE)
 - **Gate Result:** 🔵 DO
 - **Contrato:** cada ref rota corregida o marcada explícitamente (no tocar historial/snapshots); `rg "<ruta-rota>"` tras el fix = 0 fuera de histórico.
 - **Estado:** ✅ COMPLETED (2026-08-10) — refs rotas corregidas/marcadas (commit `d27f81c1`).
-- **Notas:** `docs/strategy/ROADMAP.md` L17/L20 con refs históricas deliberadamente conservadas (fuente 2026-07-16, cross-ref no existe).
+- **Notas:** `docs/dev/strategy/ROADMAP.md` L17/L20 con refs históricas deliberadamente conservadas (fuente 2026-07-16, cross-ref no existe).
 
 ### Task 13: Estado de p3-remaining-fallas.md desincronizado
 - **Esfuerzo:** 🟢 | **Prioridad:** P2 | **Ruta:** vanta-lead
@@ -189,10 +189,10 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 
 ### Task 16: Mover backlog diferido R5 fuera de docs/archive
 - **Esfuerzo:** 🟢 | **Prioridad:** P2 | **Ruta:** vanta-docs
-- **Archivos clave:** `docs/dev/backlog-futuro.md` (movido desde `docs/archive/`); `docs/strategy/ROADMAP.md:128` (R5 lo designa como destino)
+- **Archivos clave:** `docs/dev/backlog-futuro.md` (movido desde `docs/dev/archive/`); `docs/dev/strategy/ROADMAP.md:128` (R5 lo designa como destino)
 - **Verificación real:** `backlog-futuro` es operativo vivo (ROADMAP R5 lo escribe), vive en carpeta de "archivo muerto" (doble rol de docs/archive).
 - **Gate Result:** 🔵 DO
-- **Estado:** ✅ COMPLETED (2026-08-10) — `docs/dev/backlog-futuro.md` movido a raíz de docs/; ROADMAP.md:128 actualizado; `docs/archive/` queda solo con los 2 extractos (commit `8e3d99fb`).
+- **Estado:** ✅ COMPLETED (2026-08-10) — `docs/dev/backlog-futuro.md` movido a raíz de docs/; ROADMAP.md:128 actualizado; `docs/dev/archive/` queda solo con los 2 extractos (commit `8e3d99fb`).
 
 ## Definición de Done (DoD) del plan
 
@@ -207,7 +207,7 @@ Este plan fusiona 6 auditorías independientes en UN solo programa de trabajo. T
 - **ALTO:** mover `investigacion-equipo-2026-08-09.md` rompe rastro de origen de ~20 items abiertos de Backlog (P16) si no se actualizan las 3 refs en el mismo commit.
 - **ALTO:** Task 7 toca 3 escritores + 2 lectores del pipeline de audit — no hacer sin decisión (A)/(B) del usuario.
 - **MEDIO:** eliminar espejos de avance sin actualizar `check-avance-coverage.ps1` + `COBERTURA.md` rompe cobertura (Regla 0: grep antes de borrar).
-- **BAJO:** `docs/book/book/progreso/index.html` (mdBook) queda stale al regenerar README — regenerar libro o ignorar (artefacto de build).
+- **BAJO:** `docs/user/book/book/progreso/index.html` (mdBook) queda stale al regenerar README — regenerar libro o ignorar (artefacto de build).
 - **Histórico (NO tocar):** `docs/dev/avance/historial/*`, `snapshots`, `docs/progreso/README.backup-*`, `docs/dev/plans/archive/*` — describen estados pasados.
 
 

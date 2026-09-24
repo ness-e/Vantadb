@@ -15,14 +15,14 @@
 ## Blast Radius
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | `docs/dev/Backlog.md` (fila proyecto 2034 tests), `docs/reports/dora.md` (fuentes plan/task files, no cifra tests directa), `docs/dev/reviews/*` (auditorías intake) |
+| Callers | `docs/dev/Backlog.md` (fila proyecto 2034 tests), `docs/dev/reports/dora.md` (fuentes plan/task files, no cifra tests directa), `docs/dev/reviews/*` (auditorías intake) |
 | Callees | `docs/TEST_MAP.md` (cifra canónica 2034 + contexto histórico), `scripts/validate-docs-coverage.ps1` (6 checks docs↔código), `.config/nextest.toml` (profile default audit excluye heavy), `.codegraph/codegraph.db` (índice existe, no lógica tests), `Cargo.toml` (workspace version 0.5.0, no cifra tests) |
 | Implicaciones | Docs-only. No cambia Rust, no toca nextest.toml, no toca .codegraph, no toca src/. Riesgo: si TEST_MAP.md no cita fecha+perfil, contrato falla. Mitigación: `Select-String` mecánico + `cargo nextest list` + `validate-docs-coverage -ReportOnly` |
 
 ## Impacto mapeado (Regla 0) — BLAST RADIUS DOCS (codegraph no necesario)
-- **Archivos leídos (completos):** `docs/reports/dora.md` (402L, generado 2026-08-22 por evals/dora.mjs, fuentes 23 tareas/412 task files/33 budgets/124 verify), `evals/dora.mjs` (360L, recoveryPairs 207-222), `Cargo.toml` (696L, workspace 0.5.0, default-members vantadb+vantadb-python, features embed-local), `.codegraph/codegraph.db` (exists, 4 files), `scripts/validate-docs-coverage.ps1` (197L, 6 checks SDK/config/error/CLI/python/MCP), `scripts/check_openapi_parity.mjs` (171L), `.config/nextest.toml` (default-filter excluye ~30 heavy binaries, audit/ci-windows/experimental profiles), `docs/TEST_MAP.md` (155L, Fast Decision Table + CI Gates + Coverage §), `docs/dev/Backlog.md:685` (cita 2034 tests), `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` §GOV-A2
+- **Archivos leídos (completos):** `docs/dev/reports/dora.md` (402L, generado 2026-08-22 por evals/dora.mjs, fuentes 23 tareas/412 task files/33 budgets/124 verify), `evals/dora.mjs` (360L, recoveryPairs 207-222), `Cargo.toml` (696L, workspace 0.5.0, default-members vantadb+vantadb-python, features embed-local), `.codegraph/codegraph.db` (exists, 4 files), `scripts/validate-docs-coverage.ps1` (197L, 6 checks SDK/config/error/CLI/python/MCP), `scripts/check_openapi_parity.mjs` (171L), `.config/nextest.toml` (default-filter excluye ~30 heavy binaries, audit/ci-windows/experimental profiles), `docs/TEST_MAP.md` (155L, Fast Decision Table + CI Gates + Coverage §), `docs/dev/Backlog.md:685` (cita 2034 tests), `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` §GOV-A2
 - **Archivos referenciados hacia dentro:** TEST_MAP.md referenciado por Backlog 2034, Backlog por planes, dora.md por governance, validate-docs-coverage por TEST_MAP/CI_POLICY, nextest.toml por cargo nextest, .codegraph por dev-tools/verify
-- **Archivos que referencian a los editados:** grep `2034|2568|1902|1492` → Backlog.md:685, TEST_MAP.md:92, plan:174/961 (citas planificadas) — sin drift en docs/reports/dora.md (no contiene cifra tests)
+- **Archivos que referencian a los editados:** grep `2034|2568|1902|1492` → Backlog.md:685, TEST_MAP.md:92, plan:174/961 (citas planificadas) — sin drift en docs/dev/reports/dora.md (no contiene cifra tests)
 - **Veredicto impacto:** bajo — docs-only, 1 doc editado histórico ya reconciliado, verify mecánico sin build Rust. Disjoint 100% con Wave1 RES-02..05 (src/wal.rs, src/iql/, docs/api/) y GOV-A3 (binario vanta-cli) — sin contención archivos.
 
 ## Contrato
@@ -35,7 +35,7 @@
 N/A — docs-only reconciliación, sin símbolos públicos nuevos. Decisión ya tomada: fuente única TEST_MAP.md §Coverage + Fast Decision Table; no crear nuevo reporte.
 
 ## Invariantes de dominio (handoff — MUST)
-- **Invariantes a preservar:** No duplicar cifra tests en docs/reports/dora.md (ese reporte es DORA flow, no test count); no modificar .config/nextest.toml ni Cargo.toml; validate-docs-coverage.ps1 debe seguir pasando (6 checks); .codegraph no se regenera en esta task
+- **Invariantes a preservar:** No duplicar cifra tests en docs/dev/reports/dora.md (ese reporte es DORA flow, no test count); no modificar .config/nextest.toml ni Cargo.toml; validate-docs-coverage.ps1 debe seguir pasando (6 checks); .codegraph no se regenera en esta task
 - **Comandos de verificación:** `Select-String -Path "docs/TEST_MAP.md" -Pattern "2034.*2026-08"` >=1 ; `Select-String -Path "docs/TEST_MAP.md" -Pattern "coverage"` >=1 ; `cargo nextest list --profile default -p vantadb` (2074 lines lista) ; `pwsh scripts/validate-docs-coverage.ps1 -ReportOnly` ; `Test-Path .codegraph/codegraph.db`
 - **Deuda pendiente:** ninguna — cifras reconciliadas, coverage threshold ≥80% (ADR-018 gate 81.40%) documentado en TEST_MAP.md:91 sin drift; llvm-cov ICE Windows 2026-08-22 ticket GOV-A1 mitigado por fallback ADR-018
 
@@ -100,7 +100,7 @@ Sin deuda nueva (docs-only, 0 líneas Rust nuevas). Saldo neto 0. Reutiliza TEST
 ## Steps
 
 ### Step 1: DISCOVERY — Read + Blast Radius (docs, no codegraph_explore)
-- **Archivos:** `docs/reports/dora.md`, `evals/dora.mjs`, `Cargo.toml`, `.codegraph/codegraph.db`, `scripts/validate-docs-coverage.ps1`, `.config/nextest.toml`, `docs/TEST_MAP.md`, `SKILLS-MANIFEST.md`
+- **Archivos:** `docs/dev/reports/dora.md`, `evals/dora.mjs`, `Cargo.toml`, `.codegraph/codegraph.db`, `scripts/validate-docs-coverage.ps1`, `.config/nextest.toml`, `docs/TEST_MAP.md`, `SKILLS-MANIFEST.md`
 - **Acción:** Leer dora.md (402L) + dora.mjs (360L recoveryPairs) + Cargo.toml (workspace 0.5.0) + validate-docs-coverage.ps1 (197L/6 checks) + nextest.toml (default-filter BND-06) + TEST_MAP.md (155L Coverage+CI Gates) + grep SKILLS-MANIFEST.md por keywords "tests/coverage/validate-docs/dora/nextest" → discovery skills. Mapear blast radius: callers docs/Backlog, callees TEST_MAP/validate-scripts/nextest.toml/.codegraph. Confirmar no overlap RES-02..05 ni GOV-A3.
 - **Verify:** `Test-Path .codegraph/codegraph.db` == true AND `Test-Path scripts/validate-docs-coverage.ps1` == true AND `Test-Path .config/nextest.toml` == true AND `Select-String -Path docs/TEST_MAP.md -Pattern "2034.*2026-08" | Measure-Object Count` >=1 (pre-check)
 - **Estado:** ✅ COMPLETED — 2026-09-02 discovery: TEST_MAP.md ya reconciliado 2034*2026-08 + históricos + coverage 81.40%, dora.md no drift, nextest 2074 list, validate-docs 6/6, manifest skills identified, disjoint confirmado
@@ -139,7 +139,7 @@ Sin deuda nueva (docs-only, 0 líneas Rust nuevas). Saldo neto 0. Reutiliza TEST
 
 ## Referencias
 - `docs/TEST_MAP.md:91-92` — Coverage + cifra canónica 2034 + históricas
-- `docs/reports/dora.md` — DORA flow (no test count)
+- `docs/dev/reports/dora.md` — DORA flow (no test count)
 - `evals/dora.mjs:207-222` — recoveryPairs lógica
 - `scripts/validate-docs-coverage.ps1` — 6 checks SDK/config/error/CLI/python/MCP
 - `.config/nextest.toml` — default-filter BND-06 scope-safe

@@ -25,7 +25,7 @@ La tarea extiende FND-10 (Regla 9, `canonical_p99` ya commiteado en `89943c7d`).
 | # | Claim (ubicación) | Clasificación | Fuente | Estado |
 |---|---|---|---|---|
 | R1 | Tabla baseline 10K×128d: Ingestion 61.5 rec/s (p50 16.0 ms), Vector p50 3.3 ms, Hybrid p50 12.1 ms (L322-328) | **Sin fuente → OBSOLETO** | Citaba `benchmarks/vanta_benchmark_report.json` pero el archivo está en `.gitignore` (no versionado) y sus valores reales eran 74.0 rec/s (p50 13.2 ms), 2.0 ms, 3.1 ms | ✅ **FIX APLICADO** (alineado a la fuente citada + nota de regeneración) |
-| R2 | Tabla SIFT-1M Phase 2: 2.14x–2.80x speedup, p99 441–1232 µs, QPS 1,353–3,636 (L336-342) | **Citado** | `docs/user/operations/BENCHMARKS.md §5` + `docs/benchmarks/BENCHMARK_OPTIMIZATION_2026.md` (histórico 2026-07-21) | ✅ link corregido (era ruta rota) |
+| R2 | Tabla SIFT-1M Phase 2: 2.14x–2.80x speedup, p99 441–1232 µs, QPS 1,353–3,636 (L336-342) | **Citado** | `docs/user/operations/BENCHMARKS.md §5` + `docs/user/benchmarks/BENCHMARK_OPTIMIZATION_2026.md` (histórico 2026-07-21) | ✅ link corregido (era ruta rota) |
 | R3 | Core Capabilities: "Validated on 10K–100K synthetic datasets" (L193) | Medible | `tests/certification/stress_protocol.rs` (heavy certification) | OK sin cambio |
 
 ### 2.2 `vantadb-python/README.md`
@@ -48,7 +48,7 @@ Sin claims numéricos de performance. ✅ OK, sin cambios.
 | B1 | §1 Stress Protocol (Recall 0.956–1.0, ~1172 B/node, p50 1.2–6.1 ms, 4.88x) | **Citado** | `tests/certification/stress_protocol.rs` (7 bloques, heavy certification) | ✅ OK |
 | B2 | §2 SDK ops (95 ops/s, p50 10.7 ms, HNSW 62 ms, hybrid 180 ms) | **Medible** | `benchmarks/vantadb_local_bench.py` + `update_markdown.py` (markers BENCHMARK_METRICS_START/END) | ⚠️ Nota: números de corrida CI previa; difieren del JSON local actual (74 rec/s) — regenerable con el comando documentado en §3 |
 | B3 | §4 Prefetch (0.9–2.0 % mejora, p99 -1.3 %) | **Medible** | `benchmarks/prefetch_comparison.py` (script existe, comando no citado en el doc) | Anotado: citar comando |
-| B4 | §5 SIFT Phase 2 (2.14x–2.80x) | **Citado (histórico)** | `docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md` | ✅ OK |
+| B4 | §5 SIFT Phase 2 (2.14x–2.80x) | **Citado (histórico)** | `docs/user/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md` | ✅ OK |
 | B5 | §6 Batch search 4.01x (973.68 → 243.01 ms) | **Medible** | `benchmarks/batch_vs_sequential_bench.py` (script existe) | Anotado: citar comando |
 | B6 | §7 Competitive vs LanceDB/Chroma (ingest 598 QPS, recall 24.5 %, RSS 236.5 MB) | **Medible** | `benchmarks/competitive_bench.py` (script existe, 2026-06-06) | Anotado: citar comando |
 | B7 | §8 Canonical P99 (insert 322.59 s, p99 3.0746 ms, 2026-08-16) | **Citado ✅ modelo** | `benches/canonical_p99.rs` + comando exacto + entorno (CPU/RAM/OS/fecha) | ✅ OK (FND-10) — referente de la Regla 11 |
@@ -96,7 +96,7 @@ La tabla §2 (markers) reporta 95 ops/s y p50 10.7 ms, mientras el JSON local ac
 |---|---|---|
 | `.opencode/AGENTS.md` | **Regla 11** agregada tras Regla 10: claims de performance DEBEN citar benchmark reproducible (archivo + comando + entorno) + números; adjetivos no son evidencia; fuentes gitignored no son válidas | Regla nueva |
 | `README.md` L322-328 | Tabla baseline alineada a la fuente citada: 61.5→**74.0 rec/s** (p50 16.0→**13.2 ms**), Vector p50 3.3→**2.0 ms**, Hybrid p50 12.1→**3.1 ms**; "Real committed baseline"→"Latest local baseline (regenerate locally)"; nota de outlier BM25 corregida (0.009→**0.0035 ms**); añadido comando de regeneración | Claim obsoleto (fix >1 línea pero claim claramente falso vs su fuente citada) |
-| `README.md` L346 | Link roto `docs/benchmarks/BENCHMARK_OPTIMIZATION_2026.md` → `docs/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md` | Fix 1 línea |
+| `README.md` L346 | Link roto `docs/user/benchmarks/BENCHMARK_OPTIMIZATION_2026.md` → `docs/user/benchmarks/docs/BENCHMARK_OPTIMIZATION_2026.md` | Fix 1 línea |
 | `README_ES.md` L343 | Mismo link roto corregido | Fix 1 línea |
 
 ## 5. Fixes pendientes (deuda anotada, NO aplicados — fuera de scope o >1 línea)

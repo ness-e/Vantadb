@@ -71,9 +71,9 @@ Todos los items P1 originales resueltos/deferidos en campañas anteriores.
 - **2026-07-28:** 5 sub-agentes explore validaron 69 items contra código real — ver `docs/audit-reports/backlog-validation-2026-07-28.md`.
 - **2026-07-29:** 19 items INVESTIGACION agregados (INV-001 a INV-017) tras verificación de consolidación de 4 sub-agentes vs código real.
 
-## Completados de `docs/strategy/` (2026-08-05)
+## Completados de `docs/dev/strategy/` (2026-08-05)
 
-Verificación de los 5 documentos de `docs/strategy/` (ROADMAP, GO_TO_MARKET, SHOW_HN_PREP, BLOG_SERIES_PLAN, REDDIT_POSTS) contra backlog + `docs/progreso/README.md` + git history. Items que strategy lista como tarea y **ya están completados** — registrados aquí porque no tenían fila activa en el backlog:
+Verificación de los 5 documentos de `docs/dev/strategy/` (ROADMAP, GO_TO_MARKET, SHOW_HN_PREP, BLOG_SERIES_PLAN, REDDIT_POSTS) contra backlog + `docs/progreso/README.md` + git history. Items que strategy lista como tarea y **ya están completados** — registrados aquí porque no tenían fila activa en el backlog:
 
 ### Release & packaging (Fase 0 roadmap)
 

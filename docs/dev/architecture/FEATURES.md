@@ -23,7 +23,7 @@ Inventario honesto de las features declaradas en `Cargo.toml` `[features]`
 | ✅ `default` | En la feature set por defecto; compilada en todo build |
 | ✅ `ci` | Ejercida en runs de test de CI (no necesariamente default) |
 | 🟡 `opt-in` | Código real detrás del flag; no default, no en features de test de CI (solo compila vía `clippy --all-features`) |
-| ⚠️ `experimental` | Código real pero fuera de la superficie de producto estable (ver ADR-014 / `docs/user/operations/CI_POLICY.md`) |
+| ⚠️ `experimental` | Código real pero fuera de la superficie de producto estable (ver ADR-014 / `docs/dev/operations/CI_POLICY.md`) |
 | 💀 `no-op` | Sin gates de código; marcador vacío |
 
 ## Feature table
@@ -84,5 +84,5 @@ El resto (16) solo se comprueban vía `clippy --all-features` / `experimental-ch
 
 - `docs/dev/architecture/adr/ADR-014-pitr.md` — decisión `pitr` (experimental standalone API, integración diferida)
 - `docs/user/operations/EXPERIMENTAL_FEATURES.md` — boundary de producto v0.1.x (vista por superficie, no por feature Cargo)
-- `docs/user/operations/CI_POLICY.md` — política de crates experimentales (server/mcp/wasm fuera de default-members)
-- `docs/strategy/VANTADB-PRO-FEATURES.md` — mapa de candidatas Pro (`pitr`, `wal-shipping`, `encryption`, `server`, `tls`, `prometheus`, …)
+- `docs/dev/operations/CI_POLICY.md` — política de crates experimentales (server/mcp/wasm fuera de default-members)
+- `docs/dev/strategy/VANTADB-PRO-FEATURES.md` — mapa de candidatas Pro (`pitr`, `wal-shipping`, `encryption`, `server`, `tls`, `prometheus`, …)

@@ -14,4 +14,4 @@ This file exists only for compatibility with agents that look for `AGENTS.md` at
 | `.opencode/VANTADB-OPERATING-MANUAL.md` | Index of canonical sources for the system |
 | `SKILLS-MANIFEST.md` | Full catalog of project skills |
 | `.opencode/rules/README.md` | Normative rules per code area |
-| `docs/workflow/RULES.md` | Durable CI workflow rules (triggers, timeouts, pins, permissions, publish) |
+| `docs/dev/workflow/RULES.md` | Durable CI workflow rules (triggers, timeouts, pins, permissions, publish) |

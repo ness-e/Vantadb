@@ -185,4 +185,4 @@ Gaps (→ FIND-79): export/import/reindex sin tests, `importRecords` débil, `db
 - M: jwt_secret gap + link roto HTTP_API:600 (FIND-76). 1458 md, indice + mdbook + markdownlint OK, 27 ADRs, CHANGELOG al dia, BENCHMARKS Regla 11 con fuentes. Informe completo original pegado por el usuario en el turno de correccion.
 
 ## Apendice B — Comandos globales ejecutados por los agentes
-`git branch --show-current` (develop x19) · `cargo check/test/clippy/fmt -p <crate> --tests -j 2` · `python -m py_compile` · `npx tsc --noEmit` + `vitest run` + `eslint` (ts/desktop) · `npm pack --dry-run` (node) · `cargo fuzz list` · `cargo check --manifest-path` (providers/fuzz) · `Test-Path` + `Select-String` + `Get-ChildItem` en todo. Reporte registrado en `docs/reports/INDEX.md`.*
+`git branch --show-current` (develop x19) · `cargo check/test/clippy/fmt -p <crate> --tests -j 2` · `python -m py_compile` · `npx tsc --noEmit` + `vitest run` + `eslint` (ts/desktop) · `npm pack --dry-run` (node) · `cargo fuzz list` · `cargo check --manifest-path` (providers/fuzz) · `Test-Path` + `Select-String` + `Get-ChildItem` en todo. Reporte registrado en `docs/dev/reports/INDEX.md`.*

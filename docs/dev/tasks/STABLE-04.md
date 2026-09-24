@@ -30,7 +30,7 @@
 ## Blast Radius
 | Dirección | Módulos |
 |---|---|
-| Callers | `Cargo.toml` workspace members; `vantadb-server` depende de `vantadb-mcp` (path); `vanta-cli server --mcp` spawnea el server; `docs/user/operations/CI_POLICY.md` experimental-check (`cargo check -p vantadb-server -p vantadb-mcp -p vantadb-wasm`); `heavy-certification-50.yml` corre `mcp_tests` explícito |
+| Callers | `Cargo.toml` workspace members; `vantadb-server` depende de `vantadb-mcp` (path); `vanta-cli server --mcp` spawnea el server; `docs/dev/operations/CI_POLICY.md` experimental-check (`cargo check -p vantadb-server -p vantadb-mcp -p vantadb-wasm`); `heavy-certification-50.yml` corre `mcp_tests` explícito |
 | Callees | `vantadb-mcp/src/` 16 entries (lib/server/config/protocol/handlers/{initialize,tools,prompts,resources}/validation/proxy/skills/wiki/context/code/scenes/threads/metrics/axioms/error) + `vantadb` (features cli+server) + `vanta-memory` (fachada ingest wiki) + tokio/axum/reqwest |
 | Implicaciones | Solo validación + fix metadata `Cargo.toml` si gate 6 falla (reversible). No toca `src/wal.rs`, `src/vector/`, `src/storage/`. No publica (`publish=false` intacto). Security: superficie LLM-facing (threat model en SKILL.md § Threat Model LLM06) — pero validate-only no cambia código, FASE SECURITY = checklist de lectura, sin cambios de deps → sin `cargo audit` extra |
 

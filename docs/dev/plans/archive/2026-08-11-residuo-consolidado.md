@@ -27,7 +27,7 @@ Star, DORA, SLA, P3-2 ni TSYS-01/05/06. Priorizar Familia A.
 ### Task 1: Poblar `verify-log.jsonl` (cerrar Task 2 del plan de consolidación)
 - **Esfuerzo:** 🟢 | **Prioridad:** 🔴 | **Ruta:** vanta-worker
 - **Archivos clave:** `.opencode/task-system/enforcement/verify-log.jsonl` (0 bytes), `docs/dev/plans/2026-08-10-docs-task-system-consolidation.md:45`
-- **Gate Justificación:** es el dato que desbloquea North Star (`evals/northstar.mjs`), DORA (`evals/dora.mjs`), SLA (TSYS-05), P3-2 y `docs/reports/pipeline-evals.md` (todos "0 tasks" por log vacío).
+- **Gate Justificación:** es el dato que desbloquea North Star (`evals/northstar.mjs`), DORA (`evals/dora.mjs`), SLA (TSYS-05), P3-2 y `docs/dev/reports/pipeline-evals.md` (todos "0 tasks" por log vacío).
 - **Gate Result:** ✅ DO
 - **Contrato: docs/dev/architecture/adr/ADR-015-coverage-policy.md existe con umbral real >=80% + exclusiones wasm/server/mcp + wrapper >=85%
 - **Estado:** ✅ COMPLETED (2026-08-11) — verify-log.jsonl poblado con 2+ entradas reales de verificación (cargo test -p vantadb, node JSONL check); northstar.md/pipeline-evals.md regenerados y ya no dicen "0 tasks". Commit `d22733ab`.

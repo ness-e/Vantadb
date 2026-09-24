@@ -24,7 +24,7 @@
 ## Impacto mapeado (Regla 0)
 
 - **Archivos leídos (completos):** `skills/vantadb/SKILL.md` (789L), `skills/vantadb-mcp/SKILL.md` (599L), `.opencode/skills/vantadb/SKILL.md` (791L), `.opencode/skills/vantadb-mcp/SKILL.md` (599L), `skills/vantadb-mcp/references/api-reference.md` (521L), `.opencode/skills/vantadb-mcp/references/api-reference.md` (521L), `SKILLS-MANIFEST.md` (601L), `scripts/validate-docs-coverage.ps1` (197L)
-- **Archivos referenciados hacia dentro:** los SKILL.md referencian `docs/api/MCP.md`, `docs/dev/architecture/adr/`, `examples/python/`, `docs/archive/case-studies-unverified/` — solo lectura de existencia (Test-Path), sin editarlos
+- **Archivos referenciados hacia dentro:** los SKILL.md referencian `docs/api/MCP.md`, `docs/dev/architecture/adr/`, `examples/python/`, `docs/dev/archive/case-studies-unverified/` — solo lectura de existencia (Test-Path), sin editarlos
 - **Archivos que referencian a los editados:** `SKILLS-MANIFEST.md` (lista `vantadb`, `vantadb-mcp` KEEP), `AGENTS.md` (regla de resolución skills), plan file Task 15; ningún `.rs`/`.py` importa skills en runtime (son docs para agentes)
 - **Veredicto impacto:** BAJO — merges aditivos (0 líneas borradas con contenido único), 8 archivos docs-only en 2 repos (parent + submodule working tree)
 
@@ -41,7 +41,7 @@ No es feature-add: 0 símbolos públicos nuevos (sin `pub fn`, tool MCP, endpoin
 | 1 | Dirección sync error-channel `vantadb-mcp/SKILL.md` | A: `skills/`→`.opencode/` (párrafo ERR-MCP-01 completo) / B: inverso (borraría contenido) | ✅ A por evidencia: commit `0ce791ce` + tabla `docs/api/MCP.md:129` existe |
 | 2 | Dirección sync enum `api-reference.md` | A: `skills/`→`.opencode/` (nombres cortos) / B: inverso (`*Error`, no compila contra código) | ✅ A por evidencia: `src/error.rs:142,157,161,196,216,288` nombres cortos |
 | 3 | MCP-27 vs MCP-29 (contradicción real) | A: MCP-29 supersedea (unión) / B: MCP-27 vigente / C: Gate V al dueño | ✅ A por evidencia: `src/physical_plan/scan.rs:81-92,185-194` + tests sanitización/unión + `src/sdk/serialization/mod.rs:66-70` |
-| 4 | Dirección sync `vantadb/SKILL.md` (doble) | MCP-29: `.opencode/`→`skills/`; case-studies: `skills/`→`.opencode/` | ✅ merge bidireccional por evidencia: `docs/case_studies/` NO existe, `docs/archive/case-studies-unverified/` SÍ (3 files) |
+| 4 | Dirección sync `vantadb/SKILL.md` (doble) | MCP-29: `.opencode/`→`skills/`; case-studies: `skills/`→`.opencode/` | ✅ merge bidireccional por evidencia: `docs/case_studies/` NO existe, `docs/dev/archive/case-studies-unverified/` SÍ (3 files) |
 | 5 | Gate persistente | A: sección 7 en `validate-docs-coverage.ps1` / B: script nuevo / C: solo documentar comando | ✅ A: es el gate citado por FIND-76 (EXIT 0), aditivo, ~30 líneas |
 | 6 | Commit submodule `.opencode/` | A: commitear dentro / B: dejar working-tree + lead hace bump | ✅ B: submodule con WIP ajeno (`AGENTS.md`, `rules/`, `task-system/`); precedente parent `chore: bump opencode submodule` |
 

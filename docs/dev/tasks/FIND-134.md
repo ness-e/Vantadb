@@ -17,14 +17,14 @@
 
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | `ci-gate.yml` (REQUIRED ×11 lee check-runs por `name:`, no por job id — renombres de `name:` prohibidos); badges README/​README_ES apuntan al filename (FIND-142 los renombra, no esta task); `docs/workflow/ci-rust-10.md` documenta triggers (colateral, scope FIND-143) |
+| Callers | `ci-gate.yml` (REQUIRED ×11 lee check-runs por `name:`, no por job id — renombres de `name:` prohibidos); badges README/​README_ES apuntan al filename (FIND-142 los renombra, no esta task); `docs/dev/workflow/ci-rust-10.md` documenta triggers (colateral, scope FIND-143) |
 | Callees | `.github/actions/rust-setup` (sccache punto único, Regla release-ci §2 — no se toca); `Cargo.toml` workspace (no se toca); `providers/*/Cargo.toml` (solo lectura scope) |
 | Implicaciones | Ningún contrato de código cambia; cero Rust; set de validaciones idéntico (11 required sobreviven con mismos `name:`); `needs` convierte fallos fmt/clippy en skip (no en rojo) de los pesados — tradeoff fast-fail documentado; quitar `develop` de push elimina el duplicado push+PR mismo SHA en PRs develop→main; `providers/**` amplía trigger (más runs, no menos validación) |
 
 ## Impacto mapeado (Regla 0)
 - **Archivos leídos (completos):** `.github/workflows/ci-rust-10.yml` (613 líneas), `.github/workflows/ci-gate.yml` (58 líneas), `.opencode/rules/release-ci.md` (42 líneas), `.opencode/references/definition-of-done.md`, `docs/dev/plans/2026-09-21-workflows-repair.md`
 - **Archivos referenciados hacia dentro (imports/includes/dependencias):** `.github/actions/rust-setup` (6 usos), `actions/checkout@3d3c42e…` (14 usos), `taiki-e/install-action@…` (4 usos), `actions/cache`, `actions/upload-artifact`, `dtolnay/rust-toolchain`, `Swatinem/rust-cache` — ninguno se edita
-- **Archivos que referencian a los editados (referencias entrantes):** `ci-gate.yml:30-42` (11 REQUIRED por nombre), `README.md:8` + `README_ES.md:8` (badge por filename), `docs/workflow/ci-rust-10.md:64` (triggers documentados), `docs/TEST_MAP.md:64`, ADRs (citas históricas de líneas — drift aceptado, no se reescriben)
+- **Archivos que referencian a los editados (referencias entrantes):** `ci-gate.yml:30-42` (11 REQUIRED por nombre), `README.md:8` + `README_ES.md:8` (badge por filename), `docs/dev/workflow/ci-rust-10.md:64` (triggers documentados), `docs/TEST_MAP.md:64`, ADRs (citas históricas de líneas — drift aceptado, no se reescriben)
 - **Veredicto impacto:** bajo — 1 archivo YAML, sin código, sin API pública, sin símbolos nuevos. codegraph N/A (CI, no código). Internet N/A (auditoría ya trae fuentes).
 
 ## Los 11 required que deben sobrevivir (nombres exactos, `ci-gate.yml:30-42`)
@@ -41,7 +41,7 @@ N/A — no es feature-add: cero símbolos públicos nuevos (`pub fn`/tool/endpoi
 ## Invariantes de dominio (handoff — MUST)
 - **Invariantes a preservar:** 11 check names idénticos; filename `ci-rust-10.yml` intacto (FIND-142); resto de workflows intactos (FIND-135/136 en paralelo); stash GOV-C4 y WIP ajeno intactos; `docs/dev/Backlog.md` y plan file no tocados por esta task; cero commits a `main`/`develop` salvo el `ci:` propio; NO PUSH (solo vanta-lead pushea)
 - **Comandos de verificación:** `actionlint .github/workflows/ci-rust-10.yml` (exit 0) · `git diff --check` (limpio) · `campaign_verify_cmd` con BUG exit -1 conocido → fallback bash directa + mención explícita
-- **Deuda pendiente:** ninguna propia; colateral `docs/workflow/ci-rust-10.md:64` (lista de paths sin `providers/**`, sin mención de `needs`) → queda_pendiente al orquestador (scope FIND-143)
+- **Deuda pendiente:** ninguna propia; colateral `docs/dev/workflow/ci-rust-10.md:64` (lista de paths sin `providers/**`, sin mención de `needs`) → queda_pendiente al orquestador (scope FIND-143)
 
 ## Recitation (canónico — estructura única)
 | Campo recitation (MCP) | Valor |
@@ -139,7 +139,7 @@ N/A — no es feature-add: cero símbolos públicos nuevos (`pub fn`/tool/endpoi
 - **Veredicto:** ⬜ pendiente (post-commit, agente distinto)
 
 ## Notas
-- Gates: P:no (plan aprobado por owner 2026-09-21, Gate P en plan file) · D:no (blast radius 1 archivo CI, sin símbolos públicos, contrato explícito) · V:no (sin fallos verify) · C:registrado (colateral `docs/workflow/ci-rust-10.md:64` → scope FIND-143; sin `question` tool disponible → no bloquea, queda_pendiente al orquestador).
+- Gates: P:no (plan aprobado por owner 2026-09-21, Gate P en plan file) · D:no (blast radius 1 archivo CI, sin símbolos públicos, contrato explícito) · V:no (sin fallos verify) · C:registrado (colateral `docs/dev/workflow/ci-rust-10.md:64` → scope FIND-143; sin `question` tool disponible → no bloquea, queda_pendiente al orquestador).
 - `campaign_update_task_state` N/A: `campaign_get_next_task` → `hasTask:false` (plan checkbox, sin tasks MCP). Motivo registrado aquí en vez de transición.
 - `campaign_verify_cmd` N/A por BUG exit -1 conocido → bash directa para `actionlint`/`git diff --check`/greps (mención explícita aquí y en RESULTADO).
 - Resume 2026-09-22: el intento previo SÍ había persistido (S1 + `needs` en `test` + task file). Re-verificado estado real con `git diff` antes de continuar; no se re-hizo trabajo.

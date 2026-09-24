@@ -280,5 +280,5 @@ Implementar path-prefix-disambiguation en codegraph durante FIND-42.
 - **AGENTS.md Regla 0** (análisis de impacto antes de modificar;
   este ADR es el resultado de Regla 0 aplicada a la "inversión
   reportada")
-- **Plantilla:** `docs/_templates/adr.md`
+- **Plantilla:** `docs/dev/_templates/adr.md`
 - **Último ADR existente:** ADR-033 (prov-04, contrato providers)

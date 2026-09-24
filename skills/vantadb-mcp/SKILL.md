@@ -19,7 +19,7 @@ bash scripts/setup-vantadb.sh
 
 This installs VantaDB. Configuration is handled entirely through environment
 variables (`VANTADB_*` / `VANTA_*`) and CLI flags — **there is no config
-file** (see [references/configuration.md](references/configuration.md)).
+file** (see [references/configuration.md](dev/references/configuration.md)).
 
 ### Starting the MCP Server
 
@@ -54,7 +54,7 @@ Configure your MCP client to connect to VantaDB:
 
 > `~` does NOT expand in client configs: MCP clients spawn the command
 > directly, without a shell (`Path::new` receives the literal string — see
-> [references/configuration.md](references/configuration.md) § Storage).
+> [references/configuration.md](dev/references/configuration.md) § Storage).
 > Always use an **absolute path** for `--db`.
 
 **Pre-configured templates available in assets/:**
@@ -123,7 +123,7 @@ first write; list what exists with `collection_list` (or `memory_list_namespaces
 ## Available MCP Tools (86)
 
 The full contract for all **87 tools** lives in
-[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 49 core tools in detail; the other 37 are summarized here.
+[references/api-reference.md](dev/references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 49 core tools in detail; the other 37 are summarized here.
 
 | Group | Count | Tools | Precondition |
 |-------|-------|-------|--------------|
@@ -456,7 +456,7 @@ defaults (`scope: agent`, `top_k: 5`), when NOTHING is injected (empty recall
 injects nothing, never fill the gap), deterministic temporal ranges
 (`parse_temporal_expression`, 30-day announced fallback), `additionalContext`
 budget, and proxy-turns→threads curation via the approval inbox — lives in
-[references/recall-policy.md](references/recall-policy.md). The `initialize`
+[references/recall-policy.md](dev/references/recall-policy.md). The `initialize`
 `instructions` string states the same policy in one paragraph; per-client hook
 templates are FIND-106 (not here).
 
@@ -588,7 +588,7 @@ VantaDB provides Python SDK integrations for popular AI frameworks:
 
 ## Editor Integration
 
-For per-IDE setup (Cursor, Claude Code, Windsurf, OpenCode, Cline, VS Code), see [docs/api/MCP.md](../../docs/api/MCP.md) (a stub). The source of truth for the MCP contract is this skill — [references/api-reference.md](references/api-reference.md) § "MCP Tools (86)".
+For per-IDE setup (Cursor, Claude Code, Windsurf, OpenCode, Cline, VS Code), see [docs/api/MCP.md](../../docs/api/MCP.md) (a stub). The source of truth for the MCP contract is this skill — [references/api-reference.md](dev/references/api-reference.md) § "MCP Tools (86)".
 
 Supported editors:
 - Cursor
@@ -600,15 +600,15 @@ Supported editors:
 
 ## Performance Optimization
 
-- Configure memory limits via environment variables (see [references/configuration.md](references/configuration.md))
+- Configure memory limits via environment variables (see [references/configuration.md](dev/references/configuration.md))
 - Use namespace isolation to limit scope
-- HNSW parameters (`m`, `ef_construction`, `ef_search`, …) are **not** exposed as environment variables — they are set programmatically via `HnswConfig` when constructing the engine (see [references/api-reference.md](references/api-reference.md))
+- HNSW parameters (`m`, `ef_construction`, `ef_search`, …) are **not** exposed as environment variables — they are set programmatically via `HnswConfig` when constructing the engine (see [references/api-reference.md](dev/references/api-reference.md))
 - Implement periodic cleanup of old memories
 
 ## Security
 
 - Use namespace isolation for different contexts
-- Read-only mode is **not** an environment variable — set it programmatically via `VantaConfig::with_read_only(true)` in the embedded SDK (see [references/configuration.md](references/configuration.md))
+- Read-only mode is **not** an environment variable — set it programmatically via `VantaConfig::with_read_only(true)` in the embedded SDK (see [references/configuration.md](dev/references/configuration.md))
 - Implement access control at the editor level
 - Audit memory access logs
 
@@ -650,10 +650,10 @@ server — stdio, local, single-user. Threat model for the host-file tools:
 
 For comprehensive documentation, see the reference files:
 
-- **[references/mcp-protocol.md](references/mcp-protocol.md)** - Complete MCP protocol specification
-- **[references/recall-policy.md](references/recall-policy.md)** - Continuous recall policy: hooks, thresholds, temporal rules, curation
-- **[references/api-reference.md](references/api-reference.md)** - Full VantaDB API reference (Python and Rust)
-- **[references/configuration.md](references/configuration.md)** - Advanced configuration guide (environment variables)
+- **[references/mcp-protocol.md](dev/references/mcp-protocol.md)** - Complete MCP protocol specification
+- **[references/recall-policy.md](dev/references/recall-policy.md)** - Continuous recall policy: hooks, thresholds, temporal rules, curation
+- **[references/api-reference.md](dev/references/api-reference.md)** - Full VantaDB API reference (Python and Rust)
+- **[references/configuration.md](dev/references/configuration.md)** - Advanced configuration guide (environment variables)
 
 These files provide in-depth technical details for:
 - MCP protocol methods and error handling

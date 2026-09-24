@@ -132,7 +132,7 @@ Triage + Paso 0 + `question` → owner aprobó "Aprobar plan 26 (Recomendado)". 
 - Task file `docs/dev/tasks/FIND-70.md` · ⬜ PENDING · Ruta vanta-lead (CI).
 
 **Task 17: FIND-80 — fuzz corpus + docs**
-- Appetite 1d · 🟡 · 🟢 · `fuzz/corpus/`, `fuzz-40.yml`, `docs/workflow/fuzz-40.md`
+- Appetite 1d · 🟡 · 🟢 · `fuzz/corpus/`, `fuzz-40.yml`, `docs/dev/workflow/fuzz-40.md`
 - Contrato: seed mínimo commiteado + upload-artifact corpus/crashes + docs actualizadas (ci-gate + fuzz-pr) + `cargo check --manifest-path fuzz/Cargo.toml --bins` 0.
 - Task file `docs/dev/tasks/FIND-80.md` · ⬜ PENDING · Ruta vanta-worker.
 

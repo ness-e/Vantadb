@@ -15,7 +15,7 @@
 
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | `Cargo.toml:636` (workspace default-members), `docs/user/operations/CI_POLICY.md` (§Experimental Circuit Breaker), `dev-tools/verify.ps1` (gate local) leen o documentan la lista |
+| Callers | `Cargo.toml:636` (workspace default-members), `docs/dev/operations/CI_POLICY.md` (§Experimental Circuit Breaker), `dev-tools/verify.ps1` (gate local) leen o documentan la lista |
 | Callees | Ninguno — docs-only, no compila código; `cargo check`/`clippy`/`nextest`/`deny` son gates externos verificados por CI |
 | Implicaciones | Sin cambio de comportamiento runtime. Solo criterio de promoción + doc. No toca `src/`, `vanta-*/src/`, ni publica crates (`publish=false` intacto). Reversible en 1 línea. |
 
@@ -23,11 +23,11 @@
 
 - **Archivos leídos completos:**
   - `Cargo.toml:620-656` (36 líneas — `[workspace]` members 6 + default-members 2 + exclude + comentario CATEGORY: EXPERIMENTAL)
-  - `docs/user/operations/CI_POLICY.md` (302 líneas — §Experimental Crate Circuit Breaker líneas 109-143 + Fast Gate §1 + inventory 14 workflows)
+  - `docs/dev/operations/CI_POLICY.md` (302 líneas — §Experimental Crate Circuit Breaker líneas 109-143 + Fast Gate §1 + inventory 14 workflows)
   - `dev-tools/verify.ps1` (92 líneas — gate local fmt/check/clippy/audit/deny/nextest/coverage/docs-coverage, con -E RESOURCE-GUARD filters)
   - `dev-tools/gate-common.ps1` (22 líneas — Get-CoreFeatures cli,fjall,memmap2,fs2,roaring)
   - `scripts/validate-docs-coverage.ps1` (197 líneas — 6 checks: SDK/config/error/CLI/python/MCP)
-  - `docs/dev/architecture/adr/` (16 ADRs existentes: 001,014-030; template `docs/_templates/adr.md`)
+  - `docs/dev/architecture/adr/` (16 ADRs existentes: 001,014-030; template `docs/dev/_templates/adr.md`)
   - `.github/workflows/ci-rust-10.yml` (jobs fmt/clippy/semver/adr-gate/test/windows/macos/msrv/minimal/coverage/wasm-test/experimental-check/audit/miri)
   - `.github/workflows/release-npm-61.yml` (timeout 10, tests 26s Fast Gate) y `release-npm-node.yml` (matrix 7 targets, 1 continue-on-error flag)
   - `vanta-memory/Cargo.toml`, `vanta-proxy/Cargo.toml`, `vantadb-wasm/Cargo.toml`, `vantadb-ts/package.json`, `vantadb-node/package.json`
@@ -41,7 +41,7 @@
 - **Referencias entrantes (a los editados):**
   - `Cargo.toml` default-members es leído por `cargo` (workspace resolver), por `ci-rust-10.yml:experimental-check` (cargo check -p server/mcp/wasm) y por `verify.ps1` (cargo check -p vantadb con features core).
   - `CI_POLICY.md` es referencia normativa para `release-ci.md` y `.opencode/AGENTS.md` Regla 2 pipeline.
-  - ADRs son referenciados por `adr-gate` job (fail si cambio API sin ADR) y por `docs/user/operations/CI_POLICY.md`.
+  - ADRs son referenciados por `adr-gate` job (fail si cambio API sin ADR) y por `docs/dev/operations/CI_POLICY.md`.
 
 - **Veredicto impacto:** mínimo y reversible — 2 archivos de documentación tocados (nuevo ADR + 1 sección en CI_POLICY), 0 crates recompilados, 0 APIs públicas cambiadas, 0 toolchain extra instalado en este step. El cambio es 100% doc-driven y deferre la edición de `Cargo.toml` a STABLE-09 tras validación.
 
@@ -50,11 +50,11 @@
 | Decisión | Elección | Evidencia |
 |----------|----------|-----------|
 | Número de ADR | `ADR-031-default-members-promotion.md` (siguiente libre tras 030) | `docs/dev/architecture/adr/` lista ADR-030 como último; secuencia incremental |
-| Formato ADR | Frontmatter `title/status/tags/created/last_reviewed/owner` + §Context/§Decision/§Consequences/§Alternatives/§References siguiendo `docs/_templates/adr.md` y ADR-027/028 como ejemplo | Template 24 líneas + ADRs reales 80-116 líneas |
+| Formato ADR | Frontmatter `title/status/tags/created/last_reviewed/owner` + §Context/§Decision/§Consequences/§Alternatives/§References siguiendo `docs/dev/_templates/adr.md` y ADR-027/028 como ejemplo | Template 24 líneas + ADRs reales 80-116 líneas |
 | Tabla 10 checks | Reproducir exactamente contrato P47 (Backlog:721-736) numerados 1..10 con comando y criterio de pass | Backlog:726-736 define 10 gates con 3 corridas, cargo clean/npm ci |
 | Coste por crate | Tabla con 7 columnas: crate, `cargo check` (s), `clippy` (s), `nextest`/`vitest` (s), toolchain extra, `Cargo.lock` delta (KB), nota Fast/Heavy | Medición local 2026-08-27: `cargo check -p` ~3-32s (wasm 3.5s, mcp 6.6s, server ~21s, proxy 32s, memory 36s); sin toolchain extra salvo wasm (`wasm32`+`wasm-pack`) y node (`napi`); Cargo.lock no crece (crates ya en workspace) |
 | Gate reversible | Sección §Reversibilidad: `git revert` de 1 línea en `Cargo.toml:636` + revert CI_POLICY §default-members; `publish=false` intacto, no afecta `cargo publish` | P47 origen: "deja la promoción como cambio reversible en 1 línea" + STABLE-09 contrato |
-| CI_POLICY update | Añadir §Promoción a default-members (o sub-sección bajo Circuit Breaker) que enlaza a ADR-031 y lista los 10 checks como DoD | Contrato: "docs/user/operations/CI_POLICY.md §default-members menciona ADR" — el § actual es 109-143 sin referencia a ADR futuro, debe citar ADR-031 |
+| CI_POLICY update | Añadir §Promoción a default-members (o sub-sección bajo Circuit Breaker) que enlaza a ADR-031 y lista los 10 checks como DoD | Contrato: "docs/dev/operations/CI_POLICY.md §default-members menciona ADR" — el § actual es 109-143 sin referencia a ADR futuro, debe citar ADR-031 |
 | Question gate | Sección §Pregunta al owner en ADR con 2 opciones: <5 min Fast Gate (requisito duro) vs re-etiquetar como Heavy con justificación (STABLE-08) + registro de respuesta pendiente | STABLE-00 contrato: "Gate: `question` al owner para aprobar el umbral Fast Gate (<5 min vs Heavy) antes de tocar Cargo.toml" — ADR debe dejar DRAFT hasta respuesta |
 | Idioma | Inglés (source of truth para docs/architecture y docs/operations) | Doc Language Split: English para architecture/ops, Spanish solo Backlog/avance |
 | No tocar Cargo.toml | En este STABLE-00 no se edita `Cargo.toml:636` — promoción diferida a STABLE-09 | Contrato STABLE-00: "antes de tocar Cargo.toml" — este task solo escribe criterios |
@@ -67,7 +67,7 @@ existe docs/dev/architecture/adr/ADR-031-default-members-promotion.md con:
   - tabla de coste por crate (tiempo cargo check/clippy/nextest, toolchain extra, tamaño Cargo.lock)
   - question al owner sobre umbral Fast Gate (<5 min vs Heavy) registrada en ADR (§Pregunta al owner)
   - §Reversibilidad 1 línea
-existe docs/user/operations/CI_POLICY.md §default-members menciona ADR-031 (grep -n "ADR-031" CI_POLICY.md -> hit)
+existe docs/dev/operations/CI_POLICY.md §default-members menciona ADR-031 (grep -n "ADR-031" CI_POLICY.md -> hit)
 cargo fmt --check == 0 (docs-only, no formato roto)
 cargo clippy -p vantadb --all-targets no regresión (solo docs)
 scripts/validate-docs-coverage.ps1 no aplica gaps nuevos (docs-only)
@@ -101,10 +101,10 @@ scripts/validate-docs-coverage.ps1 no aplica gaps nuevos (docs-only)
 - **Verify:** `Test-Path docs/dev/architecture/adr/ADR-031-default-members-promotion.md` → true + `Select-String -Pattern "ADR-031" docs/dev/architecture/adr/ADR-031-default-members-promotion.md | Measure` ≥3 hits + `Select-String -Pattern "^\| 1\."` o tabla 10 checks presente + `Select-String -Pattern "Pregunta al owner|Question to owner"` → hit
 - **Estado:** ✅ COMPLETED (2026-08-27 — ADR creado 302 líneas, 10 checks tabla + coste per crate + Question to Owner §4 con opciones A/B registrada como pending)
 
-### Step 2: Actualizar docs/user/operations/CI_POLICY.md §default-members para mencionar ADR-031
-- **Archivos:** `docs/user/operations/CI_POLICY.md` (editar §Experimental Crate Circuit Breaker, línea ~109-143)
+### Step 2: Actualizar docs/dev/operations/CI_POLICY.md §default-members para mencionar ADR-031
+- **Archivos:** `docs/dev/operations/CI_POLICY.md` (editar §Experimental Crate Circuit Breaker, línea ~109-143)
 - **Acción:** Añadir sub-sección `#### Promoción a default-members — DoD y ADR-031` o inline note en reglas de promoción: "Para promover un crate experimental a estable, deben pasar los 10 checks de ADR-031 en 3 corridas; ver ADR-031 para criterios, coste y reversibilidad; promoción = 1 línea en Cargo.toml:636". Mantener reglas existentes (CATEGORY: EXPERIMENTAL). Añadir link relativo `../architecture/adr/ADR-031-default-members-promotion.md`. No tocar Cargo.toml.
-- **Verify:** `Select-String -Path docs/user/operations/CI_POLICY.md -Pattern "ADR-031"` → hit (líneas 137,139,145,153) + `Select-String -Pattern "default-members"` → hit (6 hits) + `Get-Content CI_POLICY.md | Select-String -Pattern "10 checks|10 gates"` → hit
+- **Verify:** `Select-String -Path docs/dev/operations/CI_POLICY.md -Pattern "ADR-031"` → hit (líneas 137,139,145,153) + `Select-String -Pattern "default-members"` → hit (6 hits) + `Get-Content CI_POLICY.md | Select-String -Pattern "10 checks|10 gates"` → hit
 - **Estado:** ✅ COMPLETED (2026-08-27 — CI_POLICY editado: §Promotion subsección + link relativo + 10-check DoD + rollback 1 línea + Owner gate bloqueado)
 
 ### Step 3: Verify mecánico + commit + progreso
@@ -124,7 +124,7 @@ scripts/validate-docs-coverage.ps1 no aplica gaps nuevos (docs-only)
 
 ## Context Save Point
 - Trabajo previo: S1-S3 ✅ + verify full (fmt, clippy, docs coverage 0 gaps) + commit 8e206431
-- Archivos tocados: docs/dev/architecture/adr/ADR-031-default-members-promotion.md, docs/user/operations/CI_POLICY.md, .opencode/skills/campaign-executor/tasks/STABLE-00.md
+- Archivos tocados: docs/dev/architecture/adr/ADR-031-default-members-promotion.md, docs/dev/operations/CI_POLICY.md, .opencode/skills/campaign-executor/tasks/STABLE-00.md
 - Próximo step: ninguno — tarea cerrada
 
 ## Verify (evidencia)

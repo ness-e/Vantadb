@@ -34,7 +34,7 @@ The primary entry point to all documentation is the [master-index](master-index.
 | [operations/](user/operations/CONFIGURATION.md) | CI/CD, benchmarks, configuration, monitoring |
 | [tutorials/](user/tutorials/index.md) | Learning path: agent memory, RAG, hybrid search, migrations |
 <!-- | [articles/](../web/content/blog/why-i-built-vantadb-local-memory-engine.md) | Published technical articles (planned) | -->
-| [graphrag/](graphrag/README.md) | GraphRAG architecture and design |
+| [graphrag/](dev/graphrag/README.md) | GraphRAG architecture and design |
 | [iql/](api/IQL.md) | Interactive Query Language reference |
 | [avance/](dev/avance/README.md) | Project progress dashboard |
 | [Backlog.md](dev/Backlog.md) | Active task backlog |

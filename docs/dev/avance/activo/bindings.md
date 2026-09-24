@@ -249,7 +249,7 @@ aliases: []
 - **Resultado:** ✅ DIFERIDO con ADR-021 + señal de reapertura explícita en `docs/dev/research/FND-04-arrow-zero-copy.md` (umbrales documentados). Commit `95a67fd3`.
 
 ### FND-05: SDK idiomático (no wrapper 1:1 de Rust) — migrado 2026-08-16 (ver docs/progreso/README.md)
-- **Resultado:** ✅ análisis en `docs/dev/research/FND-05-sdk-idiomatico.md` (gaps PY-*/TS-*) + prototipos `with VantaDB(path) as db` (Python) y `await using db` (TS, ejemplos en `docs/examples/`). Sin rewrite; async nativo NO (cubre FND-04). Commit `14183fc4`.
+- **Resultado:** ✅ análisis en `docs/dev/research/FND-05-sdk-idiomatico.md` (gaps PY-*/TS-*) + prototipos `with VantaDB(path) as db` (Python) y `await using db` (TS, ejemplos en `docs/user/examples/`). Sin rewrite; async nativo NO (cubre FND-04). Commit `14183fc4`.
 
 ### FND-06: Regla de boundaries core ↔ bindings (Ports & Adapters) — migrado 2026-08-16 (ver docs/progreso/README.md)
 - **Resultado:** ✅ regla R-8 core-bindings (lógica de negocio NUNCA en PyO3/WASM/server) en `.opencode/rules/api-contract.md` + TODO(core) + drift ERR-028 documentado. Commit `bea0f513`.
@@ -493,7 +493,7 @@ aliases: []
 - **Fecha:** 2026-08-27
 - **Plan:** `docs/dev/plans/2026-08-25-research-vantadb-ts-quickwins.md` (Wave 1)
 - **Objetivo:** Job CI Fast Gate (<5min) `npm ci && npm run build && npx vitest run` en cada PR/push.
-- **Resultado:** ✅ ` .github/workflows/release-npm-61.yml:tests` ya cumple — 26s medido (ci 5.6s + build 2.6s + vitest 13.8s) <<5min, `pull_request` + `push` con paths filter, sin `continue-on-error`. Documentado en `docs/user/operations/CI_POLICY.md:279`. Commit `970536b1`.
+- **Resultado:** ✅ ` .github/workflows/release-npm-61.yml:tests` ya cumple — 26s medido (ci 5.6s + build 2.6s + vitest 13.8s) <<5min, `pull_request` + `push` con paths filter, sin `continue-on-error`. Documentado en `docs/dev/operations/CI_POLICY.md:279`. Commit `970536b1`.
 
 ### TS-08: CDN ESM jsDelivr vs esm.sh verificado
 - **Fecha:** 2026-08-27

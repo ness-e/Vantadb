@@ -11,7 +11,7 @@
 ## Blast Radius
 - `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md` §3.1 Daily Backup Verification — ya existe (4 hits), 5 pasos full restore+doctor+count verificados GOV-B2/GOV-A3, no se toca contenido durabilidad
 - `dev-tools/verify.ps1` — se AÑADE guard `daily backup verification` (ponytail 2 líneas, valida anchor existe, no heavy restore en fast gate)
-- `docs/reports/dora.md` — read-only referencia, no se edita (fuente métricas)
+- `docs/dev/reports/dora.md` — read-only referencia, no se edita (fuente métricas)
 - **No toca:** `.config/nextest.toml` (GOV-C1 disjoint), `docs/master-index.md` (GOV-C4 disjoint), `docs/dev/Backlog.md` (GOV-C2/C3 purga refs ya resuelta como mención textual, no se re-purga aquí), `src/wal.rs`, `src/storage/engine/*`, `src/planner.rs`, `vantadb-mcp/*`
 
 ## Contrato (verificable)
@@ -27,7 +27,7 @@ cargo check -p vantadb # exit 0
 - **Archivos leídos:**
   - `docs/user/operations/DISASTER_RECOVERY_RUNBOOK.md` 473L §3.1 Daily Backup Verification intacto (4 hits: line 276,278,238,420 + §3.1 30L 5 pasos backup→restore temp→doctor→count/get→cleanup, light variant MANIFEST.json, PENDING note until CLI verify subcommand)
   - `dev-tools/verify.ps1` 99L (fmt, check, clippy, audit, deny, nextest, coverage, docs-coverage, cli-probes, consumo guard) — gap: 0 hits "Daily Backup Verification"
-  - `docs/reports/dora.md` 402L (DORA metrics, recovery time, throughput — sin backup verification, no debe tocarse)
+  - `docs/dev/reports/dora.md` 402L (DORA metrics, recovery time, throughput — sin backup verification, no debe tocarse)
   - `SKILLS-MANIFEST.md` grep keywords verify:3 backup:0 daily:0 dora:0 (source-driven-development verify 3 hits)
   - Plan `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` §GOV-C3 571-578 (purga refs 10 audit-reports + REPORTE_EVALUACION×2 — ya resuelta como mención textual `Nota GOV-C3 2026-08-22` docs/dev/Backlog.md:200, no re-purga en este task docs(operations) disjoint)
 - **Verificación gap:** runbook §3.1 existe ✅, verify.ps1 no tenía guard daily backup ❌ → fix ponytail requerido

@@ -20,23 +20,23 @@
 | Dirección | Módulos |
 |-----------|---------|
 | Callers | ninguno (script standalone; corre manual/CI ad-hoc) |
-| Callees | `.opencode/task-system/enforcement/verify-log.jsonl` (read-only), escribe `docs/reports/dora.md` |
+| Callees | `.opencode/task-system/enforcement/verify-log.jsonl` (read-only), escribe `docs/dev/reports/dora.md` |
 | Implicaciones | agrega sección "Recovery Time" al reporte; no cambia secciones existentes salvo renumeración de headers; Wave0 paralelo con MCP-35/RES-01 disjoint (archivos disjuntos: evals/dora.mjs vs src/cli_server.rs vs src/wal.rs) |
 
 ## Impacto mapeado (Regla 0) — OBLIGATORIO antes de cualquier edición
 
-- **Archivos leídos (completos):** `evals/dora.mjs` (360 líneas, última verificación 2026-09-02), `docs/reports/dora.md` (generado), `.opencode/task-system/enforcement/verify-log.jsonl` (16 líneas actuales, todas taskId:null), `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` (§ Wave0), `docs/dev/reviews/archive/auditoria-documentacion-2026-08-21.md` (465 líneas, TIR-02a §Brechas Volumen II + Addendum + D13)
-- **Archivos referenciados hacia dentro:** dora.mjs lee PLANS_DIR, TASKS_ROOT, LOG (verify-log.jsonl), escribe OUT (docs/reports/dora.md). Sin imports externos (solo node:fs/path/url). Auditoria doc referencia TIR-02a como brecha 🟠 Alta nunca ticketeada.
-- **Archivos que referencian a los editados:** `evals/dora.mjs` sin callers en código Rust; `grep "dora.mjs"` solo menciones doc (plans, reports). `docs/reports/dora.md` referenciado por governance plan y auditoria.
+- **Archivos leídos (completos):** `evals/dora.mjs` (360 líneas, última verificación 2026-09-02), `docs/dev/reports/dora.md` (generado), `.opencode/task-system/enforcement/verify-log.jsonl` (16 líneas actuales, todas taskId:null), `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md` (§ Wave0), `docs/dev/reviews/archive/auditoria-documentacion-2026-08-21.md` (465 líneas, TIR-02a §Brechas Volumen II + Addendum + D13)
+- **Archivos referenciados hacia dentro:** dora.mjs lee PLANS_DIR, TASKS_ROOT, LOG (verify-log.jsonl), escribe OUT (docs/dev/reports/dora.md). Sin imports externos (solo node:fs/path/url). Auditoria doc referencia TIR-02a como brecha 🟠 Alta nunca ticketeada.
+- **Archivos que referencian a los editados:** `evals/dora.mjs` sin callers en código Rust; `grep "dora.mjs"` solo menciones doc (plans, reports). `docs/dev/reports/dora.md` referenciado por governance plan y auditoria.
 - **Veredicto impacto:** bajo — script standalone, salida markdown aditiva, verify-log.jsonl read-only. Disjoint 100% con Wave0 paralelos MCP-35 (vantadb-mcp/src/server.rs) y RES-01 (src/wal.rs) — sin contención.
 
 ## Contrato
 
-**Guard 2026-09-02 (Wave0 re-verificación):** `node evals/dora.mjs` exit 0 AND `Select-String -Path "docs/reports/dora.md" -Pattern "Recovery Time" | Measure-Object Count` >=1
+**Guard 2026-09-02 (Wave0 re-verificación):** `node evals/dora.mjs` exit 0 AND `Select-String -Path "docs/dev/reports/dora.md" -Pattern "Recovery Time" | Measure-Object Count` >=1
 
 **Histórico 2026-08-22:** `node evals/dora.mjs` exit 0 y reporte incluye sección "Recovery Time" con pares fail→pass (históricamente ~3 pares: 12.6h T1-residuo-consolidado, 28.6h espurio CI-05 exit:-1, 17s AUD-033 — reproducibles solo con clave taskId sin exigir equality de command; entradas taskId:null no pareables; log vacío → warning sin crash).
 
-> **Nota contrato plan 2026-09-02:** el plan cita `evals/dora.md` pero el OUT real es `docs/reports/dora.md` (path corregido aquí). El plan exige "3 pares" pero con verify-log actual (16 entradas todas taskId:null, corte 2026-08-28) hay 0 pares pareables — es dato, no bug. El guard correcto valida existencia de sección + exit 0, no count fijo de pares.
+> **Nota contrato plan 2026-09-02:** el plan cita `evals/dora.md` pero el OUT real es `docs/dev/reports/dora.md` (path corregido aquí). El plan exige "3 pares" pero con verify-log actual (16 entradas todas taskId:null, corte 2026-08-28) hay 0 pares pareables — es dato, no bug. El guard correcto valida existencia de sección + exit 0, no count fijo de pares.
 
 ## Spec (SDD)
 
@@ -45,7 +45,7 @@ N/A — docs-only, sin símbolos públicos. Decisión técnica única ya tomada 
 ## Invariantes de dominio (handoff — MUST)
 
 - **Invariantes a preservar:** verify-log.jsonl NUNCA se escribe desde este script (read-only); secciones existentes del reporte (CFR, Throughput, Flow) no cambian de semántica; sin crash ante archivo ausente/log vacío/malformado (readVerifyLog() → []).
-- **Comandos de verificación:** `node evals/dora.mjs` → exit 0 + `Select-String -Path "docs/reports/dora.md" -Pattern "Recovery Time"` >=1
+- **Comandos de verificación:** `node evals/dora.mjs` → exit 0 + `Select-String -Path "docs/dev/reports/dora.md" -Pattern "Recovery Time"` >=1
 - **Deuda pendiente:** ninguna
 
 ## Recitation (canónico — estructura única)
@@ -53,10 +53,10 @@ N/A — docs-only, sin símbolos públicos. Decisión técnica única ya tomada 
 | Campo recitation (MCP) | ← fuente en este task file |
 |------------------------|----------------------------|
 | `activeGoal` | GOV-T01 — TIR-02a recovery time en evals/dora.mjs |
-| `lastAction` | Guard Wave0 2026-09-02: `node evals/dora.mjs` exit 0 regenerado (677 tasks, 419 completed, 16 attempts, 0 recovery pairs por log actual taskId:null); sección Recovery Time presente docs/reports/dora.md:459 |
+| `lastAction` | Guard Wave0 2026-09-02: `node evals/dora.mjs` exit 0 regenerado (677 tasks, 419 completed, 16 attempts, 0 recovery pairs por log actual taskId:null); sección Recovery Time presente docs/dev/reports/dora.md:459 |
 | `result` | OK ↔ ✅ COMPLETED |
 | `nextAction` | ninguno (guard cerrado); Wave0 sigue con GOV-T02/T03 + RES-01 + MCP-35 disjoint |
-| `contract` | `## Contrato` + `## Invariantes` + evidencia: dora.mjs:207-222 recoveryPairs + docs/reports/dora.md:459 |
+| `contract` | `## Contrato` + `## Invariantes` + evidencia: dora.mjs:207-222 recoveryPairs + docs/dev/reports/dora.md:459 |
 | `nextTask` | GOV-T02 (TIR-04b tasks/closed/) — Wave0 paralelo, disjoint |
 
 ## Deuda técnica (Regla 6 — MUST)
@@ -84,8 +84,8 @@ Sin deuda nueva (≈35 líneas aditivas en script standalone 2026-08-22, 0 líne
 - **Auditoria 2026-08-21:** TIR-02a listada en Brechas Volumen II 🟠 Alta — decisión tomada investigación TIR-02, nunca ticketeada como fila; ~30 líneas sobre datos existentes; D13 excepción "ejecutar ya" (D2 era solo plan documentado).
 - **Doc governance plan:** `docs/dev/plans/archive/2026-08-22-doc-governance-plan.md` Task 1 GOV-T01 — appetite 1h, Cynefin obvio, 0 uphill / 3 downhill, completada commit 1c7660dc.
 - **Implementación 2026-08-22:** `evals/dora.mjs:207-222` recoveryPairs, sección ## 3. Recovery Time, avg real con filtro exit:-1, caveat taskId:null. Verificado por vanta-review (ses_fd746...): 12.56h / 28.59h espurio /16.8s presentes con 124 attempts en ese snapshot.
-- **Estado actual 2026-09-02 DISCOVERY:** auditoria doc leída completa (Vol I+II+Addendum+D1-D14); plan governance leído; evals/dora.mjs re-verificado (360L, sin cambios desde 2026-08-22); verify-log.jsonl truncado a 16 entradas todas taskId:null (vs 124 previas) → recovery pairs 0 es correcto por dato, no regresión de código; docs/reports/dora.md regenerado 2026-09-02 con sección Recovery Time presente pero tabla vacía (0 pares) — comportamiento esperado con log actual.
-- **Disjoint Wave0:** GOV-T01 toca evals/dora.mjs + docs/reports/dora.md + verify-log read-only; MCP-35 toca vantadb-mcp/src/server.rs + .vanta.server.json; RES-01 toca src/wal.rs + src/storage/engine/mod.rs — 0 archivos en común → parallel 3 seguro.
+- **Estado actual 2026-09-02 DISCOVERY:** auditoria doc leída completa (Vol I+II+Addendum+D1-D14); plan governance leído; evals/dora.mjs re-verificado (360L, sin cambios desde 2026-08-22); verify-log.jsonl truncado a 16 entradas todas taskId:null (vs 124 previas) → recovery pairs 0 es correcto por dato, no regresión de código; docs/dev/reports/dora.md regenerado 2026-09-02 con sección Recovery Time presente pero tabla vacía (0 pares) — comportamiento esperado con log actual.
+- **Disjoint Wave0:** GOV-T01 toca evals/dora.mjs + docs/dev/reports/dora.md + verify-log read-only; MCP-35 toca vantadb-mcp/src/server.rs + .vanta.server.json; RES-01 toca src/wal.rs + src/storage/engine/mod.rs — 0 archivos en común → parallel 3 seguro.
 
 ## Incógnitas (uphill) vs Pendientes (downhill) — P2-03
 
@@ -111,9 +111,9 @@ Sin deuda nueva (≈35 líneas aditivas en script standalone 2026-08-22, 0 líne
 
 ### Step 2: Verificar contrato mecánico (histórico)
 
-- **Archivos:** `docs/reports/dora.md`
+- **Archivos:** `docs/dev/reports/dora.md`
 - **Acción:** correr node evals/dora.mjs; confirmar exit 0 y 3 pares históricos presentes.
-- **Verify:** grep "Recovery Time" + 12.6/28.6/17s en docs/reports/dora.md
+- **Verify:** grep "Recovery Time" + 12.6/28.6/17s en docs/dev/reports/dora.md
 - **Estado:** ✅ COMPLETED (evidencia dora.md §3 desde línea 303, campaign_verify_cmd passed:true)
 
 ### Step 3: Review GATE P2-01 (histórico)
@@ -125,10 +125,10 @@ Sin deuda nueva (≈35 líneas aditivas en script standalone 2026-08-22, 0 líne
 
 ### Step 4: Guard re-verificación Wave0 2026-09-02 (medición baseline)
 
-- **Archivos:** `evals/dora.mjs`, `docs/reports/dora.md`, `.opencode/task-system/enforcement/verify-log.jsonl`
-- **Acción:** DISCOVERY: leer auditoria 2026-08-21 + plan governance archive + plan 2026-09-02 §GOV-T01. EJECUCIÓN medición: `node evals/dora.mjs` (exit 0), verificar sección Recovery Time presente en docs/reports/dora.md. No tocar código Rust. Ponytail diff mínimo: solo task file metadata + plan file last-synced.
-- **Verify:** `node evals/dora.mjs` exit 0 AND `Select-String -Path "docs/reports/dora.md" -Pattern "Recovery Time" | Measure-Object Count` >=1
-- **Estado:** ✅ COMPLETED (2026-09-02: exit 0, Wrote docs/reports/dora.md 677 tasks/419 completed/16 attempts, Count Recovery Time =1 (file), caveat 0 pares por log taskId:null — esperado)
+- **Archivos:** `evals/dora.mjs`, `docs/dev/reports/dora.md`, `.opencode/task-system/enforcement/verify-log.jsonl`
+- **Acción:** DISCOVERY: leer auditoria 2026-08-21 + plan governance archive + plan 2026-09-02 §GOV-T01. EJECUCIÓN medición: `node evals/dora.mjs` (exit 0), verificar sección Recovery Time presente en docs/dev/reports/dora.md. No tocar código Rust. Ponytail diff mínimo: solo task file metadata + plan file last-synced.
+- **Verify:** `node evals/dora.mjs` exit 0 AND `Select-String -Path "docs/dev/reports/dora.md" -Pattern "Recovery Time" | Measure-Object Count` >=1
+- **Estado:** ✅ COMPLETED (2026-09-02: exit 0, Wrote docs/dev/reports/dora.md 677 tasks/419 completed/16 attempts, Count Recovery Time =1 (file), caveat 0 pares por log taskId:null — esperado)
 
 ## Dependencias
 
@@ -158,6 +158,6 @@ Sin deuda nueva (≈35 líneas aditivas en script standalone 2026-08-22, 0 líne
 - **Fecha:** 2026-09-02T15:00
 - **Branch:** develop
 - **CI pendiente:** no (docs-only)
-- **Decisiones:** guard Wave0 re-verifica sin re-implementar (código ya landed 2026-08-22); contrato plan corregido (docs/reports/dora.md no evals/dora.md, exit 0 + sección >=1 no count 3 fijo por log contenido)
+- **Decisiones:** guard Wave0 re-verifica sin re-implementar (código ya landed 2026-08-22); contrato plan corregido (docs/dev/reports/dora.md no evals/dora.md, exit 0 + sección >=1 no count 3 fijo por log contenido)
 - **Problemas conocidos:** verify-log.jsonl actual solo 16 taskId:null → recovery 0 pares (no bloqueante, dato); historic 3 pares no reproducibles sin log histórico — documentado
 - **Próxima tarea:** GOV-T02 (TIR-04b tasks/closed/) — Wave0 paralelo, disjoint

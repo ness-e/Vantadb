@@ -125,9 +125,9 @@ Documento de negocio (meta USD 5.000 antes del 01/01/2027). Claims técnicos y d
 |---|---|---|
 | Licencia Apache-2.0 en el repo | ✅ Confirmado | `LICENSE` = Apache License 2.0 |
 | 9 adaptadores PyPI: LangChain, LlamaIndex, Mem0, CrewAI, DSPy, Letta, OpenAI, LiteLLM (+Haystack) | ⚠️ Parcialmente cierto | Hay 9 dirs en `integrations/` PERO la lista real es: crewai, dspy, haystack, langchain, letta, llamaindex, mem0, **ollama**, openai. **LiteLLM no existe como adapter**; Ollama sí. El doc nombra LiteLLM y omite Ollama |
-| ROADMAP con riesgos bloqueantes R1(CI), R2(WASM demo 80/219), R3(bincode deprecated), R4(MSVC linker), R5(backlog sin priorizar), R8(claims falsos landing 50x vs 40x) | ✅ Confirmado (estructura) | `docs/strategy/ROADMAP.md` contiene R1-R8 con esa semántica (R1 CI 🔴, DRV-115 MSVC, etc.). Resolución individual de cada riesgo a día de hoy: parcialmente verificada (MSVC/toolchain 1.95 ok; WASM/claims web no re-verificados aquí) |
-| COMPETITIVE_ANALYSIS.md sólido | ✅ Confirmado | Existe en `docs/benchmarks/COMPETITIVE_ANALYSIS.md` |
-| GO_TO_MARKET.md con pricing Free/Pro $99/Business $499/Enterprise custom | ✅ Confirmado (existe) | `docs/strategy/GO_TO_MARKET.md`; valores de pricing no re-leídos en detalle |
+| ROADMAP con riesgos bloqueantes R1(CI), R2(WASM demo 80/219), R3(bincode deprecated), R4(MSVC linker), R5(backlog sin priorizar), R8(claims falsos landing 50x vs 40x) | ✅ Confirmado (estructura) | `docs/dev/strategy/ROADMAP.md` contiene R1-R8 con esa semántica (R1 CI 🔴, DRV-115 MSVC, etc.). Resolución individual de cada riesgo a día de hoy: parcialmente verificada (MSVC/toolchain 1.95 ok; WASM/claims web no re-verificados aquí) |
+| COMPETITIVE_ANALYSIS.md sólido | ✅ Confirmado | Existe en `docs/user/benchmarks/COMPETITIVE_ANALYSIS.md` |
+| GO_TO_MARKET.md con pricing Free/Pro $99/Business $499/Enterprise custom | ✅ Confirmado (existe) | `docs/dev/strategy/GO_TO_MARKET.md`; valores de pricing no re-leídos en detalle |
 | CLA_CORPORATE.md y CLA_INDIVIDUAL.md en repo | ✅ Confirmado | Ambos existen |
 | Discord `discord.gg/g8nqB3NtXt` en README/SUPPORT | ✅ Confirmado | SUPPORT.md:3 |
 | ChromaDB agregó BM25 nativo (invalidando claim previo) | ❓ Mercado — derivar a research | No verificable localmente |

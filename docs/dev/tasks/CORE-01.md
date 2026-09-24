@@ -53,7 +53,7 @@
   - `src/storage/engine/mod.rs` (773 líneas) — replay_write_node 382-411, storage_offset packing
   - `docs/dev/architecture/adr/019_sparse_vector_persisted_format.md` (precedente sin bump)
   - `docs/dev/plans/2026-08-27-backlog-v2.md` Task 4 CORE-01 (contrato + pre-mortem)
-  - `docs/_templates/adr.md` plantilla
+  - `docs/dev/_templates/adr.md` plantilla
   - `Cargo.toml` workspace (no tocado)
 - **Referencias hacia dentro (qué importa este archivo):**
   - `crate::node::{DiskNodeHeader, UnifiedNode, VectorRepresentations, NodeFlags, NodeTier, FilterBitset}`

@@ -166,7 +166,7 @@ Windows/macOS gates.
 - **R5 — Benchmark honesty:** p99 under concurrency must be measured against
   the real DRV-014 baseline, not a strawman. Mitigation: reuse `benches/`
   criterion harness (see PERF-02 baseline rig) and publish numbers in
-  `docs/benchmarks/`.
+  `docs/user/benchmarks/`.
 
 ## Platform dependencies
 

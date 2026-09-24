@@ -41,7 +41,7 @@
 
 **Relacionados (callers/callees vía lectura directa + rg):**
 - Callers de `examples/README.md`: `examples/demo/README.md:33,44` (rutas demo propias), plan file `:370,:424` (cita FIND-74), `docs/user/QUICKSTART.md:5` (link inverso ya existe desde examples → QUICKSTART, falta QUICKSTART → examples)
-- Callers de QUICKSTART: `README.md:60` (`[5-Minute Quickstart](docs/user/QUICKSTART.md)`), `examples/README.md:5` (`[QUICKSTART](../../docs/user/QUICKSTART.md)`), `SUPPORT.md:11`, plan FIND-67/FIND-74
+- Callers de QUICKSTART: `README.md:60` (`[5-Minute Quickstart](docs/user/QUICKSTART.md)`), `examples/README.md:5` (`[QUICKSTART](../../user/QUICKSTART.md)`), `SUPPORT.md:11`, plan FIND-67/FIND-74
 - Callees: `vantadb-ts/examples/` (3 `.mjs` + 3 subdirs: `langchain/`, `llamaindex/`, `vercel-ai/`) — destino TS referenciado, no tocado
 - `Get-ChildItem -Recurse -Filter *.md | Select-String "QUICKSTART"` → callers conocidos (README, README_ES, SUPPORT, AGENTS, skills) — ningún import de código depende del .md; cambio texto no rompe build
 - `Get-ChildItem -Recurse -Filter *.md | Select-String "examples/demo"` → solo `examples/demo/README.md:33,44` + plans + tasks legacy — sin links frágiles que romper

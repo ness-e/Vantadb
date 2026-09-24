@@ -101,7 +101,7 @@ Objetivo activo: TS-06 — Gate CI para tests TS: Fast Gate (<5min) con npm ci &
 Estado: completed
 Última acción: Steps 1-4 ✅ — medición 26.12s (<5min) → Fast Gate, triggers PR+push ok, sin continue-on-error, 264 passed, CI_POLICY.md §10 actualizado
 Resultado: OK
-Próxima acción: Lead: git add .opencode/skills/campaign-executor/tasks/TS-06.md docs/user/operations/CI_POLICY.md docs/dev/plans/2026-08-25-research-vantadb-ts-quickwins.md && git commit -m 'ci: TS-06 gate Fast Gate for TS tests (<5min, PR+push, no continue-on-error)' && campaign_update_task_state completed
+Próxima acción: Lead: git add .opencode/skills/campaign-executor/tasks/TS-06.md docs/dev/operations/CI_POLICY.md docs/dev/plans/2026-08-25-research-vantadb-ts-quickwins.md && git commit -m 'ci: TS-06 gate Fast Gate for TS tests (<5min, PR+push, no continue-on-error)' && campaign_update_task_state completed
 Contrato: verificacion: cd vantadb-ts && npm run build ✅ (0 err, 1.7s) + npx vitest run ✅ (264 passed, 9 files, ~13s) + npm ci+build+vitest total 26.12s <300s → Fast Gate ✅ + grep continue-on-error vacío ✅ + pull_request.paths incluye vantadb-ts/** ✅ + CI_POLICY.md §10 documenta gate ✅
 evidencia:
 - claim: Workflow CI tiene job Fast Gate que corre npm ci + build + vitest en <5min medido
@@ -118,7 +118,7 @@ evidencia:
   confianza: alta
 artefactos:
 - .github/workflows/release-npm-61.yml (job tests existente, verificado Fast Gate <5min, triggers PR+push, no continue-on-error)
-- docs/user/operations/CI_POLICY.md (§10 Release Workflows row updated to document Fast Gate job)
+- docs/dev/operations/CI_POLICY.md (§10 Release Workflows row updated to document Fast Gate job)
 - .opencode/skills/campaign-executor/tasks/TS-06.md (blast radius, 4 steps, SDP 5 skills)
 - docs/dev/plans/2026-08-25-research-vantadb-ts-quickwins.md (recitation TS-06)
 invariantes: job CI siempre debe correr npm ci + build + vitest <5min; sin continue-on-error; triggers PR+push con paths filter; 264 tests pasan; CI_POLICY documenta gate

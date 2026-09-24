@@ -15,7 +15,7 @@
 
 | Dirección | Módulos |
 |-----------|---------|
-| Callers | `Cargo.toml` workspace `[workspace].members` lista `vanta-memory`; `docs/user/operations/CI_POLICY.md` experimental-check; `docs/dev/architecture/adr/ADR-031` coste per crate |
+| Callers | `Cargo.toml` workspace `[workspace].members` lista `vanta-memory`; `docs/dev/operations/CI_POLICY.md` experimental-check; `docs/dev/architecture/adr/ADR-031` coste per crate |
 | Callees | `vanta-memory/src/*` 10 módulos (core/utils/services/adapters/offload/context_engine/gateway/seed/ingest) + `vantadb` core (path dep sin server) |
 | Implicaciones | Solo validación + fix de metadata `Cargo.toml` si gate 6 falla (reversible 1 línea). No toca `src/wal.rs`, `src/vector/`, `src/storage/` (propiedad Arch/Engine). Si fix necesario, solo `vanta-memory/Cargo.toml` metadata. No publica crate (`publish=false` intacto). |
 
@@ -39,7 +39,7 @@
   - `vanta-proxy/Cargo.toml:27` → `vanta-memory = {path="../vanta-memory"}` (dependiente)
   - `vantadb-mcp/Cargo.toml:14` → `vanta-memory` (MEM-52 wiki_ingest fachada)
   - `Cargo.toml` workspace resolver → `default-members` excluye vanta-memory (no impacta cargo check -p)
-  - `docs/user/operations/CI_POLICY.md` experimental-check job → cargo check -p vanta-memory aparte de default
+  - `docs/dev/operations/CI_POLICY.md` experimental-check job → cargo check -p vanta-memory aparte de default
   - Tests `cargo nextest -p vanta-memory` 473 tests across 22 binaries (audit profile -j 2)
 - **Veredicto impacto:** mínimo y reversible. Gates 1-5 ya verdes (check/clippy/nextest/deny/docs 0 gaps verificado 2026-08-27). Gate 6 (`cargo package`) falla por `dependency vantadb does not specify a version` + warn metadata (publish=false intacto). Fix aplicado: `version="0.5.0"` en 2 deps path (dependencies + dev-dependencies) en `vanta-memory/Cargo.toml` — 2 líneas, `cargo package --no-verify --allow-dirty` → `Packaged 123 files 984.9KiB` ✅ (cargo 1.95). No cambia runtime, no rompe API, no añade deps nuevas, reversible con `git revert` 1 línea. No toca `src/`, no publica, no cambia `Cargo.lock` delta (ya member). Riesgo: ninguno — Cargo.toml metadata-only. `version.workspace=true` descartado — cargo rechaza `invalid type: map` en deps.
 

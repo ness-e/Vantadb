@@ -14,7 +14,7 @@
 - **Referencias entrantes (consumidores):** rg "progreso/README" en scripts/ dev-tools/ .github/ .opencode/ docs/:
   - `scripts/check-avance-coverage.ps1`: solo lista archivos del dir `docs/progreso` (no parsea README) ✅
   - `.opencode/skills/campaign-executor/tasks/*`: referencias históricas de registro, no consumidores estructurales ✅
-  - `docs/book/**`: build artifact regenerable, no fuente ✅
+  - `docs/user/book/**`: build artifact regenerable, no fuente ✅
   - `docs/master-index.md` + otros docs: link genérico a `progreso/README.md` (el archivo sigue existiendo como índice) ✅
   - **Veredicto: ningún consumidor automático asume la estructura interna del README.** Split seguro.
 - **Zonas ambiguas:** bloque legacy julio-agosto (L427-1484 y L1844-3984) mezcla temas por fecha → cortes contiguos temáticos gruesos documentados en el índice; permitido por step 5 ("misc agrupado documentado").

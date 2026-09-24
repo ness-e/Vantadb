@@ -133,7 +133,7 @@ dev-tools/scripts/validate_python_sdk.ps1  # or validate_python_sdk.sh
 
 ### CI gates
 
-Two tiers (see `docs/user/operations/CI_POLICY.md`):
+Two tiers (see `docs/dev/operations/CI_POLICY.md`):
 
 1. **Fast Gate** (every PR/push): fmt, clippy, unit + fast integration tests.
    Must stay < 5 min, deterministic, offline.

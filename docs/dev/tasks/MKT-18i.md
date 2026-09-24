@@ -19,7 +19,7 @@
 
 - **Leídos completos:** `docker-compose.yml` (21L), `docker-compose.dev.yml` (35L, standalone con sus propios volumes — agregar servicios al root NO lo afecta), `Dockerfile` (100L, read-only para mí), `vantadb-server/docker-compose.yml` (95L, compose server separado — no reutilizable para demo, sin ollama), `DEPLOYMENT_GUIDE.md:138-212`.
 - **Referencias salientes del compose:** Dockerfile (`build: .`) → SRV-07 lo modifica en paralelo; trabajo sobre paths actuales, nota inline de swap a imagen publicada.
-- **Referencias entrantes:** grep repo `docker-compose`: SOLO docs/historial + Backlog + SRV-07 plan. Ningún workflow CI ni justfile lo invoca. `docs/web/guides/build-deploy.md:143` lo describe ("despliega solo el server" — queda levemente desactualizado; NOTICED BUT NOT TOUCHING, es archivo web-docs fuera de blast radius).
+- **Referencias entrantes:** grep repo `docker-compose`: SOLO docs/historial + Backlog + SRV-07 plan. Ningún workflow CI ni justfile lo invoca. `docs/user/web/guides/build-deploy.md:143` lo describe ("despliega solo el server" — queda levemente desactualizado; NOTICED BUT NOT TOUCHING, es archivo web-docs fuera de blast radius).
 - **Veredicto:** edición aditiva sobre root compose segura; `config -q` valida integridad; dev compose intacto.
 
 ## Pasos

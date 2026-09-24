@@ -1,6 +1,6 @@
 # Desktop CI — Windows + macOS + Linux builds with installer artifacts.
 # Heavy by nature (Tauri bundling): NOT part of the Fast Gate (<5min) tier.
-# See docs/user/operations/CI_POLICY.md and DESKTOP-24/25 task files.
+# See docs/dev/operations/CI_POLICY.md and DESKTOP-24/25 task files.
 #
 # Sidecar contract (DESKTOP-24, extended DESKTOP-42): `binaries/` is gitignored;
 # each runner builds both sidecars from the root workspace and copies them into

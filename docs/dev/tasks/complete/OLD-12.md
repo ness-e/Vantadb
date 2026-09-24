@@ -6,7 +6,7 @@
 **Dependencia:** PyPI publicado ✅  
 
 ## Gate
-✅ DO — `docs/user/operations/PILOT_PROGRAM.md` existe pero es solo spec. El programa formal necesita: landing page, signup flow, SLA template, feedback loop, NPS tracking.
+✅ DO — `docs/dev/operations/PILOT_PROGRAM.md` existe pero es solo spec. El programa formal necesita: landing page, signup flow, SLA template, feedback loop, NPS tracking.
 
 ## Objetivo
 Convertir el spec de pilot program en un programa ejecutable con materiales para early adopters.
@@ -15,17 +15,17 @@ Convertir el spec de pilot program en un programa ejecutable con materiales para
 
 | Archivo | Qué hacer |
 |---------|-----------|
-| `docs/user/operations/PILOT_PROGRAM.md` | Actualizar de spec → programa formal con secciones ejecutables |
-| New: `docs/user/operations/pilot-agreement-template.md` | Template de acuerdo de piloto (términos, NDA básico, SLA) |
-| New: `docs/user/operations/pilot-feedback-template.md` | Template de feedback loop semanal |
-| New: `docs/user/operations/pilot-onboarding-checklist.md` | Checklist de onboarding para early adopter |
+| `docs/dev/operations/PILOT_PROGRAM.md` | Actualizar de spec → programa formal con secciones ejecutables |
+| New: `docs/dev/operations/pilot-agreement-template.md` | Template de acuerdo de piloto (términos, NDA básico, SLA) |
+| New: `docs/dev/operations/pilot-feedback-template.md` | Template de feedback loop semanal |
+| New: `docs/dev/operations/pilot-onboarding-checklist.md` | Checklist de onboarding para early adopter |
 | `web/src/pages/pilot.astro` o similar | Landing page de pilot program (si web existe) |
 | `docs/dev/Backlog.md` | Marcar OLD-12 ✅ |
 
 ## Pasos
 
 ### 1. Leer spec actual
-Leer `docs/user/operations/PILOT_PROGRAM.md` para entender el alcance actual.
+Leer `docs/dev/operations/PILOT_PROGRAM.md` para entender el alcance actual.
 
 ### 2. Actualizar spec → programa formal
 Agregar secciones:

@@ -76,7 +76,7 @@ Evidencia: `tomllib` parsea OK, classifiers Python = `3, 3.11, 3.13`;
 
 `.opencode/`, `completions/`, `desktop/src-tauri/Cargo.lock`, stash@{0} GOV-C4,
 `Justfile`, `ocr-delegate.yml`, `ocr-review.ps1`, `reparacion.bat`,
-FIND-84 (`integrations/`), FIND-80 (`fuzz/`, `fuzz-40.yml`, `docs/workflow/fuzz-40.md`),
+FIND-84 (`integrations/`), FIND-80 (`fuzz/`, `fuzz-40.yml`, `docs/dev/workflow/fuzz-40.md`),
 `docs/pipeline-state.json`, `Cargo.toml` workspace (solo lectura).
 WIP ajeno visto en `git status` (`.opencode`, `Justfile`, `completions/`, tauri lock,
 `pipeline-state.json`, `ocr-*`, `reparacion.bat`) → commit solo archivos propios.

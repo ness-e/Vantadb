@@ -41,7 +41,7 @@ El ADR `docs/dev/architecture/adr/ADR-037-insert-lock-granularity.md` existe con
 - **Estado:** ✅ DONE (2026-09-04 — ver ADR-037 § Invariantes y § Matriz).
 
 ### Step 2: Redactar ADR-037
-- **Archivos:** `docs/dev/architecture/adr/ADR-037-insert-lock-granularity.md` (nuevo; sigue frontmatter de ADR-036 + plantilla `docs/_templates/adr.md`).
+- **Archivos:** `docs/dev/architecture/adr/ADR-037-insert-lock-granularity.md` (nuevo; sigue frontmatter de ADR-036 + plantilla `docs/dev/_templates/adr.md`).
 - **Verify:** existe + matriz + recomendación explícita (d) + assessment de contrato (api-and-interface-design).
 - **Estado:** ✅ DONE (2026-09-04).
 

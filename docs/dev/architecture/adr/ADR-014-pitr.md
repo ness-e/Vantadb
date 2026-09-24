@@ -72,7 +72,7 @@ integration** to a future feature task:
 3. Record the decision in this ADR so the flag is no longer a silent phantom:
    its purpose, current state, and the deferred integration path are explicit.
 4. Integration (option a) is intentionally deferred; revisit when PITR becomes
-   a product requirement or a Pro candidate (see `docs/strategy/VANTADB-PRO-FEATURES.md`,
+   a product requirement or a Pro candidate (see `docs/dev/strategy/VANTADB-PRO-FEATURES.md`,
     `pitr` listed as Pro candidate; `docs/dev/research/investigacion-equipo-2026-08-09.md`
    confirms today's orphaned state).
 
@@ -96,7 +96,7 @@ integration** to a future feature task:
 
 ## Related
 
-- `docs/strategy/VANTADB-PRO-FEATURES.md` (Pro candidate map)
+- `docs/dev/strategy/VANTADB-PRO-FEATURES.md` (Pro candidate map)
 - `.opencode/rules/durability.md` (WAL durability rules; scope lists
   `wal_archiver.rs` (pitr))
 - ADR-013 (open-core licensing; `pitr` named among commercial candidates)

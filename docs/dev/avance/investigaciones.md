@@ -120,7 +120,7 @@ aliases: []
 
 ### TIR-03: Mitigación/contención primero en incidentes - decisión (2026-08-12)
 - **Fuente:** Backlog P18 `TIR-03` (gap-01 FALTA#15, REPORTE-FINAL §3.3-15)
-- **Resultado:** Decisión IMPLEMENTAR docs mínimos — nueva Fase 0.5 Contención/Estabilización en `docs/references/bug-workflow.md:18` (revert/pausar + registrar ANTES del debug; no reemplaza el Iron Law). Doc: `docs/dev/research/2026-08-10-agent-engineering/TIR-03-decision.md`. Review P2-01 vanta-review ✅ approve.
+- **Resultado:** Decisión IMPLEMENTAR docs mínimos — nueva Fase 0.5 Contención/Estabilización en `docs/dev/references/bug-workflow.md:18` (revert/pausar + registrar ANTES del debug; no reemplaza el Iron Law). Doc: `docs/dev/research/2026-08-10-agent-engineering/TIR-03-decision.md`. Review P2-01 vanta-review ✅ approve.
 - **Ids:** `TIR-03`
 
 ### TSYS-06: Chaos/resilience del task-system — decisión runner DEFER (2026-08-16)

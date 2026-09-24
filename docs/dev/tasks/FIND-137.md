@@ -34,7 +34,7 @@
 
 - **Archivos leídos (completos):** `.github/workflows/ci-rustdoc.yml` (82L — triggers `:16-37`, concurrency top-level `:45-47`, job `:49-82`, `cargo doc --no-deps --workspace --all-features` `:74`, artifact `api-reference-rust`/`target/doc`/7d `:76-82`), `.github/workflows/rustdoc-70.yml` (85L — triggers `:3-24`, env `:26-28`, job `:33-85`, nightly+override `:45-63`, tar.gz/30d `:65-76`, summary `:78-85`), `README.md` (433L — badges `:8-10` sin rustdoc), `README_ES.md` (badges idem, verificado por grep), `.opencode/rules/release-ci.md` (42L), `.opencode/references/definition-of-done.md` (144L), `docs/dev/tasks/FIND-128.md:155-195` (matriz triggers + propuesta dedup), `docs/dev/tasks/FIND-95.md` (modelo task file CI).
 - **Archivos referenciados hacia dentro (del survivor):** `.github/actions/rust-setup` (única dependencia externa); tras el merge el comentario stale `:59` "(same fix as rustdoc-70.yml)" se reescribe autocontenido (citaba al eliminado).
-- **Archivos que referencian a los editados (referencias entrantes):** NINGUNO — verificado: `rg "ci-rustdoc\.yml|rustdoc-70\.yml"` → solo los 2 workflows (self-paths + comentario stale) + historial (CHANGELOG, plans archive, tasks FIND-92/95 — historia, no se toca) + Backlog `:229` (prohibido tocar, orquestador) + plan file (solo recitation); `rg "actions/workflow/status.*rustdoc"` en README/ES → 0 badges rustdoc (nada que actualizar); `rg "download-artifact|api-reference-rust|rustdoc-html"` → 0 consumidores del artifact; `ci-gate.yml` REQUIRED sin rustdoc; `docs/workflow/` sin archivo rustdoc.
+- **Archivos que referencian a los editados (referencias entrantes):** NINGUNO — verificado: `rg "ci-rustdoc\.yml|rustdoc-70\.yml"` → solo los 2 workflows (self-paths + comentario stale) + historial (CHANGELOG, plans archive, tasks FIND-92/95 — historia, no se toca) + Backlog `:229` (prohibido tocar, orquestador) + plan file (solo recitation); `rg "actions/workflow/status.*rustdoc"` en README/ES → 0 badges rustdoc (nada que actualizar); `rg "download-artifact|api-reference-rust|rustdoc-html"` → 0 consumidores del artifact; `ci-gate.yml` REQUIRED sin rustdoc; `docs/dev/workflow/` sin archivo rustdoc.
 - **Veredicto impacto:** 1 archivo editado + 1 eliminado + 0 badges. Riesgo 🟢 mínimo. **Gate D:** no dispara — ≤10 archivos, sin hot path/API pública/símbolos nuevos, contrato mecánico.
 
 ## Contrato
@@ -56,7 +56,7 @@ N/A justificado con evidencia (no `N/A` vacío): la solución planeada NO agrega
 ## Invariantes de dominio (handoff — MUST)
 
 - **Invariantes a preservar:** resto workflows intactos (FIND-138 diagnostica el flake "Generate API reference" sobre el survivor vivo; FIND-139 `ci-gate`/`gate-docs-21` paralelos); `src/`, `web/`, `desktop/`, `reparacion.bat`, `.opencode/`, `completions/*`, `*.lock`, stash GOV-C4, `docs/dev/Backlog.md`, plan file (solo recitation server) intactos; `C:/Users/Eros/.vantadb*` y secretos ni leídos; NO PUSH (pushea solo vanta-lead).
-- **Comandos de verificación:** `actionlint .github/workflows/ci-rustdoc.yml` (exit 0) · `git diff --check` (limpio) · `rg -n "rustdoc-70" .github/ README.md README_ES.md docs/workflow/ docs/user/operations/` (0 hits) · `git status --short` (solo 3 paths: survivor M + eliminado D + task file)
+- **Comandos de verificación:** `actionlint .github/workflows/ci-rustdoc.yml` (exit 0) · `git diff --check` (limpio) · `rg -n "rustdoc-70" .github/ README.md README_ES.md docs/dev/workflow/ docs/user/operations/` (0 hits) · `git status --short` (solo 3 paths: survivor M + eliminado D + task file)
 - **Deuda pendiente:** ninguna (FIND-138 dirá si el flake era infra externa; renombres FIND-142 al final per decisión owner #4)
 
 ## Recitation (canónico — estructura única)
@@ -198,7 +198,7 @@ SDP `campaign_discover_skills_v2` phase=BUILD devolvió 8 (base + lifecycle, key
 actionlint .github/workflows/ci-rustdoc.yml              # exit 0 (contrato d)
 actionlint                                               # full (si disponible en PATH)
 git diff --check                                         # limpio (contrato)
-rg -n "rustdoc-70" .github/ README.md README_ES.md docs/workflow/ docs/user/operations/  # 0 hits (contrato b)
+rg -n "rustdoc-70" .github/ README.md README_ES.md docs/dev/workflow/ docs/user/operations/  # 0 hits (contrato b)
 rg -n "rustdoc" README.md README_ES.md                   # 0 badges (evidencia: nada que actualizar)
 rg -n "api-reference-rust|rustdoc-html" .github/workflows/  # solo survivor (0 consumidores externos)
 git status --short; git diff --stat                      # solo 3 paths propios

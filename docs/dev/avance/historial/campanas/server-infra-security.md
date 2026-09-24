@@ -45,7 +45,7 @@ related: []
 | **Reclasificación de archivos (fs, sin git)** | `vectara-competitive-research` y `meta-001-root-cause-analysis` → `docs/dev/research/` (no son audits: research y RCA de proceso). `backlog-validation`, `progreso-readme-part1/2/3`, `progreso-sistema` → `docs/audit-reports/archive/` (intermedios superados). `audit-reports/` quedó solo con audits legítimos. |
 | **Hallazgos nuevos verificados en código** | Bloque `## NV` añadido a `docs/dev/Backlog.md` (Phase 13): `NV-01` 🟠 sq8 panic OOB, `NV-02` 🟡 expects cli_server, `NV-03` 🟡 licencia wasm ausente, `NV-04` 🟠 UB alineación grow_zeroed, `NV-05` 🟢 divergencia deny/audit.toml. |
 | **Duplicados cerrados** | `AUDREP-51` tachado (== duplicado de `INV-001`: mismo advisory RUSTSEC-2023-0089). `SEC-01`/`SEC-02` en `backlog-guide.md` tachados como ya resueltos (bincode 2.0, rustls-pemfile v2). |
-| **Enlaces actualizados** | Rutas `vectara`/`meta-001` en `Backlog.md` (`META-001`/`NUEVO-21`/`GH-119`) y `progreso/README.md` → `docs/dev/research/`. `docs/reports/INDEX.md` marcó archivados y consolidador. |
+| **Enlaces actualizados** | Rutas `vectara`/`meta-001` en `Backlog.md` (`META-001`/`NUEVO-21`/`GH-119`) y `progreso/README.md` → `docs/dev/research/`. `docs/dev/reports/INDEX.md` marcó archivados y consolidador. |
 | **No duplicados** | `rayon` y `next.config ignoreBuildErrors` verificados en código: ya eran `AUDREP-07`/`AUDREP-19` — correctamente omitidos. |
 
 **Verificación:** Verificación manual en código real de cada candidato nuevo (no solo sub-agentes); 0 links vivos rotos a las rutas movidas (refs en `plans/`, `blog/`, backups y `BACKLOG_HISTORY.md` conservadas como snapshots históricos intencionales). Sin cambios de código — solo documentación.
@@ -82,7 +82,7 @@ related: []
 - **Fuente:** Plan 2026-08-12-ci-deuda.md Task 2
 - **Fecha:** 2026-08-12
 - **Objetivo:** Ampliar `release-sbom-64.yml` para generar artifacts SBOM de Rust (cargo-cyclonedx, existente) + npm (`@cyclonedx/cyclonedx-npm`) + Python (`cyclonedx-bom`) y sincronizar docs.
-- **Resultado:** ✅ 3 artifacts: `sbom.json` (Rust, intacto), `sbom-web.json` (npm, `--package-lock-only`), `sbom-python.json` (Python, `--pyproject`; root component — `vantadb-python` sin deps declaradas). Docs sincronizadas: `docs/workflow/release-sbom-64.md`, `docs/ci-cd-guide.md`. actionlint exit 0 (2× + pre-commit hook ok). Commit: `a8735174`.
+- **Resultado:** ✅ 3 artifacts: `sbom.json` (Rust, intacto), `sbom-web.json` (npm, `--package-lock-only`), `sbom-python.json` (Python, `--pyproject`; root component — `vantadb-python` sin deps declaradas). Docs sincronizadas: `docs/dev/workflow/release-sbom-64.md`, `docs/ci-cd-guide.md`. actionlint exit 0 (2× + pre-commit hook ok). Commit: `a8735174`.
 - **Ids:** `CI-03`
 
 ### CI-02: Fuzzing en PRs (gate acotado)

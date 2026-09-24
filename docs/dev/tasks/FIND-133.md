@@ -85,7 +85,7 @@ Tabla arriba: 14 grupos, todos INTENCIONAL-0.6.0 con evidencia código/commits/A
 
 ### Step 3 — ADR Regla 5 ✅
 `docs/dev/architecture/adr/ADR-044-acumulado-breaking-0.6.0-find-133.md` (Contexto/Decisión/Consecuencias;
-sigue plantilla `docs/_templates/adr.md`; detalla mecanismo release-plz + precedente aliases).
+sigue plantilla `docs/dev/_templates/adr.md`; detalla mecanismo release-plz + precedente aliases).
 
 ### Step 4 — Fix accidentales ✅ (vacuo documentado)
 Sin accidentales → sin slices de código. Reorder append-only y aliases descartados con motivo arriba.

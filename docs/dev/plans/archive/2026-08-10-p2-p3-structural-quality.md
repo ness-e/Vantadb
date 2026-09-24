@@ -62,7 +62,7 @@ histórico de datos real — se habilita cuando haya datos).
 
 ### Task 6: P2-06 — Coverage mínimo mecanizado (gate documentado)
 - **Esfuerzo:** 🟡 | **Prioridad:** 🟠 | **Ruta:** vanta-lead
-- **Archivos clave:** `docs/user/operations/CI_POLICY.md`, `dev-tools/verify.ps1`
+- **Archivos clave:** `docs/dev/operations/CI_POLICY.md`, `dev-tools/verify.ps1`
 - **Gate Justificación:** PR puede bajar cobertura del módulo caliente sin que nada falle (REPORTE gap-02 punto 3).
 - **Gate Result:** ✅ DO (documentar + wiring guard)
 - **Contrato:** CI_POLICY documenta `cargo llvm-cov --fail-under <umbral>` como gate en Heavy con umbral inicial prudente + subida gradual; verify.ps1 corre llvm-cov --fail-under solo si la tool está disponible (guard). NO bloquear el verify default si no está instalado.
@@ -116,10 +116,10 @@ histórico de datos real — se habilita cuando haya datos).
 
 ### Task 12: P3-07 — Métricas DORA de flujo (script)
 - **Esfuerzo:** 🟡 | **Prioridad:** 🟢 | **Ruta:** vanta-worker
-- **Archivos clave:** `evals/` (script nuevo), `docs/reports/`
+- **Archivos clave:** `evals/` (script nuevo), `docs/dev/reports/`
 - **Gate Justificación:** Sin fechas estructuradas no se calculan cycle/lead time ni CFR (REPORTE gap-02 punto 6).
 - **Gate Result:** ✅ DO
-- **Contrato:** `evals/dora.mjs` deriva cycle/lead time y CFD de plan files + tasks; emite `docs/reports/dora.md`; `node evals/dora.mjs` exit 0; degrade graceful si faltan fechas.
+- **Contrato:** `evals/dora.mjs` deriva cycle/lead time y CFD de plan files + tasks; emite `docs/dev/reports/dora.md`; `node evals/dora.mjs` exit 0; degrade graceful si faltan fechas.
 - **Task file:** `skills/campaign-executor/tasks/P3-07.md`
 - **Estado:** ✅ COMPLETED
 

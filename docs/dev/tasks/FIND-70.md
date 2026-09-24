@@ -26,7 +26,7 @@
 
 ## Impacto mapeado (Regla 0)
 
-- **Archivos leídos (completos):** `.github/workflows/heavy-bench-nightly-51.yml` (327 líneas, completo), `Cargo.toml:105-135` (features) + `:221-240` (benches incl. `ingestion_concurrent` + `required-features`), `docs/user/operations/BENCHMARKS.md:413-579` (§13 + post-FIND-57 + FIND-61), `.opencode/rules/release-ci.md` (completo), `docs/user/operations/CI_POLICY.md:419-422` (§8 nightly)
+- **Archivos leídos (completos):** `.github/workflows/heavy-bench-nightly-51.yml` (327 líneas, completo), `Cargo.toml:105-135` (features) + `:221-240` (benches incl. `ingestion_concurrent` + `required-features`), `docs/user/operations/BENCHMARKS.md:413-579` (§13 + post-FIND-57 + FIND-61), `.opencode/rules/release-ci.md` (completo), `docs/dev/operations/CI_POLICY.md:419-422` (§8 nightly)
 - **Archivos referenciados hacia dentro (imports/includes/dependencias):** el workflow usa `./.github/actions/rust-setup`, `scripts/bench_regression.py`, benches `hnsw_pure/hybrid_queries/stress_test/bench_concurrent/canonical_p99/memory_budget/incremental_bench/ivf_bench/high_density`; el bench usa `vantadb::ingestion` (feature-gated `async-ingestion`, `src/lib.rs:160`)
 - **Archivos que referencian a los editados (referencias entrantes):** `rg "heavy-bench-nightly" .github/ docs/` → solo CI_POLICY §8 (descripción, sin comando que romper); `rg "ingestion_concurrent|async-ingestion" .github/workflows/` → 0 hits (el gap: ningún job lo corre)
 - **Veredicto impacto:** bajo — 1 step añadido a job `light-benchmarks` existente + 1 nota docs; `Cargo.toml` PROHIBIDO (solo lectura, intacto); sin `continue-on-error` nuevo (release-ci.md R5); artefacto nuevo auto-recogido por globs existentes

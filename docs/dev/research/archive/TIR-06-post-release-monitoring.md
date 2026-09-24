@@ -21,7 +21,7 @@
 
 **Qué cubre hoy `progreso` (Triggers 1/4):**
 - Trigger 1: migra la tarea completada a `docs/progreso/README.md` y la elimina del Backlog — registro, no monitoreo.
-- Trigger 4: sincroniza reportes (`docs/dev/reviews/` → `docs/reports/INDEX.md` → backlog) — feedback de hallazgos, reactivo.
+- Trigger 4: sincroniza reportes (`docs/dev/reviews/` → `docs/dev/reports/INDEX.md` → backlog) — feedback de hallazgos, reactivo.
 - Trigger 5: postmortem tras incidente — reactivo por definición.
 - **Ninguno cubre verificación post-merge proactiva.** Cubren la mitad del lazo: registro + reacción. No la observación de lo shippeado.
 
