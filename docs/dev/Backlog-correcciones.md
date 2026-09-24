@@ -12,7 +12,7 @@ related: []
 
 > **INGERIDO 2026-09-14:** las 26 filas (FIND-63..88) viven en `docs/dev/Backlog.md` (verificado por conteo). Este archivo es el recibo original — no agregar filas aquí, solo allá.
 >
-> Fuente: revisión 19 módulos (`docs/dev/reviews/review-full-20260910-modulos.md` + apéndice).
+> Fuente: revisión 19 módulos (`docs/dev/reviews/archive/review-full-20260910-modulos.md` + apéndice).
 > Alcance: 8 High + 18 Medium. Generado para `/pipeline plan`.
 
 ## Urgentes (High)

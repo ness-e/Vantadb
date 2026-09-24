@@ -2,7 +2,7 @@
 
 ## Metadata
 - **Plan file:** docs/dev/plans/2026-08-27-backlog-pipeline.md (Wave 1 #11)
-- **Fuente:** docs/dev/Backlog.md:229 + docs/dev/reviews/codegraph-20260827-143245.md:60,131,156 (Fase 10 semantic score 0.98)
+- **Fuente:** docs/dev/Backlog.md:229 + docs/dev/reviews/archive/codegraph-20260827-143245.md:60,131,156 (Fase 10 semantic score 0.98)
 - **Esfuerzo:** 🟢 1h
 - **Prioridad:** 🟡 Media
 - **Tipo:** Rust (test coverage)
