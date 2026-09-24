@@ -56,4 +56,4 @@ produced a `push` run and a `pull_request` run 6 s apart).
 Short version here; normative rules go to `docs/workflow/RULES.md`
 (FIND-144, after this task): triggers, timeouts, SHA pins, permissions,
 publish policy, and good/bad examples per high-severity finding.
-`docs/operations/CI_POLICY.md` refresh (26 → 27, real triggers) ships there too.
+`docs/user/operations/CI_POLICY.md` refresh (26 → 27, real triggers) ships there too.

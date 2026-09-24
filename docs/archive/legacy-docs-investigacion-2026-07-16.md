@@ -87,7 +87,7 @@ Conceptos NO cubiertos en la doc viva ni en los reportes consolidados. Referenci
 
 ## 4. Políticas operativas vigentes confirmadas (fuente: batch17)
 
-Las 11 políticas marcadas vigentes viven en `docs/operations/` con el mismo nombre (verificado): `BACKUP_POLICY`, `BENCHMARKS`, `CI_POLICY`, `COMMUNITY_GOVERNANCE`, `CONFIGURATION`, `DURABILITY_GUARANTEES`, `EXPERIMENTAL_FEATURES`, `FUZZING`, `GRAFANA_SETUP`, `MEMORY_TELEMETRY`, `PYTHON_RELEASE_POLICY` + `RELIABILITY_GATE` (parcial). **Dos correcciones al análisis original:**
+Las 11 políticas marcadas vigentes viven en `docs/user/operations/` con el mismo nombre (verificado): `BACKUP_POLICY`, `BENCHMARKS`, `CI_POLICY`, `COMMUNITY_GOVERNANCE`, `CONFIGURATION`, `DURABILITY_GUARANTEES`, `EXPERIMENTAL_FEATURES`, `FUZZING`, `GRAFANA_SETUP`, `MEMORY_TELEMETRY`, `PYTHON_RELEASE_POLICY` + `RELIABILITY_GATE` (parcial). **Dos correcciones al análisis original:**
 
 - `EDITOR_INTEGRATIONS` NO es obsoleto: `query_lisp`, `inject_context`, `read_axioms` existen en `vantadb-mcp/src/lib.rs:864-1324` y siguen en `docs/api/MCP.md`. Única obsolescencia real: config `opencode.json` → `opencode.jsonc`.
 - `SHOW_HN_PREP` SÍ está publicado: vive activo en `docs/strategy/SHOW_HN_PREP.md` (status: active, last_reviewed 2026-08-02).
@@ -133,7 +133,7 @@ Las 11 políticas marcadas vigentes viven en `docs/operations/` con el mismo nom
 **La mayoría ya resueltos** (verificado contra v0.5.0): PyPI publicado, PITR/WAL shipping, AES-GCM, migraciones, CLI/TUI (`src/tui/`), MVCC (VFY-011), auto-embedding (COMP-010 cerrado), snapshots hard-link (OLD-08 ✅).
 
 **Findings aún plausibles o abiertos (referencia):**
-- **PGWire** → único item realmente abierto: `docs/Backlog.md:280` (OLD-01, 🗺️ Roadmap).
+- **PGWire** → único item realmente abierto: `docs/dev/Backlog.md:280` (OLD-01, 🗺️ Roadmap).
 - **RBAC standalone** → `src/rbac.rs` cableado en `src/cli_server.rs:116-117` (parcial: admin role + namespaces; no integrado al parser IQL).
 - **Ollama proxy HTTP** (`/api/generate`, WebSockets, `/v1/points`) → sin tracker; candidato a `backlog-futuro.md` como I+D de bajo valor (LlmClient ya cubre embeddings/summary).
 - **GcWorker sin loop background** → `src/gc.rs` sweep manual, sin tokio::spawn ni métricas Prometheus reales.

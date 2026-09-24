@@ -43,7 +43,7 @@ change note.
 
 ## What is NOT covered
 
-- APIs explicitly marked **experimental** (see `docs/operations/EXPERIMENTAL_FEATURES.md`)
+- APIs explicitly marked **experimental** (see `docs/user/operations/EXPERIMENTAL_FEATURES.md`)
   — they may change or disappear in any release, including PATCH.
 - Rust crate internals (non-public modules, private structs, internal traits).
 - IQL behavior beyond what `docs/api/IQL.md` documents.
@@ -61,4 +61,4 @@ Version bumps, tags, and changelog entries are produced automatically by
 [release-plz](https://release-plz.github.io/) + [git-cliff](https://git-cliff.org/)
 from Conventional Commits. See the *Release Workflow* section of
 [`CONTRIBUTING.md`](../../CONTRIBUTING.md) for the full flow, and
-[`docs/operations/UPGRADE.md`](../operations/UPGRADE.md) for consumer upgrade guidance.
+[`docs/user/operations/UPGRADE.md`](../user/operations/UPGRADE.md) for consumer upgrade guidance.

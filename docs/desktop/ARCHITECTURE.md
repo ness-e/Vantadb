@@ -15,11 +15,11 @@ app (`desktop/`), as implemented in `desktop/src-tauri/src/connections/`.
 Strategic decisions live in the ADRs — this document references them and does
 not duplicate them:
 
-- [ADR-026](../architecture/adr/ADR-026-vanta-studio-fase3-rest-dashboard.md) —
+- [ADR-026](../dev/architecture/adr/ADR-026-vanta-studio-fase3-rest-dashboard.md) —
   full REST surface `/api/v2/*`, embedded dashboard, local-first loopback (D11/D12).
-- [ADR-027](../architecture/adr/ADR-027-fase4-cierre-deuda-rest-wasm-opfs.md) —
+- [ADR-027](../dev/architecture/adr/ADR-027-fase4-cierre-deuda-rest-wasm-opfs.md) —
   Fase 4 closure: REST debt, WASM/OPFS backbone (D13–D15).
-- [ADR-028](../architecture/adr/ADR-028-core-decay-supersession.md) —
+- [ADR-028](../dev/architecture/adr/ADR-028-core-decay-supersession.md) —
   core decay supersession semantics surfaced by the consolidation UI.
 
 ## Overview

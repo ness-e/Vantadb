@@ -8,9 +8,9 @@ last_reviewed: 2026-09-02
 
 # Reddit Launch Posts
 
-> **Task:** MKT-04 (`docs/Backlog-negocio.md` §P6 — fila de negocio: publicación requiere identidad humana) — Reddit posts for r/rust, r/MachineLearning, r/LocalLLaMA
+> **Task:** MKT-04 (`docs/dev/Backlog-negocio.md` §P6 — fila de negocio: publicación requiere identidad humana) — Reddit posts for r/rust, r/MachineLearning, r/LocalLLaMA
 > **Effort:** 🟢 2-4h
-> **Estado 2026-09-02 (MKT-04):** 3 drafts corregidos y validados con datos medibles (abajo), **NO publicados** — `status: ready-to-publish`. Publicación pendiente (owner humano tiene identidad Reddit). **✅ Claims corregidos:** "zero deps"/"pure Rust" → Fjall default es pure-Rust; feature `roaring` (default) trae `croaring-sys`/`cc` que compila C/C++; `rocksdb` backend opcional también es C++. "recall>0.998 SIFT1M" → verificado: Stress Protocol recall@10 **0.9560 @ 10K**, **0.9980 @ 10K (scaling)**, **1.0000 @ 50K**, **0.9980 @ 100K** (`docs/operations/BENCHMARKS.md` §1); SIFT1M 100K p99 **441.2 µs** balanced / **1.23 ms** high-recall (`docs/operations/BENCHMARKS.md` §5). "sub-ms core search" → verificado: core Rust p50 **1.2 ms @ 10K**, **6.1 ms @ 50K** (`docs/operations/BENCHMARKS.md` §1); Python SDK vector search p50 **62 ms @ 10K** (incluye PyO3/GIL). "100% GloVe-100-angular 1.18M" → **sin medición**; competitive bench midió subset 10K con recall@10 **24.5%** (`docs/operations/BENCHMARKS.md` §7) — claim eliminado.
+> **Estado 2026-09-02 (MKT-04):** 3 drafts corregidos y validados con datos medibles (abajo), **NO publicados** — `status: ready-to-publish`. Publicación pendiente (owner humano tiene identidad Reddit). **✅ Claims corregidos:** "zero deps"/"pure Rust" → Fjall default es pure-Rust; feature `roaring` (default) trae `croaring-sys`/`cc` que compila C/C++; `rocksdb` backend opcional también es C++. "recall>0.998 SIFT1M" → verificado: Stress Protocol recall@10 **0.9560 @ 10K**, **0.9980 @ 10K (scaling)**, **1.0000 @ 50K**, **0.9980 @ 100K** (`docs/user/operations/BENCHMARKS.md` §1); SIFT1M 100K p99 **441.2 µs** balanced / **1.23 ms** high-recall (`docs/user/operations/BENCHMARKS.md` §5). "sub-ms core search" → verificado: core Rust p50 **1.2 ms @ 10K**, **6.1 ms @ 50K** (`docs/user/operations/BENCHMARKS.md` §1); Python SDK vector search p50 **62 ms @ 10K** (incluye PyO3/GIL). "100% GloVe-100-angular 1.18M" → **sin medición**; competitive bench midió subset 10K con recall@10 **24.5%** (`docs/user/operations/BENCHMARKS.md` §7) — claim eliminado.
 
 ---
 
@@ -35,10 +35,10 @@ Over the past few months I've been building [VantaDB](https://github.com/ness-e/
 - RRF fusion for deterministic hybrid ranking
 
 **The numbers (verified, Stress Protocol + SIFT1M subset):**
-- Recall@10: **0.9560 @ 10K**, **0.9980 @ 10K (scaling)**, **1.0000 @ 50K**, **0.9980 @ 100K** vectors, 128d Cosine (`docs/operations/BENCHMARKS.md` §1)
-- Core Rust p50 latency: **1.2 ms @ 10K**, **6.1 ms @ 50K** (`docs/operations/BENCHMARKS.md` §1)
-- SIFT1M 100K p99: **441.2 µs** (balanced Cosine), **1.23 ms** (high-recall Cosine) (`docs/operations/BENCHMARKS.md` §5)
-- Python SDK vector search p50: **62 ms @ 10K** (includes PyO3/GIL boundary) (`docs/operations/BENCHMARKS.md` §2)
+- Recall@10: **0.9560 @ 10K**, **0.9980 @ 10K (scaling)**, **1.0000 @ 50K**, **0.9980 @ 100K** vectors, 128d Cosine (`docs/user/operations/BENCHMARKS.md` §1)
+- Core Rust p50 latency: **1.2 ms @ 10K**, **6.1 ms @ 50K** (`docs/user/operations/BENCHMARKS.md` §1)
+- SIFT1M 100K p99: **441.2 µs** (balanced Cosine), **1.23 ms** (high-recall Cosine) (`docs/user/operations/BENCHMARKS.md` §5)
+- Python SDK vector search p50: **62 ms @ 10K** (includes PyO3/GIL boundary) (`docs/user/operations/BENCHMARKS.md` §2)
 - Cross-platform Python wheels (Linux x86_64/aarch64, macOS x86_64/arm64, Windows x86_64)
 
 **Dependencies note:** Default backend Fjall is pure-Rust. Feature `roaring` (enabled by default) pulls `croaring-sys`/`cc` which compiles C/C++; `rocksdb` feature (optional) also requires C++ toolchain.
@@ -79,10 +79,10 @@ results = db.search_memory(namespace="chat", query_vector=[...], text_query="hel
 - Cross-platform wheels (Linux x86_64/aarch64, macOS x86_64/arm64, Windows x86_64)
 
 **Performance (verified):**
-- Ingestion: ~95 ops/sec @ 10K records (`docs/operations/BENCHMARKS.md` §2)
+- Ingestion: ~95 ops/sec @ 10K records (`docs/user/operations/BENCHMARKS.md` §2)
 - Vector search (Python SDK): p50 **62 ms**, p99 **72 ms** @ 10K, top_k=10
 - Hybrid search (RRF): p50 **180 ms**, p99 **211 ms** @ 10K
-- Batch search (`search_batch`): **4× faster** than sequential, avg **2.4 ms/query** @ 5K records (`docs/operations/BENCHMARKS.md` §6)
+- Batch search (`search_batch`): **4× faster** than sequential, avg **2.4 ms/query** @ 5K records (`docs/user/operations/BENCHMARKS.md` §6)
 
 Would love feedback from folks building local AI agent systems!
 
@@ -115,10 +115,10 @@ I built [VantaDB](https://github.com/ness-e/Vantadb) for exactly this use case.
 **Stack:** Rust core → PyO3 bindings → Python SDK (WASM/TS SDK also available)
 
 **Performance (verified):**
-- Core Rust vector search p50: **1.2 ms @ 10K**, **6.1 ms @ 50K** (`docs/operations/BENCHMARKS.md` §1)
-- Python SDK vector search p50: **62 ms @ 10K** (includes FFI/GIL) (`docs/operations/BENCHMARKS.md` §2)
-- SIFT1M 100K p99: **441 µs** balanced / **1.23 ms** high-recall (`docs/operations/BENCHMARKS.md` §5)
-- Batch search 4× speedup via Rayon GIL release (`docs/operations/BENCHMARKS.md` §6)
+- Core Rust vector search p50: **1.2 ms @ 10K**, **6.1 ms @ 50K** (`docs/user/operations/BENCHMARKS.md` §1)
+- Python SDK vector search p50: **62 ms @ 10K** (includes FFI/GIL) (`docs/user/operations/BENCHMARKS.md` §2)
+- SIFT1M 100K p99: **441 µs** balanced / **1.23 ms** high-recall (`docs/user/operations/BENCHMARKS.md` §5)
+- Batch search 4× speedup via Rayon GIL release (`docs/user/operations/BENCHMARKS.md` §6)
 
 **Repo:** https://github.com/ness-e/Vantadb (Apache 2.0)
 

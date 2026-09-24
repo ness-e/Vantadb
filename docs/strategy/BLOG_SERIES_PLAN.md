@@ -17,14 +17,14 @@ aliases: [BLOG_SERIES_PLAN, Blog Plan, Blog Calendar, Blog Series]
 
 ## Status Summary
 
-> **Status update 2026-08-17 (verificación multi-agente):** M1 ✅ **RESUELTO** — `docs/blog/introducing_vantadb.md` existe (commit `f51b2263`, live en `vanta-data.ts:862`). M2 ✅ author alineado (`ness-e`). M5 ✅ slugs vía frontmatter. M6 ✅ version `0.5.0` en drafts. **Pendientes:** M3 🟡 date drift (2026-06-06 vs web 2025), M4 🟡 title drift, CTA débil en 2 posts, posts 6-7 no redactados (→ BLOG-CTA en backlog).
+> **Status update 2026-08-17 (verificación multi-agente):** M1 ✅ **RESUELTO** — `docs/user/blog/introducing_vantadb.md` existe (commit `f51b2263`, live en `vanta-data.ts:862`). M2 ✅ author alineado (`ness-e`). M5 ✅ slugs vía frontmatter. M6 ✅ version `0.5.0` en drafts. **Pendientes:** M3 🟡 date drift (2026-06-06 vs web 2025), M4 🟡 title drift, CTA débil en 2 posts, posts 6-7 no redactados (→ BLOG-CTA en backlog).
 
-The blog series is **4 of 5 posts complete** as drafts in `docs/blog/`, but the production site exposes **4 posts** (one of them, `introducing-vantadb`, has no source draft in `docs/blog/`). Every live post has metadata drift between the web manifest and its markdown draft. See [Section 1](#1-content-inventory).
+The blog series is **4 of 5 posts complete** as drafts in `docs/user/blog/`, but the production site exposes **4 posts** (one of them, `introducing-vantadb`, has no source draft in `docs/user/blog/`). Every live post has metadata drift between the web manifest and its markdown draft. See [Section 1](#1-content-inventory).
 
 | Surface | Posts | Notes |
 |---------|-------|-------|
 | Web (`BLOG_POSTS` in `web/src/components/vanta/vanta-data.ts`) | 4 | Full inline content, published dates Jan–Feb 2025, author `ness-e` |
-| Drafts (`docs/blog/`) | 5 | Real content (not stubs), all dated 2026-06-06, author `VantaDB Team` |
+| Drafts (`docs/user/blog/`) | 5 | Real content (not stubs), all dated 2026-06-06, author `VantaDB Team` |
 | Backlog / MKT-05 claim | 4/5 | Audit `backlog-validation-2026-07-28` corrected the count to 3 drafts; MKT-05 added the 5th (benchmarks) draft on 2026-08-04 |
 
 ---
@@ -46,13 +46,13 @@ Defined in `web/src/components/vanta/vanta-data.ts` (line 833, `BLOG_POSTS`). Al
 
 | # | File | Title (draft) | Date | Author | Size | Lines |
 |---|------|---------------|------|--------|------|-------|
-| 1 | `docs/blog/how_hybrid_search_works.md` | How Hybrid Search Works: BM25 + HNSW + RRF in Practice | 2026-06-06 | VantaDB Team | 8,540 B | 144 |
-| 2 | `docs/blog/sqlite_for_ai_agents.md` | SQLite for AI Agents: Benchmarks and Architecture Decisions | 2026-06-06 | VantaDB Team | 7,339 B | 105 |
-| 3 | `docs/blog/why_i_built.md` | Why I Built a Local Memory Engine for AI Agents in Rust | 2026-06-06 | VantaDB Team | 8,477 B | 92 |
-| 4 | `docs/blog/introducing_vantadb.md` | Introducing VantaDB | 2026-06-06 | VantaDB Team | 5,960 B | 37 |
-| 5 | `docs/blog/benchmarks_vs_lancedb_chroma.md` | VantaDB vs LanceDB vs ChromaDB: Real Numbers from an Embedded Engine | 2026-06-06 | VantaDB Team | 12,586 B | 130 |
+| 1 | `docs/user/blog/how_hybrid_search_works.md` | How Hybrid Search Works: BM25 + HNSW + RRF in Practice | 2026-06-06 | VantaDB Team | 8,540 B | 144 |
+| 2 | `docs/user/blog/sqlite_for_ai_agents.md` | SQLite for AI Agents: Benchmarks and Architecture Decisions | 2026-06-06 | VantaDB Team | 7,339 B | 105 |
+| 3 | `docs/user/blog/why_i_built.md` | Why I Built a Local Memory Engine for AI Agents in Rust | 2026-06-06 | VantaDB Team | 8,477 B | 92 |
+| 4 | `docs/user/blog/introducing_vantadb.md` | Introducing VantaDB | 2026-06-06 | VantaDB Team | 5,960 B | 37 |
+| 5 | `docs/user/blog/benchmarks_vs_lancedb_chroma.md` | VantaDB vs LanceDB vs ChromaDB: Real Numbers from an Embedded Engine | 2026-06-06 | VantaDB Team | 12,586 B | 130 |
 
-> **M1 status update (2026-08-04):** `docs/blog/introducing_vantadb.md` now exists as an editable source draft, resolving the original M1 gap — every live post has a `.md` source.
+> **M1 status update (2026-08-04):** `docs/user/blog/introducing_vantadb.md` now exists as an editable source draft, resolving the original M1 gap — every live post has a `.md` source.
 
 ### 1.3 Planned (backlog / GTM)
 
@@ -62,11 +62,11 @@ The original backlog planned 3 articles: *Why I Built a Local Memory Engine in R
 
 | # | Gap | Severity | Detail |
 |---|-----|----------|--------|
-| M1 | **`introducing-vantadb` has no source draft** | High | ✅ **RESUELTO 2026-08-17** — `docs/blog/introducing_vantadb.md` existe (commit `f51b2263`). La post está live en web con su fuente editable. |
+| M1 | **`introducing-vantadb` has no source draft** | High | ✅ **RESUELTO 2026-08-17** — `docs/user/blog/introducing_vantadb.md` existe (commit `f51b2263`). La post está live en web con su fuente editable. |
 | M2 | **Author drift** | Medium | ✅ **RESUELTO 2026-08-17** — author alineado a `ness-e`. |
 | M3 | **Date drift** | Medium | 🟡 **VIGENTE** — web dates Jan–Feb 2025; drafts 2026-06-06. Reconciliar fechas antes de publicar. |
 | M4 | **Title drift** | Medium | 🟡 **VIGENTE** — mismos temas con títulos distintos (web vs draft). Decidir títulos finales. |
-| M5 | **Slug convention drift** | Low | ✅ **RESUELTO 2026-08-17** — slugs vía frontmatter mapean `docs/blog/*.md` a web. |
+| M5 | **Slug convention drift** | Low | ✅ **RESUELTO 2026-08-17** — slugs vía frontmatter mapean `docs/user/blog/*.md` a web. |
 | M6 | **Version drift in copy** | High | ✅ **RESUELTO 2026-08-17** — drafts estandarizados a `0.5.0` (publicado 2026-08-01). |
 
 ---
@@ -85,7 +85,7 @@ The original backlog planned 3 articles: *Why I Built a Local Memory Engine in R
 
 All three drafts share a consistent frontmatter (`title`, `date`, `author`, `tags`, `description`) but are **missing** fields the web manifest has:
 
-- `slug` — needed to map `docs/blog/*.md` to web routes deterministically (fixes M5).
+- `slug` — needed to map `docs/user/blog/*.md` to web routes deterministically (fixes M5).
 - `readTime` — web shows 5–9 min per post.
 - `tag` / `tagColor` — web uses Announcement/Engineering/Architecture/Story.
 - `published` (boolean or `draft: false`) — the series needs an explicit published/draft flag so drafts are not mistaken for live content.
@@ -101,7 +101,7 @@ All three drafts share a consistent frontmatter (`title`, `date`, `author`, `tag
 
 1. **Version number (M6):** confirm the current release and update all posts + `SHOW_HN_PREP.md` + `COMPANY_INFO` to one number.
 2. **Date + author reconciliation (M2/M3):** pick final dates and author attribution per post; align web manifest with the draft source.
-3. **`introducing-vantadb` source (M1):** create the missing `docs/blog/introducing_vantadb.md` from the web content so the series has a single editable source of truth.
+3. **`introducing-vantadb` source (M1):** create the missing `docs/user/blog/introducing_vantadb.md` from the web content so the series has a single editable source of truth.
 4. **`why_i_built.md` heading/title:** the draft title ("Why I Built a Local Memory Engine...") reads more "team" than "I" — decide first-person vs team voice for the series.
 
 ---
@@ -175,15 +175,15 @@ Suggested rhythm:
 
 | Order | Post | Source | Status | Proposed window | Aligned with |
 |-------|------|--------|--------|-----------------|--------------|
-| 1 | Introducing VantaDB | web inline content only | **Needs `docs/blog/introducing_vantadb.md`** | Launch day (with Show HN) | Show HN launch |
-| 2 | Why I Built a Local Memory Engine in Rust | `docs/blog/why_i_built.md` | Ready (fix M6 first) | Launch +48h | HN attention window |
-| 3 | How Hybrid Search Works: BM25 + HNSW + RRF | `docs/blog/how_hybrid_search_works.md` | Ready (CTA fix) | Launch +1 week | Post-launch |
-| 4 | SQLite for AI Agents: Benchmarks and Architecture Decisions | `docs/blog/sqlite_for_ai_agents.md` | Ready (CTA fix) | Launch +3 weeks | Post-launch |
+| 1 | Introducing VantaDB | web inline content only | **Needs `docs/user/blog/introducing_vantadb.md`** | Launch day (with Show HN) | Show HN launch |
+| 2 | Why I Built a Local Memory Engine in Rust | `docs/user/blog/why_i_built.md` | Ready (fix M6 first) | Launch +48h | HN attention window |
+| 3 | How Hybrid Search Works: BM25 + HNSW + RRF | `docs/user/blog/how_hybrid_search_works.md` | Ready (CTA fix) | Launch +1 week | Post-launch |
+| 4 | SQLite for AI Agents: Benchmarks and Architecture Decisions | `docs/user/blog/sqlite_for_ai_agents.md` | Ready (CTA fix) | Launch +3 weeks | Post-launch |
 | 5 | GraphRAG with VantaDB — reducing tokens 40–60% | not drafted | Plan | Month 2 | GTM agentic-frameworks vertical |
 | 6 | Local agent memory with Ollama + VantaDB | not drafted | Plan | Month 2 | GTM local-LLM vertical |
 | 7 | VantaDB as persistent memory for Claude Code (MCP) | not drafted | Plan | Month 3 | GTM AI-IDE vertical |
 | 8 | WAL & durability: lessons from chaos testing | not drafted | Plan | Month 3 | Release with durability feature |
-| 9 | VantaDB vs LanceDB vs ChromaDB (benchmarks) | `docs/blog/benchmarks_vs_lancedb_chroma.md` | **Drafted (MKT-05, 2026-08-04)** — real run of `benchmarks/competitive_bench.py` (glove-100-angular 10K, median-of-3, chunked ingest) | Drafted; publish with benchmark data | Release with benchmark data |
+| 9 | VantaDB vs LanceDB vs ChromaDB (benchmarks) | `docs/user/blog/benchmarks_vs_lancedb_chroma.md` | **Drafted (MKT-05, 2026-08-04)** — real run of `benchmarks/competitive_bench.py` (glove-100-angular 10K, median-of-3, chunked ingest) | Drafted; publish with benchmark data | Release with benchmark data |
 
 ### 4.4 Release alignment
 
@@ -195,7 +195,7 @@ Suggested rhythm:
 
 To prevent recurrence of M1–M6:
 
-1. **Single source of truth:** `docs/blog/` markdown is canonical; the web manifest is generated/mirrored from it. Create the missing `introducing_vantadb` draft to close M1.
+1. **Single source of truth:** `docs/user/blog/` markdown is canonical; the web manifest is generated/mirrored from it. Create the missing `introducing_vantadb` draft to close M1.
 2. **Frontmatter contract:** every post must include `slug`, `title`, `date`, `author`, `readTime`, `tag`, `description`, `draft` (true/false). Add this contract to the writing checklist.
 3. **Publish gate:** before marking a post `draft: false`, run: version check (M6), CTA present, keywords mapped ([Section 3.3](#33-post--keyword-mapping-proposed)), `docs/blog` and web manifest in sync.
 4. **Monthly cadence review:** at the start of each month, pick the two posts from [Section 4.3](#43-missing-posts-and-proposed-order) and assign them.
@@ -207,5 +207,5 @@ To prevent recurrence of M1–M6:
 - [SHOW_HN_PREP.md](SHOW_HN_PREP.md) — Show HN draft + defensive Q&A (the launch artifact)
 - [GO_TO_MARKET.md](GO_TO_MARKET.md) — distribution strategy, verticals, content marketing targets
 - [ROADMAP.md](ROADMAP.md) — technical timeline for release alignment
-- `docs/blog/` — the three drafts reviewed in [Section 2](#2-draft-review--quality-assessment)
+- `docs/user/blog/` — the three drafts reviewed in [Section 2](#2-draft-review--quality-assessment)
 - Backlog task INV-006 — tracking task for this plan

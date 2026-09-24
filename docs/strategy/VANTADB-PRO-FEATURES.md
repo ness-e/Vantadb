@@ -10,7 +10,7 @@ related: []
 
 # VantaDB Pro — Feature Inventory (Open Core boundary)
 
-> Source plan: `docs/plans/2026-08-06-oc-vantadb-pro.md`
+> Source plan: `docs/dev/plans/2026-08-06-oc-vantadb-pro.md`
 > Date: 2026-08-06
 > Decisión D4: **Features NUEVAS** — el core Apache-2.0 queda intacto. Esta tabla documenta qué gates EXISTENTES en el core son candidatos conceptuales de Pro (referencia para no clonarlos gratis), no tareas de mover código.
 
@@ -49,6 +49,6 @@ Norma del modelo Open Core:
 - [x] `default-members` `:633-636` sólo core+python — sin cambio.
 - [x] `deny.toml` gate MIT/Apache-2.0 aplica al core, no al Pro.
 - ✓ `cargo check --no-default-features` (común a cada puerto) se mantiene estable — no se tocaron gates.
-- ✓ **Verificado 2026-08-17:** repo privado `vantadb-pro` existe (`scripts/generate-license.ps1` + `src/license.rs::verify_string` con 4 tests); el core no referencia licencia Pro (D4 respetado); las 6 features del Backlog Pro NO tienen código (solo `lib.rs`+`license.rs`) ni tracking en `docs/Backlog.md` → agregadas como **P23**.
+- ✓ **Verificado 2026-08-17:** repo privado `vantadb-pro` existe (`scripts/generate-license.ps1` + `src/license.rs::verify_string` con 4 tests); el core no referencia licencia Pro (D4 respetado); las 6 features del Backlog Pro NO tienen código (solo `lib.rs`+`license.rs`) ni tracking en `docs/dev/Backlog.md` → agregadas como **P23**.
 
 > ⚠️ **Ponytail:** esta tabla es referencia para las features que nacen en Pro, no instrucción de borrow del core. Las features `encryption`/`wal-shipping`/`pitr`/`prometheus`/`server`/`tls` siguen viviendo en el core como están. Si algún día migras (decisión `D4B`, humana), este inventario da el mapa de `src/`.

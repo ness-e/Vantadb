@@ -12,7 +12,7 @@ related: ["docs/workflow/README.md", "docs/workflow/FAQ.md"]
 
 Source of truth is each file's `on:` block (read 2026-09-22, post
 FIND-134/139/140/141/146). Reuses and updates the FIND-128 matrix
-(`docs/tasks/FIND-128.md` §Notas), which counted 28 pre-FIND-137.
+(`docs/dev/tasks/FIND-128.md` §Notas), which counted 28 pre-FIND-137.
 
 Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 

@@ -77,8 +77,8 @@ Differential persistence changes *when* work happens, not the durability model. 
 
 ## Related Documentation
 
-- [WASM Storage Review](../architecture/WASM_STORAGE_REVIEW.md) — Full gap analysis with recommendations
-- [ADR-008](../../docs/architecture/adr/008_wasm_support_strategy.md) — WASM architecture decisions
+- [WASM Storage Review](../dev/architecture/WASM_STORAGE_REVIEW.md) — Full gap analysis with recommendations
+- [ADR-008](../../docs/dev/architecture/adr/008_wasm_support_strategy.md) — WASM architecture decisions
 - `vantadb-wasm/src/opfs.rs` — OPFS backend implementation
 - `vantadb-wasm/src/idb.rs` — IndexedDB backend implementation
 - `vantadb-wasm/src/worker.rs` — Worker bridge implementation

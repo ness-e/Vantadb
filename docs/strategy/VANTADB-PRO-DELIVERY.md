@@ -10,7 +10,7 @@ related: []
 
 # VantaDB Pro — Delivery & Distribution
 
-> Source plan: `docs/plans/2026-08-06-oc-vantadb-pro.md`
+> Source plan: `docs/dev/plans/2026-08-06-oc-vantadb-pro.md`
 > Date: 2026-08-06
 > Decisiones: D2 (propietaria), D3 (repo privado + artefactos), D5 (**pago **diferido** — entrega manual Enterprise** hasta entidad).
 > Márgenes: el core `vantadb` (Apache-2.0) nunca empaqueta código Pro; `vantadb-pro` queda fuera del workspace.

@@ -76,7 +76,7 @@ import vantadb
 `import vantadb_py` still works (it points at the same compiled module) but
 emits a `DeprecationWarning`. The legacy name will be removed in the next minor
 release (0.6.0). The distribution on PyPI is `vantadb-py`; the importable
-module is `vantadb`. See [ADR-030](../architecture/adr/ADR-030-brand-identity-naming-convention.md)
+module is `vantadb`. See [ADR-030](../dev/architecture/adr/ADR-030-brand-identity-naming-convention.md)
 for the full brand-identity decision.
 
 ## Domain Sub-clients

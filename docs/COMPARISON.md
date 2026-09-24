@@ -12,7 +12,7 @@ aliases: []
 This page answers "why not X?" (sqlite-vec, LanceDB, Qdrant, Chroma) with three rules:
 
 1. **Qualitative features** are only stated when publicly verifiable from each project's official repository or documentation (links inline; all checked 2026-08-24).
-2. **Numbers about us** come exclusively from [`docs/operations/BENCHMARKS.md`](operations/BENCHMARKS.md), each with its bench script and exact reproduction command (Regla 11).
+2. **Numbers about us** come exclusively from [`docs/user/operations/BENCHMARKS.md`](user/operations/BENCHMARKS.md), each with its bench script and exact reproduction command (Regla 11).
 3. **We publish no performance figures for competitors.** Where a vendor publishes their own benchmarks, we link them; you judge. We also link the neutral third-party [ann-benchmarks](https://ann-benchmarks.com/) results and provide the script to run the comparison yourself.
 
 ---
@@ -23,8 +23,8 @@ This page answers "why not X?" (sqlite-vec, LanceDB, Qdrant, Chroma) with three 
 | :--- | :--- | :--- | :--- | :--- | :--- |
 | **Deployment model** | Embedded Rust core in-process ([`VantaEmbedded`](api/EMBEDDED_SDK.md)) behind Python / TypeScript-WASM / Node bindings; optional HTTP server ([HTTP API](api/HTTP_API.md)) and MCP server | SQLite extension loaded into any process that runs SQLite (embedded) | Open-source embedded library ("runs locally"); hosted Cloud/Enterprise offerings exist | Server-first (self-hosted binary / Docker / managed cloud). A **local mode** exists inside the Python client for development and prototyping — same API without running the server | In-memory or persistent client running embedded in your process; client/server mode also supported |
 | **Primary language** | Rust (PyO3, WASM, NAPI bindings) | Pure C, zero dependencies | Rust core; Python / TypeScript / Rust SDKs | Rust (server); clients in many languages | Rust core; Python / JS-TS SDKs |
-| **Persistence** | WAL + pluggable storage backends (Fjall default, RocksDB opt-in, in-memory) — [DURABILITY_GUARANTEES](operations/DURABILITY_GUARANTEES.md) | Stored inside the SQLite database file | Lance columnar format (local disk or object storage) | Server-managed persistence; client local mode persists to a path | Persistent client or server storage; in-memory mode is ephemeral |
-| **Keyword + vector hybrid fusion** | Built-in: BM25 lexical + HNSW dense fused with RRF in one query API ([how it works](blog/how_hybrid_search_works.md)) | Not part of sqlite-vec — it provides vector search in `vec0` virtual tables only; combining with SQLite FTS5 is your job | Documented hybrid search combining vector + full-text search with reranking | Documented Query API fusing dense + sparse results with RRF or DBSF | Vector search documented; full-text and regex search advertised on trychroma.com. A BM25-style score-fusion API is not documented in the open-source docs we reviewed |
+| **Persistence** | WAL + pluggable storage backends (Fjall default, RocksDB opt-in, in-memory) — [DURABILITY_GUARANTEES](user/operations/DURABILITY_GUARANTEES.md) | Stored inside the SQLite database file | Lance columnar format (local disk or object storage) | Server-managed persistence; client local mode persists to a path | Persistent client or server storage; in-memory mode is ephemeral |
+| **Keyword + vector hybrid fusion** | Built-in: BM25 lexical + HNSW dense fused with RRF in one query API ([how it works](user/blog/how_hybrid_search_works.md)) | Not part of sqlite-vec — it provides vector search in `vec0` virtual tables only; combining with SQLite FTS5 is your job | Documented hybrid search combining vector + full-text search with reranking | Documented Query API fusing dense + sparse results with RRF or DBSF | Vector search documented; full-text and regex search advertised on trychroma.com. A BM25-style score-fusion API is not documented in the open-source docs we reviewed |
 | **Graph capabilities** | Typed nodes + edges, BFS/DFS traversal, topological sort, DAG check, PageRank / degree centrality, GraphRAG pipeline ([GRAPH_RAG](api/GRAPH_RAG.md)) | None documented | None documented | None documented | None documented |
 | **License** | Apache-2.0 core (open-core: commercial Pro is a separate closed offering) | Apache-2.0 | Apache-2.0 | Apache-2.0 | Apache-2.0 |
 
@@ -41,11 +41,11 @@ This page answers "why not X?" (sqlite-vec, LanceDB, Qdrant, Chroma) with three 
 
 ## 2. Our Numbers (reproduced from BENCHMARKS.md)
 
-Every figure below is copied from [`docs/operations/BENCHMARKS.md`](operations/BENCHMARKS.md). **They are measurements of specific runs on specific machines — mostly local Windows hardware — not universal guarantees.** Reproduce them with the cited commands before drawing conclusions for your workload.
+Every figure below is copied from [`docs/user/operations/BENCHMARKS.md`](user/operations/BENCHMARKS.md). **They are measurements of specific runs on specific machines — mostly local Windows hardware — not universal guarantees.** Reproduce them with the cited commands before drawing conclusions for your workload.
 
 ### 2.1 Canonical P99 baseline (pure Rust, in-memory)
 
-From [BENCHMARKS.md §8](operations/BENCHMARKS.md#-8-canonical-p99-baseline-fnd-10--regla-9):
+From [BENCHMARKS.md §8](user/operations/BENCHMARKS.md#-8-canonical-p99-baseline-fnd-10--regla-9):
 
 | Metric | Value |
 | :--- | :--- |
@@ -61,7 +61,7 @@ From [BENCHMARKS.md §8](operations/BENCHMARKS.md#-8-canonical-p99-baseline-fnd-
 
 ### 2.2 SDK operations via Python bindings (10K records × 128d)
 
-From [BENCHMARKS.md §2](operations/BENCHMARKS.md#-2-sdk-operations-performance-python-wrapper) — includes PyO3 boundary and GIL overhead:
+From [BENCHMARKS.md §2](user/operations/BENCHMARKS.md#-2-sdk-operations-performance-python-wrapper) — includes PyO3 boundary and GIL overhead:
 
 | Operation | p50 | p95 | p99 | Throughput |
 | :--- | :--- | :--- | :--- | :--- |
@@ -72,9 +72,9 @@ From [BENCHMARKS.md §2](operations/BENCHMARKS.md#-2-sdk-operations-performance-
 
 - Script: [`benchmarks/vantadb_local_bench.py`](../benchmarks/vantadb_local_bench.py) · full guide: [`benchmarks/README.md`](../benchmarks/README.md).
 - Exact command used: `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000 --output benchmarks/vanta_benchmark_report.json`.
-- **Environment caveat:** these values are a *local* run whose host was not recorded in BENCHMARKS.md; treat them as indicative and regenerate on your hardware. The BM25 row is omitted here because that run produced a degenerate single-document outlier (p50 0.0035 ms) — see the provenance note in [BENCHMARKS.md §2](operations/BENCHMARKS.md#-2-sdk-operations-performance-python-wrapper).
+- **Environment caveat:** these values are a *local* run whose host was not recorded in BENCHMARKS.md; treat them as indicative and regenerate on your hardware. The BM25 row is omitted here because that run produced a degenerate single-document outlier (p50 0.0035 ms) — see the provenance note in [BENCHMARKS.md §2](user/operations/BENCHMARKS.md#-2-sdk-operations-performance-python-wrapper).
 
-Reproduce (public path, installs `vantadb-py` from PyPI — see [BENCHMARKS.md §3a](operations/BENCHMARKS.md#️-3-reproducing-the-benchmark-locally)):
+Reproduce (public path, installs `vantadb-py` from PyPI — see [BENCHMARKS.md §3a](user/operations/BENCHMARKS.md#️-3-reproducing-the-benchmark-locally)):
 
 ```powershell
 python -m venv .venv-bench
@@ -84,7 +84,7 @@ python -m venv .venv-bench
 
 ### 2.3 Rust stress-protocol certification (10K–100K scale)
 
-From [BENCHMARKS.md §1](operations/BENCHMARKS.md#-1-core-engine-certification-results-rust), produced by [`tests/certification/stress_protocol.rs`](../tests/certification/stress_protocol.rs) under the heavy-certification CI workflow (AVX2 environment):
+From [BENCHMARKS.md §1](user/operations/BENCHMARKS.md#-1-core-engine-certification-results-rust), produced by [`tests/certification/stress_protocol.rs`](../tests/certification/stress_protocol.rs) under the heavy-certification CI workflow (AVX2 environment):
 
 | Metric | Scale / Dataset | Value |
 | :--- | :--- | :--- |
@@ -97,7 +97,7 @@ From [BENCHMARKS.md §1](operations/BENCHMARKS.md#-1-core-engine-certification-r
 
 ### 2.4 Batch vs sequential search (Python, GIL released)
 
-From [BENCHMARKS.md §6](operations/BENCHMARKS.md#-6-batch-search-performance-search_batch-in-python-sdk) (5,000 records × 128d, batch size 100, top_k=10):
+From [BENCHMARKS.md §6](user/operations/BENCHMARKS.md#-6-batch-search-performance-search_batch-in-python-sdk) (5,000 records × 128d, batch size 100, top_k=10):
 
 | Mode | Total time (100 queries) | Avg per query | Speedup |
 | :--- | :--- | :--- | :--- |
@@ -108,13 +108,13 @@ Command: `python benchmarks/batch_vs_sequential_bench.py`.
 
 ### 2.5 Head-to-head we ran ourselves: VantaDB vs LanceDB vs Chroma
 
-One dataset (`glove-100-angular`), one machine, one execution (2026-06-06), 10K vectors × 100d, 100 queries, top_k=10 — full table and provenance in [BENCHMARKS.md §7](operations/BENCHMARKS.md#-7-competitive-benchmark-vs-lancedb--chroma), generated with:
+One dataset (`glove-100-angular`), one machine, one execution (2026-06-06), 10K vectors × 100d, 100 queries, top_k=10 — full table and provenance in [BENCHMARKS.md §7](user/operations/BENCHMARKS.md#-7-competitive-benchmark-vs-lancedb--chroma), generated with:
 
 ```powershell
 python benchmarks/competitive_bench.py --dataset glove-100-angular --size 10000 --queries 100 --top-k 10 --yes
 ```
 
-Read the caveats before quoting it: it is a **single local run** on synthetic ann-benchmarks data; LanceDB/Chroma ran through their native Python wrappers while VantaDB ran through PyO3 + mmap; recall@10 was low for **every** engine on that configuration (24.5% / 13.9% / 24.1%). We therefore treat it as directional only — a longer narrative write-up lives in [blog/benchmarks_vs_lancedb_chroma.md](blog/benchmarks_vs_lancedb_chroma.md). Run the script yourself rather than citing either source as truth.
+Read the caveats before quoting it: it is a **single local run** on synthetic ann-benchmarks data; LanceDB/Chroma ran through their native Python wrappers while VantaDB ran through PyO3 + mmap; recall@10 was low for **every** engine on that configuration (24.5% / 13.9% / 24.1%). We therefore treat it as directional only — a longer narrative write-up lives in [blog/benchmarks_vs_lancedb_chroma.md](user/blog/benchmarks_vs_lancedb_chroma.md). Run the script yourself rather than citing either source as truth.
 
 ---
 
@@ -137,12 +137,12 @@ Single table, each limit tied to code or docs:
 | Node / record IDs | `u128` end-to-end (engine, WAL, bindings). Range `0 ..= 2^128 − 1`. IDs beyond u64 work directly; negatives or > u128::MAX raise `OverflowError`. Keep IDs as strings in JSON payloads (> 2^53 loses double precision) | [PYTHON_SDK.md §ID limits](api/PYTHON_SDK.md#id-limits) |
 | `top_k` maximum | Clamped to **1,000** in the Python binding (`const MAX_K: usize = 1_000`) | `vantadb-python/src/lib.rs:43` · WASM equivalent `vantadb-wasm/src/lib.rs:43` (ERR-022 fix) |
 | Vector dimensionality | No fixed cap in the Rust core or Python SDK; dimension must be consistent within an index (mismatch raises `ValueError`). WASM/TS bindings reject any vector longer than **10,000,000** elements (`MAX_F32_VEC_LEN`) | `vantadb-wasm/src/lib.rs:38` · [PYTHON_SDK.md](api/PYTHON_SDK.md) error contract |
-| `memory_limit_bytes` | Optional runtime budget hint steering backend/mmap choices (env `VANTADB_MEMORY_LIMIT`, default unset). Explicitly **not** a proven hard RSS ceiling | `src/config.rs` (`VantaConfig::default()`) · [ARCHITECTURE.md §6](architecture/ARCHITECTURE.md#6-memory-and-telemetry) |
-| HNSW construction params (production defaults) | `m=32`, `m_max0=64`, `ef_construction=100`, `ef_search=100`, cosine | `src/index/graph.rs:255-269` (`impl Default for HnswConfig`) · narrative in [FND-20 HNSW tradeoff](architecture/FND-20-hnsw-tradeoff.md) |
+| `memory_limit_bytes` | Optional runtime budget hint steering backend/mmap choices (env `VANTADB_MEMORY_LIMIT`, default unset). Explicitly **not** a proven hard RSS ceiling | `src/config.rs` (`VantaConfig::default()`) · [ARCHITECTURE.md §6](dev/architecture/ARCHITECTURE.md#6-memory-and-telemetry) |
+| HNSW construction params (production defaults) | `m=32`, `m_max0=64`, `ef_construction=100`, `ef_search=100`, cosine | `src/index/graph.rs:255-269` (`impl Default for HnswConfig`) · narrative in [FND-20 HNSW tradeoff](dev/architecture/FND-20-hnsw-tradeoff.md) |
 | HNSW params in the canonical bench | `m=16`, `ef_construction=100`, `ef_search=50`, cosine | [`benches/canonical_p99.rs:35-47`](../benches/canonical_p99.rs) |
-| RAM per 1M vectors × 1536d (estimate, not measured) | ≈ 6.5 GB: vectors 1536×4 B ≈ 6.1 GB + graph edges (M+M_max0)×4 B = 384 B/node ≈ 0.4 GB | Arithmetic from the documented estimate formula in [FND-20](architecture/FND-20-hnsw-tradeoff.md) and the certified ~1172 B/vector at 128d in [BENCHMARKS.md §1](operations/BENCHMARKS.md#-1-core-engine-certification-results-rust) |
-| Known ingestion limitation | HNSW construction via the SDK API is currently single-threaded | [BENCHMARKS.md §Limitations](operations/BENCHMARKS.md#-limitations-and-technical-considerations) |
-| Distance metrics | Best-supported metric today is cosine | [BENCHMARKS.md §Limitations](operations/BENCHMARKS.md#-limitations-and-technical-considerations) |
+| RAM per 1M vectors × 1536d (estimate, not measured) | ≈ 6.5 GB: vectors 1536×4 B ≈ 6.1 GB + graph edges (M+M_max0)×4 B = 384 B/node ≈ 0.4 GB | Arithmetic from the documented estimate formula in [FND-20](dev/architecture/FND-20-hnsw-tradeoff.md) and the certified ~1172 B/vector at 128d in [BENCHMARKS.md §1](user/operations/BENCHMARKS.md#-1-core-engine-certification-results-rust) |
+| Known ingestion limitation | HNSW construction via the SDK API is currently single-threaded | [BENCHMARKS.md §Limitations](user/operations/BENCHMARKS.md#-limitations-and-technical-considerations) |
+| Distance metrics | Best-supported metric today is cosine | [BENCHMARKS.md §Limitations](user/operations/BENCHMARKS.md#-limitations-and-technical-considerations) |
 
 ---
 

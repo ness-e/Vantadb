@@ -12,7 +12,7 @@ related: []
 
 > **Contrato:** `Select-String -Path "docs/reports/*" -Pattern "registros live" | Measure-Object Count` >=1
 > **Generado:** 2026-09-02T22:30:00Z — branch develop — ponytail minimal (1 file, reuse Cargo.toml + plan:10)
-> **Fuentes:** Cargo.toml workspace 0.5.0 + `docs/plans/2026-09-02-alta-prioridad-paralelo.md:10` + `docs/Backlog.md:23,442`
+> **Fuentes:** Cargo.toml workspace 0.5.0 + `docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md:10` + `docs/dev/Backlog.md:23,442`
 
 ## Resumen verificado
 
@@ -35,7 +35,7 @@ related: []
   "published_at": "2026-08-01T12:00:00Z",
   "registry": "crates.io",
   "verified": true,
-  "source": "docs/plans/2026-09-02-alta-prioridad-paralelo.md:10 + Cargo.toml workspace.package.version",
+  "source": "docs/dev/plans/2026-09-02-alta-prioridad-paralelo.md:10 + Cargo.toml workspace.package.version",
   "captured_at": "2026-09-02T22:30:00Z",
   "note": "ponytail: captura estática desde plan live verificado; webfetch real `https://crates.io/api/v1/crates/vantadb` cuando se publique 0.6.0"
 }
@@ -72,9 +72,9 @@ related: []
 
 ## Trazabilidad Backlog
 
-- `docs/Backlog.md:23` — P0 RELEASE-02 publish 0.5.0 verificado live — fecha-verificada 2026-08-01 por GOV-A5 ✅
-- `docs/Backlog.md:99` — MKT-18h wheels ARM64 ausentes — confirmado 2026-09-02, no inflado
-- `docs/Backlog.md:442` — "MKT-18h wheels ARM64 + MKT-18f adapters (confirmados live por GOV-A5)" — cita actualizada 2026-09-02
+- `docs/dev/Backlog.md:23` — P0 RELEASE-02 publish 0.5.0 verificado live — fecha-verificada 2026-08-01 por GOV-A5 ✅
+- `docs/dev/Backlog.md:99` — MKT-18h wheels ARM64 ausentes — confirmado 2026-09-02, no inflado
+- `docs/dev/Backlog.md:442` — "MKT-18h wheels ARM64 + MKT-18f adapters (confirmados live por GOV-A5)" — cita actualizada 2026-09-02
 - `docs/reports/INDEX.md` — este file `GOV-A5-registros-live.md` debe indexarse como `verify` vigente 2026-09-02
 
 ## Verificación mecánica

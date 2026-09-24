@@ -13,10 +13,10 @@ related: [GO_TO_MARKET.md, SHOW_HN_PREP.md, VANTADB-PRO-FEATURES.md]
 
 # VantaDB — Roadmap de Ejecución
 
-> **Backlog fuente:** [`docs/Backlog.md`](../Backlog.md) — ver `docs/Backlog.md` para conteo actual (regla de sync en Backlog header; el "165" original, "~24" intermedio y "~45" 2026-08-22 quedaron obsoletos)
-> **Backlog de negocio:** [`docs/Backlog-negocio.md`](../Backlog-negocio.md) — filas humano-dependientes (legal/ventas/publicación) separadas del técnico el 2026-09-03 (RES-15-C); los conteos viven solo en las cabeceras de cada backlog (regla GOV-C7, no duplicar aquí)
+> **Backlog fuente:** [`docs/dev/Backlog.md`](../dev/Backlog.md) — ver `docs/dev/Backlog.md` para conteo actual (regla de sync en Backlog header; el "165" original, "~24" intermedio y "~45" 2026-08-22 quedaron obsoletos)
+> **Backlog de negocio:** [`docs/dev/Backlog-negocio.md`](../dev/Backlog-negocio.md) — filas humano-dependientes (legal/ventas/publicación) separadas del técnico el 2026-09-03 (RES-15-C); los conteos viven solo en las cabeceras de cada backlog (regla GOV-C7, no duplicar aquí)
 > **Última revisión del proyecto:** 2026-07-16 (537 commits desde el roadmap anterior)
-> **⚠️ REVISIÓN 2026-08-17 (verificación multi-agente):** Este roadmap es **histórico** — las fases Sem 1-16 ya se ejecutaron (versión real **0.5.0** publicada 2026-08-01, no 0.2.0; ver `docs/Backlog.md` P0). Los riesgos R2/R5/R8 están **resueltos**; R4 (MSVC linker) y R6/R7 (SQ8, HNSW rebuild) **siguen vigentes** (ver tabla de riesgos). El estado actual de ejecución vive en `docs/Backlog.md` + `docs/progreso/README.md`; este documento se conserva como registro del plan original y de decisiones arquitectónicas (§6).
+> **⚠️ REVISIÓN 2026-08-17 (verificación multi-agente):** Este roadmap es **histórico** — las fases Sem 1-16 ya se ejecutaron (versión real **0.5.0** publicada 2026-08-01, no 0.2.0; ver `docs/dev/Backlog.md` P0). Los riesgos R2/R5/R8 están **resueltos**; R4 (MSVC linker) y R6/R7 (SQ8, HNSW rebuild) **siguen vigentes** (ver tabla de riesgos). El estado actual de ejecución vive en `docs/dev/Backlog.md` + `docs/progreso/README.md`; este documento se conserva como registro del plan original y de decisiones arquitectónicas (§6).
 > **Estas fuentes fueron analizadas para este roadmap:**
 > - Auditorías: 10 reports en `docs/audit-reports/`
 > - Deep analysis: Vector DB (372L), Graph DB (392L), Arquitectura (306L)
@@ -59,7 +59,7 @@ related: [GO_TO_MARKET.md, SHOW_HN_PREP.md, VANTADB-PRO-FEATURES.md]
 
 ### Backlog
 
-> **Estado real 2026-08-17:** el desglose original por TIER quedó obsoleto tras el triage R5 (2026-08-07: 165 → 24 items, ver `docs/Backlog.md` Exec Summary). COMP-001..030: COMP-020 (RRF) ✅, COMP-022 (PageRank) ✅, COMP-027 (IVF/SCANN) ✅, COMP-029 (napi-rs) ✅, COMP-019 ❌ WONTFIX; el resto catalogado en P10 (Roadmap) sin implementación evidenciada. Tabla original preservada abajo como registro histórico.
+> **Estado real 2026-08-17:** el desglose original por TIER quedó obsoleto tras el triage R5 (2026-08-07: 165 → 24 items, ver `docs/dev/Backlog.md` Exec Summary). COMP-001..030: COMP-020 (RRF) ✅, COMP-022 (PageRank) ✅, COMP-027 (IVF/SCANN) ✅, COMP-029 (napi-rs) ✅, COMP-019 ❌ WONTFIX; el resto catalogado en P10 (Roadmap) sin implementación evidenciada. Tabla original preservada abajo como registro histórico.
 
 | Categoría | Items | Estado |
 |-----------|-------|--------|
@@ -97,7 +97,7 @@ Estos riesgos **no tienen item dedicado en el backlog** o están subestimados. S
 | **R2** | **WASM demo placeholder** — 80/219 tests fallan en Node.js. `/demo` sin build funcional | 🔴 Bloquea Show HN | Fijar demo WASM antes de cualquier marketing | ✅ **RESUELTO** — MKT-13 ✅, `/demo` existe (`web/src/app/demo`) |
 | **R3** | **bincode deprecated** — Crate no mantenido desde 2021. Toda serialización del engine depende de él | 🟠 Migración forzosa eventual | Evaluar rkyv (ya existe para archive) como reemplazo | 🟡 Parcial — SEC-14 ✅ como cargo-deny; migración bincode→rkyv NO evidenciada |
 | **R4** | **DRV-115: MSVC linker overflow** — No se puede build workspace completo en Windows con MSVC | 🟠 Bloquea Windows build en CI | Excluir adaptadores PyO3 de workspace build o usar rust-lld | ❌ **VIGENTE** (2026-08-17) — sin task file ni fix commit |
-| **R5** | **165 items abiertos, persona-equipo 1-2** — Sin priorización estricta, el backlog es months | 🔴 Parálisis por analysis-paralysis | Congelar nuevos items hasta reducir a ≤100. No agregar COMP-031+ | ✅ **RESUELTO** — 165 → 24 (limpieza 2026-08-07); `docs/backlog-futuro.md` creado |
+| **R5** | **165 items abiertos, persona-equipo 1-2** — Sin priorización estricta, el backlog es months | 🔴 Parálisis por analysis-paralysis | Congelar nuevos items hasta reducir a ≤100. No agregar COMP-031+ | ✅ **RESUELTO** — 165 → 24 (limpieza 2026-08-07); `docs/dev/backlog-futuro.md` creado |
 | **R6** | **SQ8 no expuesto en query path** — Existe como `VectorRepresentations::SQ8` pero el hot path de búsqueda solo usa f32 full precision. SIFT 1M tarda 127s | 🔴 Benchmarks no competitivos vs Qdrant/Milvus | Exponer SQ8 en `distance.rs` hot path (sem 3) | ❌ **VIGENTE** (movido a catálogo P10) — COMP-001 sin implementación evidenciada |
 >
 > **Causa raíz documentada (histórica, 2026-05-31):** los 127s se atribuyen a *Disk Thrashing* (fallos de página masivos en el Mmap del índice) + desajuste de métricas: se transforma Distancia Coseno a Euclidiana L₂ al vuelo en el hot path.
@@ -131,7 +131,7 @@ R8 (claims) ─── Fase 0 (WEB-02)
 | Orden | Item | Descripción | Esfuerzo | Dependencias |
 |-------|------|-------------|----------|-------------|
 | 1 | **R1 (nuevo)** | CI certification: estabilizar ASan/TSan/coverage thresholds. Agregar métrica de "builds verdes consecutivos" como gate | 🟡 2-3d | — |
-| 2 | **R5 (nuevo)** | Freeze backlog: congelar nuevos items. Hacer triage de 165 → ≤100 items. Mover diferidos a `docs/backlog-futuro.md` | 🟢 1d | — |
+| 2 | **R5 (nuevo)** | Freeze backlog: congelar nuevos items. Hacer triage de 165 → ≤100 items. Mover diferidos a `docs/dev/backlog-futuro.md` | 🟢 1d | — |
 | 3 | **DRV-115** | Fix MSVC linker overflow: excluir adapters PyO3 de workspace build o usar rust-lld | 🟡 4h | — |
 | 4 | **DRV-116** | 10 warnings: `unnecessary unsafe` (9) + dead code (4) en vfile.rs, graph.rs, serialize.rs, archive.rs, maintenance.rs | 🟢 30min | — |
 | 5 | **DRV-117** | Stale advisory ignores: limpiar RUSTSEC-2024-0436 y RUSTSEC-2025-0134 de deny.toml | 🟢 5min | — |
@@ -429,7 +429,7 @@ Sem 13-16: FASE 4 — MADUREZ
 | TEST-12 | 🟡 | Security testing fuzzing — postergar post-Show HN |
 | DOC-20 | 🟡 | mdBook adoption — postergar |
 | MKT-17 | 🟢 | Comparación competitiva — post-Show HN |
-| LEG-01 | 🔴 | Trademark — iniciar ahora (proceso legal lento) — fila en `docs/Backlog-negocio.md` |
+| LEG-01 | 🔴 | Trademark — iniciar ahora (proceso legal lento) — fila en `docs/dev/Backlog-negocio.md` |
 | MKT-03→05 | 🔴🟠 | Show HN + Reddit + Blog posts — Fase 0/1 |
 
 ---
@@ -482,4 +482,4 @@ Sem 13-16: FASE 4 — MADUREZ
 ---
 
 > **Próxima revisión:** ninguna — documento histórico (ver banner superior, revisión 2026-08-17). Actualizado 2026-09-14: enlaces verificados.
-> **Ver también:** [`docs/Backlog.md`](../Backlog.md) para detalle de cada item, `docs/strategy/ACTION_PLAN.md` (plan de acción v1.0, Jul 3 — supercedido por este documento y eliminado del repo), [`docs/master-index.md`](../master-index.md) (índice global de documentación).
+> **Ver también:** [`docs/dev/Backlog.md`](../dev/Backlog.md) para detalle de cada item, `docs/strategy/ACTION_PLAN.md` (plan de acción v1.0, Jul 3 — supercedido por este documento y eliminado del repo), [`docs/master-index.md`](../master-index.md) (índice global de documentación).

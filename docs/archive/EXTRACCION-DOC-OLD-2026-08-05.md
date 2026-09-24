@@ -10,7 +10,7 @@ related: []
 
 # Extracción Histórica — VANTADB DOC OLD (audit-reports) — 2026-08-05
 
-> **Propósito:** Contenido valioso preservado de la limpieza de la carpeta `VANTADB DOC OLD/audit-reports/`. Solo se extrajo información **única** (no duplicada en el proyecto actual); los archivos originales fueron eliminados. Verificado contra `src/`, `docs/Backlog.md`, ROADMAP, ADRs e INV-018/019/020 el 2026-08-05.
+> **Propósito:** Contenido valioso preservado de la limpieza de la carpeta `VANTADB DOC OLD/audit-reports/`. Solo se extrajo información **única** (no duplicada en el proyecto actual); los archivos originales fueron eliminados. Verificado contra `src/`, `docs/dev/Backlog.md`, ROADMAP, ADRs e INV-018/019/020 el 2026-08-05.
 >
 > **Fuentes (eliminadas tras extracción):** `competitive-features-graph.json`, `competitive-features-consolidated-report.md`, `deep-analysis-{arch,graph,vector}.md`, `cross-ref-verified.json`, `cross-ref-wave3-final-report.md`.
 
@@ -18,7 +18,7 @@ related: []
 
 ## 1. DECISIONES NO TOMADAS (candidato ADR `DECISIONS-NOT-TAKEN.md`)
 
-> Fuente: `deep-analysis-arch/graph/vector.md`. Estas decisiones negativas NO están documentadas en ningún ADR/Backlog actual (verificado 2026-08-05). Sugerencia: mover a `docs/architecture/adr/DECISIONS-NOT-TAKEN.md` cuando se decida formalizar.
+> Fuente: `deep-analysis-arch/graph/vector.md`. Estas decisiones negativas NO están documentadas en ningún ADR/Backlog actual (verificado 2026-08-05). Sugerencia: mover a `docs/dev/architecture/adr/DECISIONS-NOT-TAKEN.md` cuando se decida formalizar.
 
 | ID | Feature | Archivo fuente | Competidor/Origen | Justificación (del archivo) |
 |----|---------|---------------|-------------------|------------------------------|
@@ -240,4 +240,4 @@ related: []
 ---
 
 ## Referencias rotas corregibles (mejora opcional)
-- `docs/Backlog.md` líneas ~300 y ~443 aún apuntan a `docs/audit-reports/competitive-features-consolidated-report.md` y `deep-analysis-{vector,graph,arch}.md` (archivos que ya no existen). Considerar apuntar a las secciones 2-4 de este archivo o eliminar la línea.
+- `docs/dev/Backlog.md` líneas ~300 y ~443 aún apuntan a `docs/audit-reports/competitive-features-consolidated-report.md` y `deep-analysis-{vector,graph,arch}.md` (archivos que ya no existen). Considerar apuntar a las secciones 2-4 de este archivo o eliminar la línea.

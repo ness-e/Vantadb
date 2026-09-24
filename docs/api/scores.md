@@ -87,5 +87,5 @@ cargo test -p vantadb --lib -- scores  # helpers pinned
 - `src/index/distance/mapper.rs` — metric dispatch
 - `src/sdk/search/mod.rs` — ERR-028 guard
 - `src/sdk/search/debug.rs` — rank_map wire
-- `docs/research/archive/FND-06-core-bindings-boundaries.md` — H1/H3 drift
+- `docs/dev/research/archive/FND-06-core-bindings-boundaries.md` — H1/H3 drift
 - `desktop/src/components/lens/retrieval/retrieval-core.ts` — RRF_K+contribution mirror

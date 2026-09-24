@@ -38,11 +38,11 @@ Everything in the curriculum builds toward those four abilities. Anything that d
 **Goal:** get the thing running, see the whole shape, learn the repo's own glossary as your map.
 
 **What to learn:**
-- Follow `docs/QUICKSTART.md` end-to-end: build the CLI, exercise put/get/list, install the Python binding, run every search path (vector / BM25 / hybrid).
-- Read `docs/architecture/ARCHITECTURE.md` fully — it is your mental model.
+- Follow `docs/user/QUICKSTART.md` end-to-end: build the CLI, exercise put/get/list, install the Python binding, run every search path (vector / BM25 / hybrid).
+- Read `docs/dev/architecture/ARCHITECTURE.md` fully — it is your mental model.
 - Read `SKILLS-MANIFEST.md` and `.opencode/AGENTS.md` to know what tooling exists (there's already a `vantadb` skill and a glosario).
-- Skim the 57-term `docs/glosario/` — treat it as a domain dictionary. Read deeply only the terms you hit while building.
-- Read `docs/tutorials/index.md` — its 4-step path (agent memory → RAG → hybrid → embeddings) is your user-level tour.
+- Skim the 57-term `docs/user/glosario/` — treat it as a domain dictionary. Read deeply only the terms you hit while building.
+- Read `docs/user/tutorials/index.md` — its 4-step path (agent memory → RAG → hybrid → embeddings) is your user-level tour.
 
 **Why (priority):** You can't learn a codebase you've never run. Orientation is cheap and unblocks everything.
 
@@ -98,7 +98,7 @@ Everything in the curriculum builds toward those four abilities. Anything that d
 - The **write path** by heart: `WAL append → fsync → backend.put → index update → ACK` (ARCHITECTURE.md). Learn *why* this order and what violates it.
 - **WAL**: binary layout, record structure, `postcard` payload, per-record CRC32C, sharding (`wal_sharded.rs`), compaction, `checkpoint_seq`.
 - **Crash recovery**: the sort-based multi-shard replay, idempotency, skip-via-`checkpoint_seq`. Read `DURABILITY_GUARANTEES.md` completely — it's your spec. *Then* read `src/wal.rs` and `src/wal_sharded.rs` and trace it.
-- **LSM-trees**: what Fjall is, why LSM, merge/SST compaction, MVCC, `PersistMode::SyncAll`. Read `docs/glosario/lsm-tree.md`, `fjall.md`, `mvcc.md`.
+- **LSM-trees**: what Fjall is, why LSM, merge/SST compaction, MVCC, `PersistMode::SyncAll`. Read `docs/user/glosario/lsm-tree.md`, `fjall.md`, `mvcc.md`.
 - **Fjall vs RocksDB**: the `StorageBackend` trait abstracting both. Read `src/backends/fjall_backend.rs` and the redundancy/dedup logic.
 - **mmap + SIMD + CRC32C**: memory-mapped vector file (`vfile.rs`), `msync`/RCU rename, integrity checks.
 - **Canonical vs Derived** mental model: canonical data (source of truth) vs rebuildable indexes (HNSW, BM25, payload indexes). This design principle explains *everything* about recovery.
@@ -129,11 +129,11 @@ Everything in the curriculum builds toward those four abilities. Anything that d
 **Goal:** understand the three retrieval arms — HNSW, BM25, and their RRF fusion — well enough to tune, debug, and extend them.
 
 **What to learn (in order):**
-- **Embeddings first (conceptually):** what a vector is, cosine similarity, dimensions, why embedding models map semantics. Read `docs/glosario/vectors.md`, `vector-similarity.md`.
-- **HNSW:** the algorithm (multi-layer graph, `M`, `ef_construction`, `ef_search`), how recall/latency trade off, persistence via mmap, the known concurrency issue (AUD-03: rebuild vs lookup). Read the `docs/glosario/hnsw.md` fully — it even has the SIMD and cache-friendly optimizations.
-- **BM25:** the inverted index, tokenizer (`lowercase-ascii-alnum`, `docs/architecture/TEXT_INDEX_DESIGN.md`), `k1=1.2`, `b=0.75`, IDF formula, phrase matching over token positions.
-- **RRF fusion** (`docs/glosario/rrf.md`): why it ignores raw scores and fuses ranks, `k=60`, the candidate-budget logic from TEXT_INDEX_DESIGN.md.
-- **Recall / ANN metrics:** read `docs/glosario/recall.md`, `ann.md`. Learn to *measure*, not just run.
+- **Embeddings first (conceptually):** what a vector is, cosine similarity, dimensions, why embedding models map semantics. Read `docs/user/glosario/vectors.md`, `vector-similarity.md`.
+- **HNSW:** the algorithm (multi-layer graph, `M`, `ef_construction`, `ef_search`), how recall/latency trade off, persistence via mmap, the known concurrency issue (AUD-03: rebuild vs lookup). Read the `docs/user/glosario/hnsw.md` fully — it even has the SIMD and cache-friendly optimizations.
+- **BM25:** the inverted index, tokenizer (`lowercase-ascii-alnum`, `docs/dev/architecture/TEXT_INDEX_DESIGN.md`), `k1=1.2`, `b=0.75`, IDF formula, phrase matching over token positions.
+- **RRF fusion** (`docs/user/glosario/rrf.md`): why it ignores raw scores and fuses ranks, `k=60`, the candidate-budget logic from TEXT_INDEX_DESIGN.md.
+- **Recall / ANN metrics:** read `docs/user/glosario/recall.md`, `ann.md`. Learn to *measure*, not just run.
 
 **Why (priority):** Vector search is VantaDB's product identity. Medium competence = you can explain why a recall number is what it is and how to move it.
 
@@ -165,9 +165,9 @@ This is the strongest portfolio piece of the whole curriculum because it demonst
 **Goal:** understand the embedding and RAG story — especially local ONNX inference — since it's VantaDB's differentiator (local-first, no external LLM required).
 
 **What to learn (in order):**
-- **Embedding providers:** the `EmbeddingProvider` trait, BYO-vector model, OpenAI/Ollama/LiteLLM, and the *local-first* path via `ort` (ONNX Runtime) + `tokenizers`. Read `docs/api/EMBEDDINGS.md` and `docs/tutorials/05-embedding-integrations.md`, `embed-local` in QUICKSTART.md.
+- **Embedding providers:** the `EmbeddingProvider` trait, BYO-vector model, OpenAI/Ollama/LiteLLM, and the *local-first* path via `ort` (ONNX Runtime) + `tokenizers`. Read `docs/api/EMBEDDINGS.md` and `docs/user/tutorials/05-embedding-integrations.md`, `embed-local` in QUICKSTART.md.
 - **ONNX local inference:** what ONNX is, why local, the `multilingual-e5-small` 384d model, `EmbeddingProvider::embed_batch`, the one-model-per-namespace rule.
-- **RAG:** retrieval-augmented generation patterns (chunking, embedding, retrieval, generation). Read `docs/glosario/rag.md`, `graphrag.md` (skim — graph RAG is beyond medium), `docs/tutorials/02-local-rag-pipeline.md`.
+- **RAG:** retrieval-augmented generation patterns (chunking, embedding, retrieval, generation). Read `docs/user/glosario/rag.md`, `graphrag.md` (skim — graph RAG is beyond medium), `docs/user/tutorials/02-local-rag-pipeline.md`.
 - **MCP (skim):** how VantaDB exposes an agent protocol. Good to know, low priority to master.
 
 **Why (priority):** *Moderate* — this is where the "AI agent memory" and RAG story lives, so you need functional competence, but you don't need to build a model.
@@ -192,7 +192,7 @@ This is the strongest portfolio piece of the whole curriculum because it demonst
 **Goal:** competent, not expert, in the multi-language surface: PyO3 (main), WASM, napi-rs.
 
 **What to learn (in order):**
-- **PyO3** (highest priority of this bucket): how `vantadb-python` wraps the Rust `VantaEmbedded` SDK boundary — reads/writes Python objects to Rust types, GIL implications. Read `docs/glosario/pyo3.md`, `gil.md`, `python-sdk.md`, `ffi.md`.
+- **PyO3** (highest priority of this bucket): how `vantadb-python` wraps the Rust `VantaEmbedded` SDK boundary — reads/writes Python objects to Rust types, GIL implications. Read `docs/user/glosario/pyo3.md`, `gil.md`, `python-sdk.md`, `ffi.md`.
 - **WASM** (skim): how core compiles to `wasm32-wasip1`, what's stubbed (`memmap2`→Vec shim, `rayon`→sequential, `sysinfo`→stub). You don't need to build for WASM; you need to know the strategy.
 - **napi-rs** (awareness only): it's listed but for TS binding — read enough to know what it is, don't learn to build it.
 
@@ -236,8 +236,8 @@ This is the strongest portfolio piece of the whole curriculum because it demonst
 **Goal:** not an SRE, but understand how the repo ships — because that's how you get your portfolio merged and how tests protect correctness.
 
 **What to learn:**
-- **GitHub Actions** workflows (build, test, Python Wheels, releases). Read `docs/glosario/ci-cd.md`.
-- **Releases & benchmarks:** how releases are cut (tag-gated, TestPyPI→PyPI), Sigstore signing, `docs/glosario/sigstore.md`, `slsa.md`, `benchmarks.md`.
+- **GitHub Actions** workflows (build, test, Python Wheels, releases). Read `docs/user/glosario/ci-cd.md`.
+- **Releases & benchmarks:** how releases are cut (tag-gated, TestPyPI→PyPI), Sigstore signing, `docs/user/glosario/sigstore.md`, `slsa.md`, `benchmarks.md`.
 - **Testing culture:** the repo has crash-injection, chaos/failpoints, WAL-resilience tests. Learn to *run* them locally and read them (you already did in Phase 2).
 
 **Why (priority):** Cold, but *how tests gate your portfolio* matters for shipping and for Regla 10.
