@@ -388,3 +388,9 @@ aliases: []
 - **Objetivo:** cerrar loop inerte (namespaces disjuntos) + output_tokens real + tope del bloque `<vanta-memory>`
 - **Resultado:** ✅ dual-write L1 + cost en path buffered + `InjectionConfig.max_tokens` (2000, 0=off); pivot A→B por evidencia (3 fallos PRX-09 por claves inestables); lead verify independiente; P2-01 vanta-review approve
 - **Commit:** 679c75a9
+
+### WIRE-10: Distribución P0 — install.sh macOS, Colab a Client, mcp-call + hooks sin pwsh
+- **Fecha:** 2026-09-25
+- **Objetivo:** promesa "1 comando" rota en macOS + puerta Colab rota + hooks mudos sin pwsh (C5/C9/C12)
+- **Resultado:** ✅ install.sh fallback `command -v sha256sum || shasum -a 256` + normalización formato asset (fail-closed); notebook a `from vantadb import Client` + `db.search`/`db.memory.*` ejecutado e2e; `vanta-cli mcp-call` one-shot (JSON-RPC stdio, exit 0/1/2, placeholders `{{}}` stdin) + templates hooks 1.1.0 (memory_recall verbatim, reminders estáticos); P2-01 changes-required→aplicado (truncate UTF-8, reap zombie)
+- **Commit:** 8e55e853
