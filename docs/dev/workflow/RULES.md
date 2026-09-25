@@ -49,6 +49,8 @@ on:
 
 - **Verify:** open a PR `develop → main`, push once → exactly 1 run per workflow when paths match (`gh run list --commit <sha>`).
 
+> **Amendment 2026-09-25 (C-04/FIND-140):** los workflows actuales **mantienen `develop`** en `push`/`pull_request` (todo el CI corre sobre develop; la deduplicación push+PR se resolvió por `paths` + `concurrency`). Esta regla queda como **objetivo** a completar al cerrar FIND-134/139 — no como estado actual. Verificar antes de "corregir" un workflow que hoy lista `develop`.
+
 ### 2 — Timeouts: every job has `timeout-minutes`
 
 - **Must:** set `timeout-minutes` on every job, calibrated to real duration + margin (FIND-135: values = measured wall time + headroom).
