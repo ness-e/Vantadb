@@ -93,6 +93,8 @@ exclusión en §Decision/mapa antes de firmar.
 
 **Decisión owner (2026-09-25):** **B** — renombrar `VantaHeader` → `Header` + alias deprecated (question gate API-01). Aplicado en API-01 Step 5 (mapa actualizado a `resolved`). Firma formal del ADR: pendiente (HIG-02).
 
+**Waiver (2026-09-25):** la firma formal del umbrella se difiere a **HIG-02** (ya catalogada — sin deuda nueva); API-01 cierra con la decisión owner B registrada y aplicada. La exclusión `VantaHeader` queda resuelta — ver `scripts/anti_stutter_map.json:94` (status `resolved`).
+
 ---
 
 **Firmado por:** _pendiente — el autor humano firma aquí (nombre + fecha) al aprobar este ADR._
