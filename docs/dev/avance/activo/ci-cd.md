@@ -509,3 +509,10 @@ aliases: []
 - **Objetivo:** Explicar el rojo del gate de regresión en el push a main post-merge.
 - **Resultado:** 🔴 Falso positivo: mismos commits verdes en develop (`36094025761`, dispatch 04:20Z) → rojo en main (`36101773914`, push 06:11Z): `query_hybrid.p50` 5.76→12.01ms (+108.5%), `p95` +88.1%, `p99` +18.8%, `query_text.p99` 0.01→0.04ms (µs = ruido). Baseline `benchmarks/python_baseline.json` calibrado en una máquina concreta → varianza entre runners. No es check requerido (no bloquea merges). **Acción propuesta:** tolerancia por métrica / banda de varianza multi-runner / re-baseline; fila `FIND-154` en Backlog.
 - **Commit:** (este commit)
+
+### HIG-01: CHANGELOG dedup + release_always=false + release bodies reparados
+- **Fecha:** 2026-09-25
+- **Objetivo:** Cerrar la causa raíz de los GitHub Releases sin descripción (revisión solicitada por el owner).
+- **Causa raíz:** `docs/CHANGELOG.md` tenía 2 documentos concatenados (2× `# Changelog`, 2× `## [Unreleased]`, frontmatter huérfano) → release-plz loguea "multiple release notes for 'Unreleased'. The git release body will be empty." → bodies vacíos en v0.6.0/v0.6.1/v0.7.0 (len=0).
+- **Resultado:** ✅ PR #227 (main `6f2c1cfe`): dedup (1× H1 + 1× Unreleased + orden 0.7.0→0.4.0; 174,914 vs 175,339 bytes — 0 contenido perdido) + `release_always=false` (release solo al mergear el Release PR; elimina el race publish-antes-de-changelog). develop sincronizado (`54845169`). Bodies reparados: v0.7.0 (206 chars), v0.6.1 (33,808), v0.6.0 (119,109, truncado con link — límite GitHub 125k). #225 (release v0.7.1 docs-only) cerrado. **Pendiente de verificación:** el próximo Release PR no debe reintroducir el duplicado.
+- **Commit:** `6f2c1cfe` (main) + `54845169` (develop)
