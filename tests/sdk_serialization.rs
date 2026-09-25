@@ -203,6 +203,30 @@ fn test_query_result_serialize() {
 }
 
 #[test]
+fn test_query_result_write_missing_node_id_defaults_none() {
+    // API-01 R1 (review P2-01): producers that predate the `u128_serde`
+    // change (or omit `node_id`) must still deserialize. `deserialize_with`
+    // bypasses serde_derive's `missing_field` default path, so the field
+    // needs an explicit `#[serde(default)]` — without it this payload fails
+    // with "missing field `node_id`".
+    let json = r#"{"Write":{"affected_nodes":1,"message":"old"}}"#;
+    let parsed: QueryResult =
+        serde_json::from_str(json).expect("missing node_id must default to None");
+    match parsed {
+        QueryResult::Write {
+            affected_nodes,
+            message,
+            node_id,
+        } => {
+            assert_eq!(affected_nodes, 1);
+            assert_eq!(message, "old");
+            assert_eq!(node_id, None);
+        }
+        other => panic!("expected Write variant, got {other:?}"),
+    }
+}
+
+#[test]
 fn test_capabilities_serialize() {
     let caps = Capabilities {
         runtime_profile: RuntimeProfile::LowResource,
