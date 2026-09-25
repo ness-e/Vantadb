@@ -48,6 +48,8 @@ tags:
     description: Storage maintenance operations and snapshots
   - name: Threads
     description: Conversation threads
+  - name: Skills
+    description: Versioned agent skills (create/update, optimistic lock)
 
 paths:
   /health:
@@ -272,7 +274,7 @@ paths:
             schema:
               $ref: "#/components/schemas/RecordInput"
       responses:
-        "200":
+        "201":
           description: Record stored
           content:
             application/json:
@@ -344,7 +346,7 @@ paths:
               items:
                 $ref: "#/components/schemas/RecordInput"
       responses:
-        "200":
+        "201":
           description: Batch stored
           content:
             application/json:
@@ -431,8 +433,9 @@ paths:
       parameters:
         - $ref: "#/components/parameters/NamespacePath"
         - $ref: "#/components/parameters/KeyPath"
-        - name: limit
+        - name: version
           in: query
+          description: When present, returns only that version instead of the full list.
           schema:
             type: integer
             minimum: 1
@@ -478,6 +481,7 @@ paths:
             default: 100
         - name: cursor
           in: query
+          description: Opaque cursor from a previous page's `next_cursor`; omit for the first page. Clients must not parse it.
           schema:
             type: string
         - name: filter_ops
@@ -508,9 +512,9 @@ paths:
       summary: Hybrid search
       description: |
         Vector / sparse / BM25 hybrid similarity search over a namespace,
-        with offset pagination (`cursor` = zero-based offset, `limit` = page
-        size; defaults to `top_k`). Wire format mirrors the SDK's
-        `MemorySearchRequest`.
+        with cursor pagination: `limit` is the page size (defaults to `top_k`)
+        and `cursor` is the opaque `next_cursor` from the previous page. Wire
+        format mirrors the SDK's `MemorySearchRequest`.
 
         **Fresh database note:** `ensure_indexes_current()` runs ONCE at server
         startup (see `src/server/bootstrap.rs`; skipped when `read_only`) and
@@ -518,7 +522,7 @@ paths:
         cover records written afterwards through the node/record API: on a
         fresh DB, `PUT /api/v2/records/…` followed by `POST /api/v2/search`
         with `text_query` fails with `text_index not found: bm25` until you
-        call `POST /api/v2/maintenance/rebuild-index` (verified live-fire —
+        call `POST /api/v2/maintenance/index-rebuilds` (verified live-fire —
         campaign task GOV-B5). Single memory `PUT`/`DELETE` maintain the text
         index incrementally and `put_batch` rebuilds it in one pass, so this
         only bites the record-write-then-text-search flow on a fresh DB.
@@ -580,32 +584,49 @@ paths:
   /api/v2/audit:
     get:
       summary: Audit events
-      description: Query the audit event log written when auditing is enabled.
+      description: Query the audit event log written when auditing is enabled. Newest-first, cursor-paginated.
       operationId: listAuditEvents
       tags:
         - System
       security:
         - bearerAuth: []
       parameters:
+        - name: namespace
+          in: query
+          schema:
+            type: string
+        - name: op
+          in: query
+          schema:
+            type: string
+        - name: outcome
+          in: query
+          schema:
+            type: string
         - name: limit
           in: query
           schema:
             type: integer
+            default: 100
+        - name: cursor
+          in: query
+          description: Opaque cursor from a previous page's `next_cursor`; omit for the first page. Clients must not parse it.
+          schema:
+            type: string
       responses:
         "200":
-          description: Audit events
+          description: Page of audit events
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  additionalProperties: true
+                $ref: "#/components/schemas/AuditPageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
           $ref: "#/components/responses/Forbidden"
-        "409":
+        "404":
           description: Audit log not enabled/configured
           content:
             application/json:
@@ -1040,9 +1061,9 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /api/v2/maintenance/purge:
-    post:
-      summary: Purge expired records
+  /api/v2/maintenance/expired-records:
+    delete:
+      summary: Delete expired records
       description: Removes all expired (TTL elapsed) records. Returns the count purged.
       operationId: purgeExpired
       tags:
@@ -1071,10 +1092,10 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /api/v2/maintenance/compact:
+  /api/v2/maintenance/compactions:
     post:
       summary: Compact storage
-      description: Compacts underlying storage layers (generic acknowledgement).
+      description: Compacts underlying storage layers, creating a compaction run (generic acknowledgement).
       operationId: compactStorage
       tags:
         - Maintenance
@@ -1097,10 +1118,10 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /api/v2/maintenance/flush:
+  /api/v2/maintenance/flushes:
     post:
       summary: Flush pending writes
-      description: Forces pending WAL/memory writes down to durable storage.
+      description: Forces pending WAL/memory writes down to durable storage, creating a flush run.
       operationId: flushStorage
       tags:
         - Maintenance
@@ -1123,10 +1144,13 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /api/v2/maintenance/rebuild-index:
+  /api/v2/maintenance/index-rebuilds:
     post:
       summary: Rebuild indexes
-      description: Rebuilds secondary indexes (text/HNSW) for the database or a target namespace.
+      description: >-
+        Rebuilds secondary indexes (text/HNSW) for the database or a target
+        namespace, creating an index-rebuild run. Long-running: served under
+        the extended request timeout.
       operationId: rebuildIndex
       tags:
         - Maintenance
@@ -1152,7 +1176,7 @@ paths:
   /api/v2/threads:
     get:
       summary: List threads
-      description: Lists conversation threads (paginated by `limit`).
+      description: Lists conversation threads newest-first, cursor-paginated.
       operationId: listThreads
       tags:
         - Threads
@@ -1163,16 +1187,21 @@ paths:
           in: query
           schema:
             type: integer
+            default: 100
+        - name: cursor
+          in: query
+          description: Opaque cursor from a previous page's `next_cursor`; omit for the first page. Clients must not parse it.
+          schema:
+            type: string
       responses:
         "200":
-          description: Thread list
+          description: Page of threads
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  additionalProperties: true
+                $ref: "#/components/schemas/ThreadsPageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1200,7 +1229,7 @@ paths:
                   type: string
                   description: Human-readable thread title
       responses:
-        "200":
+        "201":
           description: Created thread
           content:
             application/json:
@@ -1247,6 +1276,35 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
+    delete:
+      summary: Delete thread
+      description: Deletes a conversation thread and its messages.
+      operationId: deleteThread
+      tags:
+        - Threads
+      security:
+        - bearerAuth: []
+      parameters:
+        - $ref: "#/components/parameters/ThreadIdPath"
+      responses:
+        "200":
+          description: Thread deleted
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AckResponse"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/TooManyRequests"
+        "500":
+          $ref: "#/components/responses/InternalError"
+
+  /api/v2/threads/{id}/messages:
     post:
       summary: Send message to thread
       description: Appends a role-tagged message to the thread (auto-embedded).
@@ -1291,39 +1349,15 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
-    delete:
-      summary: Delete thread
-      description: Deletes a conversation thread and its messages.
-      operationId: deleteThread
-      tags:
-        - Threads
-      security:
-        - bearerAuth: []
-      parameters:
-        - $ref: "#/components/parameters/ThreadIdPath"
-      responses:
-        "200":
-          description: Thread deleted
-          content:
-            application/json:
-              schema:
-                $ref: "#/components/schemas/AckResponse"
-        "401":
-          $ref: "#/components/responses/Unauthorized"
-        "403":
-          $ref: "#/components/responses/Forbidden"
-        "404":
-          $ref: "#/components/responses/NotFound"
-        "429":
-          $ref: "#/components/responses/TooManyRequests"
-        "500":
-          $ref: "#/components/responses/InternalError"
 
-  /conversation/add:
+  /api/v2/conversations:
     post:
       summary: Add conversation turn
-      description: Legacy conversational ingestion endpoint (auto-selects or creates a thread).
-      operationId: conversationAdd
+      description: |
+        Data-plane conversational ingestion (MEM-55): auto-selects or creates a
+        thread and appends a role-tagged turn, triggering the host capture
+        bridge when configured. Omitted `thread_id` creates/reuses a thread.
+      operationId: createConversationTurn
       x-experimental: true
       tags:
         - Threads
@@ -1335,13 +1369,29 @@ paths:
           application/json:
             schema:
               type: object
+              required:
+                - role
+                - content
               properties:
                 thread_id:
                   type: string
                   nullable: true
-                  description: Target thread; omitted creates/reuses the default thread
+                  description: Target thread (decimal u128); omitted creates/reuses the default thread
+                title:
+                  type: string
+                  nullable: true
+                  description: Title for a newly created thread
+                role:
+                  type: string
+                  description: Message role (user, assistant, ...)
+                content:
+                  type: string
+                ttl_secs:
+                  type: integer
+                  nullable: true
+                  description: Optional TTL for a newly created thread
       responses:
-        "200":
+        "201":
           description: Turn stored
           content:
             application/json:
@@ -1359,33 +1409,50 @@ paths:
         "500":
           $ref: "#/components/responses/InternalError"
 
-  /skill/listing:
+  /api/v2/skills:
     get:
-      summary: Skill listing
-      description: Lists skill-like records (capped at 200 items).
-      operationId: skillListing
+      summary: List skills
+      description: >-
+        Lists skill head rows (lean view: no content body), filtered by owner
+        and/or name prefix. Cursor-paginated (capped at 200 items per page,
+        default 50). Intended for prompt-injection consumers.
+      operationId: listSkills
       x-experimental: true
       tags:
-        - System
+        - Skills
       security:
         - bearerAuth: []
       parameters:
+        - name: owner_agent
+          in: query
+          description: Only list skills owned by this agent.
+          schema:
+            type: string
+        - name: name_prefix
+          in: query
+          description: Only list skills whose name starts with this prefix.
+          schema:
+            type: string
         - name: limit
           in: query
           schema:
             type: integer
             default: 50
             maximum: 200
+        - name: cursor
+          in: query
+          description: Opaque cursor from a previous page's `next_cursor`; omit for the first page. Clients must not parse it.
+          schema:
+            type: string
       responses:
         "200":
-          description: Skill entries
+          description: Page of skill head rows
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  type: object
-                  additionalProperties: true
+                $ref: "#/components/schemas/SkillListingPageResponse"
+        "400":
+          $ref: "#/components/responses/BadRequest"
         "401":
           $ref: "#/components/responses/Unauthorized"
         "403":
@@ -1394,8 +1461,6 @@ paths:
           $ref: "#/components/responses/TooManyRequests"
         "500":
           $ref: "#/components/responses/InternalError"
-
-  /api/v2/skills:
     post:
       summary: Create skill
       description: >-
@@ -1626,7 +1691,7 @@ paths:
           schema:
             type: string
       responses:
-        "200":
+        "201":
           description: Snapshot created
           content:
             application/json:
@@ -1724,7 +1789,7 @@ components:
         query:
           type: string
           description: IQL query string
-          example: (memory:get "agent/main" "memory-1")
+          example: FROM Test WHERE title ~ "hello"
 
     RecordInput:
       description: Upsert payload mirroring the SDK `MemoryInput` (legacy `VantaMemoryInput` alias removed in 0.6.0, AST-010).
@@ -1734,8 +1799,6 @@ components:
         - key
         - payload
         - metadata
-        - vector
-        - ttl_ms
       properties:
         namespace:
           type: string
@@ -1774,7 +1837,7 @@ components:
     SearchPageRequest:
       description: |
         SDK hybrid-search request (`MemorySearchRequest` fields flattened)
-        plus offset pagination. Empty `query_vector` skips dense search;
+        plus cursor pagination. Empty `query_vector` skips dense search;
         `text_query` drives BM25 lexical scoring.
       type: object
       required:
@@ -1814,7 +1877,7 @@ components:
           default: 10
         distance_metric:
           type: string
-          enum: [Cosine, Euclidean, Dot]
+          enum: [Cosine, Euclidean, SparseDot]
           default: Cosine
         explain:
           type: boolean
@@ -1830,9 +1893,9 @@ components:
           nullable: true
           additionalProperties: true
         cursor:
-          type: integer
-          minimum: 0
-          description: Zero-based offset into the ranked result set (server-side pagination)
+          type: string
+          nullable: true
+          description: Opaque cursor from a previous page's `next_cursor` (omit for the first page)
         limit:
           type: integer
           minimum: 1
@@ -1918,13 +1981,10 @@ components:
       description: Cursor-paginated record list.
       type: object
       required:
-        - success
+        - records
+        - next_cursor
+        - has_more
       properties:
-        success:
-          type: boolean
-        error:
-          type: string
-          nullable: true
         records:
           type: array
           items:
@@ -1933,18 +1993,23 @@ components:
         next_cursor:
           type: string
           nullable: true
+        has_more:
+          type: boolean
+          description: True when another page is available (equivalent to `next_cursor != null`).
+        truncated_namespaces:
+          type: array
+          description: All-namespaces fan-out only — namespaces still paginating (may hold more records).
+          items:
+            type: string
 
     SearchPageResponse:
-      description: Offset-paginated search results mirroring `MemoryListPage`.
+      description: Cursor-paginated search results mirroring `MemoryListPage`.
       type: object
       required:
-        - success
+        - records
+        - next_cursor
+        - has_more
       properties:
-        success:
-          type: boolean
-        error:
-          type: string
-          nullable: true
         records:
           type: array
           items:
@@ -1953,6 +2018,73 @@ components:
         next_cursor:
           type: string
           nullable: true
+        has_more:
+          type: boolean
+          description: True when another page is available (equivalent to `next_cursor != null`).
+
+    AuditPageResponse:
+      description: Cursor-paginated audit events, newest-first.
+      type: object
+      required:
+        - events
+        - next_cursor
+        - has_more
+      properties:
+        events:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        next_cursor:
+          type: string
+          nullable: true
+        has_more:
+          type: boolean
+          description: True when older events remain.
+
+    ThreadsPageResponse:
+      description: Cursor-paginated conversation thread list.
+      type: object
+      required:
+        - threads
+        - next_cursor
+        - has_more
+      properties:
+        threads:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        next_cursor:
+          type: string
+          nullable: true
+        has_more:
+          type: boolean
+          description: True when another page is available (equivalent to `next_cursor != null`).
+
+    SkillListingPageResponse:
+      description: Cursor-paginated skill head listing (lean view, no content body).
+      type: object
+      required:
+        - items
+        - next_cursor
+        - has_more
+      properties:
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        total:
+          type: integer
+          minimum: 0
+          description: Total head rows matching the filters.
+        next_cursor:
+          type: string
+          nullable: true
+        has_more:
+          type: boolean
+          description: True when another page is available (equivalent to `next_cursor != null`).
 
     # ── Responses ──
 
