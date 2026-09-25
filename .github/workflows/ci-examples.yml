@@ -14,7 +14,6 @@ on:
       - 'Cargo.lock'
       - 'vantadb-python/**'
       - '.github/workflows/ci-examples.yml'
-      - '!web/**'
   pull_request:
     branches: [ "main" ]
     paths:
@@ -24,7 +23,6 @@ on:
       - 'Cargo.lock'
       - 'vantadb-python/**'
       - '.github/workflows/ci-examples.yml'
-      - '!web/**'
   workflow_dispatch:
 
 env:

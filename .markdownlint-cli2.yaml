@@ -29,7 +29,6 @@ config:
 
 ignores:
   - ".github/ISSUE_TEMPLATE/*.yml"
-  - "web/node_modules/**"
   # Frozen history is never linted (would stay red forever by design)
   - "docs/dev/archive/**"
   # Frozen research archive: same rationale (FIND-126: Investigacion-plan.md
