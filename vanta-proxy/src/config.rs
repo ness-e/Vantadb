@@ -203,6 +203,49 @@ impl Default for ServerConfig {
     }
 }
 
+impl ProxyConfig {
+    /// Refuse-to-start gate (WIRE-09, FIND-07 parity with the main server's
+    /// `validate_auth_config`).
+    ///
+    /// Trust boundary: `GET /snapshot` is unauthenticated until API-05 adds
+    /// auth, so binding a non-loopback host with zero provisioned user keys
+    /// would expose operational state with no auth material at all. Refuse
+    /// unless the operator binds loopback (dev) or provisions at least one
+    /// `user` entity with a `user_key` (prod). Deliberately no
+    /// `--allow-insecure` override: both remedies already exist, so no new
+    /// config surface is needed.
+    ///
+    /// `pub(crate)` — startup wiring only, not public API (zero new symbols).
+    pub(crate) fn validate_startup(&self, provisioned_user_keys: usize) -> Result<(), ProxyError> {
+        if provisioned_user_keys == 0 && !is_loopback_host(&self.server.host) {
+            return Err(ProxyError::Config(format!(
+                "refusing to start: non-loopback bind '{}' with no provisioned user keys — \
+                 GET /snapshot is unauthenticated, so this would expose operational state \
+                 with no auth material. Fix either way: (1) provision at least one `user` \
+                 entity with a `user_key` in the auth store at '{}', or (2) bind a loopback \
+                 host (127.0.0.1/localhost/::1)",
+                self.server.host, self.auth.db_path
+            )));
+        }
+        Ok(())
+    }
+}
+
+/// Whether `host` binds only the loopback interface (`127.0.0.0/8`,
+/// `::1`, or the literal name `localhost`). Unresolvable hostnames are
+/// treated as non-loopback (fail closed). Copy of the FIND-07 helper in
+/// `vantadb::server::bootstrap` (kept local: no shared util crate exists;
+/// see WIRE-07 `ffi-core` plans).
+fn is_loopback_host(host: &str) -> bool {
+    let h = host.trim();
+    let h = h.strip_prefix('[').unwrap_or(h);
+    let h = h.strip_suffix(']').unwrap_or(h);
+    h.eq_ignore_ascii_case("localhost")
+        || h.parse::<std::net::IpAddr>()
+            .map(|ip| ip.is_loopback())
+            .unwrap_or(false)
+}
+
 /// Local auth/session store settings (D25: RBAC local entity_*, no remote gateway).
 #[derive(Debug, Clone, Deserialize)]
 #[serde(default)]
@@ -395,5 +438,50 @@ mod tests {
         let list = cfg.upstreams_resolved();
         assert_eq!(list.len(), 2);
         assert_eq!(list[1].api_key, "b");
+    }
+
+    // ─── WIRE-09: refuse-to-start (FIND-07 parity) ──────────────
+    // RED: `validate_startup` does not exist yet — these fail to compile
+    // pre-fix; post-fix they pin the gate. Contract: non-loopback bind
+    // without provisioned user keys refuses; loopback or ≥1 key starts.
+
+    fn proxy_cfg_with_host(host: &str) -> ProxyConfig {
+        ProxyConfig {
+            server: ServerConfig {
+                host: host.into(),
+                ..ServerConfig::default()
+            },
+            ..ProxyConfig::default()
+        }
+    }
+
+    #[test]
+    fn refuse_start_non_loopback_without_keys() {
+        for host in ["0.0.0.0", "192.168.1.10", "example.com", "::"] {
+            let cfg = proxy_cfg_with_host(host);
+            let err = cfg.validate_startup(0).unwrap_err();
+            let msg = err.to_string();
+            assert!(
+                msg.contains("refusing to start") && msg.contains("user_key"),
+                "host {host}: message must name the refusal + remedy, got: {msg}"
+            );
+        }
+    }
+
+    #[test]
+    fn refuse_start_loopback_without_keys_ok() {
+        for host in ["127.0.0.1", "localhost", "::1", "[::1]"] {
+            let cfg = proxy_cfg_with_host(host);
+            assert!(
+                cfg.validate_startup(0).is_ok(),
+                "loopback host {host} must start without keys"
+            );
+        }
+    }
+
+    #[test]
+    fn refuse_start_non_loopback_with_keys_ok() {
+        let cfg = proxy_cfg_with_host("0.0.0.0");
+        assert!(cfg.validate_startup(1).is_ok());
     }
 }

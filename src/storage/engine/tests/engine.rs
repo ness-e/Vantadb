@@ -541,6 +541,46 @@ fn test_scan_nodes_page_excludes_deleted() {
     assert_eq!(nodes[0].id, 2);
 }
 
+// ─── WIRE-09: snapshot name sandbox ───────────────────────────────
+// Prove-It (systematic-debugging): `create_snapshot` joined the raw `name`
+// under `<data_dir>/snapshots/` with no validation, while `snapshot_restore`
+// validates via `validate_snapshot_name`. `name = "../escape"` wrote outside
+// the snapshots dir. This test FAILS pre-fix (returns Ok + writes outside)
+// and PASSES post-fix (returns Err + nothing escapes).
+
+#[cfg(feature = "fjall")]
+#[test]
+fn snapshot_traversal_name_rejected() {
+    let dir = tempfile::tempdir().unwrap();
+    let path = dir.path().to_str().unwrap();
+    let engine = StorageEngine::open(path).expect("open disk engine");
+    for evil in ["../escape", "..", ".", "", "a/b", "a\\b"] {
+        let err = engine.create_snapshot(evil).unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("plain identifier"),
+            "WIRE-09: name {evil:?} must be rejected as non-identifier, got: {msg}"
+        );
+    }
+    // Nothing escaped: `<data>/escape` must not exist and a legit name
+    // still lands inside the snapshots dir.
+    assert!(
+        !dir.path().join("data").join("escape").exists(),
+        "WIRE-09: traversal snapshot escaped the sandbox"
+    );
+    let snap = engine.create_snapshot("snap-1").expect("legit name");
+    assert!(
+        snap.path
+            .starts_with(dir.path().join("data").join("snapshots")),
+        "legit snapshot must live under snapshots/, got: {}",
+        snap.path.display()
+    );
+    assert!(engine
+        .list_snapshots()
+        .expect("list")
+        .contains(&"snap-1".to_string()));
+}
+
 #[test]
 fn test_scan_nodes_page_with_zero_limit() {
     let engine = in_memory_engine();

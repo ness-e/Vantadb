@@ -633,6 +633,9 @@ impl StorageEngine {
     /// via `Embedded::open`.
     #[cfg(unix)]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
+        // WIRE-09: the name becomes a path segment under `snapshots/` —
+        // validate BEFORE any filesystem touch (paridad `snapshot_restore`).
+        Self::validate_snapshot_name(name)?;
         // Read-only engines have nothing in flight to quiesce, and flush()
         // would fail its ensure_writable() guard.
         if !self.read_only {
@@ -680,6 +683,8 @@ impl StorageEngine {
     /// via `Embedded::open`.
     #[cfg(any(windows, target_arch = "wasm32"))]
     pub fn create_snapshot(&self, name: &str) -> crate::error::Result<FsSnapshot> {
+        // WIRE-09: same sandbox as the Unix variant (paridad `snapshot_restore`).
+        Self::validate_snapshot_name(name)?;
         if !self.read_only {
             self.flush()?;
         }
