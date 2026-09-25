@@ -50,13 +50,13 @@ y dejar `web/` lista para extracción. Sin reescribir historia git en ningún mo
 - [x] C-04 · SUPERSEDED 2026-09-23: la propuesta (quitar `develop` de push) quedó obsoleta — workflows-repair (FIND-140) racionalizó triggers MANTENIENDO `develop` (todo el CI actual corre sobre develop). Ver `docs/dev/workflow/TRIGGERS.md`.
 - [x] C-05 · ✅ 2026-09-23: renombres aplicados en FIND-142 (14 renames, ej `ci-rust-10.yml`→`ci-rust.yml`); `actionlint` 0.
 - [x] C-06 · ✅ 2026-09-23: PR path sin jobs >10min — `heavy-bench-nightly` fuera de PR (matriz FULL ~90min → solo nightly 02:00 + dispatch); `fuzz` ya estaba partido (PR=fuzz-pr acotado); `chaos` 3min + `canonical_p99` ~5min + `arch`/`ocr` ~1min quedan (scoping por paths, compatibles con Fast Gate).
-- [ ] C-07 · Curar PRs/ramas (25→0 el 2026-09-22; oleada nueva 211–219 en curso 2026-09-23: otel trio cerrado vía commit atómico 5e6a3071, #211–216 con branches actualizados y CI en curso). Contrato: PRs abiertos = solo vivos.
+- [x] C-07 · Curar PRs/ramas (25→0 el 2026-09-22; oleada nueva 211–219 en curso 2026-09-23: otel trio cerrado vía commit atómico 5e6a3071, #211–216 con branches actualizados y CI en curso). Contrato: PRs abiertos = solo vivos. ✅ 2026-09-25: remoto=develop+main; 8 release-plz stale borradas (SHAs capturados); 2 locales merged borradas; PR único=#222; verify campaign passed=true.
   borrar ramas mergeadas/stale (orben `gh pr close`, `git push --delete`).
   Dependabot ya está en modo solo-alertas: no vuelve el ruido. Contrato: PRs abiertos = solo vivos.
 - [ ] C-08 · CodeQL post-release: activar default setup correcto (el check actual apunta
   a `codeql.yml` inexistente) + triage de alertas. Contrato: check verde o declarado.
 - [x] C-09 · ✅ 2026-09-22 owner confirma desinstalación (verificado: sin código Greptile en repo — era app de cuenta). Greptile fuera (owner, 2 min, `github.com/settings/installations`).
-- [ ] C-10 · README (paridad ES/EN ✅ 7ae4168e; verificado 2026-09-23: workflows de badges existen, links relativos resuelven, colab→develop, Rust→stable; cierre total tras C-02).
+- [x] C-10 · README (paridad ES/EN ✅ 7ae4168e; verificado 2026-09-23: workflows de badges existen, links relativos resuelven, colab→develop, Rust→stable; cierre total tras C-02). ✅ 2026-09-25: 4 fixes ES (colab develop, fila examples, ADR-041, Trust block) + verify v3 passed (paridad ES/EN excl. switcher).
 
 ## Fase 2 — Extracción `web/` (solo tras Fase 0+1 verdes)
 

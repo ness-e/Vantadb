@@ -375,3 +375,9 @@ aliases: []
 - **Objetivo:** Confirmar `benchmark` (perf-bench) y `Check API Docs Version` verdes tras los fixes de la ola EST.
 - **Resultado:** ✅ `benchmark` success en runs `36040468608` (EN el commit del fix `4b5b137e`) y `36086858245` (head `b461c9e8`); `Check API Docs Version` pass sobre PR head `3bbfbe45`. **Hallazgo del review:** el gate de regresión de perf-bench está **INERTE** (baseline vacío desde 2026-08-12 → compare warning+exit 0) → `FIND-153` creado (activar con `workflow_dispatch update_baseline=true`). Review P2-01 por `vanta-review`: ronda 1 ❌ (1C+1R+1O+~4N) → ronda 2 ❌ (FIND-153 sin registrar) → **ronda 3 ✅ APPROVE**. `campaign_verify_cmd` passed=true.
 - **Commit:** (este commit)
+
+### C-10: cierre README (paridad ES/EN + badges)
+- **Fecha:** 2026-09-25
+- **Objetivo:** Cierre total de paridad README tras C-02.
+- **Resultado:** ✅ 4 fixes en `README_ES.md` (colab `blob/main`→`blob/develop`; fila "Ejecutar ejemplos ejecutables"; nota ADR-041; **Trust block traducido** + nota "Fuente vigente" reubicada a §2 para paridad estructural con EN); verify v3 `campaign_verify_cmd` passed=true (0 missing links md+HTML, 0 badge drift shields.io, paridad ES/EN excl. switcher, colab positivo+negativo, Trust OK). Review P2-01 ✅ ronda 3 (ronda 1: badge-check muerto + Trust ausente; ronda 2: falso positivo del switcher → fix v3).
+- **Commit:** ac46911d (+02e7d32a docs)
