@@ -1,5 +1,6 @@
 # Plan de Ejecución: Estandarización 11 APIs — Ejecución W0–W8
 
+> **Campaign ID:** beca0c27-fd85-4489-8f93-8361888d662c
 > **Inicio:** 2026-09-24
 > **Estado:** ⬜ PENDING (0/9)
 > **Fuente:** `docs/dev/Backlog.md` Phase 51 (filas `API-01..API-09`)
@@ -35,9 +36,9 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo test --test sdk_serialization` verde Y test wire `u128` >2^53 redondo en 4 bindings Y `rg Generic\( error` con tipado o doc-diseño Y `dev-tools/verify_changed.ps1` verde
 - **Task file:** `docs/dev/tasks/API-01.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+- **Estado:** ⏳ IN PROGRESS (Steps 1-2 ✅ 2026-09-25: u128 wire RED→GREEN)
+- **Branch:** develop
+- **Commit:** f86584f6 (+70e553f7 task file)
 - **Cynefin:** 🟨 complicado — serde cross-binding + codegen requieren experto
 - **Top 3 riesgos:** 1. codegen single-schema sin dueño 2. `u128→string` rompe tests que esperan number 3. Tipar errores rompe `map_vanta_error`
 - **Pre-mortem:** F1: JSON-string para `u128` sin migrar napi; F2: RFC 9457 a medias (solo type/title); F3: casing global rompe Python snake interior
