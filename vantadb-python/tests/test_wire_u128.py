@@ -1,14 +1,17 @@
 """
-API-01 wire tests: u128 ids > 2^53 must cross the Python boundary intact.
+API-01 boundary tests: u128 ids > 2^53 must cross the Python boundary intact.
 
-Covers the W0 change in the core SDK: ``QueryResult::Write.node_id`` now
-serializes as a decimal string (``u128_serde``), so ids above 2^53 survive
-any JSON bridge. Plus the memory-record ``node_id`` (u128 ``XxHash3_128``)
-exactness guarantee on the Python side.
-
-RED-before-GREEN note: ``test_query_write_node_id_is_decimal_string`` fails
-on a core where ``Write.node_id`` is serialized as a JSON number — f64 would
-round ``9007199254740993`` to ``9007199254740992`` (or lose the string type).
+Coverage split (review P2-01 correction — no false RED claim):
+- The JSON ``u128_serde`` wire itself is exercised in the core
+  (``tests/sdk_serialization.rs``) and in the TS/WASM/Node bindings; the
+  Python ``query_structured`` path does NOT go through serde here.
+- ``test_memory_record_node_id_is_exact_u128`` verifies the PyO3 getter keeps
+  the full u128 integer (no f64 truncation) and round-trips via ``memory.get``.
+- ``test_query_write_node_id_is_decimal_string`` pins the binding mapping
+  contract: ``query_result_to_pydict`` emits ``node_id`` as a decimal string
+  (``vantadb-python/src/convert.rs:388``, ``to_string()`` — pre-existing since
+  ``d7fc09ba`` MOD-20), so a regression that emits a number instead of a
+  string fails here.
 """
 
 import vantadb_py as vanta

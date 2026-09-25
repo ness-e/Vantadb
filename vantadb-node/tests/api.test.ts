@@ -47,7 +47,13 @@ describe("vantadb-node api surface", () => {
     }
   });
 
-  // ── API-01: u128 wire round-trip (node_id as exact decimal string) ──────
+  // ── API-01: u128 wire round-trip (MemoryRecord.node_id, decimal string) ─
+  //
+  // Scope note (review P2-01): the Node binding exposes no `query`/`QueryResult`
+  // surface, so the `QueryResult::Write.node_id` variant is covered by the
+  // TS/WASM tests instead. What is exercised here is the napi record bridge:
+  // `MemoryRecord.node_id` crosses as a decimal string and must round-trip
+  // exactly for u128 values > 2^53 (an f64 number would silently round it).
 
   it("memory node_id > 2^53 round-trips as an exact decimal string", async () => {
     const db = await VantaDb.connect(tmp("u128wire"));
