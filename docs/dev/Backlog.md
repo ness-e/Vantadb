@@ -14,7 +14,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 > **Completed tasks moved to:** `docs/dev/avance/` (dominio) + `docs/dev/avance/historial/backlog-history.md`
 > **Backlog de negocio:** [`docs/dev/Backlog-negocio.md`](Backlog-negocio.md) — filas que requieren abogado/pago/decisión humana/publicación (criterio Gate P, split RES-15-C 2026-09-03). Este archivo es solo técnico: lo ejecutable por agentes.
 > **Historial de syncs y migraciones:** `docs/dev/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 127 abiertas de 159 filas (+38 filas P52–P56 post-investigación integral 2026-09-24; +5 filas auditoría externa verificada 2026-09-25: SCH-09, WIRE-11, HIG-01..03; +8 filas harness v3 2026-09-25: H3-01..08; −WIRE-09, HIG-01, WIRE-01, MGR-19, H3-01 y API-01 completadas 2026-09-25) (medido 2026-09-25; delta desde 2026-09-16: +26 FIND-63..88 ingeridos, −cerradas a `docs/dev/avance/` vía progreso) (previo 2026-09-16: 70 abiertas de 73 filas)
+> **Total open items:** 126 abiertas de 158 filas (+38 filas P52–P56 post-investigación integral 2026-09-24; +5 filas auditoría externa verificada 2026-09-25: SCH-09, WIRE-11, HIG-01..03; +8 filas harness v3 2026-09-25: H3-01..08; −WIRE-09, HIG-01, WIRE-01, MGR-19, H3-01, API-01 y WIRE-10 completadas 2026-09-25) (medido 2026-09-25; delta desde 2026-09-16: +26 FIND-63..88 ingeridos, −cerradas a `docs/dev/avance/` vía progreso) (previo 2026-09-16: 70 abiertas de 73 filas)
 ---
 
 ## Exec Summary
@@ -55,7 +55,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | **P53** 🧬 Esquema v0.7.0 — migración única (IMPL-MGR, consume P49) | 9 (SCH-01..09: bitemporalidad + confianza + cuarentena + edge bitemporal; decisión owner 2026-09-24; +SCH-09 2026-09-25) | ~4-5 semanas | 🔴 Alta (es el v0.7 real de datos; trigger: research-doc MGR-10/12/13 cerrado + P2-01) |
 | **P54** 🎯 Tracks ICP (decisión owner 2026-09-24) | 3 (ICP-01 AI-IDEs vía MCP · ICP-02 privacidad/local-LLM · ICP-03 frameworks) | ~4-6 semanas | 🔴 Alta (desbloquea BIZ-05/MGR-20/EXE-03) |
 | **P55** 🧭 Frontera de producto (research 2026-09-24) | 8 (DEF-01..08: definición única, frontera CI, naming freeze, north-star, claims reconciliados) | ~1-2 semanas | 🟠 Media-Alta (desbloquea narrativa y claims honestos) |
-| **P56** 🔌 Cableado post-investigación | 9 (WIRE-02..08 + WIRE-10..11: perfil MCP, query_sparse, TTL, entity linking, batching, refactors, range/cursor, distribución P0, llm-driver; +WIRE-11 2026-09-25) ~5-8 semanas | 🔴 Alta (hacer real lo prometido) |
+| **P56** 🔌 Cableado post-investigación | 8 (WIRE-02..08 + WIRE-11: perfil MCP, query_sparse, TTL, entity linking, batching, refactors, range/cursor, llm-driver; +WIRE-11 2026-09-25) ~5-8 semanas | 🔴 Alta (hacer real lo prometido) |
 | **P57** 🧹 Estabilización residual (EST/C → catálogo, 2026-09-24) | 1 (EST-12 → solo FASE-A/R-05 owner; merge #222 + tag `v0.7.0` + publish ✅ 2026-09-25; EST-03/05/09/10 + C-07/08/10 ✅) | ~1-2 semanas | 🟠 Media (pre-requisito de anuncio) |
 | **P58** 🧹 Higiene post-auditoría externa (2026-09-25) | 2 (HIG-02..03: ADR-041 numeración+firma, dead code; HIG-01 ✅ 2026-09-25) | ~2-3 días | 🟡 Media (pre-anuncio) |
 
