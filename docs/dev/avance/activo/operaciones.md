@@ -382,3 +382,9 @@ aliases: []
 - **Objetivo:** Cierre total de paridad README tras C-02.
 - **Resultado:** ✅ 4 fixes en `README_ES.md` (colab `blob/main`→`blob/develop`; fila "Ejecutar ejemplos ejecutables"; nota ADR-041; **Trust block traducido** + nota "Fuente vigente" reubicada a §2 para paridad estructural con EN); verify v3 `campaign_verify_cmd` passed=true (0 missing links md+HTML, 0 badge drift shields.io, paridad ES/EN excl. switcher, colab positivo+negativo, Trust OK). Review P2-01 ✅ ronda 3 (ronda 1: badge-check muerto + Trust ausente; ronda 2: falso positivo del switcher → fix v3).
 - **Commit:** ac46911d (+02e7d32a docs)
+
+### WIRE-01: Loop de memoria del proxy + cost real + presupuesto de inyección
+- **Fecha:** 2026-09-25
+- **Objetivo:** cerrar loop inerte (namespaces disjuntos) + output_tokens real + tope del bloque `<vanta-memory>`
+- **Resultado:** ✅ dual-write L1 + cost en path buffered + `InjectionConfig.max_tokens` (2000, 0=off); pivot A→B por evidencia (3 fallos PRX-09 por claves inestables); lead verify independiente; P2-01 vanta-review approve
+- **Commit:** 679c75a9
