@@ -465,3 +465,9 @@ aliases: []
 - **Objetivo:** El check `ci-gate / Main is green` (reusable; consumido por `fuzz`/`heavy-bench-nightly`/`heavy-certification` vía `needs: ci-gate`) fallaba en cada PR: usaba el head SHA del PR, corría a los 14s con checks pending → 13 `<not found>` → fail-closed eterno (y skipeaba los jobs de fuzz en PRs).
 - **Resultado:** ✅ mide `main` HEAD vía API + conclusión más reciente por nombre (`sort_by(.started_at)`); `success|skipped|neutral` pass; `failure|timed_out|cancelled|action_required` fail; sin runs en main → WARN tolerado (OSV/machete aún no corren en main pre-merge). Decisión owner opción A. Verificación local 3/3 casos (REQUIRED real → FAILED=0; +`Lint Markdown` failure → FAILED=1; inexistente → WARN) + `ci-gate / Main is green` = **pass** en PR #222 (run `36084499760`). Nota: el check no está en los rulesets (11 contexts) — no bloqueaba merge, pero su rojo skipeaba fuzz.
 - **Commit:** 0c27a960
+
+### FIND-153: perf-bench regression gate activado (baseline compuesto)
+- **Fecha:** 2026-09-25
+- **Objetivo:** Activar el gate de regresión de perf-bench (detectado INERTE por el review P2-01 de EST-05: baseline vacío → compare warning + exit 0).
+- **Resultado:** ✅ Rebaseline via `workflow_dispatch update_baseline=true` (run `36093538630`, median 3 runs, artifact `vanta-benchmark-results`) → `benchmarks/python_baseline.json` compuesto (5 secciones / 16 métricas, `updated: 2026-09-25`, metadata `perf-bench.yml` corregida — fold-in del review) + push. Run de verificación `36094025761`: compare REAL → `##[notice]No regression > 15.0% detected across 16 metrics.` (runtime `##[warning]No baseline stored` = 0). El job ya puede fallar por regresión >15%.
+- **Commit:** 114f55f0

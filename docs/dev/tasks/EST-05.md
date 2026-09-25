@@ -140,3 +140,4 @@ Sin deuda — cero ediciones.
 - El "benchmark" de la sesión-continuidad §4.1 era el job del workflow `PERF: Benchmarks — Python Integration` (**push con paths + `workflow_dispatch`; SIN `schedule`**), no un check de PR — de ahí que se verificara por `gh run list`, no por `gh pr checks`.
 - Los 4 fallos consecutivos pre-fix quedan como historial (9 en total); la verificación exige ≥1 run post-fix verde (hay 2).
 - Contexto PR: `Check API Docs Version` está verde sobre el **PR head `3bbfbe45`**; PR #222 global sigue **BLOCKED** con checks no relacionados pendientes (Clippy, SemVer, CodeQL Analyze, Desktop, Fuzz).
+- **FIND-153 RESUELTO 2026-09-25:** baseline activado (run `36093538630` → commit `114f55f0`) + verificación real de gate (`##[notice]No regression > 15.0% detected across 16 metrics`, run `36094025761`; warning runtime = 0).
