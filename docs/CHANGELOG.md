@@ -1857,7 +1857,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ### Other
 
-- develop ΓåÆ main (0.6.1 + estabilizaci├│n + docs/user-dev) ([#222](https://github.com/ness-e/Vantadb/pull/222))
+- develop → main (0.6.1 + estabilización + docs/user-dev) ([#222](https://github.com/ness-e/Vantadb/pull/222))
 
 ## [0.6.1](https://github.com/ness-e/Vantadb/compare/v0.6.0...v0.6.1) - 2026-09-23
 
