@@ -19,7 +19,6 @@ on:
       - 'vanta-memory/**'
       - 'integrations/**'
       - 'providers/**'
-      - '!web/**'
   pull_request:
     branches: [ "main" ]
     paths:
@@ -38,7 +37,6 @@ on:
       - 'vanta-memory/**'
       - 'integrations/**'
       - 'providers/**'
-      - '!web/**'
   workflow_dispatch:
 
 env:
