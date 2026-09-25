@@ -44,15 +44,51 @@ Applied to VantaDB:
 5. **Cause chain preserved** — `#[source]` (Rust) / `cause` (TS 4.4+) /
    `__cause__` (Python 3 `raise … from`) keeps the debug trail intact.
 6. **Backtrace captured, never displayed** (ERR-OBS-01) — `ChainedError`
-    variants (`Generic`, `Wal`, `Backend`, …) capture a
-    `std::backtrace::Backtrace` at construction when `RUST_LIB_BACKTRACE=1` /
-    `RUST_BACKTRACE=1`; exposed via `Debug` and `backtrace_str()`, never in
-    `Display` (cross-language messages stay clean). See
-    `docs/user/operations/OBSERVABILITY.md`.
+   variants (`Generic`, `Wal`, `Backend`, …) capture a
+   `std::backtrace::Backtrace` at construction when `RUST_LIB_BACKTRACE=1` /
+   `RUST_BACKTRACE=1`; exposed via `Debug` and `backtrace_str()`, never in
+   `Display` (cross-language messages stay clean). See
+   `docs/user/operations/OBSERVABILITY.md`.
+7. **One envelope shape across bindings (API-01)** — every error that crosses
+   a boundary exposes the same three parts:
+   - `code` — stable, machine-readable (`VANTADB_*`, §1). Clients `match` on
+     this and nothing else.
+   - `message` — human-readable `Display` text. Never for matching; may change
+     without a major bump.
+   - `context` — whatever the source carries: typed variant fields, the cause
+     chain (`#[source]` / `cause` / `__cause__`), plus `retriable` +
+     `hint` recovery metadata.
+
+   No binding converts an error into a `panic!`/`unreachable!`/`expect`; a
+   panic is a bug, not an error path. Rust: `Error::code()` +
+   `Display` + `is_retriable()`/`recovery_hint()`; Python: `.code` /
+   `str(exc)` / `.retriable` + `.hint`; TS/WASM/Node: `DbError.code` /
+   `.message` / `.details` + `.cause`; MCP: `error.data.code` /
+   `error.message` / `error.data`; HTTP: `code` + `error`/`hint` today,
+   RFC 9457 (`type`/`title`/`status`/`detail`/`instance`) in the HTTP wave.
 
 > **Resolved (ERR-CORE-01, 2026-09-02):** `Error::code()` now exists and
 > returns `&'static str` with the `VANTADB_` prefix. The table below is the
 > **implemented contract** — Rust `code()` emits exactly these strings.
+
+### The `Generic` catch-all (by design)
+
+`Error::Generic` is a deliberate last-resort variant, not a leftover: it
+exists for failures with no typed classification (typically adapter/FFI glue
+at the edge of the crate). Its wire code is `VANTADB_WASM_ERROR` for
+historical reasons — the code predates the non-WASM bindings — and is frozen
+until a major bump. New code must prefer a typed variant;
+`Error::generic_error` is only for edge glue. `Generic` is **not** a
+substitute for `InvalidInput`/`Schema`/`ResourceLimit`, and it is never
+retriable.
+
+`ResourceLimit`, `InvalidInput`, `Schema`, `DatabaseBusy` and
+`NoVectorForKey` carry a `String` payload by design (API-01; R-6 debt): they
+have 12–64 call sites each, their semantics live in `code()` /
+`is_retriable()` / `recovery_hint()`, and retyping them to `ChainedError` is
+an incremental, non-breaking follow-up — not a big-bang rewrite. If a caller
+needs structured fields, add a typed variant and map it here; do not change
+the `Display` strings (bindings' fallback classifiers parse them).
 
 ---
 
@@ -396,6 +432,12 @@ with HTTP status codes `400 / 404 / 409 / 422 / 429 / 500`. Mapping from
 
 ## Changelog
 
+- **2026-09-25 (API-01)** — Design Principles gain principle 7 (cross-binding
+  envelope `code` + `message` + `context`, no panic) and the
+  "`Generic` catch-all (by design)" subsection documenting why `Generic` and
+  the `String`-payload variants stay as-is (R-6 debt paid incrementally).
+  `src/error.rs` carries the same envelope at module level. No wire change —
+  `code()` / `Display` untouched.
 - **2026-09-02 (ERR-TS-01)** — TS/WASM/Node aligned to the canonical
   `VANTADB_*` wire values: `vantadb-wasm`'s `to_js_err` now calls
   `VantaError::code()` directly (local 30→8 table removed);

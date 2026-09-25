@@ -2758,3 +2758,44 @@ mod tests {
         );
     }
 }
+
+// ── API-01: u128 wire — `QueryResult::Write.node_id` (2^53 + 1) ─────────
+//
+// Contract: an INSERT with an id above 2^53 must come back as a decimal
+// string, never an f64-rounded number (silent precision loss). Runs under
+// `wasm-pack test --node`.
+#[cfg(all(test, target_arch = "wasm32"))]
+mod api01_wire_u128_tests {
+    use super::*;
+    use wasm_bindgen_test::wasm_bindgen_test;
+
+    #[wasm_bindgen_test]
+    fn query_write_node_id_above_2_53_is_decimal_string() {
+        let db = Client::new(None).expect("db");
+        let result = db
+            .query("INSERT NODE#9007199254740993 TYPE Person {}")
+            .expect("INSERT with u128 id");
+
+        let write = js_sys::Reflect::get(&result, &"Write".into()).expect("Write variant");
+        let node_id = js_sys::Reflect::get(&write, &"node_id".into()).expect("node_id field");
+        // Representation depends on the serializer at the boundary:
+        // — `u128_serde` (current source): decimal string
+        // — legacy default u128 serialization: bigint (still exact)
+        // An f64/number would be silent precision loss and must never appear.
+        if let Some(as_str) = node_id.as_string() {
+            assert_eq!(
+                as_str, "9007199254740993",
+                "f64 would round 9007199254740993 -> 9007199254740992"
+            );
+            assert_eq!(
+                as_str.parse::<u128>().expect("u128 parse"),
+                9007199254740993u128
+            );
+        } else if let Ok(as_bigint) = node_id.clone().dyn_into::<js_sys::BigInt>() {
+            let as_decimal = as_bigint.to_string(10).expect("bigint to decimal string");
+            assert_eq!(String::from(as_decimal), "9007199254740993");
+        } else {
+            panic!("node_id must be a decimal string or bigint, got {node_id:?}");
+        }
+    }
+}

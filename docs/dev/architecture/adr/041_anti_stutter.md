@@ -59,6 +59,38 @@ Exclusiones deliberadas: `VantaHeader` (formato on-disk, compat binaria), códig
 - Blast radius CodeGraph: `VantaSearchHit` 6 callers; re-exports vía `src/sdk/mod.rs:15`, `src/sdk/types.rs:11,19`; tests `tests/query_result_basic.rs`.
 - Referencias: `.opencode/rules/api-contract.md` (R-1: todo claim apunta a símbolo real), `docs/api/BINDINGS_NAMESPACES.md` (naming hazard `get`/`delete`), `release-plz.toml` (`semver_check=true`), `CONSTRAINTS.md` (floor: sin supresiones/stubs/secrets).
 
+### Evidencia adicional — API-01 (2026-09-25, IA — recomendación, no decisión)
+
+Revalidación de la exclusión `VantaHeader` (§Decision, línea "Exclusiones
+deliberadas"). El nombre del struct **no tiene huella on-disk**:
+
+- `VantaHeader` deriva solo `Debug, Clone, PartialEq, Eq` (`src/binary_header.rs:19`)
+  — **no** implementa `Serialize`/`Deserialize`; ningún formato serializa el
+  nombre del tipo.
+- `serialize()` (`src/binary_header.rs:49-57`) emite 16 bytes crudos: magic
+  `[u8;4]` + `format_version` u16 LE + `schema_version` u16 LE + `timestamp`
+  u64 LE; `deserialize()` (`:59-84`) lee esos mismos bytes. Renombrar el
+  identificador Rust no cambia un solo byte de ningún archivo persistido.
+- La razón registrada en el mapa (`scripts/anti_stutter_map.json:94`:
+  "formato on-disk — renombrar rompe compat binaria") queda **contradicha**
+  por el código: no hay compat binaria atada al nombre.
+- Superficie de rename (si se elige B): 64 referencias en 8 archivos —
+  `binary_header.rs` (16), `migration.rs` (27), `index/serialize/bytes.rs` (6),
+  `storage/vfile.rs` (6), `wal.rs` (5), `index/core.rs` (2), `lib.rs:167`
+  (re-export), `tests/core/snapshot_certification.rs` (1). Con la estrategia
+  del propio ADR (`pub type VantaHeader = Header;` + `#[deprecated]`) el
+  rename es no-breaking; sin alias sería breaking de API pública (bump major).
+- Colisión de nombre: no existe `Header` exportado en el crate root hoy
+  (`jsonwebtoken::Header` solo se importa en scopes locales de `feature =
+  "server"`). Riesgo residual: consumidores que hagan `use vantadb::*` junto a
+  otro `Header` — mitigado por el alias deprecated y documentado en AST-006.
+
+**Recomendación (IA): B — renombrar a `Header` + alias deprecated.** La
+exclusión (A) se apoya en una premisa falsa; C (seguir `proposed`) mantiene el
+bloqueo de AST-002 sin ganancia. La decisión y la firma siguen siendo del
+owner (Regla 5); si el owner prefiere A, corresponde corregir la razón de
+exclusión en §Decision/mapa antes de firmar.
+
 ---
 
 **Firmado por:** _pendiente — el autor humano firma aquí (nombre + fecha) al aprobar este ADR._
