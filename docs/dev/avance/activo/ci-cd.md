@@ -477,3 +477,35 @@ aliases: []
 - **Objetivo:** Cerrar la higiene de ramas: borrar stale sin PR; dejar solo PRs vivos.
 - **Resultado:** ✅ Remoto: solo `develop`/`main` (8 ramas `release-plz` stale borradas tras capturar SHAs `ce164415…af105a7f`; 8/8 recuperables vía API); locales: 2 merged borradas (`ccc8ee4e`, `bd22f387`), 5 no-merged conservadas; ~35 refs dependabot stale limpiadas con `fetch --prune`; PR abierto único = #222 (intacto). Verify `campaign_verify_cmd` passed=true (`origin=['develop','main'] | open PRs=[222]`). Review P2-01 ✅ ronda 2 (ronda 1 cazó verify por cardinalidad → v2 con set de nombres).
 - **Commit:** ac46911d (+02e7d32a docs)
+
+### Release 0.7.0: merge #222 → publish completo (crates.io/npm/PyPI/wheels/SBOM)
+- **Fecha:** 2026-09-25
+- **Objetivo:** Cerrar la puerta de release (merge develop→main + tag + publish) tras GO owner.
+- **Resultado:** ✅ Merge #222 (`58a41ad8`; 11/11 checks requeridos verde; ASan/TSan = ruido informativo) → release-plz publicó por el bump previo en develop: crates.io `0.7.0` + tag `v0.7.0` + GitHub Release `vantadb-v0.7.0`. Cascada: los tags de release-plz usan `GITHUB_TOKEN` → no disparan workflows; se completó con `workflow_dispatch --ref v0.7.0` (wheels `publish-pypi` evalúa `github.ref` tag) + aprobación deployments `pypi`/`npm`: npm `vantadb`/`vantadb-wasm` 0.7.0, PyPI `vantadb-py` 0.7.0, 4 wheels adjuntos al Release, SBOM ok. Release PR #223 (CHANGELOG) mergeado con bypass admin (0 checks por diseño, igual que #221).
+- **Pendiente:** `vantadb-node` (nunca publicado; EST-11), binaries (nunca construidos; parity 0.6.1 = solo wheels), release PR #225 (v0.7.1 acumulando — no mergear sin decisión).
+- **Commit:** `58a41ad8` + `2d4d24bf` (main)
+
+### Fix mojibake CHANGELOG 0.7.0 (PR #226)
+- **Fecha:** 2026-09-25
+- **Objetivo:** Corregir `ΓåÆ`/`├│` en la entrada 0.7.0 de `docs/CHANGELOG.md` (UTF-8 leído como CP437/CP850).
+- **Causa raíz:** el subject del squash de #222 se pasó por consola PowerShell (CP850) → commit `58a41ad8` con mojibake → release-plz lo copió al changelog.
+- **Resultado:** ✅ PR #226 (worktree + bytes UTF-8 exactos) → `16d78dff`; verificado por API (0 marcadores) + scan repo-wide de secuencias CP437 = 0. Residual: mensaje del commit histórico `58a41ad8` (irreparable sin reescribir main). Prevención: `gh pr merge` sin `--subject` o `[Console]::OutputEncoding=UTF8` antes de capturar no-ASCII.
+- **Commit:** `16d78dff` (main)
+
+### EST-09: cierre stale configs CodeQL (post-merge #222)
+- **Fecha:** 2026-09-25
+- **Objetivo:** Confirmar que no reaparece la categoría stale tras el merge (contrato: últimas 20 analyses solo `sec-codeql.yml:analyze` + banner apagado).
+- **Resultado:** ✅ `codeql.yml`/`sec-codeql-30.yml` ya no existen en `main`; sin analyses nuevas con categoría stale post-merge (las 3 históricas quedan ≤2026-09-24 18:27 y se deslizan del top-20 con los próximos runs). **Banner apagado: confirmación visual del owner pendiente (1 clic en Security → Code scanning).**
+- **Commit:** (este commit)
+
+### C-08: CodeQL setup post-release
+- **Fecha:** 2026-09-25
+- **Objetivo:** Confirmar el setup correcto y check verde tras el release (el check apuntaba a `codeql.yml` inexistente) + triage de alertas.
+- **Resultado:** ✅ El check requerido `Analyze` lo provee `sec-codeql.yml` (job `Analyze`, línea 18) — verde en #222 (16m35s); `default-setup` = `not-configured` es el estado correcto (advanced setup activo; activarlo lo reemplazaría); 0 alertas abiertas. Contrato: check verde ✅.
+- **Commit:** (este commit)
+
+### FIND-154: perf-bench gate falso positivo por varianza de runner
+- **Fecha:** 2026-09-25
+- **Objetivo:** Explicar el rojo del gate de regresión en el push a main post-merge.
+- **Resultado:** 🔴 Falso positivo: mismos commits verdes en develop (`36094025761`, dispatch 04:20Z) → rojo en main (`36101773914`, push 06:11Z): `query_hybrid.p50` 5.76→12.01ms (+108.5%), `p95` +88.1%, `p99` +18.8%, `query_text.p99` 0.01→0.04ms (µs = ruido). Baseline `benchmarks/python_baseline.json` calibrado en una máquina concreta → varianza entre runners. No es check requerido (no bloquea merges). **Acción propuesta:** tolerancia por métrica / banda de varianza multi-runner / re-baseline; fila `FIND-154` en Backlog.
+- **Commit:** (este commit)

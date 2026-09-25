@@ -362,6 +362,7 @@ aliases: []
 - **Ejecutado:** EST-01 pin setup-python v7.0.0 + EST-02 ollama tests a Client/memory.* + EST-04 GOTOOLCHAIN go1.27.0 + lurkr skip sin .opencode + EST-03 ci-gate head-SHA (aprobado owner) + EST-06 dismiss #110 + EST-07 dismiss 82 test-log + EST-08 SARIF 404/time-box + EST-11 veredicto (release-npm-node.yml tags node-v*, OIDC).
 - **Resultado:** code-scanning 83 OPEN -> 0; commits bcd62115 + 5128c2bc + 9705b434.
 - **Pendiente:** EST-05 (verde en proximo run PR), EST-09 post-merge, EST-10 barrido, EST-12 puertas owner.
+- **Actualización 2026-09-25:** EST-05 ✅ + EST-09 ✅ + EST-10 ✅ + merge #222/tag `v0.7.0`/publish ✅ → pendiente solo EST-12 (FASE-A + R-05, owner). Detalle: `docs/dev/avance/activo/ci-cd.md`.
 - **Nota:** commit bcd62115 arrastro plan ajeno api-estandarizacion.md (paralelo, se deja intacto); su task API-STD-01.md queda untracked ajeno.
 
 ### EST-10: barrido API stale en superficies vivas (pre-0.5.0 → canónica)
