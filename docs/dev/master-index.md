@@ -293,14 +293,14 @@ Per-workflow documentation mirrors `.github/workflows/`.
 
 ## Web Frontend Docs
 
-Documentation for the Next.js web frontend lives in `docs/user/web/`.
+Documentation for the Next.js web frontend lives in the [`ness-e/Vantadb-web`](https://github.com/ness-e/Vantadb-web) repo, under `docs/user/web/` (migrated 2026-09-24).
 
 | Document | Description |
 |----------|-------------|
-| [web/README.md](../user/web/README.md) | Web docs landing page |
+| [web/README.md](https://github.com/ness-e/Vantadb-web/blob/main/docs/user/web/README.md) | Web docs landing page |
 | [design-rules-es-tutorial.md](archive/design-rules-es-tutorial.md) | Tutorial ES de diseño (ARCHIVADO — ver banner) |
-| [QA.md](../user/web/QA.md) | Web QA checklist |
-| Sub-folders: [`audit/`](../user/web/audit), [`guides/`](../user/web/guides), [`reference/`](../user/web/reference), [`standards/`](../user/web/standards) |
+| [QA.md](https://github.com/ness-e/Vantadb-web/blob/main/docs/user/web/QA.md) | Web QA checklist |
+| Sub-folders: [`audit/`](https://github.com/ness-e/Vantadb-web/tree/main/docs/user/web/audit), [`guides/`](https://github.com/ness-e/Vantadb-web/tree/main/docs/user/web/guides), [`reference/`](https://github.com/ness-e/Vantadb-web/tree/main/docs/user/web/reference), [`standards/`](https://github.com/ness-e/Vantadb-web/tree/main/docs/user/web/standards) |
 
 ---
 
