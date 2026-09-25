@@ -8,14 +8,38 @@ use crate::node::SparseVector;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-/// Operadores de comparación para filtros de metadata.
+/// Comparison operators for metadata filters ([`MemoryFilterItem`]).
+///
+/// Evaluation compares the **stored** metadata value (`actual`) against the
+/// filter value with the derived [`PartialOrd`] on [`Value`] (see
+/// `sdk::serialization` filter evaluation):
+///
+/// - Same-variant comparisons are natural: `String`/`ListString` compare
+///   lexicographically, `Int`/`Float`/`ListInt`/`ListFloat` numerically,
+///   `Bool`/`ListBool` by value, `DateTime`/`ListDateTime` chronologically.
+/// - Cross-variant comparisons fall back to the `Value` declaration order
+///   (`String < Int < Float < Bool < DateTime < … < Null`) — use same-typed
+///   filter values to avoid surprises.
+///
+/// Values come from [`Value`] (e.g. `Value::Int(42)`), never from raw JSON
+/// numbers; the CLI/adapter layers normalize before constructing a filter.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub enum FilterOp {
+    /// Field equals the filter value (`==`). Any [`Value`] variant.
     Eq,
+    /// Field differs from the filter value (`!=`). Any [`Value`] variant.
     Neq,
+    /// Field is strictly greater than the filter value (`>`). Requires
+    /// ordering — prefer same-variant values (see enum docs).
     Gt,
+    /// Field is strictly less than the filter value (`<`). Requires
+    /// ordering — prefer same-variant values (see enum docs).
     Lt,
+    /// Field is greater than or equal to the filter value (`>=`). Requires
+    /// ordering — prefer same-variant values (see enum docs).
     Gte,
+    /// Field is less than or equal to the filter value (`<=`). Requires
+    /// ordering — prefer same-variant values (see enum docs).
     Lte,
 }
 

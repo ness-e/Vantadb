@@ -47,6 +47,24 @@ describe("vantadb-node api surface", () => {
     }
   });
 
+  // ── API-01: u128 wire round-trip (node_id as exact decimal string) ──────
+
+  it("memory node_id > 2^53 round-trips as an exact decimal string", async () => {
+    const db = await VantaDb.connect(tmp("u128wire"));
+    try {
+      const rec = await db.put({ namespace: "api01", key: "big", payload: "b" });
+      expect(typeof rec.node_id).toBe("string");
+      expect(rec.node_id).toMatch(/^\d+$/);
+      // xxhash128 ids are > 2^53; the string must carry them without f64 loss.
+      expect(BigInt(rec.node_id)).toBeGreaterThan(2n ** 53n);
+
+      const got = await db.get("api01", "big");
+      expect(got?.node_id).toBe(rec.node_id);
+    } finally {
+      await db.close();
+    }
+  });
+
   it("putBatch rejects a non-array input", async () => {
     const db = await VantaDb.connect(tmp("batcherr"));
     try {

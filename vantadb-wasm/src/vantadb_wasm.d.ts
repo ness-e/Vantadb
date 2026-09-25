@@ -23,6 +23,12 @@
  *
  * Source of truth: `vantadb-wasm/src/lib.rs`. When the Rust signatures
  * change, update this file in the same PR.
+ *
+ * Casing (Gate P, API-01 foundation): public methods are `camelCase` in the
+ * TS wrapper; this WASM declaration mirrors the binding 1:1, so keys stay
+ * `snake_case` until the payload migrates in W1/API-02. Normative table:
+ * `docs/api/BINDINGS_NAMESPACES.md` § Casing Contract. `node_id` / graph ids
+ * are decimal strings (u128 > 2^53).
  */
 
 // ─────────────────────────────────────────────────────────────────────────────

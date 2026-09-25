@@ -283,3 +283,24 @@ Próximo paso recomendado:
   /pipeline run docs/dev/plans/2026-09-24-api-ejecucion.md  → ejecutar (MAX_CONCURRENT=1, inline sin subagentes)
   /pipeline task API-01                                      → primera tarea (W0 fundación)
 ```
+
+=== RECITATION API-01 ===
+Campaign ID: beca0c27-fd85-4489-8f93-8361888d662c
+Objetivo activo: API-01: W0 fundación — tipos base + error envelope + casing + u128 wire
+Estado: in-progress
+Última acción: Steps 3,4,6,7,8 verificados (docs FilterOp; envelope code+message+context + Generic by-design; casing norm + punteros en 4 tipos; P2-8 pre-pagada AUD-043; wire u128>2^53 verde core 17/17 + Py 2/2 + Node 28/28 + TS 1/1 + WASM 30/30). verify_changed 4/4. Step 5: evidencia + recomendación B (rename Header + alias) en ADR-041 §Evidencia; firma owner pendiente.
+Resultado: PARTIAL
+Próxima acción: Owner firma ADR-041 (A/B/C) en docs/dev/architecture/adr/041_anti_stutter.md (§Firmado por); luego vanta-lead commitea los archivos API-01 (feat! API-01). No re-ejecutar Steps 3-8.
+Contrato: verificacion: cargo test --test sdk_serialization -> 17 passed/0 failed | dev-tools/verify_changed.ps1 -> ALL 4 PASS | wasm-pack test --node -> 30 passed/0 failed | pytest tests/test_wire_u128.py -> 2 passed | vitest tests/wire-u128.test.ts -> 1 passed | vitest api.test.ts -> 28 passed | cargo doc -> exit 0 | tsc --noEmit -> exit 0 | cargo check -p vantadb_py -> exit 0
+evidencia:
+  - claim: u128 >2^53 cruza los 4 bindings sin pérdida (string decimal o bigint exacto; nunca f64). evidencia: tests por binding + pkg wasm fresco verificado manual (typeof string, value 9007199254740993). confianza: alta
+  - claim: Generic( en src/error.rs con doc-diseño by-design (ResourceLimit 12/Schema 14/InvalidInput 64 callers). evidencia: src/error.rs + docs/api/ERROR_HANDLING.md §'The Generic catch-all'. confianza: alta
+  - claim: P2-8 ya pagada (HashSet<u128>, orden de primera aparición); task file citaba líneas stale 564-596, real 752-784. evidencia: commit 9dcbff5a + test verde en wasm-pack test. confianza: alta
+  - claim: VantaHeader sin huella on-disk; exclusión ADR con razón contradicha. evidencia: src/binary_header.rs:19,49-57; 64 refs/8 archivos. confianza: alta
+  - claim: casing Gate P declarado sin renames (migración = W1/API-02). evidencia: BINDINGS_NAMESPACES.md §Casing Contract + tsc/cargo check verdes. confianza: alta
+artefactos: src/sdk/types/record.rs, src/error.rs, docs/api/ERROR_HANDLING.md, docs/api/BINDINGS_NAMESPACES.md, docs/dev/architecture/adr/041_anti_stutter.md, vantadb-ts/src/types.ts, vantadb-wasm/src/vantadb_wasm.d.ts, vantadb-node/index.d.ts, vantadb-python/src/types.rs, vantadb-wasm/src/lib.rs, vantadb-python/tests/test_wire_u128.py, vantadb-ts/tests/wire-u128.test.ts, vantadb-node/tests/api.test.ts, docs/dev/tasks/API-01.md
+invariantes: u128_serde ÚNICO patrón wire u128; validate_compat intacto; vantadb-pro intocable; sin panic en bindings; code()/Display sin cambios
+deuda: P2-8 pagada (AUD-043); P2-5 diferida a API-02; FIND candidatos: types.ts node_id string vs pkg bigint; wasm d.ts IqlResult{kind} drift; anti_stutter_map.json:94 razón incorrecta
+queda_pendiente: firma owner ADR-041 (BLOQUEO Step 5); commit (solo vanta-lead); WIP ajeno WIRE-09 en working tree NO commitear con API-01
+Próxima tarea si completa: API-02
+=== END RECITATION ===

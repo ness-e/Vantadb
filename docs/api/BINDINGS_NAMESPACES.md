@@ -27,6 +27,31 @@ related: []
 | `wiki` | Summary/archive lifecycle over nodes (recover archived nodes). Full wiki features are core-only (D43) |
 | `system` | Catch-all: constructors/lifecycle, capabilities/hardware profile, metrics, IQL query engine, index maintenance, compaction, import/export |
 
+## Casing Contract (Gate P — API-01 foundation)
+
+> **Status:** normative target declared in W0. The binding **migration** lands
+> in W1 (`API-02`) and later waves; nothing here is retroactive yet. Source:
+> `docs/dev/tasks/API-STD-15.md` §2 ("Casing"), decision approved in Gate P.
+
+| Surface | Convention | Example |
+|---|---|---|
+| Rust identifiers (native interior) | `snake_case` fields/methods, `PascalCase` types | `node_id`, `MemoryRecord` |
+| JSON payloads across bindings (WASM/Node/TS/MCP) — **target** | `camelCase` | `nodeId`, `createdAtMs`, `affectedNodes` |
+| Python attributes/methods (native interior) | `snake_case` | `rec.node_id`, `db.put_batch(...)` |
+| TypeScript/JS public API | `camelCase` | `putBatch`, `oldKey`, `topK` |
+| CLI flags and subcommands | `kebab-case` | `--read-only`, `list-namespaces` |
+| New MCP tools | tool name `kebab-case`, params `camelCase` | `memory-put`, `topK` |
+
+Rules for the migration window:
+
+- **One casing per payload.** Do not mix conventions in a single wire shape:
+  a new field added to a still-snake_case payload stays `snake_case` until the
+  whole payload migrates. Each DTO is internally consistent.
+- **`node_id`/`id` as decimal strings** (u128 > 2^53) is casing-neutral and
+  already shipped (API-01 Step 2) — `nodeId` renames are W1 work.
+- **Native interiors never rename for wire polish.** Python `snake_case`
+  attributes and Rust struct fields stay; only the JSON boundary changes.
+
 ## Score vs Distance Convention (CODE-091 / WSM-10)
 
 > **Full per-transport map and rationale:**

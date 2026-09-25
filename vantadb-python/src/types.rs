@@ -1,5 +1,11 @@
 //! Python-accessible #[pyclass] types for the VantaDB Python SDK.
 //! Avoids per-result PyDict allocations in hot paths.
+//!
+//! Casing (Gate P, API-01 foundation): Python-native attributes stay
+//! `snake_case` (`rec.node_id`) — the native interior never renames for wire
+//! polish. JSON payloads emitted elsewhere follow
+//! `docs/api/BINDINGS_NAMESPACES.md` § Casing Contract and migrate in
+//! W1/API-02. PyO3 class names stay `PascalCase` (`Record`, `SearchHit`).
 
 use pyo3::buffer::ReadOnlyCell;
 use pyo3::exceptions::{PyRuntimeError, PyStopIteration};

@@ -1,4 +1,19 @@
 //! Core error types for all VantaDB operations — 30 variants with source chaining, retry classification, and recovery hints.
+//!
+//! # Error envelope (API-01)
+//!
+//! Every binding surfaces errors as the same three-part envelope:
+//! `code + message + context`.
+//!
+//! - `code` — [`Error::code`], stable `VANTADB_*` machine-readable contract
+//!   (`docs/api/ERROR_HANDLING.md` §1). Clients match on this, never on text.
+//! - `message` — human-readable `Display` output; may change without a major
+//!   bump.
+//! - `context` — whatever the variant carries: typed fields, the
+//!   [`ChainedError`] `.source()` chain, plus [`Error::is_retriable`] and
+//!   [`Error::recovery_hint`] as recovery metadata.
+//!
+//! No binding maps an error to a panic; a panic is a bug, not an error path.
 
 use std::error::Error as StdError;
 use std::fmt;
@@ -180,6 +195,11 @@ pub enum Error {
     NotInitialized,
 
     /// A resource limit (e.g. memory) was exceeded.
+    ///
+    /// Carries a pre-formatted message by design (API-01): the payload is
+    /// dynamic per call site and semantics live in `is_retriable()` /
+    /// `recovery_hint()`, not in the payload shape. Retyping to
+    /// [`ChainedError`] would churn 12+ call sites with no wire gain.
     #[error("Resource limit exceeded: {0}")]
     ResourceLimit(String),
 
@@ -271,7 +291,15 @@ pub enum Error {
     #[error("Backup error: {0}")]
     Backup(ChainedError),
 
-    /// Generic catch-all error.
+    /// Generic catch-all error — **by design**, not a leftover.
+    ///
+    /// Reserved for failures with no typed classification (typically
+    /// adapter/FFI glue at the edge of the crate). New code must prefer a
+    /// typed variant; use [`Error::generic_error`] only as a last resort.
+    /// See `docs/api/ERROR_HANDLING.md` § "The `Generic` catch-all (by
+    /// design)". Its wire code is `VANTADB_WASM_ERROR` for historical reasons
+    /// (the code predates non-WASM bindings); it must not change without a
+    /// major bump.
     #[error("Generic error: {0}")]
     Generic(ChainedError),
 
@@ -280,18 +308,29 @@ pub enum Error {
     Backend(ChainedError),
 
     /// Invalid input provided.
+    ///
+    /// String payload by design (API-01, R-6 debt): 60+ call sites — retyping
+    /// to [`ChainedError`] is a non-breaking follow-up, not a W0 change.
     #[error("Invalid input: {0}")]
     InvalidInput(String),
 
     /// Schema-related error.
+    ///
+    /// String payload by design (API-01, R-6 debt): incremental typing only
+    /// if a caller needs structured fields.
     #[error("Schema error: {0}")]
     Schema(String),
 
     /// Database is busy and cannot accept the operation.
+    ///
+    /// String payload by design (API-01, R-6 debt): the message names the
+    /// contended resource; `is_retriable()` is the contract.
     #[error("Database busy: {0}")]
     DatabaseBusy(String),
 
     /// A record exists but does not carry a vector, so vector-based operations cannot proceed.
+    ///
+    /// String payload by design (API-01, R-6 debt): identifies the key only.
     #[error("No vector stored for key: {0}")]
     NoVectorForKey(String),
 
@@ -436,12 +475,14 @@ impl Error {
         Error::Serialization(Box::new(e))
     }
 
-    /// Create a generic error.
+    /// Create a generic error — **last resort** (see [`Error::Generic`]).
+    /// Prefer a typed variant or one of the domain constructors above.
     pub fn generic_error(msg: impl Into<String>) -> Self {
         Error::Generic(ChainedError::msg(msg))
     }
 
-    /// Create a generic error wrapping an underlying error.
+    /// Create a generic error wrapping an underlying error — **last resort**
+    /// (see [`Error::Generic`]).
     pub fn generic_error_sourced(
         ctx: impl fmt::Display,
         source: impl StdError + Send + Sync + 'static,

@@ -1,3 +1,13 @@
+/**
+ * Wire DTOs for the VantaDB TypeScript SDK.
+ *
+ * Casing (Gate P, API-01 foundation): the public TS API is `camelCase`; the
+ * JSON payload shapes in this file are still `snake_case` (`created_at_ms`,
+ * `node_id`, `query_vector`, …) — one casing per payload, migrated in
+ * W1/API-02. Normative table: `docs/api/BINDINGS_NAMESPACES.md` § Casing
+ * Contract. `node_id` / graph ids travel as decimal strings (u128 > 2^53).
+ */
+
 export type Value =
   | { String: string }
   | { Int: number }
