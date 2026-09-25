@@ -43,15 +43,36 @@ pub(crate) mod u128_serde {
     where
         D: Deserializer<'de>,
     {
+        deserialize_opt(deserializer)?
+            .ok_or_else(|| serde::de::Error::custom("expected u128, found null"))
+    }
+
+    /// `Option<u128>` variant (API-01): `Some` → decimal string, `None` → null.
+    pub fn serialize_opt<S>(val: &Option<u128>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        match val {
+            Some(v) => serializer.serialize_some(&v.to_string()),
+            None => serializer.serialize_none(),
+        }
+    }
+
+    /// Accepts decimal strings (preferred) and legacy `u64` numbers.
+    pub fn deserialize_opt<'de, D>(deserializer: D) -> Result<Option<u128>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
         #[derive(Deserialize)]
         #[serde(untagged)]
         enum U128 {
             Str(String),
             Num(u64),
         }
-        match U128::deserialize(deserializer)? {
-            U128::Str(s) => s.parse().map_err(serde::de::Error::custom),
-            U128::Num(n) => Ok(n as u128),
+        match Option::<U128>::deserialize(deserializer)? {
+            Some(U128::Str(s)) => s.parse().map(Some).map_err(serde::de::Error::custom),
+            Some(U128::Num(n)) => Ok(Some(n as u128)),
+            None => Ok(None),
         }
     }
 }

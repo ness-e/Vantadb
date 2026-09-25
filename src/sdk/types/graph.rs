@@ -20,7 +20,12 @@ pub enum QueryResult {
         affected_nodes: usize,
         /// Human-readable result message.
         message: String,
-        /// Node id returned by the write, if applicable.
+        /// Node id returned by the write, if applicable. Serialized as a
+        /// decimal string (API-01, `u128_serde`) so ids > 2^53 survive JSON.
+        #[serde(
+            serialize_with = "u128_serde::serialize_opt",
+            deserialize_with = "u128_serde::deserialize_opt"
+        )]
         node_id: Option<u128>,
     },
     /// Query detected stale context for the given node.
