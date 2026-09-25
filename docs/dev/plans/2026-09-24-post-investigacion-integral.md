@@ -151,8 +151,8 @@ Cada track incluye: one-pager comercial (consume BIZ-05), entrada en `COMPARISON
 
 | Wave | Contenido | Gate de salida |
 |---|---|---|
-| **W0** (en curso) | EST-01..12 → PR #222 verde → merge + tag v0.7.0 | CI verde + publish (owner) |
-| **W1** | Phase 51 API-01..09 (W0–W8 internos; precedencia de superficies) | `verify.ps1` + parity + MCP smoke |
+| **W0** ✅ 2026-09-25 | EST-01..12 completadas (EST-03/05/09/10 ✅ · C-07/08/10 ✅ · FASE-A owner pendiente) → PR #222 merged (`58a41ad8`) → release 0.7.0 publicado (crates.io/npm/PyPI/wheels/SBOM) | ✅ |
+| **W1** (en curso) | Phase 51 API-01..09 — **API-01 en curso** (Steps 0-8 ✅; review P2-01 ❌ → R1/R2/R3 pendientes) | `verify.ps1` + parity + MCP smoke |
 | **W2** (paralelo disjunto) | P0: WIRE-09 + WIRE-10; DEF-01/04/05 (decisiones rápidas); DEF-02 (fixes ya aplicados → cierre) | 0 críticos seguridad en export/import/snapshots; claims honestos |
 | **W3** | P56 técnico: WIRE-01 → WIRE-02/03/04/05/06/07/08 (orden por dep) | Loop proxy verificable end-to-end; paridad bindings |
 | **W4** | P53: SCH-01 (spec+ADR) → SCH-02..08 (migración única) — solo con research-docs MGR-10/12/13 cerrados | Migración + time-travel + surfaces verdes |
@@ -218,3 +218,25 @@ Cada track incluye: one-pager comercial (consume BIZ-05), entrada en `COMPARISON
 - Benchmarks: LoCoMo (arXiv 2402.17753; auditoría Penfield Labs) · LongMemEval (arXiv 2410.10813) · BEAM (ICLR 2026) · DolphinBench.
 - Seguridad: AgentPoison (NeurIPS 2024) · MINJA (arXiv 2503.03704) · unlearning surveys (arXiv 2405.07406).
 - Planes vigentes: `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-api-estandarizacion.md`, `2026-09-24-harness-gaps.md`.
+
+---
+
+## 10. Actualización de estado 2026-09-25 (roadmap operativo)
+
+> Reemplaza la secuencia FASE 0-9 original: refleja lo ejecutado (release 0.7.0, EST/C cerradas, harness v3) y la política git nueva (push con OK del owner; PRs solo develop; hotfix prohibido).
+
+**✅ Completado:** FASE 0 (verify+push+PR #222) · FASE 1 (EST-03/10/05 + C-07/10) · FASE 2 (merge #222 → 0.7.0 publicado + tag + release; EST-09/C-08 ✅; cascadas npm/PyPI/wheels/SBOM; HIG-01 CHANGELOG + `release_always=false` + runbook PAT) · W2 parcial: WIRE-09 ✅ (`6a0f6934`), WIRE-01 ✅ (`679c75a9`), MGR-19 ✅ · harness v3: política git + simplificación + gate nativo V2 push/PR + memoria comprimida (P59).
+
+**Pendiente owner:** FASE-A (5 installs + stranger tests → anuncio) · secret `RELEASE_PLZ_TOKEN` · R-05 · carril negocio (BIZ-04/10/11/12/13, LEG-01).
+
+**Secuencia agente:**
+1. **W1 — API** (en curso): API-01 (R1/R2/R3 → re-review → cierre) → API-02/03 → API-04..08 → API-09.
+2. **W2 — Seguridad/frontera:** WIRE-10, DEF-01→04→05→02→03→07→08.
+3. **W3 — Cableado:** WIRE-02..08 (WIRE-01 ✅).
+4. **W4 — Esquema:** MGR-10/12/13 → SCH-01..08 (→ 0.8.0 por release-plz).
+5. **W5 — Verificabilidad:** VER-07/01/05/06 → VER-02/03/04.
+6. **W6 — ICP + Harness:** MKT-18f, ICP-01/02/03, VER-08, DEF-06.
+7. **W7 — Anuncio:** VER-09, EXE-01, EXE-03, `/audit certify`, `/ship`.
+8. **P59 Harness v3** (nuevo, intercalable): H3-01 ✅ · H3-02 SDD · H3-03 memoria · H3-04 rules · H3-05 estandarización · H3-06 residuales · H3-07 V2 shapes · H3-08 gate de cierre.
+
+**Reglas de la secuencia (actualizadas 2026-09-25):** cada `/pipeline task` → commit **local** tras verify; **push solo con instrucción del owner** (+ gate nativo V2 `ask`); PRs a main solo desde develop + OK; subagentes caídos → inline (previsto); si un ID no está, confirmar en `Backlog.md`.
