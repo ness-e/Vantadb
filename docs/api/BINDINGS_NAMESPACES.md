@@ -56,7 +56,7 @@ Rules for the migration window:
 
 > **Full per-transport map and rationale:**
 > [`WASM_API.md` → "Score vs distance semantics (WSM-10)"](WASM_API.md#score-vs-distance-semantics-wsm-10).
-> TS-side: [`TS_SDK.md` → "Distance vs Score (CODE-091)"](TS_SDK.md#distance-vs-score-code-091).
+> TS-side: [`TS_SDK.md` → "Score, not distance (W1/API-02)"](TS_SDK.md#score-not-distance-w1api-02-supersedes-code-091).
 > Node-side: [`NODE_SDK.md` → Search § "Score is relevance, not a distance (WSM-10)"](NODE_SDK.md#search).
 >
 > **Naming (ADR-041 anti-stutter):** canonical names are `MemorySearchHit.score`
@@ -67,15 +67,40 @@ Rules for the migration window:
 |---|---|---|---|
 | Rust core | `MemorySearchHit.score` | `SearchHit.distance` | `score` higher-is-better; `distance` lower-is-better |
 | WASM binding (`vantadb-wasm`) | `SearchHit.score` | `search_vector()` → **`distance`** *(WSM-10, was `score` before)* | matches core |
-| TypeScript wrapper (`vantadb-ts`) | `SearchHit.distance` *(inverted)* | `searchVector()` → `distance` | **`distance`** lower-is-better in both (CODE-091) |
+| TypeScript wrapper (`vantadb-ts`) | `SearchHit.score` *(W1/API-02 — the CODE-091 `distance` rename is gone)* | `searchVector()` → `distance` | **`score`** higher-is-better (all transports aligned) |
 | Node binding (`vantadb-node`) | `score` | (no raw ANN binding) | `score` higher-is-better |
 | Python binding (`vantadb-python`) | `hit.score` | `(node_id, distance)` tuple | `score` higher-is-better; `distance` lower-is-better |
 | HTTP API | `score` | n/a | `score` higher-is-better |
 
 **When writing cross-binding code:** always read the field by name, never
-assume the value semantics from the name alone. The TS wrapper is the only
-binding that renames the field — every other transport exposes `score` for
-relevance and `distance` for raw ANN distance.
+assume the value semantics from the name alone. Since W1/API-02 every
+transport names the relevance field `score` (higher-is-better) and reserves
+`distance` for raw ANN output (lower-is-better).
+
+## W1 parity matrix (API-02) — method × signature across the 4 bindings
+
+> **Status:** normative as of W1 (API-02). "Pareja" means same capability,
+> same canonical name modulo casing, same argument semantics; the native
+> interior stays per-language (Python kwargs, TS single-object, Rust).
+
+| Capability | WASM (`vantadb-wasm`) | TS (`vantadb-ts`) | Node (`vantadb-node`) | Python (`vantadb-python`) |
+|---|---|---|---|---|
+| Hybrid search relevance field | `SearchHit.score` (higher) | `SearchHit.score` (higher) | `MemorySearchHit.score` (higher) | `hit.score` (higher) |
+| Raw ANN distance field | `search_vector` → `distance` | `searchVector` → `distance` | (not exposed) | `search_vector` → `(node_id, distance)` |
+| Node insert by id | `insert_node(id: string)` | `insertNode(id: number\|bigint)` | `insertNode({id: string})` | `insert_node(id: int)` |
+| Node read by id | `get_node(id: string)` | `getNode(id: number\|bigint)` | `getNode(id: string)` | `get_node(id: int)` |
+| Node delete by id | `delete_node(id, reason)` | `deleteNode(id, reason?)` | `deleteNode(id, reason?)` | `delete_node(id, reason)` |
+| Batch write | `put_batch([{...}])` | `putBatch([{...}])` | `putBatch([{...}])` | `put_batch([{...}])` |
+| Cross-namespace search | `search_multi(namespaces, request)` | `searchMulti(request)` | `searchMulti(namespaces, request)` | `search_multi(namespaces, query_vector, …)` |
+| `u128` ids on the wire | decimal string (`node_id`); traversals return `bigint[]` | decimal string + `bigint` in/out | decimal string | native `int` (exact) |
+
+**Per-binding evidence (same-PR):** Python `tests/test_w1_surface.py` · TS
+`src/__tests__/vanta.test.ts` (score semantics) + `tests/graph.test.ts`
+(bigint roots) · Node `tests/api.test.ts` (`score` shape) · WASM: the same TS
+suite runs against the real `vantadb-wasm/pkg` artifact (Node ESM wasm), and
+the binding source (`search_hit_to_js`, `put_batch`, `search_multi`) is the
+reference implementation for the matrix. A new W1 capability must land in all
+four bindings with a matrix row.
 
 ## SDK Surface Differences (verified 2026-09-15 via grep en `vantadb-ts/src/vantadb.ts`)
 
@@ -84,22 +109,25 @@ relevance and `distance` for raw ANN distance.
 | `supersede(namespace, old_key, new_key)` | ✅ | ✅ | ✅ |
 | `count(namespace, filter?)` | ✅ | ✅ | ✅ |
 | `similar_to_key(namespace, key, top_k)` | ✅ | ✅ | ✅ |
-| `remove_edge(source_id, target_id, label)` | ✅ | ✅ | ✅ |
-| `search_multi(namespaces, request)` | ✅ | ✅ | ❌ |
-| `sparse_vector` on `put()` / `put_batch()` | ✅ | ✅ | ✅ |
+| `remove_edge(source_id, target_id, label)` | ✅ | ✅ | ❌ (not exposed in Python) |
+| `search_multi(namespaces, request)` | ✅ | ✅ | ✅ (W1/API-02) |
+| `sparse_vector` on `put()` / `put_batch()` | ✅ | ✅ | ❌ (not exposed in Python) |
 | `exclude_superseded` on `search()` | ✅ | ✅ | ✅ |
-| `exclude_superseded` on `list()` | ✅ (WSM-06) | ✅ | ❌ |
+| `exclude_superseded` on `list()` | ✅ (WSM-06) | ✅ | ✅ (W1/API-02 verified) |
 | `filter_ops` on `search()` | ❌ (core limitation: flat `filters` only) | ❌ | ❌ |
 | `search_profile` on `search()` | ❌ (advanced, internal `None`) | ❌ | ❌ |
-| Node CRUD by explicit id (`insert_node`/`get_node`/`delete_node`) | ✅ | ✅ | ⚠️ via `insert`/`get`/`delete` (`id: u128`) |
+| Node CRUD by explicit id (`insert_node`/`get_node`/`delete_node`) | ✅ | ✅ | ✅ (W1/API-02: flat `insert_node`/`get_node`/`delete_node`) |
 | `graph_page_rank` / `graph_degree_centrality` | ❌ (has `graph_degree`) | ❌ (has `graphDegree`) | ✅ both |
-| `delete_by_filter` / `search_vector` / `audit_text_index_deep` / `export_namespace_filtered` / `import_records` | ✅ | ✅ | ⚠️ `delete_by_filter` ✅; `search_vector` / `audit_text_index_deep` / `export_namespace_filtered` / `import_records` ❌ |
+| `delete_by_filter` / `search_vector` / `audit_text_index_deep` / `export_namespace_filtered` / `import_records` | ✅ | ✅ | ⚠️ `delete_by_filter` ✅; `search_vector` ✅ (pure ANN, returns `(node_id, distance)`); `audit_text_index_deep` / `export_namespace_filtered` / `import_records` ❌ |
 | `bulk_import` / `bulk_import_bytes` | ✅ | ❌ | ✅ |
 | `put_batch_raw` / `search_batch` / `search_batch_requests` / `hardware_profile` | ❌ | ❌ | ✅ |
 | `recover_archived_nodes(summary_id)` | ❌ | ❌ | ✅ (wiki) |
-| Hybrid search request shape | `search(request)` | `search(SearchRequest)` | `search(vector)` pure ANN + separate `explain_memory_search` |
+| Hybrid search request shape | `search(request)` | `search(SearchRequest)` | `search(namespace, vector, …)` hybrid (ex-`search_memory`) + `search_vector()` pure ANN |
 
-⚠️ **Naming hazard:** `get`/`delete` are memory-record ops (namespace+key) in WASM/TS but **node-level ops (`id: u128`, graph domain)** in Python. Sub-client design must not blindly mirror names across SDKs.
+⚠️ **Naming hazard (resolved in W1/API-02 for Python):** `get`/`delete` are
+memory-record ops (namespace+key) in WASM/TS/Node; Python node ops are now
+`insert_node`/`get_node`/`delete_node` (matching the other three bindings),
+so the bare `get`/`delete` collision is gone.
 
 ## WASM (`vantadb-wasm/src/lib.rs`) — 47 pub fns
 
@@ -210,29 +238,31 @@ relevance and `distance` for raw ANN distance.
 
 **Not exposed in TS (wasm-only or Python-only), deferred per D43/D42:** `graph_page_rank`/`graph_degree_centrality` (Python-only), `bulk_import`/`bulk_import_bytes` (wasm/Python-only), `hardware_profile` (Python-only), `recover_archived_nodes` (Python-only). Do NOT add wrappers in SDKB-02 — v1 is grouping only.
 
-## Python (`vantadb-python/src/lib.rs`) — 44 pyclass methods (+ module-level `connect()`)
+## Python (`vantadb-python/src/lib.rs`) — 46 pyclass methods (+ module-level `connect()`)
 
 | Method | Domain | Exposed today | Notes |
 |---|---|---|---|
 | `new` | system | ✅ | constructor |
 | `connect` *(module fn)* | system | ✅ | alias of `new` |
-| `insert` | graph | ✅ | node insert by explicit id |
-| `get` | graph | ✅ | **node get by `id: u128`** (≠ TS semantics) |
-| `delete` | graph | ✅ | **node delete by id** (≠ TS semantics) |
+| `insert_node` | graph | ✅ | node insert by explicit id (W1/API-02 rename from `insert`) |
+| `get_node` | graph | ✅ | **node get by `id: u128`** (W1/API-02 rename from `get`) |
+| `delete_node` | graph | ✅ | **node delete by id** (W1/API-02 rename from `delete`) |
 | `add_edge` | graph | ✅ | |
 | `graph_bfs` | graph | ✅ | |
+| `graph_bfs_filtered` | graph | ✅ | edge label/time filtered traversal (GRAFO-01) |
 | `graph_dfs` | graph | ✅ | |
 | `graph_topological_sort` | graph | ✅ | |
 | `graph_is_dag` | graph | ✅ | |
 | `graph_page_rank` | graph | ✅ | Python-only |
 | `graph_degree_centrality` | graph | ✅ | Python-only (= wasm `graph_degree`) |
 | `put` | memory | ✅ | also on `db.memory` |
-| `put_batch` | memory | ✅ | also on `db.memory` |
+| `put_batch` | memory | ✅ | array-of-objects `[{...}]` (W1/API-02), also on `db.memory` |
 | `put_batch_raw` | memory | ✅ | Python-only, also on `db.memory` |
 | `delete_by_filter` | memory | ✅ | operator filter_ops (flat → `$eq`, or `{"$op": value}`), also on `db.memory` |
 | `count` | memory | ✅ | optional operator filter, also on `db.memory` |
 | `similar_to_key` | memory | ✅ | vector search from an existing key, also on `db.memory` |
 | `search` | memory | ✅ | hybrid (ex-`search_memory`, AST-008), also on `db.memory` |
+| `search_multi` | memory | ✅ | cross-namespace hybrid search (W1/API-02), also on `db.memory` |
 | `search_vector` | memory | ✅ | pure ANN (ex-`search`, AST-008), also on `db.memory` |
 | `search_batch` | memory | ✅ | Python-only |
 | `search_batch_requests` | memory | ✅ | Python-only |
@@ -260,15 +290,19 @@ relevance and `distance` for raw ANN distance.
 | `recover_archived_nodes` | wiki | ✅ | summary-node shadow archive recovery |
 | `close` | system | ✅ | lifecycle |
 
-**Totals:** memory 15 · graph 10 · wiki 1 · system 18 = 44 pyclass methods ✔ (+ module-level `connect()` → system, 45 total surface)
+**Totals:** memory 16 · graph 11 · wiki 1 · system 18 = 46 pyclass methods ✔ (+ module-level `connect()` → system, 47 total surface)
 
 > **AST-012 (anti-stutter, TS `MemoryClient` parity):** flat `get_memory` /
 > `list_memory` / `delete_memory` were REMOVED (direct rename, no aliases).
 > The memory path is `db.memory.get` / `.list` / `.delete` (real methods,
-> single implementation); flat `get` / `delete` stay node-level (`id: u128`).
+> single implementation); node-level ops are
+> `insert_node`/`get_node`/`delete_node` (W1/API-02 — the bare `insert`/
+> `get`/`delete` flat methods were removed).
 > (`search_memory`→`search`, `search`→`search_vector` already renamed by AST-008.)
 >
-> **Naming hazard reminder:** Python `insert` is classified as graph (node-level). The name collides with memory-record insertion semantics in other ecosystems — sub-client tests must use the real signatures above.
+> **W1/API-02 reminder:** Python `insert_node` is classified as graph
+> (node-level); the name now matches WASM `insert_node`, TS `insertNode` and
+> Node `insertNode` exactly.
 
 **Not exposed in Python (wasm/TS-only), deferred per D42:** `audit_text_index_deep`, `export_namespace_filtered`, `import_records`.
 

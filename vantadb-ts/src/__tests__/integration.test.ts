@@ -56,7 +56,7 @@ describe("Client WASM Integration", () => {
     await db.put({ namespace: "vec", key: "a", payload: "alpha", vector: vec });
     const hits = await db.search({ namespace: "vec", query_vector: vec, top_k: 5 });
     expect(hits.length).toBeGreaterThan(0);
-    expect(hits[0].distance).toBeGreaterThan(0.99);
+    expect(hits[0].score).toBeGreaterThan(0.99);
   });
 
   it("put batch", async () => {

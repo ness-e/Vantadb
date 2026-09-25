@@ -44,7 +44,7 @@ Example: doc ranked #1 in BM25 and #3 in HNSW → `1/61 + 1/63 ≈ 0.0323`; #1 i
 
 ## Vector Scoring — Cosine vs Euclidean
 
-| Metric | Core `VantaMemorySearchHit.score` (higher-is-better) | Wire semantics (`SearchHit.distance`) |
+| Metric | Core `VantaMemorySearchHit.score` (higher-is-better) | Wire semantics (`SearchHit.distance`, raw ANN only) |
 |--------|------------------------------------------------------|---------------------------------------|
 | **Cosine** (default) | **similarity** ∈ [-1, 1] (parallel 1, orthogonal 0, opposite -1) via `cosine_sim_f32` (`src/index/distance/metrics.rs:47`) | **distance** `1 - similarity` ∈ [0, 2] — see MCP `search_semantic` conversion (`skills/vantadb-mcp/SKILL.md:236`). Rust core SDK keeps similarity; adapters convert via `similarity = 1 - distance/2`. |
 | **Euclidean** | **negated distance** (higher = closer) — `-euclidean_distance` or `-sqrt(euclidean_sq)` | **distance** `sqrt(euclidean_sq)` (lower = closer) — direct L2. |
@@ -66,7 +66,7 @@ Helper centralization (this crate `src/api/scores.rs`): `cosine_distance_to_simi
 | `vantadb-mcp` `search_memory`/`search_semantic` | `distance` | lower-is-better | `distance = 1 - similarity` (cosine), `sqrt(euclidean_sq)` |
 | `vantadb-python` `hit.score` | `score` | higher-is-better | mirrors core |
 | `vantadb-wasm` `SearchHit` | `score` / `distance` | higher / lower | JS mapping; see `WASM_API.md` |
-| `vantadb-ts` `SearchHit.distance` | `distance` | lower-is-better | `distance` = L2 or cosine distance (CODE-091 `docs/api/TS_SDK.md`) |
+| `vantadb-ts` `SearchHit.score` | `score` | higher-is-better | mirrors core (W1/API-02: the pre-W1 `distance` rename was removed) |
 | HTTP `POST /api/v2/search` | `score` | higher-is-better | core score |
 
 All hybrid results are **RRF-fused scores** (not raw BM25/cosine) — explanation ranks in `debug.rs` reconstruct per-arm contributions (`desktop/retrieval-core.ts:computeSegments`).

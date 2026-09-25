@@ -47,7 +47,7 @@ class TestConcurrentOperations:
         def insert_range(start, count):
             try:
                 for i in range(start, start + count):
-                    db.insert(i, content=f"vector_{i}", vector=[float(i % 10)] * 128)
+                    db.insert_node(i, content=f"vector_{i}", vector=[float(i % 10)] * 128)
             except Exception as e:
                 with lock:
                     errors.append(e)
@@ -76,7 +76,7 @@ class TestConcurrentOperations:
         def insert_range(start, count):
             try:
                 for i in range(start, start + count):
-                    db.insert(i, content=f"node_{i}", vector=[float(i % 10)] * 64)
+                    db.insert_node(i, content=f"node_{i}", vector=[float(i % 10)] * 64)
             except Exception as e:
                 with lock:
                     errors.append(e)
@@ -110,7 +110,7 @@ class TestLargeBatchOperations:
         db = vanta.Client(_unique_path(), memory_limit_bytes=512 * 1024 * 1024)
 
         for i in range(3000):
-            db.insert(i, content=f"batch_{i}", vector=[float(i % 256) / 256.0] * 64)
+            db.insert_node(i, content=f"batch_{i}", vector=[float(i % 256) / 256.0] * 64)
 
         results = db.search_vector(vector=[0.5] * 64, top_k=10)
         assert len(results) == 10
@@ -121,7 +121,7 @@ class TestLargeBatchOperations:
         db = vanta.Client(_unique_path(), memory_limit_bytes=1024 * 1024 * 1024)
 
         for i in range(5000):
-            db.insert(i, content=f"batch_{i}", vector=[float(i % 256) / 256.0] * 32)
+            db.insert_node(i, content=f"batch_{i}", vector=[float(i % 256) / 256.0] * 32)
 
         results = db.search_vector(vector=[0.5] * 32, top_k=10)
         assert len(results) == 10
@@ -132,9 +132,9 @@ class TestLargeBatchOperations:
 
         for cycle in range(3):
             for i in range(200):
-                db.insert(cycle * 200 + i, content=f"cycle_{cycle}_{i}", vector=[float(i % 10)] * 64)
+                db.insert_node(cycle * 200 + i, content=f"cycle_{cycle}_{i}", vector=[float(i % 10)] * 64)
             for i in range(200):
-                db.delete(cycle * 200 + i)
+                db.delete_node(cycle * 200 + i)
             gc.collect()
 
         results = db.search_vector(vector=[0.5] * 64, top_k=5)
@@ -148,7 +148,7 @@ class TestMemoryPressure:
         """Insert large vectors (512 dims) repeatedly to test memory."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
         for i in range(500):
-            db.insert(i, content=f"large_{i}", vector=[float(i)] * 512)
+            db.insert_node(i, content=f"large_{i}", vector=[float(i)] * 512)
         gc.collect()
         # Non-zero query vector: core rejects zero-norm cosine queries since ERR-028.
         results = db.search_vector(vector=[0.5] * 512, top_k=5)
@@ -158,7 +158,7 @@ class TestMemoryPressure:
         """Insert vectors with 1536 dimensions (OpenAI ada-002 scale)."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
         for i in range(200):
-            db.insert(i, content=f"highdim_{i}", vector=[float(i % 100) / 100.0] * 1536)
+            db.insert_node(i, content=f"highdim_{i}", vector=[float(i % 100) / 100.0] * 1536)
         gc.collect()
         results = db.search_vector(vector=[0.5] * 1536, top_k=5)
         assert len(results) > 0
@@ -175,7 +175,7 @@ class TestSustainedThroughput:
         start = time.time()
         count = 2000
         for i in range(count):
-            db.insert(i, content=f"perf_{i}", vector=[float(i % 10)] * 64)
+            db.insert_node(i, content=f"perf_{i}", vector=[float(i % 10)] * 64)
 
         elapsed = time.time() - start
         ops_per_sec = count / elapsed
@@ -190,7 +190,7 @@ class TestSustainedThroughput:
         db = vanta.Client(_unique_path(), memory_limit_bytes=256 * 1024 * 1024)
 
         for i in range(500):
-            db.insert(i, content=f"search_{i}", vector=[float(i % 10)] * 64)
+            db.insert_node(i, content=f"search_{i}", vector=[float(i % 10)] * 64)
 
         start = time.time()
         iterations = 200

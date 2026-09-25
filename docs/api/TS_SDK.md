@@ -303,15 +303,20 @@ interface SearchRequest {
 }
 ```
 
-**Distance vs Score (CODE-091):** The `distance` field in `SearchHit` is a **L2 or cosine distance**, not a similarity score. Lower values indicate higher similarity. This differs from the Rust and Python SDKs which expose a `score` field where higher is better.
+**Score, not distance (W1/API-02, supersedes CODE-091):** the `score` field in
+`SearchHit` is a **relevance score — higher is better** — matching the Rust
+core, WASM, Node, Python and HTTP transports. The TS wrapper previously
+exposed the same number under the name `distance` with inverted semantics;
+that rename was removed in W1 so every transport reads the field the same way.
 
 **Cross-binding map:** see [`WASM_API.md` → "Score vs distance semantics (WSM-10)"](WASM_API.md#score-vs-distance-semantics-wsm-10) for the full per-transport field map (Rust core / WASM binding / TS wrapper / Node / Python / HTTP). That section is the single source of truth for "which field carries which convention across which transport"; this subsection is the TS-side rationale only.
 
-**Cross-SDK convention (TS-03):** the asymmetry between the TS SDK and the other bindings is intentional and pinned in CI. Each transport exposes a different field so consumers should pick the row that matches their SDK:
+**Cross-SDK convention (W1 parity):** every transport exposes the same field
+names — `score` for memory/hybrid relevance and `distance` for raw ANN:
 
 | SDK binding | Field on hit | Convention | Range |
 |-------------|--------------|------------|-------|
-| `vantadb-ts` (this SDK) | `SearchHit.distance` | **lower is more similar** (raw L2 / cosine distance) | `[0.0, +∞)` for cosine; `[0.0, +∞)` for Euclidean |
+| `vantadb-ts` (this SDK) | `SearchHit.score` | **higher is more relevant** | cosine `[-1.0, 1.0]`; Euclidean `(-∞, 0.0]`; BM25/RRF `≥ 0` |
 | `vantadb` (Rust core) | `MemorySearchHit.score` | higher is better (cosine `1.0 - distance`; Euclidean `-distance²` then sqrt) | `[-1.0, 1.0]` cosine; `(-∞, 0.0]` Euclidean |
 | `vantadb-python` | `hit.score` | higher is better | `[-1.0, 1.0]` cosine |
 | `vantadb-node` | `{node_id, score}` | higher is better | `[-1.0, 1.0]` cosine |
@@ -319,7 +324,9 @@ interface SearchRequest {
 
 The score semantics are pinned by `src/sdk/serialization/vector_types.rs::tests` (TS-03 integration block: `score_roundtrips_through_serde_json`, `cosine_score_range_matches_documented_contract`, `euclidean_score_supports_negative_values`, `cosine_sim_f32_zero_norm_returns_finite_zero`, `euclidean_squared_distance_never_negative_under_fp_rounding`). A future change to the core formula will fail CI before reaching `develop`.
 
-When porting TS code to another SDK, invert the comparison: `hits.sort((a, b) => a.distance - b.distance)` becomes `hits.sort((a, b) => b.score - a.score)`.
+When porting TS code from pre-W1 revisions, drop the inversion:
+`hits.sort((a, b) => a.distance - b.distance)` becomes
+`hits.sort((a, b) => b.score - a.score)`.
 
 #### `searchVector()`
 
@@ -359,7 +366,7 @@ Insert a graph node with optional content, vector, and metadata fields.
 #### `getNode()`
 
 ```ts
-getNode(id: number): NodeRecord | null
+getNode(id: NodeId): NodeRecord | null
 ```
 
 Retrieve a node by numeric ID. Returns `null` if not found or tombstoned.
@@ -367,7 +374,7 @@ Retrieve a node by numeric ID. Returns `null` if not found or tombstoned.
 #### `deleteNode()`
 
 ```ts
-deleteNode(id: number, reason?: string): void
+deleteNode(id: NodeId, reason?: string): void
 ```
 
 Delete a node with an auditable reason. The node is tombstoned, not immediately removed from storage.
@@ -375,15 +382,21 @@ Delete a node with an auditable reason. The node is tombstoned, not immediately 
 #### `addEdge()`
 
 ```ts
-addEdge(source: number, target: number, label?: string, weight?: number): void
+addEdge(source: NodeId, target: NodeId, label?: string, weight?: number): void
 ```
 
 Add a directed edge from source to target with an optional label and weight.
 
+> **`NodeId` (W1/API-02):** `number | bigint` — safe-integer `number` or a
+> `bigint` for ids above 2^53. Traversals (`graphBfs`, `graphDfs`,
+> `graphTopologicalSort`, `graphIsDag`, `graphFilteredTraversal`,
+> `graphDegree`) accept `NodeId[]` and reject unsafe numbers with a
+> `DbError("INVALID_ARGUMENT")`.
+
 #### `graphBfs()`
 
 ```ts
-graphBfs(roots: number[], maxDepth?: number): bigint[]
+graphBfs(roots: NodeId[], maxDepth?: number): bigint[]
 ```
 
 Breadth-first traversal from one or more root nodes. Returns visited node IDs
@@ -393,7 +406,7 @@ IDs, which exceed `Number.MAX_SAFE_INTEGER`).
 #### `graphDfs()`
 
 ```ts
-graphDfs(roots: number[], maxDepth?: number): bigint[]
+graphDfs(roots: NodeId[], maxDepth?: number): bigint[]
 ```
 
 Depth-first traversal from one or more root nodes. Returns `bigint[]` of node IDs
@@ -402,7 +415,7 @@ in DFS order.
 #### `graphTopologicalSort()`
 
 ```ts
-graphTopologicalSort(roots: number[]): bigint[]
+graphTopologicalSort(roots: NodeId[]): bigint[]
 ```
 
 Topological sort of the subgraph reachable from the given roots. Returns
@@ -411,7 +424,7 @@ Topological sort of the subgraph reachable from the given roots. Returns
 #### `graphIsDag()`
 
 ```ts
-graphIsDag(roots: number[]): boolean
+graphIsDag(roots: NodeId[]): boolean
 ```
 
 Check whether the subgraph reachable from the given roots is a Directed Acyclic Graph.
@@ -500,7 +513,7 @@ Numeric timestamp fields are serialized as strings to preserve u64 precision ove
 ```ts
 interface SearchHit {
   record: MemoryRecord;
-  distance: number;       // L2/cosine distance — lower is more similar
+  score: number;          // relevance — higher is better (W1/API-02)
   explanation?: SearchExplanationHit;
 }
 ```

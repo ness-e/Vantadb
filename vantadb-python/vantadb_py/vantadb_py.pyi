@@ -192,13 +192,7 @@ class Client:
     ) -> Record: ...
     def put_batch(
         self,
-        keys: list[str],
-        vectors: list[list[float]],
-        payloads: list[str] | None = None,
-        metadatas: list[dict | None] | None = None,
-        namespace: str | None = None,
-        namespaces: list[str] | None = None,
-        ttls: list[int | None] | None = None,
+        records: list[dict],
     ) -> list[Record]: ...
     def put_batch_raw(
         self,
@@ -223,6 +217,17 @@ class Client:
         top_k: int = 10,
         distance_metric: str | None = None,
         method: str | None = None,
+        explain: bool = False,
+        exclude_superseded: bool = False,
+    ) -> list[SearchHit]: ...
+    def search_multi(
+        self,
+        namespaces: list[str],
+        query_vector: Any,
+        filters: dict | None = None,
+        text_query: str | None = None,
+        top_k: int = 10,
+        distance_metric: str | None = None,
         explain: bool = False,
         exclude_superseded: bool = False,
     ) -> list[SearchHit]: ...
@@ -254,11 +259,11 @@ class Client:
 
     # ── Graph nodes and edges (also grouped under db.graph.*) ──────────────
 
-    def insert(
+    def insert_node(
         self, id: int, content: str, vector: Any, fields: dict | None = None
     ) -> None: ...
-    def get(self, id: int) -> dict | None: ...
-    def delete(self, id: int, reason: str = "manual deletion") -> None: ...
+    def get_node(self, id: int) -> dict | None: ...
+    def delete_node(self, id: int, reason: str = "manual deletion") -> None: ...
     def add_edge(
         self,
         source_id: int,
@@ -337,7 +342,8 @@ class MemoryClient:
     Shared-name methods (``put``/``search``/...) forward verbatim to the
     same-named flat method (``forward_to_db!`` macro); ``get``/``list``/
     ``delete`` are real methods (moved from the removed flat ``*_memory``
-    — single implementation, AST-012, TS ``MemoryClient`` parity).
+    — single implementation, AST-012, TS ``MemoryClient`` parity). Node
+    CRUD lives at ``db.graph.insert_node|get_node|delete_node`` (W1/API-02).
     """
 
     def put(
@@ -351,13 +357,7 @@ class MemoryClient:
     ) -> Record: ...
     def put_batch(
         self,
-        keys: list[str],
-        vectors: list[list[float]],
-        payloads: list[str] | None = None,
-        metadatas: list[dict | None] | None = None,
-        namespace: str | None = None,
-        namespaces: list[str] | None = None,
-        ttls: list[int | None] | None = None,
+        records: list[dict],
     ) -> list[Record]: ...
     def put_batch_raw(
         self,
@@ -382,6 +382,17 @@ class MemoryClient:
         top_k: int = 10,
         distance_metric: str | None = None,
         method: str | None = None,
+        explain: bool = False,
+        exclude_superseded: bool = False,
+    ) -> list[SearchHit]: ...
+    def search_multi(
+        self,
+        namespaces: list[str],
+        query_vector: Any,
+        filters: dict | None = None,
+        text_query: str | None = None,
+        top_k: int = 10,
+        distance_metric: str | None = None,
         explain: bool = False,
         exclude_superseded: bool = False,
     ) -> list[SearchHit]: ...
@@ -410,8 +421,9 @@ class MemoryClient:
     ) -> str | None: ...
     def purge_expired(self) -> int: ...
     def list_namespaces(self) -> list[str]: ...
-    # AST-012 canonical short names (flat get/delete stay node-level — hazard;
-    # the memory path is db.memory.*). Real methods, not aliases.
+    # AST-012 canonical short names (node ops are insert_node/get_node/
+    # delete_node since W1/API-02; the memory path is db.memory.*). Real
+    # methods, not aliases.
     def get(self, namespace: str, key: str) -> Record | None: ...
     def list(
         self,
@@ -427,15 +439,15 @@ class MemoryClient:
 class GraphClient:
     """Grouped view over ``Client`` graph methods (``db.graph.*``).
 
-    Naming note: ``insert``/``get``/``delete`` are NODE-level ops
-    (``id: u128``) in Python.
+    W1/API-02: node CRUD uses the canonical cross-binding names
+    ``insert_node``/``get_node``/``delete_node`` (``id: u128``).
     """
 
-    def insert(
+    def insert_node(
         self, id: int, content: str, vector: Any, fields: dict | None = None
     ) -> None: ...
-    def get(self, id: int) -> dict | None: ...
-    def delete(self, id: int, reason: str = "manual deletion") -> None: ...
+    def get_node(self, id: int) -> dict | None: ...
+    def delete_node(self, id: int, reason: str = "manual deletion") -> None: ...
     def add_edge(
         self,
         source_id: int,
@@ -470,10 +482,6 @@ class GraphClient:
     def graph_degree_centrality(
         self, roots: list[int]
     ) -> dict[int, tuple[int, int]]: ...
-    # AST-003 node parity aliases (cf. WASM insert_node/get_node/delete_node).
-    def insert_node(self, *args: Any, **kwargs: Any) -> Any: ...
-    def get_node(self, *args: Any, **kwargs: Any) -> Any: ...
-    def delete_node(self, *args: Any, **kwargs: Any) -> Any: ...
 
 
 class SystemClient:

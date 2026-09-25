@@ -227,6 +227,11 @@ describe("vantadb-node api surface", () => {
         top_k: 2,
       });
       expect(hits).toHaveLength(2);
+      // W1/API-02 matrix evidence: score is a higher-is-better relevance
+      // score — the exact-match vector [1, 0] must score ~1.0 (cosine).
+      expect(hits[0].record.key).toBe("a");
+      expect(hits[0].score).toBeGreaterThan(0.99);
+      expect(hits[0]).not.toHaveProperty("distance");
     } finally {
       await db.close();
     }

@@ -54,7 +54,7 @@ before writing code that compares or sorts hits.**
 | Rust core (`vantadb`) | `SearchHit` (raw ANN) | `distance` | lower is better | `[0.0, +∞)` |
 | WASM binding (`vantadb-wasm`) | `SearchHit` (from `search` / `similar_to_key`) | `score` | higher is better | Mirrors `VantaMemorySearchHit` |
 | WASM binding (`vantadb-wasm`) | `search_vector()` return | **`distance`** *(WSM-10)* | lower is better | Was mislabeled `score` before WSM-10 — fixed 2026-08-30 |
-| TypeScript wrapper (`vantadb-ts`) | `SearchHit` | `distance` | **lower is better** *(inverted from WASM)* | CODE-091: pinned in CI; consumers must invert comparison when porting |
+| TypeScript wrapper (`vantadb-ts`) | `SearchHit` | `score` | higher is better | **W1/API-02**: the pre-W1 `distance` rename (CODE-091) was removed — TS now matches every other transport |
 | TypeScript wrapper (`vantadb-ts`) | `searchVector()` return | `distance` | lower is better | Mirrors WASM `search_vector()` |
 | Node binding (`vantadb-node`) | `MemorySearchHit` | `score` | higher is better | Same convention as Rust core |
 | Python binding (`vantadb-python`) | `hit.score` | higher is better | Same convention as Rust core |
@@ -72,7 +72,7 @@ before writing code that compares or sorts hits.**
 ### Cross-binding pointer
 
 The full rationale and the pinned-CI tests live in
-[`TS_SDK.md` → "Distance vs Score (CODE-091)"](TS_SDK.md#distance-vs-score-code-091).
+[`TS_SDK.md` → "Score, not distance (W1/API-02)"](TS_SDK.md#score-not-distance-w1api-02-supersedes-code-091).
 The Node-side rationale is documented inline in
 [`vantadb-node/src/lib.rs` `search()` docstring](../../vantadb-node/src/lib.rs).
 The cross-binding parity note for the bindings namespace map is in

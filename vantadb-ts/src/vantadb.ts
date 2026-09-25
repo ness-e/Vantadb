@@ -28,6 +28,7 @@ import type {
   MemoryInput,
   MemoryListPage,
   MemoryRecord,
+  NodeId,
   NodeRecord,
   OperationalMetrics,
   QueryResult,
@@ -71,40 +72,40 @@ export interface MemoryClient {
 
 export interface GraphClient {
   insertNode(
-    id: number | bigint,
+    id: NodeId,
     content?: string,
     vector?: number[],
     fields?: Record<string, FlatValue | Value>,
   ): void;
-  getNode(id: number | bigint): NodeRecord | null;
-  deleteNode(id: number | bigint, reason?: string): void;
+  getNode(id: NodeId): NodeRecord | null;
+  deleteNode(id: NodeId, reason?: string): void;
   addEdge(
-    source: number | bigint,
-    target: number | bigint,
+    source: NodeId,
+    target: NodeId,
     label?: string,
     weight?: number,
     createdAtMs?: number,
   ): void;
-  removeEdge(source: number | bigint, target: number | bigint, label?: string): void;
+  removeEdge(source: NodeId, target: NodeId, label?: string): void;
   bfs(
-    roots: number[],
+    roots: NodeId[],
     maxDepth?: number,
     direction?: "Forward" | "Reverse" | "Both",
   ): GraphBfsResult;
   dfs(
-    roots: number[],
+    roots: NodeId[],
     maxDepth?: number,
     direction?: "Forward" | "Reverse" | "Both",
   ): GraphDfsResult;
-  topologicalSort(roots: number[]): GraphTopologicalSortResult;
-  isDag(roots: number[]): boolean;
+  topologicalSort(roots: NodeId[]): GraphTopologicalSortResult;
+  isDag(roots: NodeId[]): boolean;
   filteredTraversal(
-    roots: number[],
+    roots: NodeId[],
     maxDepth?: number,
     direction?: "Forward" | "Reverse" | "Both",
     filter?: GraphTraversalFilter | null,
   ): GraphBfsResult;
-  degree(roots: number[]): GraphDegreeEntry[];
+  degree(roots: NodeId[]): GraphDegreeEntry[];
 }
 
 /** Empty in TS v1: wiki features are core-only per D43 (no WASM binding yet). */
@@ -238,6 +239,23 @@ export class Client {
     }
   }
 
+  /**
+   * Normalize traversal roots to the decimal-string wire form. Numbers must
+   * be safe integers — JavaScript numbers lose precision above 2^53, so large
+   * ids must be passed as `bigint` (W1/API-02).
+   */
+  private _rootsToWire(roots: NodeId[]): string[] {
+    return roots.map((id) => {
+      if (typeof id === "number" && !Number.isSafeInteger(id)) {
+        throw new DbError(
+          "INVALID_ARGUMENT",
+          `traversal root id ${id} is not a safe integer — JavaScript numbers lose precision above 2^53. Use bigint for large IDs.`,
+        );
+      }
+      return String(id);
+    });
+  }
+
   // ---------------------------------------------------------------------------
   // Sub-clients (SDKB-02) — domain-grouped views over the flat methods.
   //
@@ -276,37 +294,37 @@ export class Client {
   get graph(): Readonly<GraphClient> {
     return (this._graph ??= Object.freeze({
       insertNode: (
-        id: number | bigint,
+        id: NodeId,
         content?: string,
         vector?: number[],
         fields?: Record<string, Value>,
       ) => this.insertNode(id, content, vector, fields),
-      getNode: (id: number | bigint) => this.getNode(id),
-      deleteNode: (id: number | bigint, reason?: string) =>
+      getNode: (id: NodeId) => this.getNode(id),
+      deleteNode: (id: NodeId, reason?: string) =>
         this.deleteNode(id, reason),
       addEdge: (
-        source: number | bigint,
-        target: number | bigint,
+        source: NodeId,
+        target: NodeId,
         label?: string,
         weight?: number,
         createdAtMs?: number,
       ) => this.addEdge(source, target, label, weight, createdAtMs),
-      removeEdge: (source: number | bigint, target: number | bigint, label?: string) =>
+      removeEdge: (source: NodeId, target: NodeId, label?: string) =>
         this.removeEdge(source, target, label),
-      bfs: (roots: number[], maxDepth?: number, direction?: "Forward" | "Reverse" | "Both") =>
+      bfs: (roots: NodeId[], maxDepth?: number, direction?: "Forward" | "Reverse" | "Both") =>
         this.graphBfs(roots, maxDepth, direction),
-      dfs: (roots: number[], maxDepth?: number, direction?: "Forward" | "Reverse" | "Both") =>
+      dfs: (roots: NodeId[], maxDepth?: number, direction?: "Forward" | "Reverse" | "Both") =>
         this.graphDfs(roots, maxDepth, direction),
-      topologicalSort: (roots: number[]) =>
+      topologicalSort: (roots: NodeId[]) =>
         this.graphTopologicalSort(roots),
-      isDag: (roots: number[]) => this.graphIsDag(roots),
+      isDag: (roots: NodeId[]) => this.graphIsDag(roots),
       filteredTraversal: (
-        roots: number[],
+        roots: NodeId[],
         maxDepth?: number,
         direction?: "Forward" | "Reverse" | "Both",
         filter?: GraphTraversalFilter | null,
       ) => this.graphFilteredTraversal(roots, maxDepth, direction, filter),
-      degree: (roots: number[]) => this.graphDegree(roots),
+      degree: (roots: NodeId[]) => this.graphDegree(roots),
     }));
   }
   private _graph?: Readonly<GraphClient>;
@@ -582,8 +600,8 @@ export class Client {
    * Search for memory records by vector similarity, with optional text + hybrid search.
    *
    * @param request - The search request parameters.
-   * @returns Array of search hits ordered by relevance (closest first).
-   *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
+   * @returns Array of search hits ordered by relevance (highest score first).
+   *   Each hit carries the engine relevance `score` (higher is better, W1/API-02).
    * @throws {DbError} If the instance is closed or the search fails.
    *
    * @example
@@ -594,7 +612,7 @@ export class Client {
    *   top_k: 5,
    * });
    * for (const hit of hits) {
-   *   console.log(hit.record.payload, hit.distance);
+   *   console.log(hit.record.payload, hit.score);
    * }
    * ```
    */
@@ -606,7 +624,7 @@ export class Client {
         const h = hit as Record<string, unknown>;
         return {
           record: _mapRecord(h.record),
-          distance: h.score as number,
+          score: h.score as number,
           explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
         };
       });
@@ -620,7 +638,7 @@ export class Client {
    *
    * @param request - Search parameters with `namespaces` instead of `namespace`.
    * @returns Array of search hits ordered by relevance (highest score first).
-   *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
+   *   Each hit carries the engine relevance `score` (higher is better, W1/API-02).
    * @throws {DbError} If the instance is closed or any namespace fails.
    *
    * @example
@@ -660,7 +678,7 @@ export class Client {
         const h = hit as Record<string, unknown>;
         return {
           record: _mapRecord(h.record),
-          distance: h.score as number,
+          score: h.score as number,
           explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
         };
       });
@@ -722,7 +740,7 @@ export class Client {
    *
    * @param input - `{namespace, key}` of the source record plus `topK`.
    * @returns Array of search hits ordered by descending similarity.
-   *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
+   *   Each hit carries the engine relevance `score` (higher is better, W1/API-02).
    * @throws {DbError} If the source `key` does not exist or has no vector.
    *
    * @example
@@ -739,7 +757,7 @@ export class Client {
         const h = hit as Record<string, unknown>;
         return {
           record: _mapRecord(h.record),
-          distance: h.score as number,
+          score: h.score as number,
           explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
         };
       });
@@ -1133,7 +1151,7 @@ export class Client {
    * ```
    */
   insertNode(
-    id: number | bigint,
+    id: NodeId,
     content?: string,
     vector?: number[],
     fields: Record<string, FlatValue | Value> = {},
@@ -1174,7 +1192,7 @@ export class Client {
    * if (node) console.log(node.edges.length, "edges");
    * ```
    */
-  getNode(id: number | bigint): NodeRecord | null {
+  getNode(id: NodeId): NodeRecord | null {
     this._assertOpen();
     if (typeof id === "number" && !Number.isSafeInteger(id)) {
       throw new DbError(
@@ -1215,7 +1233,7 @@ export class Client {
    * db.deleteNode(1, "no longer needed");
    * ```
    */
-  deleteNode(id: number | bigint, reason: string = "deleted"): void {
+  deleteNode(id: NodeId, reason: string = "deleted"): void {
     this._assertOpen();
     if (typeof id === "number" && !Number.isSafeInteger(id)) {
       throw new DbError(
@@ -1244,8 +1262,8 @@ export class Client {
    * ```
    */
   addEdge(
-    source: number | bigint,
-    target: number | bigint,
+    source: NodeId,
+    target: NodeId,
     label: string = "",
     weight?: number,
     createdAtMs?: number,
@@ -1291,7 +1309,7 @@ export class Client {
    * db.removeEdge(1, 2, "knows");
    * ```
    */
-  removeEdge(source: number | bigint, target: number | bigint, label: string = ""): void {
+  removeEdge(source: NodeId, target: NodeId, label: string = ""): void {
     this._assertOpen();
     if (typeof source === "number" && !Number.isSafeInteger(source)) {
       throw new DbError(
@@ -1325,13 +1343,13 @@ export class Client {
    * ```
    */
   graphBfs(
-    roots: number[],
+    roots: NodeId[],
     maxDepth: number = 10,
     direction: "Forward" | "Reverse" | "Both" = "Forward",
   ): GraphBfsResult {
     this._assertOpen();
     return this._wasm("graphBfs", () =>
-      this.inner.graph_bfs(roots.map(String), maxDepth, direction) as unknown as GraphBfsResult,
+      this.inner.graph_bfs(this._rootsToWire(roots), maxDepth, direction) as unknown as GraphBfsResult,
     );
   }
 
@@ -1349,13 +1367,13 @@ export class Client {
    * ```
    */
   graphDfs(
-    roots: number[],
+    roots: NodeId[],
     maxDepth: number = 10,
     direction: "Forward" | "Reverse" | "Both" = "Forward",
   ): GraphDfsResult {
     this._assertOpen();
     return this._wasm("graphDfs", () =>
-      this.inner.graph_dfs(roots.map(String), maxDepth, direction) as unknown as GraphDfsResult,
+      this.inner.graph_dfs(this._rootsToWire(roots), maxDepth, direction) as unknown as GraphDfsResult,
     );
   }
 
@@ -1372,10 +1390,10 @@ export class Client {
    * if (result.has_cycle) console.warn("Graph has a cycle!");
    * ```
    */
-  graphTopologicalSort(roots: number[]): GraphTopologicalSortResult {
+  graphTopologicalSort(roots: NodeId[]): GraphTopologicalSortResult {
     this._assertOpen();
     return this._wasm("graphTopologicalSort", () =>
-      this.inner.graph_topological_sort(roots.map(String)) as unknown as GraphTopologicalSortResult,
+      this.inner.graph_topological_sort(this._rootsToWire(roots)) as unknown as GraphTopologicalSortResult,
     );
   }
 
@@ -1391,10 +1409,10 @@ export class Client {
    * const isDag = db.graphIsDag([1]);
    * ```
    */
-  graphIsDag(roots: number[]): boolean {
+  graphIsDag(roots: NodeId[]): boolean {
     this._assertOpen();
     return this._wasm("graphIsDag", () =>
-      this.inner.graph_is_dag(roots.map(String)),
+      this.inner.graph_is_dag(this._rootsToWire(roots)),
     );
   }
 
@@ -1415,7 +1433,7 @@ export class Client {
    * ```
    */
   graphFilteredTraversal(
-    roots: number[],
+    roots: NodeId[],
     maxDepth: number = 10,
     direction: "Forward" | "Reverse" | "Both" = "Forward",
     filter?: GraphTraversalFilter | null,
@@ -1426,7 +1444,7 @@ export class Client {
       // (`to_js`, proven by `tests/graph.test.ts` TS-01); the wasm `.d.ts`
       // `string[]` is drifted. Erased casts: zero runtime change.
       this.inner.graph_filtered_traversal(
-        roots.map(String),
+        this._rootsToWire(roots),
         maxDepth,
         direction,
         // Public input allows `time_range: null`; the wasm binding models
@@ -1451,10 +1469,10 @@ export class Client {
    * const degrees = db.graphDegree([1]);
    * ```
    */
-  graphDegree(roots: number[]): GraphDegreeEntry[] {
+  graphDegree(roots: NodeId[]): GraphDegreeEntry[] {
     this._assertOpen();
     return this._wasm("graphDegree", () =>
-      this.inner.graph_degree(roots.map(String)) as GraphDegreeEntry[],
+      this.inner.graph_degree(this._rootsToWire(roots)) as GraphDegreeEntry[],
     );
   }
 

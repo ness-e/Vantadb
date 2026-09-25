@@ -347,7 +347,7 @@ export class NativeVantaDB {
    *
    * @param request - The search request parameters.
    * @returns Array of search hits ordered by relevance (closest first).
-   *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
+   *   Each hit carries the engine relevance `score` (higher is better, W1/API-02).
    */
   async search(request: SearchRequest): Promise<SearchHit[]> {
     this._assertOpen();
@@ -357,7 +357,7 @@ export class NativeVantaDB {
         const h = hit as Record<string, unknown>;
         return {
           record: _mapRecord(h.record),
-          distance: h.score as number,
+          score: h.score as number,
           explanation: (h.explanation ?? undefined) as SearchHit["explanation"],
         };
       });

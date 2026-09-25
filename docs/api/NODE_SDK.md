@@ -244,10 +244,10 @@ const hits = await db.search({
 **Score is relevance, not a distance (WSM-10):** the `score` field is
 **higher-is-better** — it is a relevance score (BM25 for text, cosine
 similarity ∈ [-1.0, 1.0] for vectors, RRF-fused for hybrid). It is **not**
-a raw L2 / cosine distance. This matches the Rust core and the Python SDK.
-**It is intentionally different from the TypeScript wrapper `vantadb-ts`**
-(which renames the field to `distance` and inverts the semantics —
-"lower is more similar", CODE-091).
+a raw L2 / cosine distance. This matches the Rust core, Python, WASM and
+(since W1/API-02) the TypeScript wrapper `vantadb-ts` — every transport now
+reads `score` the same way. Raw ANN distances stay on `searchVector()` /
+`search_vector()` (`distance`, lower-is-better).
 
 The full per-transport field map (Rust core / WASM binding / TS wrapper /
 Node / Python / HTTP API) lives in
