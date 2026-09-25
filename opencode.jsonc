@@ -3,6 +3,13 @@
   "model": "deepseek-v4-flash-free",
   "small_model": "deepseek-v4-flash-free",
   "plugins": [],
+  // Owner policy 2026-09-25: push y PRs requieren aprobacion explicita (V2 nativo, effect=ask).
+  "permissions": [
+    { "action": "shell", "resource": "git push *", "effect": "ask" },
+    { "action": "shell", "resource": "git -C * push *", "effect": "ask" },
+    { "action": "shell", "resource": "gh pr create *", "effect": "ask" },
+    { "action": "shell", "resource": "gh pr merge *", "effect": "ask" }
+  ],
   "experimental": {
     "disable_paste_summary": true,
     "subagent_depth": 2
