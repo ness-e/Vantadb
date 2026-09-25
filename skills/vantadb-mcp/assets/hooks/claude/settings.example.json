@@ -1,6 +1,6 @@
 {
   "$schema": "https://code.claude.com/docs/hooks-reference/schema.json",
-  "_template": "FIND-106 template_version 1.0.0, docs_verified 2026-09-17 (https://docs.anthropic.com/en/docs/claude-code/hooks). Merge into .claude/settings.json. Launcher: pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>. Secrets: session env only.",
+  "_template": "FIND-106 template_version 1.1.0, docs_verified 2026-09-17 (https://docs.anthropic.com/en/docs/claude-code/hooks). WIRE-10: one-shot via `vanta-cli mcp-call` (no pwsh). Merge into .claude/settings.json. DB: replace <DB_PATH>; vanta-cli must be on PATH (install.sh puts it in ~/.vanta/bin). Secrets: session env only. Hook input arrives on stdin as JSON; {{prompt}} splices the verbatim UserPromptSubmit text (mcp-call resolves it, jq not needed).",
   "hooks": {
     "SessionStart": [
       {
@@ -8,7 +8,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "command": "vanta-cli mcp-call --db <DB_PATH> --tool memory_recall --args '{\"query\":\"session start context\",\"scope\":\"agent\",\"top_k\":5}'",
             "timeout": 15,
             "_policy": "memory_recall scope=agent top_k=5 -> additionalContext; empty recall injects NOTHING"
           }
@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "command": "vanta-cli mcp-call --db <DB_PATH> --tool memory_recall --args '{\"query\":\"{{prompt}}\",\"scope\":\"agent\",\"top_k\":5}'",
             "timeout": 15,
             "_policy": "memory_recall query=<verbatim user text> scope=agent top_k=5; never paraphrase"
           }
@@ -33,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "command": "echo VantaDB save-state: persist open turns via thread_send and/or scene_write before compaction.",
             "timeout": 15,
             "_policy": "save-state via thread_send and/or scene_write before compaction"
           }
@@ -45,7 +45,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "command": "echo VantaDB auto-capture: persist this turn via thread_send role+content; proxy-turns curated via inbox, never auto-promote.",
             "timeout": 15,
             "_policy": "auto-capture turn via thread_send role+content; proxy-turns curated via inbox, never auto-promote"
           }

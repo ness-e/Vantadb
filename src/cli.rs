@@ -356,6 +356,32 @@ pub enum Commands {
         #[arg(long, env = "VANTADB_DASHBOARD_DIR")]
         dashboard_dir: Option<String>,
     },
+
+    /// Call one MCP tool through a one-shot stdio server (no pwsh needed).
+    ///
+    /// Spawns `vantadb-server --mcp` (same binary resolution as
+    /// `server --mcp`), sends `initialize` + `tools/call` as line-delimited
+    /// JSON-RPC, and prints the tool `result` verbatim to stdout.
+    /// Secrets are inherited from the session env, never CLI args.
+    /// Exit codes: 0 ok · 1 infra (spawn/io/timeout/protocol) ·
+    /// 2 tool-level error (MCP error or `isError` result) — exit 2 also
+    /// covers invalid client-side input (`--args`/placeholder/stdin errors),
+    /// which never reaches the tool.
+    McpCall {
+        /// Tool name, e.g. `memory_recall` or `thread_send`
+        #[arg(long)]
+        tool: String,
+        /// Tool arguments as a JSON object string, e.g. `'{"query":"x"}'`.
+        /// Hook templates may splice client event fields as
+        /// `{{dotted.path}}` (e.g. `'{"query":"{{prompt}}"}'`), resolved
+        /// against the hook-input JSON on stdin. Stdin is read only when
+        /// the template has placeholders.
+        #[arg(long, default_value = "{}")]
+        args: String,
+        /// Seconds to wait for the server response before failing
+        #[arg(long, default_value = "60")]
+        timeout_secs: u64,
+    },
 }
 
 /// Subcommands for namespace management
