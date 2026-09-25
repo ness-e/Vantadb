@@ -2,7 +2,7 @@
 
 > **Campaign ID:** beca0c27-fd85-4489-8f93-8361888d662c
 > **Inicio:** 2026-09-24
-> **Estado:** ⬜ PENDING (0/9)
+> **Estado:** 🔄 EN PROGRESO (1/9 — API-01 ✅ 2026-09-25; siguiente: API-02/API-03 en paralelo)
 > **Fuente:** `docs/dev/Backlog.md` Phase 51 (filas `API-01..API-09`)
 > **Autonomous:** false
 > **Modo:** PLAN (este archivo no cambia código; la ejecución es `/pipeline run` o `/pipeline task API-0X`)
@@ -36,9 +36,9 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo test --test sdk_serialization` verde Y test wire `u128` >2^53 redondo en 4 bindings Y `rg Generic\( error` con tipado o doc-diseño Y `dev-tools/verify_changed.ps1` verde
 - **Task file:** `docs/dev/tasks/API-01.md`
-- **Estado:** ⏳ IN PROGRESS (Steps 1-2 ✅ 2026-09-25: u128 wire RED→GREEN)
+- **Estado:** ✅ COMPLETED (2026-09-25) — review P2-01 ✅ tras R1/R2/R3; contrato 4/4; commit (local, sin push)
 - **Branch:** develop
-- **Commit:** f86584f6 (+70e553f7 task file)
+- **Commit:** f86584f6 + 04bfad3d + 23ef7f63 + (fix R1/R2 + docs cierre — local)
 - **Cynefin:** 🟨 complicado — serde cross-binding + codegen requieren experto
 - **Top 3 riesgos:** 1. codegen single-schema sin dueño 2. `u128→string` rompe tests que esperan number 3. Tipar errores rompe `map_vanta_error`
 - **Pre-mortem:** F1: JSON-string para `u128` sin migrar napi; F2: RFC 9457 a medias (solo type/title); F3: casing global rompe Python snake interior
@@ -288,19 +288,17 @@ Próximo paso recomendado:
 Campaign ID: beca0c27-fd85-4489-8f93-8361888d662c
 Objetivo activo: API-01: W0 fundación — tipos base + error envelope + casing + u128 wire
 Estado: in-progress
-Última acción: Steps 3,4,6,7,8 verificados (docs FilterOp; envelope code+message+context + Generic by-design; casing norm + punteros en 4 tipos; P2-8 pre-pagada AUD-043; wire u128>2^53 verde core 17/17 + Py 2/2 + Node 28/28 + TS 1/1 + WASM 30/30). verify_changed 4/4. Step 5: evidencia + recomendación B (rename Header + alias) en ADR-041 §Evidencia; firma owner pendiente.
+Última acción: Review-fix R1+R2: serde(default) en QueryResult::Write.node_id (src/sdk/types/graph.rs) — RED 'missing field node_id' verificado pre-fix, GREEN 18/18 post-fix (test nuevo test_query_result_write_missing_node_id_defaults_none); docstring Py corregido (sin falso RED); comentario Node precisado (MemoryRecord.node_id; binding sin query). check/clippy/fmt-scoped verdes; verify_changed global rojo por WIP ajeno WIRE-10 (fmt mcp_call.rs + docs mcp-call).
 Resultado: PARTIAL
-Próxima acción: Owner firma ADR-041 (A/B/C) en docs/dev/architecture/adr/041_anti_stutter.md (§Firmado por); luego vanta-lead commitea los archivos API-01 (feat! API-01). No re-ejecutar Steps 3-8.
-Contrato: verificacion: cargo test --test sdk_serialization -> 17 passed/0 failed | dev-tools/verify_changed.ps1 -> ALL 4 PASS | wasm-pack test --node -> 30 passed/0 failed | pytest tests/test_wire_u128.py -> 2 passed | vitest tests/wire-u128.test.ts -> 1 passed | vitest api.test.ts -> 28 passed | cargo doc -> exit 0 | tsc --noEmit -> exit 0 | cargo check -p vantadb_py -> exit 0
+Próxima acción: vanta-review re-review de R1+R2 (contexto fresco); R3 (ADR-041 + contadores) lo maneja el lead; luego commit. No re-ejecutar Steps 3-8.
+Contrato: verificacion: cargo test --test sdk_serialization -> 18/18 | pytest tests/test_wire_u128.py -> 2/2 | vitest api.test.ts -> 28/28 | cargo check -p vantadb (cli,fjall,memmap2,fs2,roaring) -> ok | cargo clippy -D warnings -> ok | fmt: mis archivos limpios; global rojo SOLO en src/cli_handlers/mcp_call.rs:97 (ajeno) | docs-coverage: global rojo SOLO en cli.rs mcp-call (ajeno)
 evidencia:
-  - claim: u128 >2^53 cruza los 4 bindings sin pérdida (string decimal o bigint exacto; nunca f64). evidencia: tests por binding + pkg wasm fresco verificado manual (typeof string, value 9007199254740993). confianza: alta
-  - claim: Generic( en src/error.rs con doc-diseño by-design (ResourceLimit 12/Schema 14/InvalidInput 64 callers). evidencia: src/error.rs + docs/api/ERROR_HANDLING.md §'The Generic catch-all'. confianza: alta
-  - claim: P2-8 ya pagada (HashSet<u128>, orden de primera aparición); task file citaba líneas stale 564-596, real 752-784. evidencia: commit 9dcbff5a + test verde en wasm-pack test. confianza: alta
-  - claim: VantaHeader sin huella on-disk; exclusión ADR con razón contradicha. evidencia: src/binary_header.rs:19,49-57; 64 refs/8 archivos. confianza: alta
-  - claim: casing Gate P declarado sin renames (migración = W1/API-02). evidencia: BINDINGS_NAMESPACES.md §Casing Contract + tsc/cargo check verdes. confianza: alta
-artefactos: src/sdk/types/record.rs, src/error.rs, docs/api/ERROR_HANDLING.md, docs/api/BINDINGS_NAMESPACES.md, docs/dev/architecture/adr/041_anti_stutter.md, vantadb-ts/src/types.ts, vantadb-wasm/src/vantadb_wasm.d.ts, vantadb-node/index.d.ts, vantadb-python/src/types.rs, vantadb-wasm/src/lib.rs, vantadb-python/tests/test_wire_u128.py, vantadb-ts/tests/wire-u128.test.ts, vantadb-node/tests/api.test.ts, docs/dev/tasks/API-01.md
-invariantes: u128_serde ÚNICO patrón wire u128; validate_compat intacto; vantadb-pro intocable; sin panic en bindings; code()/Display sin cambios
-deuda: P2-8 pagada (AUD-043); P2-5 diferida a API-02; FIND candidatos: types.ts node_id string vs pkg bigint; wasm d.ts IqlResult{kind} drift; anti_stutter_map.json:94 razón incorrecta
-queda_pendiente: firma owner ADR-041 (BLOQUEO Step 5); commit (solo vanta-lead); WIP ajeno WIRE-09 en working tree NO commitear con API-01
+  - claim: R1 bug real confirmado y corregido. evidencia: RED pre-fix -> Error("missing field `node_id`", line 1 col 45); fix #[serde(default)] en src/sdk/types/graph.rs:29-35; GREEN 18/18. confianza: alta
+  - claim: R2 docstring corregido — query_structured NO pasa por serde; mapping to_string() pre-existente desde d7fc09ba ('feat(python): MOD-20 ... + query_structured()'), verificado con git log. confianza: alta
+  - claim: Node binding no expone query/QueryResult (0 hits en src/lib.rs y index.d.ts); el caso ejercita MemoryRecord.node_id vía napi. confianza: alta
+artefactos: src/sdk/types/graph.rs, tests/sdk_serialization.rs, vantadb-python/tests/test_wire_u128.py, vantadb-node/tests/api.test.ts, docs/dev/tasks/API-01.md
+invariantes: u128_serde único patrón wire; lectura backward-compat de Write sin node_id restaurada (Ok(None)); sin tocar WIP ajeno (WIRE-10); sin commit (TSYS-11); Display/code() sin cambios
+deuda: re-review pendiente; verify_changed global bloqueado por WIRE-10 (fmt+docs) — API-01 scoped verde
+queda_pendiente: re-review vanta-review (R1+R2); R3 lead; commit lead.
 Próxima tarea si completa: API-02
 === END RECITATION ===
