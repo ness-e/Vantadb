@@ -39,7 +39,7 @@ The script runs a continuous loop of bulk insertions and reads through the Pytho
 import time
 import os
 import psutil
-import vantadb_py as vanta
+import vantadb as vanta
 
 def run_stress_test(duration_minutes=30):
     print(f"Starting RSS stress test for {duration_minutes} minutes...")
@@ -47,7 +47,7 @@ def run_stress_test(duration_minutes=30):
     if not os.path.exists(db_path):
         os.makedirs(db_path)
         
-    db = vanta.VantaDB(db_path)
+    db = vanta.Client(db_path)
     process = psutil.Process(os.getpid())
     rss_initial = process.memory_info().rss
     print(f"Initial RSS: {rss_initial / 1024 / 1024:.2f} MB")

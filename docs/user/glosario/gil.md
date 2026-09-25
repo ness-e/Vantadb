@@ -51,10 +51,10 @@ for t in threads:
 ### Problematic Scenario
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 import threading
 
-db = vantadb.VantaDB("./data")
+db = vantadb.Client("./data")
 
 def search_task(query_vector):
     # If PyO3 does NOT release the GIL:

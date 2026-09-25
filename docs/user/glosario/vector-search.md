@@ -73,11 +73,11 @@ impl CPIndex {
 ### Parámetros de Configuración
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 # HNSW params (M, ef_construction, ef) + metric live in the Rust engine
 # config, not the constructor.
-db = vantadb.VantaDB("./data")  # metric: "cosine" (default), "euclidean", "dot"
+db = vantadb.Client("./data")  # metric: "cosine" (default), "euclidean", "dot"
 ```
 
 ### Aceleración SIMD

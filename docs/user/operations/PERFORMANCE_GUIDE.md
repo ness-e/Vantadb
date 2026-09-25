@@ -23,7 +23,7 @@ Every operation from Python traverses these layers:
 ```
 ┌─────────────────────────────────────────────────┐
 │  Python caller                                   │
-│  e.g., db.search_memory(vector=q, top_k=10)      │
+│  e.g., db.search("ns", q, top_k=10)             │
 └──────────────────────┬──────────────────────────┘
                        │
                        ▼
@@ -133,11 +133,11 @@ Batch search amortizes FFI cost across multiple queries and parallelizes HNSW tr
 
 ### 3.1 Dominant Cost: Result Serialization (~30-56% of total)
 
-Each `search_memory` hit produces a `PyDict` with ~10-15 key-value pairs:
+Each `search` hit produces a `PyDict` with ~10-15 key-value pairs:
 - `namespace`, `key`, `payload`, `created_at_ms`, `updated_at_ms`, `version`, `node_id`
 - `vector` (wrapped in `VantaVector` — zero-copy, but still a Python object allocation)
 - `metadata` (nested `PyDict`)
-- `score` (+ optional `explanation` per hit — MCP/Rust; the Python `search_memory` binding currently drops `explanation` and never emits `fusion_report`)
+- `score` (+ optional `explanation` per hit — MCP/Rust; the Python `search` binding currently drops `explanation` and never emits `fusion_report`)
 
 For `top_k=10`, this means **10 PyDict allocations**, each calling `dict.set_item()` repeatedly. Each call crosses the PyO3 type boundary.
 
@@ -161,7 +161,7 @@ Each crossing cost is small (~5µs each way), but the round-trip totals ~10µs m
 ### 3.3 GIL Acquire / Release Overhead
 
 VantaDB's Python SDK correctly releases the GIL (`py.detach()`) during all engine operations:
-- `search_memory` — GIL released during HNSW traversal
+- `search` — GIL released during HNSW traversal
 - `put` — GIL released during storage write
 - `put_batch` — GIL released during batch insert
 - `rebuild_index` — GIL released during index build
@@ -216,7 +216,7 @@ The 140x gap is dominated by **Python object construction costs that simply don'
 
 | Need | Choice | Expected Latency (10K scale) |
 |------|--------|------------------------------|
-| Quick scripting | Python SDK `search_memory()` | ~62ms |
+| Quick scripting | Python SDK `search()` | ~62ms |
 | High throughput search | Python SDK `search_batch()` | ~2.4ms/query |
 | Maximum speed | Rust `engine.search()` | ~1.2ms (p50) |
 | Real-time edge | Rust embedded, no Python | ~300-500µs |
@@ -232,7 +232,7 @@ The 140x gap is dominated by **Python object construction costs that simply don'
 ```python
 # ❌ Slow: N sequential FFI calls
 for vector in query_vectors:
-    results = db.search_memory("ns", vector, top_k=10)
+    results = db.search("ns", vector, top_k=10)
 
 # ✅ Fast: Single batch FFI call + Rayon parallelism
 results = db.search_batch(vectors=query_vectors, top_k=10)
@@ -246,11 +246,11 @@ import numpy as np
 
 # ❌ Slow: Python list → PyO3 Vec<f32> extraction
 query = [0.1] * 128
-results = db.search_memory("ns", query, top_k=10)
+results = db.search("ns", query, top_k=10)
 
 # ✅ Zero-copy: NumPy f32 array uses __buffer_protocol__
 query = np.array([0.1] * 128, dtype=np.float32)
-results = db.search_memory("ns", query, top_k=10)
+results = db.search("ns", query, top_k=10)
 # Eliminates ~10µs per call, significant at scale
 ```
 
@@ -258,11 +258,11 @@ results = db.search_memory("ns", query, top_k=10)
 
 ```python
 # ❌ Expensive: builds per-hit explanation dicts
-results = db.search_memory("ns", query, top_k=10, explain=True)
+results = db.search("ns", query, top_k=10, explain=True)
 # +20-40ms overhead for explanation construction
 
 # ✅ Fast: scores only
-results = db.search_memory("ns", query, top_k=10, explain=False)
+results = db.search("ns", query, top_k=10, explain=False)
 ```
 
 ### 5.4 Use Rust Directly for Latency-Critical Paths
@@ -301,10 +301,10 @@ Result dict construction scales linearly with `top_k`:
 
 ```python
 # ❌ Slower: 10 PyDict constructions
-db.search_memory("ns", query, top_k=10)
+db.search("ns", query, top_k=10)
 
 # ✅ Faster: 3 PyDict constructions
-db.search_memory("ns", query, top_k=3)
+db.search("ns", query, top_k=3)
 ```
 
 Each additional `top_k` hit adds ~2-3ms for dict construction.
@@ -524,7 +524,7 @@ Need <1ms per search?
            ├── Yes → Use Python SDK + search_batch()
            └── No  → 
                   Need <100ms per search?
-                    ├── Yes → Use Python SDK search_memory()
+                    ├── Yes → Use Python SDK search()
                     └── No  → Python SDK is fine for any use case
 ```
 

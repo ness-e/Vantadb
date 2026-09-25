@@ -70,8 +70,9 @@ pip install vantadb-py
 >
 > **Naming (ADR-041 anti-stutter):** canonical names are `Client` (legacy
 > `VantaDB` alias removed in 0.6.0, AST-010), `Record`, `SearchHit`, `Config`. Memory methods
-> `get_memory` / `search_memory` stay canonical in Python (the short
-> `get` / `search` names are node-level ops there).
+> live on the `db.memory` sub-client (`memory.get` / `memory.list` / `memory.delete`);
+> hybrid search is `db.search(...)` (AST-008/AST-012: flat `search_memory`/`get_memory` removed),
+> and pure vector ANN is `db.search_vector(...)`.
 >
 > **Naming convention:** the product is **VantaDB**; the Rust crate is `vantadb`,
 > the PyPI package is `vantadb-py`, the npm packages are `vantadb` (TypeScript/WASM)
@@ -114,10 +115,10 @@ record = db.put(
 )
 
 # 3. Retrieve exact record by key
-stored = db.get_memory("agent/main", "memory-001")
+stored = db.memory.get("agent/main", "memory-001")
 
 # 4. Hybrid Search (BM25 + Cosine Similarity fused via RRF)
-hits = db.search_memory("agent/main", query_vector=[0.11, 0.89, 0.55], top_k=5)
+hits = db.search("agent/main", query_vector=[0.11, 0.89, 0.55], top_k=5)
 
 # 5. Operational Telemetry & Safe Shutdown
 caps = db.hardware_profile()

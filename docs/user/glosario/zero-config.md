@@ -49,11 +49,11 @@ pip install vantadb-py
 ```
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
-db = vantadb.VantaDB("./my_memory")
+db = vantadb.Client("./my_memory")
 db.put("default", "doc1", "Hello world", vector=[0.1, 0.2, 0.3])
-results = db.search_memory("default", [0.1, 0.2, 0.3], top_k=10)
+results = db.search("default", [0.1, 0.2, 0.3], top_k=10)
 ```
 
 **That's all.** No accounts, no API keys, no provisioning.
@@ -75,10 +75,10 @@ results = db.search_memory("default", [0.1, 0.2, 0.3], top_k=10)
 # Instalación
 # pip install vantadb-py
 
-import vantadb_py as vantadb
+import vantadb
 
 #1. Create instance (without configuration)
-db = vantadb.VantaDB("./agent_memory")
+db = vantadb.Client("./agent_memory")
 
 #2. Save memory (without prior schema)
 db.put(
@@ -94,7 +94,7 @@ db.put(
 )
 
 #3. Search (without setting indexes)
-results = db.search_memory(
+results = db.search(
     namespace="default",
     query_vector=[0.11, -0.33, 0.55],
     top_k=5,
@@ -115,13 +115,13 @@ results = db.search_memory(
 VantaDB allows advanced configuration **when necessary**, but does not require it:
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 # Zero-config (default)
-db = vantadb.VantaDB("./data")
+db = vantadb.Client("./data")
 
 # Advanced settings (via constructor kwargs: memory_limit_bytes, backend)
-db = vantadb.VantaDB(
+db = vantadb.Client(
     "./data",
     memory_limit_bytes=4096 * 1024 * 1024,  # memory_limit_mb: 4096
 )

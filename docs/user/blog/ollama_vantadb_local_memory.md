@@ -43,7 +43,7 @@ Each agent gets a namespace in a local VantaDB store. Observations go in with pa
 ```python
 from vantadb import VantaDB
 
-db = VantaDB(path="./agent-memory")
+db = Client(path="./agent-memory")
 db.put(
     namespace="support-agent",
     key="obs-0042",

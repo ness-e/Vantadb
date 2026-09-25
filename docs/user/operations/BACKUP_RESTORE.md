@@ -48,7 +48,7 @@ Fast and byte-faithful, but tied to the VantaDB version that wrote it.
 Exports every record as JSONL — readable text, portable across versions:
 
 ```python
-db = vantadb.VantaDB("./vanta_data")
+db = vantadb.Client("./vanta_data")
 report = db.export_all("backup.jsonl")
 ```
 
@@ -65,13 +65,13 @@ Both return a report with `records_exported`. Restore later with `import_file()`
 back into place while stopped):
 
 ```python
-db = vantadb.VantaDB("./vanta_data.backup")
+db = vantadb.Client("./vanta_data.backup")
 ```
 
 **From a JSONL export:** open a fresh database and import:
 
 ```python
-db = vantadb.VantaDB("./restored_data")
+db = vantadb.Client("./restored_data")
 report = db.import_file("backup.jsonl")
 print(report["inserted"], report["updated"])
 ```
@@ -85,7 +85,7 @@ A backup you haven't verified is a hope. After each backup, restore it to a
 2. Open it and check a known record:
 
    ```python
-   vdb = vantadb.VantaDB("/tmp/verify")
+   vdb = vantadb.Client("/tmp/verify")
    print(vdb.get("my_namespace", "known-key"))  # must return your record
    ```
 

@@ -68,10 +68,10 @@ impl VantaEmbedded {
 ## Configuration
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 # Backpressure tuning lives in the Rust engine config, not the constructor
-db = vantadb.VantaDB(
+db = vantadb.Client(
     "./data",
     memory_limit_bytes=4096 * 1024 * 1024,  # Límite absoluto (vía memory_limit_bytes)
 )
@@ -82,7 +82,7 @@ db = vantadb.VantaDB(
 ###Python
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 try:
     db.put(namespace="default", key="doc1", payload="...", vector=[...])

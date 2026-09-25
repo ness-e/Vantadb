@@ -100,11 +100,11 @@ $$
 ### Recall vs Latency Trade-off
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 # HNSW params (M, ef_construction, ef) live in the Rust engine config,
 # not the constructor. ef is auto-tuned at runtime.
-db = vantadb.VantaDB("./data")
+db = vantadb.Client("./data")
 # Alta calidad (más lento) — Recall: 0.998, Latencia: 15ms
 # Balanced — Recall: 0.956, Latency: 6ms
 # High speed (less accurate) — Recall: 0.890, Latency: 3ms

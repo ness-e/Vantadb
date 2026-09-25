@@ -59,9 +59,9 @@ last_reviewed: 2026-07-26
 | # | Task | Verification | Done |
 |---|---|---|---|
 | 3.1 | Participant creates a new Python file or integrates into existing project | Code compiles / imports | ☐ |
-| 3.2 | Create VantaDB instance with chosen config (`distance_metric`, `dimension`) | `db = VantaDB(...)` runs without error | ☐ |
+| 3.2 | Create VantaDB instance with chosen config (`distance_metric`, `dimension`) | `db = Client(...)` runs without error | ☐ |
 | 3.3 | Implement first `put` with a test vector and payload | `put()` returns successfully | ☐ |
-| 3.4 | Implement first `search_memory` (vector-only) | Returns correct nearest neighbors | ☐ |
+| 3.4 | Implement first `search` (vector-only) | Returns correct nearest neighbors | ☐ |
 | 3.5 | Implement hybrid search with text query | Returns relevant results with RRF scoring | ☐ |
 | 3.6 | Test durability: insert data, restart process, read back | Data persists across restarts | ☐ |
 | 3.7 | Run `db.flush()` and verify fsync persistence | File timestamps update | ☐ |

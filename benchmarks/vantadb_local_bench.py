@@ -14,9 +14,9 @@ import shutil
 import time
 
 try:
-    import vantadb_py as vantadb
+    import vantadb
 except ImportError:
-    print("ERROR: 'vantadb_py' Python package is not installed.")
+    print("ERROR: 'vantadb' Python package is not installed.")
     print("Install it from PyPI (standalone, no Rust build required):")
     print("  pip install vantadb-py")
     print("Full benchmark dependencies: pip install -r benchmarks/requirements.txt")

@@ -51,10 +51,10 @@ vantadb = "0.5.0"
 ## Quick Start
 
 ```python
-import vantadb_py as vantadb
+import vantadb as vantadb
 
 # Initialize embedded database (256MB memory limit)
-db = vantadb.VantaDB("./agent_memory", memory_limit_bytes=256_000_000)
+db = vantadb.Client("./agent_memory", memory_limit_bytes=256_000_000)
 
 # Store memory with vector and metadata
 db.put(
@@ -66,7 +66,7 @@ db.put(
 )
 
 # Hybrid search (semantic + lexical)
-results = db.search_memory(
+results = db.search(
     namespace="agent/session-1",
     query_vector=[0.75, 0.2, 0.6],
     text_query="technical answers",
@@ -74,10 +74,10 @@ results = db.search_memory(
 )
 
 # Retrieve specific memory
-memory = db.get_memory("agent/session-1", "ctx-001")
+memory = db.memory.get("agent/session-1", "ctx-001")
 
 # List all memories in namespace
-memories = db.list_memory("agent/session-1", limit=10)
+memories = db.memory.list("agent/session-1", limit=10)
 
 # Cleanup
 db.flush()
@@ -114,39 +114,39 @@ db.put(
 - Ensure vector dimensions are consistent across all records in a namespace
 - Use `ttl_ms` for ephemeral state (caches, session data); call `purge_expired()` periodically to reclaim storage
 
-### get_memory()
+### memory.get()
 
 Retrieve a specific memory by key.
 
 ```python
-memory = db.get_memory("agent/session-1", "ctx-001")
+memory = db.memory.get("agent/session-1", "ctx-001")
 print(memory["payload"])
 print(memory["metadata"])
 ```
 
 **Returns:** Dictionary with `payload`, `metadata`, `vector` (if available), or `None` if not found.
 
-### search_memory()
+### search()
 
 Perform hybrid search combining vector similarity and lexical matching.
 
 ```python
 # Vector-only search
-results = db.search_memory(
+results = db.search(
     namespace="agent/session-1",
     query_vector=[0.75, 0.2, 0.6],
     top_k=10
 )
 
 # Text-only search (BM25)
-results = db.search_memory(
+results = db.search(
     namespace="agent/session-1",
     text_query="rust database optimization",
     top_k=10
 )
 
 # Hybrid search (RRF fusion)
-results = db.search_memory(
+results = db.search(
     namespace="agent/session-1",
     query_vector=[0.75, 0.2, 0.6],
     text_query="rust database",
@@ -154,7 +154,7 @@ results = db.search_memory(
 )
 
 # With metadata filters
-results = db.search_memory(
+results = db.search(
     namespace="agent/session-1",
     query_vector=[0.75, 0.2, 0.6],
     top_k=10,
@@ -180,31 +180,31 @@ results = db.search_memory(
 - Text search uses BM25 with persisted inverted index
 - Use `search_batch()` for bulk queries to amortize FFI overhead (4.01x speedup over sequential, `docs/user/operations/BENCHMARKS.md` §6)
 
-### list_memory()
+### memory.list()
 
 List all memories in a namespace with optional filtering.
 
 ```python
 # List all memories
-result = db.list_memory("agent/session-1", limit=100)
+result = db.memory.list("agent/session-1", limit=100)
 memories = result.records  # list of records
 total = result.total_count  # total matching count
 next_cursor = result.next_cursor  # None when no more pages
 
 # List with metadata filter
-result = db.list_memory(
+result = db.memory.list(
     "agent/session-1",
     filters={"type": "preference"},
     limit=50
 )
 ```
 
-### delete_memory()
+### memory.delete()
 
 Remove a specific memory.
 
 ```python
-db.delete_memory("agent/session-1", "ctx-001")
+db.memory.delete("agent/session-1", "ctx-001")
 ```
 
 ### rebuild_index()
@@ -329,25 +329,25 @@ Memory namespaces are also queryable as IQL tables (MCP-29): each namespace is r
 
 ### In-Memory Mode
 
-Pass `":memory:"` as the database path to run fully in-memory — no persistence, ideal for tests and ephemeral workloads:
+Pass `":memory:"` (with `backend="memory"`) as the database path to run fully in-memory - no persistence, ideal for tests and ephemeral workloads:
 
 ```python
-db = vantadb.VantaDB(":memory:")
+db = vantadb.Client(":memory:", backend="memory")
 ```
 
-### Async API (`AsyncVantaDB`)
+### Async API (`AsyncClient`)
 
-`AsyncVantaDB` wraps the sync engine and runs queries in a thread pool (GIL released to Rust):
+`AsyncClient` wraps the sync engine and runs queries in a thread pool (GIL released to Rust):
 
 ```python
 import asyncio
-from vantadb_py import AsyncVantaDB
+from vantadb import AsyncClient
 
 async def main():
-    async with AsyncVantaDB("./agent_memory") as db:
+    async with AsyncClient("./agent_memory") as db:
         await db.put("agent/session-1", "ctx-001", "User prefers concise answers",
                      vector=[0.8, 0.1, 0.5])
-        results = await db.search_memory("agent/session-1", [0.75, 0.2, 0.6], top_k=3)
+        results = await db.search("agent/session-1", [0.75, 0.2, 0.6], top_k=3)
 
 asyncio.run(main())
 ```
@@ -503,7 +503,7 @@ Source: `docs/user/operations/BENCHMARKS.md` §1 (Stress Protocol, AVX2 environm
 
 ```python
 # Set appropriate memory limit based on workload
-db = vantadb.VantaDB("./db", memory_limit_bytes=512_000_000)  # 512MB
+db = vantadb.Client("./db", memory_limit_bytes=512_000_000)  # 512MB
 
 # Monitor RSS drift
 metrics = db.operational_metrics()
@@ -612,7 +612,7 @@ chmod 700 ./agent_memory
 
 ```python
 # Open in read-only mode for safety
-db = vantadb.VantaDB("./db", read_only=True)
+db = vantadb.Client("./db", read_only=True)
 ```
 
 ### Backup Strategy
@@ -665,7 +665,7 @@ def rag_pipeline(query, db, embedding_fn):
     query_vec = embedding_fn(query)
     
     # Retrieve relevant context
-    results = db.search_memory(
+    results = db.search(
         namespace="rag/documents",
         query_vector=query_vec,
         text_query=query,
@@ -695,7 +695,7 @@ def agent_memory_loop(agent, db, embedding_fn):
         )
     
     # Retrieve relevant context for new query
-    context = db.search_memory(
+    context = db.search(
         namespace=f"agent/{agent.id}",
         query_vector=embedding_fn(agent.current_query),
         top_k=10
@@ -708,7 +708,7 @@ def agent_memory_loop(agent, db, embedding_fn):
 ```python
 def cache_with_vantadb(db, key, compute_fn, ttl_seconds=3600):
     # Try cache first
-    cached = db.get_memory("cache", key)
+    cached = db.memory.get("cache", key)
     if cached and time.time() - cached['metadata']['timestamp'] < ttl_seconds:
         return cached['payload']
     

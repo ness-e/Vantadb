@@ -212,9 +212,9 @@ This is **natural in graphs**, but **very expensive in pure vector-search**.
 In VantaDB, **graph and vectors coexist in the same transaction**:
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
-db = vantadb.VantaDB("./data")
+db = vantadb.Client("./data")
 
 # Actualizar documento y vector atómicamente
 db.put(

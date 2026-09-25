@@ -64,10 +64,10 @@ VantaDB is an embedded hybrid search engine in Rust that does BM25 + HNSW + filt
 
 **Quick start:**
 ```python
-import vantadb_py
-db = vantadb_py.VantaDB("./agent_memory")
+import vantadb
+db = vantadb.Client("./agent_memory")
 record = db.put(namespace="chat", key="msg_1", vector=[...], payload="Hello world")
-results = db.search_memory(namespace="chat", query_vector=[...], text_query="hello", top_k=5)
+results = db.search(namespace="chat", query_vector=[...], text_query="hello", top_k=5)
 ```
 
 **Key features:**

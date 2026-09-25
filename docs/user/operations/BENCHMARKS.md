@@ -39,7 +39,7 @@ These results come from the **Stress Protocol** (`tests/certification/stress_pro
 
 ## 🐍 2. SDK Operations Performance (Python Wrapper)
 
-These metrics represent the performance of the Python SDK (`vantadb_py`) lifecycle interacting with the persistent database API (`put`, `search_memory`, `rebuild_index`).
+These metrics represent the performance of the Python SDK (`vantadb`) lifecycle interacting with the persistent database API (`put`, `search`, `rebuild_index`).
 
 > [!IMPORTANT]
 > Unlike raw Rust tests, these metrics include the **[[pyo3|PyO3]] (Python-Rust)** boundary transition cost and the **GIL** (Python Global Interpreter Lock) acquisition and release overhead.
@@ -160,7 +160,7 @@ This benchmark compares **VantaDB** directly against **LanceDB** and **ChromaDB*
 | LanceDB  |     114583   | 602.2             |       320.5 |              2.653 |              6.98  | 13.90%      |           344.2 |             97.2 |
 | ChromaDB |       3886   | N/A (Inc)         |       978.6 |              0.941 |              3.349 | 24.10%      |           253.5 |             39.1 |
 
-*Note: LanceDB and ChromaDB's incremental-HNSW use their native C/C++ wrappers integrated in Python. VantaDB runs through its PyO3 FFI bindings (`vantadb_py`) consuming the memory-mapped (`mmap`) Rust core.*
+*Note: LanceDB and ChromaDB's incremental-HNSW use their native C/C++ wrappers integrated in Python. VantaDB runs through its PyO3 FFI bindings (`vantadb`) consuming the memory-mapped (`mmap`) Rust core.*
 
 ---
 
@@ -200,7 +200,7 @@ python benchmarks/embed_bench.py --models all --skip-exception --dataset tiny-en
 # 9 modelos completo (requiere --include-exception, 16 GB Qwen3)
 python benchmarks/embed_bench.py --models all --include-exception --dataset tiny-en-es-1k --output benchmarks/embed_bench_report.json
 
-# offline check-only (sin vantadb_py ni modelos, dummy determinístico)
+# offline check-only (sin vantadb ni modelos, dummy determinístico)
 python benchmarks/embed_bench.py --models multilingual-e5-small --dataset tiny-en-es-1k --size 100 --no-vantadb --output benchmarks/embed_bench_report.json
 
 # ayuda
@@ -223,9 +223,9 @@ Ver `embeddings/manifest.json` como source-of-truth (rev pinned, dims, ONNX path
 ### Notas de performance (observabilidad)
 
 * **p50 embed** escala lineal con dim (384→0.77 ms dummy, 1024→2.05 ms, 4096→8.19 ms en CPU M1 sintético; ONNX real: ~10 ms/512t para `e5-small`, ~80 ms para `bge-m3`, GPU para Qwen3).
-* **QPS** inverso a dim y a nº docs (HNSW brute-force en fallback; con `vantadb_py` HNSW real el QPS es 2–5× mayor).
+* **QPS** inverso a dim y a nº docs (HNSW brute-force en fallback; con `vantadb` HNSW real el QPS es 2–5× mayor).
 * **RSS** crece con dim y modelos cargados (384d ~105 MB, 1024d ~143 MB, 4096d ~248 MB en bench sintético).
-* **recall@10 = 1.0** en dummy fallback (pred == exact por construcción); con ONNX/HF reales y `vantadb_py` HNSW el recall refleja calidad del índice.
+* **recall@10 = 1.0** en dummy fallback (pred == exact por construcción); con ONNX/HF reales y `vantadb` HNSW el recall refleja calidad del índice.
 * **Multi cosine** valida soporte ES: `combined`/`es` deben dar >0.60 (`hola mundo` ≈ `hello world`), `en`-only <0.50; el dummy lo fuerza por diseño (`TRANSLATION_CANON`).
 
 ---
@@ -912,7 +912,7 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
 > **Reproduce (Regla 11):**
 > ```bash
 > python evals/memory_bench.py --sessions 20 --turns 16 --queries 40 --top-k 5 --output evals/memory_bench_report.json
-> # smoke offline/CI (sin vantadb_py):
+> # smoke offline/CI (sin vantadb):
 > python evals/memory_bench.py --sessions 4 --turns 8 --queries 8 --no-vantadb
 > ```
 
@@ -922,13 +922,13 @@ se reporta lo medido en esta maquina, no absolutos universales (pre-mortem Fallo
   `--turns` turnos con hechos `fact-{s}-{t}` + marcador `M{s}-{t}` + distractores;
   queries muestrean hechos y preguntan por su marcador (gold = texto del hecho).
 - Métricas: recall@k (gold en top-k) + latencia query p50/p99 + ingest QPS.
-- Backend: `vantadb_py` si importable, si no fallback dict in-memory
+- Backend: `vantadb` si importable, si no fallback dict in-memory
   (`--no-vantadb` lo fuerza; el harness avisa por stderr qué backend usó).
 - recall@k = 1.0 en fallback dict es TECHO del harness (match exacto por
   marcador), NO claim de calidad de VantaDB — sirve como gate de regresión
   del harness, no para posicionamiento vs SuperMemory/Hindsight.
 
-### Resultados medidos — smoke sintético (fallback dict, sin vantadb_py)
+### Resultados medidos — smoke sintético (fallback dict, sin vantadb)
 
 | backend | dataset | docs | queries | recall@5 | q p50 (ms) | q p99 (ms) |
 | :--- | :--- | ---: | ---: | ---: | ---: | ---: |

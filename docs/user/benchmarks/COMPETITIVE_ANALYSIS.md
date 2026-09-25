@@ -92,7 +92,7 @@ ChromaDB es ~1.4-2.2× más rápido en queries. **Causa:** ChromaDB usa HNSW inc
 
 | # | Acción | Impacto estimado |
 |---|--------|-----------------:|
-| 1 | Exponer `ef_search` como parámetro en `search_memory()` | Permite tuning recall↔velocidad |
+| 1 | Exponer `ef_search` como parámetro en `search()` | Permite tuning recall↔velocidad |
 | 2 | Auto-tune `ef_search` según tamaño del dataset | 5-20% mejora en latencia media |
 | 3 | SIMD check: verificar AVX2/SSE en búsqueda coseno | 10-15% si falta |
 
@@ -356,7 +356,7 @@ Solo se traslada el núcleo técnico verificable respaldado por fuentes (issues 
 - Sin adyacencia de grafo real: cross-references = "tablas vinculadas", travesías multi-hop ineficientes
 - Huella de memoria alta (runtime Go + shards) → difícil en edge
 
-**Posición en el mercado:** cuadrante cloud + más features (ver mapa de posicionamiento en `docs/user/web/standards/product-positioning.md` §4). VantaDB compite en local-first + enfocado; las lecciones de arquitectura (HFresh, lock striping, tombstones async) son el insumo técnico, no un benchmark numérico.
+**Posición en el mercado:** cuadrante cloud + más features (ver mapa de posicionamiento en `ness-e/Vantadb-web` → `docs/user/web/standards/product-positioning.md` §4). VantaDB compite en local-first + enfocado; las lecciones de arquitectura (HFresh, lock striping, tombstones async) son el insumo técnico, no un benchmark numérico.
 
 ---
 

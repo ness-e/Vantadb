@@ -99,7 +99,7 @@ Every node carries a `confidence_score: f32` (default 0.5) that:
 - Supports multi-agent collision tracking via exponential moving average friction metrics
 
 ```python
-record = db.get_memory("namespace", "entity-1")
+record = db.memory.get("namespace", "entity-1")
 print(record.confidence_score)  # 0.85
 ```
 
@@ -171,7 +171,7 @@ The Python SDK exposes individual graph operations that can be composed with vec
 ```python
 # Walk the graph, then search within results
 traversed = db.graph_bfs("namespace", root_id, max_depth=3)
-results = db.search_memory("namespace", query_vector, top_k=10)
+results = db.search("namespace", query_vector, top_k=10)
 # Intersect or filter by traversal results
 ```
 
@@ -200,9 +200,9 @@ This enables:
 ### Minimal Example
 
 ```python
-import vantadb_py as vanta
+import vantadb as vanta
 
-db = vanta.VantaDB("./graphrag_demo")
+db = vanta.Client("./graphrag_demo")
 
 # 1. Insert entities with relational metadata
 db.put("research", "paper-1", "Attention is All You Need",
@@ -231,12 +231,12 @@ db.add_edge("research", "paper-2", "paper-1", "cited_by", weight=0.7)
 print("Citation chain:")
 traversed = db.graph_bfs("research", "paper-1", max_depth=3)
 for node_id in traversed:
-    record = db.get_memory("research", str(node_id))
+    record = db.memory.get("research", str(node_id))
     print(f"  - {record.metadata.get('content', '')[:60]}...")
     print(f"    confidence: {record.confidence_score}")
 
 # 4. Semantic search with confidence
-results = db.search_memory("research", query_vector, top_k=5)
+results = db.search("research", query_vector, top_k=5)
 for r in results:
     if r.confidence_score < 0.4:
         continue  # skip low-confidence matches

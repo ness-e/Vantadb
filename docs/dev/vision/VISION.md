@@ -68,9 +68,9 @@ VantaDB eliminates the fragmentation problem for AI agent developers by providin
 
 **Typical Use Case:**
 ```python
-import vantadb_py as vantadb
+import vantadb
 
-db = vantadb.VantaDB("./agent_memory")
+db = vantadb.Client("./agent_memory")
 
 db.put(
     namespace="agent/main",
@@ -80,7 +80,7 @@ db.put(
     vector=embed("User prefers concise responses"),
 )
 
-context = db.search_memory(
+context = db.search(
     namespace="agent/main",
     query_vector=embed("What does the user prefer?"),
     top_k=5,

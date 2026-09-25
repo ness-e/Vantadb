@@ -106,7 +106,7 @@ fn search(&self, py: Python, query: &[f32]) -> Vec<SearchResult> {
 ```python
 # Secuencial (lento)
 for query in queries:
-    db.search_memory(query_vector=query, top_k=10)
+    db.search(query_vector=query, top_k=10)
 # Total: N × 62 ms
 
 # Batch (rápido, paralelizado con Rayon)
@@ -168,7 +168,7 @@ import time
 
 # Medir latencia de una operación
 start = time.perf_counter()
-results = db.search_memory(query_vector=query, top_k=10)
+results = db.search(query_vector=query, top_k=10)
 latency_ms = (time.perf_counter() - start) * 1000
 
 print(f"Latencia: {latency_ms:.2f} ms")
@@ -182,7 +182,7 @@ import numpy as np
 latencies = []
 for query in queries:
     start = time.perf_counter()
-    db.search_memory(query_vector=query, top_k=10)
+    db.search(query_vector=query, top_k=10)
     latencies.append((time.perf_counter() - start) * 1000)
 
 print(f"p50: {np.percentile(latencies, 50):.2f} ms")

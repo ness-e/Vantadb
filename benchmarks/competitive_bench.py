@@ -89,9 +89,9 @@ except ImportError:
     HAS_MILVUS = False
 
 try:
-    import vantadb_py as vantadb
+    import vantadb
 except ImportError:
-    print("ERROR: 'vantadb_py' is not installed.")
+    print("ERROR: 'vantadb' is not installed.")
     print("Install it from PyPI (standalone, no Rust build required):")
     print("  pip install vantadb-py")
     print("Full benchmark dependencies: pip install -r benchmarks/requirements.txt")
@@ -248,7 +248,7 @@ def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, to
     
     # 1. Ingestion
     start_time = time.perf_counter()
-    db = vantadb.VantaDB(db_path)
+    db = vantadb.Client(db_path)
     
     # VantaDB configuration check: map metric
     # The default distance metric on instantiation maps to cosine. Let's pass the parameter if supported
@@ -297,7 +297,7 @@ def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, to
     # 3. Warm-up: 10 queries (not measured) — D3
     warmup_count = min(10, len(test_vectors))
     for q in test_vectors[:warmup_count]:
-        db.search_memory(
+        db.search(
             namespace=namespace,
             query_vector=q.tolist(),
             top_k=top_k,
@@ -310,7 +310,7 @@ def bench_vantadb(db_path, train_vectors, test_vectors, ground_truth, metric, to
     
     for q in test_vectors:
         t_start = time.perf_counter()
-        results = db.search_memory(
+        results = db.search(
             namespace=namespace,
             query_vector=q.tolist(),
             top_k=top_k,
@@ -1058,7 +1058,7 @@ Este benchmark compara **VantaDB** directamente contra **LanceDB** y **ChromaDB*
 
 {table_md}
 
-*Nota: LanceDB e incremental-HNSW de ChromaDB usan sus wrappers de C/C++ nativos integrados en Python. VantaDB corre a través de sus bindings FFI de PyO3 (`vantadb_py`) consumiendo el core de Rust mapeado en memoria (`mmap`).*
+*Nota: LanceDB e incremental-HNSW de ChromaDB usan sus wrappers de C/C++ nativos integrados en Python. VantaDB corre a través de sus bindings FFI de PyO3 (`vantadb`) consumiendo el core de Rust mapeado en memoria (`mmap`).*
 """
 
             # If section already exists, replace it, otherwise append.

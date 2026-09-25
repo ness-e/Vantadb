@@ -83,17 +83,17 @@ pub struct Posting {
 ### Configuración
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 # BM25 tuning lives in the Rust engine config, not the constructor
-db = vantadb.VantaDB("./data")
+db = vantadb.Client("./data")
 ```
 
 ### Uso
 
 ```python
 # busqueda-lexica pura (solo BM25, sin vector)
-results = db.search_memory(
+results = db.search(
     namespace="default",
     query_vector=[],
     text_query="base de datos embebida",
@@ -101,7 +101,7 @@ results = db.search_memory(
 )
 
 # Phrase query (comillas)
-results = db.search_memory(
+results = db.search(
     namespace="default",
     query_vector=[],
     text_query='"base de datos"',
@@ -130,19 +130,19 @@ results = db.search_memory(
 # Query: "¿Cómo funciona la persistencia WAL?"
 
 # Solo léxica (BM25)
-results_lexical = db.search_memory(
+results_lexical = db.search(
     namespace="default", query_vector=[], text_query="persistencia WAL", top_k=10,
 )
 # Encuentra documentos con esas palabras exactas
 
 # Solo vectorial
-results_vector = db.search_memory(
+results_vector = db.search(
     namespace="default", query_vector=embed(query), text_query=None, top_k=10,
 )
 # Encuentra documentos semánticamente similares
 
 # Híbrida ([RRF](RRF.md))
-results_hybrid = db.search_memory(
+results_hybrid = db.search(
     namespace="default",
     query_vector=embed(query),
     text_query="persistencia WAL",

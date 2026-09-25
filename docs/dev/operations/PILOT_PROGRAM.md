@@ -175,11 +175,11 @@ pip install vantadb-py ollama psutil
 ```python
 import os
 import ollama
-import vantadb_py
+import vantadb
 
 # 1. Initialize local database
 DB_PATH = "./agent_durable_memory"
-db = vantadb_py.VantaDB(DB_PATH, distance_metric="cosine")
+db = vantadb.Client(DB_PATH, distance_metric="cosine")
 NAMESPACE = "agent_memories"
 
 def get_local_embedding(text: str) -> list[float]:
@@ -208,7 +208,7 @@ def query_agent_memory(query_text: str, top_k: int = 2):
     print(f"\n[Hybrid Search] Query: '{query_text}'")
     query_vector = get_local_embedding(query_text)
 
-    results = db.search_memory(
+    results = db.search(
         namespace=NAMESPACE,
         query_vector=query_vector,
         text_query=query_text,

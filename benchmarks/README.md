@@ -1,10 +1,10 @@
 # VantaDB Benchmark Suite
 
-Reproducible performance benchmarks for the VantaDB Python SDK (`vantadb_py`).
+Reproducible performance benchmarks for the VantaDB Python SDK (`vantadb`).
 
 ## Quick start (standalone, public path)
 
-No Rust toolchain required — `vantadb_py` is installed from PyPI.
+No Rust toolchain required — `vantadb` is installed from PyPI.
 
 ```bash
 python -m venv .venv-bench
@@ -70,7 +70,7 @@ The scripts accept either install path (PyPI wheel or `maturin develop`).
 
 | Script | Purpose |
 | :--- | :--- |
-| `vantadb_local_bench.py` | BENCH-01: ingestion + lexical/vector/hybrid search latencies (zero-dep besides `vantadb_py`) |
+| `vantadb_local_bench.py` | BENCH-01: ingestion + lexical/vector/hybrid search latencies (zero-dep besides `vantadb`) |
 | `competitive_bench.py` | VantaDB vs LanceDB vs ChromaDB vs Qdrant vs **Milvus** (embedded, no docker; ingestion, QPS, latency, recall, RSS). Milvus via `pymilvus` + `milvus-lite`. |
 | `batch_vs_sequential_bench.py` | `search_batch()` vs sequential `search()` FFI amortization |
 | `prefetch_comparison.py` | Predictive kernel prefetch impact (SCALE-01) |

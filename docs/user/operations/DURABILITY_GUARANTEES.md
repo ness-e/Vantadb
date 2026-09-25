@@ -281,7 +281,7 @@ compaction point. Keep them if you need historical replay.
 Always verify a backup by opening it in a separate process:
 
 ```
-VantaDB("/backup/location/vantadb", read_only=True)
+Client("/backup/location/vantadb", read_only=True)
 ```
 
 If it opens and queries return expected data, the backup is valid.

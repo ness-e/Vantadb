@@ -45,7 +45,7 @@ El **SDK Python** de VantaDB es una interfaz de programación que permite a desa
 pip install vantadb-py
 
 # Verificación
-python -c "import vantadb_py; print(vantadb_py.__version__)"
+python -c "import vantadb; print(vantadb.__version__)"
 ```
 
 ### Plataformas Soportadas
@@ -60,13 +60,13 @@ python -c "import vantadb_py; print(vantadb_py.__version__)"
 
 ## API Reference
 
-### Clase Principal: VantaDB
+### Clase Principal: Client
 
 ```python
-import vantadb_py as vanta
+import vantadb as vanta
 
 # Inicialización
-db = vanta.VantaDB(
+db = vanta.Client(
     db_path: str,                      # Ruta al directorio de datos
     memory_limit_bytes: int = None,    # Presupuesto de memoria (opcional)
     read_only: bool = False            # Modo solo lectura
@@ -98,10 +98,10 @@ db.put(
 )
 ```
 
-#### get_memory() - Recuperar
+#### memory.get() - Recuperar
 
 ```python
-record = db.get_memory(
+record = db.memory.get(
     namespace: str,
     key: str
 ) -> dict | None
@@ -109,25 +109,25 @@ record = db.get_memory(
 
 **Ejemplo:**
 ```python
-doc = db.get_memory("knowledge_base", "doc-001")
+doc = db.memory.get("knowledge_base", "doc-001")
 if doc:
     print(f"Payload: {doc['payload']}")
     print(f"Vector: {doc['vector'][:5]}...")  # Primeros 5 floats
 ```
 
-#### delete_memory() - Eliminar
+#### memory.delete() - Eliminar
 
 ```python
-deleted = db.delete_memory(
+deleted = db.memory.delete(
     namespace: str,
     key: str
 ) -> bool
 ```
 
-#### list_memory() - Listar
+#### memory.list() - Listar
 
 ```python
-page = db.list_memory(
+page = db.memory.list(
     namespace: str,
     filters: dict = None,              # Filtros de igualdad
     limit: int = 100,
@@ -137,10 +137,10 @@ page = db.list_memory(
 
 ### Búsqueda
 
-#### search_memory()
+#### search()
 
 ```python
-hits = db.search_memory(
+hits = db.search(
     namespace: str,
     query_vector: list[float],         # Vector de consulta
     filters: dict = None,              # Filtros de metadata
@@ -153,7 +153,7 @@ hits = db.search_memory(
 
 **Ejemplo - busqueda-vectorial:**
 ```python
-results = db.search_memory(
+results = db.search(
     namespace="knowledge_base",
     query_vector=embed("¿Cómo funciona la persistencia?"),
     top_k=10
@@ -166,7 +166,7 @@ for hit in results:
 
 **Ejemplo - [busqueda-hibrida](hybrid-search.md):**
 ```python
-results = db.search_memory(
+results = db.search(
     namespace="knowledge_base",
     query_vector=embed("persistencia WAL"),
     text_query="persistencia WAL",     # BM25 + HNSW + [RRF](RRF.md)
@@ -274,7 +274,7 @@ VantaDB libera el Global Interpreter Lock durante operaciones pesadas para permi
 // vantadb-python/src/lib.rs
 #[pymethods]
 impl VantaDB {
-    fn search_memory(&self, py: Python, ...) -> PyResult<Vec<SearchHit>> {
+    fn search(&self, py: Python, ...) -> PyResult<Vec<SearchHit>> {
         // Liberar GIL para permitir paralelismo real
         py.allow_threads(|| {
             // Rust ejecuta en paralelo usando Rayon
@@ -289,10 +289,10 @@ impl VantaDB {
 ## Manejo de Errores
 
 ```python
-from vantadb_py import VantaDB
+from vantadb import Client
 
 try:
-    db = VantaDB("./data")
+    db = Client("./data")
     db.put("ns", "key", "payload", vector=[0.1, 0.2, 0.3])
 except RuntimeError as e:
     print(f"Error de motor: {e}")
@@ -303,9 +303,9 @@ except RuntimeError as e:
 | Operación | Latencia p50 | Throughput |
 |-----------|--------------|------------|
 | put() | 10.7 ms | 95 ops/sec |
-| search_memory() (vectorial) | 62.0 ms | 16 qps |
-| search_memory() (BM25) | 115.3 ms | 9 qps |
-| search_memory() (híbrida) | 179.8 ms | 6 qps |
+| search() (vectorial) | 62.0 ms | 16 qps |
+| search() (BM25) | 115.3 ms | 9 qps |
+| search() (híbrida) | 179.8 ms | 6 qps |
 | search_batch() | 2.43 ms/query | 4.01x speedup |
 
 ## Type Hints
@@ -331,13 +331,13 @@ class VantaDB:
 ```python
 #!/usr/bin/env python3
 """Pipeline RAG completo con VantaDB"""
-import vantadb_py as vanta
+import vantadb as vanta
 from sentence_transformers import SentenceTransformer
 from openai import OpenAI
 
 # 1. Inicializar
 model = SentenceTransformer('all-MiniLM-L6-v2')
-db = vanta.VantaDB("./rag_data")
+db = vanta.Client("./rag_data")
 llm = OpenAI()
 
 # 2. Indexar documentos
@@ -357,7 +357,7 @@ for i, text in enumerate(documents):
 
 # 3. busqueda-hibrida
 query = "¿Cómo garantiza VantaDB la durabilidad?"
-hits = db.search_memory(
+hits = db.search(
     namespace="knowledge_base",
     query_vector=model.encode(query).tolist(),
     text_query=query,

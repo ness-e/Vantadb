@@ -124,7 +124,7 @@ let config = VantaConfig::default()
     .with_rss_threshold(0.85);
 
 // Python SDK
-db = vantadb.VantaDB("./data", memory_limit_bytes=4_096_000_000)
+db = vantadb.Client("./data", memory_limit_bytes=4_096_000_000)
 ```
 
 ### Memory Governor (Hot/Cold Tiering)
@@ -290,7 +290,7 @@ db.put("default", "doc1", "payload", metadata={"category": "A"}, vector=[...])
 db.put("default", "doc2", "payload", metadata={"category": "A"}, vector=[...])
 
 # Search filtered to category A only
-results = db.search_memory(
+results = db.search(
     namespace="default",
     query_vector=[...],
     filters={"category": "A"},

@@ -310,9 +310,9 @@ VANTADB_STORAGE_PATH=/var/lib/vantadb vanta-cli status --db ./vanta_data
 ## 2. Python Constructor
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
-db = vantadb.VantaDB(
+db = vantadb.Client(
     "./vanta_data",
     read_only=False,
     memory_limit_bytes=512_000_000,

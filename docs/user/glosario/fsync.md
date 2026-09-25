@@ -73,8 +73,8 @@ db.put("doc1", vector, text)
 # [POWER OUTAGE 1 second later]
 
 # Reboot
-import vantadb_py as vantadb
-db = vantadb.VantaDB("./data")
+import vantadb
+db = vantadb.Client("./data")
 result = db.get("doc1")
 # result = None ❌ The data was lost!
 ```
@@ -90,9 +90,9 @@ db.put("doc1", vector, text)
 # [POWER OUTAGE 1 second later]
 
 # Reboot
-import vantadb_py as vantadb
-db = vantadb.VantaDB("./data")
-result = db.get_memory("default", "doc1")
+import vantadb
+db = vantadb.Client("./data")
+result = db.memory.get("default", "doc1")
 # result = {...} ✅ Data recovered
 ```
 
@@ -306,10 +306,10 @@ PRAGMA synchronous = OFF;     -- Sin fsync (rápido pero riesgoso)
 
 **VantaDB should implement something similar:**
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 # fsync policy is controlled by the Rust engine config, not the constructor
-db = vantadb.VantaDB("./data")  # fsync siempre (máxima durabilidad)
+db = vantadb.Client("./data")  # fsync siempre (máxima durabilidad)
 ```
 
 ## Durability Testing
