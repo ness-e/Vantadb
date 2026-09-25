@@ -369,3 +369,50 @@ fn test_search_explanation_serialize() {
     let back: SearchExplanation = serde_json::from_str(&json).unwrap();
     assert_eq!(back.route, "hybrid");
 }
+
+#[test]
+fn test_query_result_write_node_id_u128_wire_string() {
+    // Wire contract (API-01): u128 ids travel as decimal strings so ids > 2^53
+    // survive JSON — consistent with MemoryRecord/StaleContext (`u128_serde`).
+    let big: u128 = (1u128 << 63) + 7;
+    let write = QueryResult::Write {
+        affected_nodes: 1,
+        message: "created".into(),
+        node_id: Some(big),
+    };
+    let json = serde_json::to_string(&write).unwrap();
+    assert!(
+        json.contains("\"node_id\":\""),
+        "node_id must serialize as a decimal string, got: {json}"
+    );
+    assert!(
+        json.contains(&big.to_string()),
+        "decimal string must carry the full u128 value: {json}"
+    );
+    let back: QueryResult = serde_json::from_str(&json).unwrap();
+    match back {
+        QueryResult::Write { node_id, .. } => assert_eq!(node_id, Some(big)),
+        other => panic!("expected Write, got {other:?}"),
+    }
+
+    // `None` stays null and roundtrips.
+    let none = QueryResult::Write {
+        affected_nodes: 0,
+        message: "noop".into(),
+        node_id: None,
+    };
+    let json_none = serde_json::to_string(&none).unwrap();
+    let back_none: QueryResult = serde_json::from_str(&json_none).unwrap();
+    match back_none {
+        QueryResult::Write { node_id, .. } => assert_eq!(node_id, None),
+        other => panic!("expected Write, got {other:?}"),
+    }
+
+    // Legacy numeric payloads (<= u64) still deserialize (backward-compatible read).
+    let legacy = r#"{"Write":{"affected_nodes":1,"message":"old","node_id":42}}"#;
+    let back_legacy: QueryResult = serde_json::from_str(legacy).unwrap();
+    match back_legacy {
+        QueryResult::Write { node_id, .. } => assert_eq!(node_id, Some(42)),
+        other => panic!("expected Write, got {other:?}"),
+    }
+}
