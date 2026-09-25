@@ -471,3 +471,9 @@ aliases: []
 - **Objetivo:** Activar el gate de regresión de perf-bench (detectado INERTE por el review P2-01 de EST-05: baseline vacío → compare warning + exit 0).
 - **Resultado:** ✅ Rebaseline via `workflow_dispatch update_baseline=true` (run `36093538630`, median 3 runs, artifact `vanta-benchmark-results`) → `benchmarks/python_baseline.json` compuesto (5 secciones / 16 métricas, `updated: 2026-09-25`, metadata `perf-bench.yml` corregida — fold-in del review) + push. Run de verificación `36094025761`: compare REAL → `##[notice]No regression > 15.0% detected across 16 metrics.` (runtime `##[warning]No baseline stored` = 0). El job ya puede fallar por regresión >15%.
 - **Commit:** 114f55f0
+
+### C-07: curación de PRs/ramas (contrato: PRs abiertos = solo vivos)
+- **Fecha:** 2026-09-25
+- **Objetivo:** Cerrar la higiene de ramas: borrar stale sin PR; dejar solo PRs vivos.
+- **Resultado:** ✅ Remoto: solo `develop`/`main` (8 ramas `release-plz` stale borradas tras capturar SHAs `ce164415…af105a7f`; 8/8 recuperables vía API); locales: 2 merged borradas (`ccc8ee4e`, `bd22f387`), 5 no-merged conservadas; ~35 refs dependabot stale limpiadas con `fetch --prune`; PR abierto único = #222 (intacto). Verify `campaign_verify_cmd` passed=true (`origin=['develop','main'] | open PRs=[222]`). Review P2-01 ✅ ronda 2 (ronda 1 cazó verify por cardinalidad → v2 con set de nombres).
+- **Commit:** ac46911d (+02e7d32a docs)
