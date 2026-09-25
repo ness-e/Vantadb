@@ -3,7 +3,7 @@ title: VantaDB Vision & Strategic Positioning
 type: vision
 status: stable
 tags: [vantadb, product, strategy, uvp, icp, competitive, positioning]
-last_reviewed: 2026-09-15
+last_reviewed: 2026-09-24
 aliases: [Vision, Positioning, UVP, ICP, Competitive Analysis]
 related: [GO_TO_MARKET.md, VANTADB-PRO-FEATURES.md]
 ---
@@ -22,6 +22,8 @@ related: [GO_TO_MARKET.md, VANTADB-PRO-FEATURES.md]
 ### One-Line Positioning
 
 > **"The SQLite for AI Agents"**: persistent memory, hybrid search, and structured context in a single embedded, zero-config database.
+>
+> **Actualización 2026-09-24:** segunda marca candidata — **«la memoria verificable y gobernable que vive en tu proceso»** (categoría propietaria P52: tamper-evident + borrado certificado + redacción persistida + governance de inyección; ver `NOTION-SYNC-2026-09-24.md`).
 
 ### Problem It Solves
 
@@ -107,6 +109,16 @@ response = llm.generate(prompt + "\n\nContext:\n" + format_results(context))
 
 **Use Case:** Cursor, Claude Code, Windsurf using VantaDB as project memory.
 
+### Update 2026-09-24 — Tracks ICP decididos (decisión owner)
+
+Los 3 perfiles se desarrollan **a profundidad en paralelo** (el núcleo es único: motor de memoria embebido gobernado; los tracks son puertas de entrada). Materialización: Backlog P54 (ICP-01..03).
+
+| Track | Perfil | Superficie mínima | Métrica de éxito |
+|---|---|---|---|
+| **ICP-01 AI-IDEs vía MCP** | Cursor / Claude Code / OpenCode | Memoria de proyecto (repo-map/watcher MGR-22) + viewer + hooks robustos | Sesiones con put+search la misma semana (7d, medible en proxy/MCP) |
+| **ICP-02 Local-LLM / privacidad** | Devs anti-cloud, datos sensibles | Redacción persistida + namespaces cifrados + forget certificado | 0 PII en claro en store/índices (auditoría) |
+| **ICP-03 Frameworks** | LangChain/LlamaIndex/CrewAI/DSPy | Adapters publicados en PyPI + importadores desde Mem0/Zep | Installs/semana de adapters |
+
 ---
 
 ## Competitive Analysis Matrix
@@ -130,6 +142,23 @@ response = llm.generate(prompt + "\n\nContext:\n" + format_results(context))
 | **Offline** | ✅ | ❌ | ✅ | Partial | ✅ | ✅ | ✅ |
 | **Cost** | Free (OSS) | $$$ per vector | Free | $$$ Enterprise | Free | Free | Free |
 | **Vendor Lock-in** | None | High | Low | Medium | Low | None | None |
+
+### Memory-as-a-Service (capa 2026-09-24)
+
+La matriz de arriba cubre vector DBs. El **wallet de memoria real** compite contra sistemas de memoria para agentes (pendiente de publicar en `docs/user/COMPARISON.md`; plan P54/VER-09):
+
+| | **VantaDB** | Mem0 | Zep/Graphiti | Letta | LangMem | Cognee |
+|---|---|---|---|---|---|---|
+| Categoría | Motor embebido + memoria | Memoria-as-a-service | KG temporal | Framework con memoria | SDK de memoria | Grafo self-hosted |
+| Embedded/local-first | ✅ core | ❌ | ❌ | ❌ | ⚠️ (store del host) | ⚠️ self-host |
+| Híbrido nativo RRF | ✅ | ⚠️ (semantic+BM25+entity propios) | ⚠️ (cosine+BM25+graph) | ❌ | ❌ | ◐ |
+| Grafo / temporalidad | ✅ grafo; bitemporalidad [PROPUESTA] (P53) | ⚠️ Mem0g | ✅ bi-temporal | ❌ | ❌ | ◐ |
+| MCP profundo | ✅ ~87 tools | ✅ básico | ✅ básico | ✅ | ❌ | ◐ |
+| Consolidación background | ◐ dreams (dry-run/promote pendientes — VER-07) | ✅ Dream | ✅ invalidación | ✅ sleep-time | ✅ background | ✅ Memify |
+| Verificación / gobernanza | **[PROPUESTA] exclusiva** (tamper-evident, borrado certificado, redacción, governance de inyección — P52) | ❌ | ❌ | ❌ | ❌ | ❌ |
+| Benchmarks públicos | ⏳ harness propio (VER-08/09) | ✅ LoCoMo 92.5 / LongMemEval 94.4 | ✅ (disputados) | ✅ 74.0 file-only | ❌ | ✅ self-reported |
+
+> Lectura honesta: hoy VantaDB no tiene números públicos comparables de memoria (lo resolvemos con VER-08/09 y pares accuracy+tokens); su diferenciador actual es la intersección embebido+híbrido+grafo+MCP+desktop, y su apuesta es la columna "verificación/gobernanza" que nadie más ofrece.
 
 ### Key Competitive Advantages
 
@@ -222,7 +251,7 @@ response = llm.generate(prompt + "\n\nContext:\n" + format_results(context))
 |--------|--------|---------|
 | Time-to-first-query | <2 min | ~3 min |
 | Recall@10 (SIFT1M) | ≥0.95 | 0.998 |
-| p50 Search Latency | <20ms | 62ms ⚠️ |
+| p50 Search Latency | <20ms | 62 ms (Python SDK §2, run legado 2026-08-12 — regeneración en DEF-06) · **Rust canonical p50 = 1.48 ms** (100k×1536, BENCHMARKS §8) |
 | Token Reduction (GraphRAG) | 40-60% | ~50% |
 
 ### Business (12-Month Targets)
@@ -232,6 +261,12 @@ response = llm.generate(prompt + "\n\nContext:\n" + format_results(context))
 | Enterprise Pilots | 10+ | 0 |
 | Production Deployments | 50+ | ~5 |
 | Revenue (Cloud Offering) | $100K ARR | $0 |
+
+### North Star (2026-09-24)
+
+**Agentes activos que recuperan una memoria con éxito en ventana de 7 días** (medible en el proxy/MCP: sesiones con put+search la misma semana).
+
+Guardrails: 0 hallazgos high sin parche ≤7 días · 0 regresión p99 >15% (gate revivido) · 100% artefactos con versión sincronizada · 0 violaciones Regla 11 en material público.
 
 ---
 

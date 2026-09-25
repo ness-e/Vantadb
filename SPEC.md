@@ -103,6 +103,20 @@ Convenciones del repo (Rust: `?`+`Result`, sin `unwrap` en prod, clippy `-D warn
 3. `cargo audit`/`deny`/clippy/fmt verdes; coverage docs 0 gaps; OCR sin Critical/High.
 4. 0 regresiones: suites `mcp_tests`/`memory` verdes; binario instalado == fuente.
 
+## Adenda 2026-09-24 — Decisiones post-investigación integral
+
+> Fuente: `docs/dev/plans/2026-09-24-post-investigacion-integral.md` + `docs/dev/research/product-definition-gap-2026-09-24.md`.
+
+| # | Decisión (owner 2026-09-24) | Efecto |
+|---|------------------------------|--------|
+| 1 | **3 tracks ICP** a profundidad: AI-IDEs vía MCP · devs local-LLM/privacidad · frameworks | BIZ-08 resuelta; filas P54 (ICP-01..03) |
+| 2 | **Migración única de schema en 0.7.0**: bitemporalidad + confianza + cuarentena | Filas P53 (SCH-01..08) |
+| 3 | **Harness completo + head-to-head**: LoCoMo/LongMemEval-S/BEAM-subset + write-quality/abstención/tokens/p99-CI | Filas VER-08/VER-09 (absorbe EXE-02) |
+| 4 | **North Star**: agentes activos que recuperan una memoria con éxito en ventana de 7 días (medible en proxy/MCP) | DEF-05 |
+| 5 | **Naming freeze** 0.7.0→1.0 (9 artefactos; ADR) | DEF-04 |
+
+**Frontera:** este SPEC gobierna el MVP de memoria automática; la frontera de superficies (core-promise vs labs) vive en `EXPERIMENTAL_FEATURES.md` regenerado (DEF-02/03) y la jerarquía de producto en `VISION.md` (DEF-01). Los success criteria de campaña de abajo siguen vigentes para el MVP; los de **producto** son la North Star de DEF-05.
+
 ## Open Questions
 
 Ninguna bloqueante del MVP original (FIND-100/106/107 cerradas en campaña — ver avance). Abiertas del cierre-mvp, para DISCOVERY por tarea: fricción del trait en S1 (decide S2, Gate V); semántica TUI (handle de escritura vs límite documentado, FIND-117); productor `submit` S4 y dueño backend S6b (specs 110/113).
