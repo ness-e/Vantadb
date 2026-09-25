@@ -97,6 +97,7 @@
 **Contexto:** owner borró ambas configs (verificado: categorías stale solo aparecen en análisis históricos ≤18:27, previos al borrado). `main` aún contiene `sec-codeql-30.yml` (con schedule semanal) → sus runs re-suben esa categoría.
 **Tarea:** ninguna acción hasta el merge; post-merge verificar que no reaparece la entrada stale.
 **Pruebas (contrato):** tras merge PR #222, `analyses` últimas 20 solo con categoría `sec-codeql.yml:analyze` + banner apagado (confirma owner).
+> ✅ **RESUELTO 2026-09-25** (post-merge #222 `58a41ad8`): `codeql.yml`/`sec-codeql-30.yml` ya no están en `main`; sin analyses nuevas con categoría stale post-merge (las 3 históricas quedan ≤2026-09-24 18:27 y se deslizan del top-20 con los próximos runs). **Banner apagado: confirmación visual owner pendiente.** Detalle: `docs/dev/avance/activo/ci-cd.md`.
 
 ## EST-10 — Barrido API stale fuera de CI
 
@@ -116,6 +117,7 @@
 ## EST-12 — Puertas owner (sin acción agente)
 
 FASE-A (`docs/dev/FASE-A.md`), R-05 manos del owner (opcional), merge #222 + tag `v0.7.0` + publish. El agente solo prepara: PR verde + veredicto EST-11 + checklist de release.
+> ⏳ **PARCIAL 2026-09-25:** merge #222 ✅ (`58a41ad8`) + tag `v0.7.0` + publish completo ✅ (crates.io 0.7.0; npm `vantadb`/`vantadb-wasm` 0.7.0; PyPI `vantadb-py` 0.7.0; 4 wheels en el Release; SBOM). Cascada vía `workflow_dispatch --ref v0.7.0` (los tags de release-plz usan `GITHUB_TOKEN` → no disparan workflows). **Pendiente owner: FASE-A + R-05 (opcional).**
 
 ## Orden de ejecución
 
