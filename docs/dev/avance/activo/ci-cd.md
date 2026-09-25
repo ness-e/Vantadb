@@ -459,3 +459,9 @@ aliases: []
 - **Objetivo:** Dar herramienta medible al DoD v2 (70% cobertura) + 0 deps sin justificar (Regla 6) + OSV-Scanner en CI junto a cargo audit.
 - **Resultado:** ✅ machete 9 paths exit 0 (1 dev-dep `clap` removida + 7 ignored justificados); OSV 2.6.0 exit 0 (2 vulns reales lru/paste triageadas en osv-scanner.toml — audit.toml las silencia); jobs `osv`+`machete` en ci-rust.yml + REQUIRED en ci-gate; DoD v2 nombra las 3 herramientas reales.
 - **Commit:** 3fef3cf9 (+9b75978 en configOpencode: DoD v2)
+
+### EST-03: ci-gate mide `main` HEAD (fix del rojo eterno en PRs)
+- **Fecha:** 2026-09-24
+- **Objetivo:** El check `ci-gate / Main is green` (reusable; consumido por `fuzz`/`heavy-bench-nightly`/`heavy-certification` vía `needs: ci-gate`) fallaba en cada PR: usaba el head SHA del PR, corría a los 14s con checks pending → 13 `<not found>` → fail-closed eterno (y skipeaba los jobs de fuzz en PRs).
+- **Resultado:** ✅ mide `main` HEAD vía API + conclusión más reciente por nombre (`sort_by(.started_at)`); `success|skipped|neutral` pass; `failure|timed_out|cancelled|action_required` fail; sin runs en main → WARN tolerado (OSV/machete aún no corren en main pre-merge). Decisión owner opción A. Verificación local 3/3 casos (REQUIRED real → FAILED=0; +`Lint Markdown` failure → FAILED=1; inexistente → WARN) + `ci-gate / Main is green` = **pass** en PR #222 (run `36084499760`). Nota: el check no está en los rulesets (11 contexts) — no bloqueaba merge, pero su rojo skipeaba fuzz.
+- **Commit:** 0c27a960
