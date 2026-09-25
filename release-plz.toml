@@ -7,6 +7,10 @@ publish = true
 # Don't publish these crates (no public API)
 publish_allow_dirty = false
 
+# Release only when the Release PR is merged (not on every main push):
+# avoids publishing before the changelog entry lands on main (HIG-01 / 0.7.0 race).
+release_always = false
+
 # Git
 git_tag_enable = true
 git_tag_name = "v{{ version }}"
