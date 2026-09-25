@@ -65,9 +65,9 @@ CREATE TABLE memories (
 
 ```python
 # VantaDB equivalent — no schema declaration needed
-import vantadb_py as vantadb
+import vantadb
 
-db = vantadb.VantaDB("./vanta_data")
+db = vantadb.Client("./vanta_data")
 
 # Insertion implicitly defines the record shape
 db.put(
@@ -148,10 +148,10 @@ The JSONL format expected by `vanta-cli import`:
 
 ```python
 # import_to_vantadb.py
-import vantadb_py as vantadb
+import vantadb
 import json
 
-db = vantadb.VantaDB("./vanta_data")
+db = vantadb.Client("./vanta_data")
 
 with open("memories.jsonl") as f:
     for line in f:

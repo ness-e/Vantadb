@@ -65,8 +65,8 @@ Run these quick measurements if applicable. Leave blank if not measured this wee
 | Metric | Value |
 |---|---|
 | `put` avg latency (ms) | |
-| `search_memory` p50 (ms) | |
-| `search_memory` p95 (ms) | |
+| `search` p50 (ms) | |
+| `search` p95 (ms) | |
 | `rebuild_index` time (s) | |
 | Memory usage (RSS, MB) | |
 | Database size on disk (MB) | |

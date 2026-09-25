@@ -120,12 +120,12 @@ impl HybridSearch {
 ### Uso desde Python
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
-db = vantadb.VantaDB("./data")
+db = vantadb.Client("./data")
 
-# busqueda-hibrida (vector + BM25 con RRF dentro de search_memory)
-results = db.search_memory(
+# busqueda-hibrida (vector + BM25 con RRF dentro de search)
+results = db.search(
     namespace="default",
     query_vector=embed("¿Cómo funciona la persistencia?"),
     text_query="persistencia WAL durability",
@@ -140,10 +140,10 @@ for result in results:
 ### Configuración
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
-# RRF fusion happens inside search_memory when both query_vector and text_query are set
-db = vantadb.VantaDB("./data")
+# RRF fusion happens inside search when both query_vector and text_query are set
+db = vantadb.Client("./data")
 ```
 
 ## Modos de Fusión
@@ -151,7 +151,7 @@ db = vantadb.VantaDB("./data")
 ### 1. RRF (Default)
 
 ```python
-results = db.search_memory(
+results = db.search(
     namespace="default",
     query_vector=query_vector,
     text_query=query_text,
@@ -167,8 +167,8 @@ results = db.search_memory(
 ### 2. Weighted Sum (Alternativo)
 
 ```python
-# RRF fusion with search_memory (weighted mixing is engine config)
-results = db.search_memory(
+# RRF fusion with search (weighted mixing is engine config)
+results = db.search(
     namespace="default",
     query_vector=query_vector,
     text_query=query_text,

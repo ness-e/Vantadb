@@ -111,9 +111,9 @@ agent = initialize_agent(
 
 ```python
 from crewai import Agent
-import vantadb_py as vantadb
+import vantadb
 
-db = vantadb.VantaDB("./crew_memory")
+db = vantadb.Client("./crew_memory")
 
 researcher = Agent(
     role="Researcher",
@@ -170,7 +170,7 @@ if "prefiero respuestas cortas" in user_message:
     )
 
 # Apply preference in future responses
-prefs = db.search_memory(namespace="agent/main", query_vector=embed("user preferences"), top_k=3)
+prefs = db.search(namespace="agent/main", query_vector=embed("user preferences"), top_k=3)
 response_style = "concise" if has_brevity_pref(prefs) else "detailed"
 ```
 

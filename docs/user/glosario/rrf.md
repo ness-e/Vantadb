@@ -110,7 +110,7 @@ pub fn reciprocal_rank_fusion(
 ### hybrid-search in VantaDB
 
 ```python
-results = db.search_memory(
+results = db.search(
     namespace="default",
     query_vector=embed("query"),
     text_query="query",

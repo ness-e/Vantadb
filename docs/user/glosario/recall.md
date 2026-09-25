@@ -99,11 +99,11 @@ fn test_hnsw_recall_sift1m() {
 ### Configuración Recomendada
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 # HNSW params (M, ef_construction, ef) live in the Rust engine config,
 # not the constructor.
-db = vantadb.VantaDB("./data")
+db = vantadb.Client("./data")
 # Alta precisión (recall > 0.98): M=32, ef_construction=400, ef=200
 # Balanceado (recall ~0.95): M=16, ef_construction=200, ef=100
 # Baja latencia (recall ~0.90): M=8, ef_construction=100, ef=50

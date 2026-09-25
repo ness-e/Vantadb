@@ -108,10 +108,10 @@ record = db.put(
 )
 
 # 3. Recupera el registro exacto por clave
-stored = db.get_memory("agent/main", "memory-001")
+stored = db.memory.get("agent/main", "memory-001")
 
 # 4. Búsqueda híbrida (BM25 + Similitud del Coseno fusionada vía RRF)
-hits = db.search_memory("agent/main", query_vector=[0.11, 0.89, 0.55], top_k=5)
+hits = db.search("agent/main", query_vector=[0.11, 0.89, 0.55], top_k=5)
 
 # 5. Telemetría operativa y apagado seguro
 caps = db.hardware_profile()

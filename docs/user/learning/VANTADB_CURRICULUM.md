@@ -207,7 +207,7 @@ This is the strongest portfolio piece of the whole curriculum because it demonst
 - **Reviewer:** have AI review your PyO3 wrapper for GIL/panic-correctness (pyo3 has sharp edges — `panics` crossing the boundary abort the process). This is a legit safety review.
 
 **Done criteria (medium = …):**
-- You can trace a `search_memory()` call from Python through PyO3 to the Rust SDK boundary and back, naming the types at each hop.
+- You can trace a `search()` call from Python through PyO3 to the Rust SDK boundary and back, naming the types at each hop.
 - You can explain why the SDK boundary exists (to keep consumers off `StorageEngine`/`Executor`/direct HNSW locks).
 - You can state what WASM stubs are in place by design (bonus, not required).
 

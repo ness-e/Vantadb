@@ -33,12 +33,12 @@ $$
 ## Implementación en VantaDB
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
-db = vantadb.VantaDB("./data")
+db = vantadb.Client("./data")
 
 # Búsqueda vectorial: recupera nodos relevantes
-results = db.search_memory(
+results = db.search(
     namespace="default",
     query_vector=embed("¿Quién trabaja en Acme?"),
     top_k=10,
@@ -69,9 +69,9 @@ neighbors = db.graph_bfs(roots, max_depth=2)  # Expandir 2 niveles de relaciones
 ### 1. Memoria de Agentes de IA
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
-db = vantadb.VantaDB("./data")
+db = vantadb.Client("./data")
 
 # Agente recuerda conversaciones con contexto relacional
 db.put("default", "user_pref_1",
@@ -79,7 +79,7 @@ db.put("default", "user_pref_1",
 db.add_edge(1, 2, "preferencia_de")  # enlaza user_pref_1 con user_123
 
 # Búsqueda recupera preferencia + usuario + conversaciones relacionadas
-results = db.search_memory(
+results = db.search(
     namespace="default",
     query_vector=embed("preferencias usuario"),
     top_k=10,
@@ -90,9 +90,9 @@ neighbors = db.graph_bfs([hit.node_id for hit in results], max_depth=2)
 ### 2. Knowledge Base Empresarial
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
-db = vantadb.VantaDB("./data")
+db = vantadb.Client("./data")
 
 # Documentos conectados por relaciones
 db.put("default", "policy_security",
@@ -105,9 +105,9 @@ db.add_edge(1, 2, "aprobado_por")  # enlaza policy_security con dept_legal
 ### 3. Codebase Intelligence
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
-db = vantadb.VantaDB("./data")
+db = vantadb.Client("./data")
 
 # Funciones conectadas por llamadas
 db.put("default", "function_auth", payload="def authenticate()...")

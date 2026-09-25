@@ -51,7 +51,7 @@ related: []
 ## Cobertura del harness (motores disponibles en este HW)
 | Motor | Cliente | Disponible aquí | Medido | Cómo |
 |-------|---------|----------------|--------|------|
-| VantaDB | `vantadb_py` | ✅ | ✅ | PyO3 local |
+| VantaDB | `vantadb` | ✅ | ✅ | PyO3 local |
 | LanceDB | `lancedb` | ✅ | ✅ | in-process |
 | ChromaDB | `chromadb` | ✅ | ✅ (1 iter válida) | in-process |
 | Qdrant | `qdrant_client` | ✅ | ✅ | `QdrantClient(path=)` embedded, sin docker |

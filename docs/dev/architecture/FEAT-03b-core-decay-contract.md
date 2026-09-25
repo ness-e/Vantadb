@@ -76,7 +76,7 @@ flow.
    - `supersede(namespace, old_key, new_key)` method.
    - Getters `superseded_by` / `superseded_at_ms` on the record wrapper
      (mirror `expires_at_ms`, vantadb-python/src/types.rs:120).
-   - `search_memory` / `list_memory` accept `exclude_superseded`.
+   - `search` / `memory.list` accept `exclude_superseded`.
    - Async wrappers in `vantadb-python/vantadb_py/__init__.py`.
 7. **CLI (optional, cheap)** — `src/cli_handlers/crud.rs` already prints record
    fields; surface the two new fields in get/list output. Cut if lead prefers

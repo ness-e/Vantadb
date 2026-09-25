@@ -81,10 +81,10 @@ pub struct BooleanIndex {
 ### Python
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 # Payload index configuration lives in the Rust engine config, not the constructor
-db = vantadb.VantaDB("./data")
+db = vantadb.Client("./data")
 ```
 
 ### Rust

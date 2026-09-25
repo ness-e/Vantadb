@@ -21,8 +21,8 @@ description: "Rust framework to create Python extensions and bidirectional bindi
 ```
 ┌─────────────────────────────────────┐
 │         Código Python                │
-│  import vantadb_py as vantadb        │
-│  db = vantadb.VantaDB("./data")      │
+│  import vantadb                      │
+│  db = vantadb.Client("./data")       │
 └──────────────┬──────────────────────┘
                │
                ▼
@@ -108,10 +108,10 @@ maturin develop
 ### Use from Python
 
 ```python
-import vantadb_py as vantadb
+import vantadb
 
 # Create instance
-db = vantadb.VantaDB("./agent_memory")
+db = vantadb.Client("./agent_memory")
 
 # Insert document with vector
 db.put(
@@ -123,14 +123,14 @@ db.put(
 )
 
 # Search by vector similarity
-results = db.search_memory(
+results = db.search(
     namespace="default",
     query_vector=[0.11, -0.33, 0.55],
     top_k=10,
 )
 
 # hybrid-search (vector + lexical)
-results = db.search_memory(
+results = db.search(
     namespace="default",
     query_vector=[0.11, -0.33, 0.55],
     text_query="database",

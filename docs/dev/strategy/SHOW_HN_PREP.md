@@ -44,10 +44,10 @@ VantaDB was built from the ground up to solve this: a Rust library that exposes 
 
 ### Quick Python Example
 ```python
-import vantadb_py
+import vantadb
 
 # Initialize database
-db = vantadb_py.VantaDB(db_path="./agent_memory")
+db = vantadb.Client(db_path="./agent_memory")
 
 # Store memory with payload
 record = db.put(
@@ -59,7 +59,7 @@ record = db.put(
 )
 
 # Search using hybrid retrieval (Lexical + Vector)
-results = db.search_memory(
+results = db.search(
     namespace="llm_interactions",
     query_vector=[0.15, -0.18, 0.88, ...],
     text_query="topological BFS MMap",

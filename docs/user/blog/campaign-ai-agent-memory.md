@@ -32,7 +32,7 @@ High-level status: **2 of 3 deliverables covered. 1 deliverable (D2) is an open 
 
 - **Path:** `web/src/app/solutions/ai-agents/page.tsx` — route **`/solutions/ai-agents`**.
 - **Copy:** localized ES/EN in `web/src/lib/dictionaries.ts` (`solutionsAgents.*`): pain ("Memory that forgets"), solution, 4-step flow (observe → put → flush → reopen intact), metric labels (recall latency 1.2ms, network hops 0, Recall@10), CTA (`pip install vantadb-py`).
-- **Tutorial complement:** `docs/user/tutorials/01-ai-agent-memory.md` — full "Building AI Agent Memory" REPL build (`search_memory`, `text_query`, metadata filters).
+- **Tutorial complement:** `docs/user/tutorials/01-ai-agent-memory.md` — full "Building AI Agent Memory" REPL build (`search`, `text_query`, metadata filters).
 - **Criterion (verifiable):** `cd web && npm run dev` → `http://localhost:3000/solutions/ai-agents` renders the "Give your agent a memory" section with the 4-step flow and CTA. **Status: ✅ covered.**
 
 ### D2 — Blog benchmark: memory vs full-context — ❌ OPEN (real gap)
@@ -48,7 +48,7 @@ High-level status: **2 of 3 deliverables covered. 1 deliverable (D2) is an open 
 
 - **Path:** `web/src/app/demo/page.tsx` + `web/src/app/playground/page.tsx` + `web/src/components/vanta/code-playground.tsx` — interactive API runnable in the browser via the WASM runtime; each run opens a fresh in-memory instance (see `code-playground.tsx` line ~620: "Each Run opens a fresh in-memory VantaDB instance (wasm32 engine)").
 - REPL illustration in `docs/user/tutorials/01-ai-agent-memory.md`.
-- **Criterion (verifiable):** `cd web && npm run dev` → `/playground` runs `put` → `get` → `search_memory` and prints expected values without a server. **Status: ✅ covered.**
+- **Criterion (verifiable):** `cd web && npm run dev` → `/playground` runs `put` → `get` → `search` and prints expected values without a server. **Status: ✅ covered.**
 
 ---
 

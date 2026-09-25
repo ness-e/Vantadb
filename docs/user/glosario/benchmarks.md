@@ -50,7 +50,7 @@ $$
 ```python
 # benchmarks/vantadb_local_bench.py
 import time
-import vantadb_py as vantadb
+import vantadb
 
 def benchmark_search(db, vectors, top_k=10, iterations=1000):
     latencies = []
