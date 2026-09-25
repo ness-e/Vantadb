@@ -2,10 +2,10 @@
   "$schema": "https://opencode.ai/config.json",
   "model": "deepseek-v4-flash-free",
   "small_model": "deepseek-v4-flash-free",
-  "subagent_depth": 2,
   "plugins": [],
   "experimental": {
-    "disable_paste_summary": true
+    "disable_paste_summary": true,
+    "subagent_depth": 2
   },
   "mcp": {
     "servers": {
