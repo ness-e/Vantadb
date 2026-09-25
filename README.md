@@ -348,15 +348,15 @@ VantaDB includes a formal Python-native performance benchmark suite (**BENCH-01*
 
 ### In-Process Performance Baseline (10K Vectors, 128d, Cosine)
 
-Measured single-threaded SDK baselines (including the PyO3/GIL boundary) are published in [docs/user/operations/BENCHMARKS.md](docs/user/operations/BENCHMARKS.md): SDK operation latencies (`put`, BM25, HNSW, hybrid) and the certified Rust stress-protocol results (10K–100K, recall, memory, scaling). Numbers depend on hardware and build — regenerate locally with the suite below to reproduce them on your machine.
+Measured baselines are published in [docs/user/operations/BENCHMARKS.md](docs/user/operations/BENCHMARKS.md): the certified Rust stress-protocol results (10K–100K, recall, memory, scaling) plus the frozen Python-SDK operation table (`put`, BM25, HNSW, hybrid — CI 2026-08-12, pre-SIMD, pending DEF-06 regen). Numbers depend on hardware and build — regenerate locally with the suite below to reproduce them on your machine.
 
-| Metric | Latest local baseline (`vanta_benchmark_report.json`, 10K×128d, regenerate locally) |
+| Metric | Canonical baseline (BENCHMARKS.md §1 — Rust core 10K×128d, no PyO3/GIL) |
 | :--- | :--- |
-| **Ingestion** (Insert + WAL + Flush) | 74.0 records/sec (p50 13.2 ms) |
-| **Search (Vector HNSW)** | p50 2.0 ms (~500 queries/sec) |
-| **Search (Hybrid fusion)** | p50 3.1 ms (~320 queries/sec) |
+| **Search (Vector HNSW)** | p50 1.2 ms |
+| **Scaling** (10K → 50K) | 4.88x sub-linear (p50 6.1 ms @50K) |
+| **Recall@10** | 0.9560 @10K (Bloque 1) / 0.9980 @100K (scaling) |
 
-*Source: [`benchmarks/vanta_benchmark_report.json`](benchmarks/vanta_benchmark_report.json) — regenerable with `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000` (gitignored; not a committed artifact).* BM25 text-search latency is excluded above because the local artifact reports a degenerate outlier (p50 0.0035 ms for a single-document text query); see the full CI series table in [BENCHMARKS.md §2](docs/user/operations/BENCHMARKS.md).
+*Source: [BENCHMARKS.md §1](docs/user/operations/BENCHMARKS.md) — Stress Protocol on AVX2 CI hardware (Regla 11: bench file + environment versioned in-repo).* SDK-scope latencies (`put`, BM25, hybrid via PyO3/GIL) live only in the [frozen §2 table](docs/user/operations/BENCHMARKS.md) until DEF-06 regenerates them — no SDK-scope claim is made here (MGR-19: prior 2.0/3.1 ms rows cited a gitignored local artifact and matched neither it nor §2). Regenerate any number locally with `python benchmarks/vantadb_local_bench.py --size 10000 --dim 128 --queries 1000` (output `benchmarks/vanta_benchmark_report.json` is gitignored — a local run is not a citable claim). BM25 text-search latency is excluded above because local artifacts report a degenerate outlier (single-document text query); see the frozen CI series in [BENCHMARKS.md §2](docs/user/operations/BENCHMARKS.md).
 
 ### SIFT-1M Competitive Benchmarks (100K scale) — Phase 2
 
