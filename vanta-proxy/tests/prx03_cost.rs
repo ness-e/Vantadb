@@ -74,6 +74,7 @@ fn state_with_cost(upstream: &str, cost: CostConfig) -> server::AppState {
         context: Default::default(),
         guardrails: Default::default(),
         translate: Default::default(),
+        injection: Default::default(),
     };
     server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }
@@ -194,4 +195,50 @@ async fn over_budget_without_enforce_allows_log_first() {
 
     let resp = post_messages(&proxy, priced_message()).await;
     assert_eq!(resp.status().as_u16(), 200, "log-first must not block");
+}
+
+// ── WIRE-01 Step 2 RED: cost real en el path productivo ─────────────────────
+// El mock devuelve `usage{input_tokens:10, output_tokens:3}`; el path con
+// buffer (exact cache on) debe registrar el lado output → output_tokens ≠ 0.
+// Hoy FAIL: `record_response_usage` solo se invoca en unit tests.
+#[tokio::test]
+async fn buffered_response_records_output_tokens_nonzero() {
+    use vanta_proxy::config::CacheConfig;
+
+    let upstream = spawn(mock_ok()).await;
+    let cfg = ProxyConfig {
+        server: ServerConfig::default(),
+        upstream: UpstreamConfig {
+            url: upstream.clone(),
+            api_key: String::new(),
+            forward_timeout_secs: 600,
+            models: Vec::new(),
+        },
+        upstreams: Vec::new(),
+        auth: AuthConfig::default(),
+        mem_command: MemCommandConfig::default(),
+        writeback: vanta_proxy::config::WritebackConfig::default(),
+        cache: CacheConfig {
+            enabled: true,
+            ..Default::default()
+        },
+        report: Default::default(),
+        cost: CostConfig::default(),
+        routing: Default::default(),
+        redact: Default::default(),
+        context: Default::default(),
+        guardrails: Default::default(),
+        translate: Default::default(),
+        injection: Default::default(),
+    };
+    let state = server::AppState::from_engine(cfg, seeded_engine()).unwrap();
+    let proxy = spawn(server::router(state.clone())).await;
+
+    let resp = post_messages(&proxy, priced_message()).await;
+    assert_eq!(resp.status().as_u16(), 200);
+
+    assert!(
+        state.cost.output_tokens_by_session("s-cost") != 0,
+        "buffered usage must land output_tokens in the ledger"
+    );
 }

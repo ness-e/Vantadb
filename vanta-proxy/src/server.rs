@@ -257,8 +257,9 @@ impl AppState {
         }
         // PRX-03: request-side cost accounting. Best-effort and fail-open:
         // an unresolvable identity simply records nothing — the wire
-        // already ran. Output side stays 0 until a buffered body exists
-        // (`record_response_usage`, wired by a future SSE drain).
+        // already ran. Output side lands via `record_response_usage` on the
+        // buffered path (`maybe_store` below); streaming/SSE passthrough
+        // never buffers and stays input-only.
         let mut virtual_key = String::new();
         let mut session = String::new();
         let mut input_tokens = 0u64;
@@ -409,8 +410,11 @@ impl AppState {
         self.sessions.ensure(&key);
 
         // 5) D29: system-prompt injection + L0/L1 tools. Non-JSON bodies
-        // pass through untouched.
-        let memory_block = inject::build_memory_block(&self.memory, &key);
+        // pass through untouched. WIRE-01: the block is capped by the
+        // configured token budget (persona/scenes only — turns live in
+        // l1/{session} for the search path, keeping this prefix stable).
+        let memory_block =
+            inject::build_memory_block(&self.memory, &key, self.config.injection.max_tokens);
         let body = match inject::inject_into(&body, protocol, &memory_block) {
             Ok(Some(modified)) => Bytes::from(modified),
             Ok(None) => body,
@@ -483,9 +487,25 @@ impl AppState {
 
         // 5c) Store small JSON 2xx for the next identical request.
         // SSE/chunked/unknown-length responses bypass — never buffered.
+        // WIRE-01: the same buffered site observes response usage for cost
+        // (identity resolved like the optimizer gate above — authenticated
+        // requests only; empty key skips the recording inside).
         if cacheable {
+            let user_key = self
+                .auth
+                .authenticate(headers)
+                .map(|id| id.user_id)
+                .unwrap_or_default();
             return self
-                .maybe_store(eff_protocol, &eff_wire_path, body, response)
+                .maybe_store(
+                    eff_protocol,
+                    &eff_wire_path,
+                    body,
+                    response,
+                    &key,
+                    model,
+                    &user_key,
+                )
                 .await;
         }
         response
@@ -518,12 +538,23 @@ impl AppState {
     /// Buffer a small JSON 2xx and store it; anything else flows through
     /// untouched. The body is only consumed after the cacheability gate
     /// passed (known content-length within budget).
+    ///
+    /// WIRE-01: the buffered bytes are also the productive cost-observation
+    /// point — when `cost.enabled` and the caller resolved a virtual key,
+    /// upstream `usage` lands in the ledger via
+    /// [`crate::cost::CostTracker::record_response_usage`] (output side stops
+    /// being 0 on this path; streaming passthrough never buffers and stays
+    /// input-only). Never fails the request: an empty key simply skips the
+    /// recording.
     async fn maybe_store(
         &self,
         protocol: Protocol,
         path: &str,
         request: Bytes,
         response: Response<Body>,
+        session: &str,
+        model: &str,
+        virtual_key: &str,
     ) -> Response<Body> {
         let (parts, body) = response.into_parts();
         let status = parts.status.as_u16();
@@ -543,6 +574,12 @@ impl AppState {
         let limit = usize::try_from(cache::MAX_CACHEABLE_BODY_BYTES + 1).unwrap_or(usize::MAX);
         match axum::body::to_bytes(body, limit).await {
             Ok(bytes) => {
+                // WIRE-01: response-side cost on the buffered body (fail-open:
+                // no `usage` → 0.0 added; empty key → skipped entirely).
+                if self.config.cost.enabled && !virtual_key.is_empty() {
+                    self.cost
+                        .record_response_usage(virtual_key, session, model, &bytes);
+                }
                 let entry = CachedEntry {
                     status,
                     content_type,

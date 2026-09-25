@@ -253,6 +253,23 @@ impl CostTracker {
             .unwrap_or(0.0)
     }
 
+    /// Total output tokens recorded in one session across keys × models
+    /// (WIRE-01: proves the response side is wired — `record_response_usage`
+    /// runs in a productive path, not just in tests). Fail-open on a
+    /// poisoned mutex (zero, never an error).
+    pub fn output_tokens_by_session(&self, session: &str) -> u64 {
+        self.ledger
+            .lock()
+            .map(|ledger| {
+                ledger
+                    .iter()
+                    .filter(|((_, s, _), _)| s == session)
+                    .map(|(_, (usage, _))| usage.output_tokens)
+                    .sum()
+            })
+            .unwrap_or(0)
+    }
+
     /// Total USD spent in one session across keys × models.
     pub fn spent_by_session(&self, session: &str) -> f64 {
         self.ledger

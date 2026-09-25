@@ -53,6 +53,9 @@ pub struct ProxyConfig {
     /// Anthropic↔OpenAI translation (PRX-11 slice 3). Disabled by default
     /// so the wire stays byte-identical unless explicitly opted in.
     pub translate: crate::translate::TranslateConfig,
+    /// Memory-block injection budget (WIRE-01). Caps `<vanta-memory>` tokens;
+    /// defaults keep existing behavior (seeds are tiny against the default).
+    pub injection: InjectionConfig,
 }
 
 impl ProxyConfig {
@@ -71,6 +74,30 @@ impl ProxyConfig {
             vec![self.upstream.clone()]
         } else {
             self.upstreams.clone()
+        }
+    }
+}
+
+/// Default `<vanta-memory>` budget in tokens (WIRE-01): persona + scene +
+/// a few recent turns fit comfortably; runaway histories get truncated by
+/// section priority instead of growing the prompt unbounded.
+pub const DEFAULT_INJECTION_MAX_TOKENS: u64 = 2000;
+
+/// Memory-block injection budget (WIRE-01). Caps the `<vanta-memory>` system
+/// prompt block via the canonical `estimate_text_tokens` heuristic (~4
+/// chars/token — guardrail precision, not billing). `0` disables memory
+/// injection entirely (empty block → prompt untouched).
+#[derive(Debug, Clone, Deserialize)]
+#[serde(default)]
+pub struct InjectionConfig {
+    /// Max tokens for the assembled block (wrapper tags included).
+    pub max_tokens: u64,
+}
+
+impl Default for InjectionConfig {
+    fn default() -> Self {
+        Self {
+            max_tokens: DEFAULT_INJECTION_MAX_TOKENS,
         }
     }
 }

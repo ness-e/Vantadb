@@ -115,6 +115,7 @@ async fn setup(path: &'static str, responses: Vec<String>) -> Env {
         context: Default::default(),
         guardrails: Default::default(),
         translate: Default::default(),
+        injection: Default::default(),
     };
     let proxy_url = spawn(server::router(
         server::AppState::from_engine(cfg, engine.clone()).unwrap(),
@@ -376,5 +377,155 @@ async fn e_final_response_streaming_intact() {
         String::from_utf8(collected).unwrap(),
         final_body,
         "final SSE body intact, chunk order preserved"
+    );
+}
+
+// ── WIRE-01 (f) loop e2e: sesión-1 captura → sesión-2 search con hits ───────
+// El turno de sesión-1 persiste en `l1/{session}` (dual-write del job L0);
+// cuando el modelo invoca `vanta_memory_search` en sesión-2, el recall
+// sincrónico devuelve el turno (hits, no "No relevant memories found").
+// Sin el dual-write este test da 0 hits (loop inerte).
+#[tokio::test]
+async fn loop_e2e_capture_then_search_hits() {
+    let phrase = "xylophone-quasar-7429 prefers concise answers";
+    let env = setup(
+        "/v1/chat/completions",
+        vec![
+            openai_final_sse("ack one"),
+            openai_tool_call_sse(
+                "vanta_memory_search",
+                json!({"query": "recall xylophone concise notes"}),
+            ),
+            openai_final_sse("answered"),
+        ],
+    )
+    .await;
+
+    // Sesión-1: request normal con session header → captura L0 (async).
+    let resp = post_json(
+        &env.proxy_url,
+        OPENAI_PATH,
+        json!({"model":"gpt-test","messages":[{"role":"user","content": phrase}]}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+
+    // Esperar el dual-write L1 (WriteBack fire-and-forget — poll, no sleep fijo).
+    let db = vantadb::sdk::Embedded::from_engine(env.engine.clone());
+    let mut landed = false;
+    for _ in 0..100 {
+        let records = vanta_memory::core::record::l1_reader::read_session_records(&db, "sess-loop")
+            .unwrap_or_default();
+        if records.iter().any(|r| r.content.contains(phrase)) {
+            landed = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    assert!(landed, "session-1 turn must land in l1 before session-2");
+
+    // Sesión-2 (misma sesión): el modelo invoca search → hits con el turno.
+    let resp = post_json(
+        &env.proxy_url,
+        OPENAI_PATH,
+        json!({"model":"gpt-test","messages":[{"role":"user","content":"what do you recall?"}]}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+
+    // Tres forwards: s1 + s2 round-1 (tool) + s2 round-2 (con el resultado).
+    assert_eq!(env.bodies.lock().unwrap().len(), 3);
+    let rerequest = env.bodies.lock().unwrap()[2].clone();
+    let second: Value = serde_json::from_slice(&rerequest).unwrap();
+    let tool_msg = second["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["role"] == "tool")
+        .expect("re-request carries the tool result");
+    let content = tool_msg["content"].as_str().unwrap_or("");
+    assert!(
+        content.contains("xylophone-quasar-7429"),
+        "search must hit the captured turn, got: {content}"
+    );
+    assert!(
+        !content.contains("No relevant memories found"),
+        "search must not report empty: {content}"
+    );
+}
+
+// ── WIRE-01 (f2) boundary LLM08: el search no mezcla sesiones ───────────────
+// Un turno de sess-A es invisible para el search de sess-B (records sin
+// tenant quedan session-only bajo el scope Agent default).
+#[tokio::test]
+async fn loop_e2e_search_stays_session_scoped() {
+    async fn post_session(proxy_url: &str, session: &str, body: Value) -> reqwest::Response {
+        reqwest::Client::new()
+            .post(format!("{proxy_url}{OPENAI_PATH}"))
+            .header("content-type", "application/json")
+            .header("x-vanta-user-key", USER_KEY)
+            .header("x-claude-code-session-id", session)
+            .json(&body)
+            .send()
+            .await
+            .unwrap()
+    }
+
+    let phrase = "xylophone-quasar-7429 stays in session A";
+    let env = setup(
+        "/v1/chat/completions",
+        vec![
+            openai_final_sse("ack A"),
+            openai_tool_call_sse(
+                "vanta_memory_search",
+                json!({"query": "recall xylophone concise notes"}),
+            ),
+            openai_final_sse("answered B"),
+        ],
+    )
+    .await;
+
+    let resp = post_session(
+        &env.proxy_url,
+        "sess-A",
+        json!({"model":"gpt-test","messages":[{"role":"user","content": phrase}]}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+
+    let db = vantadb::sdk::Embedded::from_engine(env.engine.clone());
+    let mut landed = false;
+    for _ in 0..100 {
+        let records = vanta_memory::core::record::l1_reader::read_session_records(&db, "sess-A")
+            .unwrap_or_default();
+        if records.iter().any(|r| r.content.contains(phrase)) {
+            landed = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(50)).await;
+    }
+    assert!(landed, "sess-A turn must land in l1");
+
+    // Sess-B busca lo mismo → sin hits (vacío, no filtración de A).
+    let resp = post_session(
+        &env.proxy_url,
+        "sess-B",
+        json!({"model":"gpt-test","messages":[{"role":"user","content":"what do you recall?"}]}),
+    )
+    .await;
+    assert_eq!(resp.status(), 200);
+    assert_eq!(env.bodies.lock().unwrap().len(), 3);
+    let rerequest = env.bodies.lock().unwrap()[2].clone();
+    let second: Value = serde_json::from_slice(&rerequest).unwrap();
+    let tool_msg = second["messages"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|m| m["role"] == "tool")
+        .expect("re-request carries the tool result");
+    assert_eq!(
+        tool_msg["content"].as_str().unwrap_or(""),
+        "No relevant memories found.",
+        "sess-B must never see sess-A turns"
     );
 }

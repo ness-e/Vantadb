@@ -79,6 +79,7 @@ fn state_for_failover(a: &str, b: &str) -> server::AppState {
         context: Default::default(),
         guardrails: Default::default(),
         translate: Default::default(),
+        injection: Default::default(),
     };
     server::AppState::from_engine(cfg, seeded_engine()).unwrap()
 }
