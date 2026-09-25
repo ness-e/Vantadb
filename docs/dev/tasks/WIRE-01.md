@@ -6,7 +6,7 @@
 - **Esfuerzo:** 🟡 1-2d · **Prioridad:** 🔴 · **Tipo:** Rust (bug `fix:` + wiring)
 - **Turns estimados:** 15-20
 - **Creado:** 2026-09-25 · **last-synced:** 2026-09-25
-- **Estado:** ✅ COMPLETED (commit 55395600)
+- **Estado:** ✅ COMPLETED (commit final 679c75a9 — 55395600 superseded por amend; lead verify 2026-09-25: loop_e2e 2/2 + buffered 1/1 + budget 1/1)
 - **Incógnitas (uphill):** 1 (decisión scheduler-tool → default NO) · **Pendientes (downhill):** 0
 
 ## Blast Radius
