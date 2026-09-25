@@ -46,6 +46,7 @@ dejar el release 0.7.0 listo, SIN publicar (el owner difirió release, FASE-A y
 - Benchmark (perf schedule, no es check de PR): el fix a `vantadb_local_bench.py`
   se valida en su próxima corrida scheduleada. Re-verificar con:
   `gh run list --branch develop --limit 5` y `gh pr checks 222`.
+  ✅ **RESUELTO 2026-09-24**: `benchmark` success en `36040468608`/`36086858245`; `Check API Docs Version` pass; review P2-01 ✅ (ronda 3); hallazgo: gate de regresión inerte → `FIND-153`.
 - 1 PEND al medir (jobs aún corriendo del último push).
 
 ### 4.2 EST-08: Python 110/115 sin escanear
