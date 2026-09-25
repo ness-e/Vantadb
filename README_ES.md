@@ -24,7 +24,7 @@
   <br>
 
   <a href="https://discord.gg/g8nqB3NtXt"><img src="https://img.shields.io/badge/Discord-VantaDB_Community-5865F2?logo=discord&logoColor=white" alt="Discord"></a>
-  <a href="https://colab.research.google.com/github/ness-e/Vantadb/blob/main/examples/colab/vantadb_quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab"></a>
+  <a href="https://colab.research.google.com/github/ness-e/Vantadb/blob/develop/examples/colab/vantadb_quickstart.ipynb"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="Open in Colab"></a>
 </div>
 
 <div align="center">
@@ -45,6 +45,7 @@ VantaDB es un motor de base de datos embebido, local-first, diseñado para agent
 | Usar la CLI embebida | [Referencia de CLI](#cli-embebida) |
 | Ejecutar como servidor local | [Modo servidor](#modo-servidor-opcional) |
 | Seguir un tutorial | [Tutoriales](docs/user/tutorials/) |
+| Ejecutar ejemplos ejecutables | [Demo + Colab](examples/README.md) · [TypeScript](vantadb-ts/examples/) |
 | Leer las FAQ | [FAQ](docs/user/FAQ.md) |
 | Leer el blog | [Entradas del blog](docs/user/blog/) |
 | Leer la documentación de arquitectura | [Documentación](#documentación) |
@@ -65,6 +66,12 @@ pip install vantadb-py
 > **Nota:** El nombre de distribución es `vantadb-py`, y el import canónico es
 > `import vantadb` (igual que el crate de Rust y el paquete de npm). `import vantadb_py`
 > sigue disponible sin cambios.
+>
+> **Nombres (ADR-041 anti-stutter):** los nombres canónicos son `Client` (el alias legacy
+> `VantaDB` fue removido en 0.6.0, AST-010), `Record`, `SearchHit`, `Config`. Los métodos de memoria
+> viven en el sub-cliente `db.memory` (`memory.get` / `memory.list` / `memory.delete`);
+> la búsqueda híbrida es `db.search(...)` (AST-008/AST-012: `search_memory`/`get_memory` planos removidos),
+> y la ANN vectorial pura es `db.search_vector(...)`.
 >
 > **Convención de nombres:** el producto es **VantaDB**; el crate de Rust es `vantadb`,
 > el paquete de PyPI es `vantadb-py`, los paquetes de npm son `vantadb` (TypeScript/WASM)
@@ -256,10 +263,17 @@ Descarga e instala el binario de la CLI al instante en un solo comando, sin comp
   irm https://raw.githubusercontent.com/ness-e/Vantadb/main/scripts/install.ps1 | iex
   ```
 
-> [!NOTE]
-> Fuente vigente: `README.md` § One-Line Installation y `docs/user/QUICKSTART.md` §0
-> (one-liner FIND-105 + verificación `.sha256` + wizard `--no-wizard`/`-NoWizard`
-> + `--dry-run`/`-DryRun`). Si este bloque difiere, manda la fuente.
+> **Confianza (Trust):** ambos one-liners usan TLS contra el repo oficial `ness-e/Vantadb`,
+> y el script verifica el `.sha256` del payload antes de instalar
+> (warn-and-continue si falta el asset `.sha256` — ver la cabecera `Trust:` en
+> `scripts/install.sh` / `scripts/install.ps1`).
+> Para verificar manualmente, descarga el script y compara su hash contra el asset
+> `.sha256` publicado en el release antes de pasarlo a un shell.
+>
+> **Qué ocurre después:** el instalador encadena al wizard interactivo de setup
+> (`setup-embeddings.ps1` — modelo, bloque MCP por cliente, proxy activado por defecto)
+> salvo que se omita con `--no-wizard` (sh) / `-NoWizard` (PowerShell).
+> Previsualiza la cadena sin efectos con `--dry-run` / `-DryRun`.
 
 #### 2. Vía Cargo (desarrolladores Rust)
 
@@ -268,6 +282,11 @@ Instala y registra `vanta-cli` directamente en tu directorio binario de Cargo:
 ```bash
 cargo install --git https://github.com/ness-e/Vantadb.git --bin vanta-cli
 ```
+
+> [!NOTE]
+> Fuente vigente: `README.md` § One-Line Installation y `docs/user/QUICKSTART.md` §0
+> (one-liner FIND-105 + verificación `.sha256` + wizard `--no-wizard`/`-NoWizard`
+> + `--dry-run`/`-DryRun`). Si este bloque difiere, manda la fuente.
 
 > [!NOTE]
 > Los binarios precompilados de [GitHub Releases](https://github.com/ness-e/Vantadb/releases) (y los scripts de instalación de arriba) ya incluyen la feature del servidor HTTP. Si instalas desde fuente con `cargo install` y necesitas `vanta-cli server --http`, actívala explícitamente:
