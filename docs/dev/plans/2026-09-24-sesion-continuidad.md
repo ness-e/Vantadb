@@ -71,7 +71,7 @@ tratar `skipped` como pass. NO aplicar la anterior sin re-aprobar. ✅ **RESUELT
 
 ## 6. Pendiente del agente 🤖 (siguiente wave)
 
-- **EST-10**: barrido API stale fuera de CI (~35 archivos: 4 bench scripts,
+- **EST-10** ✅ RESUELTO 2026-09-24 (`b461c9e8`): barrido API stale fuera de CI (~35 archivos: 4 bench scripts,
   `skills/vantadb/SKILL.md` 4×, ~20 docs `user/glosario`+operations,
   `PILOT_PROGRAM`, `REDDIT_POSTS`, `SHOW_HN_PREP`). Bulk idempotente con conteo
   antes/después + `py_compile` + `validate-docs-coverage.ps1` 0 gaps. NO tocar

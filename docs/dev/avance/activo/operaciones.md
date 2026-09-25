@@ -363,3 +363,9 @@ aliases: []
 - **Resultado:** code-scanning 83 OPEN -> 0; commits bcd62115 + 5128c2bc + 9705b434.
 - **Pendiente:** EST-05 (verde en proximo run PR), EST-09 post-merge, EST-10 barrido, EST-12 puertas owner.
 - **Nota:** commit bcd62115 arrastro plan ajeno api-estandarizacion.md (paralelo, se deja intacto); su task API-STD-01.md queda untracked ajeno.
+
+### EST-10: barrido API stale en superficies vivas (pre-0.5.0 → canónica)
+- **Fecha:** 2026-09-24
+- **Objetivo:** Migrar referencias a la API Python pre-0.5.0 (`VantaDB(`, `search_memory`, `get_memory`/`list_memory`/`delete_memory`, `AsyncVantaDB`) en superficies vivas: docs/user (glosario/operations/blog/learning), READMEs, `docs/api/PYTHON_SDK.md`, docs/dev/{vision,graphrag,architecture,operations,strategy}, skills, benches no-CI, evals, dev-tools.
+- **Resultado:** ✅ ~230 reemplazos en ~75 archivos vivos → canónica (`Client`, `db.search`, `db.memory.get/list/delete`, `search_vector`, `AsyncClient`) + imports `vantadb_py`→`vantadb` (42) + fixes reales: `migrate/chroma.py`|`lancedb.py` `VantaDB(`→`Client(` (NameError latente), `validate_doc_snippets.py` (import + paths C-02), nota de naming falsa en README, tabla Cross-SDK en `vantadb-ts/README.md`, sección `Client` en api-reference, sección `search()` node-level de PYTHON_SDK → híbrida, cajas ASCII re-alineadas. `py_compile` 0 errores; coverage 0 gaps; skills mirror hash-SAME; históricos/MCP-scope intactos (lista de exclusión en el task file); 15 archivos legacy CRLF normalizados a LF (gitattributes). Verificación: `git grep` final solo con hits intencionales (wheels `vantadb_py-*.whl`, paths `vantadb_py.migrate`, notas de migración, guard AST-012).
+- **Commit:** b461c9e8

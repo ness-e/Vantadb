@@ -5,7 +5,7 @@
 - **Backlog:** fila `EST-10` en P57 (`docs/dev/Backlog.md`)
 - **Creado:** 2026-09-24
 - **last-synced:** 2026-09-24
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED (2026-09-24)
 - **Tipo:** docs/código no-CI (bulk idempotente) — ejecución inline (subagentes caídos por provider gating)
 
 ## Objetivo
@@ -39,20 +39,20 @@ Migrar las referencias a la API Python pre-0.5.0 en superficies vivas (docs de u
 
 ## Steps
 ### Step 1: task file + script de barrido con whitelist
-- **Estado:** ⏳
+- **Estado:** ✅
 
 ### Step 2: barrido automático (reglas por whitelist)
-- **Estado:** ⬜
+- **Estado:** ✅
 
 ### Step 3: revisiones manuales (secciones semánticas)
 - README.md nota de naming (claim falso "get_memory/search_memory stay canonical"); `vantadb-ts/README.md` tabla Cross-SDK; `skills/vantadb-mcp/references/api-reference.md` sección "VantaDB Class" (reescritura); `PYTHON_SDK.md` (Async + posibles secciones node-level); `PERFORMANCE_GUIDE.md` caja ASCII línea 26.
-- **Estado:** ⬜
+- **Estado:** ✅
 
 ### Step 4: verificación (contrato a-d) + mirror skills
-- **Estado:** ⬜
+- **Estado:** ✅
 
 ### Step 5: commit + push + progreso
-- **Estado:** ⬜
+- **Estado:** ✅
 
 ## Dependencias
 - Ninguna. Nota: WIRE-10 (P56) cubre `install.sh`/Colab/hooks — alcance distinto; Colab queda para WIRE-10.
@@ -63,7 +63,7 @@ Migrar las referencias a la API Python pre-0.5.0 en superficies vivas (docs de u
 
 ## Context Save Point
 - **Fecha:** 2026-09-24
-- **Branch:** `develop`
+- **Branch:** `develop` · **Commit:** `b461c9e8`
 - **CI pendiente:** no (no toca CI; verificación local)
 - **Decisiones:** alcance = superficies vivas; MCP tool-name hits quedan para API-04; históricos intactos.
 - **Problemas conocidos:** `integrations/README.md:65` describe adapters con API vieja (FIND-94) — verificado que `integrations/**/*.py` ya no tiene llamadas stale; nota potencialmente obsoleta → candidata a FIND separado (no en este barrido).

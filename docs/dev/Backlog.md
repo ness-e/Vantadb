@@ -14,7 +14,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 > **Completed tasks moved to:** `docs/dev/avance/` (dominio) + `docs/dev/avance/historial/backlog-history.md`
 > **Backlog de negocio:** [`docs/dev/Backlog-negocio.md`](Backlog-negocio.md) — filas que requieren abogado/pago/decisión humana/publicación (criterio Gate P, split RES-15-C 2026-09-03). Este archivo es solo técnico: lo ejecutable por agentes.
 > **Historial de syncs y migraciones:** `docs/dev/avance/historial/backlog-history.md` (último sweep mayor: 2026-08-26 — P37 DAUD-01..09 → historial vía DESKTOP-QW5; previo 2026-08-25 — limpieza P35/P38/P39 + auditoría docs/research)
-> **Total open items:** 124 abiertas de 154 filas (+38 filas P52–P56 post-investigación integral 2026-09-24) (medido 2026-09-24; delta desde 2026-09-16: +26 FIND-63..88 ingeridos, −cerradas a `docs/dev/avance/` vía progreso) (previo 2026-09-16: 70 abiertas de 73 filas)
+> **Total open items:** 123 abiertas de 153 filas (+38 filas P52–P56 post-investigación integral 2026-09-24) (medido 2026-09-24; delta desde 2026-09-16: +26 FIND-63..88 ingeridos, −cerradas a `docs/dev/avance/` vía progreso) (previo 2026-09-16: 70 abiertas de 73 filas)
 ---
 
 ## Exec Summary
@@ -56,7 +56,7 @@ verified_by: "Historial de verificación: docs/dev/avance/historial/backlog-hist
 | **P54** 🎯 Tracks ICP (decisión owner 2026-09-24) | 3 (ICP-01 AI-IDEs vía MCP · ICP-02 privacidad/local-LLM · ICP-03 frameworks) | ~4-6 semanas | 🔴 Alta (desbloquea BIZ-05/MGR-20/EXE-03) |
 | **P55** 🧭 Frontera de producto (research 2026-09-24) | 8 (DEF-01..08: definición única, frontera CI, naming freeze, north-star, claims reconciliados) | ~1-2 semanas | 🟠 Media-Alta (desbloquea narrativa y claims honestos) |
 | **P56** 🔌 Cableado post-investigación | 10 (WIRE-01..10: loop proxy, perfil MCP, query_sparse, TTL, entity linking, batching, refactors, range/cursor, seguridad P0, distribución P0) | ~5-8 semanas | 🔴 Alta (hacer real lo prometido) |
-| **P57** 🧹 Estabilización residual (EST/C → catálogo, 2026-09-24) | 7 (EST-05/09/10/12 + C-07/08/10; EST-03 ✅ 2026-09-24) | ~1-2 semanas | 🟠 Media (pre-requisito de anuncio) |
+| **P57** 🧹 Estabilización residual (EST/C → catálogo, 2026-09-24) | 6 (EST-05/09/12 + C-07/08/10; EST-03/10 ✅ 2026-09-24) | ~1-2 semanas | 🟠 Media (pre-requisito de anuncio) |
 
 > **Historial de items removidos/completados:** ver `docs/progreso/BACKLOG_HISTORY.md`.
 > **Nuevo 2026-08-04:** Fase 12 DESKTOP (26 tareas, app Tauri multi-connection sobre las 6 integraciones) + `DEBT-01` (gate docs-coverage roto, Fase 4) + `TECH-01..08` (hallazgos de investigación DESKTOP-01b: 2 bugs reales, 1 batch stale-docs, 1 ADR env-naming, 4 features/decisiones, todos en Phase 4).
@@ -968,7 +968,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 |----|-------------|----------|----------|------|-------------|
 | `EST-05` | **Verificar benchmark verde post-`4b5b137e`** — 🎯 OP: leer el próximo run schedule de perf y confirmar `Check API Docs Version` + `benchmark` en verde (fixes ya commiteados). Refs: plan EST §EST-05. DoD: checks verdes registrados. | `.github/workflows/`, GH Actions | 🟢 0.5d | 🟠 | 🆕 Pendiente (P57 2026-09-24) |
 | `EST-09` | **Post-merge PR #222: confirmar que no reaparece categoría stale CodeQL** — 🎯 OP: tras merge, verificar `analyses` (últimas 20) solo con categoría vigente + banner apagado. Refs: plan EST §EST-09. Dep: merge #222 (EST-12, owner). | GitHub CodeQL | 🟢 0.5d | 🟠 | 🆕 Pendiente (P57 2026-09-24) |
-| `EST-10` | **Barrido API stale fuera de CI (~35 archivos)** — 🎯 OP: migrar `VantaDB(`/`search_memory`/`get_memory`/`list_memory`/`delete_memory` en 4 bench scripts, `skills/vantadb/SKILL.md` (4×), ~20 docs `user/glosario`+operations, `PILOT_PROGRAM`, `REDDIT_POSTS`, `SHOW_HN_PREP`; bulk idempotente con conteo antes/después + `py_compile` + `validate-docs-coverage.ps1` 0 gaps; NO tocar históricos congelados (`research/archive`, `plans/archive`, `tasks/`). Nota: alcance DISTINTO de WIRE-10 (instaladores/Colab/hooks). Refs: plan EST §EST-10. DoD: grep solo con hits intencionales + coverage 0 gaps. | varios `.py`/`.md` | 🟡 1-2d | 🟠 | 🆕 Pendiente (P57 2026-09-24) |
 | `EST-12` | **Puertas owner pre-0.7.0** — 🎯 OP: FASE-A (`docs/dev/FASE-A.md`), merge PR #222 + tag `v0.7.0` + publish (crates/PyPI/npm) + `node-v*` si publica; R-05 opcional por sus manos. El agente solo prepara PR verde + checklist. Refs: plan EST §EST-12, `sesion-continuidad.md` §5. | — | 🟢 owner | 🔴 | ⏳ Owner (P57 2026-09-24) |
 | `C-07` | **Curar PRs/ramas (211–219 + resto)** — 🎯 OP: cerrar con motivo / mergear útiles / borrar ramas mergeadas o stale; contrato: PRs abiertos = solo vivos. Refs: plan `2026-09-20-estabilizacion-total.md` §C-07. | GitHub | 🟡 1-2d | 🟡 | 🆕 Pendiente (P57 2026-09-24) |
 | `C-08` | **CodeQL default setup post-release** — 🎯 OP: activar el setup correcto y confirmar check verde (el triage de alertas ya se hizo vía EST-06/07/08; verificar tras merge). Refs: plan total §C-08. | `.github/` | 🟢 1d | 🟡 | 🆕 Pendiente (P57 2026-09-24) |
