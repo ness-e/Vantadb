@@ -1853,6 +1853,13 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.7.1](https://github.com/ness-e/Vantadb/compare/v0.7.0...v0.7.1) - 2026-09-25
+
+### Other
+
+- *(changelog)* fix mojibake in v0.7.0 entry (UTF-8 arrow and accent) ([#226](https://github.com/ness-e/Vantadb/pull/226))
+- *(vantadb)* release v0.7.0 ([#223](https://github.com/ness-e/Vantadb/pull/223))
+
 ## [0.7.0](https://github.com/ness-e/Vantadb/compare/v0.6.1...v0.7.0) - 2026-09-25
 
 ### Other
