@@ -1,12 +1,39 @@
 {
   "metadata": {
-    "description": "Baseline de rendimiento del benchmark Python de VantaDB (perf-bench-40.yml). Mediana de 3 runs; regresion > 15% hace fallar el job.",
-    "workflow": ".github/workflows/perf-bench-40.yml",
+    "description": "Baseline de rendimiento del benchmark Python de VantaDB (perf-bench.yml). Mediana de 3 runs; regresion > 15% hace fallar el job.",
+    "workflow": ".github/workflows/perf-bench.yml",
     "runs": 3,
     "aggregate": "median",
     "threshold_pct": 15.0,
-    "updated": "2026-08-12",
-    "note": "Baseline vacio (bootstrap). El gate es no-op (warning + pass) hasta correr workflow_dispatch con update_baseline=true y commitear el artifact generado."
+    "updated": "2026-09-25",
+    "note": "Baseline activo (activado 2026-09-25 via workflow_dispatch update_baseline=true, run 36093538630)."
   },
-  "benchmarks": {}
+  "benchmarks": {
+    "insert": {
+      "total_records": 10000,
+      "total_duration_ms": 48681.99116299996,
+      "throughput_records_per_sec": 205.41476963251975,
+      "p50_ms": 4.932989999986148,
+      "p95_ms": 5.666953000002195,
+      "p99_ms": 7.141413999988799
+    },
+    "rebuild": {
+      "duration_ms": 6433.030234999989
+    },
+    "query_text": {
+      "p50_ms": 0.0038570000242543756,
+      "p95_ms": 0.003977000005761511,
+      "p99_ms": 0.0056999999742402
+    },
+    "query_vector": {
+      "p50_ms": 2.1310879999987264,
+      "p95_ms": 2.645669999992606,
+      "p99_ms": 3.281680000043252
+    },
+    "query_hybrid": {
+      "p50_ms": 5.758806000017103,
+      "p95_ms": 6.80649599996741,
+      "p99_ms": 11.314860000027238
+    }
+  }
 }
