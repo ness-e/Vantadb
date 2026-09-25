@@ -67,6 +67,8 @@
 
 ## EST-05 — Verificar verde post-`4b5b137e`
 
+> ✅ **RESUELTO 2026-09-24**: `benchmark` success en `36040468608`/`36086858245` + `Check API Docs Version` pass (PR head `3bbfbe45`); review P2-01 ✅ ronda 3; hallazgo: gate de regresión de perf-bench **inerte** (baseline vacío) → `FIND-153`. Detalle: `docs/dev/tasks/EST-05.md` + `docs/dev/avance/activo/operaciones.md`.
+
 **Contexto:** mis fixes (bench + headers) entraron tras los runs rojos leídos.
 **Tarea:** ninguna edición; leer el próximo run del PR y confirmar `Check API Docs Version` y `benchmark` en verde.
 **Pruebas (contrato):** ambos checks verdes en `gh pr checks 222`.
