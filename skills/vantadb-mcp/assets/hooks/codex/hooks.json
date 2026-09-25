@@ -1,5 +1,5 @@
 {
-  "description": "FIND-106 template_version 1.0.0, docs_verified 2026-09-17 (https://developers.openai.com/codex/hooks). Copy to <repo>/.codex/hooks.json (or ~/.codex/hooks.json); review via /hooks. Launcher: pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>. Secrets: session env only.",
+  "description": "FIND-106 template_version 1.1.0, docs_verified 2026-09-17 (https://developers.openai.com/codex/hooks). WIRE-10: one-shot via `vanta-cli mcp-call` (no pwsh). Copy to <repo>/.codex/hooks.json (or ~/.codex/hooks.json); review via /hooks. DB: replace <DB_PATH>; vanta-cli must be on PATH. Secrets: session env only. Hook input arrives on stdin as JSON; {{prompt}} splices the verbatim prompt text (mcp-call resolves it, jq not needed).",
   "hooks": {
     "SessionStart": [
       {
@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "command": "vanta-cli mcp-call --db <DB_PATH> --tool memory_recall --args '{\"query\":\"session start context\",\"scope\":\"agent\",\"top_k\":5}'",
             "timeout": 15,
             "statusMessage": "VantaDB session recall (top 5)",
             "additionalContextLimit": 5000
@@ -20,7 +20,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "command": "vanta-cli mcp-call --db <DB_PATH> --tool memory_recall --args '{\"query\":\"{{prompt}}\",\"scope\":\"agent\",\"top_k\":5}'",
             "timeout": 15,
             "statusMessage": "VantaDB per-message recall (verbatim query)"
           }
@@ -33,7 +33,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "command": "echo VantaDB save-state: persist open turns via thread_send and/or scene_write before compaction.",
             "timeout": 15,
             "statusMessage": "VantaDB save-state (thread_send/scene_write)"
           }
@@ -45,7 +45,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "pwsh -NoProfile -File <REPO>/vanta-mcp-local.ps1 -DbPath <DB_PATH>",
+            "command": "echo VantaDB auto-capture: persist this turn via thread_send role+content; proxy-turns curated via inbox, never auto-promote.",
             "timeout": 15,
             "statusMessage": "VantaDB auto-capture (thread_send)"
           }

@@ -244,6 +244,17 @@ fn run() -> anyhow::Result<()> {
 
         Commands::Completions { shell } => cli_handlers::cmd_completions(shell),
 
+        Commands::McpCall {
+            tool,
+            args: tool_args,
+            timeout_secs,
+        } => {
+            let code = cli_handlers::cmd_mcp_call(&args.db, &tool, &tool_args, timeout_secs)?;
+            if code != 0 {
+                std::process::exit(code);
+            }
+        }
+
         Commands::Server {
             http,
             mcp,
