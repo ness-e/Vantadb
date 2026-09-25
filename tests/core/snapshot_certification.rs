@@ -841,7 +841,7 @@ fn vantafile_serialization_determinism() {
             "File sizes must match for identical inputs"
         );
 
-        // Skip the first 16 bytes (VantaHeader: magic + version + timestamp).
+        // Skip the first 16 bytes (Header: magic + version + timestamp).
         // The write-cursor at bytes 16..24 and all subsequent node data
         // must be byte-identical.
         assert_eq!(

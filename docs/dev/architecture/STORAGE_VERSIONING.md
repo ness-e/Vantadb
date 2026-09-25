@@ -14,7 +14,7 @@ aliases: []
 
 ---
 
-> **WEB-04 Implementation (2026-07-25):** Added `VantaHeader::validate_compat()` — a range-based
+> **WEB-04 Implementation (2026-07-25):** Added `Header::validate_compat()` — a range-based
 > compatibility check that replaces exact-match validation across all three storage formats.
 >
 > ## What was changed
@@ -67,7 +67,7 @@ The text index uses a feature-gated versioning scheme:
 
 The text index is a derived materialization (rebuildable from canonical data) and uses an internal prefix `b"\xffvanta_text_v3\0"` for key namespacing rather than a magic-byte header.
 
-### Unified Header (`VantaHeader`)
+### Unified Header (`Header`)
 
 All physical formats (VantaFile, Vector Index, WAL) share a common 16-byte header defined in `src/binary_header.rs`:
 
@@ -104,7 +104,7 @@ Total: 72 bytes
 
 Two error variants exist for version incompatibility:
 
-- **`IncompatibleFormat`** (`src/error.rs:134`): magic or version mismatch on any `VantaHeader`-based file. Returns expected vs. found magic/version pairs plus a hint string.
+- **`IncompatibleFormat`** (`src/error.rs:134`): magic or version mismatch on any `Header`-based file. Returns expected vs. found magic/version pairs plus a hint string.
 - **`WALVersionMismatch`** (`src/error.rs:115`): WAL-specific version error. Returns expected vs. found `u32` version plus a hint.
 
 ---
@@ -113,7 +113,7 @@ Two error variants exist for version incompatibility:
 
 ### 2.1 No Backward Compatibility Guarantees
 
-The current `VantaHeader::validate()` performs an **exact match** on both magic bytes and `format_version`:
+The current `Header::validate()` performs an **exact match** on both magic bytes and `format_version`:
 
 ```rust
 // src/binary_header.rs:80
@@ -206,7 +206,7 @@ No jump migrations (v1 → v4 is rejected)
 
 ### 3.3 Extended Header Layout
 
-For future formats, extend `VantaHeader` to include a compatibility range:
+For future formats, extend `Header` to include a compatibility range:
 
 ```
 Offset  Size  Field
@@ -221,12 +221,12 @@ Offset  Size  Field
 Total: 16+ bytes (extendable via version-dependent payload header)
 ```
 
-The `VantaHeader` struct already has a `schema_version` field — this can be repurposed as `min_compat_version` for forward compatibility.
+The `Header` struct already has a `schema_version` field — this can be repurposed as `min_compat_version` for forward compatibility.
 
 ### 3.4 Open Behavior by Version
 
 ```rust
-/// New signature for VantaHeader::validate
+/// New signature for Header::validate
 pub fn validate_compat(
     &self,
     expected_magic: [u8; 4],
@@ -374,12 +374,12 @@ Since HNSW index is a **derived index** (rebuildable from canonical data), the s
 
 | Task | Files | Status |
 |---|---|---|---|
-| Add `VantaHeader` to any format missing it | N/A (all formats already have it) | ✅ Not needed |
+| Add `Header` to any format missing it | N/A (all formats already have it) | ✅ Not needed |
 | Replace exact-match `validate()` with range-based `validate_compat()` | `src/binary_header.rs` | ✅ Done |
 | Add `CompatResult` enum | `src/binary_header.rs` | Skipped (simpler: `Result<()>` with `IncompatibleFormat` error) |
 | Update all callers of `validate()` to handle compat | `index/serialize.rs` | ✅ Done (HNSW uses `validate_compat`) |
 | Add format version constants to public API | `src/lib.rs` | ✅ Done |
-| Add `min_compat_version` field to `VantaHeader` | Skipped — schema_version field repurposed for this | Skipped (not needed for range check) |
+| Add `min_compat_version` field to `Header` | Skipped — schema_version field repurposed for this | Skipped (not needed for range check) |
 
 ### Phase 2: Implement Migration Runner
 
@@ -418,7 +418,7 @@ Since HNSW index is a **derived index** (rebuildable from canonical data), the s
 
 ## 6. Open Questions
 
-1. **Should `VantaHeader` `schema_version` be renamed to `min_compat_version`?** This would make its semantics clearer but break existing serialized files. A new `VantaHeaderV2` layout could include this change.
+1. **Should `Header` `schema_version` be renamed to `min_compat_version`?** This would make its semantics clearer but break existing serialized files. A new `HeaderV2` layout could include this change.
 
 2. **Should text index (BM25) get magic-byte header?** Currently it uses a prefix `b"\xffvanta_text_v3\0"` in the KV store key namespace. Adding a proper header would make versioning explicit but requires a migration of all existing text index data.
 

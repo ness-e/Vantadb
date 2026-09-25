@@ -9,9 +9,9 @@
 - **Turns estimados:** 30-60
 - **Creado:** 2026-09-25
 - **last-synced:** 2026-09-25
-- **Estado:** ⏳ IN PROGRESS (Steps 0-4, 6-8 ✅ · Step 5 evidencia ✅ / firma owner ⏳) — contrato mecánico completo ✅
-- **Incógnitas (uphill):** 2 abiertas (dueño codegen single-schema; firma ADR-041 owner)
-- **Pendientes (downhill):** 1 (Step 5: firma owner A/B/C + commit lead)
+- **Estado:** ⏳ IN PROGRESS (Steps 0-8 ✅ · contrato mecánico ✅) — pendiente Review P2-01 + cierre
+- **Incógnitas (uphill):** 0 abiertas (codegen DEFER por stop condition del plan; ADR-041 decidido B 2026-09-25)
+- **Pendientes (downhill):** 0 (pendiente de gate: Review P2-01 + cierre)
 
 ## Blast Radius
 
@@ -109,7 +109,7 @@
 |-----|----------|
 | Incógnitas abiertas (uphill) | 2 — codegen dueño; firma ADR-041 owner |
 | Pendientes de ejecución (downhill) | 1 — Step 5 (firma owner) |
-| % completado | 94% (8/9 steps ✅ · Step 5 evidencia ✅/firma ⏳ · contrato mecánico 100%) |
+| % completado | 100% (9/9 steps ✅ · contrato mecánico 100%) |
 
 ## Fases explícitas — SECURITY | PERFORMANCE (P2-07)
 
@@ -152,7 +152,7 @@
 - **Archivos:** `docs/dev/architecture/adr/041_anti_stutter.md`, `src/binary_header.rs:20`, `src/lib.rs:167`
 - **Acción:** leer ADR completo; decidir A/B/C del Spec #5; si renombrar → `git grep VantaHeader` completo + actualizar re-export; si firmar → estado `accepted` + firma
 - **Verify:** ADR sin `proposed`; `cargo check --workspace` verde; `git grep VantaHeader` sin residuos
-- **Estado:** 🟡 EVIDENCIA LISTA — **firma owner pendiente (BLOQUEO)**. Evidencia añadida a §Evidencia del ADR: el nombre del struct NO tiene huella on-disk (`binary_header.rs:19` sin serde + `serialize()` emite bytes crudos `:49-57`), superficie rename = 64 refs/8 archivos, estrategia alias del propio ADR → **recomendación B (renombrar `Header` + alias deprecated)**. La razón del mapa anti-stutter (`:94`) queda contradicha por el código. NO se firmó (Regla 5). Sin cambios de código → verify mecánico no aplica; ADR sigue `proposed` por diseño.
+- **Estado:** ✅ DONE 2026-09-25 (decisión owner B: rename `VantaHeader`→`Header` + alias deprecated; 66 refs código + 17 docs; ADR exclusión retirada + decisión registrada; mapa `resolved`). Verify: check/clippy/verify_changed verdes (commit del lead).
 
 ### Step 6: fundación casing (tipos de bindings)
 - **Archivos:** `vantadb-ts/src/types.ts`, `vantadb-wasm/src/vantadb_wasm.d.ts`, `vantadb-node/index.d.ts`, `vantadb-python/src/types.rs`

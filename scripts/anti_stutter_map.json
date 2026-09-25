@@ -91,7 +91,7 @@
     {"old": "vector_data::memory_size", "new": "size", "ref": "src/node/vector_data.rs:266", "status": "proposed", "note": "idem"}
   ],
   "exclusions": [
-    {"symbol": "VantaHeader", "ref": "src/binary_header.rs:20", "reason": "formato on-disk — renombrar rompe compat binaria"},
+    {"symbol": "VantaHeader", "ref": "src/binary_header.rs:20", "reason": "RESUELTO 2026-09-25 (API-01 Step 5, decisión owner B): renombrado a `Header` + alias deprecated — la premisa 'compat on-disk' quedó contradicha (serialización custom por magic bytes, sin huella del nombre)", "status": "resolved"},
     {"symbol": "VANTADB_* codes", "ref": "src/error.rs code()", "reason": "wire entre bindings (ERROR_HANDLING.md + errors.ts ERROR_CODES) — no tocar"},
     {"symbol": "memory_record_from_node", "ref": "src/sdk/serialization/mod.rs:309", "reason": "funcion libre, sin contenedor que repita — fuera de la regla"},
     {"symbol": "memory_node_id / parse_memory_limit / memory_breakdown_snapshot", "ref": "src/ (fns libres)", "reason": "funciones libres — fuera de la regla (falsos positivos verificados)"},

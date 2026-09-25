@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use crate::binary_header::VantaHeader;
+use crate::binary_header::Header;
 use crate::error::Result;
 use crate::index::graph::VECTOR_INDEX_VERSION;
 use crate::storage::vfile::VFILE_VERSION;
@@ -99,15 +99,15 @@ impl MigrationEngine {
     }
 
     /// Read a binary header from a file path, checking the magic bytes.
-    fn read_header(&self, path: &Path, expected_magic: [u8; 4]) -> Result<Option<VantaHeader>> {
+    fn read_header(&self, path: &Path, expected_magic: [u8; 4]) -> Result<Option<Header>> {
         if !path.exists() {
             return Ok(None);
         }
         let bytes = std::fs::read(path)?;
-        if bytes.len() < VantaHeader::SIZE {
+        if bytes.len() < Header::SIZE {
             return Ok(None);
         }
-        let header = VantaHeader::deserialize(&bytes[..VantaHeader::SIZE])?;
+        let header = Header::deserialize(&bytes[..Header::SIZE])?;
         if header.magic == expected_magic {
             Ok(Some(header))
         } else {
@@ -183,7 +183,7 @@ impl MigrationEngine {
         }
 
         let data = std::fs::read(&vfile_path)?;
-        let header = VantaHeader::deserialize(&data)?;
+        let header = Header::deserialize(&data)?;
 
         if header.format_version >= VFILE_VERSION {
             println!(
@@ -204,9 +204,9 @@ impl MigrationEngine {
         let backup_path = vfile_path.with_extension("vanta.bak");
         std::fs::copy(&vfile_path, &backup_path)?;
 
-        let new_header = VantaHeader::new(*b"VFLE", VFILE_VERSION, header.schema_version);
+        let new_header = Header::new(*b"VFLE", VFILE_VERSION, header.schema_version);
         let mut new_data = new_header.serialize().to_vec();
-        new_data.extend_from_slice(&data[VantaHeader::SIZE..]);
+        new_data.extend_from_slice(&data[Header::SIZE..]);
 
         std::fs::write(&vfile_path, &new_data)?;
 
@@ -228,12 +228,12 @@ impl MigrationEngine {
         }
 
         let data = std::fs::read(&wal_path)?;
-        if data.len() < VantaHeader::SIZE {
+        if data.len() < Header::SIZE {
             println!("  - WAL file too small, skipping");
             return Ok(());
         }
 
-        let header = VantaHeader::deserialize(&data[..VantaHeader::SIZE])?;
+        let header = Header::deserialize(&data[..Header::SIZE])?;
         if header.magic != *b"VWAL" {
             println!("  - WAL file has invalid magic, skipping");
             return Ok(());
@@ -263,7 +263,7 @@ impl MigrationEngine {
         let old_header_end = if data.len() >= WalHeader::SIZE {
             WalHeader::SIZE
         } else {
-            VantaHeader::SIZE
+            Header::SIZE
         };
         if data.len() > old_header_end {
             new_data.extend_from_slice(&data[old_header_end..]);
@@ -396,7 +396,7 @@ impl MigrationEngine {
 #[allow(missing_docs)]
 mod tests {
     use super::*;
-    use crate::binary_header::VantaHeader;
+    use crate::binary_header::Header;
     use tempfile::TempDir;
 
     #[test]
@@ -466,7 +466,7 @@ mod tests {
     fn test_plan_with_v1_vfile() -> Result<()> {
         let dir = TempDir::new()?;
         let vfile_path = dir.path().join("vector_store.vanta");
-        let header = VantaHeader::new(*b"VFLE", 1, 0);
+        let header = Header::new(*b"VFLE", 1, 0);
         std::fs::write(&vfile_path, header.serialize())?;
 
         let engine = MigrationEngine::new(dir.path());
@@ -483,7 +483,7 @@ mod tests {
     fn test_plan_skips_current_vfile() -> Result<()> {
         let dir = TempDir::new()?;
         let vfile_path = dir.path().join("vector_store.vanta");
-        let header = VantaHeader::new(*b"VFLE", VFILE_VERSION, 0);
+        let header = Header::new(*b"VFLE", VFILE_VERSION, 0);
         std::fs::write(&vfile_path, header.serialize())?;
 
         let engine = MigrationEngine::new(dir.path());
@@ -501,7 +501,7 @@ mod tests {
         let dir = TempDir::new()?;
         let index_path = dir.path().join("index.bin");
         let old_version = 1u16;
-        let header = VantaHeader::new(*b"VNDX", old_version, 0);
+        let header = Header::new(*b"VNDX", old_version, 0);
         std::fs::write(&index_path, header.serialize())?;
 
         let engine = MigrationEngine::new(dir.path());
@@ -521,7 +521,7 @@ mod tests {
     fn test_plan_includes_wal() -> Result<()> {
         let dir = TempDir::new()?;
         let wal_path = dir.path().join("wal.log");
-        let old_base = VantaHeader::new(*b"VWAL", 0, WAL_POSTCARD_VERSION);
+        let old_base = Header::new(*b"VWAL", 0, WAL_POSTCARD_VERSION);
         let base_bytes = old_base.serialize();
         let crc = crc32c::crc32c(&base_bytes);
         let mut data = base_bytes.to_vec();
@@ -551,7 +551,7 @@ mod tests {
         let dir = TempDir::new()?;
         let vfile_path = dir.path().join("vector_store.vanta");
         let payload = b"some record data here";
-        let header = VantaHeader::new(*b"VFLE", 1, 0);
+        let header = Header::new(*b"VFLE", 1, 0);
         let mut data = header.serialize().to_vec();
         data.extend_from_slice(payload);
         std::fs::write(&vfile_path, &data)?;
@@ -560,10 +560,10 @@ mod tests {
         engine.migrate_format(FormatKind::File)?;
 
         let migrated = std::fs::read(&vfile_path)?;
-        let new_header = VantaHeader::deserialize(&migrated)?;
+        let new_header = Header::deserialize(&migrated)?;
         assert_eq!(new_header.format_version, VFILE_VERSION);
         assert_eq!(new_header.magic, *b"VFLE");
-        assert_eq!(&migrated[VantaHeader::SIZE..], payload);
+        assert_eq!(&migrated[Header::SIZE..], payload);
 
         assert!(vfile_path.with_extension("vanta.bak").exists());
         Ok(())
@@ -574,7 +574,7 @@ mod tests {
         let dir = TempDir::new()?;
         let wal_path = dir.path().join("wal.log");
 
-        let old_base = VantaHeader::new(*b"VWAL", 0, WAL_POSTCARD_VERSION);
+        let old_base = Header::new(*b"VWAL", 0, WAL_POSTCARD_VERSION);
         let base_bytes = old_base.serialize();
         let crc = crc32c::crc32c(&base_bytes);
         let mut data = base_bytes.to_vec();
@@ -613,7 +613,7 @@ mod tests {
         let dir = TempDir::new()?;
         let wal_path = dir.path().join("wal.log");
 
-        let old_base = VantaHeader::new(*b"VWAL", 0, WAL_POSTCARD_VERSION);
+        let old_base = Header::new(*b"VWAL", 0, WAL_POSTCARD_VERSION);
         let base_bytes = old_base.serialize();
         let crc = crc32c::crc32c(&base_bytes);
         let mut data = base_bytes.to_vec();
@@ -625,7 +625,7 @@ mod tests {
         engine.migrate_format(FormatKind::Wal)?;
 
         let not_migrated = std::fs::read(&wal_path)?;
-        let not_migrated_header = VantaHeader::deserialize(&not_migrated[..VantaHeader::SIZE])?;
+        let not_migrated_header = Header::deserialize(&not_migrated[..Header::SIZE])?;
         assert_eq!(not_migrated_header.format_version, 0);
         assert!(!wal_path.with_extension("wal.bak").exists());
         Ok(())
@@ -635,7 +635,7 @@ mod tests {
     fn test_migrate_index_dry_run_with_plan() -> Result<()> {
         let dir = TempDir::new()?;
         let index_path = dir.path().join("index.bin");
-        let header = VantaHeader::new(*b"VNDX", 1, 0);
+        let header = Header::new(*b"VNDX", 1, 0);
         std::fs::write(&index_path, header.serialize())?;
 
         let mut engine = MigrationEngine::new(dir.path());
@@ -643,7 +643,7 @@ mod tests {
         engine.migrate_format(FormatKind::VectorIndex)?;
 
         let same = std::fs::read(&index_path)?;
-        let same_header = VantaHeader::deserialize(&same)?;
+        let same_header = Header::deserialize(&same)?;
         assert_eq!(same_header.format_version, 1);
         Ok(())
     }
@@ -652,7 +652,7 @@ mod tests {
     fn test_check_integrity_reports_old_version() -> Result<()> {
         let dir = TempDir::new()?;
         let vfile_path = dir.path().join("vector_store.vanta");
-        let header = VantaHeader::new(*b"VFLE", 1, 0);
+        let header = Header::new(*b"VFLE", 1, 0);
         std::fs::write(&vfile_path, header.serialize())?;
 
         let engine = MigrationEngine::new(dir.path());
@@ -666,7 +666,7 @@ mod tests {
     fn test_check_integrity_clean_current() -> Result<()> {
         let dir = TempDir::new()?;
         let vfile_path = dir.path().join("vector_store.vanta");
-        let header = VantaHeader::new(*b"VFLE", VFILE_VERSION, 0);
+        let header = Header::new(*b"VFLE", VFILE_VERSION, 0);
         std::fs::write(&vfile_path, header.serialize())?;
 
         let engine = MigrationEngine::new(dir.path());
@@ -680,7 +680,7 @@ mod tests {
         let dir = TempDir::new()?;
 
         let wal_path = dir.path().join("wal.log");
-        let old_base = VantaHeader::new(*b"VWAL", 0, WAL_POSTCARD_VERSION);
+        let old_base = Header::new(*b"VWAL", 0, WAL_POSTCARD_VERSION);
         let base_bytes = old_base.serialize();
         let crc = crc32c::crc32c(&base_bytes);
         let mut data = base_bytes.to_vec();
@@ -688,7 +688,7 @@ mod tests {
         std::fs::write(&wal_path, &data)?;
 
         let index_path = dir.path().join("index.bin");
-        let idx_header = VantaHeader::new(*b"VNDX", 1, 0);
+        let idx_header = Header::new(*b"VNDX", 1, 0);
         std::fs::write(&index_path, idx_header.serialize())?;
 
         let engine = MigrationEngine::new(dir.path());

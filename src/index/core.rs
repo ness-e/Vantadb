@@ -283,8 +283,7 @@ mod tests {
     #[test]
     fn deserialize_garbage_after_valid_header() {
         let mut garbage = vec![0u8; 512];
-        let header =
-            crate::binary_header::VantaHeader::new(*b"VNDX", graph::VECTOR_INDEX_VERSION, 0);
+        let header = crate::binary_header::Header::new(*b"VNDX", graph::VECTOR_INDEX_VERSION, 0);
         let hdr = header.serialize();
         garbage[..hdr.len()].copy_from_slice(&hdr);
         let result = CPIndex::deserialize_from_bytes(&garbage, true);
@@ -327,7 +326,7 @@ mod tests {
     }
 
     fn node_count_offset() -> usize {
-        let header_size = crate::binary_header::VantaHeader::SIZE;
+        let header_size = crate::binary_header::Header::SIZE;
         let max_layer = 8;
         let config = 5 * 8;
         let metric_byte = 1;

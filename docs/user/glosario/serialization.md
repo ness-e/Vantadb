@@ -46,7 +46,7 @@ pub fn serialize_to_bytes(&self) -> Vec<u8> {
 }
 
 pub fn deserialize_from_bytes(data: &[u8], force_copy: bool) -> std::io::Result<Self> {
-    let header = VantaHeader::deserialize(data)?;
+    let header = Header::deserialize(data)?;
     // ... reconstruye índice desde bytes
 }
 ```

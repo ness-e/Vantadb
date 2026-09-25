@@ -80,7 +80,7 @@ The Write-Ahead Log guarantees durability before any mutation is applied to stor
 │         WAL File Layout                       │
 ├──────────────────────────────────────────────┤
 │ WalHeader (20 bytes)                         │
-│ ├── VantaHeader (16 bytes)                   │
+│ ├── Header (16 bytes)                   │
 │ │   ├── Magic: [u8; 4]  (b"VWAL")           │
 │ │   ├── Format version: u16 LE               │
 │ │   ├── Schema version: u16 LE               │

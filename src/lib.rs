@@ -164,6 +164,8 @@ pub mod ingestion;
 pub mod transcript;
 
 // Re-exports for ergonomic API
+pub use binary_header::Header;
+#[allow(deprecated)]
 pub use binary_header::VantaHeader;
 pub use config::{Config, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K, MAX_VEC_DIM};
 pub use engine::{EngineStats, InMemoryEngine, SourceType};

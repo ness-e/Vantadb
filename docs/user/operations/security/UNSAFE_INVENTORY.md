@@ -137,7 +137,7 @@
 | File | Line | Pattern | Module | Justification |
 |------|------|---------|--------|--------------|
 | `src/cli_server.rs` | 139 | `.expect("GovernorConfig build failed")` | HTTP server startup | Startup-only; config build con parámetros fijos. |
-| `src/binary_header.rs` | 67 | `.expect("header bytes slice fits u64")` | `VantaHeader::deserialize` | `try_into()` en `[u8; 8]` es infalible. |
+| `src/binary_header.rs` | 67 | `.expect("header bytes slice fits u64")` | `Header::deserialize` | `try_into()` en `[u8; 8]` es infalible. |
 | `src/crypto.rs` | 104 | `.expect("Aes256Gcm::new_from_slice failed...")` | Cipher init | SHA-256 garantiza 32 bytes. Mensaje documenta el invariante. |
 | `src/crypto.rs` | 141 | `.expect("AES-256-GCM encryption is infallible...")` | Encryption | RustCrypto garantiza que `encrypt()` con nonce + AAD no falla. |
 | `src/index/distance.rs` | 97,100,129,132,204,207,238,241,268,271,297,300,379,420 | `.expect("chunks_exact(X) yields X-element chunks")` | SIMD kernels | 14 calls. `chunks_exact()` garantiza el tamaño del chunk. Hot path, el overhead de `try_into().unwrap()` es despreciable pero evitar `?` es intencional. |

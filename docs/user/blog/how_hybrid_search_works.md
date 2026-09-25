@@ -33,7 +33,7 @@ BM25 (Best Matching 25) is a sparse retrieval model based on term statistics. It
 
 $$\text{Score}(D, Q) = \sum_{i=1}^{n} \text{IDF}(q_i) \cdot \frac{f(q_i, D) \cdot (k_1 + 1)}{f(q_i, D) + k_1 \cdot \left(1 - b + b \cdot \frac{|D|}{\text{avgdl}}\right)}$$
 
-* **Strengths:** High precision for exact words, product codes, telephone numbers, code symbols (`VantaHeader`), and negative keyword filtering.
+* **Strengths:** High precision for exact words, product codes, telephone numbers, code symbols (`Header`), and negative keyword filtering.
 * **Weaknesses:** Cannot handle synonyms (e.g., matching "compute" to "processor") or conceptual similarity.
 
 ### Semantic Search (HNSW)
