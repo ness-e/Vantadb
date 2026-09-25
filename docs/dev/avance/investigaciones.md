@@ -207,3 +207,10 @@ aliases: []
 - **Resultado:** research cero codigo.
 - **Commit:** 1ca58fa8
 - **Dominio:** investigaciones
+
+### MGR-19: Benchmarks propios y externos (Track G, Cierre MGR)
+- **Fecha:** 2026-09-25
+- **Objetivo:** baseline canónico + reconciliar README↔§2 + definir suites LoCoMo/LongMemEval-S/BEAM-subset
+- **Resultado:** ✅ timed `canonical_p99` (search p50=2.2388ms/p95=4.248ms/p99=4.9987ms); triple divergencia documentada; §2 FROZEN pre-SIMD; protocolo + deferral dataset a VER-08; P2-01 approve; lead verify baseline transcripto
+- **Commit:** 033f0cb0
+- **Dominio:** investigaciones

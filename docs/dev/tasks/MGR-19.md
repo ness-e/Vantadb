@@ -102,7 +102,7 @@ last-synced: 2026-09-25
 - **Archivos:** `docs/dev/research/mgr-19-*.md`
 - **Acción:** research-doc + preguntas owner + plan de implementación; commit `docs:`; progreso
 - **Verify:** `campaign_verify_cmd` con el contrato
-- **Estado:** ✅ DONE (research-doc + preguntas owner + plan impl; review P2-01 APPROVE tras Required; commit `a31a9b8c` docs-only 4 paths, sin push)
+- **Estado:** ✅ DONE (research-doc + preguntas owner + plan impl; review P2-01 APPROVE tras Required; commit final `033f0cb0` docs-only 4 paths — `a31a9b8c` superseded por amend; lead verify: baseline timed transcripto §1)
 
 ## Dependencias
 - Ninguna (destraba EXE-01/02/03/05, MGR-20, VER-08). Paralela libre a WIRE-09/01.
