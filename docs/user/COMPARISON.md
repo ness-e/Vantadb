@@ -15,6 +15,8 @@ This page answers "why not X?" (sqlite-vec, LanceDB, Qdrant, Chroma) with three 
 2. **Numbers about us** come exclusively from [`docs/user/operations/BENCHMARKS.md`](operations/BENCHMARKS.md), each with its bench script and exact reproduction command (Regla 11).
 3. **We publish no performance figures for competitors.** Where a vendor publishes their own benchmarks, we link them; you judge. We also link the neutral third-party [ann-benchmarks](https://ann-benchmarks.com/) results and provide the script to run the comparison yourself.
 
+> **Capa pendiente (2026-09-24):** esta página cubre vector DBs embebidos/servidores. Falta la capa **memory-as-a-service** (Mem0/Zep/Letta/LangMem/Cognee/MemOS/MIRIX/ReMe/OpenMemory/OpenMemory MCP) que es el wallet de memoria real — plan P54 (ICP-01..03) + VER-09 (head-to-head con protocolo propio, pares accuracy+tokens). No interpretar esta página como comparativa completa del nicho hasta entonces.
+
 ---
 
 ## 1. Qualitative Comparison

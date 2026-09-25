@@ -1023,3 +1023,13 @@ Query QPS: VantaDB 635.6 > Qdrant 490.9 > Chroma 398.8 > Milvus 206.8 >
 LanceDB 126.2; Recall@10: Qdrant 100% ≈ Chroma 97.6% > Milvus 63.6% ≈
 VantaDB 59.2% > LanceDB 27% — VantaDB no es superior en recall en esta
 configuración (ver doc curado § Lectura honesta).
+
+---
+
+## Planificado 2026-09-24 — sin números aún (Regla 11)
+
+> Estas mediciones están **programadas** (filas P52 del Backlog). Mientras no existan resultados, no citar como comparativa.
+
+- **Regeneración §2** (DEF-06): la tabla de SDK Python quedó congelada pre-SIMD (2026-08-12); se regenera con dataset + hardware documentados, y el README citará §1/§8 (Rust canonical) hasta entonces.
+- **Harness propio de memoria** (VER-08): canonical_p99 + LoCoMo + LongMemEval-S + BEAM-subset (dataset commiteado) + **write-quality, abstención, aislamiento per-user y token-economy** (los cuatro que ningún benchmark público mide) + gate p99 en CI.
+- **Head-to-head** (VER-09, absorbe EXE-02): Mem0/Zep/Letta con el MISMO harness y protocolo publicado completo (modelo-juez, stack, reranking; pares accuracy+tokens). Contexto de por qué: auditoría independiente de LoCoMo (6.4% del answer-key erróneo; el juez acepta hasta 63% de respuestas incorrectas) y disputa pública de números entre vendors.

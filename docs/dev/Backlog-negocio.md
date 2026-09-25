@@ -12,7 +12,7 @@ verified_by: "Split ejecutado 2026-09-03 por RES-15-C desde docs/dev/Backlog.md 
 > **Propósito:** filas del backlog que **no** son ejecutables por agentes: requieren abogado, pago, identidad humana, decisión de negocio o publicación manual. Vivían mezcladas en `docs/dev/Backlog.md` y distorsionaban cualquier métrica de prioridad técnica.
 > **Criterio de separación (Gate P, RES-15-C 2026-09-03):** lo que requiere agente/código → técnico (`docs/dev/Backlog.md`); lo que requiere abogado/plata/decisión humana/publicación → aquí.
 > **Backlog técnico:** [`docs/dev/Backlog.md`](Backlog.md) — fuente del parser de `/pipeline plan`. Las filas de este archivo **no** entran al triage técnico a propósito (regla documentada en `docs/dev/avance/meta.md`).
-> **Total open items:** 20 activas (15 orig. 2026-09-03 + BIZ-04..08 del manual estratégico 2026-09-14; regla anti-drift GOV-C7)
+> **Total open items:** 20 activas (15 orig. 2026-09-03 + BIZ-04..08 del manual estratégico 2026-09-14; regla anti-drift GOV-C7) + 4 nuevas BIZ-10..13 (carriles de cobro, decisión owner 2026-09-24)
 
 ## Criterio por fila borderline (decisiones del split)
 
@@ -75,8 +75,19 @@ verified_by: "Split ejecutado 2026-09-03 por RES-15-C desde docs/dev/Backlog.md 
 | ID | Descripción | Esfuerzo | Prio | Estado Real |
 |----|-------------|----------|------|-------------|
 | `BIZ-04` | **ToS mínimo viable (Terms + Privacy + Refund)** — MoR/Stripe los exigen para verificación; sin esto no hay cobro. Desde plantillas + adaptación VantaDB. Research: §7.3. | 🟢 1-2d humano | 🔴 | 🆕 Pendiente (investigación profunda en curso) |
-| `BIZ-05` | **One-pager comercial + propuesta de valor no-técnica** — 1 página para design partners/pilotos. Redactable por agente tras fijar ICP (dep: BIZ-08). Research: §7.3. | 🟢 1d | 🟠 | 🆕 Pendiente (bloqueado por BIZ-08) |
+| `BIZ-05` | **One-pager comercial + propuesta de valor no-técnica** — 1 página para design partners/pilotos. Redactable por agente tras fijar ICP (dep: BIZ-08). Research: §7.3. | 🟢 1d | 🟠 | 🆕 Pendiente (desbloqueado 2026-09-24: BIZ-08 resuelta; alcance = 1 one-pager maestro + 3 anexos por track ICP-01..03) |
 | `BIZ-06` | **Jurisdicción y banca fase 2 (LLC + EIN + Mercury)** — solo si el volumen lo justifica (MoR cubre fase 1). Contactar 2-3 proveedores. Research: §2. | 🟡 2-3d humano | 🔵 | 🆕 Pendiente (fase 2) |
 | `BIZ-07` | **Cadena de titularidad IP escalonada** — 1) declaración de autoría propia (hoy); 2) DCO/CLA listo; 3) assignment al constituir entidad. Veracidad validada en §7.2 (assignment ≠ CLA ≠ DCO). | 🟢 1d | 🟠 | 🆕 Pendiente (investigación profunda en curso) |
-| `BIZ-08` | **Decisión ICP/vertical foco** — local-LLM vs frameworks vs AI-IDEs (evidencia interna favorece AI-IDEs vía MCP, decide el owner). Desbloquea MGR-20/EXE-03. Research: §7.3. | 🟢 2h owner | 🔴 | 🆕 Pendiente (decisión owner) |
+| `BIZ-08` | **Decisión ICP/vertical foco** — ✅ **RESUELTA 2026-09-24 (owner):** desarrollar los **3 tracks a profundidad** — (1) AI-IDEs vía MCP (Cursor/Claude Code/OpenCode), (2) devs local-LLM y privacidad, (3) frameworks (LangChain/LlamaIndex) — el núcleo es único (motor de memoria embebido gobernado) y cada track es puerta de entrada. Materializa en P54 (ICP-01..03). Desbloquea BIZ-05, MGR-20, EXE-03. | 🟢 2h owner | 🔴 | ✅ Resuelta 2026-09-24 |
 | `BIZ-09` | **ADR session-layer defer-as-scoped (resto de DEC-01)** — DEC-01 resuelta por research pero el owner nunca escribió el ADR citando `docs/dev/research/res03-session-layer-gonogo.md`. Detectado en auditoría backlog 2026-09-14 (no existe ADR session-* en `docs/dev/architecture/adr/`). | 🟢 1h owner | 🟡 | 🆕 Pendiente (decisión owner) |
+
+## COBRO — Carriles de recaudación (decisión owner 2026-09-24)
+
+> Origen: decisión D4 del plan post-investigación (`docs/dev/plans/2026-09-24-post-investigacion-integral.md` §F) + validación de fees en `docs/dev/research/manual-estrategico-validacion-2026-09-14.md` §1/§7.1. Realidad del owner: **PayPal + Binance operativos; Payoneer próxima a crear**. BIZ-02/03 (research de alcance de rieles) quedan cubiertos por BIZ-10..12 — no se crean filas separadas. **BIZ-04 (ToS/Privacy/Refund) bloquea cualquier cobro** (transversal, prioridad 🔴).
+
+| ID | Descripción | Esfuerzo | Prio | Estado Real |
+|----|-------------|----------|------|-------------|
+| `BIZ-10` | **Carril cripto directo (Binance Pay USDT + P2P a bolívares)** — link/QR de cobro en USDT para design partners/pilotos sin fricción KYC; facturación propia (cross-ref BIZ-13); definir política de reembolsos y registro contable; documentar riesgos fiscales VE. Refs: merchant.binance.com/es-LA/how-to-accept/USDT, pay.binance.com. | 🟢 1-2d humano | 🔴 | 🆕 Pendiente (2026-09-24) |
+| `BIZ-11` | **Verificar Merchant of Record con payouts PayPal para merchant VE** — pregunta directa a soporte: Lemon Squeezy (200+ países vía PayPal; bank payouts 79 países con VE no listado) + evaluar Polar/Creem como MoR; documentar fees reales y decisión GO/NO-GO con la cuenta PayPal existente. Refs: docs.lemonsqueezy.com/help/getting-started/supported-countries; validación §7.1. | 🟢 1-2d humano | 🔴 | 🆕 Pendiente (2026-09-24) |
+| `BIZ-12` | **Alta Payoneer + ruta Payoneer→Airtm→banco VE** — crear cuenta al volumen actual y verificar retiro de prueba a banco local (Banesco/Mercantil/Provincial/BOD/Bancaribe); documentar fees y tiempos. Refs: payoneer.com/es/resources/business/payoneer-y-airtm · airtm.com/es/blog/economy/payoneer-en-venezuela. | 🟢 2-3d humano | 🟠 | 🆕 Pendiente (2026-09-24; depende de crear la cuenta) |
+| `BIZ-13` | **Facturación manual: plantilla de invoice/recibo + registro de ventas (carriles sin MoR)** — para cobros cripto/Payoneer/PayPal directo: numeración, concepto, fecha, método, tasa; cuaderno de ventas para la meta USD 5.000 (manual estratégico). Cross-ref BIZ-04 (ToS/Privacy/Refund base). | 🟢 1d humano | 🟠 | 🆕 Pendiente (2026-09-24) |
