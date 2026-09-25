@@ -14,7 +14,7 @@ use axum::{
     http::{header, HeaderMap, HeaderValue, Method},
     middleware,
     response::{IntoResponse, Response},
-    routing::{get, post, put},
+    routing::{delete, get, post, put},
     Extension, Json, Router,
 };
 use std::sync::Arc;
@@ -194,15 +194,15 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
             post(super::handlers::graph_v2_degree),
         )
         .route(
-            "/api/v2/maintenance/purge",
-            post(super::handlers::maintenance_purge),
+            "/api/v2/maintenance/expired-records",
+            delete(super::handlers::maintenance_purge),
         )
         .route(
-            "/api/v2/maintenance/compact",
+            "/api/v2/maintenance/compactions",
             post(super::handlers::maintenance_compact),
         )
         .route(
-            "/api/v2/maintenance/flush",
+            "/api/v2/maintenance/flushes",
             post(super::handlers::maintenance_flush),
         )
         .route(
@@ -210,14 +210,21 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
             get(super::handlers::threads_list).post(super::handlers::threads_create),
         )
         .route(
-            "/api/v2/threads/{id}",
-            get(super::handlers::threads_get)
-                .post(super::handlers::threads_send_message)
-                .delete(super::handlers::threads_delete),
+            "/api/v2/threads/{id}/messages",
+            post(super::handlers::threads_send_message),
         )
-        .route("/conversation/add", post(super::handlers::conversation_add))
-        .route("/skill/listing", get(super::handlers::skill_listing))
-        .route("/api/v2/skills", post(super::handlers::skill_create))
+        .route(
+            "/api/v2/threads/{id}",
+            get(super::handlers::threads_get).delete(super::handlers::threads_delete),
+        )
+        .route(
+            "/api/v2/conversations",
+            post(super::handlers::conversation_add),
+        )
+        .route(
+            "/api/v2/skills",
+            get(super::handlers::skill_listing).post(super::handlers::skill_create),
+        )
         .route(
             "/api/v2/skills/{skill_id}",
             put(super::handlers::skill_update)
@@ -244,7 +251,7 @@ pub fn app_with_cors(state: Arc<ServerState>, rpm: u32, allowed_origins: &[Strin
         .route("/api/v2/export", post(super::handlers::export_v2))
         .route("/api/v2/import", post(super::handlers::import_v2))
         .route(
-            "/api/v2/maintenance/rebuild-index",
+            "/api/v2/maintenance/index-rebuilds",
             post(super::handlers::maintenance_rebuild_index),
         )
         .layer(middleware::from_fn(super::middleware::auth_middleware))

@@ -49,6 +49,9 @@ Without an API key (dev mode), requests pass through unauthenticated.
   `agent%2Fmain`.
 - **Rate limiting:** configurable via `rate_limit_rpm` (default 600 req/min). Exceeding it
   returns HTTP 429 with a `Retry-After` header.
+- **Pagination:** list-style endpoints accept `limit` plus an opaque `cursor` (the
+  `next_cursor` of the previous page — pass it back verbatim, never parse it) and return
+  `{ …, next_cursor, has_more }`. An invalid cursor returns 400.
 - **CORS:** off by default; enable via `VANTADB_ALLOWED_ORIGINS`.
 
 ## Quickstart (verified transcript)
@@ -72,17 +75,17 @@ curl http://127.0.0.1:18099/api/v2/records/agent%2Fmain/note-1
 
 # List records in a namespace
 curl "http://127.0.0.1:18099/api/v2/list?namespace=agent/main"
-# → {"records":[...],"next_cursor":null}
+# → {"records":[...],"next_cursor":null,"has_more":false}
 
 # Hybrid search (text/BM25) — `ensure_indexes_current()` runs once at server
 # startup only. Records written afterwards via the record API still need one
-# `POST /api/v2/maintenance/rebuild-index` before `text_query` works on a
+# `POST /api/v2/maintenance/index-rebuilds` before `text_query` works on a
 # fresh DB (else `text_index not found: bm25`); single memory PUTs are indexed
 # incrementally. Verified live-fire (campaign task GOV-B5).
 curl -X POST http://127.0.0.1:18099/api/v2/search \
   -H "Content-Type: application/json" \
   -d '{"namespace":"agent/main","query_vector":[],"filters":{},"text_query":"vector-native","top_k":10,"distance_metric":"Cosine","explain":false}'
-# → {"records":[{"record":{...},"score":0.57536423,"explanation":null}],"next_cursor":null}
+# → {"records":[{"record":{...},"score":0.57536423,"explanation":null}],"next_cursor":null,"has_more":false}
 
 # IQL query (keywords are UPPERCASE)
 curl -X POST http://127.0.0.1:18099/api/v2/query \
@@ -149,8 +152,9 @@ query/import counters) plus per-namespace collection counts.
 
 ### `GET /api/v2/audit`
 
-Query the audit event log written when auditing is enabled. Query parameter: `limit`.
-Returns an array of audit event objects; HTTP 409 if the audit log is not configured.
+Query the audit event log written when auditing is enabled. Query parameters: `namespace`,
+`op`, `outcome`, `limit` and the opaque `cursor`. Returns a newest-first page
+(`{events, next_cursor, has_more}`); HTTP 404 if the audit log is not configured.
 
 Audit events carry an optional `request_id` field: when the caller sends
 `x-request-id`, `x-tracing-id` or `traceparent` (first match wins, truncated to
@@ -284,18 +288,21 @@ Soft-delete (tombstone) a record.
 
 A subsequent GET returns `record not found`.
 
-### `GET /api/v2/records/{ns}/{key}/versions?limit=<n>`
+### `GET /api/v2/records/{ns}/{key}/versions?version=<n>`
 
-Version history of a record. Returns an array of version entries.
+Version history of a record. Returns an array of version entries; with `version`
+returns only that revision.
 
 ### `GET /api/v2/list?namespace=<ns>&limit=100&cursor=<cursor>&filter_ops=<json>`
 
-Paginated listing of records in a namespace.
+Cursor-paginated listing of records in a namespace. `cursor` is the opaque
+`next_cursor` from the previous page; `has_more` mirrors `next_cursor != null`.
 
 ```json
 {
   "records": [ { "...record wire shape..." : "" } ],
-  "next_cursor": null
+  "next_cursor": null,
+  "has_more": false
 }
 ```
 
@@ -307,6 +314,7 @@ response carries one additional additive field:
 {
   "records": [ ... ],
   "next_cursor": null,
+  "has_more": false,
   "truncated_namespaces": ["big-ns"]
 }
 ```
@@ -332,13 +340,14 @@ are mutually exclusive.
 ### `POST /api/v2/search`
 
 Vector / sparse / BM25 hybrid similarity search over a namespace. Wire format mirrors the
-SDK's `VantaMemorySearchRequest` plus offset pagination (`cursor` = zero-based offset,
-`limit` = page size, defaults to `top_k`). An empty `query_vector` skips dense search;
-`text_query` drives BM25 lexical scoring. `distance_metric` is one of `Cosine`,
-`Euclidean`, `Dot`; `explain: true` adds a `VantaSearchExplanation` per result.
+SDK's `VantaMemorySearchRequest` plus cursor pagination: `limit` = page size (defaults to
+`top_k`) and `cursor` = the opaque `next_cursor` from the previous page. An empty
+`query_vector` skips dense search; `text_query` drives BM25 lexical scoring.
+`distance_metric` is one of `Cosine`, `Euclidean`, `SparseDot`; `explain: true` adds a
+`VantaSearchExplanation` per result.
 
 > Text search works on fresh databases out of the box: the server ensures index state
-> at startup (MOD-12). `POST /api/v2/maintenance/rebuild-index` remains available for
+> at startup (MOD-12). `POST /api/v2/maintenance/index-rebuilds` remains available for
 > explicit rebuilds of existing data.
 
 **Request:**
@@ -366,7 +375,8 @@ SDK's `VantaMemorySearchRequest` plus offset pagination (`cursor` = zero-based o
       "explanation": null
     }
   ],
-  "next_cursor": null
+  "next_cursor": null,
+  "has_more": false
 }
 ```
 
@@ -422,7 +432,7 @@ Centrality/PageRank return a score object keyed by node id.
 
 ## Maintenance
 
-### `POST /api/v2/maintenance/purge`
+### `DELETE /api/v2/maintenance/expired-records`
 
 Removes all expired (TTL elapsed) records.
 
@@ -430,17 +440,18 @@ Removes all expired (TTL elapsed) records.
 { "purged": 0 }
 ```
 
-### `POST /api/v2/maintenance/compact`
+### `POST /api/v2/maintenance/compactions`
 
 Compacts underlying storage layers. Returns a result acknowledgement object.
 
-### `POST /api/v2/maintenance/flush`
+### `POST /api/v2/maintenance/flushes`
 
 Forces pending WAL/memory writes down to durable storage. Returns a result object.
 
-### `POST /api/v2/maintenance/rebuild-index`
+### `POST /api/v2/maintenance/index-rebuilds`
 
-Rebuilds secondary indexes (text/HNSW) for the database.
+Rebuilds secondary indexes (text/HNSW) for the database. Long-running: served under the
+extended request timeout.
 
 ```json
 {
@@ -477,26 +488,30 @@ Creates a named snapshot of the current database state.
 
 Conversation threads store role-tagged messages as auto-embedded nodes.
 
-### `GET /api/v2/threads?limit=<n>`
+### `GET /api/v2/threads?limit=<n>&cursor=<cursor>`
 
-Lists threads.
+Lists threads as a cursor page (`cursor` is the opaque `next_cursor`).
 
 ```json
-[
-  {
-    "thread_id": "310279622029206533993990662647183162021",
-    "title": "demo thread",
-    "messages": [],
-    "created_at": 1787432771,
-    "updated_at": 1787432771,
-    "metadata": {}
-  }
-]
+{
+  "threads": [
+    {
+      "thread_id": "310279622029206533993990662647183162021",
+      "title": "demo thread",
+      "messages": [],
+      "created_at": 1787432771,
+      "updated_at": 1787432771,
+      "metadata": {}
+    }
+  ],
+  "next_cursor": null,
+  "has_more": false
+}
 ```
 
 ### `POST /api/v2/threads`
 
-Creates a thread. Body: `{ "title": "<human-readable title>" }`.
+Creates a thread (HTTP 201). Body: `{ "title": "<human-readable title>" }`.
 
 ```json
 { "thread_id": "310279622029206533993990662647183162021" }
@@ -524,7 +539,7 @@ Fetches a thread with its messages.
 }
 ```
 
-### `POST /api/v2/threads/{id}`
+### `POST /api/v2/threads/{id}/messages`
 
 Appends a role-tagged message (auto-embedded). Body requires `role` and `content`.
 
@@ -551,14 +566,17 @@ server with `--dashboard-dir <dir>`; otherwise `/dashboard` responds 404 with a 
 > ⚠️ **Experimental** - these routes are marked `x-experimental: true` in
 > `openapi.yaml`. They are unstable and may change without notice.
 
-### `POST /conversation/add`
+### `POST /api/v2/conversations`
 
-Legacy conversational ingestion endpoint: auto-selects or creates a thread and appends a
-turn. Body includes optional `thread_id` (omitted creates/reuses the default thread).
+Conversational ingestion (MEM-55 data plane): auto-selects or creates a thread and
+appends a turn (HTTP 201). Body requires `role` and `content`; optional `thread_id`
+(omitted creates/reuses the default thread), `title` and `ttl_secs`.
 
-### `GET /skill/listing?limit=<n>`
+### `GET /api/v2/skills?limit=<n>&cursor=<cursor>`
 
-Lists skill-like records (capped at 200 items, default limit 50).
+Lists skill head rows (lean view — no content body; capped at 200 items, default limit
+50), filtered by `owner_agent` and/or `name_prefix`. Cursor-paginated page:
+`{items, total, next_cursor, has_more}`.
 
 ### `POST /api/v2/skills`
 
@@ -737,25 +755,25 @@ refuses to start without a key regardless of host.
 | `POST` | `/api/v2/graph/v2/bfs` | Bearer (if configured) | Graph | BFS (v2 engine) |
 | `POST` | `/api/v2/graph/v2/dfs` | Bearer (if configured) | Graph | DFS (v2 engine) |
 | `POST` | `/api/v2/graph/v2/degree` | Bearer (if configured) | Graph | Degree (v2 engine) |
-| `POST` | `/api/v2/maintenance/purge` | Bearer (if configured) | Maintenance | Purge expired records |
-| `POST` | `/api/v2/maintenance/compact` | Bearer (if configured) | Maintenance | Compact storage |
-| `POST` | `/api/v2/maintenance/flush` | Bearer (if configured) | Maintenance | Flush pending writes |
-| `POST` | `/api/v2/maintenance/rebuild-index` | Bearer (if configured) | Maintenance | Rebuild indexes |
+| `DELETE` | `/api/v2/maintenance/expired-records` | Bearer (if configured) | Maintenance | Delete expired records (was `/maintenance/purge`) |
+| `POST` | `/api/v2/maintenance/compactions` | Bearer (if configured) | Maintenance | Compact storage |
+| `POST` | `/api/v2/maintenance/flushes` | Bearer (if configured) | Maintenance | Flush pending writes |
+| `POST` | `/api/v2/maintenance/index-rebuilds` | Bearer (if configured) | Maintenance | Rebuild indexes |
 | `GET` | `/api/v2/snapshots` | Bearer (if configured) | Maintenance | List snapshots |
-| `POST` | `/api/v2/snapshots/{name}` | Bearer (if configured) | Maintenance | Create snapshot |
-| `GET` | `/api/v2/threads` | Bearer (if configured) | Threads | List threads |
-| `POST` | `/api/v2/threads` | Bearer (if configured) | Threads | Create thread |
+| `POST` | `/api/v2/snapshots/{name}` | Bearer (if configured) | Maintenance | Create snapshot (201) |
+| `GET` | `/api/v2/threads` | Bearer (if configured) | Threads | List threads (cursor page) |
+| `POST` | `/api/v2/threads` | Bearer (if configured) | Threads | Create thread (201) |
 | `GET` | `/api/v2/threads/{id}` | Bearer (if configured) | Threads | Get thread |
-| `POST` | `/api/v2/threads/{id}` | Bearer (if configured) | Threads | Send message to thread |
+| `POST` | `/api/v2/threads/{id}/messages` | Bearer (if configured) | Threads | Send message to thread |
 | `DELETE` | `/api/v2/threads/{id}` | Bearer (if configured) | Threads | Delete thread |
+| `GET` | `/api/v2/skills` ⚠️ experimental | Bearer (if configured) | Skills | List skill heads (cursor page) |
 | `POST` | `/api/v2/skills` | Bearer (if configured) | Skills | Create skill (idempotent by content hash) |
 | `PUT` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Update skill (optimistic lock) |
 | `PATCH` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Patch skill fields |
 | `DELETE` | `/api/v2/skills/{skill_id}` | Bearer (if configured) | Skills | Delete skill and all versions |
 | `GET` | `/dashboard` | Bearer (if configured) | Stable | Web console entry point |
 | `GET` | `/dashboard/{path}` | Bearer (if configured) | Stable | Web console static assets |
-| `POST` | `/conversation/add` ⚠️ experimental | Bearer (if configured) | Experimental | Legacy conversation turn ingestion |
-| `GET` | `/skill/listing` ⚠️ experimental | Bearer (if configured) | Experimental | Skill-like record listing |
+| `POST` | `/api/v2/conversations` ⚠️ experimental | Bearer (if configured) | Experimental | Conversation turn ingestion |
 
 ## Error responses
 
@@ -768,7 +786,7 @@ All error bodies share the shape `{ "success": false, "error": "<message>",
 | `401` | Missing or invalid Bearer token |
 | `403` | Authenticated but insufficient RBAC permissions |
 | `404` | Referenced resource (node, record, namespace, thread) not found |
-| `409` | Operation not available (e.g. audit log not configured) |
+| `409` | Conflict (e.g. stale `expected_version` on a skill update) |
 | `429` | Rate limit exceeded (`Retry-After` header included) |
 | `500` | Internal server error |
 

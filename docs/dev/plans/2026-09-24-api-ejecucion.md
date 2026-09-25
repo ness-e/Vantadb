@@ -2,7 +2,7 @@
 
 > **Campaign ID:** beca0c27-fd85-4489-8f93-8361888d662c
 > **Inicio:** 2026-09-24
-> **Estado:** 🔄 EN PROGRESO (1/9 — API-01 ✅ 2026-09-25; siguiente: API-02/API-03 en paralelo)
+> **Estado:** 🔄 EN PROGRESO (2/9 ✅ API-01 + API-03; API-02 cerrado técnicamente — reviews P2-01 ✅, commits pendientes del lead)
 > **Fuente:** `docs/dev/Backlog.md` Phase 51 (filas `API-01..API-09`)
 > **Autonomous:** false
 > **Modo:** PLAN (este archivo no cambia código; la ejecución es `/pipeline run` o `/pipeline task API-0X`)
@@ -64,8 +64,8 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo test --test python_sdk_boundary` verde Y `tsc --noEmit` + `npm test` verdes Y matriz 4 bindings pareja (método×firma) Y `rg "distance: h.score"` = 0
 - **Task file:** `docs/dev/tasks/API-02.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
+- **Estado:** ⏳ EN PROGRESO — Steps 0-9 ✅ + contrato mecánico 4/4 ✅; review P2-01 ✅ APPROVE (2 rondas: ❌ → R1/R2/R3 → ✅); **pendiente: commit local del lead** (working tree listo; sin push)
+- **Branch:** develop (sin commit — política owner 2026-09-25; el lead commitea)
 - **Commit:**
 - **Cynefin:** 🟨 complicado — 4 toolchains (PyO3/NAPI/wasm-bindgen/tsc)
 - **Top 3 riesgos:** 1. `tests/api/python.rs` fijan aliases 2. FIND-79 (wasm import) sin resolver bloquea TS 3. napi `.node` por plataforma
@@ -79,7 +79,7 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Uphill/Downhill:** ⬆️ 1 (FIND-79) / ⬇️ resto bindings
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Iteraciones:** | — | — | — | — |
-- **Notas:** Dep: API-01. Paralelizable con API-03 tras 01.
+- **Notas:** Dep: API-01. Paralelizable con API-03 tras 01. **Cierre 2026-09-25:** contrato 4/4 re-ejecutado (python_sdk_boundary 1 passed · tsc 0 · TS vitest 314/314 · Node 36/36 · pytest 149 passed · `rg "distance: h.score"` 0 en código · matriz W1 en BINDINGS_NAMESPACES) + review P2-01 ✅. Deuda: P2-5 pagada; FIND-79 DEFER; Node extras fuera de W1. Working tree sin commit (lead commitea).
 
 ### Task 3: API-03 — W2 HTTP/OpenAPI-first REST+paginación
 
@@ -92,9 +92,9 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo test --test openapi_yaml_parity` verde Y curl por grupo (records/search/threads/maintenance/export) con status=YAML Y `rg "maintenance/purge|conversation/add|skill/listing"` en router = 0 Y `rg "offset" handlers.rs` = 0 (cursor único)
 - **Task file:** `docs/dev/tasks/API-03.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-25) — contrato 4/4 (parity 10/10 + script OK + greps 0 + smoke curl 15/15) + review P2-01 ✅ APPROVE ronda 2; cambios en working tree, **commit pendiente del lead** (política owner)
+- **Branch:** develop
+- **Commit:** pendiente (lead)
 - **Cynefin:** 🟨 complicado — owner YAML + auth + migraciones
 - **Top 3 riesgos:** 1. YAML e impl derivan a la vez 2. Clientes del dashboard usan rutas viejas 3. Cursor sin migrar `threads/audit`
 - **Pre-mortem:** F1: gemelos v2 se duplican en vez de migrar; F2: `RecordInput` opcional rompe validación MCP; F3: gateway por entusiasmo
@@ -287,18 +287,32 @@ Próximo paso recomendado:
 === RECITATION API-01 ===
 Campaign ID: beca0c27-fd85-4489-8f93-8361888d662c
 Objetivo activo: API-01: W0 fundación — tipos base + error envelope + casing + u128 wire
-Estado: in-progress
-Última acción: Review-fix R1+R2: serde(default) en QueryResult::Write.node_id (src/sdk/types/graph.rs) — RED 'missing field node_id' verificado pre-fix, GREEN 18/18 post-fix (test nuevo test_query_result_write_missing_node_id_defaults_none); docstring Py corregido (sin falso RED); comentario Node precisado (MemoryRecord.node_id; binding sin query). check/clippy/fmt-scoped verdes; verify_changed global rojo por WIP ajeno WIRE-10 (fmt mcp_call.rs + docs mcp-call).
-Resultado: PARTIAL
-Próxima acción: vanta-review re-review de R1+R2 (contexto fresco); R3 (ADR-041 + contadores) lo maneja el lead; luego commit. No re-ejecutar Steps 3-8.
-Contrato: verificacion: cargo test --test sdk_serialization -> 18/18 | pytest tests/test_wire_u128.py -> 2/2 | vitest api.test.ts -> 28/28 | cargo check -p vantadb (cli,fjall,memmap2,fs2,roaring) -> ok | cargo clippy -D warnings -> ok | fmt: mis archivos limpios; global rojo SOLO en src/cli_handlers/mcp_call.rs:97 (ajeno) | docs-coverage: global rojo SOLO en cli.rs mcp-call (ajeno)
-evidencia:
-  - claim: R1 bug real confirmado y corregido. evidencia: RED pre-fix -> Error("missing field `node_id`", line 1 col 45); fix #[serde(default)] en src/sdk/types/graph.rs:29-35; GREEN 18/18. confianza: alta
-  - claim: R2 docstring corregido — query_structured NO pasa por serde; mapping to_string() pre-existente desde d7fc09ba ('feat(python): MOD-20 ... + query_structured()'), verificado con git log. confianza: alta
-  - claim: Node binding no expone query/QueryResult (0 hits en src/lib.rs y index.d.ts); el caso ejercita MemoryRecord.node_id vía napi. confianza: alta
-artefactos: src/sdk/types/graph.rs, tests/sdk_serialization.rs, vantadb-python/tests/test_wire_u128.py, vantadb-node/tests/api.test.ts, docs/dev/tasks/API-01.md
-invariantes: u128_serde único patrón wire; lectura backward-compat de Write sin node_id restaurada (Ok(None)); sin tocar WIP ajeno (WIRE-10); sin commit (TSYS-11); Display/code() sin cambios
-deuda: re-review pendiente; verify_changed global bloqueado por WIRE-10 (fmt+docs) — API-01 scoped verde
-queda_pendiente: re-review vanta-review (R1+R2); R3 lead; commit lead.
+Estado: completed
+Última acción: Cierre completo: review P2-01 ✅ (2 rondas: ❌ → R1/R2 fixes + R3 waiver → ✅); commits locales 3713773b (fix R1/R2) + 925c66b6 (docs cierre); contrato 4/4.
+Resultado: OK
+Próxima acción: API-02 y API-03 en paralelo (plan api-ejecucion.md); push pendiente de instrucción del owner
+Contrato: verificacion: cargo test --test sdk_serialization -> 18 passed/0 failed | wire u128 >2^53 en 4 bindings (Py 2/2, TS 1/1, Node 28/28, WASM 30/30) | verify_changed 4/4 | review P2-01 APPROVE
 Próxima tarea si completa: API-02
+=== END RECITATION ===
+
+=== RECITATION API-03 ===
+Campaign ID: beca0c27-fd85-4489-8f93-8361888d662c
+Objetivo activo: API-03: W2 HTTP/OpenAPI-first REST + paginación (cursor único)
+Estado: completed
+Última acción: Completo: 7/7 steps. Rutas migradas (/maintenance/* plurales, /api/v2/conversations, GET /api/v2/skills, /threads/{id}/messages), status=YAML (201 en 6 creates), cursor opaco string + has_more + limit en list/search/audit/threads/skills, 5 drifts YAML, HTTP_API.md sync, parity test 10/10 + script OK + e2e 17/17 + smoke curl 15/15; review P2-01 ronda 1 CHANGES (limit=0 sticky en search/audit, tabla docs, 400 sin documentar) → fixes → ronda 2 APPROVE. Sin commit (política owner; lo hace el lead).
+Resultado: OK
+Próxima acción: Lead: commit local selectivo de los 12 paths API-03 (excluir WIP API-02) + skill progreso. Luego API-04 (depende de API-03).
+Contrato: verificacion: node scripts/check_openapi_parity.mjs -> Parity OK (37 paths) | cargo test --target-dir target/session-api01 --test openapi_yaml_parity -> 10 passed/0 failed | cargo test --target-dir target/session-api01 -p vantadb-server --test e2e -> 17 passed/0 failed | rg 'maintenance/purge|conversation/add|skill/listing' src/server/router.rs -> 0 | rg offset src/server/handlers.rs -> 0 | curl por grupo (records/search/threads/maintenance/export + conversations/skills) 15/15 status=YAML (script target/session-api01/smoke-api03.ps1) | clippy -p vantadb --features server --all-targets -D warnings + -p vantadb-server --all-targets OK | evidencia: claim 'cursor opaco + has_more + limit' evidencia 'handlers.rs + pagination.rs + e2e test_e2e_list_cursor_pagination_roundtrip + smoke live' confianza alta; claim 'review P2-01' evidencia 'docs/dev/tasks/API-03.md §Review ronda 2 APPROVE' confianza alta; artefactos: docs/dev/tasks/API-03.md, src/server/pagination.rs (nuevo); invariantes: router.rs <-> openapi.yaml lockstep (gate-docs-21), no tocar src/sdk/wal/vector/storage, MCP in-process intacto, no commit/push por política owner; deuda: versions sin paginar (fuera de contrato), dashboard TS cursor types numericos (runtime pass-through OK), comentarios /conversation/add en vanta-memory (candidato FIND-*), quirk multi-ns cursor por-namespace pre-existente; queda_pendiente: commit local selectivo del lead + skill progreso + push solo con instrucción del owner
+Próxima tarea si completa: API-04
+=== END RECITATION ===
+
+=== RECITATION API-02 ===
+Campaign ID: beca0c27-fd85-4489-8f93-8361888d662c
+Objetivo activo: API-02: W1 bindings — score + firmas + getNode + u128 (4 toolchains)
+Estado: in-progress
+Última acción: Cierre técnico completo: TS score (4 sitios) + roots NodeId/guard; Python rename insert_node/get_node/delete_node + put_batch([{...}]) (P2-5 pagada) + search_multi + stubs + tests; docs matriz W1. Review P2-01: ❌→R1/R2/R3 aplicados→✅ APPROVE. Working tree sin commit.
+Resultado: PARTIAL
+Próxima acción: Lead: commit local de API-02 (git add <archivos listados en task file §Impacto mapeado>; feat!: API-02) — NO push. Luego continuar API-04 (o cierre de API-03 paralela).
+Contrato: verificacion: cargo test --target-dir target/session-api01 --test python_sdk_boundary -> 1 passed/0 failed | npx tsc --noEmit -> exit 0 | npx vitest run (vantadb-ts) -> 314/314 | npx vitest run (vantadb-node) -> 36/36 | pytest vantadb-python/tests -> 149 passed/0 failed | rg "distance: h.score" -> 0 en codigo (solo docs historicos) | matriz W1 -> docs/api/BINDINGS_NAMESPACES.md §W1 parity matrix + tests por binding | evidencia: claim=R1 review (roots number[] residual en 11 sitios) corregido y re-verificado (tsc 0, vitest 314/314) -> file: vantadb-ts/src/vantadb.ts:91-1472 + review session | claim=Spec #5 enmendada sin method (core search_multi no acepta override; Node/WASM tampoco) -> file: docs/dev/tasks/API-02.md:48 | claim=Python 46 metodos flat reales (16 memory/11 graph/18 system/1 wiki) -> tool: dir(vantadb_py.vantadb_py.Client) | claim=P2-5 pagada (una sola API put_batch) -> file: vantadb-python/src/lib.rs (put_batch(records) + record_to_memory_input) | claim=FIND-79 DEFER aceptado por stop condition -> file: docs/dev/tasks/API-02.md Spec #7 | artefactos: docs/dev/tasks/API-02.md, vantadb-python/tests/test_w1_surface.py, vantadb-ts/tests/graph.test.ts | invariantes: u128_serde unico patron wire; distance solo ANN crudo; put_batch_raw zero-copy intacto; GIL release en ops nuevas; vantadb-pro intocable; WIP ajeno (API-03/WIRE-10) intocable | deuda: P2-5 pagada; FIND-79 DEFER documentado; Node extras fuera de W1; FIND candidatos (d) INVALID_ARGUMENT sin prefijo, (e) tsc no typechequea tests | queda_pendiente: commit local del lead + sync final; push solo con instruccion explicita del owner
+Próxima tarea si completa: API-04
 === END RECITATION ===

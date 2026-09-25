@@ -86,7 +86,7 @@ impl From<&crate::node::UnifiedNode> for NodeDTO {
     }
 }
 
-/// Best-effort post-save hook for `POST /conversation/add` (MEM-55).
+/// Best-effort post-save hook for `POST /api/v2/conversations` (MEM-55).
 ///
 /// Fired once per successful save, right before the HTTP response is built.
 /// The core cannot depend on the memory pipeline (Cargo forbids the cycle:
@@ -129,7 +129,7 @@ pub struct ServerState {
     /// Reverse-proxy IPs whose `X-Forwarded-For` header is honored for client
     /// IP resolution. Empty = ignore the header (ConnectInfo is authoritative).
     pub trusted_proxies: Vec<std::net::IpAddr>,
-    /// Optional post-save hook for `POST /conversation/add` (MEM-55). `None`
+    /// Optional post-save hook for `POST /api/v2/conversations` (MEM-55). `None`
     /// keeps the route purely a thread store (pre-MEM-55 behavior).
     pub conversation_trigger: Option<Arc<dyn ConversationTrigger>>,
 }
