@@ -15,7 +15,7 @@ dejar el release 0.7.0 listo, SIN publicar (el owner difirió release, FASE-A y
 
 - Release 0.7.0 diferida: modificar + verificar a fondo primero, releasear todo junto después.
 - FASE-A diferida (`docs/dev/FASE-A.md` sin hacer). N-03 (posts) sigue bloqueado por ella.
-- ci-gate: aprobado "Fix head SHA". EVIDENCIA POSTERIOR lo refuta (ver §4.3): re-proponer.
+- ci-gate: aprobado "Fix head SHA". EVIDENCIA POSTERIOR lo refuta (ver §4.3): re-proponer. ✅ Resuelto 2026-09-24 (ver §4.3).
 - Preguntar por cada modificación Notion vía question tool (cumplido: N-01/02/04/05/06 aplicados tras explicación).
 - `vantadb-node`: publicar (con la 0.7.0, no antes).
 - Solo mergear verde y validado. Subagentes caídos (provider gating) → todo directo.
@@ -59,7 +59,7 @@ eterno en PRs. Además su header dice que debe medir **`main`**, no el PR.
 En `main`: casi todo `success`, pero `OSV-Scanner` sin corridas (nació en PRs) y
 `Analyze` en `skipped` (el script no lo acepta).
 **Propuesta corregida pendiente de aprobación:** interrogar HEAD de `main` +
-tratar `skipped` como pass. NO aplicar la anterior sin re-aprobar.
+tratar `skipped` como pass. NO aplicar la anterior sin re-aprobar. ✅ **RESUELTO 2026-09-24** (commit `0c27a960`): opción A ampliada — mide `main` HEAD + `success|skipped|neutral` pass + `missing` tolerado con WARN; verificado `ci-gate / Main is green` = pass en PR #222 (run `36084499760`).
 
 ## 5. Pendiente del owner 👤
 
@@ -67,7 +67,7 @@ tratar `skipped` como pass. NO aplicar la anterior sin re-aprobar.
 - Merge PR #222 + tag `v0.7.0` + publish (crates/PyPI/npm) y tag `node-v*` si publica node.
 - R-05 por sus manos (opcional): venv limpio, `pip install vantadb`, seguir QUICKSTART, anotar fricción.
 - Propuesta del próximo arco sobre Backlog 113 filas (pedida, no entregada).
-- Responder §4.3 (ci-gate corregido) y si lanzo EST-10.
+- Responder §4.3 (ci-gate ✅ resuelto 2026-09-24) y si lanzo EST-10.
 
 ## 6. Pendiente del agente 🤖 (siguiente wave)
 

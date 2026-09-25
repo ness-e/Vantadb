@@ -49,6 +49,8 @@
 
 ## EST-03 — ci-gate false-red
 
+> ✅ **RESUELTO 2026-09-24** (commit `0c27a960`): mide `main` HEAD vía API + `skipped/neutral` pass + missing tolerado con WARN (decisión owner A). Verificado `ci-gate / Main is green` = pass en PR #222 (run `36084499760`). Detalle: `docs/dev/tasks/EST-03.md` + `docs/dev/avance/activo/ci-cd.md`.
+
 **Contexto:** el gate no mide `main`: interroga check-runs del SHA efímero del merge. Con fail-closed, cualquier PR sin esos 13 nombres exactos muere en 5s con "main CI is red".
 **Tarea:** decidir fix con owner (opciones: consultar el head SHA del PR en vez de `GITHUB_SHA`; o renombrar el job a lo que hace; o lista de checks tolerante a `pending`).
 **Acciones:**

@@ -5,7 +5,7 @@
 - **Backlog:** fila `EST-03` en P57 (`docs/dev/Backlog.md`)
 - **Creado:** 2026-09-24
 - **last-synced:** 2026-09-24
-- **Estado:** ⏳ IN PROGRESS
+- **Estado:** ✅ COMPLETED (2026-09-24)
 - **Tipo:** CI/workflow (`.github/workflows/ci-gate.yml`) — ejecución inline (subagentes caídos por provider gating)
 
 ## Objetivo
@@ -33,24 +33,24 @@ Que el check reusable `ci-gate / Main is green` (invocado por `fuzz.yml`, `heavy
 - **Archivos:** `.github/workflows/ci-gate.yml`
 - **Acción:** eliminar el bloque PR-head-SHA (`HEAD_SHA: ${{ github.event.pull_request.head.sha }}`); resolver `SHA=$(gh api repos/$REPO/commits/main --jq .sha)`; 1 sola llamada API a check-runs + `jq` por nombre con `sort_by(.started_at) | last`; política A en el `case`.
 - **Verify:** diff + lectura.
-- **Estado:** ⏳
+- **Estado:** ✅
 
 ### Step 2: verificación local de la lógica
 - **Acción:** validar el filtro jq con `gh api --jq` (gojq) sobre los check-runs reales de `main` y la política con los 3 casos (real → 0; `Lint Markdown` → 1; inexistente → WARN).
 - **Verify:** salidas esperadas registradas.
-- **Estado:** ⬜
+- **Estado:** ✅
 
 ### Step 3: actionlint + commit + push
 - **Verify:** `actionlint` ok + pre-commit hook ok + `git push origin develop` (pre-push salta cargo: sin `.rs`).
-- **Estado:** ⬜
+- **Estado:** ✅
 
 ### Step 4: verificación en PR #222
 - **Verify:** `gh pr checks 222` → `ci-gate / Main is green` = pass tras el refresh del run de fuzz.
-- **Estado:** ⬜
+- **Estado:** ✅
 
 ### Step 5: cierre (progreso Trigger 1)
 - Backlog: eliminar fila `EST-03` (P57) + totales; avance → `docs/dev/avance/activo/ci-cd.md`; nota en plan EST + `sesion-continuidad.md` §4.3; coverage scripts; commit.
-- **Estado:** ⬜
+- **Estado:** ✅
 
 ## Dependencias
 - Ninguna. (Arco: estabilización pre-0.7.0; el fix anterior `9705b434` fue refutado por evidencia: run `36061913564`, 13 checks `<not found>` a los 14s.)
@@ -62,7 +62,7 @@ Que el check reusable `ci-gate / Main is green` (invocado por `fuzz.yml`, `heavy
 ## Context Save Point
 - **Fecha:** 2026-09-24
 - **Branch:** `develop`
-- **CI pendiente:** sí (verificación en PR #222 tras push)
+- **CI pendiente:** no — verificado `ci-gate / Main is green` = **pass** en PR #222 (run `36084499760`, commit `0c27a960`)
 - **Decisiones:** Opción A aprobada por owner (main HEAD + skipped OK + missing tolerado con WARN).
 - **Problemas conocidos:** ninguno.
 - **Próxima tarea:** `EST-10` (barrido API stale).
