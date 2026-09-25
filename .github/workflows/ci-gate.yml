@@ -2,6 +2,8 @@
 # Heavy/scheduled workflows call this first: if the CI of the current main
 # commit is red, the gate fails and dependent jobs (needs: ci-gate) are skipped,
 # avoiding hours of wasted heavy runs that would fail anyway.
+# Re-checked 2026-09-24 (EST-03): measures main HEAD; skipped/neutral pass;
+# checks with no completed runs on main are tolerated with a WARN.
 
 name: CI Gate
 
@@ -24,15 +26,14 @@ jobs:
       - name: Check main CI status
         env:
           GH_TOKEN: ${{ github.token }}
-          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          SHA="${GITHUB_SHA}"
-          # En PRs GITHUB_SHA es el merge efímero (sin check-runs) → usar el head SHA (EST-03).
-          if [ -n "${HEAD_SHA}" ]; then
-            SHA="${HEAD_SHA}"
-          fi
           REPO="${{ github.repository }}"
-          echo "Checking CI status for ${REPO} @ ${SHA}"
+          # Gate intent (see header): assert that the CI of the MAIN branch head is
+          # green before heavy/scheduled runs. Always resolve main's HEAD via API:
+          # PR merges create ephemeral SHAs with no check-runs, and querying the
+          # PR/caller SHA fails closed while its checks are still pending (EST-03).
+          SHA=$(gh api "repos/${REPO}/commits/main" --jq .sha)
+          echo "Checking CI status for ${REPO} @ main HEAD ${SHA}"
           REQUIRED=(
             "Format Check"
             "Clippy Lints"
@@ -50,15 +51,21 @@ jobs:
           )
           # Semver Checks excluded: guard ref==main/base_ref==main skips it on develop (no check-run → false red).
           # ADR Gate excluded: guard event==pull_request skips it on push/schedule (no check-run → false red).
+          # EST-03 policy (owner-approved 2026-09-24): one API call, latest completed
+          # conclusion per check name; success|skipped|neutral pass (some guards skip
+          # by design); failure|timed_out|cancelled|action_required fail; checks with
+          # no completed runs on main are tolerated with a WARN (never-run != red).
+          RUNS=$(gh api "repos/${REPO}/commits/${SHA}/check-runs?per_page=100&filter=latest")
           FAILED=0
           for c in "${REQUIRED[@]}"; do
-            CONCLUSION=$(gh api "repos/${REPO}/commits/${SHA}/check-runs?per_page=100&filter=latest" \
-              --jq ".check_runs[] | select(.name==\"${c}\" and .status==\"completed\") | .conclusion" | head -n1)
-            echo "  ${c} -> ${CONCLUSION:-<not found>}"
+            CONCLUSION=$(jq -r --arg c "${c}" \
+              '[.check_runs[] | select(.name==$c and .status=="completed")] | sort_by(.started_at) | last | .conclusion // "<missing>"' \
+              <<<"${RUNS}")
+            echo "  ${c} -> ${CONCLUSION}"
             case "${CONCLUSION}" in
-              success) ;;
+              success|skipped|neutral) ;;
               failure|timed_out|cancelled|action_required) FAILED=1 ;;
-              *) FAILED=1 ;; # fail-closed: missing/pending check fails the gate
+              *) echo "::warning::${c} has no completed runs on main — tolerated (EST-03)" ;;
             esac
           done
           if [ "${FAILED}" = "1" ]; then
