@@ -86,3 +86,24 @@ merge develop -> main
 | `adapters-v*.*.*` | adapters-62 | PyPI (9 adapters) |
 | `v*` (broad) | sbom-64 | Artifacts only (no registry) |
 | GitHub Release | binaries-63 | Release assets (binaries, docker tarball) |
+
+## Cascadas automaticas — `RELEASE_PLZ_TOKEN` (PAT)
+
+release-plz crea tags/releases con `GITHUB_TOKEN`; GitHub suprime los eventos
+generados por ese token, asi que los workflows tag-triggered (`v*.*.*`,
+`node-v*.*.*`, `adapters-v*`) y `release: published` (binaries) **no se
+disparan**. Solucion: fine-grained PAT `RELEASE_PLZ_TOKEN` (Contents RW +
+Pull requests RW sobre `ness-e/Vantadb`) guardado como secret del repo.
+`release.yml` lo usa con fallback (`secrets.RELEASE_PLZ_TOKEN ||
+secrets.GITHUB_TOKEN`): con el PAT presente, el tag/release los crea el
+usuario → wheels/PyPI, npm, SBOM y binaries se disparan solos; el Release PR
+ademas gana checks (antes salian 0 por ser GITHUB_TOKEN).
+
+### Fallback manual (PAT ausente/expirado)
+
+```powershell
+gh workflow run release-wheels.yml --ref vX.Y.Z
+gh workflow run release-npm-61.yml --ref vX.Y.Z -f package=both
+gh workflow run release-sbom.yml --ref vX.Y.Z
+# environments pypi/npm: aprobar los pending deployments (owner)
+```
