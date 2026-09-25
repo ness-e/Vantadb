@@ -745,3 +745,9 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** mismo bug FIND-101 en REPL con engine read-only long-lived (no vale parse-then-open directo: lock exclusiva).
 - **Resultado:** diseno limite-documentado adaptativo (E1-E4 con evidencia: RO rechaza, handle RW imposible con RO vivo, RW-de-entrada regresa, swap = rediseno) + flush tras Write; tui::repl 5/5; P2-01 approve.
 - **Commit:** 83b176bc
+
+### API-03: W2 HTTP OpenAPI-first — REST + cursor único (review P2-01 ✅)
+- **Fecha:** 2026-09-25
+- **Objetivo:** HTTP alineado a OpenAPI-first: plurales sin verbos, `/api/v2` total, status=YAML (201 en creates), cursor opaco string + `has_more` + `limit` (0 `offset`), `RecordInput` opcional, 5 drifts YAML.
+- **Resultado:** ✅ Contrato 4/4 — parity 10/10 + script 37 paths OK · greps 0/0 · smoke curl 15/15 status=YAML · e2e 17/17 · clippy server ✅ · docs-coverage 0 gaps. 7 rutas migradas (`maintenance/purge`→`DELETE …/expired-records`, `conversation/add`→`/api/v2/conversations`, `skill/listing`→`GET /api/v2/skills`, `POST /threads/{id}`→`/threads/{id}/messages`, …). Review P2-01 ✅ APPROVE (2 rondas). Deuda declarada: `versions` sin paginar, cursor types en desktop, comentarios vanta-memory.
+- **Commit:** 94009297 (local, sin push)
