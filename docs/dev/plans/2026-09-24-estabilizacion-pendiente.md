@@ -98,6 +98,8 @@
 
 ## EST-10 — Barrido API stale fuera de CI
 
+> ✅ **RESUELTO 2026-09-24** (commit `b461c9e8`): ~230 reemplazos en ~75 archivos vivos + imports canónicos (`vantadb_py`→`vantadb`, 42) + fixes reales (NameError latente en `migrate/*.py`, paths C-02 de `validate_doc_snippets.py`, nota de naming falsa en README, tabla Cross-SDK de `vantadb-ts`, sección `Client` de api-reference, sección `search()` node-level de PYTHON_SDK → híbrida, cajas ASCII re-alineadas). Históricos/MCP-scope intactos (lista de exclusión en el task file). Detalle: `docs/dev/tasks/EST-10.md` + `docs/dev/avance/activo/operaciones.md`.
+
 **Contexto:** ~35 archivos con `VantaDB(`/`search_memory` fuera del path de CI (benches no-CI, skill, glosario, operations, strategy). Mismo rename 1:1 ya aplicado 5× hoy.
 **Tarea:** bulk idempotente con auditoría de resolución (conteo antes/después por archivo), `py_compile` a los `.py`, commit separado. Archivos runtime ` SKILL.md` espejados a `.opencode/skills/` tras el cambio (mirror FIND-83).
 **Pruebas (contrato):** `grep 'vantadb(_py)?\.VantaDB\(|search_memory|get_memory|list_memory|delete_memory' --include='*.py' --include='*.md'` solo con hits intencionales (notas históricas de migración) + `validate-docs-coverage.ps1` 0 gaps.
