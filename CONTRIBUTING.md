@@ -105,6 +105,12 @@ The repo uses **`main` as the release branch, `develop` as the working branch**:
 | `main` | Releases only | Never commit directly — only PRs from `develop` |
 | `develop` | Daily work | Every change starts here |
 
+> **Agent-assisted flows (owner decision 2026-09-25):** agents never `git push`
+> without an explicit owner instruction; commits are made **locally at the end
+> of each task/block**. PRs to `main` come **only from `develop`** (no
+> `hotfix/*` branches from `main` — prohibited) and require the owner's OK
+> before creation. See `.opencode/AGENTS.md` Regla 7 §Política de git.
+
 ```
 change code on develop → commit → push → PR to main → merge to main
                                                           ↓
