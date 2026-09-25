@@ -1,14 +1,14 @@
 #!/usr/bin/env node
 // P3-07 — DORA flow metrics harness.
 // Sources:
-//   - docs/plans/*.md  task blocks ("### Task N: ID — title", "- **Estado:** …") + plan
+//   - docs/dev/plans/*.md  task blocks ("### Task N: ID — title", "- **Estado:** …") + plan
 //     header ("**Inicio:**", "> **Estado:**") — dates are NOT structurally normalized yet,
 //     so we derive best-effort: markers > budget epochs > file mtime, and document it.
-//   - docs/plans/*.budget.json   startTime/lastActivity epoch ms per task
+//   - docs/dev/plans/*.budget.json   startTime/lastActivity epoch ms per task
 //   - .opencode/skills/campaign-executor/tasks/**/*.md  (flat + complete/ + closed/)
 //     metadata: "**Estado:**", "**Fecha:**", "**Creado:**", "**Inicio:**", "**last-synced:**"
 //   - .opencode/task-system/enforcement/verify-log.jsonl  (CFR; empty → 0 attempts)
-// Emits docs/reports/dora.md. Never crashes on missing data — degrades to 0/empty with notes.
+// Emits docs/dev/reports/dora.md. Never crashes on missing data — degrades to 0/empty with notes.
 import { readFileSync, readdirSync, existsSync, statSync, mkdirSync, writeFileSync } from "node:fs"
 import { resolve, join, dirname } from "node:path"
 import { fileURLToPath } from "node:url"
@@ -248,7 +248,7 @@ const code = (s) => "`" + s + "`"
 let md = `# DORA Flow Metrics Report
 
 > Generado por ${code("evals/dora.mjs")} (P3-07) — ${now.toISOString()}
-> Fuentes: ${code("docs/plans/*.md")} (${plans.size} tareas en ${plansF.length} planes) + task files en ${code(".opencode/skills/campaign-executor/tasks/")} (${taskFiles.size}) + ${code("*.budget.json")} (${budgets.size} con timestamps) + ${code("verify-log.jsonl")} (${attempts.length} intentos de verify)
+> Fuentes: ${code("docs/dev/plans/*.md")} (${plans.size} tareas en ${plansF.length} planes) + task files en ${code(".opencode/skills/campaign-executor/tasks/")} (${taskFiles.size}) + ${code("*.budget.json")} (${budgets.size} con timestamps) + ${code("verify-log.jsonl")} (${attempts.length} intentos de verify)
 > ⚠️ **Fechas derivadas best-effort, NO normalizadas**. Prioridad: markers escritos (${code("**Inicio:**")}, ${code("**Estado:** COMPLETADO (fecha)")}, ${code("**Fecha:**")}, ${code("**Creado:**")}, fechas en bloque de tarea) -> budget epoch ms (${code("startTime")}/${code("lastActivity")}) -> **file mtime**. Donde se usó mtime se marca ${code("(mtime)")}. Esto es exactamente lo que P2-05 (traceId por tarea) va a resolver: con traceId real, cada task tendrá timestamps estructurados.
 ${attempts.length === 0 ? `> ⚠️ **verify-log.jsonl está vacío (${entries.length} líneas)** — CFR reportado en 0% como baseline; no hay intentos registrados todavía.\n` : ""}
 

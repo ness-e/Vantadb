@@ -3,7 +3,9 @@ import { _mapRecord, buildSearchRequestBase } from "./guards.js";
 
 import type {
   Capabilities,
-  ListOptions,
+  DeleteInput,
+  GetInput,
+  ListInput,
   MemoryInput,
   MemoryListPage,
   MemoryRecord,
@@ -267,14 +269,13 @@ export class NativeVantaDB {
   /**
    * Retrieve a memory record by namespace and key.
    *
-   * @param namespace - The namespace.
-   * @param key - The record key.
+   * @param input - `{namespace, key}` of the record.
    * @returns The record if found, or null if it does not exist.
    */
-  async get(namespace: string, key: string): Promise<MemoryRecord | null> {
+  async get(input: GetInput): Promise<MemoryRecord | null> {
     this._assertOpen();
     return this._native("get", async () => {
-      const raw = await this.inner.get(namespace, key);
+      const raw = await this.inner.get(input.namespace, input.key);
       return raw != null ? _mapRecord(raw) : null;
     });
   }
@@ -282,11 +283,12 @@ export class NativeVantaDB {
   /**
    * Delete a memory record by namespace and key.
    *
+   * @param input - `{namespace, key}` of the record.
    * @returns true if the record was deleted, false if it did not exist.
    */
-  async delete(namespace: string, key: string): Promise<boolean> {
+  async delete(input: DeleteInput): Promise<boolean> {
     this._assertOpen();
-    return this._native("delete", () => this.inner.delete(namespace, key));
+    return this._native("delete", () => this.inner.delete(input.namespace, input.key));
   }
 
   /** List all namespaces that contain at least one memory record. */
@@ -299,13 +301,13 @@ export class NativeVantaDB {
    * List memory records in a namespace with optional filters and cursor
    * pagination.
    *
-   * @param namespace - The namespace to list.
-   * @param options - Pagination options (limit, cursor, filters).
+   * @param input - `{namespace}` plus pagination options (limit, cursor, filters).
    * @returns A page of records with an optional cursor for continuation.
    */
-  async list(namespace: string, options: ListOptions = {}): Promise<MemoryListPage> {
+  async list(input: ListInput): Promise<MemoryListPage> {
     this._assertOpen();
     return this._native("list", async () => {
+      const { namespace, ...options } = input;
       const wire = {
         filters: options.filters !== undefined ? normalizeMetadataForNative(options.filters) : undefined,
         limit: options.limit,

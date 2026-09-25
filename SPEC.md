@@ -1,6 +1,6 @@
 # Spec: MVP — VantaDB como memoria automática en agentes de código
 
-> **Para qué es este archivo:** es el contrato del plan `docs/plans/2026-09-17-mvp-memoria-agentes.md`. Dice QUÉ se va a construir, POR QUÉ (el problema que resuelve), CÓMO se verifica y QUÉ NO entra. Se lee antes de ejecutar cualquier tarea del plan y se actualiza si una decisión cambia. **Para qué se utiliza:** los sub-agentes lo usan como fuente de verdad (objetivo, límites, criterios de éxito) para no desviarse; el owner lo usa para auditar alcance.
+> **Para qué es este archivo:** es el contrato del plan `docs/dev/plans/2026-09-17-mvp-memoria-agentes.md`. Dice QUÉ se va a construir, POR QUÉ (el problema que resuelve), CÓMO se verifica y QUÉ NO entra. Se lee antes de ejecutar cualquier tarea del plan y se actualiza si una decisión cambia. **Para qué se utiliza:** los sub-agentes lo usan como fuente de verdad (objetivo, límites, criterios de éxito) para no desviarse; el owner lo usa para auditar alcance.
 
 ## Objective
 
@@ -90,7 +90,7 @@ Convenciones del repo (Rust: `?`+`Result`, sin `unwrap` en prod, clippy `-D warn
 
 ## Alcance cierre-mvp (plan `2026-09-18-cierre-mvp.md`, Gate P 2026-09-18)
 
-- **IMPL-112 (ingesta real):** la fuente de verdad es la spec `docs/tasks/FIND-112.md` (trait `LlmRunner` reutilizado, matriz local+ollama/openai, TOML+env secrets-solo-env, gates G0–G4, 10 tests nombrados). S1 local primero; S2 solo si S1 sale sin fricción (Gate V si friccionó).
+- **IMPL-112 (ingesta real):** la fuente de verdad es la spec `docs/dev/tasks/FIND-112.md` (trait `LlmRunner` reutilizado, matriz local+ollama/openai, TOML+env secrets-solo-env, gates G0–G4, 10 tests nombrados). S1 local primero; S2 solo si S1 sale sin fricción (Gate V si friccionó).
 - **S4/S6b (aprobación/programador):** diseño primero en `FIND-110-spec` / `FIND-113-spec` (cero código); ship solo con dueño defendible, si no re-DEFER honesto.
 - **TUI REPL:** los mutantes IQL deben funcionar en sesión (`src/tui/repl.rs`, engine read-only hoy) o quedar el límite documentado en su help con motivo (decide FIND-117, no re-diseñar el TUI).
 - **Ask-first `~/.cargo/bin` → APROBADO** para FIND-98 (reinstall parity 79→87) vía Gate P 2026-09-18; si el lock persiste → STOP sin forzar.
@@ -102,6 +102,20 @@ Convenciones del repo (Rust: `?`+`Result`, sin `unwrap` en prod, clippy `-D warn
 2. "Qué hice ayer a las 2pm en el módulo X" → respuesta con cita del registro (test temporal verde).
 3. `cargo audit`/`deny`/clippy/fmt verdes; coverage docs 0 gaps; OCR sin Critical/High.
 4. 0 regresiones: suites `mcp_tests`/`memory` verdes; binario instalado == fuente.
+
+## Adenda 2026-09-24 — Decisiones post-investigación integral
+
+> Fuente: `docs/dev/plans/2026-09-24-post-investigacion-integral.md` + `docs/dev/research/product-definition-gap-2026-09-24.md`.
+
+| # | Decisión (owner 2026-09-24) | Efecto |
+|---|------------------------------|--------|
+| 1 | **3 tracks ICP** a profundidad: AI-IDEs vía MCP · devs local-LLM/privacidad · frameworks | BIZ-08 resuelta; filas P54 (ICP-01..03) |
+| 2 | **Migración única de schema en 0.7.0**: bitemporalidad + confianza + cuarentena | Filas P53 (SCH-01..08) |
+| 3 | **Harness completo + head-to-head**: LoCoMo/LongMemEval-S/BEAM-subset + write-quality/abstención/tokens/p99-CI | Filas VER-08/VER-09 (absorbe EXE-02) |
+| 4 | **North Star**: agentes activos que recuperan una memoria con éxito en ventana de 7 días (medible en proxy/MCP) | DEF-05 |
+| 5 | **Naming freeze** 0.7.0→1.0 (9 artefactos; ADR) | DEF-04 |
+
+**Frontera:** este SPEC gobierna el MVP de memoria automática; la frontera de superficies (core-promise vs labs) vive en `EXPERIMENTAL_FEATURES.md` regenerado (DEF-02/03) y la jerarquía de producto en `VISION.md` (DEF-01). Los success criteria de campaña de abajo siguen vigentes para el MVP; los de **producto** son la North Star de DEF-05.
 
 ## Open Questions
 

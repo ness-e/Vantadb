@@ -334,8 +334,13 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                 "required": ["namespace"]
             },
             "outputSchema": {
-                "type": "array",
-                "description": "Hits array (structuredContent mirrors the JSON text content)"
+                "type": "object",
+                "description": "Budgeted envelope {hits, byte_count, truncated} (text payload stays the raw hits array)",
+                "properties": {
+                    "hits": { "type": "array" },
+                    "byte_count": { "type": "number" },
+                    "truncated": { "type": "boolean" }
+                }
             }
         },
         {
@@ -355,8 +360,13 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                 }, "required": ["vector", "k"]
             },
             "outputSchema": {
-                "type": "array",
-                "description": "Hits array (structuredContent mirrors the JSON text content)"
+                "type": "object",
+                "description": "Budgeted envelope {hits, byte_count, truncated} (text payload stays the raw hits array)",
+                "properties": {
+                    "hits": { "type": "array" },
+                    "byte_count": { "type": "number" },
+                    "truncated": { "type": "boolean" }
+                }
             }
         },
         {
@@ -388,8 +398,13 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                 "required": ["namespace"]
             },
             "outputSchema": {
-                "type": "array",
-                "description": "Hits array (structuredContent mirrors the JSON text content)"
+                "type": "object",
+                "description": "Budgeted envelope {hits, byte_count, truncated} (text payload stays the raw hits array)",
+                "properties": {
+                    "hits": { "type": "array" },
+                    "byte_count": { "type": "number" },
+                    "truncated": { "type": "boolean" }
+                }
             }
         },
         {
@@ -422,8 +437,13 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
                 "required": ["namespace"]
             },
             "outputSchema": {
-                "type": "array",
-                "description": "Hits array (structuredContent mirrors the JSON text content)"
+                "type": "object",
+                "description": "Budgeted envelope {hits, byte_count, truncated} (text payload stays the raw hits array)",
+                "properties": {
+                    "hits": { "type": "array" },
+                    "byte_count": { "type": "number" },
+                    "truncated": { "type": "boolean" }
+                }
             }
         },
         {
@@ -1763,14 +1783,14 @@ pub fn handle_tools_call(
                         "recalled": recalled,
                         "effective_mode": mode_str,
                     });
-                    Ok(text_content(serialize_content(&envelope)))
+                    Ok(text_content_structured(&envelope))
                 }
-                Ok(None) => Ok(text_content(serialize_content(&json!({
+                Ok(None) => Ok(text_content_structured(&json!({
                     "prepend_context": null,
                     "recalled": [],
                     "effective_mode": "keyword",
                     "message": "No relevant memories, persona, or scenes found."
-                })))),
+                }))),
                 Err(e) => Ok(error_content(format!("Recall Error: {e}"))),
             }
         }
@@ -1792,7 +1812,7 @@ pub fn handle_tools_call(
 
             let embedded = vantadb::Embedded::from_engine(storage.clone());
             match embedded.search_with_method(request, method) {
-                Ok(hits) => Ok(text_content_structured(&hits)),
+                Ok(hits) => Ok(text_content_hits_with_budget(&hits, config.byte_budget)),
                 Err(e) => Ok(error_content_vanta(e)),
             }
         }
@@ -1912,7 +1932,7 @@ pub fn handle_tools_call(
                     }));
                 }
             }
-            Ok(text_content_structured(&results))
+            Ok(text_content_hits_with_budget(&results, config.byte_budget))
         }
 
         "get_node_neighbors" => {
@@ -3102,7 +3122,7 @@ fn dispatch_search_memory(
 
     let embedded = vantadb::Embedded::from_engine(storage.clone());
     match embedded.search(request) {
-        Ok(hits) => Ok(text_content_structured(&hits)),
+        Ok(hits) => Ok(text_content_hits_with_budget(&hits, config.byte_budget)),
         Err(e) => Ok(error_content_vanta(e)),
     }
 }

@@ -3,7 +3,7 @@
   "name": "io.github.ness-e/vantadb",
   "title": "VantaDB MCP",
   "description": "MCP server for VantaDB: durable local memory and hybrid vector retrieval (BM25 + HNSW) for AI agents.",
-  "version": "0.5.0",
+  "version": "0.6.1",
   "websiteUrl": "https://github.com/ness-e/Vantadb/blob/develop/docs/api/MCP.md",
   "repository": {
     "url": "https://github.com/ness-e/Vantadb",

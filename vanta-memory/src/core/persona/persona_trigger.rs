@@ -10,7 +10,7 @@
 //! P1 explicit request > P2 cold start > P2 recovery > P3 first scene >
 //! P4 memory-count threshold.
 //!
-//! Source: `docs/research/tdam/02-scene-persona.md` §41.
+//! Source: `docs/dev/research/tdam/02-scene-persona.md` §41.
 
 use crate::core::abstractions::PersonaTriggerPriority;
 

@@ -4,10 +4,10 @@
 
 ## Docs
 
-- https://github.com/ness-e/Vantadb/blob/main/docs/QUICKSTART.md
-- https://github.com/ness-e/Vantadb/blob/main/docs/architecture/ARCHITECTURE.md
-- https://github.com/ness-e/Vantadb/blob/main/docs/operations/CONFIGURATION.md
-- https://github.com/ness-e/Vantadb/blob/main/docs/operations/DURABILITY_GUARANTEES.md
+- https://github.com/ness-e/Vantadb/blob/main/docs/user/QUICKSTART.md
+- https://github.com/ness-e/Vantadb/blob/main/docs/dev/architecture/ARCHITECTURE.md
+- https://github.com/ness-e/Vantadb/blob/main/docs/user/operations/CONFIGURATION.md
+- https://github.com/ness-e/Vantadb/blob/main/docs/user/operations/DURABILITY_GUARANTEES.md
 
 ## API
 

@@ -43,10 +43,10 @@ def migrate_from_chroma(
     except ImportError:
         raise ImportError("chromadb is required for this migration: pip install chromadb")
 
-    from vantadb_py import VantaDB
+    from vantadb import Client
 
     client = chromadb.PersistentClient(path=source_path)
-    target = VantaDB(dest_path)
+    target = Client(dest_path)
 
     total = 0
     for name in _collection_names(client, collection_name):

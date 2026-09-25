@@ -24,16 +24,16 @@ describe("Client WASM Integration", () => {
     expect(Number(record.version)).toBe(1);
     expect(Number(record.node_id)).toBeGreaterThan(0);
 
-    const got = await db.get("test", "hello");
+    const got = await db.get({ namespace: "test", key: "hello" });
     expect(got).not.toBeNull();
     expect(got!.payload).toBe("world");
   });
 
   it("delete a record", async () => {
     await db.put({ namespace: "test", key: "del", payload: "gone" });
-    const deleted = await db.delete("test", "del");
+    const deleted = await db.delete({ namespace: "test", key: "del" });
     expect(deleted).toBe(true);
-    const got = await db.get("test", "del");
+    const got = await db.get({ namespace: "test", key: "del" });
     expect(got).toBeNull();
   });
 
@@ -46,7 +46,7 @@ describe("Client WASM Integration", () => {
     for (let i = 0; i < 5; i++) {
       await db.put({ namespace: "list_test", key: `k${i}`, payload: `v${i}` });
     }
-    const page = await db.list("list_test", { limit: 3 });
+    const page = await db.list({ namespace: "list_test", limit: 3 });
     expect(page.records.length).toBe(3);
     expect(page.next_cursor).toBeDefined();
   });
@@ -130,11 +130,11 @@ describe("Client WASM Integration", () => {
     await db.put({ namespace: "ts04", key: "a", payload: "alpha", metadata: { tier: "one" } });
     await db.put({ namespace: "ts04", key: "b", payload: "beta" });
     await db.put({ namespace: "ts04", key: "c", payload: "gamma" });
-    const total = db.count("ts04");
+    const total = db.count({ namespace: "ts04" });
     expect(total).toBeGreaterThanOrEqual(3n);
-    const onlyA = db.count("ts04", [
+    const onlyA = db.count({ namespace: "ts04", filters: [
       { field: "tier", op: "Eq", value: "one" },
-    ]);
+    ] });
     expect(onlyA).toBe(1n);
   });
 
@@ -155,9 +155,9 @@ describe("Client WASM Integration", () => {
   it("supersede marks old record as superseded by new", async () => {
     await db.put({ namespace: "ts04sup", key: "old", payload: "first" });
     await db.put({ namespace: "ts04sup", key: "new", payload: "second" });
-    db.supersede("ts04sup", "old", "new");
+    db.supersede({ namespace: "ts04sup", oldKey: "old", newKey: "new" });
 
-    const oldRec = db.get("ts04sup", "old");
+    const oldRec = db.get({ namespace: "ts04sup", key: "old" });
     expect(oldRec).not.toBeNull();
     expect(Number(oldRec!.version)).toBeGreaterThan(1);
   });
@@ -181,7 +181,7 @@ describe("Client WASM Integration", () => {
       payload: "z",
       vector: [-1.0, 0.0, 0.0],
     });
-    const hits = db.similarToKey("ts04sim", "src", 2);
+    const hits = db.similarToKey({ namespace: "ts04sim", key: "src", topK: 2 });
     expect(hits.length).toBeGreaterThan(0);
     // the source itself is excluded
     expect(hits.find((h) => h.record.key === "src")).toBeUndefined();
@@ -200,7 +200,7 @@ describe("Client WASM Integration", () => {
       payload: "y",
       vector: [0.99, 0.01, 0.0],
     });
-    const hits = db.searchMulti(["ts04m1", "ts04m2"], {
+    const hits = db.searchMulti({ namespaces: ["ts04m1", "ts04m2"],
       query_vector: [1.0, 0.0, 0.0],
       top_k: 5,
     });
@@ -216,7 +216,7 @@ describe("Client WASM Integration", () => {
       payload: "sparse test",
       sparse_vector: { 1: 0.5, 42: 1.25 },
     });
-    const got = db.get("ts04sp", "s");
+    const got = db.get({ namespace: "ts04sp", key: "s" });
     expect(got).not.toBeNull();
     expect(got!.payload).toBe("sparse test");
   });

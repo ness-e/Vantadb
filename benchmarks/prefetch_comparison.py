@@ -16,9 +16,9 @@ import sys
 import time
 
 try:
-    import vantadb_py as vantadb
+    import vantadb
 except ImportError:
-    print("ERROR: 'vantadb_py' Python package is not installed.")
+    print("ERROR: 'vantadb' Python package is not installed.")
     print("Please build and install it first using:")
     print("  maturin develop --manifest-path vantadb-python/Cargo.toml --release")
     exit(1)
@@ -132,7 +132,7 @@ def main():
         del os.environ["VANTA_DISABLE_PREFETCH"]
 
     print("\n  ⚙️  Initializing VantaDB...")
-    db = vantadb.VantaDB(args.db_path)
+    db = vantadb.Client(args.db_path)
 
     # ── Generación de vectores ─────────────────────────────────────
     print(f"  🎲 Generating {args.size} synthetic vectors ({args.dim}d)...")
@@ -185,12 +185,12 @@ def main():
     os.environ["VANTA_DISABLE_PREFETCH"] = "1"
 
     print("  ⚙️  Opening database (prefetch DISABLED)...")
-    db_no_pf = vantadb.VantaDB(args.db_path)
+    db_no_pf = vantadb.Client(args.db_path)
 
     # Warmup
     print("  🔥 Warming up search cache (10 queries)...")
     for q in query_vectors[:10]:
-        db_no_pf.search_memory(namespace=namespace, query_vector=q, top_k=args.top_k)
+        db_no_pf.search(namespace=namespace, query_vector=q, top_k=args.top_k)
 
     # Medición
     print(f"  📊 Measuring {args.queries} queries...")
@@ -199,7 +199,7 @@ def main():
     search_report_step = max(args.queries // 10, 1)
     for i, q in enumerate(query_vectors):
         t_start = time.perf_counter()
-        db_no_pf.search_memory(namespace=namespace, query_vector=q, top_k=args.top_k)
+        db_no_pf.search(namespace=namespace, query_vector=q, top_k=args.top_k)
         latencies_no_pf.append((time.perf_counter() - t_start) * 1000.0)  # ms
         if (i + 1) % search_report_step == 0 or (i + 1) == args.queries:
             print_progress_bar(i + 1, args.queries, prefix="QRY", elapsed=time.perf_counter() - search_start)
@@ -221,12 +221,12 @@ def main():
         del os.environ["VANTA_DISABLE_PREFETCH"]
 
     print("  ⚙️  Opening database (prefetch ENABLED)...")
-    db_pf = vantadb.VantaDB(args.db_path)
+    db_pf = vantadb.Client(args.db_path)
 
     # Warmup
     print("  🔥 Warming up search cache (10 queries)...")
     for q in query_vectors[:10]:
-        db_pf.search_memory(namespace=namespace, query_vector=q, top_k=args.top_k)
+        db_pf.search(namespace=namespace, query_vector=q, top_k=args.top_k)
 
     # Medición
     print(f"  📊 Measuring {args.queries} queries...")
@@ -234,7 +234,7 @@ def main():
     latencies_pf = []
     for i, q in enumerate(query_vectors):
         t_start = time.perf_counter()
-        db_pf.search_memory(namespace=namespace, query_vector=q, top_k=args.top_k)
+        db_pf.search(namespace=namespace, query_vector=q, top_k=args.top_k)
         latencies_pf.append((time.perf_counter() - t_start) * 1000.0)  # ms
         if (i + 1) % search_report_step == 0 or (i + 1) == args.queries:
             print_progress_bar(i + 1, args.queries, prefix="QRY", elapsed=time.perf_counter() - search_start)

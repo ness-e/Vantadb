@@ -1,0 +1,12 @@
+{
+  "created": "2026-09-24T17:42:22Z",
+  "entries": [
+    {
+      "file": "skills/ui-ux-pro-max/scripts/design_system.py",
+      "fingerprint": "93ff4807cd31edf45baf9ad7eaea2b7e07abf338f79555a13d3596610cd294b2",
+      "rule_id": "agent.dynamic_prompt_from_user_input"
+    }
+  ],
+  "lurkr_version": "0.4.0",
+  "schema_version": "1.0"
+}

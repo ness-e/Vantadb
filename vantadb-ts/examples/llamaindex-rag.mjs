@@ -54,7 +54,7 @@ for (const hit of results) {
 }
 
 // Example: iterate all documents in a namespace
-const page = await db.list(NAMESPACE, { limit: 10 });
+const page = await db.list({ namespace: NAMESPACE, limit: 10 });
 console.log(`\nTotal records in namespace: ${page.records.length}`);
 
 await db.close();

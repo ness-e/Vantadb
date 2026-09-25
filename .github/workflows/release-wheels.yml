@@ -96,6 +96,10 @@ jobs:
 
       - name: Build wheel
         uses: PyO3/maturin-action@e83996d129638aa358a18fbd1dfb82f0b0fb5d3b # v1.51.0
+        env:
+          # El container manylinux monta target/ del host: aislarlo para que
+          # cargo no reutilice build-scripts compilados contra glibc nueva.
+          CARGO_TARGET_DIR: /tmp/maturin-target
         with:
           command: build
           args: --release --out dist --manifest-path ./vantadb-python/Cargo.toml

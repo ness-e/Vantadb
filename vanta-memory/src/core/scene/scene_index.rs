@@ -14,7 +14,7 @@
 //! preserving `created`. The MERGE branch (`heat = sum + 1`) belongs to the
 //! L2 strategy (MEM-14).
 //!
-//! Source: `docs/research/tdam/02-scene-persona.md` §53 (TDAM
+//! Source: `docs/dev/research/tdam/02-scene-persona.md` §53 (TDAM
 //! `scene-index.ts`).
 
 use thiserror::Error;

@@ -38,7 +38,7 @@ echo "installing vantadb-py on Python $ver ..."
 "$PY" -m pip install --upgrade pip
 "$PY" -m pip install vantadb-py
 
-"$PY" -c "import vantadb_py; print('vantadb_py', vantadb_py.__version__())" \
+"$PY" -c "import vantadb; print('vantadb', vantadb.__version__())" \
     || die "installation succeeded but import check failed"
 
 # ── Rust SDK alternative ─────────────────────────────────────────────────────

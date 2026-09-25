@@ -76,7 +76,7 @@ import vantadb
 `import vantadb_py` still works (it points at the same compiled module) but
 emits a `DeprecationWarning`. The legacy name will be removed in the next minor
 release (0.6.0). The distribution on PyPI is `vantadb-py`; the importable
-module is `vantadb`. See [ADR-030](../architecture/adr/ADR-030-brand-identity-naming-convention.md)
+module is `vantadb`. See [ADR-030](../dev/architecture/adr/ADR-030-brand-identity-naming-convention.md)
 for the full brand-identity decision.
 
 ## Domain Sub-clients
@@ -90,7 +90,7 @@ signatures and results.
 
 > **Canonical paths (AST-012, no aliases):** `db.memory.get(...)`,
 > `db.memory.list(...)`, `db.memory.delete(...)`, `db.memory.search(...)`.
-> The flat `get_memory` / `list_memory` / `delete_memory` methods were
+> The flat `memory.get` / `memory.list` / `memory.delete` methods were
 > removed; flat `get` / `delete` stay node-level (`id: u128`). Canonical
 > method→domain map: [BINDINGS_NAMESPACES.md](BINDINGS_NAMESPACES.md).
 
@@ -122,7 +122,7 @@ Notes:
 
 - Each attribute returns a lightweight delegate that holds a reference to the parent `Client`; calls are forwarded with identical signatures and results.
 - The full member lists per sub-client are fixed by [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md) (Python section): memory 15 · graph 10 · system 17 · wiki 1.
-- `AsyncVantaDB` exposes `db.memory` (`get`/`list`/`delete`); all other
+- `AsyncClient` exposes `db.memory` (`get`/`list`/`delete`); all other
   async methods stay flat.
 
 ## API Reference
@@ -430,16 +430,23 @@ db.supersede(namespace="agents/summary", old_key="draft-v1", new_key="draft-v2")
 #### `search()`
 ```python
 db.search(
-    vector: VectorInput,
+    namespace: str,
+    query_vector: VectorInput,
+    filters: Optional[dict] = None,
+    text_query: Optional[str] = None,
     top_k: int = 10,
-) -> List[Tuple[int, float]]
+    distance_metric: Optional[str] = None,
+    method: Optional[str] = None,
+    explain: bool = False,
+    exclude_superseded: bool = False,
+) -> List[SearchHit]
 ```
-Pure vector K-NN search over all graph nodes. Returns a list of `(node_id, distance)` tuples sorted by ascending distance. GIL-released — HNSW traversal runs in Rust without blocking the Python thread.
+Flat alias of `db.memory.search()` — hybrid memory search over a namespace (vector + BM25 fused via RRF). AST-008: ex-`search_memory`; pure ANN over graph nodes is `search_vector()`.
 
 ```python
-hits = db.search(vector=[0.1] * 384, top_k=5)
-for node_id, distance in hits:
-    print(f"node {node_id}: distance {distance:.4f}")
+hits = db.search("ns", query_vector=[0.1] * 384, top_k=5)
+for hit in hits:
+    print(hit.key, hit.score)
 ```
 
 #### `search_batch()`
@@ -1027,12 +1034,12 @@ page["next_cursor"]        # same as page.next_cursor
 
 ## Async Support
 
-`vantadb` provides an `AsyncVantaDB` class that exposes the same API using `asyncio.to_thread` to release the GIL.
+`vantadb` provides an `AsyncClient` class that exposes the same API using `asyncio.to_thread` to release the GIL.
 
 ```python
-from vantadb import AsyncVantaDB
+from vantadb import AsyncClient
 
-async with AsyncVantaDB("./my_brain") as db:
+async with AsyncClient("./my_brain") as db:
     record = await db.memory.get("ns", "key")
     results = await db.search("ns", [1.0, 0.0, 0.0], top_k=5)
     # Query, diagnostics, and mutations are also async
@@ -1043,22 +1050,22 @@ async with AsyncVantaDB("./my_brain") as db:
 
 ### Async Context Manager
 
-`AsyncVantaDB` implements the async context manager protocol (`async with`):
+`AsyncClient` implements the async context manager protocol (`async with`):
 
 ```python
-async def __aenter__(self) -> AsyncVantaDB
+async def __aenter__(self) -> AsyncClient
 async def __aexit__(self, exc_type, exc_val, exc_tb) -> None
 ```
 
 Returns the database handle on enter; calls `close()` on exit (which flushes WAL and releases resources). This ensures proper cleanup even if an exception occurs.
 
 ```python
-async with AsyncVantaDB("./my_brain") as db:
+async with AsyncClient("./my_brain") as db:
     await db.put("ns", "key", "payload", vector=[0.1]*384)
 # db.close() awaited automatically
 ```
 
-All Client methods are available on `AsyncVantaDB` with `async/await`, including `put()`, `put_batch()`, `insert()`, `memory.get()`, `memory.list()`, `memory.delete()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get()`, `delete()`, `search()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, `explain_memory_search()`, `count()`, `delete_by_filter()`, and `similar_to_key()`.
+All Client methods are available on `AsyncClient` with `async/await`, including `put()`, `put_batch()`, `insert()`, `memory.get()`, `memory.list()`, `memory.delete()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get()`, `delete()`, `search()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, `explain_memory_search()`, `count()`, `delete_by_filter()`, and `similar_to_key()`.
 
 ## ID limits
 
@@ -1089,7 +1096,7 @@ which inherits from `RuntimeError`. This keeps existing `except RuntimeError` /
 `except Exception` callers working while letting you catch the specific family:
 
 ```python
-from vantadb_py import (
+from vantadb import (
     VantaError,
     NotFoundError,
     ValidationError,
@@ -1173,7 +1180,7 @@ Example — retry policy with `.retriable`:
 
 ```python
 import time
-from vantadb_py import VantaError, BusyError
+from vantadb import VantaError, BusyError
 
 def put_with_retry(db, **kwargs):
     for attempt in range(5):

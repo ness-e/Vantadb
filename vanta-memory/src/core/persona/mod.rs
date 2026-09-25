@@ -7,7 +7,7 @@
 //! mode First/Incremental derived from the store, LLM output validated,
 //! escaped and persisted under the `persona/<session>` namespace.
 //!
-//! Source: `docs/research/tdam/02-scene-persona.md` §26, §41 (TDAM
+//! Source: `docs/dev/research/tdam/02-scene-persona.md` §26, §41 (TDAM
 //! `persona-generator.ts`, `persona-trigger.ts`).
 
 pub mod persona_generator;

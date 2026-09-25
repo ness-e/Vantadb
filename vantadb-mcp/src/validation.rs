@@ -422,7 +422,6 @@ pub(crate) fn text_content_structured(value: &impl Serialize) -> Value {
 /// `byte_budget`.
 ///
 /// Kept for tests and potential future use (e.g., other search tools).
-#[allow(dead_code)]
 pub(crate) fn text_content_hits_with_budget<T: Serialize>(hits: &T, byte_budget: usize) -> Value {
     // Serialize the raw hits into the text payload (preserves the array
     // shape clients and tests expect).

@@ -160,14 +160,14 @@ Conversation history CRUD over the agentic thread store (`src/agentic/thread.rs`
 | `thread_list` | `{limit?, offset?}` → `{threads:[...],count}` |
 | `thread_delete` | `{thread_id}` → `{deleted:true}` — permanent, no undo |
 | `thread_purge_expired` | `{}` → `{purged:n}` — removes TTL-expired threads |
-### VantaDB Class
+### Client Class
 
 ```python
-from vantadb_py import VantaDB, AsyncVantaDB
+from vantadb import Client, AsyncClient
 
-db = VantaDB("./my_brain")        # persistent database directory
-mem = VantaDB(":memory:")         # in-memory database
-async_db = AsyncVantaDB("./my_brain")  # asyncio wrapper (thread-pool backed)
+db = Client("./my_brain")                   # persistent database directory
+mem = Client(":memory:", backend="memory")  # in-memory database
+async_db = AsyncClient("./my_brain")        # asyncio wrapper (thread-pool backed)
 ```
 
 #### Methods
@@ -176,15 +176,15 @@ async_db = AsyncVantaDB("./my_brain")  # asyncio wrapper (thread-pool backed)
 - Insert or update a memory record
 - Returns: Record with created_at_ms, updated_at_ms
 
-**get_memory(namespace, key)**
+**memory.get(namespace, key)**
 - Retrieve a memory record
 - Returns: Record or None
 
-**delete_memory(namespace, key)**
+**memory.delete(namespace, key)**
 - Delete a memory record
 - Returns: Boolean success status
 
-**list_memory(namespace, limit=100, cursor=None, filters=None)**
+**memory.list(namespace, limit=100, cursor=None, filters=None)**
 - List records in namespace
 - `filters` accepts BOTH formats (AUD-048 — unified with the CLI channel): flat `{"field": value}` (implicit `$eq`) **or** operator objects `{"field": {"$gt": value}}` (`$eq`, `$neq`, `$gt`, `$gte`, `$lt`, `$lte`)
 - Returns: List of records
@@ -193,16 +193,16 @@ async_db = AsyncVantaDB("./my_brain")  # asyncio wrapper (thread-pool backed)
 - List all namespaces
 - Returns: List of namespace names
 
-**search_memory(namespace, query_vector=None, text_query=None, top_k=10, filters=None, distance_metric=None, explain=False)**
-- Hybrid vector + text search
+**search(namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=False, exclude_superseded=False)**
+- Hybrid vector + text memory search (vector + BM25 fused via RRF; AST-008: ex-`search_memory`)
 - `distance_metric` (`"cosine"` | `"euclidean"`) is resolved **per request**; it changes the ranking and reported scores of that call. There is no global/server-side distance metric setting — each request selects its own metric. When omitted, `"cosine"` is used.
 - `explain=True` appends a per-hit `explanation` object to each hit: `{identity, score, snippet, matched_tokens, matched_phrases, bm25_terms, rrf_text_rank, rrf_vector_rank}` (the per-source ranks behind the fused score).
-- `filters` accepts flat values `{"field": value}` **or** explicit equality `{"field": {"$eq": value}}` (identical equality semantics). Range operators are NOT supported here — the search request has no operator slot; use `list_memory` for those (AUD-048).
-- Returns: **JSON array** of hits — `[{record, score, explanation?}, ...]`. There is **no top-level `route` or `fusion_report`** on this method; those belong to `explain_memory_search()`, whose `fusion_report` is currently always `null`. Do not assert them on `search_memory` output.
+- `filters` accepts flat values `{"field": value}` **or** explicit equality `{"field": {"$eq": value}}` (identical equality semantics). Range operators are NOT supported here — the search request has no operator slot; use `memory.list` for those (AUD-048).
+- Returns: **JSON array** of hits — `[{record, score, explanation?}, ...]`. There is **no top-level `route` or `fusion_report`** on this method; those belong to `explain_memory_search()`, whose `fusion_report` is currently always `null`. Do not assert them on `search` output.
 
-**search(vector, top_k=10)**
-- Pure HNSW vector search
-- Returns: List of neighbors with distances
+**search_vector(vector, top_k=10)**
+- Pure HNSW vector search over graph nodes (no namespace, filters, or text)
+- Returns: List of `(node_id, distance)` neighbors with distances
 
 **query(iql_query)**
 - Execute an IQL statement

@@ -15,8 +15,17 @@ async fn main() -> Result<(), ProxyError> {
         )
         .init();
 
-    let config_path = std::env::args()
-        .nth(1)
+    let first_arg = std::env::args().nth(1);
+    if matches!(first_arg.as_deref(), Some("-h" | "--help")) {
+        println!("vanta-proxy: LLM wire proxy with memory writeback\n\nUsage: vanta-proxy [path/to/config.toml]  (default: ./config.toml or $VANTA_PROXY_CONFIG)\n\nOptions:\n  -h, --help     Print this help\n  -V, --version  Print version");
+        return Ok(());
+    }
+    if matches!(first_arg.as_deref(), Some("-V" | "--version")) {
+        println!("vanta-proxy {}", env!("CARGO_PKG_VERSION"));
+        return Ok(());
+    }
+
+    let config_path = first_arg
         .or_else(|| std::env::var("VANTA_PROXY_CONFIG").ok())
         .unwrap_or_else(|| "config.toml".to_string());
     let config = ProxyConfig::load(&PathBuf::from(&config_path))?;

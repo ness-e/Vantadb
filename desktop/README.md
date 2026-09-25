@@ -6,9 +6,9 @@ VantaDB database from a local window.
 
 The same UI runs against three interchangeable backends without code changes
 (see [Transport modes](#transport-modes)). For the full design, user guide and
-per-mode instructions, see [`docs/desktop/`](../docs/desktop/README.md)
-([ARCHITECTURE.md](../docs/desktop/ARCHITECTURE.md),
-[GUIDE.md](../docs/desktop/GUIDE.md)).
+per-mode instructions, see [`docs/user/desktop/`](../docs/user/desktop/README.md)
+([ARCHITECTURE.md](../docs/dev/desktop/ARCHITECTURE.md),
+[GUIDE.md](../docs/user/desktop/GUIDE.md)).
 
 ## Prerequisites
 
@@ -130,14 +130,14 @@ UI doesn't crash, but the cosine similarity is meaningless.
 
 ## Related docs
 
-- [`docs/desktop/README.md`](../docs/desktop/README.md) — app-level docs
+- [`docs/user/desktop/README.md`](../docs/user/desktop/README.md) — app-level docs
   (installation, IPC command surface, troubleshooting)
-- [`docs/desktop/ARCHITECTURE.md`](../docs/desktop/ARCHITECTURE.md) —
+- [`docs/dev/desktop/ARCHITECTURE.md`](../docs/dev/desktop/ARCHITECTURE.md) —
   multi-connection model, transports, lifecycle
-- [`docs/desktop/GUIDE.md`](../docs/desktop/GUIDE.md) — per-mode user guide
-- ADRs: [ADR-026](../docs/architecture/adr/ADR-026-vanta-studio-fase3-rest-dashboard.md),
-  [ADR-027](../docs/architecture/adr/ADR-027-fase4-cierre-deuda-rest-wasm-opfs.md),
-  [ADR-028](../docs/architecture/adr/ADR-028-core-decay-supersession.md)
+- [`docs/user/desktop/GUIDE.md`](../docs/user/desktop/GUIDE.md) — per-mode user guide
+- ADRs: [ADR-026](../docs/dev/architecture/adr/ADR-026-vanta-studio-fase3-rest-dashboard.md),
+  [ADR-027](../docs/dev/architecture/adr/ADR-027-fase4-cierre-deuda-rest-wasm-opfs.md),
+  [ADR-028](../docs/dev/architecture/adr/ADR-028-core-decay-supersession.md)
 
 ## License
 

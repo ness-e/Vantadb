@@ -357,25 +357,25 @@ describe("Client put / get / delete", () => {
 
   it("get retrieves a stored record", () => {
     db.put({ namespace: "test", key: "getme", payload: "found" });
-    const r = db.get("test", "getme");
+    const r = db.get({ namespace: "test", key: "getme" });
     expect(r).not.toBeNull();
     expect(r!.payload).toBe("found");
   });
 
   it("get returns null for missing record", () => {
-    const r = db.get("missing_ns", "no_key");
+    const r = db.get({ namespace: "missing_ns", key: "no_key" });
     expect(r).toBeNull();
   });
 
   it("delete removes a record and returns true", () => {
     db.put({ namespace: "test", key: "delme", payload: "bye" });
-    const deleted = db.delete("test", "delme");
+    const deleted = db.delete({ namespace: "test", key: "delme" });
     expect(deleted).toBe(true);
-    expect(db.get("test", "delme")).toBeNull();
+    expect(db.get({ namespace: "test", key: "delme" })).toBeNull();
   });
 
   it("delete on non-existent returns false", () => {
-    expect(db.delete("test", "never_existed")).toBe(false);
+    expect(db.delete({ namespace: "test", key: "never_existed" })).toBe(false);
   });
 
   it("put with vector does not error", () => {
@@ -433,15 +433,15 @@ describe("Client deleteByFilter", () => {
       metadata: { tier: { String: "cold" } },
     });
 
-    const deleted = db.deleteByFilter("filterdel", [
+    const deleted = db.deleteByFilter({ namespace: "filterdel", filter: [
       { field: "tier", op: "Eq", value: { String: "hot" } },
-    ]);
+    ] });
     expect(deleted).toBe(3n);
-    expect(db.get("filterdel", "keep")).not.toBeNull();
+    expect(db.get({ namespace: "filterdel", key: "keep" })).not.toBeNull();
   });
 
   it("propagates the empty-filter rejection", () => {
-    expect(() => db.deleteByFilter("filterdel", [])).toThrow();
+    expect(() => db.deleteByFilter({ namespace: "filterdel", filter: [] })).toThrow();
   });
 });
 
@@ -473,7 +473,7 @@ describe("Client putBatch", () => {
       { namespace: "dedup", key: "same", payload: "first" },
       { namespace: "dedup", key: "same", payload: "second" },
     ]);
-    const r = db.get("dedup", "same");
+    const r = db.get({ namespace: "dedup", key: "same" });
     expect(r).not.toBeNull();
     expect(r!.payload).toBe("second");
   });
@@ -506,13 +506,13 @@ describe("Client list and namespace operations", () => {
     for (let i = 0; i < 5; i++) {
       db.put({ namespace: "list_records", key: `k${i}`, payload: `v${i}` });
     }
-    const page = db.list("list_records", { limit: 3 });
+    const page = db.list({ namespace: "list_records", limit: 3 });
     expect(page.records.length).toBe(3);
     expect(page.next_cursor).toBeDefined();
   });
 
   it("list with no options returns all", () => {
-    const page = db.list("list_records");
+    const page = db.list({ namespace: "list_records" });
     expect(page.records.length).toBeGreaterThanOrEqual(5);
   });
 });
@@ -543,14 +543,14 @@ describe("Client search", () => {
   });
 
   it("searchVector returns node_id and distance", () => {
-    const hits = db.searchVector([1, 0, 0, 0], 5);
+    const hits = db.searchVector({ vector: [1, 0, 0, 0], topK: 5 });
     expect(hits.length).toBeGreaterThan(0);
     expect(typeof hits[0].node_id).toBe("string");
     expect(typeof hits[0].distance).toBe("number");
   });
 
   it("searchVector with top_k > available returns all", () => {
-    const hits = db.searchVector([0.5, 0.5, 0.5, 0.5], 100);
+    const hits = db.searchVector({ vector: [0.5, 0.5, 0.5, 0.5], topK: 100 });
     expect(hits.length).toBeLessThanOrEqual(3);
   });
 
@@ -737,7 +737,7 @@ describe("Client edge cases", () => {
   it("unicode payload round-trips", () => {
     const payload = "Hello 世界 🌟 привет";
     db.put({ namespace: "unicode", key: "u1", payload });
-    const r = db.get("unicode", "u1");
+    const r = db.get({ namespace: "unicode", key: "u1" });
     expect(r).not.toBeNull();
     expect(r!.payload).toBe(payload);
   });
@@ -745,34 +745,34 @@ describe("Client edge cases", () => {
   it("payload with special characters", () => {
     const payload = '{"json": "data"}\nnewline\t tab\u0000null';
     db.put({ namespace: "special", key: "s1", payload });
-    const r = db.get("special", "s1");
+    const r = db.get({ namespace: "special", key: "s1" });
     expect(r).not.toBeNull();
     expect(r!.payload).toBe(payload);
   });
 
   it("vector with single element", () => {
     db.put({ namespace: "edge_vec", key: "min", payload: "p", vector: [0.5] });
-    const r = db.get("edge_vec", "min");
+    const r = db.get({ namespace: "edge_vec", key: "min" });
     expect(r).not.toBeNull();
   });
 
   it("vector with 16384 elements", () => {
     const vec = Array.from({ length: 16384 }, (_, i) => (i % 100) / 100);
     db.put({ namespace: "edge_vec", key: "max", payload: "p", vector: vec });
-    const r = db.get("edge_vec", "max");
+    const r = db.get({ namespace: "edge_vec", key: "max" });
     expect(r).not.toBeNull();
   });
 
   it("very long key (512 chars)", () => {
     const longKey = "x".repeat(512);
     db.put({ namespace: "long_key", key: longKey, payload: "ok" });
-    const r = db.get("long_key", longKey);
+    const r = db.get({ namespace: "long_key", key: longKey });
     expect(r).not.toBeNull();
   });
 
   it("TTL = 0 does not crash", () => {
     db.put({ namespace: "ttl_edge", key: "zero", payload: "p", ttl_ms: 0 });
-    const r = db.get("ttl_edge", "zero");
+    const r = db.get({ namespace: "ttl_edge", key: "zero" });
     expect(r === null || r!.payload === "p").toBe(true);
   });
 
@@ -780,7 +780,7 @@ describe("Client edge cases", () => {
     for (let i = 0; i < 20; i++) {
       db.put({ namespace: "concurrent_same", key: "x", payload: `v${i}` });
     }
-    const r = db.get("concurrent_same", "x");
+    const r = db.get({ namespace: "concurrent_same", key: "x" });
     expect(r).not.toBeNull();
   });
 
@@ -796,7 +796,7 @@ describe("Client edge cases", () => {
     const records: MemoryRecord[] = [];
     let cursor: string | undefined;
     do {
-      const page = db.list("concurrent_multi", { limit: 20, cursor });
+      const page = db.list({ namespace: "concurrent_multi", limit: 20, cursor });
       records.push(...page.records);
       cursor = page.next_cursor;
     } while (cursor);
@@ -806,7 +806,7 @@ describe("Client edge cases", () => {
   it("list after close throws DbError", () => {
     const tmp = Client.create();
     tmp.close();
-    expect(() => tmp.list("ns")).toThrow(DbError);
+    expect(() => tmp.list({ namespace: "ns" })).toThrow(DbError);
   });
 
   it("DbError caught instanceof Error works", () => {

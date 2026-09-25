@@ -199,9 +199,46 @@ export interface DegreeEntry {
   in_degree: number
   out_degree: number
 }
+
+/**
+ * Report returned by `vacuum()`. The core SDK's `VacuumReport` does not
+ * derive `Serialize`, so the binding builds the JSON object explicitly
+ * (`MOD-10`, mirrors `src/storage/engine/mod.rs`).
+ */
+export interface VacuumReport {
+  scanned_nodes: number
+  removed_nodes: number
+  reclaimed_bytes: number
+  duration_ms: number
+  success: boolean
+}
+
+/** Report returned by `rebuildIndex()`. */
+export interface RebuildReport {
+  scanned_nodes: number
+  indexed_vectors: number
+  skipped_tombstones: number
+  duration_ms: number
+  derived_rebuild_ms: number
+  index_path: string
+  success: boolean
+}
+
+/** Comparison operator for `FilterItem`. Mirrors `VantaFilterOp`. */
+export type FilterOp = 'Eq' | 'Neq' | 'Gt' | 'Lt' | 'Gte' | 'Lte'
+
+/** A single `{ field, op, value }` clause for `deleteByFilter` and `count`. */
+export interface FilterItem {
+  field: string
+  op: FilterOp
+  value: VantaValue
+}
+
+/** Explicit dense-vector index backend override for `searchWithMethod`. */
+export type IndexMethod = 'Hnsw' | 'Ivf' | 'Flat' | 'DiskAnn' | 'Scann'
 /**
  * Native VantaDB handle exposed to Node.js. Thin wrapper over the SDK's
- * `VantaEmbedded`; all engine methods are async to avoid blocking the JS thread.
+ * `Embedded`; all engine methods are async to avoid blocking the JS thread.
  */
 export declare class VantaDb {
   /**
@@ -251,9 +288,29 @@ export declare class VantaDb {
   /** Return all namespaces that contain at least one memory record. */
   listNamespaces(): Promise<Array<string>>
   /**
-   * Search memory records by vector similarity (with optional filters and
-   * text query). Returns hits ordered by relevance: each hit is
+   * Hybrid memory search with optional vector / text / filter inputs.
+   *
+   * Returns hits ordered by **relevance** (highest score first): each hit is
    * `{ record: MemoryRecord, score: number, explanation?: object }`.
+   *
+   * # Score semantics (WSM-10 / CODE-091 cross-binding convention)
+   *
+   * The `score` field is a **relevance score** — it is *higher-is-better*, not
+   * a raw distance. The exact value depends on the input mix and `distance_metric`:
+   *
+   * | Input                 | `distance_metric` | `score` formula / range                         |
+   * |-----------------------|-------------------|--------------------------------------------------|
+   * | `query_vector` only   | `"Cosine"`        | `cosine_similarity` ∈ `[-1.0, 1.0]`             |
+   * | `query_vector` only   | `"Euclidean"`     | `-distance²` then sqrt → `(-∞, 0.0]`            |
+   * | `text_query` only     | (n/a)             | BM25 (positive, no fixed upper bound)           |
+   * | `query_vector` + `text_query` | any       | RRF-fused (higher = more relevant across channels) |
+   *
+   * This is the same convention as the Rust core (`MemorySearchHit.score`,
+   * pinned by `src/sdk/serialization/vector_types.rs::tests`) and the Python SDK.
+   * It is **different** from the TypeScript wrapper `vantadb-ts`, which renames
+   * the field to `distance` and inverts the semantics (lower = more similar) —
+   * see `docs/api/TS_SDK.md` → "Distance vs Score (CODE-091)" for the full
+   * cross-binding table.
    */
   search(request: SearchRequest): Promise<MemorySearchHit[]>
   /** Return stable runtime capabilities. */
@@ -325,8 +382,10 @@ export declare class VantaDb {
    * `{ route, hits, fusion_report }` with a per-hit scoring breakdown.
    */
   explainSearch(request: SearchRequest): Promise<SearchExplanation>
-  // ── BND-10 parity additions ───────────────────────────────────────────────
-  /** List every retained version of a memory record, ascending (v1..vN). */
+  /**
+   * List every retained version of a memory record, ascending (v1..vN).
+   * Empty if the key does not exist or has no history.
+   */
   versions(namespace: string, key: string): Promise<MemoryRecord[]>
   /**
    * Retrieve a specific historical version of a memory record.
@@ -334,48 +393,56 @@ export declare class VantaDb {
    */
   getVersion(namespace: string, key: string, version: number): Promise<MemoryRecord | null>
   /**
-   * Mark `oldKey` as superseded by `newKey` (ADR-028). Both keys must exist
-   * and differ; `oldKey` must not already be superseded.
+   * Mark `old_key` as superseded by `new_key` (ADR-028). Both keys must
+   * exist and differ; `old_key` must not already be superseded.
    */
   supersede(namespace: string, oldKey: string, newKey: string): Promise<void>
-  /** Purge tombstoned nodes from the HNSW index. */
+  /** Purge tombstoned nodes from the HNSW index. Returns counts and timing. */
   vacuum(): Promise<VacuumReport>
-  /** Rebuild the HNSW vector index, derived indexes, text index, and scalar index from scratch. */
+  /**
+   * Rebuild the HNSW vector index, derived indexes, text index, and scalar
+   * index from scratch. Returns scan/index/timing counts.
+   */
   rebuildIndex(): Promise<RebuildReport>
   /**
    * Compact the vector store file (BFS grouping from the HNSW entry point).
    * Returns estimated bytes reclaimed.
    */
   compactLayout(): Promise<bigint>
-  /** Compact the WAL: flush, archive the current WAL file, and start fresh.
-   *  (contract alias: `compact_wal`)
-   */
+  /** Compact the WAL: flush, archive the current WAL file, and start fresh. */
   compactWal(): Promise<void>
   /**
-   * Scan every memory record and physically delete those whose TTL has expired.
-   * Returns the number of records purged.
-   * (contract alias: `purge_expired`)
+   * Scan every memory record and physically delete those whose TTL has
+   * expired. Returns the number of records purged.
    */
   purgeExpired(): Promise<bigint>
   /**
-   * Delete every record in `namespace` whose metadata matches the filter.
-   * The filter must contain at least one item.
+   * Delete every record in `namespace` whose metadata matches the given
+   * filter. Filter must contain at least one item (mirrors the SDK guard).
    */
-  deleteByFilter(namespace: string, filter: Array<FilterItem>): Promise<bigint>
-  /** Count records in a namespace, optionally filtered. Pass `null` for no filter. */
-  count(namespace: string, filter: Array<FilterItem> | null | undefined): Promise<bigint>
-  /** Find records similar to the vector of an existing record (filters out the source). */
+  deleteByFilter(namespace: string, filter: FilterItem[]): Promise<bigint>
+  /**
+   * Count records in a namespace, optionally filtered by metadata.
+   * Pass `null`/`undefined` to count every record.
+   */
+  count(namespace: string, filter?: FilterItem[] | null): Promise<bigint>
+  /**
+   * Find records similar to the vector of an existing record (identified
+   * by `namespace` + `key`). The source record is filtered out of the
+   * results.
+   */
   similarToKey(namespace: string, key: string, topK: number): Promise<MemorySearchHit[]>
   /**
    * Same as `search()` with an explicit dense-vector index backend override.
-   * `method` accepts `'Hnsw' | 'Ivf' | 'Flat' | 'DiskAnn' | 'Scann'`, or
-   * `null`/`undefined` for automatic routing.
+   * `method` accepts `"Hnsw" | "Ivf" | "Flat" | "DiskAnn" | "Scann"` (or
+   * `null`/`undefined` for automatic routing).
    */
-  searchWithMethod(request: SearchRequest, method: IndexMethod | null | undefined): Promise<MemorySearchHit[]>
+  searchWithMethod(request: SearchRequest, method?: string | undefined | null): Promise<MemorySearchHit[]>
   /**
    * Search across multiple namespaces in a single call. The `namespace`
-   * field on `request` is ignored; results are merged by descending score.
+   * field on `request` is ignored; every namespace in `namespaces` is
+   * searched independently and results are merged by descending score.
    */
-  searchMulti(namespaces: Array<string>, request: SearchRequest): Promise<MemorySearchHit[]>
+  searchMulti(namespaces: string[], request: SearchRequest): Promise<MemorySearchHit[]>
 }
 export type VantaDB = VantaDb

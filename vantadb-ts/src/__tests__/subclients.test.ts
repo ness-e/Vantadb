@@ -52,14 +52,14 @@ describe("db.memory delegates to flat memory methods", () => {
 
   it("memory.get retrieves what memory.put stored (round-trip)", () => {
     const stored = db.memory.put({ namespace: "sc_rt", key: "k1", payload: "hello" });
-    const fetched = db.memory.get("sc_rt", "k1");
+    const fetched = db.memory.get({ namespace: "sc_rt", key: "k1" });
     expect(fetched).not.toBeNull();
     expect(fetched!.node_id).toBe(stored.node_id);
     expect(fetched!.payload).toBe("hello");
   });
 
   it("memory.get returns null for missing record (same as flat get)", () => {
-    expect(db.memory.get("nope", "nope")).toBeNull();
+    expect(db.memory.get({ namespace: "nope", key: "nope" })).toBeNull();
   });
 
   it("memory.search returns hits ordered by distance (hybrid request)", () => {
@@ -81,7 +81,7 @@ describe("db.memory delegates to flat memory methods", () => {
 
   it("optional arguments pass through (list without options)", () => {
     db.memory.put({ namespace: "sc_list", key: "x", payload: "y" });
-    const page = db.memory.list("sc_list");
+    const page = db.memory.list({ namespace: "sc_list" });
     expect(page.records.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -89,7 +89,7 @@ describe("db.memory delegates to flat memory methods", () => {
     const tmp = Client.create();
     tmp.close();
     expect(() => tmp.memory.put({ namespace: "n", key: "k", payload: "p" })).toThrow(/closed/i);
-    expect(() => tmp.memory.list("n")).toThrow();
+    expect(() => tmp.memory.list({ namespace: "n" })).toThrow();
     expect(() => tmp.graph.bfs([1])).toThrow();
   });
 });

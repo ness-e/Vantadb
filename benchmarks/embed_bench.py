@@ -15,8 +15,8 @@ Outputs:
   benchmarks/embed_bench_report.json  (gitignored, schema por modelo)
   stdout tabla markdown (para BENCHMARKS.md)
 
-# ponytail: dummy determinístico cuando no hay onnx/HF ni vantadb_py; techo = recall sintético ~1.0
-# upgrade path = descargar modelos reales y correr con ort+vantadb_py para recall real.
+# ponytail: dummy determinístico cuando no hay onnx/HF ni vantadb; techo = recall sintético ~1.0
+# upgrade path = descargar modelos reales y correr con ort+vantadb para recall real.
 """
 from __future__ import annotations
 
@@ -280,19 +280,19 @@ def bench_one_model(model: dict, docs: list[dict], queries: list[dict]) -> dict:
     ingest_time = time.perf_counter() - t_ingest_start
     rss_after_ingest = get_rss_mb()
 
-    # 2. opcional: ingest en VantaDB real si vantadb_py disponible (para medir QPS real HNSW)
+    # 2. opcional: ingest en VantaDB real si vantadb disponible (para medir QPS real HNSW)
     #    si no, simular ingest QPS via throughput embed
     vantadb_qps = len(docs) / ingest_time if ingest_time > 0 else 0
 
-    # intento vantadb_py ingest real (best-effort, no falla bench)
+    # intento vantadb ingest real (best-effort, no falla bench)
     used_fallback = False
     doc_ids = [d["id"] for d in docs]
     try:
-        import vantadb_py as vantadb  # type: ignore
+        import vantadb as vantadb  # type: ignore
         import tempfile, shutil, os
         tmp = tempfile.mkdtemp(prefix=f"bench_{mid}_")
         try:
-            db = vantadb.VantaDB(tmp)
+            db = vantadb.Client(tmp)
             t0 = time.perf_counter()
             for d, vec in zip(docs, doc_vecs):
                 db.put(namespace=f"bench-{mid}", key=d["id"], payload=d["text"], vector=vec)
@@ -312,7 +312,7 @@ def bench_one_model(model: dict, docs: list[dict], queries: list[dict]) -> dict:
             preds = []
             for qv in q_vecs:
                 t0 = time.perf_counter()
-                res = db.search_memory(namespace=f"bench-{mid}", query_vector=qv, top_k=10)
+                res = db.search(namespace=f"bench-{mid}", query_vector=qv, top_k=10)
                 query_times.append((time.perf_counter() - t0) * 1000)
                 # extraer ids predichos
                 p = []
@@ -329,7 +329,7 @@ def bench_one_model(model: dict, docs: list[dict], queries: list[dict]) -> dict:
     except Exception as e:
         used_fallback = True
         # fallback brute-force para query QPS y recall (numpy fast path)
-        eprint(f"[info] {mid}: vantadb_py no disponible o fallo ingest ({e}) — usando brute-force HNSW simulado")
+        eprint(f"[info] {mid}: vantadb no disponible o fallo ingest ({e}) — usando brute-force HNSW simulado")
         q_vecs = []
         q_lats = []
         for q in queries:
@@ -427,7 +427,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--skip-exception", action="store_true", help="omite Qwen3 >3GB (CI-friendly)")
     p.add_argument("--include-exception", action="store_true", help="incluye Qwen3 16GB aunque sea >3GB")
     p.add_argument("--output", type=str, default=str(DEFAULT_OUTPUT), help="ruta JSON reporte")
-    p.add_argument("--no-vantadb", action="store_true", help="fuerza brute-force sin vantadb_py aun si esta instalado")
+    p.add_argument("--no-vantadb", action="store_true", help="fuerza brute-force sin vantadb aun si esta instalado")
     return p.parse_args()
 
 def main() -> int:
@@ -459,7 +459,7 @@ def main() -> int:
     # --no-vantadb fuerza monkeypatch para test offline
     if args.no_vantadb:
         import sys as _sys
-        _sys.modules["vantadb_py"] = None  # type: ignore
+        _sys.modules["vantadb"] = None  # type: ignore
 
     print("=" * 64)
     print(" VantaDB Embedding Bench — EMB-07")

@@ -1,10 +1,10 @@
 # Architecture metrics — INFORMATIONAL ONLY (C2M1 baseline).
 # Never blocks: every step has continue-on-error: true.
-# Ratchet policy: compare against docs/reviews/*-baseline.json; tighten
+# Ratchet policy: compare against docs/dev/reviews/*-baseline.json; tighten
 # thresholds only after M3/S3 re-measurement (Fase 2 Cierre gate).
-# Pins: cargo-modules 0.27.0, cargo-coupling 0.4.0 (see docs/tasks/C2M1.md).
+# Pins: cargo-modules 0.27.0, cargo-coupling 0.4.0 (see docs/dev/tasks/C2M1.md).
 # rust-dsm stays local-only (Node CLI, immature 0-star tool): run manually
-#   node <rust-dsm>/dist/cli/commands.js . -f json -o docs/reviews/dsm-baseline.json --no-tests
+#   node <rust-dsm>/dist/cli/commands.js . -f json -o docs/dev/reviews/dsm-baseline.json --no-tests
 # Scope per target (MUST document any change here):
 #   - cargo-modules: -p vantadb --lib, default features, no --cfg-test.
 #     KNOWN: exit 1 on item-level self-edge

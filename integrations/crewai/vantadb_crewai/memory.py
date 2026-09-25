@@ -4,7 +4,7 @@ Implements the ``StorageBackend`` protocol (``crewai.memory.storage.backend``):
 ``save/search/delete/update/get_record/list_records/get_scope_info/list_scopes/
 list_categories/count/reset`` + async ``asave/asearch/adelete``.
 
-Mapping (mini-spec en ``docs/tasks/INTG-02.md``): un solo namespace VantaDB por
+Mapping (mini-spec en ``docs/dev/tasks/INTG-02.md``): un solo namespace VantaDB por
 backend; ``MemoryRecord`` <-> payload=content, key=record.id, sistema en
 metadata ``__mem_*``, vector=embedding. Scopes ``/a/b`` con prefix matching en
 Python. Sin crewai instalado opera duck-typed (shim local ``ScopeInfo``).

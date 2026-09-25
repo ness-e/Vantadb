@@ -21,7 +21,7 @@ describe("DX-01: connect() API", () => {
     const db = await Client.connect();
     const r = await db.put({ namespace: "dx01", key: "k", payload: "v" });
     expect(r.payload).toBe("v");
-    const got = await db.get("dx01", "k");
+    const got = await db.get({ namespace: "dx01", key: "k" });
     expect(got).not.toBeNull();
     expect(got!.payload).toBe("v");
     db.close();
@@ -58,12 +58,12 @@ describe("DX-04: Error handling", () => {
   });
 
   it("delete non-existent returns false", async () => {
-    const result = await db.delete("err_del", "nonexistent");
+    const result = await db.delete({ namespace: "err_del", key: "nonexistent" });
     expect(result).toBe(false);
   });
 
   it("get non-existent returns null", async () => {
-    const result = await db.get("err_get", "nonexistent");
+    const result = await db.get({ namespace: "err_get", key: "nonexistent" });
     expect(result).toBeNull();
   });
 
@@ -115,7 +115,7 @@ describe("DX-04: Edge cases", () => {
   it("very long key (512 chars)", async () => {
     const longKey = "b".repeat(512);
     await db.put({ namespace: "edge_lk", key: longKey, payload: "long key" });
-    const got = await db.get("edge_lk", longKey);
+    const got = await db.get({ namespace: "edge_lk", key: longKey });
     expect(got).not.toBeNull();
     expect(got!.payload).toBe("long key");
   });
@@ -125,7 +125,7 @@ describe("DX-04: Edge cases", () => {
     const key = "unicode_key_simple";
     const payload = "Hello 世界 مرحبا 🌟 привет";
     await db.put({ namespace: ns, key, payload });
-    const got = await db.get(ns, key);
+    const got = await db.get({ namespace: ns, key: key });
     expect(got).not.toBeNull();
     expect(got!.payload).toBe(payload);
   });
@@ -133,7 +133,7 @@ describe("DX-04: Edge cases", () => {
   it("payload with special characters", async () => {
     const payload = '{"json": "injection"}\u0000null byte\nnewline\t tab';
     await db.put({ namespace: "edge_special", key: "special", payload });
-    const got = await db.get("edge_special", "special");
+    const got = await db.get({ namespace: "edge_special", key: "special" });
     expect(got).not.toBeNull();
     expect(got!.payload).toBe(payload);
   });
@@ -147,7 +147,7 @@ describe("DX-04: Edge cases", () => {
       vector: vec,
     });
     // Verify it was stored without error
-    const got = await db.get("edge_vec_min", "k");
+    const got = await db.get({ namespace: "edge_vec_min", key: "k" });
     expect(got).not.toBeNull();
   });
 
@@ -159,7 +159,7 @@ describe("DX-04: Edge cases", () => {
       payload: "large vec",
       vector: vec,
     });
-    const got = await db.get("edge_vec_max", "k");
+    const got = await db.get({ namespace: "edge_vec_max", key: "k" });
     expect(got).not.toBeNull();
   });
 
@@ -184,7 +184,7 @@ describe("DX-04: Edge cases", () => {
       payload: "ttl zero",
       ttl_ms: 0,
     });
-    const got = await db.get("edge_ttl0", "k");
+    const got = await db.get({ namespace: "edge_ttl0", key: "k" });
     // TTL=0 means immediate expiration in some implementations
     if (got !== null) {
       expect(got.payload).toBe("ttl zero");
@@ -199,7 +199,7 @@ describe("DX-04: Edge cases", () => {
       );
     }
     await Promise.all(promises);
-    const got = await db.get("edge_concurrent", "same");
+    const got = await db.get({ namespace: "edge_concurrent", key: "same" });
     expect(got).not.toBeNull();
     expect(got!.namespace).toBe("edge_concurrent");
   });
@@ -254,7 +254,7 @@ describe("DX-04: Search and query", () => {
   });
 
   it("searchVector returns ordered by distance", () => {
-    const hits = db.searchVector([1.0, 0.0, 0.0, 0.0], 5);
+    const hits = db.searchVector({ vector: [1.0, 0.0, 0.0, 0.0], topK: 5 });
     expect(hits.length).toBeGreaterThan(0);
     for (let i = 1; i < hits.length; i++) {
       expect(hits[i - 1].distance).toBeGreaterThanOrEqual(hits[i].distance);
@@ -262,7 +262,7 @@ describe("DX-04: Search and query", () => {
   });
 
   it("searchVector with top_k > available records", async () => {
-    const hits = await db.searchVector([0.1, 0.2, 0.3, 0.4], 100);
+    const hits = await db.searchVector({ vector: [0.1, 0.2, 0.3, 0.4], topK: 100 });
     expect(hits.length).toBeLessThanOrEqual(3); // only 3 records seeded
   });
 
@@ -343,7 +343,7 @@ describe("DX-04: Batch operations", () => {
       { namespace: "batch_dedup", key: "dup", payload: "first" },
       { namespace: "batch_dedup", key: "dup", payload: "second" },
     ]);
-    const got = await db.get("batch_dedup", "dup");
+    const got = await db.get({ namespace: "batch_dedup", key: "dup" });
     expect(got).not.toBeNull();
     expect(got!.payload).toBe("second");
     expect(Number(got!.version)).toBe(2);
@@ -357,8 +357,8 @@ describe("DX-04: Batch operations", () => {
     expect(report.inserted).toBe(2);
     expect(report.updated).toBe(0);
     expect(report.errors).toBe(0);
-    expect(db.get("import_rt", "k1")!.payload).toBe("v1");
-    expect(db.get("import_rt", "k2")!.payload).toBe("v2");
+    expect(db.get({ namespace: "import_rt", key: "k1" })!.payload).toBe("v1");
+    expect(db.get({ namespace: "import_rt", key: "k2" })!.payload).toBe("v2");
   });
 
   it("importRecords with empty array (strict zeros, FIND-79)", () => {

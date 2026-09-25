@@ -57,10 +57,10 @@ def migrate_from_lancedb(
     except ImportError:
         raise ImportError("lancedb is required for this migration: pip install lancedb")
 
-    from vantadb_py import VantaDB
+    from vantadb import Client
 
     db = lancedb.connect(source_path)
-    target = VantaDB(dest_path)
+    target = Client(dest_path)
 
     total = 0
     for name in _table_names(db, table_name):

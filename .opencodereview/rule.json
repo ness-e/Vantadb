@@ -8,7 +8,7 @@
     {
       "merge_system_rule": true,
       "path": "src/{index/**,vector/**,text_index.rs,tokenizer.rs,scalar_index.rs,edge_index.rs,index_port.rs}",
-      "rule": "VantaDB index rules (source of truth: .opencode/rules/indexes.md; this is a review checklist, the file is normative).\n- Competitive metrics MUST be honest: no placeholders, no invented numbers — every claimed figure traces to a reproducible bench + command + environment.\n- HNSW/distance/topology changes need before/after evidence vs the canonical bench (see docs/operations/BENCHMARKS.md); no silent recall/latency regressions."
+      "rule": "VantaDB index rules (source of truth: .opencode/rules/indexes.md; this is a review checklist, the file is normative).\n- Competitive metrics MUST be honest: no placeholders, no invented numbers — every claimed figure traces to a reproducible bench + command + environment.\n- HNSW/distance/topology changes need before/after evidence vs the canonical bench (see docs/user/operations/BENCHMARKS.md); no silent recall/latency regressions."
     },
     {
       "merge_system_rule": true,

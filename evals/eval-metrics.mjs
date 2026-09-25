@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // EVAL-01 — pipeline eval harness.
 // Reads .opencode/task-system/enforcement/verify-log.jsonl (written by campaign_verify_cmd)
-// plus plan files, and produces docs/reports/pipeline-evals.md against the RULES.md North Star:
+// plus plan files, and produces docs/dev/reports/pipeline-evals.md against the RULES.md North Star:
 //   - tasa completado >90% primer intento
 //   - falsos positivos = 0  (verify FAILED pero task pasó a COMPLETED)
 //   - regresión silenciosa = 0 (verify pasó y luego falló para la misma tarea)
@@ -97,7 +97,7 @@ const skillsReported = tasks.filter(t => taskSkills.has(t.id)).length
 let md = `# Pipeline Evaluation Report
 
 > Generado por \`evals/eval-metrics.mjs\` (EVAL-01) — ${new Date().toISOString()}
-> Datos: \`.opencode/task-system/enforcement/verify-log.jsonl\` (${entries.length} invocaciones de verify) + \`docs/plans/*.md\`
+> Datos: \`.opencode/task-system/enforcement/verify-log.jsonl\` (${entries.length} invocaciones de verify) + \`docs/dev/plans/*.md\`
 
 ## North Star (RULES.md)
 

@@ -154,7 +154,7 @@ jobs:
   # SRV-07: build the Docker image on every release and smoke-test unprivileged
   # execution under an arbitrary uid. Deliberately build-no-push: choosing a
   # registry (ghcr vs Docker Hub) is a brand decision, not a CI default — see
-  # docs/operations/CI_POLICY.md "Docker image publishing (SRV-07)".
+  # docs/dev/operations/CI_POLICY.md "Docker image publishing (SRV-07)".
   docker-image:
     name: Docker image (build + unprivileged smoke, no push)
     needs: [tests]

@@ -22,7 +22,7 @@
 //! There is no agent loop here and no UPDATE>MERGE>CREATE strategy decision:
 //! this layer exposes the primitives; MEM-14 decides, MEM-16 orchestrates.
 //!
-//! Source: `docs/research/tdam/02-scene-persona.md` + TDAM
+//! Source: `docs/dev/research/tdam/02-scene-persona.md` + TDAM
 //! `scene-extractor.ts` (604).
 
 use serde::{Deserialize, Serialize};

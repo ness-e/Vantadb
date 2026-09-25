@@ -13,9 +13,6 @@
 /vantadb-server/ @ness-e
 /vantadb-mcp/ @ness-e
 
-# Web UI
-/web/ @ness-e
-
 # CI/CD & GitHub config
 /.github/ @ness-e
 

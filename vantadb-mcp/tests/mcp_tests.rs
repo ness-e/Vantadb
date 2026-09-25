@@ -3064,7 +3064,7 @@ fn test_mcp_bulk_import_stream_ndjson_and_missing_file() {
     // memory_get: the core's bulk_import_stream writes raw nodes without the
     // internal __vanta_namespace/__vanta_key fields, so they are not
     // addressable through the record API (pre-existing SDK limitation,
-    // tracked in docs/Backlog.md). The tool contract is the report counts.
+    // tracked in docs/dev/Backlog.md). The tool contract is the report counts.
 
     // Malformed NDJSON line → error_content naming the line.
     let bad = Some(json!({
@@ -4460,7 +4460,25 @@ fn test_mcp_structured_output_and_output_schema() {
         search_res.get("structuredContent").is_some(),
         "search_memory must expose structuredContent"
     );
-    assert!(search_res["structuredContent"].is_array());
+    assert!(search_res["structuredContent"].is_object());
+    assert!(search_res["structuredContent"]["hits"].is_array());
+
+    // memory_recall must also carry structuredContent (FIND: strict clients
+    // reject outputSchema tools without it — "did not return structured content")
+    let recall = Some(json!({
+        "name": "memory_recall",
+        "arguments": { "query": "hello structured", "scope": "agent", "top_k": 5 }
+    }));
+    let recall_res = handle_tools_call(&recall, &executor, &storage, &default_config()).unwrap();
+    assert!(
+        recall_res.get("structuredContent").is_some(),
+        "memory_recall must expose structuredContent"
+    );
+    assert!(recall_res["structuredContent"].is_object());
+    assert!(recall_res["structuredContent"]["recalled"].is_array());
+    assert!(recall_res["structuredContent"]
+        .get("effective_mode")
+        .is_some());
 
     // tools/list must advertise outputSchema for key tools
     let list = handle_tools_list(&McpConfig::default()).unwrap();
@@ -4470,6 +4488,7 @@ fn test_mcp_structured_output_and_output_schema() {
         "memory_get",
         "search_memory",
         "search_semantic",
+        "memory_recall",
     ] {
         let tool = tools.iter().find(|t| t["name"] == name).expect(name);
         assert!(

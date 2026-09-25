@@ -26,7 +26,7 @@
 //! stack overflow in the engine, even for a 20-node/8-edge DAG corpus and a
 //! 256 MB benchmark-thread stack. Index timing completes cleanly and is REAL;
 //! the query-latency and token-reduction metrics could not be measured in this
-//! environment and are documented as PENDING in docs/blog/graphrag-benchmark.md.
+//! environment and are documented as PENDING in docs/user/blog/graphrag-benchmark.md.
 //! This is the same failure class as AUDIT-04 (STATUS_STACK_BUFFER_OVERRUN).
 //! Re-run `cargo run --release --example graphrag_bench` after the engine fix
 //! to fill the pending cells — the script itself is complete and reproducible.

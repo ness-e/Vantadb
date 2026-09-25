@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """GOV-A4 — Doc snippet harness.
 
-Extracts ```python blocks from docs/tutorials/*.md + docs/QUICKSTART.md and
+Extracts ```python blocks from docs/user/tutorials/*.md + docs/user/QUICKSTART.md and
 executes each against a temp VantaDB (vantadb-py). Reports PASS/FAIL/SKIP per
 snippet; exit code 1 if any FAIL.
 
@@ -23,7 +23,7 @@ import tempfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-DOCS = sorted((ROOT / "docs" / "tutorials").glob("*.md")) + [ROOT / "docs" / "QUICKSTART.md"]
+DOCS = sorted((ROOT / "docs" / "user" / "tutorials").glob("*.md")) + [ROOT / "docs" / "user" / "QUICKSTART.md"]
 TIMEOUT = 30  # seconds per snippet
 
 # Local modules provided by the repo's venv, never "missing deps".
@@ -32,8 +32,8 @@ LOCAL_MODULES = {"vantadb", "vantadb_py"}
 HEADER = """\
 import os as _os, tempfile as _tf
 _d = _tf.mkdtemp(prefix="vanta_snip_")
-from vantadb import VantaDB as _VantaDB
-db = _VantaDB(_os.path.join(_d, "db"))
+from vantadb import Client as _Client
+db = _Client(_os.path.join(_d, "db"))
 """
 
 IMPORT_RE = re.compile(r"^\s*(?:import|from)\s+([A-Za-z_][\w.]*)")

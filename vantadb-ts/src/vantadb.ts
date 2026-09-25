@@ -10,15 +10,20 @@ import type {
   BatchSearchRequest,
   Capabilities,
   Config,
+  CountInput,
+  DeleteByFilterInput,
+  DeleteInput,
   ExportReport,
   FilterItem,
   FlatValue,
+  GetInput,
   GraphBfsResult,
   GraphDegreeEntry,
   GraphDfsResult,
   GraphTopologicalSortResult,
   GraphTraversalFilter,
   ImportReport,
+  ListInput,
   ListOptions,
   MemoryInput,
   MemoryListPage,
@@ -28,6 +33,9 @@ import type {
   QueryResult,
   SearchHit,
   SearchRequest,
+  SearchVectorInput,
+  SimilarToKeyInput,
+  SupersedeInput,
   Value,
 } from "./types.js";
 
@@ -41,24 +49,17 @@ import type {
 export interface MemoryClient {
   put(input: MemoryInput): MemoryRecord;
   putBatch(inputs: MemoryInput[]): MemoryRecord[];
-  get(namespace: string, key: string): MemoryRecord | null;
-  delete(namespace: string, key: string): boolean;
-  deleteByFilter(namespace: string, filter: FilterItem[]): bigint;
-  list(namespace: string, options?: ListOptions): MemoryListPage;
+  get(input: GetInput): MemoryRecord | null;
+  delete(input: DeleteInput): boolean;
+  deleteByFilter(input: DeleteByFilterInput): bigint;
+  list(input: ListInput): MemoryListPage;
   listNamespaces(): string[];
-  count(namespace: string, filters?: FilterItem[]): bigint;
-  supersede(namespace: string, oldKey: string, newKey: string): void;
+  count(input: CountInput): bigint;
+  supersede(input: SupersedeInput): void;
   search(request: SearchRequest): SearchHit[];
-  searchMulti(namespaces: string[], request: BatchSearchRequest): SearchHit[];
-  searchVector(
-    vector: number[],
-    topK?: number,
-  ): { node_id: string; distance: number }[];
-  similarToKey(
-    namespace: string,
-    key: string,
-    topK?: number,
-  ): SearchHit[];
+  searchMulti(request: BatchSearchRequest): SearchHit[];
+  searchVector(input: SearchVectorInput): { node_id: string; distance: number }[];
+  similarToKey(input: SimilarToKeyInput): SearchHit[];
   explainSearch(request: SearchRequest): Record<string, unknown>;
   generateSnippet(
     payload: string,
@@ -252,24 +253,17 @@ export class Client {
     return (this._memory ??= Object.freeze({
       put: (input: MemoryInput) => this.put(input),
       putBatch: (inputs: MemoryInput[]) => this.putBatch(inputs),
-      get: (namespace: string, key: string) => this.get(namespace, key),
-      delete: (namespace: string, key: string) => this.delete(namespace, key),
-      deleteByFilter: (namespace: string, filter: FilterItem[]) =>
-        this.deleteByFilter(namespace, filter),
-      list: (namespace: string, options?: ListOptions) =>
-        this.list(namespace, options),
+      get: (input: GetInput) => this.get(input),
+      delete: (input: DeleteInput) => this.delete(input),
+      deleteByFilter: (input: DeleteByFilterInput) => this.deleteByFilter(input),
+      list: (input: ListInput) => this.list(input),
       listNamespaces: () => this.listNamespaces(),
-      count: (namespace: string, filters?: FilterItem[]) =>
-        this.count(namespace, filters),
-      supersede: (namespace: string, oldKey: string, newKey: string) =>
-        this.supersede(namespace, oldKey, newKey),
+      count: (input: CountInput) => this.count(input),
+      supersede: (input: SupersedeInput) => this.supersede(input),
       search: (request: SearchRequest) => this.search(request),
-      searchMulti: (namespaces: string[], request: BatchSearchRequest) =>
-        this.searchMulti(namespaces, request),
-      searchVector: (vector: number[], topK?: number) =>
-        this.searchVector(vector, topK),
-      similarToKey: (namespace: string, key: string, topK?: number) =>
-        this.similarToKey(namespace, key, topK),
+      searchMulti: (request: BatchSearchRequest) => this.searchMulti(request),
+      searchVector: (input: SearchVectorInput) => this.searchVector(input),
+      similarToKey: (input: SimilarToKeyInput) => this.similarToKey(input),
       explainSearch: (request: SearchRequest) => this.explainSearch(request),
       generateSnippet: (payload: string, query: string, withHighlighting?: boolean) =>
         this.generateSnippet(payload, query, withHighlighting),
@@ -475,21 +469,20 @@ export class Client {
   /**
    * Retrieve a memory record by namespace and key.
    *
-   * @param namespace - The namespace.
-   * @param key - The record key.
+   * @param input - `{namespace, key}` of the record.
    * @returns The record if found, or null if it does not exist.
    * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
-   * const record = db.get("docs", "welcome");
+   * const record = db.get({ namespace: "docs", key: "welcome" });
    * if (record) console.log(record.payload);
    * ```
    */
-  get(namespace: string, key: string): MemoryRecord | null {
+  get(input: GetInput): MemoryRecord | null {
     this._assertOpen();
     return this._wasm("get", () => {
-      const raw = this.inner.get(namespace, key);
+      const raw = this.inner.get(input.namespace, input.key);
       return raw != null ? _mapRecord(raw) : null;
     });
   }
@@ -497,19 +490,18 @@ export class Client {
   /**
    * Delete a memory record by namespace and key.
    *
-   * @param namespace - The namespace.
-   * @param key - The record key.
+   * @param input - `{namespace, key}` of the record.
    * @returns true if the record was deleted, false if it did not exist.
    * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
-   * const deleted = db.delete("docs", "welcome");
+   * const deleted = db.delete({ namespace: "docs", key: "welcome" });
    * ```
    */
-  delete(namespace: string, key: string): boolean {
+  delete(input: DeleteInput): boolean {
     this._assertOpen();
-    return this._wasm("delete", () => this.inner.delete(namespace, key));
+    return this._wasm("delete", () => this.inner.delete(input.namespace, input.key));
   }
 
   /**
@@ -531,24 +523,24 @@ export class Client {
   /**
    * List memory records in a namespace with pagination.
    *
-   * @param namespace - The namespace to list.
-   * @param options - Pagination options (limit, cursor, filters).
+   * @param input - `{namespace}` plus pagination options (limit, cursor, filters).
    * @returns A page of records with an optional cursor for continuation.
    * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
-   * const page = db.list("docs", { limit: 10 });
+   * const page = db.list({ namespace: "docs", limit: 10 });
    * while (page.records.length) {
    *   for (const r of page.records) console.log(r.key);
    *   if (!page.next_cursor) break;
-   *   page = db.list("docs", { limit: 10, cursor: page.next_cursor });
+   *   page = db.list({ namespace: "docs", limit: 10, cursor: page.next_cursor });
    * }
    * ```
    */
-  list(namespace: string, options: ListOptions = {}): MemoryListPage {
+  list(input: ListInput): MemoryListPage {
     this._assertOpen();
     return this._wasm("list", () => {
+      const { namespace, ...options } = input;
       const wire = { ...options } as ListOptions;
       if (options.filters !== undefined) {
         // Only set the key when present: an explicit `filters: undefined`
@@ -624,18 +616,17 @@ export class Client {
   /**
    * Search across multiple namespaces in a single call. Results from each
    * namespace are merged by descending score and capped at `request.top_k`
-   * globally. The `namespace` field on `request` is ignored; pass
-   * `namespaces` instead.
+   * globally.
    *
-   * @param namespaces - Namespaces to search independently.
-   * @param request - Search parameters (omit `namespace`; use `namespaces`).
+   * @param request - Search parameters with `namespaces` instead of `namespace`.
    * @returns Array of search hits ordered by relevance (highest score first).
    *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
    * @throws {DbError} If the instance is closed or any namespace fails.
    *
    * @example
    * ```ts
-   * const hits = db.searchMulti(["docs", "kb"], {
+   * const hits = db.searchMulti({
+   *   namespaces: ["docs", "kb"],
    *   query_vector: [0.1, 0.2, 0.3],
    *   top_k: 5,
    * });
@@ -644,7 +635,7 @@ export class Client {
    * }
    * ```
    */
-  searchMulti(namespaces: string[], request: BatchSearchRequest): SearchHit[] {
+  searchMulti(request: BatchSearchRequest): SearchHit[] {
     this._assertOpen();
     return this._wasm("searchMulti", () => {
       // The wire shape mirrors `search()`; reuse the same builder but ignore
@@ -653,6 +644,7 @@ export class Client {
       // carries the first routed namespace (ignored downstream) instead of "".
       // `namespaces` itself is validated here — an empty route list is a
       // caller error, not an engine query.
+      const { namespaces, ...rest } = request;
       if (!Array.isArray(namespaces) || namespaces.length === 0) {
         throw new DbError(
           ERROR_CODES.VALIDATION_ERROR,
@@ -660,7 +652,7 @@ export class Client {
         );
       }
       const wire = this._buildSearchRequest({
-        ...request,
+        ...rest,
         namespace: namespaces[0],
       });
       const raw = this.inner.search_multi(namespaces, wire) as unknown[];
@@ -677,30 +669,29 @@ export class Client {
 
   /**
    * Count records in a namespace, optionally matching an AND-combined
-   * metadata filter. Pass an empty array / `undefined` to count every
+   * metadata filter. Pass an empty array / `undefined` filters to count every
    * record in the namespace.
    *
    * WASM wire method: `count()` (TS-04 parity with Python / core SDK).
    *
-   * @param namespace - Namespace to count within.
-   * @param filters - Optional list of `{field, op, value}` items.
+   * @param input - `{namespace}` plus optional `filters` (`{field, op, value}` items).
    * @returns Number of matching records (bigint).
    * @throws {DbError} If the instance is closed.
    *
    * @example
    * ```ts
-   * const total = db.count("docs");
-   * const redHot = db.count("docs", [
+   * const total = db.count({ namespace: "docs" });
+   * const redHot = db.count({ namespace: "docs", filters: [
    *   { field: "tier", op: "Eq", value: "hot" },
-   * ]);
+   * ] });
    * ```
    */
-  count(namespace: string, filters?: FilterItem[]): bigint {
+  count(input: CountInput): bigint {
     this._assertOpen();
     return this._wasm("count", () =>
       this.inner.count(
-        namespace,
-        normalizeFilterItems(filters ?? []),
+        input.namespace,
+        normalizeFilterItems(input.filters ?? []),
       ),
     );
   }
@@ -711,38 +702,38 @@ export class Client {
    * (soft-dead, recoverable) but gains `superseded_by`/`superseded_at_ms`,
    * and can be hidden from search/list with `exclude_superseded: true`.
    *
+   * @param input - `{namespace, oldKey, newKey}`.
    * @throws {DbError} If either key is missing, `oldKey == newKey`, or
    *   the old record is already superseded.
    *
    * @example
    * ```ts
-   * db.supersede("docs", "old-welcome", "welcome-v2");
+   * db.supersede({ namespace: "docs", oldKey: "old-welcome", newKey: "welcome-v2" });
    * ```
    */
-  supersede(namespace: string, oldKey: string, newKey: string): void {
+  supersede(input: SupersedeInput): void {
     this._assertOpen();
-    this._wasm("supersede", () => this.inner.supersede(namespace, oldKey, newKey));
+    this._wasm("supersede", () => this.inner.supersede(input.namespace, input.oldKey, input.newKey));
   }
 
   /**
    * Search for memory records similar to an existing record by key, without
    * supplying a query vector. The source record is excluded from results.
    *
-   * @param namespace - Namespace to search within.
-   * @param key - Key of the source record whose vector seeds the search.
-   * @param topK - Maximum number of hits (default: 10).
+   * @param input - `{namespace, key}` of the source record plus `topK`.
    * @returns Array of search hits ordered by descending similarity.
    *   Each hit maps the engine wire `score` field onto `SearchHit.distance`.
    * @throws {DbError} If the source `key` does not exist or has no vector.
    *
    * @example
    * ```ts
-   * const hits = db.similarToKey("docs", "welcome-v2", 5);
+   * const hits = db.similarToKey({ namespace: "docs", key: "welcome-v2", topK: 5 });
    * ```
    */
-  similarToKey(namespace: string, key: string, topK: number = 10): SearchHit[] {
+  similarToKey(input: SimilarToKeyInput): SearchHit[] {
     this._assertOpen();
     return this._wasm("similarToKey", () => {
+      const { namespace, key, topK = 10 } = input;
       const raw = this.inner.similar_to_key(namespace, key, topK) as unknown[];
       return raw.map((hit: unknown) => {
         const h = hit as Record<string, unknown>;
@@ -758,25 +749,24 @@ export class Client {
   /**
    * Search for graph nodes by vector similarity (low-level API).
    *
-   * @param vector - Query vector (number array or Float32Array).
-   * @param topK - Maximum number of results (default: 10).
+   * @param input - `{vector, topK}` (topK default: 10).
    * @returns Array of results with node IDs and distances.
    * @throws {DbError} If the instance is closed or the vector is invalid.
    *
    * @example
    * ```ts
-   * const results = db.searchVector([0.1, 0.2, 0.3, 0.4], 5);
+   * const results = db.searchVector({ vector: [0.1, 0.2, 0.3, 0.4], topK: 5 });
    * for (const r of results) {
    *   console.log(r.node_id, r.distance);
    * }
    * ```
    */
   searchVector(
-    vector: number[],
-    topK: number = 10,
+    input: SearchVectorInput,
   ): { node_id: string; distance: number }[] {
     this._assertOpen();
     return this._wasm("searchVector", () => {
+      const { vector, topK = 10 } = input;
       const raw: unknown[] = this.inner.search_vector(new Float32Array(vector), topK);
       return raw.map((hit: unknown) => {
         const h = hit as Record<string, unknown>;
@@ -854,16 +844,16 @@ export class Client {
    * prevent accidental full-namespace deletion — that error propagates.
    *
    * ```ts
-   * const deleted = db.deleteByFilter("docs", [
+   * const deleted = db.deleteByFilter({ namespace: "docs", filter: [
    *   { field: "tier", op: "Eq", value: "hot" },
-   * ]);
+   * ] });
    * console.log(deleted); // 3n
    * ```
    */
-  deleteByFilter(namespace: string, filter: FilterItem[]): bigint {
+  deleteByFilter(input: DeleteByFilterInput): bigint {
     this._assertOpen();
     return this._wasm("deleteByFilter", () =>
-      this.inner.delete_by_filter(namespace, normalizeFilterItems(filter)),
+      this.inner.delete_by_filter(input.namespace, normalizeFilterItems(input.filter)),
     );
   }
 
