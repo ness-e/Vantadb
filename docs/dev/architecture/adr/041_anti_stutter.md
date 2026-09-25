@@ -40,7 +40,7 @@ Eliminar el prefijo `Vanta` redundante siguiendo la regla universal — ninguna 
 - **TypeScript:** `export type Viejo = Nuevo` + `@deprecated`; nunca `Error` pelado (colisiona con el global) → `DbError`.
 - **Release:** rename público = bump major vía release-plz (`semver_check=true`); canary TestPyPI / `npm --tag next` 24–48h antes del publish final (lo ejecuta AST-007).
 
-Exclusiones deliberadas: `VantaHeader` (formato on-disk, compat binaria), códigos `VANTADB_*` (wire entre bindings), funciones libres `memory_*` (sin contenedor que repitan).
+Exclusiones deliberadas: códigos `VANTADB_*` (wire entre bindings), funciones libres `memory_*` (sin contenedor que repitan). **`VantaHeader`: exclusión retirada 2026-09-25** — renombrado a `Header` + alias deprecated (decisión owner B, API-01 Step 5); la premisa "compat on-disk" quedó contradicha por el código (§Evidencia adicional).
 
 ## Consequences
 
@@ -90,6 +90,8 @@ exclusión (A) se apoya en una premisa falsa; C (seguir `proposed`) mantiene el
 bloqueo de AST-002 sin ganancia. La decisión y la firma siguen siendo del
 owner (Regla 5); si el owner prefiere A, corresponde corregir la razón de
 exclusión en §Decision/mapa antes de firmar.
+
+**Decisión owner (2026-09-25):** **B** — renombrar `VantaHeader` → `Header` + alias deprecated (question gate API-01). Aplicado en API-01 Step 5 (mapa actualizado a `resolved`). Firma formal del ADR: pendiente (HIG-02).
 
 ---
 

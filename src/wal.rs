@@ -19,7 +19,7 @@ pub const WAL_FORMAT_VERSION: u16 = 2;
 
 /// Tracks the postcard wire format version used for WAL record serialization.
 /// Increment this when upgrading postcard to a potentially incompatible version.
-/// Stored in VantaHeader.schema_version for forward-compatibility detection.
+/// Stored in Header.schema_version for forward-compatibility detection.
 pub const WAL_POSTCARD_VERSION: u16 = 1;
 
 const KIB: usize = 1024;
@@ -94,8 +94,8 @@ pub enum WalRecord {
 /// WAL file header with magic bytes, version, schema version, and CRC integrity.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct WalHeader {
-    /// 16-byte VantaHeader (magic = `b"VWAL"`, version = 1, schema = 0, timestamp).
-    pub base: crate::binary_header::VantaHeader,
+    /// 16-byte Header (magic = `b"VWAL"`, version = 1, schema = 0, timestamp).
+    pub base: crate::binary_header::Header,
     /// 4-byte CRC32C of the base header bytes.
     pub crc: u32,
 }
@@ -108,7 +108,7 @@ impl WalHeader {
     /// `format_version`: WAL format version (currently 1).
     /// Stores `WAL_POSTCARD_VERSION` in `schema_version` for forward-compatibility detection.
     pub fn new(format_version: u32) -> Self {
-        let base = crate::binary_header::VantaHeader::new(
+        let base = crate::binary_header::Header::new(
             *b"VWAL",
             format_version as u16,
             WAL_POSTCARD_VERSION,
@@ -152,7 +152,7 @@ impl WalHeader {
             )));
         }
 
-        let base = crate::binary_header::VantaHeader::deserialize(&bytes[0..16])?;
+        let base = crate::binary_header::Header::deserialize(&bytes[0..16])?;
 
         // Range-based compatibility check: accepts any format_version ≤ WAL_FORMAT_VERSION
         // with matching magic. Future-format files (version > current) are rejected;

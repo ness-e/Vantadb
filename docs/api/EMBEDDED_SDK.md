@@ -14,7 +14,7 @@ aliases: []
 > **Naming (ADR-041 anti-stutter):** canonical names are `Embedded`, `Config`,
 > `MemoryRecord`, `SearchHit`, `Error`, `MemoryInput`, `MemoryFilter`. Legacy
 > `Vanta*` aliases (`VantaEmbedded`, `VantaConfig`, …) were removed in 0.6.0
-> (AST-010). `VantaHeader` (on-disk format)
+> (AST-010). `Header` (on-disk format)
 > and `VANTADB_*` error codes (wire) are intentionally unchanged.
 
 **Source:** `src/sdk/mod.rs`, `src/sdk/builder.rs`, `src/sdk/api/*.rs`, `src/sdk/graph.rs`, `src/sdk/search/mod.rs`

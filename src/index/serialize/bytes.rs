@@ -23,7 +23,7 @@ impl CPIndex {
     }
 
     pub fn serialize_to_writer(&self, w: &mut impl Write) -> std::io::Result<()> {
-        let header = crate::binary_header::VantaHeader::new(*b"VNDX", VECTOR_INDEX_VERSION, 0);
+        let header = crate::binary_header::Header::new(*b"VNDX", VECTOR_INDEX_VERSION, 0);
         let mut pos = 0usize;
 
         let hdr = header.serialize();
@@ -294,14 +294,14 @@ impl CPIndex {
             })?))
         }
 
-        if data.len() < crate::binary_header::VantaHeader::SIZE + 8 {
+        if data.len() < crate::binary_header::Header::SIZE + 8 {
             return Err(Error::new(ErrorKind::InvalidData, "Index file too small"));
         }
 
         let mut pos = 0;
 
-        let header = match crate::binary_header::VantaHeader::deserialize(
-            &data[pos..pos + crate::binary_header::VantaHeader::SIZE],
+        let header = match crate::binary_header::Header::deserialize(
+            &data[pos..pos + crate::binary_header::Header::SIZE],
         ) {
             Ok(h) => h,
             Err(e) => {
@@ -311,7 +311,7 @@ impl CPIndex {
                 ))
             }
         };
-        pos += crate::binary_header::VantaHeader::SIZE;
+        pos += crate::binary_header::Header::SIZE;
 
         if let Err(e) =
             header.validate_compat(*b"VNDX", VECTOR_INDEX_VERSION, "Index format mismatch")
@@ -1018,7 +1018,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore = "timestamps differ between serialize_to_bytes (calls writer internally) and direct serialize_to_writer call -- VantaHeader::new() uses SystemTime::now()"]
+    #[ignore = "timestamps differ between serialize_to_bytes (calls writer internally) and direct serialize_to_writer call -- Header::new() uses SystemTime::now()"]
     fn to_bytes_matches_writer() {
         let index = single_full_node_index();
         let bytes = index.serialize_to_bytes();
