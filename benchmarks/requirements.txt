@@ -8,7 +8,7 @@
 # instead — the scripts work with either install.
 
 # --- Required for every benchmark script ---
-# Distribution name is `vantadb-py` (hyphen); the Python import is `vantadb_py` (underscore).
+# Distribution name is `vantadb-py` (hyphen); the canonical Python import is `vantadb`.
 vantadb-py>=0.5.0
 
 # --- Required only for competitive_bench.py (VantaDB vs LanceDB vs ChromaDB vs Qdrant) ---

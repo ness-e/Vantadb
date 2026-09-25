@@ -31,4 +31,4 @@ We aim to acknowledge receipt within 48 hours and provide an initial assessment 
 - **TLS 1.2+** via rustls on the HTTP server (feature `tls`).
 - **RBAC** — admin/writer/reader roles enforced per HTTP method.
 
-See [`docs/operations/SECURITY.md`](docs/operations/SECURITY.md) for the full security guide.
+See [`docs/user/operations/SECURITY.md`](docs/user/operations/SECURITY.md) for the full security guide.

@@ -76,7 +76,7 @@ describe("Client Load Tests", () => {
         payload: ns,
         vector: [i % 10, 0, 0, 0],
       });
-      const got = await tmp.get(ns, "k");
+      const got = await tmp.get({ namespace: ns, key: "k" });
       observed.push({ payload: got?.payload, expected: ns });
       tmp.close();
     }

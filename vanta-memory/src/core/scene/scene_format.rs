@@ -11,7 +11,7 @@
 //! the META contract travels inside the JSON, so the delimiter markers are
 //! not ported (they would be dead code in a record store).
 //!
-//! Source: `docs/research/tdam/02-scene-persona.md` §52-53.
+//! Source: `docs/dev/research/tdam/02-scene-persona.md` §52-53.
 
 use serde::{Deserialize, Serialize};
 

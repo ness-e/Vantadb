@@ -11,7 +11,7 @@
 //!   `ExtractedMemory`, `MemoryType`, `DedupDecision`
 //! - `MemoryCore/src/core/record/l1-extractor.ts` — `L1ExtractionResult`,
 //!   `SceneSegment`
-//! - `docs/research/tdam/02-scene-persona.md` §33, §41, §52-53 — scene META,
+//! - `docs/dev/research/tdam/02-scene-persona.md` §33, §41, §52-53 — scene META,
 //!   persona modes/triggers.
 
 use serde::{Deserialize, Serialize};
@@ -206,7 +206,7 @@ pub struct L1ExtractionResult {
 /// A scene segment produced by L1 extraction: groups a set of messages and
 /// their memories under one scene name (L2 grouping input).
 ///
-/// Source: `docs/research/tdam/02-scene-persona.md` §33 (TDAM
+/// Source: `docs/dev/research/tdam/02-scene-persona.md` §33 (TDAM
 /// `l1-extractor.ts:52-62`).
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -223,7 +223,7 @@ pub struct SceneSegment {
 /// The L2 scene META contract — stable anchor for the scene node in the core
 /// graph (LLM-free L2 fallback).
 ///
-/// Source: `docs/research/tdam/02-scene-persona.md` §52 (TDAM
+/// Source: `docs/dev/research/tdam/02-scene-persona.md` §52 (TDAM
 /// `scene-format.ts:18-48`, `-----META-START-----` block).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -240,7 +240,7 @@ pub struct SceneMeta {
 
 /// One entry of the scene index (`scene_index.json` equivalent).
 ///
-/// Source: `docs/research/tdam/02-scene-persona.md` §53 (TDAM
+/// Source: `docs/dev/research/tdam/02-scene-persona.md` §53 (TDAM
 /// `scene-index.ts:9-15`).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -259,7 +259,7 @@ pub struct SceneIndexEntry {
 
 /// L3 persona generation modes.
 ///
-/// Source: `docs/research/tdam/02-scene-persona.md` §26 (modos
+/// Source: `docs/dev/research/tdam/02-scene-persona.md` §26 (modos
 /// first/incremental; TDAM `persona-generator.ts`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]
@@ -272,7 +272,7 @@ pub enum PersonaMode {
 
 /// L3 persona trigger priorities (highest wins).
 ///
-/// Source: `docs/research/tdam/02-scene-persona.md` §41 (TDAM
+/// Source: `docs/dev/research/tdam/02-scene-persona.md` §41 (TDAM
 /// `persona-trigger.ts:35-96`).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(rename_all = "snake_case")]

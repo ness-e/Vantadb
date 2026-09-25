@@ -133,7 +133,7 @@ dev-tools/scripts/validate_python_sdk.ps1  # or validate_python_sdk.sh
 
 ### CI gates
 
-Two tiers (see `docs/operations/CI_POLICY.md`):
+Two tiers (see `docs/dev/operations/CI_POLICY.md`):
 
 1. **Fast Gate** (every PR/push): fmt, clippy, unit + fast integration tests.
    Must stay < 5 min, deterministic, offline.
@@ -218,7 +218,7 @@ docs/             ← project documentation
 
 ## Where to Find Work
 
-The project backlog lives in `docs/Backlog.md`. Each row follows the format
+The project backlog lives in `docs/dev/Backlog.md`. Each row follows the format
 `ID | Description | Files | Effort | Priority | Status`. Look for items marked
 `📝 Pendiente` with green priority, or pick issues labeled `good first issue`.
 
@@ -248,7 +248,7 @@ The goal is a fast path from "reported" to "in front of the right agent".
 |------|------------------|--------|
 | **Bug** | Wrong behavior, crash, panic, data loss, unexpected result | Reproduce first: version + OS + steps + logs. Label `bug`. Add `flaky` if it fails intermittently. |
 | **Feature** | New capability, API, SDK, or enhancement request | Label `enhancement`. Align with the local-first, embedded memory boundary (see `feature_request.yml`). |
-| **Performance** | Slow search/ingestion, high latency, memory blowup, regression vs `docs/operations/BENCHMARKS.md` | Label `perf`. Require a reproducible benchmark command + before/after numbers (AGENTS.md Regla 9/11). |
+| **Performance** | Slow search/ingestion, high latency, memory blowup, regression vs `docs/user/operations/BENCHMARKS.md` | Label `perf`. Require a reproducible benchmark command + before/after numbers (AGENTS.md Regla 9/11). |
 | **Security** | Auth, trust boundary, unsafe, CVE, data exfiltration, secret leak | **Do not file publicly.** Report via `SECURITY.md` / the security policy (linked from `.github/ISSUE_TEMPLATE/config.yml`). |
 
 ### 2. Routing by domain

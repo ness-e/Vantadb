@@ -115,7 +115,7 @@ db.put(
 
 Use **one embedding model per namespace** — stored and query vectors must
 share the same dimensionality. Full walkthrough:
-[QUICKSTART → Real Embeddings](../docs/QUICKSTART.md#4-real-embeddings-optional).
+[QUICKSTART → Real Embeddings](../docs/user/QUICKSTART.md#4-real-embeddings-optional).
 
 ## Cross-SDK Search Parity
 

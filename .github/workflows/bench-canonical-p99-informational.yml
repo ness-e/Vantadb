@@ -16,7 +16,7 @@
 # If the toolchain cannot compile (tantivy broke the local build once), job 1
 # opens a HALLAZGO issue with an owner instead of reporting false-green.
 #
-# Baseline: docs/operations/BENCHMARKS.md §11 (consumo guard) + §1.
+# Baseline: docs/user/operations/BENCHMARKS.md §11 (consumo guard) + §1.
 # Regression policy (>10% p99 vs baseline needs ADR-or-revert) is EVALUATED
 # here but never enforced: on regression this workflow opens an issue with
 # labels (benchmark, regression) and stays green (Q5: informativo primero).
@@ -145,7 +145,7 @@ jobs:
         run: |
           echo "## canonical_p99 (informational)" >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "Baseline: docs/operations/BENCHMARKS.md §11 (consumo guard) + §1." >> "$GITHUB_STEP_SUMMARY"
+          echo "Baseline: docs/user/operations/BENCHMARKS.md §11 (consumo guard) + §1." >> "$GITHUB_STEP_SUMMARY"
           echo "Regression policy: p99 >10% vs baseline needs ADR-or-revert — evaluated here, never enforced (Q5)." >> "$GITHUB_STEP_SUMMARY"
           echo "" >> "$GITHUB_STEP_SUMMARY"
           grep -E "canonical_p99 search" canonical_p99_results.txt >> "$GITHUB_STEP_SUMMARY" || echo "(p50/p95/p99 line not found — see artifact)" >> "$GITHUB_STEP_SUMMARY"
@@ -194,7 +194,7 @@ jobs:
               `**Commit:** \`${context.sha}\`\n` +
               `**Workflow:** [${context.workflow}](${process.env.GITHUB_SERVER_URL}/${process.env.GITHUB_REPOSITORY}/actions/runs/${process.env.GITHUB_RUN_ID})\n` +
               `**Numbers:** \`${numbers}\`\n` +
-              `**Baseline:** docs/operations/BENCHMARKS.md §11 + benchmarks/criterion_baseline.json\n` +
+              `**Baseline:** docs/user/operations/BENCHMARKS.md §11 + benchmarks/criterion_baseline.json\n` +
               `**Policy:** p99 >10% vs baseline needs ADR-or-revert (Regla 9). This issue is the finding; the PR stays green (Q5).\n\n` +
               `### Regressions\n\n| Benchmark | Before (ms) | After (ms) | Change | Severity |\n|---|---|---|---|---|\n`;
             for (const r of cmp.regressions || []) {

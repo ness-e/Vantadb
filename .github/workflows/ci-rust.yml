@@ -13,12 +13,12 @@ on:
       - '.config/nextest.toml'
       - '.github/workflows/ci-rust.yml'
       - 'deny.toml'
+      - 'osv-scanner.toml'
       - 'rust-toolchain.toml'
       - 'vantadb-*/**'
       - 'vanta-memory/**'
       - 'integrations/**'
       - 'providers/**'
-      - '!web/**'
   pull_request:
     branches: [ "main" ]
     paths:
@@ -31,12 +31,12 @@ on:
       - '.config/nextest.toml'
       - '.github/workflows/ci-rust.yml'
       - 'deny.toml'
+      - 'osv-scanner.toml'
       - 'rust-toolchain.toml'
       - 'vantadb-*/**'
       - 'vanta-memory/**'
       - 'integrations/**'
       - 'providers/**'
-      - '!web/**'
   workflow_dispatch:
 
 env:
@@ -132,7 +132,7 @@ jobs:
     # depended on agent memory — this is the mechanical gate. Runs only on PRs
     # (push to main already passed its own PR gate); compares the PR changeset
     # against the base SHA and fails when public API files changed unless an
-    # ADR (docs/architecture/adr/ADR-NNN-*.md) was added OR the PR is explicitly
+    # ADR (docs/dev/architecture/adr/ADR-NNN-*.md) was added OR the PR is explicitly
     # marked [no-adr] in the title/description with a justification.
     # Lazy by design: one depth-1 fetch + two-tree diff — no full history.
     name: ADR Gate (public API)
@@ -164,7 +164,7 @@ jobs:
           # Single-line: a multiline value breaks the $GITHUB_OUTPUT file-command
           # parser ("Invalid format" / "Unable to process file command 'output'"
           # when a PR touches 2+ ADRs — run 35467546726). paste joins with spaces.
-          adr="$(printf '%s\n' "$changed" | grep -E '^docs/architecture/adr/ADR-[0-9]{3}' | paste -sd' ' - || true)"
+          adr="$(printf '%s\n' "$changed" | grep -E '^docs/dev/architecture/adr/ADR-[0-9]{3}' | paste -sd' ' - || true)"
 
           echo "api=$api" >> "$GITHUB_OUTPUT"
           echo "adr=$adr" >> "$GITHUB_OUTPUT"
@@ -177,7 +177,7 @@ jobs:
           && !contains(github.event.pull_request.body, '[no-adr]')
         run: |
           echo "::error::Public API surface changed (${{ steps.detect.outputs.api }}) without an ADR."
-          echo "::error::Add an ADR to docs/architecture/adr/ (format ADR-NNN, see ADR-0001) or, if no ADR is warranted, mark this PR '[no-adr]' in the title/description with a one-line justification."
+          echo "::error::Add an ADR to docs/dev/architecture/adr/ (format ADR-NNN, see ADR-0001) or, if no ADR is warranted, mark this PR '[no-adr]' in the title/description with a one-line justification."
           exit 1
 
       - name: Acknowledge [no-adr] marker
@@ -470,6 +470,53 @@ jobs:
       - name: Security Audit
         # Ignores managed in .cargo/audit.toml + deny.toml [advisories]
         run: cargo audit
+
+  osv:
+    # FIND-150: OSV-Scanner alongside cargo audit (DoD v2). Same triage as
+    # audit/deny lives in osv-scanner.toml (IgnoredVulns mirror) so both
+    # scanners agree; licenses stay in deny.toml (OSV does not check licenses).
+    # Scope is the root ./Cargo.lock (config does not propagate to
+    # desktop/fuzz/providers/node locks). Pinned v2.6.0 via go install;
+    # runner Go auto-switches toolchain via GOTOOLCHAIN.
+    name: OSV-Scanner
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install osv-scanner (pinned v2.6.0)
+        run: |
+          go install github.com/google/osv-scanner/v2/cmd/osv-scanner@v2.6.0
+          echo "${{ runner.temp }}/bin" >> "$GITHUB_PATH"
+        env:
+          GOTOOLCHAIN: go1.27.0
+          GOBIN: ${{ runner.temp }}/bin
+
+      - name: OSV scan (root lockfile)
+        run: osv-scanner scan source --lockfile ./Cargo.lock --config ./osv-scanner.toml ./
+
+  machete:
+    # FIND-150: cargo-machete alongside coverage (DoD v2, deuda P2-5/P2-8).
+    # Justified ignores live in [package.metadata.cargo-machete] per crate
+    # (build.rs usage + #[path] shared harness); this gate fails on any NEW
+    # unjustified unused dep. Pinned 0.9.2, --locked for reproducibility.
+    name: Unused Deps (cargo-machete)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          install-nextest: false
+          install-llvm-cov: false
+          install-system-deps: false
+
+      - name: Install cargo-machete (pinned 0.9.2)
+        run: cargo install cargo-machete --version 0.9.2 --locked
+
+      - name: Unused dependency check (workspace + standalone crates)
+        run: cargo machete --with-metadata . vantadb-python vantadb-server vantadb-mcp vantadb-wasm vanta-memory vanta-proxy desktop/src-tauri vantadb-node
 
   miri:
     name: Miri (UB Detection)

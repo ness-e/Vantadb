@@ -67,6 +67,60 @@ export interface MemoryListPage {
   next_cursor?: string | number;
 }
 
+// TS-09 (breaking, 0.7.0): every multi-parameter call takes a single input
+// object — `put`/`search` already did; `get`/`delete`/`deleteByFilter`/
+// `list`/`count`/`supersede`/`searchMulti`/`searchVector`/`similarToKey` now
+// do too. Single-scalar methods (graph ids, `putBatch` arrays) stay positional.
+
+/** Input for `get`. */
+export interface GetInput {
+  namespace: string;
+  key: string;
+}
+
+/** Input for `delete`. */
+export interface DeleteInput {
+  namespace: string;
+  key: string;
+}
+
+/** Input for `deleteByFilter`. */
+export interface DeleteByFilterInput {
+  namespace: string;
+  filter: FilterItem[];
+}
+
+/** Input for `list`: namespace plus the usual page options. */
+export interface ListInput extends ListOptions {
+  namespace: string;
+}
+
+/** Input for `count`. */
+export interface CountInput {
+  namespace: string;
+  filters?: FilterItem[];
+}
+
+/** Input for `supersede`. */
+export interface SupersedeInput {
+  namespace: string;
+  oldKey: string;
+  newKey: string;
+}
+
+/** Input for `searchVector`. */
+export interface SearchVectorInput {
+  vector: number[];
+  topK?: number;
+}
+
+/** Input for `similarToKey`. */
+export interface SimilarToKeyInput {
+  namespace: string;
+  key: string;
+  topK?: number;
+}
+
 export interface SearchRequest {
   namespace: string;
   query_vector: number[];

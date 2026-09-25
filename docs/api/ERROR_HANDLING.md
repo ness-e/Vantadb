@@ -48,7 +48,7 @@ Applied to VantaDB:
     `std::backtrace::Backtrace` at construction when `RUST_LIB_BACKTRACE=1` /
     `RUST_BACKTRACE=1`; exposed via `Debug` and `backtrace_str()`, never in
     `Display` (cross-language messages stay clean). See
-    `docs/operations/OBSERVABILITY.md`.
+    `docs/user/operations/OBSERVABILITY.md`.
 
 > **Resolved (ERR-CORE-01, 2026-09-02):** `Error::code()` now exists and
 > returns `&'static str` with the `VANTADB_` prefix. The table below is the
@@ -392,7 +392,7 @@ with HTTP status codes `400 / 404 / 409 / 422 / 429 / 500`. Mapping from
 - `src/error.rs` — canonical Rust definition
 - `vantadb-ts/src/errors.ts` — TypeScript canonical
 - `vantadb-mcp/src/error.rs` — MCP canonical
-- Plan `docs/plans/2026-09-02-error-observability-excellence.md` — task lineage
+- Plan `docs/dev/plans/2026-09-02-error-observability-excellence.md` — task lineage
 
 ## Changelog
 

@@ -13,7 +13,7 @@ Comando reproducible (Regla 11):
 Outputs:
   <output>.json (gitignored) + tabla markdown a stdout (para BENCHMARKS.md §17).
 
-# ponytail: store textual con match por substrings cuando no hay vantadb_py;
+# ponytail: store textual con match por substrings cuando no hay vantadb;
 # techo = recall sintético ~1.0 en fallback. Upgrade = backend vantadb real +
 # datasets LongMemEval-S/LoCoMo con loader versionado cuando haya red/licencia.
 """
@@ -84,13 +84,13 @@ class DictStore:
 
 
 class VantaStore:
-    """Backend vantadb_py (put/search_memory) — thin wrapper, sin lógica duplicada."""
+    """Backend vantadb (put/search) - thin wrapper, sin lógica duplicada."""
 
     def __init__(self) -> None:
-        import vantadb_py  # type: ignore
+        import vantadb  # type: ignore
 
-        self.db = vantadb_py.VantaDb.connect(":memory:") if hasattr(vantadb_py.VantaDb, "connect") else vantadb_py.VantaDb()
-        self._search = getattr(self.db, "search_memory", getattr(self.db, "search", None))
+        self.db = vantadb.Client(":memory:", backend="memory")
+        self._search = self.db.search
 
     def put(self, text: str) -> None:
         if hasattr(self.db, "put"):
@@ -117,7 +117,7 @@ def run(args: argparse.Namespace) -> dict:
             store: object = VantaStore()
             use_vanta = True
         except Exception as e:
-            print(f"[memory_bench] vantadb_py no disponible ({e}) → fallback dict", file=sys.stderr)
+            print(f"[memory_bench] vantadb no disponible ({e}) → fallback dict", file=sys.stderr)
             store = DictStore()
     else:
         store = DictStore()

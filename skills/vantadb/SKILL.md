@@ -51,10 +51,10 @@ vantadb = "0.5.0"
 ## Quick Start
 
 ```python
-import vantadb_py as vantadb
+import vantadb as vantadb
 
 # Initialize embedded database (256MB memory limit)
-db = vantadb.VantaDB("./agent_memory", memory_limit_bytes=256_000_000)
+db = vantadb.Client("./agent_memory", memory_limit_bytes=256_000_000)
 
 # Store memory with vector and metadata
 db.put(
@@ -66,7 +66,7 @@ db.put(
 )
 
 # Hybrid search (semantic + lexical)
-results = db.search_memory(
+results = db.search(
     namespace="agent/session-1",
     query_vector=[0.75, 0.2, 0.6],
     text_query="technical answers",
@@ -74,10 +74,10 @@ results = db.search_memory(
 )
 
 # Retrieve specific memory
-memory = db.get_memory("agent/session-1", "ctx-001")
+memory = db.memory.get("agent/session-1", "ctx-001")
 
 # List all memories in namespace
-memories = db.list_memory("agent/session-1", limit=10)
+memories = db.memory.list("agent/session-1", limit=10)
 
 # Cleanup
 db.flush()
@@ -114,39 +114,39 @@ db.put(
 - Ensure vector dimensions are consistent across all records in a namespace
 - Use `ttl_ms` for ephemeral state (caches, session data); call `purge_expired()` periodically to reclaim storage
 
-### get_memory()
+### memory.get()
 
 Retrieve a specific memory by key.
 
 ```python
-memory = db.get_memory("agent/session-1", "ctx-001")
+memory = db.memory.get("agent/session-1", "ctx-001")
 print(memory["payload"])
 print(memory["metadata"])
 ```
 
 **Returns:** Dictionary with `payload`, `metadata`, `vector` (if available), or `None` if not found.
 
-### search_memory()
+### search()
 
 Perform hybrid search combining vector similarity and lexical matching.
 
 ```python
 # Vector-only search
-results = db.search_memory(
+results = db.search(
     namespace="agent/session-1",
     query_vector=[0.75, 0.2, 0.6],
     top_k=10
 )
 
 # Text-only search (BM25)
-results = db.search_memory(
+results = db.search(
     namespace="agent/session-1",
     text_query="rust database optimization",
     top_k=10
 )
 
 # Hybrid search (RRF fusion)
-results = db.search_memory(
+results = db.search(
     namespace="agent/session-1",
     query_vector=[0.75, 0.2, 0.6],
     text_query="rust database",
@@ -154,7 +154,7 @@ results = db.search_memory(
 )
 
 # With metadata filters
-results = db.search_memory(
+results = db.search(
     namespace="agent/session-1",
     query_vector=[0.75, 0.2, 0.6],
     top_k=10,
@@ -176,35 +176,35 @@ results = db.search_memory(
 
 **Performance Notes:**
 - Hybrid search uses RRF (Reciprocal Rank Fusion) for deterministic ranking
-- Vector search uses HNSW — p50 1.2ms at 10K vectors (128d, Cosine, AVX2), certified in `docs/operations/BENCHMARKS.md` (§1)
+- Vector search uses HNSW — p50 1.2ms at 10K vectors (128d, Cosine, AVX2), certified in `docs/user/operations/BENCHMARKS.md` (§1)
 - Text search uses BM25 with persisted inverted index
-- Use `search_batch()` for bulk queries to amortize FFI overhead (4.01x speedup over sequential, `docs/operations/BENCHMARKS.md` §6)
+- Use `search_batch()` for bulk queries to amortize FFI overhead (4.01x speedup over sequential, `docs/user/operations/BENCHMARKS.md` §6)
 
-### list_memory()
+### memory.list()
 
 List all memories in a namespace with optional filtering.
 
 ```python
 # List all memories
-result = db.list_memory("agent/session-1", limit=100)
+result = db.memory.list("agent/session-1", limit=100)
 memories = result.records  # list of records
 total = result.total_count  # total matching count
 next_cursor = result.next_cursor  # None when no more pages
 
 # List with metadata filter
-result = db.list_memory(
+result = db.memory.list(
     "agent/session-1",
     filters={"type": "preference"},
     limit=50
 )
 ```
 
-### delete_memory()
+### memory.delete()
 
 Remove a specific memory.
 
 ```python
-db.delete_memory("agent/session-1", "ctx-001")
+db.memory.delete("agent/session-1", "ctx-001")
 ```
 
 ### rebuild_index()
@@ -236,7 +236,7 @@ queries = [
 results = db.search_batch(queries, top_k=5)
 ```
 
-**Performance:** 4.01x speedup over sequential queries, ~2.43ms per query average at 5K records/128d (sourced: `docs/operations/BENCHMARKS.md` §6).
+**Performance:** 4.01x speedup over sequential queries, ~2.43ms per query average at 5K records/128d (sourced: `docs/user/operations/BENCHMARKS.md` §6).
 
 ### Operational Metrics
 
@@ -329,25 +329,25 @@ Memory namespaces are also queryable as IQL tables (MCP-29): each namespace is r
 
 ### In-Memory Mode
 
-Pass `":memory:"` as the database path to run fully in-memory — no persistence, ideal for tests and ephemeral workloads:
+Pass `":memory:"` (with `backend="memory"`) as the database path to run fully in-memory - no persistence, ideal for tests and ephemeral workloads:
 
 ```python
-db = vantadb.VantaDB(":memory:")
+db = vantadb.Client(":memory:", backend="memory")
 ```
 
-### Async API (`AsyncVantaDB`)
+### Async API (`AsyncClient`)
 
-`AsyncVantaDB` wraps the sync engine and runs queries in a thread pool (GIL released to Rust):
+`AsyncClient` wraps the sync engine and runs queries in a thread pool (GIL released to Rust):
 
 ```python
 import asyncio
-from vantadb_py import AsyncVantaDB
+from vantadb import AsyncClient
 
 async def main():
-    async with AsyncVantaDB("./agent_memory") as db:
+    async with AsyncClient("./agent_memory") as db:
         await db.put("agent/session-1", "ctx-001", "User prefers concise answers",
                      vector=[0.8, 0.1, 0.5])
-        results = await db.search_memory("agent/session-1", [0.75, 0.2, 0.6], top_k=3)
+        results = await db.search("agent/session-1", [0.75, 0.2, 0.6], top_k=3)
 
 asyncio.run(main())
 ```
@@ -454,7 +454,7 @@ All mutations are written to WAL before being applied to storage:
 - Topological BFS layout for cache locality
 - SIMD-accelerated distance calculations (AVX2/NEON)
 - Memory-mapped for zero-copy access
-- Search latency p50 1.2ms at 10K vectors (sourced: `docs/operations/BENCHMARKS.md` §1)
+- Search latency p50 1.2ms at 10K vectors (sourced: `docs/user/operations/BENCHMARKS.md` §1)
 
 ### BM25 Text Index
 
@@ -478,7 +478,7 @@ score = sum(1 / (k + rank_i) for each ranking)
 
 ### Benchmarks (10K vectors, 128d)
 
-Source: `docs/operations/BENCHMARKS.md` — SDK operations (§2, `benchmarks/vantadb_local_bench.py`), engine certification (§1, `tests/certification/stress_protocol.rs`), batch search (§6).
+Source: `docs/user/operations/BENCHMARKS.md` — SDK operations (§2, `benchmarks/vantadb_local_bench.py`), engine certification (§1, `tests/certification/stress_protocol.rs`), batch search (§6).
 
 | Operation | Latency p50 | Latency p99 | Throughput |
 |-----------|-------------|-------------|------------|
@@ -490,12 +490,12 @@ Source: `docs/operations/BENCHMARKS.md` — SDK operations (§2, `benchmarks/van
 
 ### Scalability
 
-Source: `docs/operations/BENCHMARKS.md` §1 (Stress Protocol, AVX2 environment).
+Source: `docs/user/operations/BENCHMARKS.md` §1 (Stress Protocol, AVX2 environment).
 
 - **Recall@10:** 0.9980 at 10K, 1.0000 at 50K, 0.9980 at 100K
 - **Scaling Factor:** 4.88x sub-linear (10K → 50K)
 - **Memory:** ~1172 bytes per vector (HNSW overhead)
-- **Construction:** 68.4s for 100K vectors (Balanced L2, SIFT1M — `docs/operations/BENCHMARKS.md` §5)
+- **Construction:** 68.4s for 100K vectors (Balanced L2, SIFT1M — `docs/user/operations/BENCHMARKS.md` §5)
 
 ## Best Practices
 
@@ -503,7 +503,7 @@ Source: `docs/operations/BENCHMARKS.md` §1 (Stress Protocol, AVX2 environment).
 
 ```python
 # Set appropriate memory limit based on workload
-db = vantadb.VantaDB("./db", memory_limit_bytes=512_000_000)  # 512MB
+db = vantadb.Client("./db", memory_limit_bytes=512_000_000)  # 512MB
 
 # Monitor RSS drift
 metrics = db.operational_metrics()
@@ -612,7 +612,7 @@ chmod 700 ./agent_memory
 
 ```python
 # Open in read-only mode for safety
-db = vantadb.VantaDB("./db", read_only=True)
+db = vantadb.Client("./db", read_only=True)
 ```
 
 ### Backup Strategy
@@ -631,17 +631,17 @@ db.flush()
 
 ### Documentation
 
-- **Quickstart:** `docs/QUICKSTART.md`
-- **Benchmarks:** `docs/operations/BENCHMARKS.md`
-- **Architecture:** `docs/architecture/ARCHITECTURE.md`
-- **ADRs:** `docs/architecture/adr/` (Architecture Decision Records)
+- **Quickstart:** `docs/user/QUICKSTART.md`
+- **Benchmarks:** `docs/user/operations/BENCHMARKS.md`
+- **Architecture:** `docs/dev/architecture/ARCHITECTURE.md`
+- **ADRs:** `docs/dev/architecture/adr/` (Architecture Decision Records)
 
 ### Examples
 
 - **Agent Memory:** `examples/python/agent_memory.py`
 - **LangChain RAG (Ollama):** `examples/python/langchain_ollama_rag.py`
 - **More integrations:** `examples/python/` (autogen, crewai, dspy, haystack, langgraph, mem0, semantic_kernel)
-- Case Studies: archivados en `docs/archive/case-studies-unverified/` (internos, no verificados)
+- Case Studies: archivados en `docs/dev/archive/case-studies-unverified/` (internos, no verificados)
 
 ### Integration Packages
 
@@ -665,7 +665,7 @@ def rag_pipeline(query, db, embedding_fn):
     query_vec = embedding_fn(query)
     
     # Retrieve relevant context
-    results = db.search_memory(
+    results = db.search(
         namespace="rag/documents",
         query_vector=query_vec,
         text_query=query,
@@ -695,7 +695,7 @@ def agent_memory_loop(agent, db, embedding_fn):
         )
     
     # Retrieve relevant context for new query
-    context = db.search_memory(
+    context = db.search(
         namespace=f"agent/{agent.id}",
         query_vector=embedding_fn(agent.current_query),
         top_k=10
@@ -708,7 +708,7 @@ def agent_memory_loop(agent, db, embedding_fn):
 ```python
 def cache_with_vantadb(db, key, compute_fn, ttl_seconds=3600):
     # Try cache first
-    cached = db.get_memory("cache", key)
+    cached = db.memory.get("cache", key)
     if cached and time.time() - cached['metadata']['timestamp'] < ttl_seconds:
         return cached['payload']
     
@@ -753,7 +753,7 @@ def cache_with_vantadb(db, key, compute_fn, ttl_seconds=3600):
 - Phrase queries are basic (no proximity search)
 - Index rebuild is manual (not automatic)
 - No native backup/restore beyond JSONL (use backend snapshots for physical backup)
-- Ingestion is single-threaded in the SDK API (`docs/operations/BENCHMARKS.md` §2)
+- Ingestion is single-threaded in the SDK API (`docs/user/operations/BENCHMARKS.md` §2)
 
 ## Future Roadmap
 
@@ -788,4 +788,4 @@ def cache_with_vantadb(db, key, compute_fn, ttl_seconds=3600):
 - **Issues:** GitHub Issues
 - **Discussions:** GitHub Discussions
 - **Documentation:** `docs/`
-- **Quickstart:** `docs/QUICKSTART.md`
+- **Quickstart:** `docs/user/QUICKSTART.md`

@@ -2,8 +2,8 @@
 // P1-06 — North Star metrics harness.
 // Reads .opencode/task-system/enforcement/verify-log.jsonl (written by campaign_verify_cmd,
 // line format: {ts, taskId, command, passed, exitCode, expectedExitCode, elapsed, summary, plan, skills, toolUsed})
-// plus docs/plans/*.md task blocks and docs/plans/*.budget.json task maps, and produces
-// docs/reports/northstar.md against the RULES.md North Star:
+// plus docs/dev/plans/*.md task blocks and docs/dev/plans/*.budget.json task maps, and produces
+// docs/dev/reports/northstar.md against the RULES.md North Star:
 //   - tasa completado primer intento >90%
 //   - falsos positivos = 0
 //   - regresión silenciosa = 0
@@ -36,8 +36,8 @@ function deriveType(taskId) {
   return "other"
 }
 
-// Parse docs/plans/*.md task blocks ("### Task N: ID — title ... - **Estado:** …")
-// and docs/plans/*.budget.json task maps ({tasks: {id: {consecutiveFails, ...}}}).
+// Parse docs/dev/plans/*.md task blocks ("### Task N: ID — title ... - **Estado:** …")
+// and docs/dev/plans/*.budget.json task maps ({tasks: {id: {consecutiveFails, ...}}}).
 function parsePlans(dir) {
   const plans = new Map()   // id → { id, plan, state }
   const budgets = new Map() // id → { id, plan, consecutiveFails }
@@ -153,7 +153,7 @@ const telemetryTasks = skillReportedTasks.size
 let md = `# North Star Report
 
 > Generado por \`evals/northstar.mjs\` (P1-06) — ${new Date().toISOString()}
-> Datos: \`.opencode/task-system/enforcement/verify-log.jsonl\` (${entries.length} invocaciones de verify) + \`docs/plans/*.md\` (${plans.size} tareas) + \`docs/plans/*.budget.json\` (${budgets.size} tareas trackeadas)
+> Datos: \`.opencode/task-system/enforcement/verify-log.jsonl\` (${entries.length} invocaciones de verify) + \`docs/dev/plans/*.md\` (${plans.size} tareas) + \`docs/dev/plans/*.budget.json\` (${budgets.size} tareas trackeadas)
 ${!verifyData ? "> ⚠️ **verify-log.jsonl está vacío** — sin telemetría de verificación, las métricas se reportan en 0 y los thresholds no pueden evaluarse aún.\n" : ""}
 
 ## Definiciones (documentadas en este header)
@@ -223,7 +223,7 @@ ${tasks.sort((a, b) => a.id.localeCompare(b.id)).map(t =>
 - "Primer intento" se infiere de plan + budget + verify-log; sin telemetría de verify la tasa es best-effort (asume primer intento cuando no hay evidencia de fallo).
 - Falsos positivos y regresión se solapan por diseño: una tarea COMPLETED con patrón passed→failed cuenta en ambas — el headline de FP es unión de tareas, la regresión es el patrón de verify.
 - El log se alimenta automáticamente desde \`campaign_verify_cmd\` (campaign-server.mjs); los budget.json se alimentan desde \`consumeBudget\`. Este reporte es la referencia del threshold de RULES.md.
-- Fuente de planes: \`docs/plans/*.md\` raíz (el subdirectorio \`archive/\` no se incluye).
+- Fuente de planes: \`docs/dev/plans/*.md\` raíz (el subdirectorio \`archive/\` no se incluye).
 `
 
 mkdirSync(join(PROJECT_ROOT, "docs", "reports"), { recursive: true })

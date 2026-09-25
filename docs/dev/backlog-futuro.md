@@ -1,0 +1,44 @@
+---
+title: "Backlog Futuro (I+D v3.0+)"
+type: plan
+status: stable
+tags: [vantadb, docs, backlog, futuro-id]
+last_reviewed: 2026-09-15
+aliases: []
+related: []
+---
+
+# Backlog Futuro (I+D v3.0+)
+
+Diferidos tras el freeze del backlog (ROADMAP R5). Ideas preservadas durante la limpieza de documentación histórica (2026-08-04). Sin spec ni prioridad — I+D especulativa para hardware restrictivo / post product-market fit.
+
+| ID | Idea | Por qué está aquí | Fuente |
+|----|------|-------------------|--------|
+| ~~FUT-01~~ | ~~**Cuantización binaria Int1/Int4 con Distancia Hamming**~~ | ~~El código solo tiene SQ8 (ScannIndex, COMP-027 ✅) y PQ (NUEVO-16). SQ4 binario es I+D para edge/embedded.~~ | ~~VantaDB_Roadmap_y_Plan_Estrategico_v0.2 §4.1 (eliminado)~~ |
+| FUT-02 | **Embeddings Matryoshka** (truncamiento dinámico de dimensionalidad, ej. 1536→256) | Ausente de ROADMAP y Backlog. Útil para hardware restrictivo/edge. | VantaDB_Roadmap_y_Plan_Estrategico_v0.2 §4.1 (eliminado) |
+| FUT-03 | **Detección de comunidades Leiden/Louvain nativa** — *ampliado 2026-08-26: co-localización + Raft* | ROADMAP COMP-022 se cerró solo con PageRank + degree_centrality; `docs/dev/graphrag/README.md:302` reclama community detection como necesidad no cubierta. **Ampliación (SmartGraphs/ArangoDB, fuente: `docs/dev/archive/legacy-docs-investigacion-2026-07-16.md`):** además del detector, considerar **co-localización de vértices por comunidad** y **Raft para topología/cluster** — relevante solo si se avanza a multi-nodo. | VantaDB_Roadmap_y_Plan_Estrategico_v0.2 §4.2 (eliminado); legacy-docs-investigacion §2/§6 |
+| FUT-04 | **Índices aprendidos (RMI) para metadatos escalares** | I+D especulativa sin spec; no confundir con índices tradicionales. | recomendaciones.md (eliminado) |
+| FUT-05 | **Corrección de residuos QJL** (Fase 3 de TurboQuant/RaBitQ) | La implementación actual (`turbo_quant_*`) es PolarQuant 4-bit sin el refinamiento estadístico de 1-bit del residuo proyectado. I+D para elevar fidelidad de re-ranking 3-bit (objetivo >99% producto interno) sin coste de PQ real. | Cuantización Híbrida para HNSW y Axiomas.md (eliminado) |
+| FUT-06 | **Aceleración de distancias cuantizadas por Lookup Table (LUT) / Bit-Slicing** (T-MAC, Ladder) | Sustituir multiplicaciones por accesos a tabla + sumas enteras para CPUs sin FP potente (SSE4.2 antiguo). Distinto de FUT-01 (cuantización binaria, no aceleración LUT). | Cuantización Híbrida para HNSW y Axiomas.md (eliminado) |
+| FUT-07 | **Selector adaptativo de precisión por tier de acceso** (hot/warm → FP32/SQ8, archive → Turbo/BQ) — *redefinido 2026-08-17* | Verificado: los bloques ya existen (`VectorRepresentations` multi-precisión + tiers Hot/Cold + LSM L0-L3) pero **no hay selector automático** — `consolidate_node_inner` mueve hot→cold sin cambiar representación; ingest fija SQ8. Redefinido como "cablear el selector", no como "crear representaciones". | Optimización de Bases de Datos Híbridas.md (eliminado) |
+| FUT-08 | **Go SDK — bindings nativos para backend developers** (vía C-ABI + cbindgen + cgo; Put/Get/Delete/SearchMemory/Flush/Close, mismos métodos que el SDK Python) | Ausente de ROADMAP, Backlog, GO_TO_MARKET y FUT-01..07; el ROADMAP solo contempla bindings JS (COMP-029 napi-rs). Nota: no existe capa C-ABI pública hoy (`extern "C"` solo como sigbus handler en `src/storage/vfile_mmap.rs`), habría que crearla primero. | VantaDB_Plan_Maestro_Ejecutivo.md, Mejora P5 (eliminado) |
+| FUT-09 | **Curación de memorias en ingesta — bucle AUDN (Add/Update/Delete/None)** — *redefinido 2026-08-17* | Verificado: `DuplicatePreventionFilter` (Bloom) ya existe (`src/utils/duplicate_prevention.rs`) pero **0 callers** — no está cableado al write path; el bucle semántico AUDN contra índices históricos tampoco. Redefinido como "cablear primitiva existente + evaluar bucle semántico", no como "crear dedupe". Referencia: SuperLocalMemory (arXiv 2604.04514). **Trackeado 2026-09-24 →** P52 VER-07 (consolidación ADD/UPDATE/DELETE/NOOP; el cableado del Bloom entra si encaja). | VantaDB_ Evolución y Mejora Propuesta.md (eliminado) |
+| FUT-10 | **Fuerza de retención de Ebbinghaus / repetición espaciada** | Modelar olvido con curva de Ebbinghaus (frecuencia de accesos, importancia, confirmaciones, saliencia) y repetición espaciada para refresco/compresión de memorias. Distinto del `BayesianDecay` actual (Beta-Binomial, solo eviction scoring, OLD-09 ✅). **Trackeado 2026-09-24 →** MGR-11 (ranking/decaimiento) + N-09 (fórmula; sin canónico validado). | VantaDB_ Evolución y Mejora Propuesta.md (eliminado) |
+| FUT-11 | **Export bidireccional a Markdown legible** para auditoría humana | Hoy el export/import es JSONL machine-readable (`src/sdk/serialization/impl_export.rs`); Markdown legible para humanos no existe. Bajo valor — opcional. **Trackeado 2026-09-24 →** P52 VER-06 (export file-native Markdown + rebuild_index). | VantaDB_ Evolución y Mejora Propuesta.md, Fase 5 (eliminado) |
+| FUT-12 | **Axiomatic Bandwidth Reservation — reservar ~15% de I/O** para validaciones críticas y evitar DoS por ráfagas de queries STRICT | Disonancia "Muro de la Incertidumbre" (consulta responde con L2, validación L3 detecta error 2s después) + degradación permanente del sistema a BALANCED bajo ráfagas de I/O. Reservar banda evita que la validación crítica quede sin recursos. Sin menciones en reportes actuales. **Trackeado 2026-09-24 →** P50 EXE-09 (espejo ya existente). Nota: `docs/dev/Backlog.md` P24 usa otro FUT-12 (WAL fsync-batching) — colisión de IDs entre archivos, conocida. | legacy-docs-investigacion-2026-07-16 §2 (análisis Kimi, eliminado) |
+| FUT-13 | **Block Format storage + CSR (Compressed Sparse Row) + SIMD** para vecinos (inspiración Neo4j Block Format v5, 40-70% mejora) | Localidad de datos por bloques alineados a líneas de cache CPU; estructura densa SIMD-friendly. Referencia de diseño para el storage de grafos en Rust si se escala (multi-nodo / datasets grandes). | EXTRACCION-DOC-OLD-2026-08-05 §2 GRF-002; legacy-docs-investigacion §2 |
+| FUT-14 | **DiskANN con disk-I/O real** — hoy `src/index/diskann.rs` es Vamana en RAM ("purely in-memory, not disk-backed"); gap = page layout SSD para datasets > RAM. Espejo en `docs/dev/Backlog.md` P24. | Trackeado desde RES-09 (2026-09-03) |
+| FUT-15 | **Utopia: ontología + multimodal + memoria ejecutable** — direcciones fuera de alcance v1.0 con triggers (MGR-05+17 / MGR-25+caso / MGR-07+sandbox). Espejo en `docs/dev/Backlog.md` P24 (desde EXE-08, 2026-09-14). | Problema § direcciones futuras; Propuesta §6 |
+| FUT-16 | **WAL como CDC / log expuesto** — base de replicación por operaciones (UpdateOperation-style) + PITR/"AS OF" de clúster. Inspiración: Qdrant Edge (`UpdateOperation` serializable = una primitiva para replicación/edge-sync/CDC) y SurrealDB `LIVE SELECT`. Consumo Q3-Q4 (fase foso); trigger primario = arranque de VantaDB Pro (PRO-02/03 en `Backlog-negocio.md`). El WAL de VantaDB ya es el log — falta exponerlo (SSE/cursor) y versionar operaciones. Fuente: informe §7.3 lección Qdrant/SurrealDB; M11 del plan post-investigación. | VantaDB-Analisis-Arquitectura-Producto-Competencia.md §7.3; docs/dev/plans/2026-09-24-post-investigacion-integral.md |
+
+---
+*Directorio designado por ROADMAP R5 (`docs/dev/backlog-futuro.md`) para items diferidos del triage. Fusionar con el resto del triage cuando R5 se ejecute.*
+
+> **Revisión 2026-08-17 (verificación multi-agente vs código):**
+> - **FUT-01 ✅ IMPLEMENTADO — sacado del backlog.** RaBitQ 1-bit (XOR+POPCNT Hamming) en `src/vector/quantization.rs:16,33-46`, representación `Binary(Box<[u64]>)` (`src/node/vector_data.rs:83`), dispatch en `src/index/distance/mapper.rs:154-160`, Turbo PolarQuant 4-bit (`quantization.rs:51`). La premisa del doc ("solo SQ8 y PQ") quedó desactualizada.
+> - **FUT-07 / FUT-09 redefinidos** (filas actualizadas arriba) — los bloques base existen, falta el cableado.
+> - **Verificados sin cambio:** FUT-02/03/04/05/06/08/10/11 siguen sin implementar (evidencia: 0 matches de community/leiden/louvain, RMI, LUT, ebbinghaus, markdown, C-ABI en `src/`; `docs/dev/graphrag/README.md:302` sigue vigente).
+>
+> **Adición 2026-08-26 (validación de docs archivados):** añadidos **FUT-12** (Axiomatic Bandwidth Reservation) y **FUT-13** (Block Format/CSR + SIMD), y ampliado **FUT-03** (co-localización + Raft). Ninguno de estos concepts tenía match en `src/` ni en Backlog/ROADMAP. No se re-litiga lo descartado (Gridstore, Arrow-WAL, IRI, HFresh — ver `docs/dev/archive/EXTRACCION-DOC-OLD-2026-08-05.md` §1, candidato ADR de decisiones no tomadas).
+>
+> **Revisión 2026-09-24 (post-investigación integral):** FUT-09 → P52 VER-07 · FUT-10 → MGR-11 + N-09 · FUT-11 → P52 VER-06 · FUT-12 → P50 EXE-09 (espejo) · **FUT-16 añadido** (WAL como CDC; trigger PRO). El resto sigue sin trackear (requiere caso de uso o trigger).

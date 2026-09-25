@@ -1,4 +1,4 @@
-# check-avance-coverage.ps1 — Mapa de cobertura fuente→destino (post-migración: fuentes congeladas en docs/avance/historial)
+# check-avance-coverage.ps1 — Mapa de cobertura fuente→destino (post-migración: fuentes congeladas en docs/dev/avance/historial)
 # Verifica: (1) cada fuente tiene destino; (2) cada ID de tarea de las fuentes está
 # procesado en un archivo de dominio de docs/avance (excluye snapshots, que son espejo literal).
 # Uso: pwsh scripts/check-avance-coverage.ps1 [-Detail]
@@ -6,15 +6,15 @@
 param([switch]$Detail)
 
 $root   = Split-Path $PSScriptRoot -Parent
-$srcDir = Join-Path $root "docs/avance/historial/fuentes"
+$srcDir = Join-Path $root "docs/dev/avance/historial/fuentes"
 $dstDir = Join-Path $root "docs/avance"
 
 # --- 0. Fuentes vivas externas (no se mueven; se catalogan por referencia) ---
 # Carpeta -> catálogo en docs/avance que la integra sin moverla
 $live = @{
-    "docs/plans"            = "docs/avance/fuentes-vivas.md"
-    "docs/reviews"          = "docs/avance/fuentes-vivas.md"
-    "docs/research"  = "docs/avance/investigaciones.md"
+    "docs/dev/plans"            = "docs/dev/avance/fuentes-vivas.md"
+    "docs/dev/reviews"          = "docs/dev/avance/fuentes-vivas.md"
+    "docs/dev/research"  = "docs/dev/avance/investigaciones.md"
 }
 
 # --- 1. Mapa estático fuente → destino (copia directa o procesado) ---

@@ -22,6 +22,11 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 [build-dependencies]
 tauri-build = { version = "2", features = [] }
 
+# FIND-150: used in build.rs:10 (`tauri_build::build()`). cargo-machete's
+# heuristic misses build-script usage — justified, not removed.
+[package.metadata.cargo-machete]
+ignored = ["tauri-build"]
+
 [dependencies]
 tauri = { version = "2", features = [] }
 serde = { version = "1", features = ["derive"] }

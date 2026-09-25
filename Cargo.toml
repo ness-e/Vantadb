@@ -21,7 +21,6 @@ exclude = [
     "benchmarks/",
     "examples/",
     "docs/",
-    "web/",
     "assets/",
     "desktop/",
     "e2e/",
@@ -49,7 +48,6 @@ exclude = [
     ".githooks/",
     ".opencodereview/",
     ".vantadb-mcp/",
-    ".vercel/",
     ".vscode/",
     "vanta-memory/",
     "vantadb-server/",
@@ -114,8 +112,8 @@ axum-server = { version = "0.8", optional = true, features = ["tls-rustls"] }
 rustls = { version = "0.23", optional = true }
 # SRV-06: JWT HS256 offline (ADR-039) — rust_crypto = pure-Rust HMAC, no C toolchain.
 jsonwebtoken = { version = "11", default-features = false, features = ["rust_crypto"], optional = true }
-opentelemetry_sdk = { version = "0.32.1", optional = true }
-opentelemetry-otlp = { version = "0.32.0", optional = true, features = ["grpc-tonic", "trace"] }
+opentelemetry_sdk = { version = "0.33.0", optional = true }
+opentelemetry-otlp = { version = "0.33.0", optional = true, features = ["grpc-tonic", "trace"] }
 
 # ── Console UX ──
 indicatif = { version = "0.18", optional = true }
@@ -135,8 +133,8 @@ tracing-subscriber = { version = "0.3", features = ["env-filter", "fmt", "json"]
 twox-hash = "2.1.2"
 fail = { version = "0.5", optional = true, features = ["failpoints"] }
 tempfile = { version = "3", optional = true }
-opentelemetry = { version = "0.32.0", optional = true }
-tracing-opentelemetry = { version = "0.33.0", optional = true }
+opentelemetry = { version = "0.33.0", optional = true }
+tracing-opentelemetry = { version = "0.34.0", optional = true }
 tantivy = { version = "0.26", optional = true, features = ["stopwords"] }
 web-time = "1.1.0"
 # ── Encryption (optional, behind feature = "encryption") ──
@@ -768,10 +766,10 @@ default-members = [
 # <5min are promoted; proxy = Heavy compile documented STABLE-02, wasm = wasm32 /
 # wasm-pack toolchain extra Tier 3). A failure in an experimental crate must not
 # block core CI.
-# See docs/operations/CI_POLICY.md for the experimental crate policy.
+# See docs/dev/operations/CI_POLICY.md for the experimental crate policy.
 
 [workspace.package]
-version = "0.6.1"
+version = "0.7.0"
 edition = "2021"
 rust-version = "1.94.1"
 

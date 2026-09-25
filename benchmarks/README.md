@@ -1,10 +1,10 @@
 # VantaDB Benchmark Suite
 
-Reproducible performance benchmarks for the VantaDB Python SDK (`vantadb_py`).
+Reproducible performance benchmarks for the VantaDB Python SDK (`vantadb`).
 
 ## Quick start (standalone, public path)
 
-No Rust toolchain required — `vantadb_py` is installed from PyPI.
+No Rust toolchain required — `vantadb` is installed from PyPI.
 
 ```bash
 python -m venv .venv-bench
@@ -40,12 +40,12 @@ python benchmarks/competitive_bench.py --dataset glove-100-angular --size 10000 
 > [!IMPORTANT]
 > **Honesty contract.** This harness produces an *honest* table, not a
 > marketing one. The measured results (including runs where VantaDB is **not**
-> the winner) live in [`docs/benchmarks/COMPETITIVE_SDK_BENCH.md`](../docs/benchmarks/COMPETITIVE_SDK_BENCH.md).
+> the winner) live in [`docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md`](../docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md).
 > On the euclidean-synthetic 2K / top-10 configuration VantaDB query QPS is
 > competitive, but its **Recall@10 (≈59%) is lower than ChromaDB (≈98%) and
 > Qdrant (≈100%)** — do **not** claim recall superiority over either without
 > citing that table. Milvus **is measured** in PERF-03 (see
-> `docs/benchmarks/COMPETITIVE_SDK_BENCH.md`); enable it with
+> `docs/user/benchmarks/COMPETITIVE_SDK_BENCH.md`); enable it with
 > `pip install "pymilvus==2.5.18" "milvus-lite==3.2.0"` (the harness needs the
 > `pymilvus>=2.5` `IndexParams` API; `milvus-lite` provides the embedded server).
 
@@ -63,14 +63,14 @@ The scripts accept either install path (PyPI wheel or `maturin develop`).
 
 ## Published results
 
-- Latest CI results: [`docs/operations/BENCHMARKS.md`](../docs/operations/BENCHMARKS.md)
+- Latest CI results: [`docs/user/operations/BENCHMARKS.md`](../docs/user/operations/BENCHMARKS.md)
 - CI badge: `perf-bench-40` workflow (see GitHub Actions)
 
 ## Scripts
 
 | Script | Purpose |
 | :--- | :--- |
-| `vantadb_local_bench.py` | BENCH-01: ingestion + lexical/vector/hybrid search latencies (zero-dep besides `vantadb_py`) |
+| `vantadb_local_bench.py` | BENCH-01: ingestion + lexical/vector/hybrid search latencies (zero-dep besides `vantadb`) |
 | `competitive_bench.py` | VantaDB vs LanceDB vs ChromaDB vs Qdrant vs **Milvus** (embedded, no docker; ingestion, QPS, latency, recall, RSS). Milvus via `pymilvus` + `milvus-lite`. |
 | `batch_vs_sequential_bench.py` | `search_batch()` vs sequential `search()` FFI amortization |
 | `prefetch_comparison.py` | Predictive kernel prefetch impact (SCALE-01) |

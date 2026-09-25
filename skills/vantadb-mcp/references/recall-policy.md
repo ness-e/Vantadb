@@ -8,7 +8,7 @@
 
 | Hook | Action (VantaDB tools) | Notes |
 |------|------------------------|-------|
-| `SessionStart` | `memory_recall` (`scope: agent`, `top_k: 5`) → inject `prepend_context` as `additionalContext` | Pattern proven in-repo: `docs/research/archive/COGNEE_EVALUATION.md:390` injects `additionalContext` on `SessionStart`. OpenCode has no `SessionStart` — it fires `session.created` via a JS plugin (`docs/tasks/complete/ECO-001.md:10-17`); FIND-106 maps each client. |
+| `SessionStart` | `memory_recall` (`scope: agent`, `top_k: 5`) → inject `prepend_context` as `additionalContext` | Pattern proven in-repo: `docs/dev/research/archive/COGNEE_EVALUATION.md:390` injects `additionalContext` on `SessionStart`. OpenCode has no `SessionStart` — it fires `session.created` via a JS plugin (`docs/dev/tasks/complete/ECO-001.md:10-17`); FIND-106 maps each client. |
 | Per-message | `memory_recall` with the user message verbatim as `query` | Recall is keyed on the message, never on a paraphrase (paraphrases drift). |
 | `PreCompact` | Save state: `thread_send` (open turns) and/or `scene_write` | What does not get saved before compaction is gone. |
 | `Stop` / session end | Auto-capture the turn: `thread_send` (`role`, `content`) | Proxy traffic is captured automatically into `proxy-turns` (`vanta-proxy/src/capture.rs:15`); direct MCP turns need the explicit send. |

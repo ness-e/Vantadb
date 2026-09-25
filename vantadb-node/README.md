@@ -2,7 +2,7 @@
 
 > **Status: experimental (0.x)** — API sujeta a cambios sin deprecación hasta 1.0.
 > Instalación desde source; publicación en npm en preparación (ver checklist en
-> `docs/tasks/TS-12.md` — el `npm publish` real lo ejecuta un humano).
+> `docs/dev/tasks/TS-12.md` — el `npm publish` real lo ejecuta un humano).
 
 VantaDB native Node.js bindings via [napi-rs](https://napi.rs) — persistent embedded memory & vector search, with graph traversal and hybrid search. The native backend to [`vantadb-ts`](../vantadb-ts) (WASM).
 
@@ -13,8 +13,8 @@ VantaDB native Node.js bindings via [napi-rs](https://napi.rs) — persistent em
 
 > **Estado 2026-09-09:** paquete pre-npm (instalación desde source; `npm pack`
 > incluye el prebuild `*.node` verificado). Ver
-> `docs/reviews/archive/research-vantadb-node-20260825.md` para el plan de distribución
-> y `docs/tasks/TS-12.md` para la checklist del publish humano.
+> `docs/dev/reviews/archive/research-vantadb-node-20260825.md` para el plan de distribución
+> y `docs/dev/tasks/TS-12.md` para la checklist del publish humano.
 
 ## Instalación (source)
 

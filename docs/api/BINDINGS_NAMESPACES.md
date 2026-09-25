@@ -10,7 +10,7 @@ related: []
 
 # Bindings Namespace Map
 
-> **Status:** canonical contract for SDKB campaign (`docs/plans/2026-08-22-vantadb-bindings-sdk.md`).
+> **Status:** canonical contract for SDKB campaign (`docs/dev/plans/2026-08-22-vantadb-bindings-sdk.md`).
 > **Decisions:** D42 (sub-clients TS/Python only — zero WASM/Rust changes), D43 (v1 groups already-exposed methods only; vanta-memory pipeline is core-only and deferred), D45 (additive → minor bump).
 > **Rule:** every public method of every SDK maps to **exactly one** domain. `system` is the catch-all for orphan operations (capabilities, import/export, metrics, lifecycle).
 >

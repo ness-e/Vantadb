@@ -1,12 +1,12 @@
 # VantaDB Skills Manifest
 
-**Location:** **196 skills en `.opencode/skills/`** (git submodule → `configOpencode` private repo); total **196** (project-local; curated essential list below)
-**Updated:** 2026-09-15 (FIND-83: conteo re-medido + nota mirror `skills/`↔`.opencode/skills/`)
+**Location:** **196 skills en `.opencode/skills/` (197 dirs)** (repo Git separado → `configOpencode` privado); total **196** con SKILL.md (195 + shim `ponytail`; `a11y-shared/` es recursos) — project-local; curated essential list below)
+**Updated:** 2026-09-24 (harness: +shim `ponytail`, +`skills/INDEX.md`; conteo re-medido en disco)
 
 > **AUDIT 2026-09-01 — Reestructuración completada + sync agent-skills:**
-> - `.opencode/skills/` = **196** skills (submodule `configOpencode` — todas las skills del proyecto viven aquí)
+> - `.opencode/skills/` = **196** con SKILL.md en **197 dirs** (repo separado `configOpencode` — todas las skills del proyecto viven aquí; `a11y-shared/` sin SKILL.md es recursos)
 > - `.agents/skills/` = **ELIMINADO** (2026-09-01) — contenido migrado a submodule
-> - **Total proyecto = 196** (todas en `.opencode/skills/`; desglose 2026-09-01 era 25 base + 169 VantaDB)
+> - **Total proyecto = 196** (todas en `.opencode/skills/`; 2026-09-24: 195 + shim `ponytail`; desglose 2026-09-01 era 25 base + 169 VantaDB)
 > - Global `~/.agents/skills/` = 160 dirs (139 con SKILL.md, 14 sin); `~/.claude/skills/` = 33 dirs
 > - **87 skills nuevas documentadas 2026-08-19**: 63 de accesibilidad (5 `a11y-*` + 58 `incl-*`), 17 de diseño/UX/utilidad, 7 de pipeline/VantaDB core
 > - **Sync 2026-09-01 desde addyosmani/agent-skills**: 24/25 skills actualizadas (1 nueva: `constraint-driven-development`), preservando customizaciones VantaDB
@@ -282,7 +282,7 @@ These 37 skills form the lean VantaDB toolset. Load the relevant ones based on t
 | observability-and-instrumentation | 7 | KEEP | Logging, metrics, tracing. |
 | using-agent-skills | 8 | KEEP | Meta-skill for skill discovery. |
 | design-audit-orchestrator | 7 | KEEP | Audit-first design review pipeline. |
-| vantadb-full-review | 10 | REMOVED | Eliminado (2026-08-10) — reemplazado por `unified-review --profile vantadb`. Directorio físico eliminado 2026-08-23 (campaña avance-canónico). Referencias históricas en `docs/plans/archive/`, `docs/reviews/archive/`. |
+| vantadb-full-review | 10 | REMOVED | Eliminado (2026-08-10) — reemplazado por `unified-review --profile vantadb`. Directorio físico eliminado 2026-08-23 (campaña avance-canónico). Referencias históricas en `docs/dev/plans/archive/`, `docs/dev/reviews/archive/`. |
 | backlog-executor | — | SUPERSEDED | Reemplazada por `campaign-executor` (unificado backlog-executor + task-executor). NO cargar. |
 
 ### Content / Writing
@@ -475,7 +475,7 @@ Batch 2026-08-19 (5 `a11y-*` pipeline WCAG 2.2 + 58 `incl-*` inclusive design). 
 | `vantadb` | 8 | KEEP | Guía experta del producto: put/get/search/list, hybrid search (BM25 + HNSW + RRF), Python SDK, integraciones LangChain/LlamaIndex, benchmarks. |
 | `vantadb-mcp` | 8 | KEEP | Referencia del MCP server propio (87 tools, 2 resources, 4 prompts); uso de VantaDB como memoria desde agentes OpenCode/Claude/Cursor. |
 | `review-deep` | 7 | KEEP | Loop de revisión profunda módulo por módulo (análisis → web research → competidores → triage → Backlog). Complementa unified-review (one-shot). |
-| `progreso` | 7 | KEEP | Migración Backlog → docs/progreso + reconciliación de memorias + sync de reportes. MUST al inicio y cierre de sesión (AGENTS.md). |
+| `progreso` | 7 | KEEP | Migración Backlog → docs/dev/avance + reconciliación de memorias + sync de reportes. MUST al inicio y cierre de sesión (AGENTS.md). |
 | `playwright-cli` | 7 | KEEP | Automatización de browser por CLI (snapshots, forms, screenshots, sessions, DevTools). Canónico para testing de web/; reemplaza a agent-browser/browser-use (removidas). |
 
 ---

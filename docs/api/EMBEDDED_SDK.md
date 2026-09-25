@@ -60,7 +60,7 @@ let config = Config {
 let db = Embedded::open_with_config(config).unwrap();
 ```
 
-Each line is one JSON object: `{"timestamp":"2026-08-02T12:34:56Z","op":"put","namespace":"docs","key":"a","outcome":"ok","reason":null}`. Ops: `put`, `put_batch`, `delete`, `delete_by_filter`, `export_namespace`, `export_all`, `import_file`, `bulk_import_file`, `bulk_import_stream`. Read-only ops are not audited. See `docs/operations/CONFIGURATION.md`.
+Each line is one JSON object: `{"timestamp":"2026-08-02T12:34:56Z","op":"put","namespace":"docs","key":"a","outcome":"ok","reason":null}`. Ops: `put`, `put_batch`, `delete`, `delete_by_filter`, `export_namespace`, `export_all`, `import_file`, `bulk_import_file`, `bulk_import_stream`. Read-only ops are not audited. See `docs/user/operations/CONFIGURATION.md`.
 
 ## Memory (Namespace-scoped) API
 
@@ -91,7 +91,7 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 
 ### Version History (VS-CORE-07)
 
-Every `put`/`put_batch` snapshots the new record into a `Versions` partition keyed by `(namespace, key, version)`; `version` increments monotonically per key. `Config.version_history_limit` caps retained snapshots per key (default `Some(32)`, FIFO eviction of the oldest beyond the cap — see `docs/operations/CONFIGURATION.md`); `delete` and `purge_expired` purge the full history. Imports (`import_file`/`bulk_import_*`) do **not** write snapshots. Only the embedded (native) SDK and the CLI/bridge expose version history.
+Every `put`/`put_batch` snapshots the new record into a `Versions` partition keyed by `(namespace, key, version)`; `version` increments monotonically per key. `Config.version_history_limit` caps retained snapshots per key (default `Some(32)`, FIFO eviction of the oldest beyond the cap — see `docs/user/operations/CONFIGURATION.md`); `delete` and `purge_expired` purge the full history. Imports (`import_file`/`bulk_import_*`) do **not** write snapshots. Only the embedded (native) SDK and the CLI/bridge expose version history.
 
 ### Bulk Import
 

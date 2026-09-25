@@ -2,7 +2,7 @@
   "schema_version": 1,
   "task": "AST-001",
   "generated": "2026-09-11",
-  "plan": "docs/plans/2026-09-10-anti-stutter.md",
+  "plan": "docs/dev/plans/2026-09-10-anti-stutter.md",
   "rule": "Ninguna entidad repite su contenedor: vantadb::VantaConfig -> vantadb::Config. Nuevo nombre = viejo sin prefijo Vanta, salvo colision (ver open_decisions).",
   "alias_strategy": {
     "rust": "pub type Viejo = Nuevo + #[deprecated(since, note)] en re-export (lib.rs / sdk/mod.rs / types.rs); quitar alias en el major siguiente. Nunca romper callers internos en el mismo cambio.",

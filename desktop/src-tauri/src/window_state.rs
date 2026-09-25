@@ -4,7 +4,7 @@
 //! `app_data_dir` de Tauri y lo restaura en el siguiente arranque.
 //!
 //! Diseño (sin `tauri-plugin-window-state`: el core ya expone todo lo
-//! necesario — ver `docs/tasks/FIND-20.md` § Decisión):
+//! necesario — ver `docs/dev/tasks/FIND-20.md` § Decisión):
 //! - [`load`] nunca falla: archivo ausente o corrupto → [`WindowState::default`]
 //!   (pre-mortem: estado corrupto no puede bloquear el arranque).
 //! - [`restore`] y [`save_now`] son best-effort: ignoran errores de IPC.

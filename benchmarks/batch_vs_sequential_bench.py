@@ -17,9 +17,9 @@ import shutil
 import math
 
 try:
-    import vantadb_py as vantadb
+    import vantadb
 except ImportError:
-    print("ERROR: 'vantadb_py' is not installed.")
+    print("ERROR: 'vantadb' is not installed.")
     print("Install it from PyPI (standalone, no Rust build required):")
     print("  pip install vantadb-py")
     print("Full benchmark dependencies: pip install -r benchmarks/requirements.txt")
@@ -39,7 +39,7 @@ def run_bench(db_path="./benchmarks/batch_bench_db", num_vectors=5000, dim=128, 
         shutil.rmtree(db_path, ignore_errors=True)
 
     print("Initializing Database...")
-    db = vantadb.VantaDB(db_path)
+    db = vantadb.Client(db_path)
 
     print(f"Generating and inserting {num_vectors} vectors...")
     for i in range(num_vectors):
@@ -96,7 +96,7 @@ def run_bench(db_path="./benchmarks/batch_bench_db", num_vectors=5000, dim=128, 
 
 BATCH_REQUESTS_TARGET = 3.0
 """INV-008-B target: a batch of 10 full SearchRequest queries must run in
-less than 3x the time of a single sequential search_memory query."""
+less than 3x the time of a single sequential search query."""
 
 
 def run_batch_requests_bench(
@@ -107,14 +107,14 @@ def run_batch_requests_bench(
     top_k=10,
 ):
     """Benchmark search_batch_requests (full SearchRequest: text + vector +
-    filters) vs sequential search_memory, and verify the INV-008-B target:
+    filters) vs sequential search, and verify the INV-008-B target:
     batch of 10 < 3x single-query time."""
     if os.path.exists(db_path):
         shutil.rmtree(db_path, ignore_errors=True)
 
     print("\n=== INV-008-B: search_batch_requests (full SearchRequest) ===")
     print("Initializing Database...")
-    db = vantadb.VantaDB(db_path)
+    db = vantadb.Client(db_path)
 
     print(f"Inserting {num_records} memory records (vector + payload)...")
     for i in range(num_records):
@@ -141,14 +141,14 @@ def run_batch_requests_bench(
     ]
 
     # Warmup (also exercises the dict path once)
-    db.search_memory("bench", queries[0], text_query="quick brown fox", top_k=top_k)
+    db.search("bench", queries[0], text_query="quick brown fox", top_k=top_k)
     db.search_batch_requests(requests[: min(3, batch_size)], top_k=top_k)
     db.search_batch_requests([r.asdict() for r in requests[: min(3, batch_size)]], top_k=top_k)
 
-    print(f"\n--- Sequential search_memory ({batch_size} queries) ---")
+    print(f"\n--- Sequential search ({batch_size} queries) ---")
     start_seq = time.perf_counter()
     for i, q in enumerate(queries):
-        db.search_memory(
+        db.search(
             "bench",
             q,
             text_query="quick brown fox",
@@ -167,7 +167,7 @@ def run_batch_requests_bench(
     seq_results = []
     for i, q in enumerate(queries):
         seq_results.append(
-            db.search_memory(
+            db.search(
                 "bench",
                 q,
                 text_query="quick brown fox",

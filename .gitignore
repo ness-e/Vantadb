@@ -12,7 +12,7 @@ release/
 *.rs.bk
 **/test_sdk*/
 **/docs/snapshots/
-docs/book/book/
+docs/user/book/book/
 /snapshots/
 test_smoke/
 # Local database instances and logs
@@ -187,7 +187,6 @@ vector_index.bin
 ghost_out/
 Cargo_test.toml
 **/Cargo_test.toml
-.vercel
 .playwright-mcp/
 .playwright-cli/
 
@@ -206,11 +205,6 @@ Cargo_test.toml
 # Local VantaDB runtime artifacts
 .vantadb-mcp/
 dev.pid
-
-# Test runner artifacts (Playwright, E2E — old Vite web archive)
-web_old/playwright-report/
-web_old/test-results/
-web_old/e2e/reports/
 
 # Visual review screenshots & reports
 screenshots/
@@ -270,13 +264,9 @@ vantadb-node/node_modules/
 
 # Task-system runtime state (auto-generated)
 .opencode/task-system/enforcement/sessions/
-docs/plans/*.budget.json
+docs/dev/plans/*.budget.json
 
-docs/reviews/dsm-baseline.json
+docs/dev/reviews/dsm-baseline.json
 
 # Local-only agent tooling (C-01: untracked from git, stays on disk)
 .opencode/
-
-# Next.js / build outputs (W-05: web/.next/*.sst rompio push por limite 100MB)
-**/.next/
-**/out/
