@@ -2,7 +2,7 @@
 
 > **Campaign ID:** beca0c27-fd85-4489-8f93-8361888d662c
 > **Inicio:** 2026-09-24
-> **Estado:** 🔄 EN PROGRESO (2/9 ✅ API-01 + API-03; API-02 cerrado técnicamente — reviews P2-01 ✅, commits pendientes del lead)
+> **Estado:** 🔄 EN PROGRESO (3/9 ✅ API-01/02/03 — commits locales `caf063ff`/`94009297`; siguiente: API-04/05/06/07/08)
 > **Fuente:** `docs/dev/Backlog.md` Phase 51 (filas `API-01..API-09`)
 > **Autonomous:** false
 > **Modo:** PLAN (este archivo no cambia código; la ejecución es `/pipeline run` o `/pipeline task API-0X`)
@@ -64,9 +64,9 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo test --test python_sdk_boundary` verde Y `tsc --noEmit` + `npm test` verdes Y matriz 4 bindings pareja (método×firma) Y `rg "distance: h.score"` = 0
 - **Task file:** `docs/dev/tasks/API-02.md`
-- **Estado:** ⏳ EN PROGRESO — Steps 0-9 ✅ + contrato mecánico 4/4 ✅; review P2-01 ✅ APPROVE (2 rondas: ❌ → R1/R2/R3 → ✅); **pendiente: commit local del lead** (working tree listo; sin push)
-- **Branch:** develop (sin commit — política owner 2026-09-25; el lead commitea)
-- **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-25) — contrato 4/4 ✅; review P2-01 ✅ APPROVE (2 rondas: ❌ → R1/R2/R3 → ✅); commit local `caf063ff` (sin push)
+- **Branch:** develop
+- **Commit:** caf063ff
 - **Cynefin:** 🟨 complicado — 4 toolchains (PyO3/NAPI/wasm-bindgen/tsc)
 - **Top 3 riesgos:** 1. `tests/api/python.rs` fijan aliases 2. FIND-79 (wasm import) sin resolver bloquea TS 3. napi `.node` por plataforma
 - **Pre-mortem:** F1: migrar Py a objetos sin benchmark (Regla 9); F2: `bigint` en JSON; F3: `native.ts` vs `vantadb.ts` divergen más
@@ -92,9 +92,9 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo test --test openapi_yaml_parity` verde Y curl por grupo (records/search/threads/maintenance/export) con status=YAML Y `rg "maintenance/purge|conversation/add|skill/listing"` en router = 0 Y `rg "offset" handlers.rs` = 0 (cursor único)
 - **Task file:** `docs/dev/tasks/API-03.md`
-- **Estado:** ✅ COMPLETED (2026-09-25) — contrato 4/4 (parity 10/10 + script OK + greps 0 + smoke curl 15/15) + review P2-01 ✅ APPROVE ronda 2; cambios en working tree, **commit pendiente del lead** (política owner)
+- **Estado:** ✅ COMPLETED (2026-09-25) — contrato 4/4 (parity 10/10 + script OK + greps 0 + smoke curl 15/15) + review P2-01 ✅ APPROVE ronda 2; commit local `94009297` (sin push)
 - **Branch:** develop
-- **Commit:** pendiente (lead)
+- **Commit:** 94009297
 - **Cynefin:** 🟨 complicado — owner YAML + auth + migraciones
 - **Top 3 riesgos:** 1. YAML e impl derivan a la vez 2. Clientes del dashboard usan rutas viejas 3. Cursor sin migrar `threads/audit`
 - **Pre-mortem:** F1: gemelos v2 se duplican en vez de migrar; F2: `RecordInput` opcional rompe validación MCP; F3: gateway por entusiasmo

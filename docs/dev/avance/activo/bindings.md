@@ -1135,3 +1135,9 @@ aliases: []
 - **Objetivo:** Fundación W0 de la estandarización 11 APIs: wire u128 string decimal, error envelope, casing contract, anti-stutter `VantaHeader`.
 - **Resultado:** ✅ Contrato 4/4 — `cargo test --test sdk_serialization` **18/18** · wire u128 >2^53 en 4 bindings (Py 2/2 · TS 1/1 · Node 28/28 · WASM 30/30) · `rg 'Generic\('` doc-diseño · `verify_changed` 4/4. Cambios: helpers `u128_serde` Option-aware + `Write.node_id` string decimal (`feat!`) + `#[serde(default)]` read-compat (review R1 — bug real RED→GREEN); docs por variante `FilterOp`; error envelope `code+message+context` + `Generic` by-design; casing contract en `BINDINGS_NAMESPACES.md`; rename `VantaHeader`→`Header` + alias deprecated (decisión owner B; ADR-041 waiver → HIG-02); P2-8 pagada (`9dcbff5a`). Review P2-01: ronda 1 ❌ (3 required) → fixes → ronda 2 ✅ APPROVE.
 - **Commit:** f86584f6 + 04bfad3d + 23ef7f63 (+ fix R1/R2 + docs cierre — local, sin push)
+
+### API-02: W1 bindings — score/getNode/put_batch array/search_multi/u128 (review P2-01 ✅)
+- **Fecha:** 2026-09-25
+- **Objetivo:** W1: `score` higher-is-better (no `distance: h.score`), `getNode/deleteNode` node-level, `put_batch([{…}])` array-objetos en Py (+P2-5), `search_multi` en Py, u128 wire consistente en 4 bindings.
+- **Resultado:** ✅ Contrato 4/4 — `python_sdk_boundary` 1/1 · `tsc --noEmit` + vitest TS 314/314 · matriz 4 bindings (`BINDINGS_NAMESPACES` §W1) · `rg "distance: h.score"` = 0 (14 matches solo docs históricos). Extra: pytest 149/0 · Node 36/36 · docs-coverage 0 gaps · FIND-79 → DEFER (stop condition, documentado). Review P2-01 ✅ APPROVE (2 rondas). Consumidor columnar real migrado (llamaindex).
+- **Commit:** caf063ff (local, sin push)
