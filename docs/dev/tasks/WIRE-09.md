@@ -6,7 +6,7 @@
 - **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴 · **Tipo:** Rust (bug `fix:`, seguridad)
 - **Turns estimados:** 15-20
 - **Creado:** 2026-09-25 · **last-synced:** 2026-09-25
-- **Estado:** ✅ IMPLEMENTADO + VERIFICADO (P2-01 review pendiente — agenda vanta-audit)
+- **Estado:** ✅ COMPLETED (P2-01 vanta-audit approve 2026-09-25)
 - **Incógnitas (uphill):** 0 · **Pendientes (downhill):** 4 steps
 
 ## Blast Radius
@@ -119,7 +119,7 @@ last-synced: 2026-09-25
 - **Enfoque:** ¿sandbox completo (create + export + import)? ¿refuse-to-start sin bypass?
 - **Cómo se probó:** tests de escape reales, no auto-reporte
 - **Checklist anti-hábitos:** según plantilla (verificar al revisar)
-- **Veredicto:** pendiente — el implementador NO auto-revisa; el lead agenda vanta-audit.
+- **Veredicto:** ✅ approve (vanta-audit 2026-09-25: sandbox completo 4 rutas, re-ejecución propia 4/4+6/6 + clippy, checklist anti-hábitos 10/10, colaterales acordados)
 
 ## Notas
 - WIP ajeno PROHIBIDO: archivos de API-01 en curso (`src/sdk/types/`, `QueryResult`) — no tocar.

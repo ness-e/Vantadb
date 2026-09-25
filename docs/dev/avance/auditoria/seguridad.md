@@ -185,3 +185,9 @@ aliases: []
 - **Objetivo:** checks SAST versionados en L7 (unwrap/unsafe/expect) + MCP semgrep, warn-first
 - **Resultado:** ✅ gate exit 0 + negativa 3+2 (falla->fix->pasa) + dictamen con output real (1515 warnings semgrep + 14 ast-grep; residual -> FIND-152)
 - **Commit:** 53186ca5 (host) + 36f6e1b (configOpencode)
+### WIRE-09: Seguridad P0 — sandbox paths + refuse-to-start proxy
+- **Fecha:** 2026-09-25
+- **Objetivo:** cerrar escritura/lectura arbitraria vía HTTP + startup keyless en 0.0.0.0
+- **Resultado:** ✅ RED→GREEN por slice (snapshot-name traversal+DoS, bulk_import 4ª ruta, refuse-to-start paridad FIND-07); verify lead 4/4+6/6; P2-01 vanta-audit approve con re-ejecución propia
+- **Commit:** 6a0f6934
+- **Observación:** `mirror_data_dir` dest-dentro-de-src inalcanzable vía API (validate_snapshot_name); `:`/espacios en nombres sin PoC → no findings
