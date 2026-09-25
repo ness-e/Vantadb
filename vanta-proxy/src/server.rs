@@ -93,6 +93,8 @@ impl AppState {
     ///
     /// # Errors
     /// - [`crate::error::ProxyError::Config`] if the HTTP client cannot be built.
+    /// - [`crate::error::ProxyError::Config`] on WIRE-09 refuse-to-start
+    ///   (non-loopback bind, zero provisioned user keys).
     /// - [`crate::error::ProxyError::Storage`] if the local database cannot open.
     pub fn new(config: ProxyConfig) -> Result<Self, crate::error::ProxyError> {
         let db = AuthDb::open(&config.auth.db_path)?;
@@ -103,10 +105,18 @@ impl AppState {
     ///
     /// # Errors
     /// Returns [`crate::error::ProxyError::Config`] if the HTTP client cannot be built.
+    /// Returns [`crate::error::ProxyError::Config`] when the WIRE-09
+    /// refuse-to-start gate trips (non-loopback bind, zero provisioned keys).
     pub fn from_engine(
         config: ProxyConfig,
         engine: Arc<StorageEngine>,
     ) -> Result<Self, crate::error::ProxyError> {
+        // WIRE-09 (FIND-07 parity): refuse to bind a non-loopback host when
+        // no user keys exist — GET /snapshot is unauthenticated until API-05.
+        // Runs before every other check: a security refusal outranks wiring
+        // diagnostics. `new` delegates here, so `main` is covered too.
+        let provisioned = AuthDb::new(engine.clone()).provisioned_user_count()?;
+        config.validate_startup(provisioned)?;
         // PRX-08 S2: fail fast on self-forwarding loops (default upstream
         // 127.0.0.1:8096 == default listen port) instead of recursing to timeout.
         if config.upstream.points_at_self(config.server.port) {
@@ -1138,5 +1148,87 @@ mod tests {
             .await
             .expect("read");
         assert_eq!(bytes.as_ref(), b"not json{{{");
+    }
+
+    // ─── WIRE-09: refuse-to-start wiring (FIND-07 parity) ───────
+    // Prove-It: `AppState::from_engine` is the startup gate (`new`
+    // delegates; `main` calls `new`). Non-loopback bind + empty auth store
+    // must refuse; a provisioned user key (or loopback) must start.
+    // Pre-fix these FAIL (`from_engine` returns Ok — the proxy starts
+    // keyless on 0.0.0.0). In-memory engines: no fjall needed in this
+    // build (vanta-proxy pins vantadb with default-features = false).
+
+    fn memory_engine() -> Arc<StorageEngine> {
+        let config = vantadb::config::Config {
+            backend_kind: vantadb::storage::BackendKind::InMemory,
+            read_only: false,
+            ..vantadb::config::Config::default()
+        };
+        Arc::new(
+            StorageEngine::open_with_config(":memory:", Some(config)).expect("in-memory engine"),
+        )
+    }
+
+    fn seed_user_key(engine: &StorageEngine) {
+        use std::collections::HashMap;
+        use vantadb::entity::{EntityStore, EntityWrite};
+        use vantadb::node::FieldValue;
+        let mut fields: HashMap<String, FieldValue> = HashMap::new();
+        fields.insert(
+            "user_key".into(),
+            FieldValue::String("sk-provisioned".to_string()),
+        );
+        EntityStore::new(engine)
+            .set(EntityWrite {
+                namespace: "default",
+                collection: "user",
+                id: "usr-1",
+                fields,
+            })
+            .expect("seed user");
+    }
+
+    fn startup_config(host: &str) -> ProxyConfig {
+        ProxyConfig {
+            server: crate::config::ServerConfig {
+                host: host.into(),
+                port: 18096,
+                ..crate::config::ServerConfig::default()
+            },
+            // Non-self upstream so the PRX-08 self-loop guard stays quiet.
+            upstream: UpstreamConfig {
+                url: "https://api.anthropic.com".into(),
+                ..UpstreamConfig::default()
+            },
+            ..ProxyConfig::default()
+        }
+    }
+
+    #[test]
+    fn refuse_startup_non_loopback_without_keys() {
+        let engine = memory_engine();
+        // `AppState` is not `Debug`, so no `unwrap_err` — match instead.
+        let err = match AppState::from_engine(startup_config("0.0.0.0"), engine) {
+            Ok(_) => panic!("WIRE-09: keyless 0.0.0.0 startup must refuse"),
+            Err(e) => e,
+        };
+        let msg = err.to_string();
+        assert!(
+            msg.contains("refusing to start"),
+            "WIRE-09: keyless 0.0.0.0 startup must refuse, got: {msg}"
+        );
+    }
+
+    #[test]
+    fn refuse_startup_loopback_without_keys_ok() {
+        let engine = memory_engine();
+        assert!(AppState::from_engine(startup_config("127.0.0.1"), engine).is_ok());
+    }
+
+    #[test]
+    fn refuse_startup_non_loopback_with_key_ok() {
+        let engine = memory_engine();
+        seed_user_key(&engine);
+        assert!(AppState::from_engine(startup_config("0.0.0.0"), engine).is_ok());
     }
 }

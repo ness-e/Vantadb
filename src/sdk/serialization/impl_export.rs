@@ -17,7 +17,9 @@ use web_time::Instant;
 impl Embedded {
     /// Validate a path against the configured export base dir, falling back to
     /// bare `..` traversal protection when no base dir is configured.
-    fn resolve_export_path(&self, path: &Path) -> Result<PathBuf> {
+    /// `pub(crate)` so the sibling `sdk::api` import paths (`bulk_import_file`)
+    /// share the same sandbox instead of reimplementing it (WIRE-09).
+    pub(crate) fn resolve_export_path(&self, path: &Path) -> Result<PathBuf> {
         match self.config.export_base_dir.as_ref() {
             Some(base) => crate::storage::ops::resolve_against_base(base, path),
             None => {

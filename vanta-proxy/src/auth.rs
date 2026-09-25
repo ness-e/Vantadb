@@ -77,6 +77,20 @@ impl AuthDb {
         self.engine.clone()
     }
 
+    /// WIRE-09: count provisioned `user` entities for the refuse-to-start
+    /// gate. Uses the page `total` so a single-row page suffices — no full
+    /// collection scan at startup.
+    ///
+    /// # Errors
+    /// [`ProxyError::Storage`] on local read failures.
+    pub(crate) fn provisioned_user_count(&self) -> Result<usize, ProxyError> {
+        let store = EntityStore::new(&self.engine);
+        store
+            .list(AUTH_ENTITY_NS, "user", 1, 0)
+            .map(|page| page.total)
+            .map_err(|e| ProxyError::Storage(format!("list user: {e}")))
+    }
+
     /// D34: resolve the request identity from headers. Missing, empty or
     /// unknown user keys all fail closed with [`ProxyError::Unauthorized`].
     ///

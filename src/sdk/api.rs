@@ -584,6 +584,97 @@ mod tests {
         assert!(got.is_some());
     }
 
+    // ─── WIRE-09: export/import path sandbox (verify, no reimplement) ───
+    // `resolve_export_path` (fix fc069a06f) guards export_namespace,
+    // export_all e import_file; estos tests lo verifican E2E contra un
+    // Embedded real con `export_base_dir`, más el hueco `bulk_import_file`
+    // (Prove-It: pasaba el path de usuario directo a File::open, alcanzable
+    // desde HTTP import_v2 con format="bulk").
+
+    fn make_embedded_with_base(base: &std::path::Path) -> Embedded {
+        let config = Config {
+            storage_path: ":memory:".into(),
+            backend_kind: crate::BackendKind::InMemory,
+            export_base_dir: Some(base.to_path_buf()),
+            ..Default::default()
+        };
+        Embedded::open_with_config(config).expect("open Embedded with base")
+    }
+
+    fn write_bulk_file(path: &std::path::Path, inputs: &[MemoryInput]) {
+        let mut payload: Vec<u8> = Vec::new();
+        payload.extend_from_slice(b"VDBJSON\n");
+        payload.push(0x01);
+        payload.extend_from_slice(&(inputs.len() as u64).to_le_bytes());
+        payload.extend_from_slice(&serde_json::to_vec(inputs).unwrap());
+        std::fs::write(path, payload).unwrap();
+    }
+
+    #[test]
+    fn export_paths_outside_base_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path().join("base");
+        std::fs::create_dir_all(&base).unwrap();
+        let db = make_embedded_with_base(&base);
+        // `..` traversal.
+        let err = db.export_all("../evil.jsonl").unwrap_err();
+        assert!(matches!(err, Error::Validation { .. }), "got: {err}");
+        // Absolute path outside the base.
+        let outside = dir.path().join("evil.jsonl");
+        let err = db.export_all(&outside).unwrap_err();
+        assert!(matches!(err, Error::Validation { .. }), "got: {err}");
+        assert!(!outside.exists(), "no file may be written outside the base");
+        // import_file: same sandbox.
+        let err = db.import_file(&outside).unwrap_err();
+        assert!(matches!(err, Error::Validation { .. }), "got: {err}");
+    }
+
+    #[test]
+    fn export_paths_inside_base_ok() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path().join("base");
+        std::fs::create_dir_all(&base).unwrap();
+        let db = make_embedded_with_base(&base);
+        let rep = db
+            .export_all("out.jsonl")
+            .expect("relative export inside base");
+        assert!(base.join("out.jsonl").exists());
+        // Component-wise compare: canonicalize() adds the `\\?\` verbatim
+        // prefix on Windows, so plain string prefix-match would misfire.
+        let canonical_base = std::fs::canonicalize(&base).unwrap();
+        assert!(
+            std::path::Path::new(&rep.path).starts_with(&canonical_base),
+            "report path must stay under base, got: {}",
+            rep.path
+        );
+    }
+
+    #[test]
+    fn export_paths_bulk_import_outside_base_rejected() {
+        let dir = tempfile::tempdir().unwrap();
+        let base = dir.path().join("base");
+        std::fs::create_dir_all(&base).unwrap();
+        let outside = dir.path().join("evil.vdbdump");
+        write_bulk_file(&outside, &[MemoryInput::new("ns", "k1", "p1")]);
+        let db = make_embedded_with_base(&base);
+        let err = db.bulk_import_file(outside.to_str().unwrap()).unwrap_err();
+        assert!(
+            matches!(err, Error::Validation { .. }),
+            "WIRE-09: bulk import outside base must be rejected, got: {err}"
+        );
+        assert!(
+            db.get("ns", "k1").unwrap().is_none(),
+            "nothing may be imported from outside the base"
+        );
+        // Legit bulk file inside the base still imports.
+        let inside = base.join("good.vdbdump");
+        write_bulk_file(&inside, &[MemoryInput::new("ns", "k2", "p2")]);
+        let r = db
+            .bulk_import_file(inside.to_str().unwrap())
+            .expect("inside base");
+        assert_eq!(r.total_records, 1);
+    }
+
     fn put_mem(db: &Embedded, ns: &str, key: &str, payload: &str) {
         db.put(MemoryInput::new(ns, key, payload)).unwrap();
     }

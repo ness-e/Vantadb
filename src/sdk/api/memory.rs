@@ -970,8 +970,13 @@ impl Embedded {
     }
 
     /// Convenience: bulk-import from a binary file in bulk format.
+    ///
+    /// The path goes through the same export-base sandbox as the other
+    /// file import/export ops (WIRE-09) — the HTTP server passes a
+    /// user-supplied path here (`import_v2` with `format: "bulk"`).
     pub fn bulk_import_file(&self, path: &str) -> Result<BulkImportReport> {
-        let mut file = std::fs::File::open(path)?;
+        let resolved = self.resolve_export_path(std::path::Path::new(path))?;
+        let mut file = std::fs::File::open(&resolved)?;
         self.bulk_import_stream(&mut file)
     }
 }
