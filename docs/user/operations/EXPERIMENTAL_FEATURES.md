@@ -56,7 +56,7 @@ These surfaces may exist in the repository, but they are not stable product clai
 | Docker/Ollama examples | Experimental development examples |
 | **vanta-proxy (LLM gateway)** | **Labs** — pipeline de 16 etapas (redact/failover/cache/cost). Auth de `/snapshot`: API-05 (P51); loop de memoria + cost output: WIRE-01 (P56) |
 | **Vanta Studio (desktop Tauri)** | **Labs** — 12 lentes / 3 transportes; testing frontend fuera de CI (pendiente de conectar) |
-| **Web console** | **Labs** — sitio separado; `docs/user/web/` (fantasma) pendiente de purga |
+| **Web console** | **Labs** — sitio separado en [`ness-e/Vantadb-web`](https://github.com/ness-e/Vantadb-web) (docs en `docs/user/web/` de ese repo) |
 | **vanta-memory (L0→L3)** | **Shipped parcial** — pipeline completo; scheduler sin host ubicuo (`bootstrap.rs` → `conversation_trigger: None`); dreams dry-run/promote real: VER-07 (P52) |
 
 ## Extracted Utilities (Production-Ready)
