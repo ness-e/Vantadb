@@ -1853,6 +1853,12 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 
 ## [Unreleased]
 
+## [0.7.0](https://github.com/ness-e/Vantadb/compare/v0.6.1...v0.7.0) - 2026-09-25
+
+### Other
+
+- develop ΓåÆ main (0.6.1 + estabilizaci├│n + docs/user-dev) ([#222](https://github.com/ness-e/Vantadb/pull/222))
+
 ## [0.6.1](https://github.com/ness-e/Vantadb/compare/v0.6.0...v0.6.1) - 2026-09-23
 
 ### Fixed
