@@ -32,15 +32,16 @@ export function isMemoryRecord(r: unknown): r is MemoryRecord {
 }
 
 /**
- * Type guard for `SearchHit` (a `MemoryRecord` plus a numeric `distance`).
+ * Type guard for `SearchHit` (a `MemoryRecord` plus a numeric relevance
+ * `score`).
  *
  * @param h - Unknown value (typically a raw search hit).
- * @returns True when `h.record` is a `MemoryRecord` and `h.distance` is a number.
+ * @returns True when `h.record` is a `MemoryRecord` and `h.score` is a number.
  */
 export function isSearchHit(h: unknown): h is SearchHit {
   if (h === null || typeof h !== "object") return false;
   const obj = h as Record<string, unknown>;
-  return isMemoryRecord(obj.record) && typeof obj.distance === "number";
+  return isMemoryRecord(obj.record) && typeof obj.score === "number";
 }
 
 /**

@@ -115,16 +115,21 @@ def ingest_pdf(filepath: str):
 ingest_pdf("manual.pdf")
 ```
 
-> **Batch loading:** for thousands of chunks, use `put_batch()` with `keys=`, `vectors=`, `payloads=`, `metadatas=`, and `namespace=` — it is up to ~5x faster than sequential `put()` calls (Rayon parallelism):
+> **Batch loading:** for thousands of chunks, use `put_batch()` with a list of
+> record dicts — it is up to ~5x faster than sequential `put()` calls (Rayon
+> parallelism):
 >
 > ```python
-> db.put_batch(
->     keys=[f"{stem}-{i}" for i in range(len(chunks))],
->     vectors=[embed(c) for c in chunks],
->     payloads=chunks,
->     metadatas=[{"source": name, "chunk_index": i, "total_chunks": len(chunks)} for i in range(len(chunks))],
->     namespace="documents",
-> )
+> db.put_batch([
+>     {
+>         "namespace": "documents",
+>         "key": f"{stem}-{i}",
+>         "payload": chunks[i],
+>         "vector": embed(chunks[i]),
+>         "metadata": {"source": name, "chunk_index": i, "total_chunks": len(chunks)},
+>     }
+>     for i in range(len(chunks))
+> ])
 > ```
 
 ## 3. Query the knowledge base

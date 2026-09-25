@@ -169,11 +169,9 @@ class AsyncMemoryClient:
     """Async view over ``db.memory`` (namespace+key records).
 
     AST-012 (paridad TS ``MemoryClient``): short names ``get``/``list``/
-    ``delete`` — no ``*_memory`` surname anywhere. The flat ``get``/``delete``
-    names stay node-level (``id: u128``) on ``AsyncClient``
-    (BINDINGS_NAMESPACES hazard), so the memory ops live here; every call
-    runs in a thread pool via the parent's ``_run`` (same GIL-release as
-    the rest of ``AsyncClient``).
+    ``delete`` — no ``*_memory`` surname anywhere. Node-level ops use the
+    canonical ``insert_node``/``get_node``/``delete_node`` names (W1/API-02),
+    so ``get``/``delete`` never collide across domains.
 
     Usage::
 
@@ -223,8 +221,8 @@ class AsyncClient:
     to the Rust engine which already uses ``py.allow_threads()``.
 
     Memory-record ops live on ``db.memory`` (``get``/``list``/``delete``,
-    no surname — AST-012, paridad TS); flat ``get``/``delete`` stay
-    node-level (``id: u128``). Usage::
+    no surname — AST-012, paridad TS); node ops are
+    ``insert_node``/``get_node``/``delete_node`` (W1/API-02). Usage::
 
         async with AsyncClient("./my_brain") as db:
             record = await db.memory.get("ns", "key")
@@ -272,6 +270,31 @@ class AsyncClient:
             top_k,
             distance_metric,
             method,
+            explain,
+            exclude_superseded,
+        )
+
+    async def search_multi(
+        self,
+        namespaces: list[str],
+        query_vector: list[float],
+        *,
+        filters: dict | None = None,
+        text_query: str | None = None,
+        top_k: int = 10,
+        distance_metric: str | None = None,
+        explain: bool = False,
+        exclude_superseded: bool = False,
+    ):
+        """Hybrid search across several namespaces (W1/API-02)."""
+        return await self._run(
+            self._sync.search_multi,
+            namespaces,
+            query_vector,
+            filters,
+            text_query,
+            top_k,
+            distance_metric,
             explain,
             exclude_superseded,
         )
@@ -326,37 +349,19 @@ class AsyncClient:
     async def close(self):
         return await self._run(self._sync.close)
 
-    async def insert(self, id, content, vector, fields=None):
-        return await self._run(
-            self._sync.insert, id, content, vector, fields
-        )
-
     async def insert_node(self, id, content, vector, fields=None):
+        """Insert a node by explicit id (W1/API-02 canonical name)."""
         return await self._run(
-            self._sync.insert, id, content, vector, fields
+            self._sync.insert_node, id, content, vector, fields
         )
 
-    async def put_batch(
-        self,
-        *,
-        keys,
-        vectors,
-        payloads=None,
-        metadatas=None,
-        namespace=None,
-        namespaces=None,
-        ttls=None,
-    ):
-        return await self._run(
-            self._sync.put_batch,
-            keys,
-            vectors,
-            payloads,
-            metadatas,
-            namespace,
-            namespaces,
-            ttls,
-        )
+    async def put_batch(self, records):
+        """Insert records from a list of dicts (W1/API-02 array-of-objects).
+
+        Each dict mirrors ``put()`` kwargs: ``{"namespace", "key", "payload",
+        "metadata", "vector", "ttl_ms"}``. ``key`` is required.
+        """
+        return await self._run(self._sync.put_batch, records)
 
     async def put_batch_raw(
         self,
@@ -426,18 +431,13 @@ class AsyncClient:
     async def operational_metrics(self):
         return await self._run(self._sync.operational_metrics)
 
-    async def get(self, id):
-        return await self._run(self._sync.get, id)
-
-    async def delete(self, id, reason="manual deletion"):
-        return await self._run(self._sync.delete, id, reason)
-
-    # AST-003 node parity aliases (WASM get_node/delete_node/insert_node).
     async def get_node(self, id):
-        return await self._run(self._sync.get, id)
+        """Get a node by explicit id (W1/API-02 canonical name)."""
+        return await self._run(self._sync.get_node, id)
 
     async def delete_node(self, id, reason="manual deletion"):
-        return await self._run(self._sync.delete, id, reason)
+        """Delete a node by explicit id (W1/API-02 canonical name)."""
+        return await self._run(self._sync.delete_node, id, reason)
 
     async def search_vector(self, vector, top_k=10):
         return await self._run(self._sync.search_vector, vector, top_k)

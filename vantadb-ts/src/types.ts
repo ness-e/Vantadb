@@ -25,6 +25,13 @@ export type Metadata = Record<string, Value>;
 export type FlatValue = string | number | boolean | null;
 
 /**
+ * Graph node id accepted by the public API: a safe-integer `number` or a
+ * `bigint` for ids above 2^53 (JS numbers lose integer precision there).
+ * The WASM wire always carries the id as a decimal string (`u128`).
+ */
+export type NodeId = number | bigint;
+
+/**
  * Metadata/filters as provided by callers: plain JS values (preferred,
  * e.g. `{ lang: "en" }`) or the tagged wire form (backward compat,
  * e.g. `{ lang: { String: "en" } }`). Records returned by the engine
@@ -152,9 +159,13 @@ export interface BatchSearchRequest extends Omit<SearchRequest, "namespace"> {
 
 export interface SearchHit {
   record: MemoryRecord;
-  /** L2 distance (or cosine distance) between the query vector and this hit's record vector.
-   * Lower values indicate higher similarity. This is a distance, not a similarity score. */
-  distance: number;
+  /** Relevance score between the query and this hit's record — **higher is
+   * better** (`MemorySearchHit.score` in the Rust core, W1/API-02).
+   * Value depends on the input mix and `distance_metric`:
+   * cosine similarity ∈ [-1, 1], or `-distance²` for Euclidean. Raw ANN
+   * distances stay on `searchVector()` (`{node_id, distance}`, lower is
+   * better). */
+  score: number;
   explanation?: SearchExplanationHit;
 }
 

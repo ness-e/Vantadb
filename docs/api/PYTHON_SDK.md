@@ -91,21 +91,23 @@ signatures and results.
 > **Canonical paths (AST-012, no aliases):** `db.memory.get(...)`,
 > `db.memory.list(...)`, `db.memory.delete(...)`, `db.memory.search(...)`.
 > The flat `memory.get` / `memory.list` / `memory.delete` methods were
-> removed; flat `get` / `delete` stay node-level (`id: u128`). Canonical
-> method→domain map: [BINDINGS_NAMESPACES.md](BINDINGS_NAMESPACES.md).
+> removed; node-level ops are `insert_node` / `get_node` / `delete_node`
+> (W1/API-02 — the bare `insert`/`get`/`delete` flat methods were removed).
+> Canonical method→domain map: [BINDINGS_NAMESPACES.md](BINDINGS_NAMESPACES.md).
 
 ```python
 # memory — namespace+key records, search, supersede, TTL
 record = db.memory.put(namespace="ns", key="k", payload="...", vector=[0.1] * 384)
 record = db.memory.get(namespace="ns", key="k")
 hits = db.memory.search(namespace="ns", query_vector=[0.1] * 384)
+hits = db.memory.search_multi(namespaces=["ns", "kb"], query_vector=[0.1] * 384)
 db.memory.supersede(namespace="ns", old_key="draft-v1", new_key="draft-v2")
 
 # graph — node/edge CRUD + traversals
-# NOTE: insert/get/delete are NODE-level ops here (id: u128), unlike the
-# memory-record semantics those names carry in the TS/WASM bindings.
-db.graph.insert(id=42, content="...", vector=[0.1] * 384)
-node = db.graph.get(id=42)
+# NOTE (W1/API-02): node ops are insert_node/get_node/delete_node — the same
+# canonical names as WASM/TS/Node (memory records are db.memory.*).
+db.graph.insert_node(id=42, content="...", vector=[0.1] * 384)
+node = db.graph.get_node(id=42)
 reachable = db.graph.graph_bfs(roots=[42], max_depth=3)
 ranks = db.graph.graph_page_rank(roots=[42])
 
@@ -121,7 +123,7 @@ db.system.flush()
 Notes:
 
 - Each attribute returns a lightweight delegate that holds a reference to the parent `Client`; calls are forwarded with identical signatures and results.
-- The full member lists per sub-client are fixed by [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md) (Python section): memory 15 · graph 10 · system 17 · wiki 1.
+- The full member lists per sub-client are fixed by [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md) (Python section). Counts by sub-client: memory 19 (16 forwards + 3 real) · graph 11 · system 18 · wiki 1; the flat `Client` surface totals 46 methods (16 memory + 11 graph + 18 system + 1 wiki).
 - `AsyncClient` exposes `db.memory` (`get`/`list`/`delete`); all other
   async methods stay flat.
 
@@ -181,41 +183,54 @@ Insert or update a memory record. The `metadata` is a dict of scalar fields.
 
 ```python
 db.put_batch(
-    keys: List[str],
-    vectors: List[VectorInput],
-    payloads: Optional[List[str]] = None,
-    metadatas: Optional[List[Optional[dict]]] = None,
-    namespace: Optional[str] = None,
-    namespaces: Optional[List[str]] = None,
-    ttls: Optional[List[Optional[int]]] = None,
+    records: List[dict],
 ) -> List[Record]
 ```
-Insert or update multiple records in parallel. Each entry of `metadatas`
+
+Insert or update multiple records from an **array of objects** (W1/API-02 —
+the same shape as WASM `put_batch`, TS `putBatch` and Node `putBatch`). Each
+dict mirrors the `put()` keyword arguments; `key` is required and
+`namespace` defaults to `"default"`:
+
+```python
+db.put_batch([
+    {"namespace": "agent/default", "key": "k1", "payload": "payload1",
+     "vector": [0.1] * 384, "metadata": {"f": "v"}, "ttl_ms": None},
+    {"namespace": "agent/default", "key": "k2", "payload": "payload2",
+     "vector": [0.2] * 384},
+])
+```
+
+Per-record `namespace` routes each record independently (ERR-030). Metadata
 accepts the same scalar values as `put()` (`str`, `int`, `float`, `bool`,
-`datetime`, homogeneous lists).
+`datetime`, homogeneous lists). For zero-copy ingestion of a 2D NumPy vector
+matrix use `put_batch_raw(vectors, keys, ...)` (PERF-15 buffer path).
 
-**Keyword API** (preferred):
+Returns a list of `Record` objects in input order.
+
+#### `search_multi()` (W1/API-02)
+
 ```python
-db.put_batch(
-    keys=["k1", "k2"],
-    vectors=[[0.1]*384, [0.2]*384],
-    payloads=["payload1", "payload2"],
-    metadatas=[{"f": "v"}, None],
-    namespace="agent/default",
-    ttls=[None, 1000],
-)
+db.search_multi(
+    namespaces: List[str],
+    query_vector: VectorInput,
+    filters: Optional[dict] = None,
+    text_query: Optional[str] = None,
+    top_k: int = 10,
+    distance_metric: Optional[str] = None,
+    explain: bool = False,
+    exclude_superseded: bool = False,
+) -> List[SearchHit]
 ```
 
-To route records of one batch into different namespaces, pass the parallel per-record column `namespaces` (length must equal `keys`); it overrides `namespace` for each record:
-```python
-db.put_batch(
-    keys=["k1", "k2"],
-    vectors=[[0.1]*384, [0.2]*384],
-    namespaces=["ns1", "ns2"],
-)
-```
+Hybrid search across several namespaces in one call: each namespace is
+searched independently and results are merged by descending `score`, capped
+at `top_k` globally. `namespaces` must be non-empty. Also available as
+`db.memory.search_multi(...)`.
 
-Returns a list of `Record` objects, up to ~5x faster than sequential `put()` for large batches.
+```python
+hits = db.search_multi(["docs", "kb"], [0.1] * 384, top_k=5)
+```
 
 #### `memory.get()`
 ```python
@@ -240,6 +255,7 @@ db.memory.list(
     filters: Optional[dict] = None,
     limit: int = 100,
     cursor: Optional[int] = None,
+    exclude_superseded: bool = False,
 ) -> ListResult
 ```
 Returns a `ListResult` object with `.records`, `.total_count`, and `.next_cursor`. Supports `__getitem__` for dict-style access (`result["records"]`, `result["next_cursor"]`) and `__iter__` for record iteration.
@@ -366,9 +382,9 @@ Raises `RuntimeError` if the source `key` does not exist or has no vector.
 
 ### Node / Graph API (Low-Level)
 
-#### `insert()`
+#### `insert_node()` (W1/API-02)
 ```python
-db.insert(
+db.insert_node(
     id: int,
     content: str,
     vector: VectorInput,
@@ -378,7 +394,7 @@ db.insert(
 Insert a graph node with text content and an optional embedding vector. `fields` can contain additional metadata key-value pairs (supports `str`, `int`, `float`, `bool`, `datetime`, and homogeneous lists). GIL-released — allows Python threads to run during the insert.
 
 ```python
-db.insert(
+db.insert_node(
     id=42,
     content="VantaDB is a vector-graph database.",
     vector=[0.1] * 384,
@@ -386,23 +402,23 @@ db.insert(
 )
 ```
 
-#### `get()`
+#### `get_node()` (W1/API-02)
 ```python
-db.get(
+db.get_node(
     id: int,
 ) -> Optional[dict]
 ```
 Retrieve a graph node by its numeric ID. Returns a dict with `id`, `vector`, `vector_dims`, `fields`, `edges`, `confidence_score`, `importance`, `hits`, `tier`, and `is_alive`, or `None` if not found. GIL-released.
 
 ```python
-node = db.get(id=42)
+node = db.get_node(id=42)
 if node:
     print(node["fields"], node["vector_dims"])
 ```
 
-#### `delete()`
+#### `delete_node()` (W1/API-02)
 ```python
-db.delete(
+db.delete_node(
     id: int,
     reason: str = "manual deletion",
 ) -> None
@@ -410,7 +426,7 @@ db.delete(
 Delete a graph node by ID with an auditable reason (recorded as a tombstone). GIL-released.
 
 ```python
-db.delete(id=42, reason="stale training data cleaned up")
+db.delete_node(id=42, reason="stale training data cleaned up")
 ```
 
 #### `supersede()`
@@ -1065,7 +1081,7 @@ async with AsyncClient("./my_brain") as db:
 # db.close() awaited automatically
 ```
 
-All Client methods are available on `AsyncClient` with `async/await`, including `put()`, `put_batch()`, `insert()`, `memory.get()`, `memory.list()`, `memory.delete()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get()`, `delete()`, `search()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, `explain_memory_search()`, `count()`, `delete_by_filter()`, and `similar_to_key()`.
+All Client methods are available on `AsyncClient` with `async/await`, including `put()`, `put_batch()`, `insert_node()`, `memory.get()`, `memory.list()`, `memory.delete()`, `query()`, `flush()`, `compact_wal()`, `purge_expired()`, `rebuild_index()`, `export_namespace()`, `export_all()`, `import_file()`, `audit_text_index()`, `repair_text_index()`, `operational_metrics()`, `capabilities()`, `hardware_profile()`, `get_node()`, `delete_node()`, `search()`, `search_multi()`, `search_batch()`, `add_edge()`, `graph_bfs()`, `graph_dfs()`, `graph_topological_sort()`, `graph_is_dag()`, `compact_layout()`, `list_namespaces()`, `generate_snippet()`, `explain_memory_search()`, `count()`, `delete_by_filter()`, and `similar_to_key()`.
 
 ## ID limits
 
@@ -1205,7 +1221,7 @@ across Rust/Python/TS/MCP:
 import vantadb
 
 try:
-    db.get(...)
+    db.get_node(...)
 except vantadb.VantaError as exc:
     log.error("vanta_error", extra=vantadb.error_to_dict(exc))
     # {

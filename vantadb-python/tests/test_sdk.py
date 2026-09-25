@@ -75,9 +75,9 @@ class TestClientLifecycle:
     def test_insert_and_get(self):
         """Insert a node and retrieve it by ID."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
-        db.insert(42, "Hello VantaDB", [0.1] * 384)
+        db.insert_node(42, "Hello VantaDB", [0.1] * 384)
 
-        node = db.get(42)
+        node = db.get_node(42)
         assert node is not None, "get(42) should return a node after insert"
         assert node["id"] == 42, f"expected id 42, got {node['id']}"
         assert node["fields"]["content"] == "Hello VantaDB", f"expected content 'Hello VantaDB', got {node['fields']['content']}"
@@ -87,7 +87,7 @@ class TestClientLifecycle:
     def test_insert_with_extra_fields(self):
         """Insert with additional relational fields from a Python dict."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
-        db.insert(
+        db.insert_node(
             1,
             "Test node",
             [0.5] * 128,
@@ -98,7 +98,7 @@ class TestClientLifecycle:
             },
         )
 
-        node = db.get(1)
+        node = db.get_node(1)
         assert node is not None, "get(1) should return a node after insert with extra fields"
         assert node["fields"]["category"] == "test", f"expected category 'test', got {node['fields']['category']}"
         assert node["fields"]["score"] == 42, f"expected score 42, got {node['fields']['score']}"
@@ -107,33 +107,33 @@ class TestClientLifecycle:
     def test_get_nonexistent(self):
         """Getting a non-existent node returns None."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
-        assert db.get(999999) is None, "getting a non-existent node should return None"
+        assert db.get_node(999999) is None, "getting a non-existent node should return None"
 
     def test_delete_tombstone(self):
         """Deleting a node should make it unretrievable."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
-        db.insert(10, "To be deleted", [0.2] * 128)
-        assert db.get(10) is not None, "node should exist before deletion"
+        db.insert_node(10, "To be deleted", [0.2] * 128)
+        assert db.get_node(10) is not None, "node should exist before deletion"
 
-        db.delete(10, "test cleanup")
-        assert db.get(10) is None, "node should be None after deletion"
+        db.delete_node(10, "test cleanup")
+        assert db.get_node(10) is None, "node should be None after deletion"
 
     def test_flush(self):
         """Flush should persist data to disk without errors."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
-        db.insert(1, "Persistent data", [0.3] * 128)
+        db.insert_node(1, "Persistent data", [0.3] * 128)
         db.flush()  # Should not raise
 
     def test_close_and_reopen(self):
         """Close should flush the embedded handle and allow reopen."""
         path = _unique_path()
         db = vanta.Client(path, memory_limit_bytes=128 * 1024 * 1024)
-        db.insert(7, "Reopen me", [0.4] * 16)
+        db.insert_node(7, "Reopen me", [0.4] * 16)
         db.flush()
         db.close()
 
         reopened = vanta.Client(path, memory_limit_bytes=128 * 1024 * 1024)
-        node = reopened.get(7)
+        node = reopened.get_node(7)
         assert node is not None, "node should survive reopen"
         assert node["fields"]["content"] == "Reopen me", f"expected content 'Reopen me', got {node['fields']['content']}"
 
@@ -149,7 +149,7 @@ class TestVectorSearch:
         # is rejected by the engine (AUDREP-27 / ERR-031 propagates the error).
         for i in range(1, 11):
             vec = [float(i) * 0.1] * 384
-            db.insert(i, f"Node {i}", vec)
+            db.insert_node(i, f"Node {i}", vec)
 
         # Search for the first one (non-zero query; ERR-028 rejects zero-norm)
         results = db.search_vector([0.1] * 384, top_k=5)
@@ -164,7 +164,7 @@ class TestVectorSearch:
         # Insert some vectors (non-zero; zero-norm is rejected under cosine)
         for i in range(1, 11):
             vec = [float(i) * 0.1] * 384
-            db.insert(i, f"Node {i}", vec)
+            db.insert_node(i, f"Node {i}", vec)
 
         query_vectors = [
             [0.1] * 384,
@@ -200,8 +200,8 @@ class TestU128NodeIds:
         """insert/get must not truncate or raise OverflowError for big ids."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         for i, nid in enumerate(self.BIG_IDS):
-            db.insert(nid, f"u128-node-{i}", [float(i + 1) / 10.0] * 384)
-            node = db.get(nid)
+            db.insert_node(nid, f"u128-node-{i}", [float(i + 1) / 10.0] * 384)
+            node = db.get_node(nid)
             assert node is not None, f"get({nid}) should not be None"
             assert node["id"] == nid, f"id corrupted: expected {nid}, got {node['id']}"
 
@@ -210,7 +210,7 @@ class TestU128NodeIds:
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         nid = self.BIG_IDS[0]
         vec = [0.5] * 384
-        db.insert(nid, "big-vec", vec)
+        db.insert_node(nid, "big-vec", vec)
         results = db.search_vector(vec, top_k=1)
         assert len(results) >= 1, f"expected >= 1 hit, got {results}"
         hit_id, _ = results[0]
@@ -220,10 +220,10 @@ class TestU128NodeIds:
         """delete() must accept ids >= 2^64 (was u64 -> OverflowError)."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         nid = self.BIG_IDS[0]
-        db.insert(nid, "to delete", [0.1] * 128)
-        assert db.get(nid) is not None, "node should exist before delete"
-        db.delete(nid, "ERR-023 cleanup")
-        assert db.get(nid) is None, "node should be None after delete with u128 id"
+        db.insert_node(nid, "to delete", [0.1] * 128)
+        assert db.get_node(nid) is not None, "node should exist before delete"
+        db.delete_node(nid, "ERR-023 cleanup")
+        assert db.get_node(nid) is None, "node should be None after delete with u128 id"
 
 
 class TestPersistentMemoryApi:
@@ -591,12 +591,12 @@ class TestEdgeManagement:
     def test_add_edge(self):
         """Adding an edge between two nodes."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
-        db.insert(1, "Source", [])
-        db.insert(2, "Target", [])
+        db.insert_node(1, "Source", [])
+        db.insert_node(2, "Target", [])
 
         db.add_edge(1, 2, "relates_to", weight=0.95)
 
-        node = db.get(1)
+        node = db.get_node(1)
         assert node is not None, "node should exist after insert"
         assert len(node["edges"]) > 0, f"expected at least 1 edge, got {len(node['edges'])}"
         edge = node["edges"][0]
@@ -612,8 +612,8 @@ class TestNumPyIntegration:
         import numpy as np
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         vec = np.ones(384, dtype=np.float32)
-        db.insert(1, "numpy test", vec)
-        node = db.get(1)
+        db.insert_node(1, "numpy test", vec)
+        node = db.get_node(1)
         assert node is not None, "node should exist after insert with numpy vector"
         assert node["vector_dims"] == 384, f"expected vector_dims 384, got {node['vector_dims']}"
 
@@ -622,7 +622,7 @@ class TestNumPyIntegration:
         import numpy as np
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         for i in range(1, 6):
-            db.insert(i, f"Node {i}", np.full(384, float(i) * 0.1, dtype=np.float32))
+            db.insert_node(i, f"Node {i}", np.full(384, float(i) * 0.1, dtype=np.float32))
         results = db.search_vector(np.full(384, 0.1, dtype=np.float32), top_k=3)
         assert len(results) > 0, f"search with numpy vector expected results, got {len(results)}"
         assert all(isinstance(r, tuple) and len(r) == 2 for r in results), f"each result should be a 2-tuple, got {results[:3]}"
@@ -636,16 +636,17 @@ class TestNumPyIntegration:
         assert record["key"] == "k", f"expected key 'k', got {record['key']}"
 
     def test_put_batch_parallel(self):
-        """put_batch should insert multiple records in parallel and return them in order."""
+        """put_batch inserts multiple records from an array of dicts (W1/API-02)."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
-        # keyword form with per-record `namespaces` column supports mixed namespaces
-        records = db.put_batch(
-            keys=["a", "b", "c", "d"],
-            vectors=[[0.1]*3, [0.2]*3, [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
-            payloads=["alpha", "beta", "gamma", "delta"],
-            metadatas=[None, {"type": "greek"}, None, {"rank": "4"}],
-            namespaces=["ns1", "ns1", "ns2", "ns1"],
-        )
+        # array-of-objects; per-record `namespace` routes each record (ERR-030)
+        records = db.put_batch([
+            {"namespace": "ns1", "key": "a", "payload": "alpha", "vector": [0.1] * 3},
+            {"namespace": "ns1", "key": "b", "payload": "beta", "vector": [0.2] * 3,
+             "metadata": {"type": "greek"}},
+            {"namespace": "ns2", "key": "c", "payload": "gamma", "vector": [1.0, 0.0, 0.0]},
+            {"namespace": "ns1", "key": "d", "payload": "delta", "vector": [0.0, 1.0, 0.0],
+             "metadata": {"rank": "4"}},
+        ])
         assert len(records) == 4, f"expected 4 records, got {len(records)}"
 
         assert records[0]["namespace"] == "ns1", f"expected 'ns1', got {records[0]['namespace']}"
@@ -665,12 +666,10 @@ class TestNumPyIntegration:
         """ERR-030: one batch spanning two namespaces must route each record
         into its own namespace — no cross-namespace data leak."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
-        records = db.put_batch(
-            keys=["k1", "k2"],
-            vectors=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
-            payloads=["from A", "from B"],
-            namespaces=["nsA", "nsB"],
-        )
+        records = db.put_batch([
+            {"namespace": "nsA", "key": "k1", "payload": "from A", "vector": [1.0, 0.0, 0.0]},
+            {"namespace": "nsB", "key": "k2", "payload": "from B", "vector": [0.0, 1.0, 0.0]},
+        ])
         assert [r["namespace"] for r in records] == ["nsA", "nsB"]
 
         # Read-back isolation: nsA holds only its own record, likewise nsB.
@@ -679,57 +678,64 @@ class TestNumPyIntegration:
         assert keys_a == ["k1"], f"nsA leaked records: {keys_a}"
         assert keys_b == ["k2"], f"nsB leaked records: {keys_b}"
 
-    def test_put_batch_namespaces_length_mismatch(self):
-        """ERR-030: per-record namespaces column must match keys length."""
+    def test_put_batch_rejects_invalid_records(self):
+        """W1/API-02: every record must be a dict carrying its own 'key'."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         with pytest.raises(ValueError):
-            db.put_batch(
-                keys=["k1", "k2"],
-                vectors=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
-                namespaces=["nsA"],
-            )
+            db.put_batch([{"namespace": "nsA", "payload": "missing key"}])
+        with pytest.raises(TypeError):
+            db.put_batch(["not-a-dict"])
 
     def test_put_batch_empty(self):
-        """put_batch with empty list should return empty list."""
+        """put_batch with an empty list should return an empty list."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
-        records = db.put_batch([], [])
+        records = db.put_batch([])
         assert records == [], f"expected empty list, got {records}"
 
     def test_put_batch_numpy_vectors(self):
-        """put_batch should accept numpy arrays as vectors."""
+        """put_batch should accept numpy arrays as per-record vectors."""
         import numpy as np
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         vec = np.array([1.0, 0.0, 0.0], dtype=np.float32)
-        records = db.put_batch(
-            keys=["x"],
-            payloads=["numpy entry"],
-            vectors=[vec],
-            namespace="ns",
-        )
+        records = db.put_batch([
+            {"namespace": "ns", "key": "x", "payload": "numpy entry", "vector": vec},
+        ])
         assert len(records) == 1, f"expected 1 record, got {len(records)}"
         assert records[0]["key"] == "x", f"expected key 'x', got {records[0]['key']}"
 
     def test_put_batch_metadata_coercion(self):
-        """GOV-TK7: put_batch metadatas must coerce scalar values like put() does
+        """GOV-TK7: put_batch metadata must coerce scalar values like put() does
         (int/float/bool), not just str — parity with put/put_batch_raw via
         py_dict_to_metadata."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
-        records = db.put_batch(
-            keys=["a", "b"],
-            vectors=[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
-            payloads=["alpha", "beta"],
-            metadatas=[
-                {"chunk_index": 3, "score": 0.5, "done": True},
-                {"source": "manual.pdf", "total_chunks": 12},
-            ],
-            namespace="ns",
-        )
+        records = db.put_batch([
+            {"namespace": "ns", "key": "a", "payload": "alpha", "vector": [1.0, 0.0, 0.0],
+             "metadata": {"chunk_index": 3, "score": 0.5, "done": True}},
+            {"namespace": "ns", "key": "b", "payload": "beta", "vector": [0.0, 1.0, 0.0],
+             "metadata": {"source": "manual.pdf", "total_chunks": 12}},
+        ])
         assert records[0]["metadata"]["chunk_index"] == 3
         assert records[0]["metadata"]["score"] == 0.5
         assert records[0]["metadata"]["done"] is True
         assert records[1]["metadata"]["total_chunks"] == 12
         # tutorial arithmetic (02-local-rag-pipeline L144) must work on batch metadata
         assert records[0]["metadata"]["chunk_index"] + 1 == 4
+
+    def test_search_multi_spans_namespaces(self):
+        """W1/API-02: search_multi routes across namespaces, merges by score."""
+        db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
+        db.put("docs", "a", "alpha", vector=[1.0, 0.0, 0.0])
+        db.put("kb", "b", "beta", vector=[1.0, 0.0, 0.0])
+        db.put("other", "c", "gamma", vector=[0.0, 1.0, 0.0])
+
+        hits = db.search_multi(["docs", "kb"], [1.0, 0.0, 0.0], top_k=5)
+        keys = {h.key for h in hits}
+        assert {"a", "b"}.issubset(keys), f"expected hits from both namespaces, got {keys}"
+        assert "c" not in keys, "search_multi must not leak the unsearched namespace"
+        assert hits[0].score >= hits[-1].score, "hits must be ordered by descending score"
+
+        with pytest.raises(ValueError):
+            db.search_multi([], [1.0, 0.0, 0.0])
 
     def test_memory_search_with_numpy_vector(self):
         """Memory search with numpy array should work."""
@@ -745,16 +751,16 @@ class TestNumPyIntegration:
         import numpy as np
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
         vec_f64 = np.ones(128, dtype=np.float64)
-        db.insert(1, "f64 test", vec_f64)
-        node = db.get(1)
+        db.insert_node(1, "f64 test", vec_f64)
+        node = db.get_node(1)
         assert node is not None, "node should exist after insert with f64 vector"
         assert node["vector_dims"] == 128, f"expected vector_dims 128, got {node['vector_dims']}"
 
     def test_list_fallback_still_works(self):
         """Regular Python lists should still work after buffer protocol changes."""
         db = vanta.Client(_unique_path(), memory_limit_bytes=128 * 1024 * 1024)
-        db.insert(1, "list test", [0.5] * 128)
-        node = db.get(1)
+        db.insert_node(1, "list test", [0.5] * 128)
+        node = db.get_node(1)
         assert node is not None, "node should exist after insert with list vector"
         assert node["vector_dims"] == 128, f"expected vector_dims 128, got {node['vector_dims']}"
 
@@ -1009,8 +1015,8 @@ class TestAsyncClient:
             async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
-                await db.insert(1, "Source", [])
-                await db.insert(2, "Target", [])
+                await db.insert_node(1, "Source", [])
+                await db.insert_node(2, "Target", [])
                 await db.add_edge(1, 2, "relates_to", weight=0.95)
 
                 bfs = await db.graph_bfs([1])
@@ -1033,9 +1039,9 @@ class TestAsyncClient:
             async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
-                await db.insert(1, "A", [])
-                await db.insert(2, "B", [])
-                await db.insert(3, "C", [])
+                await db.insert_node(1, "A", [])
+                await db.insert_node(2, "B", [])
+                await db.insert_node(3, "C", [])
                 await db.add_edge(1, 2, "next")
                 await db.add_edge(2, 3, "next")
 
@@ -1059,14 +1065,12 @@ class TestAsyncClient:
             async with vanta.AsyncClient(
                 _unique_path(), memory_limit_bytes=128 * 1024 * 1024
             ) as db:
-                # put_batch (keyword form)
-                records = await db.put_batch(
-                    keys=["a", "b"],
-                    vectors=[[0.1]*3, [0.2]*3],
-                    payloads=["alpha", "beta"],
-                    metadatas=[None, {"type": "greek"}],
-                    namespace="ns1",
-                )
+                # put_batch (array-of-objects, W1/API-02)
+                records = await db.put_batch([
+                    {"namespace": "ns1", "key": "a", "payload": "alpha", "vector": [0.1] * 3},
+                    {"namespace": "ns1", "key": "b", "payload": "beta", "vector": [0.2] * 3,
+                     "metadata": {"type": "greek"}},
+                ])
                 assert len(records) == 2, f"expected 2 records, got {len(records)}"
                 assert records[0]["key"] == "a", f"expected key 'a', got {records[0]['key']}"
 
@@ -1081,9 +1085,9 @@ class TestAsyncClient:
 
                 # low-level node APIs
                 for i in range(5):
-                    await db.insert(i + 1, f"Node {i}", [float(i + 1) * 0.1] * 8)
+                    await db.insert_node(i + 1, f"Node {i}", [float(i + 1) * 0.1] * 8)
 
-                node = await db.get(1)
+                node = await db.get_node(1)
                 assert node is not None and node["id"] == 1, f"get() should return node 1, got {node}"
 
                 hits = await db.search_vector([0.5] * 8, top_k=3)
@@ -1093,8 +1097,8 @@ class TestAsyncClient:
                 batch = await db.search_batch([[0.5] * 8, [0.9] * 8], top_k=3)
                 assert len(batch) == 2, f"expected 2 batch result sets, got {len(batch)}"
 
-                await db.delete(2, "async cleanup")
-                assert await db.get(2) is None, "node should be None after delete"
+                await db.delete_node(2, "async cleanup")
+                assert await db.get_node(2) is None, "node should be None after delete"
 
         asyncio.run(run())
 
