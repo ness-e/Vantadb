@@ -3,14 +3,17 @@
 use console::Term;
 
 use crate::cli_handlers::fmt::{header_style, info_style, warning_style};
-use crate::cli_handlers::{create_spinner, open_embedded, print_warning};
+use crate::cli_handlers::{create_spinner, open_embedded, print_json, print_warning};
 use crate::error::Result;
 
 #[tracing::instrument]
 /// List all namespaces in the database
-pub fn cmd_namespace_list(db_path: &str) -> Result<()> {
+pub fn cmd_namespace_list(db_path: &str, json_output: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
+        if json_output {
+            return print_json(&serde_json::Value::Array(Vec::new()));
+        }
         print_warning(&format!(
             "Database directory does not exist at '{}'. (empty)",
             db_path
@@ -23,6 +26,15 @@ pub fn cmd_namespace_list(db_path: &str) -> Result<()> {
     spinner.set_message("Listing namespaces...");
     let namespaces = db.list_namespaces()?;
     spinner.finish_and_clear();
+
+    if json_output {
+        return print_json(&serde_json::Value::Array(
+            namespaces
+                .iter()
+                .map(|ns| serde_json::Value::String(ns.clone()))
+                .collect(),
+        ));
+    }
 
     let term = Term::stdout();
     let _ = term.write_line("");
@@ -66,9 +78,16 @@ pub fn cmd_namespace_list(db_path: &str) -> Result<()> {
 
 #[tracing::instrument]
 /// Show record count and details for a specific namespace
-pub fn cmd_namespace_info(db_path: &str, namespace: &str) -> Result<()> {
+pub fn cmd_namespace_info(db_path: &str, namespace: &str, json_output: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     if !path.exists() {
+        if json_output {
+            return print_json(&serde_json::json!({
+                "namespace": namespace,
+                "records": 0,
+                "total_payload_bytes": 0,
+            }));
+        }
         print_warning(&format!(
             "Database directory does not exist at '{}'. (empty)",
             db_path
@@ -90,6 +109,16 @@ pub fn cmd_namespace_info(db_path: &str, namespace: &str) -> Result<()> {
     };
     let page = db.list(namespace, options)?;
     spinner.finish_and_clear();
+
+    let total_payload: usize = page.records.iter().map(|r| r.payload.len()).sum();
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "namespace": namespace,
+            "records": page.records.len(),
+            "total_payload_bytes": total_payload,
+        }));
+    }
 
     let term = Term::stdout();
     let _ = term.write_line("");
@@ -116,7 +145,6 @@ pub fn cmd_namespace_info(db_path: &str, namespace: &str) -> Result<()> {
             warning_style().apply_to("│  (empty)                                   │")
         ));
     } else {
-        let total_payload: usize = page.records.iter().map(|r| r.payload.len()).sum();
         let _ = term.write_line(&format!(
             "{}",
             info_style().apply_to(format!("│  Total payload: {} bytes", total_payload))

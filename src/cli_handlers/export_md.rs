@@ -22,7 +22,7 @@ use std::path::PathBuf;
 use serde::Serialize;
 
 use crate::cli_handlers::{
-    create_spinner, open_embedded, print_info, print_success, print_warning,
+    create_spinner, open_embedded, print_info, print_json, print_success, print_warning,
 };
 use crate::error::Result;
 use crate::sdk::MemoryRecord;
@@ -161,7 +161,12 @@ fn hash_bytes(data: &[u8]) -> u64 {
 
 /// Export all records in the given namespaces to a directory of MD files
 /// under `out_dir`. Creates `out_dir` if missing.
-pub fn cmd_export_md(db_path: &str, namespace: Option<&str>, out_dir: &str) -> Result<()> {
+pub fn cmd_export_md(
+    db_path: &str,
+    namespace: Option<&str>,
+    out_dir: &str,
+    json_output: bool,
+) -> Result<()> {
     let spinner = create_spinner("Opening database...");
     let embedded = open_embedded(db_path, true)?;
     spinner.finish_and_clear();
@@ -244,6 +249,15 @@ pub fn cmd_export_md(db_path: &str, namespace: Option<&str>, out_dir: &str) -> R
     let mut index_file = fs::File::create(&index_path)?;
     index_file.write_all(index_json.as_bytes())?;
     index_file.flush()?;
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "exported": total,
+            "out": out_path.display().to_string(),
+            "format": "md",
+            "index": index_path.display().to_string(),
+        }));
+    }
 
     if total == 0 {
         print_warning("No records to export");

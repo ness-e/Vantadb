@@ -6,17 +6,31 @@ use console::Term;
 use crate::cli::Cli;
 use crate::cli::Shell;
 use crate::cli_handlers::fmt::{header_style, info_style};
-use crate::cli_handlers::{create_spinner, open_database, print_info, print_warning, MIB};
+use crate::cli_handlers::{
+    create_spinner, open_database, print_info, print_json, print_warning, MIB,
+};
 use crate::error::{ChainedError, Result};
 
 #[tracing::instrument]
 /// Display database health diagnostics and system status
-pub fn cmd_status(db_path: &str, verbose: bool) -> Result<()> {
+pub fn cmd_status(db_path: &str, verbose: bool, json_output: bool) -> Result<()> {
     let path = std::path::Path::new(db_path);
     let term = Term::stdout();
 
     if !path.exists() {
         let metrics = crate::metrics::operational_metrics_snapshot();
+        if json_output {
+            return print_json(&serde_json::json!({
+                "path": db_path,
+                "initialized": false,
+                "backend": "Uninitialized (directory not found)",
+                "read_only": true,
+                "node_count": 0,
+                "cache_entries": 0,
+                "logical_bytes": 0,
+                "startup_ms": metrics.startup_ms,
+            }));
+        }
         let _ = term.write_line("");
         let _ = term.write_line(&format!(
             "{}",
@@ -77,6 +91,25 @@ pub fn cmd_status(db_path: &str, verbose: bool) -> Result<()> {
     let metrics = crate::metrics::operational_metrics_snapshot();
 
     spinner.finish_and_clear();
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "path": db_path,
+            "initialized": true,
+            "backend": format!("{:?}", engine.backend_kind()),
+            "read_only": engine.read_only,
+            "node_count": stats.node_count,
+            "cache_entries": stats.cache_entries,
+            "logical_bytes": stats.logical_bytes,
+            "physical_rss": stats.physical_rss,
+            "startup_ms": metrics.startup_ms,
+            "wal_replay_ms": metrics.wal_replay_ms,
+            "wal_records_replayed": metrics.wal_records_replayed,
+            "ann_rebuild_ms": metrics.ann_rebuild_ms,
+            "records_exported": metrics.records_exported,
+            "records_imported": metrics.records_imported,
+        }));
+    }
 
     let term = Term::stdout();
     let _ = term.write_line("");

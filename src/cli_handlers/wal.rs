@@ -4,37 +4,51 @@ use console::Term;
 use web_time::Instant;
 
 use crate::cli_handlers::fmt::{header_style, success_style};
-use crate::cli_handlers::{create_spinner, open_embedded, print_error, print_success};
+use crate::cli_handlers::{create_spinner, open_embedded, print_error, print_json, print_success};
 use crate::error::Result;
 
 #[tracing::instrument]
 /// Compact the WAL: flush all data, archive the current WAL file, start a fresh one.
-pub fn cmd_wal_compact(db_path: &str) -> Result<()> {
+pub fn cmd_wal_compact(db_path: &str, json_output: bool) -> Result<()> {
     let term = Term::stdout();
-    let _ = term.write_line("");
-    let _ = term.write_line(&format!(
-        "{}",
-        header_style().apply_to("╔═══════════════════════════════════════════════════════════╗")
-    ));
-    let _ = term.write_line(&format!(
-        "{}",
-        header_style().apply_to("║           VantaDB WAL Compaction                         ║")
-    ));
-    let _ = term.write_line(&format!(
-        "{}",
-        header_style().apply_to("╚═══════════════════════════════════════════════════════════╝")
-    ));
-    let _ = term.write_line("");
+    if !json_output {
+        let _ = term.write_line("");
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("╔═══════════════════════════════════════════════════════════╗")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style().apply_to("║           VantaDB WAL Compaction                         ║")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("╚═══════════════════════════════════════════════════════════╝")
+        ));
+        let _ = term.write_line("");
+    }
 
     let spinner = create_spinner("Opening database...");
 
     let db = open_embedded(db_path, false)?;
     spinner.finish_and_clear();
-    print_success("Database opened");
+    if !json_output {
+        print_success("Database opened");
+    }
 
     let compact_spinner = create_spinner("Compacting WAL...");
     db.compact_wal()?;
     compact_spinner.finish_and_clear();
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "command": "wal_compact",
+            "success": true,
+            "path": db_path,
+        }));
+    }
 
     let _ = term.write_line(&format!(
         "{}",
@@ -46,28 +60,34 @@ pub fn cmd_wal_compact(db_path: &str) -> Result<()> {
 
 #[tracing::instrument]
 /// Remove tombstoned nodes from HNSW and reclaim space.
-pub fn cmd_wal_vacuum(db_path: &str) -> Result<()> {
+pub fn cmd_wal_vacuum(db_path: &str, json_output: bool) -> Result<()> {
     let term = Term::stdout();
-    let _ = term.write_line("");
-    let _ = term.write_line(&format!(
-        "{}",
-        header_style().apply_to("╔═══════════════════════════════════════════════════════════╗")
-    ));
-    let _ = term.write_line(&format!(
-        "{}",
-        header_style().apply_to("║           VantaDB WAL Vacuum                             ║")
-    ));
-    let _ = term.write_line(&format!(
-        "{}",
-        header_style().apply_to("╚═══════════════════════════════════════════════════════════╝")
-    ));
-    let _ = term.write_line("");
+    if !json_output {
+        let _ = term.write_line("");
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("╔═══════════════════════════════════════════════════════════╗")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style().apply_to("║           VantaDB WAL Vacuum                             ║")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("╚═══════════════════════════════════════════════════════════╝")
+        ));
+        let _ = term.write_line("");
+    }
 
     let spinner = create_spinner("Opening database...");
 
     let db = open_embedded(db_path, false)?;
     spinner.finish_and_clear();
-    print_success("Database opened");
+    if !json_output {
+        print_success("Database opened");
+    }
 
     let vacuum_spinner = create_spinner("Vacuuming...");
     let start = Instant::now();
@@ -77,6 +97,18 @@ pub fn cmd_wal_vacuum(db_path: &str) -> Result<()> {
     vacuum_spinner.finish_and_clear();
 
     let total_duration = start.elapsed();
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "command": "wal_vacuum",
+            "success": report.success,
+            "scanned_nodes": report.scanned_nodes,
+            "removed_nodes": report.removed_nodes,
+            "reclaimed_bytes": report.reclaimed_bytes,
+            "duration_ms": report.duration_ms,
+            "total_ms": total_duration.as_millis() as u64,
+        }));
+    }
 
     if report.success {
         print_success("Vacuum completed successfully");
@@ -130,22 +162,26 @@ pub fn cmd_wal_vacuum(db_path: &str) -> Result<()> {
 /// `--dry_run`: report only. Otherwise truncate shards to the coherent
 /// prefix (tails quarantined to `<shard>.salvage[.N]`). Exit 0 on success;
 /// already-coherent WALs report and exit 0 without mutating.
-pub fn cmd_wal_salvage(db_path: &str, dry_run: bool) -> Result<()> {
+pub fn cmd_wal_salvage(db_path: &str, dry_run: bool, json_output: bool) -> Result<()> {
     let term = Term::stdout();
-    let _ = term.write_line("");
-    let _ = term.write_line(&format!(
-        "{}",
-        header_style().apply_to("╔═══════════════════════════════════════════════════════════╗")
-    ));
-    let _ = term.write_line(&format!(
-        "{}",
-        header_style().apply_to("║           VantaDB WAL Salvage (opt-in)                   ║")
-    ));
-    let _ = term.write_line(&format!(
-        "{}",
-        header_style().apply_to("╚═══════════════════════════════════════════════════════════╝")
-    ));
-    let _ = term.write_line("");
+    if !json_output {
+        let _ = term.write_line("");
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("╔═══════════════════════════════════════════════════════════╗")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style().apply_to("║           VantaDB WAL Salvage (opt-in)                   ║")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("╚═══════════════════════════════════════════════════════════╝")
+        ));
+        let _ = term.write_line("");
+    }
 
     let wal_base = std::path::Path::new(db_path).join("data").join("vanta.wal");
     let num_shards = crate::wal_sharded::detect_shard_count(&wal_base)
@@ -156,6 +192,34 @@ pub fn cmd_wal_salvage(db_path: &str, dry_run: bool) -> Result<()> {
     let spinner = create_spinner("Inspecting WAL shards (read-only)...");
     let preview = crate::wal_sharded::salvage_preview(&wal_base, num_shards)?;
     spinner.finish_and_clear();
+
+    if json_output {
+        let mut result = serde_json::json!({
+            "command": "wal_salvage",
+            "dry_run": dry_run,
+            "coherent": preview.coherent,
+            "shards": preview.shard_counts,
+            "coherent_prefix": preview.coherent_prefix,
+            "replayed": preview.replayed,
+            "discarded": preview.discarded,
+            "discarded_global_seqs": preview.discarded_global_seqs,
+            "backups": [],
+        });
+        if !preview.coherent && !dry_run {
+            let done = crate::wal_sharded::salvage(&wal_base, num_shards)?;
+            result["after"] = serde_json::json!({
+                "shards": done.after.shard_counts,
+                "replayed": done.after.replayed,
+            });
+            result["backups"] = serde_json::Value::Array(
+                done.backups
+                    .iter()
+                    .map(|b| serde_json::Value::String(b.display().to_string()))
+                    .collect(),
+            );
+        }
+        return print_json(&result);
+    }
 
     let _ = term.write_line(&format!("│  Shards:            {:?}", preview.shard_counts));
     let _ = term.write_line(&format!(

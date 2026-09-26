@@ -361,10 +361,10 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 | `delete-by-filter --namespace <ns> --filter <json>` | Delete records matching metadata filters |
 | `count [--namespace <ns>] [--filter <json>]` | Count records, optionally filtered |
 | `list --namespace <ns> [--limit <N>]` | List keys and values in a namespace |
-| `search --namespace <ns> --query <q> [--query-vector <v>] [--limit <N>] [--json]` | Search records semantically across a namespace |
-| `search-multi --namespaces <ns1,ns2> --query <q> [--query-vector <v>] [--top-k <N>] [--json]` | Search across multiple namespaces and merge results by score |
-| `search-all --query <q> [--query-vector <v>] [--top-k <N>] [--json]` | Search across ALL known namespaces and merge results by score |
-| `similar-to-key --namespace <ns> --key <k> [--top-k <N>] [--json]` | Find records similar to a given key using vector similarity search |
+| `search --namespace <ns> <query> [--query-vector <v>] [--limit <N>]` | Search records semantically across a namespace (`--query` alias) |
+| `search-multi --namespaces <ns1,ns2> [<query>] [--query-vector <v>] [--limit <N>]` | Search across multiple namespaces and merge results by score |
+| `search-all [<query>] [--query-vector <v>] [--limit <N>]` | Search across ALL known namespaces and merge results by score |
+| `similar-to-key --namespace <ns> --key <k> [--limit <N>]` | Find records similar to a given key using vector similarity search (`--top-k` alias) |
 | `query <iql_string> [--limit <N>]` | Execute a structured IQL/hybrid query |
 | `status` | Display database health diagnostics and system status |
 | `stats [--json]` | Database statistics (formatted or JSON) |
@@ -376,15 +376,15 @@ The CLI uses the embedded core directly and does not require the optional HTTP s
 
 > **Filter scope:** `--filter` on `list`/`delete-by-filter`/`count` matches **user metadata only**. Internal VantaDB fields (reserved prefix `__vanta_*`, e.g. `__vanta_payload`, `__vanta_vector`) are not user metadata — they are stripped from the returned `metadata` map and cannot be used as filter keys. A filter referencing a `__vanta_*` key returns no matches (they are filtered out as internal fields).
 | `backup --out <path>` | Full backup with WAL flush, file copy, CRC32 manifest |
-| `restore --input <path> [--force] [--rebuild]` | Restore from backup into the `--db` directory, optional rebuild |
+| `restore --in <path> [--force] [--rebuild]` | Restore from backup into the `--db` directory, optional rebuild (`--input` alias) |
 | `check [--namespace <ns>]` | Validate database structural integrity |
 | `migrate [--target-version <v>]` | Migrate storage format between versions |
 | `plan` | Preview migration steps without executing |
 | `run` | Execute a pre-planned migration |
 | `export [--namespace <ns>] --out <path>` | Export records to a JSONL file |
-| `import --input <path>` | Import records from a JSONL file |
+| `import --in <path>` | Import records from a JSONL file (`--input` alias) |
 | `namespace list` | List all namespaces |
-| `namespace info --namespace <ns>` | Show record count and details for a namespace |
+| `namespace info <ns>` | Show record count and details for a namespace |
 | `snapshot create --name <name>` | Create an instant filesystem snapshot by hard-linking all data files (copy on Windows) |
 | `snapshot list` | List all existing snapshots |
 | `wal compact` | Compact the WAL: flush all data, archive the current WAL file, and start a fresh one |
@@ -403,8 +403,9 @@ vanta-cli put --db ./vanta_data --namespace agent/main --key memory-1 --payload 
 vanta-cli put --db ./vanta_data --namespace agent/main --key memory-2 --payload "hello" --metadata '{"type":"note","priority":1}'
 vanta-cli get --db ./vanta_data --namespace agent/main --key memory-1
 vanta-cli list --db ./vanta_data --namespace agent/main
-vanta-cli search --db ./vanta_data --namespace agent/main --query "hello world" --query-vector "0.1,0.2,0.3" --limit 10
-vanta-cli similar-to-key --db ./vanta_data --namespace agent/main --key memory-1 --top-k 5
+vanta-cli search --db ./vanta_data --namespace agent/main "hello world" --query-vector "0.1,0.2,0.3" --limit 10
+vanta-cli search --db ./vanta_data --namespace agent/main "hello world" --json
+vanta-cli similar-to-key --db ./vanta_data --namespace agent/main --key memory-1 --limit 5
 vanta-cli count --db ./vanta_data --namespace agent/main
 vanta-cli status --db ./vanta_data
 vanta-cli stats --db ./vanta_data --json
@@ -413,13 +414,33 @@ vanta-cli audit-index --db ./vanta_data --deep
 vanta-cli rebuild-index --db ./vanta_data
 vanta-cli backup --db ./vanta_data --out ./vanta_data.bak
 vanta-cli export --db ./vanta_data --namespace agent/main --out ./agent-main.jsonl
-vanta-cli import --db ./vanta_data --input ./agent-main.jsonl
+vanta-cli import --db ./vanta_data --in ./agent-main.jsonl
 vanta-cli namespace list --db ./vanta_data
-vanta-cli namespace info --db ./vanta_data --namespace agent/main
+vanta-cli namespace info --db ./vanta_data agent/main
 vanta-cli server --http --port 8080 --db ./vanta_data
 vanta-cli tui --db ./vanta_data  # requires `--features tui` build; not in default binaries
 vanta-cli completions --shell powershell
 ```
+
+> **Machine-readable output (`--json`):** every command accepts a global
+> `--json` flag that prints one complete JSON document on stdout (never
+> truncated). Human output keeps previews only on a TTY, so piped output is
+> complete as well. `search`/`search-multi`/`search-all` take the text query as
+> a positional operand (`search --namespace ns "query"`); `--query` remains
+> accepted as a hidden alias. `--limit` is the canonical result-count flag
+> (`--top-k` remains as a hidden alias). `import`/`restore` read their input
+> from `--in` (`--input` remains as a hidden alias); `export`/`backup` write to
+> `--out`. Scripts should prefer `--json` over parsing human output.
+>
+> **Upgrade note (breaking CLI deltas):**
+> - `count --json` now prints `{"namespace": …, "count": …, "filter": …}` instead
+>   of a bare number, and `count` on a missing database exits non-zero (was 0).
+> - `migrate run --json` requires `--force` (JSON mode never prompts).
+> - **Index rebuild:** `put` maintains the derived/text indexes at write time
+>   and read commands (`search`, `count`, …) now open the database read-only
+>   (shared lock). A database whose last write was made by an older CLI build
+>   may need one `vanta-cli rebuild-index --db <path>` after upgrading so
+>   read-only queries observe every record.
 
 ## 5. Operational Metrics
 
