@@ -3,7 +3,7 @@ title: "Scoring Semantics — VantaDB Official Score Contract"
 type: api
 status: active
 tags: [vantadb, api, scoring, search-scores]
-last_reviewed: 2026-09-15
+last_reviewed: 2026-09-26
 aliases: []
 related: []
 ---
@@ -63,7 +63,8 @@ Helper centralization (this crate `src/api/scores.rs`): `cosine_distance_to_simi
 | SDK / Surface | Field | Direction | Conversion |
 |---------------|-------|-----------|------------|
 | `vantadb` (Rust core) `VantaMemorySearchHit` | `score` | higher-is-better | similarity (cosine) or negated Euclidean; pinned by `src/sdk/serialization/vector_types.rs::tests` |
-| `vantadb-mcp` `search_memory`/`search_semantic` | `distance` | lower-is-better | `distance = 1 - similarity` (cosine), `sqrt(euclidean_sq)` |
+| `vantadb-mcp` `memory_search` (hybrid, ex-`search_memory`; API-04 canonical) | `score` | higher-is-better | mirrors core (`MemorySearchHit.score`); legacy alias still dispatchable |
+| `vantadb-mcp` `search_semantic` (raw ANN) | `distance` | lower-is-better | `distance = 1 - similarity` (cosine), `sqrt(euclidean_sq)` |
 | `vantadb-python` `hit.score` | `score` | higher-is-better | mirrors core |
 | `vantadb-wasm` `SearchHit` | `score` / `distance` | higher / lower | JS mapping; see `WASM_API.md` |
 | `vantadb-ts` `SearchHit.score` | `score` | higher-is-better | mirrors core (W1/API-02: the pre-W1 `distance` rename was removed) |

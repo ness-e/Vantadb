@@ -2,7 +2,7 @@
 
 > **Campaign ID:** beca0c27-fd85-4489-8f93-8361888d662c
 > **Inicio:** 2026-09-24
-> **Estado:** 🔄 EN PROGRESO (8/9 ✅ API-01..08 — commits locales f6c395ef/ade86a1c; siguiente: API-09)
+> **Estado:** ✅ COMPLETADO 9/9 (2026-09-26) — API-09 cerrada (contrato 6/6); commit local pendiente del LEAD; siguiente: `skill progreso` + archivar planes + `/audit quick` → `/ship`
 > **Fuente:** `docs/dev/Backlog.md` Phase 51 (filas `API-01..API-09`)
 > **Autonomous:** false
 > **Modo:** PLAN (este archivo no cambia código; la ejecución es `/pipeline run` o `/pipeline task API-0X`)
@@ -260,9 +260,9 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Gate Result:** ✅ DO
 - **Contrato:** `VERSIONING.md` lista 11 superficies Y `validate-docs-coverage.ps1` verde Y `dev-tools/verify.ps1` verde Y MCP re-smoke verde Y `ocr-review.ps1` sin Critical/High Y plan 18/18 + este 9/9 para `/ship`
 - **Task file:** `docs/dev/tasks/API-09.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-26) — contrato 6/6: VERSIONING 11 superficies · `validate-docs-coverage.ps1` 0 gaps · `dev-tools/verify.ps1` ALL 11 PASS (incluye fix tooling: `cargo llvm-cov nextest run`→`nextest`, coverage real 81.63% ≥60) · MCP re-smoke 11/11 + probe 2/2 (score/distance) · OCR sin Critical/High (diff docs-only, 0 reviewable) · plan 18/18 + 9/9. Review: doubt-driven degradado + OCR; revisión independiente formal → LEAD (`/audit quick` → `/ship`).
+- **Branch:** develop
+- **Commit:** (pendiente — commit local del LEAD, política owner 2026-09-25)
 - **Cynefin:** 🟦 obvio — checklist de cierre
 - **Top 3 riesgos:** 1. Docs detrás del código 2. MCP stale 3. Versión/tag manual
 - **Pre-mortem:** F1: CHANGELOG manual; F2: ES en docs técnicas; F3: planes sin archivar
@@ -370,4 +370,25 @@ Resultado: OK
 Próxima acción: Lead: commit local selectivo de API-07 (24 archivos src/tests/docs/completions + docs/dev/tasks/API-07.md + plan; EXCLUIR changeset API-08: vanta-memory/**, docs/api/VANTA_MEMORY.md, docs/dev/tasks/API-08.md) + skill progreso; push solo con instrucción del owner. Luego API-08/API-09.
 Contrato: verificacion: cargo fmt --all --check -> exit 0 | cargo clippy --target-dir target/session-api01 -p vantadb --features cli,fjall,memmap2,fs2,roaring --lib --bins --test cli_tests -- -D warnings -> exit 0 | cargo test --test cli_tests -> 88 passed/0 failed | cargo test --lib -> 2124 passed/0 failed/2 ignored | cargo build --bin vanta-cli -> exit 0 | pwsh -NoProfile -File target/session-api01/smoke-api07.ps1 -> 56/56 checks, exit 0 | evidencia: claim='--help × comando capturado (contrato#1)' evidencia='target/session-api01/help/help_*.txt 39 capturas exit 0 + smoke check' confianza alta; claim='--json en TODOS con salida completa + humano truncado solo TTY (contrato#2)' evidencia='smoke 23+ checks parse/pureza + payload 304 chars íntegro json y piped + tests api07_cli_binary + unit truncate_for_term' confianza alta; claim='count sin DB exit≠0 (contrato#3)' evidencia='binario exit 1 + test_count_missing_db_errors + smoke' confianza alta; claim='println!("{count}") revisado (contrato#4)' evidencia='rg src=0 + count --json objeto {namespace,count,filter}' confianza alta; claim='lecturas sin ensure_indexes_current-RW (contrato#5, Regla 8)' evidencia='search.rs 4 fns open_embedded(true) shared lock + rg RW opens=0 + init.rs:199-217 try_lock_shared + builder.rs:113-114 ensure solo !read_only + regresión AUD-044 verde porque put vía SDK mantiene índices' confianza alta; claim='put vía SDK no bypass' evidencia='crud.rs cmd_put Embedded::put(MemoryInput)+flush; reserved __vanta_ y JSON inválido siguen rechazados (tests)' confianza alta; claim='logs a stderr; -v --json puro' evidencia='console.rs with_writer(stderr) 3 formatos + smoke put -v --json pure' confianza alta; claim='review P2-01' evidencia='docs/dev/tasks/API-07.md §Review ronda 2 APPROVE (sesión vanta-review ses_f23c884f5ffeuBuIxhFvAYwvJ0)' confianza alta; artefactos: docs/dev/tasks/API-07.md, target/session-api01/smoke-api07.ps1, target/session-api01/help/ (39), target/session-api01/ocr-api07.json, completions/ (4 shells), docs/user/operations/CONFIGURATION.md (+4 docs); invariantes: mcp-call/server --mcp/desktop sidecar intactos; put rechaza __vanta_ + flush ERR-050b; search fresco tras put sin rebuild (AUD-044); salidas humanas stdout/errores stderr; src/parser, src/server, bindings, vanta-memory, vantadb-mcp, vanta-proxy intocados; no commit/push por worker; deuda: D1 staleness de índices en DB escrita por CLI viejo hasta rebuild-index (documentado en CONFIGURATION.md upgrade note); D2 spawn vantadb-server PATH/cwd pre-existente; nit completions bash lista --query oculto; queda_pendiente: commit local selectivo del lead (excluir API-08) + skill progreso + push solo con instrucción del owner; nota: disco C ~2GB libres — deps de target/session-api01/debug (~19GB) candidatos a limpieza (costo: rebuild) si el próximo build falla por StorageFull
 Próxima tarea si completa: API-08 → API-09
+=== END RECITATION ===
+
+=== RECITATION API-09 ===
+Campaign ID: beca0c27-fd85-4489-8f93-8361888d662c
+Objetivo activo: API-09: W8 cierre — VERSIONING 11 superficies + docs/api sincronizadas + gates de cierre
+Estado: completed
+Última acción: Cierre completo 8/8 steps: VERSIONING 11 superficies + sync docs (scores.md MCP score/distance; ERROR_HANDLING/HTTP_API RFC9457+code) + FIND-161; validate-docs-coverage 0 gaps; verify.ps1 r2 ALL 11 PASS (fix tooling llvm-cov: `nextest run`→`nextest`, coverage real 81.63% ≥60); MCP re-smoke 11/11 + probe 2/2; OCR 0 Critical/High; plan 9/9. Changeset docs-only + dev-tools/verify.ps1; sin commit (LEAD).
+Resultado: OK
+Próxima acción: LEAD: commit local selectivo (7 tracked + docs/dev/tasks/API-09.md) + skill progreso + archivar planes + /audit quick → /ship. Owner: rebuild target/debug + restart OpenCode (refresh MCP local; el re-smoke corrió contra target/session-api01).
+Contrato: verificacion: `pwsh scripts/validate-docs-coverage.ps1` -> exit 0, 0 gaps | `$env:CARGO_TARGET_DIR='target\session-api01'; pwsh dev-tools/verify.ps1` -> ALL 11 PASS, exit 0 (r2; 1a corrida roja por bug de tooling corregido) | `python target/session-api01/smoke-api04.py` -> SMOKE API-04 OK 11 checks | `python target/session-api01/probe-api09.py` -> PROBE OK 2 checks | `pwsh dev-tools/ocr-review.ps1 -Format json` -> spec ok, 0 Critical/High (diff docs-only: 0 reviewable) | plan 18/18 + 9/9 (headers + Task 9 COMPLETED)
+evidencia:
+- claim: 'VERSIONING.md lista las 11 superficies (fuente API-STD-01 + Gate P API-STD-15)' evidencia: 'docs/api/VERSIONING.md (SURFACE ROWS=11; 20 links Test-Path 0 bad; sin rows=11 verificado)' confianza alta
+- claim: 'scores.md MCP: memory_search=score (hybrid) / search_semantic=distance (raw ANN)' evidencia: 'probe live: memory_search score=1.0 sin distance, search_semantic distance=0.0; src: vantadb-mcp/src/handlers/tools.rs:3140-3143,1858-1913 + src/sdk/serialization/vector_types.rs:69-76' confianza alta
+- claim: 'RFC 9457 en HTTP no implementado; envelope real {success,code,error|data}; FIND-161 registrada' evidencia: 'rg problem+json src/server = 0; src/server/errors.rs:132-163; docs/dev/Backlog.md FIND-161' confianza alta
+- claim: 'fix verify.ps1 coverage sin debilitar el gate (umbral 60 intacto)' evidencia: 'target/session-api01/api09-coverage.log TOTAL 81.63% lineas exit 0; api09-verify-r2.log ALL 11 PASS; forma canonica CI ci-rust.yml:363 (sin token run)' confianza alta
+- claim: 'MCP re-smoke verde contra binarios del session dir' evidencia: 'smoke-api04.py 11/11 + probe 2/2 (binarios target/session-api01/debug)' confianza alta
+artefactos: docs/api/VERSIONING.md, docs/api/scores.md, docs/api/ERROR_HANDLING.md, docs/api/HTTP_API.md, docs/dev/Backlog.md (FIND-161), docs/dev/plans/2026-09-24-api-ejecucion.md (9/9), dev-tools/verify.ps1 (fix), docs/dev/tasks/API-09.md, target/session-api01/{api09-verify.log, api09-verify-r2.log, api09-coverage.log, api09-ocr.json, probe-api09.py}
+invariantes: no se toco codigo de producto ni CHANGELOG/versiones (release-plz); no se archivaron planes (LEAD); gates con CARGO_TARGET_DIR=target\session-api01; umbral coverage 60 intacto; docs tecnicas EN
+deuda: FIND-161 nueva (RFC 9457 HTTP pendiente, dueno sugerido server); deuda previa intacta (FIND-155..160, FIND-79 DEFER); sin deuda tecnica nueva (docs-only + 1 fix de tooling)
+queda_pendiente: LEAD — commit local selectivo (7 tracked + task file), skill progreso, archivar planes, /audit quick -> /ship; OWNER — rebuild target/debug + restart OpenCode (refresh MCP local)
+Próxima tarea si completa: ninguna — ultima de la campana; cierre = LEAD (progreso + archivado + /ship)
 === END RECITATION ===
