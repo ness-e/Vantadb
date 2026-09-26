@@ -102,6 +102,9 @@ pub fn print_banner() {
 /// | Full | Yes | Yes | Yes | Yes | Default fmt, full metadata |
 ///
 /// Respects the `RUST_LOG` env var (defaults to `info`).
+///
+/// Logs are always written to **stderr** so stdout stays clean for data
+/// output (`--json`) and machine protocols.
 pub fn init_logging(format: crate::config::LogFormat) {
     use tracing_subscriber::fmt;
     use tracing_subscriber::EnvFilter;
@@ -112,6 +115,7 @@ pub fn init_logging(format: crate::config::LogFormat) {
         crate::config::LogFormat::Json => {
             fmt::Subscriber::builder()
                 .with_env_filter(filter)
+                .with_writer(std::io::stderr)
                 .with_target(true)
                 .with_thread_ids(true)
                 .with_file(true)
@@ -123,6 +127,7 @@ pub fn init_logging(format: crate::config::LogFormat) {
         crate::config::LogFormat::Full => {
             fmt::Subscriber::builder()
                 .with_env_filter(filter)
+                .with_writer(std::io::stderr)
                 .with_target(true)
                 .with_thread_ids(true)
                 .with_file(true)
@@ -133,6 +138,7 @@ pub fn init_logging(format: crate::config::LogFormat) {
         crate::config::LogFormat::Compact => {
             fmt::Subscriber::builder()
                 .with_env_filter(filter)
+                .with_writer(std::io::stderr)
                 .with_target(false)
                 .with_thread_ids(false)
                 .with_file(false)

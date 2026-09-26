@@ -5,13 +5,14 @@ use web_time::Instant;
 
 use crate::cli_handlers::fmt::header_style;
 use crate::cli_handlers::{
-    confirm_action, create_spinner, print_error, print_info, print_success, print_warning,
+    confirm_action, create_spinner, print_error, print_info, print_json, print_success,
+    print_warning,
 };
 use crate::error::{ChainedError, Result};
 
 #[tracing::instrument]
 /// Print the planned migrations without executing them
-pub fn cmd_migrate_plan(db_path: &str, verbose: bool) -> Result<()> {
+pub fn cmd_migrate_plan(db_path: &str, verbose: bool, json_output: bool) -> Result<()> {
     use crate::migration::MigrationEngine;
 
     let path = std::path::Path::new(db_path);
@@ -25,6 +26,21 @@ pub fn cmd_migrate_plan(db_path: &str, verbose: bool) -> Result<()> {
 
     let engine = MigrationEngine::new(db_path);
     let plans = engine.plan_all()?;
+
+    if json_output {
+        let plans_json: Vec<serde_json::Value> = plans
+            .iter()
+            .map(|plan| {
+                serde_json::json!({
+                    "format": plan.format.name(),
+                    "current_version": plan.current_version,
+                    "target_version": plan.target_version,
+                    "action": plan.action,
+                })
+            })
+            .collect();
+        return print_json(&serde_json::json!({ "plans": plans_json }));
+    }
 
     let term = Term::stdout();
     let _ = term.write_line("");
@@ -64,7 +80,7 @@ pub fn cmd_migrate_plan(db_path: &str, verbose: bool) -> Result<()> {
 
 #[tracing::instrument]
 /// Check storage integrity and report any issues found
-pub fn cmd_migrate_check(db_path: &str, verbose: bool) -> Result<()> {
+pub fn cmd_migrate_check(db_path: &str, verbose: bool, json_output: bool) -> Result<()> {
     use crate::migration::MigrationEngine;
 
     let path = std::path::Path::new(db_path);
@@ -78,6 +94,13 @@ pub fn cmd_migrate_check(db_path: &str, verbose: bool) -> Result<()> {
 
     let engine = MigrationEngine::new(db_path);
     let issues = engine.check_integrity()?;
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "issues": issues,
+            "issue_count": issues.len(),
+        }));
+    }
 
     let term = Term::stdout();
     let _ = term.write_line("");
@@ -117,22 +140,27 @@ pub fn cmd_migrate(
     dry_run: bool,
     force: bool,
     verbose: bool,
+    json_output: bool,
 ) -> Result<()> {
     let term = Term::stdout();
-    let _ = term.write_line("");
-    let _ = term.write_line(&format!(
-        "{}",
-        header_style().apply_to("╔═══════════════════════════════════════════════════════════╗")
-    ));
-    let _ = term.write_line(&format!(
-        "{}",
-        header_style().apply_to("║           VantaDB Database Migration                     ║")
-    ));
-    let _ = term.write_line(&format!(
-        "{}",
-        header_style().apply_to("╚═══════════════════════════════════════════════════════════╝")
-    ));
-    let _ = term.write_line("");
+    if !json_output {
+        let _ = term.write_line("");
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("╔═══════════════════════════════════════════════════════════╗")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style().apply_to("║           VantaDB Database Migration                     ║")
+        ));
+        let _ = term.write_line(&format!(
+            "{}",
+            header_style()
+                .apply_to("╚═══════════════════════════════════════════════════════════╝")
+        ));
+        let _ = term.write_line("");
+    }
 
     let target = std::path::Path::new(target_path);
     if !target.exists() {
@@ -165,12 +193,16 @@ pub fn cmd_migrate(
         }
     };
 
+    let mut schema_json = serde_json::Value::Null;
+    let mut plans_json: Vec<serde_json::Value> = Vec::new();
+    let mut issues_json: Vec<String> = Vec::new();
+
     // Schema migration uses the existing logic
     if formats.contains(&FormatKind::Schema) || format == "all" {
         let schema_path = target.join(".vanta.schema");
         let current_header = match StorageHeader::read_from(&schema_path)? {
             Some(header) => {
-                if verbose {
+                if verbose && !json_output {
                     print_info(&format!(
                         "Current schema: version={}, min_compat={}, flags={}",
                         header.version, header.min_compat_version, header.flags
@@ -179,10 +211,20 @@ pub fn cmd_migrate(
                 header
             }
             None => {
-                print_warning("No schema file found; database may be pre-versioning.");
-                print_info("Writing current schema header...");
                 let header = StorageHeader::current();
                 header.write_to(&schema_path)?;
+                if json_output {
+                    return print_json(&serde_json::json!({
+                        "target": target_path,
+                        "format": format,
+                        "dry_run": dry_run,
+                        "schema": {"status": "written", "version": CURRENT_SCHEMA_VERSION},
+                        "plans": plans_json,
+                        "integrity_issues": issues_json,
+                    }));
+                }
+                print_warning("No schema file found; database may be pre-versioning.");
+                print_info("Writing current schema header...");
                 print_success(&format!(
                     "Schema header written: version={}",
                     CURRENT_SCHEMA_VERSION
@@ -212,19 +254,33 @@ pub fn cmd_migrate(
             let elapsed = start.elapsed();
             spinner.finish_and_clear();
 
-            print_success(&format!(
-                "Schema migrated: version {} → {} ({} ms)",
-                current_header.version,
-                CURRENT_SCHEMA_VERSION,
-                elapsed.as_millis()
-            ));
+            schema_json = serde_json::json!({
+                "status": "migrated",
+                "from": current_header.version,
+                "to": CURRENT_SCHEMA_VERSION,
+            });
 
-            if verbose {
-                print_info(&format!("Schema file: {}", schema_path.display()));
-                print_info(&format!("Header size: {} bytes", HEADER_SIZE));
+            if !json_output {
+                print_success(&format!(
+                    "Schema migrated: version {} → {} ({} ms)",
+                    current_header.version,
+                    CURRENT_SCHEMA_VERSION,
+                    elapsed.as_millis()
+                ));
+
+                if verbose {
+                    print_info(&format!("Schema file: {}", schema_path.display()));
+                    print_info(&format!("Header size: {} bytes", HEADER_SIZE));
+                }
             }
         } else {
-            print_info("Schema is already at the latest version");
+            schema_json = serde_json::json!({
+                "status": "current",
+                "version": CURRENT_SCHEMA_VERSION,
+            });
+            if !json_output {
+                print_info("Schema is already at the latest version");
+            }
         }
     }
 
@@ -239,23 +295,46 @@ pub fn cmd_migrate(
         engine.set_dry_run(dry_run);
 
         if dry_run {
-            print_info("--- Dry Run: checking migration requirements ---");
+            if !json_output {
+                print_info("--- Dry Run: checking migration requirements ---");
+            }
             let plans = engine.plan_all()?;
-            if plans.is_empty() {
-                print_success("All formats are at their latest version");
-            } else {
-                for plan in &plans {
-                    let _ = term.write_line(&format!(
-                        "  {} v{} → v{}: {}",
-                        plan.format.name(),
-                        plan.current_version,
-                        plan.target_version,
-                        plan.action
-                    ));
+            plans_json = plans
+                .iter()
+                .map(|plan| {
+                    serde_json::json!({
+                        "format": plan.format.name(),
+                        "current_version": plan.current_version,
+                        "target_version": plan.target_version,
+                        "action": plan.action,
+                    })
+                })
+                .collect();
+            if !json_output {
+                if plans.is_empty() {
+                    print_success("All formats are at their latest version");
+                } else {
+                    for plan in &plans {
+                        let _ = term.write_line(&format!(
+                            "  {} v{} → v{}: {}",
+                            plan.format.name(),
+                            plan.current_version,
+                            plan.target_version,
+                            plan.action
+                        ));
+                    }
                 }
             }
         } else {
             if !force {
+                // JSON mode is non-interactive: mutating migrations require
+                // an explicit `--force` so `--json` consumers never hang on a
+                // prompt.
+                if json_output {
+                    return Err(crate::error::Error::Cli(ChainedError::msg(
+                        "migrate run --json requires --force (JSON mode never prompts interactively)",
+                    )));
+                }
                 let plans = engine.plan_all()?;
                 if plans.is_empty() {
                     print_success("All formats are at their latest version");
@@ -279,6 +358,19 @@ pub fn cmd_migrate(
                     print_warning("Migration cancelled by user");
                     return Ok(());
                 }
+            } else if json_output {
+                plans_json = engine
+                    .plan_all()?
+                    .iter()
+                    .map(|plan| {
+                        serde_json::json!({
+                            "format": plan.format.name(),
+                            "current_version": plan.current_version,
+                            "target_version": plan.target_version,
+                            "action": plan.action,
+                        })
+                    })
+                    .collect();
             }
 
             for fmt in &physical_formats {
@@ -287,7 +379,7 @@ pub fn cmd_migrate(
                 engine.migrate_format(*fmt)?;
                 let elapsed = start.elapsed();
                 spinner.finish_and_clear();
-                if verbose {
+                if verbose && !json_output {
                     print_info(&format!(
                         "  {} completed in {} ms",
                         fmt.name(),
@@ -298,13 +390,25 @@ pub fn cmd_migrate(
 
             // Check integrity after migration
             let issues = engine.check_integrity()?;
-            if !issues.is_empty() {
+            if !issues.is_empty() && !json_output {
                 print_warning("Post-migration integrity warnings:");
                 for issue in &issues {
                     let _ = term.write_line(&format!("  ⚠ {}", issue));
                 }
             }
+            issues_json = issues;
         }
+    }
+
+    if json_output {
+        return print_json(&serde_json::json!({
+            "target": target_path,
+            "format": format,
+            "dry_run": dry_run,
+            "schema": schema_json,
+            "plans": plans_json,
+            "integrity_issues": issues_json,
+        }));
     }
 
     Ok(())

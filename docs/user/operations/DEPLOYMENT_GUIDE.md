@@ -528,10 +528,10 @@ See [BACKUP_POLICY.md](BACKUP_POLICY.md) for the full backup operational policy.
 vanta-cli backup --out /backups/vantadb-$(date +%F)
 
 # Restore (target DB dir must be empty; add --force to overwrite)
-vanta-cli restore --input /backups/vantadb-2026-07-10 --db /var/lib/vantadb/data
+vanta-cli restore --in /backups/vantadb-2026-07-10 --db /var/lib/vantadb/data
 
 # Restore with index rebuild
-vanta-cli restore --input /backups/vantadb-2026-07-10 --rebuild --force --db /var/lib/vantadb/data
+vanta-cli restore --in /backups/vantadb-2026-07-10 --rebuild --force --db /var/lib/vantadb/data
 ```
 
 ---

@@ -31,6 +31,12 @@ pub struct Cli {
     #[arg(long, env = "VANTADB_MEMORY_LIMIT", global = true)]
     pub memory_limit: Option<String>,
 
+    /// Output complete, machine-readable JSON on stdout (never truncated).
+    /// Errors still go to stderr and exit codes are unchanged. Applies to
+    /// every subcommand that produces data output.
+    #[arg(long, global = true)]
+    pub json: bool,
+
     #[command(subcommand)]
     /// The subcommand to execute
     pub command: Commands,
@@ -86,9 +92,6 @@ pub enum Commands {
         /// Optional namespace to audit (audits all if not specified)
         #[arg(long)]
         namespace: Option<String>,
-        /// Output results as JSON
-        #[arg(long)]
-        json: bool,
         /// Perform deep structural validation
         #[arg(long)]
         deep: bool,
@@ -119,8 +122,8 @@ pub enum Commands {
 
     /// Import records from a JSON file
     Import {
-        /// Input file path
-        #[arg(long, name = "in")]
+        /// Input file path (`--in`; `--input` kept as a hidden alias)
+        #[arg(long = "in", alias = "input")]
         input: String,
     },
 
@@ -149,8 +152,8 @@ pub enum Commands {
 
     /// Restore the database from a previously created backup directory
     Restore {
-        /// Path to the backup directory
-        #[arg(long)]
+        /// Path to the backup directory (`--in`; `--input` kept as a hidden alias)
+        #[arg(long = "in", alias = "input")]
         input: String,
         /// Overwrite existing database directory if it exists
         #[arg(long)]
@@ -186,11 +189,7 @@ pub enum Commands {
     },
 
     /// Display detailed database statistics in human-readable or JSON format
-    Stats {
-        /// Output statistics as JSON
-        #[arg(long)]
-        json: bool,
-    },
+    Stats,
 
     /// Launch the interactive TUI (requires `tui` feature)
     #[cfg(feature = "tui")]
@@ -208,18 +207,18 @@ pub enum Commands {
         /// Namespace to search within
         #[arg(long)]
         namespace: String,
-        /// Text query for semantic/hybrid search
-        #[arg(long)]
-        query: String,
+        /// Text query (positional operand; `--query` remains as a hidden alias)
+        #[arg(value_name = "QUERY", required_unless_present = "query_flag")]
+        query: Option<String>,
+        /// Hidden alias for the positional QUERY (kept for existing scripts)
+        #[arg(long = "query", hide = true, conflicts_with = "query")]
+        query_flag: Option<String>,
         /// Optional explicit vector query (comma-separated f32 values)
         #[arg(long)]
         query_vector: Option<String>,
         /// Maximum number of results
-        #[arg(long, default_value = "10")]
+        #[arg(long, default_value = "10", alias = "top-k")]
         limit: usize,
-        /// Output in JSON format
-        #[arg(long)]
-        json: bool,
     },
 
     /// Delete a record by namespace and key
@@ -252,9 +251,6 @@ pub enum Commands {
         /// Optional JSON filter (same format as delete-by-filter)
         #[arg(long)]
         filter: Option<String>,
-        /// Output as raw number only
-        #[arg(long)]
-        json: bool,
     },
 
     /// Find records similar to a given key using vector similarity search
@@ -265,12 +261,9 @@ pub enum Commands {
         /// Key of the reference record
         #[arg(long)]
         key: String,
-        /// Number of similar records to return
-        #[arg(long, default_value = "10")]
-        top_k: usize,
-        /// Output in JSON format
-        #[arg(long)]
-        json: bool,
+        /// Number of similar records to return (`--top-k` kept as a hidden alias)
+        #[arg(long, default_value = "10", alias = "top-k")]
+        limit: usize,
     },
 
     /// Migrate a database to the latest storage schema version
@@ -294,34 +287,34 @@ pub enum Commands {
         /// Comma-separated list of namespaces to search (e.g. "ns1,ns2,ns3")
         #[arg(long)]
         namespaces: String,
-        /// Text query for hybrid/lexical search
-        #[arg(long)]
+        /// Text query (optional positional operand; `--query` remains as a hidden alias)
+        #[arg(value_name = "QUERY")]
         query: Option<String>,
+        /// Hidden alias for the positional QUERY (kept for existing scripts)
+        #[arg(long = "query", hide = true, conflicts_with = "query")]
+        query_flag: Option<String>,
         /// Optional explicit vector query (comma-separated f32 values)
         #[arg(long)]
         query_vector: Option<String>,
-        /// Maximum number of results across all namespaces
-        #[arg(long, default_value = "10")]
-        top_k: usize,
-        /// Output in JSON format
-        #[arg(long)]
-        json: bool,
+        /// Maximum number of results across all namespaces (`--top-k` hidden alias)
+        #[arg(long, default_value = "10", alias = "top-k")]
+        limit: usize,
     },
 
     /// Search across ALL known namespaces and merge results by score
     SearchAll {
-        /// Text query for hybrid/lexical search
-        #[arg(long)]
+        /// Text query (optional positional operand; `--query` remains as a hidden alias)
+        #[arg(value_name = "QUERY")]
         query: Option<String>,
+        /// Hidden alias for the positional QUERY (kept for existing scripts)
+        #[arg(long = "query", hide = true, conflicts_with = "query")]
+        query_flag: Option<String>,
         /// Optional explicit vector query (comma-separated f32 values)
         #[arg(long)]
         query_vector: Option<String>,
-        /// Maximum number of results across all namespaces
-        #[arg(long, default_value = "10")]
-        top_k: usize,
-        /// Output in JSON format
-        #[arg(long)]
-        json: bool,
+        /// Maximum number of results across all namespaces (`--top-k` hidden alias)
+        #[arg(long, default_value = "10", alias = "top-k")]
+        limit: usize,
     },
 
     /// Start the HTTP or MCP server wrapper

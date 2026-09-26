@@ -10,13 +10,13 @@ fn setup_temp_db() -> (tempfile::TempDir, String) {
     let dir = tempfile::tempdir().expect("failed to create temp dir");
     let path = dir.path().to_string_lossy().to_string();
     // Initialize the database by opening in read-write mode first
-    vantadb::cli_handlers::cmd_put(&path, "_init", "_init", "", None, None, false)
+    vantadb::cli_handlers::cmd_put(&path, "_init", "_init", "", None, None, false, false)
         .expect("init put failed");
     (dir, path)
 }
 
 fn seed_record(db_path: &str, namespace: &str, key: &str, payload: &str) {
-    vantadb::cli_handlers::cmd_put(db_path, namespace, key, payload, None, None, false)
+    vantadb::cli_handlers::cmd_put(db_path, namespace, key, payload, None, None, false, false)
         .expect("seed put failed");
 }
 
@@ -71,7 +71,7 @@ fn test_get_nonexistent() {
     let (_dir, path) = setup_temp_db();
 
     // get on empty db should error
-    let result = vantadb::cli_handlers::cmd_get(&path, "ns", "missing", false);
+    let result = vantadb::cli_handlers::cmd_get(&path, "ns", "missing", false, false);
     assert!(result.is_err(), "expected error for missing record");
 }
 
@@ -86,6 +86,7 @@ fn test_put_with_vector() {
         Some("1.0,2.0,3.0"),
         None,
         false,
+        false,
     )
     .expect("put with vector failed");
 
@@ -99,7 +100,8 @@ fn test_put_with_vector() {
 #[test]
 fn test_put_invalid_vector() {
     let (_dir, path) = setup_temp_db();
-    let result = vantadb::cli_handlers::cmd_put(&path, "ns", "k", "data", Some("abc"), None, false);
+    let result =
+        vantadb::cli_handlers::cmd_put(&path, "ns", "k", "data", Some("abc"), None, false, false);
     assert!(result.is_err(), "expected error for invalid vector");
 }
 
@@ -113,6 +115,7 @@ fn test_put_with_metadata_roundtrip() {
         "data with meta",
         None,
         Some(r#"{"color":"blue","count":2,"active":true}"#),
+        false,
         false,
     )
     .expect("put with metadata failed");
@@ -153,6 +156,7 @@ fn test_put_metadata_rejects_reserved_prefix() {
         None,
         Some(r#"{"__vanta_payload":"spoofed"}"#),
         false,
+        false,
     );
     assert!(
         result.is_err(),
@@ -171,6 +175,7 @@ fn test_put_metadata_invalid_json() {
         None,
         Some(r##"{"color": "##),
         false,
+        false,
     );
     assert!(result.is_err(), "malformed metadata JSON must be rejected");
 }
@@ -179,7 +184,7 @@ fn test_put_metadata_invalid_json() {
 fn test_list_empty_namespace() {
     let (_dir, path) = setup_temp_db();
     // list on empty db should succeed (prints warning)
-    let result = vantadb::cli_handlers::cmd_list(&path, "empty_ns", 10, false);
+    let result = vantadb::cli_handlers::cmd_list(&path, "empty_ns", 10, false, false);
     if let Err(e) = &result {
         eprintln!("ERROR: {:?}", e);
     }
@@ -198,7 +203,7 @@ fn test_list_with_records() {
     seed_record(&path, "ns1", "c", "payload c");
 
     // list with limit
-    let result = vantadb::cli_handlers::cmd_list(&path, "ns1", 2, false);
+    let result = vantadb::cli_handlers::cmd_list(&path, "ns1", 2, false, false);
     assert!(result.is_ok());
 }
 
@@ -231,7 +236,7 @@ fn test_delete_record() {
     seed_record(&path, "del_ns", "del_key", "to delete");
 
     // delete existing
-    let result = vantadb::cli_handlers::cmd_delete(&path, "del_ns", "del_key", false);
+    let result = vantadb::cli_handlers::cmd_delete(&path, "del_ns", "del_key", false, false);
     assert!(result.is_ok());
 
     // verify gone
@@ -244,7 +249,7 @@ fn test_delete_record() {
 fn test_delete_nonexistent() {
     let (_dir, path) = setup_temp_db();
     // delete missing should succeed (prints warning)
-    let result = vantadb::cli_handlers::cmd_delete(&path, "ns", "missing", false);
+    let result = vantadb::cli_handlers::cmd_delete(&path, "ns", "missing", false, false);
     assert!(result.is_ok());
 }
 
@@ -252,7 +257,7 @@ fn test_delete_nonexistent() {
 fn test_delete_verbose() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "v_ns", "v_key", "verbose delete");
-    let result = vantadb::cli_handlers::cmd_delete(&path, "v_ns", "v_key", true);
+    let result = vantadb::cli_handlers::cmd_delete(&path, "v_ns", "v_key", true, false);
     assert!(result.is_ok());
 }
 
@@ -295,7 +300,7 @@ fn test_search_with_results() {
 #[test]
 fn test_namespace_list_empty() {
     let (_dir, path) = setup_temp_db();
-    let result = vantadb::cli_handlers::cmd_namespace_list(&path);
+    let result = vantadb::cli_handlers::cmd_namespace_list(&path, false);
     if let Err(e) = &result {
         eprintln!("ERROR: {:?}", e);
     }
@@ -320,14 +325,14 @@ fn test_namespace_info() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "info_ns", "k1", "hello world");
 
-    let result = vantadb::cli_handlers::cmd_namespace_info(&path, "info_ns");
+    let result = vantadb::cli_handlers::cmd_namespace_info(&path, "info_ns", false);
     assert!(result.is_ok());
 }
 
 #[test]
 fn test_namespace_info_empty() {
     let (_dir, path) = setup_temp_db();
-    let result = vantadb::cli_handlers::cmd_namespace_info(&path, "empty_ns");
+    let result = vantadb::cli_handlers::cmd_namespace_info(&path, "empty_ns", false);
     if let Err(e) = &result {
         eprintln!("ERROR: {:?}", e);
     }
@@ -342,11 +347,11 @@ fn test_status_no_db() {
     if Path::new(path).exists() {
         eprintln!("WARNING: test directory exists, using temp dir instead");
         let (_dir, tmp_path) = setup_temp_db();
-        let result = vantadb::cli_handlers::cmd_status(&tmp_path, false);
+        let result = vantadb::cli_handlers::cmd_status(&tmp_path, false, false);
         assert!(result.is_ok());
         return;
     }
-    let result = vantadb::cli_handlers::cmd_status(path, false);
+    let result = vantadb::cli_handlers::cmd_status(path, false, false);
     assert!(result.is_ok());
 }
 
@@ -354,7 +359,7 @@ fn test_status_no_db() {
 fn test_status_with_db() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "st_ns", "st_k", "status test");
-    let result = vantadb::cli_handlers::cmd_status(&path, false);
+    let result = vantadb::cli_handlers::cmd_status(&path, false, false);
     assert!(result.is_ok());
 }
 
@@ -362,7 +367,7 @@ fn test_status_with_db() {
 fn test_status_verbose() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "st_v", "k", "verbose status");
-    let result = vantadb::cli_handlers::cmd_status(&path, true);
+    let result = vantadb::cli_handlers::cmd_status(&path, true, false);
     assert!(result.is_ok());
 }
 
@@ -393,19 +398,19 @@ fn test_memory_node_id_different_namespaces() {
 
 #[test]
 fn test_cmd_get_missing_db() {
-    let result = vantadb::cli_handlers::cmd_get("./ghost_dir", "ns", "k", false);
+    let result = vantadb::cli_handlers::cmd_get("./ghost_dir", "ns", "k", false, false);
     assert!(result.is_ok(), "missing db should warn, not error");
 }
 
 #[test]
 fn test_cmd_list_missing_db() {
-    let result = vantadb::cli_handlers::cmd_list("./ghost_dir", "ns", 10, false);
+    let result = vantadb::cli_handlers::cmd_list("./ghost_dir", "ns", 10, false, false);
     assert!(result.is_ok(), "missing db should warn, not error");
 }
 
 #[test]
 fn test_cmd_delete_missing_db() {
-    let result = vantadb::cli_handlers::cmd_delete("./ghost_dir", "ns", "k", false);
+    let result = vantadb::cli_handlers::cmd_delete("./ghost_dir", "ns", "k", false, false);
     assert!(result.is_ok(), "missing db should warn, not error");
 }
 
@@ -417,13 +422,13 @@ fn test_cmd_search_missing_db() {
 
 #[test]
 fn test_cmd_namespace_list_missing_db() {
-    let result = vantadb::cli_handlers::cmd_namespace_list("./ghost_dir");
+    let result = vantadb::cli_handlers::cmd_namespace_list("./ghost_dir", false);
     assert!(result.is_ok(), "missing db should warn, not error");
 }
 
 #[test]
 fn test_cmd_namespace_info_missing_db() {
-    let result = vantadb::cli_handlers::cmd_namespace_info("./ghost_dir", "ns");
+    let result = vantadb::cli_handlers::cmd_namespace_info("./ghost_dir", "ns", false);
     assert!(result.is_ok(), "missing db should warn, not error");
 }
 
@@ -432,7 +437,7 @@ fn test_cmd_namespace_info_missing_db() {
 #[test]
 fn test_cmd_rebuild_index_empty() {
     let (_dir, path) = setup_temp_db();
-    let result = vantadb::cli_handlers::cmd_rebuild_index(&path, false);
+    let result = vantadb::cli_handlers::cmd_rebuild_index(&path, false, false);
     if let Err(e) = &result {
         eprintln!("REBUILD ERROR: {:?}", e);
     }
@@ -445,13 +450,13 @@ fn test_cmd_export_and_import() {
     seed_record(&path, "ex_ns", "k1", "export me");
 
     let export_path = format!("{}/export.json", path);
-    let result = vantadb::cli_handlers::cmd_export(&path, Some("ex_ns"), &export_path);
+    let result = vantadb::cli_handlers::cmd_export(&path, Some("ex_ns"), &export_path, false);
     assert!(result.is_ok(), "export failed");
     assert!(Path::new(&export_path).exists(), "export file missing");
 
     // import into a fresh db
     let (_dir2, path2) = setup_temp_db();
-    let result = vantadb::cli_handlers::cmd_import(&path2, &export_path, false);
+    let result = vantadb::cli_handlers::cmd_import(&path2, &export_path, false, false);
     assert!(result.is_ok(), "import failed");
 
     // verify imported
@@ -466,7 +471,7 @@ fn test_cmd_export_and_import() {
 #[test]
 fn test_cmd_query_empty_db() {
     let (_dir, path) = setup_temp_db();
-    let result = vantadb::cli_handlers::cmd_query(&path, "FROM Persona", 10, false);
+    let result = vantadb::cli_handlers::cmd_query(&path, "FROM Persona", 10, false, false);
     if let Err(e) = &result {
         eprintln!("ERROR: {:?}", e);
     }
@@ -485,6 +490,7 @@ fn test_find101_query_insert_mutates() {
         &path,
         r#"INSERT NODE#101 TYPE Usuario { nombre: "Eros" }"#,
         10,
+        false,
         false,
     );
     assert!(
@@ -505,6 +511,7 @@ fn test_find101_query_insert_mutates() {
         r#"UPDATE NODE#101 SET nombre = "Eros Dev""#,
         10,
         false,
+        false,
     );
     assert!(
         result.is_ok(),
@@ -521,7 +528,7 @@ fn test_find101_query_insert_mutates() {
     drop(engine);
 
     // DELETE via query tombstones the node.
-    let result = vantadb::cli_handlers::cmd_query(&path, "DELETE NODE#101", 10, false);
+    let result = vantadb::cli_handlers::cmd_query(&path, "DELETE NODE#101", 10, false, false);
     assert!(
         result.is_ok(),
         "DELETE via query should succeed: {:?}",
@@ -535,7 +542,7 @@ fn test_find101_query_insert_mutates() {
     drop(engine);
 
     // Reads still work (read-only path unchanged).
-    let result = vantadb::cli_handlers::cmd_query(&path, "FROM Usuario", 10, false);
+    let result = vantadb::cli_handlers::cmd_query(&path, "FROM Usuario", 10, false, false);
     assert!(
         result.is_ok(),
         "SELECT via query should succeed: {:?}",
@@ -567,7 +574,7 @@ fn test_backup_and_restore() {
     let backup_dir = format!("{}/test_backup", path);
 
     // Create backup
-    let result = vantadb::cli_handlers::cmd_backup(&path, Some(&backup_dir), false);
+    let result = vantadb::cli_handlers::cmd_backup(&path, Some(&backup_dir), false, false);
     assert!(result.is_ok(), "backup should succeed: {:?}", result);
 
     // Verify backup directory exists
@@ -626,6 +633,7 @@ fn test_backup_and_restore() {
             verbose: vantadb::cli_handlers::Verbosity::Verbose,
             ..Default::default()
         },
+        false,
     );
     assert!(
         result.is_ok(),
@@ -650,6 +658,7 @@ fn test_backup_and_restore() {
             overwrite: vantadb::cli_handlers::OverwritePolicy::Overwrite,
             ..Default::default()
         },
+        false,
     );
     assert!(result.is_ok(), "restore should succeed: {:?}", result);
     assert!(std::path::Path::new(&restore_path).exists());
@@ -694,8 +703,12 @@ fn test_backup_and_restore() {
 fn test_backup_nonexistent_db_path() {
     // Opening a writable database creates the directory, so this succeeds
     // but the backup target directory shouldn't exist
-    let result =
-        vantadb::cli_handlers::cmd_backup("./ghost_backup_dir", Some("./ghost_backup_out"), false);
+    let result = vantadb::cli_handlers::cmd_backup(
+        "./ghost_backup_dir",
+        Some("./ghost_backup_out"),
+        false,
+        false,
+    );
     if let Err(e) = &result {
         eprintln!("ERROR (non-fatal for this test): {:?}", e);
     }
@@ -713,6 +726,7 @@ fn test_restore_missing_backup() {
             overwrite: vantadb::cli_handlers::OverwritePolicy::Overwrite,
             ..Default::default()
         },
+        false,
     );
     assert!(
         result.is_err(),
@@ -737,6 +751,7 @@ fn restore_dry_run_missing_backup_errors() {
             mode: vantadb::cli_handlers::RestoreMode::DryRun,
             ..Default::default()
         },
+        false,
     );
     assert!(result.is_err(), "dry-run missing backup should error");
     let msg = format!("{:?}", result.unwrap_err());
@@ -782,7 +797,7 @@ fn restore_dry_run_lists_without_mutating() {
     let (_src_dir, src_path) = setup_temp_db();
     seed_record(&src_path, "dry_ns", "k_src", "src payload");
     let backup_dir = format!("{}/dry_backup", src_path);
-    vantadb::cli_handlers::cmd_backup(&src_path, Some(&backup_dir), false)
+    vantadb::cli_handlers::cmd_backup(&src_path, Some(&backup_dir), false, false)
         .expect("backup should succeed");
 
     let (_tgt_dir, tgt_path) = setup_temp_db();
@@ -805,6 +820,7 @@ fn restore_dry_run_lists_without_mutating() {
             mode: vantadb::cli_handlers::RestoreMode::DryRun,
             ..Default::default()
         },
+        false,
     );
     assert!(result.is_ok(), "dry-run should succeed: {:?}", result);
 
@@ -859,6 +875,7 @@ fn test_doctor_no_db() {
                 vantadb::cli_handlers::DoctorFix::Off,
                 vantadb::cli_handlers::Verbosity::Normal,
             ),
+            false,
         );
         assert!(result.is_ok());
         return;
@@ -869,6 +886,7 @@ fn test_doctor_no_db() {
             vantadb::cli_handlers::DoctorFix::Off,
             vantadb::cli_handlers::Verbosity::Normal,
         ),
+        false,
     );
     assert!(result.is_ok());
 }
@@ -883,6 +901,7 @@ fn test_doctor_with_db() {
             vantadb::cli_handlers::DoctorFix::Off,
             vantadb::cli_handlers::Verbosity::Normal,
         ),
+        false,
     );
     assert!(result.is_ok(), "doctor should succeed: {:?}", result);
 }
@@ -897,6 +916,7 @@ fn test_doctor_verbose() {
             vantadb::cli_handlers::DoctorFix::Off,
             vantadb::cli_handlers::Verbosity::Verbose,
         ),
+        false,
     );
     assert!(
         result.is_ok(),
@@ -917,6 +937,7 @@ fn test_doctor_fix_dry_run_no_mutation() {
             vantadb::cli_handlers::DoctorFix::DryRun,
             vantadb::cli_handlers::Verbosity::Normal,
         ),
+        false,
     );
     assert!(
         result.is_ok(),
@@ -940,6 +961,7 @@ fn test_doctor_fix_force_creates_dirs() {
             vantadb::cli_handlers::DoctorFix::Apply,
             vantadb::cli_handlers::Verbosity::Normal,
         ),
+        false,
     );
     assert!(
         result.is_ok(),
@@ -963,6 +985,7 @@ fn test_doctor_fix_nothing_to_fix() {
             vantadb::cli_handlers::DoctorFix::DryRun,
             vantadb::cli_handlers::Verbosity::Normal,
         ),
+        false,
     );
     assert!(dry.is_ok(), "dry-run on healthy db: {:?}", dry);
     let forced = vantadb::cli_handlers::cmd_doctor(
@@ -971,6 +994,7 @@ fn test_doctor_fix_nothing_to_fix() {
             vantadb::cli_handlers::DoctorFix::Apply,
             vantadb::cli_handlers::Verbosity::Normal,
         ),
+        false,
     );
     assert!(forced.is_ok(), "force on healthy db: {:?}", forced);
 }
@@ -982,14 +1006,14 @@ fn test_inspect_record() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "ins_ns", "ins_k", "inspect me");
 
-    let result = vantadb::cli_handlers::cmd_inspect(&path, "ins_ns", "ins_k", false);
+    let result = vantadb::cli_handlers::cmd_inspect(&path, "ins_ns", "ins_k", false, false);
     assert!(result.is_ok(), "inspect should succeed: {:?}", result);
 }
 
 #[test]
 fn test_inspect_nonexistent() {
     let (_dir, path) = setup_temp_db();
-    let result = vantadb::cli_handlers::cmd_inspect(&path, "ins_ns", "missing", false);
+    let result = vantadb::cli_handlers::cmd_inspect(&path, "ins_ns", "missing", false, false);
     assert!(
         result.is_ok(),
         "inspect missing record should warn: {:?}",
@@ -999,7 +1023,7 @@ fn test_inspect_nonexistent() {
 
 #[test]
 fn test_inspect_missing_db() {
-    let result = vantadb::cli_handlers::cmd_inspect("./ghost_inspect_dir", "ns", "k", false);
+    let result = vantadb::cli_handlers::cmd_inspect("./ghost_inspect_dir", "ns", "k", false, false);
     assert!(result.is_ok(), "missing db should warn, not error");
 }
 
@@ -1049,7 +1073,7 @@ fn test_stats_verbose() {
 fn test_put_verbose() {
     let (_dir, path) = setup_temp_db();
     let result =
-        vantadb::cli_handlers::cmd_put(&path, "v_ns", "v_key", "verbose", None, None, true);
+        vantadb::cli_handlers::cmd_put(&path, "v_ns", "v_key", "verbose", None, None, true, false);
     assert!(result.is_ok());
 }
 
@@ -1057,7 +1081,7 @@ fn test_put_verbose() {
 fn test_list_verbose() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "lv_ns", "k", "data");
-    let result = vantadb::cli_handlers::cmd_list(&path, "lv_ns", 10, true);
+    let result = vantadb::cli_handlers::cmd_list(&path, "lv_ns", 10, true, false);
     assert!(result.is_ok());
 }
 
@@ -1149,7 +1173,8 @@ fn test_count_with_flat_filter_alias() {
 
     // delete-by-filter with the flat form removes exactly the red record —
     // proving the flat filter matched by value, not by accident.
-    let del = vantadb::cli_handlers::cmd_delete_by_filter(&path, "cntflat_ns", filter, false);
+    let del =
+        vantadb::cli_handlers::cmd_delete_by_filter(&path, "cntflat_ns", filter, false, false);
     assert!(
         del.is_ok(),
         "delete-by-filter with flat filter should succeed: {:?}",
@@ -1177,7 +1202,7 @@ fn test_delete_by_filter() {
 
     // delete the red record via metadata filter
     let filter = r#"{"color":{"$eq":"red"}}"#;
-    let result = vantadb::cli_handlers::cmd_delete_by_filter(&path, "dbf_ns", filter, false);
+    let result = vantadb::cli_handlers::cmd_delete_by_filter(&path, "dbf_ns", filter, false, false);
     assert!(
         result.is_ok(),
         "delete-by-filter should succeed: {:?}",
@@ -1201,7 +1226,8 @@ fn test_delete_by_filter_no_match() {
     seed_embedded_with_meta(&path, "dbfn_ns", "k1", "payload", "red");
 
     let filter = r#"{"color":{"$eq":"purple"}}"#;
-    let result = vantadb::cli_handlers::cmd_delete_by_filter(&path, "dbfn_ns", filter, false);
+    let result =
+        vantadb::cli_handlers::cmd_delete_by_filter(&path, "dbfn_ns", filter, false, false);
     assert!(
         result.is_ok(),
         "no-match delete should be a no-op: {:?}",
@@ -1215,14 +1241,20 @@ fn test_delete_by_filter_no_match() {
 
 #[test]
 fn test_delete_by_filter_missing_db() {
-    let result = vantadb::cli_handlers::cmd_delete_by_filter("./ghost_dir", "ns", "{}", false);
+    let result =
+        vantadb::cli_handlers::cmd_delete_by_filter("./ghost_dir", "ns", "{}", false, false);
     assert!(result.is_ok(), "missing db should warn, not error");
 }
 
 #[test]
-fn test_count_missing_db() {
+fn test_count_missing_db_errors() {
+    // API-07: `count` on a missing database is an error (exit≠0 via the CLI),
+    // so scripts can tell "no database" apart from a real count of 0.
     let result = vantadb::cli_handlers::cmd_count("./ghost_dir", "ns", None, false, false);
-    assert!(result.is_ok(), "missing db should warn, not error");
+    assert!(
+        result.is_err(),
+        "missing db must error for count (API-07 contract)"
+    );
 }
 
 // ─── vector similarity / multi-namespace search ────────────────
@@ -1237,6 +1269,7 @@ fn test_similar_to_key() {
         "vector record",
         Some("1.0,2.0,3.0"),
         None,
+        false,
         false,
     )
     .expect("put with vector failed");
@@ -1347,7 +1380,7 @@ fn test_repair_text_index() {
     let (_dir, path) = setup_temp_db();
     seed_embedded(&path, "rpr_ns", "k1", "repair me");
 
-    let result = vantadb::cli_handlers::cmd_repair_text_index(&path);
+    let result = vantadb::cli_handlers::cmd_repair_text_index(&path, false);
     assert!(
         result.is_ok(),
         "repair-text-index should succeed: {:?}",
@@ -1362,21 +1395,21 @@ fn test_snapshot_create_and_list() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "snap_ns", "k1", "snapshot me");
 
-    let result = vantadb::cli_handlers::cmd_snapshot_create(&path, "snap1", false);
+    let result = vantadb::cli_handlers::cmd_snapshot_create(&path, "snap1", false, false);
     assert!(
         result.is_ok(),
         "snapshot create should succeed: {:?}",
         result
     );
 
-    let result = vantadb::cli_handlers::cmd_snapshot_list(&path);
+    let result = vantadb::cli_handlers::cmd_snapshot_list(&path, false);
     assert!(result.is_ok(), "snapshot list should succeed: {:?}", result);
 }
 
 #[test]
 fn test_snapshot_list_empty() {
     let (_dir, path) = setup_temp_db();
-    let result = vantadb::cli_handlers::cmd_snapshot_list(&path);
+    let result = vantadb::cli_handlers::cmd_snapshot_list(&path, false);
     assert!(result.is_ok(), "snapshot list on empty db: {:?}", result);
 }
 
@@ -1388,7 +1421,7 @@ fn test_wal_compact() {
     seed_record(&path, "wal_ns", "k1", "wal data");
     seed_record(&path, "wal_ns", "k2", "more wal data");
 
-    let result = vantadb::cli_handlers::cmd_wal_compact(&path);
+    let result = vantadb::cli_handlers::cmd_wal_compact(&path, false);
     assert!(result.is_ok(), "wal compact should succeed: {:?}", result);
 }
 
@@ -1396,10 +1429,10 @@ fn test_wal_compact() {
 fn test_wal_vacuum() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "vac_ns", "k1", "to delete");
-    vantadb::cli_handlers::cmd_delete(&path, "vac_ns", "k1", false)
+    vantadb::cli_handlers::cmd_delete(&path, "vac_ns", "k1", false, false)
         .expect("delete for vacuum failed");
 
-    let result = vantadb::cli_handlers::cmd_wal_vacuum(&path);
+    let result = vantadb::cli_handlers::cmd_wal_vacuum(&path, false);
     assert!(result.is_ok(), "wal vacuum should succeed: {:?}", result);
 }
 
@@ -1410,7 +1443,7 @@ fn test_migrate_plan() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "mig_ns", "k1", "migrate me");
 
-    let result = vantadb::cli_handlers::cmd_migrate_plan(&path, false);
+    let result = vantadb::cli_handlers::cmd_migrate_plan(&path, false, false);
     assert!(result.is_ok(), "migrate plan should succeed: {:?}", result);
 }
 
@@ -1419,7 +1452,7 @@ fn test_migrate_check() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "mig_ns", "k1", "migrate check me");
 
-    let result = vantadb::cli_handlers::cmd_migrate_check(&path, false);
+    let result = vantadb::cli_handlers::cmd_migrate_check(&path, false, false);
     assert!(result.is_ok(), "migrate check should succeed: {:?}", result);
 }
 
@@ -1445,8 +1478,14 @@ fn test_completions_zsh_and_powershell() {
 #[test]
 fn test_migrate_run_missing_target() {
     // target path does not exist -> early Err branch
-    let result =
-        vantadb::cli_handlers::cmd_migrate("./ghost_migrate_target_dir", "all", true, false, false);
+    let result = vantadb::cli_handlers::cmd_migrate(
+        "./ghost_migrate_target_dir",
+        "all",
+        true,
+        false,
+        false,
+        false,
+    );
     assert!(result.is_err(), "migrate on missing target must error");
 }
 
@@ -1455,7 +1494,7 @@ fn test_migrate_run_schema_write() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "migr_ns", "k1", "data");
     // format "all" dry_run: fresh db has no .vanta.schema -> writes header, Ok
-    let result = vantadb::cli_handlers::cmd_migrate(&path, "all", true, false, false);
+    let result = vantadb::cli_handlers::cmd_migrate(&path, "all", true, false, false, false);
     assert!(
         result.is_ok(),
         "migrate (schema write) should succeed: {:?}",
@@ -1468,7 +1507,7 @@ fn test_migrate_run_dry_run_physical() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "migr2_ns", "k1", "data");
     // non-schema format + dry_run -> plan_all prints, no mutation, no prompt
-    let result = vantadb::cli_handlers::cmd_migrate(&path, "vfile", true, false, false);
+    let result = vantadb::cli_handlers::cmd_migrate(&path, "vfile", true, false, false, false);
     assert!(
         result.is_ok(),
         "migrate dry_run (physical) should succeed: {:?}",
@@ -1480,15 +1519,19 @@ fn test_migrate_run_dry_run_physical() {
 fn test_migrate_unknown_format() {
     let (_dir, path) = setup_temp_db();
     // valid target but bogus format string -> format parse error branch
-    let result = vantadb::cli_handlers::cmd_migrate(&path, "bogus", true, false, false);
+    let result = vantadb::cli_handlers::cmd_migrate(&path, "bogus", true, false, false, false);
     assert!(result.is_err(), "unknown format must error");
 }
 
 #[test]
+#[cfg(not(feature = "server"))]
 fn test_server_missing_feature() {
     let (_dir, path) = setup_temp_db();
     // Without the `server` feature the http branch returns a Cli.
     // (mcp mode spawns the vantadb-server binary -> not testable in CI.)
+    // cfg-gated: with `server` ON (workspace-unified feature builds, e.g.
+    // `cargo test` from the root without `-p`) this call starts the real
+    // HTTP server and blocks forever.
     let result = vantadb::cli_handlers::cmd_server(
         &path, true, false, None, None, false, false, None, None, false,
     );
@@ -1503,7 +1546,7 @@ fn test_server_missing_feature() {
 fn test_get_existing_record() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "get_ns", "get_key", "payload value");
-    let result = vantadb::cli_handlers::cmd_get(&path, "get_ns", "get_key", false);
+    let result = vantadb::cli_handlers::cmd_get(&path, "get_ns", "get_key", false, false);
     assert!(
         result.is_ok(),
         "get existing record should succeed: {:?}",
@@ -1515,10 +1558,171 @@ fn test_get_existing_record() {
 fn test_query_with_results() {
     let (_dir, path) = setup_temp_db();
     seed_record(&path, "q_ns", "q_key", "queryable payload");
-    let result = vantadb::cli_handlers::cmd_query(&path, "FROM q_ns", 10, false);
+    let result = vantadb::cli_handlers::cmd_query(&path, "FROM q_ns", 10, false, false);
     assert!(
         result.is_ok(),
         "query with data should succeed: {:?}",
         result
     );
+}
+
+// ─── API-07: real-binary surface (clap parsing + stdout JSON shapes) ────────
+// Handler-level tests cannot observe clap aliases/positionals or the exact
+// stdout bytes; these spawn the built `vanta-cli` binary (CARGO_BIN_EXE_* is
+// set for integration tests when the `cli` feature builds the bin).
+
+mod api07_cli_binary {
+    use std::process::Command;
+
+    fn cli() -> Command {
+        Command::new(env!("CARGO_BIN_EXE_vanta-cli"))
+    }
+
+    #[test]
+    fn count_without_db_exits_nonzero() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let missing = dir.path().join("nope").to_string_lossy().to_string();
+        let out = cli()
+            .args(["--db", &missing, "count", "--namespace", "ns", "--json"])
+            .output()
+            .expect("spawn vanta-cli count");
+        assert!(
+            !out.status.success(),
+            "`count` on a missing DB must exit≠0 (API-07); got success"
+        );
+        let stderr = String::from_utf8_lossy(&out.stderr);
+        assert!(
+            stderr.contains("does not exist"),
+            "stderr should explain the missing database, got: {stderr}"
+        );
+    }
+
+    #[test]
+    fn json_is_complete_and_search_operands_are_accepted() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db = dir.path().to_string_lossy().to_string();
+        // >80 chars so human previews would truncate; --json must be complete.
+        let payload = format!("{}tail", "word ".repeat(60));
+
+        let put = cli()
+            .args([
+                "--db",
+                &db,
+                "put",
+                "--namespace",
+                "ns",
+                "--key",
+                "k1",
+                "--payload",
+                &payload,
+                "--json",
+            ])
+            .output()
+            .expect("spawn vanta-cli put");
+        assert!(put.status.success(), "put --json must succeed");
+        let put_json: serde_json::Value =
+            serde_json::from_slice(&put.stdout).expect("put --json must parse");
+        assert_eq!(put_json["status"], "stored");
+        assert_eq!(put_json["namespace"], "ns");
+        assert_eq!(put_json["version"], 1);
+
+        // Positional QUERY operand (unified with `query <IQL>`).
+        let search = cli()
+            .args(["--db", &db, "search", "--namespace", "ns", "word", "--json"])
+            .output()
+            .expect("spawn vanta-cli search");
+        assert!(
+            search.status.success(),
+            "positional QUERY must parse: {}",
+            String::from_utf8_lossy(&search.stderr)
+        );
+        let hits: Vec<serde_json::Value> =
+            serde_json::from_slice(&search.stdout).expect("search --json must parse");
+        assert_eq!(hits.len(), 1, "one matching record expected");
+        assert_eq!(
+            hits[0]["payload"].as_str().map(str::len),
+            Some(payload.len()),
+            "--json payload must be complete (never truncated)"
+        );
+
+        // Hidden alias: `--query` keeps working for existing scripts.
+        let alias = cli()
+            .args([
+                "--db",
+                &db,
+                "search",
+                "--namespace",
+                "ns",
+                "--query",
+                "word",
+                "--json",
+            ])
+            .output()
+            .expect("spawn vanta-cli search --query");
+        assert!(alias.status.success(), "--query alias must still parse");
+
+        // `--top-k` hidden alias for `--limit` (search family).
+        let topk = cli()
+            .args([
+                "--db",
+                &db,
+                "search",
+                "--namespace",
+                "ns",
+                "word",
+                "--top-k",
+                "1",
+                "--json",
+            ])
+            .output()
+            .expect("spawn vanta-cli search --top-k");
+        assert!(topk.status.success(), "--top-k alias must still parse");
+
+        // count --json is a structured object (no bare number).
+        let count = cli()
+            .args(["--db", &db, "count", "--namespace", "ns", "--json"])
+            .output()
+            .expect("spawn vanta-cli count");
+        assert!(count.status.success());
+        let count_json: serde_json::Value =
+            serde_json::from_slice(&count.stdout).expect("count --json must parse");
+        assert_eq!(count_json["count"], 1);
+        assert_eq!(count_json["namespace"], "ns");
+
+        // Human (piped) output must NOT truncate — previews only apply to TTYs.
+        let list = cli()
+            .args(["--db", &db, "list", "--namespace", "ns"])
+            .output()
+            .expect("spawn vanta-cli list");
+        assert!(list.status.success());
+        let list_stdout = String::from_utf8_lossy(&list.stdout);
+        assert!(
+            list_stdout.contains(&payload),
+            "piped human output must be complete (no preview truncation)"
+        );
+    }
+
+    #[test]
+    fn restore_in_alias_and_import_in_alias_parse() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let db = dir.path().to_string_lossy().to_string();
+        // `import --in` (canonical) with a missing file errors AFTER parsing —
+        // exit≠0 proves the flag parsed and the handler ran.
+        let out = cli()
+            .args(["--db", &db, "import", "--in", "missing.jsonl"])
+            .output()
+            .expect("spawn vanta-cli import");
+        assert!(!out.status.success(), "missing input file must fail");
+        // Legacy `--input` alias still parses (same failure, not a clap error).
+        let legacy = cli()
+            .args(["--db", &db, "import", "--input", "missing.jsonl"])
+            .output()
+            .expect("spawn vanta-cli import --input");
+        assert!(!legacy.status.success());
+        let stderr = String::from_utf8_lossy(&legacy.stderr);
+        assert!(
+            stderr.contains("Input file not found"),
+            "legacy --input must reach the handler, got: {stderr}"
+        );
+    }
 }
