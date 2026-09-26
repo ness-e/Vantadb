@@ -488,6 +488,15 @@ pub(crate) fn error_content_vanta(e: vantadb::Error) -> Value {
     error_content(crate::error::McpError::from(e).to_json().to_string())
 }
 
+/// API-04: render an `McpError` (not-found, validation guard, transfer
+/// limit, internal) as an isError tool result carrying the same JSON envelope
+/// as `error_content_vanta`. Used for domain rejections that are not
+/// `vantadb::Error`s, so every canonical-surface failure exposes
+/// `{code, message, data{code, retriable}}` to the LLM client.
+pub(crate) fn error_content_mcp(e: crate::error::McpError) -> Value {
+    error_content(e.to_json().to_string())
+}
+
 /// MCP-39: budget a JSON value to fit within `byte_budget` bytes.
 ///
 /// Returns the (possibly truncated) JSON value, a `truncated` flag, and the

@@ -91,7 +91,7 @@
       ],
       "disabled": false,
       "type": "local",
-      "description": "VantaDB MCP vía launcher (EMB-12: VANTADB_EMBEDDING_PROVIDER=local + VANTADB_LOCAL_MODEL + ORT autodetect; binario repo target/debug preferido sobre global stale FIND-98). Memoria persistente + vector retrieval (87 tools perfil full)."
+      "description": "VantaDB MCP vía launcher (EMB-12: VANTADB_EMBEDDING_PROVIDER=local + VANTADB_LOCAL_MODEL + ORT autodetect; binario repo target/debug preferido sobre global stale FIND-98). Memoria persistente + vector retrieval (85 tools perfil full; API-04: nombres canónicos memory_search/memory_list_namespaces)."
     },
     "lottiefiles-creator": {
       "command": [

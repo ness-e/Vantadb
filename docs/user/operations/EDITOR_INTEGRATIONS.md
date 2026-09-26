@@ -236,11 +236,11 @@ When VantaDB is connected via MCP, the following tools are available to AI assis
 - `memory_get` - Retrieves a memory record by namespace and key
 - `memory_delete` - Deletes a memory record by namespace and key
 - `memory_list` - Lists memory records with optional pagination and metadata filters
-- `memory_list_namespaces` - Lists all available namespaces
+- `memory_list_namespaces` - Lists all available namespaces (canonical; legacy `collection_list` is unlisted)
 
 ### Search Operations
 
-- `search_memory` - Hybrid vector + text search with optional filters, distance metric, and explain
+- `memory_search` - Hybrid vector + text search with optional filters, distance metric, and explain (canonical; legacy `search_memory` is unlisted)
 - `search_semantic` - Raw semantic vector search directly in the HNSW index
 
 ### Graph Operations
@@ -253,7 +253,7 @@ When VantaDB is connected via MCP, the following tools are available to AI assis
 ### Collection Operations
 
 - `collection_stats` - Returns statistics for a namespace: record count, byte size, vector index info, creation time
-- `collection_list` - Lists all collections with metadata including record count, vector index status, and creation time
+- `collection_list` - Legacy alias (unlisted): lists collections with metadata including record count, vector index status, and creation time; use `memory_list_namespaces` for the canonical listing
 - `collection_delete` - Deletes an entire namespace/collection and all its records (requires `confirm: "yes"`)
 
 ### Resources

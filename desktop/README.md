@@ -75,7 +75,7 @@ not interchangeable:
 | Surface | Protocol | Lives in | Available to | Example |
 |---|---|---|---|---|
 | **IPC commands** | Tauri `invoke()` over WebView bridge | `desktop/src-tauri/src/commands/*.rs` | Only the desktop app (`@tauri-apps/api/core`) | `vanta_embed_text`, `vanta_metrics`, `vanta_wiki_status` |
-| **MCP tools** | JSON-RPC over stdio (or HTTP) | `vantadb-mcp/` / `vanta-cli server --mcp` | Any MCP client (Claude Desktop, Claude Code, Cursor, **opencode**, etc.) | `memory_put`, `search_memory`, `collection_list` |
+| **MCP tools** | JSON-RPC over stdio (or HTTP) | `vantadb-mcp/` / `vanta-cli server --mcp` | Any MCP client (Claude Desktop, Claude Code, Cursor, **opencode**, etc.) | `memory_put`, `memory_search`, `memory_list_namespaces` |
 
 When you add a feature, **pick the right surface**:
 
