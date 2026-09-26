@@ -876,7 +876,6 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 
 | ID | Descripción | Archivos | Esfuerzo | Prio | Estado Real |
 |----|-------------|----------|----------|------|-------------|
-| `API-09` | **W8 cierre: VERSIONING 11 + docs + MCP local + gates** — 🎯 OP: `VERSIONING.md` con contrato 11 superficies; docs `docs/api/` sincronizadas mismo-PR (Regla 3) + owners por doc (tabla 17); refresh MCP local + re-smoke; `/audit quick` (`verify.ps1`); `/ship` GO/NO-GO. OS: release-plz bump+CHANGELOG+tags (nunca manual, Regla 7); `vantadb-pro` intocable. Tipo: docs + release. Cobertura: transversal. Refs: `docs/api/VERSIONING.md`, `scripts/validate-docs-coverage.ps1`, `CONSTRAINTS.md`. Dep: API-01..08 (todas). DoD: coverage verde + `verify.ps1` + MCP smoke + ship. | `docs/api/`, `scripts/validate-docs-coverage.ps1`, `opencode.jsonc` | 🟢 2d | 🟡 | 🆕 Pendiente (P51 2026-09-24) |
 
 ---
 

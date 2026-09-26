@@ -516,3 +516,9 @@ aliases: []
 - **Causa raíz:** `docs/CHANGELOG.md` tenía 2 documentos concatenados (2× `# Changelog`, 2× `## [Unreleased]`, frontmatter huérfano) → release-plz loguea "multiple release notes for 'Unreleased'. The git release body will be empty." → bodies vacíos en v0.6.0/v0.6.1/v0.7.0 (len=0).
 - **Resultado:** ✅ PR #227 (main `6f2c1cfe`): dedup (1× H1 + 1× Unreleased + orden 0.7.0→0.4.0; 174,914 vs 175,339 bytes — 0 contenido perdido) + `release_always=false` (release solo al mergear el Release PR; elimina el race publish-antes-de-changelog). develop sincronizado (`54845169`). Bodies reparados: v0.7.0 (206 chars), v0.6.1 (33,808), v0.6.0 (119,109, truncado con link — límite GitHub 125k). #225 (release v0.7.1 docs-only) cerrado. **Pendiente de verificación:** el próximo Release PR no debe reintroducir el duplicado.
 - **Commit:** `6f2c1cfe` (main) + `54845169` (develop)
+
+### API-09: W8 cierre — VERSIONING 11 superficies + docs sync + gates (review P2-01 ✅ fresco)
+- **Fecha:** 2026-09-26
+- **Objetivo:** Cerrar la campaña "Estandarización 11 APIs": `docs/api/VERSIONING.md` con las 11 superficies (Gate P), sync de `docs/api/` (19 files), gates de cierre verdes.
+- **Resultado:** ✅ Contrato 6/6 — coverage 0 gaps · `verify.ps1` ALL 11 PASS (fix tooling: `llvm-cov nextest run`→`nextest`; coverage real 81.63% ≥60) · MCP re-smoke 11/11 · OCR 0 Critical/High · plan 18/18 + campaña 9/9 · review P2-01 fresco ✅ APPROVE (3 nits Low aplicados) · FIND-161/162 registradas.
+- **Commit:** 032cbd0f (local, sin push)

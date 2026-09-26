@@ -1,0 +1,22 @@
+{
+  "tasks": {
+    "VULN-B1-B2": {
+      "taskId": "VULN-B1-B2",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1790040475039,
+      "lastActivity": 1790040475039,
+      "traceId": "e07c309f-c5d6-4eba-bd09-77ba15d6454a"
+    },
+    "VULN-B3": {
+      "taskId": "VULN-B3",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1790040475153,
+      "lastActivity": 1790040475153,
+      "traceId": "d3ec06de-31b0-420e-8338-e972d1dcf912"
+    }
+  }
+}

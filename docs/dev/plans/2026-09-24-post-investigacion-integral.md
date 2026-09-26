@@ -152,7 +152,7 @@ Cada track incluye: one-pager comercial (consume BIZ-05), entrada en `COMPARISON
 | Wave | Contenido | Gate de salida |
 |---|---|---|
 | **W0** ✅ 2026-09-25 | EST-01..12 completadas (EST-03/05/09/10 ✅ · C-07/08/10 ✅ · FASE-A owner pendiente) → PR #222 merged (`58a41ad8`) → release 0.7.0 publicado (crates.io/npm/PyPI/wheels/SBOM) | ✅ |
-| **W1** (en curso) | Phase 51 API-01..09 — **API-01 en curso** (Steps 0-8 ✅; review P2-01 ❌ → R1/R2/R3 pendientes) | `verify.ps1` + parity + MCP smoke |
+| **W1** ✅ 2026-09-26 | Phase 51 API-01..09 — **9/9 cerradas** (review P2-01 ✅ por tarea; commits locales f6c395ef/ade86a1c/032cbd0f + ola previa; plan archivado) | ✅ `verify.ps1` + parity + MCP smoke |
 | **W2** (paralelo disjunto) | P0: WIRE-09 + WIRE-10; DEF-01/04/05 (decisiones rápidas); DEF-02 (fixes ya aplicados → cierre) | 0 críticos seguridad en export/import/snapshots; claims honestos |
 | **W3** | P56 técnico: WIRE-01 → WIRE-02/03/04/05/06/07/08 (orden por dep) | Loop proxy verificable end-to-end; paridad bindings |
 | **W4** | P53: SCH-01 (spec+ADR) → SCH-02..08 (migración única) — solo con research-docs MGR-10/12/13 cerrados | Migración + time-travel + surfaces verdes |
@@ -230,7 +230,7 @@ Cada track incluye: one-pager comercial (consume BIZ-05), entrada en `COMPARISON
 **Pendiente owner:** FASE-A (5 installs + stranger tests → anuncio) · secret `RELEASE_PLZ_TOKEN` · R-05 · carril negocio (BIZ-04/10/11/12/13, LEG-01).
 
 **Secuencia agente:**
-1. **W1 — API** (en curso): API-01 (R1/R2/R3 → re-review → cierre) → API-02/03 → API-04..08 → API-09.
+1. **W1 — API** ✅ (2026-09-26, 9/9): API-01..09 cerradas — contrato 6/6 en el cierre; commits locales + plan archivado; siguiente: `/audit quick` → `/ship`.
 2. **W2 — Seguridad/frontera:** WIRE-10, DEF-01→04→05→02→03→07→08.
 3. **W3 — Cableado:** WIRE-02..08 (WIRE-01 ✅).
 4. **W4 — Esquema:** MGR-10/12/13 → SCH-01..08 (→ 0.8.0 por release-plz).
