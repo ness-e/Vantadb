@@ -19,6 +19,7 @@ use super::lexer::{
     ident, non_keyword_ident, parse_literal_field_value, parse_number, parse_u128_id,
     parse_vector_lit, string_literal, ws, RESERVED_KEYWORDS,
 };
+use super::{iql_supports, IQL_VERSION_MIN_PROFILE};
 use crate::node::FieldValue;
 use crate::query::*;
 use crate::search_profile::{SearchProfileConfig, SearchProfileMode};
@@ -45,13 +46,16 @@ pub(crate) fn parse_traversal(i: &str) -> IResult<&str, Traversal> {
 }
 
 pub(crate) fn parse_rel_op(i: &str) -> IResult<&str, RelOp> {
+    // Longest match first: `==` must be tried before `=` (otherwise the second
+    // `=` is left dangling and the whole condition fails to parse).
     alt((
-        map(tag("="), |_| RelOp::Eq),
+        map(tag("=="), |_| RelOp::Eq),
         map(tag("!="), |_| RelOp::Neq),
         map(tag(">="), |_| RelOp::Gte),
-        map(tag(">"), |_| RelOp::Gt),
         map(tag("<="), |_| RelOp::Lte),
+        map(tag(">"), |_| RelOp::Gt),
         map(tag("<"), |_| RelOp::Lt),
+        map(tag("="), |_| RelOp::Eq),
     ))(i)
 }
 
@@ -77,9 +81,9 @@ pub(crate) fn parse_condition(i: &str) -> IResult<&str, Condition> {
         ),
         // Relational Query: p.pais = "VZLA", or numeric p.edad > 18, or
         // p.activo = true / p.campo = null. Reuse parse_literal_field_value so the
-        // RHS is typed: bare numbers parse as Float (matching the storage
-        // convention, so the evaluator's Float/Float branch gives numeric
-        // ordering), while quoted strings stay String for backward compatibility.
+        // RHS is typed: bare integers parse as Int (i64, exact) and decimals as
+        // Float, so the evaluator's same-variant branches give numeric ordering;
+        // quoted strings stay String for backward compatibility.
         map(
             tuple((ws(ident), ws(parse_rel_op), ws(parse_literal_field_value))),
             |(field, op, val)| Condition::Relational(field, op, val),
@@ -113,12 +117,16 @@ pub fn parse_query(i: &str) -> IResult<&str, Query> {
 
     let (i, owner_role) = opt(tuple((ws(tag("ROLE")), ws(string_literal))))(i)?;
 
-    let (i, search_profile) = opt(tuple((
-        ws(tag("PROFILE")),
-        ws(parse_profile_mode),
-        opt(tuple((ws(tag("rrf_k")), ws(parse_number)))),
-        opt(tuple((ws(tag("candidate_k")), ws(parse_number)))),
-    )))(i)?;
+    let (i, search_profile) = if iql_supports(IQL_VERSION_MIN_PROFILE) {
+        opt(tuple((
+            ws(tag("PROFILE")),
+            ws(parse_profile_mode),
+            opt(tuple((ws(tag("rrf_k")), ws(parse_number)))),
+            opt(tuple((ws(tag("candidate_k")), ws(parse_number)))),
+        )))(i)?
+    } else {
+        (i, None)
+    };
 
     Ok((
         i,
@@ -360,7 +368,8 @@ pub fn parse_select(i: &str) -> IResult<&str, SelectStatement> {
     let (i, _) = ws(tag("FROM"))(i)?;
     let (i, from_entity) = ws(ident)(i)?;
     let (i, from_alias) = opt(ws(non_keyword_ident))(i)?;
-    let from_alias = from_alias.unwrap_or_else(|| from_entity.clone());
+    // Default alias matches `parse_query` (and its docs): "target".
+    let from_alias = from_alias.unwrap_or_else(|| "target".to_string());
 
     // Parse zero or more JOIN clauses
     let (i, join_clauses) = many0(parse_join_clause)(i)?;
