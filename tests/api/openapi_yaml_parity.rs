@@ -560,6 +560,26 @@ mod openapi_yaml_parity {
     }
 
     #[test]
+    fn test_query_request_example_is_fully_consumed_by_parser() {
+        // API-06: the documented QueryRequest example must not merely "parse" —
+        // it must be fully consumed. `parse_statement` tolerates trailing tokens,
+        // so a half-parsed example (e.g. an unknown operator leaving `WHERE ...`
+        // unconsumed) would slip through without this check.
+        let openapi = load_openapi();
+        let example = openapi["components"]["schemas"]["QueryRequest"]["properties"]["query"]
+            ["example"]
+            .as_str()
+            .expect("QueryRequest.query must carry an example");
+        let (rest, _stmt) =
+            parse_statement(example).expect("documented QueryRequest example must parse as IQL");
+        assert!(
+            rest.trim().is_empty(),
+            "documented QueryRequest example must be fully consumed by the parser; \
+             leftover: {rest:?} (example: {example})"
+        );
+    }
+
+    #[test]
     fn test_traversal_parsing_via_parse_statement() {
         // OpenAPI describes: `from <entity> traverse <min>-<max> via <edge_label>`
         // Parser uses `SIGUE <min>..<max> "<edge_label>"` (Spanish keyword)

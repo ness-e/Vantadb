@@ -177,6 +177,7 @@ pub use node::{
     DistanceMetric, Edge, FieldValue, NodeFlags, RelFields, SparseVector, UnifiedNode,
     VectorRepresentations,
 };
+pub use parser::IQL_VERSION;
 pub use sdk::{
     connect, Bm25TermContribution, BulkImportReport, Capabilities, EdgeRecord, Embedded,
     ExportReport, Fields, FilterOp, HybridFusionReport, ImportReport, IndexRebuildReport,

@@ -149,6 +149,7 @@ paths:
         IQL keywords are case-sensitive UPPERCASE (`FROM`, `WHERE`, `SIGUE`,
         `INSERT`, `TYPE`, …) — lowercase variants fail with a parse error.
         Verified against `src/parser/mod.rs`.
+        Language version: `IQL_VERSION = 1` (see `docs/api/IQL.md`).
 
         Supported operations are passed as a single IQL query string:
 
@@ -1789,7 +1790,7 @@ components:
         query:
           type: string
           description: IQL query string
-          example: FROM Test WHERE title ~ "hello"
+          example: FROM Test WHERE title ~ "hello" AND archived == false FETCH title, score RANK BY score DESC
 
     RecordInput:
       description: Upsert payload mirroring the SDK `MemoryInput` (legacy `VantaMemoryInput` alias removed in 0.6.0, AST-010).

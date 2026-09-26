@@ -8,7 +8,7 @@ use nom::{
     branch::alt,
     bytes::complete::tag,
     character::complete::{alpha1, alphanumeric1, char, digit1, multispace0},
-    combinator::{map, map_res, opt, recognize, verify},
+    combinator::{map, map_res, not, opt, peek, recognize, verify},
     multi::{many0, separated_list1},
     number::complete::{double, float},
     sequence::{delimited, tuple},
@@ -125,8 +125,18 @@ pub(crate) fn parse_u128_id(i: &str) -> IResult<&str, u128> {
     map_res(digit1, str::parse)(i)
 }
 
+/// Integer literal: optional sign + digits, rejecting a float tail (`.`, `e`,
+/// `E`) so `42` parses as an integer while `3.14`/`1e5` fall through to the
+/// float parser.
 pub(crate) fn parse_i64(i: &str) -> IResult<&str, i64> {
-    map_res(recognize(tuple((opt(char('-')), digit1))), str::parse)(i)
+    map_res(
+        recognize(tuple((
+            opt(char('-')),
+            digit1,
+            not(peek(alt((char('.'), char('e'), char('E'))))),
+        ))),
+        str::parse,
+    )(i)
 }
 
 pub(crate) fn parse_literal_field_value(i: &str) -> IResult<&str, FieldValue> {
@@ -135,12 +145,13 @@ pub(crate) fn parse_literal_field_value(i: &str) -> IResult<&str, FieldValue> {
         map(ws(tag("true")), |_| FieldValue::Bool(true)),
         map(ws(tag("false")), |_| FieldValue::Bool(false)),
         map(ws(tag("null")), |_| FieldValue::Null),
-        // double BEFORE parse_i64: "3.14" should be Float(3.14), not Int(3).
-        // double handles both integer and float literals; integer-only
-        // strings like "42" parse as Float(42.0) — semantically correct
-        // and no precision loss for values up to 2^53.
-        map(ws(double), FieldValue::Float),
+        // parse_i64 BEFORE double: integer literals are Int (exact across the
+        // whole i64 range — including values > 2^53, which lose precision as
+        // f64). parse_i64 rejects a float tail, so "3.14" and "1e5" still fall
+        // through to double → Float. Integers beyond i64 also fall through to
+        // double (documented fallback).
         map(ws(parse_i64), FieldValue::Int),
+        map(ws(double), FieldValue::Float),
     ))(i)
 }
 

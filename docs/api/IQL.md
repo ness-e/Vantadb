@@ -3,7 +3,7 @@ title: VantaDB IQL Reference
 type: api
 status: active
 tags: [vantadb, api, iql]
-last_reviewed: 2026-07-21
+last_reviewed: 2026-09-25
 aliases: []
 ---
 
@@ -11,18 +11,57 @@ aliases: []
 
 > IQL (Interactive Query Language) is VantaDB's query language for CRUD operations, graph traversal, vector search, and hybrid queries. It is parsed by the Nom-based parser at `src/parser/mod.rs`.
 
+## Language Version
+
+The parser implements **IQL version 1**. The version is exposed as `IQL_VERSION`
+(`vantadb::IQL_VERSION`, re-exported at the crate root); version-gated syntax
+documents its minimum version and can be feature-detected from Rust with
+`vantadb::parser::iql_supports(min_version)`.
+
+| Version | Grammar |
+|---------|---------|
+| 1 | `FROM`/`MATCH`/`SELECT` (+ `JOIN`, subqueries) · DML (`INSERT`, `UPDATE`, `DELETE`, `RELATE`, `INSERT MESSAGE`) · `PROFILE` (minimum: `IQL_VERSION_MIN_PROFILE`) · operators `=`, `==`, `!=`, `<`, `<=`, `>`, `>=`, `~` |
+
+A clause documented in this file is guaranteed to parse at the reported version.
+
 ## Statements
 
-IQL supports six statement types:
+IQL supports seven statement types:
 
 | Statement | Description |
 |-----------|-------------|
 | `FROM` / `MATCH` | Query nodes with optional traversal, filters, ranking |
+| `SELECT` | Query with projections, `JOIN`s and scalar subqueries |
 | `INSERT NODE#` | Create a new node |
 | `UPDATE NODE#` | Modify existing node fields or vector |
 | `DELETE NODE#` | Remove a node by ID |
 | `RELATE NODE#` | Create a directed edge between two nodes |
 | `INSERT MESSAGE` | Insert a message into a conversation thread |
+
+**One read grammar, three spellings.** `FROM <entity>` and `MATCH <entity>` are
+interchangeable, and `SELECT` is the same read surface with projections, `JOIN`
+and subqueries. All three default the result alias to `target` and share the
+same condition grammar.
+
+## Lexical Rules
+
+- **Keywords are case-sensitive UPPERCASE** (`FROM`, `WHERE`, `SIGUE`, …):
+  lowercase spelling is a parse error, not an accepted alias. Lowercase
+  grammar literals are the exceptions: `min`, `rrf_k`, `candidate_k`, and the
+  `PROFILE` modes (`keyword` / `vector` / `hybrid`).
+- **Only double quotes delimit strings** (`"hello"`; escapes `\"`, `\\`, `\n`,
+  `\r`, `\t`). Single-quoted strings (`'hello'`) are **not supported** and fail
+  with a parse error — use double quotes. (`RELATE` labels use the structural
+  `--"<label>"-->` form.)
+- **Numeric literals:** unquoted integers parse as `Int` (exact across the
+  whole `i64` range — no precision loss above 2^53); decimal/exponent literals
+  parse as `Float`; integer literals beyond `i64` fall back to `Float`
+  (precision may be lost). Comparisons are **type-strict**: an `Int` literal
+  matches only an `Int` field and a `Float` literal only a `Float` field —
+  mixed comparisons (e.g. `x = 28` against a stored `Float(28.0)`, including
+  numeric data written by pre-v1 IQL) evaluate to `false` without error, no
+  coercion is applied. Write the literal in the stored type: `28` for `Int`,
+  `28.0` for `Float`.
 
 ---
 
@@ -37,6 +76,7 @@ FROM <entity> [SIGUE <min>..<max> "<label>" [TYPE <type>] [AS <alias>]] [<alias>
   RANK BY <field> [DESC]
   WITH TEMPERATURE <float>
   ROLE "<role>"
+  PROFILE keyword|vector|hybrid [rrf_k <n>] [candidate_k <n>]
 ```
 
 ### Components
@@ -53,6 +93,34 @@ FROM <entity> [SIGUE <min>..<max> "<label>" [TYPE <type>] [AS <alias>]] [<alias>
 | `RANK BY <field> [DESC]` | Sort results by a field. |
 | `WITH TEMPERATURE <float>` | Query temperature (0.0 = deterministic/exhaustive). |
 | `ROLE "<role>"` | RBAC owner role filter. |
+| `PROFILE keyword\|vector\|hybrid [rrf_k <n>] [candidate_k <n>]` | Search profile: fusion mode + RRF k + candidate budget (MEM-01). `rrf_k` / `candidate_k` default to the core constants when omitted. |
+
+---
+
+## Select (`SELECT`)
+
+```
+SELECT <field>, ... | * FROM <entity> [<alias>]
+  [JOIN <entity> <alias> ON <left_field> = <right_field>] ...
+  [WHERE <item> AND <item> ...]
+  [WITH TEMPERATURE <float>]
+```
+
+| Clause | Description |
+|--------|-------------|
+| `SELECT <field>, ...` / `SELECT *` | Projection: named fields, or `*` for all fields (empty projection = no narrowing). |
+| `FROM <entity> [<alias>]` | Same scan surface as `FROM`/`MATCH`; alias defaults to `target`. |
+| `JOIN <entity> <alias> ON <left> = <right>` | Chained joins; `ON` fields are alias-qualified (`p.addr_id = a.id`). |
+| `WHERE` | Mixes regular conditions and scalar subqueries: `<field> <op> (SELECT ...)`. |
+| `WITH TEMPERATURE <float>` | Query temperature (0.0 = deterministic/exhaustive). |
+
+Example:
+
+```
+SELECT name, age FROM Person p
+  JOIN Address a ON p.addr_id = a.id
+  WHERE a.city == "Caracas"
+```
 
 ---
 
@@ -65,6 +133,7 @@ Conditions appear inside `WHERE` clauses, separated by `AND`.
 | Operator | Meaning |
 |----------|---------|
 | `=` | Equals |
+| `==` | Equals (alias of `=`) |
 | `!=` | Not equals |
 | `>` | Greater than |
 | `>=` | Greater than or equal |
@@ -73,7 +142,8 @@ Conditions appear inside `WHERE` clauses, separated by `AND`.
 
 **Syntax:** `field <op> <value>`
 
-Values are typically double-quoted strings. The parser also supports unquoted integers, floats, `true`, `false`, and `null`.
+Values are strings, integers, floats, `true`, `false`, or `null` (see
+[Lexical Rules](#lexical-rules)).
 
 ### Vector Similarity
 
@@ -189,6 +259,44 @@ curl -X POST http://127.0.0.1:8080/api/v2/query \
 ```
 
 Route selection (text-only, vector-only, hybrid) is automatic based on the request payload (see [`HTTP_API.md`](HTTP_API.md)).
+
+## AST JSON
+
+The core AST types (`Statement`, `Query`, `SelectStatement`, …) derive
+`serde::Serialize` and expose serde's default representation — externally
+tagged enums with `snake_case` fields, the same convention as the SDK
+`QueryResult`:
+
+- enums carry a variant tag: `{"Query": {...}}`, `{"Insert": {...}}`,
+  `{"Select": {...}}`, …;
+- tuple variants become arrays: `Condition::Relational(field, op, value)` →
+  `{"Relational": ["edad", "Eq", {"Int": 28}]}`;
+- `Int` literals serialize as `{"Int": 28}` (i64, exact), floats as
+  `{"Float": 1.5}`.
+
+Rust consumers serialize the `Statement` returned by
+`vantadb::parser::parse_statement` with `serde_json`. The shape is pinned by
+`src/parser/mod.rs::tests::test_ast_json_projection_shape`.
+
+Example — `FROM Person p WHERE edad == 28 FETCH name`:
+
+```json
+{
+  "Query": {
+    "from_entity": "Person",
+    "traversal": null,
+    "target_alias": "p",
+    "where_clause": [
+      { "Relational": ["edad", "Eq", { "Int": 28 }] }
+    ],
+    "fetch": ["name"],
+    "rank_by": null,
+    "temperature": null,
+    "owner_role": null,
+    "search_profile": null
+  }
+}
+```
 
 ## Error Handling
 
