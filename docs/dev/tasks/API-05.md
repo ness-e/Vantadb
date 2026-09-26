@@ -152,10 +152,10 @@
 
 > Pendiente: la ejecuta `vanta-review` (la invoca el orquestador, no el implementador). Evidencia dejada para el reviewer: contrato 4/4, smoke curl 401/200, decisión loopback (Spec #2), impacto desktop (Spec #10/FIND-155), threat model §SECURITY.
 
-- **Revisor:** vanta-review (pendiente)
+- **Revisor:** vanta-review (sesión `ses_f2410373fffeBmylbBMsKppv2Q`) — dictamen 2026-09-25: ❌ R1 (comentario stale `server.rs:114-115`) + 2 nits → fix aplicado por el lead (comentario + `spaceId`→`space_id` en `rate_limit.rs`/`proxy_wire.rs`) → ✅
 - **Enfoque:** auth de `/snapshot` (sin bypass), breaking de endpoints/config, drift de docs
 - **Cómo se probó:** e2e real HTTP (test + smoke binario+curl), greps mecánicos, suite proxy completa
-- **Veredicto:** ⏳ pendiente
+- **Veredicto:** ✅ APPROVE tras fix R1 — evidencia del revisor: suite **291/0** (×3), smoke live **401/200/401** reproducido con binario fresco, `rg spaceId`=0, 11 routes, fmt/clippy verdes. DoD Release: fmt/check/clippy del lead ✅ (verify_changed completo al push).
 
 ## Notas
 - **Smoke live (evidencia, 2026-09-25):** binario `target/session-api01/debug/vanta-proxy.exe` (build `--features vantadb/fjall`) + config `target/session-api01/tmp/api05-smoke.toml` + store sembrado por `api05_snapshot_auth::seed_live_smoke_auth_store` (`tmp/api05-smoke-authdb`, user `usr-smoke`/key `sk-smoke`). Resultado: `GET /snapshot` **sin key → 401**; **con key → 200** (body real con `cost`/`rate_limit`/`sessions`/`turns`); **key inválida → 401**. Logs: `target/session-api01/tmp/api05-smoke.*.log`.

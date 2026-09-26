@@ -751,3 +751,15 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** HTTP alineado a OpenAPI-first: plurales sin verbos, `/api/v2` total, status=YAML (201 en creates), cursor opaco string + `has_more` + `limit` (0 `offset`), `RecordInput` opcional, 5 drifts YAML.
 - **Resultado:** ✅ Contrato 4/4 — parity 10/10 + script 37 paths OK · greps 0/0 · smoke curl 15/15 status=YAML · e2e 17/17 · clippy server ✅ · docs-coverage 0 gaps. 7 rutas migradas (`maintenance/purge`→`DELETE …/expired-records`, `conversation/add`→`/api/v2/conversations`, `skill/listing`→`GET /api/v2/skills`, `POST /threads/{id}`→`/threads/{id}/messages`, …). Review P2-01 ✅ APPROVE (2 rondas). Deuda declarada: `versions` sin paginar, cursor types en desktop, comentarios vanta-memory.
 - **Commit:** 94009297 (local, sin push)
+
+### API-05: W4 proxy — auth /snapshot + endpoints canónicos + config (review P2-01 ✅)
+- **Fecha:** 2026-09-26
+- **Objetivo:** Cerrar la exposición de `/snapshot` (sessions/cost sin auth) + endpoints canónicos + config (self-loop, ttl, rate).
+- **Resultado:** ✅ Contrato 4/4 — `/snapshot` sin key **401** · con key **200** · key inválida 401 (smoke live reproducido por el revisor con binario fresco; test e2e real `api05_snapshot_auth.rs`) · suite proxy **291/0** (18 binarios, ×3) · `rg spaceId server.rs` = 0 · 11 routes. **Sin bypass loopback** (decisión documentada: el contrato exige 401). FIND-155 (desktop sin key → 401 hasta migrar; mock e2e verde). Review P2-01 ❌ R1 (comentario stale) → fix → ✅.
+- **Commit:** f0c3f95f (local, sin push)
+
+### API-06: W5 IQL — versión + sintaxis + literales + AST (review P2-01 ✅)
+- **Fecha:** 2026-09-26
+- **Objetivo:** `IQL_VERSION` + 1 sintaxis documentada + case definido + fixes `==`/Int/string + AST JSON.
+- **Resultado:** ✅ Contrato 4/4 — `rg IQL_VERSION src/` 14 hits (mod.rs:17,20 · gate grammar.rs:120 · re-export lib.rs:180) · `--lib parser` 127/0 + `--test parser` 4/0 + parity 11/0 · repros RED→GREEN (`==`, `42→Int`, big-int, `from` minúscula, `'quote'`) · ejemplo YAML consumido. `FIND-156` (AST JSON en bindings) + `FIND-157` (coerción Int/Float pre-existente) registrados. Review P2-01 ronda 1 ❌ → R1/R2/R3 → ✅.
+- **Commit:** a6f6a70b (local, sin push)
