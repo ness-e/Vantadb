@@ -2,7 +2,7 @@
 
 > **Campaign ID:** beca0c27-fd85-4489-8f93-8361888d662c
 > **Inicio:** 2026-09-24
-> **Estado:** 🔄 EN PROGRESO (6/9 ✅ API-01..06 — commits locales; siguiente: API-07/08 → API-09)
+> **Estado:** 🔄 EN PROGRESO (8/9 ✅ API-01..08 — commits locales f6c395ef/ade86a1c; siguiente: API-09)
 > **Fuente:** `docs/dev/Backlog.md` Phase 51 (filas `API-01..API-09`)
 > **Autonomous:** false
 > **Modo:** PLAN (este archivo no cambia código; la ejecución es `/pipeline run` o `/pipeline task API-0X`)
@@ -204,9 +204,9 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Gate Result:** ✅ DO
 - **Contrato:** `--help` × comando capturado Y `--json` en TODOS con salida completa (diff humano vs json) Y `count` sin DB → exit≠0 Y `rg "println!(\"{count}\")"` revisado Y lecturas sin `ensure_indexes_current`-RW o audit concurrencia (Regla 8)
 - **Task file:** `docs/dev/tasks/API-07.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-26) — contrato 5/5 + smoke 56/56 + fmt/clippy/tests verdes + lib 2124/0; review P2-01 ronda 1 ❌ → fixes → ronda 2 ✅ APPROVE; lead verify 88/88 (`-p vantadb`) + gate `#[cfg(not(feature = "server"))]` del test server (builds unificados sin hang)
+- **Branch:** develop
+- **Commit:** f6c395ef (local, sin push)
 - **Cynefin:** 🟦 obvio — normalización mecánica
 - **Top 3 riesgos:** 1. Scripts parsean cajas 2. Spawn PATH Windows 3. Deadlock RW-lectura
 - **Pre-mortem:** F1: `--json` default rompe scripts (opt-in primero); F2: truncado en JSON; F3: `cmd_put` sigue bypass
@@ -232,9 +232,9 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Gate Result:** ✅ DO
 - **Contrato:** `cargo test -p vanta-memory` verde Y degradado sin `llm-driver` verificado (test `:209-218` pasa) Y D37/D21/MEM-16 con benchmark o DEFER fundado Y 0 símbolos nuevos en bindings
 - **Task file:** `docs/dev/tasks/API-08.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-26) — contrato 4/4 + 28 targets 0 failed + degradación verificada + 0 símbolos en bindings; review P2-01 ronda 2 ✅ APPROVE
+- **Branch:** develop
+- **Commit:** ade86a1c (local, sin push)
 - **Cynefin:** 🟧 complejo — pipeline LLM emergente
 - **Top 3 riesgos:** 1. Exponer "de paso" (scope) 2. `chars/3` sin medir 3. Dedup sin embeddings
 - **Pre-mortem:** F1: binding nuevo por entusiasmo; F2: `NotConfigured` como fatal; F3: wiki/skills mezclados
@@ -348,4 +348,26 @@ Resultado: OK
 Próxima acción: Lead: commit local selectivo del changeset API-04 (16 tracked + docs/dev/tasks/API-04.md; excluir WIP API-05/06) + skill progreso. Owner: rebuild target/debug (vanta-cli+vantadb-server) + restart OpenCode + re-listar tools (refresh local MCP).
 Contrato: verificacion: cargo fmt -p vantadb-mcp -- --check -> 0 | cargo clippy --target-dir target/session-api01 -p vantadb-mcp --all-targets --jobs 2 -- -D warnings -> 0 | cargo test --target-dir target/session-api01 -p vantadb-mcp --jobs 2 -> exit 0 (20/20 binaries; mcp_tests 101/101) | scripts/validate-docs-coverage.ps1 -> 0 gaps (47 tools MCP.md + 10 pares espejos hash-SAME) | python target/session-api01/smoke-api04.py -> SMOKE API-04 OK 11 checks | rg '"name": "search_memory"|"name": "collection_list"' (repo excl target/docs/dev) -> 0 matches | evidencia: claim='tools/list 85 unicos sin duplicados y legacy no listado' evidencia='smoke checks 2-3 + test test_api04_tools_list_canonical_names_no_duplicates' confianza alta; claim='strict schemas base 47 con additionalProperties:false y dicts abiertos' evidencia='smoke check 3 + test_api04_base_tool_schemas_strict' confianza alta; claim='thread_id string en schema, u128 string aceptado, legacy u64; float/negativo rechazados con data.code' evidencia='smoke check 3 + probes reviewer ronda 2 (2^53+1 y u64::MAX aceptados; float/negativo -32602 typed)' confianza alta; claim='param-level -32602 con data.code; dominio isError tipado MEM-32' evidencia='test_api04_query_iql/memory_recall/inject_context + test_api04_domain_errors_are_typed_envelopes + reviewer raw wire' confianza alta; claim='prompt recall_search sin colisión + redirect legacy byte-identico' evidencia='test_api04_prompts_are_separated_from_tools + reviewer' confianza alta; claim='bulk_import_stream by-design intacto' evidencia='tools.rs solo cambio envelope de errores; MCP.md marcado' confianza alta; claim='review P2-01' evidencia='docs/dev/tasks/API-04.md §Review ronda 2 APPROVE' confianza alta; artefactos: docs/dev/tasks/API-04.md, target/session-api01/smoke-api04.py (+log), docs/api/MCP.md; invariantes: 1 nombre por tool en tools/list (legacy solo dispatch), prompts/resources/tools registros separados, errores JSON-RPC Err=param-level / isError tipado=dominio, no tocar target/debug (MCP owner), no tocar WIP API-05/06 ni src/server|vanta-proxy|src/parser|bindings, no commit/push; deuda: Schemars codegen single-source diferido (FIND candidato), strictness+errores tipados familias extendidas (38 tools) pendientes (FIND candidato), envelopes internal_error sin data.code en fallos String (FIND candidato); queda_pendiente: commit local del lead + skill progreso + push solo con instruccion del owner; refresh local MCP (rebuild target/debug + restart OpenCode) es del owner
 Próxima tarea si completa: API-07
+=== END RECITATION ===
+
+=== RECITATION 8 ===
+Campaign ID: beca0c27-fd85-4489-8f93-8361888d662c
+Objetivo activo: API-08: W7 vanta-memory — API Rust estable (NO exponer, Gate P core-only)
+Estado: completed
+Última acción: Cierre corregido: FIND-160 registrada en Backlog (cobertura doc vanta-memory post-MEM-38; NOTICED BUT NOT TOUCHING del discovery). Changeset final: docs/api/VANTA_MEMORY.md (+107/-20) + vanta-memory/src/lib.rs (doc-only, +11/-1) + docs/dev/tasks/API-08.md (nuevo) + docs/dev/Backlog.md (fila FIND-160).
+Resultado: OK
+Próxima acción: Lead: commit local selectivo (4 paths del changeset API-08; excluir WIP masivo API-07) + skill progreso + bookkeeping plan; push solo con instrucción del owner. Luego API-09 (W8 cierre).
+Contrato: verificacion: cargo test --target-dir target/session-api01 -p vanta-memory → 28 targets/0 failed/EXIT=0 | focused degrade llm_free_mode_reports_not_configured → 1 passed (llm_runner.rs:237-250) | precise-tokens golden → 1 passed | rg "vanta[_-]memory" bindings → 0 matches | validate-docs-coverage → 0 gaps | fmt/clippy scoped → 0 | campaign_verify_cmd 4/4 | evidencia: claims D37/D21/MEM-16+MEM-48 re-verificadas claim-por-claim por reviewer (ses_f23e51bc6ffeeKMMEmlG7z2aZx ronda 2 APPROVE); artefactos: docs/dev/tasks/API-08.md, docs/api/VANTA_MEMORY.md, docs/dev/Backlog.md (FIND-160), target/session-api01/api08-*.log|diff|json; invariantes: core-only 0 símbolos bindings; degradación P4 intacta; no tocar cli/mcp/proxy/server/parser ni ingest/skill; no commit/push worker; deuda: residual D37 (keyword sin provider) + residual scoring (offload-entry scores) con triggers documentados; rustdoc warnings pre-existentes fuera de scope; queda_pendiente: commit local del lead + skill progreso + bookkeeping
+Próxima tarea si completa: API-09
+=== END RECITATION ===
+
+=== RECITATION API-07 ===
+Campaign ID: beca0c27-fd85-4489-8f93-8361888d662c
+Objetivo activo: API-07: W6 CLI — POSIX + --json global + flags simétricos
+Estado: completed
+Última acción: 12/12 steps ✅. Superficie CLI normalizada: --json global (clap global=true) en todos los comandos con salida completa y pureza (missing-DB → null/[]/objetos); --in/--out simétricos (+alias --input); --limit canónico (+alias --top-k); QUERY posicional (+alias --query); truncado humano TTY-gated char-safe; count sin DB → Err/exit≠0 y count --json objeto; put vía SDK Embedded::put+flush; lecturas search/count en read-only (shared lock, sin ensure_indexes_current); logs a stderr (console.rs); docs+completions regeneradas; smoke 56/56, cli_tests 88/88, lib 2124/0, fmt/clippy 0. Review P2-01 ronda 1 ❌ (5 hallazgos) → fixes → ronda 2 ✅ APPROVE. Sin commit (política owner; lo hace el lead).
+Resultado: OK
+Próxima acción: Lead: commit local selectivo de API-07 (24 archivos src/tests/docs/completions + docs/dev/tasks/API-07.md + plan; EXCLUIR changeset API-08: vanta-memory/**, docs/api/VANTA_MEMORY.md, docs/dev/tasks/API-08.md) + skill progreso; push solo con instrucción del owner. Luego API-08/API-09.
+Contrato: verificacion: cargo fmt --all --check -> exit 0 | cargo clippy --target-dir target/session-api01 -p vantadb --features cli,fjall,memmap2,fs2,roaring --lib --bins --test cli_tests -- -D warnings -> exit 0 | cargo test --test cli_tests -> 88 passed/0 failed | cargo test --lib -> 2124 passed/0 failed/2 ignored | cargo build --bin vanta-cli -> exit 0 | pwsh -NoProfile -File target/session-api01/smoke-api07.ps1 -> 56/56 checks, exit 0 | evidencia: claim='--help × comando capturado (contrato#1)' evidencia='target/session-api01/help/help_*.txt 39 capturas exit 0 + smoke check' confianza alta; claim='--json en TODOS con salida completa + humano truncado solo TTY (contrato#2)' evidencia='smoke 23+ checks parse/pureza + payload 304 chars íntegro json y piped + tests api07_cli_binary + unit truncate_for_term' confianza alta; claim='count sin DB exit≠0 (contrato#3)' evidencia='binario exit 1 + test_count_missing_db_errors + smoke' confianza alta; claim='println!("{count}") revisado (contrato#4)' evidencia='rg src=0 + count --json objeto {namespace,count,filter}' confianza alta; claim='lecturas sin ensure_indexes_current-RW (contrato#5, Regla 8)' evidencia='search.rs 4 fns open_embedded(true) shared lock + rg RW opens=0 + init.rs:199-217 try_lock_shared + builder.rs:113-114 ensure solo !read_only + regresión AUD-044 verde porque put vía SDK mantiene índices' confianza alta; claim='put vía SDK no bypass' evidencia='crud.rs cmd_put Embedded::put(MemoryInput)+flush; reserved __vanta_ y JSON inválido siguen rechazados (tests)' confianza alta; claim='logs a stderr; -v --json puro' evidencia='console.rs with_writer(stderr) 3 formatos + smoke put -v --json pure' confianza alta; claim='review P2-01' evidencia='docs/dev/tasks/API-07.md §Review ronda 2 APPROVE (sesión vanta-review ses_f23c884f5ffeuBuIxhFvAYwvJ0)' confianza alta; artefactos: docs/dev/tasks/API-07.md, target/session-api01/smoke-api07.ps1, target/session-api01/help/ (39), target/session-api01/ocr-api07.json, completions/ (4 shells), docs/user/operations/CONFIGURATION.md (+4 docs); invariantes: mcp-call/server --mcp/desktop sidecar intactos; put rechaza __vanta_ + flush ERR-050b; search fresco tras put sin rebuild (AUD-044); salidas humanas stdout/errores stderr; src/parser, src/server, bindings, vanta-memory, vantadb-mcp, vanta-proxy intocados; no commit/push por worker; deuda: D1 staleness de índices en DB escrita por CLI viejo hasta rebuild-index (documentado en CONFIGURATION.md upgrade note); D2 spawn vantadb-server PATH/cwd pre-existente; nit completions bash lista --query oculto; queda_pendiente: commit local selectivo del lead (excluir API-08) + skill progreso + push solo con instrucción del owner; nota: disco C ~2GB libres — deps de target/session-api01/debug (~19GB) candidatos a limpieza (costo: rebuild) si el próximo build falla por StorageFull
+Próxima tarea si completa: API-08 → API-09
 === END RECITATION ===

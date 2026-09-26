@@ -1147,3 +1147,9 @@ aliases: []
 - **Objetivo:** W3 MCP: 1 nombre canónico por tool (sin alias doble), JSON Schema estricto (`additionalProperties:false` top-level en 47 base tools), `invalid_params` temprano + errores tipados, `thread_id` string, separación prompts/resources/tools.
 - **Resultado:** ✅ Contrato 4/4 — smoke live MCP **11/11** (binarios frescos en session dir) · tools/list **85 sin duplicados** (87→85) · `rg '"name": "search_memory"|"name": "collection_list"'` = 0 · `thread_id` string en schema. Suite `-p vantadb-mcp` 20/20 binaries (mcp_tests 101/101) · fmt/clippy 0 · coverage 0 gaps. Review P2-01 ✅ (ronda 1 🔴 F1-F5 → fixes → ronda 2). **Pendiente owner:** refresh local MCP (rebuild `target/debug` + restart OpenCode + re-listar 85 tools). FIND candidatos: Schemars codegen, strictness tools extendidas, envelopes internal_error.
 - **Commit:** bbcd9360 (local, sin push)
+
+### API-08: W7 vanta-memory — API Rust estable core-only (NO exponer; review P2-01 ✅)
+- **Fecha:** 2026-09-26
+- **Objetivo:** Estabilizar la API Rust de `vanta-memory` (Gate P core-only): degradación por diseño verificada, deudas D37/D21/MEM-16 con DEFER fundado, 0 símbolos nuevos en bindings.
+- **Resultado:** ✅ Contrato 4/4 — 28 targets 0 failed · degradación `llm_free_mode_reports_not_configured` 1/1 · `rg vanta[_-]memory` en bindings = 0 · `docs/api/VANTA_MEMORY.md` (+107/−20) + rustdoc `## Stability` · review P2-01 ronda 2 ✅ APPROVE · FIND-160 registrada.
+- **Commit:** ade86a1c (local, sin push)
