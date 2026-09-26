@@ -2,7 +2,7 @@
 
 > **Campaign ID:** beca0c27-fd85-4489-8f93-8361888d662c
 > **Inicio:** 2026-09-24
-> **Estado:** ✅ COMPLETADO 9/9 (2026-09-26) — API-09 cerrada (contrato 6/6); commit local pendiente del LEAD; siguiente: `skill progreso` + archivar planes + `/audit quick` → `/ship`
+> **Estado:** ✅ COMPLETADO 9/9 (2026-09-26) — API-09 cerrada (contrato 6/6, commit 032cbd0f); campaña cerrada (avance + planes archivados); siguiente: `/audit quick` → `/ship`
 > **Fuente:** `docs/dev/Backlog.md` Phase 51 (filas `API-01..API-09`)
 > **Autonomous:** false
 > **Modo:** PLAN (este archivo no cambia código; la ejecución es `/pipeline run` o `/pipeline task API-0X`)
@@ -262,7 +262,7 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Task file:** `docs/dev/tasks/API-09.md`
 - **Estado:** ✅ COMPLETED (2026-09-26) — contrato 6/6: VERSIONING 11 superficies · `validate-docs-coverage.ps1` 0 gaps · `dev-tools/verify.ps1` ALL 11 PASS (incluye fix tooling: `cargo llvm-cov nextest run`→`nextest`, coverage real 81.63% ≥60) · MCP re-smoke 11/11 + probe 2/2 (score/distance) · OCR sin Critical/High (diff docs-only, 0 reviewable) · plan 18/18 + 9/9. Review: doubt-driven degradado + OCR; revisión independiente formal → LEAD (`/audit quick` → `/ship`).
 - **Branch:** develop
-- **Commit:** (pendiente — commit local del LEAD, política owner 2026-09-25)
+- **Commit:** 032cbd0f (local, sin push)
 - **Cynefin:** 🟦 obvio — checklist de cierre
 - **Top 3 riesgos:** 1. Docs detrás del código 2. MCP stale 3. Versión/tag manual
 - **Pre-mortem:** F1: CHANGELOG manual; F2: ES en docs técnicas; F3: planes sin archivar

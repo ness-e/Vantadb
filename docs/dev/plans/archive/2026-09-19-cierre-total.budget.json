@@ -1,0 +1,49 @@
+{
+  "tasks": {
+    "FIND-128": {
+      "taskId": "FIND-128",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789858522962,
+      "lastActivity": 1789858522962,
+      "traceId": "0337cc32-d23c-41c7-8a54-de3e8ecb5d34"
+    },
+    "CODEX-130-131-132": {
+      "taskId": "CODEX-130-131-132",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789858568342,
+      "lastActivity": 1789858568342,
+      "traceId": "4ae9f10b-f68e-4fac-a2b9-9a1e1fd8e593"
+    },
+    "FIND-133": {
+      "taskId": "FIND-133",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789861111652,
+      "lastActivity": 1789861111652,
+      "traceId": "d2138fb1-fb34-4df9-902d-2b3815837bad"
+    },
+    "WIN-FLAKY-AUDIT": {
+      "taskId": "WIN-FLAKY-AUDIT",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789861440116,
+      "lastActivity": 1789861440116,
+      "traceId": "c6c9694b-1a1c-4c59-b8be-2fdb47902c35"
+    },
+    "FIND-129": {
+      "taskId": "FIND-129",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789862054234,
+      "lastActivity": 1789862054234,
+      "traceId": "55c7ee4a-f540-405d-9274-dfb03d335a28"
+    }
+  }
+}
