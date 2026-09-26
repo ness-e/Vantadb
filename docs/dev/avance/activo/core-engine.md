@@ -763,3 +763,9 @@ s_len‖ns‖key_len‖key‖ver BE) + hooks put/put_batch/delete/purge_expired 
 - **Objetivo:** `IQL_VERSION` + 1 sintaxis documentada + case definido + fixes `==`/Int/string + AST JSON.
 - **Resultado:** ✅ Contrato 4/4 — `rg IQL_VERSION src/` 14 hits (mod.rs:17,20 · gate grammar.rs:120 · re-export lib.rs:180) · `--lib parser` 127/0 + `--test parser` 4/0 + parity 11/0 · repros RED→GREEN (`==`, `42→Int`, big-int, `from` minúscula, `'quote'`) · ejemplo YAML consumido. `FIND-156` (AST JSON en bindings) + `FIND-157` (coerción Int/Float pre-existente) registrados. Review P2-01 ronda 1 ❌ → R1/R2/R3 → ✅.
 - **Commit:** a6f6a70b (local, sin push)
+
+### API-07: W6 CLI — POSIX + `--json` global + flags simétricos (review P2-01 ✅)
+- **Fecha:** 2026-09-26
+- **Objetivo:** Normalizar la superficie CLI: `--json` global completo (humano truncado solo TTY), flags simétricos `--in`/`--out`, `--limit` canónico, QUERY posicional, `count` sin DB exit≠0, `put` vía SDK, lecturas read-only (Regla 8).
+- **Resultado:** ✅ Contrato 5/5 — help 39 capturas · smoke 56/56 · cli_tests 88/88 · lib 2124/0 · fmt/clippy 0 · review P2-01 ronda 2 ✅ APPROVE. Lead verify: 88/88 (`-p vantadb`); el hang de `cargo test` sin `-p` era unificación de features con default-members → test gateado `#[cfg(not(feature = "server"))]` (suite unificada 87/87).
+- **Commit:** f6c395ef (local, sin push)
