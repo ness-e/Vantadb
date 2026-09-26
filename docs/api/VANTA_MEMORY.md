@@ -3,7 +3,7 @@ title: "Vanta Memory Engine — API Reference (`vanta-memory`)"
 type: api
 status: active
 tags: [vantadb, api, vanta-memory, memory-engine]
-last_reviewed: 2026-09-15
+last_reviewed: 2026-09-26
 aliases: []
 related: []
 ---
@@ -19,6 +19,52 @@ Crate LLM-driven para memoria de agentes: captura L0, extracción/dedup L1, esce
 persona L3, recall con scope, context engine (compresión), offload y generación wiki.
 **Principio rector:** el LLM es opcional (P4) — todo flujo degrada sin perder datos cuando
 el runner falla o no está configurado.
+
+## Scope & stability (Gate P — 2026-09-24)
+
+- **Core-only by decision** (`API-STD-15`, Gate P): `vanta-memory` is an internal workspace
+  member (`publish = false`) consumed in-process by `vantadb-mcp`, `vanta-proxy` and
+  `desktop/src-tauri`. It is **not exposed by any binding** (Python/TS/Node/WASM) and is not
+  part of the published versioning contract; exposing it requires new Rust bindings plus
+  demonstrated demand (post-release, D42/D43).
+- **Stable Rust API:** the public surface documented here is the stable contract for in-repo
+  consumers. Binding re-export: none — `0` symbols by design (checked with
+  `rg "vanta[_-]memory" vantadb-python vantadb-ts vantadb-node vantadb-wasm` → 0 matches).
+
+## Feature flags
+
+All optional; the default build stays lean and LLM-free.
+
+| Feature | Enables | Default |
+|---|---|---|
+| `llm-driver` | Real HTTP transport for `StandaloneLlmRunner` + `AsyncLlmRunner` (reqwest) | off |
+| `embeddings` | `core_embedding_hook` (wraps the core `EmbeddingProvider`, `remote-inference`) | off |
+| `embed-local` | Local ONNX provider (`LocalOnnxProvider`) + `local_embedding_hook()` auto-on in `L1DedupConfig::default` | off |
+| `precise-tokens` | Exact cl100k_base BPE counts (tiktoken-rs) instead of `chars/3` (D21 amendment) | off |
+| `mock` | Deterministic `MockLlmRunner` for tests | off |
+| `fjall` | Persistent backend for the `vanta-seed` binary | off |
+| `http-server` | Core HTTP server bridge (`/conversation/add` hook) | off |
+
+## Degradation contract (Principio 4)
+
+With `llm-driver` off (default) the runner is a placeholder and every LLM-dependent path
+degrades to its LLM-free equivalent — **never blocks, never loses data**:
+
+| Layer | Degraded behavior |
+|---|---|
+| L1 extraction | `success: false`; L0 turns stay untouched (store-all path) |
+| L1 dedup | heuristic keyword overlap; unmatched candidates are stored |
+| L2 scenes / L3 persona | generation reported failed; prior state untouched |
+| Recall | keyword-overlap fallback; `effective_mode` reports it |
+| Context engine | LLM-free by construction (compression/MMD/injection) |
+| Wiki ingest | new pages verbatim; required merges recorded as skipped |
+
+Pinned by `src/adapters/standalone/llm_runner.rs::llm_free_mode_reports_not_configured`
+(`:237-250` — cited as `:209-218` before WIRE-11 shifted the lines) plus the per-layer degrade
+tests (`tests/l1_extractor.rs`, `tests/l1_dedup.rs`, `tests/scene_strategy.rs`,
+`tests/persona.rs`, `tests/ingest.rs`, `tests/generation_log.rs`). The inverse contract holds
+with `llm-driver` on: failures are loud, never a silent `NotConfigured`
+(`llm_driver_fails_loud_on_unreachable_endpoint`, WIRE-11).
 
 ## Arquitectura por capas
 
@@ -41,7 +87,7 @@ el runner falla o no está configurado.
 ### Trait `LlmRunner` (host-neutral, sync)
 ```rust
 pub trait LlmRunner {
-    fn run(&self, params: LlmRunParams) -> Result<String, LlmError>;
+    fn run(&self, params: &LlmRunParams) -> Result<String, LlmError>;
     // complete_json<T>: helper genérico — NO dyn-compatible; usar <R: LlmRunner>
 }
 ```
@@ -62,11 +108,17 @@ assemble_with_recall(...)  // coordinator único: assemble → inject_mmd → re
 
 ### Recall
 ```rust
-RecallConfig { recall_scope: RecallScope, .. }   // Session | Agent | Team — default Agent
+RecallConfig { scope: RecallScope, .. }   // Session | Agent | Team — default Agent
 perform_auto_recall(db, params) -> RecallResult { prepend_context, append_system_context, .. }
 ```
-Prepend = memories dinámicas per-turn; Append = persona/escenas estables (prompt-cache friendly).
-Embedding/Hybrid degradan a keyword-overlap hasta que el core exponga embeddings (D37).
+Prepend = dynamic per-turn memories; Append = stable persona/scenes (prompt-cache friendly).
+Embedding/Hybrid actually run when an embedding hook is attached **and** the pool carries
+vectors (MEM-47 dual-pool: cosine ranking + keyword gate, fused with RRF via `rrf_merge`) —
+a legacy record is never dropped *just because* it lacks a vector; it still ranks through the
+keyword-overlap gate (`min_overlap`). With `embed-local` compiled,
+`L1DedupConfig::default` wires `local_embedding_hook()` automatically (MEM-63); without a
+provider both modes degrade to keyword-overlap (`RecallMode::effective`,
+`core/hooks/auto_recall.rs:87-98`).
 
 ### Wiki ingest (F7)
 ```rust
@@ -96,17 +148,34 @@ merges requeridos se registran como skipped.
 - `vanta-seed <seed.json> [--db <path>]` — import inicial de skills/persona, idempotente por
   content-hash.
 
-## Deudas conocidas (upgrade paths documentados)
+## Debts — resolved & deferred (upgrade paths)
 
-1. **Keyword-overlap sin embeddings** — recall/dedup/query heurísticos; upgrade a vector
-   search cuando el core exponga API de embeddings (afecta cross-idioma/paráfrasis).
-2. **TokenEstimator chars/3** (D21) — subestima CJK/código; factor configurable; calibrar
-   contra benchmarks reales si el drift >15%.
-3. **Scoring de compresión heurístico** — sustituye los scores del L1 de TDAM; consumir
-   scores reales es upgrade futuro.
-4. **Context engine ↔ pipeline worker** — el engine es library-API (consumido por tests e2e);
-   el wiring productivo al worker de MEM-16 está pendiente de decisión (ver backlog).
-5. **Fetcher HTTPS/git** — diferido (D30/D36); implementar con SSRF blocklist NO desactivable
-   cuando haya fuentes remotas.
+### Resolved (API-08 stabilization, 2026-09-26)
 
-Ver ADR-029 para el racional completo de las decisiones D21-D23.
+1. **D37 — embeddings-based recall/dedup**: paid by MEM-46 (`e22b496a`), MEM-47 (`f32e4d51`)
+   and MEM-63 (`6058cc84`). Dual-pool ranking (cosine + keyword, RRF) is live and
+   `embed-local` auto-wires the local provider. *Residual (founded DEFER):* without a
+   provider attached the pipeline stays keyword-only by design (P4) — trigger to revisit:
+   a host attaches a provider / hosted-embeddings demand.
+2. **D21 — `TokenEstimator`**: paid by the ADR-029 amendment + BND-03 (`784b27b9`).
+   `precise-tokens` gives exact cl100k counts (golden tests pinned); the `chars/3` default is
+   an accepted ±20% approximation (CJK ~2×). *Trigger:* drift >15% or CJK default-precision
+   demand.
+3. **MEM-16 — context engine ↔ pipeline worker**: paid by MEM-43 (`a0bcb112`) — the worker
+   runs `assemble_with_recall` post-L3 under one shared budget
+   (`services/pipeline_worker.rs::run_context_assembly`; e2e
+   `d19_worker_assembles_context_post_l3_with_compression_active`). No residual.
+4. **Heuristic compression scoring**: partially paid by MEM-48 (`4fbaa4a3`) — messages linked
+   to persisted L1 memories are scored from their real max priority (`MemoryScoreMap`), wired
+   in production by `run_context_assembly`. *Residual (founded DEFER):* messages without
+   linked memories (and the module's upstream ceiling) keep the deterministic heuristic —
+   upgrade path: consume persisted offload-entry scores (`context_engine/compressor.rs:7-9`);
+   trigger: those scores land in the store.
+
+### Open (trigger-gated DEFER)
+
+5. **Fetcher HTTPS/git** — deferred (D30/D36); implement with a non-disableable SSRF
+   blocklist when remote sources land.
+
+See ADR-029 for the full D21–D23 rationale and `API-STD-15` for the Gate P decision
+(core-only + stable Rust API).
