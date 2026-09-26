@@ -394,3 +394,9 @@ aliases: []
 - **Objetivo:** promesa "1 comando" rota en macOS + puerta Colab rota + hooks mudos sin pwsh (C5/C9/C12)
 - **Resultado:** ✅ install.sh fallback `command -v sha256sum || shasum -a 256` + normalización formato asset (fail-closed); notebook a `from vantadb import Client` + `db.search`/`db.memory.*` ejecutado e2e; `vanta-cli mcp-call` one-shot (JSON-RPC stdio, exit 0/1/2, placeholders `{{}}` stdin) + templates hooks 1.1.0 (memory_recall verbatim, reminders estáticos); P2-01 changes-required→aplicado (truncate UTF-8, reap zombie)
 - **Commit:** 8e55e853
+
+### WIRE-11: `llm-driver` always-on en MCP/proxy
+- **Fecha:** 2026-09-25
+- **Objetivo:** provider ollama/openai decorativo en silencio → funciona o falla con mensaje claro
+- **Resultado:** ✅ 2 líneas Cargo (MCP + proxy) + test `llm_driver_fails_loud_on_unreachable_endpoint`; reqwest v0.12.28 única (dual TLS = patrón workspace); lead verify 1/1; P2-01 vanta-review approve
+- **Commit:** 84cb2d19

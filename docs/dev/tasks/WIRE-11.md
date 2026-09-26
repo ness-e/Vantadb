@@ -6,7 +6,7 @@
 - **Esfuerzo:** 🟢 0.5d · **Prioridad:** 🟠 · **Tipo:** Rust config/build (`fix:`)
 - **Turns estimados:** 5-10
 - **Creado:** 2026-09-25 · **last-synced:** 2026-09-25
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED (P2-01 vanta-review approve; lead verify: honest-test 1/1 con feature + commit limpio 4 archivos)
 - **Incógnitas (uphill):** 0 (diseño resuelto P/D 2026-09-25: always-on) · **Pendientes (downhill):** 4 steps
 
 ## Blast Radius
