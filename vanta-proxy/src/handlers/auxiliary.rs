@@ -47,7 +47,7 @@ pub fn estimate_tokens(body: &Value) -> u64 {
     ((total + 3) / 4).max(1) as u64
 }
 
-/// `GET /v1/models` (also `/{agent}/{spaceId}/v1/models`) — auth required (D34).
+/// `GET /v1/models` (also `/{agent}/{space_id}/v1/models`) — auth required (D34).
 pub async fn models(
     State(state): State<AppState>,
     headers: HeaderMap,
@@ -56,7 +56,7 @@ pub async fn models(
     Ok(Json(models_response(&state.config.upstream)))
 }
 
-/// `POST /v1/messages/count_tokens` (also `/{agent}/{spaceId}/...`) —
+/// `POST /v1/messages/count_tokens` (also `/{agent}/{space_id}/...`) —
 /// auth required (D34); local estimate, never forwarded upstream.
 pub async fn count_tokens(
     State(state): State<AppState>,

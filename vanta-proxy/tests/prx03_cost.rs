@@ -220,6 +220,9 @@ async fn buffered_response_records_output_tokens_nonzero() {
         writeback: vanta_proxy::config::WritebackConfig::default(),
         cache: CacheConfig {
             enabled: true,
+            // API-05 X5: a positive TTL is required for the cache (and thus
+            // the buffered path that observes output usage) to be active.
+            ttl_secs: 3600,
             ..Default::default()
         },
         report: Default::default(),
