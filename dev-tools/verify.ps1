@@ -76,7 +76,7 @@ try {
     }
     if (Get-Command "cargo-llvm-cov" -ErrorAction SilentlyContinue) {
         if (Get-Command "cargo-nextest" -ErrorAction SilentlyContinue) {
-            run "coverage" (("cargo", "llvm-cov", "nextest", "run", "--profile", "audit", "-p", "vantadb", "--fail-under-lines", "$CoverageThreshold") + $feats + @("--build-jobs", "1", "-E", "not test(/deserialize_absurd_node_count/) and not test(/test_search_with_bizarre_text_query/) and not test(/test_malformed_payload_extremely_large/)"))
+            run "coverage" (("cargo", "llvm-cov", "nextest", "--profile", "audit", "-p", "vantadb", "--fail-under-lines", "$CoverageThreshold") + $feats + @("--build-jobs", "1", "-E", "not test(/deserialize_absurd_node_count/) and not test(/test_search_with_bizarre_text_query/) and not test(/test_malformed_payload_extremely_large/)"))
         } else {
             run "coverage" (("cargo", "llvm-cov", "-p", "vantadb", "--fail-under-lines", "$CoverageThreshold") + $feats + @("-j", "1", "--", "--skip", "benchmark", "--skip", "competitive", "--skip", "recall", "--skip", "sift", "--skip", "chaos", "--skip", "hnsw_hard_validation", "--skip", "stress_protocol", "--skip", "vector_scale", "--skip", "certification", "--skip", "security_audit", "--skip", "deserialize_absurd_node_count", "--skip", "test_search_with_bizarre_text_query", "--skip", "test_malformed_payload_extremely_large"))
         }

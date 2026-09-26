@@ -3,7 +3,7 @@ title: VantaDB Error Handling Reference
 type: api
 status: active
 tags: [vantadb, api, errors]
-last_reviewed: 2026-09-02
+last_reviewed: 2026-09-26
 aliases: [VantaError, ERROR_CODES, McpError]
 ---
 
@@ -64,8 +64,11 @@ Applied to VantaDB:
    `Display` + `is_retriable()`/`recovery_hint()`; Python: `.code` /
    `str(exc)` / `.retriable` + `.hint`; TS/WASM/Node: `DbError.code` /
    `.message` / `.details` + `.cause`; MCP: `error.data.code` /
-   `error.message` / `error.data`; HTTP: `code` + `error`/`hint` today,
-   RFC 9457 (`type`/`title`/`status`/`detail`/`instance`) in the HTTP wave.
+   `error.message` / `error.data`; HTTP: `success: false` + `error`/`data` +
+   `code` (`VANTADB_*`) with optional `hint`
+   (see [`HTTP_API.md` §Error responses](HTTP_API.md#error-responses)); full RFC 9457
+   (`type`/`title`/`status`/`detail`/`instance`) is not implemented — tracked in
+   `docs/dev/Backlog.md` (FIND-161).
 
 > **Resolved (ERR-CORE-01, 2026-09-02):** `Error::code()` now exists and
 > returns `&'static str` with the `VANTADB_` prefix. The table below is the

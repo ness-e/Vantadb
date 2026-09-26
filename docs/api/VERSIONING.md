@@ -3,7 +3,7 @@ title: Versioning & Stability Policy
 type: api
 status: active
 tags: [vantadb, api, semver]
-last_reviewed: 2026-08-23
+last_reviewed: 2026-09-26
 aliases: []
 ---
 
@@ -11,7 +11,7 @@ aliases: []
 
 VantaDB follows [Semantic Versioning](https://semver.org/) with the standard
 `0.x` pre-1.0 conventions. This document states exactly what consumers can rely on
-before `1.0.0`.
+before `1.0.0` — and enumerates the public API surfaces covered by the policy.
 
 ## Pre-1.0 stability contract
 
@@ -26,27 +26,65 @@ Until `1.0.0`:
 Every breaking change is marked in `docs/CHANGELOG.md` via a `feat!:` commit or a
 `BREAKING CHANGE:` footer, so consumers can scan for them mechanically.
 
-## What counts as stable public API
+## The 11 public API surfaces
 
-The following surfaces are covered by this policy:
+The surface inventory is frozen by the 2026-09 API standardization campaign
+(inventory: `docs/dev/tasks/API-STD-01.md`; binding decisions:
+`API-STD-15.md`). A change that breaks any surface below requires a MINOR bump
+plus an explicit breaking-change note (`feat!:` / `BREAKING CHANGE:`).
 
-| Surface | Contract |
-|---------|----------|
-| Python SDK (`import vantadb`) | Documented methods and types in `docs/api/PYTHON_SDK.md` |
-| TypeScript SDK (`vantadb-ts`) | Documented API in `docs/api/TS_SDK.md` |
-| HTTP API | `/api/v2/*` routes as defined by `docs/api/openapi.yaml` |
-| MCP tools | Tools listed in `docs/api/MCP.md` |
-| On-disk format | Files written under the data directory (WAL, VantaFile segments) |
+| # | Surface | Entry point | Normative contract |
+|---|---------|-------------|--------------------|
+| 1 | Rust core SDK | `vantadb` crate — `Embedded` (`src/sdk/`) | [`EMBEDDED_SDK.md`](EMBEDDED_SDK.md) |
+| 2 | Python SDK | `vantadb-python` (PyO3, `import vantadb`) | [`PYTHON_SDK.md`](PYTHON_SDK.md) |
+| 3 | TypeScript SDK | `vantadb-ts` (`vantadb.ts`, `native.ts`) | [`TS_SDK.md`](TS_SDK.md) |
+| 4 | Node.js SDK (NAPI) | `vantadb-node` | [`NODE_SDK.md`](NODE_SDK.md) |
+| 5 | WebAssembly SDK | `vantadb-wasm` + OPFS/IDB persistence | [`WASM_API.md`](WASM_API.md) · [`WASM_PERSISTENCE.md`](WASM_PERSISTENCE.md) · [`WASM_STANDALONE.md`](WASM_STANDALONE.md) |
+| 6 | HTTP API + OpenAPI | `vantadb-server` — `/api/v2/*` | [`HTTP_API.md`](HTTP_API.md) + [`openapi.yaml`](openapi.yaml) |
+| 7 | MCP server | `vanta-cli server --mcp` (stdio) | [`MCP.md`](MCP.md) |
+| 8 | IQL | `IQL_VERSION = 1` grammar (`src/parser/`) | [`IQL.md`](IQL.md) |
+| 9 | CLI | `vanta-cli` | [`CONFIGURATION.md` §4 Embedded CLI](../user/operations/CONFIGURATION.md) + built-in `--help` |
+| 10 | LLM proxy | `vanta-proxy` | [`PROXY.md`](PROXY.md) |
+| 11 | vanta-memory (Rust crate) | `vanta-memory` — L0–L3 pipeline, core-only | [`VANTA_MEMORY.md`](VANTA_MEMORY.md) |
 
-A change that breaks any of these requires a MINOR bump plus an explicit breaking
-change note.
+Cross-surface wire conventions pinned by the same campaign (each surface's
+reference doc is authoritative for its own wire):
+
+- **Search semantics:** `score` (higher is better) for memory/hybrid search;
+  `distance` (lower is better) only for raw ANN vectors — [`scores.md`](scores.md).
+- **Identifiers:** `u128` crosses every JSON/FFI wire as a decimal string (no
+  precision loss above 2^53) — [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md).
+- **Errors:** one envelope shape (`code` + `message` + `context`) across bindings
+  and MCP; clients match on the stable `VANTADB_*` codes — [`ERROR_HANDLING.md`](ERROR_HANDLING.md).
+- **Casing:** camelCase on JSON/MCP frontiers, kebab-case for CLI commands and
+  tool names, native interior (snake Rust/Python, camel TS) — [`BINDINGS_NAMESPACES.md`](BINDINGS_NAMESPACES.md).
+
+Storage compatibility (WAL, VantaFile segments, index formats) is a separate
+contract outside this surface list: see
+[`STORAGE_VERSIONING.md`](../dev/architecture/STORAGE_VERSIONING.md).
+
+## Enforcement
+
+The contracts above are checked mechanically, not by convention:
+
+- `scripts/validate-docs-coverage.ps1` — documented SDK methods, config fields,
+  CLI commands, Python methods, and MCP tools must all
+  appear in their `docs/api/` reference (0 gaps required).
+- `cargo test --test openapi_yaml_parity` — `openapi.yaml` stays in lockstep with
+  the Axum router. (`HTTP_API.md` mirrors the YAML by docs-sync convention, not
+  by this test.)
+- `cargo test --test sdk_serialization` — pins the cross-binding wire (`u128`
+  strings, score semantics) across Python/TS/Node/WASM.
 
 ## What is NOT covered
 
 - APIs explicitly marked **experimental** (see `docs/user/operations/EXPERIMENTAL_FEATURES.md`)
   — they may change or disappear in any release, including PATCH.
-- Rust crate internals (non-public modules, private structs, internal traits).
+- Rust crate internals (non-public modules, private structs, internal traits) —
+  including `vanta-memory` modules beyond its documented crate API.
 - IQL behavior beyond what `docs/api/IQL.md` documents.
+- Adapters, integrations, `desktop/`, and `web/` — they consume the surfaces
+  above but are not themselves covered.
 
 ## Deprecation policy
 
