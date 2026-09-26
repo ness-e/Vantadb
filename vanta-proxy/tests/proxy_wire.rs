@@ -433,7 +433,7 @@ async fn rate_limit_blocks_excess_with_429_and_retry_after_headers() {
             "first two requests within the window pass"
         );
     }
-    // Concurrent burst from N clients against the same spaceId×model bucket.
+    // Concurrent burst from N clients against the same space_id×model bucket.
     let mut handles = Vec::new();
     for _ in 0..6 {
         let url = proxy_url.clone();
@@ -479,7 +479,7 @@ async fn rate_limit_blocks_excess_with_429_and_retry_after_headers() {
     assert_eq!(
         resp.status(),
         200,
-        "separate spaceId×model buckets are independent"
+        "separate space_id×model buckets are independent"
     );
 }
 

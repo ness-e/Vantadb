@@ -184,7 +184,7 @@ async fn sidequery_with_session_skips_capture_but_main_captures() {
 async fn session_advance_route_moves_team_to_agent() {
     let env = setup().await;
     let resp = client()
-        .post(format!("{}/session/advance", env.proxy_url))
+        .post(format!("{}/sessions/advance", env.proxy_url))
         .header("x-vanta-user-key", USER_KEY)
         .header("x-vanta-session", "sess-route-1")
         .json(&json!({ "target": "agent", "entity_id": "agent-1" }))
@@ -200,7 +200,7 @@ async fn session_advance_route_moves_team_to_agent() {
 async fn session_advance_route_rejects_unknown_entity() {
     let env = setup().await;
     let resp = client()
-        .post(format!("{}/session/advance", env.proxy_url))
+        .post(format!("{}/sessions/advance", env.proxy_url))
         .header("x-vanta-user-key", USER_KEY)
         .header("x-vanta-session", "sess-route-2")
         .json(&json!({ "target": "agent", "entity_id": "agent-missing" }))
@@ -215,7 +215,7 @@ async fn session_advance_route_requires_auth_and_key_and_target() {
     let env = setup().await;
     // No user key → 401.
     let resp = client()
-        .post(format!("{}/session/advance", env.proxy_url))
+        .post(format!("{}/sessions/advance", env.proxy_url))
         .header("x-vanta-session", "sess-route-3")
         .json(&json!({ "target": "agent", "entity_id": "agent-1" }))
         .send()
@@ -224,7 +224,7 @@ async fn session_advance_route_requires_auth_and_key_and_target() {
     assert_eq!(resp.status(), 401);
     // No session key → 400.
     let resp = client()
-        .post(format!("{}/session/advance", env.proxy_url))
+        .post(format!("{}/sessions/advance", env.proxy_url))
         .header("x-vanta-user-key", USER_KEY)
         .json(&json!({ "target": "agent", "entity_id": "agent-1" }))
         .send()
@@ -233,7 +233,7 @@ async fn session_advance_route_requires_auth_and_key_and_target() {
     assert_eq!(resp.status(), 400);
     // Bad target → 400.
     let resp = client()
-        .post(format!("{}/session/advance", env.proxy_url))
+        .post(format!("{}/sessions/advance", env.proxy_url))
         .header("x-vanta-user-key", USER_KEY)
         .header("x-vanta-session", "sess-route-3")
         .json(&json!({ "target": "bogus", "entity_id": "agent-1" }))
@@ -253,6 +253,7 @@ use std::sync::{
 async fn snapshot_degraded(proxy_url: &str) -> bool {
     client()
         .get(format!("{proxy_url}/snapshot"))
+        .header("x-vanta-user-key", USER_KEY)
         .send()
         .await
         .unwrap()

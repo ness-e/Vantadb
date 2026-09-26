@@ -54,7 +54,7 @@ These surfaces may exist in the repository, but they are not stable product clai
 | Governance and maintenance semantics | Framework runtime legado archivado (2024-06-10). Gobernanza vigente: supersede/TTL/version_history (SDK) + programa MGR (P49) → v0.7 manual → v1.0 automática. Utilidades extraídas viven en `src/utils/` (cableado del Bloom al write-path pendiente — FUT-09/VER-07) |
 | Graph traversal beyond stored local edges | Experimental, not a graph database claim |
 | Docker/Ollama examples | Experimental development examples |
-| **vanta-proxy (LLM gateway)** | **Labs** — pipeline de 16 etapas (redact/failover/cache/cost). Auth de `/snapshot`: API-05 (P51); loop de memoria + cost output: WIRE-01 (P56) |
+| **vanta-proxy (LLM gateway)** | **Labs** — pipeline de 16 etapas (redact/failover/cache/cost). Auth de `/snapshot`: ✅ API-05 (P51) — todas las rutas exigen `x-vanta-user-key` (desktop: FIND-155); loop de memoria + cost output: WIRE-01 (P56) |
 | **Vanta Studio (desktop Tauri)** | **Labs** — 12 lentes / 3 transportes; testing frontend fuera de CI (pendiente de conectar) |
 | **Web console** | **Labs** — sitio separado en [`ness-e/Vantadb-web`](https://github.com/ness-e/Vantadb-web) (docs en `docs/user/web/` de ese repo) |
 | **vanta-memory (L0→L3)** | **Shipped parcial** — pipeline completo; scheduler sin host ubicuo (`bootstrap.rs` → `conversation_trigger: None`); dreams dry-run/promote real: VER-07 (P52) |

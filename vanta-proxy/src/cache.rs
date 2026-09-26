@@ -7,7 +7,10 @@
 //! SSE streams, `stream:true` requests and unknown-length bodies always bypass.
 //!
 //! Slice 2 adds, all opt-in and additive:
-//! - TTL per entry (`CacheConfig::ttl_secs`, 0 = no expiry), lazy on lookup.
+//! - TTL per entry (`CacheConfig::ttl_secs`): caching is active only when
+//!   `enabled` AND `ttl_secs > 0`; 0 (default) means no TTL configured →
+//!   cache disabled (API-05 X5: the old "0 = never expires" convention was
+//!   inverted and silent). Expiry is lazy on lookup.
 //! - LRU recency (lookup refreshes position; slice-1 FIFO behavior preserved
 //!   when no lookups happen before eviction).
 //! - Similarity hits: same (protocol, path, body-template) + cosine ≥
@@ -24,9 +27,6 @@ use crate::config::CacheConfig;
 
 /// Max response body eligible for caching (4 MiB — bounds memory per entry).
 pub const MAX_CACHEABLE_BODY_BYTES: u64 = 4 * 1024 * 1024;
-
-/// TTL sentinel: entries never expire.
-pub const TTL_DISABLED: Duration = Duration::ZERO;
 
 /// Default similarity threshold (cosine over normalized prompt TF).
 pub const DEFAULT_SIMILARITY_THRESHOLD: f32 = 0.90;
@@ -103,16 +103,22 @@ struct TimedEntry {
     prompt_vec: Option<Vec<f32>>,
 }
 
-/// True when `inserted_at` is older than `ttl` (`TTL_DISABLED` never expires).
+/// True when an entry must not be served: a zero TTL means "no TTL
+/// configured" (cache disabled — API-05 X5), otherwise `inserted_at` older
+/// than `ttl`. Defense in depth: even if a zero-TTL entry ever slipped into
+/// the map, it would never be served.
 fn is_expired(inserted_at: Instant, ttl: Duration) -> bool {
-    ttl != TTL_DISABLED && inserted_at.elapsed() >= ttl
+    ttl.is_zero() || inserted_at.elapsed() >= ttl
 }
 
 impl ExactCache {
-    /// Build from config (disabled → every lookup misses, stores are no-ops).
+    /// Build from config. Caching is active only when `enabled` AND
+    /// `ttl_secs > 0` (API-05 X5: 0 = no TTL configured → disabled — the
+    /// old "0 = never expires" convention was inverted). Disabled → every
+    /// lookup misses, stores are no-ops.
     pub fn new(cfg: CacheConfig) -> Self {
         Self {
-            enabled: cfg.enabled,
+            enabled: cfg.enabled && cfg.ttl_secs > 0,
             max_entries: cfg.max_entries,
             ttl: Duration::from_secs(cfg.ttl_secs),
             semantic_enabled: cfg.semantic_enabled,
@@ -665,6 +671,9 @@ mod tests {
         ExactCache::new(CacheConfig {
             enabled: true,
             max_entries: n,
+            // API-05 X5: a positive TTL is required for the cache to be
+            // active (0 = no TTL configured → disabled).
+            ttl_secs: 3600,
             ..Default::default()
         })
     }
@@ -734,7 +743,7 @@ mod tests {
         CacheConfig {
             enabled: true,
             max_entries: max,
-            ttl_secs: 0,
+            ttl_secs: 3600,
             semantic_enabled: true,
             similarity_threshold: 0.9,
         }
@@ -751,7 +760,8 @@ mod tests {
     #[test]
     fn ttl_expiry_predicate() {
         use std::time::{Duration, Instant};
-        // Entrada vieja con TTL corto → expirada; fresca → viva; TTL_ZERO nunca expira.
+        // Entrada vieja con TTL corto → expirada; fresca → viva; TTL=0 →
+        // expirada (sin TTL configurado la entrada nunca se sirve, API-05).
         // `Instant` es monotónico desde boot: `now - d` paniquea si uptime < d
         // (el `10_000s` original exigía 2.7h de uptime). `checked_sub` nunca paniquea.
         let old = Instant::now()
@@ -762,12 +772,31 @@ mod tests {
         std::thread::sleep(Duration::from_millis(10));
         assert!(is_expired(old, Duration::from_millis(1)));
         assert!(!is_expired(Instant::now(), Duration::from_secs(60)));
-        assert!(!is_expired(
-            Instant::now()
-                .checked_sub(Duration::from_secs(10_000))
-                .unwrap_or_else(Instant::now),
-            super::TTL_DISABLED
-        ));
+        assert!(
+            is_expired(
+                Instant::now()
+                    .checked_sub(Duration::from_secs(10_000))
+                    .unwrap_or_else(Instant::now),
+                Duration::ZERO
+            ),
+            "zero TTL = no TTL configured → never served"
+        );
+    }
+
+    #[test]
+    fn zero_ttl_disables_cache_even_when_enabled() {
+        // API-05 X5: `ttl_secs = 0` means "no TTL configured" → caching
+        // disabled (the old convention inverted this into "never expires").
+        let mut cache = ExactCache::new(CacheConfig {
+            enabled: true,
+            max_entries: 8,
+            ttl_secs: 0,
+            ..Default::default()
+        });
+        assert!(!cache.enabled(), "ttl=0 must disable the cache");
+        cache.store("openai", "/p", b"{}", entry(b"1"));
+        assert!(cache.is_empty(), "disabled cache must not store");
+        assert!(cache.lookup("openai", "/p", b"{}").is_none());
     }
 
     #[test]
@@ -841,6 +870,9 @@ mod tests {
         let mut cache = ExactCache::new(CacheConfig {
             enabled: true,
             max_entries: 8,
+            // Positive TTL so the cache itself is active and this test keeps
+            // proving the *semantic* flag is off (not the whole cache).
+            ttl_secs: 3600,
             ..Default::default()
         });
         let stored = openai_body("What is the capital of France?");
@@ -907,7 +939,7 @@ mod tests {
         CacheConfig {
             enabled: true,
             max_entries: 8,
-            ttl_secs: 0,
+            ttl_secs: 3600,
             semantic_enabled: true,
             similarity_threshold: 0.9,
         }

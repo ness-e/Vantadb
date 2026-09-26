@@ -112,9 +112,10 @@ impl AppState {
         engine: Arc<StorageEngine>,
     ) -> Result<Self, crate::error::ProxyError> {
         // WIRE-09 (FIND-07 parity): refuse to bind a non-loopback host when
-        // no user keys exist — GET /snapshot is unauthenticated until API-05.
-        // Runs before every other check: a security refusal outranks wiring
-        // diagnostics. `new` delegates here, so `main` is covered too.
+        // no user keys exist. Post-API-05 every route (incl. GET /snapshot)
+        // requires a valid key; loopback binds without keys are the local-dev
+        // exception. Runs before every other check: a security refusal outranks
+        // wiring diagnostics. `new` delegates here, so `main` is covered too.
         let provisioned = AuthDb::new(engine.clone()).provisioned_user_count()?;
         config.validate_startup(provisioned)?;
         // PRX-08 S2: fail fast on self-forwarding loops (default upstream
@@ -363,7 +364,7 @@ impl AppState {
             }
         }
 
-        // 2) D24/D35: sliding-window limit keyed by spaceId×model.
+        // 2) D24/D35: sliding-window limit keyed by space_id×model.
         match self.limiter.check(space_id, model) {
             RateDecision::Allowed { .. } => {}
             limited @ RateDecision::Limited { .. } => {
@@ -789,22 +790,26 @@ pub fn router(state: AppState) -> Router {
     Router::new()
         .route("/health", get(health))
         .route("/snapshot", get(snapshot))
-        .route("/session/advance", post(session_advance))
+        .route("/sessions/advance", post(session_advance))
         .route(
-            "/{agent}/{spaceId}/v1/chat/completions",
+            "/{agent}/{space_id}/v1/chat/completions",
             post(handlers::openai::chat_completions),
         )
         .route(
-            "/{agent}/{spaceId}/v1/messages",
+            "/{agent}/{space_id}/v1/messages",
             post(handlers::anthropic::messages),
         )
         .route("/v1/responses", post(handlers::responses::responses))
+        .route(
+            "/{agent}/{space_id}/v1/responses",
+            post(handlers::responses::responses_prefixed),
+        )
         // PRX-05: model discovery (Claude Code picker) + token counting.
-        // Both the plain and `{agent}/{spaceId}`-prefixed shapes (parity
+        // Both the plain and `{agent}/{space_id}`-prefixed shapes (parity
         // with responses vs chat/completions).
         .route("/v1/models", get(handlers::auxiliary::models))
         .route(
-            "/{agent}/{spaceId}/v1/models",
+            "/{agent}/{space_id}/v1/models",
             get(handlers::auxiliary::models),
         )
         .route(
@@ -812,7 +817,7 @@ pub fn router(state: AppState) -> Router {
             post(handlers::auxiliary::count_tokens),
         )
         .route(
-            "/{agent}/{spaceId}/v1/messages/count_tokens",
+            "/{agent}/{space_id}/v1/messages/count_tokens",
             post(handlers::auxiliary::count_tokens),
         )
         .with_state(state)
@@ -822,7 +827,7 @@ async fn health() -> Json<serde_json::Value> {
     Json(serde_json::json!({ "status": "ok" }))
 }
 
-/// `POST /session/advance` (PRX-01): explicit session trigger alongside the
+/// `POST /sessions/advance` (PRX-01): explicit session trigger alongside the
 /// `x-vanta-session` header. Body: `{ "target": "team"|"agent"|"task",
 /// "entity_id": "<id>" }`. Requires auth (401); missing key / bad target →
 /// 400; unknown entity or illegal transition → [`crate::error::ProxyError`]
@@ -860,12 +865,18 @@ async fn session_advance(
 /// Live operational snapshot (DESKTOP-38): recent TurnReports, active
 /// sessions, pending write-back queue and rate-limit telemetry. Read-only
 /// over state that already exists — nothing here fabricates data.
+///
+/// API-05: requires auth (D34) like every other route — sessions, cost and
+/// write-back state are never exposed to unauthenticated callers (no
+/// `x-vanta-user-key` → 401, no loopback bypass).
 async fn snapshot(
     axum::extract::State(state): axum::extract::State<AppState>,
-) -> Json<serde_json::Value> {
+    headers: HeaderMap,
+) -> Result<Json<serde_json::Value>, crate::error::ProxyError> {
+    state.auth.authenticate(&headers)?;
     let sessions = state.sessions.snapshot();
     let pending_labels = state.writeback.pending_labels();
-    Json(serde_json::json!({
+    Ok(Json(serde_json::json!({
         "turns": state.reporter.recent_reports(),
         "sessions": sessions,
         "sessions_active": sessions.len(),
@@ -883,7 +894,7 @@ async fn snapshot(
             "default_budget_usd": state.config.cost.default_budget_usd,
             "enforce": state.config.cost.enforce,
         },
-    }))
+    })))
 }
 
 /// Stable protocol label for per-turn reports.
