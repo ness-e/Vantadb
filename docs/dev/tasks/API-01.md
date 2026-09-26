@@ -62,7 +62,7 @@
 | `nextTask` | API-02 (W1 bindings) |
 
     contract:
-      verificacion: cargo test --test sdk_serialization → (pendiente); wire u128 >2^53 en 4 bindings → (pendiente); rg Generic( → (pendiente); verify_changed.ps1 → (pendiente)
+      verificacion: cargo test --test sdk_serialization → 18/18 ✅ | wire u128 >2^53 en 4 bindings → ✅ (Py 2/2, TS 1/1, Node 28/28, WASM 30/30) | rg Generic( → doc-diseño ✅ | verify_changed.ps1 → 4/4 ✅
       evidencia:
         - claim: "Write.node_id sin u128_serde (graph.rs:18-24) vs StaleContext con él (:29)"
           evidencia: src/sdk/types/graph.rs:18-31 (leído verbatim)

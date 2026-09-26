@@ -9,7 +9,7 @@
 - **Turns estimados:** 15-30
 - **Creado:** 2026-09-25T00:00
 - **last-synced:** 2026-09-25T00:00
-- **Estado:** ⏳ IN PROGRESS — técnico completo (8/8 steps ✅, contrato 4/4); pendiente review P2-01 (`vanta-review`) + commit local del LEAD
+- **Estado:** ✅ COMPLETED (2026-09-26) — review P2-01 ✅ tras fix R1; contrato 4/4 (401/200/401 + 291/0); commit local `f0c3f95f` (sin push)
 - **Incógnitas (uphill):** 0 abiertas
 - **Pendientes (downhill):** 0 steps (review + commit son gates del orquestador/lead)
 

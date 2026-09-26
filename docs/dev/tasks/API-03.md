@@ -133,7 +133,7 @@ curl por grupo (records/search/threads/maintenance/export) status=YAML
 - [x] e2e `vantadb-server` verde (17/17: rutas migradas + paginación cursor + regression limit=0).
 - [x] Review P2-01 registrado (§Review, APPROVE ronda 2).
 - [x] Task file sync (+ plan file + recitation vía MCP).
-- [ ] **Commit: PENDIENTE — lo hace el LEAD al cierre (política owner 2026-09-25, sin push).** Working tree con los cambios de API-03; `git add` selectivo de los 11 paths del changeset (excluir WIP API-02).
+- [x] **Commit: hecho — `94009297` (lead, local; sin push).**
 
 ## Review (P2-01)
 
@@ -173,6 +173,6 @@ curl por grupo (records/search/threads/maintenance/export) status=YAML
 
 ## Context Save Point
 
-**API-03 COMPLETO (código+docs+tests+review ✅; commit pendiente del lead).** Steps 1-7 ✅. Contrato 4/4 mecánico + smoke live 15/15 + parity script OK. Cambios SOLO en working tree (sin commit/push por política owner 2026-09-25):
+**API-03 COMPLETO (código+docs+tests+review ✅; commit `94009297`).** Steps 1-7 ✅. Contrato 4/4 mecánico + smoke live 15/15 + parity script OK. Cambios SOLO en working tree (sin commit/push por política owner 2026-09-25):
 `src/server/router.rs`, `src/server/handlers.rs`, `src/server/pagination.rs` (nuevo), `src/server/mod.rs`, `src/server/state.rs`, `src/server/conversation.rs`, `src/server/list_records.rs`, `docs/api/openapi.yaml`, `docs/api/HTTP_API.md`, `tests/api/openapi_yaml_parity.rs`, `vantadb-server/tests/e2e.rs`, `docs/dev/tasks/API-03.md` (12 paths).
 Target de sesión: `target/session-api01` (el `target/debug` queda para el MCP). Siguiente: API-04 (depende de API-03) o cierre del lead (commit + `skill progreso`). WIP ajeno (no tocar): API-02 en `vantadb-python/**`, `vantadb-ts/**`, `vantadb-node/**`, `docs/api/{NODE_SDK,TS_SDK,WASM_API}.md`, `benchmarks/batch_vs_sequential_bench.py`.

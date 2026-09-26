@@ -124,8 +124,8 @@ rg '"name": "search_memory"|"name": "collection_list"' vantadb-mcp/ skills/vanta
 - [x] `cargo fmt --check` + `cargo clippy -p vantadb-mcp --all-targets -- -D warnings` + suite `-p vantadb-mcp` completa verdes.
 - [x] Review P2-01 registrado (§Review, APPROVE ronda 2).
 - [x] Task file sync + plan file + recitation vía MCP.
-- [ ] **Commit: PENDIENTE — lo hace el LEAD al cierre (política owner 2026-09-25, sin push).**
-- [ ] **Refresh local del MCP (owner):** rebuild `target/debug` de `vanta-cli` + `vantadb-server` + restart de OpenCode + re-listar tools (este entorno corre el binario viejo; no es del worker).
+- [x] **Commit: hecho — `bbcd9360` (lead, local; sin push).**
+- [ ] **Refresh local del MCP (pendiente OWNER):** rebuild `target/debug` de `vanta-cli` + `vantadb-server` + restart de OpenCode + re-listar tools (este entorno corre el binario viejo; no es del worker).
 
 ## Review (P2-01)
 
@@ -166,4 +166,4 @@ rg '"name": "search_memory"|"name": "collection_list"' vantadb-mcp/ skills/vanta
 
 **Siguiente:** API-07/08/09 (deps API-06 para 07).
 
-_(pendiente)_
+_(Cierre del lead: commit `bbcd9360` + review ✅ — ver §Review. Único pendiente: refresh local MCP del owner.)_
