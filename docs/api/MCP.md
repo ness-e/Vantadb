@@ -88,7 +88,7 @@ Verify the handshake (`initialize` → `tools/list`) works before touching your 
 echo '{"jsonrpc":"2.0","id":1,"method":"tools/list"}' | vanta-cli server --mcp --db ~/.vantadb
 ```
 
-You should see a JSON response listing the available tools. Namespaces are created implicitly on first write (`memory_put` with a new namespace); list existing ones with `collection_list`.
+You should see a JSON response listing the available tools. Namespaces are created implicitly on first write (`memory_put` with a new namespace); list existing ones with `memory_list_namespaces`.
 
 ### Troubleshooting
 
@@ -195,11 +195,11 @@ so LLM agents can branch on a stable identifier without parsing message text:
 
 ## Tool Families
 
-**87 tools in 8 families (spec 2025-06-18, every tool carries `annotations` with `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` per [MCP Tool Annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) / [blog 2026-03-16](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations)):**
+**85 tools in 8 families (spec 2025-06-18, every tool carries `annotations` with `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` per [MCP Tool Annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) / [blog 2026-03-16](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations)):**
 
 | Family | Count | Source module |
 |--------|-------|---------------|
-| Core | 49 | `handlers/tools.rs` — listed in `tools/list` |
+| Core | 47 | `handlers/tools.rs` — listed in `tools/list` |
 | `code_*` | 8 | `code.rs` |
 | `skill_*` | 7 | `skills.rs` |
 | `wiki_*` | 6 | `wiki.rs` |
@@ -211,15 +211,26 @@ so LLM agents can branch on a stable identifier without parsing message text:
 > Annotations are display hints (untrusted, not enforcement): `readOnlyHint` true = no persistent mutation, `destructiveHint` true = may delete/overwrite (11 tools), `idempotentHint` true = retry-safe, `openWorldHint` true = host filesystem (wiki_ingest, bulk_import_file only). Clients that ignore annotations assume pessimistic defaults.
 > Dependent ops (e.g. `put` then `search` over the new record) go in sequential invocations, not one multi-call batch: batches may reorder (smoke Fase 2 note).
 
+## Legacy aliases (dispatch-only, API-04)
+
+Gate P (API-STD-15) canonicalized the tool surface to **one listed name per tool**. These two names stay *dispatchable* (`tools/call` resolves them) but are **not** returned by `tools/list`:
+
+| Legacy (unlisted) | Canonical (listed) | Behavior |
+|-------------------|--------------------|----------|
+| `search_memory` | `memory_search` | Same shared dispatch (identical wire shape). |
+| `collection_list` | `memory_list_namespaces` | Keeps its richer per-namespace metadata (`record_count`, `has_vector_index`, `created_at`) for legacy callers. |
+
+The legacy prompt `search_memory` (see §Prompts) follows the same rule via `prompts/get`.
+
 ## Tool Surface Profiles (MCP-37)
 
 The VantaDB MCP server exposes a **tool surface profile** via the `VANTADB_MCP_PROFILE` environment variable. This allows clients with tool caps (e.g., Cursor ~40 tools) to select a subset that fits their limits while preserving full functionality for unrestricted clients.
 
 | Profile | Tool Count | Description | Recommended For |
 |---------|------------|-------------|-----------------|
-| `full` (default) | 87 | All tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence, wiki, skills, threads, scenes, dreams, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients |
-| `dev` | ~35 | Memory CRUD + search + IQL + graph traversal + collections + key maintenance (snapshots, export/import, flush, compact) + axioms. Excludes: code intelligence, wiki, skills, threads, scenes, context engine, bulk import, index audit/repair, vacuum, rebuild_index. | **Cursor** (cap ~40), VS Code extensions, clients with moderate tool caps |
-| `memory` | ~18 | Core memory CRUD (put/get/delete/list/versions/supersede) + search (semantic/memory/with_method/multi) + IQL + collections + capabilities + generate_snippet. | Memory-only agents, minimal clients, testing |
+| `full` (default) | 85 | All tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence, wiki, skills, threads, scenes, dreams, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients |
+| `dev` | 36 | Memory CRUD + search + IQL + graph traversal + collections + key maintenance (snapshots, export/import, flush, compact) + axioms. Excludes: code intelligence, wiki, skills, threads, scenes, context engine, bulk import, index audit/repair, vacuum, rebuild_index. | **Cursor** (cap ~40), VS Code extensions, clients with moderate tool caps |
+| `memory` | 20 | Core memory CRUD (put/get/delete/list/versions/supersede) + search (semantic/memory/with_method/multi) + IQL + collections + capabilities + generate_snippet. | Memory-only agents, minimal clients, testing |
 
 **Usage:**
 
@@ -252,9 +263,9 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
 - The profile is read once at server startup from `VANTADB_MCP_PROFILE`.
 - `tools/list` returns only the tools allowed by the selected profile.
 - `tools/call` for a non-listed tool returns `method_not_found` with a clear error: `Tool not found: <name> (not in profile <profile>)`.
-- Profile `full` preserves backward compatibility — existing clients see all 87 tools by default.
+- Profile `full` preserves backward compatibility — existing clients see all 85 tools by default.
 
-## Core Tools (49)
+## Core Tools (47)
 
 ### Memory CRUD (9)
 
@@ -266,21 +277,20 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
 | `memory_delete` | Deletes a memory record by namespace and key. |
 | `memory_delete_by_filter` | Batch-deletes every record in a namespace whose metadata matches the given filters (AND semantics). |
 | `memory_list` | Lists memory records in a namespace with optional pagination and metadata filters. Response is bounded by `byte_budget` (default 40 KB); see [Output budgeting](#output-budgeting-byte_budget-mcp-39) for the truncation semantics. |
-| `memory_list_namespaces` | Lists all available namespaces in the database. |
+| `memory_list_namespaces` | Lists all available namespaces in the database (API-04 canonical name). The legacy `collection_list` alias stays dispatchable but is not listed — it returns rich collection metadata (record_count/has_vector_index/created_at) while this tool returns the bare namespace list. |
 | `memory_versions` | Lists every retained version of a memory record, ascending (v1..vN); empty if the key does not exist or has no history. Expired versions are included as historical data until purged. |
 | `memory_supersede` | Marks an existing record as superseded by another existing record (durable, recoverable soft-delete). Errors if either key is missing, if old_key equals new_key, or if the old record is already superseded. |
 
-### Search & Query (8)
+### Search & Query (7)
 
 | Tool | Description |
 |------|-------------|
-| `search_memory` | Hybrid memory search in a namespace: text/vector/hybrid modes, filters, distance metric, RRF tuning, and explain output. |
+| `memory_search` | Hybrid memory search in a namespace (API-04 canonical name, mem0/Letta parity): text/vector/hybrid modes, filters, distance metric, RRF tuning, and explain output. The legacy `search_memory` alias stays dispatchable but is not listed. |
 | `search_semantic` | Raw semantic vector search directly in the HNSW index. |
-| `search_with_method` | Memory search with an explicit dense-index backend override (`method`: hnsw \| ivf \| flat \| diskann \| scann); omit to keep automatic routing. Same parameters as `search_memory`. |
+| `search_with_method` | Memory search with an explicit dense-index backend override (`method`: hnsw \| ivf \| flat \| diskann \| scann); omit to keep automatic routing. Same parameters as `memory_search`. |
 | `search_multi` | Run one search request across multiple namespaces and merge results (sorted by score, capped at `top_k` globally). Response is bounded by `byte_budget` (default 40 KB); see [Output budgeting](#output-budgeting-byte_budget-mcp-39). |
-| `query_iql` | Executes an IQL statement against typed graph nodes and memory namespaces (each namespace is queryable as a table named by its sanitized form: `/` and `-` → `_`, leading digit/`.` gets a `_` prefix). LISP not supported. |
-| `memory_search` | MEM-59: Semantic alias of `search_memory` with the canonical agent-friendly name (mem0/Letta parity). Same wire shape and engine path as `search_memory`; both tools share the same dispatch so behavior cannot diverge. |
-| `memory_recall` | MEM-59: High-level recall mirroring vanta-memory's auto-recall hook (MEM-18) over the public MCP surface. Runs keyword/embedding/hybrid search over L1 records visible under the given scope (session/agent/team), ranks with D38 dual-pool + RRF logic, and returns structured hits plus prepended context block. Read-only; idempotent; does not require a session_key. |
+| `query_iql` | Executes an IQL statement against typed graph nodes and memory namespaces (each namespace is queryable as a table named by its sanitized form: `/` and `-` → `_`, leading digit/`.` gets a `_` prefix). LISP not supported. Param-level failures (empty/NUL/oversize query) are JSON-RPC `invalid_params` (-32602). |
+| `memory_recall` | MEM-59: High-level recall mirroring vanta-memory's auto-recall hook (MEM-18) over the public MCP surface. Runs keyword/embedding/hybrid search over L1 records visible under the given scope (session/agent/team), ranks with D38 dual-pool + RRF logic, and returns structured hits plus prepended context block. Read-only; idempotent; does not require a session_key. Param-level failures are JSON-RPC `invalid_params`. |
 | `embed_texts` | Embeds a batch of texts into dense float vectors with the active provider (local ONNX real; `ollama`/`openai` when configured) and an explicit deterministic fallback. Inputs: `texts` (required, 1–128 items of 1–8000 chars), optional `model` (manifest id override, EMB-17), `cursor` pagination offset. Response always carries `fallback: false` (real vectors) or `fallback: true` + `warning` (deterministic hash, no semantic signal — never silent, Q5). Supports `max_embed_tokens` (25k) / `max_embed_batch_size` (128) budgeting. Read-only; idempotent. Verified EMB-19 (`a5d549af`): `multilingual-e5-small` dim 384 `fallback:false`, `s(par)=0.9158` vs `0.8427/0.8423` gap `0.0732`. See [Embeddings](#embeddings-providers-model-selection-and-dim-gate) below. |
 
 ## Embeddings — providers, model selection, and dim gate
@@ -304,7 +314,7 @@ Model catalog source of truth: `embeddings/manifest.json` (9 ids, rev pinned). F
 - **Auto-embed (EMB-14):** `memory_put`/`put_batch` without `vector` store WITH the active
   provider's vector (`memory_get` shows it, len == dim). A supplied `vector` is respected
   (no re-embed). Provider failure → stored without vector + explicit notice.
-- **Same-provider query (EMB-15):** `search_memory`/`memory_recall` with text embed the
+- **Same-provider query (EMB-15):** `memory_search`/`memory_recall` with text embed the
   query with the ACTIVE provider. Verified synonyms `keys=["d1","d0","d2"]` + recall
   `hybrid` recovering D0 via felino↔gato (EMB-19 Step 1, same as EMB-15).
 - **e5 prefixes (EMB-16):** e5 family uses `query:` (queries) / `passage:` (documents);
@@ -341,13 +351,14 @@ Model catalog source of truth: `embeddings/manifest.json` (9 ids, rev pinned). F
 | `write_axiom` | Registers or updates an agent axiom (invariant rule) in the reserved `_axioms` namespace; returns `{id, name, description}`. |
 | `delete_axiom` | Removes an agent axiom by name from the `_axioms` namespace; returns `{deleted}`. |
 
-### Collections (3)
+### Collections (2)
 
 | Tool | Description |
 |------|-------------|
-| `collection_list` | Lists all collections with record count, vector index status, and creation time. |
 | `collection_stats` | Statistics for one namespace/collection: count, byte size, index info, creation time. |
 | `collection_delete` | Deletes an entire namespace/collection and all its records (requires `confirm: "yes"`). |
+
+> `collection_list` is a legacy alias: dispatchable but **not listed**. Use `memory_list_namespaces` for the canonical namespace listing (see §Legacy aliases).
 
 ### Maintenance, Indexes & Snapshots (12)
 
@@ -379,12 +390,12 @@ Model catalog source of truth: `embeddings/manifest.json` (9 ids, rev pinned). F
 |------|-------------|
 | `export` | Exports memory records as JSONL (max 10 MB per call); pair with `import` for backup/restore. |
 | `import` | Imports records from JSONL produced by `export`; malformed lines are counted as errors, not fatal. |
-| `bulk_import_file` | Bulk-imports from a binary `.vdbdump` file on the host filesystem, bypassing per-record validation for throughput. |
-| `bulk_import_stream` | Bulk-imports inline NDJSON or raw `.vdbdump` content (max 10 MB); imported entries are raw engine nodes. |
+| `bulk_import_file` | Bulk-imports from a binary `.vdbdump` file on the host filesystem, **by design** bypassing per-record validation for throughput (MCP-25; do not "normalize" — it would lose the raw-throughput contract). |
+| `bulk_import_stream` | Bulk-imports inline NDJSON or raw `.vdbdump` content (max 10 MB); imported entries are raw engine nodes, **by design** not addressable via `memory_get`/`memory_list` (MCP-25). |
 
-## Extended Tool Families (37)
+## Extended Tool Families (38)
 
-Dispatched via `tools/call`, defined outside `handlers/tools.rs` (8+6+6+5+6+1+5 = 37):
+Dispatched via `tools/call`, defined outside `handlers/tools.rs` (8+7+6+5+6+1+5 = 38):
 
 ### Code Intelligence — `code.rs` (8)
 
@@ -452,6 +463,30 @@ Read wrappers plus a scoped delete over the vanta-memory dream store (`vanta_mem
 | `dream_consolidate` | Runs one LLM-free consolidation pass (`dedupe + contradictions + date normalization`) and persists the view to `dream/<session>/<run_id>`. Fails as error-content when not idle. Write path. |
 | `dream_promote` | PREVIEW ONLY: returns `{preview_count, mutated:false}` — the count a run would merge, without mutating anything. Read-only. |
 
+## Prompts (4)
+
+`prompts/list` returns 4 workflow templates. **Prompts are a separate registry from tools** (API-04): no prompt name shadows a tool name, so clients can never confuse a workflow with a callable tool.
+
+| Prompt | Description | Arguments |
+|--------|-------------|-----------|
+| `recall_search` | Recall-first memory search: `memory_recall`, then hybrid `memory_search` with deterministic temporal ranges. | `namespace` (required), `query` (required), `filters` (optional) |
+| `analyze_namespace` | Analyze a namespace for structure AND vigencia: clusters plus TTL, supersession and curation signals. | `namespace` |
+| `summarize_context` | Summarize context honouring supersession and TTL: superseded records are history, not current state. | `namespace`, `limit` (optional) |
+| `query_builder` | Build IQL queries with honest temporal rules: no server-side time-travel WHERE on memory records. | `operation`, `target`, `conditions` (optional) |
+
+> The legacy prompt name `search_memory` still resolves via `prompts/get` (redirect to `recall_search`) so saved prompts keep working; it is not listed.
+
+## Resources (2 fixed URIs + 2 dynamic schemes)
+
+`resources/list` advertises two fixed URIs; `resources/read` additionally serves two dynamic schemes:
+
+| URI | Kind | Content |
+|-----|------|---------|
+| `metrics://` | fixed | Current operational metrics (memory usage, HNSW statistics, storage information). |
+| `schema://` | fixed | Active HNSW config + text index schema/tokenizer version. |
+| `memory://{namespace}/{key}` | dynamic | One memory record as JSON. |
+| `namespace://{namespace}` | dynamic | First page of the namespace with `next_cursor` (full pagination via `memory_list`). |
+
 ## Output budgeting (`byte_budget`, MCP-39)
 
 Large list / search responses can exceed the per-message cap of popular MCP clients
@@ -473,7 +508,7 @@ Read at server startup via `McpConfig::from_storage`; clamped to `[min_byte_budg
 | Tool | Shape on the wire | Truncation policy |
 |------|-------------------|-------------------|
 | `memory_list` | `content[0].text` is a JSON object `{records, next_cursor, byte_count, truncated}` | Trailing `records` entries are popped until the envelope fits `byte_budget`. `next_cursor` is preserved; `truncated: true` advertises the trim. If the array is fully popped, the `records` key is dropped (consumers should treat absent `records` as "hard-truncated"). |
-| `search_multi` | `content[0].text` stays the raw hits array (back-compat); `structuredContent` carries `{hits, byte_count, truncated}` | Trailing `hits` are popped in both the text and the structuredContent copy. `truncated: true` flags the trim. `search_memory` / `search_semantic` / `search_with_method` are NOT budgeted in this release — their `top_k` cap is the documented upper bound; tracked as debt for a follow-up. |
+| `search_multi` | `content[0].text` stays the raw hits array (back-compat); `structuredContent` carries `{hits, byte_count, truncated}` | Trailing `hits` are popped in both the text and the structuredContent copy. `truncated: true` flags the trim. `memory_search` / `search_semantic` / `search_with_method` are NOT budgeted in this release — their `top_k` cap is the documented upper bound; tracked as debt for a follow-up. |
 
 ### When to react
 
@@ -498,7 +533,7 @@ After oversize trimming, `truncated` flips to `true` and the last items are drop
 
 ## Parity
 
-Tool coverage on this page is enforced mechanically by `scripts/validate-docs-coverage.ps1` against `handle_tools_list()` in `vantadb-mcp/src/handlers/tools.rs`. Last sync: **2026-09-17** (FIND-103 recount 79→86: +2 scenes S1, +5 dreams S2+S3).
+Tool coverage on this page is enforced mechanically by `scripts/validate-docs-coverage.ps1` against `handle_tools_list()` in `vantadb-mcp/src/handlers/tools.rs`. Last sync: **2026-09-25** (API-04: 87→85 — canonicalized `search_memory`/`collection_list` out of the listing; prompts renamed `recall_search`; `thread_id` is now a u128 decimal string).
 
 ## Registry manifest
 

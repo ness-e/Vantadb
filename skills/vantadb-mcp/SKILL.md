@@ -5,7 +5,7 @@ description: VantaDB Model Context Protocol (MCP) server integration for persist
 
 # VantaDB MCP Integration
 
-VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **87 tools** (49 core + 6 `skill_*` + 8 `code_*` + 6 `wiki_*` + 1 `context_assemble` + 5 `scene_*` + 6 `thread_*` + 5 `dream_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
+VantaDB provides a complete MCP (Model Context Protocol) server implementation for persistent memory storage with hybrid vector and text search capabilities. The MCP server exposes **85 tools** (47 core + 7 `skill_*` + 8 `code_*` + 6 `wiki_*` + 1 `context_assemble` + 5 `scene_*` + 6 `thread_*` + 5 `dream_*`), 2 resources, and 4 prompt templates over stdio JSON-RPC 2.0.
 
 ## Quick Start
 
@@ -106,7 +106,8 @@ VANTADB_MCP_BIN=C:/Users/me/.cargo/bin/vanta-cli.exe python scripts/test-mcp.py
 
 Namespaces are created **implicitly** — there is no dedicated namespace
 creation script or tool. `memory_put` with a new `namespace` value creates it on
-first write; list what exists with `collection_list` (or `memory_list_namespaces`):
+first write; list what exists with `memory_list_namespaces` (API-04 canonical
+name — the legacy `collection_list` alias stays dispatchable but is not listed):
 
 ```json
 {
@@ -114,21 +115,21 @@ first write; list what exists with `collection_list` (or `memory_list_namespaces
   "id": 1,
   "method": "tools/call",
   "params": {
-    "name": "collection_list",
+    "name": "memory_list_namespaces",
     "arguments": {}
   }
 }
 ```
 
-## Available MCP Tools (86)
+## Available MCP Tools (85)
 
-The full contract for all **87 tools** lives in
-[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 49 core tools in detail; the other 37 are summarized here.
+The full contract for all **85 tools** lives in
+[references/api-reference.md](references/api-reference.md) § "MCP Tools" — the single source of truth. The sections below document the 47 core tools in detail; the other 38 are summarized here.
 
 | Group | Count | Tools | Precondition |
 |-------|-------|-------|--------------|
-| Core (Memory/Search/Collections/Graph/IQL/GDS/Recovery) | 49 | documented below | none beyond an open DB |
-| Review-agent Skills (`skill_*`) | 6 | `skill_list`, `skill_view`, `skill_create`, `skill_update`, `skill_patch`, `skill_files_write` | `owner_agent` caller identity; writes need `expected_version` |
+| Core (Memory/Search/Collections/Graph/IQL/GDS/Recovery) | 47 | documented below | none beyond an open DB |
+| Review-agent Skills (`skill_*`) | 7 | `skill_list`, `skill_view`, `skill_create`, `skill_update`, `skill_patch`, `skill_files_write`, `skill_extract` | `owner_agent` caller identity; writes need `expected_version` |
 | Code Intelligence (`code_*`) | 8 | `code_search`, `code_explore`, `code_callers`, `code_callees`, `code_impact`, `code_node`, `code_status`, `code_files`* | graph nodes/edges ingested first; query-only |
 | Wiki Knowledge (`wiki_*`) | 6 | `wiki_search`, `wiki_read`, `wiki_list`, `wiki_graph`, `wiki_ingest`, `wiki_ingest_status` | wiki lifecycle in `ready` state |
 | Context Engine (`context_assemble`) | 1 | `context_assemble` | read-only; session recall needs prior memory capture into the session |
@@ -167,9 +168,10 @@ The full contract for all **87 tools** lives in
 - `filters` accepts BOTH formats (AUD-048 — unified semantics with the CLI channel): flat values `{"field": value}` (implicit `$eq`) **or** operator objects `{"field": {"$gt": value}}` (`$eq`, `$neq`, `$gt`, `$gte`, `$lt`, `$lte`). Operators route through the core's `filter_ops` slot.
 - Returns: `{"records": [...], "next_cursor": ...}`
 
-**memory_list_namespaces** - List all namespaces
+**memory_list_namespaces** - List all namespaces (API-04 canonical name)
 - Parameters: None
 - Returns: List of namespace names
+- Legacy alias: `collection_list` (dispatch-only, unlisted) returns per-namespace metadata (`record_count`, `has_vector_index`, `created_at`).
 
 **memory_versions** (MOD-10) - List every retained version of a memory record, ascending (v1..vN)
 - Parameters: `namespace`, `key` (both required)
@@ -182,22 +184,22 @@ The full contract for all **87 tools** lives in
 
 ### Search Operations
 
-**search_memory** - Hybrid vector and text search in a namespace
+**memory_search** - Hybrid vector and text search in a namespace (API-04 canonical name; the legacy `search_memory` alias stays dispatchable but is not listed)
 - Parameters: `namespace` (required), `query_vector` (optional array), `text_query` (optional string), `top_k` (default: 10), `distance_metric` (`cosine` | `euclidean`, default: `cosine`, **per-request** — has an observable effect on ranking and scores; no server-side global setting), `explain` (optional boolean), `filters` (optional object)
-- `filters` accepts flat values `{"field": value}` **or** explicit equality `{"field": {"$eq": value}}` (both fold to the same equality semantics). Range operators (`$gt`/`$gte`/`$lt`/`$lte`/`$neq`) are NOT supported in `search_memory` — the search request has no operator slot; pass them to `memory_list` instead (returns a clear error pointing there).
+- `filters` accepts flat values `{"field": value}` **or** explicit equality `{"field": {"$eq": value}}` (both fold to the same equality semantics). Range operators (`$gt`/`$gte`/`$lt`/`$lte`/`$neq`) are NOT supported in `memory_search` — the search request has no operator slot; pass them to `memory_list` instead (returns a clear error pointing there).
 - Returns: A **JSON array** of search hits. Each hit is an object with `record` (the memory record), `score` (fused relevance score), and — only when `explain: true` — an `explanation` object with the per-hit scoring breakdown: `identity` (`"namespace\0key"`), `score`, `snippet`, `matched_tokens`, `matched_phrases`, `bm25_terms`, `rrf_text_rank`, `rrf_vector_rank`.
-- ⚠️ Explain shape (T15): the response is a **flat hit array**; there is **no top-level `route` or `fusion_report`** key on `search_memory`. Those fields belong to the dedicated core/Python `explain_memory_search()` method (returns `{route, hits, fusion_report}`; `fusion_report` is currently always `null`). Do not assert `route`/`fusion_report` on `search_memory` output.
+- ⚠️ Explain shape (T15): the response is a **flat hit array**; there is **no top-level `route` or `fusion_report`** key on `memory_search`. Those fields belong to the dedicated core/Python `explain_memory_search()` method (returns `{route, hits, fusion_report}`; `fusion_report` is currently always `null`). Do not assert `route`/`fusion_report` on `memory_search` output.
 
 **search_semantic** - Raw HNSW vector search
-- Parameters: `vector` (F32 query vector, required), `k` (required in the input schema; optional at runtime — when omitted it defaults to 5; **clamped to `config.max_top_k`**, the same cap `search_memory` uses)
+- Parameters: `vector` (F32 query vector, required), `k` (required in the input schema; optional at runtime — when omitted it defaults to 5; **clamped to `config.max_top_k`**, the same cap `memory_search` uses)
 - Returns: Nearest neighbors with distances. `distance` is a **real distance, not a similarity**: lower is more similar, and hits are returned in ascending distance order. Under the cosine metric `distance = 1 − cosine_similarity` — an identical vector reports `0.0`, an orthogonal vector reports `1.0`.
 
 **search_with_method** (MCP-24) - Hybrid memory search with an explicit dense-index backend override
-- Parameters: same as `search_memory` plus `method` (optional string enum: `hnsw` | `ivf` | `flat` | `diskann` | `scann`). Omit `method` to keep automatic engine routing.
-- Returns: Same flat hit array as `search_memory` (`{record, score, explanation?}`), but the dense-vector channel is forced through the selected backend. Use it to compare backends or pin a specific index.
+- Parameters: same as `memory_search` plus `method` (optional string enum: `hnsw` | `ivf` | `flat` | `diskann` | `scann`). Omit `method` to keep automatic engine routing.
+- Returns: Same flat hit array as `memory_search` (`{record, score, explanation?}`), but the dense-vector channel is forced through the selected backend. Use it to compare backends or pin a specific index.
 
 **search_multi** (MCP-24) - Run one search request across multiple namespaces and merge the results
-- Parameters: `namespaces` (required array of strings, must not be empty), plus the same request fields as `search_memory` (`query_vector`, `text_query`, `top_k`, `distance_metric`, `explain`, `filters`, `search_profile`). `top_k` caps the **merged** result globally.
+- Parameters: `namespaces` (required array of strings, must not be empty), plus the same request fields as `memory_search` (`query_vector`, `text_query`, `top_k`, `distance_metric`, `explain`, `filters`, `search_profile`). `top_k` caps the **merged** result globally.
 - Returns: A flat hit array merged across all namespaces, sorted by descending score. Namespaces that fail validation are skipped; engine errors are surfaced.
 
 ### Graph Operations
@@ -205,7 +207,7 @@ The full contract for all **87 tools** lives in
 **query_iql** - Execute an IQL (Interactive Query Language) statement. Allows reading structures and inserting/mutating Nodes providing semantic context. **LISP is not supported; statements must be IQL.**
 - Parameters: `query`
 - Returns: Query results or execution status (read nodes, write result, or stale-context rehydration hint)
-- **Scope (MCP-27, extended by MCP-29):** IQL reads typed graph nodes (`TYPE`) **and** memory namespaces as tables. Each namespace is reachable via its sanitized table name — `/` and `-` become `_`, and a leading digit/`.` gets a `_` prefix (`src/sdk/serialization/mod.rs::iql_table_name_for_namespace`; e.g. `mmd/s1/history` → `mmd_s1_history`). A graph type and a namespace sanitizing to the same name return a UNION; an unknown or empty name returns `[]` without error (`src/physical_plan/scan.rs`, tests `collision_between_graph_type_and_namespace_returns_union`, `namespace_with_slashes_is_queryable_via_sanitized_table`). Memory records carry reserved `__vanta_*` fields and no `type` field — prefer `memory_list` / `memory_get` / `search_memory` for key-shaped access.
+- **Scope (MCP-27, extended by MCP-29):** IQL reads typed graph nodes (`TYPE`) **and** memory namespaces as tables. Each namespace is reachable via its sanitized table name — `/` and `-` become `_`, and a leading digit/`.` gets a `_` prefix (`src/sdk/serialization/mod.rs::iql_table_name_for_namespace`; e.g. `mmd/s1/history` → `mmd_s1_history`). A graph type and a namespace sanitizing to the same name return a UNION; an unknown or empty name returns `[]` without error (`src/physical_plan/scan.rs`, tests `collision_between_graph_type_and_namespace_returns_union`, `namespace_with_slashes_is_queryable_via_sanitized_table`). Memory records carry reserved `__vanta_*` fields and no `type` field — prefer `memory_list` / `memory_get` / `memory_search` for key-shaped access.
 
 #### IQL Syntax
 
@@ -288,9 +290,10 @@ Notes:
 - Returns: `{"total_records", "total_bytes", "has_vector_index", "vector_count", "created_at"}`
 - Note (MOD-11 H6): `total_bytes` is a deliberate **estimate** — payload UTF-8 length plus a Debug-format length of each metadata value. It excludes vectors, sparse vectors, index overhead and serialization framing, so treat it as an order-of-magnitude figure, not the on-disk footprint.
 
-**collection_list** - Lists all collections with metadata
+**collection_list** (legacy alias, unlisted) - Lists all collections with metadata
 - Parameters: None
 - Returns: Array of `{"name", "record_count", "has_vector_index", "created_at"}`
+- Canonical listing is `memory_list_namespaces`; this alias stays dispatchable for its richer metadata but is not returned by `tools/list` (API-04).
 
 **collection_delete** - Deletes an entire namespace/collection and all its records
 - Parameters: `namespace`, `confirm` (must be `"yes"`)
@@ -443,7 +446,7 @@ The server lists 2 static resources in `resources/list`; 2 additional dynamic UR
 Recall-first workflows (not bare search strings) — `prompts/get` interpolates
 your arguments into the workflow text:
 
-- **search_memory** - Recall-first search: `memory_recall` (scope agent, top_k 5), then hybrid `search_memory`; temporal expressions become deterministic `[from_ms, to_ms]` ranges, never guesses; empty recall injects nothing
+- **recall_search** - Recall-first search: `memory_recall` (scope agent, top_k 5), then hybrid `memory_search`; temporal expressions become deterministic `[from_ms, to_ms]` ranges, never guesses; empty recall injects nothing. (Legacy prompt name `search_memory` redirects here.)
 - **analyze_namespace** - Structure AND vigencia: clusters plus TTL expiry, supersession chains, approval-inbox items and duplicates
 - **summarize_context** - Summaries honouring supersession/TTL: superseded records are history, keys quoted for traceability
 - **query_builder** - IQL with honest temporal rules (no server-side time-travel WHERE on memory records; `graph_traverse` `time_range` for edge windows)
@@ -521,7 +524,7 @@ Minimal example — hybrid query (vector + text) against a namespace:
   "id": 2,
   "method": "tools/call",
   "params": {
-    "name": "search_memory",
+    "name": "memory_search",
     "arguments": {
       "namespace": "agent/session-1",
       "text_query": "concise technical answers",
@@ -568,7 +571,7 @@ paraphrase / e5-small) needs no re-ingest; cross-dim switch needs a new DB or fu
    this slot — puts/search use the active provider.
 4. **Auto-embed (EMB-14) + same-provider query (EMB-15).** `memory_put` without `vector`
    stores WITH the active provider's vector; a supplied `vector` is respected. Text-only
-   `search_memory`/`memory_recall` embed the query with the SAME provider (verified synonyms
+   `memory_search`/`memory_recall` embed the query with the SAME provider (verified synonyms
    `keys=["d1","d0","d2"]` + recall `hybrid`). Budgeting is unchanged (128 items / 25k tokens,
    `cursor`/`next_cursor`).
 5. **e5 prefixes (EMB-16).** e5 family: `query:` for queries, `passage:` for documents
@@ -588,7 +591,7 @@ VantaDB provides Python SDK integrations for popular AI frameworks:
 
 ## Editor Integration
 
-For per-IDE setup (Cursor, Claude Code, Windsurf, OpenCode, Cline, VS Code), see [docs/api/MCP.md](../../docs/api/MCP.md) (a stub). The source of truth for the MCP contract is this skill — [references/api-reference.md](references/api-reference.md) § "MCP Tools (86)".
+For per-IDE setup (Cursor, Claude Code, Windsurf, OpenCode, Cline, VS Code), see [docs/api/MCP.md](../../docs/api/MCP.md) (a stub). The source of truth for the MCP contract is this skill — [references/api-reference.md](references/api-reference.md) § "MCP Tools (85)".
 
 Supported editors:
 - Cursor
@@ -633,7 +636,7 @@ server — stdio, local, single-user. Threat model for the host-file tools:
   the server can call them. Use namespace isolation and editor-level access
   control to bound what a compromised agent can destroy.
 - **`k` in `search_semantic` is clamped to `config.max_top_k`** (same cap as
-  `search_memory`) so a crafted query cannot materialize the whole HNSW graph
+  `memory_search`) so a crafted query cannot materialize the whole HNSW graph
   into memory (bounded consumption, LLM10).
 - **Timeout caveat (H5):** `request_timeout` drops the *client* response on
   expiry, but tokio cannot cancel the in-flight `spawn_blocking` engine work —

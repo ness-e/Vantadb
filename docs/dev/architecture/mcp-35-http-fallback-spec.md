@@ -216,7 +216,7 @@ flowchart TD
 | `memory_list_namespaces` | `/api/v2/list` | GET | no namespace → all |
 | `memory_versions` | `/api/v2/records/{ns}/{key}/versions` | GET | |
 | `memory_supersede` | `/api/v2/query` | POST | IQL: `SUPERSEDE ...` |
-| `search_memory` / `memory_search` | `/api/v2/search` | POST | body: `VantaMemorySearchRequest` |
+| `memory_search` (legacy alias `search_memory`) | `/api/v2/search` | POST | body: `VantaMemorySearchRequest` |
 | `search_semantic` | `/api/v2/search` | POST | vector only |
 | `search_with_method` | `/api/v2/search` | POST | + `method` field |
 | `search_multi` | `/api/v2/search` | POST | + `namespaces` array |
@@ -233,7 +233,7 @@ flowchart TD
 | `write_axiom` | `/api/v2/query` | POST | IQL: `INSERT INTO _axioms ...` |
 | `delete_axiom` | `/api/v2/query` | POST | IQL: `DELETE FROM _axioms ...` |
 | `collection_stats` | `/api/v2/metrics` | GET | filter by namespace |
-| `collection_list` | `/api/v2/list` | GET | all namespaces |
+| `memory_list_namespaces` (legacy alias `collection_list`) | `/api/v2/list` | GET | all namespaces |
 | `collection_delete` | `/api/v2/query` | POST | IQL: `DROP NAMESPACE ...` |
 | `rehydrate` | `/api/v2/query` | POST | IQL: `REHYDRATE ...` |
 | `purge_expired` | `/api/v2/maintenance/purge` | POST | |
