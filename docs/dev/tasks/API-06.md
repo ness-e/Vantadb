@@ -87,7 +87,7 @@
         - docs/dev/Backlog.md (FIND-156/157)
       invariantes: keywords UPPERCASE-only; PROFILE v1 parsea; openapi parity verde; no bindings/MCP/server; snapshot actualizado a propósito
       deuda: FIND-156 (AST en bindings) + FIND-157 (coerción Int/Float, pre-existente)
-      queda_pendiente: commit local del lead + skill progreso (push solo con instrucción del owner)
+      queda_pendiente: ninguna (commit a6f6a70b; push solo con instrucción del owner)
 
 ## Deuda técnica (Regla 6 — MUST)
 

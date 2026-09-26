@@ -9,9 +9,9 @@
 - **Turns estimados:** 30-60
 - **Creado:** 2026-09-25
 - **last-synced:** 2026-09-25
-- **Estado:** ⏳ IN PROGRESS — Steps 0-9 ✅ (contrato mecánico 4/4 ✅); Step 10: review P2-01 pendiente
-- **Incógnitas (uphill):** 1 abierta (FIND-79/wasm `import_records` → DEFER por stop condition del plan; ver Spec #7)
-- **Pendientes (downhill):** 1 step (Step 10: review + cierre)
+- **Estado:** ✅ COMPLETED (2026-09-26) — Steps 0-10 ✅ (contrato 4/4); review P2-01 ✅ APPROVE (2 rondas); commit local `caf063ff` (sin push)
+- **Incógnitas (uphill):** 0 abiertas (FIND-79/wasm `import_records` → DEFER registrado, stop condition del plan; ver Spec #7)
+- **Pendientes (downhill):** 0
 
 ## Blast Radius
 
@@ -95,7 +95,7 @@
         - vantadb-ts/tests/graph.test.ts
       invariantes: u128_serde único patrón wire; distance solo ANN crudo; put_batch_raw zero-copy intacto; GIL release en ops nuevas; vantadb-pro intocable; WIP ajeno (API-03/WIRE-10) intocable
       deuda: P2-5 pagada; FIND-79 DEFER documentado; Node extras fuera de W1 (documentados)
-      queda_pendiente: review P2-01 (agente distinto) + OCR + sync plan file + commit del lead
+      queda_pendiente: ninguna (review ✅ + commit caf063ff; push solo con instrucción del owner)
 
 ## Deuda técnica (Regla 6 — MUST)
 
