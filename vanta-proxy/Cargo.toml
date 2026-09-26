@@ -27,7 +27,7 @@ futures = "0.3"
 # persona/scene injection via the memory lib (D29). Graph stays acyclic:
 # proxy → {memory, vantadb}.
 vantadb = { path = "..", default-features = false }
-vanta-memory = { path = "../vanta-memory", default-features = false }
+vanta-memory = { path = "../vanta-memory", default-features = false, features = ["llm-driver"] }
 
 [dev-dependencies]
 futures = "0.3"
