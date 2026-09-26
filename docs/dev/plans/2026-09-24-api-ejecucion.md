@@ -2,7 +2,7 @@
 
 > **Campaign ID:** beca0c27-fd85-4489-8f93-8361888d662c
 > **Inicio:** 2026-09-24
-> **Estado:** 🔄 EN PROGRESO (3/9 ✅ API-01/02/03 — commits locales `caf063ff`/`94009297`; siguiente: API-04/05/06/07/08)
+> **Estado:** 🔄 EN PROGRESO (6/9 ✅ API-01..06 — commits locales; siguiente: API-07/08 → API-09)
 > **Fuente:** `docs/dev/Backlog.md` Phase 51 (filas `API-01..API-09`)
 > **Autonomous:** false
 > **Modo:** PLAN (este archivo no cambia código; la ejecución es `/pipeline run` o `/pipeline task API-0X`)
@@ -120,9 +120,9 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Gate Result:** ✅ DO
 - **Contrato:** smoke `vanta-cli server --mcp` (put/get/search) verde Y `tools/list` sin duplicados Y `rg '"name": "search_memory"|"name": "collection_list"'` = 0 (o solo canónicos) Y `thread_id` string en schema
 - **Task file:** `docs/dev/tasks/API-04.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-26) — review P2-01 ✅ APPROVE (ronda 2; ronda 1 F1–F5 corregidos); contrato 4/4 (smoke 11/11 + tools/list 85 sin duplicados + rg = 0 + thread_id string); commit local `bbcd9360` (sin push)
+- **Branch:** develop
+- **Commit:** bbcd9360
 - **Cynefin:** 🟨 complicado — spec MCP + Schemars + compat prompts
 - **Top 3 riesgos:** 1. Quitar alias rompe prompts guardados 2. Schema estricto rechaza calls actuales 3. MCP local stale
 - **Pre-mortem:** F1: Schemars sin fuente single-schema; F2: `bulk_import_stream` se "normaliza" perdiendo throughput; F3: olvidar restart opencode
@@ -135,7 +135,7 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Uphill/Downhill:** ⬆️ 0 / ⬇️ nombres+schemas+errores+refresh
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Iteraciones:** | — | — | — | — |
-- **Notas:** Dep: API-03.
+- **Notas:** Dep: API-03. **Cierre técnico 2026-09-26:** nombres canónicos (`memory_search`/`memory_list_namespaces`; legacy `search_memory`/`collection_list` unlisted pero dispatchables), schemas estrictos base (`additionalProperties:false`, Schemars codegen diferido con justificación), `invalid_params` temprano + errores tipados (`not_found`/`resource_limit`/`validation` envelopes), prompt `recall_search` (+redirect) y registros prompts/resources/tools separados; `thread_id` u128-string (legacy u64). Docs mismo-PR (MCP.md + skill ×2 espejos SAME + integraciones + opencode.jsonc 85). Review P2-01 ✅ (ronda 2). Detalle: `docs/dev/tasks/API-04.md`. **Pendiente owner:** rebuild `target/debug` + restart OpenCode (refresh local MCP).
 
 ### Task 5: API-05 — W4 proxy auth/endpoints/config (SEGURIDAD)
 
@@ -148,9 +148,9 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Gate Result:** ✅ DO
 - **Contrato:** `curl /snapshot` sin credencial → 401 Y con credencial → 200 Y `cargo test -p vanta-proxy` verde Y `rg spaceId` en server.rs = 0
 - **Task file:** `docs/dev/tasks/API-05.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-26) — contrato 4/4 (401/200/401 smoke live + suite proxy 291/0 ×3 + `spaceId`=0); review P2-01 ❌ R1 (comentario stale) → fix aplicado → ✅; commit local `f0c3f95f` (sin push)
+- **Branch:** develop
+- **Commit:** f0c3f95f
 - **Cynefin:** 🟦 obvio — auth + renames mecánicos
 - **Top 3 riesgos:** 1. Se minimiza como "solo loopback" 2. Self-loop en prod 3. `ttl=0` eterno
 - **Pre-mortem:** F1: auth rompe desktop que consume `/snapshot`; F2: rate doble proxy+server; F3: TCP→socket sin medir
@@ -163,7 +163,7 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Uphill/Downhill:** ⬆️ 0 / ⬇️ auth+endpoints+config
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Iteraciones:** | — | — | — | — |
-- **Notas:** Dep: API-03. `feat!:` seguridad.
+- **Notas:** Dep: API-03. `feat!:` seguridad. **Cierre técnico 2026-09-25:** auth D34 en `/snapshot` (sin bypass loopback; decisión Spec #2), rutas canónicas (`/sessions/advance`, `space_id`, `/{agent}/{space_id}/v1/responses`), upstream default vacío + fail-fast, `ttl_secs=0` = cache off, rate-limit docs truth; PROXY.md + EXPERIMENTAL_FEATURES sync; FIND-155 desktop; smoke 401/200 con binario real. Detalle: `docs/dev/tasks/API-05.md`.
 
 ### Task 6: API-06 — W5 IQL versión+sintaxis+literales+AST
 
@@ -176,9 +176,9 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Gate Result:** ✅ DO
 - **Contrato:** `rg IQL_VERSION src/` ≥1 (definido + gateado) Y tests parser verdes Y repros `==` / `42→Int` / `from` minúscula / `'quote'` con comportamiento decidido Y ejemplo YAML válido
 - **Task file:** `docs/dev/tasks/API-06.md`
-- **Estado:** ⬜ PENDING
-- **Branch:**
-- **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-25) — contrato 4/4 (`--lib parser` 127 + `--test parser` 4 + parity 11 + `rg IQL_VERSION` 14 hits); review P2-01 ronda 1 ❌ → fixes R1/R2/R3 → ronda 2 ✅ APPROVE; Steps 0-8 ✅
+- **Branch:** develop
+- **Commit:** a6f6a70b (local, sin push)
 - **Cynefin:** 🟧 complejo — nom-combinators, probe-sense-respond
 - **Top 3 riesgos:** 1. Case-insensitive rompe alias 2. Quitar `MATCH` rompe tests `:1106-1225` 3. AST sin dueño
 - **Pre-mortem:** F1: versionar sin migrar `PROFILE`; F2: `SELECT` documentado sin JOIN real; F3: single-quote a medias
@@ -191,7 +191,7 @@ Orden: API-01 → (API-02, API-03 en paralelo tras 01) → API-04/05/06/07/08 (t
 - **Uphill/Downhill:** ⬆️ 2 (case, versión) / ⬇️ resto
 - **DoD task:** contrato ✅ · task file sync · recitation
 - **Iteraciones:** | — | — | — | — |
-- **Notas:** Dep: API-01. `systematic-debugging` para `==`/literales.
+- **Notas:** Dep: API-01. `systematic-debugging` para `==`/literales. **Cierre 2026-09-25:** `IQL_VERSION=1` + gate `iql_supports()` (PROFILE), `==` longest-match, `42`→`Int` exacto i64 (era Float), case UPPERCASE-only y single-quote rechazado documentados/pinneados, `SELECT` default alias `target` (defaults idénticos), AST JSON serde + shape documentado; FIND-156 (AST en bindings) + FIND-157 (coerción Int/Float pre-existente). Working tree sin commit (lead commitea); push solo con instrucción del owner.
 
 ### Task 7: API-07 — W6 CLI POSIX+--json+flags
 
@@ -315,4 +315,37 @@ Resultado: PARTIAL
 Próxima acción: Lead: commit local de API-02 (git add <archivos listados en task file §Impacto mapeado>; feat!: API-02) — NO push. Luego continuar API-04 (o cierre de API-03 paralela).
 Contrato: verificacion: cargo test --target-dir target/session-api01 --test python_sdk_boundary -> 1 passed/0 failed | npx tsc --noEmit -> exit 0 | npx vitest run (vantadb-ts) -> 314/314 | npx vitest run (vantadb-node) -> 36/36 | pytest vantadb-python/tests -> 149 passed/0 failed | rg "distance: h.score" -> 0 en codigo (solo docs historicos) | matriz W1 -> docs/api/BINDINGS_NAMESPACES.md §W1 parity matrix + tests por binding | evidencia: claim=R1 review (roots number[] residual en 11 sitios) corregido y re-verificado (tsc 0, vitest 314/314) -> file: vantadb-ts/src/vantadb.ts:91-1472 + review session | claim=Spec #5 enmendada sin method (core search_multi no acepta override; Node/WASM tampoco) -> file: docs/dev/tasks/API-02.md:48 | claim=Python 46 metodos flat reales (16 memory/11 graph/18 system/1 wiki) -> tool: dir(vantadb_py.vantadb_py.Client) | claim=P2-5 pagada (una sola API put_batch) -> file: vantadb-python/src/lib.rs (put_batch(records) + record_to_memory_input) | claim=FIND-79 DEFER aceptado por stop condition -> file: docs/dev/tasks/API-02.md Spec #7 | artefactos: docs/dev/tasks/API-02.md, vantadb-python/tests/test_w1_surface.py, vantadb-ts/tests/graph.test.ts | invariantes: u128_serde unico patron wire; distance solo ANN crudo; put_batch_raw zero-copy intacto; GIL release en ops nuevas; vantadb-pro intocable; WIP ajeno (API-03/WIRE-10) intocable | deuda: P2-5 pagada; FIND-79 DEFER documentado; Node extras fuera de W1; FIND candidatos (d) INVALID_ARGUMENT sin prefijo, (e) tsc no typechequea tests | queda_pendiente: commit local del lead + sync final; push solo con instruccion explicita del owner
 Próxima tarea si completa: API-04
+=== END RECITATION ===
+
+=== RECITATION API-05 ===
+Campaign ID: beca0c27-fd85-4489-8f93-8361888d662c
+Objetivo activo: API-05: W4 proxy — auth /snapshot + endpoints + config (SEGURIDAD)
+Estado: in-progress
+Última acción: 8/8 steps: RED 401/200 (falso→probado) + auth D34 en /snapshot; rutas canónicas (/sessions/advance, {space_id}, /{agent}/{space_id}/v1/responses); upstream default vacío + fail-fast; ttl_secs=0 = cache off (TTL_DISABLED eliminado); rate-limit docs truth; PROXY.md + EXPERIMENTAL_FEATURES + FIND-155 (desktop, ya barrido por commit WIRE-11 concurrente); smoke binario real 401/200.
+Resultado: PARTIAL
+Próxima acción: vanta-review P2-01 (cambio de auth de red; evidencia en docs/dev/tasks/API-05.md §Review/§Notas) → veredicto → commit local del LEAD (lista de archivos en task file §Notas). Luego API-06/07/08.
+Contrato: verificacion: cargo test --target-dir target/session-api01 -p vanta-proxy -> exit 0, 291 passed/0 failed/18 binarios (x3 corridas) | cargo fmt -p vanta-proxy --check + cargo fmt --all -- --check -> exit 0 | cargo clippy --target-dir target/session-api01 -p vanta-proxy --all-targets --no-deps -- -D warnings -> exit 0 | smoke binario+curl -> no-key=401, with-key=200 (sk-smoke), bad-key=401 | rg spaceId vanta-proxy/src/server.rs -> 0 | rg -c '\.route\(' server.rs -> 11 | scripts/validate-docs-coverage.ps1 -> 0 gaps | evidencia: claim=auth obligatoria en /snapshot sin bypass loopback -> file: vanta-proxy/src/server.rs:871 (snapshot+authenticate) + vanta-proxy/tests/api05_snapshot_auth.rs::snapshot_requires_user_key + smoke logs target/session-api01/tmp/api05-smoke.*.log (confianza alta) | claim=rutas canónicas -> file: server.rs:788-823 + handlers/responses.rs::responses_prefixed (confianza alta) | claim=config fail-fast upstream vacío + self-loop explícito -> file: config.rs:253,358-370 + tests config (confianza alta) | claim=ttl=0 desactiva cache -> file: cache.rs:110-122 + tests zero_ttl_disables_cache_even_when_enabled (confianza alta) | claim=desktop rompe (F1) -> file: desktop/src/components/proxy/ProxyDashboard.tsx:59-63 -> FIND-155 Backlog:253 (confianza alta) | claim=rate-limit SI cableado (1 punto) -> file: server.rs:161,367; fix solo docs (confianza alta) | artefactos: docs/dev/tasks/API-05.md, vanta-proxy/tests/api05_snapshot_auth.rs, target/session-api01/tmp/api05-smoke.toml|authdb|logs | invariantes: auth D34 en TODAS las rutas sin bypass loopback; wire /v1 byte-identical sin opt-in (pipeline intacto); no tocar mcp/server/bindings/parser/pro; no commit/push por worker | deuda: ninguna nueva (PR paga la exposición X1); nota: output-side cost tracking queda acoplado al path buffered (cache off => input-only) documentado en PROXY.md; FIND-155 para desktop | queda_pendiente: review P2-01 + commit local del lead + push solo con instruccion del owner
+Próxima tarea si completa: API-06
+=== END RECITATION ===
+
+=== RECITATION API-06 ===
+Campaign ID: beca0c27-fd85-4489-8f93-8361888d662c
+Objetivo activo: API-06: W5 IQL — IQL_VERSION + sintaxis + literales (==/Int/quotes) + AST JSON
+Estado: completed
+Última acción: Steps 0-8 ✅. RED→GREEN para ==/42→Int/big-int; gate IQL_VERSION (PROFILE); SELECT default alias target; Serialize en AST + shape test; docs IQL.md + openapi example (fully-consumed test); FIND-156/157 en Backlog. Review P2-01 ronda 1 ❌ → R1/R2/R3 aplicados → ronda 2 ✅ APPROVE. Contrato 4/4 vía campaign_verify_cmd. Sin commit (lead).
+Resultado: OK
+Próxima acción: Lead: commit local selectivo (src/parser/**, src/query.rs, src/lib.rs, tests/logic/parser.rs, tests/logic/snapshots/parser__dml_insert_ast.snap, tests/api/openapi_yaml_parity.rs, docs/api/IQL.md, docs/api/openapi.yaml, docs/dev/tasks/API-06.md, docs/dev/Backlog.md, docs/dev/plans/2026-09-24-api-ejecucion.md) + skill progreso; push solo con instrucción del owner. Luego API-07 (W6 CLI).
+Contrato: verificacion: campaign_verify_cmd 4/4 → rg IQL_VERSION exit 0 · cargo test --target-dir target/session-api01 -p vantadb --lib parser 127/0 · --test parser 4/0 · --test openapi_yaml_parity 11/0 | fmt/clippy -D warnings/docs-coverage verdes | lib subsets query 78/executor 24/physical 51/planner 13 + --test executor 1/1 + --test mutations 1/1 | evidencia: claim == longest-match -> grammar.rs:47-60 + RED 5 failed; claim 42→Int exacto i64 -> lexer.rs:128-158 + test_parse_literal_int_above_2_53_is_exact; claim gate -> mod.rs:17-27 + grammar.rs:120 + lib.rs:180; claim example YAML fully-consumed -> openapi_yaml_parity nueva test; claim review -> docs/dev/tasks/API-06.md §Review ronda 2 ✅ APPROVE; artefactos: docs/dev/tasks/API-06.md, docs/api/IQL.md; invariantes: UPPERCASE-only pinneado, PROFILE v1 parsea, openapi parity verde, no bindings/MCP/server tocados, snapshot actualizado a propósito; deuda: FIND-156 (AST JSON en bindings) + FIND-157 (coerción Int/Float pre-existente); queda_pendiente: commit local + skill progreso del lead; push solo con instrucción del owner
+Próxima tarea si completa: API-07
+=== END RECITATION ===
+
+=== RECITATION API-04 ===
+Campaign ID: beca0c27-fd85-4489-8f93-8361888d662c
+Objetivo activo: API-04: W3 MCP — nombres canónicos + schemas estrictos + errores tipados + refresh local
+Estado: completed
+Última acción: Completo 8/8 steps. Canonicalización (memory_search/memory_list_namespaces listados; legacy search_memory/collection_list unlisted pero dispatchables; prompt recall_search + redirect), schemas estrictos base (additionalProperties:false, 47 tools; Schemars codegen diferido con justificación), invalid_params temprano + errores tipados (factories not_found/resource_limit + error_content_mcp), thread_id u128-string (legacy u64), docs mismo-PR (+espejos hash-SAME), smoke live MCP 11/11, review P2-01 ronda 1 🔴 F1-F5 → fixes → ronda 2 ✅ APPROVE. Sin commit (política owner; lo hace el lead).
+Resultado: OK
+Próxima acción: Lead: commit local selectivo del changeset API-04 (16 tracked + docs/dev/tasks/API-04.md; excluir WIP API-05/06) + skill progreso. Owner: rebuild target/debug (vanta-cli+vantadb-server) + restart OpenCode + re-listar tools (refresh local MCP).
+Contrato: verificacion: cargo fmt -p vantadb-mcp -- --check -> 0 | cargo clippy --target-dir target/session-api01 -p vantadb-mcp --all-targets --jobs 2 -- -D warnings -> 0 | cargo test --target-dir target/session-api01 -p vantadb-mcp --jobs 2 -> exit 0 (20/20 binaries; mcp_tests 101/101) | scripts/validate-docs-coverage.ps1 -> 0 gaps (47 tools MCP.md + 10 pares espejos hash-SAME) | python target/session-api01/smoke-api04.py -> SMOKE API-04 OK 11 checks | rg '"name": "search_memory"|"name": "collection_list"' (repo excl target/docs/dev) -> 0 matches | evidencia: claim='tools/list 85 unicos sin duplicados y legacy no listado' evidencia='smoke checks 2-3 + test test_api04_tools_list_canonical_names_no_duplicates' confianza alta; claim='strict schemas base 47 con additionalProperties:false y dicts abiertos' evidencia='smoke check 3 + test_api04_base_tool_schemas_strict' confianza alta; claim='thread_id string en schema, u128 string aceptado, legacy u64; float/negativo rechazados con data.code' evidencia='smoke check 3 + probes reviewer ronda 2 (2^53+1 y u64::MAX aceptados; float/negativo -32602 typed)' confianza alta; claim='param-level -32602 con data.code; dominio isError tipado MEM-32' evidencia='test_api04_query_iql/memory_recall/inject_context + test_api04_domain_errors_are_typed_envelopes + reviewer raw wire' confianza alta; claim='prompt recall_search sin colisión + redirect legacy byte-identico' evidencia='test_api04_prompts_are_separated_from_tools + reviewer' confianza alta; claim='bulk_import_stream by-design intacto' evidencia='tools.rs solo cambio envelope de errores; MCP.md marcado' confianza alta; claim='review P2-01' evidencia='docs/dev/tasks/API-04.md §Review ronda 2 APPROVE' confianza alta; artefactos: docs/dev/tasks/API-04.md, target/session-api01/smoke-api04.py (+log), docs/api/MCP.md; invariantes: 1 nombre por tool en tools/list (legacy solo dispatch), prompts/resources/tools registros separados, errores JSON-RPC Err=param-level / isError tipado=dominio, no tocar target/debug (MCP owner), no tocar WIP API-05/06 ni src/server|vanta-proxy|src/parser|bindings, no commit/push; deuda: Schemars codegen single-source diferido (FIND candidato), strictness+errores tipados familias extendidas (38 tools) pendientes (FIND candidato), envelopes internal_error sin data.code en fallos String (FIND candidato); queda_pendiente: commit local del lead + skill progreso + push solo con instruccion del owner; refresh local MCP (rebuild target/debug + restart OpenCode) es del owner
+Próxima tarea si completa: API-07
 === END RECITATION ===

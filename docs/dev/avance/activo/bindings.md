@@ -1141,3 +1141,9 @@ aliases: []
 - **Objetivo:** W1: `score` higher-is-better (no `distance: h.score`), `getNode/deleteNode` node-level, `put_batch([{…}])` array-objetos en Py (+P2-5), `search_multi` en Py, u128 wire consistente en 4 bindings.
 - **Resultado:** ✅ Contrato 4/4 — `python_sdk_boundary` 1/1 · `tsc --noEmit` + vitest TS 314/314 · matriz 4 bindings (`BINDINGS_NAMESPACES` §W1) · `rg "distance: h.score"` = 0 (14 matches solo docs históricos). Extra: pytest 149/0 · Node 36/36 · docs-coverage 0 gaps · FIND-79 → DEFER (stop condition, documentado). Review P2-01 ✅ APPROVE (2 rondas). Consumidor columnar real migrado (llamaindex).
 - **Commit:** caf063ff (local, sin push)
+
+### API-04: W3 MCP — canónicos + schemas estrictos + errores tipados (review P2-01 ✅)
+- **Fecha:** 2026-09-26
+- **Objetivo:** W3 MCP: 1 nombre canónico por tool (sin alias doble), JSON Schema estricto (`additionalProperties:false` top-level en 47 base tools), `invalid_params` temprano + errores tipados, `thread_id` string, separación prompts/resources/tools.
+- **Resultado:** ✅ Contrato 4/4 — smoke live MCP **11/11** (binarios frescos en session dir) · tools/list **85 sin duplicados** (87→85) · `rg '"name": "search_memory"|"name": "collection_list"'` = 0 · `thread_id` string en schema. Suite `-p vantadb-mcp` 20/20 binaries (mcp_tests 101/101) · fmt/clippy 0 · coverage 0 gaps. Review P2-01 ✅ (ronda 1 🔴 F1-F5 → fixes → ronda 2). **Pendiente owner:** refresh local MCP (rebuild `target/debug` + restart OpenCode + re-listar 85 tools). FIND candidatos: Schemars codegen, strictness tools extendidas, envelopes internal_error.
+- **Commit:** bbcd9360 (local, sin push)
