@@ -77,7 +77,7 @@ last-synced: 2026-09-26
 
 ## Herramientas necesarias
 - `pwsh` (script + dry-runs), `yamllint`/revisión de workflow, `rg` (blast radius), `gh` (estado de CI post-PR — solo lectura)
-- **Skills cargadas (SDP):** `campaign-executor` (base task system) · `ci-cd-and-automation` (base type CI/CD: wiring del gate) · `test-driven-development` (sensibilidad RED→GREEN antes de cerrar) · `incremental-implementation` (script mínimo → CI → cierre) · `source-driven-development` (sintaxis PowerShell/GHA contra docs oficiales) · `doubt-driven-development` (falsos positivos y acoplamiento a docs frágiles)
+- **Skills cargadas (SDP v3, pre-run 2026-09-27):** `campaign-executor` · `progreso` · `ci-cd-and-automation` · `git-workflow-and-versioning` · `doubt-driven-development` · `incremental-implementation` · `test-driven-development` · `context-engineering` · **PINNED (policy):** `ci-cd-and-automation`, `git-workflow-and-versioning`
   - Descartadas del SDP (no aplican): `frontend-ui-engineering`, `context-engineering`, `api-and-interface-design`
 
 ## Investigation Notes

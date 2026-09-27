@@ -74,7 +74,7 @@
 - `pwsh scripts/validate-docs-coverage.ps1` · `npx markdownlint-cli2 docs/api/VANTA_MEMORY.md`
 - `pwsh dev-tools/ocr-review.ps1` (input del review P2-01)
 
-**Skills cargadas (SDP):** `SDP: campaign_discover_skills_v2 phase=BUILD → campaign-executor, documentation-and-adrs, api-and-interface-design, spec-driven-development, writing-guidelines, doubt-driven-development`
+**Skills cargadas (SDP v3, pre-run 2026-09-27):** `campaign-executor` · `progreso` · `documentation-and-adrs` · `api-and-interface-design` · `writing-guidelines` · `writing-plans` · `incremental-implementation` · `test-driven-development` · **PINNED (policy):** `documentation-and-adrs`, `api-and-interface-design`
 - `campaign-executor` — flujo pipeline/task system (base).
 - `documentation-and-adrs` — estándar de docs técnicas/ADR.
 - `api-and-interface-design` — facade como candidato de superficie (boundaries).

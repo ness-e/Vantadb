@@ -87,7 +87,7 @@ last-synced: 2026-09-26
 - `git` (bundle create/verify/list-heads — nativo), pwsh 7 (scripts del repo), `pwsh scripts/validate-docs-coverage.ps1`, `/harness` (Gate H si toca `.opencode/`), `campaign_verify_cmd`, codegraph_explore
 - Leer ANTES de editar: `.opencode/rules/release-ci.md` (política release/CI), `.opencode/AGENTS.md` §Regla 7 (política git — no duplicar), `.opencode/references/floor-guard.md` no aplica (sin código Rust)
 
-**Skills cargadas (SDP):** campaign-executor (base task-system) · writing-plans (SDP base del task — plan/política) · documentation-and-adrs (regla durable en RULES.md + referencia en CONTRIBUTING) · git-workflow-and-versioning (política git/release trains — skill F0 del plan) · incremental-implementation (slices: script → robustez → docs) · test-driven-development (case check del script: destino inválido, retención, verify) · source-driven-development (semántica `git bundle` — docs oficiales git). Descartadas: frontend-ui-engineering (sin `web/`), doubt-driven-development (esfuerzo 🟢 / riesgo bajo).
+**Skills cargadas (SDP v3, pre-run 2026-09-27):** `campaign-executor` · `progreso` · `ci-cd-and-automation` · `git-workflow-and-versioning` · `writing-guidelines` · `writing-plans` · `incremental-implementation` · `test-driven-development` · **PINNED (policy):** `ci-cd-and-automation`, `git-workflow-and-versioning`
 
 ## Investigation Notes
 

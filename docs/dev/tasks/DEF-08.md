@@ -76,7 +76,7 @@ last-synced: 2026-09-26
 
 ## Herramientas necesarias
 - `rg`/grep, `pwsh` (validate-docs-coverage), lectura de `src/llm.rs`/wizard, `campaign_*`
-- **Skills cargadas (SDP):** `campaign-executor` (base task system) · `writing-guidelines` (voz/estilo de las specs) · `documentation-and-adrs` (SLO/fallback como decisiones de producto documentadas) · `source-driven-development` (números anclados a SPEC/FASE-A/llm.rs reales, no inventados) · `doubt-driven-development` (privacy-first adversarial sobre el diseño de telemetría) · `security-and-hardening` (telemetría = datos de usuario → hallazgos en Notas + review)
+- **Skills cargadas (SDP v3, pre-run 2026-09-27):** `campaign-executor` · `progreso` · `writing-guidelines` · `writing-plans` · `incremental-implementation` · `test-driven-development` · `context-engineering` · `source-driven-development` · **PINNED (policy):** ninguno
   - Descartadas del SDP (no aplican): `frontend-ui-engineering`, `test-driven-development`, `context-engineering`, `api-and-interface-design`
 
 ## Investigation Notes

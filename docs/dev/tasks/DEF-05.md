@@ -74,7 +74,7 @@
 - `pwsh scripts/validate-docs-coverage.ps1` · `npx markdownlint-cli2 SPEC.md docs/dev/vision/VISION.md`
 - `pwsh dev-tools/ocr-review.ps1` (input del review P2-01)
 
-**Skills cargadas (SDP):** `SDP: campaign_discover_skills_v2 phase=BUILD → campaign-executor, source-driven-development, spec-driven-development, interview-me, documentation-and-adrs, writing-guidelines`
+**Skills cargadas (SDP v3, pre-run 2026-09-27):** `campaign-executor` · `progreso` · `source-driven-development` · `incremental-implementation` · `test-driven-development` · `context-engineering` · `doubt-driven-development` · `frontend-ui-engineering` · **PINNED (policy):** ninguno
 - `campaign-executor` — flujo pipeline/task system (base).
 - `source-driven-development` — verificar la medición contra el código real del proxy (no supuestos).
 - `spec-driven-development` — tabla Spec.

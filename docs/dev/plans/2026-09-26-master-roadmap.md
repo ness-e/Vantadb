@@ -584,7 +584,8 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-27]:** HARD-08 (SDP v3) ejecutado **pre-run** (decisión owner "todas las mejoras"); Gate H ✅ 3 rondas (vanta-harness); harness commiteado (`903a029` + `e97c093`).
   - ⬆️ uphill antes: 7 gaps SDP v2 (ES↔EN, morfología, drift spec↔impl, sin índice/pins/cuotas/outcomes) → **después: 0** (implementados).
   - ⬇️ downhill antes/después: 50 → 49 (HARD-08 ✅).
-  - ⚠️ Owner action: restart de OpenCode para que el MCP live cargue v3.
+  - ⚠️ Owner action **resuelta:** `opencode reload` respawnea MCP servers sin restart del server (verificado: campaign live sirve v3 con morfología+aliases).
+  - **Pre-run pass (R2) ✅:** 14/14 task files F0/F1 con SDP v3 actualizado (pins+aliases) — commit local.
 
 ## Recitation
 

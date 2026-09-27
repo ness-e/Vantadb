@@ -76,7 +76,7 @@ last-synced: 2026-09-26
 
 ## Herramientas necesarias
 - `rg`/grep, `pwsh` (validate-docs-coverage), lectura cruzada de strategy/
-- **Skills cargadas (SDP):** `campaign-executor` (base task system) · `writing-guidelines` (voz/estilo; doc EN) · `documentation-and-adrs` (decisión de frontera registrada — si el owner la considera estructural, evaluar ADR en Review) · `spec-driven-development` (decisión -> contrato verificable en SPEC) · `doubt-driven-development` (anti "clasificar por gusto": verificación adversarial contra North Star) · `interview-me` (solo si una fila borderline no la resuelve el criterio → Gate P owner)
+- **Skills cargadas (SDP v3, pre-run 2026-09-27):** `campaign-executor` · `progreso` · `writing-guidelines` · `writing-plans` · `incremental-implementation` · `test-driven-development` · `context-engineering` · `source-driven-development` · **PINNED (policy):** ninguno
   - Descartadas del SDP (no aplican): `frontend-ui-engineering`, `test-driven-development`, `context-engineering`, `api-and-interface-design`
 
 ## Investigation Notes
