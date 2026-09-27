@@ -4,9 +4,9 @@
 # Skips cargo entirely when the pushed commits change no .rs files
 # (CI-only / docs-only / config-only pushes must not pay the full verify).
 #
-# Contract:
+# Contract (AGENTS.md Regla 1 — push → verify.ps1 completo):
 #   - No .rs changes in pushed range  -> print skip message, allow push (exit 0)
-#   - .rs changes -> run dev-tools/verify_changed.ps1 (fmt+check+clippy, ~30s)
+#   - .rs changes -> run dev-tools/verify.ps1 (full gate: fmt+check+clippy+tests+deny)
 #   - verify fails -> BLOCK (exit non-zero)
 #   - pwsh missing + .rs changes -> BLOCK with clear message
 
@@ -39,10 +39,10 @@ if [ "$RS_CHANGED" -eq 0 ]; then
     exit 0
 fi
 
-# --- Rust changed: run the quick verification barrier ---
+# --- Rust changed: run the full verification barrier ---
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
-VERIFY_SCRIPT="$REPO_ROOT/dev-tools/verify_changed.ps1"
+VERIFY_SCRIPT="$REPO_ROOT/dev-tools/verify.ps1"
 
 if [ ! -f "$VERIFY_SCRIPT" ]; then
     echo "pre-push: verify script not found at $VERIFY_SCRIPT. Push BLOCKED."
@@ -50,14 +50,15 @@ if [ ! -f "$VERIFY_SCRIPT" ]; then
 fi
 
 echo "pre-push: .rs changes detected — running verification barrier..."
-echo "pre-push: fmt -> check -> clippy (dev-tools/verify_changed.ps1)"
+echo "pre-push: full gate (dev-tools/verify.ps1: fmt -> check -> clippy -> tests -> deny)"
 
+STATUS=0
 if command -v pwsh >/dev/null 2>&1; then
-    pwsh -NoProfile -ExecutionPolicy Bypass -File "$VERIFY_SCRIPT"
-    STATUS=$?
+    # `|| STATUS=$?` captures the real exit code even under `set -e`
+    # (a bare failing command would abort before STATUS=$? could run).
+    pwsh -NoProfile -ExecutionPolicy Bypass -File "$VERIFY_SCRIPT" || STATUS=$?
 elif command -v powershell.exe >/dev/null 2>&1; then
-    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$VERIFY_SCRIPT"
-    STATUS=$?
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "$VERIFY_SCRIPT" || STATUS=$?
 else
     echo "pre-push: ERROR — no PowerShell found (install pwsh 7+) but .rs files changed. Push BLOCKED."
     exit 1

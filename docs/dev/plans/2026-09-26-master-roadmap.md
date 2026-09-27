@@ -6,6 +6,7 @@
 > **Fuente:** `docs/dev/Backlog.md` (P52–P59 + FIND-*) + planes absorbidos (`2026-09-24-post-investigacion-integral.md` W2–W7, `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-harness-gaps.md`, `2026-09-24-sesion-continuidad.md`, `2026-09-20-estabilizacion-total.md`) + `docs/dev/strategy/` (13 docs) + Notion "VantaDB Docs" (~28 subpáginas) + investigación de riesgos 2026-09-26 (4 sub-agentes R1–R4, multi-fuente)
 > **Autonomous:** false — el owner gatea push/merge/release. **Push a `develop`: al completar el plan con todo validado/verificado** (decisión owner 2026-09-26, ver §Política de commits/push)
 > **Modo:** PLAN → ejecución con `/pipeline run docs/dev/plans/2026-09-26-master-roadmap.md`
+> **Orden:** fases F0→F6 ESTRICTAS (no paralelizar entre fases); dentro de cada fase hasta 3 tasks en paralelo. ⚠️ Caveat RAM (lección histórica): con verifies pesados el efectivo puede ser 1.
 > **Nota:** este plan ABSORBE los 5 planes activos anteriores (archivados a `docs/dev/plans/archive/`). Única fuente de plan.
 
 ## SDP (skills del plan — campaign_discover_skills_v2 phase=PLAN)
@@ -48,6 +49,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 ## Tasks
 
 ### Task 1: HARD-01 — Rails de breaking changes (semver-checks + public-api + docs de migración)
+- **Fase:** F0
 
 - **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴
 - **Ruta:** vanta-lead
@@ -57,7 +59,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "`cargo semver-checks check-release` exit 0 (o findings triados y documentados) Y `cargo test -p vantadb --test public_api` verde con snapshot commiteado Y `DEPRECATIONS.md` + `COMPATIBILITY.md` + `UPGRADE.md` existen con 0 links rotos (validate-docs-coverage verde)"
 - **Task file:** `docs/dev/tasks/HARD-01.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ⬜ PENDING
 - **Cynefin:** 🟨 complicado — configurar lints semver sin ruido + snapshot tooling + plantilla de migración.
 - **Top 3 riesgos:** 1. snapshot `public-api` ruidoso → CI rojo permanente · 2. `cargo-semver-checks` lento en fast gate · 3. docs de migración vacías (checklist decorativo).
 - **Pre-mortem:** F1: snapshot sin exclude-list → falsos positivos constantes; F2: gate no instalado en CI → skip silencioso; F3: `UPGRADE.md` duplica CHANGELOG (una fuente: CHANGELOG es release notes; UPGRADE es guía de migración).
@@ -72,6 +74,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **DoD task:** contrato ✅ · task file sync · recitation · **Notas:** consume R1 (rec. #2/#3/#4/#5/#6/#7); `feat!`→MINOR automático ya lo hace release-plz en 0.x.
 
 ### Task 2: HARD-02 — Tuning de gates (coverage reporte, review risk-tiered, nightly, release dry-run)
+- **Fase:** F0
 
 - **Appetite:** max 3d · **Esfuerzo:** 🟡 2d · **Prioridad:** 🔴
 - **Ruta:** vanta-lead (+ Gate H para partes `.opencode/`)
@@ -81,7 +84,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "coverage ya no bloquea (reporte + presupuesto por directorio documentado en CI_POLICY) Y review risk-tiered documentado y activo en prompts (solo diffs `docs/api|sdk|parser|storage|wire` → adversarial; resto verify fast) Y workflow nightly de certificación pesada existe Y fast gate medido <5min"
 - **Task file:** `docs/dev/tasks/HARD-02.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ⬜ PENDING
 - **Cynefin:** 🟨 complicado — cambiar gates sin debilitar el floor (`floor-guard.ps1`) + coordinar prompts.
 - **Top 3 riesgos:** 1. debilitar el quality bar (CONSTRAINTS.md) · 2. nightly que nadie mira · 3. tiering de review que deje pasar breaking.
 - **Pre-mortem:** F1: quitar coverage bloqueante sin presupuesto → deriva silenciosa; F2: nightly sin notificación → rojo crónico; F3: tiering ambiguo → reviews degradados.
@@ -96,6 +99,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **DoD task:** contrato ✅ · task file sync · recitation · **Notas:** Gate H obligatorio (`.opencode/`); FIND-134..147 (CI) y FIND-152 (harness residual) se evalúan/cierran acá si siguen vigentes.
 
 ### Task 3: HARD-03 — Continuidad local + release trains
+- **Fase:** F0
 
 - **Appetite:** max 1d · **Esfuerzo:** 🟢 0.5-1d · **Prioridad:** 🔴
 - **Ruta:** vanta-lead
@@ -105,7 +109,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "`pwsh scripts/git-backup.ps1` crea bundle con timestamp y `git bundle verify` exit 0 Y política de commits/push/trenes documentada en `docs/dev/workflow/RULES.md` Y `CONTRIBUTING.md` referencia el script"
 - **Task file:** `docs/dev/tasks/HARD-03.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ⬜ PENDING
 - **Cynefin:** 🟦 obvio — script + doc.
 - **Top 3 riesgos:** 1. bundle a misma unidad del disco → 2. backup nunca ejecutado (sin ritual) → 3. política contradictoria con AGENTS.md.
 - **Pre-mortem:** F1: backup en C: (mismo disco) → definir unidad externa o carpeta sincronizada; F2: sin recordatorio → agregar al flujo mínimo (Gate H); F3: duplicar política → RULES.md como fuente única, AGENTS.md referencia.
@@ -120,6 +124,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **DoD task:** contrato ✅ · task file sync · recitation · **Notas:** release trains: 0.8.0 tras F3 (release-plz); 1.0 con exit criteria de HARD-01. NO checkpoint push (decisión owner).
 
 ### Task 4: HARD-04 — vanta-memory: spec de fachada + triggers de exposición
+- **Fase:** F0
 
 - **Appetite:** max 1d · **Esfuerzo:** 🟢 0.5d · **Prioridad:** 🟡
 - **Ruta:** vanta-docs
@@ -143,6 +148,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **DoD task:** contrato ✅ · task file sync · recitation · **Notas:** consume R3; FIND-160 (cobertura módulos) se paga en HARD-06.
 
 ### Task 5: HARD-05 — Entorno local blindado (regla `-p`, required-features, target dir)
+- **Fase:** F0
 
 - **Appetite:** max 1d · **Esfuerzo:** 🟢 0.5d · **Prioridad:** 🔴
 - **Ruta:** vanta-lead (+ Gate H)
@@ -166,6 +172,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **DoD task:** contrato ✅ · task file sync · recitation · **Notas:** Gate H; coordina con HARD-02 (mismo verify).
 
 ### Task 6: HARD-06 — Deuda quick wins (FIND-162, FIND-160, FIND-154, decisión FIND-161)
+- **Fase:** F0
 
 - **Appetite:** max 2d · **Esfuerzo:** 🟡 1d · **Prioridad:** 🔴
 - **Ruta:** vanta-lead (+ docs para FIND-160)
@@ -189,6 +196,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **DoD task:** contrato ✅ · task file sync · recitation · **Notas:** FIND-153 se evalúa junto a FIND-154; MEM-55 (task file huérfano) → catalogar o cerrar.
 
 ### Task 7: HARD-07 — Review gate mecanizado (reviewer_context ≠ author_context)
+- **Fase:** F0
 
 - **Appetite:** max 1d · **Esfuerzo:** 🟢 0.5d · **Prioridad:** 🔴
 - **Ruta:** vanta-lead (+ Gate H; revisión vanta-harness)
@@ -212,6 +220,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **DoD task:** contrato ✅ · task file sync · recitation · **Notas:** complementa HARD-02 (política) — este mecaniza el invariante.
 
 ### Task 8: WIRE-10 — Distribución P0 (`install.sh` macOS, Colab a `Client`, hooks sin `pwsh`)
+- **Fase:** F1
 
 - **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴
 - **Ruta:** vanta-worker
@@ -221,7 +230,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** ver `docs/dev/tasks/WIRE-10.md` §Contrato (leer al ejecutar; el task file es fuente de verdad del contrato fino)
 - **Task file:** `docs/dev/tasks/WIRE-10.md` (existente)
-- **Estado:** ⏳ IN PROGRESS · **Branch:** develop · **Commit:**
+- **Estado:** ⬜ PENDING (pausada — se retoma en F1; task file conserva el progreso) · **Branch:** develop · **Commit:**
 - **Cynefin:** 🟨 complicado — multiplataforma (shell/notebook/hooks).
 - **Top 3 riesgos:** 1. checksum macOS varía por arch · 2. Colab sin red/API 3. hooks con paths Windows.
 - **Pre-mortem:** F1: install.sh sin verificación de checksum → fallback; F2: notebook con API removida → usar `Client` (ya planificado); F3: hooks asumen `pwsh` → portar a sh.
@@ -235,6 +244,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **DoD task:** contrato ✅ · task file sync · recitation · **Notas:** task file referencia el plan viejo → actualizado a este master.
 
 ### Task 9: DEF-01 — Decisión única de producto + alineación SPEC/README/VISION
+- **Fase:** F1
 
 - **Appetite:** max 1d · **Esfuerzo:** 🟢 1d · **Prioridad:** 🔴
 - **Ruta:** vanta-docs (+ Gate P owner)
@@ -258,6 +268,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **DoD task:** contrato ✅ · task file sync · recitation · **Notas:** base para DEF-05.
 
 ### Task 10: DEF-02 — `EXPERIMENTAL_FEATURES.md` regenerado a 0.7.0 + categorías labs
+- **Fase:** F1
 
 - **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠
 - **Ruta:** vanta-docs
@@ -280,6 +291,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **DoD task:** contrato ✅ · task file sync · recitation
 
 ### Task 11: DEF-03 — Frontera verificable en CI (`validate-frontier`)
+- **Fase:** F1
 
 - **Appetite:** max 2d · **Esfuerzo:** 🟡 2d · **Prioridad:** 🟠
 - **Ruta:** vanta-lead
@@ -302,6 +314,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **DoD task:** contrato ✅ · task file sync · recitation
 
 ### Task 12: DEF-04 — Naming freeze 0.7.0→1.0 (ADR + política de alias)
+- **Fase:** F1
 
 - **Appetite:** max 1d · **Esfuerzo:** 🟢 1d · **Prioridad:** 🔴
 - **Ruta:** vanta-docs (+ firma owner — ADR Regla 5)
@@ -324,6 +337,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **DoD task:** contrato ✅ · task file sync · recitation
 
 ### Task 13: DEF-05 — North-star + success criteria (SPEC/VISION)
+- **Fase:** F1
 
 - **Appetite:** max 1d · **Esfuerzo:** 🟢 1d · **Prioridad:** 🔴
 - **Ruta:** vanta-docs
@@ -346,6 +360,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **DoD task:** contrato ✅ · task file sync · recitation
 
 ### Task 14: DEF-07 — Presupuesto de alcance: core-promise vs labs
+- **Fase:** F1
 
 - **Appetite:** max 1d · **Esfuerzo:** 🟢 1d · **Prioridad:** 🟠
 - **Ruta:** vanta-docs
@@ -368,6 +383,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **DoD task:** contrato ✅ · task file sync · recitation
 
 ### Task 15: DEF-08 — Install SLO + telemetría opt-in + fallback visible
+- **Fase:** F1
 
 - **Appetite:** max 1d · **Esfuerzo:** 🟢 1d · **Prioridad:** 🟠
 - **Ruta:** vanta-docs (+ worker si toca código de fallback)
@@ -406,110 +422,179 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 > **Gate de fase:** una fase F2–F6 NO arranca hasta que TODOS sus bloques estén completados a este nivel (verificable con `rg` de campos por bloque en este plan). Registrar cada completado como `plan-adjust` en §Notas.
 
 ### Task 16: WIRE-02 — MCP: enforce de perfil en `tools/call` + default `agent` + fusión 87→~65 + fix doc `MCP.md:254`
-- **Dep:** API-04 ✅ · 🟡 2-3d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "perfil enforced (test) + default agent + conteo tools fusionado documentado + `MCP.md:254` corregido" · **Task file:** `docs/dev/tasks/WIRE-02.md` · ⬜ PENDING
+- **Fase:** F2
+- **Dep:** API-04 ✅ · 🟡 2-3d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "perfil enforced (test) + default agent + conteo tools fusionado documentado + `MCP.md:254` corregido" · **Task file:** `docs/dev/tasks/WIRE-02.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 17: WIRE-03 — `query_sparse` + text-only en 3 bindings + filtros avanzados (`$and`/`$or`, range/datetime)
-- **Dep:** API-02 ✅ · 🟡 2-3d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "query_sparse en Py/TS/Node con tests + filtros avanzados verdes" · **Task file:** `docs/dev/tasks/WIRE-03.md` · ⬜ PENDING
+- **Fase:** F2
+- **Dep:** API-02 ✅ · 🟡 2-3d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "query_sparse en Py/TS/Node con tests + filtros avanzados verdes" · **Task file:** `docs/dev/tasks/WIRE-03.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 18: WIRE-04 — TTL superficie completa (server HTTP + default por colección + sweeper)
-- **Dep:** MGR-09 · 🟢 1-2d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "TTL en HTTP + default por colección + sweeper al índice con test de expiración" · **Task file:** `docs/dev/tasks/WIRE-04.md` · ⬜ PENDING
+- **Fase:** F2
+- **Dep:** MGR-09 · 🟢 1-2d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "TTL en HTTP + default por colección + sweeper al índice con test de expiración" · **Task file:** `docs/dev/tasks/WIRE-04.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 19: WIRE-05 — Entity linking determinista + boost multi-señal en RRF (Fellegi-Sunter + embeddings)
-- **Dep:** MGR-05 · 🟡 3-4d · 🔴 · **Ruta:** vanta-engine · **Contrato:** "matching multi-señal con benchmark + fusión reversible con proveniencia" · **Task file:** `docs/dev/tasks/WIRE-05.md` · ⬜ PENDING
+- **Fase:** F2
+- **Dep:** MGR-05 · 🟡 3-4d · 🔴 · **Ruta:** vanta-engine · **Contrato:** "matching multi-señal con benchmark + fusión reversible con proveniencia" · **Task file:** `docs/dev/tasks/WIRE-05.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 20: WIRE-06 — Batching productizado (`insert_lock` → segmentos appendables)
-- **Dep:** FUT-12-spec · 🔴 1sem · 🔴 · **Ruta:** vanta-engine · **Contrato:** "batching con throughput medido (Regla 9: before/after) + tests de integridad" · **Task file:** `docs/dev/tasks/WIRE-06.md` · ⬜ PENDING
+- **Fase:** F2
+- **Dep:** FUT-12-spec · 🔴 1sem · 🔴 · **Ruta:** vanta-engine · **Contrato:** "batching con throughput medido (Regla 9: before/after) + tests de integridad" · **Task file:** `docs/dev/tasks/WIRE-06.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 21: WIRE-07 — Refactors: crate `ffi-core` (OpGate×3), trait-split storage↔index, desacoplar `server→cli`
-- **Dep:** — · 🔴 1-2sem · 🟠 · **Ruta:** vanta-arch · **Contrato:** "refactor sin cambio de comportamiento (tests verdes) + deuda P2 pagada" · **Task file:** `docs/dev/tasks/WIRE-07.md` · ⬜ PENDING
+- **Fase:** F2
+- **Dep:** — · 🔴 1-2sem · 🟠 · **Ruta:** vanta-arch · **Contrato:** "refactor sin cambio de comportamiento (tests verdes) + deuda P2 pagada" · **Task file:** `docs/dev/tasks/WIRE-07.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 22: WIRE-08 — Range/group_by + cursor con resume + RRF en CBO + rewriting + MMR
-- **Dep:** API-06 ✅ · 🟡 3-5d · 🟠 · **Ruta:** vanta-engine · **Contrato:** "paridad Milvus/Qdrant documentada + tests de cursor/range" · **Task file:** `docs/dev/tasks/WIRE-08.md` · ⬜ PENDING
+- **Fase:** F2
+- **Dep:** API-06 ✅ · 🟡 3-5d · 🟠 · **Ruta:** vanta-engine · **Contrato:** "paridad Milvus/Qdrant documentada + tests de cursor/range" · **Task file:** `docs/dev/tasks/WIRE-08.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 23: MGR-10 — research-doc: bitemporalidad (dim 5)
-- **Dep:** — · 🟡 2-3d · 🔴 · **Ruta:** vanta-arch · **Contrato:** "research-doc cerrado (diseño + tradeoffs + migración) listo para SCH-01" · **Task file:** `docs/dev/tasks/MGR-10.md` · ⬜ PENDING
+- **Fase:** F3
+- **Dep:** — · 🟡 2-3d · 🔴 · **Ruta:** vanta-arch · **Contrato:** "research-doc cerrado (diseño + tradeoffs + migración) listo para SCH-01" · **Task file:** `docs/dev/tasks/MGR-10.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 24: MGR-12 — research-doc: confianza (dim 6)
-- **Dep:** — · 🟡 2-3d · 🔴 · **Ruta:** vanta-arch · **Contrato:** "research-doc cerrado (modelo de confianza asserted/derived)" · **Task file:** `docs/dev/tasks/MGR-12.md` · ⬜ PENDING
+- **Fase:** F3
+- **Dep:** — · 🟡 2-3d · 🔴 · **Ruta:** vanta-arch · **Contrato:** "research-doc cerrado (modelo de confianza asserted/derived)" · **Task file:** `docs/dev/tasks/MGR-12.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 25: MGR-13 — research-doc: cuarentena
-- **Dep:** — · 🟡 2-3d · 🔴 · **Ruta:** vanta-arch · **Contrato:** "research-doc cerrado (estados + transiciones + threat model)" · **Task file:** `docs/dev/tasks/MGR-13.md` · ⬜ PENDING
+- **Fase:** F3
+- **Dep:** — · 🟡 2-3d · 🔴 · **Ruta:** vanta-arch · **Contrato:** "research-doc cerrado (estados + transiciones + threat model)" · **Task file:** `docs/dev/tasks/MGR-13.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 26: SCH-01 — Plan único + ADR de migración (dims 5-6; alcance 0.7.0 vs v1.0)
-- **Dep:** MGR-10/12/13 · 🟡 2-3d · 🔴 · **Ruta:** vanta-arch · **Contrato:** "plan+ADR con alcance explícito + revisión owner" · **Task file:** `docs/dev/tasks/SCH-01.md` · ⬜ PENDING
+- **Fase:** F3
+- **Dep:** MGR-10/12/13 · 🟡 2-3d · 🔴 · **Ruta:** vanta-arch · **Contrato:** "plan+ADR con alcance explícito + revisión owner" · **Task file:** `docs/dev/tasks/SCH-01.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 27: SCH-02 — Schema v2 (bitemporal + confidence + quarantined + backfill)
-- **Dep:** SCH-01 · 🔴 3-5d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "migración determinista + backfill + roundtrip verde" · **Task file:** `docs/dev/tasks/SCH-02.md` · ⬜ PENDING
+- **Fase:** F3
+- **Dep:** SCH-01 · 🔴 3-5d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "migración determinista + backfill + roundtrip verde" · **Task file:** `docs/dev/tasks/SCH-02.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 28: SCH-03 — Queries `AS OF`/point-in-time + filtros `valid_at` + `exclude_superseded`
-- **Dep:** SCH-02 · 🟡 2-3d · 🔴 · **Ruta:** vanta-engine · **Contrato:** "time-travel query con tests deterministas" · **Task file:** `docs/dev/tasks/SCH-03.md` · ⬜ PENDING
+- **Fase:** F3
+- **Dep:** SCH-02 · 🟡 2-3d · 🔴 · **Ruta:** vanta-engine · **Contrato:** "time-travel query con tests deterministas" · **Task file:** `docs/dev/tasks/SCH-03.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 29: SCH-04 — Scores asserted/derived consumibles (slice 0.7.0)
-- **Dep:** SCH-02 · 🟡 2-3d · 🟠 · **Ruta:** vanta-engine · **Contrato:** "scores en ranking/UI + derivación completa diferida a v1.0 documentada" · **Task file:** `docs/dev/tasks/SCH-04.md` · ⬜ PENDING
+- **Fase:** F3
+- **Dep:** SCH-02 · 🟡 2-3d · 🟠 · **Ruta:** vanta-engine · **Contrato:** "scores en ranking/UI + derivación completa diferida a v1.0 documentada" · **Task file:** `docs/dev/tasks/SCH-04.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 30: SCH-05 — Cuarentena + abstención + trust-aware retrieval (threat model write-time)
-- **Dep:** SCH-02 · 🟡 2-3d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "cuarentena operativa + abstención con tests + threat model citado" · **Task file:** `docs/dev/tasks/SCH-05.md` · ⬜ PENDING
+- **Fase:** F3
+- **Dep:** SCH-02 · 🟡 2-3d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "cuarentena operativa + abstención con tests + threat model citado" · **Task file:** `docs/dev/tasks/SCH-05.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 31: SCH-06 — Tests: migración determinista, time-travel, roundtrip export/import, chaos
-- **Dep:** SCH-02..05 · 🟡 2-3d · 🔴 · **Ruta:** vanta-chaos · **Contrato:** "suite de migración/chaos verde + crash-recovery" · **Task file:** `docs/dev/tasks/SCH-06.md` · ⬜ PENDING
+- **Fase:** F3
+- **Dep:** SCH-02..05 · 🟡 2-3d · 🔴 · **Ruta:** vanta-chaos · **Contrato:** "suite de migración/chaos verde + crash-recovery" · **Task file:** `docs/dev/tasks/SCH-06.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 32: SCH-07 — Superficies: bindings/server/MCP/IQL + docs/api mismo-PR
-- **Dep:** SCH-02..06 · 🟡 2-3d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "4 bindings + server + MCP + IQL exponen schema v2 + docs sync (Regla 3)" · **Task file:** `docs/dev/tasks/SCH-07.md` · ⬜ PENDING
+- **Fase:** F3
+- **Dep:** SCH-02..06 · 🟡 2-3d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "4 bindings + server + MCP + IQL exponen schema v2 + docs sync (Regla 3)" · **Task file:** `docs/dev/tasks/SCH-07.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 33: SCH-08 — Corte 0.8.0: migration guide + CHANGELOG + release notes
-- **Dep:** SCH-07 · 🟢 1d · 🔴 · **Ruta:** vanta-docs · **Contrato:** "migration guide publicado + release notes + corte vía release-plz (nunca manual)" · **Task file:** `docs/dev/tasks/SCH-08.md` · ⬜ PENDING
+- **Fase:** F3
+- **Dep:** SCH-07 · 🟢 1d · 🔴 · **Ruta:** vanta-docs · **Contrato:** "migration guide publicado + release notes + corte vía release-plz (nunca manual)" · **Task file:** `docs/dev/tasks/SCH-08.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 34: VER-07 — Dreams: dry-run + diff report + `promote_dream_run` real
-- **Dep:** — · 🟡 2-3d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "dry-run + diff + promote (ADD/UPDATE/DELETE/NOOP) con tests" · **Task file:** `docs/dev/tasks/VER-07.md` · ⬜ PENDING
+- **Fase:** F4
+- **Dep:** — · 🟡 2-3d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "dry-run + diff + promote (ADD/UPDATE/DELETE/NOOP) con tests" · **Task file:** `docs/dev/tasks/VER-07.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 35: VER-01 — Tamper-evident: hash-chain en WAL + `vanta-cli verify`
-- **Dep:** — · 🔴 3-5d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "hash-chain + comando verify + test de manipulación detectada" · **Task file:** `docs/dev/tasks/VER-01.md` · ⬜ PENDING
+- **Fase:** F4
+- **Dep:** — · 🔴 3-5d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "hash-chain + comando verify + test de manipulación detectada" · **Task file:** `docs/dev/tasks/VER-01.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 36: VER-05 — Importadores Mem0/Zep/Letta→VantaDB + formato de intercambio
-- **Dep:** — · 🟢 1-2d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "importadores con roundtrip + formato documentado" · **Task file:** `docs/dev/tasks/VER-05.md` · ⬜ PENDING
+- **Fase:** F4
+- **Dep:** — · 🟢 1-2d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "importadores con roundtrip + formato documentado" · **Task file:** `docs/dev/tasks/VER-05.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 37: VER-06 — Export file-native Markdown + `rebuild_index` (git-friendly)
-- **Dep:** — · 🟢 1-2d · 🟡 · **Ruta:** vanta-worker · **Contrato:** "export MD + rebuild_index + roundtrip verde" · **Task file:** `docs/dev/tasks/VER-06.md` · ⬜ PENDING
+- **Fase:** F4
+- **Dep:** — · 🟢 1-2d · 🟡 · **Ruta:** vanta-worker · **Contrato:** "export MD + rebuild_index + roundtrip verde" · **Task file:** `docs/dev/tasks/VER-06.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 38: VER-02 — Borrado certificado (delete-path shred→GC→WAL + attestation)
-- **Dep:** SCH-02 · 🟡 2-3d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "attestation de purga verificable + tests" · **Task file:** `docs/dev/tasks/VER-02.md` · ⬜ PENDING
+- **Fase:** F4
+- **Dep:** SCH-02 · 🟡 2-3d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "attestation de purga verificable + tests" · **Task file:** `docs/dev/tasks/VER-02.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 39: VER-03 — Redacción-on-write persistida + namespaces cifrados
-- **Dep:** WIRE-01 ✅ · 🟡 2-3d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "redacción persistida + envelope por namespace + test PII=0" · **Task file:** `docs/dev/tasks/VER-03.md` · ⬜ PENDING
+- **Fase:** F4
+- **Dep:** WIRE-01 ✅ · 🟡 2-3d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "redacción persistida + envelope por namespace + test PII=0" · **Task file:** `docs/dev/tasks/VER-03.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 40: VER-04 — Governance de inyección (presupuesto + ACLs + audit log)
-- **Dep:** WIRE-01 ✅ · 🟡 2-3d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "presupuesto/ACLs enforced + audit log de inyección" · **Task file:** `docs/dev/tasks/VER-04.md` · ⬜ PENDING
+- **Fase:** F4
+- **Dep:** WIRE-01 ✅ · 🟡 2-3d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "presupuesto/ACLs enforced + audit log de inyección" · **Task file:** `docs/dev/tasks/VER-04.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 41: MKT-18f — Publicar 9 adapters PyPI (owner-assisted)
-- **Dep:** — · 🟡 (owner) · 🔴 · **Ruta:** vanta-lead (packaging; publish = owner) · **Contrato:** "9 adapters publicados o disposición documentada por adapter" · **Task file:** `docs/dev/tasks/MKT-18f.md` · ⬜ PENDING
+- **Fase:** F5
+- **Dep:** — · 🟡 (owner) · 🔴 · **Ruta:** vanta-lead (packaging; publish = owner) · **Contrato:** "9 adapters publicados o disposición documentada por adapter" · **Task file:** `docs/dev/tasks/MKT-18f.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 42: ICP-01 — Track AI-IDEs (MCP): one-pager + repo-map/watcher + viewer + hooks + demo CI
-- **Dep:** MGR-22 · 🟡 1sem · 🟠 · **Ruta:** vanta-docs · **Contrato:** "one-pager + demo CI verde + métrica North Star instrumentada" · **Task file:** `docs/dev/tasks/ICP-01.md` · ⬜ PENDING
+- **Fase:** F5
+- **Dep:** MGR-22 · 🟡 1sem · 🟠 · **Ruta:** vanta-docs · **Contrato:** "one-pager + demo CI verde + métrica North Star instrumentada" · **Task file:** `docs/dev/tasks/ICP-01.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 43: ICP-02 — Track local-LLM/privacidad: one-pager + redacción/cifrado/forget + auditoría PII + demo CI
-- **Dep:** VER-02/03/04 · 🟡 1sem · 🟠 · **Ruta:** vanta-docs · **Contrato:** "one-pager + demo CI + 0 PII en auditoría" · **Task file:** `docs/dev/tasks/ICP-02.md` · ⬜ PENDING
+- **Fase:** F5
+- **Dep:** VER-02/03/04 · 🟡 1sem · 🟠 · **Ruta:** vanta-docs · **Contrato:** "one-pager + demo CI + 0 PII en auditoría" · **Task file:** `docs/dev/tasks/ICP-02.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 44: ICP-03 — Track frameworks: one-pager + adapters PyPI (MKT-18f) + importadores (VER-05) + demo CI
-- **Dep:** MKT-18f, VER-05 · 🟡 1sem · 🟠 · **Ruta:** vanta-docs · **Contrato:** "one-pager + demo CI + instalación de adapters verde" · **Task file:** `docs/dev/tasks/ICP-03.md` · ⬜ PENDING
+- **Fase:** F5
+- **Dep:** MKT-18f, VER-05 · 🟡 1sem · 🟠 · **Ruta:** vanta-docs · **Contrato:** "one-pager + demo CI + instalación de adapters verde" · **Task file:** `docs/dev/tasks/ICP-03.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 45: VER-08 — Harness propio: canonical_p99 + LoCoMo/LongMemEval-S/BEAM-subset + p99-CI
-- **Dep:** — · 🟡 3-5d · 🔴 · **Ruta:** vanta-tuner · **Contrato:** "harness publicado (dataset commiteado) + p99 en CI + write-quality/abstención" · **Task file:** `docs/dev/tasks/VER-08.md` · ⬜ PENDING
+- **Fase:** F5
+- **Dep:** — · 🟡 3-5d · 🔴 · **Ruta:** vanta-tuner · **Contrato:** "harness publicado (dataset commiteado) + p99 en CI + write-quality/abstención" · **Task file:** `docs/dev/tasks/VER-08.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 46: DEF-06 — README↔BENCHMARKS reconciliados (claims)
-- **Dep:** VER-08 · 🟡 2d · 🔴 · **Ruta:** vanta-docs · **Contrato:** "claim RocksDB corregido + §2 regenerado + números citables (Regla 11)" · **Task file:** `docs/dev/tasks/DEF-06.md` · ⬜ PENDING
+- **Fase:** F5
+- **Dep:** VER-08 · 🟡 2d · 🔴 · **Ruta:** vanta-docs · **Contrato:** "claim RocksDB corregido + §2 regenerado + números citables (Regla 11)" · **Task file:** `docs/dev/tasks/DEF-06.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 47: VER-09 — Head-to-head Mem0/Zep/Letta con protocolo publicado (absorbe EXE-02)
-- **Dep:** VER-08 · 🔴 1-2sem · 🟠 · **Ruta:** vanta-tuner · **Contrato:** "reporte win/loss con protocolo + dataset reproducible" · **Task file:** `docs/dev/tasks/VER-09.md` · ⬜ PENDING
+- **Fase:** F6
+- **Dep:** VER-08 · 🔴 1-2sem · 🟠 · **Ruta:** vanta-tuner · **Contrato:** "reporte win/loss con protocolo + dataset reproducible" · **Task file:** `docs/dev/tasks/VER-09.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 48: EXE-01 — Demos CI (3 casos: memory/verify/governance)
-- **Dep:** — · 🟡 2-3d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "3 demos ejecutables en CI + output documentado" · **Task file:** `docs/dev/tasks/EXE-01.md` · ⬜ PENDING
+- **Fase:** F6
+- **Dep:** — · 🟡 2-3d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "3 demos ejecutables en CI + output documentado" · **Task file:** `docs/dev/tasks/EXE-01.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ### Task 49: N-17 — Notion sync (drafts NOTION-SYNC-2026-09-24.md → páginas)
-- **Dep:** — · 🟢 0.5d · 🟡 · **Ruta:** vanta-lead (Notion MCP) · **Contrato:** "10 páginas sincronizadas (0.7.0 vigente, no stale) + draft aplicado" · **Task file:** `docs/dev/tasks/N-17.md` · ⬜ PENDING
+- **Fase:** F6
+- **Dep:** — · 🟢 0.5d · 🟡 · **Ruta:** vanta-lead (Notion MCP) · **Contrato:** "10 páginas sincronizadas (0.7.0 vigente, no stale) + draft aplicado" · **Task file:** `docs/dev/tasks/N-17.md`
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
 
 ---
 
 ### Task 50: HARD-08 — SDP v3: mejoras de búsqueda/lectura/revisión/selección de skills (PRE-RUN ✅)
+- **Fase:** F0
 
 - **Appetite:** max 2d · **Esfuerzo:** 🟡 1d · **Prioridad:** 🔴
 - **Ruta:** vanta-lead (+ Gate H vanta-harness)
@@ -586,6 +671,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
   - ⬇️ downhill antes/después: 50 → 49 (HARD-08 ✅).
   - ⚠️ Owner action **resuelta:** `opencode reload` respawnea MCP servers sin restart del server (verificado: campaign live sirve v3 con morfología+aliases).
   - **Pre-run pass (R2) ✅:** 14/14 task files F0/F1 con SDP v3 actualizado (pins+aliases) — commit local.
+- **plan-adjust [2026-09-27b]:** **Pre-run hardening del harness (Gate H ✅ APPROVE, 3 rondas).** 4 auditorías profundas (vanta-harness) + 30+ fixes: gates (verify retry/refund, budget 40, validate_scope canónico), claim wave-aware (salta ⏳, WIP=3), seguridad (inyección workDir/git, PIPED_SHELL blocking, sandbox deadlock), observabilidad (eval por tarea+filtro plan, skills SDP en verify-log), parsers (id canónico `HARD-01`, formato compacto), plan normalizado (50 Estados escribibles + Fase ×50), hooks alineados, checkpoint. Tests: **49/49** + parity 10/40/40/5/120 + probes E2E en vivo. ⬆️ antes: 13 hallazgos 🔴/🟠 + 9 seguridad → **después: 0 bloqueantes**. ⬇️ downhill: 49.
 
 ## Recitation
 

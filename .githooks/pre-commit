@@ -25,6 +25,12 @@ printf "  ───────────────────────�
 
 FAILED=0
 
+# Inline equivalent of dev-tools/verify_changed.ps1 (fmt + clippy, which type-checks), scoped to
+# staged Rust files so environments without pwsh can still commit safely.
+# Known deviation: cargo clippy runs with default features (verify_changed.ps1 uses
+# Get-CoreFeatures from dev-tools/gate-common.ps1); the full features gate runs at pre-push
+# via dev-tools/verify.ps1 (Regla 1).
+
 # Only check files that have staged changes
 STAGED_RS=$(git diff --cached --name-only --diff-filter=ACMR | grep '\.rs$' || true)
 
