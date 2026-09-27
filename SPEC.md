@@ -146,7 +146,7 @@ Consulta: `memory_list` (`vantadb-mcp`, read-only — `handlers/tools.rs:200-218
 | 5 | **Naming freeze** 0.7.0→1.0 (9 artefactos; ADR) | DEF-04 |
 | 6 | **Jerarquía de producto (DEF-01)**: 1 núcleo (memoria embebida gobernada, "SQLite para agentes") + 3 puertas ICP; RAG = capacidad del núcleo, nunca target (opción c, owner 2026-09-27) | Alinea SPEC/README/VISION en una sola jerarquía |
 
-**Frontera:** este SPEC gobierna el MVP de memoria automática; la frontera de superficies (core-promise vs labs) vive en `EXPERIMENTAL_FEATURES.md` regenerado (DEF-02/03) y la jerarquía de producto en `VISION.md` — **un núcleo (motor de memoria embebido gobernado) + tres puertas de entrada** (ICP-01 AI-IDEs vía MCP · ICP-02 local-LLM/privacidad · ICP-03 frameworks), decidida por el owner 2026-09-27 (DEF-01; RAG = capacidad del núcleo, no target). Los success criteria de campaña de abajo siguen vigentes para el MVP; los de **producto** son la North Star de DEF-05.
+**Frontera:** este SPEC gobierna el MVP de memoria automática; la frontera de superficies (core-promise vs labs) vive en `EXPERIMENTAL_FEATURES.md` §Scope Budget (DEF-02/03/07): clasificación por superficie + regla de inversión — admisión labs por defecto, promoción solo con evidencia North Star, congelamiento de labs — y la jerarquía de producto en `VISION.md` — **un núcleo (motor de memoria embebido gobernado) + tres puertas de entrada** (ICP-01 AI-IDEs vía MCP · ICP-02 local-LLM/privacidad · ICP-03 frameworks), decidida por el owner 2026-09-27 (DEF-01; RAG = capacidad del núcleo, no target). Los success criteria de campaña de abajo siguen vigentes para el MVP; los de **producto** son la North Star de DEF-05.
 
 ## Open Questions
 
