@@ -421,40 +421,180 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 > **Campos finales del bloque = idénticos a F0/F1:** Appetite · Esfuerzo · Prioridad · Ruta · Archivos clave · Verificación real · Gate Justificación · Gate Result · Contrato · Task file · Estado · Branch · Commit · Cynefin · Top 3 riesgos · Pre-mortem · Stop conditions · Risk Register · Uphill/Downhill · DoD task · Iteraciones · Notas.
 > **Gate de fase:** una fase F2–F6 NO arranca hasta que TODOS sus bloques estén completados a este nivel (verificable con `rg` de campos por bloque en este plan). Registrar cada completado como `plan-adjust` en §Notas.
 
-### Task 16: WIRE-02 — MCP: enforce de perfil en `tools/call` + default `agent` + fusión 87→~65 + fix doc `MCP.md:254`
+### Task 16: WIRE-02 — MCP: enforce de perfil en `tools/call` + default `agent` + fusión 85→~65 + fix doc `MCP.md:265`
 - **Fase:** F2
-- **Dep:** API-04 ✅ · 🟡 2-3d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "perfil enforced (test) + default agent + conteo tools fusionado documentado + `MCP.md:254` corregido" · **Task file:** `docs/dev/tasks/WIRE-02.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠
+- **Ruta:** vanta-worker
+- **Archivos clave:** `vantadb-mcp/src/handlers/tools.rs` (enforce en `handle_tools_call` + fusión en `handle_tools_list`) · `vantadb-mcp/src/config.rs` (`McpProfile`: nuevo default `agent`) · `vantadb-mcp/tests/mcp_tests.rs` (meta-tests de perfil + smoke `tools/list`) · `docs/api/MCP.md` (tabla de perfiles, error de `tools/call`, conteos)
+- **Verificación real:** ✅ CÓDIGO-REAL (Dep API-04 ✅ — aliases canonicalizados, MCP.md:536) — el perfil se aplica SOLO al listing: `profile_allowed_tools` (tools.rs:1023) se consume en `handle_tools_list` (tools.rs:1008-1017); `handle_tools_call` (tools.rs:1204) entra directo al `match` sin gate y su fall-through emite `Tool not found: {name}` pelado (tools.rs:2969) vs el error documentado `… (not in profile <profile>)` (MCP.md:265 — el `:254` del seed quedó desplazado). Default `Full` (config.rs:16-17,110) con **85 listadas** (meta-test mcp_tests.rs:4667; tabla MCP.md:198,231) + 2 aliases dispatchables no listados (tools.rs:27; MCP.md:214-223) → re-baseline del seed: 85 listadas → ~65 (el "87" incluía los 2 aliases; config.rs:11,14 stale). Redundancia dura: `code_*`×8 (tools.rs:1120-1128) ≈ `graph_traverse` con otro formato + triple solape de introspección `code_status` ≈ `operational_metrics()` (tools.rs:2081) ≈ `capabilities` (tools.rs:808) — el informe recomienda 87→~65 y default `agent` ~45 (VantaDB-Informe-Analisis-Completo.md:199,203,428). Blast radius: `handle_tools_call` ← `dispatch_request`/`mcp_proxy_handler` (vantadb-mcp/src/server.rs); `McpConfig` 75 callers (codegraph).
+- **Gate Justificación:** el default `full` ≈ 23K tokens de overhead por cliente (informe:23) y el perfil es un claim documentado que HOY no se cumple (tool fuera de perfil sigue llamable) → enforce + default `agent` + fusión reduce el overhead y cierra la brecha doc↔código antes del anuncio (F6).
+- **Gate Result:** ✅ DO
+- **Contrato:** "`tools/call` de tool fuera de perfil → error real `Tool not found: <name> (not in profile <profile>)` (test) Y default `agent` con smoke `tools/list` ≤45 Y superficie fusionada con conteo real documentado en `MCP.md` (tabla + error, consistente con `handle_tools_list` y sus meta-tests) Y aliases API-04 siguen dispatchables"
+- **Task file:** `docs/dev/tasks/WIRE-02.md`
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — gate de dispatch + cambio de default compatible + fusión sin romper aliases.
+- **Top 3 riesgos:** 1. default `agent` rompe clientes existentes · 2. fusión de tools rompe dispatch/aliases · 3. enforcement bloquea smokes que llamaban tools fuera de perfil.
+- **Pre-mortem:** F1: default agent sin escape → mantener `full` opt-in documentado (`VANTADB_MCP_PROFILE=full`) + notas de release; F2: fusión sin alias → retener dispatch-only aliases (precedente API-04) + meta-test listing↔dispatch; F3: doc y código divergen → `validate-docs-coverage` + meta-test de conteos.
+- **Stop conditions:** si el enforcement rompe >2 smokes de clientes o la fusión a ~65 no cierra sin breaking de dispatch → entregar enforce + default + doc y diferir la fusión (anotar en Backlog).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟡 | Cambio de default rompe compat | `full` dispatchable opt-in + notas de migración | review P2-01 |
+  | 🟡×🟠 | Fusión rompe dispatch | aliases dispatch-only + meta-test listing vs dispatch | test rojo |
+  | 🟢×🟡 | Doc diverge del código | validate-docs-coverage + meta-test de conteos | gate-docs |
+- **Uphill/Downhill:** ⬆️ 2 (default/fusión sin breaking de dispatch) / ⬇️ 6 steps
+- **DoD task:** contrato ✅ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** seed decía `87→~65` y `MCP.md:254` — re-baselined post-API-04 (85 listadas; error hoy en `MCP.md:265`); consume informe §6-7.
 
 ### Task 17: WIRE-03 — `query_sparse` + text-only en 3 bindings + filtros avanzados (`$and`/`$or`, range/datetime)
 - **Fase:** F2
-- **Dep:** API-02 ✅ · 🟡 2-3d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "query_sparse en Py/TS/Node con tests + filtros avanzados verdes" · **Task file:** `docs/dev/tasks/WIRE-03.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴
+- **Ruta:** vanta-worker
+- **Archivos clave:** `vantadb-python/src/lib.rs` + `vantadb-python/vantadb_py/{__init__,vantadb_py}.pyi` (stubs) · `vantadb-node/src/lib.rs` + `vantadb-node/index.d.ts` · `vantadb-ts/src/{types.ts,guards.ts,native.ts,vantadb.ts}` · `src/sdk/serialization/vector_types.rs` + `src/sdk/types/record.rs` (contrato core) · tests por binding (`vantadb-python/tests/`, `vantadb-node/tests/`, `vantadb-ts/src/__tests__/`)
+- **Verificación real:** ✅ CÓDIGO-REAL (Dep API-02 ✅) — el core soporta sparse en los paths de search (`MemorySearchRequest.query_sparse`, vector_types.rs:15-19; hybrid.rs:36-39; debug_ops.rs:216-374; explain.rs:28-180) pero los bindings lo hardcodean `None`: Py lib.rs:1240,1331,2255,2404; Node `parse_search_request` lib.rs:838. TS no lo expone en `SearchRequest` (types.ts:141-155) y `buildSearchRequestBase` rechaza `query_vector: []` ("must be a non-empty array", guards.ts:219-224) → text-only imposible por la puerta principal. Filtros: Py convierte dict→metadata legacy por igualdad (`py_dict_to_metadata`, lib.rs:1241) sin `FilterOp`; el core es AND-only plano (`MemoryFilter = Vec<MemoryFilterItem>`, record.rs:54-55) con ops Gt/Lt/Gte/Lte + `Value::DateTime` ya disponibles (record.rs:11-25). Blast radius: `buildSearchRequestBase` compartido por los paths nativo y wasm de TS (native.ts:331-340; vantadb.ts:580-596); stubs Py sujetos a `test_stub_drift.py`.
+- **Gate Justificación:** `query_sparse` existe en core (y en MCP/HTTP con su shape) y NO en ningún binding — la paridad Py/TS/Node es requisito del gate de fase F2 ("paridad bindings") y alimenta la matriz de capacidades de ICP-03 (F5).
+- **Gate Result:** ✅ DO
+- **Contrato:** "`query_sparse` expuesto en Py/TS/Node con test de roundtrip Y text-only (`query_vector: []` = solo-BM25) por la puerta principal en los 3 Y filtros avanzados (`$and`/`$or`, range/datetime) equivalentes py↔js con tests Y stubs/d.ts sincronizados (`test_stub_drift` verde)"
+- **Task file:** `docs/dev/tasks/WIRE-03.md`
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — paridad cross-binding + validación compartida en TS.
+- **Top 3 riesgos:** 1. cambiar la validación TS rompe flujos existentes (contrato "non-empty") · 2. semántica OR/range divergente entre bindings · 3. stubs `.pyi`/`.d.ts` desincronizados.
+- **Pre-mortem:** F1: TS acepta `[]` sin distinguir intención → exigir `text_query` presente cuando el vector está vacío (error claro); F2: `$or` implementado distinto en py vs js → definir la forma canónica en el core y que los 3 bindings la serialicen; F3: drift de stubs → `test_stub_drift.py` + check de d.ts en CI.
+- **Stop conditions:** si `$and`/`$or` exige cambiar el modelo core más allá del slice → dividir: primero sparse+text-only (mínimo vendible) y OR/range diferido con FIND; rabbit hole: reescribir validaciones de TS → NO.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | Validación TS rompe clientes | rechazar solo si vector vacío Y sin `text_query` | test d5a-validation |
+  | 🟡×🟡 | Divergencia OR/range | forma canónica única desde core + matriz de paridad | review P2-01 |
+  | 🟢×🟡 | Stub drift | `test_stub_drift.py` + check d.ts | CI binding |
+- **Uphill/Downhill:** ⬆️ 1 (forma canónica de filtros en 3 bindings) / ⬇️ 7 steps
+- **DoD task:** contrato ✅ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** seed "matriz de paridad 3 bindings con tests de sparse y text-only" (Backlog:968) se mantiene; WASM fuera de scope — coordinar `SearchRequestInput` (wasm d.ts) por la vía TS.
 
 ### Task 18: WIRE-04 — TTL superficie completa (server HTTP + default por colección + sweeper)
 - **Fase:** F2
-- **Dep:** MGR-09 · 🟢 1-2d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "TTL en HTTP + default por colección + sweeper al índice con test de expiración" · **Task file:** `docs/dev/tasks/WIRE-04.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+
+- **Appetite:** max 2d · **Esfuerzo:** 🟢 1-2d · **Prioridad:** 🟠
+- **Ruta:** vanta-worker
+- **Archivos clave:** `src/server/handlers.rs` + `src/server/router.rs` (superficie HTTP; `vantadb-server/` es entrypoint delgado, lib.rs:3-7) · `src/sdk/api/memory.rs` (`put_one`/`purge_expired`) · `src/gc.rs` (sweeper) · `src/sdk/types/record.rs` (`ttl_ms`) · config de colección/namespace (default TTL — nuevo) · `docs/api/HTTP_API.md` · tests (inline en `src/gc.rs` y `src/sdk/api.rs`)
+- **Verificación real:** ✅ CÓDIGO-REAL (⚠️ Dep MGR-09 🆕 PENDIENTE — Backlog:815, research de retención; el slice TTL no la requiere; su spec informa default/decay futuro) — premisa del seed AJUSTADA: el param HTTP YA existe — `records_put`/`records_put_batch` toman `MemoryInput` (handlers.rs:250,261) que incluye `ttl_ms` (record.rs:74-77; doc HTTP_API.md:228) y `put_one` lo resuelve a `expires_at_ms` (memory.rs:88); `get` filtra expirados (memory.rs:342). Gaps reales: (1) NO existe default TTL por colección (`rg default_ttl|collection_ttl|ttl_default` = 0 hits — Qdrant/Weaviate/Milvus tampoco lo tienen: diferenciador, Backlog:969); (2) NO hay sweeper background de memoria — `purge_expired` es manual (memory.rs:587-698; endpoint router.rs:197 + handlers.rs:1151) y SÍ purga índices derivados + text index (memory.rs:689-698), pero `GcWorker::sweep` (gc.rs:34) solo se registra para threads (thread.rs:205,252) y no se invoca en producción (solo tests; comentario gc.rs:33 "runs in a tokio::spawn loop" sin spawn real). Blast radius: `MemoryInput` compartido HTTP/SDK/MCP (put path); `purge_expired` ← maintenance endpoint.
+- **Gate Justificación:** la retención hoy depende de llamadas manuales a `purge_expired`; exponer default + agendarla hace que la promesa TTL no se pudra (costo barato: la purga física completa ya existe) y alimenta la narrativa privacy/local-first de ICP-02 (F5).
+- **Gate Result:** ✅ DO
+- **Contrato:** "TTL HTTP verificado con test E2E (put `ttl_ms` → expira → `get` None / `purge_expired` ≥1) Y default TTL por colección implementado (config + fallback en put, solo writes nuevos) y documentado en `HTTP_API.md` Y sweeper background invocado que purga memoria/índices con test de expiración física (nodo ausente del índice, no solo filtrado en lectura)"
+- **Task file:** `docs/dev/tasks/WIRE-04.md`
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — scheduler async + defaults de retención sin degradar close.
+- **Top 3 riesgos:** 1. sweeper que interfiere con close/shutdown · 2. default por colección cambia semántica de puts existentes · 3. purga física que deja índices inconsistentes.
+- **Pre-mortem:** F1: sweeper sin cancelación → shutdown token + test de close/join; F2: default retroactivo → solo writes nuevos (sin backfill) y opt-in por colección; F3: purga que no limpia HNSW/text → reutilizar `purge_expired` (ya purga derivados) + test que verifica índice post-purga.
+- **Stop conditions:** si el sweeper exige refactor del lifecycle (engine + tokio) >1d → entregar default + E2E y dejar el sweep como FIND con diseño; rabbit hole: GC distribuido → NO.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | Sweeper vs close | shutdown token + test de drain | test de close |
+  | 🟡×🟡 | Default cambia semántica | solo writes nuevos + opt-in por colección | review P2-01 |
+  | 🟢×🟠 | Índices inconsistentes | reutilizar `purge_expired` + test post-purga | test expiración |
+- **Uphill/Downhill:** ⬆️ 1 (sweeper sin degradar shutdown) / ⬇️ 5 steps
+- **DoD task:** contrato ✅ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** ajuste verificado vs seed ("TTL no en HTTP" era stale — el param ya está, falta default+sweeper); MGR-09 anotada como dep de la parte semántica (`audit_vigency`/decay), no del slice.
 
 ### Task 19: WIRE-05 — Entity linking determinista + boost multi-señal en RRF (Fellegi-Sunter + embeddings)
 - **Fase:** F2
-- **Dep:** MGR-05 · 🟡 3-4d · 🔴 · **Ruta:** vanta-engine · **Contrato:** "matching multi-señal con benchmark + fusión reversible con proveniencia" · **Task file:** `docs/dev/tasks/WIRE-05.md`
+
+- **Appetite:** max 4d · **Esfuerzo:** 🟡 3-4d · **Prioridad:** 🔴
+- **Ruta:** vanta-engine
+- **Archivos clave:** `src/entity/{mod.rs,checker.rs,scene.rs}` + `src/entity/linking.rs` (nuevo: matching/canonicalización) · `src/sdk/search/fusion.rs` (boost opt-in en `fuse_rrf*`) · `src/sdk/search/{hybrid.rs,explain.rs,mod.rs}` (callers) · `src/graph.rs` (relaciones) · tests (`src/entity/tests.rs`, `src/sdk/search/tests.rs`)
+- **Verificación real:** ✅ CÓDIGO-REAL (⚠️ Dep MGR-05 🆕 PENDIENTE — Backlog:811, research+spec 3-4d; el slice determinista no requiere el LLM-juez, que queda como paso 2/v1.0) — NO existe linking/ER: `src/entity/` = `EntityStore` genérico + `checker` (permisos) + `scene` (mod.rs:1-34); `rg mark_duplicate|auto_resolve_entities|fellegi` = 0 hits. La fusión RRF existe y es determinista (`fuse_rrf` fusion.rs:72-91; `fuse_rrf_many` :97; tie-break por key/node_id :71) y NO conoce entidades → el boost es extensión aditiva; blast radius 12 callers: `hybrid_search` (hybrid.rs), `search_impl` (mod.rs), `explain_memory_search` (explain.rs) + tests (trace_path). Forma requerida: opt-in, reversible, con proveniencia (Backlog:970); la medición del boost queda para el harness VER-08 (F5 — dep cross-fase anotada).
+- **Gate Justificación:** paridad Mem0 sin LLM (matching multi-señal determinista, ms, coste 0) refuerza el diferenciador "determinista y auditable" del anuncio; el RRF ya está en producción y el boost aditivo mantiene riesgo bajo.
+- **Gate Result:** ✅ DO
+- **Contrato:** "matching multi-señal determinista (Fellegi-Sunter + embeddings, sin LLM-juez) con tests (mismos inputs → mismo score) Y boost de entidades en `fuse_rrf*` opt-in, reversible y con proveniencia Y suites `sdk::search`/`entity` verdes (boost OFF byte-idéntico al ranking actual)"
+- **Task file:** `docs/dev/tasks/WIRE-05.md`
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — matching multi-señal determinista + integración en fusión existente.
+- **Top 3 riesgos:** 1. falsos positivos de matching (merge indebido) · 2. boost que rompe determinismo/orden del RRF · 3. MGR-05 no llega y el diseño se sesga.
+- **Pre-mortem:** F1: matching agresivo sin umbral → Fellegi-Sunter con umbral conservador y `mark_duplicate` manual como paso 1; F2: boost no reversible → proveniencia por hit + test OFF byte-idéntico; F3: dep pendiente → mini-discovery con informe + estrategia como fuente determinista; MGR-05 solo para el LLM-juez.
+- **Stop conditions:** si el matching exige LLM en el camino crítico → recortar a Fellegi-Sunter + embeddings; si el boost no puede ser byte-idéntico con OFF → rediseñar antes de tocar `fuse_rrf`.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Merge indebido (falso positivo) | umbral conservador + reversible + proveniencia | 2 merges erróneos en tests |
+  | 🟡×🟠 | Rompe determinismo RRF | OFF byte-idéntico (test) + ON orden estable | test determinismo |
+  | 🟢×🟡 | Dep MGR-05 ausente | mini-discovery determinista; LLM-juez fuera de scope | discovery |
+- **Uphill/Downhill:** ⬆️ 2 (diseño de matching sin MGR-05 + reversibilidad) / ⬇️ 6 steps
+- **DoD task:** contrato ✅ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** medición de boost en harness = VER-08 (F5); seed citaba `src/sdk/search/fusion.rs` — verificado, más `hybrid.rs`/`explain.rs` como callers.
 
 ### Task 20: WIRE-06 — Batching productizado (`insert_lock` → segmentos appendables)
 - **Fase:** F2
-- **Dep:** FUT-12-spec · 🔴 1sem · 🔴 · **Ruta:** vanta-engine · **Contrato:** "batching con throughput medido (Regla 9: before/after) + tests de integridad" · **Task file:** `docs/dev/tasks/WIRE-06.md`
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🔴 1sem · **Prioridad:** 🔴
+- **Ruta:** vanta-engine
+- **Archivos clave:** `src/storage/engine/insert.rs` (path de inserción + auto-flush) · `src/wal.rs` (fsync/group-commit) · `src/config.rs` (`insert_lock_timeout_ms`) · `benches/ingestion_concurrent.rs` (infra A/B find61) + `benches/wal_throughput.rs` · `docs/dev/architecture/adr/ADR-038-wal-fsync-batching-opt-in.md` (spec) · `docs/user/operations/BENCHMARKS.md` §13 (before/after)
+- **Verificación real:** ✅ CÓDIGO-REAL (Dep FUT-12-spec ✅ — spec cerrada: `docs/dev/tasks/FUT-12-spec.md` + ADR-038 Proposed spec-only, CHANGELOG:1650) — techo confirmado: `insert_lock` global (insert.rs:208 "WAL + queue" bajo un guard; delete.rs:42,217; timeout config.rs:238) + convoy lock+HNSW: `Never* p1/w4 −37%` CON fsync apagado (core-engine.md:555) y fsync ≈0.16ms ≈1.5% del op (ibíd.) → el término dominante es lock+serial, no fsync. Prototipo medido: N=32 **1016 ops/s / 9.1×** vs 111.5 §13 (BENCHMARKS.md:561,612,644; gate ≥2× cumple) — cerrado SIN slice con bench-infra A/B como legado (core-engine.md:557): la productización es este task. `ingestion.rs:42` documenta el serial path (single worker por el lock). Blast radius: insert path global (SDK/MCP/server/ingestion escriben por el mismo lock).
+- **Gate Justificación:** la ingesta batch es el claim de performance con la evidencia más fuerte del repo (9.1× prototipado, gate A/B listo) y el techo es arquitectónico (lock global) — productizarlo con Regla 9 (before/after) convierte un prototipo en capacidad medida antes del head-to-head (VER-09, F6).
+- **Gate Result:** ✅ DO
+- **Contrato:** "≥5× ingesta sostenida vs baseline (bench before/after commiteado, Regla 9) Y p99 sin regresión >15% Y tests de integridad (WAL/durabilidad/reopen, batch atómico) verdes Y bench nightly activo con gate anti-regresión"
+- **Task file:** `docs/dev/tasks/WIRE-06.md`
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — segmentos appendables + compactación background + política de durabilidad.
+- **Top 3 riesgos:** 1. durabilidad degradada por batch (ventana de pérdida) · 2. p99 >15% por compactación background · 3. segmentos que fragmentan el índice/HNSW.
+- **Pre-mortem:** F1: group-commit sin política explícita → ADR-038 manda (opt-in, ventana declarada); F2: compactación que compite con writers → background con presupuesto + métrica; F3: bench que no reproduce → usar harness find61 existente (BATCH=400, DIM=16, perfil bench) como control.
+- **Stop conditions:** si la pata segmentos es irreducible a 1sem → entregar group-commit/fsync-batching opt-in (ADR-038) con ≥5× y diferir appendables con diseño + FIND; rabbit hole: reescribir HNSW → NO.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Ventana de pérdida (durabilidad) | ADR-038: política de sync explícita + opt-in | review P2-01 |
+  | 🟡×🟠 | p99 regresa | presupuesto de compactación + bench nightly | 2 corridas rojas |
+  | 🟢×🟡 | Fragmentación de índice | compactación + tests de integridad post-reopen | test reopen |
+- **Uphill/Downhill:** ⬆️ 3 (segmentos + política de durabilidad + compactación) / ⬇️ 7 steps
+- **DoD task:** contrato ✅ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** consume FUT-12-spec + ADR-038 (spec-only) y el bench find61 como infra A/B; bench nightly coordina con el gate perf existente (no tocar `perf-bench.yml` sin dueño).
 
 ### Task 21: WIRE-07 — Refactors: crate `ffi-core` (OpGate×3), trait-split storage↔index, desacoplar `server→cli`
 - **Fase:** F2
-- **Dep:** — · 🔴 1-2sem · 🟠 · **Ruta:** vanta-arch · **Contrato:** "refactor sin cambio de comportamiento (tests verdes) + deuda P2 pagada" · **Task file:** `docs/dev/tasks/WIRE-07.md`
+
+- **Appetite:** max 1sem · **Esfuerzo:** 🔴 1sem · **Prioridad:** 🟠
+- **Ruta:** vanta-arch
+- **Archivos clave:** `vantadb-ffi-core/` (nuevo crate: OpGate + clamps MAX_* + mapeo de errores) · `vantadb-node/src/lib.rs`, `vantadb-python/src/lib.rs`, `vantadb-wasm/src/lib.rs` (consumidores) · `Cargo.toml` (feature `server = ["cli", …]` → desacople) · `docs/dev/architecture/BOUNDARIES.md` (§3/§5 — bookkeeping) · `src/index_port.rs` + `src/index/port_impl.rs` (evidencia F3X)
+- **Verificación real:** ✅ CÓDIGO-REAL — (a) OpGate triplicado literal: node lib.rs:661/670/732, py lib.rs:97/106/170, wasm lib.rs:435/444/511; guards MAX_* ya centralizados en core (config.rs:40-56) pero los clamps se duplican (node lib.rs:34-42; py lib.rs:41-48) — el informe propone `vantadb-ffi-core` (2-3d; strategy:153). (b) **trait-split YA EJECUTADO**: F3X-impl ✅ (commit `13f0f729`, ADR-042 accepted; `src/index_port.rs` + `src/index/port_impl.rs`) — los imports storage↔index restantes son test-only (archive.rs:204-209/464-470; index/core.rs:151-156) → la pata del seed pasa a BOOKKEEPING: `BOUNDARIES.md` §3 (L117-160) y §5 ítem 5 (L205-206) siguen listando el ciclo como deuda abierta y hay que actualizarlos con la evidencia. (c) acople `server→cli` vigente: `Cargo.toml:177-185` (`server = ["cli", …]` arrastra clap/indicatif/anyhow al binario HTTP; strategy:68). Re-estimación: 🔴 1sem (era 1-2sem; trait-split ya pagado).
+- **Gate Justificación:** refactors de frontera habilitan F2/F3 sin cambiar comportamiento — ffi-core elimina la triplicación con UNA semántica de drain (riesgo real de divergencia node/py/wasm); el desacople server→cli reduce el binario HTTP y la clase de builds silenciosos con backend equivocado (strategy:68); el bookkeeping cierra el gate §5 de BOUNDARIES con evidencia ya pagada.
+- **Gate Result:** ✅ DO
+- **Contrato:** "crate `vantadb-ffi-core` consumido por node/py/wasm (`rg 'struct OpGate'` = 1 en el workspace) Y `server` sin feature `cli` (grafo sin arrastre; `cargo check` por-crate verde: vantadb, vantadb-node, vantadb-python, vantadb-wasm, vantadb-server) Y `BOUNDARIES.md` §3/§5 actualizados con evidencia F3X `13f0f729` Y suites verdes sin cambio de comportamiento"
+- **Task file:** `docs/dev/tasks/WIRE-07.md`
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — frontera de crate + feature-split con suites cross-crate.
+- **Top 3 riesgos:** 1. ffi-core con dependencias que contaminan bindings · 2. desacople que rompe el surface `cli_server` público · 3. refactor con cambio de comportamiento inadvertido.
+- **Pre-mortem:** F1: crate FFI con deps pesadas → leaf std-only (perfil `index_port.rs`) + `cargo tree` check; F2: surface roto → preservar re-exports (`src/server/mod.rs:16,34` guarda `crate::cli_server::*`) + semver-checks; F3: regresión silenciosa → un commit por refactor (OS del Backlog) para bisectar.
+- **Stop conditions:** si `server→cli` no se desacopla sin mover código compartido → DEFER parcial documentado (ffi-core primero; FIND para server→cli); rabbit hole: mudanzas cosméticas de módulos (BND-08: layout ≠ architecture) → NO.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | FFI core contamina bindings | leaf std-only + cargo tree review | review P2-01 |
+  | 🟡×🟡 | Surface `cli_server` roto | re-exports preservados + semver-checks | CI semver |
+  | 🟢×🟡 | Regresión silenciosa | 1 commit por refactor + suites por crate | verify_changed |
+- **Uphill/Downhill:** ⬆️ 2 (frontera ffi-core + feature-split) / ⬇️ 6 steps
+- **DoD task:** contrato ✅ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** ajuste verificado: trait-split ya pagado (`13f0f729`, ADR-042) → solo bookkeeping en BOUNDARIES; re-estimación 1-2sem→1sem; "deuda P2" del seed = triplicación FFI + feature-coupling.
 
 ### Task 22: WIRE-08 — Range/group_by + cursor con resume + RRF en CBO + rewriting + MMR
 - **Fase:** F2
-- **Dep:** API-06 ✅ · 🟡 3-5d · 🟠 · **Ruta:** vanta-engine · **Contrato:** "paridad Milvus/Qdrant documentada + tests de cursor/range" · **Task file:** `docs/dev/tasks/WIRE-08.md`
+
+- **Appetite:** max 5d · **Esfuerzo:** 🟡 3-5d · **Prioridad:** 🟠
+- **Ruta:** vanta-engine
+- **Archivos clave:** `src/sdk/serialization/vector_types.rs` (`MemorySearchRequest`) · `src/sdk/search/{mod,fusion,vector,lexical}.rs` · `src/planner.rs` (RRF como operador del CBO) · `src/search_profile.rs` (`RRF_K`=60) · `src/sdk/types/record.rs` (cursor de list como precedente) · tests (`src/sdk/search/tests.rs`, planner) · `docs/api/` (paridad Milvus/Qdrant)
+- **Verificación real:** ✅ CÓDIGO-REAL (Dep API-06 ✅; ⚠️ Dep MGR-16 🆕 PENDIENTE — Backlog:842, spec de RRF-CBO/rewriting/MMR; consumirla o DEFER anotado por pata) — `MemorySearchRequest` (vector_types.rs:10-38) NO tiene cursor/range/group_by; `rg group_by|range_filter|radius|mmr` en `src/` = 0 código (solo comentarios de scores.rs:37,59 sobre adapters que duplican relevancia MMR) → gaps reales. Cursor existe SOLO en list (`MemoryListOptions.cursor`, record.rs:155; namespaces.rs:47-60) → "extender el de list" es viable como patrón. RRF hoy SOLO SDK: helpers en `sdk/search/fusion.rs` (movidos adrede para romper `sdk→planner`, fusion.rs:1-8) y el CBO no fusiona ("solo el path SDK lo usa", planner.rs:180-181 — la línea `planner.rs:181` del seed, verificada). MMR client-side ya existe en adapters (langchain vectorstore.py:149-244; llamaindex :238) → centralizar en core. Blast radius: `MemorySearchRequest` lo consumen SDK/server/MCP/bindings; el CBO (`planner.rs:190-208`) queda intacto si el operador es aditivo.
+- **Gate Justificación:** radius/range/group_by y cursor con resume son las capacidades que las tablas comparativas marcan ausentes (paridad Milvus/Qdrant); RRF-CBO cierra la divergencia IQL↔SDK y MMR centralizado elimina la duplicación en adapters — todo antes del head-to-head (VER-09, F6) que las mide.
+- **Gate Result:** ✅ DO
+- **Contrato:** "range/radius + group_by + cursor con resume en search implementados con tests (resume estable con writes intercalados y page-full/last-page) Y paridad Milvus/Qdrant documentada en tabla capacidad×capacidad Y RRF-CBO/rewriting/MMR implementadas o DEFER explícito por pata en el task file (motivo + dueño) Y suites search/planner verdes"
+- **Task file:** `docs/dev/tasks/WIRE-08.md`
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — operadores nuevos en planner + semántica de cursor/MMR.
+- **Top 3 riesgos:** 1. cursor no-resumible (estado no serializable) · 2. RRF en CBO que rompe queries IQL existentes · 3. scope creep (5 patas en 3-5d).
+- **Pre-mortem:** F1: cursor opaco no estable entre requests → snapshot de plan + offset determinista (test de resume con writes intercalados); F2: RRF-CBO aditivo → flag/profile + paridad IQL↔SDK test; F3: 5 patas no cierran → orden por valor (range/group_by → cursor → MMR → rewriting → RRF-CBO) con DEFER posible por pata.
+- **Stop conditions:** si una pata excede y compromete el resto → DEFER explícito por pata (motivo/dueño en task file); rabbit hole: reescribir el planner → NO (extensión por operador registrado, planner.rs:169-173).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | Cursor no resumible | snapshot de plan + test con writes intercalados | test resume |
+  | 🟡×🔴 | RRF-CBO rompe IQL | flag/profile + paridad IQL↔SDK | suite planner roja |
+  | 🟡×🟡 | Scope creep 5 patas | orden por valor + DEFER por pata | review P2-01 |
+- **Uphill/Downhill:** ⬆️ 2 (RRF en CBO + opciones de planner) / ⬇️ 8 steps
+- **DoD task:** contrato ✅ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** dep MGR-16 pendiente → DEFER por pata permitido; MMR adapter-side existe como referencia de semántica (langchain/llamaindex).
 
 ### Task 23: MGR-10 — research-doc: bitemporalidad (dim 5)
 - **Fase:** F3
