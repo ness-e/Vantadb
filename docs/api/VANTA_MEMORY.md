@@ -3,7 +3,7 @@ title: "Vanta Memory Engine — API Reference (`vanta-memory`)"
 type: api
 status: active
 tags: [vantadb, api, vanta-memory, memory-engine]
-last_reviewed: 2026-09-26
+last_reviewed: 2026-09-27
 aliases: []
 related: []
 ---
@@ -30,6 +30,68 @@ el runner falla o no está configurado.
 - **Stable Rust API:** the public surface documented here is the stable contract for in-repo
   consumers. Binding re-export: none — `0` symbols by design (checked with
   `rg "vanta[_-]memory" vantadb-python vantadb-ts vantadb-node vantadb-wasm` → 0 matches).
+
+## Facade — capture / recall / seed / ingest (candidate, not published)
+
+> **Status: `candidate, not published`.** Conceptual signatures for the four
+> host-facing operations in-repo consumers build against today. They summarize
+> the stable Rust surface (§Scope & stability) as a reading aid — they are **not**
+> a published contract, not part of the versioning surface, and not re-exported
+> by any binding. Exposure starts only from a fired trigger (§Exposure triggers).
+
+| Operation | Conceptual signature | Degradation (see §Degradation contract) |
+|---|---|---|
+| **capture** | `AutoCaptureHook::capture(&self, session_id: &str, messages: Vec<RawMessage>) -> Result<AutoCaptureResult, L0Error>` | none — LLM-free by construction (L0 store-all) |
+| **recall** | `perform_auto_recall(db: &Embedded, params: AutoRecallParams<'_>, embed: Option<&EmbedFn>) -> Result<Option<RecallResult>, RecallError>` | keyword-overlap fallback; `RecallMode::effective` reports it |
+| **seed** | `seed::import_seed_file(db: &Embedded, path: &Path) -> Result<SeedCounts, SeedError>` | none — no LLM dependency |
+| **ingest** | `ingest::worker::run<R: LlmRunner>(store, namespace, slug, root, runner: Option<&R>, config: &IngestConfig) -> Result<IngestReport, IngestError>` | new pages verbatim; required merges recorded as skipped |
+
+**capture** — build with `AutoCaptureHook::new(db, AutoCaptureConfig)`; `capture`
+role-filters and sanitizes turns, then records them through the idempotent L0
+recorder honoring the persisted cursor or the plugin-start floor
+(`core/hooks/auto_capture.rs:67-88`).
+
+**recall** — `RecallConfig` (`core/hooks/auto_recall.rs:119`) carries the search
+`mode` (default hybrid), `scope` (`RecallScope`, default `Agent` — accumulates
+across an agent's sessions without the cross-agent leak, D22), `max_results`
+(default 5) and optional char budgets. Empty `user_text` skips L1 search but
+still injects persona + scene navigation; when nothing yields, returns `Ok(None)`
+— never an empty block (`core/hooks/auto_recall.rs:193-202`).
+
+**seed** — idempotent by content-hash; `import_seed_str` / `import_seed` take
+JSON input and `import_md_dir` re-imports a directory exported via
+`vanta-cli export --format md` (MEM-62). CLI: `vanta-seed <seed.json> [--db <path>]`
+and `vanta-seed import-md <dir> [--db <path>]`; without `--db` the import runs
+in-memory (validation only, nothing persisted) (`seed/mod.rs:76-89`,
+`seed/md_import.rs:216`, `bin/vanta-seed.rs:8-15`).
+
+**ingest** — serial per page; one page failing never blocks the rest.
+`run_with_progress` adds `Option<&ProgressTracker>`; progress is polled via
+`wiki_status(run_id)` (500 ms throttle). The `begin` / `execute` split (MEM-52)
+lets a host return the `run_id` immediately and dispatch the heavy body on a
+background thread (`ingest/worker.rs:35-83`, `ingest/callback.rs:173`).
+
+## Exposure triggers (T1–T4)
+
+Core-only is the deliberate default (Gate P, D42/D43): exposure costs new Rust
+bindings plus a support contract, so it starts only when a **measurable** trigger
+fires. Firing a trigger **opens a design/evaluation task — it never authorizes
+code**: any exposure still requires new bindings, the §Scope & stability
+constraints, and a re-run of the Gate P HITL decision (post-release, D42/D43).
+
+| # | Trigger | Threshold (measurable) | Measurement source | Owner |
+|---|---|---|---|---|
+| **T1** | External demand | ≥5 exposure requests from distinct non-maintainers | Issue tracker: issues/discussions opened by non-maintainers asking for the memory surface through a binding (count distinct requesters) | Lead |
+| **T2** | ICP-03 adapter blocked | 1 frameworks-track adapter blocked because it needs the memory surface and no binding exists | ICP-03 registry (master roadmap Task 44 / frameworks one-pager): blocker recorded with task ref | Lead |
+| **T3** | Stability proven | 2 release trains with 0 breaking changes to the documented Rust surface | `git log -p -- docs/api/VANTA_MEMORY.md` since 2026-09-27 (adoption) + `docs/CHANGELOG.md` | Release process |
+| **T4** | Stranger-tests | FASE-A stranger-tests (2–3 unaided testers) confirm local-first demand that only a published memory surface satisfies | `docs/dev/FASE-A.md` kit + EXE-03 report | Research / owner |
+
+Rules:
+
+- One trigger fires → open the exposure design task (post-release only, D42/D43).
+- Zero triggers fired → this page stays the manual reference; binding symbols
+  stay at 0 (`rg vanta[_-]memory vantadb-python vantadb-ts vantadb-node vantadb-wasm`).
+- Triggers are reviewed at release-train time, not continuously.
 
 ## Feature flags
 
@@ -82,6 +144,64 @@ with `llm-driver` on: failures are loud, never a silent `NotConfigured`
 | Orquestación | `services::pipeline_worker`, `utils::{pipeline_manager,stateful_pipeline_manager,managed_timer,checkpoint}` | Timers/locks estado local, trait `Clock` inyectable (FakeClock determinista), worker L0→L1→L2→L3 |
 | Gateway | `gateway::knowledge_handlers` | Handlers tipados scene_read/list/query para exposición MCP/server |
 
+## Operational modules
+
+Modules that live outside the L0–L3 layer pipeline (MEM-41/45/55/61/68). Same
+degradation principle: no runner configured → LLM-free behavior or explicit
+skip; never a silent loss.
+
+| Module | What it does | Code refs |
+|---|---|---|
+| `core::dream` | Idle consolidation (sleep-time tiering, MEM-61): scans `l1/<session>` read-only and writes a consolidated view to `dream/<session>/<run_id>` — never mutates the originals | `core/dream/mod.rs:629` (`consolidate_session`), `:614` (`promote_dream_run`) |
+| `core::memory_generation_log` | Per-session generation provenance at L1/L2/L3 (MEM-41) under `genlog/<session>`; best-effort, capped keep-recent | `core/memory_generation_log/store.rs:17,35,51` |
+| `gateway::approval_handlers` | Typed handlers behind the MCP `capture_list_pending` / `capture_approve` / `capture_reject` tools (MEM-68) — boundary validation, no transport | `gateway/approval_handlers.rs:90-117` |
+| `ingest::auto_sync` | Pull-based scheduled wiki re-ingest (MEM-45): per-file FNV-1a change detection, disabled by default, interval ≥ 60 s | `ingest/auto_sync.rs:108` (`tick`), `:33-36` |
+| `services::conversation_hook` | `HttpCaptureBridge` — implements the core's `ConversationTrigger` for `POST /api/v2/conversations` (MEM-55): L0 capture + L1 task enqueue; **not wired in production yet** | `services/conversation_hook.rs:36-45,93-107` |
+
+**`core::dream`** — `consolidate_session` requires the idle window (`detect_idle`,
+default 10 min) and degrades without a runner to LLM-free primitives: hash-bucket
+dedup (`merge_duplicates`), deterministic contradiction resolution by
+priority+timestamp (`resolve_contradictions`, reusing MEM-60 provenance) and an
+es-first relative-date table (`normalize_relative_dates`). LLM tiering is opt-in
+via the `Dreamer` trait; `promote_dream_run` is a count-only stub (no mutation) —
+the real promotion into L1 is MEM-65; `discard_dream_run` deletes the run
+namespace. Integration test `tests/dreaming.rs` pins the byte-identical-L1
+invariant.
+
+**`core::memory_generation_log`** — one `GenerationLogEntry` (`{layer, status,
+anchor_id, session_key, ts_ms, error?}`) per L1/L2/L3 generation, queryable per
+session ordered by timestamp. Best-effort by design: `record_best_effort`
+swallows store errors with a `tracing::warn!` — a logging failure can never fail
+a generation; growth is capped keep-recent (`MAX_ENTRIES_PER_SESSION = 100`).
+
+**`gateway::approval_handlers`** — `capture_approve` persists the approved
+capture through the queue (approve-time store failure surfaces as a typed error —
+an already-approved capture is never silently dropped); `capture_reject` is
+idempotent (`rejected: false` when already decided or never queued); ids are
+minted by the queue `submit`, never by the gateway. Degradation: none needed —
+no LLM dependency on either path (the optional `embed` parameter only adds a
+vector).
+
+**`ingest::auto_sync`** — pull-based, zero threads: the owner polls
+`AutoSyncScheduler::tick`; the deadline lives in `ManagedTimer` over an injected
+`Clock` (FakeClock in tests). While the wiki is `pending|processing` the tick
+returns `Busy` without updating the stored hashes (change re-detected next
+pass); each build mints a fresh `run_id` (MEM-31) and late packets from older
+runs are discarded; the first due pass has no baseline → reconciling re-ingest.
+Ceiling: full-content rescan per tick — a watcher is only worth it past ~10k
+files (`// ponytail` note in source).
+
+**`services::conversation_hook`** — the core cannot depend on `vanta-memory`
+(cycle), so the hook point is the additive
+`vantadb::cli_server::ConversationTrigger` trait and the impl lives here.
+`trigger` captures the saved turn into L0 (LLM-free — data is never lost) and
+enqueues an L1 task; `run_bridge_pass` drains the queue through the MEM-16
+worker (`trigger_every_n = usize::MAX`, so this path never regenerates persona).
+**Wiring status:** the bridge ships, but the core bootstrap passes `None`
+(`src/server/bootstrap.rs:332`, field `src/server/state.rs:134`, call site
+`src/server/handlers.rs:1391`) → inactive in production until a host wires it
+(MEM-55 residual).
+
 ## Contratos clave
 
 ### Trait `LlmRunner` (host-neutral, sync)
@@ -122,7 +242,7 @@ provider both modes degrade to keyword-overlap (`RecallMode::effective`,
 
 ### Wiki ingest (F7)
 ```rust
-worker::run(store, sources_root, runner_opt, cfg) -> IngestResult
+worker::run(store, sources_root, runner_opt, cfg) -> IngestReport
 worker::run_with_progress(..., Option<&ProgressTracker>)   // throttle 500ms
 progress_tracker.wiki_status(run_id) -> Option<IngestProgress>
 ```
@@ -141,6 +261,7 @@ merges requeridos se registran como skipped.
 | `offload/<session>` · `offload_state/<session>` | entradas offload · cursor |
 | `pipeline_checkpoint` | contadores del orquestador |
 | `genlog/<session>` | provenance de generaciones (best-effort, cap 100) |
+| `dream/<session>/<run_id>` | vista consolidada por corrida (MEM-61; `discard` real, promote stub) |
 | skills_extract/<scope> | seed/import CLI |
 
 ## CLI
