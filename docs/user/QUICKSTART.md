@@ -3,7 +3,7 @@ title: VantaDB 5-Minute Quickstart
 type: documentation
 status: active
 tags: [vantadb]
-last_reviewed: 2026-09-15
+last_reviewed: 2026-09-27
 aliases: []
 ---
 
@@ -253,6 +253,42 @@ python embeddings/verify.py --check
 ```
 
 `embed-local` is **Optional** (not Experimental): `LocalOnnxProvider` via `ort`+`tokenizers` (9 models, default `multilingual-e5-small` 384d, `embeddings/manifest.json` as source of truth, `embed-batch` via `EmbeddingProvider::embed_batch`). See `docs/api/EMBEDDINGS.md` and `docs/user/tutorials/05-embedding-integrations.md` for the full 9-model matrix and the one-model-per-namespace rule.
+
+### If ONNX Runtime or the model does not load
+
+VantaDB degrades gracefully instead of crashing: when local embeddings cannot
+load, all access keeps working with **deterministic dummy embeddings** — no
+panic, no abort — but similarity scores are **not semantic**, so vector recall
+quality is meaningless until the real model is restored. What you can observe:
+
+- **ONNX Runtime missing or incompatible** (native ≥ 1.27 is required): the
+  provider logs a warning with `fallback=true` on stderr — e.g.
+  `ONNX Runtime dylib unusable; using deterministic dummy embeddings`
+  (`src/llm.rs`:341-419, regression-tested by
+  `f100_incompatible_dylib_never_panics`).
+- **Model files missing**: `put` / `get` / `search` still work, but the
+  degradation is currently silent — use the verification commands below.
+
+To fix it, re-run the wizard — it installs a native ONNX Runtime ≥1.27 into a
+persistent store and sets `ORT_DYLIB_PATH` for the current session (run it in
+the same terminal that launches your client or MCP):
+
+```powershell
+pwsh setup-embeddings.ps1
+```
+
+Then verify the wiring offline (no download, no network; both commands must
+exit 0):
+
+```bash
+python embeddings/verify.py --check     # manifest + structure
+python embeddings/download.py --check   # manifest/lock validation (wizard contract EMB-11)
+```
+
+If both pass and you still see degraded recall, the process running your
+client/MCP does not see the session environment the wizard set
+(`ORT_DYLIB_PATH`, and `VANTADB_LOCAL_MODEL` for the model path) — re-run the
+wizard in that terminal, or export those variables yourself.
 
 ## Current Boundary
 
