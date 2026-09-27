@@ -14,7 +14,7 @@ engine, VantaDB enforces a split Continuous Integration architecture.
 
 ## CI Workflow Inventory
 
-VantaDB has **27 active workflow files** in `.github/workflows/` (verificado 2026-09-22; 28 in FIND-128 minus one rustdoc workflow merged into `ci-rustdoc.yml` in FIND-137, renames in FIND-142). Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix — source of truth is each file's `on:` block).
+VantaDB has **28 active workflow files** in `.github/workflows/` (verificado 2026-09-27; 28 in FIND-128 minus one rustdoc workflow merged into `ci-rustdoc.yml` in FIND-137, renames in FIND-142, +1 `nightly.yml` HARD-02). Each workflow is documented below. See `docs/dev/workflow/README.md` (inventory) and `docs/dev/workflow/TRIGGERS.md` (trigger matrix — source of truth is each file's `on:` block).
 
 ### Local Verification Scripts — Rutas Canónicas
 
@@ -24,7 +24,7 @@ Their canonical paths are:
 | Script | Assertion scope |
 |--------|-----------------|
 | `dev-tools/verify_changed.ps1` | Quick verify (~30s): fmt → check → clippy on `vantadb` core. Runs the docs-coverage gate only when `git diff --name-only HEAD` touches `src/`, bindings (`vantadb-python`, `vantadb-ts`, `vantadb-wasm`) or `docs/api/`; otherwise silently skips. |
-| `dev-tools/verify.ps1` | Full pre-flight (~2–5 min): fmt → check → clippy → audit → deny → tests → coverage. Runs the docs-coverage gate whenever the script exists. |
+| `dev-tools/verify.ps1` | Full pre-flight (measured: **209.5s warm** — 10 steps, coverage moved to the nightly; see §"Fast Gate wall-time measurement"): fmt → check → clippy → audit → deny → tests → docs-coverage → cli-probes → consumo guard → daily backup check. Coverage report+budget on-demand with `-IncludeCoverage` (nightly owns the default enforcement). Runs the docs-coverage gate whenever the script exists. |
 | `scripts/validate-docs-coverage.ps1` | Docs coverage gate (Regla 3, mecánica): valida símbolos públicos SDK/config/error/CLI/Python/MCP contra `docs/api/*`. `-ReportOnly` imprime gaps sin fallar; sin el flag, los métodos sin documentar devuelven exit 1 y fallan el script host. |
 
 `scripts/validate-docs-coverage.ps1` is the **single shared docs gate**, referenced from both
@@ -114,6 +114,30 @@ clauses (BND-06 scope-safe form). That list implements the two-tier split docume
 3. **Who can add or revert an exclusion:** only the project lead (`vanta-lead`) after review;
    re-enabling a runner-risk-category test in the fast gate requires evidence that the input size was
    reduced below runner-risk thresholds (e.g. bounded allocations in the test itself).
+
+#### Fast Gate wall-time measurement (HARD-02, 2026-09-27)
+
+`pwsh dev-tools/verify.ps1` (local pre-push gate) measured on a Windows MSVC box
+(32GB / 12 cores, `CARGO_TARGET_DIR=target/session-api01`) with parallel sessions
+running on the host (load 67–100%):
+
+| Run | Gate state | Wall time | Verdict |
+|-----|------------|-----------|---------|
+| #1 | 11 steps (coverage in-line), semi-cold (Cargo.toml touched by parallel work → rebuilds) | 1397s (23.3m) | not representative (rebuild + load) |
+| #2 | 11 steps (coverage in-line), warm (steady state) | 509.4s (8.5m) | > 300s target → FIND-163 |
+| #3 | **10 steps (coverage moved to nightly — owner decision (c))**, warm | **209.5s (3.5m)** | **✅ < 5 min target met** |
+
+Command: stopwatch around `pwsh dev-tools/verify.ps1` (equivalent to
+`Measure-Command`); logs: `target/session-api01/hard02-verify.log`,
+`hard02-verify-warm.log`, `hard02-verify-r3.log`.
+
+**Resolution (owner decision (c), 2026-09-27):** the coverage report+budget was the
+dominant marginal cost of the local lane (the suite ran twice: plain `nextest` +
+instrumented `coverage` re-run). It now lives in `nightly.yml` job
+`coverage-budget` (`dev-tools/coverage-budget.ps1`); the local gate keeps
+`-IncludeCoverage` for on-demand use. Measured result: **509.4s → 209.5s warm**
+(<5 min target met; ADR-031 §9 / STABLE-00 honored). FIND-163 is resolved by this
+change; residual note: run #3 was taken under the same host load as #2.
 
 ### Experimental Crate Circuit Breaker
 
@@ -310,71 +334,135 @@ runners and requires significant system resources (AVX2 plus heavy swap). It run
 scheduled/manual job with a 150 minute step timeout so it can complete without blocking the other
 certification checks. Running this on every PR would paralyze development velocity.
 
-### Coverage Gate — Minimum Mechanized Coverage (P2-06)
+### 2b. Nightly Certification Subset (`nightly.yml`, HARD-02)
 
-**Tier:** Heavy Certification (not the Fast Gate). A PR can reduce coverage in a hot module without
-any gate failing; this gate closes that gap by enforcing a minimum line-coverage threshold
-mechanically. **Task P2-06** from `docs/dev/plans/archive/2026-08-10-p2-p3-structural-quality.md (archivado)`. The
-threshold starts conservative and ratchets upward.
+Added 2026-09-27 (HARD-02, owner decision 2026-09-26 (c)). The heavy
+certification suite above remains the **weekly full** lane; `nightly.yml` runs
+a **daily subset** of the deterministic core certification jobs so a regression
+in crash recovery / durability / HNSW correctness / text-index recovery
+surfaces in ≤24h instead of ≤7d:
 
-**Command:**
+| Job (nightly.yml) | Mirrors heavy-certification.yml | Timeout |
+|---|---|---|
+| `failpoint-tests` | same job (`chaos_integrity`, `wal_resilience`, `crash_injection`) | 30m |
+| `storage-persistence` | same job (16 binaries, `--release --features cli`) | 90m |
+| `hnsw-validation` | same job | 120m |
+| `hnsw-recall` | same job (`hnsw_recall_certification`) | 40m |
+| `text-index` | same job (`text_index_recovery`) | 60m |
+| `coverage-budget` | NEW (owner decision (c) 2026-09-27) — `dev-tools/coverage-budget.ps1`: coverage report + per-directory budget (see §Coverage) | 60m |
+| `release-dry-run` | NEW — `cargo publish -p vantadb --dry-run` (packaging + verify, **never uploads** — release-plz remains the only publisher) | 45m |
+
+- **Why a separate file, not a daily `heavy-certification.yml`** (decision
+  evidence): the full suite contains jobs that are deliberately weekly —
+  `stress-protocol` (~2h), `memory-concurrency`, `mutation-test` (non-gating by
+  design) — and running them daily multiplies flake exposure without adding
+  per-day signal. The nightly subset covers the failure-critical lanes; the
+  full suite stays weekly (see §"Running Heavy Certification Manually").
+- **Reception point for slow gates:** gates measured >5min in the fast gate are
+  moved here (HARD-01 stop condition; e.g. future `cargo semver-checks` /
+  public-api snapshot steps land as jobs in `nightly.yml`).
+- **Coverage (owner decision (c) 2026-09-27):** the per-directory coverage budget
+  runs here (job `coverage-budget`); the local gate keeps it on-demand only
+  (`verify.ps1 -IncludeCoverage`) — see §"Coverage — Report & Per-Directory Budget".
+- **Schedule:** daily 05:00 UTC — deconflicted (FIND-141): bench nightly 02:00,
+  full cert Sun 03:00, OCR nightly 04:00.
+- **Notification:** on failure, `notify-failure` opens (or comments on) the
+  auto-issue `[Nightly] Heavy certification subset failed` listing the failed
+  jobs; `issues: write` is granted **only** on that job (RULES.md §4). Badge:
+  README (`nightly.yml` workflow badge).
+- **Command coupling:** the job commands are copies of their
+  `heavy-certification.yml` counterparts — a test-binary list change edits both
+  files together (same coupling rule as `.config/nextest.toml` structural
+  exclusions).
+
+### Coverage — Report & Per-Directory Budget (nightly) + CI canonical gate (HARD-02)
+
+**Decisions (owner):** 2026-09-26 (a) — the local gate no longer blocks on a global
+line-coverage threshold; coverage becomes a **report + per-directory budget** (ratchet).
+2026-09-27 (c) — the report+budget **moves out of the local fast gate** into the
+nightly lane (`nightly.yml` job `coverage-budget`, script
+`dev-tools/coverage-budget.ps1`), restoring the local fast-gate `<5 min` target
+(see §"Fast Gate wall-time measurement"). The CI canonical gate
+(**ADR-018: root crate ≥80%**, `ci-rust.yml` coverage job) is **unchanged** by both
+decisions. Rationale (R1): a single global threshold is a lossy gate — a
+per-directory ratchet keeps the signal localized and loud, and the coverage re-run
+was the dominant cost of the local lane.
+
+**Where it runs:**
+
+| Lane | Command | Semantics |
+|------|---------|-----------|
+| Nightly (enforcement) | `pwsh dev-tools/coverage-budget.ps1` — `nightly.yml` job `coverage-budget` (ubuntu-latest, timeout 60m) | JSON report + budget; exit 1 only on explicit bucket violation; JSON uploaded as `coverage-report` artifact |
+| Local on-demand | `pwsh dev-tools/coverage-budget.ps1` (or `pwsh dev-tools/verify.ps1 -IncludeCoverage`) | same script, same budgets |
+| CI canonical (unchanged) | `ci-rust.yml` coverage job | root crate ≥80% (ADR-018) |
+
+**Command (exact — regenerates the report artifact):**
 
 ```bash
-cargo llvm-cov --fail-under-lines <UMBRAL>
+cargo llvm-cov nextest --profile audit -p vantadb \
+  --no-default-features --features cli,fjall,memmap2,fs2,roaring \
+  --build-jobs 1 \
+  -E "not test(/deserialize_absurd_node_count/) and not test(/test_search_with_bizarre_text_query/) and not test(/test_malformed_payload_extremely_large/)" \
+  --json --output-path <target-dir>/coverage-report.json
 ```
 
-(The CI variant runs under nextest: `cargo llvm-cov nextest run --profile audit --workspace
---fail-under-lines <UMBRAL>`.) `--fail-under-lines` exits with status 1 when total **line**
-coverage falls below the threshold — that is the fail-under behavior of this gate.
+Without re-running tests, the JSON can be re-generated from collected profdata with
+`cargo llvm-cov report --json --output-path <target-dir>/coverage-report.json`.
+`dev-tools/coverage-budget.ps1` runs the full command, aggregates `data[0].files` by
+directory (`src/<dir>`; `src/<file>.rs` → `src (root files)`) and compares each bucket
+against the budget table. **Fail rule:** a budgeted directory below its budget fails
+the script (explicit ratchet violation); non-budgeted directories are report-only.
 
-**Scope:** Applies to the hot modules `src/vector/` and `src/engine/`. The threshold is evaluated
-on the whole workspace report (the hot modules dominate it); to enforce a strict per-module floor,
-narrow the report with `--ignore-filename-regex` to those paths.
+**Per-directory budget** (baseline measured 2026-09-26, Windows MSVC box, full pass
+2263/2263 with the command above; re-checked 2026-09-27 via `cargo llvm-cov report
+--json` aggregation — stable; budget = baseline rounded − 1.0 pt; the mechanical copy
+lives in `dev-tools/coverage-budget.ps1` `$CoverageBudget` and mirrors this table —
+update both together. Platform note: the nightly runs on ubuntu-latest while the
+baseline is Windows; expected delta <1pt (only 24 `cfg(windows/unix)` lines across
+`src/`) — if the first ubuntu run legitimately differs, recalibrate the baseline from
+the uploaded `coverage-report` artifact and record it here):
 
-**Initial threshold (PRUDENT):** 60% line coverage. No coverage artifacts exist in the repo as of
-2026-08-10, so this number is **to be set from the first llvm-cov run** — the first Heavy
-Certification pass must record the real current level and adjust the threshold to match it (never
-set it below the current level).
+| Directory | Baseline (lines) | Budget | Command |
+|-----------|------------------|--------|---------|
+| `src (root files)` | 91.0% | 90.0% | command above (via `coverage-budget.ps1`) |
+| `src/vector` | 95.7% | 94.7% | idem |
+| `src/index` | 87.4% | 86.4% | idem |
+| `src/storage` | 89.0% | 88.0% | idem |
+| `src/sdk` | 90.1% | 89.1% | idem |
+| `src/parser` | 97.2% | 96.2% | idem |
 
-**Escalation policy:** the threshold ratchets upward over time (e.g. +5 points per quarter or per
-release), converging with the Fast Gate coverage job (gate canónico ADR-018: root crate ≥80%). The threshold is never
-lowered without a documented justification and review.
+**History / supersession:** this replaces the P2-06 local wiring
+(`--fail-under-lines 60` blocking in `verify.ps1`, removed 2026-09-27 by HARD-02),
+re-anchors the TBH-21 review cadence (previously tied to the `60` literal), and
+supersedes HARD-02's interim placement of the report+budget in `verify.ps1`
+(owner decision (c) moved it to the nightly the same day). P2-06's original intent
+(mechanical coverage enforcement) survives as the per-directory budget + the
+untouched ADR-018 CI gate.
 
-**Merge / union:** multiple coverage runs under different feature/test conditions are merged with
-`--no-report` runs followed by `cargo llvm-cov report`; `--failure-mode any|all` controls whether
-merge failures fail the gate.
-
-**Test exclusion:** cargo-llvm-cov excludes `tests/` directories and `*_tests.rs` files from the
-report by default, so test code itself is not counted toward the threshold.
-
-**Local verify wiring:** `dev-tools/verify.ps1` runs this gate (with the same `--fail-under-lines`
-threshold) only when `cargo-llvm-cov` is installed; otherwise it prints a warning and continues, so
-the default local `just verify` flow is never blocked by a missing tool.
-
-#### Coverage Threshold Review Cadence (TBH-21)
-
-The `CoverageThreshold=60` floor lives in `dev-tools/verify.ps1:49` as a literal. Without an
-explicit review cadence, the number can drift silently over time. This section anchors the policy
-so future audits can detect drift.
+**Review cadence (TBH-21, re-anchored):**
 
 | Field | Value |
 |-------|-------|
-| **Coverage threshold** | `60%` (line-coverage floor, P2-06 initial value) |
+| **Budgets** | per-directory table above (baseline − 1.0 pt) |
 | **Review cadence** | **Quarterly** (every 90 days) |
-| **Last reviewed** | 2026-08-30 (TBH-21 — multi-agent audit 2026-08-30) |
-| **Next review due** | 2026-11-28 (or earlier if a coverage regression is observed) |
+| **Last reviewed** | 2026-09-27 (HARD-02 — owner decisions (a)+(c)) |
+| **Next review due** | 2026-12-26 (or earlier if a budget violation is observed) |
 | **Owner** | `vanta-lead` (release/CI orchestrator) |
-| **Source of truth** | This section of `docs/dev/operations/CI_POLICY.md` |
+| **Source of truth** | This section + `dev-tools/coverage-budget.ps1` (`$CoverageBudget`) |
 
-**What "review" means:** at each quarterly checkpoint, run the coverage gate against the current
-`main`/`develop` tip and compare the measured line-coverage against the `60%` floor. If measured
-coverage has climbed materially (e.g. ≥+5 points) the floor should ratchet upward per the
-"escalation policy" above. If the floor needs to be lowered (regression), it requires a documented
-justification (ADR or PR description) and the same owner sign-off as the original threshold.
+**What "review" means:** at each checkpoint, regenerate the report with the command
+above (or download the nightly `coverage-report` artifact) and compare each budgeted
+directory against its baseline. If a bucket climbed materially (e.g. ≥+5 pt), ratchet
+baseline/budget upward in both places. Lowering a budget requires a documented
+justification and the same owner sign-off as the original decision. If
+`cargo-llvm-cov` is missing, the script prints a warning and exits 0 (missing tool
+never blocks `just verify`).
 
-**What does NOT change here:** `dev-tools/verify.ps1:49` continues to hold the literal `60`. This
-section is the single source of truth for the review schedule; the script comment at line 48
-already points back to `CI_POLICY.md`.
+**Test exclusion:** cargo-llvm-cov excludes `tests/` directories and `*_tests.rs`
+files from the report by default; bench files outside `src/` are excluded from
+budgets by the `src/*` bucket filter. The `-E` filter is the same RESOURCE-GUARD
+exclusion set documented in §"Fast Gate Test Exclusions" (single source:
+`dev-tools/gate-common.ps1` `Get-FastGateFilter`).
 
 **Policy decision (COV-004, 2026-08-09):** the strategic coverage policy — root crate vs workspace
 aggregate vs per-runner binding measurement — is decided in

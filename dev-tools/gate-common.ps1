@@ -25,3 +25,10 @@ function Get-AdaptiveJobs {
     $cores = if ($sys.NumberOfLogicalProcessors) { $sys.NumberOfLogicalProcessors } else { 1 }
     if ($ram -ge 16) { [math]::Min($cores, 4) } elseif ($ram -ge 4) { [math]::Min($cores, 2) } else { 1 }
 }
+
+function Get-FastGateFilter {
+    # Exclusiones RESOURCE-GUARD del fast gate (3 tests con inputs hostiles; trazabilidad
+    # Regla 2 / CI_POLICY §"Fast Gate Test Exclusions" — FIND-22). Fuente ÚNICA compartida
+    # por verify.ps1 (nextest) y coverage-budget.ps1 (llvm-cov) — deben ser idénticas.
+    "not test(/deserialize_absurd_node_count/) and not test(/test_search_with_bizarre_text_query/) and not test(/test_malformed_payload_extremely_large/)"
+}

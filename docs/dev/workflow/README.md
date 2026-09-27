@@ -1,19 +1,20 @@
 ---
-title: "Workflows — Inventory (27 active)"
+title: "Workflows — Inventory (28 active)"
 type: workflow-index
 status: active
 tags: [vantadb, ci, workflows, inventory]
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-27
 aliases: []
 related: ["docs/dev/workflow/TRIGGERS.md", "docs/dev/workflow/PUBLISH.md", "docs/dev/workflow/RUNBOOK.md", "docs/dev/workflow/FAQ.md"]
 ---
 
-# Workflows — Inventory (27 active)
+# Workflows — Inventory (28 active)
 
 > Pre-rename snapshot (FIND-142 pending): filenames keep the numeric suffix
 > (`ci-rust.yml`, `release-wheels.yml`, …). After renames, this index
-> must be updated. Count was 28 in FIND-128; now 27 — `rustdoc-70.yml` was
-> merged into `ci-rustdoc.yml` (FIND-137, commit `4b0686b0`).
+> must be updated. Count was 28 in FIND-128; now 28 — `rustdoc-70.yml` was
+> merged into `ci-rustdoc.yml` (FIND-137, commit `4b0686b0`); +1 `nightly.yml`
+> (HARD-02, 2026-09-27).
 
 Per-workflow detail pages live next to this index (`ci-gate.md`,
 `release-wheels.md`, …). This file is the 1-line map; see
@@ -44,7 +45,7 @@ Per-workflow detail pages live next to this index (`ci-gate.md`,
 | `providers-ci.yml` | `providers/**` clippy + tests | push/PR (paths providers), dispatch |
 | `adapters-compat.yml` | Adapter compat matrix (informational) | weekly schedule, dispatch |
 
-## Heavy / fuzz / perf (6)
+## Heavy / fuzz / perf (7)
 
 | Workflow | Purpose (1 line) | Triggers (short) |
 |----------|------------------|------------------|
@@ -52,6 +53,7 @@ Per-workflow detail pages live next to this index (`ci-gate.md`,
 | `fuzz.yml` | Cargo-fuzz gate + nightly corpus | schedule Mon 06:00, PR (paths src/fuzz), dispatch |
 | `perf-bench.yml` | Python perf bench vs baseline | push (paths src/python/bench), dispatch |
 | `heavy-certification.yml` | Heavy certification suite (2h) | schedule Sun 03:00, dispatch |
+| `nightly.yml` | Nightly heavy-cert subset + coverage budget + release dry-run | schedule daily 05:00, dispatch |
 | `heavy-bench-nightly.yml` | Nightly criterion benches | schedule daily 02:00, PR (paths benches), dispatch |
 | `bench-canonical-p99-informational.yml` | Canonical P99 bench (never blocks) | PR (paths index/storage), dispatch |
 

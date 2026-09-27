@@ -39,6 +39,7 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
 | `fuzz.yml` | — | Y (paths src/fuzz) | Y (Mon 06:00) | Y | — |
 | `heavy-bench-nightly.yml` | — | — (C-06: fuera del Fast Gate) | Y (daily 02:00) | Y | — |
 | `heavy-certification.yml` | — | — | Y (Sun 03:00) | Y | — |
+| `nightly.yml` | — | — | Y (daily 05:00) | Y | — |
 | `adapters-compat.yml` | — | — | Y (Sun 03:00) | Y | — |
 | `arch-metrics-informational.yml` | — | Y (paths src/Cargo) | — | Y | — |
 | `bench-canonical-p99-informational.yml` | — | Y (paths index/storage) | — | Y | — |
@@ -65,7 +66,8 @@ Legend: Y = yes, — = no. `paths` means a path filter applies (see file).
   `branches` + `paths`.
 - Tags never evaluate `branches`/`paths` (FIND-140): tag workflows keep a
   tags-only `push:` block; branch CI for the same area goes through `pull_request`.
-- `ci-rustdoc.yml` is the only CI workflow with PR → `develop`
-  (kept intentionally, FIND-128 proposal item 3).
-- Schedule slots (FIND-141): bench daily 02:00, cert Sun 03:00,
-  ocr-nightly daily 04:00, fuzz Mon 06:00 — no overlaps.
+- `ci-rustdoc.yml` and `gate-docs.yml` are the CI workflows with PR → `develop`
+  (dual validation kept intentionally: FIND-128 proposal item 3; gate-docs gap
+  closed by FIND-139).
+- Schedule slots (FIND-141 + HARD-02): bench daily 02:00, cert Sun 03:00,
+  ocr-nightly daily 04:00, nightly subset daily 05:00, fuzz Mon 06:00 — no overlaps.
