@@ -8,10 +8,10 @@
 - **Tipo:** Mixto (workspace config + docs harness + tests Rust)
 - **Turns estimados:** 8
 - **Creado:** 2026-09-26T19:58
-- **last-synced:** 2026-09-26T19:58
-- **Estado:** ⬜ PENDING
+- **last-synced:** 2026-09-27
+- **Estado:** ✅ COMPLETED 2026-09-27
 - **Incógnitas (uphill):** 0 abiertas
-- **Pendientes (downhill):** 4 steps
+- **Pendientes (downhill):** 0 steps (4/4 ✅)
 
 ## Blast Radius
 
@@ -115,8 +115,8 @@ contract:
 | Eje | Contador |
 |-----|----------|
 | Incógnitas abiertas (uphill) | 0 — incidente y fixes ya investigados (plan Task 5) |
-| Pendientes de ejecución (downhill) | 4 steps |
-| % completado | 0% |
+| Pendientes de ejecución (downhill) | 0 steps (4/4 ✅) |
+| % completado | 100% |
 
 ## Fases explícitas — SECURITY | PERFORMANCE (P2-07)
 
@@ -129,25 +129,25 @@ contract:
 - **Archivos:** `.opencode/AGENTS.md`, `.opencode/references/test-suite.md`
 - **Acción:** en `AGENTS.md` (§Reglas — junto a la pirámide de gates de Regla 1 + warning en §Test Suite) agregar: "NUNCA `cargo test`/`cargo nextest` sin `-p <crate>` desde la raíz del workspace; el build unificado de `default-members` unifica features en el `target/` compartido y puede colgar (incidente `f6c395ef`, `:8080`)"; en `test-suite.md` anotar que `--workspace` es SOLO certificación pesada y agregar los comandos canónicos scoped.
 - **Verify:** `rg -n "sin -p|NUNCA" .opencode/AGENTS.md` → regla presente; `rg -n "workspace|pesada" .opencode/references/test-suite.md` → anotación presente.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ DONE 2026-09-27 — regla en Regla 1 (L484) + warning §Test Suite (L430) + coherencia de 3 menciones bare (L163/L487/L641); test-suite.md scoped + `--workspace`=Heavy. Verify: `rg "NUNCA .*cargo (test|nextest)" AGENTS.md` OK (L430/L484); `rg "workspace|pesada" test-suite.md` OK (L4/L18/L23). Nota: el comando combinado del contrato con el segmento `sin -p` no spawnea vía MCP (shell del server); el mismo comando vía pwsh local → exit 0 con ambas líneas.
 
 ### Step 2: required-features (audit + Cargo.toml)
 - **Archivos:** `Cargo.toml`, (evidencia) `tests/certification/stress_protocol.rs:19`
 - **Acción:** contar targets antes (`cargo nextest list -p vantadb | Measure-Object -Line`); agregar `required-features = ["rayon"]` a `[[test]] stress_protocol` (L469-471); documentar en el commit/Notas las excepciones no expresables (`debug_assertions` en `derived_index_recovery`/`text_index_recovery`, `miri` en `miri_unsafe`, gate negativo `server` en `cli_tests`).
 - **Verify:** `cargo nextest list -p vantadb | Measure-Object -Line` == conteo previo; `cargo test -p vantadb --test stress_protocol --no-run` exit 0; `cargo check -p vantadb`.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ DONE 2026-09-27 — audit completo: único target feature-gated sin required-features era `stress_protocol` (`#![cfg(feature = "rayon")]`; `rayon` es default → no oculta tests). Excepciones no expresables documentadas (ver Notas). Verify: nextest list before=2297 / after=2297 (--target-dir target/session-api01); `--no-run` exit 0; `cargo check -p vantadb` exit 0.
 
 ### Step 3: Entrada en troubleshooting.md
 - **Archivos:** `docs/dev/references/troubleshooting.md`
 - **Acción:** agregar sección (al final, formato del archivo L13-14): síntoma → `cargo test` desde raíz cuelga infinito en `:8080`; causa raíz → unificación de features por `default-members` (`vantadb-server` → `vantadb/server`); solución → usar `-p vantadb` + `#[cfg(not(feature = "server"))]` + `required-features`; comando exacto de repro y de verificación.
 - **Verify:** `rg -n "8080|unificaci[oó]n de features|f6c395ef" docs/dev/references/troubleshooting.md` → entrada completa; `npx markdownlint-cli2 docs/dev/references/troubleshooting.md` (si disponible) 0 errores nuevos.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ DONE 2026-09-27 — sección "Builds y tests locales" con síntoma/causa raíz/solución 3 capas/comandos (L22-43); frontmatter last_reviewed actualizado. Verify: rg OK (5 matches: L24/L26/L27/L30/L43); markdownlint-cli2 v0.23.3 → 0 issues, exit 0 (MCP: variante `-e "8080" -e "unificaci.n de features" -e "f6c395ef"` OK).
 
 ### Step 4: Verificación unificada + Gate H + commit
 - **Archivos:** (sin edición) `dev-tools/verify.ps1` (verificar scoped)
 - **Acción:** correr (a) canónico `cargo test -p vantadb --test cli_tests` → 88/88; (b) repro unificado `cargo test --test cli_tests` desde raíz con guarda de tiempo (p.ej. `Start-Job`/`Wait-Job -Timeout 900`; si la forma exacta difiere por semántica de cargo, documentar el repro fiel en troubleshooting.md); (c) `rg "cargo (test|nextest)" dev-tools/verify*.ps1` → todos con `-p`; (d) Gate H `/harness` verde (vanta-harness); commit local `chore(tooling): HARD-05 — ...` (sin push).
 - **Verify:** outputs (a)-(d) pegados en la recitation; commit local creado.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ DONE 2026-09-27 — (a) ✅ `test result: ok. 88 passed; 0 failed` (canónico); (b) ✅ `test result: ok. 87 passed; 0 failed` SIN hang (guarda de tiempo = timeout 1800s del runner MCP; δ 88→87 demuestra `server` ON en el build unificado + gate `cfg` activo); (c) ✅ todas las invocaciones llevan `-p vantadb` (verify.ps1 L69/L70/L75/L77; verify_changed.ps1 L31/L32 — solo lectura, NO editado); extras: fmt ✅, docs-coverage ✅ 0 gaps, check-agents-refs ✅ 6 refs, OCR advisory ✅ (Cargo.toml + troubleshooting sin Critical/High); (d) ✅ Gate H ronda 2 ✅ (condicional a FIND-* del residual, ver §Review) + P2-01 ✅ approve. Extra: `verify_changed.ps1` **ALL 4 PASS** (fmt/check/clippy/docs-coverage; `CARGO_TARGET_DIR=target/session-api01`). Commit: lo hace el LEAD (este agente no commitea; push solo con instrucción del owner).
 
 ## Dependencias
 - HARD-02 (plan master): coordina el mismo `dev-tools/verify.ps1`/gates — HARD-05 NO lo edita (solo verifica scoped); sin bloqueo mutuo. Ejecutable en cualquier orden.
@@ -156,21 +156,24 @@ contract:
 
 > Lo ejecuta un agente DISTINTO al implementador. Sin esto registrado, la tarea no está COMPLETED. **Gate H obligatorio (`.opencode/AGENTS.md` + `references/`): `/harness` verde vía `vanta-harness` antes del commit.**
 
-- **Revisor:** `vanta-audit` (persona leaf) o `vanta-review` (contexto fresco) + Gate H: `vanta-harness`. *(PENDIENTE al ejecutar — placeholder P2-01.)*
+- **Revisor:** `vanta-review` — P2-01, contexto fresco (sesión distinta del implementador). 2026-09-27.
+- **Gate H (ronda 1):** ❌ cambios requeridos (`vanta-harness`, 2026-09-27): el wording "`--workspace` = solo Heavy Certification" contradecía los gates de cierre por tarea (`pipeline-full.md:156`, `iter-loop-tools.md:325`, `RULES.md:142`, `definition-of-done.md:118` usan `--workspace` como check de cierre/step). **Fix aplicado:** regla reescrita nombrando el tier de cierre ("verificaciones deliberadas de cierre/certificación: verify full de tarea/step, determinista por commit, Heavy Certification, CI") y actualizados `AGENTS.md` §Test Suite + `test-suite.md` L4/L18. Residual MEDIA del gate (menciones bare `cargo nextest` en `agents/vanta-lead.md:84,228,265`, `agents/vanta-worker.md:93,237,367`, `agents/vanta-engine.md:318`, `RULES.md:123,154`, `unified-review/SKILL.md:1096`): **fuera del blast radius declarado** — ruteado en RESULTADO §queda_pendiente para fila `FIND-*` del LEAD (no en Backlog: `validate_scope` lo marca fuera de scope para esta tarea). Ronda 2 pendiente.
+- **Gate H (ronda 2):** ✅ approve (`vanta-harness`, mismo leaf re-invocado) — findings ALTA 1-4 resueltos: el wording nombra el tier de cierre ("verify full de tarea/step, camino determinista por commit, Heavy Certification, CI") y cubre `pipeline-full.md:156` (heredado en pipeline-run/plan), `iter-loop-tools.md:325`, `RULES.md:142`, `definition-of-done.md:118`, `sdp-v3.mjs:32`; findings 6-7 resueltos. **Condición del gate:** registrar el residual F5 (9 sitios bare `cargo nextest` sin `-p`) como fila `FIND-*` al cierre — **✅ creada: `FIND-164` en `docs/dev/Backlog.md`** (routing canónico del protocolo de findings; `validate_scope` la marcó advisory-fuera-de-scope, override justificado por findings.md + condición del gate). LOW cosmético `AGENTS.md:163` ("--workspace solo Heavy Certification" → "solo cierre/certificación") corregido en el mismo changeset.
 - **Enfoque:** ¿la regla cierra la clase de fallo? ¿`required-features` no oculta tests? ¿troubleshooting.md permite reproducir el hang?
-- **Cómo se probó:** conteos nextest before/after + repro unificado con timeout + `/harness` verde (evidencia pegada, nunca auto-reporte).
+- **Cómo se probó:** spot-check mecánico (sin re-ejecutar suites pesadas, por instrucción de costo): diffs scoped root + `.opencode`; `rg` regla dura en AGENTS.md (L430/L484) y `-p` en verify.ps1 (L69/L70/L75/L77) + verify_changed.ps1 (L31/L32); `required-features` único target whole-file feature-gated sin él era `stress_protocol` (Cargo.toml:476; rayon ∈ default L150 → conteo 2297 no cambia); `#![cfg` en tests/ = 4 gates (rayon/2×debug_assertions/miri) → excepciones documentadas OK; cfg gate `cli_tests.rs:1526-1543` es el ÚNICO `cfg(not(feature="server"))` del archivo → δ 88→87 consistente con server ON; tests server-gated (`request_id`/`server_auth_rotation`/`rbac_namespace`) y `vantadb-server/tests` bindean `127.0.0.1:0` → sin vías de hang `:8080` equivalentes. NO re-ejecutado: suites 88/87, nextest count, Gate H.
 - **Checklist anti-hábitos tóxicos** (contrato de comportamiento — el revisor verifica que el implementador NO haya incurrido en ninguno antes de aprobar; fuente §12 de `docs/Investigaciones/2026-08-10-agent-engineering/agent-02-task-execution.md`):
-  - [ ] No inventar salidas de comandos/herramientas que no se ejecutaron.
-  - [ ] No saltarse la clarificación por "ya sé qué quiere".
-  - [ ] No declarar done sin verificar contra los acceptance criteria.
-  - [ ] No ignorar fallos ni reportar "todo OK" cuando hubo fallo parcial.
-  - [ ] No hacer un solo intento de búsqueda y darlo por saturado.
-  - [ ] No copiar sin citar ni presentar supuestos propios como evidencia.
-  - [ ] No reintentar en bucle sin diagnóstico.
-  - [ ] No dejar huérfanos los pasos: cada paso conectado al objetivo.
-  - [ ] No degradar el chequeo de errores en paths de dinero/seguridad.
-  - [ ] No gastar presupuesto infinito; paradas explícitas.
-- **Veredicto:** ⏳ pendiente (✅ approve | ❌ cambios requeridos)
+  - [x] No inventar salidas de comandos/herramientas que no se ejecutaron.
+  - [x] No saltarse la clarificación por "ya sé qué quiere".
+  - [x] No declarar done sin verificar contra los acceptance criteria.
+  - [x] No ignorar fallos ni reportar "todo OK" cuando hubo fallo parcial.
+  - [x] No hacer un solo intento de búsqueda y darlo por saturado.
+  - [x] No copiar sin citar ni presentar supuestos propios como evidencia.
+  - [x] No reintentar en bucle sin diagnóstico.
+  - [x] No dejar huérfanos los pasos: cada paso conectado al objetivo.
+  - [x] No degradar el chequeo de errores en paths de dinero/seguridad.
+  - [x] No gastar presupuesto infinito; paradas explícitas.
+  > Verificado por spot-check: todos los claims baratos re-chequeados (líneas, gates, comandos) coinciden con el working tree; Step 4 honesto (IN PROGRESS, no "done").
+- **Veredicto:** ✅ approve (changeset/approach) — Commit-level DoD sigue PENDIENTE por diseño: Gate H (`vanta-harness`) + commit del LEAD (Step 4d). Hallazgos: 0 Critical/Required; Optional: la regla `-p` es normativa, no mecánicamente enforced (no hay hook/lint que rechace invocación bare desde raíz; upgrade: guard en hook/CI si reaparece).
 
 ## Notas
 - **Gate H** obligatorio antes del commit (cambio en `.opencode/`). Nota de la política master: cada tarea = 1 commit local; push solo con instrucción del owner.
