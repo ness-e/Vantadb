@@ -365,3 +365,9 @@ Plan `docs/dev/plans/archive/2026-09-10-fixes.md` (+budget) archivado: 6/6 ✅ e
   - **Stop:** `cargo test` sin `-p` desde la raíz (default-members → unificación de features → `server` ON → `test_server_missing_feature` colgaba en :8080); tratar un fallo de suite como regresión sin aislar el test primero.
   - **Continue:** waves paralelas disjuntas + SARL + review P2-01 en rondas + smoke scripts + evidencia mecánica por step.
   - **Acción medible (próxima campaña):** 0 falsos-rojos/hangs de verificación del lead (baseline: 1 incidente; mitigado en código con gate `#[cfg(not(feature = "server"))]` en `tests/cli_tests.rs` + proceso: comando canónico).
+
+### Master Roadmap unificado — fuente única de plan (2026-09-26)
+- **Acción:** creado `docs/dev/plans/2026-09-26-master-roadmap.md` (49 tasks, F0–F6 + carril owner + cola restante del Backlog) como **FUENTE ÚNICA**. Absorbidos y archivados: `post-investigacion-integral` (W2–W7), `estabilizacion-pendiente`, `harness-gaps`, `sesion-continuidad`, `estabilizacion-total` (+budget). Regla 0 verificada (referencias vivas actualizadas: WIRE-10 → master).
+- **Regla de profundización:** los bloques F2–F6 del master se COMPLETAN al nivel F0/F1 (Paso 0 + pre-mortem + register + Cynefin + DoD) al iniciar cada fase, antes de ejecutar — gate de fase explícito en el plan.
+- **Decisiones owner 2026-09-26 (question):** HARD-01..07 atómicas · profundidad F0-F1 completa (F2-F6 por regla) · task files HARD-*/F0-F1 creados (14) · absorción + archivo · push a `develop` al completar el plan validado (sin checkpoint) · gates (a) coverage→reporte + (b) review risk-tiered + (c) nightly aplicados.
+- **Mitigación:** backups `git bundle` (HARD-03) contra pérdida de commits locales.
