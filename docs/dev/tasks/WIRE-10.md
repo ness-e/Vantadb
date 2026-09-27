@@ -1,7 +1,7 @@
 # WIRE-10: Distribución P0 — `install.sh` macOS, Colab a `Client`, hooks sin `pwsh`
 
 ## Metadata
-- **Plan file:** `docs/dev/plans/2026-09-24-post-investigacion-integral.md` (W2, A2; C5/C9/C12)
+- **Plan file:** `docs/dev/plans/2026-09-26-master-roadmap.md` (F1; ex W2/A2 C5/C9/C12 del plan archivado)
 - **Fuente:** Backlog `P56` (fila WIRE-10) + plan `:108,120,156`
 - **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴 · **Tipo:** Mixto (`fix:`, shell + notebook + Rust CLI + skills)
 - **Turns estimados:** 15-25
