@@ -1,0 +1,21 @@
+{
+  "tasks": {
+    "R-03": {
+      "taskId": "R-03",
+      "toolCalls": 2,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1789944122265,
+      "lastActivity": 1789944144134
+    },
+    "WEB-DOCS-MOVE": {
+      "taskId": "WEB-DOCS-MOVE",
+      "toolCalls": 0,
+      "subAgentCalls": 0,
+      "consecutiveFails": 0,
+      "startTime": 1790135415645,
+      "lastActivity": 1790135415645,
+      "traceId": "c82c0ae1-3241-4f88-ac51-6ce9639c2cbb"
+    }
+  }
+}
