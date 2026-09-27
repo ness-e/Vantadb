@@ -225,12 +225,12 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴
 - **Ruta:** vanta-worker
 - **Archivos clave:** `scripts/install.sh` · `examples/colab/vantadb_quickstart.ipynb` · hooks (claude/codex/cursor/opencode templates) · `src/cli*.rs` (`mcp-call` superficie)
-- **Verificación real:** ✅ CÓDIGO-REAL — task file EXISTE y está ⏳ IN PROGRESS (`docs/dev/tasks/WIRE-10.md`, 138 líneas, 5 steps pendientes, Spec P/D resuelta 2026-09-25). Continuar desde el primer step ⬜ PENDING — NO re-hacer steps ✅.
+- **Verificación real:** ✅ CÓDIGO-REAL — implementada 2026-09-25 (commit canónico `8e55e853`, steps 5/5 ✅) + cierre formal 2026-09-27 (verify.ps1 ALL 10 PASS + P2-01 fresco APPROVE + FIND-169). El "⏳ IN PROGRESS / 5 steps pendientes" previo era metadata stale — los Steps del task file mandan.
 - **Gate Justificación:** P0 de distribución (roadmap W2/A2); sin esto, macOS/Colab/hooks rotos.
 - **Gate Result:** ✅ DO
 - **Contrato:** ver `docs/dev/tasks/WIRE-10.md` §Contrato (leer al ejecutar; el task file es fuente de verdad del contrato fino)
 - **Task file:** `docs/dev/tasks/WIRE-10.md` (existente)
-- **Estado:** ⬜ PENDING (pausada — se retoma en F1; task file conserva el progreso) · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-27 — cierre F1a; commit `8e55e853`; §Review con ronda fresca; FIND-169) · **Branch:** develop · **Commit:** `8e55e853`
 - **Cynefin:** 🟨 complicado — multiplataforma (shell/notebook/hooks).
 - **Top 3 riesgos:** 1. checksum macOS varía por arch · 2. Colab sin red/API 3. hooks con paths Windows.
 - **Pre-mortem:** F1: install.sh sin verificación de checksum → fallback; F2: notebook con API removida → usar `Client` (ya planificado); F3: hooks asumen `pwsh` → portar a sh.
@@ -254,7 +254,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "SPEC/README/VISION declaran la MISMA jerarquía (1 núcleo + 3 puertas) sin contradicciones Y Gate P registrado (owner) Y validate-docs-coverage verde"
 - **Task file:** `docs/dev/tasks/DEF-01.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED
 - **Cynefin:** 🟨 complicado — decisión de producto con tradeoffs.
 - **Top 3 riesgos:** 1. decisión sin owner → Gate P obligatorio · 2. tocar README técnico en español/inglés mal · 3. scope creep a marketing.
 - **Pre-mortem:** F1: proponer jerarquía sin pregunta → bloquear hasta respuesta; F2: duplicar estrategia → referenciar `strategy/`.
@@ -278,7 +278,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "cada fila verificada contra código/feature real (evidencia file:line o comando) Y versión 0.7.0 declarada Y categorías labs explícitas Y 0 claims sin respaldo (Regla 11)"
 - **Task file:** `docs/dev/tasks/DEF-02.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED
 - **Cynefin:** 🟦 obvio — barrido de verificación.
 - **Top 3 riesgos:** 1. fila sin feature real · 2. benchmark sin comando reproducible · 3. omitir una feature.
 - **Pre-mortem:** F1: claims sin bench → citar `BENCHMARKS.md` o quitar; F2: feature renombrada → grep/feature check.
@@ -301,7 +301,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "script valida cada fila Production-facing contra feature/ruta real (exit ≠0 si no existe) Y corre en CI Y verde en main actual"
 - **Task file:** `docs/dev/tasks/DEF-03.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-27 — commits `8a884ba6` ci + `b82f90cb` cierre; re-review fresco P2-01 OK)
 - **Cynefin:** 🟦 obvio — script + step.
 - **Top 3 riesgos:** 1. falsos positivos por rutas condicionales · 2. script lento · 3. acoplarse a docs frágiles.
 - **Pre-mortem:** F1: rutas feature-gated → mapa feature→path explícito; F2: script >1min → solo en fast gate si <10s, si no nightly.
@@ -324,7 +324,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "ADR con los 9 artefactos congelados + política de alias/deprecación (alias con fecha de remoción, nunca rename silencioso) Y firma owner (Regla 5) Y referencia desde VERSIONING.md"
 - **Task file:** `docs/dev/tasks/DEF-04.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-27 — firma owner Gate P; commit `d45deba5`; review fresco OK)
 - **Cynefin:** 🟨 complicado — decisión con tradeoffs de naming.
 - **Top 3 riesgos:** 1. ADR redactado por IA (Regla 5: lo articula el owner) · 2. alias sin fecha · 3. olvidar un artefacto.
 - **Pre-mortem:** F1: IA escribe el ADR completo → entregar evidencia + owner articula; F2: alias eternos → fecha de remoción obligatoria.
@@ -347,7 +347,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "SPEC/VISION declaran North Star + guardrails (0 hallazgo crítico seguridad, latencia) Y la métrica es medible con el proxy actual (comando/consulta documentada)"
 - **Task file:** `docs/dev/tasks/DEF-05.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-27 — commit `58c9903c`; review fresco OK)
 - **Cynefin:** 🟦 obvio — definición con evidencia.
 - **Top 3 riesgos:** 1. métrica no medible hoy · 2. guardrails decorativos · 3. contradicción con DEF-01.
 - **Pre-mortem:** F1: métrica sin query → documentar SQL/comando proxy; F2: sin baseline → registrar valor actual 0.
@@ -768,4 +768,90 @@ Resultado: OK
 Próxima acción: LEAD: commit local selectivo (sin push) + skill progreso + plan file sync. No quedan steps.
 Contrato: verificacion: review-gate 5/5 ✅ + bun test 54/54 ✅ + state-persistence 15/15 ✅ + parity exit 0 ✅ + smoke OK ✅ + verify_changed ALL4 ✅ + Gate H ✅ + P2-01 ✅ | evidencia: T2 degraded-no-waiver {updated:false,reviewBlocked:true}; T1/T4 fresh updated:true; T5 numeric-id → recitation7:true; E2E stdio bloqueo OK; probes r2 de ambos revisores | artefactos: .opencode/task-system/{config/state-tools.mjs, C0-unified.mjs, mcp/campaign-server.mjs, mcp/review-gate.test.mjs, mcp/state-persistence.test.mjs, prompts/pipeline-full.md, prompts/pipeline-run.md, prompts/question-gates.md}, docs/dev/workflow/RULES.md §9, docs/dev/tasks/HARD-07.md, docs/dev/Backlog.md (FIND-166/167/168) | invariantes: C0 parity 10 estados intacto; 49 pre-existentes verdes; WIP/claim intactos; waiver=owner registrado (decisions+trace) | deuda: FIND-166/167/168 (Baja, registradas); enforcement activa al reiniciar MCP | queda_pendiente: commit selectivo del LEAD (pipeline-run.md fue scope addendum por regla Gate H medium — disclosed en el task file)
 Próxima tarea si completa: WIRE-10
+=== END RECITATION ===
+
+=== RECITATION DEF-02 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: 
+Estado: completed
+Última acción: 
+Resultado: 
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION DEF-01 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: 
+Estado: completed
+Última acción: 
+Resultado: 
+Próxima acción: 
+Contrato: 
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION WIRE-10 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: WIRE-10 — distribución P0 (install.sh macOS, Colab a Client, hooks sin pwsh) — cierre completado
+Estado: completed
+Última acción: Reconciliación (5/5 steps ya ✅ desde 2026-09-25; plan stale) + verify scoped completo (fmt/clippy/nextest 11/11/hooks 65/65/notebook e2e 8/8/install harness 8/8) + verify.ps1 ALL 10 PASS + P2-01 fresco APPROVE (ses_f1c06efc4ffeLk9FF3gTqyO9Hw) + task file/plan sincronizados + FIND-169
+Resultado: OK
+Próxima acción: Ninguno — tarea cerrada; LEAD: commit local del cierre (docs/dev/tasks/WIRE-10.md + plan §Task 8 + Backlog FIND-169) sin push
+Contrato: verificacion: verify.ps1 ALL 10 PASS (CARGO_TARGET_DIR=target/session-api01; lock binario target/debug por 8 sesiones MCP live) + install harness pass=8/8 + notebook NOTEBOOK OK executed=8 + hooks PASS=65 FAIL=0 + nextest 11/11 + validate-docs-coverage exit 0; P2-01 fresco APPROVE
+evidencia:
+  - claim: install.sh macOS portable (sha256sum→shasum fallback) + fail-closed verificado con mocks (GNU/macOS/ninguna/mismatch)
+    evidencia: target/session-api01/wire10/step1-verify.ps1 → pass=8 fail=0 (re-ejecutado por reviewer)
+    confianza: alta
+  - claim: notebook Colab migrado a Client/search y ejecuta e2e (8 celdas)
+    evidencia: pwsh target/session-api01/wire10/run-nb.ps1 → NOTEBOOK OK executed=8 skipped=1
+    confianza: alta
+  - claim: hooks inyectan contexto real sin pwsh (templates + plugin opencode) y tests 65/65
+    evidencia: skills/vantadb-mcp/assets/hooks/tests/test-hooks.ps1 → PASS=65 FAIL=0; smoke live mcp-call memory_recall/memory_put OK sin huérfanos; ps1 intacto
+    confianza: alta
+  - claim: mcp-call one-shot implementado con tests y fixes del review previo (floor_char_boundary, reaps, exit-2)
+    evidencia: cargo nextest run -p vantadb --lib cli_handlers::mcp_call --target-dir target/session-api01 → 11 tests run: 11 passed
+    confianza: alta
+  - claim: P2-01 fresco (HARD-07) — revisión independiente del changeset (steps 5/5 ✅ desde 2026-09-25; plan decía stale)
+    evidencia: vanta-review sesión ses_f1c06efc4ffeLk9FF3gTqyO9Hw → APPROVE; Medium no bloqueante → FIND-169
+    confianza: alta
+artefactos: scripts/install.sh, examples/colab/vantadb_quickstart.ipynb, src/cli_handlers/mcp_call.rs, src/cli.rs, src/bin/vanta-cli.rs, skills/vantadb-mcp/assets/hooks/**, docs/dev/tasks/WIRE-10.md, docs/dev/plans/2026-09-26-master-roadmap.md (§Task 8), docs/dev/Backlog.md (FIND-169), target/session-api01/wire10/** (harnesses)
+invariantes: install.sh Linux intacto; narrativa notebook intacta; vanta-mcp-local.ps1 intacto; secretos solo env de sesión
+deuda: FIND-169 (Medium pre-existente no bloqueante, registrado en Backlog con repro)
+queda_pendiente: commit local del cierre (task file/plan/Backlog) → LEAD; sin push
+Próxima tarea si completa: DEF-03
+=== END RECITATION ===
+
+=== RECITATION DEF-05 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: DEF-05 — North-star + success criteria (SPEC/VISION)
+Estado: completed
+Última acción: Steps 1–4 ✅ + review fresco P2-01 APPROVE + nit corregido; contrato verificado (coverage exit 0)
+Resultado: OK
+Próxima acción: LEAD: commit local docs: (SPEC + VISION + task file)
+Contrato: North Star byte-idéntica SPEC/VISION + guardrails con medición + validate-docs-coverage exit 0
+Próxima tarea si completa: DEF-07
+=== END RECITATION ===
+
+=== RECITATION DEF-03 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: DEF-03 — Frontera verificable en CI (validate-frontier)
+Estado: completed
+Última acción: Steps 1–3 + fixes F1/F2/F3 + re-review fresco APPROVE; contrato verificado (exit 0)
+Resultado: OK
+Próxima acción: LEAD: commit ci: (script + workflow) + docs(tasks) cierre
+Contrato: exit 0 repo actual; exit ≠0 perturbado (6 RED); job check-frontier en gate-docs.yml
+Próxima tarea si completa: DEF-04
+=== END RECITATION ===
+
+=== RECITATION DEF-04 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: DEF-04 — Naming freeze 0.7.0→1.0 (ADR + política de alias)
+Estado: completed
+Última acción: Firma owner Gate P (D1–D3) + review fresco P2-01 APPROVE; contrato verificado (coverage exit 0)
+Resultado: OK
+Próxima acción: LEAD: commit docs: (ADR-045 + VERSIONING + task file)
+Contrato: ADR accepted + 9/9 artefactos + política de alias + firma owner + ref VERSIONING
+Próxima tarea si completa: DEF-05
 === END RECITATION ===
