@@ -508,6 +508,7 @@ aliases: []
 - **Fecha:** 2026-09-25
 - **Objetivo:** Explicar el rojo del gate de regresión en el push a main post-merge.
 - **Resultado:** 🔴 Falso positivo: mismos commits verdes en develop (`36094025761`, dispatch 04:20Z) → rojo en main (`36101773914`, push 06:11Z): `query_hybrid.p50` 5.76→12.01ms (+108.5%), `p95` +88.1%, `p99` +18.8%, `query_text.p99` 0.01→0.04ms (µs = ruido). Baseline `benchmarks/python_baseline.json` calibrado en una máquina concreta → varianza entre runners. No es check requerido (no bloquea merges). **Acción propuesta:** tolerancia por métrica / banda de varianza multi-runner / re-baseline; fila `FIND-154` en Backlog.
+- **Resolución (2026-09-27, HARD-06):** ✅ compare extraído a `benchmarks/compare_baseline.py` con bandas por familia — métricas estables bloquean >15%; familias ruidosas (`query_hybrid`, `query_text`) warn >15% y bloquean solo >300% (ceiling catastrófico, justificado en docstring); `--self-test` 2/2 (ruido +108.5% no bloquea; regresión +40% estable bloquea). `perf-bench.yml` invoca el script. FIND-153 sigue resuelto (baseline activo + run verde `36094025761`).
 - **Commit:** (este commit)
 
 ### HIG-01: CHANGELOG dedup + release_always=false + release bodies reparados

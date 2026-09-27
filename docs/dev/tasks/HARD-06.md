@@ -8,10 +8,10 @@
 - **Tipo:** Mixto (scripts/CI/docs)
 - **Turns estimados:** 20
 - **Creado:** 2026-09-26T19:58
-- **last-synced:** 2026-09-26T19:58
-- **Estado:** ⬜ PENDING
-- **Incógnitas (uphill):** 1 abierta (decisión FIND-161 — Gate P al ejecutar)
-- **Pendientes (downhill):** 5 steps
+- **last-synced:** 2026-09-27T04:53
+- **Estado:** ✅ COMPLETED — 5/5 steps + verify OK + P2-01 ✅ (adversarial, ronda fresca `ses_f1de9b945ffemGMHyUx6K3GDm7`); commit por bloques (LEAD)
+- **Incógnitas (uphill):** 0 (FIND-161 resuelto — owner eligió B en Gate P)
+- **Pendientes (downhill):** 0 steps (5/5 ✅)
 
 ## Blast Radius
 
@@ -48,7 +48,7 @@
 | 1 | FIND-162 §3 | A) reparar el check (`pub enum VantaError {` → `pub enum Error {` en L102 + label L108 + patrón `Error::` en L27) y pagar gaps reales / B) retirar la sección con motivo | A | ✅ decidido-por-evidencia (contrato FIND-162 prefiere reparado; 1 línea + gaps; ref: `scripts/validate-docs-coverage.ps1:101-108`, `src/error.rs:137`) |
 | 2 | FIND-154 fix | A) extraer compare a `benchmarks/compare_baseline.py` con bandas por métrica + self-test + quarantine documentada para métricas ruidosas / B) mantener inline y solo subir umbral global (no testeable; reincide) / C) quarantine total (gate advisory — pierde señal) | A | ✅ decidido-por-evidencia (evidencia +108.5% mismo-commit; necesidad de test reproducible; pre-mortem F1 del plan) |
 | 3 | Bandas FIND-154 | A) por familia: `query_hybrid.*`/`query_text.*` → borde de ruido (warning) + métricas estables (ingest/throughput) → bloqueo estricto / B) umbral único más alto para todo (pierde detección) | A | ✅ decidido-por-evidencia (evidencia: `query_text.p99` 0.01→0.04ms = µs = ruido, Backlog L242) |
-| 4 | FIND-161 envelope | A) mantener envelope actual `{success,error\|data,code(,hint)}` + decisión explícita documentada (consistencia cross-binding API-01; RFC 9457 queda diferido con trigger) / B) adoptar RFC 9457 (`type/title/status/detail/instance`) ahora (surface nueva, HTTP-only, rompe consistencia con bindings, 0 usuarios) | A | ⏳ **Gate P al ejecutar** (`question` owner, 1 ronda; recomendado A) |
+| 4 | FIND-161 envelope | A) mantener envelope actual `{success,error\|data,code(,hint)}` + decisión explícita documentada (consistencia cross-binding API-01; RFC 9457 queda diferido con trigger) / B) adoptar RFC 9457 (`type/title/status/detail/instance`) ahora (surface nueva, HTTP-only, rompe consistencia con bindings, 0 usuarios) | A | ✅ **Gate P ejecutado 2026-09-27: owner eligió B (adoptar RFC 9457)** — decisión en `decisions.md`; implementación ruteada a **FIND-165** (fuera del scope de HARD-06: `src/server/**` prohibido); docs alineados (HTTP_API.md + ERROR_HANDLING §7) |
 | 5 | MEM-55 | A) cerrar task file (steps ✅; `conversation_trigger` existe `src/server/state.rs:134` y bootstrap lo pasa `None` L332 = no wireado en prod) + documentar residual / B) catalogar fila Backlog y dejarlo abierto | A | ✅ decidido-por-evidencia (Backlog L75 "verificado conversation_trigger: None"; plan: "catalogar o cerrar") |
 | 6 | Secuencia commits | 4 commits atómicos (1 por FIND) + bookkeeping consolidado | ✅ decisión de plan (pre-mortem F3: "commit no atómico → 1 commit por FIND") |
 
@@ -119,9 +119,9 @@ contract:
 
 | Eje | Contador |
 |-----|----------|
-| Incógnitas abiertas (uphill) | 1 — decisión FIND-161 (Gate P owner) |
-| Pendientes de ejecución (downhill) | 5 steps |
-| % completado | 0% |
+| Incógnitas abiertas (uphill) | 0 — FIND-161 resuelto (owner eligió B vía Gate P) |
+| Pendientes de ejecución (downhill) | 0 — 5/5 steps ✅ (verify OK) |
+| % completado | 100% (steps) — pendiente commit por bloques + review P2-01 (LEAD) |
 
 ## Fase 1 — Evidencia de Debugging (GATE — FIND-154, tipo `fix(ci)`)
 
@@ -129,6 +129,7 @@ contract:
 - **Hipótesis:** varianza del runner (mediana de 3 insuficiente para métricas híbridas) + umbral global único + baseline calibrado en otra máquina → no es regresión de código.
 - **1 variable controlada:** el umbral/banda de tolerancia por métrica (nada más se cambia en el gate).
 - **Test RED:** fixture de ruido reproducido con la lógica actual → exit 1 (RED). Con el fix → exit 0; fixture de regresión real (+40% en métrica estable) → exit 1 antes y después (protege contra debilitar el gate). Ambos casos viven en `--self-test`.
+- **Resultado (2026-09-27, HARD-06):** RED confirmado por el incidente real (run `36101773914` falló con el umbral global 15% ante +108.5% de ruido) y reproducido en la fixture del self-test; GREEN con el fix (`--self-test` → 2/2: ruido +108.5% → 0 blocking/2 warnings; regresión +40% estable → 1 blocking; smoke CLI: CASE_A exit 0 / CASE_B exit 1). 1 variable controlada: bandas por familia en `benchmarks/compare_baseline.py` (nada más cambió en el gate — el workflow solo invoca el script).
 
 ## Fases explícitas — SECURITY | PERFORMANCE (P2-07)
 
@@ -143,31 +144,31 @@ contract:
 - **Archivos:** `scripts/validate-docs-coverage.ps1` (+ `docs/api/EMBEDDED_SDK.md` si aparecen gaps)
 - **Acción:** L102 `pub enum VantaError \{` → `pub enum Error \{`; L27 patrón `VantaError::$Name` → `Error::$Name`; L108 label `(VantaError)` → `(Error)`; correr el script y pagar los gaps reales que emerjan en `EMBEDDED_SDK.md` (o `Exclude` con motivo uno-a-uno). Excepción documentada: `anti_stutter_map.json` (pares old→new por diseño). Commit `fix(scripts): FIND-162 — check Error variants tras rename`.
 - **Verify:** `pwsh scripts/validate-docs-coverage.ps1` exit 0 y §3 con `N items ok` (N>0); `rg VantaError scripts/validate-docs-coverage.ps1` → 0 hits.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-09-27 — 3 eds aplicadas (L27 patrón `Error::`, L102 split, L108 label). Script exit 0 con §3 **no trivial** ("src/error.rs (Error) — 35 items ok"; 32 variantes reales extraídas + `fn/pub/use` excluidos). `rg VantaError scripts/validate-docs-coverage.ps1` = **0 hits** (V2b: Select-String count = "0"; direct rg exit 1). No emergieron gaps (EMBEDDED_SDK.md ya listaba las 32 variantes, refs L651-670+; test negativo `FooBarBazXYZ` = false → el check detecta faltantes). Verify vía `campaign_verify_cmd` OK (V1b `pwsh scripts/validate-docs-coverage.ps1` pass; V2b pass stdout "0"). Quirk spawn registrado: `pwsh -NoProfile -Command "pwsh ..."` anidado no spawnea (exitCode -1); la forma directa `pwsh scripts/...` sí. Excepción documentada: `scripts/anti_stutter_map.json` (6 hits `VantaError` = pares old→new por diseño, NO se toca).
 
 ### Step 2: FIND-160 — módulos operativos en VANTA_MEMORY.md
 - **Archivos:** `docs/api/VANTA_MEMORY.md` (+ refs a `vanta-memory/src/core/dream/`, `gateway/approval_handlers.rs`, `ingest/auto_sync.rs`, `services/conversation_hook.rs`, `core/memory_generation_log`)
 - **Acción:** agregar sección/tabla por módulo (qué hace + code refs + degradación P4 donde aplique) para los 5 módulos sin cubrir; alternativa admitida: exclusión motivada por módulo (no ambas a medias). Actualizar `last_reviewed`. Commit `docs(api): FIND-160 — módulos operativos vanta-memory`.
 - **Verify:** `rg -n "dream|approval_handlers|auto_sync|conversation_hook|memory_generation_log" docs/api/VANTA_MEMORY.md` → 5 términos presentes; `pwsh scripts/validate-docs-coverage.ps1` exit 0.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-09-27 — §"Operational modules" agregada (tabla 5 módulos + notas por módulo con code refs + degradación P4/LLM-free; `core::dream` MEM-61, `core::memory_generation_log` MEM-41, `gateway::approval_handlers` MEM-68, `ingest::auto_sync` MEM-45, `services::conversation_hook` MEM-55 con wiring-status residual `None` en `bootstrap.rs:332`) + namespace `dream/<session>/<run_id>` en la tabla + `last_reviewed: 2026-09-27`. Verify: 5/5 términos presentes (conteos 6/2/2/2/2); `validate-docs-coverage` exit 0 (V160c); step verificado vía `campaign_verify_cmd` (V160b AND-check pass). **Nota para el LEAD:** este archivo ya traía cambios sin commitear de HARD-04 (Facade + Exposure triggers) — el bloque FIND-160 incluye solo mi sección nueva (el archivo se commitea completo en el bloque que decida el LEAD).
 
 ### Step 3: FIND-154 — perf gate tolerante a varianza
 - **Archivos:** `benchmarks/compare_baseline.py` (nuevo), `.github/workflows/perf-bench.yml`, (doc) `docs/dev/avance/activo/ci-cd.md` o comentario en el workflow
 - **Acción:** extraer la lógica de compare L81-150 a `benchmarks/compare_baseline.py` con: bandas por familia (ruidosas → warning + quarantine documentada; estables → bloqueo), `--self-test` con fixtures (ruido +108% → pass; regresión real +40% → fail); el workflow invoca el script. Si el fix exige reescribir el gate → DEFER con evidencia (stop condition). Commit `fix(ci): FIND-154 — gate perf con tolerancia de varianza`.
 - **Verify:** `python benchmarks/compare_baseline.py --self-test` → 2/2 casos esperados; YAML parse OK (`python -c "import yaml;yaml.safe_load(open('.github/workflows/perf-bench.yml'))"` si pyyaml disponible; si no, `actionlint`/nota); revisar que el step de CI invoca el script.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-09-27 — `benchmarks/compare_baseline.py` creado (bandas: estables `STABLE_BLOCK_PCT=15%`; quarantine `query_hybrid`/`query_text` warn >15% + bloqueo solo >300% ceiling catastrófico, documentado en docstring; `--runs/--baseline/--median-out/--update-baseline/--self-test`). Workflow: heredoc inline (68L) reemplazado por invocación del script (comment con bandas + if/else update-baseline). Verify: self-test **2/2 PASS** (ruido +108.5% → 0 blocking + 2 warnings; regresión +40% estable → 1 blocking; `V3a`); YAML OK (`V3b`); smoke CLI con fixtures en temp (CASE_A exit 0 + median escrito; CASE_B exit 1) + check de invocación en workflow (`rg compare_baseline` → L88/90). Doc operativa (avance ci-cd) → Step 5.
 
 ### Step 4: FIND-161 — decisión + docs coherentes (Gate P)
 - **Archivos:** `docs/api/HTTP_API.md` (§Error responses L778-788), `docs/api/ERROR_HANDLING.md` (§7), `.opencode/task-system/memory/decisions.md` (vía `campaign_memory_write`)
 - **Acción:** (1) `question` al owner (1 ronda): A mantener envelope [recomendado] / B adoptar RFC 9457; (2) registrar decisión (`campaign_memory_write(file="decisions", entry="FIND-161 | ... | ref: HTTP_API.md:778")`); (3) actualizar HTTP_API.md para que la nota apunte a la decisión (no "tracked in Backlog") y ERROR_HANDLING §7 alineado. Commit `docs(api): FIND-161 — decisión envelope HTTP (RFC 9457 diferido)`.
 - **Verify:** `rg -n "FIND-161" .opencode/task-system/memory/decisions.md docs/api/HTTP_API.md` → decisión registrada y doc coherente; `pwsh scripts/validate-docs-coverage.ps1` exit 0.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-09-27 — **Gate P ejecutado: el owner eligió B (adoptar RFC 9457), no A.** Decisión registrada en `decisions.md` (L135) con estado "aprobado, NO implementado → implementación ruteada a **FIND-165**". Docs: `HTTP_API.md:787-793` nota reescrita (adopted 2026-09-27 + dirección problem+json + wire contract vigente hasta que aterrice); `ERROR_HANDLING.md:422-426` cross-ref alineado. RFC 9457 verificado contra fuente oficial (`rfc-editor.org/rfc/rfc9457.html`, fetch OK — Gate citas). Verify: V161c pass (decisión + docs) + V161b pass (validate-docs exit 0). **Nota para el LEAD:** el commit de este bloque será `docs(api): FIND-161 — decisión: adoptar RFC 9457 (implementación ruteada a FIND-165)` (no "RFC 9457 diferido" — el owner eligió B). Implementar el envelope NO entra en el scope de HARD-06 (archivos prohibidos src/server/**) → FIND-165.
 
 ### Step 5: Bookkeeping (filas Backlog + FIND-153 + MEM-55) + verify final
 - **Archivos:** `docs/dev/Backlog.md`, `docs/dev/tasks/MEM-55.md` (→ `docs/dev/tasks/complete/` si se decide cerrar), `docs/dev/avance/activo/ci-cd.md`
 - **Acción:** actualizar/cerrar filas FIND-154/160/161/162; verificar y registrar FIND-153 resuelta (baseline no vacío + run verde `36094025761`); disposición MEM-55 (cerrar con nota de residual `conversation_trigger=None` en `bootstrap.rs:332` o catalogar); correr verify final. Commit `chore(backlog): cierre FIND-153/160/161/162 + MEM-55`.
 - **Verify:** `rg -n "FIND-15[34]|FIND-16[012]|MEM-55" docs/dev/Backlog.md` → estados actualizados; `pwsh dev-tools/verify_changed.ps1` verde; `pwsh scripts/validate-docs-coverage.ps1` exit 0.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED 2026-09-27 — filas FIND-154/160/161/162 → ✅ Cerrado (HARD-06) con detalle; **FIND-165 creada** (implementación RFC 9457, ruteada desde FIND-161); **FIND-153**: sin fila en Backlog (nunca catalogada como pendiente) — cierre en `ci-cd.md` (§FIND-153 ✅) + evidencia live `gh run view 36094025761` → `conclusion: success` (develop, workflow_dispatch); **MEM-55**: nota L75 con disposición ✅ + `MEM-55.md` → `docs/dev/tasks/complete/MEM-55.md` con bloque de cierre (residual `conversation_trigger: None` en `bootstrap.rs:332`); `ci-cd.md` §FIND-154 con línea de Resolución. Verify: `verify_changed.ps1` **ALL 4 PASS** (fmt/check/clippy/docs-coverage); Backlog rg OK; OCR advisory sin findings Critical/High/Medium en los 3 archivos del spec propios del task. Commit pendiente: `chore(backlog): cierre FIND-153/160/161/162 + FIND-165 + MEM-55` (LEAD).
 
 ## Dependencias
 - Sin bloqueos. FIND-153 ya resuelta (2026-09-25, commit `114f55f0`). Coordina con HARD-02 (mismo verify) sin solape de archivos.
@@ -180,17 +181,20 @@ contract:
 - **Enfoque:** ¿la reparación del §3 no introduce falsos gaps ni exclusiones oportunistas? ¿el perf gate sigue detectando regresiones reales tras la tolerancia? ¿la decisión FIND-161 quedó registrada y coherente?
 - **Cómo se probó:** re-ejecución del revisor (script + self-test + conteos), no auto-reporte.
 - **Checklist anti-hábitos tóxicos** (contrato de comportamiento — el revisor verifica que el implementador NO haya incurrido en ninguno antes de aprobar; fuente §12 de `docs/Investigaciones/2026-08-10-agent-engineering/agent-02-task-execution.md`):
-  - [ ] No inventar salidas de comandos/herramientas que no se ejecutaron.
-  - [ ] No saltarse la clarificación por "ya sé qué quiere".
-  - [ ] No declarar done sin verificar contra los acceptance criteria.
-  - [ ] No ignorar fallos ni reportar "todo OK" cuando hubo fallo parcial.
-  - [ ] No hacer un solo intento de búsqueda y darlo por saturado.
-  - [ ] No copiar sin citar ni presentar supuestos propios como evidencia.
-  - [ ] No reintentar en bucle sin diagnóstico.
-  - [ ] No dejar huérfanos los pasos: cada paso conectado al objetivo.
-  - [ ] No degradar el chequeo de errores en paths de dinero/seguridad.
-  - [ ] No gastar presupuesto infinito; paradas explícitas.
-- **Veredicto:** ⏳ pendiente (✅ approve | ❌ cambios requeridos)
+  - [x] No inventar salidas de comandos/herramientas que no se ejecutaron.
+  - [x] No saltarse la clarificación por "ya sé qué quiere".
+  - [x] No declarar done sin verificar contra los acceptance criteria.
+  - [x] No ignorar fallos ni reportar "todo OK" cuando hubo fallo parcial.
+  - [x] No hacer un solo intento de búsqueda y darlo por saturado.
+  - [x] No copiar sin citar ni presentar supuestos propios como evidencia.
+  - [x] No reintentar en bucle sin diagnóstico.
+  - [x] No dejar huérfanos los pasos: cada paso conectado al objetivo.
+  - [x] No degradar el chequeo de errores en paths de dinero/seguridad.
+  - [x] No gastar presupuesto infinito; paradas explícitas.
+- **Revisor:** vanta-review (sesión `ses_f1de9b945ffemGMHyUx6K3GDm7`, contexto fresco) — **tier adversarial** (diff toca `docs/api/**`)
+- **Enfoque:** no-trivialidad de §3 (FIND-162), bandas FIND-154, coherencia RFC 9457 (FIND-161), attribución de scope
+- **Cómo se probó:** re-ejecución directa por el revisor (script exit 0 + `rg` counts + self-test 2/2 + smoke propio con fixtures + `gh run view` + rfc-editor.org), no auto-reporte.
+- **Veredicto:** ✅ APPROVE — 0 Critical / 0 Required; 2 optional (trigger de warnings sostenidos en cuarentena; attribution del plan file compartido) + 1 nit (display "35 items" vs 32 reales en el script).
 
 ## Notas
 - **Rollback-friendly:** cada FIND es un commit independiente y revertible (~100 líneas c/u).

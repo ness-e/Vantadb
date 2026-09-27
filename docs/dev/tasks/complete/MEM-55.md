@@ -50,3 +50,10 @@
 ## Context Save Point
 (nada aún — tarea sin intentos previos)
 
+## Cierre (HARD-06, 2026-09-27) — ✅ CERRADA con residual
+
+- **Disposición:** cerrada (task file → `docs/dev/tasks/complete/`). Decidido en HARD-06 (Backlog L75: "decidir catalogar o cerrar" → cerrar).
+- **Trabajo materializado (steps 1-3):** trait `ConversationTrigger` (`src/server/state.rs:96`) + campo `conversation_trigger` (`:134`); disparo best-effort del handler (`src/server/handlers.rs:1391`); puente `HttpCaptureBridge` + `run_bridge_pass` (`vanta-memory/src/services/conversation_hook.rs:36-107`, feature `http-server` = `vanta-memory/Cargo.toml:61`); tests `vanta-memory/tests/conversation_hook.rs`; changelog liberado (`docs/CHANGELOG.md:939`).
+- **Residual documentado:** `src/server/bootstrap.rs:332` pasa `conversation_trigger: None` → el bridge NO está wireado en producción; el wiring (con runner configurado) es decisión de host post-release. Reflejado en `docs/api/VANTA_MEMORY.md` §Operational modules (`services::conversation_hook`).
+- **Nota:** checkboxes de los steps no re-ejecutados individualmente en este cierre; verificación de cierre = existencia/estado de fuentes y refs (disposición de bookkeeping, sin cambios de código).
+

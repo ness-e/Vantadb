@@ -419,6 +419,13 @@ with HTTP status codes `400 / 404 / 409 / 422 / 429 / 500`. Mapping from
 `{ "success": false, "error": "...", "code": "VANTADB_NOT_FOUND" }`. See
 `docs/api/HTTP_API.md` § Error responses.
 
+> **RFC 9457 adoption (2026-09-27, owner decision — FIND-161):** the HTTP error
+> surface will migrate to RFC 9457 `application/problem+json`
+> (`type` / `title` / `status` / `detail` / `instance`), with the canonical
+> `code` preserved as an extension member for cross-binding consistency.
+> Implementation tracked as `FIND-165`; until it ships, the envelope above stays
+> the wire contract.
+
 ---
 
 ## 8. See also
