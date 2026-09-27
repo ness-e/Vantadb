@@ -13,7 +13,7 @@ related: ["docs/dev/workflow/README.md", "docs/dev/workflow/TRIGGERS.md", "docs/
 > **Scope:** `.github/workflows/` (27 files, names as on disk 2026-09-22) + `docs/dev/workflow/*` + `docs/dev/operations/CI_POLICY.md`
 > **No tocar aquí:** engine code, bindings, release versioning (see release-ci rules); procedure lives in `RUNBOOK.md`, trigger matrix in `TRIGGERS.md`, publish chain in `PUBLISH.md`
 > **Status:** 🟢 Vigente
-> **Fuentes:** FIND-134/135/136/139/140/141/146 + renames FIND-142 (commit `97a3a03c`); matrix `TRIGGERS.md` (2026-09-22); rule 8: HARD-03 (owner decision 2026-09-26 — push deferred to plan close, bundles as loss mitigation)
+> **Fuentes:** FIND-134/135/136/139/140/141/146 + renames FIND-142 (commit `97a3a03c`); matrix `TRIGGERS.md` (2026-09-22); rule 8: HARD-03 (owner decision 2026-09-26 — push deferred to plan close, bundles as loss mitigation); rule 9: HARD-07 (review gate mechanized — `reviewer_context ≠ author_context`, 2026-09-27)
 
 One verifiable rule per high-severity audit finding. Each rule states **Must / Must not / Why**, a good/bad example, and a mechanical check. If the check fails, the PR fails.
 
@@ -189,6 +189,26 @@ git clone D:\VantaDB-Backups\vantadb-20260927-0033.bundle C:\tmp\restore-test   
 ```
 
 - **Verify:** `pwsh scripts/git-backup.ps1 -Dest <off-repo-folder>` exits 0 and `git bundle verify <bundle>` exits 0; `Select-String -Path docs/dev/workflow/RULES.md -Pattern 'git-backup.ps1'` finds rule 8; train milestones match `docs/dev/plans/2026-09-26-master-roadmap.md` §Gates por fase.
+
+### 9 — Review gate: ACCEPT requires `reviewer_context ≠ author_context` (mechanized)
+
+- **Must:** close a task (`campaign_update_task_state(completed)`) with a valid `review` payload in the recitation (HARD-07): `mode:'fresh'` with `reviewer_context ≠ author_context` (reviewer distinct from the implementer, P2-01) and `verdict:'approve'`; or `mode:'degraded'` **only** with an owner `waiver: {owner, ref}` — the waiver is registered in the trace (`review.waiver`) and `.opencode/task-system/memory/decisions.md`, never a silent bypass.
+- **Must not:** let a degraded review without waiver reach ACCEPT (the write is blocked: `updated:false` + `reviewBlocked:true` with an actionable message), or pass `reviewer_context` equal to `author_context` (degradation in disguise).
+- **Por qué:** API-09 incident — a degraded round (same context) was accepted while fresh subagent capacity existed and had to be fixed by hand; without mechanical enforcement the gate degrades silently (self-preference bias, arXiv 2404.13076). Source of truth: `validateReviewAccept` (`.opencode/task-system/config/state-tools.mjs`).
+
+```jsonc
+// BAD (degraded, no waiver — blocked by validateReviewAccept)
+review: { mode: "degraded", verdict: "approve" }
+
+// GOOD (fresh — reviewer in a distinct context)
+review: { mode: "fresh", reviewer: "vanta-review", reviewer_context: "ses_abc", author_context: "ses_xyz", verdict: "approve" }
+
+// GOOD (degraded — owner waiver registered)
+review: { mode: "degraded", verdict: "approve", waiver: { owner: "Eros", ref: "2026-09-27 owner decision" } }
+```
+
+- **Verify:** `node --test .opencode/task-system/mcp/review-gate.test.mjs` → 5/5 (T1–T4 canónicos + T5 regresión del guard); waiver visible in `traces/<campaignId>.jsonl` (`review.waiver`) + `.opencode/task-system/memory/decisions.md`.
+- **Rollout:** el enforcement vive en `campaign-server.mjs`; the running MCP process keeps the previous code — the gate activates on process restart.
 
 ## See also
 
