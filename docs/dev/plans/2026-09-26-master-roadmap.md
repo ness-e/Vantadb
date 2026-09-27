@@ -2,7 +2,7 @@
 
 > **Campaign ID:** ed20beae-edf6-42f5-b41f-e8519830d6cb
 > **Inicio:** 2026-09-26
-> **Estado:** ⏳ EN PROGRESO (0/49 — plan recién creado)
+> **Estado:** ⏳ EN PROGRESO (1/50 — HARD-08 SDP v3 ✅ pre-run; siguiente: F0)
 > **Fuente:** `docs/dev/Backlog.md` (P52–P59 + FIND-*) + planes absorbidos (`2026-09-24-post-investigacion-integral.md` W2–W7, `2026-09-24-estabilizacion-pendiente.md`, `2026-09-24-harness-gaps.md`, `2026-09-24-sesion-continuidad.md`, `2026-09-20-estabilizacion-total.md`) + `docs/dev/strategy/` (13 docs) + Notion "VantaDB Docs" (~28 subpáginas) + investigación de riesgos 2026-09-26 (4 sub-agentes R1–R4, multi-fuente)
 > **Autonomous:** false — el owner gatea push/merge/release. **Push a `develop`: al completar el plan con todo validado/verificado** (decisión owner 2026-09-26, ver §Política de commits/push)
 > **Modo:** PLAN → ejecución con `/pipeline run docs/dev/plans/2026-09-26-master-roadmap.md`
@@ -17,12 +17,12 @@ SDP: `campaign-executor` · `progreso` · `writing-plans` · `planning-and-task-
 
 | Resultado | Count |
 |-----------|-------|
-| ✅ DO | 49 |
+| ✅ DO | 50 |
 | 🟡 DEFER | cola restante del Backlog (ver §Cola restante — disposición) |
 | ❌ SKIP | 0 |
 | 🔴 BLOQUEADO | 0 (deps internas por fase; ninguna externa al plan) |
 
-Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al nivel F0/F1 al iniciar cada fase — REGLA en §F2–F6) · ⬇️ downhill = 44 (F0/F1 con detalle completo, listos para ejecutar)
+Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al nivel F0/F1 al iniciar cada fase — REGLA en §F2–F6) · ⬇️ downhill = 49 (F0/F1 con detalle completo; HARD-08 ✅ pre-run)
 
 ## Gates por fase
 
@@ -509,6 +509,19 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 
 ---
 
+### Task 50: HARD-08 — SDP v3: mejoras de búsqueda/lectura/revisión/selección de skills (PRE-RUN ✅)
+
+- **Appetite:** max 2d · **Esfuerzo:** 🟡 1d · **Prioridad:** 🔴
+- **Ruta:** vanta-lead (+ Gate H vanta-harness)
+- **Archivos clave:** `.opencode/task-system/mcp/sdp-v3.mjs` (nuevo) · `.opencode/task-system/mcp/campaign-server.mjs` · `.opencode/task-system/scripts/{build-skills-index,sdp-selftest,record-skill-outcome,smoke-mcp-sdp}.mjs` · `.opencode/task-system/skills-index.json` · `.opencode/references/skills-engineering.md` · prompts `task.md`/`pipeline-full.md`
+- **Verificación real:** ✅ CÓDIGO-REAL — implementado y verificado E2E (selftest 15/15 · smoke v2+v1 OK · índice 195 skills/279 ratings) con Gate H ✅ (3 rondas: ❌→❌→✅)
+- **Gate Justificación:** decisión owner "todas las mejoras" (2026-09-27) tras auditoría de 7 gaps del SDP v2 (ES↔EN, morfología, drift spec↔impl, familias, deprecated, sin índice/pins/cuotas/outcomes)
+- **Gate Result:** ✅ DO (ejecutado pre-run)
+- **Contrato:** "selftest 15/15 Y smoke E2E OK (sdpVersion=v3 + v1 operativo) Y índice 195 Y Gate H ✅ Y nombre/contrato v2 preservados"
+- **Task file:** `docs/dev/tasks/HARD-08.md`
+- **Estado:** ✅ COMPLETED (2026-09-27, pre-run — commits `.opencode` `903a029` + `e97c093`) · **Branch:** develop · **Commit:** `903a029` (.opencode, local)
+- **Notas:** los sub-agentes del run usarán v3 **tras restart de OpenCode** (MCP live). Owner action registrada en el task file.
+
 ## Carril owner (paralelo — sin pipeline)
 
 | Ítem | Qué | Por qué | Cómo |
@@ -568,6 +581,10 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-26]:** creación del Master Roadmap — absorción de 5 planes activos (archivados) + investigación de riesgos R1–R4 (sub-agentes, multi-fuente) + 6 decisiones owner vía `question` (HARD atómicas · profundidad F0-F1 · task files HARD-*/F0-F1 · absorción+archivo · push al final · gates (a)+(b)+(c)).
 - **plan-adjust [2026-09-26]:** ⬆️ uphill antes: propuesta de próximo arco sin entregar + roadmap disperso (5 planes + strategy + Notion). ⬆️ uphill después: 5 incógnitas (F2-F6 esenciales). ⬇️ downhill: 44 tasks listas.
 - WIRE-10 task file: `Plan file:` actualizado a este master (era el plan viejo archivado).
+- **plan-adjust [2026-09-27]:** HARD-08 (SDP v3) ejecutado **pre-run** (decisión owner "todas las mejoras"); Gate H ✅ 3 rondas (vanta-harness); harness commiteado (`903a029` + `e97c093`).
+  - ⬆️ uphill antes: 7 gaps SDP v2 (ES↔EN, morfología, drift spec↔impl, sin índice/pins/cuotas/outcomes) → **después: 0** (implementados).
+  - ⬇️ downhill antes/después: 50 → 49 (HARD-08 ✅).
+  - ⚠️ Owner action: restart de OpenCode para que el MCP live cargue v3.
 
 ## Recitation
 
