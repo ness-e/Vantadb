@@ -96,12 +96,42 @@ Convenciones del repo (Rust: `?`+`Result`, sin `unwrap` en prod, clippy `-D warn
 - **Ask-first `~/.cargo/bin` → APROBADO** para FIND-98 (reinstall parity 79→87) vía Gate P 2026-09-18; si el lock persiste → STOP sin forzar.
 - **`vantadb-ts/examples/`:** referenciar desde README/QUICKSTART salvo motivo escrito para mover (decide SHOW-05-resto).
 
-## Success Criteria
+## Success Criteria (campaña MVP)
 
 1. Usuario nuevo: 1 comando → `embed_texts` real (`fallback:false`) + recuerdo guardado y recuperado por sinónimo en su agente (<30 min, sin compilar ni clonar).
 2. "Qué hice ayer a las 2pm en el módulo X" → respuesta con cita del registro (test temporal verde).
 3. `cargo audit`/`deny`/clippy/fmt verdes; coverage docs 0 gaps; OCR sin Critical/High.
 4. 0 regresiones: suites `mcp_tests`/`memory` verdes; binario instalado == fuente.
+
+## North Star (producto) — formalizada 2026-09-27 (DEF-05)
+
+> **North Star: agentes activos que recuperan una memoria con éxito en ventana de 7 días** (proxy operacional: sesiones con put+search en la misma ventana de 7 días).
+
+Los criterios de §Success Criteria son de **campaña (MVP)** — siguen vigentes para el MVP (ver Frontera de la Adenda). Este es el criterio de **producto**: mide que el núcleo (memoria embebida gobernada — jerarquía de DEF-01) se *usa* de punta a punta, i.e. un agente que almacena y recupera en la misma semana.
+
+**Baseline (al 2026-09-26):** 0 sesiones — sin despliegue del proxy con el loop de memoria en uso externo. El contador arranca con el primer deployment instrumentado; ICP-01 lo consume en la demo CI.
+
+### Medición contra el proxy actual (verificada 2026-09-27)
+
+**PUT — derivable hoy.** Todo turno proxied exitoso con sesión se auto-captura y persiste en el store del proxy (`[auth] db_path`, default `vantadb_data`):
+
+- `server.rs:256-258` (captura en éxito, fire-and-forget) → `server.rs:606-629` (`capture_turn`) → `capture.rs:53-139`.
+- Namespace `proxy-turns` (`capture.rs:20`), key `{ms}-{seq}` (`capture.rs:65`), payload JSON `{session, protocol, space, model, text}` (`capture.rs:66-73`); además registro L1 en `l1/{session}` con `created_at` (`capture.rs:80-102`).
+
+Consulta: `memory_list` (`vantadb-mcp`, read-only — `handlers/tools.rs:200-218`) o `list` del SDK contra el store del proxy; los keys `{ms}-{seq}` llevan el timestamp → filtrar client-side `ms ≥ now − 7d` (los filters son metadata-only — patrón página+filtra en `recall-policy.md:38,52`) y contar `payload.session` distintos.
+
+**SEARCH — no derivable hoy (DEFER parcial declarado).** Ningún path de búsqueda persiste telemetría: `memory_tools::search` devuelve texto sin registrar (`memory_tools.rs:113-138`), el loop de tools solo loguea `tracing::debug!` al cerrar (`server.rs:750-754`), `perform_auto_recall` es read-only (`auto_recall.rs:198-279`), `TurnReport` no tiene campos de tools (`report.rs:18-41`, ring de 100), `/snapshot` es vista viva en memoria (`session.rs:143-243` · `server.rs:872-898`) y el span OTLP (opt-in, default off) no incluye sesión ni tools (`langfuse.rs:97-108`). La superficie de escritura del proxy quedó auditada (`rg "\.put\("` sobre `vanta-proxy/src`): 3 hits de producción (`capture.rs:120,126` + `mem_command.rs:160`, opt-in off) + 1 hit de test (`inject.rs:604`) — ninguna escritura en el path de search.
+
+**FIND propuesto (lo registra el orquestador):** instrumentación mínima del search — persistir un evento por search ejecutado reutilizando `WriteBack::track` en `memory_tools::search` (namespace `proxy-memory-events`, key `{ms}-{seq}`, payload `{session, kind:"search", hits}`). La North Star queda entonces derivable como sesiones presentes en `proxy-turns` ∩ eventos `search` con `hits ≥ 1` en la ventana de 7 días. ~15 líneas + test; no toca el wire, y no se implementa en esta task (DEFER parcial — stop condition del master Task 13).
+
+### Guardrails (no decorativos — fuente y medición por ítem)
+
+| Guardrail | Fuente | Medición |
+|---|---|---|
+| 0 hallazgos high sin parche ≤ 7 días | owner 2026-09-24 (`VISION.md` §North Star) | Revisión semanal: filas abiertas high/crítica en `docs/dev/Backlog.md` + reportes de `docs/dev/reviews/` — ninguna con antigüedad > 7 días |
+| 0 regresión p99 > 15% | gate revivido HARD-06/FIND-154 (2026-09-27) | `python benchmarks/compare_baseline.py` (bloqueo >15% en familias estables; bandas por familia) · Rust: `cargo bench -p vantadb --bench canonical_p99` vs `docs/user/operations/BENCHMARKS.md` §8 |
+| 100% artefactos con versión sincronizada | rails HARD-01 (`docs/api/COMPATIBILITY.md`, `docs/api/VERSIONING.md`) + release-plz | Post-release: versión publicada (crates.io `vantadb` · npm `vantadb`/`vantadb-wasm` · PyPI `vantadb-py` · GitHub Release) == head de `docs/CHANGELOG.md` |
+| 0 violaciones Regla 11 en material público | `AGENTS.md` Regla 11 | Review pre-publicación: todo claim de performance cita bench reproducible + comando (`BENCHMARKS.md`) |
 
 ## Adenda 2026-09-24 — Decisiones post-investigación integral
 
