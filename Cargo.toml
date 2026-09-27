@@ -473,6 +473,7 @@ path = "tests/storage/antilocality_layout.rs"
 [[test]]
 name = "stress_protocol"
 path = "tests/certification/stress_protocol.rs"
+required-features = ["rayon"]
 
 [[test]]
 name = "hnsw_validation"
