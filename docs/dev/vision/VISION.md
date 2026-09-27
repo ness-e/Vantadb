@@ -3,7 +3,7 @@ title: VantaDB Vision & Strategic Positioning
 type: vision
 status: stable
 tags: [vantadb, product, strategy, uvp, icp, competitive, positioning]
-last_reviewed: 2026-09-24
+last_reviewed: 2026-09-27
 aliases: [Vision, Positioning, UVP, ICP, Competitive Analysis]
 related: [GO_TO_MARKET.md, VANTADB-PRO-FEATURES.md]
 ---
@@ -245,11 +245,13 @@ La matriz de arriba cubre vector DBs. El **wallet de memoria real** compite cont
 | Production Deployments | 50+ | ~5 |
 | Revenue (Cloud Offering) | $100K ARR | $0 |
 
-### North Star (2026-09-24)
+### North Star (2026-09-24 · formalizada 2026-09-27 — DEF-05)
 
-**Agentes activos que recuperan una memoria con éxito en ventana de 7 días** (medible en el proxy/MCP: sesiones con put+search la misma semana).
+> **North Star: agentes activos que recuperan una memoria con éxito en ventana de 7 días** (proxy operacional: sesiones con put+search en la misma ventana de 7 días).
 
 Guardrails: 0 hallazgos high sin parche ≤7 días · 0 regresión p99 >15% (gate revivido) · 100% artefactos con versión sincronizada · 0 violaciones Regla 11 en material público.
+
+Medición, baseline 0 (2026-09-26) y estado de instrumentalización (PUT derivable hoy; SEARCH → FIND + DEFER parcial, sin instrumentar código): `SPEC.md` § North Star (producto). ICP-01 instrumenta la métrica en la demo CI.
 
 ---
 
