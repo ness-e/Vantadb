@@ -3,7 +3,7 @@ title: "Workflows — Durable rules"
 type: workflow-index
 status: active
 tags: [vantadb, ci, workflows, rules, policy]
-last_reviewed: 2026-09-22
+last_reviewed: 2026-09-27
 aliases: []
 related: ["docs/dev/workflow/README.md", "docs/dev/workflow/TRIGGERS.md", "docs/dev/workflow/PUBLISH.md", "docs/dev/workflow/RUNBOOK.md", "docs/dev/workflow/FAQ.md"]
 ---
@@ -13,7 +13,7 @@ related: ["docs/dev/workflow/README.md", "docs/dev/workflow/TRIGGERS.md", "docs/
 > **Scope:** `.github/workflows/` (27 files, names as on disk 2026-09-22) + `docs/dev/workflow/*` + `docs/dev/operations/CI_POLICY.md`
 > **No tocar aquí:** engine code, bindings, release versioning (see release-ci rules); procedure lives in `RUNBOOK.md`, trigger matrix in `TRIGGERS.md`, publish chain in `PUBLISH.md`
 > **Status:** 🟢 Vigente
-> **Fuentes:** FIND-134/135/136/139/140/141/146 + renames FIND-142 (commit `97a3a03c`); matrix `TRIGGERS.md` (2026-09-22)
+> **Fuentes:** FIND-134/135/136/139/140/141/146 + renames FIND-142 (commit `97a3a03c`); matrix `TRIGGERS.md` (2026-09-22); rule 8: HARD-03 (owner decision 2026-09-26 — push deferred to plan close, bundles as loss mitigation)
 
 One verifiable rule per high-severity audit finding. Each rule states **Must / Must not / Why**, a good/bad example, and a mechanical check. If the check fails, the PR fails.
 
@@ -171,6 +171,24 @@ on:
 ```
 
 - **Verify:** `TRIGGERS.md` matrix `pull_request` column matches each file's `on:` block; intentionally unscoped rows carry a note (informational / path-scoped).
+
+### 8 — Local continuity: verified `git bundle` backups; releases ride fixed trains
+
+- **Must:** keep an off-repo, verified backup current while work accumulates as local-only commits (push happens only on explicit owner instruction — `.opencode/AGENTS.md` Regla 7 §Política de git): run `pwsh scripts/git-backup.ps1` (default `$HOME\VantaDB-Backups`; `-Dest` for an external or synced private folder, `-Keep` for retention, default 7). The script is fail-closed — it only reports success after `git bundle verify` exits 0, and never overwrites an existing bundle.
+- **Must:** treat releases as pre-committed trains, not ad-hoc bumps: **0.8.0 after F3** (schema cut, via release-plz after SCH-08) and **1.0** only when the HARD-01 exit criteria are met (`docs/api/COMPATIBILITY.md`, `docs/api/VERSIONING.md`). Version, tag and changelog stay 100% release-plz-owned.
+- **Must not:** keep the only backup on the repo's own volume (single point of failure — the script warns), commit bundles to the repo, or restate the push/commit policy in this rule or `CONTRIBUTING.md` — the normative text lives in `.opencode/AGENTS.md` Regla 7; both cross-reference it.
+- **Por qué:** with push deferred to the end of the plan, the working tree runs days ahead of any remote (31 local commits measured 2026-09-27) — R2 (GitLab 2017): backups that fail silently destroy weeks of work. A bundle is self-contained, offline-verifiable and restorable (`git clone <bundle>`); trains keep 0.8.0/1.0 from drifting into ad-hoc releases.
+
+```powershell
+# BAD: live copy of .git, same disk, never verified, no restore path
+Copy-Item -Recurse . ..\VantaDB-copy
+
+# GOOD: timestamped bundle, fail-closed verify, off-volume destination
+pwsh scripts/git-backup.ps1 -Dest D:\VantaDB-Backups   # exit 0 only after `git bundle verify` exit 0
+git clone D:\VantaDB-Backups\vantadb-20260927-0033.bundle C:\tmp\restore-test   # restorable
+```
+
+- **Verify:** `pwsh scripts/git-backup.ps1 -Dest <off-repo-folder>` exits 0 and `git bundle verify <bundle>` exits 0; `Select-String -Path docs/dev/workflow/RULES.md -Pattern 'git-backup.ps1'` finds rule 8; train milestones match `docs/dev/plans/2026-09-26-master-roadmap.md` §Gates por fase.
 
 ## See also
 
