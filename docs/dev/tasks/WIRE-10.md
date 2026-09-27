@@ -5,10 +5,10 @@
 - **Fuente:** Backlog `P56` (fila WIRE-10) + plan `:108,120,156`
 - **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴 · **Tipo:** Mixto (`fix:`, shell + notebook + Rust CLI + skills)
 - **Turns estimados:** 15-25
-- **Creado:** 2026-09-25 · **last-synced:** 2026-09-25
-- **Estado:** ⏳ IN PROGRESS
+- **Creado:** 2026-09-25 · **last-synced:** 2026-09-27
+- **Estado:** ✅ COMPLETED (2026-09-27 — cierre formal F1a; commit canónico `8e55e853`, hash pre-rebase `aac7001f`; P2-01 fresco APPROVE — ver §Review)
 - **SDP (Paso 0b):** source-driven-development + systematic-debugging + test-driven-development + incremental-implementation + api-and-interface-design (task) + security-and-hardening + doubt-driven-development (SDP v2 BUILD; frontend-ui-engineering N/A — sin web/; context-engineering N/A — contexto ya empaquetado)
-- **Incógnitas (uphill):** 0 (Spec P/D resuelta 2026-09-25) · **Pendientes (downhill):** 5 steps
+- **Incógnitas (uphill):** 0 (Spec P/D resuelta 2026-09-25) · **Pendientes (downhill):** 0 steps (5/5 ✅ 2026-09-25; cierre 2026-09-27)
 
 ## Blast Radius
 
@@ -44,15 +44,15 @@
 ```
 === RECITATION ===
 Objetivo activo: WIRE-10 — distribución P0 (install/Colab/hooks)
-Estado: plan (desde: —)
-Última acción: task file creado; Spec P/D resuelta (mcp-call); EST-10 verificado sin solape (ipynb excluido)
-Resultado: ⬜
-Próxima acción: Step 1 — install.sh macOS (sha256sum→shasum fallback)
-Contrato: ver ## Contrato
+Estado: completed (desde: in-progress)
+Última acción: Cierre 2026-09-27 — reconciliación (5/5 steps ✅ desde 2026-09-25, commit 8e55e853) + verify scoped (fmt/clippy/nextest 11/11/hooks 65/65/notebook e2e 8/8/harness 8/8) + verify.ps1 ALL 10 PASS + P2-01 fresco APPROVE (vanta-review ses_f1c06efc4ffeLk9FF3gTqyO9Hw) + FIND-169
+Resultado: ✅
+Próxima acción: ninguna — LEAD: commit local del cierre (task file/plan/Backlog) sin push
+Contrato: ver ## Contrato — verificado (harness + notebook e2e + hooks sin pwsh + mcp-call one-shot)
 Invariantes: Linux intacto; narrativa notebook intacta; launcher ps1 intacto; secretos por env
-Deuda: ninguna
-Próxima tarea si completa: WIRE-11 (llm-driver)
-last-synced: 2026-09-25
+Deuda: FIND-169 (Media pre-existente, no bloqueante)
+Próxima tarea si completa: DEF-03
+last-synced: 2026-09-27
 === END RECITATION ===
 ```
 
@@ -79,8 +79,8 @@ last-synced: 2026-09-25
 | Eje | Contador |
 |-----|----------|
 | Incógnitas abiertas | 0 |
-| Pendientes | 5 steps |
-| % completado | 0% |
+| Pendientes | 0 steps |
+| % completado | 100% |
 
 ## Fase 1 — Evidencia de Debugging (GATE Bug)
 - **Repro:** (a) `scripts/install.sh` en macOS sin coreutils → `sha256sum: command not found`; (b) notebook Colab → `AttributeError` en `VantaDB(`/`search_memory`; (c) hook sin pwsh → inyecta nothing en silencio.
@@ -121,7 +121,7 @@ last-synced: 2026-09-25
 - **Archivos:** —
 - **Acción:** fmt+clippy+tests scope, `verify_changed.ps1`, commit(s) `fix:`, progreso
 - **Verify:** `campaign_verify_cmd` con el contrato
-- **Estado:** ✅ DONE (2026-09-25 — `verify_changed.ps1` ALL 4 PASS (docs-coverage exigió fila `mcp-call` en CONFIGURATION.md §4); lib 10/10 mcp_call + cli_tests 85/85 + hooks 65/65 + notebook e2e; commit `aac7001f` local, sin push — Regla 7)
+- **Estado:** ✅ DONE (2026-09-25 — `verify_changed.ps1` ALL 4 PASS (docs-coverage exigió fila `mcp-call` en CONFIGURATION.md §4); lib 10/10 mcp_call + cli_tests 85/85 + hooks 65/65 + notebook e2e; commit canónico `8e55e853` (hash pre-rebase `aac7001f`) local, sin push — Regla 7)
 
 ## Dependencias
 - Ninguna (serializar con WIRE-01/WIRE-09 si tocan proxy/server el mismo día — no esperado). Siguiente: WIRE-11.
@@ -132,7 +132,15 @@ last-synced: 2026-09-25
 - **Cómo se probó:** ejecución real en cada slice, no auto-reporte
 - **Checklist anti-hábitos:** según plantilla
 - **Veredicto:** changes-required → aplicado (Medium: `truncate` UTF-8 panic → `floor_char_boundary` + test regresión; Low: reap con `child.wait()` tras kill/disconnect, taxonomía exit-2 documentada en cli.rs, nota `{{prompt}}` por cliente en README; trade-off aceptado: save-state hooks = reminder estático, sin `trim_matches` churn). Re-verify: lib 11/11, hooks 65/65, smoke recall OK sin huérfanos.
+- **Cierre (2026-09-27) — ronda fresca para el ACCEPT mecanizado (HARD-07):** revisor `vanta-review` (contexto distinto; sesión `ses_f1c06efc4ffeLk9FF3gTqyO9Hw`; autor de cierre sesión `ses_f1c16a800ffewd03Ct0GuglWpT`). **Veredicto: ✅ APPROVE** (evidencia re-ejecutada por el revisor, no auto-reporte):
+  - install.sh: harness `step1-verify.ps1` → `pass=8 fail=0` (GNU, fallback shasum macOS, fail-closed sin ambas, mismatch, dry-run, `sh -n`).
+  - Notebook: `run-nb.ps1` → `NOTEBOOK OK executed=8 skipped=1`; 0 APIs stale.
+  - Hooks: `test-hooks.ps1` → `PASS=65 FAIL=0`; recall sin `pwsh`; `vanta-mcp-local.ps1` intacto (`git diff` vacío); smoke live `mcp-call memory_recall/memory_put` OK sin huérfanos nuevos.
+  - `mcp-call`: nextest → `11 tests run: 11 passed`; fixes de la ronda previa verificados en código (`floor_char_boundary` L200, `kill()+wait()` L333-368, taxonomía exit-2).
+  - Gate fast-tier completo: `verify.ps1` **ALL 10 PASS** (vía `CARGO_TARGET_DIR=target/session-api01` por lock de binario en `target/debug` — 8 sesiones MCP live del owner; no es fallo de código) + `validate-docs-coverage` exit 0.
+- **Hallazgos de la ronda de cierre:** Medium pre-existente (no bloqueante) → `FIND-169` (save-state hook opencode: `thread_send` sin `thread_id` = no-op determinista; no es regresión de WIRE-10). Low informativo: sin job CI que ejecute install.sh (evidencia = harness mock + docs; consistente con la Stop condition del plan "smoke documentado + CI matrix").
 
 ## Notas
 - WIP ajeno PROHIBIDO: `src/sdk/types/`, `QueryResult` (API-01 en curso) — `mcp-call` no debe tocar tipos del SDK.
 - `vanta-mcp-local.ps1` intacto (sustitución en templates, no modificación).
+- **Cierre 2026-09-27 (F1a):** reconciliación — los 5 steps ya estaban ✅ DONE desde 2026-09-25 (commits `8e55e853` + progreso `6f1ca39d`/`c3ccaed0`); el "⏳ IN PROGRESS / 5 steps pendientes" del plan era metadata stale (los Steps del task file mandan). Cierre = verify scoped completo + P2-01 fresco (HARD-07) + sync task file/plan. Commit del cierre → LEAD (sin push).
