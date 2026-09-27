@@ -8,10 +8,10 @@
 - **Tipo:** Mixto (harness `.opencode/` + docs workflow) — **Gate H aplica**
 - **Turns estimados:** 10
 - **Creado:** 2026-09-26T19:58
-- **last-synced:** 2026-09-26T19:58
-- **Estado:** ⬜ PENDING
+- **last-synced:** 2026-09-27T05:53
+- **Estado:** ✅ COMPLETED (2026-09-27; commit local → LEAD, sin push)
 - **Incógnitas (uphill):** 0 abiertas
-- **Pendientes (downhill):** 4 steps
+- **Pendientes (downhill):** 0 steps
 
 ## Blast Radius
 
@@ -19,14 +19,14 @@
 |-----------|---------|
 | Callers | `mcp/campaign-server.mjs` (runtime MCP del task-system, consumido por OpenCode vía `opencode.jsonc` y por `/pipeline*`) · `C0-unified.mjs` (consumido por `config/parity-check.mjs` + server) · `config/state-tools.mjs` (importado por el server como runtime legacy) · agentes/prompts leen `pipeline-full.md` y `question-gates.md` |
 | Callees | `campaign-server.mjs` → `config/state-tools.mjs` (`getAllowedTools`, `validateAction`) · `C0-unified.mjs` → re-export exacto de legacy · `updateTaskStateCore` → plan file (regex update bajo lock) |
-| Implicaciones | Todo `campaign_update_task_state(completed)` queda sujeto a un payload de review válido (cambio de contrato del harness, NO del producto). Riesgo principal: bloquear ACCEPT válido (mitigación: casos de prueba + waiver + test con tarea histórica). Cambio en `.opencode/` → Gate H obligatorio. Trazabilidad: el waiver queda en trace/decisions |
+| Implicaciones | Todo `campaign_update_task_state(completed)` queda sujeto a un payload de review válido (cambio de contrato del harness, NO del producto). Riesgo principal: bloquear ACCEPT válido (mitigación: casos de prueba + waiver + test con tarea histórica). Cambio en `.opencode/` → Gate H obligatorio. Trazabilidad: el waiver queda en trace/decisions. Archivo nuevo del cambio: `.opencode/task-system/mcp/review-gate.test.mjs` (5 casos de simulación: T1-T4 canónicos + T5 regresión) |
 
 ## Impacto mapeado (Regla 0)
 
-- **Archivos leídos (completos):** `.opencode/task-system/config/state-tools.mjs` (106 líneas — runtime) · `.opencode/task-system/C0-unified.mjs` (232 líneas — canónico v2, `C0_TRANSITIONS` L42-53, `C0_GUARDS` L63-74) · `.opencode/task-system/mcp/campaign-server.mjs` (§`updateTaskStateCore` L893-960, tool L962-1027, enforcement C0 L1916-1994) · `.opencode/task-system/prompts/question-gates.md` (156 líneas — Gate H L98-110) · `.opencode/task-system/prompts/pipeline-full.md` (L95-204 — Review P2-01 L158) · `docs/dev/tasks/API-09.md:150-179` (§Review incidente) · `docs/dev/workflow/RULES.md` (headings, reglas 1-7) · `.opencode/task-system/mcp/state-persistence.test.mjs` (convención `node --test`, importa `updateTaskStateCore`)
+- **Archivos leídos (completos):** `.opencode/task-system/config/state-tools.mjs` (106 líneas — runtime) · `.opencode/task-system/C0-unified.mjs` (232 líneas — canónico v2, `C0_TRANSITIONS` L42-53, `C0_GUARDS` L63-74) · `.opencode/task-system/mcp/campaign-server.mjs` (§`updateTaskStateCore` L893-960, tool L962-1027, enforcement C0 L1916-1994) · `.opencode/task-system/prompts/question-gates.md` (156 líneas — Gate H L98-110) · `.opencode/task-system/prompts/pipeline-full.md` (L95-204 — Review P2-01 L158) · `docs/dev/tasks/API-09.md:150-179` (§Review incidente) · `docs/dev/workflow/RULES.md` (headings, reglas 1-7) · `.opencode/task-system/mcp/state-persistence.test.mjs` (convención `node --test`, importa `updateTaskStateCore`) · `docs/dev/tasks/HARD-07.md` (este task file — se sincroniza durante la ejecución)
 - **Archivos referenciados hacia dentro:** `campaign-server.mjs` importa legacy `state-tools.mjs`; `C0-unified.mjs` re-exporta legacy (parity-check.mjs enforcea cero divergencia); `opencode.jsonc` registra el MCP campaign
 - **Archivos que referencian a los editados (referencias entrantes):** `config/parity-check.mjs` (verifica C0); tests `mcp/*.test.mjs` (importan el server); `question-gates.md` es referenciado por plan.md/pipeline-full/iter-loop-tools/pipeline-run/subagent-recovery; `RULES.md` es normativa de workflows CI
-- **Veredicto impacto:** **medio-alto** — se toca el runtime del state machine. Sin cambio de producto. Mitigaciones: test de simulación (4 casos) + actualización de tests existentes + Gate H
+- **Veredicto impacto:** **medio-alto** — se toca el runtime del state machine. Sin cambio de producto. Mitigaciones: test de simulación (5 casos) + actualización de tests existentes + Gate H
 
 ## Contrato
 
@@ -35,7 +35,7 @@
 **Interpretación operativa del contrato** (registrada en Spec): el payload de review es obligatorio para `completed`; `mode=fresh` exige `reviewer_context` no vacío y `≠ author_context`; `mode=degraded` **bloquea** el ACCEPT salvo waiver registrado del owner (con `ref`); verdict debe ser `approve`.
 
 **Verificación mecánica del contrato:**
-1. `node --test .opencode/task-system/mcp/review-gate.test.mjs` → 4/4 pass (fresh OK / degraded BLOCKED / waiver OK+registrado / over-block guard).
+1. `node --test .opencode/task-system/mcp/review-gate.test.mjs` → 5/5 pass (T1 fresh OK / T2 degraded BLOCKED / T3 waiver OK+registrado / T4 over-block guard / T5 regresión guard-numérico).
 2. `node --test .opencode/task-system/mcp/state-persistence.test.mjs` → verde (sin regresión del state machine).
 3. `node .opencode/task-system/config/parity-check.mjs` → exit 0 (state-tools ↔ C0-unified sin divergencia).
 4. `/harness` verde (Gate H) antes del commit.
@@ -95,8 +95,8 @@ contract:
 
 | Nivel | Gate |
 |-------|------|
-| **Task** | Contrato verificable (4 condiciones) + 4 casos de simulación pass + tests existentes del harness verdes |
-| **Commit** | 1 commit local atómico (`feat(harness): HARD-07 — ...`), diff limpio, Gate H verde, sin push |
+| **Task** | Contrato verificable (4 condiciones) + 5 casos de simulación pass (4 canónicos + T5 regresión) + tests existentes del harness verdes (54/54) |
+| **Commit** | 1 commit local atómico y **selectivo** (`feat(harness): HARD-07 — ...`), diff limpio, Gate H verde, sin push — **no ejecutado por el agente** (instrucción del orquestador: commitea el LEAD; ver higiene en §Review/Notas) |
 | **Release** | N/A — cambio de harness (`.opencode/` repo separado), sin release de producto. Justificado: verificación = `/harness` + `node --test` |
 
 ## Herramientas necesarias
@@ -121,8 +121,8 @@ contract:
 | Eje | Contador |
 |-----|----------|
 | Incógnitas abiertas (uphill) | 0 — diseño decidido en Spec (A recomendado en todas) |
-| Pendientes de ejecución (downhill) | 4 steps |
-| % completado | 0% |
+| Pendientes de ejecución (downhill) | 0 steps (4/4 ✅) |
+| % completado | 100% |
 
 ## Fases explícitas — SECURITY | PERFORMANCE (P2-07)
 
@@ -135,25 +135,25 @@ contract:
 - **Archivos:** `.opencode/task-system/config/state-tools.mjs`, `.opencode/task-system/C0-unified.mjs`
 - **Acción:** en `state-tools.mjs` agregar `REVIEW_ACCEPT_RULES` + `validateReviewAccept(review)` (reglas: modo fresh exige `reviewer_context` no vacío y `≠ author_context`; degraded exige `waiver {owner, ref}`; verdict `approve`; retorna `{allowed, reason}` con mensaje accionable) y exportarlo; en `C0-unified.mjs` re-exportarlo + actualizar `C0_GUARDS["REVIEW->ACCEPT"]` citando el invariante mecanizado.
 - **Verify:** `node --check .opencode/task-system/config/state-tools.mjs` y `node --check .opencode/task-system/C0-unified.mjs` exit 0; `node .opencode/task-system/config/parity-check.mjs` exit 0.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ DONE (2026-09-27) — `REVIEW_ACCEPT_RULES` + `validateReviewAccept(review)` exportados en `config/state-tools.mjs`; `C0-unified.mjs` re-export exacto + `C0_GUARDS["REVIEW->ACCEPT"]` cita la mecanización. Verify: `node --check` ×2 exit 0; parity-check exit 0 (10 estados idénticos + BUDGET espejo 10/40/40/5/120).
 
 ### Step 2: Enforcement en el server MCP
 - **Archivos:** `.opencode/task-system/mcp/campaign-server.mjs`, `.opencode/task-system/mcp/state-persistence.test.mjs` (fixtures)
 - **Acción:** extender el schema de `recitation` con `review` (opcional en zod, obligatorio en enforcement); pasar `review` a `updateTaskStateCore`; en `updateTaskStateCore`, si `newState === "completed"` y `validateReviewAccept` falla → `{updated:false, error}` sin escribir (mensaje con próximo paso: correr reviewer fresco o registrar waiver owner). Actualizar fixtures existentes que llamen `completed` para incluir un review fresco válido (caso "tarea histórica").
 - **Verify:** `node --test .opencode/task-system/mcp/state-persistence.test.mjs` verde; prueba manual: `completed` sin review → `updated:false`; con review fresco → `updated:true`.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ DONE (2026-09-27) — enforcement en `updateTaskStateCore` (fail-fast sin write, `reviewBlocked:true`); schema `recitation.review` (opcional zod, obligatorio en enforcement); `recordReviewWaiver()` exportado (trace `review.waiver` + `decisions.md`, memoryDir inyectable). Regresión latente corregida: no materializar recitation para task inexistente (evita write fantasma — la exponen los fixtures). Fixtures `state-persistence.test.mjs` actualizadas con `FRESH_REVIEW` (caso histórico). Verify: proof manual (NO-REVIEW → bloqueado sin write; FRESH → `updated:true`) + `state-persistence` 15/15 + `bun test` **49/49** (0 fail).
 
 ### Step 3: Sincronizar prosa normativa
 - **Archivos:** `.opencode/task-system/prompts/pipeline-full.md` (§Cierre — Review P2-01 L158), `.opencode/task-system/prompts/question-gates.md` (Gate C/H — registrar que el ACCEPT exige payload de review), `docs/dev/workflow/RULES.md` (nueva regla durable §8 "Review gate: reviewer_context ≠ author_context")
 - **Acción:** documentar el invariante + el payload `review` + la vía del waiver (owner + registro) en los 3 archivos, referenciando `validateReviewAccept` como fuente mecánica.
 - **Verify:** `rg -n "reviewer_context" .opencode/task-system/prompts/pipeline-full.md .opencode/task-system/prompts/question-gates.md docs/dev/workflow/RULES.md` → ≥3 matches; `node .opencode/task-system/config/parity-check.mjs` exit 0.
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ DONE (2026-09-27) — `pipeline-full.md` §Cierre (ACCEPT mecanizado post-tabla P2-01, diff rebasado sobre HARD-02); `question-gates.md` Gate C row "ACCEPT mecanizado" + cross-ref en Gate H; `RULES.md` regla durable **§9** (la §8 ya era HARD-03 — renumber documentado). Verify: `rg` → 7 matches en los 3 archivos; parity-check exit 0.
 
 ### Step 4: Simulación + Gate H + commit
 - **Archivos:** `.opencode/task-system/mcp/review-gate.test.mjs` (nuevo)
-- **Acción:** 4 casos `node:test`: T1 fresh (`reviewer_context ≠ author_context`, approve) → ACCEPT OK; T2 degraded sin waiver → **BLOQUEADO**; T3 degraded con waiver `{owner, ref}` → OK + registro en trace/decisions; T4 over-block guard (recitation estilo histórico API-09 con review fresco) → OK. Correr Gate H (`/harness` vía `vanta-harness`) y commit local `feat(harness): HARD-07 — review gate mecanizado` (sin push).
-- **Verify:** `node --test .opencode/task-system/mcp/review-gate.test.mjs` → 4/4; `/harness` verde; commit local creado.
-- **Estado:** ⬜ PENDING
+- **Acción:** 5 casos `node:test`: T1 fresh (`reviewer_context ≠ author_context`, approve) → ACCEPT OK; T2 degraded sin waiver → **BLOQUEADO**; T3 degraded con waiver `{owner, ref}` → OK + registro en trace/decisions; T4 over-block guard (recitation estilo histórico API-09 con review fresco) → OK; T5 regresión del guard (id numérico sobre header canónico → recitation no perdida). Correr Gate H (`/harness` vía `vanta-harness`) y commit local `feat(harness): HARD-07 — review gate mecanizado` (sin push).
+- **Verify:** `node --test .opencode/task-system/mcp/review-gate.test.mjs` → 5/5; `/harness` verde; commit local creado.
+- **Estado:** ✅ DONE (2026-09-27) — test file con T1–T5 (5/5). **Gate H:** ronda 1 ❌ (H-1 medium: `pipeline-run.md §j` re-cierre sin review; H-2/H-3 lows; H-4 low: guard con primitivo divergente) → fixes → ronda 2 **✅ VERDE** (sesión `ses_f1dd4aab4ffehqG5sNABeGse40`). **P2-01:** ronda 1 ❌ REQUEST CHANGES (🔴 guard `fromState` + T5; trade-off restart; nits) → fixes → ronda 2 **✅ APPROVE** (sesión `ses_f1dd4aab4ffdZYvxFh2UIKkxEU`). E2E MCP por stdio (server nuevo): degradado sin waiver → `reviewBlocked:true`; fresh/waiver pasan. **Commit: NO ejecutado** — instrucción del orquestador: el LEAD commitea (selectivo; ver §Review).
 
 ## Dependencias
 - HARD-02 (plan master): complementa (política de review risk-tiered) — HARD-07 mecaniza el invariante; sin bloqueo mutuo (HARD-02 toca prompts de tiering, HARD-07 toca runtime). Si HARD-02 editó `pipeline-full.md` antes, rebasar el diff en Step 3.
@@ -162,25 +162,49 @@ contract:
 
 > Lo ejecuta un agente DISTINTO al implementador. Sin esto registrado, la tarea no está COMPLETED. **Gate H obligatorio: `/harness` verde vía `vanta-harness` (nunca el implementador).**
 
-- **Revisor:** `vanta-harness` (Gate H) + `vanta-review` (contexto fresco) para el veredicto P2-01. *(PENDIENTE al ejecutar — placeholder P2-01.)*
-- **Enfoque:** ¿el invariante bloquea el caso degradado sin bloquear tareas válidas? ¿el waiver queda registrado y no es un bypass silencioso? ¿el state machine no se degradó (tests existentes)?
-- **Cómo se probó:** re-ejecución de `node --test` (4+1 archivos) + `/harness` (evidencia pegada, no auto-reporte).
-- **Checklist anti-hábitos tóxicos** (contrato de comportamiento — el revisor verifica que el implementador NO haya incurrido en ninguno antes de aprobar; fuente §12 de `docs/Investigaciones/2026-08-10-agent-engineering/agent-02-task-execution.md`):
-  - [ ] No inventar salidas de comandos/herramientas que no se ejecutaron.
-  - [ ] No saltarse la clarificación por "ya sé qué quiere".
-  - [ ] No declarar done sin verificar contra los acceptance criteria.
-  - [ ] No ignorar fallos ni reportar "todo OK" cuando hubo fallo parcial.
-  - [ ] No hacer un solo intento de búsqueda y darlo por saturado.
-  - [ ] No copiar sin citar ni presentar supuestos propios como evidencia.
-  - [ ] No reintentar en bucle sin diagnóstico.
-  - [ ] No dejar huérfanos los pasos: cada paso conectado al objetivo.
-  - [ ] No degradar el chequeo de errores en paths de dinero/seguridad.
-  - [ ] No gastar presupuesto infinito; paradas explícitas.
-- **Veredicto:** ⏳ pendiente (✅ approve | ❌ cambios requeridos)
+- **Revisor:** `vanta-harness` (Gate H, sesión `ses_f1dd4aab4ffehqG5sNABeGse40` — 2 rondas) + `vanta-review` (P2-01, contexto fresco, sesión `ses_f1dd4aab4ffdZYvxFh2UIKkxEU` — 2 rondas). Implementador: otra sesión (vanta-lead).
+- **Enfoque:** ¿el invariante bloquea el caso degradado sin bloquear tareas válidas? ¿el waiver queda registrado y no es un bypass silencioso? ¿el state machine no se degradó (tests existentes)? ¿alguna vía alternativa de ACCEPT sin review? ¿el guard anti write-fantasma es correcto en todas las resoluciones de id?
+- **Cómo se probó:** re-ejecución independiente (evidencia pegada, no auto-reporte): `bun test` cwd mcp → **54/54** · `review-gate.test.mjs` → **5/5** · `state-persistence.test.mjs` → **15/15** · parity-check → **exit 0** · smoke-mcp-sdp → **OK** · `node --check` ×4 → 0 · E2E MCP por stdio del server nuevo (degradado sin waiver → `reviewBlocked:true`; plan intacto) · probes propios de ambos revisores (numeric-id, same-context disfrazado, ghost-write, waiver decisions+trace).
+
+**Gate H (`vanta-harness`):**
+- **Ronda 1:** ❌ cambios requeridos — H-1 (MEDIUM): `pipeline-run.md §j` re-cerrada con `completed` sin payload → falso bloqueo en el happy path del driver; H-2 (LOW): `C0-unified.md` guard sin sincronizar; H-3 (LOW): conteo "6 claves" stale + `recitation-template.md` sin `review`; H-4 (LOW): guard con primitivo divergente (`parseTasks` vs `findTaskById`); H-5/H-6 INFO.
+- **Fixes:** H-1 §j sincronizado (cross-ref + reutilización del payload del sub-agente); H-2/H-3(b) diferidos → `FIND-166`; H-3(a) `pipeline-full.md` corregido in-scope; H-4 corregido + T5.
+- **Ronda 2:** ✅ **VERDE** — 6 comandos re-ejecutados (54/54 · 5/5 · 15/15 · parity 0 · smoke OK · checks 0); sims propias del guard (numeric-id → recitation presente; task 999 → byte-idéntico sin fantasma); enforcement `completed`-only confirmado (in-progress/failed/pending intactos).
+- **Nota de scope:** `pipeline-run.md` no estaba en la lista declarada del orquestador; se tocó por la regla Gate H "hallazgos ≥ medium → fix en el mismo PR del harness". **El stage final es del LEAD** (ver higiene de commit abajo).
+
+**P2-01 (`vanta-review`):**
+- **Ronda 1:** ❌ REQUEST CHANGES — 🔴 `fromState` guard resolvía existencia con `parseTasks` (id canónico) mientras `updateState` usa `findTaskById` → id numérico sobre header canónico (`### Task 7: HARD-99`) escribía estado y descartaba recitation en silencio (repro `hard07-probe3.mjs`). Trade-off aceptado: `reviewer_context ≠ author_context` es declarativo (strings) — boundary MCP no permite verificar identidad de sesión; compensado con waiver durable + mensajes accionables. Residual: el server MCP en ejecución no aplica el gate hasta reinicio. Nits: prosa stale, false-success pre-existente, fresh no persistido, commit selectivo.
+- **Fixes:** guard → `findTaskById(withCampaignId, taskId)` (mismo primitivo) + **T5** regresión; restart documentado (`question-gates.md` Gate H + `RULES.md` §9 Rollout); nits → `FIND-166/167/168`; commit selectivo → LEAD.
+- **Ronda 2:** ✅ **APPROVE** — 5/5 · 15/15 · 54/54 · parity 0 · smoke OK · probe3 propio: `numeric id '7' → updated:true + ✅ COMPLETED + recitation7:true` (F1 FIXED) y ghost-write sigue sin fantasma.
+- **Checklist anti-hábitos tóxicos** (verificada por ambos revisores antes de aprobar):
+  - [x] No inventar salidas de comandos/herramientas que no se ejecutaron — toda la evidencia re-ejecutada por los revisores.
+  - [x] No saltarse la clarificación por "ya sé qué quiere" — Spec con decisiones-por-evidencia en DISCOVERY; familia aprobada en plan.
+  - [x] No declarar done sin verificar contra los acceptance criteria — contrato verificado mecánicamente (5/5 + gates).
+  - [x] No ignorar fallos ni reportar "todo OK" cuando hubo fallo parcial — T3 falló → diagnosticado (dir inexistente) → `mkdirSync`; H-1/H-4 fallos de review → fixes + re-review.
+  - [x] No hacer un solo intento de búsqueda y darlo por saturado — discovery con codegraph + lectura completa de los 8 archivos del blast radius.
+  - [x] No copiar sin citar ni presentar supuestos propios como evidencia — referencias a arXiv 2404.13076 + refs archivo:línea; evidencia pegada.
+  - [x] No reintentar en bucle sin diagnóstico — cada fallo con causa raíz documentada (T3, H-4, parity -1 transitorio).
+  - [x] No dejar huérfanos los pasos: cada paso conectado al objetivo — los 4 steps mapean 1:1 al contrato; findings con FIND-*.
+  - [x] No degradar el chequeo de errores en paths de dinero/seguridad — el gate ES el mecanismo anti-degradación; fail-fast bajo lock.
+  - [x] No gastar presupuesto infinito; paradas explícitas — budget reset documentado (transitorios) + cierre acotado.
+- **Veredicto:** ✅ **APPROVE** (Gate H verde + P2-01 approve, ambos en ronda 2). Commit local atómico y selectivo → **LEAD**.
 
 ## Notas
-- **Gate H** obligatorio (todo el diff vive en `.opencode/`). Commit local; push solo con instrucción del owner (Regla 7).
+- **Gate H** obligatorio (todo el diff vive en `.opencode/`). Commit local; push solo con instrucción del owner (Regla 7). Gate H ronda 2 ✅; P2-01 ronda 2 ✅.
 - **Riesgo aceptado:** fricción al cerrar tareas (payload nuevo) — mitigado por mensaje accionable + casos de prueba + waiver registrado. Trigger de revisión: 2 waivers seguidos.
-- **Stop condition del plan:** si rompe el flujo de >2 comandos → revertir y rediseñar.
+- **Stop condition del plan:** si rompe el flujo de >2 comandos → revertir y rediseñar. No se rompió: cierre sigue siendo 1 llamada (payload extra).
 - **Path real vs plan:** `state-tools.mjs` vive en `config/` (no en la raíz de `task-system/`); corregido en este task file.
 - **NOTICED BUT NOT TOUCHING:** `prompts/iter-loop-tools.md` describe el C0 en prosa (L132-137) — se deja como referencia histórica; la fuente mecanizada pasa a ser `validateReviewAccept` (si el ejecutor ve divergencia, actualizar puntero sin reescribir el archivo completo).
+- **Scope addendum (disclosed):** `prompts/pipeline-run.md §j` (H-1, MEDIUM de Gate H) se tocó aunque no estaba en la lista declarada del orquestador — habilitado por la regla Gate H "hallazgos ≥ medium → fix en el mismo PR"; es la misma naturaleza "sincronizar prosa" del Step 3. El LEAD decide el stage final.
+- **Higiene de commit (LEAD):** stagear SOLO HARD-07 — `.opencode/`: `task-system/config/state-tools.mjs`, `C0-unified.mjs`, `task-system/mcp/campaign-server.mjs`, `task-system/mcp/state-persistence.test.mjs`, `task-system/mcp/review-gate.test.mjs` (nuevo), `task-system/prompts/pipeline-full.md` (⚠️ mezclado con diff HARD-02: stagear hunks de HARD-07), `task-system/prompts/pipeline-run.md`, `task-system/prompts/question-gates.md`; host: `docs/dev/workflow/RULES.md`, `docs/dev/Backlog.md`, `docs/dev/tasks/HARD-07.md`. NO arrastrar: `agents/AGENTS.md`, `references/test-suite.md`, `prompts/task.md`, `mcp/parsers.mjs`, `memory/*` (otras tasks).
+- **Rollout:** el enforcement se activa al **reiniciar** el proceso MCP (`campaign-server.mjs`); el proceso en ejecución mantiene el código previo — documentado en `question-gates.md` Gate H + `RULES.md` §9.
+- **Findings derivados:** `FIND-166` (prosa restante: C0-unified.md/recitation-template/iter-loop), `FIND-167` (auditabilidad: fresh no persistido, `recorded` ignorado, `fromState` trace), `FIND-168` (false-success pre-existente sin línea Estado).
+
+## Context Save Point
+
+- **Fecha:** 2026-09-27T05:53
+- **Branch:** develop (ambos repos: VantaDB + `.opencode`)
+- **CI pendiente:** no — verificación local completa (`/harness` ✅ + 54/54 + parity + smoke + verify_changed ALL 4 PASS)
+- **Decisiones:** enforcement en `validateReviewAccept` (config) + core (punto A del Spec); degraded SOLO con waiver owner `{owner, ref}` registrado (decisions+trace); guard de existencia = `findTaskById` (mismo primitivo que `updateState`); `review` NO se persiste en el bloque del plan (FIND-167 evalúa extender); T5 como regresión fija.
+- **Problemas conocidos:** proceso MCP en ejecución sin el gate hasta reinicio (documentado); `plan.adjust.fromState` null con id numérico (FIND-167c, pre-existente).
+- **Próxima tarea:** WIRE-10 (F1) — `docs/dev/tasks/WIRE-10.md` (ya ⏳ IN PROGRESS; continuar desde su primer step ⬜ PENDING).
