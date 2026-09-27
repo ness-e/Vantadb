@@ -99,7 +99,7 @@ contract:
 - campaign MCP (`campaign_update_task_state`, `campaign_verify_cmd`)
 - `/harness` (Gate H — vía `vanta-harness`, leaf distinto del implementador)
 
-**Skills cargadas (SDP):** `campaign-executor` (base task-system) · `incremental-implementation` (BUILD: slices) · `test-driven-development` (repro RED antes del blindaje) · `context-engineering` (jerarquía de contexto) · `source-driven-development` (Cargo `required-features`/workspace features) · `doubt-driven-development` (Gate H / verificación adversarial del wording) · `writing-guidelines` (docs EN/ES). Excluidas del output SDP por no aplicar: `frontend-ui-engineering`, `api-and-interface-design` (sin UI ni superficie pública).
+**Skills cargadas (SDP v3, pre-run 2026-09-27):** `campaign-executor` · `progreso` · `doubt-driven-development` · `test-driven-development` · `systematic-debugging` · `writing-guidelines` · `writing-plans` · `incremental-implementation` · **PINNED (policy):** `doubt-driven-development`, `test-driven-development`, `systematic-debugging`
 `SDP: campaign-executor, incremental-implementation, test-driven-development, context-engineering, source-driven-development, doubt-driven-development, writing-guidelines`
 
 ## Investigation Notes

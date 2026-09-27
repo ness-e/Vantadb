@@ -89,7 +89,7 @@ last-synced: 2026-09-26
 - `pwsh dev-tools/verify.ps1` / `floor-guard.ps1` / `gate-common.ps1`, cargo-llvm-cov (`--json` para presupuesto), actionlint (si disponible; fallback parse YAML), `gh` CLI (workflows/issues), `campaign_verify_cmd`, codegraph_explore
 - Leer ANTES de editar: `.opencode/rules/release-ci.md` (CI/release), `.opencode/rules/concurrency-async.md` no aplica; `.opencode/AGENTS.md` (Gate H + Regla 1/2), `.opencode/references/floor-guard.md` (floor)
 
-**Skills cargadas (SDP):** campaign-executor (base task-system) · ci-cd-and-automation (gates/workflows — SDP base del task) · constraint-driven-development (quality bar/floor-guard — SDP keyword-mapped; NO debilitar el bar) · test-driven-development (caso de prueba del tiering + verificación del presupuesto) · incremental-implementation (slices: coverage → tiering → nightly → docs) · doubt-driven-development (🔴). Descartadas: frontend-ui-engineering (sin `web/`), source-driven-development (solo si una API externa lo requiere en ejecución).
+**Skills cargadas (SDP v3, pre-run 2026-09-27):** `campaign-executor` · `progreso` · `ci-cd-and-automation` · `git-workflow-and-versioning` · `doubt-driven-development` · `incremental-implementation` · `test-driven-development` · `context-engineering` · **PINNED (policy):** `ci-cd-and-automation`, `git-workflow-and-versioning`
 
 ## Investigation Notes
 

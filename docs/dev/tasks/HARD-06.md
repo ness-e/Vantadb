@@ -104,7 +104,7 @@ contract:
 - campaign MCP (`campaign_update_task_state`, `campaign_verify_cmd`, `campaign_memory_write` para la decisión)
 - `gh` CLI (opcional: citar runs del perf gate)
 
-**Skills cargadas (SDP):** `campaign-executor` (base) · `ci-cd-and-automation` (base CI/CD: perf-bench, gates) · `doubt-driven-development` (base CI/CD + stakes: no debilitar gates) · `incremental-implementation` (4 fixes = 4 slices/commits) · `test-driven-development` (self-test del compare; repro antes del fix) · `context-engineering` · `source-driven-development` (Cargo/py baseline semantics) · `documentation-and-adrs` (decisión FIND-161 + docs EN). Excluidas: `frontend-ui-engineering`, `api-and-interface-design` (no UI; la superficie pública no cambia).
+**Skills cargadas (SDP v3, pre-run 2026-09-27):** `campaign-executor` · `progreso` · `ci-cd-and-automation` · `git-workflow-and-versioning` · `documentation-and-adrs` · `api-and-interface-design` · `performance-optimization` · `doubt-driven-development` · **PINNED (policy):** `ci-cd-and-automation`, `git-workflow-and-versioning`, `documentation-and-adrs`, `api-and-interface-design`, `performance-optimization`
 `SDP: campaign-executor, ci-cd-and-automation, doubt-driven-development, incremental-implementation, test-driven-development, context-engineering, source-driven-development, documentation-and-adrs`
 
 ## Investigation Notes

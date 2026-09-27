@@ -105,7 +105,7 @@ contract:
 - `/harness` (Gate H — vía `vanta-harness`, leaf distinto del implementador)
 - read/grep/codegraph_explore
 
-**Skills cargadas (SDP):** `campaign-executor` (base task-system) · `incremental-implementation` (BUILD: validador → enforcement → prosa → test) · `test-driven-development` (simulación RED antes/del enforcement) · `context-engineering` · `source-driven-development` (Node test runner, semántica C0) · `doubt-driven-development` (stakes: state machine; Gate H) · `documentation-and-adrs` (prosa normativa + waiver como decisión) · `writing-guidelines` (prompts/docs). Excluidas: `frontend-ui-engineering`, `api-and-interface-design` (no UI; sin superficie de producto).
+**Skills cargadas (SDP v3, pre-run 2026-09-27):** `campaign-executor` · `progreso` · `doubt-driven-development` · `ci-cd-and-automation` · `git-workflow-and-versioning` · `writing-guidelines` · `writing-plans` · `incremental-implementation` · **PINNED (policy):** `doubt-driven-development`, `ci-cd-and-automation`, `git-workflow-and-versioning`
 `SDP: campaign-executor, incremental-implementation, test-driven-development, context-engineering, source-driven-development, doubt-driven-development, documentation-and-adrs, writing-guidelines`
 
 ## Investigation Notes

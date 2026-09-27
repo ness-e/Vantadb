@@ -90,7 +90,7 @@ last-synced: 2026-09-26
 - cargo-semver-checks (`cargo-semver-checks --version`), cargo-public-api (+ toolchain `nightly` para rustdoc JSON — el job CI ya usa nightly, `ci-rust.yml:116`), `campaign_verify_cmd`, `pwsh scripts/validate-docs-coverage.ps1`, codegraph_explore (blast radius)
 - Leer ANTES de editar: `.opencode/rules/release-ci.md` (área release/CI) + `.opencode/rules/api-contract.md` (semver/superficies públicas)
 
-**Skills cargadas (SDP):** campaign-executor (base task-system) · source-driven-development (docs oficiales cargo-semver-checks/cargo-public-api antes de configurar) · test-driven-development (snapshot RED→GREEN) · incremental-implementation (slices: snapshot → test → CI → docs) · documentation-and-adrs (DEPRECATIONS/COMPATIBILITY/UPGRADE) · api-and-interface-design (contratos/semver por superficie) · deprecation-and-migration (política de deprecación, skill F0 del plan) · doubt-driven-development (🔴). Descartadas: frontend-ui-engineering (sin `web/`); ci-cd-and-automation (cubierta por source-driven + steps CI puntuales).
+**Skills cargadas (SDP v3, pre-run 2026-09-27):** `campaign-executor` · `progreso` · `ci-cd-and-automation` · `git-workflow-and-versioning` · `documentation-and-adrs` · `api-and-interface-design` · `test-driven-development` · `systematic-debugging` · `doubt-driven-development` · **PINNED (policy):** `ci-cd-and-automation`, `git-workflow-and-versioning`, `documentation-and-adrs`, `api-and-interface-design`, `test-driven-development`, `systematic-debugging`
 
 ## Investigation Notes
 

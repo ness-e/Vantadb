@@ -76,7 +76,7 @@ last-synced: 2026-09-26
 
 ## Herramientas necesarias
 - `pwsh` (validate-docs-coverage), `npx markdownlint-cli2`, `rg`/grep, `codegraph_explore` (conteo/paridad MCP)
-- **Skills cargadas (SDP):** `campaign-executor` (base task system) · `writing-guidelines` (voz/estilo del doc regenerado) · `documentation-and-adrs` (frontera y decisiones documentadas) · `source-driven-development` (cada fila contra código/fuente real, no memoria) · `incremental-implementation` (barrido por tabla en diffs controlados) · `doubt-driven-development` (claims numéricos → verificación adversarial Regla 11)
+- **Skills cargadas (SDP v3, pre-run 2026-09-27):** `campaign-executor` · `progreso` · `writing-guidelines` · `writing-plans` · `incremental-implementation` · `test-driven-development` · `context-engineering` · `source-driven-development` · **PINNED (policy):** ninguno
   - Descartadas del SDP (no aplican): `frontend-ui-engineering`, `test-driven-development`, `context-engineering`, `api-and-interface-design`
 
 ## Investigation Notes

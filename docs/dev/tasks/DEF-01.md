@@ -74,7 +74,7 @@
 - `pwsh scripts/validate-docs-coverage.ps1` · `npx markdownlint-cli2 README.md SPEC.md docs/dev/vision/VISION.md`
 - `pwsh dev-tools/ocr-review.ps1` (input del review P2-01)
 
-**Skills cargadas (SDP):** `SDP: campaign_discover_skills_v2 phase=BUILD → campaign-executor, spec-driven-development, interview-me, documentation-and-adrs, writing-guidelines`
+**Skills cargadas (SDP v3, pre-run 2026-09-27):** `campaign-executor` · `progreso` · `writing-guidelines` · `writing-plans` · `incremental-implementation` · `test-driven-development` · `context-engineering` · `source-driven-development` · **PINNED (policy):** ninguno
 - `campaign-executor` — flujo pipeline/task system (base).
 - `spec-driven-development` — tabla Spec + decisiones.
 - `interview-me` — estructura de la ronda Gate P con el owner (keyword mapping "spec").
