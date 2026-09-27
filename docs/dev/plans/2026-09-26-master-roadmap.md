@@ -370,7 +370,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "tabla categorizada (core-promise vs labs) por superficie Y regla de inversión documentada Y referencia desde SPEC"
 - **Task file:** `docs/dev/tasks/DEF-07.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-27 — commit `fd50ea22`; review fresco OK)
 - **Cynefin:** 🟦 obvio — clasificación.
 - **Top 3 riesgos:** 1. clasificar por gusto · 2. contradecir DEF-01 · 3. no tocar roadmap.
 - **Pre-mortem:** F1: sin criterio → usar North Star (DEF-05) como criterio; F2: sin consecuencias → regla de inversión explícita.
@@ -393,7 +393,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "SLO definido (tiempo al primer recall + tasa de éxito) con método de medición Y telemetría opt-in especificada (privacy-first, default off) Y fallback visible especificado (mensaje + docs)"
 - **Task file:** `docs/dev/tasks/DEF-08.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-27 — commit `1a696766`; review fresco OK)
 - **Cynefin:** 🟦 obvio — definición + doc.
 - **Top 3 riesgos:** 1. telemetría que roce privacidad · 2. SLO no medible en FASE-A · 3. fallback sin UX.
 - **Pre-mortem:** F1: telemetría default-on → PROHIBIDO (opt-in); F2: SLO vago → números.
@@ -854,4 +854,37 @@ Resultado: OK
 Próxima acción: LEAD: commit docs: (ADR-045 + VERSIONING + task file)
 Contrato: ADR accepted + 9/9 artefactos + política de alias + firma owner + ref VERSIONING
 Próxima tarea si completa: DEF-05
+=== END RECITATION ===
+
+=== RECITATION DEF-08 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: DEF-08 — Install SLO + telemetría opt-in + fallback visible
+Estado: completed
+Última acción: Steps 1-4 ✅ + review fresco APPROVE + fixes O1/O2/O3/N1/N2
+Resultado: OK
+Próxima acción: LEAD: commit docs: install SLO + specs + cierre F1
+Contrato: SLO + telemetría privacy-first + fallback visible especificados (rg anchors + coverage exit 0)
+Próxima tarea si completa: WIRE-02 (F2)
+=== END RECITATION ===
+
+=== RECITATION 14 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: DEF-07 — Presupuesto de alcance: core-promise vs labs
+Estado: in-progress
+Última acción: Steps 1-3 ✅: inventario 13/13 por North Star; sección 'Scope Budget — core-promise vs labs' + regla admisión→promoción→freeze + watchlist en EXPERIMENTAL_FEATURES.md; SPEC §Frontera referencia §Scope Budget; task file cerrado (steps/recitation/review/CSP)
+Resultado: OK
+Próxima acción: LEAD: review fresco P2-01 (2-3 filas al azar + fronteras desktop/server) + commit 'docs: scope budget core-promise vs labs (DEF-07)' + progreso al cierre de wave
+Contrato: Verificado: rg -n core-promise → hits en SPEC.md y EXPERIMENTAL_FEATURES.md ✅ · pwsh scripts/validate-docs-coverage.ps1 exit 0 ✅ · pwsh scripts/validate-frontier.ps1 exit 0 ✅ · npx markdownlint-cli2 (2 docs + task file) ✅ · diff docs = SPEC + EXPERIMENTAL (2 archivos); commit = LEAD
+Próxima tarea si completa: DEF-08 (Task 15)
+=== END RECITATION ===
+
+=== RECITATION DEF-07 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: DEF-07 — Presupuesto de alcance: core-promise vs labs
+Estado: completed
+Última acción: Steps 1-3 ✅ + review fresco APPROVE + fixes; verify rg core-promise ✅
+Resultado: OK
+Próxima acción: LEAD: commit docs: scope budget + cierre F1
+Contrato: tabla 13/13 + regla de inversión + ref SPEC (rg ×2 + coverage + frontier verdes)
+Próxima tarea si completa: DEF-08
 === END RECITATION ===
