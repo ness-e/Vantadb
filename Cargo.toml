@@ -253,6 +253,10 @@ serde_json = "1.0"
 tower = { version = "0.5", features = ["util"] }
 serde_yaml = "0.9.34"
 insta = "1.48"
+# HARD-01: public API snapshot rails (tests/api/public_api.rs). Version family
+# must stay aligned with the cargo-public-api CLI used to read the snapshot.
+public-api = "0.52.2"
+rustdoc-json = "0.9.10"
 
 [[bench]]
 name = "tokenizer_bench"
@@ -537,6 +541,10 @@ path = "tests/concurrency_parity.rs"
 [[test]]
 name = "python_sdk_boundary"
 path = "tests/api/python.rs"
+
+[[test]]
+name = "public_api"
+path = "tests/api/public_api.rs"
 
 [[test]]
 name = "memory_telemetry"
