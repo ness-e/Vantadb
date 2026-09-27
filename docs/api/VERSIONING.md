@@ -3,7 +3,7 @@ title: Versioning & Stability Policy
 type: api
 status: active
 tags: [vantadb, api, semver]
-last_reviewed: 2026-09-26
+last_reviewed: 2026-09-27
 aliases: []
 ---
 
@@ -103,6 +103,12 @@ The contracts above are checked mechanically, not by convention:
   `BREAKING CHANGE:` marker.
 - Concrete deprecations are registered in [`DEPRECATIONS.md`](DEPRECATIONS.md)
   (entry shape + removal window per instance).
+- The 9 artifact names (`vantadb`, `vantadb-py`, `vantadb-node`,
+  `vantadb-ts`, `vantadb-server`, `vantadb-mcp`, `vanta-cli`, `vanta-proxy`,
+  `vanta-memory`) are frozen through `1.0.0` by the naming freeze
+  [ADR-045](../dev/architecture/adr/ADR-045-naming-freeze.md) — renaming one is
+  never silent: it ships an alias with a mandatory removal date, registered in
+  `DEPRECATIONS.md` (after `1.0.0`, a breaking name change requires a MAJOR).
 
 ## Release mechanics
 
