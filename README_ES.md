@@ -31,7 +31,7 @@
   <a href="README.md">🇺🇸 English</a>
 </div>
 
-VantaDB es un motor de base de datos embebido, local-first, diseñado para agentes de IA, pipelines locales de RAG y aplicaciones edge. Proporciona almacenamiento persistente, recuperación resistente a fallos vía WAL y búsqueda híbrida nativa (BM25 + HNSW) sin necesidad de servicios externos, contenedores o dependencias de red.
+VantaDB es un motor de memoria embebido, local-first, diseñado para agentes de IA. Un núcleo con tres puertas de entrada — **IDEs de IA** (vía MCP), **stacks de LLM locales/privados** y **frameworks de agentes** — que entrega memoria de agente duradera y gobernada, con recuperación resistente a fallos vía WAL y búsqueda híbrida nativa (BM25 + HNSW + RRF) que impulsa flujos de trabajo RAG locales. Sin necesidad de servicios externos, contenedores o dependencias de red.
 
 ---
 
