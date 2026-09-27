@@ -812,17 +812,19 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
   - ⚠️ Owner action **resuelta:** `opencode reload` respawnea MCP servers sin restart del server (verificado: campaign live sirve v3 con morfología+aliases).
   - **Pre-run pass (R2) ✅:** 14/14 task files F0/F1 con SDP v3 actualizado (pins+aliases) — commit local.
 - **plan-adjust [2026-09-27b]:** **Pre-run hardening del harness (Gate H ✅ APPROVE, 3 rondas).** 4 auditorías profundas (vanta-harness) + 30+ fixes: gates (verify retry/refund, budget 40, validate_scope canónico), claim wave-aware (salta ⏳, WIP=3), seguridad (inyección workDir/git, PIPED_SHELL blocking, sandbox deadlock), observabilidad (eval por tarea+filtro plan, skills SDP en verify-log), parsers (id canónico `HARD-01`, formato compacto), plan normalizado (50 Estados escribibles + Fase ×50), hooks alineados, checkpoint. Tests: **49/49** + parity 10/40/40/5/120 + probes E2E en vivo. ⬆️ antes: 13 hallazgos 🔴/🟠 + 9 seguridad → **después: 0 bloqueantes**. ⬇️ downhill: 49.
+- **plan-adjust [2026-09-27c]:** **F1 COMPLETA (8/8).** DEF-03 (`8a884ba6`+`b82f90cb`) · DEF-04 (`d45deba5` — ADR-045 firmado por owner, Gate P) · DEF-05 (`58c9903c`) · DEF-07 (`fd50ea22`) · DEF-08 (`1a696766`) + cierres `44e3394e`/`3dc52f16` + FIND-169..175. Fix de harness: MCP codegraph/CBM nativos para sub-agentes (`543f917` + `3389234e`, Gate H). ⬆️ antes: 3 en progreso F1b → después: 0. ⬇️ downhill: 34.
+- **plan-adjust [2026-09-27d]:** **Bloques F2 completados al nivel F0/F1 (REGLA L412-422)** — Tasks 16-22 (WIRE-02..08), 23 campos c/u, Paso 0 verificado (codegraph/CBM): WIRE-02 re-baseline 85 listadas (`MCP.md:265`); WIRE-04 re-scope (TTL HTTP ya existe → default por colección + sweeper); WIRE-07 trait-split ya ejecutado → bookkeeping + OpGate/server→cli; deps MGR-05/09/16 anotadas. Gate de fase F2 ✅ → wave F2 lanzada (WIRE-03 ‖ WIRE-04; WIRE-02 en cola). Commit `0b6f9822`.
 
 ## Recitation
 
 ```
 === RECITATION MASTER-ROADMAP ===
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
-Objetivo activo: F0 — Hardening + quick wins (HARD-01..07)
-Estado: pending
-Última acción: plan creado (absorción de 5 planes + investigación R1-R4 + decisiones owner)
-Resultado: —
-Próxima acción: /pipeline run docs/dev/plans/2026-09-26-master-roadmap.md
+Objetivo activo: F2 — WIRE-02..08 (paridad bindings, TTL, entity linking, batching, refactors, search engine)
+Estado: in-progress
+Última acción: F1 COMPLETA (16/50); bloques F2 completados; wave F2 lanzada (WIRE-03/04 en ejecución; WIRE-02 en cola)
+Resultado: OK (F0 7/7 · F1 8/8)
+Próxima acción: cerrar WIRE-03/04 (review fresco + commit) → WIRE-02 → resto de F2
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
