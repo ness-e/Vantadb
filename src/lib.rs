@@ -85,6 +85,8 @@ pub mod connection_pool;
 pub mod console;
 pub(crate) mod cost_estimator;
 pub(crate) mod edge_index;
+/// Visible-fallback probe for local embeddings (DEF-08; DISTRIBUTION §7).
+pub mod embedding_health;
 pub mod engine;
 /// Scoped entity metadata store (teams, users, agents, tasks, assets).
 pub mod entity;

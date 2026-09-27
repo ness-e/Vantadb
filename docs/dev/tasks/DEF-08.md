@@ -152,6 +152,7 @@ last-synced: 2026-09-27
   2. **Telemetría local (opcional, sin red):** eventos `install_completed` / `first_recall` / `fallback_used` a log JSONL local — default OFF red, sin IDs estables, con la deny list de DISTRIBUTION §6. Si excede 1d o toca transmisión remota → FIND separado (la red queda spec-only).
   - Stop condition master Task 15 respetada: nada >1d; sin código a medias.
 - **Nota de privacidad (para Review P2-01):** la spec de telemetría (§6) es opt-in, default OFF, sin identificadores estables y con deny list explícita; validarla ANTES de cualquier implementación (telemetría = dato de usuario).
+- **Code-follow-up item 1 ✅ implementado (2026-09-27):** probe `embedding_health` (core) + aviso visible en CLI `status`/dashboard + MCP `capabilities.embedding` + wizard live test; tests de binario real (2) + MCP (1); review fresco APPROVE (`ses_f1ae2423dffezFZTkLBzGvdY22`) + fixes (padding + wizard else); commit del slice `fix(cli,mcp): visible fallback notice (DEF-08 follow-up)`. Item 2 (telemetría local) → FIND-175. Hallazgo ORT_DYLIB_PATH dir-vs-file → FIND-176 (Alta, confirmado por el revisor).
 
 ## Context Save Point
 - **Fecha:** 2026-09-27

@@ -806,7 +806,7 @@ pub fn handle_tools_list(config: &McpConfig) -> Result<Value, Value> {
         },
         {
             "name": "capabilities",
-            "description": "MCP-26: introspects the engine's supported features. Returns {runtime_profile, persistence, vector_search, iql_queries, read_only} so the agent can discover what the connected database supports.",
+            "description": "MCP-26: introspects the engine's supported features. Returns {runtime_profile, persistence, vector_search, iql_queries, read_only, embedding} so the agent can discover what the connected database supports. `embedding` is the DEF-08 visible-fallback probe: {provider, fallback, reason, detail, model_dir, model_present, notice} — `fallback:true` means deterministic dummy embeddings are being served (ORT unusable or model missing) and `notice` carries the user-facing message plus the remedy.",
             "annotations": {
                 "title": "Capabilities",
                 "readOnlyHint": true,
@@ -2354,7 +2354,14 @@ pub fn handle_tools_call(
         "capabilities" => {
             let embedded = vantadb::Embedded::from_engine(storage.clone());
             let caps = embedded.capabilities();
-            Ok(text_content(serialize_content(&json!(&caps))))
+            // DEF-08 (visible fallback): the embedding probe rides on
+            // `capabilities` so an agent can see when local embeddings degraded
+            // to deterministic dummies — both triggers (ORT unusable / model
+            // missing). Same core probe the CLI `status` surface reports.
+            let mut out = json!(&caps);
+            out["embedding"] = serde_json::to_value(vantadb::embedding_health::embedding_health())
+                .unwrap_or(serde_json::Value::Null);
+            Ok(text_content(serialize_content(&out)))
         }
 
         "generate_snippet" => {

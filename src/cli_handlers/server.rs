@@ -89,6 +89,10 @@ pub fn cmd_status(db_path: &str, verbose: bool, json_output: bool) -> Result<()>
     let engine = open_database(db_path, true)?;
     let stats = engine.stats();
     let metrics = crate::metrics::operational_metrics_snapshot();
+    // DEF-08: visible fallback — this is the CLI status surface where the user
+    // sees whether local embeddings degraded to deterministic dummy vectors
+    // (DISTRIBUTION §7 contract; probe shared with MCP `capabilities`).
+    let embedding = crate::embedding_health::embedding_health();
 
     spinner.finish_and_clear();
 
@@ -108,6 +112,7 @@ pub fn cmd_status(db_path: &str, verbose: bool, json_output: bool) -> Result<()>
             "ann_rebuild_ms": metrics.ann_rebuild_ms,
             "records_exported": metrics.records_exported,
             "records_imported": metrics.records_imported,
+            "embedding": &embedding,
         }));
     }
 
@@ -137,6 +142,22 @@ pub fn cmd_status(db_path: &str, verbose: bool, json_output: bool) -> Result<()>
     let _ = term.write_line(&format!(
         "║     Read-only:      {:<38} ║",
         if engine.read_only { "Yes" } else { "No" }
+    ));
+    let _ = term.write_line(&format!(
+        "{}",
+        info_style().apply_to(&format!("║  🧠 Embeddings{}║", " ".repeat(44)))
+    ));
+    let _ = term.write_line(&format!(
+        "║     Provider:       {:<38} ║",
+        embedding.provider
+    ));
+    let _ = term.write_line(&format!(
+        "║     Fallback:       {:<38} ║",
+        match embedding.fallback {
+            Some(true) => "Yes (deterministic dummy embeddings)".to_string(),
+            Some(false) => "No".to_string(),
+            None => "n/a (remote or not compiled)".to_string(),
+        }
     ));
     let _ = term.write_line(&format!(
         "{}",
@@ -192,6 +213,12 @@ pub fn cmd_status(db_path: &str, verbose: bool, json_output: bool) -> Result<()>
         "{}",
         header_style().apply_to("╚═══════════════════════════════════════════════════════════╝")
     ));
+
+    // DEF-08: degraded local embeddings must never be silent to the user — the
+    // notice carries `fallback: true`, the consequence and the remedy.
+    if let Some(notice) = &embedding.notice {
+        print_warning(notice);
+    }
 
     if verbose {
         let _ = term.write_line("");

@@ -489,6 +489,26 @@ function Invoke-LiveTest($Db) {
   if ("$got" -notmatch [regex]::Escape($payload)) { throw 'prueba viva: get no devuelve el payload.' }
   & $cli --db $Db search --namespace $ns --query 'live test' --limit 3 | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'prueba viva: search fallo.' }
+
+  # DEF-08: aviso visible si el provider cae a embeddings dummy (fallback: true).
+  # Cubre AMBOS triggers (ORT no usable / modelo ausente) sin duplicar el
+  # mensaje: lo emite el probe compartido del core, leido via `status --json`.
+  $status = (& $cli --db $Db status --json) -join "`n"
+  if ($LASTEXITCODE -eq 0 -and $status) {
+    try {
+      $emb = ($status | ConvertFrom-Json).embedding
+      if ($emb -and $emb.fallback -eq $true) {
+        Write-Host "[setup] AVISO: $($emb.notice)"
+      } elseif ($emb -and $emb.fallback -eq $false) {
+        Write-Host '[setup] embeddings locales sin fallback (modelo + ORT OK).'
+      }
+    } catch {
+      Write-Host "[setup] AVISO: no pude leer el estado de embeddings: $($_.Exception.Message)"
+    }
+  } else {
+    Write-Host "[setup] AVISO: no pude leer estado de embeddings (status exit=$LASTEXITCODE)."
+  }
+
   Write-Host '[setup] PRUEBA VIVA verde: put->get->search OK.'
 }
 if (-not $SkipLiveTest) { Invoke-LiveTest $DbPath }
