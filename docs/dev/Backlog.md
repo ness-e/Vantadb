@@ -273,6 +273,8 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 
 | `FIND-175` | Media | Telemetría local del install-loop no implementada (item 2 del code-follow-up DEF-08): eventos `install_completed`/`first_recall`/`fallback_used` a log JSONL local — default OFF red, sin IDs estables, deny list de DISTRIBUTION §6. Pinchar antes de implementar (review P2-01 DEF-08): O2 — correlación server-side (raw IP/connection metadata en el receptor) y O3 — semántica local/consent (cuándo se escribe el log local vs opt-in, superficie de consent/revocación, comando de borrado, retención remota). Origen: DEF-08 Step 4 (review fresco `ses_f1b51d51cffekZkFitR0oKhxP6`) | `docs/dev/strategy/DISTRIBUTION.md` §6, (impl) `src/` + wizard | 🟢 | 🟡 Media | ⬜ Pendiente |
 
+| `FIND-176` | Alta | Wizard deja embeddings en dummy para clientes MCP: `setup-embeddings.ps1` setea `ORT_DYLIB_PATH` a un DIRECTORIO (:191/207/221) pero `ort` carga un ARCHIVO — evidencia (slice DEF-08): (A) `ORT_DYLIB_PATH=<store dir>` → fallback=true reason=dylib ("LoadLibraryExW failed"); (B) `ORT_DYLIB_PATH=<store>\onnxruntime.dll` → fallback=false (sano; igual que `vanta-mcp-local.ps1`). El camino wizard→MCP degradaba a dummy (hoy VISIBLE vía slice DEF-08). Fix candidato 1 línea: `Join-Path $store 'onnxruntime.dll'` + test. Origen: slice DEF-08 (2026-09-27, `ses_f1b511f9bffezqW2I7e52xgxrv`) | `setup-embeddings.ps1`, `src/embedding_health.rs` | 🟢 | 🔴 Alta | ⬜ Pendiente |
+
 *Campaña FIND 2026-09-15/16: 31 filas completadas migradas a `docs/dev/avance/` (ver `meta.md`); FIND-76 SKIP → `historial/backlog-history.md`.*
 
 ---
