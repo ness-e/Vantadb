@@ -228,9 +228,12 @@ Existing behavior (`src/llm.rs`:341-419, regression test
   `src/llm.rs`:206) and `embed_as` falls back deterministically
   (`src/llm.rs`:526-531) **without any warning** — currently silent.
 
-The gap: the dylib path is log-only and the model-missing path is silent; a
-user-visible notice covering **both** triggers is specified here and tracked as
-a follow-up slice (no code ships with DEF-08).
+The gap: the dylib path was log-only and the model-missing path was silent. The
+DEF-08 follow-up slice (2026-09-27) reports a user-visible notice covering
+**both** triggers on every status surface: `vanta-cli status` (`embedding`
+object with `fallback` + `notice`; present in `--json`), the MCP `capabilities`
+tool (`embedding` object), and the `setup-embeddings.ps1` live test. The notice
+text below is the one those surfaces emit.
 
 **Message requirements** — at the wizard/live test and any surface that loads
 local embeddings:

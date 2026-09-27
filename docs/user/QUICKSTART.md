@@ -265,9 +265,11 @@ quality is meaningless until the real model is restored. What you can observe:
   provider logs a warning with `fallback=true` on stderr — e.g.
   `ONNX Runtime dylib unusable; using deterministic dummy embeddings`
   (`src/llm.rs`:341-419, regression-tested by
-  `f100_incompatible_dylib_never_panics`).
-- **Model files missing**: `put` / `get` / `search` still work, but the
-  degradation is currently silent — use the verification commands below.
+  `f100_incompatible_dylib_never_panics`). `vanta-cli status` and the MCP
+  `capabilities` tool report the same state in their `embedding` object.
+- **Model files missing**: `put` / `get` / `search` still work; `vanta-cli
+  status` (and the MCP `capabilities` tool) reports `"fallback": true` with the
+  same notice — verify with the commands below.
 
 To fix it, re-run the wizard — it installs a native ONNX Runtime ≥1.27 into a
 persistent store and sets `ORT_DYLIB_PATH` for the current session (run it in
