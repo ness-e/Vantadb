@@ -8,6 +8,7 @@
   <a href="https://github.com/ness-e/Vantadb/actions/workflows/ci-rust.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/ci-rust.yml?label=Rust+CI" alt="Rust CI"></a>
   <a href="https://github.com/ness-e/Vantadb/actions/workflows/gate-docs.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/gate-docs.yml?label=Docs" alt="Docs"></a>
   <a href="https://github.com/ness-e/Vantadb/actions/workflows/sec-codeql.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/sec-codeql.yml?label=Security+Audit" alt="Security Audit"></a>
+  <a href="https://github.com/ness-e/Vantadb/actions/workflows/nightly.yml"><img src="https://img.shields.io/github/actions/workflow/status/ness-e/Vantadb/nightly.yml?label=Nightly" alt="Nightly"></a>
 
   <br>
 
