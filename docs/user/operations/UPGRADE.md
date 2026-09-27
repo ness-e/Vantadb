@@ -3,7 +3,7 @@ title: Upgrade Guide
 type: operations
 status: active
 tags: [vantadb, upgrade, migration]
-last_reviewed: 2026-08-23
+last_reviewed: 2026-09-27
 aliases: []
 ---
 
@@ -41,6 +41,34 @@ details and backup verification: [BACKUP_RESTORE.md](BACKUP_RESTORE.md).
 ## Version history
 
 Each section lists what changed for consumers and any required migration steps.
+
+### Upgrading to 0.7.0 (from 0.6.x)
+
+**Released:** 2026-09-25 (tag `v0.7.0`).
+
+**What changed (user-facing):**
+
+- **Monorepo restructure**: the Next.js web app moved out to its own repository
+  ([`ness-e/Vantadb-web`](https://github.com/ness-e/Vantadb-web)); the docs tree
+  was reorganized under `docs/user/` + `docs/dev/`.
+- **Docs & version coherence**: API doc version headers pinned to 0.7.0 (rule
+  R-2) and Python SDK docs updated — no code-facing contract changes.
+- **Release tooling**: release-plz now releases only when the Release PR is
+  merged (`release_always = false`).
+
+**Breaking changes:** none for consumers. Evidence: `docs/CHANGELOG.md`
+§ `[0.7.0] - 2026-09-25` carries only an *Other* entry (no `feat!` /
+`BREAKING CHANGE` markers), and `git diff v0.6.1 v0.7.0 -- src/` touches five
+internal lines only (no public API changes).
+
+**Migration steps:** none required beyond upgrading the package
+(`pip install -U vantadb-py==0.7.0` / `npm i vantadb@0.7.0`). If you consumed
+the web app from this monorepo, it now lives in `ness-e/Vantadb-web`.
+
+> Pending breaking changes for the **next** MINOR (`0.8.0`, in development) are
+> tracked in [`docs/api/COMPATIBILITY.md`](../../api/COMPATIBILITY.md)
+> § Pre-release deltas; the consumer-facing write-up lands in this section with
+> the `0.8.0` release.
 
 ### Upgrading to 0.6.1 (from 0.5.x)
 

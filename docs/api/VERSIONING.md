@@ -75,6 +75,15 @@ The contracts above are checked mechanically, not by convention:
   by this test.)
 - `cargo test --test sdk_serialization` — pins the cross-binding wire (`u128`
   strings, score semantics) across Python/TS/Node/WASM.
+- `cargo semver-checks check-release` — lints the `vantadb` crate's Rust public
+  API against the latest crates.io release (CI job `semver-checks` + release-plz
+  `semver_check`). Accepted pre-release deltas are tracked in
+  [`COMPATIBILITY.md`](COMPATIBILITY.md).
+- `cargo test -p vantadb --test public_api` — golden snapshot of the simplified
+  public API ([`tests/api/public-api.txt`](../../tests/api/public-api.txt)); any
+  surface change must update the snapshot deliberately.
+- Per-surface enforcement matrix + 1.0 exit criteria:
+  [`COMPATIBILITY.md`](COMPATIBILITY.md).
 
 ## What is NOT covered
 
@@ -92,6 +101,8 @@ The contracts above are checked mechanically, not by convention:
   for **at least one MINOR release** before removal.
 - Removal then happens in a subsequent MINOR release with a `feat!:` /
   `BREAKING CHANGE:` marker.
+- Concrete deprecations are registered in [`DEPRECATIONS.md`](DEPRECATIONS.md)
+  (entry shape + removal window per instance).
 
 ## Release mechanics
 

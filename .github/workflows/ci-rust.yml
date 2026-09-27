@@ -101,6 +101,8 @@ jobs:
     # features accumulate pre-release (13 majors today heading into 0.6.0) —
     # pure noise that hides real regressions. The release decision (major vs
     # minor) is made once, at the develop→main PR.
+    # HARD-01: rails inventory + triage of accepted deltas:
+    # docs/api/COMPATIBILITY.md. Companion snapshot job: public-api-snapshot.
     name: Semver Checks (public API)
     runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
@@ -124,8 +126,40 @@ jobs:
         with:
           tool: cargo-semver-checks
 
+      - name: Verify cargo-semver-checks is present (HARD-01, no silent skip)
+        run: cargo semver-checks --version
+
       - name: Semver check (vantadb vs latest published)
         run: cargo semver-checks -p vantadb
+
+  public-api-snapshot:
+    # HARD-01: golden snapshot of the `vantadb` public API
+    # (tests/api/public-api.txt <- tests/api/public_api.rs; nightly rustdoc JSON
+    # + public-api). Same scope as semver-checks: generation needs a nightly
+    # rustdoc build (measured 2026-09-27: ~81 s warm, ~6 min on the first cold
+    # rustdoc build; not Fast-Gate material). A surface change must update the
+    # snapshot (VANTADB_PUBLIC_API_UPDATE=1) in the PR; rails inventory:
+    # docs/api/COMPATIBILITY.md.
+    name: Public API Snapshot
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main' || github.base_ref == 'main'
+    timeout-minutes: 45
+    concurrency:
+      group: public-api-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/rust-setup
+        with:
+          toolchain: nightly
+          install-nextest: true
+          install-llvm-cov: false
+          install-system-deps: true
+          swap-mb: 4096
+
+      - name: Public API snapshot matches committed golden file
+        run: cargo nextest run -p vantadb --test public_api
 
   adr-gate:
     # REGLA-5: public API changes require an ADR. Without this job the rule
