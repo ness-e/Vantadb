@@ -784,8 +784,13 @@ All error bodies share the base shape `{ "success": false, "error": "<message>" 
 - The query/IQL path carries the message under `data` instead of `error`.
 - Auth failures (`401`) add a `hint` with remediation guidance.
 
-> Full RFC 9457 (`type`/`title`/`status`/`detail`/`instance`) is not implemented —
-> tracked in `docs/dev/Backlog.md` (FIND-161).
+> **RFC 9457 (Problem Details) — adopted 2026-09-27 by owner decision (FIND-161),
+> not yet implemented.** The agreed direction is to migrate this error surface to
+> RFC 9457 `application/problem+json` (`type` / `title` / `status` / `detail` /
+> `instance`), keeping the canonical `code` as an extension member so cross-binding
+> consumers still branch on the same stable identifier. Implementation is tracked
+> as `FIND-165` in `docs/dev/Backlog.md`. **Until it lands, the envelope above is
+> the wire contract** — keep matching on `code`, never on message text.
 
 | Status | Meaning |
 |--------|---------|
