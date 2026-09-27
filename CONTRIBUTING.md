@@ -111,6 +111,11 @@ The repo uses **`main` as the release branch, `develop` as the working branch**:
 > `hotfix/*` branches from `main` — prohibited) and require the owner's OK
 > before creation. See `.opencode/AGENTS.md` Regla 7 §Política de git.
 
+> **Continuity between pushes:** while commits stay local (push deferred to
+> plan close / owner instruction), run `pwsh scripts/git-backup.ps1` to keep a
+> verified off-repo bundle (fail-closed `git bundle verify`; restore with
+> `git clone <bundle>`). Rule: [`RULES.md` §8](docs/dev/workflow/RULES.md).
+
 ```
 change code on develop → commit → push → PR to main → merge to main
                                                           ↓

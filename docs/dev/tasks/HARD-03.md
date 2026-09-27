@@ -6,10 +6,10 @@
 - **Esfuerzo:** 🟢 0.5-1d · **Prioridad:** 🔴 · **Tipo:** Mixto (script + docs)
 - **Ruta:** vanta-lead
 - **Turns estimados:** 8-12
-- **Creado:** 2026-09-26T19:53 · **last-synced:** 2026-09-26T19:53
-- **Estado:** ⬜ PENDING
+- **Creado:** 2026-09-26T19:53 · **last-synced:** 2026-09-27T02:05
+- **Estado:** ✅ COMPLETED (2026-09-27 — commit local delegado al LEAD)
 - **Incógnitas (uphill):** 0 abiertas — debe permanecer en 0 para ✅
-- **Pendientes (downhill):** 5 steps
+- **Pendientes (downhill):** 0 steps
 
 ## Blast Radius
 
@@ -40,7 +40,7 @@
 
 ## Invariantes de dominio (handoff — MUST)
 
-- **Invariantes a preservar:** **push SOLO con instrucción explícita del owner** (AGENTS.md Regla 7 §Política de git) — el script es 100% local y JAMÁS pushea; no duplicar la política (RULES.md = fuente única, AGENTS.md solo referencia); no commitear bundles (verificar `.gitignore`/destino); release-plz sigue siendo el único versionador (los "release trains" son fechas/hitos, no versiones a mano).
+- **Invariantes a preservar:** **push SOLO con instrucción explícita del owner** (AGENTS.md Regla 7 §Política de git) — el script es 100% local y JAMÁS pushea; no duplicar la política (continuidad/trains = solo RULES.md §8; push/commit = solo AGENTS.md Regla 7 §Política de git, referenciada desde ambos); no commitear bundles (verificar `.gitignore`/destino); release-plz sigue siendo el único versionador (los "release trains" son fechas/hitos, no versiones a mano).
 - **Comandos de verificación:** `pwsh scripts/git-backup.ps1` (exit 0 + bundle con timestamp) + `git bundle verify <bundle>` (exit 0) + `pwsh scripts/validate-docs-coverage.ps1` (docs) + `/harness` (SI se toca `.opencode/`).
 - **Deuda pendiente:** ninguna.
 
@@ -102,8 +102,8 @@ last-synced: 2026-09-26
 | Eje | Contador |
 |-----|----------|
 | Incógnitas abiertas (uphill) | 0 |
-| Pendientes de ejecución (downhill) | 5 steps |
-| % completado | 0% |
+| Pendientes de ejecución (downhill) | 0 steps |
+| % completado | 100% |
 
 ## Fases explícitas — SECURITY | PERFORMANCE (P2-07)
 
@@ -115,32 +115,32 @@ last-synced: 2026-09-26
 ### Step 1: `scripts/git-backup.ps1` — core (create + verify + exit codes)
 - **Archivos:** `scripts/git-backup.ps1` (nuevo)
 - **Acción:** script con params (`-Dest` default configurable, `-Keep` futuro); `git bundle create <dest>/vantadb-<yyyyMMdd-HHmm>.bundle` con refs acordadas (`--all` o `develop main tags` — validar contra docs git); `git bundle verify` fail-closed; salida legible (ruta + refs + count de commits locales vs `origin/develop`). Sin `git push` (Regla 7).
-- **Verify:** `pwsh scripts/git-backup.ps1 -Dest <tmp>` exit 0 + `git bundle verify <bundle>` exit 0 + caso destino inválido → exit ≠ 0 con mensaje claro
-- **Estado:** ⬜ PENDING
+- **Verify:** ✅ 2026-09-27 — run real a temp: exit 0; bundle 155.3 MB; `git bundle verify` exit 0 (28 refs, HEAD=develop tip); destino Z: → exit 1 con mensaje limpio; destino dentro del repo sin .gitignore → exit 1 sin crear dir; colisión de minuto → exit 1 (no sobreescribe)
+- **Estado:** ✅ DONE
 
 ### Step 2: Robustez — destino + retención
 - **Archivos:** `scripts/git-backup.ps1`
 - **Acción:** validar destino (inexistente → crear o error claro; misma unidad que el repo → warning explícito pre-mortem F1, no bloqueante); retención `-Keep` (default 7) con prune de bundles viejos; resumen final (bundle path, tamaño, commits incluidos).
-- **Verify:** 2 corridas → 2 bundles con timestamp distinto; prune respeta `-Keep`; warning misma-unidad dispara con `-Dest` en la unidad del repo
-- **Estado:** ⬜ PENDING
+- **Verify:** ✅ 2026-09-27 — 2 corridas → `vantadb-20260927-0028` + `-0030` (timestamps distintos); `-Keep 1` → pruned 0030+0028, queda 1 + verify exit 0; warning misma-unidad disparó (C:); restore real: `git clone <bundle>` exit 0 → HEAD `50106b4e`
+- **Estado:** ✅ DONE
 
 ### Step 3: RULES.md — regla de continuidad + release trains
 - **Archivos:** `docs/dev/workflow/RULES.md`
 - **Acción:** nueva regla en formato del archivo (Must/Must-not/Por qué/Verify): push solo al final del plan/instrucción owner (ref AGENTS.md Regla 7), bundles como mitigación (comando exacto + verify), release trains 0.8.0 post-F3 (release-plz) y 1.0 con exit criteria de HARD-01 (referenciar COMPATIBILITY).
-- **Verify:** regla con check mecánico (`pwsh scripts/git-backup.ps1` + `git bundle verify` exit 0) + `pwsh scripts/validate-docs-coverage.ps1` verde
-- **Estado:** ⬜ PENDING
+- **Verify:** ✅ 2026-09-27 — regla 8 insertada (`RULES.md:175-191`) con check mecánico; `pwsh scripts/validate-docs-coverage.ps1` exit 0 (0 gaps, verify_cmd 18.6s)
+- **Estado:** ✅ DONE
 
 ### Step 4: CONTRIBUTING.md referencia el script (+ AGENTS.md solo si aplica)
 - **Archivos:** `CONTRIBUTING.md` (§Branch & PR Flow `:99-125`), `.opencode/AGENTS.md` (OPCIONAL: 1 línea de referencia — stop condition)
 - **Acción:** agregar 1-3 líneas en CONTRIBUTING (ritual de backup + link al script y a la regla de RULES.md); si se toca `.opencode/AGENTS.md`, SOLO una línea de referencia (sin duplicar política) → **Gate H**; si Gate H rechaza → dejar solo script + RULES.md (stop condition del plan).
-- **Verify:** links resuelven (script y RULES.md) + `/harness` verde SI se tocó `.opencode/`
-- **Estado:** ⬜ PENDING
+- **Verify:** ✅ 2026-09-27 — CONTRIBUTING.md blockquote (link `docs/dev/workflow/RULES.md`); `.opencode/AGENTS.md` 1 línea en Flujo mínimo → **Gate H ✅ APROBADO** (vanta-harness, sesión `ses_f1ea9677fffeHG7DG7alY3o6CB`; corrió smoke real del script: exit 0)
+- **Estado:** ✅ DONE
 
 ### Step 5: Cierre (contrato + evidencia real + commit local)
 - **Archivos:** — (todo el set)
 - **Acción:** ejecutar el contrato completo; correr el script en modo real (destino externo/sincronizado) y conservar el bundle como evidencia de continuidad; recitation; commit local (nunca push); learnings vía `campaign_memory_write`.
-- **Verify:** Contrato (3 condiciones) + bundle real verificado con ≥26 commits locales (`git bundle verify` + count documentado en Notas)
-- **Estado:** ⬜ PENDING
+- **Verify:** ✅ 2026-09-27 — contrato completo (3 condiciones); bundle real `C:\Users\Eros\VantaDB-Backups\vantadb-20260927-0127.bundle` (verify exit 0, 31 commits locales); review P2-01 ✅; commit local → **delegado al LEAD** (instrucción de orquestación: el sub-agente no commitea)
+- **Estado:** ✅ DONE
 
 ## Dependencias
 - Ninguna (F0). Coordina con **HARD-02** (mismo repo harness para Gate H) y con §Política del master-roadmap (push al final del plan — HARD-03 NO es checkpoint de push). Siguiente: HARD-04.
@@ -149,24 +149,28 @@ last-synced: 2026-09-26
 
 > Placeholder. Lo completa un agente DISTINTO al implementador al ejecutar la tarea (vanta-review/vanta-audit; fallback sin subagentes: doubt-driven-development degradado + escalado al owner). Sin review registrado, NO se marca ✅ COMPLETED.
 
-- **Revisor:** ⬜ (designar al ejecutar — distinto del implementador)
-- **Enfoque:** ¿el script es restaurable de verdad (verify + prueba de fetch)? ¿la política quedó en fuente única (sin duplicar AGENTS.md)? ¿el ritual es ejecutable (1 línea en el flujo mínimo)?
-- **Cómo se probó:** ⬜ (pegar: salida del script, `git bundle verify` exit 0, caso destino inválido, prune)
+- **Revisor:** ✅ `vanta-review` (sesión `ses_f1e975170ffemcSiW19TunrzZt`, contexto fresco — P2-01) + Gate H `vanta-harness` (sesión `ses_f1ea9677fffeHG7DG7alY3o6CB`)
+- **Enfoque:** restaurabilidad real (verify + clone), fuente única de política, ritual ejecutable — respondidos con evidencia reproducida por el revisor
+- **Cómo se probó:** exit 0 + `git bundle verify` exit 0 (28 refs, HEAD `50106b4e`, 31 commits locales); clon real desde bundle → `rev-list --count 40b1dd..develop` = 31 (franja no pusheada restaurada); `Z:\` → exit 1; inside-repo → exit 1 sin dir; colisión → exit 1; `-Keep 1` → prune a 1; `validate-docs-coverage` exit 0 (0 gaps); harness corrió smoke propio (exit 0)
 - **Checklist anti-hábitos tóxicos** (contrato de comportamiento — el revisor verifica que el implementador NO haya incurrido en ninguno antes de aprobar):
-  - [ ] No inventar salidas de comandos/herramientas que no se ejecutaron.
-  - [ ] No saltarse la clarificación por "ya sé qué quiere".
-  - [ ] No declarar done sin verificar contra los acceptance criteria.
-  - [ ] No ignorar fallos ni reportar "todo OK" cuando hubo fallo parcial.
-  - [ ] No hacer un solo intento de búsqueda y darlo por saturado.
-  - [ ] No copiar sin citar ni presentar supuestos propios como evidencia.
-  - [ ] No reintentar en bucle sin diagnóstico.
-  - [ ] No dejar huérfanos los pasos: cada paso conectado al objetivo.
-  - [ ] No degradar el chequeo de errores en paths de dinero/seguridad.
-  - [ ] No gastar presupuesto infinito; paradas explícitas.
-- **Veredicto:** ⬜ pendiente
+  - [x] No inventar salidas de comandos/herramientas que no se ejecutaron.
+  - [x] No saltarse la clarificación por "ya sé qué quiere" (decisión owner registrada).
+  - [x] No declarar done sin verificar contra los acceptance criteria (steps 1-4 DONE con verify; Step 5 en curso al momento del review).
+  - [x] No ignorar fallos ni reportar "todo OK" cuando hubo fallo parcial (fallos negativos documentados: exit 1).
+  - [x] No hacer un solo intento de búsqueda y darlo por saturado — N/A (tarea script/docs; verificación mecánica múltiple).
+  - [x] No copiar sin citar ni presentar supuestos propios como evidencia (Fuentes en `RULES.md:16`; script:5-6; evidencia reproducida).
+  - [x] No reintentar en bucle sin diagnóstico — N/A (sin reintentos).
+  - [x] No dejar huérfanos los pasos: cada paso conectado al objetivo (5/5 al contrato).
+  - [x] No degradar el chequeo de errores en paths de dinero/seguridad (fail-closed verify; guard inside-repo; never-overwrite; jamás push).
+  - [x] No gastar presupuesto infinito; paradas explícitas (retención `-Keep`; exits explícitos).
+  - (verificado 10/10 por `vanta-review`, con evidencia per-ítem)
+- **Veredicto:** ✅ APROBADO (vanta-review: 0 Critical / 0 Required; 1 Optional wording → corregido en Invariantes; 1 Optional owner-action `-Dest` externo; 4 nits aceptados — ver Notas)
 
 ## Notas
 - Decisión owner registrada: **push a `develop` solo al completar el plan** con todo validado/verificado; bundles = mitigación de pérdida (R2: lección GitLab 2017). HARD-03 NO introduce checkpoint de push.
 - Release trains documentados (no ejecutados acá): **0.8.0 tras F3** (release-plz) y **1.0** con exit criteria de HARD-01. Nunca versión/tag/CHANGELOG a mano.
 - Si Gate H rechaza wording en `.opencode/AGENTS.md` → stop condition: solo script + RULES.md.
 - OCR delegation (`pwsh dev-tools/ocr-review.ps1 -Format json`) como input del reviewer al cierre (Critical/High bloquean).
+- **Review P2-01 ✅** (`vanta-review` `ses_f1e975170ffemcSiW19TunrzZt`): contrato reproducido en contexto fresco (clon desde bundle restaura la franja: `rev-list --count 40b1dd..develop` = 31); 0 Critical / 0 Required. Optional-1 (wording) → corregido en Invariantes. Optional-2 (owner action): definir carpeta externa/sincronizada y fijar `-Dest` en `.opencode/AGENTS.md:9`. Nits aceptados: bundle parcial en fallo de create/verify no se auto-borra (se poda por retención); `HEAD` redundante bajo `--all` (inofensivo; habilita checkout en clone).
+- **Gate H ✅** (`vanta-harness` `ses_f1ea9677fffeHG7DG7alY3o6CB`, read-only): aprobó la línea de `.opencode/AGENTS.md`; corrió smoke real propio (exit 0).
+- **Commit:** delegado al LEAD (instrucción de orquestación pipeline-run: el sub-agente no commitea). Commit local VantaDB: `scripts/git-backup.ps1` + `RULES.md` + `CONTRIBUTING.md` + `HARD-03.md`; `.opencode/AGENTS.md` va en commit aparte del repo harness (Gate H ya verde).
