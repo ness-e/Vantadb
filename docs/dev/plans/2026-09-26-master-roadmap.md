@@ -59,7 +59,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "`cargo semver-checks check-release` exit 0 (o findings triados y documentados) Y `cargo test -p vantadb --test public_api` verde con snapshot commiteado Y `DEPRECATIONS.md` + `COMPATIBILITY.md` + `UPGRADE.md` existen con 0 links rotos (validate-docs-coverage verde)"
 - **Task file:** `docs/dev/tasks/HARD-01.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Cynefin:** 🟨 complicado — configurar lints semver sin ruido + snapshot tooling + plantilla de migración.
 - **Top 3 riesgos:** 1. snapshot `public-api` ruidoso → CI rojo permanente · 2. `cargo-semver-checks` lento en fast gate · 3. docs de migración vacías (checklist decorativo).
 - **Pre-mortem:** F1: snapshot sin exclude-list → falsos positivos constantes; F2: gate no instalado en CI → skip silencioso; F3: `UPGRADE.md` duplica CHANGELOG (una fuente: CHANGELOG es release notes; UPGRADE es guía de migración).
@@ -84,7 +84,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "coverage ya no bloquea (reporte + presupuesto por directorio documentado en CI_POLICY) Y review risk-tiered documentado y activo en prompts (solo diffs `docs/api|sdk|parser|storage|wire` → adversarial; resto verify fast) Y workflow nightly de certificación pesada existe Y fast gate medido <5min"
 - **Task file:** `docs/dev/tasks/HARD-02.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Cynefin:** 🟨 complicado — cambiar gates sin debilitar el floor (`floor-guard.ps1`) + coordinar prompts.
 - **Top 3 riesgos:** 1. debilitar el quality bar (CONSTRAINTS.md) · 2. nightly que nadie mira · 3. tiering de review que deje pasar breaking.
 - **Pre-mortem:** F1: quitar coverage bloqueante sin presupuesto → deriva silenciosa; F2: nightly sin notificación → rojo crónico; F3: tiering ambiguo → reviews degradados.
@@ -109,7 +109,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "`pwsh scripts/git-backup.ps1` crea bundle con timestamp y `git bundle verify` exit 0 Y política de commits/push/trenes documentada en `docs/dev/workflow/RULES.md` Y `CONTRIBUTING.md` referencia el script"
 - **Task file:** `docs/dev/tasks/HARD-03.md`
-- **Estado:** ⬜ PENDING
+- **Estado:** ✅ COMPLETED
 - **Cynefin:** 🟦 obvio — script + doc.
 - **Top 3 riesgos:** 1. bundle a misma unidad del disco → 2. backup nunca ejecutado (sin ritual) → 3. política contradictoria con AGENTS.md.
 - **Pre-mortem:** F1: backup en C: (mismo disco) → definir unidad externa o carpeta sincronizada; F2: sin recordatorio → agregar al flujo mínimo (Gate H); F3: duplicar política → RULES.md como fuente única, AGENTS.md referencia.
@@ -134,7 +134,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "`docs/api/VANTA_MEMORY.md` incluye §Facade (capture/recall/seed/ingest, firma conceptual + degradación) Y §Exposure triggers T1–T4 (≥5 pedidos externos / adapter ICP-03 bloqueado / 2 releases sin breaking / stranger-tests confirman demanda local-first) Y validate-docs-coverage verde Y 0 símbolos nuevos en bindings"
 - **Task file:** `docs/dev/tasks/HARD-04.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED
 - **Cynefin:** 🟦 obvio — doc.
 - **Top 3 riesgos:** 1. prometer superficie no estable · 2. triggers no medibles · 3. re-abrir Gate P sin evidencia.
 - **Pre-mortem:** F1: facade como contrato firme → marcar "candidate, not published"; F2: triggers vagos → fechas/umbrales numéricos; F3: scope creep a bindings → PROHIBIDO (Gate P).
@@ -158,7 +158,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "`AGENTS.md` prohíbe `cargo test`/`nextest` sin `-p` desde la raíz Y targets feature-gated tienen `required-features` (sin skip silencioso) Y suite unificada (`cargo test --test cli_tests`) completa sin hang Y `troubleshooting.md` documenta síntoma/causa/fix"
 - **Task file:** `docs/dev/tasks/HARD-05.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED
 - **Cynefin:** 🟦 obvio — regla + atributos.
 - **Top 3 riesgos:** 1. required-features que oculten tests válidos · 2. regla sin enforcement · 3. Gate H rechaza wording.
 - **Pre-mortem:** F1: required-features mal puesto → tests desaparecen; F2: nadie lee la regla → ponerla en flujo mínimo; F3: doc sin comando exacto → incluir repro.
@@ -182,7 +182,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "FIND-162: check reparado o retirado con motivo + `rg VantaError scripts/` = 0 (o excepción documentada) Y FIND-160: secciones por módulo O exclusión motivada Y FIND-154: gate ya no falsea (tolerancia/quarantine documentada) Y FIND-161: decisión registrada (ADR o decision-memory) + docs coherentes; filas del Backlog actualizadas/cerradas"
 - **Task file:** `docs/dev/tasks/HARD-06.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED
 - **Cynefin:** 🟦 obvio — fixes acotados.
 - **Top 3 riesgos:** 1. FIND-154 sin repro estable → fix a ciegas · 2. FIND-161 decisión que toca superficies · 3. mezclar 4 fixes en un commit.
 - **Pre-mortem:** F1: perf gate con varianza irreducible → quarantine + issue; F2: RFC 9457 adoptado a medias → decisión binaria documentada; F3: commit no atómico → 1 commit por FIND (4 commits, 1 task).
@@ -192,7 +192,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
   |--------------|--------|------------------------|---------------|
   | 🟡×🟡 | FIND-154 reincide | quarantine + métrica de varianza | 2 falsos positivos más |
   | 🟢×🟡 | FIND-161 ambiguo | opciones + decisión owner si hay tradeoff | Gate P |
-- **Uphill/Downhill:** ⬆️ 1 (FIND-161) / ⬇️ 5 steps
+- **Uphill/Downhill:** ⬆️ 0 (FIND-161 resuelto: owner eligió B) / ⬇️ 0 — steps 5/5 ✅ (verify_changed OK)
 - **DoD task:** contrato ✅ · task file sync · recitation · **Notas:** FIND-153 se evalúa junto a FIND-154; MEM-55 (task file huérfano) → catalogar o cerrar.
 
 ### Task 7: HARD-07 — Review gate mecanizado (reviewer_context ≠ author_context)
@@ -206,7 +206,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "REVIEW→ACCEPT exige `reviewer_context ≠ author_context` (o waiver registrado que BLOQUEA el ACCEPT) Y simulación de review degradado NO permite ACCEPT (caso de prueba en el task file) Y Gate H verde"
 - **Task file:** `docs/dev/tasks/HARD-07.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED
 - **Cynefin:** 🟨 complicado — tocar la state machine sin romper el flujo.
 - **Top 3 riesgos:** 1. romper el state machine (ACCEPT bloqueado de más) · 2. waiver que se vuelva costumbre · 3. regresión en tareas ya completadas.
 - **Pre-mortem:** F1: invariante demasiado estricto → probar con tareas históricas; F2: waiver sin registro → waiver = decisión owner registrada; F3: sin test → simulación obligatoria.
@@ -692,3 +692,80 @@ Próxima tarea si completa: HARD-01
 ```
 /pipeline run docs/dev/plans/2026-09-26-master-roadmap.md
 ```
+
+=== RECITATION HARD-02 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: HARD-02 — tuning de gates (coverage reporte+presupuesto, review risk-tiered, nightly, release dry-run)
+Estado: completed
+Última acción: Decisión owner (c) implementada y verificada: coverage report+budget movido al nightly (dev-tools/coverage-budget.ps1 + nightly.yml job coverage-budget, artifact); verify.ps1 con -IncludeCoverage default OFF → ALL 10 PASS, 209.5s warm <5min (era 509.4s); contrato 4/4; Gate H APROBADO; P2-01 APROBADO (3 rondas); FIND-163 resuelto; floor-guard exit 0; actionlint 0.
+Resultado: OK
+Próxima acción: Commit local del changeset por el lead (VantaDB + .opencode por separado; NO push sin OK del owner). Siguiente tarea: HARD-04
+Contrato: 4/4 ✅ — (1) coverage no bloquea + reporte+presupuesto documentado (coverage-budget.ps1 6 buckets baseline−1.0pt, enforce en nightly; CI_POLICY §Coverage) ✅; (2) review risk-tiered en prompts (globs docs/api|sdk|parser|storage|wire+node/text_index; diff mixto=adversarial; Gate H verde) ✅; (3) nightly.yml existe (subset diario 05:00 + coverage-budget + notify auto-issue + release dry-run cargo publish --dry-run) ✅; (4) fast gate medido 209.5s warm <5min ✅. Evidencia: hard02-verify-r3.log (ALL 10 PASS), floor-guard 0, actionlint 0, publish dry-run exit 0 (59.8s), docs-coverage 0 gaps. Invariantes: ADR-018 intacto; floor-guard verde; budget falla en violación explícita. Deuda tracked: RULES.md '27 files'→HARD-03; calibración ubuntu del primer nightly; gitleaks historia 197 (diff-scoped por diseño).
+Próxima tarea si completa: HARD-04
+=== END RECITATION ===
+
+=== RECITATION HARD-01 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: HARD-01 — rails de breaking changes (fix ronda 1 de review aplicado)
+Estado: in-progress
+Última acción: Fix ronda 1: UPGRADE.md:69 ../api/ -> ../../api/; COMPATIBILITY.md anchor #pre-10-stability-contract + claim cold-run real (149.7s/391.1s); link-check changeset 58 relativos -> 0 rotos, 0 anchors malos; validate-docs-coverage ✅ post-fix; §Review ronda 1 registrada
+Resultado: OK
+Próxima acción: Ronda 2 de review (vanta-review, sesion fresca) sobre el diff post-fix; luego LEAD: commit local 3 bloques (sin push)
+Contrato: verificacion: check-release exit 100 raw x2 (findings triados+documentados en COMPATIBILITY) | public_api ✅ MCP (snapshot 8480 L, hash 7BA24E…5DBC) | validate-docs-coverage ✅ 0 gaps post-fix | link-check 4 docs: 58 relativos -> 0 rotos + 0 anchors (62 totales) | fmt ✅ clippy --test public_api ✅ · evidencia: ronda 1 completa en task file §Review (ses_f1e5eaf82ffeiJrZgx6UrRp3iK); fixes verificados por grep + checker inline · artefactos: tests/api/public_api.rs + public-api.txt, Cargo.toml/lock, ci-rust.yml, docs/api/DEPRECATIONS.md + COMPATIBILITY.md, VERSIONING.md, UPGRADE.md, task file · invariantes: release-plz unico versionador; 11 superficies intactas; sin push; archivos HARD-02/03 intactos · deuda: exit100 esperado hasta 0.8.0; nightly flotante; normalizacion exit codes MCP · queda_pendiente: ronda 2 review + commit LEAD + OCR delegate rule (advisory)
+Próxima tarea si completa: HARD-04
+=== END RECITATION ===
+
+=== RECITATION HARD-03 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: HARD-03 — continuidad local + release trains (bundle git + política RULES.md §8 + referencia CONTRIBUTING + línea Gate H)
+Estado: completed
+Última acción: 5/5 steps ✅: script git-backup.ps1 (smoke real exit 0 + verify + clone restore 31 commits + negativos Z:/inside-repo/colisión + prune -Keep); RULES.md §8 (175-191); CONTRIBUTING.md:114-117; .opencode/AGENTS.md:9 (Gate H ✅); reviews ✅ (vanta-review P2-01 APROBADO 0C/0R + vanta-harness); bundle real conservado $HOME\VantaDB-Backups\vantadb-20260927-0127.bundle; learnings registrados
+Resultado: OK
+Próxima acción: LEAD: commit local VantaDB (scripts/git-backup.ps1 + RULES.md + CONTRIBUTING.md + HARD-03.md) + commit aparte repo .opencode (AGENTS.md:9, Gate H ya verde). Próxima tarea: HARD-04
+Contrato: Contrato ✅ 3/3: (1) bundle timestamped + verify exit 0 — real: $HOME\VantaDB-Backups\vantadb-20260927-0127.bundle (28 refs, HEAD 50106b4e, 31 commits locales; clon desde bundle restaura la franja: rev-list --count 40b1dd..develop=31, reproducido por vanta-review); (2) política en RULES.md §8 (+last_reviewed+Fuentes); (3) CONTRIBUTING.md:114-117 referencia script+RULES.md §8. Verificacion: pwsh scripts/git-backup.ps1 ✅ exit 0; git bundle verify ✅ exit 0; validate-docs-coverage ✅ exit 0 (verify_cmd 18.6s). Evidencia: Gate H ✅ (vanta-harness ses_f1ea9677fffeHG7DG7alY3o6CB, smoke propio exit 0); P2-01 ✅ (ses_f1e975170ffemcSiW19TunrzZt, clone+31 commits reproducidos); OCR advisory exit 0 (reglas por grupo, sin bloqueantes). Invariantes: script 100% local (jamás push, Regla 7); single-source (push=Regla 7, continuidad=§8); bundles nunca commiteados. Deuda: commit local delegado al LEAD (instrucción de orquestación); owner action: fijar -Dest externo/sincronizado en AGENTS.md:9 cuando exista la carpeta.
+Próxima tarea si completa: HARD-04
+=== END RECITATION ===
+
+=== RECITATION HARD-04 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: HARD-04: vanta-memory — spec de fachada + triggers de exposición (core-only, Gate P)
+Estado: completed
+Última acción: 4/4 steps ✅: evidence pack 4/4 ops (refs file:line) + baseline rg bindings (exit 1); §Facade+§Exposure triggers T1–T4 integrados en docs/api/VANTA_MEMORY.md:34,74 (candidate, not published; umbral+fuente+dueño); drift IngestResult→IngestReport; gates: validate-docs-coverage exit 0 (0 gaps), markdownlint 0 issues, OCR advisory exit 0 (.md excluidos → 0 C/H aplicables), rg cierre exit 1; review P2-01 ronda 1 DEGRADADA (doubt-driven self) approve + escalado; commit local delegado al LEAD.
+Resultado: OK
+Próxima acción: LEAD: commit local docs: de docs/api/VANTA_MEMORY.md + docs/dev/tasks/HARD-04.md (sin push) + ratificar review con vanta-review; próxima tarea HARD-06.
+Contrato: verificacion: rg vanta[_-]memory vantadb-python vantadb-ts vantadb-node vantadb-wasm → exit 1 / 0 matches (campaign_verify_cmd HARD-04, x2 pre+post) · pwsh scripts/validate-docs-coverage.ps1 → exit 0 (0 gaps, 2.8s) · npx markdownlint-cli2 docs/api/VANTA_MEMORY.md docs/dev/tasks/HARD-04.md → 0 issues. evidencia: §Facade+§Exposure triggers → VANTA_MEMORY.md:34,74 (2 hits; pre-mortem F1 etiqueta candidate / F2 umbrales medibles / F3 cero bindings); firmas 4/4: auto_capture.rs:84, auto_recall.rs:198, seed/mod.rs:76, ingest/worker.rs:35; OCR spec: 5 reviewables = HARD-02 (fuera de alcance), .md excluded (unsupported_ext). artefactos: docs/api/VANTA_MEMORY.md (+63/−1), docs/dev/tasks/HARD-04.md, %TEMP%\hard04-ocr.json. invariantes: vanta-memory core-only (publish=false; 0 símbolos en bindings — re-verificado al cierre); facade etiquetada 'candidate, not published'; página = referencia manual; FIND-160 sigue abierto para HARD-06; sub-agente sin commit/push. deuda: review P2-01 ronda 1 degradada (sin subagente vanta-review en runtime — escalada al owner/orquestador); commit local pendiente (LEAD). queda_pendiente: LEAD commit + vanta-review ratificación + skill progreso; WIP de HARD-02/05 intacto.
+Próxima tarea si completa: HARD-06
+=== END RECITATION ===
+
+=== RECITATION HARD-05 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: HARD-05 — Entorno local blindado (regla -p, required-features, target dir): regla dura en AGENTS.md, required-features sin skip silencioso, suite unificada sin hang, troubleshooting documentado
+Estado: completed
+Última acción: 4/4 steps ✅. Regla -p en AGENTS.md (Regla 1 L484 + §Test Suite L430 + coherencia L163/L487/L641; tier de cierre nombrado tras Gate H ronda 1) y test-suite.md scoped (L4/L18); required-features=['rayon'] en stress_protocol (Cargo.toml:476; nextest 2297==2297; --no-run OK); troubleshooting.md sección :8080 (síntoma/causa/fix/comandos); Gate H ronda 2 ✅ + P2-01 ✅ + OCR sin Critical/High + FIND-164 registrada + verify_changed ALL 4 PASS
+Resultado: OK
+Próxima acción: Handoff al LEAD: commit local (root: Cargo.toml, docs/dev/references/troubleshooting.md, docs/dev/tasks/HARD-05.md, docs/dev/Backlog.md; .opencode repo separado: AGENTS.md, references/test-suite.md) — sin push. Próxima tarea: HARD-06
+Contrato: verificacion: (1) rg regla → AGENTS.md:430/484 ✅; (2) required-features + nextest list before=2297/after=2297 + --no-run exit 0 + check exit 0 ✅; (3) cargo test -p vantadb --test cli_tests → 88 passed; cargo test --test cli_tests (raíz, timeout guard 1800s) → 87 passed sin hang (δ=strategate server) ✅; (4) rg 8080/f6c395ef/unificación en troubleshooting.md → 5 hits ✅. evidencia: outputs pegados en task file Steps 1-4 + §Review; artefactos: Cargo.toml:476, .opencode/AGENTS.md:430,484, .opencode/references/test-suite.md:4,18, docs/dev/references/troubleshooting.md:22-43, docs/dev/Backlog.md:262 (FIND-164); invariantes: cli_tests 88/88 canónico, conteo nextest sin regresión, Git policy (sin commit/push del ejecutor); deuda: FIND-164 (bare -p en 5 archivos del harness, fuera de blast radius); queda_pendiente: commit del LEAD + archivar en plan master
+Próxima tarea si completa: 
+=== END RECITATION ===
+
+=== RECITATION HARD-06 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: HARD-06 — Deuda quick wins (FIND-162, FIND-160, FIND-154, decisión FIND-161 + MEM-55)
+Estado: completed
+Última acción: Steps 5/5 ✅ + verify completo (verify_changed ALL 4 PASS; validate-docs exit 0; self-test 2/2; YAML OK). 4 fixes + bookkeeping listos en working tree. PENDIENTE SOLO LEAD: review P2-01 (vanta-review, diff docs/api/**) + commit por bloques (mapping en RESULTADO §7; NOTA: VANTA_MEMORY.md/Backlog.md mezclan cambios de HARD-04/HARD-02 sin commitear) + push NO (requiere owner).
+Resultado: OK
+Próxima acción: LEAD: review P2-01 adversarial + commit por bloques + flip final si aplica. Siguiente task del plan: WIRE-10 (F1) — HARD-06 era la última de F0.
+Contrato: verificacion: pwsh scripts/validate-docs-coverage.ps1 ✅ exit 0 (§3 no trivial) · python benchmarks/compare_baseline.py --self-test ✅ 2/2 · pwsh dev-tools/verify_changed.ps1 ✅ ALL 4 PASS · YAML parse ✅ · rg VantaError scripts/validate-docs-coverage.ps1 = 0 ✅ (json = excepción documentada). evidencia: (1) §3 no trivial — 'src/error.rs (Error) — 35 items ok' + negativo FooBarBazXYZ=false; (2) ruido +108.5% no bloquea / regresión +40% bloquea — self-test 2/2 + smoke CLI; (3) decisión FIND-161=B (RFC 9457) — decisions.md L135 + HTTP_API.md:787-793 + ERROR_HANDLING.md:422-426; (4) FIND-153 resuelta — gh run 36094025761 success; (5) 5 módulos documentados — VANTA_MEMORY.md §Operational modules. artefactos: scripts/validate-docs-coverage.ps1, benchmarks/compare_baseline.py, .github/workflows/perf-bench.yml, docs/api/VANTA_MEMORY.md, docs/api/HTTP_API.md, docs/api/ERROR_HANDLING.md, docs/dev/Backlog.md, docs/dev/avance/activo/ci-cd.md, docs/dev/tasks/complete/MEM-55.md, docs/dev/tasks/HARD-06.md, docs/dev/plans/2026-09-26-master-roadmap.md. invariantes: fast gate verde; perf gate sigue bloqueando regresiones reales (self-test); anti_stutter_map.json NO tocado; quality bar no debilitado. deuda: ninguna nueva (FIND-165 = impl RFC 9457 ruteada). queda_pendiente: LEAD — review P2-01 + commit por bloques.
+Próxima tarea si completa: WIRE-10 (docs/dev/tasks/WIRE-10.md)
+=== END RECITATION ===
+
+=== RECITATION HARD-07 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: HARD-07 — Review gate mecanizado (reviewer_context ≠ author_context)
+Estado: completed
+Última acción: 4/4 steps ✅: (1) REVIEW_ACCEPT_RULES+validateReviewAccept en config/state-tools.mjs + re-export C0-unified; (2) enforcement en updateTaskStateCore (schema recitation.review, fail-fast reviewBlocked, recordReviewWaiver, guard findTaskById) + fixtures; (3) prosa pipeline-full/pipeline-run/question-gates/RULES §9(+§Cierre, restart note); (4) review-gate.test.mjs T1-T5 + E2E MCP. Gate H r1 ❌→r2 ✅; P2-01 r1 ❌→r2 ✅ APPROVE.
+Resultado: OK
+Próxima acción: LEAD: commit local selectivo (sin push) + skill progreso + plan file sync. No quedan steps.
+Contrato: verificacion: review-gate 5/5 ✅ + bun test 54/54 ✅ + state-persistence 15/15 ✅ + parity exit 0 ✅ + smoke OK ✅ + verify_changed ALL4 ✅ + Gate H ✅ + P2-01 ✅ | evidencia: T2 degraded-no-waiver {updated:false,reviewBlocked:true}; T1/T4 fresh updated:true; T5 numeric-id → recitation7:true; E2E stdio bloqueo OK; probes r2 de ambos revisores | artefactos: .opencode/task-system/{config/state-tools.mjs, C0-unified.mjs, mcp/campaign-server.mjs, mcp/review-gate.test.mjs, mcp/state-persistence.test.mjs, prompts/pipeline-full.md, prompts/pipeline-run.md, prompts/question-gates.md}, docs/dev/workflow/RULES.md §9, docs/dev/tasks/HARD-07.md, docs/dev/Backlog.md (FIND-166/167/168) | invariantes: C0 parity 10 estados intacto; 49 pre-existentes verdes; WIP/claim intactos; waiver=owner registrado (decisions+trace) | deuda: FIND-166/167/168 (Baja, registradas); enforcement activa al reiniciar MCP | queda_pendiente: commit selectivo del LEAD (pipeline-run.md fue scope addendum por regla Gate H medium — disclosed en el task file)
+Próxima tarea si completa: WIRE-10
+=== END RECITATION ===
