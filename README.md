@@ -34,7 +34,7 @@
 
 
 
-VantaDB is a local-first, embedded database engine designed for AI agents, local RAG pipelines, and edge applications. It provides persistent storage, crash-safe recovery via WAL, and native hybrid search (BM25 + HNSW) without requiring external services, containers, or network dependencies.
+VantaDB is a local-first, embedded memory engine for AI agents. One core with three entry points — **AI IDEs** (via MCP), **local/private LLM stacks**, and **agent frameworks** — delivering durable, governed agent memory with crash-safe recovery via WAL and native hybrid retrieval (BM25 + HNSW + RRF) that powers local RAG workflows. No external services, containers, or network dependencies.
 
 ---
 
