@@ -686,7 +686,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "ADR de migración aceptado (campos, semántica valid vs transaction, alcance 0.8.0 vs v1.0, plan de migración/backfill, compat export/import) + plan de implementación único con comandos + revisión owner registrada"
 - **Task file:** `docs/dev/tasks/SCH-01.md` (a crear en DISCOVERY)
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
 - **Cynefin:** 🟨 complicado — consolidar 3 investigaciones en una decisión + alcance + compat.
 - **Top 3 riesgos:** 1. insumos divergentes/incompletos → ADR ambiguo · 2. segundo breaking accidental (edges SCH-09) · 3. alcance 0.8.0 inflado con v1.0 (derivación/jueces).
 - **Pre-mortem:** F1: ADR sin comandos de migración → DoD exige plan con comandos (Backlog:938); F2: specs contradictorias → tabla de reconciliación campo×spec en el ADR; F3: "revisión owner" sin registro → registrarla en el task file (carril owner, §Carril owner L750-763).
@@ -1046,6 +1046,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-27c]:** **F1 COMPLETA (8/8).** DEF-03 (`8a884ba6`+`b82f90cb`) · DEF-04 (`d45deba5` — ADR-045 firmado por owner, Gate P) · DEF-05 (`58c9903c`) · DEF-07 (`fd50ea22`) · DEF-08 (`1a696766`) + cierres `44e3394e`/`3dc52f16` + FIND-169..175. Fix de harness: MCP codegraph/CBM nativos para sub-agentes (`543f917` + `3389234e`, Gate H). ⬆️ antes: 3 en progreso F1b → después: 0. ⬇️ downhill: 34.
 - **plan-adjust [2026-09-27d]:** **Bloques F2 completados al nivel F0/F1 (REGLA L412-422)** — Tasks 16-22 (WIRE-02..08), 23 campos c/u, Paso 0 verificado (codegraph/CBM): WIRE-02 re-baseline 85 listadas (`MCP.md:265`); WIRE-04 re-scope (TTL HTTP ya existe → default por colección + sweeper); WIRE-07 trait-split ya ejecutado → bookkeeping + OpGate/server→cli; deps MGR-05/09/16 anotadas. Gate de fase F2 ✅ → wave F2 lanzada (WIRE-03 ‖ WIRE-04; WIRE-02 en cola). Commit `0b6f9822`.
 - **plan-adjust [2026-09-28e]:** **Bloques F3 completados al nivel F0/F1 (REGLA L412-422)** — Tasks 23-33 (MGR-10/12/13 + SCH-01..08), 23 campos c/u, Paso 0 verificado (codegraph/CBM): SCH-01 re-baseline alcance 0.8.0 (0.7.0 shipped); SCH-03 `exclude_superseded` YA existe (gaps reales = AS OF/valid_at); SCH-04 re-baseline slice 0.8.0; SCH-08 corte 0.8.0 (Backlog stale corregido); deps fuera del plan anotadas (MGR-01/04). Gate de fase F3 ✅ → wave F3.1 lanzada (MGR-10 ‖ MGR-12 ‖ MGR-13).
+- **plan-adjust [2026-09-28f]:** **Owner ratificó los 16 defaults de diseño F3** (question 2026-09-28, opción "Aprobar defaults y avanzar"): MGR-10 (6) + MGR-12 (4) + MGR-13 (6). SCH-01 los consolida en ADR-046; el ADR pasa por revisión owner explícita (Regla 5). Cierre MGR ✅ = pre-req duro SCH-01 cumplido. Wave F3.2 lanzada (SCH-01).
 
 ## Recitation
 
@@ -1054,9 +1055,9 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
 Objetivo activo: F3 — Bitemporalidad/confianza/cuarentena + schema v2 (MGR/SCH)
 Estado: in-progress
-Última acción: F2 COMPLETA (23/50); bloques F3 completados; wave F3.1 lanzada (MGR-10 ‖ MGR-12 ‖ MGR-13)
-Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7)
-Próxima acción: cerrar MGR-10/12/13 (research-docs) → SCH-01 → cadena SCH
+Última acción: F3.1 COMPLETA (26/50 — 3 research-docs); owner ratificó 16 defaults; wave F3.2 lanzada (SCH-01)
+Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7 · MGR 3/3)
+Próxima acción: SCH-01 (ADR-046 + revisión owner) → SCH-02 (schema v2)
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
