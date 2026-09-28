@@ -54,18 +54,21 @@ deprecations are registered in [`DEPRECATIONS.md`](DEPRECATIONS.md).
 
 Accepted breaking changes merged to `develop` **after** the `v0.7.0` release
 cut (2026-09-25), to ship in the next MINOR (`0.8.0`, under 0.x rules). Detected
-by `cargo semver-checks check-release` (exit 100; 6 deny-level lint families).
-All findings are on the **CLI surface (#9)** — `src/cli.rs` (clap structs) and
-`src/cli_handlers/` public signatures — **not** on the Rust SDK surface (#1):
+by `cargo semver-checks check-release` (exit 100; 7 deny-level lint families).
+Six are on the **CLI surface (#9)** — `src/cli.rs` (clap structs) and
+`src/cli_handlers/` public signatures — **not** on the Rust SDK surface (#1).
+The seventh is a **feature-graph** change on the core crate (#1, Cargo
+features), not a Rust item signature:
 
 | lint (`cargo-semver-checks`) | What changed | Commit |
 |------------------------------|--------------|--------|
-| `constructible_struct_adds_field` | `Cli` gains a pub field (`src/cli.rs:38`) | `f6c395ef` |
+| `constructible_struct_adds_field` | `Cli` gains a pub field (`src/cli.rs:38`) + `Config`: `insert_batch` (`config.rs:779`), `memory_default_ttl_ms` (`config.rs:793`), `ttl_sweep_interval_ms` (`config.rs:799`) | `f6c395ef` · WIRE-04/WIRE-06 |
 | `enum_struct_variant_changed_kind` | `Commands::Stats` changed variant kind (`src/cli.rs:192`) | `f6c395ef` |
 | `enum_struct_variant_field_added` | `query_flag` / `limit` added to `Search` / `SearchMulti` / `SearchAll` / `SimilarToKey` | `f6c395ef` |
 | `enum_struct_variant_field_missing` | `json` / `top_k` removed or renamed on several `Commands` variants | `f6c395ef` |
 | `enum_variant_added` | `Commands::McpCall` added (`src/cli.rs:363`) | `8e55e853` |
 | `function_parameter_count_changed` | ~25 `pub` `cli_handlers::cmd_*` gained one parameter (path/POSIX plumbing) | `f6c395ef` |
+| `feature_no_longer_enables_feature` | **`feature server` no longer enables `cli`** (WIRE-07 feature decouple): the HTTP binary (`vantadb-server`/`vantadb-mcp`, now `default-features = false`) stops dragging `clap`/`clap_complete`/`indicatif`/`console`/`anyhow`. Downstreams that relied on the implication restore it with `features = ["server", "cli"]`; `vantadb-server` keeps its own opt-in `cli = ["vantadb/cli"]` | WIRE-07 |
 
 - **Disposition:** accepted under the 0.x MINOR policy (introduced by `feat!:` /
   `fix:` commits on `develop`); **not** excluded and no lint levels weakened —
@@ -73,7 +76,10 @@ All findings are on the **CLI surface (#9)** — `src/cli.rs` (clap structs) and
   [`UPGRADE.md`](../user/operations/UPGRADE.md).
 - **Reproduce:** `cargo semver-checks check-release` (rustdoc builds; measured
   locally 2026-09-27: 149.7s warm, 391.1s after a cache rebuild — the first
-  cold bootstrap is slower). Raw evidence: 190 pass / 6 fail / 57 skip.
+  cold bootstrap is slower). Raw evidence: 196 checks — 189 pass / 7 fail /
+  57 skip (WIRE-07 run, 2026-09-28; cold all-features build ≈64 min when the
+  shared `target/semver-checks` dir is locked by concurrent sessions — isolate
+  with `CARGO_TARGET_DIR`).
 
 ## 1.0 Readiness — exit criteria
 
