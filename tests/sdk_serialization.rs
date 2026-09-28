@@ -97,6 +97,10 @@ fn test_search_request_serialize() {
         query_sparse: None,
         exclude_superseded: false,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     };
     let json = serde_json::to_string(&req).unwrap();
     let back: MemorySearchRequest = serde_json::from_str(&json).unwrap();

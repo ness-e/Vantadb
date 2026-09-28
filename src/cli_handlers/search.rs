@@ -87,6 +87,10 @@ pub fn cmd_search(
         explain: false,
         exclude_superseded: false,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     };
 
     let hits = db.search(request)?;
@@ -459,6 +463,10 @@ pub fn cmd_search_multi(
         explain: false,
         exclude_superseded: false,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     };
 
     let hits = db.search_multi(&namespaces, request)?;
@@ -527,6 +535,10 @@ pub fn cmd_search_all(
         explain: false,
         exclude_superseded: false,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     };
 
     let hits = db.search_all(request)?;

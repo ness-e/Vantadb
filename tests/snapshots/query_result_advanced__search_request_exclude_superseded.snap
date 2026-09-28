@@ -22,4 +22,8 @@ MemorySearchRequest {
     explain: false,
     exclude_superseded: true,
     search_profile: None,
+    range: None,
+    group_by: None,
+    mmr: None,
+    cursor: None,
 }

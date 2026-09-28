@@ -23,12 +23,13 @@ pub use serialization::{
 };
 pub use types::{
     Bm25TermContribution, Capabilities, EdgeRecord, EntityBoost, EntityBoostProvenance,
-    EntityBoostReport, EntityBoostedSearch, ExportReport, Fields, FilterOp, HybridFusionReport,
-    ImportReport, IndexRebuildReport, MemoryExportLine, MemoryFilter, MemoryFilterItem,
-    MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord, MemorySearchHit,
-    MemorySearchRequest, NamespaceStats, NamespaceStatsMap, NodeInput, NodeRecord,
-    OperationalMetrics, QueryResult, RuntimeProfile, SearchExplanation, SearchExplanationHit,
-    SearchHit, SearchProfileConfig, SearchProfileMode, SkillCreateInput, SkillListOptions,
-    SkillListPage, SkillPatchInput, SkillRecord, SkillUpdateInput, SkillWriteResult, StorageTier,
-    TextIndexAuditReport, TextIndexRepairReport, Value,
+    EntityBoostReport, EntityBoostedSearch, ExportReport, Fields, FilterOp, GroupByConfig,
+    HybridFusionReport, ImportReport, IndexRebuildReport, MemoryExportLine, MemoryFilter,
+    MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord,
+    MemorySearchHit, MemorySearchPage, MemorySearchRequest, MmrConfig, NamespaceStats,
+    NamespaceStatsMap, NodeInput, NodeRecord, OperationalMetrics, QueryResult, RangeFilter,
+    RuntimeProfile, SearchExplanation, SearchExplanationHit, SearchHit, SearchProfileConfig,
+    SearchProfileMode, SkillCreateInput, SkillListOptions, SkillListPage, SkillPatchInput,
+    SkillRecord, SkillUpdateInput, SkillWriteResult, StorageTier, TextIndexAuditReport,
+    TextIndexRepairReport, Value,
 };

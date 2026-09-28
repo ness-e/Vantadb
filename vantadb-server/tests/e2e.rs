@@ -571,6 +571,10 @@ async fn test_e2e_text_search_fresh_db() {
     // 2. Lexical search via /api/v2/search (no rebuild) must return hits
     let search = vantadb::sdk::MemorySearchRequest {
         text_query: Some("quantum flux".into()),
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let resp = client

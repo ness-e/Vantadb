@@ -813,6 +813,10 @@ fn parse_search_request(value: &Value) -> napi::Result<MemorySearchRequest> {
         explain: obj.get("explain").and_then(Value::as_bool).unwrap_or(false),
         exclude_superseded: false,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     })
 }
 

@@ -21,4 +21,8 @@ MemorySearchRequest {
             candidate_k: None,
         },
     ),
+    range: None,
+    group_by: None,
+    mmr: None,
+    cursor: None,
 }

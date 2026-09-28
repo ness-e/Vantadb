@@ -519,6 +519,10 @@ mod tests {
     fn trimmed_text_query_none() {
         let req = MemorySearchRequest {
             text_query: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         };
         assert_eq!(trimmed_text_query(&req), None);
@@ -528,6 +532,10 @@ mod tests {
     fn trimmed_text_query_empty() {
         let req = MemorySearchRequest {
             text_query: Some(String::new()),
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         };
         assert_eq!(trimmed_text_query(&req), None);
@@ -537,6 +545,10 @@ mod tests {
     fn trimmed_text_query_whitespace() {
         let req = MemorySearchRequest {
             text_query: Some("   ".into()),
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         };
         assert_eq!(trimmed_text_query(&req), None);
@@ -546,6 +558,10 @@ mod tests {
     fn trimmed_text_query_valid() {
         let req = MemorySearchRequest {
             text_query: Some("hello world".into()),
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         };
         assert_eq!(trimmed_text_query(&req), Some("hello world"));
@@ -555,6 +571,10 @@ mod tests {
     fn trimmed_text_query_trims_input() {
         let req = MemorySearchRequest {
             text_query: Some("  query  ".into()),
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         };
         assert_eq!(trimmed_text_query(&req), Some("query"));
@@ -619,6 +639,10 @@ mod tests {
                 candidate_k: Some(128),
                 ..Default::default()
             }),
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         };
         let (rrf_k, candidate_k) = resolve_search_profile(&req);

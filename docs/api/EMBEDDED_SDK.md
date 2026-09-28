@@ -79,6 +79,7 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `list(namespace, options)` | List records in a namespace with cursor pagination. Returns `MemoryListPage` |
 | `list_namespaces()` | List all namespaces. Returns `Vec<String>` |
 | `search(request: MemorySearchRequest)` | [[hybrid-search\|Hybrid]] (vector + lexical) search. Returns `Vec<MemorySearchHit>` |
+| `search_page(request: MemorySearchRequest)` | Same pipeline as `search` with cursor-based pagination (WIRE-08). Returns `MemorySearchPage { hits, next_cursor }`: `next_cursor` is `Some` only when the page is full (`hits.len() == top_k`); a short page is the last page. Resume by passing the token back in `MemorySearchRequest::cursor` — the next page returns hits after the last returned hit's identity in the current ranking. Resume is **best-effort, not a snapshot**: a hit returned in a previous page can be returned again (or skipped) when interleaved writes reorder its rank across the anchor (BM25/IDF are recalculated corpus-wide on every write); writes that rank *before* the anchor are never duplicated. The token is bound to the request's plan fingerprint (mismatch → `SEARCH_CURSOR_INVALID`) and to the current process; pagination is rejected with `mmr`/`group_by`. See [[SEARCH_PARITY\|SEARCH_PARITY]] for the Milvus/Qdrant mapping |
 | `search_with_method(request, method)` | Same as `search` with an explicit index backend override for the dense-vector portion: `Some(IndexType::Ivf)` / `Some(IndexType::Scann)` / `Some(IndexType::Flat)` / `Some(IndexType::Hnsw)`. `None` (default) keeps automatic engine routing untouched; the shared engine config is never mutated (thread-safe, per-search override) |
 | `search_with_entity_boost(request, boost)` | Same as `search` with the opt-in deterministic entity-cluster boost (WIRE-05). Hits sharing an entity cluster with other fused candidates receive an additive delta (`weight × peers × 1/(rrf_k+1)`) before the final ranking. Returns `EntityBoostedSearch { hits, boost_report }` with per-hit provenance (cluster, peers, `base_score`, `delta`) — reversible, no stored data mutated; an empty `EntityBoost` is byte-identical to `search`. Single-channel routes (text-only/vector-only/sparse-only) are returned unchanged |
 | `search_multi(namespaces, request)` | Search across multiple namespaces, merging results by descending score, capped at `request.top_k`. Namespaces that produce no results or fail validation are silently skipped; an empty `namespaces` slice returns an empty `Vec` |
@@ -117,14 +118,33 @@ pub struct MemoryInput {
 pub struct MemorySearchRequest {
     pub namespace: String,
     pub query_vector: Vec<f32>,       // empty = no vector search
+    pub query_sparse: Option<SparseVector>, // sparse-dot arm (fused with RRF)
     pub filters: MemoryMetadata, // equality filter on metadata
     pub text_query: Option<String>,   // BM25 lexical query
     pub top_k: usize,                 // default: 10
     pub distance_metric: DistanceMetric, // Cosine (default) or Euclidean
     pub explain: bool,                // include score breakdown
+    pub exclude_superseded: bool,     // ADR-028 soft-delete filter
+    pub search_profile: Option<SearchProfileConfig>, // MEM-01 (mode, rrf_k, candidate_k)
+    pub range: Option<RangeFilter>,   // WIRE-08: score bounds [min_score, max_score]
+    pub group_by: Option<GroupByConfig>, // WIRE-08: { field, group_size }
+    pub mmr: Option<MmrConfig>,       // WIRE-08: { lambda, fetch_k }
+    pub cursor: Option<String>,       // WIRE-08: opaque token from `search_page`
 }
 ```
+
 *Note: Lexical search uses the [[bm25|BM25]] algorithm.*
+
+#### WIRE-08 search options
+
+| Field | Contract |
+|-------|----------|
+| `range: RangeFilter { min_score, max_score }` | Post-ranking score filter, **inclusive** bounds in score space (higher = more relevant, matching `MemorySearchHit::score`). `None` bound = unbounded. Rejected (`SEARCH_OPTIONS_INVALID`) when non-finite or `min_score > max_score`. Score-space equivalent of Milvus `radius`/`range_filter` and Qdrant `score_threshold` — see [[SEARCH_PARITY\|SEARCH_PARITY]]. The fetch window deepens (bounded by 10 000) when the bounds can shorten the page |
+| `group_by: GroupByConfig { field, group_size }` | Post-ranking group-by on a metadata field: walk hits in rank order, keep a hit while its group value has fewer than `group_size` selected hits (default `1`); `top_k` caps **total hits** (unlike Milvus/Qdrant, where `limit` caps the number of groups). Records missing the field form their own group. `field` must be non-empty and `group_size >= 1` |
+| `mmr: MmrConfig { lambda, fetch_k }` | Maximal Marginal Relevance reranking: `lambda` in `[0, 1]` (default `0.5`; `1.0` = pure relevance = identity order, `0.0` = pure diversity). `fetch_k` is the candidate window (default `top_k * 5`, clamped to `[top_k, 16384]`). Relevance is min-max normalized inside the window so `lambda` is comparable across fusion routes; diversity uses cosine between the records' dense vectors (records without vectors compete on relevance only). Mutually exclusive with `cursor` |
+| `cursor: Option<String>` | Opaque continuation token returned by `search_page`. Valid only for the same plan fingerprint (namespace, query, filters, metric, profile, range) and the same process — never persist or parse it. Resuming skips past the anchor hit's identity; the fetch window grows (bounded by 10 000) to compensate for writes that landed before the anchor. Mutually exclusive with `mmr`/`group_by` |
+
+`search_page` returns `MemorySearchPage { hits: Vec<MemorySearchHit>, next_cursor: Option<String> }`.
 
 ### `MemoryRecord`
 

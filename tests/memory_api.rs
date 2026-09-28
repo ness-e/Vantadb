@@ -165,6 +165,10 @@ fn memory_api_filters() {
             filters,
             text_query: None,
             top_k: 5,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("search");
@@ -178,6 +182,10 @@ fn memory_api_filters() {
             filters: Default::default(),
             text_query: Some("second".to_string()),
             top_k: 5,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("text-only search");
@@ -197,6 +205,10 @@ fn memory_api_filters() {
             filters: Default::default(),
             text_query: Some("\"first second\"".to_string()),
             top_k: 5,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("phrase search");
@@ -210,6 +222,10 @@ fn memory_api_filters() {
             filters: Default::default(),
             text_query: Some("\"first second\"".to_string()),
             top_k: 5,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("debug explain");
@@ -227,6 +243,10 @@ fn memory_api_filters() {
             filters: Default::default(),
             text_query: Some("first".to_string()),
             top_k: 5,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("hybrid search");
@@ -241,6 +261,10 @@ fn memory_api_filters() {
             filters: Default::default(),
             text_query: Some("second".to_string()),
             top_k: 0,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("hybrid top_k zero");
@@ -253,6 +277,10 @@ fn memory_api_filters() {
             filters: Default::default(),
             text_query: None,
             top_k: 5,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("whitespace text query falls back to vector");
@@ -338,6 +366,10 @@ fn read_only_rejects_mutations_without_changing_db_files() {
             filters: Default::default(),
             text_query: Some("payload".to_string()),
             top_k: 5,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("read-only text search");
@@ -381,6 +413,10 @@ fn memory_euclidean_and_explainable_ranking() {
         query_sparse: None,
         exclude_superseded: false,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     };
 
     let hits_explain = db.search(request_explain).expect("search with explain");
@@ -405,6 +441,10 @@ fn memory_euclidean_and_explainable_ranking() {
         query_sparse: None,
         exclude_superseded: false,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     };
 
     let hits_no_explain = db
@@ -479,6 +519,10 @@ fn snippet_with_highlighting() {
         query_sparse: None,
         exclude_superseded: false,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     };
 
     let hits = db.search(request).expect("search");

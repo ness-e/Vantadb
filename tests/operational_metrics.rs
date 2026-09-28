@@ -56,6 +56,10 @@ fn metrics_track_rebuild_export_import_and_replay() {
             filters: Default::default(),
             text_query: Some("payload".to_string()),
             top_k: 5,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("text search");
@@ -73,6 +77,10 @@ fn metrics_track_rebuild_export_import_and_replay() {
             filters: Default::default(),
             text_query: None,
             top_k: 5,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("vector search");
@@ -88,6 +96,10 @@ fn metrics_track_rebuild_export_import_and_replay() {
             filters: Default::default(),
             text_query: Some("payload".to_string()),
             top_k: 5,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("hybrid search");

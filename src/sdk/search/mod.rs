@@ -16,7 +16,9 @@ pub(crate) mod explain;
 pub(crate) mod fusion;
 pub(crate) mod hybrid;
 pub(crate) mod lexical;
+pub(crate) mod mmr;
 pub(crate) mod multi;
+pub(crate) mod page;
 pub(crate) mod sparse;
 pub(crate) mod vector;
 
@@ -68,13 +70,72 @@ impl Embedded {
     /// db.close().expect("close database");
     /// ```
     pub fn search(&self, request: MemorySearchRequest) -> Result<Vec<MemorySearchHit>> {
-        let exclude_superseded = request.exclude_superseded;
-        let (mut hits, _boost_report) = self.search_impl(request, None, None)?;
-        if exclude_superseded {
-            // ADR-028: drop superseded records at final assembly — no index change.
-            hits.retain(|hit| hit.record.superseded_by.is_none());
-        }
-        Ok(hits)
+        Ok(self.search_page(request)?.hits)
+    }
+
+    /// Search with cursor-based pagination (WIRE-08).
+    ///
+    /// Behaves like [`search`](Self::search) but returns a [`MemorySearchPage`]
+    /// carrying an opaque `next_cursor` when the page is full. Pass that token
+    /// back in `MemorySearchRequest::cursor` to resume: the next page returns
+    /// hits after the last returned hit's identity in the current ranking.
+    ///
+    /// Resume is **best-effort, not a snapshot**: a hit returned in a previous
+    /// page can be returned again (or skipped) when interleaved writes reorder
+    /// its rank across the anchor — BM25/IDF are recalculated corpus-wide on
+    /// every write. Guaranteed: writes that rank *before* the anchor are never
+    /// duplicated by the resumed page. A page with fewer than `top_k` hits is
+    /// the last page (`next_cursor == None`); `top_k == 0` returns an empty
+    /// page with no cursor (ERR-033: limit 0 means no records). A stronger
+    /// cursor (snapshot / server-side session) is tracked as FIND-183.
+    ///
+    /// The token is bound to the request's plan fingerprint (namespace, query,
+    /// filters, metric, profile, range) and to the current process; a mismatch
+    /// fails with the stable `SEARCH_CURSOR_INVALID` marker. Pagination is
+    /// rejected for `mmr`/`group_by` requests (set-dependent selection) and is
+    /// not available through `search_multi`/`search_all` (single-namespace
+    /// plans only).
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use vantadb::{connect, MemorySearchRequest};
+    ///
+    /// let db = connect(":memory:").expect("open in-memory database");
+    /// db.put(vantadb::MemoryInput::new("docs", "a", "alpha beta")).unwrap();
+    /// db.put(vantadb::MemoryInput::new("docs", "b", "alpha gamma")).unwrap();
+    /// db.put(vantadb::MemoryInput::new("docs", "c", "alpha delta")).unwrap();
+    ///
+    /// let first = db
+    ///     .search_page(MemorySearchRequest {
+    ///         namespace: "docs".into(),
+    ///         text_query: Some("alpha".into()),
+    ///         top_k: 2,
+    ///         ..Default::default()
+    ///     })
+    ///     .expect("first page");
+    /// assert_eq!(first.hits.len(), 2);
+    /// assert!(first.next_cursor.is_some(), "full page yields a cursor");
+    ///
+    /// let second = db
+    ///     .search_page(MemorySearchRequest {
+    ///         namespace: "docs".into(),
+    ///         text_query: Some("alpha".into()),
+    ///         top_k: 2,
+    ///         cursor: first.next_cursor,
+    ///         ..Default::default()
+    ///     })
+    ///     .expect("second page");
+    /// assert_eq!(second.hits.len(), 1);
+    /// assert!(
+    ///     !first.hits.iter().any(|h| h.record.key == second.hits[0].record.key),
+    ///     "resumed page never repeats a hit"
+    /// );
+    /// assert!(second.next_cursor.is_none(), "short page is the last page");
+    /// ```
+    pub fn search_page(&self, request: MemorySearchRequest) -> Result<MemorySearchPage> {
+        let (page, _boost_report) = page::run_search_page(self, request, None, None)?;
+        Ok(page)
     }
 
     /// Same as [`search`](Self::search) with an explicit index backend override
@@ -87,13 +148,8 @@ impl Embedded {
         request: MemorySearchRequest,
         method: Option<crate::index::IndexType>,
     ) -> Result<Vec<MemorySearchHit>> {
-        let exclude_superseded = request.exclude_superseded;
-        let (mut hits, _boost_report) = self.search_impl(request, method, None)?;
-        if exclude_superseded {
-            // ADR-028: drop superseded records at final assembly — no index change.
-            hits.retain(|hit| hit.record.superseded_by.is_none());
-        }
-        Ok(hits)
+        let (page, _boost_report) = page::run_search_page(self, request, method, None)?;
+        Ok(page.hits)
     }
 
     /// Search with an opt-in deterministic entity-cluster boost (WIRE-05).
@@ -115,14 +171,12 @@ impl Embedded {
         request: MemorySearchRequest,
         boost: &EntityBoost,
     ) -> Result<EntityBoostedSearch> {
-        let exclude_superseded = request.exclude_superseded;
         let effective = (!boost.is_empty()).then_some(boost);
-        let (mut hits, boost_report) = self.search_impl(request, None, effective)?;
-        if exclude_superseded {
-            // ADR-028: drop superseded records at final assembly — no index change.
-            hits.retain(|hit| hit.record.superseded_by.is_none());
-        }
-        Ok(EntityBoostedSearch { hits, boost_report })
+        let (page, boost_report) = page::run_search_page(self, request, None, effective)?;
+        Ok(EntityBoostedSearch {
+            hits: page.hits,
+            boost_report,
+        })
     }
 
     #[tracing::instrument(skip(self, request), err)]

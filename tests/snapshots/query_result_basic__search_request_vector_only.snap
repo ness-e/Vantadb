@@ -18,4 +18,8 @@ MemorySearchRequest {
     explain: false,
     exclude_superseded: false,
     search_profile: None,
+    range: None,
+    group_by: None,
+    mmr: None,
+    cursor: None,
 }

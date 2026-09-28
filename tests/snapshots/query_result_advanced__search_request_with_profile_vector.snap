@@ -1558,4 +1558,8 @@ MemorySearchRequest {
             ),
         },
     ),
+    range: None,
+    group_by: None,
+    mmr: None,
+    cursor: None,
 }

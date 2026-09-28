@@ -1229,6 +1229,10 @@ impl Client {
             explain: req.explain,
             exclude_superseded: req.exclude_superseded,
             search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         };
         let hits = self.inner.search(vanta_req).map_err(to_js_err)?;
         let arr = js_sys::Array::new();
@@ -1294,6 +1298,10 @@ impl Client {
             explain: true,
             exclude_superseded: req.exclude_superseded,
             search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         };
         let explanation = self
             .inner
@@ -1429,6 +1437,10 @@ impl Client {
             explain: req.explain,
             exclude_superseded: req.exclude_superseded,
             search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         };
         let ns_refs: Vec<&str> = ns_vec.iter().map(String::as_str).collect();
         let hits = self

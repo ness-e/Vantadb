@@ -374,6 +374,10 @@ fn test_put_batch_list_count_text_consistent() {
             namespace: "inc_test".into(),
             text_query: Some("payload".into()),
             top_k: 5,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("search");
