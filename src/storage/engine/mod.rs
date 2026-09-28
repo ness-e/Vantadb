@@ -591,6 +591,18 @@ impl StorageEngine {
         })
     }
 
+    /// Whether a transaction is currently active on this engine.
+    ///
+    /// WIRE-06: the group-commit ingestion path must fall back to the
+    /// per-record `insert()` inside a transaction — `insert()` buffers writes
+    /// into the transaction write set (ERR-013) while `batch_insert_with_opts`
+    /// applies directly, which would break transaction isolation.
+    #[cfg(feature = "async-ingestion")]
+    #[inline]
+    pub(crate) fn has_active_transaction(&self) -> bool {
+        self.txn.has_active()
+    }
+
     /// Create an instant filesystem snapshot of the live data directory.
     ///
     /// # Consistency (FIND-25)

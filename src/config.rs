@@ -137,6 +137,67 @@ impl PrefetchMode {
     }
 }
 
+/// Opt-in group-commit batching for the async ingestion pipeline (WIRE-06).
+///
+/// When enabled, [`AsyncIngestionPipeline`](crate::ingestion::AsyncIngestionPipeline)
+/// workers accumulate up to `max_batch_records` tasks (waiting at most
+/// `max_wait_ms` for the batch to fill) and commit them with a single
+/// `batch_insert_with_opts` call: one `insert_lock` acquisition, one WAL
+/// `batch_append` per shard (≤1 fsync per shard), one HNSW bulk insert —
+/// instead of one of each per record.
+///
+/// Default (`enabled = false`) = current behavior, byte-identical.
+///
+/// Declared latency window (Hyrum surface): with `enabled = true` a task's
+/// acknowledgement is delayed by up to `max_wait_ms` plus the batch commit
+/// time. Durability is unchanged: the caller is only acked after the batch is
+/// written to the WAL under the configured [`SyncMode`] (durable = acked).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct InsertBatchConfig {
+    /// Master switch. `false` (default) = per-record path, unchanged.
+    pub enabled: bool,
+    /// Cycle closes when this many records are queued (bounded batch size).
+    pub max_batch_records: usize,
+    /// Cycle closes when this long elapses since the cycle opened (ms).
+    /// `0` = commit immediately after the first record (no gather window).
+    pub max_wait_ms: u64,
+    /// Channel capacity / backpressure bound for queued ingestion tasks.
+    pub max_queued_records: usize,
+}
+
+impl Default for InsertBatchConfig {
+    fn default() -> Self {
+        Self {
+            enabled: false,
+            max_batch_records: 32,
+            max_wait_ms: 1,
+            max_queued_records: 1024,
+        }
+    }
+}
+
+impl InsertBatchConfig {
+    /// Boundary validation for env/builder input: zero `max_batch_records`
+    /// (a nonsensical bound that would silently degrade to 1-record batches)
+    /// and zero `max_queued_records` (a zero-capacity channel cannot be
+    /// constructed) both degrade to defaults. `max_wait_ms = 0` is valid
+    /// (commit immediately after the first record, no gather window).
+    pub fn sanitized(mut self) -> Self {
+        let defaults = Self::default();
+        if self.max_batch_records == 0 {
+            self.max_batch_records = defaults.max_batch_records;
+        }
+        if self.max_queued_records == 0 {
+            self.max_queued_records = defaults.max_queued_records;
+        }
+        // Defense in depth (review P2-01): an unbounded wait window would hold
+        // acks indefinitely and leak one blocking timer thread per recv; cap it.
+        self.max_wait_ms = self.max_wait_ms.min(60_000);
+        self.max_batch_records = self.max_batch_records.min(self.max_queued_records.max(1));
+        self
+    }
+}
+
 /// RBAC domain configuration mapping API tokens to roles (Q1=B: propio, 6to dominio).
 #[derive(Debug, Clone, Default)]
 pub struct RbacCfg {
@@ -713,6 +774,13 @@ pub struct Config {
     /// Batch size for batch ingestion operations (default: 1000).
     /// Configured via `VANTADB_BATCH_SIZE`.
     pub batch_size: Option<usize>,
+    /// Opt-in group-commit batching for the async ingestion pipeline (WIRE-06).
+    ///
+    /// Configured via `VANTADB_INSERT_BATCH_ENABLED` (default `false`),
+    /// `VANTADB_INSERT_BATCH_MAX_RECORDS` (default 32),
+    /// `VANTADB_INSERT_BATCH_WAIT_MS` (default 1) and
+    /// `VANTADB_INSERT_BATCH_QUEUE` (default 1024). See [`InsertBatchConfig`].
+    pub insert_batch: InsertBatchConfig,
     /// Maximum number of historical versions retained per memory key (VS-CORE-07).
     ///
     /// Each `put` snapshots the new record under its version; when a key reaches
@@ -1148,6 +1216,24 @@ impl Default for Config {
                 debug!(val = ?v, "VANTADB_BATCH_SIZE");
                 v
             },
+            insert_batch: {
+                let d = InsertBatchConfig::default();
+                let v = InsertBatchConfig {
+                    enabled: parse_env_or("VANTADB_INSERT_BATCH_ENABLED", d.enabled),
+                    max_batch_records: parse_env_or(
+                        "VANTADB_INSERT_BATCH_MAX_RECORDS",
+                        d.max_batch_records,
+                    ),
+                    max_wait_ms: parse_env_or("VANTADB_INSERT_BATCH_WAIT_MS", d.max_wait_ms),
+                    max_queued_records: parse_env_or(
+                        "VANTADB_INSERT_BATCH_QUEUE",
+                        d.max_queued_records,
+                    ),
+                }
+                .sanitized();
+                debug!(?v, "VANTADB_INSERT_BATCH_*");
+                v
+            },
             version_history_limit: {
                 // `VANTADB_VERSION_HISTORY_LIMIT=0` disables the cap entirely.
                 let v = parse_env_or::<u32>("VANTADB_VERSION_HISTORY_LIMIT", 32)
@@ -1463,6 +1549,14 @@ impl Config {
     /// Sets the batch size for batch ingestion operations.
     pub fn with_batch_size(mut self, size: usize) -> Self {
         self.batch_size = Some(size);
+        self
+    }
+
+    /// Sets opt-in group-commit batching for the async ingestion pipeline.
+    ///
+    /// Zero-valued bounds degrade to defaults (see [`InsertBatchConfig`]).
+    pub fn with_insert_batching(mut self, config: InsertBatchConfig) -> Self {
+        self.insert_batch = config.sanitized();
         self
     }
 
@@ -2121,6 +2215,49 @@ mod tests {
         assert_eq!(cfg_default.wal_buffer_size, cfg_from_env.wal_buffer_size);
         assert_eq!(cfg_default.flush_threshold, cfg_from_env.flush_threshold);
         assert_eq!(cfg_default.flat_threshold, cfg_from_env.flat_threshold);
+    }
+
+    // ── InsertBatchConfig (WIRE-06) ────────────────────────────
+
+    #[test]
+    fn test_insert_batch_default_is_disabled_and_bounded() {
+        let cfg = InsertBatchConfig::default();
+        assert!(!cfg.enabled, "batching must be opt-in");
+        assert_eq!(cfg.max_batch_records, 32);
+        assert_eq!(cfg.max_wait_ms, 1);
+        assert_eq!(cfg.max_queued_records, 1024);
+    }
+
+    #[test]
+    fn test_insert_batch_sanitized_restores_zero_bounds() {
+        let cfg = InsertBatchConfig {
+            enabled: true,
+            max_batch_records: 0,
+            max_wait_ms: 0,
+            max_queued_records: 0,
+        }
+        .sanitized();
+        assert_eq!(cfg.max_batch_records, 32, "zero batch size degrades");
+        assert_eq!(cfg.max_queued_records, 1024, "zero queue capacity degrades");
+        assert_eq!(cfg.max_wait_ms, 0, "zero wait is valid (no gather window)");
+        assert!(cfg.enabled, "sanitized must not flip the switch");
+    }
+
+    #[test]
+    fn test_with_insert_batching_roundtrip() {
+        let wanted = InsertBatchConfig {
+            enabled: true,
+            max_batch_records: 64,
+            max_wait_ms: 5,
+            max_queued_records: 256,
+        };
+        let cfg = Config::default().with_insert_batching(wanted);
+        assert_eq!(cfg.insert_batch, wanted);
+        assert_eq!(
+            Config::default().insert_batch,
+            InsertBatchConfig::default(),
+            "default config must not enable batching"
+        );
     }
 
     // ── Builder chaining ───────────────────────────────────────

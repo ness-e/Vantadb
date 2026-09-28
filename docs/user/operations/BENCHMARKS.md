@@ -662,7 +662,105 @@ Win11 con compactions fjall de fondo; por eso mediana-de-2, nunca mejor corrida.
 `cargo bench` warnings pre-existentes en `src/sdk/search/debug_ops.rs`
 (unused imports release-only, 5 warnings, no tocados acá).
 
+### WIRE-06 — Group-commit opt-in productizado (2026-09-28)
+
+> **Source of truth:** `benches/ingestion_concurrent.rs`, grupos
+> `wire06_group_commit` + `wire06_paired_ab` + `wire06_attribution` (WIRE-06).
+> Productiza el prototipo FIND-61 (§13.1 Tabla 2) como **config opt-in del
+> engine** (`Config::insert_batch` / `VANTADB_INSERT_BATCH_*`, ver
+> `CONFIGURATION.md`): el pipeline acumula ≤ `max_batch_records` tasks
+> (ventana `max_wait_ms`) y commitea con UN `batch_insert_with_opts` — 1 toma
+> de `insert_lock`, 1 `batch_append` por shard (≤1 fsync/shard), 1 HNSW bulk —
+> en vez de uno de cada por record. `enabled=false` (default) = ruta
+> per-record byte-idéntica.
+>
+> **Reproduce (Regla 11):**
+> ```powershell
+> cargo bench -p vantadb --bench ingestion_concurrent --features async-ingestion -- "wire06_"
+> ```
+> **Método §13:** criterion `sample_size(10)`, BATCH=400, DIM=16, canal default
+> (1024), DB fjall fresca por iter, p1/w1, chunk de submits en vuelo 32 (celda
+> N=32 de FIND-61); `on_serial_p1w1` usa chunk=1 (testigo de la ventana);
+> `wire06_paired_ab` mide OFF y ON **en la misma ventana**, alternando orden
+> por iteración (neutraliza la deriva de carga de la máquina compartida);
+> latencias por task medidas por el worker (submit→ack, µs); mediana de la
+> última corrida (×4 corridas totales; ver sensibilidad a carga abajo).
+
+#### Corrida final (28-09 ~04:0x, ventana quieta) — celdas secuenciales + pareadas
+
+| Celda | ops/s (mediana) | ON/OFF | p50-ack | p99-ack |
+|---|---|---|---|---|
+| `off_p1w1` (baseline, batching OFF) | **92.5** | 1.00× | 10.5 ms | ~16.8 ms |
+| `on_p1w1` (ON, default: 32 rec / 1 ms) | **480.5** | **5.19×** | 70.5 ms | ~90 ms |
+| `on_w2_p1w1` (ventana 2 ms) | 483.5 | 5.23× | 68.7 ms | ~90 ms |
+| `on_w5_p1w1` (ventana 5 ms) | 547 | 5.91× | 61.2 ms | ~80 ms |
+| `on_serial_p1w1` (ON, chunk=1) | 83 | 0.90× | 11.9 ms | ~16.7 ms |
+| **`wire06_paired_ab`** (OFF vs ON, misma ventana) | — | **5.92×** (muestras 5.29–6.39×) | — | — |
+
+#### Atribución (`wire06_attribution`, misma ventana)
+
+| Ruta | ops/s (mediana) | × vs directa skip=false |
+|---|---|---|
+| directa `skip_existing_check=false` (UPSERT-correcto) | ~457 | 1.00× |
+| directa `skip_existing_check=true` (atajo del prototipo) | ~465 | ~1.00× |
+| pipeline ON (productizada) | ~459 | **~1.00×** |
+
+Lectura: **el check de existencia (requerido para UPSERTs) y el plumbing del
+pipeline (cola + ventana + `spawn_blocking` + acks) no agregan costo medible**
+en este régimen; la ruta productizada iguala a la prototipo-equivalente dentro
+del ruido. El delta contra los **1016 ops/s / 9.1× de FIND-61 (2026-09-04)**
+es del entorno: en la corrida final de hoy la misma ruta directa mide ~460
+ops/s (la máquina — laptop 15 W compartida — muestra la ruta batcheada, que es
+un burst de CPU serial, más sensible al throttle/load que la ruta OFF).
+
+#### Sensibilidad a carga (4 corridas, mismo código)
+
+| Corrida | OFF ops/s | ON ops/s | ON/OFF | Nota |
+|---|---|---|---|---|
+| A (00:5x) | 44 | 236 | 5.36× | máquina con builds de otros agentes (WIRE-05/07) |
+| B (01:2x) | 47.5 | 166 | 3.49× | carga ajena más alta durante la celda ON |
+| C (sweep) | 103 | 543–628 (primeras muestras) | 5.3–6.1× | la carga subió a mitad de celda (ratio 3.0× en la cola) |
+| D (quieta) | 52 | 472 | 9.09× | ventana quieta, celda OFF aún con carga residual |
+| **Final (04:0x)** | **92.5** | **480** | **5.19×** + pareada **5.92×** | ventana quieta, celdas pareadas |
+
+El ratio intra-corrida secuencial varía porque cada celda agarra una fase
+distinta de carga; por eso la evidencia de gate es la **celda pareada** (misma
+ventana; alternación por muestra corregida post-review P2-01 — rerun independiente min 5.93×): **mediana 5.92×, mínimo 5.29×**.
+
+**Gate §Contrato: ≥5× ingesta sostenida — ✅** (pareada 5.92× mediana, 5.29×
+mínimo; secuencial 5.19×; atribución 1.00× sin costo medible vs prototipo).
+
+**Tradeoffs declarados:**
+
+- **Modo ON (opt-in):** p50-ack ≈ 6–7× el per-op — una task espera a que su
+  batch se cierre + commitee (`max_batch_records`/`max_wait_ms`). El ack sigue
+  significando “aplicado + durable per `SyncMode`”; no hay ventana de pérdida
+  de acks. El sweep w2/w5 no cambia el throughput de forma significativa en
+  este harness (el backlog llena los batches); se mantiene el default 1 ms
+  para minimizar el costo de latencia del opt-in.
+- **`on_serial_p1w1`:** con submits seriales (chunk=1) la ventana cuesta
+  ~+1.4 ms p50 (11.9 vs 10.5 ms) y ~−10% throughput — acotado por diseño
+  (≤ `max_wait_ms` por task); el modo ON está pensado para carga concurrente.
+- **Ruta default (OFF):** byte-idéntica (mismos 92.5 ops/s que el baseline
+  documentado §13 111.5 dentro de la variabilidad de la máquina, mismo p50
+  ~10 ms); sin regresión. La cláusula “p99 sin regresión >15%” del contrato
+  aplica a la ruta default/canonical: `canonical_p99` no toca este path
+  (`src/index/**` intacto) y su consumo guard (`--no-run`) compila ✅.
+
+#### Scorecard WIRE-06 (medido — fuente Bench criterion)
+
+| Metric | Value | Source | Target | Status |
+|--------|-------|--------|--------|--------|
+| Throughput ON/OFF (pareada, misma ventana) | **5.92×** mediana (5.29–6.39×) | `wire06_paired_ab` | ≥5× | **Good** |
+| Throughput ON/OFF (secuencial, corrida final) | 5.19× (480 vs 92.5 ops/s) | `wire06_group_commit` | ≥5× | Good |
+| Atribución check+plumbing vs prototipo | 1.00× | `wire06_attribution` | sin costo medible | Good |
+| ON p50/p99-ack | 70.5 / ~90 ms | Bench | tradeoff declarado (opt-in) | Declarado |
+| on_serial vs OFF | 0.90× throughput / +1.4 ms p50 | Bench | ≤15% regresión (ruta default) | Good |
+| Default OFF | byte-idéntica; 220/220 tests | `nextest` scoped | sin regresión | Good |
+| canonical_p99 consumo guard | compila (`--no-run`) | `cargo bench --no-run` | compile-gate §11 | Good |
+
 ## 14. IVF search hot path — premisa-muerta + baseline post-`b4ff157d` (AUD-045)
+
 
 > **Source of truth:** `benches/ivf_bench.rs` (REVISAR-01). `canonical_p99.rs` **no** cubre IVF
 > (`rg -in ivf` = 0 hits) → la tabla inline de `ivf_bench` es el baseline declarado de esta fila.
