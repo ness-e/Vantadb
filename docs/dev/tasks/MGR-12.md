@@ -111,7 +111,7 @@ last-synced: 2026-09-28
 - Ninguna. Co-batch F3 con MGR-10/MGR-13 (archivos disjuntos — no tocados). Destraba SCH-01 (pre-requisito duro `Backlog:938`).
 
 ## Review (GATE P2-01)
-- **Pendiente — LEAD.** Regla del prompt de ejecución: NO self-review; requiere reviewer fresco (`vanta-review`) + payload `review` en el ACCEPT (HARD-07).
+- **Revisor:** `vanta-review` fresco (sesión `ses_f169edc6affe2nAvjZppBCV2es`; ≠ autor `ses_f16afedcafferxMld0J0BAe1Ud`) — **✅ APPROVE** (2026-09-28). 0 Required; 4 Optional (semántica `Derived+Some` → SCH-01 · `D_a` vs 0.5 → SCH-01 · punto de escritura residual → SCH-01 · predicado import v2 → SCH-02) + 5 Nits (4 aplicados). 30+ refs re-verificadas; 5/18 fuentes spot-checked.
 
 ## Notas
 - WIP ajeno PROHIBIDO: `docs/dev/research/mgr-10-*.md` y `mgr-13-*.md` (co-batch) — no tocar.

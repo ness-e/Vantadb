@@ -607,8 +607,8 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Justificación:** es la dim 5 del corte F3: define el modelo temporal del que dependen el ADR de SCH-01 y el schema v2 de SCH-02; sin diseño valid vs transaction no hay queries auditables "qué era verdad en T" (evidence-before-belief, Backlog:839) ni base para SCH-03.
 - **Gate Result:** ✅ DO
 - **Contrato:** "research-doc cerrado con modelo valid-time vs transaction-time, tradeoffs (append-only vs invalidación + storage del historial) y plan de migración/backfill determinista, listo para SCH-01"
-- **Task file:** `docs/dev/tasks/MGR-10.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Task file:** `docs/dev/tasks/MGR-10.md`
+- **Estado:** ✅ COMPLETED (2026-09-28 — commit `b6614e1e`; review fresco OK)
 - **Cynefin:** 🟨 complicado — modelo temporal de dos ejes + tradeoffs de storage + migración única.
 - **Top 3 riesgos:** 1. modelo sobredimensionado (bitemporal completo Snodgrass en 0.8.0) · 2. backfill no determinista del historial · 3. edge-bitemporal (SCH-09) fuera del diseño → segundo breaking.
 - **Pre-mortem:** F1: research-doc que cuela v1.0 (índices temporales/MVCC) → sección explícita "0.8.0 vs v1.0" + Cierre MGR; F2: diseño conceptual desconectado del storage real → tradeoffs mapeados a `version_history`/KV/export con comandos verificables; F3: se redacta sin el insumo dim 5 → citar fuente (Backlog MGR-10 + Notion dim 5) y refs externas (Snodgrass; Zep/Graphiti arXiv 2501.13956).
@@ -633,8 +633,8 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Justificación:** es la dim 6 del corte F3: SCH-04 (0.8.0) consume esta spec para scores consumibles y SCH-05 para trust-aware retrieval/abstención; el nodo ya puntúa confianza (eviction/executor) → el diseño debe unificar record↔nodo sin divergencia antes del corte.
 - **Gate Result:** ✅ DO
 - **Contrato:** "research-doc cerrado con modelo de confianza asserted/derived (scores por registro + reglas de derivación + `last_validated` + calibración básica), tradeoffs y mapeo al `confidence_score` de nodo, listo para SCH-01"
-- **Task file:** `docs/dev/tasks/MGR-12.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Task file:** `docs/dev/tasks/MGR-12.md`
+- **Estado:** ✅ COMPLETED (2026-09-28 — commit `50df4efd`; review fresco OK)
 - **Cynefin:** 🟨 complicado — taxonomía de procedencia + calibración + unificación record↔nodo.
 - **Top 3 riesgos:** 1. scores no calibrados (números decorativos) · 2. doble fuente de confianza (record vs nodo) divergente · 3. scope creep a jueces/grounding (v1.0).
 - **Pre-mortem:** F1: "asserted vs derived" sin definición operacional → taxonomía con ejemplos + reglas de derivación verificables; F2: grounding con jueces LLM dentro del slice → excluido explícito (derivación completa = v1.0, Backlog:934); F3: record y nodo divergen → semántica canónica en record + mapeo explícito (`graph.rs:231`).
@@ -659,8 +659,8 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Justificación:** dim 6/AM10 del corte F3: SCH-05 (0.8.0) implementa cuarentena+abstención y su test de contención exige esta spec; sin threat model write-time el estado `quarantined` no tiene criterios de entrada ni transiciones de salida.
 - **Gate Result:** ✅ DO
 - **Contrato:** "research-doc cerrado con estados + transiciones (entrada/promoción/expiración con dueño y trigger) + threat model write-time por superficie (API/dream/import), listo para SCH-01"
-- **Task file:** `docs/dev/tasks/MGR-13.md` (a crear en DISCOVERY)
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Task file:** `docs/dev/tasks/MGR-13.md`
+- **Estado:** ✅ COMPLETED (2026-09-28 — commit `72f29720`; review fresco OK)
 - **Cynefin:** 🟨 complicado — máquina de estados + criterios de promoción + threat model de poisoning.
 - **Top 3 riesgos:** 1. cuarentena que aísle contenido legítimo (falsos positivos) · 2. estados sin transición de salida (cuarentena permanente) · 3. threat model que no cubre vectores write-time (dream/import).
 - **Pre-mortem:** F1: criterios opacos → tabla estados×transiciones con señales medibles + promoción revisable; F2: poison vía consolidación/import no cubierto → threat model POR superficie de escritura (no solo API); F3: dep Backlog MGR-04 ausente → clase de confianza mínima desde MGR-12 + deuda anotada a v1.0/SCH-05.
@@ -1338,4 +1338,37 @@ Resultado: OK
 Próxima acción: LEAD: commit feat(search) + cierre F2 (23/50) + FINDs 183/184/185
 Contrato: range/group_by + cursor best-effort documentado/testeado + MMR + RRF-CBO + paridad Milvus/Qdrant + rewriting DEFER
 Próxima tarea si completa: MGR-10 (F3)
+=== END RECITATION ===
+
+=== RECITATION MGR-13 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: MGR-13 — research-doc: cuarentena
+Estado: completed
+Última acción: Steps 4/4 ✅ + review fresco APPROVE + fixes textuales; doc §0-§8 + threat model
+Resultado: OK
+Próxima acción: LEAD: commit docs (hecho) → ronda consolidada → SCH-01
+Contrato: estados+transiciones (dueño+trigger) + threat model write-time por superficie
+Próxima tarea si completa: SCH-01
+=== END RECITATION ===
+
+=== RECITATION MGR-10 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: MGR-10 — research-doc: bitemporalidad (dim 5)
+Estado: completed
+Última acción: Steps 4/4 ✅ + review fresco APPROVE + nits aplicados; doc §0-§7 + Cierre MGR
+Resultado: OK
+Próxima acción: LEAD: commit docs (hecho) → ronda consolidada de preguntas owner → SCH-01
+Contrato: modelo valid/transaction + tradeoffs + plan de migración determinista (4 formatos)
+Próxima tarea si completa: SCH-01
+=== END RECITATION ===
+
+=== RECITATION MGR-12 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: MGR-12 — research-doc: confianza (dim 6)
+Estado: completed
+Última acción: Steps 4/4 ✅ + review fresco APPROVE + nits 5-8 aplicados; doc §0-§10 + Cierre MGR
+Resultado: OK
+Próxima acción: LEAD: commit docs (hecho) → ronda consolidada de preguntas owner → SCH-01
+Contrato: modelo asserted/derived (V1-V5 + min(padres)×0.9) + last_validated + mapeo canónico + calibración diferida VER-08
+Próxima tarea si completa: SCH-01
 === END RECITATION ===
