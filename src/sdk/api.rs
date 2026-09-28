@@ -238,6 +238,136 @@ mod tests {
         assert!(db.get("ns", &record.key).unwrap().is_none());
     }
 
+    // ── WIRE-04: namespace default TTL (Config::memory_default_ttl_ms) ──
+
+    /// Embedded over a temp dir with a namespace→default-TTL map; the caller
+    /// keeps the temp dir alive.
+    fn make_embedded_with_default_ttl(dir: &std::path::Path, defaults: &[(&str, u64)]) -> Embedded {
+        let config = Config {
+            storage_path: dir.to_string_lossy().into_owned(),
+            memory_default_ttl_ms: defaults
+                .iter()
+                .map(|(ns, ms)| (ns.to_string(), *ms))
+                .collect(),
+            ..Default::default()
+        };
+        Embedded::open_with_config(config).expect("open Embedded with defaults")
+    }
+
+    /// Wait (bounded) until `get` hides the record; fails the test if it never does.
+    fn expect_read_hidden(db: &Embedded, namespace: &str, key: &str) {
+        let deadline = std::time::Instant::now() + std::time::Duration::from_secs(2);
+        loop {
+            if db.get(namespace, key).unwrap().is_none() {
+                return;
+            }
+            assert!(
+                std::time::Instant::now() < deadline,
+                "record {namespace}/{key} must be read-hidden after its TTL lapses"
+            );
+            std::thread::sleep(std::time::Duration::from_millis(5));
+        }
+    }
+
+    #[test]
+    fn default_ttl_applies_when_input_omits_ttl() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = make_embedded_with_default_ttl(dir.path(), &[("notes", 40)]);
+        let before = now_ms();
+
+        let record = db
+            .put(MemoryInput::new("notes", "k1", "remember me"))
+            .expect("put");
+
+        let expires = record.expires_at_ms.expect("default TTL must be applied");
+        assert!(
+            expires >= before + 40 && expires <= now_ms() + 40,
+            "expires_at_ms must be resolved from the namespace default"
+        );
+        expect_read_hidden(&db, "notes", "k1");
+        assert!(
+            db.purge_expired().unwrap() >= 1,
+            "defaulted TTL must flow through the purge path"
+        );
+    }
+
+    #[test]
+    fn default_ttl_ignores_namespaces_without_configuration() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = make_embedded_with_default_ttl(dir.path(), &[("notes", 40)]);
+
+        let record = db
+            .put(MemoryInput::new("other", "k1", "no ttl here"))
+            .expect("put");
+
+        assert!(
+            record.expires_at_ms.is_none(),
+            "namespaces without a configured default must never expire"
+        );
+    }
+
+    #[test]
+    fn explicit_ttl_overrides_namespace_default() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = make_embedded_with_default_ttl(dir.path(), &[("notes", 40)]);
+
+        let mut input = MemoryInput::new("notes", "k1", "explicit wins");
+        input.ttl_ms = Some(60_000);
+        let record = db.put(input).expect("put");
+
+        let expires = record.expires_at_ms.expect("explicit ttl present");
+        assert!(
+            expires > now_ms() + 30_000,
+            "explicit ttl_ms must override the namespace default, got {expires}"
+        );
+    }
+
+    #[test]
+    fn put_batch_applies_namespace_default_ttl() {
+        let dir = tempfile::tempdir().unwrap();
+        let db = make_embedded_with_default_ttl(dir.path(), &[("notes", 60_000)]);
+
+        let records = db
+            .put_batch(vec![MemoryInput::new("notes", "b1", "batch default")])
+            .expect("put_batch");
+
+        assert!(
+            records[0].expires_at_ms.is_some(),
+            "put_batch must apply the namespace default too"
+        );
+    }
+
+    #[test]
+    fn default_ttl_is_not_backfilled_on_reopen() {
+        let dir = tempfile::tempdir().unwrap();
+        let path = dir.path().to_path_buf();
+
+        // Phase 1: no default configured — the record must stay non-expiring.
+        {
+            let db = Embedded::open(&path).expect("open without defaults");
+            let record = db
+                .put(MemoryInput::new("notes", "old", "pre-config"))
+                .expect("put");
+            assert!(record.expires_at_ms.is_none());
+        }
+
+        // Phase 2: reopen WITH a default — only new writes inherit it.
+        let db = make_embedded_with_default_ttl(&path, &[("notes", 60_000)]);
+        let old = db.get("notes", "old").expect("get").expect("still there");
+        assert!(
+            old.expires_at_ms.is_none(),
+            "existing records must never be backfilled with the new default"
+        );
+
+        let new = db
+            .put(MemoryInput::new("notes", "new", "post-config"))
+            .expect("put");
+        assert!(
+            new.expires_at_ms.is_some(),
+            "writes after the config change must inherit the default"
+        );
+    }
+
     #[test]
     fn test_add_edge_no_engine() {
         let db = make_embedded(false);

@@ -51,6 +51,16 @@ impl Embedded {
         Ok(())
     }
 
+    /// Resolve the effective TTL (ms) for a write: an explicit `ttl_ms` wins;
+    /// otherwise the namespace ("collection") default from
+    /// [`Config::memory_default_ttl_ms`](crate::config::Config) applies, if any.
+    ///
+    /// Only new writes consult this — existing records are never backfilled
+    /// when the default is configured (or changed) later.
+    fn effective_ttl_ms(&self, namespace: &str, ttl_ms: Option<u64>) -> Option<u64> {
+        ttl_ms.or_else(|| self.config.memory_default_ttl_ms.get(namespace).copied())
+    }
+
     /// Shared logic for inserting/updating a single memory record.
     /// Used by both `put()` and `put_batch()`.
     fn put_one(&self, input: MemoryInput) -> Result<MemoryRecord> {
@@ -85,7 +95,9 @@ impl Embedded {
             .as_ref()
             .map(|r| r.version.saturating_add(1))
             .unwrap_or(1);
-        let expires_at_ms = input.ttl_ms.map(|ttl| timestamp.saturating_add(ttl));
+        let expires_at_ms = self
+            .effective_ttl_ms(&input.namespace, input.ttl_ms)
+            .map(|ttl| timestamp.saturating_add(ttl));
 
         let record = MemoryRecord {
             namespace: input.namespace,
@@ -261,7 +273,9 @@ impl Embedded {
                     node_id,
                     vector: input.vector.clone().filter(|v| Self::usable_vector(v)),
                     sparse_vector: input.sparse_vector.clone(),
-                    expires_at_ms: input.ttl_ms.map(|ttl| timestamp.saturating_add(ttl)),
+                    expires_at_ms: self
+                        .effective_ttl_ms(&input.namespace, input.ttl_ms)
+                        .map(|ttl| timestamp.saturating_add(ttl)),
                     superseded_by: None,
                     superseded_at_ms: None,
                 };

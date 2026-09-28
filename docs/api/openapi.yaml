@@ -1833,7 +1833,10 @@ components:
           format: int64
           nullable: true
           minimum: 0
-          description: Time-to-live in milliseconds from now; null means never expires
+          description: >-
+            Time-to-live in milliseconds from now. When null/omitted, the record
+            inherits the namespace's default TTL if one is configured; otherwise it
+            never expires. An explicit value always wins.
 
     SearchPageRequest:
       description: |

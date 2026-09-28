@@ -225,7 +225,8 @@ Parse failures return `{"success": false, "data": "Execution Error: IQL parse er
 
 Create or overwrite a record (upsert by namespace+key). Body mirrors the SDK
 `VantaMemoryInput`: `namespace`, `key`, `payload`, `metadata`, `vector` (nullable),
-`sparse_vector` (nullable term-weight map), `ttl_ms` (nullable; null = never expires).
+`sparse_vector` (nullable term-weight map), `ttl_ms` (nullable; null/omitted inherits the
+namespace default TTL if configured, otherwise the record never expires).
 
 ```json
 {
@@ -256,6 +257,26 @@ Response is the stored record wire shape:
   "superseded_by": null,
   "superseded_at_ms": null
 }
+```
+
+### Namespace default TTL
+
+A namespace ("collection") can declare a default TTL for its records via
+`VANTADB_MEMORY_DEFAULT_TTL_MS` — comma-separated `namespace:ms` pairs, e.g.
+`VANTADB_MEMORY_DEFAULT_TTL_MS="notes:86400000,chat:3600000"`.
+
+- Applied to record writes (`put`/`put_batch`) that omit `ttl_ms` (or send `null`); an explicit `ttl_ms`
+  always wins. Bulk import restores records as-given (no namespace default applied).
+- Only new writes inherit the default — existing records are never backfilled
+  when the default is configured (or changed) later.
+- Namespaces without a configured default keep the never-expires semantics.
+
+```bash
+# New writes to "notes" expire 24h after they are stored.
+curl -X POST http://127.0.0.1:8080/api/v2/records \
+  -H 'content-type: application/json' \
+  -d '{"namespace":"notes","key":"n1","payload":"remember this for a day"}'
+# → "expires_at_ms": <now + 86400000>
 ```
 
 ### `DELETE /api/v2/records?namespace=<ns>&filter=<json>`
@@ -434,11 +455,18 @@ Centrality/PageRank return a score object keyed by node id.
 
 ### `DELETE /api/v2/maintenance/expired-records`
 
-Removes all expired (TTL elapsed) records.
+Removes all expired (TTL elapsed) records. Physically deletes the node plus its
+derived/scalar/text index entries — not just hiding it from reads.
 
 ```json
 { "purged": 0 }
 ```
+
+Expiry is enforced twice: lazily on reads (an expired record is hidden from `GET`,
+`search` and `list` immediately) and physically by this purge. The server runs the
+same purge automatically in the background (`VANTADB_TTL_SWEEP_INTERVAL_MS`, default
+`60000`, `0` disables; skipped on read-only engines); this endpoint stays available
+for on-demand cleanup and tests.
 
 ### `POST /api/v2/maintenance/compactions`
 
