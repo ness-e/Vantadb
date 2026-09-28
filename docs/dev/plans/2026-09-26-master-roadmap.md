@@ -582,7 +582,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "range/radius + group_by + cursor con resume en search implementados con tests (resume estable con writes intercalados y page-full/last-page) Y paridad Milvus/Qdrant documentada en tabla capacidad×capacidad Y RRF-CBO/rewriting/MMR implementadas o DEFER explícito por pata en el task file (motivo + dueño) Y suites search/planner verdes"
 - **Task file:** `docs/dev/tasks/WIRE-08.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-28 — commit `8ac202a1`; review adversarial 2 rondas OK)
 - **Cynefin:** 🟨 complicado — operadores nuevos en planner + semántica de cursor/MMR.
 - **Top 3 riesgos:** 1. cursor no-resumible (estado no serializable) · 2. RRF en CBO que rompe queries IQL existentes · 3. scope creep (5 patas en 3-5d).
 - **Pre-mortem:** F1: cursor opaco no estable entre requests → snapshot de plan + offset determinista (test de resume con writes intercalados); F2: RRF-CBO aditivo → flag/profile + paridad IQL↔SDK test; F3: 5 patas no cierran → orden por valor (range/group_by → cursor → MMR → rewriting → RRF-CBO) con DEFER posible por pata.
@@ -1095,4 +1095,15 @@ Resultado: OK
 Próxima acción: LEAD: commit perf(storage) + cierre wave F2b
 Contrato: ≥5× (pareada 5.92× mediana) + p99 por construcción + integridad 220/220 + nightly gate
 Próxima tarea si completa: WIRE-07
+=== END RECITATION ===
+
+=== RECITATION WIRE-08 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: WIRE-08 — Range/group_by + cursor + RRF-CBO + MMR
+Estado: completed
+Última acción: Steps 8/8 ✅ + review adversarial (❌ C1/R1/R2 → fixes → ✅ delta APPROVE); 2369/2369
+Resultado: OK
+Próxima acción: LEAD: commit feat(search) + cierre F2 (23/50) + FINDs 183/184/185
+Contrato: range/group_by + cursor best-effort documentado/testeado + MMR + RRF-CBO + paridad Milvus/Qdrant + rewriting DEFER
+Próxima tarea si completa: MGR-10 (F3)
 === END RECITATION ===
