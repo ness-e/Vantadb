@@ -25,11 +25,11 @@ use vantadb::graph::TraversalDirection;
 use vantadb::index::IndexType;
 use vantadb::node::DistanceMetric;
 use vantadb::sdk::{
-    Embedded, MemoryFilterItem, MemoryInput, MemoryListOptions,
-    MemoryMetadata, MemorySearchRequest, NodeInput, SearchExplanation,
+    Embedded, MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryMetadata,
+    MemorySearchRequest, NodeInput, SearchExplanation,
 };
 // FFI guards: single source of truth from core (WSM-09).
-use vantadb::{MAX_K, MAX_VEC_DIM};
+use vantadb::{SparseVector, MAX_K, MAX_VEC_DIM};
 
 /// Clamp `top_k`/`k` to [`MAX_K`], warning when the caller requested more than
 /// the cap. Mirrors `vantadb-python::clamp_top_k` (ERR-022).
@@ -787,8 +787,43 @@ fn parse_memory_input(value: &Value) -> napi::Result<MemoryInput> {
         metadata: get_metadata(obj, "metadata")?,
         vector: get_opt_f32_vec(obj, "vector")?,
         ttl_ms: get_opt_u64(obj, "ttl_ms")?,
-        sparse_vector: None,
+        sparse_vector: parse_sparse_vector(obj, "sparse_vector")?,
     })
+}
+
+/// Parse an optional sparse vector from a JS object (`{dim: weight}`).
+///
+/// JS object keys are always strings, so numeric-string keys are coerced to
+/// `u32` dimension ids — same wire shape as the WASM adapter for
+/// `sparse_vector`. `null` / absent / `{}` means "skip sparse" (`None`).
+fn parse_sparse_vector(obj: &Map<String, Value>, key: &str) -> napi::Result<Option<SparseVector>> {
+    match obj.get(key) {
+        None | Some(Value::Null) => Ok(None),
+        Some(Value::Object(map)) => {
+            let mut out = std::collections::BTreeMap::new();
+            for (k, v) in map {
+                let dim: u32 = k.parse().map_err(|_| {
+                    Error::from_reason(format!("`{key}` key '{k}' is not a u32 dimension id"))
+                })?;
+                let weight = v.as_f64().filter(|f| f.is_finite()).ok_or_else(|| {
+                    Error::from_reason(format!("`{key}[{dim}]` must be a finite number"))
+                })?;
+                // N1 (review WIRE-03): f64 values like 1e39 overflow to `inf`
+                // when narrowed to f32 — reject instead of storing inf.
+                let weight32 = weight as f32;
+                if !weight32.is_finite() {
+                    return Err(Error::from_reason(format!(
+                        "`{key}[{dim}]` is out of range for f32 (got {weight})"
+                    )));
+                }
+                out.insert(dim, weight32);
+            }
+            Ok((!out.is_empty()).then_some(SparseVector(out)))
+        }
+        Some(_) => Err(Error::from_reason(format!(
+            "`{key}` must be an object of dimension→weight (e.g. {{ \"7\": 1.5 }})"
+        ))),
+    }
 }
 
 fn parse_list_options(value: Option<&Value>) -> napi::Result<MemoryListOptions> {
@@ -835,7 +870,7 @@ fn parse_search_request(value: &Value) -> napi::Result<MemorySearchRequest> {
     Ok(MemorySearchRequest {
         namespace: get_str(obj, "namespace")?,
         query_vector,
-        query_sparse: None,
+        query_sparse: parse_sparse_vector(obj, "query_sparse")?,
         filters: get_metadata(obj, "filters")?,
         text_query: get_opt_str(obj, "text_query")?,
         top_k: clamp_top_k(obj.get("top_k").and_then(Value::as_u64).unwrap_or(10) as usize),
@@ -1188,6 +1223,65 @@ mod tests {
             "expected empty-filter guard, got: {}",
             err.reason
         );
+    }
+
+    /// WIRE-03: JS object keys are strings; numeric-string keys must coerce to
+    /// u32 dims, and bad keys/weights must fail with a descriptive error.
+    #[test]
+    fn parse_sparse_vector_coerces_string_keys_and_validates() {
+        let raw = json!({ "query_sparse": { "7": 1.5, "42": 0.75 } });
+        let out = parse_sparse_vector(raw.as_object().unwrap(), "query_sparse")
+            .expect("sparse parses")
+            .expect("non-empty sparse is Some");
+        assert_eq!(out.0.get(&7), Some(&1.5_f32));
+        assert_eq!(out.0.get(&42), Some(&0.75_f32));
+
+        let bad_key = json!({ "query_sparse": { "x": 1.0 } });
+        let err = parse_sparse_vector(bad_key.as_object().unwrap(), "query_sparse").unwrap_err();
+        assert!(err.reason.contains("u32"), "got: {}", err.reason);
+
+        let bad_weight = json!({ "query_sparse": { "1": "heavy" } });
+        assert!(parse_sparse_vector(bad_weight.as_object().unwrap(), "query_sparse").is_err());
+
+        // N1 (review WIRE-03): 1e39 is finite in f64 but overflows f32 → reject.
+        let overflow = json!({ "query_sparse": { "1": 1e39 } });
+        let err = parse_sparse_vector(overflow.as_object().unwrap(), "query_sparse").unwrap_err();
+        assert!(err.reason.contains("f32"), "got: {}", err.reason);
+
+        let empty = json!({ "query_sparse": {} });
+        assert!(
+            parse_sparse_vector(empty.as_object().unwrap(), "query_sparse")
+                .expect("empty parses")
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn parse_search_request_reads_query_sparse_with_empty_vector() {
+        let raw = json!({
+            "namespace": "ns",
+            "query_vector": [],
+            "text_query": "hello",
+            "query_sparse": { "3": 2.0 },
+        });
+        let req = parse_search_request(&raw).expect("request parses");
+        assert!(
+            req.query_vector.is_empty(),
+            "text-only keeps the empty vector"
+        );
+        assert_eq!(req.query_sparse.unwrap().0.get(&3), Some(&2.0_f32));
+    }
+
+    #[test]
+    fn parse_memory_input_reads_sparse_vector() {
+        let raw = json!({
+            "namespace": "ns",
+            "key": "k",
+            "payload": "p",
+            "sparse_vector": { "9": 0.5 },
+        });
+        let input = parse_memory_input(&raw).expect("record parses");
+        assert_eq!(input.sparse_vector.unwrap().0.get(&9), Some(&0.5_f32));
     }
 
     #[test]

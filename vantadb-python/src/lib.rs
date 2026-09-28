@@ -31,8 +31,8 @@ use crate::convert::{
     bulk_import_report_to_pydict, capabilities_to_pydict, check_lens, export_report_to_pydict,
     extract_vector, format_query_result, import_report_to_pydict, map_vanta_error, node_to_pydict,
     operational_metrics_to_pydict, py_any_to_value, py_dict_to_filter_ops, py_dict_to_metadata,
-    query_result_to_pydict, rebuild_report_to_pydict, runtime_profile_label,
-    search_explanation_to_pydict, text_index_audit_report_to_pydict,
+    py_dict_to_sparse_vector, query_result_to_pydict, rebuild_report_to_pydict,
+    runtime_profile_label, search_explanation_to_pydict, text_index_audit_report_to_pydict,
     text_index_repair_report_to_pydict, BusyError, ConflictError, CorruptError, Error,
     NoVectorError, NotFoundError, ResourceLimitError, StorageError, TimeoutError, UnsupportedError,
     ValidationError,
@@ -575,6 +575,7 @@ forward_to_db!(WikiClient {
 /// - ``metadata`` (optional dict; same scalar coercion as ``put()``)
 /// - ``vector`` (optional list of floats or NumPy array)
 /// - ``ttl_ms`` (optional int)
+/// - ``sparse_vector`` (optional dict of ``u32`` dim → weight)
 fn record_to_memory_input(py: Python<'_>, record: &Bound<'_, PyAny>) -> PyResult<MemoryInput> {
     let dict = record.cast::<PyDict>().map_err(|_| {
         PyTypeError::new_err(
@@ -615,6 +616,14 @@ fn record_to_memory_input(py: Python<'_>, record: &Bound<'_, PyAny>) -> PyResult
     if let Some(ttl) = dict.get_item("ttl_ms")? {
         if !ttl.is_none() {
             input.ttl_ms = Some(ttl.extract::<u64>()?);
+        }
+    }
+    if let Some(sparse) = dict.get_item("sparse_vector")? {
+        if !sparse.is_none() {
+            let sparse = sparse.cast::<PyDict>().map_err(|_| {
+                PyTypeError::new_err("put_batch: record 'sparse_vector' must be a dict")
+            })?;
+            input.sparse_vector = py_dict_to_sparse_vector(Some(sparse))?;
         }
     }
 
@@ -963,6 +972,9 @@ impl Client {
     ///     vector: Optional embedding vector (list of floats or NumPy array).
     ///     ttl_ms: Optional time-to-live in milliseconds; the record expires
     ///         after this duration.
+    ///     sparse_vector: Optional dict of sparse term weights keyed by ``u32``
+    ///         dimension id (``{7: 1.5, 42: 0.75}``); participates in sparse-dot
+    ///         search alongside the dense vector. Empty/None skips sparse.
     ///
     /// Returns:
     ///     MemoryRecord: The stored record, exposing ``namespace``, ``key``,
@@ -991,7 +1003,7 @@ impl Client {
 
     // PyO3 keyword argument binding requires matching function parameters in Rust.
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (namespace, key, payload, metadata=None, vector=None, ttl_ms=None))]
+    #[pyo3(signature = (namespace, key, payload, metadata=None, vector=None, ttl_ms=None, sparse_vector=None))]
     fn put(
         &self,
         py: Python,
@@ -1001,6 +1013,7 @@ impl Client {
         metadata: Option<&Bound<'_, PyDict>>,
         vector: Option<&Bound<'_, PyAny>>,
         ttl_ms: Option<u64>,
+        sparse_vector: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<VantaPyMemoryRecord> {
         let _g = enter(&self.op_gate)?;
         let mut input = MemoryInput::new(namespace, key, payload);
@@ -1013,6 +1026,7 @@ impl Client {
             }
             None => None,
         };
+        input.sparse_vector = py_dict_to_sparse_vector(sparse_vector)?;
 
         let engine = self.engine.clone();
         // PERF-24: GIL RELEASED — pure Rust storage write + index update
@@ -1188,6 +1202,10 @@ impl Client {
     ///         ``"euclidean"``. Unknown values fall back to cosine with a warning.
     ///     explain: If True, include search explanation data on each hit
     ///         (default False).
+    ///     query_sparse: Optional dict of sparse query weights keyed by ``u32``
+    ///         dimension id (``{7: 1.5}``); fused with dense/text scores.
+    ///         Pass an empty ``query_vector`` with ``text_query`` for
+    ///         text-only (BM25) search.
     ///
     /// Returns:
     ///     list[SearchHit]: Search hits ordered by relevance, each exposing
@@ -1215,7 +1233,7 @@ impl Client {
     ///     True
     ///     ```
     // PyO3 keyword argument binding requires matching function parameters in Rust.
-    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=false, exclude_superseded=false))]
+    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, method=None, explain=false, exclude_superseded=false, query_sparse=None))]
     #[allow(clippy::too_many_arguments)]
     fn search(
         &self,
@@ -1229,6 +1247,7 @@ impl Client {
         method: Option<&str>,
         explain: bool,
         exclude_superseded: bool,
+        query_sparse: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Vec<VantaPySearchHit>> {
         let _g = enter(&self.op_gate)?;
         let metric = parse_distance_metric(distance_metric)?;
@@ -1237,7 +1256,7 @@ impl Client {
         let request = MemorySearchRequest {
             namespace: namespace.to_string(),
             query_vector: extract_vector(query_vector, py)?,
-            query_sparse: None,
+            query_sparse: py_dict_to_sparse_vector(query_sparse)?,
             filters: py_dict_to_metadata(filters)?,
             text_query,
             top_k: clamp_top_k(top_k),
@@ -1283,6 +1302,8 @@ impl Client {
     ///     distance_metric: Optional ``"Cosine"`` | ``"Euclidean"``.
     ///     explain: Include per-hit explanation metadata.
     ///     exclude_superseded: Hide records marked as superseded (ADR-028).
+    ///     query_sparse: Optional dict of sparse query weights (``u32`` dim →
+    ///         weight); empty ``query_vector`` + ``text_query`` = text-only.
     ///
     /// Returns:
     ///     list[SearchHit]: Hits ordered by descending relevance score.
@@ -1302,7 +1323,7 @@ impl Client {
     ///     >>> len(hits) >= 1
     ///     True
     ///     ```
-    #[pyo3(signature = (namespaces, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, explain=false, exclude_superseded=false))]
+    #[pyo3(signature = (namespaces, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, explain=false, exclude_superseded=false, query_sparse=None))]
     #[allow(clippy::too_many_arguments)]
     fn search_multi(
         &self,
@@ -1315,6 +1336,7 @@ impl Client {
         distance_metric: Option<&str>,
         explain: bool,
         exclude_superseded: bool,
+        query_sparse: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Vec<VantaPySearchHit>> {
         let _g = enter(&self.op_gate)?;
         if namespaces.is_empty() {
@@ -1328,7 +1350,7 @@ impl Client {
             // Routed via `namespaces`; the core validates each entry.
             namespace: String::new(),
             query_vector: extract_vector(query_vector, py)?,
-            query_sparse: None,
+            query_sparse: py_dict_to_sparse_vector(query_sparse)?,
             filters: py_dict_to_metadata(filters)?,
             text_query,
             top_k: clamp_top_k(top_k),
@@ -2236,7 +2258,7 @@ impl Client {
     /// breakdown of the search route, fusion, and per-hit explanation.
     // PyO3 keyword argument binding requires matching function parameters in Rust.
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None))]
+    #[pyo3(signature = (namespace, query_vector, filters=None, text_query=None, top_k=10, distance_metric=None, query_sparse=None))]
     fn explain_memory_search(
         &self,
         py: Python,
@@ -2246,13 +2268,14 @@ impl Client {
         text_query: Option<String>,
         top_k: usize,
         distance_metric: Option<&str>,
+        query_sparse: Option<&Bound<'_, PyDict>>,
     ) -> PyResult<Py<PyAny>> {
         let metric = parse_distance_metric(distance_metric)?;
 
         let request = MemorySearchRequest {
             namespace: namespace.to_string(),
             query_vector: extract_vector(query_vector, py)?,
-            query_sparse: None,
+            query_sparse: py_dict_to_sparse_vector(query_sparse)?,
             filters: py_dict_to_metadata(filters)?,
             text_query,
             top_k: clamp_top_k(top_k),
@@ -2368,6 +2391,18 @@ impl Client {
             None => Default::default(),
         };
 
+        let query_sparse = match Self::request_field(obj, "query_sparse")? {
+            Some(v) => {
+                let dict = v.cast::<PyDict>().map_err(|_| {
+                    PyTypeError::new_err(
+                        "search request 'query_sparse' must be a dict of dimension→weight",
+                    )
+                })?;
+                py_dict_to_sparse_vector(Some(dict))?
+            }
+            None => None,
+        };
+
         let text_query: Option<String> = match Self::request_field(obj, "text_query")? {
             Some(v) => Some(v.extract()?),
             None => None,
@@ -2401,7 +2436,7 @@ impl Client {
             MemorySearchRequest {
                 namespace,
                 query_vector,
-                query_sparse: None,
+                query_sparse,
                 filters,
                 text_query,
                 top_k,

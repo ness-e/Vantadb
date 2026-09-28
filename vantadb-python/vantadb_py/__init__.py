@@ -121,7 +121,7 @@ class SearchRequest:
     Args:
         namespace: Namespace to search within.
         query_vector: Query embedding vector (list of floats or NumPy array).
-            Empty skips dense vector search.
+            Empty with ``text_query`` selects text-only (BM25) search.
         filters: Optional dict of metadata field values to filter on.
         text_query: Optional full-text query for BM25 lexical search.
         top_k: Maximum number of hits to return (default 10).
@@ -130,6 +130,8 @@ class SearchRequest:
             ``"hnsw"`` or ``"flat"``. Defaults to the engine's configured
             routing.
         explain: Whether to include search explanations (default False).
+        query_sparse: Optional dict of sparse term weights keyed by ``u32``
+            dimension id (``{7: 1.5}``); fused with dense/text scores.
 
     Example::
 
@@ -153,6 +155,7 @@ class SearchRequest:
     distance_metric: str | None = None
     method: str | None = None
     explain: bool = False
+    query_sparse: dict | None = None
 
     def asdict(self):
         """Return this request as a plain dict (for non-dataclass callers).
@@ -260,6 +263,7 @@ class AsyncClient:
         method: str | None = None,
         explain: bool = False,
         exclude_superseded: bool = False,
+        query_sparse: dict | None = None,
     ):
         return await self._run(
             self._sync.search,
@@ -272,6 +276,7 @@ class AsyncClient:
             method,
             explain,
             exclude_superseded,
+            query_sparse,
         )
 
     async def search_multi(
@@ -285,6 +290,7 @@ class AsyncClient:
         distance_metric: str | None = None,
         explain: bool = False,
         exclude_superseded: bool = False,
+        query_sparse: dict | None = None,
     ):
         """Hybrid search across several namespaces (W1/API-02)."""
         return await self._run(
@@ -297,6 +303,7 @@ class AsyncClient:
             distance_metric,
             explain,
             exclude_superseded,
+            query_sparse,
         )
 
     @property
@@ -318,9 +325,17 @@ class AsyncClient:
         metadata: dict | None = None,
         vector: list[float] | None = None,
         ttl_ms: int | None = None,
+        sparse_vector: dict | None = None,
     ):
         return await self._run(
-            self._sync.put, namespace, key, payload, metadata, vector, ttl_ms
+            self._sync.put,
+            namespace,
+            key,
+            payload,
+            metadata,
+            vector,
+            ttl_ms,
+            sparse_vector,
         )
 
     async def delete_by_filter(self, namespace: str, filters: dict) -> int:
@@ -530,6 +545,7 @@ class AsyncClient:
         text_query: str | None = None,
         top_k: int = 10,
         distance_metric: str | None = None,
+        query_sparse: dict | None = None,
     ):
         return await self._run(
             self._sync.explain_memory_search,
@@ -539,6 +555,7 @@ class AsyncClient:
             text_query,
             top_k,
             distance_metric,
+            query_sparse,
         )
 
     # ── Passthrough for sync methods ──

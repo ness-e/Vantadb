@@ -1459,6 +1459,40 @@ mod tests {
         ));
     }
 
+    /// WIRE-03: pin the canonical datetime range filter used by the py↔js
+    /// parity tests — `$gte` + `$lt` over `Value::DateTime` compare
+    /// chronologically (same-variant ordering, see `FilterOp` docs).
+    #[test]
+    fn test_advanced_filter_datetime_range() {
+        use chrono::{TimeZone, Utc};
+        let at = |y: i32, m: u32, d: u32| {
+            Utc.with_ymd_and_hms(y, m, d, 0, 0, 0)
+                .single()
+                .expect("valid date")
+        };
+        let r = make_record_with_meta(&[("when", Value::DateTime(at(2026, 6, 1)))]);
+        let in_range = vec![
+            crate::sdk::types::MemoryFilterItem {
+                field: "when".into(),
+                op: crate::sdk::types::FilterOp::Gte,
+                value: Value::DateTime(at(2026, 1, 1)),
+            },
+            crate::sdk::types::MemoryFilterItem {
+                field: "when".into(),
+                op: crate::sdk::types::FilterOp::Lt,
+                value: Value::DateTime(at(2026, 12, 1)),
+            },
+        ];
+        assert!(matches_advanced_filters(&r, &in_range));
+
+        let outside = vec![crate::sdk::types::MemoryFilterItem {
+            field: "when".into(),
+            op: crate::sdk::types::FilterOp::Lt,
+            value: Value::DateTime(at(2026, 1, 1)),
+        }];
+        assert!(!matches_advanced_filters(&r, &outside));
+    }
+
     #[test]
     fn test_advanced_filter_missing_field_returns_false() {
         let r = make_record_with_meta(&[]);

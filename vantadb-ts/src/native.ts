@@ -70,6 +70,16 @@ function normalizeMetadataForNative(
   for (const [k, v] of Object.entries(input)) {
     if (v === null) {
       out[k] = 'Null';
+    } else if (v instanceof Date) {
+      // WIRE-03 (review R1): `MetadataInput` accepts `Date` (py↔js parity with
+      // `datetime`); normalize to the tagged DateTime wire form.
+      if (Number.isNaN(v.getTime())) {
+        throw new DbError(
+          ERROR_CODES.VALIDATION_ERROR,
+          `normalizeMetadataForNative: invalid Date for key "${k}"`,
+        );
+      }
+      out[k] = { DateTime: v.toISOString() };
     } else if (typeof v === "string") {
       out[k] = { String: v };
     } else if (typeof v === "number") {
@@ -235,6 +245,11 @@ export class NativeVantaDB {
         payload: input.payload,
         vector: input.vector,
         ttl_ms: input.ttl_ms,
+        // WIRE-03: forward sparse vectors (previously dropped silently on the
+        // native path). Erased cast: `Record<number, number>` public shape vs
+        // the node `.d.ts` string-key wire — zero runtime change.
+        sparse_vector:
+          (input.sparse_vector as unknown as Record<string, number> | null | undefined) ?? undefined,
         metadata: input.metadata !== undefined ? normalizeMetadataForNative(input.metadata) : undefined,
       };
       return _mapRecord(await this.inner.put(wire));
@@ -256,6 +271,9 @@ export class NativeVantaDB {
         payload: i.payload,
         vector: i.vector,
         ttl_ms: i.ttl_ms,
+        // WIRE-03: forward sparse vectors (see put()).
+        sparse_vector:
+          (i.sparse_vector as unknown as Record<string, number> | null | undefined) ?? undefined,
         metadata: i.metadata !== undefined ? normalizeMetadataForNative(i.metadata) : undefined,
       }));
       const records: unknown[] = await this.inner.putBatch(normalized);
@@ -334,10 +352,25 @@ export class NativeVantaDB {
     // DbError — this layer is glue, not a place for search decisions
     // (api-contract.md R-8). vantadb.ts (WASM) does the same, so both backends
     // are aligned.
+    // O2 (review WIRE-03): fail fast on non-finite sparse weights with a clear
+    // message (napi would reject later with a generic boundary error).
+    for (const [dim, w] of Object.entries(request.query_sparse ?? {})) {
+      if (!Number.isFinite(w)) {
+        throw new DbError(
+          ERROR_CODES.VALIDATION_ERROR,
+          `search: query_sparse[${dim}] must be a finite number`,
+        );
+      }
+    }
     return {
       ...buildSearchRequestBase(request, explain),
       filters: request.filters !== undefined ? normalizeMetadataForNative(request.filters) : undefined,
       text_query: request.text_query ?? undefined,
+      // WIRE-03: sparse query passthrough. The node `.d.ts` types the wire as
+      // `Record<string, number>` (JS object keys are strings); the public SDK
+      // type is `Record<number, number>` (same shape MemoryInput.sparse_vector
+      // documents). Erased cast: zero runtime change.
+      query_sparse: (request.query_sparse as unknown as Record<string, number> | null | undefined) ?? undefined,
     };
   }
 
