@@ -28,6 +28,10 @@ use web_time::{SystemTime, UNIX_EPOCH};
 /// Allow-only permission checker over `entity_*` records (MEM-04).
 pub mod checker;
 
+/// Deterministic multi-signal entity linking — Fellegi-Sunter + embeddings,
+/// no LLM judge (WIRE-05).
+pub mod linking;
+
 /// Scene node anchors in the core graph (MEM-12, F4).
 pub mod scene;
 

@@ -20,7 +20,8 @@ pub use search::MemorySearchDebugReport;
 // `doc(hidden)` diagnostic that never crossed the `sdk` boundary; the def-site
 // alias in `search.rs` covers the migration path. Zero users post-rename.
 pub use search::{
-    Bm25TermContribution, HybridFusionReport, IndexRebuildReport, MemorySearchHit,
+    Bm25TermContribution, EntityBoost, EntityBoostProvenance, EntityBoostReport,
+    EntityBoostedSearch, HybridFusionReport, IndexRebuildReport, MemorySearchHit,
     MemorySearchRequest, SearchExplanation, SearchExplanationHit, SearchHit, SearchProfileConfig,
     SearchProfileMode, TextIndexAuditReport, TextIndexRepairReport,
 };
