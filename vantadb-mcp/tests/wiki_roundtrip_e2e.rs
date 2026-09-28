@@ -17,7 +17,16 @@ use vanta_memory::ingest::{worker, IngestConfig};
 use vantadb::executor::Executor;
 use vantadb::storage::StorageEngine;
 use vantadb::wiki::{WikiState, WikiStore};
-use vantadb_mcp::{handle_tools_call, McpConfig};
+use vantadb_mcp::{handle_tools_call, McpConfig, McpProfile};
+
+/// WIRE-02: these tests exercise the extended surface; pin `full` explicitly
+/// (the production default is now `agent`).
+fn full_config() -> McpConfig {
+    McpConfig {
+        profile: McpProfile::Full,
+        ..Default::default()
+    }
+}
 
 const NS: &str = "default";
 const SLUG: &str = "team-wiki";
@@ -112,7 +121,7 @@ fn e2e_ingest_then_wiki_tools_roundtrip() {
     );
 
     let executor = Executor::new(&storage);
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     let call = |name: &str, args: Value| {
         handle_tools_call(
             &Some(json!({ "name": name, "arguments": args })),

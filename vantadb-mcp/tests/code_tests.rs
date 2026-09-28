@@ -4,7 +4,9 @@
 //!
 //! Contract: 8 tools (`code_search/explore/callers/callees/impact/node/status/files`)
 //! respond over a seeded graph, respect edge direction, are read-only (no
-//! mutation), and an unknown tool yields a clear error.
+//! mutation), and an unknown tool yields a clear error. WIRE-02: only
+//! `code_search` + `code_explore` are listed (`full`); the other six stay
+//! dispatch-only through their canonical tool.
 
 use serde_json::{json, Value};
 use std::sync::Arc;
@@ -12,7 +14,16 @@ use tempfile::tempdir;
 use vantadb::executor::Executor;
 use vantadb::sdk::MemoryInput;
 use vantadb::storage::StorageEngine;
-use vantadb_mcp::{handle_tools_call, handle_tools_list, McpConfig};
+use vantadb_mcp::{handle_tools_call, handle_tools_list, McpConfig, McpProfile};
+
+/// WIRE-02: these tests exercise the extended surface; pin `full` explicitly
+/// (the production default is now `agent`).
+fn full_config() -> McpConfig {
+    McpConfig {
+        profile: McpProfile::Full,
+        ..Default::default()
+    }
+}
 
 fn setup_storage() -> (tempfile::TempDir, Arc<StorageEngine>) {
     let dir = tempdir().unwrap();
@@ -83,17 +94,22 @@ fn seed_graph(storage: &Arc<StorageEngine>) -> [u128; 4] {
 }
 
 #[test]
-fn test_all_eight_code_tools_listed() {
-    let list = handle_tools_list(&McpConfig::default()).expect("tools/list");
+fn test_code_tools_listed_vs_absorbed() {
+    // WIRE-02: the listed code surface is the two genuine codegraph primitives
+    // (`code_search`, `code_explore`); the projections are absorbed
+    // dispatch-only — their dispatch under `full` is covered by the per-tool
+    // tests below, which call them via `full_config()`.
+    let list = handle_tools_list(&full_config()).expect("tools/list");
     let names: Vec<&str> = list["tools"]
         .as_array()
         .expect("tools array")
         .iter()
         .filter_map(|t| t["name"].as_str())
         .collect();
+    for tool in ["code_search", "code_explore"] {
+        assert!(names.contains(&tool), "{tool} should be listed");
+    }
     for tool in [
-        "code_search",
-        "code_explore",
         "code_callers",
         "code_callees",
         "code_impact",
@@ -101,14 +117,17 @@ fn test_all_eight_code_tools_listed() {
         "code_status",
         "code_files",
     ] {
-        assert!(names.contains(&tool), "{tool} should be listed");
+        assert!(
+            !names.contains(&tool),
+            "{tool} must stay dispatch-only (WIRE-02 absorbed)"
+        );
     }
 }
 
 #[test]
 fn test_code_callees_respect_direction() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     let [root, left, right, sink] = seed_graph(&storage);
 
     let text = msg(call(
@@ -143,7 +162,7 @@ fn test_code_callees_respect_direction() {
 #[test]
 fn test_code_callers_reverse_direction() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     let [root, left, right, sink] = seed_graph(&storage);
 
     // Callers of the sink are left/right (incoming edges only).
@@ -178,7 +197,7 @@ fn test_code_callers_reverse_direction() {
 #[test]
 fn test_code_impact_forward_reachable_subgraph() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     let [root, _left, _right, sink] = seed_graph(&storage);
 
     let text = msg(call(
@@ -222,7 +241,7 @@ fn test_code_impact_forward_reachable_subgraph() {
 #[test]
 fn test_code_node_and_explore() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     let [root, left, _right, _sink] = seed_graph(&storage);
 
     let text = msg(call(
@@ -262,7 +281,7 @@ fn test_code_node_and_explore() {
 #[test]
 fn test_code_search_over_seeded_graph() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     seed_graph(&storage);
 
     let text = msg(call(
@@ -281,7 +300,7 @@ fn test_code_search_over_seeded_graph() {
 #[test]
 fn test_code_status_and_files_stub() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
 
     let status = msg(call("code_status", json!({}), &storage, &cfg));
     assert!(status.contains("metrics"), "status shape: {status}");
@@ -297,7 +316,7 @@ fn test_code_status_and_files_stub() {
 #[test]
 fn test_code_tools_are_read_only() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     let ids = seed_graph(&storage);
 
     // Structural fingerprint of every graph view the tools expose.
@@ -349,7 +368,7 @@ fn test_code_tools_are_read_only() {
 #[test]
 fn test_unknown_code_tool_clear_error() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     let err = msg(call("code_nonexistent", json!({}), &storage, &cfg));
     assert!(err.contains("Tool not found"), "clear error: {err}");
 }

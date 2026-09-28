@@ -14,7 +14,16 @@ use serde_json::json;
 use vantadb::executor::Executor;
 use vantadb::node::UnifiedNode;
 use vantadb::storage::StorageEngine;
-use vantadb_mcp::{handle_initialize, handle_tools_call, handle_tools_list, McpConfig};
+use vantadb_mcp::{handle_initialize, handle_tools_call, handle_tools_list, McpConfig, McpProfile};
+
+/// WIRE-02: this certification runs extended tools (e.g. `get_node_neighbors`);
+/// pin `full` explicitly (the production default is now `agent`).
+fn full_config() -> McpConfig {
+    McpConfig {
+        profile: McpProfile::Full,
+        ..Default::default()
+    }
+}
 
 #[tokio::test]
 async fn mcp_protocol_certification() {
@@ -25,7 +34,7 @@ async fn mcp_protocol_certification() {
         assert_eq!(init_res["protocolVersion"], "2025-06-18");
         assert_eq!(init_res["serverInfo"]["name"], "vantadb");
 
-        let list_res = handle_tools_list(&McpConfig::default()).expect("Tools listing failed");
+        let list_res = handle_tools_list(&full_config()).expect("Tools listing failed");
         let tools = list_res["tools"]
             .as_array()
             .expect("Tools must be an array");
@@ -53,7 +62,7 @@ async fn mcp_protocol_certification() {
             "arguments": { "node_id": 100 }
         }));
 
-        let tool_res = handle_tools_call(&params, &executor, &storage, &McpConfig::default())
+        let tool_res = handle_tools_call(&params, &executor, &storage, &full_config())
             .expect("Tool call failed");
         let text = tool_res["content"][0]["text"].as_str().unwrap();
         assert!(
@@ -68,7 +77,7 @@ async fn mcp_protocol_certification() {
             "name": "query_iql",
             "arguments": { "query": "INSERT NODE#999 TYPE node { label: \"MCP_TEST\" }" }
         }));
-        let lisp_res = handle_tools_call(&lisp_params, &executor, &storage, &McpConfig::default())
+        let lisp_res = handle_tools_call(&lisp_params, &executor, &storage, &full_config())
             .expect("Tool execution failed");
         assert!(
             lisp_res["content"][0]["text"]

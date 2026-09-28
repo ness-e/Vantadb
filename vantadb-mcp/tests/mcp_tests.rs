@@ -14,8 +14,15 @@ use vantadb_mcp::*;
 const LEGACY_SEARCH_ALIAS: &str = "search_memory";
 const LEGACY_COLLECTION_ALIAS: &str = "collection_list";
 
+/// Most tests in this file exercise the whole surface; pin `full` explicitly
+/// (WIRE-02: the production default is now `agent` — the profile matrix and
+/// the default-surface smoke live in `test_mcp_tool_profiles` /
+/// `test_mcp_agent_default_surface`).
 fn default_config() -> vantadb_mcp::McpConfig {
-    vantadb_mcp::McpConfig::default()
+    vantadb_mcp::McpConfig {
+        profile: vantadb_mcp::McpProfile::Full,
+        ..vantadb_mcp::McpConfig::default()
+    }
 }
 
 fn setup_storage() -> (tempfile::TempDir, Arc<StorageEngine>) {
@@ -112,7 +119,7 @@ fn test_mcp_resources_list() {
 #[test]
 fn test_mcp_resources_read() {
     let (_dir, storage) = setup_storage();
-    let cfg = vantadb_mcp::McpConfig::default();
+    let cfg = default_config();
 
     // Test metrics://
     let res_metrics = handle_resources_read(&Some(json!({"uri": "metrics://"})), &storage, &cfg);
@@ -137,7 +144,7 @@ fn test_mcp_resources_read() {
 #[test]
 fn test_mcp_resources_read_schema() {
     let (_dir, storage) = setup_storage();
-    let cfg = vantadb_mcp::McpConfig::default();
+    let cfg = default_config();
 
     let res = handle_resources_read(&Some(json!({"uri": "schema://"})), &storage, &cfg);
     assert!(res.is_ok(), "reading schema:// should succeed");
@@ -333,7 +340,7 @@ fn test_mcp_prompts_get() {
 
 #[test]
 fn test_mcp_tools_list() {
-    let res = handle_tools_list(&McpConfig::default());
+    let res = handle_tools_list(&default_config());
     assert!(res.is_ok(), "handle_tools_list should succeed");
     let val = res.unwrap();
     let tools = val["tools"].as_array().expect("Expected tools array");
@@ -1926,7 +1933,7 @@ fn test_mcp_search_no_results() {
 #[test]
 fn test_mcp_resource_invalid() {
     let (_dir, storage) = setup_storage();
-    let cfg = vantadb_mcp::McpConfig::default();
+    let cfg = default_config();
 
     let res = handle_resources_read(
         &Some(json!({"uri": "nonexistent://resource"})),
@@ -2983,7 +2990,7 @@ fn test_maintenance_tools_round_trip() {
 
 #[test]
 fn test_mcp_tools_list_includes_backup_restore() {
-    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let res = handle_tools_list(&default_config()).unwrap();
     let tools = res["tools"].as_array().unwrap();
     let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
     for tool in ["export", "import", "bulk_import_file", "bulk_import_stream"] {
@@ -3685,7 +3692,7 @@ fn recovery_call(
 
 #[test]
 fn test_mcp_tools_list_includes_recovery_and_introspection() {
-    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let res = handle_tools_list(&default_config()).unwrap();
     let tools = res["tools"].as_array().unwrap();
     let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
     for tool in [
@@ -4041,7 +4048,7 @@ fn test_snapshot_restore_requires_confirmation_and_identifier() {
 
 #[test]
 fn test_mcp_tools_list_includes_mod10_tools() {
-    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let res = handle_tools_list(&default_config()).unwrap();
     let tools = res["tools"].as_array().unwrap();
     let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
     for tool in [
@@ -4323,7 +4330,7 @@ fn test_mcp_remove_edge_round_trip() {
 
 #[test]
 fn test_mcp_tools_list_includes_advanced_search() {
-    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let res = handle_tools_list(&default_config()).unwrap();
     let tools = res["tools"].as_array().unwrap();
     let names: Vec<&str> = tools.iter().filter_map(|t| t["name"].as_str()).collect();
     for tool in ["search_with_method", "search_multi"] {
@@ -4523,7 +4530,7 @@ fn test_mcp_structured_output_and_output_schema() {
         .is_some());
 
     // tools/list must advertise outputSchema for key tools
-    let list = handle_tools_list(&McpConfig::default()).unwrap();
+    let list = handle_tools_list(&default_config()).unwrap();
     let tools = list["tools"].as_array().unwrap();
     for name in [
         "memory_put",
@@ -4540,22 +4547,22 @@ fn test_mcp_structured_output_and_output_schema() {
     }
 }
 
-/// MCP-38: Tool annotations coverage — every tool must expose the 4 hints
-/// per spec 2025-06-18 (blog.modelcontextprotocol.io 2026-03-16).
-/// Verifies: total 85 tools (44 base + 38 extend + 2 MEM-59 + embed_texts), each has
-/// title + 4 bools, destructiveHint true only on mutating deletes,
-/// openWorldHint only on fs paths. MEM-59 added `memory_recall` and
-/// `memory_search` (both read-only/idempotent); API-04 canonicalized the
-/// legacy `search_memory`/`collection_list` aliases out of the listing —
-/// see the contract comment at the top of handlers/tools.rs.
+/// MCP-38: Tool annotations coverage — every listed tool must expose the 4
+/// hints per spec 2025-06-18 (blog.modelcontextprotocol.io 2026-03-16).
+/// Verifies: 79 listed tools (85 defined − 6 WIRE-02 absorbed code_*
+/// projections), each has title + 4 bools, destructiveHint true only on
+/// mutating deletes, openWorldHint only on fs paths. MEM-59 added
+/// `memory_recall` and `memory_search` (both read-only/idempotent); API-04
+/// canonicalized the legacy `search_memory`/`collection_list` aliases out of
+/// the listing — see the contract comment at the top of handlers/tools.rs.
 #[test]
 fn test_mcp_tool_annotations_coverage() {
-    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let res = handle_tools_list(&default_config()).unwrap();
     let tools = res["tools"].as_array().expect("tools array");
     assert_eq!(
         tools.len(),
-        85,
-        "expected 85 tools (44 base + 38 extend + 2 MEM-59 + embed_texts), got {}",
+        79,
+        "expected 79 listed tools (85 defined − 6 WIRE-02 absorbed), got {}",
         tools.len()
     );
 
@@ -4654,7 +4661,9 @@ fn test_mcp_tool_annotations_coverage() {
 fn test_mcp_tool_profiles() {
     use vantadb_mcp::{handle_tools_list, McpConfig, McpProfile};
 
-    // Full profile (default) — all 85 tools (44 base + 38 extend + 2 MEM-59 + embed_texts; API-04 canonicalization removed 2 duplicate listings)
+    // Full profile — 79 listed tools (47 base + 38 extend − 6 WIRE-02 absorbed
+    // code_* projections; 44 base + 38 extend + 2 MEM-59 + embed_texts = 85
+    // defined; API-04 canonicalization removed 2 duplicate listings).
     let full_config = McpConfig {
         profile: McpProfile::Full,
         ..McpConfig::default()
@@ -4663,9 +4672,24 @@ fn test_mcp_tool_profiles() {
     let full_tools = full_res["tools"].as_array().unwrap();
     assert_eq!(
         full_tools.len(),
-        85,
-        "Full profile should have 85 tools (44 base + 38 extend + 2 MEM-59 + embed_texts), got {}",
+        79,
+        "Full profile should list 79 tools (85 defined − 6 WIRE-02 absorbed), got {}",
         full_tools.len()
+    );
+
+    // WIRE-02: `agent` is the default profile — 37 tools (20 memory + 6
+    // threads + 5 scenes + 1 context + 5 wiki-read) ≤ 45 budget.
+    let agent_config = McpConfig {
+        profile: McpProfile::Agent,
+        ..McpConfig::default()
+    };
+    let agent_res = handle_tools_list(&agent_config).unwrap();
+    let agent_tools = agent_res["tools"].as_array().unwrap();
+    assert_eq!(
+        agent_tools.len(),
+        37,
+        "Agent profile should have 37 tools (20 memory + 6 thread + 5 scene + 1 context + 5 wiki-read), got {}",
+        agent_tools.len()
     );
 
     // Dev profile — exact count after API-04 canonicalization: memory set (20)
@@ -4704,6 +4728,10 @@ fn test_mcp_tool_profiles() {
         .iter()
         .filter_map(|t| t["name"].as_str())
         .collect();
+    let agent_names: std::collections::HashSet<&str> = agent_tools
+        .iter()
+        .filter_map(|t| t["name"].as_str())
+        .collect();
     let dev_names: std::collections::HashSet<&str> = dev_tools
         .iter()
         .filter_map(|t| t["name"].as_str())
@@ -4725,12 +4753,23 @@ fn test_mcp_tool_profiles() {
         assert!(dev_names.contains(tool), "Dev profile missing {tool}");
         assert!(memory_names.contains(tool), "Memory profile missing {tool}");
     }
-    // API-04: legacy aliases are never listed, in any profile.
-    for legacy in ["search_memory", "collection_list"] {
+    // API-04 aliases + WIRE-02 absorbed code_* projections are never listed,
+    // in any profile (dispatch-only redirects through their canonical tool).
+    for legacy in [
+        LEGACY_SEARCH_ALIAS,
+        LEGACY_COLLECTION_ALIAS,
+        "code_callers",
+        "code_callees",
+        "code_impact",
+        "code_node",
+        "code_status",
+        "code_files",
+    ] {
         assert!(
             !full_names.contains(legacy)
                 && !dev_names.contains(legacy)
-                && !memory_names.contains(legacy),
+                && !memory_names.contains(legacy)
+                && !agent_names.contains(legacy),
             "{legacy} must stay unlisted (dispatch-only redirect)"
         );
     }
@@ -4752,7 +4791,7 @@ fn test_mcp_tool_profiles() {
         );
     }
 
-    // Full-only tools (extended modules)
+    // Full profile extras (extended modules; not in dev/memory)
     for tool in [
         "code_search",
         "wiki_search",
@@ -4769,6 +4808,165 @@ fn test_mcp_tool_profiles() {
         assert!(
             !memory_names.contains(tool),
             "Memory profile should not have {tool}"
+        );
+    }
+
+    // WIRE-02 agent profile: memory + threads + scenes + context + wiki-read
+    // listed; extended families (code/skills/dreams/wiki-write/graph) absent.
+    for tool in [
+        "memory_put",
+        "memory_recall",
+        "query_iql",
+        "thread_create",
+        "thread_get",
+        "scene_read",
+        "context_assemble",
+        "wiki_read",
+        "wiki_ingest_status",
+    ] {
+        assert!(agent_names.contains(tool), "Agent profile missing {tool}");
+    }
+    for tool in [
+        "code_search",
+        "skill_list",
+        "dream_list",
+        "wiki_ingest",
+        "graph_traverse",
+        "snapshot_create",
+        "get_node_neighbors",
+    ] {
+        assert!(
+            !agent_names.contains(tool),
+            "Agent profile should not have {tool}"
+        );
+    }
+}
+
+/// WIRE-02: `tools/call` profile enforcement — a known tool outside the active
+/// profile fails with the documented method-not-found error instead of
+/// silently dispatching; absorbed dispatch-only names keep working while their
+/// canonical tool is listed.
+#[test]
+fn test_mcp_profile_enforcement_dispatch() {
+    let (_dir, storage) = setup_storage();
+    let executor = Executor::new(&storage);
+
+    let memory_config = McpConfig {
+        profile: McpProfile::Memory,
+        ..McpConfig::default()
+    };
+    let agent_config = McpConfig {
+        profile: McpProfile::Agent,
+        ..McpConfig::default()
+    };
+    let full_config = McpConfig {
+        profile: McpProfile::Full,
+        ..McpConfig::default()
+    };
+
+    let call = |name: &str, args: Value, cfg: &McpConfig| {
+        let params = Some(json!({ "name": name, "arguments": args }));
+        handle_tools_call(&params, &executor, &storage, cfg)
+    };
+
+    // Known tool outside the profile → exact documented error (method_not_found).
+    let err = call(
+        "code_search",
+        json!({ "namespace": "wire02", "query": "x" }),
+        &memory_config,
+    )
+    .expect_err("out-of-profile call must fail");
+    assert_eq!(err["code"], -32601, "must be method_not_found: {err}");
+    assert_eq!(
+        err["message"], "Tool not found: code_search (not in profile memory)",
+        "documented wire error (MCP.md §Tool Surface Profiles)"
+    );
+
+    // Same tool under `agent`: out of profile with the agent name.
+    let err = call(
+        "code_search",
+        json!({ "namespace": "wire02", "query": "x" }),
+        &agent_config,
+    )
+    .expect_err("code_search is not part of the agent surface");
+    assert_eq!(
+        err["message"],
+        "Tool not found: code_search (not in profile agent)"
+    );
+
+    // Unknown names keep the plain fall-through (no profile suffix).
+    let err = call("nope_not_a_tool", json!({}), &memory_config).expect_err("unknown tool");
+    assert_eq!(err["code"], -32601);
+    assert_eq!(err["message"], "Tool not found: nope_not_a_tool");
+
+    // API-04 alias (dispatch-only): allowed because its canonical tool is listed.
+    let alias = call(
+        LEGACY_SEARCH_ALIAS,
+        json!({ "namespace": "wire02", "query_vector": [1.0, 0.0, 0.0], "top_k": 1 }),
+        &memory_config,
+    );
+    assert!(
+        alias.is_ok(),
+        "search_memory alias must stay dispatchable under a restricted profile: {alias:?}"
+    );
+
+    // WIRE-02 absorbed projection: dispatchable under `full` (canonical
+    // `code_explore` listed) …
+    let projection = call("code_callers", json!({ "node_id": "1" }), &full_config);
+    assert!(
+        projection.as_ref().err().is_none_or(|e| !e["message"]
+            .as_str()
+            .unwrap_or_default()
+            .contains("not in profile")),
+        "absorbed code_callers must reach the handler under full: {projection:?}"
+    );
+    // … and rejected under `agent` (canonical not listed there).
+    let err = call("code_callers", json!({ "node_id": "1" }), &agent_config)
+        .expect_err("code_callers canonical is not listed in agent");
+    assert_eq!(
+        err["message"],
+        "Tool not found: code_callers (not in profile agent)"
+    );
+}
+
+/// WIRE-02: out-of-the-box surface — the default profile is `agent` and
+/// `tools/list` fits the ≤45 budget the strategic report sets for the default
+/// (previously `full` ≈ 23K tokens of schema overhead per client session).
+#[test]
+fn test_mcp_agent_default_surface() {
+    let config = McpConfig::default();
+    assert_eq!(
+        config.profile,
+        McpProfile::Agent,
+        "default profile must be agent (WIRE-02)"
+    );
+
+    let res = handle_tools_list(&config).unwrap();
+    let tools = res["tools"].as_array().expect("tools array");
+    assert!(
+        tools.len() <= 45,
+        "agent smoke: tools/list must stay ≤45, got {}",
+        tools.len()
+    );
+    assert_eq!(tools.len(), 37, "agent surface drift: {}", tools.len());
+
+    let names: std::collections::HashSet<&str> =
+        tools.iter().filter_map(|t| t["name"].as_str()).collect();
+    for tool in [
+        "memory_put",
+        "memory_search",
+        "memory_recall",
+        "thread_create",
+        "scene_read",
+        "context_assemble",
+        "wiki_read",
+    ] {
+        assert!(names.contains(tool), "agent default surface missing {tool}");
+    }
+    for tool in ["code_search", "skill_list", "dream_list", "wiki_ingest"] {
+        assert!(
+            !names.contains(tool),
+            "agent default surface must not list {tool}"
         );
     }
 }
@@ -5171,13 +5369,14 @@ fn emb18_empty_base_defines_dim_no_gate() {
 // (`search_memory`, `collection_list`, prompt `search_memory`) quedan
 // despachables pero NO listados (redirección documentada, API-STD-08).
 
-/// API-04: `tools/list` exposes exactly one name per tool — the canonical
-/// `memory_search` / `memory_list_namespaces` — with zero duplicate names and
-/// zero listings of the legacy aliases. Total: 85 (49 base − 2 canonicalized
-/// + 38 extended).
+/// API-04 + WIRE-02: `tools/list` exposes exactly one name per tool — the
+/// canonical `memory_search` / `memory_list_namespaces` — with zero duplicate
+/// names and zero listings of the legacy aliases or the absorbed projections.
+/// Total: 79 listed (85 defined − 6 `code_*` absorbed, WIRE-02; prior API-04:
+/// 49 base − 2 canonicalized + 38 extended = 85).
 #[test]
 fn test_api04_tools_list_canonical_names_no_duplicates() {
-    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let res = handle_tools_list(&default_config()).unwrap();
     let tools = res["tools"].as_array().expect("tools array");
     let names: Vec<&str> = tools.iter().map(|t| t["name"].as_str().unwrap()).collect();
 
@@ -5211,8 +5410,8 @@ fn test_api04_tools_list_canonical_names_no_duplicates() {
     );
     assert_eq!(
         names.len(),
-        85,
-        "expected 85 tools after canonicalization, got {}",
+        79,
+        "expected 79 listed tools after WIRE-02 absorption, got {}",
         names.len()
     );
 }
@@ -5223,7 +5422,7 @@ fn test_api04_tools_list_canonical_names_no_duplicates() {
 /// `sparse_vector`, `filters`) stay open.
 #[test]
 fn test_api04_base_tool_schemas_strict() {
-    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let res = handle_tools_list(&default_config()).unwrap();
     let tools = res["tools"].as_array().unwrap();
     let strict: std::collections::HashSet<&str> = [
         "memory_put",
@@ -5319,7 +5518,7 @@ fn test_api04_base_tool_schemas_strict() {
 /// wire form for every u128 (thread ids are random u128, `src/agentic/thread.rs:139-140`).
 #[test]
 fn test_api04_thread_id_schema_is_string() {
-    let res = handle_tools_list(&McpConfig::default()).unwrap();
+    let res = handle_tools_list(&default_config()).unwrap();
     let tools = res["tools"].as_array().unwrap();
 
     let inject = tools
@@ -5559,7 +5758,7 @@ fn test_api04_prompts_are_separated_from_tools() {
         .iter()
         .map(|p| p["name"].as_str().unwrap())
         .collect();
-    let tools = handle_tools_list(&McpConfig::default()).unwrap();
+    let tools = handle_tools_list(&default_config()).unwrap();
     let tool_names: Vec<&str> = tools["tools"]
         .as_array()
         .unwrap()
