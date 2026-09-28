@@ -18,8 +18,6 @@
 use napi::Error;
 use napi_derive::napi;
 use serde_json::{json, Map, Value};
-use std::sync::{Arc, Condvar, Mutex, PoisonError};
-
 use vantadb::config::Config;
 use vantadb::graph::TraversalDirection;
 use vantadb::index::IndexType;
@@ -30,16 +28,21 @@ use vantadb::sdk::{
 };
 // FFI guards: single source of truth from core (WSM-09).
 use vantadb::{SparseVector, MAX_K, MAX_VEC_DIM};
+// Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
+use vantadb_ffi_core::{OpGate, OpGuard};
 
 /// Clamp `top_k`/`k` to [`MAX_K`], warning when the caller requested more than
-/// the cap. Mirrors `vantadb-python::clamp_top_k` (ERR-022).
+/// the cap so silent truncation stays observable (ERR-022). The compare→cap
+/// policy lives in `vantadb-ffi-core` (shared with python/wasm); only the
+/// warning channel (`eprintln!`, node prefix) stays here.
 fn clamp_top_k(requested: usize) -> usize {
-    if requested > MAX_K {
+    let (effective, was_clamped) = vantadb_ffi_core::clamp_top_k(requested, MAX_K);
+    if was_clamped {
         eprintln!(
             "vantadb-node: top_k={requested} exceeds MAX_K={MAX_K}; clamping to {MAX_K} (ERR-022)"
         );
     }
-    requested.min(MAX_K)
+    effective
 }
 
 /// Native VantaDB handle exposed to Node.js. Thin wrapper over the SDK's
@@ -652,79 +655,6 @@ fn map_err(e: vantadb::error::Error) -> napi::Error {
 
 fn serde_map_err(e: serde_json::Error) -> napi::Error {
     Error::from_reason(format!("serialization error: {e}"))
-}
-
-/// Durability gate: rejects new operations once `close()` has begun and keeps
-/// `close()` waiting until every in-flight operation finishes. Closes the
-/// race where an async op whose `spawn_blocking` had not yet run would write
-/// after `close()` returned — silently lost on process exit.
-struct OpGate {
-    state: Arc<(Mutex<OpState>, Condvar)>,
-}
-
-struct OpState {
-    closing: bool,
-    count: usize,
-}
-
-impl OpGate {
-    fn new() -> Self {
-        Self {
-            state: Arc::new((
-                Mutex::new(OpState {
-                    closing: false,
-                    count: 0,
-                }),
-                Condvar::new(),
-            )),
-        }
-    }
-
-    /// Register a new in-flight operation. Returns `None` if `close()` has
-    /// started (new operations are rejected past the durability barrier).
-    fn try_enter(&self) -> Option<OpGuard> {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        if state.closing {
-            return None;
-        }
-        state.count += 1;
-        Some(OpGuard {
-            state: self.state.clone(),
-        })
-    }
-
-    /// Start closing and block until every in-flight operation drains.
-    ///
-    /// Sets `closing = true` (so new ops are rejected) then waits until
-    /// `count == 0`. Blocks the calling thread; the `MutexGuard` is dropped on
-    /// return so it never crosses an `.await` (a raw `MutexGuard` is not
-    /// `Send`, and this future must be `Send` to run on the napi Tokio
-    /// runtime). Acceptable to be blocking: this is the durability barrier.
-    fn drain(&self) {
-        let (lock, cvar) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        state.closing = true;
-        while state.count > 0 {
-            state = cvar.wait(state).unwrap_or_else(PoisonError::into_inner);
-        }
-        // `state` (the MutexGuard) is dropped here, before any await.
-    }
-}
-
-/// RAII guard that decrements the in-flight count and wakes `close()` when
-/// dropped (at the end of the owning async method, after the op completes).
-struct OpGuard {
-    state: Arc<(Mutex<OpState>, Condvar)>,
-}
-
-impl Drop for OpGuard {
-    fn drop(&mut self) {
-        let (lock, cvar) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        state.count -= 1;
-        cvar.notify_one();
-    }
 }
 
 /// Enter the gate for an engine operation, or fail with a descriptive error
