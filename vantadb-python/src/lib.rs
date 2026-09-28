@@ -10,13 +10,14 @@ use pyo3::exceptions::{PyRuntimeError, PyTypeError, PyValueError};
 use pyo3::prelude::*;
 use pyo3::types::{PyAnyMethods, PyDict, PyDictMethods, PyModuleMethods, PyTuple};
 use std::collections::HashMap;
-use std::sync::{Arc, Condvar, Mutex, PoisonError};
 use vantadb::config::Config;
 use vantadb::index::IndexType;
 use vantadb::metadata;
 use vantadb::sdk::{Embedded, MemoryInput, MemoryListOptions, MemorySearchRequest, NodeInput};
 // FFI guards: single source of truth from core (WSM-09).
 use vantadb::{DistanceMetric, MAX_K};
+// Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
+use vantadb_ffi_core::{OpGate, OpGuard};
 
 mod convert;
 use convert::parse_direction;
@@ -40,12 +41,14 @@ use crate::convert::{
 
 /// Clamp `top_k`/`k` to [`MAX_K`], warning when the caller requested more than
 /// the cap so silent truncation is observable (ERR-022). `MAX_K` is unified in
-/// core (`vantadb::config::MAX_K`) — see WSM-09.
+/// core (`vantadb::config::MAX_K`) — see WSM-09; the compare→cap policy lives
+/// in `vantadb-ffi-core` (shared with node/wasm).
 fn clamp_top_k(requested: usize) -> usize {
-    if requested > MAX_K {
+    let (effective, was_clamped) = vantadb_ffi_core::clamp_top_k(requested, MAX_K);
+    if was_clamped {
         tracing::warn!("top_k={requested} exceeds MAX_K={MAX_K}; clamping to {MAX_K} (ERR-022)");
     }
-    requested.min(MAX_K)
+    effective
 }
 
 #[pyclass]
@@ -86,83 +89,6 @@ fn clamp_top_k(requested: usize) -> usize {
 pub struct Client {
     engine: Embedded,
     op_gate: OpGate,
-}
-
-/// Durability gate: rejects new operations once `close()` has begun and keeps
-/// `close()` waiting until every in-flight operation finishes. Mirrors
-/// `vantadb-node/src/lib.rs` — closes the write-after-close race where a
-/// thread whose engine call had not yet run (or is running GIL-released via
-/// `py.detach`) would write after `close()` returned.
-#[derive(Clone)]
-struct OpGate {
-    state: Arc<(Mutex<OpState>, Condvar)>,
-}
-
-struct OpState {
-    closing: bool,
-    count: usize,
-}
-
-impl OpGate {
-    fn new() -> Self {
-        Self {
-            state: Arc::new((
-                Mutex::new(OpState {
-                    closing: false,
-                    count: 0,
-                }),
-                Condvar::new(),
-            )),
-        }
-    }
-
-    /// Register a new in-flight operation. Returns `None` if `close()` has
-    /// started (new operations are rejected past the durability barrier).
-    fn try_enter(&self) -> Option<OpGuard> {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        if state.closing {
-            return None;
-        }
-        state.count += 1;
-        Some(OpGuard {
-            state: self.state.clone(),
-        })
-    }
-
-    /// Start closing and block until every in-flight operation drains.
-    ///
-    /// Sets `closing = true` (so new ops are rejected) then waits until
-    /// `count == 0`. Blocks the calling thread; acceptable: this is the
-    /// durability barrier and engine operations are bounded.
-    ///
-    /// MOD-17: MUST be called with the GIL released whenever Python threads
-    /// may hold an `OpGuard`: an op returning from its own `py.detach` needs
-    /// to re-acquire the GIL before it can drop its guard, so waiting here
-    /// with the GIL held deadlocks the interpreter. See `Client::close`.
-    fn drain(&self) {
-        let (lock, cvar) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        state.closing = true;
-        while state.count > 0 {
-            state = cvar.wait(state).unwrap_or_else(PoisonError::into_inner);
-        }
-    }
-}
-
-/// RAII guard that decrements the in-flight count and wakes `close()` when
-/// dropped (at the end of the owning method, after the engine call completes).
-struct OpGuard {
-    state: Arc<(Mutex<OpState>, Condvar)>,
-}
-
-impl Drop for OpGuard {
-    fn drop(&mut self) {
-        let (lock, cvar) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        state.count -= 1;
-        cvar.notify_one();
-    }
 }
 
 /// Enter the gate for an engine operation, or fail with a descriptive error
