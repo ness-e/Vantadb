@@ -3,7 +3,7 @@ title: VantaDB Module Boundaries
 type: architecture
 status: active
 tags: [vantadb, architecture]
-last_reviewed: 2026-09-23
+last_reviewed: 2026-09-27
 aliases: []
 ---
 
@@ -20,6 +20,10 @@ aliases: []
 > known debt, and the gate for any future physical move (Phase 3).
 > `/cleanCA` (future A3 task) cites rules `BND-01…BND-08` from here.
 > **A1 review:** vanta-arch — verified against tree 5a1dae99 on 2026-09-13, no material drift; deriva trivial: engine/mod.rs 34-35, engine/init.rs 12, executor.rs 13; nota: index/flat.rs:18 es fn-local prod (no test-mod), index/search/layer.rs:13 FLAG_TOMBSTONE prod no tabulado — cubierto por plan FLAG_TOMBSTONE→kernel.
+> **WIRE-07 update (2026-09-27):** §3 flipped from open debt to CLOSED and §5
+> item 5 marked satisfied, recording the F3X trait-split already landed in
+> `13f0f729` (ADR-042). Bookkeeping only — no new boundary change; §1/§2/§4 and
+> the BND rules are unchanged.
 
 ## 1. Ownership map
 
@@ -114,12 +118,24 @@ one minor version (precedent: `storage/engine/mod.rs:34`
 `pub use crate::index::FreshHnswReport;`). Moves never break importers
 silently.
 
-## 3. Known cycle: storage ↔ index (documented debt with a plan)
+## 3. Closed cycle: storage ↔ index (trait-split F3X — evidence `13f0f729`)
 
-Bidirectional dependency, verified 2026-09-13 by `rg` (C2A1 discovery).
-Not broken by M3 — needs its own trait-split task or explicit DEFER.
+> **Status: CLOSED — fix landed in `13f0f729` (commit dated 2026-09-13); this document recorded the broken state on 2026-09-23 and WIRE-07 flipped it.** The bidirectional dependency below is closed
+> by the neutral leaf **`src/index_port.rs`** (224 L) + its implementor
+> **`src/index/port_impl.rs`** (424 L), landed in commit **`13f0f729`**
+> ("feat!: trait-split storage-index con hoja neutral + 6 firmas a traits")
+> under **ADR-042** (accepted — human Gate V decision, option A; the six `pub`
+> signatures that named `CPIndex` concretely migrated to the sealed traits as a
+> documented breaking change). `storage/engine` orchestrates through
+> `IndexPort`/`MmapBackend`/`VectorStoreRef`; the index side names only the leaf
+> plus the `storage::vfile_mmap`/`vfile` persistence primitives. Gate BND-03
+> (`cargo modules dependencies --lib --acyclic`) is the standing check.
 
-**Direction A — storage → index:**
+**Historical record (C2A1 discovery, 2026-09-13 — pre-F3X, kept for traceability).**
+Bidirectional dependency verified by `rg`; not broken by M3 — needed its own
+trait-split task or an explicit DEFER.
+
+**Direction A — storage → index (pre-F3X):**
 
 | File | Line | Import |
 |---|---|---|
@@ -128,7 +144,7 @@ Not broken by M3 — needs its own trait-split task or explicit DEFER.
 | `src/storage/engine/init.rs` | 17 | `use crate::index::{CPIndex, IndexBackend};` |
 | `src/storage/engine/maintenance.rs` | 9 | `use crate::index::{CPIndex, IndexBackend};` |
 
-**Direction B — index → storage:**
+**Direction B — index → storage (pre-F3X):**
 
 | File | Line | Import |
 |---|---|---|
@@ -142,22 +158,27 @@ Not broken by M3 — needs its own trait-split task or explicit DEFER.
 subdirectories; the plan's `serialize-file.rs` / `graph-types.rs` shorthand
 refers to these.)
 
-**Why it exists:** the engine orchestrates index builds/rebuilds (A is
-structural: orchestration needs the index types), while the index reuses
-persistence primitives and the tombstone flag (B is mostly legitimate
-layering toward `vfile`; the two `FLAG_TOMBSTONE` prod imports are the smell,
-covered by the FLAG_TOMBSTONE→kernel plan).
+**Why it existed:** the engine orchestrates index builds/rebuilds (A is
+structural: orchestration needs the index types), while the index reused
+persistence primitives and the tombstone flag (B was mostly legitimate layering
+toward `vfile`; the two `FLAG_TOMBSTONE` prod imports were the smell).
 
 **Plan (pick one, no silent third option):**
 
-1. **Trait-split task** (preferred): extract an `IndexBackend`-shaped port so
-   `storage/engine` depends on the trait and `index` implements it; move
-   `FLAG_TOMBSTONE` (and any shared const) down to the Shared kernel
-   (`node.rs` or a `storage/api-types` leaf with zero deps) so `flat.rs`
-   stops importing `storage::engine`.
-2. **Explicit DEFER** with rationale + revisit date, recorded here and in
-   Backlog as a `FIND-*` row. "It works, don't touch it" without a row is
-   not a decision — it is drift.
+1. **Trait-split task** — ✅ **EXECUTED (F3X, `13f0f729`, ADR-042).** The
+   `IndexPort`-shaped port lives in the neutral leaf and `index` implements it;
+   `FLAG_TOMBSTONE` no longer crosses the boundary (index code reads
+   `NodeFlags::TOMBSTONE` from the Shared kernel).
+2. **Explicit DEFER** — not taken (option 1 closed instead).
+
+**Post-F3X residual (re-verified 2026-09-27, WIRE-07):** the only surviving
+`storage → index` imports are `#[cfg(test)]` shims/fixtures
+(`src/storage/archive.rs:205-211` test-only `fresh_index_like`,
+`src/storage/archive.rs:470` + `src/index/core.rs:156` inside test modules);
+the only `index → storage` imports are the persistence primitives
+(`vfile_mmap::MmapMut`, `vfile::{File, Mmap, get_resident_bytes}`) — layering
+toward the `vfile` leaf, not the `storage/engine` orchestrator. No production
+boundary edge remains in either direction.
 
 ## 4. Hybrid doctrine (validated against industry consensus)
 
@@ -203,7 +224,8 @@ after Phase 2 (plan §Cierre + §Fase 3, restated here as the citable gate):
    `sdk↔planner` / `sdk↔query` cycles broken (M3).
 4. **This document signed** — owners named (§1) and BND-01…BND-08 accepted.
 5. **storage↔index** has its own trait-split task closed OR an explicit
-   DEFER row (§3, option 2).
+   DEFER row (§3, option 2). — **✅ SATISFIED (`13f0f729` — commit 2026-09-13, recorded 2026-09-23;
+   ADR-042; evidence and post-F3X residual in §3).**
 
 Even then: incremental per domain (one at a time, cleanest first),
 never big-bang; stable code is not touched.
