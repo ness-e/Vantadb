@@ -992,6 +992,10 @@ fn test_search_profile_mcp_passthrough_parity_with_native() {
             rrf_k: Some(30),
             candidate_k: Some(64),
         }),
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let native_hits = embedded.search(native_req).expect("native search");
@@ -1028,6 +1032,10 @@ fn test_search_profile_mcp_passthrough_parity_with_native() {
         query_vector: vec![0.9, 0.1, 0.0],
         text_query: Some("cat".into()),
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let native_none = embedded

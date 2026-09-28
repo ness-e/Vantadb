@@ -236,6 +236,10 @@ pub(super) fn build_search_request(
         query_sparse: None,
         exclude_superseded: false,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     }
 }
 

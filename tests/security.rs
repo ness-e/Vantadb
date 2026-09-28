@@ -309,6 +309,10 @@ mod input_validation_tests {
                 namespace: "ns".to_string(),
                 query_vector: vec![1.0, 0.0, 0.0],
                 top_k: 10,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
                 ..Default::default()
             };
             let hits = db
@@ -649,6 +653,10 @@ mod fuzzing_tests {
                 namespace: "ns".to_string(),
                 query_vector: vec![1.0, 0.0, 0.0],
                 text_query: Some(query.to_string()),
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
                 ..Default::default()
             };
             let result = db.search(req);

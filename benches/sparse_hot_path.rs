@@ -135,6 +135,10 @@ fn bench_sparse_hot_path(c: &mut Criterion) {
         namespace: "bench/sparse".into(),
         query_sparse: Some(query_sparse()),
         top_k: N_DOCS,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let all = fixture.db.search(req_count).expect("count search");
@@ -149,6 +153,10 @@ fn bench_sparse_hot_path(c: &mut Criterion) {
                 namespace: "bench/sparse".into(),
                 query_sparse: Some(query_sparse()),
                 top_k: TOP_K,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
                 ..Default::default()
             };
             let hits = fixture.db.search(req).expect("sparse search");

@@ -54,6 +54,10 @@ fn recovery_rebuild_export_import_survive_restart_and_index_loss() {
             filters: Default::default(),
             text_query: None,
             top_k: 1,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("search");

@@ -16,7 +16,7 @@
 //! - `vector-only` — HNSW approximate nearest neighbour only
 //! - `empty`       — neither input provided; returns zero results
 
-use crate::node::FieldValue;
+use crate::node::{FieldValue, UnifiedNode};
 use crate::query::RelOp;
 use crate::search_profile::SearchProfileMode;
 
@@ -74,6 +74,85 @@ pub fn classify(text_query: Option<&str>, has_vector: bool) -> SearchRoute {
     };
     tracing::debug!("Classified search route: {:?}", route);
     route
+}
+
+// ── RRF fusion operator (WIRE-08) ─────────────────────────────────────────
+
+/// Volcano operator that fuses the ranked outputs of its arms with Reciprocal
+/// Rank Fusion (WIRE-08): each arm contributes `1 / (rrf_k + rank + 1)` per
+/// node, with `rank` starting at 0 in the arm's natural output order. Nodes
+/// appearing in several arms accumulate contributions. Output order is
+/// `score desc, node id asc` (deterministic).
+///
+/// Local to the planner on purpose: the extension registry
+/// (`OperatorRegistry`) dispatches on `LogicalOperator` variants and stays
+/// untouched — no new variant, no consumer `match` edits (WIRE-08 stop
+/// condition: extend by operator, never rewrite the planner).
+///
+/// ponytail: arms are drained eagerly into memory at `open()` (rank fusion
+/// needs complete ranked lists). Streaming fusion with bounded windows is a
+/// later optimization if profiles ever show it as a bottleneck.
+struct PhysicalRrfFusion<'a> {
+    arms: Vec<Box<dyn crate::query::PhysicalOperator + 'a>>,
+    rrf_k: f32,
+    fused: Vec<UnifiedNode>,
+    cursor: usize,
+}
+
+impl<'a> PhysicalRrfFusion<'a> {
+    fn new(arms: Vec<Box<dyn crate::query::PhysicalOperator + 'a>>, rrf_k: f32) -> Self {
+        Self {
+            arms,
+            rrf_k,
+            fused: Vec::new(),
+            cursor: 0,
+        }
+    }
+}
+
+impl crate::query::PhysicalOperator for PhysicalRrfFusion<'_> {
+    fn open(&mut self) -> crate::error::Result<()> {
+        use std::collections::BTreeMap;
+        self.fused.clear();
+        self.cursor = 0;
+        let mut scores: BTreeMap<u128, f32> = BTreeMap::new();
+        let mut nodes: BTreeMap<u128, UnifiedNode> = BTreeMap::new();
+        for arm in &mut self.arms {
+            arm.open()?;
+            let mut rank = 0usize;
+            while let Some(node) = arm.next()? {
+                let contribution = 1.0 / (self.rrf_k + rank as f32 + 1.0);
+                *scores.entry(node.id).or_insert(0.0) += contribution;
+                nodes.entry(node.id).or_insert(node);
+                rank += 1;
+            }
+            arm.close()?;
+        }
+        let mut ids: Vec<u128> = scores.keys().copied().collect();
+        ids.sort_by(|a, b| {
+            scores[b]
+                .partial_cmp(&scores[a])
+                .unwrap_or(std::cmp::Ordering::Equal)
+                .then(a.cmp(b))
+        });
+        self.fused = ids.into_iter().filter_map(|id| nodes.remove(&id)).collect();
+        Ok(())
+    }
+
+    fn next(&mut self) -> crate::error::Result<Option<UnifiedNode>> {
+        if self.cursor < self.fused.len() {
+            let node = self.fused[self.cursor].clone();
+            self.cursor += 1;
+            return Ok(Some(node));
+        }
+        Ok(None)
+    }
+
+    fn close(&mut self) -> crate::error::Result<()> {
+        self.fused.clear();
+        self.cursor = 0;
+        Ok(())
+    }
 }
 
 // ── Cost-Based Optimizer (CBO) & Volcano Compiler ─────────────────────────
@@ -177,8 +256,10 @@ pub fn optimize_and_compile<'a>(
     // MEM-01: el perfil de búsqueda puede forzar el modo en el plan físico.
     // Keyword descarta el vector search (queda solo el filtro léxico);
     // Vector descarta los filtros de texto (queda solo el vector search).
-    // ponytail: rrf_k/candidate_k del profile se propagan al LogicalPlan pero no
-    // afectan el path IQL: el CBO no fusiona RRF (solo el path SDK lo usa).
+    // WIRE-08: en modo Hybrid con ambos brazos presentes, `rrf_k` del profile
+    // SÍ afecta el path IQL — alimenta el operador `PhysicalRrfFusion` de abajo.
+    // `candidate_k` sigue siendo exclusivo del path SDK (el CBO no deriva
+    // presupuestos de candidatos por brazo).
     if let Some(profile) = plan.search_profile {
         match profile.mode {
             SearchProfileMode::Keyword => vector_search = None,
@@ -214,6 +295,7 @@ pub fn optimize_and_compile<'a>(
     // when alias is resolvable for better performance.
 
     // Determine the base operator (scan or join) and apply sorted_filters
+    let mut rrf_fused = false;
     let mut current_operator: Box<dyn crate::query::PhysicalOperator + 'a> = if has_join {
         // INVARIANT (B2b): `has_join` is set true only in the `Join` arm above,
         // which always sets `join_spec` in the same statement — `None` here is
@@ -238,8 +320,40 @@ pub fn optimize_and_compile<'a>(
         }
         join_op
     } else if let Some((_field, query_text, min_score)) = vector_search {
-        // CBO: filter-before-vector vs vector-before-filter
-        if joint_selectivity < HIGH_SELECTIVITY_THRESHOLD && !sorted_filters.is_empty() {
+        // WIRE-08: RRF fusion operator — opt-in via `search_profile`. With a
+        // profile, the vector arm and the lexical arm are fused (union
+        // semantics, same shape as the SDK hybrid path); without one, the
+        // proven vector-then-filter path below is byte-identical.
+        let fuse_rrf = plan.search_profile.is_some() && !text_matches.is_empty();
+        if fuse_rrf {
+            let vector_arm: Box<dyn crate::query::PhysicalOperator + 'a> = Box::new(
+                crate::physical_plan::PhysicalVectorSearch::new(storage, query_text, min_score),
+            );
+            let mut lexical_arm: Box<dyn crate::query::PhysicalOperator + 'a> =
+                Box::new(crate::physical_plan::PhysicalScan::new(storage, entity));
+            for (field, query) in &text_matches {
+                lexical_arm = Box::new(crate::physical_plan::PhysicalTextFilter::new(
+                    lexical_arm,
+                    field.clone(),
+                    query.clone(),
+                ));
+            }
+            let rrf_k = plan
+                .search_profile
+                .and_then(|profile| profile.rrf_k)
+                .map(|k| k as f32)
+                .unwrap_or(crate::search_profile::RRF_K);
+            let mut fused: Box<dyn crate::query::PhysicalOperator + 'a> =
+                Box::new(PhysicalRrfFusion::new(vec![vector_arm, lexical_arm], rrf_k));
+            for (field, rel_op, value) in sorted_filters {
+                fused = Box::new(crate::physical_plan::PhysicalFilter::new(
+                    fused, field, rel_op, value,
+                ));
+            }
+            rrf_fused = true;
+            fused
+        } else if joint_selectivity < HIGH_SELECTIVITY_THRESHOLD && !sorted_filters.is_empty() {
+            // CBO: filter-before-vector vs vector-before-filter
             let mut scan_op: Box<dyn crate::query::PhysicalOperator + 'a> =
                 Box::new(crate::physical_plan::PhysicalScan::new(storage, entity));
             for (field, rel_op, value) in sorted_filters {
@@ -283,13 +397,16 @@ pub fn optimize_and_compile<'a>(
         ));
     }
 
-    // Apply lexical text filters (phrase-aware) on top of the chain
-    for (field, query) in text_matches {
-        current_operator = Box::new(crate::physical_plan::PhysicalTextFilter::new(
-            current_operator,
-            field,
-            query,
-        ));
+    // Apply lexical text filters (phrase-aware) on top of the chain. With RRF
+    // fusion the text condition is already an arm of the fused operator.
+    if !rrf_fused {
+        for (field, query) in text_matches {
+            current_operator = Box::new(crate::physical_plan::PhysicalTextFilter::new(
+                current_operator,
+                field,
+                query,
+            ));
+        }
     }
 
     if let Some((field, desc)) = sort {
@@ -594,5 +711,279 @@ mod tests {
         assert_eq!(values[1], Some(FieldValue::Int(3)));
         assert_eq!(values[2], Some(FieldValue::Int(2)));
         op.close().unwrap();
+    }
+}
+
+#[cfg(test)]
+mod wire08_rrf_tests {
+    use super::*;
+    use crate::query::PhysicalOperator as _;
+    use crate::query::{LogicalOperator, LogicalPlan};
+
+    // ── WIRE-08: RRF fusion operator ─────────────────────────────────────────
+
+    /// Minimal in-memory arm for RRF operator tests (rank order = vec order).
+    struct MockRrfArm {
+        nodes: Vec<UnifiedNode>,
+        cursor: usize,
+    }
+
+    impl crate::query::PhysicalOperator for MockRrfArm {
+        fn open(&mut self) -> crate::error::Result<()> {
+            self.cursor = 0;
+            Ok(())
+        }
+        fn next(&mut self) -> crate::error::Result<Option<UnifiedNode>> {
+            if self.cursor < self.nodes.len() {
+                let node = self.nodes[self.cursor].clone();
+                self.cursor += 1;
+                return Ok(Some(node));
+            }
+            Ok(None)
+        }
+        fn close(&mut self) -> crate::error::Result<()> {
+            self.cursor = 0;
+            Ok(())
+        }
+    }
+
+    fn rrf_node(id: u128) -> UnifiedNode {
+        UnifiedNode::new(id)
+    }
+
+    fn drain(op: &mut dyn crate::query::PhysicalOperator) -> Vec<u128> {
+        let mut ids = Vec::new();
+        while let Some(node) = op.next().unwrap() {
+            ids.push(node.id);
+        }
+        ids
+    }
+
+    #[test]
+    fn rrf_fusion_scores_by_rank_and_dedups_overlap() {
+        // arm1 = [1, 2], arm2 = [2, 3] with rrf_k = 60:
+        // 2 → 1/61 + 1/61 = 0.03279; 1 → 1/61 = 0.01639; 3 → 1/62 = 0.01613.
+        let arm1: Box<dyn crate::query::PhysicalOperator> = Box::new(MockRrfArm {
+            nodes: vec![rrf_node(1), rrf_node(2)],
+            cursor: 0,
+        });
+        let arm2: Box<dyn crate::query::PhysicalOperator> = Box::new(MockRrfArm {
+            nodes: vec![rrf_node(2), rrf_node(3)],
+            cursor: 0,
+        });
+        let mut fused = PhysicalRrfFusion::new(vec![arm1, arm2], 60.0);
+        fused.open().unwrap();
+        let ids = drain(&mut fused);
+        fused.close().unwrap();
+        assert_eq!(ids, vec![2, 1, 3], "overlap wins, ranks order the rest");
+    }
+
+    #[test]
+    fn rrf_fusion_handles_empty_and_single_arms() {
+        let empty: Box<dyn crate::query::PhysicalOperator> = Box::new(MockRrfArm {
+            nodes: Vec::new(),
+            cursor: 0,
+        });
+        let single: Box<dyn crate::query::PhysicalOperator> = Box::new(MockRrfArm {
+            nodes: vec![rrf_node(7), rrf_node(8)],
+            cursor: 0,
+        });
+        let mut fused = PhysicalRrfFusion::new(vec![empty, single], 60.0);
+        fused.open().unwrap();
+        let ids = drain(&mut fused);
+        fused.close().unwrap();
+        assert_eq!(ids, vec![7, 8], "empty arm contributes nothing");
+    }
+
+    #[test]
+    fn rrf_cbo_fuses_arms_when_profile_is_present() {
+        use crate::config::Config;
+        use crate::node::{FieldValue, UnifiedNode};
+        use crate::search_profile::{SearchProfileConfig, SearchProfileMode};
+        use crate::storage::{BackendKind, StorageEngine};
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let config = Config {
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+            .expect("Failed to open StorageEngine");
+
+        let mut alpha = UnifiedNode::new(1);
+        alpha
+            .relational
+            .insert("content".into(), FieldValue::String("alpha beta".into()));
+        storage.insert(&alpha).unwrap();
+        let mut gamma = UnifiedNode::new(2);
+        gamma
+            .relational
+            .insert("content".into(), FieldValue::String("gamma delta".into()));
+        storage.insert(&gamma).unwrap();
+
+        let operators = vec![
+            LogicalOperator::Scan { entity: "*".into() },
+            LogicalOperator::VectorSearch {
+                field: "content".into(),
+                query_vec: "alpha".into(),
+                min_score: 0.0,
+            },
+            LogicalOperator::TextFilter {
+                field: "content".into(),
+                query: "alpha".into(),
+            },
+            LogicalOperator::Limit { top_k: 5 },
+        ];
+
+        // Without a profile: proven intersection path — the (empty, no embedding
+        // feature) vector arm is post-filtered by text → zero rows.
+        let plan_no_profile = LogicalPlan {
+            operators: operators.clone(),
+            temperature: 0.0,
+            enforce_role: None,
+            search_profile: None,
+        };
+        let mut op = optimize_and_compile(&plan_no_profile, &storage).unwrap();
+        op.open().unwrap();
+        assert!(
+            op.next().unwrap().is_none(),
+            "no profile keeps the pre-WIRE-08 intersection semantics"
+        );
+        op.close().unwrap();
+
+        // With a Hybrid profile: RRF operator fuses the text arm (vector arm is
+        // empty without embedding features) → the text-only match survives.
+        let plan_profile = LogicalPlan {
+            operators,
+            temperature: 0.0,
+            enforce_role: None,
+            search_profile: Some(SearchProfileConfig {
+                mode: SearchProfileMode::Hybrid,
+                rrf_k: Some(60),
+                candidate_k: None,
+            }),
+        };
+        let mut op = optimize_and_compile(&plan_profile, &storage).unwrap();
+        op.open().unwrap();
+        let row = op.next().unwrap().expect("fused row");
+        assert_eq!(row.id, 1, "lexical arm match is returned by the fusion");
+        assert!(op.next().unwrap().is_none());
+        op.close().unwrap();
+    }
+
+    #[test]
+    fn rrf_cbo_applies_relational_filters_after_fusion() {
+        use crate::config::Config;
+        use crate::node::{FieldValue, UnifiedNode};
+        use crate::query::RelOp;
+        use crate::search_profile::{SearchProfileConfig, SearchProfileMode};
+        use crate::storage::{BackendKind, StorageEngine};
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let config = Config {
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+            .expect("Failed to open StorageEngine");
+
+        let mut keep = UnifiedNode::new(1);
+        keep.relational
+            .insert("content".into(), FieldValue::String("alpha beta".into()));
+        keep.relational
+            .insert("tier".into(), FieldValue::String("hot".into()));
+        storage.insert(&keep).unwrap();
+        let mut drop = UnifiedNode::new(2);
+        drop.relational
+            .insert("content".into(), FieldValue::String("alpha gamma".into()));
+        drop.relational
+            .insert("tier".into(), FieldValue::String("cold".into()));
+        storage.insert(&drop).unwrap();
+
+        let plan = LogicalPlan {
+            operators: vec![
+                LogicalOperator::Scan { entity: "*".into() },
+                LogicalOperator::VectorSearch {
+                    field: "content".into(),
+                    query_vec: "alpha".into(),
+                    min_score: 0.0,
+                },
+                LogicalOperator::TextFilter {
+                    field: "content".into(),
+                    query: "alpha".into(),
+                },
+                LogicalOperator::FilterRelational {
+                    field: "tier".into(),
+                    op: RelOp::Eq,
+                    value: FieldValue::String("hot".into()),
+                },
+                LogicalOperator::Limit { top_k: 5 },
+            ],
+            temperature: 0.0,
+            enforce_role: None,
+            search_profile: Some(SearchProfileConfig {
+                mode: SearchProfileMode::Hybrid,
+                rrf_k: None,
+                candidate_k: None,
+            }),
+        };
+        let mut op = optimize_and_compile(&plan, &storage).unwrap();
+        op.open().unwrap();
+        let rows = drain(op.as_mut());
+        op.close().unwrap();
+        assert_eq!(rows, vec![1], "relational filter applies over fused rows");
+    }
+
+    #[test]
+    fn rrf_cbo_keyword_profile_keeps_text_only_path() {
+        use crate::config::Config;
+        use crate::node::{FieldValue, UnifiedNode};
+        use crate::search_profile::{SearchProfileConfig, SearchProfileMode};
+        use crate::storage::{BackendKind, StorageEngine};
+        use tempfile::tempdir;
+
+        let dir = tempdir().unwrap();
+        let config = Config {
+            backend_kind: BackendKind::InMemory,
+            ..Default::default()
+        };
+        let storage = StorageEngine::open_with_config(dir.path().to_str().unwrap(), Some(config))
+            .expect("Failed to open StorageEngine");
+
+        let mut alpha = UnifiedNode::new(1);
+        alpha
+            .relational
+            .insert("content".into(), FieldValue::String("alpha beta".into()));
+        storage.insert(&alpha).unwrap();
+
+        // Keyword mode clears the vector arm → plain scan + text filter path.
+        let plan = LogicalPlan {
+            operators: vec![
+                LogicalOperator::Scan { entity: "*".into() },
+                LogicalOperator::VectorSearch {
+                    field: "content".into(),
+                    query_vec: "alpha".into(),
+                    min_score: 0.0,
+                },
+                LogicalOperator::TextFilter {
+                    field: "content".into(),
+                    query: "alpha".into(),
+                },
+            ],
+            temperature: 0.0,
+            enforce_role: None,
+            search_profile: Some(SearchProfileConfig {
+                mode: SearchProfileMode::Keyword,
+                rrf_k: None,
+                candidate_k: None,
+            }),
+        };
+        let mut op = optimize_and_compile(&plan, &storage).unwrap();
+        op.open().unwrap();
+        let rows = drain(op.as_mut());
+        op.close().unwrap();
+        assert_eq!(rows, vec![1], "keyword mode keeps the text filter path");
     }
 }

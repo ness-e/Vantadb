@@ -180,6 +180,10 @@ fn test_hybrid_ranking_metrics() {
         query_vector: vec![0.85, 0.15, 0.10, 0.10],
         text_query: Some("transformer attention".to_string()),
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(req).expect("search query 1");
@@ -205,6 +209,10 @@ fn test_hybrid_ranking_metrics() {
         query_vector: vec![0.20, 0.80, 0.10, 0.10],
         text_query: Some("deep learning".to_string()),
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results2 = db.search(req2).expect("search query 2");

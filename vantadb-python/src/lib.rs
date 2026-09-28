@@ -1190,6 +1190,10 @@ impl Client {
             explain,
             exclude_superseded,
             search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         };
 
         let engine = self.engine.clone();
@@ -1284,6 +1288,10 @@ impl Client {
             explain,
             exclude_superseded,
             search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         };
 
         let engine = self.engine.clone();
@@ -2209,6 +2217,10 @@ impl Client {
             explain: true,
             exclude_superseded: false,
             search_profile: None,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         };
 
         let _g = enter(&self.op_gate)?;
@@ -2370,6 +2382,10 @@ impl Client {
                 explain,
                 exclude_superseded: false,
                 search_profile: None,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
             },
             method,
         ))

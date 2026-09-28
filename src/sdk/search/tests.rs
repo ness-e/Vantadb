@@ -37,6 +37,10 @@ fn test_search_empty_no_text_no_vector() {
     let db = setup();
     let req = MemorySearchRequest {
         namespace: "test".into(),
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(req).expect("search should succeed");
@@ -61,6 +65,10 @@ fn test_search_top_k_zero() {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         top_k: 0,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     assert!(db.search(req).unwrap().is_empty());
@@ -70,6 +78,10 @@ fn test_search_top_k_zero() {
         namespace: "test".into(),
         query_vector: vec![0.1, 0.2, 0.3],
         top_k: 0,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     assert!(db.search(req).unwrap().is_empty());
@@ -80,6 +92,10 @@ fn test_search_top_k_zero() {
         text_query: Some("hello".into()),
         query_vector: vec![0.1, 0.2, 0.3],
         top_k: 0,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     assert!(db.search(req).unwrap().is_empty());
@@ -91,6 +107,10 @@ fn test_search_invalid_namespace() {
     let req = MemorySearchRequest {
         namespace: "".into(),
         text_query: Some("hello".into()),
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let err = db.search(req).unwrap_err();
@@ -127,6 +147,10 @@ fn test_search_text_only_matching() {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(req).expect("text search");
@@ -159,6 +183,10 @@ fn test_search_text_only_no_matches() {
         namespace: "test".into(),
         text_query: Some("goodbye".into()),
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(req).expect("text search");
@@ -184,6 +212,10 @@ fn test_search_text_only_with_filters() {
         text_query: Some("hello".into()),
         filters,
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(req).expect("text search with filter");
@@ -205,6 +237,10 @@ fn test_search_text_only_filter_no_match() {
         text_query: Some("hello".into()),
         filters,
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db
@@ -236,6 +272,10 @@ fn test_search_vector_only_hnsw() {
         query_vector: vec![0.1, 0.2, 0.3],
         top_k: 10,
         distance_metric: DistanceMetric::Cosine,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(req).expect("vector search");
@@ -264,6 +304,10 @@ fn test_search_vector_only_different_ns_no_match() {
         namespace: "other".into(),
         query_vector: vec![0.1, 0.2, 0.3],
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(req).expect("vector search different ns");
@@ -305,6 +349,10 @@ fn test_search_vector_only_with_filters() {
         query_vector: vec![0.1, 0.2, 0.3],
         filters,
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(req).expect("vector search with filter");
@@ -329,6 +377,10 @@ fn test_search_vector_only_no_matches() {
         namespace: "empty_ns".into(),
         query_vector: vec![0.1, 0.2, 0.3],
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(req).expect("vector search no matches");
@@ -371,6 +423,10 @@ fn test_search_hybrid_both_text_and_vector() {
         text_query: Some("hello".into()),
         query_vector: vec![0.1, 0.2, 0.3],
         top_k: 5,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(req).expect("hybrid search");
@@ -409,6 +465,10 @@ fn test_search_explain_mode() {
         query_vector: vec![0.1, 0.2, 0.3],
         top_k: 5,
         explain: true,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(req).expect("explain search");
@@ -454,6 +514,10 @@ fn test_search_bm25_scoring_correctness() {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(req).expect("bm25 search");
@@ -506,6 +570,10 @@ fn test_search_corrupt_text_index_state() {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let err = db.search(req).unwrap_err();
@@ -534,6 +602,10 @@ fn test_search_cleared_text_index_returns_empty() {
         namespace: "test".into(),
         text_query: Some("hello".into()),
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let before = db.search(req.clone()).expect("search before clear");
@@ -571,6 +643,10 @@ fn test_search_empty_query_vector_with_text() {
         text_query: Some("hello".into()),
         query_vector: vec![], // explicitly empty
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(req).expect("text-only with empty query vector");
@@ -604,6 +680,10 @@ fn test_search_vector_only_euclidean() {
         query_vector: vec![0.1, 0.2, 0.3],
         top_k: 5,
         distance_metric: DistanceMetric::Euclidean,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let results = db.search(req).expect("euclidean search");
@@ -946,6 +1026,10 @@ fn test_sparse_search_roundtrip_recall_identical() {
         namespace: "sparse".into(),
         query_sparse: Some(query),
         top_k: 5,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let hits = db.search(req).expect("sparse search should succeed");
@@ -986,6 +1070,10 @@ fn test_search_profile_mode_keyword_forces_lexical_only() {
             mode: SearchProfileMode::Keyword,
             ..Default::default()
         }),
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let hits = db.search(req).expect("keyword-mode search");
@@ -1025,6 +1113,10 @@ fn test_search_profile_mode_vector_ignores_text() {
             mode: SearchProfileMode::Vector,
             ..Default::default()
         }),
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let hits = db.search(req).expect("vector-mode search");
@@ -1040,6 +1132,10 @@ fn test_search_profile_mode_vector_ignores_text() {
         namespace: "test".into(),
         query_vector: vec![0.0, 1.0, 0.0],
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let control_hits = db.search(req_control).expect("vector-only control");
@@ -1074,6 +1170,10 @@ fn test_search_profile_hybrid_uses_both_channels() {
         text_query: Some("cat".into()),
         query_vector: vec![0.0, 1.0, 0.0],
         top_k: 10,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let hits = db.search(req).expect("hybrid search");
@@ -1104,6 +1204,10 @@ fn test_search_profile_candidate_k_affects_budget() {
             candidate_k: Some(64),
             ..Default::default()
         }),
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let plan = db
@@ -1117,6 +1221,10 @@ fn test_search_profile_candidate_k_affects_budget() {
         text_query: Some("cat".into()),
         query_vector: vec![1.0, 0.0, 0.0],
         top_k: 5,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let plan_default = db
@@ -1148,6 +1256,10 @@ fn test_search_profile_rrf_k_reported_in_explain() {
             rrf_k: Some(100),
             ..Default::default()
         }),
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let explanation = db
@@ -1282,4 +1394,876 @@ fn test_search_hybrid_entity_boost_explain_route_applies_boost() {
         boosted.hits.iter().all(|hit| hit.explanation.is_some()),
         "explain mode still attaches per-hit explanations"
     );
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// WIRE-08: range / group_by / cursor / MMR
+// ═══════════════════════════════════════════════════════════════════════════
+
+fn metadata_with(field: &str, value: &str) -> MemoryMetadata {
+    let mut metadata = MemoryMetadata::new();
+    metadata.insert(field.into(), Value::String(value.into()));
+    metadata
+}
+
+/// Five text-matching records whose BM25 scores differ (shorter doc → higher).
+fn seed_range_fixture(db: &Embedded) {
+    insert(db, "rg", "a", "alpha", None, MemoryMetadata::new());
+    insert(db, "rg", "b", "alpha beta", None, MemoryMetadata::new());
+    insert(
+        db,
+        "rg",
+        "c",
+        "alpha beta gamma",
+        None,
+        MemoryMetadata::new(),
+    );
+    insert(
+        db,
+        "rg",
+        "d",
+        "alpha beta gamma delta",
+        None,
+        MemoryMetadata::new(),
+    );
+    insert(
+        db,
+        "rg",
+        "e",
+        "alpha beta gamma delta epsilon",
+        None,
+        MemoryMetadata::new(),
+    );
+}
+
+#[test]
+fn test_range_filter_keeps_only_hits_inside_bounds() {
+    let db = setup();
+    seed_range_fixture(&db);
+
+    let all = db
+        .search(MemorySearchRequest {
+            namespace: "rg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 10,
+            ..Default::default()
+        })
+        .expect("unfiltered search");
+    assert_eq!(all.len(), 5);
+    let max = all[0].score;
+
+    // Upper bound only: drop the single best hit.
+    let below = db
+        .search(MemorySearchRequest {
+            namespace: "rg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 10,
+            range: Some(RangeFilter {
+                min_score: None,
+                max_score: Some(max - 0.001),
+            }),
+            ..Default::default()
+        })
+        .expect("max-bound search");
+    assert_eq!(below.len(), 4, "max_score must exclude the best hit");
+    assert!(below.iter().all(|hit| hit.score <= max - 0.001));
+
+    // Lower bound only: keep the single best hit.
+    let top = db
+        .search(MemorySearchRequest {
+            namespace: "rg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 10,
+            range: Some(RangeFilter {
+                min_score: Some(max - 0.001),
+                max_score: None,
+            }),
+            ..Default::default()
+        })
+        .expect("min-bound search");
+    assert_eq!(top.len(), 1);
+    assert_eq!(top[0].record.key, all[0].record.key);
+}
+
+#[test]
+fn test_range_filter_bounds_are_inclusive() {
+    let db = setup();
+    insert(&db, "rg", "a", "alpha", None, MemoryMetadata::new());
+    let hit = db
+        .search(MemorySearchRequest {
+            namespace: "rg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 10,
+            ..Default::default()
+        })
+        .expect("baseline")[0]
+        .clone();
+
+    let exact = db
+        .search(MemorySearchRequest {
+            namespace: "rg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 10,
+            range: Some(RangeFilter {
+                min_score: Some(hit.score),
+                max_score: Some(hit.score),
+            }),
+            ..Default::default()
+        })
+        .expect("inclusive bounds");
+    assert_eq!(exact.len(), 1, "min == max == score must keep the hit");
+}
+
+#[test]
+fn test_range_filter_rejects_invalid_bounds() {
+    let db = setup();
+    let err = db
+        .search(MemorySearchRequest {
+            namespace: "rg".into(),
+            text_query: Some("alpha".into()),
+            range: Some(RangeFilter {
+                min_score: Some(0.9),
+                max_score: Some(0.1),
+            }),
+            ..Default::default()
+        })
+        .expect_err("min > max must fail");
+    assert!(err.to_string().contains("SEARCH_OPTIONS_INVALID"));
+
+    let err = db
+        .search(MemorySearchRequest {
+            namespace: "rg".into(),
+            text_query: Some("alpha".into()),
+            range: Some(RangeFilter {
+                min_score: Some(f32::NAN),
+                max_score: None,
+            }),
+            ..Default::default()
+        })
+        .expect_err("NaN bound must fail");
+    assert!(err.to_string().contains("SEARCH_OPTIONS_INVALID"));
+}
+
+#[test]
+fn test_group_by_limits_hits_per_group() {
+    let db = setup();
+    insert(&db, "gp", "a1", "alpha", None, metadata_with("doc", "A"));
+    insert(
+        &db,
+        "gp",
+        "a2",
+        "alpha beta",
+        None,
+        metadata_with("doc", "A"),
+    );
+    insert(
+        &db,
+        "gp",
+        "a3",
+        "alpha beta gamma",
+        None,
+        metadata_with("doc", "A"),
+    );
+    insert(
+        &db,
+        "gp",
+        "b1",
+        "alpha beta gamma delta",
+        None,
+        metadata_with("doc", "B"),
+    );
+
+    let one_per_group = db
+        .search(MemorySearchRequest {
+            namespace: "gp".into(),
+            text_query: Some("alpha".into()),
+            top_k: 10,
+            group_by: Some(GroupByConfig {
+                field: "doc".into(),
+                group_size: 1,
+            }),
+            ..Default::default()
+        })
+        .expect("group_by search");
+    assert_eq!(one_per_group.len(), 2, "one hit per group value");
+    assert_eq!(one_per_group[0].record.key, "a1", "best of group A first");
+    assert_eq!(one_per_group[1].record.key, "b1");
+
+    let two_per_group = db
+        .search(MemorySearchRequest {
+            namespace: "gp".into(),
+            text_query: Some("alpha".into()),
+            top_k: 10,
+            group_by: Some(GroupByConfig {
+                field: "doc".into(),
+                group_size: 2,
+            }),
+            ..Default::default()
+        })
+        .expect("group_by search");
+    assert_eq!(two_per_group.len(), 3, "A×2 + B×1");
+    assert_eq!(
+        two_per_group
+            .iter()
+            .filter(|hit| hit.record.metadata.get("doc") == Some(&Value::String("A".into())))
+            .count(),
+        2
+    );
+}
+
+#[test]
+fn test_group_by_top_k_caps_total_hits() {
+    let db = setup();
+    insert(&db, "gp", "a1", "alpha", None, metadata_with("doc", "A"));
+    insert(
+        &db,
+        "gp",
+        "a2",
+        "alpha beta",
+        None,
+        metadata_with("doc", "A"),
+    );
+    insert(
+        &db,
+        "gp",
+        "b1",
+        "alpha beta gamma",
+        None,
+        metadata_with("doc", "B"),
+    );
+
+    let capped = db
+        .search(MemorySearchRequest {
+            namespace: "gp".into(),
+            text_query: Some("alpha".into()),
+            top_k: 2,
+            group_by: Some(GroupByConfig {
+                field: "doc".into(),
+                group_size: 5,
+            }),
+            ..Default::default()
+        })
+        .expect("capped group_by search");
+    assert_eq!(capped.len(), 2, "top_k caps total hits, not groups");
+}
+
+#[test]
+fn test_group_by_missing_field_forms_own_group() {
+    let db = setup();
+    insert(&db, "gp", "a1", "alpha", None, metadata_with("doc", "A"));
+    insert(&db, "gp", "a2", "alpha beta", None, MemoryMetadata::new());
+    insert(
+        &db,
+        "gp",
+        "a3",
+        "alpha beta gamma",
+        None,
+        MemoryMetadata::new(),
+    );
+
+    let hits = db
+        .search(MemorySearchRequest {
+            namespace: "gp".into(),
+            text_query: Some("alpha".into()),
+            top_k: 10,
+            group_by: Some(GroupByConfig {
+                field: "doc".into(),
+                group_size: 1,
+            }),
+            ..Default::default()
+        })
+        .expect("group_by search");
+    assert_eq!(hits.len(), 2, "missing field groups together under one key");
+}
+
+#[test]
+fn test_group_by_rejects_invalid_config() {
+    let db = setup();
+    for group_by in [
+        GroupByConfig {
+            field: "  ".into(),
+            group_size: 1,
+        },
+        GroupByConfig {
+            field: "doc".into(),
+            group_size: 0,
+        },
+    ] {
+        let err = db
+            .search(MemorySearchRequest {
+                namespace: "gp".into(),
+                text_query: Some("alpha".into()),
+                group_by: Some(group_by),
+                ..Default::default()
+            })
+            .expect_err("invalid group_by must fail");
+        assert!(err.to_string().contains("SEARCH_OPTIONS_INVALID"));
+    }
+}
+
+#[test]
+fn test_search_page_walks_all_pages_and_marks_last_page() {
+    let db = setup();
+    for i in 0..5 {
+        insert(
+            &db,
+            "pg",
+            &format!("k{i}"),
+            &format!("alpha {}", "pad ".repeat(i + 1)),
+            None,
+            MemoryMetadata::new(),
+        );
+    }
+
+    let mut seen: Vec<String> = Vec::new();
+    let mut cursor: Option<String> = None;
+    let mut pages = 0usize;
+    loop {
+        let page = db
+            .search_page(MemorySearchRequest {
+                namespace: "pg".into(),
+                text_query: Some("alpha".into()),
+                top_k: 2,
+                cursor: cursor.clone(),
+                ..Default::default()
+            })
+            .expect("page");
+        pages += 1;
+        assert!(
+            page.hits.len() <= 2,
+            "page never exceeds top_k: {}",
+            page.hits.len()
+        );
+        for hit in &page.hits {
+            assert!(
+                !seen.contains(&hit.record.key),
+                "duplicate key {} across pages",
+                hit.record.key
+            );
+            seen.push(hit.record.key.clone());
+        }
+        match page.next_cursor {
+            Some(next) => {
+                assert_eq!(page.hits.len(), 2, "cursor implies a full page");
+                cursor = Some(next);
+            }
+            None => {
+                assert!(page.hits.len() < 2, "short page is the last page");
+                break;
+            }
+        }
+        assert!(pages <= 4, "pagination must terminate");
+    }
+    assert_eq!(pages, 3, "5 hits / page size 2 = 3 pages");
+    assert_eq!(seen.len(), 5);
+}
+
+#[test]
+fn test_search_page_resume_is_stable_with_interleaved_writes() {
+    let db = setup();
+    for i in 0..4 {
+        insert(
+            &db,
+            "pg",
+            &format!("k{i}"),
+            &format!("alpha {}", "pad ".repeat(i + 1)),
+            None,
+            MemoryMetadata::new(),
+        );
+    }
+    let original: Vec<String> = db
+        .search(MemorySearchRequest {
+            namespace: "pg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 10,
+            ..Default::default()
+        })
+        .expect("baseline")
+        .into_iter()
+        .map(|hit| hit.record.key)
+        .collect();
+    assert_eq!(original.len(), 4);
+
+    let first = db
+        .search_page(MemorySearchRequest {
+            namespace: "pg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 2,
+            ..Default::default()
+        })
+        .expect("first page");
+    let first_keys: Vec<String> = first
+        .hits
+        .iter()
+        .map(|hit| hit.record.key.clone())
+        .collect();
+    assert_eq!(first_keys, original[..2].to_vec());
+
+    // Interleaved write that would rank FIRST (shortest doc = best BM25).
+    insert(&db, "pg", "new", "alpha", None, MemoryMetadata::new());
+    let after_write: Vec<String> = db
+        .search(MemorySearchRequest {
+            namespace: "pg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 10,
+            ..Default::default()
+        })
+        .expect("after write")
+        .into_iter()
+        .map(|hit| hit.record.key)
+        .collect();
+    assert_eq!(
+        after_write[0], "new",
+        "fixture sanity: the new record ranks first"
+    );
+
+    // Resume: page 2 continues the ORIGINAL order — the new record ranks
+    // before the anchor, so it is not visible to this pagination session, and
+    // no hit is duplicated. The fetch window grows to compensate for the
+    // write that landed before the anchor.
+    let second = db
+        .search_page(MemorySearchRequest {
+            namespace: "pg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 2,
+            cursor: first.next_cursor,
+            ..Default::default()
+        })
+        .expect("second page");
+    let second_keys: Vec<String> = second
+        .hits
+        .iter()
+        .map(|hit| hit.record.key.clone())
+        .collect();
+    assert_eq!(second_keys, original[2..].to_vec());
+    assert!(
+        !second_keys.contains(&"new".to_string()),
+        "writes before the anchor stay invisible to the session"
+    );
+
+    // Page 3 is empty: the original corpus is exhausted (the full page 2
+    // still emitted a cursor — clients fall out on the empty page).
+    let third = db
+        .search_page(MemorySearchRequest {
+            namespace: "pg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 2,
+            cursor: second.next_cursor,
+            ..Default::default()
+        })
+        .expect("third page");
+    assert!(third.hits.is_empty());
+    assert!(third.next_cursor.is_none(), "empty page ends the walk");
+}
+
+#[test]
+fn test_search_page_cursor_is_bound_to_the_plan_fingerprint() {
+    let db = setup();
+    insert(&db, "pg", "a", "alpha", None, MemoryMetadata::new());
+    insert(&db, "pg", "b", "alpha beta", None, MemoryMetadata::new());
+
+    let first = db
+        .search_page(MemorySearchRequest {
+            namespace: "pg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 1,
+            ..Default::default()
+        })
+        .expect("first page");
+    let cursor = first.next_cursor.expect("full page");
+
+    let err = db
+        .search_page(MemorySearchRequest {
+            namespace: "pg".into(),
+            text_query: Some("beta".into()),
+            top_k: 1,
+            cursor: Some(cursor.clone()),
+            ..Default::default()
+        })
+        .expect_err("different plan must reject the cursor");
+    assert!(err.to_string().contains("SEARCH_CURSOR_INVALID"));
+
+    let err = db
+        .search_page(MemorySearchRequest {
+            namespace: "pg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 1,
+            cursor: Some("not-a-token".into()),
+            ..Default::default()
+        })
+        .expect_err("garbage cursor must fail");
+    assert!(err.to_string().contains("SEARCH_CURSOR_INVALID"));
+
+    // The same plan still resumes.
+    let second = db
+        .search_page(MemorySearchRequest {
+            namespace: "pg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 1,
+            cursor: Some(cursor),
+            ..Default::default()
+        })
+        .expect("resume");
+    assert_eq!(second.hits.len(), 1);
+}
+
+#[test]
+fn test_search_page_rejects_cursor_with_mmr_and_group_by() {
+    let db = setup();
+    insert(&db, "pg", "a", "alpha", None, MemoryMetadata::new());
+    insert(&db, "pg", "b", "alpha beta", None, MemoryMetadata::new());
+
+    let first = db
+        .search_page(MemorySearchRequest {
+            namespace: "pg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 1,
+            ..Default::default()
+        })
+        .expect("first page");
+    let cursor = first.next_cursor.expect("full page");
+
+    let err = db
+        .search_page(MemorySearchRequest {
+            namespace: "pg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 1,
+            cursor: Some(cursor.clone()),
+            mmr: Some(MmrConfig::default()),
+            ..Default::default()
+        })
+        .expect_err("mmr + cursor must fail");
+    assert!(err.to_string().contains("SEARCH_CURSOR_INVALID"));
+
+    let err = db
+        .search_page(MemorySearchRequest {
+            namespace: "pg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 1,
+            cursor: Some(cursor),
+            group_by: Some(GroupByConfig {
+                field: "doc".into(),
+                group_size: 1,
+            }),
+            ..Default::default()
+        })
+        .expect_err("group_by + cursor must fail");
+    assert!(err.to_string().contains("SEARCH_CURSOR_INVALID"));
+}
+
+#[test]
+fn test_search_page_empty_result_has_no_cursor() {
+    let db = setup();
+    let page = db
+        .search_page(MemorySearchRequest {
+            namespace: "pg".into(),
+            text_query: Some("nothing-matches".into()),
+            top_k: 5,
+            ..Default::default()
+        })
+        .expect("empty page");
+    assert!(page.hits.is_empty());
+    assert!(page.next_cursor.is_none());
+}
+
+#[test]
+fn test_search_without_cursor_returns_the_same_hits_as_search_page() {
+    let db = setup();
+    seed_range_fixture(&db);
+    let request = MemorySearchRequest {
+        namespace: "rg".into(),
+        text_query: Some("alpha".into()),
+        top_k: 3,
+        ..Default::default()
+    };
+    let direct = db.search(request.clone()).expect("search");
+    let page = db.search_page(request).expect("search_page");
+    assert_eq!(direct, page.hits);
+}
+
+#[test]
+fn test_mmr_diversifies_the_candidate_window() {
+    let db = setup();
+    insert(
+        &db,
+        "mm",
+        "dup1",
+        "alpha one",
+        Some(vec![1.0, 0.0]),
+        MemoryMetadata::new(),
+    );
+    insert(
+        &db,
+        "mm",
+        "dup2",
+        "alpha two",
+        Some(vec![0.999, 0.001]),
+        MemoryMetadata::new(),
+    );
+    insert(
+        &db,
+        "mm",
+        "ortho",
+        "alpha three",
+        Some(vec![0.0, 1.0]),
+        MemoryMetadata::new(),
+    );
+
+    let query = vec![1.0, 0.0];
+    let plain = db
+        .search(MemorySearchRequest {
+            namespace: "mm".into(),
+            query_vector: query.clone(),
+            top_k: 2,
+            ..Default::default()
+        })
+        .expect("plain vector search");
+    assert_eq!(plain.len(), 2);
+
+    let diversified = db
+        .search(MemorySearchRequest {
+            namespace: "mm".into(),
+            query_vector: query,
+            top_k: 2,
+            mmr: Some(MmrConfig {
+                lambda: 0.5,
+                fetch_k: Some(3),
+            }),
+            ..Default::default()
+        })
+        .expect("mmr search");
+    assert_eq!(diversified.len(), 2);
+    let keys: Vec<&str> = diversified
+        .iter()
+        .map(|hit| hit.record.key.as_str())
+        .collect();
+    assert!(keys.contains(&"dup1"));
+    assert!(
+        keys.contains(&"ortho"),
+        "MMR must trade the near-duplicate for the orthogonal vector: {keys:?}"
+    );
+
+    let pure_relevance = db
+        .search(MemorySearchRequest {
+            namespace: "mm".into(),
+            query_vector: vec![1.0, 0.0],
+            top_k: 2,
+            mmr: Some(MmrConfig {
+                lambda: 1.0,
+                fetch_k: Some(3),
+            }),
+            ..Default::default()
+        })
+        .expect("lambda=1 search");
+    assert_eq!(
+        pure_relevance
+            .iter()
+            .map(|hit| hit.record.key.clone())
+            .collect::<Vec<_>>(),
+        plain
+            .iter()
+            .map(|hit| hit.record.key.clone())
+            .collect::<Vec<_>>(),
+        "lambda=1 is identity ordering"
+    );
+}
+
+#[test]
+fn test_search_page_resume_best_effort_when_writes_reorder_ranks() {
+    // KNOWN best-effort behaviour (C1 review, WIRE-08): a resumed page can
+    // return a hit that a previous page already returned when interleaved
+    // writes reorder its rank *across* the anchor. This test documents that
+    // trade-off instead of hiding it; a strong cursor (snapshot / server-side
+    // session) is tracked as FIND-183.
+    let db = setup();
+    // P starts first (short doc, low length penalty); Q has higher tf but a
+    // longer doc, so it overtakes P once the corpus average length grows.
+    insert(&db, "ro", "P", "alpha", None, MemoryMetadata::new());
+    insert(
+        &db,
+        "ro",
+        "Q",
+        "alpha alpha alpha pad pad pad pad pad pad",
+        None,
+        MemoryMetadata::new(),
+    );
+
+    let first = db
+        .search_page(MemorySearchRequest {
+            namespace: "ro".into(),
+            text_query: Some("alpha".into()),
+            top_k: 2,
+            ..Default::default()
+        })
+        .expect("first page");
+    let first_keys: Vec<String> = first
+        .hits
+        .iter()
+        .map(|hit| hit.record.key.clone())
+        .collect();
+    assert_eq!(first_keys, vec!["P", "Q"], "precondition: P ranks first");
+
+    // ~20 interleaved writes that flip P/Q (long docs raise avg doc length).
+    let long_doc = format!("alpha {}", "pad ".repeat(50));
+    for i in 0..20 {
+        insert(
+            &db,
+            "ro",
+            &format!("W{i}"),
+            &long_doc,
+            None,
+            MemoryMetadata::new(),
+        );
+    }
+    let after: Vec<String> = db
+        .search(MemorySearchRequest {
+            namespace: "ro".into(),
+            text_query: Some("alpha".into()),
+            top_k: 5,
+            ..Default::default()
+        })
+        .expect("after writes")
+        .into_iter()
+        .map(|hit| hit.record.key)
+        .collect();
+    assert_eq!(
+        after[..2],
+        ["Q", "P"],
+        "precondition: writes inverted P/Q ranks (got {after:?})"
+    );
+
+    // Page 2 resumes from the anchor `Q`, which now sits FIRST: skipping past
+    // it returns `P` again — the documented best-effort duplicate.
+    let second = db
+        .search_page(MemorySearchRequest {
+            namespace: "ro".into(),
+            text_query: Some("alpha".into()),
+            top_k: 2,
+            cursor: first.next_cursor,
+            ..Default::default()
+        })
+        .expect("second page");
+    let second_keys: Vec<String> = second
+        .hits
+        .iter()
+        .map(|hit| hit.record.key.clone())
+        .collect();
+    assert_eq!(
+        second_keys,
+        vec!["P", "W0"],
+        "KNOWN best-effort: a rank reorder across the anchor may repeat P (FIND-183)"
+    );
+    assert!(
+        !second_keys.contains(&"Q".to_string()),
+        "the anchor itself is never repeated"
+    );
+}
+
+#[test]
+fn test_range_max_score_deepens_the_window_until_the_band_fills() {
+    // R1 review (WIRE-08): with `max_score` the filter eats the head of the
+    // ranking; the fetch window must grow so the page is not silently
+    // truncated to fewer than `top_k` hits.
+    let db = setup();
+    seed_range_fixture(&db); // k0..k4 descending BM25 scores
+
+    let baseline: Vec<MemorySearchHit> = db
+        .search(MemorySearchRequest {
+            namespace: "rg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 10,
+            ..Default::default()
+        })
+        .expect("baseline");
+    assert_eq!(baseline.len(), 5);
+
+    // Band below the first two hits: [scores[2], -inf).
+    let band_max = baseline[2].score;
+    let banded = db
+        .search(MemorySearchRequest {
+            namespace: "rg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 2,
+            range: Some(RangeFilter {
+                min_score: None,
+                max_score: Some(band_max),
+            }),
+            ..Default::default()
+        })
+        .expect("banded search");
+    assert_eq!(
+        banded.len(),
+        2,
+        "window deepening must fill the page from inside the band"
+    );
+    assert_eq!(banded[0].record.key, baseline[2].record.key);
+    assert_eq!(banded[1].record.key, baseline[3].record.key);
+    assert!(banded.iter().all(|hit| hit.score <= band_max));
+}
+
+#[test]
+fn test_range_matching_nothing_returns_empty_page_without_cursor() {
+    let db = setup();
+    seed_range_fixture(&db);
+    let page = db
+        .search_page(MemorySearchRequest {
+            namespace: "rg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 2,
+            range: Some(RangeFilter {
+                min_score: Some(f32::MAX),
+                max_score: None,
+            }),
+            ..Default::default()
+        })
+        .expect("empty band");
+    assert!(page.hits.is_empty());
+    assert!(page.next_cursor.is_none());
+}
+
+#[test]
+fn test_search_page_top_k_zero_is_an_empty_page() {
+    // O4: `top_k == 0` keeps the early return (ERR-033 convention: limit 0
+    // means no records) — no cursor, no scan.
+    let db = setup();
+    seed_range_fixture(&db);
+    let page = db
+        .search_page(MemorySearchRequest {
+            namespace: "rg".into(),
+            text_query: Some("alpha".into()),
+            top_k: 0,
+            ..Default::default()
+        })
+        .expect("zero-k page");
+    assert!(page.hits.is_empty());
+    assert!(page.next_cursor.is_none());
+}
+
+#[test]
+fn test_mmr_rejects_invalid_lambda_and_fetch_k() {
+    let db = setup();
+    for mmr in [
+        MmrConfig {
+            lambda: 1.5,
+            fetch_k: None,
+        },
+        MmrConfig {
+            lambda: -0.1,
+            fetch_k: None,
+        },
+        MmrConfig {
+            lambda: 0.5,
+            fetch_k: Some(0),
+        },
+    ] {
+        let err = db
+            .search(MemorySearchRequest {
+                namespace: "mm".into(),
+                text_query: Some("alpha".into()),
+                mmr: Some(mmr),
+                ..Default::default()
+            })
+            .expect_err("invalid mmr must fail");
+        assert!(err.to_string().contains("SEARCH_OPTIONS_INVALID"));
+    }
 }

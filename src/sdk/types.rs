@@ -21,9 +21,10 @@ pub use search::MemorySearchDebugReport;
 // alias in `search.rs` covers the migration path. Zero users post-rename.
 pub use search::{
     Bm25TermContribution, EntityBoost, EntityBoostProvenance, EntityBoostReport,
-    EntityBoostedSearch, HybridFusionReport, IndexRebuildReport, MemorySearchHit,
-    MemorySearchRequest, SearchExplanation, SearchExplanationHit, SearchHit, SearchProfileConfig,
-    SearchProfileMode, TextIndexAuditReport, TextIndexRepairReport,
+    EntityBoostedSearch, GroupByConfig, HybridFusionReport, IndexRebuildReport, MemorySearchHit,
+    MemorySearchPage, MemorySearchRequest, MmrConfig, RangeFilter, SearchExplanation,
+    SearchExplanationHit, SearchHit, SearchProfileConfig, SearchProfileMode, TextIndexAuditReport,
+    TextIndexRepairReport,
 };
 pub(crate) use search::{
     DerivedIndexRebuildReport, DerivedIndexState, ExpectedTextIndexEntries, SparseIndexCounts,

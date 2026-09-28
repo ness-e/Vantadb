@@ -953,6 +953,10 @@ mod tests {
                 explain: false,
                 exclude_superseded: false,
                 search_profile: None,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
             })
             .unwrap();
         assert_eq!(hits_keep.len(), 2);
@@ -969,6 +973,10 @@ mod tests {
                 explain: false,
                 exclude_superseded: true,
                 search_profile: None,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
             })
             .unwrap();
         assert_eq!(hits_hide.len(), 1);

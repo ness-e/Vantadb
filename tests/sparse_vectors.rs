@@ -43,6 +43,10 @@ fn sparse_insert_top1_by_sparse_query() {
         namespace: "agent/main".to_string(),
         query_sparse: Some(sparse(&[(3, 1.0), (7, 0.5)])),
         top_k: 3,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
 
@@ -88,6 +92,10 @@ fn sparse_and_dense_coexist() {
         namespace: "agent/main".to_string(),
         query_vector: vec![0.9, 0.1, 0.0],
         top_k: 5,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let dense_hits = db.search(dense_req).expect("dense search");
@@ -101,6 +109,10 @@ fn sparse_and_dense_coexist() {
         namespace: "agent/main".to_string(),
         query_sparse: Some(sparse(&[(5, 1.0)])),
         top_k: 5,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let sparse_hits = db.search(sparse_req).expect("sparse search");
@@ -112,6 +124,10 @@ fn sparse_and_dense_coexist() {
         query_vector: vec![1.0, 0.0, 0.0],
         query_sparse: Some(sparse(&[(5, 1.0)])),
         top_k: 5,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     };
     let fused_hits = db.search(fused_req).expect("fused search");

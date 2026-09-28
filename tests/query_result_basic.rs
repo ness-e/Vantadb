@@ -23,6 +23,10 @@ fn search_request_basic_snapshot() {
         explain: false,
         exclude_superseded: false,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     };
     assert_debug_snapshot!("search_request_basic", req);
 }
@@ -40,6 +44,10 @@ fn search_request_vector_only_snapshot() {
         explain: false,
         exclude_superseded: false,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     };
     assert_debug_snapshot!("search_request_vector_only", req);
 }
@@ -60,6 +68,10 @@ fn search_request_text_only_snapshot() {
         explain: true,
         exclude_superseded: false,
         search_profile: None,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
     };
     assert_debug_snapshot!("search_request_text_only", req);
 }

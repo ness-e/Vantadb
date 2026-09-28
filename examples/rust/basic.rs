@@ -40,6 +40,10 @@ fn main() -> Result<(), Box<dyn Error>> {
         namespace: "demo".into(),
         query_vector: vec![0.1, 0.2, 0.3],
         top_k: 3,
+        range: None,
+        group_by: None,
+        mmr: None,
+        cursor: None,
         ..Default::default()
     })? {
         println!(

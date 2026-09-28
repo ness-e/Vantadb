@@ -5178,6 +5178,7 @@ pub fn vantadb::Embedded::graph_degree_centrality(&self, &[u128]) -> vantadb::er
 pub fn vantadb::Embedded::graph_page_rank(&self, &[u128], usize, f64, f64) -> vantadb::error::Result<std::collections::hash::map::HashMap<u128, f64>>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::search(&self, vantadb::MemorySearchRequest) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemorySearchHit>>
+pub fn vantadb::Embedded::search_page(&self, vantadb::MemorySearchRequest) -> vantadb::error::Result<vantadb::MemorySearchPage>
 pub fn vantadb::Embedded::search_with_entity_boost(&self, vantadb::MemorySearchRequest, &vantadb::sdk::EntityBoost) -> vantadb::error::Result<vantadb::sdk::EntityBoostedSearch>
 pub fn vantadb::Embedded::search_with_method(&self, vantadb::MemorySearchRequest, core::option::Option<vantadb::index_port::IndexType>) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemorySearchHit>>
 impl vantadb::Embedded
@@ -5304,6 +5305,29 @@ impl core::marker::Unpin for vantadb::ExportReport
 impl core::marker::UnsafeUnpin for vantadb::ExportReport
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::ExportReport
 impl core::panic::unwind_safe::UnwindSafe for vantadb::ExportReport
+pub struct vantadb::sdk::GroupByConfig
+pub vantadb::sdk::GroupByConfig::field: alloc::string::String
+pub vantadb::sdk::GroupByConfig::group_size: usize
+impl core::clone::Clone for vantadb::GroupByConfig
+pub fn vantadb::GroupByConfig::clone(&self) -> vantadb::GroupByConfig
+impl core::cmp::PartialEq for vantadb::GroupByConfig
+pub fn vantadb::GroupByConfig::eq(&self, &vantadb::GroupByConfig) -> bool
+impl core::default::Default for vantadb::GroupByConfig
+pub fn vantadb::GroupByConfig::default() -> Self
+impl core::fmt::Debug for vantadb::GroupByConfig
+pub fn vantadb::GroupByConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::GroupByConfig
+impl serde_core::ser::Serialize for vantadb::GroupByConfig
+pub fn vantadb::GroupByConfig::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::GroupByConfig
+pub fn vantadb::GroupByConfig::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::GroupByConfig
+impl core::marker::Send for vantadb::GroupByConfig
+impl core::marker::Sync for vantadb::GroupByConfig
+impl core::marker::Unpin for vantadb::GroupByConfig
+impl core::marker::UnsafeUnpin for vantadb::GroupByConfig
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::GroupByConfig
+impl core::panic::unwind_safe::UnwindSafe for vantadb::GroupByConfig
 pub struct vantadb::sdk::HybridFusionReport
 pub vantadb::sdk::HybridFusionReport::fused_candidates: usize
 pub vantadb::sdk::HybridFusionReport::rrf_k: usize
@@ -5561,14 +5585,39 @@ impl core::marker::Unpin for vantadb::MemorySearchHit
 impl core::marker::UnsafeUnpin for vantadb::MemorySearchHit
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemorySearchHit
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemorySearchHit
+pub struct vantadb::sdk::MemorySearchPage
+pub vantadb::sdk::MemorySearchPage::hits: alloc::vec::Vec<vantadb::MemorySearchHit>
+pub vantadb::sdk::MemorySearchPage::next_cursor: core::option::Option<alloc::string::String>
+impl core::clone::Clone for vantadb::MemorySearchPage
+pub fn vantadb::MemorySearchPage::clone(&self) -> vantadb::MemorySearchPage
+impl core::cmp::PartialEq for vantadb::MemorySearchPage
+pub fn vantadb::MemorySearchPage::eq(&self, &vantadb::MemorySearchPage) -> bool
+impl core::fmt::Debug for vantadb::MemorySearchPage
+pub fn vantadb::MemorySearchPage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::MemorySearchPage
+impl serde_core::ser::Serialize for vantadb::MemorySearchPage
+pub fn vantadb::MemorySearchPage::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::MemorySearchPage
+pub fn vantadb::MemorySearchPage::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::MemorySearchPage
+impl core::marker::Send for vantadb::MemorySearchPage
+impl core::marker::Sync for vantadb::MemorySearchPage
+impl core::marker::Unpin for vantadb::MemorySearchPage
+impl core::marker::UnsafeUnpin for vantadb::MemorySearchPage
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemorySearchPage
+impl core::panic::unwind_safe::UnwindSafe for vantadb::MemorySearchPage
 pub struct vantadb::sdk::MemorySearchRequest
+pub vantadb::sdk::MemorySearchRequest::cursor: core::option::Option<alloc::string::String>
 pub vantadb::sdk::MemorySearchRequest::distance_metric: vantadb::DistanceMetric
 pub vantadb::sdk::MemorySearchRequest::exclude_superseded: bool
 pub vantadb::sdk::MemorySearchRequest::explain: bool
 pub vantadb::sdk::MemorySearchRequest::filters: vantadb::MemoryMetadata
+pub vantadb::sdk::MemorySearchRequest::group_by: core::option::Option<vantadb::GroupByConfig>
+pub vantadb::sdk::MemorySearchRequest::mmr: core::option::Option<vantadb::MmrConfig>
 pub vantadb::sdk::MemorySearchRequest::namespace: alloc::string::String
 pub vantadb::sdk::MemorySearchRequest::query_sparse: core::option::Option<vantadb::SparseVector>
 pub vantadb::sdk::MemorySearchRequest::query_vector: alloc::vec::Vec<f32>
+pub vantadb::sdk::MemorySearchRequest::range: core::option::Option<vantadb::RangeFilter>
 pub vantadb::sdk::MemorySearchRequest::search_profile: core::option::Option<vantadb::search_profile::SearchProfileConfig>
 pub vantadb::sdk::MemorySearchRequest::text_query: core::option::Option<alloc::string::String>
 pub vantadb::sdk::MemorySearchRequest::top_k: usize
@@ -5592,6 +5641,30 @@ impl core::marker::Unpin for vantadb::MemorySearchRequest
 impl core::marker::UnsafeUnpin for vantadb::MemorySearchRequest
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemorySearchRequest
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemorySearchRequest
+pub struct vantadb::sdk::MmrConfig
+pub vantadb::sdk::MmrConfig::fetch_k: core::option::Option<usize>
+pub vantadb::sdk::MmrConfig::lambda: f32
+impl core::clone::Clone for vantadb::MmrConfig
+pub fn vantadb::MmrConfig::clone(&self) -> vantadb::MmrConfig
+impl core::cmp::PartialEq for vantadb::MmrConfig
+pub fn vantadb::MmrConfig::eq(&self, &vantadb::MmrConfig) -> bool
+impl core::default::Default for vantadb::MmrConfig
+pub fn vantadb::MmrConfig::default() -> Self
+impl core::fmt::Debug for vantadb::MmrConfig
+pub fn vantadb::MmrConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::MmrConfig
+impl core::marker::StructuralPartialEq for vantadb::MmrConfig
+impl serde_core::ser::Serialize for vantadb::MmrConfig
+pub fn vantadb::MmrConfig::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::MmrConfig
+pub fn vantadb::MmrConfig::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::MmrConfig
+impl core::marker::Send for vantadb::MmrConfig
+impl core::marker::Sync for vantadb::MmrConfig
+impl core::marker::Unpin for vantadb::MmrConfig
+impl core::marker::UnsafeUnpin for vantadb::MmrConfig
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MmrConfig
+impl core::panic::unwind_safe::UnwindSafe for vantadb::MmrConfig
 pub struct vantadb::sdk::NamespaceStats
 pub vantadb::sdk::NamespaceStats::count: u64
 pub vantadb::sdk::NamespaceStats::expired: u64
@@ -5745,6 +5818,30 @@ impl core::marker::Unpin for vantadb::OperationalMetrics
 impl core::marker::UnsafeUnpin for vantadb::OperationalMetrics
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::OperationalMetrics
 impl core::panic::unwind_safe::UnwindSafe for vantadb::OperationalMetrics
+pub struct vantadb::sdk::RangeFilter
+pub vantadb::sdk::RangeFilter::max_score: core::option::Option<f32>
+pub vantadb::sdk::RangeFilter::min_score: core::option::Option<f32>
+impl core::clone::Clone for vantadb::RangeFilter
+pub fn vantadb::RangeFilter::clone(&self) -> vantadb::RangeFilter
+impl core::cmp::PartialEq for vantadb::RangeFilter
+pub fn vantadb::RangeFilter::eq(&self, &vantadb::RangeFilter) -> bool
+impl core::default::Default for vantadb::RangeFilter
+pub fn vantadb::RangeFilter::default() -> vantadb::RangeFilter
+impl core::fmt::Debug for vantadb::RangeFilter
+pub fn vantadb::RangeFilter::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::RangeFilter
+impl core::marker::StructuralPartialEq for vantadb::RangeFilter
+impl serde_core::ser::Serialize for vantadb::RangeFilter
+pub fn vantadb::RangeFilter::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::RangeFilter
+pub fn vantadb::RangeFilter::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::RangeFilter
+impl core::marker::Send for vantadb::RangeFilter
+impl core::marker::Sync for vantadb::RangeFilter
+impl core::marker::Unpin for vantadb::RangeFilter
+impl core::marker::UnsafeUnpin for vantadb::RangeFilter
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::RangeFilter
+impl core::panic::unwind_safe::UnwindSafe for vantadb::RangeFilter
 pub struct vantadb::sdk::SearchExplanation
 pub vantadb::sdk::SearchExplanation::fusion_report: core::option::Option<vantadb::HybridFusionReport>
 pub vantadb::sdk::SearchExplanation::hits: alloc::vec::Vec<vantadb::SearchExplanationHit>
@@ -7822,6 +7919,7 @@ pub fn vantadb::Embedded::graph_degree_centrality(&self, &[u128]) -> vantadb::er
 pub fn vantadb::Embedded::graph_page_rank(&self, &[u128], usize, f64, f64) -> vantadb::error::Result<std::collections::hash::map::HashMap<u128, f64>>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::search(&self, vantadb::MemorySearchRequest) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemorySearchHit>>
+pub fn vantadb::Embedded::search_page(&self, vantadb::MemorySearchRequest) -> vantadb::error::Result<vantadb::MemorySearchPage>
 pub fn vantadb::Embedded::search_with_entity_boost(&self, vantadb::MemorySearchRequest, &vantadb::sdk::EntityBoost) -> vantadb::error::Result<vantadb::sdk::EntityBoostedSearch>
 pub fn vantadb::Embedded::search_with_method(&self, vantadb::MemorySearchRequest, core::option::Option<vantadb::index_port::IndexType>) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemorySearchHit>>
 impl vantadb::Embedded
@@ -7884,6 +7982,29 @@ impl core::marker::Unpin for vantadb::ExportReport
 impl core::marker::UnsafeUnpin for vantadb::ExportReport
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::ExportReport
 impl core::panic::unwind_safe::UnwindSafe for vantadb::ExportReport
+pub struct vantadb::GroupByConfig
+pub vantadb::GroupByConfig::field: alloc::string::String
+pub vantadb::GroupByConfig::group_size: usize
+impl core::clone::Clone for vantadb::GroupByConfig
+pub fn vantadb::GroupByConfig::clone(&self) -> vantadb::GroupByConfig
+impl core::cmp::PartialEq for vantadb::GroupByConfig
+pub fn vantadb::GroupByConfig::eq(&self, &vantadb::GroupByConfig) -> bool
+impl core::default::Default for vantadb::GroupByConfig
+pub fn vantadb::GroupByConfig::default() -> Self
+impl core::fmt::Debug for vantadb::GroupByConfig
+pub fn vantadb::GroupByConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::GroupByConfig
+impl serde_core::ser::Serialize for vantadb::GroupByConfig
+pub fn vantadb::GroupByConfig::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::GroupByConfig
+pub fn vantadb::GroupByConfig::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::GroupByConfig
+impl core::marker::Send for vantadb::GroupByConfig
+impl core::marker::Sync for vantadb::GroupByConfig
+impl core::marker::Unpin for vantadb::GroupByConfig
+impl core::marker::UnsafeUnpin for vantadb::GroupByConfig
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::GroupByConfig
+impl core::panic::unwind_safe::UnwindSafe for vantadb::GroupByConfig
 pub struct vantadb::Header
 pub vantadb::Header::format_version: u16
 pub vantadb::Header::magic: [u8; 4]
@@ -8168,14 +8289,39 @@ impl core::marker::Unpin for vantadb::MemorySearchHit
 impl core::marker::UnsafeUnpin for vantadb::MemorySearchHit
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemorySearchHit
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemorySearchHit
+pub struct vantadb::MemorySearchPage
+pub vantadb::MemorySearchPage::hits: alloc::vec::Vec<vantadb::MemorySearchHit>
+pub vantadb::MemorySearchPage::next_cursor: core::option::Option<alloc::string::String>
+impl core::clone::Clone for vantadb::MemorySearchPage
+pub fn vantadb::MemorySearchPage::clone(&self) -> vantadb::MemorySearchPage
+impl core::cmp::PartialEq for vantadb::MemorySearchPage
+pub fn vantadb::MemorySearchPage::eq(&self, &vantadb::MemorySearchPage) -> bool
+impl core::fmt::Debug for vantadb::MemorySearchPage
+pub fn vantadb::MemorySearchPage::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::MemorySearchPage
+impl serde_core::ser::Serialize for vantadb::MemorySearchPage
+pub fn vantadb::MemorySearchPage::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::MemorySearchPage
+pub fn vantadb::MemorySearchPage::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::MemorySearchPage
+impl core::marker::Send for vantadb::MemorySearchPage
+impl core::marker::Sync for vantadb::MemorySearchPage
+impl core::marker::Unpin for vantadb::MemorySearchPage
+impl core::marker::UnsafeUnpin for vantadb::MemorySearchPage
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemorySearchPage
+impl core::panic::unwind_safe::UnwindSafe for vantadb::MemorySearchPage
 pub struct vantadb::MemorySearchRequest
+pub vantadb::MemorySearchRequest::cursor: core::option::Option<alloc::string::String>
 pub vantadb::MemorySearchRequest::distance_metric: vantadb::DistanceMetric
 pub vantadb::MemorySearchRequest::exclude_superseded: bool
 pub vantadb::MemorySearchRequest::explain: bool
 pub vantadb::MemorySearchRequest::filters: vantadb::MemoryMetadata
+pub vantadb::MemorySearchRequest::group_by: core::option::Option<vantadb::GroupByConfig>
+pub vantadb::MemorySearchRequest::mmr: core::option::Option<vantadb::MmrConfig>
 pub vantadb::MemorySearchRequest::namespace: alloc::string::String
 pub vantadb::MemorySearchRequest::query_sparse: core::option::Option<vantadb::SparseVector>
 pub vantadb::MemorySearchRequest::query_vector: alloc::vec::Vec<f32>
+pub vantadb::MemorySearchRequest::range: core::option::Option<vantadb::RangeFilter>
 pub vantadb::MemorySearchRequest::search_profile: core::option::Option<vantadb::search_profile::SearchProfileConfig>
 pub vantadb::MemorySearchRequest::text_query: core::option::Option<alloc::string::String>
 pub vantadb::MemorySearchRequest::top_k: usize
@@ -8199,6 +8345,30 @@ impl core::marker::Unpin for vantadb::MemorySearchRequest
 impl core::marker::UnsafeUnpin for vantadb::MemorySearchRequest
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MemorySearchRequest
 impl core::panic::unwind_safe::UnwindSafe for vantadb::MemorySearchRequest
+pub struct vantadb::MmrConfig
+pub vantadb::MmrConfig::fetch_k: core::option::Option<usize>
+pub vantadb::MmrConfig::lambda: f32
+impl core::clone::Clone for vantadb::MmrConfig
+pub fn vantadb::MmrConfig::clone(&self) -> vantadb::MmrConfig
+impl core::cmp::PartialEq for vantadb::MmrConfig
+pub fn vantadb::MmrConfig::eq(&self, &vantadb::MmrConfig) -> bool
+impl core::default::Default for vantadb::MmrConfig
+pub fn vantadb::MmrConfig::default() -> Self
+impl core::fmt::Debug for vantadb::MmrConfig
+pub fn vantadb::MmrConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::MmrConfig
+impl core::marker::StructuralPartialEq for vantadb::MmrConfig
+impl serde_core::ser::Serialize for vantadb::MmrConfig
+pub fn vantadb::MmrConfig::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::MmrConfig
+pub fn vantadb::MmrConfig::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::MmrConfig
+impl core::marker::Send for vantadb::MmrConfig
+impl core::marker::Sync for vantadb::MmrConfig
+impl core::marker::Unpin for vantadb::MmrConfig
+impl core::marker::UnsafeUnpin for vantadb::MmrConfig
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::MmrConfig
+impl core::panic::unwind_safe::UnwindSafe for vantadb::MmrConfig
 pub struct vantadb::NamespaceStats
 pub vantadb::NamespaceStats::count: u64
 pub vantadb::NamespaceStats::expired: u64
@@ -8407,6 +8577,30 @@ impl core::marker::Unpin for vantadb::OperationalMetrics
 impl core::marker::UnsafeUnpin for vantadb::OperationalMetrics
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::OperationalMetrics
 impl core::panic::unwind_safe::UnwindSafe for vantadb::OperationalMetrics
+pub struct vantadb::RangeFilter
+pub vantadb::RangeFilter::max_score: core::option::Option<f32>
+pub vantadb::RangeFilter::min_score: core::option::Option<f32>
+impl core::clone::Clone for vantadb::RangeFilter
+pub fn vantadb::RangeFilter::clone(&self) -> vantadb::RangeFilter
+impl core::cmp::PartialEq for vantadb::RangeFilter
+pub fn vantadb::RangeFilter::eq(&self, &vantadb::RangeFilter) -> bool
+impl core::default::Default for vantadb::RangeFilter
+pub fn vantadb::RangeFilter::default() -> vantadb::RangeFilter
+impl core::fmt::Debug for vantadb::RangeFilter
+pub fn vantadb::RangeFilter::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::RangeFilter
+impl core::marker::StructuralPartialEq for vantadb::RangeFilter
+impl serde_core::ser::Serialize for vantadb::RangeFilter
+pub fn vantadb::RangeFilter::serialize<__S>(&self, __S) -> core::result::Result<<__S as serde_core::ser::Serializer>::Ok, <__S as serde_core::ser::Serializer>::Error> where __S: serde_core::ser::Serializer
+impl<'de> serde_core::de::Deserialize<'de> for vantadb::RangeFilter
+pub fn vantadb::RangeFilter::deserialize<__D>(__D) -> core::result::Result<Self, <__D as serde_core::de::Deserializer>::Error> where __D: serde_core::de::Deserializer<'de>
+impl core::marker::Freeze for vantadb::RangeFilter
+impl core::marker::Send for vantadb::RangeFilter
+impl core::marker::Sync for vantadb::RangeFilter
+impl core::marker::Unpin for vantadb::RangeFilter
+impl core::marker::UnsafeUnpin for vantadb::RangeFilter
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::RangeFilter
+impl core::panic::unwind_safe::UnwindSafe for vantadb::RangeFilter
 pub struct vantadb::SearchExplanation
 pub vantadb::SearchExplanation::fusion_report: core::option::Option<vantadb::HybridFusionReport>
 pub vantadb::SearchExplanation::hits: alloc::vec::Vec<vantadb::SearchExplanationHit>

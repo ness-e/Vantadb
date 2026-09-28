@@ -81,6 +81,10 @@ fn export_import_namespace_round_trip() {
             filters: Default::default(),
             text_query: None,
             top_k: 5,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("search");
@@ -162,6 +166,10 @@ fn fjall_cold_copy_restore_preserves_memory_text_and_hybrid_search() {
             filters: Default::default(),
             text_query: Some("\"restore alpha\"".to_string()),
             top_k: 5,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("restored text search");
@@ -174,6 +182,10 @@ fn fjall_cold_copy_restore_preserves_memory_text_and_hybrid_search() {
             filters: Default::default(),
             text_query: Some("restore".to_string()),
             top_k: 5,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
             ..Default::default()
         })
         .expect("restored hybrid search");

@@ -580,6 +580,10 @@ fn search_multi_merges_hits_across_namespaces() {
             MemorySearchRequest {
                 text_query: Some("dark".into()),
                 top_k: 10,
+                range: None,
+                group_by: None,
+                mmr: None,
+                cursor: None,
                 ..MemorySearchRequest::default()
             },
         )

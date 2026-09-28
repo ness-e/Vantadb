@@ -185,10 +185,11 @@ pub use node::{
 pub use parser::IQL_VERSION;
 pub use sdk::{
     connect, Bm25TermContribution, BulkImportReport, Capabilities, EdgeRecord, Embedded,
-    ExportReport, Fields, FilterOp, HybridFusionReport, ImportReport, IndexRebuildReport,
-    MemoryFilter, MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata,
-    MemoryRecord, MemorySearchHit, MemorySearchRequest, NamespaceStats, NamespaceStatsMap,
-    NodeInput, NodeRecord, OperationalMetrics, QueryResult, RuntimeProfile, SearchExplanation,
+    ExportReport, Fields, FilterOp, GroupByConfig, HybridFusionReport, ImportReport,
+    IndexRebuildReport, MemoryFilter, MemoryFilterItem, MemoryInput, MemoryListOptions,
+    MemoryListPage, MemoryMetadata, MemoryRecord, MemorySearchHit, MemorySearchPage,
+    MemorySearchRequest, MmrConfig, NamespaceStats, NamespaceStatsMap, NodeInput, NodeRecord,
+    OperationalMetrics, QueryResult, RangeFilter, RuntimeProfile, SearchExplanation,
     SearchExplanationHit, SearchHit, StorageTier, TextIndexAuditReport, TextIndexRepairReport,
     Value,
 };

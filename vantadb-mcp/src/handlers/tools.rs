@@ -1863,7 +1863,7 @@ pub fn handle_tools_call(
             let method = parse_search_method(&args["method"])?;
 
             let request = match parse_search_request(namespace, args, config, storage)? {
-                ParsedSearchRequest::Ready(req) => req,
+                ParsedSearchRequest::Ready(req) => *req,
                 ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
             };
 
@@ -1896,7 +1896,7 @@ pub fn handle_tools_call(
             // The SDK's search_multi ignores request.namespace (it overwrites
             // it per-namespace), so a placeholder is fine here.
             let request = match parse_search_request("default", args, config, storage)? {
-                ParsedSearchRequest::Ready(req) => req,
+                ParsedSearchRequest::Ready(req) => *req,
                 ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
             };
 
@@ -3202,7 +3202,10 @@ fn parse_direction(val: &Value) -> Result<vantadb::graph::TraversalDirection, Va
 /// JSON-RPC error. Param-level errors (bad types, unknown enum values) still
 /// come back as `Err(Value)` (JSON-RPC invalid-params).
 enum ParsedSearchRequest {
-    Ready(vantadb::sdk::MemorySearchRequest),
+    // WIRE-08: `MemorySearchRequest` carries the optional range/group_by/mmr/
+    // cursor fields and grew past the lint threshold — box it (the enum is a
+    // transient parse result, not a hot-path structure).
+    Ready(Box<vantadb::sdk::MemorySearchRequest>),
     Rejected(Value),
 }
 
@@ -3221,7 +3224,7 @@ fn dispatch_search_memory(
         .map_err(|e| e.to_json())?;
 
     let request = match parse_search_request(namespace, args, config, storage)? {
-        ParsedSearchRequest::Ready(req) => req,
+        ParsedSearchRequest::Ready(req) => *req,
         ParsedSearchRequest::Rejected(envelope) => return Ok(envelope),
     };
 
@@ -3377,7 +3380,7 @@ fn parse_search_request(
         None => None,
     };
 
-    Ok(ParsedSearchRequest::Ready(
+    Ok(ParsedSearchRequest::Ready(Box::new(
         vantadb::sdk::MemorySearchRequest {
             namespace: namespace.to_string(),
             query_vector,
@@ -3389,8 +3392,12 @@ fn parse_search_request(
             explain,
             exclude_superseded: false,
             search_profile,
+            range: None,
+            group_by: None,
+            mmr: None,
+            cursor: None,
         },
-    ))
+    )))
 }
 
 /// MCP-24: parse the optional dense-index backend override for

@@ -292,6 +292,10 @@ fn arb_search_request_full() -> impl Strategy<Value = MemorySearchRequest> {
                     query_sparse: None,
                     exclude_superseded: false,
                     search_profile: None,
+                    range: None,
+                    group_by: None,
+                    mmr: None,
+                    cursor: None,
                 }
             },
         )
