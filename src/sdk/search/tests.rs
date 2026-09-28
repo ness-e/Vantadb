@@ -1158,3 +1158,128 @@ fn test_search_profile_rrf_k_reported_in_explain() {
         .expect("hybrid route debe tener fusion report");
     assert_eq!(report.rrf_k, 100, "rrf_k del perfil llega al report");
 }
+
+// ── entity boost (WIRE-05) ─────────────────────────────────
+
+/// Fixture mirroring the fusion unit-test layout: lexical ⇒ [x, z],
+/// dense ⇒ [y, z]; `z` leads the OFF ranking by accumulating two channels.
+fn seed_entity_boost_fixture(db: &Embedded) -> MemorySearchRequest {
+    insert(db, "boost-ns", "x", "alpha", None, MemoryMetadata::new());
+    insert(
+        db,
+        "boost-ns",
+        "y",
+        "gamma delta",
+        Some(vec![1.0, 0.0]),
+        MemoryMetadata::new(),
+    );
+    insert(
+        db,
+        "boost-ns",
+        "z",
+        "alpha zeta eta theta iota kappa lambda mu nu xi omicron pi rho",
+        Some(vec![0.8, 0.6]),
+        MemoryMetadata::new(),
+    );
+
+    MemorySearchRequest {
+        namespace: "boost-ns".into(),
+        text_query: Some("alpha".into()),
+        query_vector: vec![1.0, 0.0],
+        top_k: 5,
+        ..Default::default()
+    }
+}
+
+fn linked_boost() -> EntityBoost {
+    EntityBoost::new()
+        .link("boost-ns", "x", "cluster-x")
+        .link("boost-ns", "y", "cluster-x")
+}
+
+fn keys(hits: &[MemorySearchHit]) -> Vec<&str> {
+    hits.iter().map(|hit| hit.record.key.as_str()).collect()
+}
+
+#[test]
+fn test_search_hybrid_entity_boost_off_is_identical_to_search() {
+    let db = setup();
+    let request = seed_entity_boost_fixture(&db);
+
+    let plain = db.search(request.clone()).expect("search");
+    let boosted = db
+        .search_with_entity_boost(request, &EntityBoost::new())
+        .expect("boosted search");
+
+    assert_eq!(plain, boosted.hits, "empty boost must be byte-identical");
+    assert!(boosted.boost_report.is_empty());
+}
+
+#[test]
+fn test_search_hybrid_entity_boost_promotes_linked_cluster() {
+    let db = setup();
+    let request = seed_entity_boost_fixture(&db);
+
+    let plain = db.search(request.clone()).expect("search");
+    assert_eq!(keys(&plain), vec!["z", "x", "y"], "baseline ranking");
+
+    let boosted = db
+        .search_with_entity_boost(request.clone(), &linked_boost().with_weight(1.0))
+        .expect("boosted search");
+    assert_eq!(
+        keys(&boosted.hits),
+        vec!["x", "y", "z"],
+        "linked peers overtake z"
+    );
+
+    // Provenance: only the linked pair is reported, with peers + reversible delta.
+    assert_eq!(boosted.boost_report.len(), 2);
+    assert!(boosted.boost_report.get("boost-ns", "z").is_none());
+    let x = boosted
+        .boost_report
+        .get("boost-ns", "x")
+        .expect("x provenance");
+    assert_eq!(x.cluster, "cluster-x");
+    assert_eq!(x.peers, vec!["boost-ns\0y".to_string()]);
+    let x_hit = boosted
+        .hits
+        .iter()
+        .find(|hit| hit.record.key == "x")
+        .expect("x hit");
+    assert!((x_hit.score - x.delta - x.base_score).abs() < 1e-6);
+}
+
+#[test]
+fn test_search_hybrid_entity_boost_is_deterministic() {
+    let db = setup();
+    let request = seed_entity_boost_fixture(&db);
+    let boost = linked_boost().with_weight(0.5);
+
+    let first = db
+        .search_with_entity_boost(request.clone(), &boost)
+        .expect("first");
+    let second = db
+        .search_with_entity_boost(request, &boost)
+        .expect("second");
+    assert_eq!(first, second, "same inputs → same hits + provenance");
+}
+
+#[test]
+fn test_search_hybrid_entity_boost_explain_route_applies_boost() {
+    let db = setup();
+    let mut request = seed_entity_boost_fixture(&db);
+    request.explain = true;
+
+    let boosted = db
+        .search_with_entity_boost(request, &linked_boost().with_weight(1.0))
+        .expect("boosted explain search");
+    assert_eq!(
+        boosted.boost_report.len(),
+        2,
+        "boost applies in explain mode"
+    );
+    assert!(
+        boosted.hits.iter().all(|hit| hit.explanation.is_some()),
+        "explain mode still attaches per-hit explanations"
+    );
+}

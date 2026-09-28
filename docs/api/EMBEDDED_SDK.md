@@ -80,6 +80,7 @@ CRUD operations for persistent memory records identified by `(namespace, key)` p
 | `list_namespaces()` | List all namespaces. Returns `Vec<String>` |
 | `search(request: MemorySearchRequest)` | [[hybrid-search\|Hybrid]] (vector + lexical) search. Returns `Vec<MemorySearchHit>` |
 | `search_with_method(request, method)` | Same as `search` with an explicit index backend override for the dense-vector portion: `Some(IndexType::Ivf)` / `Some(IndexType::Scann)` / `Some(IndexType::Flat)` / `Some(IndexType::Hnsw)`. `None` (default) keeps automatic engine routing untouched; the shared engine config is never mutated (thread-safe, per-search override) |
+| `search_with_entity_boost(request, boost)` | Same as `search` with the opt-in deterministic entity-cluster boost (WIRE-05). Hits sharing an entity cluster with other fused candidates receive an additive delta (`weight × peers × 1/(rrf_k+1)`) before the final ranking. Returns `EntityBoostedSearch { hits, boost_report }` with per-hit provenance (cluster, peers, `base_score`, `delta`) — reversible, no stored data mutated; an empty `EntityBoost` is byte-identical to `search`. Single-channel routes (text-only/vector-only/sparse-only) are returned unchanged |
 | `search_multi(namespaces, request)` | Search across multiple namespaces, merging results by descending score, capped at `request.top_k`. Namespaces that produce no results or fail validation are silently skipped; an empty `namespaces` slice returns an empty `Vec` |
 | `similar_to_key(namespace, key, top_k)` | Vector similarity search from an existing record's vector, post-filtered to `namespace`. Errors `NotFound` if the key does not exist and `NoVectorForKey` if the record carries no vector |
 | `explain_memory_search(request)` | Search with detailed score breakdown. Returns `SearchExplanation` |
@@ -199,6 +200,87 @@ let page: SceneNodePage = store.scene_node_list("default", "session-42", 20, 0)?
 strategy (`vanta-memory/src/core/scene/scene_index.rs::upsert_scene`), not here.
 Keys are validated (`validate_key` / `validate_scope`); invalid scope names are
 rejected with `Error::InvalidInput`.
+
+## Entity Linking + Entity Boost (Separate Module) — WIRE-05
+
+> **Source:** `src/entity/linking.rs` (`entity::linking`) and
+> `src/sdk/search/fusion.rs`. Deterministic multi-signal record linkage
+> (Fellegi-Sunter + embeddings), **no LLM judge**, plus an opt-in
+> entity-cluster boost for RRF fusion.
+
+### Deterministic linking
+
+`LinkSignal` carries one comparison signal per kind (`SignalKind::Name` /
+`Email` / `Phone` / `Embedding`); a candidate is a `LinkEntity { id, signals }`.
+The pair score is the classic Fellegi-Sunter log-likelihood ratio sum:
+
+```text
+W = prior_bits + Σ_i log2(m_i / u_i)              (signal i agrees)
+                + Σ_i log2((1 - m_i) / (1 - u_i)) (signal i disagrees)
+                + 0                                (signal absent on either side)
+Pr(match) = 2^W / (1 + 2^W);  auto-link when W >= auto_link_bits,
+                              review when W >= review_bits, else distinct.
+```
+
+Defaults are conservative: `auto_link_bits = 12` is above the strongest
+single-signal agreement weight (≈ 10.95), so an automatic merge requires **at
+least two independent signals** to agree; `review_bits = 4`;
+`embedding_threshold = 0.90` (cosine); per-kind m/u weights are overridable
+through `SignalWeight::new(m, u)` + `LinkConfig::with_signal_weight`. Manual
+duplicate marking (`mark_duplicate`, MGR-05 step 1) is supported through
+`ManualLink` — a manual pair merges regardless of score and is reported with
+`manual: true`. Identical inputs always produce identical scores and reports;
+`link_entities` never mutates stored data (clusters are a derived view).
+
+```rust
+use vantadb::entity::linking::{link_entities, LinkConfig, LinkEntity, LinkSignal, ManualLink, SignalKind};
+
+let candidates = vec![
+    LinkEntity::new("usr-1", vec![
+        LinkSignal::text(SignalKind::Name, "Alice Smith"),
+        LinkSignal::text(SignalKind::Email, "alice@example.com"),
+    ]),
+    LinkEntity::new("usr-2", vec![
+        LinkSignal::text(SignalKind::Name, "alice  smith"),
+        LinkSignal::text(SignalKind::Email, "ALICE@example.com"),
+    ]),
+];
+
+// `manual` is optional: `mark_duplicate` pairs forced into one cluster.
+let report = link_entities(&candidates, &LinkConfig::default(), &[ManualLink::new("usr-1", "usr-2")])?;
+assert_eq!(report.clusters[0].canonical, "usr-1");
+```
+
+Entity fields can be mapped to signals with `signals_from_fields(&fields, &map)`
+(`FieldValue::String` for text kinds, `FieldValue::ListFloat` for embeddings).
+
+### Opt-in RRF entity boost
+
+`EntityBoost` maps fused-record identities `(namespace, key)` to a cluster label
+(typically `LinkCluster::canonical`). When two or more hits of a cluster
+co-occur in one fused candidate set, each receives `weight × peers ×
+1/(rrf_k+1)` — a fraction of the strongest single-channel RRF contribution
+(`EntityBoost::DEFAULT_WEIGHT = 0.25`). The boost is opt-in and reversible
+(`base_score` is exact; `score − delta ≈ base_score` within f32 rounding):
+`EntityBoostReport` carries per-hit provenance (cluster, peers, `base_score`,
+`delta`) and an empty boost is byte-identical to `search`.
+
+```rust
+use vantadb::sdk::EntityBoost;
+
+let mut boost = EntityBoost::new();
+for cluster in &report.clusters {
+    for member in &cluster.members {
+        boost = boost.link("my-namespace", member, cluster.canonical.as_str());
+    }
+}
+let outcome = db.search_with_entity_boost(request, &boost)?; // EntityBoostedSearch
+println!("{} hits, {} boosted", outcome.hits.len(), outcome.boost_report.len());
+```
+
+The boost applies to RRF-fused routes (hybrid, text+sparse, vector+sparse);
+single-channel routes have no fusion score to boost. Measuring the boost is
+tracked by the VER-08 harness (roadmap F5).
 
 ## Node / Graph API
 

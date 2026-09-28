@@ -22,10 +22,11 @@ pub use serialization::{
     FIELD_VERSION,
 };
 pub use types::{
-    Bm25TermContribution, Capabilities, EdgeRecord, ExportReport, Fields, FilterOp,
-    HybridFusionReport, ImportReport, IndexRebuildReport, MemoryExportLine, MemoryFilter,
-    MemoryFilterItem, MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord,
-    MemorySearchHit, MemorySearchRequest, NamespaceStats, NamespaceStatsMap, NodeInput, NodeRecord,
+    Bm25TermContribution, Capabilities, EdgeRecord, EntityBoost, EntityBoostProvenance,
+    EntityBoostReport, EntityBoostedSearch, ExportReport, Fields, FilterOp, HybridFusionReport,
+    ImportReport, IndexRebuildReport, MemoryExportLine, MemoryFilter, MemoryFilterItem,
+    MemoryInput, MemoryListOptions, MemoryListPage, MemoryMetadata, MemoryRecord, MemorySearchHit,
+    MemorySearchRequest, NamespaceStats, NamespaceStatsMap, NodeInput, NodeRecord,
     OperationalMetrics, QueryResult, RuntimeProfile, SearchExplanation, SearchExplanationHit,
     SearchHit, SearchProfileConfig, SearchProfileMode, SkillCreateInput, SkillListOptions,
     SkillListPage, SkillPatchInput, SkillRecord, SkillUpdateInput, SkillWriteResult, StorageTier,

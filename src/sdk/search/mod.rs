@@ -69,7 +69,7 @@ impl Embedded {
     /// ```
     pub fn search(&self, request: MemorySearchRequest) -> Result<Vec<MemorySearchHit>> {
         let exclude_superseded = request.exclude_superseded;
-        let mut hits = self.search_impl(request, None)?;
+        let (mut hits, _boost_report) = self.search_impl(request, None, None)?;
         if exclude_superseded {
             // ADR-028: drop superseded records at final assembly — no index change.
             hits.retain(|hit| hit.record.superseded_by.is_none());
@@ -88,7 +88,7 @@ impl Embedded {
         method: Option<crate::index::IndexType>,
     ) -> Result<Vec<MemorySearchHit>> {
         let exclude_superseded = request.exclude_superseded;
-        let mut hits = self.search_impl(request, method)?;
+        let (mut hits, _boost_report) = self.search_impl(request, method, None)?;
         if exclude_superseded {
             // ADR-028: drop superseded records at final assembly — no index change.
             hits.retain(|hit| hit.record.superseded_by.is_none());
@@ -96,12 +96,42 @@ impl Embedded {
         Ok(hits)
     }
 
+    /// Search with an opt-in deterministic entity-cluster boost (WIRE-05).
+    ///
+    /// Behaves like [`search`](Self::search) but additionally applies the
+    /// caller-supplied [`EntityBoost`] to every RRF-fused candidate list: hits
+    /// that share an entity cluster with other fused candidates receive an
+    /// additive score delta before the final ranking. The returned
+    /// [`EntityBoostedSearch::boost_report`] carries per-hit provenance
+    /// (cluster, peers, `base_score`, `delta`), so the boost is auditable and
+    /// reversible — no stored data is mutated and an empty `boost` is
+    /// byte-identical to [`search`](Self::search).
+    ///
+    /// The boost applies to RRF-fused routes (hybrid, text+sparse,
+    /// vector+sparse); single-channel routes (text-only, vector-only,
+    /// sparse-only) have no fusion score to boost and are returned unchanged.
+    pub fn search_with_entity_boost(
+        &self,
+        request: MemorySearchRequest,
+        boost: &EntityBoost,
+    ) -> Result<EntityBoostedSearch> {
+        let exclude_superseded = request.exclude_superseded;
+        let effective = (!boost.is_empty()).then_some(boost);
+        let (mut hits, boost_report) = self.search_impl(request, None, effective)?;
+        if exclude_superseded {
+            // ADR-028: drop superseded records at final assembly — no index change.
+            hits.retain(|hit| hit.record.superseded_by.is_none());
+        }
+        Ok(EntityBoostedSearch { hits, boost_report })
+    }
+
     #[tracing::instrument(skip(self, request), err)]
     fn search_impl(
         &self,
         request: MemorySearchRequest,
         method: Option<crate::index::IndexType>,
-    ) -> Result<Vec<MemorySearchHit>> {
+        boost: Option<&EntityBoost>,
+    ) -> Result<(Vec<MemorySearchHit>, EntityBoostReport)> {
         validate_namespace(&request.namespace)?;
         validate_metadata(&request.filters)?;
 
@@ -128,7 +158,7 @@ impl Embedded {
         }
 
         if request.top_k == 0 {
-            return Ok(Vec::new());
+            return Ok((Vec::new(), EntityBoostReport::default()));
         }
 
         // ERR-028: a zero-norm cosine query is undefined (cosine = 0/0).
@@ -149,120 +179,151 @@ impl Embedded {
 
         if request.explain {
             let engine = self.engine_handle()?;
-            let (hits, text_ranks, vector_ranks) = match (text_query, has_vector, query_sparse) {
-                (Some(text_query), true, _) => {
-                    let budget = fusion::hybrid_candidate_budget(request.top_k, candidate_k);
-                    let lexical_hits = self.lexical_search(
-                        &request.namespace,
-                        text_query,
-                        &request.filters,
-                        budget,
-                    )?;
-                    let vector_hits = self.vector_memory_search(
-                        &request.namespace,
-                        &request.query_vector,
-                        &request.filters,
-                        budget,
-                        request.distance_metric,
-                        method,
-                    )?;
-                    let text_ranks = debug::rank_map(&lexical_hits);
-                    let vector_ranks = debug::rank_map(&vector_hits);
-                    let mut hits = match query_sparse {
-                        Some(query_sparse) => {
-                            let sparse_hits = self.sparse_memory_search(
-                                &request.namespace,
-                                query_sparse,
-                                &request.filters,
-                                budget,
-                            )?;
-                            fusion::fuse_rrf_many(
-                                vec![lexical_hits, vector_hits, sparse_hits],
-                                rrf_k,
-                            )
-                        }
-                        _ => {
-                            let (hits, _report) =
-                                fusion::fuse_rrf_with_report(lexical_hits, vector_hits, rrf_k);
-                            hits
-                        }
-                    };
-                    hits.truncate(request.top_k);
-                    (hits, text_ranks, vector_ranks)
-                }
-                (Some(text_query), false, Some(query_sparse)) => {
-                    let budget = fusion::hybrid_candidate_budget(request.top_k, candidate_k);
-                    let lexical_hits = self.lexical_search(
-                        &request.namespace,
-                        text_query,
-                        &request.filters,
-                        budget,
-                    )?;
-                    let sparse_hits = self.sparse_memory_search(
-                        &request.namespace,
-                        query_sparse,
-                        &request.filters,
-                        budget,
-                    )?;
-                    let text_ranks = debug::rank_map(&lexical_hits);
-                    let mut hits = fusion::fuse_rrf_many(vec![lexical_hits, sparse_hits], rrf_k);
-                    hits.truncate(request.top_k);
-                    (hits, text_ranks, BTreeMap::new())
-                }
-                (Some(text_query), false, _) => {
-                    let hits = self.lexical_search(
-                        &request.namespace,
-                        text_query,
-                        &request.filters,
-                        request.top_k,
-                    )?;
-                    let text_ranks = debug::rank_map(&hits);
-                    (hits, text_ranks, BTreeMap::new())
-                }
-                (None, true, Some(query_sparse)) => {
-                    let budget = fusion::hybrid_candidate_budget(request.top_k, candidate_k);
-                    let vector_hits = self.vector_memory_search(
-                        &request.namespace,
-                        &request.query_vector,
-                        &request.filters,
-                        budget,
-                        request.distance_metric,
-                        method,
-                    )?;
-                    let sparse_hits = self.sparse_memory_search(
-                        &request.namespace,
-                        query_sparse,
-                        &request.filters,
-                        budget,
-                    )?;
-                    let vector_ranks = debug::rank_map(&vector_hits);
-                    let mut hits = fusion::fuse_rrf_many(vec![vector_hits, sparse_hits], rrf_k);
-                    hits.truncate(request.top_k);
-                    (hits, BTreeMap::new(), vector_ranks)
-                }
-                (None, true, _) => {
-                    let hits = self.vector_memory_search(
-                        &request.namespace,
-                        &request.query_vector,
-                        &request.filters,
-                        request.top_k,
-                        request.distance_metric,
-                        method,
-                    )?;
-                    let vector_ranks = debug::rank_map(&hits);
-                    (hits, BTreeMap::new(), vector_ranks)
-                }
-                (None, false, Some(query_sparse)) => {
-                    let hits = self.sparse_memory_search(
-                        &request.namespace,
-                        query_sparse,
-                        &request.filters,
-                        request.top_k,
-                    )?;
-                    (hits, BTreeMap::new(), BTreeMap::new())
-                }
-                (None, false, _) => (Vec::new(), BTreeMap::new(), BTreeMap::new()),
-            };
+            let (hits, text_ranks, vector_ranks, boost_report) =
+                match (text_query, has_vector, query_sparse) {
+                    (Some(text_query), true, _) => {
+                        let budget = fusion::hybrid_candidate_budget(request.top_k, candidate_k);
+                        let lexical_hits = self.lexical_search(
+                            &request.namespace,
+                            text_query,
+                            &request.filters,
+                            budget,
+                        )?;
+                        let vector_hits = self.vector_memory_search(
+                            &request.namespace,
+                            &request.query_vector,
+                            &request.filters,
+                            budget,
+                            request.distance_metric,
+                            method,
+                        )?;
+                        let text_ranks = debug::rank_map(&lexical_hits);
+                        let vector_ranks = debug::rank_map(&vector_hits);
+                        let (mut hits, _fusion_report, boost_report) = match query_sparse {
+                            Some(query_sparse) => {
+                                let sparse_hits = self.sparse_memory_search(
+                                    &request.namespace,
+                                    query_sparse,
+                                    &request.filters,
+                                    budget,
+                                )?;
+                                let (hits, boost_report) = fusion::fuse_rrf_many_with_entity_boost(
+                                    vec![lexical_hits, vector_hits, sparse_hits],
+                                    rrf_k,
+                                    boost,
+                                );
+                                (hits, None, boost_report)
+                            }
+                            _ => {
+                                let (hits, report, boost_report) =
+                                    fusion::fuse_rrf_impl(lexical_hits, vector_hits, rrf_k, boost);
+                                (hits, Some(report), boost_report)
+                            }
+                        };
+                        hits.truncate(request.top_k);
+                        (hits, text_ranks, vector_ranks, boost_report)
+                    }
+                    (Some(text_query), false, Some(query_sparse)) => {
+                        let budget = fusion::hybrid_candidate_budget(request.top_k, candidate_k);
+                        let lexical_hits = self.lexical_search(
+                            &request.namespace,
+                            text_query,
+                            &request.filters,
+                            budget,
+                        )?;
+                        let sparse_hits = self.sparse_memory_search(
+                            &request.namespace,
+                            query_sparse,
+                            &request.filters,
+                            budget,
+                        )?;
+                        let text_ranks = debug::rank_map(&lexical_hits);
+                        let (mut hits, boost_report) = fusion::fuse_rrf_many_with_entity_boost(
+                            vec![lexical_hits, sparse_hits],
+                            rrf_k,
+                            boost,
+                        );
+                        hits.truncate(request.top_k);
+                        (hits, text_ranks, BTreeMap::new(), boost_report)
+                    }
+                    (Some(text_query), false, _) => {
+                        let hits = self.lexical_search(
+                            &request.namespace,
+                            text_query,
+                            &request.filters,
+                            request.top_k,
+                        )?;
+                        let text_ranks = debug::rank_map(&hits);
+                        (
+                            hits,
+                            text_ranks,
+                            BTreeMap::new(),
+                            EntityBoostReport::default(),
+                        )
+                    }
+                    (None, true, Some(query_sparse)) => {
+                        let budget = fusion::hybrid_candidate_budget(request.top_k, candidate_k);
+                        let vector_hits = self.vector_memory_search(
+                            &request.namespace,
+                            &request.query_vector,
+                            &request.filters,
+                            budget,
+                            request.distance_metric,
+                            method,
+                        )?;
+                        let sparse_hits = self.sparse_memory_search(
+                            &request.namespace,
+                            query_sparse,
+                            &request.filters,
+                            budget,
+                        )?;
+                        let vector_ranks = debug::rank_map(&vector_hits);
+                        let (mut hits, boost_report) = fusion::fuse_rrf_many_with_entity_boost(
+                            vec![vector_hits, sparse_hits],
+                            rrf_k,
+                            boost,
+                        );
+                        hits.truncate(request.top_k);
+                        (hits, BTreeMap::new(), vector_ranks, boost_report)
+                    }
+                    (None, true, _) => {
+                        let hits = self.vector_memory_search(
+                            &request.namespace,
+                            &request.query_vector,
+                            &request.filters,
+                            request.top_k,
+                            request.distance_metric,
+                            method,
+                        )?;
+                        let vector_ranks = debug::rank_map(&hits);
+                        (
+                            hits,
+                            BTreeMap::new(),
+                            vector_ranks,
+                            EntityBoostReport::default(),
+                        )
+                    }
+                    (None, false, Some(query_sparse)) => {
+                        let hits = self.sparse_memory_search(
+                            &request.namespace,
+                            query_sparse,
+                            &request.filters,
+                            request.top_k,
+                        )?;
+                        (
+                            hits,
+                            BTreeMap::new(),
+                            BTreeMap::new(),
+                            EntityBoostReport::default(),
+                        )
+                    }
+                    (None, false, _) => (
+                        Vec::new(),
+                        BTreeMap::new(),
+                        BTreeMap::new(),
+                        EntityBoostReport::default(),
+                    ),
+                };
 
             let explained_hits = hits
                 .into_iter()
@@ -279,7 +340,7 @@ impl Embedded {
                 })
                 .collect::<Result<Vec<_>>>()?;
 
-            return Ok(explained_hits);
+            return Ok((explained_hits, boost_report));
         }
 
         match (text_query, has_vector, query_sparse) {
@@ -296,6 +357,7 @@ impl Embedded {
                     method,
                     rrf_k,
                     candidate_k,
+                    boost,
                 )
             }
             (Some(text_query), false, Some(query_sparse)) => {
@@ -309,18 +371,23 @@ impl Embedded {
                     &request.filters,
                     budget,
                 )?;
-                let mut hits = fusion::fuse_rrf_many(vec![lexical_hits, sparse_hits], rrf_k);
+                let (mut hits, boost_report) = fusion::fuse_rrf_many_with_entity_boost(
+                    vec![lexical_hits, sparse_hits],
+                    rrf_k,
+                    boost,
+                );
                 hits.truncate(request.top_k);
-                Ok(hits)
+                Ok((hits, boost_report))
             }
             (Some(text_query), false, _) => {
                 crate::metrics::record_planner_text_only_query();
-                self.lexical_search(
+                let hits = self.lexical_search(
                     &request.namespace,
                     text_query,
                     &request.filters,
                     request.top_k,
-                )
+                )?;
+                Ok((hits, EntityBoostReport::default()))
             }
             (None, true, Some(query_sparse)) => {
                 crate::metrics::record_planner_hybrid_query();
@@ -339,31 +406,37 @@ impl Embedded {
                     &request.filters,
                     budget,
                 )?;
-                let mut hits = fusion::fuse_rrf_many(vec![vector_hits, sparse_hits], rrf_k);
+                let (mut hits, boost_report) = fusion::fuse_rrf_many_with_entity_boost(
+                    vec![vector_hits, sparse_hits],
+                    rrf_k,
+                    boost,
+                );
                 hits.truncate(request.top_k);
-                Ok(hits)
+                Ok((hits, boost_report))
             }
             (None, true, _) => {
                 crate::metrics::record_planner_vector_only_query();
-                self.vector_memory_search(
+                let hits = self.vector_memory_search(
                     &request.namespace,
                     &request.query_vector,
                     &request.filters,
                     request.top_k,
                     request.distance_metric,
                     method,
-                )
+                )?;
+                Ok((hits, EntityBoostReport::default()))
             }
             (None, false, Some(query_sparse)) => {
                 crate::metrics::record_planner_sparse_only_query();
-                self.sparse_memory_search(
+                let hits = self.sparse_memory_search(
                     &request.namespace,
                     query_sparse,
                     &request.filters,
                     request.top_k,
-                )
+                )?;
+                Ok((hits, EntityBoostReport::default()))
             }
-            (None, false, _) => Ok(Vec::new()),
+            (None, false, _) => Ok((Vec::new(), EntityBoostReport::default())),
         }
     }
 }
