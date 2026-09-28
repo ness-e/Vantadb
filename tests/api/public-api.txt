@@ -1228,6 +1228,7 @@ pub vantadb::config::Config::flat_threshold: core::option::Option<usize>
 pub vantadb::config::Config::flush_threshold: core::option::Option<usize>
 pub vantadb::config::Config::force_mmap: bool
 pub vantadb::config::Config::host: alloc::string::String
+pub vantadb::config::Config::insert_batch: vantadb::config::InsertBatchConfig
 pub vantadb::config::Config::insert_lock_timeout_ms: u64
 pub vantadb::config::Config::jwt_secret: core::option::Option<alloc::string::String>
 pub vantadb::config::Config::llm_model: alloc::string::String
@@ -1286,6 +1287,7 @@ pub fn vantadb::config::Config::with_eviction_weights(self, f64, f64, f64, f64) 
 pub fn vantadb::config::Config::with_flat_threshold(self, core::option::Option<usize>) -> Self
 pub fn vantadb::config::Config::with_flush_threshold(self, usize) -> Self
 pub fn vantadb::config::Config::with_force_mmap(self, bool) -> Self
+pub fn vantadb::config::Config::with_insert_batching(self, vantadb::config::InsertBatchConfig) -> Self
 pub fn vantadb::config::Config::with_jwt_secret(self, core::option::Option<alloc::string::String>) -> Self
 pub fn vantadb::config::Config::with_local_model_path(self, alloc::string::String) -> Self
 pub fn vantadb::config::Config::with_log_format(self, vantadb::config::LogFormat) -> Self
@@ -1378,6 +1380,31 @@ impl core::marker::Unpin for vantadb::config::HotReloadConfig
 impl core::marker::UnsafeUnpin for vantadb::config::HotReloadConfig
 impl core::panic::unwind_safe::RefUnwindSafe for vantadb::config::HotReloadConfig
 impl core::panic::unwind_safe::UnwindSafe for vantadb::config::HotReloadConfig
+pub struct vantadb::config::InsertBatchConfig
+pub vantadb::config::InsertBatchConfig::enabled: bool
+pub vantadb::config::InsertBatchConfig::max_batch_records: usize
+pub vantadb::config::InsertBatchConfig::max_queued_records: usize
+pub vantadb::config::InsertBatchConfig::max_wait_ms: u64
+impl vantadb::config::InsertBatchConfig
+pub fn vantadb::config::InsertBatchConfig::sanitized(self) -> Self
+impl core::clone::Clone for vantadb::config::InsertBatchConfig
+pub fn vantadb::config::InsertBatchConfig::clone(&self) -> vantadb::config::InsertBatchConfig
+impl core::cmp::Eq for vantadb::config::InsertBatchConfig
+impl core::cmp::PartialEq for vantadb::config::InsertBatchConfig
+pub fn vantadb::config::InsertBatchConfig::eq(&self, &vantadb::config::InsertBatchConfig) -> bool
+impl core::default::Default for vantadb::config::InsertBatchConfig
+pub fn vantadb::config::InsertBatchConfig::default() -> Self
+impl core::fmt::Debug for vantadb::config::InsertBatchConfig
+pub fn vantadb::config::InsertBatchConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::config::InsertBatchConfig
+impl core::marker::StructuralPartialEq for vantadb::config::InsertBatchConfig
+impl core::marker::Freeze for vantadb::config::InsertBatchConfig
+impl core::marker::Send for vantadb::config::InsertBatchConfig
+impl core::marker::Sync for vantadb::config::InsertBatchConfig
+impl core::marker::Unpin for vantadb::config::InsertBatchConfig
+impl core::marker::UnsafeUnpin for vantadb::config::InsertBatchConfig
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::config::InsertBatchConfig
+impl core::panic::unwind_safe::UnwindSafe for vantadb::config::InsertBatchConfig
 pub struct vantadb::config::LlmCfg
 pub vantadb::config::LlmCfg::advanced_tokenizer_config: core::option::Option<vantadb::tokenizer::AdvancedTokenizerConfig>
 pub vantadb::config::LlmCfg::embedding_provider: alloc::string::String
@@ -1751,6 +1778,282 @@ impl<'a> core::marker::Unpin for vantadb::entity::checker::PermissionChecker<'a>
 impl<'a> core::marker::UnsafeUnpin for vantadb::entity::checker::PermissionChecker<'a>
 impl<'a> !core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::checker::PermissionChecker<'a>
 impl<'a> !core::panic::unwind_safe::UnwindSafe for vantadb::entity::checker::PermissionChecker<'a>
+pub mod vantadb::entity::linking
+#[non_exhaustive] pub enum vantadb::entity::linking::LinkVerdict
+pub vantadb::entity::linking::LinkVerdict::AutoLink
+pub vantadb::entity::linking::LinkVerdict::Distinct
+pub vantadb::entity::linking::LinkVerdict::Review
+impl core::clone::Clone for vantadb::entity::linking::LinkVerdict
+pub fn vantadb::entity::linking::LinkVerdict::clone(&self) -> vantadb::entity::linking::LinkVerdict
+impl core::cmp::Eq for vantadb::entity::linking::LinkVerdict
+impl core::cmp::PartialEq for vantadb::entity::linking::LinkVerdict
+pub fn vantadb::entity::linking::LinkVerdict::eq(&self, &vantadb::entity::linking::LinkVerdict) -> bool
+impl core::fmt::Debug for vantadb::entity::linking::LinkVerdict
+pub fn vantadb::entity::linking::LinkVerdict::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::entity::linking::LinkVerdict
+impl core::marker::StructuralPartialEq for vantadb::entity::linking::LinkVerdict
+impl core::marker::Freeze for vantadb::entity::linking::LinkVerdict
+impl core::marker::Send for vantadb::entity::linking::LinkVerdict
+impl core::marker::Sync for vantadb::entity::linking::LinkVerdict
+impl core::marker::Unpin for vantadb::entity::linking::LinkVerdict
+impl core::marker::UnsafeUnpin for vantadb::entity::linking::LinkVerdict
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::linking::LinkVerdict
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::linking::LinkVerdict
+#[non_exhaustive] pub enum vantadb::entity::linking::SignalKind
+pub vantadb::entity::linking::SignalKind::Email
+pub vantadb::entity::linking::SignalKind::Embedding
+pub vantadb::entity::linking::SignalKind::Name
+pub vantadb::entity::linking::SignalKind::Phone
+impl vantadb::entity::linking::SignalKind
+pub fn vantadb::entity::linking::SignalKind::as_str(&self) -> &'static str
+impl core::clone::Clone for vantadb::entity::linking::SignalKind
+pub fn vantadb::entity::linking::SignalKind::clone(&self) -> vantadb::entity::linking::SignalKind
+impl core::cmp::Eq for vantadb::entity::linking::SignalKind
+impl core::cmp::Ord for vantadb::entity::linking::SignalKind
+pub fn vantadb::entity::linking::SignalKind::cmp(&self, &vantadb::entity::linking::SignalKind) -> core::cmp::Ordering
+impl core::cmp::PartialEq for vantadb::entity::linking::SignalKind
+pub fn vantadb::entity::linking::SignalKind::eq(&self, &vantadb::entity::linking::SignalKind) -> bool
+impl core::cmp::PartialOrd for vantadb::entity::linking::SignalKind
+pub fn vantadb::entity::linking::SignalKind::partial_cmp(&self, &vantadb::entity::linking::SignalKind) -> core::option::Option<core::cmp::Ordering>
+impl core::fmt::Debug for vantadb::entity::linking::SignalKind
+pub fn vantadb::entity::linking::SignalKind::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::hash::Hash for vantadb::entity::linking::SignalKind
+pub fn vantadb::entity::linking::SignalKind::hash<__H: core::hash::Hasher>(&self, &mut __H)
+impl core::marker::Copy for vantadb::entity::linking::SignalKind
+impl core::marker::StructuralPartialEq for vantadb::entity::linking::SignalKind
+impl core::marker::Freeze for vantadb::entity::linking::SignalKind
+impl core::marker::Send for vantadb::entity::linking::SignalKind
+impl core::marker::Sync for vantadb::entity::linking::SignalKind
+impl core::marker::Unpin for vantadb::entity::linking::SignalKind
+impl core::marker::UnsafeUnpin for vantadb::entity::linking::SignalKind
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::linking::SignalKind
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::linking::SignalKind
+#[non_exhaustive] pub enum vantadb::entity::linking::SignalOutcome
+pub vantadb::entity::linking::SignalOutcome::Agree
+pub vantadb::entity::linking::SignalOutcome::Disagree
+pub vantadb::entity::linking::SignalOutcome::Missing
+impl core::clone::Clone for vantadb::entity::linking::SignalOutcome
+pub fn vantadb::entity::linking::SignalOutcome::clone(&self) -> vantadb::entity::linking::SignalOutcome
+impl core::cmp::Eq for vantadb::entity::linking::SignalOutcome
+impl core::cmp::PartialEq for vantadb::entity::linking::SignalOutcome
+pub fn vantadb::entity::linking::SignalOutcome::eq(&self, &vantadb::entity::linking::SignalOutcome) -> bool
+impl core::fmt::Debug for vantadb::entity::linking::SignalOutcome
+pub fn vantadb::entity::linking::SignalOutcome::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::entity::linking::SignalOutcome
+impl core::marker::StructuralPartialEq for vantadb::entity::linking::SignalOutcome
+impl core::marker::Freeze for vantadb::entity::linking::SignalOutcome
+impl core::marker::Send for vantadb::entity::linking::SignalOutcome
+impl core::marker::Sync for vantadb::entity::linking::SignalOutcome
+impl core::marker::Unpin for vantadb::entity::linking::SignalOutcome
+impl core::marker::UnsafeUnpin for vantadb::entity::linking::SignalOutcome
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::linking::SignalOutcome
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::linking::SignalOutcome
+#[non_exhaustive] pub enum vantadb::entity::linking::SignalValue
+pub vantadb::entity::linking::SignalValue::Embedding(alloc::vec::Vec<f32>)
+pub vantadb::entity::linking::SignalValue::Text(alloc::string::String)
+impl core::clone::Clone for vantadb::entity::linking::SignalValue
+pub fn vantadb::entity::linking::SignalValue::clone(&self) -> vantadb::entity::linking::SignalValue
+impl core::cmp::PartialEq for vantadb::entity::linking::SignalValue
+pub fn vantadb::entity::linking::SignalValue::eq(&self, &vantadb::entity::linking::SignalValue) -> bool
+impl core::fmt::Debug for vantadb::entity::linking::SignalValue
+pub fn vantadb::entity::linking::SignalValue::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::entity::linking::SignalValue
+impl core::marker::Freeze for vantadb::entity::linking::SignalValue
+impl core::marker::Send for vantadb::entity::linking::SignalValue
+impl core::marker::Sync for vantadb::entity::linking::SignalValue
+impl core::marker::Unpin for vantadb::entity::linking::SignalValue
+impl core::marker::UnsafeUnpin for vantadb::entity::linking::SignalValue
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::linking::SignalValue
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::linking::SignalValue
+pub struct vantadb::entity::linking::LinkCluster
+pub vantadb::entity::linking::LinkCluster::canonical: alloc::string::String
+pub vantadb::entity::linking::LinkCluster::members: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for vantadb::entity::linking::LinkCluster
+pub fn vantadb::entity::linking::LinkCluster::clone(&self) -> vantadb::entity::linking::LinkCluster
+impl core::cmp::Eq for vantadb::entity::linking::LinkCluster
+impl core::cmp::PartialEq for vantadb::entity::linking::LinkCluster
+pub fn vantadb::entity::linking::LinkCluster::eq(&self, &vantadb::entity::linking::LinkCluster) -> bool
+impl core::fmt::Debug for vantadb::entity::linking::LinkCluster
+pub fn vantadb::entity::linking::LinkCluster::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::entity::linking::LinkCluster
+impl core::marker::Freeze for vantadb::entity::linking::LinkCluster
+impl core::marker::Send for vantadb::entity::linking::LinkCluster
+impl core::marker::Sync for vantadb::entity::linking::LinkCluster
+impl core::marker::Unpin for vantadb::entity::linking::LinkCluster
+impl core::marker::UnsafeUnpin for vantadb::entity::linking::LinkCluster
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::linking::LinkCluster
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::linking::LinkCluster
+pub struct vantadb::entity::linking::LinkConfig
+pub vantadb::entity::linking::LinkConfig::auto_link_bits: f32
+pub vantadb::entity::linking::LinkConfig::embedding_threshold: f32
+pub vantadb::entity::linking::LinkConfig::prior_bits: f32
+pub vantadb::entity::linking::LinkConfig::review_bits: f32
+impl vantadb::entity::linking::LinkConfig
+pub fn vantadb::entity::linking::LinkConfig::weight(&self, vantadb::entity::linking::SignalKind) -> vantadb::entity::linking::SignalWeight
+pub fn vantadb::entity::linking::LinkConfig::with_auto_link_bits(self, f32) -> Self
+pub fn vantadb::entity::linking::LinkConfig::with_embedding_threshold(self, f32) -> Self
+pub fn vantadb::entity::linking::LinkConfig::with_prior_bits(self, f32) -> Self
+pub fn vantadb::entity::linking::LinkConfig::with_review_bits(self, f32) -> Self
+pub fn vantadb::entity::linking::LinkConfig::with_signal_weight(self, vantadb::entity::linking::SignalKind, vantadb::entity::linking::SignalWeight) -> Self
+impl core::clone::Clone for vantadb::entity::linking::LinkConfig
+pub fn vantadb::entity::linking::LinkConfig::clone(&self) -> vantadb::entity::linking::LinkConfig
+impl core::cmp::PartialEq for vantadb::entity::linking::LinkConfig
+pub fn vantadb::entity::linking::LinkConfig::eq(&self, &vantadb::entity::linking::LinkConfig) -> bool
+impl core::default::Default for vantadb::entity::linking::LinkConfig
+pub fn vantadb::entity::linking::LinkConfig::default() -> Self
+impl core::fmt::Debug for vantadb::entity::linking::LinkConfig
+pub fn vantadb::entity::linking::LinkConfig::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::entity::linking::LinkConfig
+impl core::marker::Freeze for vantadb::entity::linking::LinkConfig
+impl core::marker::Send for vantadb::entity::linking::LinkConfig
+impl core::marker::Sync for vantadb::entity::linking::LinkConfig
+impl core::marker::Unpin for vantadb::entity::linking::LinkConfig
+impl core::marker::UnsafeUnpin for vantadb::entity::linking::LinkConfig
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::linking::LinkConfig
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::linking::LinkConfig
+pub struct vantadb::entity::linking::LinkDecision
+pub vantadb::entity::linking::LinkDecision::bits: f32
+pub vantadb::entity::linking::LinkDecision::contributions: alloc::vec::Vec<vantadb::entity::linking::SignalContribution>
+pub vantadb::entity::linking::LinkDecision::left: alloc::string::String
+pub vantadb::entity::linking::LinkDecision::manual: bool
+pub vantadb::entity::linking::LinkDecision::posterior: f32
+pub vantadb::entity::linking::LinkDecision::right: alloc::string::String
+pub vantadb::entity::linking::LinkDecision::verdict: vantadb::entity::linking::LinkVerdict
+impl core::clone::Clone for vantadb::entity::linking::LinkDecision
+pub fn vantadb::entity::linking::LinkDecision::clone(&self) -> vantadb::entity::linking::LinkDecision
+impl core::cmp::PartialEq for vantadb::entity::linking::LinkDecision
+pub fn vantadb::entity::linking::LinkDecision::eq(&self, &vantadb::entity::linking::LinkDecision) -> bool
+impl core::fmt::Debug for vantadb::entity::linking::LinkDecision
+pub fn vantadb::entity::linking::LinkDecision::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::entity::linking::LinkDecision
+impl core::marker::Freeze for vantadb::entity::linking::LinkDecision
+impl core::marker::Send for vantadb::entity::linking::LinkDecision
+impl core::marker::Sync for vantadb::entity::linking::LinkDecision
+impl core::marker::Unpin for vantadb::entity::linking::LinkDecision
+impl core::marker::UnsafeUnpin for vantadb::entity::linking::LinkDecision
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::linking::LinkDecision
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::linking::LinkDecision
+pub struct vantadb::entity::linking::LinkEntity
+pub vantadb::entity::linking::LinkEntity::id: alloc::string::String
+pub vantadb::entity::linking::LinkEntity::signals: alloc::vec::Vec<vantadb::entity::linking::LinkSignal>
+impl vantadb::entity::linking::LinkEntity
+pub fn vantadb::entity::linking::LinkEntity::new(impl core::convert::Into<alloc::string::String>, alloc::vec::Vec<vantadb::entity::linking::LinkSignal>) -> Self
+impl core::clone::Clone for vantadb::entity::linking::LinkEntity
+pub fn vantadb::entity::linking::LinkEntity::clone(&self) -> vantadb::entity::linking::LinkEntity
+impl core::cmp::PartialEq for vantadb::entity::linking::LinkEntity
+pub fn vantadb::entity::linking::LinkEntity::eq(&self, &vantadb::entity::linking::LinkEntity) -> bool
+impl core::fmt::Debug for vantadb::entity::linking::LinkEntity
+pub fn vantadb::entity::linking::LinkEntity::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::entity::linking::LinkEntity
+impl core::marker::Freeze for vantadb::entity::linking::LinkEntity
+impl core::marker::Send for vantadb::entity::linking::LinkEntity
+impl core::marker::Sync for vantadb::entity::linking::LinkEntity
+impl core::marker::Unpin for vantadb::entity::linking::LinkEntity
+impl core::marker::UnsafeUnpin for vantadb::entity::linking::LinkEntity
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::linking::LinkEntity
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::linking::LinkEntity
+pub struct vantadb::entity::linking::LinkReport
+pub vantadb::entity::linking::LinkReport::clusters: alloc::vec::Vec<vantadb::entity::linking::LinkCluster>
+pub vantadb::entity::linking::LinkReport::decisions: alloc::vec::Vec<vantadb::entity::linking::LinkDecision>
+impl core::clone::Clone for vantadb::entity::linking::LinkReport
+pub fn vantadb::entity::linking::LinkReport::clone(&self) -> vantadb::entity::linking::LinkReport
+impl core::cmp::PartialEq for vantadb::entity::linking::LinkReport
+pub fn vantadb::entity::linking::LinkReport::eq(&self, &vantadb::entity::linking::LinkReport) -> bool
+impl core::default::Default for vantadb::entity::linking::LinkReport
+pub fn vantadb::entity::linking::LinkReport::default() -> vantadb::entity::linking::LinkReport
+impl core::fmt::Debug for vantadb::entity::linking::LinkReport
+pub fn vantadb::entity::linking::LinkReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::entity::linking::LinkReport
+impl core::marker::Freeze for vantadb::entity::linking::LinkReport
+impl core::marker::Send for vantadb::entity::linking::LinkReport
+impl core::marker::Sync for vantadb::entity::linking::LinkReport
+impl core::marker::Unpin for vantadb::entity::linking::LinkReport
+impl core::marker::UnsafeUnpin for vantadb::entity::linking::LinkReport
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::linking::LinkReport
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::linking::LinkReport
+pub struct vantadb::entity::linking::LinkSignal
+pub vantadb::entity::linking::LinkSignal::kind: vantadb::entity::linking::SignalKind
+pub vantadb::entity::linking::LinkSignal::value: vantadb::entity::linking::SignalValue
+impl vantadb::entity::linking::LinkSignal
+pub fn vantadb::entity::linking::LinkSignal::embedding(alloc::vec::Vec<f32>) -> Self
+pub fn vantadb::entity::linking::LinkSignal::text(vantadb::entity::linking::SignalKind, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for vantadb::entity::linking::LinkSignal
+pub fn vantadb::entity::linking::LinkSignal::clone(&self) -> vantadb::entity::linking::LinkSignal
+impl core::cmp::PartialEq for vantadb::entity::linking::LinkSignal
+pub fn vantadb::entity::linking::LinkSignal::eq(&self, &vantadb::entity::linking::LinkSignal) -> bool
+impl core::fmt::Debug for vantadb::entity::linking::LinkSignal
+pub fn vantadb::entity::linking::LinkSignal::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::entity::linking::LinkSignal
+impl core::marker::Freeze for vantadb::entity::linking::LinkSignal
+impl core::marker::Send for vantadb::entity::linking::LinkSignal
+impl core::marker::Sync for vantadb::entity::linking::LinkSignal
+impl core::marker::Unpin for vantadb::entity::linking::LinkSignal
+impl core::marker::UnsafeUnpin for vantadb::entity::linking::LinkSignal
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::linking::LinkSignal
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::linking::LinkSignal
+pub struct vantadb::entity::linking::ManualLink
+pub vantadb::entity::linking::ManualLink::left: alloc::string::String
+pub vantadb::entity::linking::ManualLink::right: alloc::string::String
+impl vantadb::entity::linking::ManualLink
+pub fn vantadb::entity::linking::ManualLink::new(impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+impl core::clone::Clone for vantadb::entity::linking::ManualLink
+pub fn vantadb::entity::linking::ManualLink::clone(&self) -> vantadb::entity::linking::ManualLink
+impl core::cmp::Eq for vantadb::entity::linking::ManualLink
+impl core::cmp::PartialEq for vantadb::entity::linking::ManualLink
+pub fn vantadb::entity::linking::ManualLink::eq(&self, &vantadb::entity::linking::ManualLink) -> bool
+impl core::fmt::Debug for vantadb::entity::linking::ManualLink
+pub fn vantadb::entity::linking::ManualLink::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::entity::linking::ManualLink
+impl core::marker::Freeze for vantadb::entity::linking::ManualLink
+impl core::marker::Send for vantadb::entity::linking::ManualLink
+impl core::marker::Sync for vantadb::entity::linking::ManualLink
+impl core::marker::Unpin for vantadb::entity::linking::ManualLink
+impl core::marker::UnsafeUnpin for vantadb::entity::linking::ManualLink
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::linking::ManualLink
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::linking::ManualLink
+pub struct vantadb::entity::linking::SignalContribution
+pub vantadb::entity::linking::SignalContribution::evidence: alloc::string::String
+pub vantadb::entity::linking::SignalContribution::kind: vantadb::entity::linking::SignalKind
+pub vantadb::entity::linking::SignalContribution::outcome: vantadb::entity::linking::SignalOutcome
+pub vantadb::entity::linking::SignalContribution::weight: f32
+impl core::clone::Clone for vantadb::entity::linking::SignalContribution
+pub fn vantadb::entity::linking::SignalContribution::clone(&self) -> vantadb::entity::linking::SignalContribution
+impl core::cmp::PartialEq for vantadb::entity::linking::SignalContribution
+pub fn vantadb::entity::linking::SignalContribution::eq(&self, &vantadb::entity::linking::SignalContribution) -> bool
+impl core::fmt::Debug for vantadb::entity::linking::SignalContribution
+pub fn vantadb::entity::linking::SignalContribution::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::entity::linking::SignalContribution
+impl core::marker::Freeze for vantadb::entity::linking::SignalContribution
+impl core::marker::Send for vantadb::entity::linking::SignalContribution
+impl core::marker::Sync for vantadb::entity::linking::SignalContribution
+impl core::marker::Unpin for vantadb::entity::linking::SignalContribution
+impl core::marker::UnsafeUnpin for vantadb::entity::linking::SignalContribution
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::linking::SignalContribution
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::linking::SignalContribution
+pub struct vantadb::entity::linking::SignalWeight
+pub vantadb::entity::linking::SignalWeight::m: f32
+pub vantadb::entity::linking::SignalWeight::u: f32
+impl vantadb::entity::linking::SignalWeight
+pub fn vantadb::entity::linking::SignalWeight::new(f32, f32) -> vantadb::error::Result<Self>
+impl core::clone::Clone for vantadb::entity::linking::SignalWeight
+pub fn vantadb::entity::linking::SignalWeight::clone(&self) -> vantadb::entity::linking::SignalWeight
+impl core::cmp::PartialEq for vantadb::entity::linking::SignalWeight
+pub fn vantadb::entity::linking::SignalWeight::eq(&self, &vantadb::entity::linking::SignalWeight) -> bool
+impl core::fmt::Debug for vantadb::entity::linking::SignalWeight
+pub fn vantadb::entity::linking::SignalWeight::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::Copy for vantadb::entity::linking::SignalWeight
+impl core::marker::StructuralPartialEq for vantadb::entity::linking::SignalWeight
+impl core::marker::Freeze for vantadb::entity::linking::SignalWeight
+impl core::marker::Send for vantadb::entity::linking::SignalWeight
+impl core::marker::Sync for vantadb::entity::linking::SignalWeight
+impl core::marker::Unpin for vantadb::entity::linking::SignalWeight
+impl core::marker::UnsafeUnpin for vantadb::entity::linking::SignalWeight
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::entity::linking::SignalWeight
+impl core::panic::unwind_safe::UnwindSafe for vantadb::entity::linking::SignalWeight
+pub fn vantadb::entity::linking::bits_to_posterior(f32) -> f32
+pub fn vantadb::entity::linking::link_entities(&[vantadb::entity::linking::LinkEntity], &vantadb::entity::linking::LinkConfig, &[vantadb::entity::linking::ManualLink]) -> vantadb::error::Result<vantadb::entity::linking::LinkReport>
+pub fn vantadb::entity::linking::match_score(&[vantadb::entity::linking::LinkSignal], &[vantadb::entity::linking::LinkSignal], &vantadb::entity::linking::LinkConfig) -> (f32, alloc::vec::Vec<vantadb::entity::linking::SignalContribution>)
+pub fn vantadb::entity::linking::signals_from_fields(&std::collections::hash::map::HashMap<alloc::string::String, vantadb::FieldValue>, &[(&str, vantadb::entity::linking::SignalKind)]) -> alloc::vec::Vec<vantadb::entity::linking::LinkSignal>
 pub mod vantadb::entity::scene
 pub struct vantadb::entity::scene::SceneNode
 pub vantadb::entity::scene::SceneNode::created: alloc::string::String
@@ -4875,6 +5178,7 @@ pub fn vantadb::Embedded::graph_degree_centrality(&self, &[u128]) -> vantadb::er
 pub fn vantadb::Embedded::graph_page_rank(&self, &[u128], usize, f64, f64) -> vantadb::error::Result<std::collections::hash::map::HashMap<u128, f64>>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::search(&self, vantadb::MemorySearchRequest) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemorySearchHit>>
+pub fn vantadb::Embedded::search_with_entity_boost(&self, vantadb::MemorySearchRequest, &vantadb::sdk::EntityBoost) -> vantadb::error::Result<vantadb::sdk::EntityBoostedSearch>
 pub fn vantadb::Embedded::search_with_method(&self, vantadb::MemorySearchRequest, core::option::Option<vantadb::index_port::IndexType>) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemorySearchHit>>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::search_all(&self, vantadb::MemorySearchRequest) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemorySearchHit>>
@@ -4893,6 +5197,89 @@ impl core::marker::Unpin for vantadb::Embedded
 impl core::marker::UnsafeUnpin for vantadb::Embedded
 impl !core::panic::unwind_safe::RefUnwindSafe for vantadb::Embedded
 impl !core::panic::unwind_safe::UnwindSafe for vantadb::Embedded
+pub struct vantadb::sdk::EntityBoost
+impl vantadb::sdk::EntityBoost
+pub const vantadb::sdk::EntityBoost::DEFAULT_WEIGHT: f32
+pub fn vantadb::sdk::EntityBoost::cluster_of(&self, &str, &str) -> core::option::Option<&str>
+pub fn vantadb::sdk::EntityBoost::is_empty(&self) -> bool
+pub fn vantadb::sdk::EntityBoost::link(self, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>, impl core::convert::Into<alloc::string::String>) -> Self
+pub fn vantadb::sdk::EntityBoost::new() -> Self
+pub fn vantadb::sdk::EntityBoost::weight(&self) -> f32
+pub fn vantadb::sdk::EntityBoost::with_weight(self, f32) -> Self
+impl core::clone::Clone for vantadb::sdk::EntityBoost
+pub fn vantadb::sdk::EntityBoost::clone(&self) -> vantadb::sdk::EntityBoost
+impl core::cmp::PartialEq for vantadb::sdk::EntityBoost
+pub fn vantadb::sdk::EntityBoost::eq(&self, &vantadb::sdk::EntityBoost) -> bool
+impl core::default::Default for vantadb::sdk::EntityBoost
+pub fn vantadb::sdk::EntityBoost::default() -> Self
+impl core::fmt::Debug for vantadb::sdk::EntityBoost
+pub fn vantadb::sdk::EntityBoost::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::sdk::EntityBoost
+impl core::marker::Freeze for vantadb::sdk::EntityBoost
+impl core::marker::Send for vantadb::sdk::EntityBoost
+impl core::marker::Sync for vantadb::sdk::EntityBoost
+impl core::marker::Unpin for vantadb::sdk::EntityBoost
+impl core::marker::UnsafeUnpin for vantadb::sdk::EntityBoost
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::sdk::EntityBoost
+impl core::panic::unwind_safe::UnwindSafe for vantadb::sdk::EntityBoost
+pub struct vantadb::sdk::EntityBoostProvenance
+pub vantadb::sdk::EntityBoostProvenance::base_score: f32
+pub vantadb::sdk::EntityBoostProvenance::cluster: alloc::string::String
+pub vantadb::sdk::EntityBoostProvenance::delta: f32
+pub vantadb::sdk::EntityBoostProvenance::peers: alloc::vec::Vec<alloc::string::String>
+impl core::clone::Clone for vantadb::sdk::EntityBoostProvenance
+pub fn vantadb::sdk::EntityBoostProvenance::clone(&self) -> vantadb::sdk::EntityBoostProvenance
+impl core::cmp::PartialEq for vantadb::sdk::EntityBoostProvenance
+pub fn vantadb::sdk::EntityBoostProvenance::eq(&self, &vantadb::sdk::EntityBoostProvenance) -> bool
+impl core::fmt::Debug for vantadb::sdk::EntityBoostProvenance
+pub fn vantadb::sdk::EntityBoostProvenance::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::sdk::EntityBoostProvenance
+impl core::marker::Freeze for vantadb::sdk::EntityBoostProvenance
+impl core::marker::Send for vantadb::sdk::EntityBoostProvenance
+impl core::marker::Sync for vantadb::sdk::EntityBoostProvenance
+impl core::marker::Unpin for vantadb::sdk::EntityBoostProvenance
+impl core::marker::UnsafeUnpin for vantadb::sdk::EntityBoostProvenance
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::sdk::EntityBoostProvenance
+impl core::panic::unwind_safe::UnwindSafe for vantadb::sdk::EntityBoostProvenance
+pub struct vantadb::sdk::EntityBoostReport
+impl vantadb::sdk::EntityBoostReport
+pub fn vantadb::sdk::EntityBoostReport::get(&self, &str, &str) -> core::option::Option<&vantadb::sdk::EntityBoostProvenance>
+pub fn vantadb::sdk::EntityBoostReport::is_empty(&self) -> bool
+pub fn vantadb::sdk::EntityBoostReport::iter(&self) -> impl core::iter::traits::iterator::Iterator<Item = (&(alloc::string::String, alloc::string::String), &vantadb::sdk::EntityBoostProvenance)>
+pub fn vantadb::sdk::EntityBoostReport::len(&self) -> usize
+impl core::clone::Clone for vantadb::sdk::EntityBoostReport
+pub fn vantadb::sdk::EntityBoostReport::clone(&self) -> vantadb::sdk::EntityBoostReport
+impl core::cmp::PartialEq for vantadb::sdk::EntityBoostReport
+pub fn vantadb::sdk::EntityBoostReport::eq(&self, &vantadb::sdk::EntityBoostReport) -> bool
+impl core::default::Default for vantadb::sdk::EntityBoostReport
+pub fn vantadb::sdk::EntityBoostReport::default() -> vantadb::sdk::EntityBoostReport
+impl core::fmt::Debug for vantadb::sdk::EntityBoostReport
+pub fn vantadb::sdk::EntityBoostReport::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::sdk::EntityBoostReport
+impl core::marker::Freeze for vantadb::sdk::EntityBoostReport
+impl core::marker::Send for vantadb::sdk::EntityBoostReport
+impl core::marker::Sync for vantadb::sdk::EntityBoostReport
+impl core::marker::Unpin for vantadb::sdk::EntityBoostReport
+impl core::marker::UnsafeUnpin for vantadb::sdk::EntityBoostReport
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::sdk::EntityBoostReport
+impl core::panic::unwind_safe::UnwindSafe for vantadb::sdk::EntityBoostReport
+pub struct vantadb::sdk::EntityBoostedSearch
+pub vantadb::sdk::EntityBoostedSearch::boost_report: vantadb::sdk::EntityBoostReport
+pub vantadb::sdk::EntityBoostedSearch::hits: alloc::vec::Vec<vantadb::MemorySearchHit>
+impl core::clone::Clone for vantadb::sdk::EntityBoostedSearch
+pub fn vantadb::sdk::EntityBoostedSearch::clone(&self) -> vantadb::sdk::EntityBoostedSearch
+impl core::cmp::PartialEq for vantadb::sdk::EntityBoostedSearch
+pub fn vantadb::sdk::EntityBoostedSearch::eq(&self, &vantadb::sdk::EntityBoostedSearch) -> bool
+impl core::fmt::Debug for vantadb::sdk::EntityBoostedSearch
+pub fn vantadb::sdk::EntityBoostedSearch::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+impl core::marker::StructuralPartialEq for vantadb::sdk::EntityBoostedSearch
+impl core::marker::Freeze for vantadb::sdk::EntityBoostedSearch
+impl core::marker::Send for vantadb::sdk::EntityBoostedSearch
+impl core::marker::Sync for vantadb::sdk::EntityBoostedSearch
+impl core::marker::Unpin for vantadb::sdk::EntityBoostedSearch
+impl core::marker::UnsafeUnpin for vantadb::sdk::EntityBoostedSearch
+impl core::panic::unwind_safe::RefUnwindSafe for vantadb::sdk::EntityBoostedSearch
+impl core::panic::unwind_safe::UnwindSafe for vantadb::sdk::EntityBoostedSearch
 pub struct vantadb::sdk::ExportReport
 pub vantadb::sdk::ExportReport::duration_ms: u64
 pub vantadb::sdk::ExportReport::namespaces: alloc::vec::Vec<alloc::string::String>
@@ -7194,6 +7581,7 @@ pub vantadb::Config::flat_threshold: core::option::Option<usize>
 pub vantadb::Config::flush_threshold: core::option::Option<usize>
 pub vantadb::Config::force_mmap: bool
 pub vantadb::Config::host: alloc::string::String
+pub vantadb::Config::insert_batch: vantadb::config::InsertBatchConfig
 pub vantadb::Config::insert_lock_timeout_ms: u64
 pub vantadb::Config::jwt_secret: core::option::Option<alloc::string::String>
 pub vantadb::Config::llm_model: alloc::string::String
@@ -7252,6 +7640,7 @@ pub fn vantadb::config::Config::with_eviction_weights(self, f64, f64, f64, f64) 
 pub fn vantadb::config::Config::with_flat_threshold(self, core::option::Option<usize>) -> Self
 pub fn vantadb::config::Config::with_flush_threshold(self, usize) -> Self
 pub fn vantadb::config::Config::with_force_mmap(self, bool) -> Self
+pub fn vantadb::config::Config::with_insert_batching(self, vantadb::config::InsertBatchConfig) -> Self
 pub fn vantadb::config::Config::with_jwt_secret(self, core::option::Option<alloc::string::String>) -> Self
 pub fn vantadb::config::Config::with_local_model_path(self, alloc::string::String) -> Self
 pub fn vantadb::config::Config::with_log_format(self, vantadb::config::LogFormat) -> Self
@@ -7433,6 +7822,7 @@ pub fn vantadb::Embedded::graph_degree_centrality(&self, &[u128]) -> vantadb::er
 pub fn vantadb::Embedded::graph_page_rank(&self, &[u128], usize, f64, f64) -> vantadb::error::Result<std::collections::hash::map::HashMap<u128, f64>>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::search(&self, vantadb::MemorySearchRequest) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemorySearchHit>>
+pub fn vantadb::Embedded::search_with_entity_boost(&self, vantadb::MemorySearchRequest, &vantadb::sdk::EntityBoost) -> vantadb::error::Result<vantadb::sdk::EntityBoostedSearch>
 pub fn vantadb::Embedded::search_with_method(&self, vantadb::MemorySearchRequest, core::option::Option<vantadb::index_port::IndexType>) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemorySearchHit>>
 impl vantadb::Embedded
 pub fn vantadb::Embedded::search_all(&self, vantadb::MemorySearchRequest) -> vantadb::error::Result<alloc::vec::Vec<vantadb::MemorySearchHit>>

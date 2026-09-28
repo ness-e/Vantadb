@@ -211,3 +211,49 @@ no feature-gate matrix change.
   test + `wal_resilience`/`chaos_integrity` run with `enabled = true`.
 - On landing with §Acceptance evidence: flip this ADR `proposed → accepted`,
   record measured win + env in this file, and close the loop on `DRV-015` Phase 1.
+
+## Implementation status — WIRE-06 (2026-09-28)
+
+> **Addendum — not a status flip.** Regla 5: the ADR acceptance is the owner's
+> to articulate. This section records what landed, the deviation rationale and
+> the evidence, so the flip decision is a one-liner for the owner.
+
+### What shipped
+
+- `Config::insert_batch: InsertBatchConfig` — opt-in, default OFF, additive
+  (`enabled`, `max_batch_records` 32, `max_wait_ms` 1, `max_queued_records`
+  1024; env `VANTADB_INSERT_BATCH_{ENABLED,MAX_RECORDS,WAIT_MS,QUEUE}`) —
+  `src/config.rs`, documented in `docs/user/operations/CONFIGURATION.md`.
+- `AsyncIngestionPipeline` group-commit worker (`src/ingestion.rs`): drains up
+  to `max_batch_records` tasks (window `max_wait_ms` from the first dequeue),
+  commits with ONE `batch_insert_with_opts` under one `insert_lock`, and acks
+  every waiter only after the commit (`ack ⇒ applied + durable per SyncMode`).
+  Single-task batches and active transactions fall back to per-record
+  `insert()` (ERR-013 buffering preserved). Default OFF = byte-identical path.
+- The WAL side of this spec is delivered **through `batch_append`**: one
+  `ShardedWal::batch_append` per cycle groups by shard and pays ≤1 `maybe_sync`
+  (≤1 fsync) per shard per cycle — the group-commit effect — with no new queue,
+  no watermark and no on-disk format change.
+
+### Why not the literal WAL queue (deviation, declared)
+
+`FIND-61` measured `t_fsync ≈ 0.16 ms ≈ 1.5%` of the per-record cost in the
+ingestion regime: a WAL-only async queue cannot reach the ≥5× ingestion gate
+the plan fixed, while it would add a watermark protocol to
+`flush()`/checkpoint (integration risk). Grouping whole operations amortizes
+the measured dominant term (lock + HNSW + KV) and subsumes fsync batching via
+`batch_append`. The weaker ack rule of §Design (`returned = queued`) is not
+used: ack stays `returned ⇒ applied + durable`, strictly stronger, keeping
+read-your-writes.
+
+### Acceptance mapping (§Acceptance → WIRE-06)
+
+| ADR-038 criterion | Status under WIRE-06 |
+|---|---|
+| ≥10× batch throughput (wal bench) | Not re-run for the WAL-only path; the ingestion A/B carries the plan gate (≥5× end-to-end). `benches/wal_throughput.rs` stays the witness rig for the `batch_append` effect. |
+| Declared loss window, tested | Subsumed: with ack-after-commit there is no acked-then-lost window; in-flight un-acked tasks are lost only as any client error (retry). Integrity tests (WAL count, reopen/replay, batch-atomic error, txn isolation) are green. |
+| Default intact | ✅ `enabled = false` keeps the per-record path byte-identical; scoped suite 220/220. |
+
+**Deferred (tracked):** dedicated `wal_group_commit` bench + failpoint loss
+window + engine-level variant for concurrent single-`insert()` writers +
+appendable segments → `FIND-182` (Backlog). Status stays `proposed`.
