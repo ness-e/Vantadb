@@ -46,11 +46,13 @@ fn record_metadata_drop(n: u64) {
 }
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
-use std::sync::{Arc, Condvar, Mutex, PoisonError};
+use std::sync::{Mutex, PoisonError};
 use vantadb::config::Config;
 use vantadb::graph::TraversalDirection;
 use vantadb::sdk::*;
 use vantadb::{BackendKind, Error, SparseVector, MAX_BATCH_SIZE, MAX_F32_VEC_LEN, MAX_K};
+// Durability gate + ERR-022 clamp policy: shared std-only leaf (WIRE-07).
+use vantadb_ffi_core::{OpGate, OpGuard};
 use wasm_bindgen::prelude::*;
 
 mod opfs;
@@ -424,85 +426,6 @@ impl PersistCache {
             deleted: HashSet::new(),
             invalid: false,
         }
-    }
-}
-
-/// Durability gate: rejects new operations once `close()` has begun and keeps
-/// `close()` waiting until every in-flight operation finishes. Mirrors
-/// `vantadb-node/src/lib.rs` and `vantadb-python/src/lib.rs` — closes the
-/// write-after-close race where an operation started before `close()` would
-/// still write to the engine after close returned.
-struct OpGate {
-    state: Arc<(Mutex<OpState>, Condvar)>,
-}
-
-struct OpState {
-    closing: bool,
-    count: usize,
-}
-
-impl OpGate {
-    fn new() -> Self {
-        Self {
-            state: Arc::new((
-                Mutex::new(OpState {
-                    closing: false,
-                    count: 0,
-                }),
-                Condvar::new(),
-            )),
-        }
-    }
-
-    /// Register a new in-flight operation. Returns `None` if `close()` has
-    /// started (new operations are rejected past the durability barrier).
-    fn try_enter(&self) -> Option<OpGuard> {
-        let (lock, _) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        if state.closing {
-            return None;
-        }
-        state.count += 1;
-        Some(OpGuard {
-            state: self.state.clone(),
-        })
-    }
-
-    /// Start closing and block until every in-flight operation drains.
-    ///
-    /// Sets `closing = true` (so new ops are rejected) then waits until
-    /// `count == 0`. Blocks the calling thread; acceptable: this is the
-    /// durability barrier and engine operations are bounded.
-    fn drain(&self) {
-        let (lock, cvar) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        state.closing = true;
-        // wasm32-unknown-unknown: std Condvar::wait panics (single-threaded
-        // no_threads shim) and could never make progress anyway — the only
-        // thread that could drain `count` is this one, so a blocking wait
-        // would deadlock the JS event loop. The barrier still rejects new
-        // ops (closing=true); in-flight async ops finish on the event loop.
-        #[cfg(not(target_arch = "wasm32"))]
-        while state.count > 0 {
-            state = cvar.wait(state).unwrap_or_else(PoisonError::into_inner);
-        }
-        #[cfg(target_arch = "wasm32")]
-        let _ = cvar;
-    }
-}
-
-/// RAII guard that decrements the in-flight count and wakes `close()` when
-/// dropped (at the end of the owning method, after the engine call completes).
-struct OpGuard {
-    state: Arc<(Mutex<OpState>, Condvar)>,
-}
-
-impl Drop for OpGuard {
-    fn drop(&mut self) {
-        let (lock, cvar) = &*self.state;
-        let mut state = lock.lock().unwrap_or_else(PoisonError::into_inner);
-        state.count -= 1;
-        cvar.notify_one();
     }
 }
 
