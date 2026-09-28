@@ -1,10 +1,10 @@
 import { Client as WasmClient } from "vantadb-wasm";
 
-import type { SearchRequestInput } from "vantadb-wasm";
+import type { ListOptionsInput, MemoryRecordInput, SearchRequestInput } from "vantadb-wasm";
 
 import { DbError, ERROR_CODES, wrapWasmError } from "./errors.js";
 import { _mapRecord, buildSearchRequestBase } from "./guards.js";
-import { normalizeFilterItems, normalizeMetadata, normalizeValue } from "./metadata.js";
+import { normalizeMetadata, normalizeValue, toFilterItems } from "./metadata.js";
 
 import type {
   BatchSearchRequest,
@@ -14,7 +14,7 @@ import type {
   DeleteByFilterInput,
   DeleteInput,
   ExportReport,
-  FilterItem,
+  FilterSpec,
   FlatValue,
   GetInput,
   GraphBfsResult,
@@ -129,7 +129,7 @@ export interface SystemClient {
   exportNamespace(
     path: string,
     namespace: string,
-    filter?: FilterItem[],
+    filter?: FilterSpec,
   ): ExportReport;
   importRecords(records: MemoryInput[]): ImportReport;
   importFile(path: string): ImportReport;
@@ -357,7 +357,7 @@ export class Client {
       auditTextIndexDeep: (namespace?: string) =>
         this.auditTextIndexDeep(namespace),
       exportAll: (path: string) => this.exportAll(path),
-      exportNamespace: (path: string, namespace: string, filter?: FilterItem[]) =>
+      exportNamespace: (path: string, namespace: string, filter?: FilterSpec) =>
         this.exportNamespace(path, namespace, filter),
       importRecords: (records: MemoryInput[]) => this.importRecords(records),
       importFile: (path: string) => this.importFile(path),
@@ -447,7 +447,10 @@ export class Client {
       if (input.metadata !== undefined) {
         wire.metadata = normalizeMetadata(input.metadata);
       }
-      return _mapRecord(this.inner.put(wire));
+      // R1: `metadata` is normalized here (`Date` → tagged `DateTime`), so the
+      // runtime value always matches the wire shape; the input type is wider
+      // than the wasm `.d.ts` (FIND-125 pattern). Erased cast: zero runtime change.
+      return _mapRecord(this.inner.put(wire as unknown as MemoryRecordInput));
     });
   }
 
@@ -476,7 +479,11 @@ export class Client {
         }
         return wire;
       });
-      const records = this.inner.put_batch(normalized) as unknown[];
+      // R1: metadata is normalized in-place above; wider input type vs the
+      // hand-written wasm d.ts (FIND-125 pattern). Erased cast: zero runtime change.
+      const records = this.inner.put_batch(
+        normalized as unknown as MemoryRecordInput[],
+      ) as unknown[];
       for (let i = 0; i < records.length; i++) {
         records[i] = _mapRecord(records[i]);
       }
@@ -565,7 +572,7 @@ export class Client {
         // breaks the WASM deserializer (not the same as an absent field).
         wire.filters = normalizeMetadata(options.filters);
       }
-      const raw = this.inner.list(namespace, wire);
+      const raw = this.inner.list(namespace, wire as unknown as ListOptionsInput);
       const items: unknown[] = raw.records ?? [];
       for (let i = 0; i < items.length; i++) {
         items[i] = _mapRecord(items[i]);
@@ -588,6 +595,20 @@ export class Client {
     // (`SearchRequest` in `vantadb-wasm/src/lib.rs:152-168` — tagged
     // filters, `text_query: null` = None); the hand-written `.d.ts` input
     // type is narrower/drifted. Erased cast: zero runtime change.
+    // WIRE-03: sparse search is NOT wired in the WASM binding — passing it
+    // through would be silently dropped by serde (no error, wrong results).
+    // Fail loudly instead; `vantadb/native` supports `query_sparse`. An empty
+    // `{}` is "skip" (same invariant as `hasSparse` in `buildSearchRequestBase`).
+    const hasSparse =
+      request.query_sparse !== undefined &&
+      request.query_sparse !== null &&
+      Object.keys(request.query_sparse).length > 0;
+    if (hasSparse) {
+      throw new DbError(
+        ERROR_CODES.VALIDATION_ERROR,
+        "search: query_sparse is not supported by the WASM backend; use the native backend ('vantadb/native') for sparse queries",
+      );
+    }
     return {
       ...buildSearchRequestBase(request, explain),
       filters: normalizeMetadata(request.filters) ?? {},
@@ -692,7 +713,9 @@ export class Client {
    *
    * WASM wire method: `count()` (TS-04 parity with Python / core SDK).
    *
-   * @param input - `{namespace}` plus optional `filters` (`{field, op, value}` items).
+   * @param input - `{namespace}` plus optional `filters`: the native
+   *   `{field, op, value}` items or the canonical `$op` DSL
+   *   (`{field: {"$gte": v}}`, interchangeable with Python/MCP/CLI).
    * @returns Number of matching records (bigint).
    * @throws {DbError} If the instance is closed.
    *
@@ -707,10 +730,7 @@ export class Client {
   count(input: CountInput): bigint {
     this._assertOpen();
     return this._wasm("count", () =>
-      this.inner.count(
-        input.namespace,
-        normalizeFilterItems(input.filters ?? []),
-      ),
+      this.inner.count(input.namespace, toFilterItems(input.filters)),
     );
   }
 
@@ -825,7 +845,9 @@ export class Client {
    *
    * @param path - Output file path.
    * @param namespace - Namespace to export.
-   * @param filter - Optional AND-combined metadata filter; omitting it exports the full namespace.
+   * @param filter - Optional AND-combined metadata filter: the native
+   *   `{field, op, value}` items or the canonical `$op` DSL. Omitting it
+   *   exports the full namespace.
    * @returns Export report with counts and timing.
    * @throws {DbError} If the instance is closed or the export fails.
    *
@@ -840,19 +862,20 @@ export class Client {
   exportNamespace(
     path: string,
     namespace: string,
-    filter?: FilterItem[],
+    filter?: FilterSpec,
   ): ExportReport {
     this._assertOpen();
-    return this._wasm(
-      "exportNamespace",
-      () =>
-        // FIND-125: runtime is the core `ExportReport`
-        // (`src/sdk/types/record.rs:179-188`); the wasm `.d.ts` shape is
-        // drifted. Erased cast: zero runtime change.
-        (filter && filter.length > 0
-          ? this.inner.export_namespace_filtered(path, namespace, normalizeFilterItems(filter))
-          : this.inner.export_namespace(path, namespace)) as unknown as ExportReport,
-    );
+    return this._wasm("exportNamespace", () => {
+      // WIRE-03: accept the canonical `$op` DSL at the boundary too; an
+      // empty/absent filter exports the full namespace (unchanged semantics).
+      const items = toFilterItems(filter);
+      // FIND-125: runtime is the core `ExportReport`
+      // (`src/sdk/types/record.rs:179-188`); the wasm `.d.ts` shape is
+      // drifted. Erased cast: zero runtime change.
+      return (items.length > 0
+        ? this.inner.export_namespace_filtered(path, namespace, items)
+        : this.inner.export_namespace(path, namespace)) as unknown as ExportReport;
+    });
   }
 
   /**
@@ -871,7 +894,7 @@ export class Client {
   deleteByFilter(input: DeleteByFilterInput): bigint {
     this._assertOpen();
     return this._wasm("deleteByFilter", () =>
-      this.inner.delete_by_filter(input.namespace, normalizeFilterItems(input.filter)),
+      this.inner.delete_by_filter(input.namespace, toFilterItems(input.filter)),
     );
   }
 
@@ -929,7 +952,8 @@ export class Client {
           if (r.metadata !== undefined) {
             wire.metadata = normalizeMetadata(r.metadata);
           }
-          this.inner.put(wire);
+          // R1: see put() — normalized metadata vs the wider input type.
+          this.inner.put(wire as unknown as MemoryRecordInput);
           if (existed) {
             updated += 1;
           } else {

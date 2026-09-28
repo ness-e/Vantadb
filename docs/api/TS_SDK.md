@@ -215,6 +215,7 @@ put(input: {
   payload: string;
   metadata?: Record<string, Value>;
   vector?: number[];
+  sparse_vector?: Record<number, number>;  // sparse term weights by dimension id
   ttl_ms?: number;
 }): MemoryRecord
 ```
@@ -230,6 +231,7 @@ putBatch(inputs: Array<{
   payload: string;
   metadata?: Record<string, Value>;
   vector?: number[];
+  sparse_vector?: Record<number, number>;  // sparse term weights by dimension id
   ttl_ms?: number;
 }>): MemoryRecord[]
 ```
@@ -281,6 +283,24 @@ listNamespaces(): string[]
 
 List all namespaces in the database.
 
+### Filters (`count` / `deleteByFilter` / `exportNamespace`)
+
+These methods accept two interchangeable filter forms:
+
+- the native `{field, op, value}` items
+  (`op: "Eq" | "Neq" | "Gt" | "Gte" | "Lt" | "Lte"`);
+- the canonical `$op` DSL shared with Python/MCP/CLI:
+  `{field: value}` = implicit `$eq`, `{field: {"$gte": v, "$lt": v2}}` = range.
+  A flat object is AND-combined; unknown `$op` keys throw
+  `VANTADB_VALIDATION_ERROR` (never ignored).
+
+Values accept plain JS values, tagged `Value`s, and `Date` instances (wire form
+`DateTime`, RFC 3339).
+
+```ts
+db.count({ namespace: "docs", filters: { when: { $gte: new Date("2026-06-01"), $lt: new Date("2026-12-01") } } });
+```
+
 ### Search
 
 #### `search()`
@@ -295,6 +315,7 @@ Hybrid search combining vector similarity and BM25 text search with RRF fusion.
 interface SearchRequest {
   namespace: string;
   query_vector: number[];
+  query_sparse?: Record<number, number>;  // sparse query weights by dimension id (native backend)
   filters?: Record<string, Value>;
   text_query?: string;          // BM25 lexical search term
   top_k?: number;               // default: 10
@@ -302,6 +323,11 @@ interface SearchRequest {
   explain?: boolean;            // include score breakdown
 }
 ```
+
+**Text-only and sparse (WIRE-03):** an empty `query_vector` with `text_query`
+selects text-only (BM25) search. `query_sparse` is fused with the dense/text
+scores and requires the native backend (`vantadb/native`) — the WASM backend
+throws instead of dropping the field silently.
 
 **Score, not distance (W1/API-02, supersedes CODE-091):** the `score` field in
 `SearchHit` is a **relevance score — higher is better** — matching the Rust

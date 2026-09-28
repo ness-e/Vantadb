@@ -13,16 +13,22 @@ export type Value =
   | { Int: number }
   | { Float: number }
   | { Bool: boolean }
+  | { DateTime: string }
   | { Null: null }
   | { ListString: string[] }
   | { ListInt: number[] }
   | { ListFloat: number[] }
-  | { ListBool: boolean[] };
+  | { ListBool: boolean[] }
+  | { ListDateTime: string[] };
 
 export type Metadata = Record<string, Value>;
 
 /** Plain JS value accepted as metadata/filter input (normalized internally to `Value`). */
 export type FlatValue = string | number | boolean | null;
+
+/** Caller-provided input value: plain JS value, a JS `Date` (normalized to the
+ * tagged `DateTime` wire form), or the tagged `Value` form itself. */
+export type UntrustedInput = FlatValue | Value | Date;
 
 /**
  * Graph node id accepted by the public API: a safe-integer `number` or a
@@ -33,11 +39,11 @@ export type NodeId = number | bigint;
 
 /**
  * Metadata/filters as provided by callers: plain JS values (preferred,
- * e.g. `{ lang: "en" }`) or the tagged wire form (backward compat,
- * e.g. `{ lang: { String: "en" } }`). Records returned by the engine
- * always use the tagged `Metadata` form.
+ * e.g. `{ lang: "en" }`), `Date` instances (normalized to `DateTime`), or the
+ * tagged wire form (backward compat, e.g. `{ lang: { String: "en" } }`).
+ * Records returned by the engine always use the tagged `Metadata` form.
  */
-export type MetadataInput = Record<string, FlatValue | Value>;
+export type MetadataInput = Record<string, UntrustedInput>;
 
 export interface MemoryInput {
   namespace: string;
@@ -104,7 +110,8 @@ export interface DeleteInput {
 /** Input for `deleteByFilter`. */
 export interface DeleteByFilterInput {
   namespace: string;
-  filter: FilterItem[];
+  /** Native `FilterItem[]` wire form or the canonical `$op` DSL (`FilterSpec`). */
+  filter: FilterSpec;
 }
 
 /** Input for `list`: namespace plus the usual page options. */
@@ -115,7 +122,8 @@ export interface ListInput extends ListOptions {
 /** Input for `count`. */
 export interface CountInput {
   namespace: string;
-  filters?: FilterItem[];
+  /** Native `FilterItem[]` wire form or the canonical `$op` DSL (`FilterSpec`). */
+  filters?: FilterSpec;
 }
 
 /** Input for `supersede`. */
@@ -141,6 +149,11 @@ export interface SimilarToKeyInput {
 export interface SearchRequest {
   namespace: string;
   query_vector: number[];
+  /** Sparse query vector keyed by dimension id. Fused with any dense/text
+   * scores. Requires the native backend (`vantadb/native`); the WASM backend
+   * throws an explicit error (sparse is not wired there). An empty
+   * `query_vector` with `text_query` selects text-only (BM25) search. */
+  query_sparse?: Record<number, number> | null;
   filters?: MetadataInput;
   text_query?: string;
   top_k?: number;
@@ -231,9 +244,27 @@ export type FilterOp = "Eq" | "Neq" | "Gt" | "Gte" | "Lt" | "Lte";
 export interface FilterItem {
   field: string;
   op: FilterOp;
-  /** Plain JS value (preferred) or tagged wire form (backward compat). */
-  value: FlatValue | Value;
+  /** Plain JS value, `Date`, or tagged wire form (backward compat). */
+  value: UntrustedInput;
 }
+
+/** Filter operators of the canonical cross-SDK `$op` DSL (Python/MCP/CLI parity). */
+export type FilterOperator = "$eq" | "$neq" | "$gt" | "$gte" | "$lt" | "$lte";
+
+/** One condition for {@link FilterInput}: an input value (implicit `$eq`) or an
+ * object of `$op` keys mapped to values (`{$gte: v, $lt: v2}` = range). */
+export type FilterCondition =
+  | UntrustedInput
+  | { [op in FilterOperator]?: UntrustedInput };
+
+/** Canonical cross-SDK filter DSL, interchangeable with Python/MCP/CLI:
+ * `{field: value}` = implicit `$eq`; `{field: {$gte: v}}` = advanced op(s).
+ * A flat object is AND-combined (the canonical `$and` form). */
+export type FilterInput = Record<string, FilterCondition>;
+
+/** Filter argument accepted by `count`/`deleteByFilter`/`exportNamespace`:
+ * the native `FilterItem[]` wire form or the canonical `$op` DSL. */
+export type FilterSpec = FilterItem[] | FilterInput;
 
 export interface ImportReport {
   inserted: number;

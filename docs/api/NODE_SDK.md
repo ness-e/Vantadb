@@ -226,6 +226,13 @@ await db.close();
 > **Note:** `metadata` uses the tagged `VantaValue` form, e.g.
 > `{ tag: { String: "keep" } }`, `{ count: { Int: 3 } }`. `node_id` is a
 > decimal **string** — u128 ids exceed `Number.MAX_SAFE_INTEGER`.
+>
+> **Sparse vectors (WIRE-03):** `put()` accepts `sparse_vector` and `search()`
+> accepts `query_sparse`, both as `{ "<dimension-id>": weight }` maps (finite
+> floats; keys arrive as strings because JS object keys always are — Python
+> requires `int` keys instead). Sparse scores are fused with dense/text scores.
+> An empty `query_vector` combined with `text_query` selects **text-only**
+> (BM25) search; with `query_sparse` it runs sparse-only.
 
 ### Search
 
@@ -233,11 +240,13 @@ await db.close();
 const hits = await db.search({
   namespace: "docs",
   query_vector: [0.9, 0.1],
+  query_sparse: { "7": 1.5 },    // optional: sparse term weights (WIRE-03)
   text_query: "rust programming", // optional: enables hybrid RRF fusion
   top_k: 10,
   distance_metric: "Cosine",     // or "Euclidean"
   filters: { lang: { String: "en" } },
 });
+// text-only: db.search({ namespace: "docs", query_vector: [], text_query: "rust" })
 // hit: { record: MemoryRecord, score: number, explanation?: SearchExplanationHit }
 ```
 

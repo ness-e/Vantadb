@@ -83,6 +83,7 @@ class SearchRequest:
     distance_metric: str | None
     method: str | None
     explain: bool
+    query_sparse: dict | None
 
     def __init__(
         self,
@@ -94,6 +95,7 @@ class SearchRequest:
         distance_metric: str | None = None,
         method: str | None = None,
         explain: bool = False,
+        query_sparse: dict | None = None,
     ) -> None: ...
 
     def asdict(self) -> dict:
@@ -142,6 +144,7 @@ class AsyncClient:
         method: str | None = None,
         explain: bool = False,
         exclude_superseded: bool = False,
+        query_sparse: dict | None = None,
     ) -> list[SearchHit]: ...
     async def search_multi(
         self,
@@ -154,6 +157,7 @@ class AsyncClient:
         distance_metric: str | None = None,
         explain: bool = False,
         exclude_superseded: bool = False,
+        query_sparse: dict | None = None,
     ) -> list[SearchHit]: ...
     @property
     def memory(self) -> AsyncMemoryClient: ...
@@ -170,6 +174,7 @@ class AsyncClient:
         metadata: dict | None = None,
         vector: list[float] | None = None,
         ttl_ms: int | None = None,
+        sparse_vector: dict | None = None,
     ) -> Record: ...
     async def delete_by_filter(self, namespace: str, filters: dict) -> int: ...
     async def count(self, namespace: str, filters: dict | None = None) -> int: ...
@@ -265,5 +270,6 @@ class AsyncClient:
         text_query: str | None = None,
         top_k: int = 10,
         distance_metric: str | None = None,
+        query_sparse: dict | None = None,
     ) -> dict: ...
     def __repr__(self) -> str: ...

@@ -15,6 +15,12 @@
 // Parameter overrides live on each `#[napi(ts_arg_type=…)]` in src/lib.rs per the
 // official mechanism: https://napi.rs/docs/concepts/types-overwrite
 // Runtime parsing/validation happens in Rust regardless of these types.
+//
+// Casing (Gate P, API-01 foundation): public methods are camelCase (`putBatch`);
+// payload keys stay snake_case until the wire payload migrates in W1/API-02 —
+// one casing per payload. Normative table:
+// `docs/api/BINDINGS_NAMESPACES.md` § Casing Contract. `node_id`/`id` and
+// graph ids travel as decimal strings (u128 > Number.MAX_SAFE_INTEGER).
 
 /** Tagged JSON representation of a graph/metadata field value (serde externally-tagged enum). */
 export type VantaValue =
@@ -47,6 +53,9 @@ export interface MemoryInput {
   payload: string
   metadata?: VantaMetadata
   vector?: number[]
+  /** Sparse term-weight vector keyed by dimension id. Empty/undefined skips
+   * sparse indexing. */
+  sparse_vector?: Record<string, number> | null
   /** TTL in milliseconds relative to now. Must be a non-negative integer. */
   ttl_ms?: number
 }
@@ -87,6 +96,9 @@ export interface MemoryListResult {
 export interface SearchRequest {
   namespace: string
   query_vector: number[]
+  /** Sparse query vector keyed by dimension id; fused with dense/text scores.
+   * Pass an empty `query_vector` with `text_query` for text-only (BM25). */
+  query_sparse?: Record<string, number> | null
   filters?: VantaMetadata
   text_query?: string
   top_k?: number

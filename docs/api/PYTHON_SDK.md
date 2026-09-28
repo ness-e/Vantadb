@@ -176,9 +176,15 @@ db.put(
     metadata: Optional[dict] = None,
     vector: Optional[VectorInput] = None,
     ttl_ms: Optional[int] = None,
+    sparse_vector: Optional[dict] = None,
 ) -> Record
 ```
 Insert or update a memory record. The `metadata` is a dict of scalar fields.
+`sparse_vector` is an optional `{dimension_id: weight}` dict (u32 dimension ids,
+finite floats) that participates in sparse search alongside the dense vector —
+the same shape WASM/TS `put()` accept. Keys must be Python `int`s (`{7: 1.5}`);
+numeric-string keys (`{"7": 1.5}`) are rejected, unlike the JS bindings where
+object keys are always strings.
 #### `put_batch()`
 
 ```python
@@ -203,7 +209,8 @@ db.put_batch([
 
 Per-record `namespace` routes each record independently (ERR-030). Metadata
 accepts the same scalar values as `put()` (`str`, `int`, `float`, `bool`,
-`datetime`, homogeneous lists). For zero-copy ingestion of a 2D NumPy vector
+`datetime`, homogeneous lists); `sparse_vector` (optional `{dim: weight}` dict)
+follows the same shape as `put()`. For zero-copy ingestion of a 2D NumPy vector
 matrix use `put_batch_raw(vectors, keys, ...)` (PERF-15 buffer path).
 
 Returns a list of `Record` objects in input order.
@@ -220,13 +227,15 @@ db.search_multi(
     distance_metric: Optional[str] = None,
     explain: bool = False,
     exclude_superseded: bool = False,
+    query_sparse: Optional[dict] = None,
 ) -> List[SearchHit]
 ```
 
 Hybrid search across several namespaces in one call: each namespace is
 searched independently and results are merged by descending `score`, capped
 at `top_k` globally. `namespaces` must be non-empty. Also available as
-`db.memory.search_multi(...)`.
+`db.memory.search_multi(...)`. `query_sparse` accepts the same
+`{dimension_id: weight}` dict as `memory.search()`.
 
 ```python
 hits = db.search_multi(["docs", "kb"], [0.1] * 384, top_k=5)
@@ -282,9 +291,19 @@ db.memory.search(
     method: Optional[str] = None,
     explain: bool = False,
     exclude_superseded: bool = False,
+    query_sparse: Optional[dict] = None,
 ) -> List[SearchHit]
 ```
 Search namespace-scoped persistent memory records by vector + filters + text_query.
+
+`query_sparse` is an optional `{dimension_id: weight}` dict fused with the
+dense/text scores (sparse search). An empty `query_vector` with `text_query`
+selects **text-only** (BM25) search; with `query_sparse` it runs sparse-only.
+
+```python
+hits = db.search("ns", [], text_query="quick brown fox")          # text-only
+hits = db.search("ns", [0.1] * 384, query_sparse={7: 1.5, 42: 0.75})
+```
 
 The `method` parameter accepts `"ivf"`, `"scann"`, `"flat"`, or `"hnsw"` to explicitly override the dense-vector index backend. `None` (default) keeps automatic engine routing.
 
@@ -309,7 +328,7 @@ db.explain_memory_search(
     text_query: Optional[str] = None,
     top_k: int = 10,
     distance_metric: Optional[str] = None,
-    method: Optional[str] = None,
+    query_sparse: Optional[dict] = None,
 ) -> dict
 ```
 Returns a detailed breakdown of how a memory search arrives at its results.

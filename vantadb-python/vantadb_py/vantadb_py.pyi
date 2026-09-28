@@ -189,6 +189,7 @@ class Client:
         metadata: dict | None = None,
         vector: Any | None = None,
         ttl_ms: int | None = None,
+        sparse_vector: dict | None = None,
     ) -> Record: ...
     def put_batch(
         self,
@@ -219,6 +220,7 @@ class Client:
         method: str | None = None,
         explain: bool = False,
         exclude_superseded: bool = False,
+        query_sparse: dict | None = None,
     ) -> list[SearchHit]: ...
     def search_multi(
         self,
@@ -230,6 +232,7 @@ class Client:
         distance_metric: str | None = None,
         explain: bool = False,
         exclude_superseded: bool = False,
+        query_sparse: dict | None = None,
     ) -> list[SearchHit]: ...
     def search_vector(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
     def search_batch(
@@ -246,6 +249,7 @@ class Client:
         text_query: str | None = None,
         top_k: int = 10,
         distance_metric: str | None = None,
+        query_sparse: dict | None = None,
     ) -> dict: ...
     def supersede(self, namespace: str, old_key: str, new_key: str) -> None: ...
     def generate_snippet(
@@ -354,6 +358,7 @@ class MemoryClient:
         metadata: dict | None = None,
         vector: Any | None = None,
         ttl_ms: int | None = None,
+        sparse_vector: dict | None = None,
     ) -> Record: ...
     def put_batch(
         self,
@@ -384,6 +389,7 @@ class MemoryClient:
         method: str | None = None,
         explain: bool = False,
         exclude_superseded: bool = False,
+        query_sparse: dict | None = None,
     ) -> list[SearchHit]: ...
     def search_multi(
         self,
@@ -395,6 +401,7 @@ class MemoryClient:
         distance_metric: str | None = None,
         explain: bool = False,
         exclude_superseded: bool = False,
+        query_sparse: dict | None = None,
     ) -> list[SearchHit]: ...
     def search_vector(self, vector: Any, top_k: int = 10) -> list[tuple[int, float]]: ...
     def search_batch(
@@ -411,6 +418,7 @@ class MemoryClient:
         text_query: str | None = None,
         top_k: int = 10,
         distance_metric: str | None = None,
+        query_sparse: dict | None = None,
     ) -> dict: ...
     def supersede(self, namespace: str, old_key: str, new_key: str) -> None: ...
     def generate_snippet(

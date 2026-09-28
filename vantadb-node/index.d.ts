@@ -53,6 +53,9 @@ export interface MemoryInput {
   payload: string
   metadata?: VantaMetadata
   vector?: number[]
+  /** Sparse term-weight vector keyed by dimension id. Empty/undefined skips
+   * sparse indexing. */
+  sparse_vector?: Record<string, number> | null
   /** TTL in milliseconds relative to now. Must be a non-negative integer. */
   ttl_ms?: number
 }
@@ -93,6 +96,9 @@ export interface MemoryListResult {
 export interface SearchRequest {
   namespace: string
   query_vector: number[]
+  /** Sparse query vector keyed by dimension id; fused with dense/text scores.
+   * Pass an empty `query_vector` with `text_query` for text-only (BM25). */
+  query_sparse?: Record<string, number> | null
   filters?: VantaMetadata
   text_query?: string
   top_k?: number
