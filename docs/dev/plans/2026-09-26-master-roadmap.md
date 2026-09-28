@@ -507,7 +507,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "matching multi-señal determinista (Fellegi-Sunter + embeddings, sin LLM-juez) con tests (mismos inputs → mismo score) Y boost de entidades en `fuse_rrf*` opt-in, reversible y con proveniencia Y suites `sdk::search`/`entity` verdes (boost OFF byte-idéntico al ranking actual)"
 - **Task file:** `docs/dev/tasks/WIRE-05.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-28 — commit `3b2521dd`; review fresco OK)
 - **Cynefin:** 🟨 complicado — matching multi-señal determinista + integración en fusión existente.
 - **Top 3 riesgos:** 1. falsos positivos de matching (merge indebido) · 2. boost que rompe determinismo/orden del RRF · 3. MGR-05 no llega y el diseño se sesga.
 - **Pre-mortem:** F1: matching agresivo sin umbral → Fellegi-Sunter con umbral conservador y `mark_duplicate` manual como paso 1; F2: boost no reversible → proveniencia por hit + test OFF byte-idéntico; F3: dep pendiente → mini-discovery con informe + estrategia como fuente determinista; MGR-05 solo para el LLM-juez.
@@ -532,7 +532,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "≥5× ingesta sostenida vs baseline (bench before/after commiteado, Regla 9) Y p99 sin regresión >15% Y tests de integridad (WAL/durabilidad/reopen, batch atómico) verdes Y bench nightly activo con gate anti-regresión"
 - **Task file:** `docs/dev/tasks/WIRE-06.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-28 — commit `5e8e8879`; review adversarial OK; pareada 5.92×)
 - **Cynefin:** 🟨 complicado — segmentos appendables + compactación background + política de durabilidad.
 - **Top 3 riesgos:** 1. durabilidad degradada por batch (ventana de pérdida) · 2. p99 >15% por compactación background · 3. segmentos que fragmentan el índice/HNSW.
 - **Pre-mortem:** F1: group-commit sin política explícita → ADR-038 manda (opt-in, ventana declarada); F2: compactación que compite con writers → background con presupuesto + métrica; F3: bench que no reproduce → usar harness find61 existente (BATCH=400, DIM=16, perfil bench) como control.
@@ -557,7 +557,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "crate `vantadb-ffi-core` consumido por node/py/wasm (`rg 'struct OpGate'` = 1 en el workspace) Y `server` sin feature `cli` (grafo sin arrastre; `cargo check` por-crate verde: vantadb, vantadb-node, vantadb-python, vantadb-wasm, vantadb-server) Y `BOUNDARIES.md` §3/§5 actualizados con evidencia F3X `13f0f729` Y suites verdes sin cambio de comportamiento"
 - **Task file:** `docs/dev/tasks/WIRE-07.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-28 — commits `ce50876e`..`8f4a0c6d` A-F; review adversarial OK)
 - **Cynefin:** 🟨 complicado — frontera de crate + feature-split con suites cross-crate.
 - **Top 3 riesgos:** 1. ffi-core con dependencias que contaminan bindings · 2. desacople que rompe el surface `cli_server` público · 3. refactor con cambio de comportamiento inadvertido.
 - **Pre-mortem:** F1: crate FFI con deps pesadas → leaf std-only (perfil `index_port.rs`) + `cargo tree` check; F2: surface roto → preservar re-exports (`src/server/mod.rs:16,34` guarda `crate::cli_server::*`) + semver-checks; F3: regresión silenciosa → un commit por refactor (OS del Backlog) para bisectar.
@@ -1062,4 +1062,37 @@ Resultado: OK
 Próxima acción: LEAD: cierre parcial F2 (plan sync)
 Contrato: enforce -32601 exacto + default agent 37≤45 + fusión 79 no-breaking + aliases dispatchables (4/4)
 Próxima tarea si completa: WIRE-05
+=== END RECITATION ===
+
+=== RECITATION WIRE-07 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: WIRE-07 — Refactors: ffi-core (OpGate×3) + server↔cli + bookkeeping
+Estado: completed
+Última acción: Steps 6/6 ✅ + review adversarial (❌ F1 evidencia pyd → fix LEAD → ✅ delta APPROVE); 6 slices A-F
+Resultado: OK
+Próxima acción: LEAD: commits por slices A-F + cierre wave F2b
+Contrato: OpGate único + hoja 0-deps + server sin cli (unit-graph) + BOUNDARIES F3X + suites verdes
+Próxima tarea si completa: WIRE-08
+=== END RECITATION ===
+
+=== RECITATION WIRE-05 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: WIRE-05 — Entity linking determinista + boost RRF
+Estado: completed
+Última acción: Steps 6/6 ✅ + review fresco APPROVE + Optionals aplicados (non_exhaustive/wording); 112/112 área
+Resultado: OK
+Próxima acción: LEAD: commit feat(entity) (staged) + cierre wave F2b; R-1 snapshot al cierre
+Contrato: F-S determinista + boost opt-in/reversible/proveniencia + OFF byte-idéntico + suites verdes
+Próxima tarea si completa: WIRE-06
+=== END RECITATION ===
+
+=== RECITATION WIRE-06 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: WIRE-06 — Batching productizado (group-commit opt-in)
+Estado: completed
+Última acción: Steps 7/7 ✅ + review adversarial APPROVE (rerun pareado min 5.93×) + fixes (alternación por muestra + clamp sanitized + dead-code cfg)
+Resultado: OK
+Próxima acción: LEAD: commit perf(storage) + cierre wave F2b
+Contrato: ≥5× (pareada 5.92× mediana) + p99 por construcción + integridad 220/220 + nightly gate
+Próxima tarea si completa: WIRE-07
 === END RECITATION ===
