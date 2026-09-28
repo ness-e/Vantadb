@@ -598,58 +598,289 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 
 ### Task 23: MGR-10 — research-doc: bitemporalidad (dim 5)
 - **Fase:** F3
-- **Dep:** — · 🟡 2-3d · 🔴 · **Ruta:** vanta-arch · **Contrato:** "research-doc cerrado (diseño + tradeoffs + migración) listo para SCH-01" · **Task file:** `docs/dev/tasks/MGR-10.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Dep:** — (Backlog:839 citaba MGR-01; fuera del plan — research lane post-1.0, L769)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴
+- **Ruta:** vanta-arch
+- **Archivos clave:** `docs/dev/research/mgr-10-bitemporalidad.md` (nuevo — research-doc; convención de `docs/dev/research/mgr-19-benchmarks-baseline-suites.md`) · `src/sdk/types/record.rs` (`MemoryRecord`: `created_at_ms`/`updated_at_ms` :112-115, `superseded_by`/`superseded_at_ms` :129-137; `MemoryInput` :59-78) · `src/sdk/version_history.rs` (historial por versión :1-14; backing de `get_version`/`versions` :219-229) · `src/schema.rs` (`CURRENT_SCHEMA_VERSION` :11 + header `.vanta.schema` :165-179) · `src/sdk/serialization/mod.rs` (`EXPORT_SCHEMA_VERSION` :35; export/import :498-529) · `docs/dev/architecture/adr/ADR-028-core-decay-supersession.md` (precedente de semántica) · `docs/dev/Backlog.md` (fila MGR-10 :839)
+- **Verificación real:** ✅ CÓDIGO-REAL — **gap confirmado**: 0 hits de dominio de `valid_at`/`valid_from`/`bitemporal`/`as_of` en `src/` (rg; solo comentarios "point-in-time" de snapshots/métricas: `src/storage/engine/txn.rs:227`, `src/backends/rocksdb_backend.rs:350`, `src/metrics/core/mod.rs:622`). **Infra base verificada**: (1) *transaction-time parcial* — snapshots post-commit por versión en `BackendPartition::Versions` (`src/sdk/version_history.rs:1-14`) con API pública `get_version`/`versions` (`src/sdk/api/memory.rs:409-432`, VS-CORE-07) y cap de retención (`version_history_limit`); (2) invalidación key→key vía `superseded_by`/`superseded_at_ms` (ADR-028, `record.rs:129-137`) — NO es ventana de validez; (3) schema header versionado con TooOld/TooNew (`src/schema.rs:11,84-98`) + comando `migrate` (`src/cli_handlers/migrate.rs:175-279`); (4) export/import con `schema_version` propio (`serialization/mod.rs:35,498-529`). **Formato oculto a migrar**: mirror postcard `SnapshotRecord` (`version_history.rs:76-90`, From :112-148) omite `superseded_*` — la migración lo alcanza. Edge sin validez temporal (Backlog:946 → SCH-09). Blast radius: `MemoryRecord` consumido por SDK/server/MCP/bindings + export.
+- **Gate Justificación:** es la dim 5 del corte F3: define el modelo temporal del que dependen el ADR de SCH-01 y el schema v2 de SCH-02; sin diseño valid vs transaction no hay queries auditables "qué era verdad en T" (evidence-before-belief, Backlog:839) ni base para SCH-03.
+- **Gate Result:** ✅ DO
+- **Contrato:** "research-doc cerrado con modelo valid-time vs transaction-time, tradeoffs (append-only vs invalidación + storage del historial) y plan de migración/backfill determinista, listo para SCH-01"
+- **Task file:** `docs/dev/tasks/MGR-10.md` (a crear en DISCOVERY)
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — modelo temporal de dos ejes + tradeoffs de storage + migración única.
+- **Top 3 riesgos:** 1. modelo sobredimensionado (bitemporal completo Snodgrass en 0.8.0) · 2. backfill no determinista del historial · 3. edge-bitemporal (SCH-09) fuera del diseño → segundo breaking.
+- **Pre-mortem:** F1: research-doc que cuela v1.0 (índices temporales/MVCC) → sección explícita "0.8.0 vs v1.0" + Cierre MGR; F2: diseño conceptual desconectado del storage real → tradeoffs mapeados a `version_history`/KV/export con comandos verificables; F3: se redacta sin el insumo dim 5 → citar fuente (Backlog MGR-10 + Notion dim 5) y refs externas (Snodgrass; Zep/Graphiti arXiv 2501.13956).
+- **Stop conditions:** si el diseño exige rediseño del engine o segundo breaking sobre edges → acotar a records (valid/invalid + time-travel por key) y diferir con FIND; rabbit hole: implementar MVCC/índices temporales → NO (research-doc).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | Modelo sobredimensionado | sección "0.8.0 vs v1.0" + revisión en SCH-01 | review P2-01 |
+  | 🟡×🔴 | Backfill no determinista | plan de migración determinista + validación SCH-02/SCH-06 | review SCH-02 |
+  | 🟢×🟠 | Edge-bitemporal fuera del diseño | SCH-09 dentro de la migración única (Backlog:946) o FIND | discovery SCH-01 |
+- **Uphill/Downhill:** ⬆️ 1 (modelo valid/transaction acotado a la migración única) / ⬇️ 4 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** Backlog MGR-10 = 🔴 4-5d (investigación + ADR, :839) → acotado a research-doc 2-3d (el ADR formal se consolida en SCH-01, Task 26). Fuente: P49 dim 5 (Backlog:814). Task file se crea en DISCOVERY.
 
 ### Task 24: MGR-12 — research-doc: confianza (dim 6)
 - **Fase:** F3
-- **Dep:** — · 🟡 2-3d · 🔴 · **Ruta:** vanta-arch · **Contrato:** "research-doc cerrado (modelo de confianza asserted/derived)" · **Task file:** `docs/dev/tasks/MGR-12.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Dep:** — (Backlog:846 citaba MGR-01; fuera del plan — research lane post-1.0, L769)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴
+- **Ruta:** vanta-arch
+- **Archivos clave:** `docs/dev/research/mgr-12-confianza.md` (nuevo) · `src/sdk/types/record.rs` (destino del esquema: `MemoryRecord` :102-138 sin score/clase de confianza) · `vantadb-mcp/src/axioms.rs` (Iron Axioms hardcodeadas :22-30) · `src/node/unified.rs` (`confidence_score: f32` :41-42; default `0.5` :92) · `src/config.rs` + `src/eviction.rs` (`eviction_weight_confidence` :285 / :33-42) · `src/executor.rs` (filtro low-confidence `<0.4` :218-234) · `src/utils/confidence_metrics.rs` (`OriginCollisionTracker` :8-63) · `docs/dev/Backlog.md` (fila MGR-12 :846)
+- **Verificación real:** ✅ CÓDIGO-REAL — **gap confirmado**: `MemoryRecord` NO tiene score/clase de confianza (`asserted`/`derived`) ni `last_validated` (`record.rs:102-138`); `rg 'asserted|derived'` en `vantadb-mcp/src/axioms.rs` = 0 — axioms.rs son 4 Iron Axioms hardcodeadas (JSON de reglas, :22-30), no jerarquía de procedencia. **Infra base verificada**: confianza ya existe a nivel NODO — `UnifiedNode.confidence_score: f32` (:41-42; default `0.5` :92; persistida en disk header `src/node/disk.rs:18-19`), pondera eviction (`eviction_weight_confidence=2.0`, `src/config.rs:285`; `src/eviction.rs:33-42`), filtra `SemanticSummary` <0.4 en executor (:218-234) y se restaura a nodo en `src/sdk/api/graph.rs:231`; multi-agente: `OriginCollisionTracker` (`src/utils/confidence_metrics.rs:8-63`). Gap: jerarquía asserted/derived + reglas de derivación + calibración POR REGISTRO (hoy: metadata libre como escape).
+- **Gate Justificación:** es la dim 6 del corte F3: SCH-04 (0.8.0) consume esta spec para scores consumibles y SCH-05 para trust-aware retrieval/abstención; el nodo ya puntúa confianza (eviction/executor) → el diseño debe unificar record↔nodo sin divergencia antes del corte.
+- **Gate Result:** ✅ DO
+- **Contrato:** "research-doc cerrado con modelo de confianza asserted/derived (scores por registro + reglas de derivación + `last_validated` + calibración básica), tradeoffs y mapeo al `confidence_score` de nodo, listo para SCH-01"
+- **Task file:** `docs/dev/tasks/MGR-12.md` (a crear en DISCOVERY)
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — taxonomía de procedencia + calibración + unificación record↔nodo.
+- **Top 3 riesgos:** 1. scores no calibrados (números decorativos) · 2. doble fuente de confianza (record vs nodo) divergente · 3. scope creep a jueces/grounding (v1.0).
+- **Pre-mortem:** F1: "asserted vs derived" sin definición operacional → taxonomía con ejemplos + reglas de derivación verificables; F2: grounding con jueces LLM dentro del slice → excluido explícito (derivación completa = v1.0, Backlog:934); F3: record y nodo divergen → semántica canónica en record + mapeo explícito (`graph.rs:231`).
+- **Stop conditions:** si exige calibración empírica → spec con fórmula + calibración diferida a VER-08 (F5, dep cross-fase); rabbit hole: FACTS/FaithJudge → NO (v1.0).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | Scores no calibrados | semántica definida + límites documentados + calibración VER-08 | review P2-01 |
+  | 🟡×🟡 | Record vs nodo divergentes | canónico en record + mapeo a `confidence_score` (graph.rs:231) | discovery SCH-02 |
+  | 🟢×🟠 | Scope creep a jueces | excluido del slice + FIND con dueño | review SCH-01 |
+- **Uphill/Downhill:** ⬆️ 1 (taxonomía assert/derive operacional sin jueces) / ⬇️ 4 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** Backlog MGR-12 = 🔴 4d (investigación + esquema + ADR, :846) → acotado a research-doc 2-3d; esquema final en ADR SCH-01, implementación SCH-02/SCH-04. Consumidores: SCH-04 (scores), SCH-05 (trust-aware), MGR-18 (post-1.0, Backlog:867).
 
 ### Task 25: MGR-13 — research-doc: cuarentena
 - **Fase:** F3
-- **Dep:** — · 🟡 2-3d · 🔴 · **Ruta:** vanta-arch · **Contrato:** "research-doc cerrado (estados + transiciones + threat model)" · **Task file:** `docs/dev/tasks/MGR-13.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Dep:** — (Backlog:847 citaba MGR-04 + MGR-12; MGR-04 fuera del plan → threat model propio; MGR-12 co-batch en F3)
 
-### Task 26: SCH-01 — Plan único + ADR de migración (dims 5-6; alcance 0.7.0 vs v1.0)
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴
+- **Ruta:** vanta-arch
+- **Archivos clave:** `docs/dev/research/mgr-13-cuarentena.md` (nuevo) · `vanta-memory/src/core/dream/mod.rs` (consolidación: `promote` stub :24; `DreamRun` :153-181; originals nunca replaced :179) · `src/server/middleware.rs` (superficie de escritura HTTP :26-81) · `src/wal.rs` (precedente léxico `quarantine_corrupt_tail` :611-642 — NO es estado de contenido) · `src/sdk/types/record.rs` (destino del estado :102-138) · `docs/dev/Backlog.md` (fila MGR-13 :847)
+- **Verificación real:** ✅ CÓDIGO-REAL — **gap confirmado**: no existe cuarentena de registros — `rg 'quarantine|quarantined'` en `src/` = solo salvage de WAL corrupto (`src/wal.rs:611-642`; `src/wal_sharded.rs:259,287-313`: trunca a prefijo coherente + respalda el tail), semántica de almacenamiento, NO estado de contenido; `MemoryRecord` sin field de estado/trust (:102-138); `rg 'tainted'` en src = 0 (los `trusted_proxies` de `config.rs:246` son de red, no de contenido). **Superficies de escritura a threat-modelar**: API HTTP (auth middleware `src/server/middleware.rs:26-81`), dream/consolidación (`vanta-memory/src/core/dream/mod.rs` — escribe `dream/<s>/<run_id>`, promote stub :24), import JSONL (`src/sdk/serialization/mod.rs:498-529`). Threat refs write-time: AgentPoison (NeurIPS 2024) / MINJA (arXiv 2503.03704) / OWASP ASI06.
+- **Gate Justificación:** dim 6/AM10 del corte F3: SCH-05 (0.8.0) implementa cuarentena+abstención y su test de contención exige esta spec; sin threat model write-time el estado `quarantined` no tiene criterios de entrada ni transiciones de salida.
+- **Gate Result:** ✅ DO
+- **Contrato:** "research-doc cerrado con estados + transiciones (entrada/promoción/expiración con dueño y trigger) + threat model write-time por superficie (API/dream/import), listo para SCH-01"
+- **Task file:** `docs/dev/tasks/MGR-13.md` (a crear en DISCOVERY)
+- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — máquina de estados + criterios de promoción + threat model de poisoning.
+- **Top 3 riesgos:** 1. cuarentena que aísle contenido legítimo (falsos positivos) · 2. estados sin transición de salida (cuarentena permanente) · 3. threat model que no cubre vectores write-time (dream/import).
+- **Pre-mortem:** F1: criterios opacos → tabla estados×transiciones con señales medibles + promoción revisable; F2: poison vía consolidación/import no cubierto → threat model POR superficie de escritura (no solo API); F3: dep Backlog MGR-04 ausente → clase de confianza mínima desde MGR-12 + deuda anotada a v1.0/SCH-05.
+- **Stop conditions:** si el diseño exige motor de políticas (ABAC/namespaces trusted) → recortar a estado `quarantined` + gates simples y FIND; rabbit hole: hash-chain/PROV-O de auditoría → NO (VER-01 lo cubre sobre WAL, F4).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Falsos positivos aíslan contenido válido | criterios explícitos + promoción revisable + test contención (SCH-05) | review P2-01 |
+  | 🟡×🟠 | Deep-poisoning vía dream/import | threat model por superficie write-time | discovery |
+  | 🟢×🟡 | Dep MGR-04 ausente | slice mínimo con clase de confianza MGR-12 + FIND | review SCH-01 |
+- **Uphill/Downhill:** ⬆️ 1 (threat model propio sin MGR-04) / ⬇️ 4 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** Backlog MGR-13 (🟡 3d, :847) se mantiene 2-3d; hash-chain de auditoría queda en VER-01 (F4) — citar, no duplicar; abstención se implementa en SCH-05.
+
+### Task 26: SCH-01 — Plan único + ADR de migración (dims 5-6; alcance 0.8.0 vs v1.0)
 - **Fase:** F3
-- **Dep:** MGR-10/12/13 · 🟡 2-3d · 🔴 · **Ruta:** vanta-arch · **Contrato:** "plan+ADR con alcance explícito + revisión owner" · **Task file:** `docs/dev/tasks/SCH-01.md`
+- **Dep:** MGR-10/12/13 (research-docs + Cierre MGR — pre-requisito duro: Backlog:938 "exigir Cierre MGR de los 3 research-docs antes de tocar `record.rs`")
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴
+- **Ruta:** vanta-arch
+- **Archivos clave:** `docs/dev/architecture/adr/ADR-046-schema-v2-migracion-unica.md` (nuevo; último ADR = ADR-045 → slot libre) · `docs/dev/research/mgr-10/12/13-*.md` (insumos) · `src/sdk/types/record.rs` (campos destino) · `src/schema.rs` + `src/cli_handlers/migrate.rs` (versionado + plan de migración) · `src/sdk/serialization/mod.rs` (compat export/import :35,498-529) · `docs/api/VERSIONING.md` (política de breaking :16-34) · `docs/dev/plans/2026-09-26-master-roadmap.md` (gate F3 :35)
+- **Verificación real:** ✅ CÓDIGO-REAL — **deps abiertas**: `docs/dev/research/` sin material de dims 5/6 (solo `mgr-19-*`, `product-definition-gap-*`, `PLAN-ACCION-*`) y task files MGR-10/12/13 inexistentes (`docs/dev/tasks/` solo MGR-19.md) → SCH-01 NO inicia hasta los 3 Cierres MGR. **Rails listos (HARD-01 ✅)**: `VERSIONING.md:16-27` (0.x: MINOR = frontera de breaking; `feat!:`/`BREAKING CHANGE:` obligatorio), `DEPRECATIONS.md` + `COMPATIBILITY.md` existen, `release-plz.toml` con `semver_check` (Task 1). **Precedentes**: ADR-028 (supersession), ADR-044 (acumulado breaking 0.6.0), ADR-045 (último → slot ADR-046). **Re-baseline de alcance**: 0.7.0 YA released (`docs/CHANGELOG.md:10` — `[0.7.0] - 2026-09-25`) → el corte de la migración es **0.8.0** (plan :35 + Task 33 SCH-08). "Breaking ilimitado pre-lanzamiento" (Backlog:934).
+- **Gate Justificación:** pre-requisito duro de SCH-02..08 (Backlog:938); consolida dims 5-6 en UNA decisión + UNA migración (evita breakings múltiples); sin ADR aceptado + revisión owner no se toca `record.rs`; el corte 0.8.0 ES esta migración.
+- **Gate Result:** ✅ DO
+- **Contrato:** "ADR de migración aceptado (campos, semántica valid vs transaction, alcance 0.8.0 vs v1.0, plan de migración/backfill, compat export/import) + plan de implementación único con comandos + revisión owner registrada"
+- **Task file:** `docs/dev/tasks/SCH-01.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — consolidar 3 investigaciones en una decisión + alcance + compat.
+- **Top 3 riesgos:** 1. insumos divergentes/incompletos → ADR ambiguo · 2. segundo breaking accidental (edges SCH-09) · 3. alcance 0.8.0 inflado con v1.0 (derivación/jueces).
+- **Pre-mortem:** F1: ADR sin comandos de migración → DoD exige plan con comandos (Backlog:938); F2: specs contradictorias → tabla de reconciliación campo×spec en el ADR; F3: "revisión owner" sin registro → registrarla en el task file (carril owner, §Carril owner L750-763).
+- **Stop conditions:** si MGR-10/12/13 no cierran o divergen irresolublemente → NO iniciar SCH-01 (bloquea F3 — escalar a owner); rabbit hole: resolver dims restantes (D7/D8) → NO (post-1.0, L769).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Insumos divergentes | tabla de reconciliación campo×spec + revisión owner | discovery SCH-01 |
+  | 🟡×🟠 | Segundo breaking (edges) | SCH-09 dentro de la migración única (Backlog:946) o FIND | review ADR |
+  | 🟡×🟡 | Alcance inflado con v1.0 | sección explícita 0.8.0 vs v1.0 + gate F3 | review P2-01 |
+- **Uphill/Downhill:** ⬆️ 2 (consolidación dims 5-6 + compat export/import) / ⬇️ 5 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** re-baseline verificado: el seed decía "alcance 0.7.0 vs v1.0" — 0.7.0 ya shipped (CHANGELOG:10); corte = 0.8.0 (plan :35, Task 33). ADR en slot libre 046. Consumir Backlog:934 (decisión owner de migración única) + :938 (DoD).
 
 ### Task 27: SCH-02 — Schema v2 (bitemporal + confidence + quarantined + backfill)
 - **Fase:** F3
-- **Dep:** SCH-01 · 🔴 3-5d · 🔴 · **Ruta:** vanta-worker · **Contrato:** "migración determinista + backfill + roundtrip verde" · **Task file:** `docs/dev/tasks/SCH-02.md`
+- **Dep:** SCH-01 (ADR aceptado — no tocar `record.rs` antes)
+
+- **Appetite:** max 5d · **Esfuerzo:** 🔴 3-5d · **Prioridad:** 🔴
+- **Ruta:** vanta-worker
+- **Archivos clave:** `src/sdk/types/record.rs` (`MemoryRecord` :102-138 + `MemoryInput` :59-78 + `MemoryListOptions` :142-160 + `MemoryExportLine` :229-261) · `src/sdk/version_history.rs` (mirror `SnapshotRecord` :76-90 / From :112-148 — no listado en el seed, entra a la migración) · `src/sdk/serialization/mod.rs` (export: `EXPORT_SCHEMA_VERSION` :35, `record_from_export_line` :521-529) + `impl_export.rs` · `src/schema.rs` (`CURRENT_SCHEMA_VERSION` :11) + `src/cli_handlers/migrate.rs` (:175-279) · `src/wal.rs` (postcard forward-compat :22,109) · tests: `tests/core/snapshot_certification.rs:257` · `tests/sdk_serialization.rs:296` · `tests/durability_recovery.rs:90` · `tests/text_index_recovery.rs:785`
+- **Verificación real:** ✅ CÓDIGO-REAL — **mapa del schema v1** (13 campos, `record.rs:102-138`) y **4 formatos de persistencia a migrar**: (1) KV/WAL postcard (`src/wal.rs:22,109` — forward-compat por versión); (2) mirror de snapshots `SnapshotRecord` (`version_history.rs:76-90`) que **omite `superseded_*`** (From :112-148 los resetea a `None`) → todo campo nuevo exige mirror + roundtrip propios; (3) export JSONL `EXPORT_SCHEMA_VERSION=1` (`serialization/mod.rs:35`) con `record_from_export_line` que RECHAZA ≠1 (:521-529); (4) header `.vanta.schema` `CURRENT_SCHEMA_VERSION=1` con TooNew/TooOld (`src/schema.rs:11,84-98`) + comando `migrate` existente (`cli_handlers/migrate.rs:175-279`). **Backfill definido** (Backlog:939): `valid_at=created_at`, `invalid_at=superseded_at` si existe. **Infra de verificación existente**: roundtrip export/import (`tests/sdk_serialization.rs:296`; `snapshot_certification.rs:257-286`), reopen (`durability_recovery.rs:90`; `text_index_recovery.rs:785`); índices derivados con schema propio + rebuild-on-mismatch (`serialization/mod.rs:36` `DERIVED_INDEX_SCHEMA_VERSION`; `impl_index.rs:52`) → no requieren migración in-place.
+- **Gate Justificación:** el corte 0.8.0 ES esta migración (Backlog:934); el gate F3 exige "migración determinista verde" (plan :35) — backfill + roundtrip + reopen son ese gate; sin v2 no existen SCH-03..07.
+- **Gate Result:** ✅ DO
+- **Contrato:** "schema v2 implementado (`valid_at`/`invalid_at` + confianza asserted/derived + `quarantined`, todo `#[serde(default)]` compatible v1) Y migración v1→v2 determinista (misma DB → mismo resultado) con backfill (`valid_at=created_at`, `invalid_at=superseded_at` si existe) Y roundtrip export/import verde (v1 sigue importable) Y reopen/durabilidad verdes"
+- **Task file:** `docs/dev/tasks/SCH-02.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — campos nuevos × 4 formatos de persistencia + backfill determinista.
+- **Top 3 riesgos:** 1. crash mid-migration → DB inconsistente · 2. formatos anidados desincronizados (snapshot mirror/export/WAL) · 3. DB v1 real que no reabre post-migración.
+- **Pre-mortem:** F1: campo sin `#[serde(default)]` rompe DBs v1 → default en TODO campo nuevo + test de lectura v1; F2: backfill no idempotente → migración con versión explícita + doble corrida determinista (SCH-06); F3: mirror postcard olvidado → checklist por formato (record/WAL/snapshot/export) + roundtrip por formato.
+- **Stop conditions:** si un formato anidado exige rediseño >1d extra → migrar record+export con defaults y diferir snapshots históricos con FIND documentado; rabbit hole: migrar índices derivados in-place → NO (rebuild-on-mismatch ya existe, `impl_index.rs:52`).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Crash mid-migration | migración idempotente + failpoints en SCH-06 | test chaos rojo |
+  | 🟡×🟠 | Formatos anidados desincronizados | checklist por formato + roundtrip tests | test reopen rojo |
+  | 🟢×🟡 | Backfill no determinista | mismos inputs → mismo output (doble corrida) | review SCH-06 |
+- **Uphill/Downhill:** ⬆️ 2 (determinismo + 4 formatos) / ⬇️ 6 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** Backlog:939 lista `record.rs` + `serialization/`; verificado: agregar `version_history.rs` (mirror `SnapshotRecord`) y `schema.rs`/`migrate.rs`. Consumir ADR SCH-01 verbatim; export v1 debe seguir importable (compat).
 
 ### Task 28: SCH-03 — Queries `AS OF`/point-in-time + filtros `valid_at` + `exclude_superseded`
 - **Fase:** F3
-- **Dep:** SCH-02 · 🟡 2-3d · 🔴 · **Ruta:** vanta-engine · **Contrato:** "time-travel query con tests deterministas" · **Task file:** `docs/dev/tasks/SCH-03.md`
-- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Dep:** SCH-02 (`valid_at`/`invalid_at` disponibles en el record)
 
-### Task 29: SCH-04 — Scores asserted/derived consumibles (slice 0.7.0)
-- **Fase:** F3
-- **Dep:** SCH-02 · 🟡 2-3d · 🟠 · **Ruta:** vanta-engine · **Contrato:** "scores en ranking/UI + derivación completa diferida a v1.0 documentada" · **Task file:** `docs/dev/tasks/SCH-04.md`
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴
+- **Ruta:** vanta-engine
+- **Archivos clave:** `src/parser/` (`grammar.rs`/`lexer.rs` + bump `IQL_VERSION`; patrón gateado `mod.rs:11-28`) · `src/executor.rs` (`execute_hybrid` :153) · `src/sdk/serialization/vector_types.rs` (`MemorySearchRequest` :98-140) · `src/sdk/search/page.rs` (assembly final + hash de cursor :157,304-330) · `src/sdk/types/record.rs` (`MemoryListOptions` :142-160) · `src/sdk/version_history.rs` + `src/sdk/api/memory.rs` (lectura histórica `get_version`/`versions` :409-432) · tests (`src/sdk/search/tests.rs`, inline parser/executor)
+- **Verificación real:** ✅ CÓDIGO-REAL — **re-baseline del seed**: `exclude_superseded` YA EXISTE (ADR-028) — search (`MemorySearchRequest.exclude_superseded` `vector_types.rs:120-123`; aplicado en assembly `page.rs:317-319` "no index change"), list (`record.rs:156-159`; filtrado `src/sdk/api/namespaces.rs:164-169`) y tests (`src/sdk/api.rs:897,936` — hide + default keep); hasheado para cursor (`page.rs:157`). **Gaps reales**: (1) `AS OF`/`valid_at` = 0 hits en `src/parser/` y en dominio `src/`; (2) sin parámetros temporales en `MemorySearchRequest`/`MemoryListOptions`; (3) falta extender `exclude_superseded` a la semántica `invalid_at` nueva. **Precedentes**: lectura histórica por key ya existe (`get_version`/`versions`, `memory.rs:402-432`, VS-CORE-07); filtros `MemoryFilter` AND-only con `Gt/Lt/Gte/Lte` + `Value::DateTime` (`record.rs:11-55`); cláusulas version-gateadas (`PROFILE`, `parser/mod.rs:11-28`); cursor resume con selectores (WIRE-08, `page.rs:304-330`).
+- **Gate Justificación:** DoD del Backlog: "el spec decía X en fecha del incidente" devuelve el estado histórico correcto (:940, evidence-before-belief); consume schema v2 y cierra la dim 5 en superficie de query antes del corte 0.8.0.
+- **Gate Result:** ✅ DO
+- **Contrato:** "`AS OF` operable en IQL (con `IQL_VERSION` bumpeado + feature-detect) y params equivalentes en search/list devuelven el estado histórico correcto con tests deterministas Y filtros por ventana de validez sobre v2 (`valid_at`/`invalid_at`) Y `exclude_superseded` extendido a la semántica nueva Y cursor estable con resume sobre los params nuevos"
+- **Task file:** `docs/dev/tasks/SCH-03.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — semántica temporal en IQL + params + determinismo de cursor.
+- **Top 3 riesgos:** 1. semántica `AS OF` ambigua (valid vs transaction — la fija el ADR SCH-01) · 2. filtros temporales fuera del pipeline → rompen top_k/cursor · 3. cláusula nueva que rompe queries v1.
+- **Pre-mortem:** F1: `AS OF` leyendo el eje equivocado → semántica exacta del ADR + tests de referencia con T conocido; F2: filtrado post-hoc → integrar junto a `exclude_superseded` en el assembly (`page.rs:317`) + hash de request; F3: gramática rota para v1 → bump `IQL_VERSION` + `iql_supports` (patrón PROFILE).
+- **Stop conditions:** si `AS OF` completo exige rediseño del pipeline de search → entregar filtros `valid_at` + `exclude_superseded` extendido y `AS OF` en get/list por key (`version_history`), con FIND para search; rabbit hole: MVCC temporal en índices → NO.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Semántica AS OF ambigua | definida en ADR SCH-01 + tests de referencia | review P2-01 |
+  | 🟡×🟠 | Filtros rompen top_k/cursor | integración en assembly + hash de request (`page.rs:157`) | test resume |
+  | 🟢×🟠 | Queries v1 rotas | bump IQL_VERSION + feature-detect | parser tests |
+- **Uphill/Downhill:** ⬆️ 2 (semántica + cursor con params nuevos) / ⬇️ 5 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** re-baseline verificado vs seed: `exclude_superseded` ya implementado (ADR-028) → el slice real es `AS OF`/`valid_at` + extensión; SCH-07 expone en bindings/server/MCP (aquí core+IQL); `docs/api/IQL.md` hoy sin `AS OF` (verificado).
+
+### Task 29: SCH-04 — Scores asserted/derived consumibles (slice 0.8.0)
+- **Fase:** F3
+- **Dep:** SCH-02 (campos de confianza por registro definidos por ADR SCH-01)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠
+- **Ruta:** vanta-engine
+- **Archivos clave:** `src/sdk/types/record.rs` (`MemoryRecord` :102-138 — campos v2 del ADR; `MemoryListOptions` :142-160) · `src/sdk/serialization/vector_types.rs` (`MemorySearchHit` :195-202) · `src/sdk/search/page.rs` (assembly `run_search_page` :257-363; fingerprint de cursor :137-166 si se agrega filtro) · `vantadb-python/src/types.rs` (getters `VantaPySearchHit` :334-377; stub `.pyi` con `test_stub_drift`) · `vantadb-node/index.d.ts` (:64-67, :147-152) · `vantadb-ts/src/types.ts` (:61-70, :173-183) · `vantadb-wasm/src/lib.rs` (:1182-1203, :2233) · `vantadb-mcp/src/handlers/tools.rs` (recall :1824-1828; search hits por serde) · `src/server/handlers.rs` (`SearchPageV2` :524-529) + `docs/api/openapi.yaml` · `docs/api/scores.md` (:61-73) · `docs/api/EMBEDDED_SDK.md` (:540-543) · `docs/api/HTTP_API.md` (:203,:257)
+- **Verificación real:** ✅ CÓDIGO-REAL — **gap confirmado**: `MemoryRecord` sin confianza por registro (13 campos, `record.rs:103-138`; `rg 'confidence'` en `src/sdk/search/` = 0 hits — el ranking/assembly no la conoce: RRF `fusion.rs:72-131`, assembly `page.rs:317-330`); `MemorySearchHit` = `record + score + explanation` (`vector_types.rs:195-202`, score :199). **Precedente node-level ya consumible**: `NodeRecord.confidence_score` viaja en superficies graph (`graph_types.rs:68-69,129`; restauración `graph.rs:231`; TS `types.ts:207`) + eviction (`config.rs:285`/`eviction.rs:33-42`) + executor filtra `SemanticSummary` <0.4 (`executor.rs:219-242`). **Consumidores a cubrir**: Py `VantaPySearchHit` (score :334-337; patrón de campo nuevo `superseded_by`/`superseded_at_ms` :369-377); Node `MemorySearchHit` (index.d.ts:147-152; wire napi genérico `lib.rs:106-123`); TS `SearchHit` (types.ts:173-183); WASM `search_hit_to_js` :1182-1203 + `memory_record_to_js` :2233; MCP recall `{content, score, type}` (tools.rs:1824-1828; hits de search serializan vía `text_content_hits_with_budget`, `validation.rs:425`); HTTP `SearchPageV2 { records: Vec<MemorySearchHit> }` (handlers.rs:524-529; doc HTTP_API.md:203,257). **Re-baseline del título**: el seed decía "slice 0.7.0" — STALE: 0.7.0 shipped 2026-09-25 (`docs/CHANGELOG.md:10`); el corte es **0.8.0** (plan :35, Task 33), igual que SCH-01. Blast radius: `MemorySearchHit` 54 callers (mmr/explain/tests; snapshots `tests/query_result_*.rs` + `tests/snapshots/*.snap`); `MemoryRecord` export/WAL/snapshot mirror (SCH-02).
+- **Gate Justificación:** el corte F3 (dim 6) no cierra con la confianza solo en storage: el nodo ya la consume (eviction/filtro) y ya la expone en superficies graph — el record v2 sin superficie consumible queda como columna muerta y el circuito MGR-12→SCH-01→SCH-02 no se cierra antes de 0.8.0; la propagación en hits es además el insumo de UI/consola y de la matriz de paridad de ICP-03 (F5).
+- **Gate Result:** ✅ DO
+- **Contrato:** "`confidence` por registro (valor + clase asserted|derived + `last_validated`, campos fijados por ADR SCH-01) visible en search/get/list del SDK core y propagado en HTTP/MCP vía serde `#[serde(default)]` (sin breaking) Y expuesto en los 4 bindings (Py/TS/Node/WASM con stubs/d.ts sincronizados) Y consultable (filtro opt-in por umbral/clase junto a `range`/`exclude_superseded`, hasheado en el fingerprint de cursor) Y el ranking/UI lo propaga (hits + snapshot deliberado; el orden por defecto NO cambia) Y límites de calibración documentados en `docs/api/scores.md` con derivación completa + grounding con jueces diferida a v1.0 (FIND con dueño) — todo con tests (roundtrip serde + getters + snapshot)"
+- **Task file:** `docs/dev/tasks/SCH-04.md` (a crear en DISCOVERY)
+- **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — wire cross-binding de campos nuevos + consulta sin romper determinismo del cursor ni el orden del ranking.
+- **Top 3 riesgos:** 1. scores sin calibración (números decorativos) · 2. doble fuente record↔nodo divergente (`confidence_score` de nodo vs record v2) · 3. snapshot/wire cross-binding roto (54 callers de `MemorySearchHit` + `.snap`).
+- **Pre-mortem:** F1: "asserted/derived" sin definición operacional → taxonomía MGR-12 con ejemplos + límites explícitos en `scores.md`; F2: record y nodo divergen → mapeo canónico explícito (precedente `graph.rs:231`) + test de consistencia; F3: drift de wire/snapshot → regeneración deliberada de snapshots + `sdk_serialization` + stub drift verde.
+- **Stop conditions:** si la calibración exige datos empíricos → exponer con defaults documentados y diferir calibración a VER-08 (F5, dep cross-fase); si el filtro nuevo complica el cursor/fingerprint → exponer sin filtro y anotar FIND; rabbit hole: jueces/grounding/FACTS → NO (v1.0, stop condition de MGR-12).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | Scores no calibrados | límites documentados + calibración diferida VER-08 | review P2-01 |
+  | 🟡×🟡 | Record vs nodo divergen | mapeo canónico + test (precedente `graph.rs:231`) | discovery SCH-02 |
+  | 🟢×🔴 | Wire cross-binding roto | `sdk_serialization` + stubs/d.ts + snapshots deliberados | gate bindings |
+- **Uphill/Downhill:** ⬆️ 1 (wire de campos nuevos en 4 bindings + snapshots) / ⬇️ 5 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** re-baseline verificado del título (seed "slice 0.7.0" → **0.8.0**; 0.7.0 shipped `CHANGELOG.md:10`). Consume MGR-12 (Task 24) + Backlog:941; el nodo ya puntúa confianza (`unified.rs:41-42`, default 0.5 :92) — la unificación record↔nodo y los nombres finales de campo los fija ADR SCH-01. "Derivación completa + grounding con jueces = v1.0" queda como FIND con dueño (stop condition).
 
 ### Task 30: SCH-05 — Cuarentena + abstención + trust-aware retrieval (threat model write-time)
 - **Fase:** F3
-- **Dep:** SCH-02 · 🟡 2-3d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "cuarentena operativa + abstención con tests + threat model citado" · **Task file:** `docs/dev/tasks/SCH-05.md`
+- **Dep:** SCH-02 (estado `quarantined` en el record) + insumo MGR-13 (threat model + estados/transiciones — Task 25; MGR-04 fuera del plan → clase mínima vía MGR-12/SCH-01)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠
+- **Ruta:** vanta-worker
+- **Archivos clave:** `src/sdk/types/record.rs` (estado `quarantined` v2 + `MemoryListOptions` :142-160) · `src/sdk/serialization/vector_types.rs` (`MemorySearchRequest` :100-145 — include opt-in + umbral de abstención) · `src/sdk/search/page.rs` (filtro por defecto junto a `exclude_superseded` :317-330; fingerprint :137-166) · `src/sdk/api/memory.rs` (get/list/search paths) · `vanta-memory/src/core/hooks/auto_recall.rs` (`perform_auto_recall` :198 — nunca inyectar cuarentenado) · `vantadb-mcp/src/handlers/tools.rs` (`inject_context` :585/:2025; recall :1818-1841; writes lista :30) · `src/server/handlers.rs` + `src/server/middleware.rs` (:42 ingress) · `src/sdk/serialization/mod.rs` (import :522-531) · `vanta-memory/src/core/dream/mod.rs` (promote :24-27) · docs: `docs/api/EMBEDDED_SDK.md` + `docs/api/MCP.md` (estados/abstención) · tests: `tests/memory_api.rs` + nuevo `tests/quarantine_containment.rs` (destino)
+- **Verificación real:** ✅ CÓDIGO-REAL — **gap confirmado**: no existe cuarentena de contenido (`rg 'quarantine|quarantined'` en `src/` = solo WAL salvage `src/wal.rs:611-642` — semántica de storage, NO de contenido); `rg 'abstain|abstention'` en `src/` = **0 hits** (único hit del repo: investigación de benchmarks `docs/dev/strategy/VantaDB-Analisis-Arquitectura-Producto-Competencia.md:280`); sin params de trust/clase en `MemorySearchRequest` (:100-145) ni `MemoryListOptions` (:142-160); el único gate de baja confianza es node-level y aislado (`filter_low_confidence_summaries` <0.4, `executor.rs:219-242`). **Superficies write-time a threat-modelar** (insumo MGR-13): HTTP ingress (`middleware.rs:42` auth_middleware + `handlers.rs` records_put), dream (`vanta-memory/src/core/dream/mod.rs` — promote stub :24-27; namespace separado `dream/<session>/<run_id>` :11), import JSONL (`serialization/mod.rs:522-531` rechaza `schema_version` ≠ actual), MCP writes (`tools.rs:30` lista ~37 readOnlyHint=false: memory_put/import/dream_consolidate...). **Inyección a proteger** (DoD "no se inyecta por defecto"): `perform_auto_recall` (`vanta-memory/src/core/hooks/auto_recall.rs:198`), MCP `inject_context` (tools.rs:585/2025), `memory_recall` (tools.rs:1818-1841). Blast radius: `MemorySearchRequest` compartido SDK/HTTP/MCP/bindings; record consumido por export/WAL/snapshots (SCH-02).
+- **Gate Justificación:** dim 6/AM10 del corte: la inyección de memoria a prompts es el camino write-then-inject real (AgentPoison/MINJA); un estado `quarantined` sin operación (default-exclude + transiciones) sería columna muerta y sin abstención el sistema "responde" con confianza baja sin señalarlo — el slice MGR-13 no cierra sin esto antes de 0.8.0.
+- **Gate Result:** ✅ DO
+- **Contrato:** "cuarentena operativa: contenido `quarantined` EXCLUIDO por defecto de search/list/retrieval (include opt-in; `auto_recall`/`inject_context` nunca inyectan cuarentenado) Y transiciones con dueño+trigger (entrada write-time, promoción/expiración) Y abstención selectiva: con umbral de confianza configurado, una consulta sin candidatos suficientes devuelve señal `abstained` explícita en el wire (nunca resultados silenciosamente degradados; default OFF) Y retrieval trust-aware respeta la clase asserted/derived (semántica ADR SCH-01) Y test de contención verde (dudoso no inyectado por defecto) + threat model de MGR-13 citado por superficie"
+- **Task file:** `docs/dev/tasks/SCH-05.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — máquina de estados + abstención con semántica honesta + gates write-time sin motor de políticas.
+- **Top 3 riesgos:** 1. falsos positivos aíslan contenido legítimo (default-exclude) · 2. abstención que rompe clientes (vacíos silenciosos) · 3. deep-poisoning vía dream/import no cubierto por el threat model.
+- **Pre-mortem:** F1: criterios de cuarentena opacos → tabla estados×transiciones con señales medibles + promoción revisable (MGR-13); F2: abstención implementada como "menos resultados" sin señal → `abstained` explícito en el wire + test de contrato; F3: import/dream evaden el default-exclude → test de contención por superficie de entrada (no solo API).
+- **Stop conditions:** si los gates de promoción exigen motor de políticas (ABAC/namespaces trusted MGR-04) → recortar a estado + default-exclude + abstención simple y FIND; rabbit hole: hash-chain/PROV-O de auditoría → NO (VER-01 lo cubre sobre WAL, F4).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Falsos positivos aíslan contenido válido | criterios explícitos MGR-13 + promoción revisable + include opt-in | review P2-01 |
+  | 🟡×🟠 | Abstención rompe clientes | señal `abstained` explícita + default OFF (solo con umbral configurado) | test de contrato |
+  | 🟢×🟠 | Poison vía dream/import | threat model por superficie write-time + contención por entrada | discovery |
+- **Uphill/Downhill:** ⬆️ 2 (abstención con señal honesta + gates write-time) / ⬇️ 6 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** consume MGR-13 (Task 25: threat model + estados/transiciones) + clase de MGR-12/SCH-01; MGR-04 (namespaces trusted/tainted) fuera del plan → clase mínima y deuda a v1.0 anotada. DoD Backlog:942: "test de contención (contenido dudoso no se inyecta por defecto) + doc". Hash-chain de auditoría cita a VER-01 (F4), no se duplica.
 
 ### Task 31: SCH-06 — Tests: migración determinista, time-travel, roundtrip export/import, chaos
 - **Fase:** F3
-- **Dep:** SCH-02..05 · 🟡 2-3d · 🔴 · **Ruta:** vanta-chaos · **Contrato:** "suite de migración/chaos verde + crash-recovery" · **Task file:** `docs/dev/tasks/SCH-06.md`
+- **Dep:** SCH-02..05 (schema v2 + queries AS OF + cuarentena/abstención)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🔴
+- **Ruta:** vanta-chaos
+- **Archivos clave:** nuevos (destinos; nombre final en DISCOVERY): `tests/schema_v2_migration.rs` · `tests/time_travel.rs` · `tests/chaos_migration.rs` · extender: `tests/schema_evolution.rs` (:29) · `tests/core/snapshot_certification.rs` (:257-286 schema_version=1; :1529 `snapshot_restore_fail`) · `tests/sdk_serialization.rs` (:296) · `tests/memory_export_import.rs` (:38-50) · `tests/durability_recovery.rs` (:381-416 `snapshot_serialize_fail`) · `tests/wal_rollback.rs` (:165-217 recovery) · `tests/storage/chaos_integrity.rs` (:127) · `tests/storage/crash_injection.rs` (:1-40 `crash_helper` SIGKILL) · `tests/quarantine_containment.rs` (SCH-05) · `fuzz/fuzz_targets/fuzz_parser.rs` (si `AS OF` toca el parser) · `.config/nextest.toml` (:76 audit, :100-103 chaos) · `.github/workflows/chaos.yml` · `Cargo.toml` (:158 `failpoints`; :397-399 required-features)
+- **Verificación real:** ✅ CÓDIGO-REAL — **infra de tests verificada**: failpoints feature (`Cargo.toml:158`, dep `fail` :134) + chaos ya en CI (`.github/workflows/chaos.yml` job "Chaos Tests (failpoints)"; `tests/storage/chaos_integrity.rs:127`; perfil `chaos` `.config/nextest.toml:100-103`) + crash-injection real por subproceso (`tests/storage/crash_injection.rs:1-40`: build `crash_helper` → SIGKILL/TerminateProcess → cold-start) + failpoints de snapshot/WAL (`durability_recovery.rs:381-416`; `snapshot_certification.rs:1529`) + harness `VantaSession`/`TerminalReporter` (`tests/common/mod.rs`) + roundtrip export/import (`memory_export_import.rs:38-50`) + proptest/fuzz (`tests/proptest_serialization_roundtrip.rs`, `tests/proptest_wal_roundtrip.rs`, `fuzz/fuzz_targets/fuzz_{wal,parser,node_deserialize,archive}.rs`). **Gaps**: la suite fija schema v1 (`snapshot_certification.rs:280-286` assert schema_version=1; `sdk_serialization.rs:296`; `tests/common/mod.rs:278,330`) → determinismo de migración, time-travel y bordes (TTL+quarantine, supersede+invalid) no existen; heavy binaries están fuera del filtro default de nextest (correr scoped `-p vantadb` + profiles `audit`/`chaos`, regla HARD-05).
+- **Gate Justificación:** el gate F3 exige "migración determinista verde" (plan :35) — esta suite ES ese gate; DoD Backlog:943 (suite + bordes) y los failpoints ya existen → costo marginal bajo; sin esto el corte 0.8.0 no tiene evidencia de recuperación ante crash mid-migration ni de que `AS OF` devuelve el estado correcto.
+- **Gate Result:** ✅ DO
+- **Contrato:** "suite verde: migración v1→v2 determinista (misma DB → mismo resultado; doble corrida byte-idéntica sobre copia) Y time-travel `AS OF` con fechas de referencia (eje valid/transaction según ADR SCH-01) Y roundtrip export/import v1↔v2 (v1 sigue importable; campos nuevos sobreviven ida y vuelta) Y chaos: crash durante migración → recuperación íntegra (failpoint + reopen + integridad de índices) Y bordes (TTL+quarantine, supersede+invalid) — todo corriendo en CI vía chaos.yml + nextest scoped"
+- **Task file:** `docs/dev/tasks/SCH-06.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — determinismo byte-exacto + failpoints de migración + semántica temporal correcta en los tests.
+- **Top 3 riesgos:** 1. determinismo frágil (timestamps/orden de records) · 2. failpoints flaky/caros en CI · 3. time-travel mal especificado → tests que fijan la semántica equivocada.
+- **Pre-mortem:** F1: migración no determinista por reloj/orden → reloj inyectado + doble corrida byte-idéntica (copia de DB v1 → v2 ×2); F2: no existe failpoint en el runner de migración → instrumentar con `fail` + abort-antes-de-swap (precedente `snapshot_restore_fail`, `snapshot_certification.rs:1529`); F3: `AS OF` testeado contra el eje equivocado → fechas de referencia fijadas por el ADR + revisión cruzada con SCH-03.
+- **Stop conditions:** si instrumentar failpoints en la migración exige tocar el engine >1d → cobertura chaos vía crash-injection existente (SIGKILL mid-migración) + FIND para failpoint dedicado; rabbit hole: fuzz targets nuevos de migración → NO (proptest/fuzz existentes primero).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Determinismo frágil | doble corrida byte-idéntica + reloj inyectado | test doble corrida |
+  | 🟡×🟠 | Failpoints flaky en CI | reusar chaos.yml + perfil `chaos` + timeouts | 2 corridas rojas seguidas |
+  | 🟢×🟠 | Time-travel mal especificado | fechas de referencia del ADR + review SCH-03 | review SCH-03 |
+- **Uphill/Downhill:** ⬆️ 2 (determinismo byte-exacto + failpoint de migración) / ⬇️ 6 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** Backlog:943 ("OS: failpoints existentes" — verificado: `Cargo.toml:158`, chaos.yml, perfiles nextest). Correr scoped `-p vantadb` + `--profile audit/chaos` (HARD-05: nunca nextest sin `-p` desde raíz). Nombres de archivos nuevos = destino propuesto (los task files SCH-0x no existen aún; se crean en DISCOVERY).
 
 ### Task 32: SCH-07 — Superficies: bindings/server/MCP/IQL + docs/api mismo-PR
 - **Fase:** F3
-- **Dep:** SCH-02..06 · 🟡 2-3d · 🟠 · **Ruta:** vanta-worker · **Contrato:** "4 bindings + server + MCP + IQL exponen schema v2 + docs sync (Regla 3)" · **Task file:** `docs/dev/tasks/SCH-07.md`
+- **Dep:** SCH-02..06 (schema v2 completo + suite verde)
+
+- **Appetite:** max 3d · **Esfuerzo:** 🟡 2-3d · **Prioridad:** 🟠
+- **Ruta:** vanta-worker
+- **Archivos clave:** `vantadb-python/src/{lib.rs,types.rs}` + `vantadb-python/vantadb_py/vantadb_py.pyi` (search :1162; IQL `query`/`query_structured` :1755-1789; getters :334-377) · `vantadb-node/{src/lib.rs,index.d.ts}` (:64-67, :147-152; wire napi genérico :106-123) · `vantadb-ts/src/{types.ts,guards.ts,vantadb.ts}` (:61-70, :173-183; IQL :1140) · `vantadb-wasm/src/lib.rs` (:1182-1203, :2233) · `src/server/{handlers.rs,router.rs}` (:505-555) + `docs/api/openapi.yaml` · `vantadb-mcp/src/handlers/tools.rs` (parse :3243; `query_iql` :273/:1688) + `vantadb-mcp/tests/mcp_tests.rs` (meta-tests de conteos WIRE-02) · `src/parser/{mod.rs,grammar.rs}` (:17/:26; :95/:120) · docs: `docs/api/{PYTHON_SDK,TS_SDK,NODE_SDK,WASM_API,HTTP_API,MCP,IQL,EMBEDDED_SDK,scores}.md` + `docs/api/BINDINGS_NAMESPACES.md`
+- **Verificación real:** ✅ CÓDIGO-REAL — **superficies y puntos de extensión verificados**: Py (`lib.rs:1162` search con `exclude_superseded`+`query_sparse`; IQL `query`/`query_structured` :1755-1789; getters `types.rs` — patrón de campo nuevo :369-377; stubs con drift gate `vantadb-python/tests/test_stub_drift.py` — existe); Node (`index.d.ts:64-67` MemoryRecord + :147-152 MemorySearchHit; wire napi genérico `Value` `lib.rs:106-123`); TS (`types.ts:61-70` MemoryRecord, :173-183 SearchHit; IQL `vantadb.ts:1140`; guards `guards.ts`); WASM (`memory_record_to_js` :2233; `search_hit_to_js` :1182-1203); HTTP (`SearchPageV2` handlers.rs:524-529; `records_search` :531-555; parity `tests/api/openapi_yaml_parity.rs`); MCP (`parse_search_request` tools.rs:3243; meta-tests de conteos en `mcp_tests.rs` — WIRE-02); IQL (`IQL_VERSION=1` parser/mod.rs:17; `iql_supports` :26; gramática :95/:120; tool `query_iql` tools.rs:273/1688). **Gates de docs/paridad**: `scripts/validate-docs-coverage.ps1` (Regla 3 mecánica, CI_POLICY.md:28,34) + `sdk_serialization` (wire cross-binding, VERSIONING.md:76-77) + `public_api` snapshot (VERSIONING.md:82-84) + matriz de las 11 superficies (VERSIONING.md:29-48). **Gap**: ninguna binding conoce campos v2; `AS OF` (SCH-03) queda core+IQL hasta esta task (Notas SCH-03: "SCH-07 expone en bindings/server/MCP").
+- **Gate Justificación:** con 11 superficies contractuales (VERSIONING.md:29-48), un schema v2 visible solo en core es un breaking silencioso para consumidores multi-lenguaje; Regla 3 mecánica (`validate-docs-coverage`) evita el drift día 1 y la matriz de paridad alimenta ICP-01..03 (F5); los cambios de wire son aditivos (`#[serde(default)]`) pero deben marcarse como frontera MINOR del corte.
+- **Gate Result:** ✅ DO
+- **Contrato:** "los campos v2 (bitemporal + confianza + quarantined) y los params de query (AS OF/valid_at + abstención) cruzan Py/TS/Node/WASM + HTTP (+`openapi.yaml`) + MCP + IQL con los MISMOS nombres de wire Y matriz de paridad verde (`openapi_yaml_parity` + `sdk_serialization` + stub drift `.pyi` + d.ts + meta-tests MCP de conteos) Y `docs/api/` actualizadas en el mismo PR (Regla 3: `validate-docs-coverage` exit 0) Y `public_api` snapshot regenerado deliberadamente (sin cambios Rust no intencionales)"
+- **Task file:** `docs/dev/tasks/SCH-07.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — paridad de 8 superficies + openapi + docs en el mismo PR sin romper contratos existentes.
+- **Top 3 riesgos:** 1. drift de nombres/shape entre superficies · 2. breaking accidental no marcado (semver-checks vs baseline 0.7.0) · 3. docs/api desincronizadas → gate rojo.
+- **Pre-mortem:** F1: cada binding inventa su forma → wire canónico desde core (serde) + matriz en `BINDINGS_NAMESPACES.md` + tests por binding; F2: WASM/desktop exceden el appetite → stop condition: core+3 bindings+HTTP+MCP+IQL primero y FIND para el resto; F3: docs a medias → `validate-docs-coverage` en el mismo PR + checklist por doc del listado de Archivos clave.
+- **Stop conditions:** si WASM (browser) o desktop no cierran dentro del appetite → entregar Py/TS/Node + HTTP + MCP + IQL y diferir WASM/desktop con FIND documentado (paridad parcial declarada, nunca silenciosa); rabbit hole: refactor de tipos compartidos entre bindings → NO.
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🟠 | Drift entre superficies | wire canónico + matriz de paridad + tests por binding | gate bindings |
+  | 🟡×🔴 | Breaking no marcado | `feat!` + semver-checks + snapshot deliberado | semver job |
+  | 🟢×🟡 | Docs desincronizadas | Regla 3 mecánica `validate-docs-coverage` mismo PR | gate-docs |
+- **Uphill/Downhill:** ⬆️ 2 (paridad de 4 bindings + openapi + docs mismo-PR) / ⬇️ 7 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** Backlog:944; coordina con API-01..09 (mismo sistema de tipos); precedente WIRE-03 (stubs 7/7, `test_stub_drift.py`) y WIRE-02 (meta-tests de conteos MCP). WASM/desktop pueden diferirse por stop condition (FIND) — la promesa del contrato se evalúa por superficie declarada, no por intención.
 
 ### Task 33: SCH-08 — Corte 0.8.0: migration guide + CHANGELOG + release notes
 - **Fase:** F3
-- **Dep:** SCH-07 · 🟢 1d · 🔴 · **Ruta:** vanta-docs · **Contrato:** "migration guide publicado + release notes + corte vía release-plz (nunca manual)" · **Task file:** `docs/dev/tasks/SCH-08.md`
+- **Dep:** SCH-07 (superficies + docs sincronizadas)
+
+- **Appetite:** max 2d · **Esfuerzo:** 🟢 1d · **Prioridad:** 🔴
+- **Ruta:** vanta-docs
+- **Archivos clave:** `docs/user/operations/UPGRADE.md` (nueva sección "Upgrading to 0.8.0" sobre el placeholder :68-71; patrón :45-66) · `docs/CHANGELOG.md` (entrada `[0.8.0]` generada por release-plz) · `docs/api/COMPATIBILITY.md` (§ Pre-release deltas → cierre 0.8.0; rails :17-30) · `docs/api/VERSIONING.md` (:16-27 contrato 0.x; :113-119 release mechanics) · `docs/api/DEPRECATIONS.md` (si aplica) · `release-plz.toml` (changelog_path/git_release_enable) · `.github/workflows/release.yml` (jobs release-plz) · PR release-plz vigente (owner lane)
+- **Verificación real:** ✅ CÓDIGO-REAL — **infra de release verificada**: `docs/CHANGELOG.md:8-14` (`## [Unreleased]` vacío; `[0.7.0] - 2026-09-25` :10 — el corte activo es **0.8.0**, plan :35); `release-plz.toml` (`changelog_path = "docs/CHANGELOG.md"`, `git_release_enable = true` → release notes automáticas del GitHub release, `release_always = false` (HIG-01), `semver_check = true`); `.github/workflows/release.yml` jobs `release-plz-release` + `release-plz-pr` (action pin v0.5.139 :38/:67). **Rails HARD-01 ✅**: `VERSIONING.md:16-27` (0.x: MINOR = frontera de breaking; `feat!`/`BREAKING CHANGE` obligatorio) + `COMPATIBILITY.md:17-30` + `DEPRECATIONS.md` + `UPGRADE.md`. **Ancla de la guía**: `UPGRADE.md:68-71` ya declara "Pending breaking changes for the next MINOR (0.8.0, in development) ... lands in this section with the 0.8.0 release" — el trabajo es rellenar esa sección con la migración v1→v2 real. **Owner lane**: `RELEASE_PLZ_TOKEN` + PR #228 (release-plz) en plan :880-884; "nunca manual" = Regla 7 (release-plz único versionador). **Re-baseline verificado**: Backlog:945 decía "tag 0.7.0" — STALE (0.7.0 shipped 2026-09-25); el corte de esta fase es 0.8.0. Gap: no existe guía de migración v1→v2 propia (`rg -i migrat docs` = guías de otras DBs `docs/user/tutorials/migrating-*` + `SQLITE_MIGRATION_GUIDE.md`, ninguna de VantaDB).
+- **Gate Justificación:** cierre de fase F3: el corte 0.8.0 ES la migración única (Backlog:934, decisión owner); sin guía publicada + CHANGELOG con breaking marcados, los consumidores 0.7.0 se rompen sin aviso (la migración v1→v2 toca el formato); release-plz es el único versionador permitido (Regla 7 / plan :44) y las release notes quedan revisadas antes del merge.
+- **Gate Result:** ✅ DO
+- **Contrato:** "UPGRADE.md §'Upgrading to 0.8.0' publicado (campos v2 + semántica valid/transaction + `AS OF` + pasos de migración/backfill + backup pre-upgrade) Y entrada `[0.8.0]` en `docs/CHANGELOG.md` con breaking changes marcados (`feat!`/`BREAKING CHANGE`) Y release notes del GitHub release (release-plz) revisadas Y corte ejecutado SOLO vía release-plz (Release PR merge — nunca tag/versión/CHANGELOG a mano, Regla 7), con verificación post-release de artefactos (crates/wheels/npm)"
+- **Task file:** `docs/dev/tasks/SCH-08.md` (a crear en DISCOVERY)
 - **Estado:** ⬜ PENDING · **Branch:** develop · **Commit:**
+- **Cynefin:** 🟨 complicado — release-plz como único versionador + guía de migración real + artefactos multi-ecosistema.
+- **Top 3 riesgos:** 1. Release PR sin la migración (bump/CHANGELOG incorrecto o sin breaking notes) · 2. guía incompleta → usuarios 0.7.0 rotos · 3. artefactos post-release fallan (wheels/npm/crates).
+- **Pre-mortem:** F1: ningún commit del tramo usa `feat!` → release-plz propone PATCH → auditar commits + `BREAKING CHANGE` footer antes del PR y verificar el diff del Release PR; F2: guía publicada sin probar el upgrade → smoke de upgrade real (DB v1 0.7.0 → 0.8.0) registrado en el task file; F3: merge sin token/release roto → queda en carril owner (bloqueo registrado, no silencioso; artifacts re-verificados con release-wheels/release-npm).
+- **Stop conditions:** si el Release PR no refleja 0.8.0 correctamente (versión o notes) → NO mergear; corregir commits y regenerar (nunca editar el CHANGELOG a mano); si el token owner no está disponible → publicar guía + notes revisadas y dejar el merge en carril owner con bloqueo anotado; rabbit hole: escribir release notes a mano fuera del CHANGELOG → NO (skill `release-notes-one-pager` solo como artefacto de anuncio, nunca como fuente).
+- **Risk Register:**
+  | Prob×Impacto | Riesgo | Respuesta (mitigación) | Trigger / Due |
+  |--------------|--------|------------------------|---------------|
+  | 🟡×🔴 | Release PR sin breaking notes | auditar commits `feat!` + revisar diff del PR release-plz | review del PR |
+  | 🟡×🟠 | Guía incompleta | checklist campos+AS OF+backup sobre :68-71 + smoke de upgrade | review P2-01 |
+  | 🟢×🟠 | Artefactos post-release fallan | verificación post-merge (release-wheels/release-npm) + RELEASE_PLZ_TOKEN owner | post-release |
+- **Uphill/Downhill:** ⬆️ 1 (Release PR correcto con breaking notes + guía real) / ⬇️ 4 steps
+- **DoD task:** contrato ⬜ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** re-baseline verificado (Backlog:945 decía "tag 0.7.0" — STALE; corte = 0.8.0, `CHANGELOG.md:10` + plan :35). Owner lane: RELEASE_PLZ_TOKEN + PR #228 (plan :880-884; owner decide merge/close). Regla 7 / plan :44: "Release: release-plz (nunca tags/versión/CHANGELOG a mano)". La sección nueva de UPGRADE.md es el entregable de guía; las release notes salen del GitHub release de release-plz (revisadas).
 
 ### Task 34: VER-07 — Dreams: dry-run + diff report + `promote_dream_run` real
 - **Fase:** F4
@@ -814,17 +1045,18 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **plan-adjust [2026-09-27b]:** **Pre-run hardening del harness (Gate H ✅ APPROVE, 3 rondas).** 4 auditorías profundas (vanta-harness) + 30+ fixes: gates (verify retry/refund, budget 40, validate_scope canónico), claim wave-aware (salta ⏳, WIP=3), seguridad (inyección workDir/git, PIPED_SHELL blocking, sandbox deadlock), observabilidad (eval por tarea+filtro plan, skills SDP en verify-log), parsers (id canónico `HARD-01`, formato compacto), plan normalizado (50 Estados escribibles + Fase ×50), hooks alineados, checkpoint. Tests: **49/49** + parity 10/40/40/5/120 + probes E2E en vivo. ⬆️ antes: 13 hallazgos 🔴/🟠 + 9 seguridad → **después: 0 bloqueantes**. ⬇️ downhill: 49.
 - **plan-adjust [2026-09-27c]:** **F1 COMPLETA (8/8).** DEF-03 (`8a884ba6`+`b82f90cb`) · DEF-04 (`d45deba5` — ADR-045 firmado por owner, Gate P) · DEF-05 (`58c9903c`) · DEF-07 (`fd50ea22`) · DEF-08 (`1a696766`) + cierres `44e3394e`/`3dc52f16` + FIND-169..175. Fix de harness: MCP codegraph/CBM nativos para sub-agentes (`543f917` + `3389234e`, Gate H). ⬆️ antes: 3 en progreso F1b → después: 0. ⬇️ downhill: 34.
 - **plan-adjust [2026-09-27d]:** **Bloques F2 completados al nivel F0/F1 (REGLA L412-422)** — Tasks 16-22 (WIRE-02..08), 23 campos c/u, Paso 0 verificado (codegraph/CBM): WIRE-02 re-baseline 85 listadas (`MCP.md:265`); WIRE-04 re-scope (TTL HTTP ya existe → default por colección + sweeper); WIRE-07 trait-split ya ejecutado → bookkeeping + OpGate/server→cli; deps MGR-05/09/16 anotadas. Gate de fase F2 ✅ → wave F2 lanzada (WIRE-03 ‖ WIRE-04; WIRE-02 en cola). Commit `0b6f9822`.
+- **plan-adjust [2026-09-28e]:** **Bloques F3 completados al nivel F0/F1 (REGLA L412-422)** — Tasks 23-33 (MGR-10/12/13 + SCH-01..08), 23 campos c/u, Paso 0 verificado (codegraph/CBM): SCH-01 re-baseline alcance 0.8.0 (0.7.0 shipped); SCH-03 `exclude_superseded` YA existe (gaps reales = AS OF/valid_at); SCH-04 re-baseline slice 0.8.0; SCH-08 corte 0.8.0 (Backlog stale corregido); deps fuera del plan anotadas (MGR-01/04). Gate de fase F3 ✅ → wave F3.1 lanzada (MGR-10 ‖ MGR-12 ‖ MGR-13).
 
 ## Recitation
 
 ```
 === RECITATION MASTER-ROADMAP ===
 Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
-Objetivo activo: F2 — WIRE-02..08 (paridad bindings, TTL, entity linking, batching, refactors, search engine)
+Objetivo activo: F3 — Bitemporalidad/confianza/cuarentena + schema v2 (MGR/SCH)
 Estado: in-progress
-Última acción: F1 COMPLETA (16/50); bloques F2 completados; wave F2 lanzada (WIRE-03/04 en ejecución; WIRE-02 en cola)
-Resultado: OK (F0 7/7 · F1 8/8)
-Próxima acción: cerrar WIRE-03/04 (review fresco + commit) → WIRE-02 → resto de F2
+Última acción: F2 COMPLETA (23/50); bloques F3 completados; wave F3.1 lanzada (MGR-10 ‖ MGR-12 ‖ MGR-13)
+Resultado: OK (F0 7/7 · F1 8/8 · F2 7/7)
+Próxima acción: cerrar MGR-10/12/13 (research-docs) → SCH-01 → cadena SCH
 Contrato: —
 Próxima tarea si completa: HARD-01
 === END RECITATION ===
