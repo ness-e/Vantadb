@@ -81,7 +81,10 @@ pub mod config;
 /// Explicit connection pool for HTTP query execution (feature `server`).
 #[cfg(feature = "server")]
 pub mod connection_pool;
-#[cfg(feature = "cli")]
+/// Terminal output helpers (banner/status lines). Available under `cli` (the
+/// `vanta-cli` REPL) and `server` (HTTP bootstrap/telemetry status lines), so
+/// `server` no longer implies `cli` (WIRE-07 feature decouple).
+#[cfg(any(feature = "cli", feature = "server"))]
 pub mod console;
 pub(crate) mod cost_estimator;
 pub(crate) mod edge_index;
