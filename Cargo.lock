@@ -6822,6 +6822,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "vantadb-ffi-core"
+version = "0.7.0"
+
+[[package]]
 name = "vantadb-mcp"
 version = "0.7.0"
 dependencies = [
@@ -6877,6 +6881,7 @@ dependencies = [
  "tracing-wasm",
  "twox-hash",
  "vantadb",
+ "vantadb-ffi-core",
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
@@ -6892,6 +6897,7 @@ dependencies = [
  "rayon",
  "tracing",
  "vantadb",
+ "vantadb-ffi-core",
 ]
 
 [[package]]
