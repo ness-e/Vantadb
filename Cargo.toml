@@ -175,7 +175,7 @@ encryption = ["dep:aes-gcm", "dep:sha2", "dep:ring"]
 wal-shipping = ["dep:reqwest"]
 bayesian_decay = []
 server = [
-    "cli",
+    "dep:console",
     "dep:tokio",
     "dep:axum",
     "dep:tower",
@@ -754,6 +754,10 @@ members = [
     "vantadb-server",
     "vantadb-mcp",
     "vantadb-wasm",
+    # WIRE-07: neutral std-only FFI leaf (OpGate + ERR-022 clamp policy) shared
+    # by node/python/wasm. Not in default-members: it is a dependency-only crate
+    # (built transitively via those bindings).
+    "vantadb-ffi-core",
     "vanta-memory",
     "vanta-proxy",
 ]

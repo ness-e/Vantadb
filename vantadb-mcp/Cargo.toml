@@ -7,7 +7,20 @@ description = "Autocontained Model Context Protocol (MCP) interface for VantaDB"
 publish = false
 
 [dependencies]
-vantadb = { path = "../", features = ["cli", "server"] }
+# WIRE-07 feature decouple: same non-`cli` default set as `vantadb-server`
+# (both are dependents of the HTTP binary; keeping either on `default` would
+# re-enable `cli` through feature unification).
+vantadb = { path = "../", default-features = false, features = [
+    "advanced-tokenizer",
+    "arrow",
+    "fjall",
+    "fs2",
+    "memmap2",
+    "rayon",
+    "roaring",
+    "server",
+    "sysinfo",
+] }
 # MEM-52: fachada productiva de ingest wiki — el tool wiki_ingest dispara el
 # worker de vanta-memory en un hilo de fondo (era dev-dep desde MEM-44;
 # dirección ciclo-free verificada vía cargo tree).

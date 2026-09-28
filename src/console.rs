@@ -13,7 +13,12 @@
 //! ```
 
 use console::style;
+// Progress-bar helpers are CLI-only (`create_progress_bar`/`create_spinner`);
+// the `server` feature also compiles this module (bootstrap/telemetry status
+// lines) but must not drag `indicatif` into the HTTP binary (WIRE-07).
+#[cfg(feature = "cli")]
 use indicatif::{ProgressBar, ProgressStyle};
+#[cfg(feature = "cli")]
 use std::time::Duration;
 
 // ─── Banner ────────────────────────────────────────────────────────────────
@@ -288,6 +293,7 @@ pub fn print_ready(addr: &str) {
 // ─── Progress Bars ──────────────────────────────────────────────────────────
 
 /// Create a styled progress bar for long operations (insert batch, indexing, etc.)
+#[cfg(feature = "cli")]
 pub fn create_progress_bar(total: u64, message: &str) -> ProgressBar {
     let pb = ProgressBar::new(total);
     pb.set_style(
@@ -304,6 +310,7 @@ pub fn create_progress_bar(total: u64, message: &str) -> ProgressBar {
 }
 
 /// Create a simple spinner for indeterminate operations
+#[cfg(feature = "cli")]
 pub fn create_spinner(message: &str) -> ProgressBar {
     let pb = ProgressBar::new_spinner();
     pb.set_style(
