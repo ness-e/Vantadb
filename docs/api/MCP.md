@@ -195,12 +195,12 @@ so LLM agents can branch on a stable identifier without parsing message text:
 
 ## Tool Families
 
-**85 tools in 8 families (spec 2025-06-18, every tool carries `annotations` with `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` per [MCP Tool Annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) / [blog 2026-03-16](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations)):**
+**79 listed tools in 8 families (85 defined − 6 WIRE-02 absorbed `code_*` projections; spec 2025-06-18, every tool carries `annotations` with `title`, `readOnlyHint`, `destructiveHint`, `idempotentHint`, `openWorldHint` per [MCP Tool Annotations](https://modelcontextprotocol.io/specification/2025-06-18/server/tools) / [blog 2026-03-16](https://blog.modelcontextprotocol.io/posts/2026-03-16-tool-annotations)):**
 
 | Family | Count | Source module |
 |--------|-------|---------------|
 | Core | 47 | `handlers/tools.rs` — listed in `tools/list` |
-| `code_*` | 8 | `code.rs` |
+| `code_*` | 2 listed (8 defined) | `code.rs` — 6 projections absorbed dispatch-only (WIRE-02) |
 | `skill_*` | 7 | `skills.rs` |
 | `wiki_*` | 6 | `wiki.rs` |
 | `context_assemble` | 1 | `context.rs` |
@@ -211,32 +211,42 @@ so LLM agents can branch on a stable identifier without parsing message text:
 > Annotations are display hints (untrusted, not enforcement): `readOnlyHint` true = no persistent mutation, `destructiveHint` true = may delete/overwrite (11 tools), `idempotentHint` true = retry-safe, `openWorldHint` true = host filesystem (wiki_ingest, bulk_import_file only). Clients that ignore annotations assume pessimistic defaults.
 > Dependent ops (e.g. `put` then `search` over the new record) go in sequential invocations, not one multi-call batch: batches may reorder (smoke Fase 2 note).
 
-## Legacy aliases (dispatch-only, API-04)
+## Legacy & absorbed names (dispatch-only)
 
-Gate P (API-STD-15) canonicalized the tool surface to **one listed name per tool**. These two names stay *dispatchable* (`tools/call` resolves them) but are **not** returned by `tools/list`:
+Gate P (API-STD-15) canonicalized the tool surface to **one listed name per tool**, and WIRE-02 (2026-09-27) absorbed the redundant `code_*` projections into their canonical tool. These names stay *dispatchable* (`tools/call` resolves them) but are **not** returned by `tools/list` in any profile:
 
 | Legacy (unlisted) | Canonical (listed) | Behavior |
 |-------------------|--------------------|----------|
 | `search_memory` | `memory_search` | Same shared dispatch (identical wire shape). |
 | `collection_list` | `memory_list_namespaces` | Keeps its richer per-namespace metadata (`record_count`, `has_vector_index`, `created_at`) for legacy callers. |
+| `code_callers` | `code_explore` | `code_explore` already splits outgoing (callees) / incoming (callers) neighbors. |
+| `code_callees` | `code_explore` | Same depth-1 BFS, reverse edge direction. |
+| `code_impact` | `code_explore` | Reachability projection (multi-hop via `graph_traverse`). |
+| `code_node` | `code_explore` | `code_explore` returns the node record plus its neighborhood. |
+| `code_status` | `capabilities` | Same `operational_metrics()` snapshot. |
+| `code_files` | `code_search` | Documented "not supported" stub (the built-in graphrag has no file-per-node concept). |
 
 The legacy prompt `search_memory` (see §Prompts) follows the same rule via `prompts/get`.
 
-## Tool Surface Profiles (MCP-37)
+## Tool Surface Profiles (MCP-37 / WIRE-02)
 
 The VantaDB MCP server exposes a **tool surface profile** via the `VANTADB_MCP_PROFILE` environment variable. This allows clients with tool caps (e.g., Cursor ~40 tools) to select a subset that fits their limits while preserving full functionality for unrestricted clients.
 
 | Profile | Tool Count | Description | Recommended For |
 |---------|------------|-------------|-----------------|
-| `full` (default) | 85 | All tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence, wiki, skills, threads, scenes, dreams, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients |
+| `agent` (**default**) | 37 | Memory CRUD + search + recall + IQL + collections + threads + scenes + context engine + wiki read. | Agent clients out of the box (the old default `full` cost ≈ 23K tokens of tool schemas per session). |
+| `full` | 79 | All listed tools: memory, graph, collections, maintenance, snapshots, backup, introspection, code intelligence (2 listed primitives), wiki, skills, threads, scenes, dreams, context engine. | Claude Desktop, Claude Code, OpenCode, unrestricted clients (pre-0.8 default; opt-in) |
 | `dev` | 36 | Memory CRUD + search + IQL + graph traversal + collections + key maintenance (snapshots, export/import, flush, compact) + axioms. Excludes: code intelligence, wiki, skills, threads, scenes, context engine, bulk import, index audit/repair, vacuum, rebuild_index. | **Cursor** (cap ~40), VS Code extensions, clients with moderate tool caps |
 | `memory` | 20 | Core memory CRUD (put/get/delete/list/versions/supersede) + search (semantic/memory/with_method/multi) + IQL + collections + capabilities + generate_snippet. | Memory-only agents, minimal clients, testing |
 
 **Usage:**
 
 ```bash
-# Full profile (default)
+# Agent profile (default): memory + threads + scenes + context + wiki read
 vanta-cli server --mcp --db ~/.vantadb
+
+# Full profile (all 79 listed tools — the pre-0.8 default; opt-in)
+VANTADB_MCP_PROFILE=full vanta-cli server --mcp --db ~/.vantadb
 
 # Dev profile (recommended for Cursor)
 VANTADB_MCP_PROFILE=dev vanta-cli server --mcp --db ~/.vantadb
@@ -260,10 +270,10 @@ VANTADB_MCP_PROFILE=memory vanta-cli server --mcp --db ~/.vantadb
 ```
 
 **Behavior:**
-- The profile is read once at server startup from `VANTADB_MCP_PROFILE`.
+- The profile is read once at server startup from `VANTADB_MCP_PROFILE` (unknown values fall back to the default).
 - `tools/list` returns only the tools allowed by the selected profile.
-- `tools/call` for a non-listed tool returns `method_not_found` with a clear error: `Tool not found: <name> (not in profile <profile>)`.
-- Profile `full` preserves backward compatibility — existing clients see all 85 tools by default.
+- `tools/call` for a known tool outside the profile returns `method_not_found` (-32601) with the clear error: `Tool not found: <name> (not in profile <profile>)` (WIRE-02: enforced in code; unknown names keep the plain `Tool not found: <name>` fall-through). Absorbed dispatch-only names (§Legacy & absorbed) stay callable while their canonical tool is listed in the active profile.
+- **Migration (WIRE-02):** the default changed from `full` to `agent`. Set `VANTADB_MCP_PROFILE=full` to keep the pre-0.8 79-tool listed surface; the legacy `search_memory`/`collection_list` aliases keep working.
 
 ## Core Tools (47)
 
@@ -393,22 +403,24 @@ Model catalog source of truth: `embeddings/manifest.json` (9 ids, rev pinned). F
 | `bulk_import_file` | Bulk-imports from a binary `.vdbdump` file on the host filesystem, **by design** bypassing per-record validation for throughput (MCP-25; do not "normalize" — it would lose the raw-throughput contract). |
 | `bulk_import_stream` | Bulk-imports inline NDJSON or raw `.vdbdump` content (max 10 MB); imported entries are raw engine nodes, **by design** not addressable via `memory_get`/`memory_list` (MCP-25). |
 
-## Extended Tool Families (38)
+## Extended Tool Families (38 defined; 32 listed)
 
-Dispatched via `tools/call`, defined outside `handlers/tools.rs` (8+7+6+5+6+1+5 = 38):
+Dispatched via `tools/call`, defined outside `handlers/tools.rs` (8+7+6+5+6+1+5 = 38 defined; WIRE-02 absorbs 6 `code_*` → 32 listed):
 
-### Code Intelligence — `code.rs` (8)
+### Code Intelligence — `code.rs` (8 defined; 2 listed)
 
 | Tool | Description |
 |------|-------------|
 | `code_search` | Searches indexed code symbols. |
 | `code_explore` | Explores symbols with call paths and blast radius. |
-| `code_callers` | Lists callers of a symbol. |
-| `code_callees` | Lists callees of a symbol. |
-| `code_impact` | Impact analysis for a change target. |
-| `code_node` | Fetches a single code-graph node. |
-| `code_files` | Lists indexed files. |
-| `code_status` | Index health/status of the code graph. |
+| `code_callers` | *(dispatch-only, WIRE-02)* Lists callers of a symbol. |
+| `code_callees` | *(dispatch-only, WIRE-02)* Lists callees of a symbol. |
+| `code_impact` | *(dispatch-only, WIRE-02)* Impact analysis for a change target. |
+| `code_node` | *(dispatch-only, WIRE-02)* Fetches a single code-graph node. |
+| `code_files` | *(dispatch-only, WIRE-02)* Lists indexed files — "not supported" stub (no file-per-node concept). |
+| `code_status` | *(dispatch-only, WIRE-02)* Index health/status of the code graph. |
+
+> Absorbed names are never listed in any profile; call them through their canonical tool (see §Legacy & absorbed).
 
 ### Skills Management — `skills.rs` (7)
 
@@ -533,7 +545,7 @@ After oversize trimming, `truncated` flips to `true` and the last items are drop
 
 ## Parity
 
-Tool coverage on this page is enforced mechanically by `scripts/validate-docs-coverage.ps1` against `handle_tools_list()` in `vantadb-mcp/src/handlers/tools.rs`. Last sync: **2026-09-25** (API-04: 87→85 — canonicalized `search_memory`/`collection_list` out of the listing; prompts renamed `recall_search`; `thread_id` is now a u128 decimal string).
+Tool coverage on this page is enforced mechanically by `scripts/validate-docs-coverage.ps1` against `handle_tools_list()` in `vantadb-mcp/src/handlers/tools.rs`. Last sync: **2026-09-27** (WIRE-02: 85→79 listed — 6 redundant `code_*` projections absorbed dispatch-only; default profile `full`→`agent`; `tools/call` profile enforcement live. Prior — 2026-09-25, API-04: 87→85 — canonicalized `search_memory`/`collection_list` out of the listing; prompts renamed `recall_search`; `thread_id` is now a u128 decimal string).
 
 ## Registry manifest
 

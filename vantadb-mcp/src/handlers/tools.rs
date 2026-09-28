@@ -22,9 +22,10 @@ const MAX_TRANSFER_BYTES: usize = 10 * 1024 * 1024;
 // https://modelcontextprotocol.io/specification/2025-06-18/server/tools.
 // Defaults are pessimistic (readOnlyHint false, destructiveHint true,
 // idempotentHint false, openWorldHint true) — we set them explicitly.
-// Summary (85 tools total, 47 base + 38 extend; API-04 canonicalized the
-// legacy aliases `search_memory` and `collection_list` out of the listing —
-// both stay dispatchable as documented, unlisted redirects):
+// Summary (85 tool definitions, 47 base + 38 extend; WIRE-02 lists 79 across
+// profiles and absorbs 6 `code_*` projections as dispatch-only, on top of the
+// 2 API-04 aliases `search_memory`/`collection_list` — all 8 absorbed names
+// stay dispatchable through their canonical listed tool):
 // - readOnlyHint true (48 tools): memory_get, memory_list, memory_list_namespaces, memory_versions, memory_recall, memory_search, search_semantic, search_with_method, search_multi, get_node_neighbors, graph_page_rank, graph_degree_centrality, graph_traverse, graph_topological_sort, graph_is_dag, read_axioms, collection_stats, audit_text_index, capabilities, generate_snippet, list_snapshots, export, embed_texts, code_search, code_explore, code_callers, code_callees, code_impact, code_node, code_status, code_files, wiki_search, wiki_read, wiki_list, wiki_graph, wiki_ingest_status, skill_list, skill_view, skill_extract, thread_get, thread_list, scene_read, scene_list, scene_query, context_assemble, dream_list, dream_load, dream_promote
 // - readOnlyHint false (37 tools): memory_put, memory_put_batch, memory_delete, memory_delete_by_filter, memory_supersede, query_iql, remove_edge, inject_context, write_axiom, delete_axiom, collection_delete, rehydrate, purge_expired, compact_wal, flush, compact_layout, vacuum, rebuild_index, repair_text_index, snapshot_create, snapshot_restore, import, bulk_import_file, bulk_import_stream, wiki_ingest, thread_create, thread_send, thread_delete, thread_purge_expired, skill_create, skill_update, skill_patch, skill_files_write, scene_write, scene_edit, dream_discard, dream_consolidate
 // - destructiveHint true (12 tools): memory_delete, memory_delete_by_filter, memory_supersede, remove_edge, delete_axiom, collection_delete, purge_expired, vacuum, snapshot_restore, thread_delete, thread_purge_expired, dream_discard
@@ -1052,6 +1053,37 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
     }
 
     match profile {
+        // WIRE-02: agent profile — memory + threads + scenes + context engine +
+        // wiki read (report §3.6 target ≈45; 20 + 6 + 5 + 1 + 5 = 37).
+        Agent => {
+            let agent_tools = [
+                // Threads — agentic conversation state.
+                "thread_create",
+                "thread_send",
+                "thread_get",
+                "thread_list",
+                "thread_delete",
+                "thread_purge_expired",
+                // Scenes — structured navigation.
+                "scene_read",
+                "scene_list",
+                "scene_query",
+                "scene_write",
+                "scene_edit",
+                // Context engine.
+                "context_assemble",
+                // Wiki read-only (wiki_ingest stays a write/openWorld tool).
+                "wiki_search",
+                "wiki_read",
+                "wiki_list",
+                "wiki_graph",
+                "wiki_ingest_status",
+            ];
+            for t in agent_tools {
+                set.insert(t);
+            }
+            set
+        }
         Memory => set,
         Dev => {
             // Dev profile (≤36 tools): Memory + graph + collections + key maintenance + introspection
@@ -1080,7 +1112,9 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
             set
         }
         Full => {
-            // Full profile (85 tools): All tools including code, wiki, skills, threads, scenes, dreams, context
+            // Full profile (79 listed tools): all listed base + extended
+            // families. The 6 absorbed `code_*` projections stay dispatch-only
+            // (WIRE-02) — the listed code surface is `code_search` + `code_explore`.
             // Add all base tools (already in memory_tools) plus extended modules
             let dev_tools = [
                 "get_node_neighbors",
@@ -1116,17 +1150,13 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
                 set.insert(t);
             }
 
-            // Extended module tools
-            let code_tools = [
-                "code_search",
-                "code_explore",
-                "code_callers",
-                "code_callees",
-                "code_impact",
-                "code_node",
-                "code_status",
-                "code_files",
-            ];
+            // Extended module tools. WIRE-02: only the two genuine codegraph
+            // primitives are listed — `code_callers`/`code_callees`/`code_impact`/
+            // `code_node` (projections of `code_explore`), `code_status` (same
+            // `operational_metrics()` snapshot as `capabilities`) and
+            // `code_files` (documented "not supported" stub) are absorbed
+            // dispatch-only — see `absorbed_canonical`.
+            let code_tools = ["code_search", "code_explore"];
             for t in code_tools {
                 set.insert(t);
             }
@@ -1200,6 +1230,44 @@ fn profile_allowed_tools(profile: McpProfile) -> std::collections::HashSet<&'sta
     }
 }
 
+/// WIRE-02: dispatch-only names absorbed by a listed canonical tool. They stay
+/// callable via `tools/call` when the canonical is listed in the active
+/// profile, but are never returned by `tools/list` (API-04 alias pattern
+/// extended to redundant projections — the listed surface is what costs
+/// clients tool-schema tokens per session).
+fn absorbed_canonical(name: &str) -> Option<&'static str> {
+    match name {
+        // API-04 legacy aliases (renamed canonical names).
+        "search_memory" => Some("memory_search"),
+        "collection_list" => Some("memory_list_namespaces"),
+        // WIRE-02 code_* projections of the codegraph primitives: `code_explore`
+        // returns the node plus the callers/callees split and covers the
+        // reachability projections; `code_status` is the same
+        // `operational_metrics()` snapshot as `capabilities`; `code_files` is a
+        // documented "not supported" stub (code.rs:19) whose closest listed
+        // substitute is `code_search`.
+        "code_callers" | "code_callees" | "code_impact" | "code_node" => Some("code_explore"),
+        "code_status" => Some("capabilities"),
+        "code_files" => Some("code_search"),
+        _ => None,
+    }
+}
+
+/// WIRE-02: `tools/call` gate — a listed tool passes; an absorbed name passes
+/// when its canonical tool is listed in the profile.
+fn profile_allows_call(profile: McpProfile, name: &str) -> bool {
+    let allowed = profile_allowed_tools(profile);
+    allowed.contains(name) || absorbed_canonical(name).is_some_and(|c| allowed.contains(c))
+}
+
+/// A name known to exist in the broadest surface (listed in `full` or absorbed
+/// dispatch-only). Unknown names keep the plain `Tool not found: {name}`
+/// fall-through; known-out-of-profile names get the `(not in profile ...)`
+/// suffix the docs promise.
+fn tool_is_known(name: &str) -> bool {
+    profile_allowed_tools(McpProfile::Full).contains(name) || absorbed_canonical(name).is_some()
+}
+
 /// Dispatch a `tools/call` request, validating inputs against config limits.
 pub fn handle_tools_call(
     params: &Option<Value>,
@@ -1214,6 +1282,19 @@ pub fn handle_tools_call(
         .as_str()
         .ok_or_else(|| McpError::invalid_params("Missing 'name' in tool call").to_json())?;
     let args = &p["arguments"];
+
+    // WIRE-02: enforce the active profile on dispatch, mirroring `tools/list`.
+    // Known tools outside the profile fail with the documented
+    // method-not-found message; absorbed dispatch-only names (API-04 aliases +
+    // the WIRE-02 code_* projections) resolve to their canonical tool and
+    // remain callable when the canonical is listed.
+    if tool_is_known(name) && !profile_allows_call(config.profile, name) {
+        return McpError::method_not_found(format!(
+            "Tool not found: {name} (not in profile {})",
+            config.profile.as_str()
+        ))
+        .into_err();
+    }
 
     match name {
         "memory_put" => {

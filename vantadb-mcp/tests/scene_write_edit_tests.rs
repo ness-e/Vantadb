@@ -11,7 +11,16 @@ use std::sync::Arc;
 use tempfile::tempdir;
 use vantadb::executor::Executor;
 use vantadb::storage::StorageEngine;
-use vantadb_mcp::{handle_tools_call, handle_tools_list, McpConfig};
+use vantadb_mcp::{handle_tools_call, handle_tools_list, McpConfig, McpProfile};
+
+/// WIRE-02: these tests exercise the extended surface; pin `full` explicitly
+/// (the production default is now `agent`).
+fn full_config() -> McpConfig {
+    McpConfig {
+        profile: McpProfile::Full,
+        ..Default::default()
+    }
+}
 
 fn setup_storage() -> (tempfile::TempDir, Arc<StorageEngine>) {
     let dir = tempdir().expect("tempdir");
@@ -26,7 +35,7 @@ fn call(name: &str, args: Value, storage: &Arc<StorageEngine>) -> Result<Value, 
         &Some(json!({ "name": name, "arguments": args })),
         &executor,
         storage,
-        &McpConfig::default(),
+        &full_config(),
     )
 }
 
@@ -50,7 +59,7 @@ fn result_json(res: Result<Value, Value>) -> Value {
 #[test]
 fn tools_list_registers_scene_write_edit_with_valid_schemas() {
     let (_dir, _storage) = setup_storage();
-    let res = handle_tools_list(&McpConfig::default()).expect("tools/list");
+    let res = handle_tools_list(&full_config()).expect("tools/list");
     let tools = res["tools"].as_array().expect("tools array");
     for name in ["scene_write", "scene_edit"] {
         let tool = tools

@@ -15,7 +15,16 @@ use tempfile::tempdir;
 use vantadb::executor::Executor;
 use vantadb::storage::StorageEngine;
 use vantadb::wiki::{WikiState, WikiStore};
-use vantadb_mcp::{handle_tools_call, handle_tools_list, McpConfig};
+use vantadb_mcp::{handle_tools_call, handle_tools_list, McpConfig, McpProfile};
+
+/// WIRE-02: these tests exercise the extended surface; pin `full` explicitly
+/// (the production default is now `agent`).
+fn full_config() -> McpConfig {
+    McpConfig {
+        profile: McpProfile::Full,
+        ..Default::default()
+    }
+}
 
 fn setup_storage() -> (tempfile::TempDir, Arc<StorageEngine>) {
     let dir = tempdir().unwrap();
@@ -73,7 +82,7 @@ fn seed_wiki(storage: &StorageEngine, pages: &[(&str, &str, &str)]) -> Vec<Strin
 
 #[test]
 fn test_all_four_wiki_tools_listed() {
-    let list = handle_tools_list(&McpConfig::default()).expect("tools/list");
+    let list = handle_tools_list(&full_config()).expect("tools/list");
     let names: Vec<&str> = list["tools"]
         .as_array()
         .expect("tools array")
@@ -89,7 +98,7 @@ fn test_all_four_wiki_tools_listed() {
 #[test]
 fn test_wiki_search_ranks_title_above_body() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     seed_wiki(
         &storage,
         &[
@@ -147,7 +156,7 @@ fn canonical(page_type: &str, title: &str) -> String {
 #[test]
 fn test_wiki_read_surfaces_locked_metadata() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     seed_wiki(
         &storage,
         &[("person", "Alice Smith", "knows about vector databases")],
@@ -182,7 +191,7 @@ fn test_wiki_read_surfaces_locked_metadata() {
 #[test]
 fn test_wiki_list_pages() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     seed_wiki(
         &storage,
         &[
@@ -216,7 +225,7 @@ fn test_wiki_list_pages() {
 #[test]
 fn test_wiki_graph_bfs_multi_hop_cap_200() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
 
     // Hub topology: Root → [[Hub]] → [[Leaf i]] ×300. Default max_hops=2:
     // root(hop0) → hub(hop1) → leaves(hop2); node cap truncates at 200.
@@ -281,7 +290,7 @@ fn test_wiki_graph_bfs_multi_hop_cap_200() {
 #[test]
 fn test_wiki_pending_clear_error() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     WikiStore::new(&storage)
         .create("testns", "main")
         .expect("create");
@@ -326,7 +335,7 @@ fn test_wiki_pending_clear_error() {
 #[test]
 fn test_wiki_tools_are_read_only() {
     let (_dir, storage) = setup_storage();
-    let cfg = McpConfig::default();
+    let cfg = full_config();
     seed_wiki(
         &storage,
         &[
