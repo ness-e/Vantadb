@@ -283,6 +283,8 @@ Hallazgos >= medium derivados de reportes de auditoría. Fuente: `docs/dev/revie
 
 | `FIND-180` | Media | `$or` no representable en filtros de bindings: el modelo core `MemoryFilter = Vec<MemoryFilterItem>` es AND-only plano (`src/sdk/types/record.rs:55`) → Py/TS/Node no pueden ofrecer OR lógico sin rediseñar el modelo core. WIRE-03 entregó sparse + text-only + range/datetime (py↔js, tests espejo) por stop-condition del plan; queda el diseño de un modelo anidado (`$and`/`$or`) + paridad 3 bindings + tests. Origen: WIRE-03 (2026-09-27) | `src/sdk/types/record.rs` (+ serialización), bindings Py/TS/Node | 🟢 | 🟡 Media | ⬜ Pendiente |
 
+| `FIND-181` | Media | Fusión MCP de superficie incompleta vs recomendación del informe (85→~65): WIRE-02 entregó la parte no-breaking — absorbidas 6 proyecciones `code_*` dispatch-only (full 79 listadas; canónicos `code_explore`/`capabilities`/`code_search`), enforce de perfil en `tools/call` + default `agent` (37 ≤45). El delta a ~65 exige fusionar handlers/esquemas con símbolos públicos nuevos o breaking de dispatch (`search_with_method`→`memory_search` con param `method`, `code_*`→una primitiva con modos, `bulk_import_file`↔`bulk_import_stream`) → Gate D (decisión de producto) + spec. Stop condition del plan Task 16 aplicada y documentada (conteos reales en MCP.md + meta-tests). Origen: WIRE-02 (2026-09-27) | `vantadb-mcp/src/handlers/tools.rs`, `vantadb-mcp/src/code.rs`, `docs/api/MCP.md` | 🟡 | 🟡 Media | ⬜ Pendiente — requiere Gate D (fusión con esquemas nuevos) |
+
 *Campaña FIND 2026-09-15/16: 31 filas completadas migradas a `docs/dev/avance/` (ver `meta.md`); FIND-76 SKIP → `historial/backlog-history.md`.*
 
 ---

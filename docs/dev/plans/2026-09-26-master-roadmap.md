@@ -432,7 +432,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "`tools/call` de tool fuera de perfil → error real `Tool not found: <name> (not in profile <profile>)` (test) Y default `agent` con smoke `tools/list` ≤45 Y superficie fusionada con conteo real documentado en `MCP.md` (tabla + error, consistente con `handle_tools_list` y sus meta-tests) Y aliases API-04 siguen dispatchables"
 - **Task file:** `docs/dev/tasks/WIRE-02.md`
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-27 — commit `80f91bd8`; review fresco 2 rondas OK; 239/239)
 - **Cynefin:** 🟨 complicado — gate de dispatch + cambio de default compatible + fusión sin romper aliases.
 - **Top 3 riesgos:** 1. default `agent` rompe clientes existentes · 2. fusión de tools rompe dispatch/aliases · 3. enforcement bloquea smokes que llamaban tools fuera de perfil.
 - **Pre-mortem:** F1: default agent sin escape → mantener `full` opt-in documentado (`VANTADB_MCP_PROFILE=full`) + notas de release; F2: fusión sin alias → retener dispatch-only aliases (precedente API-04) + meta-test listing↔dispatch; F3: doc y código divergen → `validate-docs-coverage` + meta-test de conteos.
@@ -443,8 +443,8 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
   | 🟡×🟡 | Cambio de default rompe compat | `full` dispatchable opt-in + notas de migración | review P2-01 |
   | 🟡×🟠 | Fusión rompe dispatch | aliases dispatch-only + meta-test listing vs dispatch | test rojo |
   | 🟢×🟡 | Doc diverge del código | validate-docs-coverage + meta-test de conteos | gate-docs |
-- **Uphill/Downhill:** ⬆️ 2 (default/fusión sin breaking de dispatch) / ⬇️ 6 steps
-- **DoD task:** contrato ✅ · task file sync · recitation · **Iteraciones:** 0 · **Notas:** seed decía `87→~65` y `MCP.md:254` — re-baselined post-API-04 (85 listadas; error hoy en `MCP.md:265`); consume informe §6-7.
+- **Uphill/Downhill:** ⬆️ 0 (enforce + default + fusión no-breaking resueltos; delta a ~65 diferido → FIND-181) / ⬇️ 5 steps (5/5 ✅)
+- **DoD task:** contrato ✅ · task file sync · recitation · **Iteraciones:** 1 · **Notas:** seed decía `87→~65` y `MCP.md:254` — re-baselined post-API-04 (85 listadas; error hoy en `MCP.md:265`); consume informe §6-7. **Implementación 2026-09-27:** enforce real del perfil en `tools/call` (error documentado, test), default `agent` (37 ≤45, smoke), fusión no-breaking 85→79 (−6 `code_*` absorbed dispatch-only, precedente API-04), aliases API-04 dispatchables (test); meta-tests de conteos 79/36/20/37 + `validate-docs-coverage` exit 0; delta a ~65 → FIND-181 (stop condition aplicada).
 
 ### Task 17: WIRE-03 — `query_sparse` + text-only en 3 bindings + filtros avanzados (`$and`/`$or`, range/datetime)
 - **Fase:** F2
@@ -457,7 +457,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "`query_sparse` expuesto en Py/TS/Node con test de roundtrip Y text-only (`query_vector: []` = solo-BM25) por la puerta principal en los 3 Y filtros avanzados (`$and`/`$or`, range/datetime) equivalentes py↔js con tests Y stubs/d.ts sincronizados (`test_stub_drift` verde)"
 - **Task file:** `docs/dev/tasks/WIRE-03.md`
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-27 — commit `81095b88`; review fresco 2 rondas OK; py 159 · node 41 · ts 323)
 - **Cynefin:** 🟨 complicado — paridad cross-binding + validación compartida en TS.
 - **Top 3 riesgos:** 1. cambiar la validación TS rompe flujos existentes (contrato "non-empty") · 2. semántica OR/range divergente entre bindings · 3. stubs `.pyi`/`.d.ts` desincronizados.
 - **Pre-mortem:** F1: TS acepta `[]` sin distinguir intención → exigir `text_query` presente cuando el vector está vacío (error claro); F2: `$or` implementado distinto en py vs js → definir la forma canónica en el core y que los 3 bindings la serialicen; F3: drift de stubs → `test_stub_drift.py` + check de d.ts en CI.
@@ -482,7 +482,7 @@ Status: ⬆️ uphill = 5 (F2–F6 con bloques esenciales que se COMPLETAN al ni
 - **Gate Result:** ✅ DO
 - **Contrato:** "TTL HTTP verificado con test E2E (put `ttl_ms` → expira → `get` None / `purge_expired` ≥1) Y default TTL por colección implementado (config + fallback en put, solo writes nuevos) y documentado en `HTTP_API.md` Y sweeper background invocado que purga memoria/índices con test de expiración física (nodo ausente del índice, no solo filtrado en lectura)"
 - **Task file:** `docs/dev/tasks/WIRE-04.md`
-- **Estado:** ⏳ EN PROGRESO · **Branch:** develop · **Commit:**
+- **Estado:** ✅ COMPLETED (2026-09-27 — commit `54261e96`; review fresco 2 rondas OK; TTL 3/3 + snapshot verde)
 - **Cynefin:** 🟨 complicado — scheduler async + defaults de retención sin degradar close.
 - **Top 3 riesgos:** 1. sweeper que interfiere con close/shutdown · 2. default por colección cambia semántica de puts existentes · 3. purga física que deja índices inconsistentes.
 - **Pre-mortem:** F1: sweeper sin cancelación → shutdown token + test de close/join; F2: default retroactivo → solo writes nuevos (sin backfill) y opt-in por colección; F3: purga que no limpia HNSW/text → reutilizar `purge_expired` (ya purga derivados) + test que verifica índice post-purga.
@@ -1029,4 +1029,37 @@ Resultado: OK
 Próxima acción: LEAD: commit docs: scope budget + cierre F1
 Contrato: tabla 13/13 + regla de inversión + ref SPEC (rg ×2 + coverage + frontier verdes)
 Próxima tarea si completa: DEF-08
+=== END RECITATION ===
+
+=== RECITATION WIRE-03 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: WIRE-03 — query_sparse + text-only en 3 bindings + filtros avanzados
+Estado: completed
+Última acción: Steps 6/6 ✅ + review fresco (❌ R1-R3 → fixes → ✅ delta APPROVE) + gates re-verdes (py 159 · node 41 · ts 323+tsc · core 216)
+Resultado: OK
+Próxima acción: LEAD: commit feat(bindings) + cierre parcial F2
+Contrato: query_sparse Py/TS/Node + text-only (guard) + filtros $op/DateTime py↔js + stubs sync (7/7) + WASM fail-loud
+Próxima tarea si completa: WIRE-05
+=== END RECITATION ===
+
+=== RECITATION WIRE-04 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: WIRE-04 — TTL superficie completa (default por colección + sweeper)
+Estado: completed
+Última acción: Steps 1-9 ✅ + review fresco (❌ docs → fixes → ✅ delta APPROVE) + snapshot regen + public_api verde + coverage 0 gaps
+Resultado: OK
+Próxima acción: LEAD: commit feat(ttl) (staged; espera hook fmt libre de WIRE-02/03) + cierre wave F2
+Contrato: E2E TTL (404 lazy + purga física) + default por colección (no backfill) + sweeper físico (nodo+scalar) — 3/3
+Próxima tarea si completa: WIRE-05
+=== END RECITATION ===
+
+=== RECITATION WIRE-02 ===
+Campaign ID: ed20beae-edf6-42f5-b41f-e8519830d6cb
+Objetivo activo: WIRE-02 — MCP: enforce de perfil + default agent + fusión 85→79 + doc
+Estado: completed
+Última acción: Steps 5/5 ✅ + review fresco (❌ 6 meta-tests → fixes → ✅ delta APPROVE) + 239/239 + commit 80f91bd8
+Resultado: OK
+Próxima acción: LEAD: cierre parcial F2 (plan sync)
+Contrato: enforce -32601 exacto + default agent 37≤45 + fusión 79 no-breaking + aliases dispatchables (4/4)
+Próxima tarea si completa: WIRE-05
 === END RECITATION ===
